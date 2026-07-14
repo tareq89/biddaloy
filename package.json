@@ -2,38 +2,18 @@
   "name": "beton-boi",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "server",
+    "client-*",
+    "shared"
+  ],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "biome check",
-    "format": "biome format --write",
-    "test": "vitest",
-    "test:watch": "vitest watch",
-    "test:ui": "vitest --ui",
-    "test:run": "vitest run"
-  },
-  "dependencies": {
-    "next": "16.2.9",
-    "react": "19.2.4",
-    "react-dom": "19.2.4"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@testing-library/dom": "^10.4.1",
-    "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.2",
-    "@testing-library/user-event": "^14.6.1",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "@vitest/ui": "4.1.8",
-    "biome": "^0.3.3",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.9",
-    "jsdom": "^29.1.1",
-    "tailwindcss": "^4",
-    "typescript": "^5",
-    "vitest": "^4.1.8"
+    "build:all": "bash scripts/build-all.sh",
+    "build:server": "yarn workspace server build",
+    "build:client-student": "yarn workspace client-student build",
+    "dev:server": "yarn workspace server start:dev",
+    "dev:client-student": "yarn workspace client-student dev",
+    "lint": "yarn workspace server lint",
+    "test": "yarn workspace server test"
   }
 }
