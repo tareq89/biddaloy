@@ -1,36 +1,82 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# beton-boi
 
-## Getting Started
+Monorepo: NestJS backend + Vite React clients.
 
-First, run the development server:
+## Prerequisites
+
+- Node.js 22+
+- Yarn 1.x
+- PostgreSQL 16+
+
+## Setup
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+yarn install
+cp .env.example .env
+# Edit .env with your DATABASE_URL and other credentials
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Development
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Run both server and client in separate terminals:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+# Terminal 1: NestJS server (auto-reload)
+yarn dev:server
 
-## Learn More
+# Terminal 2: Student client (HMR)
+yarn dev:client-student
+```
 
-To learn more about Next.js, take a look at the following resources:
+Open http://localhost:3000/student/ — the server proxies to Vite in dev.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Testing
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+# Server tests
+yarn test
 
-## Deploy on Vercel
+# Single run (CI)
+yarn workspace @beton-boi/server test:run
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Production Build
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+yarn build:all
+```
+
+Output is in `build-output/` — a self-contained deployable folder.
+
+## Deploy to VPS
+
+```bash
+# On your machine
+zip -r deploy.zip build-output/
+scp deploy.zip user@your-vps:/opt/beton-boi/
+
+# On the VPS
+cd /opt/beton-boi
+unzip -o deploy.zip
+cp .env.example .env   # Edit with real credentials
+./start.sh
+```
+
+## Docker (future)
+
+```bash
+docker compose up -d
+```
+
+## Project Structure
+
+```
+beton-boi/
+├── server/           # NestJS backend (TypeORM + PostgreSQL)
+├── client-student/   # Vite + React SPA (student portal)
+├── client-teacher/   # Future: teacher portal
+├── client-admin/     # Future: admin dashboard
+├── shared/           # Shared types and DTOs
+├── scripts/          # Build and deploy scripts
+└── build-output/     # Generated: self-contained deployable
+```
