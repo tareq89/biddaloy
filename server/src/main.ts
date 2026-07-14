@@ -1,0 +1,71 @@
+import { NestFactory } from "@nestjs/core";
+import { NestExpressApplication } from "@nestjs/platform-express";
+import { AppModule } from "./app.module";
+import { AllExceptionsFilter } from "./common/filters/http-exception.filter";
+import { ValidationPipe } from "./common/pipes/validation.pipe";
+import * as express from "express";
+import { join } from "path";
+import { Request, Response } from "express";
+
+async function bootstrap() {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Global prefix for API routes
+  app.setGlobalPrefix("api");
+
+  // Global filters and pipes
+  app.useGlobalFilters(new AllExceptionsFilter());
+  app.useGlobalPipes(new ValidationPipe());
+
+  // CORS for development (Vite dev server runs on a different port)
+  app.enableCors({
+    origin: process.env.NODE_ENV === "production" ? false : ["http://localhost:5173"],
+    credentials: true,
+  });
+
+  // In production, serve client static builds
+  if (process.env.NODE_ENV === "production") {
+    const clients = ["student", "teacher", "admin"];
+
+    for (const client of clients) {
+      const distPath = join(__dirname, "..", "..", `client-${client}`, "dist");
+
+      // Serve static assets
+      app.use(`/${client}`, express.static(distPath));
+
+      // SPA fallback: any unknown route under /client/ serves index.html
+      app.use(`/${client}`, (_req: Request, res: Response) => {
+        res.sendFile(join(distPath, "index.html"));
+      });
+    }
+
+    // Root redirect to /student/
+    app.use("/", (_req: Request, res: Response) => {
+      res.redirect("/student/");
+    });
+  }
+
+  // In development, proxy client requests to Vite dev servers for HMR
+  if (process.env.NODE_ENV !== "production") {
+    const { createProxyMiddleware } = await import("http-proxy-middleware");
+
+    // Proxy /student/ to Vite dev server
+    app.use(
+      "/student",
+      createProxyMiddleware({
+        target: "http://localhost:5173",
+        changeOrigin: true,
+        ws: true,
+      }) as any,
+    );
+
+    // Root redirect to student in dev
+    app.use("/", (_req: Request, res: Response) => {
+      res.redirect("/student/");
+    });
+  }
+
+  await app.listen(process.env.PORT ?? 3000);
+}
+
+bootstrap();

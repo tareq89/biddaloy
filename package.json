@@ -9,11 +9,11 @@
   ],
   "scripts": {
     "build:all": "bash scripts/build-all.sh",
-    "build:server": "yarn workspace server build",
-    "build:client-student": "yarn workspace client-student build",
-    "dev:server": "yarn workspace server start:dev",
-    "dev:client-student": "yarn workspace client-student dev",
-    "lint": "yarn workspace server lint",
-    "test": "yarn workspace server test"
+    "build:server": "yarn workspace @beton-boi/server build",
+    "build:client-student": "yarn workspace @beton-boi/client-student build",
+    "dev:server": "yarn workspace @beton-boi/server start:dev",
+    "dev:client-student": "yarn workspace @beton-boi/client-student dev",
+    "lint": "yarn workspace @beton-boi/server lint",
+    "test": "yarn workspace @beton-boi/server test"
   }
 }
