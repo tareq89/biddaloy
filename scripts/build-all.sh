@@ -9,14 +9,14 @@ rm -rf "$OUTPUT_DIR"
 mkdir -p "$OUTPUT_DIR"
 
 echo "==> Building server..."
-yarn workspace server build
+yarn workspace @beton-boi/server build
 
 echo "==> Building client-student..."
-yarn workspace client-student build
+yarn workspace @beton-boi/client-student build
 
 # Future clients:
 # echo "==> Building client-teacher..."
-# yarn workspace client-teacher build
+# yarn workspace @beton-boi/client-teacher build
 
 echo "==> Assembling build-output..."
 
