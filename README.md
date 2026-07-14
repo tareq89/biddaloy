@@ -28,7 +28,7 @@ yarn dev:server
 yarn dev:client-student
 ```
 
-Open http://localhost:3000/student/ — the server proxies to Vite in dev.
+Open http://localhost:5173/student/ in your browser. Vite proxies `/api/*` requests to the NestJS server at port 3000.
 
 ## Testing
 

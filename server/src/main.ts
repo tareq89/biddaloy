@@ -48,29 +48,6 @@ async function bootstrap() {
     });
   }
 
-  // In development, proxy client requests to Vite dev servers for HMR
-  if (process.env.NODE_ENV !== "production") {
-    const { createProxyMiddleware } = await import("http-proxy-middleware");
-
-    // Proxy /student/ to Vite dev server
-    app.use(
-      "/student",
-      createProxyMiddleware({
-        target: "http://localhost:5173",
-        changeOrigin: true,
-        ws: true,
-      }) as any,
-    );
-
-    // Root redirect to student in dev (only for non-API paths)
-    app.use("/", (req: Request, res: Response, next: NextFunction) => {
-      if (req.path.startsWith("/api/") || req.path === "/api") {
-        return next();
-      }
-      res.redirect("/student/");
-    });
-  }
-
   await app.listen(process.env.PORT ?? 3000);
 }
 
