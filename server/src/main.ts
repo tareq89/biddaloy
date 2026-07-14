@@ -5,7 +5,7 @@ import { AllExceptionsFilter } from "./common/filters/http-exception.filter";
 import { ValidationPipe } from "./common/pipes/validation.pipe";
 import * as express from "express";
 import { join } from "path";
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -28,7 +28,7 @@ async function bootstrap() {
     const clients = ["student", "teacher", "admin"];
 
     for (const client of clients) {
-      const distPath = join(__dirname, "..", "..", `client-${client}`, "dist");
+      const distPath = join(__dirname, "..", "..", `client-${client}`);
 
       // Serve static assets
       app.use(`/${client}`, express.static(distPath));
@@ -39,8 +39,11 @@ async function bootstrap() {
       });
     }
 
-    // Root redirect to /student/
-    app.use("/", (_req: Request, res: Response) => {
+    // Root redirect to /student/ (only for non-API, non-client paths)
+    app.use("/", (req: Request, res: Response, next: NextFunction) => {
+      if (req.path.startsWith("/api/") || req.path === "/api") {
+        return next();
+      }
       res.redirect("/student/");
     });
   }
@@ -59,8 +62,11 @@ async function bootstrap() {
       }) as any,
     );
 
-    // Root redirect to student in dev
-    app.use("/", (_req: Request, res: Response) => {
+    // Root redirect to student in dev (only for non-API paths)
+    app.use("/", (req: Request, res: Response, next: NextFunction) => {
+      if (req.path.startsWith("/api/") || req.path === "/api") {
+        return next();
+      }
       res.redirect("/student/");
     });
   }
