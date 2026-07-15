@@ -5,15 +5,16 @@
     "moduleResolution": "node",
     "target": "ES2022",
     "outDir": "./dist",
-    "rootDir": "./src",
     "baseUrl": "./",
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
+    "strictPropertyInitialization": false,
+    "noUnusedLocals": false,
     "paths": {
       "@/*": ["src/*"],
       "@beton-boi/shared": ["../shared/src"]
     }
   },
-  "include": ["src"],
+  "include": ["src", "../shared/src"],
   "exclude": ["node_modules", "dist"]
 }

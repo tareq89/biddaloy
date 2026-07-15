@@ -9,7 +9,11 @@
     "start:prod": "node dist/main.js",
     "lint": "tsc --noEmit",
     "test": "vitest",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "migration:generate": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:generate -d src/data-source.ts",
+    "migration:run": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:run -d src/data-source.ts",
+    "migration:revert": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:revert -d src/data-source.ts",
+    "seed": "ts-node -r tsconfig-paths/register src/scripts/seed.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11",
@@ -17,6 +21,7 @@
     "@nestjs/core": "^11",
     "@nestjs/platform-express": "^11",
     "@nestjs/typeorm": "^11",
+    "bcrypt": "^6.0.0",
     "class-transformer": "^0.5",
     "class-validator": "^0.14",
     "pg": "^8",
@@ -27,8 +32,11 @@
   "devDependencies": {
     "@nestjs/cli": "^11",
     "@nestjs/testing": "^11",
+    "@types/bcrypt": "^6.0.0",
     "@types/express": "^5",
     "@types/node": "^22",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
     "typescript": "^5",
     "vitest": "^3"
   }
