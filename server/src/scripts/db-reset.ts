@@ -1,6 +1,7 @@
 import { resolve } from 'path';
 import { config } from 'dotenv';
 import * as bcrypt from 'bcrypt';
+import { QueryRunner } from 'typeorm';
 import migrationDataSource from '../data-source';
 
 // Entities
@@ -37,11 +38,15 @@ async function dbReset() {
     process.exit(1);
   }
 
-  await migrationDataSource.initialize();
-
-  const queryRunner = migrationDataSource.createQueryRunner();
+  let queryRunner: QueryRunner | null = null;
+  let dataSourceInitialized = false;
 
   try {
+    await migrationDataSource.initialize();
+    dataSourceInitialized = true;
+
+    queryRunner = migrationDataSource.createQueryRunner();
+
     // 1. Drop all tables
     await queryRunner.query(`
       DO $$ DECLARE
@@ -97,8 +102,12 @@ async function dbReset() {
     console.log('');
     console.log('Database reset complete.');
   } finally {
-    await queryRunner.release();
-    await migrationDataSource.destroy();
+    if (queryRunner) {
+      await queryRunner.release();
+    }
+    if (dataSourceInitialized) {
+      await migrationDataSource.destroy();
+    }
   }
 }
 
