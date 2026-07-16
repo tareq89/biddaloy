@@ -5,23 +5,38 @@ import { UserRole, UserStatus } from '@beton-boi/shared';
 import * as bcrypt from 'bcrypt';
 import { DataSource } from 'typeorm';
 
-async function seed() {
+export async function seed() {
   const app = await NestFactory.createApplicationContext(AppModule);
   const dataSource = app.get(DataSource);
 
   const userRepository = dataSource.getRepository(User);
 
-  // Check if SUPER_ADMIN already exists (including soft-deleted)
+  const adminEmail = 'admin@school.com';
+
+  // Check if the designated seed admin already exists (including soft-deleted)
   const existing = await userRepository.findOne({
-    where: { role: UserRole.SUPER_ADMIN },
+    where: { email: adminEmail, role: UserRole.SUPER_ADMIN },
     withDeleted: true,
   });
 
   if (existing) {
-    // Restore soft-deleted admin if found, otherwise skip
     if (existing.deleted_at) {
-      await userRepository.restore(existing.id);
-      console.log('Restored soft-deleted SUPER_ADMIN account.');
+      // Restore soft-deleted admin with fresh credentials
+      const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+      if (!adminPassword || adminPassword.length === 0) {
+        console.error(
+          'SEED_ADMIN_PASSWORD environment variable is required to restore the seed admin account.'
+        );
+        process.exit(1);
+      }
+
+      const passwordHash = await bcrypt.hash(adminPassword, 10);
+      existing.password_hash = passwordHash;
+      existing.status = UserStatus.ACTIVE;
+      existing.deleted_at = null;
+
+      await userRepository.save(existing);
+      console.log('Restored soft-deleted SUPER_ADMIN account with fresh credentials.');
       await app.close();
       return;
     }

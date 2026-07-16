@@ -21,6 +21,15 @@ async function dbClear() {
     process.exit(1);
   }
 
+  // Additional guard: refuse to run in production unless DB_DESTROY_CONFIRM is explicitly set
+  if (process.env.NODE_ENV === "production") {
+    console.error(
+      "Refusing to run db:clear in NODE_ENV=production.\n" +
+      "Set NODE_ENV=development or unset it before running this destructive command."
+    );
+    process.exit(1);
+  }
+
   await dataSource.initialize();
 
   const queryRunner = dataSource.createQueryRunner();

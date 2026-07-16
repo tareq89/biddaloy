@@ -1,53 +1,14 @@
-import { DataSource } from 'typeorm';
 import { resolve } from 'path';
 import { config } from 'dotenv';
 import * as bcrypt from 'bcrypt';
+import migrationDataSource from '../data-source';
 
 // Entities
 import { User } from '../modules/users/entities/user.entity';
-import { Teacher } from '../modules/academics/entities/teacher.entity';
-import { AcademicYear } from '../modules/academics/entities/academic-year.entity';
-import { Class } from '../modules/academics/entities/class.entity';
-import { ClassSection } from '../modules/academics/entities/class-section.entity';
-import { Student } from '../modules/students/entities/student.entity';
-import { Guardian } from '../modules/students/entities/guardian.entity';
-import { FeeStructure } from '../modules/fees/entities/fee-structure.entity';
-import { FeeStructureStudent } from '../modules/fees/entities/fee-structure-student.entity';
-import { StudentFee } from '../modules/fees/entities/student-fee.entity';
-import { Payment } from '../modules/fees/entities/payment.entity';
-import { PaymentAllocation } from '../modules/fees/entities/payment-allocation.entity';
-import { Invoice } from '../modules/invoices/entities/invoice.entity';
-import { CommunicationLog } from '../modules/communications/entities/communication-log.entity';
-import { ReminderBatch } from '../modules/communications/entities/reminder-batch.entity';
-import { AuditLog } from '../modules/audit/entities/audit-log.entity';
 
 import { UserRole, UserStatus } from '@beton-boi/shared';
 
 config({ path: resolve(__dirname, '..', '..', '..', '.env') });
-
-const dataSource = new DataSource({
-  type: 'postgres',
-  url: process.env.DATABASE_URL,
-  entities: [
-    User,
-    Teacher,
-    AcademicYear,
-    Class,
-    ClassSection,
-    Student,
-    Guardian,
-    FeeStructure,
-    FeeStructureStudent,
-    StudentFee,
-    Payment,
-    PaymentAllocation,
-    Invoice,
-    CommunicationLog,
-    ReminderBatch,
-    AuditLog,
-  ],
-  synchronize: true,
-});
 
 async function dbReset() {
   // Safety guard: require explicit confirmation env var
@@ -60,6 +21,15 @@ async function dbReset() {
     process.exit(1);
   }
 
+  // Additional guard: refuse to run in production unless DB_DESTROY_CONFIRM is explicitly set
+  if (process.env.NODE_ENV === "production") {
+    console.error(
+      "Refusing to run db:reset in NODE_ENV=production.\n" +
+      "Set NODE_ENV=development or unset it before running this destructive command."
+    );
+    process.exit(1);
+  }
+
   // Validate seed password before any database work
   const adminPassword = process.env.SEED_ADMIN_PASSWORD;
   if (!adminPassword || adminPassword.length === 0) {
@@ -67,9 +37,9 @@ async function dbReset() {
     process.exit(1);
   }
 
-  await dataSource.initialize();
+  await migrationDataSource.initialize();
 
-  const queryRunner = dataSource.createQueryRunner();
+  const queryRunner = migrationDataSource.createQueryRunner();
 
   try {
     // 1. Drop all tables
@@ -102,12 +72,12 @@ async function dbReset() {
       END $$;
     `);
 
-    // 3. Synchronize schema from entities
-    await dataSource.synchronize();
-    console.log('Schema created from entities.');
+    // 3. Rebuild schema through migrations (records history in typeorm_migrations)
+    await migrationDataSource.runMigrations();
+    console.log('Schema rebuilt from migrations.');
 
     // 4. Seed admin user
-    const userRepository = dataSource.getRepository(User);
+    const userRepository = migrationDataSource.getRepository(User);
 
     const passwordHash = await bcrypt.hash(adminPassword, 10);
 
@@ -128,7 +98,7 @@ async function dbReset() {
     console.log('Database reset complete.');
   } finally {
     await queryRunner.release();
-    await dataSource.destroy();
+    await migrationDataSource.destroy();
   }
 }
 
