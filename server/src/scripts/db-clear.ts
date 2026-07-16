@@ -21,7 +21,7 @@ async function dbClear() {
     process.exit(1);
   }
 
-  // Additional guard: refuse to run in production unless DB_DESTROY_CONFIRM is explicitly set
+  // Additional guard: refuse to run in production
   if (process.env.NODE_ENV === "production") {
     console.error(
       "Refusing to run db:clear in NODE_ENV=production.\n" +
@@ -30,51 +30,63 @@ async function dbClear() {
     process.exit(1);
   }
 
-  await dataSource.initialize();
-
-  const queryRunner = dataSource.createQueryRunner();
-
+  let queryRunner;
   try {
-    // Drop all tables in the public schema with CASCADE to handle FKs
-    await queryRunner.query(`
-      DO $$ DECLARE
-        r RECORD;
-      BEGIN
-        FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public')
-        LOOP
-          EXECUTE 'DROP TABLE IF EXISTS public.' || quote_ident(r.tablename) || ' CASCADE';
-        END LOOP;
-      END $$;
-    `);
+    await dataSource.initialize();
+    queryRunner = dataSource.createQueryRunner();
 
-    // Drop the typeorm_migrations table if it exists outside the loop
-    await queryRunner.query(`
-      DROP TABLE IF EXISTS public.typeorm_migrations CASCADE;
-    `);
+    // Wrap all cleanup in a single transaction so partial failures roll back
+    await queryRunner.query('BEGIN');
 
-    // Drop all custom ENUM types (Postgres keeps them even after tables are dropped)
-    await queryRunner.query(`
-      DO $$ DECLARE
-        r RECORD;
-      BEGIN
-        FOR r IN (
-          SELECT t.typname
-          FROM pg_type t
-          JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace
-          WHERE n.nspname = 'public'
-            AND t.typtype = 'e'
-        )
-        LOOP
-          EXECUTE 'DROP TYPE IF EXISTS public.' || quote_ident(r.typname) || ' CASCADE';
-        END LOOP;
-      END $$;
-    `);
+    try {
+      // Drop all tables in the public schema with CASCADE to handle FKs
+      await queryRunner.query(`
+        DO $$ DECLARE
+          r RECORD;
+        BEGIN
+          FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public')
+          LOOP
+            EXECUTE 'DROP TABLE IF EXISTS public.' || quote_ident(r.tablename) || ' CASCADE';
+          END LOOP;
+        END $$;
+      `);
 
-    console.log('All tables and custom types dropped. Database is clean.');
-    console.log('Run `yarn migration:run` to re-create the schema from migrations.');
+      // Drop the typeorm_migrations table if it exists outside the loop
+      await queryRunner.query(`
+        DROP TABLE IF EXISTS public.typeorm_migrations CASCADE;
+      `);
+
+      // Drop all custom ENUM types (Postgres keeps them even after tables are dropped)
+      await queryRunner.query(`
+        DO $$ DECLARE
+          r RECORD;
+        BEGIN
+          FOR r IN (
+            SELECT t.typname
+            FROM pg_type t
+            JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace
+            WHERE n.nspname = 'public'
+              AND t.typtype = 'e'
+          )
+          LOOP
+            EXECUTE 'DROP TYPE IF EXISTS public.' || quote_ident(r.typname) || ' CASCADE';
+          END LOOP;
+        END $$;
+      `);
+
+      await queryRunner.query('COMMIT');
+
+      console.log('All tables and custom types dropped. Database is clean.');
+      console.log('Run `yarn workspace @beton-boi/server migration:run` to re-create the schema from migrations.');
+    } catch (e) {
+      await queryRunner.query('ROLLBACK').catch(() => {});
+      throw e;
+    }
   } finally {
-    await queryRunner.release();
-    await dataSource.destroy();
+    if (queryRunner) {
+      await queryRunner.release().catch(() => {});
+    }
+    await dataSource.destroy().catch(() => {});
   }
 }
 
