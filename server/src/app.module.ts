@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { resolve } from "path";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { AppController } from "./app.controller";
@@ -27,8 +28,7 @@ import { AuditLog } from "./modules/audit/entities/audit-log.entity";
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath:
-        process.env.NODE_ENV === "production" ? "../.env" : ".env",
+      envFilePath: resolve(__dirname, '..', '..', '.env'),
       validate,
     }),
     TypeOrmModule.forRootAsync({
@@ -55,7 +55,7 @@ import { AuditLog } from "./modules/audit/entities/audit-log.entity";
           ReminderBatch,
           AuditLog,
         ],
-        synchronize: config.get<string>("NODE_ENV") !== "production",
+        synchronize: config.get<string>("DB_SYNCHRONIZE") === "true" || config.get<string>("NODE_ENV") === "development",
         logging: config.get<string>("NODE_ENV") !== "production",
         migrations: ["dist/migrations/*.js"],
         migrationsTableName: "typeorm_migrations",

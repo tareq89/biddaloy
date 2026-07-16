@@ -6,13 +6,21 @@ import {
   UpdateDateColumn,
   OneToOne,
   JoinColumn,
-  ManyToMany,
-  JoinTable,
-  Index,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { TeacherDesignation } from '@beton-boi/shared';
 
+/**
+ * Staff profile extending the base User account.
+ *
+ * Every teacher is first a User (with login credentials), then has a Teacher
+ * profile with school-specific attributes. A teacher can hold multiple
+ * designations (e.g., both CLASS_TEACHER and SUBJECT_TEACHER).
+ *
+ * Relations:
+ * - @OneToOne → User (user): the login account (CASCADE delete — removing user removes teacher)
+ * - @ManyToMany → ClassSection (via teacher_class_sections): sections the teacher is assigned to
+ */
 @Entity('teachers')
 export class Teacher {
   @PrimaryGeneratedColumn('uuid')

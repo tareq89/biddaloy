@@ -9,6 +9,18 @@ import {
 import { User } from '../../users/entities/user.entity';
 import { AuditAction } from '@beton-boi/shared';
 
+/**
+ * Immutable record of every significant action in the system.
+ *
+ * Captures who did what, when, and what changed (old vs new values).
+ * Used for compliance, debugging, and fee dispute resolution. Records
+ * are write-only — never updated or deleted. Covers all CRUD operations,
+ * payment receipts, invoice generation, bulk uploads, and reminders.
+ *
+ * Relations:
+ * - @ManyToOne → User (performed_by): the user who performed the action
+ *   (null if action was system-triggered or user is deleted)
+ */
 @Entity('audit_logs')
 export class AuditLog {
   @PrimaryGeneratedColumn('uuid')

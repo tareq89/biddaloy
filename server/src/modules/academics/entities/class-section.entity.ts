@@ -10,6 +10,18 @@ import {
 } from 'typeorm';
 import { Class } from './class.entity';
 
+/**
+ * A division within a class (e.g., "Section A", "Morning Batch").
+ *
+ * Section names are unique within a class (cannot have two "A" sections
+ * in the same class).
+ *
+ * Relations:
+ * - @ManyToOne → Class: the parent class
+ * - Referenced-by → Student: students are enrolled in a specific section
+ * - Referenced-by → FeeStructure: fees can be configured per-section
+ * - Referenced-by → Teacher (via teacher_class_sections): teachers assigned to sections
+ */
 @Entity('class_sections')
 @Index(['class_id', 'section_name'], { unique: true })
 export class ClassSection {

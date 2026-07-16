@@ -9,6 +9,7 @@
   ],
   "scripts": {
     "build:all": "bash scripts/build-all.sh",
+    "build:shared": "yarn workspace @beton-boi/shared build",
     "build:server": "yarn workspace @beton-boi/server build",
     "build:client-student": "yarn workspace @beton-boi/client-student build",
     "dev:server": "yarn workspace @beton-boi/server start:dev",

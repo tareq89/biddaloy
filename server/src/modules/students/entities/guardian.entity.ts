@@ -14,6 +14,18 @@ import { User } from '../../users/entities/user.entity';
 import { Student } from './student.entity';
 import { CommunicationMedium } from '@beton-boi/shared';
 
+/**
+ * Parent or guardian responsible for a student.
+ *
+ * A guardian can have multiple children enrolled (siblings), and a student
+ * can have multiple guardians (father + mother). Guardians may optionally
+ * have a User account for self-service login and online fee payment.
+ *
+ * Relations:
+ * - @OneToOne → User (optional): login account for guardian self-service
+ * - @ManyToMany → Student (via student_guardians): linked children
+ * - Referenced-by → CommunicationLog: messages sent to this guardian
+ */
 @Entity('guardians')
 @Index(['phone'])
 @Index(['email'])

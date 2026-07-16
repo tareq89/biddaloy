@@ -10,6 +10,18 @@ import {
 import { User } from '../../users/entities/user.entity';
 import { ReminderBatchStatus } from '@beton-boi/shared';
 
+/**
+ * Tracks a bulk reminder campaign sent to multiple students' guardians.
+ *
+ * When a user sends reminders to all flagged students (e.g., "fee overdue"),
+ * a ReminderBatch is created to track the campaign's progress, success
+ * rate, and the filters used to select recipients. Each individual message
+ * is recorded in CommunicationLog.
+ *
+ * Relations:
+ * - @ManyToOne → User (initiated_by): the staff member who triggered the batch
+ * - Referenced-by → CommunicationLog: individual messages from this batch
+ */
 @Entity('reminder_batches')
 export class ReminderBatch {
   @PrimaryGeneratedColumn('uuid')

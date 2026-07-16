@@ -17,8 +17,24 @@ import { ClassSection } from '../../academics/entities/class-section.entity';
 import { Guardian } from './guardian.entity';
 import { CommunicationMedium, EnrollmentStatus } from '@beton-boi/shared';
 
+/**
+ * A student enrolled in a class and section.
+ *
+ * Each student has a unique registration_number and a roll_number unique
+ * within their class+section. Students can be linked to multiple guardians
+ * (parents) and optionally have a User account for self-service login.
+ *
+ * Relations:
+ * - @OneToOne → User (optional): login account for student self-service
+ * - @ManyToOne → ClassSection: the class + section the student belongs to
+ * - @ManyToMany → Guardian (via student_guardians): parents/guardians
+ * - Referenced-by → StudentFee: monthly fee records for this student
+ * - Referenced-by → Payment: payments made by/for this student
+ * - Referenced-by → Invoice: invoices issued to this student
+ * - Referenced-by → FeeStructureStudent: selected-student fee applicability
+ * - Referenced-by → CommunicationLog: messages sent regarding this student
+ */
 @Entity('students')
-@Index(['registration_number'], { unique: true })
 @Index(['class_section_id', 'roll_number'], { unique: true })
 export class Student {
   @PrimaryGeneratedColumn('uuid')
@@ -59,7 +75,7 @@ export class Student {
   @Column({ type: 'enum', enum: CommunicationMedium, default: CommunicationMedium.SMS })
   preferred_communication: CommunicationMedium;
 
-  @ManyToMany(() => Guardian, (guardian) => guardian.students, { cascade: true })
+  @ManyToMany(() => Guardian, (guardian) => guardian.students, { cascade: ['insert'] })
   @JoinTable({
     name: 'student_guardians',
     joinColumn: { name: 'student_id', referencedColumnName: 'id' },

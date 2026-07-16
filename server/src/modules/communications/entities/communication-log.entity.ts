@@ -12,6 +12,19 @@ import { Guardian } from '../../students/entities/guardian.entity';
 import { User } from '../../users/entities/user.entity';
 import { CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '@beton-boi/shared';
 
+/**
+ * Audit trail for every message sent through the system.
+ *
+ * Records all outbound communications (SMS, WhatsApp, email, phone call)
+ * sent to guardians, students, or staff. Used for delivery tracking,
+ * debugging failed sends, and compliance. Each log captures the message
+ * content, recipient, delivery status, and who triggered it.
+ *
+ * Relations:
+ * - @ManyToOne → Student (optional): the student this message is about
+ * - @ManyToOne → Guardian (optional): the guardian who received it
+ * - @ManyToOne → User (sent_by): the staff member who sent it (or null for automated)
+ */
 @Entity('communication_logs')
 export class CommunicationLog {
   @PrimaryGeneratedColumn('uuid')

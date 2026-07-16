@@ -11,18 +11,32 @@ async function seed() {
 
   const userRepository = dataSource.getRepository(User);
 
-  // Check if SUPER_ADMIN already exists
+  // Check if SUPER_ADMIN already exists (including soft-deleted)
   const existing = await userRepository.findOne({
     where: { role: UserRole.SUPER_ADMIN },
+    withDeleted: true,
   });
 
   if (existing) {
+    // Restore soft-deleted admin if found, otherwise skip
+    if (existing.deleted_at) {
+      await userRepository.restore(existing.id);
+      console.log('Restored soft-deleted SUPER_ADMIN account.');
+      await app.close();
+      return;
+    }
     console.log('SUPER_ADMIN user already exists, skipping seed.');
     await app.close();
     return;
   }
 
-  const passwordHash = await bcrypt.hash('admin123', 10);
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+  if (!adminPassword || adminPassword.length === 0) {
+    console.error('SEED_ADMIN_PASSWORD environment variable is required but was not set or is empty.');
+    process.exit(1);
+  }
+
+  const passwordHash = await bcrypt.hash(adminPassword, 10);
 
   const admin = userRepository.create({
     email: 'admin@school.com',
@@ -36,7 +50,6 @@ async function seed() {
   await userRepository.save(admin);
   console.log('SUPER_ADMIN user created:');
   console.log('  Email: admin@school.com');
-  console.log('  Password: admin123');
   console.log('  Role: SUPER_ADMIN');
 
   await app.close();

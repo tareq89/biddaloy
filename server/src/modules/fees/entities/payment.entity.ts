@@ -15,6 +15,20 @@ import { Invoice } from '../../invoices/entities/invoice.entity';
 import { PaymentMethod, PaymentStatus } from '@beton-boi/shared';
 import { PaymentAllocation } from './payment-allocation.entity';
 
+/**
+ * Records a financial transaction — fee payment collected from a student.
+ *
+ * A single payment can be split across multiple months/periods via
+ * PaymentAllocation records (e.g., paying last month's due + current month
+ * + advance). Supports manual recording (cash/cheque received by staff)
+ * and future online payments. Each payment can optionally generate an invoice.
+ *
+ * Relations:
+ * - @ManyToOne → Student: the student this payment is for
+ * - @ManyToOne → User (received_by): the staff member who collected the payment
+ * - @ManyToOne → Invoice (optional): the generated invoice
+ * - @OneToMany → PaymentAllocation: how this payment is split across fee periods
+ */
 @Entity('payments')
 @Index(['student_id'])
 @Index(['invoice_id'])
@@ -59,7 +73,7 @@ export class Payment {
   @Column({ type: 'uuid', nullable: true })
   invoice_id: string | null;
 
-  @OneToMany(() => PaymentAllocation, (alloc) => alloc.payment, { cascade: true })
+  @OneToMany(() => PaymentAllocation, (alloc) => alloc.payment, { cascade: ['insert', 'update'] })
   allocations: PaymentAllocation[];
 
   @Column({ type: 'timestamptz' })

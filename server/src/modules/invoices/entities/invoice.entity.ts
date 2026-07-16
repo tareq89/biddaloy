@@ -7,15 +7,28 @@ import {
   DeleteDateColumn,
   ManyToOne,
   JoinColumn,
-  Index,
 } from 'typeorm';
 import { Student } from '../../students/entities/student.entity';
 import { StudentFee } from '../../fees/entities/student-fee.entity';
 import { User } from '../../users/entities/user.entity';
 import { InvoiceStatus } from '@beton-boi/shared';
 
+/**
+ * Official invoice document for fee payment.
+ *
+ * Generated automatically when a payment is recorded (or manually).
+ * Uses sequential numbering (INV-YYYY-XXXXX). Stores a snapshot of
+ * line items at the time of generation so historical invoices remain
+ * accurate even if fee structures change. Supports printing and
+ * digital delivery.
+ *
+ * Relations:
+ * - @ManyToOne → Student: the student this invoice is for
+ * - @ManyToOne → StudentFee (optional): the specific fee period
+ * - @ManyToOne → User (issued_by): who generated the invoice
+ * - Referenced-by → Payment: payments reference their invoice
+ */
 @Entity('invoices')
-@Index(['invoice_number'], { unique: true })
 export class Invoice {
   @PrimaryGeneratedColumn('uuid')
   id: string;
