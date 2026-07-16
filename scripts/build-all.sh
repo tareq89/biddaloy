@@ -8,6 +8,9 @@ echo "==> Cleaning previous build..."
 rm -rf "$OUTPUT_DIR"
 mkdir -p "$OUTPUT_DIR"
 
+echo "==> Building shared package..."
+yarn workspace @beton-boi/shared build
+
 echo "==> Building server..."
 yarn workspace @beton-boi/server build
 
@@ -20,6 +23,11 @@ yarn workspace @beton-boi/client-student build
 
 echo "==> Assembling build-output..."
 
+# Shared: copy dist + package.json (for @beton-boi/shared runtime resolution)
+mkdir -p "$OUTPUT_DIR/shared"
+cp -r "$ROOT_DIR/shared/dist" "$OUTPUT_DIR/shared/dist"
+cp "$ROOT_DIR/shared/package.json" "$OUTPUT_DIR/shared/package.json"
+
 # Server: copy dist + package.json + install prod deps
 mkdir -p "$OUTPUT_DIR/server"
 cp -r "$ROOT_DIR/server/dist" "$OUTPUT_DIR/server/dist"
@@ -27,6 +35,10 @@ cp "$ROOT_DIR/server/package.json" "$OUTPUT_DIR/server/package.json"
 
 echo "==> Installing production dependencies for server..."
 (cd "$OUTPUT_DIR/server" && yarn install --production --frozen-lockfile)
+
+# Symlink shared package into server's node_modules so @beton-boi/shared resolves
+mkdir -p "$OUTPUT_DIR/server/node_modules/@beton-boi"
+ln -sfn "../../../shared" "$OUTPUT_DIR/server/node_modules/@beton-boi/shared"
 
 # Clients: copy dist folders
 for client_dir in "$ROOT_DIR"/client-*/; do

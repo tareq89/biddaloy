@@ -1,0 +1,117 @@
+import { resolve } from 'path';
+import { config } from 'dotenv';
+import * as bcrypt from 'bcrypt';
+import { QueryRunner } from 'typeorm';
+import migrationDataSource from '../data-source';
+
+// Entities
+import { User } from '../modules/users/entities/user.entity';
+
+import { UserRole, UserStatus } from '@beton-boi/shared';
+
+config({ path: resolve(__dirname, '..', '..', '..', '.env') });
+
+async function dbReset() {
+  // Safety guard: require explicit confirmation env var
+  if (process.env.DB_DESTROY_CONFIRM !== "true") {
+    console.error(
+      "Destructive operation guard activated.\n" +
+      "Set DB_DESTROY_CONFIRM=true to confirm you want to drop ALL tables.\n" +
+      "This protects against accidental database destruction in production."
+    );
+    process.exit(1);
+  }
+
+  // Additional guard: refuse to run in production unless DB_DESTROY_CONFIRM is explicitly set
+  if (process.env.NODE_ENV === "production") {
+    console.error(
+      "Refusing to run db:reset in NODE_ENV=production.\n" +
+      "Set NODE_ENV=development or unset it before running this destructive command."
+    );
+    process.exit(1);
+  }
+
+  // Validate seed password before any database work
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+  if (!adminPassword || adminPassword.length === 0) {
+    console.error('SEED_ADMIN_PASSWORD environment variable is required but was not set or is empty.');
+    process.exit(1);
+  }
+
+  let queryRunner: QueryRunner | null = null;
+  let dataSourceInitialized = false;
+
+  try {
+    await migrationDataSource.initialize();
+    dataSourceInitialized = true;
+
+    queryRunner = migrationDataSource.createQueryRunner();
+
+    // 1. Drop all tables
+    await queryRunner.query(`
+      DO $$ DECLARE
+        r RECORD;
+      BEGIN
+        FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public')
+        LOOP
+          EXECUTE 'DROP TABLE IF EXISTS public.' || quote_ident(r.tablename) || ' CASCADE';
+        END LOOP;
+      END $$;
+    `);
+
+    // 2. Drop all custom ENUM types
+    await queryRunner.query(`
+      DO $$ DECLARE
+        r RECORD;
+      BEGIN
+        FOR r IN (
+          SELECT t.typname
+          FROM pg_type t
+          JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace
+          WHERE n.nspname = 'public'
+            AND t.typtype = 'e'
+        )
+        LOOP
+          EXECUTE 'DROP TYPE IF EXISTS public.' || quote_ident(r.typname) || ' CASCADE';
+        END LOOP;
+      END $$;
+    `);
+
+    // 3. Rebuild schema through migrations (records history in typeorm_migrations)
+    await migrationDataSource.runMigrations();
+    console.log('Schema rebuilt from migrations.');
+
+    // 4. Seed admin user
+    const userRepository = migrationDataSource.getRepository(User);
+
+    const passwordHash = await bcrypt.hash(adminPassword, 10);
+
+    const admin = userRepository.create({
+      email: 'admin@school.com',
+      phone: '01700000000',
+      password_hash: passwordHash,
+      role: UserRole.SUPER_ADMIN,
+      status: UserStatus.ACTIVE,
+      full_name: 'System Administrator',
+    });
+
+    await userRepository.save(admin);
+    console.log('SUPER_ADMIN user created:');
+    console.log('  Email: admin@school.com');
+    console.log('  Role: SUPER_ADMIN');
+    console.log('');
+    console.log('Database reset complete.');
+  } finally {
+    if (queryRunner) {
+      await queryRunner.release();
+    }
+    if (dataSourceInitialized) {
+      await migrationDataSource.destroy();
+    }
+  }
+}
+
+dbReset().catch((err) => {
+  console.error('db:reset failed:', err);
+  process.exit(1);
+});

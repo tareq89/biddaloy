@@ -9,10 +9,8 @@
     "baseUrl": "./",
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
-    "paths": {
-      "@/*": ["src/*"],
-      "@beton-boi/shared": ["../shared/src"]
-    }
+    "strictPropertyInitialization": false,
+    "noUnusedLocals": false
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist"]
