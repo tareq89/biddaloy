@@ -8,6 +8,7 @@ NestJS REST API backend for the school fee management system. PostgreSQL via Typ
 # From the monorepo root
 yarn install
 cp .env.example .env          # Then edit with your real credentials
+yarn build:shared              # Build shared types package first
 yarn dev:server                # Auto-reload on changes
 ```
 
@@ -24,7 +25,8 @@ All env vars are defined in `.env` at the monorepo root. The server loads it via
 | `PORT` | No | `3000` | Server listen port |
 | `JWT_SECRET` | Yes | — | Secret key for JWT tokens |
 | `SEED_ADMIN_PASSWORD` | For seed | — | Password for the super admin account |
-| `DB_SYNCHRONIZE` | No | `true` in dev | TypeORM auto-sync (dev only — never use in prod) |
+| `DB_SYNCHRONIZE` | No | `false` | TypeORM auto-sync (dev only — set to `true` to enable; never use in prod) |
+| `DB_DESTROY_CONFIRM` | For db:clear/db:reset | `false` | Set to `true` to confirm destructive database operations |
 
 ## Commands
 
@@ -83,7 +85,7 @@ yarn workspace @beton-boi/server db:reset
 
 ## Project Structure
 
-```
+```text
 server/
 ├── src/
 │   ├── main.ts                  # Entry point

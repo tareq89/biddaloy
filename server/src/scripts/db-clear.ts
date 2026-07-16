@@ -11,6 +11,16 @@ const dataSource = new DataSource({
 });
 
 async function dbClear() {
+  // Safety guard: require explicit confirmation env var
+  if (process.env.DB_DESTROY_CONFIRM !== "true") {
+    console.error(
+      "Destructive operation guard activated.\n" +
+      "Set DB_DESTROY_CONFIRM=true to confirm you want to drop ALL tables.\n" +
+      "This protects against accidental database destruction in production."
+    );
+    process.exit(1);
+  }
+
   await dataSource.initialize();
 
   const queryRunner = dataSource.createQueryRunner();

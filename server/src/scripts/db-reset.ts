@@ -50,6 +50,23 @@ const dataSource = new DataSource({
 });
 
 async function dbReset() {
+  // Safety guard: require explicit confirmation env var
+  if (process.env.DB_DESTROY_CONFIRM !== "true") {
+    console.error(
+      "Destructive operation guard activated.\n" +
+      "Set DB_DESTROY_CONFIRM=true to confirm you want to drop ALL tables.\n" +
+      "This protects against accidental database destruction in production."
+    );
+    process.exit(1);
+  }
+
+  // Validate seed password before any database work
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+  if (!adminPassword || adminPassword.length === 0) {
+    console.error('SEED_ADMIN_PASSWORD environment variable is required but was not set or is empty.');
+    process.exit(1);
+  }
+
   await dataSource.initialize();
 
   const queryRunner = dataSource.createQueryRunner();
@@ -90,12 +107,6 @@ async function dbReset() {
     console.log('Schema created from entities.');
 
     // 4. Seed admin user
-    const adminPassword = process.env.SEED_ADMIN_PASSWORD;
-    if (!adminPassword || adminPassword.length === 0) {
-      console.error('SEED_ADMIN_PASSWORD environment variable is required.');
-      process.exit(1);
-    }
-
     const userRepository = dataSource.getRepository(User);
 
     const passwordHash = await bcrypt.hash(adminPassword, 10);

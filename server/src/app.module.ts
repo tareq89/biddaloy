@@ -55,7 +55,7 @@ import { AuditLog } from "./modules/audit/entities/audit-log.entity";
           ReminderBatch,
           AuditLog,
         ],
-        synchronize: config.get<string>("DB_SYNCHRONIZE") === "true" || config.get<string>("NODE_ENV") === "development",
+        synchronize: config.get<string>("DB_SYNCHRONIZE") === "true",
         logging: config.get<string>("NODE_ENV") !== "production",
         migrations: ["dist/migrations/*.js"],
         migrationsTableName: "typeorm_migrations",

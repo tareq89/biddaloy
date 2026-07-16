@@ -1,0 +1,58 @@
+# CodeRabbit AI Code Review Configuration
+# https://docs.coderabbit.ai/guides/configure-coderabbit
+
+language: en-US
+early_access: false
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: false
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - main
+      - develop
+      - feature-*
+  path_filters:
+    - "!dist/**"
+    - "!build-output/**"
+    - "!node_modules/**"
+    - "!**/node_modules/**"
+    - "!yarn.lock"
+    - "!*.log"
+  path_instructions:
+    - path: "server/**"
+      instructions: |
+        NestJS backend with TypeORM and PostgreSQL. Review for:
+        - Proper TypeORM decorators and entity relationships
+        - DTO validation with class-validator
+        - NestJS dependency injection patterns
+        - RESTful API design conventions
+        - Migration files included when entity schemas change
+        - Proper error handling and HTTP status codes
+    - path: "client-student/**"
+      instructions: |
+        Vite + React frontend (student-facing). Review for:
+        - TypeScript strictness and proper typing
+        - React component composition and reusability
+        - Tailwind CSS class usage
+        - API client patterns matching the backend
+        - Form validation and error state handling
+    - path: "shared/**"
+      instructions: |
+        Shared types, interfaces, and constants consumed by both
+        server and client workspaces. Review for:
+        - Backward compatibility of type contracts
+        - No breaking changes to shared interfaces
+        - Proper JSDoc documentation
+        - Consistency with existing type definitions
+  abort_on_close: true
+  auto_best_practices:
+    enabled: true
+  enable_comment_on_untracked_files: true
+chat:
+  auto_reply: true

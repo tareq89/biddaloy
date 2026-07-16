@@ -45,8 +45,7 @@ The production build is served by the NestJS server at `/{client}/` paths. See `
 
 ## Project Structure
 
-```
-client-student/
+```text
 ├── src/
 │   ├── main.tsx          # React entry point
 │   ├── App.tsx           # Root component
