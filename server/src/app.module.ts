@@ -4,10 +4,13 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { AppController } from "./app.controller";
 import { HealthModule } from "./modules/health/health.module";
+import { AuthModule } from "./modules/auth/auth.module";
 import { validate } from "./config/env.validation";
 
 // Entities for auto-loading
 import { User } from "./modules/users/entities/user.entity";
+import { School } from "./modules/schools/entities/school.entity";
+import { UserTenant } from "./modules/auth/entities/user-tenant.entity";
 import { Teacher } from "./modules/academics/entities/teacher.entity";
 import { AcademicYear } from "./modules/academics/entities/academic-year.entity";
 import { Class } from "./modules/academics/entities/class.entity";
@@ -39,6 +42,8 @@ import { AuditLog } from "./modules/audit/entities/audit-log.entity";
         url: config.get<string>("DATABASE_URL"),
         entities: [
           User,
+          School,
+          UserTenant,
           Teacher,
           AcademicYear,
           Class,
@@ -62,6 +67,7 @@ import { AuditLog } from "./modules/audit/entities/audit-log.entity";
       }),
     }),
     HealthModule,
+    AuthModule,
   ],
   controllers: [AppController],
 })

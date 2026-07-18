@@ -1,16 +1,19 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, Index } from "typeorm";
-import { UserRole, UserStatus } from "@beton-boi/shared";
+import { UserStatus } from "@beton-boi/shared";
 
 /**
- * Central user account for all system roles.
+ * Central user account for the system.
  *
- * Uses Single Table Inheritance via the `role` discriminator column.
- * Every person who can log in (admin, teacher, parent, student, executive)
- * is represented here. Staff accounts (teachers, admins) have password_hash set.
+ * Roles are now stored per-tenant in the `user_tenants` junction table,
+ * enabling multi-tenant / multi-role support (a user can be a Teacher in
+ * School A and a Guardian in School B simultaneously).
+ *
+ * Staff accounts (teachers, admins) have password_hash set.
  * Guardian/student accounts may have null password_hash if they don't log in
  * (created via bulk Excel upload).
  *
  * Relations:
+ * - @OneToMany → UserTenant: all memberships across tenants
  * - @OneToOne → Teacher (teacher_profile): linked when role=TEACHER
  * - @OneToOne → Guardian (guardian_profile): linked when role=PARENT
  * - @OneToOne → Student (student_profile): linked when role=STUDENT
@@ -35,9 +38,6 @@ export class User {
 
   @Column({ type: "varchar", length: 255, nullable: true })
   password_hash: string | null;
-
-  @Column({ type: "enum", enum: UserRole })
-  role: UserRole;
 
   @Column({ type: "enum", enum: UserStatus, default: UserStatus.ACTIVE })
   status: UserStatus;

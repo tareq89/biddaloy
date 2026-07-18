@@ -10,7 +10,10 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "strictPropertyInitialization": false,
-    "noUnusedLocals": false
+    "noUnusedLocals": false,
+    "paths": {
+      "@beton-boi/shared": ["../shared/dist"]
+    }
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist"]
