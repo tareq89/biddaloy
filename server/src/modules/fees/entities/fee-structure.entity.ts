@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   ManyToOne,
   JoinColumn,
   Index,
@@ -11,6 +12,7 @@ import {
 import { Class } from '../../academics/entities/class.entity';
 import { ClassSection } from '../../academics/entities/class-section.entity';
 import { AcademicYear } from '../../academics/entities/academic-year.entity';
+import { School } from '../../schools/entities/school.entity';
 import { FeeType, FeeApplicability } from '@beton-boi/shared';
 
 /**
@@ -22,6 +24,7 @@ import { FeeType, FeeApplicability } from '@beton-boi/shared';
  * each month; one-time fees only generate once.
  *
  * Relations:
+ * - @ManyToOne → School: the tenant this fee structure belongs to
  * - @ManyToOne → Class: the class this fee applies to
  * - @ManyToOne → ClassSection (optional): specific section within the class
  * - @ManyToOne → AcademicYear: the academic year this fee is for
@@ -73,9 +76,19 @@ export class FeeStructure {
   @Column({ type: 'boolean', default: true })
   is_recurring: boolean;
 
+  @ManyToOne(() => School, { nullable: false, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'tenant_id' })
+  tenant: School;
+
+  @Column({ type: 'uuid' })
+  tenant_id: string;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 
   @UpdateDateColumn({ type: 'timestamptz' })
   updated_at: Date;
+
+  @DeleteDateColumn({ type: 'timestamptz', nullable: true })
+  deleted_at: Date | null;
 }

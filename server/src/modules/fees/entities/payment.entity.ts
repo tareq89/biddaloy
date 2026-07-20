@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   ManyToOne,
   JoinColumn,
   OneToMany,
@@ -11,6 +12,7 @@ import {
 } from 'typeorm';
 import { Student } from '../../students/entities/student.entity';
 import { User } from '../../users/entities/user.entity';
+import { School } from '../../schools/entities/school.entity';
 import { Invoice } from '../../invoices/entities/invoice.entity';
 import { PaymentMethod, PaymentStatus } from '@beton-boi/shared';
 import { PaymentAllocation } from './payment-allocation.entity';
@@ -25,6 +27,7 @@ import { PaymentAllocation } from './payment-allocation.entity';
  *
  * Relations:
  * - @ManyToOne → Student: the student this payment is for
+ * - @ManyToOne → School: the tenant this payment belongs to
  * - @ManyToOne → User (received_by): the staff member who collected the payment
  * - @ManyToOne → Invoice (optional): the generated invoice
  * - @OneToMany → PaymentAllocation: how this payment is split across fee periods
@@ -79,9 +82,19 @@ export class Payment {
   @Column({ type: 'timestamptz' })
   payment_date: Date;
 
+  @ManyToOne(() => School, { nullable: false, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'tenant_id' })
+  tenant: School;
+
+  @Column({ type: 'uuid' })
+  tenant_id: string;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 
   @UpdateDateColumn({ type: 'timestamptz' })
   updated_at: Date;
+
+  @DeleteDateColumn({ type: 'timestamptz', nullable: true })
+  deleted_at: Date | null;
 }

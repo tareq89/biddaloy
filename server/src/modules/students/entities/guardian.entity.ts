@@ -9,9 +9,11 @@ import {
   JoinColumn,
   OneToOne,
   Index,
+  ManyToOne,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Student } from './student.entity';
+import { School } from '../../schools/entities/school.entity';
 import { CommunicationMedium } from '@beton-boi/shared';
 
 /**
@@ -22,6 +24,7 @@ import { CommunicationMedium } from '@beton-boi/shared';
  * have a User account for self-service login and online fee payment.
  *
  * Relations:
+ * - @ManyToOne → School: the tenant this guardian belongs to
  * - @OneToOne → User (optional): login account for guardian self-service
  * - @ManyToMany → Student (via student_guardians): linked children
  * - Referenced-by → CommunicationLog: messages sent to this guardian
@@ -66,6 +69,13 @@ export class Guardian {
 
   @Column({ type: 'boolean', default: true })
   is_primary_contact: boolean;
+
+  @ManyToOne(() => School, { nullable: false, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'tenant_id' })
+  tenant: School;
+
+  @Column({ type: 'uuid' })
+  tenant_id: string;
 
   @ManyToMany(() => Student, (student) => student.guardians)
   students: Student[];
