@@ -16,5 +16,8 @@
     "dev:client-student": "yarn workspace @beton-boi/client-student dev",
     "lint": "yarn workspace @beton-boi/server lint",
     "test": "yarn workspace @beton-boi/server test"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^6.0.0"
   }
 }

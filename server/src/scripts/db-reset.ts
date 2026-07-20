@@ -6,6 +6,8 @@ import migrationDataSource from '../data-source';
 
 // Entities
 import { User } from '../modules/users/entities/user.entity';
+import { School } from '../modules/schools/entities/school.entity';
+import { UserTenant } from '../modules/auth/entities/user-tenant.entity';
 
 import { UserRole, UserStatus } from '@beton-boi/shared';
 
@@ -83,6 +85,8 @@ async function dbReset() {
 
     // 4. Seed admin user
     const userRepository = migrationDataSource.getRepository(User);
+    const schoolRepository = migrationDataSource.getRepository(School);
+    const userTenantRepository = migrationDataSource.getRepository(UserTenant);
 
     const passwordHash = await bcrypt.hash(adminPassword, 10);
 
@@ -90,15 +94,29 @@ async function dbReset() {
       email: 'admin@school.com',
       phone: '01700000000',
       password_hash: passwordHash,
-      role: UserRole.SUPER_ADMIN,
       status: UserStatus.ACTIVE,
       full_name: 'System Administrator',
     });
-
     await userRepository.save(admin);
     console.log('SUPER_ADMIN user created:');
     console.log('  Email: admin@school.com');
-    console.log('  Role: SUPER_ADMIN');
+
+    // Create a default school
+    const school = schoolRepository.create({
+      name: 'Default School',
+      slug: 'default-school',
+    });
+    await schoolRepository.save(school);
+    console.log(`  School: ${school.name} (${school.id})`);
+
+    // Create the user-tenant membership
+    const membership = userTenantRepository.create({
+      user_id: admin.id,
+      tenant_id: school.id,
+      role: UserRole.SUPER_ADMIN,
+    });
+    await userTenantRepository.save(membership);
+    console.log(`  Role: ${membership.role} at ${school.name}`);
     console.log('');
     console.log('Database reset complete.');
   } finally {

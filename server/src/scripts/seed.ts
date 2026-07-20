@@ -1,6 +1,8 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../app.module';
 import { User } from '../modules/users/entities/user.entity';
+import { School } from '../modules/schools/entities/school.entity';
+import { UserTenant } from '../modules/auth/entities/user-tenant.entity';
 import { UserRole, UserStatus } from '@beton-boi/shared';
 import * as bcrypt from 'bcrypt';
 import { DataSource } from 'typeorm';
@@ -10,12 +12,14 @@ export async function seed() {
   const dataSource = app.get(DataSource);
 
   const userRepository = dataSource.getRepository(User);
+  const schoolRepository = dataSource.getRepository(School);
+  const userTenantRepository = dataSource.getRepository(UserTenant);
 
   const adminEmail = 'admin@school.com';
 
   // Check if the designated seed admin already exists (including soft-deleted)
   const existing = await userRepository.findOne({
-    where: { email: adminEmail, role: UserRole.SUPER_ADMIN },
+    where: { email: adminEmail },
     withDeleted: true,
   });
 
@@ -37,6 +41,18 @@ export async function seed() {
 
       await userRepository.save(existing);
       console.log('Restored soft-deleted SUPER_ADMIN account with fresh credentials.');
+
+      // Ensure a default school exists
+      const school = await schoolRepository.findOne({ where: { slug: 'default-school' } });
+      if (!school) {
+        const newSchool = schoolRepository.create({
+          name: 'Default School',
+          slug: 'default-school',
+        });
+        await schoolRepository.save(newSchool);
+        console.log(`Created default school (${newSchool.id}).`);
+      }
+
       await app.close();
       return;
     }
@@ -53,11 +69,11 @@ export async function seed() {
 
   const passwordHash = await bcrypt.hash(adminPassword, 10);
 
+  // Create the admin user
   const admin = userRepository.create({
     email: 'admin@school.com',
     phone: '01700000000',
     password_hash: passwordHash,
-    role: UserRole.SUPER_ADMIN,
     status: UserStatus.ACTIVE,
     full_name: 'System Administrator',
   });
@@ -65,7 +81,26 @@ export async function seed() {
   await userRepository.save(admin);
   console.log('SUPER_ADMIN user created:');
   console.log('  Email: admin@school.com');
-  console.log('  Role: SUPER_ADMIN');
+
+  // Create a default school
+  let school = await schoolRepository.findOne({ where: { slug: 'default-school' } });
+  if (!school) {
+    school = schoolRepository.create({
+      name: 'Default School',
+      slug: 'default-school',
+    });
+    await schoolRepository.save(school);
+    console.log(`  School: ${school.name} (${school.id})`);
+  }
+
+  // Create the user-tenant membership
+  const membership = userTenantRepository.create({
+    user_id: admin.id,
+    tenant_id: school.id,
+    role: UserRole.SUPER_ADMIN,
+  });
+  await userTenantRepository.save(membership);
+  console.log(`  Role: ${membership.role} at ${school.name}`);
 
   await app.close();
 }
