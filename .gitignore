@@ -142,5 +142,8 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
 
+# Graphify cache (regenerated, contains absolute local paths)
+graphify-out/cache/
+
 # Build output (deployable artifact)
 build-output/
