@@ -32,6 +32,7 @@ import { CommunicationMedium } from '@beton-boi/shared';
 @Entity('guardians')
 @Index(['phone'])
 @Index(['email'])
+@Index(['tenant_id'])
 export class Guardian {
   @PrimaryGeneratedColumn('uuid')
   id: string;

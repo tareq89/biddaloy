@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsUUID, IsEnum, IsArray, IsInt, Min } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsUUID, IsEnum, IsArray, IsInt, Min, Max, IsBoolean, IsDateString } from 'class-validator';
 import { Type } from 'class-transformer';
 import { FeeType, FeeApplicability, PaymentMethod, PaymentStatus } from '@beton-boi/shared';
 
@@ -29,9 +29,11 @@ export class CreateFeeStructureDto {
 
   @IsInt()
   @Min(1)
+  @Max(12)
   month: number;
 
   @IsOptional()
+  @IsBoolean()
   is_recurring?: boolean;
 
   @IsOptional()
@@ -63,11 +65,14 @@ export class UpdateFeeStructureDto {
   section_id?: string;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(12)
   month?: number;
 
   @IsOptional()
+  @IsBoolean()
   is_recurring?: boolean;
 
   @IsOptional()
@@ -86,7 +91,10 @@ export class QueryFeeStructureDto {
   class_id?: string;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
+  @Min(1)
+  @Max(12)
   month?: number;
 
   @IsOptional()
@@ -126,6 +134,7 @@ export class CreatePaymentDto {
   remarks?: string;
 
   @IsOptional()
+  @IsDateString()
   payment_date?: string;
 }
 

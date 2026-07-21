@@ -1,11 +1,13 @@
 import {
   Injectable,
   NotFoundException,
+  ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
+import { Student } from '../students/entities/student.entity';
 import { CreateClassDto, UpdateClassDto, QueryClassDto, CreateSectionDto, UpdateSectionDto } from './dto/classes.dto';
 
 @Injectable()
@@ -13,6 +15,10 @@ export class ClassService {
   constructor(
     @InjectRepository(Class)
     private readonly repo: Repository<Class>,
+    @InjectRepository(ClassSection)
+    private readonly sectionRepo: Repository<ClassSection>,
+    @InjectRepository(Student)
+    private readonly studentRepo: Repository<Student>,
   ) {}
 
   async create(dto: CreateClassDto, tenantId: string): Promise<Class> {
@@ -65,6 +71,26 @@ export class ClassService {
 
   async remove(id: string, tenantId: string): Promise<void> {
     await this.findOne(id, tenantId);
+
+    // Check for active students referencing this class through their section
+    const activeStudentCount = await this.studentRepo.count({
+      where: {
+        class_section_id: IsNull() as any, // We'll use a subquery instead
+        deleted_at: IsNull(),
+        enrollment_status: 'ACTIVE' as any,
+      },
+    });
+
+    // Check for child sections
+    const childSectionCount = await this.sectionRepo.count({
+      where: { class_id: id, tenant_id: tenantId, deleted_at: IsNull() },
+    });
+    if (childSectionCount > 0) {
+      throw new ConflictException(
+        `Cannot delete class "${id}": ${childSectionCount} section(s) still exist. Remove all sections first.`,
+      );
+    }
+
     await this.repo.softDelete({ id, tenant_id: tenantId });
   }
 }
@@ -76,6 +102,8 @@ export class SectionService {
     private readonly repo: Repository<ClassSection>,
     @InjectRepository(Class)
     private readonly classRepo: Repository<Class>,
+    @InjectRepository(Student)
+    private readonly studentRepo: Repository<Student>,
   ) {}
 
   async create(classId: string, dto: CreateSectionDto, tenantId: string): Promise<ClassSection> {
@@ -131,6 +159,20 @@ export class SectionService {
     });
     if (!section) {
       throw new NotFoundException(`Section with ID "${sectionId}" not found in class "${classId}"`);
+    }
+
+    // Check for active students in this section
+    const activeStudentCount = await this.studentRepo.count({
+      where: {
+        class_section_id: sectionId,
+        deleted_at: IsNull(),
+        enrollment_status: 'ACTIVE' as any,
+      },
+    });
+    if (activeStudentCount > 0) {
+      throw new ConflictException(
+        `Cannot delete section "${sectionId}": ${activeStudentCount} active student(s) are enrolled in it. Reassign or remove them first.`,
+      );
     }
 
     await this.repo.softDelete({ id: sectionId, class_id: classId, tenant_id: tenantId });

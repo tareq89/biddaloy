@@ -33,6 +33,7 @@ import { FeeType, FeeApplicability } from '@beton-boi/shared';
  */
 @Entity('fee_structures')
 @Index(['class_id', 'fee_type', 'month'])
+@Index(['tenant_id'])
 export class FeeStructure {
   @PrimaryGeneratedColumn('uuid')
   id: string;

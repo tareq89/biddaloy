@@ -8,6 +8,7 @@ import {
   Param,
   Query,
   UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
@@ -54,7 +55,7 @@ export class ClassController {
   @Get(':id')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
   findOneClass(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     return this.classService.findOne(id, tenant.id);
@@ -63,7 +64,7 @@ export class ClassController {
   @Patch(':id')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
   updateClass(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateClassDto,
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
@@ -73,7 +74,7 @@ export class ClassController {
   @Delete(':id')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
   removeClass(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     return this.classService.remove(id, tenant.id);
@@ -84,7 +85,7 @@ export class ClassController {
   @Post(':classId/sections')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
   createSection(
-    @Param('classId') classId: string,
+    @Param('classId', ParseUUIDPipe) classId: string,
     @Body() dto: CreateSectionDto,
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
@@ -94,7 +95,7 @@ export class ClassController {
   @Get(':classId/sections')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
   findAllSections(
-    @Param('classId') classId: string,
+    @Param('classId', ParseUUIDPipe) classId: string,
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     return this.sectionService.findAll(classId, tenant.id);
@@ -103,8 +104,8 @@ export class ClassController {
   @Patch(':classId/sections/:sectionId')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
   updateSection(
-    @Param('classId') classId: string,
-    @Param('sectionId') sectionId: string,
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @Param('sectionId', ParseUUIDPipe) sectionId: string,
     @Body() dto: UpdateSectionDto,
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
@@ -114,8 +115,8 @@ export class ClassController {
   @Delete(':classId/sections/:sectionId')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
   removeSection(
-    @Param('classId') classId: string,
-    @Param('sectionId') sectionId: string,
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @Param('sectionId', ParseUUIDPipe) sectionId: string,
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     return this.sectionService.remove(classId, sectionId, tenant.id);

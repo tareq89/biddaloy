@@ -25,8 +25,8 @@ import { School } from '../../schools/entities/school.entity';
  * - Referenced-by → StudentFee: generated fees are tied to a year
  */
 @Entity('academic_years')
-@Index(['name', 'tenant_id'], { unique: true })
-@Index(['is_current', 'tenant_id'], { unique: true, where: '"is_current" = true' })
+@Index(['name', 'tenant_id'], { unique: true, where: '"deleted_at" IS NULL' })
+@Index(['is_current', 'tenant_id'], { unique: true, where: '"is_current" = true AND "deleted_at" IS NULL' })
 export class AcademicYear {
   @PrimaryGeneratedColumn('uuid')
   id: string;

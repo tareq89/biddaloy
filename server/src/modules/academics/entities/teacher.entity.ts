@@ -8,6 +8,7 @@ import {
   OneToOne,
   JoinColumn,
   ManyToOne,
+  Index,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { School } from '../../schools/entities/school.entity';
@@ -26,6 +27,7 @@ import { TeacherDesignation } from '@beton-boi/shared';
  * - @ManyToMany → ClassSection (via teacher_class_sections): sections the teacher is assigned to
  */
 @Entity('teachers')
+@Index(['tenant_id'])
 export class Teacher {
   @PrimaryGeneratedColumn('uuid')
   id: string;

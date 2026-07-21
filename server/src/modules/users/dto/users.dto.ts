@@ -1,4 +1,5 @@
-import { IsString, IsEmail, IsOptional, IsUUID, IsArray, IsEnum } from 'class-validator';
+import { IsString, IsEmail, IsOptional, IsUUID, IsArray, IsEnum, IsInt, Min, Max, IsDateString } from 'class-validator';
+import { Type } from 'class-transformer';
 import { UserRole, TeacherDesignation } from '@beton-boi/shared';
 
 export class CreateUserDto {
@@ -48,9 +49,17 @@ export class QueryUserDto {
   role?: UserRole;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
   page?: number = 1;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
   limit?: number = 10;
 }
 
@@ -71,7 +80,7 @@ export class CreateTeacherDto {
   subject_specialization?: string;
 
   @IsOptional()
-  @IsString()
+  @IsDateString()
   joining_date?: string;
 
   @IsOptional()
@@ -95,7 +104,7 @@ export class UpdateTeacherDto {
   subject_specialization?: string;
 
   @IsOptional()
-  @IsString()
+  @IsDateString()
   joining_date?: string;
 
   @IsOptional()
@@ -110,8 +119,16 @@ export class QueryTeacherDto {
   search?: string;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
   page?: number = 1;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
   limit?: number = 10;
 }

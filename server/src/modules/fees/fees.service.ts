@@ -4,12 +4,16 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
+import { Repository, IsNull, In } from 'typeorm';
 import { FeeStructure } from './entities/fee-structure.entity';
 import { FeeStructureStudent } from './entities/fee-structure-student.entity';
 import { Payment } from './entities/payment.entity';
+import { PaymentAllocation } from './entities/payment-allocation.entity';
 import { StudentFee } from './entities/student-fee.entity';
 import { Student } from '../students/entities/student.entity';
+import { Class } from '../academics/entities/class.entity';
+import { ClassSection } from '../academics/entities/class-section.entity';
+import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { PaymentStatus } from '@beton-boi/shared';
 import {
   CreateFeeStructureDto,
@@ -28,9 +32,61 @@ export class FeeStructureService {
     private readonly fssRepo: Repository<FeeStructureStudent>,
     @InjectRepository(Payment)
     private readonly paymentRepo: Repository<Payment>,
+    @InjectRepository(PaymentAllocation)
+    private readonly paymentAllocRepo: Repository<PaymentAllocation>,
+    @InjectRepository(StudentFee)
+    private readonly studentFeeRepo: Repository<StudentFee>,
+    @InjectRepository(Class)
+    private readonly classRepo: Repository<Class>,
+    @InjectRepository(ClassSection)
+    private readonly sectionRepo: Repository<ClassSection>,
+    @InjectRepository(AcademicYear)
+    private readonly academicYearRepo: Repository<AcademicYear>,
+    @InjectRepository(Student)
+    private readonly studentRepo: Repository<Student>,
   ) {}
 
   async create(dto: CreateFeeStructureDto, tenantId: string): Promise<FeeStructure> {
+    // Validate class belongs to tenant
+    const cls = await this.classRepo.findOne({
+      where: { id: dto.class_id, tenant_id: tenantId, deleted_at: IsNull() },
+    });
+    if (!cls) {
+      throw new NotFoundException(`Class with ID "${dto.class_id}" not found`);
+    }
+
+    // Validate section belongs to tenant when provided
+    if (dto.section_id) {
+      const section = await this.sectionRepo.findOne({
+        where: { id: dto.section_id, class_id: dto.class_id, tenant_id: tenantId, deleted_at: IsNull() },
+      });
+      if (!section) {
+        throw new NotFoundException(`Section with ID "${dto.section_id}" not found`);
+      }
+    }
+
+    // Validate academic year belongs to tenant
+    const academicYear = await this.academicYearRepo.findOne({
+      where: { id: dto.academic_year_id, tenant_id: tenantId, deleted_at: IsNull() },
+    });
+    if (!academicYear) {
+      throw new NotFoundException(`Academic year with ID "${dto.academic_year_id}" not found`);
+    }
+
+    // Validate student_ids belong to tenant when SELECTED applicability
+    if (dto.applicability === 'SELECTED' && dto.student_ids?.length) {
+      const studentCount = await this.studentRepo.count({
+        where: {
+          id: In(dto.student_ids),
+          tenant_id: tenantId,
+          deleted_at: IsNull(),
+        } as any,
+      });
+      if (studentCount !== dto.student_ids.length) {
+        throw new NotFoundException('One or more selected students not found');
+      }
+    }
+
     const entity = this.repo.create({
       fee_type: dto.fee_type,
       name: dto.name,
@@ -119,14 +175,30 @@ export class FeeStructureService {
   async remove(id: string, tenantId: string): Promise<void> {
     await this.findOne(id, tenantId);
 
-    // Check if any payments reference this fee structure
-    const paymentCount = await this.paymentRepo.count({
-      where: { fee_structure_id: id } as any,
+    // Check if any student_fees reference this fee structure through FeeStructureStudent
+    // Since StudentFee doesn't have fee_structure_id, we check if any payments
+    // have allocations to student_fees that were generated from this fee structure.
+    // Instead, check if any FeeStructureStudent records exist (SELECTED) or
+    // if any StudentFee records were generated from this fee structure.
+    // The simplest approach: check if any student fees exist for this fee structure's
+    // class/academic_year/month combination that have associated payment allocations.
+    const studentFees = await this.studentFeeRepo.find({
+      where: {
+        academic_year_id: (await this.findOne(id, tenantId)).academic_year_id,
+        month: (await this.findOne(id, tenantId)).month,
+      },
     });
-    if (paymentCount > 0) {
-      throw new ConflictException(
-        `Cannot delete fee structure "${id}": ${paymentCount} payment(s) are linked to it`,
-      );
+
+    if (studentFees.length > 0) {
+      const studentFeeIds = studentFees.map((sf) => sf.id);
+      const allocationCount = await this.paymentAllocRepo.count({
+        where: { student_fee_id: In(studentFeeIds) },
+      });
+      if (allocationCount > 0) {
+        throw new ConflictException(
+          `Cannot delete fee structure "${id}": ${allocationCount} payment allocation(s) are linked to fees generated from it`,
+        );
+      }
     }
 
     await this.repo.softDelete({ id, tenant_id: tenantId });

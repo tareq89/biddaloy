@@ -8,11 +8,13 @@ import {
   Param,
   Query,
   UseGuards,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { StudentService, GuardianService } from './students.service';
 import {
   CreateStudentDto,
@@ -22,7 +24,7 @@ import {
   UpdateGuardianDto,
   QueryGuardianDto,
 } from './dto/students.dto';
-import { UserRole } from '@beton-boi/shared';
+import { UserRole, JwtPayload } from '@beton-boi/shared';
 
 @Controller()
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard)
@@ -54,11 +56,30 @@ export class StudentController {
 
   @Get('students/:id')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER, UserRole.PARENT, UserRole.STUDENT)
-  findOneStudent(
+  async findOneStudent(
     @Param('id') id: string,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.studentService.findOne(id, tenant.id);
+    const student = await this.studentService.findOne(id, tenant.id);
+
+    // For PARENT and STUDENT roles, enforce object-level authorization
+    if (tenant.role === UserRole.PARENT) {
+      // Verify the current user is linked as a guardian of this student
+      const isGuardian = student.guardians?.some(
+        (g) => g.user_id === user.sub,
+      );
+      if (!isGuardian) {
+        throw new UnauthorizedException('You do not have access to this student\'s information');
+      }
+    } else if (tenant.role === UserRole.STUDENT) {
+      // Verify the student belongs to the current user
+      if (student.user_id !== user.sub) {
+        throw new UnauthorizedException('You do not have access to this student\'s information');
+      }
+    }
+
+    return student;
   }
 
   @Patch('students/:id')

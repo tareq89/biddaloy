@@ -1,9 +1,10 @@
-import { IsString, IsEmail, IsOptional, IsUUID, IsArray, IsEnum, IsInt, Min, IsDateString } from 'class-validator';
+import { IsString, IsEmail, IsOptional, IsUUID, IsArray, IsEnum, IsInt, Min, IsDateString, IsNotEmpty } from 'class-validator';
 import { Type } from 'class-transformer';
 import { CommunicationMedium, EnrollmentStatus } from '@beton-boi/shared';
 
 export class CreateStudentDto {
   @IsString()
+  @IsNotEmpty()
   full_name: string;
 
   @IsOptional()
@@ -112,6 +113,7 @@ export class QueryStudentDto {
 
 export class CreateGuardianDto {
   @IsString()
+  @IsNotEmpty()
   full_name: string;
 
   @IsOptional()

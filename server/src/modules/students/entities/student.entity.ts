@@ -38,6 +38,7 @@ import { CommunicationMedium, EnrollmentStatus } from '@beton-boi/shared';
  */
 @Entity('students')
 @Index(['class_section_id', 'roll_number'], { unique: true })
+@Index(['tenant_id', 'registration_number'], { unique: true })
 export class Student {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -52,7 +53,7 @@ export class Student {
   @Column({ type: 'varchar', length: 100 })
   full_name: string;
 
-  @Column({ type: 'varchar', length: 50, unique: true })
+  @Column({ type: 'varchar', length: 50 })
   registration_number: string;
 
   @Column({ type: 'int' })

@@ -36,32 +36,48 @@ export class UserController {
 
   @Post('users')
   @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
-  createUser(@Body() dto: CreateUserDto) {
-    return this.userService.create(dto);
+  createUser(
+    @Body() dto: CreateUserDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.userService.create(dto, tenant.id);
   }
 
   @Get('users')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
-  findAllUsers(@Query() query: QueryUserDto) {
-    return this.userService.findAll(query);
+  findAllUsers(
+    @Query() query: QueryUserDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.userService.findAll(query, tenant.id);
   }
 
   @Get('users/:id')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
-  findOneUser(@Param('id') id: string) {
-    return this.userService.findOne(id);
+  findOneUser(
+    @Param('id') id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.userService.findOne(id, tenant.id);
   }
 
   @Patch('users/:id')
   @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
-  updateUser(@Param('id') id: string, @Body() dto: UpdateUserDto) {
-    return this.userService.update(id, dto);
+  updateUser(
+    @Param('id') id: string,
+    @Body() dto: UpdateUserDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.userService.update(id, dto, tenant.id);
   }
 
   @Delete('users/:id')
   @Roles(UserRole.ADMIN)
-  removeUser(@Param('id') id: string) {
-    return this.userService.remove(id);
+  removeUser(
+    @Param('id') id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.userService.remove(id, tenant.id);
   }
 
   // --- Teacher endpoints ---

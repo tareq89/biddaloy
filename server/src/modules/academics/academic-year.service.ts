@@ -18,22 +18,26 @@ export class AcademicYearService {
   ) {}
 
   async create(dto: CreateAcademicYearDto, tenantId: string): Promise<AcademicYear> {
-    // If setting as current, unset all other current years for this tenant
-    if (dto.is_current) {
-      await this.repo.update(
-        { tenant_id: tenantId, is_current: true, deleted_at: IsNull() },
-        { is_current: false },
-      );
-    }
+    return this.repo.manager.transaction(async (manager) => {
+      const repo = manager.getRepository(AcademicYear);
 
-    const academicYear = this.repo.create({
-      ...dto,
-      tenant_id: tenantId,
-      start_date: new Date(dto.start_date),
-      end_date: new Date(dto.end_date),
+      // If setting as current, unset all other current years for this tenant
+      if (dto.is_current) {
+        await repo.update(
+          { tenant_id: tenantId, is_current: true, deleted_at: IsNull() },
+          { is_current: false },
+        );
+      }
+
+      const academicYear = repo.create({
+        ...dto,
+        tenant_id: tenantId,
+        start_date: new Date(dto.start_date),
+        end_date: new Date(dto.end_date),
+      });
+
+      return repo.save(academicYear);
     });
-
-    return this.repo.save(academicYear);
   }
 
   async findAll(query: QueryAcademicYearDto, tenantId: string) {
@@ -62,40 +66,60 @@ export class AcademicYearService {
   }
 
   async update(id: string, dto: UpdateAcademicYearDto, tenantId: string): Promise<AcademicYear> {
-    const entity = await this.findOne(id, tenantId);
+    await this.findOne(id, tenantId);
 
-    // If setting as current, unset all other current years for this tenant
-    if (dto.is_current) {
-      await this.repo.update(
-        { tenant_id: tenantId, is_current: true, deleted_at: IsNull() },
-        { is_current: false },
+    return this.repo.manager.transaction(async (manager) => {
+      const repo = manager.getRepository(AcademicYear);
+
+      // If setting as current, unset all other current years for this tenant
+      if (dto.is_current) {
+        await repo.update(
+          { tenant_id: tenantId, is_current: true, deleted_at: IsNull() },
+          { is_current: false },
+        );
+      }
+
+      const updateData: any = { ...dto };
+      if (dto.start_date) updateData.start_date = new Date(dto.start_date);
+      if (dto.end_date) updateData.end_date = new Date(dto.end_date);
+
+      const updateResult = await repo.update(
+        { id, tenant_id: tenantId, deleted_at: IsNull() },
+        updateData,
       );
-    }
+      if (updateResult.affected === 0) {
+        throw new NotFoundException(`Academic year with ID "${id}" not found`);
+      }
 
-    const updateData: any = { ...dto };
-    if (dto.start_date) updateData.start_date = new Date(dto.start_date);
-    if (dto.end_date) updateData.end_date = new Date(dto.end_date);
-
-    await this.repo.update({ id, tenant_id: tenantId }, updateData);
-    return this.findOne(id, tenantId);
+      return repo.findOne({
+        where: { id, tenant_id: tenantId, deleted_at: IsNull() },
+      }) as Promise<AcademicYear>;
+    });
   }
 
   async remove(id: string, tenantId: string): Promise<void> {
-    const entity = await this.findOne(id, tenantId);
+    await this.findOne(id, tenantId);
     await this.repo.softDelete({ id, tenant_id: tenantId });
   }
 
   async setCurrent(id: string, tenantId: string): Promise<AcademicYear> {
-    const entity = await this.findOne(id, tenantId);
+    await this.findOne(id, tenantId);
 
-    // Unset all current years for this tenant
-    await this.repo.update(
-      { tenant_id: tenantId, is_current: true, deleted_at: IsNull() },
-      { is_current: false },
-    );
+    return this.repo.manager.transaction(async (manager) => {
+      const repo = manager.getRepository(AcademicYear);
 
-    // Set this one as current
-    await this.repo.update({ id, tenant_id: tenantId }, { is_current: true });
-    return this.findOne(id, tenantId);
+      // Unset all current years for this tenant
+      await repo.update(
+        { tenant_id: tenantId, is_current: true, deleted_at: IsNull() },
+        { is_current: false },
+      );
+
+      // Set this one as current
+      await repo.update({ id, tenant_id: tenantId }, { is_current: true });
+
+      return repo.findOne({
+        where: { id, tenant_id: tenantId, deleted_at: IsNull() },
+      }) as Promise<AcademicYear>;
+    });
   }
 }

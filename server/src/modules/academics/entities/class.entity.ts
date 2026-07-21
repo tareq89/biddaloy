@@ -28,6 +28,7 @@ import { School } from '../../schools/entities/school.entity';
  */
 @Entity('classes')
 @Index(['name', 'academic_year_id', 'tenant_id'], { unique: true })
+@Index(['tenant_id'])
 export class Class {
   @PrimaryGeneratedColumn('uuid')
   id: string;

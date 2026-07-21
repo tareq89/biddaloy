@@ -91,6 +91,7 @@ export class AddTenantIsolationAndEnrollments1784175065080 implements MigrationI
         await queryRunner.query(`ALTER TABLE "enrollments" ADD CONSTRAINT "FK_enr_class" FOREIGN KEY ("class_id") REFERENCES "classes"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE "enrollments" ADD CONSTRAINT "FK_enr_section" FOREIGN KEY ("section_id") REFERENCES "class_sections"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE "enrollments" ADD CONSTRAINT "FK_enr_academic_year" FOREIGN KEY ("academic_year_id") REFERENCES "academic_years"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_enr_active_student_year" ON "enrollments" ("student_id", "academic_year_id") WHERE enrollment_status = 'ACTIVE'`);
 
         // 19. Update unique indexes to include tenant_id for multi-tenant safety
         // Academic years: name + tenant_id unique instead of globally unique
@@ -107,37 +108,37 @@ export class AddTenantIsolationAndEnrollments1784175065080 implements MigrationI
         await queryRunner.query(`DROP INDEX "public"."IDX_12a99ca8a701651b6ff5d6612e"`);
         await queryRunner.query(`CREATE UNIQUE INDEX "IDX_ay_is_current_tenant" ON "academic_years" ("is_current", "tenant_id") WHERE is_current = true`);
 
-        // 21. Set tenant_id on existing records (migrate to default school if exists)
+        // 21. Set tenant_id on existing records (migrate to first school if exists)
         await queryRunner.query(`
-            UPDATE "academic_years" SET "tenant_id" = (SELECT "id" FROM "schools" LIMIT 1)
+            UPDATE "academic_years" SET "tenant_id" = (SELECT "id" FROM "schools" ORDER BY "created_at" ASC LIMIT 1)
             WHERE "tenant_id" IS NULL
         `);
         await queryRunner.query(`
-            UPDATE "classes" SET "tenant_id" = (SELECT "id" FROM "schools" LIMIT 1)
+            UPDATE "classes" SET "tenant_id" = (SELECT "id" FROM "schools" ORDER BY "created_at" ASC LIMIT 1)
             WHERE "tenant_id" IS NULL
         `);
         await queryRunner.query(`
-            UPDATE "class_sections" SET "tenant_id" = (SELECT "id" FROM "schools" LIMIT 1)
+            UPDATE "class_sections" SET "tenant_id" = (SELECT "id" FROM "schools" ORDER BY "created_at" ASC LIMIT 1)
             WHERE "tenant_id" IS NULL
         `);
         await queryRunner.query(`
-            UPDATE "teachers" SET "tenant_id" = (SELECT "id" FROM "schools" LIMIT 1)
+            UPDATE "teachers" SET "tenant_id" = (SELECT "id" FROM "schools" ORDER BY "created_at" ASC LIMIT 1)
             WHERE "tenant_id" IS NULL
         `);
         await queryRunner.query(`
-            UPDATE "guardians" SET "tenant_id" = (SELECT "id" FROM "schools" LIMIT 1)
+            UPDATE "guardians" SET "tenant_id" = (SELECT "id" FROM "schools" ORDER BY "created_at" ASC LIMIT 1)
             WHERE "tenant_id" IS NULL
         `);
         await queryRunner.query(`
-            UPDATE "fee_structures" SET "tenant_id" = (SELECT "id" FROM "schools" LIMIT 1)
+            UPDATE "fee_structures" SET "tenant_id" = (SELECT "id" FROM "schools" ORDER BY "created_at" ASC LIMIT 1)
             WHERE "tenant_id" IS NULL
         `);
         await queryRunner.query(`
-            UPDATE "payments" SET "tenant_id" = (SELECT "id" FROM "schools" LIMIT 1)
+            UPDATE "payments" SET "tenant_id" = (SELECT "id" FROM "schools" ORDER BY "created_at" ASC LIMIT 1)
             WHERE "tenant_id" IS NULL
         `);
         await queryRunner.query(`
-            UPDATE "students" SET "tenant_id" = (SELECT "id" FROM "schools" LIMIT 1)
+            UPDATE "students" SET "tenant_id" = (SELECT "id" FROM "schools" ORDER BY "created_at" ASC LIMIT 1)
             WHERE "tenant_id" IS NULL
         `);
 
@@ -160,6 +161,7 @@ export class AddTenantIsolationAndEnrollments1784175065080 implements MigrationI
         await queryRunner.query(`ALTER TABLE "enrollments" DROP CONSTRAINT "FK_enr_student"`);
         await queryRunner.query(`DROP INDEX "public"."IDX_enrollments_academic_year"`);
         await queryRunner.query(`DROP INDEX "public"."IDX_enrollments_student"`);
+        await queryRunner.query(`DROP INDEX "public"."IDX_enr_active_student_year"`);
         await queryRunner.query(`DROP TABLE "enrollments"`);
         await queryRunner.query(`DROP TYPE "public"."enrollments_status_enum"`);
 
@@ -194,6 +196,7 @@ export class AddTenantIsolationAndEnrollments1784175065080 implements MigrationI
         await queryRunner.query(`ALTER TABLE "class_sections" DROP CONSTRAINT "FK_cs_tenant"`);
         await queryRunner.query(`ALTER TABLE "classes" DROP CONSTRAINT "FK_cl_tenant"`);
         await queryRunner.query(`ALTER TABLE "academic_years" DROP CONSTRAINT "FK_ay_tenant"`);
+        await queryRunner.query(`ALTER TABLE "students" DROP CONSTRAINT "FK_st_tenant"`);
 
         await queryRunner.query(`ALTER TABLE "payments" DROP COLUMN "tenant_id"`);
         await queryRunner.query(`ALTER TABLE "fee_structures" DROP COLUMN "tenant_id"`);
@@ -202,6 +205,7 @@ export class AddTenantIsolationAndEnrollments1784175065080 implements MigrationI
         await queryRunner.query(`ALTER TABLE "class_sections" DROP COLUMN "tenant_id"`);
         await queryRunner.query(`ALTER TABLE "classes" DROP COLUMN "tenant_id"`);
         await queryRunner.query(`ALTER TABLE "academic_years" DROP COLUMN "tenant_id"`);
+        await queryRunner.query(`ALTER TABLE "students" DROP COLUMN "tenant_id"`);
         await queryRunner.query(`ALTER TABLE "class_sections" DROP COLUMN "capacity"`);
     }
 }

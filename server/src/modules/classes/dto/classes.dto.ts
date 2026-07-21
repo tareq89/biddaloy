@@ -1,8 +1,9 @@
-import { IsString, IsUUID, IsOptional, IsInt, Min } from 'class-validator';
+import { IsString, IsUUID, IsOptional, IsInt, Min, MaxLength } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateClassDto {
   @IsString()
+  @MaxLength(50)
   name: string;
 
   @IsOptional()
@@ -16,6 +17,7 @@ export class CreateClassDto {
 export class UpdateClassDto {
   @IsOptional()
   @IsString()
+  @MaxLength(50)
   name?: string;
 
   @IsOptional()
@@ -43,6 +45,7 @@ export class QueryClassDto {
 
 export class CreateSectionDto {
   @IsString()
+  @MaxLength(20)
   section_name: string;
 
   @IsOptional()
@@ -54,6 +57,7 @@ export class CreateSectionDto {
 export class UpdateSectionDto {
   @IsOptional()
   @IsString()
+  @MaxLength(20)
   section_name?: string;
 
   @IsOptional()

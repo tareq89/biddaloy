@@ -5,12 +5,13 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, Like } from 'typeorm';
+import { Repository, IsNull, In } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
+import { ClassSection } from '../academics/entities/class-section.entity';
 import {
   CreateUserDto,
   UpdateUserDto,
@@ -29,7 +30,7 @@ export class UserService {
     private readonly userTenantRepo: Repository<UserTenant>,
   ) {}
 
-  async create(dto: CreateUserDto): Promise<{ user: User; membership: UserTenant }> {
+  async create(dto: CreateUserDto, tenantId: string): Promise<{ user: User; membership: UserTenant }> {
     // Check for duplicate email
     if (dto.email) {
       const existing = await this.userRepo.findOne({ where: { email: dto.email } });
@@ -43,52 +44,49 @@ export class UserService {
       password_hash = await bcrypt.hash(dto.password, 10);
     }
 
-    const user = this.userRepo.create({
-      email: dto.email ?? null,
-      phone: dto.phone ?? null,
-      password_hash,
-      full_name: dto.full_name,
-    });
-    const savedUser = await this.userRepo.save(user);
+    return this.userRepo.manager.transaction(async (manager) => {
+      const userRepo = manager.getRepository(User);
+      const userTenantRepo = manager.getRepository(UserTenant);
 
-    // Create membership in the tenant
-    const membership = this.userTenantRepo.create({
-      user_id: savedUser.id,
-      tenant_id: dto.tenantId,
-      role: dto.role,
-    });
-    const savedMembership = await this.userTenantRepo.save(membership);
+      const user = userRepo.create({
+        email: dto.email ?? null,
+        phone: dto.phone ?? null,
+        password_hash,
+        full_name: dto.full_name,
+      });
+      const savedUser = await userRepo.save(user);
 
-    return { user: savedUser, membership: savedMembership };
+      const membership = userTenantRepo.create({
+        user_id: savedUser.id,
+        tenant_id: tenantId,
+        role: dto.role,
+      });
+      const savedMembership = await userTenantRepo.save(membership);
+
+      return { user: savedUser, membership: savedMembership };
+    });
   }
 
-  async findAll(query: QueryUserDto) {
+  async findAll(query: QueryUserDto, tenantId: string) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
-    const where: any = { deleted_at: IsNull() };
+    const qb = this.userRepo.createQueryBuilder('u')
+      .innerJoinAndSelect('u.user_tenants', 'ut')
+      .where('u.deleted_at IS NULL')
+      .andWhere('ut.tenant_id = :tenantId', { tenantId });
 
-    const [data, total] = await this.userRepo.findAndCount({
-      where,
-      order: { created_at: 'DESC' },
-      skip,
-      take: limit,
-    });
-
-    // If role filter is provided, fetch memberships in batch
-    let result = data;
     if (query.role) {
-      const userIds = data.map((u) => u.id);
-      const memberships = await this.userTenantRepo.find({
-        where: userIds.map((uid) => ({ user_id: uid, role: query.role })),
-      });
-      const userIdsWithRole = new Set(memberships.map((m) => m.user_id));
-      result = data.filter((u) => userIdsWithRole.has(u.id));
+      qb.andWhere('ut.role = :role', { role: query.role });
     }
 
+    const total = await qb.getCount();
+    qb.orderBy('u.created_at', 'DESC').skip(skip).take(limit);
+    const data = await qb.getMany();
+
     return {
-      data: result,
+      data,
       total,
       page,
       limit,
@@ -96,7 +94,7 @@ export class UserService {
     };
   }
 
-  async findOne(id: string): Promise<User> {
+  async findOne(id: string, _tenantId: string): Promise<User> {
     const user = await this.userRepo.findOne({
       where: { id, deleted_at: IsNull() },
     });
@@ -106,14 +104,14 @@ export class UserService {
     return user;
   }
 
-  async update(id: string, dto: UpdateUserDto): Promise<User> {
-    await this.findOne(id);
+  async update(id: string, dto: UpdateUserDto, _tenantId: string): Promise<User> {
+    await this.findOne(id, _tenantId);
     await this.userRepo.update({ id }, dto);
-    return this.findOne(id);
+    return this.findOne(id, _tenantId);
   }
 
-  async remove(id: string): Promise<void> {
-    await this.findOne(id);
+  async remove(id: string, _tenantId: string): Promise<void> {
+    await this.findOne(id, _tenantId);
     await this.userRepo.softDelete({ id });
   }
 }
@@ -123,10 +121,14 @@ export class TeacherService {
   constructor(
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(UserTenant)
+    private readonly userTenantRepo: Repository<UserTenant>,
     @InjectRepository(Teacher)
     private readonly teacherRepo: Repository<Teacher>,
     @InjectRepository(TeacherClassSection)
     private readonly tcsRepo: Repository<TeacherClassSection>,
+    @InjectRepository(ClassSection)
+    private readonly sectionRepo: Repository<ClassSection>,
   ) {}
 
   async create(dto: CreateTeacherDto, tenantId: string): Promise<Teacher> {
@@ -135,6 +137,16 @@ export class TeacherService {
     });
     if (!user) {
       throw new NotFoundException(`User with ID "${dto.user_id}" not found`);
+    }
+
+    // Verify user is a member of this tenant
+    const membership = await this.userTenantRepo.findOne({
+      where: { user_id: dto.user_id, tenant_id: tenantId },
+    });
+    if (!membership) {
+      throw new BadRequestException(
+        `User "${dto.user_id}" is not a member of this tenant`,
+      );
     }
 
     // Check for duplicate employee_id
@@ -159,6 +171,18 @@ export class TeacherService {
 
     // Assign sections if provided
     if (dto.assigned_section_ids?.length) {
+      // Validate all sections belong to tenant
+      const sectionCount = await this.sectionRepo.count({
+        where: {
+          id: In(dto.assigned_section_ids),
+          tenant_id: tenantId,
+          deleted_at: IsNull(),
+        },
+      });
+      if (sectionCount !== dto.assigned_section_ids.length) {
+        throw new NotFoundException('One or more assigned sections not found');
+      }
+
       const tcsEntries = dto.assigned_section_ids.map((sectionId) =>
         this.tcsRepo.create({
           teacher_id: savedTeacher.id,
@@ -179,32 +203,20 @@ export class TeacherService {
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
-    const where: any = { tenant_id: tenantId, deleted_at: IsNull() };
+    const qb = this.teacherRepo.createQueryBuilder('t')
+      .leftJoinAndSelect('t.user', 'u')
+      .where('t.tenant_id = :tenantId', { tenantId })
+      .andWhere('t.deleted_at IS NULL');
 
-    const [data, total] = await this.teacherRepo.findAndCount({
-      where,
-      relations: ['user'],
-      order: { created_at: 'DESC' },
-      skip,
-      take: limit,
-    });
-
-    // Filter by name search if provided
-    let result = data;
     if (query.search) {
-      const searchLower = query.search.toLowerCase();
-      result = data.filter((t) =>
-        t.user?.full_name?.toLowerCase().includes(searchLower),
-      );
+      qb.andWhere('u.full_name ILIKE :search', { search: `%${query.search}%` });
     }
 
-    return {
-      data: result,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    };
+    const total = await qb.getCount();
+    qb.orderBy('t.created_at', 'DESC').skip(skip).take(limit);
+    const data = await qb.getMany();
+
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
   async findOne(id: string, tenantId: string): Promise<Teacher> {
@@ -232,7 +244,20 @@ export class TeacherService {
     // Replace assigned sections if provided
     if (dto.assigned_section_ids !== undefined) {
       await this.tcsRepo.delete({ teacher_id: id });
+
       if (dto.assigned_section_ids.length > 0) {
+        // Validate all sections belong to tenant
+        const sectionCount = await this.sectionRepo.count({
+          where: {
+            id: In(dto.assigned_section_ids),
+            tenant_id: tenantId,
+            deleted_at: IsNull(),
+          },
+        });
+        if (sectionCount !== dto.assigned_section_ids.length) {
+          throw new NotFoundException('One or more assigned sections not found');
+        }
+
         const tcsEntries = dto.assigned_section_ids.map((sectionId) =>
           this.tcsRepo.create({
             teacher_id: id,

@@ -12,6 +12,7 @@ import { Student } from './student.entity';
 import { Class } from '../../academics/entities/class.entity';
 import { ClassSection } from '../../academics/entities/class-section.entity';
 import { AcademicYear } from '../../academics/entities/academic-year.entity';
+import { School } from '../../schools/entities/school.entity';
 import { EnrollmentStatus } from '@beton-boi/shared';
 
 /**
@@ -31,6 +32,7 @@ import { EnrollmentStatus } from '@beton-boi/shared';
 @Index(['student_id'])
 @Index(['academic_year_id'])
 @Index(['student_id', 'academic_year_id'], { unique: true, where: '"enrollment_status" = \'ACTIVE\'' })
+@Index(['tenant_id'])
 export class Enrollment {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -68,6 +70,13 @@ export class Enrollment {
 
   @Column({ type: 'timestamptz', default: () => 'now()' })
   enrolled_at: Date;
+
+  @ManyToOne(() => School, { nullable: false, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'tenant_id' })
+  tenant: School;
+
+  @Column({ type: 'uuid' })
+  tenant_id: string;
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;

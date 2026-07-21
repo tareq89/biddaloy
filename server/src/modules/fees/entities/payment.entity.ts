@@ -36,6 +36,7 @@ import { PaymentAllocation } from './payment-allocation.entity';
 @Index(['student_id'])
 @Index(['invoice_id'])
 @Index(['created_at'])
+@Index(['tenant_id'])
 export class Payment {
   @PrimaryGeneratedColumn('uuid')
   id: string;
