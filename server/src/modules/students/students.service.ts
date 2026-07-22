@@ -46,11 +46,13 @@ export class StudentService {
       }
     }
 
-    // Generate registration number atomically
     const currentYear = new Date().getFullYear();
-    const regNumber = await this.repo.manager.transaction(async (manager) => {
+
+    // Atomically generate reg number, determine roll number, and persist
+    const savedStudent = await this.repo.manager.transaction(async (manager) => {
       const studentRepo = manager.getRepository(Student);
 
+      // Generate registration number with pessimistic lock
       const lastStudent = await studentRepo
         .createQueryBuilder('s')
         .where('s.tenant_id = :tenantId', { tenantId })
@@ -67,30 +69,30 @@ export class StudentService {
           nextSeq = lastSeq + 1;
         }
       }
+      const regNumber = `REG-${currentYear}-${String(nextSeq).padStart(4, '0')}`;
 
-      return `REG-${currentYear}-${String(nextSeq).padStart(4, '0')}`;
+      // Get next roll number (within the same transaction, so locked)
+      const lastRoll = await studentRepo.findOne({
+        where: { class_section_id: dto.class_section_id, tenant_id: tenantId, deleted_at: IsNull() },
+        order: { roll_number: 'DESC' },
+      });
+      const rollNumber = dto.roll_number ?? (lastRoll ? lastRoll.roll_number + 1 : 1);
+
+      // Create and save student
+      const student = studentRepo.create({
+        full_name: dto.full_name,
+        registration_number: regNumber,
+        roll_number: rollNumber,
+        class_section_id: dto.class_section_id,
+        date_of_birth: dto.date_of_birth ? new Date(dto.date_of_birth) : null,
+        gender: dto.gender ?? null,
+        home_address: dto.home_address ?? null,
+        preferred_communication: dto.preferred_communication as CommunicationMedium,
+        tenant_id: tenantId,
+      });
+
+      return studentRepo.save(student);
     });
-
-    // Get next roll number for this section
-    const lastRoll = await this.repo.findOne({
-      where: { class_section_id: dto.class_section_id, tenant_id: tenantId, deleted_at: IsNull() },
-      order: { roll_number: 'DESC' },
-    });
-    const rollNumber = dto.roll_number ?? (lastRoll ? lastRoll.roll_number + 1 : 1);
-
-    const student = this.repo.create({
-      full_name: dto.full_name,
-      registration_number: regNumber,
-      roll_number: rollNumber,
-      class_section_id: dto.class_section_id,
-      date_of_birth: dto.date_of_birth ? new Date(dto.date_of_birth) : null,
-      gender: dto.gender ?? null,
-      home_address: dto.home_address ?? null,
-      preferred_communication: dto.preferred_communication as CommunicationMedium,
-      tenant_id: tenantId,
-    });
-
-    const savedStudent = await this.repo.save(student);
 
     // Link guardians
     if (dto.guardian_ids?.length) {
