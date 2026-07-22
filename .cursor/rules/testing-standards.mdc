@@ -58,4 +58,4 @@ The test database must exist before running tests.
 ## Execution
 - Run `yarn test:cov` before any PR to ensure coverage thresholds are met.
 - If coverage drops, either add more tests or justify the drop in code review.
-- Integration and E2E tests must use `--runInBand` (sequential) to avoid database conflicts.
+- Integration and E2E tests must run sequentially (one file at a time) to avoid database conflicts — Vitest's `--runInBand` equivalent is `--no-file-parallelism` (or `test.fileParallelism: false` in config; `server/vitest.config.ts` already enforces this via `poolOptions.threads.singleThread`).

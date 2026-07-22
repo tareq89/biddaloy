@@ -8,6 +8,7 @@ import { Class } from './entities/class.entity';
 import { ClassSection } from './entities/class-section.entity';
 import { School } from '../schools/entities/school.entity';
 import { createTestModule } from '@test/helpers/module.helper';
+import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_TENANT_ID } from '@test/constants';
 
 /**
@@ -23,11 +24,11 @@ describe('AcademicYearService (integration)', () => {
   let dataSource: DataSource;
 
   const TENANT_ID = SEED_TENANT_ID;
-  const OTHER_TENANT = '00000000-0000-0000-0000-000000000099';
+  const OTHER_TENANT = '00000000-0000-4000-8000-000000000099';
 
   beforeAll(async () => {
     const module = await createTestModule(
-      [AcademicYear, Class, ClassSection, School],
+      ALL_ENTITIES,
       [AcademicYearService],
       [],
       { synchronize: true, dropSchema: true },

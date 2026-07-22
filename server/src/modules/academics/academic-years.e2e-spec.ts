@@ -113,13 +113,13 @@ describe("Academic Years E2E", () => {
       expect(res.body.message).toContain("Requires one of roles");
     });
 
-    it("should return 500 for invalid DTO (missing required fields)", async () => {
+    it("should return 400 for invalid DTO (missing required fields)", async () => {
       const res = await supertest(app.getHttpServer())
         .post("/academic-years")
         .set("Authorization", `Bearer ${adminToken}`)
         .set("X-Tenant-ID", TENANT_ID)
         .send({})
-        .expect(500);
+        .expect(400);
     });
   });
 
@@ -196,7 +196,7 @@ describe("Academic Years E2E", () => {
 
     it("should return 404 for a non-existent academic year", async () => {
       const res = await supertest(app.getHttpServer())
-        .get("/academic-years/00000000-0000-0000-0000-000000000000")
+        .get("/academic-years/00000000-0000-4000-8000-000000000000")
         .set("Authorization", `Bearer ${adminToken}`)
         .set("X-Tenant-ID", TENANT_ID)
         .expect(404);

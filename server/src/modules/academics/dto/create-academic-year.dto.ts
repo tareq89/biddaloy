@@ -17,10 +17,10 @@ export class CreateAcademicYearDto {
   name: string;
 
   @IsDateString()
+  @Validate(IsBeforeConstraint, ['end_date'])
   start_date: string;
 
   @IsDateString()
-  @Validate(IsBeforeConstraint, ['end_date'])
   end_date: string;
 
   @IsOptional()

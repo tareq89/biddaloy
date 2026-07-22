@@ -18,7 +18,7 @@ import {
  * Call this in beforeEach() of integration/E2E tests.
  */
 export async function clearTables(): Promise<void> {
-  const { clearTransactionalTables } = await import('../setup.js');
+  const { clearTransactionalTables } = await import('../setup');
   await clearTransactionalTables();
 }
 

@@ -159,7 +159,7 @@ export class FeeStructureService {
   }
 
   async remove(id: string, tenantId: string): Promise<void> {
-    await this.findOne(id, tenantId);
+    const feeStructure = await this.findOne(id, tenantId);
 
     // Check if any student_fees reference this fee structure through FeeStructureStudent
     // Since StudentFee doesn't have fee_structure_id, we check if any payments
@@ -167,13 +167,24 @@ export class FeeStructureService {
     // Instead, check if any FeeStructureStudent records exist (SELECTED) or
     // if any StudentFee records were generated from this fee structure.
     // The simplest approach: check if any student fees exist for this fee structure's
-    // class/academic_year/month combination that have associated payment allocations.
-    const studentFees = await this.studentFeeRepo.find({
-      where: {
-        academic_year_id: (await this.findOne(id, tenantId)).academic_year_id,
-        month: (await this.findOne(id, tenantId)).month,
-      },
-    });
+    // class/section/academic_year/month combination that have associated payment allocations.
+    const studentFeesQuery = this.studentFeeRepo
+      .createQueryBuilder('sf')
+      .innerJoin('sf.student', 'student')
+      .innerJoin('student.class_section', 'cs')
+      .where('sf.academic_year_id = :academicYearId', {
+        academicYearId: feeStructure.academic_year_id,
+      })
+      .andWhere('sf.month = :month', { month: feeStructure.month })
+      .andWhere('cs.class_id = :classId', { classId: feeStructure.class_id });
+
+    if (feeStructure.section_id) {
+      studentFeesQuery.andWhere('cs.id = :sectionId', {
+        sectionId: feeStructure.section_id,
+      });
+    }
+
+    const studentFees = await studentFeesQuery.getMany();
 
     if (studentFees.length > 0) {
       const studentFeeIds = studentFees.map((sf) => sf.id);

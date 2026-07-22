@@ -17,7 +17,15 @@ import { User } from '../users/entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
-import { SEED_TENANT_ID, SEED_CLASS_1_ID, SEED_SECTION_1_ID, SEED_ACADEMIC_YEAR_ID, SEED_ADMIN_USER_ID } from '@test/constants';
+import {
+  SEED_TENANT_ID,
+  SEED_CLASS_1_ID,
+  SEED_SECTION_1_ID,
+  SEED_ACADEMIC_YEAR_ID,
+  SEED_ADMIN_USER_ID,
+  SEED_ADMIN_EMAIL,
+  SEED_ADMIN_PASSWORD_HASH,
+} from '@test/constants';
 import { FeeStatus } from '@beton-boi/shared';
 
 /**
@@ -46,20 +54,28 @@ async function seedReferenceData(ds: DataSource): Promise<void> {
   const classRepo = ds.getRepository(Class);
   const sectionRepo = ds.getRepository(ClassSection);
   const ayRepo = ds.getRepository(AcademicYear);
+  const userRepo = ds.getRepository(User);
 
   await schoolRepo.save(schoolRepo.create({ id: SEED_TENANT_ID, name: 'Test School', slug: 'test-school', tenant_id: SEED_TENANT_ID }));
+  // Seeded so tests can reference SEED_ADMIN_USER_ID as a payment received_by/FK value.
+  await userRepo.save(userRepo.create({
+    id: SEED_ADMIN_USER_ID,
+    email: SEED_ADMIN_EMAIL,
+    password_hash: SEED_ADMIN_PASSWORD_HASH,
+    full_name: 'Test Admin',
+  }));
   await ayRepo.save(ayRepo.create({ id: SEED_ACADEMIC_YEAR_ID, name: '2026-2027', start_date: new Date('2026-01-01'), end_date: new Date('2026-12-31'), is_current: true, tenant_id: SEED_TENANT_ID }));
   await classRepo.save(classRepo.create({ id: SEED_CLASS_1_ID, name: 'Class One', academic_year_id: SEED_ACADEMIC_YEAR_ID, tenant_id: SEED_TENANT_ID }));
   await sectionRepo.save(sectionRepo.create({ id: SEED_SECTION_1_ID, section_name: 'Section A', class_id: SEED_CLASS_1_ID, tenant_id: SEED_TENANT_ID }));
 
-  const OTHER_TENANT_ID = '00000000-0000-0000-0000-000000000099';
+  const OTHER_TENANT_ID = '00000000-0000-4000-8000-000000000099';
   const existingOther = await schoolRepo.findOne({ where: { id: OTHER_TENANT_ID } });
   if (!existingOther) {
     await schoolRepo.save(schoolRepo.create({ id: OTHER_TENANT_ID, name: 'Other School', slug: 'other-school', tenant_id: OTHER_TENANT_ID }));
 
     // Create class + section for OTHER_TENANT so cross-tenant student tests pass FK
-    const OTHER_CLASS_ID = '00000000-0000-0000-0000-000000000098';
-    const OTHER_SECTION_ID = '00000000-0000-0000-0000-000000000097';
+    const OTHER_CLASS_ID = '00000000-0000-4000-8000-000000000098';
+    const OTHER_SECTION_ID = '00000000-0000-4000-8000-000000000097';
     await classRepo.save(classRepo.create({ id: OTHER_CLASS_ID, name: 'Other Class', academic_year_id: SEED_ACADEMIC_YEAR_ID, tenant_id: OTHER_TENANT_ID }));
     await sectionRepo.save(sectionRepo.create({ id: OTHER_SECTION_ID, section_name: 'Other Section A', class_id: OTHER_CLASS_ID, tenant_id: OTHER_TENANT_ID }));
   }
@@ -225,7 +241,7 @@ describe('FeeStructureService (integration)', () => {
         fee_type: 'MONTHLY_TUITION' as any,
         name: 'Invalid Fee',
         amount: 1000,
-        class_id: '00000000-0000-0000-0000-000000000000',
+        class_id: '00000000-0000-4000-8000-000000000000',
         academic_year_id: SEED_ACADEMIC_YEAR_ID,
         month: 1,
       };
@@ -239,7 +255,7 @@ describe('FeeStructureService (integration)', () => {
         name: 'Wrong Section',
         amount: 1000,
         class_id: SEED_CLASS_1_ID,
-        section_id: '00000000-0000-0000-0000-000000000000',
+        section_id: '00000000-0000-4000-8000-000000000000',
         academic_year_id: SEED_ACADEMIC_YEAR_ID,
         month: 1,
       };
@@ -253,7 +269,7 @@ describe('FeeStructureService (integration)', () => {
         name: 'Invalid Fee',
         amount: 1000,
         class_id: SEED_CLASS_1_ID,
-        academic_year_id: '00000000-0000-0000-0000-000000000000',
+        academic_year_id: '00000000-0000-4000-8000-000000000000',
         month: 1,
       };
 
@@ -267,7 +283,7 @@ describe('FeeStructureService (integration)', () => {
           registration_number: 'REG-2026-0001',
           roll_number: 1,
           class_section_id: SEED_SECTION_1_ID,
-          tenant_id: '00000000-0000-0000-0000-000000000099',
+          tenant_id: '00000000-0000-4000-8000-000000000099',
           date_of_birth: new Date('2010-01-01'),
           preferred_communication: 'SMS',
         }),
@@ -376,7 +392,7 @@ describe('FeeStructureService (integration)', () => {
 
     it('should throw NotFoundException when fee structure does not exist', async () => {
       await expect(
-        service.findOne('00000000-0000-0000-0000-000000000000', TENANT_ID),
+        service.findOne('00000000-0000-4000-8000-000000000000', TENANT_ID),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -391,7 +407,7 @@ describe('FeeStructureService (integration)', () => {
       }, TENANT_ID);
 
       await expect(
-        service.findOne(created.id, '00000000-0000-0000-0000-000000000099'),
+        service.findOne(created.id, '00000000-0000-4000-8000-000000000099'),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -518,7 +534,7 @@ describe('FeeStructureService (integration)', () => {
 
     it('should throw NotFoundException when fee structure does not exist', async () => {
       await expect(
-        service.update('00000000-0000-0000-0000-000000000000', { name: 'Nope' }, TENANT_ID),
+        service.update('00000000-0000-4000-8000-000000000000', { name: 'Nope' }, TENANT_ID),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -609,7 +625,7 @@ describe('FeeStructureService (integration)', () => {
 
     it('should throw NotFoundException when fee structure does not exist', async () => {
       await expect(
-        service.remove('00000000-0000-0000-0000-000000000000', TENANT_ID),
+        service.remove('00000000-0000-4000-8000-000000000000', TENANT_ID),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -716,7 +732,7 @@ describe('PaymentService (integration)', () => {
 
     it('should throw NotFoundException when student does not exist', async () => {
       await expect(
-        service.create({ student_id: '00000000-0000-0000-0000-000000000000', total_amount: 500, payment_method: 'CASH' as any }, TENANT_ID),
+        service.create({ student_id: '00000000-0000-4000-8000-000000000000', total_amount: 500, payment_method: 'CASH' as any }, TENANT_ID),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -724,8 +740,8 @@ describe('PaymentService (integration)', () => {
       const student = await studentRepo.save(
         studentRepo.create({
           full_name: 'Other Student', registration_number: 'REG-OTHER-0001', roll_number: 1,
-          class_section_id: '00000000-0000-0000-0000-000000000097', // OTHER_TENANT section
-          tenant_id: '00000000-0000-0000-0000-000000000099',
+          class_section_id: '00000000-0000-4000-8000-000000000097', // OTHER_TENANT section
+          tenant_id: '00000000-0000-4000-8000-000000000099',
           date_of_birth: new Date('2010-01-01'), preferred_communication: 'SMS',
         }),
       );
@@ -762,7 +778,7 @@ describe('PaymentService (integration)', () => {
 
     it('should throw NotFoundException when student does not exist', async () => {
       await expect(
-        service.findByStudent('00000000-0000-0000-0000-000000000000', TENANT_ID),
+        service.findByStudent('00000000-0000-4000-8000-000000000000', TENANT_ID),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -770,8 +786,8 @@ describe('PaymentService (integration)', () => {
       const student = await studentRepo.save(
         studentRepo.create({
           full_name: 'Other Student', registration_number: 'REG-OTHER-0001', roll_number: 1,
-          class_section_id: '00000000-0000-0000-0000-000000000097',
-          tenant_id: '00000000-0000-0000-0000-000000000099',
+          class_section_id: '00000000-0000-4000-8000-000000000097',
+          tenant_id: '00000000-0000-4000-8000-000000000099',
           date_of_birth: new Date('2010-01-01'), preferred_communication: 'SMS',
         }),
       );
@@ -840,7 +856,7 @@ describe('PaymentService (integration)', () => {
 
     it('should throw NotFoundException when student does not exist', async () => {
       await expect(
-        service.getInvoiceSummary('00000000-0000-0000-0000-000000000000', TENANT_ID),
+        service.getInvoiceSummary('00000000-0000-4000-8000-000000000000', TENANT_ID),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -848,8 +864,8 @@ describe('PaymentService (integration)', () => {
       const student = await studentRepo.save(
         studentRepo.create({
           full_name: 'Other Student', registration_number: 'REG-OTHER-0001', roll_number: 1,
-          class_section_id: '00000000-0000-0000-0000-000000000097',
-          tenant_id: '00000000-0000-0000-0000-000000000099',
+          class_section_id: '00000000-0000-4000-8000-000000000097',
+          tenant_id: '00000000-0000-4000-8000-000000000099',
           date_of_birth: new Date('2010-01-01'), preferred_communication: 'SMS',
         }),
       );

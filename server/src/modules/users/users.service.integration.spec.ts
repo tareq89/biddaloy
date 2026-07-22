@@ -3,6 +3,7 @@ import { NotFoundException, ConflictException, BadRequestException } from '@nest
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { UserService, TeacherService } from './users.service';
+import { CreateUserDto } from './dto/users.dto';
 import { User } from './entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
@@ -12,6 +13,7 @@ import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { School } from '../schools/entities/school.entity';
 import { createTestModule } from '@test/helpers/module.helper';
+import { ALL_ENTITIES } from '@test/all-entities';
 import {
   SEED_TENANT_ID,
   SEED_CLASS_1_ID,
@@ -29,7 +31,7 @@ import { UserRole, TeacherDesignation } from '@beton-boi/shared';
  * - Tenant isolation, duplicate detection, and transactional integrity
  */
 
-const OTHER_TENANT = '00000000-0000-0000-0000-000000000099';
+const OTHER_TENANT = '00000000-0000-4000-8000-000000000099';
 
 async function seedReferenceData(ds: DataSource): Promise<void> {
   await ds.query('DELETE FROM teacher_class_sections');
@@ -65,9 +67,9 @@ async function seedReferenceData(ds: DataSource): Promise<void> {
   }));
 
   // Other tenant
-  const OTHER_AY_ID = '00000000-0000-0000-0000-000000000099';
-  const OTHER_CLASS_ID = '00000000-0000-0000-0000-000000000098';
-  const OTHER_SECTION_ID = '00000000-0000-0000-0000-000000000097';
+  const OTHER_AY_ID = '00000000-0000-4000-8000-000000000099';
+  const OTHER_CLASS_ID = '00000000-0000-4000-8000-000000000098';
+  const OTHER_SECTION_ID = '00000000-0000-4000-8000-000000000097';
   await schoolRepo.save(schoolRepo.create({
     id: OTHER_TENANT, name: 'Other School', slug: 'other-school', tenant_id: OTHER_TENANT,
   }));
@@ -96,7 +98,7 @@ describe('UserService (integration)', () => {
 
   beforeAll(async () => {
     const module = await createTestModule(
-      [User, UserTenant, School, Teacher, TeacherClassSection, Class, ClassSection, AcademicYear],
+      ALL_ENTITIES,
       [UserService, TeacherService],
       [],
       { synchronize: true, dropSchema: true },
@@ -269,7 +271,7 @@ describe('UserService (integration)', () => {
 
     it('should throw NotFoundException when user does not exist', async () => {
       await expect(
-        service.findOne('00000000-0000-0000-0000-000000000000', TENANT_ID),
+        service.findOne('00000000-0000-4000-8000-000000000000', TENANT_ID),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -324,7 +326,7 @@ describe('UserService (integration)', () => {
 
     it('should throw NotFoundException when user does not exist', async () => {
       await expect(
-        service.update('00000000-0000-0000-0000-000000000000', { full_name: 'Nope' }, TENANT_ID),
+        service.update('00000000-0000-4000-8000-000000000000', { full_name: 'Nope' }, TENANT_ID),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -333,7 +335,7 @@ describe('UserService (integration)', () => {
   //  remove()
   // ────────────────────────
   describe('remove', () => {
-    it('should soft delete a user', async () => {
+    it('should remove the tenant membership without soft-deleting the global user', async () => {
       const { user } = await service.create(
         { full_name: 'Delete Me', role: UserRole.TEACHER },
         TENANT_ID,
@@ -341,23 +343,20 @@ describe('UserService (integration)', () => {
 
       await service.remove(user.id, TENANT_ID);
 
-      // Should not be found via findOne
+      // Should not be found via findOne (no membership in this tenant)
       await expect(
         service.findOne(user.id, TENANT_ID),
       ).rejects.toThrow(NotFoundException);
 
-      // But should still exist with deleted_at set
-      const raw = await userRepo.findOne({
-        where: { id: user.id },
-        withDeleted: true,
-      });
-      expect(raw).toBeDefined();
-      expect(raw?.deleted_at).not.toBeNull();
+      // Global user record persists, untouched
+      const raw = await userRepo.findOne({ where: { id: user.id } });
+      expect(raw).not.toBeNull();
+      expect(raw?.deleted_at).toBeNull();
     });
 
     it('should throw NotFoundException when user does not exist', async () => {
       await expect(
-        service.remove('00000000-0000-0000-0000-000000000000', TENANT_ID),
+        service.remove('00000000-0000-4000-8000-000000000000', TENANT_ID),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -380,7 +379,7 @@ describe('TeacherService (integration)', () => {
 
   beforeAll(async () => {
     const module = await createTestModule(
-      [User, UserTenant, Teacher, TeacherClassSection, Class, ClassSection, AcademicYear, School],
+      ALL_ENTITIES,
       [UserService, TeacherService],
       [],
       { synchronize: true, dropSchema: true },
@@ -459,7 +458,7 @@ describe('TeacherService (integration)', () => {
     it('should throw NotFoundException when user does not exist', async () => {
       await expect(
         teacherService.create(
-          { user_id: '00000000-0000-0000-0000-000000000000', employee_id: 'EMP-001' },
+          { user_id: '00000000-0000-4000-8000-000000000000', employee_id: 'EMP-001' },
           TENANT_ID,
         ),
       ).rejects.toThrow(NotFoundException);
@@ -524,7 +523,7 @@ describe('TeacherService (integration)', () => {
           {
             user_id: user.id,
             employee_id: 'EMP-004',
-            assigned_section_ids: ['00000000-0000-0000-0000-000000000000'],
+            assigned_section_ids: ['00000000-0000-4000-8000-000000000000'],
           },
           TENANT_ID,
         ),
@@ -622,7 +621,7 @@ describe('TeacherService (integration)', () => {
 
     it('should throw NotFoundException when teacher does not exist', async () => {
       await expect(
-        teacherService.findOne('00000000-0000-0000-0000-000000000000', TENANT_ID),
+        teacherService.findOne('00000000-0000-4000-8000-000000000000', TENANT_ID),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -720,7 +719,7 @@ describe('TeacherService (integration)', () => {
     it('should throw NotFoundException when teacher does not exist', async () => {
       await expect(
         teacherService.update(
-          '00000000-0000-0000-0000-000000000000',
+          '00000000-0000-4000-8000-000000000000',
           { employee_id: 'EMP-001' },
           TENANT_ID,
         ),
@@ -737,7 +736,7 @@ describe('TeacherService (integration)', () => {
       await expect(
         teacherService.update(
           teacher.id,
-          { assigned_section_ids: ['00000000-0000-0000-0000-000000000000'] },
+          { assigned_section_ids: ['00000000-0000-4000-8000-000000000000'] },
           TENANT_ID,
         ),
       ).rejects.toThrow(NotFoundException);

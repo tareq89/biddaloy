@@ -21,8 +21,8 @@ import { SEED_TENANT_ID, SEED_SECTION_1_ID, SEED_ACADEMIC_YEAR_ID } from '@test/
  * and guardian-to-student linking.
  */
 
-const OTHER_TENANT = '00000000-0000-0000-0000-000000000099';
-const OTHER_SECTION_ID = '00000000-0000-0000-0000-000000000097';
+const OTHER_TENANT = '00000000-0000-4000-8000-000000000099';
+const OTHER_SECTION_ID = '00000000-0000-4000-8000-000000000097';
 
 /**
  * Seed reference data required by tests (school, class, class_section).
@@ -77,9 +77,9 @@ async function seedReferenceData(ds: DataSource): Promise<void> {
   }));
 
   // Other tenant reference data (for tenant isolation tests)
-  const OTHER_AY_ID = '00000000-0000-0000-0000-000000000099';
-  const OTHER_CLASS_ID = '00000000-0000-0000-0000-000000000098';
-  const OTHER_SECTION_ID = '00000000-0000-0000-0000-000000000097';
+  const OTHER_AY_ID = '00000000-0000-4000-8000-000000000099';
+  const OTHER_CLASS_ID = '00000000-0000-4000-8000-000000000098';
+  const OTHER_SECTION_ID = '00000000-0000-4000-8000-000000000097';
   await schoolRepo.save(schoolRepo.create({
     id: OTHER_TENANT,
     name: 'Other School',
@@ -116,7 +116,7 @@ describe('StudentService (integration)', () => {
   let dataSource: DataSource;
 
   const TENANT_ID = SEED_TENANT_ID;
-  const OTHER_TENANT = '00000000-0000-0000-0000-000000000099';
+  const OTHER_TENANT = '00000000-0000-4000-8000-000000000099';
 
   beforeAll(async () => {
     const module = await createTestModule(
@@ -193,7 +193,7 @@ describe('StudentService (integration)', () => {
     it('should throw NotFoundException when class_section is invalid', async () => {
       const dto = {
         full_name: 'John Doe',
-        class_section_id: '00000000-0000-0000-0000-000000000000',
+        class_section_id: '00000000-0000-4000-8000-000000000000',
       };
 
       await expect(
@@ -374,7 +374,7 @@ describe('GuardianService (integration)', () => {
   let dataSource: DataSource;
 
   const TENANT_ID = SEED_TENANT_ID;
-  const OTHER_TENANT = '00000000-0000-0000-0000-000000000099';
+  const OTHER_TENANT = '00000000-0000-4000-8000-000000000099';
 
   beforeAll(async () => {
     const module = await createTestModule(

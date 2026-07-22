@@ -8,4 +8,4 @@
 export * from './helpers/auth.helper';
 export * from './helpers/db.helper';
 export * from './helpers/module.helper';
-export { dataSource } from './setup.js';
+export { dataSource } from './setup';

@@ -98,13 +98,13 @@ describe('Classes & Sections E2E', () => {
       expect(res.body.message).toContain('Requires one of roles');
     });
 
-    it('should return 500 for invalid DTO (missing required fields)', async () => {
+    it('should return 400 for invalid DTO (missing required fields)', async () => {
       const res = await supertest(app.getHttpServer())
         .post('/classes')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({})
-        .expect(500);
+        .expect(400);
     });
   });
 
@@ -144,7 +144,7 @@ describe('Classes & Sections E2E', () => {
 
     it('should return 404 for a non-existent class', async () => {
       const res = await supertest(app.getHttpServer())
-        .get('/classes/00000000-0000-0000-0000-000000000000')
+        .get('/classes/00000000-0000-4000-8000-000000000000')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .expect(404);
@@ -217,7 +217,7 @@ describe('Classes & Sections E2E', () => {
       expect(res.body.tenant_id).toBe(TENANT_ID);
     });
 
-    it('should return 500 for invalid DTO (missing section_name)', async () => {
+    it('should return 400 for invalid DTO (missing section_name)', async () => {
       const classRes = await supertest(app.getHttpServer())
         .post('/classes')
         .set('Authorization', `Bearer ${adminToken}`)
@@ -230,7 +230,7 @@ describe('Classes & Sections E2E', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({})
-        .expect(500);
+        .expect(400);
     });
   });
 

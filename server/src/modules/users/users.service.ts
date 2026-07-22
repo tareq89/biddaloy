@@ -94,25 +94,47 @@ export class UserService {
     };
   }
 
-  async findOne(id: string, _tenantId: string): Promise<User> {
+  async findOne(id: string, tenantId: string): Promise<User> {
     const user = await this.userRepo.findOne({
       where: { id, deleted_at: IsNull() },
+      relations: ['user_tenants'],
     });
     if (!user) {
       throw new NotFoundException(`User with ID "${id}" not found`);
     }
+
+    // Verify user has a membership in this tenant
+    const membership = user.user_tenants?.find(
+      (ut) => ut.tenant_id === tenantId,
+    );
+    if (!membership) {
+      throw new NotFoundException(`User with ID "${id}" not found`);
+    }
+
     return user;
   }
 
-  async update(id: string, dto: UpdateUserDto, _tenantId: string): Promise<User> {
-    await this.findOne(id, _tenantId);
-    await this.userRepo.update({ id }, dto);
-    return this.findOne(id, _tenantId);
+  async update(id: string, dto: UpdateUserDto, tenantId: string): Promise<User> {
+    await this.findOne(id, tenantId);
+
+    // Update user-level fields (shared across tenants)
+    const updateData: any = {};
+    if (dto.email !== undefined) updateData.email = dto.email;
+    if (dto.phone !== undefined) updateData.phone = dto.phone;
+    if (dto.full_name !== undefined) updateData.full_name = dto.full_name;
+    if (dto.profile_picture_url !== undefined) updateData.profile_picture_url = dto.profile_picture_url;
+    if (Object.keys(updateData).length > 0) {
+      await this.userRepo.update({ id }, updateData);
+    }
+
+    return this.findOne(id, tenantId);
   }
 
-  async remove(id: string, _tenantId: string): Promise<void> {
-    await this.findOne(id, _tenantId);
-    await this.userRepo.softDelete({ id });
+  async remove(id: string, tenantId: string): Promise<void> {
+    await this.findOne(id, tenantId);
+
+    // Remove only the tenant membership, not the global user record
+    await this.userTenantRepo.delete({ user_id: id, tenant_id: tenantId });
   }
 }
 

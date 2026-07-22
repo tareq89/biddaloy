@@ -1,5 +1,5 @@
 import { plainToInstance } from "class-transformer";
-import { IsNotEmpty, IsString, validateSync } from "class-validator";
+import { IsNotEmpty, IsOptional, IsString, validateSync } from "class-validator";
 
 class EnvironmentVariables {
   @IsString()
@@ -10,6 +10,7 @@ class EnvironmentVariables {
   @IsNotEmpty()
   JWT_SECRET!: string;
 
+  @IsOptional()
   @IsString()
   PORT?: string;
 }

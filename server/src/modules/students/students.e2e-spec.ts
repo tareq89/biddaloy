@@ -116,20 +116,20 @@ describe('Students E2E', () => {
         .set('X-Tenant-ID', TENANT_ID)
         .send({
           ...createStudentPayload,
-          class_section_id: '00000000-0000-0000-0000-000000000000',
+          class_section_id: '00000000-0000-4000-8000-000000000000',
         })
         .expect(404);
 
       expect(res.body.message).toContain('Class section with ID');
     });
 
-    it('should return 500 for invalid DTO (missing required fields)', async () => {
+    it('should return 400 for invalid DTO (missing required fields)', async () => {
       const res = await supertest(app.getHttpServer())
         .post('/students')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({}) // Empty body
-        .expect(500);
+        .expect(400);
     });
   });
 
@@ -170,7 +170,7 @@ describe('Students E2E', () => {
 
     it('should return 404 for a non-existent student', async () => {
       const res = await supertest(app.getHttpServer())
-        .get('/students/00000000-0000-0000-0000-000000000000')
+        .get('/students/00000000-0000-4000-8000-000000000000')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .expect(404);
@@ -290,7 +290,7 @@ describe('Students E2E', () => {
 
       // Create a second tenant and user-tenant (for cross-tenant test)
       // This simulates an admin from a different school
-      const OTHER_TENANT_ID = '00000000-0000-0000-0000-000000000099';
+      const OTHER_TENANT_ID = '00000000-0000-4000-8000-000000000099';
       await dataSource.query(
         `INSERT INTO schools (id, name, slug, created_at, updated_at)
          VALUES ('${OTHER_TENANT_ID}', 'Other School', 'other-school', NOW(), NOW())

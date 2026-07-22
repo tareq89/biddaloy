@@ -1,11 +1,15 @@
 import { defineConfig } from 'vitest/config';
 import { resolve } from 'path';
+import swc from 'unplugin-swc';
 
 /**
  * Vitest configuration for unit tests.
  * No database setup — these tests use mocked repositories.
  */
 export default defineConfig({
+  // See vitest.config.ts — SWC is needed so NestJS decorator metadata
+  // (emitDecoratorMetadata) is actually emitted under Vitest.
+  plugins: [swc.vite()],
   test: {
     include: ['src/**/*.spec.ts'],
     exclude: ['src/**/*.integration.spec.ts', 'src/**/*.e2e-spec.ts'],
@@ -16,7 +20,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],
-      include: ['src/modules/auth/**/*.ts'],
+      include: ['src/**/*.ts'],
       exclude: [
         'src/main.ts',
         'src/**/*.module.ts',

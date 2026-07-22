@@ -13,6 +13,7 @@ import { Guardian } from '../students/entities/guardian.entity';
 import { User } from '../users/entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { createTestModule } from '@test/helpers/module.helper';
+import { ALL_ENTITIES } from '@test/all-entities';
 import {
   SEED_TENANT_ID,
   SEED_CLASS_1_ID,
@@ -32,7 +33,7 @@ import { EnrollmentStatus } from '@beton-boi/shared';
  * - Default ACTIVE enrollment_status and enrolled_at timestamp
  */
 
-const OTHER_TENANT = '00000000-0000-0000-0000-000000000099';
+const OTHER_TENANT = '00000000-0000-4000-8000-000000000099';
 
 /**
  * Seed reference data: school, academic year, class, class_section,
@@ -84,9 +85,9 @@ async function seedReferenceData(ds: DataSource): Promise<void> {
   }));
 
   // Other tenant reference data
-  const OTHER_AY_ID = '00000000-0000-0000-0000-000000000099';
-  const OTHER_CLASS_ID = '00000000-0000-0000-0000-000000000098';
-  const OTHER_SECTION_ID = '00000000-0000-0000-0000-000000000097';
+  const OTHER_AY_ID = '00000000-0000-4000-8000-000000000099';
+  const OTHER_CLASS_ID = '00000000-0000-4000-8000-000000000098';
+  const OTHER_SECTION_ID = '00000000-0000-4000-8000-000000000097';
   await schoolRepo.save(schoolRepo.create({
     id: OTHER_TENANT,
     name: 'Other School',
@@ -128,7 +129,7 @@ describe('EnrollmentService (integration)', () => {
 
   beforeAll(async () => {
     const module = await createTestModule(
-      [Enrollment, Student, Guardian, Class, ClassSection, AcademicYear, School, User, UserTenant],
+      ALL_ENTITIES,
       [EnrollmentService],
       [],
       { synchronize: true, dropSchema: true },
@@ -226,7 +227,7 @@ describe('EnrollmentService (integration)', () => {
       await expect(
         service.create(
           {
-            student_id: '00000000-0000-0000-0000-000000000000',
+            student_id: '00000000-0000-4000-8000-000000000000',
             class_id: SEED_CLASS_1_ID,
             academic_year_id: SEED_ACADEMIC_YEAR_ID,
           },
@@ -242,7 +243,7 @@ describe('EnrollmentService (integration)', () => {
           full_name: 'Other Tenant Student',
           registration_number: 'REG-OTHER-0001',
           roll_number: 1,
-          class_section_id: '00000000-0000-0000-0000-000000000097',
+          class_section_id: '00000000-0000-4000-8000-000000000097',
           tenant_id: OTHER_TENANT,
           date_of_birth: new Date('2010-01-01'),
           gender: 'MALE',
@@ -270,7 +271,7 @@ describe('EnrollmentService (integration)', () => {
         service.create(
           {
             student_id: student.id,
-            class_id: '00000000-0000-0000-0000-000000000000',
+            class_id: '00000000-0000-4000-8000-000000000000',
             academic_year_id: SEED_ACADEMIC_YEAR_ID,
           },
           TENANT_ID,
@@ -286,7 +287,7 @@ describe('EnrollmentService (integration)', () => {
           {
             student_id: student.id,
             class_id: SEED_CLASS_1_ID,
-            academic_year_id: '00000000-0000-0000-0000-000000000000',
+            academic_year_id: '00000000-0000-4000-8000-000000000000',
           },
           TENANT_ID,
         ),
@@ -301,7 +302,7 @@ describe('EnrollmentService (integration)', () => {
           {
             student_id: student.id,
             class_id: SEED_CLASS_1_ID,
-            section_id: '00000000-0000-0000-0000-000000000000',
+            section_id: '00000000-0000-4000-8000-000000000000',
             academic_year_id: SEED_ACADEMIC_YEAR_ID,
           },
           TENANT_ID,
@@ -447,7 +448,7 @@ describe('EnrollmentService (integration)', () => {
 
     it('should throw NotFoundException when student does not exist', async () => {
       await expect(
-        service.findByStudent('00000000-0000-0000-0000-000000000000', TENANT_ID),
+        service.findByStudent('00000000-0000-4000-8000-000000000000', TENANT_ID),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -457,7 +458,7 @@ describe('EnrollmentService (integration)', () => {
           full_name: 'Other Tenant Student',
           registration_number: 'REG-OTHER-0001',
           roll_number: 1,
-          class_section_id: '00000000-0000-0000-0000-000000000097',
+          class_section_id: '00000000-0000-4000-8000-000000000097',
           tenant_id: OTHER_TENANT,
           date_of_birth: new Date('2010-01-01'),
           gender: 'MALE',
@@ -549,7 +550,7 @@ describe('EnrollmentService (integration)', () => {
 
     it('should throw NotFoundException when student does not exist', async () => {
       await expect(
-        service.findCurrentByStudent('00000000-0000-0000-0000-000000000000', TENANT_ID),
+        service.findCurrentByStudent('00000000-0000-4000-8000-000000000000', TENANT_ID),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -559,7 +560,7 @@ describe('EnrollmentService (integration)', () => {
           full_name: 'Other Tenant Student',
           registration_number: 'REG-OTHER-0001',
           roll_number: 1,
-          class_section_id: '00000000-0000-0000-0000-000000000097',
+          class_section_id: '00000000-0000-4000-8000-000000000097',
           tenant_id: OTHER_TENANT,
           date_of_birth: new Date('2010-01-01'),
           gender: 'MALE',
@@ -635,7 +636,7 @@ describe('EnrollmentService (integration)', () => {
     it('should throw NotFoundException when enrollment does not exist', async () => {
       await expect(
         service.update(
-          '00000000-0000-0000-0000-000000000000',
+          '00000000-0000-4000-8000-000000000000',
           { enrollment_status: EnrollmentStatus.TRANSFERRED },
           TENANT_ID,
         ),
@@ -668,7 +669,7 @@ describe('EnrollmentService (integration)', () => {
       await expect(
         service.update(
           enrollment.id,
-          { section_id: '00000000-0000-0000-0000-000000000000' },
+          { section_id: '00000000-0000-4000-8000-000000000000' },
           TENANT_ID,
         ),
       ).rejects.toThrow(NotFoundException);
