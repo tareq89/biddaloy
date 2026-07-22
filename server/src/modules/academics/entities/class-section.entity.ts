@@ -4,11 +4,13 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   ManyToOne,
   JoinColumn,
   Index,
 } from 'typeorm';
 import { Class } from './class.entity';
+import { School } from '../../schools/entities/school.entity';
 
 /**
  * A division within a class (e.g., "Section A", "Morning Batch").
@@ -17,13 +19,16 @@ import { Class } from './class.entity';
  * in the same class).
  *
  * Relations:
+ * - @ManyToOne → School: the tenant this section belongs to
  * - @ManyToOne → Class: the parent class
  * - Referenced-by → Student: students are enrolled in a specific section
  * - Referenced-by → FeeStructure: fees can be configured per-section
  * - Referenced-by → Teacher (via teacher_class_sections): teachers assigned to sections
  */
 @Entity('class_sections')
-@Index(['class_id', 'section_name'], { unique: true })
+@Index(['class_id', 'section_name'], { unique: true, where: '"deleted_at" IS NULL' })
+@Index(['class_id', 'tenant_id'])
+@Index(['tenant_id'])
 export class ClassSection {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -38,9 +43,22 @@ export class ClassSection {
   @Column({ type: 'varchar', length: 20 })
   section_name: string;
 
+  @Column({ type: 'int', nullable: true })
+  capacity: number | null;
+
+  @ManyToOne(() => School, { nullable: false, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'tenant_id' })
+  tenant: School;
+
+  @Column({ type: 'uuid' })
+  tenant_id: string;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 
   @UpdateDateColumn({ type: 'timestamptz' })
   updated_at: Date;
+
+  @DeleteDateColumn({ type: 'timestamptz', nullable: true })
+  deleted_at: Date | null;
 }

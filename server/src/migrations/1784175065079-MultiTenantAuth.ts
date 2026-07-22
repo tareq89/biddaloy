@@ -27,8 +27,8 @@ export class MultiTenantAuth1784175065079 implements MigrationInterface {
         // Move each user's role to user_tenants
         await queryRunner.query(`
             INSERT INTO "user_tenants" ("user_id", "tenant_id", "role")
-            SELECT "id", '${schoolId}', "role" FROM "users"
-        `);
+            SELECT "id", $1, "role"::text::"public"."user_tenants_role_enum" FROM "users"
+        `, [schoolId]);
 
         // 5. Remove role column from users
         await queryRunner.query(`ALTER TABLE "users" DROP COLUMN "role"`);
@@ -41,7 +41,7 @@ export class MultiTenantAuth1784175065079 implements MigrationInterface {
 
         // 2. Restore role from user_tenants (take the first role per user)
         await queryRunner.query(`
-            UPDATE "users" SET "role" = ut."role"
+            UPDATE "users" SET "role" = ut."role"::text::"public"."users_role_enum"
             FROM (
                 SELECT DISTINCT ON ("user_id") "user_id", "role"
                 FROM "user_tenants"

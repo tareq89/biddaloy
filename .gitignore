@@ -65,6 +65,13 @@ web_modules/
 # Yarn Integrity file
 .yarn-integrity
 
+# Compiled output of server/test/**/*.ts — vitest transforms .ts directly,
+# committing these creates stale twins that Vite's resolver prefers over source
+server/test/**/*.js
+server/test/**/*.js.map
+server/test/**/*.d.ts
+server/test/**/*.d.ts.map
+
 # dotenv environment variable files
 .env
 .env.*

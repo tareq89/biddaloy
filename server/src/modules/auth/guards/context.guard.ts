@@ -1,4 +1,4 @@
-import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, Inject } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtPayload, JwtMembership } from '@beton-boi/shared';
 import { ROLES_KEY } from '../decorators/roles.decorator';
@@ -59,7 +59,7 @@ function resolveRole(
  */
 @Injectable()
 export class ContextGuard implements CanActivate {
-  constructor(private readonly reflector: Reflector) {}
+  constructor(@Inject(Reflector) private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest();
@@ -105,7 +105,7 @@ export class ContextGuard implements CanActivate {
  */
 @Injectable()
 export class RolesGuard implements CanActivate {
-  constructor(private readonly reflector: Reflector) {}
+  constructor(@Inject(Reflector) private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
     const requiredRoles = this.reflector.getAllAndOverride<string[]>(ROLES_KEY, [

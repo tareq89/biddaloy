@@ -14,6 +14,7 @@ import {
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { ClassSection } from '../../academics/entities/class-section.entity';
+import { School } from '../../schools/entities/school.entity';
 import { Guardian } from './guardian.entity';
 import { CommunicationMedium, EnrollmentStatus } from '@beton-boi/shared';
 
@@ -25,6 +26,7 @@ import { CommunicationMedium, EnrollmentStatus } from '@beton-boi/shared';
  * (parents) and optionally have a User account for self-service login.
  *
  * Relations:
+ * - @ManyToOne → School: the tenant this student belongs to
  * - @OneToOne → User (optional): login account for student self-service
  * - @ManyToOne → ClassSection: the class + section the student belongs to
  * - @ManyToMany → Guardian (via student_guardians): parents/guardians
@@ -36,6 +38,7 @@ import { CommunicationMedium, EnrollmentStatus } from '@beton-boi/shared';
  */
 @Entity('students')
 @Index(['class_section_id', 'roll_number'], { unique: true })
+@Index(['tenant_id', 'registration_number'], { unique: true })
 export class Student {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -50,7 +53,7 @@ export class Student {
   @Column({ type: 'varchar', length: 100 })
   full_name: string;
 
-  @Column({ type: 'varchar', length: 50, unique: true })
+  @Column({ type: 'varchar', length: 50 })
   registration_number: string;
 
   @Column({ type: 'int' })
@@ -63,8 +66,8 @@ export class Student {
   @Column({ type: 'uuid' })
   class_section_id: string;
 
-  @Column({ type: 'date' })
-  date_of_birth: Date;
+  @Column({ type: 'date', nullable: true })
+  date_of_birth: Date | null;
 
   @Column({ type: 'varchar', length: 10, nullable: true })
   gender: string | null;
@@ -85,6 +88,13 @@ export class Student {
 
   @Column({ type: 'enum', enum: EnrollmentStatus, default: EnrollmentStatus.ACTIVE })
   enrollment_status: EnrollmentStatus;
+
+  @ManyToOne(() => School, { nullable: false, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'tenant_id' })
+  tenant: School;
+
+  @Column({ type: 'uuid' })
+  tenant_id: string;
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;

@@ -4,10 +4,14 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   OneToOne,
   JoinColumn,
+  ManyToOne,
+  Index,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
+import { School } from '../../schools/entities/school.entity';
 import { TeacherDesignation } from '@beton-boi/shared';
 
 /**
@@ -18,10 +22,12 @@ import { TeacherDesignation } from '@beton-boi/shared';
  * designations (e.g., both CLASS_TEACHER and SUBJECT_TEACHER).
  *
  * Relations:
+ * - @ManyToOne → School: the tenant this teacher belongs to
  * - @OneToOne → User (user): the login account (CASCADE delete — removing user removes teacher)
  * - @ManyToMany → ClassSection (via teacher_class_sections): sections the teacher is assigned to
  */
 @Entity('teachers')
+@Index(['tenant_id'])
 export class Teacher {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -45,9 +51,19 @@ export class Teacher {
   @Column({ type: 'date', nullable: true })
   joining_date: Date | null;
 
+  @ManyToOne(() => School, { nullable: false, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'tenant_id' })
+  tenant: School;
+
+  @Column({ type: 'uuid' })
+  tenant_id: string;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 
   @UpdateDateColumn({ type: 'timestamptz' })
   updated_at: Date;
+
+  @DeleteDateColumn({ type: 'timestamptz', nullable: true })
+  deleted_at: Date | null;
 }

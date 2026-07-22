@@ -5,6 +5,12 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { AppController } from "./app.controller";
 import { HealthModule } from "./modules/health/health.module";
 import { AuthModule } from "./modules/auth/auth.module";
+import { AcademicYearModule } from "./modules/academics/academic-year.module";
+import { ClassModule } from "./modules/classes/classes.module";
+import { EnrollmentModule } from "./modules/enrollments/enrollments.module";
+import { UserModule } from "./modules/users/users.module";
+import { StudentModule } from "./modules/students/students.module";
+import { FeeModule } from "./modules/fees/fees.module";
 import { validate } from "./config/env.validation";
 
 // Entities for auto-loading
@@ -26,6 +32,8 @@ import { Invoice } from "./modules/invoices/entities/invoice.entity";
 import { CommunicationLog } from "./modules/communications/entities/communication-log.entity";
 import { ReminderBatch } from "./modules/communications/entities/reminder-batch.entity";
 import { AuditLog } from "./modules/audit/entities/audit-log.entity";
+import { Enrollment } from "./modules/students/entities/enrollment.entity";
+import { TeacherClassSection } from "./modules/academics/entities/teacher-class-section.entity";
 
 @Module({
   imports: [
@@ -59,6 +67,8 @@ import { AuditLog } from "./modules/audit/entities/audit-log.entity";
           CommunicationLog,
           ReminderBatch,
           AuditLog,
+          Enrollment,
+          TeacherClassSection,
         ],
         synchronize: config.get<string>("DB_SYNCHRONIZE") === "true",
         logging: config.get<string>("NODE_ENV") !== "production",
@@ -68,6 +78,12 @@ import { AuditLog } from "./modules/audit/entities/audit-log.entity";
     }),
     HealthModule,
     AuthModule,
+    AcademicYearModule,
+    ClassModule,
+    EnrollmentModule,
+    UserModule,
+    StudentModule,
+    FeeModule,
   ],
   controllers: [AppController],
 })

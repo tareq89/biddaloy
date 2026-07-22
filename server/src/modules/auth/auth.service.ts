@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Inject, Optional } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -6,6 +6,7 @@ import * as bcrypt from 'bcrypt';
 import { User } from '../users/entities/user.entity';
 import { UserTenant } from './entities/user-tenant.entity';
 import { JwtPayload, JwtMembership, LoginResponse } from '@beton-boi/shared';
+import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Injectable()
 export class AuthService {
@@ -14,7 +15,10 @@ export class AuthService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(UserTenant)
     private readonly userTenantRepository: Repository<UserTenant>,
-    private readonly jwtService: JwtService,
+    @Inject(JwtService) private readonly jwtService: JwtService,
+    // Inject JwtStrategy to force eager creation — PassportModule needs it
+    // to discover the strategy for AuthGuard('jwt').
+    @Optional() @Inject(JwtStrategy) private readonly _jwtStrategy?: JwtStrategy,
   ) {}
 
   async validateUser(emailOrPhone: string, password: string): Promise<User | null> {
