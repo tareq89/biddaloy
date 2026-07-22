@@ -15,9 +15,17 @@
     "dev:server": "yarn workspace @beton-boi/server start:dev",
     "dev:client-student": "yarn workspace @beton-boi/client-student dev",
     "lint": "yarn workspace @beton-boi/server lint",
-    "test": "yarn workspace @beton-boi/server test"
+    "test": "yarn workspace @beton-boi/server test",
+    "test:cov": "yarn workspace @beton-boi/server test:cov",
+    "test:unit": "yarn workspace @beton-boi/server test:unit",
+    "test:integration": "yarn workspace @beton-boi/server test:integration",
+    "test:e2e": "yarn workspace @beton-boi/server test:e2e",
+    "test:file": "yarn workspace @beton-boi/server test:file"
   },
   "devDependencies": {
-    "@types/bcrypt": "^6.0.0"
+    "@types/bcrypt": "^6.0.0",
+    "@types/supertest": "^7.2.1",
+    "@vitest/coverage-v8": "3",
+    "supertest": "^7.2.2"
   }
 }

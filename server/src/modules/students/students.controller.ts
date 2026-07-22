@@ -9,6 +9,7 @@ import {
   Query,
   UseGuards,
   UnauthorizedException,
+  Inject,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
@@ -30,8 +31,8 @@ import { UserRole, JwtPayload } from '@beton-boi/shared';
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard)
 export class StudentController {
   constructor(
-    private readonly studentService: StudentService,
-    private readonly guardianService: GuardianService,
+    @Inject(StudentService) private readonly studentService: StudentService,
+    @Inject(GuardianService) private readonly guardianService: GuardianService,
   ) {}
 
   // --- Student endpoints ---

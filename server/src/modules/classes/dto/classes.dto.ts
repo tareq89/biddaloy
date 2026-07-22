@@ -1,7 +1,8 @@
-import { IsString, IsUUID, IsOptional, IsInt, Min, MaxLength } from 'class-validator';
+import { IsString, IsUUID, IsOptional, IsInt, Min, MaxLength, IsNotEmpty } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateClassDto {
+  @IsNotEmpty()
   @IsString()
   @MaxLength(50)
   name: string;
@@ -10,6 +11,7 @@ export class CreateClassDto {
   @IsInt()
   numeric_grade?: number;
 
+  @IsNotEmpty()
   @IsUUID()
   academic_year_id: string;
 }
@@ -44,6 +46,7 @@ export class QueryClassDto {
 }
 
 export class CreateSectionDto {
+  @IsNotEmpty()
   @IsString()
   @MaxLength(20)
   section_name: string;

@@ -4,11 +4,12 @@ import { User } from './entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
+import { ClassSection } from '../academics/entities/class-section.entity';
 import { UserService, TeacherService } from './users.service';
 import { UserController } from './users.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, UserTenant, Teacher, TeacherClassSection])],
+  imports: [TypeOrmModule.forFeature([User, UserTenant, Teacher, TeacherClassSection, ClassSection])],
   providers: [UserService, TeacherService],
   controllers: [UserController],
   exports: [UserService, TeacherService],

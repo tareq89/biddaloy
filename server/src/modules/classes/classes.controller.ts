@@ -9,6 +9,7 @@ import {
   Query,
   UseGuards,
   ParseUUIDPipe,
+  Inject,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
@@ -28,8 +29,8 @@ import { UserRole } from '@beton-boi/shared';
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard)
 export class ClassController {
   constructor(
-    private readonly classService: ClassService,
-    private readonly sectionService: SectionService,
+    @Inject(ClassService) private readonly classService: ClassService,
+    @Inject(SectionService) private readonly sectionService: SectionService,
   ) {}
 
   // --- Class endpoints ---

@@ -55,6 +55,7 @@ export class StudentService {
       // Generate registration number with pessimistic lock
       const lastStudent = await studentRepo
         .createQueryBuilder('s')
+        .withDeleted()
         .where('s.tenant_id = :tenantId', { tenantId })
         .andWhere('s.registration_number LIKE :pattern', { pattern: `REG-${currentYear}-%` })
         .orderBy('s.registration_number', 'DESC')

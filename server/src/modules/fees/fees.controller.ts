@@ -8,6 +8,7 @@ import {
   Param,
   Query,
   UseGuards,
+  Inject,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
@@ -29,8 +30,8 @@ import { JwtPayload } from '@beton-boi/shared';
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard)
 export class FeeController {
   constructor(
-    private readonly feeStructureService: FeeStructureService,
-    private readonly paymentService: PaymentService,
+    @Inject(FeeStructureService) private readonly feeStructureService: FeeStructureService,
+    @Inject(PaymentService) private readonly paymentService: PaymentService,
   ) {}
 
   // --- Fee Structure endpoints ---

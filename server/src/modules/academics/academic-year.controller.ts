@@ -8,6 +8,7 @@ import {
   Param,
   Query,
   UseGuards,
+  Inject,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
@@ -22,7 +23,9 @@ import { UserRole } from '@beton-boi/shared';
 @Controller('academic-years')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard)
 export class AcademicYearController {
-  constructor(private readonly service: AcademicYearService) {}
+  constructor(
+    @Inject(AcademicYearService) private readonly service: AcademicYearService,
+  ) {}
 
   @Post()
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)

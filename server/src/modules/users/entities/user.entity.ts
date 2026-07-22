@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, Index } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, Index, OneToMany } from "typeorm";
+import { UserTenant } from "../../auth/entities/user-tenant.entity";
 import { UserStatus } from "@beton-boi/shared";
 
 /**
@@ -29,6 +30,9 @@ import { UserStatus } from "@beton-boi/shared";
 export class User {
   @PrimaryGeneratedColumn("uuid")
   id: string;
+
+  @OneToMany(() => UserTenant, (ut) => ut.user)
+  user_tenants: UserTenant[];
 
   @Column({ type: "varchar", length: 100, unique: true, nullable: true })
   email: string | null;
