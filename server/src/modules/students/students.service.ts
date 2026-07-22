@@ -83,7 +83,7 @@ export class StudentService {
       registration_number: regNumber,
       roll_number: rollNumber,
       class_section_id: dto.class_section_id,
-      date_of_birth: dto.date_of_birth ? new Date(dto.date_of_birth) : new Date(),
+      date_of_birth: dto.date_of_birth ? new Date(dto.date_of_birth) : null,
       gender: dto.gender ?? null,
       home_address: dto.home_address ?? null,
       preferred_communication: dto.preferred_communication as CommunicationMedium,
@@ -117,8 +117,8 @@ export class StudentService {
 
     const where: any = { tenant_id: tenantId, deleted_at: IsNull() };
 
-    if (query.class_id) where.class_section_id = query.class_id;
-    if (query.section_id) where.section_id = query.section_id;
+    if (query.class_id) where.class_section = { class_id: query.class_id };
+    if (query.section_id) where.class_section_id = query.section_id;
     if (query.enrollment_status) where.enrollment_status = query.enrollment_status;
 
     const [data, total] = await this.repo.findAndCount({

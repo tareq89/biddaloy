@@ -81,32 +81,36 @@ export class AddTenantIsolationAndEnrollments1784175065080 implements MigrationI
             "academic_year_id" uuid NOT NULL,
             "enrollment_status" "public"."enrollments_status_enum" NOT NULL DEFAULT 'ACTIVE',
             "enrolled_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+            "tenant_id" uuid NOT NULL,
             "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
             "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
             CONSTRAINT "PK_enrollments" PRIMARY KEY ("id")
         )`);
         await queryRunner.query(`CREATE INDEX "IDX_enrollments_student" ON "enrollments" ("student_id") `);
         await queryRunner.query(`CREATE INDEX "IDX_enrollments_academic_year" ON "enrollments" ("academic_year_id") `);
+        await queryRunner.query(`CREATE INDEX "IDX_enrollments_tenant" ON "enrollments" ("tenant_id") `);
         await queryRunner.query(`ALTER TABLE "enrollments" ADD CONSTRAINT "FK_enr_student" FOREIGN KEY ("student_id") REFERENCES "students"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE "enrollments" ADD CONSTRAINT "FK_enr_class" FOREIGN KEY ("class_id") REFERENCES "classes"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE "enrollments" ADD CONSTRAINT "FK_enr_section" FOREIGN KEY ("section_id") REFERENCES "class_sections"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE "enrollments" ADD CONSTRAINT "FK_enr_academic_year" FOREIGN KEY ("academic_year_id") REFERENCES "academic_years"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "enrollments" ADD CONSTRAINT "FK_enr_tenant" FOREIGN KEY ("tenant_id") REFERENCES "schools"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
         await queryRunner.query(`CREATE UNIQUE INDEX "IDX_enr_active_student_year" ON "enrollments" ("student_id", "academic_year_id") WHERE enrollment_status = 'ACTIVE'`);
 
         // 19. Update unique indexes to include tenant_id for multi-tenant safety
-        // Academic years: name + tenant_id unique instead of globally unique
+        // Academic years: name + tenant_id unique, exclude soft-deleted
         await queryRunner.query(`DROP INDEX "public"."IDX_645d0f115fa85aaecffdc11cba"`);
-        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_ay_name_tenant" ON "academic_years" ("name", "tenant_id")`);
+        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_ay_name_tenant" ON "academic_years" ("name", "tenant_id") WHERE "deleted_at" IS NULL`);
 
         // Classes: name + academic_year_id + tenant_id unique
         await queryRunner.query(`DROP INDEX "public"."IDX_94109a89dd3240577e832b96df"`);
         await queryRunner.query(`CREATE UNIQUE INDEX "IDX_cl_name_year_tenant" ON "classes" ("name", "academic_year_id", "tenant_id")`);
 
-        // Class sections: class_id + section_name still unique (class_id is unique enough)
+        // Class sections: class_id + section_name unique, exclude soft-deleted
+        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_cs_name_class" ON "class_sections" ("class_id", "section_name") WHERE "deleted_at" IS NULL`);
 
-        // 20. Update the is_current partial index to include tenant_id
+        // 20. Update the is_current partial index to include tenant_id and exclude soft-deleted
         await queryRunner.query(`DROP INDEX "public"."IDX_12a99ca8a701651b6ff5d6612e"`);
-        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_ay_is_current_tenant" ON "academic_years" ("is_current", "tenant_id") WHERE is_current = true`);
+        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_ay_is_current_tenant" ON "academic_years" ("is_current", "tenant_id") WHERE is_current = true AND "deleted_at" IS NULL`);
 
         // 21. Set tenant_id on existing records (migrate to first school if exists)
         await queryRunner.query(`
@@ -155,12 +159,14 @@ export class AddTenantIsolationAndEnrollments1784175065080 implements MigrationI
 
     public async down(queryRunner: QueryRunner): Promise<void> {
         // Drop enrollments table
+        await queryRunner.query(`ALTER TABLE "enrollments" DROP CONSTRAINT "FK_enr_tenant"`);
         await queryRunner.query(`ALTER TABLE "enrollments" DROP CONSTRAINT "FK_enr_academic_year"`);
         await queryRunner.query(`ALTER TABLE "enrollments" DROP CONSTRAINT "FK_enr_section"`);
         await queryRunner.query(`ALTER TABLE "enrollments" DROP CONSTRAINT "FK_enr_class"`);
         await queryRunner.query(`ALTER TABLE "enrollments" DROP CONSTRAINT "FK_enr_student"`);
         await queryRunner.query(`DROP INDEX "public"."IDX_enrollments_academic_year"`);
         await queryRunner.query(`DROP INDEX "public"."IDX_enrollments_student"`);
+        await queryRunner.query(`DROP INDEX "public"."IDX_enrollments_tenant"`);
         await queryRunner.query(`DROP INDEX "public"."IDX_enr_active_student_year"`);
         await queryRunner.query(`DROP TABLE "enrollments"`);
         await queryRunner.query(`DROP TYPE "public"."enrollments_status_enum"`);
@@ -180,6 +186,8 @@ export class AddTenantIsolationAndEnrollments1784175065080 implements MigrationI
 
         await queryRunner.query(`DROP INDEX "public"."IDX_ay_name_tenant"`);
         await queryRunner.query(`CREATE UNIQUE INDEX "IDX_645d0f115fa85aaecffdc11cba" ON "academic_years" ("name")`);
+
+        await queryRunner.query(`DROP INDEX "public"."IDX_cs_name_class"`);
 
         // Drop columns
         await queryRunner.query(`ALTER TABLE "payments" DROP COLUMN "deleted_at"`);

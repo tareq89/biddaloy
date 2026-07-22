@@ -115,7 +115,7 @@ export class AcademicYearService {
       );
 
       // Set this one as current
-      await repo.update({ id, tenant_id: tenantId }, { is_current: true });
+      await repo.update({ id, tenant_id: tenantId, deleted_at: IsNull() }, { is_current: true });
 
       return repo.findOne({
         where: { id, tenant_id: tenantId, deleted_at: IsNull() },

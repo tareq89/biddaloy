@@ -72,13 +72,14 @@ export class ClassService {
   async remove(id: string, tenantId: string): Promise<void> {
     await this.findOne(id, tenantId);
 
-    // Check for active students referencing this class through their section
+    // Check for active students in any section of this class
     const activeStudentCount = await this.studentRepo.count({
       where: {
-        class_section_id: IsNull() as any, // We'll use a subquery instead
+        class_section: { class_id: id },
         deleted_at: IsNull(),
         enrollment_status: 'ACTIVE' as any,
       },
+      relations: ['class_section'],
     });
 
     // Check for child sections

@@ -66,8 +66,8 @@ export class Student {
   @Column({ type: 'uuid' })
   class_section_id: string;
 
-  @Column({ type: 'date' })
-  date_of_birth: Date;
+  @Column({ type: 'date', nullable: true })
+  date_of_birth: Date | null;
 
   @Column({ type: 'varchar', length: 10, nullable: true })
   gender: string | null;

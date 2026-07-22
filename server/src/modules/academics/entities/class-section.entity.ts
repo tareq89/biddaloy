@@ -26,7 +26,7 @@ import { School } from '../../schools/entities/school.entity';
  * - Referenced-by → Teacher (via teacher_class_sections): teachers assigned to sections
  */
 @Entity('class_sections')
-@Index(['class_id', 'section_name'], { unique: true })
+@Index(['class_id', 'section_name'], { unique: true, where: '"deleted_at" IS NULL' })
 @Index(['class_id', 'tenant_id'])
 @Index(['tenant_id'])
 export class ClassSection {
