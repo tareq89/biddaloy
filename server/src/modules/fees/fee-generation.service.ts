@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, In } from 'typeorm';
+import { Repository, IsNull, In, FindOptionsWhere } from 'typeorm';
 import { Student } from '../students/entities/student.entity';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
@@ -45,6 +45,7 @@ export class FeeGenerationService {
     if (!academicYear) {
       throw new NotFoundException(`Academic year with ID "${dto.academic_year_id}" not found`);
     }
+    this.assertMonthWithinAcademicYear(dto, academicYear);
 
     if (dto.class_id) {
       const cls = await this.classRepo.findOne({
@@ -98,8 +99,23 @@ export class FeeGenerationService {
     };
   }
 
+  private assertMonthWithinAcademicYear(dto: GenerateStudentFeesDto, academicYear: AcademicYear): void {
+    const target = Date.UTC(dto.year, dto.month - 1, 1);
+    const start = new Date(academicYear.start_date);
+    const end = new Date(academicYear.end_date);
+    const startMonth = Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1);
+    const endMonth = Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), 1);
+
+    if (target < startMonth || target > endMonth) {
+      throw new BadRequestException(
+        `Month ${dto.month}/${dto.year} is outside academic year "${academicYear.name}" ` +
+          `(${academicYear.start_date} to ${academicYear.end_date})`,
+      );
+    }
+  }
+
   private async findEligibleStudents(dto: GenerateStudentFeesDto, tenantId: string): Promise<Student[]> {
-    const where: any = {
+    const where: FindOptionsWhere<Student> = {
       tenant_id: tenantId,
       deleted_at: IsNull(),
       enrollment_status: EnrollmentStatus.ACTIVE,
@@ -115,7 +131,7 @@ export class FeeGenerationService {
   }
 
   private async findApplicableStructures(dto: GenerateStudentFeesDto, tenantId: string): Promise<FeeStructure[]> {
-    const where: any = {
+    const where: FindOptionsWhere<FeeStructure> = {
       tenant_id: tenantId,
       academic_year_id: dto.academic_year_id,
       deleted_at: IsNull(),
@@ -182,21 +198,30 @@ export class FeeGenerationService {
     };
   }
 
+  // 6 bound params per candidate row; Postgres caps a single statement at
+  // 65,535 params (~10.9k rows at 6 each). 1000 stays comfortably under that
+  // for any single class/school-wide generation run.
+  private static readonly INSERT_BATCH_SIZE = 1000;
+
   /**
    * Relies on the (student_id, academic_year_id, month, year) unique constraint
    * as an ON CONFLICT DO NOTHING guard — idempotent under re-runs and safe
    * against two concurrent generation requests racing each other.
    */
   private async bulkInsertIdempotent(candidates: Partial<StudentFee>[]): Promise<number> {
-    const result = await this.studentFeeRepo
-      .createQueryBuilder()
-      .insert()
-      .into(StudentFee)
-      .values(candidates)
-      .orIgnore()
-      .returning(['id'])
-      .execute();
-
-    return result.raw.length;
+    let generated = 0;
+    for (let i = 0; i < candidates.length; i += FeeGenerationService.INSERT_BATCH_SIZE) {
+      const batch = candidates.slice(i, i + FeeGenerationService.INSERT_BATCH_SIZE);
+      const result = await this.studentFeeRepo
+        .createQueryBuilder()
+        .insert()
+        .into(StudentFee)
+        .values(batch)
+        .orIgnore()
+        .returning(['id'])
+        .execute();
+      generated += result.raw.length;
+    }
+    return generated;
   }
 }

@@ -163,6 +163,7 @@ export class GenerateStudentFeesDto {
 
   @IsInt()
   @Min(2000)
+  @Max(2100)
   year: number;
 
   @IsOptional()

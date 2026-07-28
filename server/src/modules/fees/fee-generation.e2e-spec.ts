@@ -27,9 +27,7 @@ const OTHER_TENANT_ID = '00000000-0000-4000-8000-000000000099';
 describe('Fee Generation E2E', () => {
   let app: INestApplication;
   let dataSource: DataSource;
-  let adminToken: string;
-  let accountantToken: string;
-  let studentToken: string;
+  let token: string;
 
   const TENANT_ID = SEED_TENANT_ID;
 
@@ -44,7 +42,9 @@ describe('Fee Generation E2E', () => {
   }
 
   beforeAll(async () => {
-    process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgres://postgres:***@localhost:5432/betonboi';
+    if (!process.env.DATABASE_URL) {
+      throw new Error('DATABASE_URL must be set to run e2e tests');
+    }
     process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-do-not-use-in-production';
     process.env.NODE_ENV = 'test';
 
@@ -58,15 +58,10 @@ describe('Fee Generation E2E', () => {
 
     dataSource = app.get(DataSource);
 
-    const loginRes = await supertest(app.getHttpServer())
-      .post('/auth/login')
-      .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
-      .expect(200);
-    adminToken = loginRes.body.access_token;
-
     // Grant the seed admin ACCOUNTANT and STUDENT memberships on TENANT_ID too,
-    // so a single login can carry multiple roles (selected via X-Role) for the
-    // RBAC matrix below — same pattern used in fee-structures.e2e-spec.ts.
+    // so a single login/token carries multiple roles (selected per-request via
+    // X-Role) for the RBAC matrix below — same pattern used in
+    // fee-structures.e2e-spec.ts.
     await dataSource.query(
       `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
        VALUES ($1, $2, $3, NOW(), NOW())
@@ -80,17 +75,11 @@ describe('Fee Generation E2E', () => {
       [SEED_ADMIN_USER_ID, TENANT_ID, UserRole.STUDENT],
     );
 
-    const accountantLoginRes = await supertest(app.getHttpServer())
+    const loginRes = await supertest(app.getHttpServer())
       .post('/auth/login')
       .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
       .expect(200);
-    accountantToken = accountantLoginRes.body.access_token;
-
-    const studentLoginRes = await supertest(app.getHttpServer())
-      .post('/auth/login')
-      .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
-      .expect(200);
-    studentToken = studentLoginRes.body.access_token;
+    token = loginRes.body.access_token;
   }, 60000);
 
   afterAll(async () => {
@@ -102,8 +91,9 @@ describe('Fee Generation E2E', () => {
       const studentId = await createStudent('REG-GEN-E2E-0001');
       await supertest(app.getHttpServer())
         .post('/fee-structures')
-        .set('Authorization', `Bearer ${adminToken}`)
+        .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
         .send({
           fee_type: FeeType.MONTHLY_TUITION,
           name: 'E2E Tuition',
@@ -117,8 +107,9 @@ describe('Fee Generation E2E', () => {
 
       const res = await supertest(app.getHttpServer())
         .post('/fees/generate')
-        .set('Authorization', `Bearer ${adminToken}`)
+        .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
         .send({ academic_year_id: SEED_ACADEMIC_YEAR_ID, month: 1, year: 2026 })
         .expect(201);
 
@@ -136,7 +127,7 @@ describe('Fee Generation E2E', () => {
     it('should allow ACCOUNTANT role', async () => {
       await supertest(app.getHttpServer())
         .post('/fees/generate')
-        .set('Authorization', `Bearer ${accountantToken}`)
+        .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ACCOUNTANT)
         .send({ academic_year_id: SEED_ACADEMIC_YEAR_ID, month: 2, year: 2026 })
@@ -146,7 +137,7 @@ describe('Fee Generation E2E', () => {
     it('should return 401 for STUDENT role', async () => {
       const res = await supertest(app.getHttpServer())
         .post('/fees/generate')
-        .set('Authorization', `Bearer ${studentToken}`)
+        .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
         .send({ academic_year_id: SEED_ACADEMIC_YEAR_ID, month: 1, year: 2026 })
@@ -158,8 +149,9 @@ describe('Fee Generation E2E', () => {
     it('should be idempotent when called twice for the same month', async () => {
       await supertest(app.getHttpServer())
         .post('/fee-structures')
-        .set('Authorization', `Bearer ${adminToken}`)
+        .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
         .send({
           fee_type: FeeType.MONTHLY_TUITION,
           name: 'Idempotency Fee',
@@ -172,15 +164,17 @@ describe('Fee Generation E2E', () => {
 
       const first = await supertest(app.getHttpServer())
         .post('/fees/generate')
-        .set('Authorization', `Bearer ${adminToken}`)
+        .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
         .send({ academic_year_id: SEED_ACADEMIC_YEAR_ID, month: 3, year: 2026 })
         .expect(201);
 
       const second = await supertest(app.getHttpServer())
         .post('/fees/generate')
-        .set('Authorization', `Bearer ${adminToken}`)
+        .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
         .send({ academic_year_id: SEED_ACADEMIC_YEAR_ID, month: 3, year: 2026 })
         .expect(201);
 
@@ -191,9 +185,21 @@ describe('Fee Generation E2E', () => {
     it('should return 400 for invalid DTO (missing required fields)', async () => {
       await supertest(app.getHttpServer())
         .post('/fees/generate')
-        .set('Authorization', `Bearer ${adminToken}`)
+        .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
         .send({})
+        .expect(400);
+    });
+
+    it('should return 400 when the year falls outside the academic year range', async () => {
+      // Seeded academic year covers 2026-01-01 through 2026-12-31 only.
+      await supertest(app.getHttpServer())
+        .post('/fees/generate')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .send({ academic_year_id: SEED_ACADEMIC_YEAR_ID, month: 1, year: 2027 })
         .expect(400);
     });
 
@@ -214,8 +220,9 @@ describe('Fee Generation E2E', () => {
 
       await supertest(app.getHttpServer())
         .post('/fees/generate')
-        .set('Authorization', `Bearer ${adminToken}`)
+        .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
         .send({ academic_year_id: otherAcademicYearId, month: 1, year: 2026 })
         .expect(404);
     });
