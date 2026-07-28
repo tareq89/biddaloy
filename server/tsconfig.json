@@ -5,7 +5,6 @@
     "moduleResolution": "node",
     "target": "ES2022",
     "outDir": "./dist",
-    "rootDir": "./src",
     "baseUrl": "./",
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
@@ -14,9 +13,10 @@
     "noUnusedParameters": false,
     "types": ["vitest/globals"],
     "paths": {
-      "@beton-boi/shared": ["../shared/dist"]
+      "@beton-boi/shared": ["../shared/dist"],
+      "@test/*": ["test/*"]
     }
   },
-  "include": ["src"],
-  "exclude": ["node_modules", "dist", "test", "src/**/*.spec.ts", "src/**/*.integration.spec.ts", "src/**/*.e2e-spec.ts"]
+  "include": ["src", "test"],
+  "exclude": ["node_modules", "dist"]
 }
