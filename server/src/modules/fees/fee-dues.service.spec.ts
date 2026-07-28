@@ -59,6 +59,15 @@ describe('sortAggregates', () => {
     expect(result.map((r) => r.student_id)).toEqual(['no-class', 'has-class']);
   });
 
+  it('breaks ties on student_id for a deterministic order across requests', () => {
+    const b = makeAggregate({ student_id: 'b', total_due: 100 });
+    const a = makeAggregate({ student_id: 'a', total_due: 100 });
+
+    const result = sortAggregates([b, a], 'due_amount', 'DESC');
+
+    expect(result.map((r) => r.student_id)).toEqual(['a', 'b']);
+  });
+
   it('does not mutate the input array', () => {
     const input = [makeAggregate({ student_id: 'b', total_due: 2 }), makeAggregate({ student_id: 'a', total_due: 1 })];
     const originalOrder = input.map((r) => r.student_id);

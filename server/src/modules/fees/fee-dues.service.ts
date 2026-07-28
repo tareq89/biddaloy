@@ -54,13 +54,17 @@ export function sortAggregates(
 ): StudentDueAggregate[] {
   const dir = sortOrder === 'ASC' ? 1 : -1;
   return [...summaries].sort((a, b) => {
+    let primary = 0;
     if (sortBy === 'name') {
-      return a.full_name.localeCompare(b.full_name) * dir;
+      primary = a.full_name.localeCompare(b.full_name) * dir;
+    } else if (sortBy === 'class') {
+      primary = (a.class_name ?? '').localeCompare(b.class_name ?? '') * dir;
+    } else {
+      primary = (a.total_due - b.total_due) * dir;
     }
-    if (sortBy === 'class') {
-      return (a.class_name ?? '').localeCompare(b.class_name ?? '') * dir;
-    }
-    return (a.total_due - b.total_due) * dir;
+    // Tie-break on student_id so offset pagination returns a stable order
+    // across requests instead of relying on the DB's unordered GROUP BY.
+    return primary !== 0 ? primary : a.student_id.localeCompare(b.student_id);
   });
 }
 
@@ -126,7 +130,12 @@ export class FeeDuesService {
     }
 
     const aggregates = await this.aggregateForStudents(studentIds);
-    aggregates.sort((a, b) => b.months_overdue - a.months_overdue || b.total_due - a.total_due);
+    aggregates.sort(
+      (a, b) =>
+        b.months_overdue - a.months_overdue ||
+        b.total_due - a.total_due ||
+        a.student_id.localeCompare(b.student_id),
+    );
 
     const total = aggregates.length;
     const start = (page - 1) * limit;
