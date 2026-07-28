@@ -8,6 +8,7 @@ import {
   IsInt,
   Min,
   Max,
+  IsIn,
   IsBoolean,
   IsDateString,
   ArrayMinSize,
@@ -15,7 +16,10 @@ import {
   MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { FeeType, FeeApplicability, PaymentMethod, PaymentStatus, PaymentAllocationType } from '@beton-boi/shared';
+import { FeeType, FeeApplicability, PaymentMethod, PaymentStatus, PaymentAllocationType, FeeStatus } from '@beton-boi/shared';
+
+export type FeeDuesSortBy = 'due_amount' | 'name' | 'class';
+export type SortOrder = 'ASC' | 'DESC';
 
 export class CreateFeeStructureDto {
   @IsEnum(FeeType)
@@ -238,4 +242,76 @@ export class GenerateFeesResultDto {
   generated: number;
   skipped: number;
   students_evaluated: number;
+}
+
+export class QueryFeeDuesDto {
+  @IsOptional()
+  @IsUUID()
+  class_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  section_id?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  month?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(2000)
+  @Max(2100)
+  year?: number;
+
+  @IsOptional()
+  @IsIn([FeeStatus.PENDING, FeeStatus.PARTIALLY_PAID])
+  status?: FeeStatus.PENDING | FeeStatus.PARTIALLY_PAID;
+
+  @IsOptional()
+  @IsIn(['due_amount', 'name', 'class'])
+  sort_by?: FeeDuesSortBy;
+
+  @IsOptional()
+  @IsIn(['ASC', 'DESC'])
+  sort_order?: SortOrder;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 10;
+}
+
+export class QueryFlaggedDuesDto {
+  @IsOptional()
+  @IsUUID()
+  class_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  section_id?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 10;
 }

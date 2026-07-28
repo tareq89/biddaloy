@@ -14,6 +14,7 @@ import { AuditLog } from '../audit/entities/audit-log.entity';
 import { FeeStructureService, PaymentService } from './fees.service';
 import { FeeGenerationService } from './fee-generation.service';
 import { PaymentAllocationService } from './payment-allocation.service';
+import { FeeDuesService } from './fee-dues.service';
 import { FeeController } from './fees.controller';
 
 @Module({
@@ -21,8 +22,8 @@ import { FeeController } from './fees.controller';
     FeeStructure, FeeStructureStudent, Payment, PaymentAllocation, StudentFee, Student,
     Class, ClassSection, AcademicYear, Invoice, AuditLog,
   ])],
-  providers: [FeeStructureService, PaymentService, FeeGenerationService, PaymentAllocationService],
+  providers: [FeeStructureService, PaymentService, FeeGenerationService, PaymentAllocationService, FeeDuesService],
   controllers: [FeeController],
-  exports: [FeeStructureService, PaymentService, FeeGenerationService, PaymentAllocationService],
+  exports: [FeeStructureService, PaymentService, FeeGenerationService, PaymentAllocationService, FeeDuesService],
 })
 export class FeeModule {}

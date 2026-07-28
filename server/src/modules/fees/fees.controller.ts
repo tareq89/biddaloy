@@ -18,6 +18,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { FeeStructureService, PaymentService } from './fees.service';
 import { FeeGenerationService } from './fee-generation.service';
 import { PaymentAllocationService } from './payment-allocation.service';
+import { FeeDuesService } from './fee-dues.service';
 import {
   CreateFeeStructureDto,
   UpdateFeeStructureDto,
@@ -27,6 +28,8 @@ import {
   RecordPaymentWithAllocationDto,
   GenerateStudentFeesDto,
   GenerateFeesResultDto,
+  QueryFeeDuesDto,
+  QueryFlaggedDuesDto,
 } from './dto/fees.dto';
 import { UserRole } from '@beton-boi/shared';
 import { JwtPayload } from '@beton-boi/shared';
@@ -39,7 +42,28 @@ export class FeeController {
     @Inject(PaymentService) private readonly paymentService: PaymentService,
     @Inject(FeeGenerationService) private readonly feeGenerationService: FeeGenerationService,
     @Inject(PaymentAllocationService) private readonly paymentAllocationService: PaymentAllocationService,
+    @Inject(FeeDuesService) private readonly feeDuesService: FeeDuesService,
   ) {}
+
+  // --- Fee Dues endpoints ---
+
+  @Get('fees/dues')
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  getDues(
+    @Query() query: QueryFeeDuesDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.feeDuesService.getDues(query, tenant.id);
+  }
+
+  @Get('fees/dues/flagged')
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  getFlaggedDues(
+    @Query() query: QueryFlaggedDuesDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.feeDuesService.getFlaggedDues(query, tenant.id);
+  }
 
   // --- Fee Generation endpoint ---
 
