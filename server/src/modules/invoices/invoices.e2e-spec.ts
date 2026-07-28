@@ -186,6 +186,22 @@ describe('Invoices E2E', () => {
         .set('X-Role', UserRole.ADMIN)
         .expect(404);
     });
+
+    it('returns 400 (not a DB error) for a malformed id', async () => {
+      await supertest(app.getHttpServer())
+        .get('/invoices/not-a-uuid')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .expect(400);
+
+      await supertest(app.getHttpServer())
+        .get('/invoices/not-a-uuid/print')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .expect(400);
+    });
   });
 
   describe('GET /invoices', () => {

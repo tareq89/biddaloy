@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards, Header, Inject } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, ParseUUIDPipe, Query, UseGuards, Header, Inject } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -32,14 +32,14 @@ export class InvoicesController {
 
   @Get(':id')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
-  findOne(@Param('id') id: string, @CurrentTenant() tenant: { id: string; role: string }) {
+  findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentTenant() tenant: { id: string; role: string }) {
     return this.invoicesService.findOne(id, tenant.id);
   }
 
   @Get(':id/print')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
   @Header('Content-Type', 'text/html; charset=utf-8')
-  print(@Param('id') id: string, @CurrentTenant() tenant: { id: string; role: string }) {
+  print(@Param('id', ParseUUIDPipe) id: string, @CurrentTenant() tenant: { id: string; role: string }) {
     return this.invoicesService.getPrintableHtml(id, tenant.id);
   }
 }

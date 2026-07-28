@@ -149,7 +149,9 @@ describe('InvoicesService (integration)', () => {
 
       const invoice = await service.create({ student_id: student.id, student_fee_id: fee.id }, TENANT_ID, SEED_ADMIN_USER_ID);
 
+      // Invoice numbers must follow the sequential INV-YYYY-XXXXX format.
       expect(invoice.invoice_number).toMatch(/^INV-\d{4}-\d{5}$/);
+      // With no explicit line_items, total_amount is derived straight from the StudentFee.
       expect(Number(invoice.total_amount)).toBe(1500);
       expect(invoice.line_items).toHaveLength(1);
       expect(invoice.line_items![0].description).toBe('Fee for 4/2026');
@@ -172,6 +174,7 @@ describe('InvoicesService (integration)', () => {
       );
 
       expect(invoice.line_items).toHaveLength(2);
+      // total_amount is not caller-supplied — it's always the sum of line item totals.
       expect(Number(invoice.total_amount)).toBe(1000);
     });
 
@@ -248,6 +251,18 @@ describe('InvoicesService (integration)', () => {
 
       await expect(service.findOne(created.id, OTHER_TENANT_ID)).rejects.toThrow(NotFoundException);
     });
+
+    it('excludes a soft-deleted invoice', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id));
+      const created = await service.create({ student_id: student.id, student_fee_id: fee.id }, TENANT_ID, SEED_ADMIN_USER_ID);
+
+      await invoiceRepo.softDelete(created.id);
+      const deleted = await invoiceRepo.findOne({ where: { id: created.id }, withDeleted: true });
+      expect(deleted!.deleted_at).not.toBeNull();
+
+      await expect(service.findOne(created.id, TENANT_ID)).rejects.toThrow(NotFoundException);
+    });
   });
 
   describe('findAll', () => {
@@ -274,6 +289,17 @@ describe('InvoicesService (integration)', () => {
 
       const result = await service.findAll({ page: 1, limit: 10 }, OTHER_TENANT_ID);
       expect(result.total).toBe(0);
+    });
+
+    it('excludes soft-deleted invoices', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id));
+      const created = await service.create({ student_id: student.id, student_fee_id: fee.id }, TENANT_ID, SEED_ADMIN_USER_ID);
+
+      await invoiceRepo.softDelete(created.id);
+
+      const result = await service.findAll({ page: 1, limit: 10 }, TENANT_ID);
+      expect(result.data.find((inv) => inv.id === created.id)).toBeUndefined();
     });
   });
 
