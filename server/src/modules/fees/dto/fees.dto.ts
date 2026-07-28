@@ -151,3 +151,32 @@ export class QueryPaymentDto {
   @Min(1)
   limit?: number = 10;
 }
+
+export class GenerateStudentFeesDto {
+  @IsUUID()
+  academic_year_id: string;
+
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  month: number;
+
+  @IsInt()
+  @Min(2000)
+  @Max(2100)
+  year: number;
+
+  @IsOptional()
+  @IsUUID()
+  class_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  section_id?: string;
+}
+
+export class GenerateFeesResultDto {
+  generated: number;
+  skipped: number;
+  students_evaluated: number;
+}

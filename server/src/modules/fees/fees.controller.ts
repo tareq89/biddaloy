@@ -16,12 +16,15 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { FeeStructureService, PaymentService } from './fees.service';
+import { FeeGenerationService } from './fee-generation.service';
 import {
   CreateFeeStructureDto,
   UpdateFeeStructureDto,
   QueryFeeStructureDto,
   CreatePaymentDto,
   QueryPaymentDto,
+  GenerateStudentFeesDto,
+  GenerateFeesResultDto,
 } from './dto/fees.dto';
 import { UserRole } from '@beton-boi/shared';
 import { JwtPayload } from '@beton-boi/shared';
@@ -32,7 +35,19 @@ export class FeeController {
   constructor(
     @Inject(FeeStructureService) private readonly feeStructureService: FeeStructureService,
     @Inject(PaymentService) private readonly paymentService: PaymentService,
+    @Inject(FeeGenerationService) private readonly feeGenerationService: FeeGenerationService,
   ) {}
+
+  // --- Fee Generation endpoint ---
+
+  @Post('fees/generate')
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  generateFees(
+    @Body() dto: GenerateStudentFeesDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ): Promise<GenerateFeesResultDto> {
+    return this.feeGenerationService.generate(dto, tenant.id);
+  }
 
   // --- Fee Structure endpoints ---
 
