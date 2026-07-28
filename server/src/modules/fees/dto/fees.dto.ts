@@ -1,6 +1,20 @@
-import { IsString, IsNumber, IsOptional, IsUUID, IsEnum, IsArray, IsInt, Min, Max, IsBoolean, IsDateString } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsUUID,
+  IsEnum,
+  IsArray,
+  IsInt,
+  Min,
+  Max,
+  IsBoolean,
+  IsDateString,
+  ArrayMinSize,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
-import { FeeType, FeeApplicability, PaymentMethod, PaymentStatus } from '@beton-boi/shared';
+import { FeeType, FeeApplicability, PaymentMethod, PaymentStatus, PaymentAllocationType } from '@beton-boi/shared';
 
 export class CreateFeeStructureDto {
   @IsEnum(FeeType)
@@ -136,6 +150,48 @@ export class CreatePaymentDto {
   @IsOptional()
   @IsDateString()
   payment_date?: string;
+}
+
+export class PaymentAllocationInputDto {
+  @IsUUID()
+  student_fee_id: string;
+
+  @IsNumber()
+  @Min(0.01)
+  allocated_amount: number;
+
+  @IsEnum(PaymentAllocationType)
+  allocation_type: PaymentAllocationType;
+}
+
+export class RecordPaymentWithAllocationDto {
+  @IsUUID()
+  student_id: string;
+
+  @IsNumber()
+  @Min(0.01)
+  total_amount: number;
+
+  @IsEnum(PaymentMethod)
+  payment_method: PaymentMethod;
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => PaymentAllocationInputDto)
+  allocations: PaymentAllocationInputDto[];
+
+  @IsOptional()
+  @IsString()
+  transaction_reference?: string;
+
+  @IsOptional()
+  @IsString()
+  remarks?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  generate_invoice?: boolean;
 }
 
 export class QueryPaymentDto {

@@ -9,17 +9,20 @@ import { Student } from '../students/entities/student.entity';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
+import { Invoice } from '../invoices/entities/invoice.entity';
+import { AuditLog } from '../audit/entities/audit-log.entity';
 import { FeeStructureService, PaymentService } from './fees.service';
 import { FeeGenerationService } from './fee-generation.service';
+import { PaymentAllocationService } from './payment-allocation.service';
 import { FeeController } from './fees.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([
     FeeStructure, FeeStructureStudent, Payment, PaymentAllocation, StudentFee, Student,
-    Class, ClassSection, AcademicYear,
+    Class, ClassSection, AcademicYear, Invoice, AuditLog,
   ])],
-  providers: [FeeStructureService, PaymentService, FeeGenerationService],
+  providers: [FeeStructureService, PaymentService, FeeGenerationService, PaymentAllocationService],
   controllers: [FeeController],
-  exports: [FeeStructureService, PaymentService, FeeGenerationService],
+  exports: [FeeStructureService, PaymentService, FeeGenerationService, PaymentAllocationService],
 })
 export class FeeModule {}

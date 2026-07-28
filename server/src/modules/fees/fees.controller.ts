@@ -17,12 +17,14 @@ import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { FeeStructureService, PaymentService } from './fees.service';
 import { FeeGenerationService } from './fee-generation.service';
+import { PaymentAllocationService } from './payment-allocation.service';
 import {
   CreateFeeStructureDto,
   UpdateFeeStructureDto,
   QueryFeeStructureDto,
   CreatePaymentDto,
   QueryPaymentDto,
+  RecordPaymentWithAllocationDto,
   GenerateStudentFeesDto,
   GenerateFeesResultDto,
 } from './dto/fees.dto';
@@ -36,6 +38,7 @@ export class FeeController {
     @Inject(FeeStructureService) private readonly feeStructureService: FeeStructureService,
     @Inject(PaymentService) private readonly paymentService: PaymentService,
     @Inject(FeeGenerationService) private readonly feeGenerationService: FeeGenerationService,
+    @Inject(PaymentAllocationService) private readonly paymentAllocationService: PaymentAllocationService,
   ) {}
 
   // --- Fee Generation endpoint ---
@@ -107,6 +110,16 @@ export class FeeController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.paymentService.create(dto, tenant.id, user.sub);
+  }
+
+  @Post('payments/record-with-allocation')
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  recordPaymentWithAllocation(
+    @Body() dto: RecordPaymentWithAllocationDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.paymentAllocationService.recordWithAllocation(dto, tenant.id, user.sub);
   }
 
   @Get('payments/student/:studentId')
