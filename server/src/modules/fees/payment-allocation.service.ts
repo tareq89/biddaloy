@@ -12,6 +12,11 @@ import { RecordPaymentWithAllocationDto } from "./dto/fees.dto";
 
 const AMOUNT_EPSILON = 0.01;
 
+// Arbitrary namespace for pg_advisory_xact_lock's two-key form, paired with
+// the target year — keeps this lock's keyspace from colliding with any
+// other advisory lock use in the app.
+const INVOICE_NUMBER_LOCK_NAMESPACE = 851209;
+
 /**
  * Records a payment split across a student's fee periods (dues, current
  * month, advance) and applies it to StudentFee/Invoice/AuditLog atomically.
@@ -95,7 +100,14 @@ export class PaymentAllocationService {
 
       for (const fee of outstandingFees) {
         const remaining = Number(fee.total_amount) - Number(fee.paid_amount) - Number(fee.discount_amount);
-        if (remaining <= AMOUNT_EPSILON) continue;
+        if (remaining <= AMOUNT_EPSILON) {
+          if (allocationsByFeeId.has(fee.id)) {
+            throw new BadRequestException(
+              `Fee for ${fee.month}/${fee.year} has no outstanding balance and cannot be allocated against`,
+            );
+          }
+          continue;
+        }
 
         const alloc = allocationsByFeeId.get(fee.id);
         if (!alloc) {
@@ -224,10 +236,10 @@ export class PaymentAllocationService {
       return savedPayment.id;
     });
 
-    return this.paymentRepo.findOne({
+    return this.paymentRepo.findOneOrFail({
       where: { id: paymentId },
       relations: ["allocations", "allocations.student_fee", "invoice"],
-    }) as Promise<Payment>;
+    });
   }
 
   private classifyPeriod(
@@ -247,12 +259,23 @@ export class PaymentAllocationService {
 
   private async generateInvoiceNumber(invoiceRepo: Repository<Invoice>): Promise<string> {
     const currentYear = new Date().getFullYear();
+
+    // `SELECT ... FOR UPDATE` only locks rows that already exist, so two
+    // transactions generating the very first invoice of a year would both
+    // see no rows to lock and race to nextSeq=1. An advisory lock keyed on
+    // the year serializes generation regardless of whether any row exists
+    // yet; it's transaction-scoped, so it releases automatically on
+    // commit/rollback.
+    await invoiceRepo.manager.query("SELECT pg_advisory_xact_lock($1, $2)", [
+      INVOICE_NUMBER_LOCK_NAMESPACE,
+      currentYear,
+    ]);
+
     const last = await invoiceRepo
       .createQueryBuilder("inv")
       .withDeleted()
       .where("inv.invoice_number LIKE :pattern", { pattern: `INV-${currentYear}-%` })
       .orderBy("inv.invoice_number", "DESC")
-      .setLock("pessimistic_write")
       .getOne();
 
     let nextSeq = 1;

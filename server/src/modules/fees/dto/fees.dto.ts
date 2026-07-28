@@ -12,6 +12,7 @@ import {
   IsDateString,
   ArrayMinSize,
   ValidateNested,
+  MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { FeeType, FeeApplicability, PaymentMethod, PaymentStatus, PaymentAllocationType } from '@beton-boi/shared';
@@ -156,7 +157,7 @@ export class PaymentAllocationInputDto {
   @IsUUID()
   student_fee_id: string;
 
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.01)
   allocated_amount: number;
 
@@ -168,7 +169,7 @@ export class RecordPaymentWithAllocationDto {
   @IsUUID()
   student_id: string;
 
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.01)
   total_amount: number;
 
@@ -183,10 +184,12 @@ export class RecordPaymentWithAllocationDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   transaction_reference?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(1000)
   remarks?: string;
 
   @IsOptional()

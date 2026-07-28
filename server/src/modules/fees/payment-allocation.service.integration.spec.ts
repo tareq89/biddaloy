@@ -441,6 +441,30 @@ describe('PaymentAllocationService (integration)', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
+    it('rejects an allocation against a fee that is already fully covered by discount', async () => {
+      const student = await studentRepo.save(makeStudent());
+      // total_amount === discount_amount, so remaining is 0 even though status
+      // is still PENDING (nothing has re-evaluated the status) — this fee must
+      // not silently absorb money with no PaymentAllocation to show for it.
+      const fee = await studentFeeRepo.save(makeFee(student.id, 0, { total_amount: 500, discount_amount: 500 }));
+
+      await expect(
+        service.recordWithAllocation(
+          {
+            student_id: student.id,
+            total_amount: 500,
+            payment_method: PaymentMethod.CASH,
+            allocations: [{ student_fee_id: fee.id, allocated_amount: 500, allocation_type: PaymentAllocationType.CURRENT }],
+          } as any,
+          TENANT_ID,
+          SEED_ADMIN_USER_ID,
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      const payments = await paymentRepo.find({ where: { student_id: student.id } });
+      expect(payments).toHaveLength(0);
+    });
+
     it('throws NotFoundException when student does not exist', async () => {
       await expect(
         service.recordWithAllocation(
@@ -565,6 +589,40 @@ describe('PaymentAllocationService (integration)', () => {
 
       const payments = await paymentRepo.find({ where: { student_id: student.id } });
       expect(payments).toHaveLength(1);
+    });
+
+    it('assigns distinct invoice numbers to two concurrent full payments for different students', async () => {
+      // Regression test for the invoice-number race: a row lock on the
+      // "current max" invoice does nothing to protect two transactions that
+      // both find zero existing rows for the year and would otherwise both
+      // compute nextSeq=1. The advisory lock in generateInvoiceNumber must
+      // serialize this regardless of same-fee locking.
+      const studentA = await studentRepo.save(makeStudent());
+      const studentB = await studentRepo.save(makeStudent());
+      const feeA = await studentFeeRepo.save(makeFee(studentA.id, 0, { total_amount: 1000 }));
+      const feeB = await studentFeeRepo.save(makeFee(studentB.id, 0, { total_amount: 1000 }));
+
+      const pay = (studentId: string, feeId: string) =>
+        service.recordWithAllocation(
+          {
+            student_id: studentId,
+            total_amount: 1000,
+            payment_method: PaymentMethod.CASH,
+            allocations: [{ student_fee_id: feeId, allocated_amount: 1000, allocation_type: PaymentAllocationType.CURRENT }],
+          } as any,
+          TENANT_ID,
+          SEED_ADMIN_USER_ID,
+        );
+
+      const [resultA, resultB] = await Promise.all([pay(studentA.id, feeA.id), pay(studentB.id, feeB.id)]);
+
+      expect(resultA.invoice_id).not.toBeNull();
+      expect(resultB.invoice_id).not.toBeNull();
+      expect(resultA.invoice_id).not.toBe(resultB.invoice_id);
+
+      const invoices = await invoiceRepo.find({ where: [{ id: resultA.invoice_id! }, { id: resultB.invoice_id! }] });
+      const numbers = invoices.map((i) => i.invoice_number);
+      expect(new Set(numbers).size).toBe(2);
     });
   });
 });
