@@ -49,7 +49,7 @@ async function seedReferenceData(ds: DataSource): Promise<void> {
   const sectionRepo = ds.getRepository(ClassSection);
   const ayRepo = ds.getRepository(AcademicYear);
 
-  await schoolRepo.save(schoolRepo.create({ id: SEED_TENANT_ID, name: 'Test School', slug: 'test-school', tenant_id: SEED_TENANT_ID }));
+  await schoolRepo.save(schoolRepo.create({ id: SEED_TENANT_ID, name: 'Test School', slug: 'test-school' }));
   await ayRepo.save(ayRepo.create({ id: SEED_ACADEMIC_YEAR_ID, name: '2026-2027', start_date: new Date('2026-01-01'), end_date: new Date('2026-12-31'), is_current: true, tenant_id: SEED_TENANT_ID }));
   await classRepo.save(classRepo.create({ id: SEED_CLASS_1_ID, name: 'Class One', academic_year_id: SEED_ACADEMIC_YEAR_ID, tenant_id: SEED_TENANT_ID }));
   await classRepo.save(classRepo.create({ id: SEED_CLASS_2_ID, name: 'Class Two', academic_year_id: SEED_ACADEMIC_YEAR_ID, tenant_id: SEED_TENANT_ID }));
@@ -57,7 +57,7 @@ async function seedReferenceData(ds: DataSource): Promise<void> {
   await sectionRepo.save(sectionRepo.create({ id: SEED_SECTION_2_ID, section_name: 'Section B', class_id: SEED_CLASS_1_ID, tenant_id: SEED_TENANT_ID }));
   await sectionRepo.save(sectionRepo.create({ id: SEED_CLASS_2_SECTION_ID, section_name: 'Class Two Section', class_id: SEED_CLASS_2_ID, tenant_id: SEED_TENANT_ID }));
 
-  await schoolRepo.save(schoolRepo.create({ id: OTHER_TENANT_ID, name: 'Other School', slug: 'other-school', tenant_id: OTHER_TENANT_ID }));
+  await schoolRepo.save(schoolRepo.create({ id: OTHER_TENANT_ID, name: 'Other School', slug: 'other-school' }));
 }
 
 describe('FeeGenerationService (integration)', () => {
