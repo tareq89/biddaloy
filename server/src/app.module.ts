@@ -11,6 +11,7 @@ import { EnrollmentModule } from "./modules/enrollments/enrollments.module";
 import { UserModule } from "./modules/users/users.module";
 import { StudentModule } from "./modules/students/students.module";
 import { FeeModule } from "./modules/fees/fees.module";
+import { InvoicesModule } from "./modules/invoices/invoices.module";
 import { validate } from "./config/env.validation";
 
 // Entities for auto-loading
@@ -84,6 +85,7 @@ import { TeacherClassSection } from "./modules/academics/entities/teacher-class-
     UserModule,
     StudentModule,
     FeeModule,
+    InvoicesModule,
   ],
   controllers: [AppController],
 })

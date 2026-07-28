@@ -70,7 +70,7 @@ async function seedReferenceData(ds: DataSource): Promise<void> {
   const ayRepo = ds.getRepository(AcademicYear);
   const userRepo = ds.getRepository(User);
 
-  await schoolRepo.save(schoolRepo.create({ id: SEED_TENANT_ID, name: 'Test School', slug: 'test-school', tenant_id: SEED_TENANT_ID }));
+  await schoolRepo.save(schoolRepo.create({ id: SEED_TENANT_ID, name: 'Test School', slug: 'test-school' }));
   await userRepo.save(userRepo.create({
     id: SEED_ADMIN_USER_ID,
     email: SEED_ADMIN_EMAIL,
@@ -81,7 +81,7 @@ async function seedReferenceData(ds: DataSource): Promise<void> {
   await classRepo.save(classRepo.create({ id: SEED_CLASS_1_ID, name: 'Class One', academic_year_id: SEED_ACADEMIC_YEAR_ID, tenant_id: SEED_TENANT_ID }));
   await sectionRepo.save(sectionRepo.create({ id: SEED_SECTION_1_ID, section_name: 'Section A', class_id: SEED_CLASS_1_ID, tenant_id: SEED_TENANT_ID }));
 
-  await schoolRepo.save(schoolRepo.create({ id: OTHER_TENANT_ID, name: 'Other School', slug: 'other-school', tenant_id: OTHER_TENANT_ID }));
+  await schoolRepo.save(schoolRepo.create({ id: OTHER_TENANT_ID, name: 'Other School', slug: 'other-school' }));
 }
 
 describe('PaymentAllocationService (integration)', () => {

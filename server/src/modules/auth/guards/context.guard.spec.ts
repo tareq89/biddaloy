@@ -73,6 +73,28 @@ describe('ContextGuard', () => {
       expect(req.currentTenant.role).toBe(UserRole.TEACHER);
     });
 
+    it('should keep the earlier role when it already has the highest priority', () => {
+      const req = {
+        user: {
+          sub: 'user-1',
+          email: 'test@test.com',
+          phone: null,
+          memberships: [
+            { tenantId: 'tenant-1', role: UserRole.TEACHER },  // priority 70
+            { tenantId: 'tenant-1', role: UserRole.STUDENT },  // priority 50
+          ],
+        },
+        headers: { 'x-tenant-id': 'tenant-1' },
+      };
+      const context = createMockContext(req);
+
+      const result = guard.canActivate(context);
+
+      expect(result).toBe(true);
+      // TEACHER (70) > STUDENT (50), so the earlier-seen TEACHER is kept
+      expect(req.currentTenant.role).toBe(UserRole.TEACHER);
+    });
+
     it('should use X-Role header when explicitly provided', () => {
       const req = {
         user: {
