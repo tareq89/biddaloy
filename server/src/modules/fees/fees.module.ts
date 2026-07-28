@@ -10,6 +10,7 @@ import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { FeeStructureService, PaymentService } from './fees.service';
+import { FeeGenerationService } from './fee-generation.service';
 import { FeeController } from './fees.controller';
 
 @Module({
@@ -17,8 +18,8 @@ import { FeeController } from './fees.controller';
     FeeStructure, FeeStructureStudent, Payment, PaymentAllocation, StudentFee, Student,
     Class, ClassSection, AcademicYear,
   ])],
-  providers: [FeeStructureService, PaymentService],
+  providers: [FeeStructureService, PaymentService, FeeGenerationService],
   controllers: [FeeController],
-  exports: [FeeStructureService, PaymentService],
+  exports: [FeeStructureService, PaymentService, FeeGenerationService],
 })
 export class FeeModule {}
