@@ -178,6 +178,25 @@ describe('Fee Dues E2E', () => {
         .set('X-Role', UserRole.ADMIN)
         .expect(400);
     });
+
+    it('returns 401 when X-Tenant-ID header is missing', async () => {
+      const res = await supertest(app.getHttpServer())
+        .get('/fees/dues')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Role', UserRole.ADMIN)
+        .expect(401);
+
+      expect(res.body.message).toBe('X-Tenant-ID header is required');
+    });
+
+    it('returns 401 for a tenant the caller has no membership in', async () => {
+      await supertest(app.getHttpServer())
+        .get('/fees/dues')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', '00000000-0000-4000-8000-000000000099')
+        .set('X-Role', UserRole.ADMIN)
+        .expect(401);
+    });
   });
 
   describe('GET /fees/dues/flagged', () => {

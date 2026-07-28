@@ -278,6 +278,19 @@ describe('FeeDuesService (integration)', () => {
 
       expect(result).toEqual({ data: [], total: 0, page: 1, limit: 10, totalPages: 0 });
     });
+
+    it('excludes a soft-deleted student', async () => {
+      const student = await studentRepo.save(makeStudent());
+      await studentFeeRepo.save(makeFee(student.id));
+
+      await studentRepo.softDelete({ id: student.id });
+      const reloaded = await studentRepo.findOne({ where: { id: student.id }, withDeleted: true });
+      expect(reloaded?.deleted_at).not.toBeNull();
+
+      const result = await service.getDues({ page: 1, limit: 10 }, TENANT_ID);
+
+      expect(result.data.some((d) => d.student_id === student.id)).toBe(false);
+    });
   });
 
   describe('getFlaggedDues', () => {
@@ -346,6 +359,19 @@ describe('FeeDuesService (integration)', () => {
     it('excludes flagged fees belonging to a different tenant', async () => {
       const student = await studentRepo.save(makeStudent({ tenant_id: OTHER_TENANT_ID }));
       await studentFeeRepo.save(makeFee(student.id, { reminder_threshold_date: YESTERDAY }));
+
+      const result = await service.getFlaggedDues({ page: 1, limit: 10 }, TENANT_ID);
+
+      expect(result.data.some((d) => d.student_id === student.id)).toBe(false);
+    });
+
+    it('excludes a soft-deleted student', async () => {
+      const student = await studentRepo.save(makeStudent());
+      await studentFeeRepo.save(makeFee(student.id, { reminder_threshold_date: YESTERDAY }));
+
+      await studentRepo.softDelete({ id: student.id });
+      const reloaded = await studentRepo.findOne({ where: { id: student.id }, withDeleted: true });
+      expect(reloaded?.deleted_at).not.toBeNull();
 
       const result = await service.getFlaggedDues({ page: 1, limit: 10 }, TENANT_ID);
 
