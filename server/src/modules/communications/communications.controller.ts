@@ -1,4 +1,15 @@
-import { Controller, Post, Get, Body, Param, ParseUUIDPipe, UseGuards, Inject } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  Param,
+  ParseUUIDPipe,
+  UseGuards,
+  Inject,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -6,8 +17,10 @@ import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CommunicationsService } from './communications.service';
 import { BulkReminderService } from './reminders.service';
+import { SingleReminderService } from './single-reminder.service';
 import { SendCommunicationDto } from './dto/communications.dto';
 import { SendBulkReminderDto } from './dto/reminders.dto';
+import { SendSingleReminderDto } from './dto/single-reminder.dto';
 import { UserRole, JwtPayload } from '@beton-boi/shared';
 
 @Controller('communications')
@@ -16,7 +29,33 @@ export class CommunicationsController {
   constructor(
     @Inject(CommunicationsService) private readonly communicationsService: CommunicationsService,
     @Inject(BulkReminderService) private readonly bulkReminderService: BulkReminderService,
+    @Inject(SingleReminderService) private readonly singleReminderService: SingleReminderService,
   ) {}
+
+  // Distinct segment count from reminder/bulk(/:id) above and reminder/single/:studentId
+  // below, so there's no route-ordering ambiguity — declared first to read
+  // preview-before-send, matching the issue's "shows preview before sending."
+  @Post('reminder/single/:studentId/preview')
+  @HttpCode(HttpStatus.OK)
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  previewSingleReminder(
+    @Param('studentId', ParseUUIDPipe) studentId: string,
+    @Body() dto: SendSingleReminderDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.singleReminderService.preview(studentId, dto, tenant.id);
+  }
+
+  @Post('reminder/single/:studentId')
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  sendSingleReminder(
+    @Param('studentId', ParseUUIDPipe) studentId: string,
+    @Body() dto: SendSingleReminderDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.singleReminderService.sendSingle(studentId, dto, tenant.id, user.sub);
+  }
 
   // Declared before @Get(':id') — Nest matches in declaration order, and
   // 'reminder' would otherwise be swallowed by the UUID param route and

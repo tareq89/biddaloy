@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { CommunicationsController } from './communications.controller';
 import { CommunicationsService } from './communications.service';
 import { BulkReminderService } from './reminders.service';
+import { SingleReminderService } from './single-reminder.service';
 import { CommunicationMedium, UserRole } from '@beton-boi/shared';
 
 /**
@@ -18,6 +19,7 @@ describe('CommunicationsController', () => {
   let controller: CommunicationsController;
   let service: Record<string, ReturnType<typeof vi.fn>>;
   let bulkReminderService: Record<string, ReturnType<typeof vi.fn>>;
+  let singleReminderService: Record<string, ReturnType<typeof vi.fn>>;
 
   const TENANT = { id: 'tenant-1', role: UserRole.ADMIN };
   const USER = { sub: 'user-1', memberships: [] } as any;
@@ -25,9 +27,11 @@ describe('CommunicationsController', () => {
   beforeEach(() => {
     service = { enqueue: vi.fn(), findOne: vi.fn() };
     bulkReminderService = { sendBulk: vi.fn(), findBatch: vi.fn() };
+    singleReminderService = { preview: vi.fn(), sendSingle: vi.fn() };
     controller = new CommunicationsController(
       service as unknown as CommunicationsService,
       bulkReminderService as unknown as BulkReminderService,
+      singleReminderService as unknown as SingleReminderService,
     );
   });
 
@@ -129,6 +133,50 @@ describe('CommunicationsController', () => {
       bulkReminderService.findBatch.mockRejectedValue(new NotFoundException('not found'));
 
       await expect(controller.findReminderBatch('batch-1', TENANT)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('previewSingleReminder', () => {
+    it('should call singleReminderService.preview with studentId, dto, and tenant id', async () => {
+      const dto = { message_template: 'Dear {{guardian_name}}' };
+      const expected = { student_id: 's-1', recipients: [], skipped: [] };
+      singleReminderService.preview.mockResolvedValue(expected);
+
+      const result = await controller.previewSingleReminder('s-1', dto as any, TENANT);
+
+      expect(singleReminderService.preview).toHaveBeenCalledWith('s-1', dto, TENANT.id);
+      expect(result).toEqual(expected);
+    });
+
+    it('should propagate BadRequestException from singleReminderService.preview', async () => {
+      const { BadRequestException } = await import('@nestjs/common');
+      singleReminderService.preview.mockRejectedValue(new BadRequestException('no open dues'));
+
+      await expect(
+        controller.previewSingleReminder('s-1', { message_template: 'Hi' } as any, TENANT),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('sendSingleReminder', () => {
+    it('should call singleReminderService.sendSingle with studentId, dto, tenant id, and user id', async () => {
+      const dto = { message_template: 'Dear {{guardian_name}}' };
+      const expected = { student_id: 's-1', sent: [], skipped: [] };
+      singleReminderService.sendSingle.mockResolvedValue(expected);
+
+      const result = await controller.sendSingleReminder('s-1', dto as any, TENANT, USER);
+
+      expect(singleReminderService.sendSingle).toHaveBeenCalledWith('s-1', dto, TENANT.id, USER.sub);
+      expect(result).toEqual(expected);
+    });
+
+    it('should propagate NotFoundException from singleReminderService.sendSingle', async () => {
+      const { NotFoundException } = await import('@nestjs/common');
+      singleReminderService.sendSingle.mockRejectedValue(new NotFoundException('not found'));
+
+      await expect(
+        controller.sendSingleReminder('s-1', { message_template: 'Hi' } as any, TENANT, USER),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });
