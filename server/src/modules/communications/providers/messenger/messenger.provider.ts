@@ -1,4 +1,4 @@
-import { Injectable, NotImplementedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import {
   CommunicationProvider,
   CommunicationSendParams,
@@ -14,10 +14,18 @@ import {
  * phone number or email into a Messenger recipient. A real implementation
  * needs a PSID-capture flow elsewhere in the product before this provider
  * can do anything with `recipient_address`, so it stays a stub.
+ *
+ * Returns a failure result rather than throwing, per the
+ * CommunicationProvider contract — a thrown error here would leave the
+ * CommunicationLog row stuck QUEUED instead of being recorded FAILED.
  */
 @Injectable()
 export class MessengerProvider implements CommunicationProvider {
   async send(_params: CommunicationSendParams): Promise<CommunicationSendResult> {
-    throw new NotImplementedException('Messenger sending is not yet implemented');
+    return {
+      success: false,
+      providerMessageId: null,
+      error: 'Messenger sending is not yet implemented',
+    };
   }
 }

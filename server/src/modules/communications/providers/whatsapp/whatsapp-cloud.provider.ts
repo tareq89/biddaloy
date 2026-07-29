@@ -8,6 +8,7 @@ import {
 import { normalizeBdPhoneNumber } from '../shared/phone-number.util';
 
 const DEFAULT_API_VERSION = 'v21.0';
+const REQUEST_TIMEOUT_MS = 10_000;
 
 /**
  * Meta WhatsApp Business Cloud API.
@@ -66,6 +67,7 @@ export class WhatsAppCloudProvider implements CommunicationProvider {
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         body: JSON.stringify(payload),
       });
       const data = await response.json();

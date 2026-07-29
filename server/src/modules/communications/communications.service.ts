@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -49,6 +49,7 @@ export class CommunicationsService {
 
     const log = await this.repo.save(
       this.repo.create({
+        tenant_id: tenantId,
         medium: dto.medium,
         recipient_address: dto.recipient_address,
         recipient_name: dto.recipient_name,
@@ -65,22 +66,24 @@ export class CommunicationsService {
       }),
     );
 
-    await this.queue.add('send', { logId: log.id });
+    try {
+      await this.queue.add('send', { logId: log.id });
+    } catch (err) {
+      // The row would otherwise be stuck QUEUED forever with no job to
+      // deliver it — surface the failure instead of a false "queued" success.
+      log.status = CommunicationStatus.FAILED;
+      log.metadata = { ...log.metadata, error: 'Failed to enqueue for delivery' };
+      await this.repo.save(log);
+      throw new InternalServerErrorException('Failed to queue communication for delivery');
+    }
 
     return toResponseDto(log);
   }
 
   async findOne(id: string, tenantId: string): Promise<CommunicationResponseDto> {
-    const log = await this.repo.findOne({
-      where: { id },
-      relations: ['student', 'guardian'],
-    });
+    const log = await this.repo.findOne({ where: { id, tenant_id: tenantId } });
 
     if (!log) {
-      throw new NotFoundException(`Communication log with ID "${id}" not found`);
-    }
-    const logTenantId = log.student?.tenant_id ?? log.guardian?.tenant_id;
-    if (logTenantId && logTenantId !== tenantId) {
       throw new NotFoundException(`Communication log with ID "${id}" not found`);
     }
 

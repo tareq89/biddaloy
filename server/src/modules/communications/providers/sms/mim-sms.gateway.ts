@@ -5,6 +5,7 @@ import { SmsGateway, isUnicodeMessage } from './sms-gateway.interface';
 import { normalizeBdPhoneNumber } from '../shared/phone-number.util';
 
 const DEFAULT_BASE_URL = 'https://api.mimsms.com/api/SmsSending/SMS';
+const REQUEST_TIMEOUT_MS = 10_000;
 
 /**
  * MimSMS BD gateway. POST-JSON REST API, keyed by api_key + senderid.
@@ -24,6 +25,7 @@ export class MimSmsGateway implements SmsGateway {
       const response = await fetch(baseUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         body: JSON.stringify({
           api_key: apiKey,
           senderid: senderId,

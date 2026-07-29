@@ -6,10 +6,12 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { Student } from '../../students/entities/student.entity';
 import { Guardian } from '../../students/entities/guardian.entity';
 import { User } from '../../users/entities/user.entity';
+import { School } from '../../schools/entities/school.entity';
 import { CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '@beton-boi/shared';
 
 /**
@@ -21,14 +23,26 @@ import { CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '
  * content, recipient, delivery status, and who triggered it.
  *
  * Relations:
+ * - @ManyToOne → School: the tenant this log belongs to. Stored directly
+ *   (not derived from student/guardian) because a freeform-recipient send
+ *   has neither — deriving tenant scoping from an optional relation would
+ *   leave those rows readable by any tenant.
  * - @ManyToOne → Student (optional): the student this message is about
  * - @ManyToOne → Guardian (optional): the guardian who received it
  * - @ManyToOne → User (sent_by): the staff member who sent it (or null for automated)
  */
 @Entity('communication_logs')
+@Index(['tenant_id'])
 export class CommunicationLog {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @ManyToOne(() => School, { nullable: false, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'tenant_id' })
+  tenant: School;
+
+  @Column({ type: 'uuid' })
+  tenant_id: string;
 
   @Column({ type: 'enum', enum: CommunicationMedium })
   medium: CommunicationMedium;

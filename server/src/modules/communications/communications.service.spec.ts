@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { NotFoundException } from '@nestjs/common';
+import { InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { CommunicationsService } from './communications.service';
 import { CommunicationMedium, CommunicationStatus } from '@beton-boi/shared';
 
@@ -39,11 +39,15 @@ describe('CommunicationsService', () => {
       message_body: 'Hello',
     };
 
-    it('writes a QUEUED log row and pushes a job onto the queue', async () => {
+    it('writes a QUEUED log row stamped with the tenant, and pushes a job onto the queue', async () => {
       const result = await service.enqueue(baseDto as any, TENANT_ID, USER_ID);
 
       expect(repo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ status: CommunicationStatus.QUEUED, sent_by_user_id: USER_ID }),
+        expect.objectContaining({
+          tenant_id: TENANT_ID,
+          status: CommunicationStatus.QUEUED,
+          sent_by_user_id: USER_ID,
+        }),
       );
       expect(queue.add).toHaveBeenCalledWith('send', { logId: 'log-1' });
       expect(result.id).toBe('log-1');
@@ -74,39 +78,44 @@ describe('CommunicationsService', () => {
       ).rejects.toThrow(NotFoundException);
       expect(queue.add).not.toHaveBeenCalled();
     });
+
+    it('marks the log FAILED and throws when the queue rejects the enqueue', async () => {
+      queue.add.mockRejectedValue(new Error('Redis unreachable'));
+
+      await expect(service.enqueue(baseDto as any, TENANT_ID, USER_ID)).rejects.toThrow(
+        InternalServerErrorException,
+      );
+
+      expect(repo.save).toHaveBeenLastCalledWith(
+        expect.objectContaining({ status: CommunicationStatus.FAILED }),
+      );
+    });
   });
 
   describe('findOne', () => {
-    it('returns the log when its student belongs to the tenant', async () => {
+    it('scopes the lookup to the log id and the caller tenant', async () => {
       repo.findOne.mockResolvedValue({
         id: 'log-1',
+        tenant_id: TENANT_ID,
         medium: CommunicationMedium.SMS,
         recipient_address: '01712345678',
         recipient_name: 'Guardian',
         status: CommunicationStatus.SENT,
         provider_message_id: 'p-1',
         created_at: new Date(),
-        student: { tenant_id: TENANT_ID },
-        guardian: null,
       });
 
       const result = await service.findOne('log-1', TENANT_ID);
 
+      expect(repo.findOne).toHaveBeenCalledWith({ where: { id: 'log-1', tenant_id: TENANT_ID } });
       expect(result.id).toBe('log-1');
     });
 
-    it('throws NotFoundException when the log does not exist', async () => {
+    it('throws NotFoundException when no row matches the id + tenant pair', async () => {
+      // The mocked repo mirrors what a real tenant-scoped WHERE would
+      // return for a missing row or one belonging to a different tenant —
+      // both cases return no match.
       repo.findOne.mockResolvedValue(null);
-
-      await expect(service.findOne('missing', TENANT_ID)).rejects.toThrow(NotFoundException);
-    });
-
-    it('throws NotFoundException when the log belongs to a different tenant', async () => {
-      repo.findOne.mockResolvedValue({
-        id: 'log-1',
-        student: { tenant_id: 'other-tenant' },
-        guardian: null,
-      });
 
       await expect(service.findOne('log-1', TENANT_ID)).rejects.toThrow(NotFoundException);
     });

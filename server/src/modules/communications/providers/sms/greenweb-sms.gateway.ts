@@ -5,6 +5,7 @@ import { SmsGateway, isUnicodeMessage } from './sms-gateway.interface';
 import { normalizeBdPhoneNumber } from '../shared/phone-number.util';
 
 const DEFAULT_BASE_URL = 'https://api.greenweb.com.bd/api.php';
+const REQUEST_TIMEOUT_MS = 10_000;
 
 /**
  * Greenweb BD SMS gateway. GET-based REST API, keyed by an account token.
@@ -28,7 +29,10 @@ export class GreenwebSmsGateway implements SmsGateway {
         params.set('unicode', '1');
       }
 
-      const response = await fetch(`${baseUrl}?${params.toString()}`, { method: 'GET' });
+      const response = await fetch(`${baseUrl}?${params.toString()}`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
       const data = await response.json();
 
       if (data?.status === 'success') {
