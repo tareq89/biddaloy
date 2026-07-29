@@ -175,6 +175,22 @@ export class StudentService {
     return student;
   }
 
+  /**
+   * Loads several students with their guardians in one query, scoped to the
+   * tenant. IDs that don't resolve are simply absent from the result — the
+   * caller decides whether a missing student is an error, since "some of
+   * these IDs are bad" and "this one ID is bad" want different responses.
+   *
+   * Exists so bulk flows (fee reminders) don't issue one findOne per student.
+   */
+  async findManyWithGuardians(ids: string[], tenantId: string): Promise<Student[]> {
+    if (ids.length === 0) return [];
+    return this.repo.find({
+      where: { id: In(ids), tenant_id: tenantId, deleted_at: IsNull() },
+      relations: ['guardians'],
+    });
+  }
+
   async update(id: string, dto: UpdateStudentDto, tenantId: string): Promise<Student> {
     await this.findOne(id, tenantId);
 

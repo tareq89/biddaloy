@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { CommunicationsController } from './communications.controller';
 import { CommunicationsService } from './communications.service';
+import { BulkReminderService } from './reminders.service';
 import { CommunicationMedium, UserRole } from '@beton-boi/shared';
 
 /**
@@ -16,13 +17,18 @@ import { CommunicationMedium, UserRole } from '@beton-boi/shared';
 describe('CommunicationsController', () => {
   let controller: CommunicationsController;
   let service: Record<string, ReturnType<typeof vi.fn>>;
+  let bulkReminderService: Record<string, ReturnType<typeof vi.fn>>;
 
   const TENANT = { id: 'tenant-1', role: UserRole.ADMIN };
   const USER = { sub: 'user-1', memberships: [] } as any;
 
   beforeEach(() => {
     service = { enqueue: vi.fn(), findOne: vi.fn() };
-    controller = new CommunicationsController(service as unknown as CommunicationsService);
+    bulkReminderService = { sendBulk: vi.fn(), findBatch: vi.fn() };
+    controller = new CommunicationsController(
+      service as unknown as CommunicationsService,
+      bulkReminderService as unknown as BulkReminderService,
+    );
   });
 
   describe('send', () => {
@@ -80,6 +86,49 @@ describe('CommunicationsController', () => {
       service.findOne.mockRejectedValue(new NotFoundException('Communication log with ID "bad" not found'));
 
       await expect(controller.findOne('bad', TENANT)).rejects.toThrow(NotFoundException);
+    });
+
+    it('should propagate BadRequestException from bulkReminderService.sendBulk', async () => {
+      const { BadRequestException } = await import('@nestjs/common');
+      bulkReminderService.sendBulk.mockRejectedValue(
+        new BadRequestException('Unsupported template placeholder(s): parent'),
+      );
+
+      await expect(
+        controller.sendBulkReminder({ student_ids: ['s-1'], message_template: '{{parent}}' } as any, TENANT, USER),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('sendBulkReminder', () => {
+    it('should call bulkReminderService.sendBulk with dto, tenant id, and user id', async () => {
+      const dto = { student_ids: ['s-1'], message_template: 'Dear {{guardian_name}}' };
+      const expected = { id: 'batch-1', total_recipients: 1 };
+      bulkReminderService.sendBulk.mockResolvedValue(expected);
+
+      const result = await controller.sendBulkReminder(dto as any, TENANT, USER);
+
+      expect(bulkReminderService.sendBulk).toHaveBeenCalledWith(dto, TENANT.id, USER.sub);
+      expect(result).toEqual(expected);
+    });
+  });
+
+  describe('findReminderBatch', () => {
+    it('should call bulkReminderService.findBatch with id and tenant id', async () => {
+      const expected = { id: 'batch-1', status: 'COMPLETED' };
+      bulkReminderService.findBatch.mockResolvedValue(expected);
+
+      const result = await controller.findReminderBatch('batch-1', TENANT);
+
+      expect(bulkReminderService.findBatch).toHaveBeenCalledWith('batch-1', TENANT.id);
+      expect(result).toEqual(expected);
+    });
+
+    it('should propagate NotFoundException for a batch in another tenant', async () => {
+      const { NotFoundException } = await import('@nestjs/common');
+      bulkReminderService.findBatch.mockRejectedValue(new NotFoundException('not found'));
+
+      await expect(controller.findReminderBatch('batch-1', TENANT)).rejects.toThrow(NotFoundException);
     });
   });
 });

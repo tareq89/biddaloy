@@ -378,4 +378,87 @@ describe('FeeDuesService (integration)', () => {
       expect(result.data.some((d) => d.student_id === student.id)).toBe(false);
     });
   });
+
+  describe('getDueSnapshots', () => {
+    it('sums the open balance for each requested student', async () => {
+      const student = await studentRepo.save(makeStudent());
+      await studentFeeRepo.save(
+        makeFee(student.id, { month: 1, total_amount: 1000, paid_amount: 200, discount_amount: 100, status: FeeStatus.PARTIALLY_PAID }),
+      );
+      await studentFeeRepo.save(makeFee(student.id, { month: 2, total_amount: 500 }));
+
+      const result = await service.getDueSnapshots([student.id], TENANT_ID);
+
+      expect(result.get(student.id)?.total_due).toBe(1200);
+    });
+
+    it('reports the oldest open fee, crossing a year boundary correctly', async () => {
+      // The MIN(year * 12 + month - 1) encoding exists precisely so that
+      // December 2025 sorts before January 2026 — a naive MIN(month) would
+      // pick January and put the wrong month in every reminder.
+      const student = await studentRepo.save(makeStudent());
+      await studentFeeRepo.save(makeFee(student.id, { month: 1, year: 2026 }));
+      await studentFeeRepo.save(makeFee(student.id, { month: 12, year: 2025 }));
+
+      const snapshot = (await service.getDueSnapshots([student.id], TENANT_ID)).get(student.id);
+
+      expect(snapshot?.earliest_due_month).toBe(12);
+      expect(snapshot?.earliest_due_year).toBe(2025);
+    });
+
+    it('ignores PAID fees when summing and dating', async () => {
+      const student = await studentRepo.save(makeStudent());
+      await studentFeeRepo.save(makeFee(student.id, { month: 1, status: FeeStatus.PAID, paid_amount: 1000 }));
+      await studentFeeRepo.save(makeFee(student.id, { month: 5, total_amount: 300 }));
+
+      const snapshot = (await service.getDueSnapshots([student.id], TENANT_ID)).get(student.id);
+
+      expect(snapshot?.total_due).toBe(300);
+      expect(snapshot?.earliest_due_month).toBe(5);
+    });
+
+    it('omits a student with no open fees rather than returning a zero', async () => {
+      const student = await studentRepo.save(makeStudent());
+      await studentFeeRepo.save(makeFee(student.id, { status: FeeStatus.PAID, paid_amount: 1000 }));
+
+      const result = await service.getDueSnapshots([student.id], TENANT_ID);
+
+      expect(result.has(student.id)).toBe(false);
+    });
+
+    it('does not return dues for a student in another tenant', async () => {
+      const other = await studentRepo.save(makeStudent({ tenant_id: OTHER_TENANT_ID }));
+      await studentFeeRepo.save(makeFee(other.id));
+
+      const result = await service.getDueSnapshots([other.id], TENANT_ID);
+
+      expect(result.has(other.id)).toBe(false);
+    });
+
+    it('excludes soft-deleted students', async () => {
+      const student = await studentRepo.save(makeStudent());
+      await studentFeeRepo.save(makeFee(student.id));
+      await studentRepo.softDelete(student.id);
+
+      const result = await service.getDueSnapshots([student.id], TENANT_ID);
+
+      expect(result.has(student.id)).toBe(false);
+    });
+
+    it('keys several students independently in one query', async () => {
+      const a = await studentRepo.save(makeStudent());
+      const b = await studentRepo.save(makeStudent());
+      await studentFeeRepo.save(makeFee(a.id, { total_amount: 100 }));
+      await studentFeeRepo.save(makeFee(b.id, { total_amount: 700 }));
+
+      const result = await service.getDueSnapshots([a.id, b.id], TENANT_ID);
+
+      expect(result.get(a.id)?.total_due).toBe(100);
+      expect(result.get(b.id)?.total_due).toBe(700);
+    });
+
+    it('short-circuits on an empty id list without querying', async () => {
+      expect(await service.getDueSnapshots([], TENANT_ID)).toEqual(new Map());
+    });
+  });
 });

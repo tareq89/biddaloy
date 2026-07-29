@@ -5,6 +5,7 @@ import { CommunicationMedium, CommunicationStatus } from '@beton-boi/shared';
 describe('CommunicationsProcessor', () => {
   let processor: CommunicationsProcessor;
   let repo: Record<string, ReturnType<typeof vi.fn>>;
+  let batchRepo: Record<string, ReturnType<typeof vi.fn>>;
   let providerRegistry: Record<string, ReturnType<typeof vi.fn>>;
   let provider: Record<string, ReturnType<typeof vi.fn>>;
 
@@ -16,6 +17,7 @@ describe('CommunicationsProcessor', () => {
     subject: null,
     metadata: null,
     status: CommunicationStatus.QUEUED,
+    reminder_batch_id: null,
   };
 
   // attemptsMade: 0 with attempts: 3 means "first attempt, two retries left".
@@ -33,10 +35,16 @@ describe('CommunicationsProcessor', () => {
       findOneOrFail: vi.fn(async () => ({ ...baseLog })),
       save: vi.fn(async (log) => log),
     };
+    batchRepo = { query: vi.fn(async () => undefined) };
     providerRegistry = { resolve: vi.fn(() => provider) };
 
-    processor = new CommunicationsProcessor(repo as any, providerRegistry as any);
+    processor = new CommunicationsProcessor(repo as any, batchRepo as any, providerRegistry as any);
   });
+
+  /** Params passed to recordBatchOutcome's single UPDATE: [batchId, +success, +failure]. */
+  function batchUpdateParams() {
+    return batchRepo.query.mock.calls[0][1] as [string, number, number];
+  }
 
   it('marks the log SENT with the provider message id on success', async () => {
     provider.send.mockResolvedValue({ success: true, providerMessageId: 'p-1', raw: { ok: true } });
@@ -114,5 +122,55 @@ describe('CommunicationsProcessor', () => {
         templateParams: ['500'],
       }),
     );
+  });
+
+  describe('reminder batch attribution', () => {
+    function batchLog(overrides: Record<string, unknown> = {}) {
+      repo.findOneOrFail.mockResolvedValue({ ...baseLog, reminder_batch_id: 'batch-1', ...overrides });
+    }
+
+    it('counts a delivered message as a batch success', async () => {
+      batchLog();
+      provider.send.mockResolvedValue({ success: true, providerMessageId: 'p-1' });
+
+      await processor.process(job());
+
+      expect(batchUpdateParams()).toEqual(['batch-1', 1, 0]);
+    });
+
+    it('counts a permanently failed message as a batch failure', async () => {
+      batchLog();
+      provider.send.mockResolvedValue({ success: false, providerMessageId: null, error: 'gateway down' });
+
+      await processor.process(job({ attemptsMade: 2, attempts: 3 }));
+
+      expect(batchUpdateParams()).toEqual(['batch-1', 0, 1]);
+    });
+
+    it('counts an unroutable medium as a batch failure', async () => {
+      batchLog();
+      providerRegistry.resolve.mockReturnValue(undefined);
+
+      await processor.process(job());
+
+      expect(batchUpdateParams()).toEqual(['batch-1', 0, 1]);
+    });
+
+    it('does not count a retryable failure, since the message may still succeed', async () => {
+      batchLog();
+      provider.send.mockResolvedValue({ success: false, providerMessageId: null, error: 'gateway down' });
+
+      await expect(processor.process(job({ attemptsMade: 0, attempts: 3 }))).rejects.toThrow();
+
+      expect(batchRepo.query).not.toHaveBeenCalled();
+    });
+
+    it('leaves the batch untouched for a one-off send with no batch', async () => {
+      provider.send.mockResolvedValue({ success: true, providerMessageId: 'p-1' });
+
+      await processor.process(job());
+
+      expect(batchRepo.query).not.toHaveBeenCalled();
+    });
   });
 });

@@ -3,8 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Job } from 'bullmq';
 import { CommunicationLog } from '../entities/communication-log.entity';
+import { ReminderBatch } from '../entities/reminder-batch.entity';
 import { CommunicationStatus } from '@beton-boi/shared';
 import { CommunicationProviderRegistryService } from '../providers/communication-provider.registry';
+import { recordBatchOutcome, BatchOutcome } from '../reminder-batch-counters';
 import { COMMUNICATIONS_QUEUE } from '../communications.constants';
 
 interface SendJobData {
@@ -29,9 +31,25 @@ export class CommunicationsProcessor extends WorkerHost {
   constructor(
     @InjectRepository(CommunicationLog)
     private readonly repo: Repository<CommunicationLog>,
+    @InjectRepository(ReminderBatch)
+    private readonly batchRepo: Repository<ReminderBatch>,
     private readonly providerRegistry: CommunicationProviderRegistryService,
   ) {
     super();
+  }
+
+  /**
+   * Attributes a log's terminal outcome to its batch, if it has one.
+   *
+   * Only reached once the log will not be retried again — an intermediate
+   * failure throws instead, so a message that eventually succeeds is
+   * counted once, as a success.
+   */
+  private async settle(log: CommunicationLog, outcome: BatchOutcome): Promise<void> {
+    await this.repo.save(log);
+    if (log.reminder_batch_id) {
+      await recordBatchOutcome(this.batchRepo, log.reminder_batch_id, outcome);
+    }
   }
 
   async process(job: Job<SendJobData>): Promise<void> {
@@ -43,7 +61,7 @@ export class CommunicationsProcessor extends WorkerHost {
       // suddenly have a provider.
       log.status = CommunicationStatus.FAILED;
       log.metadata = { ...log.metadata, error: `No provider registered for medium "${log.medium}"` };
-      await this.repo.save(log);
+      await this.settle(log, 'failure');
       return;
     }
 
@@ -77,7 +95,7 @@ export class CommunicationsProcessor extends WorkerHost {
       log.status = CommunicationStatus.SENT;
       log.provider_message_id = result.providerMessageId;
       log.metadata = { ...log.metadata, raw: result.raw };
-      await this.repo.save(log);
+      await this.settle(log, 'success');
       return;
     }
 
@@ -87,7 +105,7 @@ export class CommunicationsProcessor extends WorkerHost {
     const isFinalAttempt = job.attemptsMade + 1 >= maxAttempts;
     if (isFinalAttempt) {
       log.status = CommunicationStatus.FAILED;
-      await this.repo.save(log);
+      await this.settle(log, 'failure');
       return;
     }
 

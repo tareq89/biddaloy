@@ -36,6 +36,23 @@ export interface StudentDueSummary extends StudentDueAggregate {
   dues: DueEntry[];
 }
 
+export interface StudentDueSnapshot {
+  student_id: string;
+  total_due: number;
+  /** Month/year of the student's oldest still-open fee, or null if none. */
+  earliest_due_month: number | null;
+  earliest_due_year: number | null;
+}
+
+/**
+ * Postgres has no "value at the min of another column" aggregate, so the
+ * earliest open fee is found by collapsing (year, month) into a single
+ * sortable integer, taking MIN of that, and expanding it back here.
+ */
+export function decodeMonthOrdinal(ordinal: number): { month: number; year: number } {
+  return { year: Math.floor(ordinal / 12), month: (ordinal % 12) + 1 };
+}
+
 export interface GuardianContact {
   id: string;
   full_name: string;
@@ -154,6 +171,48 @@ export class FeeDuesService {
     }));
 
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+  }
+
+  /**
+   * Due totals for an explicit set of students, keyed by student_id.
+   *
+   * Exists for the bulk-reminder flow, which starts from caller-supplied
+   * student IDs rather than from a dues query, and needs only the numbers
+   * that go into a message template. Students with no open fees are simply
+   * absent from the map — the caller decides whether that's worth a message.
+   *
+   * Tenant-scoped in SQL rather than by the caller pre-filtering IDs, so a
+   * student ID from another school can't leak its balance.
+   */
+  async getDueSnapshots(studentIds: string[], tenantId: string): Promise<Map<string, StudentDueSnapshot>> {
+    const byStudent = new Map<string, StudentDueSnapshot>();
+    if (studentIds.length === 0) return byStudent;
+
+    const rows = await this.studentFeeRepo
+      .createQueryBuilder('sf')
+      .innerJoin('sf.student', 'student')
+      .select('sf.student_id', 'student_id')
+      .addSelect('SUM(sf.total_amount - sf.paid_amount - sf.discount_amount)', 'total_due')
+      .addSelect('MIN(sf.year * 12 + sf.month - 1)', 'earliest_ordinal')
+      .where('sf.student_id IN (:...studentIds)', { studentIds })
+      .andWhere('sf.status IN (:...statuses)', { statuses: OPEN_STATUSES })
+      .andWhere('student.tenant_id = :tenantId', { tenantId })
+      .andWhere('student.deleted_at IS NULL')
+      .groupBy('sf.student_id')
+      .getRawMany();
+
+    for (const row of rows) {
+      const ordinal = row.earliest_ordinal === null ? null : Number(row.earliest_ordinal);
+      const earliest = ordinal === null ? null : decodeMonthOrdinal(ordinal);
+      byStudent.set(row.student_id, {
+        student_id: row.student_id,
+        total_due: Number(row.total_due),
+        earliest_due_month: earliest?.month ?? null,
+        earliest_due_year: earliest?.year ?? null,
+      });
+    }
+
+    return byStudent;
   }
 
   /**
