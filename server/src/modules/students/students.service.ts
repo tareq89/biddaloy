@@ -4,7 +4,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, In, Like } from 'typeorm';
+import { Repository, IsNull, In, Like, EntityManager } from 'typeorm';
 import { Student } from './entities/student.entity';
 import { Guardian } from './entities/guardian.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
@@ -12,6 +12,11 @@ import { Class } from '../academics/entities/class.entity';
 import { CreateStudentDto, UpdateStudentDto, QueryStudentDto } from './dto/students.dto';
 import { CreateGuardianDto, UpdateGuardianDto, QueryGuardianDto } from './dto/students.dto';
 import { CommunicationMedium } from '@beton-boi/shared';
+
+// Second key for the roll-number advisory lock, distinguishing it from the
+// registration-number lock's (hashtext(tenant_id), year) pair — see
+// StudentService.create.
+const ROLL_NUMBER_LOCK_NAMESPACE = 741852;
 
 @Injectable()
 export class StudentService {
@@ -26,9 +31,19 @@ export class StudentService {
     private readonly classRepo: Repository<Class>,
   ) {}
 
-  async create(dto: CreateStudentDto, tenantId: string): Promise<Student> {
+  /**
+   * @param manager Optional transaction-scoped manager. When provided (e.g.
+   * by bulk upload, which resolves/creates a guardian and a student as one
+   * atomic unit), all reads/writes run on it instead of starting a new
+   * transaction — so a failure here rolls back sibling writes too.
+   */
+  async create(dto: CreateStudentDto, tenantId: string, manager?: EntityManager): Promise<Student> {
+    const sectionRepo = manager ? manager.getRepository(ClassSection) : this.sectionRepo;
+    const guardianRepo = manager ? manager.getRepository(Guardian) : this.guardianRepo;
+    const studentRepo = manager ? manager.getRepository(Student) : this.repo;
+
     // Validate class_section_id belongs to tenant
-    const section = await this.sectionRepo.findOne({
+    const section = await sectionRepo.findOne({
       where: { id: dto.class_section_id, tenant_id: tenantId, deleted_at: IsNull() },
       relations: ['class'],
     });
@@ -38,7 +53,7 @@ export class StudentService {
 
     // Guard validations
     if (dto.guardian_ids?.length) {
-      const guardianCount = await this.guardianRepo.count({
+      const guardianCount = await guardianRepo.count({
         where: { id: In(dto.guardian_ids), tenant_id: tenantId, deleted_at: IsNull() },
       });
       if (guardianCount !== dto.guardian_ids.length) {
@@ -49,17 +64,24 @@ export class StudentService {
     const currentYear = new Date().getFullYear();
 
     // Atomically generate reg number, determine roll number, and persist
-    const savedStudent = await this.repo.manager.transaction(async (manager) => {
-      const studentRepo = manager.getRepository(Student);
+    const generateAndSave = async (txManager: EntityManager) => {
+      const txStudentRepo = txManager.getRepository(Student);
 
-      // Generate registration number with pessimistic lock
-      const lastStudent = await studentRepo
+      // Locking the "last matching row" only serializes concurrent creates
+      // when such a row already exists — the very first student of a new
+      // year (or a brand-new class section) has nothing to lock, letting
+      // two concurrent requests both compute the same next number. Advisory
+      // locks serialize on the (tenant, year) / (section) key itself, so
+      // they protect that first-insert case too, and auto-release at
+      // commit/rollback (same pattern as invoice-numbering.util.ts).
+      await txManager.query('SELECT pg_advisory_xact_lock(hashtext($1), $2)', [tenantId, currentYear]);
+
+      const lastStudent = await txStudentRepo
         .createQueryBuilder('s')
         .withDeleted()
         .where('s.tenant_id = :tenantId', { tenantId })
         .andWhere('s.registration_number LIKE :pattern', { pattern: `REG-${currentYear}-%` })
         .orderBy('s.registration_number', 'DESC')
-        .setLock('pessimistic_write')
         .getOne();
 
       let nextSeq = 1;
@@ -72,15 +94,20 @@ export class StudentService {
       }
       const regNumber = `REG-${currentYear}-${String(nextSeq).padStart(4, '0')}`;
 
-      // Get next roll number (within the same transaction, so locked)
-      const lastRoll = await studentRepo.findOne({
+      // Same reasoning for roll numbers, scoped per class_section.
+      await txManager.query('SELECT pg_advisory_xact_lock(hashtext($1), $2)', [
+        dto.class_section_id,
+        ROLL_NUMBER_LOCK_NAMESPACE,
+      ]);
+
+      const lastRoll = await txStudentRepo.findOne({
         where: { class_section_id: dto.class_section_id, tenant_id: tenantId, deleted_at: IsNull() },
         order: { roll_number: 'DESC' },
       });
       const rollNumber = dto.roll_number ?? (lastRoll ? lastRoll.roll_number + 1 : 1);
 
       // Create and save student
-      const student = studentRepo.create({
+      const student = txStudentRepo.create({
         full_name: dto.full_name,
         registration_number: regNumber,
         roll_number: rollNumber,
@@ -92,22 +119,24 @@ export class StudentService {
         tenant_id: tenantId,
       });
 
-      return studentRepo.save(student);
-    });
+      return txStudentRepo.save(student);
+    };
+
+    const savedStudent = manager ? await generateAndSave(manager) : await this.repo.manager.transaction(generateAndSave);
 
     // Link guardians
     if (dto.guardian_ids?.length) {
-      const guardians = await this.guardianRepo.find({
+      const guardians = await guardianRepo.find({
         where: { id: In(dto.guardian_ids), tenant_id: tenantId, deleted_at: IsNull() },
       });
       if (guardians.length !== dto.guardian_ids.length) {
         throw new NotFoundException('One or more guardian IDs not found');
       }
       savedStudent.guardians = guardians;
-      await this.repo.save(savedStudent);
+      await studentRepo.save(savedStudent);
     }
 
-    return this.repo.findOne({
+    return studentRepo.findOne({
       where: { id: savedStudent.id },
       relations: ['class_section', 'class_section.class', 'guardians'],
     }) as Promise<Student>;
@@ -204,8 +233,14 @@ export class GuardianService {
     private readonly studentRepo: Repository<Student>,
   ) {}
 
-  async create(dto: CreateGuardianDto, tenantId: string): Promise<Guardian> {
-    const entity = this.repo.create({
+  /**
+   * @param manager Optional transaction-scoped manager — see StudentService.create.
+   */
+  async create(dto: CreateGuardianDto, tenantId: string, manager?: EntityManager): Promise<Guardian> {
+    const repo = manager ? manager.getRepository(Guardian) : this.repo;
+    const studentRepo = manager ? manager.getRepository(Student) : this.studentRepo;
+
+    const entity = repo.create({
       full_name: dto.full_name,
       relationship: dto.relationship ?? 'OTHER',
       phone: dto.phone ?? null,
@@ -217,21 +252,21 @@ export class GuardianService {
       tenant_id: tenantId,
     });
 
-    const saved = await this.repo.save(entity);
+    const saved = await repo.save(entity);
 
     // Link students if provided
     if (dto.student_ids?.length) {
-      const students = await this.studentRepo.find({
+      const students = await studentRepo.find({
         where: { id: In(dto.student_ids), tenant_id: tenantId, deleted_at: IsNull() },
       });
       if (students.length !== dto.student_ids.length) {
         throw new NotFoundException('One or more student IDs not found');
       }
       saved.students = students;
-      await this.repo.save(saved);
+      await repo.save(saved);
     }
 
-    return this.repo.findOne({
+    return repo.findOne({
       where: { id: saved.id },
       relations: ['students'],
     }) as Promise<Guardian>;
@@ -283,6 +318,11 @@ export class GuardianService {
       throw new NotFoundException(`Guardian with ID "${id}" not found`);
     }
     return guardian;
+  }
+
+  async findByPhone(phone: string, tenantId: string, manager?: EntityManager): Promise<Guardian | null> {
+    const repo = manager ? manager.getRepository(Guardian) : this.repo;
+    return repo.findOne({ where: { phone, tenant_id: tenantId, deleted_at: IsNull() } });
   }
 
   async update(id: string, dto: UpdateGuardianDto, tenantId: string): Promise<Guardian> {
