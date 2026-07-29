@@ -12,6 +12,7 @@ import { Student } from '../../students/entities/student.entity';
 import { Guardian } from '../../students/entities/guardian.entity';
 import { User } from '../../users/entities/user.entity';
 import { School } from '../../schools/entities/school.entity';
+import { ReminderBatch } from './reminder-batch.entity';
 import { CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '@beton-boi/shared';
 
 /**
@@ -30,9 +31,11 @@ import { CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '
  * - @ManyToOne → Student (optional): the student this message is about
  * - @ManyToOne → Guardian (optional): the guardian who received it
  * - @ManyToOne → User (sent_by): the staff member who sent it (or null for automated)
+ * - @ManyToOne → ReminderBatch (optional): the bulk campaign that produced it
  */
 @Entity('communication_logs')
 @Index(['tenant_id'])
+@Index(['reminder_batch_id'])
 export class CommunicationLog {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -85,6 +88,15 @@ export class CommunicationLog {
 
   @Column({ type: 'uuid', nullable: true })
   sent_by_user_id: string | null;
+
+  // Null for one-off sends. SET NULL on delete rather than CASCADE — the log
+  // is an audit record and outlives the campaign that produced it.
+  @ManyToOne(() => ReminderBatch, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'reminder_batch_id' })
+  reminder_batch: ReminderBatch | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  reminder_batch_id: string | null;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   provider_message_id: string | null;

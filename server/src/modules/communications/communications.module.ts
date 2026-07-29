@@ -2,8 +2,11 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 import { CommunicationLog } from './entities/communication-log.entity';
+import { ReminderBatch } from './entities/reminder-batch.entity';
 import { StudentModule } from '../students/students.module';
+import { FeeModule } from '../fees/fees.module';
 import { CommunicationsService } from './communications.service';
+import { BulkReminderService } from './reminders.service';
 import { CommunicationsController } from './communications.controller';
 import { CommunicationsProcessor } from './worker/communications.processor';
 import { CommunicationProviderRegistryService } from './providers/communication-provider.registry';
@@ -17,8 +20,9 @@ import { COMMUNICATIONS_QUEUE } from './communications.constants';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([CommunicationLog]),
+    TypeOrmModule.forFeature([CommunicationLog, ReminderBatch]),
     StudentModule,
+    FeeModule,
     BullModule.registerQueue({
       name: COMMUNICATIONS_QUEUE,
       defaultJobOptions: {
@@ -29,6 +33,7 @@ import { COMMUNICATIONS_QUEUE } from './communications.constants';
   ],
   providers: [
     CommunicationsService,
+    BulkReminderService,
     CommunicationsProcessor,
     CommunicationProviderRegistryService,
     SmsProviderFactory,
@@ -39,6 +44,6 @@ import { COMMUNICATIONS_QUEUE } from './communications.constants';
     MessengerProvider,
   ],
   controllers: [CommunicationsController],
-  exports: [CommunicationsService],
+  exports: [CommunicationsService, BulkReminderService],
 })
 export class CommunicationsModule {}

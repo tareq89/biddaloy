@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sortAggregates, StudentDueAggregate } from './fee-dues.service';
+import { sortAggregates, decodeMonthOrdinal, StudentDueAggregate } from './fee-dues.service';
 
 /**
  * Unit tests for the pure sorting helper used by FeeDuesService.getDues.
@@ -75,5 +75,31 @@ describe('sortAggregates', () => {
     sortAggregates(input, 'due_amount', 'ASC');
 
     expect(input.map((r) => r.student_id)).toEqual(originalOrder);
+  });
+});
+
+/**
+ * getDueSnapshots collapses (year, month) into one sortable integer so
+ * Postgres can MIN it; this expands it back. The SQL half is covered in
+ * fee-dues.service.integration.spec.ts against a real database.
+ */
+describe('decodeMonthOrdinal', () => {
+  function encode(month: number, year: number) {
+    return year * 12 + month - 1;
+  }
+
+  it('round-trips every month of a year', () => {
+    for (let month = 1; month <= 12; month++) {
+      expect(decodeMonthOrdinal(encode(month, 2026))).toEqual({ month, year: 2026 });
+    }
+  });
+
+  it('keeps December and the following January in the right years', () => {
+    expect(decodeMonthOrdinal(encode(12, 2025))).toEqual({ month: 12, year: 2025 });
+    expect(decodeMonthOrdinal(encode(1, 2026))).toEqual({ month: 1, year: 2026 });
+  });
+
+  it('orders December 2025 before January 2026, which is why the encoding works', () => {
+    expect(encode(12, 2025)).toBeLessThan(encode(1, 2026));
   });
 });

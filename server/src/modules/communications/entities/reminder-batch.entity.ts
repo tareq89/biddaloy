@@ -6,8 +6,10 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
+import { School } from '../../schools/entities/school.entity';
 import { ReminderBatchStatus } from '@beton-boi/shared';
 
 /**
@@ -19,13 +21,24 @@ import { ReminderBatchStatus } from '@beton-boi/shared';
  * is recorded in CommunicationLog.
  *
  * Relations:
+ * - @ManyToOne → School: the tenant this batch belongs to. Stored directly
+ *   rather than derived through initiated_by, so a batch can never be read
+ *   by a tenant the initiating user also happens to be a member of.
  * - @ManyToOne → User (initiated_by): the staff member who triggered the batch
  * - Referenced-by → CommunicationLog: individual messages from this batch
  */
 @Entity('reminder_batches')
+@Index(['tenant_id'])
 export class ReminderBatch {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @ManyToOne(() => School, { nullable: false, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'tenant_id' })
+  tenant: School;
+
+  @Column({ type: 'uuid' })
+  tenant_id: string;
 
   @Column({ type: 'varchar', length: 200 })
   batch_name: string;
