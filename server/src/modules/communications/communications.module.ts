@@ -7,6 +7,7 @@ import { StudentModule } from '../students/students.module';
 import { FeeModule } from '../fees/fees.module';
 import { CommunicationsService } from './communications.service';
 import { BulkReminderService } from './reminders.service';
+import { SingleReminderService } from './single-reminder.service';
 import { CommunicationsController } from './communications.controller';
 import { CommunicationsProcessor } from './worker/communications.processor';
 import { CommunicationProviderRegistryService } from './providers/communication-provider.registry';
@@ -34,6 +35,7 @@ import { COMMUNICATIONS_QUEUE } from './communications.constants';
   providers: [
     CommunicationsService,
     BulkReminderService,
+    SingleReminderService,
     CommunicationsProcessor,
     CommunicationProviderRegistryService,
     SmsProviderFactory,
@@ -44,6 +46,6 @@ import { COMMUNICATIONS_QUEUE } from './communications.constants';
     MessengerProvider,
   ],
   controllers: [CommunicationsController],
-  exports: [CommunicationsService, BulkReminderService],
+  exports: [CommunicationsService, BulkReminderService, SingleReminderService],
 })
 export class CommunicationsModule {}
