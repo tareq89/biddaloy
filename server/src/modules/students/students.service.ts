@@ -13,6 +13,11 @@ import { CreateStudentDto, UpdateStudentDto, QueryStudentDto } from './dto/stude
 import { CreateGuardianDto, UpdateGuardianDto, QueryGuardianDto } from './dto/students.dto';
 import { CommunicationMedium } from '@beton-boi/shared';
 
+// Second key for the roll-number advisory lock, distinguishing it from the
+// registration-number lock's (hashtext(tenant_id), year) pair — see
+// StudentService.create.
+const ROLL_NUMBER_LOCK_NAMESPACE = 741852;
+
 @Injectable()
 export class StudentService {
   constructor(
@@ -62,14 +67,21 @@ export class StudentService {
     const generateAndSave = async (txManager: EntityManager) => {
       const txStudentRepo = txManager.getRepository(Student);
 
-      // Generate registration number with pessimistic lock
+      // Locking the "last matching row" only serializes concurrent creates
+      // when such a row already exists — the very first student of a new
+      // year (or a brand-new class section) has nothing to lock, letting
+      // two concurrent requests both compute the same next number. Advisory
+      // locks serialize on the (tenant, year) / (section) key itself, so
+      // they protect that first-insert case too, and auto-release at
+      // commit/rollback (same pattern as invoice-numbering.util.ts).
+      await txManager.query('SELECT pg_advisory_xact_lock(hashtext($1), $2)', [tenantId, currentYear]);
+
       const lastStudent = await txStudentRepo
         .createQueryBuilder('s')
         .withDeleted()
         .where('s.tenant_id = :tenantId', { tenantId })
         .andWhere('s.registration_number LIKE :pattern', { pattern: `REG-${currentYear}-%` })
         .orderBy('s.registration_number', 'DESC')
-        .setLock('pessimistic_write')
         .getOne();
 
       let nextSeq = 1;
@@ -82,7 +94,12 @@ export class StudentService {
       }
       const regNumber = `REG-${currentYear}-${String(nextSeq).padStart(4, '0')}`;
 
-      // Get next roll number (within the same transaction, so locked)
+      // Same reasoning for roll numbers, scoped per class_section.
+      await txManager.query('SELECT pg_advisory_xact_lock(hashtext($1), $2)', [
+        dto.class_section_id,
+        ROLL_NUMBER_LOCK_NAMESPACE,
+      ]);
+
       const lastRoll = await txStudentRepo.findOne({
         where: { class_section_id: dto.class_section_id, tenant_id: tenantId, deleted_at: IsNull() },
         order: { roll_number: 'DESC' },

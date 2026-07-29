@@ -255,6 +255,23 @@ describe('StudentService (integration)', () => {
       expect(student2.registration_number).toMatch(/REG-\d{4}-\d{4}$/);
       expect(student2.registration_number).not.toBe(student1.registration_number);
     });
+
+    it('serializes concurrent creates so no two students in the same section collide on roll_number or registration_number', async () => {
+      // Fired concurrently against an empty section — the pessimistic
+      // row lock alone can't serialize this (there's no row to lock yet
+      // for the very first insert); the advisory lock added in
+      // StudentService.create is what prevents duplicates here.
+      const students = await Promise.all(
+        Array.from({ length: 5 }, (_, i) =>
+          service.create({ full_name: `Concurrent ${i}`, class_section_id: SEED_SECTION_1_ID }, TENANT_ID),
+        ),
+      );
+
+      const rollNumbers = students.map((s) => s.roll_number);
+      const registrationNumbers = students.map((s) => s.registration_number);
+      expect(new Set(rollNumbers).size).toBe(5);
+      expect(new Set(registrationNumbers).size).toBe(5);
+    });
   });
 
   describe('findAll', () => {
