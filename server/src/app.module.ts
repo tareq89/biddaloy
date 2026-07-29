@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { resolve } from "path";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
+import { BullModule } from "@nestjs/bullmq";
 import { AppController } from "./app.controller";
 import { HealthModule } from "./modules/health/health.module";
 import { AuthModule } from "./modules/auth/auth.module";
@@ -12,6 +13,7 @@ import { UserModule } from "./modules/users/users.module";
 import { StudentModule } from "./modules/students/students.module";
 import { FeeModule } from "./modules/fees/fees.module";
 import { InvoicesModule } from "./modules/invoices/invoices.module";
+import { CommunicationsModule } from "./modules/communications/communications.module";
 import { validate } from "./config/env.validation";
 
 // Entities for auto-loading
@@ -77,6 +79,15 @@ import { TeacherClassSection } from "./modules/academics/entities/teacher-class-
         migrationsTableName: "typeorm_migrations",
       }),
     }),
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        connection: {
+          url: config.get<string>("REDIS_URL") ?? "redis://localhost:6379",
+        },
+      }),
+    }),
     HealthModule,
     AuthModule,
     AcademicYearModule,
@@ -86,6 +97,7 @@ import { TeacherClassSection } from "./modules/academics/entities/teacher-class-
     StudentModule,
     FeeModule,
     InvoicesModule,
+    CommunicationsModule,
   ],
   controllers: [AppController],
 })

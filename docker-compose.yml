@@ -8,11 +8,26 @@ services:
     environment:
       NODE_ENV: production
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     expose:
       - "3000"
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   db:
     image: postgres:16-alpine
@@ -44,3 +59,4 @@ services:
 
 volumes:
   pgdata:
+  redisdata:

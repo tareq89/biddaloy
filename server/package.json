@@ -24,6 +24,7 @@
     "db:reset": "ts-node src/scripts/db-reset.ts"
   },
   "dependencies": {
+    "@nestjs/bullmq": "^11",
     "@nestjs/common": "^11",
     "@nestjs/config": "^4",
     "@nestjs/core": "^11",
@@ -32,9 +33,12 @@
     "@nestjs/platform-express": "^11",
     "@nestjs/typeorm": "^11",
     "bcrypt": "^6.0.0",
+    "bullmq": "^5",
     "class-transformer": "^0.5",
     "class-validator": "^0.14",
     "exceljs": "^4.4.0",
+    "ioredis": "^5",
+    "nodemailer": "^6",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8",
@@ -49,6 +53,7 @@
     "@types/express": "^5",
     "@types/multer": "^2.2.0",
     "@types/node": "^22",
+    "@types/nodemailer": "^6",
     "@types/passport-jwt": "^4.0.1",
     "@types/supertest": "^7.2.1",
     "supertest": "^7.2.2",
