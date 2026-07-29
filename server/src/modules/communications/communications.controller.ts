@@ -1,4 +1,15 @@
-import { Controller, Post, Get, Body, Param, ParseUUIDPipe, UseGuards, Inject } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  Param,
+  ParseUUIDPipe,
+  UseGuards,
+  Inject,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -25,6 +36,7 @@ export class CommunicationsController {
   // below, so there's no route-ordering ambiguity — declared first to read
   // preview-before-send, matching the issue's "shows preview before sending."
   @Post('reminder/single/:studentId/preview')
+  @HttpCode(HttpStatus.OK)
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
   previewSingleReminder(
     @Param('studentId', ParseUUIDPipe) studentId: string,
