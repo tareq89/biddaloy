@@ -49,6 +49,17 @@ describe('renderReminderTemplate', () => {
   it('does not treat single braces as placeholders', () => {
     expect(renderReminderTemplate('{student_name}', VARS)).toBe('{student_name}');
   });
+
+  it('leaves a hyphenated placeholder verbatim rather than passing it through unrecognized', () => {
+    // {{student-name}} previously fell outside the word-char-only pattern
+    // entirely, so it was neither flagged as unsupported nor rendered — it
+    // just shipped to the guardian as literal "{{student-name}}".
+    expect(renderReminderTemplate('Hi {{student-name}}', VARS)).toBe('Hi {{student-name}}');
+  });
+
+  it('leaves an empty placeholder verbatim', () => {
+    expect(renderReminderTemplate('Hi {{}}', VARS)).toBe('Hi {{}}');
+  });
 });
 
 describe('findUnsupportedPlaceholders', () => {
@@ -66,6 +77,18 @@ describe('findUnsupportedPlaceholders', () => {
 
   it('ignores supported names while collecting unsupported ones', () => {
     expect(findUnsupportedPlaceholders('{{student_name}} {{nope}}')).toEqual(['nope']);
+  });
+
+  it('flags a hyphenated placeholder as unsupported', () => {
+    expect(findUnsupportedPlaceholders('{{student-name}}')).toEqual(['student-name']);
+  });
+
+  it('flags an empty placeholder as unsupported', () => {
+    expect(findUnsupportedPlaceholders('{{}}')).toEqual(['']);
+  });
+
+  it('trims padding before comparing against supported names', () => {
+    expect(findUnsupportedPlaceholders('{{ student_name }}')).toEqual([]);
   });
 });
 

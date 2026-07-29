@@ -173,4 +173,48 @@ describe('CommunicationsProcessor', () => {
       expect(batchRepo.query).not.toHaveBeenCalled();
     });
   });
+
+  describe('replay protection', () => {
+    // BullMQ's stalled-job recovery can hand the same job to a worker again
+    // after a previous run already saved a terminal outcome. Reprocessing it
+    // would resend the message and double-count the batch, so a log that's
+    // already SENT or FAILED short-circuits instead.
+    it('does not resend or resave a log that already settled as SENT', async () => {
+      repo.findOneOrFail.mockResolvedValue({ ...baseLog, status: CommunicationStatus.SENT });
+
+      await processor.process(job());
+
+      expect(provider.send).not.toHaveBeenCalled();
+      expect(repo.save).not.toHaveBeenCalled();
+    });
+
+    it('does not resend or resave a log that already settled as FAILED', async () => {
+      repo.findOneOrFail.mockResolvedValue({ ...baseLog, status: CommunicationStatus.FAILED });
+
+      await processor.process(job());
+
+      expect(provider.send).not.toHaveBeenCalled();
+      expect(repo.save).not.toHaveBeenCalled();
+    });
+
+    it('does not double-count a batch when a settled log is replayed', async () => {
+      repo.findOneOrFail.mockResolvedValue({
+        ...baseLog,
+        status: CommunicationStatus.SENT,
+        reminder_batch_id: 'batch-1',
+      });
+
+      await processor.process(job());
+
+      expect(batchRepo.query).not.toHaveBeenCalled();
+    });
+
+    it('still processes a QUEUED log normally', async () => {
+      provider.send.mockResolvedValue({ success: true, providerMessageId: 'p-1' });
+
+      await processor.process(job());
+
+      expect(provider.send).toHaveBeenCalledTimes(1);
+    });
+  });
 });

@@ -22,9 +22,11 @@ interface SendJobData {
  *
  * Retries are at-least-once, not exactly-once: a crash between a
  * provider's successful send and this method recording it could resend on
- * the next attempt. Full send-idempotency would need provider-side
- * dedup keys, which aren't uniformly available across these gateways, so
- * this is an accepted tradeoff rather than something this module solves.
+ * the next attempt (the log's status guard at the top of `process` catches
+ * a *replay after that save landed*, but not a crash *before* it commits).
+ * Full send-idempotency would need provider-side dedup keys, which aren't
+ * uniformly available across these gateways, so this narrow window is an
+ * accepted tradeoff rather than something this module solves.
  */
 @Processor(COMMUNICATIONS_QUEUE)
 export class CommunicationsProcessor extends WorkerHost {
@@ -54,6 +56,17 @@ export class CommunicationsProcessor extends WorkerHost {
 
   async process(job: Job<SendJobData>): Promise<void> {
     const log = await this.repo.findOneOrFail({ where: { id: job.data.logId } });
+
+    // A BullMQ job can be reprocessed after it already reached a terminal
+    // state — most commonly the "stalled job" recovery path, where a worker
+    // that crashed or missed a lock-renewal deadline after settling the log
+    // gets its job picked up again. Resending here would duplicate the
+    // message to the guardian and double-count a batch that already
+    // recorded this outcome, so a log that's already SENT/FAILED is treated
+    // as done rather than reprocessed.
+    if (log.status === CommunicationStatus.SENT || log.status === CommunicationStatus.FAILED) {
+      return;
+    }
 
     const provider = this.providerRegistry.resolve(log.medium);
     if (!provider) {

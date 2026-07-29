@@ -26,10 +26,12 @@ export function templateVarValue(vars: ReminderTemplateVars, name: string): stri
   return isSupportedPlaceholder(name) ? vars[name] : undefined;
 }
 
-// Tolerates inner padding (`{{ student_name }}`) because templates are typed
-// by hand in an admin UI and a stray space shouldn't silently ship a literal
-// `{{ student_name }}` to a guardian's phone.
-const PLACEHOLDER_PATTERN = /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g;
+// Captures anything between the braces — not just [a-zA-Z0-9_] — so a typo
+// like `{{student-name}}` is still recognized as a placeholder attempt and
+// validated (and rejected) rather than silently skipped by the pattern and
+// shipped to a guardian's phone as literal text. Inner padding is trimmed
+// separately so `{{ student_name }}` still resolves.
+const PLACEHOLDER_PATTERN = /\{\{\s*([^{}]*?)\s*\}\}/g;
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -46,8 +48,9 @@ const MONTH_NAMES = [
 export function findUnsupportedPlaceholders(template: string): string[] {
   const found = new Set<string>();
   for (const match of template.matchAll(PLACEHOLDER_PATTERN)) {
-    if (!isSupportedPlaceholder(match[1])) {
-      found.add(match[1]);
+    const name = match[1].trim();
+    if (!isSupportedPlaceholder(name)) {
+      found.add(name);
     }
   }
   return [...found];
@@ -57,7 +60,7 @@ export function renderReminderTemplate(template: string, vars: ReminderTemplateV
   return template.replace(PLACEHOLDER_PATTERN, (original: string, name: string) => {
     // Unsupported names are validated away before this runs; if one slips
     // through, leaving it verbatim is more diagnosable than an empty gap.
-    return templateVarValue(vars, name) ?? original;
+    return templateVarValue(vars, name.trim()) ?? original;
   });
 }
 
