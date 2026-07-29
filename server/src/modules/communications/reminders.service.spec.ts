@@ -100,6 +100,7 @@ describe('BulkReminderService', () => {
   let feeDuesService: Record<string, ReturnType<typeof vi.fn>>;
 
   let savedBatch: any;
+  let txManager: Record<string, ReturnType<typeof vi.fn>>;
 
   const dto = {
     student_ids: ['s-1'],
@@ -108,10 +109,19 @@ describe('BulkReminderService', () => {
 
   beforeEach(() => {
     savedBatch = null;
+    // The enqueue-failure path saves the log and records the batch outcome
+    // inside one transaction (see the "why" in reminders.service.ts) so
+    // a crash between the two can't leave a FAILED log the batch never
+    // counted. txManager stands in for the transactional EntityManager.
+    txManager = {
+      save: vi.fn(async (v) => v),
+      query: vi.fn(async () => undefined),
+    };
 
     logRepo = {
       create: vi.fn((v) => ({ ...v })),
       save: vi.fn(async (v) => ({ id: 'log-1', ...v })),
+      manager: { transaction: vi.fn(async (cb: any) => cb(txManager)) },
     };
     batchRepo = {
       create: vi.fn((v) => ({ ...v })),
@@ -495,13 +505,15 @@ describe('BulkReminderService', () => {
       expect(result.total_recipients).toBe(2);
       // Second recipient still enqueued despite the first failing.
       expect(queue.add).toHaveBeenCalledTimes(2);
-      expect(logRepo.save).toHaveBeenCalledWith(
+      expect(txManager.save).toHaveBeenCalledWith(
         expect.objectContaining({
           status: CommunicationStatus.FAILED,
           metadata: expect.objectContaining({ error: 'Failed to enqueue for delivery' }),
         }),
       );
-      expect(batchRepo.query).toHaveBeenCalledTimes(1);
+      // Save and counter update happen inside the same transaction callback.
+      expect(logRepo.manager.transaction).toHaveBeenCalledTimes(1);
+      expect(txManager.query).toHaveBeenCalledTimes(1);
     });
 
     it('reports counts re-read after the enqueue loop, not the ones the batch was created with', async () => {

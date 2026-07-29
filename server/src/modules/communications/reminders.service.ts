@@ -270,10 +270,15 @@ export class BulkReminderService {
       } catch {
         // One recipient failing to enqueue shouldn't abort the rest of the
         // batch, but the row must not be left QUEUED with no job behind it.
+        // Save and counter update run in one transaction — same reasoning
+        // as CommunicationsProcessor.settle: separately, a crash between
+        // them would leave a FAILED log whose outcome was never counted.
         log.status = CommunicationStatus.FAILED;
         log.metadata = { ...log.metadata, error: 'Failed to enqueue for delivery' };
-        await this.logRepo.save(log);
-        await recordBatchOutcome(this.batchRepo, batch.id, 'failure');
+        await this.logRepo.manager.transaction(async (manager) => {
+          await manager.save(log);
+          await recordBatchOutcome(manager, batch.id, 'failure');
+        });
       }
     }
   }

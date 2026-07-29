@@ -1,5 +1,4 @@
-import { Repository } from 'typeorm';
-import { ReminderBatch } from './entities/reminder-batch.entity';
+import { EntityManager } from 'typeorm';
 
 export type BatchOutcome = 'success' | 'failure';
 
@@ -14,16 +13,26 @@ export type BatchOutcome = 'success' | 'failure';
  *
  * `>= total_recipients` rather than `=` so a stray extra outcome (a job
  * replayed after a Redis restore, say) still closes the batch out.
+ *
+ * Takes an EntityManager, not a Repository, because the caller must run
+ * this in the same transaction as the CommunicationLog's terminal save.
+ * Otherwise a crash between the two — log saved SENT/FAILED, this update
+ * never runs — leaves the batch permanently short a count, and a later
+ * replay of that job would see the log already terminal and skip this call
+ * again, so the batch would never reach total_recipients and stay in
+ * PROCESSING forever. One transaction means either both commit or neither
+ * does, so a retry after a crash goes through the normal (non-terminal) path
+ * again instead of silently losing the count.
  */
 export async function recordBatchOutcome(
-  repo: Repository<ReminderBatch>,
+  manager: EntityManager,
   batchId: string,
   outcome: BatchOutcome,
 ): Promise<void> {
   const successInc = outcome === 'success' ? 1 : 0;
   const failureInc = outcome === 'failure' ? 1 : 0;
 
-  await repo.query(
+  await manager.query(
     `
     UPDATE "reminder_batches"
     SET "successful_count" = "successful_count" + $2,

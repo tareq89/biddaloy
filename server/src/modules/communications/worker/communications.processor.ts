@@ -3,7 +3,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Job } from 'bullmq';
 import { CommunicationLog } from '../entities/communication-log.entity';
-import { ReminderBatch } from '../entities/reminder-batch.entity';
 import { CommunicationStatus } from '@beton-boi/shared';
 import { CommunicationProviderRegistryService } from '../providers/communication-provider.registry';
 import { recordBatchOutcome, BatchOutcome } from '../reminder-batch-counters';
@@ -26,15 +25,17 @@ interface SendJobData {
  * a *replay after that save landed*, but not a crash *before* it commits).
  * Full send-idempotency would need provider-side dedup keys, which aren't
  * uniformly available across these gateways, so this narrow window is an
- * accepted tradeoff rather than something this module solves.
+ * accepted tradeoff rather than something this module solves. `settle`
+ * saving the log and recording the batch outcome in one transaction is what
+ * keeps that window from also being able to strand a batch in PROCESSING —
+ * either both commit, or neither does and the retry goes through the
+ * normal path again.
  */
 @Processor(COMMUNICATIONS_QUEUE)
 export class CommunicationsProcessor extends WorkerHost {
   constructor(
     @InjectRepository(CommunicationLog)
     private readonly repo: Repository<CommunicationLog>,
-    @InjectRepository(ReminderBatch)
-    private readonly batchRepo: Repository<ReminderBatch>,
     private readonly providerRegistry: CommunicationProviderRegistryService,
   ) {
     super();
@@ -46,12 +47,22 @@ export class CommunicationsProcessor extends WorkerHost {
    * Only reached once the log will not be retried again — an intermediate
    * failure throws instead, so a message that eventually succeeds is
    * counted once, as a success.
+   *
+   * Runs the log save and the batch counter update in one transaction. If
+   * they ran separately, a crash between them would leave a terminal log
+   * whose outcome was never recorded — and the replay guard in `process`
+   * would then skip it forever on retry, since it only checks whether the
+   * log is already terminal, not whether its batch was updated. One
+   * transaction means either both commit, or the log stays non-terminal
+   * and a retry goes through the normal path again.
    */
   private async settle(log: CommunicationLog, outcome: BatchOutcome): Promise<void> {
-    await this.repo.save(log);
-    if (log.reminder_batch_id) {
-      await recordBatchOutcome(this.batchRepo, log.reminder_batch_id, outcome);
-    }
+    await this.repo.manager.transaction(async (manager) => {
+      await manager.save(log);
+      if (log.reminder_batch_id) {
+        await recordBatchOutcome(manager, log.reminder_batch_id, outcome);
+      }
+    });
   }
 
   async process(job: Job<SendJobData>): Promise<void> {
