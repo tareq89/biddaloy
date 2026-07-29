@@ -252,6 +252,23 @@ describe('StudentBulkUploadService (integration)', () => {
     expect(result.errors[0].reason).toContain('Duplicate roll number 9');
   });
 
+  it('does not leave an orphaned guardian behind when the student create fails', async () => {
+    await service.process(await buildXlsxFile([rowValues(headers, { student_name: 'Existing', roll: '15' })]), TENANT_ID, SEED_ADMIN_USER_ID);
+
+    // A brand-new guardian phone paired with a roll number that's already
+    // taken — student creation must fail, and since guardian creation and
+    // student creation run in one transaction, the new guardian must be
+    // rolled back too rather than left dangling with no student attached.
+    const file = await buildXlsxFile([
+      rowValues(headers, { student_name: 'Conflicting', roll: '15', guardian1_phone: '+8801766666666' }),
+    ]);
+    const result = await service.process(file, TENANT_ID, SEED_ADMIN_USER_ID);
+
+    expect(result.success_count).toBe(0);
+    const orphanCandidates = await guardianRepo.find({ where: { phone: '+8801766666666' } });
+    expect(orphanCandidates).toHaveLength(0);
+  });
+
   it('reports a specific error for a missing required field', async () => {
     const file = await buildXlsxFile([rowValues(headers, { guardian1_phone: '' })]);
 

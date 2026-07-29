@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, In, QueryFailedError } from 'typeorm';
+import { Repository, IsNull, In, QueryFailedError, EntityManager } from 'typeorm';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { Class } from '../academics/entities/class.entity';
@@ -33,6 +33,16 @@ export class StudentBulkUploadService {
     private readonly guardianService: GuardianService,
   ) {}
 
+  /**
+   * Rows are processed sequentially (one guardian+student transaction at a
+   * time), not in parallel — simpler correctness reasoning (duplicate-roll
+   * detection, sequential registration-number generation) at the cost of
+   * per-row DB round-trip latency adding up on large files. At the
+   * MAX_DATA_ROWS cap (2000) this is a few thousand sequential queries in
+   * one request; if that turns out to be too slow in practice, the fix is
+   * an async job + polling endpoint, not naive parallelization (which would
+   * break the sequential duplicate-roll/registration-number guarantees).
+   */
   async process(
     file: Express.Multer.File | undefined,
     tenantId: string,
@@ -64,7 +74,15 @@ export class StudentBulkUploadService {
         const studentId = await this.processRow(parsed, tenantId, classSectionMap, guardianCache, rollsSeenThisRequest);
         createdStudentIds.push(studentId);
       } catch (err) {
-        errors.push({ row: parsed.rowNumber, reason: this.describeError(err) });
+        // Only expected, row-scoped validation failures become a row error.
+        // Anything else (e.g. a dropped DB connection) fails the whole
+        // request instead of silently degrading into confusing per-row
+        // noise while grinding through the remaining rows.
+        if (err instanceof BadRequestException) {
+          errors.push({ row: parsed.rowNumber, reason: this.describeError(err) });
+        } else {
+          throw err;
+        }
       }
     }
 
@@ -124,37 +142,49 @@ export class StudentBulkUploadService {
       }
     }
 
-    const guardianIds: string[] = [];
-    guardianIds.push(
-      await this.resolveGuardian(
-        { name: dto.guardian1_name, phone: dto.guardian1_phone, email: dto.guardian1_email },
-        tenantId,
-        guardianCache,
-      ),
-    );
-    if (dto.guardian2_name) {
-      guardianIds.push(
-        await this.resolveGuardian(
-          { name: dto.guardian2_name, phone: dto.guardian2_phone as string, email: dto.guardian2_email },
+    // Guardian resolution/creation and student creation run as one DB
+    // transaction, so a student-create failure rolls back any guardian
+    // that was newly created for this row instead of leaving it orphaned.
+    const guardianResolutions: { phone: string; id: string }[] = [];
+    let studentId: string;
+    try {
+      studentId = await this.classRepo.manager.transaction(async (manager) => {
+        const guardianIds: string[] = [];
+
+        const g1Id = await this.resolveGuardian(
+          { name: dto.guardian1_name, phone: dto.guardian1_phone, email: dto.guardian1_email },
           tenantId,
           guardianCache,
-        ),
-      );
-    }
+          manager,
+        );
+        guardianResolutions.push({ phone: dto.guardian1_phone, id: g1Id });
+        guardianIds.push(g1Id);
 
-    let student;
-    try {
-      student = await this.studentService.create(
-        {
-          full_name: dto.student_name,
-          class_section_id: classSectionId,
-          roll_number: rollNumber,
-          home_address: dto.home_address,
-          preferred_communication: dto.preferred_communication as CommunicationMedium,
-          guardian_ids: guardianIds,
-        },
-        tenantId,
-      );
+        if (dto.guardian2_name) {
+          const g2Id = await this.resolveGuardian(
+            { name: dto.guardian2_name, phone: dto.guardian2_phone as string, email: dto.guardian2_email },
+            tenantId,
+            guardianCache,
+            manager,
+          );
+          guardianResolutions.push({ phone: dto.guardian2_phone as string, id: g2Id });
+          guardianIds.push(g2Id);
+        }
+
+        const student = await this.studentService.create(
+          {
+            full_name: dto.student_name,
+            class_section_id: classSectionId,
+            roll_number: rollNumber,
+            home_address: dto.home_address,
+            preferred_communication: dto.preferred_communication as CommunicationMedium,
+            guardian_ids: guardianIds,
+          },
+          tenantId,
+          manager,
+        );
+        return student.id;
+      });
     } catch (err) {
       if (this.isUniqueViolation(err)) {
         throw new BadRequestException(
@@ -166,13 +196,20 @@ export class StudentBulkUploadService {
       throw err;
     }
 
+    // Only cache guardian ids once the transaction has actually committed —
+    // caching them earlier could hand a later row a reference to a guardian
+    // that got rolled back by this row's own failure.
+    for (const { phone, id } of guardianResolutions) {
+      guardianCache.set(phone, id);
+    }
+
     if (rollNumber !== undefined) {
       const seen = rollsSeenThisRequest.get(classSectionId) ?? new Set<number>();
       seen.add(rollNumber);
       rollsSeenThisRequest.set(classSectionId, seen);
     }
 
-    return student.id;
+    return studentId;
   }
 
   private toDtoInput(raw: Record<string, string>): Record<string, string | undefined> {
@@ -211,25 +248,28 @@ export class StudentBulkUploadService {
     return map;
   }
 
+  /**
+   * @param cache Read-only lookup of guardians already committed earlier in
+   * this upload — callers merge newly-resolved ids back in only after their
+   * own transaction commits (see processRow).
+   */
   private async resolveGuardian(
     info: GuardianInput,
     tenantId: string,
     cache: Map<string, string>,
+    manager: EntityManager,
   ): Promise<string> {
     const cached = cache.get(info.phone);
     if (cached) return cached;
 
-    const existing = await this.guardianService.findByPhone(info.phone, tenantId);
-    if (existing) {
-      cache.set(info.phone, existing.id);
-      return existing.id;
-    }
+    const existing = await this.guardianService.findByPhone(info.phone, tenantId, manager);
+    if (existing) return existing.id;
 
     const created = await this.guardianService.create(
       { full_name: info.name, phone: info.phone, email: info.email },
       tenantId,
+      manager,
     );
-    cache.set(info.phone, created.id);
     return created.id;
   }
 
