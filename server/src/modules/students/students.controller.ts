@@ -8,15 +8,19 @@ import {
   Param,
   Query,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
   UnauthorizedException,
   Inject,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { StudentService, GuardianService } from './students.service';
+import { StudentBulkUploadService } from './bulk-upload.service';
 import {
   CreateStudentDto,
   UpdateStudentDto,
@@ -27,12 +31,15 @@ import {
 } from './dto/students.dto';
 import { UserRole, JwtPayload } from '@beton-boi/shared';
 
+const BULK_UPLOAD_MAX_FILE_SIZE = 5 * 1024 * 1024;
+
 @Controller()
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard)
 export class StudentController {
   constructor(
     @Inject(StudentService) private readonly studentService: StudentService,
     @Inject(GuardianService) private readonly guardianService: GuardianService,
+    @Inject(StudentBulkUploadService) private readonly bulkUploadService: StudentBulkUploadService,
   ) {}
 
   // --- Student endpoints ---
@@ -44,6 +51,17 @@ export class StudentController {
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     return this.studentService.create(dto, tenant.id);
+  }
+
+  @Post('students/bulk-upload')
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: BULK_UPLOAD_MAX_FILE_SIZE } }))
+  bulkUploadStudents(
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.bulkUploadService.process(file, tenant.id, user.sub);
   }
 
   @Get('students')

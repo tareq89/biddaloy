@@ -285,6 +285,10 @@ export class GuardianService {
     return guardian;
   }
 
+  async findByPhone(phone: string, tenantId: string): Promise<Guardian | null> {
+    return this.repo.findOne({ where: { phone, tenant_id: tenantId, deleted_at: IsNull() } });
+  }
+
   async update(id: string, dto: UpdateGuardianDto, tenantId: string): Promise<Guardian> {
     await this.findOne(id, tenantId);
 

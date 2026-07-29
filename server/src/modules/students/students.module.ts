@@ -5,13 +5,18 @@ import { Guardian } from './entities/guardian.entity';
 import { Enrollment } from './entities/enrollment.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Class } from '../academics/entities/class.entity';
+import { AcademicYear } from '../academics/entities/academic-year.entity';
+import { AuditLog } from '../audit/entities/audit-log.entity';
 import { StudentService, GuardianService } from './students.service';
+import { StudentBulkUploadService } from './bulk-upload.service';
 import { StudentController } from './students.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Student, Guardian, Enrollment, ClassSection, Class])],
-  providers: [StudentService, GuardianService],
+  imports: [
+    TypeOrmModule.forFeature([Student, Guardian, Enrollment, ClassSection, Class, AcademicYear, AuditLog]),
+  ],
+  providers: [StudentService, GuardianService, StudentBulkUploadService],
   controllers: [StudentController],
-  exports: [StudentService, GuardianService],
+  exports: [StudentService, GuardianService, StudentBulkUploadService],
 })
 export class StudentModule {}
