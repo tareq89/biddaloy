@@ -13,6 +13,15 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const logger = new Logger("Bootstrap");
 
+  // Trust exactly one hop (the nginx container in front of this app — see
+  // docker-compose.yml) so req.ip/req.protocol reflect the real client
+  // rather than nginx's own address and the internal http:// connection.
+  // A higher number, or `true`, would let a client spoof X-Forwarded-For by
+  // sending its own and having it treated as trusted.
+  if (process.env.NODE_ENV === "production") {
+    app.set("trust proxy", 1);
+  }
+
   // Global prefix for API routes
   app.setGlobalPrefix("api");
 

@@ -49,16 +49,53 @@ services:
       timeout: 5s
       retries: 5
 
+  # Generates a short-lived self-signed cert if none exists yet, so nginx has
+  # something to load on first boot before certbot has ever run. See
+  # nginx/generate-dummy-cert.sh and the README for the real first-issuance
+  # flow that replaces it.
+  cert-bootstrap:
+    image: certbot/certbot
+    entrypoint: ["sh", "/scripts/generate-dummy-cert.sh"]
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:-localhost}
+    volumes:
+      - certs:/etc/letsencrypt
+      - ./nginx/generate-dummy-cert.sh:/scripts/generate-dummy-cert.sh:ro
+    restart: "no"
+
+  # Renews certbot-issued certs on a loop. Does NOT perform first issuance —
+  # that's a one-off manual command (see README) since it needs --email and
+  # --staging/production endpoint choices a human should make deliberately.
+  certbot:
+    image: certbot/certbot
+    restart: unless-stopped
+    volumes:
+      - certs:/etc/letsencrypt
+      - certbot-webroot:/var/www/certbot
+    entrypoint: >
+      sh -c "trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done"
+
   nginx:
     image: nginx:1.27-alpine
     restart: unless-stopped
     ports:
       - "80:80"
+      - "443:443"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:-localhost}
     volumes:
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/templates:/etc/nginx/templates:ro
+      - ./nginx/reload-loop.sh:/docker-entrypoint.d/99-reload-loop.sh:ro
+      - certs:/etc/letsencrypt:ro
+      - certbot-webroot:/var/www/certbot:ro
     depends_on:
-      - app
+      app:
+        condition: service_started
+      cert-bootstrap:
+        condition: service_completed_successfully
 
 volumes:
   pgdata:
   redisdata:
+  certs:
+  certbot-webroot:
