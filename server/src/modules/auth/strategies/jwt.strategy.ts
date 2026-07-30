@@ -1,4 +1,5 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { JwtPayload } from '@beton-boi/shared';
@@ -12,11 +13,19 @@ import { JwtPayload } from '@beton-boi/shared';
  */
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor() {
+  constructor(configService: ConfigService) {
+    const secret = configService.get<string>('JWT_SECRET');
+    if (!secret) {
+      // env.validation.ts already enforces this at boot; this guards any
+      // path that constructs the strategy without full env validation
+      // (tests, scripts, a future partial-module bootstrap).
+      throw new Error('JWT_SECRET is not configured');
+    }
+
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET || 'fallback-secret',
+      secretOrKey: secret,
     });
   }
 

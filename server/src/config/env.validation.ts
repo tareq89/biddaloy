@@ -1,5 +1,7 @@
 import { plainToInstance } from "class-transformer";
-import { IsNotEmpty, IsOptional, IsString, validateSync } from "class-validator";
+import { IsIn, IsNotEmpty, IsOptional, IsString, MinLength, validateSync } from "class-validator";
+
+const NODE_ENVS = ["development", "test", "production"] as const;
 
 class EnvironmentVariables {
   @IsString()
@@ -8,7 +10,12 @@ class EnvironmentVariables {
 
   @IsString()
   @IsNotEmpty()
+  @MinLength(32)
   JWT_SECRET!: string;
+
+  @IsOptional()
+  @IsIn(NODE_ENVS)
+  NODE_ENV?: string;
 
   @IsOptional()
   @IsString()
