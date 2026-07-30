@@ -21,6 +21,13 @@ class EnvironmentVariables {
   @IsString()
   PORT?: string;
 
+  // Comma-separated allowlist, e.g. "https://app.example.com,https://admin.example.com".
+  // Unset defaults to ['http://localhost:5173'] outside production and [] in
+  // production — see resolveCorsOrigins in main.ts.
+  @IsOptional()
+  @IsString()
+  CORS_ORIGINS?: string;
+
   @IsOptional()
   @IsString()
   REDIS_URL?: string;
