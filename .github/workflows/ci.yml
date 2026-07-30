@@ -79,6 +79,14 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
+      - name: Build shared package
+        # test/setup.ts registers ts-node to load TypeORM entities/migrations
+        # via its own glob, which resolves `@beton-boi/shared` through plain
+        # Node `require()` — not vitest's `resolve.alias` to shared/src. That
+        # alias only covers vitest's own transform pipeline, so without a
+        # built dist/ here, entity loading fails at DataSource.initialize().
+        run: yarn build:shared
+
       - name: Integration tests
         run: yarn test:integration
 
