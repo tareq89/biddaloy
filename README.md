@@ -111,11 +111,78 @@ cp .env.example .env   # Edit with real credentials
 ./start.sh
 ```
 
-## Docker (future)
+## Docker Deployment
+
+`docker compose up -d` runs the full stack: `db` (Postgres), `redis`, `app`
+(this Nest API + the built SPAs, served statically — see `server/src/main.ts`),
+and `nginx` terminating TLS in front of it. A `cert-bootstrap` one-shot service
+and a `certbot` renewal-loop service handle certificates.
+
+### DNS prerequisite
+
+Point an A/AAAA record for your domain at the VPS's public IP before starting.
+Let's Encrypt's HTTP-01 challenge (what `certbot` uses here) needs to reach
+`http://<your-domain>/.well-known/acme-challenge/` from the public internet —
+this doesn't work behind NAT without port 80 actually reachable at that domain.
+
+### First-time setup
 
 ```bash
+cp .env.example .env
+# Edit .env: set POSTGRES_USER/PASSWORD/DB, JWT_SECRET, APP_DOMAIN,
+# LETSENCRYPT_EMAIL, and CORS_ORIGINS=https://<your-domain>
+
 docker compose up -d
 ```
+
+On first boot, `cert-bootstrap` generates a short-lived self-signed
+certificate (see `nginx/generate-dummy-cert.sh`) so nginx has something to
+load — there's no real certificate yet. Confirm the stack is up:
+
+```bash
+curl -k https://<your-domain>/api/health
+```
+
+Then request the real certificate — a **one-off manual command**, since it
+needs a human choosing `--staging` vs. the production endpoint and agreeing to
+the ToS:
+
+```bash
+# Staging first — the production endpoint rate-limits hard on repeated
+# failures, and iterating against it burns your quota fast.
+docker compose run --rm certbot certonly --webroot -w /var/www/certbot \
+  -d "$APP_DOMAIN" --email "$LETSENCRYPT_EMAIL" --agree-tos --no-eff-email --staging
+
+# Once that succeeds end-to-end, drop --staging for the real certificate:
+docker compose run --rm certbot certonly --webroot -w /var/www/certbot \
+  -d "$APP_DOMAIN" --email "$LETSENCRYPT_EMAIL" --agree-tos --no-eff-email
+
+# nginx won't pick up the new cert until it reloads (it self-reloads every
+# 6h — see nginx/reload-loop.sh — but you don't want to wait for that now):
+docker compose exec nginx nginx -s reload
+```
+
+### Renewal
+
+The `certbot` service runs `certbot renew` on a loop (every 12h) and
+`nginx` reloads itself every 6h, so a renewed certificate is picked up
+automatically without a restart. Nothing else to do.
+
+### Deploying behind an external load balancer instead
+
+If TLS terminates upstream of this stack (a cloud LB, Cloudflare, etc.)
+instead of the bundled nginx:
+
+- Don't run the `nginx`, `cert-bootstrap`, or `certbot` services.
+- Point the LB at the `app` service's port directly (change `expose` to
+  `ports` in `docker-compose.yml`, or route through your platform's service
+  discovery).
+- `app.set('trust proxy', 1)` in `main.ts` still applies and is correct as
+  long as your LB is exactly one hop in front of the app — if there's a
+  second proxy in the chain (e.g. LB → nginx → app), change the `1` to match
+  the actual hop count, or requests can get a client IP that's spoofable.
+- Set `CORS_ORIGINS` to your real public origin(s) regardless of which path
+  you use.
 
 ## Project Structure
 
