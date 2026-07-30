@@ -1,5 +1,4 @@
 node_modules
-.next
 .git
 .gitignore
 .github
@@ -14,3 +13,5 @@ coverage
 npm-debug.log*
 yarn-error.log*
 *.local
+build-output
+graphify-out
