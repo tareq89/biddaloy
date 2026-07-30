@@ -25,8 +25,16 @@ describe("env.validation", () => {
     expect(() => validate({ ...validConfig, JWT_SECRET: "a".repeat(32) })).not.toThrow();
   });
 
-  it.each(["development", "test", "production"])("accepts NODE_ENV=%s", (nodeEnv) => {
-    expect(() => validate({ ...validConfig, NODE_ENV: nodeEnv })).not.toThrow();
+  it("accepts NODE_ENV=development", () => {
+    expect(() => validate({ ...validConfig, NODE_ENV: "development" })).not.toThrow();
+  });
+
+  it("accepts NODE_ENV=test", () => {
+    expect(() => validate({ ...validConfig, NODE_ENV: "test" })).not.toThrow();
+  });
+
+  it("accepts NODE_ENV=production", () => {
+    expect(() => validate({ ...validConfig, NODE_ENV: "production" })).not.toThrow();
   });
 
   it("rejects an unrecognized NODE_ENV", () => {
