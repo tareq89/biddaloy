@@ -35,7 +35,7 @@
     "bcrypt": "^6.0.0",
     "bullmq": "^5",
     "class-transformer": "^0.5",
-    "class-validator": "^0.14",
+    "class-validator": "^0.15",
     "exceljs": "^4.4.0",
     "ioredis": "^5",
     "nodemailer": "^9",
