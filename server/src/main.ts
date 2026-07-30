@@ -1,4 +1,5 @@
 import { NestFactory } from "@nestjs/core";
+import { Logger } from "@nestjs/common";
 import { NestExpressApplication } from "@nestjs/platform-express";
 import { AppModule } from "./app.module";
 import { AllExceptionsFilter } from "./common/filters/http-exception.filter";
@@ -6,9 +7,11 @@ import { ValidationPipe } from "./common/pipes/validation.pipe";
 import * as express from "express";
 import { join } from "path";
 import { Request, Response, NextFunction } from "express";
+import { buildCorsOptions } from "./cors-origins";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const logger = new Logger("Bootstrap");
 
   // Global prefix for API routes
   app.setGlobalPrefix("api");
@@ -17,11 +20,11 @@ async function bootstrap() {
   app.useGlobalFilters(new AllExceptionsFilter());
   app.useGlobalPipes(new ValidationPipe());
 
-  // CORS for development (Vite dev server runs on a different port)
-  app.enableCors({
-    origin: process.env.NODE_ENV === "production" ? false : ["http://localhost:5173"],
-    credentials: true,
-  });
+  const corsOptions = buildCorsOptions(process.env.CORS_ORIGINS, process.env.NODE_ENV);
+  const origins = corsOptions.origin as string[];
+  logger.log(`CORS allowlist: ${origins.length > 0 ? origins.join(", ") : "(none)"}`);
+
+  app.enableCors(corsOptions);
 
   // In production, serve client static builds
   if (process.env.NODE_ENV === "production") {
@@ -51,4 +54,8 @@ async function bootstrap() {
   await app.listen(process.env.PORT ?? 3000);
 }
 
-bootstrap();
+// Guarded so importing resolveCorsOrigins for tests doesn't also boot a
+// real Nest application.
+if (require.main === module) {
+  bootstrap();
+}
