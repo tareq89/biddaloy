@@ -145,16 +145,29 @@ curl -k https://<your-domain>/api/health
 
 Then request the real certificate — a **one-off manual command**, since it
 needs a human choosing `--staging` vs. the production endpoint and agreeing to
-the ToS:
+the ToS. `--entrypoint certbot` is required here: the `certbot` service's own
+entrypoint is the renewal loop, not the `certbot` binary directly, so without
+it these commands would append `certonly ...` to that loop's shell command
+instead of actually running certbot.
 
 ```bash
+# Certbot won't issue into a `live` directory it doesn't recognize as one of
+# its own managed lineages, and cert-bootstrap's dummy cert occupies exactly
+# that path — clear it first (see certbot/certbot#9760 for why).
+docker compose run --rm --entrypoint sh certbot -c \
+  "rm -rf /etc/letsencrypt/live/$APP_DOMAIN /etc/letsencrypt/archive/$APP_DOMAIN /etc/letsencrypt/renewal/$APP_DOMAIN.conf"
+
 # Staging first — the production endpoint rate-limits hard on repeated
 # failures, and iterating against it burns your quota fast.
-docker compose run --rm certbot certonly --webroot -w /var/www/certbot \
+docker compose run --rm --entrypoint certbot certbot certonly --webroot -w /var/www/certbot \
   -d "$APP_DOMAIN" --email "$LETSENCRYPT_EMAIL" --agree-tos --no-eff-email --staging
 
-# Once that succeeds end-to-end, drop --staging for the real certificate:
-docker compose run --rm certbot certonly --webroot -w /var/www/certbot \
+# Once that succeeds end-to-end, drop --staging for the real certificate —
+# but first delete the staging cert the same way as above, since it's also
+# not the lineage the production endpoint will issue.
+docker compose run --rm --entrypoint sh certbot -c \
+  "rm -rf /etc/letsencrypt/live/$APP_DOMAIN /etc/letsencrypt/archive/$APP_DOMAIN /etc/letsencrypt/renewal/$APP_DOMAIN.conf"
+docker compose run --rm --entrypoint certbot certbot certonly --webroot -w /var/www/certbot \
   -d "$APP_DOMAIN" --email "$LETSENCRYPT_EMAIL" --agree-tos --no-eff-email
 
 # nginx won't pick up the new cert until it reloads (it self-reloads every
