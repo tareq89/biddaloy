@@ -23,7 +23,7 @@
     "test:file": "yarn workspace @beton-boi/server test:file"
   },
   "devDependencies": {
-    "@swc/core": "^1.15.46",
+    "@swc/core": "^1.15.47",
     "@types/bcrypt": "^6.0.0",
     "@types/supertest": "^7.2.1",
     "@vitest/coverage-v8": "3",
