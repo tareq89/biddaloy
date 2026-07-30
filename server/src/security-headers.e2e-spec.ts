@@ -54,6 +54,14 @@ describe('Security headers E2E', () => {
     expect(csp).not.toContain('unsafe-inline');
   });
 
+  it('adds upgrade-insecure-requests to the CSP in production but not in dev', async () => {
+    const prodRes = await supertest(prodApp.getHttpServer()).get('/health').expect(200);
+    const devRes = await supertest(devApp.getHttpServer()).get('/health').expect(200);
+
+    expect(prodRes.headers['content-security-policy']).toContain('upgrade-insecure-requests');
+    expect(devRes.headers['content-security-policy']).not.toContain('upgrade-insecure-requests');
+  });
+
   it('removes X-Powered-By', async () => {
     const res = await supertest(prodApp.getHttpServer()).get('/health').expect(200);
 
