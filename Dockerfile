@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---- Base ----
-FROM node:22-alpine AS base
+FROM node:26-alpine AS base
 # libc6-compat is needed by some native deps on Alpine (e.g. bcrypt)
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
