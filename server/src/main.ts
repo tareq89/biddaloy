@@ -7,7 +7,9 @@ import { ValidationPipe } from "./common/pipes/validation.pipe";
 import * as express from "express";
 import { join } from "path";
 import { Request, Response, NextFunction } from "express";
+import helmet from "helmet";
 import { buildCorsOptions } from "./cors-origins";
+import { buildHelmetOptions } from "./security-headers";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -21,6 +23,10 @@ async function bootstrap() {
   if (process.env.NODE_ENV === "production") {
     app.set("trust proxy", 1);
   }
+
+  // As early as possible, and before the static-serving middleware below —
+  // security headers should apply to every response, including the SPAs.
+  app.use(helmet(buildHelmetOptions(process.env.NODE_ENV)));
 
   // Global prefix for API routes
   app.setGlobalPrefix("api");
