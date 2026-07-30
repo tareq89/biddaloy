@@ -7,7 +7,7 @@ import { ValidationPipe } from "./common/pipes/validation.pipe";
 import * as express from "express";
 import { join } from "path";
 import { Request, Response, NextFunction } from "express";
-import { resolveCorsOrigins } from "./cors-origins";
+import { buildCorsOptions } from "./cors-origins";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -20,17 +20,11 @@ async function bootstrap() {
   app.useGlobalFilters(new AllExceptionsFilter());
   app.useGlobalPipes(new ValidationPipe());
 
-  const corsOrigins = resolveCorsOrigins(process.env.CORS_ORIGINS, process.env.NODE_ENV);
-  logger.log(`CORS allowlist: ${corsOrigins.length > 0 ? corsOrigins.join(", ") : "(none)"}`);
+  const corsOptions = buildCorsOptions(process.env.CORS_ORIGINS, process.env.NODE_ENV);
+  const origins = corsOptions.origin as string[];
+  logger.log(`CORS allowlist: ${origins.length > 0 ? origins.join(", ") : "(none)"}`);
 
-  app.enableCors({
-    origin: corsOrigins,
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    // X-Tenant-ID and X-Role are read by ContextGuard on every authenticated
-    // request (auth/guards/context.guard.ts) and must survive preflight.
-    allowedHeaders: ["Content-Type", "Authorization", "X-Tenant-ID", "X-Role"],
-  });
+  app.enableCors(corsOptions);
 
   // In production, serve client static builds
   if (process.env.NODE_ENV === "production") {

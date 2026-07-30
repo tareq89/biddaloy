@@ -3,15 +3,15 @@ import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import { AppModule } from './app.module';
-import { resolveCorsOrigins } from './cors-origins';
+import { buildCorsOptions } from './cors-origins';
 
 /**
  * E2E tests for CORS configuration.
  *
  * `main.ts`'s `bootstrap()` never runs under the Nest testing harness, so
- * this reproduces the same `resolveCorsOrigins` + `app.enableCors(...)` call
- * bootstrap makes, to verify the actual HTTP behavior an allowlisted vs.
- * non-allowlisted origin gets.
+ * this calls `buildCorsOptions` — the same helper bootstrap uses — to verify
+ * the actual HTTP behavior an allowlisted vs. non-allowlisted origin gets,
+ * without duplicating (and risking drifting from) the production options.
  */
 describe('CORS E2E', () => {
   let app: INestApplication;
@@ -19,7 +19,14 @@ describe('CORS E2E', () => {
   const disallowedOrigin = 'http://evil.example.com';
 
   beforeAll(async () => {
-    process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgres://postgres:***@localhost:5432/betonboi';
+    // Populated by test/setup.ts's global setupFile from server/.env.test
+    // before any spec's beforeAll runs — see its comment for why that must
+    // happen at module top level. Failing fast here (rather than the
+    // fallback other e2e specs use) means a misconfigured .env.test surfaces
+    // immediately instead of this suite silently reusing whatever was set.
+    if (!process.env.DATABASE_URL) {
+      throw new Error('DATABASE_URL must be set for CORS E2E tests — see server/.env.test');
+    }
     process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-do-not-use-in-production';
     process.env.NODE_ENV = 'test';
     process.env.CORS_ORIGINS = allowedOrigin;
@@ -29,14 +36,7 @@ describe('CORS E2E', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-
-    const corsOrigins = resolveCorsOrigins(process.env.CORS_ORIGINS, process.env.NODE_ENV);
-    app.enableCors({
-      origin: corsOrigins,
-      credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID', 'X-Role'],
-    });
+    app.enableCors(buildCorsOptions(process.env.CORS_ORIGINS, process.env.NODE_ENV));
 
     await app.init();
   }, 60000);
