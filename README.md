@@ -71,6 +71,12 @@ docker run -d --name pg-test -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=post
   -e POSTGRES_DB=betonboi_test -p 5432:5432 postgres:16-alpine
 docker run -d --name redis-test -p 6379:6379 redis:7-alpine
 
+# Wait for both to accept connections — test/setup.ts initializes TypeORM and
+# runs migrations immediately, so a container that's merely running but not
+# yet ready causes intermittent connection failures.
+until docker exec pg-test pg_isready -U postgres > /dev/null 2>&1; do sleep 1; done
+until docker exec redis-test redis-cli ping > /dev/null 2>&1; do sleep 1; done
+
 cd server
 cat > .env.test <<'EOF'
 DATABASE_URL=postgres://postgres:postgres@localhost:5432/betonboi_test

@@ -9,8 +9,10 @@
  * filter correctly by reading `--json` output and only failing on
  * high/critical entries not present in ALLOWLIST below.
  *
- * Allowlisted advisories must carry a reason and a re-check date so they
- * don't rot into a silent, permanent bypass.
+ * Allowlisted advisories must carry a reason and a re-check date. The date
+ * is enforced below, not just documentation — once it passes, this script
+ * fails the job until someone re-reviews and picks a new date, so the
+ * exception can't silently outlive its review window.
  */
 const { spawnSync } = require("child_process");
 
@@ -24,15 +26,37 @@ const ALLOWLIST = {
   // breaks typeorm's bundled `minimatch@3`, which expects the old
   // brace-expansion CJS export shape (verified: entity loading fails at
   // boot). No compatible upstream fix exists for minimatch@3 today.
-  // Re-check: 2026-10-30, or sooner if exceljs/typeorm bump their glob
-  // dependency chain.
-  1124334: "exceljs/typeorm bundle an incompatible old minimatch; see comment above",
+  1124334: {
+    reason: "exceljs/typeorm bundle an incompatible old minimatch; see comment above",
+    recheckBy: "2026-10-30",
+  },
 };
 
-const result = spawnSync("yarn", ["audit", "--json"], { encoding: "utf8" });
+const today = new Date().toISOString().slice(0, 10);
+const expired = Object.entries(ALLOWLIST).filter(([, e]) => e.recheckBy < today);
+for (const [id, entry] of expired) {
+  console.error(
+    `Allowlist entry #${id} expired its re-check date (${entry.recheckBy}) — ` +
+      "re-review and update ALLOWLIST in scripts/ci-audit.js before this can pass again.",
+  );
+}
+
+const result = spawnSync("yarn", ["audit", "--json"], {
+  encoding: "utf8",
+  timeout: 5 * 60 * 1000,
+});
+
+if (result.error) {
+  console.error(`Failed to run yarn audit: ${result.error.message}`);
+  process.exit(1);
+}
+if (result.signal) {
+  console.error(`yarn audit was terminated by signal ${result.signal} (possible timeout).`);
+  process.exit(1);
+}
 
 const advisories = [];
-for (const line of result.stdout.split("\n")) {
+for (const line of (result.stdout || "").split("\n")) {
   if (!line.trim()) continue;
   let entry;
   try {
@@ -64,6 +88,10 @@ if (unallowed.length > 0) {
     `\n${new Set(unallowed.map((a) => a.id)).size} new high/critical advisory(ies) found. ` +
       "Fix them or add a reasoned, dated entry to ALLOWLIST in scripts/ci-audit.js.",
   );
+  process.exit(1);
+}
+
+if (expired.length > 0) {
   process.exit(1);
 }
 
