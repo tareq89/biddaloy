@@ -1,0 +1,40 @@
+version: 2
+updates:
+  # Yarn 1 classic workspaces (server, client-*, shared) all resolve from
+  # the root yarn.lock — one root entry covers every workspace.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    # Majors are left ungrouped so each gets its own PR and a real review —
+    # see server/package.json for prior examples of majors needing care
+    # (nodemailer ^6 -> ^9 in PR #59 needed usage verification, not just a
+    # version bump).
+
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
