@@ -1,5 +1,7 @@
 import { plainToInstance } from "class-transformer";
-import { IsIn, IsNotEmpty, IsOptional, IsString, MinLength, validateSync } from "class-validator";
+import { IsIn, IsNotEmpty, IsOptional, IsString, Matches, MinLength, validateSync } from "class-validator";
+
+const POSITIVE_INTEGER = /^[1-9]\d*$/;
 
 const NODE_ENVS = ["development", "test", "production"] as const;
 
@@ -34,12 +36,16 @@ class EnvironmentVariables {
 
   // Global rate-limit tier — see rate-limit.ts. Unset defaults to 100
   // requests/60s per tracked identity (authenticated user, else IP).
+  // Must be a positive integer string: ThrottlerModule treats a
+  // non-numeric, zero, or negative ttl/limit as a startup-time footgun
+  // (NaN or a rejecting-everything bucket), so malformed values fail
+  // fast here instead of surfacing as unpredictable behavior per request.
   @IsOptional()
-  @IsString()
+  @Matches(POSITIVE_INTEGER, { message: "RATE_LIMIT_DEFAULT_LIMIT must be a positive integer" })
   RATE_LIMIT_DEFAULT_LIMIT?: string;
 
   @IsOptional()
-  @IsString()
+  @Matches(POSITIVE_INTEGER, { message: "RATE_LIMIT_DEFAULT_TTL_MS must be a positive integer" })
   RATE_LIMIT_DEFAULT_TTL_MS?: string;
 
   @IsOptional()

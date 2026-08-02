@@ -17,7 +17,19 @@ describe("resolveDefaultRateLimit", () => {
 });
 
 describe("STRICT_RATE_LIMIT", () => {
-  it("is a tighter bucket than the default tier", () => {
+  // Pins the exact contract for the expensive-route override (bulk upload,
+  // fee generation, bulk reminders, invoice creation) — a bump to e.g.
+  // limit: 6 or ttl: 1 should fail this test, not slip through unnoticed.
+  //
+  // Note this is only stricter than the *unconfigured* default (100/60s).
+  // An operator setting RATE_LIMIT_DEFAULT_LIMIT to 5 or below would make
+  // the override a no-op — an operational misconfiguration risk this test
+  // can't catch, since it depends on runtime env, not code.
+  it("is exactly five requests per 60s", () => {
+    expect(STRICT_RATE_LIMIT).toEqual({ limit: 5, ttl: 60_000 });
+  });
+
+  it("is tighter than the unconfigured default tier", () => {
     const defaultTier = resolveDefaultRateLimit(undefined, undefined);
 
     expect(STRICT_RATE_LIMIT.limit).toBeLessThan(defaultTier.limit);

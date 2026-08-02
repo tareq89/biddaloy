@@ -44,4 +44,28 @@ describe("env.validation", () => {
   it("accepts a missing NODE_ENV", () => {
     expect(() => validate(validConfig)).not.toThrow();
   });
+
+  it("accepts a missing RATE_LIMIT_DEFAULT_LIMIT / RATE_LIMIT_DEFAULT_TTL_MS", () => {
+    expect(() => validate(validConfig)).not.toThrow();
+  });
+
+  it("accepts positive integer strings for RATE_LIMIT_DEFAULT_LIMIT and RATE_LIMIT_DEFAULT_TTL_MS", () => {
+    expect(() =>
+      validate({ ...validConfig, RATE_LIMIT_DEFAULT_LIMIT: "250", RATE_LIMIT_DEFAULT_TTL_MS: "30000" }),
+    ).not.toThrow();
+  });
+
+  it.each(["abc", "10px", "-1", "0", "1.5", "", " "])(
+    "rejects a non-positive-integer RATE_LIMIT_DEFAULT_LIMIT %j",
+    (value) => {
+      expect(() => validate({ ...validConfig, RATE_LIMIT_DEFAULT_LIMIT: value })).toThrow();
+    },
+  );
+
+  it.each(["abc", "10px", "-1", "0", "1.5", "", " "])(
+    "rejects a non-positive-integer RATE_LIMIT_DEFAULT_TTL_MS %j",
+    (value) => {
+      expect(() => validate({ ...validConfig, RATE_LIMIT_DEFAULT_TTL_MS: value })).toThrow();
+    },
+  );
 });
