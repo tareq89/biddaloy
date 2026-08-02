@@ -2,7 +2,11 @@ import { IsString, IsOptional, IsUUID, IsArray, IsEnum, IsNotEmpty, MaxLength } 
 import { CommunicationMedium, CommunicationStatus } from '@beton-boi/shared';
 
 export class SendSingleReminderDto {
-  /** Supports {{student_name}}, {{guardian_name}}, {{due_amount}}, {{due_month}}. */
+  /**
+   * Supports {{student_name}}, {{guardian_name}}, {{due_amount}}, {{due_month}}.
+   * Not sanitized: staff-authored content, same reasoning as
+   * SendBulkReminderDto.message_template — see reminders.dto.ts.
+   */
   @IsString()
   @IsNotEmpty()
   @MaxLength(2000)

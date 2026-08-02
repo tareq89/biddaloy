@@ -73,6 +73,36 @@ describe('Students E2E', () => {
       expect(res.body.tenant_id).toBe(TENANT_ID);
     });
 
+    it('neutralises a script payload in full_name and home_address (issue #33)', async () => {
+      const res = await supertest(app.getHttpServer())
+        .post('/students')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({
+          ...createStudentPayload,
+          full_name: '<script>alert(1)</script>Jane Doe',
+          home_address: '<img src=x onerror=alert(1)>123 Main St',
+        })
+        .expect(201);
+
+      expect(res.body.full_name).toBe('Jane Doe');
+      expect(res.body.home_address).toBe('123 Main St');
+    });
+
+    it('leaves legitimate apostrophes, ampersands, and Unicode names untouched', async () => {
+      const res = await supertest(app.getHttpServer())
+        .post('/students')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({
+          ...createStudentPayload,
+          full_name: "রহিম উদ্দিন O'Brien & Co",
+        })
+        .expect(201);
+
+      expect(res.body.full_name).toBe("রহিম উদ্দিন O'Brien & Co");
+    });
+
     it('should return 401 when X-Tenant-ID header is missing', async () => {
       const res = await supertest(app.getHttpServer())
         .post('/students')
@@ -192,6 +222,24 @@ describe('Students E2E', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({ full_name: 'Updated Name' })
+        .expect(200);
+
+      expect(res.body.full_name).toBe('Updated Name');
+    });
+
+    it('neutralises a script payload on update, same as create (issue #33)', async () => {
+      const createRes = await supertest(app.getHttpServer())
+        .post('/students')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ full_name: 'Original Name', class_section_id: SEED_SECTION_1_ID })
+        .expect(201);
+
+      const res = await supertest(app.getHttpServer())
+        .patch(`/students/${createRes.body.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ full_name: '<script>alert(1)</script>Updated Name' })
         .expect(200);
 
       expect(res.body.full_name).toBe('Updated Name');

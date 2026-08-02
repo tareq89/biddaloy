@@ -1,8 +1,10 @@
 import { IsString, IsOptional, IsBoolean, IsDateString } from 'class-validator';
+import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 
 export class UpdateAcademicYearDto {
   @IsOptional()
   @IsString()
+  @SanitizeText()
   name?: string;
 
   @IsOptional()

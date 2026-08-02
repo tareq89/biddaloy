@@ -1,6 +1,7 @@
 import { IsString, IsEmail, IsOptional, IsUUID, IsArray, IsEnum, IsInt, Min, Max, IsDateString } from 'class-validator';
 import { Type } from 'class-transformer';
 import { UserRole, TeacherDesignation } from '@beton-boi/shared';
+import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 
 export class CreateUserDto {
   @IsOptional()
@@ -16,6 +17,7 @@ export class CreateUserDto {
   password?: string;
 
   @IsString()
+  @SanitizeText()
   full_name: string;
 
   @IsEnum(UserRole)
@@ -36,6 +38,7 @@ export class UpdateUserDto {
 
   @IsOptional()
   @IsString()
+  @SanitizeText()
   full_name?: string;
 
   @IsOptional()
@@ -77,6 +80,7 @@ export class CreateTeacherDto {
 
   @IsOptional()
   @IsString()
+  @SanitizeText()
   subject_specialization?: string;
 
   @IsOptional()
@@ -101,6 +105,7 @@ export class UpdateTeacherDto {
 
   @IsOptional()
   @IsString()
+  @SanitizeText()
   subject_specialization?: string;
 
   @IsOptional()

@@ -1,6 +1,7 @@
 import { IsString, IsEmail, IsOptional, IsUUID, IsArray, IsEnum, IsInt, Min, IsDateString, IsNotEmpty, Matches, ValidateIf } from 'class-validator';
 import { Type } from 'class-transformer';
 import { CommunicationMedium, EnrollmentStatus } from '@beton-boi/shared';
+import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 
 // Matches "01712345678", "+8801712345678", or "8801712345678" — Bangladesh
 // mobile numbers (operator prefixes 13-19).
@@ -9,6 +10,7 @@ export const BD_PHONE_REGEX = /^(?:\+?880|0)1[3-9]\d{8}$/;
 export class CreateStudentDto {
   @IsString()
   @IsNotEmpty()
+  @SanitizeText()
   full_name: string;
 
   @IsOptional()
@@ -33,10 +35,12 @@ export class CreateStudentDto {
 
   @IsOptional()
   @IsString()
+  @SanitizeText()
   gender?: string;
 
   @IsOptional()
   @IsString()
+  @SanitizeText()
   home_address?: string;
 
   @IsOptional()
@@ -52,6 +56,7 @@ export class CreateStudentDto {
 export class UpdateStudentDto {
   @IsOptional()
   @IsString()
+  @SanitizeText()
   full_name?: string;
 
   @IsOptional()
@@ -69,10 +74,12 @@ export class UpdateStudentDto {
 
   @IsOptional()
   @IsString()
+  @SanitizeText()
   gender?: string;
 
   @IsOptional()
   @IsString()
+  @SanitizeText()
   home_address?: string;
 
   @IsOptional()
@@ -118,10 +125,12 @@ export class QueryStudentDto {
 export class CreateGuardianDto {
   @IsString()
   @IsNotEmpty()
+  @SanitizeText()
   full_name: string;
 
   @IsOptional()
   @IsString()
+  @SanitizeText()
   relationship?: string;
 
   @IsOptional()
@@ -138,10 +147,12 @@ export class CreateGuardianDto {
 
   @IsOptional()
   @IsString()
+  @SanitizeText()
   address?: string;
 
   @IsOptional()
   @IsString()
+  @SanitizeText()
   occupation?: string;
 
   @IsOptional()
@@ -157,10 +168,12 @@ export class CreateGuardianDto {
 export class UpdateGuardianDto {
   @IsOptional()
   @IsString()
+  @SanitizeText()
   full_name?: string;
 
   @IsOptional()
   @IsString()
+  @SanitizeText()
   relationship?: string;
 
   @IsOptional()
@@ -177,10 +190,12 @@ export class UpdateGuardianDto {
 
   @IsOptional()
   @IsString()
+  @SanitizeText()
   address?: string;
 
   @IsOptional()
   @IsString()
+  @SanitizeText()
   occupation?: string;
 
   @IsOptional()
@@ -201,6 +216,7 @@ export class UpdateGuardianDto {
  */
 export class BulkUploadRowDto {
   @IsNotEmpty({ message: 'Missing required field: student_name' })
+  @SanitizeText()
   student_name: string;
 
   @IsNotEmpty({ message: 'Missing required field: class' })
@@ -219,6 +235,7 @@ export class BulkUploadRowDto {
   registration_number?: string;
 
   @IsNotEmpty({ message: 'Missing required field: guardian1_name' })
+  @SanitizeText()
   guardian1_name: string;
 
   @IsNotEmpty({ message: 'Missing required field: guardian1_phone' })
@@ -230,6 +247,7 @@ export class BulkUploadRowDto {
   guardian1_email?: string;
 
   @IsOptional()
+  @SanitizeText()
   guardian2_name?: string;
 
   @ValidateIf((o) => !!o.guardian2_name)
@@ -242,6 +260,7 @@ export class BulkUploadRowDto {
   guardian2_email?: string;
 
   @IsOptional()
+  @SanitizeText()
   home_address?: string;
 
   @IsOptional()

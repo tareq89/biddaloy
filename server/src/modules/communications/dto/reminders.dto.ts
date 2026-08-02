@@ -26,7 +26,14 @@ export class SendBulkReminderDto {
   @IsUUID('4', { each: true })
   student_ids: string[];
 
-  /** Supports {{student_name}}, {{guardian_name}}, {{due_amount}}, {{due_month}}. */
+  /**
+   * Supports {{student_name}}, {{guardian_name}}, {{due_amount}}, {{due_month}}.
+   * Not sanitized: staff-authored content (see @Roles on the controller), a
+   * higher trust boundary than the identity data it interpolates. The
+   * interpolated values are already clean because their sources — Student /
+   * Guardian full_name — are sanitized at creation; see
+   * reminder-template.util.ts and server/README.md's sanitization note.
+   */
   @IsString()
   @IsNotEmpty()
   @MaxLength(2000)
