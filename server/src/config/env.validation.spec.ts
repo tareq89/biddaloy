@@ -55,17 +55,65 @@ describe("env.validation", () => {
     ).not.toThrow();
   });
 
-  it.each(["abc", "10px", "-1", "0", "1.5", "", " "])(
-    "rejects a non-positive-integer RATE_LIMIT_DEFAULT_LIMIT %j",
-    (value) => {
-      expect(() => validate({ ...validConfig, RATE_LIMIT_DEFAULT_LIMIT: value })).toThrow();
-    },
-  );
+  // These reject malformed RATE_LIMIT_DEFAULT_LIMIT values at startup —
+  // without them, a value like "abc" or "-1" would reach
+  // resolveDefaultRateLimit()'s Number() conversion as NaN or a negative
+  // limit instead of failing fast with a clear boot error.
+  it("rejects a non-numeric RATE_LIMIT_DEFAULT_LIMIT", () => {
+    expect(() => validate({ ...validConfig, RATE_LIMIT_DEFAULT_LIMIT: "abc" })).toThrow();
+  });
 
-  it.each(["abc", "10px", "-1", "0", "1.5", "", " "])(
-    "rejects a non-positive-integer RATE_LIMIT_DEFAULT_TTL_MS %j",
-    (value) => {
-      expect(() => validate({ ...validConfig, RATE_LIMIT_DEFAULT_TTL_MS: value })).toThrow();
-    },
-  );
+  it("rejects a RATE_LIMIT_DEFAULT_LIMIT with trailing non-digit characters", () => {
+    expect(() => validate({ ...validConfig, RATE_LIMIT_DEFAULT_LIMIT: "10px" })).toThrow();
+  });
+
+  it("rejects a negative RATE_LIMIT_DEFAULT_LIMIT", () => {
+    expect(() => validate({ ...validConfig, RATE_LIMIT_DEFAULT_LIMIT: "-1" })).toThrow();
+  });
+
+  it("rejects a zero RATE_LIMIT_DEFAULT_LIMIT", () => {
+    expect(() => validate({ ...validConfig, RATE_LIMIT_DEFAULT_LIMIT: "0" })).toThrow();
+  });
+
+  it("rejects a non-integer RATE_LIMIT_DEFAULT_LIMIT", () => {
+    expect(() => validate({ ...validConfig, RATE_LIMIT_DEFAULT_LIMIT: "1.5" })).toThrow();
+  });
+
+  it("rejects an empty-string RATE_LIMIT_DEFAULT_LIMIT", () => {
+    expect(() => validate({ ...validConfig, RATE_LIMIT_DEFAULT_LIMIT: "" })).toThrow();
+  });
+
+  it("rejects a whitespace-only RATE_LIMIT_DEFAULT_LIMIT", () => {
+    expect(() => validate({ ...validConfig, RATE_LIMIT_DEFAULT_LIMIT: " " })).toThrow();
+  });
+
+  // Same malformed-value coverage for RATE_LIMIT_DEFAULT_TTL_MS — it's
+  // validated by an identical positive-integer pattern (see env.validation.ts).
+  it("rejects a non-numeric RATE_LIMIT_DEFAULT_TTL_MS", () => {
+    expect(() => validate({ ...validConfig, RATE_LIMIT_DEFAULT_TTL_MS: "abc" })).toThrow();
+  });
+
+  it("rejects a RATE_LIMIT_DEFAULT_TTL_MS with trailing non-digit characters", () => {
+    expect(() => validate({ ...validConfig, RATE_LIMIT_DEFAULT_TTL_MS: "10px" })).toThrow();
+  });
+
+  it("rejects a negative RATE_LIMIT_DEFAULT_TTL_MS", () => {
+    expect(() => validate({ ...validConfig, RATE_LIMIT_DEFAULT_TTL_MS: "-1" })).toThrow();
+  });
+
+  it("rejects a zero RATE_LIMIT_DEFAULT_TTL_MS", () => {
+    expect(() => validate({ ...validConfig, RATE_LIMIT_DEFAULT_TTL_MS: "0" })).toThrow();
+  });
+
+  it("rejects a non-integer RATE_LIMIT_DEFAULT_TTL_MS", () => {
+    expect(() => validate({ ...validConfig, RATE_LIMIT_DEFAULT_TTL_MS: "1.5" })).toThrow();
+  });
+
+  it("rejects an empty-string RATE_LIMIT_DEFAULT_TTL_MS", () => {
+    expect(() => validate({ ...validConfig, RATE_LIMIT_DEFAULT_TTL_MS: "" })).toThrow();
+  });
+
+  it("rejects a whitespace-only RATE_LIMIT_DEFAULT_TTL_MS", () => {
+    expect(() => validate({ ...validConfig, RATE_LIMIT_DEFAULT_TTL_MS: " " })).toThrow();
+  });
 });
