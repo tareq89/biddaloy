@@ -17,7 +17,10 @@ import {
 export class HasEmailOrPhoneConstraint implements ValidatorConstraintInterface {
   validate(_: unknown, args: ValidationArguments) {
     const dto = args.object as LoginDto;
-    return !!(dto.email || dto.phone);
+    // `.trim()` so a whitespace-only phone doesn't count as "provided" — it
+    // would otherwise pass this check and reach AuthService.login as a
+    // lookup value that can never match a real user.
+    return !!(dto.email || dto.phone?.trim());
   }
   defaultMessage() {
     return 'Either email or phone is required';

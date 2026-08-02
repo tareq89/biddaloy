@@ -150,9 +150,9 @@
     "semantic_hash": "1e1b0c50f559908056b9a9da4d46683e"
   },
   "server/src/modules/auth/dto/login.dto.ts": {
-    "mtime": 1785445218.8266518,
-    "ast_hash": "212a3217061d6e6a988da52a50e551ca",
-    "semantic_hash": "212a3217061d6e6a988da52a50e551ca"
+    "mtime": 1785648343.099581,
+    "ast_hash": "f59d4d1fd53be80f9189fcf493fe1b4f",
+    "semantic_hash": "f59d4d1fd53be80f9189fcf493fe1b4f"
   },
   "server/src/modules/auth/entities/user-tenant.entity.ts": {
     "mtime": 1784780809.5745652,
@@ -675,9 +675,9 @@
     "semantic_hash": "51f923050caa18b34a63cb627252efec"
   },
   "server/src/modules/auth/dto/login.dto.spec.ts": {
-    "mtime": 1785445253.0434675,
-    "ast_hash": "a4c5628a7099e17bb5df6352e570360e",
-    "semantic_hash": "a4c5628a7099e17bb5df6352e570360e"
+    "mtime": 1785648376.8571935,
+    "ast_hash": "af42a80ecc6b3295fa6f016abe8b78a2",
+    "semantic_hash": "af42a80ecc6b3295fa6f016abe8b78a2"
   },
   "server/src/modules/auth/strategies/jwt.strategy.spec.ts": {
     "mtime": 1785396116.7922547,
@@ -998,5 +998,10 @@
     "mtime": 1785255197.0443323,
     "ast_hash": "fe75c640198833b006f3746f52881635",
     "semantic_hash": "fe75c640198833b006f3746f52881635"
+  },
+  "server/src/validation-pipe.spec.ts": {
+    "mtime": 1785648360.9964974,
+    "ast_hash": "0164bb252910c5ef149e58999bf3379a",
+    "semantic_hash": "0164bb252910c5ef149e58999bf3379a"
   }
 }

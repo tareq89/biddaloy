@@ -23,6 +23,16 @@ describe('LoginDto', () => {
     expect(messages).toContain('Either email or phone is required');
   });
 
+  it('fails when phone is whitespace-only', async () => {
+    // A blank phone must not count as "provided" — otherwise it reaches
+    // AuthService.login as a lookup value that can never match a real user.
+    const dto = plainToInstance(LoginDto, { phone: '   ', password: 'password123' });
+    const errors = await validate(dto);
+
+    const messages = errors.flatMap((err) => Object.values(err.constraints ?? {}));
+    expect(messages).toContain('Either email or phone is required');
+  });
+
   it('fails when password is missing', async () => {
     const dto = plainToInstance(LoginDto, { email: 'admin@test.com' });
     const errors = await validate(dto);
