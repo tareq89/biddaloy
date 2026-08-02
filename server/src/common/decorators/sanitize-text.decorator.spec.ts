@@ -51,6 +51,17 @@ describe('sanitizeStrict', () => {
   it('reduces an all-markup value to an empty string', () => {
     expect(sanitizeStrict('<div><span></span></div>')).toBe('');
   });
+
+  it('decodes a residual entity exactly once, not double-decoding a nested one', () => {
+    // A single "&lt;" (one entity) fully decodes to "<" — sanitize-html
+    // round-trips a literal "<" in text back to "&lt;" in its own output,
+    // and this function undoes exactly that one escaping pass.
+    expect(sanitizeStrict('Use &lt; for less-than')).toBe('Use < for less-than');
+    // A double-encoded "&amp;lt;" must decode only one level, to "&lt;" —
+    // not cascade through a second pass into "<". Regression test for the
+    // CodeQL double-escaping/unescaping finding on issue #33's PR.
+    expect(sanitizeStrict('&amp;lt;')).toBe('&lt;');
+  });
 });
 
 describe('sanitizeAllowlist', () => {
@@ -67,6 +78,18 @@ describe('sanitizeAllowlist', () => {
       a: ['href'],
     });
     expect(result).toBe('<a href="https://example.com">link</a>');
+  });
+
+  it('does not resurrect an encoded disallowed tag as live markup (issue #33 review)', () => {
+    // The input's "<img...>" is already HTML-entity-encoded text, not a real
+    // tag — sanitize-html correctly re-escapes it in the output so it stays
+    // inert. Regression test: an earlier version of sanitizeAllowlist also
+    // ran the plain-text residual-entity decoder on this HTML output, which
+    // would turn the escaped text back into a live, executable <img onerror>
+    // tag the moment a client rendered this "safe" HTML.
+    const result = sanitizeAllowlist('<p>&lt;img src=x onerror=alert(1)&gt;</p>', ['p']);
+    expect(result).toBe('<p>&lt;img src=x onerror=alert(1)&gt;</p>');
+    expect(result).not.toContain('<img');
   });
 });
 
