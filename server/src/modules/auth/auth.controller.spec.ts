@@ -28,11 +28,8 @@ describe('AuthController', () => {
     expect(mockAuthService.login).toHaveBeenCalledWith('+8801700000000', 'password123');
   });
 
-  it('throws when neither email nor phone is provided', async () => {
-    // A login attempt with no identifier at all must be rejected before AuthService is even called.
-    await expect(controller.login({ password: 'password123' } as any)).rejects.toThrow(
-      'Email or phone is required',
-    );
-    expect(mockAuthService.login).not.toHaveBeenCalled();
-  });
+  // A login attempt with no identifier at all is rejected by LoginDto's
+  // HasEmailOrPhoneConstraint before this handler ever runs — see
+  // login.dto.spec.ts. A directly-constructed controller bypasses the
+  // global ValidationPipe, so that rejection can't be exercised here.
 });

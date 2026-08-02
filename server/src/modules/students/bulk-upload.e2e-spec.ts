@@ -3,6 +3,7 @@ import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { AppModule } from '../../app.module';
+import { buildValidationPipeOptions } from '../../validation-pipe';
 import { DataSource } from 'typeorm';
 import ExcelJS from 'exceljs';
 import { UserRole } from '@beton-boi/shared';
@@ -65,7 +66,7 @@ describe('Bulk Student Upload E2E', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
+    app.useGlobalPipes(new ValidationPipe(buildValidationPipeOptions()));
     await app.init();
 
     dataSource = app.get(DataSource);

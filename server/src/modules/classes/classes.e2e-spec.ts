@@ -3,6 +3,7 @@ import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { AppModule } from '../../app.module';
+import { buildValidationPipeOptions } from '../../validation-pipe';
 import { DataSource } from 'typeorm';
 import { UserRole } from '@beton-boi/shared';
 import { SEED_TENANT_ID, SEED_ADMIN_EMAIL, SEED_ADMIN_USER_ID, SEED_ACADEMIC_YEAR_ID, SEED_ADMIN_PASSWORD } from '@test/constants';
@@ -32,7 +33,7 @@ describe('Classes & Sections E2E', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
+    app.useGlobalPipes(new ValidationPipe(buildValidationPipeOptions()));
     await app.init();
 
     dataSource = app.get(DataSource);

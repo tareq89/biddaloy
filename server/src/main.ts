@@ -1,15 +1,15 @@
 import { NestFactory } from "@nestjs/core";
-import { Logger } from "@nestjs/common";
+import { Logger, ValidationPipe } from "@nestjs/common";
 import { NestExpressApplication } from "@nestjs/platform-express";
 import { AppModule } from "./app.module";
 import { AllExceptionsFilter } from "./common/filters/http-exception.filter";
-import { ValidationPipe } from "./common/pipes/validation.pipe";
 import * as express from "express";
 import { join } from "path";
 import { Request, Response, NextFunction } from "express";
 import helmet from "helmet";
 import { buildCorsOptions } from "./cors-origins";
 import { buildHelmetOptions } from "./security-headers";
+import { buildValidationPipeOptions } from "./validation-pipe";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -33,7 +33,7 @@ async function bootstrap() {
 
   // Global filters and pipes
   app.useGlobalFilters(new AllExceptionsFilter());
-  app.useGlobalPipes(new ValidationPipe());
+  app.useGlobalPipes(new ValidationPipe(buildValidationPipeOptions()));
 
   const corsOptions = buildCorsOptions(process.env.CORS_ORIGINS, process.env.NODE_ENV);
   const origins = corsOptions.origin as string[];

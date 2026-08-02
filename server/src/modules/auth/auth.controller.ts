@@ -10,11 +10,8 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() dto: LoginDto): Promise<LoginResponse> {
-    // Accept either email or phone as the login identifier
-    const identifier = dto.email || dto.phone;
-    if (!identifier) {
-      throw new Error('Email or phone is required');
-    }
+    // LoginDto's HasEmailOrPhoneConstraint guarantees one of these is set.
+    const identifier = (dto.email ?? dto.phone) as string;
     return this.authService.login(identifier, dto.password);
   }
 }

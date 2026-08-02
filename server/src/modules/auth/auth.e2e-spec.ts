@@ -3,6 +3,7 @@ import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { AppModule } from '../../app.module';
+import { buildValidationPipeOptions } from '../../validation-pipe';
 import { AuthService } from './auth.service';
 import { DataSource } from 'typeorm';
 import { SEED_TENANT_ID, SEED_ADMIN_EMAIL, SEED_ADMIN_USER_ID, SEED_ADMIN_PASSWORD } from '@test/constants';
@@ -36,7 +37,7 @@ describe('Auth E2E', () => {
     moduleFixture.get(AuthService);
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
+    app.useGlobalPipes(new ValidationPipe(buildValidationPipeOptions()));
     await app.init();
 
     dataSource = app.get(DataSource);
@@ -76,6 +77,24 @@ describe('Auth E2E', () => {
         .expect(401);
 
       expect(res.body.message).toBe('Invalid credentials');
+    });
+
+    it('should return 400, not 500, when neither email nor phone is supplied', async () => {
+      const res = await supertest(app.getHttpServer())
+        .post('/auth/login')
+        .send({ password: 'password123' })
+        .expect(400);
+
+      expect(res.body.message).toContain('Either email or phone is required');
+    });
+
+    it('should return 400 for an unknown extra field (strict whitelist)', async () => {
+      const res = await supertest(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: SEED_ADMIN_EMAIL, password: 'password123', role: 'SUPER_ADMIN' })
+        .expect(400);
+
+      expect(res.body.message).toBeDefined();
     });
   });
 });
