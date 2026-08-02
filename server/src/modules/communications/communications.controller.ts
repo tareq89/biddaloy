@@ -11,7 +11,9 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Throttle } from '@nestjs/throttler';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
+import { STRICT_RATE_LIMIT } from '../../rate-limit';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -62,6 +64,7 @@ export class CommunicationsController {
   // rejected by its ParseUUIDPipe.
   @Post('reminder/bulk')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  @Throttle({ default: STRICT_RATE_LIMIT })
   sendBulkReminder(
     @Body() dto: SendBulkReminderDto,
     @CurrentTenant() tenant: { id: string; role: string },

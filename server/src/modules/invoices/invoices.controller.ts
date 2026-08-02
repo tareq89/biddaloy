@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Body, Param, ParseUUIDPipe, Query, UseGuards, Header, Inject } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Throttle } from '@nestjs/throttler';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
@@ -8,6 +9,7 @@ import { InvoicesService } from './invoices.service';
 import { CreateInvoiceDto, QueryInvoiceDto } from './dto/invoices.dto';
 import { UserRole } from '@beton-boi/shared';
 import { JwtPayload } from '@beton-boi/shared';
+import { STRICT_RATE_LIMIT } from '../../rate-limit';
 
 @Controller('invoices')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard)
@@ -16,6 +18,7 @@ export class InvoicesController {
 
   @Post()
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  @Throttle({ default: STRICT_RATE_LIMIT })
   create(
     @Body() dto: CreateInvoiceDto,
     @CurrentTenant() tenant: { id: string; role: string },

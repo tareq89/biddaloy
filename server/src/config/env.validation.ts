@@ -32,6 +32,16 @@ class EnvironmentVariables {
   @IsString()
   REDIS_URL?: string;
 
+  // Global rate-limit tier — see rate-limit.ts. Unset defaults to 100
+  // requests/60s per tracked identity (authenticated user, else IP).
+  @IsOptional()
+  @IsString()
+  RATE_LIMIT_DEFAULT_LIMIT?: string;
+
+  @IsOptional()
+  @IsString()
+  RATE_LIMIT_DEFAULT_TTL_MS?: string;
+
   @IsOptional()
   @IsString()
   SMS_PROVIDER?: string;
