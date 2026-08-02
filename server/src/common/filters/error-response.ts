@@ -2,7 +2,7 @@ import { HttpException, HttpStatus } from "@nestjs/common";
 
 export interface ErrorResponseBody {
   statusCode: number;
-  message: string;
+  message: string | string[];
   timestamp: string;
   path: string;
   requestId: string;
@@ -17,9 +17,21 @@ export function resolveStatus(exception: unknown): number {
  * The exception's own message, regardless of environment or status — used
  * for server-side logging, which must never be suppressed, and as the
  * candidate client-facing message before the production 5xx cut below.
+ *
+ * Reads `getResponse().message` rather than `.message`: the global
+ * `ValidationPipe` throws `BadRequestException(stringArray)`, and
+ * `HttpException.message` collapses any array-shaped response down to a
+ * class-name fallback ("Bad Request Exception") — losing every field-level
+ * validation error. `getResponse()` still carries the real array.
  */
-export function resolveDetailMessage(exception: unknown): string {
-  if (exception instanceof HttpException) return exception.message;
+export function resolveDetailMessage(exception: unknown): string | string[] {
+  if (exception instanceof HttpException) {
+    const response = exception.getResponse();
+    if (typeof response === "object" && response !== null && "message" in response) {
+      return (response as { message: string | string[] }).message;
+    }
+    return exception.message;
+  }
   if (exception instanceof Error) return exception.message;
   return "Internal server error";
 }

@@ -27,8 +27,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     // Logged detail is never suppressed, even in production — that's what
     // lets support map a user-reported requestId back to the real cause.
+    const detail = resolveDetailMessage(exception);
     this.logger.error(
-      `${request.method} ${request.url} → ${status}: ${resolveDetailMessage(exception)} [requestId=${requestId}]`,
+      `${request.method} ${request.url} → ${status}: ${Array.isArray(detail) ? detail.join("; ") : detail} [requestId=${requestId}]`,
       exception instanceof Error ? exception.stack : undefined,
     );
 

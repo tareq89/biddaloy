@@ -30,6 +30,8 @@ describe("AllExceptionsFilter", () => {
     vi.restoreAllMocks();
   });
 
+  // Protects the public error-response contract: clients (the SPAs) rely on
+  // 4xx messages to act on validation/auth/tenant errors, in every environment.
   it("passes a 4xx message through unchanged in production", () => {
     const filter = new AllExceptionsFilter("production");
 
@@ -41,6 +43,9 @@ describe("AllExceptionsFilter", () => {
     );
   });
 
+  // Protects production data confidentiality: a wrapped TypeORM error or an
+  // InternalServerErrorException(err.message) can carry a query fragment,
+  // column name, or connection string — this must never reach the client.
   it("suppresses 5xx detail in production", () => {
     const filter = new AllExceptionsFilter("production");
     const exception = new InternalServerErrorException("relation \"users\" does not exist");
@@ -51,6 +56,15 @@ describe("AllExceptionsFilter", () => {
     const body = mockJson.mock.calls[0][0];
     expect(body.message).toBe("Internal server error");
     expect(body.stack).toBeUndefined();
+  });
+
+  it("passes a ValidationPipe-style array message through as an array", () => {
+    const filter = new AllExceptionsFilter("production");
+
+    filter.catch(new BadRequestException(["name should not be empty", "email must be an email"]), mockHost);
+
+    const body = mockJson.mock.calls[0][0];
+    expect(body.message).toEqual(["name should not be empty", "email must be an email"]);
   });
 
   it("includes 5xx detail and stack outside production", () => {
@@ -138,7 +152,9 @@ describe("AllExceptionsFilter", () => {
     const body = mockJson.mock.calls[0][0];
     expect(body.path).toBe("/api/things");
     expect(typeof body.timestamp).toBe("string");
-    expect(() => new Date(body.timestamp)).not.toThrow();
+    // new Date(invalid) returns an Invalid Date rather than throwing, so
+    // Date.parse is the assertion that can actually fail on a bad string.
+    expect(Number.isNaN(Date.parse(body.timestamp))).toBe(false);
   });
 
   it("handles null/undefined exceptions with 500", () => {
