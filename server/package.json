@@ -24,6 +24,7 @@
     "db:reset": "ts-node src/scripts/db-reset.ts"
   },
   "dependencies": {
+    "@nest-lab/throttler-storage-redis": "^1.2.0",
     "@nestjs/bullmq": "^11",
     "@nestjs/common": "^11",
     "@nestjs/config": "^4",
@@ -31,6 +32,7 @@
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11",
+    "@nestjs/throttler": "^6.5.0",
     "@nestjs/typeorm": "^11",
     "bcrypt": "^6.0.0",
     "bullmq": "^5",

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { BadRequestException, HttpException, HttpStatus, InternalServerErrorException } from "@nestjs/common";
+import { ThrottlerException } from "@nestjs/throttler";
 import { buildErrorResponseBody, resolveDetailMessage, resolveStatus } from "./error-response";
 
 describe("resolveStatus", () => {
@@ -71,6 +72,15 @@ describe("buildErrorResponseBody", () => {
     const body = buildErrorResponseBody(exception, opts("production"));
 
     expect(body.message).toEqual(["name should not be empty", "email must be an email"]);
+  });
+
+  // 429 is a 4xx: the rate-limit guard's own Retry-After header carries the
+  // machine-readable detail, so the body's message just needs to pass through.
+  it("passes a ThrottlerException (429) message through in production", () => {
+    const body = buildErrorResponseBody(new ThrottlerException(), opts("production"));
+
+    expect(body.statusCode).toBe(HttpStatus.TOO_MANY_REQUESTS);
+    expect(body.message).toBe("ThrottlerException: Too Many Requests");
   });
 
   // Protects production data confidentiality: a wrapped TypeORM error or an

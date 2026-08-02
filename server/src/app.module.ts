@@ -3,7 +3,14 @@ import { resolve } from "path";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { BullModule } from "@nestjs/bullmq";
+import { APP_GUARD } from "@nestjs/core";
+import { JwtService } from "@nestjs/jwt";
+import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
+import { ThrottlerStorageRedisService } from "@nest-lab/throttler-storage-redis";
 import { AppController } from "./app.controller";
+import { resolveDefaultRateLimit } from "./rate-limit";
+import { buildRateLimitTracker } from "./common/rate-limit/rate-limit-tracker";
+import { FailOpenThrottlerStorage } from "./common/rate-limit/fail-open-throttler-storage";
 import { HealthModule } from "./modules/health/health.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { AcademicYearModule } from "./modules/academics/academic-year.module";
@@ -88,6 +95,37 @@ import { TeacherClassSection } from "./modules/academics/entities/teacher-class-
         },
       }),
     }),
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService, JwtService],
+      useFactory: (config: ConfigService, jwtService: JwtService) => {
+        const { limit, ttl } = resolveDefaultRateLimit(
+          config.get<string>("RATE_LIMIT_DEFAULT_LIMIT"),
+          config.get<string>("RATE_LIMIT_DEFAULT_TTL_MS"),
+        );
+        return {
+          throttlers: [{ name: "default", limit, ttl }],
+          // Distinct connection from BullMQ's: ioredis's default
+          // maxRetriesPerRequest (20) queues each command through several
+          // seconds of retries before rejecting, which turns "fail open"
+          // into "fail slow" — every request hangs for the full retry
+          // window during an outage. enableOfflineQueue: false rejects
+          // immediately instead, so FailOpenThrottlerStorage can actually
+          // fail open without adding latency.
+          storage: new FailOpenThrottlerStorage(
+            new ThrottlerStorageRedisService(config.get<string>("REDIS_URL") ?? "redis://localhost:6379", {
+              enableOfflineQueue: false,
+              maxRetriesPerRequest: 1,
+            }),
+          ),
+          getTracker: buildRateLimitTracker(jwtService),
+          // The e2e suite fires many requests in sequence against a shared
+          // Redis bucket; without this it goes red intermittently on the
+          // default tier's limit, not on anything the tests are checking.
+          skipIf: () => config.get<string>("NODE_ENV") === "test",
+        };
+      },
+    }),
     HealthModule,
     AuthModule,
     AcademicYearModule,
@@ -100,5 +138,6 @@ import { TeacherClassSection } from "./modules/academics/entities/teacher-class-
     CommunicationsModule,
   ],
   controllers: [AppController],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}
