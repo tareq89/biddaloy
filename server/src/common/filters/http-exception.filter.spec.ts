@@ -1,22 +1,21 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { HttpException, HttpStatus, Logger } from '@nestjs/common';
-import { AllExceptionsFilter } from './http-exception.filter';
+import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
+import { BadRequestException, HttpException, HttpStatus, InternalServerErrorException, Logger } from "@nestjs/common";
+import { AllExceptionsFilter } from "./http-exception.filter";
 
-describe('AllExceptionsFilter', () => {
-  let filter: AllExceptionsFilter;
+describe("AllExceptionsFilter", () => {
   let mockJson: ReturnType<typeof vi.fn>;
   let mockStatus: ReturnType<typeof vi.fn>;
+  let mockSetHeader: ReturnType<typeof vi.fn>;
   let mockResponse: any;
   let mockRequest: any;
   let mockHost: any;
 
   beforeEach(() => {
-    filter = new AllExceptionsFilter();
-
     mockJson = vi.fn();
     mockStatus = vi.fn().mockReturnValue({ json: mockJson });
-    mockResponse = { status: mockStatus };
-    mockRequest = { method: 'GET', url: '/test' };
+    mockSetHeader = vi.fn();
+    mockResponse = { status: mockStatus, setHeader: mockSetHeader };
+    mockRequest = { method: "GET", url: "/test", headers: {} };
     mockHost = {
       switchToHttp: () => ({
         getResponse: () => mockResponse,
@@ -24,159 +23,130 @@ describe('AllExceptionsFilter', () => {
       }),
     };
 
-    vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    vi.spyOn(Logger.prototype, "error").mockImplementation(() => undefined);
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('should handle HttpException with its status and message', () => {
-    const exception = new HttpException('Not found', HttpStatus.NOT_FOUND);
+  it("passes a 4xx message through unchanged in production", () => {
+    const filter = new AllExceptionsFilter("production");
 
-    filter.catch(exception, mockHost);
-
-    expect(mockStatus).toHaveBeenCalledWith(HttpStatus.NOT_FOUND);
-    expect(mockJson).toHaveBeenCalledWith(
-      expect.objectContaining({
-        statusCode: HttpStatus.NOT_FOUND,
-        message: 'Not found',
-        path: '/test',
-      }),
-    );
-  });
-
-  it('should handle BadRequestException (400)', () => {
-    const { BadRequestException } = require('@nestjs/common');
-    const exception = new BadRequestException('Validation failed');
-
-    filter.catch(exception, mockHost);
+    filter.catch(new BadRequestException("Validation failed"), mockHost);
 
     expect(mockStatus).toHaveBeenCalledWith(HttpStatus.BAD_REQUEST);
     expect(mockJson).toHaveBeenCalledWith(
-      expect.objectContaining({
-        statusCode: HttpStatus.BAD_REQUEST,
-        message: 'Validation failed',
-      }),
+      expect.objectContaining({ statusCode: HttpStatus.BAD_REQUEST, message: "Validation failed" }),
     );
   });
 
-  it('should handle non-HTTP Error with 500 and "Internal server error"', () => {
-    const exception = new Error('Something broke');
+  it("suppresses 5xx detail in production", () => {
+    const filter = new AllExceptionsFilter("production");
+    const exception = new InternalServerErrorException("relation \"users\" does not exist");
 
     filter.catch(exception, mockHost);
 
     expect(mockStatus).toHaveBeenCalledWith(HttpStatus.INTERNAL_SERVER_ERROR);
-    expect(mockJson).toHaveBeenCalledWith(
-      expect.objectContaining({
-        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: 'Internal server error',
-      }),
-    );
+    const body = mockJson.mock.calls[0][0];
+    expect(body.message).toBe("Internal server error");
+    expect(body.stack).toBeUndefined();
   });
 
-  it('should handle non-Error exceptions (e.g. string) with 500', () => {
-    const exception = 'some string error';
+  it("includes 5xx detail and stack outside production", () => {
+    const filter = new AllExceptionsFilter("development");
+    const exception = new InternalServerErrorException("relation \"users\" does not exist");
 
     filter.catch(exception, mockHost);
 
-    expect(mockStatus).toHaveBeenCalledWith(HttpStatus.INTERNAL_SERVER_ERROR);
-    expect(mockJson).toHaveBeenCalledWith(
-      expect.objectContaining({
-        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: 'Internal server error',
-      }),
-    );
+    const body = mockJson.mock.calls[0][0];
+    expect(body.message).toBe('relation "users" does not exist');
+    expect(body.stack).toBe(exception.stack);
   });
 
-  it('should handle null/undefined exception with 500', () => {
-    filter.catch(null, mockHost);
-
-    expect(mockStatus).toHaveBeenCalledWith(HttpStatus.INTERNAL_SERVER_ERROR);
-    expect(mockJson).toHaveBeenCalledWith(
-      expect.objectContaining({
-        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: 'Internal server error',
-      }),
-    );
-  });
-
-  it('should include timestamp and path in the response body', () => {
-    const exception = new HttpException('Forbidden', HttpStatus.FORBIDDEN);
+  it("suppresses a non-HttpException 500 in production and logs the real detail", () => {
+    const filter = new AllExceptionsFilter("production");
+    const exception = new Error("connection to postgres://user:pass@host failed");
 
     filter.catch(exception, mockHost);
 
-    expect(mockJson).toHaveBeenCalledWith(
-      expect.objectContaining({
-        statusCode: HttpStatus.FORBIDDEN,
-        message: 'Forbidden',
-        path: '/test',
-      }),
+    const body = mockJson.mock.calls[0][0];
+    expect(body.message).toBe("Internal server error");
+    expect(Logger.prototype.error).toHaveBeenCalledWith(
+      expect.stringContaining("connection to postgres://user:pass@host failed"),
+      exception.stack,
     );
-
-    const callArg = mockJson.mock.calls[0][0];
-    expect(callArg).toHaveProperty('timestamp');
-    expect(typeof callArg.timestamp).toBe('string');
-    expect(() => new Date(callArg.timestamp)).not.toThrow();
   });
 
-  it('should log the error with method, URL, status, and message', () => {
-    const exception = new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
-    mockRequest.method = 'POST';
-    mockRequest.url = '/api/auth';
+  it("generates a requestId, returns it in the body and the X-Request-Id header", () => {
+    const filter = new AllExceptionsFilter("production");
 
-    filter.catch(exception, mockHost);
+    filter.catch(new HttpException("Forbidden", HttpStatus.FORBIDDEN), mockHost);
+
+    const body = mockJson.mock.calls[0][0];
+    expect(typeof body.requestId).toBe("string");
+    expect(body.requestId.length).toBeGreaterThan(0);
+    expect(mockSetHeader).toHaveBeenCalledWith("X-Request-Id", body.requestId);
+  });
+
+  it("reuses an incoming X-Request-Id header instead of generating a new one", () => {
+    const filter = new AllExceptionsFilter("production");
+    mockRequest.headers["x-request-id"] = "client-supplied-id";
+
+    filter.catch(new HttpException("Forbidden", HttpStatus.FORBIDDEN), mockHost);
+
+    const body = mockJson.mock.calls[0][0];
+    expect(body.requestId).toBe("client-supplied-id");
+    expect(mockSetHeader).toHaveBeenCalledWith("X-Request-Id", "client-supplied-id");
+  });
+
+  it("includes the requestId in the server-side log line", () => {
+    const filter = new AllExceptionsFilter("production");
+    mockRequest.headers["x-request-id"] = "log-correlation-id";
+
+    filter.catch(new HttpException("Forbidden", HttpStatus.FORBIDDEN), mockHost);
 
     expect(Logger.prototype.error).toHaveBeenCalledWith(
-      'POST /api/auth → 401: Unauthorized',
+      expect.stringContaining("[requestId=log-correlation-id]"),
       expect.any(String),
     );
   });
 
-  it('should log the stack trace for Error instances', () => {
-    const exception = new Error('Database connection failed');
-    const stack = exception.stack;
+  it("defaults nodeEnv from process.env.NODE_ENV when not passed", () => {
+    const original = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
 
-    filter.catch(exception, mockHost);
+    try {
+      const filter = new AllExceptionsFilter();
+      const exception = new InternalServerErrorException("leaky detail");
 
-    expect(Logger.prototype.error).toHaveBeenCalledWith(
-      'GET /test → 500: Internal server error',
-      stack,
-    );
+      filter.catch(exception, mockHost);
+
+      const body = mockJson.mock.calls[0][0];
+      expect(body.message).toBe("Internal server error");
+    } finally {
+      process.env.NODE_ENV = original;
+    }
   });
 
-  it('should handle HttpException with status code 500', () => {
-    const exception = new HttpException(
-      'Internal error',
-      HttpStatus.INTERNAL_SERVER_ERROR,
-    );
+  it("includes timestamp and path in the response body", () => {
+    const filter = new AllExceptionsFilter("production");
+    mockRequest.url = "/api/things";
 
-    filter.catch(exception, mockHost);
+    filter.catch(new HttpException("Forbidden", HttpStatus.FORBIDDEN), mockHost);
+
+    const body = mockJson.mock.calls[0][0];
+    expect(body.path).toBe("/api/things");
+    expect(typeof body.timestamp).toBe("string");
+    expect(() => new Date(body.timestamp)).not.toThrow();
+  });
+
+  it("handles null/undefined exceptions with 500", () => {
+    const filter = new AllExceptionsFilter("production");
+
+    filter.catch(null, mockHost);
 
     expect(mockStatus).toHaveBeenCalledWith(HttpStatus.INTERNAL_SERVER_ERROR);
-    expect(mockJson).toHaveBeenCalledWith(
-      expect.objectContaining({
-        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: 'Internal error',
-      }),
-    );
-  });
-
-  it('should handle HttpException with object response', () => {
-    const exception = new HttpException(
-      { message: 'Custom error', error: 'bad request' },
-      HttpStatus.BAD_REQUEST,
-    );
-
-    filter.catch(exception, mockHost);
-
-    expect(mockStatus).toHaveBeenCalledWith(HttpStatus.BAD_REQUEST);
-    // HttpException.message returns the `message` field from the object response
-    expect(mockJson).toHaveBeenCalledWith(
-      expect.objectContaining({
-        statusCode: HttpStatus.BAD_REQUEST,
-        message: 'Custom error',
-      }),
-    );
+    expect(mockJson.mock.calls[0][0].message).toBe("Internal server error");
   });
 });
