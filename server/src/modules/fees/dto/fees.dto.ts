@@ -17,6 +17,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { FeeType, FeeApplicability, PaymentMethod, PaymentStatus, PaymentAllocationType, FeeStatus } from '@beton-boi/shared';
+import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 
 export type FeeDuesSortBy = 'due_amount' | 'name' | 'class';
 export type SortOrder = 'ASC' | 'DESC';
@@ -150,6 +151,7 @@ export class CreatePaymentDto {
 
   @IsOptional()
   @IsString()
+  @SanitizeText()
   remarks?: string;
 
   @IsOptional()
@@ -194,6 +196,7 @@ export class RecordPaymentWithAllocationDto {
   @IsOptional()
   @IsString()
   @MaxLength(1000)
+  @SanitizeText()
   remarks?: string;
 
   @IsOptional()

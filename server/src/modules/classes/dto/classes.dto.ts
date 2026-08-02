@@ -1,10 +1,12 @@
 import { IsString, IsUUID, IsOptional, IsInt, Min, MaxLength, IsNotEmpty } from 'class-validator';
 import { Type } from 'class-transformer';
+import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 
 export class CreateClassDto {
   @IsNotEmpty()
   @IsString()
   @MaxLength(50)
+  @SanitizeText()
   name: string;
 
   @IsOptional()
@@ -20,6 +22,7 @@ export class UpdateClassDto {
   @IsOptional()
   @IsString()
   @MaxLength(50)
+  @SanitizeText()
   name?: string;
 
   @IsOptional()
@@ -49,6 +52,7 @@ export class CreateSectionDto {
   @IsNotEmpty()
   @IsString()
   @MaxLength(20)
+  @SanitizeText()
   section_name: string;
 
   @IsOptional()
@@ -61,6 +65,7 @@ export class UpdateSectionDto {
   @IsOptional()
   @IsString()
   @MaxLength(20)
+  @SanitizeText()
   section_name?: string;
 
   @IsOptional()

@@ -98,7 +98,7 @@ server/
 │   │   ├── filters/             # Exception filters
 │   │   ├── pipes/               # Validation pipes
 │   │   ├── guards/              # Auth guards (future)
-│   │   └── decorators/          # Custom decorators (future)
+│   │   └── decorators/          # Custom decorators (e.g. @SanitizeText)
 │   ├── modules/
 │   │   ├── users/               # User management
 │   │   ├── students/            # Student & guardian records
@@ -120,7 +120,8 @@ server/
 ## Architecture Notes
 
 - **API prefix**: all routes are under `/api/` (set via `app.setGlobalPrefix('api')`)
-- **Validation**: `class-validator` + `ValidationPipe` globally
+- **Validation**: `class-validator` + `ValidationPipe` globally, configured via `buildValidationPipeOptions()` (`src/validation-pipe.ts`) — `whitelist`/`forbidNonWhitelisted`/`transform` are all on, so every DTO field a client sends must be decorated.
+- **Sanitization**: free-text fields (names, addresses, notes/remarks — see `@SanitizeText()` in `src/common/decorators/sanitize-text.decorator.ts`) are HTML-stripped on the way **in**, via `class-transformer`'s `@Transform`, using `sanitizeStrict`/`sanitizeAllowlist` from `@beton-boi/shared`. Strip-all is the default policy; every current free-text field uses it. Not sanitized: password fields (bcrypt hashes the raw input), and staff-authored message content (reminder `message_template`, `SendCommunicationDto.message_body`) — those interpolate already-sanitized identity data (see `reminder-template.util.ts`) but aren't themselves stripped, since they're authored by staff (a higher trust boundary) and mangling them would corrupt legitimate content (e.g. an intentional `{{placeholder}}`). Sanitizing on input does not replace output encoding — a field rendered into HTML must still be escaped there for its own context.
 - **Error handling**: `AllExceptionsFilter` catches all unhandled errors
 - **CORS**: enabled for `localhost:5173` in development only
 - **Migrations**: stored in `src/migrations/` as TypeScript files, compiled to `dist/migrations/` on build

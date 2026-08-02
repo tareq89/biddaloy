@@ -112,6 +112,25 @@ describe('Invoices E2E', () => {
       expect(res.body.status).toBe('ISSUED');
     });
 
+    it('neutralises a script payload in notes (issue #33)', async () => {
+      const studentId = await createStudent();
+      const feeId = await createFee(studentId, 500);
+
+      const res = await supertest(app.getHttpServer())
+        .post('/invoices')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ACCOUNTANT)
+        .send({
+          student_id: studentId,
+          student_fee_id: feeId,
+          notes: '<script>alert(1)</script>Please pay by the 5th',
+        })
+        .expect(201);
+
+      expect(res.body.notes).toBe('Please pay by the 5th');
+    });
+
     it('returns 401 for STUDENT role', async () => {
       const studentId = await createStudent();
       const feeId = await createFee(studentId);

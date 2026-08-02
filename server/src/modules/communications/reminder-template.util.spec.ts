@@ -9,6 +9,11 @@ import {
   ReminderTemplateVars,
 } from './reminder-template.util';
 
+// require(), not a static import — see sanitize-text.decorator.ts's comment on
+// why a static `import { sanitizeStrict } from '@beton-boi/shared'` silently
+// binds to undefined under this repo's vitest config.
+const { sanitizeStrict } = require('@beton-boi/shared') as typeof import('@beton-boi/shared');
+
 const VARS: ReminderTemplateVars = {
   student_name: 'Rahim Uddin',
   guardian_name: 'Karim Uddin',
@@ -132,5 +137,37 @@ describe('formatDueMonth', () => {
   it('falls back to the year alone for an out-of-range month', () => {
     expect(formatDueMonth(0, 2026)).toBe('2026');
     expect(formatDueMonth(13, 2026)).toBe('2026');
+  });
+});
+
+describe('renderReminderTemplate with a sanitized name (issue #33)', () => {
+  // Student/Guardian full_name is sanitized at creation (@SanitizeText on
+  // CreateStudentDto/CreateGuardianDto), so by the time it reaches here as
+  // a template var it's already clean — this exercises that path end to
+  // end rather than asserting sanitizeStrict and renderReminderTemplate
+  // are each correct in isolation.
+  it('interpolates a name that had a script payload stripped at creation', () => {
+    const vars: ReminderTemplateVars = {
+      student_name: sanitizeStrict('<script>alert(1)</script>Rahim Uddin'),
+      guardian_name: 'Karim Uddin',
+      due_amount: '1,500.00',
+      due_month: 'March 2026',
+    };
+
+    expect(vars.student_name).toBe('Rahim Uddin');
+    expect(renderReminderTemplate('Dear {{guardian_name}}, {{student_name}} owes {{due_amount}}.', vars)).toBe(
+      'Dear Karim Uddin, Rahim Uddin owes 1,500.00.',
+    );
+  });
+
+  it('leaves placeholder syntax in the template untouched regardless of sanitization', () => {
+    const vars: ReminderTemplateVars = {
+      student_name: sanitizeStrict("O'Brien"),
+      guardian_name: sanitizeStrict('Tom & Jerry'),
+      due_amount: '500.00',
+      due_month: 'April 2026',
+    };
+
+    expect(renderReminderTemplate('{{student_name}} / {{guardian_name}}', vars)).toBe("O'Brien / Tom & Jerry");
   });
 });

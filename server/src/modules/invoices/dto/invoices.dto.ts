@@ -15,10 +15,12 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { InvoiceStatus } from '@beton-boi/shared';
+import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 
 export class LineItemDto {
   @IsString()
   @MaxLength(255)
+  @SanitizeText()
   description: string;
 
   @IsNumber({ maxDecimalPlaces: 2 })
@@ -46,6 +48,7 @@ export class CreateInvoiceDto {
   @IsOptional()
   @IsString()
   @MaxLength(1000)
+  @SanitizeText()
   notes?: string;
 
   @IsOptional()

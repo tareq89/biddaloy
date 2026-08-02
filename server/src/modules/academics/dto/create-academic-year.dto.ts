@@ -1,5 +1,6 @@
 import { IsString, IsOptional, IsBoolean, IsDateString, IsNotEmpty } from 'class-validator';
 import { Validate, ValidationArguments, ValidatorConstraint, ValidatorConstraintInterface } from 'class-validator';
+import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 
 @ValidatorConstraint({ name: 'isBefore', async: false })
 export class IsBeforeConstraint implements ValidatorConstraintInterface {
@@ -14,6 +15,7 @@ export class IsBeforeConstraint implements ValidatorConstraintInterface {
 export class CreateAcademicYearDto {
   @IsString()
   @IsNotEmpty()
+  @SanitizeText()
   name: string;
 
   @IsDateString()

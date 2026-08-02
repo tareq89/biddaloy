@@ -1,5 +1,6 @@
 import { IsString, IsOptional, IsUUID, IsArray, IsEnum, IsNotEmpty } from 'class-validator';
 import { CommunicationMedium, CommunicationStatus } from '@beton-boi/shared';
+import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 
 export class SendCommunicationDto {
   @IsEnum(CommunicationMedium)
@@ -11,14 +12,21 @@ export class SendCommunicationDto {
 
   @IsString()
   @IsNotEmpty()
+  @SanitizeText()
   recipient_name: string;
 
+  // Not sanitized: this is the actual message content sent to the
+  // recipient's inbox/SMS/WhatsApp, authored by staff (ADMIN/ACCOUNTANT/
+  // EXECUTIVE — see CommunicationsController's @Roles), the same trust
+  // boundary as reminder message_template. Free-text *identity* data
+  // (names, addresses) is sanitized; staff-authored message bodies are not.
   @IsString()
   @IsNotEmpty()
   message_body: string;
 
   @IsOptional()
   @IsString()
+  @SanitizeText()
   subject?: string;
 
   @IsOptional()
