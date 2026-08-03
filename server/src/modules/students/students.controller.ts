@@ -16,11 +16,13 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { STRICT_RATE_LIMIT } from '../../rate-limit';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { StudentService, GuardianService } from './students.service';
 import { StudentBulkUploadService } from './bulk-upload.service';
 import {
@@ -35,6 +37,8 @@ import { UserRole, JwtPayload } from '@beton-boi/shared';
 
 const BULK_UPLOAD_MAX_FILE_SIZE = 5 * 1024 * 1024;
 
+@ApiTags('students')
+@ApiTenantAuth()
 @Controller()
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard)
 export class StudentController {
@@ -59,6 +63,11 @@ export class StudentController {
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
   @Throttle({ default: STRICT_RATE_LIMIT })
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: BULK_UPLOAD_MAX_FILE_SIZE } }))
+  @ApiOperation({ summary: 'Bulk-create students and their guardians from a CSV/XLSX spreadsheet (max 5MB).' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } },
+  })
   bulkUploadStudents(
     @UploadedFile() file: Express.Multer.File,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -78,6 +87,10 @@ export class StudentController {
 
   @Get('students/:id')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER, UserRole.PARENT, UserRole.STUDENT)
+  @ApiOperation({
+    summary:
+      "Get a single student. A PARENT or STUDENT caller additionally must be linked to this specific student — role alone isn't enough.",
+  })
   async findOneStudent(
     @Param('id') id: string,
     @CurrentTenant() tenant: { id: string; role: string },

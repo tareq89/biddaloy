@@ -21,7 +21,8 @@
     "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/data-source.ts",
     "seed": "ts-node src/scripts/seed.ts",
     "db:clear": "ts-node src/scripts/db-clear.ts",
-    "db:reset": "ts-node src/scripts/db-reset.ts"
+    "db:reset": "ts-node src/scripts/db-reset.ts",
+    "docs:generate": "nest build && node dist/scripts/generate-openapi.js"
   },
   "dependencies": {
     "@nest-lab/throttler-storage-redis": "^1.2.0",
@@ -32,6 +33,7 @@
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11",
+    "@nestjs/swagger": "^11.4.6",
     "@nestjs/throttler": "^6.5.0",
     "@nestjs/typeorm": "^11",
     "bcrypt": "^6.0.0",

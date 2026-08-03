@@ -12,11 +12,13 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { STRICT_RATE_LIMIT } from '../../rate-limit';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { CommunicationsService } from './communications.service';
 import { BulkReminderService } from './reminders.service';
 import { SingleReminderService } from './single-reminder.service';
@@ -25,6 +27,8 @@ import { SendBulkReminderDto } from './dto/reminders.dto';
 import { SendSingleReminderDto } from './dto/single-reminder.dto';
 import { UserRole, JwtPayload } from '@beton-boi/shared';
 
+@ApiTags('communications')
+@ApiTenantAuth()
 @Controller('communications')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard)
 export class CommunicationsController {
@@ -40,6 +44,7 @@ export class CommunicationsController {
   @Post('reminder/single/:studentId/preview')
   @HttpCode(HttpStatus.OK)
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  @ApiOperation({ summary: 'Render a single-student reminder without sending it, for the sender to review first.' })
   previewSingleReminder(
     @Param('studentId', ParseUUIDPipe) studentId: string,
     @Body() dto: SendSingleReminderDto,
@@ -50,6 +55,7 @@ export class CommunicationsController {
 
   @Post('reminder/single/:studentId')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  @ApiOperation({ summary: 'Send a fee reminder to one student/guardian.' })
   sendSingleReminder(
     @Param('studentId', ParseUUIDPipe) studentId: string,
     @Body() dto: SendSingleReminderDto,
@@ -65,6 +71,7 @@ export class CommunicationsController {
   @Post('reminder/bulk')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
   @Throttle({ default: STRICT_RATE_LIMIT })
+  @ApiOperation({ summary: 'Queue fee reminders to every student/guardian matching the given filters.' })
   sendBulkReminder(
     @Body() dto: SendBulkReminderDto,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -75,6 +82,7 @@ export class CommunicationsController {
 
   @Get('reminder/bulk/:id')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  @ApiOperation({ summary: 'Get a bulk reminder batch, including its per-recipient delivery status.' })
   findReminderBatch(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -84,6 +92,7 @@ export class CommunicationsController {
 
   @Post('send')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @ApiOperation({ summary: 'Send a freeform (non-reminder) message.' })
   send(
     @Body() dto: SendCommunicationDto,
     @CurrentTenant() tenant: { id: string; role: string },

@@ -27,6 +27,8 @@ All env vars are defined in `.env` at the monorepo root. The server loads it via
 | `SEED_ADMIN_PASSWORD` | For seed | — | Password for the super admin account |
 | `DB_SYNCHRONIZE` | No | `false` | TypeORM auto-sync (dev only — set to `true` to enable; never use in prod) |
 | `DB_DESTROY_CONFIRM` | For db:clear/db:reset | `false` | Set to `true` to confirm destructive database operations |
+| `ENABLE_API_DOCS` | No | unset | Set to exactly `true` to mount `/api/docs` in production (see the root README's "API Documentation" section) |
+| `API_DOCS_USER` / `API_DOCS_PASSWORD` | With `ENABLE_API_DOCS=true` in production | — | Basic Auth credentials gating `/api/docs` in production |
 
 ## Commands
 

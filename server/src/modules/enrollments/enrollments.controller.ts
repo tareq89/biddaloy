@@ -8,13 +8,17 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
+import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { EnrollmentService } from './enrollments.service';
 import { CreateEnrollmentDto, UpdateEnrollmentDto } from './dto/enrollments.dto';
 import { UserRole } from '@beton-boi/shared';
 
+@ApiTags('enrollments')
+@ApiTenantAuth()
 @Controller('enrollments')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard)
 export class EnrollmentController {

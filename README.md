@@ -265,6 +265,48 @@ follows a plan instead of improvising one under pressure:
   epic/issue tracking the migration — there's no separate public changelog
   yet.
 
+## API Documentation (Swagger)
+
+Interactive docs (`server/src/swagger.ts`, `server/src/docs-auth.ts`) are
+reachable at **`/api/docs`** — version-neutral, like `/api/health`, so the
+docs URL doesn't move on a version bump. The bearer scheme and the
+`X-Tenant-ID`/`X-Role` header contract (see `ApiTenantAuth` in
+`server/src/common/decorators/`) are documented on every guarded
+controller, so "Try it out" works once you paste in a token.
+
+**Gating** (`shouldMountDocs` in `swagger.ts`):
+
+- Outside production, docs always mount, unauthenticated — nothing sensitive
+  about a dev environment's own API shape.
+- In production, docs are off by default: the route doesn't exist (a real
+  404, not a rejection) unless `ENABLE_API_DOCS=true` is set.
+- With `ENABLE_API_DOCS=true` in production, the route is additionally
+  gated by Basic Auth (`API_DOCS_USER`/`API_DOCS_PASSWORD`, both required —
+  the app refuses to boot with `ENABLE_API_DOCS=true` and no credentials
+  set, rather than silently serving the docs unauthenticated).
+
+**Generating a client**: `yarn docs:generate` (from `server/`) writes the
+current OpenAPI document to `server/openapi.json`, for the SPAs to generate
+a typed client from. This runs `nest build` first and executes the
+**compiled** script (`node dist/scripts/generate-openapi.js`), not
+`ts-node` — `@nestjs/swagger`'s CLI plugin (`nest-cli.json`'s
+`compilerOptions.plugins`), which auto-infers `@ApiProperty()` for DTO/
+entity fields from their TypeScript types, only runs through Nest's own
+build compiler. Running the script via `ts-node` instead produces a
+document with every DTO schema empty — Nest's compiler is what makes the
+annotations effectively free instead of a decorator on every one of ~50
+DTO classes.
+
+**No sensitive field ever appears in a schema**: `User.password_hash` is
+marked `@ApiHideProperty()` directly on the entity, so it's excluded from
+every schema that references `User` — including ones no current endpoint
+actually returns with that relation populated (Guardian.user, Student.user,
+Payment.received_by) — not just the ones a controller happens to sanitize
+today. Verified by generating the real document (`yarn docs:generate`) and
+confirming zero `password_hash` occurrences; this can't be verified by an
+ordinary Vitest test, since the CLI plugin (and therefore the schema
+shape) doesn't run under Vitest's SWC-based transform at all.
+
 ## Project Structure
 
 ```
