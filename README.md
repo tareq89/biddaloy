@@ -197,6 +197,35 @@ instead of the bundled nginx:
 - Set `CORS_ORIGINS` to your real public origin(s) regardless of which path
   you use.
 
+## Security
+
+### Login brute-force protection
+
+`POST /auth/login` layers three controls, defined in
+`server/src/modules/auth/`:
+
+- **Per-IP rate limit** — the same `strict` tier (5 requests/60s) used on
+  other expensive endpoints (see `rate-limit.ts`).
+- **Per-identifier lockout** (`login-attempt.service.ts`) — the normalized
+  email/phone is locked out after **5 failed attempts** within a **15-minute
+  window**, both Redis-backed and configurable via `LOGIN_LOCKOUT_THRESHOLD`
+  and `LOGIN_LOCKOUT_WINDOW_MS`. A successful login resets the counter. The
+  lock expires automatically after the window — there is no admin-reset
+  path, since a pure admin-reset lock is itself a denial-of-service vector
+  against a known account.
+- **Progressive delay** — failures before the lockout threshold add an
+  increasing delay (500ms per attempt, capped at 2s), to blunt a slow
+  distributed attack without hard-locking real users on a couple of typos.
+
+The response body, status, and code path are identical for "no such user",
+"wrong password", and "locked out" — `AuthService.validateUser` always runs
+`bcrypt.compare` (against a dummy hash when no user is found), so there's no
+timing or content difference an attacker could use to enumerate accounts.
+
+Both lockout and the strict rate-limit tier are disabled under
+`NODE_ENV=test` — the e2e suite logs in repeatedly against the same seeded
+account and would otherwise lock itself out.
+
 ## Project Structure
 
 ```

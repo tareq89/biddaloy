@@ -6,7 +6,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
 import { User } from '../users/entities/user.entity';
 import { UserTenant } from './entities/user-tenant.entity';
-import { UserRole } from '@beton-boi/shared';
+import { AuditLog } from '../audit/entities/audit-log.entity';
+import { LoginAttemptService } from './login-attempt.service';
+import { AuditAction, UserRole } from '@beton-boi/shared';
 
 // Mock bcrypt as a module-level replacement
 // This must be before any imports of bcrypt
@@ -24,7 +26,9 @@ describe('AuthService', () => {
   let service: AuthService;
   let mockUserRepo: any;
   let mockUserTenantRepo: any;
+  let mockAuditLogRepo: any;
   let mockJwtService: any;
+  let mockLoginAttempts: any;
 
   const mockUser: User = {
     id: 'user-1',
@@ -67,6 +71,10 @@ describe('AuthService', () => {
     mockUserTenantRepo = {
       find: vi.fn(),
     };
+    mockAuditLogRepo = {
+      create: vi.fn((x) => x),
+      save: vi.fn().mockResolvedValue(undefined),
+    };
 
     // Create a mock JwtService with a proper sign method
     mockJwtService = {
@@ -75,27 +83,24 @@ describe('AuthService', () => {
       decode: vi.fn(),
     };
 
+    mockLoginAttempts = {
+      isLocked: vi.fn().mockResolvedValue(false),
+      recordFailure: vi.fn().mockResolvedValue({ locked: false, delayMs: 0 }),
+      reset: vi.fn().mockResolvedValue(undefined),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
         { provide: getRepositoryToken(User), useValue: mockUserRepo },
         { provide: getRepositoryToken(UserTenant), useValue: mockUserTenantRepo },
+        { provide: getRepositoryToken(AuditLog), useValue: mockAuditLogRepo },
         { provide: JwtService, useValue: mockJwtService },
+        { provide: LoginAttemptService, useValue: mockLoginAttempts },
       ],
     }).compile();
 
     service = module.get<AuthService>(AuthService);
-
-    // Debug: check what's injected
-    const injectedJwt = (service as any).jwtService;
-    if (!injectedJwt) {
-      // Try getting it from the module context
-      const jwtFromModule = module.get<JwtService>(JwtService);
-      if (jwtFromModule) {
-        // Manually assign if DI didn't work
-        (service as any).jwtService = jwtFromModule;
-      }
-    }
   });
 
   describe('validateUser', () => {
@@ -124,12 +129,20 @@ describe('AuthService', () => {
       });
     });
 
-    it('should return null when user is not found', async () => {
+    // Protects against a timing oracle: without a dummy-hash compare here,
+    // "no such user" would return near-instantly while "wrong password"
+    // pays bcrypt's cost — a response-time difference that lets an
+    // attacker enumerate valid identifiers without ever seeing a
+    // different response body.
+    it('should still call bcrypt.compare (against a dummy hash) when the user is not found', async () => {
       mockUserRepo.findOne.mockResolvedValue(null);
+      (bcrypt.compare as any).mockResolvedValue(false);
 
       const result = await service.validateUser('unknown@test.com', 'password123');
 
       expect(result).toBeNull();
+      expect(bcrypt.compare).toHaveBeenCalledTimes(1);
+      expect(bcrypt.compare).toHaveBeenCalledWith('password123', expect.stringMatching(/^\$2[aby]\$/));
     });
 
     it('should return null when password is invalid', async () => {
@@ -141,13 +154,17 @@ describe('AuthService', () => {
       expect(result).toBeNull();
     });
 
-    it('should return null when user has no password_hash', async () => {
+    // Same timing protection as the not-found case, and it must not compare
+    // against `null` (bcrypt.compare would reject) — the dummy hash covers it.
+    it('should compare against the dummy hash when user has no password_hash', async () => {
       const noPasswordUser = { ...mockUser, password_hash: null };
       mockUserRepo.findOne.mockResolvedValue(noPasswordUser);
+      (bcrypt.compare as any).mockResolvedValue(false);
 
       const result = await service.validateUser('admin@test.com', 'password123');
 
       expect(result).toBeNull();
+      expect(bcrypt.compare).toHaveBeenCalledWith('password123', expect.stringMatching(/^\$2[aby]\$/));
     });
   });
 
@@ -176,6 +193,7 @@ describe('AuthService', () => {
 
     it('should throw UnauthorizedException when credentials are invalid', async () => {
       mockUserRepo.findOne.mockResolvedValue(null);
+      (bcrypt.compare as any).mockResolvedValue(false);
 
       await expect(
         service.login('invalid@test.com', 'password123'),
@@ -208,6 +226,129 @@ describe('AuthService', () => {
       expect(mockUserRepo.save).toHaveBeenCalled();
       const savedUser = mockUserRepo.save.mock.calls[0][0];
       expect(savedUser.last_login_at).toBeInstanceOf(Date);
+    });
+
+    it('resets the attempt counter on a successful login', async () => {
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      (bcrypt.compare as any).mockResolvedValue(true);
+      mockUserTenantRepo.find.mockResolvedValue(mockMemberships);
+      mockUserRepo.save.mockResolvedValue(mockUser);
+
+      await service.login('admin@test.com', 'password123');
+
+      expect(mockLoginAttempts.reset).toHaveBeenCalledWith('admin@test.com');
+      expect(mockLoginAttempts.recordFailure).not.toHaveBeenCalled();
+    });
+
+    it('normalizes the identifier before checking/recording attempts', async () => {
+      mockUserRepo.findOne.mockResolvedValue(null);
+      (bcrypt.compare as any).mockResolvedValue(false);
+
+      await expect(service.login(' Admin@Test.com ', 'wrong')).rejects.toThrow(UnauthorizedException);
+
+      expect(mockLoginAttempts.isLocked).toHaveBeenCalledWith('admin@test.com');
+      expect(mockLoginAttempts.recordFailure).toHaveBeenCalledWith('admin@test.com');
+    });
+
+    it('records a failure and writes a LOGIN_FAILED audit row on wrong password', async () => {
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      (bcrypt.compare as any).mockResolvedValue(false);
+      mockLoginAttempts.recordFailure.mockResolvedValue({ locked: false, delayMs: 0 });
+
+      await expect(service.login('admin@test.com', 'wrong-password')).rejects.toThrow(UnauthorizedException);
+
+      expect(mockLoginAttempts.recordFailure).toHaveBeenCalledWith('admin@test.com');
+      // entity_id is null here, same as the unknown-identifier case:
+      // validateUser returns null for both "no such user" and "wrong
+      // password" by design, so the audit row can't distinguish them
+      // either — that's the same don't-leak-existence property applied
+      // consistently, not a gap. new_values.identifier still lets support
+      // search failed attempts by what was typed.
+      expect(mockAuditLogRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: AuditAction.LOGIN_FAILED,
+          entity_id: null,
+          new_values: { identifier: 'admin@test.com' },
+        }),
+      );
+    });
+
+    it('writes a LOGIN audit row on success', async () => {
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      (bcrypt.compare as any).mockResolvedValue(true);
+      mockUserTenantRepo.find.mockResolvedValue(mockMemberships);
+      mockUserRepo.save.mockResolvedValue(mockUser);
+
+      await service.login('admin@test.com', 'password123', { ip: '1.2.3.4', userAgent: 'ua' });
+
+      expect(mockAuditLogRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: AuditAction.LOGIN,
+          entity_id: 'user-1',
+          ip_address: '1.2.3.4',
+          user_agent: 'ua',
+        }),
+      );
+    });
+
+    // Rejects with correct credentials once the identifier is locked out —
+    // otherwise a lockout would be pointless.
+    it('rejects a correct password when the identifier is already locked out', async () => {
+      mockLoginAttempts.isLocked.mockResolvedValue(true);
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      (bcrypt.compare as any).mockResolvedValue(true);
+
+      await expect(service.login('admin@test.com', 'password123')).rejects.toThrow('Invalid credentials');
+      expect(mockUserRepo.save).not.toHaveBeenCalled();
+    });
+
+    // Once locked, further attempts don't keep extending the lockout window —
+    // recordFailure is only called for identifiers that aren't locked yet.
+    it('does not call recordFailure again once already locked out', async () => {
+      mockLoginAttempts.isLocked.mockResolvedValue(true);
+      mockUserRepo.findOne.mockResolvedValue(null);
+      (bcrypt.compare as any).mockResolvedValue(false);
+
+      await expect(service.login('admin@test.com', 'password123')).rejects.toThrow('Invalid credentials');
+
+      expect(mockLoginAttempts.recordFailure).not.toHaveBeenCalled();
+    });
+
+    // Even while locked, validateUser still runs (same bcrypt-timing path
+    // as any other failure) — the response shouldn't be faster just
+    // because the identifier is locked.
+    it('still calls bcrypt.compare when the identifier is already locked out', async () => {
+      mockLoginAttempts.isLocked.mockResolvedValue(true);
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      (bcrypt.compare as any).mockResolvedValue(true);
+
+      await expect(service.login('admin@test.com', 'password123')).rejects.toThrow('Invalid credentials');
+
+      expect(bcrypt.compare).toHaveBeenCalledTimes(1);
+    });
+
+    // Audit logging is ancillary to authentication — a write failure here
+    // must never surface as a 500 in place of the real UnauthorizedException,
+    // and must never block a successful login from returning its token.
+    it('still throws UnauthorizedException (not the audit error) when the audit write fails on a failed login', async () => {
+      mockUserRepo.findOne.mockResolvedValue(null);
+      (bcrypt.compare as any).mockResolvedValue(false);
+      mockAuditLogRepo.save.mockRejectedValue(new Error('db unavailable'));
+
+      await expect(service.login('admin@test.com', 'wrong-password')).rejects.toThrow(UnauthorizedException);
+      await expect(service.login('admin@test.com', 'wrong-password')).rejects.toThrow('Invalid credentials');
+    });
+
+    it('still returns the access token when the audit write fails on a successful login', async () => {
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      (bcrypt.compare as any).mockResolvedValue(true);
+      mockUserTenantRepo.find.mockResolvedValue(mockMemberships);
+      mockUserRepo.save.mockResolvedValue(mockUser);
+      mockAuditLogRepo.save.mockRejectedValue(new Error('db unavailable'));
+
+      const result = await service.login('admin@test.com', 'password123');
+
+      expect(result.access_token).toBe('test-jwt-token');
     });
   });
 });
