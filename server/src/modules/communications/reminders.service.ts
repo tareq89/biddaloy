@@ -27,7 +27,10 @@ import {
 import { recordBatchOutcome } from './reminder-batch-counters';
 import { COMMUNICATIONS_QUEUE } from './communications.constants';
 import { selectReminderGuardians, addressForMedium, DISPATCHABLE_MEDIA } from './reminder-recipients.util';
+import { AuditService } from '../audit/audit.service';
+import { RequestContext } from '../../common/request-context.util';
 import {
+  AuditAction,
   CommunicationMedium,
   CommunicationStatus,
   CommunicationTrigger,
@@ -71,12 +74,14 @@ export class BulkReminderService {
     private readonly queue: Queue,
     private readonly studentService: StudentService,
     private readonly feeDuesService: FeeDuesService,
+    private readonly auditService: AuditService,
   ) {}
 
   async sendBulk(
     dto: SendBulkReminderDto,
     tenantId: string,
     userId: string,
+    context: RequestContext = { ip: null, userAgent: null },
   ): Promise<ReminderBatchResponseDto> {
     const unsupported = findUnsupportedPlaceholders(dto.message_template);
     if (unsupported.length > 0) {
@@ -121,6 +126,24 @@ export class BulkReminderService {
     );
 
     await this.queueRecipients(recipients, batch, dto, tenantId, userId);
+
+    // One record per batch, not per recipient — a bulk send can fan out to
+    // hundreds of guardians, and PAYMENT_RECEIVED/BULK_UPLOAD already set
+    // the precedent of one audit row per user-initiated action.
+    await this.auditService.record({
+      action: AuditAction.REMINDER_SENT,
+      entity_type: 'ReminderBatch',
+      entity_id: batch.id,
+      tenant_id: tenantId,
+      performed_by_user_id: userId,
+      ip_address: context.ip,
+      user_agent: context.userAgent,
+      new_values: {
+        student_count: studentIds.length,
+        recipient_count: recipients.length,
+        skipped_count: skipped.length,
+      },
+    });
 
     // Re-read so the response reflects any failures the enqueue loop
     // recorded rather than the counts the batch was created with.

@@ -7,9 +7,11 @@ import {
   Body,
   Param,
   Query,
+  Req,
   UseGuards,
   Inject,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -37,6 +39,7 @@ import {
 } from './dto/fees.dto';
 import { UserRole } from '@beton-boi/shared';
 import { JwtPayload } from '@beton-boi/shared';
+import { requestContext } from '../../common/request-context.util';
 
 @ApiTags('fees')
 @ApiTenantAuth()
@@ -120,8 +123,10 @@ export class FeeController {
     @Param('id') id: string,
     @Body() dto: UpdateFeeStructureDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
-    return this.feeStructureService.update(id, dto, tenant.id);
+    return this.feeStructureService.update(id, dto, tenant.id, user.sub, requestContext(request));
   }
 
   @Delete('fee-structures/:id')

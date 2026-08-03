@@ -98,6 +98,7 @@ describe('BulkReminderService', () => {
   let queue: Record<string, ReturnType<typeof vi.fn>>;
   let studentService: Record<string, ReturnType<typeof vi.fn>>;
   let feeDuesService: Record<string, ReturnType<typeof vi.fn>>;
+  let auditService: Record<string, ReturnType<typeof vi.fn>>;
 
   let savedBatch: any;
   let txManager: Record<string, ReturnType<typeof vi.fn>>;
@@ -143,6 +144,7 @@ describe('BulkReminderService', () => {
     feeDuesService = {
       getDueSnapshots: vi.fn(async () => new Map([['s-1', snapshot()]])),
     };
+    auditService = { record: vi.fn(async () => undefined) };
 
     service = new BulkReminderService(
       logRepo as any,
@@ -150,6 +152,7 @@ describe('BulkReminderService', () => {
       queue as any,
       studentService as any,
       feeDuesService as any,
+      auditService as any,
     );
   });
 

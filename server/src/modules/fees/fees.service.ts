@@ -10,7 +10,9 @@ import { Student } from "../students/entities/student.entity";
 import { Class } from "../academics/entities/class.entity";
 import { ClassSection } from "../academics/entities/class-section.entity";
 import { AcademicYear } from "../academics/entities/academic-year.entity";
-import { PaymentStatus } from "@beton-boi/shared";
+import { AuditService } from "../audit/audit.service";
+import { RequestContext } from "../../common/request-context.util";
+import { PaymentStatus, AuditAction } from "@beton-boi/shared";
 import { CreateFeeStructureDto, UpdateFeeStructureDto, QueryFeeStructureDto, CreatePaymentDto } from "./dto/fees.dto";
 
 @Injectable()
@@ -34,6 +36,7 @@ export class FeeStructureService {
     private readonly academicYearRepo: Repository<AcademicYear>,
     @InjectRepository(Student)
     private readonly studentRepo: Repository<Student>,
+    private readonly auditService: AuditService,
   ) {}
 
   async create(dto: CreateFeeStructureDto, tenantId: string): Promise<FeeStructure> {
@@ -136,13 +139,25 @@ export class FeeStructureService {
     return entity;
   }
 
-  async update(id: string, dto: UpdateFeeStructureDto, tenantId: string): Promise<FeeStructure> {
-    await this.findOne(id, tenantId);
+  async update(
+    id: string,
+    dto: UpdateFeeStructureDto,
+    tenantId: string,
+    userId: string,
+    context: RequestContext = { ip: null, userAgent: null },
+  ): Promise<FeeStructure> {
+    const existing = await this.findOne(id, tenantId);
 
     const updateData: any = { ...dto };
     if (dto.student_ids !== undefined) {
       delete updateData.student_ids;
     }
+
+    // Diffed against exactly the fields this request changed, not the whole
+    // entity — a partial PATCH shouldn't make every untouched column look
+    // like it was "changed" in the audit trail.
+    const changedKeys = Object.keys(updateData);
+    const oldValues = Object.fromEntries(changedKeys.map((key) => [key, (existing as any)[key]]));
 
     await this.repo.update({ id, tenant_id: tenantId }, updateData);
 
@@ -155,7 +170,23 @@ export class FeeStructureService {
       }
     }
 
-    return this.findOne(id, tenantId);
+    const updated = await this.findOne(id, tenantId);
+
+    if (changedKeys.length > 0) {
+      await this.auditService.record({
+        action: AuditAction.FEE_STRUCTURE_CHANGE,
+        entity_type: 'FeeStructure',
+        entity_id: id,
+        tenant_id: tenantId,
+        performed_by_user_id: userId,
+        ip_address: context.ip,
+        user_agent: context.userAgent,
+        old_values: oldValues,
+        new_values: updateData,
+      });
+    }
+
+    return updated;
   }
 
   async remove(id: string, tenantId: string): Promise<void> {

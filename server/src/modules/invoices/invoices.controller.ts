@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, ParseUUIDPipe, Query, UseGuards, Header, Inject } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, ParseUUIDPipe, Query, UseGuards, UseInterceptors, Header, Inject } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -9,11 +9,13 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { InvoicesService } from './invoices.service';
 import { CreateInvoiceDto, QueryInvoiceDto } from './dto/invoices.dto';
-import { UserRole } from '@beton-boi/shared';
+import { UserRole, AuditAction } from '@beton-boi/shared';
 import { JwtPayload } from '@beton-boi/shared';
 import { STRICT_RATE_LIMIT } from '../../rate-limit';
 import { User } from '../users/entities/user.entity';
 import { UserResponseDto } from '../users/dto/user-response.dto';
+import { Audited } from '../audit/decorators/audited.decorator';
+import { AuditInterceptor } from '../audit/audit.interceptor';
 
 // findOne (and create, which returns findOne's result) load the issued_by
 // User relation in full — strip its password_hash before it reaches a
@@ -39,6 +41,8 @@ export class InvoicesController {
   @Post()
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
   @Throttle({ default: STRICT_RATE_LIMIT })
+  @UseInterceptors(AuditInterceptor)
+  @Audited(AuditAction.INVOICE_GENERATED, 'Invoice')
   async create(
     @Body() dto: CreateInvoiceDto,
     @CurrentTenant() tenant: { id: string; role: string },

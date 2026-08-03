@@ -1,4 +1,4 @@
-import { Injectable, Logger, UnauthorizedException, Inject, Optional } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Inject, Optional } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -6,7 +6,7 @@ import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
 import { User } from '../users/entities/user.entity';
 import { UserTenant } from './entities/user-tenant.entity';
-import { AuditLog } from '../audit/entities/audit-log.entity';
+import { AuditService } from '../audit/audit.service';
 import { JwtPayload, JwtMembership, LoginResponse, AuditAction, UserStatus } from '@beton-boi/shared';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { LoginAttemptService } from './login-attempt.service';
@@ -38,15 +38,12 @@ function sleep(ms: number): Promise<void> {
 
 @Injectable()
 export class AuthService {
-  private readonly logger = new Logger(AuthService.name);
-
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     @InjectRepository(UserTenant)
     private readonly userTenantRepository: Repository<UserTenant>,
-    @InjectRepository(AuditLog)
-    private readonly auditLogRepository: Repository<AuditLog>,
+    @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(JwtService) private readonly jwtService: JwtService,
     @Inject(LoginAttemptService) private readonly loginAttempts: LoginAttemptService,
     @Inject(RefreshTokenService) private readonly refreshTokens: RefreshTokenService,
@@ -99,10 +96,11 @@ export class AuthService {
         await sleep(delayMs);
       }
 
-      await this.writeAuditLog({
+      await this.auditService.record({
         action: AuditAction.LOGIN_FAILED,
         entity_type: 'User',
         entity_id: user?.id ?? null,
+        tenant_id: user ? await this.primaryTenantId(user.id) : null,
         performed_by_user_id: user?.id ?? null,
         ip_address: context.ip,
         user_agent: context.userAgent,
@@ -120,10 +118,11 @@ export class AuthService {
     user.last_login_at = new Date();
     await this.userRepository.save(user);
 
-    await this.writeAuditLog({
+    await this.auditService.record({
       action: AuditAction.LOGIN,
       entity_type: 'User',
       entity_id: user.id,
+      tenant_id: await this.primaryTenantId(user.id),
       performed_by_user_id: user.id,
       ip_address: context.ip,
       user_agent: context.userAgent,
@@ -159,10 +158,11 @@ export class AuthService {
       rotated = await this.refreshTokens.rotate(cookieValue, context);
     } catch (error) {
       if (error instanceof RefreshTokenReuseDetectedException) {
-        await this.writeAuditLog({
+        await this.auditService.record({
           action: AuditAction.TOKEN_REUSE_DETECTED,
           entity_type: 'User',
           entity_id: error.userId,
+          tenant_id: await this.primaryTenantId(error.userId),
           performed_by_user_id: error.userId,
           ip_address: context.ip,
           user_agent: context.userAgent,
@@ -205,10 +205,11 @@ export class AuthService {
     const userId = await this.refreshTokens.revokeByCookieValue(cookieValue);
     if (!userId) return;
 
-    await this.writeAuditLog({
+    await this.auditService.record({
       action: AuditAction.LOGOUT,
       entity_type: 'User',
       entity_id: userId,
+      tenant_id: await this.primaryTenantId(userId),
       performed_by_user_id: userId,
       ip_address: context.ip,
       user_agent: context.userAgent,
@@ -230,10 +231,11 @@ export class AuthService {
     // here can't prevent the audit write below from running.
     await this.accessTokenDenylist.revoke(jti, this.accessTokenTtlMs);
 
-    await this.writeAuditLog({
+    await this.auditService.record({
       action: AuditAction.LOGOUT,
       entity_type: 'User',
       entity_id: userId,
+      tenant_id: await this.primaryTenantId(userId),
       performed_by_user_id: userId,
       ip_address: context.ip,
       user_agent: context.userAgent,
@@ -246,6 +248,17 @@ export class AuthService {
     return memberships.map((m) => ({ tenantId: m.tenant_id, role: m.role }));
   }
 
+  // A user can belong to several tenants, but an audit row needs exactly
+  // one — this picks the earliest membership as a stable, deterministic
+  // choice, the same rule the tenant-id backfill migrations use.
+  private async primaryTenantId(userId: string): Promise<string | null> {
+    const membership = await this.userTenantRepository.findOne({
+      where: { user_id: userId },
+      order: { created_at: 'ASC' },
+    });
+    return membership?.tenant_id ?? null;
+  }
+
   private signAccessToken(user: User, memberships: JwtMembership[]): string {
     const payload: JwtPayload = {
       sub: user.id,
@@ -255,29 +268,5 @@ export class AuthService {
       jti: randomUUID(),
     };
     return this.jwtService.sign(payload);
-  }
-
-  // Audit logging is ancillary to authentication itself — a write failure
-  // here must never break login. Left unguarded, a failure on the success
-  // path would be worse than just a 500: last_login_at is already
-  // persisted by the time this runs, so login would be "half-completed"
-  // (timestamp updated) while the caller never receives a token.
-  private async writeAuditLog(entry: {
-    action: AuditAction;
-    entity_type: string;
-    entity_id: string | null;
-    performed_by_user_id: string | null;
-    ip_address: string | null;
-    user_agent: string | null;
-    new_values?: Record<string, unknown>;
-  }): Promise<void> {
-    try {
-      await this.auditLogRepository.save(this.auditLogRepository.create(entry));
-    } catch (error) {
-      this.logger.error(
-        `Failed to write ${entry.action} audit record: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-    }
   }
 }

@@ -322,6 +322,56 @@ allowlist (reusing `CORS_ORIGINS`) instead of a same-origin check, and
 double-submit CSRF tokens become worth adding on top. Nothing about today's
 implementation prevents that; it just isn't needed yet.
 
+### Audit trail
+
+Every significant action — login/logout, a fee-structure edit, an invoice
+being generated, a payment received, a reminder sent, a student bulk upload —
+is recorded to the write-only `audit_logs` table via a single entry point,
+`AuditService.record()` (`server/src/modules/audit/`). No other module holds
+a direct repository for this table.
+
+- **Tenant scoping.** `audit_logs.tenant_id` is nullable, unlike other
+  tenant-scoped tables: `LOGIN`/`LOGIN_FAILED` can happen against an
+  unrecognized identifier *before* a tenant is ever selected, and there is
+  genuinely no tenant to attribute that attempt to. Every other action is
+  tenant-scoped and always gets one. The admin read endpoint
+  (`GET /audit-logs`) is itself tenant-scoped, so an unattributed row simply
+  never surfaces on any tenant's trail — that's correct, not a gap.
+- **Redaction.** `old_values`/`new_values` are `jsonb` snapshots, recursively
+  scrubbed against a denylist (`password_hash`, `token`, `refresh_token`,
+  `api_key`, `secret`, `jti`, and variants — see `redact.util.ts`) before
+  they're ever written, since the write-only trigger means a bad value here
+  can never be corrected after the fact.
+- **Transactional vs. ancillary writes.** `record()` takes an optional
+  `EntityManager`. Passed one (payment receipt, invoice-from-payment), the
+  write participates in the caller's transaction and a failure rolls back
+  with it — the audit row is part of the record of truth. Without one
+  (login, a fee-structure edit, a reminder send), the write is ancillary to
+  an already-decided outcome and fails open (catches, logs, never throws) —
+  a DB hiccup on the audit write must not turn a successful action into a
+  500.
+- **Mechanical CRUD vs. direct calls.** The `@Audited()` decorator +
+  `AuditInterceptor` cover the one case where a response body alone is
+  enough to write a useful record (`POST /invoices` — a pure create with no
+  prior state to diff). Deliberately not a blanket interceptor: an update
+  needs old-vs-new diffing the response can't provide (fee-structure
+  changes call `AuditService.record()` directly, using the pre-update
+  entity already fetched for validation), and a batch send needs one row
+  per action rather than one per response (bulk/single reminders do the
+  same).
+
+**Retention.** The write-only trigger (`block_audit_logs_write_only`, added
+in the initial migration) blocks `UPDATE` and `DELETE` on every row, so a
+naive "delete rows older than N days" job cannot work — it would hit the
+same trigger a manual edit would. This is documented rather than
+implemented, since the table has not yet grown large enough to need it: the
+mechanism that respects the write-only guarantee is range partitioning by
+`created_at` (e.g. yearly), with old partitions retired via `DROP TABLE`
+rather than `DELETE FROM` — a table drop isn't a row-level write the
+trigger fires on. An archival job that copies old partitions to cold
+storage before dropping them is the natural next step once retention
+actually needs enforcing.
+
 ## API Versioning
 
 All routes are served under `/api/v1/` (`main.ts`'s `enableVersioning`, URI

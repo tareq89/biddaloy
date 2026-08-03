@@ -5,6 +5,7 @@ import { CommunicationLog } from './entities/communication-log.entity';
 import { ReminderBatch } from './entities/reminder-batch.entity';
 import { StudentModule } from '../students/students.module';
 import { FeeModule } from '../fees/fees.module';
+import { AuditModule } from '../audit/audit.module';
 import { CommunicationsService } from './communications.service';
 import { BulkReminderService } from './reminders.service';
 import { SingleReminderService } from './single-reminder.service';
@@ -24,6 +25,7 @@ import { COMMUNICATIONS_QUEUE } from './communications.constants';
     TypeOrmModule.forFeature([CommunicationLog, ReminderBatch]),
     StudentModule,
     FeeModule,
+    AuditModule,
     BullModule.registerQueue({
       name: COMMUNICATIONS_QUEUE,
       defaultJobOptions: {

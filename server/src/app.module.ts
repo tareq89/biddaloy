@@ -21,6 +21,7 @@ import { StudentModule } from "./modules/students/students.module";
 import { FeeModule } from "./modules/fees/fees.module";
 import { InvoicesModule } from "./modules/invoices/invoices.module";
 import { CommunicationsModule } from "./modules/communications/communications.module";
+import { AuditModule } from "./modules/audit/audit.module";
 import { validate } from "./config/env.validation";
 
 // Entities for auto-loading
@@ -129,6 +130,7 @@ import { RefreshToken } from "./modules/auth/entities/refresh-token.entity";
       },
     }),
     HealthModule,
+    AuditModule,
     AuthModule,
     AcademicYearModule,
     ClassModule,

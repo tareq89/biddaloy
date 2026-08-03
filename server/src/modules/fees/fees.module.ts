@@ -10,7 +10,7 @@ import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Invoice } from '../invoices/entities/invoice.entity';
-import { AuditLog } from '../audit/entities/audit-log.entity';
+import { AuditModule } from '../audit/audit.module';
 import { FeeStructureService, PaymentService } from './fees.service';
 import { FeeGenerationService } from './fee-generation.service';
 import { PaymentAllocationService } from './payment-allocation.service';
@@ -18,10 +18,13 @@ import { FeeDuesService } from './fee-dues.service';
 import { FeeController } from './fees.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([
-    FeeStructure, FeeStructureStudent, Payment, PaymentAllocation, StudentFee, Student,
-    Class, ClassSection, AcademicYear, Invoice, AuditLog,
-  ])],
+  imports: [
+    TypeOrmModule.forFeature([
+      FeeStructure, FeeStructureStudent, Payment, PaymentAllocation, StudentFee, Student,
+      Class, ClassSection, AcademicYear, Invoice,
+    ]),
+    AuditModule,
+  ],
   providers: [FeeStructureService, PaymentService, FeeGenerationService, PaymentAllocationService, FeeDuesService],
   controllers: [FeeController],
   exports: [FeeStructureService, PaymentService, FeeGenerationService, PaymentAllocationService, FeeDuesService],
