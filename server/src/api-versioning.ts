@@ -1,9 +1,11 @@
 import { VersioningOptions, VersioningType } from "@nestjs/common";
 
 /**
- * Single source of truth for the API's URI version segment — bumping the
- * API to a new version is one edit here (main.ts and every e2e spec's path
- * helper both read this).
+ * Single source of truth for the current API version segment — main.ts and
+ * the e2e helper both read this. Only covers today's single-version setup
+ * (every route defaults to this version); running two versions side by
+ * side (e.g. during a deprecation window) needs more than changing this
+ * value — see the README's "API Versioning" section.
  */
 export const API_VERSION = "1";
 

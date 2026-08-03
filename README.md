@@ -235,21 +235,32 @@ nginx via a broad `location /api/` prefix match, no rewrite needed).
 `AppController.health`) and stays reachable at that exact path regardless of
 version bumps, so orchestrator health checks never break on one.
 
-`server/test/helpers/e2e-app.helper.ts` and `server/src/api-versioning.ts`
-are the two places that know the current version — bumping it is a one-line
-edit in `api-versioning.ts`, picked up by both `main.ts` and every e2e spec.
+`server/src/api-versioning.ts` is the single place that knows the current
+version string, read by both `main.ts` and `server/test/helpers/e2e-app.helper.ts`.
+That covers today's single-version setup (every route is `1` by default);
+it is **not** by itself enough to run two versions side by side — see below.
 
 ### Deprecation policy
 
-- A new version (`/api/v2/...`) is added alongside the old one — routes are
-  never removed in the same change that adds their replacement.
-- The outgoing version stays live for **at least 90 days** after the new
-  version ships, giving the first-party SPAs (the only current consumers)
-  a full sprint-scale window to migrate.
-- Once a removal date is set, deprecated routes return a `Deprecation: true`
-  header and a `Sunset: <date>` header (RFC 8594), so any consumer —
-  including a future third-party one — can detect the deprecation
-  programmatically without reading docs.
+Introducing `/api/v2/...` while `/api/v1/...` stays live is not a one-line
+change: `enableVersioning`'s `defaultVersion` would need to become `['1',
+'2']`, and every route whose v2 behavior differs from v1 needs an explicit
+`@Version('1')` (or `'2'`) so the two don't collide on the same handler.
+There's no code for this yet — it's written up here so the first real bump
+follows a plan instead of improvising one under pressure:
+
+- `/api/v2/...` is added alongside `/api/v1/...` — routes are never removed
+  in the same change that adds their replacement.
+- `/api/v1/...` stays live for **at least 90 days** after `/api/v2/...`
+  ships, giving the first-party SPAs (the only current consumers) a full
+  sprint-scale window to migrate.
+- Once a removal date is set, deprecated (`/api/v1/...`) responses carry a
+  `Deprecation` header per [RFC 9745](https://www.rfc-editor.org/rfc/rfc9745.html)
+  (a structured Unix timestamp, e.g. `Deprecation: @1735689600`) and a
+  `Sunset` header per [RFC 8594](https://www.rfc-editor.org/rfc/rfc8594.html)
+  (an HTTP-date, e.g. `Sunset: Thu, 01 Jan 2026 00:00:00 GMT`), so any
+  consumer — including a future third-party one — can detect the
+  deprecation programmatically without reading docs.
 - The bump and its sunset date are announced in this section and in the
   epic/issue tracking the migration — there's no separate public changelog
   yet.
