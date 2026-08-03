@@ -34,6 +34,16 @@ class EnvironmentVariables {
   @IsString()
   REDIS_URL?: string;
 
+  // Postgres TLS — see db-ssl.ts. Required (must be exactly "true") in
+  // production; refuses to boot otherwise. Optional elsewhere.
+  @IsOptional()
+  @IsString()
+  DB_SSL?: string;
+
+  @IsOptional()
+  @IsString()
+  DB_SSL_REJECT_UNAUTHORIZED?: string;
+
   // Global rate-limit tier — see rate-limit.ts. Unset defaults to 100
   // requests/60s per tracked identity (authenticated user, else IP).
   // Must be a positive integer string: ThrottlerModule treats a

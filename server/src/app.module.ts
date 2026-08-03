@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, Logger } from "@nestjs/common";
 import { resolve } from "path";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
@@ -9,6 +9,8 @@ import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
 import { ThrottlerStorageRedisService } from "@nest-lab/throttler-storage-redis";
 import { AppController } from "./app.controller";
 import { resolveDefaultRateLimit } from "./rate-limit";
+import { buildDatabaseSsl } from "./db-ssl";
+import { RedactingTypeOrmLogger } from "./db-logger";
 import { buildRateLimitTracker } from "./common/rate-limit/rate-limit-tracker";
 import { FailOpenThrottlerStorage } from "./common/rate-limit/fail-open-throttler-storage";
 import { HealthModule } from "./modules/health/health.module";
@@ -57,37 +59,53 @@ import { RefreshToken } from "./modules/auth/entities/refresh-token.entity";
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: "postgres",
-        url: config.get<string>("DATABASE_URL"),
-        entities: [
-          User,
-          School,
-          UserTenant,
-          Teacher,
-          AcademicYear,
-          Class,
-          ClassSection,
-          Student,
-          Guardian,
-          FeeStructure,
-          FeeStructureStudent,
-          StudentFee,
-          Payment,
-          PaymentAllocation,
-          Invoice,
-          CommunicationLog,
-          ReminderBatch,
-          AuditLog,
-          Enrollment,
-          TeacherClassSection,
-          RefreshToken,
-        ],
-        synchronize: config.get<string>("DB_SYNCHRONIZE") === "true",
-        logging: config.get<string>("NODE_ENV") !== "production",
-        migrations: ["dist/migrations/*.js"],
-        migrationsTableName: "typeorm_migrations",
-      }),
+      useFactory: (config: ConfigService) => {
+        const { ssl, warning } = buildDatabaseSsl(
+          config.get<string>("NODE_ENV"),
+          config.get<string>("DB_SSL"),
+          config.get<string>("DB_SSL_REJECT_UNAUTHORIZED"),
+        );
+        if (warning) {
+          new Logger("Bootstrap").warn(warning);
+        }
+
+        return {
+          type: "postgres" as const,
+          url: config.get<string>("DATABASE_URL"),
+          ssl,
+          // A pre-built logger instance, not the `logging` boolean below —
+          // TypeORM ignores `logging` entirely once `logger` is an object
+          // rather than a preset name (see LoggerFactory.create). The
+          // instance's own constructor argument is what gates output.
+          logger: new RedactingTypeOrmLogger(config.get<string>("NODE_ENV") !== "production"),
+          entities: [
+            User,
+            School,
+            UserTenant,
+            Teacher,
+            AcademicYear,
+            Class,
+            ClassSection,
+            Student,
+            Guardian,
+            FeeStructure,
+            FeeStructureStudent,
+            StudentFee,
+            Payment,
+            PaymentAllocation,
+            Invoice,
+            CommunicationLog,
+            ReminderBatch,
+            AuditLog,
+            Enrollment,
+            TeacherClassSection,
+            RefreshToken,
+          ],
+          synchronize: config.get<string>("DB_SYNCHRONIZE") === "true",
+          migrations: ["dist/migrations/*.js"],
+          migrationsTableName: "typeorm_migrations",
+        };
+      },
     }),
     BullModule.forRootAsync({
       imports: [ConfigModule],

@@ -118,6 +118,13 @@ cp .env.example .env   # Edit with real credentials
 and `nginx` terminating TLS in front of it. A `cert-bootstrap` one-shot service
 and a `certbot` renewal-loop service handle certificates.
 
+**Required, not optional, for any real deployment:** the `db` volume must sit
+on encrypted storage (a LUKS-encrypted disk, or the cloud provider's
+encryption-at-rest, if not self-hosting), and `DB_SSL=true` must be set once
+Postgres is reachable over anything other than the compose stack's private
+Docker network. See the README's "Data protection" section under Security
+for the full posture and reasoning.
+
 ### DNS prerequisite
 
 Point an A/AAAA record for your domain at the VPS's public IP before starting.
@@ -371,6 +378,84 @@ rather than `DELETE FROM` — a table drop isn't a row-level write the
 trigger fires on. An archival job that copies old partitions to cold
 storage before dropping them is the natural next step once retention
 actually needs enforcing.
+
+### Data protection: transit, at rest, and logs
+
+This app handles student/guardian PII and payment records. The posture below
+covers connection security, storage, and what does (and deliberately does
+not) get encrypted at the column level.
+
+**Transit to Postgres.** `DATABASE_URL` carries the DB password, and every
+query carries whatever PII it touches, over whatever transport TypeORM is
+given — a bare TCP socket unless told otherwise. `DB_SSL` (`server/src/db-ssl.ts`)
+controls this:
+
+- Unset or not `production`: SSL is off by default (a local docker-compose
+  Postgres has none to negotiate), but can still be opted into by setting
+  `DB_SSL=true`.
+- `NODE_ENV=production`: `DB_SSL` **must** be exactly `"true"` — the app
+  refuses to boot otherwise, the same "loud failure beats a silent gap"
+  posture as `ENABLE_API_DOCS`'s Basic Auth requirement. Use an
+  `sslmode=require`-style `DATABASE_URL` (or the managed provider's
+  equivalent) alongside it.
+- `DB_SSL_REJECT_UNAUTHORIZED=false` disables certificate verification —
+  sometimes genuinely necessary for a managed Postgres with a self-signed
+  cert, but logs a boot-time warning every time it's set, since it's also a
+  common copy-paste that silently defeats the whole point of enabling TLS.
+
+**At rest.** Required as a deployment property, not an optional hardening
+step: the Postgres data volume must sit on encrypted storage — either the
+self-hosted compose stack's volume backed by a LUKS-encrypted (or
+cloud-provider-encrypted) disk, or a managed Postgres with encryption at
+rest enabled (the default on every major provider today). There is
+currently no automated check for this; it's an operational requirement on
+whoever provisions the host/database.
+
+**PII column inventory** (for any future data-subject/erasure request):
+
+| Entity | Column(s) |
+|---|---|
+| `User` | `email`, `phone`, `full_name`, `password_hash` (bcrypt, already hashed), `profile_picture_url` |
+| `Guardian` | `full_name`, `phone`, `alternate_phone`, `email`, `address`, `occupation` |
+| `Student` | `full_name`, `date_of_birth`, `gender`, `home_address` |
+| `School` | `address`, `phone`, `email` (tenant-level contact info) |
+| `RefreshToken` | `ip_address`, `user_agent` |
+| `AuditLog` | `ip_address`, `user_agent`, and `old_values`/`new_values` jsonb snapshots — redacted for credentials/tokens (`redact.util.ts`), but can still carry names/emails/phones since those aren't secrets by that redactor's definition |
+| `CommunicationLog` | `recipient_address`, `recipient_name`, `message_body` (free text) |
+| `Payment` | `remarks` (free text) |
+| `Invoice` | `notes` (free text) |
+
+**Column-level encryption: deliberately deferred.** The original ask was to
+evaluate encrypting PII columns directly. Evaluated and not done, because it
+breaks core access patterns this app depends on:
+
+- Login (`AuthService.validateUser`) looks users up by **exact match** on
+  `email`/`phone`. Encrypting those columns makes login impossible without
+  a deterministic scheme or a blind index — and a deterministic scheme
+  leaks equality anyway (two rows with the same email produce the same
+  ciphertext), buying much less protection than it costs in complexity.
+- Student/guardian name search and sort are core to every list view.
+  Encrypted columns can't be `LIKE`-searched, range-scanned, or usefully
+  indexed.
+- The actual threat model here is a stolen database dump. Volume/managed
+  encryption at rest addresses exactly that, without needing a key-management
+  system this project doesn't have.
+
+This would be revisited if either changes: a regulatory requirement forcing
+column-level encryption regardless of the login/search cost, or a KMS
+becoming available that makes searchable/blind-index encryption practical
+without hand-rolling one.
+
+**Logs.** TypeORM's query logger (`server/src/db-logger.ts`) logs query text
+but never bound parameters — the default logger appends them as a trailing
+`-- PARAMETERS: [...]` comment, which is exactly where an email or phone
+passed into a `WHERE` clause would otherwise land in plaintext. The global
+exception filter (`AllExceptionsFilter`) redacts email- and phone-shaped
+substrings, plus known-sensitive query-param values, from the request URL
+and error detail before logging (`common/redact-log.util.ts`) — verified
+against a *failing* request, not just a successful one, since the leak is
+usually in an error log written under debugging pressure. Request bodies
+(the login path carries a plaintext password) are never logged at all.
 
 ## API Versioning
 
