@@ -137,7 +137,7 @@ describe('AuthController', () => {
       expect(mockAuthService.logout).toHaveBeenCalledWith('id.secret', expect.anything());
       expect(response.clearCookie).toHaveBeenCalledWith(
         REFRESH_TOKEN_COOKIE,
-        expect.objectContaining({ path: '/api/v1/auth' }),
+        expect.objectContaining({ path: '/' }),
       );
     });
   });

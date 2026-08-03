@@ -15,9 +15,9 @@ function extractSetCookieHeaders(res: supertest.Response): string[] {
 }
 
 function extractRefreshCookie(res: supertest.Response): string {
-  const header = extractSetCookieHeaders(res).find((c) => c.startsWith('refresh_token='));
+  const header = extractSetCookieHeaders(res).find((c) => c.startsWith('__Host-refresh_token='));
   if (!header) throw new Error('No refresh_token cookie was set on this response');
-  const match = header.match(/^refresh_token=([^;]+)/);
+  const match = header.match(/^__Host-refresh_token=([^;]+)/);
   return decodeURIComponent(match![1]);
 }
 
@@ -156,16 +156,18 @@ describe('Auth E2E', () => {
       expect(rows[0].new_values).toEqual({ identifier: SEED_ADMIN_EMAIL.toLowerCase() });
     });
 
-    it('sets an httpOnly refresh_token cookie scoped to the auth path', async () => {
+    it('sets a __Host-prefixed httpOnly refresh cookie with the attributes the prefix requires', async () => {
       const res = await loginAsSeedAdmin(app);
 
-      const header = extractSetCookieHeaders(res).find((c) => c.startsWith('refresh_token='));
+      const header = extractSetCookieHeaders(res).find((c) => c.startsWith('__Host-refresh_token='));
       expect(header).toBeDefined();
       expect(header).toContain('HttpOnly');
-      expect(header).toContain('Path=/api/v1/auth');
+      expect(header).toContain('Path=/');
       expect(header).toContain('SameSite=Strict');
-      // NODE_ENV=test here, so the Secure flag (production-only) must be absent.
-      expect(header).not.toContain('Secure');
+      // __Host- mandates Secure unconditionally, even outside production —
+      // see token-cookie.ts.
+      expect(header).toContain('Secure');
+      expect(header).not.toContain('Domain=');
     });
   });
 
@@ -176,7 +178,7 @@ describe('Auth E2E', () => {
 
       const res = await supertest(app.getHttpServer())
         .post('/api/v1/auth/refresh')
-        .set('Cookie', `refresh_token=${cookie}`)
+        .set('Cookie', `__Host-refresh_token=${cookie}`)
         .expect(200);
 
       expect(res.body.access_token).toBeDefined();
@@ -188,17 +190,43 @@ describe('Auth E2E', () => {
       await supertest(app.getHttpServer()).post('/api/v1/auth/refresh').expect(401);
     });
 
+    // Defense-in-depth against CSRF (issue #48) — SameOriginGuard rejects a
+    // mismatched Origin header before the cookie is even looked at.
+    it('rejects a mismatched Origin header', async () => {
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/refresh')
+        .set('Origin', 'https://evil.example.com')
+        .expect(403);
+    });
+
+    it('allows a same-origin request that carries an Origin header', async () => {
+      const loginRes = await loginAsSeedAdmin(app);
+      const cookie = extractRefreshCookie(loginRes);
+
+      // supertest spins up its own ephemeral server per call and tears it
+      // down immediately after, so its real port can't be read reliably —
+      // overriding the Host header to a fixed value and matching it in
+      // Origin sidesteps that: SameOriginGuard only ever compares these two
+      // headers against each other, not against anything external.
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/refresh')
+        .set('Cookie', `__Host-refresh_token=${cookie}`)
+        .set('Host', 'app.example.com')
+        .set('Origin', 'http://app.example.com')
+        .expect(200);
+    });
+
     it('returns 401 for a well-formed but unknown cookie value', async () => {
       await supertest(app.getHttpServer())
         .post('/api/v1/auth/refresh')
-        .set('Cookie', `refresh_token=${'0'.repeat(36)}.${'a'.repeat(64)}`)
+        .set('Cookie', `__Host-refresh_token=${'0'.repeat(36)}.${'a'.repeat(64)}`)
         .expect(401);
     });
 
     it('returns 401 for a garbage cookie value with no separator', async () => {
       await supertest(app.getHttpServer())
         .post('/api/v1/auth/refresh')
-        .set('Cookie', 'refresh_token=garbage')
+        .set('Cookie', '__Host-refresh_token=garbage')
         .expect(401);
     });
 
@@ -218,7 +246,7 @@ describe('Auth E2E', () => {
       try {
         const res = await supertest(app.getHttpServer())
           .post('/api/v1/auth/refresh')
-          .set('Cookie', `refresh_token=${cookie}`)
+          .set('Cookie', `__Host-refresh_token=${cookie}`)
           .expect(200);
 
         expect(res.body.memberships).toEqual(
@@ -236,7 +264,7 @@ describe('Auth E2E', () => {
 
       const rotatedRes = await supertest(app.getHttpServer())
         .post('/api/v1/auth/refresh')
-        .set('Cookie', `refresh_token=${firstCookie}`)
+        .set('Cookie', `__Host-refresh_token=${firstCookie}`)
         .expect(200);
       const rotatedCookie = extractRefreshCookie(rotatedRes);
 
@@ -250,14 +278,14 @@ describe('Auth E2E', () => {
 
       await supertest(app.getHttpServer())
         .post('/api/v1/auth/refresh')
-        .set('Cookie', `refresh_token=${firstCookie}`)
+        .set('Cookie', `__Host-refresh_token=${firstCookie}`)
         .expect(401);
 
       // The whole family is revoked, including the token issued by the
       // rotation above — not just the replayed one.
       await supertest(app.getHttpServer())
         .post('/api/v1/auth/refresh')
-        .set('Cookie', `refresh_token=${rotatedCookie}`)
+        .set('Cookie', `__Host-refresh_token=${rotatedCookie}`)
         .expect(401);
 
       const rows = await dataSource.query(
@@ -275,15 +303,15 @@ describe('Auth E2E', () => {
 
       const res = await supertest(app.getHttpServer())
         .post('/api/v1/auth/logout')
-        .set('Cookie', `refresh_token=${cookie}`)
+        .set('Cookie', `__Host-refresh_token=${cookie}`)
         .expect(204);
 
-      const clearHeader = extractSetCookieHeaders(res).find((c) => c.startsWith('refresh_token='));
-      expect(clearHeader).toContain('refresh_token=;');
+      const clearHeader = extractSetCookieHeaders(res).find((c) => c.startsWith('__Host-refresh_token='));
+      expect(clearHeader).toContain('__Host-refresh_token=;');
 
       await supertest(app.getHttpServer())
         .post('/api/v1/auth/refresh')
-        .set('Cookie', `refresh_token=${cookie}`)
+        .set('Cookie', `__Host-refresh_token=${cookie}`)
         .expect(401);
 
       const rows = await dataSource.query(
@@ -296,6 +324,13 @@ describe('Auth E2E', () => {
 
     it('is a no-op success when no cookie is presented — nothing to revoke either way', async () => {
       await supertest(app.getHttpServer()).post('/api/v1/auth/logout').expect(204);
+    });
+
+    it('rejects a mismatched Origin header', async () => {
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/logout')
+        .set('Origin', 'https://evil.example.com')
+        .expect(403);
     });
   });
 
@@ -317,7 +352,7 @@ describe('Auth E2E', () => {
       // The refresh token is revoked immediately.
       await supertest(app.getHttpServer())
         .post('/api/v1/auth/refresh')
-        .set('Cookie', `refresh_token=${cookie}`)
+        .set('Cookie', `__Host-refresh_token=${cookie}`)
         .expect(401);
 
       // So is the access token used to call logout-all itself — it doesn't

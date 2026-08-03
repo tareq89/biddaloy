@@ -12,6 +12,7 @@ import {
   buildRefreshTokenCookieOptions,
   buildRefreshTokenClearCookieOptions,
 } from './token-cookie';
+import { SameOriginGuard } from './guards/same-origin.guard';
 
 function requestContext(request: Request) {
   return { ip: request.ip ?? null, userAgent: request.headers['user-agent'] ?? null };
@@ -48,6 +49,7 @@ export class AuthController {
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: STRICT_RATE_LIMIT })
+  @UseGuards(SameOriginGuard)
   @ApiOperation({
     summary: 'Rotate the refresh token cookie and issue a fresh access token reflecting the caller\'s current memberships.',
   })
@@ -68,13 +70,14 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
   @Throttle({ default: STRICT_RATE_LIMIT })
+  @UseGuards(SameOriginGuard)
   @ApiOperation({
     summary: 'Revoke the presented refresh token. Does not require a live access token.',
   })
   async logout(@Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<void> {
     const cookieValue = request.cookies?.[REFRESH_TOKEN_COOKIE];
     await this.authService.logout(cookieValue, requestContext(request));
-    response.clearCookie(REFRESH_TOKEN_COOKIE, buildRefreshTokenClearCookieOptions(process.env.NODE_ENV));
+    response.clearCookie(REFRESH_TOKEN_COOKIE, buildRefreshTokenClearCookieOptions());
   }
 
   @Post('logout-all')
@@ -88,7 +91,7 @@ export class AuthController {
   async logoutAll(@Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<void> {
     const user = request.user as JwtPayload;
     await this.authService.logoutAll(user.sub, user.jti, requestContext(request));
-    response.clearCookie(REFRESH_TOKEN_COOKIE, buildRefreshTokenClearCookieOptions(process.env.NODE_ENV));
+    response.clearCookie(REFRESH_TOKEN_COOKIE, buildRefreshTokenClearCookieOptions());
   }
 
   private setRefreshCookie(response: Response, refreshToken: { cookieValue: string; expiresAt: Date }): void {
@@ -96,7 +99,7 @@ export class AuthController {
     response.cookie(
       REFRESH_TOKEN_COOKIE,
       refreshToken.cookieValue,
-      buildRefreshTokenCookieOptions(process.env.NODE_ENV, maxAgeMs),
+      buildRefreshTokenCookieOptions(maxAgeMs),
     );
   }
 }

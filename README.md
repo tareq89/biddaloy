@@ -231,19 +231,14 @@ account and would otherwise lock itself out.
 `POST /auth/login` returns two things: a short-lived (**15 minutes** by
 default, `ACCESS_TOKEN_TTL_MS`) bearer access token in the JSON body, and a
 long-lived (**30 days** by default, `REFRESH_TOKEN_TTL_MS`) refresh token
-set as an `httpOnly` cookie scoped to `/api/v1/auth`.
+set as an `httpOnly`, `__Host-`-prefixed cookie (`server/src/modules/auth/token-cookie.ts`).
 
 **Transport decision:** bearer access token + httpOnly-cookie refresh token,
-per the plan in issue #42. This is why the API's CORS config already sets
-`credentials: true` — it now actually carries a cookie, not just a header —
-and why **CSRF protection (issue #48) is real, required work**, not the N/A
-verdict it would have been under a pure-bearer design: `POST /auth/refresh`,
-`/auth/logout`, and `/auth/logout-all` are cookie-authenticated
-state-changing endpoints and are the routes #48 needs to cover. The cookie
-is `SameSite=Strict`, which closes the practical same-site attack on its
-own; #48 is about verifying that holds and adding defense in depth (Origin
-checks, double-submit tokens) if the SPAs ever become cross-site from the
-API.
+per the plan in issue #42. This is why the API's CORS config sets
+`credentials: true` — it carries a cookie, not just a header — and why
+**CSRF protection (issue #48) was real, required work**, not the N/A verdict
+it would have been under a pure-bearer design. See "CSRF posture" below for
+how that's addressed.
 
 **Rotation and reuse detection** (`server/src/modules/auth/refresh-token.service.ts`):
 every refresh token belongs to a rotation "family" started at login. Using a
@@ -278,6 +273,54 @@ seen by the client.
 
 Expired `refresh_tokens` rows (revoked or not) are deleted by an hourly
 BullMQ job (`refresh-token-cleanup.processor.ts`/`.scheduler.ts`).
+
+### CSRF posture
+
+The API splits cleanly into two authentication modes, and the CSRF argument
+depends entirely on which one a route uses:
+
+- **Bearer-authenticated routes** — everything except `POST /auth/login`
+  and the two cookie-authenticated routes below — read the access token
+  from the `Authorization` header. Browsers never attach that header
+  automatically to a request they didn't construct, so a cross-site page
+  cannot make an authenticated call to these routes no matter what it does
+  — there's no ambient credential to ride. This is the vast majority of
+  the API and needs no CSRF handling at all; adding blanket CSRF
+  middleware here would add token plumbing to every request for zero
+  additional protection, which is why there isn't any.
+- `POST /auth/login` requires no authentication at all — it's how a client
+  obtains a token in the first place, so there's nothing for a cross-site
+  request to ride: it can trigger a login with attacker-known credentials,
+  but not act as the victim.
+- **Cookie-authenticated routes** — `POST /auth/refresh` and
+  `POST /auth/logout` — read the refresh cookie, which *is* an ambient
+  credential a browser attaches automatically. These are the only routes
+  where CSRF is a real question, and they're deliberately layered:
+  1. **`SameSite=Strict`** on the cookie (`token-cookie.ts`) is the primary
+     defense: the browser simply never attaches it to a cross-site
+     request in the first place. This alone closes the practical attack
+     for this deployment, where the SPAs are served same-origin by this
+     same app (`main.ts`).
+  2. **`SameOriginGuard`** (`server/src/modules/auth/guards/same-origin.guard.ts`)
+     checks the `Origin` header against the request's own origin as a
+     second, independent layer — in case `SameSite` is ever bypassed by a
+     legacy browser or a future relaxation to `Lax`. A request with no
+     `Origin` header (not something a browser sends for a state-changing
+     method) passes through rather than being rejected, since that shape
+     of request is outside this check's threat model, not a bypass of it.
+  3. The `__Host-` cookie prefix (`token-cookie.ts`) is a related but
+     separate guarantee: it stops a compromised sibling origin on the same
+     parent domain from ever setting a cookie that shadows this one.
+- `POST /auth/logout-all` is bearer-authenticated (`AuthGuard('jwt')`, not
+  the cookie) despite being auth-adjacent, so it falls in the first
+  category and needs neither of the above.
+
+**The invariant this rests on:** the SPAs are same-origin with the API. If
+that ever stops being true — the SPAs move to their own domain/CDN — `Origin`
+becomes cross-origin by definition and `SameOriginGuard` needs a real
+allowlist (reusing `CORS_ORIGINS`) instead of a same-origin check, and
+double-submit CSRF tokens become worth adding on top. Nothing about today's
+implementation prevents that; it just isn't needed yet.
 
 ## API Versioning
 
