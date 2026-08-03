@@ -39,6 +39,13 @@ describe('Cross-tenant access (regression)', () => {
   const TENANT_A = SEED_TENANT_ID;
   const TENANT_B = '00000000-0000-4000-8000-000000000199';
 
+  // Tracked so afterAll can remove exactly what this file created, in FK
+  // dependency order — invoices reference students, so they go first.
+  let createdStudentId: string | undefined;
+  let createdFeeStructureId: string | undefined;
+  let createdInvoiceId: string | undefined;
+  let createdCommunicationId: string | undefined;
+
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -72,6 +79,22 @@ describe('Cross-tenant access (regression)', () => {
   }, 60000);
 
   afterAll(async () => {
+    // FK dependency order: invoices reference students, so they're removed
+    // first. communication_logs and fee_structures are independent of the
+    // others created here.
+    if (createdInvoiceId) {
+      await dataSource.query(`DELETE FROM invoices WHERE id = '${createdInvoiceId}'`);
+    }
+    if (createdCommunicationId) {
+      await dataSource.query(`DELETE FROM communication_logs WHERE id = '${createdCommunicationId}'`);
+    }
+    if (createdFeeStructureId) {
+      await dataSource.query(`DELETE FROM fee_structures WHERE id = '${createdFeeStructureId}'`);
+    }
+    if (createdStudentId) {
+      await dataSource.query(`DELETE FROM students WHERE id = '${createdStudentId}'`);
+    }
+
     await app.close();
   });
 
@@ -84,6 +107,7 @@ describe('Cross-tenant access (regression)', () => {
       .send({ full_name: 'Cross Tenant Student', class_section_id: SEED_SECTION_1_ID, date_of_birth: '2012-01-01' })
       .expect(201);
     const studentId = studentRes.body.id;
+    createdStudentId = studentId;
 
     const feeStructureRes = await supertest(app.getHttpServer())
       .post('/api/v1/fee-structures')
@@ -99,6 +123,7 @@ describe('Cross-tenant access (regression)', () => {
       })
       .expect(201);
     const feeStructureId = feeStructureRes.body.id;
+    createdFeeStructureId = feeStructureId;
 
     const invoiceRes = await supertest(app.getHttpServer())
       .post('/api/v1/invoices')
@@ -110,6 +135,7 @@ describe('Cross-tenant access (regression)', () => {
       })
       .expect(201);
     const invoiceId = invoiceRes.body.id;
+    createdInvoiceId = invoiceId;
 
     const communicationRes = await supertest(app.getHttpServer())
       .post('/api/v1/communications/send')
@@ -123,6 +149,7 @@ describe('Cross-tenant access (regression)', () => {
       })
       .expect(201);
     const communicationId = communicationRes.body.id;
+    createdCommunicationId = communicationId;
 
     // --- Read every one of them back from tenant B — all must 404 ---
     const crossTenantChecks: Array<{ label: string; path: string }> = [

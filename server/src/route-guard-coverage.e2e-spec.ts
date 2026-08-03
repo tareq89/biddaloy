@@ -110,14 +110,20 @@ describe('Route guard coverage (regression)', () => {
     const violations: string[] = [];
 
     for (const wrapper of controllers) {
-      const { instance, metatype } = wrapper;
-      if (!instance || !metatype) continue;
+      const { metatype } = wrapper;
+      // Not `instance` — a REQUEST/TRANSIENT-scoped controller has no
+      // singleton instance to speak of (Nest defers construction to
+      // per-request), and skipping on that basis would silently exempt it
+      // from this test entirely. metatype.prototype is available
+      // regardless of scope, since routes/guards are decorator metadata
+      // on the class itself, not on any particular instance.
+      if (!metatype) continue;
 
       const controllerName = metatype.name;
       const controllerPrefix: string = Reflect.getMetadata(PATH_METADATA, metatype) ?? '';
       const classGuards: unknown[] = Reflect.getMetadata(GUARDS_METADATA, metatype) ?? [];
 
-      const prototype = Object.getPrototypeOf(instance);
+      const prototype = metatype.prototype;
       const methodNames = metadataScanner.getAllMethodNames(prototype);
 
       for (const methodName of methodNames) {
@@ -129,7 +135,7 @@ describe('Route guard coverage (regression)', () => {
         const methodGuards: unknown[] = Reflect.getMetadata(GUARDS_METADATA, handler) ?? [];
         const allGuards = [...classGuards, ...methodGuards];
 
-        const fullPath = `/${[controllerPrefix, routePath].filter(Boolean).join('/')}`.replace(/\/+/g, '/');
+        const fullPath = buildFullPath(controllerPrefix, routePath);
         const methodLabel = RequestMethodName(httpMethod);
         checked.push(`${methodLabel} ${fullPath} (${controllerName})`);
 
@@ -159,12 +165,12 @@ describe('Route guard coverage (regression)', () => {
     const existingRoutes = new Set<string>();
 
     for (const wrapper of controllers) {
-      const { instance, metatype } = wrapper;
-      if (!instance || !metatype) continue;
+      const { metatype } = wrapper;
+      if (!metatype) continue;
 
       const controllerName = metatype.name;
       const controllerPrefix: string = Reflect.getMetadata(PATH_METADATA, metatype) ?? '';
-      const prototype = Object.getPrototypeOf(instance);
+      const prototype = metatype.prototype;
 
       for (const methodName of metadataScanner.getAllMethodNames(prototype)) {
         const handler = prototype[methodName];
@@ -172,7 +178,7 @@ describe('Route guard coverage (regression)', () => {
         if (httpMethod === undefined) continue;
 
         const routePath: string = Reflect.getMetadata(PATH_METADATA, handler) ?? '';
-        const fullPath = `/${[controllerPrefix, routePath].filter(Boolean).join('/')}`.replace(/\/+/g, '/');
+        const fullPath = buildFullPath(controllerPrefix, routePath);
         existingRoutes.add(`${controllerName}|${RequestMethodName(httpMethod)}|${fullPath}`);
       }
     }
@@ -183,6 +189,18 @@ describe('Route guard coverage (regression)', () => {
     expect(stale).toEqual([]);
   });
 });
+
+// Nest stores '/' as an index route's own path metadata (e.g. bare
+// `@Get()`), which `filter(Boolean)` keeps (it's a non-empty string) — left
+// alone, that produces a trailing slash (`/students/`) that would never
+// match a human writing `/students` into the allowlist by hand. Stripped
+// here, once, so every path this file produces is the same shape a person
+// would naturally write.
+function buildFullPath(controllerPrefix: string, routePath: string): string {
+  return `/${[controllerPrefix, routePath].filter(Boolean).join('/')}`
+    .replace(/\/+/g, '/')
+    .replace(/(.)\/$/, '$1');
+}
 
 // Nest's RequestMethod enum (from @nestjs/common) — duplicated as a small
 // literal map rather than imported, since only the numeric value stored in
