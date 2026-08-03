@@ -15,6 +15,8 @@ import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { School } from '../schools/entities/school.entity';
 import { User } from '../users/entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
+import { AuditLog } from '../audit/entities/audit-log.entity';
+import { AuditService } from '../audit/audit.service';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import {
@@ -26,7 +28,7 @@ import {
   SEED_ADMIN_EMAIL,
   SEED_ADMIN_PASSWORD_HASH,
 } from '@test/constants';
-import { FeeStatus } from '@beton-boi/shared';
+import { FeeStatus, AuditAction } from '@beton-boi/shared';
 
 /**
  * Integration tests for FeeStructureService and PaymentService.
@@ -88,6 +90,7 @@ describe('FeeStructureService (integration)', () => {
   let studentFeeRepo: Repository<StudentFee>;
   let paymentAllocRepo: Repository<PaymentAllocation>;
   let studentRepo: Repository<Student>;
+  let auditLogRepo: Repository<AuditLog>;
   let dataSource: DataSource;
 
   const TENANT_ID = SEED_TENANT_ID;
@@ -95,7 +98,7 @@ describe('FeeStructureService (integration)', () => {
   beforeAll(async () => {
     const module = await createTestModule(
       ALL_ENTITIES,
-      [FeeStructureService],
+      [FeeStructureService, AuditService],
       [],
       { synchronize: true, dropSchema: true },
     );
@@ -106,6 +109,7 @@ describe('FeeStructureService (integration)', () => {
     studentFeeRepo = module.get<Repository<StudentFee>>(getRepositoryToken(StudentFee));
     paymentAllocRepo = module.get<Repository<PaymentAllocation>>(getRepositoryToken(PaymentAllocation));
     studentRepo = module.get<Repository<Student>>(getRepositoryToken(Student));
+    auditLogRepo = module.get<Repository<AuditLog>>(getRepositoryToken(AuditLog));
     dataSource = module.get(DataSource);
 
     await seedReferenceData(dataSource);
@@ -430,11 +434,33 @@ describe('FeeStructureService (integration)', () => {
         name: 'Updated',
         amount: 2000,
         month: 2,
-      }, TENANT_ID);
+      }, TENANT_ID, SEED_ADMIN_USER_ID);
 
       expect(updated.name).toBe('Updated');
       expect(Number(updated.amount)).toBe(2000);
       expect(updated.month).toBe(2);
+    });
+
+    it('writes a FEE_STRUCTURE_CHANGE audit record capturing old and new values', async () => {
+      const created = await service.create({
+        fee_type: 'MONTHLY_TUITION' as any,
+        name: 'Original',
+        amount: 1000,
+        class_id: SEED_CLASS_1_ID,
+        academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        month: 1,
+      }, TENANT_ID);
+
+      await service.update(created.id, { name: 'Updated', amount: 2000 }, TENANT_ID, SEED_ADMIN_USER_ID);
+
+      const logs = await auditLogRepo.find({
+        where: { entity_id: created.id, action: AuditAction.FEE_STRUCTURE_CHANGE },
+      });
+      expect(logs).toHaveLength(1);
+      expect(logs[0].tenant_id).toBe(TENANT_ID);
+      expect(logs[0].performed_by_user_id).toBe(SEED_ADMIN_USER_ID);
+      expect(logs[0].old_values).toEqual(expect.objectContaining({ name: 'Original' }));
+      expect(logs[0].new_values).toEqual(expect.objectContaining({ name: 'Updated', amount: 2000 }));
     });
 
     it('should replace selected students when provided', async () => {
@@ -462,9 +488,18 @@ describe('FeeStructureService (integration)', () => {
       expect(links).toHaveLength(1);
 
       // Replace with empty (clear)
-      await service.update(created.id, { student_ids: [] }, TENANT_ID);
+      await service.update(created.id, { student_ids: [] }, TENANT_ID, SEED_ADMIN_USER_ID);
       links = await fssRepo.find({ where: { fee_structure_id: created.id } });
       expect(links).toHaveLength(0);
+
+      // A student_ids-only PATCH leaves every scalar field untouched, but
+      // the selected-student replacement is itself a change worth auditing.
+      const logs = await auditLogRepo.find({
+        where: { entity_id: created.id, action: AuditAction.FEE_STRUCTURE_CHANGE },
+      });
+      expect(logs).toHaveLength(1);
+      expect(logs[0].old_values).toEqual(expect.objectContaining({ student_ids: [student.id] }));
+      expect(logs[0].new_values).toEqual(expect.objectContaining({ student_ids: [] }));
     });
 
     it('should clear selected students when student_ids is empty array', async () => {
@@ -488,7 +523,7 @@ describe('FeeStructureService (integration)', () => {
       }, TENANT_ID);
 
       // Clear with empty array
-      await service.update(created.id, { student_ids: [] }, TENANT_ID);
+      await service.update(created.id, { student_ids: [] }, TENANT_ID, SEED_ADMIN_USER_ID);
       const links = await fssRepo.find({ where: { fee_structure_id: created.id } });
       expect(links).toHaveLength(0);
     });
@@ -526,7 +561,7 @@ describe('FeeStructureService (integration)', () => {
       expect(links[0].student_id).toBe(student1.id);
 
       // Replace with student2 (and remove student1)
-      await service.update(created.id, { student_ids: [student2.id] }, TENANT_ID);
+      await service.update(created.id, { student_ids: [student2.id] }, TENANT_ID, SEED_ADMIN_USER_ID);
       links = await fssRepo.find({ where: { fee_structure_id: created.id } });
       expect(links).toHaveLength(1);
       expect(links[0].student_id).toBe(student2.id);
@@ -534,7 +569,7 @@ describe('FeeStructureService (integration)', () => {
 
     it('should throw NotFoundException when fee structure does not exist', async () => {
       await expect(
-        service.update('00000000-0000-4000-8000-000000000000', { name: 'Nope' }, TENANT_ID),
+        service.update('00000000-0000-4000-8000-000000000000', { name: 'Nope' }, TENANT_ID, SEED_ADMIN_USER_ID),
       ).rejects.toThrow(NotFoundException);
     });
   });

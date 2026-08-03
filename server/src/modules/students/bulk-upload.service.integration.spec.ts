@@ -10,6 +10,7 @@ import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
+import { AuditService } from '../audit/audit.service';
 import { School } from '../schools/entities/school.entity';
 import { User } from '../users/entities/user.entity';
 import { createTestModule } from '@test/helpers/module.helper';
@@ -146,7 +147,7 @@ describe('StudentBulkUploadService (integration)', () => {
   beforeAll(async () => {
     const module = await createTestModule(
       ALL_ENTITIES,
-      [StudentBulkUploadService, StudentService, GuardianService],
+      [StudentBulkUploadService, StudentService, GuardianService, AuditService],
       [],
       { synchronize: true, dropSchema: true },
     );
@@ -363,5 +364,6 @@ describe('StudentBulkUploadService (integration)', () => {
     const logs = await auditLogRepo.find({ where: { action: AuditAction.BULK_UPLOAD } });
     expect(logs).toHaveLength(1);
     expect(logs[0].new_values).toMatchObject({ total_rows: 2, success_count: 1, error_count: 1 });
+    expect(logs[0].tenant_id).toBe(TENANT_ID);
   });
 });

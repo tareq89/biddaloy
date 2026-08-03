@@ -5,11 +5,13 @@ import {
   Body,
   Param,
   ParseUUIDPipe,
+  Req,
   UseGuards,
   Inject,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -26,6 +28,7 @@ import { SendCommunicationDto } from './dto/communications.dto';
 import { SendBulkReminderDto } from './dto/reminders.dto';
 import { SendSingleReminderDto } from './dto/single-reminder.dto';
 import { UserRole, JwtPayload } from '@beton-boi/shared';
+import { requestContext } from '../../common/request-context.util';
 
 @ApiTags('communications')
 @ApiTenantAuth()
@@ -61,8 +64,9 @@ export class CommunicationsController {
     @Body() dto: SendSingleReminderDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
-    return this.singleReminderService.sendSingle(studentId, dto, tenant.id, user.sub);
+    return this.singleReminderService.sendSingle(studentId, dto, tenant.id, user.sub, requestContext(request));
   }
 
   // Declared before @Get(':id') — Nest matches in declaration order, and
@@ -76,8 +80,9 @@ export class CommunicationsController {
     @Body() dto: SendBulkReminderDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
-    return this.bulkReminderService.sendBulk(dto, tenant.id, user.sub);
+    return this.bulkReminderService.sendBulk(dto, tenant.id, user.sub, requestContext(request));
   }
 
   @Get('reminder/bulk/:id')

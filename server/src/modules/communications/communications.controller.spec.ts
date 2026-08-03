@@ -23,6 +23,8 @@ describe('CommunicationsController', () => {
 
   const TENANT = { id: 'tenant-1', role: UserRole.ADMIN };
   const USER = { sub: 'user-1', memberships: [] } as any;
+  const REQUEST = { ip: '1.2.3.4', headers: { 'user-agent': 'test-agent' } } as any;
+  const REQUEST_CONTEXT = { ip: '1.2.3.4', userAgent: 'test-agent' };
 
   beforeEach(() => {
     service = { enqueue: vi.fn(), findOne: vi.fn() };
@@ -99,20 +101,25 @@ describe('CommunicationsController', () => {
       );
 
       await expect(
-        controller.sendBulkReminder({ student_ids: ['s-1'], message_template: '{{parent}}' } as any, TENANT, USER),
+        controller.sendBulkReminder(
+          { student_ids: ['s-1'], message_template: '{{parent}}' } as any,
+          TENANT,
+          USER,
+          REQUEST,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
   });
 
   describe('sendBulkReminder', () => {
-    it('should call bulkReminderService.sendBulk with dto, tenant id, and user id', async () => {
+    it('should call bulkReminderService.sendBulk with dto, tenant id, user id, and request context', async () => {
       const dto = { student_ids: ['s-1'], message_template: 'Dear {{guardian_name}}' };
       const expected = { id: 'batch-1', total_recipients: 1 };
       bulkReminderService.sendBulk.mockResolvedValue(expected);
 
-      const result = await controller.sendBulkReminder(dto as any, TENANT, USER);
+      const result = await controller.sendBulkReminder(dto as any, TENANT, USER, REQUEST);
 
-      expect(bulkReminderService.sendBulk).toHaveBeenCalledWith(dto, TENANT.id, USER.sub);
+      expect(bulkReminderService.sendBulk).toHaveBeenCalledWith(dto, TENANT.id, USER.sub, REQUEST_CONTEXT);
       expect(result).toEqual(expected);
     });
   });
@@ -159,14 +166,14 @@ describe('CommunicationsController', () => {
   });
 
   describe('sendSingleReminder', () => {
-    it('should call singleReminderService.sendSingle with studentId, dto, tenant id, and user id', async () => {
+    it('should call singleReminderService.sendSingle with studentId, dto, tenant id, user id, and request context', async () => {
       const dto = { message_template: 'Dear {{guardian_name}}' };
       const expected = { student_id: 's-1', sent: [], skipped: [] };
       singleReminderService.sendSingle.mockResolvedValue(expected);
 
-      const result = await controller.sendSingleReminder('s-1', dto as any, TENANT, USER);
+      const result = await controller.sendSingleReminder('s-1', dto as any, TENANT, USER, REQUEST);
 
-      expect(singleReminderService.sendSingle).toHaveBeenCalledWith('s-1', dto, TENANT.id, USER.sub);
+      expect(singleReminderService.sendSingle).toHaveBeenCalledWith('s-1', dto, TENANT.id, USER.sub, REQUEST_CONTEXT);
       expect(result).toEqual(expected);
     });
 
@@ -175,7 +182,7 @@ describe('CommunicationsController', () => {
       singleReminderService.sendSingle.mockRejectedValue(new NotFoundException('not found'));
 
       await expect(
-        controller.sendSingleReminder('s-1', { message_template: 'Hi' } as any, TENANT, USER),
+        controller.sendSingleReminder('s-1', { message_template: 'Hi' } as any, TENANT, USER, REQUEST),
       ).rejects.toThrow(NotFoundException);
     });
   });

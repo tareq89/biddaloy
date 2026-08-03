@@ -47,6 +47,7 @@ describe('SingleReminderService', () => {
   let studentService: Record<string, ReturnType<typeof vi.fn>>;
   let guardianService: Record<string, ReturnType<typeof vi.fn>>;
   let feeDuesService: Record<string, ReturnType<typeof vi.fn>>;
+  let auditService: Record<string, ReturnType<typeof vi.fn>>;
 
   const dto = {
     message_template: 'Dear {{guardian_name}}, {{student_name}} owes {{due_amount}} for {{due_month}}.',
@@ -61,6 +62,7 @@ describe('SingleReminderService', () => {
     studentService = { findOne: vi.fn(async () => student()) };
     guardianService = { findOne: vi.fn() };
     feeDuesService = { getDueSnapshots: vi.fn(async () => new Map([[STUDENT_ID, snapshot()]])) };
+    auditService = { record: vi.fn(async () => undefined) };
 
     service = new SingleReminderService(
       logRepo as any,
@@ -68,6 +70,7 @@ describe('SingleReminderService', () => {
       studentService as any,
       guardianService as any,
       feeDuesService as any,
+      auditService as any,
     );
   });
 
@@ -384,6 +387,11 @@ describe('SingleReminderService', () => {
           status: CommunicationStatus.FAILED,
           metadata: expect.objectContaining({ error: 'Failed to enqueue for delivery' }),
         }),
+      );
+      // Derived from each recipient's actual status, not just sent.length —
+      // one guardian's enqueue failure must show up as a failure here too.
+      expect(auditService.record).toHaveBeenCalledWith(
+        expect.objectContaining({ new_values: expect.objectContaining({ queued_count: 1, failed_count: 1 }) }),
       );
     });
 

@@ -13,10 +13,7 @@ import {
   buildRefreshTokenClearCookieOptions,
 } from './token-cookie';
 import { SameOriginGuard } from './guards/same-origin.guard';
-
-function requestContext(request: Request) {
-  return { ip: request.ip ?? null, userAgent: request.headers['user-agent'] ?? null };
-}
+import { requestContext } from '../../common/request-context.util';
 
 @ApiTags('auth')
 @Controller('auth')

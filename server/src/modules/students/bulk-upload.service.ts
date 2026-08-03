@@ -6,7 +6,7 @@ import { validate } from 'class-validator';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
-import { AuditLog } from '../audit/entities/audit-log.entity';
+import { AuditService } from '../audit/audit.service';
 import { StudentService, GuardianService } from './students.service';
 import { parseSpreadsheet, BulkUploadParseError, ParsedRow } from './bulk-upload.parser';
 import { BulkUploadRowDto, BulkUploadResultDto } from './dto/students.dto';
@@ -27,8 +27,7 @@ export class StudentBulkUploadService {
     private readonly sectionRepo: Repository<ClassSection>,
     @InjectRepository(AcademicYear)
     private readonly academicYearRepo: Repository<AcademicYear>,
-    @InjectRepository(AuditLog)
-    private readonly auditLogRepo: Repository<AuditLog>,
+    private readonly auditService: AuditService,
     private readonly studentService: StudentService,
     private readonly guardianService: GuardianService,
   ) {}
@@ -86,19 +85,18 @@ export class StudentBulkUploadService {
       }
     }
 
-    await this.auditLogRepo.save(
-      this.auditLogRepo.create({
-        action: AuditAction.BULK_UPLOAD,
-        entity_type: 'Student',
-        performed_by_user_id: userId ?? null,
-        new_values: {
-          filename: file.originalname,
-          total_rows: rows.length,
-          success_count: createdStudentIds.length,
-          error_count: errors.length,
-        },
-      }),
-    );
+    await this.auditService.record({
+      action: AuditAction.BULK_UPLOAD,
+      entity_type: 'Student',
+      tenant_id: tenantId,
+      performed_by_user_id: userId ?? null,
+      new_values: {
+        filename: file.originalname,
+        total_rows: rows.length,
+        success_count: createdStudentIds.length,
+        error_count: errors.length,
+      },
+    });
 
     return {
       total_rows: rows.length,

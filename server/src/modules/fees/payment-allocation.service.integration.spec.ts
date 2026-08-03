@@ -14,6 +14,7 @@ import { School } from '../schools/entities/school.entity';
 import { User } from '../users/entities/user.entity';
 import { Invoice } from '../invoices/entities/invoice.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
+import { AuditService } from '../audit/audit.service';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import {
@@ -128,7 +129,7 @@ describe('PaymentAllocationService (integration)', () => {
   beforeAll(async () => {
     const module = await createTestModule(
       ALL_ENTITIES,
-      [PaymentAllocationService],
+      [PaymentAllocationService, AuditService],
       [],
       { synchronize: true, dropSchema: true },
     );
@@ -537,6 +538,7 @@ describe('PaymentAllocationService (integration)', () => {
       expect(logs).toHaveLength(1);
       expect(logs[0].performed_by_user_id).toBe(SEED_ADMIN_USER_ID);
       expect(logs[0].entity_type).toBe('Payment');
+      expect(logs[0].tenant_id).toBe(TENANT_ID);
     });
 
     it('creates an additional INVOICE_GENERATED entry on full payment', async () => {
@@ -556,6 +558,7 @@ describe('PaymentAllocationService (integration)', () => {
 
       const logs = await auditLogRepo.find({ where: { entity_id: result.invoice_id!, action: AuditAction.INVOICE_GENERATED } });
       expect(logs).toHaveLength(1);
+      expect(logs[0].tenant_id).toBe(TENANT_ID);
     });
   });
 

@@ -6,7 +6,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
 import { User } from '../users/entities/user.entity';
 import { UserTenant } from './entities/user-tenant.entity';
-import { AuditLog } from '../audit/entities/audit-log.entity';
+import { AuditService } from '../audit/audit.service';
 import { LoginAttemptService } from './login-attempt.service';
 import { RefreshTokenService, RefreshTokenReuseDetectedException } from './refresh-token.service';
 import { AccessTokenDenylistService } from './access-token-denylist.service';
@@ -29,7 +29,7 @@ describe('AuthService', () => {
   let service: AuthService;
   let mockUserRepo: any;
   let mockUserTenantRepo: any;
-  let mockAuditLogRepo: any;
+  let mockAuditService: any;
   let mockJwtService: any;
   let mockLoginAttempts: any;
   let mockRefreshTokens: any;
@@ -77,10 +77,13 @@ describe('AuthService', () => {
     };
     mockUserTenantRepo = {
       find: vi.fn(),
+      // Backs primaryTenantId()'s "earliest membership" lookup used to
+      // attribute an audit row's tenant_id — defaults to the one
+      // membership most tests set up via mockUserTenantRepo.find.
+      findOne: vi.fn().mockResolvedValue(mockMemberships[0]),
     };
-    mockAuditLogRepo = {
-      create: vi.fn((x) => x),
-      save: vi.fn().mockResolvedValue(undefined),
+    mockAuditService = {
+      record: vi.fn().mockResolvedValue(undefined),
     };
 
     // Create a mock JwtService with a proper sign method
@@ -113,7 +116,7 @@ describe('AuthService', () => {
         AuthService,
         { provide: getRepositoryToken(User), useValue: mockUserRepo },
         { provide: getRepositoryToken(UserTenant), useValue: mockUserTenantRepo },
-        { provide: getRepositoryToken(AuditLog), useValue: mockAuditLogRepo },
+        { provide: AuditService, useValue: mockAuditService },
         { provide: JwtService, useValue: mockJwtService },
         { provide: LoginAttemptService, useValue: mockLoginAttempts },
         { provide: RefreshTokenService, useValue: mockRefreshTokens },
@@ -305,7 +308,7 @@ describe('AuthService', () => {
       // either — that's the same don't-leak-existence property applied
       // consistently, not a gap. new_values.identifier still lets support
       // search failed attempts by what was typed.
-      expect(mockAuditLogRepo.save).toHaveBeenCalledWith(
+      expect(mockAuditService.record).toHaveBeenCalledWith(
         expect.objectContaining({
           action: AuditAction.LOGIN_FAILED,
           entity_id: null,
@@ -322,13 +325,32 @@ describe('AuthService', () => {
 
       await service.login('admin@test.com', 'password123', { ip: '1.2.3.4', userAgent: 'ua' });
 
-      expect(mockAuditLogRepo.save).toHaveBeenCalledWith(
+      expect(mockAuditService.record).toHaveBeenCalledWith(
         expect.objectContaining({
           action: AuditAction.LOGIN,
           entity_id: 'user-1',
           ip_address: '1.2.3.4',
           user_agent: 'ua',
         }),
+      );
+    });
+
+    // primaryTenantId() feeds an audit record, but runs before
+    // AuditService.record() ever gets a chance to fail open — a transient
+    // error here must not reject login itself (last_login_at is already
+    // saved by this point), so it degrades to tenant_id: null instead.
+    it('still returns the access token when the tenant lookup for the audit record fails', async () => {
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      (bcrypt.compare as any).mockResolvedValue(true);
+      mockUserTenantRepo.find.mockResolvedValue(mockMemberships);
+      mockUserRepo.save.mockResolvedValue(mockUser);
+      mockUserTenantRepo.findOne.mockRejectedValue(new Error('db unavailable'));
+
+      const result = await service.login('admin@test.com', 'password123');
+
+      expect(result.access_token).toBe('test-jwt-token');
+      expect(mockAuditService.record).toHaveBeenCalledWith(
+        expect.objectContaining({ action: AuditAction.LOGIN, tenant_id: null }),
       );
     });
 
@@ -368,29 +390,12 @@ describe('AuthService', () => {
       expect(bcrypt.compare).toHaveBeenCalledTimes(1);
     });
 
-    // Audit logging is ancillary to authentication — a write failure here
-    // must never surface as a 500 in place of the real UnauthorizedException,
-    // and must never block a successful login from returning its token.
-    it('still throws UnauthorizedException (not the audit error) when the audit write fails on a failed login', async () => {
-      mockUserRepo.findOne.mockResolvedValue(null);
-      (bcrypt.compare as any).mockResolvedValue(false);
-      mockAuditLogRepo.save.mockRejectedValue(new Error('db unavailable'));
-
-      await expect(service.login('admin@test.com', 'wrong-password')).rejects.toThrow(UnauthorizedException);
-      await expect(service.login('admin@test.com', 'wrong-password')).rejects.toThrow('Invalid credentials');
-    });
-
-    it('still returns the access token when the audit write fails on a successful login', async () => {
-      mockUserRepo.findOne.mockResolvedValue(mockUser);
-      (bcrypt.compare as any).mockResolvedValue(true);
-      mockUserTenantRepo.find.mockResolvedValue(mockMemberships);
-      mockUserRepo.save.mockResolvedValue(mockUser);
-      mockAuditLogRepo.save.mockRejectedValue(new Error('db unavailable'));
-
-      const result = await service.login('admin@test.com', 'password123');
-
-      expect(result.access_token).toBe('test-jwt-token');
-    });
+    // The "audit write failure must not break login" guarantee used to live
+    // in this file, back when AuthService caught its own audit errors
+    // (writeAuditLog's try/catch). That guarantee now lives in
+    // AuditService.record() itself (see audit.service.spec.ts) — AuthService
+    // just calls it and trusts the contract, same as every other
+    // non-transactional call site.
 
     // A suspended/inactive account must fail exactly like a wrong password —
     // same status, same message, same LOGIN_FAILED action — otherwise the
@@ -407,7 +412,7 @@ describe('AuthService', () => {
       await expect(service.login('admin@test.com', 'password123')).rejects.toThrow('Invalid credentials');
       expect(mockUserRepo.save).not.toHaveBeenCalled();
       expect(mockRefreshTokens.issueForUser).not.toHaveBeenCalled();
-      expect(mockAuditLogRepo.save).toHaveBeenCalledWith(
+      expect(mockAuditService.record).toHaveBeenCalledWith(
         expect.objectContaining({ action: AuditAction.LOGIN_FAILED }),
       );
     });
@@ -465,7 +470,7 @@ describe('AuthService', () => {
         'Refresh token reuse detected',
       );
 
-      expect(mockAuditLogRepo.save).toHaveBeenCalledWith(
+      expect(mockAuditService.record).toHaveBeenCalledWith(
         expect.objectContaining({
           action: AuditAction.TOKEN_REUSE_DETECTED,
           entity_id: 'user-1',
@@ -482,7 +487,7 @@ describe('AuthService', () => {
       await expect(service.refresh('token-id.secret', { ip: null, userAgent: null })).rejects.toThrow(
         'Refresh token expired',
       );
-      expect(mockAuditLogRepo.save).not.toHaveBeenCalled();
+      expect(mockAuditService.record).not.toHaveBeenCalled();
     });
   });
 
@@ -491,7 +496,7 @@ describe('AuthService', () => {
       await service.logout(undefined, { ip: null, userAgent: null });
 
       expect(mockRefreshTokens.revokeByCookieValue).not.toHaveBeenCalled();
-      expect(mockAuditLogRepo.save).not.toHaveBeenCalled();
+      expect(mockAuditService.record).not.toHaveBeenCalled();
     });
 
     it('is a no-op when the cookie does not resolve to a live token', async () => {
@@ -499,7 +504,7 @@ describe('AuthService', () => {
 
       await service.logout('token-id.secret', { ip: null, userAgent: null });
 
-      expect(mockAuditLogRepo.save).not.toHaveBeenCalled();
+      expect(mockAuditService.record).not.toHaveBeenCalled();
     });
 
     it('revokes the token and writes a LOGOUT audit row', async () => {
@@ -508,7 +513,7 @@ describe('AuthService', () => {
       await service.logout('token-id.secret', { ip: '1.2.3.4', userAgent: 'ua' });
 
       expect(mockRefreshTokens.revokeByCookieValue).toHaveBeenCalledWith('token-id.secret');
-      expect(mockAuditLogRepo.save).toHaveBeenCalledWith(
+      expect(mockAuditService.record).toHaveBeenCalledWith(
         expect.objectContaining({
           action: AuditAction.LOGOUT,
           entity_id: 'user-1',
@@ -525,7 +530,7 @@ describe('AuthService', () => {
 
       expect(mockRefreshTokens.revokeAllForUser).toHaveBeenCalledWith('user-1');
       expect(mockAccessTokenDenylist.revoke).toHaveBeenCalledWith('jti-123', 900_000);
-      expect(mockAuditLogRepo.save).toHaveBeenCalledWith(
+      expect(mockAuditService.record).toHaveBeenCalledWith(
         expect.objectContaining({
           action: AuditAction.LOGOUT,
           entity_id: 'user-1',

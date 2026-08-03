@@ -6,7 +6,7 @@ import { PaymentAllocation } from "./entities/payment-allocation.entity";
 import { StudentFee } from "./entities/student-fee.entity";
 import { Student } from "../students/entities/student.entity";
 import { Invoice } from "../invoices/entities/invoice.entity";
-import { AuditLog } from "../audit/entities/audit-log.entity";
+import { AuditService } from "../audit/audit.service";
 import { FeeStatus, InvoiceStatus, PaymentAllocationType, PaymentStatus, AuditAction } from "@beton-boi/shared";
 import { RecordPaymentWithAllocationDto } from "./dto/fees.dto";
 import { generateInvoiceNumber } from "../invoices/invoice-numbering.util";
@@ -31,6 +31,7 @@ export class PaymentAllocationService {
     private readonly paymentRepo: Repository<Payment>,
     @InjectRepository(Student)
     private readonly studentRepo: Repository<Student>,
+    private readonly auditService: AuditService,
   ) {}
 
   async recordWithAllocation(
@@ -62,7 +63,6 @@ export class PaymentAllocationService {
       const paymentRepo = manager.getRepository(Payment);
       const allocationRepo = manager.getRepository(PaymentAllocation);
       const invoiceRepo = manager.getRepository(Invoice);
-      const auditLogRepo = manager.getRepository(AuditLog);
 
       // Lock every outstanding fee for this student so two concurrent
       // payments can't both allocate against the same balance.
@@ -172,11 +172,12 @@ export class PaymentAllocationService {
         await studentFeeRepo.update(fee.id, { paid_amount: newPaid, status: newStatus });
       }
 
-      await auditLogRepo.save(
-        auditLogRepo.create({
+      await this.auditService.record(
+        {
           action: AuditAction.PAYMENT_RECEIVED,
           entity_type: "Payment",
           entity_id: savedPayment.id,
+          tenant_id: tenantId,
           performed_by_user_id: userId,
           new_values: {
             student_id: dto.student_id,
@@ -188,7 +189,8 @@ export class PaymentAllocationService {
               allocation_type: allocationsByFeeId.get(u.fee.id)!.allocation_type,
             })),
           },
-        }),
+        },
+        manager,
       );
 
       const isFullPayment = feeUpdates.length > 0 && feeUpdates.every((u) => u.newStatus === FeeStatus.PAID);
@@ -218,14 +220,16 @@ export class PaymentAllocationService {
         );
         await paymentRepo.update(savedPayment.id, { invoice_id: invoice.id });
 
-        await auditLogRepo.save(
-          auditLogRepo.create({
+        await this.auditService.record(
+          {
             action: AuditAction.INVOICE_GENERATED,
             entity_type: "Invoice",
             entity_id: invoice.id,
+            tenant_id: tenantId,
             performed_by_user_id: userId,
             new_values: { invoice_number: invoiceNumber, payment_id: savedPayment.id, total_amount: dto.total_amount },
-          }),
+          },
+          manager,
         );
       }
 

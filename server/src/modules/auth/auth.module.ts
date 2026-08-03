@@ -12,7 +12,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { UserTenant } from './entities/user-tenant.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { User } from '../users/entities/user.entity';
-import { AuditLog } from '../audit/entities/audit-log.entity';
+import { AuditModule } from '../audit/audit.module';
 import { LoginAttemptService } from './login-attempt.service';
 import { RefreshTokenService, REFRESH_TOKEN_TTL_MS } from './refresh-token.service';
 import { AccessTokenDenylistService, ACCESS_TOKEN_DENYLIST_REDIS } from './access-token-denylist.service';
@@ -27,7 +27,8 @@ const DEFAULT_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60_000; // 30 days
 @Global()
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, UserTenant, AuditLog, RefreshToken]),
+    TypeOrmModule.forFeature([User, UserTenant, RefreshToken]),
+    AuditModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],

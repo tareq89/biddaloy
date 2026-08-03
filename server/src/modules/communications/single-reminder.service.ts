@@ -27,7 +27,9 @@ import {
 import { selectReminderGuardians, addressForMedium, DISPATCHABLE_MEDIA } from './reminder-recipients.util';
 import { SkipReason } from './reminders.service';
 import { COMMUNICATIONS_QUEUE } from './communications.constants';
-import { CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '@beton-boi/shared';
+import { AuditService } from '../audit/audit.service';
+import { RequestContext } from '../../common/request-context.util';
+import { AuditAction, CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '@beton-boi/shared';
 
 const DEFAULT_EMAIL_SUBJECT = 'Fee Reminder';
 
@@ -61,6 +63,7 @@ export class SingleReminderService {
     private readonly studentService: StudentService,
     private readonly guardianService: GuardianService,
     private readonly feeDuesService: FeeDuesService,
+    private readonly auditService: AuditService,
   ) {}
 
   async preview(
@@ -89,6 +92,7 @@ export class SingleReminderService {
     dto: SendSingleReminderDto,
     tenantId: string,
     userId: string,
+    context: RequestContext = { ip: null, userAgent: null },
   ): Promise<SingleReminderResponseDto> {
     const { recipients, skipped } = await this.resolve(studentId, dto, tenantId);
 
@@ -129,6 +133,24 @@ export class SingleReminderService {
         status: log.status,
       });
     }
+
+    // One record per send action, not per guardian recipient — same
+    // one-row-per-action precedent as the bulk flow's batch-level record.
+    await this.auditService.record({
+      action: AuditAction.REMINDER_SENT,
+      entity_type: 'Student',
+      entity_id: studentId,
+      tenant_id: tenantId,
+      performed_by_user_id: userId,
+      ip_address: context.ip,
+      user_agent: context.userAgent,
+      new_values: {
+        recipient_count: sent.length,
+        queued_count: sent.filter((s) => s.status === CommunicationStatus.QUEUED).length,
+        failed_count: sent.filter((s) => s.status === CommunicationStatus.FAILED).length,
+        skipped_count: skipped.length,
+      },
+    });
 
     return { student_id: studentId, sent, skipped };
   }
