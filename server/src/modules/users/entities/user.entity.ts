@@ -1,4 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, Index, OneToMany } from "typeorm";
+import { ApiHideProperty } from "@nestjs/swagger";
 import { UserTenant } from "../../auth/entities/user-tenant.entity";
 import { UserStatus } from "@beton-boi/shared";
 
@@ -40,6 +41,12 @@ export class User {
   @Column({ type: "varchar", length: 20, unique: true, nullable: true })
   phone: string | null;
 
+  // Hidden from every generated OpenAPI schema regardless of which class
+  // references User (Teacher.user, Invoice.issued_by, and any entity that
+  // ever gains a User relation later) — controllers additionally strip
+  // this at the response boundary (see users/dto/user-response.dto.ts);
+  // this is the schema-level guarantee that backs that up.
+  @ApiHideProperty()
   @Column({ type: "varchar", length: 255, nullable: true })
   password_hash: string | null;
 

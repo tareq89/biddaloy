@@ -7,8 +7,12 @@ import { UserRole } from '@beton-boi/shared';
  * Unit tests for UserController.
  *
  * These tests verify that the controller correctly delegates to the
- * service layer — each endpoint calls the right service method with
- * the right arguments, and the response is passed through unchanged.
+ * service layer — each endpoint calls the right service method with the
+ * right arguments. The response is NOT passed through unchanged: every
+ * endpoint that returns a User (directly, or nested under Teacher.user)
+ * strips `password_hash` at this boundary — see the "does not leak
+ * password_hash" tests below. UserService itself still returns the full
+ * entity; that's what the login flow needs.
  *
  * Decorator/guard behavior (@Roles, @UseGuards) is tested separately
  * in auth/decorators/decorators.spec.ts and auth/guards/context.guard.spec.ts.
@@ -124,13 +128,17 @@ describe('UserController', () => {
   describe('createTeacher', () => {
     it('should call teacherService.create with dto and tenant id', async () => {
       const dto = { user_id: 'u1', employee_id: 'EMP-001' };
-      const expected = { id: 't1', employee_id: 'EMP-001' };
-      teacherService.create.mockResolvedValue(expected);
+      // Teacher.user is non-nullable — findOne/create always request the
+      // relation — so a realistic mock always includes it.
+      const serviceResult = { id: 't1', employee_id: 'EMP-001', user: { id: 'u1', full_name: 'Jane' } };
+      teacherService.create.mockResolvedValue(serviceResult);
 
       const result = await controller.createTeacher(dto as any, TENANT);
 
       expect(teacherService.create).toHaveBeenCalledWith(dto, TENANT.id);
-      expect(result).toEqual(expected);
+      expect(result.id).toBe('t1');
+      expect(result.employee_id).toBe('EMP-001');
+      expect(result.user.id).toBe('u1');
     });
   });
 
@@ -156,13 +164,101 @@ describe('UserController', () => {
   describe('updateTeacher', () => {
     it('should call teacherService.update with id, dto, and tenant id', async () => {
       const dto = { employee_id: 'EMP-002' };
-      const expected = { id: 't1', employee_id: 'EMP-002' };
-      teacherService.update.mockResolvedValue(expected);
+      const serviceResult = { id: 't1', employee_id: 'EMP-002', user: { id: 'u1', full_name: 'Jane' } };
+      teacherService.update.mockResolvedValue(serviceResult);
 
       const result = await controller.updateTeacher('t1', dto as any, TENANT);
 
       expect(teacherService.update).toHaveBeenCalledWith('t1', dto, TENANT.id);
-      expect(result).toEqual(expected);
+      expect(result.id).toBe('t1');
+      expect(result.employee_id).toBe('EMP-002');
+      expect(result.user.id).toBe('u1');
+    });
+  });
+
+  // ────────────────────────
+  //  password_hash never reaches a response
+  // ────────────────────────
+  // UserService/TeacherService return the full entity (the login flow needs
+  // the hash); the controller is the boundary where it must be stripped.
+  // These construct the mock service response WITH password_hash set, so a
+  // regression that starts passing entities through unchanged fails loudly.
+  describe('password_hash is never returned to the client', () => {
+    it('strips it from createUser', async () => {
+      userService.create.mockResolvedValue({
+        user: { id: 'u1', full_name: 'John', password_hash: '$2b$10$secret' },
+        membership: { id: 'm1' },
+      });
+
+      const result = await controller.createUser({ full_name: 'John' } as any, TENANT);
+
+      expect(result.user).not.toHaveProperty('password_hash');
+    });
+
+    it('strips it from every row in findAllUsers', async () => {
+      userService.findAll.mockResolvedValue({
+        data: [{ id: 'u1', full_name: 'John', password_hash: '$2b$10$secret' }],
+        total: 1,
+        page: 1,
+        limit: 10,
+        totalPages: 1,
+      });
+
+      const result = await controller.findAllUsers({} as any, TENANT);
+
+      expect(result.data[0]).not.toHaveProperty('password_hash');
+    });
+
+    it('strips it from findOneUser', async () => {
+      userService.findOne.mockResolvedValue({ id: 'u1', full_name: 'John', password_hash: '$2b$10$secret' });
+
+      const result = await controller.findOneUser('u1', TENANT);
+
+      expect(result).not.toHaveProperty('password_hash');
+    });
+
+    it('strips it from updateUser', async () => {
+      userService.update.mockResolvedValue({ id: 'u1', full_name: 'Updated', password_hash: '$2b$10$secret' });
+
+      const result = await controller.updateUser('u1', {} as any, TENANT);
+
+      expect(result).not.toHaveProperty('password_hash');
+    });
+
+    it('strips it from the nested user in createTeacher', async () => {
+      teacherService.create.mockResolvedValue({
+        id: 't1',
+        user: { id: 'u1', full_name: 'John', password_hash: '$2b$10$secret' },
+      });
+
+      const result = await controller.createTeacher({} as any, TENANT);
+
+      expect((result as any).user).not.toHaveProperty('password_hash');
+    });
+
+    it('strips it from the nested user in every row of findAllTeachers', async () => {
+      teacherService.findAll.mockResolvedValue({
+        data: [{ id: 't1', user: { id: 'u1', full_name: 'John', password_hash: '$2b$10$secret' } }],
+        total: 1,
+        page: 1,
+        limit: 10,
+        totalPages: 1,
+      });
+
+      const result = await controller.findAllTeachers({} as any, TENANT);
+
+      expect((result.data[0] as any).user).not.toHaveProperty('password_hash');
+    });
+
+    it('strips it from the nested user in updateTeacher', async () => {
+      teacherService.update.mockResolvedValue({
+        id: 't1',
+        user: { id: 'u1', full_name: 'John', password_hash: '$2b$10$secret' },
+      });
+
+      const result = await controller.updateTeacher('t1', {} as any, TENANT);
+
+      expect((result as any).user).not.toHaveProperty('password_hash');
     });
   });
 

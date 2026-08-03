@@ -112,6 +112,9 @@ describe('Invoices E2E', () => {
       expect(res.body.invoice_number).toMatch(/^INV-\d{4}-\d{5}$/);
       expect(Number(res.body.total_amount)).toBe(1200);
       expect(res.body.status).toBe('ISSUED');
+      // issued_by embeds the full User relation server-side — must never
+      // carry password_hash into the response.
+      expect(res.body.issued_by).not.toHaveProperty('password_hash');
     });
 
     it('neutralises a script payload in notes (issue #33)', async () => {
@@ -189,6 +192,7 @@ describe('Invoices E2E', () => {
         .set('X-Role', UserRole.ADMIN)
         .expect(200);
       expect(detailRes.body.id).toBe(createRes.body.id);
+      expect(detailRes.body.issued_by).not.toHaveProperty('password_hash');
 
       const printRes = await supertest(app.getHttpServer())
         .get(`/api/v1/invoices/${createRes.body.id}/print`)
