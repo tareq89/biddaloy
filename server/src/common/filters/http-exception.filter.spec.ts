@@ -165,4 +165,60 @@ describe("AllExceptionsFilter", () => {
     expect(mockStatus).toHaveBeenCalledWith(HttpStatus.INTERNAL_SERVER_ERROR);
     expect(mockJson.mock.calls[0][0].message).toBe("Internal server error");
   });
+
+  // Tested against a genuinely failing request, not a successful one — a
+  // redaction helper that only runs on the happy path is worthless, since
+  // the leak is usually in an error log written under debugging pressure.
+  it("redacts PII from the request URL before logging a failing request", () => {
+    const filter = new AllExceptionsFilter("production");
+    mockRequest.url = "/api/v1/students?email=guardian@example.com";
+
+    filter.catch(new BadRequestException("Invalid query"), mockHost);
+
+    expect(Logger.prototype.error).toHaveBeenCalledWith(
+      expect.not.stringContaining("guardian@example.com"),
+      expect.anything(),
+    );
+  });
+
+  it("redacts PII embedded in the exception's own detail message", () => {
+    const filter = new AllExceptionsFilter("development");
+    const exception = new InternalServerErrorException("duplicate key for guardian@example.com");
+
+    filter.catch(exception, mockHost);
+
+    const loggedArgs = (Logger.prototype.error as any).mock.calls.flat();
+    expect(loggedArgs.some((arg: unknown) => typeof arg === "string" && arg.includes("[REDACTED_EMAIL]"))).toBe(true);
+    expect(loggedArgs.some((arg: unknown) => typeof arg === "string" && arg.includes("guardian@example.com"))).toBe(
+      false,
+    );
+  });
+
+  // Logger.error's stack argument is a separate parameter from the message
+  // redactPii() is applied to — and Error.stack's own first line repeats
+  // the exception's message, so it carries the same PII if left unredacted.
+  it("redacts PII from the exception stack, not just the message", () => {
+    const filter = new AllExceptionsFilter("development");
+    const exception = new InternalServerErrorException("duplicate key for guardian@example.com");
+
+    filter.catch(exception, mockHost);
+
+    expect(exception.stack).toContain("guardian@example.com");
+    const loggedArgs = (Logger.prototype.error as any).mock.calls.flat();
+    expect(loggedArgs.some((arg: unknown) => typeof arg === "string" && arg.includes("guardian@example.com"))).toBe(
+      false,
+    );
+  });
+
+  // The login path carries a plaintext password in the request body — this
+  // filter must never reference request.body at all, in any form.
+  it("never logs the request body, even when it carries a password", () => {
+    const filter = new AllExceptionsFilter("development");
+    mockRequest.body = { email: "admin@example.com", password: "hunter2" };
+
+    filter.catch(new BadRequestException("Invalid credentials"), mockHost);
+
+    const loggedArgs = (Logger.prototype.error as any).mock.calls.flat();
+    expect(loggedArgs.some((arg: unknown) => typeof arg === "string" && arg.includes("hunter2"))).toBe(false);
+  });
 });

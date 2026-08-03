@@ -1,0 +1,51 @@
+const EMAIL_PATTERN = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+
+// Same digit shape as BD_PHONE_REGEX in modules/students/dto/students.dto.ts
+// (kept as a separate constant rather than imported, since `common/` sits
+// below feature modules in this codebase's layering) — that one is anchored
+// (^...$) for whole-string DTO validation; this scans for the same shape as
+// a substring inside a larger line (a URL, an error message), unanchored
+// and global instead. Keep both in sync if the phone format ever changes.
+const PHONE_PATTERN = /(?:\+?880|0)1[3-9]\d{8}/g;
+
+// A single static alternation, not one dynamically-built RegExp per key —
+// keeps this scannable at a glance and avoids a `new RegExp(variable)`
+// pattern static analysis tools flag as a potential ReDoS vector even
+// though these keys are a fixed internal list, never user input.
+const SENSITIVE_QUERY_PATTERN = /([?&](?:password|token|access_token|refresh_token|secret|api_key|apikey)=)[^&\s]+/gi;
+
+/**
+ * Scrubs email/phone-shaped substrings and known-sensitive query-param
+ * values out of a line before it's logged (#36). Applied to request
+ * URLs and error detail messages — the two places PII most often leaks
+ * into logs, since neither is a structured object redact.util.ts's
+ * key-based approach could walk.
+ *
+ * Deliberately tested against a *failing* request, not just a successful
+ * one — a redaction helper that only runs on the happy path is worthless,
+ * since the leak is usually in an error log written under debugging
+ * pressure.
+ */
+export function redactPii(text: string): string {
+  return applyRedaction(safeDecode(text));
+}
+
+// A raw request URL/query string is commonly percent-encoded by the client
+// (e.g. `admin%40example.com`) — matching only the literal, unencoded shape
+// would let that straight through. Decoding first (defensively — a lone
+// `%` not followed by two hex digits throws) catches both forms; only this
+// log line's redacted text is affected, never anything returned to a client.
+function safeDecode(text: string): string {
+  try {
+    return decodeURIComponent(text);
+  } catch {
+    return text;
+  }
+}
+
+function applyRedaction(text: string): string {
+  return text
+    .replace(EMAIL_PATTERN, '[REDACTED_EMAIL]')
+    .replace(PHONE_PATTERN, '[REDACTED_PHONE]')
+    .replace(SENSITIVE_QUERY_PATTERN, '$1[REDACTED]');
+}
