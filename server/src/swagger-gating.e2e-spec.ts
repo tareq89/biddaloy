@@ -37,7 +37,9 @@ async function createApp(opts: {
 
   if (shouldMountDocs(opts.nodeEnv, opts.enableApiDocs)) {
     if (opts.nodeEnv === 'production' && opts.docsUser && opts.docsPassword) {
-      app.use(`/api/${DOCS_PATH}`, buildDocsBasicAuthMiddleware(opts.docsUser, opts.docsPassword));
+      // No path argument — see main.ts's comment on the same call for why
+      // (app.use('/api/docs', ...) would not also cover /api/docs-json).
+      app.use(buildDocsBasicAuthMiddleware(`/api/${DOCS_PATH}`, opts.docsUser, opts.docsPassword));
     }
     const document = SwaggerModule.createDocument(app, buildSwaggerDocumentConfig());
     SwaggerModule.setup(DOCS_PATH, app, document, { useGlobalPrefix: true });
@@ -128,6 +130,19 @@ describe('Swagger docs gating E2E', () => {
 
     it('is reachable with the correct credentials', async () => {
       await request(app.getHttpServer()).get('/api/docs').auth('docs-admin', 'correct-horse-battery-staple').expect(200);
+    });
+
+    // Regression guard: app.use('/api/docs', middleware) does not match
+    // '/api/docs-json' (Express's mount matching requires a '/' boundary
+    // after the prefix) — SwaggerModule.setup's sibling raw-spec route was
+    // reachable with zero auth until buildDocsBasicAuthMiddleware started
+    // checking req.path itself instead of relying on the mount path.
+    it('also requires authentication for the raw JSON spec at /api/docs-json', async () => {
+      await request(app.getHttpServer()).get('/api/docs-json').expect(401);
+      await request(app.getHttpServer())
+        .get('/api/docs-json')
+        .auth('docs-admin', 'correct-horse-battery-staple')
+        .expect(200);
     });
   });
 });

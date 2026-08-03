@@ -15,10 +15,10 @@ function fakeRes() {
 }
 
 describe("buildDocsBasicAuthMiddleware", () => {
-  const middleware = buildDocsBasicAuthMiddleware("admin", "hunter2");
+  const middleware = buildDocsBasicAuthMiddleware("/api/docs", "admin", "hunter2");
 
   it("calls next() for correct credentials", () => {
-    const req = { headers: { authorization: basicAuthHeader("admin", "hunter2") } } as any;
+    const req = { path: "/api/docs", headers: { authorization: basicAuthHeader("admin", "hunter2") } } as any;
     const res = fakeRes();
     const next = vi.fn();
 
@@ -29,7 +29,7 @@ describe("buildDocsBasicAuthMiddleware", () => {
   });
 
   it("rejects a missing Authorization header", () => {
-    const req = { headers: {} } as any;
+    const req = { path: "/api/docs", headers: {} } as any;
     const res = fakeRes();
     const next = vi.fn();
 
@@ -41,7 +41,7 @@ describe("buildDocsBasicAuthMiddleware", () => {
   });
 
   it("rejects a non-Basic scheme", () => {
-    const req = { headers: { authorization: "Bearer sometoken" } } as any;
+    const req = { path: "/api/docs", headers: { authorization: "Bearer sometoken" } } as any;
     const res = fakeRes();
     const next = vi.fn();
 
@@ -52,7 +52,10 @@ describe("buildDocsBasicAuthMiddleware", () => {
   });
 
   it("rejects a malformed Basic value with no colon separator", () => {
-    const req = { headers: { authorization: `Basic ${Buffer.from("nocolonhere").toString("base64")}` } } as any;
+    const req = {
+      path: "/api/docs",
+      headers: { authorization: `Basic ${Buffer.from("nocolonhere").toString("base64")}` },
+    } as any;
     const res = fakeRes();
     const next = vi.fn();
 
@@ -63,7 +66,7 @@ describe("buildDocsBasicAuthMiddleware", () => {
   });
 
   it("rejects the wrong username", () => {
-    const req = { headers: { authorization: basicAuthHeader("wrong", "hunter2") } } as any;
+    const req = { path: "/api/docs", headers: { authorization: basicAuthHeader("wrong", "hunter2") } } as any;
     const res = fakeRes();
     const next = vi.fn();
 
@@ -74,7 +77,7 @@ describe("buildDocsBasicAuthMiddleware", () => {
   });
 
   it("rejects the wrong password", () => {
-    const req = { headers: { authorization: basicAuthHeader("admin", "wrong") } } as any;
+    const req = { path: "/api/docs", headers: { authorization: basicAuthHeader("admin", "wrong") } } as any;
     const res = fakeRes();
     const next = vi.fn();
 
@@ -88,13 +91,44 @@ describe("buildDocsBasicAuthMiddleware", () => {
   // generally, must fail exactly like any other wrong password — this
   // guards against a length-based short-circuit creeping back in.
   it("rejects a password of different length", () => {
-    const req = { headers: { authorization: basicAuthHeader("admin", "hunter2extra") } } as any;
+    const req = { path: "/api/docs", headers: { authorization: basicAuthHeader("admin", "hunter2extra") } } as any;
     const res = fakeRes();
     const next = vi.fn();
 
     middleware(req, res as any, next);
 
     expect(next).not.toHaveBeenCalled();
+  });
+
+  // Regression guard: app.use('/api/docs', middleware) would not match
+  // '/api/docs-json' (Express's mount matching requires a '/' boundary
+  // after the prefix) — this middleware checks req.path itself instead of
+  // relying on app.use's own routing, specifically so it also covers
+  // SwaggerModule.setup's sibling raw-spec route.
+  it("also gates /api/docs-json under the same prefix", () => {
+    const reqNoAuth = { path: "/api/docs-json", headers: {} } as any;
+    const res1 = fakeRes();
+    const next1 = vi.fn();
+    middleware(reqNoAuth, res1 as any, next1);
+    expect(next1).not.toHaveBeenCalled();
+    expect(res1.status).toHaveBeenCalledWith(401);
+
+    const reqAuthed = { path: "/api/docs-json", headers: { authorization: basicAuthHeader("admin", "hunter2") } } as any;
+    const res2 = fakeRes();
+    const next2 = vi.fn();
+    middleware(reqAuthed, res2 as any, next2);
+    expect(next2).toHaveBeenCalled();
+  });
+
+  it("does not gate routes outside the docs prefix", () => {
+    const req = { path: "/api/v1/students", headers: {} } as any;
+    const res = fakeRes();
+    const next = vi.fn();
+
+    middleware(req, res as any, next);
+
+    expect(next).toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
   });
 });
 

@@ -30,26 +30,47 @@ function safeCompare(a: string, b: string): boolean {
 }
 
 /**
- * Basic Auth in front of the docs route in production (see swagger.ts's
+ * Basic Auth in front of the docs routes in production (see swagger.ts's
  * shouldMountDocs). Not a general-purpose auth mechanism — just enough to
  * keep the API shape out of anonymous reach when ENABLE_API_DOCS=true.
+ *
+ * Checks req.path against docsPathPrefix itself, the same way the CSP
+ * override below does, rather than relying on `app.use(path, ...)`'s own
+ * path matching: Express's mount matching requires a `/` boundary after
+ * the prefix, so `app.use('/api/docs', ...)` does not match
+ * `/api/docs-json` — SwaggerModule.setup's second, sibling route for the
+ * raw spec — which would otherwise be reachable with no auth at all.
  */
-export function buildDocsBasicAuthMiddleware(username: string, password: string) {
+export function buildDocsBasicAuthMiddleware(docsPathPrefix: string, username: string, password: string) {
   return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.path.startsWith(docsPathPrefix)) {
+      return next();
+    }
+
     const header = req.headers.authorization;
+    let user: string | undefined;
+    let pass: string | undefined;
 
     if (header?.startsWith("Basic ")) {
       const decoded = Buffer.from(header.slice("Basic ".length), "base64").toString("utf8");
       const separatorIndex = decoded.indexOf(":");
-
       if (separatorIndex !== -1) {
-        const user = decoded.slice(0, separatorIndex);
-        const pass = decoded.slice(separatorIndex + 1);
-
-        if (safeCompare(user, username) && safeCompare(pass, password)) {
-          return next();
-        }
+        user = decoded.slice(0, separatorIndex);
+        pass = decoded.slice(separatorIndex + 1);
       }
+    }
+
+    // Both comparisons always run, even when a header is missing entirely
+    // (comparing against "" costs nothing and keeps this path timing-
+    // identical to the malformed/wrong-credentials cases below) — a
+    // short-circuiting `&&` here would mean the password is never checked
+    // once the username comparison fails, letting a timing probe find a
+    // valid username independent of the password.
+    const userOk = safeCompare(user ?? "", username);
+    const passOk = safeCompare(pass ?? "", password);
+
+    if (userOk && passOk) {
+      return next();
     }
 
     res.set("WWW-Authenticate", 'Basic realm="API Docs"');

@@ -58,7 +58,12 @@ async function bootstrap() {
           "ENABLE_API_DOCS=true requires API_DOCS_USER and API_DOCS_PASSWORD to be set — refusing to boot with an unauthenticated docs route in production.",
         );
       }
-      app.use(`/api/${DOCS_PATH}`, buildDocsBasicAuthMiddleware(docsUser, docsPassword));
+      // No path argument here — buildDocsBasicAuthMiddleware checks
+      // req.path itself, because app.use('/api/docs', ...) would not
+      // match the sibling /api/docs-json route SwaggerModule.setup also
+      // registers (Express's mount matching requires a '/' boundary after
+      // the prefix), which would otherwise serve the raw spec unauthenticated.
+      app.use(buildDocsBasicAuthMiddleware(`/api/${DOCS_PATH}`, docsUser, docsPassword));
     }
 
     const document = SwaggerModule.createDocument(app, buildSwaggerDocumentConfig());
