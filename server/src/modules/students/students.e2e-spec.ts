@@ -3,6 +3,7 @@ import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { AppModule } from '../../app.module';
+import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { DataSource } from 'typeorm';
 import { UserRole } from '@beton-boi/shared';
@@ -34,6 +35,7 @@ describe('Students E2E', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    configureApiVersioning(app);
     app.useGlobalPipes(new ValidationPipe(buildValidationPipeOptions()));
     await app.init();
 
@@ -41,7 +43,7 @@ describe('Students E2E', () => {
 
     // Log in as admin
     const loginRes = await supertest(app.getHttpServer())
-      .post('/auth/login')
+      .post('/api/v1/auth/login')
       .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
       .expect(200);
     adminToken = loginRes.body.access_token;
@@ -60,7 +62,7 @@ describe('Students E2E', () => {
 
     it('should create a student with ADMIN role', async () => {
       const res = await supertest(app.getHttpServer())
-        .post('/students')
+        .post('/api/v1/students')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send(createStudentPayload)
@@ -75,7 +77,7 @@ describe('Students E2E', () => {
 
     it('neutralises a script payload in full_name and home_address (issue #33)', async () => {
       const res = await supertest(app.getHttpServer())
-        .post('/students')
+        .post('/api/v1/students')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({
@@ -91,7 +93,7 @@ describe('Students E2E', () => {
 
     it('leaves legitimate apostrophes, ampersands, and Unicode names untouched', async () => {
       const res = await supertest(app.getHttpServer())
-        .post('/students')
+        .post('/api/v1/students')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({
@@ -105,7 +107,7 @@ describe('Students E2E', () => {
 
     it('should return 401 when X-Tenant-ID header is missing', async () => {
       const res = await supertest(app.getHttpServer())
-        .post('/students')
+        .post('/api/v1/students')
         .set('Authorization', `Bearer ${adminToken}`)
         // No X-Tenant-ID
         .send(createStudentPayload)
@@ -124,13 +126,13 @@ describe('Students E2E', () => {
 
       // Get a fresh token with the STUDENT role included in the JWT memberships
       const loginRes = await supertest(app.getHttpServer())
-        .post('/auth/login')
+        .post('/api/v1/auth/login')
         .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
         .expect(200);
       const studentToken = loginRes.body.access_token;
 
       const res = await supertest(app.getHttpServer())
-        .post('/students')
+        .post('/api/v1/students')
         .set('Authorization', `Bearer ${studentToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
@@ -142,7 +144,7 @@ describe('Students E2E', () => {
 
     it('should return 404 when class_section does not exist', async () => {
       const res = await supertest(app.getHttpServer())
-        .post('/students')
+        .post('/api/v1/students')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({
@@ -156,7 +158,7 @@ describe('Students E2E', () => {
 
     it('should return 400 for invalid DTO (missing required fields)', async () => {
       const res = await supertest(app.getHttpServer())
-        .post('/students')
+        .post('/api/v1/students')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({}) // Empty body
@@ -167,7 +169,7 @@ describe('Students E2E', () => {
   describe('GET /students', () => {
     it('should return paginated students', async () => {
       const res = await supertest(app.getHttpServer())
-        .get('/students')
+        .get('/api/v1/students')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .expect(200);
@@ -183,14 +185,14 @@ describe('Students E2E', () => {
     it('should return a student by ID', async () => {
       // Create a student first
       const createRes = await supertest(app.getHttpServer())
-        .post('/students')
+        .post('/api/v1/students')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({ full_name: 'Jane Doe', class_section_id: SEED_SECTION_1_ID })
         .expect(201);
 
       const res = await supertest(app.getHttpServer())
-        .get(`/students/${createRes.body.id}`)
+        .get(`/api/v1/students/${createRes.body.id}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .expect(200);
@@ -201,7 +203,7 @@ describe('Students E2E', () => {
 
     it('should return 404 for a non-existent student', async () => {
       const res = await supertest(app.getHttpServer())
-        .get('/students/00000000-0000-4000-8000-000000000000')
+        .get('/api/v1/students/00000000-0000-4000-8000-000000000000')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .expect(404);
@@ -211,14 +213,14 @@ describe('Students E2E', () => {
   describe('PATCH /students/:id', () => {
     it('should update a student', async () => {
       const createRes = await supertest(app.getHttpServer())
-        .post('/students')
+        .post('/api/v1/students')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({ full_name: 'Original Name', class_section_id: SEED_SECTION_1_ID })
         .expect(201);
 
       const res = await supertest(app.getHttpServer())
-        .patch(`/students/${createRes.body.id}`)
+        .patch(`/api/v1/students/${createRes.body.id}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({ full_name: 'Updated Name' })
@@ -229,14 +231,14 @@ describe('Students E2E', () => {
 
     it('neutralises a script payload on update, same as create (issue #33)', async () => {
       const createRes = await supertest(app.getHttpServer())
-        .post('/students')
+        .post('/api/v1/students')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({ full_name: 'Original Name', class_section_id: SEED_SECTION_1_ID })
         .expect(201);
 
       const res = await supertest(app.getHttpServer())
-        .patch(`/students/${createRes.body.id}`)
+        .patch(`/api/v1/students/${createRes.body.id}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({ full_name: '<script>alert(1)</script>Updated Name' })
@@ -247,7 +249,7 @@ describe('Students E2E', () => {
 
     it('should return 403 for STUDENT role on update', async () => {
       const createRes = await supertest(app.getHttpServer())
-        .post('/students')
+        .post('/api/v1/students')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({ full_name: 'Role Check', class_section_id: SEED_SECTION_1_ID })
@@ -255,13 +257,13 @@ describe('Students E2E', () => {
 
       // Get a fresh token with the STUDENT role included
       const loginRes = await supertest(app.getHttpServer())
-        .post('/auth/login')
+        .post('/api/v1/auth/login')
         .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
         .expect(200);
       const studentToken = loginRes.body.access_token;
 
       const res = await supertest(app.getHttpServer())
-        .patch(`/students/${createRes.body.id}`)
+        .patch(`/api/v1/students/${createRes.body.id}`)
         .set('Authorization', `Bearer ${studentToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
@@ -273,7 +275,7 @@ describe('Students E2E', () => {
   describe('DELETE /students/:id', () => {
     it('should soft delete a student', async () => {
       const createRes = await supertest(app.getHttpServer())
-        .post('/students')
+        .post('/api/v1/students')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({ full_name: 'Delete Me', class_section_id: SEED_SECTION_1_ID })
@@ -281,14 +283,14 @@ describe('Students E2E', () => {
 
       // Soft delete
       await supertest(app.getHttpServer())
-        .delete(`/students/${createRes.body.id}`)
+        .delete(`/api/v1/students/${createRes.body.id}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .expect(200);
 
       // Verify not found
       await supertest(app.getHttpServer())
-        .get(`/students/${createRes.body.id}`)
+        .get(`/api/v1/students/${createRes.body.id}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .expect(404);
@@ -296,7 +298,7 @@ describe('Students E2E', () => {
 
     it('should return 403 when a non-ADMIN tries to delete', async () => {
       const createRes = await supertest(app.getHttpServer())
-        .post('/students')
+        .post('/api/v1/students')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({ full_name: 'Protected', class_section_id: SEED_SECTION_1_ID })
@@ -311,13 +313,13 @@ describe('Students E2E', () => {
 
       // Get a fresh token with the ACCOUNTANT role included
       const loginRes = await supertest(app.getHttpServer())
-        .post('/auth/login')
+        .post('/api/v1/auth/login')
         .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
         .expect(200);
       const accountantToken = loginRes.body.access_token;
 
       const res = await supertest(app.getHttpServer())
-        .delete(`/students/${createRes.body.id}`)
+        .delete(`/api/v1/students/${createRes.body.id}`)
         .set('Authorization', `Bearer ${accountantToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ACCOUNTANT)
@@ -331,7 +333,7 @@ describe('Students E2E', () => {
     it('should prevent cross-tenant access to student data', async () => {
       // Create a student in tenant-1
       const createRes = await supertest(app.getHttpServer())
-        .post('/students')
+        .post('/api/v1/students')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({ full_name: 'Tenant A Student', class_section_id: SEED_SECTION_1_ID })
@@ -348,7 +350,7 @@ describe('Students E2E', () => {
 
       // Try to access the student using the other tenant
       const res = await supertest(app.getHttpServer())
-        .get(`/students/${createRes.body.id}`)
+        .get(`/api/v1/students/${createRes.body.id}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', OTHER_TENANT_ID)
         .expect(401);

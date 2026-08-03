@@ -3,6 +3,7 @@ import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { AppModule } from '../../app.module';
+import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { DataSource } from 'typeorm';
 import { UserRole } from '@beton-boi/shared';
@@ -64,6 +65,7 @@ describe('Invoices E2E', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    configureApiVersioning(app);
     app.useGlobalPipes(new ValidationPipe(buildValidationPipeOptions()));
     await app.init();
 
@@ -83,7 +85,7 @@ describe('Invoices E2E', () => {
     );
 
     const loginRes = await supertest(app.getHttpServer())
-      .post('/auth/login')
+      .post('/api/v1/auth/login')
       .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
       .expect(200);
     token = loginRes.body.access_token;
@@ -100,7 +102,7 @@ describe('Invoices E2E', () => {
       const feeId = await createFee(studentId, 1200);
 
       const res = await supertest(app.getHttpServer())
-        .post('/invoices')
+        .post('/api/v1/invoices')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ACCOUNTANT)
@@ -117,7 +119,7 @@ describe('Invoices E2E', () => {
       const feeId = await createFee(studentId, 500);
 
       const res = await supertest(app.getHttpServer())
-        .post('/invoices')
+        .post('/api/v1/invoices')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ACCOUNTANT)
@@ -136,7 +138,7 @@ describe('Invoices E2E', () => {
       const feeId = await createFee(studentId);
 
       const res = await supertest(app.getHttpServer())
-        .post('/invoices')
+        .post('/api/v1/invoices')
         .set('Authorization', `Bearer ${studentRoleToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
@@ -148,7 +150,7 @@ describe('Invoices E2E', () => {
 
     it('returns 404 when student does not exist', async () => {
       await supertest(app.getHttpServer())
-        .post('/invoices')
+        .post('/api/v1/invoices')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ADMIN)
@@ -158,7 +160,7 @@ describe('Invoices E2E', () => {
 
     it('returns 400 for invalid DTO (missing student_id)', async () => {
       await supertest(app.getHttpServer())
-        .post('/invoices')
+        .post('/api/v1/invoices')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ADMIN)
@@ -173,7 +175,7 @@ describe('Invoices E2E', () => {
       const feeId = await createFee(studentId, 900);
 
       const createRes = await supertest(app.getHttpServer())
-        .post('/invoices')
+        .post('/api/v1/invoices')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ACCOUNTANT)
@@ -181,7 +183,7 @@ describe('Invoices E2E', () => {
         .expect(201);
 
       const detailRes = await supertest(app.getHttpServer())
-        .get(`/invoices/${createRes.body.id}`)
+        .get(`/api/v1/invoices/${createRes.body.id}`)
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ADMIN)
@@ -189,7 +191,7 @@ describe('Invoices E2E', () => {
       expect(detailRes.body.id).toBe(createRes.body.id);
 
       const printRes = await supertest(app.getHttpServer())
-        .get(`/invoices/${createRes.body.id}/print`)
+        .get(`/api/v1/invoices/${createRes.body.id}/print`)
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ADMIN)
@@ -200,7 +202,7 @@ describe('Invoices E2E', () => {
 
     it('returns 404 for an invoice that does not exist', async () => {
       await supertest(app.getHttpServer())
-        .get('/invoices/00000000-0000-4000-8000-000000000000')
+        .get('/api/v1/invoices/00000000-0000-4000-8000-000000000000')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ADMIN)
@@ -209,14 +211,14 @@ describe('Invoices E2E', () => {
 
     it('returns 400 (not a DB error) for a malformed id', async () => {
       await supertest(app.getHttpServer())
-        .get('/invoices/not-a-uuid')
+        .get('/api/v1/invoices/not-a-uuid')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ADMIN)
         .expect(400);
 
       await supertest(app.getHttpServer())
-        .get('/invoices/not-a-uuid/print')
+        .get('/api/v1/invoices/not-a-uuid/print')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ADMIN)
@@ -229,7 +231,7 @@ describe('Invoices E2E', () => {
       const studentId = await createStudent();
       const feeId = await createFee(studentId);
       await supertest(app.getHttpServer())
-        .post('/invoices')
+        .post('/api/v1/invoices')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ACCOUNTANT)
@@ -237,7 +239,7 @@ describe('Invoices E2E', () => {
         .expect(201);
 
       const res = await supertest(app.getHttpServer())
-        .get('/invoices')
+        .get('/api/v1/invoices')
         .query({ student_id: studentId })
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)

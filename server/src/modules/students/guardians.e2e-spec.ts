@@ -3,6 +3,7 @@ import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { AppModule } from '../../app.module';
+import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { DataSource } from 'typeorm';
 import { UserRole } from '@beton-boi/shared';
@@ -33,13 +34,14 @@ describe('Guardians E2E', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    configureApiVersioning(app);
     app.useGlobalPipes(new ValidationPipe(buildValidationPipeOptions()));
     await app.init();
 
     dataSource = app.get(DataSource);
 
     const loginRes = await supertest(app.getHttpServer())
-      .post('/auth/login')
+      .post('/api/v1/auth/login')
       .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
       .expect(200);
     adminToken = loginRes.body.access_token;
@@ -55,7 +57,7 @@ describe('Guardians E2E', () => {
       [SEED_ADMIN_USER_ID, TENANT_ID, UserRole.STUDENT],
     );
     const studentLoginRes = await supertest(app.getHttpServer())
-      .post('/auth/login')
+      .post('/api/v1/auth/login')
       .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
       .expect(200);
     studentToken = studentLoginRes.body.access_token;
@@ -68,7 +70,7 @@ describe('Guardians E2E', () => {
   describe('POST /guardians', () => {
     it('should create a guardian with ADMIN role', async () => {
       const res = await supertest(app.getHttpServer())
-        .post('/guardians')
+        .post('/api/v1/guardians')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({
@@ -87,7 +89,7 @@ describe('Guardians E2E', () => {
 
     it('should return 401 without X-Tenant-ID header', async () => {
       const res = await supertest(app.getHttpServer())
-        .post('/guardians')
+        .post('/api/v1/guardians')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ full_name: 'No Tenant', relationship: 'Mother' })
         .expect(401);
@@ -97,7 +99,7 @@ describe('Guardians E2E', () => {
 
     it('should return 401 for STUDENT role', async () => {
       const res = await supertest(app.getHttpServer())
-        .post('/guardians')
+        .post('/api/v1/guardians')
         .set('Authorization', `Bearer ${studentToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
@@ -109,7 +111,7 @@ describe('Guardians E2E', () => {
 
     it('should return 400 for invalid DTO (missing required fields)', async () => {
       const res = await supertest(app.getHttpServer())
-        .post('/guardians')
+        .post('/api/v1/guardians')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({})
@@ -120,7 +122,7 @@ describe('Guardians E2E', () => {
   describe('GET /guardians', () => {
     it('should list guardians (searchable by name)', async () => {
       const res = await supertest(app.getHttpServer())
-        .get('/guardians')
+        .get('/api/v1/guardians')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .expect(200);
@@ -132,7 +134,7 @@ describe('Guardians E2E', () => {
 
     it('should return 401 for STUDENT role', async () => {
       const res = await supertest(app.getHttpServer())
-        .get('/guardians')
+        .get('/api/v1/guardians')
         .set('Authorization', `Bearer ${studentToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
@@ -145,14 +147,14 @@ describe('Guardians E2E', () => {
   describe('PATCH /guardians/:id', () => {
     it('should update a guardian', async () => {
       const createRes = await supertest(app.getHttpServer())
-        .post('/guardians')
+        .post('/api/v1/guardians')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({ full_name: 'Original Guardian', relationship: 'Father' })
         .expect(201);
 
       const res = await supertest(app.getHttpServer())
-        .patch(`/guardians/${createRes.body.id}`)
+        .patch(`/api/v1/guardians/${createRes.body.id}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({ full_name: 'Updated Guardian', phone: '+8801711111111' })
@@ -164,14 +166,14 @@ describe('Guardians E2E', () => {
 
     it('should return 401 for STUDENT role on update', async () => {
       const createRes = await supertest(app.getHttpServer())
-        .post('/guardians')
+        .post('/api/v1/guardians')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({ full_name: 'Protected', relationship: 'Mother' })
         .expect(201);
 
       const res = await supertest(app.getHttpServer())
-        .patch(`/guardians/${createRes.body.id}`)
+        .patch(`/api/v1/guardians/${createRes.body.id}`)
         .set('Authorization', `Bearer ${studentToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
@@ -185,21 +187,21 @@ describe('Guardians E2E', () => {
   describe('DELETE /guardians/:id', () => {
     it('should soft delete a guardian', async () => {
       const createRes = await supertest(app.getHttpServer())
-        .post('/guardians')
+        .post('/api/v1/guardians')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({ full_name: 'Delete Guardian', relationship: 'Father' })
         .expect(201);
 
       await supertest(app.getHttpServer())
-        .delete(`/guardians/${createRes.body.id}`)
+        .delete(`/api/v1/guardians/${createRes.body.id}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .expect(200);
 
       // Verify not found by listing — the guardian should be soft-deleted
       const listRes = await supertest(app.getHttpServer())
-        .get('/guardians')
+        .get('/api/v1/guardians')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .expect(200);
@@ -209,14 +211,14 @@ describe('Guardians E2E', () => {
 
     it('should return 401 for STUDENT role on delete', async () => {
       const createRes = await supertest(app.getHttpServer())
-        .post('/guardians')
+        .post('/api/v1/guardians')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({ full_name: 'Protected Guardian', relationship: 'Mother' })
         .expect(201);
 
       const res = await supertest(app.getHttpServer())
-        .delete(`/guardians/${createRes.body.id}`)
+        .delete(`/api/v1/guardians/${createRes.body.id}`)
         .set('Authorization', `Bearer ${studentToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)

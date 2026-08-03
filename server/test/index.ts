@@ -8,4 +8,5 @@
 export * from './helpers/auth.helper';
 export * from './helpers/db.helper';
 export * from './helpers/module.helper';
+export * from './helpers/e2e-app.helper';
 export { dataSource } from './setup';

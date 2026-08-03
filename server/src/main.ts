@@ -10,6 +10,7 @@ import helmet from "helmet";
 import { buildCorsOptions } from "./cors-origins";
 import { buildHelmetOptions } from "./security-headers";
 import { buildValidationPipeOptions } from "./validation-pipe";
+import { buildVersioningOptions } from "./api-versioning";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -30,6 +31,9 @@ async function bootstrap() {
 
   // Global prefix for API routes
   app.setGlobalPrefix("api");
+  // Every route gets /v1 unless marked @Version(VERSION_NEUTRAL) (health) —
+  // see api-versioning.ts.
+  app.enableVersioning(buildVersioningOptions());
 
   // Global filters and pipes
   app.useGlobalFilters(new AllExceptionsFilter());

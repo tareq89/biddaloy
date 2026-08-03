@@ -3,6 +3,7 @@ import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { AppModule } from '../../app.module';
+import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { DataSource } from 'typeorm';
 import { UserRole, PaymentMethod, PaymentAllocationType, FeeStatus } from '@beton-boi/shared';
@@ -74,6 +75,7 @@ describe('Payment Recording (record-with-allocation) E2E', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    configureApiVersioning(app);
     app.useGlobalPipes(new ValidationPipe(buildValidationPipeOptions()));
     await app.init();
 
@@ -93,7 +95,7 @@ describe('Payment Recording (record-with-allocation) E2E', () => {
     );
 
     const loginRes = await supertest(app.getHttpServer())
-      .post('/auth/login')
+      .post('/api/v1/auth/login')
       .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
       .expect(200);
     token = loginRes.body.access_token;
@@ -110,7 +112,7 @@ describe('Payment Recording (record-with-allocation) E2E', () => {
       const feeId = await createFee(studentId, 0, 1000);
 
       const res = await supertest(app.getHttpServer())
-        .post('/payments/record-with-allocation')
+        .post('/api/v1/payments/record-with-allocation')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ADMIN)
@@ -135,7 +137,7 @@ describe('Payment Recording (record-with-allocation) E2E', () => {
       const feeId = await createFee(studentId, 0, 1000);
 
       const res = await supertest(app.getHttpServer())
-        .post('/payments/record-with-allocation')
+        .post('/api/v1/payments/record-with-allocation')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ACCOUNTANT)
@@ -165,7 +167,7 @@ describe('Payment Recording (record-with-allocation) E2E', () => {
       const feeId = await createFee(studentId, 0, 1000);
 
       const res = await supertest(app.getHttpServer())
-        .post('/payments/record-with-allocation')
+        .post('/api/v1/payments/record-with-allocation')
         .set('Authorization', `Bearer ${studentToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
@@ -186,7 +188,7 @@ describe('Payment Recording (record-with-allocation) E2E', () => {
       const dueRecentId = await createFee(studentId, -1, 500);
 
       await supertest(app.getHttpServer())
-        .post('/payments/record-with-allocation')
+        .post('/api/v1/payments/record-with-allocation')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ADMIN)
@@ -201,7 +203,7 @@ describe('Payment Recording (record-with-allocation) E2E', () => {
 
     it('returns 400 for invalid DTO (missing required fields)', async () => {
       await supertest(app.getHttpServer())
-        .post('/payments/record-with-allocation')
+        .post('/api/v1/payments/record-with-allocation')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ADMIN)
@@ -211,7 +213,7 @@ describe('Payment Recording (record-with-allocation) E2E', () => {
 
     it('returns 404 when student does not exist', async () => {
       await supertest(app.getHttpServer())
-        .post('/payments/record-with-allocation')
+        .post('/api/v1/payments/record-with-allocation')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ADMIN)
