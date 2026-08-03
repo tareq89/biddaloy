@@ -31,12 +31,16 @@ export class AllExceptionsFilter implements ExceptionFilter {
     // Redacted before logging (not before building `body` above) — the
     // client-facing response is unaffected, only what lands in logs. The
     // request body itself (e.g. a login password) is never included here.
+    // The stack is redacted too, separately — Logger.error's second
+    // argument isn't covered by the first-argument redactPii() call above
+    // it, and Error.stack's own first line repeats the exception's message
+    // (which is exactly where PII a query failed on tends to surface).
     const detail = resolveDetailMessage(exception);
     this.logger.error(
       redactPii(
         `${request.method} ${request.url} → ${status}: ${Array.isArray(detail) ? detail.join("; ") : detail} [requestId=${requestId}]`,
       ),
-      exception instanceof Error ? exception.stack : undefined,
+      exception instanceof Error && exception.stack ? redactPii(exception.stack) : undefined,
     );
 
     response.setHeader("X-Request-Id", requestId);

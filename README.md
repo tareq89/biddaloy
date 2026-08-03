@@ -120,10 +120,16 @@ and a `certbot` renewal-loop service handle certificates.
 
 **Required, not optional, for any real deployment:** the `db` volume must sit
 on encrypted storage (a LUKS-encrypted disk, or the cloud provider's
-encryption-at-rest, if not self-hosting), and `DB_SSL=true` must be set once
-Postgres is reachable over anything other than the compose stack's private
-Docker network. See the README's "Data protection" section under Security
-for the full posture and reasoning.
+encryption-at-rest, if not self-hosting). `DB_SSL=true` is required
+whenever `NODE_ENV=production`, unconditionally — the app refuses to boot
+otherwise, regardless of network topology. **This bundled compose file does
+not currently configure TLS on the `db` service** — `postgres:16-alpine`
+needs a cert/key pair and `ssl=on` to serve it, neither of which this stack
+sets up. Deploying this file as-is with `NODE_ENV=production` will fail to
+boot until either the `db` service is given real TLS certs, or
+`DATABASE_URL` is repointed at an external Postgres that already serves
+TLS. See the README's "Data protection" section under Security for the
+full posture and reasoning.
 
 ### DNS prerequisite
 
@@ -402,6 +408,12 @@ controls this:
   sometimes genuinely necessary for a managed Postgres with a self-signed
   cert, but logs a boot-time warning every time it's set, since it's also a
   common copy-paste that silently defeats the whole point of enabling TLS.
+- This requirement is unconditional — it does not matter whether Postgres
+  happens to be on the same private Docker network as the app. The bundled
+  `docker-compose.yml`'s `db` service does not configure TLS today, so
+  deploying it as-is with `NODE_ENV=production` will refuse to boot until
+  that's addressed (see "Docker Deployment" above) — a known gap, not an
+  oversight papered over here.
 
 **At rest.** Required as a deployment property, not an optional hardening
 step: the Postgres data volume must sit on encrypted storage — either the
@@ -437,9 +449,21 @@ breaks core access patterns this app depends on:
 - Student/guardian name search and sort are core to every list view.
   Encrypted columns can't be `LIKE`-searched, range-scanned, or usefully
   indexed.
-- The actual threat model here is a stolen database dump. Volume/managed
-  encryption at rest addresses exactly that, without needing a key-management
-  system this project doesn't have.
+- The threat model volume/managed encryption at rest actually addresses is
+  **stolen storage media** — a disk, volume, snapshot, or backup taken
+  without valid database credentials. It does *not* protect a `pg_dump`
+  (or any other logical export) taken by someone who already has DB
+  credentials: Postgres decrypts pages before returning query results, so a
+  logical dump is plaintext regardless of what the underlying storage does.
+  That scenario is a credential/access-control problem — least-privilege DB
+  roles, credential rotation, and the audit trail (#37) — not a storage-
+  encryption one, and column-level encryption wouldn't fully close it either
+  (an attacker with valid app-level credentials can just query the API).
+
+Neither at-rest volume encryption nor this deferral claims to fully defend
+against a compromised, credentialed actor — that requires the access-control
+and credential-hygiene work above, not a storage or column-encryption
+mechanism.
 
 This would be revisited if either changes: a regulatory requirement forcing
 column-level encryption regardless of the login/search cost, or a KMS

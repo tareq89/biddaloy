@@ -187,13 +187,26 @@ describe("AllExceptionsFilter", () => {
 
     filter.catch(exception, mockHost);
 
-    expect(Logger.prototype.error).toHaveBeenCalledWith(
-      expect.stringContaining("[REDACTED_EMAIL]"),
-      exception.stack,
+    const loggedArgs = (Logger.prototype.error as any).mock.calls.flat();
+    expect(loggedArgs.some((arg: unknown) => typeof arg === "string" && arg.includes("[REDACTED_EMAIL]"))).toBe(true);
+    expect(loggedArgs.some((arg: unknown) => typeof arg === "string" && arg.includes("guardian@example.com"))).toBe(
+      false,
     );
-    expect(Logger.prototype.error).not.toHaveBeenCalledWith(
-      expect.stringContaining("guardian@example.com"),
-      expect.anything(),
+  });
+
+  // Logger.error's stack argument is a separate parameter from the message
+  // redactPii() is applied to — and Error.stack's own first line repeats
+  // the exception's message, so it carries the same PII if left unredacted.
+  it("redacts PII from the exception stack, not just the message", () => {
+    const filter = new AllExceptionsFilter("development");
+    const exception = new InternalServerErrorException("duplicate key for guardian@example.com");
+
+    filter.catch(exception, mockHost);
+
+    expect(exception.stack).toContain("guardian@example.com");
+    const loggedArgs = (Logger.prototype.error as any).mock.calls.flat();
+    expect(loggedArgs.some((arg: unknown) => typeof arg === "string" && arg.includes("guardian@example.com"))).toBe(
+      false,
     );
   });
 

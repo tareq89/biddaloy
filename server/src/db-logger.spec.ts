@@ -37,6 +37,25 @@ describe('RedactingTypeOrmLogger', () => {
     expect(allText).not.toContain('admin@example.com');
   });
 
+  // appendParameterAsComment: false only covers the query's own bound
+  // parameters — logQueryError's second message carries the raw driver
+  // error text separately, and a real Postgres constraint violation can
+  // echo the offending value back in that text (e.g. "Key (email)=(...)
+  // already exists").
+  it('redacts PII embedded in the driver error text itself, not just bound parameters', () => {
+    const logger = new RedactingTypeOrmLogger(true);
+
+    logger.logQueryError(
+      'duplicate key value violates unique constraint — Key (email)=(admin@example.com) already exists',
+      'INSERT INTO users (email) VALUES ($1)',
+      ['admin@example.com'],
+    );
+
+    const allText = warnSpy.mock.calls.map((call) => String(call[0])).join('\n');
+    expect(allText).toContain('[REDACTED_EMAIL]');
+    expect(allText).not.toContain('admin@example.com');
+  });
+
   it('respects the logging option — stays silent when logging is disabled', () => {
     const logger = new RedactingTypeOrmLogger(false);
 

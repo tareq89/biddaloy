@@ -8,7 +8,11 @@ const EMAIL_PATTERN = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
 // and global instead. Keep both in sync if the phone format ever changes.
 const PHONE_PATTERN = /(?:\+?880|0)1[3-9]\d{8}/g;
 
-const SENSITIVE_QUERY_KEYS = ['password', 'token', 'access_token', 'refresh_token', 'secret', 'api_key', 'apikey'];
+// A single static alternation, not one dynamically-built RegExp per key —
+// keeps this scannable at a glance and avoids a `new RegExp(variable)`
+// pattern static analysis tools flag as a potential ReDoS vector even
+// though these keys are a fixed internal list, never user input.
+const SENSITIVE_QUERY_PATTERN = /([?&](?:password|token|access_token|refresh_token|secret|api_key|apikey)=)[^&\s]+/gi;
 
 /**
  * Scrubs email/phone-shaped substrings and known-sensitive query-param
@@ -23,12 +27,25 @@ const SENSITIVE_QUERY_KEYS = ['password', 'token', 'access_token', 'refresh_toke
  * pressure.
  */
 export function redactPii(text: string): string {
-  let result = text.replace(EMAIL_PATTERN, '[REDACTED_EMAIL]').replace(PHONE_PATTERN, '[REDACTED_PHONE]');
+  return applyRedaction(safeDecode(text));
+}
 
-  for (const key of SENSITIVE_QUERY_KEYS) {
-    const queryParamPattern = new RegExp(`([?&]${key}=)[^&\\s]+`, 'gi');
-    result = result.replace(queryParamPattern, '$1[REDACTED]');
+// A raw request URL/query string is commonly percent-encoded by the client
+// (e.g. `admin%40example.com`) — matching only the literal, unencoded shape
+// would let that straight through. Decoding first (defensively — a lone
+// `%` not followed by two hex digits throws) catches both forms; only this
+// log line's redacted text is affected, never anything returned to a client.
+function safeDecode(text: string): string {
+  try {
+    return decodeURIComponent(text);
+  } catch {
+    return text;
   }
+}
 
-  return result;
+function applyRedaction(text: string): string {
+  return text
+    .replace(EMAIL_PATTERN, '[REDACTED_EMAIL]')
+    .replace(PHONE_PATTERN, '[REDACTED_PHONE]')
+    .replace(SENSITIVE_QUERY_PATTERN, '$1[REDACTED]');
 }

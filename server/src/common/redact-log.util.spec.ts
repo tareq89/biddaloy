@@ -36,4 +36,21 @@ describe('redactPii', () => {
   it('leaves text with no PII untouched', () => {
     expect(redactPii('GET /api/v1/health → 200 [requestId=abc]')).toBe('GET /api/v1/health → 200 [requestId=abc]');
   });
+
+  // A raw request URL is commonly percent-encoded by the client — matching
+  // only the literal, unencoded shape would let PII straight through.
+  it('redacts a percent-encoded email address in a query string', () => {
+    expect(redactPii('/api/v1/students?email=guardian%40example.com')).toBe(
+      '/api/v1/students?email=[REDACTED_EMAIL]',
+    );
+  });
+
+  it('redacts a percent-encoded phone number in a query string', () => {
+    expect(redactPii('/api/v1/students?phone=%2B8801712345678')).toBe('/api/v1/students?phone=[REDACTED_PHONE]');
+  });
+
+  it('falls back to the raw text instead of throwing on malformed percent-encoding', () => {
+    expect(() => redactPii('/api/v1/students?q=100%off')).not.toThrow();
+    expect(redactPii('/api/v1/students?q=100%off')).toBe('/api/v1/students?q=100%off');
+  });
 });
