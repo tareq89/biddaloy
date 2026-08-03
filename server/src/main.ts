@@ -7,6 +7,7 @@ import { AllExceptionsFilter } from "./common/filters/http-exception.filter";
 import * as express from "express";
 import { join } from "path";
 import { Request, Response, NextFunction } from "express";
+import cookieParser = require("cookie-parser");
 import helmet from "helmet";
 import { buildCorsOptions } from "./cors-origins";
 import { buildHelmetOptions } from "./security-headers";
@@ -34,6 +35,9 @@ async function bootstrap() {
   // Swagger UI needs inline script/style the global CSP above deliberately
   // doesn't allow anywhere else — see docs-auth.ts.
   app.use(buildDocsCspOverrideMiddleware(`/api/${DOCS_PATH}`));
+  // Needed to read the httpOnly refresh token cookie on /auth/refresh,
+  // /auth/logout, /auth/logout-all — see token-cookie.ts.
+  app.use(cookieParser());
 
   // Global prefix for API routes
   app.setGlobalPrefix("api");

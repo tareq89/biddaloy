@@ -21,6 +21,10 @@ export interface JwtPayload {
   email: string | null;
   phone: string | null;
   memberships: JwtMembership[];
+  // Unique per access token — lets a single token be revoked early (see
+  // AccessTokenDenylistService) without needing a blacklist of every
+  // issued token, since the token's own lifetime is now short.
+  jti: string;
 }
 
 /**

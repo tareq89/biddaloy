@@ -44,6 +44,7 @@ import { ReminderBatch } from "./modules/communications/entities/reminder-batch.
 import { AuditLog } from "./modules/audit/entities/audit-log.entity";
 import { Enrollment } from "./modules/students/entities/enrollment.entity";
 import { TeacherClassSection } from "./modules/academics/entities/teacher-class-section.entity";
+import { RefreshToken } from "./modules/auth/entities/refresh-token.entity";
 
 @Module({
   imports: [
@@ -79,6 +80,7 @@ import { TeacherClassSection } from "./modules/academics/entities/teacher-class-
           AuditLog,
           Enrollment,
           TeacherClassSection,
+          RefreshToken,
         ],
         synchronize: config.get<string>("DB_SYNCHRONIZE") === "true",
         logging: config.get<string>("NODE_ENV") !== "production",

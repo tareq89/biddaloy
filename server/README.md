@@ -24,6 +24,8 @@ All env vars are defined in `.env` at the monorepo root. The server loads it via
 | `NODE_ENV` | No | `development` | `development` / `production` |
 | `PORT` | No | `3000` | Server listen port |
 | `JWT_SECRET` | Yes | — | Secret key for JWT tokens |
+| `ACCESS_TOKEN_TTL_MS` | No | `900000` (15 min) | Bearer access token lifetime — see root README's "Session & token lifecycle" |
+| `REFRESH_TOKEN_TTL_MS` | No | `2592000000` (30 days) | Refresh token (httpOnly cookie) lifetime |
 | `SEED_ADMIN_PASSWORD` | For seed | — | Password for the super admin account |
 | `DB_SYNCHRONIZE` | No | `false` | TypeORM auto-sync (dev only — set to `true` to enable; never use in prod) |
 | `DB_DESTROY_CONFIRM` | For db:clear/db:reset | `false` | Set to `true` to confirm destructive database operations |
