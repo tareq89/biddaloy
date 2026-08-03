@@ -9,6 +9,10 @@ function fakeRepo() {
   const rows = new Map<string, any>();
 
   function matcher(cond: string, params: Record<string, any>) {
+    // "id = :id" must be checked before the broader "_id"-suffixed cases
+    // below, and via a word-boundary match rather than .includes — plain
+    // .includes("id") would also match "family_id"/"user_id"/"replaced_by_id".
+    if (/(^|\s)id\s*=/.test(cond)) return (row: any) => row.id === params.id;
     if (cond.includes("family_id")) return (row: any) => row.family_id === params.familyId;
     if (cond.includes("user_id")) return (row: any) => row.user_id === params.userId;
     if (cond.includes("revoked_at IS NULL")) return (row: any) => row.revoked_at === null;
@@ -166,6 +170,60 @@ describe("RefreshTokenService", () => {
       const newRow = repo.rows.get(newId);
       expect(newRow.family_id).toBe(familyId);
       expect(newRow.revoked_at).toBeNull();
+    });
+
+    // Regression test for the read-then-write race a conditional UPDATE
+    // closes: two concurrent requests presenting the same live token would
+    // otherwise both observe revoked_at === null and both unconditionally
+    // issue + write a successor, with the second write silently clobbering
+    // the first's replaced_by_id. Simulated here by mutating the *live* row
+    // (via a live rows.get() reference, not the snapshot rotateRow received)
+    // between this call's own read and its own conditional update — exactly
+    // the window a second request would land in.
+    it("closes the concurrent-rotation race: a losing request re-reads instead of clobbering the winner's claim", async () => {
+      const issued = await issue();
+      const { id: originalId } = parseCookie(issued.cookieValue);
+      const familyId = repo.rows.get(originalId).family_id;
+
+      const concurrentWinnerId = randomUUID();
+      await repo.insert({
+        id: concurrentWinnerId,
+        user_id: userId,
+        family_id: familyId,
+        token_hash: "0".repeat(64),
+        expires_at: new Date(Date.now() + TTL_MS),
+        revoked_at: null,
+        replaced_by_id: null,
+        ip_address: null,
+        user_agent: null,
+      });
+
+      const originalFindOne = repo.findOne.getMockImplementation()!;
+      let sideEffectApplied = false;
+      repo.findOne.mockImplementationOnce(async (query: any) => {
+        const snapshot = await originalFindOne(query);
+        if (!sideEffectApplied) {
+          sideEffectApplied = true;
+          const live = repo.rows.get(originalId);
+          live.revoked_at = new Date();
+          live.replaced_by_id = concurrentWinnerId;
+        }
+        return snapshot;
+      });
+
+      const result = await service.rotate(issued.cookieValue, { ip: null, userAgent: null });
+
+      // The losing request must never have written to the original row —
+      // it should still point at the concurrent winner's successor, not
+      // whatever this call would have generated on its own.
+      expect(repo.rows.get(originalId).replaced_by_id).toBe(concurrentWinnerId);
+
+      // Instead, it must walk the grace chain forward from the winner and
+      // return a fresh pair rotated from *that* row.
+      const winnerRow = repo.rows.get(concurrentWinnerId);
+      const { id: resultId } = parseCookie(result.refreshToken.cookieValue);
+      expect(winnerRow.replaced_by_id).toBe(resultId);
+      expect(result.userId).toBe(userId);
     });
 
     it("rejects presenting the same token twice outside the grace window: revokes the whole family", async () => {

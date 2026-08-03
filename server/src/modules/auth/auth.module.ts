@@ -87,6 +87,13 @@ const DEFAULT_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60_000; // 30 days
         new Redis(config.get<string>('REDIS_URL') ?? 'redis://localhost:6379', {
           enableOfflineQueue: false,
           maxRetriesPerRequest: 1,
+          // isRevoked() runs on every authenticated request, inside
+          // JwtStrategy.validate() — enableOfflineQueue/maxRetriesPerRequest
+          // only cover a *disconnected* client failing fast. An established
+          // connection to a Redis that accepted the TCP connection but never
+          // replies would otherwise hang this call indefinitely instead of
+          // reaching AccessTokenDenylistService's fail-open catch block.
+          commandTimeout: 1000,
         }),
     },
     {

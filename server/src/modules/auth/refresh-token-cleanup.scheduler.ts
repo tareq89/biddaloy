@@ -25,6 +25,12 @@ export class RefreshTokenCleanupScheduler implements OnModuleInit {
       {
         jobId: REFRESH_TOKEN_CLEANUP_JOB_ID,
         repeat: { every: REFRESH_TOKEN_CLEANUP_INTERVAL_MS },
+        // BullMQ keeps finished jobs by default, so an hourly job would
+        // otherwise accumulate Redis state forever. No need to inspect a
+        // completed cleanup run; failed ones are worth a bounded amount of
+        // history to diagnose.
+        removeOnComplete: true,
+        removeOnFail: 100,
       },
     );
     this.logger.log(`Scheduled refresh token cleanup every ${REFRESH_TOKEN_CLEANUP_INTERVAL_MS}ms`);

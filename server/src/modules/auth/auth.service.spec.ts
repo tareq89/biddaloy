@@ -11,7 +11,7 @@ import { LoginAttemptService } from './login-attempt.service';
 import { RefreshTokenService, RefreshTokenReuseDetectedException } from './refresh-token.service';
 import { AccessTokenDenylistService } from './access-token-denylist.service';
 import { ACCESS_TOKEN_TTL_MS } from './auth-tokens';
-import { AuditAction, UserRole } from '@beton-boi/shared';
+import { AuditAction, UserRole, UserStatus } from '@beton-boi/shared';
 
 // Mock bcrypt as a module-level replacement
 // This must be before any imports of bcrypt
@@ -391,6 +391,26 @@ describe('AuthService', () => {
 
       expect(result.access_token).toBe('test-jwt-token');
     });
+
+    // A suspended/inactive account must fail exactly like a wrong password —
+    // same status, same message, same LOGIN_FAILED action — otherwise the
+    // response itself would leak whether an account exists but is disabled.
+    // This also has to hold for login specifically, not just refresh:
+    // otherwise a deactivated user could just log back in with their
+    // password to route around a suspension instead of being locked out by
+    // it, which would make the refresh-side check pointless.
+    it('rejects a correct password for a non-ACTIVE user, identically to a wrong password', async () => {
+      const suspendedUser = { ...mockUser, status: UserStatus.SUSPENDED };
+      mockUserRepo.findOne.mockResolvedValue(suspendedUser);
+      (bcrypt.compare as any).mockResolvedValue(true);
+
+      await expect(service.login('admin@test.com', 'password123')).rejects.toThrow('Invalid credentials');
+      expect(mockUserRepo.save).not.toHaveBeenCalled();
+      expect(mockRefreshTokens.issueForUser).not.toHaveBeenCalled();
+      expect(mockAuditLogRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ action: AuditAction.LOGIN_FAILED }),
+      );
+    });
   });
 
   describe('refresh', () => {
@@ -420,6 +440,18 @@ describe('AuthService', () => {
 
       await expect(service.refresh('token-id.secret', { ip: null, userAgent: null })).rejects.toThrow(
         UnauthorizedException,
+      );
+    });
+
+    // Otherwise a suspension only takes effect once the access token's own
+    // ~15-minute lifetime runs out, not "on the next refresh" as the rest
+    // of this method's membership-freshness behavior promises.
+    it('rejects a rotated token belonging to a non-ACTIVE user, the same as a missing one', async () => {
+      mockRefreshTokens.rotate.mockResolvedValue({ userId: 'user-1', refreshToken: mockIssuedRefreshToken });
+      mockUserRepo.findOne.mockResolvedValue({ ...mockUser, status: UserStatus.INACTIVE });
+
+      await expect(service.refresh('token-id.secret', { ip: null, userAgent: null })).rejects.toThrow(
+        'User no longer exists',
       );
     });
 

@@ -95,7 +95,18 @@ export class RefreshTokenService {
   }
 
   async issueForUser(userId: string, familyId: string, context: RequestContext): Promise<IssuedRefreshToken> {
-    const id = randomUUID();
+    return this.issueWithId(randomUUID(), userId, familyId, context);
+  }
+
+  // Split out so rotateRow can generate the successor's id itself, before
+  // deciding whether it's actually allowed to issue it (see the conditional
+  // update in rotateRow).
+  private async issueWithId(
+    id: string,
+    userId: string,
+    familyId: string,
+    context: RequestContext,
+  ): Promise<IssuedRefreshToken> {
     const secret = randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + this.ttlMs);
 
@@ -159,14 +170,34 @@ export class RefreshTokenService {
       throw new RefreshTokenReuseDetectedException(row.user_id, row.family_id);
     }
 
-    const issued = await this.issueForUser(row.user_id, row.family_id, context);
-    const newId = this.parseCookieValue(issued.cookieValue)!.id;
+    // The read above and the write below aren't atomic — two concurrent
+    // requests presenting the same live token would otherwise both observe
+    // revoked_at === null and both issue a successor, leaving two live
+    // tokens in one family with the second write silently clobbering the
+    // first successor's replaced_by_id. Making the claim itself a
+    // conditional UPDATE closes that: only the request whose UPDATE
+    // actually matches a still-live row may issue the successor. A
+    // concurrent loser matches zero rows and re-reads, falling through to
+    // the grace/reuse logic above exactly as if it had arrived slightly
+    // later.
+    const successorId = randomUUID();
+    const claim = await this.repo
+      .createQueryBuilder()
+      .update(RefreshToken)
+      .set({ revoked_at: new Date(), replaced_by_id: successorId })
+      .where("id = :id", { id: row.id })
+      .andWhere("revoked_at IS NULL")
+      .execute();
 
-    await this.repo.update(row.id, {
-      revoked_at: new Date(),
-      replaced_by_id: newId,
-    });
+    if (!claim.affected) {
+      const reread = await this.repo.findOne({ where: { id: row.id } });
+      if (!reread) {
+        throw new UnauthorizedException("Invalid refresh token");
+      }
+      return this.rotateRow(reread, context, hops + 1);
+    }
 
+    const issued = await this.issueWithId(successorId, row.user_id, row.family_id, context);
     return { userId: row.user_id, refreshToken: issued };
   }
 

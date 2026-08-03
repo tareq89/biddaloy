@@ -7,7 +7,7 @@ import { randomUUID } from 'crypto';
 import { User } from '../users/entities/user.entity';
 import { UserTenant } from './entities/user-tenant.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
-import { JwtPayload, JwtMembership, LoginResponse, AuditAction } from '@beton-boi/shared';
+import { JwtPayload, JwtMembership, LoginResponse, AuditAction, UserStatus } from '@beton-boi/shared';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { LoginAttemptService } from './login-attempt.service';
 import { normalizeLoginIdentifier } from './normalize-identifier';
@@ -87,7 +87,11 @@ export class AuthService {
     // total request timing doesn't itself reveal whether this identifier is
     // currently locked out.
     const user = await this.validateUser(emailOrPhone, password);
-    const success = !!user && !alreadyLocked;
+    // A suspended/inactive user fails exactly like a wrong password — same
+    // response, same audit action — so account status is never observable
+    // from the outside, and a deactivated account can't just log back in
+    // to route around logoutAll/refresh rejecting it (see refresh() below).
+    const success = !!user && !alreadyLocked && user.status === UserStatus.ACTIVE;
 
     if (!success) {
       if (!alreadyLocked) {
@@ -169,7 +173,11 @@ export class AuthService {
     }
 
     const user = await this.userRepository.findOne({ where: { id: rotated.userId } });
-    if (!user) {
+    // Rejects a deactivated/suspended user exactly like a missing one —
+    // otherwise status changes would only ever take effect on access-token
+    // expiry (~15 min), not immediately, defeating the point of checking
+    // current state on every refresh (see this method's own doc comment).
+    if (!user || user.status !== UserStatus.ACTIVE) {
       throw new UnauthorizedException('User no longer exists');
     }
 
@@ -217,6 +225,9 @@ export class AuthService {
    */
   async logoutAll(userId: string, jti: string, context: RequestContext): Promise<void> {
     await this.refreshTokens.revokeAllForUser(userId);
+    // AccessTokenDenylistService.revoke() already fails open internally
+    // (catches and logs, never rejects — see that file), so a Redis outage
+    // here can't prevent the audit write below from running.
     await this.accessTokenDenylist.revoke(jti, this.accessTokenTtlMs);
 
     await this.writeAuditLog({
