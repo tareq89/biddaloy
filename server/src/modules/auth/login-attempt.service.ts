@@ -71,7 +71,17 @@ export class LoginAttemptService {
       const attemptsKey = ATTEMPTS_KEY_PREFIX + identifier;
       const count = await this.redis.incr(attemptsKey);
       if (count === 1) {
-        await this.redis.pexpire(attemptsKey, this.windowMs);
+        try {
+          await this.redis.pexpire(attemptsKey, this.windowMs);
+        } catch (expireError) {
+          // incr already succeeded; without a TTL this key would never
+          // expire and would silently accumulate toward a permanent
+          // lockout — the opposite of this class's fail-open contract.
+          // Drop it and let the outer catch apply the normal fail-open
+          // response instead.
+          await this.redis.del(attemptsKey).catch(() => undefined);
+          throw expireError;
+        }
       }
 
       const locked = count >= this.threshold;

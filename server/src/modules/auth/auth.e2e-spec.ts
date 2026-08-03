@@ -117,8 +117,14 @@ describe('Auth E2E', () => {
         .send({ email: SEED_ADMIN_EMAIL, password: 'wrongpassword' })
         .expect(401);
 
+      // entity_id/performed_by_user_id are null on this row by design (see
+      // AuthService.writeAuditLog), so scope by the identifier instead of
+      // relying on recency alone — otherwise a LOGIN_FAILED row from a
+      // concurrently running e2e file against the shared test database
+      // could make this flaky.
       const rows = await dataSource.query(
-        `SELECT * FROM "audit_logs" WHERE action = 'LOGIN_FAILED' ORDER BY created_at DESC LIMIT 1`,
+        `SELECT * FROM "audit_logs" WHERE action = 'LOGIN_FAILED' AND new_values->>'identifier' = $1 ORDER BY created_at DESC LIMIT 1`,
+        [SEED_ADMIN_EMAIL.toLowerCase()],
       );
 
       expect(rows).toHaveLength(1);

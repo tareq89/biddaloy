@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, Inject, Optional } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException, Inject, Optional } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -25,6 +25,8 @@ function sleep(ms: number): Promise<void> {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
@@ -77,17 +79,15 @@ export class AuthService {
         await sleep(delayMs);
       }
 
-      await this.auditLogRepository.save(
-        this.auditLogRepository.create({
-          action: AuditAction.LOGIN_FAILED,
-          entity_type: 'User',
-          entity_id: user?.id ?? null,
-          performed_by_user_id: user?.id ?? null,
-          ip_address: context.ip,
-          user_agent: context.userAgent,
-          new_values: { identifier },
-        }),
-      );
+      await this.writeAuditLog({
+        action: AuditAction.LOGIN_FAILED,
+        entity_type: 'User',
+        entity_id: user?.id ?? null,
+        performed_by_user_id: user?.id ?? null,
+        ip_address: context.ip,
+        user_agent: context.userAgent,
+        new_values: { identifier },
+      });
 
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -115,20 +115,42 @@ export class AuthService {
     user.last_login_at = new Date();
     await this.userRepository.save(user);
 
-    await this.auditLogRepository.save(
-      this.auditLogRepository.create({
-        action: AuditAction.LOGIN,
-        entity_type: 'User',
-        entity_id: user.id,
-        performed_by_user_id: user.id,
-        ip_address: context.ip,
-        user_agent: context.userAgent,
-      }),
-    );
+    await this.writeAuditLog({
+      action: AuditAction.LOGIN,
+      entity_type: 'User',
+      entity_id: user.id,
+      performed_by_user_id: user.id,
+      ip_address: context.ip,
+      user_agent: context.userAgent,
+    });
 
     return {
       access_token: this.jwtService.sign(payload),
       memberships: membershipPayload,
     };
+  }
+
+  // Audit logging is ancillary to authentication itself — a write failure
+  // here must never break login. Left unguarded, a failure on the success
+  // path would be worse than just a 500: last_login_at is already
+  // persisted by the time this runs, so login would be "half-completed"
+  // (timestamp updated) while the caller never receives a token.
+  private async writeAuditLog(entry: {
+    action: AuditAction;
+    entity_type: string;
+    entity_id: string | null;
+    performed_by_user_id: string | null;
+    ip_address: string | null;
+    user_agent: string | null;
+    new_values?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      await this.auditLogRepository.save(this.auditLogRepository.create(entry));
+    } catch (error) {
+      this.logger.error(
+        `Failed to write ${entry.action} audit record: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
   }
 }

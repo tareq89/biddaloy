@@ -8,7 +8,7 @@ function fakeRedis() {
     pexpire: vi.fn(),
     set: vi.fn(),
     exists: vi.fn(),
-    del: vi.fn(),
+    del: vi.fn().mockResolvedValue(1),
   };
 }
 
@@ -112,6 +112,24 @@ describe("LoginAttemptService", () => {
         redis.incr.mockRejectedValue(new Error("ECONNREFUSED"));
 
         expect(await service.recordFailure("user@test.com")).toEqual({ locked: false, delayMs: 0 });
+      });
+
+      // incr and pexpire aren't atomic. If incr succeeds but pexpire then
+      // fails, a naive implementation leaves a counter with no TTL — it
+      // never expires, so every later failure keeps incrementing it past
+      // the threshold and the identifier stays locked forever. That's the
+      // opposite of this class's fail-open contract, so the key must be
+      // deleted instead of left behind.
+      it("deletes the attempts key and fails open when pexpire fails after a successful incr", async () => {
+        vi.spyOn(Logger.prototype, "error").mockImplementation(() => undefined);
+        redis.incr.mockResolvedValue(1);
+        redis.pexpire.mockRejectedValue(new Error("ECONNREFUSED"));
+
+        const result = await service.recordFailure("user@test.com");
+
+        expect(result).toEqual({ locked: false, delayMs: 0 });
+        expect(redis.del).toHaveBeenCalledWith("login-attempts:user@test.com");
+        expect(redis.set).not.toHaveBeenCalled();
       });
     });
 

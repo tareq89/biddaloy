@@ -326,5 +326,29 @@ describe('AuthService', () => {
 
       expect(bcrypt.compare).toHaveBeenCalledTimes(1);
     });
+
+    // Audit logging is ancillary to authentication — a write failure here
+    // must never surface as a 500 in place of the real UnauthorizedException,
+    // and must never block a successful login from returning its token.
+    it('still throws UnauthorizedException (not the audit error) when the audit write fails on a failed login', async () => {
+      mockUserRepo.findOne.mockResolvedValue(null);
+      (bcrypt.compare as any).mockResolvedValue(false);
+      mockAuditLogRepo.save.mockRejectedValue(new Error('db unavailable'));
+
+      await expect(service.login('admin@test.com', 'wrong-password')).rejects.toThrow(UnauthorizedException);
+      await expect(service.login('admin@test.com', 'wrong-password')).rejects.toThrow('Invalid credentials');
+    });
+
+    it('still returns the access token when the audit write fails on a successful login', async () => {
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      (bcrypt.compare as any).mockResolvedValue(true);
+      mockUserTenantRepo.find.mockResolvedValue(mockMemberships);
+      mockUserRepo.save.mockResolvedValue(mockUser);
+      mockAuditLogRepo.save.mockRejectedValue(new Error('db unavailable'));
+
+      const result = await service.login('admin@test.com', 'password123');
+
+      expect(result.access_token).toBe('test-jwt-token');
+    });
   });
 });
