@@ -144,7 +144,12 @@ export class SingleReminderService {
       performed_by_user_id: userId,
       ip_address: context.ip,
       user_agent: context.userAgent,
-      new_values: { recipient_count: sent.length, skipped_count: skipped.length },
+      new_values: {
+        recipient_count: sent.length,
+        queued_count: sent.filter((s) => s.status === CommunicationStatus.QUEUED).length,
+        failed_count: sent.filter((s) => s.status === CommunicationStatus.FAILED).length,
+        skipped_count: skipped.length,
+      },
     });
 
     return { student_id: studentId, sent, skipped };

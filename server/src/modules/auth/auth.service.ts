@@ -252,11 +252,20 @@ export class AuthService {
   // one — this picks the earliest membership as a stable, deterministic
   // choice, the same rule the tenant-id backfill migrations use.
   private async primaryTenantId(userId: string): Promise<string | null> {
-    const membership = await this.userTenantRepository.findOne({
-      where: { user_id: userId },
-      order: { created_at: 'ASC' },
-    });
-    return membership?.tenant_id ?? null;
+    // This lookup only feeds an audit record, but it runs before
+    // AuditService.record() ever gets a chance to fail open — left
+    // unguarded, a transient DB error here would reject login after
+    // last_login_at is already saved, replace logout's response with a 500,
+    // or turn TOKEN_REUSE_DETECTED's rethrow into an unrelated error.
+    try {
+      const membership = await this.userTenantRepository.findOne({
+        where: { user_id: userId },
+        order: { created_at: 'ASC' },
+      });
+      return membership?.tenant_id ?? null;
+    } catch {
+      return null;
+    }
   }
 
   private signAccessToken(user: User, memberships: JwtMembership[]): string {

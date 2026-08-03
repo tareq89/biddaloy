@@ -125,11 +125,15 @@ export class BulkReminderService {
       }),
     );
 
-    await this.queueRecipients(recipients, batch, dto, tenantId, userId);
+    const { queued, failed } = await this.queueRecipients(recipients, batch, dto, tenantId, userId);
 
     // One record per batch, not per recipient — a bulk send can fan out to
     // hundreds of guardians, and PAYMENT_RECEIVED/BULK_UPLOAD already set
-    // the precedent of one audit row per user-initiated action.
+    // the precedent of one audit row per user-initiated action. Queued/
+    // failed are enqueue outcomes, not final delivery (that settles async,
+    // later, via the worker) — but "attempted N, only M actually reached
+    // the queue" is exactly what this record must not silently collapse
+    // into a single "sent" count.
     await this.auditService.record({
       action: AuditAction.REMINDER_SENT,
       entity_type: 'ReminderBatch',
@@ -141,6 +145,8 @@ export class BulkReminderService {
       new_values: {
         student_count: studentIds.length,
         recipient_count: recipients.length,
+        queued_count: queued,
+        failed_count: failed,
         skipped_count: skipped.length,
       },
     });
@@ -236,7 +242,10 @@ export class BulkReminderService {
     dto: SendBulkReminderDto,
     tenantId: string,
     userId: string,
-  ): Promise<void> {
+  ): Promise<{ queued: number; failed: number }> {
+    let queued = 0;
+    let failed = 0;
+
     for (const recipient of recipients) {
       const log = await this.logRepo.save(
         this.logRepo.create({
@@ -258,6 +267,7 @@ export class BulkReminderService {
 
       try {
         await this.queue.add('send', { logId: log.id });
+        queued++;
       } catch {
         // One recipient failing to enqueue shouldn't abort the rest of the
         // batch, but the row must not be left QUEUED with no job behind it.
@@ -270,8 +280,11 @@ export class BulkReminderService {
           await manager.save(log);
           await recordBatchOutcome(manager, batch.id, 'failure');
         });
+        failed++;
       }
     }
+
+    return { queued, failed };
   }
 
   /**

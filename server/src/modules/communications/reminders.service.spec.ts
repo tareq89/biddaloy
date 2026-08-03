@@ -517,6 +517,12 @@ describe('BulkReminderService', () => {
       // Save and counter update happen inside the same transaction callback.
       expect(logRepo.manager.transaction).toHaveBeenCalledTimes(1);
       expect(txManager.query).toHaveBeenCalledTimes(1);
+      // The audit trail must distinguish "attempted 2" from "only 1
+      // actually reached the queue" rather than collapsing both outcomes
+      // into a single count.
+      expect(auditService.record).toHaveBeenCalledWith(
+        expect.objectContaining({ new_values: expect.objectContaining({ queued_count: 1, failed_count: 1 }) }),
+      );
     });
 
     it('reports counts re-read after the enqueue loop, not the ones the batch was created with', async () => {

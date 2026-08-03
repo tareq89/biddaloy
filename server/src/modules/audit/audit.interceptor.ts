@@ -44,17 +44,22 @@ export class AuditInterceptor implements NestInterceptor {
         // Fire-and-forget: AuditService.record() already fails open (catches
         // and logs) when called without a manager, so there's nothing
         // meaningful to await here — awaiting would just add audit-write
-        // latency to a response that's already been decided.
-        void this.auditService.record({
-          action: metadata.action,
-          entity_type: metadata.entityType,
-          entity_id: entityId,
-          tenant_id: tenantId,
-          performed_by_user_id: userId,
-          ip_address: ip,
-          user_agent: userAgent,
-          new_values: response && typeof response === 'object' ? (response as Record<string, unknown>) : null,
-        });
+        // latency to a response that's already been decided. The .catch()
+        // is a second line of defense: it keeps this interceptor safe even
+        // if that fail-open contract ever regresses, rather than risking an
+        // unhandled promise rejection.
+        this.auditService
+          .record({
+            action: metadata.action,
+            entity_type: metadata.entityType,
+            entity_id: entityId,
+            tenant_id: tenantId,
+            performed_by_user_id: userId,
+            ip_address: ip,
+            user_agent: userAgent,
+            new_values: response && typeof response === 'object' ? (response as Record<string, unknown>) : null,
+          })
+          .catch(() => undefined);
       }),
     );
   }

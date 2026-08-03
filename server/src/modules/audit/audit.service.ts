@@ -43,20 +43,27 @@ export class AuditService {
    * auth.service.ts's pre-existing writeAuditLog behavior.
    */
   async record(entry: RecordAuditEntryInput, manager?: EntityManager): Promise<void> {
-    const repo = manager ? manager.getRepository(AuditLog) : this.repo;
-    const sanitized = {
-      ...entry,
-      old_values: entry.old_values ? redactSensitiveFields(entry.old_values) : null,
-      new_values: entry.new_values ? redactSensitiveFields(entry.new_values) : null,
-    };
-
     if (manager) {
+      const repo = manager.getRepository(AuditLog);
+      const sanitized = {
+        ...entry,
+        old_values: entry.old_values ? redactSensitiveFields(entry.old_values) : null,
+        new_values: entry.new_values ? redactSensitiveFields(entry.new_values) : null,
+      };
       await repo.save(repo.create(sanitized));
       return;
     }
 
+    // Redaction runs inside the try too — a malformed snapshot (e.g. a
+    // circular structure) must fail open here exactly like a DB error
+    // would, not bypass the fail-open guard below it.
     try {
-      await repo.save(repo.create(sanitized));
+      const sanitized = {
+        ...entry,
+        old_values: entry.old_values ? redactSensitiveFields(entry.old_values) : null,
+        new_values: entry.new_values ? redactSensitiveFields(entry.new_values) : null,
+      };
+      await this.repo.save(this.repo.create(sanitized));
     } catch (error) {
       this.logger.error(
         `Failed to write ${entry.action} audit record: ${error instanceof Error ? error.message : String(error)}`,
@@ -85,7 +92,16 @@ export class AuditService {
       qb.andWhere('audit_log.created_at >= :fromDate', { fromDate: query.from_date });
     }
     if (query.to_date) {
-      qb.andWhere('audit_log.created_at <= :toDate', { toDate: query.to_date });
+      // A date-only value (no time component) must include the whole day —
+      // otherwise Postgres casts it to that day's midnight and every row
+      // from the day itself is excluded from what's meant to be an
+      // inclusive range end.
+      const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(query.to_date);
+      const toDate = new Date(query.to_date);
+      if (isDateOnly) {
+        toDate.setUTCHours(23, 59, 59, 999);
+      }
+      qb.andWhere('audit_log.created_at <= :toDate', { toDate });
     }
 
     const [data, total] = await qb.skip(skip).take(limit).getManyAndCount();

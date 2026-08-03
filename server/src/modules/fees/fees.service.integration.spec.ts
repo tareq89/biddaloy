@@ -491,6 +491,15 @@ describe('FeeStructureService (integration)', () => {
       await service.update(created.id, { student_ids: [] }, TENANT_ID, SEED_ADMIN_USER_ID);
       links = await fssRepo.find({ where: { fee_structure_id: created.id } });
       expect(links).toHaveLength(0);
+
+      // A student_ids-only PATCH leaves every scalar field untouched, but
+      // the selected-student replacement is itself a change worth auditing.
+      const logs = await auditLogRepo.find({
+        where: { entity_id: created.id, action: AuditAction.FEE_STRUCTURE_CHANGE },
+      });
+      expect(logs).toHaveLength(1);
+      expect(logs[0].old_values).toEqual(expect.objectContaining({ student_ids: [student.id] }));
+      expect(logs[0].new_values).toEqual(expect.objectContaining({ student_ids: [] }));
     });
 
     it('should clear selected students when student_ids is empty array', async () => {

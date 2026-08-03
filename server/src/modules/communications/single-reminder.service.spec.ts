@@ -388,6 +388,11 @@ describe('SingleReminderService', () => {
           metadata: expect.objectContaining({ error: 'Failed to enqueue for delivery' }),
         }),
       );
+      // Derived from each recipient's actual status, not just sent.length —
+      // one guardian's enqueue failure must show up as a failure here too.
+      expect(auditService.record).toHaveBeenCalledWith(
+        expect.objectContaining({ new_values: expect.objectContaining({ queued_count: 1, failed_count: 1 }) }),
+      );
     });
 
     it('returns the skipped guardians alongside what was sent', async () => {

@@ -146,45 +146,76 @@ export class FeeStructureService {
     userId: string,
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<FeeStructure> {
-    const existing = await this.findOne(id, tenantId);
-
     const updateData: any = { ...dto };
     if (dto.student_ids !== undefined) {
       delete updateData.student_ids;
     }
-
-    // Diffed against exactly the fields this request changed, not the whole
-    // entity — a partial PATCH shouldn't make every untouched column look
-    // like it was "changed" in the audit trail.
     const changedKeys = Object.keys(updateData);
-    const oldValues = Object.fromEntries(changedKeys.map((key) => [key, (existing as any)[key]]));
 
-    await this.repo.update({ id, tenant_id: tenantId }, updateData);
+    // One transaction for the locked read, the update, the student-link
+    // replacement, and the audit write: without it, a concurrent PATCH
+    // could read stale old_values between this read and its own write, and
+    // an audit-write failure could leave the fee change committed with no
+    // record of it. AuditService.record() gets this same manager, so its
+    // write commits or rolls back atomically with everything else here.
+    await this.repo.manager.transaction(async (manager) => {
+      const feeRepo = manager.getRepository(FeeStructure);
+      const fssRepo = manager.getRepository(FeeStructureStudent);
 
-    // Replace selected students if provided
-    if (dto.student_ids !== undefined) {
-      await this.fssRepo.delete({ fee_structure_id: id });
-      if (dto.student_ids.length > 0) {
-        const entries = dto.student_ids.map((sid) => this.fssRepo.create({ fee_structure_id: id, student_id: sid }));
-        await this.fssRepo.save(entries);
+      const existing = await feeRepo
+        .createQueryBuilder('fs')
+        .where('fs.id = :id', { id })
+        .andWhere('fs.tenant_id = :tenantId', { tenantId })
+        .andWhere('fs.deleted_at IS NULL')
+        .setLock('pessimistic_write')
+        .getOne();
+      if (!existing) {
+        throw new NotFoundException(`Fee structure with ID "${id}" not found`);
       }
-    }
+
+      // Diffed against exactly the fields this request changed, not the
+      // whole entity — a partial PATCH shouldn't make every untouched
+      // column look like it was "changed" in the audit trail.
+      const oldValues = Object.fromEntries(changedKeys.map((key) => [key, (existing as any)[key]]));
+      const auditOldValues: Record<string, unknown> = { ...oldValues };
+      const auditNewValues: Record<string, unknown> = { ...updateData };
+
+      await feeRepo.update({ id, tenant_id: tenantId }, updateData);
+
+      // Replace selected students if provided — captured before deletion so
+      // a student_ids-only PATCH (which leaves changedKeys empty) still
+      // produces an audit record, not just field-level updates.
+      if (dto.student_ids !== undefined) {
+        const existingLinks = await fssRepo.find({ where: { fee_structure_id: id } });
+        auditOldValues.student_ids = existingLinks.map((link) => link.student_id);
+        auditNewValues.student_ids = dto.student_ids;
+
+        await fssRepo.delete({ fee_structure_id: id });
+        if (dto.student_ids.length > 0) {
+          const entries = dto.student_ids.map((sid) => fssRepo.create({ fee_structure_id: id, student_id: sid }));
+          await fssRepo.save(entries);
+        }
+      }
+
+      if (Object.keys(auditNewValues).length > 0) {
+        await this.auditService.record(
+          {
+            action: AuditAction.FEE_STRUCTURE_CHANGE,
+            entity_type: 'FeeStructure',
+            entity_id: id,
+            tenant_id: tenantId,
+            performed_by_user_id: userId,
+            ip_address: context.ip,
+            user_agent: context.userAgent,
+            old_values: auditOldValues,
+            new_values: auditNewValues,
+          },
+          manager,
+        );
+      }
+    });
 
     const updated = await this.findOne(id, tenantId);
-
-    if (changedKeys.length > 0) {
-      await this.auditService.record({
-        action: AuditAction.FEE_STRUCTURE_CHANGE,
-        entity_type: 'FeeStructure',
-        entity_id: id,
-        tenant_id: tenantId,
-        performed_by_user_id: userId,
-        ip_address: context.ip,
-        user_agent: context.userAgent,
-        old_values: oldValues,
-        new_values: updateData,
-      });
-    }
 
     return updated;
   }

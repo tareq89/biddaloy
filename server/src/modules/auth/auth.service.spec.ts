@@ -335,6 +335,25 @@ describe('AuthService', () => {
       );
     });
 
+    // primaryTenantId() feeds an audit record, but runs before
+    // AuditService.record() ever gets a chance to fail open — a transient
+    // error here must not reject login itself (last_login_at is already
+    // saved by this point), so it degrades to tenant_id: null instead.
+    it('still returns the access token when the tenant lookup for the audit record fails', async () => {
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      (bcrypt.compare as any).mockResolvedValue(true);
+      mockUserTenantRepo.find.mockResolvedValue(mockMemberships);
+      mockUserRepo.save.mockResolvedValue(mockUser);
+      mockUserTenantRepo.findOne.mockRejectedValue(new Error('db unavailable'));
+
+      const result = await service.login('admin@test.com', 'password123');
+
+      expect(result.access_token).toBe('test-jwt-token');
+      expect(mockAuditService.record).toHaveBeenCalledWith(
+        expect.objectContaining({ action: AuditAction.LOGIN, tenant_id: null }),
+      );
+    });
+
     // Rejects with correct credentials once the identifier is locked out —
     // otherwise a lockout would be pointless.
     it('rejects a correct password when the identifier is already locked out', async () => {
