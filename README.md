@@ -279,14 +279,19 @@ BullMQ job (`refresh-token-cleanup.processor.ts`/`.scheduler.ts`).
 The API splits cleanly into two authentication modes, and the CSRF argument
 depends entirely on which one a route uses:
 
-- **Bearer-authenticated routes** (everything except the three below) read
-  the access token from the `Authorization` header. Browsers never attach
-  that header automatically to a request they didn't construct, so a
-  cross-site page cannot make an authenticated call to these routes no
-  matter what it does — there's no ambient credential to ride. This is the
-  vast majority of the API and needs no CSRF handling at all; adding
-  blanket CSRF middleware here would add token plumbing to every request
-  for zero additional protection, which is why there isn't any.
+- **Bearer-authenticated routes** — everything except `POST /auth/login`
+  and the two cookie-authenticated routes below — read the access token
+  from the `Authorization` header. Browsers never attach that header
+  automatically to a request they didn't construct, so a cross-site page
+  cannot make an authenticated call to these routes no matter what it does
+  — there's no ambient credential to ride. This is the vast majority of
+  the API and needs no CSRF handling at all; adding blanket CSRF
+  middleware here would add token plumbing to every request for zero
+  additional protection, which is why there isn't any.
+- `POST /auth/login` requires no authentication at all — it's how a client
+  obtains a token in the first place, so there's nothing for a cross-site
+  request to ride: it can trigger a login with attacker-known credentials,
+  but not act as the victim.
 - **Cookie-authenticated routes** — `POST /auth/refresh` and
   `POST /auth/logout` — read the refresh cookie, which *is* an ambient
   credential a browser attaches automatically. These are the only routes
