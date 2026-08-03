@@ -58,6 +58,17 @@ class EnvironmentVariables {
   @Matches(POSITIVE_INTEGER, { message: "LOGIN_LOCKOUT_WINDOW_MS must be a positive integer" })
   LOGIN_LOCKOUT_WINDOW_MS?: string;
 
+  // Access/refresh token lifetimes — see auth.module.ts. Unset defaults to
+  // a 15-minute access token and a 30-day refresh token (README's "Session
+  // & token lifecycle" section has the full rotation/revocation policy).
+  @IsOptional()
+  @Matches(POSITIVE_INTEGER, { message: "ACCESS_TOKEN_TTL_MS must be a positive integer" })
+  ACCESS_TOKEN_TTL_MS?: string;
+
+  @IsOptional()
+  @Matches(POSITIVE_INTEGER, { message: "REFRESH_TOKEN_TTL_MS must be a positive integer" })
+  REFRESH_TOKEN_TTL_MS?: string;
+
   // Swagger docs gate — see swagger.ts/docs-auth.ts. Docs always mount
   // outside production; in production only when this is exactly "true",
   // and then only behind API_DOCS_USER/API_DOCS_PASSWORD Basic Auth.

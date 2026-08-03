@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import supertest = require('supertest');
+import cookieParser = require('cookie-parser');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { AppModule } from '../../app.module';
@@ -8,6 +9,24 @@ import { buildValidationPipeOptions } from '../../validation-pipe';
 import { AuthService } from './auth.service';
 import { DataSource } from 'typeorm';
 import { SEED_TENANT_ID, SEED_ADMIN_EMAIL, SEED_ADMIN_USER_ID, SEED_ADMIN_PASSWORD } from '@test/constants';
+
+function extractSetCookieHeaders(res: supertest.Response): string[] {
+  return (res.headers['set-cookie'] as unknown as string[] | undefined) ?? [];
+}
+
+function extractRefreshCookie(res: supertest.Response): string {
+  const header = extractSetCookieHeaders(res).find((c) => c.startsWith('refresh_token='));
+  if (!header) throw new Error('No refresh_token cookie was set on this response');
+  const match = header.match(/^refresh_token=([^;]+)/);
+  return decodeURIComponent(match![1]);
+}
+
+async function loginAsSeedAdmin(app: INestApplication): Promise<supertest.Response> {
+  return supertest(app.getHttpServer())
+    .post('/api/v1/auth/login')
+    .send({ email: SEED_ADMIN_EMAIL, password: 'password123' })
+    .expect(200);
+}
 
 /**
  * E2E tests for Auth endpoints.
@@ -40,6 +59,10 @@ describe('Auth E2E', () => {
     app = moduleFixture.createNestApplication();
     configureApiVersioning(app);
     app.useGlobalPipes(new ValidationPipe(buildValidationPipeOptions()));
+    // bootstrap() never runs under the Nest testing harness (see
+    // configureApiVersioning's comment) — the refresh/logout endpoints
+    // need this to read the httpOnly refresh_token cookie.
+    app.use(cookieParser());
     await app.init();
 
     dataSource = app.get(DataSource);
@@ -131,6 +154,184 @@ describe('Auth E2E', () => {
 
       expect(rows).toHaveLength(1);
       expect(rows[0].new_values).toEqual({ identifier: SEED_ADMIN_EMAIL.toLowerCase() });
+    });
+
+    it('sets an httpOnly refresh_token cookie scoped to the auth path', async () => {
+      const res = await loginAsSeedAdmin(app);
+
+      const header = extractSetCookieHeaders(res).find((c) => c.startsWith('refresh_token='));
+      expect(header).toBeDefined();
+      expect(header).toContain('HttpOnly');
+      expect(header).toContain('Path=/api/v1/auth');
+      expect(header).toContain('SameSite=Strict');
+      // NODE_ENV=test here, so the Secure flag (production-only) must be absent.
+      expect(header).not.toContain('Secure');
+    });
+  });
+
+  describe('POST /auth/refresh', () => {
+    it('rotates the cookie and issues a fresh access token', async () => {
+      const loginRes = await loginAsSeedAdmin(app);
+      const cookie = extractRefreshCookie(loginRes);
+
+      const res = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/refresh')
+        .set('Cookie', `refresh_token=${cookie}`)
+        .expect(200);
+
+      expect(res.body.access_token).toBeDefined();
+      expect(res.body.access_token).not.toBe(loginRes.body.access_token);
+      expect(extractRefreshCookie(res)).not.toBe(cookie);
+    });
+
+    it('returns 401 when no cookie is presented', async () => {
+      await supertest(app.getHttpServer()).post('/api/v1/auth/refresh').expect(401);
+    });
+
+    it('returns 401 for a well-formed but unknown cookie value', async () => {
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/refresh')
+        .set('Cookie', `refresh_token=${'0'.repeat(36)}.${'a'.repeat(64)}`)
+        .expect(401);
+    });
+
+    it('returns 401 for a garbage cookie value with no separator', async () => {
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/refresh')
+        .set('Cookie', 'refresh_token=garbage')
+        .expect(401);
+    });
+
+    // The concrete scenario #42 called "the sharpest edge" of the old
+    // 7-day token: a role/tenant revocation now takes effect within one
+    // refresh, not up to 7 days later — refresh must re-fetch memberships
+    // rather than copy them from the token being replaced.
+    it('reflects membership changes made since the token was issued', async () => {
+      const loginRes = await loginAsSeedAdmin(app);
+      const cookie = extractRefreshCookie(loginRes);
+
+      const newRole = await dataSource.query(
+        `INSERT INTO user_tenants (user_id, tenant_id, role) VALUES ($1, $2, 'TEACHER') RETURNING id`,
+        [SEED_ADMIN_USER_ID, SEED_TENANT_ID],
+      );
+
+      try {
+        const res = await supertest(app.getHttpServer())
+          .post('/api/v1/auth/refresh')
+          .set('Cookie', `refresh_token=${cookie}`)
+          .expect(200);
+
+        expect(res.body.memberships).toEqual(
+          expect.arrayContaining([expect.objectContaining({ tenantId: SEED_TENANT_ID, role: 'TEACHER' })]),
+        );
+      } finally {
+        await dataSource.query(`DELETE FROM user_tenants WHERE id = $1`, [newRole[0].id]);
+      }
+    });
+
+    it('rejects reuse of an already-rotated token outside the grace window and revokes the whole family', async () => {
+      const loginRes = await loginAsSeedAdmin(app);
+      const firstCookie = extractRefreshCookie(loginRes);
+      const [firstId] = firstCookie.split('.');
+
+      const rotatedRes = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/refresh')
+        .set('Cookie', `refresh_token=${firstCookie}`)
+        .expect(200);
+      const rotatedCookie = extractRefreshCookie(rotatedRes);
+
+      // Simulate the concurrent-refresh grace window having elapsed —
+      // the unit tests (refresh-token.service.spec.ts) already cover the
+      // within-grace race behavior directly; this exercises the theft path
+      // end to end against real Postgres.
+      await dataSource.query(`UPDATE refresh_tokens SET revoked_at = NOW() - INTERVAL '1 minute' WHERE id = $1`, [
+        firstId,
+      ]);
+
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/refresh')
+        .set('Cookie', `refresh_token=${firstCookie}`)
+        .expect(401);
+
+      // The whole family is revoked, including the token issued by the
+      // rotation above — not just the replayed one.
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/refresh')
+        .set('Cookie', `refresh_token=${rotatedCookie}`)
+        .expect(401);
+
+      const rows = await dataSource.query(
+        `SELECT * FROM audit_logs WHERE action = 'TOKEN_REUSE_DETECTED' AND performed_by_user_id = $1 ORDER BY created_at DESC LIMIT 1`,
+        [SEED_ADMIN_USER_ID],
+      );
+      expect(rows).toHaveLength(1);
+    });
+  });
+
+  describe('POST /auth/logout', () => {
+    it('revokes the refresh cookie, clears it, and writes a LOGOUT audit row', async () => {
+      const loginRes = await loginAsSeedAdmin(app);
+      const cookie = extractRefreshCookie(loginRes);
+
+      const res = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/logout')
+        .set('Cookie', `refresh_token=${cookie}`)
+        .expect(204);
+
+      const clearHeader = extractSetCookieHeaders(res).find((c) => c.startsWith('refresh_token='));
+      expect(clearHeader).toContain('refresh_token=;');
+
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/refresh')
+        .set('Cookie', `refresh_token=${cookie}`)
+        .expect(401);
+
+      const rows = await dataSource.query(
+        `SELECT * FROM audit_logs WHERE action = 'LOGOUT' AND performed_by_user_id = $1 ORDER BY created_at DESC LIMIT 1`,
+        [SEED_ADMIN_USER_ID],
+      );
+      expect(rows).toHaveLength(1);
+      expect(rows[0].new_values).toBeNull();
+    });
+
+    it('is a no-op success when no cookie is presented — nothing to revoke either way', async () => {
+      await supertest(app.getHttpServer()).post('/api/v1/auth/logout').expect(204);
+    });
+  });
+
+  describe('POST /auth/logout-all', () => {
+    it('requires authentication', async () => {
+      await supertest(app.getHttpServer()).post('/api/v1/auth/logout-all').expect(401);
+    });
+
+    it('revokes every refresh token and denylists the access token used to call it', async () => {
+      const loginRes = await loginAsSeedAdmin(app);
+      const accessToken = loginRes.body.access_token as string;
+      const cookie = extractRefreshCookie(loginRes);
+
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/logout-all')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(204);
+
+      // The refresh token is revoked immediately.
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/refresh')
+        .set('Cookie', `refresh_token=${cookie}`)
+        .expect(401);
+
+      // So is the access token used to call logout-all itself — it doesn't
+      // have to wait out its own ~15 minute natural expiry.
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/logout-all')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(401);
+
+      const rows = await dataSource.query(
+        `SELECT * FROM audit_logs WHERE action = 'LOGOUT' AND performed_by_user_id = $1 AND new_values->>'scope' = 'all_sessions' ORDER BY created_at DESC LIMIT 1`,
+        [SEED_ADMIN_USER_ID],
+      );
+      expect(rows).toHaveLength(1);
     });
   });
 });

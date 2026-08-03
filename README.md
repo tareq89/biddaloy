@@ -226,6 +226,59 @@ Both lockout and the strict rate-limit tier are disabled under
 `NODE_ENV=test` — the e2e suite logs in repeatedly against the same seeded
 account and would otherwise lock itself out.
 
+### Session & token lifecycle
+
+`POST /auth/login` returns two things: a short-lived (**15 minutes** by
+default, `ACCESS_TOKEN_TTL_MS`) bearer access token in the JSON body, and a
+long-lived (**30 days** by default, `REFRESH_TOKEN_TTL_MS`) refresh token
+set as an `httpOnly` cookie scoped to `/api/v1/auth`.
+
+**Transport decision:** bearer access token + httpOnly-cookie refresh token,
+per the plan in issue #42. This is why the API's CORS config already sets
+`credentials: true` — it now actually carries a cookie, not just a header —
+and why **CSRF protection (issue #48) is real, required work**, not the N/A
+verdict it would have been under a pure-bearer design: `POST /auth/refresh`,
+`/auth/logout`, and `/auth/logout-all` are cookie-authenticated
+state-changing endpoints and are the routes #48 needs to cover. The cookie
+is `SameSite=Strict`, which closes the practical same-site attack on its
+own; #48 is about verifying that holds and adding defense in depth (Origin
+checks, double-submit tokens) if the SPAs ever become cross-site from the
+API.
+
+**Rotation and reuse detection** (`server/src/modules/auth/refresh-token.service.ts`):
+every refresh token belongs to a rotation "family" started at login. Using a
+refresh token invalidates it and issues a new one in the same family
+(`POST /auth/refresh`). Presenting an already-used token is treated as
+theft — the **entire family is revoked** and a `TOKEN_REUSE_DETECTED` audit
+row is written — *unless* it's within a 10-second grace window of its own
+rotation, which is treated as two concurrent requests racing on the same
+token rather than an attack, and both get a valid fresh pair instead of one
+being wrongly logged out.
+
+Refresh tokens are stored as a hash (SHA-256 of a 256-bit random secret,
+selector/validator split) — the raw token is never persisted, only ever
+seen by the client.
+
+**Revocation:**
+- `POST /auth/logout` revokes the presented refresh token. It does **not**
+  require a live access token — the access token has likely already expired
+  by the time a user gets around to logging out, and that must not block
+  revoking the refresh token.
+- `POST /auth/logout-all` (requires a valid access token) revokes every
+  refresh token for the user and denylists the access token used to call it,
+  so that specific session ends immediately rather than riding out its
+  remaining ~15-minute lifetime. The denylist
+  (`server/src/modules/auth/access-token-denylist.service.ts`) is a Redis
+  key per `jti` with a TTL matching the access token's own lifetime — viable
+  specifically because that lifetime is now short; this is not a full
+  blacklist of every issued token.
+- A tenant/role change (`user_tenants`) takes effect on the *next refresh*,
+  not after the old token's full lifetime — `POST /auth/refresh` re-fetches
+  memberships rather than copying them from the token being replaced.
+
+Expired `refresh_tokens` rows (revoked or not) are deleted by an hourly
+BullMQ job (`refresh-token-cleanup.processor.ts`/`.scheduler.ts`).
+
 ## API Versioning
 
 All routes are served under `/api/v1/` (`main.ts`'s `enableVersioning`, URI

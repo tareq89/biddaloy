@@ -8,6 +8,9 @@ import { User } from '../users/entities/user.entity';
 import { UserTenant } from './entities/user-tenant.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { LoginAttemptService } from './login-attempt.service';
+import { RefreshTokenService, RefreshTokenReuseDetectedException } from './refresh-token.service';
+import { AccessTokenDenylistService } from './access-token-denylist.service';
+import { ACCESS_TOKEN_TTL_MS } from './auth-tokens';
 import { AuditAction, UserRole } from '@beton-boi/shared';
 
 // Mock bcrypt as a module-level replacement
@@ -29,6 +32,10 @@ describe('AuthService', () => {
   let mockAuditLogRepo: any;
   let mockJwtService: any;
   let mockLoginAttempts: any;
+  let mockRefreshTokens: any;
+  let mockAccessTokenDenylist: any;
+
+  const mockIssuedRefreshToken = { cookieValue: 'token-id.token-secret', expiresAt: new Date(Date.now() + 60_000) };
 
   const mockUser: User = {
     id: 'user-1',
@@ -89,6 +96,18 @@ describe('AuthService', () => {
       reset: vi.fn().mockResolvedValue(undefined),
     };
 
+    mockRefreshTokens = {
+      issueForUser: vi.fn().mockResolvedValue(mockIssuedRefreshToken),
+      rotate: vi.fn(),
+      revokeByCookieValue: vi.fn(),
+      revokeAllForUser: vi.fn().mockResolvedValue(undefined),
+    };
+
+    mockAccessTokenDenylist = {
+      revoke: vi.fn().mockResolvedValue(undefined),
+      isRevoked: vi.fn().mockResolvedValue(false),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
@@ -97,6 +116,9 @@ describe('AuthService', () => {
         { provide: getRepositoryToken(AuditLog), useValue: mockAuditLogRepo },
         { provide: JwtService, useValue: mockJwtService },
         { provide: LoginAttemptService, useValue: mockLoginAttempts },
+        { provide: RefreshTokenService, useValue: mockRefreshTokens },
+        { provide: AccessTokenDenylistService, useValue: mockAccessTokenDenylist },
+        { provide: ACCESS_TOKEN_TTL_MS, useValue: 900_000 },
       ],
     }).compile();
 
@@ -188,7 +210,26 @@ describe('AuthService', () => {
         email: 'admin@test.com',
         phone: null,
         memberships: [{ tenantId: 'tenant-1', role: UserRole.ADMIN }],
+        jti: expect.any(String),
       });
+    });
+
+    // Every login starts a fresh rotation family — see auth.service.ts's
+    // comment on why this isn't chained onto any previous session.
+    it('issues a refresh token scoped to the logged-in user', async () => {
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      (bcrypt.compare as any).mockResolvedValue(true);
+      mockUserTenantRepo.find.mockResolvedValue(mockMemberships);
+      mockUserRepo.save.mockResolvedValue(mockUser);
+
+      const result = await service.login('admin@test.com', 'password123');
+
+      expect(result.refreshToken).toBe(mockIssuedRefreshToken);
+      expect(mockRefreshTokens.issueForUser).toHaveBeenCalledWith(
+        'user-1',
+        expect.any(String),
+        expect.objectContaining({ ip: null, userAgent: null }),
+      );
     });
 
     it('should throw UnauthorizedException when credentials are invalid', async () => {
@@ -349,6 +390,116 @@ describe('AuthService', () => {
       const result = await service.login('admin@test.com', 'password123');
 
       expect(result.access_token).toBe('test-jwt-token');
+    });
+  });
+
+  describe('refresh', () => {
+    it('throws UnauthorizedException when no cookie is presented', async () => {
+      await expect(service.refresh(undefined, { ip: null, userAgent: null })).rejects.toThrow(UnauthorizedException);
+      expect(mockRefreshTokens.rotate).not.toHaveBeenCalled();
+    });
+
+    it('issues a fresh access token reflecting current memberships, not stale ones', async () => {
+      mockRefreshTokens.rotate.mockResolvedValue({
+        userId: 'user-1',
+        refreshToken: mockIssuedRefreshToken,
+      });
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      mockUserTenantRepo.find.mockResolvedValue(mockMemberships);
+
+      const result = await service.refresh('token-id.secret', { ip: null, userAgent: null });
+
+      expect(result.access_token).toBe('test-jwt-token');
+      expect(result.memberships).toEqual([{ tenantId: 'tenant-1', role: UserRole.ADMIN }]);
+      expect(result.refreshToken).toBe(mockIssuedRefreshToken);
+    });
+
+    it('throws when the rotated token belongs to a user that no longer exists', async () => {
+      mockRefreshTokens.rotate.mockResolvedValue({ userId: 'ghost-user', refreshToken: mockIssuedRefreshToken });
+      mockUserRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.refresh('token-id.secret', { ip: null, userAgent: null })).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    // The whole point of reuse detection: when it fires, it must be
+    // observable, not just a silent 401 — TOKEN_REUSE_DETECTED is what a
+    // security team would actually alert on.
+    it('writes a TOKEN_REUSE_DETECTED audit row when reuse is detected, then rethrows', async () => {
+      mockRefreshTokens.rotate.mockRejectedValue(new RefreshTokenReuseDetectedException('user-1', 'family-1'));
+
+      await expect(service.refresh('token-id.secret', { ip: '1.2.3.4', userAgent: 'ua' })).rejects.toThrow(
+        'Refresh token reuse detected',
+      );
+
+      expect(mockAuditLogRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: AuditAction.TOKEN_REUSE_DETECTED,
+          entity_id: 'user-1',
+          ip_address: '1.2.3.4',
+          user_agent: 'ua',
+          new_values: { family_id: 'family-1' },
+        }),
+      );
+    });
+
+    it('propagates a plain UnauthorizedException (expired/invalid token) without writing an audit row', async () => {
+      mockRefreshTokens.rotate.mockRejectedValue(new UnauthorizedException('Refresh token expired'));
+
+      await expect(service.refresh('token-id.secret', { ip: null, userAgent: null })).rejects.toThrow(
+        'Refresh token expired',
+      );
+      expect(mockAuditLogRepo.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('logout', () => {
+    it('is a no-op when no cookie is presented', async () => {
+      await service.logout(undefined, { ip: null, userAgent: null });
+
+      expect(mockRefreshTokens.revokeByCookieValue).not.toHaveBeenCalled();
+      expect(mockAuditLogRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('is a no-op when the cookie does not resolve to a live token', async () => {
+      mockRefreshTokens.revokeByCookieValue.mockResolvedValue(null);
+
+      await service.logout('token-id.secret', { ip: null, userAgent: null });
+
+      expect(mockAuditLogRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('revokes the token and writes a LOGOUT audit row', async () => {
+      mockRefreshTokens.revokeByCookieValue.mockResolvedValue('user-1');
+
+      await service.logout('token-id.secret', { ip: '1.2.3.4', userAgent: 'ua' });
+
+      expect(mockRefreshTokens.revokeByCookieValue).toHaveBeenCalledWith('token-id.secret');
+      expect(mockAuditLogRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: AuditAction.LOGOUT,
+          entity_id: 'user-1',
+          ip_address: '1.2.3.4',
+          user_agent: 'ua',
+        }),
+      );
+    });
+  });
+
+  describe('logoutAll', () => {
+    it('revokes every refresh token for the user, denylists the current access token, and audits it', async () => {
+      await service.logoutAll('user-1', 'jti-123', { ip: '1.2.3.4', userAgent: 'ua' });
+
+      expect(mockRefreshTokens.revokeAllForUser).toHaveBeenCalledWith('user-1');
+      expect(mockAccessTokenDenylist.revoke).toHaveBeenCalledWith('jti-123', 900_000);
+      expect(mockAuditLogRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: AuditAction.LOGOUT,
+          entity_id: 'user-1',
+          new_values: { scope: 'all_sessions' },
+        }),
+      );
     });
   });
 });
