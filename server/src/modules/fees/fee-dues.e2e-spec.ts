@@ -3,6 +3,7 @@ import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { AppModule } from '../../app.module';
+import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { DataSource } from 'typeorm';
 import { UserRole } from '@beton-boi/shared';
@@ -74,6 +75,7 @@ describe('Fee Dues E2E', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    configureApiVersioning(app);
     app.useGlobalPipes(new ValidationPipe(buildValidationPipeOptions()));
     await app.init();
 
@@ -99,7 +101,7 @@ describe('Fee Dues E2E', () => {
     );
 
     const loginRes = await supertest(app.getHttpServer())
-      .post('/auth/login')
+      .post('/api/v1/auth/login')
       .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
       .expect(200);
     token = loginRes.body.access_token;
@@ -115,7 +117,7 @@ describe('Fee Dues E2E', () => {
       await createFee(studentId, { status: 'PENDING' });
 
       const res = await supertest(app.getHttpServer())
-        .get('/fees/dues')
+        .get('/api/v1/fees/dues')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ADMIN)
@@ -129,7 +131,7 @@ describe('Fee Dues E2E', () => {
 
     it('allows TEACHER role (read access)', async () => {
       await supertest(app.getHttpServer())
-        .get('/fees/dues')
+        .get('/api/v1/fees/dues')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.TEACHER)
@@ -138,7 +140,7 @@ describe('Fee Dues E2E', () => {
 
     it('returns 401 for STUDENT role', async () => {
       const res = await supertest(app.getHttpServer())
-        .get('/fees/dues')
+        .get('/api/v1/fees/dues')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
@@ -159,7 +161,7 @@ describe('Fee Dues E2E', () => {
       );
 
       const res = await supertest(app.getHttpServer())
-        .get('/fees/dues')
+        .get('/api/v1/fees/dues')
         .query({ sort_by: 'due_amount', sort_order: 'DESC', limit: 100 })
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
@@ -172,7 +174,7 @@ describe('Fee Dues E2E', () => {
 
     it('returns 400 for an invalid status filter', async () => {
       await supertest(app.getHttpServer())
-        .get('/fees/dues')
+        .get('/api/v1/fees/dues')
         .query({ status: 'PAID' })
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
@@ -182,7 +184,7 @@ describe('Fee Dues E2E', () => {
 
     it('returns 401 when X-Tenant-ID header is missing', async () => {
       const res = await supertest(app.getHttpServer())
-        .get('/fees/dues')
+        .get('/api/v1/fees/dues')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Role', UserRole.ADMIN)
         .expect(401);
@@ -192,7 +194,7 @@ describe('Fee Dues E2E', () => {
 
     it('returns 401 for a tenant the caller has no membership in', async () => {
       await supertest(app.getHttpServer())
-        .get('/fees/dues')
+        .get('/api/v1/fees/dues')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', '00000000-0000-4000-8000-000000000099')
         .set('X-Role', UserRole.ADMIN)
@@ -216,7 +218,7 @@ describe('Fee Dues E2E', () => {
       await createFee(studentId, { reminder_threshold_date: '2020-01-01' });
 
       const res = await supertest(app.getHttpServer())
-        .get('/fees/dues/flagged')
+        .get('/api/v1/fees/dues/flagged')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ADMIN)
@@ -232,7 +234,7 @@ describe('Fee Dues E2E', () => {
       await createFee(studentId, { reminder_threshold_date: '2099-01-01' });
 
       const res = await supertest(app.getHttpServer())
-        .get('/fees/dues/flagged')
+        .get('/api/v1/fees/dues/flagged')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ADMIN)
@@ -243,7 +245,7 @@ describe('Fee Dues E2E', () => {
 
     it('returns 401 for STUDENT role', async () => {
       await supertest(app.getHttpServer())
-        .get('/fees/dues/flagged')
+        .get('/api/v1/fees/dues/flagged')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)

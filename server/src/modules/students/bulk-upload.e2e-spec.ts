@@ -3,6 +3,7 @@ import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { AppModule } from '../../app.module';
+import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { DataSource } from 'typeorm';
 import ExcelJS from 'exceljs';
@@ -66,6 +67,7 @@ describe('Bulk Student Upload E2E', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    configureApiVersioning(app);
     app.useGlobalPipes(new ValidationPipe(buildValidationPipeOptions()));
     await app.init();
 
@@ -85,7 +87,7 @@ describe('Bulk Student Upload E2E', () => {
     );
 
     const loginRes = await supertest(app.getHttpServer())
-      .post('/auth/login')
+      .post('/api/v1/auth/login')
       .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
       .expect(200);
     token = loginRes.body.access_token;
@@ -100,7 +102,7 @@ describe('Bulk Student Upload E2E', () => {
       const buffer = await buildXlsxBuffer([rowValues(REQUIRED_HEADERS, { roll: '101', guardian1_phone: '+8801711110001' })]);
 
       const res = await supertest(app.getHttpServer())
-        .post('/students/bulk-upload')
+        .post('/api/v1/students/bulk-upload')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ADMIN)
@@ -115,7 +117,7 @@ describe('Bulk Student Upload E2E', () => {
       const buffer = await buildXlsxBuffer([rowValues(REQUIRED_HEADERS, { roll: '102', guardian1_phone: '+8801711110002' })]);
 
       await supertest(app.getHttpServer())
-        .post('/students/bulk-upload')
+        .post('/api/v1/students/bulk-upload')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ACCOUNTANT)
@@ -127,7 +129,7 @@ describe('Bulk Student Upload E2E', () => {
       const buffer = await buildXlsxBuffer([rowValues(REQUIRED_HEADERS)]);
 
       const res = await supertest(app.getHttpServer())
-        .post('/students/bulk-upload')
+        .post('/api/v1/students/bulk-upload')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.TEACHER)
@@ -144,7 +146,7 @@ describe('Bulk Student Upload E2E', () => {
       ]);
 
       const res = await supertest(app.getHttpServer())
-        .post('/students/bulk-upload')
+        .post('/api/v1/students/bulk-upload')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ADMIN)
@@ -165,7 +167,7 @@ describe('Bulk Student Upload E2E', () => {
       const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
 
       const res = await supertest(app.getHttpServer())
-        .post('/students/bulk-upload')
+        .post('/api/v1/students/bulk-upload')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ADMIN)
@@ -177,7 +179,7 @@ describe('Bulk Student Upload E2E', () => {
 
     it('returns 400 for an unsupported file type', async () => {
       const res = await supertest(app.getHttpServer())
-        .post('/students/bulk-upload')
+        .post('/api/v1/students/bulk-upload')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ADMIN)
@@ -189,7 +191,7 @@ describe('Bulk Student Upload E2E', () => {
 
     it('returns 400 when no file is attached', async () => {
       await supertest(app.getHttpServer())
-        .post('/students/bulk-upload')
+        .post('/api/v1/students/bulk-upload')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ADMIN)
@@ -200,7 +202,7 @@ describe('Bulk Student Upload E2E', () => {
       const oversized = Buffer.alloc(6 * 1024 * 1024, 'a');
 
       const res = await supertest(app.getHttpServer())
-        .post('/students/bulk-upload')
+        .post('/api/v1/students/bulk-upload')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ADMIN)
@@ -217,7 +219,7 @@ describe('Bulk Student Upload E2E', () => {
       const csv = [headers.map(escape).join(','), values.map(escape).join(',')].join('\n');
 
       const res = await supertest(app.getHttpServer())
-        .post('/students/bulk-upload')
+        .post('/api/v1/students/bulk-upload')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ADMIN)

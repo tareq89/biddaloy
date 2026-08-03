@@ -3,6 +3,7 @@ import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { AppModule } from '../../app.module';
+import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { DataSource } from 'typeorm';
 import { UserRole, FeeType, FeeApplicability } from '@beton-boi/shared';
@@ -36,13 +37,14 @@ describe('Fee Structures E2E', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    configureApiVersioning(app);
     app.useGlobalPipes(new ValidationPipe(buildValidationPipeOptions()));
     await app.init();
 
     dataSource = app.get(DataSource);
 
     const loginRes = await supertest(app.getHttpServer())
-      .post('/auth/login')
+      .post('/api/v1/auth/login')
       .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
       .expect(200);
     adminToken = loginRes.body.access_token;
@@ -58,7 +60,7 @@ describe('Fee Structures E2E', () => {
       [SEED_ADMIN_USER_ID, TENANT_ID, UserRole.STUDENT],
     );
     const studentLoginRes = await supertest(app.getHttpServer())
-      .post('/auth/login')
+      .post('/api/v1/auth/login')
       .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
       .expect(200);
     studentToken = studentLoginRes.body.access_token;
@@ -71,7 +73,7 @@ describe('Fee Structures E2E', () => {
   describe('POST /fee-structures', () => {
     it('should create a fee structure with ADMIN role', async () => {
       const res = await supertest(app.getHttpServer())
-        .post('/fee-structures')
+        .post('/api/v1/fee-structures')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({
@@ -93,7 +95,7 @@ describe('Fee Structures E2E', () => {
 
     it('should return 401 without X-Tenant-ID header', async () => {
       const res = await supertest(app.getHttpServer())
-        .post('/fee-structures')
+        .post('/api/v1/fee-structures')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
           fee_type: FeeType.MONTHLY_TUITION,
@@ -110,7 +112,7 @@ describe('Fee Structures E2E', () => {
 
     it('should return 401 for STUDENT role', async () => {
       const res = await supertest(app.getHttpServer())
-        .post('/fee-structures')
+        .post('/api/v1/fee-structures')
         .set('Authorization', `Bearer ${studentToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
@@ -129,7 +131,7 @@ describe('Fee Structures E2E', () => {
 
     it('should return 401 for an invalid/non-member X-Tenant-ID', async () => {
       const res = await supertest(app.getHttpServer())
-        .post('/fee-structures')
+        .post('/api/v1/fee-structures')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', NON_MEMBER_TENANT_ID)
         .send({
@@ -147,7 +149,7 @@ describe('Fee Structures E2E', () => {
 
     it('should return 400 for invalid DTO (missing required fields)', async () => {
       const res = await supertest(app.getHttpServer())
-        .post('/fee-structures')
+        .post('/api/v1/fee-structures')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({})
@@ -158,7 +160,7 @@ describe('Fee Structures E2E', () => {
   describe('GET /fee-structures', () => {
     it('should list fee structures with filters', async () => {
       const res = await supertest(app.getHttpServer())
-        .get('/fee-structures')
+        .get('/api/v1/fee-structures')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .query({
@@ -174,7 +176,7 @@ describe('Fee Structures E2E', () => {
 
     it('should return 401 for STUDENT role', async () => {
       const res = await supertest(app.getHttpServer())
-        .get('/fee-structures')
+        .get('/api/v1/fee-structures')
         .set('Authorization', `Bearer ${studentToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
@@ -187,7 +189,7 @@ describe('Fee Structures E2E', () => {
   describe('GET /fee-structures/:id', () => {
     it('should return a fee structure by ID', async () => {
       const createRes = await supertest(app.getHttpServer())
-        .post('/fee-structures')
+        .post('/api/v1/fee-structures')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({
@@ -201,7 +203,7 @@ describe('Fee Structures E2E', () => {
         .expect(201);
 
       const res = await supertest(app.getHttpServer())
-        .get(`/fee-structures/${createRes.body.id}`)
+        .get(`/api/v1/fee-structures/${createRes.body.id}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .expect(200);
@@ -212,7 +214,7 @@ describe('Fee Structures E2E', () => {
 
     it('should return 404 for a non-existent fee structure', async () => {
       const res = await supertest(app.getHttpServer())
-        .get('/fee-structures/00000000-0000-4000-8000-000000000000')
+        .get('/api/v1/fee-structures/00000000-0000-4000-8000-000000000000')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .expect(404);
@@ -220,7 +222,7 @@ describe('Fee Structures E2E', () => {
 
     it('should return 401 for STUDENT role', async () => {
       const createRes = await supertest(app.getHttpServer())
-        .post('/fee-structures')
+        .post('/api/v1/fee-structures')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({
@@ -234,7 +236,7 @@ describe('Fee Structures E2E', () => {
         .expect(201);
 
       const res = await supertest(app.getHttpServer())
-        .get(`/fee-structures/${createRes.body.id}`)
+        .get(`/api/v1/fee-structures/${createRes.body.id}`)
         .set('Authorization', `Bearer ${studentToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
@@ -275,20 +277,20 @@ describe('Fee Structures E2E', () => {
         const otherFeeStructureId = otherFeeStructure[0].id;
 
         await supertest(app.getHttpServer())
-          .get(`/fee-structures/${otherFeeStructureId}`)
+          .get(`/api/v1/fee-structures/${otherFeeStructureId}`)
           .set('Authorization', `Bearer ${adminToken}`)
           .set('X-Tenant-ID', TENANT_ID)
           .expect(404);
 
         await supertest(app.getHttpServer())
-          .patch(`/fee-structures/${otherFeeStructureId}`)
+          .patch(`/api/v1/fee-structures/${otherFeeStructureId}`)
           .set('Authorization', `Bearer ${adminToken}`)
           .set('X-Tenant-ID', TENANT_ID)
           .send({ name: 'Hijacked' })
           .expect(404);
 
         await supertest(app.getHttpServer())
-          .delete(`/fee-structures/${otherFeeStructureId}`)
+          .delete(`/api/v1/fee-structures/${otherFeeStructureId}`)
           .set('Authorization', `Bearer ${adminToken}`)
           .set('X-Tenant-ID', TENANT_ID)
           .expect(404);
@@ -299,7 +301,7 @@ describe('Fee Structures E2E', () => {
   describe('PATCH /fee-structures/:id', () => {
     it('should update a fee structure', async () => {
       const createRes = await supertest(app.getHttpServer())
-        .post('/fee-structures')
+        .post('/api/v1/fee-structures')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({
@@ -313,7 +315,7 @@ describe('Fee Structures E2E', () => {
         .expect(201);
 
       const res = await supertest(app.getHttpServer())
-        .patch(`/fee-structures/${createRes.body.id}`)
+        .patch(`/api/v1/fee-structures/${createRes.body.id}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({ name: 'Updated Fee', amount: 2500 })
@@ -325,7 +327,7 @@ describe('Fee Structures E2E', () => {
 
     it('should return 401 for STUDENT role', async () => {
       const createRes = await supertest(app.getHttpServer())
-        .post('/fee-structures')
+        .post('/api/v1/fee-structures')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({
@@ -339,7 +341,7 @@ describe('Fee Structures E2E', () => {
         .expect(201);
 
       const res = await supertest(app.getHttpServer())
-        .patch(`/fee-structures/${createRes.body.id}`)
+        .patch(`/api/v1/fee-structures/${createRes.body.id}`)
         .set('Authorization', `Bearer ${studentToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
@@ -353,7 +355,7 @@ describe('Fee Structures E2E', () => {
   describe('DELETE /fee-structures/:id', () => {
     it('should delete a fee structure', async () => {
       const createRes = await supertest(app.getHttpServer())
-        .post('/fee-structures')
+        .post('/api/v1/fee-structures')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({
@@ -367,14 +369,14 @@ describe('Fee Structures E2E', () => {
         .expect(201);
 
       await supertest(app.getHttpServer())
-        .delete(`/fee-structures/${createRes.body.id}`)
+        .delete(`/api/v1/fee-structures/${createRes.body.id}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .expect(200);
 
       // Verify not found
       await supertest(app.getHttpServer())
-        .get(`/fee-structures/${createRes.body.id}`)
+        .get(`/api/v1/fee-structures/${createRes.body.id}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .expect(404);
@@ -382,7 +384,7 @@ describe('Fee Structures E2E', () => {
 
     it('should return 401 for STUDENT role on delete', async () => {
       const createRes = await supertest(app.getHttpServer())
-        .post('/fee-structures')
+        .post('/api/v1/fee-structures')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({
@@ -396,7 +398,7 @@ describe('Fee Structures E2E', () => {
         .expect(201);
 
       const res = await supertest(app.getHttpServer())
-        .delete(`/fee-structures/${createRes.body.id}`)
+        .delete(`/api/v1/fee-structures/${createRes.body.id}`)
         .set('Authorization', `Bearer ${studentToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)

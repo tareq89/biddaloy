@@ -226,6 +226,34 @@ Both lockout and the strict rate-limit tier are disabled under
 `NODE_ENV=test` — the e2e suite logs in repeatedly against the same seeded
 account and would otherwise lock itself out.
 
+## API Versioning
+
+All routes are served under `/api/v1/` (`main.ts`'s `enableVersioning`, URI
+style — visible in logs, curl-able, cacheable, and trivially routable at
+nginx via a broad `location /api/` prefix match, no rewrite needed).
+`/api/health` is version-neutral (`@Version(VERSION_NEUTRAL)` on
+`AppController.health`) and stays reachable at that exact path regardless of
+version bumps, so orchestrator health checks never break on one.
+
+`server/test/helpers/e2e-app.helper.ts` and `server/src/api-versioning.ts`
+are the two places that know the current version — bumping it is a one-line
+edit in `api-versioning.ts`, picked up by both `main.ts` and every e2e spec.
+
+### Deprecation policy
+
+- A new version (`/api/v2/...`) is added alongside the old one — routes are
+  never removed in the same change that adds their replacement.
+- The outgoing version stays live for **at least 90 days** after the new
+  version ships, giving the first-party SPAs (the only current consumers)
+  a full sprint-scale window to migrate.
+- Once a removal date is set, deprecated routes return a `Deprecation: true`
+  header and a `Sunset: <date>` header (RFC 8594), so any consumer —
+  including a future third-party one — can detect the deprecation
+  programmatically without reading docs.
+- The bump and its sunset date are announced in this section and in the
+  epic/issue tracking the migration — there's no separate public changelog
+  yet.
+
 ## Project Structure
 
 ```
