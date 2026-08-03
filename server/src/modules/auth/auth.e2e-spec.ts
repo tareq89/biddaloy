@@ -96,5 +96,33 @@ describe('Auth E2E', () => {
 
       expect(res.body.message).toBeDefined();
     });
+
+    it('should write a LOGIN audit row on success', async () => {
+      await supertest(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: SEED_ADMIN_EMAIL, password: 'password123' })
+        .expect(200);
+
+      const rows = await dataSource.query(
+        `SELECT * FROM "audit_logs" WHERE action = 'LOGIN' AND performed_by_user_id = $1 ORDER BY created_at DESC LIMIT 1`,
+        [SEED_ADMIN_USER_ID],
+      );
+
+      expect(rows).toHaveLength(1);
+    });
+
+    it('should write a LOGIN_FAILED audit row on a wrong password', async () => {
+      await supertest(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: SEED_ADMIN_EMAIL, password: 'wrongpassword' })
+        .expect(401);
+
+      const rows = await dataSource.query(
+        `SELECT * FROM "audit_logs" WHERE action = 'LOGIN_FAILED' ORDER BY created_at DESC LIMIT 1`,
+      );
+
+      expect(rows).toHaveLength(1);
+      expect(rows[0].new_values).toEqual({ identifier: SEED_ADMIN_EMAIL.toLowerCase() });
+    });
   });
 });

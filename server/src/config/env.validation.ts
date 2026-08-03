@@ -48,6 +48,16 @@ class EnvironmentVariables {
   @Matches(POSITIVE_INTEGER, { message: "RATE_LIMIT_DEFAULT_TTL_MS must be a positive integer" })
   RATE_LIMIT_DEFAULT_TTL_MS?: string;
 
+  // Login lockout policy — see login-attempt.service.ts. Unset defaults to
+  // 5 failed attempts / 15 minutes.
+  @IsOptional()
+  @Matches(POSITIVE_INTEGER, { message: "LOGIN_LOCKOUT_THRESHOLD must be a positive integer" })
+  LOGIN_LOCKOUT_THRESHOLD?: string;
+
+  @IsOptional()
+  @Matches(POSITIVE_INTEGER, { message: "LOGIN_LOCKOUT_WINDOW_MS must be a positive integer" })
+  LOGIN_LOCKOUT_WINDOW_MS?: string;
+
   @IsOptional()
   @IsString()
   SMS_PROVIDER?: string;
