@@ -11,15 +11,19 @@ import {
   Inject,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
+import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { AcademicYearService } from './academic-year.service';
 import { CreateAcademicYearDto } from './dto/create-academic-year.dto';
 import { UpdateAcademicYearDto } from './dto/update-academic-year.dto';
 import { QueryAcademicYearDto } from './dto/query-academic-year.dto';
 import { UserRole } from '@beton-boi/shared';
 
+@ApiTags('academic-years')
+@ApiTenantAuth()
 @Controller('academic-years')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard)
 export class AcademicYearController {
@@ -75,6 +79,9 @@ export class AcademicYearController {
 
   @Post(':id/set-current')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  @ApiOperation({
+    summary: "Mark this academic year as the tenant's current one, unsetting any other year previously marked current.",
+  })
   setCurrent(
     @Param('id') id: string,
     @CurrentTenant() tenant: { id: string; role: string },

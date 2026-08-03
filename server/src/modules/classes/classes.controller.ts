@@ -12,9 +12,11 @@ import {
   Inject,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
+import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { ClassService, SectionService } from './classes.service';
 import {
   CreateClassDto,
@@ -25,6 +27,8 @@ import {
 } from './dto/classes.dto';
 import { UserRole } from '@beton-boi/shared';
 
+@ApiTags('classes')
+@ApiTenantAuth()
 @Controller('classes')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard)
 export class ClassController {
@@ -37,6 +41,7 @@ export class ClassController {
 
   @Post()
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  @ApiOperation({ summary: 'Create a class under an academic year.' })
   createClass(
     @Body() dto: CreateClassDto,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -46,6 +51,7 @@ export class ClassController {
 
   @Get()
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @ApiOperation({ summary: 'List classes for the current tenant.' })
   findAllClasses(
     @Query() query: QueryClassDto,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -55,6 +61,7 @@ export class ClassController {
 
   @Get(':id')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @ApiOperation({ summary: 'Get a single class by ID.' })
   findOneClass(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -64,6 +71,7 @@ export class ClassController {
 
   @Patch(':id')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  @ApiOperation({ summary: 'Update a class.' })
   updateClass(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateClassDto,

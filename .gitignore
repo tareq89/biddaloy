@@ -90,6 +90,9 @@ out
 dist
 .output
 
+# Generated OpenAPI document (yarn docs:generate) — a build artifact, not source
+server/openapi.json
+
 # Gatsby files
 .cache/
 # Comment in the public line in if your project uses Gatsby and not Next.js

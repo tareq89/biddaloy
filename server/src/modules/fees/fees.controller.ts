@@ -12,11 +12,13 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { STRICT_RATE_LIMIT } from '../../rate-limit';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { FeeStructureService, PaymentService } from './fees.service';
 import { FeeGenerationService } from './fee-generation.service';
 import { PaymentAllocationService } from './payment-allocation.service';
@@ -36,6 +38,8 @@ import {
 import { UserRole } from '@beton-boi/shared';
 import { JwtPayload } from '@beton-boi/shared';
 
+@ApiTags('fees')
+@ApiTenantAuth()
 @Controller()
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard)
 export class FeeController {
@@ -60,6 +64,7 @@ export class FeeController {
 
   @Get('fees/dues/flagged')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @ApiOperation({ summary: 'List dues flagged for follow-up (e.g. overdue past a threshold).' })
   getFlaggedDues(
     @Query() query: QueryFlaggedDuesDto,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -72,6 +77,7 @@ export class FeeController {
   @Post('fees/generate')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @Throttle({ default: STRICT_RATE_LIMIT })
+  @ApiOperation({ summary: 'Generate StudentFee rows for the matching fee structures over a given month/scope.' })
   generateFees(
     @Body() dto: GenerateStudentFeesDto,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -141,6 +147,9 @@ export class FeeController {
 
   @Post('payments/record-with-allocation')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  @ApiOperation({
+    summary: 'Record a payment and allocate it across the student\'s outstanding fees in FIFO order, generating an invoice when a fee is paid in full.',
+  })
   recordPaymentWithAllocation(
     @Body() dto: RecordPaymentWithAllocationDto,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -160,6 +169,7 @@ export class FeeController {
 
   @Get('payments/invoices/student/:studentId')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @ApiOperation({ summary: "Get a student's fee/payment/balance summary." })
   getInvoiceSummary(
     @Param('studentId') studentId: string,
     @CurrentTenant() tenant: { id: string; role: string },

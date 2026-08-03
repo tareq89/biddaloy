@@ -1,6 +1,7 @@
 import { NestFactory } from "@nestjs/core";
 import { Logger, ValidationPipe } from "@nestjs/common";
 import { NestExpressApplication } from "@nestjs/platform-express";
+import { SwaggerModule } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
 import { AllExceptionsFilter } from "./common/filters/http-exception.filter";
 import * as express from "express";
@@ -11,6 +12,8 @@ import { buildCorsOptions } from "./cors-origins";
 import { buildHelmetOptions } from "./security-headers";
 import { buildValidationPipeOptions } from "./validation-pipe";
 import { buildVersioningOptions } from "./api-versioning";
+import { buildSwaggerDocumentConfig, shouldMountDocs, DOCS_PATH } from "./swagger";
+import { buildDocsBasicAuthMiddleware, buildDocsCspOverrideMiddleware } from "./docs-auth";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -28,6 +31,9 @@ async function bootstrap() {
   // As early as possible, and before the static-serving middleware below —
   // security headers should apply to every response, including the SPAs.
   app.use(helmet(buildHelmetOptions(process.env.NODE_ENV)));
+  // Swagger UI needs inline script/style the global CSP above deliberately
+  // doesn't allow anywhere else — see docs-auth.ts.
+  app.use(buildDocsCspOverrideMiddleware(`/api/${DOCS_PATH}`));
 
   // Global prefix for API routes
   app.setGlobalPrefix("api");
@@ -38,6 +44,26 @@ async function bootstrap() {
   // Global filters and pipes
   app.useGlobalFilters(new AllExceptionsFilter());
   app.useGlobalPipes(new ValidationPipe(buildValidationPipeOptions()));
+
+  // API docs — always on outside production; in production only when
+  // explicitly opted into, and then only behind Basic Auth. Never mounted
+  // in production otherwise, so the route is a genuine 404, not just a
+  // rejection. See swagger.ts for the full policy.
+  if (shouldMountDocs(process.env.NODE_ENV, process.env.ENABLE_API_DOCS)) {
+    if (process.env.NODE_ENV === "production") {
+      const docsUser = process.env.API_DOCS_USER;
+      const docsPassword = process.env.API_DOCS_PASSWORD;
+      if (!docsUser || !docsPassword) {
+        throw new Error(
+          "ENABLE_API_DOCS=true requires API_DOCS_USER and API_DOCS_PASSWORD to be set — refusing to boot with an unauthenticated docs route in production.",
+        );
+      }
+      app.use(`/api/${DOCS_PATH}`, buildDocsBasicAuthMiddleware(docsUser, docsPassword));
+    }
+
+    const document = SwaggerModule.createDocument(app, buildSwaggerDocumentConfig());
+    SwaggerModule.setup(DOCS_PATH, app, document, { useGlobalPrefix: true });
+  }
 
   const corsOptions = buildCorsOptions(process.env.CORS_ORIGINS, process.env.NODE_ENV);
   const origins = corsOptions.origin as string[];

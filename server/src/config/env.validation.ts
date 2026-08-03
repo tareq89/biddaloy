@@ -58,6 +58,21 @@ class EnvironmentVariables {
   @Matches(POSITIVE_INTEGER, { message: "LOGIN_LOCKOUT_WINDOW_MS must be a positive integer" })
   LOGIN_LOCKOUT_WINDOW_MS?: string;
 
+  // Swagger docs gate — see swagger.ts/docs-auth.ts. Docs always mount
+  // outside production; in production only when this is exactly "true",
+  // and then only behind API_DOCS_USER/API_DOCS_PASSWORD Basic Auth.
+  @IsOptional()
+  @IsString()
+  ENABLE_API_DOCS?: string;
+
+  @IsOptional()
+  @IsString()
+  API_DOCS_USER?: string;
+
+  @IsOptional()
+  @IsString()
+  API_DOCS_PASSWORD?: string;
+
   @IsOptional()
   @IsString()
   SMS_PROVIDER?: string;
