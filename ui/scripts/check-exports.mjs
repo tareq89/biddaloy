@@ -41,7 +41,7 @@ for (const [subpath, target] of entries) {
     errors.push(`${subpath} -> ${target} does not exist.`);
   }
   for (const priv of PRIVATE_DIRS) {
-    if (target.includes(`/${priv}/`)) {
+    if (target.split('/').filter(Boolean).includes(priv)) {
       errors.push(
         `${subpath} -> ${target} exposes ${priv}/, which must stay internal. ` +
           `Wrap it in src/components/ and export the wrapper instead.`,
