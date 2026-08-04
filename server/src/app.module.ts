@@ -112,7 +112,7 @@ import { RefreshToken } from "./modules/auth/entities/refresh-token.entity";
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         connection: {
-          url: config.get<string>("REDIS_URL") ?? "redis://localhost:6379",
+          url: config.get<string>("REDIS_URL") ?? "redis://127.0.0.1:6379",
         },
       }),
     }),
@@ -134,7 +134,7 @@ import { RefreshToken } from "./modules/auth/entities/refresh-token.entity";
           // immediately instead, so FailOpenThrottlerStorage can actually
           // fail open without adding latency.
           storage: new FailOpenThrottlerStorage(
-            new ThrottlerStorageRedisService(config.get<string>("REDIS_URL") ?? "redis://localhost:6379", {
+            new ThrottlerStorageRedisService(config.get<string>("REDIS_URL") ?? "redis://127.0.0.1:6379", {
               enableOfflineQueue: false,
               maxRetriesPerRequest: 1,
             }),

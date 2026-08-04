@@ -161,3 +161,7 @@ build-output/
 # MemPalace per-project files (issue #185)
 mempalace.yaml
 entities.json
+
+# Python bytecode from skill scripts
+__pycache__/
+*.pyc
