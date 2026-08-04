@@ -105,6 +105,19 @@ you cannot reconstruct later is indistinguishable from a mistake.
 - CI is green — not "the review ran", actually green.
 - `review_threads.py open <pr>` returns no unresolved findings other than
   deliberate deferrals you have replied to with reasoning.
+- **A review actually ran.** `0 threads` is ambiguous: it means "reviewed, found
+  nothing" *or* "never reviewed". CodeRabbit rate-limits, and a rate-limited PR
+  looks identical to a clean one through `review_threads.py`. Confirm the
+  difference in its comment before treating silence as approval:
+
+  ```bash
+  gh pr view <pr> --json comments \
+    -q '.comments[] | select(.author.login=="coderabbitai") | .body' \
+    | grep -iE "rate limit|no actionable comments"
+  ```
+
+  `No actionable comments were generated` is a pass. `Review rate limited` is
+  not — wait for it and re-check.
 - Build, lint and unit tests pass locally.
 - Anything touching infrastructure was exercised for real, per `ship-issue`
   phase 3 — a migration run against seeded, awkward-shaped data, not an empty
@@ -120,13 +133,77 @@ gh pr merge <pr> --merge
 Then confirm the merge landed, the issue auto-closed via `Closes #N`, and sync
 local `main` before the next item.
 
+### Red CI that your PR did not cause
+
+Before treating a red check as *this issue's* problem, find out whether `main`
+is red too. A repo-wide failure blocks every PR in the epic, so diagnosing it
+once beats re-hitting it six times.
+
+```bash
+gh run list --branch main --workflow <workflow> --limit 1
+git diff origin/main -- yarn.lock package.json   # empty ⇒ you did not move deps
+```
+
+If `main` fails identically and your diff cannot explain it, **the fix is its
+own PR, not a stop.** Land that first, then rebase the feature branch onto it
+and carry on. Do not bundle the fix into the feature PR — it belongs in the
+history as a separate, revertable change with its own reasoning.
+
+Two things this run got wrong, both worth avoiding:
+
+- **A pre-existing failure was treated as a hard stop.** It stalled the whole
+  epic on something that took one small PR to fix. "Not caused by this issue"
+  means *investigate separately*, not *give up*.
+- **An inherited "this cannot be fixed" comment was believed.** A dated
+  allowlist entry claimed upgrading `brace-expansion` was impossible because it
+  breaks typeorm's bundled `minimatch@3`. True for a cross-major jump; false
+  for the patch bump actually needed — every consumer's declared range already
+  permitted the fixed version, so the lockfile was stale, not pinned.
+
+  Re-derive the constraint before accepting it. Comments record what was true
+  when someone wrote them, and dependency trees move underneath them. Check
+  what each consumer actually *declares*, not just what is installed.
+
+## 3b. Delegating to a subagent
+
+Only when the user asks for it. Left alone, run the loop yourself.
+
+**One agent at a time. Never concurrently.** Not because of any platform limit,
+but because parallel agents collide on exactly the files an epic touches most:
+`yarn.lock`, root `package.json` workspaces and scripts. Lockfile conflicts do
+not merge — resolving one means discarding a side and reinstalling, which throws
+away whichever agent finished second. Sequential branches never hit this.
+
+`epic_plan.py` output often *looks* parallelisable — epic 8.1 forks three ways
+after its root task. Resist it. The graph describes what could run at once, not
+what merges cleanly at once.
+
+**Reuse one agent across the epic; do not spawn one per task.** A new `Agent`
+call always cold-starts, so a fresh agent per task re-derives the repo layout,
+the workspace conventions and the whole `ship-issue` process every time — and
+task 5's agent would not know what task 2 built. Spawn once, then continue it
+with `SendMessage` using its ID, which keeps its context intact.
+
+Do not rely on that context surviving a session restart. If it is gone, spawn a
+fresh agent and re-run `epic_plan.py`; it reads real state from GitHub, so
+nothing is lost but warm-up.
+
+Two things the delegating side owns:
+
+- **Relay the report.** A subagent's final report goes to you, not the user. An
+  unrelayed finding is an invisible one, and the user was already not watching.
+- **Re-verify before merging.** The merge gate is yours, not the agent's. "The
+  agent said tests pass" is not the gate; a green CI run and a real review are.
+
 ## 4. When to stop and ask
 
 Finish the current issue and stop the loop for any of these. Each is a case
 where continuing would either compound an error or make a call that is not
 yours:
 
-- **CI still red after two fix attempts.** A third is guessing.
+- **CI still red after two fix attempts** *for a failure your change caused*. A
+  third is guessing. A failure that also reproduces on `main` is not this — see
+  "Red CI that your PR did not cause" above, and fix it in its own PR.
 - **The same finding contested twice.** `ship-issue` already says this needs a
   human; in a loop it is also how you burn an hour re-litigating.
 - **A migration that can lose data** — dropping a column or table, or a backfill
