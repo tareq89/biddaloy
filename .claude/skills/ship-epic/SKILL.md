@@ -105,19 +105,8 @@ you cannot reconstruct later is indistinguishable from a mistake.
 - CI is green — not "the review ran", actually green.
 - `review_threads.py open <pr>` returns no unresolved findings other than
   deliberate deferrals you have replied to with reasoning.
-- **A review actually ran.** `0 threads` is ambiguous: it means "reviewed, found
-  nothing" *or* "never reviewed". CodeRabbit rate-limits, and a rate-limited PR
-  looks identical to a clean one through `review_threads.py`. Confirm the
-  difference in its comment before treating silence as approval:
-
-  ```bash
-  gh pr view <pr> --json comments \
-    -q '.comments[] | select(.author.login=="coderabbitai") | .body' \
-    | grep -iE "rate limit|no actionable comments"
-  ```
-
-  `No actionable comments were generated` is a pass. `Review rate limited` is
-  not — wait for it and re-check.
+- **A review actually ran and has gone quiet.** See "Waiting out a review"
+  below. `0 threads` on its own is never enough.
 - Build, lint and unit tests pass locally.
 - Anything touching infrastructure was exercised for real, per `ship-issue`
   phase 3 — a migration run against seeded, awkward-shaped data, not an empty
@@ -132,6 +121,55 @@ gh pr merge <pr> --merge
 
 Then confirm the merge landed, the issue auto-closed via `Closes #N`, and sync
 local `main` before the next item.
+
+### Waiting out a review
+
+`0 threads` from `review_threads.py` is ambiguous. It means *reviewed, found
+nothing* or *never reviewed at all*, and those look identical. CodeRabbit
+rate-limits on a rolling window, and a long epic run hits that limit routinely —
+so this is the normal case, not an edge case.
+
+```bash
+python3 .claude/skills/ship-epic/scripts/review_state.py <pr>
+```
+
+```
+0  settled       — reviewed, and quiet for 30 minutes. Proceed.
+1  still settling — reviewed, but comments are still landing. Re-check later.
+2  not reviewed   — rate limited, or no completed-review marker. Trigger one.
+```
+
+Use the script rather than hand-rolling the check. Three things make the manual
+version wrong in ways that fail *open*, and it gets all three right: the bot's
+login differs between REST (`coderabbitai[bot]`) and GraphQL (`coderabbitai`);
+the summary comment is **edited in place**, so `created_at` can understate the
+last activity by hours; and inline findings live in a different endpoint from
+the summary.
+
+**On exit 2, trigger a review.** The rate-limit notice says when the next one is
+available ("Next review available in: 14 minutes"). Wait that long plus a small
+margin, then:
+
+```bash
+gh pr comment <pr> --body "@coderabbitai review"
+```
+
+Pushing new commits also triggers a review, but never manufacture an empty
+commit for that. Trigger at most twice; if both come back rate limited, stop and
+tell the user — something is throttling harder than waiting will fix.
+
+**On exit 1, wait it out.** A review arrives as a burst, not one atomic event,
+so "a comment exists" does not mean it has finished. Only exit 0 makes
+`review_threads.py open <pr>` mean what it appears to mean.
+
+Both halves of that gate carry weight, and the failure is asymmetric: thirty
+minutes of silence *while rate limited* is a queue, not an approval. That is not
+hypothetical — PR #197 sat silent for 33 minutes having never been reviewed at
+all, and a quiet-window check alone would have merged it.
+
+**Do not idle while waiting.** The wait is per-PR, not global. Work the next
+independent item in the plan, or handle findings already in hand, and re-check
+on the way past. Blocking the whole loop on one PR's reviewer wastes the run.
 
 ### Red CI that your PR did not cause
 
