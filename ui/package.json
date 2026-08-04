@@ -1,0 +1,35 @@
+{
+  "name": "@beton-boi/ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared React component package consumed by every biddaloy SPA.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./components": "./src/components/index.ts",
+    "./shells": "./src/shells/index.ts",
+    "./hooks": "./src/hooks/index.ts",
+    "./utils": "./src/utils/index.ts",
+    "./i18n": "./src/i18n/index.ts",
+    "./api": "./src/api/index.ts",
+    "./test": "./src/test/index.ts",
+    "./styles": "./src/styles/globals.css",
+    "./tailwind": "./tailwind.preset.ts"
+  },
+  "scripts": {
+    "lint": "tsc --noEmit",
+    "check:exports": "node scripts/check-exports.mjs"
+  },
+  "dependencies": {
+    "@beton-boi/shared": "0.1.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "react": "^19",
+    "react-dom": "^19",
+    "typescript": "^5"
+  }
+}

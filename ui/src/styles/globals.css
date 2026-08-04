@@ -1,0 +1,7 @@
+/**
+ * Global stylesheet for every biddaloy SPA.
+ *
+ * Design tokens land here in [8.1.2]. Imported by an app as
+ * `import "@beton-boi/ui/styles";`
+ */
+@import "tailwindcss";

@@ -4,8 +4,9 @@
   "private": true,
   "workspaces": [
     "server",
-    "client-*",
-    "shared"
+    "shared",
+    "ui",
+    "client-*"
   ],
   "scripts": {
     "build:all": "bash scripts/build-all.sh",
