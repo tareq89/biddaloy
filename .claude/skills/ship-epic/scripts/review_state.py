@@ -5,26 +5,42 @@
 "reviewed, found nothing" *or* "never reviewed". Merging on the second reading
 skips review entirely, which in an unattended loop nobody would notice.
 
-Three details make this easy to get wrong, and all three are load-bearing:
+Four details make this easy to get wrong, and all four are load-bearing —
+each was hit for real running epic 8.1, not anticipated in the abstract:
 
 * **Bot login differs by API.** GraphQL reports ``coderabbitai``; REST reports
   ``coderabbitai[bot]``. A filter written for one silently matches nothing on
   the other.
-* **The summary comment is edited in place, not reposted.** Observed on a real
-  PR: ``created_at`` 14:46Z but ``updated_at`` 17:31Z. Judging silence by
-  ``created_at`` would have reported nearly three hours of quiet nine minutes
-  after the reviewer last wrote.
-* **Findings and the summary live in different endpoints.** The summary is an
-  issue comment; inline findings are pull-request review comments. Checking
-  only one misses activity in the other.
+* **The summary comment is edited in place, not reposted** — usually. Observed
+  on PR #196: ``created_at`` 14:46Z but ``updated_at`` 17:31Z. Judging silence
+  by ``created_at`` would have reported nearly three hours of quiet nine
+  minutes after the reviewer last wrote.
+* **CodeRabbit can also post more than one comment for the same PR** — a
+  rate-limit notice and a real walkthrough coexisting, from different trigger
+  attempts. Concatenating every bot comment's text and searching the joined
+  string (an earlier version of this script did exactly that) means a stale
+  rate-limit body sitting next to a fresh clean review still reads as
+  rate-limited. Only the single most-recently-updated comment is meaningful.
+* **A rate-limit notice is a static snapshot, not a live countdown.**
+  Observed on PR #197: a comment posted at 20:25:14 UTC saying "next review
+  in 40 minutes" still read exactly that at 21:56 — 91 minutes later,
+  ``updated_at`` unchanged. CodeRabbit never revisits an old notice; only a
+  *new* trigger (push or ``@coderabbitai review`` comment) produces a new
+  one. Waiting past the stated window without retriggering waits forever.
+  Conversely, retriggering *before* the window elapses just produces another
+  rate-limit notice with a fresh, longer countdown — a wasted attempt.
 
 Usage:
     review_state.py <pr> [--repo owner/name] [--quiet-minutes 30]
 
 Exit codes:
-    0  settled — reviewed, and quiet for the required window
-    1  not settled yet — still within the quiet window
-    2  rate limited — a review has not run; trigger one and wait
+    0  settled          — reviewed, and quiet for the required window. Safe.
+    1  still settling    — reviewed, but within the quiet window. Re-check later.
+    2  wait              — rate limited, stated window has not elapsed. Do not
+                            trigger; it will just extend the countdown.
+    3  trigger required  — rate limited and the window has elapsed, or no
+                            review has ever run. Passive waiting will not
+                            resolve this; post '@coderabbitai review'.
 """
 
 from __future__ import annotations
@@ -34,12 +50,12 @@ import json
 import re
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 BOT = re.compile(r"coderabbit", re.IGNORECASE)
 
-# Rate-limit notices. Their presence means no review ran for the current head.
 LIMITED = re.compile(r"review limit reached|next review available", re.IGNORECASE)
+WAIT_MINUTES = re.compile(r"next review available in:?\**\s*(\d+)\s*minutes?", re.IGNORECASE)
 
 # Evidence that a review actually completed for the current head.
 REVIEWED = re.compile(
@@ -79,38 +95,50 @@ def main() -> int:
     issue_comments = gh_json(f"repos/{repo}/issues/{args.pr}/comments")
     review_comments = gh_json(f"repos/{repo}/pulls/{args.pr}/comments")
 
-    stamps: list[datetime] = []
-    bodies: list[str] = []
-    for comment in list(issue_comments) + list(review_comments):
-        if not BOT.search((comment.get("user") or {}).get("login", "")):
-            continue
-        bodies.append(comment.get("body") or "")
-        # updated_at, not created_at — the summary comment is edited in place.
-        stamps.append(parse_ts(comment["updated_at"]))
+    bot_comments = [
+        c for c in list(issue_comments) + list(review_comments)
+        if BOT.search((c.get("user") or {}).get("login", ""))
+    ]
 
-    if not stamps:
+    if not bot_comments:
         print(f"#{args.pr}  no reviewer activity at all — a review has not started")
-        return 2
+        print("  -> trigger required. Comment '@coderabbitai review'.")
+        return 3
 
-    last = max(stamps)
-    age = int((datetime.now(timezone.utc) - last).total_seconds() // 60)
-    joined = "\n".join(bodies)
-    limited = bool(LIMITED.search(joined))
-    reviewed = bool(REVIEWED.search(joined))
+    # Only the single most-recently-updated comment is meaningful. An older
+    # comment sitting alongside it — a superseded rate-limit notice, say — is
+    # not evidence of anything about the current head.
+    latest = max(bot_comments, key=lambda c: parse_ts(c["updated_at"]))
+    body = latest.get("body") or ""
+    posted_at = parse_ts(latest["updated_at"])
+    now = datetime.now(timezone.utc)
+    age = int((now - posted_at).total_seconds() // 60)
 
-    state = "rate-limited" if limited else ("reviewed" if reviewed else "unclear")
-    print(f"#{args.pr}  {state}  last activity {age}m ago  (quiet window {args.quiet_minutes}m)")
+    limited = bool(LIMITED.search(body))
+    reviewed = bool(REVIEWED.search(body))
 
     if limited:
-        # Silence while rate limited is a queue, not an approval — however long
-        # it has lasted.
-        print("  -> a review has not run. Comment '@coderabbitai review' and wait.")
+        wait_match = WAIT_MINUTES.search(body)
+        stated_wait = int(wait_match.group(1)) if wait_match else args.quiet_minutes
+        elapsed_since_stated = (now - (posted_at + timedelta(minutes=stated_wait))).total_seconds() / 60
+
+        print(f"#{args.pr}  rate-limited  notice posted {age}m ago, stated wait {stated_wait}m")
+        if elapsed_since_stated >= 0:
+            print(f"  -> stated window elapsed {elapsed_since_stated:.0f}m ago. This notice will "
+                  "never update on its own — trigger required. Comment '@coderabbitai review'.")
+            return 3
+        print(f"  -> still within the stated window ({-elapsed_since_stated:.0f}m remaining). "
+              "Wait — retriggering now would just extend the countdown.")
         return 2
+
     if not reviewed:
-        print("  -> no completed-review marker found; treat as not reviewed.")
-        return 2
+        print(f"#{args.pr}  unclear  latest bot comment ({age}m old) has no recognized marker")
+        print("  -> treat as not reviewed. Trigger required.")
+        return 3
+
+    print(f"#{args.pr}  reviewed  last update {age}m ago  (quiet window {args.quiet_minutes}m)")
     if age < args.quiet_minutes:
-        print(f"  -> reviewed, but still settling; re-check in {args.quiet_minutes - age}m.")
+        print(f"  -> still settling; re-check in {args.quiet_minutes - age}m.")
         return 1
 
     print("  -> settled. review_threads.py now means what it says.")

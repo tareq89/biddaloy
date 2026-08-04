@@ -134,42 +134,61 @@ python3 .claude/skills/ship-epic/scripts/review_state.py <pr>
 ```
 
 ```
-0  settled       — reviewed, and quiet for 30 minutes. Proceed.
-1  still settling — reviewed, but comments are still landing. Re-check later.
-2  not reviewed   — rate limited, or no completed-review marker. Trigger one.
+0  settled           — reviewed, and quiet for 30 minutes. Proceed.
+1  still settling    — reviewed, but comments are still landing. Re-check later.
+2  wait              — rate limited, stated window hasn't elapsed. Wait; do NOT trigger.
+3  trigger required  — rate limited past its window, or never reviewed. Trigger now.
 ```
 
-Use the script rather than hand-rolling the check. Three things make the manual
-version wrong in ways that fail *open*, and it gets all three right: the bot's
-login differs between REST (`coderabbitai[bot]`) and GraphQL (`coderabbitai`);
-the summary comment is **edited in place**, so `created_at` can understate the
-last activity by hours; and inline findings live in a different endpoint from
-the summary.
+Use the script rather than hand-rolling the check. Four things make the manual
+version wrong in ways that fail *open*, and it gets all four right:
 
-**On exit 2, trigger a review.** The rate-limit notice says when the next one is
-available ("Next review available in: 14 minutes"). Wait that long plus a small
-margin, then:
+- the bot's login differs between REST (`coderabbitai[bot]`) and GraphQL (`coderabbitai`)
+- the summary comment is **edited in place**, so `created_at` can understate the
+  last activity by hours
+- inline findings live in a different endpoint from the summary
+- **a rate-limit notice never updates itself.** It is a snapshot written once,
+  at the moment a trigger was rejected. Waiting past its stated window without
+  retriggering waits forever — nothing server-side revisits an old notice.
+  Observed for real: a notice posted at 20:25 UTC said "40 minutes" and still
+  said exactly that, unedited, at 21:56 — 91 minutes later. An earlier version
+  of this script also concatenated every bot comment's text into one string
+  before searching it, so a stale rate-limit body sitting next to a genuinely
+  fresh clean review still read as rate-limited. Only the single
+  most-recently-*updated* comment is meaningful; read that one alone.
+
+**Exit 2 vs exit 3 is the whole point — do not collapse them.** Both mean
+"rate limited," but they call for opposite actions:
+
+- **Exit 2 (window still counting down): wait, do not trigger.** Retriggering
+  now just produces another rate-limit notice with a fresh, *longer* countdown
+  — a wasted attempt that makes the wait worse, not shorter.
+- **Exit 3 (window elapsed, or no review ever ran): trigger now.** Waiting
+  longer accomplishes nothing — the stale notice will sit there unchanged
+  indefinitely without a new trigger.
 
 ```bash
 gh pr comment <pr> --body "@coderabbitai review"
 ```
 
 Pushing new commits also triggers a review, but never manufacture an empty
-commit for that. Trigger at most twice; if both come back rate limited, stop and
-tell the user — something is throttling harder than waiting will fix.
+commit for that. Trigger at most twice per rate-limit episode; if both come
+back rate limited, stop and tell the user — something is throttling harder
+than a wait-and-retrigger cycle will fix.
 
 **On exit 1, wait it out.** A review arrives as a burst, not one atomic event,
 so "a comment exists" does not mean it has finished. Only exit 0 makes
 `review_threads.py open <pr>` mean what it appears to mean.
 
-Both halves of that gate carry weight, and the failure is asymmetric: thirty
-minutes of silence *while rate limited* is a queue, not an approval. That is not
-hypothetical — PR #197 sat silent for 33 minutes having never been reviewed at
-all, and a quiet-window check alone would have merged it.
+The asymmetry that matters most: thirty minutes of silence *while rate
+limited* is a queue, not an approval. That is not hypothetical — PR #197 sat
+silent for 33 minutes having never been reviewed at all, and a quiet-window
+check alone would have merged it.
 
-**Do not idle while waiting.** The wait is per-PR, not global. Work the next
-independent item in the plan, or handle findings already in hand, and re-check
-on the way past. Blocking the whole loop on one PR's reviewer wastes the run.
+**Do not idle while waiting on exit 1 or 2.** The wait is per-PR, not global.
+Work the next independent item in the plan, or handle findings already in
+hand, and re-check on the way past. On exit 3, trigger immediately — there is
+nothing to idle through.
 
 ### Red CI that your PR did not cause
 
