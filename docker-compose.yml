@@ -25,6 +25,9 @@ services:
     restart: unless-stopped
     volumes:
       - redisdata:/data
+    # Bound to localhost only — reachable for local `yarn start:dev`, not exposed publicly.
+    ports:
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
