@@ -25,7 +25,12 @@ services:
     restart: unless-stopped
     volumes:
       - redisdata:/data
-    # Bound to localhost only — reachable for local `yarn start:dev`, not exposed publicly.
+    # Bound to loopback only — reachable for local `yarn start:dev`, not exposed
+    # publicly. Note this is the IPv4 loopback specifically, so the app's
+    # REDIS_URL default is "redis://127.0.0.1:6379" rather than "localhost":
+    # ioredis >=5.8.2 defaults to family:0 and lets the OS resolve, and on a
+    # dual-stack host "localhost" commonly resolves to ::1 first — which nothing
+    # is listening on.
     ports:
       - "127.0.0.1:6379:6379"
     healthcheck:

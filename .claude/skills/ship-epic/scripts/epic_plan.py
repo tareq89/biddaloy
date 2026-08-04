@@ -24,12 +24,13 @@ import sys
 from collections import defaultdict
 
 SUB_ISSUES_QUERY = """
-query($owner:String!, $name:String!, $number:Int!) {
+query($owner:String!, $name:String!, $number:Int!, $after:String) {
   repository(owner:$owner, name:$name) {
     issue(number:$number) {
       number title state
-      subIssues(first:100) {
+      subIssues(first:100, after:$after) {
         totalCount
+        pageInfo { hasNextPage endCursor }
         nodes {
           number title state body
           labels(first:20) { nodes { name } }
@@ -53,12 +54,50 @@ NONE_WORDS = {"nothing", "none", "n/a", "-", "—"}
 def gh_graphql(query: str, **variables) -> dict:
     cmd = ["gh", "api", "graphql", "-f", f"query={query}"]
     for key, value in variables.items():
+        if value is None:
+            continue  # omitted variables arrive as GraphQL null
         flag = "-F" if isinstance(value, int) else "-f"
         cmd += [flag, f"{key}={value}"]
     out = subprocess.run(cmd, capture_output=True, text=True)
     if out.returncode != 0:
         sys.exit(f"gh api failed: {out.stderr.strip()}")
     return json.loads(out.stdout)
+
+
+def fetch_epic(owner: str, name: str, number: int) -> dict | None:
+    """Fetch the epic with *every* page of its sub-issues.
+
+    Completeness matters more here than in a typical listing: a short read
+    silently drops ordering edges, and the close flow would then report
+    "N/N sub-issues closed" for an epic that still has open work. So a partial
+    fetch is a hard error rather than a best effort.
+    """
+    epic: dict | None = None
+    nodes: list[dict] = []
+    after: str | None = None
+
+    while True:
+        data = gh_graphql(SUB_ISSUES_QUERY, owner=owner, name=name, number=number, after=after)
+        issue = (data.get("data") or {}).get("repository", {}).get("issue")
+        if not issue:
+            return None
+        epic = issue
+        nodes += issue["subIssues"]["nodes"]
+        page = issue["subIssues"].get("pageInfo") or {}
+        if not page.get("hasNextPage"):
+            break
+        after = page.get("endCursor")
+        if not after:
+            sys.exit("sub-issue pagination stalled: hasNextPage was set but no endCursor came back")
+
+    total = epic["subIssues"]["totalCount"]
+    if len(nodes) != total:
+        sys.exit(
+            f"fetched {len(nodes)} sub-issues but #{number} reports {total} — "
+            "refusing to plan from an incomplete set"
+        )
+    epic["subIssues"] = {"totalCount": total, "nodes": nodes}
+    return epic
 
 
 def dotted_key(dotted: str) -> tuple:
@@ -100,6 +139,14 @@ def build_plan(epic: dict) -> dict:
         items.append(item)
         by_number[item["number"]] = item
         if dotted:
+            # Two issues sharing a dotted id makes every "#N.M.K" reference to it
+            # ambiguous, and silently keeping the last one drops ordering edges.
+            clash = by_dotted.get(dotted)
+            if clash:
+                sys.exit(
+                    f"duplicate task id [{dotted}] on #{clash['number']} and #{item['number']} — "
+                    "dependency references to it are ambiguous; fix one title before planning"
+                )
             by_dotted[dotted] = item
 
     # Resolve raw tokens to sibling issue numbers. A token is either a dotted
@@ -114,7 +161,10 @@ def build_plan(epic: dict) -> dict:
                 prefix = token[:-2] + "."
                 matched = [o for d, o in by_dotted.items() if d.startswith(prefix)]
                 if matched:
-                    deps.update(o["number"] for o in matched)
+                    # A wildcard means "every sibling in this group", which
+                    # includes the item itself. That is a quirk of the notation,
+                    # not a declared self-dependency, so drop it here only.
+                    deps.update(o["number"] for o in matched if o["number"] != item["number"])
                 else:
                     external.add(token)
                 continue
@@ -125,7 +175,8 @@ def build_plan(epic: dict) -> dict:
                 deps.add(int(token))
                 continue
             external.add(token)
-        deps.discard(item["number"])
+        # An explicit "#self" edge is preserved on purpose — it is a cycle, and
+        # Kahn's algorithm below must be allowed to see it as one.
         item["deps"] = sorted(deps)
         item["external_deps"] = sorted(external)
 
@@ -183,8 +234,7 @@ def main() -> int:
         repo = out.stdout.strip()
     owner, name = repo.split("/", 1)
 
-    data = gh_graphql(SUB_ISSUES_QUERY, owner=owner, name=name, number=args.epic)
-    epic = (data.get("data") or {}).get("repository", {}).get("issue")
+    epic = fetch_epic(owner, name, args.epic)
     if not epic:
         sys.exit(f"issue #{args.epic} not found in {repo}")
     if epic["subIssues"]["totalCount"] == 0:

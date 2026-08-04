@@ -213,7 +213,12 @@ yours:
   criteria is fine; choosing a security posture unattended is not.
 - **Credentials you do not have.** Do not stub past a real integration and
   report it as done.
-- **A blocked item whose blocker failed.** Skip it, and skip anything behind it.
+- **A blocked item whose blocker failed.** Skip it and every item that
+  transitively depends on it — *not* everything later in the plan. A topological
+  order routinely places independent work after unrelated blocked work, and
+  epic 8.1 is exactly that shape: it forks three ways after its root task, so a
+  failure in one fork leaves the other two perfectly startable. Read
+  `deps`/`blocked by` to decide, never plan position.
 
 Stopping is not failure. Report where the loop got to, what is merged, what is
 open, and what you need — then let the user unblock it.

@@ -68,7 +68,7 @@ const DEFAULT_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60_000; // 30 days
         // app.module.ts) — ioredis's default maxRetriesPerRequest queues
         // each command through several seconds of retries before rejecting,
         // which would turn "fail open" into "fail slow" during an outage.
-        const redis = new Redis(config.get<string>('REDIS_URL') ?? 'redis://localhost:6379', {
+        const redis = new Redis(config.get<string>('REDIS_URL') ?? 'redis://127.0.0.1:6379', {
           enableOfflineQueue: false,
           maxRetriesPerRequest: 1,
         });
@@ -85,7 +85,7 @@ const DEFAULT_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60_000; // 30 days
       provide: ACCESS_TOKEN_DENYLIST_REDIS,
       inject: [ConfigService],
       useFactory: (config: ConfigService) =>
-        new Redis(config.get<string>('REDIS_URL') ?? 'redis://localhost:6379', {
+        new Redis(config.get<string>('REDIS_URL') ?? 'redis://127.0.0.1:6379', {
           enableOfflineQueue: false,
           maxRetriesPerRequest: 1,
           // isRevoked() runs on every authenticated request, inside
