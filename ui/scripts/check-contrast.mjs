@@ -16,6 +16,13 @@
  *     mechanism to generate CSS custom properties from a TS file), so
  *     nothing stops the two from disagreeing except this check.
  *
+ * The drift check compares parsed `--name: value;` declarations by name and
+ * scope, not by searching for a hex value anywhere in the file. An earlier
+ * version did the latter (`css.includes(hex)`), which cannot catch a real
+ * mistake: swapping `--color-status-paid-fg` and `--color-status-paid-bg`
+ * leaves both hex strings present *somewhere* in the file, so a
+ * presence-only check still reports OK while the badge is now unreadable.
+ *
  * Run via `node --experimental-strip-types` — see check:contrast in
  * package.json. That flag imports tailwind.preset.ts's real exported
  * values directly rather than re-parsing them by hand; CONTRAST_PAIRS
@@ -28,12 +35,19 @@ import { fileURLToPath } from 'node:url';
 
 const pkgRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
+const HEX_RE = /^#[0-9a-f]{6}$/i;
+
 function srgbToLinear(c) {
   const n = c / 255;
   return n <= 0.03928 ? n / 12.92 : ((n + 0.055) / 1.055) ** 2.4;
 }
 
 function relativeLuminance(hex) {
+  if (!HEX_RE.test(hex)) {
+    // NaN < min is false, so an unvalidated bad value would silently pass
+    // every ratio check below it — fail loudly instead.
+    throw new TypeError(`expected a #RRGGBB colour, got ${JSON.stringify(hex)}`);
+  }
   const clean = hex.replace('#', '');
   const r = parseInt(clean.slice(0, 2), 16);
   const g = parseInt(clean.slice(2, 4), 16);
@@ -44,6 +58,50 @@ function relativeLuminance(hex) {
 function contrastRatio(hexA, hexB) {
   const [l1, l2] = [relativeLuminance(hexA), relativeLuminance(hexB)].sort((a, b) => b - a);
   return (l1 + 0.05) / (l2 + 0.05);
+}
+
+/**
+ * Extract `--name: value;` declarations from one CSS block's body (the text
+ * between its outermost `{` and matching `}`). Good enough for this file's
+ * hand-authored shape — not a general CSS parser — but real enough to catch
+ * a name/value mismatch, which string search cannot.
+ */
+function parseDeclarations(blockBody) {
+  const vars = {};
+  const withoutComments = blockBody.replace(/\/\*[\s\S]*?\*\//g, '');
+  const declRe = /(--[a-z0-9-]+)\s*:\s*([^;]+);/gi;
+  let match;
+  while ((match = declRe.exec(withoutComments))) {
+    vars[match[1]] = match[2].trim();
+  }
+  return vars;
+}
+
+function extractBlock(css, selectorRe) {
+  const start = css.search(selectorRe);
+  if (start === -1) return null;
+  const braceStart = css.indexOf('{', start);
+  if (braceStart === -1) return null;
+  let depth = 0;
+  for (let i = braceStart; i < css.length; i++) {
+    if (css[i] === '{') depth++;
+    else if (css[i] === '}') {
+      depth--;
+      if (depth === 0) return css.slice(braceStart + 1, i);
+    }
+  }
+  return null;
+}
+
+/** `#RRGGBB` -> the `var(--color-scale-key)` string it should appear as, by
+ * reverse-lookup against the raw scale. Semantic role tokens are authored as
+ * references to the raw scale (see globals.css's own comment on why), so the
+ * *correct* expected form is the reference, not the literal hex it resolves to. */
+function buildReverseLookup(preset) {
+  const byHex = {};
+  for (const [key, hex] of Object.entries(preset.neutral)) byHex[hex] = `var(--color-neutral-${key})`;
+  for (const [key, hex] of Object.entries(preset.brand)) byHex[hex] = `var(--color-brand-${key})`;
+  return byHex;
 }
 
 const errors = [];
@@ -63,34 +121,69 @@ for (const { name, fg, bg, min } of preset.CONTRAST_PAIRS) {
   }
 }
 
-// --- Drift check: every hex value in tailwind.preset.ts's flat scales must
-// appear somewhere in globals.css's @theme block, or the two have diverged.
+// --- Drift check: parsed name -> value, scoped to @theme (light/default) vs
+// :root[data-theme="dark"], compared against what tailwind.preset.ts says
+// each name should hold in that scope.
 const cssPath = join(pkgRoot, 'src', 'styles', 'globals.css');
 const css = readFileSync(cssPath, 'utf8');
 
-const flatSources = {
-  neutral: preset.neutral,
-  brand: preset.brand,
-};
-for (const [scaleName, scale] of Object.entries(flatSources)) {
-  for (const [key, hex] of Object.entries(scale)) {
-    if (!css.includes(hex)) {
-      errors.push(
-        `${scaleName}[${key}] = ${hex} is in tailwind.preset.ts but not found anywhere in ` +
-          'globals.css — the CSS mirror has drifted.',
-      );
-    }
+const themeBody = extractBlock(css, /@theme\s*\{/);
+const darkBody = extractBlock(css, /:root\[data-theme=["']dark["']\]\s*\{/);
+if (themeBody === null) errors.push('globals.css: could not find an @theme block to check.');
+if (darkBody === null) errors.push('globals.css: could not find a :root[data-theme="dark"] block to check.');
+
+const lightVars = themeBody === null ? {} : parseDeclarations(themeBody);
+const darkVars = darkBody === null ? {} : parseDeclarations(darkBody);
+
+function expectVar(scopeVars, scopeName, varName, expectedValue) {
+  const actual = scopeVars[varName];
+  if (actual === undefined) {
+    errors.push(`${scopeName}: expected ${varName}: ${expectedValue}; — declaration missing.`);
+    return;
+  }
+  if (actual !== expectedValue) {
+    errors.push(`${scopeName}: ${varName} is "${actual}", expected "${expectedValue}".`);
   }
 }
+
+// Raw scale: literal hex, always.
+for (const [key, hex] of Object.entries(preset.neutral)) {
+  expectVar(lightVars, '@theme', `--color-neutral-${key}`, hex);
+}
+for (const [key, hex] of Object.entries(preset.brand)) {
+  expectVar(lightVars, '@theme', `--color-brand-${key}`, hex);
+}
+for (const [key, value] of Object.entries(preset.radius)) {
+  expectVar(lightVars, '@theme', `--radius-${key}`, value);
+}
+
+// Status: fg/bg literal in light scope; fgDark literal in dark scope; bg is
+// intentionally not overridden in dark scope (see globals.css's own note),
+// so it is not asserted there.
 for (const [statusKey, entry] of Object.entries(preset.status)) {
-  for (const field of ['fg', 'bg']) {
-    if (!css.includes(entry[field])) {
-      errors.push(
-        `status.${statusKey}.${field} = ${entry[field]} is in tailwind.preset.ts but not ` +
-          'found in globals.css — the CSS mirror has drifted.',
-      );
-    }
-  }
+  expectVar(lightVars, '@theme', `--color-status-${statusKey}-fg`, entry.fg);
+  expectVar(lightVars, '@theme', `--color-status-${statusKey}-bg`, entry.bg);
+  expectVar(darkVars, ':root[data-theme="dark"]', `--color-status-${statusKey}-fg`, entry.fgDark);
+}
+
+// Semantic roles: authored as `var(--color-scale-key)` references where the
+// value matches a raw-scale entry, or a literal hex where it does not (e.g.
+// dark.surface has no raw-scale equivalent).
+const reverseLookup = buildReverseLookup(preset);
+const roleVarNames = {
+  bg: '--color-bg',
+  surface: '--color-surface',
+  textPrimary: '--color-text-primary',
+  textSecondary: '--color-text-secondary',
+  border: '--color-border-functional',
+  brand: '--color-brand',
+};
+for (const [roleKey, cssVarName] of Object.entries(roleVarNames)) {
+  const lightExpected = reverseLookup[preset.light[roleKey]] ?? preset.light[roleKey];
+  expectVar(lightVars, '@theme', cssVarName, lightExpected);
+
+  const darkExpected = reverseLookup[preset.dark[roleKey]] ?? preset.dark[roleKey];
+  expectVar(darkVars, ':root[data-theme="dark"]', cssVarName, darkExpected);
 }
 
 if (errors.length > 0) {
@@ -101,5 +194,5 @@ if (errors.length > 0) {
 
 console.log(
   `check-contrast: OK — ${preset.CONTRAST_PAIRS.length} pairs meet WCAG 2.2, ` +
-    'CSS mirror matches tailwind.preset.ts.',
+    'CSS mirror matches tailwind.preset.ts by name and scope.',
 );

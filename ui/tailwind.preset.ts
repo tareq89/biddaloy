@@ -48,6 +48,18 @@ export const radius = {
 } as const;
 
 /**
+ * Spacing and typography are deliberately absent from this file. Tailwind
+ * v4's own default scale (`p-4`, `text-lg`, `gap-2`, ...) is already a
+ * coherent, well-tested system — redefining it here would only be
+ * duplication with no functional benefit, since nothing about a fee-payment
+ * admin UI needs a spacing or type scale different from Tailwind's own. A
+ * custom scale is worth adding the moment a real need appears (an unusual
+ * type ramp, a non-4px spacing grid); until then, extending it means every
+ * SPA gets it for free by importing `@beton-boi/ui/tailwind` — there is
+ * nothing to wire up.
+ */
+
+/**
  * Fee/invoice/payment status. Each state pairs a colour with a distinct
  * icon so the meaning survives red/green colour-vision deficiency, the most
  * common form and exactly the distinction this product relies on most
