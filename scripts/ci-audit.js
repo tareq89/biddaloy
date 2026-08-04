@@ -16,21 +16,13 @@
  */
 const { spawnSync } = require("child_process");
 
-const ALLOWLIST = {
-  // brace-expansion ReDoS, patched >=5.0.8. Reachable only through
-  // exceljs -> archiver's own zip-pattern glob matching (build-time,
-  // developer-controlled patterns), not attacker-controlled input.
-  // typeorm also bundles an old copy of the same chain to load
-  // entity/migration files at boot via its own hardcoded glob patterns —
-  // same reasoning. Forcing a newer brace-expansion via `resolutions`
-  // breaks typeorm's bundled `minimatch@3`, which expects the old
-  // brace-expansion CJS export shape (verified: entity loading fails at
-  // boot). No compatible upstream fix exists for minimatch@3 today.
-  1124334: {
-    reason: "exceljs/typeorm bundle an incompatible old minimatch; see comment above",
-    recheckBy: "2026-10-30",
-  },
-};
+// Empty on purpose. Prefer upgrading over allowlisting — an entry here is a
+// standing exception, and the one this replaced (#1124334, brace-expansion)
+// turned out to be avoidable: every consumer's own semver range already
+// permitted a patched release, so refreshing the lockfile fixed it outright.
+// Before adding an entry, check whether the vulnerable package is actually
+// pinned or merely stale.
+const ALLOWLIST = {};
 
 const today = new Date().toISOString().slice(0, 10);
 const expired = Object.entries(ALLOWLIST).filter(([, e]) => e.recheckBy < today);
