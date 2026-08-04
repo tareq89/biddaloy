@@ -20,7 +20,8 @@
   },
   "scripts": {
     "lint": "tsc --noEmit",
-    "check:exports": "node scripts/check-exports.mjs"
+    "check:exports": "node scripts/check-exports.mjs",
+    "check:contrast": "node --experimental-strip-types scripts/check-contrast.mjs"
   },
   "dependencies": {
     "@beton-boi/shared": "0.1.0"
