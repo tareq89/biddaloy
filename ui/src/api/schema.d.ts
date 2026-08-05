@@ -719,6 +719,25 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AuditLogResponseDto: {
+            id: string;
+            tenant_id: string | null;
+            /** @enum {string} */
+            action: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "FEE_STRUCTURE_CHANGE";
+            entity_type: string;
+            entity_id: string | null;
+            performed_by_user_id: string | null;
+            old_values: {
+                [key: string]: unknown;
+            } | null;
+            new_values: {
+                [key: string]: unknown;
+            } | null;
+            ip_address: string | null;
+            user_agent: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
         LoginDto: {
             /** Format: email */
             email?: string;
@@ -990,6 +1009,22 @@ export interface components {
             subject_specialization?: string;
             joining_date?: string;
             assigned_section_ids?: string[];
+        };
+        TeacherResponseDto: {
+            id: string;
+            user: components["schemas"]["UserResponseDto"];
+            employee_id: string;
+            designations: ("CLASS_TEACHER" | "SUBJECT_TEACHER" | "HEAD_TEACHER" | "ASSISTANT_TEACHER" | "PRINCIPAL" | "VICE_PRINCIPAL" | "COORDINATOR")[];
+            subject_specialization: string | null;
+            /** Format: date-time */
+            joining_date: string | null;
+            tenant_id: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            deleted_at: string | null;
         };
         UpdateTeacherDto: {
             employee_id?: string;
@@ -1419,7 +1454,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["AuditLogResponseDto"][];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
@@ -2324,7 +2361,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["TeacherResponseDto"][];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
@@ -2358,7 +2397,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["TeacherResponseDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -2395,7 +2434,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["TeacherResponseDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

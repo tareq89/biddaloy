@@ -21,7 +21,10 @@ const RESIDUAL_ENTITIES: Record<string, string> = { '&amp;': '&', '&lt;': '<', '
  * `<img onerror=...>` typed as literal characters) come back as live markup.
  */
 function decodeResidualEntitiesForPlainText(value: string): string {
-  return value.replace(/&amp;|&lt;|&gt;/g, (match) => RESIDUAL_ENTITIES[match]);
+  // The regex only ever matches one of RESIDUAL_ENTITIES's three keys, so
+  // the lookup always hits — `?? match` is just satisfying
+  // noUncheckedIndexedAccess, not a real fallback path.
+  return value.replace(/&amp;|&lt;|&gt;/g, (match) => RESIDUAL_ENTITIES[match] ?? match);
 }
 
 function normalize(input: string): string {
