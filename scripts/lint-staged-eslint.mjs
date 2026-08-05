@@ -1,11 +1,16 @@
 #!/usr/bin/env node
 /**
- * lint-staged passes absolute file paths as argv, but ESLint 9's flat config
- * only looks for `eslint.config.*` in the current working directory — it
- * does not walk up from each linted file's own directory the way `.eslintrc`
- * resolution used to. Running plain `eslint --fix <files>` from the repo
- * root (where lint-staged itself runs) fails outright: there is no root
- * `eslint.config.mjs`, only one per package (ui, client-admin, client-student).
+ * lint-staged passes absolute file paths as argv by default, but that's a
+ * config choice on lint-staged's side (its `relative: true` option switches
+ * to cwd-relative paths) — normalizing every arg against repoRoot up front
+ * means this script isn't quietly relying on that default holding forever.
+ *
+ * ESLint 9's flat config only looks for `eslint.config.*` in the current
+ * working directory — it does not walk up from each linted file's own
+ * directory the way `.eslintrc` resolution used to. Running plain `eslint
+ * --fix <files>` from the repo root (where lint-staged itself runs) fails
+ * outright: there is no root `eslint.config.mjs`, only one per package (ui,
+ * client-admin, client-student).
  *
  * This groups the staged files lint-staged hands it by which package they
  * belong to and re-invokes `eslint --fix` with `cwd` set to that package, so
@@ -19,7 +24,8 @@ const ESLINT_PACKAGES = ['ui', 'client-admin', 'client-student'];
 const repoRoot = path.resolve(import.meta.dirname, '..');
 
 const filesByPackage = new Map();
-for (const absPath of process.argv.slice(2)) {
+for (const arg of process.argv.slice(2)) {
+  const absPath = path.isAbsolute(arg) ? arg : path.resolve(repoRoot, arg);
   const relFromRoot = path.relative(repoRoot, absPath);
   const pkg = ESLINT_PACKAGES.find(
     (p) => relFromRoot === p || relFromRoot.startsWith(`${p}${path.sep}`),
