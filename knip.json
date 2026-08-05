@@ -19,7 +19,7 @@
     },
     "ui": {
       "entry": ["src/primitives/**/*.{ts,tsx}"],
-      "project": ["src/**/*.{ts,tsx}", "*.{ts,mjs}", "scripts/**/*.mjs"],
+      "project": ["src/**/*.{ts,tsx}", "*.{ts,mjs}", "scripts/**/*.mjs", "eslint-rules/**/*.mjs"],
       "ignoreDependencies": ["@beton-boi/shared"]
     },
     "client-admin": {
