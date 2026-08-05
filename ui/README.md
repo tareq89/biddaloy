@@ -52,13 +52,11 @@ npx shadcn add button              # add a new primitive
 npx shadcn add button --overwrite  # re-apply after an upstream update
 ```
 
-Everything it writes is vendored: regenerate it, never hand-edit it. If a
-primitive genuinely needs a change that cannot live in its wrapper under
-`src/components/`, record why in a comment at the top of the vendored file —
-`--overwrite` replaces file contents wholesale, so an undocumented change is
-silently discarded the next time someone regenerates. See
-`src/primitives/README.md` for the same rule in more detail, plus the
-coverage-exclusion note.
+Everything it writes is vendored — see `src/primitives/README.md` for the
+regenerate-don't-edit rule, the coverage-exclusion note, and why every
+`components.json` alias (`components`, `ui`, `lib`, `utils`, `hooks`) points
+into `src/primitives/`, not just the one the CLI actually needs for a plain
+component add.
 
 ## Scripts
 

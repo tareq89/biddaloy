@@ -14,10 +14,9 @@ publicly exported.
 ## Coverage
 
 `ui` has no coverage tooling yet — there is nothing to configure today. When
-one gets set up, exclude `src/primitives/**` the same way `server`'s own
-`vitest.config.ts` excludes `src/**/*.module.ts` and similar generated/vendored
-paths: vendored code regenerates from an external source, so a coverage
-threshold on it measures shadcn's test discipline, not this repo's.
+one gets set up, exclude `src/primitives/**`: vendored code regenerates from
+an external source, so a coverage threshold on it measures shadcn's test
+discipline, not this repo's.
 
 ## Regenerating
 
@@ -31,3 +30,29 @@ nowhere else. If a primitive genuinely needs a change that cannot live in its
 wrapper under `../components/`, record why in a comment at the top of the
 vendored file — `--overwrite` replaces file contents wholesale, so an
 undocumented change is silently discarded the next time someone regenerates.
+
+## Why every alias points here
+
+`components.json`'s `aliases` block sets `components`, `ui`, `lib`, `utils`
+*and* `hooks` all to a path under `src/primitives/`, not just `ui` (the one a
+plain `shadcn add button` actually resolves through). Two reasons:
+
+- **`ui` is the only alias this ticket's own acceptance criteria pin down** —
+  `shadcn add button` must land at `src/primitives/button.tsx`, which forces
+  `ui: "@/primitives"`. Nothing forces the others.
+- **Every other alias is set the same way anyway, deliberately**, so that
+  *whatever* the CLI generates — a composite block via `components`, a shared
+  helper via `lib`, a hook via `hooks` — lands under `src/primitives/` too,
+  keeping "everything the CLI writes is vendored, nothing it writes is
+  hand-authored" a single, simple invariant instead of a per-alias judgment
+  call about which output counts as vendored.
+
+The tension: `components` is also the name of this package's *real* public
+surface, `src/components/`. Today that is not a collision — `shadcn add` for
+a plain component only ever touches `ui`, and `src/components/` is entirely
+hand-authored, never written by the CLI. It would become one if a future
+`shadcn add` for a composite block ever resolved through `components` while
+`src/components/` already held hand-authored files of the same name — at
+which point the fix is to point `components` somewhere under `primitives/`
+that isn't `ui`'s own target (e.g. `@/primitives/blocks`), not to let the
+generated output write into the hand-authored directory.
