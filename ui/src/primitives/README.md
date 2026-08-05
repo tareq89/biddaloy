@@ -31,6 +31,20 @@ wrapper under `../components/`, record why in a comment at the top of the
 vendored file — `--overwrite` replaces file contents wholesale, so an
 undocumented change is silently discarded the next time someone regenerates.
 
+**Two things this directory is not.** `button.tsx`'s `data-slot`/`data-size`/
+`data-variant` attributes look like they could be local additions — they
+aren't. Diffed against a fresh `--overwrite` before writing this: byte-for-byte
+identical. Nothing here has been hand-edited; that's upstream's own template.
+A per-file "no local changes" comment would itself be a hand-edit that the
+next real regeneration silently discards — this paragraph is the durable
+place for that fact, not the vendored file.
+
+`lib/utils.ts` is the opposite case: genuinely **not** CLI output.
+`shadcn add` for this CLI version/base never creates a `lib/utils.ts` on its
+own, so the `cn()` helper here is hand-ported from upstream shadcn/ui's
+standard implementation — there is no `--overwrite` to keep it in sync if
+that implementation ever changes upstream.
+
 ## Why every alias points here
 
 `components.json`'s `aliases` block sets `components`, `ui`, `lib`, `utils`
