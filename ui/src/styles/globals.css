@@ -10,7 +10,7 @@
  * `scripts/check-contrast.mjs` parses both and fails on drift, so this
  * comment is enforced, not just documentation.
  */
-@import 'tailwindcss';
+@import "tailwindcss";
 
 /**
  * `@tailwindcss/vite`'s automatic content detection scans the *consuming
@@ -21,7 +21,7 @@
  * so no consuming app has to know this package's internal layout or
  * remember to configure it itself.
  */
-@source '../**/*.{ts,tsx}';
+@source "../**/*.{ts,tsx}";
 
 @theme {
   /* Raw scale — fixed value, fixed meaning, in every theme. Reach for these
@@ -134,14 +134,12 @@
  * one half of a pair (background or text, not both) swapped out from under
  * it would silently end up unreadable.
  */
-:root[data-theme='dark'] {
+:root[data-theme="dark"] {
   --color-bg: var(--color-neutral-900);
   --color-surface: #1e293b;
   --color-text-primary: var(--color-neutral-50);
   --color-text-secondary: #cbd5e1;
-  --color-border-functional: var(
-    --color-neutral-500
-  ); /* same value; verified separately against the dark bg */
+  --color-border-functional: var(--color-neutral-500); /* same value; verified separately against the dark bg */
   --color-brand: var(--color-brand-400);
 
   /* -bg tints intentionally unchanged: a production dark theme wants darker,
