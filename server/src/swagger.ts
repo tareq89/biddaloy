@@ -1,20 +1,20 @@
-import { DocumentBuilder, OpenAPIObject } from "@nestjs/swagger";
-import { API_VERSION } from "./api-versioning";
+import { DocumentBuilder, OpenAPIObject } from '@nestjs/swagger';
+import { API_VERSION } from './api-versioning';
 
 /** Mounted at /api/docs — version-neutral, like /api/health, so it doesn't move on a version bump. */
-export const DOCS_PATH = "docs";
+export const DOCS_PATH = 'docs';
 
-export function buildSwaggerDocumentConfig(): Omit<OpenAPIObject, "paths"> {
+export function buildSwaggerDocumentConfig(): Omit<OpenAPIObject, 'paths'> {
   return new DocumentBuilder()
-    .setTitle("biddaloy API")
+    .setTitle('biddaloy API')
     .setDescription(
-      "School fee management API. Every authenticated route additionally requires the " +
+      'School fee management API. Every authenticated route additionally requires the ' +
         "X-Tenant-ID header, validated against the caller's memberships by ContextGuard; " +
-        "X-Role is optional and only needed to pick a non-default role when a user has " +
-        "more than one membership.",
+        'X-Role is optional and only needed to pick a non-default role when a user has ' +
+        'more than one membership.',
     )
     .setVersion(API_VERSION)
-    .addBearerAuth({ type: "http", scheme: "bearer", bearerFormat: "JWT" }, "bearer")
+    .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }, 'bearer')
     .build();
 }
 
@@ -25,6 +25,9 @@ export function buildSwaggerDocumentConfig(): Omit<OpenAPIObject, "paths"> {
  * puts behind Basic Auth. Never mounted in production otherwise — the
  * route doesn't exist, so it 404s rather than merely rejecting requests.
  */
-export function shouldMountDocs(nodeEnv: string | undefined, enableApiDocsEnv: string | undefined): boolean {
-  return nodeEnv !== "production" || enableApiDocsEnv === "true";
+export function shouldMountDocs(
+  nodeEnv: string | undefined,
+  enableApiDocsEnv: string | undefined,
+): boolean {
+  return nodeEnv !== 'production' || enableApiDocsEnv === 'true';
 }

@@ -1,23 +1,23 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
-import tailwindcss from "@tailwindcss/vite";
-import { resolve } from "path";
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
+import { resolve } from 'path';
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  base: "/admin/",
+  base: '/admin/',
   resolve: {
     alias: {
-      "@": resolve(__dirname, "./src"),
-      "@beton-boi/shared": resolve(__dirname, "../shared/src"),
-      "@beton-boi/ui": resolve(__dirname, "../ui/src"),
+      '@': resolve(__dirname, './src'),
+      '@beton-boi/shared': resolve(__dirname, '../shared/src'),
+      '@beton-boi/ui': resolve(__dirname, '../ui/src'),
     },
   },
   server: {
     port: 5174,
     proxy: {
-      "/api": {
-        target: "http://localhost:3000",
+      '/api': {
+        target: 'http://localhost:3000',
         changeOrigin: true,
       },
     },

@@ -1,0 +1,31 @@
+# Dependencies and build output
+node_modules
+dist
+build-output
+coverage
+*.min.js
+
+# Generated / non-source
+graphify-out
+ui/src/api/schema.d.ts
+yarn.lock
+
+# ui/src/styles/globals.css is hand-mirrored, byte-for-byte, from
+# tailwind.preset.ts and parsed by scripts/check-contrast.mjs, which expects
+# `var(--color-*-*)` references on a single line. Prettier's line-wrapping
+# broke that parser; excluded rather than fighting the formatter on a file
+# with its own strict format contract.
+ui/src/styles/globals.css
+
+# Tooling and process config that lives outside the four workspaces —
+# in scope for the app's own quality gates, not for a blanket reformat.
+.claude
+.hermes
+.github
+.coderabbit.yaml
+mempalace.yaml
+entities.json
+
+# Top-level docs, kept hand-formatted
+README.md
+AGENTS.md

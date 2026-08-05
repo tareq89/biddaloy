@@ -39,7 +39,11 @@ export class CommunicationsService {
     private readonly guardianService: GuardianService,
   ) {}
 
-  async enqueue(dto: SendCommunicationDto, tenantId: string, userId: string): Promise<CommunicationResponseDto> {
+  async enqueue(
+    dto: SendCommunicationDto,
+    tenantId: string,
+    userId: string,
+  ): Promise<CommunicationResponseDto> {
     if (dto.student_id) {
       await this.studentService.findOne(dto.student_id, tenantId);
     }
@@ -61,7 +65,11 @@ export class CommunicationsService {
         status: CommunicationStatus.QUEUED,
         trigger: CommunicationTrigger.MANUAL,
         metadata: dto.template_name
-          ? { template_name: dto.template_name, template_language: dto.template_language, template_params: dto.template_params }
+          ? {
+              template_name: dto.template_name,
+              template_language: dto.template_language,
+              template_params: dto.template_params,
+            }
           : null,
       }),
     );

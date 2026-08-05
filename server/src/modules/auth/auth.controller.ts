@@ -1,4 +1,14 @@
-import { Controller, Post, Body, Req, Res, HttpCode, HttpStatus, Inject, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Req,
+  Res,
+  HttpCode,
+  HttpStatus,
+  Inject,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { ApiOperation, ApiTags, ApiUnauthorizedResponse, ApiBearerAuth } from '@nestjs/swagger';
@@ -24,7 +34,8 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: STRICT_RATE_LIMIT })
   @ApiOperation({
-    summary: 'Log in with email or phone + password, returning a bearer token and the caller\'s tenant memberships.',
+    summary:
+      "Log in with email or phone + password, returning a bearer token and the caller's tenant memberships.",
   })
   @ApiUnauthorizedResponse({
     description:
@@ -48,7 +59,8 @@ export class AuthController {
   @Throttle({ default: STRICT_RATE_LIMIT })
   @UseGuards(SameOriginGuard)
   @ApiOperation({
-    summary: 'Rotate the refresh token cookie and issue a fresh access token reflecting the caller\'s current memberships.',
+    summary:
+      "Rotate the refresh token cookie and issue a fresh access token reflecting the caller's current memberships.",
   })
   @ApiUnauthorizedResponse({
     description: 'Missing, expired, invalid, or already-used refresh token.',
@@ -71,7 +83,10 @@ export class AuthController {
   @ApiOperation({
     summary: 'Revoke the presented refresh token. Does not require a live access token.',
   })
-  async logout(@Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<void> {
+  async logout(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
     const cookieValue = request.cookies?.[REFRESH_TOKEN_COOKIE];
     await this.authService.logout(cookieValue, requestContext(request));
     response.clearCookie(REFRESH_TOKEN_COOKIE, buildRefreshTokenClearCookieOptions());
@@ -85,13 +100,19 @@ export class AuthController {
   @ApiOperation({
     summary: 'Revoke every refresh token for the caller and end the current session immediately.',
   })
-  async logoutAll(@Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<void> {
+  async logoutAll(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
     const user = request.user as JwtPayload;
     await this.authService.logoutAll(user.sub, user.jti, requestContext(request));
     response.clearCookie(REFRESH_TOKEN_COOKIE, buildRefreshTokenClearCookieOptions());
   }
 
-  private setRefreshCookie(response: Response, refreshToken: { cookieValue: string; expiresAt: Date }): void {
+  private setRefreshCookie(
+    response: Response,
+    refreshToken: { cookieValue: string; expiresAt: Date },
+  ): void {
     const maxAgeMs = refreshToken.expiresAt.getTime() - Date.now();
     response.cookie(
       REFRESH_TOKEN_COOKIE,

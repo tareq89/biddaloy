@@ -1,10 +1,10 @@
-import { Injectable, Inject, UnauthorizedException } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
-import { randomBytes, randomUUID, createHash, timingSafeEqual } from "crypto";
-import { RefreshToken } from "./entities/refresh-token.entity";
+import { Injectable, Inject, UnauthorizedException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { randomBytes, randomUUID, createHash, timingSafeEqual } from 'crypto';
+import { RefreshToken } from './entities/refresh-token.entity';
 
-export const REFRESH_TOKEN_TTL_MS = "REFRESH_TOKEN_TTL_MS";
+export const REFRESH_TOKEN_TTL_MS = 'REFRESH_TOKEN_TTL_MS';
 
 // Two concurrent refresh requests racing on the same token are the classic
 // bug this exists to absorb: without it, the second request to land would
@@ -43,12 +43,12 @@ export class RefreshTokenReuseDetectedException extends UnauthorizedException {
     public readonly userId: string,
     public readonly familyId: string,
   ) {
-    super("Refresh token reuse detected");
+    super('Refresh token reuse detected');
   }
 }
 
 function hashSecret(secret: string): string {
-  return createHash("sha256").update(secret, "utf8").digest("hex");
+  return createHash('sha256').update(secret, 'utf8').digest('hex');
 }
 
 // Both sides are always 64-char sha256 hex digests once decoded, so the
@@ -57,7 +57,7 @@ function hashSecret(secret: string): string {
 // from ever reaching timingSafeEqual with a mismatched length, which would
 // throw rather than leak timing.
 function safeEqualHex(a: string, b: string): boolean {
-  return a.length === b.length && timingSafeEqual(Buffer.from(a, "utf8"), Buffer.from(b, "utf8"));
+  return a.length === b.length && timingSafeEqual(Buffer.from(a, 'utf8'), Buffer.from(b, 'utf8'));
 }
 
 /**
@@ -82,7 +82,7 @@ export class RefreshTokenService {
   }
 
   private parseCookieValue(value: string): { id: string; secret: string } | null {
-    const separatorIndex = value.indexOf(".");
+    const separatorIndex = value.indexOf('.');
     if (separatorIndex === -1) return null;
     const id = value.slice(0, separatorIndex);
     const secret = value.slice(separatorIndex + 1);
@@ -94,7 +94,11 @@ export class RefreshTokenService {
     return { id, secret };
   }
 
-  async issueForUser(userId: string, familyId: string, context: RequestContext): Promise<IssuedRefreshToken> {
+  async issueForUser(
+    userId: string,
+    familyId: string,
+    context: RequestContext,
+  ): Promise<IssuedRefreshToken> {
     return this.issueWithId(randomUUID(), userId, familyId, context);
   }
 
@@ -107,7 +111,7 @@ export class RefreshTokenService {
     familyId: string,
     context: RequestContext,
   ): Promise<IssuedRefreshToken> {
-    const secret = randomBytes(32).toString("hex");
+    const secret = randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + this.ttlMs);
 
     await this.repo.insert({
@@ -128,7 +132,7 @@ export class RefreshTokenService {
   async rotate(cookieValue: string, context: RequestContext): Promise<RotateResult> {
     const parsed = this.parseCookieValue(cookieValue);
     if (!parsed) {
-      throw new UnauthorizedException("Invalid refresh token");
+      throw new UnauthorizedException('Invalid refresh token');
     }
     return this.rotateById(parsed.id, parsed.secret, context, 0);
   }
@@ -141,14 +145,18 @@ export class RefreshTokenService {
   ): Promise<RotateResult> {
     const row = await this.repo.findOne({ where: { id } });
     if (!row || !safeEqualHex(row.token_hash, hashSecret(secret))) {
-      throw new UnauthorizedException("Invalid refresh token");
+      throw new UnauthorizedException('Invalid refresh token');
     }
     return this.rotateRow(row, context, hops);
   }
 
-  private async rotateRow(row: RefreshToken, context: RequestContext, hops: number): Promise<RotateResult> {
+  private async rotateRow(
+    row: RefreshToken,
+    context: RequestContext,
+    hops: number,
+  ): Promise<RotateResult> {
     if (row.expires_at.getTime() < Date.now()) {
-      throw new UnauthorizedException("Refresh token expired");
+      throw new UnauthorizedException('Refresh token expired');
     }
 
     if (row.revoked_at) {
@@ -161,7 +169,7 @@ export class RefreshTokenService {
         // flagging a race neither side caused.
         const successor = await this.repo.findOne({ where: { id: row.replaced_by_id } });
         if (!successor) {
-          throw new UnauthorizedException("Invalid refresh token");
+          throw new UnauthorizedException('Invalid refresh token');
         }
         return this.rotateRow(successor, context, hops + 1);
       }
@@ -185,14 +193,14 @@ export class RefreshTokenService {
       .createQueryBuilder()
       .update(RefreshToken)
       .set({ revoked_at: new Date(), replaced_by_id: successorId })
-      .where("id = :id", { id: row.id })
-      .andWhere("revoked_at IS NULL")
+      .where('id = :id', { id: row.id })
+      .andWhere('revoked_at IS NULL')
       .execute();
 
     if (!claim.affected) {
       const reread = await this.repo.findOne({ where: { id: row.id } });
       if (!reread) {
-        throw new UnauthorizedException("Invalid refresh token");
+        throw new UnauthorizedException('Invalid refresh token');
       }
       return this.rotateRow(reread, context, hops + 1);
     }
@@ -219,8 +227,8 @@ export class RefreshTokenService {
       .createQueryBuilder()
       .update(RefreshToken)
       .set({ revoked_at: new Date() })
-      .where("family_id = :familyId", { familyId })
-      .andWhere("revoked_at IS NULL")
+      .where('family_id = :familyId', { familyId })
+      .andWhere('revoked_at IS NULL')
       .execute();
   }
 
@@ -229,8 +237,8 @@ export class RefreshTokenService {
       .createQueryBuilder()
       .update(RefreshToken)
       .set({ revoked_at: new Date() })
-      .where("user_id = :userId", { userId })
-      .andWhere("revoked_at IS NULL")
+      .where('user_id = :userId', { userId })
+      .andWhere('revoked_at IS NULL')
       .execute();
   }
 
@@ -240,7 +248,7 @@ export class RefreshTokenService {
       .createQueryBuilder()
       .delete()
       .from(RefreshToken)
-      .where("expires_at < :now", { now: new Date() })
+      .where('expires_at < :now', { now: new Date() })
       .execute();
     return result.affected ?? 0;
   }

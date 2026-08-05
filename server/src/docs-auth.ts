@@ -1,5 +1,5 @@
-import { timingSafeEqual } from "crypto";
-import { Request, Response, NextFunction } from "express";
+import { timingSafeEqual } from 'crypto';
+import { Request, Response, NextFunction } from 'express';
 
 /**
  * Zero-pads both sides to the same fixed-ish length before comparing, so
@@ -17,8 +17,8 @@ import { Request, Response, NextFunction } from "express";
  * than storage. Padding avoids the pattern entirely.
  */
 function safeCompare(a: string, b: string): boolean {
-  const bufA = Buffer.from(a, "utf8");
-  const bufB = Buffer.from(b, "utf8");
+  const bufA = Buffer.from(a, 'utf8');
+  const bufB = Buffer.from(b, 'utf8');
   const paddedLength = Math.max(bufA.length, bufB.length, 32);
 
   const paddedA = Buffer.alloc(paddedLength);
@@ -41,7 +41,11 @@ function safeCompare(a: string, b: string): boolean {
  * `/api/docs-json` — SwaggerModule.setup's second, sibling route for the
  * raw spec — which would otherwise be reachable with no auth at all.
  */
-export function buildDocsBasicAuthMiddleware(docsPathPrefix: string, username: string, password: string) {
+export function buildDocsBasicAuthMiddleware(
+  docsPathPrefix: string,
+  username: string,
+  password: string,
+) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.path.startsWith(docsPathPrefix)) {
       return next();
@@ -51,9 +55,9 @@ export function buildDocsBasicAuthMiddleware(docsPathPrefix: string, username: s
     let user: string | undefined;
     let pass: string | undefined;
 
-    if (header?.startsWith("Basic ")) {
-      const decoded = Buffer.from(header.slice("Basic ".length), "base64").toString("utf8");
-      const separatorIndex = decoded.indexOf(":");
+    if (header?.startsWith('Basic ')) {
+      const decoded = Buffer.from(header.slice('Basic '.length), 'base64').toString('utf8');
+      const separatorIndex = decoded.indexOf(':');
       if (separatorIndex !== -1) {
         user = decoded.slice(0, separatorIndex);
         pass = decoded.slice(separatorIndex + 1);
@@ -66,15 +70,15 @@ export function buildDocsBasicAuthMiddleware(docsPathPrefix: string, username: s
     // short-circuiting `&&` here would mean the password is never checked
     // once the username comparison fails, letting a timing probe find a
     // valid username independent of the password.
-    const userOk = safeCompare(user ?? "", username);
-    const passOk = safeCompare(pass ?? "", password);
+    const userOk = safeCompare(user ?? '', username);
+    const passOk = safeCompare(pass ?? '', password);
 
     if (userOk && passOk) {
       return next();
     }
 
-    res.set("WWW-Authenticate", 'Basic realm="API Docs"');
-    res.status(401).send("Authentication required");
+    res.set('WWW-Authenticate', 'Basic realm="API Docs"');
+    res.status(401).send('Authentication required');
   };
 }
 
@@ -89,7 +93,7 @@ export function buildDocsCspOverrideMiddleware(docsPathPrefix: string) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (req.path.startsWith(docsPathPrefix)) {
       res.setHeader(
-        "Content-Security-Policy",
+        'Content-Security-Policy',
         "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;",
       );
     }

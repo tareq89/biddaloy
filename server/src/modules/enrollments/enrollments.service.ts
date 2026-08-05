@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  ConflictException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import { Enrollment } from '../students/entities/enrollment.entity';
@@ -60,7 +56,12 @@ export class EnrollmentService {
     // Verify section exists and belongs to tenant/class when provided
     if (dto.section_id) {
       const section = await this.sectionRepo.findOne({
-        where: { id: dto.section_id, class_id: dto.class_id, tenant_id: tenantId, deleted_at: IsNull() },
+        where: {
+          id: dto.section_id,
+          class_id: dto.class_id,
+          tenant_id: tenantId,
+          deleted_at: IsNull(),
+        },
       });
       if (!section) {
         throw new NotFoundException(`Section with ID "${dto.section_id}" not found in this class`);
@@ -152,7 +153,12 @@ export class EnrollmentService {
     // Validate section_id if provided
     if (dto.section_id) {
       const section = await this.sectionRepo.findOne({
-        where: { id: dto.section_id, class_id: enrollment.class_id, tenant_id: tenantId, deleted_at: IsNull() },
+        where: {
+          id: dto.section_id,
+          class_id: enrollment.class_id,
+          tenant_id: tenantId,
+          deleted_at: IsNull(),
+        },
       });
       if (!section) {
         throw new NotFoundException(`Section with ID "${dto.section_id}" not found in this class`);

@@ -1,9 +1,9 @@
-import { Logger } from "@nestjs/common";
+import { Logger } from '@nestjs/common';
 
 export interface LoginAttemptRedisClient {
   incr(key: string): Promise<number>;
   pexpire(key: string, milliseconds: number): Promise<number>;
-  set(key: string, value: string, mode: "PX", duration: number): Promise<"OK" | null>;
+  set(key: string, value: string, mode: 'PX', duration: number): Promise<'OK' | null>;
   exists(key: string): Promise<number>;
   del(...keys: string[]): Promise<number>;
 }
@@ -13,8 +13,8 @@ export interface LoginAttemptResult {
   delayMs: number;
 }
 
-const ATTEMPTS_KEY_PREFIX = "login-attempts:";
-const LOCKOUT_KEY_PREFIX = "login-lockout:";
+const ATTEMPTS_KEY_PREFIX = 'login-attempts:';
+const LOCKOUT_KEY_PREFIX = 'login-lockout:';
 const PROGRESSIVE_DELAY_STEP_MS = 500;
 const MAX_PROGRESSIVE_DELAY_MS = 2000;
 
@@ -44,7 +44,7 @@ export class LoginAttemptService {
     // account; without this it would lock itself out mid-suite.
     nodeEnv: string | undefined = process.env.NODE_ENV,
   ) {
-    this.enabled = nodeEnv !== "test";
+    this.enabled = nodeEnv !== 'test';
   }
 
   async isLocked(identifier: string): Promise<boolean> {
@@ -54,7 +54,7 @@ export class LoginAttemptService {
       const exists = await this.redis.exists(LOCKOUT_KEY_PREFIX + identifier);
       return exists === 1;
     } catch (error) {
-      this.logFailure("isLocked", error);
+      this.logFailure('isLocked', error);
       return false;
     }
   }
@@ -86,12 +86,12 @@ export class LoginAttemptService {
 
       const locked = count >= this.threshold;
       if (locked) {
-        await this.redis.set(LOCKOUT_KEY_PREFIX + identifier, "1", "PX", this.windowMs);
+        await this.redis.set(LOCKOUT_KEY_PREFIX + identifier, '1', 'PX', this.windowMs);
       }
 
       return { locked, delayMs: this.computeDelay(count) };
     } catch (error) {
-      this.logFailure("recordFailure", error);
+      this.logFailure('recordFailure', error);
       return { locked: false, delayMs: 0 };
     }
   }
@@ -102,12 +102,15 @@ export class LoginAttemptService {
     try {
       await this.redis.del(ATTEMPTS_KEY_PREFIX + identifier, LOCKOUT_KEY_PREFIX + identifier);
     } catch (error) {
-      this.logFailure("reset", error);
+      this.logFailure('reset', error);
     }
   }
 
   private computeDelay(attemptCount: number): number {
-    return Math.min(Math.max(attemptCount - 1, 0) * PROGRESSIVE_DELAY_STEP_MS, MAX_PROGRESSIVE_DELAY_MS);
+    return Math.min(
+      Math.max(attemptCount - 1, 0) * PROGRESSIVE_DELAY_STEP_MS,
+      MAX_PROGRESSIVE_DELAY_MS,
+    );
   }
 
   private logFailure(operation: string, error: unknown): void {

@@ -20,13 +20,33 @@ import { FeeController } from './fees.controller';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
-      FeeStructure, FeeStructureStudent, Payment, PaymentAllocation, StudentFee, Student,
-      Class, ClassSection, AcademicYear, Invoice,
+      FeeStructure,
+      FeeStructureStudent,
+      Payment,
+      PaymentAllocation,
+      StudentFee,
+      Student,
+      Class,
+      ClassSection,
+      AcademicYear,
+      Invoice,
     ]),
     AuditModule,
   ],
-  providers: [FeeStructureService, PaymentService, FeeGenerationService, PaymentAllocationService, FeeDuesService],
+  providers: [
+    FeeStructureService,
+    PaymentService,
+    FeeGenerationService,
+    PaymentAllocationService,
+    FeeDuesService,
+  ],
   controllers: [FeeController],
-  exports: [FeeStructureService, PaymentService, FeeGenerationService, PaymentAllocationService, FeeDuesService],
+  exports: [
+    FeeStructureService,
+    PaymentService,
+    FeeGenerationService,
+    PaymentAllocationService,
+    FeeDuesService,
+  ],
 })
 export class FeeModule {}

@@ -1,6 +1,6 @@
-import { Injectable, Logger } from "@nestjs/common";
-import { ThrottlerStorage } from "@nestjs/throttler";
-import { ThrottlerStorageRecord } from "@nestjs/throttler/dist/throttler-storage-record.interface";
+import { Injectable, Logger } from '@nestjs/common';
+import { ThrottlerStorage } from '@nestjs/throttler';
+import { ThrottlerStorageRecord } from '@nestjs/throttler/dist/throttler-storage-record.interface';
 
 /**
  * Wraps the real (Redis-backed) storage and fails open on any error —

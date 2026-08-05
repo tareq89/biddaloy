@@ -184,7 +184,10 @@ export class FeeDuesService {
    * Tenant-scoped in SQL rather than by the caller pre-filtering IDs, so a
    * student ID from another school can't leak its balance.
    */
-  async getDueSnapshots(studentIds: string[], tenantId: string): Promise<Map<string, StudentDueSnapshot>> {
+  async getDueSnapshots(
+    studentIds: string[],
+    tenantId: string,
+  ): Promise<Map<string, StudentDueSnapshot>> {
     const byStudent = new Map<string, StudentDueSnapshot>();
     if (studentIds.length === 0) return byStudent;
 
@@ -284,7 +287,10 @@ export class FeeDuesService {
       .addSelect('cls.name', 'class_name')
       .addSelect('cs.section_name', 'section_name')
       .addSelect('SUM(sf.total_amount - sf.paid_amount - sf.discount_amount)', 'total_due')
-      .addSelect('COUNT(*) FILTER (WHERE sf.due_date IS NOT NULL AND sf.due_date < NOW())', 'months_overdue')
+      .addSelect(
+        'COUNT(*) FILTER (WHERE sf.due_date IS NOT NULL AND sf.due_date < NOW())',
+        'months_overdue',
+      )
       .where('sf.student_id IN (:...studentIds)', { studentIds })
       .andWhere('sf.status IN (:...statuses)', { statuses: OPEN_STATUSES })
       .groupBy('sf.student_id')
@@ -343,7 +349,9 @@ export class FeeDuesService {
     return byStudent;
   }
 
-  private async fetchGuardiansForStudents(studentIds: string[]): Promise<Map<string, GuardianContact[]>> {
+  private async fetchGuardiansForStudents(
+    studentIds: string[],
+  ): Promise<Map<string, GuardianContact[]>> {
     const byStudent = new Map<string, GuardianContact[]>();
     if (studentIds.length === 0) return byStudent;
 

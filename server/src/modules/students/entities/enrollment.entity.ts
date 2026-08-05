@@ -31,7 +31,10 @@ import { EnrollmentStatus } from '@beton-boi/shared';
 @Entity('enrollments')
 @Index(['student_id'])
 @Index(['academic_year_id'])
-@Index(['student_id', 'academic_year_id'], { unique: true, where: '"enrollment_status" = \'ACTIVE\'' })
+@Index(['student_id', 'academic_year_id'], {
+  unique: true,
+  where: '"enrollment_status" = \'ACTIVE\'',
+})
 @Index(['tenant_id'])
 export class Enrollment {
   @PrimaryGeneratedColumn('uuid')

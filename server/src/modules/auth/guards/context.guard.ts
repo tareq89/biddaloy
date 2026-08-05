@@ -1,4 +1,10 @@
-import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, Inject } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  UnauthorizedException,
+  Inject,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtPayload, JwtMembership } from '@beton-boi/shared';
 import { ROLES_KEY } from '../decorators/roles.decorator';
@@ -78,9 +84,7 @@ export class ContextGuard implements CanActivate {
     const activeRole = resolveRole(user.memberships, tenantId, explicitRole);
 
     if (!activeRole) {
-      throw new UnauthorizedException(
-        `User is not a member of tenant ${tenantId}`,
-      );
+      throw new UnauthorizedException(`User is not a member of tenant ${tenantId}`);
     }
 
     // Attach active context to request for downstream use
@@ -132,9 +136,7 @@ export class RolesGuard implements CanActivate {
 
     const hasRole = requiredRoles.includes(currentTenant.role);
     if (!hasRole) {
-      throw new UnauthorizedException(
-        `Requires one of roles: ${requiredRoles.join(', ')}`,
-      );
+      throw new UnauthorizedException(`Requires one of roles: ${requiredRoles.join(', ')}`);
     }
 
     return true;

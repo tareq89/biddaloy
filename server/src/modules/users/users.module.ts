@@ -9,7 +9,9 @@ import { UserService, TeacherService } from './users.service';
 import { UserController } from './users.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, UserTenant, Teacher, TeacherClassSection, ClassSection])],
+  imports: [
+    TypeOrmModule.forFeature([User, UserTenant, Teacher, TeacherClassSection, ClassSection]),
+  ],
   providers: [UserService, TeacherService],
   controllers: [UserController],
   exports: [UserService, TeacherService],

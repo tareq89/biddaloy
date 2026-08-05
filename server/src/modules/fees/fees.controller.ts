@@ -50,7 +50,8 @@ export class FeeController {
     @Inject(FeeStructureService) private readonly feeStructureService: FeeStructureService,
     @Inject(PaymentService) private readonly paymentService: PaymentService,
     @Inject(FeeGenerationService) private readonly feeGenerationService: FeeGenerationService,
-    @Inject(PaymentAllocationService) private readonly paymentAllocationService: PaymentAllocationService,
+    @Inject(PaymentAllocationService)
+    private readonly paymentAllocationService: PaymentAllocationService,
     @Inject(FeeDuesService) private readonly feeDuesService: FeeDuesService,
   ) {}
 
@@ -58,10 +59,7 @@ export class FeeController {
 
   @Get('fees/dues')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
-  getDues(
-    @Query() query: QueryFeeDuesDto,
-    @CurrentTenant() tenant: { id: string; role: string },
-  ) {
+  getDues(@Query() query: QueryFeeDuesDto, @CurrentTenant() tenant: { id: string; role: string }) {
     return this.feeDuesService.getDues(query, tenant.id);
   }
 
@@ -80,7 +78,9 @@ export class FeeController {
   @Post('fees/generate')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @Throttle({ default: STRICT_RATE_LIMIT })
-  @ApiOperation({ summary: 'Generate StudentFee rows for the matching fee structures over a given month/scope.' })
+  @ApiOperation({
+    summary: 'Generate StudentFee rows for the matching fee structures over a given month/scope.',
+  })
   generateFees(
     @Body() dto: GenerateStudentFeesDto,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -153,7 +153,8 @@ export class FeeController {
   @Post('payments/record-with-allocation')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
   @ApiOperation({
-    summary: 'Record a payment and allocate it across the student\'s outstanding fees in FIFO order, generating an invoice when a fee is paid in full.',
+    summary:
+      "Record a payment and allocate it across the student's outstanding fees in FIFO order, generating an invoice when a fee is paid in full.",
   })
   recordPaymentWithAllocation(
     @Body() dto: RecordPaymentWithAllocationDto,

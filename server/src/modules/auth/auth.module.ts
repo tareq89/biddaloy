@@ -15,7 +15,10 @@ import { User } from '../users/entities/user.entity';
 import { AuditModule } from '../audit/audit.module';
 import { LoginAttemptService } from './login-attempt.service';
 import { RefreshTokenService, REFRESH_TOKEN_TTL_MS } from './refresh-token.service';
-import { AccessTokenDenylistService, ACCESS_TOKEN_DENYLIST_REDIS } from './access-token-denylist.service';
+import {
+  AccessTokenDenylistService,
+  ACCESS_TOKEN_DENYLIST_REDIS,
+} from './access-token-denylist.service';
 import { RefreshTokenCleanupProcessor } from './refresh-token-cleanup.processor';
 import { RefreshTokenCleanupScheduler } from './refresh-token-cleanup.scheduler';
 import { REFRESH_TOKEN_CLEANUP_QUEUE } from './refresh-token-cleanup.constants';
@@ -40,7 +43,9 @@ const DEFAULT_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60_000; // 30 days
           // jsonwebtoken accepts a plain number of seconds here — derived
           // from the same ms value AccessTokenDenylistService uses for its
           // TTL, so the two never drift apart.
-          signOptions: { expiresIn: Math.floor((ttlMs ? Number(ttlMs) : DEFAULT_ACCESS_TOKEN_TTL_MS) / 1000) },
+          signOptions: {
+            expiresIn: Math.floor((ttlMs ? Number(ttlMs) : DEFAULT_ACCESS_TOKEN_TTL_MS) / 1000),
+          },
         };
       },
     }),

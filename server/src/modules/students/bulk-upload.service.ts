@@ -70,7 +70,13 @@ export class StudentBulkUploadService {
 
     for (const parsed of rows) {
       try {
-        const studentId = await this.processRow(parsed, tenantId, classSectionMap, guardianCache, rollsSeenThisRequest);
+        const studentId = await this.processRow(
+          parsed,
+          tenantId,
+          classSectionMap,
+          guardianCache,
+          rollsSeenThisRequest,
+        );
         createdStudentIds.push(studentId);
       } catch (err) {
         // Only expected, row-scoped validation failures become a row error.
@@ -160,7 +166,11 @@ export class StudentBulkUploadService {
 
         if (dto.guardian2_name) {
           const g2Id = await this.resolveGuardian(
-            { name: dto.guardian2_name, phone: dto.guardian2_phone as string, email: dto.guardian2_email },
+            {
+              name: dto.guardian2_name,
+              phone: dto.guardian2_phone as string,
+              email: dto.guardian2_email,
+            },
             tenantId,
             guardianCache,
             manager,
@@ -272,7 +282,9 @@ export class StudentBulkUploadService {
   }
 
   private isUniqueViolation(err: unknown): boolean {
-    return err instanceof QueryFailedError && (err as unknown as { code?: string }).code === '23505';
+    return (
+      err instanceof QueryFailedError && (err as unknown as { code?: string }).code === '23505'
+    );
   }
 
   private describeError(err: unknown): string {

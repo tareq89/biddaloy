@@ -41,7 +41,11 @@ export class SmtpEmailProvider implements CommunicationProvider {
         subject: params.subject ?? '',
         text: params.body,
       });
-      return { success: true, providerMessageId: info.messageId ?? null, raw: { response: info.response } };
+      return {
+        success: true,
+        providerMessageId: info.messageId ?? null,
+        raw: { response: info.response },
+      };
     } catch (err) {
       return {
         success: false,

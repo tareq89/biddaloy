@@ -22,7 +22,9 @@ const shared = require('@beton-boi/shared') as typeof import('@beton-boi/shared'
  * decorators (e.g. `@IsString()`) still catch the type mismatch.
  */
 export function SanitizeText(): PropertyDecorator {
-  return Transform(({ value }) => (typeof value === 'string' ? shared.sanitizeStrict(value) : value));
+  return Transform(({ value }) =>
+    typeof value === 'string' ? shared.sanitizeStrict(value) : value,
+  );
 }
 
 /**
@@ -36,6 +38,8 @@ export function SanitizeAllowlist(
   allowedAttributes?: Record<string, string[]>,
 ): PropertyDecorator {
   return Transform(({ value }) =>
-    typeof value === 'string' ? shared.sanitizeAllowlist(value, allowedTags, allowedAttributes) : value,
+    typeof value === 'string'
+      ? shared.sanitizeAllowlist(value, allowedTags, allowedAttributes)
+      : value,
   );
 }

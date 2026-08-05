@@ -33,7 +33,9 @@ describe('Security headers E2E', () => {
     // Populated by test/setup.ts's global setupFile from server/.env.test —
     // see cors.e2e-spec.ts for why this fails fast rather than falling back.
     if (!process.env.DATABASE_URL) {
-      throw new Error('DATABASE_URL must be set for security-headers E2E tests — see server/.env.test');
+      throw new Error(
+        'DATABASE_URL must be set for security-headers E2E tests — see server/.env.test',
+      );
     }
     process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-do-not-use-in-production';
 

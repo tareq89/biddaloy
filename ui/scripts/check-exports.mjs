@@ -70,4 +70,6 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log(`check-exports: OK — ${entries.length} subpaths resolve, ${[...PRIVATE_DIRS].join(', ')} stays internal.`);
+console.log(
+  `check-exports: OK — ${entries.length} subpaths resolve, ${[...PRIVATE_DIRS].join(', ')} stays internal.`,
+);

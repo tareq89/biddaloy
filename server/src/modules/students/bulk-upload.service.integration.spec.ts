@@ -57,12 +57,18 @@ const DEFAULTS: Record<BulkUploadHeader, string> = {
   preferred_communication: '',
 };
 
-function rowValues(headers: readonly string[], overrides: Partial<Record<BulkUploadHeader, string>> = {}): string[] {
+function rowValues(
+  headers: readonly string[],
+  overrides: Partial<Record<BulkUploadHeader, string>> = {},
+): string[] {
   const merged = { ...DEFAULTS, ...overrides };
   return headers.map((h) => merged[h as BulkUploadHeader] ?? '');
 }
 
-async function buildXlsxFile(rows: string[][], filename = 'students.xlsx'): Promise<Express.Multer.File> {
+async function buildXlsxFile(
+  rows: string[][],
+  filename = 'students.xlsx',
+): Promise<Express.Multer.File> {
   const headers = [...REQUIRED_HEADERS];
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('Students');
@@ -76,7 +82,10 @@ function buildCsvFile(rows: string[][], filename = 'students.csv'): Express.Mult
   const headers = [...REQUIRED_HEADERS];
   const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
   const lines = [headers.map(escape).join(','), ...rows.map((r) => r.map(escape).join(','))];
-  return { buffer: Buffer.from(lines.join('\n'), 'utf-8'), originalname: filename } as Express.Multer.File;
+  return {
+    buffer: Buffer.from(lines.join('\n'), 'utf-8'),
+    originalname: filename,
+  } as Express.Multer.File;
 }
 
 async function seedReferenceData(ds: DataSource): Promise<void> {
@@ -105,7 +114,9 @@ async function seedReferenceData(ds: DataSource): Promise<void> {
     }),
   );
 
-  await schoolRepo.save(schoolRepo.create({ id: SEED_TENANT_ID, name: 'Test School', slug: 'test-school' }));
+  await schoolRepo.save(
+    schoolRepo.create({ id: SEED_TENANT_ID, name: 'Test School', slug: 'test-school' }),
+  );
   await ayRepo.save(
     ayRepo.create({
       id: SEED_ACADEMIC_YEAR_ID,
@@ -116,10 +127,26 @@ async function seedReferenceData(ds: DataSource): Promise<void> {
       tenant_id: SEED_TENANT_ID,
     }),
   );
-  await classRepo.save(classRepo.create({ id: SEED_CLASS_1_ID, name: 'Class One', academic_year_id: SEED_ACADEMIC_YEAR_ID, tenant_id: SEED_TENANT_ID }));
-  await sectionRepo.save(sectionRepo.create({ id: SEED_SECTION_1_ID, section_name: 'Section A', class_id: SEED_CLASS_1_ID, tenant_id: SEED_TENANT_ID }));
+  await classRepo.save(
+    classRepo.create({
+      id: SEED_CLASS_1_ID,
+      name: 'Class One',
+      academic_year_id: SEED_ACADEMIC_YEAR_ID,
+      tenant_id: SEED_TENANT_ID,
+    }),
+  );
+  await sectionRepo.save(
+    sectionRepo.create({
+      id: SEED_SECTION_1_ID,
+      section_name: 'Section A',
+      class_id: SEED_CLASS_1_ID,
+      tenant_id: SEED_TENANT_ID,
+    }),
+  );
 
-  await schoolRepo.save(schoolRepo.create({ id: OTHER_TENANT_ID, name: 'Other School', slug: 'other-school' }));
+  await schoolRepo.save(
+    schoolRepo.create({ id: OTHER_TENANT_ID, name: 'Other School', slug: 'other-school' }),
+  );
   await ayRepo.save(
     ayRepo.create({
       id: OTHER_ACADEMIC_YEAR_ID,
@@ -130,8 +157,22 @@ async function seedReferenceData(ds: DataSource): Promise<void> {
       tenant_id: OTHER_TENANT_ID,
     }),
   );
-  await classRepo.save(classRepo.create({ id: OTHER_CLASS_ID, name: 'Class One', academic_year_id: OTHER_ACADEMIC_YEAR_ID, tenant_id: OTHER_TENANT_ID }));
-  await sectionRepo.save(sectionRepo.create({ id: OTHER_SECTION_ID, section_name: 'Section A', class_id: OTHER_CLASS_ID, tenant_id: OTHER_TENANT_ID }));
+  await classRepo.save(
+    classRepo.create({
+      id: OTHER_CLASS_ID,
+      name: 'Class One',
+      academic_year_id: OTHER_ACADEMIC_YEAR_ID,
+      tenant_id: OTHER_TENANT_ID,
+    }),
+  );
+  await sectionRepo.save(
+    sectionRepo.create({
+      id: OTHER_SECTION_ID,
+      section_name: 'Section A',
+      class_id: OTHER_CLASS_ID,
+      tenant_id: OTHER_TENANT_ID,
+    }),
+  );
 }
 
 describe('StudentBulkUploadService (integration)', () => {
@@ -216,7 +257,12 @@ describe('StudentBulkUploadService (integration)', () => {
 
   it('reuses a guardian that already exists in the database for this tenant', async () => {
     const existing = await guardianRepo.save(
-      guardianRepo.create({ full_name: 'Pre-existing Guardian', relationship: 'OTHER', phone: '+8801722222222', tenant_id: TENANT_ID }),
+      guardianRepo.create({
+        full_name: 'Pre-existing Guardian',
+        relationship: 'OTHER',
+        phone: '+8801722222222',
+        tenant_id: TENANT_ID,
+      }),
     );
     const file = await buildXlsxFile([rowValues(headers, { guardian1_phone: '+8801722222222' })]);
 
@@ -243,9 +289,15 @@ describe('StudentBulkUploadService (integration)', () => {
   });
 
   it('reports a specific error for a roll number that already exists in the database', async () => {
-    await service.process(await buildXlsxFile([rowValues(headers, { student_name: 'Existing', roll: '9' })]), TENANT_ID, SEED_ADMIN_USER_ID);
+    await service.process(
+      await buildXlsxFile([rowValues(headers, { student_name: 'Existing', roll: '9' })]),
+      TENANT_ID,
+      SEED_ADMIN_USER_ID,
+    );
 
-    const file = await buildXlsxFile([rowValues(headers, { student_name: 'New', roll: '9', guardian1_phone: '+8801744444444' })]);
+    const file = await buildXlsxFile([
+      rowValues(headers, { student_name: 'New', roll: '9', guardian1_phone: '+8801744444444' }),
+    ]);
     const result = await service.process(file, TENANT_ID, SEED_ADMIN_USER_ID);
 
     expect(result.success_count).toBe(0);
@@ -254,14 +306,22 @@ describe('StudentBulkUploadService (integration)', () => {
   });
 
   it('does not leave an orphaned guardian behind when the student create fails', async () => {
-    await service.process(await buildXlsxFile([rowValues(headers, { student_name: 'Existing', roll: '15' })]), TENANT_ID, SEED_ADMIN_USER_ID);
+    await service.process(
+      await buildXlsxFile([rowValues(headers, { student_name: 'Existing', roll: '15' })]),
+      TENANT_ID,
+      SEED_ADMIN_USER_ID,
+    );
 
     // A brand-new guardian phone paired with a roll number that's already
     // taken — student creation must fail, and since guardian creation and
     // student creation run in one transaction, the new guardian must be
     // rolled back too rather than left dangling with no student attached.
     const file = await buildXlsxFile([
-      rowValues(headers, { student_name: 'Conflicting', roll: '15', guardian1_phone: '+8801766666666' }),
+      rowValues(headers, {
+        student_name: 'Conflicting',
+        roll: '15',
+        guardian1_phone: '+8801766666666',
+      }),
     ]);
     const result = await service.process(file, TENANT_ID, SEED_ADMIN_USER_ID);
 
@@ -298,7 +358,9 @@ describe('StudentBulkUploadService (integration)', () => {
   });
 
   it('ignores the registration_number column and always system-generates it', async () => {
-    const file = await buildXlsxFile([rowValues(headers, { registration_number: 'HAND-TYPED-001' })]);
+    const file = await buildXlsxFile([
+      rowValues(headers, { registration_number: 'HAND-TYPED-001' }),
+    ]);
 
     const result = await service.process(file, TENANT_ID, SEED_ADMIN_USER_ID);
 

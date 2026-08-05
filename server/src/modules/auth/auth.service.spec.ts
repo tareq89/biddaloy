@@ -35,7 +35,10 @@ describe('AuthService', () => {
   let mockRefreshTokens: any;
   let mockAccessTokenDenylist: any;
 
-  const mockIssuedRefreshToken = { cookieValue: 'token-id.token-secret', expiresAt: new Date(Date.now() + 60_000) };
+  const mockIssuedRefreshToken = {
+    cookieValue: 'token-id.token-secret',
+    expiresAt: new Date(Date.now() + 60_000),
+  };
 
   const mockUser: User = {
     id: 'user-1',
@@ -167,7 +170,10 @@ describe('AuthService', () => {
 
       expect(result).toBeNull();
       expect(bcrypt.compare).toHaveBeenCalledTimes(1);
-      expect(bcrypt.compare).toHaveBeenCalledWith('password123', expect.stringMatching(/^\$2[aby]\$/));
+      expect(bcrypt.compare).toHaveBeenCalledWith(
+        'password123',
+        expect.stringMatching(/^\$2[aby]\$/),
+      );
     });
 
     it('should return null when password is invalid', async () => {
@@ -189,7 +195,10 @@ describe('AuthService', () => {
       const result = await service.validateUser('admin@test.com', 'password123');
 
       expect(result).toBeNull();
-      expect(bcrypt.compare).toHaveBeenCalledWith('password123', expect.stringMatching(/^\$2[aby]\$/));
+      expect(bcrypt.compare).toHaveBeenCalledWith(
+        'password123',
+        expect.stringMatching(/^\$2[aby]\$/),
+      );
     });
   });
 
@@ -239,12 +248,12 @@ describe('AuthService', () => {
       mockUserRepo.findOne.mockResolvedValue(null);
       (bcrypt.compare as any).mockResolvedValue(false);
 
-      await expect(
-        service.login('invalid@test.com', 'password123'),
-      ).rejects.toThrow(UnauthorizedException);
-      await expect(
-        service.login('invalid@test.com', 'password123'),
-      ).rejects.toThrow('Invalid credentials');
+      await expect(service.login('invalid@test.com', 'password123')).rejects.toThrow(
+        UnauthorizedException,
+      );
+      await expect(service.login('invalid@test.com', 'password123')).rejects.toThrow(
+        'Invalid credentials',
+      );
     });
 
     it('should handle user with no memberships gracefully', async () => {
@@ -288,7 +297,9 @@ describe('AuthService', () => {
       mockUserRepo.findOne.mockResolvedValue(null);
       (bcrypt.compare as any).mockResolvedValue(false);
 
-      await expect(service.login(' Admin@Test.com ', 'wrong')).rejects.toThrow(UnauthorizedException);
+      await expect(service.login(' Admin@Test.com ', 'wrong')).rejects.toThrow(
+        UnauthorizedException,
+      );
 
       expect(mockLoginAttempts.isLocked).toHaveBeenCalledWith('admin@test.com');
       expect(mockLoginAttempts.recordFailure).toHaveBeenCalledWith('admin@test.com');
@@ -299,7 +310,9 @@ describe('AuthService', () => {
       (bcrypt.compare as any).mockResolvedValue(false);
       mockLoginAttempts.recordFailure.mockResolvedValue({ locked: false, delayMs: 0 });
 
-      await expect(service.login('admin@test.com', 'wrong-password')).rejects.toThrow(UnauthorizedException);
+      await expect(service.login('admin@test.com', 'wrong-password')).rejects.toThrow(
+        UnauthorizedException,
+      );
 
       expect(mockLoginAttempts.recordFailure).toHaveBeenCalledWith('admin@test.com');
       // entity_id is null here, same as the unknown-identifier case:
@@ -361,7 +374,9 @@ describe('AuthService', () => {
       mockUserRepo.findOne.mockResolvedValue(mockUser);
       (bcrypt.compare as any).mockResolvedValue(true);
 
-      await expect(service.login('admin@test.com', 'password123')).rejects.toThrow('Invalid credentials');
+      await expect(service.login('admin@test.com', 'password123')).rejects.toThrow(
+        'Invalid credentials',
+      );
       expect(mockUserRepo.save).not.toHaveBeenCalled();
     });
 
@@ -372,7 +387,9 @@ describe('AuthService', () => {
       mockUserRepo.findOne.mockResolvedValue(null);
       (bcrypt.compare as any).mockResolvedValue(false);
 
-      await expect(service.login('admin@test.com', 'password123')).rejects.toThrow('Invalid credentials');
+      await expect(service.login('admin@test.com', 'password123')).rejects.toThrow(
+        'Invalid credentials',
+      );
 
       expect(mockLoginAttempts.recordFailure).not.toHaveBeenCalled();
     });
@@ -385,7 +402,9 @@ describe('AuthService', () => {
       mockUserRepo.findOne.mockResolvedValue(mockUser);
       (bcrypt.compare as any).mockResolvedValue(true);
 
-      await expect(service.login('admin@test.com', 'password123')).rejects.toThrow('Invalid credentials');
+      await expect(service.login('admin@test.com', 'password123')).rejects.toThrow(
+        'Invalid credentials',
+      );
 
       expect(bcrypt.compare).toHaveBeenCalledTimes(1);
     });
@@ -409,7 +428,9 @@ describe('AuthService', () => {
       mockUserRepo.findOne.mockResolvedValue(suspendedUser);
       (bcrypt.compare as any).mockResolvedValue(true);
 
-      await expect(service.login('admin@test.com', 'password123')).rejects.toThrow('Invalid credentials');
+      await expect(service.login('admin@test.com', 'password123')).rejects.toThrow(
+        'Invalid credentials',
+      );
       expect(mockUserRepo.save).not.toHaveBeenCalled();
       expect(mockRefreshTokens.issueForUser).not.toHaveBeenCalled();
       expect(mockAuditService.record).toHaveBeenCalledWith(
@@ -420,7 +441,9 @@ describe('AuthService', () => {
 
   describe('refresh', () => {
     it('throws UnauthorizedException when no cookie is presented', async () => {
-      await expect(service.refresh(undefined, { ip: null, userAgent: null })).rejects.toThrow(UnauthorizedException);
+      await expect(service.refresh(undefined, { ip: null, userAgent: null })).rejects.toThrow(
+        UnauthorizedException,
+      );
       expect(mockRefreshTokens.rotate).not.toHaveBeenCalled();
     });
 
@@ -440,35 +463,43 @@ describe('AuthService', () => {
     });
 
     it('throws when the rotated token belongs to a user that no longer exists', async () => {
-      mockRefreshTokens.rotate.mockResolvedValue({ userId: 'ghost-user', refreshToken: mockIssuedRefreshToken });
+      mockRefreshTokens.rotate.mockResolvedValue({
+        userId: 'ghost-user',
+        refreshToken: mockIssuedRefreshToken,
+      });
       mockUserRepo.findOne.mockResolvedValue(null);
 
-      await expect(service.refresh('token-id.secret', { ip: null, userAgent: null })).rejects.toThrow(
-        UnauthorizedException,
-      );
+      await expect(
+        service.refresh('token-id.secret', { ip: null, userAgent: null }),
+      ).rejects.toThrow(UnauthorizedException);
     });
 
     // Otherwise a suspension only takes effect once the access token's own
     // ~15-minute lifetime runs out, not "on the next refresh" as the rest
     // of this method's membership-freshness behavior promises.
     it('rejects a rotated token belonging to a non-ACTIVE user, the same as a missing one', async () => {
-      mockRefreshTokens.rotate.mockResolvedValue({ userId: 'user-1', refreshToken: mockIssuedRefreshToken });
+      mockRefreshTokens.rotate.mockResolvedValue({
+        userId: 'user-1',
+        refreshToken: mockIssuedRefreshToken,
+      });
       mockUserRepo.findOne.mockResolvedValue({ ...mockUser, status: UserStatus.INACTIVE });
 
-      await expect(service.refresh('token-id.secret', { ip: null, userAgent: null })).rejects.toThrow(
-        'User no longer exists',
-      );
+      await expect(
+        service.refresh('token-id.secret', { ip: null, userAgent: null }),
+      ).rejects.toThrow('User no longer exists');
     });
 
     // The whole point of reuse detection: when it fires, it must be
     // observable, not just a silent 401 — TOKEN_REUSE_DETECTED is what a
     // security team would actually alert on.
     it('writes a TOKEN_REUSE_DETECTED audit row when reuse is detected, then rethrows', async () => {
-      mockRefreshTokens.rotate.mockRejectedValue(new RefreshTokenReuseDetectedException('user-1', 'family-1'));
-
-      await expect(service.refresh('token-id.secret', { ip: '1.2.3.4', userAgent: 'ua' })).rejects.toThrow(
-        'Refresh token reuse detected',
+      mockRefreshTokens.rotate.mockRejectedValue(
+        new RefreshTokenReuseDetectedException('user-1', 'family-1'),
       );
+
+      await expect(
+        service.refresh('token-id.secret', { ip: '1.2.3.4', userAgent: 'ua' }),
+      ).rejects.toThrow('Refresh token reuse detected');
 
       expect(mockAuditService.record).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -482,11 +513,13 @@ describe('AuthService', () => {
     });
 
     it('propagates a plain UnauthorizedException (expired/invalid token) without writing an audit row', async () => {
-      mockRefreshTokens.rotate.mockRejectedValue(new UnauthorizedException('Refresh token expired'));
-
-      await expect(service.refresh('token-id.secret', { ip: null, userAgent: null })).rejects.toThrow(
-        'Refresh token expired',
+      mockRefreshTokens.rotate.mockRejectedValue(
+        new UnauthorizedException('Refresh token expired'),
       );
+
+      await expect(
+        service.refresh('token-id.secret', { ip: null, userAgent: null }),
+      ).rejects.toThrow('Refresh token expired');
       expect(mockAuditService.record).not.toHaveBeenCalled();
     });
   });

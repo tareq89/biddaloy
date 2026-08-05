@@ -62,7 +62,9 @@ describe('CommunicationsService', () => {
     });
 
     it('propagates NotFoundException when student_id does not belong to the tenant', async () => {
-      studentService.findOne.mockRejectedValue(new NotFoundException('Student with ID "student-1" not found'));
+      studentService.findOne.mockRejectedValue(
+        new NotFoundException('Student with ID "student-1" not found'),
+      );
 
       await expect(
         service.enqueue({ ...baseDto, student_id: 'student-1' } as any, TENANT_ID, USER_ID),
@@ -71,7 +73,9 @@ describe('CommunicationsService', () => {
     });
 
     it('propagates NotFoundException when guardian_id does not belong to the tenant', async () => {
-      guardianService.findOne.mockRejectedValue(new NotFoundException('Guardian with ID "guardian-1" not found'));
+      guardianService.findOne.mockRejectedValue(
+        new NotFoundException('Guardian with ID "guardian-1" not found'),
+      );
 
       await expect(
         service.enqueue({ ...baseDto, guardian_id: 'guardian-1' } as any, TENANT_ID, USER_ID),

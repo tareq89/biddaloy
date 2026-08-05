@@ -99,7 +99,8 @@ function extractBlock(css, selectorRe) {
  * *correct* expected form is the reference, not the literal hex it resolves to. */
 function buildReverseLookup(preset) {
   const byHex = {};
-  for (const [key, hex] of Object.entries(preset.neutral)) byHex[hex] = `var(--color-neutral-${key})`;
+  for (const [key, hex] of Object.entries(preset.neutral))
+    byHex[hex] = `var(--color-neutral-${key})`;
   for (const [key, hex] of Object.entries(preset.brand)) byHex[hex] = `var(--color-brand-${key})`;
   return byHex;
 }
@@ -115,9 +116,7 @@ if (preset.CONTRAST_PAIRS.length === 0) {
 for (const { name, fg, bg, min } of preset.CONTRAST_PAIRS) {
   const actual = contrastRatio(fg, bg);
   if (actual < min) {
-    errors.push(
-      `${name}: ${fg} on ${bg} is ${actual.toFixed(2)}:1, needs >=${min}:1`,
-    );
+    errors.push(`${name}: ${fg} on ${bg} is ${actual.toFixed(2)}:1, needs >=${min}:1`);
   }
 }
 
@@ -130,7 +129,8 @@ const css = readFileSync(cssPath, 'utf8');
 const themeBody = extractBlock(css, /@theme\s*\{/);
 const darkBody = extractBlock(css, /:root\[data-theme=["']dark["']\]\s*\{/);
 if (themeBody === null) errors.push('globals.css: could not find an @theme block to check.');
-if (darkBody === null) errors.push('globals.css: could not find a :root[data-theme="dark"] block to check.');
+if (darkBody === null)
+  errors.push('globals.css: could not find a :root[data-theme="dark"] block to check.');
 
 const lightVars = themeBody === null ? {} : parseDeclarations(themeBody);
 const darkVars = darkBody === null ? {} : parseDeclarations(darkBody);

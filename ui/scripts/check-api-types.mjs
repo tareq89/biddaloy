@@ -36,11 +36,9 @@ const tmpDir = mkdtempSync(join(tmpdir(), 'beton-boi-api-types-'));
 const fresh = join(tmpDir, 'schema.d.ts');
 
 try {
-  execFileSync(
-    'npx',
-    ['--yes', 'openapi-typescript@7.13.0', openapiJson, '-o', fresh],
-    { stdio: 'inherit' },
-  );
+  execFileSync('npx', ['--yes', 'openapi-typescript@7.13.0', openapiJson, '-o', fresh], {
+    stdio: 'inherit',
+  });
 
   const checkedInContent = readFileSync(checkedIn, 'utf8');
   const freshContent = readFileSync(fresh, 'utf8');

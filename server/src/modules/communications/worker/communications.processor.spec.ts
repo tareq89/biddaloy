@@ -65,9 +65,15 @@ describe('CommunicationsProcessor', () => {
   });
 
   it('records the failure and throws to trigger a BullMQ retry when attempts remain', async () => {
-    provider.send.mockResolvedValue({ success: false, providerMessageId: null, error: 'gateway down' });
+    provider.send.mockResolvedValue({
+      success: false,
+      providerMessageId: null,
+      error: 'gateway down',
+    });
 
-    await expect(processor.process(job({ attemptsMade: 0, attempts: 3 }))).rejects.toThrow('gateway down');
+    await expect(processor.process(job({ attemptsMade: 0, attempts: 3 }))).rejects.toThrow(
+      'gateway down',
+    );
 
     // Still QUEUED — only the metadata records the latest failed attempt.
     // Not a terminal outcome, so this goes through repo.save directly, not
@@ -82,7 +88,11 @@ describe('CommunicationsProcessor', () => {
   });
 
   it('marks the log FAILED without throwing once retries are exhausted', async () => {
-    provider.send.mockResolvedValue({ success: false, providerMessageId: null, error: 'gateway down' });
+    provider.send.mockResolvedValue({
+      success: false,
+      providerMessageId: null,
+      error: 'gateway down',
+    });
 
     await expect(processor.process(job({ attemptsMade: 2, attempts: 3 }))).resolves.toBeUndefined();
 
@@ -100,7 +110,9 @@ describe('CommunicationsProcessor', () => {
     await expect(processor.process(job())).resolves.toBeUndefined();
 
     expect(provider.send).not.toHaveBeenCalled();
-    expect(txManager.save).toHaveBeenCalledWith(expect.objectContaining({ status: CommunicationStatus.FAILED }));
+    expect(txManager.save).toHaveBeenCalledWith(
+      expect.objectContaining({ status: CommunicationStatus.FAILED }),
+    );
   });
 
   it('converts a provider throw into a failure result instead of crashing (defense-in-depth)', async () => {
@@ -120,7 +132,11 @@ describe('CommunicationsProcessor', () => {
     repo.findOneOrFail.mockResolvedValue({
       ...baseLog,
       medium: CommunicationMedium.WHATSAPP,
-      metadata: { template_name: 'fee_reminder', template_language: 'bn', template_params: ['500'] },
+      metadata: {
+        template_name: 'fee_reminder',
+        template_language: 'bn',
+        template_params: ['500'],
+      },
     });
     provider.send.mockResolvedValue({ success: true, providerMessageId: 'wa-1' });
 
@@ -137,7 +153,11 @@ describe('CommunicationsProcessor', () => {
 
   describe('reminder batch attribution', () => {
     function batchLog(overrides: Record<string, unknown> = {}) {
-      repo.findOneOrFail.mockResolvedValue({ ...baseLog, reminder_batch_id: 'batch-1', ...overrides });
+      repo.findOneOrFail.mockResolvedValue({
+        ...baseLog,
+        reminder_batch_id: 'batch-1',
+        ...overrides,
+      });
     }
 
     it('counts a delivered message as a batch success', async () => {
@@ -151,7 +171,11 @@ describe('CommunicationsProcessor', () => {
 
     it('counts a permanently failed message as a batch failure', async () => {
       batchLog();
-      provider.send.mockResolvedValue({ success: false, providerMessageId: null, error: 'gateway down' });
+      provider.send.mockResolvedValue({
+        success: false,
+        providerMessageId: null,
+        error: 'gateway down',
+      });
 
       await processor.process(job({ attemptsMade: 2, attempts: 3 }));
 
@@ -169,7 +193,11 @@ describe('CommunicationsProcessor', () => {
 
     it('does not count a retryable failure, since the message may still succeed', async () => {
       batchLog();
-      provider.send.mockResolvedValue({ success: false, providerMessageId: null, error: 'gateway down' });
+      provider.send.mockResolvedValue({
+        success: false,
+        providerMessageId: null,
+        error: 'gateway down',
+      });
 
       await expect(processor.process(job({ attemptsMade: 0, attempts: 3 }))).rejects.toThrow();
 

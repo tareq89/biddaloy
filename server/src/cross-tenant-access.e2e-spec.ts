@@ -86,7 +86,9 @@ describe('Cross-tenant access (regression)', () => {
       await dataSource.query(`DELETE FROM invoices WHERE id = '${createdInvoiceId}'`);
     }
     if (createdCommunicationId) {
-      await dataSource.query(`DELETE FROM communication_logs WHERE id = '${createdCommunicationId}'`);
+      await dataSource.query(
+        `DELETE FROM communication_logs WHERE id = '${createdCommunicationId}'`,
+      );
     }
     if (createdFeeStructureId) {
       await dataSource.query(`DELETE FROM fee_structures WHERE id = '${createdFeeStructureId}'`);
@@ -104,7 +106,11 @@ describe('Cross-tenant access (regression)', () => {
       .post('/api/v1/students')
       .set('Authorization', `Bearer ${token}`)
       .set('X-Tenant-ID', TENANT_A)
-      .send({ full_name: 'Cross Tenant Student', class_section_id: SEED_SECTION_1_ID, date_of_birth: '2012-01-01' })
+      .send({
+        full_name: 'Cross Tenant Student',
+        class_section_id: SEED_SECTION_1_ID,
+        date_of_birth: '2012-01-01',
+      })
       .expect(201);
     const studentId = studentRes.body.id;
     createdStudentId = studentId;

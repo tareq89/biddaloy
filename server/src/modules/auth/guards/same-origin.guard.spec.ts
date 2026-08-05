@@ -44,7 +44,9 @@ describe('requestOrigin', () => {
   });
 
   it('reflects the request protocol even without an explicit override (e.g. http in dev)', () => {
-    expect(requestOrigin(fakeRequest({ protocol: 'http', host: 'localhost:3000' }))).toBe('http://localhost:3000');
+    expect(requestOrigin(fakeRequest({ protocol: 'http', host: 'localhost:3000' }))).toBe(
+      'http://localhost:3000',
+    );
   });
 });
 

@@ -24,7 +24,11 @@ describe('AuditService', () => {
       });
 
       expect(repo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ action: AuditAction.LOGIN, entity_id: 'user-1', tenant_id: 'tenant-1' }),
+        expect.objectContaining({
+          action: AuditAction.LOGIN,
+          entity_id: 'user-1',
+          tenant_id: 'tenant-1',
+        }),
       );
     });
 
@@ -163,12 +167,24 @@ describe('AuditService', () => {
         'tenant-1',
       );
 
-      expect(qb.where).toHaveBeenCalledWith('audit_log.tenant_id = :tenantId', { tenantId: 'tenant-1' });
-      expect(qb.andWhere).toHaveBeenCalledWith('audit_log.action = :action', { action: AuditAction.LOGIN });
-      expect(qb.andWhere).toHaveBeenCalledWith('audit_log.entity_type = :entityType', { entityType: 'User' });
+      expect(qb.where).toHaveBeenCalledWith('audit_log.tenant_id = :tenantId', {
+        tenantId: 'tenant-1',
+      });
+      expect(qb.andWhere).toHaveBeenCalledWith('audit_log.action = :action', {
+        action: AuditAction.LOGIN,
+      });
+      expect(qb.andWhere).toHaveBeenCalledWith('audit_log.entity_type = :entityType', {
+        entityType: 'User',
+      });
       expect(qb.skip).toHaveBeenCalledWith(5);
       expect(qb.take).toHaveBeenCalledWith(5);
-      expect(result).toEqual({ data: [{ id: 'log-1' }], total: 1, page: 2, limit: 5, totalPages: 1 });
+      expect(result).toEqual({
+        data: [{ id: 'log-1' }],
+        total: 1,
+        page: 2,
+        limit: 5,
+        totalPages: 1,
+      });
     });
 
     // A date-only to_date must include the entire day — otherwise Postgres
@@ -188,7 +204,9 @@ describe('AuditService', () => {
 
       await service.findAll({ to_date: '2026-01-31' } as any, 'tenant-1');
 
-      const call = qb.andWhere.mock.calls.find((c: any[]) => c[0] === 'audit_log.created_at <= :toDate');
+      const call = qb.andWhere.mock.calls.find(
+        (c: any[]) => c[0] === 'audit_log.created_at <= :toDate',
+      );
       expect(call[1].toDate.toISOString()).toBe('2026-01-31T23:59:59.999Z');
     });
 
@@ -206,7 +224,9 @@ describe('AuditService', () => {
 
       await service.findAll({ to_date: '2026-01-31T10:00:00.000Z' } as any, 'tenant-1');
 
-      const call = qb.andWhere.mock.calls.find((c: any[]) => c[0] === 'audit_log.created_at <= :toDate');
+      const call = qb.andWhere.mock.calls.find(
+        (c: any[]) => c[0] === 'audit_log.created_at <= :toDate',
+      );
       expect(call[1].toDate.toISOString()).toBe('2026-01-31T10:00:00.000Z');
     });
   });

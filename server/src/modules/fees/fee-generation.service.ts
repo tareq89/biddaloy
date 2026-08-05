@@ -83,7 +83,9 @@ export class FeeGenerationService {
     const selectedStudentsByStructure = await this.loadSelectedStudentLinks(applicableStructures);
 
     const candidates = students
-      .map((student) => this.buildCandidate(student, dto, applicableStructures, selectedStudentsByStructure))
+      .map((student) =>
+        this.buildCandidate(student, dto, applicableStructures, selectedStudentsByStructure),
+      )
       .filter((candidate): candidate is Partial<StudentFee> => candidate !== null);
 
     if (candidates.length === 0) {
@@ -99,7 +101,10 @@ export class FeeGenerationService {
     };
   }
 
-  private assertMonthWithinAcademicYear(dto: GenerateStudentFeesDto, academicYear: AcademicYear): void {
+  private assertMonthWithinAcademicYear(
+    dto: GenerateStudentFeesDto,
+    academicYear: AcademicYear,
+  ): void {
     const target = Date.UTC(dto.year, dto.month - 1, 1);
     const start = new Date(academicYear.start_date);
     const end = new Date(academicYear.end_date);
@@ -114,7 +119,10 @@ export class FeeGenerationService {
     }
   }
 
-  private async findEligibleStudents(dto: GenerateStudentFeesDto, tenantId: string): Promise<Student[]> {
+  private async findEligibleStudents(
+    dto: GenerateStudentFeesDto,
+    tenantId: string,
+  ): Promise<Student[]> {
     const where: FindOptionsWhere<Student> = {
       tenant_id: tenantId,
       deleted_at: IsNull(),
@@ -130,7 +138,10 @@ export class FeeGenerationService {
     return this.studentRepo.find({ where, relations: ['class_section'] });
   }
 
-  private async findApplicableStructures(dto: GenerateStudentFeesDto, tenantId: string): Promise<FeeStructure[]> {
+  private async findApplicableStructures(
+    dto: GenerateStudentFeesDto,
+    tenantId: string,
+  ): Promise<FeeStructure[]> {
     const where: FindOptionsWhere<FeeStructure> = {
       tenant_id: tenantId,
       academic_year_id: dto.academic_year_id,
@@ -145,7 +156,9 @@ export class FeeGenerationService {
     );
   }
 
-  private async loadSelectedStudentLinks(structures: FeeStructure[]): Promise<Map<string, Set<string>>> {
+  private async loadSelectedStudentLinks(
+    structures: FeeStructure[],
+  ): Promise<Map<string, Set<string>>> {
     const selectedStructureIds = structures
       .filter((s) => s.applicability === FeeApplicability.SELECTED)
       .map((s) => s.id);
@@ -155,7 +168,9 @@ export class FeeGenerationService {
       return byStructure;
     }
 
-    const links = await this.fssRepo.find({ where: { fee_structure_id: In(selectedStructureIds) } });
+    const links = await this.fssRepo.find({
+      where: { fee_structure_id: In(selectedStructureIds) },
+    });
     for (const link of links) {
       if (!byStructure.has(link.fee_structure_id)) {
         byStructure.set(link.fee_structure_id, new Set());

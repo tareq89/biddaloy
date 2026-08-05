@@ -19,7 +19,8 @@ export class AuditController {
   @Get()
   @Roles(UserRole.ADMIN)
   @ApiOperation({
-    summary: "List this tenant's audit trail, newest first — filterable by action, entity type, and date range.",
+    summary:
+      "List this tenant's audit trail, newest first — filterable by action, entity type, and date range.",
   })
   findAll(@Query() query: QueryAuditLogDto, @CurrentTenant() tenant: { id: string; role: string }) {
     return this.auditService.findAll(query, tenant.id);

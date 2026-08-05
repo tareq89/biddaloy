@@ -10,11 +10,7 @@ export default defineConfig({
   plugins: [swc.vite()],
   test: {
     // Test file patterns
-    include: [
-      'src/**/*.spec.ts',
-      'src/**/*.integration.spec.ts',
-      'src/**/*.e2e-spec.ts',
-    ],
+    include: ['src/**/*.spec.ts', 'src/**/*.integration.spec.ts', 'src/**/*.e2e-spec.ts'],
 
     // Environment
     environment: 'node',

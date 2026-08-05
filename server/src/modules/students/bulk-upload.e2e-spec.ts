@@ -8,7 +8,12 @@ import { buildValidationPipeOptions } from '../../validation-pipe';
 import { DataSource } from 'typeorm';
 import ExcelJS from 'exceljs';
 import { UserRole } from '@beton-boi/shared';
-import { SEED_TENANT_ID, SEED_ADMIN_EMAIL, SEED_ADMIN_USER_ID, SEED_ADMIN_PASSWORD } from '@test/constants';
+import {
+  SEED_TENANT_ID,
+  SEED_ADMIN_EMAIL,
+  SEED_ADMIN_USER_ID,
+  SEED_ADMIN_PASSWORD,
+} from '@test/constants';
 import { REQUIRED_HEADERS, BulkUploadHeader } from './bulk-upload.parser';
 
 /**
@@ -34,7 +39,10 @@ const DEFAULTS: Record<BulkUploadHeader, string> = {
   preferred_communication: '',
 };
 
-function rowValues(headers: readonly string[], overrides: Partial<Record<BulkUploadHeader, string>> = {}): string[] {
+function rowValues(
+  headers: readonly string[],
+  overrides: Partial<Record<BulkUploadHeader, string>> = {},
+): string[] {
   const merged = { ...DEFAULTS, ...overrides };
   return headers.map((h) => merged[h as BulkUploadHeader] ?? '');
 }
@@ -99,7 +107,9 @@ describe('Bulk Student Upload E2E', () => {
 
   describe('POST /students/bulk-upload', () => {
     it('uploads a valid .xlsx for ADMIN role and returns a success report', async () => {
-      const buffer = await buildXlsxBuffer([rowValues(REQUIRED_HEADERS, { roll: '101', guardian1_phone: '+8801711110001' })]);
+      const buffer = await buildXlsxBuffer([
+        rowValues(REQUIRED_HEADERS, { roll: '101', guardian1_phone: '+8801711110001' }),
+      ]);
 
       const res = await supertest(app.getHttpServer())
         .post('/api/v1/students/bulk-upload')
@@ -114,7 +124,9 @@ describe('Bulk Student Upload E2E', () => {
     });
 
     it('allows ACCOUNTANT role', async () => {
-      const buffer = await buildXlsxBuffer([rowValues(REQUIRED_HEADERS, { roll: '102', guardian1_phone: '+8801711110002' })]);
+      const buffer = await buildXlsxBuffer([
+        rowValues(REQUIRED_HEADERS, { roll: '102', guardian1_phone: '+8801711110002' }),
+      ]);
 
       await supertest(app.getHttpServer())
         .post('/api/v1/students/bulk-upload')

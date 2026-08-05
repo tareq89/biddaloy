@@ -26,7 +26,11 @@ import {
 } from './reminder-template.util';
 import { recordBatchOutcome } from './reminder-batch-counters';
 import { COMMUNICATIONS_QUEUE } from './communications.constants';
-import { selectReminderGuardians, addressForMedium, DISPATCHABLE_MEDIA } from './reminder-recipients.util';
+import {
+  selectReminderGuardians,
+  addressForMedium,
+  DISPATCHABLE_MEDIA,
+} from './reminder-recipients.util';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
 import {
@@ -113,7 +117,8 @@ export class BulkReminderService {
         tenant_id: tenantId,
         batch_name: dto.batch_name || this.defaultBatchName(),
         // Nothing to dispatch is a finished batch, not a stuck one.
-        status: recipients.length === 0 ? ReminderBatchStatus.COMPLETED : ReminderBatchStatus.PROCESSING,
+        status:
+          recipients.length === 0 ? ReminderBatchStatus.COMPLETED : ReminderBatchStatus.PROCESSING,
         total_recipients: recipients.length,
         message_template: dto.message_template,
         initiated_by_user_id: userId,
@@ -185,13 +190,21 @@ export class BulkReminderService {
       if (!snapshot) {
         // No open fee means there is nothing to remind about — a reminder
         // reading "you owe 0.00" is worse than no reminder.
-        skipped.push({ student_id: student.id, guardian_id: null, reason: SkipReason.NO_OPEN_DUES });
+        skipped.push({
+          student_id: student.id,
+          guardian_id: null,
+          reason: SkipReason.NO_OPEN_DUES,
+        });
         continue;
       }
 
       const guardians = selectReminderGuardians(student.guardians ?? []);
       if (guardians.length === 0) {
-        skipped.push({ student_id: student.id, guardian_id: null, reason: SkipReason.NO_GUARDIANS });
+        skipped.push({
+          student_id: student.id,
+          guardian_id: null,
+          reason: SkipReason.NO_GUARDIANS,
+        });
         continue;
       }
 
@@ -204,17 +217,29 @@ export class BulkReminderService {
         const medium = guardian.preferred_communication;
 
         if (allowed && !allowed.has(medium)) {
-          skipped.push({ student_id: student.id, guardian_id: guardian.id, reason: SkipReason.MEDIUM_NOT_ALLOWED });
+          skipped.push({
+            student_id: student.id,
+            guardian_id: guardian.id,
+            reason: SkipReason.MEDIUM_NOT_ALLOWED,
+          });
           continue;
         }
         if (!DISPATCHABLE_MEDIA.includes(medium)) {
-          skipped.push({ student_id: student.id, guardian_id: guardian.id, reason: SkipReason.NO_AUTOMATED_PROVIDER });
+          skipped.push({
+            student_id: student.id,
+            guardian_id: guardian.id,
+            reason: SkipReason.NO_AUTOMATED_PROVIDER,
+          });
           continue;
         }
 
         const address = addressForMedium(guardian, medium);
         if (!address) {
-          skipped.push({ student_id: student.id, guardian_id: guardian.id, reason: SkipReason.MISSING_ADDRESS });
+          skipped.push({
+            student_id: student.id,
+            guardian_id: guardian.id,
+            reason: SkipReason.MISSING_ADDRESS,
+          });
           continue;
         }
 
@@ -293,7 +318,9 @@ export class BulkReminderService {
    * and get the message rejected. Catch it before the batch is created.
    */
   private validateWhatsAppParams(dto: SendBulkReminderDto): void {
-    const unknown = (dto.whatsapp_template_params ?? []).filter((name) => !isSupportedPlaceholder(name));
+    const unknown = (dto.whatsapp_template_params ?? []).filter(
+      (name) => !isSupportedPlaceholder(name),
+    );
     if (unknown.length > 0) {
       throw new BadRequestException(
         `Unsupported whatsapp_template_params: ${unknown.join(', ')}. ` +
@@ -326,7 +353,10 @@ export class BulkReminderService {
     return `Fee Reminder ${new Date().toISOString().slice(0, 10)}`;
   }
 
-  private toResponseDto(batch: ReminderBatch, skipped: SkippedRecipientDto[]): ReminderBatchResponseDto {
+  private toResponseDto(
+    batch: ReminderBatch,
+    skipped: SkippedRecipientDto[],
+  ): ReminderBatchResponseDto {
     return {
       id: batch.id,
       batch_name: batch.batch_name,

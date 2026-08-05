@@ -4,7 +4,12 @@ import { AuthService } from './auth.service';
 import { REFRESH_TOKEN_COOKIE } from './token-cookie';
 
 function fakeRequest(
-  overrides: Partial<{ ip: string; userAgent: string; cookies: Record<string, string>; user: any }> = {},
+  overrides: Partial<{
+    ip: string;
+    userAgent: string;
+    cookies: Record<string, string>;
+    user: any;
+  }> = {},
 ): any {
   return {
     ip: overrides.ip ?? '127.0.0.1',
@@ -21,7 +26,10 @@ function fakeResponse() {
   };
 }
 
-const mockIssuedRefreshToken = { cookieValue: 'token-id.secret', expiresAt: new Date(Date.now() + 60_000) };
+const mockIssuedRefreshToken = {
+  cookieValue: 'token-id.secret',
+  expiresAt: new Date(Date.now() + 60_000),
+};
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -71,7 +79,11 @@ describe('AuthController', () => {
 
     it('logs in with phone as the identifier when email is absent', async () => {
       const response = fakeResponse();
-      await controller.login({ phone: '+8801700000000', password: 'password123' } as any, fakeRequest(), response as any);
+      await controller.login(
+        { phone: '+8801700000000', password: 'password123' } as any,
+        fakeRequest(),
+        response as any,
+      );
 
       // Phone must be usable as the identifier when email is not supplied.
       expect(mockAuthService.login).toHaveBeenCalledWith('+8801700000000', 'password123', {
@@ -149,7 +161,11 @@ describe('AuthController', () => {
 
       await controller.logoutAll(request, response as any);
 
-      expect(mockAuthService.logoutAll).toHaveBeenCalledWith('user-1', 'jti-123', expect.anything());
+      expect(mockAuthService.logoutAll).toHaveBeenCalledWith(
+        'user-1',
+        'jti-123',
+        expect.anything(),
+      );
       expect(response.clearCookie).toHaveBeenCalled();
     });
   });

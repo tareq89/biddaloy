@@ -69,7 +69,10 @@ describe('sortAggregates', () => {
   });
 
   it('does not mutate the input array', () => {
-    const input = [makeAggregate({ student_id: 'b', total_due: 2 }), makeAggregate({ student_id: 'a', total_due: 1 })];
+    const input = [
+      makeAggregate({ student_id: 'b', total_due: 2 }),
+      makeAggregate({ student_id: 'a', total_due: 1 }),
+    ];
     const originalOrder = input.map((r) => r.student_id);
 
     sortAggregates(input, 'due_amount', 'ASC');

@@ -1,4 +1,12 @@
-import { IsString, IsOptional, IsUUID, IsArray, IsEnum, IsNotEmpty, MaxLength } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsUUID,
+  IsArray,
+  IsEnum,
+  IsNotEmpty,
+  MaxLength,
+} from 'class-validator';
 import { CommunicationMedium, CommunicationStatus } from '@beton-boi/shared';
 
 export class SendSingleReminderDto {

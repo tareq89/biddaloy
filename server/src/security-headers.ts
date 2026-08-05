@@ -1,4 +1,4 @@
-import type { HelmetOptions } from "helmet";
+import type { HelmetOptions } from 'helmet';
 
 /**
  * Explicit, tight CSP tailored to this app: the built SPAs load only
@@ -10,7 +10,7 @@ import type { HelmetOptions } from "helmet";
  * with the browser console open and confirming zero CSP violations.
  */
 export function buildHelmetOptions(nodeEnv: string | undefined): HelmetOptions {
-  const isProduction = nodeEnv === "production";
+  const isProduction = nodeEnv === 'production';
 
   return {
     contentSecurityPolicy: {
@@ -35,8 +35,8 @@ export function buildHelmetOptions(nodeEnv: string | undefined): HelmetOptions {
     // (#32) — a browser that caches HSTS for a domain not actually serving
     // valid TLS locks users out entirely.
     hsts: isProduction ? { maxAge: 31536000, includeSubDomains: true } : false,
-    referrerPolicy: { policy: "no-referrer" },
-    frameguard: { action: "deny" },
+    referrerPolicy: { policy: 'no-referrer' },
+    frameguard: { action: 'deny' },
     // noSniff and hidePoweredBy default to on. xXssProtection defaults to
     // sending "X-XSS-Protection: 0" — the modern recommendation, since the
     // header's legacy filter behavior is deprecated and actively buggy in

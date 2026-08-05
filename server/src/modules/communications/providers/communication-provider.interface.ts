@@ -35,4 +35,6 @@ export const COMMUNICATION_PROVIDER_REGISTRY = 'COMMUNICATION_PROVIDER_REGISTRY'
 // Partial: not every CommunicationMedium (e.g. PHONE_CALL) has an
 // automated provider — CommunicationsProcessor treats a missing entry as
 // an unsupported medium and fails the job rather than assuming coverage.
-export type CommunicationProviderRegistry = Partial<Record<CommunicationMedium, CommunicationProvider>>;
+export type CommunicationProviderRegistry = Partial<
+  Record<CommunicationMedium, CommunicationProvider>
+>;

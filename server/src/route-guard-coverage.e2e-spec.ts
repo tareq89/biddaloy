@@ -71,19 +71,26 @@ const ALLOWLIST: AllowlistEntry[] = [
     controller: 'AuthController',
     method: 'POST',
     path: '/auth/logout',
-    reason: 'Cookie-authenticated, pre-tenant-selection (SameOriginGuard only), same rationale as /auth/refresh.',
+    reason:
+      'Cookie-authenticated, pre-tenant-selection (SameOriginGuard only), same rationale as /auth/refresh.',
   },
   {
     controller: 'AuthController',
     method: 'POST',
     path: '/auth/logout-all',
     reason:
-      'Bearer-authenticated but tenant-agnostic — operates on the caller\'s own user.sub/jti (AuthGuard(jwt) only, no ContextGuard/RolesGuard, since it is not a tenant-scoped resource).',
+      "Bearer-authenticated but tenant-agnostic — operates on the caller's own user.sub/jti (AuthGuard(jwt) only, no ContextGuard/RolesGuard, since it is not a tenant-scoped resource).",
   },
 ];
 
-function findAllowlistEntry(controller: string, method: string, path: string): AllowlistEntry | undefined {
-  return ALLOWLIST.find((entry) => entry.controller === controller && entry.method === method && entry.path === path);
+function findAllowlistEntry(
+  controller: string,
+  method: string,
+  path: string,
+): AllowlistEntry | undefined {
+  return ALLOWLIST.find(
+    (entry) => entry.controller === controller && entry.method === method && entry.path === path,
+  );
 }
 
 describe('Route guard coverage (regression)', () => {
@@ -140,7 +147,9 @@ describe('Route guard coverage (regression)', () => {
         checked.push(`${methodLabel} ${fullPath} (${controllerName})`);
 
         const hasFullStack =
-          allGuards.includes(JWT_AUTH_GUARD) && allGuards.includes(ContextGuard) && allGuards.includes(RolesGuard);
+          allGuards.includes(JWT_AUTH_GUARD) &&
+          allGuards.includes(ContextGuard) &&
+          allGuards.includes(RolesGuard);
 
         if (hasFullStack) continue;
 

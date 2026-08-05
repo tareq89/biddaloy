@@ -1,4 +1,4 @@
-import { JwtService } from "@nestjs/jwt";
+import { JwtService } from '@nestjs/jwt';
 
 /**
  * Builds the tracker function ThrottlerModule uses to bucket requests.
@@ -16,7 +16,10 @@ import { JwtService } from "@nestjs/jwt";
 export function buildRateLimitTracker(jwtService: JwtService) {
   return async function getRateLimitTracker(req: Record<string, any>): Promise<string> {
     const authHeader = req.headers?.authorization;
-    const token = typeof authHeader === "string" && authHeader.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
+    const token =
+      typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
+        ? authHeader.slice(7)
+        : undefined;
 
     if (token) {
       try {

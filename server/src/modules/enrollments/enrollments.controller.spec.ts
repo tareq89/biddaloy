@@ -23,9 +23,7 @@ describe('EnrollmentController', () => {
       findByStudent: vi.fn(),
       update: vi.fn(),
     };
-    controller = new EnrollmentController(
-      service as unknown as EnrollmentService,
-    );
+    controller = new EnrollmentController(service as unknown as EnrollmentService);
   });
 
   // ────────────────────────

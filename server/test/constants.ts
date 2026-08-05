@@ -17,4 +17,5 @@ export const SEED_SECTION_2_ID = '00000000-0000-4000-8000-000000000041';
 export const SEED_ADMIN_EMAIL = 'admin@testschool.com';
 export const SEED_ADMIN_PASSWORD = 'password123';
 // bcrypt hash for 'password123' with 10 rounds
-export const SEED_ADMIN_PASSWORD_HASH = '$2b$10$brf3rDc3UPswxvVXEs.Q9OrgBMfXkdHbCwGrpBEnXksM64gFBhD12';
+export const SEED_ADMIN_PASSWORD_HASH =
+  '$2b$10$brf3rDc3UPswxvVXEs.Q9OrgBMfXkdHbCwGrpBEnXksM64gFBhD12';

@@ -40,7 +40,9 @@ describe('request interceptor: tenant/role/token injection', () => {
 
   it('attaches X-Tenant-ID when a tenant is active', async () => {
     setActiveTenant('tenant-1');
-    apiMock.onGet('/students').reply((config) => [200, { tenant: config.headers?.['X-Tenant-ID'] }]);
+    apiMock
+      .onGet('/students')
+      .reply((config) => [200, { tenant: config.headers?.['X-Tenant-ID'] }]);
 
     const res = await apiClient.get('/students');
     expect(res.data.tenant).toBe('tenant-1');
@@ -48,7 +50,9 @@ describe('request interceptor: tenant/role/token injection', () => {
 
   it('attaches X-Role only when a role is explicitly set', async () => {
     setActiveTenant('tenant-1');
-    apiMock.onGet('/students').reply((config) => [200, { role: config.headers?.['X-Role'] ?? null }]);
+    apiMock
+      .onGet('/students')
+      .reply((config) => [200, { role: config.headers?.['X-Role'] ?? null }]);
 
     const withoutRole = await apiClient.get('/students');
     expect(withoutRole.data.role).toBeNull();
@@ -78,7 +82,16 @@ describe('401 handling: refresh and replay', () => {
       studentsCallCount += 1;
       const auth = studentsCallCount === 1 ? 'expired-token' : 'fresh-token';
       return studentsCallCount === 1
-        ? [401, { statusCode: 401, message: 'jwt expired', timestamp: 't', path: '/students', requestId: 'r1' }]
+        ? [
+            401,
+            {
+              statusCode: 401,
+              message: 'jwt expired',
+              timestamp: 't',
+              path: '/students',
+              requestId: 'r1',
+            },
+          ]
         : [200, { data: 'ok', authUsed: auth }];
     });
     globalMock.onPost('/api/v1/auth/refresh').reply(200, { access_token: 'fresh-token' });
@@ -100,7 +113,16 @@ describe('401 handling: refresh and replay', () => {
       if (auth === 'Bearer fresh-token') {
         return [200, { url: config.url }];
       }
-      return [401, { statusCode: 401, message: 'jwt expired', timestamp: 't', path: config.url, requestId: 'r' }];
+      return [
+        401,
+        {
+          statusCode: 401,
+          message: 'jwt expired',
+          timestamp: 't',
+          path: config.url,
+          requestId: 'r',
+        },
+      ];
     });
 
     let refreshCallCount = 0;

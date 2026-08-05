@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus } from "@nestjs/common";
+import { HttpException, HttpStatus } from '@nestjs/common';
 
 export interface ErrorResponseBody {
   statusCode: number;
@@ -10,7 +10,9 @@ export interface ErrorResponseBody {
 }
 
 export function resolveStatus(exception: unknown): number {
-  return exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
+  return exception instanceof HttpException
+    ? exception.getStatus()
+    : HttpStatus.INTERNAL_SERVER_ERROR;
 }
 
 /**
@@ -27,13 +29,13 @@ export function resolveStatus(exception: unknown): number {
 export function resolveDetailMessage(exception: unknown): string | string[] {
   if (exception instanceof HttpException) {
     const response = exception.getResponse();
-    if (typeof response === "object" && response !== null && "message" in response) {
+    if (typeof response === 'object' && response !== null && 'message' in response) {
       return (response as { message: string | string[] }).message;
     }
     return exception.message;
   }
   if (exception instanceof Error) return exception.message;
-  return "Internal server error";
+  return 'Internal server error';
 }
 
 /**
@@ -50,12 +52,12 @@ export function buildErrorResponseBody(
 ): ErrorResponseBody {
   const status = resolveStatus(exception);
   const isServerError = status >= HttpStatus.INTERNAL_SERVER_ERROR;
-  const isProduction = opts.nodeEnv === "production";
+  const isProduction = opts.nodeEnv === 'production';
   const detailMessage = resolveDetailMessage(exception);
 
   const body: ErrorResponseBody = {
     statusCode: status,
-    message: isServerError && isProduction ? "Internal server error" : detailMessage,
+    message: isServerError && isProduction ? 'Internal server error' : detailMessage,
     timestamp: new Date().toISOString(),
     path: opts.path,
     requestId: opts.requestId,

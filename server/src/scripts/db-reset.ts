@@ -15,20 +15,20 @@ config({ path: resolve(__dirname, '..', '..', '..', '.env') });
 
 async function dbReset() {
   // Safety guard: require explicit confirmation env var
-  if (process.env.DB_DESTROY_CONFIRM !== "true") {
+  if (process.env.DB_DESTROY_CONFIRM !== 'true') {
     console.error(
-      "Destructive operation guard activated.\n" +
-      "Set DB_DESTROY_CONFIRM=true to confirm you want to drop ALL tables.\n" +
-      "This protects against accidental database destruction in production."
+      'Destructive operation guard activated.\n' +
+        'Set DB_DESTROY_CONFIRM=true to confirm you want to drop ALL tables.\n' +
+        'This protects against accidental database destruction in production.',
     );
     process.exit(1);
   }
 
   // Additional guard: refuse to run in production unless DB_DESTROY_CONFIRM is explicitly set
-  if (process.env.NODE_ENV === "production") {
+  if (process.env.NODE_ENV === 'production') {
     console.error(
-      "Refusing to run db:reset in NODE_ENV=production.\n" +
-      "Set NODE_ENV=development or unset it before running this destructive command."
+      'Refusing to run db:reset in NODE_ENV=production.\n' +
+        'Set NODE_ENV=development or unset it before running this destructive command.',
     );
     process.exit(1);
   }
@@ -36,7 +36,9 @@ async function dbReset() {
   // Validate seed password before any database work
   const adminPassword = process.env.SEED_ADMIN_PASSWORD;
   if (!adminPassword || adminPassword.length === 0) {
-    console.error('SEED_ADMIN_PASSWORD environment variable is required but was not set or is empty.');
+    console.error(
+      'SEED_ADMIN_PASSWORD environment variable is required but was not set or is empty.',
+    );
     process.exit(1);
   }
 

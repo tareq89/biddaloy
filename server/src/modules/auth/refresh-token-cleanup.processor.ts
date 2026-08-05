@@ -1,7 +1,7 @@
-import { Processor, WorkerHost } from "@nestjs/bullmq";
-import { Logger } from "@nestjs/common";
-import { RefreshTokenService } from "./refresh-token.service";
-import { REFRESH_TOKEN_CLEANUP_QUEUE } from "./refresh-token-cleanup.constants";
+import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { Logger } from '@nestjs/common';
+import { RefreshTokenService } from './refresh-token.service';
+import { REFRESH_TOKEN_CLEANUP_QUEUE } from './refresh-token-cleanup.constants';
 
 @Processor(REFRESH_TOKEN_CLEANUP_QUEUE)
 export class RefreshTokenCleanupProcessor extends WorkerHost {

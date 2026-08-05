@@ -37,7 +37,16 @@ describe('Fee Dues E2E', () => {
       `INSERT INTO students (id, full_name, registration_number, roll_number, class_section_id, tenant_id, date_of_birth, preferred_communication, enrollment_status, created_at, updated_at)
        VALUES (DEFAULT, $1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
        RETURNING id`,
-      [`Dues Student ${studentSeq}`, `REG-DUES-E2E-${String(studentSeq).padStart(4, '0')}`, studentSeq, SEED_SECTION_1_ID, TENANT_ID, '2010-01-01', 'SMS', 'ACTIVE'],
+      [
+        `Dues Student ${studentSeq}`,
+        `REG-DUES-E2E-${String(studentSeq).padStart(4, '0')}`,
+        studentSeq,
+        SEED_SECTION_1_ID,
+        TENANT_ID,
+        '2010-01-01',
+        'SMS',
+        'ACTIVE',
+      ],
     );
     return res[0].id;
   }
@@ -209,7 +218,15 @@ describe('Fee Dues E2E', () => {
         `INSERT INTO guardians (id, full_name, relationship, phone, email, preferred_communication, is_primary_contact, tenant_id, created_at, updated_at)
          VALUES (DEFAULT, $1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
          RETURNING id`,
-        ['Flagged Guardian', 'Father', '+8801799999999', 'guardian@example.com', 'SMS', true, TENANT_ID],
+        [
+          'Flagged Guardian',
+          'Father',
+          '+8801799999999',
+          'guardian@example.com',
+          'SMS',
+          true,
+          TENANT_ID,
+        ],
       );
       await dataSource.query(
         'INSERT INTO student_guardians (student_id, guardian_id) VALUES ($1, $2)',
@@ -226,7 +243,10 @@ describe('Fee Dues E2E', () => {
 
       const entry = res.body.data.find((d: any) => d.student_id === studentId);
       expect(entry).toBeDefined();
-      expect(entry.guardians[0]).toMatchObject({ full_name: 'Flagged Guardian', phone: '+8801799999999' });
+      expect(entry.guardians[0]).toMatchObject({
+        full_name: 'Flagged Guardian',
+        phone: '+8801799999999',
+      });
     });
 
     it('excludes students not yet past their reminder_threshold_date', async () => {

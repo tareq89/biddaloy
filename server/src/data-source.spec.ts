@@ -6,8 +6,7 @@ describe('data-source', () => {
 
   beforeAll(async () => {
     // Set DATABASE_URL before import so the module-level DataSource gets it
-    process.env.DATABASE_URL =
-      process.env.DATABASE_URL || 'postgresql://localhost:5432/test';
+    process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgresql://localhost:5432/test';
     const mod = await import('./data-source');
     dataSource = mod.default;
   });
@@ -30,9 +29,7 @@ describe('data-source', () => {
 
   it('should have a DATABASE_URL configured', () => {
     const opts = dataSource.options as any;
-    expect(opts.url).toBe(
-      process.env.DATABASE_URL || 'postgresql://localhost:5432/test',
-    );
+    expect(opts.url).toBe(process.env.DATABASE_URL || 'postgresql://localhost:5432/test');
   });
 
   it('should include entity and migration patterns', () => {

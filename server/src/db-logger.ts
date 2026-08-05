@@ -1,6 +1,6 @@
-import { AbstractLogger, LogLevel, LogMessage, QueryRunner } from "typeorm";
-import { Logger as NestLogger } from "@nestjs/common";
-import { redactPii } from "./common/redact-log.util";
+import { AbstractLogger, LogLevel, LogMessage, QueryRunner } from 'typeorm';
+import { Logger as NestLogger } from '@nestjs/common';
+import { redactPii } from './common/redact-log.util';
 
 /**
  * TypeORM's default console logger appends a query's bound parameters as a
@@ -16,19 +16,25 @@ import { redactPii } from "./common/redact-log.util";
  * formatted text of every message, not just the query, to cover that too.
  */
 export class RedactingTypeOrmLogger extends AbstractLogger {
-  private readonly logger = new NestLogger("TypeORM");
+  private readonly logger = new NestLogger('TypeORM');
 
-  protected writeLog(level: LogLevel, logMessage: LogMessage | LogMessage[], queryRunner?: QueryRunner): void {
+  protected writeLog(
+    level: LogLevel,
+    logMessage: LogMessage | LogMessage[],
+    queryRunner?: QueryRunner,
+  ): void {
     const prepared = this.prepareLogMessages(logMessage, {
       highlightSql: false,
       appendParameterAsComment: false,
     });
 
     for (const message of prepared) {
-      const text = redactPii(message.prefix ? `${message.prefix} ${message.message}` : `${message.message}`);
+      const text = redactPii(
+        message.prefix ? `${message.prefix} ${message.message}` : `${message.message}`,
+      );
       switch (level) {
-        case "error":
-        case "warn":
+        case 'error':
+        case 'warn':
           this.logger.warn(text);
           break;
         default:
