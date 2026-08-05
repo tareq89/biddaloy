@@ -118,7 +118,11 @@ REVIEWED = re.compile(
 # Comparing it against the PR's real head SHA is what makes REVIEWED
 # trustworthy on a comment that accumulates history: a match proves this
 # text describes the current push, not a stale walkthrough left over from
-# before the latest commit.
+# before the latest commit. Because the comment accumulates history, it can
+# contain *several* such ranges — an old one from an earlier trigger and a
+# fresh one from the current push, in either order. Every match is checked
+# (findall, not search) — a comment counts as fresh if any range's end SHA
+# matches the current head, not only if the first one found does.
 HEAD_COMMIT_RANGE = re.compile(r"between\s+[0-9a-f]{7,40}\s+and\s+([0-9a-f]{7,40})", re.IGNORECASE)
 
 # A manual-trigger acknowledgment carries no information about review state —
@@ -140,10 +144,18 @@ ACK_ONLY = re.compile(
 
 
 def gh_json(path: str):
-    out = subprocess.run(["gh", "api", path], capture_output=True, text=True)
+    # --paginate follows every Link header; --slurp wraps each page's array
+    # in an outer array instead of concatenating them, so the result needs
+    # flattening. Without --paginate, a PR with more than 30 comments (the
+    # REST default page size) silently loses everything past the first page —
+    # including, on a long-running epic, exactly the newest ones.
+    out = subprocess.run(
+        ["gh", "api", "--paginate", "--slurp", path], capture_output=True, text=True,
+    )
     if out.returncode != 0:
         sys.exit(f"gh api {path} failed: {out.stderr.strip()}")
-    return json.loads(out.stdout or "[]")
+    pages = json.loads(out.stdout or "[]")
+    return [item for page in pages for item in page]
 
 
 def parse_ts(value: str) -> datetime:
@@ -241,8 +253,8 @@ def main() -> int:
     # actually names the PR's current head commit before trusting it.
     reviewed_fresh = False
     if reviewed_raw:
-        range_match = HEAD_COMMIT_RANGE.search(body)
-        if range_match is None:
+        range_matches = HEAD_COMMIT_RANGE.findall(body)
+        if not range_matches:
             print(f"#{args.pr}  reviewed marker present but no commit range found — "
                   "cannot confirm it covers the current head; treating as not fresh.")
         else:
@@ -251,13 +263,25 @@ def main() -> int:
                  "-q", ".headRefOid"],
                 capture_output=True, text=True,
             )
+            if head_out.returncode != 0 or not head_out.stdout.strip():
+                # Fail loudly rather than let an empty head_sha silently
+                # compare unequal to everything and get misreported as
+                # "stale, not the latest push" when the real reason is that
+                # this command failed outright.
+                sys.exit(
+                    f"could not determine current head for #{args.pr}: "
+                    f"{head_out.stderr.strip() or 'gh pr view returned no output'}"
+                )
             head_sha = head_out.stdout.strip().lower()
-            reviewed_sha = range_match.group(1).lower()
-            n = min(len(head_sha), len(reviewed_sha))
-            reviewed_fresh = n > 0 and head_sha[:n] == reviewed_sha[:n]
+            reviewed_shas = [m.lower() for m in range_matches]
+            n = len(head_sha)
+            reviewed_fresh = any(
+                len(sha) > 0 and head_sha[: min(n, len(sha))] == sha[: min(n, len(sha))]
+                for sha in reviewed_shas
+            )
             if not reviewed_fresh:
-                print(f"#{args.pr}  reviewed marker covers {reviewed_sha[:7]}, "
-                      f"current head is {head_sha[:7]} — stale, not the latest push.")
+                print(f"#{args.pr}  reviewed marker covers {', '.join(s[:7] for s in reviewed_shas)}, "
+                      f"current head is {head_sha[:7]} — none match; stale.")
 
     if reviewed_fresh:
         print(f"#{args.pr}  reviewed  last update {age}m ago  (quiet window {args.quiet_minutes}m)")

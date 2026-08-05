@@ -154,8 +154,14 @@ version wrong in ways that fail *open*, and it gets all four right:
   said exactly that, unedited, at 21:56 — 91 minutes later. An earlier version
   of this script also concatenated every bot comment's text into one string
   before searching it, so a stale rate-limit body sitting next to a genuinely
-  fresh clean review still read as rate-limited. Only the single
-  most-recently-*updated* comment is meaningful; read that one alone.
+  fresh clean review still read as rate-limited. `review_state.py` selects the
+  latest comment that is *not* a bare trigger acknowledgment ("Action
+  performed", etc.) — those can land newer than the real summary they respond
+  to and carry no status of their own. It does not skip past any other
+  markerless comment: "Currently processing..." also has no LIMITED/REVIEWED
+  marker but is itself the current, relevant state, and skipping past it would
+  wrongly resurrect a stale rate-limit notice from an earlier, superseded
+  trigger.
 
 **Exit 2 vs exit 3 is the whole point — do not collapse them.** Both mean
 "rate limited," but they call for opposite actions:
