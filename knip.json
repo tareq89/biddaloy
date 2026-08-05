@@ -1,0 +1,33 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignoreWorkspaces": ["server"],
+  "ignoreDependencies": [
+    "@swc/core",
+    "@types/bcrypt",
+    "@types/supertest",
+    "@vitest/coverage-v8",
+    "supertest",
+    "unplugin-swc"
+  ],
+  "ignoreIssues": {
+    "ui/eslint-config.mjs": ["duplicates"],
+    "ui/tailwind.preset.ts": ["duplicates"]
+  },
+  "workspaces": {
+    "shared": {
+      "project": ["src/**/*.ts"]
+    },
+    "ui": {
+      "entry": ["src/primitives/**/*.{ts,tsx}"],
+      "project": ["src/**/*.{ts,tsx}", "*.{ts,mjs}", "scripts/**/*.mjs", "eslint-rules/**/*.mjs"],
+      "ignoreDependencies": ["@beton-boi/shared"]
+    },
+    "client-admin": {
+      "project": ["src/**/*.{ts,tsx,css}"],
+      "ignoreDependencies": ["tailwindcss"]
+    },
+    "client-student": {
+      "project": ["src/**/*.{ts,tsx,css}"]
+    }
+  }
+}

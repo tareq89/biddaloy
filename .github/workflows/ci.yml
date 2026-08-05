@@ -53,6 +53,16 @@ jobs:
       - name: UI contrast check
         run: yarn workspace @beton-boi/ui check:contrast
 
+      # Non-blocking per [8.2.5]'s acceptance criteria: the baseline is
+      # clean today (see knip.json's ignoreDependencies/ignoreIssues for
+      # the handful of documented false positives), but a new one slipping
+      # in shouldn't fail the build until this has run for a while and the
+      # false-positive rate is proven low. Flip to a hard failure once that
+      # holds — see README's knip section for the false-positive guidance.
+      - name: Dead code check (knip, non-blocking)
+        run: yarn knip
+        continue-on-error: true
+
   integration:
     name: Integration & e2e tests
     runs-on: ubuntu-latest

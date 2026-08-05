@@ -86,6 +86,59 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every PR and on push to
   `yarn audit` findings (yarn classic's `--level` flag doesn't affect its exit
   code, so this re-implements the filter correctly). Allowlisted advisories
   are declared inline in the script with a reason and a re-check date.
+- **verify** also runs `yarn knip` (dead-code detection) as a **non-blocking**
+  step — see below.
+
+### Dead-code detection (`knip`)
+
+`yarn knip` finds unused files, exports and dependencies across `shared`,
+`ui`, `client-admin` and `client-student`. `server` is deliberately excluded
+(`ignoreWorkspaces` in `knip.json`) — its NestJS decorators, TypeORM
+migrations loaded via glob, and CLI scripts produce enough false positives
+from knip's default static-analysis heuristics that a useful config for it is
+its own follow-up, not bundled into this one.
+
+`ui`'s public API surface doesn't need per-export suppression: knip reads
+entry points straight from `ui/package.json`'s `exports` map, so anything
+published there (`./components`, `./hooks`, ...) is automatically treated as
+intentionally used. The one manual addition is `src/primitives/**` as an
+extra entry glob — those files are vendored shadcn/ui output, staged for a
+wrapper in `src/components/` to import later (see `ui/README.md`), so they're
+genuinely unreferenced from *inside* this repo until that wrapper exists, not
+actually dead.
+
+**Reading a knip report — when it's a false positive:**
+
+- A newly vendored primitive (`ui/src/primitives/*`) showing as unused, or a
+  dependency only that primitive uses showing as an unused dependency: not a
+  bug, it just hasn't been wrapped yet. Either add it under the `ui` entry in
+  `knip.json` (matching the existing `src/primitives/**/*.{ts,tsx}` pattern)
+  or leave it — once `src/components/` imports it, knip stops flagging it on
+  its own.
+- A dependency used only inside a `.css` file's `@import` (e.g. `tailwindcss`
+  pulled in transitively through `@beton-boi/ui/styles` rather than a
+  client's own stylesheet): knip's static analysis doesn't trace CSS
+  `@import` chains across package boundaries. `client-admin`'s
+  `ignoreDependencies: ["tailwindcss"]` in `knip.json` documents this
+  specific case.
+- A dependency declared ahead of the code that will use it (e.g.
+  `@beton-boi/ui`'s dependency on `@beton-boi/shared`, or a barrel file's own
+  "populated by a later phase-8 task" comment): pre-declared on purpose,
+  matching this repo's existing convention of scaffolding empty barrels
+  before the feature that fills them lands. Listed in `ignoreDependencies`
+  with a comment explaining why, not deleted.
+- `biddaloyReactConfig`/`betonBoiPreset` showing as "duplicate exports" in
+  `ui/eslint-config.mjs`/`ui/tailwind.preset.ts`: intentional — both files
+  export the same value as both a named export and the default, so a
+  consumer can use either import style. Suppressed per-file via
+  `ignoreIssues` in `knip.json`, not repo-wide.
+
+If a finding doesn't match one of the above, it's very likely real dead code
+— delete it rather than reaching for another `ignoreDependencies` entry.
+
+The CI step is **non-blocking** (`continue-on-error: true`) while the config
+above is new and unproven; flip it to a hard failure once it's run clean for
+a while with no new false-positive categories showing up.
 
 `.github/workflows/codeql.yml` runs CodeQL static analysis (JS/TS) on the same
 triggers plus a weekly schedule, reporting to the repo's Security tab.
