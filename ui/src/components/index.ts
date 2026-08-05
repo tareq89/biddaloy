@@ -1,7 +1,9 @@
 /**
  * Public component surface — one wrapper per vendored primitive. SPAs import from here and never reach into `primitives/`.
  *
- * Populated by a later phase-8 task; the barrel exists now so
- * `@beton-boi/ui/components` resolves from the moment the package does.
+ * `Placeholder` exists only to prove the `@beton-boi/ui` import boundary
+ * works end to end for [8.1.4]'s scaffold check. Real components arrive with
+ * the shadcn/ui wrappers in [8.1.3] and epic 8.6 — delete `Placeholder` once
+ * something real is available to prove the boundary instead.
  */
-export {};
+export { Placeholder } from './placeholder';

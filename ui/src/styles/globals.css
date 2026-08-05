@@ -12,6 +12,17 @@
  */
 @import "tailwindcss";
 
+/**
+ * `@tailwindcss/vite`'s automatic content detection scans the *consuming
+ * app's* own directory tree — it never sees this sibling package, so a class
+ * name used only inside a `ui/src` component would silently generate no CSS
+ * rule in every SPA that imports it. `@source` registers this package's own
+ * tree as a content source from the one place every SPA already imports,
+ * so no consuming app has to know this package's internal layout or
+ * remember to configure it itself.
+ */
+@source "../**/*.{ts,tsx}";
+
 @theme {
   /* Raw scale — fixed value, fixed meaning, in every theme. Reach for these
      only when a colour must stay the same regardless of theme (e.g. a
