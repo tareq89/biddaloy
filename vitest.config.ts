@@ -33,6 +33,15 @@ import { resolve } from 'node:path';
 
 import { defineConfig, mergeConfig } from 'vitest/config';
 
+// Resets renderWithProviders's singleton state (auth-state.ts today) after
+// every test — see render-with-providers.tsx's own comment on why this
+// lives in a dedicated setup file rather than as an import side effect of
+// the helper module itself. Applied to every project, not just `:jsdom`:
+// a node-tier test can call auth-state's setters directly (permission
+// resolution, say) without ever touching renderWithProviders, and should
+// get the same cleanup guarantee.
+const testSetupFile = resolve(__dirname, 'ui/src/test/setup.ts');
+
 function frontendPackage(
   name: string,
   dir: string,
@@ -48,6 +57,7 @@ function frontendPackage(
         environment: 'node',
         include: nodeInclude,
         globals: true,
+        setupFiles: [testSetupFile],
       },
     }),
     mergeConfig(base, {
@@ -57,6 +67,7 @@ function frontendPackage(
         environment: 'jsdom',
         include: jsdomInclude,
         globals: true,
+        setupFiles: [testSetupFile],
       },
     }),
   ];
