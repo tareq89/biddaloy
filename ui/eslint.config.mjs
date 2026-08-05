@@ -21,7 +21,7 @@ export default tseslint.config(
   },
   typeCheckedTestOverrides,
   {
-    files: ['scripts/**/*.mjs', '*.mjs', '*.ts'],
+    files: ['scripts/**/*.mjs', 'eslint-rules/**/*.mjs', '*.mjs', '*.ts'],
     languageOptions: {
       globals: { ...globals.node },
     },
