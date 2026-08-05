@@ -16,13 +16,35 @@
  */
 const { spawnSync } = require("child_process");
 
-// Empty on purpose. Prefer upgrading over allowlisting — an entry here is a
-// standing exception, and the one this replaced (#1124334, brace-expansion)
-// turned out to be avoidable: every consumer's own semver range already
-// permitted a patched release, so refreshing the lockfile fixed it outright.
-// Before adding an entry, check whether the vulnerable package is actually
-// pinned or merely stale.
-const ALLOWLIST = {};
+// Prefer upgrading over allowlisting — an entry here is a standing
+// exception, and the one this replaced (#1124334, brace-expansion) turned
+// out to be avoidable: every consumer's own semver range already permitted
+// a patched release, so refreshing the lockfile fixed it outright. Before
+// adding an entry, check whether the vulnerable package is actually pinned
+// or merely stale.
+const ALLOWLIST = {
+  1130734: {
+    module: "brace-expansion",
+    reason:
+      "DoS via unbounded intermediate arrays; no non-breaking fix exists. " +
+      "brace-expansion@1.1.18 (installed) is already the newest 1.x release — " +
+      "the advisory covers the whole 1.x line, not a stale patch, so unlike " +
+      "#1124334 this isn't fixable by refreshing the lockfile. Every 2.x+ " +
+      "release switched to a dual ESM/CJS package (dist/commonjs/index.js) " +
+      "that breaks the plain `require('brace-expansion')(pattern)` call " +
+      "style minimatch@3.x uses — confirmed by force-resolving to 5.0.9, " +
+      "which threw `brace_expansion_1.default is not a function` inside " +
+      "typeorm's own bundled minimatch@3 during entity glob-loading in " +
+      "test:integration. The transitive pin (glob@7→minimatch@3→ " +
+      "brace-expansion@^1.1.7, via typeorm's and exceljs's dependency " +
+      "trees) needs those packages to bump their own minimatch major " +
+      "before this can move — tracked, not silently dropped. Actual " +
+      "exposure here is low: brace-expansion only processes developer-" +
+      "authored glob patterns (entity paths, build globs), never " +
+      "request-supplied input.",
+    recheckBy: "2026-10-04",
+  },
+};
 
 const today = new Date().toISOString().slice(0, 10);
 const expired = Object.entries(ALLOWLIST).filter(([, e]) => e.recheckBy < today);
