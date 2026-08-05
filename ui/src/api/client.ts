@@ -85,7 +85,7 @@ function refreshAccessToken(): Promise<string> {
   return refreshPromise;
 }
 
-function toApiError(error: unknown): unknown {
+function toApiError(error: unknown): Error {
   if (axios.isAxiosError(error)) {
     const body = error.response?.data as Partial<ApiErrorBody> | undefined;
     if (
@@ -97,7 +97,7 @@ function toApiError(error: unknown): unknown {
       return new ApiError(body as ApiErrorBody);
     }
   }
-  return error;
+  return error instanceof Error ? error : new Error(String(error));
 }
 
 apiClient.interceptors.response.use(

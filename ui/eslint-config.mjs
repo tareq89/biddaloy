@@ -11,6 +11,31 @@ import unusedImports from 'eslint-plugin-unused-imports';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
+// Type-checked rules need `parserOptions.project` (or `projectService`) to
+// resolve type info, which only the `src/**/*.{ts,tsx}` files each consumer
+// actually type-checks have. Exported separately so a consumer can scope it
+// with `files` + its own `project` path — spreading it unscoped into the
+// base config would break every plain `.mjs`/`.ts` config file (vite.config,
+// this file itself) with "don't have parserOptions set to generate type
+// information" at rule-execution time.
+export const typeCheckedRules = tseslint.configs.recommendedTypeChecked;
+
+// Mocked HTTP responses are genuinely untyped (axios-mock-adapter, `res.data`
+// without a generic) — the type-checked preset's no-unsafe-* rules would
+// otherwise demand type assertions that assert nothing real, since there's
+// no server contract backing a test mock. Only meaningful where a consumer
+// also applies `typeCheckedRules`; a harmless no-op otherwise.
+export const typeCheckedTestOverrides = {
+  files: ['src/**/*.spec.{ts,tsx}', 'src/**/*.test.{ts,tsx}'],
+  rules: {
+    '@typescript-eslint/no-unsafe-assignment': 'off',
+    '@typescript-eslint/no-unsafe-member-access': 'off',
+    '@typescript-eslint/no-unsafe-call': 'off',
+    '@typescript-eslint/no-unsafe-return': 'off',
+    '@typescript-eslint/no-unsafe-argument': 'off',
+  },
+};
+
 export const biddaloyReactConfig = tseslint.config(
   {
     ignores: ['dist/**', 'coverage/**', 'node_modules/**'],

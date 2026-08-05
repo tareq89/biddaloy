@@ -1,10 +1,16 @@
-import { biddaloyReactConfig } from '@beton-boi/ui/eslint-config';
+import {
+  biddaloyReactConfig,
+  typeCheckedRules,
+  typeCheckedTestOverrides,
+} from '@beton-boi/ui/eslint-config';
 import globals from 'globals';
+import tseslint from 'typescript-eslint';
 
-export default [
+export default tseslint.config(
   ...biddaloyReactConfig,
   {
     files: ['src/**/*.{ts,tsx}'],
+    extends: [...typeCheckedRules],
     languageOptions: {
       parserOptions: {
         project: './tsconfig.json',
@@ -12,10 +18,11 @@ export default [
       },
     },
   },
+  typeCheckedTestOverrides,
   {
     files: ['*.ts', '*.mjs'],
     languageOptions: {
       globals: { ...globals.node },
     },
   },
-];
+);
