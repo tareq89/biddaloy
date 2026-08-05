@@ -16,7 +16,6 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { UserService, TeacherService } from './users.service';
-import { User } from './entities/user.entity';
 import {
   CreateUserDto,
   UpdateUserDto,
@@ -26,20 +25,8 @@ import {
   QueryTeacherDto,
 } from './dto/users.dto';
 import { UserResponseDto } from './dto/user-response.dto';
+import { TeacherListResponseDto, TeacherResponseDto } from './dto/teacher-response.dto';
 import { UserRole } from '@beton-boi/shared';
-
-// Explicit `user: UserResponseDto` in the return type — not just at
-// runtime — matters here: Swagger's schema generation reads the method's
-// *type*, and a generic passthrough that only fixed up the runtime value
-// while still structurally typing as `T` (with `T.user: User`) previously
-// let the full User entity, password_hash included, leak into the
-// generated OpenAPI document as an orphaned schema even though no response
-// actually returned it.
-function toSafeTeacher<T extends { user: User }>(
-  teacher: T,
-): Omit<T, 'user'> & { user: UserResponseDto } {
-  return { ...teacher, user: UserResponseDto.fromEntity(teacher.user) };
-}
 
 @ApiTags('users')
 @ApiTenantAuth()
@@ -106,32 +93,35 @@ export class UserController {
   @Post('teachers')
   @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
   @ApiOperation({ summary: 'Promote an existing tenant member to a teacher profile.' })
+  @ApiResponse({ status: 201, type: TeacherResponseDto })
   async createTeacher(
     @Body() dto: CreateTeacherDto,
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     const teacher = await this.teacherService.create(dto, tenant.id);
-    return toSafeTeacher(teacher);
+    return TeacherResponseDto.fromEntity(teacher);
   }
 
   @Get('teachers')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @ApiResponse({ status: 200, type: TeacherListResponseDto })
   async findAllTeachers(
     @Query() query: QueryTeacherDto,
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     const result = await this.teacherService.findAll(query, tenant.id);
-    return { ...result, data: result.data.map(toSafeTeacher) };
+    return { ...result, data: result.data.map(TeacherResponseDto.fromEntity) };
   }
 
   @Patch('teachers/:id')
   @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
+  @ApiResponse({ status: 200, type: TeacherResponseDto })
   async updateTeacher(
     @Param('id') id: string,
     @Body() dto: UpdateTeacherDto,
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     const teacher = await this.teacherService.update(id, dto, tenant.id);
-    return toSafeTeacher(teacher);
+    return TeacherResponseDto.fromEntity(teacher);
   }
 }
