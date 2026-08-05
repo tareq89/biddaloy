@@ -1,7 +1,16 @@
 /**
  * Generated OpenAPI types and the shared axios client.
- *
- * Populated by a later phase-8 task; the barrel exists now so
- * `@beton-boi/ui/api` resolves from the moment the package does.
  */
-export {};
+export { apiClient } from './client';
+export { ApiError, NoActiveTenantError, type ApiErrorBody } from './errors';
+export {
+  clearAuthState,
+  getAccessToken,
+  getActiveRole,
+  getActiveTenant,
+  registerSessionExpiredHandler,
+  setAccessToken,
+  setActiveRole,
+  setActiveTenant,
+} from './auth-state';
+export type { paths, components, operations } from './schema';

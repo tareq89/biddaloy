@@ -35,6 +35,27 @@ jobs:
       - name: Unit tests
         run: yarn test:unit
 
+      # `ui`'s own checks — none of these ran in CI before [8.1.5], even
+      # check:exports and check:contrast from already-merged tickets. Wired
+      # in together here since [8.1.5]'s own AC ("CI fails if the committed
+      # schema.d.ts is stale") needed this file touched anyway, and leaving
+      # the pre-existing ones unwired while adding a new one right next to
+      # them would be an arbitrary line to draw.
+      - name: UI typecheck
+        run: yarn workspace @beton-boi/ui lint
+
+      - name: UI unit tests
+        run: yarn workspace @beton-boi/ui test
+
+      - name: UI export map check
+        run: yarn workspace @beton-boi/ui check:exports
+
+      - name: UI contrast check
+        run: yarn workspace @beton-boi/ui check:contrast
+
+      - name: UI API types freshness check
+        run: yarn workspace @beton-boi/ui check:api-types
+
   integration:
     name: Integration & e2e tests
     runs-on: ubuntu-latest
