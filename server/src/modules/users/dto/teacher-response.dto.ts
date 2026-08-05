@@ -6,10 +6,9 @@ import { UserResponseDto } from './user-response.dto';
 /**
  * The public shape of a Teacher — `user` narrowed to `UserResponseDto` so a
  * `password_hash` loaded via the `user` relation never reaches a response.
- * Build one with `toSafeTeacher`/`TeacherResponseDto.fromEntity`, not `new`
- * directly. Omits `tenant`: the service queries never join it, so it's
- * never actually populated on the entity this is built from — only
- * `tenant_id` is.
+ * Build one with `TeacherResponseDto.fromEntity`, not `new` directly. Omits
+ * `tenant`: the service queries never join it, so it's never actually
+ * populated on the entity this is built from — only `tenant_id` is.
  */
 export class TeacherResponseDto {
   @ApiProperty()
@@ -56,4 +55,23 @@ export class TeacherResponseDto {
     dto.deleted_at = teacher.deleted_at;
     return dto;
   }
+}
+
+/** `findAllTeachers` returns `{ ...result, data: [...] }`, not a bare array
+ * — this is what its `@ApiResponse` actually documents. */
+export class TeacherListResponseDto {
+  @ApiProperty({ type: TeacherResponseDto, isArray: true })
+  data: TeacherResponseDto[];
+
+  @ApiProperty()
+  total: number;
+
+  @ApiProperty()
+  page: number;
+
+  @ApiProperty()
+  limit: number;
+
+  @ApiProperty()
+  totalPages: number;
 }

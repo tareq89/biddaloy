@@ -43,6 +43,10 @@ const BN_LAST_NAMES = [
   'সরকার',
   'মিয়া',
   'তালুকদার',
+  'বেগম',
+  'শেখ',
+  'সিদ্দিকী',
+  'উদ্দিন',
 ] as const;
 
 const BN_DISTRICTS = [

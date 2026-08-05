@@ -25,13 +25,8 @@ import {
   QueryTeacherDto,
 } from './dto/users.dto';
 import { UserResponseDto } from './dto/user-response.dto';
-import { TeacherResponseDto } from './dto/teacher-response.dto';
-import { Teacher } from '../academics/entities/teacher.entity';
+import { TeacherListResponseDto, TeacherResponseDto } from './dto/teacher-response.dto';
 import { UserRole } from '@beton-boi/shared';
-
-function toSafeTeacher(teacher: Teacher): TeacherResponseDto {
-  return TeacherResponseDto.fromEntity(teacher);
-}
 
 @ApiTags('users')
 @ApiTenantAuth()
@@ -104,18 +99,18 @@ export class UserController {
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     const teacher = await this.teacherService.create(dto, tenant.id);
-    return toSafeTeacher(teacher);
+    return TeacherResponseDto.fromEntity(teacher);
   }
 
   @Get('teachers')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
-  @ApiResponse({ status: 200, type: TeacherResponseDto, isArray: true })
+  @ApiResponse({ status: 200, type: TeacherListResponseDto })
   async findAllTeachers(
     @Query() query: QueryTeacherDto,
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     const result = await this.teacherService.findAll(query, tenant.id);
-    return { ...result, data: result.data.map(toSafeTeacher) };
+    return { ...result, data: result.data.map(TeacherResponseDto.fromEntity) };
   }
 
   @Patch('teachers/:id')
@@ -127,6 +122,6 @@ export class UserController {
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     const teacher = await this.teacherService.update(id, dto, tenant.id);
-    return toSafeTeacher(teacher);
+    return TeacherResponseDto.fromEntity(teacher);
   }
 }

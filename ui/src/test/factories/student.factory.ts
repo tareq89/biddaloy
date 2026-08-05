@@ -32,7 +32,7 @@ export function studentFactory(overrides: Partial<Student> = {}, script?: Script
     gender: faker.helpers.arrayElement(['male', 'female']),
     home_address: scriptedAddress(script),
     preferred_communication: CommunicationMedium.SMS,
-    guardians: [guardianFactory({}, script)],
+    guardians: [guardianFactory({ tenant }, script)],
     enrollment_status: EnrollmentStatus.ACTIVE,
     tenant,
     tenant_id: tenant.id,

@@ -7,7 +7,7 @@ import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { AuditService } from './audit.service';
 import { QueryAuditLogDto } from './dto/audit-log.dto';
-import { AuditLogResponseDto } from './dto/audit-log-response.dto';
+import { AuditLogListResponseDto, AuditLogResponseDto } from './dto/audit-log-response.dto';
 import { UserRole } from '@beton-boi/shared';
 
 @ApiTags('audit-logs')
@@ -23,7 +23,7 @@ export class AuditController {
     summary:
       "List this tenant's audit trail, newest first — filterable by action, entity type, and date range.",
   })
-  @ApiResponse({ status: 200, type: AuditLogResponseDto, isArray: true })
+  @ApiResponse({ status: 200, type: AuditLogListResponseDto })
   async findAll(
     @Query() query: QueryAuditLogDto,
     @CurrentTenant() tenant: { id: string; role: string },

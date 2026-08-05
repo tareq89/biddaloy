@@ -738,6 +738,13 @@ export interface components {
             /** Format: date-time */
             created_at: string;
         };
+        AuditLogListResponseDto: {
+            data: components["schemas"]["AuditLogResponseDto"][];
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
         LoginDto: {
             /** Format: email */
             email?: string;
@@ -1025,6 +1032,13 @@ export interface components {
             updated_at: string;
             /** Format: date-time */
             deleted_at: string | null;
+        };
+        TeacherListResponseDto: {
+            data: components["schemas"]["TeacherResponseDto"][];
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
         };
         UpdateTeacherDto: {
             employee_id?: string;
@@ -1455,7 +1469,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AuditLogResponseDto"][];
+                    "application/json": components["schemas"]["AuditLogListResponseDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -2362,7 +2376,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TeacherResponseDto"][];
+                    "application/json": components["schemas"]["TeacherListResponseDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

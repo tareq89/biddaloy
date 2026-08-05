@@ -21,25 +21,26 @@ import { userFactory, userResponseFactory } from './user.factory';
 const BANGLA_RANGE = /[ঀ-৿]/;
 const LATIN_LETTERS = /[A-Za-z]/;
 
-// Every top-level entity factory the issue asks for, run with default
-// (unscripted) options — used by the "determinism" and "partial overrides"
-// suites below so those don't have to enumerate all twelve by hand.
-const FACTORIES = {
-  school: () => schoolFactory(),
-  academicYear: () => academicYearFactory(),
-  class: () => classFactory(),
-  classSection: () => classSectionFactory(),
-  user: () => userFactory(),
-  guardian: () => guardianFactory(),
-  student: () => studentFactory(),
-  teacher: () => teacherFactory(),
-  feeStructure: () => feeStructureFactory(),
-  studentFee: () => studentFeeFactory(),
-  payment: () => paymentFactory(),
-  invoice: () => invoiceFactory(),
-  communication: () => communicationFactory(),
-  auditEntry: () => auditEntryFactory(),
-} as const;
+// Every top-level entity factory the issue asks for — each takes
+// `{ id?: string }`-shaped overrides as its first argument, which is all
+// the "determinism" and "partial overrides" suites below need so they
+// don't have to enumerate all twelve by hand.
+const FACTORIES: Record<string, (overrides?: { id?: string }) => { id: string }> = {
+  school: schoolFactory,
+  academicYear: academicYearFactory,
+  class: classFactory,
+  classSection: classSectionFactory,
+  user: userFactory,
+  guardian: guardianFactory,
+  student: studentFactory,
+  teacher: teacherFactory,
+  feeStructure: feeStructureFactory,
+  studentFee: studentFeeFactory,
+  payment: paymentFactory,
+  invoice: invoiceFactory,
+  communication: communicationFactory,
+  auditEntry: auditEntryFactory,
+};
 
 describe('factory determinism', () => {
   it.each(Object.entries(FACTORIES))(
@@ -58,11 +59,10 @@ describe('factory determinism', () => {
 
 describe('partial overrides', () => {
   it.each(Object.entries(FACTORIES))(
-    '%s: an override wins over the generated default',
+    '%s: an id override wins over the generated default',
     (_name, build) => {
-      const generated = build();
-      const idKey = 'id' as const;
-      expect((generated as Record<string, unknown>)[idKey]).toBeTruthy();
+      const generated = build({ id: 'override-id' });
+      expect(generated.id).toBe('override-id');
     },
   );
 

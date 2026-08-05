@@ -25,7 +25,7 @@ export function studentFeeFactory(
     academic_year: academicYear,
     academic_year_id: academicYear.id,
     month: faker.number.int({ min: 1, max: 12 }),
-    year: new Date(academicYear.start_date).getFullYear(),
+    year: new Date(academicYear.start_date).getUTCFullYear(),
     total_amount: totalAmount,
     paid_amount: 0,
     discount_amount: 0,

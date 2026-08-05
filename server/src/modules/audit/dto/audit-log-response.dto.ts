@@ -58,3 +58,22 @@ export class AuditLogResponseDto {
     return dto;
   }
 }
+
+/** `findAll` returns `{ ...result, data: [...] }`, not a bare array —
+ * this is what its `@ApiResponse` actually documents. */
+export class AuditLogListResponseDto {
+  @ApiProperty({ type: AuditLogResponseDto, isArray: true })
+  data: AuditLogResponseDto[];
+
+  @ApiProperty()
+  total: number;
+
+  @ApiProperty()
+  page: number;
+
+  @ApiProperty()
+  limit: number;
+
+  @ApiProperty()
+  totalPages: number;
+}
