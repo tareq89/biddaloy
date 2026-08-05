@@ -10,3 +10,24 @@ design change reach four apps instead of being copy-pasted into each.
 
 `scripts/check-exports.mjs` fails the build if this directory ever becomes
 publicly exported.
+
+## Coverage
+
+`ui` has no coverage tooling yet — there is nothing to configure today. When
+one gets set up, exclude `src/primitives/**` the same way `server`'s own
+`vitest.config.ts` excludes `src/**/*.module.ts` and similar generated/vendored
+paths: vendored code regenerates from an external source, so a coverage
+threshold on it measures shadcn's test discipline, not this repo's.
+
+## Regenerating
+
+```bash
+npx shadcn add <component>            # add a new primitive
+npx shadcn add <component> --overwrite # re-apply after an upstream update
+```
+
+`ui/components.json` is configured so both write into this directory and
+nowhere else. If a primitive genuinely needs a change that cannot live in its
+wrapper under `../components/`, record why in a comment at the top of the
+vendored file — `--overwrite` replaces file contents wholesale, so an
+undocumented change is silently discarded the next time someone regenerates.
