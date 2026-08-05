@@ -1,7 +1,14 @@
 /**
  * Render helpers, MSW handlers, factories and accessibility matchers, shared by every SPA's test suite.
  *
- * Populated by a later phase-8 task; the barrel exists now so
- * `@beton-boi/ui/test` resolves from the moment the package does.
+ * MSW handlers, seeded Faker factories and vitest-axe matchers are
+ * populated by later phase-8 tasks ([8.4.x], [8.3.3], [8.3.4]).
  */
-export {};
+export {
+  createTestQueryClient,
+  renderWithProviders,
+  userEvent,
+  type RenderWithProvidersOptions,
+  type RenderWithProvidersResult,
+  type SeedQuery,
+} from './render-with-providers';
