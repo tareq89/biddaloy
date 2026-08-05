@@ -1,5 +1,5 @@
 {
-  "extends": "../tsconfig.base.json",
+  "extends": "../tsconfig.frontend.json",
   "compilerOptions": {
     "jsx": "react-jsx",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
@@ -8,7 +8,16 @@
     "paths": {
       "@/*": ["./src/*"],
       "@beton-boi/shared": ["../shared/src"],
-      "@beton-boi/ui": ["../ui/src"]
+      "@beton-boi/ui": ["../ui/src"],
+      "@beton-boi/ui/components": ["../ui/src/components/index.ts"],
+      "@beton-boi/ui/shells": ["../ui/src/shells/index.ts"],
+      "@beton-boi/ui/hooks": ["../ui/src/hooks/index.ts"],
+      "@beton-boi/ui/utils": ["../ui/src/utils/index.ts"],
+      "@beton-boi/ui/i18n": ["../ui/src/i18n/index.ts"],
+      "@beton-boi/ui/api": ["../ui/src/api/index.ts"],
+      "@beton-boi/ui/test": ["../ui/src/test/index.ts"],
+      "@beton-boi/ui/styles": ["../ui/src/styles/globals.css"],
+      "@beton-boi/ui/tailwind": ["../ui/tailwind.preset.ts"]
     }
   },
   "include": ["src"]
