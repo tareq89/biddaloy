@@ -21,10 +21,14 @@
   "scripts": {
     "lint": "tsc --noEmit",
     "check:exports": "node scripts/check-exports.mjs",
-    "check:contrast": "node --experimental-strip-types scripts/check-contrast.mjs"
+    "check:contrast": "node --experimental-strip-types scripts/check-contrast.mjs",
+    "check:api-types": "node scripts/check-api-types.mjs",
+    "api:types": "npx --yes openapi-typescript@7.13.0 ../server/openapi.json -o src/api/schema.d.ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "@beton-boi/shared": "0.1.0",
+    "axios": "^1.19.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "radix-ui": "^1.6.7",
@@ -33,8 +37,10 @@
   "devDependencies": {
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "axios-mock-adapter": "^2.1.0",
     "react": "^19",
     "react-dom": "^19",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3"
   }
 }

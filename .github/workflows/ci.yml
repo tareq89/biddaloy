@@ -35,6 +35,24 @@ jobs:
       - name: Unit tests
         run: yarn test:unit
 
+      # `ui`'s own checks — none of these ran in CI before [8.1.5], even
+      # check:exports and check:contrast from already-merged tickets. Wired
+      # in together here since [8.1.5]'s own AC ("CI fails if the committed
+      # schema.d.ts is stale") needed this file touched anyway, and leaving
+      # the pre-existing ones unwired while adding a new one right next to
+      # them would be an arbitrary line to draw.
+      - name: UI typecheck
+        run: yarn workspace @beton-boi/ui lint
+
+      - name: UI unit tests
+        run: yarn workspace @beton-boi/ui test
+
+      - name: UI export map check
+        run: yarn workspace @beton-boi/ui check:exports
+
+      - name: UI contrast check
+        run: yarn workspace @beton-boi/ui check:contrast
+
   integration:
     name: Integration & e2e tests
     runs-on: ubuntu-latest
@@ -86,6 +104,23 @@ jobs:
         # alias only covers vitest's own transform pipeline, so without a
         # built dist/ here, entity loading fails at DataSource.initialize().
         run: yarn build:shared
+
+      # server/openapi.json is gitignored (a generated artifact, not checked
+      # in) — a fresh CI checkout never has it. Generating it requires a real
+      # DATABASE_URL/JWT_SECRET/REDIS_URL, because generate-openapi.ts's
+      # NestFactory.create(AppModule) boots the full app including its DB
+      # connection — see that script's own comment. That's only true of this
+      # job, not "verify" (no Postgres/Redis service there at all): a first
+      # attempt put this step in "verify" and it failed outright with no
+      # usable error output, since NestFactory.create had nothing to connect
+      # to. check-api-types.mjs needs a real file to diff schema.d.ts
+      # against, so generate it here where the services this app needs to
+      # boot actually exist.
+      - name: Generate server OpenAPI document
+        run: yarn workspace @beton-boi/server docs:generate
+
+      - name: UI API types freshness check
+        run: yarn workspace @beton-boi/ui check:api-types
 
       - name: Integration tests
         run: yarn test:integration
