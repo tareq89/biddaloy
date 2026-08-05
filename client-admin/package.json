@@ -6,9 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "tsc --noEmit && eslint ."
   },
   "dependencies": {
+    "@beton-boi/ui": "0.1.0",
     "react": "^19",
     "react-dom": "^19"
   },
