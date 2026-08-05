@@ -135,6 +135,44 @@ would then implicitly change the whole test run's lifecycle. `src/test/
 setup.ts` is the one place that wires `cleanupTestState` into `afterEach`,
 via `vitest.config.ts`'s `setupFiles`.
 
+### Accessibility
+
+`expect(container).toHaveNoViolations()` is registered globally — every
+project's `setupFiles` loads it via `src/test/setup.ts`, so no component
+test needs its own `expect.extend` call. It runs [axe-core](https://github.com/dequelabs/axe-core)
+against the container and fails with the offending node, the rule that
+fired, and its help URL. `color-contrast` is disabled by default: jsdom has
+no real layout/paint engine, so that check can't produce a meaningful
+result under it — a real browser or visual-regression tool covers that
+axis instead.
+
+```tsx
+const { container } = render(<MyForm />);
+await expect(container).toHaveNoViolations();
+```
+
+`expectKeyboardOperable(element, options?)` asserts an element is reachable
+by pressing Tab and that both Enter and Space activate it. For a native
+element (`<button>`, `<a href>`) that's all you need — it dispatches a real
+`click` on its own. For a custom `role="button"` widget, pass the spy
+already wired to its activation handler via `onActivate`, since such a
+widget typically calls its handler directly rather than dispatching a
+`click` Event:
+
+```tsx
+const onActivate = vi.fn();
+render(<CustomButton onClick={onActivate}>Save</CustomButton>);
+await expectKeyboardOperable(screen.getByRole('button'), { onActivate });
+```
+
+`expectTabOrder(elements)` asserts Tab visits a list of elements in exactly
+that order — for verifying a form or toolbar's tab sequence, not just that
+each element is individually reachable.
+
+Both live in `src/test/a11y/` and are exported from `@beton-boi/ui/test`.
+When [8.6.10]'s component contribution guide exists, it should link here
+rather than duplicate this section.
+
 ## Scripts
 
 | Command | Purpose |
