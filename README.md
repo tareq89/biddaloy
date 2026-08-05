@@ -81,7 +81,7 @@ This regenerates `server/openapi.json` (`docs:generate`) and then
 `ui/src/api/schema.d.ts` from it — see [`ui/README.md`](ui/README.md#api-client)
 for what the generated client does with those types.
 
-## Testing
+## Server Testing
 
 ```bash
 # Server tests
@@ -97,6 +97,44 @@ need a dedicated Postgres and Redis, and read their config from
 database whose name contains `test`, e.g. `betonboi_test`, and set `REDIS_URL`).
 `server/test/setup.ts` runs migrations and seeds baseline data automatically —
 no manual `migration:run`/`seed` step needed.
+
+## Frontend Testing
+
+One Vitest workspace (`vitest.config.ts` at the repo root) covers `ui`,
+`client-admin` and `client-student` together — separate from `server`'s own
+Vitest config and invocation.
+
+```bash
+# Watch mode (default) — re-runs only tests affected by what changed
+yarn test:frontend
+
+# Single run (CI)
+yarn test:frontend --run
+
+# A specific file or directory
+yarn test:frontend client-admin/src/App.test.tsx
+
+# By test name (regex)
+yarn test:frontend -t "renders the admin welcome copy"
+
+# A single package/environment (see below)
+yarn test:frontend --project client-admin:jsdom
+```
+
+Each package has two projects, split by environment:
+
+- **`<pkg>:node`** — `src/**/*.spec.ts`, no DOM. Pure logic: formatting,
+  permission resolution, validation, arithmetic. A test here that imports
+  React and tries to render it fails outright (`ReferenceError: document is
+  not defined`) — there's no DOM in this environment, and that failure *is*
+  the boundary between a logic test and a component test, enforced by the
+  environment rather than a naming convention someone has to remember.
+- **`<pkg>:jsdom`** — `src/**/*.test.{ts,tsx}`, component/hook tests with
+  [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/).
+
+`server/vitest.config.ts` is untouched — the two are intentionally separate,
+not because they couldn't technically share a workspace, but because the
+server's coverage thresholds and setup are its own concern.
 
 ## CI
 
