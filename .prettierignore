@@ -26,6 +26,9 @@ ui/src/styles/globals.css
 mempalace.yaml
 entities.json
 
+# Shell scripts (no extension) — Prettier has no parser for these.
+.husky/pre-commit
+
 # Top-level docs, kept hand-formatted
 README.md
 AGENTS.md

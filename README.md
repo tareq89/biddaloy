@@ -16,6 +16,31 @@ cp .env.example .env
 # Edit .env with your DATABASE_URL and other credentials
 ```
 
+`yarn install` also installs a pre-commit hook (husky's `prepare` script) — no
+separate setup step needed.
+
+### Pre-commit hooks
+
+Every commit runs [lint-staged](https://github.com/lint-staged/lint-staged)
+(`.husky/pre-commit` → `lint-staged.config.mjs`) against **staged files
+only**: `prettier --write` everywhere Prettier applies, plus `eslint --fix`
+for `ui`/`client-admin`/`client-student` source (`scripts/lint-staged-eslint.mjs`
+handles running ESLint with the right per-package working directory, since
+ESLint 9's flat config only looks for `eslint.config.*` in the current
+directory, not by walking up from each file). A remaining, unfixable error
+aborts the commit with the normal `eslint`/`prettier` output — file, rule,
+message.
+
+Deliberately **not** run here: `tsc`, tests, `knip`. Those stay in CI. A slow
+hook gets bypassed with `--no-verify` out of habit, and a routinely-bypassed
+hook is worse than no hook at all — it creates false confidence that nothing
+slipped through.
+
+Escape hatch for a genuine emergency (a hotfix that can't wait, a hook that's
+misbehaving): `git commit --no-verify`. Use sparingly — anything skipped this
+way still has to pass CI before it can merge, so this only saves time
+locally, not the safety net itself.
+
 ## Development
 
 Bring up Postgres and Redis first — the server won't boot without them:
