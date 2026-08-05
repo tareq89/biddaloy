@@ -1,7 +1,97 @@
 /**
  * Global stylesheet for every biddaloy SPA.
  *
- * Design tokens land here in [8.1.2]. Imported by an app as
- * `import "@beton-boi/ui/styles";`
+ * Imported by an app as `import "@beton-boi/ui/styles";`, once, before any
+ * app-specific CSS. No SPA should redefine a token below — extend by adding
+ * a new one, not by overriding an existing name.
+ *
+ * The `@theme` values here must match `../../tailwind.preset.ts` exactly —
+ * that file is the source of truth and this is its CSS mirror.
+ * `scripts/check-contrast.mjs` parses both and fails on drift, so this
+ * comment is enforced, not just documentation.
  */
 @import "tailwindcss";
+
+@theme {
+  /* Raw scale — fixed value, fixed meaning, in every theme. Reach for these
+     only when a colour must stay the same regardless of theme (e.g. a
+     brand mark). For anything else use the semantic role tokens below. */
+  --color-neutral-0: #ffffff;
+  --color-neutral-50: #f8fafc;
+  --color-neutral-100: #f1f5f9;
+  --color-neutral-200: #e2e8f0; /* decorative dividers only, see tailwind.preset.ts */
+  --color-neutral-400: #94a3b8;
+  --color-neutral-500: #64748b; /* functional border / focus-adjacent minimum */
+  --color-neutral-600: #475569;
+  --color-neutral-700: #334155;
+  --color-neutral-900: #0f172a;
+  --color-neutral-950: #020617;
+
+  --color-brand-50: #eff6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-400: #60a5fa;
+  --color-brand-600: #2563eb;
+  --color-brand-700: #1d4ed8;
+
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-full: 9999px;
+
+  /* Fee/invoice/payment status. Each pairs a colour with a non-colour
+     affordance (icon) in tailwind.preset.ts's `status` export — the colour
+     alone is not a sufficient signal for red/green colour-vision deficiency.
+     `-bg` tints are light-mode only for now; see the dark-mode block below. */
+  --color-status-paid-fg: #15803d;
+  --color-status-paid-bg: #dcfce7;
+  --color-status-partial-fg: #0e7490;
+  --color-status-partial-bg: #cffafe;
+  --color-status-due-fg: #b45309;
+  --color-status-due-bg: #fef3c7;
+  --color-status-overdue-fg: #b91c1c;
+  --color-status-overdue-bg: #fee2e2;
+
+  /* Semantic roles — what a component should actually use. These keep a
+     fixed *meaning* across themes (--color-text-primary is always "the
+     primary text colour"), unlike the raw scale above which keeps a fixed
+     *value*. Default to light; the dark-mode block below overrides only
+     these, never the raw scale, so a component that mixes a role token with
+     a raw one can never end up with light text on a light background. */
+  --color-bg: var(--color-neutral-0);
+  --color-surface: var(--color-neutral-50);
+  --color-text-primary: var(--color-neutral-900);
+  --color-text-secondary: var(--color-neutral-600);
+  --color-border-functional: var(--color-neutral-500);
+  --color-brand: var(--color-brand-600);
+}
+
+/**
+ * Dark-mode token values, defined now per [8.1.2] but deliberately not yet
+ * reachable: nothing in any SPA sets `data-theme="dark"` on the root element
+ * today. This is intentionally not `@media (prefers-color-scheme: dark)` —
+ * that selector activates for every user with a dark OS preference right
+ * now, which would expose dark mode rather than merely prepare for it.
+ *
+ * Only semantic role tokens are overridden here — never `--color-neutral-*`
+ * or `--color-brand-*`. Redefining the raw scale would flip what
+ * `neutral-900` *means* depending on theme, and a component that only had
+ * one half of a pair (background or text, not both) swapped out from under
+ * it would silently end up unreadable.
+ */
+:root[data-theme="dark"] {
+  --color-bg: var(--color-neutral-900);
+  --color-surface: #1e293b;
+  --color-text-primary: var(--color-neutral-50);
+  --color-text-secondary: #cbd5e1;
+  --color-border-functional: var(--color-neutral-500); /* same value; verified separately against the dark bg */
+  --color-brand: var(--color-brand-400);
+
+  /* -bg tints intentionally unchanged: a production dark theme wants darker,
+     desaturated tints here rather than the light pastels above, but that is
+     unverified work this ticket does not need yet since dark mode is not
+     exposed. Revisit when a theme toggle actually ships. */
+  --color-status-paid-fg: #4ade80;
+  --color-status-partial-fg: #22d3ee;
+  --color-status-due-fg: #fbbf24;
+  --color-status-overdue-fg: #f87171;
+}
