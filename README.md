@@ -18,7 +18,14 @@ cp .env.example .env
 
 ## Development
 
-Run both server and client in separate terminals:
+Bring up Postgres and Redis first — the server won't boot without them:
+
+```bash
+docker compose up -d db redis
+```
+
+Then run the server and whichever client(s) you're working on, each in its own
+terminal:
 
 ```bash
 # Terminal 1: NestJS server (auto-reload)
@@ -26,9 +33,28 @@ yarn dev:server
 
 # Terminal 2: Student client (HMR)
 yarn dev:client-student
+
+# Terminal 3: Admin client (HMR)
+yarn dev:client-admin
 ```
 
-Open http://localhost:5173/student/ in your browser. Vite proxies `/api/*` requests to the NestJS server at port 3000.
+Open http://localhost:5173/student/ for the student client, or the port Vite
+prints for `client-admin`, in your browser. Vite proxies `/api/*` requests to
+the NestJS server at port 3000.
+
+### Regenerating API types
+
+`ui/src/api/schema.d.ts` is generated from the server's OpenAPI document and
+must stay in sync with it (`yarn workspace @beton-boi/ui check:api-types`
+enforces this in CI). After changing a server endpoint or DTO:
+
+```bash
+yarn api:types
+```
+
+This regenerates `server/openapi.json` (`docs:generate`) and then
+`ui/src/api/schema.d.ts` from it — see [`ui/README.md`](ui/README.md#api-client)
+for what the generated client does with those types.
 
 ## Testing
 
@@ -568,9 +594,10 @@ shape) doesn't run under Vitest's SWC-based transform at all.
 beton-boi/
 ├── server/           # NestJS backend (TypeORM + PostgreSQL)
 ├── client-student/   # Vite + React SPA (student portal)
+├── client-admin/     # Vite + React SPA (admin dashboard)
 ├── client-teacher/   # Future: teacher portal
-├── client-admin/     # Future: admin dashboard
-├── shared/           # Shared types and DTOs
+├── shared/           # Shared types and DTOs, consumed by server
+├── ui/               # Shared React component package, consumed by every client
 ├── scripts/          # Build and deploy scripts
 └── build-output/     # Generated: self-contained deployable
 ```
