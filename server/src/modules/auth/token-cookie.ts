@@ -1,4 +1,4 @@
-import { CookieOptions } from "express";
+import { CookieOptions } from 'express';
 
 /**
  * The `__Host-` prefix is a browser-enforced guarantee, not just a naming
@@ -10,7 +10,7 @@ import { CookieOptions } from "express";
  * reduces which requests carry the cookie, but doesn't stop another origin
  * on the same parent domain from setting a same-named cookie that wins).
  */
-export const REFRESH_TOKEN_COOKIE = "__Host-refresh_token";
+export const REFRESH_TOKEN_COOKIE = '__Host-refresh_token';
 
 /**
  * `__Host-` requires `Secure` unconditionally — there's no "secure except
@@ -35,8 +35,8 @@ export function buildRefreshTokenCookieOptions(maxAgeMs: number): CookieOptions 
   return {
     httpOnly: true,
     secure: true,
-    sameSite: "strict",
-    path: "/",
+    sameSite: 'strict',
+    path: '/',
     maxAge: maxAgeMs,
   };
 }
@@ -45,7 +45,7 @@ export function buildRefreshTokenClearCookieOptions(): CookieOptions {
   return {
     httpOnly: true,
     secure: true,
-    sameSite: "strict",
-    path: "/",
+    sameSite: 'strict',
+    path: '/',
   };
 }

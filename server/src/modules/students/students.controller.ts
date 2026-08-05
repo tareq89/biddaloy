@@ -63,7 +63,9 @@ export class StudentController {
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
   @Throttle({ default: STRICT_RATE_LIMIT })
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: BULK_UPLOAD_MAX_FILE_SIZE } }))
-  @ApiOperation({ summary: 'Bulk-create students and their guardians from a CSV/XLSX spreadsheet (max 5MB).' })
+  @ApiOperation({
+    summary: 'Bulk-create students and their guardians from a CSV/XLSX spreadsheet (max 5MB).',
+  })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } },
@@ -86,7 +88,14 @@ export class StudentController {
   }
 
   @Get('students/:id')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER, UserRole.PARENT, UserRole.STUDENT)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.ACCOUNTANT,
+    UserRole.EXECUTIVE,
+    UserRole.TEACHER,
+    UserRole.PARENT,
+    UserRole.STUDENT,
+  )
   @ApiOperation({
     summary:
       "Get a single student. A PARENT or STUDENT caller additionally must be linked to this specific student — role alone isn't enough.",
@@ -101,16 +110,14 @@ export class StudentController {
     // For PARENT and STUDENT roles, enforce object-level authorization
     if (tenant.role === UserRole.PARENT) {
       // Verify the current user is linked as a guardian of this student
-      const isGuardian = student.guardians?.some(
-        (g) => g.user_id === user.sub,
-      );
+      const isGuardian = student.guardians?.some((g) => g.user_id === user.sub);
       if (!isGuardian) {
-        throw new UnauthorizedException('You do not have access to this student\'s information');
+        throw new UnauthorizedException("You do not have access to this student's information");
       }
     } else if (tenant.role === UserRole.STUDENT) {
       // Verify the student belongs to the current user
       if (student.user_id !== user.sub) {
-        throw new UnauthorizedException('You do not have access to this student\'s information');
+        throw new UnauthorizedException("You do not have access to this student's information");
       }
     }
 
@@ -129,10 +136,7 @@ export class StudentController {
 
   @Delete('students/:id')
   @Roles(UserRole.ADMIN)
-  removeStudent(
-    @Param('id') id: string,
-    @CurrentTenant() tenant: { id: string; role: string },
-  ) {
+  removeStudent(@Param('id') id: string, @CurrentTenant() tenant: { id: string; role: string }) {
     return this.studentService.remove(id, tenant.id);
   }
 
@@ -168,10 +172,7 @@ export class StudentController {
 
   @Delete('guardians/:id')
   @Roles(UserRole.ADMIN)
-  removeGuardian(
-    @Param('id') id: string,
-    @CurrentTenant() tenant: { id: string; role: string },
-  ) {
+  removeGuardian(@Param('id') id: string, @CurrentTenant() tenant: { id: string; role: string }) {
     return this.guardianService.remove(id, tenant.id);
   }
 }

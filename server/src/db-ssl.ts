@@ -20,13 +20,13 @@ export function buildDatabaseSsl(
   dbSslEnv: string | undefined,
   rejectUnauthorizedEnv: string | undefined,
 ): DatabaseSslResult {
-  const enabled = dbSslEnv === "true";
-  const isProduction = nodeEnv === "production";
+  const enabled = dbSslEnv === 'true';
+  const isProduction = nodeEnv === 'production';
 
   if (isProduction && !enabled) {
     throw new Error(
       'DB_SSL must be "true" in production — refusing to connect to Postgres over an unencrypted connection. ' +
-        "Set DB_SSL=true (and use an sslmode=require-style DATABASE_URL) once the target Postgres serves TLS.",
+        'Set DB_SSL=true (and use an sslmode=require-style DATABASE_URL) once the target Postgres serves TLS.',
     );
   }
 
@@ -37,10 +37,10 @@ export function buildDatabaseSsl(
   // A common copy-paste for a managed DB's self-signed cert — silently
   // disables certificate verification if left unquestioned. Still allowed
   // (some managed providers genuinely require it), but never silently.
-  const rejectUnauthorized = rejectUnauthorizedEnv !== "false";
+  const rejectUnauthorized = rejectUnauthorizedEnv !== 'false';
   const warning = rejectUnauthorized
     ? undefined
-    : "DB_SSL_REJECT_UNAUTHORIZED=false disables Postgres certificate verification — only intended for a managed database with a self-signed cert you trust out-of-band, never as a general workaround.";
+    : 'DB_SSL_REJECT_UNAUTHORIZED=false disables Postgres certificate verification — only intended for a managed database with a self-signed cert you trust out-of-band, never as a general workaround.';
 
   return { ssl: { rejectUnauthorized }, warning };
 }

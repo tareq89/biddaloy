@@ -17,11 +17,11 @@ services:
       redis:
         condition: service_healthy
     expose:
-      - "3000"
+      - '3000'
 
   redis:
     image: redis:7-alpine
-    command: ["redis-server", "--appendonly", "yes"]
+    command: ['redis-server', '--appendonly', 'yes']
     restart: unless-stopped
     volumes:
       - redisdata:/data
@@ -32,9 +32,9 @@ services:
     # dual-stack host "localhost" commonly resolves to ::1 first — which nothing
     # is listening on.
     ports:
-      - "127.0.0.1:6379:6379"
+      - '127.0.0.1:6379:6379'
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
       timeout: 5s
       retries: 5
@@ -50,9 +50,9 @@ services:
       - pgdata:/var/lib/postgresql/data
     # Bound to localhost only — reachable for migrations/psql, not exposed publicly.
     ports:
-      - "127.0.0.1:5432:5432"
+      - '127.0.0.1:5432:5432'
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
       interval: 5s
       timeout: 5s
       retries: 5
@@ -63,13 +63,13 @@ services:
   # flow that replaces it.
   cert-bootstrap:
     image: certbot/certbot
-    entrypoint: ["sh", "/scripts/generate-dummy-cert.sh"]
+    entrypoint: ['sh', '/scripts/generate-dummy-cert.sh']
     environment:
       APP_DOMAIN: ${APP_DOMAIN:-localhost}
     volumes:
       - certs:/etc/letsencrypt
       - ./nginx/generate-dummy-cert.sh:/scripts/generate-dummy-cert.sh:ro
-    restart: "no"
+    restart: 'no'
 
   # Renews certbot-issued certs on a loop. Does NOT perform first issuance —
   # that's a one-off manual command (see README) since it needs --email and
@@ -87,8 +87,8 @@ services:
     image: nginx:1.27-alpine
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      - '80:80'
+      - '443:443'
     environment:
       APP_DOMAIN: ${APP_DOMAIN:-localhost}
     volumes:

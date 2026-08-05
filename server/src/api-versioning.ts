@@ -1,4 +1,4 @@
-import { VersioningOptions, VersioningType } from "@nestjs/common";
+import { VersioningOptions, VersioningType } from '@nestjs/common';
 
 /**
  * Single source of truth for the current API version segment — main.ts and
@@ -7,7 +7,7 @@ import { VersioningOptions, VersioningType } from "@nestjs/common";
  * side (e.g. during a deprecation window) needs more than changing this
  * value — see the README's "API Versioning" section.
  */
-export const API_VERSION = "1";
+export const API_VERSION = '1';
 
 /**
  * URI over header versioning: it's visible in logs, curl-able, cacheable,

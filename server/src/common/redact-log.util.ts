@@ -12,7 +12,8 @@ const PHONE_PATTERN = /(?:\+?880|0)1[3-9]\d{8}/g;
 // keeps this scannable at a glance and avoids a `new RegExp(variable)`
 // pattern static analysis tools flag as a potential ReDoS vector even
 // though these keys are a fixed internal list, never user input.
-const SENSITIVE_QUERY_PATTERN = /([?&](?:password|token|access_token|refresh_token|secret|api_key|apikey)=)[^&\s]+/gi;
+const SENSITIVE_QUERY_PATTERN =
+  /([?&](?:password|token|access_token|refresh_token|secret|api_key|apikey)=)[^&\s]+/gi;
 
 /**
  * Scrubs email/phone-shaped substrings and known-sensitive query-param

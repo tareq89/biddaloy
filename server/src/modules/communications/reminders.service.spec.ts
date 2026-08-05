@@ -70,7 +70,9 @@ describe('selectReminderGuardians', () => {
 
 describe('addressForMedium', () => {
   it('uses the email address for EMAIL', () => {
-    expect(addressForMedium(guardian() as any, CommunicationMedium.EMAIL)).toBe('karim@example.com');
+    expect(addressForMedium(guardian() as any, CommunicationMedium.EMAIL)).toBe(
+      'karim@example.com',
+    );
   });
 
   it('uses the phone number for SMS and WhatsApp', () => {
@@ -84,9 +86,14 @@ describe('addressForMedium', () => {
   });
 
   it('returns null when nothing is on file for the medium', () => {
-    expect(addressForMedium(guardian({ email: null }) as any, CommunicationMedium.EMAIL)).toBeNull();
     expect(
-      addressForMedium(guardian({ phone: null, alternate_phone: null }) as any, CommunicationMedium.SMS),
+      addressForMedium(guardian({ email: null }) as any, CommunicationMedium.EMAIL),
+    ).toBeNull();
+    expect(
+      addressForMedium(
+        guardian({ phone: null, alternate_phone: null }) as any,
+        CommunicationMedium.SMS,
+      ),
     ).toBeNull();
   });
 });
@@ -105,7 +112,8 @@ describe('BulkReminderService', () => {
 
   const dto = {
     student_ids: ['s-1'],
-    message_template: 'Dear {{guardian_name}}, {{student_name}} owes {{due_amount}} for {{due_month}}.',
+    message_template:
+      'Dear {{guardian_name}}, {{student_name}} owes {{due_amount}} for {{due_month}}.',
   };
 
   beforeEach(() => {
@@ -169,7 +177,11 @@ describe('BulkReminderService', () => {
     it('rejects whatsapp_template_params naming a placeholder it cannot fill', async () => {
       await expect(
         service.sendBulk(
-          { ...dto, whatsapp_template_name: 'fee_reminder', whatsapp_template_params: ['nope'] } as any,
+          {
+            ...dto,
+            whatsapp_template_name: 'fee_reminder',
+            whatsapp_template_params: ['nope'],
+          } as any,
           TENANT,
           USER,
         ),
@@ -272,7 +284,9 @@ describe('BulkReminderService', () => {
       batchRepo.create.mockClear();
       await service.sendBulk(dto as any, TENANT, USER);
       expect(batchRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ batch_name: expect.stringMatching(/^Fee Reminder \d{4}-\d{2}-\d{2}$/) }),
+        expect.objectContaining({
+          batch_name: expect.stringMatching(/^Fee Reminder \d{4}-\d{2}-\d{2}$/),
+        }),
       );
     });
 
@@ -320,7 +334,9 @@ describe('BulkReminderService', () => {
   describe('WhatsApp templates', () => {
     beforeEach(() => {
       studentService.findManyWithGuardians.mockResolvedValue([
-        student({ guardians: [guardian({ preferred_communication: CommunicationMedium.WHATSAPP })] }),
+        student({
+          guardians: [guardian({ preferred_communication: CommunicationMedium.WHATSAPP })],
+        }),
       ]);
     });
 
@@ -358,7 +374,11 @@ describe('BulkReminderService', () => {
         student({ guardians: [guardian({ preferred_communication: CommunicationMedium.SMS })] }),
       ]);
 
-      await service.sendBulk({ ...dto, whatsapp_template_name: 'fee_reminder' } as any, TENANT, USER);
+      await service.sendBulk(
+        { ...dto, whatsapp_template_name: 'fee_reminder' } as any,
+        TENANT,
+        USER,
+      );
 
       expect(logRepo.create).toHaveBeenCalledWith(expect.objectContaining({ metadata: null }));
     });
@@ -400,7 +420,9 @@ describe('BulkReminderService', () => {
     it('skips PHONE_CALL, which has no automated provider', async () => {
       const reason = await skipReasonFor(() => {
         studentService.findManyWithGuardians.mockResolvedValue([
-          student({ guardians: [guardian({ preferred_communication: CommunicationMedium.PHONE_CALL })] }),
+          student({
+            guardians: [guardian({ preferred_communication: CommunicationMedium.PHONE_CALL })],
+          }),
         ]);
       });
 
@@ -410,7 +432,9 @@ describe('BulkReminderService', () => {
     it('skips MESSENGER, which cannot be reached from a phone or email', async () => {
       const reason = await skipReasonFor(() => {
         studentService.findManyWithGuardians.mockResolvedValue([
-          student({ guardians: [guardian({ preferred_communication: CommunicationMedium.MESSENGER })] }),
+          student({
+            guardians: [guardian({ preferred_communication: CommunicationMedium.MESSENGER })],
+          }),
         ]);
       });
 
@@ -521,7 +545,9 @@ describe('BulkReminderService', () => {
       // actually reached the queue" rather than collapsing both outcomes
       // into a single count.
       expect(auditService.record).toHaveBeenCalledWith(
-        expect.objectContaining({ new_values: expect.objectContaining({ queued_count: 1, failed_count: 1 }) }),
+        expect.objectContaining({
+          new_values: expect.objectContaining({ queued_count: 1, failed_count: 1 }),
+        }),
       );
     });
 
@@ -566,12 +592,16 @@ describe('BulkReminderService', () => {
         failed_count: 0,
         message_template: 'x',
         created_at: new Date(),
-        filters_applied: { skipped: [{ student_id: 's-9', guardian_id: null, reason: 'no_open_dues' }] },
+        filters_applied: {
+          skipped: [{ student_id: 's-9', guardian_id: null, reason: 'no_open_dues' }],
+        },
       });
 
       const result = await service.findBatch('batch-1', TENANT);
 
-      expect(batchRepo.findOne).toHaveBeenCalledWith({ where: { id: 'batch-1', tenant_id: TENANT } });
+      expect(batchRepo.findOne).toHaveBeenCalledWith({
+        where: { id: 'batch-1', tenant_id: TENANT },
+      });
       expect(result.successful_count).toBe(3);
       expect(result.skipped).toHaveLength(1);
     });

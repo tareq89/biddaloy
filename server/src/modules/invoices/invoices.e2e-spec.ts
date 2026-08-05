@@ -38,7 +38,16 @@ describe('Invoices E2E', () => {
       `INSERT INTO students (id, full_name, registration_number, roll_number, class_section_id, tenant_id, date_of_birth, preferred_communication, enrollment_status, created_at, updated_at)
        VALUES (DEFAULT, $1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
        RETURNING id`,
-      [`Invoice Student ${studentSeq}`, `REG-INV-E2E-${String(studentSeq).padStart(4, '0')}`, studentSeq, SEED_SECTION_1_ID, TENANT_ID, '2010-01-01', 'SMS', 'ACTIVE'],
+      [
+        `Invoice Student ${studentSeq}`,
+        `REG-INV-E2E-${String(studentSeq).padStart(4, '0')}`,
+        studentSeq,
+        SEED_SECTION_1_ID,
+        TENANT_ID,
+        '2010-01-01',
+        'SMS',
+        'ACTIVE',
+      ],
     );
     return res[0].id;
   }
@@ -157,7 +166,10 @@ describe('Invoices E2E', () => {
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ADMIN)
-        .send({ student_id: '00000000-0000-4000-8000-000000000000', line_items: [{ description: 'Fee', amount: 100 }] })
+        .send({
+          student_id: '00000000-0000-4000-8000-000000000000',
+          line_items: [{ description: 'Fee', amount: 100 }],
+        })
         .expect(404);
     });
 

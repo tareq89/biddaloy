@@ -7,7 +7,13 @@ import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { DataSource } from 'typeorm';
 import { UserRole } from '@beton-boi/shared';
-import { SEED_TENANT_ID, SEED_ADMIN_EMAIL, SEED_ADMIN_USER_ID, SEED_ACADEMIC_YEAR_ID, SEED_ADMIN_PASSWORD } from '@test/constants';
+import {
+  SEED_TENANT_ID,
+  SEED_ADMIN_EMAIL,
+  SEED_ADMIN_USER_ID,
+  SEED_ACADEMIC_YEAR_ID,
+  SEED_ADMIN_PASSWORD,
+} from '@test/constants';
 
 /**
  * E2E tests for Class & Section endpoints.
@@ -25,7 +31,8 @@ describe('Classes & Sections E2E', () => {
 
   beforeAll(async () => {
     console.log('[classes.e2e] beforeAll called');
-    process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgres://postgres:***@localhost:5432/betonboi';
+    process.env.DATABASE_URL =
+      process.env.DATABASE_URL || 'postgres://postgres:***@localhost:5432/betonboi';
     process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-do-not-use-in-production';
     process.env.NODE_ENV = 'test';
 

@@ -46,7 +46,9 @@ export class InvoicesService {
         where: { id: dto.student_fee_id, student_id: dto.student_id },
       });
       if (!studentFee) {
-        throw new NotFoundException(`Student fee "${dto.student_fee_id}" not found for this student`);
+        throw new NotFoundException(
+          `Student fee "${dto.student_fee_id}" not found for this student`,
+        );
       }
     }
 
@@ -78,7 +80,9 @@ export class InvoicesService {
     }
 
     const now = new Date();
-    const dueDate = dto.due_date ? new Date(dto.due_date) : new Date(now.getTime() + DEFAULT_DUE_DAYS * 86400000);
+    const dueDate = dto.due_date
+      ? new Date(dto.due_date)
+      : new Date(now.getTime() + DEFAULT_DUE_DAYS * 86400000);
 
     const invoiceId = await this.repo.manager.transaction(async (manager) => {
       const invoiceRepo = manager.getRepository(Invoice);
@@ -151,7 +155,13 @@ export class InvoicesService {
   async getPrintableHtml(id: string, tenantId: string): Promise<string> {
     const invoice = await this.repo.findOne({
       where: { id, deleted_at: IsNull() },
-      relations: ['student', 'student.tenant', 'student.class_section', 'student.class_section.class', 'student_fee'],
+      relations: [
+        'student',
+        'student.tenant',
+        'student.class_section',
+        'student.class_section.class',
+        'student_fee',
+      ],
     });
     if (!invoice || invoice.student.tenant_id !== tenantId) {
       throw new NotFoundException(`Invoice with ID "${id}" not found`);
@@ -161,7 +171,9 @@ export class InvoicesService {
       ? await this.paymentRepo
           .createQueryBuilder('payment')
           .innerJoin(PaymentAllocation, 'allocation', 'allocation.payment_id = payment.id')
-          .where('allocation.student_fee_id = :studentFeeId', { studentFeeId: invoice.student_fee_id })
+          .where('allocation.student_fee_id = :studentFeeId', {
+            studentFeeId: invoice.student_fee_id,
+          })
           .orderBy('payment.payment_date', 'DESC')
           .getMany()
       : await this.paymentRepo.find({

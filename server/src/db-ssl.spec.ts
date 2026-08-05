@@ -3,7 +3,9 @@ import { buildDatabaseSsl } from './db-ssl';
 
 describe('buildDatabaseSsl', () => {
   it('refuses to build config when NODE_ENV=production and DB_SSL is not set', () => {
-    expect(() => buildDatabaseSsl('production', undefined, undefined)).toThrow(/DB_SSL must be "true"/);
+    expect(() => buildDatabaseSsl('production', undefined, undefined)).toThrow(
+      /DB_SSL must be "true"/,
+    );
   });
 
   it('refuses to build config when NODE_ENV=production and DB_SSL is not exactly "true"', () => {

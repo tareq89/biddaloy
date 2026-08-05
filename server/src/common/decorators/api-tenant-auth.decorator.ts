@@ -13,7 +13,8 @@ export function ApiTenantAuth() {
     ApiHeader({
       name: 'X-Tenant-ID',
       required: true,
-      description: "Active tenant's school ID — validated against the caller's memberships by ContextGuard.",
+      description:
+        "Active tenant's school ID — validated against the caller's memberships by ContextGuard.",
     }),
     ApiHeader({
       name: 'X-Role',
@@ -21,6 +22,8 @@ export function ApiTenantAuth() {
       description:
         'Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted.',
     }),
-    ApiUnauthorizedResponse({ description: 'Missing/invalid bearer token, or missing/invalid X-Tenant-ID.' }),
+    ApiUnauthorizedResponse({
+      description: 'Missing/invalid bearer token, or missing/invalid X-Tenant-ID.',
+    }),
   );
 }

@@ -1,15 +1,21 @@
-import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, IsNull } from "typeorm";
-import { Payment } from "./entities/payment.entity";
-import { PaymentAllocation } from "./entities/payment-allocation.entity";
-import { StudentFee } from "./entities/student-fee.entity";
-import { Student } from "../students/entities/student.entity";
-import { Invoice } from "../invoices/entities/invoice.entity";
-import { AuditService } from "../audit/audit.service";
-import { FeeStatus, InvoiceStatus, PaymentAllocationType, PaymentStatus, AuditAction } from "@beton-boi/shared";
-import { RecordPaymentWithAllocationDto } from "./dto/fees.dto";
-import { generateInvoiceNumber } from "../invoices/invoice-numbering.util";
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, IsNull } from 'typeorm';
+import { Payment } from './entities/payment.entity';
+import { PaymentAllocation } from './entities/payment-allocation.entity';
+import { StudentFee } from './entities/student-fee.entity';
+import { Student } from '../students/entities/student.entity';
+import { Invoice } from '../invoices/entities/invoice.entity';
+import { AuditService } from '../audit/audit.service';
+import {
+  FeeStatus,
+  InvoiceStatus,
+  PaymentAllocationType,
+  PaymentStatus,
+  AuditAction,
+} from '@beton-boi/shared';
+import { RecordPaymentWithAllocationDto } from './dto/fees.dto';
+import { generateInvoiceNumber } from '../invoices/invoice-numbering.util';
 
 const AMOUNT_EPSILON = 0.01;
 
@@ -55,7 +61,7 @@ export class PaymentAllocationService {
 
     const feeIds = dto.allocations.map((a) => a.student_fee_id);
     if (new Set(feeIds).size !== feeIds.length) {
-      throw new BadRequestException("Duplicate student_fee_id in allocations");
+      throw new BadRequestException('Duplicate student_fee_id in allocations');
     }
 
     const paymentId = await this.paymentRepo.manager.transaction(async (manager) => {
@@ -67,14 +73,14 @@ export class PaymentAllocationService {
       // Lock every outstanding fee for this student so two concurrent
       // payments can't both allocate against the same balance.
       const outstandingFees = await studentFeeRepo
-        .createQueryBuilder("sf")
-        .where("sf.student_id = :studentId", { studentId: dto.student_id })
-        .andWhere("sf.status IN (:...statuses)", {
+        .createQueryBuilder('sf')
+        .where('sf.student_id = :studentId', { studentId: dto.student_id })
+        .andWhere('sf.status IN (:...statuses)', {
           statuses: [FeeStatus.PENDING, FeeStatus.PARTIALLY_PAID, FeeStatus.OVERDUE],
         })
-        .orderBy("sf.year", "ASC")
-        .addOrderBy("sf.month", "ASC")
-        .setLock("pessimistic_write")
+        .orderBy('sf.year', 'ASC')
+        .addOrderBy('sf.month', 'ASC')
+        .setLock('pessimistic_write')
         .getMany();
 
       const outstandingById = new Map(outstandingFees.map((f) => [f.id, f]));
@@ -92,10 +98,16 @@ export class PaymentAllocationService {
       const currentMonth = now.getMonth() + 1;
 
       let blocked = false;
-      const feeUpdates: { fee: StudentFee; newPaid: number; newStatus: FeeStatus; allocatedAmount: number }[] = [];
+      const feeUpdates: {
+        fee: StudentFee;
+        newPaid: number;
+        newStatus: FeeStatus;
+        allocatedAmount: number;
+      }[] = [];
 
       for (const fee of outstandingFees) {
-        const remaining = Number(fee.total_amount) - Number(fee.paid_amount) - Number(fee.discount_amount);
+        const remaining =
+          Number(fee.total_amount) - Number(fee.paid_amount) - Number(fee.discount_amount);
         if (remaining <= AMOUNT_EPSILON) {
           if (allocationsByFeeId.has(fee.id)) {
             throw new BadRequestException(
@@ -175,7 +187,7 @@ export class PaymentAllocationService {
       await this.auditService.record(
         {
           action: AuditAction.PAYMENT_RECEIVED,
-          entity_type: "Payment",
+          entity_type: 'Payment',
           entity_id: savedPayment.id,
           tenant_id: tenantId,
           performed_by_user_id: userId,
@@ -193,7 +205,8 @@ export class PaymentAllocationService {
         manager,
       );
 
-      const isFullPayment = feeUpdates.length > 0 && feeUpdates.every((u) => u.newStatus === FeeStatus.PAID);
+      const isFullPayment =
+        feeUpdates.length > 0 && feeUpdates.every((u) => u.newStatus === FeeStatus.PAID);
       if (isFullPayment && dto.generate_invoice !== false) {
         const invoiceNumber = await generateInvoiceNumber(invoiceRepo);
         const lineItems = feeUpdates.map((u) => ({
@@ -223,11 +236,15 @@ export class PaymentAllocationService {
         await this.auditService.record(
           {
             action: AuditAction.INVOICE_GENERATED,
-            entity_type: "Invoice",
+            entity_type: 'Invoice',
             entity_id: invoice.id,
             tenant_id: tenantId,
             performed_by_user_id: userId,
-            new_values: { invoice_number: invoiceNumber, payment_id: savedPayment.id, total_amount: dto.total_amount },
+            new_values: {
+              invoice_number: invoiceNumber,
+              payment_id: savedPayment.id,
+              total_amount: dto.total_amount,
+            },
           },
           manager,
         );
@@ -238,7 +255,7 @@ export class PaymentAllocationService {
 
     return this.paymentRepo.findOneOrFail({
       where: { id: paymentId },
-      relations: ["allocations", "allocations.student_fee", "invoice"],
+      relations: ['allocations', 'allocations.student_fee', 'invoice'],
     });
   }
 

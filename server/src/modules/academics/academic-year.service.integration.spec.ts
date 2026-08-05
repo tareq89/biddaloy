@@ -27,12 +27,10 @@ describe('AcademicYearService (integration)', () => {
   const OTHER_TENANT = '00000000-0000-4000-8000-000000000099';
 
   beforeAll(async () => {
-    const module = await createTestModule(
-      ALL_ENTITIES,
-      [AcademicYearService],
-      [],
-      { synchronize: true, dropSchema: true },
-    );
+    const module = await createTestModule(ALL_ENTITIES, [AcademicYearService], [], {
+      synchronize: true,
+      dropSchema: true,
+    });
 
     service = module.get<AcademicYearService>(AcademicYearService);
     repo = module.get<Repository<AcademicYear>>(getRepositoryToken(AcademicYear));
@@ -99,9 +97,7 @@ describe('AcademicYearService (integration)', () => {
       await service.create(dto, TENANT_ID);
 
       // Try to create duplicate — should fail
-      await expect(
-        service.create(dto, TENANT_ID),
-      ).rejects.toThrow();
+      await expect(service.create(dto, TENANT_ID)).rejects.toThrow();
     });
 
     it('should allow same name in different tenants', async () => {
@@ -176,9 +172,7 @@ describe('AcademicYearService (integration)', () => {
         OTHER_TENANT,
       );
 
-      await expect(
-        service.findOne(created.id, TENANT_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(created.id, TENANT_ID)).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -234,9 +228,7 @@ describe('AcademicYearService (integration)', () => {
       await service.remove(created.id, TENANT_ID);
 
       // Should not be found via findOne
-      await expect(
-        service.findOne(created.id, TENANT_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(created.id, TENANT_ID)).rejects.toThrow(NotFoundException);
 
       // But should still exist with deleted_at set
       const raw = await repo.findOne({

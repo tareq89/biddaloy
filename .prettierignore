@@ -1,0 +1,24 @@
+# Dependencies and build output
+node_modules
+dist
+build-output
+coverage
+*.min.js
+
+# Generated / non-source
+graphify-out
+ui/src/api/schema.d.ts
+yarn.lock
+
+# Tooling and process config that lives outside the four workspaces —
+# in scope for the app's own quality gates, not for a blanket reformat.
+.claude
+.hermes
+.github
+.coderabbit.yaml
+mempalace.yaml
+entities.json
+
+# Top-level docs, kept hand-formatted
+README.md
+AGENTS.md

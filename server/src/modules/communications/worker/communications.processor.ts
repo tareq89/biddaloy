@@ -84,13 +84,17 @@ export class CommunicationsProcessor extends WorkerHost {
       // Not retryable — no deploy in between attempts will make a medium
       // suddenly have a provider.
       log.status = CommunicationStatus.FAILED;
-      log.metadata = { ...log.metadata, error: `No provider registered for medium "${log.medium}"` };
+      log.metadata = {
+        ...log.metadata,
+        error: `No provider registered for medium "${log.medium}"`,
+      };
       await this.settle(log, 'failure');
       return;
     }
 
     const templateName = (log.metadata as { template_name?: string } | null)?.template_name;
-    const templateLanguage = (log.metadata as { template_language?: string } | null)?.template_language;
+    const templateLanguage = (log.metadata as { template_language?: string } | null)
+      ?.template_language;
     const templateParams = (log.metadata as { template_params?: string[] } | null)?.template_params;
 
     // Providers are contractually not supposed to throw (see

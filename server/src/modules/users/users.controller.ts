@@ -35,7 +35,9 @@ import { UserRole } from '@beton-boi/shared';
 // let the full User entity, password_hash included, leak into the
 // generated OpenAPI document as an orphaned schema even though no response
 // actually returned it.
-function toSafeTeacher<T extends { user: User }>(teacher: T): Omit<T, 'user'> & { user: UserResponseDto } {
+function toSafeTeacher<T extends { user: User }>(
+  teacher: T,
+): Omit<T, 'user'> & { user: UserResponseDto } {
   return { ...teacher, user: UserResponseDto.fromEntity(teacher.user) };
 }
 
@@ -95,10 +97,7 @@ export class UserController {
 
   @Delete('users/:id')
   @Roles(UserRole.ADMIN)
-  removeUser(
-    @Param('id') id: string,
-    @CurrentTenant() tenant: { id: string; role: string },
-  ) {
+  removeUser(@Param('id') id: string, @CurrentTenant() tenant: { id: string; role: string }) {
     return this.userService.remove(id, tenant.id);
   }
 

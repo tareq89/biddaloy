@@ -1,7 +1,7 @@
-import { Injectable, Inject, Logger } from "@nestjs/common";
-import Redis from "ioredis";
+import { Injectable, Inject, Logger } from '@nestjs/common';
+import Redis from 'ioredis';
 
-export const ACCESS_TOKEN_DENYLIST_REDIS = "ACCESS_TOKEN_DENYLIST_REDIS";
+export const ACCESS_TOKEN_DENYLIST_REDIS = 'ACCESS_TOKEN_DENYLIST_REDIS';
 
 /**
  * Lets a single access token be revoked before its natural expiry —
@@ -31,7 +31,7 @@ export class AccessTokenDenylistService {
   async revoke(jti: string, ttlMs: number): Promise<void> {
     if (ttlMs <= 0) return;
     try {
-      await this.redis.set(this.key(jti), "1", "PX", ttlMs);
+      await this.redis.set(this.key(jti), '1', 'PX', ttlMs);
     } catch (error) {
       this.logger.error(
         `Failed to denylist access token ${jti}: ${error instanceof Error ? error.message : String(error)}`,

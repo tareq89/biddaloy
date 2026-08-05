@@ -1,5 +1,13 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, Index } from "typeorm";
-import { User } from "../../users/entities/user.entity";
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Index,
+} from 'typeorm';
+import { User } from '../../users/entities/user.entity';
 
 /**
  * One refresh token in a rotation chain ("family"). Only a SHA-256 hash of
@@ -15,41 +23,41 @@ import { User } from "../../users/entities/user.entity";
  * since reuse means the family's chain of custody is broken and every
  * token in it must be treated as potentially compromised.
  */
-@Entity("refresh_tokens")
-@Index(["family_id"])
-@Index(["user_id"])
+@Entity('refresh_tokens')
+@Index(['family_id'])
+@Index(['user_id'])
 export class RefreshToken {
-  @PrimaryGeneratedColumn("uuid")
+  @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => User, { onDelete: "CASCADE" })
-  @JoinColumn({ name: "user_id" })
+  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @Column({ type: "uuid" })
+  @Column({ type: 'uuid' })
   user_id: string;
 
-  @Column({ type: "uuid" })
+  @Column({ type: 'uuid' })
   family_id: string;
 
-  @Column({ type: "varchar", length: 64 })
+  @Column({ type: 'varchar', length: 64 })
   token_hash: string;
 
-  @Column({ type: "timestamptz" })
+  @Column({ type: 'timestamptz' })
   expires_at: Date;
 
-  @Column({ type: "timestamptz", nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   revoked_at: Date | null;
 
-  @Column({ type: "uuid", nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   replaced_by_id: string | null;
 
-  @Column({ type: "varchar", length: 45, nullable: true })
+  @Column({ type: 'varchar', length: 45, nullable: true })
   ip_address: string | null;
 
-  @Column({ type: "text", nullable: true })
+  @Column({ type: 'text', nullable: true })
   user_agent: string | null;
 
-  @CreateDateColumn({ type: "timestamptz" })
+  @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 }

@@ -41,7 +41,9 @@ export class SmsProviderFactory implements CommunicationProvider {
   setGateway(name: string): void {
     const normalized = name.toLowerCase() as SupportedGateway;
     if (!SUPPORTED_GATEWAYS.includes(normalized)) {
-      throw new Error(`SMS provider "${name}" is not supported. Available: ${SUPPORTED_GATEWAYS.join(', ')}`);
+      throw new Error(
+        `SMS provider "${name}" is not supported. Available: ${SUPPORTED_GATEWAYS.join(', ')}`,
+      );
     }
     this.activeGatewayName = normalized;
   }

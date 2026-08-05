@@ -58,18 +58,47 @@ async function seedReferenceData(ds: DataSource): Promise<void> {
   const ayRepo = ds.getRepository(AcademicYear);
   const userRepo = ds.getRepository(User);
 
-  await schoolRepo.save(schoolRepo.create({ id: SEED_TENANT_ID, name: 'Test School', slug: 'test-school' }));
-  await userRepo.save(userRepo.create({
-    id: SEED_ADMIN_USER_ID,
-    email: SEED_ADMIN_EMAIL,
-    password_hash: SEED_ADMIN_PASSWORD_HASH,
-    full_name: 'Test Admin',
-  }));
-  await ayRepo.save(ayRepo.create({ id: SEED_ACADEMIC_YEAR_ID, name: '2026-2027', start_date: new Date('2026-01-01'), end_date: new Date('2026-12-31'), is_current: true, tenant_id: SEED_TENANT_ID }));
-  await classRepo.save(classRepo.create({ id: SEED_CLASS_1_ID, name: 'Class One', academic_year_id: SEED_ACADEMIC_YEAR_ID, tenant_id: SEED_TENANT_ID }));
-  await sectionRepo.save(sectionRepo.create({ id: SEED_SECTION_1_ID, section_name: 'Section A', class_id: SEED_CLASS_1_ID, tenant_id: SEED_TENANT_ID }));
+  await schoolRepo.save(
+    schoolRepo.create({ id: SEED_TENANT_ID, name: 'Test School', slug: 'test-school' }),
+  );
+  await userRepo.save(
+    userRepo.create({
+      id: SEED_ADMIN_USER_ID,
+      email: SEED_ADMIN_EMAIL,
+      password_hash: SEED_ADMIN_PASSWORD_HASH,
+      full_name: 'Test Admin',
+    }),
+  );
+  await ayRepo.save(
+    ayRepo.create({
+      id: SEED_ACADEMIC_YEAR_ID,
+      name: '2026-2027',
+      start_date: new Date('2026-01-01'),
+      end_date: new Date('2026-12-31'),
+      is_current: true,
+      tenant_id: SEED_TENANT_ID,
+    }),
+  );
+  await classRepo.save(
+    classRepo.create({
+      id: SEED_CLASS_1_ID,
+      name: 'Class One',
+      academic_year_id: SEED_ACADEMIC_YEAR_ID,
+      tenant_id: SEED_TENANT_ID,
+    }),
+  );
+  await sectionRepo.save(
+    sectionRepo.create({
+      id: SEED_SECTION_1_ID,
+      section_name: 'Section A',
+      class_id: SEED_CLASS_1_ID,
+      tenant_id: SEED_TENANT_ID,
+    }),
+  );
 
-  await schoolRepo.save(schoolRepo.create({ id: OTHER_TENANT_ID, name: 'Other School', slug: 'other-school' }));
+  await schoolRepo.save(
+    schoolRepo.create({ id: OTHER_TENANT_ID, name: 'Other School', slug: 'other-school' }),
+  );
 }
 
 describe('InvoicesService (integration)', () => {
@@ -110,12 +139,10 @@ describe('InvoicesService (integration)', () => {
   }
 
   beforeAll(async () => {
-    const module = await createTestModule(
-      ALL_ENTITIES,
-      [InvoicesService],
-      [],
-      { synchronize: true, dropSchema: true },
-    );
+    const module = await createTestModule(ALL_ENTITIES, [InvoicesService], [], {
+      synchronize: true,
+      dropSchema: true,
+    });
 
     service = module.get<InvoicesService>(InvoicesService);
     studentRepo = module.get<Repository<Student>>(getRepositoryToken(Student));
@@ -145,9 +172,15 @@ describe('InvoicesService (integration)', () => {
   describe('create', () => {
     it('defaults to a single "Fee for M/Y" line item from student_fee_id', async () => {
       const student = await studentRepo.save(makeStudent());
-      const fee = await studentFeeRepo.save(makeFee(student.id, { total_amount: 1500, month: 4, year: 2026 }));
+      const fee = await studentFeeRepo.save(
+        makeFee(student.id, { total_amount: 1500, month: 4, year: 2026 }),
+      );
 
-      const invoice = await service.create({ student_id: student.id, student_fee_id: fee.id }, TENANT_ID, SEED_ADMIN_USER_ID);
+      const invoice = await service.create(
+        { student_id: student.id, student_fee_id: fee.id },
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
 
       // Invoice numbers must follow the sequential INV-YYYY-XXXXX format.
       expect(invoice.invoice_number).toMatch(/^INV-\d{4}-\d{5}$/);
@@ -184,8 +217,16 @@ describe('InvoicesService (integration)', () => {
       const fee1 = await studentFeeRepo.save(makeFee(student1.id));
       const fee2 = await studentFeeRepo.save(makeFee(student2.id));
 
-      const inv1 = await service.create({ student_id: student1.id, student_fee_id: fee1.id }, TENANT_ID, SEED_ADMIN_USER_ID);
-      const inv2 = await service.create({ student_id: student2.id, student_fee_id: fee2.id }, TENANT_ID, SEED_ADMIN_USER_ID);
+      const inv1 = await service.create(
+        { student_id: student1.id, student_fee_id: fee1.id },
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      const inv2 = await service.create(
+        { student_id: student2.id, student_fee_id: fee2.id },
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
 
       const seq1 = parseInt(inv1.invoice_number.split('-')[2], 10);
       const seq2 = parseInt(inv2.invoice_number.split('-')[2], 10);
@@ -199,8 +240,16 @@ describe('InvoicesService (integration)', () => {
       const feeB = await studentFeeRepo.save(makeFee(studentB.id));
 
       const [invA, invB] = await Promise.all([
-        service.create({ student_id: studentA.id, student_fee_id: feeA.id }, TENANT_ID, SEED_ADMIN_USER_ID),
-        service.create({ student_id: studentB.id, student_fee_id: feeB.id }, TENANT_ID, SEED_ADMIN_USER_ID),
+        service.create(
+          { student_id: studentA.id, student_fee_id: feeA.id },
+          TENANT_ID,
+          SEED_ADMIN_USER_ID,
+        ),
+        service.create(
+          { student_id: studentB.id, student_fee_id: feeB.id },
+          TENANT_ID,
+          SEED_ADMIN_USER_ID,
+        ),
       ]);
 
       expect(invA.invoice_number).not.toBe(invB.invoice_number);
@@ -209,16 +258,23 @@ describe('InvoicesService (integration)', () => {
     it('throws BadRequestException when neither student_fee_id nor line_items is given', async () => {
       const student = await studentRepo.save(makeStudent());
 
-      await expect(service.create({ student_id: student.id }, TENANT_ID, SEED_ADMIN_USER_ID)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.create({ student_id: student.id }, TENANT_ID, SEED_ADMIN_USER_ID),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('throws NotFoundException when student belongs to a different tenant', async () => {
       const student = await studentRepo.save(makeStudent({ tenant_id: OTHER_TENANT_ID }));
 
       await expect(
-        service.create({ student_id: student.id, line_items: [{ description: 'Fee', amount: 100, quantity: 1 }] }, TENANT_ID, SEED_ADMIN_USER_ID),
+        service.create(
+          {
+            student_id: student.id,
+            line_items: [{ description: 'Fee', amount: 100, quantity: 1 }],
+          },
+          TENANT_ID,
+          SEED_ADMIN_USER_ID,
+        ),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -228,7 +284,11 @@ describe('InvoicesService (integration)', () => {
       const foreignFee = await studentFeeRepo.save(makeFee(otherStudent.id));
 
       await expect(
-        service.create({ student_id: student.id, student_fee_id: foreignFee.id }, TENANT_ID, SEED_ADMIN_USER_ID),
+        service.create(
+          { student_id: student.id, student_fee_id: foreignFee.id },
+          TENANT_ID,
+          SEED_ADMIN_USER_ID,
+        ),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -237,7 +297,11 @@ describe('InvoicesService (integration)', () => {
     it('returns the invoice for the owning tenant', async () => {
       const student = await studentRepo.save(makeStudent());
       const fee = await studentFeeRepo.save(makeFee(student.id));
-      const created = await service.create({ student_id: student.id, student_fee_id: fee.id }, TENANT_ID, SEED_ADMIN_USER_ID);
+      const created = await service.create(
+        { student_id: student.id, student_fee_id: fee.id },
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
 
       const found = await service.findOne(created.id, TENANT_ID);
       expect(found.id).toBe(created.id);
@@ -247,7 +311,11 @@ describe('InvoicesService (integration)', () => {
     it('throws NotFoundException for a different tenant', async () => {
       const student = await studentRepo.save(makeStudent());
       const fee = await studentFeeRepo.save(makeFee(student.id));
-      const created = await service.create({ student_id: student.id, student_fee_id: fee.id }, TENANT_ID, SEED_ADMIN_USER_ID);
+      const created = await service.create(
+        { student_id: student.id, student_fee_id: fee.id },
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
 
       await expect(service.findOne(created.id, OTHER_TENANT_ID)).rejects.toThrow(NotFoundException);
     });
@@ -255,7 +323,11 @@ describe('InvoicesService (integration)', () => {
     it('excludes a soft-deleted invoice', async () => {
       const student = await studentRepo.save(makeStudent());
       const fee = await studentFeeRepo.save(makeFee(student.id));
-      const created = await service.create({ student_id: student.id, student_fee_id: fee.id }, TENANT_ID, SEED_ADMIN_USER_ID);
+      const created = await service.create(
+        { student_id: student.id, student_fee_id: fee.id },
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
 
       await invoiceRepo.softDelete(created.id);
       const deleted = await invoiceRepo.findOne({ where: { id: created.id }, withDeleted: true });
@@ -271,21 +343,39 @@ describe('InvoicesService (integration)', () => {
       const student2 = await studentRepo.save(makeStudent());
       const fee1 = await studentFeeRepo.save(makeFee(student1.id));
       const fee2 = await studentFeeRepo.save(makeFee(student2.id));
-      await service.create({ student_id: student1.id, student_fee_id: fee1.id }, TENANT_ID, SEED_ADMIN_USER_ID);
-      await service.create({ student_id: student2.id, student_fee_id: fee2.id }, TENANT_ID, SEED_ADMIN_USER_ID);
+      await service.create(
+        { student_id: student1.id, student_fee_id: fee1.id },
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      await service.create(
+        { student_id: student2.id, student_fee_id: fee2.id },
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
 
-      const result = await service.findAll({ student_id: student1.id, page: 1, limit: 10 }, TENANT_ID);
+      const result = await service.findAll(
+        { student_id: student1.id, page: 1, limit: 10 },
+        TENANT_ID,
+      );
       expect(result.total).toBe(1);
       expect(result.data[0].student_id).toBe(student1.id);
 
-      const statusResult = await service.findAll({ status: InvoiceStatus.ISSUED, page: 1, limit: 10 }, TENANT_ID);
+      const statusResult = await service.findAll(
+        { status: InvoiceStatus.ISSUED, page: 1, limit: 10 },
+        TENANT_ID,
+      );
       expect(statusResult.total).toBe(2);
     });
 
     it('does not return invoices belonging to another tenant', async () => {
       const student = await studentRepo.save(makeStudent());
       const fee = await studentFeeRepo.save(makeFee(student.id));
-      await service.create({ student_id: student.id, student_fee_id: fee.id }, TENANT_ID, SEED_ADMIN_USER_ID);
+      await service.create(
+        { student_id: student.id, student_fee_id: fee.id },
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
 
       const result = await service.findAll({ page: 1, limit: 10 }, OTHER_TENANT_ID);
       expect(result.total).toBe(0);
@@ -294,7 +384,11 @@ describe('InvoicesService (integration)', () => {
     it('excludes soft-deleted invoices', async () => {
       const student = await studentRepo.save(makeStudent());
       const fee = await studentFeeRepo.save(makeFee(student.id));
-      const created = await service.create({ student_id: student.id, student_fee_id: fee.id }, TENANT_ID, SEED_ADMIN_USER_ID);
+      const created = await service.create(
+        { student_id: student.id, student_fee_id: fee.id },
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
 
       await invoiceRepo.softDelete(created.id);
 
@@ -307,7 +401,11 @@ describe('InvoicesService (integration)', () => {
     it('renders an HTML document containing the invoice number, student name, and line items', async () => {
       const student = await studentRepo.save(makeStudent({ full_name: 'Printable Student' }));
       const fee = await studentFeeRepo.save(makeFee(student.id, { total_amount: 750 }));
-      const invoice = await service.create({ student_id: student.id, student_fee_id: fee.id }, TENANT_ID, SEED_ADMIN_USER_ID);
+      const invoice = await service.create(
+        { student_id: student.id, student_fee_id: fee.id },
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
 
       const html = await service.getPrintableHtml(invoice.id, TENANT_ID);
 
@@ -320,9 +418,15 @@ describe('InvoicesService (integration)', () => {
     it('throws NotFoundException for a different tenant', async () => {
       const student = await studentRepo.save(makeStudent());
       const fee = await studentFeeRepo.save(makeFee(student.id));
-      const invoice = await service.create({ student_id: student.id, student_fee_id: fee.id }, TENANT_ID, SEED_ADMIN_USER_ID);
+      const invoice = await service.create(
+        { student_id: student.id, student_fee_id: fee.id },
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
 
-      await expect(service.getPrintableHtml(invoice.id, OTHER_TENANT_ID)).rejects.toThrow(NotFoundException);
+      await expect(service.getPrintableHtml(invoice.id, OTHER_TENANT_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

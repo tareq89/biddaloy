@@ -9,10 +9,9 @@ describe('resolveCorsOrigins', () => {
   });
 
   it('parses a comma-separated list, trimming whitespace', () => {
-    expect(resolveCorsOrigins(' https://app.example.com , https://admin.example.com ', 'production')).toEqual([
-      'https://app.example.com',
-      'https://admin.example.com',
-    ]);
+    expect(
+      resolveCorsOrigins(' https://app.example.com , https://admin.example.com ', 'production'),
+    ).toEqual(['https://app.example.com', 'https://admin.example.com']);
   });
 
   it('drops empty entries from a trailing or double comma', () => {

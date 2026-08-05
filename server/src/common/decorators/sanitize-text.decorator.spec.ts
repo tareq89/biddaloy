@@ -5,7 +5,8 @@ import { SanitizeAllowlist, SanitizeText } from './sanitize-text.decorator';
 // require(), not a static import — see sanitize-text.decorator.ts's comment on
 // why a static `import { sanitizeStrict } from '@beton-boi/shared'` silently
 // binds to undefined under this repo's vitest config.
-const { sanitizeAllowlist, sanitizeStrict } = require('@beton-boi/shared') as typeof import('@beton-boi/shared');
+const { sanitizeAllowlist, sanitizeStrict } =
+  require('@beton-boi/shared') as typeof import('@beton-boi/shared');
 
 class StrictDto {
   @SanitizeText()
@@ -74,9 +75,13 @@ describe('sanitizeAllowlist', () => {
   });
 
   it('keeps only allowlisted attributes on an allowed tag', () => {
-    const result = sanitizeAllowlist('<a href="https://example.com" onclick="evil()">link</a>', ['a'], {
-      a: ['href'],
-    });
+    const result = sanitizeAllowlist(
+      '<a href="https://example.com" onclick="evil()">link</a>',
+      ['a'],
+      {
+        a: ['href'],
+      },
+    );
     expect(result).toBe('<a href="https://example.com">link</a>');
   });
 

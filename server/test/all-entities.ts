@@ -20,8 +20,24 @@ import { Enrollment } from '../src/modules/students/entities/enrollment.entity';
 import { User } from '../src/modules/users/entities/user.entity';
 
 export const ALL_ENTITIES = [
-  AcademicYear, Class, ClassSection, Teacher, TeacherClassSection,
-  AuditLog, UserTenant, CommunicationLog, ReminderBatch,
-  FeeStructure, FeeStructureStudent, Payment, PaymentAllocation, StudentFee,
-  Invoice, School, Student, Guardian, Enrollment, User,
+  AcademicYear,
+  Class,
+  ClassSection,
+  Teacher,
+  TeacherClassSection,
+  AuditLog,
+  UserTenant,
+  CommunicationLog,
+  ReminderBatch,
+  FeeStructure,
+  FeeStructureStudent,
+  Payment,
+  PaymentAllocation,
+  StudentFee,
+  Invoice,
+  School,
+  Student,
+  Guardian,
+  Enrollment,
+  User,
 ];

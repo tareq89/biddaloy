@@ -7,7 +7,13 @@ import { randomUUID } from 'crypto';
 import { User } from '../users/entities/user.entity';
 import { UserTenant } from './entities/user-tenant.entity';
 import { AuditService } from '../audit/audit.service';
-import { JwtPayload, JwtMembership, LoginResponse, AuditAction, UserStatus } from '@beton-boi/shared';
+import {
+  JwtPayload,
+  JwtMembership,
+  LoginResponse,
+  AuditAction,
+  UserStatus,
+} from '@beton-boi/shared';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { LoginAttemptService } from './login-attempt.service';
 import { normalizeLoginIdentifier } from './normalize-identifier';
@@ -47,7 +53,8 @@ export class AuthService {
     @Inject(JwtService) private readonly jwtService: JwtService,
     @Inject(LoginAttemptService) private readonly loginAttempts: LoginAttemptService,
     @Inject(RefreshTokenService) private readonly refreshTokens: RefreshTokenService,
-    @Inject(AccessTokenDenylistService) private readonly accessTokenDenylist: AccessTokenDenylistService,
+    @Inject(AccessTokenDenylistService)
+    private readonly accessTokenDenylist: AccessTokenDenylistService,
     @Inject(ACCESS_TOKEN_TTL_MS) private readonly accessTokenTtlMs: number,
     // Inject JwtStrategy to force eager creation — PassportModule needs it
     // to discover the strategy for AuthGuard('jwt').
@@ -56,10 +63,7 @@ export class AuthService {
 
   async validateUser(emailOrPhone: string, password: string): Promise<User | null> {
     const user = await this.userRepository.findOne({
-      where: [
-        { email: emailOrPhone },
-        { phone: emailOrPhone },
-      ],
+      where: [{ email: emailOrPhone }, { phone: emailOrPhone }],
     });
 
     const hashToCompare = user?.password_hash ?? DUMMY_PASSWORD_HASH;

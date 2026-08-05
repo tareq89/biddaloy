@@ -14,7 +14,7 @@
  * fails the job until someone re-reviews and picks a new date, so the
  * exception can't silently outlive its review window.
  */
-const { spawnSync } = require("child_process");
+const { spawnSync } = require('child_process');
 
 // Empty on purpose. Prefer upgrading over allowlisting — an entry here is a
 // standing exception, and the one this replaced (#1124334, brace-expansion)
@@ -29,12 +29,12 @@ const expired = Object.entries(ALLOWLIST).filter(([, e]) => e.recheckBy < today)
 for (const [id, entry] of expired) {
   console.error(
     `Allowlist entry #${id} expired its re-check date (${entry.recheckBy}) — ` +
-      "re-review and update ALLOWLIST in scripts/ci-audit.js before this can pass again.",
+      're-review and update ALLOWLIST in scripts/ci-audit.js before this can pass again.',
   );
 }
 
-const result = spawnSync("yarn", ["audit", "--json"], {
-  encoding: "utf8",
+const result = spawnSync('yarn', ['audit', '--json'], {
+  encoding: 'utf8',
   timeout: 5 * 60 * 1000,
 });
 
@@ -48,7 +48,7 @@ if (result.signal) {
 }
 
 const advisories = [];
-for (const line of (result.stdout || "").split("\n")) {
+for (const line of (result.stdout || '').split('\n')) {
   if (!line.trim()) continue;
   let entry;
   try {
@@ -56,29 +56,27 @@ for (const line of (result.stdout || "").split("\n")) {
   } catch {
     continue;
   }
-  if (entry.type === "auditAdvisory") {
+  if (entry.type === 'auditAdvisory') {
     advisories.push(entry.data.advisory);
   }
 }
 
 const unallowed = advisories.filter(
-  (a) =>
-    (a.severity === "high" || a.severity === "critical") &&
-    !(a.id in ALLOWLIST),
+  (a) => (a.severity === 'high' || a.severity === 'critical') && !(a.id in ALLOWLIST),
 );
 
 const seen = new Set();
 for (const a of advisories) {
   if (seen.has(a.id)) continue;
   seen.add(a.id);
-  const status = a.id in ALLOWLIST ? "ALLOWLISTED" : a.severity.toUpperCase();
+  const status = a.id in ALLOWLIST ? 'ALLOWLISTED' : a.severity.toUpperCase();
   console.log(`[${status}] #${a.id} ${a.severity} — ${a.module_name}: ${a.title}`);
 }
 
 if (unallowed.length > 0) {
   console.error(
     `\n${new Set(unallowed.map((a) => a.id)).size} new high/critical advisory(ies) found. ` +
-      "Fix them or add a reasoned, dated entry to ALLOWLIST in scripts/ci-audit.js.",
+      'Fix them or add a reasoned, dated entry to ALLOWLIST in scripts/ci-audit.js.',
   );
   process.exit(1);
 }
@@ -87,4 +85,4 @@ if (expired.length > 0) {
   process.exit(1);
 }
 
-console.log("\nNo unallowed high/critical advisories.");
+console.log('\nNo unallowed high/critical advisories.');

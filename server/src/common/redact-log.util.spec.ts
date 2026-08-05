@@ -3,7 +3,9 @@ import { redactPii } from './redact-log.util';
 
 describe('redactPii', () => {
   it('redacts an email address', () => {
-    expect(redactPii('login failed for admin@example.com')).toBe('login failed for [REDACTED_EMAIL]');
+    expect(redactPii('login failed for admin@example.com')).toBe(
+      'login failed for [REDACTED_EMAIL]',
+    );
   });
 
   it('redacts a Bangladeshi phone number in any of its accepted forms', () => {
@@ -29,12 +31,16 @@ describe('redactPii', () => {
   });
 
   it('redacts a sensitive query-param value while leaving the key and other params intact', () => {
-    expect(redactPii('/api/v1/reset?token=abc123&page=1')).toBe('/api/v1/reset?token=[REDACTED]&page=1');
+    expect(redactPii('/api/v1/reset?token=abc123&page=1')).toBe(
+      '/api/v1/reset?token=[REDACTED]&page=1',
+    );
     expect(redactPii('/api/v1/login?password=hunter2')).toBe('/api/v1/login?password=[REDACTED]');
   });
 
   it('leaves text with no PII untouched', () => {
-    expect(redactPii('GET /api/v1/health → 200 [requestId=abc]')).toBe('GET /api/v1/health → 200 [requestId=abc]');
+    expect(redactPii('GET /api/v1/health → 200 [requestId=abc]')).toBe(
+      'GET /api/v1/health → 200 [requestId=abc]',
+    );
   });
 
   // A raw request URL is commonly percent-encoded by the client — matching
@@ -46,7 +52,9 @@ describe('redactPii', () => {
   });
 
   it('redacts a percent-encoded phone number in a query string', () => {
-    expect(redactPii('/api/v1/students?phone=%2B8801712345678')).toBe('/api/v1/students?phone=[REDACTED_PHONE]');
+    expect(redactPii('/api/v1/students?phone=%2B8801712345678')).toBe(
+      '/api/v1/students?phone=[REDACTED_PHONE]',
+    );
   });
 
   it('falls back to the raw text instead of throwing on malformed percent-encoding', () => {

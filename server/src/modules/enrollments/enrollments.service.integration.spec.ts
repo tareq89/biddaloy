@@ -57,63 +57,79 @@ async function seedReferenceData(ds: DataSource): Promise<void> {
   const sectionRepo = ds.getRepository(ClassSection);
 
   // Tenant 1 reference data
-  await schoolRepo.save(schoolRepo.create({
-    id: SEED_TENANT_ID,
-    name: 'Test School',
-    slug: 'test-school',
-    tenant_id: SEED_TENANT_ID,
-  }));
-  await ayRepo.save(ayRepo.create({
-    id: SEED_ACADEMIC_YEAR_ID,
-    name: '2026-2027',
-    start_date: new Date('2026-01-01'),
-    end_date: new Date('2026-12-31'),
-    is_current: true,
-    tenant_id: SEED_TENANT_ID,
-  }));
-  await classRepo.save(classRepo.create({
-    id: SEED_CLASS_1_ID,
-    name: 'Class One',
-    academic_year_id: SEED_ACADEMIC_YEAR_ID,
-    tenant_id: SEED_TENANT_ID,
-  }));
-  await sectionRepo.save(sectionRepo.create({
-    id: SEED_SECTION_1_ID,
-    section_name: 'Section A',
-    class_id: SEED_CLASS_1_ID,
-    tenant_id: SEED_TENANT_ID,
-  }));
+  await schoolRepo.save(
+    schoolRepo.create({
+      id: SEED_TENANT_ID,
+      name: 'Test School',
+      slug: 'test-school',
+      tenant_id: SEED_TENANT_ID,
+    }),
+  );
+  await ayRepo.save(
+    ayRepo.create({
+      id: SEED_ACADEMIC_YEAR_ID,
+      name: '2026-2027',
+      start_date: new Date('2026-01-01'),
+      end_date: new Date('2026-12-31'),
+      is_current: true,
+      tenant_id: SEED_TENANT_ID,
+    }),
+  );
+  await classRepo.save(
+    classRepo.create({
+      id: SEED_CLASS_1_ID,
+      name: 'Class One',
+      academic_year_id: SEED_ACADEMIC_YEAR_ID,
+      tenant_id: SEED_TENANT_ID,
+    }),
+  );
+  await sectionRepo.save(
+    sectionRepo.create({
+      id: SEED_SECTION_1_ID,
+      section_name: 'Section A',
+      class_id: SEED_CLASS_1_ID,
+      tenant_id: SEED_TENANT_ID,
+    }),
+  );
 
   // Other tenant reference data
   const OTHER_AY_ID = '00000000-0000-4000-8000-000000000099';
   const OTHER_CLASS_ID = '00000000-0000-4000-8000-000000000098';
   const OTHER_SECTION_ID = '00000000-0000-4000-8000-000000000097';
-  await schoolRepo.save(schoolRepo.create({
-    id: OTHER_TENANT,
-    name: 'Other School',
-    slug: 'other-school',
-    tenant_id: OTHER_TENANT,
-  }));
-  await ayRepo.save(ayRepo.create({
-    id: OTHER_AY_ID,
-    name: 'Other 2026-2027',
-    start_date: new Date('2026-01-01'),
-    end_date: new Date('2026-12-31'),
-    is_current: true,
-    tenant_id: OTHER_TENANT,
-  }));
-  await classRepo.save(classRepo.create({
-    id: OTHER_CLASS_ID,
-    name: 'Other Class',
-    academic_year_id: OTHER_AY_ID,
-    tenant_id: OTHER_TENANT,
-  }));
-  await sectionRepo.save(sectionRepo.create({
-    id: OTHER_SECTION_ID,
-    section_name: 'Other Section',
-    class_id: OTHER_CLASS_ID,
-    tenant_id: OTHER_TENANT,
-  }));
+  await schoolRepo.save(
+    schoolRepo.create({
+      id: OTHER_TENANT,
+      name: 'Other School',
+      slug: 'other-school',
+      tenant_id: OTHER_TENANT,
+    }),
+  );
+  await ayRepo.save(
+    ayRepo.create({
+      id: OTHER_AY_ID,
+      name: 'Other 2026-2027',
+      start_date: new Date('2026-01-01'),
+      end_date: new Date('2026-12-31'),
+      is_current: true,
+      tenant_id: OTHER_TENANT,
+    }),
+  );
+  await classRepo.save(
+    classRepo.create({
+      id: OTHER_CLASS_ID,
+      name: 'Other Class',
+      academic_year_id: OTHER_AY_ID,
+      tenant_id: OTHER_TENANT,
+    }),
+  );
+  await sectionRepo.save(
+    sectionRepo.create({
+      id: OTHER_SECTION_ID,
+      section_name: 'Other Section',
+      class_id: OTHER_CLASS_ID,
+      tenant_id: OTHER_TENANT,
+    }),
+  );
 }
 
 describe('EnrollmentService (integration)', () => {
@@ -128,12 +144,10 @@ describe('EnrollmentService (integration)', () => {
   const TENANT_ID = SEED_TENANT_ID;
 
   beforeAll(async () => {
-    const module = await createTestModule(
-      ALL_ENTITIES,
-      [EnrollmentService],
-      [],
-      { synchronize: true, dropSchema: true },
-    );
+    const module = await createTestModule(ALL_ENTITIES, [EnrollmentService], [], {
+      synchronize: true,
+      dropSchema: true,
+    });
 
     service = module.get<EnrollmentService>(EnrollmentService);
     enrollmentRepo = module.get<Repository<Enrollment>>(getRepositoryToken(Enrollment));
@@ -376,11 +390,7 @@ describe('EnrollmentService (integration)', () => {
       );
 
       // Mark first inactive
-      await service.update(
-        first.id,
-        { enrollment_status: EnrollmentStatus.INACTIVE },
-        TENANT_ID,
-      );
+      await service.update(first.id, { enrollment_status: EnrollmentStatus.INACTIVE }, TENANT_ID);
 
       // Second enrollment in same year — should succeed
       const second = await service.create(
@@ -405,7 +415,11 @@ describe('EnrollmentService (integration)', () => {
       const student = await buildStudent();
 
       await service.create(
-        { student_id: student.id, class_id: SEED_CLASS_1_ID, academic_year_id: SEED_ACADEMIC_YEAR_ID },
+        {
+          student_id: student.id,
+          class_id: SEED_CLASS_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        },
         TENANT_ID,
       );
 
@@ -430,7 +444,11 @@ describe('EnrollmentService (integration)', () => {
       );
 
       await service.create(
-        { student_id: student.id, class_id: SEED_CLASS_1_ID, academic_year_id: SEED_ACADEMIC_YEAR_ID },
+        {
+          student_id: student.id,
+          class_id: SEED_CLASS_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        },
         TENANT_ID,
       );
       await service.create(
@@ -467,9 +485,7 @@ describe('EnrollmentService (integration)', () => {
         }),
       );
 
-      await expect(
-        service.findByStudent(student.id, TENANT_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.findByStudent(student.id, TENANT_ID)).rejects.toThrow(NotFoundException);
     });
 
     it('should return empty array when student has no enrollments', async () => {
@@ -513,7 +529,11 @@ describe('EnrollmentService (integration)', () => {
       const student = await buildStudent();
 
       await service.create(
-        { student_id: student.id, class_id: SEED_CLASS_1_ID, academic_year_id: SEED_ACADEMIC_YEAR_ID },
+        {
+          student_id: student.id,
+          class_id: SEED_CLASS_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        },
         TENANT_ID,
       );
 
@@ -528,12 +548,20 @@ describe('EnrollmentService (integration)', () => {
       const student = await buildStudent();
 
       const enrollment = await service.create(
-        { student_id: student.id, class_id: SEED_CLASS_1_ID, academic_year_id: SEED_ACADEMIC_YEAR_ID },
+        {
+          student_id: student.id,
+          class_id: SEED_CLASS_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        },
         TENANT_ID,
       );
 
       // Mark as INACTIVE
-      await service.update(enrollment.id, { enrollment_status: EnrollmentStatus.INACTIVE }, TENANT_ID);
+      await service.update(
+        enrollment.id,
+        { enrollment_status: EnrollmentStatus.INACTIVE },
+        TENANT_ID,
+      );
 
       const result = await service.findCurrentByStudent(student.id, TENANT_ID);
 
@@ -569,9 +597,9 @@ describe('EnrollmentService (integration)', () => {
         }),
       );
 
-      await expect(
-        service.findCurrentByStudent(student.id, TENANT_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.findCurrentByStudent(student.id, TENANT_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should return current enrollment with relations loaded', async () => {
@@ -604,7 +632,11 @@ describe('EnrollmentService (integration)', () => {
       const student = await buildStudent();
 
       const enrollment = await service.create(
-        { student_id: student.id, class_id: SEED_CLASS_1_ID, academic_year_id: SEED_ACADEMIC_YEAR_ID },
+        {
+          student_id: student.id,
+          class_id: SEED_CLASS_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        },
         TENANT_ID,
       );
 
@@ -620,7 +652,11 @@ describe('EnrollmentService (integration)', () => {
     it('should update section_id', async () => {
       const student = await buildStudent();
       const enrollment = await service.create(
-        { student_id: student.id, class_id: SEED_CLASS_1_ID, academic_year_id: SEED_ACADEMIC_YEAR_ID },
+        {
+          student_id: student.id,
+          class_id: SEED_CLASS_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        },
         TENANT_ID,
       );
 
@@ -648,13 +684,21 @@ describe('EnrollmentService (integration)', () => {
 
       // Create enrollment for tenant 1
       const enrollment = await service.create(
-        { student_id: student.id, class_id: SEED_CLASS_1_ID, academic_year_id: SEED_ACADEMIC_YEAR_ID },
+        {
+          student_id: student.id,
+          class_id: SEED_CLASS_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        },
         TENANT_ID,
       );
 
       // Try to update with a different tenant
       await expect(
-        service.update(enrollment.id, { enrollment_status: EnrollmentStatus.TRANSFERRED }, OTHER_TENANT),
+        service.update(
+          enrollment.id,
+          { enrollment_status: EnrollmentStatus.TRANSFERRED },
+          OTHER_TENANT,
+        ),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -662,7 +706,11 @@ describe('EnrollmentService (integration)', () => {
       const student = await buildStudent();
 
       const enrollment = await service.create(
-        { student_id: student.id, class_id: SEED_CLASS_1_ID, academic_year_id: SEED_ACADEMIC_YEAR_ID },
+        {
+          student_id: student.id,
+          class_id: SEED_CLASS_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        },
         TENANT_ID,
       );
 
@@ -679,24 +727,44 @@ describe('EnrollmentService (integration)', () => {
       const student = await buildStudent();
 
       const enrollment = await service.create(
-        { student_id: student.id, class_id: SEED_CLASS_1_ID, academic_year_id: SEED_ACADEMIC_YEAR_ID },
+        {
+          student_id: student.id,
+          class_id: SEED_CLASS_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        },
         TENANT_ID,
       );
 
       // ACTIVE → INACTIVE
-      let updated = await service.update(enrollment.id, { enrollment_status: EnrollmentStatus.INACTIVE }, TENANT_ID);
+      let updated = await service.update(
+        enrollment.id,
+        { enrollment_status: EnrollmentStatus.INACTIVE },
+        TENANT_ID,
+      );
       expect(updated.enrollment_status).toBe(EnrollmentStatus.INACTIVE);
 
       // INACTIVE → TRANSFERRED
-      updated = await service.update(enrollment.id, { enrollment_status: EnrollmentStatus.TRANSFERRED }, TENANT_ID);
+      updated = await service.update(
+        enrollment.id,
+        { enrollment_status: EnrollmentStatus.TRANSFERRED },
+        TENANT_ID,
+      );
       expect(updated.enrollment_status).toBe(EnrollmentStatus.TRANSFERRED);
 
       // TRANSFERRED → GRADUATED
-      updated = await service.update(enrollment.id, { enrollment_status: EnrollmentStatus.GRADUATED }, TENANT_ID);
+      updated = await service.update(
+        enrollment.id,
+        { enrollment_status: EnrollmentStatus.GRADUATED },
+        TENANT_ID,
+      );
       expect(updated.enrollment_status).toBe(EnrollmentStatus.GRADUATED);
 
       // GRADUATED → ACTIVE (re-enroll)
-      updated = await service.update(enrollment.id, { enrollment_status: EnrollmentStatus.ACTIVE }, TENANT_ID);
+      updated = await service.update(
+        enrollment.id,
+        { enrollment_status: EnrollmentStatus.ACTIVE },
+        TENANT_ID,
+      );
       expect(updated.enrollment_status).toBe(EnrollmentStatus.ACTIVE);
     });
 
@@ -704,7 +772,12 @@ describe('EnrollmentService (integration)', () => {
       const student = await buildStudent();
 
       const enrollment = await service.create(
-        { student_id: student.id, class_id: SEED_CLASS_1_ID, section_id: SEED_SECTION_1_ID, academic_year_id: SEED_ACADEMIC_YEAR_ID },
+        {
+          student_id: student.id,
+          class_id: SEED_CLASS_1_ID,
+          section_id: SEED_SECTION_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        },
         TENANT_ID,
       );
 

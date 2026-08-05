@@ -38,7 +38,16 @@ describe('Fee Generation E2E', () => {
       `INSERT INTO students (id, full_name, registration_number, roll_number, class_section_id, tenant_id, date_of_birth, preferred_communication, enrollment_status, created_at, updated_at)
        VALUES (DEFAULT, $1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
        RETURNING id`,
-      ['Gen Student', registrationNumber, 1, SEED_SECTION_1_ID, TENANT_ID, '2010-01-01', 'SMS', 'ACTIVE'],
+      [
+        'Gen Student',
+        registrationNumber,
+        1,
+        SEED_SECTION_1_ID,
+        TENANT_ID,
+        '2010-01-01',
+        'SMS',
+        'ACTIVE',
+      ],
     );
     return res[0].id;
   }

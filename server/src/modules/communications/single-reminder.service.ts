@@ -24,12 +24,21 @@ import {
   isSupportedPlaceholder,
   templateVarValue,
 } from './reminder-template.util';
-import { selectReminderGuardians, addressForMedium, DISPATCHABLE_MEDIA } from './reminder-recipients.util';
+import {
+  selectReminderGuardians,
+  addressForMedium,
+  DISPATCHABLE_MEDIA,
+} from './reminder-recipients.util';
 import { SkipReason } from './reminders.service';
 import { COMMUNICATIONS_QUEUE } from './communications.constants';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
-import { AuditAction, CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '@beton-boi/shared';
+import {
+  AuditAction,
+  CommunicationMedium,
+  CommunicationStatus,
+  CommunicationTrigger,
+} from '@beton-boi/shared';
 
 const DEFAULT_EMAIL_SUBJECT = 'Fee Reminder';
 
@@ -188,7 +197,9 @@ export class SingleReminderService {
       throw new BadRequestException(`Student "${studentId}" has no guardians on file`);
     }
 
-    const snapshot = (await this.feeDuesService.getDueSnapshots([studentId], tenantId)).get(studentId);
+    const snapshot = (await this.feeDuesService.getDueSnapshots([studentId], tenantId)).get(
+      studentId,
+    );
     if (!snapshot) {
       throw new BadRequestException(`Student "${studentId}" has no open dues to remind about`);
     }
@@ -262,7 +273,9 @@ export class SingleReminderService {
     const studentGuardianIds = new Set((student.guardians ?? []).map((g) => g.id));
     const uniqueIds = [...new Set(guardianIds)];
 
-    const guardians = await Promise.all(uniqueIds.map((id) => this.guardianService.findOne(id, tenantId)));
+    const guardians = await Promise.all(
+      uniqueIds.map((id) => this.guardianService.findOne(id, tenantId)),
+    );
 
     const notLinked = guardians.filter((g) => !studentGuardianIds.has(g.id));
     if (notLinked.length > 0) {
@@ -275,7 +288,9 @@ export class SingleReminderService {
   }
 
   private validateWhatsAppParams(dto: SendSingleReminderDto): void {
-    const unknown = (dto.whatsapp_template_params ?? []).filter((name) => !isSupportedPlaceholder(name));
+    const unknown = (dto.whatsapp_template_params ?? []).filter(
+      (name) => !isSupportedPlaceholder(name),
+    );
     if (unknown.length > 0) {
       throw new BadRequestException(
         `Unsupported whatsapp_template_params: ${unknown.join(', ')}. ` +

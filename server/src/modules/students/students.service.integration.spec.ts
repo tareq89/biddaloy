@@ -49,63 +49,79 @@ async function seedReferenceData(ds: DataSource): Promise<void> {
   const sectionRepo = ds.getRepository(ClassSection);
 
   // Tenant 1 reference data
-  await schoolRepo.save(schoolRepo.create({
-    id: SEED_TENANT_ID,
-    name: 'Test School',
-    slug: 'test-school',
-    tenant_id: SEED_TENANT_ID,
-  }));
-  await ayRepo.save(ayRepo.create({
-    id: SEED_ACADEMIC_YEAR_ID,
-    name: '2026-2027',
-    start_date: new Date('2026-01-01'),
-    end_date: new Date('2026-12-31'),
-    is_current: true,
-    tenant_id: SEED_TENANT_ID,
-  }));
-  await classRepo.save(classRepo.create({
-    id: SEED_TENANT_ID,
-    name: 'Class One',
-    academic_year_id: SEED_ACADEMIC_YEAR_ID,
-    tenant_id: SEED_TENANT_ID,
-  }));
-  await sectionRepo.save(sectionRepo.create({
-    id: SEED_SECTION_1_ID,
-    section_name: 'Section A',
-    class_id: SEED_TENANT_ID,
-    tenant_id: SEED_TENANT_ID,
-  }));
+  await schoolRepo.save(
+    schoolRepo.create({
+      id: SEED_TENANT_ID,
+      name: 'Test School',
+      slug: 'test-school',
+      tenant_id: SEED_TENANT_ID,
+    }),
+  );
+  await ayRepo.save(
+    ayRepo.create({
+      id: SEED_ACADEMIC_YEAR_ID,
+      name: '2026-2027',
+      start_date: new Date('2026-01-01'),
+      end_date: new Date('2026-12-31'),
+      is_current: true,
+      tenant_id: SEED_TENANT_ID,
+    }),
+  );
+  await classRepo.save(
+    classRepo.create({
+      id: SEED_TENANT_ID,
+      name: 'Class One',
+      academic_year_id: SEED_ACADEMIC_YEAR_ID,
+      tenant_id: SEED_TENANT_ID,
+    }),
+  );
+  await sectionRepo.save(
+    sectionRepo.create({
+      id: SEED_SECTION_1_ID,
+      section_name: 'Section A',
+      class_id: SEED_TENANT_ID,
+      tenant_id: SEED_TENANT_ID,
+    }),
+  );
 
   // Other tenant reference data (for tenant isolation tests)
   const OTHER_AY_ID = '00000000-0000-4000-8000-000000000099';
   const OTHER_CLASS_ID = '00000000-0000-4000-8000-000000000098';
   const OTHER_SECTION_ID = '00000000-0000-4000-8000-000000000097';
-  await schoolRepo.save(schoolRepo.create({
-    id: OTHER_TENANT,
-    name: 'Other School',
-    slug: 'other-school',
-    tenant_id: OTHER_TENANT,
-  }));
-  await ayRepo.save(ayRepo.create({
-    id: OTHER_AY_ID,
-    name: 'Other 2026-2027',
-    start_date: new Date('2026-01-01'),
-    end_date: new Date('2026-12-31'),
-    is_current: true,
-    tenant_id: OTHER_TENANT,
-  }));
-  await classRepo.save(classRepo.create({
-    id: OTHER_CLASS_ID,
-    name: 'Other Class',
-    academic_year_id: OTHER_AY_ID,
-    tenant_id: OTHER_TENANT,
-  }));
-  await sectionRepo.save(sectionRepo.create({
-    id: OTHER_SECTION_ID,
-    section_name: 'Other Section',
-    class_id: OTHER_CLASS_ID,
-    tenant_id: OTHER_TENANT,
-  }));
+  await schoolRepo.save(
+    schoolRepo.create({
+      id: OTHER_TENANT,
+      name: 'Other School',
+      slug: 'other-school',
+      tenant_id: OTHER_TENANT,
+    }),
+  );
+  await ayRepo.save(
+    ayRepo.create({
+      id: OTHER_AY_ID,
+      name: 'Other 2026-2027',
+      start_date: new Date('2026-01-01'),
+      end_date: new Date('2026-12-31'),
+      is_current: true,
+      tenant_id: OTHER_TENANT,
+    }),
+  );
+  await classRepo.save(
+    classRepo.create({
+      id: OTHER_CLASS_ID,
+      name: 'Other Class',
+      academic_year_id: OTHER_AY_ID,
+      tenant_id: OTHER_TENANT,
+    }),
+  );
+  await sectionRepo.save(
+    sectionRepo.create({
+      id: OTHER_SECTION_ID,
+      section_name: 'Other Section',
+      class_id: OTHER_CLASS_ID,
+      tenant_id: OTHER_TENANT,
+    }),
+  );
 }
 
 describe('StudentService (integration)', () => {
@@ -119,12 +135,10 @@ describe('StudentService (integration)', () => {
   const OTHER_TENANT = '00000000-0000-4000-8000-000000000099';
 
   beforeAll(async () => {
-    const module = await createTestModule(
-      ALL_ENTITIES,
-      [StudentService, GuardianService],
-      [],
-      { synchronize: true, dropSchema: true },
-    );
+    const module = await createTestModule(ALL_ENTITIES, [StudentService, GuardianService], [], {
+      synchronize: true,
+      dropSchema: true,
+    });
 
     service = module.get<StudentService>(StudentService);
     guardianService = module.get<GuardianService>(GuardianService);
@@ -196,9 +210,7 @@ describe('StudentService (integration)', () => {
         class_section_id: '00000000-0000-4000-8000-000000000000',
       };
 
-      await expect(
-        service.create(dto, TENANT_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.create(dto, TENANT_ID)).rejects.toThrow(NotFoundException);
     });
 
     it('should throw NotFoundException when guardian does not belong to tenant', async () => {
@@ -219,9 +231,7 @@ describe('StudentService (integration)', () => {
       };
 
       // The guardian from a different tenant should not be found
-      await expect(
-        service.create(dto, TENANT_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.create(dto, TENANT_ID)).rejects.toThrow(NotFoundException);
     });
 
     it('should auto-increment roll_number per section', async () => {
@@ -263,7 +273,10 @@ describe('StudentService (integration)', () => {
       // StudentService.create is what prevents duplicates here.
       const students = await Promise.all(
         Array.from({ length: 5 }, (_, i) =>
-          service.create({ full_name: `Concurrent ${i}`, class_section_id: SEED_SECTION_1_ID }, TENANT_ID),
+          service.create(
+            { full_name: `Concurrent ${i}`, class_section_id: SEED_SECTION_1_ID },
+            TENANT_ID,
+          ),
         ),
       );
 
@@ -353,9 +366,7 @@ describe('StudentService (integration)', () => {
         OTHER_TENANT,
       );
 
-      await expect(
-        service.findOne(created.id, TENANT_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(created.id, TENANT_ID)).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -369,9 +380,7 @@ describe('StudentService (integration)', () => {
       await service.remove(created.id, TENANT_ID);
 
       // Should not be found via findOne
-      await expect(
-        service.findOne(created.id, TENANT_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(created.id, TENANT_ID)).rejects.toThrow(NotFoundException);
 
       // But should still exist with deleted_at set
       const raw = await studentRepo.findOne({
@@ -394,12 +403,10 @@ describe('GuardianService (integration)', () => {
   const OTHER_TENANT = '00000000-0000-4000-8000-000000000099';
 
   beforeAll(async () => {
-    const module = await createTestModule(
-      ALL_ENTITIES,
-      [StudentService, GuardianService],
-      [],
-      { synchronize: true, dropSchema: true },
-    );
+    const module = await createTestModule(ALL_ENTITIES, [StudentService, GuardianService], [], {
+      synchronize: true,
+      dropSchema: true,
+    });
 
     service = module.get<GuardianService>(GuardianService);
     studentRepo = module.get<Repository<Student>>(getRepositoryToken(Student));
@@ -483,9 +490,7 @@ describe('GuardianService (integration)', () => {
         student_ids: [otherStudent.id],
       };
 
-      await expect(
-        service.create(dto, TENANT_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.create(dto, TENANT_ID)).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -548,9 +553,7 @@ describe('GuardianService (integration)', () => {
 
       await service.remove(created.id, TENANT_ID);
 
-      await expect(
-        service.findOne(created.id, TENANT_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(created.id, TENANT_ID)).rejects.toThrow(NotFoundException);
 
       const raw = await guardianRepo.findOne({
         where: { id: created.id },

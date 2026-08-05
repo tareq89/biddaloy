@@ -130,7 +130,11 @@ describe('UserController', () => {
       const dto = { user_id: 'u1', employee_id: 'EMP-001' };
       // Teacher.user is non-nullable — findOne/create always request the
       // relation — so a realistic mock always includes it.
-      const serviceResult = { id: 't1', employee_id: 'EMP-001', user: { id: 'u1', full_name: 'Jane' } };
+      const serviceResult = {
+        id: 't1',
+        employee_id: 'EMP-001',
+        user: { id: 'u1', full_name: 'Jane' },
+      };
       teacherService.create.mockResolvedValue(serviceResult);
 
       const result = await controller.createTeacher(dto as any, TENANT);
@@ -164,7 +168,11 @@ describe('UserController', () => {
   describe('updateTeacher', () => {
     it('should call teacherService.update with id, dto, and tenant id', async () => {
       const dto = { employee_id: 'EMP-002' };
-      const serviceResult = { id: 't1', employee_id: 'EMP-002', user: { id: 'u1', full_name: 'Jane' } };
+      const serviceResult = {
+        id: 't1',
+        employee_id: 'EMP-002',
+        user: { id: 'u1', full_name: 'Jane' },
+      };
       teacherService.update.mockResolvedValue(serviceResult);
 
       const result = await controller.updateTeacher('t1', dto as any, TENANT);
@@ -210,7 +218,11 @@ describe('UserController', () => {
     });
 
     it('strips it from findOneUser', async () => {
-      userService.findOne.mockResolvedValue({ id: 'u1', full_name: 'John', password_hash: '$2b$10$secret' });
+      userService.findOne.mockResolvedValue({
+        id: 'u1',
+        full_name: 'John',
+        password_hash: '$2b$10$secret',
+      });
 
       const result = await controller.findOneUser('u1', TENANT);
 
@@ -218,7 +230,11 @@ describe('UserController', () => {
     });
 
     it('strips it from updateUser', async () => {
-      userService.update.mockResolvedValue({ id: 'u1', full_name: 'Updated', password_hash: '$2b$10$secret' });
+      userService.update.mockResolvedValue({
+        id: 'u1',
+        full_name: 'Updated',
+        password_hash: '$2b$10$secret',
+      });
 
       const result = await controller.updateUser('u1', {} as any, TENANT);
 
@@ -270,9 +286,9 @@ describe('UserController', () => {
       const { NotFoundException } = await import('@nestjs/common');
       userService.findOne.mockRejectedValue(new NotFoundException('User not found'));
 
-      await expect(
-        controller.findOneUser('nonexistent', TENANT),
-      ).rejects.toThrow(NotFoundException);
+      await expect(controller.findOneUser('nonexistent', TENANT)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should propagate ConflictException from userService.create', async () => {

@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { CommunicationMedium } from '@beton-boi/shared';
-import { CommunicationProvider, CommunicationProviderRegistry } from './communication-provider.interface';
+import {
+  CommunicationProvider,
+  CommunicationProviderRegistry,
+} from './communication-provider.interface';
 import { SmsProviderFactory } from './sms/sms-provider.factory';
 import { WhatsAppCloudProvider } from './whatsapp/whatsapp-cloud.provider';
 import { SmtpEmailProvider } from './email/smtp-email.provider';

@@ -1,7 +1,16 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, Index, OneToMany } from "typeorm";
-import { ApiHideProperty } from "@nestjs/swagger";
-import { UserTenant } from "../../auth/entities/user-tenant.entity";
-import { UserStatus } from "@beton-boi/shared";
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  DeleteDateColumn,
+  Index,
+  OneToMany,
+} from 'typeorm';
+import { ApiHideProperty } from '@nestjs/swagger';
+import { UserTenant } from '../../auth/entities/user-tenant.entity';
+import { UserStatus } from '@beton-boi/shared';
 
 /**
  * Central user account for the system.
@@ -25,20 +34,20 @@ import { UserStatus } from "@beton-boi/shared";
  * - Referenced-by → AuditLog (performed_by): who performed the action
  * - Referenced-by → Invoice (issued_by): who issued the invoice
  */
-@Entity("users")
-@Index(["email"])
-@Index(["phone"])
+@Entity('users')
+@Index(['email'])
+@Index(['phone'])
 export class User {
-  @PrimaryGeneratedColumn("uuid")
+  @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @OneToMany(() => UserTenant, (ut) => ut.user)
   user_tenants: UserTenant[];
 
-  @Column({ type: "varchar", length: 100, unique: true, nullable: true })
+  @Column({ type: 'varchar', length: 100, unique: true, nullable: true })
   email: string | null;
 
-  @Column({ type: "varchar", length: 20, unique: true, nullable: true })
+  @Column({ type: 'varchar', length: 20, unique: true, nullable: true })
   phone: string | null;
 
   // Hidden from every generated OpenAPI schema regardless of which class
@@ -47,30 +56,30 @@ export class User {
   // this at the response boundary (see users/dto/user-response.dto.ts);
   // this is the schema-level guarantee that backs that up.
   @ApiHideProperty()
-  @Column({ type: "varchar", length: 255, nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   password_hash: string | null;
 
-  @Column({ type: "enum", enum: UserStatus, default: UserStatus.ACTIVE })
+  @Column({ type: 'enum', enum: UserStatus, default: UserStatus.ACTIVE })
   status: UserStatus;
 
-  @Column({ type: "varchar", length: 100 })
+  @Column({ type: 'varchar', length: 100 })
   full_name: string;
 
-  @Column({ type: "varchar", length: 255, nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   profile_picture_url: string | null;
 
-  @Column({ type: "jsonb", nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   preferences: Record<string, any> | null;
 
-  @Column({ type: "timestamptz", nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   last_login_at: Date | null;
 
-  @CreateDateColumn({ type: "timestamptz" })
+  @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 
-  @UpdateDateColumn({ type: "timestamptz" })
+  @UpdateDateColumn({ type: 'timestamptz' })
   updated_at: Date;
 
-  @DeleteDateColumn({ type: "timestamptz", nullable: true })
+  @DeleteDateColumn({ type: 'timestamptz', nullable: true })
   deleted_at: Date | null;
 }

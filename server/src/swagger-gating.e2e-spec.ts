@@ -52,7 +52,9 @@ async function createApp(opts: {
 describe('Swagger docs gating E2E', () => {
   beforeAll(() => {
     if (!process.env.DATABASE_URL) {
-      throw new Error('DATABASE_URL must be set for swagger-gating E2E tests — see server/.env.test');
+      throw new Error(
+        'DATABASE_URL must be set for swagger-gating E2E tests — see server/.env.test',
+      );
     }
     process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-do-not-use-in-production';
   }, 60000);
@@ -129,7 +131,10 @@ describe('Swagger docs gating E2E', () => {
     });
 
     it('is reachable with the correct credentials', async () => {
-      await request(app.getHttpServer()).get('/api/docs').auth('docs-admin', 'correct-horse-battery-staple').expect(200);
+      await request(app.getHttpServer())
+        .get('/api/docs')
+        .auth('docs-admin', 'correct-horse-battery-staple')
+        .expect(200);
     });
 
     // Regression guard: app.use('/api/docs', middleware) does not match

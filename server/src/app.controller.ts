@@ -1,5 +1,5 @@
-import { Controller, Get, Version, VERSION_NEUTRAL } from "@nestjs/common";
-import { SkipThrottle } from "@nestjs/throttler";
+import { Controller, Get, Version, VERSION_NEUTRAL } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 
 @Controller()
 export class AppController {
@@ -9,8 +9,8 @@ export class AppController {
   // version bumps — the orchestrator shouldn't need to track those.
   @SkipThrottle()
   @Version(VERSION_NEUTRAL)
-  @Get("health")
+  @Get('health')
   health() {
-    return { status: "ok", timestamp: new Date().toISOString() };
+    return { status: 'ok', timestamp: new Date().toISOString() };
   }
 }

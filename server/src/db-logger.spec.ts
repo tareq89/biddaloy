@@ -29,7 +29,9 @@ describe('RedactingTypeOrmLogger', () => {
   it('logs a failing query without its parameters either', () => {
     const logger = new RedactingTypeOrmLogger(true);
 
-    logger.logQueryError('duplicate key value', 'INSERT INTO users (email) VALUES ($1)', ['admin@example.com']);
+    logger.logQueryError('duplicate key value', 'INSERT INTO users (email) VALUES ($1)', [
+      'admin@example.com',
+    ]);
 
     expect(warnSpy).toHaveBeenCalled();
     const allText = warnSpy.mock.calls.map((call) => String(call[0])).join('\n');

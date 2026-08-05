@@ -30,7 +30,10 @@ export class UserService {
     private readonly userTenantRepo: Repository<UserTenant>,
   ) {}
 
-  async create(dto: CreateUserDto, tenantId: string): Promise<{ user: User; membership: UserTenant }> {
+  async create(
+    dto: CreateUserDto,
+    tenantId: string,
+  ): Promise<{ user: User; membership: UserTenant }> {
     // Check for duplicate email
     if (dto.email) {
       const existing = await this.userRepo.findOne({ where: { email: dto.email } });
@@ -72,7 +75,8 @@ export class UserService {
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
-    const qb = this.userRepo.createQueryBuilder('u')
+    const qb = this.userRepo
+      .createQueryBuilder('u')
       .innerJoinAndSelect('u.user_tenants', 'ut')
       .where('u.deleted_at IS NULL')
       .andWhere('ut.tenant_id = :tenantId', { tenantId });
@@ -104,9 +108,7 @@ export class UserService {
     }
 
     // Verify user has a membership in this tenant
-    const membership = user.user_tenants?.find(
-      (ut) => ut.tenant_id === tenantId,
-    );
+    const membership = user.user_tenants?.find((ut) => ut.tenant_id === tenantId);
     if (!membership) {
       throw new NotFoundException(`User with ID "${id}" not found`);
     }
@@ -122,7 +124,8 @@ export class UserService {
     if (dto.email !== undefined) updateData.email = dto.email;
     if (dto.phone !== undefined) updateData.phone = dto.phone;
     if (dto.full_name !== undefined) updateData.full_name = dto.full_name;
-    if (dto.profile_picture_url !== undefined) updateData.profile_picture_url = dto.profile_picture_url;
+    if (dto.profile_picture_url !== undefined)
+      updateData.profile_picture_url = dto.profile_picture_url;
     if (Object.keys(updateData).length > 0) {
       await this.userRepo.update({ id }, updateData);
     }
@@ -166,9 +169,7 @@ export class TeacherService {
       where: { user_id: dto.user_id, tenant_id: tenantId },
     });
     if (!membership) {
-      throw new BadRequestException(
-        `User "${dto.user_id}" is not a member of this tenant`,
-      );
+      throw new BadRequestException(`User "${dto.user_id}" is not a member of this tenant`);
     }
 
     // Check for duplicate employee_id
@@ -176,9 +177,7 @@ export class TeacherService {
       where: { employee_id: dto.employee_id },
     });
     if (existing) {
-      throw new ConflictException(
-        `Teacher with employee ID "${dto.employee_id}" already exists`,
-      );
+      throw new ConflictException(`Teacher with employee ID "${dto.employee_id}" already exists`);
     }
 
     const teacher = this.teacherRepo.create({
@@ -225,7 +224,8 @@ export class TeacherService {
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
-    const qb = this.teacherRepo.createQueryBuilder('t')
+    const qb = this.teacherRepo
+      .createQueryBuilder('t')
       .leftJoinAndSelect('t.user', 'u')
       .where('t.tenant_id = :tenantId', { tenantId })
       .andWhere('t.deleted_at IS NULL');
@@ -258,7 +258,8 @@ export class TeacherService {
     const updateData: any = {};
     if (dto.employee_id !== undefined) updateData.employee_id = dto.employee_id;
     if (dto.designations !== undefined) updateData.designations = dto.designations;
-    if (dto.subject_specialization !== undefined) updateData.subject_specialization = dto.subject_specialization;
+    if (dto.subject_specialization !== undefined)
+      updateData.subject_specialization = dto.subject_specialization;
     if (dto.joining_date !== undefined) updateData.joining_date = new Date(dto.joining_date);
 
     await this.teacherRepo.update({ id, tenant_id: tenantId }, updateData);

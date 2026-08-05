@@ -27,9 +27,7 @@ import { UserRole } from '@beton-boi/shared';
 @Controller('academic-years')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard)
 export class AcademicYearController {
-  constructor(
-    @Inject(AcademicYearService) private readonly service: AcademicYearService,
-  ) {}
+  constructor(@Inject(AcademicYearService) private readonly service: AcademicYearService) {}
 
   @Post()
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
@@ -51,10 +49,7 @@ export class AcademicYearController {
 
   @Get(':id')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
-  findOne(
-    @Param('id') id: string,
-    @CurrentTenant() tenant: { id: string; role: string },
-  ) {
+  findOne(@Param('id') id: string, @CurrentTenant() tenant: { id: string; role: string }) {
     return this.service.findOne(id, tenant.id);
   }
 
@@ -70,22 +65,17 @@ export class AcademicYearController {
 
   @Delete(':id')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
-  remove(
-    @Param('id') id: string,
-    @CurrentTenant() tenant: { id: string; role: string },
-  ) {
+  remove(@Param('id') id: string, @CurrentTenant() tenant: { id: string; role: string }) {
     return this.service.remove(id, tenant.id);
   }
 
   @Post(':id/set-current')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
   @ApiOperation({
-    summary: "Mark this academic year as the tenant's current one, unsetting any other year previously marked current.",
+    summary:
+      "Mark this academic year as the tenant's current one, unsetting any other year previously marked current.",
   })
-  setCurrent(
-    @Param('id') id: string,
-    @CurrentTenant() tenant: { id: string; role: string },
-  ) {
+  setCurrent(@Param('id') id: string, @CurrentTenant() tenant: { id: string; role: string }) {
     return this.service.setCurrent(id, tenant.id);
   }
 }

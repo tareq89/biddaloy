@@ -1,4 +1,17 @@
-import { IsString, IsEmail, IsOptional, IsUUID, IsArray, IsEnum, IsInt, Min, IsDateString, IsNotEmpty, Matches, ValidateIf } from 'class-validator';
+import {
+  IsString,
+  IsEmail,
+  IsOptional,
+  IsUUID,
+  IsArray,
+  IsEnum,
+  IsInt,
+  Min,
+  IsDateString,
+  IsNotEmpty,
+  Matches,
+  ValidateIf,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { CommunicationMedium, EnrollmentStatus } from '@beton-boi/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
@@ -251,7 +264,9 @@ export class BulkUploadRowDto {
   guardian2_name?: string;
 
   @ValidateIf((o) => !!o.guardian2_name)
-  @IsNotEmpty({ message: 'Missing required field: guardian2_phone (required when guardian2_name is provided)' })
+  @IsNotEmpty({
+    message: 'Missing required field: guardian2_phone (required when guardian2_name is provided)',
+  })
   @Matches(BD_PHONE_REGEX, { message: 'Invalid phone format: guardian2_phone' })
   guardian2_phone?: string;
 

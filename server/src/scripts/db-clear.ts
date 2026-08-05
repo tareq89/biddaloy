@@ -12,20 +12,20 @@ const dataSource = new DataSource({
 
 async function dbClear() {
   // Safety guard: require explicit confirmation env var
-  if (process.env.DB_DESTROY_CONFIRM !== "true") {
+  if (process.env.DB_DESTROY_CONFIRM !== 'true') {
     console.error(
-      "Destructive operation guard activated.\n" +
-      "Set DB_DESTROY_CONFIRM=true to confirm you want to drop ALL tables.\n" +
-      "This protects against accidental database destruction in production."
+      'Destructive operation guard activated.\n' +
+        'Set DB_DESTROY_CONFIRM=true to confirm you want to drop ALL tables.\n' +
+        'This protects against accidental database destruction in production.',
     );
     process.exit(1);
   }
 
   // Additional guard: refuse to run in production
-  if (process.env.NODE_ENV === "production") {
+  if (process.env.NODE_ENV === 'production') {
     console.error(
-      "Refusing to run db:clear in NODE_ENV=production.\n" +
-      "Set NODE_ENV=development or unset it before running this destructive command."
+      'Refusing to run db:clear in NODE_ENV=production.\n' +
+        'Set NODE_ENV=development or unset it before running this destructive command.',
     );
     process.exit(1);
   }
@@ -77,7 +77,9 @@ async function dbClear() {
       await queryRunner.query('COMMIT');
 
       console.log('All tables and custom types dropped. Database is clean.');
-      console.log('Run `yarn workspace @beton-boi/server migration:run` to re-create the schema from migrations.');
+      console.log(
+        'Run `yarn workspace @beton-boi/server migration:run` to re-create the schema from migrations.',
+      );
     } catch (e) {
       await queryRunner.query('ROLLBACK').catch(() => {});
       throw e;

@@ -11,7 +11,12 @@ import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { School } from '../schools/entities/school.entity';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
-import { SEED_TENANT_ID, SEED_CLASS_1_ID, SEED_SECTION_1_ID, SEED_ACADEMIC_YEAR_ID } from '@test/constants';
+import {
+  SEED_TENANT_ID,
+  SEED_CLASS_1_ID,
+  SEED_SECTION_1_ID,
+  SEED_ACADEMIC_YEAR_ID,
+} from '@test/constants';
 import { EnrollmentStatus, CommunicationMedium, FeeStatus } from '@beton-boi/shared';
 
 /**
@@ -46,15 +51,63 @@ async function seedReferenceData(ds: DataSource): Promise<void> {
   const sectionRepo = ds.getRepository(ClassSection);
   const ayRepo = ds.getRepository(AcademicYear);
 
-  await schoolRepo.save(schoolRepo.create({ id: SEED_TENANT_ID, name: 'Test School', slug: 'test-school' }));
-  await ayRepo.save(ayRepo.create({ id: SEED_ACADEMIC_YEAR_ID, name: '2026-2027', start_date: new Date('2026-01-01'), end_date: new Date('2026-12-31'), is_current: true, tenant_id: SEED_TENANT_ID }));
-  await classRepo.save(classRepo.create({ id: SEED_CLASS_1_ID, name: 'Class One', academic_year_id: SEED_ACADEMIC_YEAR_ID, tenant_id: SEED_TENANT_ID }));
-  await classRepo.save(classRepo.create({ id: SEED_CLASS_2_ID, name: 'Class Two', academic_year_id: SEED_ACADEMIC_YEAR_ID, tenant_id: SEED_TENANT_ID }));
-  await sectionRepo.save(sectionRepo.create({ id: SEED_SECTION_1_ID, section_name: 'Section A', class_id: SEED_CLASS_1_ID, tenant_id: SEED_TENANT_ID }));
-  await sectionRepo.save(sectionRepo.create({ id: SEED_SECTION_2_ID, section_name: 'Section B', class_id: SEED_CLASS_1_ID, tenant_id: SEED_TENANT_ID }));
-  await sectionRepo.save(sectionRepo.create({ id: SEED_CLASS_2_SECTION_ID, section_name: 'Class Two Section', class_id: SEED_CLASS_2_ID, tenant_id: SEED_TENANT_ID }));
+  await schoolRepo.save(
+    schoolRepo.create({ id: SEED_TENANT_ID, name: 'Test School', slug: 'test-school' }),
+  );
+  await ayRepo.save(
+    ayRepo.create({
+      id: SEED_ACADEMIC_YEAR_ID,
+      name: '2026-2027',
+      start_date: new Date('2026-01-01'),
+      end_date: new Date('2026-12-31'),
+      is_current: true,
+      tenant_id: SEED_TENANT_ID,
+    }),
+  );
+  await classRepo.save(
+    classRepo.create({
+      id: SEED_CLASS_1_ID,
+      name: 'Class One',
+      academic_year_id: SEED_ACADEMIC_YEAR_ID,
+      tenant_id: SEED_TENANT_ID,
+    }),
+  );
+  await classRepo.save(
+    classRepo.create({
+      id: SEED_CLASS_2_ID,
+      name: 'Class Two',
+      academic_year_id: SEED_ACADEMIC_YEAR_ID,
+      tenant_id: SEED_TENANT_ID,
+    }),
+  );
+  await sectionRepo.save(
+    sectionRepo.create({
+      id: SEED_SECTION_1_ID,
+      section_name: 'Section A',
+      class_id: SEED_CLASS_1_ID,
+      tenant_id: SEED_TENANT_ID,
+    }),
+  );
+  await sectionRepo.save(
+    sectionRepo.create({
+      id: SEED_SECTION_2_ID,
+      section_name: 'Section B',
+      class_id: SEED_CLASS_1_ID,
+      tenant_id: SEED_TENANT_ID,
+    }),
+  );
+  await sectionRepo.save(
+    sectionRepo.create({
+      id: SEED_CLASS_2_SECTION_ID,
+      section_name: 'Class Two Section',
+      class_id: SEED_CLASS_2_ID,
+      tenant_id: SEED_TENANT_ID,
+    }),
+  );
 
-  await schoolRepo.save(schoolRepo.create({ id: OTHER_TENANT_ID, name: 'Other School', slug: 'other-school' }));
+  await schoolRepo.save(
+    schoolRepo.create({ id: OTHER_TENANT_ID, name: 'Other School', slug: 'other-school' }),
+  );
 }
 
 describe('FeeDuesService (integration)', () => {
@@ -98,12 +151,10 @@ describe('FeeDuesService (integration)', () => {
   }
 
   beforeAll(async () => {
-    const module = await createTestModule(
-      ALL_ENTITIES,
-      [FeeDuesService],
-      [],
-      { synchronize: true, dropSchema: true },
-    );
+    const module = await createTestModule(ALL_ENTITIES, [FeeDuesService], [], {
+      synchronize: true,
+      dropSchema: true,
+    });
 
     service = module.get<FeeDuesService>(FeeDuesService);
     studentFeeRepo = module.get<Repository<StudentFee>>(getRepositoryToken(StudentFee));
@@ -145,8 +196,24 @@ describe('FeeDuesService (integration)', () => {
 
     it('computes total_due as the sum of balances across all open fees for a student', async () => {
       const student = await studentRepo.save(makeStudent());
-      await studentFeeRepo.save(makeFee(student.id, { month: 1, total_amount: 1000, paid_amount: 200, discount_amount: 100, status: FeeStatus.PARTIALLY_PAID }));
-      await studentFeeRepo.save(makeFee(student.id, { month: 2, total_amount: 500, paid_amount: 0, discount_amount: 0, status: FeeStatus.PENDING }));
+      await studentFeeRepo.save(
+        makeFee(student.id, {
+          month: 1,
+          total_amount: 1000,
+          paid_amount: 200,
+          discount_amount: 100,
+          status: FeeStatus.PARTIALLY_PAID,
+        }),
+      );
+      await studentFeeRepo.save(
+        makeFee(student.id, {
+          month: 2,
+          total_amount: 500,
+          paid_amount: 0,
+          discount_amount: 0,
+          status: FeeStatus.PENDING,
+        }),
+      );
 
       const result = await service.getDues({ page: 1, limit: 10 }, TENANT_ID);
 
@@ -181,23 +248,35 @@ describe('FeeDuesService (integration)', () => {
 
     it('filters by class_id', async () => {
       const inClass1 = await studentRepo.save(makeStudent({ class_section_id: SEED_SECTION_1_ID }));
-      const inClass2 = await studentRepo.save(makeStudent({ class_section_id: SEED_CLASS_2_SECTION_ID }));
+      const inClass2 = await studentRepo.save(
+        makeStudent({ class_section_id: SEED_CLASS_2_SECTION_ID }),
+      );
       await studentFeeRepo.save(makeFee(inClass1.id));
       await studentFeeRepo.save(makeFee(inClass2.id));
 
-      const result = await service.getDues({ class_id: SEED_CLASS_1_ID, page: 1, limit: 10 }, TENANT_ID);
+      const result = await service.getDues(
+        { class_id: SEED_CLASS_1_ID, page: 1, limit: 10 },
+        TENANT_ID,
+      );
 
       expect(result.total).toBe(1);
       expect(result.data[0].student_id).toBe(inClass1.id);
     });
 
     it('filters by section_id', async () => {
-      const inSection1 = await studentRepo.save(makeStudent({ class_section_id: SEED_SECTION_1_ID }));
-      const inSection2 = await studentRepo.save(makeStudent({ class_section_id: SEED_SECTION_2_ID }));
+      const inSection1 = await studentRepo.save(
+        makeStudent({ class_section_id: SEED_SECTION_1_ID }),
+      );
+      const inSection2 = await studentRepo.save(
+        makeStudent({ class_section_id: SEED_SECTION_2_ID }),
+      );
       await studentFeeRepo.save(makeFee(inSection1.id));
       await studentFeeRepo.save(makeFee(inSection2.id));
 
-      const result = await service.getDues({ section_id: SEED_SECTION_1_ID, page: 1, limit: 10 }, TENANT_ID);
+      const result = await service.getDues(
+        { section_id: SEED_SECTION_1_ID, page: 1, limit: 10 },
+        TENANT_ID,
+      );
 
       expect(result.total).toBe(1);
       expect(result.data[0].student_id).toBe(inSection1.id);
@@ -207,9 +286,14 @@ describe('FeeDuesService (integration)', () => {
       const pending = await studentRepo.save(makeStudent());
       const partial = await studentRepo.save(makeStudent());
       await studentFeeRepo.save(makeFee(pending.id, { status: FeeStatus.PENDING }));
-      await studentFeeRepo.save(makeFee(partial.id, { status: FeeStatus.PARTIALLY_PAID, paid_amount: 200 }));
+      await studentFeeRepo.save(
+        makeFee(partial.id, { status: FeeStatus.PARTIALLY_PAID, paid_amount: 200 }),
+      );
 
-      const result = await service.getDues({ status: FeeStatus.PARTIALLY_PAID as any, page: 1, limit: 10 }, TENANT_ID);
+      const result = await service.getDues(
+        { status: FeeStatus.PARTIALLY_PAID as any, page: 1, limit: 10 },
+        TENANT_ID,
+      );
 
       expect(result.total).toBe(1);
       expect(result.data[0].student_id).toBe(partial.id);
@@ -239,11 +323,16 @@ describe('FeeDuesService (integration)', () => {
 
     it('sorts by class ascending when requested', async () => {
       const inClass1 = await studentRepo.save(makeStudent({ class_section_id: SEED_SECTION_1_ID }));
-      const inClass2 = await studentRepo.save(makeStudent({ class_section_id: SEED_CLASS_2_SECTION_ID }));
+      const inClass2 = await studentRepo.save(
+        makeStudent({ class_section_id: SEED_CLASS_2_SECTION_ID }),
+      );
       await studentFeeRepo.save(makeFee(inClass1.id));
       await studentFeeRepo.save(makeFee(inClass2.id));
 
-      const result = await service.getDues({ sort_by: 'class', sort_order: 'ASC', page: 1, limit: 10 }, TENANT_ID);
+      const result = await service.getDues(
+        { sort_by: 'class', sort_order: 'ASC', page: 1, limit: 10 },
+        TENANT_ID,
+      );
 
       // "Class One" sorts before "Class Two"
       expect(result.data.map((d) => d.class_name)).toEqual(['Class One', 'Class Two']);
@@ -255,7 +344,10 @@ describe('FeeDuesService (integration)', () => {
       await studentFeeRepo.save(makeFee(first.id, { total_amount: 500 }));
       await studentFeeRepo.save(makeFee(second.id, { total_amount: 300 }));
 
-      const result = await service.getDues({ page: 2, limit: 1, sort_by: 'name', sort_order: 'ASC' }, TENANT_ID);
+      const result = await service.getDues(
+        { page: 2, limit: 1, sort_by: 'name', sort_order: 'ASC' },
+        TENANT_ID,
+      );
 
       expect(result.total).toBe(2);
       expect(result.totalPages).toBe(2);
@@ -265,7 +357,9 @@ describe('FeeDuesService (integration)', () => {
 
     it('excludes students belonging to a different tenant', async () => {
       const otherSchoolSection = SEED_SECTION_1_ID;
-      const student = await studentRepo.save(makeStudent({ class_section_id: otherSchoolSection, tenant_id: OTHER_TENANT_ID }));
+      const student = await studentRepo.save(
+        makeStudent({ class_section_id: otherSchoolSection, tenant_id: OTHER_TENANT_ID }),
+      );
       await studentFeeRepo.save(makeFee(student.id));
 
       const result = await service.getDues({ page: 1, limit: 10 }, TENANT_ID);
@@ -345,12 +439,19 @@ describe('FeeDuesService (integration)', () => {
     });
 
     it('filters flagged dues by class_id and section_id', async () => {
-      const inSection1 = await studentRepo.save(makeStudent({ class_section_id: SEED_SECTION_1_ID }));
-      const inSection2 = await studentRepo.save(makeStudent({ class_section_id: SEED_SECTION_2_ID }));
+      const inSection1 = await studentRepo.save(
+        makeStudent({ class_section_id: SEED_SECTION_1_ID }),
+      );
+      const inSection2 = await studentRepo.save(
+        makeStudent({ class_section_id: SEED_SECTION_2_ID }),
+      );
       await studentFeeRepo.save(makeFee(inSection1.id, { reminder_threshold_date: YESTERDAY }));
       await studentFeeRepo.save(makeFee(inSection2.id, { reminder_threshold_date: YESTERDAY }));
 
-      const result = await service.getFlaggedDues({ section_id: SEED_SECTION_1_ID, page: 1, limit: 10 }, TENANT_ID);
+      const result = await service.getFlaggedDues(
+        { section_id: SEED_SECTION_1_ID, page: 1, limit: 10 },
+        TENANT_ID,
+      );
 
       expect(result.total).toBe(1);
       expect(result.data[0].student_id).toBe(inSection1.id);
@@ -383,7 +484,13 @@ describe('FeeDuesService (integration)', () => {
     it('sums the open balance for each requested student', async () => {
       const student = await studentRepo.save(makeStudent());
       await studentFeeRepo.save(
-        makeFee(student.id, { month: 1, total_amount: 1000, paid_amount: 200, discount_amount: 100, status: FeeStatus.PARTIALLY_PAID }),
+        makeFee(student.id, {
+          month: 1,
+          total_amount: 1000,
+          paid_amount: 200,
+          discount_amount: 100,
+          status: FeeStatus.PARTIALLY_PAID,
+        }),
       );
       await studentFeeRepo.save(makeFee(student.id, { month: 2, total_amount: 500 }));
 
@@ -408,7 +515,9 @@ describe('FeeDuesService (integration)', () => {
 
     it('ignores PAID fees when summing and dating', async () => {
       const student = await studentRepo.save(makeStudent());
-      await studentFeeRepo.save(makeFee(student.id, { month: 1, status: FeeStatus.PAID, paid_amount: 1000 }));
+      await studentFeeRepo.save(
+        makeFee(student.id, { month: 1, status: FeeStatus.PAID, paid_amount: 1000 }),
+      );
       await studentFeeRepo.save(makeFee(student.id, { month: 5, total_amount: 300 }));
 
       const snapshot = (await service.getDueSnapshots([student.id], TENANT_ID)).get(student.id);

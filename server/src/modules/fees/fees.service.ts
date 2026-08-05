@@ -1,19 +1,24 @@
-import { Injectable, NotFoundException, ConflictException } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, IsNull, In } from "typeorm";
-import { FeeStructure } from "./entities/fee-structure.entity";
-import { FeeStructureStudent } from "./entities/fee-structure-student.entity";
-import { Payment } from "./entities/payment.entity";
-import { PaymentAllocation } from "./entities/payment-allocation.entity";
-import { StudentFee } from "./entities/student-fee.entity";
-import { Student } from "../students/entities/student.entity";
-import { Class } from "../academics/entities/class.entity";
-import { ClassSection } from "../academics/entities/class-section.entity";
-import { AcademicYear } from "../academics/entities/academic-year.entity";
-import { AuditService } from "../audit/audit.service";
-import { RequestContext } from "../../common/request-context.util";
-import { PaymentStatus, AuditAction } from "@beton-boi/shared";
-import { CreateFeeStructureDto, UpdateFeeStructureDto, QueryFeeStructureDto, CreatePaymentDto } from "./dto/fees.dto";
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, IsNull, In } from 'typeorm';
+import { FeeStructure } from './entities/fee-structure.entity';
+import { FeeStructureStudent } from './entities/fee-structure-student.entity';
+import { Payment } from './entities/payment.entity';
+import { PaymentAllocation } from './entities/payment-allocation.entity';
+import { StudentFee } from './entities/student-fee.entity';
+import { Student } from '../students/entities/student.entity';
+import { Class } from '../academics/entities/class.entity';
+import { ClassSection } from '../academics/entities/class-section.entity';
+import { AcademicYear } from '../academics/entities/academic-year.entity';
+import { AuditService } from '../audit/audit.service';
+import { RequestContext } from '../../common/request-context.util';
+import { PaymentStatus, AuditAction } from '@beton-boi/shared';
+import {
+  CreateFeeStructureDto,
+  UpdateFeeStructureDto,
+  QueryFeeStructureDto,
+  CreatePaymentDto,
+} from './dto/fees.dto';
 
 @Injectable()
 export class FeeStructureService {
@@ -51,7 +56,12 @@ export class FeeStructureService {
     // Validate section belongs to tenant when provided
     if (dto.section_id) {
       const section = await this.sectionRepo.findOne({
-        where: { id: dto.section_id, class_id: dto.class_id, tenant_id: tenantId, deleted_at: IsNull() },
+        where: {
+          id: dto.section_id,
+          class_id: dto.class_id,
+          tenant_id: tenantId,
+          deleted_at: IsNull(),
+        },
       });
       if (!section) {
         throw new NotFoundException(`Section with ID "${dto.section_id}" not found`);
@@ -67,7 +77,7 @@ export class FeeStructureService {
     }
 
     // Validate student_ids belong to tenant when SELECTED applicability
-    if (dto.applicability === "SELECTED" && dto.student_ids?.length) {
+    if (dto.applicability === 'SELECTED' && dto.student_ids?.length) {
       const studentCount = await this.studentRepo.count({
         where: {
           id: In(dto.student_ids),
@@ -76,7 +86,7 @@ export class FeeStructureService {
         } as any,
       });
       if (studentCount !== dto.student_ids.length) {
-        throw new NotFoundException("One or more selected students not found");
+        throw new NotFoundException('One or more selected students not found');
       }
     }
 
@@ -84,7 +94,7 @@ export class FeeStructureService {
       fee_type: dto.fee_type,
       name: dto.name,
       amount: dto.amount,
-      applicability: dto.applicability ?? ("ALL" as any),
+      applicability: dto.applicability ?? ('ALL' as any),
       class_id: dto.class_id,
       section_id: dto.section_id ?? null,
       academic_year_id: dto.academic_year_id,
@@ -96,14 +106,16 @@ export class FeeStructureService {
     const saved = await this.repo.save(entity);
 
     // If SELECTED applicability, create student links
-    if (dto.applicability === "SELECTED" && dto.student_ids?.length) {
-      const entries = dto.student_ids.map((sid) => this.fssRepo.create({ fee_structure_id: saved.id, student_id: sid }));
+    if (dto.applicability === 'SELECTED' && dto.student_ids?.length) {
+      const entries = dto.student_ids.map((sid) =>
+        this.fssRepo.create({ fee_structure_id: saved.id, student_id: sid }),
+      );
       await this.fssRepo.save(entries);
     }
 
     return this.repo.findOne({
       where: { id: saved.id },
-      relations: ["class", "academic_year"],
+      relations: ['class', 'academic_year'],
     }) as Promise<FeeStructure>;
   }
 
@@ -119,8 +131,8 @@ export class FeeStructureService {
 
     const [data, total] = await this.repo.findAndCount({
       where,
-      relations: ["class", "academic_year", "section"],
-      order: { created_at: "DESC" },
+      relations: ['class', 'academic_year', 'section'],
+      order: { created_at: 'DESC' },
       skip,
       take: limit,
     });
@@ -131,7 +143,7 @@ export class FeeStructureService {
   async findOne(id: string, tenantId: string): Promise<FeeStructure> {
     const entity = await this.repo.findOne({
       where: { id, tenant_id: tenantId, deleted_at: IsNull() },
-      relations: ["class", "academic_year", "section"],
+      relations: ['class', 'academic_year', 'section'],
     });
     if (!entity) {
       throw new NotFoundException(`Fee structure with ID "${id}" not found`);
@@ -192,7 +204,9 @@ export class FeeStructureService {
 
         await fssRepo.delete({ fee_structure_id: id });
         if (dto.student_ids.length > 0) {
-          const entries = dto.student_ids.map((sid) => fssRepo.create({ fee_structure_id: id, student_id: sid }));
+          const entries = dto.student_ids.map((sid) =>
+            fssRepo.create({ fee_structure_id: id, student_id: sid }),
+          );
           await fssRepo.save(entries);
         }
       }
@@ -277,7 +291,7 @@ export class PaymentService {
     // Verify student belongs to tenant (via class_section -> class chain)
     const student = await this.studentRepo.findOne({
       where: { id: dto.student_id, deleted_at: IsNull() },
-      relations: ["class_section", "class_section.class"],
+      relations: ['class_section', 'class_section.class'],
     });
     if (!student) {
       throw new NotFoundException(`Student with ID "${dto.student_id}" not found`);
@@ -304,7 +318,7 @@ export class PaymentService {
   async findByStudent(studentId: string, tenantId: string) {
     const student = await this.studentRepo.findOne({
       where: { id: studentId, deleted_at: IsNull() },
-      relations: ["class_section", "class_section.class"],
+      relations: ['class_section', 'class_section.class'],
     });
     if (!student) {
       throw new NotFoundException(`Student with ID "${studentId}" not found`);
@@ -315,15 +329,15 @@ export class PaymentService {
 
     return this.repo.find({
       where: { student_id: studentId, tenant_id: tenantId, deleted_at: IsNull() },
-      relations: ["allocations"],
-      order: { payment_date: "DESC" },
+      relations: ['allocations'],
+      order: { payment_date: 'DESC' },
     });
   }
 
   async getInvoiceSummary(studentId: string, tenantId: string) {
     const student = await this.studentRepo.findOne({
       where: { id: studentId, deleted_at: IsNull() },
-      relations: ["class_section", "class_section.class"],
+      relations: ['class_section', 'class_section.class'],
     });
     if (!student) {
       throw new NotFoundException(`Student with ID "${studentId}" not found`);
@@ -336,7 +350,7 @@ export class PaymentService {
     const studentFeeRepo = this.repo.manager.getRepository(StudentFee);
     const fees = await studentFeeRepo.find({
       where: { student_id: studentId },
-      order: { year: "ASC", month: "ASC" },
+      order: { year: 'ASC', month: 'ASC' },
     });
 
     const totalDue = fees.reduce((sum, f) => sum + Number(f.total_amount), 0);
@@ -346,7 +360,7 @@ export class PaymentService {
     // Get payments for this student
     const payments = await this.repo.find({
       where: { student_id: studentId, tenant_id: tenantId, deleted_at: IsNull() },
-      order: { payment_date: "DESC" },
+      order: { payment_date: 'DESC' },
     });
 
     return {

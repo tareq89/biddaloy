@@ -16,7 +16,14 @@ import {
   MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { FeeType, FeeApplicability, PaymentMethod, PaymentStatus, PaymentAllocationType, FeeStatus } from '@beton-boi/shared';
+import {
+  FeeType,
+  FeeApplicability,
+  PaymentMethod,
+  PaymentStatus,
+  PaymentAllocationType,
+  FeeStatus,
+} from '@beton-boi/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 
 export type FeeDuesSortBy = 'due_amount' | 'name' | 'class';

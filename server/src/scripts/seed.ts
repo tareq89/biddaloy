@@ -29,7 +29,7 @@ export async function seed() {
       const adminPassword = process.env.SEED_ADMIN_PASSWORD;
       if (!adminPassword || adminPassword.length === 0) {
         console.error(
-          'SEED_ADMIN_PASSWORD environment variable is required to restore the seed admin account.'
+          'SEED_ADMIN_PASSWORD environment variable is required to restore the seed admin account.',
         );
         process.exit(1);
       }
@@ -63,7 +63,9 @@ export async function seed() {
 
   const adminPassword = process.env.SEED_ADMIN_PASSWORD;
   if (!adminPassword || adminPassword.length === 0) {
-    console.error('SEED_ADMIN_PASSWORD environment variable is required but was not set or is empty.');
+    console.error(
+      'SEED_ADMIN_PASSWORD environment variable is required but was not set or is empty.',
+    );
     process.exit(1);
   }
 

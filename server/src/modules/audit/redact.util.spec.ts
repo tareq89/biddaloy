@@ -29,7 +29,14 @@ describe('redactSensitiveFields', () => {
   });
 
   it('redacts sensitive keys inside array elements', () => {
-    expect(redactSensitiveFields({ users: [{ id: 'u-1', secret: 'x' }, { id: 'u-2', secret: 'y' }] })).toEqual({
+    expect(
+      redactSensitiveFields({
+        users: [
+          { id: 'u-1', secret: 'x' },
+          { id: 'u-2', secret: 'y' },
+        ],
+      }),
+    ).toEqual({
       users: [
         { id: 'u-1', secret: '[REDACTED]' },
         { id: 'u-2', secret: '[REDACTED]' },

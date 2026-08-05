@@ -50,7 +50,8 @@ describe('SingleReminderService', () => {
   let auditService: Record<string, ReturnType<typeof vi.fn>>;
 
   const dto = {
-    message_template: 'Dear {{guardian_name}}, {{student_name}} owes {{due_amount}} for {{due_month}}.',
+    message_template:
+      'Dear {{guardian_name}}, {{student_name}} owes {{due_amount}} for {{due_month}}.',
   };
 
   beforeEach(() => {
@@ -87,7 +88,11 @@ describe('SingleReminderService', () => {
       await expect(
         service.preview(
           STUDENT_ID,
-          { ...dto, whatsapp_template_name: 'fee_reminder', whatsapp_template_params: ['nope'] } as any,
+          {
+            ...dto,
+            whatsapp_template_name: 'fee_reminder',
+            whatsapp_template_params: ['nope'],
+          } as any,
           TENANT,
         ),
       ).rejects.toThrow(BadRequestException);
@@ -96,7 +101,9 @@ describe('SingleReminderService', () => {
     it('propagates NotFoundException when the student does not resolve in this tenant', async () => {
       studentService.findOne.mockRejectedValue(new NotFoundException('not found'));
 
-      await expect(service.preview(STUDENT_ID, dto as any, TENANT)).rejects.toThrow(NotFoundException);
+      await expect(service.preview(STUDENT_ID, dto as any, TENANT)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('errors when the student has no guardians and none were specified', async () => {
@@ -110,9 +117,7 @@ describe('SingleReminderService', () => {
     it('errors when the student has no open dues', async () => {
       feeDuesService.getDueSnapshots.mockResolvedValue(new Map());
 
-      await expect(service.preview(STUDENT_ID, dto as any, TENANT)).rejects.toThrow(
-        /no open dues/,
-      );
+      await expect(service.preview(STUDENT_ID, dto as any, TENANT)).rejects.toThrow(/no open dues/);
     });
 
     it('errors when every candidate guardian is undeliverable, listing reasons', async () => {
@@ -153,7 +158,11 @@ describe('SingleReminderService', () => {
       );
       guardianService.findOne.mockResolvedValue(guardian({ id: 'g-2', is_primary_contact: false }));
 
-      const result = await service.preview(STUDENT_ID, { ...dto, guardian_ids: ['g-2'] } as any, TENANT);
+      const result = await service.preview(
+        STUDENT_ID,
+        { ...dto, guardian_ids: ['g-2'] } as any,
+        TENANT,
+      );
 
       expect(result.recipients.map((r) => r.guardian_id)).toEqual(['g-2']);
       expect(guardianService.findOne).toHaveBeenCalledWith('g-2', TENANT);
@@ -226,14 +235,22 @@ describe('SingleReminderService', () => {
       const g = guardian({ preferred_communication: CommunicationMedium.SMS });
       studentService.findOne.mockResolvedValue(student({ guardians: [g] }));
 
-      await service.preview(STUDENT_ID, { ...dto, medium: CommunicationMedium.EMAIL } as any, TENANT);
+      await service.preview(
+        STUDENT_ID,
+        { ...dto, medium: CommunicationMedium.EMAIL } as any,
+        TENANT,
+      );
 
       expect(g.preferred_communication).toBe(CommunicationMedium.SMS);
     });
 
     it('skips PHONE_CALL, which has no automated provider, even as an override', async () => {
       await expect(
-        service.preview(STUDENT_ID, { ...dto, medium: CommunicationMedium.PHONE_CALL } as any, TENANT),
+        service.preview(
+          STUDENT_ID,
+          { ...dto, medium: CommunicationMedium.PHONE_CALL } as any,
+          TENANT,
+        ),
       ).rejects.toThrow(/No deliverable guardian/);
     });
   });
@@ -269,9 +286,7 @@ describe('SingleReminderService', () => {
     it('reports the student_id and skipped guardians alongside recipients', async () => {
       studentService.findOne.mockResolvedValue(
         student({
-          guardians: [
-            guardian({ id: 'g-1', is_primary_contact: true }),
-          ],
+          guardians: [guardian({ id: 'g-1', is_primary_contact: true })],
         }),
       );
 
@@ -288,7 +303,9 @@ describe('SingleReminderService', () => {
 
       const result = await service.preview(STUDENT_ID, dto as any, TENANT);
 
-      expect(result.recipients[0].message_body).toBe('Dear Karim Uddin, Rahim Uddin owes 1,500.00 for .');
+      expect(result.recipients[0].message_body).toBe(
+        'Dear Karim Uddin, Rahim Uddin owes 1,500.00 for .',
+      );
     });
 
     it('lists a skipped guardian with its reason alongside deliverable ones', async () => {
@@ -391,7 +408,9 @@ describe('SingleReminderService', () => {
       // Derived from each recipient's actual status, not just sent.length —
       // one guardian's enqueue failure must show up as a failure here too.
       expect(auditService.record).toHaveBeenCalledWith(
-        expect.objectContaining({ new_values: expect.objectContaining({ queued_count: 1, failed_count: 1 }) }),
+        expect.objectContaining({
+          new_values: expect.objectContaining({ queued_count: 1, failed_count: 1 }),
+        }),
       );
     });
 
@@ -416,7 +435,9 @@ describe('SingleReminderService', () => {
     describe('WhatsApp template metadata', () => {
       beforeEach(() => {
         studentService.findOne.mockResolvedValue(
-          student({ guardians: [guardian({ preferred_communication: CommunicationMedium.WHATSAPP })] }),
+          student({
+            guardians: [guardian({ preferred_communication: CommunicationMedium.WHATSAPP })],
+          }),
         );
       });
 

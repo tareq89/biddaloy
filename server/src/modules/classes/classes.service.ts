@@ -1,14 +1,16 @@
-import {
-  Injectable,
-  NotFoundException,
-  ConflictException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Student } from '../students/entities/student.entity';
-import { CreateClassDto, UpdateClassDto, QueryClassDto, CreateSectionDto, UpdateSectionDto } from './dto/classes.dto';
+import {
+  CreateClassDto,
+  UpdateClassDto,
+  QueryClassDto,
+  CreateSectionDto,
+  UpdateSectionDto,
+} from './dto/classes.dto';
 
 @Injectable()
 export class ClassService {
@@ -140,7 +142,12 @@ export class SectionService {
     });
   }
 
-  async update(classId: string, sectionId: string, dto: UpdateSectionDto, tenantId: string): Promise<ClassSection> {
+  async update(
+    classId: string,
+    sectionId: string,
+    dto: UpdateSectionDto,
+    tenantId: string,
+  ): Promise<ClassSection> {
     const section = await this.repo.findOne({
       where: { id: sectionId, class_id: classId, tenant_id: tenantId, deleted_at: IsNull() },
     });

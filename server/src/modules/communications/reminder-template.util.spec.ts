@@ -73,7 +73,10 @@ describe('findUnsupportedPlaceholders', () => {
   });
 
   it('reports unsupported names', () => {
-    expect(findUnsupportedPlaceholders('{{student}} owes {{amount}}')).toEqual(['student', 'amount']);
+    expect(findUnsupportedPlaceholders('{{student}} owes {{amount}}')).toEqual([
+      'student',
+      'amount',
+    ]);
   });
 
   it('deduplicates a name used more than once', () => {
@@ -155,9 +158,9 @@ describe('renderReminderTemplate with a sanitized name (issue #33)', () => {
     };
 
     expect(vars.student_name).toBe('Rahim Uddin');
-    expect(renderReminderTemplate('Dear {{guardian_name}}, {{student_name}} owes {{due_amount}}.', vars)).toBe(
-      'Dear Karim Uddin, Rahim Uddin owes 1,500.00.',
-    );
+    expect(
+      renderReminderTemplate('Dear {{guardian_name}}, {{student_name}} owes {{due_amount}}.', vars),
+    ).toBe('Dear Karim Uddin, Rahim Uddin owes 1,500.00.');
   });
 
   it('leaves placeholder syntax in the template untouched regardless of sanitization', () => {
@@ -168,6 +171,8 @@ describe('renderReminderTemplate with a sanitized name (issue #33)', () => {
       due_month: 'April 2026',
     };
 
-    expect(renderReminderTemplate('{{student_name}} / {{guardian_name}}', vars)).toBe("O'Brien / Tom & Jerry");
+    expect(renderReminderTemplate('{{student_name}} / {{guardian_name}}', vars)).toBe(
+      "O'Brien / Tom & Jerry",
+    );
   });
 });

@@ -148,8 +148,18 @@ export const CONTRAST_PAIRS = [
   // inverse of 'brand-600 text on white'). Only the genuinely new numeric
   // pairs get their own entry: neutral-50 as a background was never checked
   // against text before.
-  { name: 'secondary-foreground on secondary (neutral-900 on neutral-50)', fg: neutral[900], bg: neutral[50], min: 4.5 },
-  { name: 'muted-foreground on muted (neutral-600 on neutral-50)', fg: neutral[600], bg: neutral[50], min: 4.5 },
+  {
+    name: 'secondary-foreground on secondary (neutral-900 on neutral-50)',
+    fg: neutral[900],
+    bg: neutral[50],
+    min: 4.5,
+  },
+  {
+    name: 'muted-foreground on muted (neutral-600 on neutral-50)',
+    fg: neutral[600],
+    bg: neutral[50],
+    min: 4.5,
+  },
 ] as const;
 
 export const betonBoiPreset = { neutral, brand, radius, status, light, dark } as const;

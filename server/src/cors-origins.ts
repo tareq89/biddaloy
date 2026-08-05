@@ -6,14 +6,17 @@
  * until one moves to its own domain/CDN, at which point CORS_ORIGINS must be
  * set explicitly.
  */
-export function resolveCorsOrigins(corsOriginsEnv: string | undefined, nodeEnv: string | undefined): string[] {
+export function resolveCorsOrigins(
+  corsOriginsEnv: string | undefined,
+  nodeEnv: string | undefined,
+): string[] {
   if (corsOriginsEnv) {
     return corsOriginsEnv
-      .split(",")
+      .split(',')
       .map((origin) => origin.trim())
       .filter(Boolean);
   }
-  return nodeEnv === "production" ? [] : ["http://localhost:5173"];
+  return nodeEnv === 'production' ? [] : ['http://localhost:5173'];
 }
 
 /**
@@ -25,9 +28,9 @@ export function buildCorsOptions(corsOriginsEnv: string | undefined, nodeEnv: st
   return {
     origin: resolveCorsOrigins(corsOriginsEnv, nodeEnv),
     credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     // X-Tenant-ID and X-Role are read by ContextGuard on every authenticated
     // request (auth/guards/context.guard.ts) and must survive preflight.
-    allowedHeaders: ["Content-Type", "Authorization", "X-Tenant-ID", "X-Role"],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID', 'X-Role'],
   };
 }

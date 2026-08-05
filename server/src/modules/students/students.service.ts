@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  ConflictException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, In, Like, EntityManager } from 'typeorm';
 import { Student } from './entities/student.entity';
@@ -74,7 +70,10 @@ export class StudentService {
       // locks serialize on the (tenant, year) / (section) key itself, so
       // they protect that first-insert case too, and auto-release at
       // commit/rollback (same pattern as invoice-numbering.util.ts).
-      await txManager.query('SELECT pg_advisory_xact_lock(hashtext($1), $2)', [tenantId, currentYear]);
+      await txManager.query('SELECT pg_advisory_xact_lock(hashtext($1), $2)', [
+        tenantId,
+        currentYear,
+      ]);
 
       const lastStudent = await txStudentRepo
         .createQueryBuilder('s')
@@ -101,7 +100,11 @@ export class StudentService {
       ]);
 
       const lastRoll = await txStudentRepo.findOne({
-        where: { class_section_id: dto.class_section_id, tenant_id: tenantId, deleted_at: IsNull() },
+        where: {
+          class_section_id: dto.class_section_id,
+          tenant_id: tenantId,
+          deleted_at: IsNull(),
+        },
         order: { roll_number: 'DESC' },
       });
       const rollNumber = dto.roll_number ?? (lastRoll ? lastRoll.roll_number + 1 : 1);
@@ -122,7 +125,9 @@ export class StudentService {
       return txStudentRepo.save(student);
     };
 
-    const savedStudent = manager ? await generateAndSave(manager) : await this.repo.manager.transaction(generateAndSave);
+    const savedStudent = manager
+      ? await generateAndSave(manager)
+      : await this.repo.manager.transaction(generateAndSave);
 
     // Link guardians
     if (dto.guardian_ids?.length) {
@@ -252,7 +257,11 @@ export class GuardianService {
   /**
    * @param manager Optional transaction-scoped manager — see StudentService.create.
    */
-  async create(dto: CreateGuardianDto, tenantId: string, manager?: EntityManager): Promise<Guardian> {
+  async create(
+    dto: CreateGuardianDto,
+    tenantId: string,
+    manager?: EntityManager,
+  ): Promise<Guardian> {
     const repo = manager ? manager.getRepository(Guardian) : this.repo;
     const studentRepo = manager ? manager.getRepository(Student) : this.studentRepo;
 
@@ -297,22 +306,24 @@ export class GuardianService {
 
     if (query.search) {
       const search = `%${query.search}%`;
-      return this.repo.findAndCount({
-        where: [
-          { ...where, full_name: Like(search) },
-          { ...where, phone: Like(search) },
-          { ...where, email: Like(search) },
-        ],
-        order: { created_at: 'DESC' },
-        skip,
-        take: limit,
-      }).then(([data, total]) => ({
-        data,
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      }));
+      return this.repo
+        .findAndCount({
+          where: [
+            { ...where, full_name: Like(search) },
+            { ...where, phone: Like(search) },
+            { ...where, email: Like(search) },
+          ],
+          order: { created_at: 'DESC' },
+          skip,
+          take: limit,
+        })
+        .then(([data, total]) => ({
+          data,
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+        }));
     }
 
     const [data, total] = await this.repo.findAndCount({
@@ -336,7 +347,11 @@ export class GuardianService {
     return guardian;
   }
 
-  async findByPhone(phone: string, tenantId: string, manager?: EntityManager): Promise<Guardian | null> {
+  async findByPhone(
+    phone: string,
+    tenantId: string,
+    manager?: EntityManager,
+  ): Promise<Guardian | null> {
     const repo = manager ? manager.getRepository(Guardian) : this.repo;
     return repo.findOne({ where: { phone, tenant_id: tenantId, deleted_at: IsNull() } });
   }

@@ -42,10 +42,7 @@ export class ClassController {
   @Post()
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
   @ApiOperation({ summary: 'Create a class under an academic year.' })
-  createClass(
-    @Body() dto: CreateClassDto,
-    @CurrentTenant() tenant: { id: string; role: string },
-  ) {
+  createClass(@Body() dto: CreateClassDto, @CurrentTenant() tenant: { id: string; role: string }) {
     return this.classService.create(dto, tenant.id);
   }
 

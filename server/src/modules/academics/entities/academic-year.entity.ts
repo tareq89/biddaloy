@@ -26,7 +26,10 @@ import { School } from '../../schools/entities/school.entity';
  */
 @Entity('academic_years')
 @Index(['name', 'tenant_id'], { unique: true, where: '"deleted_at" IS NULL' })
-@Index(['is_current', 'tenant_id'], { unique: true, where: '"is_current" = true AND "deleted_at" IS NULL' })
+@Index(['is_current', 'tenant_id'], {
+  unique: true,
+  where: '"is_current" = true AND "deleted_at" IS NULL',
+})
 export class AcademicYear {
   @PrimaryGeneratedColumn('uuid')
   id: string;

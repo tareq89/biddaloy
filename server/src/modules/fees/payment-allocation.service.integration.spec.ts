@@ -71,18 +71,47 @@ async function seedReferenceData(ds: DataSource): Promise<void> {
   const ayRepo = ds.getRepository(AcademicYear);
   const userRepo = ds.getRepository(User);
 
-  await schoolRepo.save(schoolRepo.create({ id: SEED_TENANT_ID, name: 'Test School', slug: 'test-school' }));
-  await userRepo.save(userRepo.create({
-    id: SEED_ADMIN_USER_ID,
-    email: SEED_ADMIN_EMAIL,
-    password_hash: SEED_ADMIN_PASSWORD_HASH,
-    full_name: 'Test Admin',
-  }));
-  await ayRepo.save(ayRepo.create({ id: SEED_ACADEMIC_YEAR_ID, name: '2026-2027', start_date: new Date('2020-01-01'), end_date: new Date('2035-12-31'), is_current: true, tenant_id: SEED_TENANT_ID }));
-  await classRepo.save(classRepo.create({ id: SEED_CLASS_1_ID, name: 'Class One', academic_year_id: SEED_ACADEMIC_YEAR_ID, tenant_id: SEED_TENANT_ID }));
-  await sectionRepo.save(sectionRepo.create({ id: SEED_SECTION_1_ID, section_name: 'Section A', class_id: SEED_CLASS_1_ID, tenant_id: SEED_TENANT_ID }));
+  await schoolRepo.save(
+    schoolRepo.create({ id: SEED_TENANT_ID, name: 'Test School', slug: 'test-school' }),
+  );
+  await userRepo.save(
+    userRepo.create({
+      id: SEED_ADMIN_USER_ID,
+      email: SEED_ADMIN_EMAIL,
+      password_hash: SEED_ADMIN_PASSWORD_HASH,
+      full_name: 'Test Admin',
+    }),
+  );
+  await ayRepo.save(
+    ayRepo.create({
+      id: SEED_ACADEMIC_YEAR_ID,
+      name: '2026-2027',
+      start_date: new Date('2020-01-01'),
+      end_date: new Date('2035-12-31'),
+      is_current: true,
+      tenant_id: SEED_TENANT_ID,
+    }),
+  );
+  await classRepo.save(
+    classRepo.create({
+      id: SEED_CLASS_1_ID,
+      name: 'Class One',
+      academic_year_id: SEED_ACADEMIC_YEAR_ID,
+      tenant_id: SEED_TENANT_ID,
+    }),
+  );
+  await sectionRepo.save(
+    sectionRepo.create({
+      id: SEED_SECTION_1_ID,
+      section_name: 'Section A',
+      class_id: SEED_CLASS_1_ID,
+      tenant_id: SEED_TENANT_ID,
+    }),
+  );
 
-  await schoolRepo.save(schoolRepo.create({ id: OTHER_TENANT_ID, name: 'Other School', slug: 'other-school' }));
+  await schoolRepo.save(
+    schoolRepo.create({ id: OTHER_TENANT_ID, name: 'Other School', slug: 'other-school' }),
+  );
 }
 
 describe('PaymentAllocationService (integration)', () => {
@@ -138,7 +167,9 @@ describe('PaymentAllocationService (integration)', () => {
     studentRepo = module.get<Repository<Student>>(getRepositoryToken(Student));
     studentFeeRepo = module.get<Repository<StudentFee>>(getRepositoryToken(StudentFee));
     paymentRepo = module.get<Repository<Payment>>(getRepositoryToken(Payment));
-    allocationRepo = module.get<Repository<PaymentAllocation>>(getRepositoryToken(PaymentAllocation));
+    allocationRepo = module.get<Repository<PaymentAllocation>>(
+      getRepositoryToken(PaymentAllocation),
+    );
     invoiceRepo = module.get<Repository<Invoice>>(getRepositoryToken(Invoice));
     auditLogRepo = module.get<Repository<AuditLog>>(getRepositoryToken(AuditLog));
     dataSource = module.get(DataSource);
@@ -173,7 +204,13 @@ describe('PaymentAllocationService (integration)', () => {
           student_id: student.id,
           total_amount: 400,
           payment_method: PaymentMethod.CASH,
-          allocations: [{ student_fee_id: fee.id, allocated_amount: 400, allocation_type: PaymentAllocationType.CURRENT }],
+          allocations: [
+            {
+              student_fee_id: fee.id,
+              allocated_amount: 400,
+              allocation_type: PaymentAllocationType.CURRENT,
+            },
+          ],
         } as any,
         TENANT_ID,
         SEED_ADMIN_USER_ID,
@@ -202,7 +239,13 @@ describe('PaymentAllocationService (integration)', () => {
           student_id: student.id,
           total_amount: 1000,
           payment_method: PaymentMethod.CASH,
-          allocations: [{ student_fee_id: fee.id, allocated_amount: 1000, allocation_type: PaymentAllocationType.CURRENT }],
+          allocations: [
+            {
+              student_fee_id: fee.id,
+              allocated_amount: 1000,
+              allocation_type: PaymentAllocationType.CURRENT,
+            },
+          ],
         } as any,
         TENANT_ID,
         SEED_ADMIN_USER_ID,
@@ -229,7 +272,13 @@ describe('PaymentAllocationService (integration)', () => {
           student_id: student.id,
           total_amount: 1000,
           payment_method: PaymentMethod.CASH,
-          allocations: [{ student_fee_id: fee.id, allocated_amount: 1000, allocation_type: PaymentAllocationType.CURRENT }],
+          allocations: [
+            {
+              student_fee_id: fee.id,
+              allocated_amount: 1000,
+              allocation_type: PaymentAllocationType.CURRENT,
+            },
+          ],
           generate_invoice: false,
         } as any,
         TENANT_ID,
@@ -248,12 +297,34 @@ describe('PaymentAllocationService (integration)', () => {
       const fee2 = await studentFeeRepo.save(makeFee(student2.id, 0));
 
       const r1 = await service.recordWithAllocation(
-        { student_id: student1.id, total_amount: 1000, payment_method: PaymentMethod.CASH, allocations: [{ student_fee_id: fee1.id, allocated_amount: 1000, allocation_type: PaymentAllocationType.CURRENT }] } as any,
+        {
+          student_id: student1.id,
+          total_amount: 1000,
+          payment_method: PaymentMethod.CASH,
+          allocations: [
+            {
+              student_fee_id: fee1.id,
+              allocated_amount: 1000,
+              allocation_type: PaymentAllocationType.CURRENT,
+            },
+          ],
+        } as any,
         TENANT_ID,
         SEED_ADMIN_USER_ID,
       );
       const r2 = await service.recordWithAllocation(
-        { student_id: student2.id, total_amount: 1000, payment_method: PaymentMethod.CASH, allocations: [{ student_fee_id: fee2.id, allocated_amount: 1000, allocation_type: PaymentAllocationType.CURRENT }] } as any,
+        {
+          student_id: student2.id,
+          total_amount: 1000,
+          payment_method: PaymentMethod.CASH,
+          allocations: [
+            {
+              student_fee_id: fee2.id,
+              allocated_amount: 1000,
+              allocation_type: PaymentAllocationType.CURRENT,
+            },
+          ],
+        } as any,
         TENANT_ID,
         SEED_ADMIN_USER_ID,
       );
@@ -280,10 +351,26 @@ describe('PaymentAllocationService (integration)', () => {
           total_amount: 2000,
           payment_method: PaymentMethod.CASH,
           allocations: [
-            { student_fee_id: dueOld.id, allocated_amount: 500, allocation_type: PaymentAllocationType.DUE },
-            { student_fee_id: dueRecent.id, allocated_amount: 500, allocation_type: PaymentAllocationType.DUE },
-            { student_fee_id: current.id, allocated_amount: 500, allocation_type: PaymentAllocationType.CURRENT },
-            { student_fee_id: advance.id, allocated_amount: 500, allocation_type: PaymentAllocationType.ADVANCE },
+            {
+              student_fee_id: dueOld.id,
+              allocated_amount: 500,
+              allocation_type: PaymentAllocationType.DUE,
+            },
+            {
+              student_fee_id: dueRecent.id,
+              allocated_amount: 500,
+              allocation_type: PaymentAllocationType.DUE,
+            },
+            {
+              student_fee_id: current.id,
+              allocated_amount: 500,
+              allocation_type: PaymentAllocationType.CURRENT,
+            },
+            {
+              student_fee_id: advance.id,
+              allocated_amount: 500,
+              allocation_type: PaymentAllocationType.ADVANCE,
+            },
           ],
         } as any,
         TENANT_ID,
@@ -314,7 +401,13 @@ describe('PaymentAllocationService (integration)', () => {
             student_id: student.id,
             total_amount: 500,
             payment_method: PaymentMethod.CASH,
-            allocations: [{ student_fee_id: dueRecent.id, allocated_amount: 500, allocation_type: PaymentAllocationType.DUE }],
+            allocations: [
+              {
+                student_fee_id: dueRecent.id,
+                allocated_amount: 500,
+                allocation_type: PaymentAllocationType.DUE,
+              },
+            ],
           } as any,
           TENANT_ID,
           SEED_ADMIN_USER_ID,
@@ -333,7 +426,13 @@ describe('PaymentAllocationService (integration)', () => {
             student_id: student.id,
             total_amount: 500,
             payment_method: PaymentMethod.CASH,
-            allocations: [{ student_fee_id: current.id, allocated_amount: 500, allocation_type: PaymentAllocationType.CURRENT }],
+            allocations: [
+              {
+                student_fee_id: current.id,
+                allocated_amount: 500,
+                allocation_type: PaymentAllocationType.CURRENT,
+              },
+            ],
           } as any,
           TENANT_ID,
           SEED_ADMIN_USER_ID,
@@ -351,7 +450,13 @@ describe('PaymentAllocationService (integration)', () => {
             student_id: student.id,
             total_amount: 500,
             payment_method: PaymentMethod.CASH,
-            allocations: [{ student_fee_id: due.id, allocated_amount: 500, allocation_type: PaymentAllocationType.CURRENT }],
+            allocations: [
+              {
+                student_fee_id: due.id,
+                allocated_amount: 500,
+                allocation_type: PaymentAllocationType.CURRENT,
+              },
+            ],
           } as any,
           TENANT_ID,
           SEED_ADMIN_USER_ID,
@@ -370,7 +475,13 @@ describe('PaymentAllocationService (integration)', () => {
             student_id: student.id,
             total_amount: 500,
             payment_method: PaymentMethod.CASH,
-            allocations: [{ student_fee_id: dueRecent.id, allocated_amount: 500, allocation_type: PaymentAllocationType.DUE }],
+            allocations: [
+              {
+                student_fee_id: dueRecent.id,
+                allocated_amount: 500,
+                allocation_type: PaymentAllocationType.DUE,
+              },
+            ],
           } as any,
           TENANT_ID,
           SEED_ADMIN_USER_ID,
@@ -395,7 +506,13 @@ describe('PaymentAllocationService (integration)', () => {
             student_id: student.id,
             total_amount: 1000,
             payment_method: PaymentMethod.CASH,
-            allocations: [{ student_fee_id: fee.id, allocated_amount: 400, allocation_type: PaymentAllocationType.CURRENT }],
+            allocations: [
+              {
+                student_fee_id: fee.id,
+                allocated_amount: 400,
+                allocation_type: PaymentAllocationType.CURRENT,
+              },
+            ],
           } as any,
           TENANT_ID,
           SEED_ADMIN_USER_ID,
@@ -414,8 +531,16 @@ describe('PaymentAllocationService (integration)', () => {
             total_amount: 1000,
             payment_method: PaymentMethod.CASH,
             allocations: [
-              { student_fee_id: fee.id, allocated_amount: 500, allocation_type: PaymentAllocationType.CURRENT },
-              { student_fee_id: fee.id, allocated_amount: 500, allocation_type: PaymentAllocationType.CURRENT },
+              {
+                student_fee_id: fee.id,
+                allocated_amount: 500,
+                allocation_type: PaymentAllocationType.CURRENT,
+              },
+              {
+                student_fee_id: fee.id,
+                allocated_amount: 500,
+                allocation_type: PaymentAllocationType.CURRENT,
+              },
             ],
           } as any,
           TENANT_ID,
@@ -434,7 +559,13 @@ describe('PaymentAllocationService (integration)', () => {
             student_id: student.id,
             total_amount: 1000,
             payment_method: PaymentMethod.CASH,
-            allocations: [{ student_fee_id: fee.id, allocated_amount: 1000, allocation_type: PaymentAllocationType.CURRENT }],
+            allocations: [
+              {
+                student_fee_id: fee.id,
+                allocated_amount: 1000,
+                allocation_type: PaymentAllocationType.CURRENT,
+              },
+            ],
           } as any,
           TENANT_ID,
           SEED_ADMIN_USER_ID,
@@ -447,7 +578,9 @@ describe('PaymentAllocationService (integration)', () => {
       // total_amount === discount_amount, so remaining is 0 even though status
       // is still PENDING (nothing has re-evaluated the status) — this fee must
       // not silently absorb money with no PaymentAllocation to show for it.
-      const fee = await studentFeeRepo.save(makeFee(student.id, 0, { total_amount: 500, discount_amount: 500 }));
+      const fee = await studentFeeRepo.save(
+        makeFee(student.id, 0, { total_amount: 500, discount_amount: 500 }),
+      );
 
       await expect(
         service.recordWithAllocation(
@@ -455,7 +588,13 @@ describe('PaymentAllocationService (integration)', () => {
             student_id: student.id,
             total_amount: 500,
             payment_method: PaymentMethod.CASH,
-            allocations: [{ student_fee_id: fee.id, allocated_amount: 500, allocation_type: PaymentAllocationType.CURRENT }],
+            allocations: [
+              {
+                student_fee_id: fee.id,
+                allocated_amount: 500,
+                allocation_type: PaymentAllocationType.CURRENT,
+              },
+            ],
           } as any,
           TENANT_ID,
           SEED_ADMIN_USER_ID,
@@ -473,7 +612,13 @@ describe('PaymentAllocationService (integration)', () => {
             student_id: '00000000-0000-4000-8000-000000000000',
             total_amount: 100,
             payment_method: PaymentMethod.CASH,
-            allocations: [{ student_fee_id: '00000000-0000-4000-8000-000000000001', allocated_amount: 100, allocation_type: PaymentAllocationType.CURRENT }],
+            allocations: [
+              {
+                student_fee_id: '00000000-0000-4000-8000-000000000001',
+                allocated_amount: 100,
+                allocation_type: PaymentAllocationType.CURRENT,
+              },
+            ],
           } as any,
           TENANT_ID,
           SEED_ADMIN_USER_ID,
@@ -482,7 +627,9 @@ describe('PaymentAllocationService (integration)', () => {
     });
 
     it('throws NotFoundException when student belongs to a different tenant', async () => {
-      const student = await studentRepo.save(makeStudent({ tenant_id: OTHER_TENANT_ID, class_section_id: SEED_SECTION_1_ID }));
+      const student = await studentRepo.save(
+        makeStudent({ tenant_id: OTHER_TENANT_ID, class_section_id: SEED_SECTION_1_ID }),
+      );
 
       await expect(
         service.recordWithAllocation(
@@ -490,7 +637,13 @@ describe('PaymentAllocationService (integration)', () => {
             student_id: student.id,
             total_amount: 100,
             payment_method: PaymentMethod.CASH,
-            allocations: [{ student_fee_id: '00000000-0000-4000-8000-000000000001', allocated_amount: 100, allocation_type: PaymentAllocationType.CURRENT }],
+            allocations: [
+              {
+                student_fee_id: '00000000-0000-4000-8000-000000000001',
+                allocated_amount: 100,
+                allocation_type: PaymentAllocationType.CURRENT,
+              },
+            ],
           } as any,
           TENANT_ID,
           SEED_ADMIN_USER_ID,
@@ -509,7 +662,13 @@ describe('PaymentAllocationService (integration)', () => {
             student_id: student.id,
             total_amount: 1000,
             payment_method: PaymentMethod.CASH,
-            allocations: [{ student_fee_id: foreignFee.id, allocated_amount: 1000, allocation_type: PaymentAllocationType.CURRENT }],
+            allocations: [
+              {
+                student_fee_id: foreignFee.id,
+                allocated_amount: 1000,
+                allocation_type: PaymentAllocationType.CURRENT,
+              },
+            ],
           } as any,
           TENANT_ID,
           SEED_ADMIN_USER_ID,
@@ -528,13 +687,21 @@ describe('PaymentAllocationService (integration)', () => {
           student_id: student.id,
           total_amount: 400,
           payment_method: PaymentMethod.CASH,
-          allocations: [{ student_fee_id: fee.id, allocated_amount: 400, allocation_type: PaymentAllocationType.CURRENT }],
+          allocations: [
+            {
+              student_fee_id: fee.id,
+              allocated_amount: 400,
+              allocation_type: PaymentAllocationType.CURRENT,
+            },
+          ],
         } as any,
         TENANT_ID,
         SEED_ADMIN_USER_ID,
       );
 
-      const logs = await auditLogRepo.find({ where: { entity_id: result.id, action: AuditAction.PAYMENT_RECEIVED } });
+      const logs = await auditLogRepo.find({
+        where: { entity_id: result.id, action: AuditAction.PAYMENT_RECEIVED },
+      });
       expect(logs).toHaveLength(1);
       expect(logs[0].performed_by_user_id).toBe(SEED_ADMIN_USER_ID);
       expect(logs[0].entity_type).toBe('Payment');
@@ -550,13 +717,21 @@ describe('PaymentAllocationService (integration)', () => {
           student_id: student.id,
           total_amount: 1000,
           payment_method: PaymentMethod.CASH,
-          allocations: [{ student_fee_id: fee.id, allocated_amount: 1000, allocation_type: PaymentAllocationType.CURRENT }],
+          allocations: [
+            {
+              student_fee_id: fee.id,
+              allocated_amount: 1000,
+              allocation_type: PaymentAllocationType.CURRENT,
+            },
+          ],
         } as any,
         TENANT_ID,
         SEED_ADMIN_USER_ID,
       );
 
-      const logs = await auditLogRepo.find({ where: { entity_id: result.invoice_id!, action: AuditAction.INVOICE_GENERATED } });
+      const logs = await auditLogRepo.find({
+        where: { entity_id: result.invoice_id!, action: AuditAction.INVOICE_GENERATED },
+      });
       expect(logs).toHaveLength(1);
       expect(logs[0].tenant_id).toBe(TENANT_ID);
     });
@@ -573,7 +748,13 @@ describe('PaymentAllocationService (integration)', () => {
             student_id: student.id,
             total_amount: 1000,
             payment_method: PaymentMethod.CASH,
-            allocations: [{ student_fee_id: fee.id, allocated_amount: 1000, allocation_type: PaymentAllocationType.CURRENT }],
+            allocations: [
+              {
+                student_fee_id: fee.id,
+                allocated_amount: 1000,
+                allocation_type: PaymentAllocationType.CURRENT,
+              },
+            ],
           } as any,
           TENANT_ID,
           SEED_ADMIN_USER_ID,
@@ -611,19 +792,30 @@ describe('PaymentAllocationService (integration)', () => {
             student_id: studentId,
             total_amount: 1000,
             payment_method: PaymentMethod.CASH,
-            allocations: [{ student_fee_id: feeId, allocated_amount: 1000, allocation_type: PaymentAllocationType.CURRENT }],
+            allocations: [
+              {
+                student_fee_id: feeId,
+                allocated_amount: 1000,
+                allocation_type: PaymentAllocationType.CURRENT,
+              },
+            ],
           } as any,
           TENANT_ID,
           SEED_ADMIN_USER_ID,
         );
 
-      const [resultA, resultB] = await Promise.all([pay(studentA.id, feeA.id), pay(studentB.id, feeB.id)]);
+      const [resultA, resultB] = await Promise.all([
+        pay(studentA.id, feeA.id),
+        pay(studentB.id, feeB.id),
+      ]);
 
       expect(resultA.invoice_id).not.toBeNull();
       expect(resultB.invoice_id).not.toBeNull();
       expect(resultA.invoice_id).not.toBe(resultB.invoice_id);
 
-      const invoices = await invoiceRepo.find({ where: [{ id: resultA.invoice_id! }, { id: resultB.invoice_id! }] });
+      const invoices = await invoiceRepo.find({
+        where: [{ id: resultA.invoice_id! }, { id: resultB.invoice_id! }],
+      });
       const numbers = invoices.map((i) => i.invoice_number);
       expect(new Set(numbers).size).toBe(2);
     });

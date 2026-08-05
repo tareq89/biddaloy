@@ -49,43 +49,79 @@ async function seedReferenceData(ds: DataSource): Promise<void> {
   const sectionRepo = ds.getRepository(ClassSection);
 
   // Tenant 1
-  await schoolRepo.save(schoolRepo.create({
-    id: SEED_TENANT_ID, name: 'Test School', slug: 'test-school', tenant_id: SEED_TENANT_ID,
-  }));
-  await ayRepo.save(ayRepo.create({
-    id: SEED_ACADEMIC_YEAR_ID, name: '2026-2027',
-    start_date: new Date('2026-01-01'), end_date: new Date('2026-12-31'),
-    is_current: true, tenant_id: SEED_TENANT_ID,
-  }));
-  await classRepo.save(classRepo.create({
-    id: SEED_CLASS_1_ID, name: 'Class One',
-    academic_year_id: SEED_ACADEMIC_YEAR_ID, tenant_id: SEED_TENANT_ID,
-  }));
-  await sectionRepo.save(sectionRepo.create({
-    id: SEED_SECTION_1_ID, section_name: 'Section A',
-    class_id: SEED_CLASS_1_ID, tenant_id: SEED_TENANT_ID,
-  }));
+  await schoolRepo.save(
+    schoolRepo.create({
+      id: SEED_TENANT_ID,
+      name: 'Test School',
+      slug: 'test-school',
+      tenant_id: SEED_TENANT_ID,
+    }),
+  );
+  await ayRepo.save(
+    ayRepo.create({
+      id: SEED_ACADEMIC_YEAR_ID,
+      name: '2026-2027',
+      start_date: new Date('2026-01-01'),
+      end_date: new Date('2026-12-31'),
+      is_current: true,
+      tenant_id: SEED_TENANT_ID,
+    }),
+  );
+  await classRepo.save(
+    classRepo.create({
+      id: SEED_CLASS_1_ID,
+      name: 'Class One',
+      academic_year_id: SEED_ACADEMIC_YEAR_ID,
+      tenant_id: SEED_TENANT_ID,
+    }),
+  );
+  await sectionRepo.save(
+    sectionRepo.create({
+      id: SEED_SECTION_1_ID,
+      section_name: 'Section A',
+      class_id: SEED_CLASS_1_ID,
+      tenant_id: SEED_TENANT_ID,
+    }),
+  );
 
   // Other tenant
   const OTHER_AY_ID = '00000000-0000-4000-8000-000000000099';
   const OTHER_CLASS_ID = '00000000-0000-4000-8000-000000000098';
   const OTHER_SECTION_ID = '00000000-0000-4000-8000-000000000097';
-  await schoolRepo.save(schoolRepo.create({
-    id: OTHER_TENANT, name: 'Other School', slug: 'other-school', tenant_id: OTHER_TENANT,
-  }));
-  await ayRepo.save(ayRepo.create({
-    id: OTHER_AY_ID, name: 'Other 2026-2027',
-    start_date: new Date('2026-01-01'), end_date: new Date('2026-12-31'),
-    is_current: true, tenant_id: OTHER_TENANT,
-  }));
-  await classRepo.save(classRepo.create({
-    id: OTHER_CLASS_ID, name: 'Other Class',
-    academic_year_id: OTHER_AY_ID, tenant_id: OTHER_TENANT,
-  }));
-  await sectionRepo.save(sectionRepo.create({
-    id: OTHER_SECTION_ID, section_name: 'Other Section',
-    class_id: OTHER_CLASS_ID, tenant_id: OTHER_TENANT,
-  }));
+  await schoolRepo.save(
+    schoolRepo.create({
+      id: OTHER_TENANT,
+      name: 'Other School',
+      slug: 'other-school',
+      tenant_id: OTHER_TENANT,
+    }),
+  );
+  await ayRepo.save(
+    ayRepo.create({
+      id: OTHER_AY_ID,
+      name: 'Other 2026-2027',
+      start_date: new Date('2026-01-01'),
+      end_date: new Date('2026-12-31'),
+      is_current: true,
+      tenant_id: OTHER_TENANT,
+    }),
+  );
+  await classRepo.save(
+    classRepo.create({
+      id: OTHER_CLASS_ID,
+      name: 'Other Class',
+      academic_year_id: OTHER_AY_ID,
+      tenant_id: OTHER_TENANT,
+    }),
+  );
+  await sectionRepo.save(
+    sectionRepo.create({
+      id: OTHER_SECTION_ID,
+      section_name: 'Other Section',
+      class_id: OTHER_CLASS_ID,
+      tenant_id: OTHER_TENANT,
+    }),
+  );
 }
 
 describe('UserService (integration)', () => {
@@ -97,12 +133,10 @@ describe('UserService (integration)', () => {
   const TENANT_ID = SEED_TENANT_ID;
 
   beforeAll(async () => {
-    const module = await createTestModule(
-      ALL_ENTITIES,
-      [UserService, TeacherService],
-      [],
-      { synchronize: true, dropSchema: true },
-    );
+    const module = await createTestModule(ALL_ENTITIES, [UserService, TeacherService], [], {
+      synchronize: true,
+      dropSchema: true,
+    });
 
     service = module.get<UserService>(UserService);
     userRepo = module.get<Repository<User>>(getRepositoryToken(User));
@@ -186,14 +220,24 @@ describe('UserService (integration)', () => {
 
     it('should allow same email in different tenants (email is globally unique)', async () => {
       await service.create(
-        { full_name: 'User A', email: 'shared@example.com', password: 'pw', role: UserRole.TEACHER },
+        {
+          full_name: 'User A',
+          email: 'shared@example.com',
+          password: 'pw',
+          role: UserRole.TEACHER,
+        },
         TENANT_ID,
       );
 
       // Same email — should still conflict because email is globally unique
       await expect(
         service.create(
-          { full_name: 'User B', email: 'shared@example.com', password: 'pw', role: UserRole.ADMIN },
+          {
+            full_name: 'User B',
+            email: 'shared@example.com',
+            password: 'pw',
+            role: UserRole.ADMIN,
+          },
           OTHER_TENANT,
         ),
       ).rejects.toThrow(ConflictException);
@@ -228,7 +272,10 @@ describe('UserService (integration)', () => {
       await service.create({ full_name: 'Teacher A', role: UserRole.TEACHER }, TENANT_ID);
       await service.create({ full_name: 'Admin A', role: UserRole.ADMIN }, TENANT_ID);
 
-      const result = await service.findAll({ role: UserRole.TEACHER, page: 1, limit: 10 }, TENANT_ID);
+      const result = await service.findAll(
+        { role: UserRole.TEACHER, page: 1, limit: 10 },
+        TENANT_ID,
+      );
 
       expect(result.data).toHaveLength(1);
       expect(result.data[0].full_name).toBe('Teacher A');
@@ -283,9 +330,7 @@ describe('UserService (integration)', () => {
 
       await service.remove(user.id, TENANT_ID);
 
-      await expect(
-        service.findOne(user.id, TENANT_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(user.id, TENANT_ID)).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -295,7 +340,12 @@ describe('UserService (integration)', () => {
   describe('update', () => {
     it('should update user email and phone', async () => {
       const { user } = await service.create(
-        { full_name: 'Update Me', email: 'old@example.com', phone: '+8801', role: UserRole.TEACHER },
+        {
+          full_name: 'Update Me',
+          email: 'old@example.com',
+          phone: '+8801',
+          role: UserRole.TEACHER,
+        },
         TENANT_ID,
       );
 
@@ -315,11 +365,7 @@ describe('UserService (integration)', () => {
         TENANT_ID,
       );
 
-      const updated = await service.update(
-        user.id,
-        { full_name: 'Updated Name' },
-        TENANT_ID,
-      );
+      const updated = await service.update(user.id, { full_name: 'Updated Name' }, TENANT_ID);
 
       expect(updated.full_name).toBe('Updated Name');
     });
@@ -344,9 +390,7 @@ describe('UserService (integration)', () => {
       await service.remove(user.id, TENANT_ID);
 
       // Should not be found via findOne (no membership in this tenant)
-      await expect(
-        service.findOne(user.id, TENANT_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(user.id, TENANT_ID)).rejects.toThrow(NotFoundException);
 
       // Global user record persists, untouched
       const raw = await userRepo.findOne({ where: { id: user.id } });
@@ -378,12 +422,10 @@ describe('TeacherService (integration)', () => {
   const TENANT_ID = SEED_TENANT_ID;
 
   beforeAll(async () => {
-    const module = await createTestModule(
-      ALL_ENTITIES,
-      [UserService, TeacherService],
-      [],
-      { synchronize: true, dropSchema: true },
-    );
+    const module = await createTestModule(ALL_ENTITIES, [UserService, TeacherService], [], {
+      synchronize: true,
+      dropSchema: true,
+    });
 
     userService = module.get<UserService>(UserService);
     teacherService = module.get<TeacherService>(TeacherService);
@@ -474,26 +516,17 @@ describe('TeacherService (integration)', () => {
       );
 
       await expect(
-        teacherService.create(
-          { user_id: user.id, employee_id: 'EMP-002' },
-          TENANT_ID,
-        ),
+        teacherService.create({ user_id: user.id, employee_id: 'EMP-002' }, TENANT_ID),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw ConflictException when employee_id already exists', async () => {
       const user1 = await createTenantUser();
-      await teacherService.create(
-        { user_id: user1.id, employee_id: 'EMP-001' },
-        TENANT_ID,
-      );
+      await teacherService.create({ user_id: user1.id, employee_id: 'EMP-001' }, TENANT_ID);
 
       const user2 = await createTenantUser({ email: 'user2@example.com' });
       await expect(
-        teacherService.create(
-          { user_id: user2.id, employee_id: 'EMP-001' },
-          TENANT_ID,
-        ),
+        teacherService.create({ user_id: user2.id, employee_id: 'EMP-001' }, TENANT_ID),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -567,7 +600,10 @@ describe('TeacherService (integration)', () => {
       await teacherService.create({ user_id: u1.id, employee_id: 'EMP-001' }, TENANT_ID);
       await teacherService.create({ user_id: u2.id, employee_id: 'EMP-002' }, TENANT_ID);
 
-      const result = await teacherService.findAll({ search: 'Alice', page: 1, limit: 10 }, TENANT_ID);
+      const result = await teacherService.findAll(
+        { search: 'Alice', page: 1, limit: 10 },
+        TENANT_ID,
+      );
 
       expect(result.data).toHaveLength(1);
       expect(result.data[0].user.full_name).toBe('Alice Smith');
@@ -635,9 +671,9 @@ describe('TeacherService (integration)', () => {
         OTHER_TENANT,
       );
 
-      await expect(
-        teacherService.findOne(teacher.id, TENANT_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(teacherService.findOne(teacher.id, TENANT_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -688,11 +724,7 @@ describe('TeacherService (integration)', () => {
       expect(tcsEntries).toHaveLength(1);
 
       // Replace with different sections (empty)
-      await teacherService.update(
-        teacher.id,
-        { assigned_section_ids: [] },
-        TENANT_ID,
-      );
+      await teacherService.update(teacher.id, { assigned_section_ids: [] }, TENANT_ID);
 
       tcsEntries = await tcsRepo.find({ where: { teacher_id: teacher.id } });
       expect(tcsEntries).toHaveLength(0);

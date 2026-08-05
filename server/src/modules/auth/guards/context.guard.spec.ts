@@ -37,9 +37,7 @@ describe('ContextGuard', () => {
           sub: 'user-1',
           email: 'test@test.com',
           phone: null,
-          memberships: [
-            { tenantId: 'tenant-1', role: UserRole.ADMIN },
-          ],
+          memberships: [{ tenantId: 'tenant-1', role: UserRole.ADMIN }],
         },
         headers: { 'x-tenant-id': 'tenant-1' },
       };
@@ -58,8 +56,8 @@ describe('ContextGuard', () => {
           email: 'test@test.com',
           phone: null,
           memberships: [
-            { tenantId: 'tenant-1', role: UserRole.STUDENT },  // priority 50
-            { tenantId: 'tenant-1', role: UserRole.TEACHER },  // priority 70
+            { tenantId: 'tenant-1', role: UserRole.STUDENT }, // priority 50
+            { tenantId: 'tenant-1', role: UserRole.TEACHER }, // priority 70
           ],
         },
         headers: { 'x-tenant-id': 'tenant-1' },
@@ -80,8 +78,8 @@ describe('ContextGuard', () => {
           email: 'test@test.com',
           phone: null,
           memberships: [
-            { tenantId: 'tenant-1', role: UserRole.TEACHER },  // priority 70
-            { tenantId: 'tenant-1', role: UserRole.STUDENT },  // priority 50
+            { tenantId: 'tenant-1', role: UserRole.TEACHER }, // priority 70
+            { tenantId: 'tenant-1', role: UserRole.STUDENT }, // priority 50
           ],
         },
         headers: { 'x-tenant-id': 'tenant-1' },
@@ -149,7 +147,7 @@ describe('ContextGuard', () => {
       expect(() => guard.canActivate(context)).toThrow('X-Tenant-ID header is required');
     });
 
-    it('should throw 401 when X-Tenant-ID is not in the user\'s memberships', () => {
+    it("should throw 401 when X-Tenant-ID is not in the user's memberships", () => {
       const req = {
         user: {
           sub: 'user-1',
@@ -162,10 +160,12 @@ describe('ContextGuard', () => {
       const context = createMockContext(req);
 
       expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
-      expect(() => guard.canActivate(context)).toThrow('User is not a member of tenant other-tenant');
+      expect(() => guard.canActivate(context)).toThrow(
+        'User is not a member of tenant other-tenant',
+      );
     });
 
-    it('should throw 401 when explicit X-Role is not found in the tenant\'s memberships', () => {
+    it("should throw 401 when explicit X-Role is not found in the tenant's memberships", () => {
       const req = {
         user: {
           sub: 'user-1',

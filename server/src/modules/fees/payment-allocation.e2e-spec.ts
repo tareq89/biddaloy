@@ -47,7 +47,16 @@ describe('Payment Recording (record-with-allocation) E2E', () => {
       `INSERT INTO students (id, full_name, registration_number, roll_number, class_section_id, tenant_id, date_of_birth, preferred_communication, enrollment_status, created_at, updated_at)
        VALUES (DEFAULT, $1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
        RETURNING id`,
-      [`Pay Student ${studentSeq}`, `REG-PAY-E2E-${String(studentSeq).padStart(4, '0')}`, studentSeq, SEED_SECTION_1_ID, TENANT_ID, '2010-01-01', 'SMS', 'ACTIVE'],
+      [
+        `Pay Student ${studentSeq}`,
+        `REG-PAY-E2E-${String(studentSeq).padStart(4, '0')}`,
+        studentSeq,
+        SEED_SECTION_1_ID,
+        TENANT_ID,
+        '2010-01-01',
+        'SMS',
+        'ACTIVE',
+      ],
     );
     return res[0].id;
   }
@@ -120,7 +129,13 @@ describe('Payment Recording (record-with-allocation) E2E', () => {
           student_id: studentId,
           total_amount: 400,
           payment_method: PaymentMethod.CASH,
-          allocations: [{ student_fee_id: feeId, allocated_amount: 400, allocation_type: PaymentAllocationType.CURRENT }],
+          allocations: [
+            {
+              student_fee_id: feeId,
+              allocated_amount: 400,
+              allocation_type: PaymentAllocationType.CURRENT,
+            },
+          ],
         })
         .expect(201);
 
@@ -145,13 +160,21 @@ describe('Payment Recording (record-with-allocation) E2E', () => {
           student_id: studentId,
           total_amount: 1000,
           payment_method: PaymentMethod.CASH,
-          allocations: [{ student_fee_id: feeId, allocated_amount: 1000, allocation_type: PaymentAllocationType.CURRENT }],
+          allocations: [
+            {
+              student_fee_id: feeId,
+              allocated_amount: 1000,
+              allocation_type: PaymentAllocationType.CURRENT,
+            },
+          ],
         })
         .expect(201);
 
       expect(res.body.invoice_id).not.toBeNull();
 
-      const invoice = await dataSource.query(`SELECT * FROM invoices WHERE id = $1`, [res.body.invoice_id]);
+      const invoice = await dataSource.query(`SELECT * FROM invoices WHERE id = $1`, [
+        res.body.invoice_id,
+      ]);
       expect(invoice).toHaveLength(1);
       expect(Number(invoice[0].total_amount)).toBe(1000);
 
@@ -175,7 +198,13 @@ describe('Payment Recording (record-with-allocation) E2E', () => {
           student_id: studentId,
           total_amount: 1000,
           payment_method: PaymentMethod.CASH,
-          allocations: [{ student_fee_id: feeId, allocated_amount: 1000, allocation_type: PaymentAllocationType.CURRENT }],
+          allocations: [
+            {
+              student_fee_id: feeId,
+              allocated_amount: 1000,
+              allocation_type: PaymentAllocationType.CURRENT,
+            },
+          ],
         })
         .expect(401);
 
@@ -196,7 +225,13 @@ describe('Payment Recording (record-with-allocation) E2E', () => {
           student_id: studentId,
           total_amount: 500,
           payment_method: PaymentMethod.CASH,
-          allocations: [{ student_fee_id: dueRecentId, allocated_amount: 500, allocation_type: PaymentAllocationType.DUE }],
+          allocations: [
+            {
+              student_fee_id: dueRecentId,
+              allocated_amount: 500,
+              allocation_type: PaymentAllocationType.DUE,
+            },
+          ],
         })
         .expect(400);
     });
@@ -221,7 +256,13 @@ describe('Payment Recording (record-with-allocation) E2E', () => {
           student_id: '00000000-0000-4000-8000-000000000000',
           total_amount: 100,
           payment_method: PaymentMethod.CASH,
-          allocations: [{ student_fee_id: '00000000-0000-4000-8000-000000000001', allocated_amount: 100, allocation_type: PaymentAllocationType.CURRENT }],
+          allocations: [
+            {
+              student_fee_id: '00000000-0000-4000-8000-000000000001',
+              allocated_amount: 100,
+              allocation_type: PaymentAllocationType.CURRENT,
+            },
+          ],
         })
         .expect(404);
     });

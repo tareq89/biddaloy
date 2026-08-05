@@ -89,7 +89,9 @@ describe('CommunicationsController', () => {
 
     it('should propagate NotFoundException from service.findOne', async () => {
       const { NotFoundException } = await import('@nestjs/common');
-      service.findOne.mockRejectedValue(new NotFoundException('Communication log with ID "bad" not found'));
+      service.findOne.mockRejectedValue(
+        new NotFoundException('Communication log with ID "bad" not found'),
+      );
 
       await expect(controller.findOne('bad', TENANT)).rejects.toThrow(NotFoundException);
     });
@@ -119,7 +121,12 @@ describe('CommunicationsController', () => {
 
       const result = await controller.sendBulkReminder(dto as any, TENANT, USER, REQUEST);
 
-      expect(bulkReminderService.sendBulk).toHaveBeenCalledWith(dto, TENANT.id, USER.sub, REQUEST_CONTEXT);
+      expect(bulkReminderService.sendBulk).toHaveBeenCalledWith(
+        dto,
+        TENANT.id,
+        USER.sub,
+        REQUEST_CONTEXT,
+      );
       expect(result).toEqual(expected);
     });
   });
@@ -139,7 +146,9 @@ describe('CommunicationsController', () => {
       const { NotFoundException } = await import('@nestjs/common');
       bulkReminderService.findBatch.mockRejectedValue(new NotFoundException('not found'));
 
-      await expect(controller.findReminderBatch('batch-1', TENANT)).rejects.toThrow(NotFoundException);
+      await expect(controller.findReminderBatch('batch-1', TENANT)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -173,7 +182,13 @@ describe('CommunicationsController', () => {
 
       const result = await controller.sendSingleReminder('s-1', dto as any, TENANT, USER, REQUEST);
 
-      expect(singleReminderService.sendSingle).toHaveBeenCalledWith('s-1', dto, TENANT.id, USER.sub, REQUEST_CONTEXT);
+      expect(singleReminderService.sendSingle).toHaveBeenCalledWith(
+        's-1',
+        dto,
+        TENANT.id,
+        USER.sub,
+        REQUEST_CONTEXT,
+      );
       expect(result).toEqual(expected);
     });
 
@@ -182,7 +197,13 @@ describe('CommunicationsController', () => {
       singleReminderService.sendSingle.mockRejectedValue(new NotFoundException('not found'));
 
       await expect(
-        controller.sendSingleReminder('s-1', { message_template: 'Hi' } as any, TENANT, USER, REQUEST),
+        controller.sendSingleReminder(
+          's-1',
+          { message_template: 'Hi' } as any,
+          TENANT,
+          USER,
+          REQUEST,
+        ),
       ).rejects.toThrow(NotFoundException);
     });
   });

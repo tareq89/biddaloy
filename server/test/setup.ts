@@ -51,8 +51,8 @@ function assertTestDatabaseUrl(url: string): void {
   if (!/test/i.test(dbName)) {
     throw new Error(
       `Refusing to run tests against database "${dbName}" — its name doesn't ` +
-      'contain "test". Point DATABASE_URL in server/.env.test at a dedicated ' +
-      'test database (e.g. betonboi_test) to avoid wiping real data.'
+        'contain "test". Point DATABASE_URL in server/.env.test at a dedicated ' +
+        'test database (e.g. betonboi_test) to avoid wiping real data.',
     );
   }
 }
@@ -65,7 +65,7 @@ async function setupTestDatabase(): Promise<void> {
   if (!testDbUrl) {
     throw new Error(
       'DATABASE_URL is not set. Create a .env.test file with test database credentials.\n' +
-      'Example: DATABASE_URL=postgres://postgres:***@localhost:5432/betonboi_test'
+        'Example: DATABASE_URL=postgres://postgres:***@localhost:5432/betonboi_test',
     );
   }
   assertTestDatabaseUrl(testDbUrl);
@@ -96,10 +96,9 @@ async function seedBaselineData(): Promise<void> {
   await queryRunner.connect();
 
   try {
-    const existing = await queryRunner.query(
-      `SELECT id FROM schools WHERE id = $1`,
-      [SEED_TENANT_ID]
-    );
+    const existing = await queryRunner.query(`SELECT id FROM schools WHERE id = $1`, [
+      SEED_TENANT_ID,
+    ]);
     if (existing.length > 0) {
       return;
     }
@@ -107,47 +106,47 @@ async function seedBaselineData(): Promise<void> {
     await queryRunner.query(
       `INSERT INTO schools (id, name, slug, created_at, updated_at)
        VALUES ($1, $2, $3, NOW(), NOW())`,
-      [SEED_TENANT_ID, 'Test School', 'test-school']
+      [SEED_TENANT_ID, 'Test School', 'test-school'],
     );
 
     await queryRunner.query(
       `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
        VALUES ($1, $2, $3, $4, 'ACTIVE', NOW(), NOW())`,
-      [SEED_ADMIN_USER_ID, SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD_HASH, 'Test Admin']
+      [SEED_ADMIN_USER_ID, SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD_HASH, 'Test Admin'],
     );
 
     await queryRunner.query(
       `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
        VALUES ($1, $2, $3, NOW(), NOW())`,
-      [SEED_ADMIN_USER_ID, SEED_TENANT_ID, 'ADMIN']
+      [SEED_ADMIN_USER_ID, SEED_TENANT_ID, 'ADMIN'],
     );
 
     await queryRunner.query(
       `INSERT INTO academic_years (id, name, start_date, end_date, is_current, tenant_id, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())`,
-      [SEED_ACADEMIC_YEAR_ID, '2026-2027', '2026-01-01', '2026-12-31', true, SEED_TENANT_ID]
+      [SEED_ACADEMIC_YEAR_ID, '2026-2027', '2026-01-01', '2026-12-31', true, SEED_TENANT_ID],
     );
 
     await queryRunner.query(
       `INSERT INTO classes (id, name, academic_year_id, tenant_id, created_at, updated_at)
        VALUES ($1, $2, $3, $4, NOW(), NOW())`,
-      [SEED_CLASS_1_ID, 'Class 1', SEED_ACADEMIC_YEAR_ID, SEED_TENANT_ID]
+      [SEED_CLASS_1_ID, 'Class 1', SEED_ACADEMIC_YEAR_ID, SEED_TENANT_ID],
     );
     await queryRunner.query(
       `INSERT INTO classes (id, name, academic_year_id, tenant_id, created_at, updated_at)
        VALUES ($1, $2, $3, $4, NOW(), NOW())`,
-      [SEED_CLASS_2_ID, 'Class 2', SEED_ACADEMIC_YEAR_ID, SEED_TENANT_ID]
+      [SEED_CLASS_2_ID, 'Class 2', SEED_ACADEMIC_YEAR_ID, SEED_TENANT_ID],
     );
 
     await queryRunner.query(
       `INSERT INTO class_sections (id, section_name, class_id, tenant_id, created_at, updated_at)
        VALUES ($1, $2, $3, $4, NOW(), NOW())`,
-      [SEED_SECTION_1_ID, 'Section A', SEED_CLASS_1_ID, SEED_TENANT_ID]
+      [SEED_SECTION_1_ID, 'Section A', SEED_CLASS_1_ID, SEED_TENANT_ID],
     );
     await queryRunner.query(
       `INSERT INTO class_sections (id, section_name, class_id, tenant_id, created_at, updated_at)
        VALUES ($1, $2, $3, $4, NOW(), NOW())`,
-      [SEED_SECTION_2_ID, 'Section B', SEED_CLASS_2_ID, SEED_TENANT_ID]
+      [SEED_SECTION_2_ID, 'Section B', SEED_CLASS_2_ID, SEED_TENANT_ID],
     );
   } finally {
     await queryRunner.release();
@@ -169,10 +168,21 @@ async function clearTransactionalTables(): Promise<void> {
     // which are also excluded), and truncating it here would strip the
     // seeded admin's authorization on the very first beforeEach.
     const tables = [
-      'students', 'guardians', 'student_guardians', 'fee_structures',
-      'fee_structure_students', 'student_fees', 'payments', 'payment_allocations',
-      'invoices', 'communication_logs', 'reminder_batches', 'audit_logs',
-      'enrollments', 'teacher_class_sections', 'teachers',
+      'students',
+      'guardians',
+      'student_guardians',
+      'fee_structures',
+      'fee_structure_students',
+      'student_fees',
+      'payments',
+      'payment_allocations',
+      'invoices',
+      'communication_logs',
+      'reminder_batches',
+      'audit_logs',
+      'enrollments',
+      'teacher_class_sections',
+      'teachers',
     ];
 
     for (const table of tables) {

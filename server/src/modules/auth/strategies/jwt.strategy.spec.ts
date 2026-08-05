@@ -78,7 +78,10 @@ describe('JwtStrategy', () => {
   it('throws instead of falling back to a default secret when JWT_SECRET is missing', () => {
     expect(
       () =>
-        new JwtStrategy(configServiceWithSecret(undefined), mockDenylist as unknown as AccessTokenDenylistService),
+        new JwtStrategy(
+          configServiceWithSecret(undefined),
+          mockDenylist as unknown as AccessTokenDenylistService,
+        ),
     ).toThrow('JWT_SECRET is not configured');
   });
 });

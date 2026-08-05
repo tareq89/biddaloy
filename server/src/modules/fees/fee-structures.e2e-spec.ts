@@ -7,7 +7,14 @@ import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { DataSource } from 'typeorm';
 import { UserRole, FeeType, FeeApplicability } from '@beton-boi/shared';
-import { SEED_TENANT_ID, SEED_ADMIN_EMAIL, SEED_ADMIN_USER_ID, SEED_ADMIN_PASSWORD, SEED_CLASS_1_ID, SEED_ACADEMIC_YEAR_ID } from '@test/constants';
+import {
+  SEED_TENANT_ID,
+  SEED_ADMIN_EMAIL,
+  SEED_ADMIN_USER_ID,
+  SEED_ADMIN_PASSWORD,
+  SEED_CLASS_1_ID,
+  SEED_ACADEMIC_YEAR_ID,
+} from '@test/constants';
 
 /**
  * E2E tests for Fee Structure endpoints.
@@ -28,7 +35,8 @@ describe('Fee Structures E2E', () => {
   const TENANT_ID = SEED_TENANT_ID;
 
   beforeAll(async () => {
-    process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgres://postgres:***@localhost:5432/betonboi';
+    process.env.DATABASE_URL =
+      process.env.DATABASE_URL || 'postgres://postgres:***@localhost:5432/betonboi';
     process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-do-not-use-in-production';
     process.env.NODE_ENV = 'test';
 
@@ -272,7 +280,17 @@ describe('Fee Structures E2E', () => {
           `INSERT INTO fee_structures (id, fee_type, name, amount, applicability, class_id, academic_year_id, month, is_recurring, tenant_id, created_at, updated_at)
            VALUES (DEFAULT, $1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
            RETURNING id`,
-          [FeeType.MONTHLY_TUITION, 'Tenant B Fee', 999, FeeApplicability.ALL, otherClassId, otherAcademicYearId, 7, true, OTHER_TENANT_ID],
+          [
+            FeeType.MONTHLY_TUITION,
+            'Tenant B Fee',
+            999,
+            FeeApplicability.ALL,
+            otherClassId,
+            otherAcademicYearId,
+            7,
+            true,
+            OTHER_TENANT_ID,
+          ],
         );
         const otherFeeStructureId = otherFeeStructure[0].id;
 

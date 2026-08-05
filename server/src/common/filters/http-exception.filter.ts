@@ -1,8 +1,8 @@
-import { ExceptionFilter, Catch, ArgumentsHost, Logger } from "@nestjs/common";
-import { randomUUID } from "crypto";
-import { Request, Response } from "express";
-import { buildErrorResponseBody, resolveDetailMessage, resolveStatus } from "./error-response";
-import { redactPii } from "../redact-log.util";
+import { ExceptionFilter, Catch, ArgumentsHost, Logger } from '@nestjs/common';
+import { randomUUID } from 'crypto';
+import { Request, Response } from 'express';
+import { buildErrorResponseBody, resolveDetailMessage, resolveStatus } from './error-response';
+import { redactPii } from '../redact-log.util';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
@@ -15,9 +15,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
-    const incomingRequestId = request.headers["x-request-id"];
+    const incomingRequestId = request.headers['x-request-id'];
     const requestId =
-      typeof incomingRequestId === "string" && incomingRequestId.length > 0 ? incomingRequestId : randomUUID();
+      typeof incomingRequestId === 'string' && incomingRequestId.length > 0
+        ? incomingRequestId
+        : randomUUID();
 
     const status = resolveStatus(exception);
     const body = buildErrorResponseBody(exception, {
@@ -38,12 +40,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const detail = resolveDetailMessage(exception);
     this.logger.error(
       redactPii(
-        `${request.method} ${request.url} → ${status}: ${Array.isArray(detail) ? detail.join("; ") : detail} [requestId=${requestId}]`,
+        `${request.method} ${request.url} → ${status}: ${Array.isArray(detail) ? detail.join('; ') : detail} [requestId=${requestId}]`,
       ),
       exception instanceof Error && exception.stack ? redactPii(exception.stack) : undefined,
     );
 
-    response.setHeader("X-Request-Id", requestId);
+    response.setHeader('X-Request-Id', requestId);
     response.status(status).json(body);
   }
 }

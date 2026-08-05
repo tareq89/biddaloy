@@ -1,4 +1,15 @@
-import { IsString, IsEmail, IsOptional, IsUUID, IsArray, IsEnum, IsInt, Min, Max, IsDateString } from 'class-validator';
+import {
+  IsString,
+  IsEmail,
+  IsOptional,
+  IsUUID,
+  IsArray,
+  IsEnum,
+  IsInt,
+  Min,
+  Max,
+  IsDateString,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { UserRole, TeacherDesignation } from '@beton-boi/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';

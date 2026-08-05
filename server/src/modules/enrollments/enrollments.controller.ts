@@ -1,12 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Patch,
-  Body,
-  Param,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
@@ -26,10 +18,7 @@ export class EnrollmentController {
 
   @Post()
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
-  create(
-    @Body() dto: CreateEnrollmentDto,
-    @CurrentTenant() tenant: { id: string; role: string },
-  ) {
+  create(@Body() dto: CreateEnrollmentDto, @CurrentTenant() tenant: { id: string; role: string }) {
     return this.service.create(dto, tenant.id);
   }
 

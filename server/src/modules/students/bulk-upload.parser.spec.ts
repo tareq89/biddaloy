@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import ExcelJS from 'exceljs';
-import { parseSpreadsheet, BulkUploadParseError, REQUIRED_HEADERS, BulkUploadHeader } from './bulk-upload.parser';
+import {
+  parseSpreadsheet,
+  BulkUploadParseError,
+  REQUIRED_HEADERS,
+  BulkUploadHeader,
+} from './bulk-upload.parser';
 
 /**
  * Unit tests for the pure spreadsheet parser (no DB involved).
@@ -24,7 +29,10 @@ const DEFAULTS: Record<BulkUploadHeader, string> = {
   preferred_communication: '',
 };
 
-function rowValues(headers: readonly string[], overrides: Partial<Record<BulkUploadHeader, string>> = {}): string[] {
+function rowValues(
+  headers: readonly string[],
+  overrides: Partial<Record<BulkUploadHeader, string>> = {},
+): string[] {
   const merged = { ...DEFAULTS, ...overrides };
   return headers.map((h) => merged[h as BulkUploadHeader] ?? '');
 }
@@ -83,13 +91,19 @@ describe('parseSpreadsheet', () => {
     const headers = [...REQUIRED_HEADERS];
     const buffer = await buildXlsxBuffer(headers, []);
 
-    await expect(parseSpreadsheet(buffer, 'students.xlsx')).rejects.toThrow('File contains no data rows');
+    await expect(parseSpreadsheet(buffer, 'students.xlsx')).rejects.toThrow(
+      'File contains no data rows',
+    );
   });
 
   it('skips fully blank rows without counting them as data', async () => {
     const headers = [...REQUIRED_HEADERS];
     const blankRow = headers.map(() => '');
-    const buffer = await buildXlsxBuffer(headers, [rowValues(headers), blankRow, rowValues(headers, { student_name: 'Third Row' })]);
+    const buffer = await buildXlsxBuffer(headers, [
+      rowValues(headers),
+      blankRow,
+      rowValues(headers, { student_name: 'Third Row' }),
+    ]);
 
     const rows = await parseSpreadsheet(buffer, 'students.xlsx');
 
@@ -115,15 +129,21 @@ describe('parseSpreadsheet', () => {
 
   it('rejects a file with more than the row limit', async () => {
     const headers = [...REQUIRED_HEADERS];
-    const rows = Array.from({ length: 2001 }, (_, i) => rowValues(headers, { student_name: `Student ${i}`, roll: String(i + 1) }));
+    const rows = Array.from({ length: 2001 }, (_, i) =>
+      rowValues(headers, { student_name: `Student ${i}`, roll: String(i + 1) }),
+    );
     const buffer = await buildXlsxBuffer(headers, rows);
 
-    await expect(parseSpreadsheet(buffer, 'students.xlsx')).rejects.toThrow('File has too many rows (max 2000)');
+    await expect(parseSpreadsheet(buffer, 'students.xlsx')).rejects.toThrow(
+      'File has too many rows (max 2000)',
+    );
   }, 20000);
 
   it('trims whitespace from cell values', async () => {
     const headers = [...REQUIRED_HEADERS];
-    const buffer = await buildXlsxBuffer(headers, [rowValues(headers, { student_name: '  Padded Name  ' })]);
+    const buffer = await buildXlsxBuffer(headers, [
+      rowValues(headers, { student_name: '  Padded Name  ' }),
+    ]);
 
     const rows = await parseSpreadsheet(buffer, 'students.xlsx');
 

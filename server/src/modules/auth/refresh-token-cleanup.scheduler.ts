@@ -1,11 +1,11 @@
-import { Injectable, OnModuleInit, Logger } from "@nestjs/common";
-import { InjectQueue } from "@nestjs/bullmq";
-import { Queue } from "bullmq";
+import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import {
   REFRESH_TOKEN_CLEANUP_QUEUE,
   REFRESH_TOKEN_CLEANUP_JOB_ID,
   REFRESH_TOKEN_CLEANUP_INTERVAL_MS,
-} from "./refresh-token-cleanup.constants";
+} from './refresh-token-cleanup.constants';
 
 /**
  * Registers the repeatable cleanup job on boot. BullMQ dedupes a repeatable

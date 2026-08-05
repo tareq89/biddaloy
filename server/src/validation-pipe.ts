@@ -1,4 +1,4 @@
-import type { ValidationPipeOptions } from "@nestjs/common";
+import type { ValidationPipeOptions } from '@nestjs/common';
 
 /**
  * The strict validation config used at boot (main.ts) and by every e2e spec,

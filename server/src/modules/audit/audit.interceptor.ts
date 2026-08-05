@@ -24,7 +24,10 @@ export class AuditInterceptor implements NestInterceptor {
   ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
-    const metadata = this.reflector.get<AuditedMetadata | undefined>(AUDITED_METADATA_KEY, context.getHandler());
+    const metadata = this.reflector.get<AuditedMetadata | undefined>(
+      AUDITED_METADATA_KEY,
+      context.getHandler(),
+    );
     if (!metadata) {
       return next.handle();
     }
@@ -37,7 +40,9 @@ export class AuditInterceptor implements NestInterceptor {
     return next.handle().pipe(
       tap((response: unknown) => {
         const entityId =
-          response && typeof response === 'object' && typeof (response as { id?: unknown }).id === 'string'
+          response &&
+          typeof response === 'object' &&
+          typeof (response as { id?: unknown }).id === 'string'
             ? (response as { id: string }).id
             : null;
 
@@ -57,7 +62,10 @@ export class AuditInterceptor implements NestInterceptor {
             performed_by_user_id: userId,
             ip_address: ip,
             user_agent: userAgent,
-            new_values: response && typeof response === 'object' ? (response as Record<string, unknown>) : null,
+            new_values:
+              response && typeof response === 'object'
+                ? (response as Record<string, unknown>)
+                : null,
           })
           .catch(() => undefined);
       }),

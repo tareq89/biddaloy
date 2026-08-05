@@ -1,11 +1,19 @@
 import { IsString, IsOptional, IsBoolean, IsDateString, IsNotEmpty } from 'class-validator';
-import { Validate, ValidationArguments, ValidatorConstraint, ValidatorConstraintInterface } from 'class-validator';
+import {
+  Validate,
+  ValidationArguments,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
+} from 'class-validator';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 
 @ValidatorConstraint({ name: 'isBefore', async: false })
 export class IsBeforeConstraint implements ValidatorConstraintInterface {
   validate(propertyValue: string, args: ValidationArguments) {
-    return new Date(propertyValue) < new Date((args.object as Record<string, string>)[args.constraints[0]]);
+    return (
+      new Date(propertyValue) <
+      new Date((args.object as Record<string, string>)[args.constraints[0]])
+    );
   }
   defaultMessage(args: ValidationArguments) {
     return `"${args.property}" must be earlier than "${args.constraints[0]}"`;

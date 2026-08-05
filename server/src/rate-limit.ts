@@ -16,7 +16,10 @@ export interface RateLimitTierOptions {
  * so env-driven numbers there would silently miss `.env`-file overrides in
  * local dev (only already-present process env vars would take effect).
  */
-export function resolveDefaultRateLimit(limitEnv: string | undefined, ttlMsEnv: string | undefined): RateLimitTierOptions {
+export function resolveDefaultRateLimit(
+  limitEnv: string | undefined,
+  ttlMsEnv: string | undefined,
+): RateLimitTierOptions {
   return {
     limit: limitEnv ? Number(limitEnv) : 100,
     ttl: ttlMsEnv ? Number(ttlMsEnv) : 60_000,

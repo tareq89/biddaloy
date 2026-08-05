@@ -8,7 +8,12 @@ import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { AuthService } from './auth.service';
 import { DataSource } from 'typeorm';
-import { SEED_TENANT_ID, SEED_ADMIN_EMAIL, SEED_ADMIN_USER_ID, SEED_ADMIN_PASSWORD } from '@test/constants';
+import {
+  SEED_TENANT_ID,
+  SEED_ADMIN_EMAIL,
+  SEED_ADMIN_USER_ID,
+  SEED_ADMIN_PASSWORD,
+} from '@test/constants';
 
 function extractSetCookieHeaders(res: supertest.Response): string[] {
   return (res.headers['set-cookie'] as unknown as string[] | undefined) ?? [];
@@ -41,7 +46,8 @@ describe('Auth E2E', () => {
 
   beforeAll(async () => {
     // Ensure test database is used
-    process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgres://postgres:***@localhost:5432/betonboi';
+    process.env.DATABASE_URL =
+      process.env.DATABASE_URL || 'postgres://postgres:***@localhost:5432/betonboi';
     process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-do-not-use-in-production';
     process.env.NODE_ENV = 'test';
 
@@ -159,7 +165,9 @@ describe('Auth E2E', () => {
     it('sets a __Host-prefixed httpOnly refresh cookie with the attributes the prefix requires', async () => {
       const res = await loginAsSeedAdmin(app);
 
-      const header = extractSetCookieHeaders(res).find((c) => c.startsWith('__Host-refresh_token='));
+      const header = extractSetCookieHeaders(res).find((c) =>
+        c.startsWith('__Host-refresh_token='),
+      );
       expect(header).toBeDefined();
       expect(header).toContain('HttpOnly');
       expect(header).toContain('Path=/');
@@ -250,7 +258,9 @@ describe('Auth E2E', () => {
           .expect(200);
 
         expect(res.body.memberships).toEqual(
-          expect.arrayContaining([expect.objectContaining({ tenantId: SEED_TENANT_ID, role: 'TEACHER' })]),
+          expect.arrayContaining([
+            expect.objectContaining({ tenantId: SEED_TENANT_ID, role: 'TEACHER' }),
+          ]),
         );
       } finally {
         await dataSource.query(`DELETE FROM user_tenants WHERE id = $1`, [newRole[0].id]);
@@ -272,9 +282,10 @@ describe('Auth E2E', () => {
       // the unit tests (refresh-token.service.spec.ts) already cover the
       // within-grace race behavior directly; this exercises the theft path
       // end to end against real Postgres.
-      await dataSource.query(`UPDATE refresh_tokens SET revoked_at = NOW() - INTERVAL '1 minute' WHERE id = $1`, [
-        firstId,
-      ]);
+      await dataSource.query(
+        `UPDATE refresh_tokens SET revoked_at = NOW() - INTERVAL '1 minute' WHERE id = $1`,
+        [firstId],
+      );
 
       await supertest(app.getHttpServer())
         .post('/api/v1/auth/refresh')
@@ -306,7 +317,9 @@ describe('Auth E2E', () => {
         .set('Cookie', `__Host-refresh_token=${cookie}`)
         .expect(204);
 
-      const clearHeader = extractSetCookieHeaders(res).find((c) => c.startsWith('__Host-refresh_token='));
+      const clearHeader = extractSetCookieHeaders(res).find((c) =>
+        c.startsWith('__Host-refresh_token='),
+      );
       expect(clearHeader).toContain('__Host-refresh_token=;');
 
       await supertest(app.getHttpServer())

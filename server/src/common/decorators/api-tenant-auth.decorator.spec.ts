@@ -15,7 +15,9 @@ describe('ApiTenantAuth', () => {
   it('documents X-Tenant-ID as required', () => {
     const headers = Reflect.getMetadata(DECORATORS.API_HEADERS, TestController);
 
-    expect(headers).toContainEqual(expect.objectContaining({ name: 'X-Tenant-ID', required: true }));
+    expect(headers).toContainEqual(
+      expect.objectContaining({ name: 'X-Tenant-ID', required: true }),
+    );
   });
 
   it('documents X-Role as optional', () => {

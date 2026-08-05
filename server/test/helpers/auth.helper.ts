@@ -63,9 +63,7 @@ export function createMockRequest(
 /**
  * Creates a mock execution context for NestJS guard testing.
  */
-export function createMockExecutionContext(
-  req: any,
-): any {
+export function createMockExecutionContext(req: any): any {
   return {
     switchToHttp: () => ({
       getRequest: () => req,
