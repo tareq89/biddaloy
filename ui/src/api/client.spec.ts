@@ -1,7 +1,7 @@
 import axios from 'axios';
 import MockAdapter from 'axios-mock-adapter';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { apiClient } from './client';
+
 import {
   clearAuthState,
   getAccessToken,
@@ -10,6 +10,7 @@ import {
   setActiveRole,
   setActiveTenant,
 } from './auth-state';
+import { apiClient } from './client';
 import { ApiError, NoActiveTenantError } from './errors';
 
 // Two separate mock surfaces: `apiClient` is its own axios.create() instance;

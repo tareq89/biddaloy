@@ -16,10 +16,11 @@
     "./api": "./src/api/index.ts",
     "./test": "./src/test/index.ts",
     "./styles": "./src/styles/globals.css",
-    "./tailwind": "./tailwind.preset.ts"
+    "./tailwind": "./tailwind.preset.ts",
+    "./eslint-config": "./eslint-config.mjs"
   },
   "scripts": {
-    "lint": "tsc --noEmit",
+    "lint": "tsc --noEmit && eslint .",
     "check:exports": "node scripts/check-exports.mjs",
     "check:contrast": "node --experimental-strip-types scripts/check-contrast.mjs",
     "check:api-types": "node scripts/check-api-types.mjs",
