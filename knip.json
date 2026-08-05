@@ -18,15 +18,17 @@
       "project": ["src/**/*.ts"]
     },
     "ui": {
-      "entry": ["src/primitives/**/*.{ts,tsx}"],
+      "entry": ["src/primitives/**/*.{ts,tsx}", "src/**/*.test.{ts,tsx}"],
       "project": ["src/**/*.{ts,tsx}", "*.{ts,mjs}", "scripts/**/*.mjs", "eslint-rules/**/*.mjs"],
       "ignoreDependencies": ["@beton-boi/shared"]
     },
     "client-admin": {
+      "entry": ["src/**/*.test.{ts,tsx}"],
       "project": ["src/**/*.{ts,tsx,css}"],
       "ignoreDependencies": ["tailwindcss"]
     },
     "client-student": {
+      "entry": ["src/**/*.test.{ts,tsx}"],
       "project": ["src/**/*.{ts,tsx,css}"]
     }
   }

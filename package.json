@@ -24,6 +24,7 @@
     "format:check": "prettier --check .",
     "knip": "knip",
     "test": "yarn workspace @beton-boi/server test",
+    "test:frontend": "vitest",
     "test:cov": "yarn workspace @beton-boi/server test:cov",
     "test:unit": "yarn workspace @beton-boi/server test:unit",
     "test:integration": "yarn workspace @beton-boi/server test:integration",
@@ -34,6 +35,8 @@
   "devDependencies": {
     "@eslint/js": "^9.39.5",
     "@swc/core": "^1.15.47",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
     "@types/bcrypt": "^6.0.0",
     "@types/supertest": "^7.2.1",
     "@typescript-eslint/utils": "^8.66.0",
@@ -47,13 +50,15 @@
     "eslint-plugin-unused-imports": "^4.4.1",
     "globals": "^17.9.0",
     "husky": "^9.1.7",
+    "jsdom": "^26.1.0",
     "knip": "^6.31.0",
     "lint-staged": "^16.4.0",
     "prettier": "^3.9.6",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "supertest": "^7.2.2",
     "typescript-eslint": "^8.66.0",
-    "unplugin-swc": "^1.5.9"
+    "unplugin-swc": "^1.5.9",
+    "vitest": "^3"
   },
   "resolutions": {
     "js-yaml": "^5.2.2"
