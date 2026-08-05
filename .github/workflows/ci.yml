@@ -53,6 +53,14 @@ jobs:
       - name: UI contrast check
         run: yarn workspace @beton-boi/ui check:contrast
 
+      # server/openapi.json is gitignored (a generated artifact, not checked
+      # in) — a fresh CI checkout never has it, unlike a local machine where
+      # it was already generated at some point. check-api-types.mjs needs a
+      # real file to diff against; generate it here rather than assume it
+      # exists.
+      - name: Generate server OpenAPI document
+        run: yarn workspace @beton-boi/server docs:generate
+
       - name: UI API types freshness check
         run: yarn workspace @beton-boi/ui check:api-types
 
