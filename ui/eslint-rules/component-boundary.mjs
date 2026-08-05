@@ -1,11 +1,18 @@
 // Custom ESLint rules enforcing the platform's central architectural rule:
 // SPAs import UI exclusively from @beton-boi/ui's published subpaths, never
 // Radix directly, never a deep `src/` or `primitives/` path, and never a raw
-// `Intl` call in place of a shared formatter. Registered only in client-*
-// eslint configs — `ui` itself is never linted against these, since its own
-// wrapper components are exactly the code that legitimately imports Radix
-// and primitives.
+// `Intl`/`toLocaleString` call in place of a shared formatter. Registered
+// only in client-* eslint configs — `ui` itself is never linted against
+// these, since its own wrapper components are exactly the code that
+// legitimately imports Radix and primitives.
+import { ESLintUtils } from '@typescript-eslint/utils';
+import ts from 'typescript';
 
+// Matches both `@radix-ui/react-*` (the historical per-component packages)
+// and the unscoped `radix-ui` package — the unified package Radix now ships,
+// and what this repo actually depends on (see ui/package.json,
+// ui/src/primitives/button.tsx's `import { Slot } from 'radix-ui'`). Only
+// matching `@radix-ui/` would miss every real Radix import in this repo.
 const RADIX_SOURCE = /^(radix-ui|@radix-ui\/.+)$/;
 
 function pascalCase(str) {
@@ -68,6 +75,11 @@ const noRadixImport = {
   },
 };
 
+// The architectural contract is "published exports only" — these patterns
+// are how that's currently detected, not the contract itself. Centralized
+// here (rather than inlined in the visitor below) so a future internal
+// folder (`internal/`, `generated/`, ...) is a one-line addition instead of
+// a rule-logic change.
 const DEEP_IMPORT_PATTERNS = [
   /^@beton-boi\/ui\/src(\/|$)/,
   /(^|\/)primitives\//,
@@ -99,21 +111,30 @@ const noDeepUiImport = {
   },
 };
 
+// Only Intl constructors that actually have (or are explicitly documented as
+// planned for) a shared wrapper in @beton-boi/ui/utils or /i18n — see that
+// package's own barrel comments ("All currency, number, phone and date
+// formatting lives here"). Intl.RelativeTimeFormat/ListFormat/Collator/
+// PluralRules etc. have no such wrapper today; banning them would block
+// legitimate code with a message pointing at a formatter that doesn't
+// exist. Add to this list only once a wrapper actually lands.
+const WRAPPED_INTL_CONSTRUCTORS = new Set(['NumberFormat', 'DateTimeFormat']);
+
 const noRawIntl = {
   meta: {
     type: 'problem',
     docs: {
       description:
-        'Disallow calling Intl or toLocaleString directly; use a shared formatter from @beton-boi/ui/utils or @beton-boi/ui/i18n instead.',
+        'Disallow calling Intl.NumberFormat/DateTimeFormat or a number’s toLocaleString directly; use the shared formatter from @beton-boi/ui/utils instead.',
     },
     schema: [],
     messages: {
       rawIntlNumberFormat:
         'Use `formatCurrency` (or another formatter) from `@beton-boi/ui/utils` instead of calling `Intl.NumberFormat` directly.',
-      rawIntl:
-        'Use a shared formatter from `@beton-boi/ui/utils` or `@beton-boi/ui/i18n` instead of calling `Intl.{{member}}` directly.',
+      rawIntlDateTimeFormat:
+        'Use a shared date formatter from `@beton-boi/ui/utils` or `@beton-boi/ui/i18n` instead of calling `Intl.DateTimeFormat` directly.',
       rawToLocaleString:
-        'Use a shared formatter from `@beton-boi/ui/utils` (e.g. `formatCurrency`) instead of `toLocaleString`.',
+        'Use `formatCurrency` (or another formatter) from `@beton-boi/ui/utils` instead of a number’s `toLocaleString`.',
     },
   },
   create(context) {
@@ -124,23 +145,43 @@ const noRawIntl = {
           callee.type === 'MemberExpression' &&
           callee.object.type === 'Identifier' &&
           callee.object.name === 'Intl' &&
-          callee.property.type === 'Identifier'
+          callee.property.type === 'Identifier' &&
+          WRAPPED_INTL_CONSTRUCTORS.has(callee.property.name)
         ) {
-          const member = callee.property.name;
-          if (member === 'NumberFormat') {
-            context.report({ node, messageId: 'rawIntlNumberFormat' });
-          } else {
-            context.report({ node, messageId: 'rawIntl', data: { member } });
-          }
+          const messageId =
+            callee.property.name === 'NumberFormat'
+              ? 'rawIntlNumberFormat'
+              : 'rawIntlDateTimeFormat';
+          context.report({ node, messageId });
         }
       },
       CallExpression(node) {
         const { callee } = node;
-        if (
+        if (!(
           callee.type === 'MemberExpression' &&
           callee.property.type === 'Identifier' &&
           callee.property.name === 'toLocaleString'
-        ) {
+        )) {
+          return;
+        }
+
+        // `toLocaleString` is a real method on Number, Date, Array and any
+        // object choosing to implement it — a plain AST match on the
+        // property name alone can't tell those apart, and Date/Array usage
+        // is routinely intentional (a Date's toLocaleString often exists
+        // precisely to carry timezone, and Array.prototype.toLocaleString
+        // isn't a formatting concern at all). Only report when the type
+        // checker confirms the receiver is actually a number — the one
+        // case `formatCurrency` genuinely replaces. Falls back to not
+        // reporting (never to reporting everything) if type info isn't
+        // available, since a false negative here is far cheaper than the
+        // false positives this replaced.
+        const services = ESLintUtils.getParserServices(context, true);
+        if (!services?.program) return;
+
+        const type = services.getTypeAtLocation(callee.object);
+        const isNumber = (type.flags & (ts.TypeFlags.Number | ts.TypeFlags.NumberLiteral)) !== 0;
+        if (isNumber) {
           context.report({ node, messageId: 'rawToLocaleString' });
         }
       },

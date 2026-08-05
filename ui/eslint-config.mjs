@@ -68,14 +68,14 @@ export const typeCheckedTestOverrides = {
 // its own wrapper components are exactly the code that legitimately imports
 // Radix and primitives, so a consumer opts in explicitly rather than this
 // living in `biddaloyReactConfig`.
-export const componentBoundaryConfig = {
-  plugins: { boundary: boundaryPlugin },
-  rules: {
+export const componentBoundaryConfig = Object.freeze({
+  plugins: Object.freeze({ boundary: boundaryPlugin }),
+  rules: Object.freeze({
     'boundary/no-radix-import': 'error',
     'boundary/no-deep-ui-import': 'error',
     'boundary/no-raw-intl': 'error',
-  },
-};
+  }),
+});
 
 export const biddaloyReactConfig = tseslint.config(
   {
