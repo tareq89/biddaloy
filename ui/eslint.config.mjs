@@ -1,7 +1,11 @@
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
-import { biddaloyReactConfig, typeCheckedRules, typeCheckedTestOverrides } from './eslint-config.mjs';
+import {
+  biddaloyReactConfig,
+  typeCheckedRules,
+  typeCheckedTestOverrides,
+} from './eslint-config.mjs';
 
 export default tseslint.config(
   ...biddaloyReactConfig,
