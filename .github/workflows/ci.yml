@@ -53,17 +53,6 @@ jobs:
       - name: UI contrast check
         run: yarn workspace @beton-boi/ui check:contrast
 
-      # server/openapi.json is gitignored (a generated artifact, not checked
-      # in) — a fresh CI checkout never has it, unlike a local machine where
-      # it was already generated at some point. check-api-types.mjs needs a
-      # real file to diff against; generate it here rather than assume it
-      # exists.
-      - name: Generate server OpenAPI document
-        run: yarn workspace @beton-boi/server docs:generate
-
-      - name: UI API types freshness check
-        run: yarn workspace @beton-boi/ui check:api-types
-
   integration:
     name: Integration & e2e tests
     runs-on: ubuntu-latest
@@ -115,6 +104,23 @@ jobs:
         # alias only covers vitest's own transform pipeline, so without a
         # built dist/ here, entity loading fails at DataSource.initialize().
         run: yarn build:shared
+
+      # server/openapi.json is gitignored (a generated artifact, not checked
+      # in) — a fresh CI checkout never has it. Generating it requires a real
+      # DATABASE_URL/JWT_SECRET/REDIS_URL, because generate-openapi.ts's
+      # NestFactory.create(AppModule) boots the full app including its DB
+      # connection — see that script's own comment. That's only true of this
+      # job, not "verify" (no Postgres/Redis service there at all): a first
+      # attempt put this step in "verify" and it failed outright with no
+      # usable error output, since NestFactory.create had nothing to connect
+      # to. check-api-types.mjs needs a real file to diff schema.d.ts
+      # against, so generate it here where the services this app needs to
+      # boot actually exist.
+      - name: Generate server OpenAPI document
+        run: yarn workspace @beton-boi/server docs:generate
+
+      - name: UI API types freshness check
+        run: yarn workspace @beton-boi/ui check:api-types
 
       - name: Integration tests
         run: yarn test:integration
