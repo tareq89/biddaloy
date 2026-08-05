@@ -11,11 +11,20 @@ mkdir -p "$OUTPUT_DIR"
 echo "==> Building shared package..."
 yarn workspace @beton-boi/shared build
 
+echo "==> Type-checking ui package..."
+# ui has no build step of its own — it's consumed as source (see ui/README.md)
+# by every client, so this is the closest thing to "building" it: catch a
+# type error here rather than three times over in each client's build below.
+yarn workspace @beton-boi/ui lint
+
 echo "==> Building server..."
 yarn workspace @beton-boi/server build
 
 echo "==> Building client-student..."
 yarn workspace @beton-boi/client-student build
+
+echo "==> Building client-admin..."
+yarn workspace @beton-boi/client-admin build
 
 # Future clients:
 # echo "==> Building client-teacher..."
