@@ -1,24 +1,12 @@
 /**
- * The one provider stack every component test needs. Currently just
- * TanStack Query (a fresh, retry-disabled QueryClient per call) plus the
- * existing tenant/role/token state from `ui/src/api/auth-state.ts`.
- *
- * Deliberately does **not** wrap a router or i18n provider yet — neither
- * exists in this repo: TanStack Router lands in [8.9.1], TanStack Query's
- * *app* defaults (as opposed to this file's test-only defaults) in [8.9.2],
- * i18next in [8.7.1]. Adding `initialRoute`/`locale` options now would mean
- * either installing that infrastructure ahead of its own dedicated ticket,
- * or shipping options that silently do nothing — both worse than being
- * explicit that they're not here yet. `RenderWithProvidersOptions` is
- * structured so adding them later is additive (new optional fields, a
- * `Wrapper` that grows another layer), not a breaking change to this
- * function's signature.
+ * The one provider stack every component test needs — currently just
+ * TanStack Query. No router or i18n provider yet; see `ui/README.md`'s
+ * "Testing" section for why and what's planned.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, type RenderOptions, type RenderResult } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement, ReactNode } from 'react';
-import { afterEach } from 'vitest';
 
 import { clearAuthState, setAccessToken, setActiveRole, setActiveTenant } from '../api/auth-state';
 
@@ -51,13 +39,26 @@ export interface RenderWithProvidersResult extends RenderResult {
 
 /** A QueryClient configured for tests: retries off (a failing query should
  * surface immediately, not after exponential backoff — the single biggest
- * source of tests that "just take a while" for no visible reason), and
- * `gcTime: Infinity` so a test's seeded/fetched data doesn't get garbage
- * collected mid-test on a fast machine. */
+ * source of tests that "just take a while" for no visible reason),
+ * `gcTime: Infinity` so seeded/fetched data doesn't get garbage collected
+ * mid-test on a fast machine, window-focus/reconnect refetching off so a
+ * query only ever fires when the test actually triggers it (jsdom rarely
+ * dispatches those events, but "rarely" isn't "never"), and `staleTime:
+ * Infinity` so data is never considered stale on its own. That last one
+ * matters more than it looks: TanStack Query's default `staleTime: 0`
+ * means even `seedQueries`-populated data triggers a background refetch
+ * the moment a component mounts and reads it — "seeded" silently didn't
+ * mean "no fetch happens" without this. */
 export function createTestQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {
-      queries: { retry: false, gcTime: Infinity },
+      queries: {
+        retry: false,
+        gcTime: Infinity,
+        staleTime: Infinity,
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
+      },
       mutations: { retry: false },
     },
   });
@@ -71,12 +72,14 @@ export function createTestQueryClient(): QueryClient {
  * cached error from a previous test can't leak into this one and mask a
  * retry that should have happened.
  *
- * Auth/tenant/role state is deliberately the exception to "fresh every
- * call": `auth-state.ts` is a module-scoped singleton (see its own
- * comment), not per-instance state, so it can't be reset just by creating
- * something new here. This module registers a global `afterEach` that
- * clears it, so state set by `tenantId`/`role`/`accessToken` in one test
- * never bleeds into the next regardless of which file runs after it. */
+ * Auth/tenant/role state (`tenantId`/`role`/`accessToken`) is the one
+ * exception to "fresh every call" — `auth-state.ts` is a module-scoped
+ * singleton (see its own comment), not per-instance state, so it can't be
+ * reset just by creating something new here. Call `cleanupTestState()` in
+ * an `afterEach` to reset it between tests — `ui/src/test/setup.ts` does
+ * this globally for every test file that opts into it via
+ * `vitest.config.ts`'s `setupFiles`, so most call sites don't need to
+ * think about this at all. */
 export function renderWithProviders(
   ui: ReactElement,
   options: RenderWithProvidersOptions = {},
@@ -111,8 +114,16 @@ export function renderWithProviders(
   };
 }
 
-afterEach(() => {
+/** Resets everything `renderWithProviders` can set as global/singleton
+ * state — today just `auth-state.ts`. A plain function, not a side effect
+ * of importing this module: registering a global test hook as an import
+ * side effect means anyone who imports `renderWithProviders` implicitly
+ * changes the whole test run's lifecycle, which gets worse every time this
+ * function grows another thing to reset (MSW, fake timers, mocks,
+ * localStorage, ...). `ui/src/test/setup.ts` is the one place that wires
+ * this into `afterEach` — call it from there, not here. */
+export function cleanupTestState(): void {
   clearAuthState();
-});
+}
 
 export { userEvent };

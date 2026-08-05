@@ -97,6 +97,44 @@ See `src/api/client.spec.ts` for the exact behaviour under test — single-fligh
 refresh, replay, and the give-up path are all exercised against a mocked HTTP
 layer, not just unit-tested in isolation.
 
+## Testing
+
+`@beton-boi/ui/test` exports `renderWithProviders` — the one provider stack
+every component test needs, wrapping a component in `QueryClientProvider`
+with a fresh, retry-disabled `QueryClient` per call. See the root
+`vitest.config.ts` for the node/jsdom project split this runs under, and
+`src/test/render-with-providers.tsx`'s own doc comments for the full option
+list (`tenantId`/`role`/`accessToken`, `seedQueries`, a caller-supplied
+`queryClient`).
+
+**No router or i18n provider yet.** Neither exists anywhere in this repo:
+TanStack Router lands in [8.9.1], TanStack Query's *app* defaults (as
+opposed to `renderWithProviders`'s test-only ones) in [8.9.2], i18next in
+[8.7.1]. Adding `initialRoute`/`locale` options to `renderWithProviders`
+now would mean either installing that infrastructure ahead of its own
+dedicated ticket, or shipping options that silently do nothing — both
+worse than being explicit that they're not here yet. The options object is
+structured so adding them later is additive (new fields, the internal
+`Wrapper` gains another layer), not a breaking change to the function's
+signature. The intended eventual shape:
+
+```
+renderWithProviders
+ ├── QueryClientProvider   (here today)
+ ├── RouterProvider        ([8.9.1])
+ └── I18nextProvider       ([8.7.1])
+```
+
+Auth/tenant/role state (`ui/src/api/auth-state.ts`) is a module-scoped
+singleton, not per-render state, so it can't be reset just by creating a
+fresh `QueryClient` the way the rest of `renderWithProviders`'s state is.
+`renderWithProviders` exports a plain `cleanupTestState()` function for
+this — deliberately *not* a global `afterEach` registered as an import
+side effect of that module, since anyone importing `renderWithProviders`
+would then implicitly change the whole test run's lifecycle. `src/test/
+setup.ts` is the one place that wires `cleanupTestState` into `afterEach`,
+via `vitest.config.ts`'s `setupFiles`.
+
 ## Scripts
 
 | Command | Purpose |

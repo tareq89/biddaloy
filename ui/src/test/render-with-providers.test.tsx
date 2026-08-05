@@ -1,7 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { getAccessToken, getActiveRole, getActiveTenant } from '../api/auth-state';
 
@@ -33,11 +33,14 @@ function AuthProbe() {
   );
 }
 
-function QueryProbe({ queryKey }: { queryKey: readonly unknown[] }) {
-  const { data, status } = useQuery({
-    queryKey,
-    queryFn: () => Promise.reject(new Error('should not be called — data is seeded')),
-  });
+function QueryProbe({
+  queryKey,
+  queryFn,
+}: {
+  queryKey: readonly unknown[];
+  queryFn: () => Promise<unknown>;
+}) {
+  const { data, status } = useQuery({ queryKey, queryFn });
   return <p>{status === 'success' ? String(data) : status}</p>;
 }
 
@@ -47,6 +50,17 @@ function FailingQuery() {
     queryFn: () => Promise.reject(new Error('boom')),
   });
   return <p>{status}</p>;
+}
+
+function SaveButton() {
+  const { mutate, status } = useMutation({
+    mutationFn: (name: string) => Promise.resolve(`saved:${name}`),
+  });
+  return (
+    <button type="button" onClick={() => mutate('example')}>
+      {status === 'success' ? 'saved' : 'save'}
+    </button>
+  );
 }
 
 describe('renderWithProviders', () => {
@@ -69,7 +83,7 @@ describe('renderWithProviders', () => {
   // Relies on this describe block's default sequential execution (vitest
   // doesn't run `it` blocks concurrently unless explicitly configured) —
   // the previous test set tenant-1/teacher/token-abc via renderWithProviders,
-  // and the module-level `afterEach(clearAuthState)` should have run
+  // and ui/src/test/setup.ts's afterEach(cleanupTestState) should have run
   // between that test and this one. If it didn't, these would still show
   // the previous test's values instead of the "none" defaults.
   it('clears auth state between tests — no bleed from the previous test', () => {
@@ -85,10 +99,12 @@ describe('renderWithProviders', () => {
   });
 
   it('seeds query data so a component reads it without ever fetching', async () => {
-    renderWithProviders(<QueryProbe queryKey={['seeded']} />, {
+    const queryFn = vi.fn(() => Promise.reject(new Error('should not be called — data is seeded')));
+    renderWithProviders(<QueryProbe queryKey={['seeded']} queryFn={queryFn} />, {
       seedQueries: [{ queryKey: ['seeded'], data: 'from cache' }],
     });
     await waitFor(() => expect(screen.getByText('from cache')).toBeTruthy());
+    expect(queryFn).not.toHaveBeenCalled();
   });
 
   it('disables retries — a failing query settles as "error" on the first attempt', async () => {
@@ -108,5 +124,13 @@ describe('renderWithProviders', () => {
     const queryClient = createTestQueryClient();
     const { queryClient: returned } = renderWithProviders(<Greeting />, { queryClient });
     expect(returned).toBe(queryClient);
+  });
+
+  it('supports mutations through the same provider stack', async () => {
+    const { user } = renderWithProviders(<SaveButton />);
+    const button = screen.getByRole('button');
+    expect(button.textContent).toBe('save');
+    await user.click(button);
+    await waitFor(() => expect(button.textContent).toBe('saved'));
   });
 });
