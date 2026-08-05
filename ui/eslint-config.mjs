@@ -12,6 +12,9 @@
 //     block with `parserOptions.projectService` set — see the comment below.
 //   - `typeCheckedTestOverrides`: relaxes a subset of `typeCheckedRules` for
 //     spec/test files — see the comment below for exactly what it turns off.
+//   - `componentBoundaryConfig`: enforces the @beton-boi/ui import boundary
+//     (no direct Radix, no deep/primitive imports, no raw Intl) — for
+//     client-* consumers only, never for `ui` itself. See the comment below.
 import js from '@eslint/js';
 import importPlugin from 'eslint-plugin-import';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
@@ -20,6 +23,8 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import unusedImports from 'eslint-plugin-unused-imports';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
+
+import boundaryPlugin from './eslint-rules/component-boundary.mjs';
 
 // Type-checked rules need `parserOptions.projectService` (typescript-eslint's
 // current recommendation over the older `project: './tsconfig.json'` — it's
@@ -53,6 +58,22 @@ export const typeCheckedTestOverrides = {
     '@typescript-eslint/no-unsafe-call': 'off',
     '@typescript-eslint/no-unsafe-return': 'off',
     '@typescript-eslint/no-unsafe-argument': 'off',
+  },
+};
+
+// SPAs import UI exclusively from @beton-boi/ui's published subpaths — never
+// Radix directly, never a deep `src/`/`primitives/` path, never a raw `Intl`
+// call. This must be a CI failure, not a review comment, since review
+// catches it sometimes and lint catches it always. `ui` never applies this:
+// its own wrapper components are exactly the code that legitimately imports
+// Radix and primitives, so a consumer opts in explicitly rather than this
+// living in `biddaloyReactConfig`.
+export const componentBoundaryConfig = {
+  plugins: { boundary: boundaryPlugin },
+  rules: {
+    'boundary/no-radix-import': 'error',
+    'boundary/no-deep-ui-import': 'error',
+    'boundary/no-raw-intl': 'error',
   },
 };
 

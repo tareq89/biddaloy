@@ -1,5 +1,6 @@
 import {
   biddaloyReactConfig,
+  componentBoundaryConfig,
   typeCheckedRules,
   typeCheckedTestOverrides,
 } from '@beton-boi/ui/eslint-config';
@@ -19,6 +20,10 @@ export default tseslint.config(
     },
   },
   typeCheckedTestOverrides,
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ...componentBoundaryConfig,
+  },
   {
     files: ['*.ts', '*.mjs'],
     languageOptions: {
