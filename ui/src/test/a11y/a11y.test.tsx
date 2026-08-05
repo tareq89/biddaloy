@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { expectKeyboardOperable, expectTabOrder } from './keyboard';
+import { expectKeyboardOperable, expectTabOrder, LINK_KEYS } from './keyboard';
 
 describe('toHaveNoViolations', () => {
   it('is available with no per-file setup and passes for an accessible form', async () => {
@@ -52,6 +52,22 @@ describe('expectKeyboardOperable', () => {
     await expectKeyboardOperable(screen.getByRole('button', { name: 'Custom action' }), {
       onActivate,
     });
+  });
+
+  it('passes for a native link with LINK_KEYS (Enter only)', async () => {
+    render(<a href="#students">Students</a>);
+
+    await expectKeyboardOperable(screen.getByRole('link', { name: 'Students' }), {
+      keys: LINK_KEYS,
+    });
+  });
+
+  it('a real link fails the default BUTTON_KEYS check — Space does not activate a link', async () => {
+    render(<a href="#students">Students</a>);
+
+    await expect(
+      expectKeyboardOperable(screen.getByRole('link', { name: 'Students' })),
+    ).rejects.toThrow(/Space to activate/);
   });
 
   it('fails for an element that Tab cannot reach', async () => {

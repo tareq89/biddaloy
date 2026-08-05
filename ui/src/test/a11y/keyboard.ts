@@ -7,6 +7,15 @@
 import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { expect, vi, type Mock } from 'vitest';
 
+export type ActivationKey = 'Enter' | 'Space';
+
+/** Activation keys for a `<button>`/`role="button"` widget. */
+export const BUTTON_KEYS: readonly ActivationKey[] = ['Enter', 'Space'];
+/** Activation keys for a native `<a href>` link — Enter only. Space
+ * scrolls the page instead of activating a link, per the HTML/WAI-ARIA
+ * spec, so requiring both would fail a perfectly accessible link. */
+export const LINK_KEYS: readonly ActivationKey[] = ['Enter'];
+
 interface KeyboardOptions {
   user?: UserEvent;
   /** Bound on how many Tab presses count as "not reachable" — generous for
@@ -23,20 +32,35 @@ interface KeyboardOptions {
    * dispatch a real `click` on their own.
    */
   onActivate?: Mock;
+  /**
+   * Which keys must activate `element`. Defaults to `BUTTON_KEYS`
+   * (`['Enter', 'Space']`) — pass `LINK_KEYS` (`['Enter']`) for a native
+   * `<a href>`, or a custom array for anything else with non-standard
+   * activation keys.
+   */
+  keys?: readonly ActivationKey[];
 }
+
+const KEY_SEQUENCE: Record<ActivationKey, string> = { Enter: '{Enter}', Space: ' ' };
 
 /**
  * Asserts `element` is reachable from `document.body` by pressing Tab, and
- * that both Enter and Space activate it — checked via `onActivate` if
- * given, otherwise by listening for a native `click` event (which is what
- * native interactive elements dispatch on their own; a custom widget only
- * does this if its own keydown handling triggers it — exactly what the
- * WAI-ARIA authoring practices require, so one that hasn't wired it up
- * fails here rather than only failing manually).
+ * that each key in `keys` (default: Enter and Space, matching a button)
+ * activates it — checked via `onActivate` if given, otherwise by
+ * listening for a native `click` event (which is what native interactive
+ * elements dispatch on their own; a custom widget only does this if its
+ * own keydown handling triggers it — exactly what the WAI-ARIA authoring
+ * practices require, so one that hasn't wired it up fails here rather
+ * than only failing manually).
  */
 export async function expectKeyboardOperable(
   element: HTMLElement,
-  { user = userEvent.setup(), maxTabStops = 25, onActivate }: KeyboardOptions = {},
+  {
+    user = userEvent.setup(),
+    maxTabStops = 25,
+    onActivate,
+    keys = BUTTON_KEYS,
+  }: KeyboardOptions = {},
 ): Promise<void> {
   const onClick = vi.fn();
   const activationSpy = onActivate ?? onClick;
@@ -60,19 +84,14 @@ export async function expectKeyboardOperable(
       `expected Tab to reach ${describeElement(element)} within ${maxTabStops} stops`,
     ).toBe(true);
 
-    activationSpy.mockClear();
-    await user.keyboard('{Enter}');
-    expect(
-      activationSpy,
-      `expected Enter to activate ${describeElement(element)}`,
-    ).toHaveBeenCalled();
-
-    activationSpy.mockClear();
-    await user.keyboard(' ');
-    expect(
-      activationSpy,
-      `expected Space to activate ${describeElement(element)}`,
-    ).toHaveBeenCalled();
+    for (const key of keys) {
+      activationSpy.mockClear();
+      await user.keyboard(KEY_SEQUENCE[key]);
+      expect(
+        activationSpy,
+        `expected ${key} to activate ${describeElement(element)}`,
+      ).toHaveBeenCalled();
+    }
   } finally {
     element.removeEventListener('click', onClick);
   }

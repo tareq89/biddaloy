@@ -152,12 +152,20 @@ await expect(container).toHaveNoViolations();
 ```
 
 `expectKeyboardOperable(element, options?)` asserts an element is reachable
-by pressing Tab and that both Enter and Space activate it. For a native
-element (`<button>`, `<a href>`) that's all you need — it dispatches a real
-`click` on its own. For a custom `role="button"` widget, pass the spy
-already wired to its activation handler via `onActivate`, since such a
-widget typically calls its handler directly rather than dispatching a
-`click` Event:
+by pressing Tab and that its activation keys (default `BUTTON_KEYS`, i.e.
+Enter and Space) activate it. For a native `<button>` that's all you need —
+it dispatches a real `click` on its own for both keys. A native `<a href>`
+link only activates on **Enter** — Space scrolls the page instead, per the
+HTML/WAI-ARIA spec — so pass `LINK_KEYS`:
+
+```tsx
+render(<a href="/students">Students</a>);
+await expectKeyboardOperable(screen.getByRole('link'), { keys: LINK_KEYS });
+```
+
+For a custom `role="button"` widget, pass the spy already wired to its
+activation handler via `onActivate`, since such a widget typically calls
+its handler directly rather than dispatching a `click` Event:
 
 ```tsx
 const onActivate = vi.fn();
