@@ -33,6 +33,14 @@ function suggestedName(source, importedName) {
   return 'the component';
 }
 
+/** A source module string only if `node` is a string-literal source — true
+ * for every static `from '...'` clause, and for `import('...')` with a
+ * literal argument. A computed dynamic import (`import(pathVar)`) has no
+ * statically knowable source, so it's out of reach for any AST-only rule. */
+function literalSource(node) {
+  return node && node.type === 'Literal' && typeof node.value === 'string' ? node.value : null;
+}
+
 const noRadixImport = {
   meta: {
     type: 'problem',
@@ -47,28 +55,53 @@ const noRadixImport = {
     },
   },
   create(context) {
+    function report(node, source, importedName) {
+      context.report({
+        node,
+        messageId: 'radixDirect',
+        data: { name: suggestedName(source, importedName), source },
+      });
+    }
+
+    /** Shared by `import`/`export ... from` — both carry a `source` and a
+     * `specifiers` array, just with different specifier node shapes. */
+    function checkSpecifiers(node, source, specifiers, getImportedName) {
+      if (!RADIX_SOURCE.test(source)) return;
+      if (specifiers.length === 0) {
+        report(node, source, null);
+        return;
+      }
+      for (const specifier of specifiers) {
+        report(specifier, source, getImportedName(specifier));
+      }
+    }
+
     return {
       ImportDeclaration(node) {
-        const source = node.source.value;
-        if (!RADIX_SOURCE.test(source)) return;
-
-        if (node.specifiers.length === 0) {
-          context.report({
-            node,
-            messageId: 'radixDirect',
-            data: { name: suggestedName(source, null), source },
-          });
-          return;
-        }
-
-        for (const specifier of node.specifiers) {
-          const importedName =
-            specifier.type === 'ImportSpecifier' ? specifier.imported.name : null;
-          context.report({
-            node: specifier,
-            messageId: 'radixDirect',
-            data: { name: suggestedName(source, importedName), source },
-          });
+        checkSpecifiers(node, node.source.value, node.specifiers, (s) =>
+          s.type === 'ImportSpecifier' ? s.imported.name : null,
+        );
+      },
+      // `export { Dialog } from 'radix-ui'` / `export { Dialog as default }
+      // from 'radix-ui'` — re-exports the boundary should catch exactly
+      // like a direct import, since the consuming app still ends up with
+      // Radix in its module graph. A same-file `export { x }` with no
+      // `source` isn't a re-export at all and is out of scope.
+      ExportNamedDeclaration(node) {
+        if (!node.source) return;
+        checkSpecifiers(node, node.source.value, node.specifiers, (s) => s.local.name);
+      },
+      // `export * from 'radix-ui'` — no specifiers to name, so the message
+      // falls back to "the component".
+      ExportAllDeclaration(node) {
+        if (!RADIX_SOURCE.test(node.source.value)) return;
+        report(node, node.source.value, null);
+      },
+      // `import('radix-ui')` — dynamic, no specifiers either.
+      ImportExpression(node) {
+        const source = literalSource(node.source);
+        if (source && RADIX_SOURCE.test(source)) {
+          report(node, source, null);
         }
       },
     };
@@ -80,11 +113,13 @@ const noRadixImport = {
 // here (rather than inlined in the visitor below) so a future internal
 // folder (`internal/`, `generated/`, ...) is a one-line addition instead of
 // a rule-logic change.
-const DEEP_IMPORT_PATTERNS = [
-  /^@beton-boi\/ui\/src(\/|$)/,
-  /(^|\/)primitives\//,
-  /(^|\/)primitives$/,
-];
+//
+// Scoped specifically to `@beton-boi/ui`'s own tree, not a bare
+// `primitives`/`src` segment anywhere in a path — an unrelated package like
+// `@vendor/primitives/button` (or a client's own local `./primitives-catalog`)
+// is not this boundary's concern, and a broader match would false-positive
+// on it.
+const DEEP_IMPORT_PATTERNS = [/^@beton-boi\/ui\/src(\/|$)/, /(^|\/)ui\/src\/primitives(\/|$)/];
 
 const noDeepUiImport = {
   meta: {
@@ -100,12 +135,25 @@ const noDeepUiImport = {
     },
   },
   create(context) {
+    function check(node, source) {
+      if (DEEP_IMPORT_PATTERNS.some((pattern) => pattern.test(source))) {
+        context.report({ node, messageId: 'deepImport', data: { source } });
+      }
+    }
+
     return {
       ImportDeclaration(node) {
-        const source = node.source.value;
-        if (DEEP_IMPORT_PATTERNS.some((pattern) => pattern.test(source))) {
-          context.report({ node, messageId: 'deepImport', data: { source } });
-        }
+        check(node, node.source.value);
+      },
+      ExportNamedDeclaration(node) {
+        if (node.source) check(node, node.source.value);
+      },
+      ExportAllDeclaration(node) {
+        check(node, node.source.value);
+      },
+      ImportExpression(node) {
+        const source = literalSource(node.source);
+        if (source) check(node, source);
       },
     };
   },
@@ -119,6 +167,28 @@ const noDeepUiImport = {
 // legitimate code with a message pointing at a formatter that doesn't
 // exist. Add to this list only once a wrapper actually lands.
 const WRAPPED_INTL_CONSTRUCTORS = new Set(['NumberFormat', 'DateTimeFormat']);
+
+/** True (and reports) for `Intl.NumberFormat(...)`/`Intl.DateTimeFormat(...)`
+ * — matches both `new Intl.NumberFormat()` and the callable-without-`new`
+ * form, since the spec makes both construct a real formatter instance
+ * (https://tc39.es/ecma402/#sec-intl.numberformat, "NewTarget is undefined"
+ * branch), so a bare `Intl.NumberFormat(...)` bypasses this boundary just
+ * as much as the `new` form does. */
+function checkIntlConstructor(context, node, callee) {
+  if (
+    callee.type === 'MemberExpression' &&
+    callee.object.type === 'Identifier' &&
+    callee.object.name === 'Intl' &&
+    callee.property.type === 'Identifier' &&
+    WRAPPED_INTL_CONSTRUCTORS.has(callee.property.name)
+  ) {
+    const messageId =
+      callee.property.name === 'NumberFormat' ? 'rawIntlNumberFormat' : 'rawIntlDateTimeFormat';
+    context.report({ node, messageId });
+    return true;
+  }
+  return false;
+}
 
 const noRawIntl = {
   meta: {
@@ -140,23 +210,12 @@ const noRawIntl = {
   create(context) {
     return {
       NewExpression(node) {
-        const { callee } = node;
-        if (
-          callee.type === 'MemberExpression' &&
-          callee.object.type === 'Identifier' &&
-          callee.object.name === 'Intl' &&
-          callee.property.type === 'Identifier' &&
-          WRAPPED_INTL_CONSTRUCTORS.has(callee.property.name)
-        ) {
-          const messageId =
-            callee.property.name === 'NumberFormat'
-              ? 'rawIntlNumberFormat'
-              : 'rawIntlDateTimeFormat';
-          context.report({ node, messageId });
-        }
+        checkIntlConstructor(context, node, node.callee);
       },
       CallExpression(node) {
         const { callee } = node;
+        if (checkIntlConstructor(context, node, callee)) return;
+
         if (!(
           callee.type === 'MemberExpression' &&
           callee.property.type === 'Identifier' &&
