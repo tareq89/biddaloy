@@ -9,7 +9,8 @@
     "declarationMap": false,
     "sourceMap": false,
     "paths": {
-      "@beton-boi/shared": ["../shared/src"]
+      "@beton-boi/shared": ["../shared/src"],
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src", "tailwind.preset.ts", "scripts"]

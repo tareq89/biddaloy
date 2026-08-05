@@ -74,6 +74,51 @@
   --color-text-secondary: var(--color-neutral-600);
   --color-border-functional: var(--color-neutral-500);
   --color-brand: var(--color-brand-600);
+
+  /* shadcn/ui's own standard vocabulary — required by every vendored
+   * primitive in src/primitives/ (generated code uses `bg-primary`,
+   * `text-foreground`, `border-ring`, etc. directly; this is [8.1.3]'s
+   * "alias the shadcn config to the shared preset" step). Every entry
+   * below is a reference to a token already established above or in
+   * `status`, never a new literal colour, so a primitive's dark-mode
+   * presentation follows automatically from the referenced token's own
+   * override — no separate dark entries needed here.
+   *
+   * card, popover, accent, chart-N and sidebar-N have no bespoke identity in
+   * this design yet; they alias to the closest existing semantic token
+   * rather than introduce unreviewed colours. Revisit once a component
+   * actually needs them to look different from what they're aliased to. */
+  --color-background: var(--color-bg);
+  --color-foreground: var(--color-text-primary);
+  --color-card: var(--color-surface);
+  --color-card-foreground: var(--color-text-primary);
+  --color-popover: var(--color-surface);
+  --color-popover-foreground: var(--color-text-primary);
+  --color-primary: var(--color-brand);
+  --color-primary-foreground: var(--color-neutral-0);
+  --color-secondary: var(--color-surface);
+  --color-secondary-foreground: var(--color-text-primary);
+  --color-muted: var(--color-surface);
+  --color-muted-foreground: var(--color-text-secondary);
+  --color-accent: var(--color-surface);
+  --color-accent-foreground: var(--color-text-primary);
+  --color-destructive: var(--color-status-overdue-fg);
+  --color-border: var(--color-border-functional);
+  --color-input: var(--color-border-functional);
+  --color-ring: var(--color-brand);
+  --color-chart-1: var(--color-status-paid-fg);
+  --color-chart-2: var(--color-status-partial-fg);
+  --color-chart-3: var(--color-status-due-fg);
+  --color-chart-4: var(--color-status-overdue-fg);
+  --color-chart-5: var(--color-brand);
+  --color-sidebar: var(--color-bg);
+  --color-sidebar-foreground: var(--color-text-primary);
+  --color-sidebar-primary: var(--color-brand);
+  --color-sidebar-primary-foreground: var(--color-neutral-0);
+  --color-sidebar-accent: var(--color-surface);
+  --color-sidebar-accent-foreground: var(--color-text-primary);
+  --color-sidebar-border: var(--color-border-functional);
+  --color-sidebar-ring: var(--color-brand);
 }
 
 /**

@@ -42,9 +42,26 @@ behaves differently from the other three.
 `yarn check:exports` enforces the boundary; lint rules in [8.2.3] enforce it
 from the consuming side.
 
+## Generating primitives
+
+`ui/components.json` points the shadcn CLI at `src/primitives/` and nothing
+else — run it from `ui/`:
+
+```bash
+npx shadcn add button              # add a new primitive
+npx shadcn add button --overwrite  # re-apply after an upstream update
+```
+
+Everything it writes is vendored — see `src/primitives/README.md` for the
+regenerate-don't-edit rule, the coverage-exclusion note, and why every
+`components.json` alias (`components`, `ui`, `lib`, `utils`, `hooks`) points
+into `src/primitives/`, not just the one the CLI actually needs for a plain
+component add.
+
 ## Scripts
 
 | Command | Purpose |
 |---|---|
 | `yarn workspace @beton-boi/ui lint` | `tsc --noEmit` |
 | `yarn workspace @beton-boi/ui check:exports` | Validate the `exports` map against disk |
+| `yarn workspace @beton-boi/ui check:contrast` | Verify every documented colour pair against WCAG 2.2 |
