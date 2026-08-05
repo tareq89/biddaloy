@@ -16,6 +16,7 @@
 //     (no direct Radix, no deep/primitive imports, no raw Intl) — for
 //     client-* consumers only, never for `ui` itself. See the comment below.
 import js from '@eslint/js';
+import eslintConfigPrettier from 'eslint-config-prettier';
 import importPlugin from 'eslint-plugin-import';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
 import react from 'eslint-plugin-react';
@@ -117,6 +118,10 @@ export const biddaloyReactConfig = tseslint.config(
       ],
     },
   },
+  // Last so it wins: disables every ESLint core/plugin rule that would
+  // conflict with Prettier's formatting. Installed since [8.2.4] but never
+  // actually wired in — knip's dead-dependency check caught it.
+  eslintConfigPrettier,
 );
 
 export default biddaloyReactConfig;
