@@ -44,8 +44,21 @@ jobs:
       - name: UI typecheck
         run: yarn workspace @beton-boi/ui lint
 
-      - name: UI unit tests
-        run: yarn workspace @beton-boi/ui test
+      # Runs from the repo root, not `yarn workspace @beton-boi/ui test` —
+      # both resolve the same root vitest.config.ts (it covers ui,
+      # client-admin and client-student together), but coverage thresholds
+      # only get enforced when `--coverage` is passed, and this is also
+      # the single test run that produces the lcov artifact below.
+      - name: Frontend tests with coverage
+        run: yarn test:frontend:coverage
+
+      - name: Upload frontend coverage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: frontend-coverage
+          path: coverage/
+          if-no-files-found: ignore
 
       - name: UI export map check
         run: yarn workspace @beton-boi/ui check:exports

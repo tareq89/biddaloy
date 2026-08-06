@@ -42,6 +42,19 @@ import { defineConfig, mergeConfig } from 'vitest/config';
 // get the same cleanup guarantee.
 const testSetupFile = resolve(__dirname, 'ui/src/test/setup.ts');
 
+// v8 coverage instrumentation adds real per-test overhead — enough that
+// eslint-rules/component-boundary.spec.mjs's type-aware RuleTester cases
+// (already the slowest tests here, since they run real TypeScript
+// type-checking) went from ~700ms locally to timing out at the 5000ms
+// default in CI once `--coverage` was wired in there ([8.3.5]). Not a
+// flaky test — reproducible, coverage-only slowdown on a slower CI CPU.
+// Set per-project (Vitest's `projects` mode does not inherit a top-level
+// `test.testTimeout` into each project — a top-level setting here is
+// silently ignored), applied to every project rather than just `ui:node`:
+// harmless headroom elsewhere, and the one project that needs it doesn't
+// get its own easy-to-forget bespoke value.
+const PROJECT_TEST_TIMEOUT = 20_000;
+
 function frontendPackage(
   name: string,
   dir: string,
@@ -58,6 +71,7 @@ function frontendPackage(
         include: nodeInclude,
         globals: true,
         setupFiles: [testSetupFile],
+        testTimeout: PROJECT_TEST_TIMEOUT,
       },
     }),
     mergeConfig(base, {
@@ -68,6 +82,7 @@ function frontendPackage(
         include: jsdomInclude,
         globals: true,
         setupFiles: [testSetupFile],
+        testTimeout: PROJECT_TEST_TIMEOUT,
       },
     }),
   ];
@@ -91,8 +106,59 @@ const clientAlias = (pkg: string) => ({
   '@beton-boi/ui': resolve(__dirname, 'ui/src'),
 });
 
+// Coverage config lives at this top level, not inside any one project:
+// v8 instrumentation and threshold checking run once across the whole
+// workspace's collected results, not per project — Vitest doesn't support
+// per-project coverage in `projects` mode. Paths below are relative to
+// this file (the repo root), covering all three packages' `src/` in one
+// pass — `test:cov`'s reporter/threshold shape mirrors `server/
+// vitest.config.ts`'s (per-path threshold overrides on top of a global
+// floor), kept as a separate, un-merged block here since the two runs
+// (frontend vs. server) share no config and `server/vitest.config.ts`
+// itself stays untouched.
+const coverage = {
+  provider: 'v8' as const,
+  reporter: ['text', 'lcov', 'html'] as const,
+  reportsDirectory: resolve(__dirname, 'coverage'),
+  include: ['ui/src/**/*.{ts,tsx}', 'client-admin/src/**/*.{ts,tsx}', 'client-student/src/**/*.{ts,tsx}'],
+  exclude: [
+    '**/*.test.{ts,tsx}',
+    '**/*.spec.ts',
+    '**/*.stories.{ts,tsx}',
+    '**/*.d.ts',
+    'ui/src/primitives/**', // vendored shadcn/Radix output, not hand-written
+    'ui/src/test/**', // the test utilities this coverage run itself uses
+    // Barrels — assumed pure re-exports (`export { x } from './y'`), no
+    // conditionals or logic of their own. If one ever grows real logic
+    // (an env check, a conditional export), move that logic to its own
+    // file instead of excluding it here by accident — this pattern stays
+    // safe only as long as that assumption holds.
+    '**/index.ts',
+    '**/main.tsx', // ReactDOM bootstrap, no logic — same as server's src/main.ts
+  ],
+  thresholds: {
+    perFile: false,
+    branches: 70,
+    functions: 70,
+    lines: 70,
+    statements: 70,
+    // "Near-complete" tier ([8.3.5]'s own acceptance criteria): a bug here
+    // means money is wrong or a request goes out with the wrong auth
+    // state. Only covers what actually exists in `ui/src` today —
+    // `ui/src/utils` (formatters) and `ui/src/api` (the axios client,
+    // its interceptors, and auth-state.ts). Permission-resolution logic,
+    // payment-allocation arithmetic and Zod schemas are listed in the
+    // issue too, but none of that exists on the frontend yet (it's
+    // server-side today); extend this map with their real paths once a
+    // later ticket adds them, rather than guessing now.
+    'ui/src/utils/**': { statements: 95, branches: 95, functions: 95, lines: 95 },
+    'ui/src/api/**': { statements: 95, branches: 95, functions: 95, lines: 95 },
+  },
+};
+
 export default defineConfig({
   test: {
+    coverage,
     projects: [
       ...frontendPackage('ui', 'ui', uiAlias, {
         // eslint-rules specs are ESLint RuleTester fixtures, not app logic,

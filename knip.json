@@ -5,7 +5,6 @@
     "@swc/core",
     "@types/bcrypt",
     "@types/supertest",
-    "@vitest/coverage-v8",
     "supertest",
     "unplugin-swc"
   ],

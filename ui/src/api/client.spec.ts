@@ -10,7 +10,7 @@ import {
   setActiveRole,
   setActiveTenant,
 } from './auth-state';
-import { apiClient } from './client';
+import { apiClient, toApiError } from './client';
 import { ApiError, NoActiveTenantError } from './errors';
 
 // Two separate mock surfaces: `apiClient` is its own axios.create() instance;
@@ -254,5 +254,23 @@ describe('ApiError mapping', () => {
       expect(apiErr.message).toBe('User is not a member of tenant tenant-1');
       expect(apiErr.requestId).toBe('req-123');
     }
+  });
+});
+
+describe('toApiError', () => {
+  it('passes an AxiosError through unchanged when its body is not a well-formed ApiErrorBody', () => {
+    const axiosError = Object.assign(new Error('Network Error'), {
+      isAxiosError: true,
+      response: { data: { unexpected: 'shape' } },
+    });
+
+    expect(toApiError(axiosError)).toBe(axiosError);
+  });
+
+  it('wraps a non-Error thrown value (e.g. a plain string) in a real Error', () => {
+    const wrapped = toApiError('boom');
+
+    expect(wrapped).toBeInstanceOf(Error);
+    expect(wrapped.message).toBe('boom');
   });
 });

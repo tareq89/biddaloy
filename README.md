@@ -136,6 +136,29 @@ Each package has two projects, split by environment:
 not because they couldn't technically share a workspace, but because the
 server's coverage thresholds and setup are its own concern.
 
+### Coverage
+
+```bash
+# Runs the full suite with coverage, then opens the HTML report locally
+yarn coverage
+
+# Same coverage run without opening a browser (what CI runs)
+yarn test:frontend:coverage
+```
+
+A global 70% floor (lines, branches, functions and statements) applies
+across `ui`, `client-admin` and `client-student`; CI fails below it.
+`ui/src/utils/**` and `ui/src/api/**` (the axios client, its interceptors,
+and auth/token state) carry a 95% "near-complete" floor instead, on all
+four of the same metrics — a bug there means money is wrong or a request
+goes out with stale auth. Generated types, `*.stories.{ts,tsx}`, vendored
+`ui/src/primitives/`, `ui/src/test/` and framework bootstrap (`main.tsx`)
+are excluded from the denominator entirely, not just left unenforced — see
+`vitest.config.ts`'s `coverage.exclude`.
+
+CI uploads the `lcov`/HTML report as the `frontend-coverage` artifact on
+every run (`.github/workflows/ci.yml`), success or failure.
+
 ## CI
 
 GitHub Actions (`.github/workflows/ci.yml`) runs on every PR and on push to
