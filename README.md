@@ -175,13 +175,17 @@ every run (`.github/workflows/ci.yml`), success or failure.
 
 ## End-to-end Testing (Playwright)
 
-`playwright.config.ts` (repo root) drives real browsers against the real
+`playwright.config.ts` (repo root) drives a real browser against the real
 API and both client SPAs — `e2e/` holds the specs, separate from the
 Vitest-based `server/test/*.e2e-spec.ts` suite (`yarn test:e2e`), which
 exercises the API directly over HTTP with no browser involved.
 
+Chromium is the only active project today; Firefox and WebKit are commented
+out in `playwright.config.ts` rather than deleted, so re-enabling
+cross-browser coverage later is an uncomment, not a rewrite.
+
 ```bash
-# All three browsers, headless
+# Chromium, headless
 yarn e2e
 
 # Inspector with time-travel debugging
@@ -189,9 +193,6 @@ yarn e2e --ui
 
 # Step through a single spec
 yarn e2e --debug
-
-# One browser only
-yarn e2e --project=chromium
 ```
 
 Bring up Postgres/Redis first, same as any other local dev session:
@@ -224,10 +225,7 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every PR and on push to
   containers, then runs `yarn test:integration` and `yarn test:e2e`.
 - **e2e** — Chromium only, with its own Postgres/Redis service containers,
   migrated and seeded before Playwright starts the server and both clients.
-  See "End-to-end Testing" above. Firefox and WebKit are configured (`yarn
-  e2e` runs all three locally) but not sharded in CI on every PR/push —
-  three-way sharding there costs more CI time than the marginal
-  non-Chromium regressions catch day to day.
+  See "End-to-end Testing" above.
 - **audit** — `node scripts/ci-audit.js`, which gates only on high/critical
   `yarn audit` findings (yarn classic's `--level` flag doesn't affect its exit
   code, so this re-implements the filter correctly). Allowlisted advisories

@@ -29,12 +29,16 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
+  // Chromium only for now — Firefox and WebKit are commented out rather
+  // than deleted so a later ticket can re-enable them by uncommenting
+  // instead of re-deriving the device config. iOS Safari (WebKit) is a
+  // real share of Bangladeshi device traffic and where CSS/date-input
+  // differences tend to surface first, so it's the one to bring back
+  // first when cross-browser coverage is worth the CI time again.
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
-    // iOS Safari is a real share of Bangladeshi device traffic and where
-    // CSS/date-input differences surface — WebKit matters more than usual.
-    { name: 'webkit', use: { ...devices['Desktop Safari'] } },
+    // { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+    // { name: 'webkit', use: { ...devices['Desktop Safari'] } },
   ],
   webServer: [
     {
