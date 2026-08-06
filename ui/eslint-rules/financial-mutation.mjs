@@ -56,28 +56,54 @@ function walk(root, visit) {
   go(root);
 }
 
+function matchesGuardedEndpoint(value) {
+  return (
+    typeof value === 'string' && GUARDED_ENDPOINT_PATTERNS.some((pattern) => pattern.test(value))
+  );
+}
+
+/** Matches a guarded endpoint referenced as a plain string literal
+ * (`apiClient.post('/payments', ...)`) or as the static portion of a
+ * template literal (`apiClient.post(\`/payments/${id}\`, ...)`), which
+ * template-literal-built URLs — path params interpolated into the string
+ * — use routinely. Only the *static* text (each `TemplateElement`
+ * quasi's cooked value) is checked; the endpoint pattern always lives in
+ * a quasi, never inside an interpolated expression, since the guarded
+ * prefixes (`/payments`, `/invoices`, ...) never come from a variable. */
 function findGuardedEndpointLiteral(optionsNode) {
   let found = null;
   walk(optionsNode, (node) => {
     if (found) return;
-    if (
-      node.type === 'Literal' &&
-      typeof node.value === 'string' &&
-      GUARDED_ENDPOINT_PATTERNS.some((pattern) => pattern.test(node.value))
-    ) {
+    if (node.type === 'Literal' && matchesGuardedEndpoint(node.value)) {
       found = node;
+      return;
+    }
+    if (node.type === 'TemplateElement') {
+      const text = node.value.cooked ?? node.value.raw;
+      if (matchesGuardedEndpoint(text)) found = node;
     }
   });
   return found;
 }
 
+/** Matches `onMutate` written as a plain identifier key (`{ onMutate:
+ * ... }`), a string-literal key (`{ 'onMutate': ... }`/`{ "onMutate":
+ * ... }`), or a shorthand property (`{ onMutate }`) — every non-computed
+ * way to write this key. A *computed* key (`{ [name]: ... }`) is
+ * excluded on purpose: its value isn't statically known, so treating it
+ * as a match risks a false positive on an unrelated dynamic key that
+ * merely evaluates to the string `"onMutate"` by coincidence — the same
+ * "don't report what isn't provably true" stance the endpoint check
+ * above takes. */
 function findOnMutateProperty(optionsNode) {
-  return optionsNode.properties.find(
-    (property) =>
-      property.type === 'Property' &&
-      property.key.type === 'Identifier' &&
-      property.key.name === 'onMutate',
-  );
+  return optionsNode.properties.find((property) => {
+    if (property.type !== 'Property' || property.computed) return false;
+    const { key } = property;
+    return (
+      (key.type === 'Identifier' && key.name === 'onMutate') ||
+      (key.type === 'Literal' && key.value === 'onMutate')
+    );
+  });
 }
 
 const noOptimisticFinancialMutation = {
@@ -108,10 +134,15 @@ const noOptimisticFinancialMutation = {
         const onMutateProperty = findOnMutateProperty(optionsArg);
         if (!onMutateProperty) return;
 
+        const endpoint =
+          guardedLiteral.type === 'TemplateElement'
+            ? (guardedLiteral.value.cooked ?? guardedLiteral.value.raw)
+            : guardedLiteral.value;
+
         context.report({
           node: onMutateProperty,
           messageId: 'noOptimisticFinancial',
-          data: { endpoint: guardedLiteral.value },
+          data: { endpoint },
         });
       },
     };

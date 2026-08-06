@@ -35,9 +35,12 @@ export function useCreatePayment() {
     },
     retry: shouldRetryQuery,
     onSuccess: (payment) => {
-      void queryClient.invalidateQueries({
-        queryKey: paymentKeys.list({ studentId: payment.student.id }),
-      });
+      // The whole `lists()` branch, not just `list({ studentId })` — the
+      // same reasoning as `students.ts`'s `useCreateStudent`: a new
+      // payment can affect an unfiltered list or one filtered a
+      // different way too, and scoping this to a single filter variant
+      // would leave those other cached views stale.
+      void queryClient.invalidateQueries({ queryKey: paymentKeys.lists() });
       void queryClient.invalidateQueries({ queryKey: studentKeys.detail(payment.student.id) });
     },
   });

@@ -27,6 +27,12 @@ ruleTester.run('no-optimistic-financial-mutation', rule, {
     // A call with no options argument, or a non-object first argument.
     `useMutation();`,
     `useMutation(mutationOptionsVariable);`,
+    // A computed key isn't provably "onMutate" — see findOnMutateProperty's
+    // own comment on why this is deliberately not flagged.
+    `useMutation({
+      mutationFn: (input) => apiClient.post('/payments', input),
+      [dynamicKeyName]: () => {},
+    });`,
   ],
   invalid: [
     {
@@ -68,6 +74,24 @@ ruleTester.run('no-optimistic-financial-mutation', rule, {
         onMutate: () => {},
       });`,
       errors: [{ messageId: 'noOptimisticFinancial', data: { endpoint: '/enrollments/' } }],
+    },
+    {
+      // Template-literal URL (path param interpolated into the string) —
+      // the common, real-world shape for a by-id endpoint.
+      code: `useMutation({
+        mutationFn: (input) => apiClient.patch(\`/payments/\${id}\`, input),
+        onMutate: () => {},
+      });`,
+      errors: [{ messageId: 'noOptimisticFinancial', data: { endpoint: '/payments/' } }],
+    },
+    {
+      // `onMutate` written as a string-literal key, not an identifier —
+      // still optimistic, must still be caught.
+      code: `useMutation({
+        mutationFn: (input) => apiClient.post('/invoices', input),
+        'onMutate': () => {},
+      });`,
+      errors: [{ messageId: 'noOptimisticFinancial', data: { endpoint: '/invoices' } }],
     },
   ],
 });

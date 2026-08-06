@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query';
-import { waitFor } from '@testing-library/react';
+import { act, waitFor } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 
@@ -15,6 +15,7 @@ import {
   useStudent,
   useStudents,
   useUpdateStudentPreferredCommunication,
+  type PreferredCommunication,
 } from './students';
 import { switchActiveTenant } from './tenant';
 
@@ -97,6 +98,64 @@ describe('useUpdateStudentPreferredCommunication is a legitimate optimistic muta
     // to return next (not asserted here to avoid coupling this test to
     // that handler's own fixture data).
     expect(result.current.update.data?.preferred_communication).toBe('EMAIL');
+  });
+
+  it('serializes two overlapping updates for the same student — the second request never starts before the first settles', async () => {
+    // Each request blocks on its own manually-controlled promise instead
+    // of a fixed delay, so the test can assert on exact start order and
+    // concurrency rather than inferring it from timing — an earlier
+    // version of this test used relative delays and, when checked,
+    // turned out to pass even with `scope` removed (both requests fire
+    // immediately regardless of scope; only *starting* the second one
+    // is what scope actually gates).
+    const releasers: Record<string, () => void> = {};
+    const startOrder: string[] = [];
+    let concurrentRequests = 0;
+    let maxConcurrentRequests = 0;
+
+    server.use(
+      http.patch('/api/v1/students/:id', async ({ request }) => {
+        const body = (await request.json()) as { preferred_communication: string };
+        startOrder.push(body.preferred_communication);
+        concurrentRequests += 1;
+        maxConcurrentRequests = Math.max(maxConcurrentRequests, concurrentRequests);
+        await new Promise<void>((resolve) => {
+          releasers[body.preferred_communication] = resolve;
+        });
+        concurrentRequests -= 1;
+        return HttpResponse.json(
+          studentFactory({
+            id: 'student-3',
+            preferred_communication: body.preferred_communication as PreferredCommunication,
+          }),
+        );
+      }),
+    );
+
+    const queryClient = createTestQueryClient();
+    const { result } = renderHookWithProviders(
+      () => useUpdateStudentPreferredCommunication('student-3'),
+      { tenantId: 'tenant-1', queryClient },
+    );
+
+    result.current.mutate('WHATSAPP');
+    await waitFor(() => expect(startOrder).toEqual(['WHATSAPP']));
+
+    result.current.mutate('EMAIL');
+    // Give the second call every opportunity to (incorrectly) start its
+    // request before the first has settled — if `scope` weren't applied,
+    // this is exactly where it would show up as a second entry in
+    // `startOrder` and `maxConcurrentRequests` reaching 2.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+    expect(startOrder).toEqual(['WHATSAPP']);
+    expect(maxConcurrentRequests).toBe(1);
+
+    releasers.WHATSAPP?.();
+    await waitFor(() => expect(startOrder).toEqual(['WHATSAPP', 'EMAIL']));
+    expect(maxConcurrentRequests).toBe(1);
+
+    releasers.EMAIL?.();
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
   });
 });
 

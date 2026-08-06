@@ -390,7 +390,10 @@ export function useCreatePayment() {
     mutationFn: (input: CreatePaymentInput) => apiClient.post<Payment>('/payments', input),
     retry: shouldRetryQuery,
     onSuccess: (payment) => {
-      void queryClient.invalidateQueries({ queryKey: paymentKeys.list({ studentId: payment.student.id }) });
+      // The whole `lists()` branch — a new payment can affect an
+      // unfiltered list or one filtered a different way too.
+      void queryClient.invalidateQueries({ queryKey: paymentKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: studentKeys.detail(payment.student.id) });
     },
   });
 }
@@ -410,6 +413,12 @@ server confirms. The three-part pattern every optimistic mutation needs:
 
 ```ts
 useMutation({
+  // Serializes calls for the *same* student — without it, two updates
+  // fired close together can each snapshot before either resolves, and
+  // whichever settles last rolls back over the other's already-applied
+  // result. Two different students still run concurrently; they share
+  // no cache entry to race over.
+  scope: { id: `student-preferred-communication-${id}` },
   mutationFn: (value) => apiClient.patch(`/students/${id}`, { preferred_communication: value }),
   onMutate: async (value) => {
     await queryClient.cancelQueries({ queryKey: studentKeys.detail(id) });

@@ -108,10 +108,21 @@ interface PreferredCommunicationContext {
  *   - `onSettled`: invalidate regardless of outcome, so the cache
  *     reconciles with the server's actual state even after a rollback
  *     (a `TRANSFERRED` race with another client, say).
+ *
+ * `scope: { id: `student-preferred-communication-${id}` }` serializes
+ * calls for the *same* student — without it, two updates fired close
+ * together (a double-click, or two dropdown changes before the first
+ * settles) would each snapshot in `onMutate` before either resolves,
+ * and whichever rejects last would roll back over the other's still-
+ * pending optimistic write, or even over its own already-applied
+ * success. Scoping by `id` only serializes same-student calls; two
+ * different students' updates still run concurrently, which is correct
+ * — they don't share any cache entry to race over.
  */
 export function useUpdateStudentPreferredCommunication(id: string) {
   const queryClient = useQueryClient();
   return useMutation<Student, Error, PreferredCommunication, PreferredCommunicationContext>({
+    scope: { id: `student-preferred-communication-${id}` },
     mutationFn: async (preferred_communication) => {
       const res = await apiClient.patch<Student>(`/students/${id}`, { preferred_communication });
       return res.data;
