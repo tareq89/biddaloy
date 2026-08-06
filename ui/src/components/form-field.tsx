@@ -1,0 +1,167 @@
+/**
+ * React Hook Form + Zod wiring with no per-field boilerplate. Adapted from
+ * shadcn/ui's well-known `form.tsx` pattern (not literal CLI output — this
+ * shadcn CLI/registry version has no `form` recipe to `add`, confirmed by
+ * running it — so this is hand-authored the same way `primitives/lib/
+ * utils.ts` is, per that file's own README note, rather than vendored).
+ * Composes `primitives/label.tsx` and Radix's `Slot`, not the CLI's own
+ * un-fetchable template.
+ *
+ * `FormField` binds label, control, help text and error together with
+ * correct `aria-describedby`/`aria-invalid` — a field built with `FormItem`
+ * + `FormLabel` + `FormControl` + `FormMessage` cannot end up unlabelled or
+ * with its error unannounced by accident, which is the single guarantee
+ * this component exists for.
+ */
+import { Slot } from 'radix-ui';
+import * as React from 'react';
+import {
+  Controller,
+  FormProvider,
+  useFormContext,
+  useFormState,
+  type ControllerProps,
+  type FieldPath,
+  type FieldValues,
+} from 'react-hook-form';
+
+import { cn } from '../primitives/lib/utils';
+
+import { Label } from './label';
+
+const Form = FormProvider;
+
+interface FormFieldContextValue<
+  TFieldValues extends FieldValues = FieldValues,
+  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
+> {
+  name: TName;
+}
+
+const FormFieldContext = React.createContext<FormFieldContextValue | null>(null);
+
+function FormField<
+  TFieldValues extends FieldValues = FieldValues,
+  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
+>(props: ControllerProps<TFieldValues, TName>) {
+  return (
+    <FormFieldContext.Provider value={{ name: props.name }}>
+      <Controller {...props} />
+    </FormFieldContext.Provider>
+  );
+}
+
+interface FormItemContextValue {
+  id: string;
+}
+
+const FormItemContext = React.createContext<FormItemContextValue | null>(null);
+
+function FormItem({ className, ...props }: React.ComponentProps<'div'>) {
+  const id = React.useId();
+  return (
+    <FormItemContext.Provider value={{ id }}>
+      <div data-slot="form-item" className={cn('grid gap-1.5', className)} {...props} />
+    </FormItemContext.Provider>
+  );
+}
+
+function useFormField() {
+  const fieldContext = React.useContext(FormFieldContext);
+  const itemContext = React.useContext(FormItemContext);
+  const { getFieldState } = useFormContext();
+  const formState = useFormState(fieldContext ? { name: fieldContext.name } : undefined);
+
+  if (!fieldContext) {
+    throw new Error('useFormField must be used within <FormField>');
+  }
+  if (!itemContext) {
+    throw new Error('useFormField must be used within <FormItem>');
+  }
+
+  const fieldState = getFieldState(fieldContext.name, formState);
+  const { id } = itemContext;
+
+  return {
+    id,
+    name: fieldContext.name,
+    formItemId: `${id}-form-item`,
+    formDescriptionId: `${id}-form-item-description`,
+    formMessageId: `${id}-form-item-message`,
+    ...fieldState,
+  };
+}
+
+function FormLabel({ className, ...props }: React.ComponentProps<typeof Label>) {
+  const { error, formItemId } = useFormField();
+  return (
+    <Label
+      data-slot="form-label"
+      data-error={!!error}
+      className={cn(error && 'text-destructive', className)}
+      htmlFor={formItemId}
+      {...props}
+    />
+  );
+}
+
+function FormControl({ ...props }: React.ComponentProps<typeof Slot.Root>) {
+  const { error, formItemId, formDescriptionId, formMessageId } = useFormField();
+  return (
+    <Slot.Root
+      data-slot="form-control"
+      id={formItemId}
+      aria-describedby={error ? `${formDescriptionId} ${formMessageId}` : formDescriptionId}
+      aria-invalid={!!error}
+      {...props}
+    />
+  );
+}
+
+function FormDescription({ className, ...props }: React.ComponentProps<'p'>) {
+  const { formDescriptionId } = useFormField();
+  return (
+    <p
+      data-slot="form-description"
+      id={formDescriptionId}
+      className={cn('text-sm text-muted-foreground', className)}
+      {...props}
+    />
+  );
+}
+
+/** `role="alert"` gives the error an implicit assertive live region — a
+ * screen reader announces it the moment it mounts, no separate
+ * `aria-live` wiring needed. Renders nothing when there's no error and no
+ * static `children`, so an empty `<p>` never sits in the DOM as a false
+ * "something's here" signal for a screen reader doing element-by-element
+ * review. */
+function FormMessage({ className, children, ...props }: React.ComponentProps<'p'>) {
+  const { error, formMessageId } = useFormField();
+  const body = error ? String(error.message ?? '') : children;
+
+  if (!body) return null;
+
+  return (
+    <p
+      data-slot="form-message"
+      id={formMessageId}
+      role="alert"
+      className={cn('text-sm text-destructive', className)}
+      {...props}
+    >
+      {body}
+    </p>
+  );
+}
+
+export {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  useFormField,
+};
