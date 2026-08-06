@@ -358,6 +358,83 @@ switchActiveTenant(queryClient, nextTenantId);
 // queryClient.getQueryCache().getAll() is now empty
 ```
 
+#### Optimistic updates — and where they're forbidden
+
+Optimistic UI (show the new state immediately, roll back on failure) is fine
+for a low-stakes mutation. It is **dangerous for anything financial**:
+showing "৳4,500 received" and then rolling back means the UI confirmed a
+parent's payment that didn't happen. At a cash counter, with the parent
+standing there, that's not a glitch — it's an argument. Enrolment changes
+carry the same risk: a rolled-back class transfer briefly shows a student in
+a class they aren't in.
+
+**The rule, enforced by lint, not just written down here**: `useMutation`
+calls that post to `/payments/*`, `/fees/generate`, `/invoices`, or
+`/enrollments/*` must never declare `onMutate`. The
+`no-optimistic-financial-mutation` ESLint rule
+(`eslint-rules/financial-mutation.mjs`, wired into every package's config —
+`ui` itself included, since that's where these hooks actually live) fails
+the build if the two ever appear on the same `useMutation` call. It's a
+CI failure, not a review comment, for the same reason the
+`@beton-boi/ui` import boundary is: review catches this sometimes, lint
+catches it every time.
+
+`src/hooks/payments.ts`'s `useCreatePayment` is the reference **non-**
+optimistic mutation — no `onMutate`, only `isPending`/`isSuccess`/`isError`
+to drive the UI:
+
+```ts
+export function useCreatePayment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreatePaymentInput) => apiClient.post<Payment>('/payments', input),
+    retry: shouldRetryQuery,
+    onSuccess: (payment) => {
+      // The whole `lists()` branch — a new payment can affect an
+      // unfiltered list or one filtered a different way too.
+      void queryClient.invalidateQueries({ queryKey: paymentKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: studentKeys.detail(payment.student.id) });
+    },
+  });
+}
+```
+
+A consuming form should disable its submit control on `mutation.isPending`
+and keep whatever the user typed on `mutation.isError` — don't clear or
+reset form state until `onSuccess` actually fires. See
+`src/hooks/payments.test.tsx`'s `PaymentForm` for the full reference pattern
+(a local, test-only component — no real `Input` primitive exists yet, see
+epic 8.6).
+
+`src/hooks/students.ts`'s `useUpdateStudentPreferredCommunication` is the
+reference **legitimate** optimistic mutation — a guardian's contact
+preference has none of a payment's stakes, so it's safe to show before the
+server confirms. The three-part pattern every optimistic mutation needs:
+
+```ts
+useMutation({
+  // Serializes calls for the *same* student — without it, two updates
+  // fired close together can each snapshot before either resolves, and
+  // whichever settles last rolls back over the other's already-applied
+  // result. Two different students still run concurrently; they share
+  // no cache entry to race over.
+  scope: { id: `student-preferred-communication-${id}` },
+  mutationFn: (value) => apiClient.patch(`/students/${id}`, { preferred_communication: value }),
+  onMutate: async (value) => {
+    await queryClient.cancelQueries({ queryKey: studentKeys.detail(id) });
+    const previousStudent = queryClient.getQueryData(studentKeys.detail(id));
+    queryClient.setQueryData(studentKeys.detail(id), { ...previousStudent, preferred_communication: value });
+    return { previousStudent }; // rollback snapshot
+  },
+  onError: (_err, _value, context) => {
+    queryClient.setQueryData(studentKeys.detail(id), context.previousStudent); // exact rollback
+  },
+  onSettled: () => {
+    void queryClient.invalidateQueries({ queryKey: studentKeys.detail(id) }); // reconcile either way
+  },
+});
+```
+
 `renderHookWithProviders` mirrors `renderWithProviders`'s options
 (`tenantId`/`role`/`accessToken`, `seedQueries`, a caller-supplied
 `queryClient`), wrapping RTL's own `renderHook` instead of `render`. Same

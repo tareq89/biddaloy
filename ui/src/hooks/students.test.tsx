@@ -1,6 +1,6 @@
 import { QueryClient } from '@tanstack/react-query';
-import { waitFor } from '@testing-library/react';
-import { http, HttpResponse } from 'msw';
+import { act, waitFor } from '@testing-library/react';
+import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 
 import { studentFactory, type Student } from '../test/factories';
@@ -9,8 +9,155 @@ import { apiErrorBody } from '../test/msw/support';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
 import { createTestQueryClient } from '../test/render-with-providers';
 
-import { studentKeys, useCreateStudent, useStudent, useStudents } from './students';
+import {
+  studentKeys,
+  useCreateStudent,
+  useStudent,
+  useStudents,
+  useUpdateStudentPreferredCommunication,
+  type PreferredCommunication,
+} from './students';
 import { switchActiveTenant } from './tenant';
+
+describe('useUpdateStudentPreferredCommunication is a legitimate optimistic mutation (low-stakes -> safe to roll back)', () => {
+  it('shows the optimistic value before the server responds, then rolls back and surfaces an error on failure', async () => {
+    // `createTestQueryClient()`'s default `mutations.retry: false` gets
+    // overridden by this hook's own `retry: shouldRetryQuery` (same
+    // client-default-vs-per-query-option interaction as the retry tests
+    // below) — a 500 is retryable, so without `retryDelay: 0` this would
+    // wait out real exponential backoff before reaching `isError`.
+    const queryClient = createTestQueryClient();
+    queryClient.setDefaultOptions({
+      ...queryClient.getDefaultOptions(),
+      mutations: { retryDelay: 0 },
+    });
+    const student = studentFactory({ id: 'student-1', preferred_communication: 'SMS' });
+    queryClient.setQueryData(studentKeys.detail('student-1'), student);
+
+    server.use(
+      http.patch('/api/v1/students/:id', async () => {
+        await delay(30);
+        return HttpResponse.json(apiErrorBody(500, 'boom', '/api/v1/students/student-1'), {
+          status: 500,
+        });
+      }),
+    );
+
+    const { result } = renderHookWithProviders(
+      () => ({
+        student: useStudent('student-1'),
+        update: useUpdateStudentPreferredCommunication('student-1'),
+      }),
+      { tenantId: 'tenant-1', queryClient },
+    );
+
+    expect(result.current.student.data?.preferred_communication).toBe('SMS');
+
+    result.current.update.mutate('WHATSAPP');
+
+    // The whole point of "optimistic": the cache already reflects the new
+    // value while the (still in-flight, 30ms-delayed) request is pending —
+    // not just eventually, after the server actually confirms it.
+    await waitFor(() =>
+      expect(result.current.student.data?.preferred_communication).toBe('WHATSAPP'),
+    );
+    expect(result.current.update.isPending).toBe(true);
+
+    await waitFor(() => expect(result.current.update.isError).toBe(true));
+    // Rolled back to exactly the pre-mutation value, not some other reset.
+    expect(result.current.student.data?.preferred_communication).toBe('SMS');
+  });
+
+  it('on success, settles on the server-confirmed value rather than just leaving the optimistic write in place', async () => {
+    const queryClient = createTestQueryClient();
+    const student = studentFactory({ id: 'student-2', preferred_communication: 'SMS' });
+    queryClient.setQueryData(studentKeys.detail('student-2'), student);
+
+    server.use(
+      http.patch('/api/v1/students/:id', ({ params }) =>
+        HttpResponse.json(
+          studentFactory({ id: params.id as string, preferred_communication: 'EMAIL' }),
+        ),
+      ),
+    );
+
+    const { result } = renderHookWithProviders(
+      () => ({
+        student: useStudent('student-2'),
+        update: useUpdateStudentPreferredCommunication('student-2'),
+      }),
+      { tenantId: 'tenant-1', queryClient },
+    );
+
+    result.current.update.mutate('EMAIL');
+
+    await waitFor(() => expect(result.current.update.isSuccess).toBe(true));
+    // The mutation's own resolved value is the server-confirmed one — a
+    // separate concern from `onSettled`'s background refetch, which
+    // reconciles the cache against whatever `GET /students/:id` happens
+    // to return next (not asserted here to avoid coupling this test to
+    // that handler's own fixture data).
+    expect(result.current.update.data?.preferred_communication).toBe('EMAIL');
+  });
+
+  it('serializes two overlapping updates for the same student — the second request never starts before the first settles', async () => {
+    // Each request blocks on its own manually-controlled promise instead
+    // of a fixed delay, so the test can assert on exact start order and
+    // concurrency rather than inferring it from timing — an earlier
+    // version of this test used relative delays and, when checked,
+    // turned out to pass even with `scope` removed (both requests fire
+    // immediately regardless of scope; only *starting* the second one
+    // is what scope actually gates).
+    const releasers: Record<string, () => void> = {};
+    const startOrder: string[] = [];
+    let concurrentRequests = 0;
+    let maxConcurrentRequests = 0;
+
+    server.use(
+      http.patch('/api/v1/students/:id', async ({ request }) => {
+        const body = (await request.json()) as { preferred_communication: string };
+        startOrder.push(body.preferred_communication);
+        concurrentRequests += 1;
+        maxConcurrentRequests = Math.max(maxConcurrentRequests, concurrentRequests);
+        await new Promise<void>((resolve) => {
+          releasers[body.preferred_communication] = resolve;
+        });
+        concurrentRequests -= 1;
+        return HttpResponse.json(
+          studentFactory({
+            id: 'student-3',
+            preferred_communication: body.preferred_communication as PreferredCommunication,
+          }),
+        );
+      }),
+    );
+
+    const queryClient = createTestQueryClient();
+    const { result } = renderHookWithProviders(
+      () => useUpdateStudentPreferredCommunication('student-3'),
+      { tenantId: 'tenant-1', queryClient },
+    );
+
+    result.current.mutate('WHATSAPP');
+    await waitFor(() => expect(startOrder).toEqual(['WHATSAPP']));
+
+    result.current.mutate('EMAIL');
+    // Give the second call every opportunity to (incorrectly) start its
+    // request before the first has settled — if `scope` weren't applied,
+    // this is exactly where it would show up as a second entry in
+    // `startOrder` and `maxConcurrentRequests` reaching 2.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+    expect(startOrder).toEqual(['WHATSAPP']);
+    expect(maxConcurrentRequests).toBe(1);
+
+    releasers.WHATSAPP?.();
+    await waitFor(() => expect(startOrder).toEqual(['WHATSAPP', 'EMAIL']));
+    expect(maxConcurrentRequests).toBe(1);
+
+    releasers.EMAIL?.();
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+  });
+});
 
 describe('useStudent fetches a single student by id', () => {
   it('resolves with the student the handler returns for that id', async () => {

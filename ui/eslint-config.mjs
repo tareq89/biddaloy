@@ -15,6 +15,15 @@
 //   - `componentBoundaryConfig`: enforces the @beton-boi/ui import boundary
 //     (no direct Radix, no deep/primitive imports, no raw Intl) — for
 //     client-* consumers only, never for `ui` itself. See the comment below.
+//   - `financialMutationGuardConfig`: [8.4.4]'s executable guard — no
+//     `onMutate` (optimistic updates) on a `useMutation` call that posts to
+//     a payments/fee-generation/invoice/enrollment endpoint. Applied to
+//     *every* consumer, including `ui` itself — unlike the boundary rules
+//     above, this isn't about `ui` legitimately doing something client
+//     apps shouldn't; the actual `useMutation` calls this guards live in
+//     `ui/src/hooks/`, so `ui` needs it applied directly, and client apps
+//     get it too as defense in depth against a future local `useMutation`
+//     call that bypasses the shared hooks layer.
 import js from '@eslint/js';
 import eslintConfigPrettier from 'eslint-config-prettier';
 import importPlugin from 'eslint-plugin-import';
@@ -26,6 +35,7 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 import boundaryPlugin from './eslint-rules/component-boundary.mjs';
+import financialMutationPlugin from './eslint-rules/financial-mutation.mjs';
 
 // Type-checked rules need `parserOptions.projectService` (typescript-eslint's
 // current recommendation over the older `project: './tsconfig.json'` — it's
@@ -75,6 +85,17 @@ export const componentBoundaryConfig = Object.freeze({
     'boundary/no-radix-import': 'error',
     'boundary/no-deep-ui-import': 'error',
     'boundary/no-raw-intl': 'error',
+  }),
+});
+
+// A payment shown as successful and then rolled back means the UI
+// confirmed money that was never received — see [8.4.4]'s issue for the
+// full "cash counter" scenario this exists to prevent. Applied everywhere,
+// not scoped to `ui` alone (see the module comment above).
+export const financialMutationGuardConfig = Object.freeze({
+  plugins: Object.freeze({ 'financial-mutation': financialMutationPlugin }),
+  rules: Object.freeze({
+    'financial-mutation/no-optimistic-financial-mutation': 'error',
   }),
 });
 
