@@ -42,6 +42,19 @@ import { defineConfig, mergeConfig } from 'vitest/config';
 // get the same cleanup guarantee.
 const testSetupFile = resolve(__dirname, 'ui/src/test/setup.ts');
 
+// v8 coverage instrumentation adds real per-test overhead — enough that
+// eslint-rules/component-boundary.spec.mjs's type-aware RuleTester cases
+// (already the slowest tests here, since they run real TypeScript
+// type-checking) went from ~700ms locally to timing out at the 5000ms
+// default in CI once `--coverage` was wired in there ([8.3.5]). Not a
+// flaky test — reproducible, coverage-only slowdown on a slower CI CPU.
+// Set per-project (Vitest's `projects` mode does not inherit a top-level
+// `test.testTimeout` into each project — a top-level setting here is
+// silently ignored), applied to every project rather than just `ui:node`:
+// harmless headroom elsewhere, and the one project that needs it doesn't
+// get its own easy-to-forget bespoke value.
+const PROJECT_TEST_TIMEOUT = 20_000;
+
 function frontendPackage(
   name: string,
   dir: string,
@@ -58,6 +71,7 @@ function frontendPackage(
         include: nodeInclude,
         globals: true,
         setupFiles: [testSetupFile],
+        testTimeout: PROJECT_TEST_TIMEOUT,
       },
     }),
     mergeConfig(base, {
@@ -68,6 +82,7 @@ function frontendPackage(
         include: jsdomInclude,
         globals: true,
         setupFiles: [testSetupFile],
+        testTimeout: PROJECT_TEST_TIMEOUT,
       },
     }),
   ];
@@ -138,16 +153,6 @@ const coverage = {
 
 export default defineConfig({
   test: {
-    // v8 coverage instrumentation adds real per-test overhead — enough
-    // that `eslint-rules/component-boundary.spec.mjs`'s type-aware
-    // RuleTester cases (already the slowest tests here, since they run
-    // real TypeScript type-checking) went from ~700ms locally to timing
-    // out at the 5000ms default in CI once `--coverage` was wired in
-    // there ([8.3.5]). Not a flaky test — reproducible, coverage-only
-    // slowdown on a slower CI CPU. Applies to every project, not just
-    // `ui:node`: harmless headroom elsewhere, and the one project that
-    // needs it doesn't get its own bespoke timeout to remember.
-    testTimeout: 20_000,
     coverage,
     projects: [
       ...frontendPackage('ui', 'ui', uiAlias, {
