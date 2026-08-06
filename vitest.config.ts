@@ -109,7 +109,7 @@ const coverage = {
   exclude: [
     '**/*.test.{ts,tsx}',
     '**/*.spec.ts',
-    '**/*.stories.tsx',
+    '**/*.stories.{ts,tsx}',
     '**/*.d.ts',
     'ui/src/primitives/**', // vendored shadcn/Radix output, not hand-written
     'ui/src/test/**', // the test utilities this coverage run itself uses
@@ -138,6 +138,16 @@ const coverage = {
 
 export default defineConfig({
   test: {
+    // v8 coverage instrumentation adds real per-test overhead — enough
+    // that `eslint-rules/component-boundary.spec.mjs`'s type-aware
+    // RuleTester cases (already the slowest tests here, since they run
+    // real TypeScript type-checking) went from ~700ms locally to timing
+    // out at the 5000ms default in CI once `--coverage` was wired in
+    // there ([8.3.5]). Not a flaky test — reproducible, coverage-only
+    // slowdown on a slower CI CPU. Applies to every project, not just
+    // `ui:node`: harmless headroom elsewhere, and the one project that
+    // needs it doesn't get its own bespoke timeout to remember.
+    testTimeout: 20_000,
     coverage,
     projects: [
       ...frontendPackage('ui', 'ui', uiAlias, {

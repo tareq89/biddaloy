@@ -146,14 +146,15 @@ yarn coverage
 yarn test:frontend:coverage
 ```
 
-A global 70%/lines+branches floor applies across `ui`, `client-admin` and
-`client-student`; CI fails below it. `ui/src/utils/**` and `ui/src/api/**`
-(the axios client, its interceptors, and auth/token state) carry a 95%
-"near-complete" floor instead — a bug there means money is wrong or a
-request goes out with stale auth. Generated types, `*.stories.tsx`,
-vendored `ui/src/primitives/`, `ui/src/test/` and framework bootstrap
-(`main.tsx`) are excluded from the denominator entirely, not just left
-unenforced — see `vitest.config.ts`'s `coverage.exclude`.
+A global 70% floor (lines, branches, functions and statements) applies
+across `ui`, `client-admin` and `client-student`; CI fails below it.
+`ui/src/utils/**` and `ui/src/api/**` (the axios client, its interceptors,
+and auth/token state) carry a 95% "near-complete" floor instead, on all
+four of the same metrics — a bug there means money is wrong or a request
+goes out with stale auth. Generated types, `*.stories.{ts,tsx}`, vendored
+`ui/src/primitives/`, `ui/src/test/` and framework bootstrap (`main.tsx`)
+are excluded from the denominator entirely, not just left unenforced — see
+`vitest.config.ts`'s `coverage.exclude`.
 
 CI uploads the `lcov`/HTML report as the `frontend-coverage` artifact on
 every run (`.github/workflows/ci.yml`), success or failure.
