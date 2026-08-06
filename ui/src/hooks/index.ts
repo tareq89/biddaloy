@@ -16,8 +16,11 @@ export {
   useCreateStudent,
   useStudent,
   useStudents,
+  useUpdateStudentPreferredCommunication,
   type CreateStudentInput,
   type PaginatedStudents,
+  type PreferredCommunication,
   type Student,
   type StudentListFilters,
 } from './students';
+export { paymentKeys, useCreatePayment, type CreatePaymentInput, type Payment } from './payments';

@@ -1,6 +1,7 @@
 import {
   biddaloyReactConfig,
   componentBoundaryConfig,
+  financialMutationGuardConfig,
   typeCheckedRules,
   typeCheckedTestOverrides,
 } from '@beton-boi/ui/eslint-config';
@@ -23,6 +24,10 @@ export default tseslint.config(
   {
     files: ['src/**/*.{ts,tsx}'],
     ...componentBoundaryConfig,
+  },
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ...financialMutationGuardConfig,
   },
   {
     files: ['*.ts', '*.mjs'],

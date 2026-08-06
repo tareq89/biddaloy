@@ -3,6 +3,7 @@ import tseslint from 'typescript-eslint';
 
 import {
   biddaloyReactConfig,
+  financialMutationGuardConfig,
   typeCheckedRules,
   typeCheckedTestOverrides,
 } from './eslint-config.mjs';
@@ -18,6 +19,10 @@ export default tseslint.config(
         tsconfigRootDir: import.meta.dirname,
       },
     },
+  },
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ...financialMutationGuardConfig,
   },
   typeCheckedTestOverrides,
   {
