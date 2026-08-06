@@ -8,8 +8,10 @@ import { afterEach } from 'vitest';
 
 import './a11y/matchers';
 
+import { resetOnlineStatus } from './connectivity';
 import { resetFactorySeed } from './factories/faker';
 import { cleanupTestState } from './render-with-providers';
 
 afterEach(cleanupTestState);
 afterEach(resetFactorySeed);
+afterEach(resetOnlineStatus);
