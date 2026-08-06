@@ -135,6 +135,94 @@ would then implicitly change the whole test run's lifecycle. `src/test/
 setup.ts` is the one place that wires `cleanupTestState` into `afterEach`,
 via `vitest.config.ts`'s `setupFiles`.
 
+### Mocking (MSW)
+
+`server` (MSW's Node runtime) is exported from `@beton-boi/ui/test` and
+already wired into `src/test/setup.ts` — `listen({ onUnhandledRequest:
+'error' })` in `beforeAll`, `resetHandlers()` in `afterEach`, `close()` in
+`afterAll`. Nothing to import for the lifecycle itself; `server.use(...)`
+inside a test is a complete per-test override on its own:
+
+```ts
+import { http, HttpResponse } from 'msw';
+import { server } from '@beton-boi/ui/test';
+
+it('handles a 500 from the students endpoint', async () => {
+  server.use(http.get('/api/v1/students', () => HttpResponse.json(null, { status: 500 })));
+  // ...
+});
+```
+
+`onUnhandledRequest: 'error'` means a request with no matching handler
+*throws* rather than hanging until timeout or silently passing through to
+a real network call — silent pass-through is what produces an integration
+test that looks green while testing nothing. `handlers` (currently empty;
+[8.4.2] populates it with the typed handler library) is the shared
+baseline every test starts with; `server.use()` layers a per-test
+override on top, cleared automatically by the next test's `resetHandlers`.
+
+For running an SPA against mocks with no backend, `enableMocking()` from
+`@beton-boi/ui/mocks` (a **separate** subpath from `@beton-boi/ui/test`,
+on purpose — see below) starts MSW's browser worker when
+`VITE_USE_MOCKS=true` is set, and no-ops otherwise:
+
+```tsx
+// main.tsx
+import { enableMocking } from '@beton-boi/ui/mocks';
+
+function renderApp() {
+  createRoot(document.getElementById('root')!).render(<App />);
+}
+
+// The .catch() matters: worker.start() can reject for reasons that have
+// nothing to do with this app (insecure context, browser blocking
+// service workers, mockServiceWorker.js 404ing under the base path) —
+// without it, renderApp() never runs and the page stays blank.
+void enableMocking()
+  .catch((error) => console.error('[enableMocking] failed — continuing without it', error))
+  .then(renderApp);
+```
+
+A few things worth knowing if you touch this:
+
+- **`@beton-boi/ui/mocks` uses a dynamic `import()` internally, not a
+  static one.** A static `import { worker } from './browser'` at the top
+  of `enable-mocking.ts` would pull `msw` (and its own dependencies,
+  `@mswjs/interceptors`, `graphql`, ...) into *every* production bundle
+  regardless of whether the flag is ever set — measured at ~280 KB raw
+  (~92 KB gzipped) added to client-admin's bundle before this was fixed.
+  With the flag check first and the import second, Vite's build-time
+  `import.meta.env.VITE_USE_MOCKS` replacement turns the unset case into
+  dead code, and Rollup drops the whole chunk from the production build.
+- **The mock worker passes all WebSocket connections through to their
+  real destination by default** (`ws.link('*')` + `server.connect()` in
+  `browser.ts`). Without this, Vite's own HMR client — which connects
+  over `ws://` — gets treated as an "unhandled connection" under the same
+  `onUnhandledRequest: 'error'` policy and floods the console (verified
+  by running client-admin with `VITE_USE_MOCKS=true` before adding the
+  passthrough). `onUnhandledRequest` only ever governs HTTP requests; it
+  was never a WebSocket setting, so this passthrough isn't a workaround
+  for that option, it's the thing that option doesn't cover. It's
+  registered *after* `handlers` in `setupWorker(...handlers, wsPassthrough)`,
+  not before — MSW matches handlers in array order and stops at the first
+  match, so a wildcard listed first would swallow every WebSocket
+  connection before a future, more specific `ws.link(...)` handler in
+  `handlers` ever got a chance to run.
+- **`client-admin/public/mockServiceWorker.js` and `client-student/
+  public/mockServiceWorker.js` are generated files, checked into the
+  repo, not hand-written.** They embed their own MSW version
+  (`PACKAGE_VERSION`) and can drift from whatever `msw` version is
+  actually installed after an upgrade. Regenerate both after bumping
+  `msw`:
+
+  ```bash
+  npx msw init client-admin/public --save
+  npx msw init client-student/public --save
+  ```
+
+  (`--save` also refreshes `msw.workerDirectory` in the root
+  `package.json`, which is already configured for both paths.)
+
 ### Hooks
 
 None of `useStudent`, `useDebounce`/`useThrottle`-style hooks, or `useOnline`

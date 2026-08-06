@@ -69,5 +69,11 @@
   },
   "resolutions": {
     "js-yaml": "^5.2.2"
+  },
+  "msw": {
+    "workerDirectory": [
+      "client-admin/public",
+      "client-student/public"
+    ]
   }
 }

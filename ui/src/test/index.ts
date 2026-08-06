@@ -1,7 +1,13 @@
 /**
  * Render helpers, MSW handlers, factories and accessibility matchers, shared by every SPA's test suite.
  *
- * MSW handlers are populated by a later phase-8 task ([8.4.x]).
+ * `server` (MSW's Node runtime) is exported here; `worker` (MSW's browser
+ * runtime, from `./msw/browser`) deliberately is not — `setupWorker()`
+ * throws immediately when constructed outside a real browser, so bundling
+ * it into this barrel would break every Node/jsdom test that imports
+ * anything from `@beton-boi/ui/test` at all. It's reachable on its own,
+ * browser-only subpath instead: `@beton-boi/ui/mocks`.
+ *
  * `toHaveNoViolations()` is registered globally at runtime via `setup.ts`
  * (every project's `setupFiles`, so it works whether or not a test file
  * imports anything from here). The side-effect import below is only for
@@ -31,6 +37,9 @@ export {
 } from './render-hook-with-providers';
 
 export { mockOnlineStatus, resetOnlineStatus } from './connectivity';
+
+export { server } from './msw/server';
+export { handlers } from './msw/handlers';
 
 export * from './factories';
 export * from './a11y';

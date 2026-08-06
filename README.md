@@ -67,6 +67,13 @@ Open http://localhost:5173/student/ for the student client, or the port Vite
 prints for `client-admin`, in your browser. Vite proxies `/api/*` requests to
 the NestJS server at port 3000.
 
+### Running a client against mocks, no backend
+
+Set `VITE_USE_MOCKS=true` in that client's `.env.local` and skip
+`yarn dev:server`/Docker entirely — MSW's browser worker intercepts every
+API call instead. See [`ui/README.md`](ui/README.md#mocking-msw) for how
+the handler library (populated by [8.4.2]) and the worker itself work.
+
 ### Regenerating API types
 
 `ui/src/api/schema.d.ts` is generated from the server's OpenAPI document and
