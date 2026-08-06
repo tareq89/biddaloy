@@ -31,6 +31,27 @@ wrapper under `../components/`, record why in a comment at the top of the
 vendored file — `--overwrite` replaces file contents wholesale, so an
 undocumented change is silently discarded the next time someone regenerates.
 
+**After regenerating, relative-ify the internal imports.** The CLI always
+writes `@/primitives/lib/utils` (and, for a primitive that composes another
+one — `dialog.tsx` importing `button.tsx` — `@/primitives/<name>`), per
+`components.json`'s `aliases` block. That `@` alias only resolves inside
+`ui`'s own tooling (`ui/tsconfig.json`, `ui/vitest.config.ts`, Storybook's
+`main.ts`) — the moment one of these files is bundled as part of
+`client-admin`/`client-student` (via `@beton-boi/ui/components`), it hits
+*that app's* `@` alias instead, which points at the app's own `src/`, not
+`ui/src/`, and the build fails with "does not exist". Change
+`@/primitives/lib/utils` → `./lib/utils` and `@/primitives/<name>` →
+`./<name>` after every regeneration — this is exactly the "genuinely needs
+a change" case the paragraph above describes, just one that recurs on every
+regen rather than being a one-off. This surfaced (and was fixed) in
+[8.7.3]: [8.6.2]'s wrappers were the first files under `components/` to
+actually import a primitive, and `client-admin`'s test run was the first
+build to bundle one — `yarn test:frontend:coverage` from the repo root is
+what catches this; `ui`'s own `yarn lint`/`yarn test` cannot, since both
+resolve `@` through `ui`'s own config. `components/*.tsx` needs the same
+relative-import treatment (`@/primitives/<name>` → `../primitives/<name>`)
+for the same reason.
+
 **Two things this directory is not.** `button.tsx`'s `data-slot`/`data-size`/
 `data-variant` attributes look like they could be local additions — they
 aren't. Diffed against a fresh `--overwrite` before writing this: byte-for-byte

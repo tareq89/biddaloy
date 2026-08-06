@@ -22,7 +22,7 @@ import type { VariantProps } from 'class-variance-authority';
 import { Loader2Icon } from 'lucide-react';
 import * as React from 'react';
 
-import { Button as ButtonPrimitive, type buttonVariants } from '@/primitives/button';
+import { Button as ButtonPrimitive, type buttonVariants } from '../primitives/button';
 
 type ButtonBaseProps = Omit<React.ComponentProps<typeof ButtonPrimitive>, 'aria-label'> &
   VariantProps<typeof buttonVariants> & {

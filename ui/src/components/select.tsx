@@ -17,7 +17,7 @@ import {
   SelectSeparator as SelectSeparatorPrimitive,
   SelectTrigger as SelectTriggerPrimitive,
   SelectValue as SelectValuePrimitive,
-} from '@/primitives/select';
+} from '../primitives/select';
 
 export type SelectProps = React.ComponentProps<typeof SelectPrimitive>;
 export type SelectTriggerProps = React.ComponentProps<typeof SelectTriggerPrimitive>;

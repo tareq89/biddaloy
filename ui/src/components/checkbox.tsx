@@ -6,7 +6,7 @@
  */
 import * as React from 'react';
 
-import { Checkbox as CheckboxPrimitive } from '@/primitives/checkbox';
+import { Checkbox as CheckboxPrimitive } from '../primitives/checkbox';
 
 export type CheckboxProps = React.ComponentProps<typeof CheckboxPrimitive>;
 

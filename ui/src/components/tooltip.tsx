@@ -14,7 +14,7 @@ import {
   TooltipContent as TooltipContentPrimitive,
   TooltipProvider as TooltipProviderPrimitive,
   TooltipTrigger as TooltipTriggerPrimitive,
-} from '@/primitives/tooltip';
+} from '../primitives/tooltip';
 
 export type TooltipProps = React.ComponentProps<typeof TooltipPrimitive>;
 export type TooltipTriggerProps = React.ComponentProps<typeof TooltipTriggerPrimitive>;

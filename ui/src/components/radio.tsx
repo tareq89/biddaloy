@@ -9,7 +9,7 @@ import * as React from 'react';
 import {
   RadioGroup as RadioGroupPrimitive,
   RadioGroupItem as RadioGroupItemPrimitive,
-} from '@/primitives/radio-group';
+} from '../primitives/radio-group';
 
 export type RadioGroupProps = React.ComponentProps<typeof RadioGroupPrimitive>;
 export type RadioGroupItemProps = React.ComponentProps<typeof RadioGroupItemPrimitive>;

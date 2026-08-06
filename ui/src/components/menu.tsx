@@ -22,7 +22,7 @@ import {
   DropdownMenuSubContent as MenuSubContentPrimitive,
   DropdownMenuSubTrigger as MenuSubTriggerPrimitive,
   DropdownMenuTrigger as MenuTriggerPrimitive,
-} from '@/primitives/dropdown-menu';
+} from '../primitives/dropdown-menu';
 
 export type MenuProps = React.ComponentProps<typeof MenuPrimitive>;
 export type MenuTriggerProps = React.ComponentProps<typeof MenuTriggerPrimitive>;

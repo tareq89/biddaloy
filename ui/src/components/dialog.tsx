@@ -25,7 +25,7 @@ import {
   DialogHeader as DialogHeaderPrimitive,
   DialogTitle as DialogTitlePrimitive,
   DialogTrigger as DialogTriggerPrimitive,
-} from '@/primitives/dialog';
+} from '../primitives/dialog';
 
 export type DialogProps = React.ComponentProps<typeof DialogPrimitive>;
 export type DialogTriggerProps = React.ComponentProps<typeof DialogTriggerPrimitive>;
