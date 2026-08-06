@@ -143,19 +143,56 @@ describe('slow variant is selectable per test', () => {
 });
 
 describe('every endpoint group is wired into the aggregate handler array', () => {
-  it('a representative default handler from each group responds without server.use', async () => {
+  // One representative *default* (no server.use) request per group, listed
+  // paginated ones and one-off ones separately since they assert a
+  // different shape — this is the actual registration check: if a group's
+  // `*DefaultHandlers` array were dropped from `handlers.ts`, the request
+  // would 401/404 into an unhandled-request error instead of resolving.
+  const paginatedGroups: [name: string, path: string][] = [
+    ['academic-years', '/academic-years'],
+    ['classes', '/classes'],
+    ['users', '/users'],
+    ['teachers', '/teachers'],
+    ['students', '/students'],
+    ['guardians', '/guardians'],
+    ['fee-structures', '/fee-structures'],
+    ['fees/dues', '/fees/dues'],
+    ['invoices', '/invoices'],
+    ['audit-logs', '/audit-logs'],
+  ];
+
+  it.each(paginatedGroups)('%s responds with a paginated envelope', async (_name, path) => {
     setActiveTenant('tenant-1');
 
-    const [teachers, classes, audit, communication] = await Promise.all([
-      apiClient.get('/teachers'),
-      apiClient.get('/classes'),
-      apiClient.get('/audit-logs'),
-      apiClient.get(`/communications/${crypto.randomUUID()}`),
-    ]);
+    const res = await apiClient.get(path);
 
-    expect(teachers.data.data.length).toBeGreaterThan(0);
-    expect(classes.data.data.length).toBeGreaterThan(0);
-    expect(audit.data.data.length).toBeGreaterThan(0);
-    expect(communication.data.id).toBeTypeOf('string');
+    expect(res.data.data.length).toBeGreaterThan(0);
+    expect(res.data.total).toBeGreaterThan(0);
+  });
+
+  it('enrollments responds to a by-student lookup', async () => {
+    setActiveTenant('tenant-1');
+
+    const res = await apiClient.get(`/enrollments/student/${crypto.randomUUID()}`);
+
+    expect(Array.isArray(res.data)).toBe(true);
+    expect(res.data.length).toBeGreaterThan(0);
+  });
+
+  it('payments responds to a by-student lookup', async () => {
+    setActiveTenant('tenant-1');
+
+    const res = await apiClient.get(`/payments/student/${crypto.randomUUID()}`);
+
+    expect(Array.isArray(res.data)).toBe(true);
+    expect(res.data.length).toBeGreaterThan(0);
+  });
+
+  it('communications responds to a get-by-id lookup', async () => {
+    setActiveTenant('tenant-1');
+
+    const res = await apiClient.get(`/communications/${crypto.randomUUID()}`);
+
+    expect(res.data.id).toBeTypeOf('string');
   });
 });

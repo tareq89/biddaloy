@@ -82,8 +82,16 @@ export interface Paginated<T> {
 
 export function paginate<T>(items: readonly T[], url: string): Paginated<T> {
   const params = new URL(url).searchParams;
-  const page = Number(params.get('page') ?? '1');
-  const limit = Number(params.get('limit') ?? '10');
+  // `Number()` alone accepts 0, negatives, NaN, and Infinity — `?limit=0`
+  // would divide-by-zero into an `Infinity` that serializes to `null` in
+  // JSON, and `?page=0` would produce a negative slice offset. Falling
+  // back to the same defaults as a missing param keeps this a mock of the
+  // server's *validated* query params, not a new way to break pagination
+  // that the real API would reject with a 400 before ever reaching here.
+  const requestedPage = Number(params.get('page') ?? '1');
+  const requestedLimit = Number(params.get('limit') ?? '10');
+  const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+  const limit = Number.isSafeInteger(requestedLimit) && requestedLimit > 0 ? requestedLimit : 10;
   const start = (page - 1) * limit;
   return {
     data: items.slice(start, start + limit),

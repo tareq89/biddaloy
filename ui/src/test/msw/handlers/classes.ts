@@ -31,7 +31,11 @@ const sectionFixtures: ClassSection[] = [classSectionFactory(), classSectionFact
 
 const listSections = http.get('/api/v1/classes/:classId/sections', ({ params }) =>
   HttpResponse.json(
-    sectionFixtures.map((section) => ({ ...section, class_id: params.classId as string })),
+    sectionFixtures.map((section) => ({
+      ...section,
+      class: { ...section.class, id: params.classId as string },
+      class_id: params.classId as string,
+    })),
   ),
 );
 

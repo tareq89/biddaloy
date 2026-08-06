@@ -44,7 +44,9 @@ const create = http.post('/api/v1/enrollments', () =>
 );
 
 const listByStudent = http.get('/api/v1/enrollments/student/:studentId', ({ params }) =>
-  HttpResponse.json([enrollmentFactory({ student_id: params.studentId as string })]),
+  HttpResponse.json([
+    enrollmentFactory({ student: studentFactory({ id: params.studentId as string }) }),
+  ]),
 );
 
 const listByStudentEmpty = http.get('/api/v1/enrollments/student/:studentId', () =>
