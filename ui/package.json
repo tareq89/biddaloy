@@ -42,7 +42,7 @@
     "axios-mock-adapter": "^2.1.0",
     "react": "^19",
     "react-dom": "^19",
-    "typescript": "^5",
+    "typescript": "^6",
     "vitest": "^3"
   }
 }
