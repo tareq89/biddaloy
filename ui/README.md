@@ -137,6 +137,12 @@ via `vitest.config.ts`'s `setupFiles`.
 
 ### Hooks
 
+None of `useStudent`, `useDebounce`/`useThrottle`-style hooks, or `useOnline`
+exist in `src/hooks/` yet — every hook named below is a small, ad-hoc
+stand-in defined directly in `src/test/render-hook-with-providers.test.tsx`,
+there only to prove these test utilities work correctly. Treat the examples
+as usage patterns, not as pointers to real exports.
+
 `renderHookWithProviders` mirrors `renderWithProviders`'s options
 (`tenantId`/`role`/`accessToken`, `seedQueries`, a caller-supplied
 `queryClient`), wrapping RTL's own `renderHook` instead of `render`. Same

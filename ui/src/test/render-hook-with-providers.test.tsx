@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getAccessToken, getActiveRole, getActiveTenant } from '../api/auth-state';
 
-import { mockOnlineStatus } from './connectivity';
+import { mockOnlineStatus, resetOnlineStatus } from './connectivity';
 import { renderHookWithProviders } from './render-hook-with-providers';
 
 // Stand-ins for hooks this ticket's own scope doesn't build yet
@@ -162,5 +162,17 @@ describe('useOnline is testable by toggling a mocked connectivity state', () => 
 
     act(() => mockOnlineStatus(true));
     expect(result.current).toBe(true);
+  });
+
+  it('resetOnlineStatus removes the mock entirely, not just resets its value', () => {
+    mockOnlineStatus(false);
+    expect(Object.getOwnPropertyDescriptor(navigator, 'onLine')).toBeDefined();
+
+    resetOnlineStatus();
+
+    // No own property left on navigator — onLine is back to being
+    // inherited from Navigator.prototype, exactly as it was before any
+    // test in this file touched it.
+    expect(Object.getOwnPropertyDescriptor(navigator, 'onLine')).toBeUndefined();
   });
 });

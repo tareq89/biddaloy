@@ -15,6 +15,11 @@
  */
 const hasWindow = typeof window !== 'undefined';
 
+// `navigator.onLine` is normally inherited from `Navigator.prototype`, not
+// an own property of `navigator` itself — so this is `undefined` in the
+// common case. `resetOnlineStatus()` uses that distinction: `undefined`
+// means "delete the mock's own property to restore prototype inheritance",
+// not "there's nothing to reset".
 const ORIGINAL_ON_LINE_DESCRIPTOR = hasWindow
   ? Object.getOwnPropertyDescriptor(window.navigator, 'onLine')
   : undefined;
@@ -32,6 +37,10 @@ export function mockOnlineStatus(online: boolean): void {
  * `ui/src/test/setup.ts`'s `afterEach` — call directly only if a test
  * needs the real value back before it ends, not after. */
 export function resetOnlineStatus(): void {
-  if (!hasWindow || !ORIGINAL_ON_LINE_DESCRIPTOR) return;
-  Object.defineProperty(window.navigator, 'onLine', ORIGINAL_ON_LINE_DESCRIPTOR);
+  if (!hasWindow) return;
+  if (ORIGINAL_ON_LINE_DESCRIPTOR) {
+    Object.defineProperty(window.navigator, 'onLine', ORIGINAL_ON_LINE_DESCRIPTOR);
+  } else {
+    delete (window.navigator as { onLine?: boolean }).onLine;
+  }
 }
