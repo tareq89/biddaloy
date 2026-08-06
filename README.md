@@ -215,19 +215,12 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every PR and on push to
   `yarn test:unit`. No infrastructure required.
 - **integration** — spins up its own Postgres 16 and Redis 7 service
   containers, then runs `yarn test:integration` and `yarn test:e2e`.
-- **e2e** — Chromium only on every PR/push, with its own Postgres/Redis
-  service containers, migrated and seeded before Playwright starts the
-  server and both clients. See "End-to-end Testing" above. Firefox and
-  WebKit run on demand rather than on every commit — trigger a full sweep
-  with:
-
-  ```bash
-  gh workflow run CI -f e2e_browsers=chromium,firefox,webkit
-  ```
-
-  (or any subset, e.g. `-f e2e_browsers=webkit`). The `e2e-matrix` job
-  resolves that input into the actual shard list; unset or omitted, it
-  defaults to `chromium`.
+- **e2e** — Chromium only, with its own Postgres/Redis service containers,
+  migrated and seeded before Playwright starts the server and both clients.
+  See "End-to-end Testing" above. Firefox and WebKit are configured (`yarn
+  e2e` runs all three locally) but not sharded in CI on every PR/push —
+  three-way sharding there costs more CI time than the marginal
+  non-Chromium regressions catch day to day.
 - **audit** — `node scripts/ci-audit.js`, which gates only on high/critical
   `yarn audit` findings (yarn classic's `--level` flag doesn't affect its exit
   code, so this re-implements the filter correctly). Allowlisted advisories
