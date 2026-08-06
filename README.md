@@ -173,6 +173,46 @@ are excluded from the denominator entirely, not just left unenforced — see
 CI uploads the `lcov`/HTML report as the `frontend-coverage` artifact on
 every run (`.github/workflows/ci.yml`), success or failure.
 
+## End-to-end Testing (Playwright)
+
+`playwright.config.ts` (repo root) drives real browsers against the real
+API and both client SPAs — `e2e/` holds the specs, separate from the
+Vitest-based `server/test/*.e2e-spec.ts` suite (`yarn test:e2e`), which
+exercises the API directly over HTTP with no browser involved.
+
+```bash
+# All three browsers, headless
+yarn e2e
+
+# Inspector with time-travel debugging
+yarn e2e --ui
+
+# Step through a single spec
+yarn e2e --debug
+
+# One browser only
+yarn e2e --project=chromium
+```
+
+Bring up Postgres/Redis first, same as any other local dev session:
+
+```bash
+docker compose up -d db redis
+yarn workspace @beton-boi/server migration:run
+SEED_ADMIN_PASSWORD=<password> yarn workspace @beton-boi/server seed
+```
+
+`webServer` in `playwright.config.ts` then starts the server and both
+clients itself (`yarn dev:server`, `yarn dev:client-student`,
+`yarn dev:client-admin`) — or reuses them if you already have those three
+running in their own terminals, per the Development section above.
+
+Retries are capped at 1 in CI and 0 locally — a spec that needs more is
+hiding flake, not a slow endpoint. Traces, screenshots and video are
+captured only on failure and uploaded as CI artifacts (`playwright-report`,
+`test-results`); locally they land in the same two gitignored directories
+and `yarn e2e --ui` opens the HTML report automatically on failure.
+
 ## CI
 
 GitHub Actions (`.github/workflows/ci.yml`) runs on every PR and on push to
@@ -182,6 +222,10 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every PR and on push to
   `yarn test:unit`. No infrastructure required.
 - **integration** — spins up its own Postgres 16 and Redis 7 service
   containers, then runs `yarn test:integration` and `yarn test:e2e`.
+- **e2e** — three parallel shards (Chromium, Firefox, WebKit), each with its
+  own Postgres/Redis service containers, migrated and seeded before
+  Playwright starts the server and both clients. See "End-to-end Testing"
+  above.
 - **audit** — `node scripts/ci-audit.js`, which gates only on high/critical
   `yarn audit` findings (yarn classic's `--level` flag doesn't affect its exit
   code, so this re-implements the filter correctly). Allowlisted advisories
