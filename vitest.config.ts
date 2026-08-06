@@ -128,7 +128,12 @@ const coverage = {
     '**/*.d.ts',
     'ui/src/primitives/**', // vendored shadcn/Radix output, not hand-written
     'ui/src/test/**', // the test utilities this coverage run itself uses
-    '**/index.ts', // barrels — re-exports only, nothing to branch on
+    // Barrels — assumed pure re-exports (`export { x } from './y'`), no
+    // conditionals or logic of their own. If one ever grows real logic
+    // (an env check, a conditional export), move that logic to its own
+    // file instead of excluding it here by accident — this pattern stays
+    // safe only as long as that assumption holds.
+    '**/index.ts',
     '**/main.tsx', // ReactDOM bootstrap, no logic — same as server's src/main.ts
   ],
   thresholds: {
