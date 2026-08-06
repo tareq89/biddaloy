@@ -1,7 +1,23 @@
 /**
  * Shared hooks — URL state, pagination, permissions, auth, connectivity.
  *
- * Populated by a later phase-8 task; the barrel exists now so
- * `@beton-boi/ui/hooks` resolves from the moment the package does.
+ * `students.ts` is the reference implementation for [8.4.3]'s query
+ * cache/invalidation conventions — `query-keys.ts`'s hierarchical
+ * factory, `retry.ts`'s shared 4xx-doesn't-retry predicate, and
+ * `tenant.ts`'s cache-clearing tenant switch. Later entities' hooks
+ * should mirror `students.ts`'s shape rather than reinvent it — see
+ * `ui/README.md`'s "Hooks" section for the full pattern write-up.
  */
-export {};
+export { createEntityKeys, type EntityKeys } from './query-keys';
+export { shouldRetryQuery } from './retry';
+export { switchActiveTenant } from './tenant';
+export {
+  studentKeys,
+  useCreateStudent,
+  useStudent,
+  useStudents,
+  type CreateStudentInput,
+  type PaginatedStudents,
+  type Student,
+  type StudentListFilters,
+} from './students';

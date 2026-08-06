@@ -276,11 +276,87 @@ A few things worth knowing if you touch this:
 
 ### Hooks
 
-None of `useStudent`, `useDebounce`/`useThrottle`-style hooks, or `useOnline`
-exist in `src/hooks/` yet — every hook named below is a small, ad-hoc
-stand-in defined directly in `src/test/render-hook-with-providers.test.tsx`,
-there only to prove these test utilities work correctly. Treat the examples
-as usage patterns, not as pointers to real exports.
+`useStudent`/`useStudents`/`useCreateStudent` (`src/hooks/students.ts`) are
+real, exported from `@beton-boi/ui/hooks` — the reference implementation for
+the query cache/invalidation conventions below. `useDebounce`/`useThrottle`-
+style hooks and `useOnline` don't exist yet; those examples below are still
+small, ad-hoc stand-ins defined directly in
+`src/test/render-hook-with-providers.test.tsx`, there only to prove the test
+utilities work correctly — treat those two as usage patterns, not pointers to
+real exports.
+
+#### Query keys, invalidation, and cache-clearing
+
+Every entity's query keys follow the same hierarchical shape, built by
+`createEntityKeys()` (`src/hooks/query-keys.ts`):
+
+```ts
+export const studentKeys = createEntityKeys<StudentListFilters>('students');
+// studentKeys.all        -> ['students']
+// studentKeys.lists()    -> ['students', 'list']
+// studentKeys.list(f)    -> ['students', 'list', { page: 1 }]
+// studentKeys.details()  -> ['students', 'detail']
+// studentKeys.detail(id) -> ['students', 'detail', id]
+```
+
+The hierarchy is what makes invalidation precise. A mutation that can affect
+*any* list variant — a new student might match a filter the caller isn't
+currently looking at — invalidates the whole `lists()` branch, not one
+specific `list(filters)`:
+
+```ts
+export function useCreateStudent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateStudentInput) => apiClient.post<Student>('/students', input),
+    retry: shouldRetryQuery,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: studentKeys.lists() });
+    },
+  });
+}
+```
+
+New entities' hooks should mirror `students.ts`'s shape — `createEntityKeys()`
+for the key factory, `shouldRetryQuery` (below) for retry, invalidate
+`lists()` (not a single `list(filters)`) from any mutation that can affect
+list membership.
+
+**Retry**: `src/hooks/retry.ts`'s `shouldRetryQuery` is the one retry
+predicate every query/mutation in this package should pass. A 4xx means the
+request was rejected for a reason retrying can't fix (bad input, a role the
+caller doesn't hold, a duplicate) — retrying just repeats the same rejection.
+Anything else gets up to two retries:
+
+```ts
+useQuery({ queryKey: studentKeys.list(filters), queryFn: ..., retry: shouldRetryQuery });
+```
+
+Note that `createTestQueryClient()` (used by `renderWithProviders`/
+`renderHookWithProviders`) sets `queries.retry: false` at the *client* level
+for fast test failures — see the "Testing" section above. A per-query
+`retry: shouldRetryQuery` option still overrides that client default, so
+retry behaviour is still testable; a test asserting on it should also pass a
+custom `QueryClient` with `retryDelay: 0` (TanStack's default is exponential
+backoff in whole seconds, far too slow for a test) — see
+`src/hooks/students.test.tsx`'s `retryTestClient()` for the pattern.
+
+**Tenant switching**: `src/hooks/tenant.ts`'s `switchActiveTenant(queryClient,
+tenantId, role?)` is the one blessed way to change the active tenant. Calling
+`setActiveTenant()` (from `@beton-boi/ui/api`) directly leaves every cached
+query keyed under the previous tenant sitting in the cache — nothing in
+`auth-state.ts` clears it, since that module is deliberately state-management-
+agnostic and holds no `QueryClient` reference. Left uncleared, switching
+schools can render one school's cached students/fees/invoices under the new
+tenant's name for however long `staleTime` allows. `switchActiveTenant` calls
+`queryClient.clear()` — every cached query in this app is tenant-scoped
+server state, so a full clear rather than a targeted invalidation is both
+correct and doesn't need updating as more entities' hooks get added:
+
+```ts
+switchActiveTenant(queryClient, nextTenantId);
+// queryClient.getQueryCache().getAll() is now empty
+```
 
 `renderHookWithProviders` mirrors `renderWithProviders`'s options
 (`tenantId`/`role`/`accessToken`, `seedQueries`, a caller-supplied
