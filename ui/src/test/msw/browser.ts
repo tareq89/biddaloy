@@ -22,15 +22,21 @@ import { handlers } from './handlers';
 // spamming the console and (had this passthrough not connected it)
 // breaking HMR outright. `ws.link('*')` + `server.connect()` passes every
 // WebSocket connection through to its real destination unless a more
-// specific `ws.link(...)` handler is added ahead of it in `handlers` to
-// actually mock one. `onUnhandledRequest` only ever governs *HTTP*
-// requests with no matching handler — it was never about WebSocket
-// traffic, so this isn't working around that setting, it's just the
-// thing that setting doesn't cover.
+// specific `ws.link(...)` handler claims it first. `onUnhandledRequest`
+// only ever governs *HTTP* requests with no matching handler — it was
+// never about WebSocket traffic, so this isn't working around that
+// setting, it's just the thing that setting doesn't cover.
+//
+// Registered *after* `handlers`, not before: MSW matches handlers in
+// array order and stops at the first match, so a wildcard listed first
+// would swallow every WebSocket connection — including one a future,
+// more specific `ws.link(...)` handler in `handlers` is meant to catch —
+// before that handler ever runs. Last means "fallback for anything
+// nothing more specific claimed," which is the actual intent here.
 const wsPassthrough = ws
   .link('*')
   .addEventListener('connection', ({ server }: WebSocketHandlerConnection) => {
     server.connect();
   });
 
-export const worker = setupWorker(wsPassthrough, ...handlers);
+export const worker = setupWorker(...handlers, wsPassthrough);

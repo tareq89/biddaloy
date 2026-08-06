@@ -170,12 +170,20 @@ on purpose — see below) starts MSW's browser worker when
 // main.tsx
 import { enableMocking } from '@beton-boi/ui/mocks';
 
-void enableMocking().then(() => {
+function renderApp() {
   createRoot(document.getElementById('root')!).render(<App />);
-});
+}
+
+// The .catch() matters: worker.start() can reject for reasons that have
+// nothing to do with this app (insecure context, browser blocking
+// service workers, mockServiceWorker.js 404ing under the base path) —
+// without it, renderApp() never runs and the page stays blank.
+void enableMocking()
+  .catch((error) => console.error('[enableMocking] failed — continuing without it', error))
+  .then(renderApp);
 ```
 
-Two things worth knowing if you touch this:
+A few things worth knowing if you touch this:
 
 - **`@beton-boi/ui/mocks` uses a dynamic `import()` internally, not a
   static one.** A static `import { worker } from './browser'` at the top
@@ -194,7 +202,26 @@ Two things worth knowing if you touch this:
   by running client-admin with `VITE_USE_MOCKS=true` before adding the
   passthrough). `onUnhandledRequest` only ever governs HTTP requests; it
   was never a WebSocket setting, so this passthrough isn't a workaround
-  for that option, it's the thing that option doesn't cover.
+  for that option, it's the thing that option doesn't cover. It's
+  registered *after* `handlers` in `setupWorker(...handlers, wsPassthrough)`,
+  not before — MSW matches handlers in array order and stops at the first
+  match, so a wildcard listed first would swallow every WebSocket
+  connection before a future, more specific `ws.link(...)` handler in
+  `handlers` ever got a chance to run.
+- **`client-admin/public/mockServiceWorker.js` and `client-student/
+  public/mockServiceWorker.js` are generated files, checked into the
+  repo, not hand-written.** They embed their own MSW version
+  (`PACKAGE_VERSION`) and can drift from whatever `msw` version is
+  actually installed after an upgrade. Regenerate both after bumping
+  `msw`:
+
+  ```bash
+  npx msw init client-admin/public --save
+  npx msw init client-student/public --save
+  ```
+
+  (`--save` also refreshes `msw.workerDirectory` in the root
+  `package.json`, which is already configured for both paths.)
 
 ### Hooks
 
