@@ -99,6 +99,7 @@ const clientAlias = (pkg: string) => ({
   '@beton-boi/ui/components': resolve(__dirname, 'ui/src/components/index.ts'),
   '@beton-boi/ui/shells': resolve(__dirname, 'ui/src/shells/index.ts'),
   '@beton-boi/ui/hooks': resolve(__dirname, 'ui/src/hooks/index.ts'),
+  '@beton-boi/ui/routes': resolve(__dirname, 'ui/src/routes/index.ts'),
   '@beton-boi/ui/utils': resolve(__dirname, 'ui/src/utils/index.ts'),
   '@beton-boi/ui/i18n': resolve(__dirname, 'ui/src/i18n/index.ts'),
   '@beton-boi/ui/api': resolve(__dirname, 'ui/src/api/index.ts'),
