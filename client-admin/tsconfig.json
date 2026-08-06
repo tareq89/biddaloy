@@ -5,6 +5,7 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "outDir": "./dist",
     "noEmit": true,
+    "rootDir": "..",
     "paths": {
       "@/*": ["./src/*"],
       "@beton-boi/shared": ["../shared/src"],
