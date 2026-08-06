@@ -6,6 +6,8 @@
  */
 import { afterEach } from 'vitest';
 
+import './a11y/matchers';
+
 import { resetFactorySeed } from './factories/faker';
 import { cleanupTestState } from './render-with-providers';
 
