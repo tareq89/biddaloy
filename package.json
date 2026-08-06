@@ -73,7 +73,8 @@
   "msw": {
     "workerDirectory": [
       "client-admin/public",
-      "client-student/public"
+      "client-student/public",
+      "ui/.storybook/public"
     ]
   }
 }

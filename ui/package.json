@@ -27,7 +27,9 @@
     "check:contrast": "node --experimental-strip-types scripts/check-contrast.mjs",
     "check:api-types": "node scripts/check-api-types.mjs",
     "api:types": "npx --yes openapi-typescript@7.13.0 ../server/openapi.json -o src/api/schema.d.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "dependencies": {
     "@beton-boi/shared": "0.1.0",
@@ -40,12 +42,22 @@
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
+    "@storybook/addon-a11y": "^8",
+    "@storybook/addon-essentials": "^8",
+    "@storybook/addon-interactions": "^8",
+    "@storybook/blocks": "^8",
+    "@storybook/react-vite": "^8",
+    "@storybook/test": "^8",
+    "@tailwindcss/vite": "^4",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^4",
     "axios-mock-adapter": "^2.1.0",
     "msw": "^2",
+    "msw-storybook-addon": "^2",
     "react": "^19",
     "react-dom": "^19",
+    "storybook": "^8",
     "typescript": "^6",
     "vite": "^6",
     "vitest": "^3"
