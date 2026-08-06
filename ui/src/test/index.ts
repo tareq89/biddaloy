@@ -36,6 +36,12 @@ export {
   type RenderHookWithProvidersResult,
 } from './render-hook-with-providers';
 
+export {
+  renderWithRouter,
+  type RenderWithRouterOptions,
+  type RenderWithRouterResult,
+} from './render-with-router';
+
 export { mockOnlineStatus, resetOnlineStatus } from './connectivity';
 
 export { server } from './msw/server';

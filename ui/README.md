@@ -107,23 +107,29 @@ with a fresh, retry-disabled `QueryClient` per call. See the root
 list (`tenantId`/`role`/`accessToken`, `seedQueries`, a caller-supplied
 `queryClient`).
 
-**No router or i18n provider yet.** Neither exists anywhere in this repo:
-TanStack Router lands in [8.9.1], TanStack Query's *app* defaults (as
-opposed to `renderWithProviders`'s test-only ones) in [8.9.2], i18next in
-[8.7.1]. Adding `initialRoute`/`locale` options to `renderWithProviders`
-now would mean either installing that infrastructure ahead of its own
-dedicated ticket, or shipping options that silently do nothing — both
-worse than being explicit that they're not here yet. The options object is
-structured so adding them later is additive (new fields, the internal
-`Wrapper` gains another layer), not a breaking change to the function's
-signature. The intended eventual shape:
+**No router or i18n provider in `renderWithProviders` itself, and no app-wide
+router yet.** TanStack Query's *app* defaults (as opposed to
+`renderWithProviders`'s test-only ones) land in [8.9.2], i18next in [8.7.1].
+Adding a `locale` option to `renderWithProviders` now would mean either
+installing that infrastructure ahead of its own dedicated ticket, or
+shipping an option that silently does nothing — both worse than being
+explicit that it's not here yet. The options object is structured so
+adding it later is additive (a new field, the internal `Wrapper` gains
+another layer), not a breaking change to the function's signature. The
+intended eventual shape:
 
-```
+```text
 renderWithProviders
  ├── QueryClientProvider   (here today)
- ├── RouterProvider        ([8.9.1])
+ ├── RouterProvider        (app-wide adoption — a later ticket's call)
  └── I18nextProvider       ([8.7.1])
 ```
+
+**Routing is a narrower story**: [8.4.5] added a *scoped* integration
+harness — `react-router`, `renderWithRouter`, `RequireRole`,
+`useListUrlState` — not the app-wide router `renderWithProviders`'s own
+diagram above still leaves open. See `### Routing` below for what exists
+today and how it's deliberately bounded.
 
 Auth/tenant/role state (`ui/src/api/auth-state.ts`) is a module-scoped
 singleton, not per-render state, so it can't be reset just by creating a
@@ -134,6 +140,75 @@ side effect of that module, since anyone importing `renderWithProviders`
 would then implicitly change the whole test run's lifecycle. `src/test/
 setup.ts` is the one place that wires `cleanupTestState` into `afterEach`,
 via `vitest.config.ts`'s `setupFiles`.
+
+### Routing
+
+"Page, filters, sort, selected row and active tab all live in the query
+string" is a core platform principle, and [8.4.5] built the integration
+harness that proves it holds — not the app-wide router itself, which is a
+later ticket's call and may or may not end up being the same library.
+`react-router` is a real, installed dependency (not test-only — `RequireRole`
+is meant to be consumed by actual routes once they exist), scoped narrowly
+to what this ticket needs.
+
+`renderWithRouter(routes, options)` (`@beton-boi/ui/test`) is
+`renderWithProviders`'s router-aware sibling — same
+`tenantId`/`role`/`accessToken`/`queryClient` options, plus `initialEntries`
+(mount at an arbitrary URL, search params included) and `initialIndex`
+(seed history *before* the entry under test, so back-navigation has
+something real to return to). It takes a `RouteObject[]` — react-router's
+own route-config shape — rather than a single element, so a test exercises
+real route matching, not one component in isolation:
+
+```tsx
+const { router } = renderWithRouter(
+  [{ path: '/students', element: <StudentsListRoute /> }],
+  { initialEntries: ['/students?page=2&class_id=class-9'], tenantId: 'tenant-1' },
+);
+// router.state.location — assert the URL, not just what rendered
+// router.navigate(-1) — simulate Back (wrap in `act()`, it's async)
+```
+
+`useListUrlState(defaults?)` (`@beton-boi/ui/routes`) is the one hook a
+list page should read/write `page`/`limit`/`sort`/filters through — a thin,
+typed wrapper over react-router's own `useSearchParams`. Falls back to
+sensible defaults for a non-numeric, negative, or missing `page`/`limit`
+rather than propagating `NaN` or a negative offset into a query — the same
+malformed-URL problem the AC calls out (a stale bookmark, a hand-edited
+link, a bug upstream):
+
+```tsx
+const [state, updateUrl] = useListUrlState({ limit: 10 });
+// state.page / state.limit / state.sort / state.filters
+updateUrl({ page: state.page + 1 });          // ?page=2
+updateUrl({ filters: { class_id: 'c-9' } });  // ?class_id=c-9, page/sort untouched
+```
+
+`RequireRole` (`@beton-boi/ui/routes`) gates a route element by the active
+role (`getActiveRole()`, the same value `apiClient` sends as `X-Role`),
+redirecting to `/forbidden` (configurable) with `replace` — the guarded
+route never enters back-navigation history:
+
+```tsx
+{ path: '/reports', element: (
+  <RequireRole allow={['ADMIN', 'ACCOUNTANT', 'EXECUTIVE']}>
+    <ReportsPage />
+  </RequireRole>
+) }
+```
+
+**This is UX, not the security boundary** — the server's own
+`AuthGuard('jwt')`/`ContextGuard`/`RolesGuard` stack (see the root
+`README`'s "Adding a new controller" section) is what actually enforces
+access. `RequireRole` only avoids flashing a page the API would reject
+anyway; a caller who bypasses it still hits the same 401/403 the server
+always returns.
+
+See `src/routes/router-integration.test.tsx` for the full reference —
+mounting at an arbitrary URL, filter/sort/page changes asserted against
+`router.state.location`, permission redirects checked across
+accountant/teacher/executive, back-navigation restoring prior list state,
+and a malformed `page` param falling back instead of crashing.
 
 ### Mocking (MSW)
 

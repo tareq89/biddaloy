@@ -1,0 +1,77 @@
+import { useSearchParams } from 'react-router';
+
+/**
+ * "Page, filters, sort, selected row and active tab all live in the query
+ * string" — [8.4.5]'s stated platform principle, made concrete: the one
+ * hook every list page reads/writes its `page`/`limit`/`sort`/filter state
+ * through, so Back works, refresh survives, and a link is shareable
+ * without the page component keeping any of that in local state.
+ */
+export interface ListUrlState {
+  page: number;
+  limit: number;
+  sort: string | undefined;
+  /** Every search param that isn't `page`/`limit`/`sort` — arbitrary
+   * caller-defined filters (`class_id`, `enrollment_status`, ...),
+   * generic here since this hook has no knowledge of a specific entity's
+   * filter shape. */
+  filters: Record<string, string>;
+}
+
+export interface ListUrlStatePatch {
+  page?: number;
+  limit?: number;
+  sort?: string;
+  filters?: Record<string, string>;
+}
+
+const RESERVED_KEYS = new Set(['page', 'limit', 'sort']);
+
+/** A search param the URL controls has to survive being hand-edited,
+ * bookmarked from an old session, or passed a garbage value by a bug
+ * upstream — `?page=abc` or `?page=-3` must fall back to a sensible
+ * default rather than propagating `NaN`/a negative offset into a list
+ * query. `Number.isInteger` — not just `Number.isFinite` — also rejects
+ * `?page=1.5`, which parses to a technically-finite but meaningless page
+ * number. */
+function parsePositiveInt(raw: string | null, fallback: number): number {
+  if (raw === null) return fallback;
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+export function useListUrlState(
+  defaults: { page?: number; limit?: number } = {},
+): [ListUrlState, (patch: ListUrlStatePatch) => void] {
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const page = parsePositiveInt(searchParams.get('page'), defaults.page ?? 1);
+  const limit = parsePositiveInt(searchParams.get('limit'), defaults.limit ?? 10);
+  const sort = searchParams.get('sort') ?? undefined;
+
+  const filters: Record<string, string> = {};
+  for (const [key, value] of searchParams.entries()) {
+    if (!RESERVED_KEYS.has(key)) filters[key] = value;
+  }
+
+  function update(patch: ListUrlStatePatch): void {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (patch.page !== undefined) next.set('page', String(patch.page));
+      if (patch.limit !== undefined) next.set('limit', String(patch.limit));
+      if (patch.sort !== undefined) next.set('sort', patch.sort);
+      if (patch.filters !== undefined) {
+        for (const [key, value] of Object.entries(patch.filters)) {
+          // A caller-supplied filter key of 'page'/'limit'/'sort' would
+          // otherwise run after (and silently win over) the explicit
+          // patch.page/limit/sort updates above.
+          if (RESERVED_KEYS.has(key)) continue;
+          next.set(key, value);
+        }
+      }
+      return next;
+    });
+  }
+
+  return [{ page, limit, sort, filters }, update];
+}

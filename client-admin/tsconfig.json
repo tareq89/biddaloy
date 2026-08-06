@@ -13,6 +13,7 @@
       "@beton-boi/ui/components": ["../ui/src/components/index.ts"],
       "@beton-boi/ui/shells": ["../ui/src/shells/index.ts"],
       "@beton-boi/ui/hooks": ["../ui/src/hooks/index.ts"],
+      "@beton-boi/ui/routes": ["../ui/src/routes/index.ts"],
       "@beton-boi/ui/utils": ["../ui/src/utils/index.ts"],
       "@beton-boi/ui/i18n": ["../ui/src/i18n/index.ts"],
       "@beton-boi/ui/api": ["../ui/src/api/index.ts"],
