@@ -62,6 +62,10 @@ export function useListUrlState(
       if (patch.sort !== undefined) next.set('sort', patch.sort);
       if (patch.filters !== undefined) {
         for (const [key, value] of Object.entries(patch.filters)) {
+          // A caller-supplied filter key of 'page'/'limit'/'sort' would
+          // otherwise run after (and silently win over) the explicit
+          // patch.page/limit/sort updates above.
+          if (RESERVED_KEYS.has(key)) continue;
           next.set(key, value);
         }
       }

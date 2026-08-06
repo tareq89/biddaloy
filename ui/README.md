@@ -118,7 +118,7 @@ adding it later is additive (a new field, the internal `Wrapper` gains
 another layer), not a breaking change to the function's signature. The
 intended eventual shape:
 
-```
+```text
 renderWithProviders
  ├── QueryClientProvider   (here today)
  ├── RouterProvider        (app-wide adoption — a later ticket's call)

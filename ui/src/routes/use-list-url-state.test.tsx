@@ -1,7 +1,9 @@
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router';
+import type { RouteObject } from 'react-router';
 import { describe, expect, it } from 'vitest';
+
+import { renderWithRouter } from '../test/render-with-router';
 
 import { useListUrlState } from './use-list-url-state';
 
@@ -12,42 +14,58 @@ function Probe({ defaults }: { defaults?: { page?: number; limit?: number } }) {
       <p>page: {state.page}</p>
       <p>limit: {state.limit}</p>
       <button onClick={() => update({ limit: 25 })}>Set limit</button>
+      <button onClick={() => update({ filters: { page: '999', class_id: 'c-1' } })}>
+        Set filters including a reserved key
+      </button>
     </div>
   );
 }
 
+const routes: RouteObject[] = [{ path: '/students', element: <Probe /> }];
+
 describe('useListUrlState', () => {
   it('falls back to limit 10 when no default and no URL value are given', () => {
-    render(
-      <MemoryRouter initialEntries={['/']}>
-        <Probe />
-      </MemoryRouter>,
-    );
+    renderWithRouter(routes, { initialEntries: ['/students'] });
 
     expect(screen.getByText('limit: 10')).toBeTruthy();
   });
 
   it('honours a caller-supplied default limit', () => {
-    render(
-      <MemoryRouter initialEntries={['/']}>
-        <Probe defaults={{ limit: 25 }} />
-      </MemoryRouter>,
-    );
+    renderWithRouter([{ path: '/students', element: <Probe defaults={{ limit: 25 }} /> }], {
+      initialEntries: ['/students'],
+    });
 
     expect(screen.getByText('limit: 25')).toBeTruthy();
   });
 
-  it('update({ limit }) writes limit into the URL, independent of page/sort/filters', async () => {
+  it('update({ limit }) writes limit into the URL and preserves the params already there', async () => {
+    // Seeded with page/sort/filter already set — asserting only rendered
+    // state (as an earlier version of this test did) could pass even if
+    // `update()` wrote to local component state instead of the URL. This
+    // asserts against the actual URL via `router.state.location.search`.
     const user = userEvent.setup();
-    render(
-      <MemoryRouter initialEntries={['/']}>
-        <Probe />
-      </MemoryRouter>,
-    );
+    const { router } = renderWithRouter(routes, {
+      initialEntries: ['/students?page=3&sort=full_name&class_id=c-9'],
+    });
 
     await user.click(screen.getByRole('button', { name: 'Set limit' }));
 
-    expect(screen.getByText('limit: 25')).toBeTruthy();
-    expect(screen.getByText('page: 1')).toBeTruthy();
+    expect(router.state.location.search).toContain('limit=25');
+    expect(router.state.location.search).toContain('page=3');
+    expect(router.state.location.search).toContain('sort=full_name');
+    expect(router.state.location.search).toContain('class_id=c-9');
+  });
+
+  it('a reserved key inside patch.filters cannot overwrite the real page/limit/sort params', async () => {
+    const user = userEvent.setup();
+    const { router } = renderWithRouter(routes, { initialEntries: ['/students?page=3'] });
+
+    await user.click(screen.getByRole('button', { name: 'Set filters including a reserved key' }));
+
+    // The 'page' key inside filters must not have won over the real page
+    // param — only the non-reserved 'class_id' filter should apply.
+    expect(router.state.location.search).toContain('page=3');
+    expect(router.state.location.search).not.toContain('page=999');
+    expect(router.state.location.search).toContain('class_id=c-1');
   });
 });
