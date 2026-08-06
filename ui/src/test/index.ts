@@ -41,5 +41,32 @@ export { mockOnlineStatus, resetOnlineStatus } from './connectivity';
 export { server } from './msw/server';
 export { handlers } from './msw/handlers';
 
+export {
+  apiErrorBody,
+  errorHandler,
+  paginate,
+  slowHandler,
+  tenantEchoHandler,
+  requestContext,
+  TENANT_HEADER,
+  ROLE_HEADER,
+  type ApiErrorBody,
+  type Paginated,
+} from './msw/support';
+
+export { authHandlers, loginResponseFactory } from './msw/handlers/auth';
+export { academicYearHandlers } from './msw/handlers/academic-years';
+export { classHandlers } from './msw/handlers/classes';
+export { enrollmentHandlers } from './msw/handlers/enrollments';
+export { userHandlers } from './msw/handlers/users';
+export { teacherHandlers } from './msw/handlers/teachers';
+export { studentHandlers } from './msw/handlers/students';
+export { guardianHandlers } from './msw/handlers/guardians';
+export { feeStructureHandlers, feeHandlers } from './msw/handlers/fees';
+export { paymentHandlers } from './msw/handlers/payments';
+export { invoiceHandlers } from './msw/handlers/invoices';
+export { communicationHandlers } from './msw/handlers/communications';
+export { auditLogHandlers } from './msw/handlers/audit-logs';
+
 export * from './factories';
 export * from './a11y';

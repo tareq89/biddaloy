@@ -156,10 +156,61 @@ it('handles a 500 from the students endpoint', async () => {
 `onUnhandledRequest: 'error'` means a request with no matching handler
 *throws* rather than hanging until timeout or silently passing through to
 a real network call — silent pass-through is what produces an integration
-test that looks green while testing nothing. `handlers` (currently empty;
-[8.4.2] populates it with the typed handler library) is the shared
-baseline every test starts with; `server.use()` layers a per-test
-override on top, cleared automatically by the next test's `resetHandlers`.
+test that looks green while testing nothing. `handlers` is the shared
+baseline every test starts with — one hand-written, typed default handler
+per API endpoint (`ui/src/test/msw/handlers/*.ts`, one file per resource
+group), covering every path in `ui/src/api/schema.d.ts`. `server.use()`
+layers a per-test override on top, cleared automatically by the next
+test's `resetHandlers`.
+
+Handlers are **hand-written, not generated** from the OpenAPI spec — a
+deliberate choice: generated handlers tend to produce unrealistic data,
+and the contract-drift risk they're meant to solve is already covered by
+`tsc` breaking here if a path or response shape changes underneath a
+handler. Response bodies are built from `@beton-boi/ui/test`'s factories
+(`studentFactory()`, `paymentFactory()`, ...), not hand-rolled objects, so
+mocked data looks like real data (Bangla names, BD phone numbers, lakh/
+crore-scale money) without every handler re-deriving that itself.
+
+A few endpoints' 2xx bodies are typed `content?: never` in `schema.d.ts`
+— the controller never attached an `@ApiResponse` type, not because the
+runtime shape differs — so those handlers are typed by hand against the
+DTO the server module actually returns (each affected handler file notes
+which). `ui/src/test/msw/support.ts` holds the shared plumbing every
+handler builds on:
+
+- **`paginate(items, url)`** reads `page`/`limit` off the request URL the
+  same way every list endpoint does, and returns the
+  `{ data, total, page, limit, totalPages }` envelope every list endpoint
+  uses.
+- **`errorHandler(method, path, status, message?)`** and **`slowHandler
+  (method, path, resolver, ms?)`** are composable overrides for "what if
+  this fails" / "what if this is slow" — rather than a hand-duplicated
+  `*Error`/`*Slow` variant per endpoint (40+ endpoints × several variants
+  each), a test reaches for these directly:
+  `server.use(errorHandler('get', '/api/v1/students', 500))` or
+  `server.use(slowHandler('get', '/api/v1/students', someResolver, 2000))`.
+- **`tenantEchoHandler(method, path)`** reports back whatever `X-Tenant-ID`/
+  `X-Role` a real request actually sent, for asserting the client attached
+  them correctly: `server.use(tenantEchoHandler('get', '/api/v1/probe'))`,
+  then assert on the response body.
+
+`authHandlers` (`ui/src/test/msw/handlers/auth.ts`) additionally exports
+named variants for login/refresh failure — `authHandlers.
+loginInvalidCredentials`, `authHandlers.refreshFailure` — since those
+encode genuinely different server behavior, not just a different status
+code on the same success path. "Token expiry" isn't a separate handler:
+`ui/src/api/client.ts`'s response interceptor already treats any
+protected endpoint's 401 as a signal to refresh and retry once, so that
+scenario is exercised by pairing `errorHandler(..., 401, ...)` on a
+protected endpoint with either `authHandlers.refresh` (session recovers)
+or `authHandlers.refreshFailure` (session actually ends).
+
+Each resource's `*Handlers` object (`studentHandlers`, `feeHandlers`,
+`invoiceHandlers`, ...) is exported from `@beton-boi/ui/test` alongside
+the aggregate `handlers` array, so a test can reach for a specific named
+variant — e.g. `studentHandlers.listEmpty` for the empty-list case —
+without hand-writing one.
 
 For running an SPA against mocks with no backend, `enableMocking()` from
 `@beton-boi/ui/mocks` (a **separate** subpath from `@beton-boi/ui/test`,
