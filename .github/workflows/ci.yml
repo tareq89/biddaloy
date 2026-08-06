@@ -4,6 +4,12 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      e2e_browsers:
+        description: "Comma-separated Playwright projects to run in the e2e job (chromium, firefox, webkit)"
+        required: false
+        default: chromium
 
 env:
   NODE_VERSION: "22"
@@ -159,16 +165,36 @@ jobs:
           path: server/coverage/
           if-no-files-found: ignore
 
+  e2e-matrix:
+    name: Compute E2E browser matrix
+    runs-on: ubuntu-latest
+    needs: verify
+    outputs:
+      browsers: ${{ steps.set.outputs.browsers }}
+    steps:
+      # Chromium only on every PR/push — Firefox and WebKit are real, but
+      # three-way sharding on every commit is not worth the CI minutes when
+      # the vast majority of regressions this suite catches are
+      # Chromium-reproducible. Full cross-browser coverage is one
+      # `workflow_dispatch` away (`gh workflow run CI -f
+      # e2e_browsers=chromium,firefox,webkit`) rather than gone.
+      - id: set
+        run: |
+          INPUT="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.e2e_browsers || 'chromium' }}"
+          JSON=$(echo "$INPUT" | tr ',' '\n' | sed 's/^ *//;s/ *$//' | grep -v '^$' | jq -R . | jq -sc .)
+          echo "Resolved e2e browser matrix: $JSON"
+          echo "browsers=$JSON" >> "$GITHUB_OUTPUT"
+
   e2e:
     name: E2E (${{ matrix.browser }})
     runs-on: ubuntu-latest
-    needs: verify
+    needs: e2e-matrix
     strategy:
       # One browser failing (e.g. a genuine WebKit-only bug) shouldn't hide
-      # the other two shards' results.
+      # the other shards' results.
       fail-fast: false
       matrix:
-        browser: [chromium, firefox, webkit]
+        browser: ${{ fromJson(needs.e2e-matrix.outputs.browsers) }}
     services:
       postgres:
         image: postgres:16-alpine
