@@ -24,5 +24,13 @@ export {
   type SeedQuery,
 } from './render-with-providers';
 
+export {
+  renderHookWithProviders,
+  type RenderHookWithProvidersOptions,
+  type RenderHookWithProvidersResult,
+} from './render-hook-with-providers';
+
+export { mockOnlineStatus, resetOnlineStatus } from './connectivity';
+
 export * from './factories';
 export * from './a11y';

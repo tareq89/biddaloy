@@ -135,6 +135,34 @@ would then implicitly change the whole test run's lifecycle. `src/test/
 setup.ts` is the one place that wires `cleanupTestState` into `afterEach`,
 via `vitest.config.ts`'s `setupFiles`.
 
+### Hooks
+
+`renderHookWithProviders` mirrors `renderWithProviders`'s options
+(`tenantId`/`role`/`accessToken`, `seedQueries`, a caller-supplied
+`queryClient`), wrapping RTL's own `renderHook` instead of `render`. Same
+per-call-fresh-`QueryClient` default; `initialProps`/`rerender(newProps)`
+pass straight through for a hook that reacts to its argument changing:
+
+```tsx
+const { result, rerender } = renderHookWithProviders(({ id }: { id: string }) => useStudent(id), {
+  tenantId: 'tenant-1',
+  initialProps: { id: 'student-1' },
+});
+rerender({ id: 'student-2' });
+```
+
+Debounce/throttle-style hooks are testable with vitest's own fake timers —
+no bespoke helper needed, just `vi.useFakeTimers()` and
+`act(() => vi.advanceTimersByTime(ms))` around the render, wrapping timer
+advances in `act()` so React flushes the resulting state update before the
+next assertion. See `src/test/render-hook-with-providers.test.tsx` for a
+working example against a debounce and a throttle hook.
+
+`mockOnlineStatus(online)` mocks `navigator.onLine` for `useOnline`-style
+hooks and dispatches the matching `online`/`offline` window event — jsdom's
+`navigator.onLine` has no setter, so a plain assignment silently no-ops.
+Resets automatically between tests via `setup.ts`.
+
 ### Accessibility
 
 `expect(container).toHaveNoViolations()` is registered globally — every
