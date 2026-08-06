@@ -91,8 +91,54 @@ const clientAlias = (pkg: string) => ({
   '@beton-boi/ui': resolve(__dirname, 'ui/src'),
 });
 
+// Coverage config lives at this top level, not inside any one project:
+// v8 instrumentation and threshold checking run once across the whole
+// workspace's collected results, not per project — Vitest doesn't support
+// per-project coverage in `projects` mode. Paths below are relative to
+// this file (the repo root), covering all three packages' `src/` in one
+// pass — `test:cov`'s reporter/threshold shape mirrors `server/
+// vitest.config.ts`'s (per-path threshold overrides on top of a global
+// floor), kept as a separate, un-merged block here since the two runs
+// (frontend vs. server) share no config and `server/vitest.config.ts`
+// itself stays untouched.
+const coverage = {
+  provider: 'v8' as const,
+  reporter: ['text', 'lcov', 'html'] as const,
+  reportsDirectory: resolve(__dirname, 'coverage'),
+  include: ['ui/src/**/*.{ts,tsx}', 'client-admin/src/**/*.{ts,tsx}', 'client-student/src/**/*.{ts,tsx}'],
+  exclude: [
+    '**/*.test.{ts,tsx}',
+    '**/*.spec.ts',
+    '**/*.stories.tsx',
+    '**/*.d.ts',
+    'ui/src/primitives/**', // vendored shadcn/Radix output, not hand-written
+    'ui/src/test/**', // the test utilities this coverage run itself uses
+    '**/index.ts', // barrels — re-exports only, nothing to branch on
+    '**/main.tsx', // ReactDOM bootstrap, no logic — same as server's src/main.ts
+  ],
+  thresholds: {
+    perFile: false,
+    branches: 70,
+    functions: 70,
+    lines: 70,
+    statements: 70,
+    // "Near-complete" tier ([8.3.5]'s own acceptance criteria): a bug here
+    // means money is wrong or a request goes out with the wrong auth
+    // state. Only covers what actually exists in `ui/src` today —
+    // `ui/src/utils` (formatters) and `ui/src/api` (the axios client,
+    // its interceptors, and auth-state.ts). Permission-resolution logic,
+    // payment-allocation arithmetic and Zod schemas are listed in the
+    // issue too, but none of that exists on the frontend yet (it's
+    // server-side today); extend this map with their real paths once a
+    // later ticket adds them, rather than guessing now.
+    'ui/src/utils/**': { statements: 95, branches: 95, functions: 95, lines: 95 },
+    'ui/src/api/**': { statements: 95, branches: 95, functions: 95, lines: 95 },
+  },
+};
+
 export default defineConfig({
   test: {
+    coverage,
     projects: [
       ...frontendPackage('ui', 'ui', uiAlias, {
         // eslint-rules specs are ESLint RuleTester fixtures, not app logic,

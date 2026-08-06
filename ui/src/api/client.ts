@@ -85,7 +85,12 @@ function refreshAccessToken(): Promise<string> {
   return refreshPromise;
 }
 
-function toApiError(error: unknown): Error {
+/** Exported for its own unit test — every real call site passes an
+ * `AxiosError` (already an `Error`), but the parameter is `unknown`
+ * because a rejection handler can genuinely receive anything JS lets you
+ * `throw` (a string, a plain object, ...), and this needs to degrade
+ * gracefully rather than assume its caller's type annotation held. */
+export function toApiError(error: unknown): Error {
   if (axios.isAxiosError(error)) {
     const body = error.response?.data as Partial<ApiErrorBody> | undefined;
     if (
