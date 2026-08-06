@@ -9,6 +9,7 @@
     "declaration": false,
     "declarationMap": false,
     "sourceMap": false,
+    "types": ["vite/client"],
     "paths": {
       "@beton-boi/shared": ["../shared/src"],
       "@/*": ["./src/*"]

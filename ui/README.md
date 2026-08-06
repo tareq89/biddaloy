@@ -135,6 +135,67 @@ would then implicitly change the whole test run's lifecycle. `src/test/
 setup.ts` is the one place that wires `cleanupTestState` into `afterEach`,
 via `vitest.config.ts`'s `setupFiles`.
 
+### Mocking (MSW)
+
+`server` (MSW's Node runtime) is exported from `@beton-boi/ui/test` and
+already wired into `src/test/setup.ts` — `listen({ onUnhandledRequest:
+'error' })` in `beforeAll`, `resetHandlers()` in `afterEach`, `close()` in
+`afterAll`. Nothing to import for the lifecycle itself; `server.use(...)`
+inside a test is a complete per-test override on its own:
+
+```ts
+import { http, HttpResponse } from 'msw';
+import { server } from '@beton-boi/ui/test';
+
+it('handles a 500 from the students endpoint', async () => {
+  server.use(http.get('/api/v1/students', () => HttpResponse.json(null, { status: 500 })));
+  // ...
+});
+```
+
+`onUnhandledRequest: 'error'` means a request with no matching handler
+*throws* rather than hanging until timeout or silently passing through to
+a real network call — silent pass-through is what produces an integration
+test that looks green while testing nothing. `handlers` (currently empty;
+[8.4.2] populates it with the typed handler library) is the shared
+baseline every test starts with; `server.use()` layers a per-test
+override on top, cleared automatically by the next test's `resetHandlers`.
+
+For running an SPA against mocks with no backend, `enableMocking()` from
+`@beton-boi/ui/mocks` (a **separate** subpath from `@beton-boi/ui/test`,
+on purpose — see below) starts MSW's browser worker when
+`VITE_USE_MOCKS=true` is set, and no-ops otherwise:
+
+```tsx
+// main.tsx
+import { enableMocking } from '@beton-boi/ui/mocks';
+
+void enableMocking().then(() => {
+  createRoot(document.getElementById('root')!).render(<App />);
+});
+```
+
+Two things worth knowing if you touch this:
+
+- **`@beton-boi/ui/mocks` uses a dynamic `import()` internally, not a
+  static one.** A static `import { worker } from './browser'` at the top
+  of `enable-mocking.ts` would pull `msw` (and its own dependencies,
+  `@mswjs/interceptors`, `graphql`, ...) into *every* production bundle
+  regardless of whether the flag is ever set — measured at ~280 KB raw
+  (~92 KB gzipped) added to client-admin's bundle before this was fixed.
+  With the flag check first and the import second, Vite's build-time
+  `import.meta.env.VITE_USE_MOCKS` replacement turns the unset case into
+  dead code, and Rollup drops the whole chunk from the production build.
+- **The mock worker passes all WebSocket connections through to their
+  real destination by default** (`ws.link('*')` + `server.connect()` in
+  `browser.ts`). Without this, Vite's own HMR client — which connects
+  over `ws://` — gets treated as an "unhandled connection" under the same
+  `onUnhandledRequest: 'error'` policy and floods the console (verified
+  by running client-admin with `VITE_USE_MOCKS=true` before adding the
+  passthrough). `onUnhandledRequest` only ever governs HTTP requests; it
+  was never a WebSocket setting, so this passthrough isn't a workaround
+  for that option, it's the thing that option doesn't cover.
+
 ### Hooks
 
 None of `useStudent`, `useDebounce`/`useThrottle`-style hooks, or `useOnline`

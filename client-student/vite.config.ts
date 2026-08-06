@@ -18,6 +18,7 @@ export default defineConfig({
       '@beton-boi/ui/i18n': resolve(__dirname, '../ui/src/i18n/index.ts'),
       '@beton-boi/ui/api': resolve(__dirname, '../ui/src/api/index.ts'),
       '@beton-boi/ui/test': resolve(__dirname, '../ui/src/test/index.ts'),
+      '@beton-boi/ui/mocks': resolve(__dirname, '../ui/src/test/msw/enable-mocking.ts'),
       '@beton-boi/ui/styles': resolve(__dirname, '../ui/src/styles/globals.css'),
       '@beton-boi/ui/tailwind': resolve(__dirname, '../ui/tailwind.preset.ts'),
       '@beton-boi/ui': resolve(__dirname, '../ui/src'),

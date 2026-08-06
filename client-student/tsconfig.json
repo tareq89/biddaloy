@@ -17,6 +17,7 @@
       "@beton-boi/ui/i18n": ["../ui/src/i18n/index.ts"],
       "@beton-boi/ui/api": ["../ui/src/api/index.ts"],
       "@beton-boi/ui/test": ["../ui/src/test/index.ts"],
+      "@beton-boi/ui/mocks": ["../ui/src/test/msw/enable-mocking.ts"],
       "@beton-boi/ui/styles": ["../ui/src/styles/globals.css"],
       "@beton-boi/ui/tailwind": ["../ui/tailwind.preset.ts"]
     }
