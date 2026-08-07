@@ -1,14 +1,4 @@
-import {
-  Body,
-  Controller,
-  ForbiddenException,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Patch,
-  Req,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -23,26 +13,7 @@ import { STRICT_RATE_LIMIT } from '../../rate-limit';
 import { requestContext } from '../../common/request-context.util';
 import { SchoolsService } from './schools.service';
 import { TenantSettingsDto } from './dto/tenant-settings.dto';
-
-/**
- * A super admin configures *any* school; an admin configures only their
- * own. Both roles hold `SETTINGS_MANAGE` (see `shared/enums/permissions`),
- * so the permission alone doesn't express the difference — this is that
- * check, enforced server-side rather than by hiding a nav item.
- *
- * Deliberately a 403, not the codebase's usual cross-tenant 404
- * (`cross-tenant-access.e2e-spec.ts`'s convention for a resource scoped
- * *by* tenant, like a student or invoice): `:id` here doesn't belong to a
- * tenant, it *is* one, so "wrong tenant" is an authorization decision
- * about the caller, not a lookup that came up empty. Checked before any
- * DB read, so a rejected request never depends on whether `:id` happens
- * to be a real school.
- */
-function assertCanManageSchool(tenant: { id: string; role: string }, schoolId: string): void {
-  if (tenant.role === UserRole.SUPER_ADMIN) return;
-  if (tenant.id === schoolId) return;
-  throw new ForbiddenException(`Not permitted to manage settings for school "${schoolId}".`);
-}
+import { assertCanManageSchool } from './assert-can-manage-school.util';
 
 @ApiTags('schools')
 @ApiTenantAuth()

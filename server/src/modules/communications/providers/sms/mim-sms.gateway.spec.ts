@@ -82,4 +82,52 @@ describe('MimSmsGateway', () => {
     expect(result.success).toBe(false);
     expect(result.error).toBe('network down');
   });
+
+  describe('testConnection', () => {
+    it('checks the account balance instead of sending an SMS', async () => {
+      fetchMock.mockResolvedValue({ json: async () => ({ status: 'success', balance: 100 }) });
+
+      const result = await gateway.testConnection({
+        gateway: 'mimsms',
+        apiKey: 'super-secret-key',
+        senderId: 'sender-1',
+      });
+
+      const [url] = fetchMock.mock.calls[0];
+      expect(url).toBe('https://api.mimsms.com/api/User/Balance?api_key=super-secret-key');
+      expect(result).toEqual({
+        success: true,
+        message: 'Connected — MimSMS account credentials verified.',
+      });
+    });
+
+    it('reports an actionable message on failure, never the raw payload', async () => {
+      fetchMock.mockResolvedValue({
+        json: async () => ({ status: 'error', message: 'Invalid API key: super-secret-key' }),
+      });
+
+      const result = await gateway.testConnection({
+        gateway: 'mimsms',
+        apiKey: 'super-secret-key',
+        senderId: 'sender-1',
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('Authentication rejected — check the API key.');
+      expect(result.message).not.toContain('super-secret-key');
+    });
+
+    it('returns success: false instead of throwing on a network error', async () => {
+      fetchMock.mockRejectedValue(new Error('network down'));
+
+      const result = await gateway.testConnection({
+        gateway: 'mimsms',
+        apiKey: 'key-1',
+        senderId: 'sender-1',
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('Could not reach the MimSMS API.');
+    });
+  });
 });
