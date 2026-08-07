@@ -1,16 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import { plainToInstance } from 'class-transformer';
-import { mergeTenantSettings } from './tenant-settings-merge.util';
+import { mergeTenantSettings, toPlainSettingsPatch } from './tenant-settings-merge.util';
 import { TenantSettingsDto } from '../dto/tenant-settings.dto';
 import { DEFAULT_REGION_SETTINGS } from './tenant-settings-defaults';
 
-function toDto(plain: Record<string, unknown>): TenantSettingsDto {
-  return plainToInstance(TenantSettingsDto, plain);
+function toPatch(plain: Record<string, unknown>): Record<string, unknown> {
+  return toPlainSettingsPatch(plainToInstance(TenantSettingsDto, plain));
 }
 
 describe('mergeTenantSettings', () => {
   it('starts from an empty object when nothing was stored yet', () => {
-    const patch = toDto({ version: 1, region: DEFAULT_REGION_SETTINGS });
+    const patch = toPatch({ version: 1, region: DEFAULT_REGION_SETTINGS });
 
     const merged = mergeTenantSettings(null, patch);
 
@@ -25,7 +25,7 @@ describe('mergeTenantSettings', () => {
       region: DEFAULT_REGION_SETTINGS,
       communications: { sms: { provider: 'greenweb', greenweb: { apiKey: 'enc:old' } } },
     };
-    const patch = toDto({ version: 1, region: { ...DEFAULT_REGION_SETTINGS, locale: 'en-BD' } });
+    const patch = toPatch({ version: 1, region: { ...DEFAULT_REGION_SETTINGS, locale: 'en-BD' } });
 
     const merged = mergeTenantSettings(existing, patch);
 
@@ -47,7 +47,7 @@ describe('mergeTenantSettings', () => {
         },
       },
     };
-    const patch = toDto({
+    const patch = toPatch({
       version: 1,
       communications: {
         whatsapp: { phoneNumberId: '999', accessToken: 'enc:new-wa' },
@@ -64,7 +64,7 @@ describe('mergeTenantSettings', () => {
 
   it('leaves region untouched when the patch omits it', () => {
     const existing = { version: 1, region: DEFAULT_REGION_SETTINGS };
-    const patch = toDto({ version: 1 });
+    const patch = toPatch({ version: 1 });
 
     const merged = mergeTenantSettings(existing, patch);
 

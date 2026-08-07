@@ -145,6 +145,24 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   SMTP_FROM?: string;
+
+  // AES-256-GCM key for tenant-settings secrets (schools.settings jsonb
+  // fields marked @Secret() — see server/src/modules/schools/settings).
+  // Base64, must decode to exactly 32 bytes — see encryption-key.ts for
+  // the format/production-required check; format alone is validated here,
+  // no different from any other env var, but "required in production" is
+  // a runtime check (like DB_SSL's) rather than something class-validator
+  // can express against NODE_ENV cleanly.
+  @IsOptional()
+  @IsString()
+  SETTINGS_ENCRYPTION_KEY?: string;
+
+  // A key rotation still in its grace window — accepted for *decrypting*
+  // rows not yet re-encrypted under SETTINGS_ENCRYPTION_KEY, never used to
+  // encrypt new writes. Comma-separated for more than one prior key.
+  @IsOptional()
+  @IsString()
+  SETTINGS_ENCRYPTION_KEY_PREVIOUS?: string;
 }
 
 export function validate(config: Record<string, unknown>) {
