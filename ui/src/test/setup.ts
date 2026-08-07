@@ -7,6 +7,7 @@
 import { afterAll, afterEach, beforeAll } from 'vitest';
 
 import './a11y/matchers';
+import './jsdom-polyfills';
 
 import { resetOnlineStatus } from './connectivity';
 import { resetFactorySeed } from './factories/faker';
