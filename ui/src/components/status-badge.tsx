@@ -44,14 +44,11 @@ const TONE_STYLES: Record<
 };
 
 /** Title-cases an enum key ("PARTIALLY_PAID" -> "Partially paid") — not
- * real i18n, just a readable fallback, deliberately: `ui`'s wrapper layer
- * originates translation keys rather than consuming them (see
- * `ui/CONTRIBUTING.md`'s "i18n rules" section), so this stays a plain
- * label derivation rather than a `t()` call. There's no prop to override
- * the derived label today — nothing should come to depend on these
- * English strings as if they were stable; a later ticket that wants a
- * translated status label needs to add one rather than assume this stays
- * English forever. */
+ * real i18n, just a readable fallback until a translated-label lookup
+ * replaces it (see `ui/CONTRIBUTING.md`'s "i18n rules" section for why
+ * i18next landing in [8.7.1] didn't close this on its own). There's no
+ * prop to override the derived label today — nothing should come to
+ * depend on these English strings as if they were stable. */
 function humanize(key: string): string {
   const lower = key.toLowerCase().replace(/_/g, ' ');
   return lower.charAt(0).toUpperCase() + lower.slice(1);
