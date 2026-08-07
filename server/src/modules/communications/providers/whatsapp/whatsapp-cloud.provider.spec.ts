@@ -109,29 +109,49 @@ describe('WhatsAppCloudProvider', () => {
 
   describe('testConnection', () => {
     const config = {
-      phoneNumberId: 'phone-id-123',
+      phoneNumberId: '20002',
       accessToken: 'super-secret-token',
       apiVersion: 'v21.0',
     };
 
     it('fetches the phone number metadata instead of sending a message', async () => {
-      fetchMock.mockResolvedValue({ ok: true, json: async () => ({ id: 'phone-id-123' }) });
+      fetchMock.mockResolvedValue({ ok: true, json: async () => ({ id: '20002' }) });
 
       const result = await provider.testConnection(config);
 
       const [url, init] = fetchMock.mock.calls[0];
-      expect(url).toBe('https://graph.facebook.com/v21.0/phone-id-123?fields=id');
+      expect(url).toBe('https://graph.facebook.com/v21.0/20002?fields=id');
       expect(init.headers.Authorization).toBe('Bearer super-secret-token');
       expect(result).toEqual({ success: true, message: 'Connected — phone number ID verified.' });
     });
 
     it('never sends a message-shaped POST request', async () => {
-      fetchMock.mockResolvedValue({ ok: true, json: async () => ({ id: 'phone-id-123' }) });
+      fetchMock.mockResolvedValue({ ok: true, json: async () => ({ id: '20002' }) });
 
       await provider.testConnection(config);
 
       const [, init] = fetchMock.mock.calls[0];
       expect(init.method).not.toBe('POST');
+    });
+
+    it('rejects a phone number id that is not a plain numeric Graph API id, without making a request', async () => {
+      const result = await provider.testConnection({ ...config, phoneNumberId: '20002/../evil' });
+
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        success: false,
+        message: 'Phone number ID is not a valid WhatsApp identifier.',
+      });
+    });
+
+    it('rejects an api version that does not match the vN.N Graph API shape, without making a request', async () => {
+      const result = await provider.testConnection({ ...config, apiVersion: 'v21.0/evil' });
+
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        success: false,
+        message: 'API version is not a valid Graph API version.',
+      });
     });
 
     it('reports an actionable message for an invalid token, never the raw payload', async () => {

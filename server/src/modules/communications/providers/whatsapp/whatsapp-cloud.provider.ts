@@ -6,6 +6,7 @@ import {
 } from '../communication-provider.interface';
 import { normalizeBdPhoneNumber } from '../shared/phone-number.util';
 import { ConnectionTestResult } from '../shared/connection-test.types';
+import { isValidGraphApiId, isValidGraphApiVersion } from '../shared/graph-api-path-segment.util';
 import { mapMetaGraphError } from '../shared/meta-graph-error.util';
 import {
   ResolvedWhatsAppConfig,
@@ -105,6 +106,12 @@ export class WhatsAppCloudProvider implements CommunicationProvider {
    * this method doesn't care which, only `ConnectionTestService` does.
    */
   async testConnection(config: ResolvedWhatsAppConfig): Promise<ConnectionTestResult> {
+    if (!isValidGraphApiId(config.phoneNumberId)) {
+      return { success: false, message: 'Phone number ID is not a valid WhatsApp identifier.' };
+    }
+    if (!isValidGraphApiVersion(config.apiVersion)) {
+      return { success: false, message: 'API version is not a valid Graph API version.' };
+    }
     try {
       const url = `https://graph.facebook.com/${config.apiVersion}/${config.phoneNumberId}?fields=id`;
       const response = await fetch(url, {
