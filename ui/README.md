@@ -30,7 +30,7 @@ instead of waiting on a library rebuild.
 | `src/shells/` | The four page shells: List, Detail, Wizard, Form. |
 | `src/hooks/` | URL state, pagination, permissions, auth, connectivity. |
 | `src/utils/` | Formatters and helpers. All `Intl` use lives here. |
-| `src/i18n/` | i18next setup and per-tenant region configuration. |
+| `src/i18n/` | i18next setup and per-tenant region configuration — see its own [README](src/i18n/README.md) for the translator workflow and `check:i18n`. |
 | `src/api/` | Generated OpenAPI types and the shared axios client. |
 | `src/test/` | Render helpers, MSW handlers, factories, a11y matchers. |
 | `src/styles/` | `globals.css` — imported once per app. |
