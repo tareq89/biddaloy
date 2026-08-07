@@ -11,6 +11,7 @@ describe('SmtpEmailProvider', () => {
   const tenantId = 'tenant-1';
   let configResolver: Record<string, ReturnType<typeof vi.fn>>;
   let sendMail: ReturnType<typeof vi.fn>;
+  let verify: ReturnType<typeof vi.fn>;
   let provider: SmtpEmailProvider;
 
   beforeEach(() => {
@@ -25,7 +26,8 @@ describe('SmtpEmailProvider', () => {
       }),
     };
     sendMail = vi.fn().mockResolvedValue({ messageId: 'msg-1', response: '250 OK' });
-    vi.mocked(nodemailer.createTransport).mockReturnValue({ sendMail } as any);
+    verify = vi.fn().mockResolvedValue(true);
+    vi.mocked(nodemailer.createTransport).mockReturnValue({ sendMail, verify } as any);
     provider = new SmtpEmailProvider(configResolver as any);
   });
 
@@ -108,5 +110,61 @@ describe('SmtpEmailProvider', () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toBe('SMTP connection refused');
+  });
+
+  describe('testConnection', () => {
+    const config = {
+      host: 'smtp.example.com',
+      port: 587,
+      user: 'user-1',
+      password: 'super-secret-pass',
+      from: 'noreply@example.com',
+    };
+
+    it('verifies the connection instead of sending mail', async () => {
+      const result = await provider.testConnection(config);
+
+      expect(verify).toHaveBeenCalledTimes(1);
+      expect(sendMail).not.toHaveBeenCalled();
+      expect(result).toEqual({ success: true, message: 'Connected — SMTP credentials verified.' });
+    });
+
+    it('reports an authentication-rejected message for an EAUTH failure, never the raw error', async () => {
+      const authError = Object.assign(
+        new Error(`535 Authentication failed for ${config.password}`),
+        {
+          code: 'EAUTH',
+        },
+      );
+      verify.mockRejectedValue(authError);
+
+      const result = await provider.testConnection(config);
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe(
+        'Authentication rejected — check the SMTP username and password.',
+      );
+      expect(result.message).not.toContain(config.password);
+    });
+
+    it('reports an unreachable-server message for a connection failure', async () => {
+      verify.mockRejectedValue(
+        Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNECTION' }),
+      );
+
+      const result = await provider.testConnection(config);
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('Could not reach the SMTP server — check the host and port.');
+    });
+
+    it('falls back to a generic message for an unrecognized error code', async () => {
+      verify.mockRejectedValue(new Error('something unexpected'));
+
+      const result = await provider.testConnection(config);
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('Connection test failed — could not verify the credentials.');
+    });
   });
 });

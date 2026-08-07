@@ -106,4 +106,68 @@ describe('WhatsAppCloudProvider', () => {
     expect(result.error).toMatch(/configure it/);
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  describe('testConnection', () => {
+    const config = {
+      phoneNumberId: 'phone-id-123',
+      accessToken: 'super-secret-token',
+      apiVersion: 'v21.0',
+    };
+
+    it('fetches the phone number metadata instead of sending a message', async () => {
+      fetchMock.mockResolvedValue({ ok: true, json: async () => ({ id: 'phone-id-123' }) });
+
+      const result = await provider.testConnection(config);
+
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toBe('https://graph.facebook.com/v21.0/phone-id-123?fields=id');
+      expect(init.headers.Authorization).toBe('Bearer super-secret-token');
+      expect(result).toEqual({ success: true, message: 'Connected — phone number ID verified.' });
+    });
+
+    it('never sends a message-shaped POST request', async () => {
+      fetchMock.mockResolvedValue({ ok: true, json: async () => ({ id: 'phone-id-123' }) });
+
+      await provider.testConnection(config);
+
+      const [, init] = fetchMock.mock.calls[0];
+      expect(init.method).not.toBe('POST');
+    });
+
+    it('reports an actionable message for an invalid token, never the raw payload', async () => {
+      fetchMock.mockResolvedValue({
+        ok: false,
+        json: async () => ({
+          error: { code: 190, message: `Invalid token: ${config.accessToken}` },
+        }),
+      });
+
+      const result = await provider.testConnection(config);
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('Authentication rejected — check the access token.');
+      expect(result.message).not.toContain(config.accessToken);
+    });
+
+    it('reports an actionable message when the phone number id is not found', async () => {
+      fetchMock.mockResolvedValue({
+        ok: false,
+        json: async () => ({ error: { code: 100, message: 'Unsupported get request' } }),
+      });
+
+      const result = await provider.testConnection(config);
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('Not found — check the ID and that the token has access to it.');
+    });
+
+    it('returns success: false instead of throwing on a network error', async () => {
+      fetchMock.mockRejectedValue(new Error('network down'));
+
+      const result = await provider.testConnection(config);
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('Could not reach the WhatsApp Cloud API.');
+    });
+  });
 });

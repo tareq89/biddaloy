@@ -5,7 +5,12 @@ import {
   CommunicationSendResult,
 } from '../communication-provider.interface';
 import { normalizeBdPhoneNumber } from '../shared/phone-number.util';
-import { TenantProviderConfigResolver } from '../../config/tenant-provider-config.resolver';
+import { ConnectionTestResult } from '../shared/connection-test.types';
+import { mapMetaGraphError } from '../shared/meta-graph-error.util';
+import {
+  ResolvedWhatsAppConfig,
+  TenantProviderConfigResolver,
+} from '../../config/tenant-provider-config.resolver';
 
 const REQUEST_TIMEOUT_MS = 10_000;
 
@@ -88,6 +93,32 @@ export class WhatsAppCloudProvider implements CommunicationProvider {
         providerMessageId: null,
         error: err instanceof Error ? err.message : String(err),
       };
+    }
+  }
+
+  /**
+   * #8.7.12's connection test — reads the phone number's own metadata
+   * (`GET /{phoneNumberId}`) instead of sending a message, the cheapest
+   * call that still proves both the phone number id and the access token
+   * are valid together. `config` can be an unsaved, in-flight draft (the
+   * dashboard verifying before saving) or the tenant's stored config —
+   * this method doesn't care which, only `ConnectionTestService` does.
+   */
+  async testConnection(config: ResolvedWhatsAppConfig): Promise<ConnectionTestResult> {
+    try {
+      const url = `https://graph.facebook.com/${config.apiVersion}/${config.phoneNumberId}?fields=id`;
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${config.accessToken}` },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+      const data = await response.json();
+
+      if (response.ok && data?.id) {
+        return { success: true, message: 'Connected — phone number ID verified.' };
+      }
+      return { success: false, message: mapMetaGraphError(data) };
+    } catch {
+      return { success: false, message: 'Could not reach the WhatsApp Cloud API.' };
     }
   }
 }

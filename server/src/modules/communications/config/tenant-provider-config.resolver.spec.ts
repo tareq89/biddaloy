@@ -84,6 +84,58 @@ describe('TenantProviderConfigResolver', () => {
         ProviderNotConfiguredError,
       );
     });
+
+    it('lets an override win over the tenant setting, field by field', async () => {
+      const resolver = resolverWith({
+        version: 1,
+        communications: {
+          whatsapp: {
+            phoneNumberId: 'tenant-phone',
+            accessToken: 'tenant-token',
+            apiVersion: 'v99',
+          },
+        },
+      });
+
+      const config = await resolver.resolveWhatsApp('school-1', { accessToken: 'draft-token' });
+
+      expect(config).toEqual({
+        phoneNumberId: 'tenant-phone',
+        accessToken: 'draft-token',
+        apiVersion: 'v99',
+      });
+    });
+
+    it('falls through an override field left unset to the tenant setting, not the env fallback', async () => {
+      const resolver = resolverWith(
+        {
+          version: 1,
+          communications: {
+            whatsapp: { phoneNumberId: 'tenant-phone', accessToken: 'tenant-token' },
+          },
+        },
+        { WHATSAPP_PHONE_NUMBER_ID: 'env-phone' },
+      );
+
+      const config = await resolver.resolveWhatsApp('school-1', { accessToken: 'draft-token' });
+
+      expect(config.phoneNumberId).toBe('tenant-phone');
+    });
+
+    it('tests a fully unsaved config via override alone, with nothing stored for the tenant', async () => {
+      const resolver = resolverWith({ version: 1 });
+
+      const config = await resolver.resolveWhatsApp('school-1', {
+        phoneNumberId: 'draft-phone',
+        accessToken: 'draft-token',
+      });
+
+      expect(config).toEqual({
+        phoneNumberId: 'draft-phone',
+        accessToken: 'draft-token',
+        apiVersion: 'v21.0',
+      });
+    });
   });
 
   describe('resolveEmail', () => {
@@ -151,6 +203,26 @@ describe('TenantProviderConfigResolver', () => {
 
       await expect(resolver.resolveEmail('school-1')).rejects.toThrow(ProviderNotConfiguredError);
     });
+
+    it('lets an override win over the tenant setting', async () => {
+      const resolver = resolverWith({
+        version: 1,
+        communications: {
+          email: {
+            host: 'smtp.tenant.example',
+            port: 2525,
+            user: 'u',
+            password: 'p',
+            from: 'a@x.com',
+          },
+        },
+      });
+
+      const config = await resolver.resolveEmail('school-1', { password: 'draft-pass' });
+
+      expect(config.password).toBe('draft-pass');
+      expect(config.host).toBe('smtp.tenant.example');
+    });
   });
 
   describe('resolveMessenger', () => {
@@ -175,6 +247,17 @@ describe('TenantProviderConfigResolver', () => {
       await expect(resolver.resolveMessenger('school-1')).rejects.toThrow(
         ProviderNotConfiguredError,
       );
+    });
+
+    it('resolves from override alone when the tenant has nothing stored yet', async () => {
+      const resolver = resolverWith({ version: 1 });
+
+      const config = await resolver.resolveMessenger('school-1', {
+        pageId: 'draft-page',
+        accessToken: 'draft-token',
+      });
+
+      expect(config).toEqual({ pageId: 'draft-page', accessToken: 'draft-token' });
     });
   });
 
@@ -244,6 +327,35 @@ describe('TenantProviderConfigResolver', () => {
       );
 
       await expect(resolver.resolveSms('school-1')).rejects.toThrow(ProviderNotConfiguredError);
+    });
+
+    it('lets an override switch the gateway and supply its own credentials', async () => {
+      const resolver = resolverWith({
+        version: 1,
+        communications: {
+          sms: { provider: 'greenweb', greenweb: { apiKey: 'tenant-key' } },
+        },
+      });
+
+      const config = await resolver.resolveSms('school-1', {
+        provider: 'mimsms',
+        mimsms: { apiKey: 'draft-key', senderId: 'draft-sender' },
+      });
+
+      expect(config).toEqual({ gateway: 'mimsms', apiKey: 'draft-key', senderId: 'draft-sender' });
+    });
+
+    it('lets a partial override change just the api key while keeping the tenant gateway selection', async () => {
+      const resolver = resolverWith({
+        version: 1,
+        communications: {
+          sms: { provider: 'greenweb', greenweb: { apiKey: 'tenant-key' } },
+        },
+      });
+
+      const config = await resolver.resolveSms('school-1', { greenweb: { apiKey: 'draft-key' } });
+
+      expect(config).toEqual({ gateway: 'greenweb', apiKey: 'draft-key' });
     });
   });
 
