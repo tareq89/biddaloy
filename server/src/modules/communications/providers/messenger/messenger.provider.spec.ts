@@ -33,7 +33,7 @@ describe('MessengerProvider', () => {
   });
 
   describe('testConnection', () => {
-    const config = { pageId: 'page-1', accessToken: 'super-secret-token' };
+    const config = { pageId: '10001', accessToken: 'super-secret-token' };
     let fetchMock: ReturnType<typeof vi.fn>;
 
     beforeEach(() => {
@@ -46,14 +46,24 @@ describe('MessengerProvider', () => {
     });
 
     it('fetches the page metadata instead of sending a message', async () => {
-      fetchMock.mockResolvedValue({ ok: true, json: async () => ({ id: 'page-1' }) });
+      fetchMock.mockResolvedValue({ ok: true, json: async () => ({ id: '10001' }) });
 
       const result = await provider.testConnection(config);
 
       const [url, init] = fetchMock.mock.calls[0];
-      expect(url).toBe('https://graph.facebook.com/page-1?fields=id');
+      expect(url).toBe('https://graph.facebook.com/10001?fields=id');
       expect(init.headers.Authorization).toBe('Bearer super-secret-token');
       expect(result).toEqual({ success: true, message: 'Connected — Facebook Page verified.' });
+    });
+
+    it('rejects a page id that is not a plain numeric Graph API id, without making a request', async () => {
+      const result = await provider.testConnection({ ...config, pageId: '10001/../evil' });
+
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        success: false,
+        message: 'Page ID is not a valid Facebook Page identifier.',
+      });
     });
 
     it('reports an actionable message for an invalid token, never the raw payload', async () => {

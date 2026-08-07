@@ -5,6 +5,7 @@ import {
   CommunicationSendResult,
 } from '../communication-provider.interface';
 import { ConnectionTestResult } from '../shared/connection-test.types';
+import { isValidGraphApiId } from '../shared/graph-api-path-segment.util';
 import { mapMetaGraphError } from '../shared/meta-graph-error.util';
 import {
   ResolvedMessengerConfig,
@@ -61,6 +62,9 @@ export class MessengerProvider implements CommunicationProvider {
    * `send()` stops being a stub.
    */
   async testConnection(config: ResolvedMessengerConfig): Promise<ConnectionTestResult> {
+    if (!isValidGraphApiId(config.pageId)) {
+      return { success: false, message: 'Page ID is not a valid Facebook Page identifier.' };
+    }
     try {
       const url = `https://graph.facebook.com/${config.pageId}?fields=id`;
       const response = await fetch(url, {
