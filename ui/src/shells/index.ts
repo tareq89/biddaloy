@@ -14,3 +14,5 @@ export {
   type DetailShellTab,
 } from './detail-shell';
 export { useDetailShellTab } from './use-detail-shell-tab';
+export { WizardShell, type WizardShellProps, type WizardStep } from './wizard-shell';
+export { useWizardShellStep } from './use-wizard-shell-step';
