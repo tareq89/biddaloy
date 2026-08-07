@@ -7,3 +7,10 @@ export {
   type ListShellState,
   type ListShellActions,
 } from './use-list-shell-state';
+export {
+  DetailShell,
+  type DetailShellProps,
+  type DetailShellAction,
+  type DetailShellTab,
+} from './detail-shell';
+export { useDetailShellTab } from './use-detail-shell-tab';
