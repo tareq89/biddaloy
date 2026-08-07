@@ -248,7 +248,7 @@ export function DataTable<TData>({
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {selectable && (
-                  <th scope="col" className="p-2 text-left">
+                  <th scope="col" className="p-2 text-start">
                     <Checkbox
                       aria-label="Select all rows"
                       checked={rows.length > 0 && allSelected}
@@ -274,7 +274,7 @@ export function DataTable<TData>({
                       key={header.id}
                       scope="col"
                       aria-sort={ariaSort}
-                      className="p-2 text-left font-medium"
+                      className="p-2 text-start font-medium"
                     >
                       {canSort ? (
                         <button

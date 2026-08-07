@@ -7,6 +7,7 @@ import {
   typeCheckedRules,
   typeCheckedTestOverrides,
 } from './eslint-config.mjs';
+import logicalPropertiesPlugin from './eslint-rules/logical-properties.mjs';
 
 export default tseslint.config(
   ...biddaloyReactConfig,
@@ -23,6 +24,16 @@ export default tseslint.config(
   {
     files: ['src/**/*.{ts,tsx}'],
     ...financialMutationGuardConfig,
+  },
+  // [8.7.6]: components use margin-inline-*/padding-inline-* (Tailwind's
+  // ms-/me-/ps-/pe-), never -left/-right — scoped to where className
+  // strings actually get authored (not primitives, which are vendored and
+  // regenerated, not hand-edited; not hooks/utils/api/test, which don't
+  // render markup at all).
+  {
+    files: ['src/components/**/*.{ts,tsx}', 'src/shells/**/*.{ts,tsx}'],
+    plugins: { 'logical-properties': logicalPropertiesPlugin },
+    rules: { 'logical-properties/no-physical-direction-classes': 'error' },
   },
   typeCheckedTestOverrides,
   {

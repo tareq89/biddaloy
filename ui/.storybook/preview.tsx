@@ -75,16 +75,11 @@ const preview: Preview = {
 
       // Drives the real i18next instance, not a Storybook-only stand-in —
       // a story's `useTranslation()` calls resolve against whatever the
-      // toolbar picked. Reflects onto <html> too, not just the React
-      // tree, so browser/OS chrome (scrollbars, form control rendering)
-      // and the a11y addon's own DOM scan — which reads the real
-      // document, not just what a component receives as props — see the
-      // same locale the story does.
+      // toolbar picked. `<html lang>`/`dir` reflection is `I18nProvider`'s
+      // own job now ([8.7.6]'s `DocumentLocaleSync`), not duplicated here.
       useEffect(() => {
         void i18n.changeLanguage(locale);
-        document.documentElement.lang = locale;
-        document.documentElement.dir = dir;
-      }, [locale, dir]);
+      }, [locale]);
 
       return (
         <QueryClientProvider client={queryClient}>
