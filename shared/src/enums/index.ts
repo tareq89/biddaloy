@@ -123,6 +123,7 @@ export enum AuditAction {
   BULK_UPLOAD = 'BULK_UPLOAD',
   REMINDER_SENT = 'REMINDER_SENT',
   FEE_STRUCTURE_CHANGE = 'FEE_STRUCTURE_CHANGE',
+  SETTINGS_CHANGE = 'SETTINGS_CHANGE',
 }
 
 export enum EnrollmentStatus {
