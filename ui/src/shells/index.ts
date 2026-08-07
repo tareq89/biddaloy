@@ -16,3 +16,17 @@ export {
 export { useDetailShellTab } from './use-detail-shell-tab';
 export { WizardShell, type WizardShellProps, type WizardStep } from './wizard-shell';
 export { useWizardShellStep } from './use-wizard-shell-step';
+export {
+  FormShell,
+  FormSection,
+  type FormShellProps,
+  type FormShellError,
+  type FormSectionProps,
+} from './form-shell';
+export {
+  useFormShellMode,
+  applyServerFieldErrors,
+  useWarnUnsavedChanges,
+  useFormAutosave,
+  type UseFormAutosaveResult,
+} from './use-form-shell';
