@@ -218,6 +218,34 @@ describe('useFormAutosave', () => {
     setItemSpy.mockRestore();
   });
 
+  it('does not crash on mount when localStorage.getItem throws (blocked storage)', () => {
+    const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('SecurityError');
+    });
+    expect(() => render(<AutosaveProbe formKey="admission-form" value="" />)).not.toThrow();
+    expect(screen.getByText('draftAvailable: false')).toBeTruthy();
+    getItemSpy.mockRestore();
+  });
+
+  it('discardDraft still resets local state even when localStorage.removeItem throws', async () => {
+    const user = userEvent.setup();
+    window.localStorage.setItem(
+      'form-shell-draft:admission-form',
+      JSON.stringify({ studentName: 'Karim' }),
+    );
+    render(<AutosaveProbe formKey="admission-form" value="" />);
+    expect(screen.getByText('draftAvailable: true')).toBeTruthy();
+
+    const removeItemSpy = vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+      throw new Error('SecurityError');
+    });
+    // Doesn't throw out of the click handler — if it did, this await
+    // itself would reject/throw and fail the test.
+    await user.click(screen.getByRole('button', { name: 'Discard draft' }));
+    await waitFor(() => expect(screen.getByText('draftAvailable: false')).toBeTruthy());
+    removeItemSpy.mockRestore();
+  });
+
   it('restoreDraft returns undefined when the saved value is not valid JSON', () => {
     window.localStorage.setItem('form-shell-draft:admission-form', 'not json');
     const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});

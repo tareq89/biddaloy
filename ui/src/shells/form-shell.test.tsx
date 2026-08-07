@@ -36,6 +36,37 @@ function Controlled() {
   );
 }
 
+/** Models a caller like `applyServerFieldErrors` being invoked after an
+ * `await` — `submitCount` increments in one render, `errors` populates
+ * in a later, separate one, rather than both landing in the same
+ * commit the way `Controlled`'s synchronous validation does. */
+function AsyncErrorsControlled() {
+  const [submitCount, setSubmitCount] = useState(0);
+  const [errors, setErrors] = useState<FormShellError[]>([]);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitCount((count) => count + 1);
+    await Promise.resolve();
+    setErrors([{ field: 'student-name', message: 'Student name is required' }]);
+  }
+
+  return (
+    <FormShell
+      title="Admit a student"
+      errors={errors}
+      submitCount={submitCount}
+      onSubmit={(event) => void handleSubmit(event)}
+    >
+      <FormSection legend="Student details">
+        <label htmlFor="student-name">Student name</label>
+        <input id="student-name" name="name" />
+      </FormSection>
+      <button type="submit">Submit</button>
+    </FormShell>
+  );
+}
+
 describe('FormShell', () => {
   it('renders the title and a fieldset/legend section', () => {
     render(<Controlled />);
@@ -78,6 +109,15 @@ describe('FormShell', () => {
     const scrollSpy = vi.spyOn(field, 'scrollIntoView');
     await user.click(screen.getByRole('link', { name: 'Student name is required' }));
     expect(scrollSpy).toHaveBeenCalledWith({ block: 'center' });
+  });
+
+  it('still focuses the summary when errors arrive in a later render than the submitCount increment', async () => {
+    const user = userEvent.setup();
+    render(<AsyncErrorsControlled />);
+    await user.click(screen.getByRole('button', { name: 'Submit' }));
+
+    const summary = await screen.findByRole('alert');
+    await waitFor(() => expect(document.activeElement).toBe(summary));
   });
 
   it('re-submitting with the same error still re-focuses the summary', async () => {

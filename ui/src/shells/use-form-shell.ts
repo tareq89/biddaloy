@@ -92,7 +92,16 @@ export function useFormAutosave<TValues>(
 
   const [draftAvailable, setDraftAvailable] = React.useState(() => {
     if (typeof window === 'undefined') return false;
-    return window.localStorage.getItem(storageKey) !== null;
+    try {
+      return window.localStorage.getItem(storageKey) !== null;
+    } catch {
+      // Accessing window.localStorage itself can throw (blocked storage,
+      // some sandboxed/cross-origin contexts) — same "fails silently"
+      // contract as the write/restore paths below, but this one runs
+      // during the initial render, so an uncaught throw here would take
+      // the whole component down with it, not just skip the autosave.
+      return false;
+    }
   });
 
   // Tracks the last value actually written, per storage key — a caller
@@ -132,7 +141,12 @@ export function useFormAutosave<TValues>(
   }
 
   function discardDraft(): void {
-    window.localStorage.removeItem(storageKey);
+    try {
+      window.localStorage.removeItem(storageKey);
+    } catch {
+      // See the state initializer above — storage access itself can
+      // throw, not just a specific operation.
+    }
     lastWrittenRef.current = null;
     setDraftAvailable(false);
   }

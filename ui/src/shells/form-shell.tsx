@@ -51,9 +51,15 @@ export function FormShell({ title, errors, submitCount, onSubmit, children }: Fo
   const headingId = React.useId();
 
   React.useEffect(() => {
-    if (errors.length > 0 && submitCount !== lastSubmitCount.current) {
-      summaryRef.current?.focus();
-    }
+    // Only consumes the submitCount transition once errors are actually
+    // present — a caller that sets errors in a later commit than the
+    // submitCount increment (applyServerFieldErrors called after an
+    // await, say) would otherwise have this effect mark the transition
+    // "handled" on the empty-errors run, and never focus once the
+    // errors do arrive.
+    if (submitCount === lastSubmitCount.current) return;
+    if (errors.length === 0) return;
+    summaryRef.current?.focus();
     lastSubmitCount.current = submitCount;
   }, [errors.length, submitCount]);
 

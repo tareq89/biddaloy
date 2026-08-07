@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { Meta, StoryObj } from '@storybook/react';
-import { userEvent, within } from '@storybook/test';
+import { expect, userEvent, within } from '@storybook/test';
+import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
@@ -157,8 +158,12 @@ export const SuccessfulSubmit: Story = {
   render: () => <AdmissionForm />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.type(canvas.getByLabelText('Student name'), 'Karim Ahmed');
-    await userEvent.type(canvas.getByLabelText('Guardian’s phone'), '01812345678');
+    // Queried by id rather than getByLabelText — see DraftRestore's play
+    // function for why (FormLabel's htmlFor doesn't track a caller-set
+    // id on FormControl's child, so getByLabelText can't resolve these
+    // fields; flagged separately, not fixed here).
+    await userEvent.type(canvasElement.querySelector('#studentName')!, 'Karim Ahmed');
+    await userEvent.type(canvasElement.querySelector('#guardianPhone')!, '01812345678');
     await userEvent.click(canvas.getByRole('button', { name: 'Admit student' }));
   },
 };
@@ -171,6 +176,12 @@ const AUTOSAVE_KEY = 'form-shell-storybook-demo';
  * `discardDraft`) is deliberate here, since this is the "already
  * succeeded" case the two exist to distinguish, even though they're
  * currently the same function. */
+// The inputs below use this prefix on their ids (`autosave-studentName`,
+// not just `studentName`) so a link from this story can't reach a
+// same-named input in a different story once autodocs renders every
+// story on one page — the summary's `field` has to match exactly.
+const AUTOSAVE_FIELD_ID_PREFIX = 'autosave-';
+
 function AdmissionFormWithAutosave() {
   const form = useForm<AdmissionValues>({
     resolver: zodResolver(admissionSchema),
@@ -182,8 +193,18 @@ function AdmissionFormWithAutosave() {
     debounceMs: 300,
   });
 
+  // draftAvailable also turns true after this session's own first
+  // autosave write (that's the fix in this same PR), so the "previous
+  // draft" banner has to gate on the value captured at mount, not the
+  // live one — otherwise typing a fresh entry makes the banner claim a
+  // draft exists and offer to "restore" the text just typed.
+  const [hadDraftOnMount] = React.useState(draftAvailable);
+
   const summaryErrors: FormShellError[] = Object.entries(form.formState.errors).map(
-    ([field, error]) => ({ field, message: String(error?.message ?? '') }),
+    ([field, error]) => ({
+      field: `${AUTOSAVE_FIELD_ID_PREFIX}${field}`,
+      message: String(error?.message ?? ''),
+    }),
   );
 
   function handleSubmit(values: AdmissionValues) {
@@ -199,7 +220,7 @@ function AdmissionFormWithAutosave() {
         submitCount={form.formState.submitCount}
         onSubmit={(event) => void form.handleSubmit(handleSubmit)(event)}
       >
-        {draftAvailable && !form.formState.isSubmitSuccessful && (
+        {hadDraftOnMount && !form.formState.isSubmitSuccessful && (
           <div role="status" className="rounded-lg border border-border p-3 text-sm">
             A previous draft was found.{' '}
             <button
@@ -223,9 +244,11 @@ function AdmissionFormWithAutosave() {
             name="studentName"
             render={({ field }) => (
               <FormItem>
-                <FormLabel htmlFor="autosave-studentName">Student name</FormLabel>
+                <FormLabel htmlFor={`${AUTOSAVE_FIELD_ID_PREFIX}studentName`}>
+                  Student name
+                </FormLabel>
                 <FormControl>
-                  <Input id="autosave-studentName" {...field} />
+                  <Input id={`${AUTOSAVE_FIELD_ID_PREFIX}studentName`} {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -238,9 +261,11 @@ function AdmissionFormWithAutosave() {
             name="guardianPhone"
             render={({ field }) => (
               <FormItem>
-                <FormLabel htmlFor="autosave-guardianPhone">Guardian&rsquo;s phone</FormLabel>
+                <FormLabel htmlFor={`${AUTOSAVE_FIELD_ID_PREFIX}guardianPhone`}>
+                  Guardian&rsquo;s phone
+                </FormLabel>
                 <FormControl>
-                  <Input id="autosave-guardianPhone" {...field} />
+                  <Input id={`${AUTOSAVE_FIELD_ID_PREFIX}guardianPhone`} {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -267,6 +292,29 @@ export const DraftRestore: Story = {
     },
   ],
   render: () => <AdmissionFormWithAutosave />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Restore it' }));
+
+    // Queried by id, the same way `FormShell`'s own error-summary links
+    // locate a field (`document.getElementById`) — not by label text,
+    // since `FormField`'s `FormLabel` always uses its own generated id
+    // for `htmlFor` regardless of what a caller passes, so a caller-set
+    // `id` on the input (needed here so `FormShellError.field` has a
+    // stable, predictable target) ends up unassociated from its label.
+    // That's a real gap in how `form-field.tsx` and `FormShell` compose
+    // together, flagged separately — not something to route around
+    // silently in every story that hits it.
+    const studentNameField = canvasElement.querySelector<HTMLInputElement>(
+      `#${AUTOSAVE_FIELD_ID_PREFIX}studentName`,
+    );
+    await expect(studentNameField).toHaveValue('Nusrat Jahan');
+
+    await userEvent.clear(studentNameField!);
+    await userEvent.click(canvas.getByRole('button', { name: 'Admit student' }));
+    await userEvent.click(canvas.getByRole('link', { name: 'Student name is required' }));
+    await expect(document.activeElement).toBe(studentNameField);
+  },
 };
 
 export const RightToLeft: Story = {
