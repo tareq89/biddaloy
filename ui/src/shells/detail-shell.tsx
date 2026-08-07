@@ -53,6 +53,11 @@ export interface DetailShellProps {
   statusBadge?: React.ReactNode;
   actions?: DetailShellAction[];
   tabs: DetailShellTab[];
+  /** Must be one of `tabs[].id` — same contract as Radix `Tabs`' own
+   * `value` prop, which this passes straight through. `useDetailShellTab`
+   * (this directory) already guarantees this for the common case; a
+   * caller wiring its own `activeTab` source is responsible for the same
+   * guarantee. */
   activeTab: string;
   onTabChange: (tabId: string) => void;
 }
@@ -71,10 +76,8 @@ export function DetailShell({
   );
 
   React.useEffect(() => {
-    if (!visitedTabs.has(activeTab)) {
-      setVisitedTabs((prev) => new Set(prev).add(activeTab));
-    }
-  }, [activeTab, visitedTabs]);
+    setVisitedTabs((prev) => (prev.has(activeTab) ? prev : new Set(prev).add(activeTab)));
+  }, [activeTab]);
 
   const visibleActions = actions.filter((action) => action.allowed !== false);
 

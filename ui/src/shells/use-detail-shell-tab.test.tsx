@@ -15,6 +15,7 @@ function Probe() {
     <div>
       <p>active: {activeTab}</p>
       <button onClick={() => setTab('payments')}>Go to payments</button>
+      <button onClick={() => setTab('nonexistent')}>Go to an unknown tab</button>
     </div>
   );
 }
@@ -45,6 +46,17 @@ describe('useDetailShellTab', () => {
 
     unmount();
     renderWithRouter(routes, { initialEntries: [`/students/1${router.state.location.search}`] });
+    expect(screen.getByText('active: payments')).toBeTruthy();
+  });
+
+  it('setTab ignores a tab id that is not in tabIds, rather than writing a stale value into the URL', async () => {
+    const user = userEvent.setup();
+    const { router } = renderWithRouter(routes, { initialEntries: ['/students/1?tab=payments'] });
+
+    await user.click(screen.getByRole('button', { name: 'Go to an unknown tab' }));
+
+    expect(router.state.location.search).toContain('tab=payments');
+    expect(router.state.location.search).not.toContain('nonexistent');
     expect(screen.getByText('active: payments')).toBeTruthy();
   });
 });

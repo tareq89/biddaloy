@@ -3,7 +3,11 @@
  * linkable (a colleague can be sent a link straight to a specific
  * student's payment history) and survives refresh, since it's just a URL.
  * An unknown or missing `?tab=` value falls back to the first tab rather
- * than rendering nothing — the issue's own acceptance criterion.
+ * than rendering nothing — the issue's own acceptance criterion. `setTab`
+ * rejects a tab id that isn't in `tabIds` rather than writing it to the
+ * URL and relying on the same fallback to paper over it on next read —
+ * the visible tab strip and the URL should never disagree, even for one
+ * render.
  */
 import { useSearchParams } from 'react-router';
 
@@ -15,6 +19,7 @@ export function useDetailShellTab(tabIds: readonly string[]): [string, (tabId: s
   const activeTab = raw !== null && tabIds.includes(raw) ? raw : firstTab;
 
   function setTab(tabId: string): void {
+    if (!tabIds.includes(tabId)) return;
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       next.set('tab', tabId);
