@@ -11,7 +11,23 @@ export { Placeholder } from './placeholder';
 
 export { Button, type ButtonProps } from './button';
 export { Input, type InputProps } from './input';
+export { Label, type LabelProps } from './label';
 export { Checkbox, type CheckboxProps } from './checkbox';
+export {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  useFormField,
+} from './form-field';
+export { MoneyInput, type MoneyInputProps } from './money-input';
+export { PhoneInput, formatValidPhone, type PhoneInputProps } from './phone-input';
+export { DatePicker, Calendar, type DatePickerProps } from './date-picker';
+export { Combobox, type ComboboxOption, type ComboboxProps } from './combobox';
+export { FileUpload, type FileUploadItem, type FileUploadProps } from './file-upload';
 export {
   RadioGroup,
   RadioGroupItem,
