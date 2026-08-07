@@ -21,9 +21,11 @@ enforces it from the other side, see [8.2.3]).
 
 The wrapper owns:
 
-- **i18n** of built-in strings — no English literal reaches a screen once
-  [8.7.1]'s i18next wiring lands. Until then, a literal string is fine
-  _if the file says so_ — see "i18n rules" below.
+- **i18n** of built-in strings — the goal is no English literal reaching
+  a screen regardless of locale. [8.7.1] landed the i18next wiring
+  itself, but retrofitting every wrapper's fallback text onto real `t()`
+  calls is separate, later work — a literal string is fine today _if the
+  file says so_ — see "i18n rules" below.
 - **Accessibility defaults** — labels, `aria-*`, focus behaviour,
   required-field semantics that don't need a call site to think about
   them.
@@ -167,24 +169,31 @@ has — not a one-off value that bypasses the check.
 
 ## i18n rules
 
-[8.7.1] (i18next setup) has landed. `ui`'s own wrapper components still
-legitimately carry literal fallback text — `Button`'s "Loading" text,
-`EmptyState`'s default copy, and so on — by design, not as a gap waiting
-on a later ticket: `ui`'s wrapper layer is where translation keys
-_originate_, not where they're consumed, so it stays translation-agnostic
-on purpose (see the next paragraph).
+[8.7.1] (i18next setup) has landed, but `ui`'s own wrapper components
+still ship literal fallback text today — `Button`'s "Loading" text,
+`EmptyState`'s default copy, `StatusBadge`'s humanized enum labels, and
+so on. That gap isn't closed by this ticket: **every file with a literal
+user-facing string says so in a comment**, explaining that it's a plain
+fallback rather than a `t()` call and that nothing should depend on the
+English wording staying stable. Follow that pattern for any new
+component.
 
-Consuming SPAs (`client-admin`, `client-student`, ...) don't get that
-exemption: [8.7.4] adds `boundary/no-hardcoded-jsx-text` —
-enforced via `componentBoundaryConfig`, scoped to client-* consumers only,
-same as the other boundary rules — to fail lint on a hardcoded string in
-JSX text or in `aria-label`/`placeholder`/`title`/`alt`, pointing at
-`t('...')` (`@beton-boi/ui/i18n`) instead. A lone symbol/digit/punctuation
-run doesn't trip it — only content containing an actual letter, in any
-script. See `eslint-rules/component-boundary.spec.mjs`'s
-`no-hardcoded-jsx-text` suite for the exact boundary (a plain string
-literal and a no-interpolation template literal both count as hardcoded;
-`t()` calls and other dynamic expressions don't).
+[8.7.4] adds the lint enforcement for "no new component introduces a raw
+string," but **scoped to consuming SPAs first**: `boundary/
+no-hardcoded-jsx-text`, wired into `componentBoundaryConfig` alongside
+the other boundary rules, applies to `client-admin`/`client-student` only
+— never to `ui` itself, same as `no-radix-import`/`no-deep-ui-import`/
+`no-raw-intl` before it. `ui`'s own wrapper layer getting the equivalent
+enforcement (and having its literals actually replaced with real `t()`
+calls) is later work, not something this ticket does. The rule fails
+lint on a hardcoded string in JSX text or in `aria-label`/`placeholder`/
+`title`/`alt`, pointing at `t('...')` (`@beton-boi/ui/i18n`) instead. A
+lone symbol/digit/punctuation run doesn't trip it — only content
+containing an actual letter, in any script. See
+`eslint-rules/component-boundary.spec.mjs`'s `no-hardcoded-jsx-text`
+suite for the exact boundary (a plain string literal and a
+no-interpolation template literal both count as hardcoded; `t()` calls
+and other dynamic expressions don't).
 
 `MoneyInput`/`PhoneInput`/date formatting never call `Intl`/`Number`/
 `Date` formatting methods directly — every formatter lives in `src/utils`
