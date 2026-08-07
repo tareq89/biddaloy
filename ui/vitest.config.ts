@@ -2,7 +2,7 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    include: ['src/**/*.spec.ts', 'eslint-rules/**/*.spec.mjs'],
+    include: ['src/**/*.spec.ts', 'eslint-rules/**/*.spec.mjs', 'scripts/**/*.spec.mjs'],
     environment: 'node',
     globals: true,
   },

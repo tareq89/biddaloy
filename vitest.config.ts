@@ -163,10 +163,12 @@ export default defineConfig({
     coverage,
     projects: [
       ...frontendPackage('ui', 'ui', uiAlias, {
-        // eslint-rules specs are ESLint RuleTester fixtures, not app logic,
-        // but they're plain-Node tests with no DOM need either — same
-        // bucket as everything else in the node project.
-        nodeInclude: ['src/**/*.spec.ts', 'eslint-rules/**/*.spec.mjs'],
+        // eslint-rules specs are ESLint RuleTester fixtures, and
+        // scripts/**/*.spec.mjs covers the hand-rolled check-*.mjs CI
+        // scripts (check-i18n-keys.mjs, ...) — neither is app logic, but
+        // both are plain-Node tests with no DOM need either, same bucket
+        // as everything else in the node project.
+        nodeInclude: ['src/**/*.spec.ts', 'eslint-rules/**/*.spec.mjs', 'scripts/**/*.spec.mjs'],
         jsdomInclude: ['src/**/*.test.{ts,tsx}'],
       }),
       ...frontendPackage('client-admin', 'client-admin', clientAlias('client-admin'), {

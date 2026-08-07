@@ -12,7 +12,12 @@ function StudentsFeeReminder() {
 
 function CommonSaveAction() {
   const { t } = useTranslation();
-  return <button>{t('actions.save')}</button>;
+  // Explicit `ns` isn't required at runtime (`useTranslation()` with no
+  // argument already resolves to `defaultNS`) — it's here so
+  // `check:i18n`'s per-file namespace inference doesn't attribute this key
+  // to `StudentsFeeReminder`'s `useTranslation('students')` above, the
+  // first (and in this file, wrong) match in the file.
+  return <button>{t('actions.save', { ns: 'common' })}</button>;
 }
 
 describe('I18nProvider', () => {
