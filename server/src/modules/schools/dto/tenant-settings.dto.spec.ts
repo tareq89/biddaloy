@@ -4,9 +4,10 @@ import { validate } from 'class-validator';
 import { TenantSettingsDto, TENANT_SETTINGS_SCHEMA_VERSION } from './tenant-settings.dto';
 import { DEFAULT_REGION_SETTINGS } from '../settings/tenant-settings-defaults';
 
-// Matches the global pipe in server/src/validation-pipe.ts, so this proves
-// the same rejection behaviour the app enforces at the controller boundary
-// (which #8.7.9 wires up) — no controller exists on this branch yet.
+// Matches the global pipe in server/src/validation-pipe.ts (buildValidationPipeOptions()),
+// which SchoolsController's @Body() dto: TenantSettingsDto actually runs
+// through in production — this proves the same rejection behaviour
+// directly against the schema, without needing to boot a controller.
 const VALIDATION_OPTIONS = { whitelist: true, forbidNonWhitelisted: true } as const;
 
 function toDto(plain: Record<string, unknown>): TenantSettingsDto {
@@ -229,6 +230,59 @@ describe('TenantSettingsDto', () => {
       const errors = await validate(dto, VALIDATION_OPTIONS);
 
       expect(errors).toEqual([]);
+    });
+  });
+
+  describe('secret fields — #8.7.9 PATCH contract (omit leaves unchanged, null clears)', () => {
+    it('accepts a medium with its secret field omitted entirely', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        communications: { whatsapp: { phoneNumberId: '123' } },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      expect(errors).toEqual([]);
+    });
+
+    it('accepts an explicit null on a secret field', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        communications: { whatsapp: { phoneNumberId: '123', accessToken: null } },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      expect(errors).toEqual([]);
+    });
+
+    it('still rejects a non-string, non-null value on a secret field', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        communications: { whatsapp: { phoneNumberId: '123', accessToken: 42 } },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      const whatsappError = errors
+        .find((e) => e.property === 'communications')
+        ?.children?.find((e) => e.property === 'whatsapp');
+      expect(whatsappError?.children?.some((e) => e.property === 'accessToken')).toBe(true);
+    });
+
+    it('still requires a non-secret field on a medium even when the secret is omitted', async () => {
+      // phoneNumberId is required regardless of accessToken's optionality.
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        communications: { whatsapp: {} },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      const whatsappError = errors
+        .find((e) => e.property === 'communications')
+        ?.children?.find((e) => e.property === 'whatsapp');
+      expect(whatsappError?.children?.some((e) => e.property === 'phoneNumberId')).toBe(true);
     });
   });
 });

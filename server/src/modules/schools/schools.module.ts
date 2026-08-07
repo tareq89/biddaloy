@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { School } from './entities/school.entity';
 import { SchoolsService } from './schools.service';
+import { SchoolsController } from './schools.controller';
 import { EncryptionService } from './settings/encryption.service';
 import { buildEncryptionKey, buildPreviousEncryptionKeys } from './settings/encryption-key';
 
@@ -24,6 +25,7 @@ export function encryptionServiceFactory(config: ConfigService): EncryptionServi
 
 @Module({
   imports: [TypeOrmModule.forFeature([School]), ConfigModule],
+  controllers: [SchoolsController],
   providers: [
     SchoolsService,
     {
