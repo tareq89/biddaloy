@@ -1,6 +1,6 @@
 import { Permission } from '@biddaloy/shared';
 import { useHasPermission } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 
 import { SchoolSettingsPage } from './pages/SchoolSettingsPage';
 
@@ -19,6 +19,11 @@ import { SchoolSettingsPage } from './pages/SchoolSettingsPage';
 export default function App() {
   const { t } = useTranslation('settings');
   const canManageSettings = useHasPermission(Permission.SETTINGS_MANAGE);
+  // #8.7.14's provider swap — every `useRegionConfig()` call site
+  // downstream (currency/date/phone formatters, none of which live in
+  // this app yet) picks up the active tenant's own regional settings for
+  // free, no changes of its own, the moment one exists.
+  const regionConfig = useTenantRegionConfig();
 
   if (!canManageSettings) {
     return (
@@ -28,5 +33,9 @@ export default function App() {
     );
   }
 
-  return <SchoolSettingsPage />;
+  return (
+    <RegionConfigProvider value={regionConfig}>
+      <SchoolSettingsPage />
+    </RegionConfigProvider>
+  );
 }

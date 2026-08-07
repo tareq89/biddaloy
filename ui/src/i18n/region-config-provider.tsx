@@ -1,24 +1,18 @@
 import { createContext, useContext, type ReactNode } from 'react';
 
-import type { Locale } from './locale-storage';
-import { REGION_BD_BN, REGION_BD_EN, type RegionConfig } from './region-config';
+import { LOCALE_REGION_DEFAULTS, REGION_BD_BN, type RegionConfig } from './region-config';
 import { useLocale } from './use-locale';
-
-const LOCALE_REGION_DEFAULTS: Record<Locale, RegionConfig> = {
-  bn: REGION_BD_BN,
-  en: REGION_BD_EN,
-};
 
 const RegionConfigContext = createContext<RegionConfig>(REGION_BD_BN);
 
 export interface RegionConfigProviderProps {
   children: ReactNode;
   /** Overrides the locale-derived default. This is the entire "provider
-   * swap" #8.7.14 needs: once a tenant's own settings are resolved into a
-   * `RegionConfig`, passing it here is the whole change — every
-   * `useRegionConfig()` call site downstream picks it up with no changes
-   * of its own. The app itself doesn't pass this today; only tests and
-   * `#8.7.14`'s eventual tenant-settings wiring do. */
+   * swap" #8.7.14 needed: `useTenantRegionConfig()` resolves the active
+   * tenant's stored settings into a `RegionConfig` and `App.tsx` passes it
+   * here — every `useRegionConfig()` call site downstream picks it up
+   * with no changes of its own. Tests still pass a fixed value directly,
+   * bypassing the tenant-settings fetch entirely. */
   value?: RegionConfig;
 }
 
