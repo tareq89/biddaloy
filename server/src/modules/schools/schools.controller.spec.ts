@@ -15,6 +15,7 @@ const REQUEST = { ip: '127.0.0.1', headers: { 'user-agent': 'vitest' } } as unkn
 
 function fakeService() {
   return {
+    findAll: vi.fn(),
     getMaskedSettings: vi.fn(),
     updateSettings: vi.fn(),
   };
@@ -27,6 +28,17 @@ describe('SchoolsController', () => {
   beforeEach(() => {
     service = fakeService();
     controller = new SchoolsController(service as unknown as SchoolsService);
+  });
+
+  describe('findAll', () => {
+    it('delegates to the service', async () => {
+      service.findAll.mockResolvedValue([{ id: SCHOOL_A, name: 'A School' }]);
+
+      const result = await controller.findAll();
+
+      expect(service.findAll).toHaveBeenCalledTimes(1);
+      expect(result).toEqual([{ id: SCHOOL_A, name: 'A School' }]);
+    });
   });
 
   describe('getSettings', () => {

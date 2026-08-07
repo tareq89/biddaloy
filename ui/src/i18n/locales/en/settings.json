@@ -1,0 +1,89 @@
+{
+  "title": "School settings",
+  "accessDenied": "You don't have access to this page.",
+  "schoolPicker": {
+    "label": "School",
+    "placeholder": "Choose a school to configure"
+  },
+  "configuringBanner": "Configuring settings for {{schoolName}}",
+  "secret": {
+    "configured": "Configured — ends {{hint}}",
+    "notConfigured": "Not configured",
+    "replace": "Replace",
+    "clear": "Clear",
+    "cancel": "Cancel",
+    "set": "Set"
+  },
+  "testConnection": {
+    "action": "Test connection"
+  },
+  "save": {
+    "action": "Save",
+    "success": "Saved"
+  },
+  "regional": {
+    "legend": "Regional",
+    "locale": "Locale",
+    "numerals": "Numeral system",
+    "numeralsLatin": "Latin (0-9)",
+    "numeralsBengali": "Bengali (০-৯)",
+    "timezone": "Timezone",
+    "currencyLegend": "Currency",
+    "currencyCode": "Currency code",
+    "currencySymbol": "Currency symbol",
+    "currencyPosition": "Symbol position",
+    "currencyPositionPrefix": "Before the amount",
+    "currencyPositionSuffix": "After the amount",
+    "currencyDecimals": "Decimal places",
+    "currencyGrouping": "Number grouping",
+    "currencyGroupingLakhCrore": "Lakh/crore",
+    "currencyGroupingThousand": "Thousand",
+    "dateLegend": "Date format",
+    "dateFormat": "Date format",
+    "dateFirstDayOfWeek": "First day of week",
+    "dateCalendar": "Calendar",
+    "phoneLegend": "Phone format",
+    "phoneCountry": "Phone country code",
+    "phonePattern": "Phone number pattern",
+    "phoneExample": "Example phone number",
+    "phoneDisplayFormat": "Phone display format",
+    "addressLegend": "Address",
+    "addressFields": "Address fields (comma-separated)",
+    "addressOrder": "Address field order (comma-separated)",
+    "academicYearLegend": "Academic year",
+    "academicYearStartMonth": "Academic year start month",
+    "identifiersLegend": "Identifiers",
+    "identifiersNational": "National ID format",
+    "identifiersStudent": "Student ID format"
+  },
+  "whatsapp": {
+    "legend": "WhatsApp",
+    "phoneNumberId": "Phone number ID",
+    "apiVersion": "API version",
+    "accessToken": "Access token"
+  },
+  "messenger": {
+    "legend": "Messenger",
+    "pageId": "Page ID",
+    "accessToken": "Access token"
+  },
+  "email": {
+    "legend": "Email",
+    "host": "SMTP host",
+    "port": "SMTP port",
+    "user": "SMTP username",
+    "from": "From address",
+    "password": "Password"
+  },
+  "sms": {
+    "legend": "SMS",
+    "provider": "Provider",
+    "providerGreenweb": "Greenweb",
+    "providerMimsms": "MimSMS",
+    "greenwebApiKey": "Greenweb API key",
+    "greenwebApiUrl": "Greenweb API URL (optional)",
+    "mimsmsApiKey": "MimSMS API key",
+    "mimsmsSenderId": "MimSMS sender ID",
+    "mimsmsApiUrl": "MimSMS API URL (optional)"
+  }
+}
