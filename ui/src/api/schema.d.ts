@@ -715,6 +715,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/schools/{id}/settings/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Test a communications provider's credentials (SMS/WhatsApp/Email/Messenger) using the provider's cheapest verification call — never sends a real message. Pass `config` to test unsaved values before saving them; omitted fields fall back to what's already stored for this school. */
+        post: operations["ProviderConnectionTestController_testConnection_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/schools/{id}/settings": {
         parameters: {
             query?: never;
@@ -1434,6 +1451,13 @@ export interface components {
             provider_message_id: string | null;
             /** Format: date-time */
             created_at: string;
+        };
+        TestConnectionDto: {
+            /** @enum {string} */
+            medium: "SMS" | "WHATSAPP" | "EMAIL" | "MESSENGER";
+            config?: {
+                [key: string]: unknown;
+            };
         };
         RegionCurrencyDto: {
             code: string;
@@ -3658,6 +3682,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CommunicationResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ProviderConnectionTestController_testConnection_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestConnectionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

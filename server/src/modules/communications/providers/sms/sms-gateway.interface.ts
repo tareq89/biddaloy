@@ -1,4 +1,5 @@
 import { CommunicationSendResult } from '../communication-provider.interface';
+import { ConnectionTestResult } from '../shared/connection-test.types';
 
 /**
  * `TConfig` is each gateway's own resolved-config shape
@@ -10,6 +11,8 @@ import { CommunicationSendResult } from '../communication-provider.interface';
  */
 export interface SmsGateway<TConfig> {
   sendSms(to: string, message: string, config: TConfig): Promise<CommunicationSendResult>;
+  /** #8.7.12's connection test — the gateway's cheapest verification call, never a real SMS send. */
+  testConnection(config: TConfig): Promise<ConnectionTestResult>;
 }
 
 /** SMS gateway text is non-ASCII (Bangla) -> gateways bill/segment it as unicode SMS. */

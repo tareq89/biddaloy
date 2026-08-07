@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { CommunicationSendResult } from '../communication-provider.interface';
 import { SmsGateway, isUnicodeMessage } from './sms-gateway.interface';
 import { normalizeBdPhoneNumber } from '../shared/phone-number.util';
+import { ConnectionTestResult } from '../shared/connection-test.types';
 import { ResolvedGreenwebSmsConfig } from '../../config/tenant-provider-config.resolver';
 
 const DEFAULT_BASE_URL = 'https://api.greenweb.com.bd/api.php';
@@ -52,6 +53,33 @@ export class GreenwebSmsGateway implements SmsGateway<ResolvedGreenwebSmsConfig>
         providerMessageId: null,
         error: err instanceof Error ? err.message : String(err),
       };
+    }
+  }
+
+  /**
+   * #8.7.12's connection test — a balance check, Greenweb's cheapest
+   * token-verification call, instead of sending a real SMS.
+   */
+  async testConnection(config: ResolvedGreenwebSmsConfig): Promise<ConnectionTestResult> {
+    try {
+      const baseUrl = config.apiUrl ?? DEFAULT_BASE_URL;
+      const params = new URLSearchParams({ token: config.apiKey, type: 'balance' });
+
+      const response = await fetch(`${baseUrl}?${params.toString()}`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+      const data = await response.json();
+
+      if (data?.status === 'success') {
+        return { success: true, message: 'Connected — Greenweb account token verified.' };
+      }
+      return {
+        success: false,
+        message: 'Authentication rejected — check the account token.',
+      };
+    } catch {
+      return { success: false, message: 'Could not reach the Greenweb API.' };
     }
   }
 }
