@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState, type FormEvent } from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { FormShell, FormSection, type FormShellError } from './form-shell';
 
@@ -68,6 +68,18 @@ describe('FormShell', () => {
     await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Student name')));
   });
 
+  it('each summary entry also scrolls its field into view, not just focuses it', async () => {
+    const user = userEvent.setup();
+    render(<Controlled />);
+    await user.click(screen.getByRole('button', { name: 'Submit' }));
+    await screen.findByRole('alert');
+
+    const field = screen.getByLabelText('Student name');
+    const scrollSpy = vi.spyOn(field, 'scrollIntoView');
+    await user.click(screen.getByRole('link', { name: 'Student name is required' }));
+    expect(scrollSpy).toHaveBeenCalledWith({ block: 'center' });
+  });
+
   it('re-submitting with the same error still re-focuses the summary', async () => {
     const user = userEvent.setup();
     render(<Controlled />);
@@ -97,6 +109,25 @@ describe('FormShell', () => {
     await user.click(screen.getByRole('button', { name: 'Submit' }));
     await screen.findByRole('alert');
     await expect(container).toHaveNoViolations();
+  });
+
+  it('two FormShells rendered at once use distinct heading ids, not a hardcoded one', async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <Controlled />
+        <Controlled />
+      </>,
+    );
+    const submitButtons = screen.getAllByRole('button', { name: 'Submit' });
+    await user.click(submitButtons[0]!);
+    await user.click(submitButtons[1]!);
+
+    const summaries = await screen.findAllByRole('alert');
+    expect(summaries).toHaveLength(2);
+    const headingIds = summaries.map((summary) => summary.getAttribute('aria-labelledby'));
+    expect(headingIds[0]).toBeTruthy();
+    expect(headingIds[0]).not.toBe(headingIds[1]);
   });
 });
 

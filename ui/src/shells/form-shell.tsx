@@ -20,7 +20,12 @@ export interface FormShellError {
   /** Must match the target field's `id` — used both for the summary
    * link's `href="#id"` fallback and for `document.getElementById(id)
    * .focus()`, which is what actually moves focus (a `#hash` link alone
-   * scrolls but doesn't reliably focus form controls across browsers). */
+   * scrolls but doesn't reliably focus form controls across browsers).
+   * That lookup assumes a single element with this id that can itself
+   * take focus — a plain `<input id="...">`/`<textarea id="...">`, not a
+   * composite widget (`Combobox`, `DatePicker`, ...) whose focusable
+   * element lives elsewhere in its DOM, and not an id used more than
+   * once on the page. */
   field: string;
   message: string;
 }
@@ -39,6 +44,11 @@ export interface FormShellProps {
 export function FormShell({ title, errors, submitCount, onSubmit, children }: FormShellProps) {
   const summaryRef = React.useRef<HTMLDivElement>(null);
   const lastSubmitCount = React.useRef(submitCount);
+  // Generated, not a hardcoded string — more than one FormShell on a page
+  // (a wizard's review step embedding a form, split-screen editing,
+  // Storybook's own docs page rendering every story at once) would
+  // otherwise collide on the same id.
+  const headingId = React.useId();
 
   React.useEffect(() => {
     if (errors.length > 0 && submitCount !== lastSubmitCount.current) {
@@ -55,10 +65,10 @@ export function FormShell({ title, errors, submitCount, onSubmit, children }: Fo
           ref={summaryRef}
           tabIndex={-1}
           role="alert"
-          aria-labelledby="form-shell-error-summary-heading"
+          aria-labelledby={headingId}
           className="rounded-lg border border-destructive/50 bg-destructive/5 p-4 focus:outline-none"
         >
-          <p id="form-shell-error-summary-heading" className="font-medium text-destructive">
+          <p id={headingId} className="font-medium text-destructive">
             {errors.length === 1 ? 'There is 1 problem' : `There are ${errors.length} problems`}{' '}
             with your submission
           </p>
@@ -70,7 +80,15 @@ export function FormShell({ title, errors, submitCount, onSubmit, children }: Fo
                   className="text-destructive underline underline-offset-2"
                   onClick={(event) => {
                     event.preventDefault();
-                    document.getElementById(error.field)?.focus();
+                    // preventDefault above also cancels the browser's own
+                    // hash-navigation scroll, so this doesn't just rely on
+                    // focus() auto-scrolling a focused element into view
+                    // (real, but browser-dependent) — scrollIntoView makes
+                    // it explicit and centers the field rather than
+                    // leaving it flush against whichever edge.
+                    const target = document.getElementById(error.field);
+                    target?.focus();
+                    target?.scrollIntoView({ block: 'center' });
                   }}
                 >
                   {error.message}

@@ -58,10 +58,18 @@ export function useWarnUnsavedChanges(hasUnsavedChanges: boolean): void {
 }
 
 export interface UseFormAutosaveResult<TValues> {
-  /** True once, computed on mount from whatever was in `localStorage`
-   * then — "offer restoration on reopen" means asking, not silently
-   * applying a draft over whatever the caller already rendered. */
+  /** Computed on mount from whatever was in `localStorage` then, and
+   * kept in sync with every write/removal this hook itself makes
+   * (autosave, `discardDraft`/`clearDraft`) — asking whether to restore,
+   * not silently applying a draft over whatever the caller already
+   * rendered, is the caller's job, not this hook's. Only a write from
+   * *outside* this hook's own effect (another tab, a caller poking
+   * `localStorage` directly) can make this stale; this hook doesn't
+   * listen for the `storage` event to catch that. */
   draftAvailable: boolean;
+  /** Reads the current draft without clearing it — call `discardDraft`/
+   * `clearDraft` separately if the caller's restoration flow should also
+   * remove it. */
   restoreDraft: () => TValues | undefined;
   discardDraft: () => void;
   /** Call on successful submit — a saved draft for a form that already
@@ -87,11 +95,25 @@ export function useFormAutosave<TValues>(
     return window.localStorage.getItem(storageKey) !== null;
   });
 
+  // Tracks the last value actually written, per storage key — a caller
+  // re-rendering with unchanged `values` (most renders, for most forms)
+  // shouldn't re-serialize and rewrite localStorage every debounce cycle.
+  const lastWrittenRef = React.useRef<{ storageKey: string; serialized: string } | null>(null);
+
   React.useEffect(() => {
     if (!enabled) return;
     const timeout = setTimeout(() => {
+      const serialized = JSON.stringify(values);
+      if (
+        lastWrittenRef.current?.storageKey === storageKey &&
+        lastWrittenRef.current.serialized === serialized
+      ) {
+        return;
+      }
       try {
-        window.localStorage.setItem(storageKey, JSON.stringify(values));
+        window.localStorage.setItem(storageKey, serialized);
+        lastWrittenRef.current = { storageKey, serialized };
+        setDraftAvailable(true);
       } catch {
         // Quota exceeded or storage disabled — see this function's own
         // header comment on why this stays silent.
@@ -111,6 +133,7 @@ export function useFormAutosave<TValues>(
 
   function discardDraft(): void {
     window.localStorage.removeItem(storageKey);
+    lastWrittenRef.current = null;
     setDraftAvailable(false);
   }
 

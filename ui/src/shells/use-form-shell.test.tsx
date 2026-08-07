@@ -88,7 +88,7 @@ describe('useWarnUnsavedChanges', () => {
 });
 
 function AutosaveProbe({ formKey, value }: { formKey: string; value: string }) {
-  const { draftAvailable, restoreDraft, discardDraft } = useFormAutosave(
+  const { draftAvailable, restoreDraft, discardDraft, clearDraft } = useFormAutosave(
     formKey,
     { studentName: value },
     {
@@ -100,6 +100,7 @@ function AutosaveProbe({ formKey, value }: { formKey: string; value: string }) {
       <p>draftAvailable: {String(draftAvailable)}</p>
       <button onClick={() => window.alert(JSON.stringify(restoreDraft()))}>Show draft</button>
       <button onClick={discardDraft}>Discard draft</button>
+      <button onClick={clearDraft}>Clear draft</button>
     </div>
   );
 }
@@ -124,6 +125,25 @@ describe('useFormAutosave', () => {
       const raw = window.localStorage.getItem('form-shell-draft:admission-form');
       expect(raw).toBe(JSON.stringify({ studentName: 'Rahim Uddin' }));
     });
+  });
+
+  it('draftAvailable becomes true once autosave actually writes a draft, not just on mount', async () => {
+    render(<AutosaveProbe formKey="admission-form" value="Rahim Uddin" />);
+    expect(screen.getByText('draftAvailable: false')).toBeTruthy();
+
+    await waitFor(() => expect(screen.getByText('draftAvailable: true')).toBeTruthy());
+  });
+
+  it('does not rewrite localStorage when the debounced value is unchanged from what was last written', async () => {
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
+    const { rerender } = render(<AutosaveProbe formKey="admission-form" value="Rahim Uddin" />);
+    await waitFor(() => expect(setItemSpy).toHaveBeenCalledTimes(1));
+
+    rerender(<AutosaveProbe formKey="admission-form" value="Rahim Uddin" />);
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(setItemSpy).toHaveBeenCalledTimes(1);
+
+    setItemSpy.mockRestore();
   });
 
   it('reports a draft available on mount when one already exists in localStorage', () => {
@@ -161,6 +181,20 @@ describe('useFormAutosave', () => {
     await waitFor(() => expect(screen.getByText('draftAvailable: false')).toBeTruthy());
   });
 
+  it('clearDraft removes the saved draft (direct coverage — not just via its discardDraft alias)', async () => {
+    const user = userEvent.setup();
+    window.localStorage.setItem(
+      'form-shell-draft:admission-form',
+      JSON.stringify({ studentName: 'Karim' }),
+    );
+    render(<AutosaveProbe formKey="admission-form" value="" />);
+    expect(screen.getByText('draftAvailable: true')).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Clear draft' }));
+    expect(window.localStorage.getItem('form-shell-draft:admission-form')).toBeNull();
+    await waitFor(() => expect(screen.getByText('draftAvailable: false')).toBeTruthy());
+  });
+
   it('two different form keys do not collide', async () => {
     render(<AutosaveProbe formKey="form-a" value="Alpha" />);
     render(<AutosaveProbe formKey="form-b" value="Beta" />);
@@ -175,7 +209,7 @@ describe('useFormAutosave', () => {
   });
 
   it('fails silently when localStorage.setItem throws (quota exceeded/disabled)', async () => {
-    const setItemSpy = vi.spyOn(window.localStorage.__proto__, 'setItem').mockImplementation(() => {
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new Error('QuotaExceededError');
     });
     render(<AutosaveProbe formKey="admission-form" value="Rahim Uddin" />);
