@@ -1,7 +1,7 @@
 /**
- * The one provider stack every component test needs — currently just
- * TanStack Query. No router or i18n provider yet; see `ui/README.md`'s
- * "Testing" section for why and what's planned.
+ * The provider stack every component test needs — TanStack Query and
+ * i18next. No router yet; see `ui/README.md`'s "Testing" section for why
+ * and what's planned.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, type RenderOptions, type RenderResult } from '@testing-library/react';
@@ -9,6 +9,9 @@ import userEvent from '@testing-library/user-event';
 import type { ReactElement, ReactNode } from 'react';
 
 import { clearAuthState, setAccessToken, setActiveRole, setActiveTenant } from '../api/auth-state';
+import { i18n } from '../i18n/i18n';
+import { I18nProvider } from '../i18n/locale-provider';
+import { DEFAULT_LOCALE, type Locale } from '../i18n/locale-storage';
 
 /** A seeded value for `queryClient.setQueryData` — same key/value shape
  * `useQuery({ queryKey })` reads back, so a test can pre-populate the cache
@@ -30,6 +33,12 @@ export interface RenderWithProvidersOptions extends Omit<RenderOptions, 'wrapper
   queryClient?: QueryClient;
   /** Pre-populate the QueryClient's cache before the first render. */
   seedQueries?: SeedQuery[];
+  /** Active locale for this render. i18next is a module-scoped singleton
+   * (see the `cleanupTestState` note below), so this — like
+   * `tenantId`/`role`/`accessToken` — changes global state rather than
+   * something scoped to just this render. Defaults to leaving whatever
+   * locale is already active alone. */
+  locale?: Locale;
 }
 
 export interface RenderWithProvidersResult extends RenderResult {
@@ -90,19 +99,29 @@ export function renderWithProviders(
     accessToken,
     queryClient = createTestQueryClient(),
     seedQueries = [],
+    locale,
     ...renderOptions
   } = options;
 
   if (tenantId !== undefined) setActiveTenant(tenantId);
   if (role !== undefined) setActiveRole(role);
   if (accessToken !== undefined) setAccessToken(accessToken);
+  // Not awaited, same as `useLocale`'s own `setLocale` — a component under
+  // `I18nProvider`'s Suspense boundary that reads translated text
+  // suspends until the change (and whatever namespace it pulls in)
+  // resolves, so callers don't need to await this themselves.
+  if (locale !== undefined) void i18n.changeLanguage(locale);
 
   for (const { queryKey, data } of seedQueries) {
     queryClient.setQueryData(queryKey, data);
   }
 
   function Wrapper({ children }: { children: ReactNode }) {
-    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+    return (
+      <QueryClientProvider client={queryClient}>
+        <I18nProvider>{children}</I18nProvider>
+      </QueryClientProvider>
+    );
   }
 
   const view = render(ui, { wrapper: Wrapper, ...renderOptions });
@@ -115,15 +134,18 @@ export function renderWithProviders(
 }
 
 /** Resets everything `renderWithProviders` can set as global/singleton
- * state — today just `auth-state.ts`. A plain function, not a side effect
- * of importing this module: registering a global test hook as an import
- * side effect means anyone who imports `renderWithProviders` implicitly
- * changes the whole test run's lifecycle, which gets worse every time this
- * function grows another thing to reset (MSW, fake timers, mocks,
- * localStorage, ...). `ui/src/test/setup.ts` is the one place that wires
- * this into `afterEach` — call it from there, not here. */
+ * state — `auth-state.ts`, and now the shared i18next instance's active
+ * language (so a `locale: 'en'` render in one test doesn't leak into the
+ * next test's default-locale assumptions). A plain function, not a side
+ * effect of importing this module: registering a global test hook as an
+ * import side effect means anyone who imports `renderWithProviders`
+ * implicitly changes the whole test run's lifecycle, which gets worse
+ * every time this function grows another thing to reset (MSW, fake
+ * timers, mocks, localStorage, ...). `ui/src/test/setup.ts` is the one
+ * place that wires this into `afterEach` — call it from there, not here. */
 export function cleanupTestState(): void {
   clearAuthState();
+  if (i18n.language !== DEFAULT_LOCALE) void i18n.changeLanguage(DEFAULT_LOCALE);
 }
 
 export { userEvent };

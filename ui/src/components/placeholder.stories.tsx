@@ -4,8 +4,8 @@
  */
 import type { Meta, StoryObj } from '@storybook/react';
 import { expect, waitFor, within } from '@storybook/test';
+import { useTranslation } from 'react-i18next';
 
-import { useStorybookLocale } from '../../.storybook/locale';
 import { useStudents } from '../hooks/students';
 
 import { Placeholder } from './placeholder';
@@ -25,16 +25,15 @@ export const Default: Story = {
   },
 };
 
-/** Proves the locale toolbar reaches story content: switching locale in the
- * toolbar swaps this text for a longer Bangla equivalent, which is the
- * text-expansion check the issue's acceptance criteria ask for. */
+/** Proves the locale toolbar reaches story content: switching locale in
+ * the toolbar (`preview.tsx`) drives the real i18next instance, and this
+ * component's `useTranslation('students')` call re-renders with the
+ * longer Bangla equivalent — the text-expansion check the issue's
+ * acceptance criteria ask for, now against real translations instead of a
+ * Storybook-only stand-in. */
 function LocaleSample() {
-  const locale = useStorybookLocale();
-  const sample =
-    locale === 'bn'
-      ? 'সংশ্লিষ্ট শিক্ষার্থীর ভর্তি ফি পরিশোধের সময়সীমা উত্তীর্ণ হয়েছে'
-      : 'The enrollment fee payment deadline has passed';
-  return <Placeholder>{sample}</Placeholder>;
+  const { t } = useTranslation('students');
+  return <Placeholder>{t('feeReminder.overdue')}</Placeholder>;
 }
 
 export const LocaleTextExpansion: StoryObj<typeof LocaleSample> = {

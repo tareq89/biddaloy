@@ -3,10 +3,17 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { initialize, mswLoader } from 'msw-storybook-addon';
 import { useEffect } from 'react';
 
+import { i18n, I18nProvider, type Locale } from '../src/i18n';
 import { handlers } from '../src/test/msw/handlers';
 import '../src/styles/globals.css';
 
-import { STORYBOOK_LOCALES, StorybookLocaleProvider, type StorybookLocale } from './locale';
+// Storybook-only locale metadata (display label, text direction) — not
+// part of i18next config itself, which knows locale codes but not how a
+// toolbar should label them.
+const LOCALE_META: Record<Locale, { label: string; dir: 'ltr' | 'rtl' }> = {
+  en: { label: 'English', dir: 'ltr' },
+  bn: { label: 'বাংলা', dir: 'ltr' },
+};
 
 // Registers the MSW Service Worker in the Storybook iframe. `public/` isn't
 // set up in this package (it isn't an app with its own dev server), so the
@@ -53,7 +60,7 @@ const preview: Preview = {
       toolbar: {
         title: 'Locale',
         icon: 'globe',
-        items: Object.entries(STORYBOOK_LOCALES).map(([value, { label }]) => ({
+        items: Object.entries(LOCALE_META).map(([value, { label }]) => ({
           value,
           title: label,
         })),
@@ -63,25 +70,29 @@ const preview: Preview = {
   },
   decorators: [
     (Story, context) => {
-      const locale = context.globals.locale as StorybookLocale;
-      const { dir } = STORYBOOK_LOCALES[locale] ?? STORYBOOK_LOCALES.en;
+      const locale = context.globals.locale as Locale;
+      const { dir } = LOCALE_META[locale] ?? LOCALE_META.en;
 
-      // Reflects onto <html> too, not just the React tree, so browser/OS
-      // chrome (scrollbars, form control rendering) and the a11y addon's
-      // own DOM scan — which reads the real document, not just what a
-      // component receives as props — see the same locale the story does.
+      // Drives the real i18next instance, not a Storybook-only stand-in —
+      // a story's `useTranslation()` calls resolve against whatever the
+      // toolbar picked. Reflects onto <html> too, not just the React
+      // tree, so browser/OS chrome (scrollbars, form control rendering)
+      // and the a11y addon's own DOM scan — which reads the real
+      // document, not just what a component receives as props — see the
+      // same locale the story does.
       useEffect(() => {
+        void i18n.changeLanguage(locale);
         document.documentElement.lang = locale;
         document.documentElement.dir = dir;
       }, [locale, dir]);
 
       return (
         <QueryClientProvider client={queryClient}>
-          <StorybookLocaleProvider locale={locale}>
+          <I18nProvider>
             <div dir={dir} lang={locale}>
               <Story />
             </div>
-          </StorybookLocaleProvider>
+          </I18nProvider>
         </QueryClientProvider>
       );
     },
