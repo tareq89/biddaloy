@@ -104,28 +104,29 @@ layer, not just unit-tested in isolation.
 
 `@beton-boi/ui/test` exports `renderWithProviders` — the one provider stack
 every component test needs, wrapping a component in `QueryClientProvider`
-with a fresh, retry-disabled `QueryClient` per call. See the root
-`vitest.config.ts` for the node/jsdom project split this runs under, and
-`src/test/render-with-providers.tsx`'s own doc comments for the full option
-list (`tenantId`/`role`/`accessToken`, `seedQueries`, a caller-supplied
-`queryClient`).
+and `I18nProvider` with a fresh, retry-disabled `QueryClient` per call. See
+the root `vitest.config.ts` for the node/jsdom project split this runs
+under, and `src/test/render-with-providers.tsx`'s own doc comments for the
+full option list (`tenantId`/`role`/`accessToken`, `seedQueries`, a
+caller-supplied `queryClient`, `locale`).
 
-**No router or i18n provider in `renderWithProviders` itself, and no app-wide
-router yet.** TanStack Query's *app* defaults (as opposed to
-`renderWithProviders`'s test-only ones) land in [8.9.2], i18next in [8.7.1].
-Adding a `locale` option to `renderWithProviders` now would mean either
-installing that infrastructure ahead of its own dedicated ticket, or
-shipping an option that silently does nothing — both worse than being
-explicit that it's not here yet. The options object is structured so
-adding it later is additive (a new field, the internal `Wrapper` gains
-another layer), not a breaking change to the function's signature. The
-intended eventual shape:
+**Still no router in `renderWithProviders` itself, and no app-wide router
+yet** — that's a later ticket's call (TanStack Query's *app* defaults, as
+opposed to `renderWithProviders`'s test-only ones, land in [8.9.2]). i18next
+landed in [8.7.1]: every render now suspends on translated content until
+its namespace resolves, same as the real app, and a `locale` option picks
+which language a given render exercises. Since i18next is a
+module-scoped singleton (like `auth-state.ts`), `cleanupTestState()` resets
+the active language back to the default between tests, same as it already
+does for auth/tenant/role. The options object is structured so a router
+lands additively later (a new field, the internal `Wrapper` gains another
+layer), not as a breaking change to the function's signature:
 
 ```text
 renderWithProviders
  ├── QueryClientProvider   (here today)
- ├── RouterProvider        (app-wide adoption — a later ticket's call)
- └── I18nextProvider       ([8.7.1])
+ ├── I18nProvider          (here today — [8.7.1])
+ └── RouterProvider        (app-wide adoption — a later ticket's call)
 ```
 
 **Routing is a narrower story**: [8.4.5] added a *scoped* integration

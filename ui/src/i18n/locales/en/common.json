@@ -1,0 +1,12 @@
+{
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "retry": "Retry",
+    "close": "Close"
+  },
+  "status": {
+    "loading": "Loading…",
+    "error": "Something went wrong"
+  }
+}
