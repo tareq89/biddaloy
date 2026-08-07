@@ -78,7 +78,7 @@ jobs:
       # Cheap enough (a handful of JSON files + a source-tree regex scan)
       # to sit in this same job rather than needing its own.
       - name: UI missing-translation-key check
-        run: yarn workspace @beton-boi/ui check:i18n
+        run: yarn workspace @biddaloy/ui check:i18n
 
       # Non-blocking per [8.2.5]'s acceptance criteria: the baseline is
       # clean today (see knip.json's ignoreDependencies/ignoreIssues for
