@@ -29,7 +29,14 @@ export interface WizardStep {
 
 interface WizardShellBaseProps {
   title: string;
-  steps: WizardStep[];
+  steps: readonly WizardStep[];
+  /** Must be one of `steps[].id` (or `reviewStep.id`) — same contract
+   * `useWizardShellStep` (this directory) already guarantees for the
+   * common case; a caller wiring its own `currentStepId` source is
+   * responsible for the same guarantee. An unmatched id renders the
+   * first step rather than throwing, consistent with how the rest of
+   * this shell layer (`DetailShell`) treats a caller-supplied active-id
+   * prop. */
   currentStepId: string;
   onStepChange: (stepId: string) => void;
   onSubmit: () => void;
@@ -71,10 +78,8 @@ export function WizardShell({
   );
 
   React.useEffect(() => {
-    if (!visitedSteps.has(currentStepId)) {
-      setVisitedSteps((prev) => new Set(prev).add(currentStepId));
-    }
-  }, [currentStepId, visitedSteps]);
+    setVisitedSteps((prev) => (prev.has(currentStepId) ? prev : new Set(prev).add(currentStepId)));
+  }, [currentStepId]);
 
   function goNext() {
     if (!isValid || isLastStep) return;
@@ -103,6 +108,10 @@ export function WizardShell({
       <ol className="flex flex-wrap items-center gap-2 text-sm">
         {allSteps.map((step, index) => {
           const isCurrent = step.id === currentStepId;
+          // Recomputed from the *current* position every render, not
+          // "ever visited" — jumping back to an earlier step un-completes
+          // everything after it, so a later step can't be clicked back
+          // into without going through its own validation again.
           const isCompleted = index < currentIndex;
           return (
             <li key={step.id} aria-current={isCurrent ? 'step' : undefined}>
@@ -134,6 +143,13 @@ export function WizardShell({
         Step {currentIndex + 1} of {allSteps.length}: {currentStep?.label}
       </div>
 
+      {/* `hidden` alone already removes an inactive panel from the
+       * accessibility tree — no `aria-hidden` needed alongside it. Not
+       * using `role="tabpanel"` either: that's the ARIA Tabs pattern,
+       * which needs a matching `role="tablist"`/`role="tab"` structure
+       * this step list doesn't have (it's a linear wizard, not a
+       * randomly-selectable tab strip) — adding it here without the rest
+       * of the pattern would be invalid ARIA, not better semantics. */}
       {allSteps.map((step) => {
         const visited = visitedSteps.has(step.id);
         return (

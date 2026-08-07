@@ -15,6 +15,8 @@ function Probe() {
     <div>
       <p>current: {currentStepId}</p>
       <button onClick={() => setStep('method')}>Go to method</button>
+      <button onClick={() => setStep('review')}>Go to review</button>
+      <button onClick={() => setStep('nonexistent')}>Go to an unknown step</button>
     </div>
   );
 }
@@ -45,6 +47,42 @@ describe('useWizardShellStep', () => {
 
     unmount();
     renderWithRouter(routes, { initialEntries: [`/payments/new${router.state.location.search}`] });
+    expect(screen.getByText('current: method')).toBeTruthy();
+  });
+
+  it('setStep preserves unrelated query params rather than dropping them', async () => {
+    const user = userEvent.setup();
+    const { router } = renderWithRouter(routes, {
+      initialEntries: ['/payments/new?page=2&sort=name'],
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Go to method' }));
+
+    expect(router.state.location.search).toContain('step=method');
+    expect(router.state.location.search).toContain('page=2');
+    expect(router.state.location.search).toContain('sort=name');
+  });
+
+  it('setStep replaces an existing ?step= rather than adding a second one', async () => {
+    const user = userEvent.setup();
+    const { router } = renderWithRouter(routes, {
+      initialEntries: ['/payments/new?step=amount'],
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Go to review' }));
+
+    const stepValues = new URLSearchParams(router.state.location.search).getAll('step');
+    expect(stepValues).toEqual(['review']);
+  });
+
+  it('setStep ignores a step id that is not in stepIds, rather than writing a stale value into the URL', async () => {
+    const user = userEvent.setup();
+    const { router } = renderWithRouter(routes, { initialEntries: ['/payments/new?step=method'] });
+
+    await user.click(screen.getByRole('button', { name: 'Go to an unknown step' }));
+
+    expect(router.state.location.search).toContain('step=method');
+    expect(router.state.location.search).not.toContain('nonexistent');
     expect(screen.getByText('current: method')).toBeTruthy();
   });
 });

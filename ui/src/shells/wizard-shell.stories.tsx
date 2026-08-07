@@ -8,16 +8,14 @@ import { Input } from '../components/input';
 import { useWizardShellStep } from './use-wizard-shell-step';
 import { WizardShell, type WizardStep } from './wizard-shell';
 
+// No router decorator at the `meta` level — react-router doesn't allow
+// nesting `<Router>`s, so a story that needs its own `initialEntries`
+// (`DeepLinkedStep`) can't layer a second `MemoryRouter` on top of a
+// shared one. Each story that renders `useWizardShellStep` supplies its
+// own single `MemoryRouter` instead.
 const meta: Meta<typeof WizardShell> = {
   title: 'Shells/WizardShell',
   tags: ['autodocs'],
-  decorators: [
-    (StoryFn) => (
-      <MemoryRouter initialEntries={['/payments/new']}>
-        <StoryFn />
-      </MemoryRouter>
-    ),
-  ],
 };
 
 export default meta;
@@ -76,6 +74,13 @@ function RecordPaymentWizard() {
 }
 
 export const Default: Story = {
+  decorators: [
+    (StoryFn) => (
+      <MemoryRouter initialEntries={['/payments/new']}>
+        <StoryFn />
+      </MemoryRouter>
+    ),
+  ],
   render: () => <RecordPaymentWizard />,
 };
 
@@ -88,6 +93,30 @@ export const DeepLinkedStep: Story = {
     ),
   ],
   render: () => <RecordPaymentWizard />,
+};
+
+/** The first step's `isValid` returns `false` — "Next" stays disabled
+ * until the caller's own validation says otherwise, one of this shell's
+ * primary behaviors and otherwise only exercised indirectly (by typing a
+ * value) in the other stories. */
+export const InvalidFirstStep: Story = {
+  render: () => (
+    <WizardShell
+      title="Record payment"
+      steps={[
+        {
+          id: 'amount',
+          label: 'Amount',
+          content: <p>Enter an amount to continue.</p>,
+          isValid: () => false,
+        },
+        { id: 'method', label: 'Method', content: <p>Choose cash, cheque, or bank transfer.</p> },
+      ]}
+      currentStepId="amount"
+      onStepChange={() => {}}
+      onSubmit={() => {}}
+    />
+  ),
 };
 
 /** Stands in for this issue's "result screen with counts and
