@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { TenantSettings } from '@biddaloy/shared';
+import { AuditAction } from '@biddaloy/shared';
 import { School } from './entities/school.entity';
 import { TenantSettingsDto } from './dto/tenant-settings.dto';
 import { resolveTenantSettings } from './settings/tenant-settings-resolver';
@@ -9,7 +10,10 @@ import { mergeTenantSettings, toPlainSettingsPatch } from './settings/tenant-set
 import { EncryptionService } from './settings/encryption.service';
 import { decryptSecretFields, encryptSecretFields } from './settings/settings-encryption.util';
 import { maskSecretFields } from './settings/settings-mask.util';
+import { pickPatchShape, redactSecretPaths } from './settings/settings-audit-redact.util';
 import { TenantSettingsCache } from './settings/tenant-settings-cache.service';
+import { AuditService } from '../audit/audit.service';
+import { RequestContext } from '../../common/request-context.util';
 
 @Injectable()
 export class SchoolsService {
@@ -20,6 +24,7 @@ export class SchoolsService {
     private readonly repo: Repository<School>,
     private readonly encryption: EncryptionService,
     private readonly settingsCache: TenantSettingsCache,
+    private readonly auditService: AuditService,
   ) {}
 
   async findById(id: string): Promise<School> {
@@ -96,19 +101,70 @@ export class SchoolsService {
    * would re-encrypt already-encrypted fields carried over unchanged from
    * what was already stored, corrupting them.
    *
-   * Invalidates `TenantSettingsCache` for this school after saving —
-   * #8.7.10's per-tenant provider resolver reads through that same cache
-   * (shared via `SchoolsModule`'s export, not a second instance), so a
-   * school that just rotated a WhatsApp token would otherwise keep
-   * sending under the old one until the cache's own TTL happened to
-   * expire.
+   * Writes a `SETTINGS_CHANGE` audit entry in the same transaction as the
+   * save (#8.7.11) — a failed audit write must roll back the settings
+   * change with it, not leave an untracked mutation. The diff is scoped to
+   * exactly the paths `dto` touches (`pickPatchShape`, the nested
+   * equivalent of `FeeStructureService.update`'s `changedKeys`) and every
+   * `@Secret()`-marked field in it is replaced with a fixed marker
+   * (`redactSecretPaths`) *before* it reaches `AuditService.record` — never
+   * the plaintext the caller sent, and never the encrypted envelope either,
+   * since a ciphertext string is still a credential's stored form.
+   *
+   * Invalidates `TenantSettingsCache` for this school after the transaction
+   * commits — #8.7.10's per-tenant provider resolver reads through that
+   * same cache (shared via `SchoolsModule`'s export, not a second
+   * instance), so a school that just rotated a WhatsApp token would
+   * otherwise keep sending under the old one until the cache's own TTL
+   * happened to expire.
    */
-  async updateSettings(schoolId: string, dto: TenantSettingsDto): Promise<TenantSettings> {
-    const school = await this.findById(schoolId);
-    const encryptedPatch = encryptSecretFields(toPlainSettingsPatch(dto), this.encryption);
-    school.settings = mergeTenantSettings(school.settings, encryptedPatch);
-    await this.repo.save(school);
+  async updateSettings(
+    schoolId: string,
+    dto: TenantSettingsDto,
+    userId: string,
+    context: RequestContext = { ip: null, userAgent: null },
+  ): Promise<TenantSettings> {
+    const plainPatch = toPlainSettingsPatch(dto);
+    const encryptedPatch = encryptSecretFields(plainPatch, this.encryption);
+
+    const settings = await this.repo.manager.transaction(async (manager) => {
+      const schoolRepo = manager.getRepository(School);
+      const school = await schoolRepo
+        .createQueryBuilder('school')
+        .where('school.id = :id', { id: schoolId })
+        .setLock('pessimistic_write')
+        .getOne();
+      if (!school) {
+        throw new NotFoundException(`School with ID "${schoolId}" not found`);
+      }
+
+      const oldSnapshot = pickPatchShape(
+        (school.settings ?? {}) as Record<string, unknown>,
+        plainPatch,
+      );
+
+      school.settings = mergeTenantSettings(school.settings, encryptedPatch);
+      await schoolRepo.save(school);
+
+      await this.auditService.record(
+        {
+          action: AuditAction.SETTINGS_CHANGE,
+          entity_type: 'School',
+          entity_id: schoolId,
+          tenant_id: schoolId,
+          performed_by_user_id: userId,
+          ip_address: context.ip,
+          user_agent: context.userAgent,
+          old_values: redactSecretPaths(oldSnapshot),
+          new_values: redactSecretPaths(plainPatch),
+        },
+        manager,
+      );
+
+      return school.settings;
+    });
+
     this.settingsCache.invalidate(schoolId);
-    return resolveTenantSettings(school.settings);
+    return resolveTenantSettings(settings);
   }
 }

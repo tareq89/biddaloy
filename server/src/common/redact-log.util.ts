@@ -15,6 +15,14 @@ const PHONE_PATTERN = /(?:\+?880|0)1[3-9]\d{8}/g;
 const SENSITIVE_QUERY_PATTERN =
   /([?&](?:password|token|access_token|refresh_token|secret|api_key|apikey)=)[^&\s]+/gi;
 
+// Same key list, shaped for a JSON `"key":"value"` pair instead of a query
+// param — a Postgres constraint-violation DETAIL can echo the offending
+// jsonb value verbatim (#8.7.11's tenant-settings column stores provider
+// credentials), and that lands in `logQueryError`'s raw driver-error text,
+// not a URL, so SENSITIVE_QUERY_PATTERN above doesn't reach it.
+const SENSITIVE_JSON_VALUE_PATTERN =
+  /("(?:password|token|accessToken|access_token|refreshToken|refresh_token|secret|apiKey|api_key)"\s*:\s*)"[^"]*"/gi;
+
 /**
  * Scrubs email/phone-shaped substrings and known-sensitive query-param
  * values out of a line before it's logged (#36). Applied to request
@@ -48,5 +56,6 @@ function applyRedaction(text: string): string {
   return text
     .replace(EMAIL_PATTERN, '[REDACTED_EMAIL]')
     .replace(PHONE_PATTERN, '[REDACTED_PHONE]')
-    .replace(SENSITIVE_QUERY_PATTERN, '$1[REDACTED]');
+    .replace(SENSITIVE_QUERY_PATTERN, '$1[REDACTED]')
+    .replace(SENSITIVE_JSON_VALUE_PATTERN, '$1"[REDACTED]"');
 }
