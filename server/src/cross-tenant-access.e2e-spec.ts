@@ -280,4 +280,32 @@ describe('Cross-tenant access (regression)', () => {
     expect(whatsapp.accessToken).toEqual({ configured: true, hint: '••••oken' });
     expect(JSON.stringify(patchRes.body)).not.toContain('cross-tenant-secret-token');
   });
+
+  /**
+   * #8.7.13's school picker: `GET /schools` exists purely so a super admin
+   * can enumerate every school before picking one to configure. An ADMIN
+   * doesn't get a picker at all — they already know their one school from
+   * their own tenant context — so the route rejects them outright rather
+   * than returning a filtered, single-school list.
+   */
+  it('lists every school for a super admin, and rejects an admin entirely', async () => {
+    const listRes = await supertest(app.getHttpServer())
+      .get('/api/v1/schools')
+      .set('Authorization', `Bearer ${superAdminToken}`)
+      .set('X-Tenant-ID', TENANT_B)
+      .expect(200);
+    expect(listRes.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: TENANT_A }),
+        expect.objectContaining({ id: TENANT_B }),
+      ]),
+    );
+    expect(JSON.stringify(listRes.body)).not.toContain('cross-tenant-secret-token');
+
+    await supertest(app.getHttpServer())
+      .get('/api/v1/schools')
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Tenant-ID', TENANT_A)
+      .expect(401);
+  });
 });

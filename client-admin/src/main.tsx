@@ -1,14 +1,27 @@
+import { I18nProvider } from '@biddaloy/ui/i18n';
 import { enableMocking } from '@biddaloy/ui/mocks';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import App from './App';
 import './index.css';
 
+// #8.7.13 is this app's first real screen — it needs both TanStack Query
+// (its data hooks) and i18next (every string on it is translated), so
+// this is also the first place either provider gets wired into a real
+// entry point rather than just `renderWithProviders`'s test stack. See
+// `App.tsx`'s own comment for why this still isn't a router/nav shell.
+const queryClient = new QueryClient();
+
 function renderApp(): void {
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
-      <App />
+      <QueryClientProvider client={queryClient}>
+        <I18nProvider>
+          <App />
+        </I18nProvider>
+      </QueryClientProvider>
     </StrictMode>,
   );
 }

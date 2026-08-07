@@ -1,23 +1,42 @@
 import '@biddaloy/ui/test';
 
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { cleanupTestState, renderWithProviders } from '@biddaloy/ui/test';
+import { screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import App from './App';
 
 describe('App', () => {
-  it('renders the admin welcome copy', () => {
-    render(<App />);
-    expect(screen.getByText('biddaloy Admin')).toBeTruthy();
+  afterEach(async () => {
+    await cleanupTestState();
   });
 
-  // toHaveNoViolations() is registered globally at runtime (ui/src/test/
-  // setup.ts, via vitest.config.ts's shared setupFiles) regardless of what
-  // any given test file imports. The `@biddaloy/ui/test` import above is
-  // only needed for *type-checking* this file — see that barrel's own
-  // comment on why.
-  it('has no accessibility violations', async () => {
-    const { container } = render(<App />);
+  it('hides the settings screen entirely from a role without SETTINGS_MANAGE', async () => {
+    renderWithProviders(<App />, { role: 'STUDENT', tenantId: 'tenant-1', locale: 'en' });
+
+    await waitFor(() => {
+      expect(screen.getByText("You don't have access to this page.")).toBeTruthy();
+    });
+  });
+
+  it('has no accessibility violations on the access-denied screen', async () => {
+    const { container } = renderWithProviders(<App />, {
+      role: 'STUDENT',
+      tenantId: 'tenant-1',
+      locale: 'en',
+    });
+
+    await waitFor(() => screen.getByText("You don't have access to this page."));
     await expect(container).toHaveNoViolations();
+  });
+
+  it('renders the settings screen for an ADMIN, who holds SETTINGS_MANAGE', async () => {
+    renderWithProviders(<App />, { role: 'ADMIN', tenantId: 'tenant-1', locale: 'en' });
+
+    await waitFor(() => {
+      expect(screen.getByText('School settings')).toBeTruthy();
+    });
+    // ADMIN has no school picker — they only ever configure their own tenant.
+    expect(screen.queryByLabelText('School')).toBeNull();
   });
 });
