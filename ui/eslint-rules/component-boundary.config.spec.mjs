@@ -31,7 +31,13 @@ async function lintFixture(code) {
     cwd: here,
     overrideConfigFile: true,
     overrideConfig: [
-      { languageOptions: { ecmaVersion: 2022, sourceType: 'module' } },
+      {
+        languageOptions: {
+          ecmaVersion: 2022,
+          sourceType: 'module',
+          parserOptions: { ecmaFeatures: { jsx: true } },
+        },
+      },
       { files: ['**/*.tsx'], ...componentBoundaryConfig },
     ],
   });
@@ -55,6 +61,16 @@ describe('componentBoundaryConfig against fixture files', () => {
   it('flags a raw Intl.NumberFormat call', async () => {
     const messages = await lintFixture('const fmt = new Intl.NumberFormat("en-US");\n');
     expect(messages.map((m) => m.ruleId)).toContain('boundary/no-raw-intl');
+  });
+
+  it('flags hardcoded JSX text', async () => {
+    const messages = await lintFixture('const x = <p>Delete student</p>;\n');
+    expect(messages.map((m) => m.ruleId)).toContain('boundary/no-hardcoded-jsx-text');
+  });
+
+  it('flags a hardcoded aria-label', async () => {
+    const messages = await lintFixture('const x = <input aria-label="Delete student" />;\n');
+    expect(messages.map((m) => m.ruleId)).toContain('boundary/no-hardcoded-jsx-text');
   });
 
   it('passes a published @beton-boi/ui import clean', async () => {
