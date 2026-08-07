@@ -122,6 +122,38 @@ describe('MoneyInput', () => {
     expect(input.value).toBe('12.');
   });
 
+  it('clears a stale aria-invalid when an external value change replaces the invalid text', async () => {
+    function ResettableControlled() {
+      const [value, setValue] = useState<number | undefined>(12345600);
+      return (
+        <div>
+          <MoneyInput
+            aria-label="Amount"
+            value={value}
+            onValueChange={setValue}
+            config={REGION_BD_EN}
+          />
+          <button onClick={() => setValue(5000)}>Set to ৳50.00</button>
+        </div>
+      );
+    }
+    const user = userEvent.setup();
+    render(<ResettableControlled />);
+    const input = getInput();
+
+    await user.clear(input);
+    await user.type(input, '12.');
+    await user.tab();
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+
+    // Never refocused the input — an external reset while it's blurred,
+    // same as the `form.reset()` case above, just with a leftover parse
+    // error in play this time.
+    await user.click(screen.getByRole('button', { name: 'Set to ৳50.00' }));
+    expect(input.value).toBe('৳50.00');
+    expect(input.getAttribute('aria-invalid')).toBeNull();
+  });
+
   it('still calls a caller-supplied onFocus/onBlur alongside its own internal handling', async () => {
     const onFocus = vi.fn();
     const onBlur = vi.fn();

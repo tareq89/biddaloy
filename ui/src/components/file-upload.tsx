@@ -11,6 +11,11 @@ import * as React from 'react';
 import { Button } from './button';
 
 export interface FileUploadItem {
+  /** Caller-generated (e.g. `crypto.randomUUID()`), not derived from the
+   * `File` — `name`/`lastModified`/`size` can genuinely collide (two
+   * copies of the same file, two files a batch process stamped with the
+   * same mtime), so nothing about the file itself is a safe React key. */
+  id: string;
   file: File;
   /** 0-100. `undefined` means not yet started; `100` means done. */
   progress?: number;
@@ -73,14 +78,7 @@ export function FileUpload({
       {items.length > 0 && (
         <ul className="mt-2 space-y-1">
           {items.map((item) => (
-            // `name` alone isn't unique — two picked files can share a
-            // filename (e.g. "photo.jpg" from two different folders).
-            // `lastModified`+`size` disambiguates without requiring
-            // `FileUploadItem` to carry a caller-generated id.
-            <li
-              key={`${item.file.name}-${item.file.lastModified}-${item.file.size}`}
-              className="flex items-center gap-2 text-sm"
-            >
+            <li key={item.id} className="flex items-center gap-2 text-sm">
               <span className="flex-1 truncate">{item.file.name}</span>
               {item.error ? (
                 <span role="alert" className="text-destructive">

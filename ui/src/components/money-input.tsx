@@ -54,6 +54,11 @@ export function MoneyInput({
   React.useEffect(() => {
     if (isFocusedRef.current) return;
     setText(value === undefined ? '' : formatCurrency(value, config));
+    // An external `value` change replaces whatever was on screen, valid or
+    // not — a stale `aria-invalid` from a previous invalid blur must not
+    // survive it, or the field would keep reporting an error the display
+    // no longer has anything to do with.
+    setHasParseError(false);
   }, [value, config]);
 
   return (

@@ -4,8 +4,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { FileUpload, type FileUploadItem } from './file-upload';
 
-function makeFile(name: string, content = 'content'): File {
-  return new File([content], name, { type: 'text/csv' });
+function makeFile(name: string, content = 'content', lastModified?: number): File {
+  return new File([content], name, { type: 'text/csv', ...(lastModified && { lastModified }) });
 }
 
 describe('FileUpload', () => {
@@ -37,19 +37,21 @@ describe('FileUpload', () => {
   });
 
   it('shows per-file progress', () => {
-    const items: FileUploadItem[] = [{ file: makeFile('roster.csv'), progress: 42 }];
+    const items: FileUploadItem[] = [{ id: '1', file: makeFile('roster.csv'), progress: 42 }];
     render(<FileUpload aria-label="Attachments" items={items} onFilesSelected={vi.fn()} />);
     expect(screen.getByText('42%')).toBeTruthy();
   });
 
   it('shows a per-file error via role=alert rather than a silent failure', () => {
-    const items: FileUploadItem[] = [{ file: makeFile('roster.csv'), error: 'File too large' }];
+    const items: FileUploadItem[] = [
+      { id: '1', file: makeFile('roster.csv'), error: 'File too large' },
+    ];
     render(<FileUpload aria-label="Attachments" items={items} onFilesSelected={vi.fn()} />);
     expect(screen.getByRole('alert').textContent).toBe('File too large');
   });
 
   it('shows "Done" once a file reaches 100%', () => {
-    const items: FileUploadItem[] = [{ file: makeFile('roster.csv'), progress: 100 }];
+    const items: FileUploadItem[] = [{ id: '1', file: makeFile('roster.csv'), progress: 100 }];
     render(<FileUpload aria-label="Attachments" items={items} onFilesSelected={vi.fn()} />);
     expect(screen.getByText('Done')).toBeTruthy();
   });
@@ -61,7 +63,7 @@ describe('FileUpload', () => {
     render(
       <FileUpload
         aria-label="Attachments"
-        items={[{ file }]}
+        items={[{ id: '1', file }]}
         onFilesSelected={vi.fn()}
         onRemove={onRemove}
       />,
@@ -81,23 +83,28 @@ describe('FileUpload', () => {
     expect(screen.queryByText(/selected$/)).toBeNull();
   });
 
-  it('renders duplicate filenames as distinct items with no React key collision', async () => {
-    // Two different files that happen to share a name — picked from two
-    // different folders, say. `file.name` alone would collide as a React
-    // key; React warns loudly (`console.error`) the moment that happens,
-    // so absence of that warning is the direct proof, not just that the
-    // UI happens to look right.
+  it('renders items with identical file metadata as distinct, keyed by id rather than by the file itself', async () => {
+    // Same name, same content (so same size), same lastModified — two
+    // files whose metadata is genuinely indistinguishable (two copies of
+    // the same original, or two files a batch process stamped with the
+    // same mtime). Only a caller-generated `id` can key these safely.
+    // React warns loudly (`console.error`) the moment two elements share a
+    // key, so absence of that warning is the direct proof, not just that
+    // the UI happens to look right.
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     const user = userEvent.setup();
-    const fileA = makeFile('photo.jpg', 'first');
-    const fileB = makeFile('photo.jpg', 'second');
+    const sameLastModified = 1_700_000_000_000;
+    const fileA = makeFile('photo.jpg', 'identical content', sameLastModified);
+    const fileB = makeFile('photo.jpg', 'identical content', sameLastModified);
+    expect(fileA.size).toBe(fileB.size);
+    expect(fileA.lastModified).toBe(fileB.lastModified);
     const onRemove = vi.fn();
     render(
       <FileUpload
         aria-label="Attachments"
         items={[
-          { file: fileA, progress: 50 },
-          { file: fileB, progress: 90 },
+          { id: 'a', file: fileA, progress: 50 },
+          { id: 'b', file: fileB, progress: 90 },
         ]}
         onFilesSelected={vi.fn()}
         onRemove={onRemove}

@@ -25,7 +25,10 @@ function Demo({ initialItems = [] }: { initialItems?: FileUploadItem[] }) {
       aria-label="Attachments"
       items={items}
       onFilesSelected={(files) =>
-        setItems((prev) => [...prev, ...files.map((file) => ({ file, progress: 0 }))])
+        setItems((prev) => [
+          ...prev,
+          ...files.map((file) => ({ id: crypto.randomUUID(), file, progress: 0 })),
+        ])
       }
       onRemove={(file) => setItems((prev) => prev.filter((item) => item.file !== file))}
     />
@@ -38,18 +41,26 @@ export const Empty: Story = {
 };
 
 export const Default: Story = {
-  render: () => <Demo initialItems={[{ file: makeFile('roster.csv'), progress: 100 }]} />,
+  render: () => (
+    <Demo initialItems={[{ id: 'roster', file: makeFile('roster.csv'), progress: 100 }]} />
+  ),
 };
 
 export const Loading: Story = {
   name: 'Loading (upload in progress)',
-  render: () => <Demo initialItems={[{ file: makeFile('roster.csv'), progress: 42 }]} />,
+  render: () => (
+    <Demo initialItems={[{ id: 'roster', file: makeFile('roster.csv'), progress: 42 }]} />
+  ),
 };
 
 /** Stands in for this issue's "error" state category. */
 export const ErrorState: Story = {
   render: () => (
-    <Demo initialItems={[{ file: makeFile('roster.csv'), error: 'File exceeds the 5 MB limit' }]} />
+    <Demo
+      initialItems={[
+        { id: 'roster', file: makeFile('roster.csv'), error: 'File exceeds the 5 MB limit' },
+      ]}
+    />
   ),
 };
 
@@ -61,7 +72,7 @@ export const RightToLeft: Story = {
     <FileUpload
       aria-label="সংযুক্তি"
       chooseLabel="ফাইল নির্বাচন করুন"
-      items={[{ file: makeFile('roster.csv'), progress: 100 }]}
+      items={[{ id: 'roster', file: makeFile('roster.csv'), progress: 100 }]}
       onFilesSelected={() => {}}
     />
   ),
