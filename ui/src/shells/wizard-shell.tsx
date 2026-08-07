@@ -131,7 +131,7 @@ export function WizardShell({
                 </span>
               )}
               {index < allSteps.length - 1 && (
-                <span aria-hidden="true" className="ml-2 text-muted-foreground">
+                <span aria-hidden="true" className="ms-2 text-muted-foreground">
                   ›
                 </span>
               )}
