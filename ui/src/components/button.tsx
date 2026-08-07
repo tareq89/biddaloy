@@ -16,10 +16,14 @@
  *   omitting `aria-label` while `iconOnly` is `true` is a type error, not a
  *   lint warning or an axe failure discovered later.
  *
- * "Loading" is a literal string, not yet run through i18n — real i18next
- * wiring is [8.7.1]; every wrapper in this epic carries this same gap until
- * that lands (see `.storybook/locale.tsx`'s comment for the same tradeoff
- * on the Storybook side).
+ * "Loading" is a literal string, not run through i18n — deliberately, not a
+ * gap waiting on a later ticket: `ui`'s wrapper layer is where translation
+ * keys originate, not where they're consumed, so every wrapper in this
+ * epic carries its own literal fallback text by design (see
+ * `ui/CONTRIBUTING.md`'s "i18n rules" section). There's no prop to
+ * override it today; a screen reader announces the English word
+ * regardless of the app's active locale until a later ticket plumbs one
+ * through.
  */
 import type { VariantProps } from 'class-variance-authority';
 import { Loader2Icon } from 'lucide-react';

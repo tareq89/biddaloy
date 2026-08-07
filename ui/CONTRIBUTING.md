@@ -167,20 +167,24 @@ has — not a one-off value that bypasses the check.
 
 ## i18n rules
 
-[8.7.1] (i18next setup) hasn't landed yet, so every wrapper in this epic
-currently ships with plain English literals for anything it wouldn't
-otherwise need — `Button`'s "Loading" text, `EmptyState`'s default copy,
-and so on. That's an accepted, temporary gap, not silent non-compliance:
-**every file with a literal user-facing string says so in a comment**,
-naming [8.7.1] as the ticket that replaces it. Follow that pattern for any
-new component: don't invent your own translation shim, and don't leave
-the literal unexplained either.
+[8.7.1] (i18next setup) has landed. `ui`'s own wrapper components still
+legitimately carry literal fallback text — `Button`'s "Loading" text,
+`EmptyState`'s default copy, and so on — by design, not as a gap waiting
+on a later ticket: `ui`'s wrapper layer is where translation keys
+_originate_, not where they're consumed, so it stays translation-agnostic
+on purpose (see the next paragraph).
 
-Once [8.7.1] lands, no new component should introduce a raw string —
-[8.7.4]/[8.7.5]/[8.2.7] add lint enforcement for exactly that, scoped to
-consuming SPAs first (`ui`'s own wrapper layer is where translation keys
-originate, so it's necessarily still full of literal fallback text by
-design — the lint rule targets call sites, not this package).
+Consuming SPAs (`client-admin`, `client-student`, ...) don't get that
+exemption: [8.7.4] adds `boundary/no-hardcoded-jsx-text` —
+enforced via `componentBoundaryConfig`, scoped to client-* consumers only,
+same as the other boundary rules — to fail lint on a hardcoded string in
+JSX text or in `aria-label`/`placeholder`/`title`/`alt`, pointing at
+`t('...')` (`@biddaloy/ui/i18n`) instead. A lone symbol/digit/punctuation
+run doesn't trip it — only content containing an actual letter, in any
+script. See `eslint-rules/component-boundary.spec.mjs`'s
+`no-hardcoded-jsx-text` suite for the exact boundary (a plain string
+literal and a no-interpolation template literal both count as hardcoded;
+`t()` calls and other dynamic expressions don't).
 
 `MoneyInput`/`PhoneInput`/date formatting never call `Intl`/`Number`/
 `Date` formatting methods directly — every formatter lives in `src/utils`

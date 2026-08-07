@@ -1,10 +1,14 @@
 // Custom ESLint rules enforcing the platform's central architectural rule:
 // SPAs import UI exclusively from @biddaloy/ui's published subpaths, never
-// Radix directly, never a deep `src/` or `primitives/` path, and never a raw
-// `Intl`/`toLocaleString` call in place of a shared formatter. Registered
-// only in client-* eslint configs — `ui` itself is never linted against
-// these, since its own wrapper components are exactly the code that
-// legitimately imports Radix and primitives.
+// Radix directly, never a deep `src/` or `primitives/` path, never a raw
+// `Intl`/`toLocaleString` call in place of a shared formatter, and never a
+// hardcoded user-facing string in JSX or in aria-label/placeholder/title/alt
+// where `t('...')` belongs instead ([8.7.4], extending [8.2.3]'s original
+// three). Registered only in client-* eslint configs — `ui` itself is never
+// linted against these, since its own wrapper components are exactly the
+// code that legitimately imports Radix and primitives, and its wrapper
+// layer is where translation keys originate rather than get consumed (see
+// ui/CONTRIBUTING.md's "i18n rules" section).
 import { ESLintUtils } from '@typescript-eslint/utils';
 import ts from 'typescript';
 
@@ -248,10 +252,103 @@ const noRawIntl = {
   },
 };
 
+// Attributes that reach a user (sighted or via assistive tech) exactly the
+// same way JSX text content does — the issue's own framing: "a developer
+// who cannot write bare JSX text will happily write `aria-label="Delete
+// student"` or `placeholder="Search"`, both of which reach users, and one
+// of which reaches screen-reader users exclusively." Deliberately narrow
+// (not every string prop — `data-testid`, `name`, `id` etc. are never
+// user-facing) rather than an allowlist that inevitably drifts.
+const TRANSLATABLE_ATTRIBUTES = new Set(['aria-label', 'placeholder', 'title', 'alt']);
+
+// A lone symbol, digit, or punctuation run ("×", "1", "—", "/") isn't text
+// that needs a translation key — requiring one would just train developers
+// to silence the rule instead of trusting it. Unicode-aware so this isn't
+// itself accidentally Latin-script-only.
+const LETTER_PATTERN = /\p{L}/u;
+
+function needsTranslation(text) {
+  return LETTER_PATTERN.test(text.trim());
+}
+
+function isStringLiteral(node) {
+  return node.type === 'Literal' && typeof node.value === 'string';
+}
+
+/** A template literal with zero interpolations (`` `Delete student` ``) is
+ * exactly as hardcoded as a plain string literal — the backticks don't
+ * make it dynamic. One *with* an interpolation is left alone: it's either
+ * already composing a `t()` call's result or something too dynamic for
+ * this AST-only rule to safely judge either way. */
+function isStaticTemplateLiteral(node) {
+  return node.type === 'TemplateLiteral' && node.expressions.length === 0;
+}
+
+/** The literal text `node` evaluates to, or `null` if `node` isn't one of
+ * the two static-text shapes this rule understands. */
+function staticText(node) {
+  if (isStringLiteral(node)) return node.value;
+  if (isStaticTemplateLiteral(node)) return node.quasis.map((q) => q.value.cooked).join('');
+  return null;
+}
+
+const noHardcodedJsxText = {
+  meta: {
+    type: 'problem',
+    docs: {
+      description:
+        "Disallow a hardcoded user-facing string as JSX text or in an aria-label/placeholder/title/alt attribute; use t('...') from @biddaloy/ui/i18n instead.",
+    },
+    schema: [],
+    messages: {
+      jsxText: "Wrap user-facing text in t('...') (from @biddaloy/ui/i18n) instead of a literal.",
+      jsxAttribute:
+        "`{{attr}}` reaches users the same way JSX text does — wrap it in t('...') instead of a literal.",
+    },
+  },
+  create(context) {
+    return {
+      JSXText(node) {
+        const text = node.value.trim();
+        if (text && needsTranslation(text)) {
+          context.report({ node, messageId: 'jsxText' });
+        }
+      },
+      // Only a `{...}` container that's itself a JSX *child* — the same
+      // container shape wrapping an attribute value (`aria-label={'x'}`) is
+      // a child of JSXAttribute, not of JSXElement/JSXFragment, and is
+      // handled by the JSXAttribute visitor below so it isn't reported
+      // twice under two different messages.
+      JSXExpressionContainer(node) {
+        if (node.parent.type !== 'JSXElement' && node.parent.type !== 'JSXFragment') return;
+        const text = staticText(node.expression);
+        if (text !== null && needsTranslation(text)) {
+          context.report({ node, messageId: 'jsxText' });
+        }
+      },
+      JSXAttribute(node) {
+        const attrName = node.name.type === 'JSXIdentifier' ? node.name.name : null;
+        if (!attrName || !TRANSLATABLE_ATTRIBUTES.has(attrName) || !node.value) return;
+
+        const text = isStringLiteral(node.value)
+          ? node.value.value
+          : node.value.type === 'JSXExpressionContainer'
+            ? staticText(node.value.expression)
+            : null;
+
+        if (text !== null && needsTranslation(text)) {
+          context.report({ node: node.value, messageId: 'jsxAttribute', data: { attr: attrName } });
+        }
+      },
+    };
+  },
+};
+
 export default {
   rules: {
     'no-radix-import': noRadixImport,
     'no-deep-ui-import': noDeepUiImport,
     'no-raw-intl': noRawIntl,
+    'no-hardcoded-jsx-text': noHardcodedJsxText,
   },
 };
