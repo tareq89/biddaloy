@@ -741,7 +741,7 @@ export interface components {
             id: string;
             tenant_id: string | null;
             /** @enum {string} */
-            action: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "FEE_STRUCTURE_CHANGE";
+            action: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE";
             entity_type: string;
             entity_id: string | null;
             performed_by_user_id: string | null;
@@ -1550,7 +1550,7 @@ export interface operations {
     AuditController_findAll_v1: {
         parameters: {
             query?: {
-                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "FEE_STRUCTURE_CHANGE";
+                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE";
                 entity_type?: string;
                 from_date?: string;
                 to_date?: string;
