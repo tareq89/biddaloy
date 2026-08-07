@@ -23,12 +23,15 @@ function HelpTooltip() {
 describe('Tooltip', () => {
   it('shows on keyboard focus, not just hover — a keyboard user must be able to see it', async () => {
     const user = userEvent.setup();
-    render(<HelpTooltip />);
+    const { baseElement } = render(<HelpTooltip />);
     expect(screen.queryByText('Enrollment status for the current term')).toBeNull();
 
     await user.tab();
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'What is this?' }));
     expect(await screen.findByText('Enrollment status for the current term')).toBeTruthy();
+    // Tooltip content is portaled to `document.body`, outside `container` —
+    // `baseElement` (the portal's actual root) is what needs to be axe clean.
+    await expect(baseElement).toHaveNoViolations();
   });
 
   it('hides on Escape', async () => {

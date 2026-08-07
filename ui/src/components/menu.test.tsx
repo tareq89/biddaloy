@@ -39,10 +39,12 @@ function RowActionsMenu({ onEdit }: { onEdit: () => void }) {
 describe('Menu', () => {
   it('opens on trigger click and is axe clean', async () => {
     const user = userEvent.setup();
-    const { container } = render(<RowActionsMenu onEdit={vi.fn()} />);
+    const { baseElement } = render(<RowActionsMenu onEdit={vi.fn()} />);
     await user.click(screen.getByRole('button', { name: 'Row actions' }));
     expect(await screen.findByRole('menuitem', { name: 'Edit' })).toBeTruthy();
-    await expect(container).toHaveNoViolations();
+    // Menu content is portaled to `document.body`, outside `container` —
+    // `baseElement` (the portal's actual root) is what needs to be axe clean.
+    await expect(baseElement).toHaveNoViolations();
   });
 
   it('opens with the keyboard, highlighting the first item, and ArrowDown moves to the next one', async () => {
@@ -83,7 +85,7 @@ describe('Menu', () => {
 
   it('renders checkbox items, radio items, labels, separators and submenus', async () => {
     const user = userEvent.setup();
-    const { container } = render(
+    const { baseElement } = render(
       <Menu defaultOpen>
         <MenuTrigger asChild>
           <Button iconOnly aria-label="Column options">
@@ -120,6 +122,7 @@ describe('Menu', () => {
       screen.getByRole('menuitemradio', { name: 'Ascending' }).getAttribute('aria-checked'),
     ).toBe('true');
     await user.click(screen.getByRole('menuitemcheckbox', { name: 'Payment date' }));
-    await expect(container).toHaveNoViolations();
+    // Portaled to `document.body` — see the first test's comment.
+    await expect(baseElement).toHaveNoViolations();
   });
 });

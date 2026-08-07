@@ -5,9 +5,12 @@
  *
  * - **Loading is a real busy state**, not just a disabled button with a
  *   spinner glued on: `aria-busy` is set, the button is disabled so a
- *   double-click can't fire twice, and a visually-hidden "Loading" text node
- *   is added so a screen reader announces the state change even though the
- *   visible label (intentionally) doesn't change.
+ *   double-click can't fire twice, and a visually-hidden, `aria-live="polite"`
+ *   "Loading" text node is added so a screen reader announces the state
+ *   change even though the visible label (intentionally) doesn't change.
+ *   Skipped for `asChild` — it merges onto a single child element, and the
+ *   extra nodes would break that merge; `asChild` callers still get
+ *   `aria-busy`/`disabled`, just not the visual additions.
  * - **An icon-only button cannot ship with no accessible name.** `iconOnly`
  *   and `aria-label` are a discriminated union below, not a runtime check —
  *   omitting `aria-label` while `iconOnly` is `true` is a type error, not a
@@ -36,6 +39,27 @@ export type ButtonProps =
   | (ButtonBaseProps & { iconOnly: true; 'aria-label': string });
 
 export function Button({ loading = false, iconOnly, disabled, children, ...props }: ButtonProps) {
+  // `asChild` merges onto a single child element (Radix `Slot`, which
+  // requires `React.Children.count(children) === 1` — a falsy expression
+  // like `{loading && <Spinner />}` still counts as a child slot even when
+  // it renders nothing, so it can't sit alongside `children` here). Callers
+  // using `asChild` own their one child already, so loading only adds the
+  // busy/disabled semantics for them, not the extra visual nodes.
+  const content = props.asChild ? (
+    children
+  ) : (
+    <>
+      {loading && <Loader2Icon className="animate-spin" aria-hidden="true" />}
+      {children}
+      {loading && (
+        <span className="sr-only" aria-live="polite">
+          {' '}
+          Loading
+        </span>
+      )}
+    </>
+  );
+
   return (
     <ButtonPrimitive
       disabled={disabled || loading}
@@ -44,9 +68,7 @@ export function Button({ loading = false, iconOnly, disabled, children, ...props
       data-icon-only={iconOnly || undefined}
       {...props}
     >
-      {loading && <Loader2Icon className="animate-spin" aria-hidden="true" />}
-      {children}
-      {loading && <span className="sr-only"> Loading</span>}
+      {content}
     </ButtonPrimitive>
   );
 }

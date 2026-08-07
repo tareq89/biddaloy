@@ -35,7 +35,7 @@ describe('Button', () => {
     expect(button.getAttribute('aria-busy')).toBe('true');
     expect(button.hasAttribute('disabled')).toBe(true);
     expect(screen.getByText('Save')).toBeTruthy();
-    expect(screen.getByText('Loading').className).toContain('sr-only');
+    expect(screen.getByText('Loading').classList.contains('sr-only')).toBe(true);
   });
 
   it('loading prevents the click handler from firing even if a caller forgets to also disable it', async () => {
@@ -53,5 +53,18 @@ describe('Button', () => {
   it('an explicit disabled still disables the button when not loading', () => {
     render(<Button disabled>Save</Button>);
     expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('asChild with loading sets aria-busy/disabled but skips the spinner and sr-only text, since Slot needs a single child', async () => {
+    const { container } = render(
+      <Button asChild loading>
+        <a href="/save">Save</a>
+      </Button>,
+    );
+    const link = screen.getByRole('link', { name: 'Save' });
+    expect(link.getAttribute('aria-busy')).toBe('true');
+    expect(link.hasAttribute('disabled')).toBe(true);
+    expect(screen.queryByText('Loading')).toBeNull();
+    await expect(container).toHaveNoViolations();
   });
 });

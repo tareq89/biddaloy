@@ -50,6 +50,10 @@ describe('Select', () => {
     trigger.focus();
     await user.keyboard('{Enter}');
     expect(await screen.findByRole('listbox')).toBeTruthy();
+
+    await user.keyboard('{ArrowDown}');
+    await user.keyboard('{Enter}');
+    expect(screen.getByRole('combobox', { name: 'Class' }).textContent).toBe('Seven');
   });
 
   it('shows a placeholder when nothing is selected, and supports grouped/labelled/separated options', async () => {

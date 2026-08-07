@@ -28,4 +28,13 @@ describe('Checkbox', () => {
     await user.keyboard(' ');
     expect(checkbox.getAttribute('aria-checked')).toBe('true');
   });
+
+  it('renders a distinct glyph for indeterminate, not the checked glyph, and is axe clean', async () => {
+    const { container } = render(<Checkbox aria-label="Select all rows" checked="indeterminate" />);
+    const checkbox = screen.getByRole('checkbox', { name: 'Select all rows' });
+    expect(checkbox.getAttribute('aria-checked')).toBe('mixed');
+    expect(container.querySelector('svg.lucide-minus')).toBeTruthy();
+    expect(container.querySelector('svg.lucide-check')).toBeNull();
+    await expect(container).toHaveNoViolations();
+  });
 });

@@ -34,8 +34,17 @@ declare module 'vitest' {
 // visual-regression tool) to mean anything; the other ~90 rules this
 // still runs cover the accessibility issues that show up in markup/ARIA
 // structure regardless of how it's painted.
+//
+// `region` ("all page content should be contained by landmarks") is a
+// page-layout concern — it fires the moment a test scans `baseElement`
+// (real `document.body`, needed to reach Radix's portaled dialog/menu/
+// tooltip content) because a component test's `document.body` was never
+// going to have a `<main>`/`<nav>` around it. A real page assembled from
+// these components does get that structure from its shell, just not from
+// any single component in isolation, so this rule can't be satisfied here
+// and isn't what these tests are checking for.
 const JSDOM_AXE_OPTIONS: AxeCore.RunOptions = {
-  rules: { 'color-contrast': { enabled: false } },
+  rules: { 'color-contrast': { enabled: false }, region: { enabled: false } },
 };
 
 expect.extend({

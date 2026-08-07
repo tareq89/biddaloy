@@ -36,10 +36,12 @@ function RecordPaymentDialog() {
 describe('Dialog', () => {
   it('opens on trigger click, is axe clean, and carries a real title', async () => {
     const user = userEvent.setup();
-    const { container } = render(<RecordPaymentDialog />);
+    const { baseElement } = render(<RecordPaymentDialog />);
     await user.click(screen.getByRole('button', { name: 'Record payment' }));
     expect(await screen.findByRole('dialog', { name: 'Record a payment' })).toBeTruthy();
-    await expect(container).toHaveNoViolations();
+    // Dialog content is portaled to `document.body`, outside `container` —
+    // `baseElement` (the portal's actual root) is what needs to be axe clean.
+    await expect(baseElement).toHaveNoViolations();
   });
 
   it('traps focus inside the dialog — Tab cannot reach content behind it', async () => {
