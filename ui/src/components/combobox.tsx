@@ -20,12 +20,20 @@ export interface ComboboxOption {
   label: string;
 }
 
-export interface ComboboxProps {
+export interface ComboboxProps extends Omit<
+  React.ComponentProps<typeof Input>,
+  | 'onChange'
+  | 'value'
+  | 'role'
+  | 'aria-expanded'
+  | 'aria-controls'
+  | 'aria-autocomplete'
+  | 'aria-activedescendant'
+> {
   options: ComboboxOption[];
   value: string | null;
   onValueChange: (value: string | null) => void;
   'aria-label': string;
-  placeholder?: string;
   emptyText?: string;
   /** Template for the polite live-region announcement on every filter
    * change — defaults to English; a Bangla-locale caller passes its own
@@ -40,6 +48,7 @@ export function Combobox({
   placeholder,
   emptyText = 'No results',
   announceResults = (count) => `${count} result${count === 1 ? '' : 's'}`,
+  onFocus,
   ...props
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false);
@@ -77,7 +86,17 @@ export function Combobox({
           aria-activedescendant={open && activeIndex >= 0 ? optionId(activeIndex) : undefined}
           placeholder={placeholder}
           value={open ? query : (selectedOption?.label ?? '')}
-          onFocus={() => setOpen(true)}
+          onFocus={(event) => {
+            // Seed `query` from the current selection rather than leaving
+            // it at its last value (often '' right after a prior
+            // selection) — otherwise the input goes blank the instant it
+            // regains focus despite a real selection existing, and
+            // Escape-without-selecting leaves stale leftover text ready to
+            // reappear on the next focus.
+            setQuery(selectedOption?.label ?? '');
+            setOpen(true);
+            onFocus?.(event);
+          }}
           onChange={(event) => {
             setQuery(event.target.value);
             setOpen(true);
@@ -103,6 +122,15 @@ export function Combobox({
           }}
         />
       </PopoverAnchor>
+      {/* Always mounted (unlike `PopoverContent`, which Radix mounts only
+       * while open) — a live region's *first* content is typically not
+       * announced by a screen reader, since there's no prior state for the
+       * mutation observer to diff against. Living outside the popup means
+       * it already exists in the DOM before the first result count is
+       * ever set, so that first announcement isn't lost. */}
+      <div aria-live="polite" className="sr-only">
+        {open ? announceResults(filtered.length) : ''}
+      </div>
       <PopoverContent
         className="w-(--radix-popover-trigger-width) p-1"
         onOpenAutoFocus={(event) => event.preventDefault()}
@@ -133,9 +161,6 @@ export function Combobox({
               {option.label}
             </div>
           ))}
-        </div>
-        <div aria-live="polite" className="sr-only">
-          {announceResults(filtered.length)}
         </div>
       </PopoverContent>
     </Popover>

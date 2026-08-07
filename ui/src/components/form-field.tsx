@@ -96,11 +96,14 @@ function FormLabel({ className, ...props }: React.ComponentProps<typeof Label>) 
   const { error, formItemId } = useFormField();
   return (
     <Label
+      {...props}
       data-slot="form-label"
       data-error={!!error}
       className={cn(error && 'text-destructive', className)}
+      // After `{...props}`, not before — a caller-supplied `htmlFor` must
+      // not be able to break the label/control association `FormField`
+      // exists to guarantee.
       htmlFor={formItemId}
-      {...props}
     />
   );
 }
@@ -109,11 +112,16 @@ function FormControl({ ...props }: React.ComponentProps<typeof Slot.Root>) {
   const { error, formItemId, formDescriptionId, formMessageId } = useFormField();
   return (
     <Slot.Root
+      {...props}
       data-slot="form-control"
+      // After `{...props}`, not before — same reasoning as `FormLabel`'s
+      // `htmlFor`: these three are the actual field association/error
+      // wiring this component exists to guarantee, so a caller-supplied
+      // `id`/`aria-describedby`/`aria-invalid` must not be able to
+      // silently override them.
       id={formItemId}
       aria-describedby={error ? `${formDescriptionId} ${formMessageId}` : formDescriptionId}
       aria-invalid={!!error}
-      {...props}
     />
   );
 }

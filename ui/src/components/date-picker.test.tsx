@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
@@ -108,5 +108,88 @@ describe('DatePicker', () => {
 
     await user.click(screen.getByRole('button', { name: 'Previous month' }));
     expect(screen.getByText('2024-01')).toBeTruthy();
+  });
+
+  it('clearing the typed input commits undefined rather than leaving the last valid date', async () => {
+    const user = userEvent.setup();
+    render(<Controlled initial={new Date(2024, 0, 5)} />);
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- tsc disagrees with eslint's type resolution here; the cast is required for `.value` to typecheck under `tsc --noEmit`.
+    const input = screen.getByPlaceholderText('YYYY-MM-DD') as HTMLInputElement;
+    expect(input.value).toBe('2024-01-05');
+
+    await user.clear(input);
+    expect(input.value).toBe('');
+    // Reopening the calendar with nothing selected proves `value` actually
+    // became `undefined`, not just that the text field looks empty.
+    await user.click(screen.getByRole('button', { name: 'Open calendar' }));
+    const grid = await screen.findByRole('grid', { name: 'Calendar' });
+    expect(within(grid).queryByRole('gridcell', { selected: true })).toBeNull();
+  });
+
+  it('keeps DOM focus on a day cell after arrow-navigating across a month boundary', async () => {
+    const user = userEvent.setup();
+    render(<Controlled initial={new Date(2024, 0, 31)} />);
+    await user.click(screen.getByRole('button', { name: 'Open calendar' }));
+    await screen.findByRole('grid', { name: 'Calendar' });
+
+    screen.getByRole('gridcell', { name: '31' }).focus();
+    await user.keyboard('{ArrowRight}');
+    await waitFor(() => expect(screen.getByText('2024-02')).toBeTruthy());
+    await waitFor(() => expect(document.activeElement?.getAttribute('role')).toBe('gridcell'));
+    expect(document.activeElement?.textContent).toBe('1');
+  });
+
+  it('keeps DOM focus on a day cell when arrow-navigating backward across a year boundary (Jan -> Dec)', async () => {
+    const user = userEvent.setup();
+    render(<Controlled initial={new Date(2024, 0, 1)} />);
+    await user.click(screen.getByRole('button', { name: 'Open calendar' }));
+    await screen.findByRole('grid', { name: 'Calendar' });
+
+    screen.getByRole('gridcell', { name: '1' }).focus();
+    await user.keyboard('{ArrowLeft}');
+    await waitFor(() => expect(screen.getByText('2023-12')).toBeTruthy());
+    await waitFor(() => expect(document.activeElement?.getAttribute('role')).toBe('gridcell'));
+    expect(document.activeElement?.textContent).toBe('31');
+  });
+
+  it('supports custom Previous/Next month labels, e.g. for a non-English locale', async () => {
+    const user = userEvent.setup();
+    function ControlledWithLabels() {
+      return (
+        <DatePicker
+          aria-label="Enrollment date"
+          value={new Date(2024, 0, 5)}
+          onValueChange={() => {}}
+          config={REGION_BD_EN}
+          previousMonthLabel="আগের মাস"
+          nextMonthLabel="পরের মাস"
+        />
+      );
+    }
+    render(<ControlledWithLabels />);
+    await user.click(screen.getByRole('button', { name: 'Open calendar' }));
+    expect(await screen.findByRole('button', { name: 'পরের মাস' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'আগের মাস' })).toBeTruthy();
+  });
+
+  it('exposes weekday column headers in the calendar grid', async () => {
+    const user = userEvent.setup();
+    render(<Controlled initial={new Date(2024, 0, 5)} />);
+    await user.click(screen.getByRole('button', { name: 'Open calendar' }));
+    const grid = await screen.findByRole('grid', { name: 'Calendar' });
+    const headers = within(grid).getAllByRole('columnheader');
+    expect(headers).toHaveLength(7);
+    expect(headers.map((header) => header.textContent)).toEqual(
+      expect.arrayContaining([expect.stringContaining('Sun')]),
+    );
+  });
+
+  it('handles the Feb 29 leap-year boundary without losing a day', async () => {
+    const user = userEvent.setup();
+    render(<Controlled initial={new Date(2024, 1, 29)} />);
+    await user.click(screen.getByRole('button', { name: 'Open calendar' }));
+    const grid = await screen.findByRole('grid', { name: 'Calendar' });
+    expect(within(grid).getByRole('gridcell', { name: '29' })).toBeTruthy();
+    expect(within(grid).queryByRole('gridcell', { name: '30' })).toBeNull();
   });
 });

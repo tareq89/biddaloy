@@ -4,8 +4,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { FileUpload, type FileUploadItem } from './file-upload';
 
-function makeFile(name: string): File {
-  return new File(['content'], name, { type: 'text/csv' });
+function makeFile(name: string, content = 'content'): File {
+  return new File([content], name, { type: 'text/csv' });
 }
 
 describe('FileUpload', () => {
@@ -79,6 +79,45 @@ describe('FileUpload', () => {
     input.dispatchEvent(new Event('change', { bubbles: true }));
     expect(onFilesSelected).not.toHaveBeenCalled();
     expect(screen.queryByText(/selected$/)).toBeNull();
+  });
+
+  it('renders duplicate filenames as distinct items with no React key collision', async () => {
+    // Two different files that happen to share a name — picked from two
+    // different folders, say. `file.name` alone would collide as a React
+    // key; React warns loudly (`console.error`) the moment that happens,
+    // so absence of that warning is the direct proof, not just that the
+    // UI happens to look right.
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const user = userEvent.setup();
+    const fileA = makeFile('photo.jpg', 'first');
+    const fileB = makeFile('photo.jpg', 'second');
+    const onRemove = vi.fn();
+    render(
+      <FileUpload
+        aria-label="Attachments"
+        items={[
+          { file: fileA, progress: 50 },
+          { file: fileB, progress: 90 },
+        ]}
+        onFilesSelected={vi.fn()}
+        onRemove={onRemove}
+      />,
+    );
+
+    expect(screen.getByText('50%')).toBeTruthy();
+    expect(screen.getByText('90%')).toBeTruthy();
+
+    const [firstRemoveButton, secondRemoveButton] = screen.getAllByRole('button', {
+      name: 'Remove photo.jpg',
+    });
+    expect(firstRemoveButton).toBeTruthy();
+    if (!secondRemoveButton) throw new Error('expected two "Remove photo.jpg" buttons');
+    await user.click(secondRemoveButton);
+    expect(onRemove).toHaveBeenCalledWith(fileB);
+
+    const keyWarning = consoleError.mock.calls.some((call) => String(call[0]).includes('same key'));
+    expect(keyWarning).toBe(false);
+    consoleError.mockRestore();
   });
 
   it('the button label is singular for a single-file uploader, and a custom chooseLabel overrides both', () => {

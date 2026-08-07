@@ -57,6 +57,10 @@ export function FileUpload({
         aria-label={props['aria-label']}
         onChange={(event) => {
           handleFiles(event.target.files);
+          // Reset so selecting the exact same file again still fires
+          // `onChange` — the browser only fires it on a *change*, and an
+          // unreset input's value already equals what a repeat pick would
+          // set it to.
           event.target.value = '';
         }}
       />
@@ -69,7 +73,14 @@ export function FileUpload({
       {items.length > 0 && (
         <ul className="mt-2 space-y-1">
           {items.map((item) => (
-            <li key={item.file.name} className="flex items-center gap-2 text-sm">
+            // `name` alone isn't unique — two picked files can share a
+            // filename (e.g. "photo.jpg" from two different folders).
+            // `lastModified`+`size` disambiguates without requiring
+            // `FileUploadItem` to carry a caller-generated id.
+            <li
+              key={`${item.file.name}-${item.file.lastModified}-${item.file.size}`}
+              className="flex items-center gap-2 text-sm"
+            >
               <span className="flex-1 truncate">{item.file.name}</span>
               {item.error ? (
                 <span role="alert" className="text-destructive">
