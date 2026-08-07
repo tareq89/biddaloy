@@ -1,60 +1,64 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SmsProviderFactory } from './sms-provider.factory';
+import { ProviderNotConfiguredError } from '../../config/provider-not-configured.error';
 
 describe('SmsProviderFactory', () => {
-  let config: Record<string, ReturnType<typeof vi.fn>>;
+  const tenantId = 'tenant-1';
+  let configResolver: Record<string, ReturnType<typeof vi.fn>>;
   let greenweb: Record<string, ReturnType<typeof vi.fn>>;
   let mimSms: Record<string, ReturnType<typeof vi.fn>>;
 
   beforeEach(() => {
-    config = { get: vi.fn() };
+    configResolver = { resolveSms: vi.fn() };
     greenweb = { sendSms: vi.fn().mockResolvedValue({ success: true, providerMessageId: 'gw-1' }) };
     mimSms = { sendSms: vi.fn().mockResolvedValue({ success: true, providerMessageId: 'mim-1' }) };
   });
 
-  it('defaults to greenweb when SMS_PROVIDER is unset', () => {
-    config.get.mockReturnValue(undefined);
+  it('routes to the MimSMS gateway when resolved config selects mimsms', async () => {
+    configResolver.resolveSms.mockResolvedValue({
+      gateway: 'mimsms',
+      apiKey: 'key',
+      senderId: 'sender',
+    });
+    const factory = new SmsProviderFactory(configResolver as any, greenweb as any, mimSms as any);
 
-    const factory = new SmsProviderFactory(config as any, greenweb as any, mimSms as any);
+    const result = await factory.send({ to: '01712345678', body: 'hi' }, tenantId);
 
-    expect(factory.getActiveGatewayName()).toBe('greenweb');
-  });
-
-  it('routes to the MimSMS gateway when SMS_PROVIDER=mimsms', async () => {
-    config.get.mockReturnValue('mimsms');
-
-    const factory = new SmsProviderFactory(config as any, greenweb as any, mimSms as any);
-    await factory.send({ to: '01712345678', body: 'hi' });
-
-    expect(mimSms.sendSms).toHaveBeenCalledWith('01712345678', 'hi');
+    expect(configResolver.resolveSms).toHaveBeenCalledWith(tenantId);
+    expect(mimSms.sendSms).toHaveBeenCalledWith('01712345678', 'hi', {
+      gateway: 'mimsms',
+      apiKey: 'key',
+      senderId: 'sender',
+    });
     expect(greenweb.sendSms).not.toHaveBeenCalled();
+    expect(result.success).toBe(true);
   });
 
-  it('routes to the Greenweb gateway when SMS_PROVIDER=greenweb', async () => {
-    config.get.mockReturnValue('greenweb');
+  it('routes to the Greenweb gateway when resolved config selects greenweb', async () => {
+    configResolver.resolveSms.mockResolvedValue({ gateway: 'greenweb', apiKey: 'key' });
+    const factory = new SmsProviderFactory(configResolver as any, greenweb as any, mimSms as any);
 
-    const factory = new SmsProviderFactory(config as any, greenweb as any, mimSms as any);
-    await factory.send({ to: '01712345678', body: 'hi' });
+    const result = await factory.send({ to: '01712345678', body: 'hi' }, tenantId);
 
-    expect(greenweb.sendSms).toHaveBeenCalledWith('01712345678', 'hi');
+    expect(greenweb.sendSms).toHaveBeenCalledWith('01712345678', 'hi', {
+      gateway: 'greenweb',
+      apiKey: 'key',
+    });
     expect(mimSms.sendSms).not.toHaveBeenCalled();
+    expect(result.success).toBe(true);
   });
 
-  it('setGateway swaps the active gateway at runtime', async () => {
-    config.get.mockReturnValue('greenweb');
-    const factory = new SmsProviderFactory(config as any, greenweb as any, mimSms as any);
+  it('returns a failure result instead of throwing when the tenant is unconfigured', async () => {
+    configResolver.resolveSms.mockRejectedValue(
+      new ProviderNotConfiguredError('SMS (Greenweb)', 'configure it'),
+    );
+    const factory = new SmsProviderFactory(configResolver as any, greenweb as any, mimSms as any);
 
-    factory.setGateway('mimsms');
-    await factory.send({ to: '01712345678', body: 'hi' });
+    const result = await factory.send({ to: '01712345678', body: 'hi' }, tenantId);
 
-    expect(factory.getActiveGatewayName()).toBe('mimsms');
-    expect(mimSms.sendSms).toHaveBeenCalled();
-  });
-
-  it('rejects an unsupported gateway name', () => {
-    config.get.mockReturnValue('greenweb');
-    const factory = new SmsProviderFactory(config as any, greenweb as any, mimSms as any);
-
-    expect(() => factory.setGateway('nonexistent')).toThrow(/not supported/);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/configure it/);
+    expect(greenweb.sendSms).not.toHaveBeenCalled();
+    expect(mimSms.sendSms).not.toHaveBeenCalled();
   });
 });

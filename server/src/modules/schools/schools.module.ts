@@ -6,6 +6,9 @@ import { SchoolsService } from './schools.service';
 import { SchoolsController } from './schools.controller';
 import { EncryptionService } from './settings/encryption.service';
 import { buildEncryptionKey, buildPreviousEncryptionKeys } from './settings/encryption-key';
+import { TenantSettingsCache } from './settings/tenant-settings-cache.service';
+
+const TENANT_SETTINGS_CACHE_TTL_MS = 30_000;
 
 /** The `EncryptionService` provider's `useFactory`, pulled out and exported
  * so `schools.module.spec.ts` can exercise this exact wiring — every other
@@ -37,7 +40,21 @@ export function encryptionServiceFactory(config: ConfigService): EncryptionServi
       // on whatever request first happens to touch a tenant secret.
       useFactory: encryptionServiceFactory,
     },
+    {
+      provide: TenantSettingsCache,
+      // A `useFactory` with no `inject` — Nest's constructor injection has
+      // no provider for a bare `number`, so `new TenantSettingsCache(...)`
+      // has to be called explicitly rather than left to `providers:
+      // [TenantSettingsCache]`'s default `new TenantSettingsCache()`
+      // (which would fail to resolve `ttlMs` at boot).
+      useFactory: () => new TenantSettingsCache(TENANT_SETTINGS_CACHE_TTL_MS),
+    },
   ],
-  exports: [SchoolsService, EncryptionService],
+  // TenantSettingsCache is exported so #8.7.10's TenantProviderConfigResolver
+  // (in CommunicationsModule) can share the exact same cache instance
+  // SchoolsService invalidates on write — a second, module-local instance
+  // would never see that invalidation and could serve stale credentials
+  // past a rotation.
+  exports: [SchoolsService, EncryptionService, TenantSettingsCache],
 })
 export class SchoolsModule {}

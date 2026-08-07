@@ -103,14 +103,17 @@ export class CommunicationsProcessor extends WorkerHost {
     // an unhandled rejection.
     let result;
     try {
-      result = await provider.send({
-        to: log.recipient_address,
-        body: log.message_body,
-        subject: log.subject ?? undefined,
-        templateName,
-        templateLanguage,
-        templateParams,
-      });
+      result = await provider.send(
+        {
+          to: log.recipient_address,
+          body: log.message_body,
+          subject: log.subject ?? undefined,
+          templateName,
+          templateLanguage,
+          templateParams,
+        },
+        log.tenant_id,
+      );
     } catch (err) {
       result = {
         success: false,

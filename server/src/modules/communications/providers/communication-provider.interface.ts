@@ -22,12 +22,21 @@ export interface CommunicationSendResult {
  * Uniform contract every channel provider implements, so
  * CommunicationsProcessor can dispatch by CommunicationMedium without
  * knowing which concrete gateway/API is behind it. A provider must never
- * throw — network/API failures are caught internally and returned as
- * `{ success: false, error }` so the processor always gets a result to
- * persist onto the CommunicationLog row.
+ * throw — network/API failures (and, since #8.7.10, a
+ * `ProviderNotConfiguredError` from `TenantProviderConfigResolver`) are
+ * caught internally and returned as `{ success: false, error }` so the
+ * processor always gets a result to persist onto the CommunicationLog row.
+ *
+ * `tenantId` (#8.7.10) is what each provider resolves its own config
+ * against — `TenantProviderConfigResolver`, not `ConfigService` directly
+ * — so two tenants using different accounts for the same medium never
+ * share state. Callers always have it: `CommunicationsProcessor` loads
+ * the `CommunicationLog` row before dispatching and reads `tenant_id`
+ * off it, the same column every other tenant-scoped query in this
+ * codebase filters on.
  */
 export interface CommunicationProvider {
-  send(params: CommunicationSendParams): Promise<CommunicationSendResult>;
+  send(params: CommunicationSendParams, tenantId: string): Promise<CommunicationSendResult>;
 }
 
 export const COMMUNICATION_PROVIDER_REGISTRY = 'COMMUNICATION_PROVIDER_REGISTRY';
