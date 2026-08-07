@@ -4,6 +4,9 @@ The shared React component package. Every biddaloy SPA — `client-admin`,
 `client-student`, `client-teacher` — imports its UI from here and builds none of
 its own.
 
+Adding or changing a component? See [`CONTRIBUTING.md`](CONTRIBUTING.md)
+for the wrapper rule, the three-file requirement, and the PR checklist.
+
 ## Why this is separate from `@beton-boi/shared`
 
 `shared` is consumed by the NestJS server and has to stay framework-agnostic.
