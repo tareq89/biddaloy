@@ -1,7 +1,17 @@
 /**
  * Formatters and helpers. All currency, number, phone and date formatting lives here so no component ever calls `Intl` directly.
- *
- * Populated by a later phase-8 task; the barrel exists now so
- * `@beton-boi/ui/utils` resolves from the moment the package does.
  */
-export {};
+export { formatCurrency, parseCurrency } from './currency';
+export { formatDate, parseDate, getAcademicYear, formatAcademicYear } from './date';
+export { renderDigits, toLatinDigits } from './digits';
+export { groupDigits } from './grouping';
+export { formatName } from './name';
+export { formatNumber, parseNumber } from './number';
+export { formatPhone, parsePhone, type PhoneParseResult } from './phone';
+export {
+  REGION_BD_BN,
+  REGION_BD_EN,
+  type RegionConfig,
+  type NumeralSystem,
+  type CurrencyGrouping,
+} from './region-config';
