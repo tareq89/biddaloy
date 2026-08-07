@@ -20,6 +20,8 @@ import { WhatsAppCloudProvider } from './providers/whatsapp/whatsapp-cloud.provi
 import { SmtpEmailProvider } from './providers/email/smtp-email.provider';
 import { MessengerProvider } from './providers/messenger/messenger.provider';
 import { TenantProviderConfigResolver } from './config/tenant-provider-config.resolver';
+import { ConnectionTestService } from './testing/connection-test.service';
+import { ProviderConnectionTestController } from './testing/provider-connection-test.controller';
 import { COMMUNICATIONS_QUEUE } from './communications.constants';
 
 @Module({
@@ -50,8 +52,9 @@ import { COMMUNICATIONS_QUEUE } from './communications.constants';
     WhatsAppCloudProvider,
     SmtpEmailProvider,
     MessengerProvider,
+    ConnectionTestService,
   ],
-  controllers: [CommunicationsController],
+  controllers: [CommunicationsController, ProviderConnectionTestController],
   exports: [CommunicationsService, BulkReminderService, SingleReminderService],
 })
 export class CommunicationsModule {}

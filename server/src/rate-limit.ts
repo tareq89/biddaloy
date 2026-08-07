@@ -33,3 +33,14 @@ export function resolveDefaultRateLimit(
  * the actual abuse targets, unlike a typical CRUD read/write.
  */
 export const STRICT_RATE_LIMIT: RateLimitTierOptions = { limit: 5, ttl: 60_000 };
+
+/**
+ * Tighter than `STRICT_RATE_LIMIT` — applied to #8.7.12's provider
+ * connection test (`POST /schools/:id/settings/test`), the one endpoint in
+ * this codebase that makes a real outbound call to a third-party API
+ * (Meta Graph, an SMTP server, an SMS gateway) on every request rather
+ * than just doing more DB work. A caller hammering it either burns a
+ * tenant's own SMTP/API quota or, worse, becomes a vector for probing a
+ * third party's auth endpoint.
+ */
+export const PROVIDER_TEST_RATE_LIMIT: RateLimitTierOptions = { limit: 3, ttl: 60_000 };

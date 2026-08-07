@@ -4,9 +4,13 @@ import {
   CommunicationSendParams,
   CommunicationSendResult,
 } from '../communication-provider.interface';
+import { ConnectionTestResult } from '../shared/connection-test.types';
 import { GreenwebSmsGateway } from './greenweb-sms.gateway';
 import { MimSmsGateway } from './mim-sms.gateway';
-import { TenantProviderConfigResolver } from '../../config/tenant-provider-config.resolver';
+import {
+  SmsOverride,
+  TenantProviderConfigResolver,
+} from '../../config/tenant-provider-config.resolver';
 
 /**
  * Factory over swappable Bangladeshi SMS gateways. Which gateway a tenant
@@ -38,6 +42,27 @@ export class SmsProviderFactory implements CommunicationProvider {
         success: false,
         providerMessageId: null,
         error: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }
+
+  /**
+   * #8.7.12's connection test. `override` lets the caller test unsaved
+   * config (an in-progress dashboard edit) before it's saved — see
+   * `TenantProviderConfigResolver.resolveSms`'s own comment on the
+   * override contract.
+   */
+  async testConnection(tenantId: string, override?: SmsOverride): Promise<ConnectionTestResult> {
+    try {
+      const config = await this.configResolver.resolveSms(tenantId, override);
+      if (config.gateway === 'mimsms') {
+        return await this.mimSmsGateway.testConnection(config);
+      }
+      return await this.greenwebSmsGateway.testConnection(config);
+    } catch (err) {
+      return {
+        success: false,
+        message: err instanceof Error ? err.message : 'Connection test failed.',
       };
     }
   }

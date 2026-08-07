@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveDefaultRateLimit, STRICT_RATE_LIMIT } from './rate-limit';
+import { resolveDefaultRateLimit, STRICT_RATE_LIMIT, PROVIDER_TEST_RATE_LIMIT } from './rate-limit';
 
 describe('resolveDefaultRateLimit', () => {
   it('defaults to 100 requests per 60s when unset', () => {
@@ -33,5 +33,17 @@ describe('STRICT_RATE_LIMIT', () => {
     const defaultTier = resolveDefaultRateLimit(undefined, undefined);
 
     expect(STRICT_RATE_LIMIT.limit).toBeLessThan(defaultTier.limit);
+  });
+});
+
+describe('PROVIDER_TEST_RATE_LIMIT', () => {
+  // Pins the contract for #8.7.12's connection-test endpoint — the one
+  // route that makes a real outbound call to a third party per request.
+  it('is exactly three requests per 60s', () => {
+    expect(PROVIDER_TEST_RATE_LIMIT).toEqual({ limit: 3, ttl: 60_000 });
+  });
+
+  it('is tighter than STRICT_RATE_LIMIT', () => {
+    expect(PROVIDER_TEST_RATE_LIMIT.limit).toBeLessThan(STRICT_RATE_LIMIT.limit);
   });
 });
