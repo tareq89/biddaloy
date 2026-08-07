@@ -70,7 +70,7 @@ describe('Provider connection test E2E', () => {
       .set('X-Tenant-ID', TENANT_ID)
       .send({
         medium: 'WHATSAPP',
-        config: { phoneNumberId: 'draft-id', accessToken: 'super-secret-token-value' },
+        config: { phoneNumberId: '99999', accessToken: 'super-secret-token-value' },
       })
       .expect(200);
 
@@ -87,7 +87,7 @@ describe('Provider connection test E2E', () => {
     ]);
     const settingsText = JSON.stringify(school[0]?.settings ?? {});
     expect(settingsText).not.toContain('super-secret-token-value');
-    expect(settingsText).not.toContain('draft-id');
+    expect(settingsText).not.toContain('99999');
   });
 
   it('rejects a request from a caller who is not an ADMIN/SUPER_ADMIN of the school', async () => {
