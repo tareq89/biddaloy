@@ -24,3 +24,27 @@ export {
   type StudentListFilters,
 } from './students';
 export { paymentKeys, useCreatePayment, type CreatePaymentInput, type Payment } from './payments';
+export { hasPermission, useHasPermission } from './permissions';
+export {
+  schoolsKeys,
+  schoolSettingsKeys,
+  useSchools,
+  useSchoolSettings,
+  useUpdateSchoolSettings,
+  useTestSchoolConnection,
+  type SchoolSummary,
+  type MaskedSecret,
+  type MaskedRegionSettings,
+  type MaskedGreenwebSmsSettings,
+  type MaskedMimSmsSettings,
+  type MaskedSmsSettings,
+  type MaskedWhatsAppSettings,
+  type MaskedEmailSettings,
+  type MaskedMessengerSettings,
+  type MaskedCommunicationsSettings,
+  type MaskedTenantSettings,
+  type ConnectionTestResult,
+  type TenantSettingsInput,
+  type TestConnectionInput,
+  type TestableMedium,
+} from './school-settings';

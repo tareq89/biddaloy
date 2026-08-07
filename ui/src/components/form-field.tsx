@@ -92,7 +92,7 @@ function useFormField() {
   };
 }
 
-function FormLabel({ className, ...props }: React.ComponentProps<typeof Label>) {
+function FormLabel({ className, htmlFor, ...props }: React.ComponentProps<typeof Label>) {
   const { error, formItemId } = useFormField();
   return (
     <Label
@@ -100,10 +100,22 @@ function FormLabel({ className, ...props }: React.ComponentProps<typeof Label>) 
       data-slot="form-label"
       data-error={!!error}
       className={cn(error && 'text-destructive', className)}
-      // After `{...props}`, not before — a caller-supplied `htmlFor` must
-      // not be able to break the label/control association `FormField`
-      // exists to guarantee.
-      htmlFor={formItemId}
+      // A caller-supplied `htmlFor` wins over `formItemId` — the opposite
+      // of what this used to do (always `formItemId`, no matter what the
+      // caller passed). That guaranteed the label/control pairing only
+      // when the caller *also* let `FormControl` supply `formItemId` as
+      // the control's own id; a caller who sets an explicit `id` on the
+      // control instead (needed wherever something outside `FormField`
+      // — `FormShellError.field`, `document.getElementById` — has to
+      // target that field by a stable, caller-chosen id rather than a
+      // `React.useId()` value generated at render time) ended up with an
+      // unlabelled control instead, invisible until an actual axe run
+      // hits it (#8.7.13 was the first real page to). `FormControl`'s own
+      // `id={formItemId}` already loses to a caller-supplied `id` on the
+      // control in the same way (Radix `Slot`'s prop merge favors the
+      // child's own value) — this makes `FormLabel` follow the same rule
+      // instead of being the one piece still hardcoded to `formItemId`.
+      htmlFor={htmlFor ?? formItemId}
     />
   );
 }
