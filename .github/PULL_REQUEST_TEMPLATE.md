@@ -14,7 +14,10 @@ Closes #
 
 ### If this PR touches `ui/`
 
-See [`ui/CONTRIBUTING.md`](../ui/CONTRIBUTING.md#pr-checklist) for the
+`yarn test:unit` above is the server's own suite and doesn't run
+frontend tests — this section's `yarn test:frontend:coverage` is
+additional, not a replacement. See
+[`ui/CONTRIBUTING.md`](../ui/CONTRIBUTING.md#pr-checklist) for the
 full component contribution checklist — the wrapper rule, the three-file
 requirement, accessibility, token usage, and i18n expectations. In short:
 

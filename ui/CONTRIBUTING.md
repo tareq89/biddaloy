@@ -1,6 +1,6 @@
 # Contributing to `@beton-boi/ui`
 
-Four SPAs pull on this one package. Nothing here stops that from eroding
+Three SPAs pull on this one package. Nothing here stops that from eroding
 except this document being where a contributor actually meets the rules —
 not a wiki page nobody reads before their first PR. If something here and
 the code disagree, the code wins; open a PR fixing whichever one is wrong.
@@ -35,19 +35,21 @@ The wrapper owns:
   any of this; the wrapper is where it becomes true for every SPA at
   once.
 
-### A pure pass-through wrapper is a review finding
+### A pure pass-through wrapper requires justification
 
 Stated as plainly as the rest of this rule: a wrapper that changes
 nothing about the primitive it wraps — no default, no `aria-*`, no
-token, no semantics — is a smell a reviewer should flag, not wave
-through because "it follows the pattern."
+token, no semantics — needs its header comment to say why the seam is
+still worth having (the worked `Checkbox` example below is exactly this
+case). A pass-through with no such comment is what a reviewer should
+flag, not wave through because "it follows the pattern."
 
 The honest tension: two layers make a pure pass-through _possible_, and
 under deadline pressure it's tempting to add a wrapper file just to
 satisfy the three-file rule below without actually deciding what the
 wrapper is for. Don't. The boundary is still worth holding even for a
 thin wrapper — the moment one SPA needs a custom variant, having the
-seam already there makes it a one-file change instead of a four-app
+seam already there makes it a one-file change instead of a three-app
 migration — but "the seam might matter later" is the _reason the
 boundary exists_, not a substitute for the wrapper doing something now.
 If you can't say what a wrapper adds beyond "SPAs don't import Radix
@@ -59,11 +61,17 @@ contributor doesn't wonder whether something was forgotten.
 
 Every component ships exactly three files, same base name:
 
-```
+```text
 component-name.tsx           # the component
 component-name.stories.tsx   # Storybook — every meaningful visual state
 component-name.test.tsx      # vitest + Testing Library
 ```
+
+This applies to every public component this package exports — a new one,
+or an existing one whose behaviour actually changed. It doesn't mean a
+one-line bug fix in an existing wrapper needs a story/test rewrite it
+gains nothing from; use judgement, and say in the PR why a file wasn't
+touched if that's not obvious from the diff.
 
 **`component-name.tsx`** — the implementation. A wrapper composing more
 than one Radix primitive (`Dialog`, `Select`, `Menu`) still ships as one
@@ -87,7 +95,12 @@ for its own sake. At minimum:
 
 - Renders with an accessible name and is `axe` clean
   (`await expect(container).toHaveNoViolations()` — registered globally,
-  see this package's own [README](README.md#accessibility)).
+  see this package's own [README](README.md#accessibility)). For a bare
+  control whose accessible name is intentionally the caller's job (see
+  `Checkbox` below), the test provides that context itself (an
+  `aria-label`, say) rather than asserting the component is accessible
+  with none — that's what proves the wrapper doesn't silently supply
+  what it says it doesn't own, not a gap in the requirement.
 - Keyboard-operable — `expectKeyboardOperable`/`expectTabOrder` from
   `@beton-boi/ui/test` for the common cases; a hand-rolled roving-tabindex
   widget (see `DataTable`, `Calendar` in `date-picker.tsx`) needs its own
@@ -103,7 +116,11 @@ for its own sake. At minimum:
 Target 95% statement/branch coverage on the file you're adding — the
 repo's aggregate coverage floor (`vitest.config.ts`) is lower globally
 because it also covers modules written before this bar existed; a new
-file should clear the higher bar, not the historical average.
+file should clear the higher bar, not the historical average. Nothing
+enforces this per file today (`yarn test:frontend:coverage` reports the
+number but doesn't gate on it) — it's a review target, checked by
+reading the coverage report for the specific file, same as the
+colour-alone and icon-name rules below.
 
 ## Accessibility expectations
 
@@ -190,7 +207,7 @@ Signs it belongs here:
   screen would reasonably want (a shell, a domain-agnostic layout
   pattern).
 - Getting the accessibility/i18n/formatting right is non-trivial enough
-  that duplicating it per app risks the four apps drifting apart (exactly
+  that duplicating it per app risks the three apps drifting apart (exactly
   what this whole epic exists to prevent).
 
 Signs it belongs local to the SPA instead:
@@ -266,7 +283,7 @@ This is close to the pure-pass-through line above — it's justified
 because the _composed_ wrapper (`FormField` + `Checkbox`) is where the
 real guarantee lands, and every SPA already goes through this file
 rather than `primitives/checkbox` directly, which is what makes that
-later composition a one-file change instead of a four-app one.
+later composition a one-file change instead of a three-app one.
 
 **3. Write the stories.** `src/components/checkbox.stories.tsx` — default,
 checked, indeterminate (stands in for "empty" — the closest analog a
