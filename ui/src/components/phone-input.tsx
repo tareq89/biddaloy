@@ -6,8 +6,8 @@
  */
 import * as React from 'react';
 
+import type { RegionConfig } from '../i18n/region-config';
 import { formatPhone, parsePhone } from '../utils/phone';
-import type { RegionConfig } from '../utils/region-config';
 
 import { Input } from './input';
 

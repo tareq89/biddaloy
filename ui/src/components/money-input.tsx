@@ -10,8 +10,8 @@
  */
 import * as React from 'react';
 
+import type { RegionConfig } from '../i18n/region-config';
 import { formatCurrency, parseCurrency } from '../utils/currency';
-import type { RegionConfig } from '../utils/region-config';
 
 import { Input } from './input';
 

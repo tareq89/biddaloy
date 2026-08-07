@@ -186,9 +186,10 @@ design — the lint rule targets call sites, not this package).
 `Date` formatting methods directly — every formatter lives in `src/utils`
 (`formatCurrency`, `formatPhone`, `formatDate`, ...) and takes a
 `RegionConfig` explicitly, so currency grouping, numerals and phone
-patterns are never hardcoded at a call site. See `src/utils/region-config.ts`'s
-own header comment for why that file is a narrow stand-in for [8.7.2]'s
-real `RegionConfig`, not the full interface yet.
+patterns are never hardcoded at a call site. `RegionConfig` itself lives
+in `src/i18n/region-config.ts` — see its header comment, and
+`region-config.spec.ts`'s "a second region" suite for the fixture that
+proves adding a country is a config object, not a formatter change.
 
 ## `ui` versus local to one SPA
 

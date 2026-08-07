@@ -1,5 +1,6 @@
+import type { RegionConfig } from '../i18n/region-config';
+
 import { renderDigits, toLatinDigits } from './digits';
-import type { RegionConfig } from './region-config';
 
 /**
  * Numeric ISO-shaped date (`YYYY-MM-DD`), digits rendered per

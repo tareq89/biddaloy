@@ -1,4 +1,4 @@
-import { bnDigits, type NumeralSystem } from './region-config';
+import { bnDigits, type NumeralSystem } from '../i18n/region-config';
 
 const LATIN_DIGITS = '0123456789';
 

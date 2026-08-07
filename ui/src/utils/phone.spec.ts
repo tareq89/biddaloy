@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
+import { REGION_BD_EN } from '../i18n/region-config';
+
 import { formatPhone, parsePhone } from './phone';
-import { REGION_BD_EN } from './region-config';
 
 describe('parsePhone', () => {
   it('accepts a local number with a leading trunk 0', () => {
@@ -41,5 +42,18 @@ describe('formatPhone', () => {
 
   it('throws on an invalid number rather than returning a mangled string', () => {
     expect(() => formatPhone('123', REGION_BD_EN)).toThrow(RangeError);
+  });
+
+  it('drops a mask placeholder that has no digit left for it, rather than throwing', () => {
+    // A displayFormat with more X's than the pattern guarantees digits for
+    // is a config authoring mistake, not something formatPhone should
+    // crash on — the two fields are independently authored and only
+    // agree by convention, not by type.
+    const tooManyPlaceholders = {
+      ...REGION_BD_EN,
+      phone: { ...REGION_BD_EN.phone, displayFormat: 'XXXX-XXXXXXX' },
+    };
+
+    expect(formatPhone('01712345678', tooManyPlaceholders)).toBe('+880 1712-345678');
   });
 });
