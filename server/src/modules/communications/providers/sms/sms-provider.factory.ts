@@ -1,58 +1,44 @@
 import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import {
   CommunicationProvider,
   CommunicationSendParams,
   CommunicationSendResult,
 } from '../communication-provider.interface';
-import { SmsGateway } from './sms-gateway.interface';
 import { GreenwebSmsGateway } from './greenweb-sms.gateway';
 import { MimSmsGateway } from './mim-sms.gateway';
-
-const SUPPORTED_GATEWAYS = ['greenweb', 'mimsms'] as const;
-type SupportedGateway = (typeof SUPPORTED_GATEWAYS)[number];
+import { TenantProviderConfigResolver } from '../../config/tenant-provider-config.resolver';
 
 /**
- * Factory over swappable Bangladeshi SMS gateways. The active gateway is
- * picked from SMS_PROVIDER at startup, and can be swapped at runtime via
- * setGateway() (e.g. from a future admin endpoint) without a redeploy.
+ * Factory over swappable Bangladeshi SMS gateways. Which gateway a tenant
+ * uses, and its credentials, are resolved fresh per send via
+ * `TenantProviderConfigResolver.resolveSms(tenantId)` (#8.7.10) — there is
+ * no process-wide "active gateway" anymore, since that would mean every
+ * tenant shares one gateway selection.
  */
 @Injectable()
 export class SmsProviderFactory implements CommunicationProvider {
-  private readonly gateways: Record<SupportedGateway, SmsGateway>;
-  private activeGatewayName: SupportedGateway = 'greenweb';
-
   constructor(
-    config: ConfigService,
+    private readonly configResolver: TenantProviderConfigResolver,
     private readonly greenwebSmsGateway: GreenwebSmsGateway,
     private readonly mimSmsGateway: MimSmsGateway,
-  ) {
-    this.gateways = {
-      greenweb: this.greenwebSmsGateway,
-      mimsms: this.mimSmsGateway,
-    };
+  ) {}
 
-    const configured = config.get<string>('SMS_PROVIDER');
-    if (configured) {
-      this.setGateway(configured);
+  async send(params: CommunicationSendParams, tenantId: string): Promise<CommunicationSendResult> {
+    try {
+      // A ProviderNotConfiguredError from this call is caught by the same
+      // catch block as a gateway-level failure below — this provider's
+      // contract is "never throw" regardless of which step failed.
+      const config = await this.configResolver.resolveSms(tenantId);
+      if (config.gateway === 'mimsms') {
+        return await this.mimSmsGateway.sendSms(params.to, params.body, config);
+      }
+      return await this.greenwebSmsGateway.sendSms(params.to, params.body, config);
+    } catch (err) {
+      return {
+        success: false,
+        providerMessageId: null,
+        error: err instanceof Error ? err.message : String(err),
+      };
     }
-  }
-
-  setGateway(name: string): void {
-    const normalized = name.toLowerCase() as SupportedGateway;
-    if (!SUPPORTED_GATEWAYS.includes(normalized)) {
-      throw new Error(
-        `SMS provider "${name}" is not supported. Available: ${SUPPORTED_GATEWAYS.join(', ')}`,
-      );
-    }
-    this.activeGatewayName = normalized;
-  }
-
-  getActiveGatewayName(): SupportedGateway {
-    return this.activeGatewayName;
-  }
-
-  async send(params: CommunicationSendParams): Promise<CommunicationSendResult> {
-    return this.gateways[this.activeGatewayName].sendSms(params.to, params.body);
   }
 }

@@ -11,6 +11,7 @@ describe('CommunicationsProcessor', () => {
 
   const baseLog = {
     id: 'log-1',
+    tenant_id: 'tenant-1',
     medium: CommunicationMedium.SMS,
     recipient_address: '01712345678',
     message_body: 'Hello',
@@ -148,6 +149,7 @@ describe('CommunicationsProcessor', () => {
         templateLanguage: 'bn',
         templateParams: ['500'],
       }),
+      'tenant-1',
     );
   });
 

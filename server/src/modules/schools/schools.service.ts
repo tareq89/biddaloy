@@ -9,6 +9,7 @@ import { mergeTenantSettings, toPlainSettingsPatch } from './settings/tenant-set
 import { EncryptionService } from './settings/encryption.service';
 import { decryptSecretFields, encryptSecretFields } from './settings/settings-encryption.util';
 import { maskSecretFields } from './settings/settings-mask.util';
+import { TenantSettingsCache } from './settings/tenant-settings-cache.service';
 
 @Injectable()
 export class SchoolsService {
@@ -16,6 +17,7 @@ export class SchoolsService {
     @InjectRepository(School)
     private readonly repo: Repository<School>,
     private readonly encryption: EncryptionService,
+    private readonly settingsCache: TenantSettingsCache,
   ) {}
 
   async findById(id: string): Promise<School> {
@@ -78,12 +80,20 @@ export class SchoolsService {
    * encrypted *before* merging — encrypting the merged result instead
    * would re-encrypt already-encrypted fields carried over unchanged from
    * what was already stored, corrupting them.
+   *
+   * Invalidates `TenantSettingsCache` for this school after saving —
+   * #8.7.10's per-tenant provider resolver reads through that same cache
+   * (shared via `SchoolsModule`'s export, not a second instance), so a
+   * school that just rotated a WhatsApp token would otherwise keep
+   * sending under the old one until the cache's own TTL happened to
+   * expire.
    */
   async updateSettings(schoolId: string, dto: TenantSettingsDto): Promise<TenantSettings> {
     const school = await this.findById(schoolId);
     const encryptedPatch = encryptSecretFields(toPlainSettingsPatch(dto), this.encryption);
     school.settings = mergeTenantSettings(school.settings, encryptedPatch);
     await this.repo.save(school);
+    this.settingsCache.invalidate(schoolId);
     return resolveTenantSettings(school.settings);
   }
 }
