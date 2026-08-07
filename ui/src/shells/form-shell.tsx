@@ -78,7 +78,7 @@ export function FormShell({ title, errors, submitCount, onSubmit, children }: Fo
             {errors.length === 1 ? 'There is 1 problem' : `There are ${errors.length} problems`}{' '}
             with your submission
           </p>
-          <ul className="mt-2 list-disc pl-5">
+          <ul className="mt-2 list-disc ps-5">
             {errors.map((error) => (
               <li key={error.field}>
                 <a

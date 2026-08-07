@@ -122,3 +122,4 @@ export { ErrorState, type ErrorStateProps } from './error-state';
 export { Toaster, toast } from './toast';
 export { Skeleton } from './skeleton';
 export { Pagination, type PaginationProps } from './pagination';
+export { LocaleSwitcher, type LocaleSwitcherProps } from './locale-switcher';

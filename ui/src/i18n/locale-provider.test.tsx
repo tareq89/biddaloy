@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { useTranslation } from 'react-i18next';
 import { describe, it, expect } from 'vitest';
 
@@ -55,5 +55,23 @@ describe('I18nProvider', () => {
 
     await waitFor(() => expect(screen.getByRole('button')).toBeTruthy());
     expect(screen.getByRole('button').textContent).toBe('সংরক্ষণ করুন');
+  });
+
+  it('keeps <html lang>/<html dir> in step with the active locale, immediately on switch', async () => {
+    const instance = createI18nInstance();
+    render(
+      <I18nProvider i18n={instance}>
+        <CommonSaveAction />
+      </I18nProvider>,
+    );
+
+    await waitFor(() => expect(document.documentElement.lang).toBe('bn'));
+    expect(document.documentElement.dir).toBe('ltr');
+
+    await act(async () => {
+      await instance.changeLanguage('en');
+    });
+
+    await waitFor(() => expect(document.documentElement.lang).toBe('en'));
   });
 });
