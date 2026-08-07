@@ -1,4 +1,14 @@
-import { IsIn, IsInt, IsString, IsArray, ArrayNotEmpty, Min, Max, Validate } from 'class-validator';
+import {
+  IsIn,
+  IsInt,
+  IsString,
+  IsArray,
+  ArrayNotEmpty,
+  IsOptional,
+  Min,
+  Max,
+  Validate,
+} from 'class-validator';
 import { Secret } from '../settings/secret-field.decorator';
 import { NestedSettings } from '../settings/nested-settings.decorator';
 import { OptionalSetting } from '../settings/optional-setting.decorator';
