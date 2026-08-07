@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
+import { REGION_BD_BN, REGION_BD_EN, type RegionConfig } from '../i18n/region-config';
+
 import { formatAcademicYear, formatDate, getAcademicYear, parseDate } from './date';
-import { REGION_BD_BN, REGION_BD_EN, type RegionConfig } from './region-config';
 
 const julyStart: RegionConfig = { ...REGION_BD_EN, academicYear: { startMonth: 7 } };
 const julyStartBn: RegionConfig = { ...REGION_BD_BN, academicYear: { startMonth: 7 } };

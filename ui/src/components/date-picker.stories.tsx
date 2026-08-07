@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { useState } from 'react';
 
 import { rtlDecorator } from '../../.storybook/rtl-decorator';
-import { REGION_BD_BN, REGION_BD_EN, type RegionConfig } from '../utils/region-config';
+import { REGION_BD_BN, REGION_BD_EN, type RegionConfig } from '../i18n/region-config';
 
 import { DatePicker } from './date-picker';
 

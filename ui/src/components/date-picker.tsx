@@ -10,10 +10,10 @@
  */
 import * as React from 'react';
 
+import type { RegionConfig } from '../i18n/region-config';
 import { Popover, PopoverContent, PopoverTrigger } from '../primitives/popover';
 import { formatDate, parseDate } from '../utils/date';
 import { renderDigits } from '../utils/digits';
-import type { RegionConfig } from '../utils/region-config';
 
 import { Button } from './button';
 import { Input } from './input';
