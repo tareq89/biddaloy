@@ -159,6 +159,95 @@ jobs:
           path: server/coverage/
           if-no-files-found: ignore
 
+  e2e:
+    name: E2E (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    needs: verify
+    strategy:
+      # Chromium only — Firefox and WebKit are configured in
+      # playwright.config.ts and runnable locally (`yarn e2e`, which covers
+      # all three), but three-way sharding on every PR/push spends more CI
+      # time than the marginal non-Chromium regressions are worth day to
+      # day. `browser` stays a matrix dimension (rather than hardcoding
+      # "chromium" into the steps below) purely so a later ticket can widen
+      # this array without restructuring the job.
+      fail-fast: false
+      matrix:
+        browser: [chromium]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: betonboi_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/betonboi_e2e
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-e2e-jwt-secret-do-not-use-in-production-1234567890
+      NODE_ENV: test
+      SEED_ADMIN_PASSWORD: ci-e2e-seed-password-123
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build shared package
+        # webServer boots the real server/clients (yarn dev:*), which resolve
+        # @beton-boi/shared through its package.json "main" (dist/index.js,
+        # not src) — same reason the other jobs build this first.
+        run: yarn build:shared
+
+      - name: Install Playwright browser (${{ matrix.browser }})
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+
+      - name: Run migrations
+        run: yarn workspace @beton-boi/server migration:run
+
+      - name: Seed database
+        run: yarn workspace @beton-boi/server seed
+
+      - name: E2E tests (${{ matrix.browser }})
+        run: yarn e2e --project=${{ matrix.browser }}
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-${{ matrix.browser }}
+          path: playwright-report/
+          if-no-files-found: ignore
+
+      - name: Upload traces, screenshots and videos
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-${{ matrix.browser }}
+          path: test-results/
+          if-no-files-found: ignore
+
   audit:
     name: Dependency vulnerability scan
     runs-on: ubuntu-latest

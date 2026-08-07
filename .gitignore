@@ -158,6 +158,12 @@ graphify-out/cache/
 # Build output (deployable artifact)
 build-output/
 
+# Playwright E2E ([8.5.1])
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
 # MemPalace per-project files (issue #185)
 mempalace.yaml
 entities.json
