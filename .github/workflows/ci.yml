@@ -116,6 +116,12 @@ jobs:
       JWT_SECRET: ci-integration-jwt-secret-do-not-use-in-production-1234567890
       NODE_ENV: test
       SEED_ADMIN_PASSWORD: ci-integration-seed-password-123
+      # Not required outside production (see encryption-key.ts), but
+      # [8.7.9]'s cross-tenant-access.e2e-spec.ts exercises a real
+      # settings PATCH with a real secret, which needs a real key to
+      # encrypt against. Not a real secret itself — this ephemeral CI
+      # Postgres never persists past the job.
+      SETTINGS_ENCRYPTION_KEY: ALXF2sGBYCMN6e11cADuMSXzm6O9y+r0alIiziMU0QI=
     steps:
       - uses: actions/checkout@v7
 

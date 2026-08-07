@@ -70,4 +70,95 @@ describe('mergeTenantSettings', () => {
 
     expect(merged.region).toEqual(DEFAULT_REGION_SETTINGS);
   });
+
+  describe('field-level merge within a medium — #8.7.9 PATCH contract', () => {
+    it('omitting a secret field from the patch leaves the stored value unchanged', () => {
+      const existing = {
+        version: 1,
+        communications: {
+          whatsapp: { phoneNumberId: '111', accessToken: 'enc:old-token' },
+        },
+      };
+      // Patch touches only phoneNumberId — accessToken is genuinely
+      // absent from the payload, not merely undefined-in-JS.
+      const patch = toPatch({
+        version: 1,
+        communications: { whatsapp: { phoneNumberId: '222' } },
+      });
+
+      const merged = mergeTenantSettings(existing, patch);
+      const whatsapp = (merged.communications as Record<string, unknown>).whatsapp as Record<
+        string,
+        unknown
+      >;
+
+      expect(whatsapp.phoneNumberId).toBe('222');
+      expect(whatsapp.accessToken).toBe('enc:old-token');
+    });
+
+    it('an explicit null clears a secret field rather than leaving it unchanged', () => {
+      const existing = {
+        version: 1,
+        communications: {
+          whatsapp: { phoneNumberId: '111', accessToken: 'enc:old-token' },
+        },
+      };
+      const patch = toPatch({
+        version: 1,
+        communications: { whatsapp: { phoneNumberId: '111', accessToken: null } },
+      });
+
+      const merged = mergeTenantSettings(existing, patch);
+      const whatsapp = (merged.communications as Record<string, unknown>).whatsapp as Record<
+        string,
+        unknown
+      >;
+
+      expect(whatsapp.accessToken).toBeNull();
+    });
+
+    it('merges two levels deep — sms.mimsms.apiKey omitted preserves it while senderId updates', () => {
+      const existing = {
+        version: 1,
+        communications: {
+          sms: {
+            provider: 'mimsms',
+            mimsms: { apiKey: 'enc:old-key', senderId: 'OLD' },
+          },
+        },
+      };
+      const patch = toPatch({
+        version: 1,
+        communications: {
+          sms: { provider: 'mimsms', mimsms: { senderId: 'NEW' } },
+        },
+      });
+
+      const merged = mergeTenantSettings(existing, patch);
+      const mimsms = (
+        (merged.communications as Record<string, unknown>).sms as Record<string, unknown>
+      ).mimsms as Record<string, unknown>;
+
+      expect(mimsms.senderId).toBe('NEW');
+      expect(mimsms.apiKey).toBe('enc:old-key');
+    });
+
+    it('a fresh field value on a never-configured medium still requires an unset field to be genuinely absent from the patch', () => {
+      // No `existing` at all — proves the merge doesn't crash reaching
+      // into a medium that was never configured before.
+      const patch = toPatch({
+        version: 1,
+        communications: { whatsapp: { phoneNumberId: '111' } },
+      });
+
+      const merged = mergeTenantSettings(null, patch);
+      const whatsapp = (merged.communications as Record<string, unknown>).whatsapp as Record<
+        string,
+        unknown
+      >;
+
+      expect(whatsapp.phoneNumberId).toBe('111');
+      expect('accessToken' in whatsapp).toBe(false);
+    });
+  });
 });
