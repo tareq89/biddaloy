@@ -1,4 +1,4 @@
-import type { CurrencyGrouping } from './region-config';
+import type { CurrencyGrouping } from '../i18n/region-config';
 
 /**
  * Digit-string grouping — pure string/integer manipulation, no floating

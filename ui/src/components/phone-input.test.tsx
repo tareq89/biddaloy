@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
 
-import { REGION_BD_EN } from '../utils/region-config';
+import { REGION_BD_EN } from '../i18n/region-config';
 
 import { formatValidPhone, PhoneInput } from './phone-input';
 

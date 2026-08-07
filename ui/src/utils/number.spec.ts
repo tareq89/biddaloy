@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
+import { REGION_BD_BN, REGION_BD_EN } from '../i18n/region-config';
+
 import { formatNumber, parseNumber } from './number';
-import { REGION_BD_BN, REGION_BD_EN } from './region-config';
 
 describe('formatNumber', () => {
   it('groups with thousand separators by default', () => {

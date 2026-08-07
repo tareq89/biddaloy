@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { useState } from 'react';
 
 import { rtlDecorator } from '../../.storybook/rtl-decorator';
-import { REGION_BD_EN } from '../utils/region-config';
+import { REGION_BD_EN } from '../i18n/region-config';
 
 import { PhoneInput } from './phone-input';
 

@@ -1,6 +1,7 @@
+import type { RegionConfig } from '../i18n/region-config';
+
 import { renderDigits, toLatinDigits } from './digits';
 import { groupDigits } from './grouping';
-import type { RegionConfig } from './region-config';
 
 /**
  * Generic (non-currency) number display — student counts, percentages,
