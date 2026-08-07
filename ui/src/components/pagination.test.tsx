@@ -47,4 +47,36 @@ describe('Pagination', () => {
     );
     await expect(container).toHaveNoViolations();
   });
+
+  it('clamps a page past the last page instead of rendering an overflowing range', () => {
+    // 145 items at 20/page is 8 pages; a stale `?page=999` (e.g. left over
+    // after a filter shrinks the result set) must not produce "19961–145".
+    render(<Pagination page={999} pageSize={20} totalCount={145} onPageChange={vi.fn()} />);
+    expect(screen.getByText('Showing 141–145 of 145')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Next' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('clamps a page below 1 instead of rendering a negative range', () => {
+    render(<Pagination page={0} pageSize={20} totalCount={145} onPageChange={vi.fn()} />);
+    expect(screen.getByText('Showing 1–20 of 145')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Previous' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('Previous/Next move relative to the clamped page, not the invalid input', async () => {
+    const onPageChange = vi.fn();
+    const user = userEvent.setup();
+    render(<Pagination page={999} pageSize={20} totalCount={145} onPageChange={onPageChange} />);
+    // Clamped to page 8 (the last real page) — Previous should go to 7,
+    // not 998, which would leave a caller stuck in invalid territory.
+    await user.click(screen.getByRole('button', { name: 'Previous' }));
+    expect(onPageChange).toHaveBeenCalledWith(7);
+  });
+
+  it('treats a zero or negative pageSize as 1 rather than dividing by zero', () => {
+    render(<Pagination page={1} pageSize={0} totalCount={145} onPageChange={vi.fn()} />);
+    expect(screen.getByText('Showing 1–1 of 145')).toBeTruthy();
+    // Math.ceil(145 / 0) is Infinity — a real totalPages must exist so
+    // Next is enabled (not stuck disabled) and eventually terminates.
+    expect(screen.getByRole('button', { name: 'Next' }).hasAttribute('disabled')).toBe(false);
+  });
 });

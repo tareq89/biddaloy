@@ -34,6 +34,13 @@ describe('StatusBadge', () => {
     expect(screen.getByText(/./).getAttribute('data-tone')).toBe(tone);
   });
 
+  it.each(Object.values(FeeStatus))(
+    'renders every FeeStatus value without throwing: %s',
+    (status) => {
+      expect(() => render(<StatusBadge domain="fee" status={status} />)).not.toThrow();
+    },
+  );
+
   it.each(Object.values(PaymentStatus))(
     'renders every PaymentStatus value without throwing: %s',
     (status) => {

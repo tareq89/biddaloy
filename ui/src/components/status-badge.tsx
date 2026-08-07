@@ -45,7 +45,9 @@ const TONE_STYLES: Record<
 
 /** Title-cases an enum key ("PARTIALLY_PAID" -> "Partially paid") — not
  * real i18n (that's [8.7.1]'s job), just a readable placeholder until
- * translated labels exist, same tradeoff every wrapper in this epic makes. */
+ * translated labels exist, same tradeoff every wrapper in this epic makes.
+ * TODO([8.7.1]): replace with a real translated-label lookup — nothing
+ * should come to depend on these English strings as if they were stable. */
 function humanize(key: string): string {
   const lower = key.toLowerCase().replace(/_/g, ' ');
   return lower.charAt(0).toUpperCase() + lower.slice(1);

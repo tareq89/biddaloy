@@ -23,7 +23,7 @@ export function ErrorState({ message, onRetry, retryLabel = 'Try again', icon }:
       role="alert"
       className="flex flex-col items-center gap-2 rounded-lg border border-border p-8 text-center"
     >
-      {icon}
+      {icon && <div className="text-muted-foreground [&_svg]:size-8">{icon}</div>}
       <p className="text-sm text-muted-foreground">{message}</p>
       <Button type="button" variant="outline" onClick={onRetry} className="mt-2">
         {retryLabel}

@@ -22,9 +22,17 @@ export function Pagination({
   previousLabel = 'Previous',
   nextLabel = 'Next',
 }: PaginationProps) {
-  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-  const rangeStart = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
-  const rangeEnd = Math.min(page * pageSize, totalCount);
+  // `page` routinely comes straight from a URL query param, and `pageSize`
+  // from wherever a caller's page-size selector defaults to before it's
+  // loaded — neither is guaranteed in-range. Clamping here means a stale
+  // `?page=999` after a filter shrinks the result set self-heals to the
+  // last real page instead of rendering a negative/overflowing range, and
+  // `pageSize=0` can't produce `Math.ceil(x / 0) === Infinity`.
+  const safePageSize = Math.max(1, pageSize);
+  const totalPages = Math.max(1, Math.ceil(totalCount / safePageSize));
+  const currentPage = Math.min(Math.max(page, 1), totalPages);
+  const rangeStart = totalCount === 0 ? 0 : (currentPage - 1) * safePageSize + 1;
+  const rangeEnd = Math.min(currentPage * safePageSize, totalCount);
 
   return (
     <nav aria-label="Pagination" className="flex items-center justify-between text-sm">
@@ -36,8 +44,8 @@ export function Pagination({
           type="button"
           variant="outline"
           size="sm"
-          disabled={page <= 1}
-          onClick={() => onPageChange(page - 1)}
+          disabled={currentPage <= 1}
+          onClick={() => onPageChange(currentPage - 1)}
         >
           {previousLabel}
         </Button>
@@ -45,8 +53,8 @@ export function Pagination({
           type="button"
           variant="outline"
           size="sm"
-          disabled={page >= totalPages}
-          onClick={() => onPageChange(page + 1)}
+          disabled={currentPage >= totalPages}
+          onClick={() => onPageChange(currentPage + 1)}
         >
           {nextLabel}
         </Button>

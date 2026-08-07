@@ -19,7 +19,7 @@ export interface EmptyStateProps {
 export function EmptyState({ title, explanation, action, icon }: EmptyStateProps) {
   return (
     <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border p-8 text-center">
-      {icon}
+      {icon && <div className="text-muted-foreground [&_svg]:size-8">{icon}</div>}
       <p className="font-medium">{title}</p>
       <p className="text-sm text-muted-foreground">{explanation}</p>
       <Button type="button" onClick={action.onClick} className="mt-2">

@@ -42,4 +42,30 @@ describe('EmptyState', () => {
     );
     await expect(container).toHaveNoViolations();
   });
+
+  it('wraps a passed icon in a sizing/colour container rather than rendering it bare at whatever size the caller happened to pass', () => {
+    render(
+      <EmptyState
+        title="No students"
+        explanation="Add a student to get started."
+        action={{ label: 'Add student', onClick: vi.fn() }}
+        icon={<svg data-testid="icon" />}
+      />,
+    );
+    const icon = screen.getByTestId('icon');
+    const wrapper = icon.parentElement;
+    expect(wrapper?.className).toContain('text-muted-foreground');
+    expect(wrapper?.className).toContain('size-8');
+  });
+
+  it('renders no icon wrapper at all when no icon is passed', () => {
+    const { container } = render(
+      <EmptyState
+        title="No students"
+        explanation="Add a student to get started."
+        action={{ label: 'Add student', onClick: vi.fn() }}
+      />,
+    );
+    expect(container.querySelector('svg')).toBeNull();
+  });
 });
