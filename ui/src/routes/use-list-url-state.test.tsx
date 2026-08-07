@@ -14,11 +14,13 @@ function Probe({ defaults }: { defaults?: { page?: number; limit?: number } }) {
       <p>page: {state.page}</p>
       <p>limit: {state.limit}</p>
       <p>order: {state.order}</p>
+      <p>sort: {state.sort ?? 'none'}</p>
       <button onClick={() => update({ limit: 25 })}>Set limit</button>
       <button onClick={() => update({ order: 'desc' })}>Sort descending</button>
       <button onClick={() => update({ filters: { page: '999', order: 'desc', class_id: 'c-1' } })}>
         Set filters including a reserved key
       </button>
+      <button onClick={() => update({ sort: null, order: null })}>Clear sort</button>
     </div>
   );
 }
@@ -90,5 +92,19 @@ describe('useListUrlState', () => {
     expect(router.state.location.search).not.toContain('page=999');
     expect(router.state.location.search).not.toContain('order=desc');
     expect(router.state.location.search).toContain('class_id=c-1');
+  });
+
+  it('update({ sort: null, order: null }) removes both params instead of leaving them empty', async () => {
+    const user = userEvent.setup();
+    const { router } = renderWithRouter(routes, {
+      initialEntries: ['/students?sort=full_name&order=desc'],
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Clear sort' }));
+
+    expect(router.state.location.search).not.toContain('sort=');
+    expect(router.state.location.search).not.toContain('order=');
+    expect(screen.getByText('sort: none')).toBeTruthy();
+    expect(screen.getByText('order: asc')).toBeTruthy();
   });
 });

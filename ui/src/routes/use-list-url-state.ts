@@ -25,8 +25,12 @@ export interface ListUrlState {
 export interface ListUrlStatePatch {
   page?: number;
   limit?: number;
-  sort?: string;
-  order?: 'asc' | 'desc';
+  /** `undefined` leaves the param untouched, a string sets it, `null`
+   * removes it — `sort`/`order` are the only params a caller can clear
+   * (a "clear sort" action needs the param gone, not set to `''`), since
+   * page/limit/filters always have a meaningful value to fall back to. */
+  sort?: string | null;
+  order?: 'asc' | 'desc' | null;
   filters?: Record<string, string>;
 }
 
@@ -65,8 +69,10 @@ export function useListUrlState(
       const next = new URLSearchParams(prev);
       if (patch.page !== undefined) next.set('page', String(patch.page));
       if (patch.limit !== undefined) next.set('limit', String(patch.limit));
-      if (patch.sort !== undefined) next.set('sort', patch.sort);
-      if (patch.order !== undefined) next.set('order', patch.order);
+      if (patch.sort === null) next.delete('sort');
+      else if (patch.sort !== undefined) next.set('sort', patch.sort);
+      if (patch.order === null) next.delete('order');
+      else if (patch.order !== undefined) next.set('order', patch.order);
       if (patch.filters !== undefined) {
         for (const [key, value] of Object.entries(patch.filters)) {
           // A caller-supplied filter key of 'page'/'limit'/'sort' would

@@ -56,6 +56,8 @@ export function useListShellState(
       setSorting: (next) => {
         if (next) {
           updateUrl({ sort: next.id, order: next.desc ? 'desc' : 'asc', page: 1 });
+        } else {
+          updateUrl({ sort: null, order: null, page: 1 });
         }
       },
       setFilters: (nextFilters) => {

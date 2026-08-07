@@ -24,10 +24,12 @@ function Probe() {
       <button onClick={() => actions.setSorting({ id: 'due_date', desc: true })}>
         Sort by due date
       </button>
+      <button onClick={() => actions.setSorting(null)}>Clear sorting</button>
       <button onClick={() => actions.setFilters({ class_id: 'class-9' })}>Filter class-9</button>
       <button onClick={() => actions.setSelectedIds(new Set(['s1', 's2']))}>
         Select two students
       </button>
+      <button onClick={() => actions.setSelectedIds(new Set())}>Clear selection</button>
     </div>
   );
 }
@@ -54,6 +56,20 @@ describe('useListShellState', () => {
     expect(router.state.location.search).toContain('page=1');
   });
 
+  it('setSorting(null) clears sort and order from the URL rather than being a no-op', async () => {
+    const user = userEvent.setup();
+    const { router } = renderWithRouter(routes, {
+      initialEntries: ['/students?sort=due_date&order=desc'],
+    });
+    expect(screen.getByText('sort: due_date:desc')).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Clear sorting' }));
+
+    await screen.findByText('sort: none');
+    expect(router.state.location.search).not.toContain('sort=');
+    expect(router.state.location.search).not.toContain('order=');
+  });
+
   it('setFilters resets page to 1 — the acceptance criterion', async () => {
     const user = userEvent.setup();
     const { router } = renderWithRouter(routes, { initialEntries: ['/students?page=4'] });
@@ -69,6 +85,16 @@ describe('useListShellState', () => {
 
     await user.click(screen.getByRole('button', { name: 'Select two students' }));
     await screen.findByText('selected: s1,s2');
+  });
+
+  it('setSelectedIds(new Set()) clears the selection back to none', async () => {
+    const user = userEvent.setup();
+    renderWithRouter(routes, { initialEntries: ['/students?selected=s1,s2'] });
+    expect(screen.getByText('selected: s1,s2')).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Clear selection' }));
+
+    await screen.findByText('selected: none');
   });
 
   it('a filter change preserves the current selection rather than clearing it', async () => {

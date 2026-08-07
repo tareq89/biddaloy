@@ -65,7 +65,7 @@ function StudentsListPage() {
         <Input
           aria-label="Search students"
           placeholder="Search by name…"
-          defaultValue={state.filters.q ?? ''}
+          value={state.filters.q ?? ''}
           onChange={(event) => actions.setFilters({ ...state.filters, q: event.target.value })}
         />
       }
