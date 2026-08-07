@@ -25,6 +25,18 @@ const typedRuleTester = new RuleTester({
   },
 });
 
+// `no-hardcoded-jsx-text` visits JSXText/JSXAttribute/JSXExpressionContainer
+// nodes, which need `ecmaFeatures.jsx` on — none of the other rules in this
+// file touch JSX syntax, so this is its own RuleTester rather than turned on
+// for every case above.
+const jsxRuleTester = new RuleTester({
+  languageOptions: {
+    ecmaVersion: 2022,
+    sourceType: 'module',
+    parserOptions: { ecmaFeatures: { jsx: true } },
+  },
+});
+
 ruleTester.run('no-radix-import', boundaryPlugin.rules['no-radix-import'], {
   valid: [
     "import { Placeholder } from '@beton-boi/ui/components';",
@@ -196,6 +208,79 @@ typedRuleTester.run('no-raw-intl (toLocaleString)', boundaryPlugin.rules['no-raw
       code: 'const s: string = (1000).toLocaleString();',
       filename: 'file.ts',
       errors: [{ messageId: 'rawToLocaleString' }],
+    },
+  ],
+});
+
+jsxRuleTester.run('no-hardcoded-jsx-text', boundaryPlugin.rules['no-hardcoded-jsx-text'], {
+  valid: [
+    // Already translated, or dynamic — the whole point of the rule.
+    "const x = <p>{t('greeting')}</p>;",
+    'const x = <p>{count}</p>;',
+    'const x = <p>{`${count} items`}</p>;',
+    // Whitespace-only JSX text (formatting between elements) — not content.
+    'const x = <div>\n  <span />\n</div>;',
+    // No letters — punctuation/digits/symbols don't need a translation key.
+    'const x = <p>{"1,234"}</p>;',
+    'const x = <p>×</p>;',
+    'const x = <p>—</p>;',
+    // Translated attribute values.
+    "const x = <input aria-label={t('search')} />;",
+    "const x = <input placeholder={t('search')} />;",
+    // A dynamic (non-static) attribute expression — can't safely judge, so
+    // left alone rather than false-flagged.
+    'const x = <input aria-label={label} />;',
+    // Attributes this rule doesn't police — never user-facing.
+    'const x = <input data-testid="search-box" name="search" id="search" />;',
+  ],
+  invalid: [
+    {
+      code: 'const x = <p>Delete student</p>;',
+      errors: [{ messageId: 'jsxText' }],
+    },
+    {
+      // Bengali counts as translatable text too — the rule isn't
+      // Latin-script-specific in either direction.
+      code: 'const x = <p>শিক্ষার্থী মুছুন</p>;',
+      errors: [{ messageId: 'jsxText' }],
+    },
+    {
+      // A plain string in a `{}` container is exactly as hardcoded as bare
+      // JSX text — just spelled differently.
+      code: 'const x = <p>{"Delete student"}</p>;',
+      errors: [{ messageId: 'jsxText' }],
+    },
+    {
+      // A template literal with no interpolation — backticks don't make a
+      // literal dynamic.
+      code: 'const x = <p>{`Delete student`}</p>;',
+      errors: [{ messageId: 'jsxText' }],
+    },
+    {
+      code: 'const x = <input aria-label="Delete student" />;',
+      errors: [{ messageId: 'jsxAttribute', data: { attr: 'aria-label' } }],
+    },
+    {
+      code: 'const x = <input placeholder="Search" />;',
+      errors: [{ messageId: 'jsxAttribute', data: { attr: 'placeholder' } }],
+    },
+    {
+      code: 'const x = <div title="More information" />;',
+      errors: [{ messageId: 'jsxAttribute', data: { attr: 'title' } }],
+    },
+    {
+      code: 'const x = <img alt="Student photo" />;',
+      errors: [{ messageId: 'jsxAttribute', data: { attr: 'alt' } }],
+    },
+    {
+      // `{}`-wrapped literal attribute value — same violation, just spelled
+      // with an unnecessary expression container.
+      code: "const x = <input aria-label={'Delete student'} />;",
+      errors: [{ messageId: 'jsxAttribute', data: { attr: 'aria-label' } }],
+    },
+    {
+      code: 'const x = <input placeholder={`Search`} />;',
+      errors: [{ messageId: 'jsxAttribute', data: { attr: 'placeholder' } }],
     },
   ],
 });

@@ -13,8 +13,10 @@
 //   - `typeCheckedTestOverrides`: relaxes a subset of `typeCheckedRules` for
 //     spec/test files — see the comment below for exactly what it turns off.
 //   - `componentBoundaryConfig`: enforces the @beton-boi/ui import boundary
-//     (no direct Radix, no deep/primitive imports, no raw Intl) — for
-//     client-* consumers only, never for `ui` itself. See the comment below.
+//     (no direct Radix, no deep/primitive imports, no raw Intl, no
+//     hardcoded user-facing JSX text or aria-label/placeholder/title/alt —
+//     [8.7.4]) — for client-* consumers only, never for `ui` itself. See
+//     the comment below.
 //   - `financialMutationGuardConfig`: [8.4.4]'s executable guard — no
 //     `onMutate` (optimistic updates) on a `useMutation` call that posts to
 //     a payments/fee-generation/invoice/enrollment endpoint. Applied to
@@ -85,6 +87,7 @@ export const componentBoundaryConfig = Object.freeze({
     'boundary/no-radix-import': 'error',
     'boundary/no-deep-ui-import': 'error',
     'boundary/no-raw-intl': 'error',
+    'boundary/no-hardcoded-jsx-text': 'error',
   }),
 });
 
