@@ -8,16 +8,15 @@ import { rtlDecorator } from '../../.storybook/rtl-decorator';
 import { DetailShell, type DetailShellTab } from './detail-shell';
 import { useDetailShellTab } from './use-detail-shell-tab';
 
+// No router decorator at the `meta` level — react-router doesn't allow
+// nesting `<Router>`s, so a story that needs its own `initialEntries`
+// (`DeepLinkedTab`) can't layer a second `MemoryRouter` on top of a
+// shared one. Each story that renders `useDetailShellTab` supplies its
+// own single `MemoryRouter` instead; `RightToLeft` doesn't call that
+// hook at all, so it needs no router.
 const meta: Meta<typeof DetailShell> = {
   title: 'Shells/DetailShell',
   tags: ['autodocs'],
-  decorators: [
-    (StoryFn) => (
-      <MemoryRouter initialEntries={['/students/1']}>
-        <StoryFn />
-      </MemoryRouter>
-    ),
-  ],
 };
 
 export default meta;
@@ -109,7 +108,16 @@ function StudentDetailPageWithCachedPanel() {
   );
 }
 
+const withStudentOneRouter = [
+  (StoryFn: () => React.ReactElement) => (
+    <MemoryRouter initialEntries={['/students/1']}>
+      <StoryFn />
+    </MemoryRouter>
+  ),
+];
+
 export const Default: Story = {
+  decorators: withStudentOneRouter,
   render: () => <StudentDetailPage />,
 };
 
@@ -119,6 +127,7 @@ export const Default: Story = {
  * had been unmounted (Radix's default) would have reset that state to
  * empty on remount. */
 export const CachedTabState: Story = {
+  decorators: withStudentOneRouter,
   render: () => <StudentDetailPageWithCachedPanel />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -137,6 +146,7 @@ export const CachedTabState: Story = {
 /** A user without delete permission — the `allowed: false` action is
  * hidden entirely, not just disabled. */
 export const PermissionGated: Story = {
+  decorators: withStudentOneRouter,
   render: () => <StudentDetailPage readOnly />,
 };
 

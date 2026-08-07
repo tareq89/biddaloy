@@ -15,16 +15,14 @@ import { Input } from '../components/input';
 import { ListShell } from './list-shell';
 import { useListShellState } from './use-list-shell-state';
 
+// No router decorator at the `meta` level — react-router doesn't allow
+// nesting `<Router>`s, so a story that needs its own `initialEntries`
+// (`WithSelection`, `FilteredAndSorted`) can't layer a second
+// `MemoryRouter` on top of a shared one. Each story supplies its own
+// single `MemoryRouter` instead.
 const meta: Meta<typeof ListShell> = {
   title: 'Shells/ListShell',
   tags: ['autodocs'],
-  decorators: [
-    (StoryFn) => (
-      <MemoryRouter initialEntries={['/students']}>
-        <StoryFn />
-      </MemoryRouter>
-    ),
-  ],
 };
 
 export default meta;
@@ -92,6 +90,13 @@ function StudentsListPage() {
 }
 
 export const Default: Story = {
+  decorators: [
+    (StoryFn) => (
+      <MemoryRouter initialEntries={['/students']}>
+        <StoryFn />
+      </MemoryRouter>
+    ),
+  ],
   render: () => <StudentsListPage />,
 };
 
