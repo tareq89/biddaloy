@@ -23,10 +23,12 @@ function resolveParent(
 }
 
 /** Applies `transform` to whichever of `paths` are present as non-empty
- * strings in `obj`, leaving everything else untouched. Shared by
- * `encryptSecretFields`/`decryptSecretFields` below — the only difference
- * between encrypting on write and decrypting on read is which direction
- * `transform` runs. */
+ * strings in `obj`, leaving everything else (including an explicit
+ * `null`, which needs different handling than a plain "not present" —
+ * see `settings-mask.util.ts`'s own, separate walker) untouched. Shared
+ * by `encryptSecretFields`/`decryptSecretFields` below — the only
+ * difference between encrypting on write and decrypting on read is which
+ * direction `transform` runs. */
 function transformAtPaths(
   obj: Record<string, unknown>,
   paths: string[],
@@ -64,8 +66,10 @@ export function encryptSecretFields(
 /** Inverse of `encryptSecretFields` — for trusted internal callers that
  * genuinely need the plaintext (e.g. #8.7.10's per-tenant provider
  * resolver, decrypting in memory only to make an outbound send). Never
- * call this to serve an HTTP response: #8.7.9's settings API masks
- * secrets instead of decrypting them, by design. */
+ * return this from an HTTP handler: #8.7.9's settings API calls
+ * `maskSecretFields` (`settings-mask.util.ts`) instead, which decrypts
+ * internally only to compute a redacted `hint` and never lets the full
+ * plaintext leave this module. */
 export function decryptSecretFields(
   settings: Record<string, unknown>,
   encryption: EncryptionService,
