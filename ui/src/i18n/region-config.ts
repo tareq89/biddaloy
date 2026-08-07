@@ -7,6 +7,7 @@
  * region" suite proves this holds by running every formatter in
  * `ui/src/utils` against a region that isn't Bangladesh.
  */
+import type { Locale } from './locale-storage';
 
 export type NumeralSystem = 'latin' | 'bengali';
 export type CurrencyGrouping = 'lakh-crore' | 'thousand';
@@ -100,6 +101,17 @@ export const REGION_BD_EN: RegionConfig = {
   locale: 'en-BD',
   currency: { ...REGION_BD_BN.currency },
   numerals: 'latin',
+};
+
+/** Which build-time default a locale falls back to absent any tenant
+ * override — `RegionConfigProvider`'s own default, and #8.7.14's
+ * `resolveRegionConfig`'s per-field fallback target for a tenant with no
+ * (or only partial) stored region settings. Lives here rather than in
+ * `region-config-provider.tsx` so both can import one copy instead of
+ * `resolveRegionConfig` needing its own duplicate of this mapping. */
+export const LOCALE_REGION_DEFAULTS: Record<Locale, RegionConfig> = {
+  bn: REGION_BD_BN,
+  en: REGION_BD_EN,
 };
 
 export { bnDigits };
