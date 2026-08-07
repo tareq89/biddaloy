@@ -50,6 +50,13 @@ describe('formatCurrency', () => {
   it('rejects a non-integer amount rather than silently truncating', () => {
     expect(() => formatCurrency(100.5, REGION_BD_EN)).toThrow(RangeError);
   });
+
+  it('rejects an amount past Number.MAX_SAFE_INTEGER rather than formatting a rounded value', () => {
+    // Number.isInteger(Number.MAX_SAFE_INTEGER + 2) is true — IEEE 754
+    // rounds it to an even integer — so this specifically needs
+    // Number.isSafeInteger, not Number.isInteger, to catch it.
+    expect(() => formatCurrency(Number.MAX_SAFE_INTEGER + 2, REGION_BD_EN)).toThrow(RangeError);
+  });
 });
 
 describe('parseCurrency', () => {
@@ -80,5 +87,20 @@ describe('parseCurrency', () => {
 
   it('throws when more decimal places are given than the currency supports', () => {
     expect(() => parseCurrency('100.999', REGION_BD_EN)).toThrow(RangeError);
+  });
+
+  it('throws on an amount past Number.MAX_SAFE_INTEGER rather than silently losing precision', () => {
+    // Two inputs one paisa apart, both past the safe-integer boundary,
+    // would `Number(...)` to the *same* double if this went through
+    // `Number(...)` directly — this is the failure mode `bigint` parsing
+    // avoids, verified by asserting both are rejected rather than by
+    // comparing them (RangeError means neither ever became a Number to
+    // compare).
+    expect(() => parseCurrency('123456789012345678.00', REGION_BD_EN)).toThrow(RangeError);
+    expect(() => parseCurrency('123456789012345679.00', REGION_BD_EN)).toThrow(RangeError);
+  });
+
+  it('parses an amount right at Number.MAX_SAFE_INTEGER exactly', () => {
+    expect(parseCurrency('90071992547409.91', REGION_BD_EN)).toBe(Number.MAX_SAFE_INTEGER);
   });
 });

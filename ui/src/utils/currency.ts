@@ -19,10 +19,13 @@ import type { RegionConfig } from './region-config';
  * shown, because BDT genuinely has them.
  */
 export function formatCurrency(amountMinorUnits: number, config: RegionConfig): string {
-  if (!Number.isInteger(amountMinorUnits)) {
+  if (!Number.isSafeInteger(amountMinorUnits)) {
     throw new RangeError(
       `formatCurrency expects an integer amount in minor units, got ${amountMinorUnits}. ` +
-        "Convert to paisa/cents first — see this file's header comment.",
+        "Convert to paisa/cents first — see this file's header comment. Amounts beyond " +
+        `Number.MAX_SAFE_INTEGER (${Number.MAX_SAFE_INTEGER}) can't be represented exactly as a ` +
+        'JS number at all — that also rules out `Number.isInteger`, which returns `true` for ' +
+        'plenty of values past that boundary that no longer mean what they look like.',
     );
   }
 
@@ -68,6 +71,21 @@ export function parseCurrency(input: string, config: RegionConfig): number {
   }
 
   const paddedFraction = fractionPart.padEnd(decimals, '0');
-  const minorUnits = Number(`${integerPart}${paddedFraction}`);
+  // Built as a `bigint` first, not `Number(...)` directly — that string can
+  // have arbitrarily many digits (nothing above bounds `integerPart`'s
+  // length), and going straight to `Number` would silently round anything
+  // past `Number.MAX_SAFE_INTEGER`, exactly the float-precision loss this
+  // module's header comment says it avoids. `bigint` parses the digits
+  // exactly; only the final range check below can lose information, and it
+  // throws instead of losing it.
+  const minorUnitsBig = BigInt(`${integerPart}${paddedFraction}`);
+  if (minorUnitsBig > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new RangeError(
+      `parseCurrency: "${input}" is larger than Number.MAX_SAFE_INTEGER minor units and can't be ` +
+        'represented exactly as a JS number.',
+    );
+  }
+
+  const minorUnits = Number(minorUnitsBig);
   return signPart === '-' ? -minorUnits : minorUnits;
 }

@@ -63,6 +63,14 @@ describe('getAcademicYear', () => {
       endYear: 2025,
     });
   });
+
+  it.each([0, 13, -1, 1.5, NaN])(
+    'rejects a config.academicYear.startMonth of %s rather than quietly producing a wrong year',
+    (startMonth) => {
+      const config: RegionConfig = { ...REGION_BD_EN, academicYear: { startMonth } };
+      expect(() => getAcademicYear(new Date(2024, 5, 15), config)).toThrow(RangeError);
+    },
+  );
 });
 
 describe('formatAcademicYear', () => {

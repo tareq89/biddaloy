@@ -49,6 +49,12 @@ export function getAcademicYear(
   config: RegionConfig,
 ): { startYear: number; endYear: number } {
   const { startMonth } = config.academicYear;
+  if (!Number.isInteger(startMonth) || startMonth < 1 || startMonth > 12) {
+    throw new RangeError(
+      `getAcademicYear: config.academicYear.startMonth must be an integer from 1 (January) to ` +
+        `12 (December), got ${startMonth}`,
+    );
+  }
   if (startMonth === 1) {
     return { startYear: date.getFullYear(), endYear: date.getFullYear() };
   }
