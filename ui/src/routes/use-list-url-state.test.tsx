@@ -13,10 +13,14 @@ function Probe({ defaults }: { defaults?: { page?: number; limit?: number } }) {
     <div>
       <p>page: {state.page}</p>
       <p>limit: {state.limit}</p>
+      <p>order: {state.order}</p>
+      <p>sort: {state.sort ?? 'none'}</p>
       <button onClick={() => update({ limit: 25 })}>Set limit</button>
-      <button onClick={() => update({ filters: { page: '999', class_id: 'c-1' } })}>
+      <button onClick={() => update({ order: 'desc' })}>Sort descending</button>
+      <button onClick={() => update({ filters: { page: '999', order: 'desc', class_id: 'c-1' } })}>
         Set filters including a reserved key
       </button>
+      <button onClick={() => update({ sort: null, order: null })}>Clear sort</button>
     </div>
   );
 }
@@ -28,6 +32,26 @@ describe('useListUrlState', () => {
     renderWithRouter(routes, { initialEntries: ['/students'] });
 
     expect(screen.getByText('limit: 10')).toBeTruthy();
+  });
+
+  it('defaults order to asc when absent from the URL', () => {
+    renderWithRouter(routes, { initialEntries: ['/students'] });
+    expect(screen.getByText('order: asc')).toBeTruthy();
+  });
+
+  it('reads order=desc from the URL, and treats anything else as asc', () => {
+    renderWithRouter(routes, { initialEntries: ['/students?order=desc'] });
+    expect(screen.getByText('order: desc')).toBeTruthy();
+
+    renderWithRouter(routes, { initialEntries: ['/students?order=garbage'] });
+    expect(screen.getAllByText('order: asc').length).toBeGreaterThan(0);
+  });
+
+  it('update({ order }) writes order into the URL', async () => {
+    const user = userEvent.setup();
+    const { router } = renderWithRouter(routes, { initialEntries: ['/students'] });
+    await user.click(screen.getByRole('button', { name: 'Sort descending' }));
+    expect(router.state.location.search).toContain('order=desc');
   });
 
   it('honours a caller-supplied default limit', () => {
@@ -62,10 +86,25 @@ describe('useListUrlState', () => {
 
     await user.click(screen.getByRole('button', { name: 'Set filters including a reserved key' }));
 
-    // The 'page' key inside filters must not have won over the real page
-    // param — only the non-reserved 'class_id' filter should apply.
+    // The 'page'/'order' keys inside filters must not have won over the
+    // real params — only the non-reserved 'class_id' filter should apply.
     expect(router.state.location.search).toContain('page=3');
     expect(router.state.location.search).not.toContain('page=999');
+    expect(router.state.location.search).not.toContain('order=desc');
     expect(router.state.location.search).toContain('class_id=c-1');
+  });
+
+  it('update({ sort: null, order: null }) removes both params instead of leaving them empty', async () => {
+    const user = userEvent.setup();
+    const { router } = renderWithRouter(routes, {
+      initialEntries: ['/students?sort=full_name&order=desc'],
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Clear sort' }));
+
+    expect(router.state.location.search).not.toContain('sort=');
+    expect(router.state.location.search).not.toContain('order=');
+    expect(screen.getByText('sort: none')).toBeTruthy();
+    expect(screen.getByText('order: asc')).toBeTruthy();
   });
 });
