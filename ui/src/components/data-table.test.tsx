@@ -1,0 +1,279 @@
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { DataTable, type DataTableColumn, type DataTableSort } from './data-table';
+
+interface Student {
+  id: string;
+  name: string;
+  className: string;
+}
+
+const STUDENTS: Student[] = [
+  { id: '1', name: 'Rahim Uddin', className: 'Six' },
+  { id: '2', name: 'Karim Ahmed', className: 'Seven' },
+  { id: '3', name: 'Fatema Begum', className: 'Six' },
+];
+
+const COLUMNS: DataTableColumn<Student>[] = [
+  { id: 'name', header: 'Name', accessorFn: (row) => row.name, sortable: true },
+  { id: 'className', header: 'Class', accessorFn: (row) => row.className },
+];
+
+function Controlled({
+  data = STUDENTS,
+  totalCount = STUDENTS.length,
+  loading = false,
+  error,
+  selectable = false,
+  emptyMessage,
+}: {
+  data?: Student[];
+  totalCount?: number;
+  loading?: boolean;
+  error?: string;
+  selectable?: boolean;
+  emptyMessage?: string;
+}) {
+  const [sorting, setSorting] = useState<DataTableSort | null>(null);
+  const [page, setPage] = useState(1);
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
+
+  return (
+    <DataTable
+      tableId="students-test"
+      caption="Students"
+      columns={COLUMNS}
+      data={data}
+      getRowId={(row) => row.id}
+      sorting={sorting}
+      onSortingChange={setSorting}
+      page={page}
+      pageSize={20}
+      totalCount={totalCount}
+      onPageChange={setPage}
+      loading={loading}
+      {...(error !== undefined ? { error } : {})}
+      {...(emptyMessage !== undefined ? { emptyMessage } : {})}
+      {...(selectable
+        ? {
+            selectedIds,
+            onSelectedIdsChange: setSelectedIds,
+            bulkActions: <button type="button">Delete selected</button>,
+          }
+        : {})}
+    />
+  );
+}
+
+describe('DataTable', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  it('renders a real <table> with a <caption> and <th scope="col">', () => {
+    render(<Controlled />);
+    const table = screen.getByRole('table');
+    expect(table.tagName).toBe('TABLE');
+    // The caption is visually hidden but present for the accessible name.
+    expect(screen.getByText('Students', { selector: 'caption' })).toBeTruthy();
+    for (const header of ['Name', 'Class']) {
+      const th = screen.getByRole('columnheader', { name: header });
+      expect(th.tagName).toBe('TH');
+      expect(th.getAttribute('scope')).toBe('col');
+    }
+  });
+
+  it('renders every row and cell from data', () => {
+    render(<Controlled />);
+    expect(screen.getByText('Rahim Uddin')).toBeTruthy();
+    expect(screen.getByText('Karim Ahmed')).toBeTruthy();
+    expect(screen.getByText('Fatema Begum')).toBeTruthy();
+  });
+
+  it('sets aria-sort on a sortable column header, cycling on click, and reports it via onSortingChange', async () => {
+    const user = userEvent.setup();
+    render(<Controlled />);
+    const nameHeader = screen.getByRole('columnheader', { name: /Name/ });
+    expect(nameHeader.getAttribute('aria-sort')).toBe('none');
+
+    await user.click(screen.getByRole('button', { name: /Name/ }));
+    await waitFor(() => expect(nameHeader.getAttribute('aria-sort')).toBe('ascending'));
+
+    await user.click(screen.getByRole('button', { name: /Name/ }));
+    await waitFor(() => expect(nameHeader.getAttribute('aria-sort')).toBe('descending'));
+  });
+
+  it('a non-sortable column header carries no aria-sort at all', () => {
+    render(<Controlled />);
+    expect(screen.getByRole('columnheader', { name: 'Class' }).hasAttribute('aria-sort')).toBe(
+      false,
+    );
+  });
+
+  it('shows a loading state as a first-class prop, not real rows', () => {
+    render(<Controlled loading />);
+    expect(screen.getByText('Loading…')).toBeTruthy();
+    expect(screen.queryByText('Rahim Uddin')).toBeNull();
+  });
+
+  it('shows an empty state with a caller-provided message', () => {
+    render(<Controlled data={[]} totalCount={0} emptyMessage="No students yet" />);
+    expect(screen.getByText('No students yet')).toBeTruthy();
+  });
+
+  it('shows an error state via role=alert rather than rendering stale rows', () => {
+    render(<Controlled data={[]} error="Failed to load students" />);
+    expect(screen.getByRole('alert').textContent).toBe('Failed to load students');
+  });
+
+  it('announces the result count politely on render', () => {
+    render(<Controlled totalCount={30} />);
+    expect(screen.getByText('3 of 30 results')).toBeTruthy();
+  });
+
+  it('the scroll container is a focusable, labelled region — the 320px responsive strategy', () => {
+    render(<Controlled />);
+    const region = screen.getByRole('region', { name: 'Students' });
+    expect(region.getAttribute('tabindex')).toBe('0');
+  });
+
+  it('arrow keys move cell focus via roving tabindex', async () => {
+    const user = userEvent.setup();
+    render(<Controlled />);
+    const cells = screen.getAllByRole('cell');
+    // Only one cell (the first) is a tab stop initially.
+    expect(cells[0]?.getAttribute('tabindex')).toBe('0');
+    expect(cells[1]?.getAttribute('tabindex')).toBe('-1');
+
+    cells[0]?.focus();
+    await user.keyboard('{ArrowRight}');
+    await waitFor(() => expect(document.activeElement).toBe(cells[1]));
+
+    await user.keyboard('{ArrowDown}');
+    // Two columns per row, so moving down one row lands two cells later.
+    await waitFor(() => expect(document.activeElement).toBe(cells[3]));
+
+    await user.keyboard('{ArrowUp}');
+    await waitFor(() => expect(document.activeElement).toBe(cells[1]));
+
+    await user.keyboard('{ArrowLeft}');
+    await waitFor(() => expect(document.activeElement).toBe(cells[0]));
+  });
+
+  it('Home/End move focus to the first/last cell in the current row', async () => {
+    const user = userEvent.setup();
+    render(<Controlled />);
+    const cells = screen.getAllByRole('cell');
+    cells[0]?.focus();
+
+    await user.keyboard('{End}');
+    await waitFor(() => expect(document.activeElement).toBe(cells[1]));
+
+    await user.keyboard('{Home}');
+    await waitFor(() => expect(document.activeElement).toBe(cells[0]));
+  });
+
+  it('arrow keys cannot move focus past the edges of the grid', async () => {
+    const user = userEvent.setup();
+    render(<Controlled />);
+    const cells = screen.getAllByRole('cell');
+    cells[0]?.focus();
+    await user.keyboard('{ArrowUp}{ArrowLeft}');
+    await waitFor(() => expect(document.activeElement).toBe(cells[0]));
+  });
+
+  it('Space toggles row selection when a cell in that row is focused, and toggles it back off', async () => {
+    const user = userEvent.setup();
+    render(<Controlled selectable />);
+    // The checkbox column's <td> isn't part of the roving-tabindex grid
+    // (the checkbox itself is its own native tab stop) — the first *data*
+    // cell (index 1, after the checkbox cell at index 0) is the roving stop.
+    const cells = screen.getAllByRole('cell');
+    cells[1]?.focus();
+    await user.keyboard(' ');
+    const checkboxes = screen.getAllByRole('checkbox', { name: /Select row/ });
+    await waitFor(() => expect(checkboxes[0]?.getAttribute('aria-checked')).toBe('true'));
+
+    await user.keyboard(' ');
+    await waitFor(() => expect(checkboxes[0]?.getAttribute('aria-checked')).toBe('false'));
+  });
+
+  it('Space on a cell does nothing when the table is not selectable', async () => {
+    const user = userEvent.setup();
+    render(<Controlled />);
+    const cells = screen.getAllByRole('cell');
+    cells[0]?.focus();
+    await user.keyboard(' ');
+    expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
+  });
+
+  it('exposes selection state and bulk actions to the shell only once something is selected', async () => {
+    const user = userEvent.setup();
+    render(<Controlled selectable />);
+    expect(screen.queryByRole('button', { name: 'Delete selected' })).toBeNull();
+
+    await user.click(screen.getAllByRole('checkbox', { name: /Select row/ })[0]!);
+    expect(await screen.findByRole('button', { name: 'Delete selected' })).toBeTruthy();
+    expect(screen.getByText('1 selected')).toBeTruthy();
+  });
+
+  it('selecting all rows via the header checkbox selects every row', async () => {
+    const user = userEvent.setup();
+    render(<Controlled selectable />);
+    await user.click(screen.getByRole('checkbox', { name: 'Select all rows' }));
+    for (const checkbox of screen.getAllByRole('checkbox', { name: /Select row/ })) {
+      expect(checkbox.getAttribute('aria-checked')).toBe('true');
+    }
+  });
+
+  it('persists column visibility to localStorage per tableId', () => {
+    const setItem = vi.spyOn(window.localStorage.__proto__, 'setItem');
+    render(<Controlled />);
+    expect(setItem).toHaveBeenCalledWith('data-table:students-test', expect.any(String));
+    setItem.mockRestore();
+  });
+
+  it('does not crash on a corrupt localStorage value for this tableId', () => {
+    window.localStorage.setItem('data-table:students-test', 'not json');
+    expect(() => render(<Controlled />)).not.toThrow();
+  });
+});
+
+describe('DataTable pagination', () => {
+  afterEach(() => window.localStorage.clear());
+
+  it('Previous is disabled on the first page, Next is not', () => {
+    render(<Controlled totalCount={100} />);
+    expect(screen.getByRole('button', { name: 'Previous' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('button', { name: 'Next' }).hasAttribute('disabled')).toBe(false);
+  });
+
+  it('clicking Next calls onPageChange with the next page', async () => {
+    const user = userEvent.setup();
+    function PageProbe() {
+      const [page, setPage] = useState(1);
+      const [sorting, setSorting] = useState<DataTableSort | null>(null);
+      return (
+        <DataTable
+          tableId="students-page-test"
+          caption="Students"
+          columns={COLUMNS}
+          data={STUDENTS}
+          getRowId={(row) => row.id}
+          sorting={sorting}
+          onSortingChange={setSorting}
+          page={page}
+          pageSize={2}
+          totalCount={10}
+          onPageChange={setPage}
+        />
+      );
+    }
+    render(<PageProbe />);
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    await waitFor(() => expect(screen.getByText('Page 2 of 5')).toBeTruthy());
+  });
+});

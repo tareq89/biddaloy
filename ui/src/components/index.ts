@@ -29,6 +29,12 @@ export { DatePicker, Calendar, type DatePickerProps } from './date-picker';
 export { Combobox, type ComboboxOption, type ComboboxProps } from './combobox';
 export { FileUpload, type FileUploadItem, type FileUploadProps } from './file-upload';
 export {
+  DataTable,
+  type DataTableColumn,
+  type DataTableProps,
+  type DataTableSort,
+} from './data-table';
+export {
   RadioGroup,
   RadioGroupItem,
   type RadioGroupProps,
