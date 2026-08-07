@@ -1,27 +1,29 @@
 import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { CommunicationSendResult } from '../communication-provider.interface';
 import { SmsGateway, isUnicodeMessage } from './sms-gateway.interface';
 import { normalizeBdPhoneNumber } from '../shared/phone-number.util';
+import { ResolvedGreenwebSmsConfig } from '../../config/tenant-provider-config.resolver';
 
 const DEFAULT_BASE_URL = 'https://api.greenweb.com.bd/api.php';
 const REQUEST_TIMEOUT_MS = 10_000;
 
 /**
  * Greenweb BD SMS gateway. GET-based REST API, keyed by an account token.
- * GREENWEB_API_URL is configurable in case the account's actual endpoint
- * differs from the documented default.
+ * `config` is resolved per tenant by `TenantProviderConfigResolver` and
+ * passed in by `SmsProviderFactory` — this gateway no longer reads
+ * `ConfigService` itself (#8.7.10).
  */
 @Injectable()
-export class GreenwebSmsGateway implements SmsGateway {
-  constructor(private readonly config: ConfigService) {}
-
-  async sendSms(to: string, message: string): Promise<CommunicationSendResult> {
+export class GreenwebSmsGateway implements SmsGateway<ResolvedGreenwebSmsConfig> {
+  async sendSms(
+    to: string,
+    message: string,
+    config: ResolvedGreenwebSmsConfig,
+  ): Promise<CommunicationSendResult> {
     try {
-      const token = this.config.get<string>('GREENWEB_API_KEY');
-      const baseUrl = this.config.get<string>('GREENWEB_API_URL') ?? DEFAULT_BASE_URL;
+      const baseUrl = config.apiUrl ?? DEFAULT_BASE_URL;
       const params = new URLSearchParams({
-        token: token ?? '',
+        token: config.apiKey,
         to: normalizeBdPhoneNumber(to),
         message,
       });
