@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
+import { REGION_BD_BN, REGION_BD_EN, type RegionConfig } from '../i18n/region-config';
+
 import { formatCurrency, parseCurrency } from './currency';
-import { REGION_BD_BN, REGION_BD_EN, type RegionConfig } from './region-config';
 
 describe('formatCurrency', () => {
   it("matches the issue's own example digit grouping — ৳1,23,456 in minor units (paisa), so the decimals show", () => {

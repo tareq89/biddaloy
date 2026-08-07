@@ -1,5 +1,6 @@
+import type { RegionConfig } from '../i18n/region-config';
+
 import { toLatinDigits } from './digits';
-import type { RegionConfig } from './region-config';
 
 export type PhoneParseResult = { valid: true; value: string } | { valid: false; reason: string };
 
@@ -30,10 +31,11 @@ export function parsePhone(input: string, config: RegionConfig): PhoneParseResul
   return { valid: true, value: digits };
 }
 
-/** Formats a national number (already validated — see `parsePhone`) as
- * `+880 1XXX-XXXXXX`. Only defined for Bangladesh's 10-digit mobile shape
- * today; a second region's `displayFormat` becomes configurable once
- * [8.7.2] lands the real `RegionConfig`. */
+/** Formats a national number (already validated — see `parsePhone`) using
+ * `config.phone.displayFormat`'s mask (`X` = next digit, everything else
+ * a literal) — `'XXXX-XXXXXX'` turns `1712345678` into `1712-345678`.
+ * A region with a different grouping is a mask change, not a code
+ * change here — proven by `region-config.spec.ts`'s second-region suite. */
 export function formatPhone(nationalNumber: string, config: RegionConfig): string {
   const result = parsePhone(nationalNumber, config);
   if (!result.valid) {
@@ -43,5 +45,11 @@ export function formatPhone(nationalNumber: string, config: RegionConfig): strin
   }
 
   const digits = result.value;
-  return `+${config.phone.country} ${digits.slice(0, 4)}-${digits.slice(4)}`;
+  let nextDigit = 0;
+  const nationalFormatted = config.phone.displayFormat.replace(
+    /X/g,
+    () => digits[nextDigit++] ?? '',
+  );
+
+  return `+${config.phone.country} ${nationalFormatted}`;
 }
