@@ -715,6 +715,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/schools/{id}/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read a school's tenant settings. Secret fields (WhatsApp/email/SMS credentials) are masked — configured flag and a short hint, never the plaintext. */
+        get: operations["SchoolsController_getSettings_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update a school's tenant settings. A secret field omitted from the body is left unchanged; sending it as null clears it. Unknown keys are rejected. */
+        patch: operations["SchoolsController_updateSettings_v1"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1416,6 +1434,92 @@ export interface components {
             provider_message_id: string | null;
             /** Format: date-time */
             created_at: string;
+        };
+        RegionCurrencyDto: {
+            code: string;
+            symbol: string;
+            /** @enum {string} */
+            position: "prefix" | "suffix";
+            decimals: number;
+            /** @enum {string} */
+            grouping: "lakh-crore" | "thousand";
+        };
+        RegionDateDto: {
+            format: string;
+            firstDayOfWeek: number;
+            calendar: string;
+        };
+        RegionPhoneDto: {
+            country: string;
+            pattern: string;
+            example: string;
+            displayFormat: string;
+        };
+        RegionAddressDto: {
+            fields: string[];
+            order: string[];
+        };
+        RegionAcademicYearDto: {
+            startMonth: number;
+        };
+        RegionIdentifiersDto: {
+            national: string;
+            student: string;
+        };
+        RegionSettingsDto: {
+            locale: string;
+            currency: components["schemas"]["RegionCurrencyDto"];
+            /** @enum {string} */
+            numerals: "latin" | "bengali";
+            date: components["schemas"]["RegionDateDto"];
+            phone: components["schemas"]["RegionPhoneDto"];
+            address: components["schemas"]["RegionAddressDto"];
+            academicYear: components["schemas"]["RegionAcademicYearDto"];
+            identifiers: components["schemas"]["RegionIdentifiersDto"];
+            timezone: string;
+        };
+        GreenwebSmsDto: {
+            apiKey?: string | null;
+            apiUrl?: string;
+        };
+        MimSmsDto: {
+            apiKey?: string | null;
+            senderId: string;
+            apiUrl?: string;
+        };
+        SmsSettingsDto: {
+            /** @enum {string} */
+            provider: "greenweb" | "mimsms";
+            greenweb?: components["schemas"]["GreenwebSmsDto"];
+            mimsms?: components["schemas"]["MimSmsDto"];
+        };
+        WhatsAppSettingsDto: {
+            phoneNumberId: string;
+            apiVersion?: string;
+            accessToken?: string | null;
+        };
+        EmailSettingsDto: {
+            host: string;
+            port: number;
+            user: string;
+            from: string;
+            password?: string | null;
+        };
+        MessengerSettingsDto: {
+            pageId: string;
+            accessToken?: string | null;
+        };
+        CommunicationsSettingsDto: {
+            sms?: components["schemas"]["SmsSettingsDto"];
+            whatsapp?: components["schemas"]["WhatsAppSettingsDto"];
+            email?: components["schemas"]["EmailSettingsDto"];
+            messenger?: components["schemas"]["MessengerSettingsDto"];
+        };
+        TenantSettingsDto: {
+            /** @enum {number} */
+            version: 1;
+            region?: components["schemas"]["RegionSettingsDto"];
+            communications?: components["schemas"]["CommunicationsSettingsDto"];
         };
     };
     responses: never;
@@ -3554,6 +3658,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CommunicationResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolsController_getSettings_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolsController_updateSettings_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantSettingsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
