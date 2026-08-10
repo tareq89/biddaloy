@@ -24,6 +24,7 @@ import { FeeModule } from './modules/fees/fees.module';
 import { InvoicesModule } from './modules/invoices/invoices.module';
 import { CommunicationsModule } from './modules/communications/communications.module';
 import { AuditModule } from './modules/audit/audit.module';
+import { SchoolsModule } from './modules/schools/schools.module';
 import { validate } from './config/env.validation';
 
 // Entities for auto-loading
@@ -161,6 +162,7 @@ import { RefreshToken } from './modules/auth/entities/refresh-token.entity';
     FeeModule,
     InvoicesModule,
     CommunicationsModule,
+    SchoolsModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
