@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 
-import type { Locale } from './locale-storage';
+import { toSupportedLocale, type Locale } from './locale-storage';
 
 export interface UseLocaleResult {
   locale: Locale;
@@ -17,12 +17,21 @@ export interface UseLocaleResult {
  * `useTranslation()` itself, which this wraps. Re-renders whenever the
  * active locale changes, including a change triggered from outside this
  * hook's own `setLocale` (react-i18next's `useTranslation` already
- * subscribes to `languageChanged`). */
+ * subscribes to `languageChanged`).
+ *
+ * Reads `resolvedLanguage` rather than `language`, and narrows the result:
+ * `language` is whatever was last *requested*, which i18next keeps even
+ * when `supportedLngs` rejects it, so a stray `changeLanguage('fr')` (a
+ * devtools poke, a future server-driven default) would otherwise hand
+ * every consumer a `Locale` of `'fr'` that no `LOCALE_REGION_DEFAULTS`- or
+ * `LOCALE_DIR`-style lookup has an entry for. `resolvedLanguage` already
+ * applies `fallbackLng`; `toSupportedLocale` covers the remaining window
+ * before init settles, when both are still `undefined`. */
 export function useLocale(): UseLocaleResult {
   const { i18n } = useTranslation();
 
   return {
-    locale: i18n.language as Locale,
+    locale: toSupportedLocale(i18n.resolvedLanguage ?? i18n.language),
     setLocale: (locale) => {
       void i18n.changeLanguage(locale);
     },

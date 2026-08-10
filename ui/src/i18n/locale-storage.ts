@@ -7,8 +7,18 @@ export const DEFAULT_LOCALE: Locale = 'bn';
 
 const STORAGE_KEY = 'beton-boi:locale';
 
-function isSupportedLocale(value: string | null): value is Locale {
-  return value !== null && (SUPPORTED_LOCALES as readonly string[]).includes(value);
+function isSupportedLocale(value: string | null | undefined): value is Locale {
+  return value != null && (SUPPORTED_LOCALES as readonly string[]).includes(value);
+}
+
+/** Narrows any language tag i18next hands back to one this app actually
+ * supports. i18next will happily report a language it was *asked* for even
+ * when `supportedLngs` excludes it — `changeLanguage('fr')` leaves
+ * `i18n.language` as `'fr'` while only `resolvedLanguage` falls back — so
+ * anything reading a locale off the instance has to narrow it rather than
+ * assert it, or `Locale` starts lying about what a caller can receive. */
+export function toSupportedLocale(value: string | null | undefined): Locale {
+  return isSupportedLocale(value) ? value : DEFAULT_LOCALE;
 }
 
 /** Reads the persisted locale choice. Falls back to `DEFAULT_LOCALE` for a
@@ -32,5 +42,18 @@ export function persistLocale(locale: Locale): void {
   } catch {
     // Same reasoning as getPersistedLocale: losing persistence is fine,
     // throwing over it mid-render is not.
+  }
+}
+
+/** Forgets the persisted choice, so the next read falls back to
+ * `DEFAULT_LOCALE` as if this were a first visit. Exists for
+ * `cleanupTestState()` — the storage key is private to this module, and a
+ * test helper reaching for the literal string would drift the moment it
+ * changed here. */
+export function clearPersistedLocale(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // As above — an environment without usable storage has nothing to clear.
   }
 }

@@ -4,8 +4,14 @@ import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { getAccessToken, getActiveRole, getActiveTenant } from '../api/auth-state';
+import { i18n } from '../i18n/i18n';
+import { DEFAULT_LOCALE, getPersistedLocale, persistLocale } from '../i18n/locale-storage';
 
-import { createTestQueryClient, renderWithProviders } from './render-with-providers';
+import {
+  cleanupTestState,
+  createTestQueryClient,
+  renderWithProviders,
+} from './render-with-providers';
 
 function Greeting() {
   return <p>hello</p>;
@@ -132,5 +138,48 @@ describe('renderWithProviders', () => {
     expect(button.textContent).toBe('save');
     await user.click(button);
     await waitFor(() => expect(button.textContent).toBe('saved'));
+  });
+
+  describe('locale', () => {
+    it('settles localeReady once the requested language is actually active', async () => {
+      const { localeReady } = renderWithProviders(<Greeting />, { locale: 'en' });
+
+      await localeReady;
+
+      // The point of the handle: after awaiting it, a *synchronous* read
+      // of the active language is already correct, with no waitFor.
+      expect(i18n.language).toBe('en');
+    });
+
+    it('resolves localeReady immediately when no locale was requested', async () => {
+      const { localeReady } = renderWithProviders(<Greeting />);
+
+      await expect(localeReady).resolves.toBeUndefined();
+    });
+
+    it('cleanupTestState restores both the active language and the persisted key', async () => {
+      const { localeReady } = renderWithProviders(<Greeting />, { locale: 'en' });
+      await localeReady;
+      expect(getPersistedLocale()).toBe('en');
+
+      await cleanupTestState();
+
+      expect(i18n.language).toBe(DEFAULT_LOCALE);
+      // The half the old guarded reset left behind — a leftover key here
+      // decides which language the next `createI18nInstance()` starts in.
+      expect(getPersistedLocale()).toBe(DEFAULT_LOCALE);
+    });
+
+    it('clears a persisted locale that was written without moving the active language', async () => {
+      // The case the old `i18n.language !== DEFAULT_LOCALE` guard missed
+      // entirely: storage and the in-memory language are separate state,
+      // and `locale-storage.test.ts` moves only the former.
+      persistLocale('en');
+      expect(i18n.language).toBe(DEFAULT_LOCALE);
+
+      await cleanupTestState();
+
+      expect(getPersistedLocale()).toBe(DEFAULT_LOCALE);
+    });
   });
 });
