@@ -1,15 +1,9 @@
-import {
-  IsIn,
-  IsInt,
-  IsOptional,
-  IsString,
-  IsArray,
-  ArrayNotEmpty,
-  Min,
-  Max,
-} from 'class-validator';
+import { IsIn, IsInt, IsString, IsArray, ArrayNotEmpty, Min, Max, Validate } from 'class-validator';
 import { Secret } from '../settings/secret-field.decorator';
 import { NestedSettings } from '../settings/nested-settings.decorator';
+import { OptionalSetting } from '../settings/optional-setting.decorator';
+import { IsRegexSourceConstraint } from '../settings/regex-source.validator';
+import { SmsProviderIsConfiguredConstraint } from '../settings/sms-provider-config.validator';
 import type {
   NumeralSystem,
   CurrencyGrouping,
@@ -67,6 +61,7 @@ export class RegionPhoneDto {
   country: string;
 
   @IsString()
+  @Validate(IsRegexSourceConstraint)
   pattern: string;
 
   @IsString()
@@ -97,9 +92,14 @@ export class RegionAcademicYearDto {
 
 export class RegionIdentifiersDto {
   @IsString()
+  @Validate(IsRegexSourceConstraint)
   national: string;
 
+  // Empty string is a legitimate "no student-ID format enforced" — see
+  // DEFAULT_REGION_SETTINGS — and compiles to a match-everything regex,
+  // so it needs no special case here.
   @IsString()
+  @Validate(IsRegexSourceConstraint)
   student: string;
 }
 
@@ -137,7 +137,7 @@ export class GreenwebSmsDto {
   @Secret()
   apiKey: string;
 
-  @IsOptional()
+  @OptionalSetting()
   @IsString()
   apiUrl?: string;
 }
@@ -150,20 +150,21 @@ export class MimSmsDto {
   @IsString()
   senderId: string;
 
-  @IsOptional()
+  @OptionalSetting()
   @IsString()
   apiUrl?: string;
 }
 
 export class SmsSettingsDto {
   @IsIn(['greenweb', 'mimsms'])
+  @Validate(SmsProviderIsConfiguredConstraint)
   provider: SmsGatewayName;
 
-  @IsOptional()
+  @OptionalSetting()
   @NestedSettings(() => GreenwebSmsDto)
   greenweb?: GreenwebSmsDto;
 
-  @IsOptional()
+  @OptionalSetting()
   @NestedSettings(() => MimSmsDto)
   mimsms?: MimSmsDto;
 }
@@ -172,7 +173,7 @@ export class WhatsAppSettingsDto {
   @IsString()
   phoneNumberId: string;
 
-  @IsOptional()
+  @OptionalSetting()
   @IsString()
   apiVersion?: string;
 
@@ -211,19 +212,19 @@ export class MessengerSettingsDto {
 }
 
 export class CommunicationsSettingsDto {
-  @IsOptional()
+  @OptionalSetting()
   @NestedSettings(() => SmsSettingsDto)
   sms?: SmsSettingsDto;
 
-  @IsOptional()
+  @OptionalSetting()
   @NestedSettings(() => WhatsAppSettingsDto)
   whatsapp?: WhatsAppSettingsDto;
 
-  @IsOptional()
+  @OptionalSetting()
   @NestedSettings(() => EmailSettingsDto)
   email?: EmailSettingsDto;
 
-  @IsOptional()
+  @OptionalSetting()
   @NestedSettings(() => MessengerSettingsDto)
   messenger?: MessengerSettingsDto;
 }
@@ -232,11 +233,11 @@ export class TenantSettingsDto {
   @IsIn([TENANT_SETTINGS_SCHEMA_VERSION])
   version: typeof TENANT_SETTINGS_SCHEMA_VERSION;
 
-  @IsOptional()
+  @OptionalSetting()
   @NestedSettings(() => RegionSettingsDto)
   region?: RegionSettingsDto;
 
-  @IsOptional()
+  @OptionalSetting()
   @NestedSettings(() => CommunicationsSettingsDto)
   communications?: CommunicationsSettingsDto;
 }
