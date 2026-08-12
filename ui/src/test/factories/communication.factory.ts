@@ -1,4 +1,4 @@
-import { CommunicationMedium, CommunicationStatus } from '@beton-boi/shared';
+import { CommunicationMedium, CommunicationStatus } from '@biddaloy/shared';
 
 import type { components } from '../../api/schema';
 

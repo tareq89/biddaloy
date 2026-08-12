@@ -8,7 +8,7 @@ import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator
 import { AuditService } from './audit.service';
 import { QueryAuditLogDto } from './dto/audit-log.dto';
 import { AuditLogListResponseDto, AuditLogResponseDto } from './dto/audit-log-response.dto';
-import { UserRole } from '@beton-boi/shared';
+import { UserRole } from '@biddaloy/shared';
 
 @ApiTags('audit-logs')
 @ApiTenantAuth()

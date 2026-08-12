@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { EnrollmentController } from './enrollments.controller';
 import { EnrollmentService } from './enrollments.service';
-import { UserRole } from '@beton-boi/shared';
+import { UserRole } from '@biddaloy/shared';
 
 /**
  * Unit tests for EnrollmentController.

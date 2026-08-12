@@ -20,7 +20,7 @@ import {
   SEED_SECTION_1_ID,
   SEED_ACADEMIC_YEAR_ID,
 } from '@test/constants';
-import { UserRole, TeacherDesignation } from '@beton-boi/shared';
+import { UserRole, TeacherDesignation } from '@biddaloy/shared';
 
 /**
  * Integration tests for UserService and TeacherService.

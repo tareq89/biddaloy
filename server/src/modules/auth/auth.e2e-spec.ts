@@ -47,7 +47,7 @@ describe('Auth E2E', () => {
   beforeAll(async () => {
     // Ensure test database is used
     process.env.DATABASE_URL =
-      process.env.DATABASE_URL || 'postgres://postgres:***@localhost:5432/betonboi';
+      process.env.DATABASE_URL || 'postgres://postgres:***@localhost:5432/biddaloy';
     process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-do-not-use-in-production';
     process.env.NODE_ENV = 'test';
 

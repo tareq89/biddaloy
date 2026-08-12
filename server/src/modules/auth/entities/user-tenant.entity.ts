@@ -11,7 +11,7 @@ import {
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { School } from '../../schools/entities/school.entity';
-import { UserRole } from '@beton-boi/shared';
+import { UserRole } from '@biddaloy/shared';
 
 /**
  * Junction table linking a User to a School (tenant) with a specific role.

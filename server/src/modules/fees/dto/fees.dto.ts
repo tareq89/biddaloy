@@ -23,7 +23,7 @@ import {
   PaymentStatus,
   PaymentAllocationType,
   FeeStatus,
-} from '@beton-boi/shared';
+} from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 
 export type FeeDuesSortBy = 'due_amount' | 'name' | 'class';

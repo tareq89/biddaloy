@@ -11,7 +11,7 @@
     "sourceMap": false,
     "types": ["vite/client"],
     "paths": {
-      "@beton-boi/shared": ["../shared/src"],
+      "@biddaloy/shared": ["../shared/src"],
       "@/*": ["./src/*"]
     }
   },

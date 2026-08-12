@@ -8,7 +8,7 @@ import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { FeeStructure } from './entities/fee-structure.entity';
 import { FeeStructureStudent } from './entities/fee-structure-student.entity';
 import { StudentFee } from './entities/student-fee.entity';
-import { EnrollmentStatus, FeeApplicability, FeeStatus } from '@beton-boi/shared';
+import { EnrollmentStatus, FeeApplicability, FeeStatus } from '@biddaloy/shared';
 import { GenerateStudentFeesDto, GenerateFeesResultDto } from './dto/fees.dto';
 
 /**

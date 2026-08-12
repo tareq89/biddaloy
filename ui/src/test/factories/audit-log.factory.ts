@@ -1,4 +1,4 @@
-import { AuditAction } from '@beton-boi/shared';
+import { AuditAction } from '@biddaloy/shared';
 
 import type { components } from '../../api/schema';
 

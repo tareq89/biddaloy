@@ -1,5 +1,5 @@
 /**
- * Storybook 8 config for `@beton-boi/ui` — [8.6.1].
+ * Storybook 8 config for `@biddaloy/ui` — [8.6.1].
  *
  * Uses the same Vite plugins (`@vitejs/plugin-react`, `@tailwindcss/vite`) and
  * path aliases as the real consuming apps' `vite.config.ts` (see
@@ -39,7 +39,7 @@ const config: StorybookConfig = {
       resolve: {
         alias: {
           '@': resolve(__dirname, '../src'),
-          '@beton-boi/shared': resolve(__dirname, '../../shared/src'),
+          '@biddaloy/shared': resolve(__dirname, '../../shared/src'),
         },
       },
     });

@@ -13,7 +13,7 @@ import { useCreatePayment } from './payments';
 /**
  * [8.4.4]'s AC calls for a submit control and preserved form state, which
  * needs an actual rendered form — not just a hook-level assertion. No real
- * `Input`/form primitive exists in `@beton-boi/ui/components` yet (only
+ * `Input`/form primitive exists in `@biddaloy/ui/components` yet (only
  * `Button` — see `ui/src/primitives/README.md`; real shadcn wrappers are
  * epic 8.6's job), so this is a local, test-only reference component using
  * plain HTML form elements, the same way `render-hook-with-providers.test.

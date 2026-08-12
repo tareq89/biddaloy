@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ContextGuard, RolesGuard } from './context.guard';
-import { UserRole } from '@beton-boi/shared';
+import { UserRole } from '@biddaloy/shared';
 
 // ============================================================================
 // ContextGuard Tests

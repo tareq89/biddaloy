@@ -27,7 +27,7 @@ const typedRuleTester = new RuleTester({
 
 ruleTester.run('no-radix-import', boundaryPlugin.rules['no-radix-import'], {
   valid: [
-    "import { Placeholder } from '@beton-boi/ui/components';",
+    "import { Placeholder } from '@biddaloy/ui/components';",
     "import { Dialog } from './my-own-dialog';",
     "import radixLikeButNot from '@radix-ui-clone/button';",
   ],
@@ -82,22 +82,22 @@ ruleTester.run('no-radix-import', boundaryPlugin.rules['no-radix-import'], {
 
 ruleTester.run('no-deep-ui-import', boundaryPlugin.rules['no-deep-ui-import'], {
   valid: [
-    "import { Placeholder } from '@beton-boi/ui/components';",
-    "import { cn } from '@beton-boi/ui/utils';",
+    "import { Placeholder } from '@biddaloy/ui/components';",
+    "import { cn } from '@biddaloy/ui/utils';",
     "import { Button } from './primitives-catalog';",
     // An unrelated package or local folder that happens to be named
-    // "primitives" isn't this boundary's concern — only @beton-boi/ui's
+    // "primitives" isn't this boundary's concern — only @biddaloy/ui's
     // own tree is.
     "import { Button } from '@vendor/primitives/button';",
     "import { Button } from '../primitives/button';",
   ],
   invalid: [
     {
-      code: "import { Button } from '@beton-boi/ui/src/primitives/button';",
+      code: "import { Button } from '@biddaloy/ui/src/primitives/button';",
       errors: [
         {
           messageId: 'deepImport',
-          data: { source: '@beton-boi/ui/src/primitives/button' },
+          data: { source: '@biddaloy/ui/src/primitives/button' },
         },
       ],
     },
@@ -111,29 +111,29 @@ ruleTester.run('no-deep-ui-import', boundaryPlugin.rules['no-deep-ui-import'], {
       ],
     },
     {
-      code: "export { Button } from '@beton-boi/ui/src/primitives/button';",
+      code: "export { Button } from '@biddaloy/ui/src/primitives/button';",
       errors: [
         {
           messageId: 'deepImport',
-          data: { source: '@beton-boi/ui/src/primitives/button' },
+          data: { source: '@biddaloy/ui/src/primitives/button' },
         },
       ],
     },
     {
-      code: "export * from '@beton-boi/ui/src/primitives/button';",
+      code: "export * from '@biddaloy/ui/src/primitives/button';",
       errors: [
         {
           messageId: 'deepImport',
-          data: { source: '@beton-boi/ui/src/primitives/button' },
+          data: { source: '@biddaloy/ui/src/primitives/button' },
         },
       ],
     },
     {
-      code: "import('@beton-boi/ui/src/primitives/button');",
+      code: "import('@biddaloy/ui/src/primitives/button');",
       errors: [
         {
           messageId: 'deepImport',
-          data: { source: '@beton-boi/ui/src/primitives/button' },
+          data: { source: '@biddaloy/ui/src/primitives/button' },
         },
       ],
     },
@@ -143,7 +143,7 @@ ruleTester.run('no-deep-ui-import', boundaryPlugin.rules['no-deep-ui-import'], {
 // Intl.NumberFormat/DateTimeFormat: no type info needed, plain parser is fine.
 ruleTester.run('no-raw-intl (Intl constructors)', boundaryPlugin.rules['no-raw-intl'], {
   valid: [
-    "import { formatCurrency } from '@beton-boi/ui/utils'; formatCurrency(100);",
+    "import { formatCurrency } from '@biddaloy/ui/utils'; formatCurrency(100);",
     // No wrapper exists for these today — must not be flagged (see the
     // rule's WRAPPED_INTL_CONSTRUCTORS comment).
     "const rtf = new Intl.RelativeTimeFormat('en-US');",

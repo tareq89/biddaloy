@@ -39,7 +39,7 @@ import {
   CommunicationStatus,
   CommunicationTrigger,
   ReminderBatchStatus,
-} from '@beton-boi/shared';
+} from '@biddaloy/shared';
 
 // Re-exported so existing imports (this file's own spec, in particular)
 // keep working — the shared #18 single-reminder flow needs these too, so

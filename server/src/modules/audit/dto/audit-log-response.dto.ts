@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { AuditAction } from '@beton-boi/shared';
+import { AuditAction } from '@biddaloy/shared';
 import { AuditLog } from '../entities/audit-log.entity';
 
 /**

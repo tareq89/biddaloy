@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { StudentFee } from './entities/student-fee.entity';
 import { Student } from '../students/entities/student.entity';
-import { FeeStatus } from '@beton-boi/shared';
+import { FeeStatus } from '@biddaloy/shared';
 import { QueryFeeDuesDto, QueryFlaggedDuesDto } from './dto/fees.dto';
 
 const OPEN_STATUSES = [FeeStatus.PENDING, FeeStatus.PARTIALLY_PAID];

@@ -6,7 +6,7 @@ import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { DataSource } from 'typeorm';
-import { UserRole } from '@beton-boi/shared';
+import { UserRole } from '@biddaloy/shared';
 import {
   SEED_TENANT_ID,
   SEED_ADMIN_EMAIL,
@@ -31,7 +31,7 @@ describe('Academic Years E2E', () => {
   beforeAll(async () => {
     // Ensure test database is used
     process.env.DATABASE_URL =
-      process.env.DATABASE_URL || 'postgres://postgres:***@localhost:5432/betonboi';
+      process.env.DATABASE_URL || 'postgres://postgres:***@localhost:5432/biddaloy';
     process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-do-not-use-in-production';
     process.env.NODE_ENV = 'test';
 

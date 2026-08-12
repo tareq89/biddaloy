@@ -1,7 +1,7 @@
 /**
- * Root barrel for `@beton-boi/ui`.
+ * Root barrel for `@biddaloy/ui`.
  *
- * Prefer the subpath exports (`@beton-boi/ui/components`, `/hooks`, `/utils`,
+ * Prefer the subpath exports (`@biddaloy/ui/components`, `/hooks`, `/utils`,
  * …) in application code — they keep import lines honest about what a module
  * actually depends on, and let a bundler drop the rest.
  */

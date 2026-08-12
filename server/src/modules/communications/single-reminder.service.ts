@@ -38,7 +38,7 @@ import {
   CommunicationMedium,
   CommunicationStatus,
   CommunicationTrigger,
-} from '@beton-boi/shared';
+} from '@biddaloy/shared';
 
 const DEFAULT_EMAIL_SUBJECT = 'Fee Reminder';
 

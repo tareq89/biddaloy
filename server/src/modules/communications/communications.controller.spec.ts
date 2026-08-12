@@ -3,7 +3,7 @@ import { CommunicationsController } from './communications.controller';
 import { CommunicationsService } from './communications.service';
 import { BulkReminderService } from './reminders.service';
 import { SingleReminderService } from './single-reminder.service';
-import { CommunicationMedium, UserRole } from '@beton-boi/shared';
+import { CommunicationMedium, UserRole } from '@biddaloy/shared';
 
 /**
  * Unit tests for CommunicationsController.

@@ -7,7 +7,7 @@ import { ClassSection } from '../academics/entities/class-section.entity';
 import { Class } from '../academics/entities/class.entity';
 import { CreateStudentDto, UpdateStudentDto, QueryStudentDto } from './dto/students.dto';
 import { CreateGuardianDto, UpdateGuardianDto, QueryGuardianDto } from './dto/students.dto';
-import { CommunicationMedium } from '@beton-boi/shared';
+import { CommunicationMedium } from '@biddaloy/shared';
 
 // Second key for the roll-number advisory lock, distinguishing it from the
 // registration-number lock's (hashtext(tenant_id), year) pair — see

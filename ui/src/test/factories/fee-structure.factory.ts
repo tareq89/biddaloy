@@ -1,4 +1,4 @@
-import { FeeApplicability, FeeType } from '@beton-boi/shared';
+import { FeeApplicability, FeeType } from '@biddaloy/shared';
 
 import type { components } from '../../api/schema';
 

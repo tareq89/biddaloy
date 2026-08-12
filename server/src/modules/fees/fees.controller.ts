@@ -37,8 +37,8 @@ import {
   QueryFeeDuesDto,
   QueryFlaggedDuesDto,
 } from './dto/fees.dto';
-import { UserRole } from '@beton-boi/shared';
-import { JwtPayload } from '@beton-boi/shared';
+import { UserRole } from '@biddaloy/shared';
+import { JwtPayload } from '@biddaloy/shared';
 import { requestContext } from '../../common/request-context.util';
 
 @ApiTags('fees')

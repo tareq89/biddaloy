@@ -14,7 +14,7 @@ import { Student } from '../../students/entities/student.entity';
 import { User } from '../../users/entities/user.entity';
 import { School } from '../../schools/entities/school.entity';
 import { Invoice } from '../../invoices/entities/invoice.entity';
-import { PaymentMethod, PaymentStatus } from '@beton-boi/shared';
+import { PaymentMethod, PaymentStatus } from '@biddaloy/shared';
 import { PaymentAllocation } from './payment-allocation.entity';
 
 /**

@@ -1,7 +1,7 @@
 import { ApiError } from '../api/errors';
 
 /**
- * Shared retry predicate for `@beton-boi/ui`'s query/mutation hooks. A
+ * Shared retry predicate for `@biddaloy/ui`'s query/mutation hooks. A
  * 4xx response means the request was rejected for a reason retrying
  * can't fix — bad input, a role the caller doesn't hold, a resource that
  * doesn't exist, a duplicate — so retrying just repeats the exact same

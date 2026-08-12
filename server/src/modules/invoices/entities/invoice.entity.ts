@@ -11,7 +11,7 @@ import {
 import { Student } from '../../students/entities/student.entity';
 import { StudentFee } from '../../fees/entities/student-fee.entity';
 import { User } from '../../users/entities/user.entity';
-import { InvoiceStatus } from '@beton-boi/shared';
+import { InvoiceStatus } from '@biddaloy/shared';
 
 /**
  * Official invoice document for fee payment.

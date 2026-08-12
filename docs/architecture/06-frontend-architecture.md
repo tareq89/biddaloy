@@ -4,7 +4,7 @@ Three frontend packages, one strict rule about how they relate:
 
 ```mermaid
 flowchart TB
-    subgraph "ui/ (@beton-boi/ui)"
+    subgraph "ui/ (@biddaloy/ui)"
         PRIM["primitives/\n(raw Radix wrappers —\nButton, Dialog, Select, ...)"]
         COMP["components/\n(composed, opinionated —\nDataTable, FormField, DatePicker, ...)"]
         SHELL["shells/\n(page-level layout patterns —\nFormShell, ListShell, DetailShell, WizardShell)"]
@@ -29,7 +29,7 @@ flowchart TB
 ## The component boundary rule (enforced, not a convention)
 
 `client-admin` and `client-student` may **only** import from
-`@beton-boi/ui`'s published subpaths — never Radix directly, never a deep
+`@biddaloy/ui`'s published subpaths — never Radix directly, never a deep
 `ui/src/...` or `.../primitives/...` path, never a raw `Intl`/
 `toLocaleString()` call in place of a shared formatter. This is enforced by
 a custom ESLint rule (`ui/eslint-rules/component-boundary.mjs`), registered
@@ -82,7 +82,7 @@ for the server response.
 - **`client-student`** — guardian/student self-service: view fees,
   enrollment, invoices.
 
-Both are Vite + React 19 SPAs, both consume `@beton-boi/ui`, both are built
+Both are Vite + React 19 SPAs, both consume `@biddaloy/ui`, both are built
 independently and served as static assets by the NestJS server in
 production (see [00-overview.md](00-overview.md) for the system diagram).
 

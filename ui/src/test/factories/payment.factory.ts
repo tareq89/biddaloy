@@ -1,4 +1,4 @@
-import { PaymentMethod, PaymentStatus } from '@beton-boi/shared';
+import { PaymentMethod, PaymentStatus } from '@biddaloy/shared';
 
 import type { components } from '../../api/schema';
 

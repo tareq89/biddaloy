@@ -12,7 +12,7 @@ import {
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { School } from '../../schools/entities/school.entity';
-import { TeacherDesignation } from '@beton-boi/shared';
+import { TeacherDesignation } from '@biddaloy/shared';
 
 /**
  * Staff profile extending the base User account.

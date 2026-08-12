@@ -13,7 +13,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { CommunicationMedium, EnrollmentStatus } from '@beton-boi/shared';
+import { CommunicationMedium, EnrollmentStatus } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 
 // Matches "01712345678", "+8801712345678", or "8801712345678" — Bangladesh

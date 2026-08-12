@@ -15,7 +15,7 @@ import { ApiOperation, ApiTags, ApiUnauthorizedResponse, ApiBearerAuth } from '@
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
-import { LoginResponse, JwtPayload } from '@beton-boi/shared';
+import { LoginResponse, JwtPayload } from '@biddaloy/shared';
 import { STRICT_RATE_LIMIT } from '../../rate-limit';
 import {
   REFRESH_TOKEN_COOKIE,

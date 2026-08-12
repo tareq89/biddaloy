@@ -26,7 +26,7 @@ import {
 } from './dto/users.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { TeacherListResponseDto, TeacherResponseDto } from './dto/teacher-response.dto';
-import { UserRole } from '@beton-boi/shared';
+import { UserRole } from '@biddaloy/shared';
 
 @ApiTags('users')
 @ApiTenantAuth()

@@ -10,9 +10,9 @@ import {
 } from './reminder-template.util';
 
 // require(), not a static import — see sanitize-text.decorator.ts's comment on
-// why a static `import { sanitizeStrict } from '@beton-boi/shared'` silently
+// why a static `import { sanitizeStrict } from '@biddaloy/shared'` silently
 // binds to undefined under this repo's vitest config.
-const { sanitizeStrict } = require('@beton-boi/shared') as typeof import('@beton-boi/shared');
+const { sanitizeStrict } = require('@biddaloy/shared') as typeof import('@biddaloy/shared');
 
 const VARS: ReminderTemplateVars = {
   student_name: 'Rahim Uddin',

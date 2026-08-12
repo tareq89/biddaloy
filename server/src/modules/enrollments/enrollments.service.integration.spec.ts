@@ -20,7 +20,7 @@ import {
   SEED_SECTION_1_ID,
   SEED_ACADEMIC_YEAR_ID,
 } from '@test/constants';
-import { EnrollmentStatus } from '@beton-boi/shared';
+import { EnrollmentStatus } from '@biddaloy/shared';
 
 /**
  * Integration tests for EnrollmentService.

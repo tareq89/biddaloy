@@ -12,7 +12,7 @@ import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
-import { PaymentStatus, AuditAction } from '@beton-boi/shared';
+import { PaymentStatus, AuditAction } from '@biddaloy/shared';
 import {
   CreateFeeStructureDto,
   UpdateFeeStructureDto,

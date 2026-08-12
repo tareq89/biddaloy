@@ -55,7 +55,7 @@ export const radius = {
  * admin UI needs a spacing or type scale different from Tailwind's own. A
  * custom scale is worth adding the moment a real need appears (an unusual
  * type ramp, a non-4px spacing grid); until then, extending it means every
- * SPA gets it for free by importing `@beton-boi/ui/tailwind` — there is
+ * SPA gets it for free by importing `@biddaloy/ui/tailwind` — there is
  * nothing to wire up.
  */
 
@@ -162,6 +162,6 @@ export const CONTRAST_PAIRS = [
   },
 ] as const;
 
-export const betonBoiPreset = { neutral, brand, radius, status, light, dark } as const;
+export const biddaloyPreset = { neutral, brand, radius, status, light, dark } as const;
 
-export default betonBoiPreset;
+export default biddaloyPreset;

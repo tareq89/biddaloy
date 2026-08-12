@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { CommunicationsService } from './communications.service';
-import { CommunicationMedium, CommunicationStatus } from '@beton-boi/shared';
+import { CommunicationMedium, CommunicationStatus } from '@biddaloy/shared';
 
 describe('CommunicationsService', () => {
   let service: CommunicationsService;

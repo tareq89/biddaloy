@@ -11,7 +11,7 @@ import {
 } from 'typeorm';
 import { Student } from '../../students/entities/student.entity';
 import { AcademicYear } from '../../academics/entities/academic-year.entity';
-import { FeeStatus } from '@beton-boi/shared';
+import { FeeStatus } from '@biddaloy/shared';
 
 /**
  * A student's fee obligation for a specific month and academic year.

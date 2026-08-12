@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { UserController } from './users.controller';
 import { UserService, TeacherService } from './users.service';
-import { UserRole } from '@beton-boi/shared';
+import { UserRole } from '@biddaloy/shared';
 
 /**
  * Unit tests for UserController.

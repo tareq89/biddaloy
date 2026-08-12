@@ -11,7 +11,7 @@ import {
   CommunicationStatus,
   CommunicationTrigger,
   ReminderBatchStatus,
-} from '@beton-boi/shared';
+} from '@biddaloy/shared';
 
 const TENANT = 'tenant-1';
 const USER = 'user-1';

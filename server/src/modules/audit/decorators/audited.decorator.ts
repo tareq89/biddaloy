@@ -1,5 +1,5 @@
 import { SetMetadata } from '@nestjs/common';
-import { AuditAction } from '@beton-boi/shared';
+import { AuditAction } from '@biddaloy/shared';
 
 export const AUDITED_METADATA_KEY = 'audited';
 

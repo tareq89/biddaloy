@@ -5,7 +5,7 @@ import {
   InvoiceStatus,
   PaymentStatus,
   ReminderBatchStatus,
-} from '@beton-boi/shared';
+} from '@biddaloy/shared';
 import type { Meta, StoryObj } from '@storybook/react';
 
 import { rtlDecorator } from '../../.storybook/rtl-decorator';

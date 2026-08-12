@@ -1,4 +1,4 @@
-# @beton-boi/server — NestJS Backend
+# @biddaloy/server — NestJS Backend
 
 NestJS REST API backend for the school fee management system. PostgreSQL via TypeORM, modular architecture.
 
@@ -34,7 +34,7 @@ All env vars are defined in `.env` at the monorepo root. The server loads it via
 
 ## Commands
 
-All commands run via `yarn workspace @beton-boi/server <command>` from the monorepo root.
+All commands run via `yarn workspace @biddaloy/server <command>` from the monorepo root.
 
 ### Build & Run
 
@@ -68,21 +68,21 @@ All commands run via `yarn workspace @beton-boi/server <command>` from the monor
 
 ```bash
 # 1. After editing entities, generate the migration
-yarn workspace @beton-boi/server migration:generate src/migrations/YourMigrationName
+yarn workspace @biddaloy/server migration:generate src/migrations/YourMigrationName
 
 # 2. Apply it
-yarn workspace @beton-boi/server migration:run
+yarn workspace @biddaloy/server migration:run
 
 # 3. Seed the admin user (first time only)
-yarn workspace @beton-boi/server seed
+yarn workspace @biddaloy/server seed
 
 # 4. To start over from scratch
-yarn workspace @beton-boi/server db:clear
-yarn workspace @beton-boi/server migration:run
-yarn workspace @beton-boi/server seed
+yarn workspace @biddaloy/server db:clear
+yarn workspace @biddaloy/server migration:run
+yarn workspace @biddaloy/server seed
 
 # Or do it all in one shot (recommended)
-yarn workspace @beton-boi/server db:reset
+yarn workspace @biddaloy/server db:reset
 ```
 
 **Note:** `migration:generate <path>` requires a path argument — the migration name is the filename, e.g. `src/migrations/CreateUsersTable`.
@@ -125,7 +125,7 @@ server/
 
 - **API prefix & versioning**: all routes are under `/api/v1/` (`app.setGlobalPrefix('api')` + URI versioning via `app.enableVersioning()`, see `src/api-versioning.ts`); `/api/health` is version-neutral and stays at that exact path across version bumps. See the root README's "API Versioning" section for the deprecation policy.
 - **Validation**: `class-validator` + `ValidationPipe` globally, configured via `buildValidationPipeOptions()` (`src/validation-pipe.ts`) — `whitelist`/`forbidNonWhitelisted`/`transform` are all on, so every DTO field a client sends must be decorated.
-- **Sanitization**: free-text fields (names, addresses, notes/remarks — see `@SanitizeText()` in `src/common/decorators/sanitize-text.decorator.ts`) are HTML-stripped on the way **in**, via `class-transformer`'s `@Transform`, using `sanitizeStrict`/`sanitizeAllowlist` from `@beton-boi/shared`. Strip-all is the default policy; every current free-text field uses it. Not sanitized: password fields (bcrypt hashes the raw input); staff-authored message content (reminder `message_template`, `SendCommunicationDto.message_body`) — those interpolate already-sanitized identity data (see `reminder-template.util.ts`) but aren't themselves stripped, since they're authored by staff (a higher trust boundary) and mangling them would corrupt legitimate content (e.g. an intentional `{{placeholder}}`); and the bulk-upload spreadsheet's `class`/`section` columns (`BulkUploadRowDto`) — these are lookup keys matched by exact string against existing `Class.name`/`ClassSection.section_name`, not stored or rendered as free text themselves, so normalizing them here could cause false-negative lookups against a legitimately-named class. Sanitizing on input does not replace output encoding — a field rendered into HTML must still be escaped there for its own context.
+- **Sanitization**: free-text fields (names, addresses, notes/remarks — see `@SanitizeText()` in `src/common/decorators/sanitize-text.decorator.ts`) are HTML-stripped on the way **in**, via `class-transformer`'s `@Transform`, using `sanitizeStrict`/`sanitizeAllowlist` from `@biddaloy/shared`. Strip-all is the default policy; every current free-text field uses it. Not sanitized: password fields (bcrypt hashes the raw input); staff-authored message content (reminder `message_template`, `SendCommunicationDto.message_body`) — those interpolate already-sanitized identity data (see `reminder-template.util.ts`) but aren't themselves stripped, since they're authored by staff (a higher trust boundary) and mangling them would corrupt legitimate content (e.g. an intentional `{{placeholder}}`); and the bulk-upload spreadsheet's `class`/`section` columns (`BulkUploadRowDto`) — these are lookup keys matched by exact string against existing `Class.name`/`ClassSection.section_name`, not stored or rendered as free text themselves, so normalizing them here could cause false-negative lookups against a legitimately-named class. Sanitizing on input does not replace output encoding — a field rendered into HTML must still be escaped there for its own context.
 - **Error handling**: `AllExceptionsFilter` catches all unhandled errors
 - **CORS**: enabled for `localhost:5173` in development only
 - **Migrations**: stored in `src/migrations/` as TypeScript files, compiled to `dist/migrations/` on build

@@ -1,10 +1,10 @@
-import { UserRole, type LoginResponse } from '@beton-boi/shared';
+import { UserRole, type LoginResponse } from '@biddaloy/shared';
 import { http, HttpResponse } from 'msw';
 
 import { apiErrorBody } from '../support';
 
 /**
- * `POST /api/v1/auth/login` returns `LoginResponse` (`@beton-boi/shared`) at
+ * `POST /api/v1/auth/login` returns `LoginResponse` (`@biddaloy/shared`) at
  * runtime — schema.d.ts's `AuthController_login_v1` 200 body is
  * `Record<string, never>` because the controller never declared an
  * `@ApiResponse` type, not because the shape differs. Same for `refresh`.

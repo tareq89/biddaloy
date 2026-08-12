@@ -33,7 +33,7 @@ import {
   UpdateGuardianDto,
   QueryGuardianDto,
 } from './dto/students.dto';
-import { UserRole, JwtPayload } from '@beton-boi/shared';
+import { UserRole, JwtPayload } from '@biddaloy/shared';
 
 const BULK_UPLOAD_MAX_FILE_SIZE = 5 * 1024 * 1024;
 

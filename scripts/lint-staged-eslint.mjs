@@ -15,7 +15,7 @@
  * This groups the staged files lint-staged hands it by which package they
  * belong to and re-invokes `eslint --fix` with `cwd` set to that package, so
  * each file is linted against its own real config — the same one `yarn
- * workspace @beton-boi/<pkg> lint` uses.
+ * workspace @biddaloy/<pkg> lint` uses.
  */
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';

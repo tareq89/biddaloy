@@ -12,7 +12,7 @@
 //     block with `parserOptions.projectService` set — see the comment below.
 //   - `typeCheckedTestOverrides`: relaxes a subset of `typeCheckedRules` for
 //     spec/test files — see the comment below for exactly what it turns off.
-//   - `componentBoundaryConfig`: enforces the @beton-boi/ui import boundary
+//   - `componentBoundaryConfig`: enforces the @biddaloy/ui import boundary
 //     (no direct Radix, no deep/primitive imports, no raw Intl) — for
 //     client-* consumers only, never for `ui` itself. See the comment below.
 //   - `financialMutationGuardConfig`: [8.4.4]'s executable guard — no
@@ -72,7 +72,7 @@ export const typeCheckedTestOverrides = {
   },
 };
 
-// SPAs import UI exclusively from @beton-boi/ui's published subpaths — never
+// SPAs import UI exclusively from @biddaloy/ui's published subpaths — never
 // Radix directly, never a deep `src/`/`primitives/` path, never a raw `Intl`
 // call. This must be a CI failure, not a review comment, since review
 // catches it sometimes and lint catches it always. `ui` never applies this:

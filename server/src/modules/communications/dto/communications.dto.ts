@@ -1,5 +1,5 @@
 import { IsString, IsOptional, IsUUID, IsArray, IsEnum, IsNotEmpty } from 'class-validator';
-import { CommunicationMedium, CommunicationStatus } from '@beton-boi/shared';
+import { CommunicationMedium, CommunicationStatus } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 
 export class SendCommunicationDto {

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { SingleReminderService } from './single-reminder.service';
 import { SkipReason } from './reminders.service';
-import { CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '@beton-boi/shared';
+import { CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '@biddaloy/shared';
 
 const TENANT = 'tenant-1';
 const USER = 'user-1';

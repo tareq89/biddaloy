@@ -46,6 +46,6 @@ describe('useLocale', () => {
 
     await waitFor(() => expect(screen.getByText('current: en')).toBeTruthy());
     expect(screen.getByText('Save')).toBeTruthy();
-    expect(localStorage.getItem('beton-boi:locale')).toBe('en');
+    expect(localStorage.getItem('biddaloy:locale')).toBe('en');
   });
 });

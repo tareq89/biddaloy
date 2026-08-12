@@ -10,7 +10,7 @@ import { AuditService } from '../audit/audit.service';
 import { StudentService, GuardianService } from './students.service';
 import { parseSpreadsheet, BulkUploadParseError, ParsedRow } from './bulk-upload.parser';
 import { BulkUploadRowDto, BulkUploadResultDto } from './dto/students.dto';
-import { AuditAction, CommunicationMedium } from '@beton-boi/shared';
+import { AuditAction, CommunicationMedium } from '@biddaloy/shared';
 
 interface GuardianInput {
   name: string;

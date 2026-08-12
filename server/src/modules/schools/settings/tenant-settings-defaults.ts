@@ -1,5 +1,5 @@
 import { TENANT_SETTINGS_SCHEMA_VERSION } from '../dto/tenant-settings.dto';
-import type { RegionSettings, TenantSettings } from '@beton-boi/shared';
+import type { RegionSettings, TenantSettings } from '@biddaloy/shared';
 
 /**
  * bn-BD region defaults. #8.7.2 owns the canonical `RegionConfig` used by

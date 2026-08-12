@@ -6,7 +6,7 @@ import { Repository } from 'typeorm';
 import { CommunicationLog } from './entities/communication-log.entity';
 import { StudentService, GuardianService } from '../students/students.service';
 import { SendCommunicationDto, CommunicationResponseDto } from './dto/communications.dto';
-import { CommunicationStatus, CommunicationTrigger } from '@beton-boi/shared';
+import { CommunicationStatus, CommunicationTrigger } from '@biddaloy/shared';
 import { COMMUNICATIONS_QUEUE } from './communications.constants';
 
 function toResponseDto(log: CommunicationLog): CommunicationResponseDto {

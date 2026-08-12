@@ -7,7 +7,7 @@ import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { EnrollmentService } from './enrollments.service';
 import { CreateEnrollmentDto, UpdateEnrollmentDto } from './dto/enrollments.dto';
-import { UserRole } from '@beton-boi/shared';
+import { UserRole } from '@biddaloy/shared';
 
 @ApiTags('enrollments')
 @ApiTenantAuth()

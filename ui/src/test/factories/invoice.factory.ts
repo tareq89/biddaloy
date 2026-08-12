@@ -1,4 +1,4 @@
-import { InvoiceStatus } from '@beton-boi/shared';
+import { InvoiceStatus } from '@biddaloy/shared';
 
 import type { components } from '../../api/schema';
 

@@ -2,7 +2,7 @@
 
 ## What this is
 
-beton-boi is a **multi-tenant school management platform**. It started as a
+Biddaloy is a **multi-tenant school management platform**. It started as a
 single-school "print fee invoices and remind guardians" tool and grew, during
 build, into a system that hosts **many independent schools** on one
 deployment. Each school (called a **tenant**) has its own students, classes,
@@ -29,7 +29,7 @@ flowchart TB
         SS["client-student\n(guardian/student SPA)"]
     end
 
-    subgraph "@beton-boi/ui"
+    subgraph "@biddaloy/ui"
         UI["Shared component library\n(design system, shells, forms)"]
     end
 
@@ -63,7 +63,7 @@ server and every client so the wire contract can't drift.
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Backend                   | NestJS, TypeORM, PostgreSQL                                                                                                                        |
 | Frontend                  | React 19, Vite, Tailwind CSS v4, TanStack Query                                                                                                    |
-| Shared component library  | `ui/` (`@beton-boi/ui`) — Radix primitives wrapped in a design system, published only through curated subpaths                                     |
+| Shared component library  | `ui/` (`@biddaloy/ui`) — Radix primitives wrapped in a design system, published only through curated subpaths                                      |
 | Auth                      | JWT access tokens + rotating refresh tokens (httpOnly cookie)                                                                                      |
 | Background jobs / caching | Redis + BullMQ                                                                                                                                     |
 | i18n                      | i18next, namespace-lazy-loaded                                                                                                                     |
@@ -74,7 +74,7 @@ server and every client so the wire contract can't drift.
 ## How this repo is organized
 
 ```
-beton-boi/
+biddaloy/
 ├── server/           # NestJS backend (see 03-backend-modules.md)
 ├── shared/           # Types/DTOs/enums shared by server + every client
 ├── ui/                # Shared component library (see 06-frontend-architecture.md)
@@ -86,10 +86,11 @@ beton-boi/
 
 ## Where this deviated from the original plan
 
-The original plan (`.hermes/plans/`, now removed — this doc supersedes it)
-described a **single school**, no explicit tenancy, Twilio for SMS/WhatsApp,
-and treated Docker deployment, discounts, and a `client-teacher` app as
-future work. What actually got built differs in a few deliberate ways:
+The original plan (a set of planning documents, now removed — this doc
+supersedes them) described a **single school**, no explicit tenancy, Twilio
+for SMS/WhatsApp, and treated Docker deployment, discounts, and a
+`client-teacher` app as future work. What actually got built differs in a
+few deliberate ways:
 
 - **Multi-tenancy was added.** The system now hosts many schools
   (`School` entity = tenant) on one deployment, with users able to hold

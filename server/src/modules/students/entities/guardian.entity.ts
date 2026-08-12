@@ -14,7 +14,7 @@ import {
 import { User } from '../../users/entities/user.entity';
 import { Student } from './student.entity';
 import { School } from '../../schools/entities/school.entity';
-import { CommunicationMedium } from '@beton-boi/shared';
+import { CommunicationMedium } from '@biddaloy/shared';
 
 /**
  * Parent or guardian responsible for a student.

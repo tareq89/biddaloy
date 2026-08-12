@@ -1,6 +1,6 @@
 import { IsOptional, IsEnum, IsString, IsInt, Min, Max, IsDateString } from 'class-validator';
 import { Type } from 'class-transformer';
-import { AuditAction } from '@beton-boi/shared';
+import { AuditAction } from '@biddaloy/shared';
 
 export class QueryAuditLogDto {
   @IsOptional()

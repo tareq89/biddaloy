@@ -9,7 +9,7 @@ import {
 } from 'typeorm';
 import { Payment } from './payment.entity';
 import { StudentFee } from './student-fee.entity';
-import { PaymentAllocationType } from '@beton-boi/shared';
+import { PaymentAllocationType } from '@biddaloy/shared';
 
 /**
  * Tracks how a single payment is distributed across multiple fee periods.

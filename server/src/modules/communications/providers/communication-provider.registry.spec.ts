@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { CommunicationProviderRegistryService } from './communication-provider.registry';
-import { CommunicationMedium } from '@beton-boi/shared';
+import { CommunicationMedium } from '@biddaloy/shared';
 
 describe('CommunicationProviderRegistryService', () => {
   const smsProviderFactory = { send: () => Promise.resolve() } as any;

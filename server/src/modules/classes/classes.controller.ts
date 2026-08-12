@@ -25,7 +25,7 @@ import {
   CreateSectionDto,
   UpdateSectionDto,
 } from './dto/classes.dto';
-import { UserRole } from '@beton-boi/shared';
+import { UserRole } from '@biddaloy/shared';
 
 @ApiTags('classes')
 @ApiTenantAuth()

@@ -1,5 +1,5 @@
 /**
- * Query-key factory convention for `@beton-boi/ui`. Every entity's keys
+ * Query-key factory convention for `@biddaloy/ui`. Every entity's keys
  * follow the same hierarchical shape (the widely-used TanStack Query
  * "as many levels as you need" pattern):
  *

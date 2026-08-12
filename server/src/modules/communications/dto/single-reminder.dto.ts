@@ -7,7 +7,7 @@ import {
   IsNotEmpty,
   MaxLength,
 } from 'class-validator';
-import { CommunicationMedium, CommunicationStatus } from '@beton-boi/shared';
+import { CommunicationMedium, CommunicationStatus } from '@biddaloy/shared';
 
 export class SendSingleReminderDto {
   /**

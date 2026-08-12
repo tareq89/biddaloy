@@ -7,7 +7,7 @@ import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { CreateEnrollmentDto, UpdateEnrollmentDto } from './dto/enrollments.dto';
-import { EnrollmentStatus } from '@beton-boi/shared';
+import { EnrollmentStatus } from '@biddaloy/shared';
 
 @Injectable()
 export class EnrollmentService {

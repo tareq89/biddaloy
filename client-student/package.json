@@ -1,5 +1,5 @@
 {
-  "name": "@beton-boi/client-student",
+  "name": "@biddaloy/client-student",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -14,7 +14,7 @@
     "react-dom": "^19"
   },
   "devDependencies": {
-    "@beton-boi/ui": "0.1.0",
+    "@biddaloy/ui": "0.1.0",
     "@tailwindcss/vite": "^4",
     "@types/react": "^19",
     "@types/react-dom": "^19",

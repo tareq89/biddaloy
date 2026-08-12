@@ -1,7 +1,7 @@
 import { Transform } from 'class-transformer';
 
-// A dynamic require rather than `import { sanitizeStrict } from '@beton-boi/shared'`:
-// under this repo's vitest config (`resolve.alias` pointing @beton-boi/shared at the
+// A dynamic require rather than `import { sanitizeStrict } from '@biddaloy/shared'`:
+// under this repo's vitest config (`resolve.alias` pointing @biddaloy/shared at the
 // workspace's own src/ instead of node_modules), a static named import of anything
 // added to that barrel after its original four exports silently binds to `undefined`
 // — reproduced and isolated to Vite/vite-node's own SSR module handling for this
@@ -9,7 +9,7 @@ import { Transform } from 'class-transformer';
 // investigation could locate on disk. A dynamic require of the same specifier always
 // resolves correctly. Production (`tsc`/`nest build`) is unaffected either way — it
 // never uses this Vite-only alias.
-const shared = require('@beton-boi/shared') as typeof import('@beton-boi/shared');
+const shared = require('@biddaloy/shared') as typeof import('@biddaloy/shared');
 
 /**
  * Strips all HTML markup from a free-text field on the way in (before

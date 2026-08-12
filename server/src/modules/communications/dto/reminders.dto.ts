@@ -9,7 +9,7 @@ import {
   ArrayMaxSize,
   MaxLength,
 } from 'class-validator';
-import { CommunicationMedium, ReminderBatchStatus } from '@beton-boi/shared';
+import { CommunicationMedium, ReminderBatchStatus } from '@biddaloy/shared';
 
 /**
  * Upper bound on one batch. The endpoint resolves recipients and enqueues

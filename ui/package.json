@@ -1,9 +1,9 @@
 {
-  "name": "@beton-boi/ui",
+  "name": "@biddaloy/ui",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Shared React component package consumed by every biddaloy SPA.",
+  "description": "Shared React component package consumed by every Biddaloy SPA.",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
@@ -32,7 +32,7 @@
     "build-storybook": "storybook build"
   },
   "dependencies": {
-    "@beton-boi/shared": "0.1.0",
+    "@biddaloy/shared": "0.1.0",
     "@hookform/resolvers": "^5",
     "@tanstack/react-query": "^5.101.4",
     "@tanstack/react-table": "^8",

@@ -52,7 +52,7 @@ function assertTestDatabaseUrl(url: string): void {
     throw new Error(
       `Refusing to run tests against database "${dbName}" — its name doesn't ` +
         'contain "test". Point DATABASE_URL in server/.env.test at a dedicated ' +
-        'test database (e.g. betonboi_test) to avoid wiping real data.',
+        'test database (e.g. biddaloy_test) to avoid wiping real data.',
     );
   }
 }
@@ -65,7 +65,7 @@ async function setupTestDatabase(): Promise<void> {
   if (!testDbUrl) {
     throw new Error(
       'DATABASE_URL is not set. Create a .env.test file with test database credentials.\n' +
-        'Example: DATABASE_URL=postgres://postgres:***@localhost:5432/betonboi_test',
+        'Example: DATABASE_URL=postgres://postgres:***@localhost:5432/biddaloy_test',
     );
   }
   assertTestDatabaseUrl(testDbUrl);

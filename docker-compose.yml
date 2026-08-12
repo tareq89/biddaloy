@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: beton-boi-app
+    image: biddaloy-app
     restart: unless-stopped
     environment:
       NODE_ENV: production

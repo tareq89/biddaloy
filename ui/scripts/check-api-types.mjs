@@ -32,7 +32,7 @@ const pkgRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const checkedIn = join(pkgRoot, 'src', 'api', 'schema.d.ts');
 const openapiJson = join(pkgRoot, '..', 'server', 'openapi.json');
 
-const tmpDir = mkdtempSync(join(tmpdir(), 'beton-boi-api-types-'));
+const tmpDir = mkdtempSync(join(tmpdir(), 'biddaloy-api-types-'));
 const fresh = join(tmpDir, 'schema.d.ts');
 
 try {
@@ -48,7 +48,7 @@ try {
       'check-api-types: FAILED\n\n' +
         '  src/api/schema.d.ts does not match a fresh generation from ' +
         'server/openapi.json.\n' +
-        '  Run `yarn workspace @beton-boi/ui api:types` and commit the result.',
+        '  Run `yarn workspace @biddaloy/ui api:types` and commit the result.',
     );
     process.exit(1);
   }

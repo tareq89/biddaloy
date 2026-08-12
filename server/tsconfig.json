@@ -15,7 +15,7 @@
     "noUnusedParameters": false,
     "types": ["vitest/globals", "multer"],
     "paths": {
-      "@beton-boi/shared": ["../shared/dist"],
+      "@biddaloy/shared": ["../shared/dist"],
       "@test/*": ["test/*"]
     }
   },

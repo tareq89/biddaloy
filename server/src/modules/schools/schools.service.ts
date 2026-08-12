@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import type { TenantSettings } from '@beton-boi/shared';
+import type { TenantSettings } from '@biddaloy/shared';
 import { School } from './entities/school.entity';
 import { TenantSettingsDto } from './dto/tenant-settings.dto';
 import { resolveTenantSettings } from './settings/tenant-settings-resolver';

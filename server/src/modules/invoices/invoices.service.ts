@@ -6,7 +6,7 @@ import { Student } from '../students/entities/student.entity';
 import { StudentFee } from '../fees/entities/student-fee.entity';
 import { Payment } from '../fees/entities/payment.entity';
 import { PaymentAllocation } from '../fees/entities/payment-allocation.entity';
-import { InvoiceStatus } from '@beton-boi/shared';
+import { InvoiceStatus } from '@biddaloy/shared';
 import { CreateInvoiceDto, QueryInvoiceDto } from './dto/invoices.dto';
 import { generateInvoiceNumber } from './invoice-numbering.util';
 import { renderInvoiceHtml } from './invoice-print.template';

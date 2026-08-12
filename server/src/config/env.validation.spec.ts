@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { validate } from './env.validation';
 
 const validConfig = {
-  DATABASE_URL: 'postgres://postgres:postgres@localhost:5432/betonboi',
+  DATABASE_URL: 'postgres://postgres:postgres@localhost:5432/biddaloy',
   JWT_SECRET: 'a'.repeat(32),
 };
 

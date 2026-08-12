@@ -1,5 +1,5 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
-import { JwtPayload } from '@beton-boi/shared';
+import { JwtPayload } from '@biddaloy/shared';
 
 /**
  * Injects the full JWT payload (user info + memberships) from the request.

@@ -13,7 +13,7 @@ import {
   PaymentAllocationType,
   PaymentStatus,
   AuditAction,
-} from '@beton-boi/shared';
+} from '@biddaloy/shared';
 import { RecordPaymentWithAllocationDto } from './dto/fees.dto';
 import { generateInvoiceNumber } from '../invoices/invoice-numbering.util';
 

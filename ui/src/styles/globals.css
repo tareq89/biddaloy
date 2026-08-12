@@ -1,7 +1,7 @@
 /**
  * Global stylesheet for every biddaloy SPA.
  *
- * Imported by an app as `import "@beton-boi/ui/styles";`, once, before any
+ * Imported by an app as `import "@biddaloy/ui/styles";`, once, before any
  * app-specific CSS. No SPA should redefine a token below — extend by adding
  * a new one, not by overriding an existing name.
  *

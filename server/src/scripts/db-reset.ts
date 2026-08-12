@@ -9,7 +9,7 @@ import { User } from '../modules/users/entities/user.entity';
 import { School } from '../modules/schools/entities/school.entity';
 import { UserTenant } from '../modules/auth/entities/user-tenant.entity';
 
-import { UserRole, UserStatus } from '@beton-boi/shared';
+import { UserRole, UserStatus } from '@biddaloy/shared';
 
 config({ path: resolve(__dirname, '..', '..', '..', '.env') });
 

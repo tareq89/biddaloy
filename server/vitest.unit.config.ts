@@ -42,7 +42,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@beton-boi/shared': resolve(__dirname, '../shared/src'),
+      '@biddaloy/shared': resolve(__dirname, '../shared/src'),
       '@test': resolve(__dirname, 'test'),
     },
   },

@@ -141,7 +141,7 @@ describe('TenantSettingsDto', () => {
       const dto = toDto({
         version: TENANT_SETTINGS_SCHEMA_VERSION,
         communications: {
-          sms: { provider: 'greenweb', mimsms: { apiKey: 'k', senderId: 'BETONBOI' } },
+          sms: { provider: 'greenweb', mimsms: { apiKey: 'k', senderId: 'BIDDALOY' } },
         },
       });
 
@@ -171,7 +171,7 @@ describe('TenantSettingsDto', () => {
           sms: {
             provider: 'mimsms',
             greenweb: { apiKey: 'k' },
-            mimsms: { apiKey: 'k2', senderId: 'BETONBOI' },
+            mimsms: { apiKey: 'k2', senderId: 'BIDDALOY' },
           },
         },
       });

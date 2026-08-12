@@ -24,7 +24,7 @@ import {
   InvoiceStatus,
   PaymentStatus,
   ReminderBatchStatus,
-} from '@beton-boi/shared';
+} from '@biddaloy/shared';
 import { AlertTriangle, CheckCircle2, CircleDashed, Clock, MinusCircle } from 'lucide-react';
 import * as React from 'react';
 

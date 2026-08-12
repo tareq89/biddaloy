@@ -28,7 +28,7 @@ import {
   SEED_ADMIN_EMAIL,
   SEED_ADMIN_PASSWORD_HASH,
 } from '@test/constants';
-import { FeeStatus, AuditAction } from '@beton-boi/shared';
+import { FeeStatus, AuditAction } from '@biddaloy/shared';
 
 /**
  * Integration tests for FeeStructureService and PaymentService.

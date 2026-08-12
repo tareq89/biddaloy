@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { AuditService } from './audit.service';
-import { AuditAction } from '@beton-boi/shared';
+import { AuditAction } from '@biddaloy/shared';
 
 function fakeRepo() {
   return {

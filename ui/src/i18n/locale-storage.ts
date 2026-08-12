@@ -5,7 +5,7 @@ export type Locale = (typeof SUPPORTED_LOCALES)[number];
  * that also speaks English, not the other way around. */
 export const DEFAULT_LOCALE: Locale = 'bn';
 
-const STORAGE_KEY = 'beton-boi:locale';
+const STORAGE_KEY = 'biddaloy:locale';
 
 function isSupportedLocale(value: string | null | undefined): value is Locale {
   return value != null && (SUPPORTED_LOCALES as readonly string[]).includes(value);

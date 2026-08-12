@@ -3,7 +3,7 @@ import { UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtStrategy } from './jwt.strategy';
 import { AccessTokenDenylistService } from '../access-token-denylist.service';
-import { JwtPayload } from '@beton-boi/shared';
+import { JwtPayload } from '@biddaloy/shared';
 
 function configServiceWithSecret(secret: string | undefined): ConfigService {
   return { get: () => secret } as unknown as ConfigService;

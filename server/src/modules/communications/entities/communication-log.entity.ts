@@ -13,7 +13,7 @@ import { Guardian } from '../../students/entities/guardian.entity';
 import { User } from '../../users/entities/user.entity';
 import { School } from '../../schools/entities/school.entity';
 import { ReminderBatch } from './reminder-batch.entity';
-import { CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '@beton-boi/shared';
+import { CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '@biddaloy/shared';
 
 /**
  * Audit trail for every message sent through the system.

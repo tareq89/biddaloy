@@ -72,7 +72,7 @@ export function createI18nInstance(): I18nInstance {
   return instance;
 }
 
-/** One instance per app — every SPA importing `@beton-boi/ui/i18n` shares
+/** One instance per app — every SPA importing `@biddaloy/ui/i18n` shares
  * it, same as `apiClient` in `src/api`. Tests that need an isolated
  * instance (a fresh language, no cross-test leakage) should call
  * `createI18nInstance()` directly instead of importing this singleton. */

@@ -1,7 +1,7 @@
 /**
  * Public component surface — one wrapper per vendored primitive. SPAs import from here and never reach into `primitives/`.
  *
- * `Placeholder` exists only to prove the `@beton-boi/ui` import boundary
+ * `Placeholder` exists only to prove the `@biddaloy/ui` import boundary
  * works end to end for [8.1.4]'s scaffold check. Real components arrived
  * with [8.6.2]'s core wrappers below — `Placeholder` can be deleted now
  * that something real proves the boundary, but that deletion is left for a

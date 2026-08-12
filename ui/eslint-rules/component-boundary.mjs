@@ -1,5 +1,5 @@
 // Custom ESLint rules enforcing the platform's central architectural rule:
-// SPAs import UI exclusively from @beton-boi/ui's published subpaths, never
+// SPAs import UI exclusively from @biddaloy/ui's published subpaths, never
 // Radix directly, never a deep `src/` or `primitives/` path, and never a raw
 // `Intl`/`toLocaleString` call in place of a shared formatter. Registered
 // only in client-* eslint configs — `ui` itself is never linted against
@@ -46,12 +46,12 @@ const noRadixImport = {
     type: 'problem',
     docs: {
       description:
-        'Disallow importing Radix directly; import the wrapped component from @beton-boi/ui/components instead.',
+        'Disallow importing Radix directly; import the wrapped component from @biddaloy/ui/components instead.',
     },
     schema: [],
     messages: {
       radixDirect:
-        'Import `{{name}}` from `@beton-boi/ui/components` instead of `{{source}}` directly.',
+        'Import `{{name}}` from `@biddaloy/ui/components` instead of `{{source}}` directly.',
     },
   },
   create(context) {
@@ -114,24 +114,24 @@ const noRadixImport = {
 // folder (`internal/`, `generated/`, ...) is a one-line addition instead of
 // a rule-logic change.
 //
-// Scoped specifically to `@beton-boi/ui`'s own tree, not a bare
+// Scoped specifically to `@biddaloy/ui`'s own tree, not a bare
 // `primitives`/`src` segment anywhere in a path — an unrelated package like
 // `@vendor/primitives/button` (or a client's own local `./primitives-catalog`)
 // is not this boundary's concern, and a broader match would false-positive
 // on it.
-const DEEP_IMPORT_PATTERNS = [/^@beton-boi\/ui\/src(\/|$)/, /(^|\/)ui\/src\/primitives(\/|$)/];
+const DEEP_IMPORT_PATTERNS = [/^@biddaloy\/ui\/src(\/|$)/, /(^|\/)ui\/src\/primitives(\/|$)/];
 
 const noDeepUiImport = {
   meta: {
     type: 'problem',
     docs: {
       description:
-        'Disallow deep/primitive imports from @beton-boi/ui; import a published subpath export instead.',
+        'Disallow deep/primitive imports from @biddaloy/ui; import a published subpath export instead.',
     },
     schema: [],
     messages: {
       deepImport:
-        'Import from a published `@beton-boi/ui` subpath (e.g. `@beton-boi/ui/components`) instead of `{{source}}`.',
+        'Import from a published `@biddaloy/ui` subpath (e.g. `@biddaloy/ui/components`) instead of `{{source}}`.',
     },
   },
   create(context) {
@@ -160,7 +160,7 @@ const noDeepUiImport = {
 };
 
 // Only Intl constructors that actually have (or are explicitly documented as
-// planned for) a shared wrapper in @beton-boi/ui/utils or /i18n — see that
+// planned for) a shared wrapper in @biddaloy/ui/utils or /i18n — see that
 // package's own barrel comments ("All currency, number, phone and date
 // formatting lives here"). Intl.RelativeTimeFormat/ListFormat/Collator/
 // PluralRules etc. have no such wrapper today; banning them would block
@@ -195,16 +195,16 @@ const noRawIntl = {
     type: 'problem',
     docs: {
       description:
-        'Disallow calling Intl.NumberFormat/DateTimeFormat or a number’s toLocaleString directly; use the shared formatter from @beton-boi/ui/utils instead.',
+        'Disallow calling Intl.NumberFormat/DateTimeFormat or a number’s toLocaleString directly; use the shared formatter from @biddaloy/ui/utils instead.',
     },
     schema: [],
     messages: {
       rawIntlNumberFormat:
-        'Use `formatCurrency` (or another formatter) from `@beton-boi/ui/utils` instead of calling `Intl.NumberFormat` directly.',
+        'Use `formatCurrency` (or another formatter) from `@biddaloy/ui/utils` instead of calling `Intl.NumberFormat` directly.',
       rawIntlDateTimeFormat:
-        'Use a shared date formatter from `@beton-boi/ui/utils` or `@beton-boi/ui/i18n` instead of calling `Intl.DateTimeFormat` directly.',
+        'Use a shared date formatter from `@biddaloy/ui/utils` or `@biddaloy/ui/i18n` instead of calling `Intl.DateTimeFormat` directly.',
       rawToLocaleString:
-        'Use `formatCurrency` (or another formatter) from `@beton-boi/ui/utils` instead of a number’s `toLocaleString`.',
+        'Use `formatCurrency` (or another formatter) from `@biddaloy/ui/utils` instead of a number’s `toLocaleString`.',
     },
   },
   create(context) {

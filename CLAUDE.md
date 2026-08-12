@@ -1,6 +1,6 @@
-# beton-boi
+# Biddaloy
 
-Multi-tenant school management platform. NestJS backend + React/Vite SPAs.
+A school management system. Multi-tenant. NestJS backend + React/Vite SPAs.
 
 ## Architecture reference
 
@@ -13,6 +13,26 @@ task, not the whole set.
 
 Package-specific conventions live in that package's own `CLAUDE.md` (e.g.
 `server/CLAUDE.md` for NestJS testing standards) rather than here.
+
+## Documentation style (always, for any doc in this repo)
+
+Any time you write or edit documentation — root or package `README.md`,
+`docs/architecture/*`, `CONTRIBUTING.md`, code comments meant to teach,
+anything a human or another agent will read to understand the system —
+it must be **dead simple to understand**:
+
+- Prefer a diagram (Mermaid: `flowchart`, `sequenceDiagram`, `erDiagram`)
+  over a paragraph whenever you're describing a flow, a relationship
+  between things, or "what talks to what." If you catch yourself writing
+  three or more sentences to describe a shape, draw it instead.
+- Include a concrete example (a real request/response, a real file path, a
+  real value) wherever the abstract description alone would leave the
+  reader guessing what it looks like in practice.
+- Write for someone who is not already an expert in this codebase. Define
+  jargon on first use or don't use it. Short sentences over long ones.
+- This does not mean dumbing down _accuracy_ — keep the technical rigor
+  and the honest "why," including deviations from any prior plan — it
+  means presenting it as plainly and visually as possible.
 
 <!-- rtk-instructions v2 -->
 

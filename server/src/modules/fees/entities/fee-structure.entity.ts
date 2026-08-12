@@ -13,7 +13,7 @@ import { Class } from '../../academics/entities/class.entity';
 import { ClassSection } from '../../academics/entities/class-section.entity';
 import { AcademicYear } from '../../academics/entities/academic-year.entity';
 import { School } from '../../schools/entities/school.entity';
-import { FeeType, FeeApplicability } from '@beton-boi/shared';
+import { FeeType, FeeApplicability } from '@biddaloy/shared';
 
 /**
  * Defines a fee item applicable to a class/section for a specific month.

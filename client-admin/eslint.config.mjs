@@ -4,7 +4,7 @@ import {
   financialMutationGuardConfig,
   typeCheckedRules,
   typeCheckedTestOverrides,
-} from '@beton-boi/ui/eslint-config';
+} from '@biddaloy/ui/eslint-config';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 

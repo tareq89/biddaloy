@@ -3,10 +3,10 @@ import { plainToInstance } from 'class-transformer';
 import { SanitizeAllowlist, SanitizeText } from './sanitize-text.decorator';
 
 // require(), not a static import — see sanitize-text.decorator.ts's comment on
-// why a static `import { sanitizeStrict } from '@beton-boi/shared'` silently
+// why a static `import { sanitizeStrict } from '@biddaloy/shared'` silently
 // binds to undefined under this repo's vitest config.
 const { sanitizeAllowlist, sanitizeStrict } =
-  require('@beton-boi/shared') as typeof import('@beton-boi/shared');
+  require('@biddaloy/shared') as typeof import('@biddaloy/shared');
 
 class StrictDto {
   @SanitizeText()

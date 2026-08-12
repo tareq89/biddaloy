@@ -10,7 +10,7 @@ import {
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { School } from '../../schools/entities/school.entity';
-import { ReminderBatchStatus } from '@beton-boi/shared';
+import { ReminderBatchStatus } from '@biddaloy/shared';
 
 /**
  * Tracks a bulk reminder campaign sent to multiple students' guardians.

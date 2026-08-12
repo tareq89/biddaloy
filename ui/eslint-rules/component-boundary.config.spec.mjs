@@ -45,9 +45,9 @@ describe('componentBoundaryConfig against fixture files', () => {
     expect(messages.map((m) => m.ruleId)).toContain('boundary/no-radix-import');
   });
 
-  it('flags a deep @beton-boi/ui/src import', async () => {
+  it('flags a deep @biddaloy/ui/src import', async () => {
     const messages = await lintFixture(
-      "import { Button } from '@beton-boi/ui/src/primitives/button';\n",
+      "import { Button } from '@biddaloy/ui/src/primitives/button';\n",
     );
     expect(messages.map((m) => m.ruleId)).toContain('boundary/no-deep-ui-import');
   });
@@ -57,8 +57,8 @@ describe('componentBoundaryConfig against fixture files', () => {
     expect(messages.map((m) => m.ruleId)).toContain('boundary/no-raw-intl');
   });
 
-  it('passes a published @beton-boi/ui import clean', async () => {
-    const messages = await lintFixture("import { Placeholder } from '@beton-boi/ui/components';\n");
+  it('passes a published @biddaloy/ui import clean', async () => {
+    const messages = await lintFixture("import { Placeholder } from '@biddaloy/ui/components';\n");
     expect(messages.filter((m) => m.ruleId?.startsWith('boundary/'))).toEqual([]);
   });
 });

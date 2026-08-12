@@ -9,30 +9,30 @@ rm -rf "$OUTPUT_DIR"
 mkdir -p "$OUTPUT_DIR"
 
 echo "==> Building shared package..."
-yarn workspace @beton-boi/shared build
+yarn workspace @biddaloy/shared build
 
 echo "==> Type-checking ui package..."
 # ui has no build step of its own — it's consumed as source (see ui/README.md)
 # by every client, so this is the closest thing to "building" it: catch a
 # type error here rather than three times over in each client's build below.
-yarn workspace @beton-boi/ui lint
+yarn workspace @biddaloy/ui lint
 
 echo "==> Building server..."
-yarn workspace @beton-boi/server build
+yarn workspace @biddaloy/server build
 
 echo "==> Building client-student..."
-yarn workspace @beton-boi/client-student build
+yarn workspace @biddaloy/client-student build
 
 echo "==> Building client-admin..."
-yarn workspace @beton-boi/client-admin build
+yarn workspace @biddaloy/client-admin build
 
 # Future clients:
 # echo "==> Building client-teacher..."
-# yarn workspace @beton-boi/client-teacher build
+# yarn workspace @biddaloy/client-teacher build
 
 echo "==> Assembling build-output..."
 
-# Shared: copy dist + package.json (for @beton-boi/shared runtime resolution)
+# Shared: copy dist + package.json (for @biddaloy/shared runtime resolution)
 mkdir -p "$OUTPUT_DIR/shared"
 cp -r "$ROOT_DIR/shared/dist" "$OUTPUT_DIR/shared/dist"
 cp "$ROOT_DIR/shared/package.json" "$OUTPUT_DIR/shared/package.json"
@@ -45,9 +45,9 @@ cp "$ROOT_DIR/server/package.json" "$OUTPUT_DIR/server/package.json"
 echo "==> Installing production dependencies for server..."
 (cd "$OUTPUT_DIR/server" && yarn install --production --frozen-lockfile)
 
-# Symlink shared package into server's node_modules so @beton-boi/shared resolves
-mkdir -p "$OUTPUT_DIR/server/node_modules/@beton-boi"
-ln -sfn "../../../shared" "$OUTPUT_DIR/server/node_modules/@beton-boi/shared"
+# Symlink shared package into server's node_modules so @biddaloy/shared resolves
+mkdir -p "$OUTPUT_DIR/server/node_modules/@biddaloy"
+ln -sfn "../../../shared" "$OUTPUT_DIR/server/node_modules/@biddaloy/shared"
 
 # Clients: copy dist folders
 for client_dir in "$ROOT_DIR"/client-*/; do

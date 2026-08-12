@@ -6,7 +6,7 @@ import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { DataSource } from 'typeorm';
-import { UserRole, PaymentMethod, PaymentAllocationType, FeeStatus } from '@beton-boi/shared';
+import { UserRole, PaymentMethod, PaymentAllocationType, FeeStatus } from '@biddaloy/shared';
 import {
   SEED_TENANT_ID,
   SEED_ADMIN_EMAIL,

@@ -9,7 +9,7 @@ import {
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { School } from '../../schools/entities/school.entity';
-import { AuditAction } from '@beton-boi/shared';
+import { AuditAction } from '@biddaloy/shared';
 
 /**
  * Immutable record of every significant action in the system.

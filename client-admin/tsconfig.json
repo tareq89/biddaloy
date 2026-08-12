@@ -8,19 +8,19 @@
     "rootDir": "..",
     "paths": {
       "@/*": ["./src/*"],
-      "@beton-boi/shared": ["../shared/src"],
-      "@beton-boi/ui": ["../ui/src"],
-      "@beton-boi/ui/components": ["../ui/src/components/index.ts"],
-      "@beton-boi/ui/shells": ["../ui/src/shells/index.ts"],
-      "@beton-boi/ui/hooks": ["../ui/src/hooks/index.ts"],
-      "@beton-boi/ui/routes": ["../ui/src/routes/index.ts"],
-      "@beton-boi/ui/utils": ["../ui/src/utils/index.ts"],
-      "@beton-boi/ui/i18n": ["../ui/src/i18n/index.ts"],
-      "@beton-boi/ui/api": ["../ui/src/api/index.ts"],
-      "@beton-boi/ui/test": ["../ui/src/test/index.ts"],
-      "@beton-boi/ui/mocks": ["../ui/src/test/msw/enable-mocking.ts"],
-      "@beton-boi/ui/styles": ["../ui/src/styles/globals.css"],
-      "@beton-boi/ui/tailwind": ["../ui/tailwind.preset.ts"]
+      "@biddaloy/shared": ["../shared/src"],
+      "@biddaloy/ui": ["../ui/src"],
+      "@biddaloy/ui/components": ["../ui/src/components/index.ts"],
+      "@biddaloy/ui/shells": ["../ui/src/shells/index.ts"],
+      "@biddaloy/ui/hooks": ["../ui/src/hooks/index.ts"],
+      "@biddaloy/ui/routes": ["../ui/src/routes/index.ts"],
+      "@biddaloy/ui/utils": ["../ui/src/utils/index.ts"],
+      "@biddaloy/ui/i18n": ["../ui/src/i18n/index.ts"],
+      "@biddaloy/ui/api": ["../ui/src/api/index.ts"],
+      "@biddaloy/ui/test": ["../ui/src/test/index.ts"],
+      "@biddaloy/ui/mocks": ["../ui/src/test/msw/enable-mocking.ts"],
+      "@biddaloy/ui/styles": ["../ui/src/styles/globals.css"],
+      "@biddaloy/ui/tailwind": ["../ui/tailwind.preset.ts"]
     }
   },
   "include": ["src"]

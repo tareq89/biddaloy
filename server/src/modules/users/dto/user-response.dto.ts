@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { UserStatus } from '@beton-boi/shared';
+import { UserStatus } from '@biddaloy/shared';
 import { User } from '../entities/user.entity';
 
 /**

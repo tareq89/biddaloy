@@ -25,7 +25,7 @@ import {
   SEED_ADMIN_PASSWORD_HASH,
 } from '@test/constants';
 import { REQUIRED_HEADERS, BulkUploadHeader } from './bulk-upload.parser';
-import { AuditAction } from '@beton-boi/shared';
+import { AuditAction } from '@biddaloy/shared';
 
 /**
  * Integration tests for StudentBulkUploadService (issue #10).

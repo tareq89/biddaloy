@@ -20,7 +20,7 @@ import { AcademicYearService } from './academic-year.service';
 import { CreateAcademicYearDto } from './dto/create-academic-year.dto';
 import { UpdateAcademicYearDto } from './dto/update-academic-year.dto';
 import { QueryAcademicYearDto } from './dto/query-academic-year.dto';
-import { UserRole } from '@beton-boi/shared';
+import { UserRole } from '@biddaloy/shared';
 
 @ApiTags('academic-years')
 @ApiTenantAuth()

@@ -1,4 +1,4 @@
-import { enableMocking } from '@beton-boi/ui/mocks';
+import { enableMocking } from '@biddaloy/ui/mocks';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 

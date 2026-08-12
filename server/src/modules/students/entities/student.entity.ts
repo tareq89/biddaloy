@@ -16,7 +16,7 @@ import { User } from '../../users/entities/user.entity';
 import { ClassSection } from '../../academics/entities/class-section.entity';
 import { School } from '../../schools/entities/school.entity';
 import { Guardian } from './guardian.entity';
-import { CommunicationMedium, EnrollmentStatus } from '@beton-boi/shared';
+import { CommunicationMedium, EnrollmentStatus } from '@biddaloy/shared';
 
 /**
  * A student enrolled in a class and section.

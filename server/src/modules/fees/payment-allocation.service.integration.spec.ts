@@ -26,7 +26,7 @@ import {
   SEED_ADMIN_EMAIL,
   SEED_ADMIN_PASSWORD_HASH,
 } from '@test/constants';
-import { FeeStatus, PaymentMethod, PaymentAllocationType, AuditAction } from '@beton-boi/shared';
+import { FeeStatus, PaymentMethod, PaymentAllocationType, AuditAction } from '@biddaloy/shared';
 
 /**
  * Integration tests for PaymentAllocationService (issue #13 — record-with-allocation).

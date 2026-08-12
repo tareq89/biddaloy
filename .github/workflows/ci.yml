@@ -42,9 +42,9 @@ jobs:
       # the pre-existing ones unwired while adding a new one right next to
       # them would be an arbitrary line to draw.
       - name: UI typecheck
-        run: yarn workspace @beton-boi/ui lint
+        run: yarn workspace @biddaloy/ui lint
 
-      # Runs from the repo root, not `yarn workspace @beton-boi/ui test` —
+      # Runs from the repo root, not `yarn workspace @biddaloy/ui test` —
       # both resolve the same root vitest.config.ts (it covers ui,
       # client-admin and client-student together), but coverage thresholds
       # only get enforced when `--coverage` is passed, and this is also
@@ -61,10 +61,10 @@ jobs:
           if-no-files-found: ignore
 
       - name: UI export map check
-        run: yarn workspace @beton-boi/ui check:exports
+        run: yarn workspace @biddaloy/ui check:exports
 
       - name: UI contrast check
-        run: yarn workspace @beton-boi/ui check:contrast
+        run: yarn workspace @biddaloy/ui check:contrast
 
       # Non-blocking per [8.2.5]'s acceptance criteria: the baseline is
       # clean today (see knip.json's ignoreDependencies/ignoreIssues for
@@ -86,7 +86,7 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: betonboi_test
+          POSTGRES_DB: biddaloy_test
         ports:
           - 5432:5432
         options: >-
@@ -104,7 +104,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      DATABASE_URL: postgres://postgres:postgres@localhost:5432/betonboi_test
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/biddaloy_test
       REDIS_URL: redis://localhost:6379
       JWT_SECRET: ci-integration-jwt-secret-do-not-use-in-production-1234567890
       NODE_ENV: test
@@ -122,7 +122,7 @@ jobs:
 
       - name: Build shared package
         # test/setup.ts registers ts-node to load TypeORM entities/migrations
-        # via its own glob, which resolves `@beton-boi/shared` through plain
+        # via its own glob, which resolves `@biddaloy/shared` through plain
         # Node `require()` — not vitest's `resolve.alias` to shared/src. That
         # alias only covers vitest's own transform pipeline, so without a
         # built dist/ here, entity loading fails at DataSource.initialize().
@@ -140,10 +140,10 @@ jobs:
       # against, so generate it here where the services this app needs to
       # boot actually exist.
       - name: Generate server OpenAPI document
-        run: yarn workspace @beton-boi/server docs:generate
+        run: yarn workspace @biddaloy/server docs:generate
 
       - name: UI API types freshness check
-        run: yarn workspace @beton-boi/ui check:api-types
+        run: yarn workspace @biddaloy/ui check:api-types
 
       - name: Integration tests
         run: yarn test:integration

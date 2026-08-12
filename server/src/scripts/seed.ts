@@ -3,7 +3,7 @@ import { AppModule } from '../app.module';
 import { User } from '../modules/users/entities/user.entity';
 import { School } from '../modules/schools/entities/school.entity';
 import { UserTenant } from '../modules/auth/entities/user-tenant.entity';
-import { UserRole, UserStatus } from '@beton-boi/shared';
+import { UserRole, UserStatus } from '@biddaloy/shared';
 import * as bcrypt from 'bcrypt';
 import { DataSource } from 'typeorm';
 

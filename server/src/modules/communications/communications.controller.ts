@@ -27,7 +27,7 @@ import { SingleReminderService } from './single-reminder.service';
 import { SendCommunicationDto } from './dto/communications.dto';
 import { SendBulkReminderDto } from './dto/reminders.dto';
 import { SendSingleReminderDto } from './dto/single-reminder.dto';
-import { UserRole, JwtPayload } from '@beton-boi/shared';
+import { UserRole, JwtPayload } from '@biddaloy/shared';
 import { requestContext } from '../../common/request-context.util';
 
 @ApiTags('communications')

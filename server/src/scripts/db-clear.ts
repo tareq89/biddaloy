@@ -78,7 +78,7 @@ async function dbClear() {
 
       console.log('All tables and custom types dropped. Database is clean.');
       console.log(
-        'Run `yarn workspace @beton-boi/server migration:run` to re-create the schema from migrations.',
+        'Run `yarn workspace @biddaloy/server migration:run` to re-create the schema from migrations.',
       );
     } catch (e) {
       await queryRunner.query('ROLLBACK').catch(() => {});

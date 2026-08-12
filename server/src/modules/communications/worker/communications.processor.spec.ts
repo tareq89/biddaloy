@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { CommunicationsProcessor } from './communications.processor';
-import { CommunicationMedium, CommunicationStatus } from '@beton-boi/shared';
+import { CommunicationMedium, CommunicationStatus } from '@biddaloy/shared';
 
 describe('CommunicationsProcessor', () => {
   let processor: CommunicationsProcessor;

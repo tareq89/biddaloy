@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import { AuditLog } from './entities/audit-log.entity';
-import { AuditAction } from '@beton-boi/shared';
+import { AuditAction } from '@biddaloy/shared';
 import { redactSensitiveFields } from './redact.util';
 import { QueryAuditLogDto } from './dto/audit-log.dto';
 

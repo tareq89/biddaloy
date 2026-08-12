@@ -3,7 +3,7 @@ import { of } from 'rxjs';
 import { ExecutionContext, CallHandler } from '@nestjs/common';
 import { AuditInterceptor } from './audit.interceptor';
 import { AUDITED_METADATA_KEY } from './decorators/audited.decorator';
-import { AuditAction } from '@beton-boi/shared';
+import { AuditAction } from '@biddaloy/shared';
 
 function contextFor(request: any): ExecutionContext {
   return {

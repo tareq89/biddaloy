@@ -1,6 +1,6 @@
 import { TENANT_SETTINGS_SCHEMA_VERSION } from '../dto/tenant-settings.dto';
 import { DEFAULT_REGION_SETTINGS } from './tenant-settings-defaults';
-import type { TenantSettings } from '@beton-boi/shared';
+import type { TenantSettings } from '@biddaloy/shared';
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);

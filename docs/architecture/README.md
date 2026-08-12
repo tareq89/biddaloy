@@ -1,10 +1,10 @@
-# beton-boi Architecture Docs
+# Biddaloy Architecture Docs
 
-This is the source of truth for how beton-boi is actually built. It replaces
-the old `.hermes/plans/` planning documents — those captured the *original
-vision* before the system existed; these docs describe *what was actually
-built*, including every place implementation diverged from that original
-plan (and why).
+This is the source of truth for how Biddaloy is actually built. It replaces
+the old planning documents from before the system existed — those captured
+the *original vision*; these docs describe *what was actually built*,
+including every place implementation diverged from that original plan (and
+why).
 
 Each file below is self-contained — read only the one you need for the task
 at hand instead of loading the whole set.
@@ -19,7 +19,8 @@ at hand instead of loading the whole set.
 | [05-communications.md](05-communications.md) | Working on SMS/WhatsApp/email/Messenger reminders |
 | [06-frontend-architecture.md](06-frontend-architecture.md) | Working in `ui/`, `client-admin/`, or `client-student/` |
 | [07-deployment.md](07-deployment.md) | Working on Docker, nginx, CI, or production deploys |
+| [08-security.md](08-security.md) | Working on login, tokens, CSRF, audit logging, or PII/data-protection handling |
 
-For deep security/token/CSRF/versioning detail, the root [`README.md`](../../README.md)
-is still the primary reference — these docs link out to it rather than
-duplicating it.
+For practical "how do I run/develop/test this" instructions, see the root
+[`README.md`](../../README.md) — these docs cover the *why* behind the
+architecture, README covers the *how* of working in the repo day to day.

@@ -13,7 +13,7 @@ import { Class } from '../../academics/entities/class.entity';
 import { ClassSection } from '../../academics/entities/class-section.entity';
 import { AcademicYear } from '../../academics/entities/academic-year.entity';
 import { School } from '../../schools/entities/school.entity';
-import { EnrollmentStatus } from '@beton-boi/shared';
+import { EnrollmentStatus } from '@biddaloy/shared';
 
 /**
  * Tracks a student's enrollment in a class and section for a specific academic year.

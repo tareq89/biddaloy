@@ -11,7 +11,7 @@ import {
   IsDateString,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { UserRole, TeacherDesignation } from '@beton-boi/shared';
+import { UserRole, TeacherDesignation } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 
 export class CreateUserDto {

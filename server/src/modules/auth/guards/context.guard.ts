@@ -6,7 +6,7 @@ import {
   Inject,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { JwtPayload, JwtMembership } from '@beton-boi/shared';
+import { JwtPayload, JwtMembership } from '@biddaloy/shared';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 
 /**

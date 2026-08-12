@@ -1,4 +1,4 @@
-import { TeacherDesignation } from '@beton-boi/shared';
+import { TeacherDesignation } from '@biddaloy/shared';
 
 import type { components } from '../../api/schema';
 

@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { TeacherDesignation } from '@beton-boi/shared';
+import { TeacherDesignation } from '@biddaloy/shared';
 import { Teacher } from '../../academics/entities/teacher.entity';
 import { UserResponseDto } from './user-response.dto';
 

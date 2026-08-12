@@ -1,4 +1,4 @@
-# `@beton-boi/ui`
+# `@biddaloy/ui`
 
 The shared React component package. Every biddaloy SPA — `client-admin`,
 `client-student`, `client-teacher` — imports its UI from here and builds none of
@@ -7,7 +7,7 @@ its own.
 Adding or changing a component? See [`CONTRIBUTING.md`](CONTRIBUTING.md)
 for the wrapper rule, the three-file requirement, and the PR checklist.
 
-## Why this is separate from `@beton-boi/shared`
+## Why this is separate from `@biddaloy/shared`
 
 `shared` is consumed by the NestJS server and has to stay framework-agnostic.
 Putting React in it would drag React into the server's dependency graph. `ui`
@@ -17,7 +17,7 @@ depends on `shared`; never the reverse.
 
 There is **no build step**. `package.json` points at `src/`, and consumers
 resolve it through a Vite alias plus a tsconfig path — the same way
-`client-student` already consumes `@beton-boi/shared`. That keeps HMR working
+`client-student` already consumes `@biddaloy/shared`. That keeps HMR working
 across package boundaries: editing a component re-renders the app immediately
 instead of waiting on a library rebuild.
 
@@ -37,7 +37,7 @@ instead of waiting on a library rebuild.
 
 ## The one rule
 
-SPAs import from `@beton-boi/ui/*` and never from `@radix-ui/*` or
+SPAs import from `@biddaloy/ui/*` and never from `@radix-ui/*` or
 `src/primitives/`. A primitive reached directly bypasses the accessibility,
 i18n and formatting defaults its wrapper exists to provide — so one app quietly
 behaves differently from the other three.
@@ -68,7 +68,7 @@ request/response types cannot drift from what the server actually serves.
 Regenerate it after any server API change:
 
 ```bash
-yarn workspace @beton-boi/ui api:types
+yarn workspace @biddaloy/ui api:types
 ```
 
 `check:api-types` (wired into CI) fails if the checked-in file doesn't match a
@@ -102,7 +102,7 @@ layer, not just unit-tested in isolation.
 
 ## Testing
 
-`@beton-boi/ui/test` exports `renderWithProviders` — the one provider stack
+`@biddaloy/ui/test` exports `renderWithProviders` — the one provider stack
 every component test needs, wrapping a component in `QueryClientProvider`
 and `I18nProvider` with a fresh, retry-disabled `QueryClient` per call. See
 the root `vitest.config.ts` for the node/jsdom project split this runs
@@ -155,7 +155,7 @@ later ticket's call and may or may not end up being the same library.
 is meant to be consumed by actual routes once they exist), scoped narrowly
 to what this ticket needs.
 
-`renderWithRouter(routes, options)` (`@beton-boi/ui/test`) is
+`renderWithRouter(routes, options)` (`@biddaloy/ui/test`) is
 `renderWithProviders`'s router-aware sibling — same
 `tenantId`/`role`/`accessToken`/`queryClient` options, plus `initialEntries`
 (mount at an arbitrary URL, search params included) and `initialIndex`
@@ -173,7 +173,7 @@ const { router } = renderWithRouter(
 // router.navigate(-1) — simulate Back (wrap in `act()`, it's async)
 ```
 
-`useListUrlState(defaults?)` (`@beton-boi/ui/routes`) is the one hook a
+`useListUrlState(defaults?)` (`@biddaloy/ui/routes`) is the one hook a
 list page should read/write `page`/`limit`/`sort`/filters through — a thin,
 typed wrapper over react-router's own `useSearchParams`. Falls back to
 sensible defaults for a non-numeric, negative, or missing `page`/`limit`
@@ -188,7 +188,7 @@ updateUrl({ page: state.page + 1 });          // ?page=2
 updateUrl({ filters: { class_id: 'c-9' } });  // ?class_id=c-9, page/sort untouched
 ```
 
-`RequireRole` (`@beton-boi/ui/routes`) gates a route element by the active
+`RequireRole` (`@biddaloy/ui/routes`) gates a route element by the active
 role (`getActiveRole()`, the same value `apiClient` sends as `X-Role`),
 redirecting to `/forbidden` (configurable) with `replace` — the guarded
 route never enters back-navigation history:
@@ -216,7 +216,7 @@ and a malformed `page` param falling back instead of crashing.
 
 ### Mocking (MSW)
 
-`server` (MSW's Node runtime) is exported from `@beton-boi/ui/test` and
+`server` (MSW's Node runtime) is exported from `@biddaloy/ui/test` and
 already wired into `src/test/setup.ts` — `listen({ onUnhandledRequest:
 'error' })` in `beforeAll`, `resetHandlers()` in `afterEach`, `close()` in
 `afterAll`. Nothing to import for the lifecycle itself; `server.use(...)`
@@ -224,7 +224,7 @@ inside a test is a complete per-test override on its own:
 
 ```ts
 import { http, HttpResponse } from 'msw';
-import { server } from '@beton-boi/ui/test';
+import { server } from '@biddaloy/ui/test';
 
 it('handles a 500 from the students endpoint', async () => {
   server.use(http.get('/api/v1/students', () => HttpResponse.json(null, { status: 500 })));
@@ -246,7 +246,7 @@ Handlers are **hand-written, not generated** from the OpenAPI spec — a
 deliberate choice: generated handlers tend to produce unrealistic data,
 and the contract-drift risk they're meant to solve is already covered by
 `tsc` breaking here if a path or response shape changes underneath a
-handler. Response bodies are built from `@beton-boi/ui/test`'s factories
+handler. Response bodies are built from `@biddaloy/ui/test`'s factories
 (`studentFactory()`, `paymentFactory()`, ...), not hand-rolled objects, so
 mocked data looks like real data (Bangla names, BD phone numbers, lakh/
 crore-scale money) without every handler re-deriving that itself.
@@ -286,19 +286,19 @@ protected endpoint with either `authHandlers.refresh` (session recovers)
 or `authHandlers.refreshFailure` (session actually ends).
 
 Each resource's `*Handlers` object (`studentHandlers`, `feeHandlers`,
-`invoiceHandlers`, ...) is exported from `@beton-boi/ui/test` alongside
+`invoiceHandlers`, ...) is exported from `@biddaloy/ui/test` alongside
 the aggregate `handlers` array, so a test can reach for a specific named
 variant — e.g. `studentHandlers.listEmpty` for the empty-list case —
 without hand-writing one.
 
 For running an SPA against mocks with no backend, `enableMocking()` from
-`@beton-boi/ui/mocks` (a **separate** subpath from `@beton-boi/ui/test`,
+`@biddaloy/ui/mocks` (a **separate** subpath from `@biddaloy/ui/test`,
 on purpose — see below) starts MSW's browser worker when
 `VITE_USE_MOCKS=true` is set, and no-ops otherwise:
 
 ```tsx
 // main.tsx
-import { enableMocking } from '@beton-boi/ui/mocks';
+import { enableMocking } from '@biddaloy/ui/mocks';
 
 function renderApp() {
   createRoot(document.getElementById('root')!).render(<App />);
@@ -315,7 +315,7 @@ void enableMocking()
 
 A few things worth knowing if you touch this:
 
-- **`@beton-boi/ui/mocks` uses a dynamic `import()` internally, not a
+- **`@biddaloy/ui/mocks` uses a dynamic `import()` internally, not a
   static one.** A static `import { worker } from './browser'` at the top
   of `enable-mocking.ts` would pull `msw` (and its own dependencies,
   `@mswjs/interceptors`, `graphql`, ...) into *every* production bundle
@@ -356,7 +356,7 @@ A few things worth knowing if you touch this:
 ### Hooks
 
 `useStudent`/`useStudents`/`useCreateStudent` (`src/hooks/students.ts`) are
-real, exported from `@beton-boi/ui/hooks` — the reference implementation for
+real, exported from `@biddaloy/ui/hooks` — the reference implementation for
 the query cache/invalidation conventions below. `useDebounce`/`useThrottle`-
 style hooks and `useOnline` don't exist yet; those examples below are still
 small, ad-hoc stand-ins defined directly in
@@ -422,7 +422,7 @@ backoff in whole seconds, far too slow for a test) — see
 
 **Tenant switching**: `src/hooks/tenant.ts`'s `switchActiveTenant(queryClient,
 tenantId, role?)` is the one blessed way to change the active tenant. Calling
-`setActiveTenant()` (from `@beton-boi/ui/api`) directly leaves every cached
+`setActiveTenant()` (from `@biddaloy/ui/api`) directly leaves every cached
 query keyed under the previous tenant sitting in the cache — nothing in
 `auth-state.ts` clears it, since that module is deliberately state-management-
 agnostic and holds no `QueryClient` reference. Left uncleared, switching
@@ -455,7 +455,7 @@ calls that post to `/payments/*`, `/fees/generate`, `/invoices`, or
 `ui` itself included, since that's where these hooks actually live) fails
 the build if the two ever appear on the same `useMutation` call. It's a
 CI failure, not a review comment, for the same reason the
-`@beton-boi/ui` import boundary is: review catches this sometimes, lint
+`@biddaloy/ui` import boundary is: review catches this sometimes, lint
 catches it every time.
 
 `src/hooks/payments.ts`'s `useCreatePayment` is the reference **non-**
@@ -582,7 +582,7 @@ await expectKeyboardOperable(screen.getByRole('button'), { onActivate });
 that order — for verifying a form or toolbar's tab sequence, not just that
 each element is individually reachable.
 
-Both live in `src/test/a11y/` and are exported from `@beton-boi/ui/test`.
+Both live in `src/test/a11y/` and are exported from `@biddaloy/ui/test`.
 When [8.6.10]'s component contribution guide exists, it should link here
 rather than duplicate this section.
 
@@ -590,9 +590,9 @@ rather than duplicate this section.
 
 | Command | Purpose |
 |---|---|
-| `yarn workspace @beton-boi/ui lint` | `tsc --noEmit` |
-| `yarn workspace @beton-boi/ui test` | Run the vitest suite |
-| `yarn workspace @beton-boi/ui check:exports` | Validate the `exports` map against disk |
-| `yarn workspace @beton-boi/ui check:contrast` | Verify every documented colour pair against WCAG 2.2 |
-| `yarn workspace @beton-boi/ui check:api-types` | Verify `schema.d.ts` matches a fresh generation |
-| `yarn workspace @beton-boi/ui api:types` | Regenerate `schema.d.ts` from `server/openapi.json` |
+| `yarn workspace @biddaloy/ui lint` | `tsc --noEmit` |
+| `yarn workspace @biddaloy/ui test` | Run the vitest suite |
+| `yarn workspace @biddaloy/ui check:exports` | Validate the `exports` map against disk |
+| `yarn workspace @biddaloy/ui check:contrast` | Verify every documented colour pair against WCAG 2.2 |
+| `yarn workspace @biddaloy/ui check:api-types` | Verify `schema.d.ts` matches a fresh generation |
+| `yarn workspace @biddaloy/ui api:types` | Regenerate `schema.d.ts` from `server/openapi.json` |

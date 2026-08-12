@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Job } from 'bullmq';
 import { CommunicationLog } from '../entities/communication-log.entity';
-import { CommunicationStatus } from '@beton-boi/shared';
+import { CommunicationStatus } from '@biddaloy/shared';
 import { CommunicationProviderRegistryService } from '../providers/communication-provider.registry';
 import { recordBatchOutcome, BatchOutcome } from '../reminder-batch-counters';
 import { COMMUNICATIONS_QUEUE } from '../communications.constants';

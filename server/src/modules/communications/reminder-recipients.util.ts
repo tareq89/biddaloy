@@ -1,4 +1,4 @@
-import { CommunicationMedium } from '@beton-boi/shared';
+import { CommunicationMedium } from '@biddaloy/shared';
 import { Guardian } from '../students/entities/guardian.entity';
 
 /**

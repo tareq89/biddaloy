@@ -24,7 +24,7 @@ import {
   SEED_ADMIN_EMAIL,
   SEED_ADMIN_PASSWORD_HASH,
 } from '@test/constants';
-import { FeeStatus, InvoiceStatus } from '@beton-boi/shared';
+import { FeeStatus, InvoiceStatus } from '@biddaloy/shared';
 
 /**
  * Integration tests for InvoicesService (issue #14 — Invoice Generation & Printing).

@@ -18,7 +18,7 @@ describe('locale-storage against a real localStorage', () => {
   });
 
   it('falls back to the default for a corrupted stored value', () => {
-    localStorage.setItem('beton-boi:locale', 'fr');
+    localStorage.setItem('biddaloy:locale', 'fr');
 
     expect(getPersistedLocale()).toBe(DEFAULT_LOCALE);
   });

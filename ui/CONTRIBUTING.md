@@ -1,4 +1,4 @@
-# Contributing to `@beton-boi/ui`
+# Contributing to `@biddaloy/ui`
 
 Three SPAs pull on this one package. Nothing here stops that from eroding
 except this document being where a contributor actually meets the rules —
@@ -102,7 +102,7 @@ for its own sake. At minimum:
   with none — that's what proves the wrapper doesn't silently supply
   what it says it doesn't own, not a gap in the requirement.
 - Keyboard-operable — `expectKeyboardOperable`/`expectTabOrder` from
-  `@beton-boi/ui/test` for the common cases; a hand-rolled roving-tabindex
+  `@biddaloy/ui/test` for the common cases; a hand-rolled roving-tabindex
   widget (see `DataTable`, `Calendar` in `date-picker.tsx`) needs its own
   arrow-key/Home/End assertions instead.
 - Every prop-driven behavioural branch this component actually adds over
@@ -295,7 +295,7 @@ a checkbox has no loading state of its own distinct from `disabled`.
 is axe-clean _when given an accessible name_ (proving the wrapper doesn't
 silently fix what it explicitly says is the caller's job), toggles on
 click, toggles on Space when focused. Export it from the barrel
-(`src/components/index.ts`), then run `yarn workspace @beton-boi/ui lint`
+(`src/components/index.ts`), then run `yarn workspace @biddaloy/ui lint`
 and `yarn test:frontend:coverage` from the repo root — not just `ui`'s own
 `yarn test`, since the root run is what catches an alias that only breaks
 once bundled into a consuming app, per step 1.
@@ -311,7 +311,7 @@ for any PR touching `ui/`:
       genuinely doesn't yet, its header comment says so and says why the
       seam is still worth having (see "The wrapper rule" above).
 - [ ] No SPA-side file imports `radix-ui` or reaches into
-      `@beton-boi/ui/src/primitives` — `check:exports` passes.
+      `@biddaloy/ui/src/primitives` — `check:exports` passes.
 - [ ] Every story file covers default/loading/empty/error/disabled/RTL,
       or explains in a comment why a category doesn't apply.
 - [ ] `await expect(container).toHaveNoViolations()` passes for every
@@ -324,7 +324,7 @@ for any PR touching `ui/`:
       passes.
 - [ ] Any new user-facing literal string has a comment naming [8.7.1] as
       what eventually replaces it.
-- [ ] `yarn workspace @beton-boi/ui lint` passes.
+- [ ] `yarn workspace @biddaloy/ui lint` passes.
 - [ ] `yarn test:frontend:coverage` (run from the **repo root**, not just
       `ui/`) passes — this is what catches a primitive-alias import that
       only breaks once bundled into `client-admin`/`client-student`.

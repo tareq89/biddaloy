@@ -5,7 +5,7 @@ import {
   InvoiceStatus,
   PaymentStatus,
   ReminderBatchStatus,
-} from '@beton-boi/shared';
+} from '@biddaloy/shared';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 

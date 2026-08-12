@@ -19,12 +19,7 @@ import {
   SEED_SECTION_1_ID,
   SEED_ACADEMIC_YEAR_ID,
 } from '@test/constants';
-import {
-  EnrollmentStatus,
-  FeeApplicability,
-  FeeType,
-  CommunicationMedium,
-} from '@beton-boi/shared';
+import { EnrollmentStatus, FeeApplicability, FeeType, CommunicationMedium } from '@biddaloy/shared';
 
 /**
  * Integration tests for FeeGenerationService.

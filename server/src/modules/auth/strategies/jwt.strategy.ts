@@ -2,7 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { JwtPayload } from '@beton-boi/shared';
+import { JwtPayload } from '@biddaloy/shared';
 import { AccessTokenDenylistService } from '../access-token-denylist.service';
 
 /**

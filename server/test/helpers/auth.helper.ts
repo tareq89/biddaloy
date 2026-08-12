@@ -1,4 +1,4 @@
-import { JwtPayload, JwtMembership, UserRole } from '@beton-boi/shared';
+import { JwtPayload, JwtMembership, UserRole } from '@biddaloy/shared';
 
 /**
  * Auth Helper for Tests

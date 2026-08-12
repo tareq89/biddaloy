@@ -13,7 +13,7 @@ import {
   LoginResponse,
   AuditAction,
   UserStatus,
-} from '@beton-boi/shared';
+} from '@biddaloy/shared';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { LoginAttemptService } from './login-attempt.service';
 import { normalizeLoginIdentifier } from './normalize-identifier';

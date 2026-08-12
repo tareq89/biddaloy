@@ -11,7 +11,7 @@ import { LoginAttemptService } from './login-attempt.service';
 import { RefreshTokenService, RefreshTokenReuseDetectedException } from './refresh-token.service';
 import { AccessTokenDenylistService } from './access-token-denylist.service';
 import { ACCESS_TOKEN_TTL_MS } from './auth-tokens';
-import { AuditAction, UserRole, UserStatus } from '@beton-boi/shared';
+import { AuditAction, UserRole, UserStatus } from '@biddaloy/shared';
 
 // Mock bcrypt as a module-level replacement
 // This must be before any imports of bcrypt

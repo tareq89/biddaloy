@@ -1,4 +1,4 @@
-import { UserStatus } from '@beton-boi/shared';
+import { UserStatus } from '@biddaloy/shared';
 
 import type { components } from '../../api/schema';
 

@@ -1,5 +1,5 @@
 {
-  "name": "@beton-boi/client-admin",
+  "name": "@biddaloy/client-admin",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "lint": "tsc --noEmit && eslint ."
   },
   "dependencies": {
-    "@beton-boi/ui": "0.1.0",
+    "@biddaloy/ui": "0.1.0",
     "react": "^19",
     "react-dom": "^19"
   },

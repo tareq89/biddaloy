@@ -14,7 +14,7 @@ import {
   MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { InvoiceStatus } from '@beton-boi/shared';
+import { InvoiceStatus } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 
 export class LineItemDto {

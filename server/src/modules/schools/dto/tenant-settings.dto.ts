@@ -9,13 +9,13 @@ import type {
   CurrencyGrouping,
   CurrencyPosition,
   SmsGatewayName,
-} from '@beton-boi/shared';
+} from '@biddaloy/shared';
 
 /**
- * Mirrors `TENANT_SETTINGS_SCHEMA_VERSION` from `@beton-boi/shared` as a
+ * Mirrors `TENANT_SETTINGS_SCHEMA_VERSION` from `@biddaloy/shared` as a
  * local literal rather than a runtime import of it. A static import of a
  * value added to the shared barrel resolves to `undefined` under this
- * repo's vitest config (`resolve.alias` pointing `@beton-boi/shared` at
+ * repo's vitest config (`resolve.alias` pointing `@biddaloy/shared` at
  * workspace `src/`, not `dist/`) — see the comment on `SanitizeText` in
  * `common/decorators/sanitize-text.decorator.ts` for the full story. A
  * single-literal constant isn't worth the `require()` workaround; the two

@@ -50,9 +50,9 @@ ENV PORT=3000
 RUN addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 app
 
-# node_modules includes the yarn-workspaces symlink node_modules/@beton-boi/shared
+# node_modules includes the yarn-workspaces symlink node_modules/@biddaloy/shared
 # -> ../shared, so shared/dist + shared/package.json must land at that relative
-# path for the server's `@beton-boi/shared` import to resolve at runtime.
+# path for the server's `@biddaloy/shared` import to resolve at runtime.
 COPY --from=prod-deps --chown=app:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=app:nodejs /app/shared/dist ./shared/dist
 COPY --from=builder --chown=app:nodejs /app/shared/package.json ./shared/package.json

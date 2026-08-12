@@ -2,12 +2,12 @@
 
 > This doc explains the _shape_ of the system with diagrams. For the deep
 > security rationale (CSRF posture, brute-force protection, exact TTLs,
-> revocation details) see the root [`README.md`](../../README.md#security) —
-> that document is kept exhaustive on purpose and this one won't repeat it.
+> revocation details) see [08-security.md](08-security.md) — that document
+> is kept exhaustive on purpose and this one won't repeat it.
 
 ## The core idea: tenants, not a single school
 
-beton-boi hosts **many independent schools** on one deployment. A `School`
+Biddaloy hosts **many independent schools** on one deployment. A `School`
 row _is_ a tenant. Everything school-specific — students, classes, fees,
 staff — is scoped to exactly one tenant. A single `User` account, however,
 is **not** tenant-scoped: the same person can belong to multiple schools,

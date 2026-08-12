@@ -1,5 +1,5 @@
 import { IsUUID, IsOptional, IsEnum } from 'class-validator';
-import { EnrollmentStatus } from '@beton-boi/shared';
+import { EnrollmentStatus } from '@biddaloy/shared';
 
 export class CreateEnrollmentDto {
   @IsUUID()

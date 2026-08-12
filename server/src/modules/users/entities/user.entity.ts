@@ -10,7 +10,7 @@ import {
 } from 'typeorm';
 import { ApiHideProperty } from '@nestjs/swagger';
 import { UserTenant } from '../../auth/entities/user-tenant.entity';
-import { UserStatus } from '@beton-boi/shared';
+import { UserStatus } from '@biddaloy/shared';
 
 /**
  * Central user account for the system.
