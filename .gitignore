@@ -165,3 +165,7 @@ entities.json
 # Python bytecode from skill scripts
 __pycache__/
 *.pyc
+
+# Claude Code: personal/machine-local overrides, never shared
+.claude/settings.local.json
+.claude/.headroom_wrap_marker.json
