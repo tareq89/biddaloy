@@ -125,5 +125,27 @@ describe('SchoolsService', () => {
 
       expect(decrypted.communications).toBeUndefined();
     });
+
+    it('drops a secret that fails to decrypt instead of failing the whole call', async () => {
+      repo.findOne.mockResolvedValue({
+        id: 's1',
+        settings: {
+          version: 1,
+          communications: {
+            // A legacy plaintext row `yarn settings:reencrypt` hasn't reached yet.
+            whatsapp: { phoneNumberId: '1', accessToken: 'legacy-plaintext-token' },
+            sms: {
+              provider: 'greenweb',
+              greenweb: { apiKey: encryption.encrypt('valid-sms-key') },
+            },
+          },
+        },
+      });
+
+      const decrypted = await service.getDecryptedSettings('s1');
+
+      expect(decrypted.communications?.whatsapp?.accessToken).toBeUndefined();
+      expect((decrypted.communications?.sms as any)?.greenweb?.apiKey).toBe('valid-sms-key');
+    });
   });
 });

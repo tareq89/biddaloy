@@ -1,7 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { randomBytes } from 'crypto';
 import { EncryptionService } from './encryption.service';
-import { encryptSecretFields, decryptSecretFields } from './settings-encryption.util';
+import {
+  encryptSecretFields,
+  decryptSecretFields,
+  reencryptSecretFields,
+} from './settings-encryption.util';
 
 function service(): EncryptionService {
   return new EncryptionService(randomBytes(32));
@@ -70,5 +74,86 @@ describe('decryptSecretFields', () => {
     const roundTripped = decryptSecretFields(encryptSecretFields(original, encryption), encryption);
 
     expect(roundTripped).toEqual(original);
+  });
+
+  it('drops a field that fails to decrypt instead of throwing, leaving unrelated secrets intact', () => {
+    const encryption = service();
+    const settings = {
+      version: 1,
+      communications: {
+        // Never encrypted at all — a legacy plaintext row.
+        whatsapp: { phoneNumberId: '123', accessToken: 'legacy-plaintext-token' },
+        sms: { provider: 'greenweb', greenweb: { apiKey: encryption.encrypt('sms-key') } },
+      },
+    };
+
+    const decrypted = decryptSecretFields(settings, encryption);
+    const communications = decrypted.communications as any;
+
+    expect(communications.whatsapp.accessToken).toBeUndefined();
+    expect(communications.sms.greenweb.apiKey).toBe('sms-key');
+  });
+
+  it('reports the failing path via onError rather than only through the thrown message', () => {
+    const encryption = service();
+    const settings = { communications: { whatsapp: { accessToken: 'legacy-plaintext-token' } } };
+    const onError = vi.fn();
+
+    decryptSecretFields(settings, encryption, onError);
+
+    expect(onError).toHaveBeenCalledWith(expect.anything(), 'communications.whatsapp.accessToken');
+  });
+});
+
+describe('reencryptSecretFields', () => {
+  it('encrypts a legacy plaintext secret for the first time', () => {
+    const encryption = service();
+    const settings = { communications: { whatsapp: { accessToken: 'legacy-plaintext-token' } } };
+
+    const migrated = reencryptSecretFields(settings, encryption);
+    const accessToken = (migrated.communications as any).whatsapp.accessToken;
+
+    expect(accessToken).toMatch(/^gcmv1:/);
+    expect(encryption.decrypt(accessToken)).toBe('legacy-plaintext-token');
+  });
+
+  it('re-encrypts a value under the current key when it was encrypted under a previous one', () => {
+    const oldKey = randomBytes(32);
+    const newKey = randomBytes(32);
+    const oldEncryption = new EncryptionService(oldKey);
+    const settings = {
+      communications: { whatsapp: { accessToken: oldEncryption.encrypt('rotate-me') } },
+    };
+    const rotatedEncryption = new EncryptionService(newKey, [oldKey]);
+
+    const migrated = reencryptSecretFields(settings, rotatedEncryption);
+    const accessToken = (migrated.communications as any).whatsapp.accessToken;
+
+    expect(new EncryptionService(newKey).decrypt(accessToken)).toBe('rotate-me');
+  });
+
+  it('leaves a value untouched and reports it via onSkip when it decrypts under no configured key', () => {
+    const abandonedKey = randomBytes(32);
+    const orphaned = new EncryptionService(abandonedKey).encrypt('orphaned');
+    const settings = { communications: { whatsapp: { accessToken: orphaned } } };
+    const currentEncryption = service();
+    const onSkip = vi.fn();
+
+    const migrated = reencryptSecretFields(settings, currentEncryption, onSkip);
+
+    expect((migrated.communications as any).whatsapp.accessToken).toBe(orphaned);
+    expect(onSkip).toHaveBeenCalledWith(expect.anything(), 'communications.whatsapp.accessToken');
+  });
+
+  it('is idempotent — running it again on already-current values still round-trips', () => {
+    const encryption = service();
+    const settings = { communications: { whatsapp: { accessToken: 'legacy-plaintext-token' } } };
+
+    const once = reencryptSecretFields(settings, encryption);
+    const twice = reencryptSecretFields(once, encryption);
+
+    expect(encryption.decrypt((twice.communications as any).whatsapp.accessToken)).toBe(
+      'legacy-plaintext-token',
+    );
   });
 });

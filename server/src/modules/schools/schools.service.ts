@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { TenantSettings } from '@biddaloy/shared';
@@ -11,6 +11,8 @@ import { decryptSecretFields, encryptSecretFields } from './settings/settings-en
 
 @Injectable()
 export class SchoolsService {
+  private readonly logger = new Logger(SchoolsService.name);
+
   constructor(
     @InjectRepository(School)
     private readonly repo: Repository<School>,
@@ -42,12 +44,25 @@ export class SchoolsService {
    * provider resolver is the intended (and, on this branch, only) one.
    * **Never** wire this to an HTTP response; #8.7.9's settings API must
    * mask secrets, not decrypt them.
+   *
+   * A field that can't be decrypted (a stale key, or a legacy plaintext
+   * row `yarn settings:reencrypt` — `server/src/scripts/
+   * reencrypt-settings.ts` — hasn't reached yet) is dropped from the
+   * result and logged with the school and path, rather than failing the
+   * whole call: one bad WhatsApp token shouldn't also take down a
+   * school's working SMS or SMTP settings.
    */
   async getDecryptedSettings(schoolId: string): Promise<TenantSettings> {
     const resolved = await this.getResolvedSettings(schoolId);
     return decryptSecretFields(
       resolved as unknown as Record<string, unknown>,
       this.encryption,
+      (error, path) => {
+        const reason = error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          `Dropping undecryptable tenant setting "${path}" for school "${schoolId}": ${reason}`,
+        );
+      },
     ) as unknown as TenantSettings;
   }
 

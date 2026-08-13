@@ -13,6 +13,14 @@ const IV_BYTES = 12;
 // rather than by encoding a key identifier into the envelope.
 const ENVELOPE_VERSION = 'gcmv1';
 
+/** Whether `value` is already in this module's envelope form, as opposed
+ * to a legacy plaintext secret (a row written before this feature
+ * existed). Used by `reencryptSecretFields` to decide whether a value
+ * needs decrypting first or can be encrypted directly. */
+export function isEncryptedEnvelope(value: string): boolean {
+  return value.startsWith(`${ENVELOPE_VERSION}:`);
+}
+
 /**
  * AES-256-GCM for tenant-settings secrets (WhatsApp/email/SMS credentials
  * living in `schools.settings` jsonb — see `../dto/tenant-settings.dto.ts`'s
@@ -35,12 +43,16 @@ const ENVELOPE_VERSION = 'gcmv1';
  *    first, then each of `previousKeys`, and GCM's auth tag makes "wrong
  *    key" fail cleanly rather than returning garbage, so trying multiple
  *    keys in sequence is safe.
- * 3. Re-encrypt old rows under the new key on whatever cadence is
- *    convenient — every value gets touched again on its next legitimate
- *    write (#8.7.9's settings API) even with no dedicated migration, since
- *    a write re-encrypts under `currentKey` unconditionally.
- * 4. Once satisfied nothing still depends on the old key, drop
- *    `SETTINGS_ENCRYPTION_KEY_PREVIOUS` and deploy again.
+ * 3. Run `yarn workspace @beton-boi/server settings:reencrypt`
+ *    (`server/src/scripts/reencrypt-settings.ts`). It re-encrypts every
+ *    stored secret under `currentKey` — rows still on a previous key and
+ *    legacy plaintext rows alike — and is safe to re-run. It exits
+ *    non-zero and prints the offending school/path if any value can't be
+ *    decrypted with a configured key, so relying on organic re-writes
+ *    from #8.7.9's settings API is no longer necessary.
+ * 4. Drop `SETTINGS_ENCRYPTION_KEY_PREVIOUS` and deploy again only once
+ *    step 3's script has exited 0 — that exit code, not operator
+ *    judgement, is what confirms nothing still depends on the old key.
  */
 @Injectable()
 export class EncryptionService {

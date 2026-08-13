@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { randomBytes } from 'crypto';
-import { EncryptionService } from './encryption.service';
+import { EncryptionService, isEncryptedEnvelope } from './encryption.service';
 
 function key(): Buffer {
   return randomBytes(32);
@@ -118,6 +118,18 @@ describe('EncryptionService', () => {
       const afterFullRotation = new EncryptionService(key(), [key()]);
 
       expect(() => afterFullRotation.decrypt(envelope)).toThrow(/Failed to decrypt/);
+    });
+  });
+
+  describe('isEncryptedEnvelope', () => {
+    it('recognizes a value this module produced', () => {
+      const envelope = new EncryptionService(key()).encrypt('secret');
+
+      expect(isEncryptedEnvelope(envelope)).toBe(true);
+    });
+
+    it('rejects a legacy plaintext value', () => {
+      expect(isEncryptedEnvelope('a-plain-whatsapp-token')).toBe(false);
     });
   });
 });
