@@ -3,7 +3,7 @@ import { DataSource } from 'typeorm';
 import { AppModule } from '../app.module';
 import { School } from '../modules/schools/entities/school.entity';
 import { EncryptionService } from '../modules/schools/settings/encryption.service';
-import { reencryptSecretFields } from '../modules/schools/settings/settings-encryption.util';
+import { BATCH_SIZE, migrateSchools } from './reencrypt-settings.util';
 
 /**
  * Brings every school's stored tenant-settings secrets onto the current
@@ -15,9 +15,18 @@ import { reencryptSecretFields } from '../modules/schools/settings/settings-encr
  * - Re-encrypts secrets still under a previous key, once rotated out via
  *   `SETTINGS_ENCRYPTION_KEY_PREVIOUS`.
  *
+ * Includes soft-deleted schools (`withDeleted: true`) — a school can be
+ * restored later, and a restored school whose secrets were silently
+ * skipped here would be left permanently unable to decrypt them once
+ * `SETTINGS_ENCRYPTION_KEY_PREVIOUS` is dropped.
+ *
+ * Paginates through schools `BATCH_SIZE` at a time rather than loading
+ * every row (and its settings jsonb) into memory in one `find()`.
+ *
  * Safe to re-run: each school is loaded, migrated, and saved independently,
- * so an interruption only costs re-processing schools already done (a
- * harmless no-op re-encryption with a fresh IV), not partial/corrupt state.
+ * and a school with nothing left to migrate isn't re-saved (see
+ * `migrateSchools`), so an interruption only costs re-processing whatever
+ * batch was in flight.
  *
  * Exits non-zero if any secret can't be decrypted under a configured key —
  * that's the actual signal `SETTINGS_ENCRYPTION_KEY_PREVIOUS` is safe to
@@ -31,26 +40,24 @@ export async function reencryptSettings(): Promise<{ migrated: number; skipped: 
 
   let migrated = 0;
   let skipped = 0;
+  let skip = 0;
 
-  const schools = await schoolRepository.find();
-
-  for (const school of schools) {
-    if (!school.settings) continue;
-
-    const before = school.settings as Record<string, unknown>;
-    const after = reencryptSecretFields(before, encryption, (error, path) => {
-      skipped += 1;
-      const reason = error instanceof Error ? error.message : String(error);
-      console.warn(
-        `Skipping ${school.id}:${path} — could not decrypt with any configured key: ${reason}`,
-      );
+  for (;;) {
+    const batch = await schoolRepository.find({
+      withDeleted: true,
+      order: { id: 'ASC' },
+      skip,
+      take: BATCH_SIZE,
     });
+    if (batch.length === 0) break;
 
-    if (JSON.stringify(after) !== JSON.stringify(before)) {
-      school.settings = after;
-      await schoolRepository.save(school);
-      migrated += 1;
-    }
+    const result = await migrateSchools(batch, encryption, async (school) => {
+      await schoolRepository.save(school as School);
+    });
+    migrated += result.migrated;
+    skipped += result.skipped;
+
+    skip += BATCH_SIZE;
   }
 
   console.log(
