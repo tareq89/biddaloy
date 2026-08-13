@@ -22,6 +22,7 @@
     "seed": "ts-node src/scripts/seed.ts",
     "db:clear": "ts-node src/scripts/db-clear.ts",
     "db:reset": "ts-node src/scripts/db-reset.ts",
+    "settings:reencrypt": "ts-node src/scripts/reencrypt-settings.ts",
     "docs:generate": "nest build && node dist/scripts/generate-openapi.js"
   },
   "dependencies": {
