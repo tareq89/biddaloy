@@ -110,6 +110,28 @@ export class EncryptionService {
     );
   }
 
+  /** Whether `envelope` decrypts under `currentKey` alone, with no need to
+   * fall back to a previous key. Used by `reencryptSecretFields` to tell a
+   * value that's already migrated from one that isn't, without decrypting
+   * it (no plaintext leaves this method) or duplicating `decrypt`'s
+   * multi-key fallback. `false` for a malformed envelope too — that's
+   * "not current" in the sense this method cares about, `decrypt` is
+   * still what reports the distinct failure reason. */
+  isCurrent(envelope: string): boolean {
+    if (!this.currentKey) return false;
+
+    try {
+      const { iv, tag, ciphertext } = this.parseEnvelope(envelope);
+      const decipher = createDecipheriv(ALGORITHM, this.currentKey, iv);
+      decipher.setAuthTag(tag);
+      decipher.update(ciphertext);
+      decipher.final();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   private parseEnvelope(envelope: string): { iv: Buffer; tag: Buffer; ciphertext: Buffer } {
     const parts = envelope.split(':');
     const [version, ivB64, tagB64, ctB64] = parts;

@@ -156,4 +156,17 @@ describe('reencryptSecretFields', () => {
       'legacy-plaintext-token',
     );
   });
+
+  it('leaves a value already under the current key byte-for-byte unchanged', () => {
+    const encryption = service();
+    const envelope = encryption.encrypt('already-current');
+    const settings = { communications: { whatsapp: { accessToken: envelope } } };
+
+    const migrated = reencryptSecretFields(settings, encryption);
+
+    // Same string, not just an equivalent decryption — a fresh IV here would
+    // make the migration script think this school needed migrating when it
+    // didn't.
+    expect((migrated.communications as any).whatsapp.accessToken).toBe(envelope);
+  });
 });

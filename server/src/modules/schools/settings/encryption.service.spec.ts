@@ -121,6 +121,36 @@ describe('EncryptionService', () => {
     });
   });
 
+  describe('isCurrent', () => {
+    it('is true for a value encrypted under the current key', () => {
+      const service = new EncryptionService(key());
+
+      expect(service.isCurrent(service.encrypt('secret'))).toBe(true);
+    });
+
+    it('is false for a value only decryptable under a previous key', () => {
+      const oldKey = key();
+      const envelope = new EncryptionService(oldKey).encrypt('rotate-me');
+      const afterRotation = new EncryptionService(key(), [oldKey]);
+
+      expect(afterRotation.isCurrent(envelope)).toBe(false);
+      // Sanity check it's not simply broken — decrypt still succeeds via the fallback.
+      expect(afterRotation.decrypt(envelope)).toBe('rotate-me');
+    });
+
+    it('is false for a malformed envelope, without throwing', () => {
+      const service = new EncryptionService(key());
+
+      expect(service.isCurrent('not-a-real-envelope')).toBe(false);
+    });
+
+    it('is false when no key is configured', () => {
+      const service = new EncryptionService(null);
+
+      expect(service.isCurrent('gcmv1:a:b:c')).toBe(false);
+    });
+  });
+
   describe('isEncryptedEnvelope', () => {
     it('recognizes a value this module produced', () => {
       const envelope = new EncryptionService(key()).encrypt('secret');

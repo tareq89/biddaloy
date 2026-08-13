@@ -114,8 +114,15 @@ export function decryptSecretFields(
  * `decryptSecretFields`'s read path this is the thing persisting back to
  * the database — and reported through `onSkip` so the caller (
  * `server/src/scripts/reencrypt-settings.ts`) can flag it for
- * investigation rather than silently losing it. Idempotent: re-running
- * against already-current values just re-encrypts them with a fresh IV. */
+ * investigation rather than silently losing it.
+ *
+ * A value already under the current key passes through byte-for-byte
+ * unchanged, rather than being decrypted and re-encrypted with a fresh
+ * IV: `encryption.isCurrent` checks this without needing to touch
+ * plaintext. That's what makes the migration script's own "did anything
+ * actually change" check meaningful — if `encrypt` ran unconditionally on
+ * every value, its fresh IV would make every school look migrated on
+ * every run, even ones nothing was done to. */
 export function reencryptSecretFields(
   settings: Record<string, unknown>,
   encryption: EncryptionService,
@@ -125,8 +132,10 @@ export function reencryptSecretFields(
     settings,
     getSecretPaths(TenantSettingsDto),
     (value) => {
-      const plaintext = isEncryptedEnvelope(value) ? encryption.decrypt(value) : value;
-      return encryption.encrypt(plaintext);
+      if (isEncryptedEnvelope(value)) {
+        return encryption.isCurrent(value) ? value : encryption.encrypt(encryption.decrypt(value));
+      }
+      return encryption.encrypt(value);
     },
     (error, path) => onSkip?.(error, path),
   );
