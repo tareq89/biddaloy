@@ -1,42 +1,36 @@
 import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import {
   CommunicationProvider,
   CommunicationSendParams,
   CommunicationSendResult,
 } from '../communication-provider.interface';
+import { TenantProviderConfigResolver } from '../../config/tenant-provider-config.resolver';
 
 /**
  * Plain SMTP email — works against any SMTP endpoint (self-hosted,
  * SendGrid's SMTP relay, etc.), no vendor-specific SDK.
+ *
+ * The transporter is built fresh per send from that tenant's resolved
+ * config rather than cached on the instance — a single cached transporter
+ * would silently reuse the first tenant's SMTP credentials for every
+ * tenant after it (#8.7.10).
  */
 @Injectable()
 export class SmtpEmailProvider implements CommunicationProvider {
-  private transporter: nodemailer.Transporter | null = null;
+  constructor(private readonly configResolver: TenantProviderConfigResolver) {}
 
-  constructor(private readonly config: ConfigService) {}
-
-  private getTransporter(): nodemailer.Transporter {
-    if (!this.transporter) {
-      const port = Number(this.config.get<string>('SMTP_PORT') ?? 587);
-      this.transporter = nodemailer.createTransport({
-        host: this.config.get<string>('SMTP_HOST'),
+  async send(params: CommunicationSendParams, tenantId: string): Promise<CommunicationSendResult> {
+    try {
+      const { host, port, user, password, from } = await this.configResolver.resolveEmail(tenantId);
+      const transporter = nodemailer.createTransport({
+        host,
         port,
         secure: port === 465,
-        auth: {
-          user: this.config.get<string>('SMTP_USER'),
-          pass: this.config.get<string>('SMTP_PASSWORD'),
-        },
+        auth: { user, pass: password },
       });
-    }
-    return this.transporter;
-  }
-
-  async send(params: CommunicationSendParams): Promise<CommunicationSendResult> {
-    try {
-      const info = await this.getTransporter().sendMail({
-        from: this.config.get<string>('SMTP_FROM'),
+      const info = await transporter.sendMail({
+        from,
         to: params.to,
         subject: params.subject ?? '',
         text: params.body,

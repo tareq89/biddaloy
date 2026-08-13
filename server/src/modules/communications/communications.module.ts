@@ -6,6 +6,7 @@ import { ReminderBatch } from './entities/reminder-batch.entity';
 import { StudentModule } from '../students/students.module';
 import { FeeModule } from '../fees/fees.module';
 import { AuditModule } from '../audit/audit.module';
+import { SchoolsModule } from '../schools/schools.module';
 import { CommunicationsService } from './communications.service';
 import { BulkReminderService } from './reminders.service';
 import { SingleReminderService } from './single-reminder.service';
@@ -18,6 +19,7 @@ import { MimSmsGateway } from './providers/sms/mim-sms.gateway';
 import { WhatsAppCloudProvider } from './providers/whatsapp/whatsapp-cloud.provider';
 import { SmtpEmailProvider } from './providers/email/smtp-email.provider';
 import { MessengerProvider } from './providers/messenger/messenger.provider';
+import { TenantProviderConfigResolver } from './config/tenant-provider-config.resolver';
 import { COMMUNICATIONS_QUEUE } from './communications.constants';
 
 @Module({
@@ -26,6 +28,7 @@ import { COMMUNICATIONS_QUEUE } from './communications.constants';
     StudentModule,
     FeeModule,
     AuditModule,
+    SchoolsModule,
     BullModule.registerQueue({
       name: COMMUNICATIONS_QUEUE,
       defaultJobOptions: {
@@ -40,6 +43,7 @@ import { COMMUNICATIONS_QUEUE } from './communications.constants';
     SingleReminderService,
     CommunicationsProcessor,
     CommunicationProviderRegistryService,
+    TenantProviderConfigResolver,
     SmsProviderFactory,
     GreenwebSmsGateway,
     MimSmsGateway,

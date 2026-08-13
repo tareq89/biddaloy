@@ -6,6 +6,7 @@ import { SchoolsService } from './schools.service';
 import { TenantSettingsDto } from './dto/tenant-settings.dto';
 import { DEFAULT_REGION_SETTINGS } from './settings/tenant-settings-defaults';
 import { EncryptionService } from './settings/encryption.service';
+import { TenantSettingsCache } from './settings/tenant-settings-cache.service';
 
 function fakeRepo() {
   return {
@@ -17,12 +18,14 @@ function fakeRepo() {
 describe('SchoolsService', () => {
   let repo: ReturnType<typeof fakeRepo>;
   let encryption: EncryptionService;
+  let settingsCache: TenantSettingsCache;
   let service: SchoolsService;
 
   beforeEach(() => {
     repo = fakeRepo();
     encryption = new EncryptionService(randomBytes(32));
-    service = new SchoolsService(repo as any, encryption);
+    settingsCache = new TenantSettingsCache(30_000);
+    service = new SchoolsService(repo as any, encryption, settingsCache);
   });
 
   describe('findById', () => {
@@ -73,6 +76,19 @@ describe('SchoolsService', () => {
       expect(saved.settings.communications.sms).toEqual({ provider: 'greenweb' });
       expect(saved.settings.communications.whatsapp.phoneNumberId).toBe('1');
       expect(resolved.region).toEqual(DEFAULT_REGION_SETTINGS);
+    });
+
+    it('invalidates the settings cache for this school after saving', async () => {
+      const school = { id: 's1', settings: null };
+      repo.findOne.mockResolvedValue(school);
+      repo.save.mockImplementation(async (s: typeof school) => s);
+      const invalidateSpy = vi.spyOn(settingsCache, 'invalidate');
+
+      const patch = plainToInstance(TenantSettingsDto, { version: 1 });
+      await service.updateSettings('s1', patch);
+
+      expect(invalidateSpy).toHaveBeenCalledWith('s1');
+      expect(invalidateSpy).toHaveBeenCalledTimes(1);
     });
 
     it('encrypts secret fields before persisting rather than storing them as plaintext', async () => {
@@ -146,6 +162,35 @@ describe('SchoolsService', () => {
 
       expect(decrypted.communications?.whatsapp?.accessToken).toBeUndefined();
       expect((decrypted.communications?.sms as any)?.greenweb?.apiKey).toBe('valid-sms-key');
+    });
+  });
+
+  describe('getMaskedSettings', () => {
+    it('returns a masked hint instead of the plaintext or the raw envelope', async () => {
+      const envelope = encryption.encrypt('super-secret-token');
+      repo.findOne.mockResolvedValue({
+        id: 's1',
+        settings: {
+          version: 1,
+          communications: { whatsapp: { phoneNumberId: '1', accessToken: envelope } },
+        },
+      });
+
+      const masked = await service.getMaskedSettings('s1');
+      const whatsapp = (masked.communications as any).whatsapp;
+
+      expect(whatsapp.accessToken).toEqual({ configured: true, hint: '••••oken' });
+      expect(JSON.stringify(masked)).not.toContain('super-secret-token');
+      expect(JSON.stringify(masked)).not.toContain(envelope);
+    });
+
+    it('resolves defaults for a school with no stored settings, same as getResolvedSettings', async () => {
+      repo.findOne.mockResolvedValue({ id: 's1', settings: null });
+
+      const masked = await service.getMaskedSettings('s1');
+
+      expect(masked.version).toBe(1);
+      expect(masked.region).toEqual(DEFAULT_REGION_SETTINGS);
     });
   });
 

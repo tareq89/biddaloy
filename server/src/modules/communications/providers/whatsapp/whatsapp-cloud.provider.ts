@@ -1,13 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import {
   CommunicationProvider,
   CommunicationSendParams,
   CommunicationSendResult,
 } from '../communication-provider.interface';
 import { normalizeBdPhoneNumber } from '../shared/phone-number.util';
+import { TenantProviderConfigResolver } from '../../config/tenant-provider-config.resolver';
 
-const DEFAULT_API_VERSION = 'v21.0';
 const REQUEST_TIMEOUT_MS = 10_000;
 
 /**
@@ -24,13 +23,15 @@ const REQUEST_TIMEOUT_MS = 10_000;
  */
 @Injectable()
 export class WhatsAppCloudProvider implements CommunicationProvider {
-  constructor(private readonly config: ConfigService) {}
+  constructor(private readonly configResolver: TenantProviderConfigResolver) {}
 
-  async send(params: CommunicationSendParams): Promise<CommunicationSendResult> {
+  async send(params: CommunicationSendParams, tenantId: string): Promise<CommunicationSendResult> {
     try {
-      const phoneNumberId = this.config.get<string>('WHATSAPP_PHONE_NUMBER_ID');
-      const accessToken = this.config.get<string>('WHATSAPP_ACCESS_TOKEN');
-      const apiVersion = this.config.get<string>('WHATSAPP_API_VERSION') ?? DEFAULT_API_VERSION;
+      // A ProviderNotConfiguredError from this call is caught by the same
+      // catch block as a network failure below — this provider's contract
+      // is "never throw" regardless of which step failed.
+      const { phoneNumberId, accessToken, apiVersion } =
+        await this.configResolver.resolveWhatsApp(tenantId);
       const url = `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`;
       const to = normalizeBdPhoneNumber(params.to);
 
