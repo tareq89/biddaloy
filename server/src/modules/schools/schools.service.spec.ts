@@ -1,9 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NotFoundException } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
+import { randomBytes } from 'crypto';
 import { SchoolsService } from './schools.service';
 import { TenantSettingsDto } from './dto/tenant-settings.dto';
 import { DEFAULT_REGION_SETTINGS } from './settings/tenant-settings-defaults';
+import { EncryptionService } from './settings/encryption.service';
 
 function fakeRepo() {
   return {
@@ -14,11 +16,13 @@ function fakeRepo() {
 
 describe('SchoolsService', () => {
   let repo: ReturnType<typeof fakeRepo>;
+  let encryption: EncryptionService;
   let service: SchoolsService;
 
   beforeEach(() => {
     repo = fakeRepo();
-    service = new SchoolsService(repo as any);
+    encryption = new EncryptionService(randomBytes(32));
+    service = new SchoolsService(repo as any, encryption);
   });
 
   describe('findById', () => {
@@ -67,11 +71,26 @@ describe('SchoolsService', () => {
       expect(repo.save).toHaveBeenCalledTimes(1);
       const saved = repo.save.mock.calls[0][0];
       expect(saved.settings.communications.sms).toEqual({ provider: 'greenweb' });
-      expect(saved.settings.communications.whatsapp).toEqual({
-        phoneNumberId: '1',
-        accessToken: 'tok',
-      });
+      expect(saved.settings.communications.whatsapp.phoneNumberId).toBe('1');
       expect(resolved.region).toEqual(DEFAULT_REGION_SETTINGS);
+    });
+
+    it('encrypts secret fields before persisting rather than storing them as plaintext', async () => {
+      const school = { id: 's1', settings: null };
+      repo.findOne.mockResolvedValue(school);
+      repo.save.mockImplementation(async (s: typeof school) => s);
+
+      const patch = plainToInstance(TenantSettingsDto, {
+        version: 1,
+        communications: { whatsapp: { phoneNumberId: '1', accessToken: 'super-secret-token' } },
+      });
+
+      await service.updateSettings('s1', patch);
+
+      const savedToken = repo.save.mock.calls[0][0].settings.communications.whatsapp.accessToken;
+      expect(savedToken).not.toBe('super-secret-token');
+      expect(savedToken).toMatch(/^gcmv1:/);
+      expect(encryption.decrypt(savedToken)).toBe('super-secret-token');
     });
 
     it('throws NotFoundException for an unknown school rather than writing anything', async () => {
@@ -80,6 +99,53 @@ describe('SchoolsService', () => {
 
       await expect(service.updateSettings('missing', patch)).rejects.toThrow(NotFoundException);
       expect(repo.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getDecryptedSettings', () => {
+    it('returns the plaintext secret rather than the stored envelope', async () => {
+      const envelope = encryption.encrypt('super-secret-token');
+      repo.findOne.mockResolvedValue({
+        id: 's1',
+        settings: {
+          version: 1,
+          communications: { whatsapp: { phoneNumberId: '1', accessToken: envelope } },
+        },
+      });
+
+      const decrypted = await service.getDecryptedSettings('s1');
+
+      expect(decrypted.communications?.whatsapp?.accessToken).toBe('super-secret-token');
+    });
+
+    it('leaves an unconfigured medium as undefined rather than throwing', async () => {
+      repo.findOne.mockResolvedValue({ id: 's1', settings: null });
+
+      const decrypted = await service.getDecryptedSettings('s1');
+
+      expect(decrypted.communications).toBeUndefined();
+    });
+
+    it('drops a secret that fails to decrypt instead of failing the whole call', async () => {
+      repo.findOne.mockResolvedValue({
+        id: 's1',
+        settings: {
+          version: 1,
+          communications: {
+            // A legacy plaintext row `yarn settings:reencrypt` hasn't reached yet.
+            whatsapp: { phoneNumberId: '1', accessToken: 'legacy-plaintext-token' },
+            sms: {
+              provider: 'greenweb',
+              greenweb: { apiKey: encryption.encrypt('valid-sms-key') },
+            },
+          },
+        },
+      });
+
+      const decrypted = await service.getDecryptedSettings('s1');
+
+      expect(decrypted.communications?.whatsapp?.accessToken).toBeUndefined();
+      expect((decrypted.communications?.sms as any)?.greenweb?.apiKey).toBe('valid-sms-key');
     });
   });
 });
