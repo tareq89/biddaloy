@@ -7,6 +7,7 @@ import {
 import { ConnectionTestResult } from '../shared/connection-test.types';
 import { GreenwebSmsGateway } from './greenweb-sms.gateway';
 import { MimSmsGateway } from './mim-sms.gateway';
+import { ProviderNotConfiguredError } from '../../config/provider-not-configured.error';
 import {
   SmsOverride,
   TenantProviderConfigResolver,
@@ -42,6 +43,7 @@ export class SmsProviderFactory implements CommunicationProvider {
         success: false,
         providerMessageId: null,
         error: err instanceof Error ? err.message : String(err),
+        retryable: err instanceof ProviderNotConfiguredError ? false : undefined,
       };
     }
   }

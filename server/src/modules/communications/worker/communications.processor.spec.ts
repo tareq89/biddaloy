@@ -105,6 +105,29 @@ describe('CommunicationsProcessor', () => {
     );
   });
 
+  it('marks the log FAILED on the first attempt when the provider says the failure is not retryable', async () => {
+    // A ProviderNotConfiguredError sets retryable: false — retrying it
+    // three times just delays a failure that's identical every attempt.
+    provider.send.mockResolvedValue({
+      success: false,
+      providerMessageId: null,
+      error: 'WhatsApp is not configured for this tenant',
+      retryable: false,
+    });
+
+    await expect(processor.process(job({ attemptsMade: 0, attempts: 3 }))).resolves.toBeUndefined();
+
+    expect(txManager.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: CommunicationStatus.FAILED,
+        metadata: expect.objectContaining({ error: 'WhatsApp is not configured for this tenant' }),
+      }),
+    );
+    // Settled directly — never went through the "keep QUEUED and throw to
+    // retry" path a transient failure would.
+    expect(repo.save).not.toHaveBeenCalled();
+  });
+
   it('marks the log FAILED without throwing when no provider is registered for the medium', async () => {
     providerRegistry.resolve.mockReturnValue(undefined);
 

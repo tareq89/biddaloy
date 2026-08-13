@@ -8,6 +8,7 @@ import { normalizeBdPhoneNumber } from '../shared/phone-number.util';
 import { ConnectionTestResult } from '../shared/connection-test.types';
 import { isValidGraphApiId, isValidGraphApiVersion } from '../shared/graph-api-path-segment.util';
 import { mapMetaGraphError } from '../shared/meta-graph-error.util';
+import { ProviderNotConfiguredError } from '../../config/provider-not-configured.error';
 import {
   ResolvedWhatsAppConfig,
   TenantProviderConfigResolver,
@@ -93,6 +94,7 @@ export class WhatsAppCloudProvider implements CommunicationProvider {
         success: false,
         providerMessageId: null,
         error: err instanceof Error ? err.message : String(err),
+        retryable: err instanceof ProviderNotConfiguredError ? false : undefined,
       };
     }
   }

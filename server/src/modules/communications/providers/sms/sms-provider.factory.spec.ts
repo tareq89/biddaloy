@@ -64,6 +64,7 @@ describe('SmsProviderFactory', () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/configure it/);
+    expect(result.retryable).toBe(false);
     expect(greenweb.sendSms).not.toHaveBeenCalled();
     expect(mimSms.sendSms).not.toHaveBeenCalled();
   });
