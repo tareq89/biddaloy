@@ -1,5 +1,5 @@
 import { ForbiddenException } from '@nestjs/common';
-import { UserRole } from '@beton-boi/shared';
+import { UserRole } from '@biddaloy/shared';
 
 /**
  * A super admin configures *any* school; an admin configures only their

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ForbiddenException } from '@nestjs/common';
-import { CommunicationMedium } from '@beton-boi/shared';
+import { CommunicationMedium } from '@biddaloy/shared';
 import { ProviderConnectionTestController } from './provider-connection-test.controller';
 import { ConnectionTestService } from './connection-test.service';
 import { TestConnectionDto } from '../dto/test-connection.dto';

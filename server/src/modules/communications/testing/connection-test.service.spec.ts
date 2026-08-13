@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { CommunicationMedium } from '@beton-boi/shared';
+import { CommunicationMedium } from '@biddaloy/shared';
 import { ConnectionTestService } from './connection-test.service';
 import { ProviderNotConfiguredError } from '../config/provider-not-configured.error';
 

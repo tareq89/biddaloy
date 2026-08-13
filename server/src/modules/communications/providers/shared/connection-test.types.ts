@@ -1,4 +1,4 @@
-import { CommunicationMedium } from '@beton-boi/shared';
+import { CommunicationMedium } from '@biddaloy/shared';
 
 /**
  * Result of a provider's cheapest-verification-call connection test

@@ -383,33 +383,4 @@ describe('SchoolsService', () => {
       expect(masked.region).toEqual(DEFAULT_REGION_SETTINGS);
     });
   });
-
-  describe('getMaskedSettings', () => {
-    it('returns a masked hint instead of the plaintext or the raw envelope', async () => {
-      const envelope = encryption.encrypt('super-secret-token');
-      repo.findOne.mockResolvedValue({
-        id: 's1',
-        settings: {
-          version: 1,
-          communications: { whatsapp: { phoneNumberId: '1', accessToken: envelope } },
-        },
-      });
-
-      const masked = await service.getMaskedSettings('s1');
-      const whatsapp = (masked.communications as any).whatsapp;
-
-      expect(whatsapp.accessToken).toEqual({ configured: true, hint: '••••oken' });
-      expect(JSON.stringify(masked)).not.toContain('super-secret-token');
-      expect(JSON.stringify(masked)).not.toContain(envelope);
-    });
-
-    it('resolves defaults for a school with no stored settings, same as getResolvedSettings', async () => {
-      repo.findOne.mockResolvedValue({ id: 's1', settings: null });
-
-      const masked = await service.getMaskedSettings('s1');
-
-      expect(masked.version).toBe(1);
-      expect(masked.region).toEqual(DEFAULT_REGION_SETTINGS);
-    });
-  });
 });

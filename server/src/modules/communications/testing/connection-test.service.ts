@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { CommunicationMedium } from '@beton-boi/shared';
+import { CommunicationMedium } from '@biddaloy/shared';
 import {
   ConnectionTestResult,
   TestableCommunicationMedium,
