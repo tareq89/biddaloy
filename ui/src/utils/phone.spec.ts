@@ -56,4 +56,17 @@ describe('formatPhone', () => {
 
     expect(formatPhone('01712345678', tooManyPlaceholders)).toBe('+880 1712-345678');
   });
+
+  it('appends digits the mask has no placeholder left for, rather than dropping them', () => {
+    // The inverse config-authoring mistake: fewer X's than the pattern
+    // guarantees digits for. formatPhone can shorten formatting but must
+    // never lose data — a truncated phone number is silently wrong in a
+    // way nothing downstream would catch.
+    const tooFewPlaceholders = {
+      ...REGION_BD_EN,
+      phone: { ...REGION_BD_EN.phone, displayFormat: 'XXX-XXXX' },
+    };
+
+    expect(formatPhone('01712345678', tooFewPlaceholders)).toBe('+880 171-2345678');
+  });
 });

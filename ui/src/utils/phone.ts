@@ -46,10 +46,9 @@ export function formatPhone(nationalNumber: string, config: RegionConfig): strin
 
   const digits = result.value;
   let nextDigit = 0;
-  const nationalFormatted = config.phone.displayFormat.replace(
-    /X/g,
-    () => digits[nextDigit++] ?? '',
-  );
+  const nationalFormatted =
+    config.phone.displayFormat.replace(/X/g, () => digits[nextDigit++] ?? '') +
+    digits.slice(nextDigit);
 
   return `+${config.phone.country} ${nationalFormatted}`;
 }
