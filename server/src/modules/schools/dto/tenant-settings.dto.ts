@@ -1,4 +1,14 @@
-import { IsIn, IsInt, IsString, IsArray, ArrayNotEmpty, Min, Max, Validate } from 'class-validator';
+import {
+  IsIn,
+  IsInt,
+  IsString,
+  IsArray,
+  ArrayNotEmpty,
+  IsOptional,
+  Min,
+  Max,
+  Validate,
+} from 'class-validator';
 import { Secret } from '../settings/secret-field.decorator';
 import { NestedSettings } from '../settings/nested-settings.decorator';
 import { OptionalSetting } from '../settings/optional-setting.decorator';
@@ -133,9 +143,16 @@ export class RegionSettingsDto {
 }
 
 export class GreenwebSmsDto {
+  // Optional + nullable: omitting the key leaves the stored secret
+  // unchanged (a PATCH doesn't have to resend a credential it isn't
+  // touching); an explicit `null` clears it. See
+  // `tenant-settings-merge.util.ts`'s `deepMergeCommunications` for the
+  // write side of this contract, and `../schools.controller.ts` for why
+  // a *read* never round-trips the real value here regardless.
+  @IsOptional()
   @IsString()
   @Secret()
-  apiKey: string;
+  apiKey?: string | null;
 
   @OptionalSetting()
   @IsString()
@@ -143,9 +160,10 @@ export class GreenwebSmsDto {
 }
 
 export class MimSmsDto {
+  @IsOptional()
   @IsString()
   @Secret()
-  apiKey: string;
+  apiKey?: string | null;
 
   @IsString()
   senderId: string;
@@ -177,9 +195,10 @@ export class WhatsAppSettingsDto {
   @IsString()
   apiVersion?: string;
 
+  @IsOptional()
   @IsString()
   @Secret()
-  accessToken: string;
+  accessToken?: string | null;
 }
 
 export class EmailSettingsDto {
@@ -197,18 +216,20 @@ export class EmailSettingsDto {
   @IsString()
   from: string;
 
+  @IsOptional()
   @IsString()
   @Secret()
-  password: string;
+  password?: string | null;
 }
 
 export class MessengerSettingsDto {
   @IsString()
   pageId: string;
 
+  @IsOptional()
   @IsString()
   @Secret()
-  accessToken: string;
+  accessToken?: string | null;
 }
 
 export class CommunicationsSettingsDto {

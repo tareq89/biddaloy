@@ -80,6 +80,13 @@ jobs:
       - name: UI missing-translation-key check
         run: yarn workspace @biddaloy/ui check:i18n
 
+      # [8.7.5]: fails on a translation key present in one locale but not
+      # the other, or a t() call with no matching key in any locale.
+      # Cheap enough (a handful of JSON files + a source-tree regex scan)
+      # to sit in this same job rather than needing its own.
+      - name: UI missing-translation-key check
+        run: yarn workspace @biddaloy/ui check:i18n
+
       # Non-blocking per [8.2.5]'s acceptance criteria: the baseline is
       # clean today (see knip.json's ignoreDependencies/ignoreIssues for
       # the handful of documented false positives), but a new one slipping

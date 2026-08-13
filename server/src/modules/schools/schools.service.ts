@@ -8,6 +8,7 @@ import { resolveTenantSettings } from './settings/tenant-settings-resolver';
 import { mergeTenantSettings, toPlainSettingsPatch } from './settings/tenant-settings-merge.util';
 import { EncryptionService } from './settings/encryption.service';
 import { decryptSecretFields, encryptSecretFields } from './settings/settings-encryption.util';
+import { maskSecretFields } from './settings/settings-mask.util';
 
 @Injectable()
 export class SchoolsService {
@@ -29,13 +30,28 @@ export class SchoolsService {
 
   /**
    * Resolved settings with secret fields still in their stored,
-   * *encrypted* form. Safe to build an API response from once #8.7.9
-   * replaces the envelope with a masked `{ configured, hint }` — never
-   * decrypt this to serve one, that's what `getDecryptedSettings` is for.
+   * *encrypted* form. Internal building block for `getMaskedSettings`
+   * (the HTTP-safe view) and `getDecryptedSettings` (the trusted-internal
+   * plaintext view) — not safe to return from a controller directly,
+   * since an encrypted envelope string is not the same thing as "safe to
+   * show," just "not immediately readable."
    */
   async getResolvedSettings(schoolId: string): Promise<TenantSettings> {
     const school = await this.findById(schoolId);
     return resolveTenantSettings(school.settings);
+  }
+
+  /**
+   * Resolved settings with every secret field replaced by a
+   * `{ configured, hint }` object — see `settings-mask.util.ts`'s own
+   * comment for exactly what that means for a set/cleared/never-set
+   * field. This is what `SchoolsController`'s `GET`/`PATCH` responses
+   * actually return; the plaintext never leaves the process to compute
+   * it.
+   */
+  async getMaskedSettings(schoolId: string): Promise<Record<string, unknown>> {
+    const resolved = await this.getResolvedSettings(schoolId);
+    return maskSecretFields(resolved as unknown as Record<string, unknown>, this.encryption);
   }
 
   /**
