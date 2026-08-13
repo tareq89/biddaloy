@@ -15,6 +15,7 @@ export { useTranslation } from 'react-i18next';
 export {
   REGION_BD_BN,
   REGION_BD_EN,
+  LOCALE_REGION_DEFAULTS,
   bnDigits,
   type RegionConfig,
   type NumeralSystem,
@@ -25,3 +26,5 @@ export {
   useRegionConfig,
   type RegionConfigProviderProps,
 } from './region-config-provider';
+export { resolveRegionConfig } from './region-config-resolver';
+export { useTenantRegionConfig } from './use-tenant-region-config';
