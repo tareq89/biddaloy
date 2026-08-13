@@ -5,6 +5,17 @@ export type Locale = (typeof SUPPORTED_LOCALES)[number];
  * that also speaks English, not the other way around. */
 export const DEFAULT_LOCALE: Locale = 'bn';
 
+/** Neither supported locale is RTL today — both map to `'ltr'` — but this
+ * is the one place that decides, so adding an RTL locale later is a
+ * one-line addition here, not a hunt through every component that reads
+ * `document.dir`. See `locale-provider.tsx`'s `<html lang>`/`dir` sync and
+ * `ui/CONTRIBUTING.md`'s note on why every component already uses logical
+ * (`margin-inline-*`/`padding-inline-*`) CSS for exactly this day. */
+export const LOCALE_DIR: Record<Locale, 'ltr' | 'rtl'> = {
+  bn: 'ltr',
+  en: 'ltr',
+};
+
 const STORAGE_KEY = 'biddaloy:locale';
 
 function isSupportedLocale(value: string | null | undefined): value is Locale {
