@@ -57,7 +57,7 @@
     "husky": "^9.1.7",
     "jsdom": "^30.0.1",
     "knip": "^6.31.0",
-    "lint-staged": "^16.4.0",
+    "lint-staged": "^17.3.0",
     "open": "^11",
     "prettier": "^3.9.6",
     "prettier-plugin-tailwindcss": "^0.8.1",
