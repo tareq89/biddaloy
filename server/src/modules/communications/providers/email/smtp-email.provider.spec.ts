@@ -7,6 +7,14 @@ vi.mock('nodemailer', () => ({
   createTransport: vi.fn(),
 }));
 
+// Destination-class validation (real vs. private-network host) is its own
+// unit under test in outbound-destination-guard.spec.ts, and does a real
+// DNS lookup — stub it out here so these tests stay hermetic and fast.
+vi.mock('../shared/outbound-destination-guard', () => ({
+  assertSafeSmtpDestination: vi.fn().mockResolvedValue(undefined),
+  DestinationBlockedError: class DestinationBlockedError extends Error {},
+}));
+
 describe('SmtpEmailProvider', () => {
   const tenantId = 'tenant-1';
   let configResolver: Record<string, ReturnType<typeof vi.fn>>;
@@ -100,6 +108,7 @@ describe('SmtpEmailProvider', () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/configure it/);
+    expect(result.retryable).toBe(false);
     expect(nodemailer.createTransport).not.toHaveBeenCalled();
   });
 

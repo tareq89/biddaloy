@@ -3,6 +3,7 @@ import { CommunicationSendResult } from '../communication-provider.interface';
 import { SmsGateway, isUnicodeMessage } from './sms-gateway.interface';
 import { normalizeBdPhoneNumber } from '../shared/phone-number.util';
 import { ConnectionTestResult } from '../shared/connection-test.types';
+import { assertSafeHttpDestination } from '../shared/outbound-destination-guard';
 import { ResolvedMimSmsConfig } from '../../config/tenant-provider-config.resolver';
 
 const DEFAULT_BASE_URL = 'https://api.mimsms.com/api/SmsSending/SMS';
@@ -27,6 +28,7 @@ export class MimSmsGateway implements SmsGateway<ResolvedMimSmsConfig> {
   ): Promise<CommunicationSendResult> {
     try {
       const baseUrl = config.apiUrl ?? DEFAULT_BASE_URL;
+      await assertSafeHttpDestination(baseUrl);
 
       const response = await fetch(baseUrl, {
         method: 'POST',

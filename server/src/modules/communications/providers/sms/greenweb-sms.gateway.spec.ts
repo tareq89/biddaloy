@@ -1,6 +1,14 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { GreenwebSmsGateway } from './greenweb-sms.gateway';
 
+// Destination-class validation (real vs. private-network host) is its own
+// unit under test in outbound-destination-guard.spec.ts, and does a real
+// DNS lookup — stub it out here so these tests stay hermetic and fast.
+vi.mock('../shared/outbound-destination-guard', () => ({
+  assertSafeHttpDestination: vi.fn().mockResolvedValue(undefined),
+  DestinationBlockedError: class DestinationBlockedError extends Error {},
+}));
+
 describe('GreenwebSmsGateway', () => {
   let gateway: GreenwebSmsGateway;
   let fetchMock: ReturnType<typeof vi.fn>;

@@ -1,6 +1,13 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { MimSmsGateway } from './mim-sms.gateway';
 
+// Destination-class validation (real vs. private-network host) is its own
+// unit under test in outbound-destination-guard.spec.ts, and does a real
+// DNS lookup — stub it out here so these tests stay hermetic and fast.
+vi.mock('../shared/outbound-destination-guard', () => ({
+  assertSafeHttpDestination: vi.fn().mockResolvedValue(undefined),
+}));
+
 describe('MimSmsGateway', () => {
   let gateway: MimSmsGateway;
   let fetchMock: ReturnType<typeof vi.fn>;
