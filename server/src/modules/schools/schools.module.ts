@@ -7,6 +7,7 @@ import { SchoolsController } from './schools.controller';
 import { EncryptionService } from './settings/encryption.service';
 import { buildEncryptionKey, buildPreviousEncryptionKeys } from './settings/encryption-key';
 import { TenantSettingsCache } from './settings/tenant-settings-cache.service';
+import { AuditModule } from '../audit/audit.module';
 
 const TENANT_SETTINGS_CACHE_TTL_MS = 30_000;
 
@@ -27,7 +28,7 @@ export function encryptionServiceFactory(config: ConfigService): EncryptionServi
 }
 
 @Module({
-  imports: [TypeOrmModule.forFeature([School]), ConfigModule],
+  imports: [TypeOrmModule.forFeature([School]), ConfigModule, AuditModule],
   controllers: [SchoolsController],
   providers: [
     SchoolsService,

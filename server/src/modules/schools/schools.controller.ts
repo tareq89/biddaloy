@@ -6,17 +6,21 @@ import {
   Param,
   ParseUUIDPipe,
   Patch,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { UserRole } from '@biddaloy/shared';
+import { Request } from 'express';
+import { JwtPayload, UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { STRICT_RATE_LIMIT } from '../../rate-limit';
+import { requestContext } from '../../common/request-context.util';
 import { SchoolsService } from './schools.service';
 import { TenantSettingsDto } from './dto/tenant-settings.dto';
 
@@ -76,9 +80,11 @@ export class SchoolsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: TenantSettingsDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
     assertCanManageSchool(tenant, id);
-    await this.schools.updateSettings(id, dto);
+    await this.schools.updateSettings(id, dto, user.sub, requestContext(request));
     return this.schools.getMaskedSettings(id);
   }
 }

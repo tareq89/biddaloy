@@ -61,4 +61,31 @@ describe('redactPii', () => {
     expect(() => redactPii('/api/v1/students?q=100%off')).not.toThrow();
     expect(redactPii('/api/v1/students?q=100%off')).toBe('/api/v1/students?q=100%off');
   });
+
+  // A Postgres constraint-violation DETAIL can echo an offending jsonb
+  // value verbatim in the raw driver-error text a TypeORM logQueryError
+  // call receives — not a URL, so this needs its own pattern rather than
+  // relying on SENSITIVE_QUERY_PATTERN above (#8.7.11).
+  it('redacts a secret value embedded in JSON-shaped driver-error text', () => {
+    const errorLine =
+      'duplicate key value violates unique constraint "schools_settings_key" DETAIL: Key (settings)=({"communications":{"whatsapp":{"accessToken":"super-secret-token"}}}) already exists.';
+
+    const redacted = redactPii(errorLine);
+
+    expect(redacted).not.toContain('super-secret-token');
+    expect(redacted).toContain('"accessToken":"[REDACTED]"');
+  });
+
+  it('redacts every known secret key shape in JSON text, case-insensitively', () => {
+    expect(redactPii('{"apiKey":"abc"}')).toBe('{"apiKey":"[REDACTED]"}');
+    expect(redactPii('{"api_key":"abc"}')).toBe('{"api_key":"[REDACTED]"}');
+    expect(redactPii('{"PASSWORD":"abc"}')).toBe('{"PASSWORD":"[REDACTED]"}');
+    expect(redactPii('{"refresh_token":"abc"}')).toBe('{"refresh_token":"[REDACTED]"}');
+  });
+
+  it('leaves non-secret JSON keys untouched', () => {
+    expect(redactPii('{"phoneNumberId":"123","pageId":"456"}')).toBe(
+      '{"phoneNumberId":"123","pageId":"456"}',
+    );
+  });
 });
