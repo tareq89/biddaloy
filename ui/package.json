@@ -25,6 +25,7 @@
     "lint": "tsc --noEmit && eslint .",
     "check:exports": "node scripts/check-exports.mjs",
     "check:contrast": "node --experimental-strip-types scripts/check-contrast.mjs",
+    "check:i18n": "node --experimental-strip-types scripts/check-i18n-keys.mjs",
     "check:api-types": "node scripts/check-api-types.mjs",
     "api:types": "npx --yes openapi-typescript@7.13.0 ../server/openapi.json -o src/api/schema.d.ts",
     "test": "vitest run",
