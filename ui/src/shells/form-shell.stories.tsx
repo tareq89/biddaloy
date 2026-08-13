@@ -158,10 +158,12 @@ export const SuccessfulSubmit: Story = {
   render: () => <AdmissionForm />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    // Queried by id rather than getByLabelText — see DraftRestore's play
-    // function for why (FormLabel's htmlFor doesn't track a caller-set
-    // id on FormControl's child, so getByLabelText can't resolve these
-    // fields; flagged separately, not fixed here).
+    // Queried by id, matching this file's other stories — `FormLabel`'s
+    // `htmlFor` now follows a caller-supplied value (#8.7.13 fixed the
+    // gap DraftRestore's own comment used to describe here), so
+    // `getByLabelText` would resolve these too; left as `querySelector`
+    // for consistency with the rest of this file rather than mixing
+    // query styles across stories that exercise the same fields.
     await userEvent.type(canvasElement.querySelector('#studentName')!, 'Karim Ahmed');
     await userEvent.type(canvasElement.querySelector('#guardianPhone')!, '01812345678');
     await userEvent.click(canvas.getByRole('button', { name: 'Admit student' }));
@@ -297,14 +299,11 @@ export const DraftRestore: Story = {
     await userEvent.click(canvas.getByRole('button', { name: 'Restore it' }));
 
     // Queried by id, the same way `FormShell`'s own error-summary links
-    // locate a field (`document.getElementById`) — not by label text,
-    // since `FormField`'s `FormLabel` always uses its own generated id
-    // for `htmlFor` regardless of what a caller passes, so a caller-set
-    // `id` on the input (needed here so `FormShellError.field` has a
-    // stable, predictable target) ends up unassociated from its label.
-    // That's a real gap in how `form-field.tsx` and `FormShell` compose
-    // together, flagged separately — not something to route around
-    // silently in every story that hits it.
+    // locate a field (`document.getElementById`) — consistent with this
+    // file's other stories rather than mixing query styles. `FormLabel`'s
+    // `htmlFor` follows a caller-supplied value now (#8.7.13), so this
+    // field's label *is* correctly associated with it — `getByLabelText`
+    // would resolve it too, this just isn't the story exercising that.
     const studentNameField = canvasElement.querySelector<HTMLInputElement>(
       `#${AUTOSAVE_FIELD_ID_PREFIX}studentName`,
     );

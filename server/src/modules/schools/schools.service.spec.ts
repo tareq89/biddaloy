@@ -29,6 +29,7 @@ function fakeRepo(school: { id: string; settings: unknown } | null) {
   const manager = { getRepository: vi.fn(() => schoolRepo) };
   return {
     findOne: vi.fn(async () => school),
+    find: vi.fn(async () => []),
     manager: { transaction: vi.fn(async (cb: any) => cb(manager)) },
     schoolRepo,
   };
@@ -74,6 +75,30 @@ describe('SchoolsService', () => {
       );
 
       await expect(service.findById('missing')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('findAll', () => {
+    it('returns every school, id and name only, ordered by name', async () => {
+      const repo = fakeRepo(null);
+      repo.find.mockResolvedValue([
+        { id: 's2', name: 'Zenith School' },
+        { id: 's1', name: 'Ananta School' },
+      ]);
+      const service = new SchoolsService(
+        repo as any,
+        encryption,
+        settingsCache,
+        auditService as any,
+      );
+
+      const schools = await service.findAll();
+
+      expect(repo.find).toHaveBeenCalledWith({ select: ['id', 'name'], order: { name: 'ASC' } });
+      expect(schools).toEqual([
+        { id: 's2', name: 'Zenith School' },
+        { id: 's1', name: 'Ananta School' },
+      ]);
     });
   });
 
