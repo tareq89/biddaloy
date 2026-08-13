@@ -61,6 +61,19 @@ export class SchoolsService {
     return resolveTenantSettings(school.settings);
   }
 
+  /** Shared `onError` for every `maskSecretFields` call site below — one
+   * undecryptable field degrades to `{ configured: true }` with no hint
+   * rather than failing the whole response; this just logs which
+   * school/field needs attention when that happens. */
+  private logMaskingFailure(schoolId: string) {
+    return (error: unknown, path: string) => {
+      const reason = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Reporting "${path}" as configured with no hint for school "${schoolId}": ${reason}`,
+      );
+    };
+  }
+
   /**
    * Resolved settings with every secret field replaced by a
    * `{ configured, hint }` object — see `settings-mask.util.ts`'s own
@@ -71,7 +84,11 @@ export class SchoolsService {
    */
   async getMaskedSettings(schoolId: string): Promise<Record<string, unknown>> {
     const resolved = await this.getResolvedSettings(schoolId);
-    return maskSecretFields(resolved as unknown as Record<string, unknown>, this.encryption);
+    return maskSecretFields(
+      resolved as unknown as Record<string, unknown>,
+      this.encryption,
+      this.logMaskingFailure(schoolId),
+    );
   }
 
   /**
@@ -130,13 +147,20 @@ export class SchoolsService {
    * instance), so a school that just rotated a WhatsApp token would
    * otherwise keep sending under the old one until the cache's own TTL
    * happened to expire.
+   *
+   * Returns the masked settings computed from the row this call itself
+   * just saved, rather than the caller doing a second `getMaskedSettings`
+   * read afterward — that would be a third query per PATCH, and a window
+   * (how ever short) in which the response could reflect a write that
+   * landed between this transaction committing and that re-read running,
+   * rather than the caller's own.
    */
   async updateSettings(
     schoolId: string,
     dto: TenantSettingsDto,
     userId: string,
     context: RequestContext = { ip: null, userAgent: null },
-  ): Promise<TenantSettings> {
+  ): Promise<Record<string, unknown>> {
     const plainPatch = toPlainSettingsPatch(dto);
     const encryptedPatch = encryptSecretFields(plainPatch, this.encryption);
 
@@ -178,6 +202,11 @@ export class SchoolsService {
     });
 
     this.settingsCache.invalidate(schoolId);
-    return resolveTenantSettings(settings);
+    const resolved = resolveTenantSettings(settings);
+    return maskSecretFields(
+      resolved as unknown as Record<string, unknown>,
+      this.encryption,
+      this.logMaskingFailure(schoolId),
+    );
   }
 }

@@ -106,6 +106,11 @@ export function useSchoolSettings(schoolId: string) {
     queryKey: schoolSettingsKeys.detail(schoolId),
     queryFn: async () =>
       (await apiClient.get<MaskedTenantSettings>(`/schools/${schoolId}/settings`)).data,
+    // A SUPER_ADMIN's picker starts with no school selected, so `schoolId`
+    // can be `''` before this hook has a real target — without this guard
+    // that fires a GET against `/schools//settings`, a malformed URL, on
+    // every mount.
+    enabled: Boolean(schoolId),
     retry: shouldRetryQuery,
   });
 }

@@ -44,3 +44,18 @@ export const STRICT_RATE_LIMIT: RateLimitTierOptions = { limit: 5, ttl: 60_000 }
  * third party's auth endpoint.
  */
 export const PROVIDER_TEST_RATE_LIMIT: RateLimitTierOptions = { limit: 3, ttl: 60_000 };
+
+/**
+ * Applied to `GET`/`PATCH /schools/:id/settings` — a credential-bearing
+ * read/write (a masked hint is still information about a school's
+ * provider accounts), but not an "expensive" endpoint in
+ * `STRICT_RATE_LIMIT`'s sense: it's a single-row jsonb read/write, and
+ * #8.7.13's dashboard saves one section (region/SMS/WhatsApp/email/
+ * Messenger) at a time rather than the whole page at once, so a normal
+ * "paste five credentials from a password manager" setup session is five
+ * PATCHes in quick succession — `STRICT_RATE_LIMIT`'s 5/60s sits right on
+ * that boundary and one typo-and-retry tips it over. This tier keeps a
+ * meaningful brake on enumerating a credential-bearing read while leaving
+ * room for a normal setup session.
+ */
+export const SETTINGS_RATE_LIMIT: RateLimitTierOptions = { limit: 20, ttl: 60_000 };
