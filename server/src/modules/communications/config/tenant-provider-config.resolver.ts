@@ -39,6 +39,28 @@ export interface ResolvedMimSmsConfig {
 
 export type ResolvedSmsConfig = ResolvedGreenwebSmsConfig | ResolvedMimSmsConfig;
 
+export type WhatsAppOverride = Partial<{
+  phoneNumberId: string;
+  accessToken: string;
+  apiVersion: string;
+}>;
+
+export type EmailOverride = Partial<{
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+  from: string;
+}>;
+
+export type MessengerOverride = Partial<{ pageId: string; accessToken: string }>;
+
+export type SmsOverride = Partial<{
+  provider: SmsGatewayName;
+  greenweb: Partial<{ apiKey: string; apiUrl: string }>;
+  mimsms: Partial<{ apiKey: string; senderId: string; apiUrl: string }>;
+}>;
+
 const DEFAULT_WHATSAPP_API_VERSION = 'v21.0';
 const DEFAULT_SMTP_PORT = 587;
 const DEFAULT_SMS_GATEWAY: SmsGatewayName = 'greenweb';
@@ -56,10 +78,21 @@ const DEFAULT_SMS_GATEWAY: SmsGatewayName = 'greenweb';
  * a burst of sends for the same tenant costs one decrypt, not one per
  * message.
  *
+ * Every `resolve*` method takes an optional `override` — plaintext field
+ * values that win over both the stored tenant setting and the env
+ * fallback (#8.7.12). This is what lets the dashboard's "Test connection"
+ * action verify credentials *before* saving them: the caller passes the
+ * unsaved form values as `override`, any field the form left blank falls
+ * through to whatever's already stored for that tenant (the same "omit
+ * to leave unchanged" contract `TenantSettingsDto` PATCHes already use),
+ * so testing after only touching one field doesn't require re-typing
+ * every other one.
+ *
  * Every `resolve*` method throws `ProviderNotConfiguredError` when a
- * required field can't be resolved from either source — callers (each
- * provider's own `send()`) catch it and convert to a `{ success: false }`
- * result, never let it propagate as an unhandled rejection.
+ * required field can't be resolved from any source — callers (each
+ * provider's own `send()`/`testConnection()`) catch it and convert to a
+ * `{ success: false }` result, never let it propagate as an unhandled
+ * rejection.
  */
 @Injectable()
 export class TenantProviderConfigResolver {
@@ -75,14 +108,23 @@ export class TenantProviderConfigResolver {
     );
   }
 
-  async resolveWhatsApp(tenantId: string): Promise<ResolvedWhatsAppConfig> {
+  async resolveWhatsApp(
+    tenantId: string,
+    override?: WhatsAppOverride,
+  ): Promise<ResolvedWhatsAppConfig> {
     const settings = await this.loadSettings(tenantId);
     const tenant = settings.communications?.whatsapp;
 
     const phoneNumberId =
-      tenant?.phoneNumberId ?? this.config.get<string>('WHATSAPP_PHONE_NUMBER_ID');
-    const accessToken = tenant?.accessToken ?? this.config.get<string>('WHATSAPP_ACCESS_TOKEN');
+      override?.phoneNumberId ??
+      tenant?.phoneNumberId ??
+      this.config.get<string>('WHATSAPP_PHONE_NUMBER_ID');
+    const accessToken =
+      override?.accessToken ??
+      tenant?.accessToken ??
+      this.config.get<string>('WHATSAPP_ACCESS_TOKEN');
     const apiVersion =
+      override?.apiVersion ??
       tenant?.apiVersion ??
       this.config.get<string>('WHATSAPP_API_VERSION') ??
       DEFAULT_WHATSAPP_API_VERSION;
@@ -97,15 +139,19 @@ export class TenantProviderConfigResolver {
     return { phoneNumberId, accessToken, apiVersion };
   }
 
-  async resolveEmail(tenantId: string): Promise<ResolvedEmailConfig> {
+  async resolveEmail(tenantId: string, override?: EmailOverride): Promise<ResolvedEmailConfig> {
     const settings = await this.loadSettings(tenantId);
     const tenant = settings.communications?.email;
 
-    const host = tenant?.host ?? this.config.get<string>('SMTP_HOST');
-    const port = tenant?.port ?? Number(this.config.get<string>('SMTP_PORT') ?? DEFAULT_SMTP_PORT);
-    const user = tenant?.user ?? this.config.get<string>('SMTP_USER');
-    const password = tenant?.password ?? this.config.get<string>('SMTP_PASSWORD');
-    const from = tenant?.from ?? this.config.get<string>('SMTP_FROM');
+    const host = override?.host ?? tenant?.host ?? this.config.get<string>('SMTP_HOST');
+    const port =
+      override?.port ??
+      tenant?.port ??
+      Number(this.config.get<string>('SMTP_PORT') ?? DEFAULT_SMTP_PORT);
+    const user = override?.user ?? tenant?.user ?? this.config.get<string>('SMTP_USER');
+    const password =
+      override?.password ?? tenant?.password ?? this.config.get<string>('SMTP_PASSWORD');
+    const from = override?.from ?? tenant?.from ?? this.config.get<string>('SMTP_FROM');
 
     if (!host || !user || !password || !from) {
       throw new ProviderNotConfiguredError(
@@ -117,36 +163,52 @@ export class TenantProviderConfigResolver {
     return { host, port, user, password, from };
   }
 
-  async resolveMessenger(tenantId: string): Promise<ResolvedMessengerConfig> {
+  async resolveMessenger(
+    tenantId: string,
+    override?: MessengerOverride,
+  ): Promise<ResolvedMessengerConfig> {
     const settings = await this.loadSettings(tenantId);
     const tenant = settings.communications?.messenger;
+
+    const pageId = override?.pageId ?? tenant?.pageId;
+    const accessToken = override?.accessToken ?? tenant?.accessToken;
 
     // No env-var fallback exists for Messenger — there's no platform-wide
     // Messenger account today (see MessengerProvider's own comment on why
     // it's still a stub regardless of config).
-    if (!tenant?.pageId || !tenant.accessToken) {
+    if (!pageId || !accessToken) {
       throw new ProviderNotConfiguredError(
         'Messenger',
         "Configure it on this school's settings — there is no platform-wide fallback for Messenger.",
       );
     }
 
-    return { pageId: tenant.pageId, accessToken: tenant.accessToken };
+    return { pageId, accessToken };
   }
 
-  async resolveSms(tenantId: string): Promise<ResolvedSmsConfig> {
+  async resolveSms(tenantId: string, override?: SmsOverride): Promise<ResolvedSmsConfig> {
     const settings = await this.loadSettings(tenantId);
     const tenant = settings.communications?.sms;
 
     const gateway: SmsGatewayName =
+      override?.provider ??
       tenant?.provider ??
       (this.config.get<string>('SMS_PROVIDER') as SmsGatewayName | undefined) ??
       DEFAULT_SMS_GATEWAY;
 
     if (gateway === 'mimsms') {
-      const apiKey = tenant?.mimsms?.apiKey ?? this.config.get<string>('MIMSMS_API_KEY');
-      const senderId = tenant?.mimsms?.senderId ?? this.config.get<string>('MIMSMS_SENDER_ID');
-      const apiUrl = tenant?.mimsms?.apiUrl ?? this.config.get<string>('MIMSMS_API_URL');
+      const apiKey =
+        override?.mimsms?.apiKey ??
+        tenant?.mimsms?.apiKey ??
+        this.config.get<string>('MIMSMS_API_KEY');
+      const senderId =
+        override?.mimsms?.senderId ??
+        tenant?.mimsms?.senderId ??
+        this.config.get<string>('MIMSMS_SENDER_ID');
+      const apiUrl =
+        override?.mimsms?.apiUrl ??
+        tenant?.mimsms?.apiUrl ??
+        this.config.get<string>('MIMSMS_API_URL');
 
       if (!apiKey || !senderId) {
         throw new ProviderNotConfiguredError(
@@ -157,8 +219,14 @@ export class TenantProviderConfigResolver {
       return { gateway: 'mimsms', apiKey, senderId, ...(apiUrl ? { apiUrl } : {}) };
     }
 
-    const apiKey = tenant?.greenweb?.apiKey ?? this.config.get<string>('GREENWEB_API_KEY');
-    const apiUrl = tenant?.greenweb?.apiUrl ?? this.config.get<string>('GREENWEB_API_URL');
+    const apiKey =
+      override?.greenweb?.apiKey ??
+      tenant?.greenweb?.apiKey ??
+      this.config.get<string>('GREENWEB_API_KEY');
+    const apiUrl =
+      override?.greenweb?.apiUrl ??
+      tenant?.greenweb?.apiUrl ??
+      this.config.get<string>('GREENWEB_API_URL');
 
     if (!apiKey) {
       throw new ProviderNotConfiguredError(

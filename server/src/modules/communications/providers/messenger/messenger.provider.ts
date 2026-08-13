@@ -4,7 +4,15 @@ import {
   CommunicationSendParams,
   CommunicationSendResult,
 } from '../communication-provider.interface';
-import { TenantProviderConfigResolver } from '../../config/tenant-provider-config.resolver';
+import { ConnectionTestResult } from '../shared/connection-test.types';
+import { isValidGraphApiId } from '../shared/graph-api-path-segment.util';
+import { mapMetaGraphError } from '../shared/meta-graph-error.util';
+import {
+  ResolvedMessengerConfig,
+  TenantProviderConfigResolver,
+} from '../../config/tenant-provider-config.resolver';
+
+const REQUEST_TIMEOUT_MS = 10_000;
 
 /**
  * Placeholder for future Messenger support.
@@ -43,5 +51,34 @@ export class MessengerProvider implements CommunicationProvider {
       providerMessageId: null,
       error: 'Messenger sending is not yet implemented',
     };
+  }
+
+  /**
+   * #8.7.12's connection test. Sending itself is still a stub (see class
+   * comment), but the credential *can* be verified independently — Page
+   * access tokens work against the Graph API today, so fetching the
+   * page's own metadata (`GET /{pageId}`) is a real, cheap check that the
+   * token is valid and scoped to this page, well ahead of the day
+   * `send()` stops being a stub.
+   */
+  async testConnection(config: ResolvedMessengerConfig): Promise<ConnectionTestResult> {
+    if (!isValidGraphApiId(config.pageId)) {
+      return { success: false, message: 'Page ID is not a valid Facebook Page identifier.' };
+    }
+    try {
+      const url = `https://graph.facebook.com/${config.pageId}?fields=id`;
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${config.accessToken}` },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+      const data = await response.json();
+
+      if (response.ok && data?.id) {
+        return { success: true, message: 'Connected — Facebook Page verified.' };
+      }
+      return { success: false, message: mapMetaGraphError(data) };
+    } catch {
+      return { success: false, message: 'Could not reach the Facebook Graph API.' };
+    }
   }
 }
