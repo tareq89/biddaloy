@@ -17,17 +17,16 @@ import { useTranslation } from '@biddaloy/ui/i18n';
 import {
   FormSection,
   FormShell,
+  buildFormShellErrors,
   useFormShellMode,
   useWarnUnsavedChanges,
-  type FormShellError,
 } from '@biddaloy/ui/shells';
+import { boundedNumericString } from '@biddaloy/ui/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import { MutationErrorMessage } from '../../components/MutationErrorMessage';
-
-const numericString = z.string().regex(/^\d+$/, { message: 'Must be a number' });
 
 const regionalSchema = z.object({
   locale: z.string().min(1),
@@ -40,12 +39,15 @@ const regionalSchema = z.object({
     // Plain validated strings, not `z.coerce.number()` — see
     // `EmailSection.tsx`'s own comment on the RHF-resolver typing
     // conflict that forces this; parsed back to numbers in `handleSave`.
-    decimals: numericString,
+    // Bounded to match the server's own @Min/@Max — decimal places for a
+    // currency display, 0-4 covers every real-world case.
+    decimals: boundedNumericString(0, 4),
     grouping: z.enum(['lakh-crore', 'thousand']),
   }),
   date: z.object({
     format: z.string().min(1),
-    firstDayOfWeek: numericString,
+    // 0 (Sunday) through 6 (Saturday).
+    firstDayOfWeek: boundedNumericString(0, 6),
     calendar: z.string().min(1),
   }),
   phone: z.object({
@@ -64,7 +66,8 @@ const regionalSchema = z.object({
     order: z.string().min(1),
   }),
   academicYear: z.object({
-    startMonth: numericString,
+    // Calendar month, 1-12.
+    startMonth: boundedNumericString(1, 12),
   }),
   identifiers: z.object({
     national: z.string().min(1),
@@ -110,7 +113,7 @@ export function RegionalSection({ schoolId, region }: RegionalSectionProps) {
   const updateSettings = useUpdateSchoolSettings(schoolId);
 
   function handleSave(values: RegionalFormValues) {
-    const region: RegionConfig = {
+    const regionConfig: RegionConfig = {
       ...values,
       currency: { ...values.currency, decimals: Number(values.currency.decimals) },
       date: { ...values.date, firstDayOfWeek: Number(values.date.firstDayOfWeek) },
@@ -118,13 +121,14 @@ export function RegionalSection({ schoolId, region }: RegionalSectionProps) {
       academicYear: { startMonth: Number(values.academicYear.startMonth) },
     };
     updateSettings.mutate(
-      { version: 1, region },
+      { version: 1, region: regionConfig },
       { onSuccess: () => form.reset(values, { keepIsSubmitSuccessful: true }) },
     );
   }
 
-  const summaryErrors: FormShellError[] = Object.entries(form.formState.errors).flatMap(
-    ([field, error]) => flattenFieldErrors(field, error),
+  const summaryErrors = buildFormShellErrors(
+    form.formState.errors,
+    (field) => `regional-${field.replace(/\./g, '-')}`,
   );
 
   return (
@@ -463,25 +467,5 @@ export function RegionalSection({ schoolId, region }: RegionalSectionProps) {
         {updateSettings.isError && <MutationErrorMessage error={updateSettings.error} />}
       </FormShell>
     </Form>
-  );
-}
-
-/** `form.formState.errors` nests for a nested field (`errors.currency.code`,
- * not a flat `errors['currency.code']`) — `FormShellError.field` needs the
- * dot-path id to match the input's own `id` (`regional-currency-code`),
- * so this walks the nested error tree and reconstructs it, converting the
- * dots into the same hyphenated id every input above actually uses. */
-function flattenFieldErrors(prefix: string, error: unknown): FormShellError[] {
-  if (!error || typeof error !== 'object') return [];
-  if ('message' in error && typeof (error as { message?: unknown }).message === 'string') {
-    return [
-      {
-        field: `regional-${prefix.replace(/\./g, '-')}`,
-        message: (error as { message: string }).message,
-      },
-    ];
-  }
-  return Object.entries(error as Record<string, unknown>).flatMap(([key, nested]) =>
-    flattenFieldErrors(`${prefix}.${key}`, nested),
   );
 }

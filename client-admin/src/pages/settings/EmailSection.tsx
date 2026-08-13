@@ -18,15 +18,17 @@ import { useTranslation } from '@biddaloy/ui/i18n';
 import {
   FormSection,
   FormShell,
+  buildFormShellErrors,
   useFormShellMode,
   useWarnUnsavedChanges,
-  type FormShellError,
 } from '@biddaloy/ui/shells';
+import { boundedNumericString } from '@biddaloy/ui/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
+import { ConnectionTestResultMessage } from '../../components/ConnectionTestResultMessage';
 import { MutationErrorMessage } from '../../components/MutationErrorMessage';
 import { SecretField } from '../../components/SecretField';
 
@@ -37,9 +39,9 @@ const emailSchema = z.object({
   // resolver's post-validation "output" shape, and a coerced field needs
   // `useForm`'s three type parameters wired to match; simpler to keep the
   // field a string end to end and parse it once in `buildConfig` below.
-  port: z.string().regex(/^\d+$/, { message: 'Must be a number' }),
+  port: boundedNumericString(1, 65535),
   user: z.string().min(1),
-  from: z.string().min(1),
+  from: z.email(),
 });
 
 type EmailFormValues = z.infer<typeof emailSchema>;
@@ -100,9 +102,7 @@ export function EmailSection({ schoolId, email }: EmailSectionProps) {
     testConnection.mutate({ medium: 'EMAIL', config: buildConfig(form.getValues()) });
   }
 
-  const summaryErrors: FormShellError[] = Object.entries(form.formState.errors).map(
-    ([field, error]) => ({ field, message: String(error?.message ?? '') }),
-  );
+  const summaryErrors = buildFormShellErrors(form.formState.errors, (field) => `email-${field}`);
 
   return (
     <Form {...form}>
@@ -185,16 +185,11 @@ export function EmailSection({ schoolId, email }: EmailSectionProps) {
             {t('testConnection.action')}
           </Button>
         </div>
-        {testConnection.data && (
-          <p
-            role="status"
-            className={
-              testConnection.data.success ? 'text-sm text-emerald-700' : 'text-sm text-destructive'
-            }
-          >
-            {testConnection.data.message}
-          </p>
-        )}
+        <ConnectionTestResultMessage
+          data={testConnection.data}
+          isError={testConnection.isError}
+          error={testConnection.error}
+        />
         {updateSettings.isSuccess && <p role="status">{t('save.success')}</p>}
         {updateSettings.isError && <MutationErrorMessage error={updateSettings.error} />}
       </FormShell>

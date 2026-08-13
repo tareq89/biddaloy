@@ -23,6 +23,7 @@ export {
   type FormShellError,
   type FormSectionProps,
 } from './form-shell';
+export { buildFormShellErrors } from './form-shell-errors';
 export {
   useFormShellMode,
   applyServerFieldErrors,

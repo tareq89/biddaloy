@@ -18,15 +18,16 @@ import { useTranslation } from '@biddaloy/ui/i18n';
 import {
   FormSection,
   FormShell,
+  buildFormShellErrors,
   useFormShellMode,
   useWarnUnsavedChanges,
-  type FormShellError,
 } from '@biddaloy/ui/shells';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
+import { ConnectionTestResultMessage } from '../../components/ConnectionTestResultMessage';
 import { MutationErrorMessage } from '../../components/MutationErrorMessage';
 import { SecretField } from '../../components/SecretField';
 
@@ -92,9 +93,7 @@ export function WhatsAppSection({ schoolId, whatsapp }: WhatsAppSectionProps) {
     testConnection.mutate({ medium: 'WHATSAPP', config: buildConfig(form.getValues()) });
   }
 
-  const summaryErrors: FormShellError[] = Object.entries(form.formState.errors).map(
-    ([field, error]) => ({ field, message: String(error?.message ?? '') }),
-  );
+  const summaryErrors = buildFormShellErrors(form.formState.errors, (field) => `whatsapp-${field}`);
 
   return (
     <Form {...form}>
@@ -153,16 +152,11 @@ export function WhatsAppSection({ schoolId, whatsapp }: WhatsAppSectionProps) {
             {t('testConnection.action')}
           </Button>
         </div>
-        {testConnection.data && (
-          <p
-            role="status"
-            className={
-              testConnection.data.success ? 'text-sm text-emerald-700' : 'text-sm text-destructive'
-            }
-          >
-            {testConnection.data.message}
-          </p>
-        )}
+        <ConnectionTestResultMessage
+          data={testConnection.data}
+          isError={testConnection.isError}
+          error={testConnection.error}
+        />
         {updateSettings.isSuccess && <p role="status">{t('save.success')}</p>}
         {updateSettings.isError && <MutationErrorMessage error={updateSettings.error} />}
       </FormShell>
