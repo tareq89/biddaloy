@@ -8,10 +8,3 @@ export { groupDigits } from './grouping';
 export { formatName } from './name';
 export { formatNumber, parseNumber } from './number';
 export { formatPhone, parsePhone, type PhoneParseResult } from './phone';
-export {
-  REGION_BD_BN,
-  REGION_BD_EN,
-  type RegionConfig,
-  type NumeralSystem,
-  type CurrencyGrouping,
-} from './region-config';

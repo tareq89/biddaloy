@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { REGION_BD_BN, REGION_BD_EN, type RegionConfig } from '../utils/region-config';
+import { REGION_BD_BN, REGION_BD_EN, type RegionConfig } from '../i18n/region-config';
 
 import { MoneyInput } from './money-input';
 
