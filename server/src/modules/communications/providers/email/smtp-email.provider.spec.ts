@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as nodemailer from 'nodemailer';
 import { SmtpEmailProvider } from './smtp-email.provider';
 import { ProviderNotConfiguredError } from '../../config/provider-not-configured.error';
@@ -18,9 +18,10 @@ vi.mock('../shared/outbound-destination-guard', () => {
   class OutboundDestinationError extends Error {}
   class DestinationBlockedError extends OutboundDestinationError {}
   return {
-    assertSafeSmtpDestination: vi
-      .fn()
-      .mockResolvedValue({ host: '203.0.113.5', servername: 'smtp.example.com' }),
+    assertSafeSmtpDestination: vi.fn().mockResolvedValue({
+      addresses: [{ address: '203.0.113.5', family: 4 }],
+      servername: 'smtp.example.com',
+    }),
     OutboundDestinationError,
     DestinationBlockedError,
   };
@@ -34,7 +35,7 @@ describe('SmtpEmailProvider', () => {
   let provider: SmtpEmailProvider;
 
   beforeEach(() => {
-    vi.mocked(nodemailer.createTransport).mockClear();
+    vi.mocked(nodemailer.createTransport).mockReset();
     configResolver = {
       resolveEmail: vi.fn().mockResolvedValue({
         host: 'smtp.example.com',
@@ -104,7 +105,7 @@ describe('SmtpEmailProvider', () => {
       from: 'noreply@other-tenant.com',
     });
     vi.mocked(assertSafeSmtpDestination).mockResolvedValueOnce({
-      host: '198.51.100.9',
+      addresses: [{ address: '198.51.100.9', family: 4 }],
       servername: 'smtp.other-tenant.com',
     });
     await provider.send({ to: 'b@example.com', body: 'hi' }, 'tenant-2');
@@ -154,7 +155,7 @@ describe('SmtpEmailProvider', () => {
 
   it('omits tls.servername when the tenant host is already a literal IP', async () => {
     vi.mocked(assertSafeSmtpDestination).mockResolvedValueOnce({
-      host: '203.0.113.5',
+      addresses: [{ address: '203.0.113.5', family: 4 }],
       servername: undefined,
     });
 
@@ -165,6 +166,109 @@ describe('SmtpEmailProvider', () => {
       unknown
     >;
     expect(transportOptions).not.toHaveProperty('tls');
+  });
+
+  describe('address fallback', () => {
+    // Pinning to a single literal IP short-circuits nodemailer's own DNS
+    // resolution, which otherwise gives it built-in failover across
+    // multiple A/AAAA records — these tests prove the provider restores
+    // that resilience itself across the guard-validated address list.
+    beforeEach(() => {
+      vi.mocked(assertSafeSmtpDestination).mockResolvedValue({
+        addresses: [
+          { address: '203.0.113.5', family: 4 },
+          { address: '203.0.113.6', family: 4 },
+        ],
+        servername: 'smtp.example.com',
+      });
+    });
+
+    afterEach(() => {
+      // Restore the single-address default so it doesn't leak into
+      // sibling describe blocks below.
+      vi.mocked(assertSafeSmtpDestination).mockResolvedValue({
+        addresses: [{ address: '203.0.113.5', family: 4 }],
+        servername: 'smtp.example.com',
+      });
+    });
+
+    it('tries the next pinned address when the first fails with a connection-class error', async () => {
+      const failingSendMail = vi
+        .fn()
+        .mockRejectedValue(
+          Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNECTION' }),
+        );
+      vi.mocked(nodemailer.createTransport)
+        .mockReturnValueOnce({ sendMail: failingSendMail, verify } as any)
+        .mockReturnValueOnce({ sendMail, verify } as any);
+
+      const result = await provider.send({ to: 'guardian@example.com', body: 'hi' }, tenantId);
+
+      expect(result.success).toBe(true);
+      expect(nodemailer.createTransport).toHaveBeenCalledTimes(2);
+      expect(nodemailer.createTransport).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ host: '203.0.113.5', tls: { servername: 'smtp.example.com' } }),
+      );
+      expect(nodemailer.createTransport).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ host: '203.0.113.6', tls: { servername: 'smtp.example.com' } }),
+      );
+    });
+
+    it('does the same fallback for testConnection', async () => {
+      const failingVerify = vi
+        .fn()
+        .mockRejectedValue(Object.assign(new Error('timed out'), { code: 'ETIMEDOUT' }));
+      vi.mocked(nodemailer.createTransport)
+        .mockReturnValueOnce({ sendMail, verify: failingVerify } as any)
+        .mockReturnValueOnce({ sendMail, verify } as any);
+
+      const result = await provider.testConnection({
+        host: 'smtp.example.com',
+        port: 587,
+        user: 'user-1',
+        password: 'pass-1',
+        from: 'noreply@example.com',
+      });
+
+      expect(result).toEqual({ success: true, message: 'Connected — SMTP credentials verified.' });
+      expect(nodemailer.createTransport).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not try another address after a non-connection failure, so a message is never sent twice', async () => {
+      const authFailingSendMail = vi
+        .fn()
+        .mockRejectedValue(Object.assign(new Error('535 auth failed'), { code: 'EAUTH' }));
+      vi.mocked(nodemailer.createTransport).mockReturnValueOnce({
+        sendMail: authFailingSendMail,
+        verify,
+      } as any);
+
+      const result = await provider.send({ to: 'guardian@example.com', body: 'hi' }, tenantId);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('535 auth failed');
+      expect(nodemailer.createTransport).toHaveBeenCalledTimes(1);
+    });
+
+    it('surfaces the last error once every pinned address fails to connect', async () => {
+      const failingSendMail = vi
+        .fn()
+        .mockRejectedValue(
+          Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNECTION' }),
+        );
+      vi.mocked(nodemailer.createTransport).mockReturnValue({
+        sendMail: failingSendMail,
+        verify,
+      } as any);
+
+      const result = await provider.send({ to: 'guardian@example.com', body: 'hi' }, tenantId);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('connect ECONNREFUSED');
+      expect(nodemailer.createTransport).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe('testConnection', () => {

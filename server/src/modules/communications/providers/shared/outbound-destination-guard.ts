@@ -151,11 +151,15 @@ export interface SafeHttpDestination {
   addresses: PinnedAddress[];
 }
 
-/** `host` is the validated address to dial directly. `servername` is the
- * original hostname, for TLS SNI/cert validation — `undefined` when the
- * input was already a literal IP (nothing to put in SNI). */
+/** `addresses` are every address the guard validated as public, in
+ * resolution order — callers should attempt them in order with bounded
+ * fallback (nodemailer only fails over across multiple addresses when it
+ * does its own DNS resolution; pinning to a single literal IP would
+ * otherwise silently drop that resilience). `servername` is the original
+ * hostname, for TLS SNI/cert validation — `undefined` when the input was
+ * already a literal IP (nothing to put in SNI). */
 export interface SafeSmtpDestination {
-  host: string;
+  addresses: PinnedAddress[];
   servername?: string;
 }
 
@@ -183,5 +187,5 @@ export async function assertSafeSmtpDestination(
     throw new DestinationBlockedError(`port ${port} is not a valid TCP port.`);
   }
   const addresses = await assertResolvesToPublicAddress(host);
-  return { host: addresses[0].address, servername: isIP(host) ? undefined : host };
+  return { addresses, servername: isIP(host) ? undefined : host };
 }

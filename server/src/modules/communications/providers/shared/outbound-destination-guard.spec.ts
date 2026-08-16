@@ -141,15 +141,33 @@ describe('assertSafeHttpDestination', () => {
 });
 
 describe('assertSafeSmtpDestination', () => {
-  it('passes for a publicly-resolving host and valid port, returning the resolved address and original hostname as servername', async () => {
+  it('passes for a publicly-resolving host and valid port, returning the resolved addresses and original hostname as servername', async () => {
     mockLookup.mockResolvedValueOnce([{ address: '203.0.113.5', family: 4 }]);
     const destination = await assertSafeSmtpDestination('smtp.example.com', 587);
-    expect(destination).toEqual({ host: '203.0.113.5', servername: 'smtp.example.com' });
+    expect(destination).toEqual({
+      addresses: [{ address: '203.0.113.5', family: 4 }],
+      servername: 'smtp.example.com',
+    });
   });
 
-  it('picks the first resolved address and omits servername when the host is already a literal IP', async () => {
+  it('returns every resolved address, not just the first, so callers can fail over between them', async () => {
+    // nodemailer only fails over across multiple addresses when it does
+    // its own DNS resolution — a caller pinning to a single literal IP
+    // would otherwise silently lose that resilience.
+    mockLookup.mockResolvedValueOnce([
+      { address: '203.0.113.5', family: 4 },
+      { address: '203.0.113.6', family: 4 },
+    ]);
+    const destination = await assertSafeSmtpDestination('smtp.example.com', 587);
+    expect(destination.addresses).toHaveLength(2);
+  });
+
+  it('returns the literal address and omits servername when the host is already a literal IP', async () => {
     const destination = await assertSafeSmtpDestination('203.0.113.5', 587);
-    expect(destination).toEqual({ host: '203.0.113.5', servername: undefined });
+    expect(destination).toEqual({
+      addresses: [{ address: '203.0.113.5', family: 4 }],
+      servername: undefined,
+    });
   });
 
   it('rejects an out-of-range port', async () => {
