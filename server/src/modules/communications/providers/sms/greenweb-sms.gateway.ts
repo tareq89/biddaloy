@@ -8,6 +8,7 @@ import {
   DestinationBlockedError,
   OutboundDestinationError,
 } from '../shared/outbound-destination-guard';
+import { fetchPinnedJson } from '../shared/pinned-http';
 import { ResolvedGreenwebSmsConfig } from '../../config/tenant-provider-config.resolver';
 
 const DEFAULT_BASE_URL = 'https://api.greenweb.com.bd/api.php';
@@ -28,7 +29,7 @@ export class GreenwebSmsGateway implements SmsGateway<ResolvedGreenwebSmsConfig>
   ): Promise<CommunicationSendResult> {
     try {
       const baseUrl = config.apiUrl ?? DEFAULT_BASE_URL;
-      await assertSafeHttpDestination(baseUrl);
+      const destination = await assertSafeHttpDestination(baseUrl);
       const params = new URLSearchParams({
         token: config.apiKey,
         to: normalizeBdPhoneNumber(to),
@@ -38,12 +39,10 @@ export class GreenwebSmsGateway implements SmsGateway<ResolvedGreenwebSmsConfig>
         params.set('unicode', '1');
       }
 
-      const response = await fetch(`${baseUrl}?${params.toString()}`, {
+      const data = (await fetchPinnedJson(destination, `${baseUrl}?${params.toString()}`, {
         method: 'GET',
-        redirect: 'error',
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      });
-      const data = await response.json();
+      })) as Record<string, any>;
 
       if (data?.status === 'success') {
         return { success: true, providerMessageId: data.msgid ?? null, raw: data };
@@ -73,15 +72,13 @@ export class GreenwebSmsGateway implements SmsGateway<ResolvedGreenwebSmsConfig>
   async testConnection(config: ResolvedGreenwebSmsConfig): Promise<ConnectionTestResult> {
     try {
       const baseUrl = config.apiUrl ?? DEFAULT_BASE_URL;
-      await assertSafeHttpDestination(baseUrl);
+      const destination = await assertSafeHttpDestination(baseUrl);
       const params = new URLSearchParams({ token: config.apiKey, type: 'balance' });
 
-      const response = await fetch(`${baseUrl}?${params.toString()}`, {
+      const data = (await fetchPinnedJson(destination, `${baseUrl}?${params.toString()}`, {
         method: 'GET',
-        redirect: 'error',
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      });
-      const data = await response.json();
+      })) as Record<string, any>;
 
       if (data?.status === 'success') {
         return { success: true, message: 'Connected — Greenweb account token verified.' };
