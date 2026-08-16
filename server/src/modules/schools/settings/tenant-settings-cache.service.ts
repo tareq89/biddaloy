@@ -55,10 +55,9 @@ export class TenantSettingsCache {
   constructor(private readonly ttlMs: number) {}
 
   async getOrLoad(tenantId: string, load: () => Promise<TenantSettings>): Promise<TenantSettings> {
-    const now = Date.now();
     const cached = this.entries.get(tenantId);
     if (cached) {
-      if (cached.expiresAt > now) {
+      if (cached.expiresAt > Date.now()) {
         return cached.settings;
       }
       this.entries.delete(tenantId);
@@ -69,7 +68,11 @@ export class TenantSettingsCache {
     if ((this.generations.get(tenantId) ?? 0) !== generationBeforeLoad) {
       return settings;
     }
-    this.entries.set(tenantId, { settings, expiresAt: now + this.ttlMs });
+    // Timestamp taken after load() resolves, not before — the TTL covers
+    // this entry's actual time in the cache, not load() plus the TTL, so a
+    // slow load doesn't leave the entry with a shortened (or already
+    // expired) lifetime.
+    this.entries.set(tenantId, { settings, expiresAt: Date.now() + this.ttlMs });
     return settings;
   }
 
