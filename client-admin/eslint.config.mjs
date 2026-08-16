@@ -30,7 +30,7 @@ export default tseslint.config(
     ...financialMutationGuardConfig,
   },
   {
-    files: ['*.ts', '*.mjs'],
+    files: ['*.ts', '*.mjs', 'scripts/**/*.mjs'],
     languageOptions: {
       globals: { ...globals.node },
     },

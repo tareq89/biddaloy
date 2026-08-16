@@ -1,6 +1,6 @@
+import { createRootRoute, createRoute } from '@tanstack/react-router';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { type RouteObject } from 'react-router';
 import { describe, expect, it } from 'vitest';
 
 import { renderWithRouter } from '../test/render-with-router';
@@ -34,54 +34,65 @@ function Probe() {
   );
 }
 
-const routes: RouteObject[] = [{ path: '/students', element: <Probe /> }];
+function buildRouteTree() {
+  const rootRoute = createRootRoute();
+  const studentsRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/students',
+    component: Probe,
+  });
+  return rootRoute.addChildren([studentsRoute]);
+}
 
+// TanStack Router's initial route match resolves asynchronously — see
+// `use-list-url-state.test.tsx`'s own comment for why every test here
+// awaits the first thing it looks for.
 describe('useListShellState', () => {
-  it('reads sort/order from the URL as a DataTableSort', () => {
-    renderWithRouter(routes, { initialEntries: ['/students?sort=due_date&order=desc'] });
-    expect(screen.getByText('sort: due_date:desc')).toBeTruthy();
+  it('reads sort/order from the URL as a DataTableSort', async () => {
+    renderWithRouter(buildRouteTree(), { initialEntries: ['/students?sort=due_date&order=desc'] });
+    expect(await screen.findByText('sort: due_date:desc')).toBeTruthy();
   });
 
-  it('has no sorting when neither sort nor order is in the URL', () => {
-    renderWithRouter(routes, { initialEntries: ['/students'] });
-    expect(screen.getByText('sort: none')).toBeTruthy();
+  it('has no sorting when neither sort nor order is in the URL', async () => {
+    renderWithRouter(buildRouteTree(), { initialEntries: ['/students'] });
+    expect(await screen.findByText('sort: none')).toBeTruthy();
   });
 
   it('setSorting writes both sort and order into the URL, and resets to page 1', async () => {
     const user = userEvent.setup();
-    const { router } = renderWithRouter(routes, { initialEntries: ['/students?page=3'] });
-    await user.click(screen.getByRole('button', { name: 'Sort by due date' }));
-    expect(router.state.location.search).toContain('sort=due_date');
-    expect(router.state.location.search).toContain('order=desc');
-    expect(router.state.location.search).toContain('page=1');
+    const { router } = renderWithRouter(buildRouteTree(), { initialEntries: ['/students?page=3'] });
+    await user.click(await screen.findByRole('button', { name: 'Sort by due date' }));
+    expect(router.state.location.searchStr).toContain('sort=due_date');
+    expect(router.state.location.searchStr).toContain('order=desc');
+    expect(router.state.location.searchStr).toContain('page=1');
   });
 
   it('setSorting(null) clears sort and order from the URL rather than being a no-op', async () => {
     const user = userEvent.setup();
-    const { router } = renderWithRouter(routes, {
+    const { router } = renderWithRouter(buildRouteTree(), {
       initialEntries: ['/students?sort=due_date&order=desc'],
     });
-    expect(screen.getByText('sort: due_date:desc')).toBeTruthy();
+    expect(await screen.findByText('sort: due_date:desc')).toBeTruthy();
 
-    await user.click(screen.getByRole('button', { name: 'Clear sorting' }));
+    await user.click(await screen.findByRole('button', { name: 'Clear sorting' }));
 
     await screen.findByText('sort: none');
-    expect(router.state.location.search).not.toContain('sort=');
-    expect(router.state.location.search).not.toContain('order=');
+    expect(router.state.location.searchStr).not.toContain('sort=');
+    expect(router.state.location.searchStr).not.toContain('order=');
   });
 
   it('setFilters resets page to 1 — the acceptance criterion', async () => {
     const user = userEvent.setup();
-    const { router } = renderWithRouter(routes, { initialEntries: ['/students?page=4'] });
-    await user.click(screen.getByRole('button', { name: 'Filter class-9' }));
+    const { router } = renderWithRouter(buildRouteTree(), { initialEntries: ['/students?page=4'] });
+    await user.click(await screen.findByRole('button', { name: 'Filter class-9' }));
     await screen.findByText('class_id: class-9');
-    expect(router.state.location.search).toContain('page=1');
+    expect(router.state.location.searchStr).toContain('page=1');
   });
 
   it('reads selection from the URL and setSelectedIds writes it back', async () => {
     const user = userEvent.setup();
-    renderWithRouter(routes, { initialEntries: ['/students'] });
-    expect(screen.getByText('selected: none')).toBeTruthy();
+    renderWithRouter(buildRouteTree(), { initialEntries: ['/students'] });
+    expect(await screen.findByText('selected: none')).toBeTruthy();
 
     await user.click(screen.getByRole('button', { name: 'Select two students' }));
     await screen.findByText('selected: s1,s2');
@@ -89,8 +100,8 @@ describe('useListShellState', () => {
 
   it('setSelectedIds(new Set()) clears the selection back to none', async () => {
     const user = userEvent.setup();
-    renderWithRouter(routes, { initialEntries: ['/students?selected=s1,s2'] });
-    expect(screen.getByText('selected: s1,s2')).toBeTruthy();
+    renderWithRouter(buildRouteTree(), { initialEntries: ['/students?selected=s1,s2'] });
+    expect(await screen.findByText('selected: s1,s2')).toBeTruthy();
 
     await user.click(screen.getByRole('button', { name: 'Clear selection' }));
 
@@ -99,9 +110,9 @@ describe('useListShellState', () => {
 
   it('a filter change preserves the current selection rather than clearing it', async () => {
     const user = userEvent.setup();
-    renderWithRouter(routes, { initialEntries: ['/students'] });
+    renderWithRouter(buildRouteTree(), { initialEntries: ['/students'] });
 
-    await user.click(screen.getByRole('button', { name: 'Select two students' }));
+    await user.click(await screen.findByRole('button', { name: 'Select two students' }));
     await screen.findByText('selected: s1,s2');
 
     await user.click(screen.getByRole('button', { name: 'Filter class-9' }));
@@ -111,12 +122,12 @@ describe('useListShellState', () => {
 
   it('setPage writes page without touching filters or sort', async () => {
     const user = userEvent.setup();
-    const { router } = renderWithRouter(routes, {
+    const { router } = renderWithRouter(buildRouteTree(), {
       initialEntries: ['/students?class_id=class-9&sort=due_date&order=asc'],
     });
-    await user.click(screen.getByRole('button', { name: 'Go to page 5' }));
-    expect(router.state.location.search).toContain('page=5');
-    expect(router.state.location.search).toContain('class_id=class-9');
-    expect(router.state.location.search).toContain('sort=due_date');
+    await user.click(await screen.findByRole('button', { name: 'Go to page 5' }));
+    expect(router.state.location.searchStr).toContain('page=5');
+    expect(router.state.location.searchStr).toContain('class_id=class-9');
+    expect(router.state.location.searchStr).toContain('sort=due_date');
   });
 });

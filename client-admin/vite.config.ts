@@ -1,11 +1,36 @@
 import { resolve } from 'path';
 
 import tailwindcss from '@tailwindcss/vite';
+import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
+import { visualizer } from 'rollup-plugin-visualizer';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    // Must come before react() — the plugin transforms route files (and
+    // generates routeTree.gen.ts) before the React plugin ever sees them.
+    tanstackRouter({
+      target: 'react',
+      autoCodeSplitting: true,
+      routesDirectory: './src/routes',
+      generatedRouteTree: './src/routeTree.gen.ts',
+      // Colocated `*.test.tsx` files (this repo's convention — see
+      // ui/CONTRIBUTING.md's three-file requirement) live right next to
+      // their route file. Without this, the plugin treats each one as its
+      // own route and fails the build.
+      routeFileIgnorePattern: '\\.(test|spec)\\.[jt]sx?$',
+    }),
+    react(),
+    tailwindcss(),
+    // `yarn build:analyze` (ANALYZE=true) opens a chunk-size treemap after
+    // build — [8.9.1]'s "route-level code splitting verified in a bundle
+    // report" AC. Off by default: it writes stats.html into dist/, which a
+    // normal `yarn build:client-admin` shouldn't produce.
+    ...(process.env.ANALYZE === 'true'
+      ? [visualizer({ filename: 'dist/stats.html', gzipSize: true, brotliSize: true, open: true })]
+      : []),
+  ],
   base: '/admin/',
   resolve: {
     alias: {

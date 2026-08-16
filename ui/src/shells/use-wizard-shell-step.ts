@@ -7,22 +7,23 @@
  * next read — the visible step and the URL should never disagree, even
  * for one render.
  */
-import { useSearchParams } from 'react-router';
+import { useSearch } from '@tanstack/react-router';
+
+import { useSearchNavigate } from '../routes/navigate-search';
 
 export function useWizardShellStep(stepIds: readonly string[]): [string, (stepId: string) => void] {
-  const [searchParams, setSearchParams] = useSearchParams();
+  // `strict: false` — this hook has no fixed route id, same reasoning as
+  // `useListUrlState` (see its own comment).
+  const search = useSearch({ strict: false }) as unknown as Record<string, unknown>;
+  const navigateSearch = useSearchNavigate();
   const firstStep = stepIds[0] ?? '';
 
-  const raw = searchParams.get('step');
-  const currentStepId = raw !== null && stepIds.includes(raw) ? raw : firstStep;
+  const raw = search.step;
+  const currentStepId = typeof raw === 'string' && stepIds.includes(raw) ? raw : firstStep;
 
   function setStep(stepId: string): void {
     if (!stepIds.includes(stepId)) return;
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.set('step', stepId);
-      return next;
-    });
+    navigateSearch((prev) => ({ ...prev, step: stepId }));
   }
 
   return [currentStepId, setStep];

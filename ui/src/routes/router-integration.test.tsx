@@ -1,5 +1,5 @@
+import { createRootRoute, createRoute } from '@tanstack/react-router';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
-import type { RouteObject } from 'react-router';
 import { describe, expect, it } from 'vitest';
 
 import { useStudents } from '../hooks/students';
@@ -43,22 +43,31 @@ function StudentsListRoute() {
   );
 }
 
-const routes: RouteObject[] = [
-  { path: '/students', element: <StudentsListRoute /> },
-  { path: '/forbidden', element: <p>Forbidden</p> },
-  {
-    path: '/reports',
-    element: (
-      <RequireRole allow={['ADMIN', 'ACCOUNTANT', 'EXECUTIVE']}>
-        <p>Reports</p>
-      </RequireRole>
-    ),
-  },
-];
+const rootRoute = createRootRoute();
+const studentsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/students',
+  component: StudentsListRoute,
+});
+const forbiddenRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/forbidden',
+  component: () => <p>Forbidden</p>,
+});
+const reportsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/reports',
+  component: () => (
+    <RequireRole allow={['ADMIN', 'ACCOUNTANT', 'EXECUTIVE']}>
+      <p>Reports</p>
+    </RequireRole>
+  ),
+});
+const routeTree = rootRoute.addChildren([studentsRoute, forbiddenRoute, reportsRoute]);
 
 describe('mounting at an arbitrary URL with search params', () => {
   it('the route reads its initial state from the URL, not a default', async () => {
-    renderWithRouter(routes, {
+    renderWithRouter(routeTree, {
       initialEntries: ['/students?page=3&class_id=class-9'],
       tenantId: 'tenant-1',
     });
@@ -70,7 +79,7 @@ describe('mounting at an arbitrary URL with search params', () => {
 
 describe('filter, sort, and page changes are reflected in the URL', () => {
   it('clicking the page/filter/sort controls updates the URL, not just what renders', async () => {
-    const { router } = renderWithRouter(routes, {
+    const { router } = renderWithRouter(routeTree, {
       initialEntries: ['/students'],
       tenantId: 'tenant-1',
     });
@@ -78,18 +87,18 @@ describe('filter, sort, and page changes are reflected in the URL', () => {
     await waitFor(() => expect(screen.getByText('page: 1')).toBeTruthy());
 
     fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
-    await waitFor(() => expect(router.state.location.search).toContain('page=2'));
+    await waitFor(() => expect(router.state.location.searchStr).toContain('page=2'));
 
     fireEvent.click(screen.getByRole('button', { name: 'Filter class-9' }));
-    await waitFor(() => expect(router.state.location.search).toContain('class_id=class-9'));
+    await waitFor(() => expect(router.state.location.searchStr).toContain('class_id=class-9'));
 
     fireEvent.click(screen.getByRole('button', { name: 'Sort by name' }));
-    await waitFor(() => expect(router.state.location.search).toContain('sort=full_name'));
+    await waitFor(() => expect(router.state.location.searchStr).toContain('sort=full_name'));
 
     // All three survive together — not overwriting each other.
-    expect(router.state.location.search).toContain('page=2');
-    expect(router.state.location.search).toContain('class_id=class-9');
-    expect(router.state.location.search).toContain('sort=full_name');
+    expect(router.state.location.searchStr).toContain('page=2');
+    expect(router.state.location.searchStr).toContain('class_id=class-9');
+    expect(router.state.location.searchStr).toContain('sort=full_name');
   });
 });
 
@@ -99,7 +108,7 @@ describe('permission-gated routes redirect correctly per role', () => {
     ['EXECUTIVE', true],
     ['TEACHER', false],
   ] as const)('role=%s -> allowed=%s', async (role, allowed) => {
-    const { router } = renderWithRouter(routes, {
+    const { router } = renderWithRouter(routeTree, {
       initialEntries: ['/reports'],
       tenantId: 'tenant-1',
       role,
@@ -115,7 +124,7 @@ describe('permission-gated routes redirect correctly per role', () => {
   });
 
   it('redirects when no role is active at all', async () => {
-    renderWithRouter(routes, { initialEntries: ['/reports'], tenantId: 'tenant-1' });
+    renderWithRouter(routeTree, { initialEntries: ['/reports'], tenantId: 'tenant-1' });
 
     await waitFor(() => expect(screen.getByText('Forbidden')).toBeTruthy());
   });
@@ -123,7 +132,7 @@ describe('permission-gated routes redirect correctly per role', () => {
 
 describe('back-navigation restores prior list state', () => {
   it('navigating back returns to the previous page/filter, not a reset one', async () => {
-    const { router } = renderWithRouter(routes, {
+    const { router } = renderWithRouter(routeTree, {
       initialEntries: ['/students?page=1', '/students?page=2&class_id=class-9'],
       initialIndex: 1,
       tenantId: 'tenant-1',
@@ -132,8 +141,8 @@ describe('back-navigation restores prior list state', () => {
     await waitFor(() => expect(screen.getByText('page: 2')).toBeTruthy());
     expect(screen.getByText('class_id: class-9')).toBeTruthy();
 
-    await act(async () => {
-      await router.navigate(-1);
+    act(() => {
+      router.history.back();
     });
 
     await waitFor(() => expect(screen.getByText('page: 1')).toBeTruthy());
@@ -143,13 +152,13 @@ describe('back-navigation restores prior list state', () => {
 
 describe('an invalid search param falls back sensibly instead of crashing', () => {
   it('a non-numeric page falls back to page 1', async () => {
-    renderWithRouter(routes, { initialEntries: ['/students?page=abc'], tenantId: 'tenant-1' });
+    renderWithRouter(routeTree, { initialEntries: ['/students?page=abc'], tenantId: 'tenant-1' });
 
     await waitFor(() => expect(screen.getByText('page: 1')).toBeTruthy());
   });
 
   it('a negative page falls back to page 1', async () => {
-    renderWithRouter(routes, { initialEntries: ['/students?page=-5'], tenantId: 'tenant-1' });
+    renderWithRouter(routeTree, { initialEntries: ['/students?page=-5'], tenantId: 'tenant-1' });
 
     await waitFor(() => expect(screen.getByText('page: 1')).toBeTruthy());
   });

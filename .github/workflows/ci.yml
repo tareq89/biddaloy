@@ -60,6 +60,13 @@ jobs:
           path: coverage/
           if-no-files-found: ignore
 
+      # [8.9.1]: a real `vite build`, so it runs on its own here rather
+      # than as a Vitest spec — see the script's own comment for why
+      # (running a production build inside the same worker pool as the
+      # rest of the frontend test suite exhausted its heap).
+      - name: client-admin route code-splitting check
+        run: yarn workspace @biddaloy/client-admin check:route-chunks
+
       - name: UI export map check
         run: yarn workspace @biddaloy/ui check:exports
 

@@ -152,6 +152,9 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
 
+# @tanstack/router-plugin's watch-mode cache
+.tanstack/
+
 # Graphify cache (regenerated, contains absolute local paths)
 graphify-out/cache/
 

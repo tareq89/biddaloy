@@ -1,8 +1,15 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+  createMemoryHistory,
+  createRouter,
+  RouterProvider,
+  type AnyRoute,
+} from '@tanstack/react-router';
 import { render, type RenderOptions, type RenderResult } from '@testing-library/react';
-import { createMemoryRouter, RouterProvider, type RouteObject } from 'react-router';
 
 import { setAccessToken, setActiveRole, setActiveTenant } from '../api/auth-state';
+import { i18n } from '../i18n/i18n';
+import { I18nProvider } from '../i18n/locale-provider';
 
 import { createTestQueryClient } from './render-with-providers';
 
@@ -18,42 +25,55 @@ export interface RenderWithRouterOptions extends Omit<RenderOptions, 'wrapper'> 
   tenantId?: string;
   role?: string;
   accessToken?: string;
+  locale?: string;
   queryClient?: QueryClient;
 }
 
-export interface RenderWithRouterResult extends RenderResult {
+export interface RenderWithRouterResult<
+  TRouteTree extends AnyRoute = AnyRoute,
+> extends RenderResult {
   queryClient: QueryClient;
-  /** The live `react-router` data router — read `router.state.location`
-   * for URL assertions, call `router.navigate(-1)` for back-navigation
+  /** The live TanStack Router instance — read `router.state.location`
+   * for URL assertions, call `router.history.back()` for back-navigation
    * (an in-memory router has no real browser history to drive this
-   * through `window.history.back()`). */
-  router: ReturnType<typeof createMemoryRouter>;
+   * through `window.history.back()`). Parameterized by the caller's own
+   * route tree (not just `ReturnType<typeof createRouter>`, which
+   * `exactOptionalPropertyTypes` rejects as too loose a target for the
+   * actual, more specific value `createRouter<TRouteTree>` returns). */
+  router: ReturnType<typeof createRouter<TRouteTree>>;
+  /** Resolves once the `locale` option (if given) has actually applied —
+   * see `renderWithProviders`'s own `localeReady` field for why this is
+   * handed back rather than awaited internally. */
+  localeReady: Promise<void>;
 }
 
 /**
- * `renderWithProviders`'s router-aware sibling — see `ui/README.md`'s
- * Testing section for why this is a separate function rather than an
- * option grafted onto `renderWithProviders` itself: that function's own
- * doc comment already promises a `RouterProvider` layer arrives with
- * [8.9.1], and this harness is deliberately scoped to [8.4.5]'s
- * integration tests, not a preview of that ticket's eventual API.
+ * `renderWithProviders`'s router-aware sibling — kept separate rather than
+ * folded into that function, so the ~95% of tests that don't touch routing
+ * stay exactly as simple as they are today: no route tree to build, no
+ * `RouterProvider` layer to pay for. `I18nProvider` **is** included here
+ * (unlike the pre-[8.9.1] version of this harness) — this now mounts real
+ * app routes, and every real page reads translated strings via
+ * `useTranslation`, so omitting it would suspend forever or render
+ * untranslated keys.
  *
- * Takes a `RouteObject[]` (react-router's own route-config shape) rather
- * than a single element, so a test can exercise real route matching —
- * nested routes, a `RequireRole` guard redirecting to a sibling route,
- * `loader`/`action` if a later ticket adds them — not just render one
- * component in isolation.
+ * Takes a route tree (the same shape `createRouter({ routeTree })` wants —
+ * build one with `createRootRoute().addChildren([...])`) rather than a
+ * single element, so a test exercises real route matching — nested
+ * routes, a `RequireRole` guard redirecting to a sibling route, a
+ * `loader` — not just one component in isolation.
  */
-export function renderWithRouter(
-  routes: RouteObject[],
+export function renderWithRouter<TRouteTree extends AnyRoute>(
+  routeTree: TRouteTree,
   options: RenderWithRouterOptions = {},
-): RenderWithRouterResult {
+): RenderWithRouterResult<TRouteTree> {
   const {
     initialEntries = ['/'],
     initialIndex,
     tenantId,
     role,
     accessToken,
+    locale,
     queryClient = createTestQueryClient(),
     ...renderOptions
   } = options;
@@ -62,17 +82,27 @@ export function renderWithRouter(
   if (role !== undefined) setActiveRole(role);
   if (accessToken !== undefined) setAccessToken(accessToken);
 
-  const router = createMemoryRouter(routes, {
+  const localeReady =
+    locale === undefined ? Promise.resolve() : i18n.changeLanguage(locale).then(() => undefined);
+
+  const history = createMemoryHistory({
     initialEntries,
     ...(initialIndex !== undefined ? { initialIndex } : {}),
   });
+  // `context: { queryClient }` mirrors how the real app's router is
+  // created — any route in the test tree that calls
+  // `context.queryClient.ensureQueryData(...)` in its `loader` works the
+  // same way it would in production.
+  const router = createRouter({ routeTree, history, context: { queryClient } });
 
   const view = render(
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <I18nProvider>
+        <RouterProvider router={router} />
+      </I18nProvider>
     </QueryClientProvider>,
     renderOptions,
   );
 
-  return { ...view, queryClient, router };
+  return { ...view, queryClient, router, localeReady };
 }

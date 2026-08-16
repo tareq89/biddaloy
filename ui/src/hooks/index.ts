@@ -13,6 +13,7 @@ export { shouldRetryQuery } from './retry';
 export { switchActiveTenant } from './tenant';
 export {
   studentKeys,
+  studentsQueryOptions,
   useCreateStudent,
   useStudent,
   useStudents,

@@ -110,30 +110,19 @@ under, and `src/test/render-with-providers.tsx`'s own doc comments for the
 full option list (`tenantId`/`role`/`accessToken`, `seedQueries`, a
 caller-supplied `queryClient`, `locale`).
 
-**Still no router in `renderWithProviders` itself, and no app-wide router
-yet** — that's a later ticket's call (TanStack Query's *app* defaults, as
-opposed to `renderWithProviders`'s test-only ones, land in [8.9.2]). i18next
-landed in [8.7.1]: every render now suspends on translated content until
-its namespace resolves, same as the real app, and a `locale` option picks
-which language a given render exercises. Since i18next is a
-module-scoped singleton (like `auth-state.ts`), `cleanupTestState()` resets
-the active language back to the default between tests, same as it already
-does for auth/tenant/role. The options object is structured so a router
-lands additively later (a new field, the internal `Wrapper` gains another
-layer), not as a breaking change to the function's signature:
+**Still no router in `renderWithProviders` itself** — TanStack Query's
+*app* defaults, as opposed to `renderWithProviders`'s test-only ones, land
+in [8.9.2]. i18next landed in [8.7.1]: every render now suspends on
+translated content until its namespace resolves, same as the real app, and
+a `locale` option picks which language a given render exercises. Since
+i18next is a module-scoped singleton (like `auth-state.ts`),
+`cleanupTestState()` resets the active language back to the default
+between tests, same as it already does for auth/tenant/role.
 
-```text
-renderWithProviders
- ├── QueryClientProvider   (here today)
- ├── I18nProvider          (here today — [8.7.1])
- └── RouterProvider        (app-wide adoption — a later ticket's call)
-```
-
-**Routing is a narrower story**: [8.4.5] added a *scoped* integration
-harness — `react-router`, `renderWithRouter`, `RequireRole`,
-`useListUrlState` — not the app-wide router `renderWithProviders`'s own
-diagram above still leaves open. See `### Routing` below for what exists
-today and how it's deliberately bounded.
+**Routing is a separate, sibling harness**: `renderWithRouter`
+(`@biddaloy/ui/test`) rather than an option grafted onto
+`renderWithProviders` — see `### Routing` below for why, and for what
+[8.9.1] adopted app-wide.
 
 Auth/tenant/role state (`ui/src/api/auth-state.ts`) is a module-scoped
 singleton, not per-render state, so it can't be reset just by creating a
@@ -148,38 +137,52 @@ via `vitest.config.ts`'s `setupFiles`.
 ### Routing
 
 "Page, filters, sort, selected row and active tab all live in the query
-string" is a core platform principle, and [8.4.5] built the integration
-harness that proves it holds — not the app-wide router itself, which is a
-later ticket's call and may or may not end up being the same library.
-`react-router` is a real, installed dependency (not test-only — `RequireRole`
-is meant to be consumed by actual routes once they exist), scoped narrowly
-to what this ticket needs.
+string" is a core platform principle. [8.4.5] built a *scoped* integration
+harness to prove it before any router existed; [8.9.1] adopted
+**TanStack Router** app-wide (`client-admin`'s `src/routes/`,
+`src/main.tsx`) specifically for its typed, per-route `validateSearch` —
+a malformed `?page=abc` degrades to a sensible default instead of crashing
+the page, declared once per route rather than hand-parsed. `react-router`
+(the library [8.4.5]'s harness picked, since none of this existed yet) is
+gone — every hook and test in this package now speaks TanStack's API.
 
-`renderWithRouter(routes, options)` (`@biddaloy/ui/test`) is
+`renderWithRouter(routeTree, options)` (`@biddaloy/ui/test`) is
 `renderWithProviders`'s router-aware sibling — same
-`tenantId`/`role`/`accessToken`/`queryClient` options, plus `initialEntries`
-(mount at an arbitrary URL, search params included) and `initialIndex`
-(seed history *before* the entry under test, so back-navigation has
-something real to return to). It takes a `RouteObject[]` — react-router's
-own route-config shape — rather than a single element, so a test exercises
-real route matching, not one component in isolation:
+`tenantId`/`role`/`accessToken`/`queryClient`/`locale` options, plus
+`initialEntries` (mount at an arbitrary URL, search params included) and
+`initialIndex` (seed history *before* the entry under test, so
+back-navigation has something real to return to). It takes a route tree —
+build one with `createRootRoute().addChildren([...])` — rather than a
+single element, so a test exercises real route matching, not one
+component in isolation. Unlike `renderWithProviders`, it **does** include
+`I18nProvider`: it mounts real app routes now, and every real page reads
+translated strings.
 
 ```tsx
-const { router } = renderWithRouter(
-  [{ path: '/students', element: <StudentsListRoute /> }],
-  { initialEntries: ['/students?page=2&class_id=class-9'], tenantId: 'tenant-1' },
-);
-// router.state.location — assert the URL, not just what rendered
-// router.navigate(-1) — simulate Back (wrap in `act()`, it's async)
+const rootRoute = createRootRoute();
+const studentsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/students',
+  component: StudentsListRoute,
+});
+
+const { router } = renderWithRouter(rootRoute.addChildren([studentsRoute]), {
+  initialEntries: ['/students?page=2&class_id=class-9'],
+  tenantId: 'tenant-1',
+});
+// router.state.location — assert the URL (searchStr for the raw query string)
+// router.history.back() — simulate Back (wrap in `act()`)
 ```
 
 `useListUrlState(defaults?)` (`@biddaloy/ui/routes`) is the one hook a
-list page should read/write `page`/`limit`/`sort`/filters through — a thin,
-typed wrapper over react-router's own `useSearchParams`. Falls back to
-sensible defaults for a non-numeric, negative, or missing `page`/`limit`
-rather than propagating `NaN` or a negative offset into a query — the same
-malformed-URL problem the AC calls out (a stale bookmark, a hand-edited
-link, a bug upstream):
+list page should read/write `page`/`limit`/`sort`/filters through — a thin
+wrapper over TanStack's `useSearch({ strict: false })`/`useNavigate()`
+(`strict: false` since this hook has no fixed route id — any list page can
+use it). Falls back to sensible defaults for a non-numeric, negative, or
+missing `page`/`limit` rather than propagating `NaN` or a negative offset
+into a query — the same malformed-URL problem a route's own
+`validateSearch` (see the example below) handles declaratively when one
+exists, and this hook still handles defensively when one doesn't:
 
 ```tsx
 const [state, updateUrl] = useListUrlState({ limit: 10 });
@@ -188,17 +191,43 @@ updateUrl({ page: state.page + 1 });          // ?page=2
 updateUrl({ filters: { class_id: 'c-9' } });  // ?class_id=c-9, page/sort untouched
 ```
 
-`RequireRole` (`@biddaloy/ui/routes`) gates a route element by the active
-role (`getActiveRole()`, the same value `apiClient` sends as `X-Role`),
-redirecting to `/forbidden` (configurable) with `replace` — the guarded
-route never enters back-navigation history:
+A route that wants typed, per-field validation declares its own Zod
+`validateSearch` instead — `.catch()` is what supplies the fallback,
+checked at the type level as well as at runtime (see
+`client-admin/src/routes/students/index.tsx` for the real, in-app version
+of this):
 
 ```tsx
-{ path: '/reports', element: (
-  <RequireRole allow={['ADMIN', 'ACCOUNTANT', 'EXECUTIVE']}>
-    <ReportsPage />
-  </RequireRole>
-) }
+export const Route = createFileRoute('/students/')({
+  validateSearch: z.object({
+    page: z.number().int().positive().optional().catch(undefined),
+    order: z.enum(['asc', 'desc']).optional().catch(undefined),
+  }),
+  component: StudentsListPage,
+});
+```
+
+`RequireRole` (`@biddaloy/ui/routes`) gates a route element by the active
+role (`getActiveRole()`, the same value `apiClient` sends as `X-Role`),
+redirecting to `/forbidden` (configurable) — the guarded route never enters
+back-navigation history. It redirects from a `useEffect`, not a rendered
+`<Navigate>` element: `<Navigate>` re-runs its own internal effect on every
+re-render of the element that creates it, and `RequireRole` re-renders on
+every router state change, which turned an unauthorized visit into an
+infinite `navigate()` loop the first time this was tried (caught by
+`router-integration.test.tsx`'s own suite, not in production — but worth
+knowing if you're tempted to switch it back):
+
+```tsx
+const reportsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/reports',
+  component: () => (
+    <RequireRole allow={['ADMIN', 'ACCOUNTANT', 'EXECUTIVE']}>
+      <ReportsPage />
+    </RequireRole>
+  ),
+});
 ```
 
 **This is UX, not the security boundary** — the server's own
@@ -208,11 +237,23 @@ access. `RequireRole` only avoids flashing a page the API would reject
 anyway; a caller who bypasses it still hits the same 401/403 the server
 always returns.
 
+`AppShell` (`@biddaloy/ui/components`) is the nav/header frame every
+routed screen renders inside — a `navItems` array of `{ to, label, icon? }`
+rendered as real `Link`s (not `<a href>`, specifically so hovering one
+triggers the router's `defaultPreload: 'intent'`), plus a `children` slot
+a consumer's root route fills with `<Outlet />`. See its own doc comment
+for what's deliberately *not* here yet (focus management, a tenant/role
+bar — later tickets' jobs).
+
 See `src/routes/router-integration.test.tsx` for the full reference —
 mounting at an arbitrary URL, filter/sort/page changes asserted against
 `router.state.location`, permission redirects checked across
 accountant/teacher/executive, back-navigation restoring prior list state,
-and a malformed `page` param falling back instead of crashing.
+and a malformed `page` param falling back instead of crashing. Note that
+TanStack Router's initial route match resolves **asynchronously** (unlike
+react-router's `createMemoryRouter`, which matched synchronously on
+construction) — every test that asserts on the first render awaits
+`findBy*`/`waitFor` rather than a bare synchronous `getBy*`.
 
 ### Mocking (MSW)
 

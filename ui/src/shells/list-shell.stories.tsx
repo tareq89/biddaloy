@@ -6,8 +6,8 @@
  * filter/selection.
  */
 import type { Meta, StoryObj } from '@storybook/react';
-import { MemoryRouter } from 'react-router';
 
+import { withMemoryRouter } from '../../.storybook/router-decorator';
 import { Button } from '../components/button';
 import type { DataTableColumn } from '../components/data-table';
 import { Input } from '../components/input';
@@ -15,11 +15,9 @@ import { Input } from '../components/input';
 import { ListShell } from './list-shell';
 import { useListShellState } from './use-list-shell-state';
 
-// No router decorator at the `meta` level — react-router doesn't allow
-// nesting `<Router>`s, so a story that needs its own `initialEntries`
-// (`WithSelection`, `FilteredAndSorted`) can't layer a second
-// `MemoryRouter` on top of a shared one. Each story supplies its own
-// single `MemoryRouter` instead.
+// No router decorator at the `meta` level — each story needs its own
+// `initialEntries` (`WithSelection`, `FilteredAndSorted`), so each
+// supplies its own router via `withMemoryRouter` instead of sharing one.
 const meta: Meta<typeof ListShell> = {
   title: 'Shells/ListShell',
   tags: ['autodocs'],
@@ -90,34 +88,16 @@ function StudentsListPage() {
 }
 
 export const Default: Story = {
-  decorators: [
-    (StoryFn) => (
-      <MemoryRouter initialEntries={['/students']}>
-        <StoryFn />
-      </MemoryRouter>
-    ),
-  ],
+  decorators: [withMemoryRouter(['/students'])],
   render: () => <StudentsListPage />,
 };
 
 export const WithSelection: Story = {
-  decorators: [
-    (StoryFn) => (
-      <MemoryRouter initialEntries={['/students?selected=1,3']}>
-        <StoryFn />
-      </MemoryRouter>
-    ),
-  ],
+  decorators: [withMemoryRouter(['/students?selected=1,3'])],
   render: () => <StudentsListPage />,
 };
 
 export const FilteredAndSorted: Story = {
-  decorators: [
-    (StoryFn) => (
-      <MemoryRouter initialEntries={['/students?q=Rahim&sort=name&order=asc']}>
-        <StoryFn />
-      </MemoryRouter>
-    ),
-  ],
+  decorators: [withMemoryRouter(['/students?q=Rahim&sort=name&order=asc'])],
   render: () => <StudentsListPage />,
 };
