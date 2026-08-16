@@ -4,6 +4,7 @@ import {
   assertSafeHttpDestination,
   assertSafeSmtpDestination,
   DestinationBlockedError,
+  DestinationResolutionError,
 } from './outbound-destination-guard';
 
 vi.mock('node:dns/promises', () => ({ lookup: vi.fn() }));
@@ -50,6 +51,35 @@ describe('assertSafeHttpDestination', () => {
     );
   });
 
+  it('rejects a bracketed IPv6 loopback literal', async () => {
+    // URL#hostname keeps the brackets around a literal IPv6 host — without
+    // stripping them, this falls through the isIP() literal-address check
+    // entirely and is treated as a hostname to DNS-resolve instead.
+    await expect(assertSafeHttpDestination('https://[::1]/x')).rejects.toThrow(
+      DestinationBlockedError,
+    );
+  });
+
+  it('rejects an IPv6 link-local address outside the fe80::/16 prefix', async () => {
+    // fe80::/10 spans fe80:: through febf:: — a naive `startsWith('fe80')`
+    // check only catches the first /16 of that range.
+    await expect(assertSafeHttpDestination('https://[fe90::1]/x')).rejects.toThrow(
+      DestinationBlockedError,
+    );
+  });
+
+  it('rejects the top of the fe80::/10 link-local range', async () => {
+    await expect(assertSafeHttpDestination('https://[febf::1]/x')).rejects.toThrow(
+      DestinationBlockedError,
+    );
+  });
+
+  it('allows an IPv6 address just past the link-local range', async () => {
+    // fec0::/10 is deprecated site-local, not link-local — a literal IP
+    // host skips DNS lookup entirely, so no mock response is needed here.
+    await expect(assertSafeHttpDestination('https://[fec0::1]/x')).resolves.toBeUndefined();
+  });
+
   it('rejects a hostname that DNS-resolves to a private address', async () => {
     mockLookup.mockResolvedValueOnce([{ address: '192.168.1.5', family: 4 }]);
     await expect(assertSafeHttpDestination('https://internal.example.com/x')).rejects.toThrow(
@@ -57,10 +87,13 @@ describe('assertSafeHttpDestination', () => {
     );
   });
 
-  it('rejects a hostname that fails to resolve', async () => {
+  it('rejects a hostname that fails to resolve, distinctly from a policy block', async () => {
+    // A transient DNS failure isn't the same class of problem as a
+    // resolved-to-private-address block — callers use this distinction to
+    // decide what's safe to retry.
     mockLookup.mockRejectedValueOnce(new Error('ENOTFOUND'));
     await expect(assertSafeHttpDestination('https://does-not-exist.example.com')).rejects.toThrow(
-      DestinationBlockedError,
+      DestinationResolutionError,
     );
   });
 });

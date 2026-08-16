@@ -19,10 +19,29 @@ import { lookup } from 'node:dns/promises';
  * hostname kept for TLS SNI), which is meaningfully more code — revisit
  * only if this becomes a live threat-model concern.
  */
-export class DestinationBlockedError extends Error {
+/** Common base for both error kinds below — callers that only need the
+ * human-readable reason (e.g. surfacing a connection-test failure) can
+ * catch this instead of the two subclasses individually. */
+export abstract class OutboundDestinationError extends Error {}
+
+// A permanent policy violation — invalid URL, wrong scheme, out-of-range
+// port, or a hostname that resolves to a private/reserved address. This
+// destination will not become valid on retry, so callers may treat it as
+// non-retryable.
+export class DestinationBlockedError extends OutboundDestinationError {
   constructor(reason: string) {
     super(`Outbound destination blocked: ${reason}`);
     this.name = 'DestinationBlockedError';
+  }
+}
+
+// The DNS lookup itself failed — transient (resolver hiccup, momentary
+// outage). Unlike DestinationBlockedError, this hostname may resolve
+// successfully on a later attempt, so callers should keep it retryable.
+export class DestinationResolutionError extends OutboundDestinationError {
+  constructor(hostname: string) {
+    super(`"${hostname}" could not be resolved.`);
+    this.name = 'DestinationResolutionError';
   }
 }
 
@@ -53,13 +72,23 @@ function isPrivateIpv4(ip: string): boolean {
   });
 }
 
+// Link-local addresses are fe80::/10 — the first hextet ranges from
+// 0xfe80 to 0xfebf. A plain `startsWith('fe80')` prefix check only
+// catches fe80::/16, letting fe90::, fea0::, febf::, etc. through.
+function isIpv6LinkLocal(normalized: string): boolean {
+  const firstHextet = normalized.split(':', 1)[0];
+  if (!/^[0-9a-f]{1,4}$/.test(firstHextet)) return false;
+  const value = parseInt(firstHextet, 16);
+  return value >= 0xfe80 && value <= 0xfebf;
+}
+
 function isPrivateIpv6(ip: string): boolean {
   const normalized = ip.toLowerCase();
   return (
     normalized === '::1' || // loopback
     normalized.startsWith('fc') || // unique local fc00::/7
     normalized.startsWith('fd') ||
-    normalized.startsWith('fe80') || // link-local
+    isIpv6LinkLocal(normalized) || // link-local fe80::/10
     normalized === '::' ||
     normalized.startsWith('::ffff:127.') || // IPv4-mapped loopback
     normalized.startsWith('::ffff:10.') ||
@@ -87,7 +116,7 @@ async function assertResolvesToPublicAddress(hostname: string): Promise<void> {
   try {
     addresses = await lookup(hostname, { all: true });
   } catch {
-    throw new DestinationBlockedError(`"${hostname}" could not be resolved.`);
+    throw new DestinationResolutionError(hostname);
   }
   const privateHit = addresses.find(({ address }) => isPrivateAddress(address));
   if (privateHit) {
@@ -95,6 +124,14 @@ async function assertResolvesToPublicAddress(hostname: string): Promise<void> {
       `"${hostname}" resolves to a private/reserved address (${privateHit.address}).`,
     );
   }
+}
+
+// `URL#hostname` keeps the brackets around a literal IPv6 host (e.g.
+// `[fe80::1]`) — neither `net.isIP` nor `dns.lookup` recognize that form,
+// so a literal-IPv6 URL would otherwise silently skip the isIP() branch
+// below and fail (or worse, hang) trying to DNS-resolve a bracketed string.
+function stripIpv6Brackets(hostname: string): string {
+  return hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname;
 }
 
 /** For SMS gateway `apiUrl` values — used with `fetch()`. */
@@ -108,7 +145,7 @@ export async function assertSafeHttpDestination(rawUrl: string): Promise<void> {
   if (url.protocol !== 'https:') {
     throw new DestinationBlockedError(`"${rawUrl}" must use https:.`);
   }
-  await assertResolvesToPublicAddress(url.hostname);
+  await assertResolvesToPublicAddress(stripIpv6Brackets(url.hostname));
 }
 
 /** For SMTP `host`/`port` — no protocol concept, so no scheme check. */
