@@ -47,12 +47,13 @@ export class SmtpEmailProvider implements CommunicationProvider {
   async send(params: CommunicationSendParams, tenantId: string): Promise<CommunicationSendResult> {
     try {
       const { host, port, user, password, from } = await this.configResolver.resolveEmail(tenantId);
-      await assertSafeSmtpDestination(host, port);
+      const destination = await assertSafeSmtpDestination(host, port);
       const transporter = nodemailer.createTransport({
-        host,
+        host: destination.host,
         port,
         secure: port === 465,
         auth: { user, pass: password },
+        ...(destination.servername ? { tls: { servername: destination.servername } } : {}),
       });
       const info = await transporter.sendMail({
         from,
@@ -89,12 +90,13 @@ export class SmtpEmailProvider implements CommunicationProvider {
    */
   async testConnection(config: ResolvedEmailConfig): Promise<ConnectionTestResult> {
     try {
-      await assertSafeSmtpDestination(config.host, config.port);
+      const destination = await assertSafeSmtpDestination(config.host, config.port);
       const transporter = nodemailer.createTransport({
-        host: config.host,
+        host: destination.host,
         port: config.port,
         secure: config.port === 465,
         auth: { user: config.user, pass: config.password },
+        ...(destination.servername ? { tls: { servername: destination.servername } } : {}),
       });
       await transporter.verify();
       return { success: true, message: 'Connected — SMTP credentials verified.' };

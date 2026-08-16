@@ -18,7 +18,9 @@ vi.mock('../shared/outbound-destination-guard', () => {
   class OutboundDestinationError extends Error {}
   class DestinationBlockedError extends OutboundDestinationError {}
   return {
-    assertSafeSmtpDestination: vi.fn().mockResolvedValue(undefined),
+    assertSafeSmtpDestination: vi
+      .fn()
+      .mockResolvedValue({ host: '203.0.113.5', servername: 'smtp.example.com' }),
     OutboundDestinationError,
     DestinationBlockedError,
   };
@@ -56,10 +58,11 @@ describe('SmtpEmailProvider', () => {
 
     expect(configResolver.resolveEmail).toHaveBeenCalledWith(tenantId);
     expect(nodemailer.createTransport).toHaveBeenCalledWith({
-      host: 'smtp.example.com',
+      host: '203.0.113.5',
       port: 587,
       secure: false,
       auth: { user: 'user-1', pass: 'pass-1' },
+      tls: { servername: 'smtp.example.com' },
     });
     expect(sendMail).toHaveBeenCalledWith({
       from: 'noreply@example.com',
@@ -100,11 +103,18 @@ describe('SmtpEmailProvider', () => {
       password: 'other-pass',
       from: 'noreply@other-tenant.com',
     });
+    vi.mocked(assertSafeSmtpDestination).mockResolvedValueOnce({
+      host: '198.51.100.9',
+      servername: 'smtp.other-tenant.com',
+    });
     await provider.send({ to: 'b@example.com', body: 'hi' }, 'tenant-2');
 
     expect(nodemailer.createTransport).toHaveBeenCalledTimes(2);
     expect(nodemailer.createTransport).toHaveBeenLastCalledWith(
-      expect.objectContaining({ host: 'smtp.other-tenant.com' }),
+      expect.objectContaining({
+        host: '198.51.100.9',
+        tls: { servername: 'smtp.other-tenant.com' },
+      }),
     );
   });
 
@@ -142,6 +152,21 @@ describe('SmtpEmailProvider', () => {
     expect(result.retryable).toBe(false);
   });
 
+  it('omits tls.servername when the tenant host is already a literal IP', async () => {
+    vi.mocked(assertSafeSmtpDestination).mockResolvedValueOnce({
+      host: '203.0.113.5',
+      servername: undefined,
+    });
+
+    await provider.send({ to: 'guardian@example.com', body: 'hi' }, tenantId);
+
+    const transportOptions = vi.mocked(nodemailer.createTransport).mock.calls[0]![0] as Record<
+      string,
+      unknown
+    >;
+    expect(transportOptions).not.toHaveProperty('tls');
+  });
+
   describe('testConnection', () => {
     const config = {
       host: 'smtp.example.com',
@@ -157,6 +182,9 @@ describe('SmtpEmailProvider', () => {
       expect(verify).toHaveBeenCalledTimes(1);
       expect(sendMail).not.toHaveBeenCalled();
       expect(result).toEqual({ success: true, message: 'Connected — SMTP credentials verified.' });
+      expect(nodemailer.createTransport).toHaveBeenCalledWith(
+        expect.objectContaining({ host: '203.0.113.5', tls: { servername: 'smtp.example.com' } }),
+      );
     });
 
     it('reports an authentication-rejected message for an EAUTH failure, never the raw error', async () => {
