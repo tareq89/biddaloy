@@ -9,15 +9,17 @@ import { lookup } from 'node:dns/promises';
  * allowlist would break it — so this checks the *class* of address
  * (private/loopback/link-local/metadata) rather than the hostname itself.
  *
- * Resolves the hostname once via `dns.lookup` and checks the returned
- * address; the actual `fetch`/SMTP connection re-resolves independently,
- * so this reduces but does not eliminate SSRF via DNS rebinding (an
- * attacker's DNS server returning a public IP for this check and a
- * private one moments later, for the real connection). Fully closing that
- * would mean pinning the checked IP through the actual connection (a
- * custom `fetch` dispatcher / nodemailer host override with the original
- * hostname kept for TLS SNI), which is meaningfully more code — revisit
- * only if this becomes a live threat-model concern.
+ * Resolves the hostname via `dns.lookup` and returns the validated
+ * address(es) to the caller instead of discarding them — a hostname
+ * re-resolved independently by the real connection could return something
+ * else entirely (DNS rebinding: a tenant controls DNS for their own
+ * domain, so a short TTL or an alternating resolver is enough to make
+ * this check pass against a public IP while the real connection lands on
+ * `169.254.169.254` or another internal address moments later). Callers
+ * pin the actual connection to exactly what was validated here — see
+ * `pinned-http.ts` for HTTP (undici `connect.lookup`) and
+ * `smtp-email.provider.ts` for SMTP (validated IP as `host`, original
+ * hostname kept as `tls.servername` for SNI/cert validation).
  */
 
 /** Common base for both error kinds below — callers that only need the
@@ -106,14 +108,19 @@ function isPrivateAddress(address: string): boolean {
   return false;
 }
 
-async function assertResolvesToPublicAddress(hostname: string): Promise<void> {
+export interface PinnedAddress {
+  address: string;
+  family: number;
+}
+
+async function assertResolvesToPublicAddress(hostname: string): Promise<PinnedAddress[]> {
   if (isIP(hostname)) {
     if (isPrivateAddress(hostname)) {
       throw new DestinationBlockedError(`"${hostname}" is a private/reserved address.`);
     }
-    return;
+    return [{ address: hostname, family: isIP(hostname) }];
   }
-  let addresses: Array<{ address: string }>;
+  let addresses: Array<{ address: string; family: number }>;
   try {
     addresses = await lookup(hostname, { all: true });
   } catch {
@@ -125,6 +132,7 @@ async function assertResolvesToPublicAddress(hostname: string): Promise<void> {
       `"${hostname}" resolves to a private/reserved address (${privateHit.address}).`,
     );
   }
+  return addresses;
 }
 
 // `URL#hostname` keeps the brackets around a literal IPv6 host (e.g.
@@ -135,8 +143,24 @@ function stripIpv6Brackets(hostname: string): string {
   return hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname;
 }
 
+/** The origin drives the real connection's Host header and TLS SNI;
+ * `addresses` are every address the guard validated as public — callers
+ * pin the actual connection to these instead of letting it re-resolve. */
+export interface SafeHttpDestination {
+  url: URL;
+  addresses: PinnedAddress[];
+}
+
+/** `host` is the validated address to dial directly. `servername` is the
+ * original hostname, for TLS SNI/cert validation — `undefined` when the
+ * input was already a literal IP (nothing to put in SNI). */
+export interface SafeSmtpDestination {
+  host: string;
+  servername?: string;
+}
+
 /** For SMS gateway `apiUrl` values — used with `fetch()`. */
-export async function assertSafeHttpDestination(rawUrl: string): Promise<void> {
+export async function assertSafeHttpDestination(rawUrl: string): Promise<SafeHttpDestination> {
   let url: URL;
   try {
     url = new URL(rawUrl);
@@ -146,13 +170,18 @@ export async function assertSafeHttpDestination(rawUrl: string): Promise<void> {
   if (url.protocol !== 'https:') {
     throw new DestinationBlockedError(`"${rawUrl}" must use https:.`);
   }
-  await assertResolvesToPublicAddress(stripIpv6Brackets(url.hostname));
+  const addresses = await assertResolvesToPublicAddress(stripIpv6Brackets(url.hostname));
+  return { url, addresses };
 }
 
 /** For SMTP `host`/`port` — no protocol concept, so no scheme check. */
-export async function assertSafeSmtpDestination(host: string, port: number): Promise<void> {
+export async function assertSafeSmtpDestination(
+  host: string,
+  port: number,
+): Promise<SafeSmtpDestination> {
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     throw new DestinationBlockedError(`port ${port} is not a valid TCP port.`);
   }
-  await assertResolvesToPublicAddress(host);
+  const addresses = await assertResolvesToPublicAddress(host);
+  return { host: addresses[0].address, servername: isIP(host) ? undefined : host };
 }

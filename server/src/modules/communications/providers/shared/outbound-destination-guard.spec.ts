@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { lookup } from 'node:dns/promises';
 import {
   assertSafeHttpDestination,
@@ -15,12 +15,53 @@ vi.mock('node:dns/promises', () => ({ lookup: vi.fn() }));
 const mockLookup = vi.mocked(lookup) as unknown as {
   mockResolvedValueOnce: (value: Array<{ address: string; family: number }>) => void;
   mockRejectedValueOnce: (value: unknown) => void;
+  mockClear: () => void;
 };
 
+beforeEach(() => {
+  mockLookup.mockClear();
+});
+
 describe('assertSafeHttpDestination', () => {
-  it('passes for https and a publicly-resolving hostname', async () => {
+  it('passes for https and a publicly-resolving hostname, returning the resolved address to pin', async () => {
     mockLookup.mockResolvedValueOnce([{ address: '203.0.113.5', family: 4 }]);
-    await expect(assertSafeHttpDestination('https://api.example.com/v1')).resolves.toBeUndefined();
+    const destination = await assertSafeHttpDestination('https://api.example.com/v1');
+    expect(destination.url.href).toBe('https://api.example.com/v1');
+    expect(destination.addresses).toEqual([{ address: '203.0.113.5', family: 4 }]);
+  });
+
+  it('returns every resolved address, not just the first, when a hostname has multiple', async () => {
+    mockLookup.mockResolvedValueOnce([
+      { address: '203.0.113.5', family: 4 },
+      { address: '203.0.113.6', family: 4 },
+      { address: '2001:db8::1', family: 6 },
+    ]);
+    const destination = await assertSafeHttpDestination('https://api.example.com/v1');
+    expect(destination.addresses).toHaveLength(3);
+  });
+
+  it('returns the literal address without calling dns.lookup when the host is already an IP', async () => {
+    const destination = await assertSafeHttpDestination('https://203.0.113.5/x');
+    expect(destination.addresses).toEqual([{ address: '203.0.113.5', family: 4 }]);
+    expect(lookup).not.toHaveBeenCalled();
+  });
+
+  it('pins a snapshot: a later, differently-resolving lookup for the same hostname does not affect an already-validated destination', async () => {
+    // This is the DNS-rebinding proof: the guard's job is only to hand the
+    // caller a snapshot to pin the real connection to — it doesn't (and
+    // can't) prevent the hostname resolving differently on a later,
+    // independent call. `assertSafeHttpDestination` returning the address
+    // it validated on *this* call, unaffected by a second call's result,
+    // is exactly what lets `fetchPinnedJson` bypass a rebinding attempt.
+    mockLookup.mockResolvedValueOnce([{ address: '203.0.113.5', family: 4 }]);
+    const first = await assertSafeHttpDestination('https://api.example.com/v1');
+
+    mockLookup.mockResolvedValueOnce([{ address: '169.254.169.254', family: 4 }]);
+    await expect(assertSafeHttpDestination('https://api.example.com/v1')).rejects.toThrow(
+      DestinationBlockedError,
+    );
+
+    expect(first.addresses).toEqual([{ address: '203.0.113.5', family: 4 }]);
   });
 
   it('rejects http (non-https) urls', async () => {
@@ -77,7 +118,8 @@ describe('assertSafeHttpDestination', () => {
   it('allows an IPv6 address just past the link-local range', async () => {
     // fec0::/10 is deprecated site-local, not link-local — a literal IP
     // host skips DNS lookup entirely, so no mock response is needed here.
-    await expect(assertSafeHttpDestination('https://[fec0::1]/x')).resolves.toBeUndefined();
+    const destination = await assertSafeHttpDestination('https://[fec0::1]/x');
+    expect(destination.addresses).toEqual([{ address: 'fec0::1', family: 6 }]);
   });
 
   it('rejects a hostname that DNS-resolves to a private address', async () => {
@@ -99,9 +141,15 @@ describe('assertSafeHttpDestination', () => {
 });
 
 describe('assertSafeSmtpDestination', () => {
-  it('passes for a publicly-resolving host and valid port', async () => {
+  it('passes for a publicly-resolving host and valid port, returning the resolved address and original hostname as servername', async () => {
     mockLookup.mockResolvedValueOnce([{ address: '203.0.113.5', family: 4 }]);
-    await expect(assertSafeSmtpDestination('smtp.example.com', 587)).resolves.toBeUndefined();
+    const destination = await assertSafeSmtpDestination('smtp.example.com', 587);
+    expect(destination).toEqual({ host: '203.0.113.5', servername: 'smtp.example.com' });
+  });
+
+  it('picks the first resolved address and omits servername when the host is already a literal IP', async () => {
+    const destination = await assertSafeSmtpDestination('203.0.113.5', 587);
+    expect(destination).toEqual({ host: '203.0.113.5', servername: undefined });
   });
 
   it('rejects an out-of-range port', async () => {
