@@ -367,8 +367,9 @@ describe('TenantProviderConfigResolver', () => {
           port: '465' as unknown as number,
           user: 'u',
           password: 'p',
+          from: 'a@x.com',
         }),
-      ).rejects.toThrow(ProviderNotConfiguredError);
+      ).rejects.toThrow(/SMTP port must be an integer between 1 and 65535/);
     });
   });
 
