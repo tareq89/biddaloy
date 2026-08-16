@@ -27,7 +27,10 @@ describe('WhatsAppSection', () => {
     );
 
     expect(await screen.findByText('Configured — ends ••••oken')).toBeTruthy();
-    expect(document.body.innerHTML).not.toContain('super-secret');
+    // The masked state must not expose an editable value for the stored
+    // token — no password input is rendered at all while masked, only the
+    // status text and the Replace/Clear buttons.
+    expect(screen.queryByLabelText('Access token')).toBeNull();
   });
 
   it('saves a new access token typed after clicking Replace, then shows a success message', async () => {
@@ -44,7 +47,7 @@ describe('WhatsAppSection', () => {
     );
 
     await user.click(await screen.findByRole('button', { name: 'Replace' }));
-    const tokenInput = document.getElementById('whatsapp-accessToken') as HTMLInputElement;
+    const tokenInput = await screen.findByLabelText('Access token');
     await user.type(tokenInput, 'new-token-value');
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
@@ -83,7 +86,7 @@ describe('WhatsAppSection', () => {
       { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
     );
 
-    const phoneField = document.getElementById('whatsapp-phoneNumberId') as HTMLInputElement;
+    const phoneField = await screen.findByLabelText<HTMLInputElement>('Phone number ID');
     await user.clear(phoneField);
     await user.type(phoneField, '999999');
 

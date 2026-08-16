@@ -4,6 +4,7 @@ import {
   IsString,
   IsArray,
   ArrayNotEmpty,
+  IsNotEmpty,
   IsOptional,
   Min,
   Max,
@@ -151,6 +152,7 @@ export class GreenwebSmsDto {
   // a *read* never round-trips the real value here regardless.
   @IsOptional()
   @IsString()
+  @IsNotEmpty() // `null` clears the secret; `''` is a client bug, not a third clearing idiom
   @Secret()
   apiKey?: string | null;
 
@@ -162,6 +164,7 @@ export class GreenwebSmsDto {
 export class MimSmsDto {
   @IsOptional()
   @IsString()
+  @IsNotEmpty() // `null` clears the secret; `''` is a client bug, not a third clearing idiom
   @Secret()
   apiKey?: string | null;
 
@@ -197,6 +200,7 @@ export class WhatsAppSettingsDto {
 
   @IsOptional()
   @IsString()
+  @IsNotEmpty() // `null` clears the secret; `''` is a client bug, not a third clearing idiom
   @Secret()
   accessToken?: string | null;
 }
@@ -218,6 +222,7 @@ export class EmailSettingsDto {
 
   @IsOptional()
   @IsString()
+  @IsNotEmpty() // `null` clears the secret; `''` is a client bug, not a third clearing idiom
   @Secret()
   password?: string | null;
 }
@@ -228,6 +233,7 @@ export class MessengerSettingsDto {
 
   @IsOptional()
   @IsString()
+  @IsNotEmpty() // `null` clears the secret; `''` is a client bug, not a third clearing idiom
   @Secret()
   accessToken?: string | null;
 }

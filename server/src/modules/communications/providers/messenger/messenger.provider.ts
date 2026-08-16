@@ -7,6 +7,7 @@ import {
 import { ConnectionTestResult } from '../shared/connection-test.types';
 import { isValidGraphApiId } from '../shared/graph-api-path-segment.util';
 import { mapMetaGraphError } from '../shared/meta-graph-error.util';
+import { ProviderNotConfiguredError } from '../../config/provider-not-configured.error';
 import {
   ResolvedMessengerConfig,
   TenantProviderConfigResolver,
@@ -44,12 +45,14 @@ export class MessengerProvider implements CommunicationProvider {
         success: false,
         providerMessageId: null,
         error: err instanceof Error ? err.message : String(err),
+        retryable: err instanceof ProviderNotConfiguredError ? false : undefined,
       };
     }
     return {
       success: false,
       providerMessageId: null,
       error: 'Messenger sending is not yet implemented',
+      retryable: false,
     };
   }
 

@@ -3,6 +3,11 @@ import { CommunicationSendResult } from '../communication-provider.interface';
 import { SmsGateway, isUnicodeMessage } from './sms-gateway.interface';
 import { normalizeBdPhoneNumber } from '../shared/phone-number.util';
 import { ConnectionTestResult } from '../shared/connection-test.types';
+import {
+  assertSafeHttpDestination,
+  DestinationBlockedError,
+  OutboundDestinationError,
+} from '../shared/outbound-destination-guard';
 import { ResolvedGreenwebSmsConfig } from '../../config/tenant-provider-config.resolver';
 
 const DEFAULT_BASE_URL = 'https://api.greenweb.com.bd/api.php';
@@ -23,6 +28,7 @@ export class GreenwebSmsGateway implements SmsGateway<ResolvedGreenwebSmsConfig>
   ): Promise<CommunicationSendResult> {
     try {
       const baseUrl = config.apiUrl ?? DEFAULT_BASE_URL;
+      await assertSafeHttpDestination(baseUrl);
       const params = new URLSearchParams({
         token: config.apiKey,
         to: normalizeBdPhoneNumber(to),
@@ -34,6 +40,7 @@ export class GreenwebSmsGateway implements SmsGateway<ResolvedGreenwebSmsConfig>
 
       const response = await fetch(`${baseUrl}?${params.toString()}`, {
         method: 'GET',
+        redirect: 'error',
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
       const data = await response.json();
@@ -52,6 +59,9 @@ export class GreenwebSmsGateway implements SmsGateway<ResolvedGreenwebSmsConfig>
         success: false,
         providerMessageId: null,
         error: err instanceof Error ? err.message : String(err),
+        // Only a resolved-to-a-blocked-destination is permanent; a DNS
+        // hiccup or network blip may succeed on retry.
+        retryable: err instanceof DestinationBlockedError ? false : undefined,
       };
     }
   }
@@ -63,10 +73,12 @@ export class GreenwebSmsGateway implements SmsGateway<ResolvedGreenwebSmsConfig>
   async testConnection(config: ResolvedGreenwebSmsConfig): Promise<ConnectionTestResult> {
     try {
       const baseUrl = config.apiUrl ?? DEFAULT_BASE_URL;
+      await assertSafeHttpDestination(baseUrl);
       const params = new URLSearchParams({ token: config.apiKey, type: 'balance' });
 
       const response = await fetch(`${baseUrl}?${params.toString()}`, {
         method: 'GET',
+        redirect: 'error',
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
       const data = await response.json();
@@ -78,7 +90,10 @@ export class GreenwebSmsGateway implements SmsGateway<ResolvedGreenwebSmsConfig>
         success: false,
         message: 'Authentication rejected — check the account token.',
       };
-    } catch {
+    } catch (err) {
+      if (err instanceof OutboundDestinationError) {
+        return { success: false, message: err.message };
+      }
       return { success: false, message: 'Could not reach the Greenweb API.' };
     }
   }

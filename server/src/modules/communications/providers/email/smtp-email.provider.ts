@@ -7,11 +7,20 @@ import {
 } from '../communication-provider.interface';
 import { ConnectionTestResult } from '../shared/connection-test.types';
 import {
+  assertSafeSmtpDestination,
+  DestinationBlockedError,
+  OutboundDestinationError,
+} from '../shared/outbound-destination-guard';
+import { ProviderNotConfiguredError } from '../../config/provider-not-configured.error';
+import {
   ResolvedEmailConfig,
   TenantProviderConfigResolver,
 } from '../../config/tenant-provider-config.resolver';
 
 function mapSmtpError(err: unknown): string {
+  if (err instanceof OutboundDestinationError) {
+    return err.message;
+  }
   const code = (err as { code?: string } | null)?.code;
   if (code === 'EAUTH') {
     return 'Authentication rejected — check the SMTP username and password.';
@@ -38,6 +47,7 @@ export class SmtpEmailProvider implements CommunicationProvider {
   async send(params: CommunicationSendParams, tenantId: string): Promise<CommunicationSendResult> {
     try {
       const { host, port, user, password, from } = await this.configResolver.resolveEmail(tenantId);
+      await assertSafeSmtpDestination(host, port);
       const transporter = nodemailer.createTransport({
         host,
         port,
@@ -60,6 +70,13 @@ export class SmtpEmailProvider implements CommunicationProvider {
         success: false,
         providerMessageId: null,
         error: err instanceof Error ? err.message : String(err),
+        // A resolved-to-a-blocked-destination or unconfigured-provider
+        // failure is permanent; a DNS hiccup (DestinationResolutionError)
+        // or transport-level error may succeed on retry.
+        retryable:
+          err instanceof ProviderNotConfiguredError || err instanceof DestinationBlockedError
+            ? false
+            : undefined,
       };
     }
   }
@@ -71,14 +88,14 @@ export class SmtpEmailProvider implements CommunicationProvider {
    * stored config; this method doesn't care which.
    */
   async testConnection(config: ResolvedEmailConfig): Promise<ConnectionTestResult> {
-    const transporter = nodemailer.createTransport({
-      host: config.host,
-      port: config.port,
-      secure: config.port === 465,
-      auth: { user: config.user, pass: config.password },
-    });
-
     try {
+      await assertSafeSmtpDestination(config.host, config.port);
+      const transporter = nodemailer.createTransport({
+        host: config.host,
+        port: config.port,
+        secure: config.port === 465,
+        auth: { user: config.user, pass: config.password },
+      });
       await transporter.verify();
       return { success: true, message: 'Connected — SMTP credentials verified.' };
     } catch (err) {

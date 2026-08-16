@@ -104,6 +104,7 @@ describe('WhatsAppCloudProvider', () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/configure it/);
+    expect(result.retryable).toBe(false);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

@@ -88,6 +88,59 @@ describe('maskSecretFields', () => {
     expect(communications.sms.mimsms.senderId).toBe('S');
   });
 
+  it('suppresses the hint for a secret too short to hide anything behind it', () => {
+    const encryption = service();
+    const settings = {
+      version: 1,
+      communications: {
+        whatsapp: { phoneNumberId: '123', accessToken: encryption.encrypt('ab12') },
+      },
+    };
+
+    const masked = maskSecretFields(settings, encryption);
+    const whatsapp = (masked.communications as Record<string, unknown>).whatsapp as Record<
+      string,
+      unknown
+    >;
+
+    expect(whatsapp.accessToken).toEqual({ configured: true });
+    expect(JSON.stringify(masked)).not.toContain('ab12');
+  });
+
+  it('reports a field that fails to decrypt as configured with no hint, instead of failing the whole call', () => {
+    const encryption = service();
+    // Encrypted under a *different* key than the one masking will use —
+    // simulates a stranded row after a key rotation, or a cross-environment
+    // dump restored with the wrong SETTINGS_ENCRYPTION_KEY.
+    const otherKeyEncryption = service();
+    const envelope = otherKeyEncryption.encrypt('super-secret-whatsapp-token');
+    const settings = {
+      version: 1,
+      region: { locale: 'en-BD' },
+      communications: {
+        whatsapp: { phoneNumberId: '123', accessToken: envelope },
+      },
+    };
+    const errors: Array<{ path: string }> = [];
+
+    const masked = maskSecretFields(settings, encryption, (_error, path) => {
+      errors.push({ path });
+    });
+    const whatsapp = (masked.communications as Record<string, unknown>).whatsapp as Record<
+      string,
+      unknown
+    >;
+
+    // The undecryptable field degrades to "configured, no hint" — it
+    // genuinely is configured, this call just can't prove a hint for it.
+    expect(whatsapp.accessToken).toEqual({ configured: true });
+    // A sibling field, and the unrelated region section, survive intact —
+    // one bad secret must not 500 the whole settings response.
+    expect(whatsapp.phoneNumberId).toBe('123');
+    expect(masked.region).toEqual({ locale: 'en-BD' });
+    expect(errors).toEqual([{ path: 'communications.whatsapp.accessToken' }]);
+  });
+
   it('does not mutate the object it was given', () => {
     const encryption = service();
     const envelope = encryption.encrypt('secret');

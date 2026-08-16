@@ -73,7 +73,7 @@ export { paymentHandlers } from './msw/handlers/payments';
 export { invoiceHandlers } from './msw/handlers/invoices';
 export { communicationHandlers } from './msw/handlers/communications';
 export { auditLogHandlers } from './msw/handlers/audit-logs';
-export { schoolsHandlers } from './msw/handlers/schools';
+export { schoolsHandlers, resetSchoolsStore } from './msw/handlers/schools';
 
 export * from './factories';
 export * from './a11y';

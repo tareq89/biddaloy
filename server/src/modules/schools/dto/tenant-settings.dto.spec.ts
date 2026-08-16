@@ -270,6 +270,23 @@ describe('TenantSettingsDto', () => {
       expect(whatsappError?.children?.some((e) => e.property === 'accessToken')).toBe(true);
     });
 
+    it('rejects an empty string on a secret field — not a fourth clearing idiom alongside omit/null', async () => {
+      // '' is what a controlled text input produces when a user selects a
+      // populated password field and deletes it — it must not silently
+      // pass @IsOptional()+@IsString() and bypass encryption downstream.
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        communications: { whatsapp: { phoneNumberId: '123', accessToken: '' } },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      const whatsappError = errors
+        .find((e) => e.property === 'communications')
+        ?.children?.find((e) => e.property === 'whatsapp');
+      expect(whatsappError?.children?.some((e) => e.property === 'accessToken')).toBe(true);
+    });
+
     it('still requires a non-secret field on a medium even when the secret is omitted', async () => {
       // phoneNumberId is required regardless of accessToken's optionality.
       const dto = toDto({

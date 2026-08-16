@@ -72,9 +72,8 @@ describe('SchoolsController', () => {
       return plainToInstance(TenantSettingsDto, { version: 1 });
     }
 
-    it('updates then returns the freshly masked settings when an ADMIN writes their own school', async () => {
-      service.updateSettings.mockResolvedValue({ version: 1 });
-      service.getMaskedSettings.mockResolvedValue({ version: 1, masked: true });
+    it('updates and returns the masked settings the service already produced, without a second read', async () => {
+      service.updateSettings.mockResolvedValue({ version: 1, masked: true });
 
       const result = await controller.updateSettings(
         SCHOOL_A,
@@ -90,13 +89,15 @@ describe('SchoolsController', () => {
         'user-1',
         { ip: '127.0.0.1', userAgent: 'vitest' },
       );
-      expect(service.getMaskedSettings).toHaveBeenCalledWith(SCHOOL_A);
+      // updateSettings already returns the masked shape — no follow-up
+      // getMaskedSettings call, which would be a redundant query and a
+      // window for the response to reflect someone else's write.
+      expect(service.getMaskedSettings).not.toHaveBeenCalled();
       expect(result).toEqual({ version: 1, masked: true });
     });
 
     it('delegates for a SUPER_ADMIN writing a school outside their own tenant', async () => {
       service.updateSettings.mockResolvedValue({ version: 1 });
-      service.getMaskedSettings.mockResolvedValue({ version: 1 });
 
       await controller.updateSettings(
         SCHOOL_A,

@@ -66,12 +66,12 @@ export interface RegionSettings {
 export type SmsGatewayName = 'greenweb' | 'mimsms';
 
 export interface GreenwebSmsSettings {
-  apiKey: string; // → secret
+  apiKey: string | null; // → secret; null = explicitly cleared, see TenantSettingsDto
   apiUrl?: string;
 }
 
 export interface MimSmsSettings {
-  apiKey: string; // → secret
+  apiKey: string | null; // → secret; null = explicitly cleared, see TenantSettingsDto
   senderId: string;
   apiUrl?: string;
 }
@@ -85,7 +85,7 @@ export interface SmsSettings {
 export interface WhatsAppSettings {
   phoneNumberId: string;
   apiVersion?: string;
-  accessToken: string; // → secret
+  accessToken: string | null; // → secret; null = explicitly cleared, see TenantSettingsDto
 }
 
 export interface EmailSettings {
@@ -93,12 +93,12 @@ export interface EmailSettings {
   port: number;
   user: string;
   from: string;
-  password: string; // → secret
+  password: string | null; // → secret; null = explicitly cleared, see TenantSettingsDto
 }
 
 export interface MessengerSettings {
   pageId: string;
-  accessToken: string; // → secret
+  accessToken: string | null; // → secret; null = explicitly cleared, see TenantSettingsDto
 }
 
 export interface CommunicationsSettings {
