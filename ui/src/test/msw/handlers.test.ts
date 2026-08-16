@@ -142,6 +142,43 @@ describe('slow variant is selectable per test', () => {
   });
 });
 
+describe('schools settings handler', () => {
+  it('a second PATCH does not discard fields the first PATCH set', async () => {
+    setActiveTenant('tenant-1');
+    const schoolId = 'school-1';
+
+    await apiClient.patch(`/schools/${schoolId}/settings`, {
+      version: 1,
+      communications: { email: { host: 'smtp.new-host.com' } },
+    });
+    await apiClient.patch(`/schools/${schoolId}/settings`, {
+      version: 1,
+      communications: { sms: { provider: 'mimsms' } },
+    });
+
+    const res = await apiClient.get(`/schools/${schoolId}/settings`);
+    // Without a persisted per-school store, this second PATCH's response
+    // would be built from the same default every request starts from,
+    // silently reverting the first PATCH's host change.
+    expect(res.data.communications.email.host).toBe('smtp.new-host.com');
+    expect(res.data.communications.sms.provider).toBe('mimsms');
+  });
+
+  it('omits the hint for a secret four characters or shorter', async () => {
+    setActiveTenant('tenant-1');
+    const schoolId = 'school-2';
+
+    const res = await apiClient.patch(`/schools/${schoolId}/settings`, {
+      version: 1,
+      communications: { sms: { greenweb: { apiKey: 'ab12' } } },
+    });
+
+    // `.slice(-4)` on a 4-character value returns the whole plaintext
+    // secret — the hint must be omitted rather than echo it back.
+    expect(res.data.communications.sms.greenweb.apiKey).toEqual({ configured: true });
+  });
+});
+
 describe('every endpoint group is wired into the aggregate handler array', () => {
   // One representative *default* (no server.use) request per group, listed
   // paginated ones and one-off ones separately since they assert a
