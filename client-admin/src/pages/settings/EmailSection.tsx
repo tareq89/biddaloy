@@ -99,7 +99,13 @@ export function EmailSection({ schoolId, email }: EmailSectionProps) {
   }
 
   function handleTestConnection() {
-    testConnection.mutate({ medium: 'EMAIL', config: buildConfig(form.getValues()) });
+    // form.getValues() reads raw, unvalidated input — an out-of-range port
+    // or malformed `from` address would otherwise reach the connection-test
+    // endpoint unchecked. Routing through handleSubmit runs the same
+    // validation the Save button does before the request goes out.
+    void form.handleSubmit((values) => {
+      testConnection.mutate({ medium: 'EMAIL', config: buildConfig(values) });
+    })();
   }
 
   const summaryErrors = buildFormShellErrors(form.formState.errors, (field) => `email-${field}`);
