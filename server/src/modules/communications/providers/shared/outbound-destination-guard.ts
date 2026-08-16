@@ -19,6 +19,7 @@ import { lookup } from 'node:dns/promises';
  * hostname kept for TLS SNI), which is meaningfully more code — revisit
  * only if this becomes a live threat-model concern.
  */
+
 /** Common base for both error kinds below — callers that only need the
  * human-readable reason (e.g. surfacing a connection-test failure) can
  * catch this instead of the two subclasses individually. */

@@ -9,6 +9,7 @@ import { ConnectionTestResult } from '../shared/connection-test.types';
 import {
   assertSafeSmtpDestination,
   DestinationBlockedError,
+  OutboundDestinationError,
 } from '../shared/outbound-destination-guard';
 import { ProviderNotConfiguredError } from '../../config/provider-not-configured.error';
 import {
@@ -17,7 +18,7 @@ import {
 } from '../../config/tenant-provider-config.resolver';
 
 function mapSmtpError(err: unknown): string {
-  if (err instanceof DestinationBlockedError) {
+  if (err instanceof OutboundDestinationError) {
     return err.message;
   }
   const code = (err as { code?: string } | null)?.code;
@@ -69,7 +70,13 @@ export class SmtpEmailProvider implements CommunicationProvider {
         success: false,
         providerMessageId: null,
         error: err instanceof Error ? err.message : String(err),
-        retryable: err instanceof ProviderNotConfiguredError ? false : undefined,
+        // A resolved-to-a-blocked-destination or unconfigured-provider
+        // failure is permanent; a DNS hiccup (DestinationResolutionError)
+        // or transport-level error may succeed on retry.
+        retryable:
+          err instanceof ProviderNotConfiguredError || err instanceof DestinationBlockedError
+            ? false
+            : undefined,
       };
     }
   }

@@ -1,13 +1,22 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { GreenwebSmsGateway } from './greenweb-sms.gateway';
+import {
+  assertSafeHttpDestination,
+  DestinationBlockedError,
+} from '../shared/outbound-destination-guard';
 
 // Destination-class validation (real vs. private-network host) is its own
 // unit under test in outbound-destination-guard.spec.ts, and does a real
 // DNS lookup — stub it out here so these tests stay hermetic and fast.
-vi.mock('../shared/outbound-destination-guard', () => ({
-  assertSafeHttpDestination: vi.fn().mockResolvedValue(undefined),
-  DestinationBlockedError: class DestinationBlockedError extends Error {},
-}));
+vi.mock('../shared/outbound-destination-guard', () => {
+  class OutboundDestinationError extends Error {}
+  class DestinationBlockedError extends OutboundDestinationError {}
+  return {
+    assertSafeHttpDestination: vi.fn().mockResolvedValue(undefined),
+    OutboundDestinationError,
+    DestinationBlockedError,
+  };
+});
 
 describe('GreenwebSmsGateway', () => {
   let gateway: GreenwebSmsGateway;
@@ -78,6 +87,30 @@ describe('GreenwebSmsGateway', () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toBe('network down');
+    expect(result.retryable).toBeUndefined();
+  });
+
+  it('rejects redirects instead of following them', async () => {
+    fetchMock.mockResolvedValue({ json: async () => ({ status: 'success', msgid: 'gw-1' }) });
+
+    await gateway.sendSms('01712345678', 'hi', { gateway: 'greenweb', apiKey: 'key-1' });
+
+    const [, options] = fetchMock.mock.calls[0];
+    expect(options.redirect).toBe('error');
+  });
+
+  it('marks a destination-blocked failure as non-retryable', async () => {
+    vi.mocked(assertSafeHttpDestination).mockRejectedValueOnce(
+      new DestinationBlockedError('"10.0.0.5" is a private/reserved address.'),
+    );
+
+    const result = await gateway.sendSms('01712345678', 'hi', {
+      gateway: 'greenweb',
+      apiKey: 'key-1',
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.retryable).toBe(false);
   });
 
   describe('testConnection', () => {
@@ -122,6 +155,15 @@ describe('GreenwebSmsGateway', () => {
 
       expect(result.success).toBe(false);
       expect(result.message).toBe('Could not reach the Greenweb API.');
+    });
+
+    it('rejects redirects instead of following them', async () => {
+      fetchMock.mockResolvedValue({ json: async () => ({ status: 'success', balance: 100 }) });
+
+      await gateway.testConnection({ gateway: 'greenweb', apiKey: 'key-1' });
+
+      const [, options] = fetchMock.mock.calls[0];
+      expect(options.redirect).toBe('error');
     });
   });
 });

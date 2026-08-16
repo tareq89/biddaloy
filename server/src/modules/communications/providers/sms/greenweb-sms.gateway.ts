@@ -6,6 +6,7 @@ import { ConnectionTestResult } from '../shared/connection-test.types';
 import {
   assertSafeHttpDestination,
   DestinationBlockedError,
+  OutboundDestinationError,
 } from '../shared/outbound-destination-guard';
 import { ResolvedGreenwebSmsConfig } from '../../config/tenant-provider-config.resolver';
 
@@ -39,6 +40,7 @@ export class GreenwebSmsGateway implements SmsGateway<ResolvedGreenwebSmsConfig>
 
       const response = await fetch(`${baseUrl}?${params.toString()}`, {
         method: 'GET',
+        redirect: 'error',
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
       const data = await response.json();
@@ -57,6 +59,9 @@ export class GreenwebSmsGateway implements SmsGateway<ResolvedGreenwebSmsConfig>
         success: false,
         providerMessageId: null,
         error: err instanceof Error ? err.message : String(err),
+        // Only a resolved-to-a-blocked-destination is permanent; a DNS
+        // hiccup or network blip may succeed on retry.
+        retryable: err instanceof DestinationBlockedError ? false : undefined,
       };
     }
   }
@@ -73,6 +78,7 @@ export class GreenwebSmsGateway implements SmsGateway<ResolvedGreenwebSmsConfig>
 
       const response = await fetch(`${baseUrl}?${params.toString()}`, {
         method: 'GET',
+        redirect: 'error',
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
       const data = await response.json();
@@ -85,7 +91,7 @@ export class GreenwebSmsGateway implements SmsGateway<ResolvedGreenwebSmsConfig>
         message: 'Authentication rejected — check the account token.',
       };
     } catch (err) {
-      if (err instanceof DestinationBlockedError) {
+      if (err instanceof OutboundDestinationError) {
         return { success: false, message: err.message };
       }
       return { success: false, message: 'Could not reach the Greenweb API.' };

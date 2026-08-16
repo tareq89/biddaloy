@@ -2,6 +2,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import * as nodemailer from 'nodemailer';
 import { SmtpEmailProvider } from './smtp-email.provider';
 import { ProviderNotConfiguredError } from '../../config/provider-not-configured.error';
+import {
+  assertSafeSmtpDestination,
+  DestinationBlockedError,
+} from '../shared/outbound-destination-guard';
 
 vi.mock('nodemailer', () => ({
   createTransport: vi.fn(),
@@ -10,10 +14,15 @@ vi.mock('nodemailer', () => ({
 // Destination-class validation (real vs. private-network host) is its own
 // unit under test in outbound-destination-guard.spec.ts, and does a real
 // DNS lookup — stub it out here so these tests stay hermetic and fast.
-vi.mock('../shared/outbound-destination-guard', () => ({
-  assertSafeSmtpDestination: vi.fn().mockResolvedValue(undefined),
-  DestinationBlockedError: class DestinationBlockedError extends Error {},
-}));
+vi.mock('../shared/outbound-destination-guard', () => {
+  class OutboundDestinationError extends Error {}
+  class DestinationBlockedError extends OutboundDestinationError {}
+  return {
+    assertSafeSmtpDestination: vi.fn().mockResolvedValue(undefined),
+    OutboundDestinationError,
+    DestinationBlockedError,
+  };
+});
 
 describe('SmtpEmailProvider', () => {
   const tenantId = 'tenant-1';
@@ -119,6 +128,18 @@ describe('SmtpEmailProvider', () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toBe('SMTP connection refused');
+    expect(result.retryable).toBeUndefined();
+  });
+
+  it('marks a destination-blocked failure as non-retryable', async () => {
+    vi.mocked(assertSafeSmtpDestination).mockRejectedValueOnce(
+      new DestinationBlockedError('"10.0.0.5" is a private/reserved address.'),
+    );
+
+    const result = await provider.send({ to: 'guardian@example.com', body: 'hi' }, tenantId);
+
+    expect(result.success).toBe(false);
+    expect(result.retryable).toBe(false);
   });
 
   describe('testConnection', () => {
