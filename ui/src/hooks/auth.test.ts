@@ -50,6 +50,8 @@ describe('logout', () => {
     await expect(logout(queryClient)).rejects.toThrow();
 
     expect(getAccessToken()).toBeNull();
+    expect(getActiveTenant()).toBeNull();
+    expect(getActiveRole()).toBeNull();
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
   });
 
@@ -100,6 +102,8 @@ describe('logoutAll', () => {
     await expect(logoutAll(queryClient)).rejects.toThrow();
 
     expect(getAccessToken()).toBeNull();
+    expect(getActiveTenant()).toBeNull();
+    expect(getActiveRole()).toBeNull();
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
   });
 });
