@@ -9,22 +9,23 @@
  * the visible tab strip and the URL should never disagree, even for one
  * render.
  */
-import { useSearchParams } from 'react-router';
+import { useSearch } from '@tanstack/react-router';
+
+import { useSearchNavigate } from '../routes/navigate-search';
 
 export function useDetailShellTab(tabIds: readonly string[]): [string, (tabId: string) => void] {
-  const [searchParams, setSearchParams] = useSearchParams();
+  // `strict: false` — this hook has no fixed route id, same reasoning as
+  // `useListUrlState` (see its own comment).
+  const search = useSearch({ strict: false }) as unknown as Record<string, unknown>;
+  const navigateSearch = useSearchNavigate();
   const firstTab = tabIds[0] ?? '';
 
-  const raw = searchParams.get('tab');
-  const activeTab = raw !== null && tabIds.includes(raw) ? raw : firstTab;
+  const raw = search.tab;
+  const activeTab = typeof raw === 'string' && tabIds.includes(raw) ? raw : firstTab;
 
   function setTab(tabId: string): void {
     if (!tabIds.includes(tabId)) return;
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.set('tab', tabId);
-      return next;
-    });
+    navigateSearch((prev) => ({ ...prev, tab: tabId }));
   }
 
   return [activeTab, setTab];

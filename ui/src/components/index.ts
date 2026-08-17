@@ -123,3 +123,4 @@ export { Toaster, toast } from './toast';
 export { Skeleton } from './skeleton';
 export { Pagination, type PaginationProps } from './pagination';
 export { LocaleSwitcher, type LocaleSwitcherProps } from './locale-switcher';
+export { AppShell, type AppShellProps, type AppShellNavItem } from './app-shell';

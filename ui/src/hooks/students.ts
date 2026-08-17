@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
@@ -38,8 +38,13 @@ export interface PaginatedStudents {
  */
 export const studentKeys = createEntityKeys<StudentListFilters>('students');
 
-export function useStudents(filters: StudentListFilters = {}) {
-  return useQuery({
+/** Shared with a route's `loader` (`context.queryClient.ensureQueryData
+ * (studentsQueryOptions(filters))`), not just `useStudents` below — a
+ * loader can't call a hook, but it can call the same `queryOptions()`
+ * object, which is what lets [8.9.1]'s hover-intent preload warm the
+ * TanStack Query cache, not just fetch the route's JS chunk. */
+export function studentsQueryOptions(filters: StudentListFilters = {}) {
+  return queryOptions({
     queryKey: studentKeys.list(filters),
     queryFn: async () => {
       const res = await apiClient.get<PaginatedStudents>('/students', { params: filters });
@@ -47,6 +52,10 @@ export function useStudents(filters: StudentListFilters = {}) {
     },
     retry: shouldRetryQuery,
   });
+}
+
+export function useStudents(filters: StudentListFilters = {}) {
+  return useQuery(studentsQueryOptions(filters));
 }
 
 export function useStudent(id: string) {

@@ -40,7 +40,7 @@ export function applyServerFieldErrors<TFieldValues extends FieldValues>(
  * true — wire `form.formState.isDirty` straight in. Native
  * `beforeunload` covers closing the tab or navigating to a different
  * origin; in-app route changes within this SPA are a router-level
- * concern (react-router's blocker APIs) that a real page wires up
+ * concern (TanStack Router's `useBlocker`) that a real page wires up
  * separately once it has actual routes to block — this hook only owns
  * the part that's true regardless of routing setup. */
 export function useWarnUnsavedChanges(hasUnsavedChanges: boolean): void {

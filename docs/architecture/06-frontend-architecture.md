@@ -86,6 +86,50 @@ Both are Vite + React 19 SPAs, both consume `@biddaloy/ui`, both are built
 independently and served as static assets by the NestJS server in
 production (see [00-overview.md](00-overview.md) for the system diagram).
 
+## Routing
+
+`client-admin` uses **TanStack Router**, file-based: every file under
+`src/routes/` becomes a route, and `@tanstack/router-plugin`'s Vite plugin
+generates `src/routeTree.gen.ts` (committed, never hand-edited — same
+treatment as `ui/src/api/schema.d.ts`) and code-splits each route into its
+own chunk automatically. It was chosen specifically for typed, per-route
+search-param validation: a route declares a Zod `validateSearch` schema
+with `.catch()` fallbacks, so `?page=abc` degrades to a sensible default
+instead of crashing the page — see [`ui/README.md`'s Routing
+section](../../ui/README.md) for the hooks and test harness this is built
+on.
+
+```mermaid
+flowchart TB
+    MAIN["main.tsx\ncreateRouter({ routeTree, context: { queryClient } })"]
+    ROOT["routes/__root.tsx\nRootLayout: AppShell + Outlet\nnotFoundComponent"]
+    IDX["routes/index.tsx\n/"]
+    SETTINGS["routes/settings.tsx\n/settings\n(permission-gated)"]
+    STUDENTS["routes/students/index.tsx\n/students\nvalidateSearch: zod"]
+    STUDENT["routes/students/$studentId.tsx\n/students/$studentId"]
+    FEES["routes/fees.tsx\n/fees"]
+
+    MAIN --> ROOT
+    ROOT --> IDX
+    ROOT --> SETTINGS
+    ROOT --> STUDENTS
+    ROOT --> STUDENT
+    ROOT --> FEES
+```
+
+**Hover a sidebar link, and its route chunk _and_ its data start loading**
+before the click lands — `defaultPreload: 'intent'` on the router, paired
+with each route's own `loader` calling
+`context.queryClient.ensureQueryData(...)` so the prefetch populates
+TanStack Query's cache, not just a separate router-level cache. A route
+with no `loader` still gets its JS chunk preloaded on hover; only the data
+prefetch needs one.
+
+**404s render inside the shell, not a bare page** — `notFoundComponent` is
+set on the _root_ route, so when nothing matches, the root's own
+`AppShell` (sidebar, header) still renders around the not-found content,
+in the same `<Outlet />` position a matched route's content would occupy.
+
 ## Testing
 
 Vitest for unit/component tests (colocated `*.test.tsx`), Playwright for

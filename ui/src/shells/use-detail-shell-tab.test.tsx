@@ -1,6 +1,6 @@
+import { createRootRoute, createRoute } from '@tanstack/react-router';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { RouteObject } from 'react-router';
 import { describe, expect, it } from 'vitest';
 
 import { renderWithRouter } from '../test/render-with-router';
@@ -20,43 +20,59 @@ function Probe() {
   );
 }
 
-const routes: RouteObject[] = [{ path: '/students/1', element: <Probe /> }];
+function buildRouteTree() {
+  const rootRoute = createRootRoute();
+  const studentRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/students/1',
+    component: Probe,
+  });
+  return rootRoute.addChildren([studentRoute]);
+}
 
+// TanStack Router's initial route match resolves asynchronously — see
+// `use-list-url-state.test.tsx`'s own comment for why every test here
+// awaits the first thing it looks for.
 describe('useDetailShellTab', () => {
-  it('falls back to the first tab when ?tab= is absent', () => {
-    renderWithRouter(routes, { initialEntries: ['/students/1'] });
-    expect(screen.getByText('active: overview')).toBeTruthy();
+  it('falls back to the first tab when ?tab= is absent', async () => {
+    renderWithRouter(buildRouteTree(), { initialEntries: ['/students/1'] });
+    expect(await screen.findByText('active: overview')).toBeTruthy();
   });
 
-  it('reads a valid ?tab= from the URL', () => {
-    renderWithRouter(routes, { initialEntries: ['/students/1?tab=payments'] });
-    expect(screen.getByText('active: payments')).toBeTruthy();
+  it('reads a valid ?tab= from the URL', async () => {
+    renderWithRouter(buildRouteTree(), { initialEntries: ['/students/1?tab=payments'] });
+    expect(await screen.findByText('active: payments')).toBeTruthy();
   });
 
-  it('falls back to the first tab for an unknown ?tab= value rather than rendering nothing', () => {
-    renderWithRouter(routes, { initialEntries: ['/students/1?tab=nonexistent'] });
-    expect(screen.getByText('active: overview')).toBeTruthy();
+  it('falls back to the first tab for an unknown ?tab= value rather than rendering nothing', async () => {
+    renderWithRouter(buildRouteTree(), { initialEntries: ['/students/1?tab=nonexistent'] });
+    expect(await screen.findByText('active: overview')).toBeTruthy();
   });
 
   it('setTab writes ?tab= into the URL and survives a refresh (re-mount at the same URL)', async () => {
     const user = userEvent.setup();
-    const { router, unmount } = renderWithRouter(routes, { initialEntries: ['/students/1'] });
-    await user.click(screen.getByRole('button', { name: 'Go to payments' }));
-    expect(router.state.location.search).toContain('tab=payments');
+    const { router, unmount } = renderWithRouter(buildRouteTree(), {
+      initialEntries: ['/students/1'],
+    });
+    await user.click(await screen.findByRole('button', { name: 'Go to payments' }));
+    expect(router.state.location.searchStr).toContain('tab=payments');
 
+    const urlAfterUpdate = router.state.location.href;
     unmount();
-    renderWithRouter(routes, { initialEntries: [`/students/1${router.state.location.search}`] });
-    expect(screen.getByText('active: payments')).toBeTruthy();
+    renderWithRouter(buildRouteTree(), { initialEntries: [urlAfterUpdate] });
+    expect(await screen.findByText('active: payments')).toBeTruthy();
   });
 
   it('setTab ignores a tab id that is not in tabIds, rather than writing a stale value into the URL', async () => {
     const user = userEvent.setup();
-    const { router } = renderWithRouter(routes, { initialEntries: ['/students/1?tab=payments'] });
+    const { router } = renderWithRouter(buildRouteTree(), {
+      initialEntries: ['/students/1?tab=payments'],
+    });
 
-    await user.click(screen.getByRole('button', { name: 'Go to an unknown tab' }));
+    await user.click(await screen.findByRole('button', { name: 'Go to an unknown tab' }));
 
-    expect(router.state.location.search).toContain('tab=payments');
-    expect(router.state.location.search).not.toContain('nonexistent');
+    expect(router.state.location.searchStr).toContain('tab=payments');
+    expect(router.state.location.searchStr).not.toContain('nonexistent');
     expect(screen.getByText('active: payments')).toBeTruthy();
   });
 });

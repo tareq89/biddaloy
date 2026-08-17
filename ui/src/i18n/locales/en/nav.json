@@ -1,0 +1,19 @@
+{
+  "brand": "Biddaloy",
+  "items": {
+    "dashboard": "Dashboard",
+    "students": "Students",
+    "fees": "Fees",
+    "settings": "Settings"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "explanation": "The dashboard has not been built yet.",
+    "action": "Go to settings"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "explanation": "There is no page at this address.",
+    "action": "Back to dashboard"
+  }
+}
