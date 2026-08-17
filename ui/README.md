@@ -209,8 +209,11 @@ export const Route = createFileRoute('/students/')({
 
 `RequireRole` (`@biddaloy/ui/routes`) gates a route element by the active
 role (`getActiveRole()`, the same value `apiClient` sends as `X-Role`),
-redirecting to `/forbidden` (configurable) — the guarded route never enters
-back-navigation history. It redirects from a `useEffect`, not a rendered
+redirecting to `/forbidden` by default — the guarded route never enters
+back-navigation history. **The consuming app must register a route at that
+path** (or pass its own `redirectTo`); `client-admin` doesn't have one yet,
+so an unauthorized visit there currently falls through to the 404 page
+instead. It redirects from a `useEffect`, not a rendered
 `<Navigate>` element: `<Navigate>` re-runs its own internal effect on every
 re-render of the element that creates it, and `RequireRole` re-renders on
 every router state change, which turned an unauthorized visit into an
