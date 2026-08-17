@@ -101,7 +101,7 @@ on.
 
 ```mermaid
 flowchart TB
-    MAIN["main.tsx\ncreateRouter({ routeTree, context: { queryClient } })"]
+    MAIN["main.tsx\nqueryClient = createAppQueryClient()\ncreateRouter({ routeTree, context: { queryClient } })"]
     ROOT["routes/__root.tsx\nRootLayout: AppShell + Outlet\nnotFoundComponent"]
     IDX["routes/index.tsx\n/"]
     SETTINGS["routes/settings.tsx\n/settings\n(permission-gated)"]
@@ -124,6 +124,14 @@ with each route's own `loader` calling
 TanStack Query's cache, not just a separate router-level cache. A route
 with no `loader` still gets its JS chunk preloaded on hover; only the data
 prefetch needs one.
+
+The router's own `defaultPreloadStaleTime: 0` hands freshness off to Query
+entirely: `createAppQueryClient()` (`ui/src/api/query-client.ts`) sets
+`staleTime: 30_000`, so a prefetched result that's still within its 30s
+window is served straight from Query's cache instead of being silently
+re-fetched by the router's separate preload cache. See [`ui/README.md`'s
+"The app's query client" section](../../ui/README.md) for the full set of
+tuned defaults and why each one is set the way it is.
 
 **404s render inside the shell, not a bare page** — `notFoundComponent` is
 set on the _root_ route, so when nothing matches, the root's own

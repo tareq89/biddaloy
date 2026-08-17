@@ -3,6 +3,7 @@
  */
 export { apiClient } from './client';
 export { ApiError, NoActiveTenantError, type ApiErrorBody } from './errors';
+export { createAppQueryClient } from './query-client';
 export {
   clearAuthState,
   getAccessToken,
