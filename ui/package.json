@@ -30,7 +30,8 @@
     "api:types": "npx --yes openapi-typescript@7.13.0 ../server/openapi.json -o src/api/schema.d.ts",
     "test": "vitest run",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "design-sync:css": "storybook build -o ../.design-sync/sb-reference && node scripts/sync-design-css.mjs"
   },
   "dependencies": {
     "@biddaloy/shared": "0.1.0",
