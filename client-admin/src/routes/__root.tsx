@@ -19,17 +19,15 @@ export interface RouterContext {
 }
 
 export const Route = createRootRouteWithContext<RouterContext>()({
-  // [8.9.3]'s protected-route guard — runs before every route in the tree,
-  // `/login` included, which is exactly why the `pathname !== '/login'`
-  // check exists: without it, an unauthenticated visit to `/login` itself
-  // would redirect to `/login` forever. `ensureSessionLoaded()`
-  // (`@biddaloy/ui/api`) is what makes the very first cold-load navigation
-  // wait for a silent-refresh attempt against the httpOnly refresh cookie
-  // before deciding — every navigation after that resolves instantly, since
-  // it short-circuits once an access token is set. `location.href` here is
-  // router-relative (`pathname + search + hash`, never the origin), so
-  // there's no absolute-URL open-redirect surface in handing it to
-  // `/login`'s `redirect` search param.
+  // Protected-route guard, runs before every route in the tree including
+  // `/login` itself — `pathname !== '/login'` below stops that case from
+  // redirecting to itself forever. `ensureSessionLoaded()` waits for a
+  // silent-refresh attempt against the httpOnly refresh cookie on the
+  // first cold-load navigation, then short-circuits instantly once an
+  // access token is set. `location.href` here is router-relative
+  // (`pathname + search + hash`, never the origin), so handing it to
+  // `/login`'s `redirect` search param has no absolute-URL open-redirect
+  // surface.
   beforeLoad: async ({ location }) => {
     const authenticated = await ensureSessionLoaded();
     if (!authenticated && location.pathname !== '/login') {
@@ -41,16 +39,13 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       throw redirect({ to: '/login', search: { redirect: location.href } });
     }
   },
-  // Shown only if `beforeLoad`'s bootstrap attempt takes a while (Router's
-  // own default `pendingMs` threshold) — a blank screen on a slow cold
-  // load would otherwise look broken rather than loading.
+  // Shown only if the bootstrap attempt takes a while (Router's own
+  // default `pendingMs` threshold) — a blank screen on a slow cold load
+  // would otherwise look broken rather than loading.
   pendingComponent: RootPending,
   component: RootLayout,
-  // Rendered inside `RootLayout`'s own `<Outlet />` — the sidebar/header
-  // chrome around it stays up, satisfying [8.9.1]'s "404 renders inside
-  // the shell, not a bare page" AC. See `AppShell`'s own doc comment for
-  // why the epic's other app-shell concerns (focus management, the
-  // tenant/role bar) aren't here yet.
+  // Rendered inside `RootLayout`'s own `<Outlet />` so the sidebar/header
+  // chrome stays up around it.
   notFoundComponent: NotFoundPage,
 });
 

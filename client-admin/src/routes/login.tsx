@@ -3,23 +3,16 @@ import { createFileRoute } from '@tanstack/react-router';
 import { z } from 'zod';
 
 /**
- * [8.9.3]'s protected-route guard (`__root.tsx`'s `beforeLoad`) redirects
- * every unauthenticated visit here, with `?redirect=` set to the page they
- * were actually trying to reach. [8.9.4] reads that search param once the
- * real login form exists and navigates back to it after a successful
- * login — the schema below already validates it so that ticket doesn't
- * have to redo search-param validation.
+ * The protected-route guard (`__root.tsx`'s `beforeLoad`) redirects every
+ * unauthenticated visit here, with `?redirect=` set to the page they were
+ * actually trying to reach — validated same-app below so a future login
+ * form can navigate back to it safely.
  *
- * This route is deliberately a stub until then: no form, just a heading,
- * so `beforeLoad` has a real, matching route to send people to instead of
- * a 404 — a text-only placeholder explicitly marked "replaced by a later
- * ticket" like this one skips this repo's design-mockup-first convention
- * for UI work (`ui/CONTRIBUTING.md`'s "Design before you build").
- *
- * Still renders inside `RootLayout`'s `AppShell` (sidebar included) — an
- * unauthenticated visitor seeing nav links to pages they can't reach yet
- * is accepted, deferred polish, not this ticket's job; [8.9.4]/[8.9.5] own
- * giving auth routes their own chrome-free layout.
+ * Deliberately a stub for now: no form, just a heading, so the guard has
+ * a real route to send people to instead of a 404. Still renders inside
+ * `RootLayout`'s `AppShell` (sidebar included) — an unauthenticated
+ * visitor seeing nav links to pages they can't reach yet is accepted,
+ * deferred polish, not a chrome-free auth layout yet.
  */
 /** A fixed, non-routable base for probing where `value` resolves to — not
  * `window.location.origin`, so this stays a pure function testable without
