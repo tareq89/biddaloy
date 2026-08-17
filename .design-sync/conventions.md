@@ -58,13 +58,15 @@ usage; `.d.ts` is the authoritative prop contract.
 ## Example
 
 ```jsx
+import { FeeStatus } from '@biddaloy/shared';
+
 <div className="flex flex-col gap-3 rounded-lg border border-border bg-background p-4">
   <div className="flex items-center justify-between">
     <span className="text-sm font-medium text-foreground">Rahim Uddin</span>
-    <StatusBadge domain="fee" status="PAID" />
+    <StatusBadge domain="fee" status={FeeStatus.PAID} />
   </div>
   <button className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80">
     Record payment
   </button>
-</div>
+</div>;
 ```
