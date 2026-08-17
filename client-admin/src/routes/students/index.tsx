@@ -13,18 +13,22 @@ import { z } from 'zod';
  * it against.
  *
  * Every field is `.optional()`, with the *real* default (`page ?? 1`,
- * `limit ?? 10`, `order ?? 'asc'`) applied at the read site below rather
- * than baked into the schema's output type — that's what lets
- * `<Link to="/students">` from anywhere else in the app link here
- * without having to specify every search param just to satisfy the
- * type; TanStack Router only makes a search key optional on `<Link>` if
- * the schema's own inferred type says the key can be absent.
+ * `limit ?? 10`) applied at the read site below rather than baked into
+ * the schema's output type — that's what lets `<Link to="/students">`
+ * from anywhere else in the app link here without having to specify
+ * every search param just to satisfy the type; TanStack Router only
+ * makes a search key optional on `<Link>` if the schema's own inferred
+ * type says the key can be absent.
+ *
+ * No `sort`/`order` fields: the student list is always ordered by
+ * `created_at DESC` server-side (`students.service.ts`), and neither
+ * `StudentListFilters` nor this route's query ever reads a sort param —
+ * declaring one here without anything downstream honoring it would be a
+ * search param that lies about what the page can do.
  */
 const studentsSearchSchema = z.object({
   page: z.number().int().positive().optional().catch(undefined),
   limit: z.number().int().positive().optional().catch(undefined),
-  sort: z.string().min(1).optional().catch(undefined),
-  order: z.enum(['asc', 'desc']).optional().catch(undefined),
   class_id: z.string().min(1).optional().catch(undefined),
 });
 

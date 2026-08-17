@@ -44,9 +44,17 @@ try {
 
   const jsChunks = readdirSync(join(outDir, 'assets')).filter((fileName) => fileName.endsWith('.js'));
 
-  const missing = EXPECTED_ROUTE_CHUNKS.filter(
-    (routeName) => !jsChunks.some((fileName) => fileName.includes(routeName)),
-  );
+  // Each route must claim its own, not-already-claimed chunk — matching
+  // independently (route.some(chunk => chunk.includes(route))) would let a
+  // single combined chunk like `settings-students-fees.js` satisfy every
+  // route's check at once without actually proving any of them are split.
+  const claimed = new Set();
+  const missing = EXPECTED_ROUTE_CHUNKS.filter((routeName) => {
+    const match = jsChunks.find((fileName) => !claimed.has(fileName) && fileName.includes(routeName));
+    if (match === undefined) return true;
+    claimed.add(match);
+    return false;
+  });
 
   if (missing.length > 0) {
     console.error(`✗ Missing a separate chunk for: ${missing.join(', ')}`);
