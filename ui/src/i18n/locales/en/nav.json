@@ -15,5 +15,9 @@
     "title": "Page not found",
     "explanation": "There is no page at this address.",
     "action": "Back to dashboard"
+  },
+  "login": {
+    "title": "Log in",
+    "explanation": "The login form has not been built yet."
   }
 }

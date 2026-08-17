@@ -1,6 +1,7 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 
 import {
+  currentSessionGeneration,
   getAccessToken,
   getActiveRole,
   getActiveTenant,
@@ -42,6 +43,70 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
+/** The raw refresh call, no single-flight guard and no failure handling —
+ * `ui/src/api/session.ts`'s cold-boot and pre-expiry refresh call this
+ * directly (their own separate single-flight lock, no `notifySessionExpired`
+ * on failure: a cold-boot "no session yet" outcome is routine, not a
+ * "your session just ended" event — see that module's own comment). The
+ * interceptor below wraps this same function with its own single-flight
+ * lock and the notify-on-failure behavior a genuine mid-session 401
+ * warrants.
+ *
+ * Plain `axios`, not `apiClient`: going through apiClient would re-enter
+ * its own request interceptor, which throws NoActiveTenantError when no
+ * tenant is set. A refresh must be able to succeed even if the active
+ * tenant got cleared for some unrelated reason — the refresh endpoint
+ * doesn't need X-Tenant-ID/X-Role/Authorization at all, so bypassing
+ * that interceptor entirely is correct, not an oversight.
+ *
+ * withCredentials: the refresh token is an httpOnly, SameSite=strict
+ * cookie the server sets on login/refresh — this client never reads or
+ * stores it directly. No request body; the cookie is the credential.
+ *
+ * Session-generation guard: captures the generation before the network
+ * call and only applies the result if it's still current. Without this, a
+ * refresh already in flight when a logout (or a failed sibling refresh)
+ * resets the session could resolve afterward and silently restore an
+ * access token the reset just cleared — see `auth-state.ts`'s
+ * `currentSessionGeneration`. The token is still returned either way;
+ * only the global `setAccessToken` side effect is guarded. */
+export async function postAuthRefresh(): Promise<string> {
+  const generation = currentSessionGeneration();
+  const response = await axios.post<{ access_token: string }>(
+    `${API_BASE_URL}/auth/refresh`,
+    undefined,
+    { withCredentials: true },
+  );
+  const token = response.data.access_token;
+  if (currentSessionGeneration() === generation) {
+    setAccessToken(token);
+  }
+  return token;
+}
+
+/** `/auth/logout` and `/auth/logout-all`, bypassing `apiClient`'s tenant
+ * requirement — same reason `postAuthRefresh` bypasses it (see above): a
+ * session restored from a cold-boot refresh can have an access token
+ * before the user has picked a tenant, and `apiClient`'s request
+ * interceptor rejects with `NoActiveTenantError` *before dispatching*
+ * when no tenant is active. Going through `apiClient` for logout would
+ * mean that request never reaches the server at all in that window — the
+ * refresh cookie stays valid server-side, and a later cold boot silently
+ * restores the "logged out" session.
+ *
+ * Attaches the Authorization header manually (only `apiClient`'s request
+ * interceptor normally does that) since `/auth/logout-all` needs it;
+ * `/auth/logout` doesn't require it but accepts it harmlessly. Plain
+ * `axios`, `withCredentials: true`, matching `postAuthRefresh` — the
+ * refresh cookie is `/auth/logout`'s actual credential. */
+export async function postAuthLogout(endpoint: '/auth/logout' | '/auth/logout-all'): Promise<void> {
+  const token = getAccessToken();
+  await axios.post(`${API_BASE_URL}${endpoint}`, undefined, {
+    withCredentials: true,
+    ...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
+  });
+}
+
 /** Single-flight refresh: the first 401 creates this promise; every
  * concurrent 401 that arrives before it settles awaits the same one instead
  * of issuing its own POST /auth/refresh. The server treats a second refresh
@@ -49,39 +114,24 @@ apiClient.interceptors.request.use((config) => {
  * window — see refresh-token.service.ts's TOKEN_REUSE_DETECTED path — so
  * this is not just an optimization, it is what keeps a page that fires
  * several parallel requests on an expired token from tripping that audit
- * path and getting its whole token family revoked. */
+ * path and getting its whole token family revoked.
+ *
+ * `notifySessionExpired()` lives here, on the single memoized promise, not
+ * in the interceptor's own catch block below — that's what makes it fire
+ * exactly once even when several concurrent 401s are all awaiting this same
+ * promise; each of their own catch blocks would otherwise fire it
+ * independently. */
 let refreshPromise: Promise<string> | null = null;
 
-async function performRefresh(): Promise<string> {
-  try {
-    // Plain `axios`, not `apiClient`: going through apiClient would re-enter
-    // its own request interceptor, which throws NoActiveTenantError when no
-    // tenant is set. A refresh must be able to succeed even if the active
-    // tenant got cleared for some unrelated reason — the refresh endpoint
-    // doesn't need X-Tenant-ID/X-Role/Authorization at all, so bypassing
-    // that interceptor entirely is correct, not an oversight.
-    //
-    // withCredentials: the refresh token is an httpOnly, SameSite=strict
-    // cookie the server sets on login/refresh — this client never reads or
-    // stores it directly. No request body; the cookie is the credential.
-    const response = await axios.post<{ access_token: string }>(
-      `${API_BASE_URL}/auth/refresh`,
-      undefined,
-      { withCredentials: true },
-    );
-    const token = response.data.access_token;
-    setAccessToken(token);
-    return token;
-  } catch (err) {
-    notifySessionExpired();
-    throw err;
-  } finally {
-    refreshPromise = null;
-  }
-}
-
 function refreshAccessToken(): Promise<string> {
-  refreshPromise ??= performRefresh();
+  refreshPromise ??= postAuthRefresh()
+    .catch((err: unknown) => {
+      notifySessionExpired();
+      throw err;
+    })
+    .finally(() => {
+      refreshPromise = null;
+    });
   return refreshPromise;
 }
 
@@ -111,7 +161,7 @@ apiClient.interceptors.response.use(
     const config = error.config as RetryableConfig | undefined;
 
     // No isRefreshCall guard: the refresh request never goes through
-    // apiClient (see performRefresh's own comment on why), so this
+    // apiClient (see postAuthRefresh's own comment on why), so this
     // interceptor never actually observes a 401 from /auth/refresh — only
     // `_retry` below does the real work of stopping a repeat 401 after
     // replay from refreshing a second time.
@@ -124,7 +174,7 @@ apiClient.interceptors.response.use(
         // itself — no need to set the header here.
         return apiClient(config);
       } catch {
-        // performRefresh() already cleared auth state and notified the
+        // refreshAccessToken() already cleared auth state and notified the
         // consuming app; surface the original 401, not the refresh's own
         // error, since that is what the caller actually asked for.
         return Promise.reject(toApiError(error));

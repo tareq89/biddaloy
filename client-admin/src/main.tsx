@@ -1,4 +1,4 @@
-import { createAppQueryClient } from '@biddaloy/ui/api';
+import { createAppQueryClient, registerSessionExpiredHandler } from '@biddaloy/ui/api';
 import { Toaster } from '@biddaloy/ui/components';
 import { I18nProvider } from '@biddaloy/ui/i18n';
 import { enableMocking } from '@biddaloy/ui/mocks';
@@ -32,6 +32,19 @@ const router = createRouter({
   // could still get served from the router's cache for 30s past when
   // Query would have refetched.
   defaultPreloadStaleTime: 0,
+});
+
+// [8.9.3]'s "failure routes to login, no redirect loop" — this fires from
+// deep inside `apiClient`'s response interceptor (`ui/src/api/client.ts`)
+// after a mid-session refresh genuinely fails, not from `__root.tsx`'s own
+// `beforeLoad` guard (the *cold-load* half of the same AC). Both converge
+// on `/login`, and both skip re-redirecting when already there, so neither
+// path can loop into the other.
+registerSessionExpiredHandler(() => {
+  const { pathname, href } = router.state.location;
+  if (pathname !== '/login') {
+    void router.navigate({ to: '/login', search: { redirect: href }, replace: true });
+  }
 });
 
 // Registers this app's concrete route tree against `@tanstack/react-

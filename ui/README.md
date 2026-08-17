@@ -531,6 +531,75 @@ switchActiveTenant(queryClient, nextTenantId);
 // queryClient.getQueryCache().getAll() is now empty
 ```
 
+#### Auth
+
+The access token lives in memory only (`src/api/auth-state.ts` — never
+`localStorage`/`sessionStorage`, so an XSS payload can't read it off disk).
+That means a hard page reload always starts with no token, even for a
+returning visitor whose httpOnly refresh cookie is still valid.
+`src/api/session.ts` is what makes that transparent — [8.9.3]'s cold-boot
+restore and proactive pre-expiry refresh, both layered on
+`src/api/client.ts`'s `postAuthRefresh()`:
+
+```mermaid
+flowchart TB
+    NAV["A route navigates\n(cold load or a click)"]
+    ROOT["__root.tsx's beforeLoad"]
+    ENSURE["ensureSessionLoaded()"]
+    HASTOKEN{"Access token\nalready set?"}
+    BOOT["Cold-boot: POST /auth/refresh\n(the httpOnly cookie, silently)"]
+    OK{"Succeeded?"}
+    ARM["scheduleTokenRefresh(token)\narms a ~60s-before-exp timer"]
+    RENDER["Route renders"]
+    LOGIN["redirect({ to: '/login', search: { redirect } })"]
+
+    NAV --> ROOT --> ENSURE --> HASTOKEN
+    HASTOKEN -->|yes, no network call| RENDER
+    HASTOKEN -->|no| BOOT --> OK
+    OK -->|yes| ARM --> RENDER
+    OK -->|no — routine, not an error| LOGIN
+```
+
+- **`ensureSessionLoaded()`** is the one function a protected route's
+  `beforeLoad` needs — `client-admin/src/routes/__root.tsx` awaits it, and
+  redirects to `/login` (preserving the attempted destination as a
+  `redirect` search param) only when it resolves `false`. It short-circuits
+  to `true` with zero network calls once a token is set — the cold-boot
+  POST only ever happens once per app lifetime, memoized.
+- **`scheduleTokenRefresh(token)`** decodes the JWT's `exp` claim (no
+  signature check — this is scheduling, never a trust decision) and arms a
+  proactive refresh ~60s before it, so a normal active session never hits
+  the reactive-401 path at all. A failed proactive refresh does nothing
+  further — the next real API call's already-tested reactive-401 refresh
+  (`client.ts`) hits the same dead refresh token and calls
+  `notifySessionExpired()` then; a second retry mechanism here would just
+  be a slower duplicate of that one.
+- **`notifySessionExpired()`** (`auth-state.ts`) is what a *mid-session*
+  failure goes through — `client-admin/src/main.tsx` registers a handler
+  that navigates to `/login`, same destination-preserving shape as the
+  `beforeLoad` guard. Both independently check `pathname !== '/login'`
+  before redirecting, which is what keeps either path from looping into
+  the other.
+- **`resetSessionBootstrap()`** cancels the proactive timer and forgets the
+  cold-boot attempt ever ran. `logout`/`logoutAll` (`src/hooks/auth.ts`)
+  call it as part of clearing everything else; `cleanupTestState()`
+  (`src/test/render-with-providers.tsx`) calls it too — without that, a
+  test's armed timer or memoized bootstrap promise would leak into the
+  next test, since ES modules are cached per worker, not reset per test.
+
+**Logout**: `src/hooks/auth.ts`'s `logout(queryClient)`/
+`logoutAll(queryClient)` mirror `switchActiveTenant`'s shape — a plain
+function taking the caller's `QueryClient`, not a hook. Both revoke
+server-side first, then in a `finally` (so an offline browser still ends
+up logged out locally) clear the proactive-refresh timer, the auth state,
+and the entire query cache — the same "every cached query is tenant-scoped
+server state" reasoning `switchActiveTenant` above already relies on.
+
+Login itself — the form, the tenant picker for a multi-membership user —
+is [8.9.4]; `scheduleTokenRefresh` is exported specifically so that
+ticket's `login()` can arm the same proactive timer after a real login
+response, the same way the cold-boot path above does.
+
 #### Optimistic updates — and where they're forbidden
 
 Optimistic UI (show the new state immediately, roll back on failure) is fine

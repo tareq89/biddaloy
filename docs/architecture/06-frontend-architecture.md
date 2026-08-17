@@ -102,12 +102,13 @@ on.
 ```mermaid
 flowchart TB
     MAIN["main.tsx\nqueryClient = createAppQueryClient()\ncreateRouter({ routeTree, context: { queryClient } })"]
-    ROOT["routes/__root.tsx\nRootLayout: AppShell + Outlet\nnotFoundComponent"]
+    ROOT["routes/__root.tsx\nRootLayout: AppShell + Outlet\nbeforeLoad: protected-route guard [8.9.3]\nnotFoundComponent"]
     IDX["routes/index.tsx\n/"]
     SETTINGS["routes/settings.tsx\n/settings\n(permission-gated)"]
     STUDENTS["routes/students/index.tsx\n/students\nvalidateSearch: zod"]
     STUDENT["routes/students/$studentId.tsx\n/students/$studentId"]
     FEES["routes/fees.tsx\n/fees"]
+    LOGIN["routes/login.tsx\n/login\n(the guard's own redirect target — stub until [8.9.4])"]
 
     MAIN --> ROOT
     ROOT --> IDX
@@ -115,7 +116,13 @@ flowchart TB
     ROOT --> STUDENTS
     ROOT --> STUDENT
     ROOT --> FEES
+    ROOT --> LOGIN
 ```
+
+Every route runs `ROOT`'s `beforeLoad` — `/login` included, which is why
+that guard explicitly skips redirecting when already there. See
+[02-auth-and-multitenancy.md](02-auth-and-multitenancy.md)'s "Client
+session lifecycle" for the full cold-load-vs-mid-session sequence.
 
 **Hover a sidebar link, and its route chunk _and_ its data start loading**
 before the click lands — `defaultPreload: 'intent'` on the router, paired

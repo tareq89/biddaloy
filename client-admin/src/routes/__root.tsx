@@ -1,10 +1,11 @@
 import { Permission } from '@biddaloy/shared';
+import { ensureSessionLoaded } from '@biddaloy/ui/api';
 import { AppShell, EmptyState } from '@biddaloy/ui/components';
 import { useHasPermission } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import type { QueryClient } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { createRootRouteWithContext, Outlet, useNavigate } from '@tanstack/react-router';
+import { createRootRouteWithContext, Outlet, redirect, useNavigate } from '@tanstack/react-router';
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools';
 
 /**
@@ -18,12 +19,33 @@ export interface RouterContext {
 }
 
 export const Route = createRootRouteWithContext<RouterContext>()({
+  // Protected-route guard, runs before every route in the tree including
+  // `/login` itself — `pathname !== '/login'` below stops that case from
+  // redirecting to itself forever. `ensureSessionLoaded()` waits for a
+  // silent-refresh attempt against the httpOnly refresh cookie on the
+  // first cold-load navigation, then short-circuits instantly once an
+  // access token is set. `location.href` here is router-relative
+  // (`pathname + search + hash`, never the origin), so handing it to
+  // `/login`'s `redirect` search param has no absolute-URL open-redirect
+  // surface.
+  beforeLoad: async ({ location }) => {
+    const authenticated = await ensureSessionLoaded();
+    if (!authenticated && location.pathname !== '/login') {
+      // TanStack Router's own documented pattern: `redirect()` returns a
+      // plain sentinel object (not an `Error` instance) that the router's
+      // navigation machinery specifically catches — throwing anything else
+      // here wouldn't redirect at all.
+      // eslint-disable-next-line @typescript-eslint/only-throw-error
+      throw redirect({ to: '/login', search: { redirect: location.href } });
+    }
+  },
+  // Shown only if the bootstrap attempt takes a while (Router's own
+  // default `pendingMs` threshold) — a blank screen on a slow cold load
+  // would otherwise look broken rather than loading.
+  pendingComponent: RootPending,
   component: RootLayout,
-  // Rendered inside `RootLayout`'s own `<Outlet />` — the sidebar/header
-  // chrome around it stays up, satisfying [8.9.1]'s "404 renders inside
-  // the shell, not a bare page" AC. See `AppShell`'s own doc comment for
-  // why the epic's other app-shell concerns (focus management, the
-  // tenant/role bar) aren't here yet.
+  // Rendered inside `RootLayout`'s own `<Outlet />` so the sidebar/header
+  // chrome stays up around it.
   notFoundComponent: NotFoundPage,
 });
 
@@ -52,6 +74,23 @@ function RootLayout() {
       {import.meta.env.DEV && <TanStackRouterDevtools />}
       {import.meta.env.DEV && <ReactQueryDevtools />}
     </AppShell>
+  );
+}
+
+function RootPending() {
+  const { t } = useTranslation('common');
+
+  // Explicit `{ ns: 'common' }` (a string literal, not the `COMMON_NAMESPACE`
+  // constant — see `check-i18n-keys.mjs`'s own "known blind spots" comment,
+  // its `ns:` extraction only matches a quoted literal) rather than relying
+  // on the `useTranslation('common')` above: the checker's namespace
+  // resolution picks the *first* `useTranslation()` call in the whole file,
+  // not per-function scope — this file's other functions call
+  // `useTranslation('nav')`, which would otherwise misattribute this key.
+  return (
+    <div className="flex min-h-screen items-center justify-center">
+      <p className="text-muted-foreground">{t('status.loading', { ns: 'common' })}</p>
+    </div>
   );
 }
 
