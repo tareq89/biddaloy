@@ -1,6 +1,7 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 
 import {
+  currentSessionGeneration,
   getAccessToken,
   getActiveRole,
   getActiveTenant,
@@ -60,15 +61,26 @@ apiClient.interceptors.request.use((config) => {
  *
  * withCredentials: the refresh token is an httpOnly, SameSite=strict
  * cookie the server sets on login/refresh — this client never reads or
- * stores it directly. No request body; the cookie is the credential. */
+ * stores it directly. No request body; the cookie is the credential.
+ *
+ * Session-generation guard: captures the generation before the network
+ * call and only applies the result if it's still current. Without this, a
+ * refresh already in flight when a logout (or a failed sibling refresh)
+ * resets the session could resolve afterward and silently restore an
+ * access token the reset just cleared — see `auth-state.ts`'s
+ * `currentSessionGeneration`. The token is still returned either way;
+ * only the global `setAccessToken` side effect is guarded. */
 export async function postAuthRefresh(): Promise<string> {
+  const generation = currentSessionGeneration();
   const response = await axios.post<{ access_token: string }>(
     `${API_BASE_URL}/auth/refresh`,
     undefined,
     { withCredentials: true },
   );
   const token = response.data.access_token;
-  setAccessToken(token);
+  if (currentSessionGeneration() === generation) {
+    setAccessToken(token);
+  }
   return token;
 }
 

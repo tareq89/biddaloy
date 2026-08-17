@@ -13,6 +13,17 @@ let activeTenantId: string | null = null;
 let activeRole: string | null = null;
 let sessionExpiredHandler: (() => void) | null = null;
 
+/** Bumped by every `clearAuthState()` — logout and a failed reactive
+ * refresh alike. `client.ts`'s `postAuthRefresh` captures this before its
+ * network call and only calls `setAccessToken` if it's still current, so a
+ * refresh that resolves after the session was reset can't resurrect a
+ * token the reset just cleared. */
+let sessionGeneration = 0;
+
+export function currentSessionGeneration(): number {
+  return sessionGeneration;
+}
+
 export function setAccessToken(token: string | null): void {
   accessToken = token;
 }
@@ -47,6 +58,7 @@ export function clearAuthState(): void {
   accessToken = null;
   activeTenantId = null;
   activeRole = null;
+  sessionGeneration += 1;
 }
 
 /** Called exactly once per failed refresh, regardless of how many concurrent

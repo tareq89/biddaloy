@@ -10,7 +10,7 @@ import {
   setActiveRole,
   setActiveTenant,
 } from './auth-state';
-import { apiClient, toApiError } from './client';
+import { apiClient, postAuthRefresh, toApiError } from './client';
 import { ApiError, NoActiveTenantError } from './errors';
 
 // Two separate mock surfaces: `apiClient` is its own axios.create() instance;
@@ -272,5 +272,33 @@ describe('toApiError', () => {
 
     expect(wrapped).toBeInstanceOf(Error);
     expect(wrapped.message).toBe('boom');
+  });
+});
+
+describe('postAuthRefresh: session-generation guard', () => {
+  it('does not restore an access token if the session was reset while the refresh was in flight', async () => {
+    let resolveRefresh: ((value: [number, { access_token: string }]) => void) | undefined;
+    globalMock.onPost('/api/v1/auth/refresh').reply(
+      () =>
+        new Promise((resolve) => {
+          resolveRefresh = resolve;
+        }),
+    );
+
+    const refreshPromise = postAuthRefresh();
+    // Simulates a logout (or a sibling refresh's failure) completing
+    // before this already-in-flight refresh's network response arrives.
+    clearAuthState();
+    resolveRefresh?.([200, { access_token: 'stale-token' }]);
+
+    await expect(refreshPromise).resolves.toBe('stale-token');
+    expect(getAccessToken()).toBeNull();
+  });
+
+  it('still restores the token when nothing reset the session while it was in flight', async () => {
+    globalMock.onPost('/api/v1/auth/refresh').reply(200, { access_token: 'fresh-token' });
+
+    await expect(postAuthRefresh()).resolves.toBe('fresh-token');
+    expect(getAccessToken()).toBe('fresh-token');
   });
 });
