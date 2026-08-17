@@ -84,6 +84,29 @@ export async function postAuthRefresh(): Promise<string> {
   return token;
 }
 
+/** `/auth/logout` and `/auth/logout-all`, bypassing `apiClient`'s tenant
+ * requirement — same reason `postAuthRefresh` bypasses it (see above): a
+ * session restored from a cold-boot refresh can have an access token
+ * before the user has picked a tenant, and `apiClient`'s request
+ * interceptor rejects with `NoActiveTenantError` *before dispatching*
+ * when no tenant is active. Going through `apiClient` for logout would
+ * mean that request never reaches the server at all in that window — the
+ * refresh cookie stays valid server-side, and a later cold boot silently
+ * restores the "logged out" session.
+ *
+ * Attaches the Authorization header manually (only `apiClient`'s request
+ * interceptor normally does that) since `/auth/logout-all` needs it;
+ * `/auth/logout` doesn't require it but accepts it harmlessly. Plain
+ * `axios`, `withCredentials: true`, matching `postAuthRefresh` — the
+ * refresh cookie is `/auth/logout`'s actual credential. */
+export async function postAuthLogout(endpoint: '/auth/logout' | '/auth/logout-all'): Promise<void> {
+  const token = getAccessToken();
+  await axios.post(`${API_BASE_URL}${endpoint}`, undefined, {
+    withCredentials: true,
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+}
+
 /** Single-flight refresh: the first 401 creates this promise; every
  * concurrent 401 that arrives before it settles awaits the same one instead
  * of issuing its own POST /auth/refresh. The server treats a second refresh

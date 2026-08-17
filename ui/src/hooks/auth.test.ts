@@ -1,4 +1,5 @@
 import { QueryClient } from '@tanstack/react-query';
+import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
@@ -50,6 +51,29 @@ describe('logout', () => {
 
     expect(getAccessToken()).toBeNull();
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+  });
+
+  it('reaches the server even with an access token but no active tenant selected yet', async () => {
+    // Mirrors a session restored by a cold-boot refresh before the user
+    // has picked a tenant — apiClient would reject this before dispatch
+    // (NoActiveTenantError), so logout must not go through it.
+    setAccessToken('access-token');
+    let logoutRequests = 0;
+    let receivedAuthHeader: string | null = null;
+    server.use(
+      http.post('/api/v1/auth/logout', ({ request }) => {
+        logoutRequests += 1;
+        receivedAuthHeader = request.headers.get('Authorization');
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const queryClient = new QueryClient();
+
+    await logout(queryClient);
+
+    expect(logoutRequests).toBe(1);
+    expect(receivedAuthHeader).toBe('Bearer access-token');
+    expect(getAccessToken()).toBeNull();
   });
 });
 
