@@ -107,12 +107,9 @@ export const financialMutationGuardConfig = Object.freeze({
   }),
 });
 
-// [8.9.2]'s "hard rule against useEffect fetching" — an effect that fetches
-// data itself bypasses the app QueryClient's cache-first rendering, retry
-// policy, and global 401/403 handling (`api/query-client.ts`). Applied
-// everywhere, same reasoning as `financialMutationGuardConfig` above: the
-// hooks it protects live in `ui/src/hooks/`, and client apps get it too as
-// defense in depth against a future local `useEffect` that bypasses them.
+// [8.9.2]'s "no fetching from useEffect" guard — see `ui/README.md`'s
+// section of that name for why. Applied everywhere, same reasoning as
+// `financialMutationGuardConfig` above.
 export const dataFetchingGuardConfig = Object.freeze({
   plugins: Object.freeze({ 'data-fetching': dataFetchingPlugin }),
   rules: Object.freeze({
