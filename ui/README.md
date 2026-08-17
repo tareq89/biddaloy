@@ -478,7 +478,7 @@ a hand-rolled `useEffect` that calls `apiClient`/`axios`/`fetch` directly:
 
 ```ts
 // ❌ Bypasses the QueryClient entirely — no cache, no retry policy, no
-// 401/403 handling, and a race the moment two components want the same data.
+// global 403 handling, and a race the moment two components want the same data.
 useEffect(() => {
   apiClient.get('/students').then(setStudents);
 }, []);
