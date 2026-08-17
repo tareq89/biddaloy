@@ -21,15 +21,30 @@ import { z } from 'zod';
  * is accepted, deferred polish, not this ticket's job; [8.9.4]/[8.9.5] own
  * giving auth routes their own chrome-free layout.
  */
+/** A fixed, non-routable base for probing where `value` resolves to — not
+ * `window.location.origin`, so this stays a pure function testable without
+ * a browser. `value.startsWith('/')` alone isn't enough: browsers resolve
+ * a leading `\` the same as `/` (WHATWG URL spec), so `/\evil.com` and
+ * `//evil.com` both resolve off-origin despite starting with a single
+ * `/` — checking the *resolved* origin against the probe catches both. */
+const REDIRECT_PROBE_ORIGIN = 'http://redirect-probe.invalid';
+
+function isSameAppRedirect(value: string): boolean {
+  if (!value.startsWith('/')) return false;
+  try {
+    return new URL(value, REDIRECT_PROBE_ORIGIN).origin === REDIRECT_PROBE_ORIGIN;
+  } catch {
+    return false;
+  }
+}
+
 const loginSearchSchema = z.object({
-  // Same-app relative path only — `//evil.com` (protocol-relative) fails
-  // the negative lookahead and falls back to `undefined` via `.catch()`,
-  // the same defensive shape `students/index.tsx`'s schema already uses.
-  redirect: z
-    .string()
-    .regex(/^\/(?!\/)/)
-    .optional()
-    .catch(undefined),
+  // Same-app relative path only — anything that resolves off-origin
+  // (`//evil.com`, `/\evil.com`, and the equivalent percent-encoded form
+  // `/%5Cevil.com`, which the router decodes before this schema ever sees
+  // it) falls back to `undefined` via `.catch()`, the same defensive shape
+  // `students/index.tsx`'s schema already uses.
+  redirect: z.string().refine(isSameAppRedirect).optional().catch(undefined),
 });
 
 export const Route = createFileRoute('/login')({
