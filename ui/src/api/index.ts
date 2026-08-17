@@ -14,4 +14,5 @@ export {
   setActiveRole,
   setActiveTenant,
 } from './auth-state';
+export { ensureSessionLoaded, resetSessionBootstrap, scheduleTokenRefresh } from './session';
 export type { paths, components, operations } from './schema';

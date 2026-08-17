@@ -124,6 +124,32 @@ number but doesn't gate on it) — it's a review target, checked by
 reading the coverage report for the specific file, same as the
 colour-alone and icon-name rules below.
 
+## Design before you build
+
+Any new or visually-changed component or page gets a mockup, approved by a
+human, _before_ any functional implementation plan or real code — not
+after, and not as part of the same pass that builds it.
+
+The mockup is a throwaway prototype (a Claude Artifact, or an equivalent
+static preview), built against this repo's real design tokens
+(`tailwind.preset.ts`, `src/styles/globals.css`) and the actual look of
+existing `src/components` wrappers — not a generic default look invented
+for the occasion. It's never committed. Once it's approved, the
+implementation plan treats it as the spec for markup/structure: every
+piece of copy it shows needs a real i18n key, every visual state it shows
+(loading/empty/error/populated) needs to actually exist in the built
+component, and the eventual `component-name.stories.tsx` (see "The
+three-file requirement" above) becomes the living, permanent version of
+that same approved design.
+
+**Exemption**: a text-only placeholder explicitly marked "replaced by a
+later ticket" — a stub heading and nothing else, standing in only until
+the ticket that builds the real thing — skips this step and goes straight
+to the functional plan. `client-admin/src/routes/login.tsx` ([8.9.3]) is
+the reference example: one heading, one line of explanation, no form, no
+interaction, explicitly there to give a route guard somewhere real to
+redirect to until [8.9.4] builds the actual login page.
+
 ## Accessibility expectations
 
 Covered in depth in this package's own [`README.md`](README.md#accessibility)

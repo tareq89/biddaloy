@@ -9,6 +9,7 @@ import userEvent from '@testing-library/user-event';
 import type { ReactElement, ReactNode } from 'react';
 
 import { clearAuthState, setAccessToken, setActiveRole, setActiveTenant } from '../api/auth-state';
+import { resetSessionBootstrap } from '../api/session';
 import { i18n } from '../i18n/i18n';
 import { I18nProvider } from '../i18n/locale-provider';
 import { DEFAULT_LOCALE, clearPersistedLocale, type Locale } from '../i18n/locale-storage';
@@ -175,6 +176,11 @@ export function renderWithProviders(
  * doc comment promises. */
 export async function cleanupTestState(): Promise<void> {
   clearAuthState();
+  // [8.9.3]: without this, a test's cold-boot bootstrap promise (and any
+  // proactive-refresh timer it armed) would leak into the next test — ES
+  // modules are cached per worker, not reset per test, same reasoning as
+  // the rest of this function.
+  resetSessionBootstrap();
   await i18n.changeLanguage(DEFAULT_LOCALE);
   clearPersistedLocale();
 }

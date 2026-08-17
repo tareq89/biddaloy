@@ -68,6 +68,50 @@ Key pieces, each in its own file under `server/src/modules/auth/`:
 | Brute-force protection on login                      | `login-attempt.service.ts`                                                  |
 | CSRF defense on the two cookie-authenticated routes  | `guards/same-origin.guard.ts`                                               |
 
+## Client session lifecycle
+
+`client-admin` keeps the access token in memory only (never
+`localStorage`/`sessionStorage` — see [06-frontend-architecture.md](06-frontend-architecture.md)),
+so a hard page reload always starts with nothing to send, even when the
+httpOnly refresh cookie above is still valid. [8.9.3] is what makes that
+transparent: every route is gated behind a check that silently tries the
+refresh cookie once per page load before deciding whether the visitor is
+actually logged out.
+
+```mermaid
+sequenceDiagram
+    participant U as Visitor
+    participant R as Router (beforeLoad)
+    participant C as Client session (ui/src/api/session.ts)
+    participant S as NestJS server
+
+    U->>R: navigates to a protected route
+    R->>C: ensureSessionLoaded()
+    alt access token already set
+        C-->>R: true (no network call)
+    else cold load
+        C->>S: POST /auth/refresh (httpOnly cookie)
+        alt cookie still valid
+            S-->>C: new access token
+            C->>C: arm a refresh timer ~60s before it expires
+            C-->>R: true
+        else cookie missing/expired
+            S-->>C: 401
+            C-->>R: false (routine — not an error, nothing to notify)
+        end
+    end
+    R-->>U: renders the route, or redirects to /login?redirect=<original path>
+```
+
+A refresh failing _after_ a session was already established (the
+proactive timer above firing too late, or a request hitting a genuinely
+dead token) is a different, louder event — that path already existed
+before [8.9.3] (`client.ts`'s reactive 401 handling) and calls
+`notifySessionExpired()`, which `client-admin/src/main.tsx` turns into the
+same `/login` redirect. See [`ui/README.md`'s "Auth" section](../../ui/README.md)
+for the full function-level write-up (`ensureSessionLoaded`,
+`scheduleTokenRefresh`, `logout`/`logoutAll`).
+
 ## The tenant header contract
 
 Every tenant-scoped controller is decorated with `@ApiTenantAuth()`
