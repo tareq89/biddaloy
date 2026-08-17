@@ -111,8 +111,9 @@ full option list (`tenantId`/`role`/`accessToken`, `seedQueries`, a
 caller-supplied `queryClient`, `locale`).
 
 **Still no router in `renderWithProviders` itself** — TanStack Query's
-*app* defaults, as opposed to `renderWithProviders`'s test-only ones, land
-in [8.9.2]. i18next landed in [8.7.1]: every render now suspends on
+*app* defaults, as opposed to `renderWithProviders`'s test-only ones, are
+`src/api/query-client.ts`'s `createAppQueryClient()` (see "The app's query
+client" below). i18next landed in [8.7.1]: every render now suspends on
 translated content until its namespace resolves, same as the real app, and
 a `locale` option picks which language a given render exercises. Since
 i18next is a module-scoped singleton (like `auth-state.ts`),
@@ -444,6 +445,55 @@ New entities' hooks should mirror `students.ts`'s shape — `createEntityKeys()`
 for the key factory, `shouldRetryQuery` (below) for retry, invalidate
 `lists()` (not a single `list(filters)`) from any mutation that can affect
 list membership.
+
+#### The app's query client
+
+`src/api/query-client.ts`'s `createAppQueryClient()` is the one `QueryClient`
+every real app entry point should construct — `client-admin`'s `main.tsx` is
+the reference caller. It's deliberately different from the test-only client
+`renderWithProviders`/`renderHookWithProviders` build for you
+(`createTestQueryClient()`, `src/test/render-with-providers.tsx`) — the two
+exist to optimize for opposite things, cached-first rendering in the app vs.
+fast, isolated failures in a test:
+
+| Option | `createAppQueryClient()` | `createTestQueryClient()` | Why they differ |
+|---|---|---|---|
+| `staleTime` | `30_000` (30s) | `Infinity` | The app wants a revisited page to show cached data instantly, then quietly refetch if it's actually stale. A test wants "seeded data never triggers a surprise refetch" instead. |
+| `gcTime` | `300_000` (5 min) | `Infinity` | The app can afford to garbage-collect unused cache entries. A test's seeded/fetched data shouldn't vanish mid-test on a slow machine. |
+| `retry` | `shouldRetryQuery` | `false` | The app retries a transient failure (5xx, network) up to twice and never retries a 4xx. A test wants a failing query to surface immediately — see "Retry" below for how a per-query `retry: shouldRetryQuery` still gets exercised against the test client. |
+| `refetchOnWindowFocus` / `refetchOnReconnect` | TanStack's default (`true`) | `false` | This *is* the app's background-revalidation behaviour — tabbing back in can silently refresh stale data. A test has no tab to refocus and no flaky connection; leaving these on would only add nondeterminism. |
+
+`createAppQueryClient()` also wires a global `onError` (via `QueryCache`/
+`MutationCache`) that shows a translated toast (`errors.permissionDenied`,
+`common` namespace) whenever any query or mutation fails with a 403 — the
+one thing no single hook can be relied on to check for itself. A 401 needs
+nothing here: `api/client.ts`'s response interceptor already retries once
+behind a silent token refresh, so a query only ever sees a 401 after that's
+already failed and `notifySessionExpired()` has already fired.
+
+#### No fetching from `useEffect`
+
+Every read goes through `useQuery` (a mutation through `useMutation`), never
+a hand-rolled `useEffect` that calls `apiClient`/`axios`/`fetch` directly:
+
+```ts
+// ❌ Bypasses the QueryClient entirely — no cache, no retry policy, no
+// 401/403 handling, and a race the moment two components want the same data.
+useEffect(() => {
+  apiClient.get('/students').then(setStudents);
+}, []);
+
+// ✅ Goes through the app's QueryClient — cached, retried per
+// `shouldRetryQuery`, and covered by the global 403 handling above.
+const { data: students } = useQuery({
+  queryKey: studentKeys.list(),
+  queryFn: () => apiClient.get('/students'),
+});
+```
+
+`ui/eslint-rules/data-fetching.mjs`'s `no-fetch-in-effect` rule fails CI on
+the first shape — applied in both `ui` and every client app's ESLint config,
+same as the optimistic-mutation guard below.
 
 **Retry**: `src/hooks/retry.ts`'s `shouldRetryQuery` is the one retry
 predicate every query/mutation in this package should pass. A 4xx means the

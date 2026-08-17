@@ -1,6 +1,8 @@
+import { createAppQueryClient } from '@biddaloy/ui/api';
+import { Toaster } from '@biddaloy/ui/components';
 import { I18nProvider } from '@biddaloy/ui/i18n';
 import { enableMocking } from '@biddaloy/ui/mocks';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { createRouter, RouterProvider } from '@tanstack/react-router';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -8,10 +10,11 @@ import { createRoot } from 'react-dom/client';
 import { routeTree } from './routeTree.gen';
 import './index.css';
 
-// #8.9.2 owns the app's real QueryClient defaults (staleTime/gcTime/retry
-// policy) — this stays the same bare default this file has always used
-// until that ticket lands.
-const queryClient = new QueryClient();
+// [8.9.2]'s app-wide QueryClient — cache-first staleTime/gcTime, a retry
+// policy that excludes 4xx, and the global 401/403 error handling. See
+// `@biddaloy/ui/api`'s `createAppQueryClient` for the tuned values and why
+// each one is set the way it is.
+const queryClient = createAppQueryClient();
 
 // `basepath` matches `vite.config.ts`'s `base: '/admin/'` — without it,
 // the router would try to match against `/students` instead of
@@ -23,10 +26,11 @@ const router = createRouter({
   context: { queryClient },
   // [8.9.1]'s "hovering a sidebar link prefetches the route and data" AC.
   defaultPreload: 'intent',
-  // Lets TanStack Query's own `staleTime` (per query, tuned in [8.9.2])
-  // decide freshness instead of the router's separate preload cache —
-  // otherwise a preloaded-but-Query-stale result could still get served
-  // from the router's cache for 30s past when Query would have refetched.
+  // Lets TanStack Query's own `staleTime` (30s, set by [8.9.2]'s
+  // `createAppQueryClient`) decide freshness instead of the router's
+  // separate preload cache — otherwise a preloaded-but-Query-stale result
+  // could still get served from the router's cache for 30s past when
+  // Query would have refetched.
   defaultPreloadStaleTime: 0,
 });
 
@@ -45,6 +49,7 @@ function renderApp(): void {
       <QueryClientProvider client={queryClient}>
         <I18nProvider>
           <RouterProvider router={router} />
+          <Toaster />
         </I18nProvider>
       </QueryClientProvider>
     </StrictMode>,

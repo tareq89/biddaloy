@@ -26,6 +26,10 @@
 //     `ui/src/hooks/`, so `ui` needs it applied directly, and client apps
 //     get it too as defense in depth against a future local `useMutation`
 //     call that bypasses the shared hooks layer.
+//   - `dataFetchingGuardConfig`: [8.9.2]'s executable guard — no
+//     `apiClient`/`axios`/`fetch` call directly inside a `useEffect`/
+//     `useLayoutEffect`. Applied everywhere, same reasoning as
+//     `financialMutationGuardConfig` above.
 import js from '@eslint/js';
 import eslintConfigPrettier from 'eslint-config-prettier';
 import importPlugin from 'eslint-plugin-import';
@@ -37,6 +41,7 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 import boundaryPlugin from './eslint-rules/component-boundary.mjs';
+import dataFetchingPlugin from './eslint-rules/data-fetching.mjs';
 import financialMutationPlugin from './eslint-rules/financial-mutation.mjs';
 
 // Type-checked rules need `parserOptions.projectService` (typescript-eslint's
@@ -99,6 +104,19 @@ export const financialMutationGuardConfig = Object.freeze({
   plugins: Object.freeze({ 'financial-mutation': financialMutationPlugin }),
   rules: Object.freeze({
     'financial-mutation/no-optimistic-financial-mutation': 'error',
+  }),
+});
+
+// [8.9.2]'s "hard rule against useEffect fetching" — an effect that fetches
+// data itself bypasses the app QueryClient's cache-first rendering, retry
+// policy, and global 401/403 handling (`api/query-client.ts`). Applied
+// everywhere, same reasoning as `financialMutationGuardConfig` above: the
+// hooks it protects live in `ui/src/hooks/`, and client apps get it too as
+// defense in depth against a future local `useEffect` that bypasses them.
+export const dataFetchingGuardConfig = Object.freeze({
+  plugins: Object.freeze({ 'data-fetching': dataFetchingPlugin }),
+  rules: Object.freeze({
+    'data-fetching/no-fetch-in-effect': 'error',
   }),
 });
 

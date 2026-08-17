@@ -3,6 +3,7 @@ import { AppShell, EmptyState } from '@biddaloy/ui/components';
 import { useHasPermission } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import type { QueryClient } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { createRootRouteWithContext, Outlet, useNavigate } from '@tanstack/react-router';
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools';
 
@@ -49,6 +50,7 @@ function RootLayout() {
     <AppShell navItems={navItems} brand={t('brand')}>
       <Outlet />
       {import.meta.env.DEV && <TanStackRouterDevtools />}
+      {import.meta.env.DEV && <ReactQueryDevtools />}
     </AppShell>
   );
 }
