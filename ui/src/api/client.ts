@@ -103,7 +103,7 @@ export async function postAuthLogout(endpoint: '/auth/logout' | '/auth/logout-al
   const token = getAccessToken();
   await axios.post(`${API_BASE_URL}${endpoint}`, undefined, {
     withCredentials: true,
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    ...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
   });
 }
 
