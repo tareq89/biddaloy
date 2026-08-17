@@ -46,6 +46,16 @@ ruleTester.run('no-fetch-in-effect', rule, {
     // rule's job to catch) shouldn't crash the rule.
     `useEffect(effectRef, []);`,
     `useEffect();`,
+    // The namespace form (`React.useEffect(...)`) is recognized too, but
+    // only when it does no network work.
+    `React.useEffect(() => {
+      document.title = title;
+    }, [title]);`,
+    // A same-named method on some other object isn't `React.useEffect` —
+    // this rule only recognizes the `React` namespace specifically.
+    `formShell.useEffect(() => {
+      apiClient.get('/students');
+    }, []);`,
   ],
   invalid: [
     {
@@ -101,6 +111,27 @@ ruleTester.run('no-fetch-in-effect', rule, {
           setStudents(students);
         }
         load();
+      }, []);`,
+      errors: [{ messageId: 'noFetchInEffect', data: { hookName: 'useEffect' } }],
+    },
+    // `React.useEffect(...)`/`React.useLayoutEffect(...)` — this codebase's
+    // actual call style in several `ui/src/shells` and `ui/src/components`
+    // files, not just the bare `useEffect(...)` import form.
+    {
+      code: `React.useEffect(() => {
+        apiClient.get('/students').then(setStudents);
+      }, []);`,
+      errors: [{ messageId: 'noFetchInEffect', data: { hookName: 'useEffect' } }],
+    },
+    {
+      code: `React.useLayoutEffect(() => {
+        axios.get('/api/students');
+      }, []);`,
+      errors: [{ messageId: 'noFetchInEffect', data: { hookName: 'useLayoutEffect' } }],
+    },
+    {
+      code: `React.useEffect(() => {
+        fetch('/api/students');
       }, []);`,
       errors: [{ messageId: 'noFetchInEffect', data: { hookName: 'useEffect' } }],
     },
