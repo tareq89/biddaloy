@@ -130,11 +130,14 @@ Any new or visually-changed component or page gets a mockup, approved by a
 human, _before_ any functional implementation plan or real code — not
 after, and not as part of the same pass that builds it.
 
-The mockup is a throwaway prototype (a Claude Artifact, or an equivalent
-static preview), built against this repo's real design tokens
-(`tailwind.preset.ts`, `src/styles/globals.css`) and the actual look of
-existing `src/components` wrappers — not a generic default look invented
-for the occasion. It's never committed. Once it's approved, the
+Build the mockup in the **"Biddaloy Client UI" Claude Design project**
+(see `.design-sync/config.json`), not a freehand Artifact — it renders
+using the actual compiled `@biddaloy/ui` components (real `.d.ts` props,
+real `styles.css`), so what gets approved is pixel-identical to what
+ships, not an approximation of it. Re-run design-sync first if `ui/src`
+has changed shape (a new component, prop, or story) since the last sync,
+or the mockup will render against a stale roster. The mockup itself is
+throwaway — never committed to the repo. Once it's approved, the
 implementation plan treats it as the spec for markup/structure: every
 piece of copy it shows needs a real i18n key, every visual state it shows
 (loading/empty/error/populated) needs to actually exist in the built
