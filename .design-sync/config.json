@@ -1,0 +1,20 @@
+{
+  "projectId": "711a73a8-4716-4003-81f6-9d9223199295",
+  "shape": "storybook",
+  "storybookConfigDir": "ui/.storybook",
+  "storybookStatic": ".design-sync/sb-reference",
+  "pkg": "@biddaloy/ui",
+  "entry": "./ui/src/index.ts",
+  "cssEntry": ".design-sync-compiled.css",
+  "readmeHeader": ".design-sync/conventions.md",
+  "provider": { "component": "I18nProvider" },
+  "titleMap": {
+    "Toast": "Toaster",
+    "Placeholder": null
+  },
+  "overrides": {
+    "Dialog": { "cardMode": "single", "primaryStory": "Default" },
+    "Menu": { "cardMode": "single", "primaryStory": "Default" },
+    "Tooltip": { "cardMode": "single", "primaryStory": "Default" }
+  }
+}
