@@ -1,10 +1,17 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { toast, Toaster } from './toast';
 
 describe('Toaster/toast', () => {
+  // sonner keeps its toast queue in a module-level store outside React, so
+  // a toast raised in one test survives into the next test's freshly
+  // mounted <Toaster /> unless dismissed here.
+  afterEach(() => {
+    toast.dismiss();
+  });
+
   it('renders inside a polite live region', async () => {
     render(<Toaster />);
     toast('Fee structure created');
