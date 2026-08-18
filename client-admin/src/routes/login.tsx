@@ -1,18 +1,22 @@
-import { useTranslation } from '@biddaloy/ui/i18n';
-import { createFileRoute } from '@tanstack/react-router';
+import { ApiError, NoMembershipsError, RateLimitedError } from '@biddaloy/ui/api';
+import {
+  LocaleSwitcher,
+  SignInForm,
+  type SignInCredentials,
+  type SignInFormError,
+} from '@biddaloy/ui/components';
+import { login } from '@biddaloy/ui/hooks';
+import { RegionConfigProvider, useTranslation } from '@biddaloy/ui/i18n';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import type { TFunction } from 'i18next';
 import { z } from 'zod';
 
 /**
  * The protected-route guard (`__root.tsx`'s `beforeLoad`) redirects every
  * unauthenticated visit here, with `?redirect=` set to the page they were
- * actually trying to reach — validated same-app below so a future login
- * form can navigate back to it safely.
- *
- * Deliberately a stub for now: no form, just a heading, so the guard has
- * a real route to send people to instead of a 404. Still renders inside
- * `RootLayout`'s `AppShell` (sidebar included) — an unauthenticated
- * visitor seeing nav links to pages they can't reach yet is accepted,
- * deferred polish, not a chrome-free auth layout yet.
+ * actually trying to reach — validated same-app below so a login form can
+ * navigate back to it safely.
  */
 /** A fixed, non-routable base for probing where `value` resolves to — not
  * `window.location.origin`, so this stays a pure function testable without
@@ -45,15 +49,69 @@ export const Route = createFileRoute('/login')({
   component: LoginPage,
 });
 
+/** Maps whatever `login()` (`@biddaloy/ui/hooks`) rejected with onto plain,
+ * translated copy for `SignInForm`'s banner — never the raw `ApiError`
+ * message or a JSON body, per the issue's own AC. `RateLimitedError` and
+ * `NoMembershipsError` are `ui`'s own typed errors (see `ui/src/api/errors.ts`);
+ * everything else (a genuine 401, a network failure) collapses to the same
+ * "invalid credentials" / generic copy a user can actually act on. */
+function buildLoginError(error: unknown, t: TFunction<'auth'>): SignInFormError | null {
+  if (!error) return null;
+
+  if (error instanceof RateLimitedError) {
+    // `count` (not `seconds`) is i18next's own option name for selecting a
+    // plural form — `errors.rateLimited_one`/`_other` in the locale files
+    // (see check-i18n-keys.mjs's PLURAL_SUFFIXES) resolve off of it.
+    return error.retryAfterSeconds !== null
+      ? { message: t('errors.rateLimited', { count: error.retryAfterSeconds }), tone: 'status' }
+      : { message: t('errors.rateLimitedGeneric'), tone: 'status' };
+  }
+
+  if (error instanceof NoMembershipsError) {
+    return { message: t('errors.noMemberships'), tone: 'alert' };
+  }
+
+  if (error instanceof ApiError && error.statusCode === 401) {
+    return { message: t('errors.invalidCredentials'), tone: 'alert' };
+  }
+
+  return { message: t('errors.generic'), tone: 'alert' };
+}
+
 function LoginPage() {
-  const { t } = useTranslation('nav');
+  const { t } = useTranslation('auth');
+  const search = Route.useSearch();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: (credentials: SignInCredentials) => login(queryClient, credentials),
+    onSuccess: () => {
+      void navigate({ to: search.redirect ?? '/' });
+    },
+  });
 
   return (
-    <div className="flex min-h-[50vh] items-center justify-center p-8">
-      <div className="text-center">
-        <h1 className="text-lg font-semibold">{t('login.title')}</h1>
-        <p className="text-sm text-muted-foreground">{t('login.explanation')}</p>
+    // No `value` override: `useTenantRegionConfig()` needs an active
+    // tenant, which doesn't exist yet at the point a visitor is signing
+    // in — `RegionConfigProvider` already falls back to
+    // `LOCALE_REGION_DEFAULTS[locale]` with no `value` passed, which is
+    // exactly the right default here.
+    <RegionConfigProvider>
+      <div className="flex min-h-screen flex-col bg-muted/20">
+        <div className="flex justify-end p-4">
+          <LocaleSwitcher />
+        </div>
+        <div className="flex flex-1 items-center justify-center p-8">
+          <div className="w-full max-w-sm">
+            <SignInForm
+              onSubmit={(credentials) => mutation.mutate(credentials)}
+              loading={mutation.isPending}
+              error={buildLoginError(mutation.error, t)}
+            />
+          </div>
+        </div>
       </div>
-    </div>
+    </RegionConfigProvider>
   );
 }

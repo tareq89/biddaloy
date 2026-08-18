@@ -67,7 +67,7 @@ describe('root beforeLoad: protected-route redirect', () => {
       locale: 'en',
     });
 
-    await waitFor(() => expect(screen.getByText('Log in')).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Sign in' })).toBeTruthy());
     expect(router.state.location.pathname).toBe('/login');
   });
 });

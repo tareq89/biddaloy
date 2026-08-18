@@ -1,3 +1,4 @@
+import { UserRole } from '@biddaloy/shared';
 import { QueryClient } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -10,10 +11,12 @@ import {
   setActiveRole,
   setActiveTenant,
 } from '../api/auth-state';
+import { NoMembershipsError } from '../api/errors';
+import { loginResponseFactory } from '../test/msw/handlers/auth';
 import { server } from '../test/msw/server';
 import { errorHandler } from '../test/msw/support';
 
-import { logout, logoutAll } from './auth';
+import { login, logout, logoutAll } from './auth';
 
 afterEach(() => {
   setAccessToken(null);
@@ -26,6 +29,120 @@ function seedSession(): void {
   setActiveRole('ADMIN');
   setAccessToken('access-token');
 }
+
+describe('login', () => {
+  it('stores the access token and activates the single membership returned', async () => {
+    server.use(
+      http.post('/api/v1/auth/login', () =>
+        HttpResponse.json(
+          loginResponseFactory({
+            access_token: 'fresh-token',
+            memberships: [{ tenantId: 'tenant-1', role: UserRole.ADMIN }],
+          }),
+        ),
+      ),
+    );
+    const queryClient = new QueryClient();
+
+    await login(queryClient, { email: 'rahim@greenview.edu.bd', password: 'hunter2fake' });
+
+    expect(getAccessToken()).toBe('fresh-token');
+    expect(getActiveTenant()).toBe('tenant-1');
+    expect(getActiveRole()).toBe(UserRole.ADMIN);
+  });
+
+  it('picks the first membership when there is more than one, until [8.9.5] adds a real picker', async () => {
+    server.use(
+      http.post('/api/v1/auth/login', () =>
+        HttpResponse.json(
+          loginResponseFactory({
+            memberships: [
+              { tenantId: 'tenant-first', role: UserRole.ADMIN },
+              { tenantId: 'tenant-second', role: UserRole.TEACHER },
+            ],
+          }),
+        ),
+      ),
+    );
+    const queryClient = new QueryClient();
+
+    await login(queryClient, { email: 'rahim@greenview.edu.bd', password: 'hunter2fake' });
+
+    expect(getActiveTenant()).toBe('tenant-first');
+    expect(getActiveRole()).toBe(UserRole.ADMIN);
+  });
+
+  it('clears any stale cached queries from a previous session, same as switchActiveTenant', async () => {
+    server.use(
+      http.post('/api/v1/auth/login', () =>
+        HttpResponse.json(
+          loginResponseFactory({
+            memberships: [{ tenantId: 'tenant-1', role: UserRole.ADMIN }],
+          }),
+        ),
+      ),
+    );
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(['stale-from-previous-session'], { ok: true });
+
+    await login(queryClient, { email: 'rahim@greenview.edu.bd', password: 'hunter2fake' });
+
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+  });
+
+  it('revokes the session and throws NoMembershipsError, leaving no local auth state, when the account has no active school membership', async () => {
+    server.use(
+      http.post('/api/v1/auth/login', () =>
+        HttpResponse.json(loginResponseFactory({ memberships: [] })),
+      ),
+    );
+    let logoutRequests = 0;
+    server.use(
+      http.post('/api/v1/auth/logout', () => {
+        logoutRequests += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const queryClient = new QueryClient();
+
+    await expect(
+      login(queryClient, { email: 'rahim@greenview.edu.bd', password: 'hunter2fake' }),
+    ).rejects.toBeInstanceOf(NoMembershipsError);
+
+    // The login itself succeeded server-side (a real token was issued and a
+    // refresh cookie set), so a memberless account must be actively revoked
+    // — not just left alone — or a page reload could silently restore an
+    // authenticated-but-unusable session via that cookie.
+    expect(logoutRequests).toBe(1);
+    expect(getAccessToken()).toBeNull();
+    expect(getActiveTenant()).toBeNull();
+  });
+
+  it('still throws NoMembershipsError even when the revoke call itself fails', async () => {
+    server.use(
+      http.post('/api/v1/auth/login', () =>
+        HttpResponse.json(loginResponseFactory({ memberships: [] })),
+      ),
+      errorHandler('post', '/api/v1/auth/logout', 500),
+    );
+    const queryClient = new QueryClient();
+
+    await expect(
+      login(queryClient, { email: 'rahim@greenview.edu.bd', password: 'hunter2fake' }),
+    ).rejects.toBeInstanceOf(NoMembershipsError);
+    expect(getAccessToken()).toBeNull();
+  });
+
+  it('propagates a login failure without touching any local state', async () => {
+    server.use(errorHandler('post', '/api/v1/auth/login', 401));
+    const queryClient = new QueryClient();
+
+    await expect(
+      login(queryClient, { email: 'rahim@greenview.edu.bd', password: 'wrong' }),
+    ).rejects.toThrow();
+    expect(getAccessToken()).toBeNull();
+  });
+});
 
 describe('logout', () => {
   it('clears the token, tenant, role, and query cache on success', async () => {

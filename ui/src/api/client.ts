@@ -1,3 +1,4 @@
+import type { LoginResponse } from '@biddaloy/shared';
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 
 import {
@@ -8,7 +9,7 @@ import {
   notifySessionExpired,
   setAccessToken,
 } from './auth-state';
-import { ApiError, type ApiErrorBody, NoActiveTenantError } from './errors';
+import { ApiError, type ApiErrorBody, NoActiveTenantError, RateLimitedError } from './errors';
 
 /** Matches server/src/main.ts's global prefix ("api") + URI versioning
  * ("v1"). Relative, not absolute: Vite's dev proxy forwards /api to the
@@ -105,6 +106,36 @@ export async function postAuthLogout(endpoint: '/auth/logout' | '/auth/logout-al
     withCredentials: true,
     ...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
   });
+}
+
+/** `POST /auth/login`, bypassing `apiClient` for the same reason
+ * `postAuthRefresh`/`postAuthLogout` do — there is no active tenant yet at
+ * the point a caller can even attempt this. `withCredentials: true` so the
+ * server's `Set-Cookie` (the httpOnly refresh token) is actually stored;
+ * `ui/src/hooks/auth.ts`'s `login()` handles everything after the response
+ * (setting the access token, arming the proactive refresh timer, picking a
+ * tenant) — this function's only job is the network call and turning a 429
+ * into something a caller can build a real message from.
+ *
+ * `credentials` mirrors the server's `LoginDto`: exactly one of `email`/
+ * `phone`, both accepted, never both sent — `ui/src/utils/login-identifier.ts`'s
+ * `detectLoginIdentifier` is what decides which one a caller sends. */
+export async function postAuthLogin(
+  credentials: ({ email: string } | { phone: string }) & { password: string },
+): Promise<LoginResponse> {
+  try {
+    const response = await axios.post<LoginResponse>(`${API_BASE_URL}/auth/login`, credentials, {
+      withCredentials: true,
+    });
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 429) {
+      const header: unknown = error.response.headers['retry-after'];
+      const parsed = typeof header === 'string' ? Number.parseInt(header, 10) : NaN;
+      throw new RateLimitedError(Number.isFinite(parsed) ? parsed : null);
+    }
+    throw toApiError(error);
+  }
 }
 
 /** Single-flight refresh: the first 401 creates this promise; every

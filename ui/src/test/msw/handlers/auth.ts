@@ -33,6 +33,17 @@ const loginInvalidCredentials = http.post('/api/v1/auth/login', () =>
   }),
 );
 
+/** Mirrors the real `@nestjs/throttler` guard: 429 with a `Retry-After`
+ * header carrying the wait, in seconds — see `postAuthLogin`'s own comment
+ * in `ui/src/api/client.ts` for why that header, not the body, is what a
+ * caller actually reads. */
+const loginRateLimited = http.post('/api/v1/auth/login', () =>
+  HttpResponse.json(
+    apiErrorBody(429, 'ThrottlerException: Too Many Requests', '/api/v1/auth/login'),
+    { status: 429, headers: { 'Retry-After': '45' } },
+  ),
+);
+
 const refresh = http.post('/api/v1/auth/refresh', () =>
   HttpResponse.json(loginResponseFactory({ access_token: 'mock-refreshed-access-token' })),
 );
@@ -58,6 +69,7 @@ const logoutAll = http.post(
 export const authHandlers = {
   login,
   loginInvalidCredentials,
+  loginRateLimited,
   refresh,
   refreshFailure,
   logout,

@@ -5,7 +5,13 @@ import { useHasPermission } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import type { QueryClient } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { createRootRouteWithContext, Outlet, redirect, useNavigate } from '@tanstack/react-router';
+import {
+  createRootRouteWithContext,
+  Outlet,
+  redirect,
+  useNavigate,
+  useRouterState,
+} from '@tanstack/react-router';
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools';
 
 /**
@@ -60,6 +66,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 function RootLayout() {
   const { t } = useTranslation('nav');
   const canManageSettings = useHasPermission(Permission.SETTINGS_MANAGE);
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
 
   const navItems = [
     { to: '/', label: t('items.dashboard') },
@@ -68,11 +75,32 @@ function RootLayout() {
     ...(canManageSettings ? [{ to: '/settings', label: t('items.settings') }] : []),
   ];
 
+  const devtools = (
+    <>
+      {import.meta.env.DEV && <TanStackRouterDevtools />}
+      {import.meta.env.DEV && <ReactQueryDevtools />}
+    </>
+  );
+
+  // [8.9.4]'s sign-in page is deliberately chrome-free, per the approved
+  // `templates/sign-in` mockup — an unauthenticated visitor shouldn't see
+  // nav links to pages they can't reach yet. The stub-era version of this
+  // route flagged that gap in its own comment as deferred polish; this is
+  // where it gets settled, rather than restructuring every route file
+  // into a pathless layout route for one page's benefit.
+  if (pathname === '/login') {
+    return (
+      <>
+        <Outlet />
+        {devtools}
+      </>
+    );
+  }
+
   return (
     <AppShell navItems={navItems} brand={t('brand')}>
       <Outlet />
-      {import.meta.env.DEV && <TanStackRouterDevtools />}
-      {import.meta.env.DEV && <ReactQueryDevtools />}
+      {devtools}
     </AppShell>
   );
 }
