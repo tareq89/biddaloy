@@ -26,6 +26,17 @@ const emailSchema = z.email();
  * `parsePhone` itself (which stays region-neutral, per `RegionConfig`'s own
  * point), since login is the one place that needs the storage format
  * rather than the display-formatting national number.
+ *
+ * The email branch is lowercased before being returned, for the same
+ * "match what's actually stored" reason: `AuthService.validateUser`'s own
+ * lookup (`where: [{ email: emailOrPhone }, ...]`) is an exact, case-
+ * sensitive comparison with no server-side normalization, but the
+ * server's *lockout* key (`normalizeLoginIdentifier`) already treats
+ * email case-insensitively — so the system's own intent is that
+ * `Rahim@x.com` and `rahim@x.com` are the same account. Lowercasing here
+ * is the login-page half of that; broader canonicalization of every
+ * email write path (user creation/update) is a separate, larger change
+ * out of this ticket's scope.
  */
 export function detectLoginIdentifier(raw: string, config: RegionConfig): LoginIdentifier {
   const trimmed = raw.trim();
@@ -33,7 +44,9 @@ export function detectLoginIdentifier(raw: string, config: RegionConfig): LoginI
 
   if (trimmed.includes('@')) {
     const result = emailSchema.safeParse(trimmed);
-    return result.success ? { kind: 'email', email: result.data } : { kind: 'invalid' };
+    return result.success
+      ? { kind: 'email', email: result.data.toLowerCase() }
+      : { kind: 'invalid' };
   }
 
   const result = parsePhone(trimmed, config);

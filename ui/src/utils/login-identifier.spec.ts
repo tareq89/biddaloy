@@ -23,6 +23,13 @@ describe('detectLoginIdentifier', () => {
     expect(detectLoginIdentifier('not-an-email@', REGION_BD_EN)).toEqual({ kind: 'invalid' });
   });
 
+  it('lowercases an email so it matches the server exact-match lookup regardless of case typed', () => {
+    expect(detectLoginIdentifier('Rahim@Greenview.edu.bd', REGION_BD_EN)).toEqual({
+      kind: 'email',
+      email: 'rahim@greenview.edu.bd',
+    });
+  });
+
   it('re-prefixes a bare national number with the trunk 0', () => {
     expect(detectLoginIdentifier('1712345678', REGION_BD_EN)).toEqual({
       kind: 'phone',
