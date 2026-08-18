@@ -2,7 +2,13 @@
  * Generated OpenAPI types and the shared axios client.
  */
 export { apiClient } from './client';
-export { ApiError, NoActiveTenantError, type ApiErrorBody } from './errors';
+export {
+  ApiError,
+  NoActiveTenantError,
+  NoMembershipsError,
+  RateLimitedError,
+  type ApiErrorBody,
+} from './errors';
 export { createAppQueryClient } from './query-client';
 export {
   clearAuthState,
