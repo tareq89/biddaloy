@@ -283,7 +283,7 @@ jobs:
 
       - name: Build shared package
         # webServer boots the real server/clients (yarn dev:*), which resolve
-        # @beton-boi/shared through its package.json "main" (dist/index.js,
+        # @biddaloy/shared through its package.json "main" (dist/index.js,
         # not src) — same reason the other jobs build this first.
         run: yarn build:shared
 
@@ -291,10 +291,10 @@ jobs:
         run: npx playwright install --with-deps ${{ matrix.browser }}
 
       - name: Run migrations
-        run: yarn workspace @beton-boi/server migration:run
+        run: yarn workspace @biddaloy/server migration:run
 
       - name: Seed database
-        run: yarn workspace @beton-boi/server seed
+        run: yarn workspace @biddaloy/server seed
 
       - name: E2E tests (${{ matrix.browser }})
         run: yarn e2e --project=${{ matrix.browser }}

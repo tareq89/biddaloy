@@ -1965,7 +1965,7 @@
       "id": "server_readme_migration_workflow"
     },
     {
-      "label": "@beton-boi/shared Types Package",
+      "label": "@biddaloy/shared Types Package",
       "file_type": "concept",
       "source_file": "shared/README.md",
       "source_location": null,
@@ -1974,7 +1974,7 @@
       "author": null,
       "contributor": null,
       "community": 8,
-      "norm_label": "@beton-boi/shared types package",
+      "norm_label": "@biddaloy/shared types package",
       "id": "shared_readme_shared_types_package"
     },
     {
@@ -2802,13 +2802,13 @@
       "id": "users_muhammedtareqaziz_workspace_personal_beton_boi_client_student_tsconfig_compileroptions_paths"
     },
     {
-      "label": "@beton-boi/shared",
+      "label": "@biddaloy/shared",
       "file_type": "code",
       "source_file": "client-student/tsconfig.json",
       "source_location": "L11",
       "_origin": "ast",
       "community": 32,
-      "norm_label": "@beton-boi/shared",
+      "norm_label": "@biddaloy/shared",
       "id": "users_muhammedtareqaziz_workspace_personal_beton_boi_client_student_tsconfig_paths_beton_boi_shared"
     },
     {
@@ -15038,13 +15038,13 @@
       "id": "server_tsconfig_compileroptions_paths"
     },
     {
-      "label": "@beton-boi/shared",
+      "label": "@biddaloy/shared",
       "file_type": "code",
       "source_file": "server/tsconfig.json",
       "source_location": "L16",
       "_origin": "ast",
       "community": 19,
-      "norm_label": "@beton-boi/shared",
+      "norm_label": "@biddaloy/shared",
       "id": "server_tsconfig_paths_beton_boi_shared"
     },
     {

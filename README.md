@@ -199,8 +199,8 @@ Bring up Postgres/Redis first, same as any other local dev session:
 
 ```bash
 docker compose up -d db redis
-yarn workspace @beton-boi/server migration:run
-SEED_ADMIN_PASSWORD=<password> yarn workspace @beton-boi/server seed
+yarn workspace @biddaloy/server migration:run
+SEED_ADMIN_PASSWORD=<password> yarn workspace @biddaloy/server seed
 ```
 
 `webServer` in `playwright.config.ts` then starts the server and both
