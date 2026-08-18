@@ -18,24 +18,54 @@ import { useTranslation } from '@biddaloy/ui/i18n';
 import {
   FormSection,
   FormShell,
+  buildFormShellErrors,
   useFormShellMode,
   useWarnUnsavedChanges,
-  type FormShellError,
 } from '@biddaloy/ui/shells';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
+import { ConnectionTestResultMessage } from '../../components/ConnectionTestResultMessage';
 import { MutationErrorMessage } from '../../components/MutationErrorMessage';
 import { SecretField } from '../../components/SecretField';
 
-const smsSchema = z.object({
-  provider: z.enum(['greenweb', 'mimsms']),
-  greenwebApiUrl: z.string(),
-  mimsmsSenderId: z.string(),
-  mimsmsApiUrl: z.string(),
-});
+// Every field the `id` doesn't follow directly from `sms-${fieldName}` —
+// `provider`/`greenwebApiUrl` do (`sms-provider`, `sms-greenweb-apiUrl`
+// after the dash-join, see `SMS_FIELD_IDS` below covers all four instead
+// of relying on a naming pattern), but `mimsmsSenderId`/`mimsmsApiUrl`
+// map to `sms-mimsms-senderId`/`sms-mimsms-apiUrl`, not
+// `sms-mimsmsSenderId` — an explicit map is clearer than a regex that
+// has to know both gateways' id conventions.
+const SMS_FIELD_IDS: Record<string, string> = {
+  provider: 'sms-provider',
+  greenwebApiUrl: 'sms-greenweb-apiUrl',
+  mimsmsSenderId: 'sms-mimsms-senderId',
+  mimsmsApiUrl: 'sms-mimsms-apiUrl',
+};
+
+const smsSchema = z
+  .object({
+    provider: z.enum(['greenweb', 'mimsms']),
+    greenwebApiUrl: z.string(),
+    mimsmsSenderId: z.string(),
+    mimsmsApiUrl: z.string(),
+  })
+  // mimsmsSenderId is unconditionally required by the server contract
+  // once mimsms is the selected gateway (buildConfig below always sends
+  // it), but must stay optional while greenweb is selected — a plain
+  // `.min(1)` on the field would incorrectly block saving greenweb-only
+  // config that never touched the mimsms fields.
+  .superRefine((values, ctx) => {
+    if (values.provider === 'mimsms' && values.mimsmsSenderId.trim() === '') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['mimsmsSenderId'],
+        message: 'Required',
+      });
+    }
+  });
 
 type SmsFormValues = z.infer<typeof smsSchema>;
 type SmsConfig = NonNullable<NonNullable<TenantSettingsInput['communications']>['sms']>;
@@ -46,13 +76,16 @@ interface SmsSectionProps {
 }
 
 /** The one provider section with a gateway *choice* (`greenweb` vs
- * `mimsms`) — `SmsSettingsDto`'s own shape on the server. Both gateways'
- * fields stay mounted in the DOM (React state, not conditional rendering)
- * so switching the dropdown back and forth doesn't lose whatever was
- * already typed into the other gateway's fields; only the *active*
- * gateway's fields (and its own secret) are included in the payload
- * `buildConfig` sends, matching what the resolver on the server expects
- * for the selected `provider`. */
+ * `mimsms`) — `SmsSettingsDto`'s own shape on the server. Switching the
+ * dropdown back and forth doesn't lose whatever was already typed into
+ * the other gateway's fields, even though only the *active* gateway's
+ * `<FormField>`s are actually rendered (see the conditional below) — the
+ * typed values survive because react-hook-form keeps unmounted fields'
+ * state by default (`shouldUnregister: false`), and each gateway's
+ * secret lives in its own separate `useState` outside the form entirely.
+ * Only the active gateway's fields (and its own secret) are included in
+ * the payload `buildConfig` sends, matching what the resolver on the
+ * server expects for the selected `provider`. */
 export function SmsSection({ schoolId, sms }: SmsSectionProps) {
   const { t } = useTranslation('settings');
   const form = useForm<SmsFormValues>({
@@ -114,8 +147,9 @@ export function SmsSection({ schoolId, sms }: SmsSectionProps) {
     testConnection.mutate({ medium: 'SMS', config: buildConfig(form.getValues()) });
   }
 
-  const summaryErrors: FormShellError[] = Object.entries(form.formState.errors).map(
-    ([field, error]) => ({ field, message: String(error?.message ?? '') }),
+  const summaryErrors = buildFormShellErrors(
+    form.formState.errors,
+    (field) => SMS_FIELD_IDS[field] ?? `sms-${field}`,
   );
 
   return (
@@ -221,16 +255,11 @@ export function SmsSection({ schoolId, sms }: SmsSectionProps) {
             {t('testConnection.action')}
           </Button>
         </div>
-        {testConnection.data && (
-          <p
-            role="status"
-            className={
-              testConnection.data.success ? 'text-sm text-emerald-700' : 'text-sm text-destructive'
-            }
-          >
-            {testConnection.data.message}
-          </p>
-        )}
+        <ConnectionTestResultMessage
+          data={testConnection.data}
+          isError={testConnection.isError}
+          error={testConnection.error}
+        />
         {updateSettings.isSuccess && <p role="status">{t('save.success')}</p>}
         {updateSettings.isError && <MutationErrorMessage error={updateSettings.error} />}
       </FormShell>

@@ -49,6 +49,12 @@ describe('Cross-tenant access (regression)', () => {
   let createdFeeStructureId: string | undefined;
   let createdInvoiceId: string | undefined;
   let createdCommunicationId: string | undefined;
+  // The settings tests below PATCH the shared seed school (TENANT_A) —
+  // snapshotted here and restored in afterAll so this file doesn't
+  // permanently leave a test secret on it. Unlike the FK-ordered deletes
+  // above, this is a column on a row every other e2e spec also reads, so
+  // "delete what we created" doesn't apply — only "put it back".
+  let originalTenantASettings: unknown;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -61,6 +67,11 @@ describe('Cross-tenant access (regression)', () => {
     await app.init();
 
     dataSource = app.get(DataSource);
+
+    const [{ settings }] = await dataSource.query(`SELECT settings FROM schools WHERE id = $1`, [
+      TENANT_A,
+    ]);
+    originalTenantASettings = settings;
 
     await dataSource.query(
       `INSERT INTO schools (id, name, slug, created_at, updated_at)
@@ -125,6 +136,10 @@ describe('Cross-tenant access (regression)', () => {
     if (createdStudentId) {
       await dataSource.query(`DELETE FROM students WHERE id = '${createdStudentId}'`);
     }
+    await dataSource.query(`UPDATE schools SET settings = $1 WHERE id = $2`, [
+      originalTenantASettings,
+      TENANT_A,
+    ]);
 
     await app.close();
   });
@@ -225,7 +240,7 @@ describe('Cross-tenant access (regression)', () => {
    * it's a 403, not this file's usual cross-tenant 404 — see
    * `schools.controller.ts`'s comment on why that's deliberate.
    */
-  it('rejects a genuine tenant-B admin reading or writing tenant-A school settings', async () => {
+  it('rejects a genuine tenant-B admin reading or writing tenant-A school settings, and vice versa', async () => {
     await supertest(app.getHttpServer())
       .get(`/api/v1/schools/${TENANT_A}/settings`)
       .set('Authorization', `Bearer ${token}`)
@@ -236,6 +251,25 @@ describe('Cross-tenant access (regression)', () => {
       .patch(`/api/v1/schools/${TENANT_A}/settings`)
       .set('Authorization', `Bearer ${token}`)
       .set('X-Tenant-ID', TENANT_B)
+      .send({ version: 1 })
+      .expect(403);
+
+    // The other direction: acting as tenant A, targeting tenant B's
+    // school. `token`'s single set of ADMIN memberships makes both
+    // directions asymmetric-looking the same way — worth asserting both,
+    // since a permission check that only compares "is this caller an
+    // ADMIN of *some* school" rather than *this* school would pass one
+    // direction and silently fail the other.
+    await supertest(app.getHttpServer())
+      .get(`/api/v1/schools/${TENANT_B}/settings`)
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Tenant-ID', TENANT_A)
+      .expect(403);
+
+    await supertest(app.getHttpServer())
+      .patch(`/api/v1/schools/${TENANT_B}/settings`)
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Tenant-ID', TENANT_A)
       .send({ version: 1 })
       .expect(403);
 
@@ -282,6 +316,25 @@ describe('Cross-tenant access (regression)', () => {
   });
 
   /**
+   * #8.7.13's dashboard saves one settings section (region, SMS, WhatsApp,
+   * email, Messenger) at a time rather than the whole page at once —
+   * pinning the intended per-section save budget here, not the rate
+   * limit's exact number, so this stays meaningful if SETTINGS_RATE_LIMIT
+   * is later retuned. A normal "paste five credentials from a password
+   * manager" setup session must not 429 partway through.
+   */
+  it('allows six sequential per-section settings saves without hitting the rate limit', async () => {
+    for (let i = 0; i < 6; i++) {
+      await supertest(app.getHttpServer())
+        .patch(`/api/v1/schools/${TENANT_A}/settings`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .send({ version: 1 })
+        .expect(200);
+    }
+  });
+
+  /**
    * #8.7.13's school picker: `GET /schools` exists purely so a super admin
    * can enumerate every school before picking one to configure. An ADMIN
    * doesn't get a picker at all — they already know their one school from
@@ -306,6 +359,22 @@ describe('Cross-tenant access (regression)', () => {
       .get('/api/v1/schools')
       .set('Authorization', `Bearer ${token}`)
       .set('X-Tenant-ID', TENANT_A)
+      .expect(401);
+
+    // Missing X-Tenant-ID entirely — ContextGuard's own required-header
+    // check, ahead of anything RolesGuard/SUPER_ADMIN-only logic does.
+    await supertest(app.getHttpServer())
+      .get('/api/v1/schools')
+      .set('Authorization', `Bearer ${superAdminToken}`)
+      .expect(401);
+
+    // A syntactically-valid but non-existent tenant id — the caller has
+    // no membership in it, so this is still a ContextGuard rejection, not
+    // a 404 for an unknown school.
+    await supertest(app.getHttpServer())
+      .get('/api/v1/schools')
+      .set('Authorization', `Bearer ${superAdminToken}`)
+      .set('X-Tenant-ID', '00000000-0000-4000-8000-000000000fff')
       .expect(401);
   });
 });

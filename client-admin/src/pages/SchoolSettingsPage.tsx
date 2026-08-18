@@ -18,16 +18,18 @@ import { WhatsAppSection } from './settings/WhatsAppSection';
  *
  * "The school being configured is unmistakable on screen at all times"
  * (the issue's own acceptance criterion) is the banner right below the
- * picker — every section renders underneath it, so scrolling through a
- * long page never separates a form field from the name of the school
- * it belongs to.
+ * picker — `sticky top-0` keeps it pinned at the viewport top as the
+ * sections below scroll past, rather than just scrolling away with them,
+ * so a long page never separates a form field from the name of the
+ * school it belongs to.
  */
 export function SchoolSettingsPage() {
   const { t } = useTranslation('settings');
   const isSuperAdmin = getActiveRole() === 'SUPER_ADMIN';
   const ownSchoolId = getActiveTenant();
 
-  const { data: schools } = useSchools({ enabled: isSuperAdmin });
+  const schoolsQuery = useSchools({ enabled: isSuperAdmin });
+  const schools = schoolsQuery.data;
   const [pickedSchoolId, setPickedSchoolId] = React.useState<string | undefined>(undefined);
 
   const schoolId = isSuperAdmin ? pickedSchoolId : (ownSchoolId ?? undefined);
@@ -59,16 +61,27 @@ export function SchoolSettingsPage() {
               </option>
             ))}
           </select>
+          {schoolsQuery.isError && (
+            <p role="alert" className="text-sm text-destructive">
+              {t('schoolPicker.error')}
+            </p>
+          )}
         </div>
       )}
 
       {schoolId && (
         <div
           role="status"
-          className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-2 text-sm font-medium"
+          className="sticky top-0 z-10 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2 text-sm font-medium backdrop-blur-sm"
         >
           {t('configuringBanner', { schoolName: schoolName ?? schoolId })}
         </div>
+      )}
+
+      {schoolId && settingsQuery.isError && (
+        <p role="alert" className="text-sm text-destructive">
+          {t('settingsLoadError')}
+        </p>
       )}
 
       {schoolId && settingsQuery.data && (

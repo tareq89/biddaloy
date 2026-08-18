@@ -11,8 +11,10 @@
 export { createEntityKeys, type EntityKeys } from './query-keys';
 export { shouldRetryQuery } from './retry';
 export { switchActiveTenant } from './tenant';
+export { login, logout, logoutAll } from './auth';
 export {
   studentKeys,
+  studentsQueryOptions,
   useCreateStudent,
   useStudent,
   useStudents,

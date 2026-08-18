@@ -134,7 +134,11 @@ export class CommunicationsProcessor extends WorkerHost {
 
     const maxAttempts = job.opts.attempts ?? 1;
     const isFinalAttempt = job.attemptsMade + 1 >= maxAttempts;
-    if (isFinalAttempt) {
+    // `retryable === false` means the provider itself says retrying can
+    // never help (e.g. ProviderNotConfiguredError) — settle FAILED on the
+    // first attempt instead of burning the rest of the queue's backoff
+    // budget on a failure that will be identical every time.
+    if (isFinalAttempt || result.retryable === false) {
       log.status = CommunicationStatus.FAILED;
       await this.settle(log, 'failure');
       return;

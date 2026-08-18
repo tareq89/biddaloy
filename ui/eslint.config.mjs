@@ -3,6 +3,7 @@ import tseslint from 'typescript-eslint';
 
 import {
   biddaloyReactConfig,
+  dataFetchingGuardConfig,
   financialMutationGuardConfig,
   typeCheckedRules,
   typeCheckedTestOverrides,
@@ -24,6 +25,10 @@ export default tseslint.config(
   {
     files: ['src/**/*.{ts,tsx}'],
     ...financialMutationGuardConfig,
+  },
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ...dataFetchingGuardConfig,
   },
   // [8.7.6]: components use margin-inline-*/padding-inline-* (Tailwind's
   // ms-/me-/ps-/pe-), never -left/-right — scoped to where className

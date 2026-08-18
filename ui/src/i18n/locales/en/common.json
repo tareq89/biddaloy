@@ -8,5 +8,8 @@
   "status": {
     "loading": "Loading…",
     "error": "Something went wrong"
+  },
+  "errors": {
+    "permissionDenied": "You don't have permission to do that."
   }
 }

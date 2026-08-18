@@ -775,7 +775,7 @@ export interface components {
             id: string;
             tenant_id: string | null;
             /** @enum {string} */
-            action: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE";
+            action: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST";
             entity_type: string;
             entity_id: string | null;
             performed_by_user_id: string | null;
@@ -1476,6 +1476,14 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        ConnectionTestResultDto: {
+            success: boolean;
+            message: string;
+        };
+        SchoolListItemDto: {
+            id: string;
+            name: string;
+        };
         RegionCurrencyDto: {
             code: string;
             symbol: string;
@@ -1518,6 +1526,51 @@ export interface components {
             academicYear: components["schemas"]["RegionAcademicYearDto"];
             identifiers: components["schemas"]["RegionIdentifiersDto"];
             timezone: string;
+        };
+        MaskedSecretResponseDto: {
+            configured: boolean;
+            hint?: string;
+        };
+        MaskedGreenwebSmsResponseDto: {
+            apiKey: components["schemas"]["MaskedSecretResponseDto"];
+            apiUrl?: string;
+        };
+        MaskedMimSmsResponseDto: {
+            apiKey: components["schemas"]["MaskedSecretResponseDto"];
+            senderId: string;
+            apiUrl?: string;
+        };
+        MaskedSmsSettingsResponseDto: {
+            provider: string;
+            greenweb?: components["schemas"]["MaskedGreenwebSmsResponseDto"];
+            mimsms?: components["schemas"]["MaskedMimSmsResponseDto"];
+        };
+        MaskedWhatsAppSettingsResponseDto: {
+            phoneNumberId: string;
+            apiVersion?: string;
+            accessToken: components["schemas"]["MaskedSecretResponseDto"];
+        };
+        MaskedEmailSettingsResponseDto: {
+            host: string;
+            port: number;
+            user: string;
+            from: string;
+            password: components["schemas"]["MaskedSecretResponseDto"];
+        };
+        MaskedMessengerSettingsResponseDto: {
+            pageId: string;
+            accessToken: components["schemas"]["MaskedSecretResponseDto"];
+        };
+        MaskedCommunicationsSettingsResponseDto: {
+            sms?: components["schemas"]["MaskedSmsSettingsResponseDto"];
+            whatsapp?: components["schemas"]["MaskedWhatsAppSettingsResponseDto"];
+            email?: components["schemas"]["MaskedEmailSettingsResponseDto"];
+            messenger?: components["schemas"]["MaskedMessengerSettingsResponseDto"];
+        };
+        TenantSettingsResponseDto: {
+            version: number;
+            region?: components["schemas"]["RegionSettingsDto"];
+            communications?: components["schemas"]["MaskedCommunicationsSettingsResponseDto"];
         };
         GreenwebSmsDto: {
             apiKey?: string | null;
@@ -1591,7 +1644,7 @@ export interface operations {
     AuditController_findAll_v1: {
         parameters: {
             query?: {
-                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE";
+                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST";
                 entity_type?: string;
                 from_date?: string;
                 to_date?: string;
@@ -3735,11 +3788,18 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["ConnectionTestResultDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An ADMIN attempted to manage a school other than their own; only a SUPER_ADMIN can manage any school. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3766,7 +3826,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>[];
+                    "application/json": components["schemas"]["SchoolListItemDto"][];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -3799,11 +3859,18 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["TenantSettingsResponseDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An ADMIN attempted to manage a school other than their own; only a SUPER_ADMIN can manage any school. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3836,11 +3903,18 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["TenantSettingsResponseDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An ADMIN attempted to manage a school other than their own; only a SUPER_ADMIN can manage any school. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

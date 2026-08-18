@@ -40,3 +40,31 @@ export class NoActiveTenantError extends Error {
     this.name = 'NoActiveTenantError';
   }
 }
+
+/** A 429 from the stock `@nestjs/throttler` guard — distinct from `ApiError`
+ * because the one thing worth showing (how long to wait) lives in the
+ * response's `Retry-After` header, not in the JSON body `ApiError` wraps.
+ * `retryAfterSeconds` is `null` when the header is missing or unparseable,
+ * so a caller always has a fallback ("try again shortly") rather than a
+ * throw of its own. */
+export class RateLimitedError extends Error {
+  readonly retryAfterSeconds: number | null;
+
+  constructor(retryAfterSeconds: number | null) {
+    super('Too many attempts — rate limited.');
+    this.name = 'RateLimitedError';
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
+
+/** Thrown by `ui/src/hooks/auth.ts`'s `login()` when a real login succeeded
+ * (correct credentials, a token was issued) but `memberships` is empty — a
+ * user removed from every school they used to belong to. Distinct from
+ * `ApiError`/`RateLimitedError`: this never comes from the network, the
+ * server call itself succeeded. */
+export class NoMembershipsError extends Error {
+  constructor() {
+    super('This account has no active school membership.');
+    this.name = 'NoMembershipsError';
+  }
+}

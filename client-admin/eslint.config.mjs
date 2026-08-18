@@ -1,6 +1,7 @@
 import {
   biddaloyReactConfig,
   componentBoundaryConfig,
+  dataFetchingGuardConfig,
   financialMutationGuardConfig,
   typeCheckedRules,
   typeCheckedTestOverrides,
@@ -30,7 +31,11 @@ export default tseslint.config(
     ...financialMutationGuardConfig,
   },
   {
-    files: ['*.ts', '*.mjs'],
+    files: ['src/**/*.{ts,tsx}'],
+    ...dataFetchingGuardConfig,
+  },
+  {
+    files: ['*.ts', '*.mjs', 'scripts/**/*.mjs'],
     languageOptions: {
       globals: { ...globals.node },
     },

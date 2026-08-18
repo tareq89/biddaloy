@@ -8,6 +8,7 @@ coverage
 # Generated / non-source
 graphify-out
 ui/src/api/schema.d.ts
+client-admin/src/routeTree.gen.ts
 yarn.lock
 
 # ui/src/styles/globals.css is hand-mirrored, byte-for-byte, from

@@ -124,6 +124,35 @@ number but doesn't gate on it) — it's a review target, checked by
 reading the coverage report for the specific file, same as the
 colour-alone and icon-name rules below.
 
+## Design before you build
+
+Any new or visually-changed component or page gets a mockup, approved by a
+human, _before_ any functional implementation plan or real code — not
+after, and not as part of the same pass that builds it.
+
+Build the mockup in the **"Biddaloy Client UI" Claude Design project**
+(see `.design-sync/config.json`), not a freehand Artifact — it renders
+using the actual compiled `@biddaloy/ui` components (real `.d.ts` props,
+real `styles.css`), so what gets approved is pixel-identical to what
+ships, not an approximation of it. Re-run design-sync first if `ui/src`
+has changed shape (a new component, prop, or story) since the last sync,
+or the mockup will render against a stale roster. The mockup itself is
+throwaway — never committed to the repo. Once it's approved, the
+implementation plan treats it as the spec for markup/structure: every
+piece of copy it shows needs a real i18n key, every visual state it shows
+(loading/empty/error/populated) needs to actually exist in the built
+component, and the eventual `component-name.stories.tsx` (see "The
+three-file requirement" above) becomes the living, permanent version of
+that same approved design.
+
+**Exemption**: a text-only placeholder explicitly marked "replaced by a
+later ticket" — a stub heading and nothing else, standing in only until
+the ticket that builds the real thing — skips this step and goes straight
+to the functional plan. `client-admin/src/routes/login.tsx` ([8.9.3]) is
+the reference example: one heading, one line of explanation, no form, no
+interaction, explicitly there to give a route guard somewhere real to
+redirect to until [8.9.4] builds the actual login page.
+
 ## Accessibility expectations
 
 Covered in depth in this package's own [`README.md`](README.md#accessibility)

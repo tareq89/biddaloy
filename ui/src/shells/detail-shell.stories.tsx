@@ -1,19 +1,18 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { expect, userEvent, within } from '@storybook/test';
 import * as React from 'react';
-import { MemoryRouter } from 'react-router';
 
+import { withMemoryRouter } from '../../.storybook/router-decorator';
 import { rtlDecorator } from '../../.storybook/rtl-decorator';
 
 import { DetailShell, type DetailShellTab } from './detail-shell';
 import { useDetailShellTab } from './use-detail-shell-tab';
 
-// No router decorator at the `meta` level — react-router doesn't allow
-// nesting `<Router>`s, so a story that needs its own `initialEntries`
-// (`DeepLinkedTab`) can't layer a second `MemoryRouter` on top of a
-// shared one. Each story that renders `useDetailShellTab` supplies its
-// own single `MemoryRouter` instead; `RightToLeft` doesn't call that
-// hook at all, so it needs no router.
+// No router decorator at the `meta` level — a story that needs its own
+// `initialEntries` (`DeepLinkedTab`) needs its own router, not a shared
+// one. Each story that renders `useDetailShellTab` supplies its own via
+// `withMemoryRouter` instead; `RightToLeft` doesn't call that hook at
+// all, so it needs no router.
 const meta: Meta<typeof DetailShell> = {
   title: 'Shells/DetailShell',
   tags: ['autodocs'],
@@ -108,13 +107,7 @@ function StudentDetailPageWithCachedPanel() {
   );
 }
 
-const withStudentOneRouter = [
-  (StoryFn: () => React.ReactElement) => (
-    <MemoryRouter initialEntries={['/students/1']}>
-      <StoryFn />
-    </MemoryRouter>
-  ),
-];
+const withStudentOneRouter = [withMemoryRouter(['/students/1'])];
 
 export const Default: Story = {
   decorators: withStudentOneRouter,
@@ -151,13 +144,7 @@ export const PermissionGated: Story = {
 };
 
 export const DeepLinkedTab: Story = {
-  decorators: [
-    (StoryFn) => (
-      <MemoryRouter initialEntries={['/students/1?tab=payments']}>
-        <StoryFn />
-      </MemoryRouter>
-    ),
-  ],
+  decorators: [withMemoryRouter(['/students/1?tab=payments'])],
   render: () => <StudentDetailPage />,
 };
 

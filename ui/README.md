@@ -110,30 +110,20 @@ under, and `src/test/render-with-providers.tsx`'s own doc comments for the
 full option list (`tenantId`/`role`/`accessToken`, `seedQueries`, a
 caller-supplied `queryClient`, `locale`).
 
-**Still no router in `renderWithProviders` itself, and no app-wide router
-yet** — that's a later ticket's call (TanStack Query's *app* defaults, as
-opposed to `renderWithProviders`'s test-only ones, land in [8.9.2]). i18next
-landed in [8.7.1]: every render now suspends on translated content until
-its namespace resolves, same as the real app, and a `locale` option picks
-which language a given render exercises. Since i18next is a
-module-scoped singleton (like `auth-state.ts`), `cleanupTestState()` resets
-the active language back to the default between tests, same as it already
-does for auth/tenant/role. The options object is structured so a router
-lands additively later (a new field, the internal `Wrapper` gains another
-layer), not as a breaking change to the function's signature:
+**Still no router in `renderWithProviders` itself** — TanStack Query's
+*app* defaults, as opposed to `renderWithProviders`'s test-only ones, are
+`src/api/query-client.ts`'s `createAppQueryClient()` (see "The app's query
+client" below). i18next landed in [8.7.1]: every render now suspends on
+translated content until its namespace resolves, same as the real app, and
+a `locale` option picks which language a given render exercises. Since
+i18next is a module-scoped singleton (like `auth-state.ts`),
+`cleanupTestState()` resets the active language back to the default
+between tests, same as it already does for auth/tenant/role.
 
-```text
-renderWithProviders
- ├── QueryClientProvider   (here today)
- ├── I18nProvider          (here today — [8.7.1])
- └── RouterProvider        (app-wide adoption — a later ticket's call)
-```
-
-**Routing is a narrower story**: [8.4.5] added a *scoped* integration
-harness — `react-router`, `renderWithRouter`, `RequireRole`,
-`useListUrlState` — not the app-wide router `renderWithProviders`'s own
-diagram above still leaves open. See `### Routing` below for what exists
-today and how it's deliberately bounded.
+**Routing is a separate, sibling harness**: `renderWithRouter`
+(`@biddaloy/ui/test`) rather than an option grafted onto
+`renderWithProviders` — see `### Routing` below for why, and for what
+[8.9.1] adopted app-wide.
 
 Auth/tenant/role state (`ui/src/api/auth-state.ts`) is a module-scoped
 singleton, not per-render state, so it can't be reset just by creating a
@@ -148,38 +138,52 @@ via `vitest.config.ts`'s `setupFiles`.
 ### Routing
 
 "Page, filters, sort, selected row and active tab all live in the query
-string" is a core platform principle, and [8.4.5] built the integration
-harness that proves it holds — not the app-wide router itself, which is a
-later ticket's call and may or may not end up being the same library.
-`react-router` is a real, installed dependency (not test-only — `RequireRole`
-is meant to be consumed by actual routes once they exist), scoped narrowly
-to what this ticket needs.
+string" is a core platform principle. [8.4.5] built a *scoped* integration
+harness to prove it before any router existed; [8.9.1] adopted
+**TanStack Router** app-wide (`client-admin`'s `src/routes/`,
+`src/main.tsx`) specifically for its typed, per-route `validateSearch` —
+a malformed `?page=abc` degrades to a sensible default instead of crashing
+the page, declared once per route rather than hand-parsed. `react-router`
+(the library [8.4.5]'s harness picked, since none of this existed yet) is
+gone — every hook and test in this package now speaks TanStack's API.
 
-`renderWithRouter(routes, options)` (`@biddaloy/ui/test`) is
+`renderWithRouter(routeTree, options)` (`@biddaloy/ui/test`) is
 `renderWithProviders`'s router-aware sibling — same
-`tenantId`/`role`/`accessToken`/`queryClient` options, plus `initialEntries`
-(mount at an arbitrary URL, search params included) and `initialIndex`
-(seed history *before* the entry under test, so back-navigation has
-something real to return to). It takes a `RouteObject[]` — react-router's
-own route-config shape — rather than a single element, so a test exercises
-real route matching, not one component in isolation:
+`tenantId`/`role`/`accessToken`/`queryClient`/`locale` options, plus
+`initialEntries` (mount at an arbitrary URL, search params included) and
+`initialIndex` (seed history *before* the entry under test, so
+back-navigation has something real to return to). It takes a route tree —
+build one with `createRootRoute().addChildren([...])` — rather than a
+single element, so a test exercises real route matching, not one
+component in isolation. Unlike `renderWithProviders`, it **does** include
+`I18nProvider`: it mounts real app routes now, and every real page reads
+translated strings.
 
 ```tsx
-const { router } = renderWithRouter(
-  [{ path: '/students', element: <StudentsListRoute /> }],
-  { initialEntries: ['/students?page=2&class_id=class-9'], tenantId: 'tenant-1' },
-);
-// router.state.location — assert the URL, not just what rendered
-// router.navigate(-1) — simulate Back (wrap in `act()`, it's async)
+const rootRoute = createRootRoute();
+const studentsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/students',
+  component: StudentsListRoute,
+});
+
+const { router } = renderWithRouter(rootRoute.addChildren([studentsRoute]), {
+  initialEntries: ['/students?page=2&class_id=class-9'],
+  tenantId: 'tenant-1',
+});
+// router.state.location — assert the URL (searchStr for the raw query string)
+// router.history.back() — simulate Back (wrap in `act()`)
 ```
 
 `useListUrlState(defaults?)` (`@biddaloy/ui/routes`) is the one hook a
-list page should read/write `page`/`limit`/`sort`/filters through — a thin,
-typed wrapper over react-router's own `useSearchParams`. Falls back to
-sensible defaults for a non-numeric, negative, or missing `page`/`limit`
-rather than propagating `NaN` or a negative offset into a query — the same
-malformed-URL problem the AC calls out (a stale bookmark, a hand-edited
-link, a bug upstream):
+list page should read/write `page`/`limit`/`sort`/filters through — a thin
+wrapper over TanStack's `useSearch({ strict: false })`/`useNavigate()`
+(`strict: false` since this hook has no fixed route id — any list page can
+use it). Falls back to sensible defaults for a non-numeric, negative, or
+missing `page`/`limit` rather than propagating `NaN` or a negative offset
+into a query — the same malformed-URL problem a route's own
+`validateSearch` (see the example below) handles declaratively when one
+exists, and this hook still handles defensively when one doesn't:
 
 ```tsx
 const [state, updateUrl] = useListUrlState({ limit: 10 });
@@ -188,17 +192,46 @@ updateUrl({ page: state.page + 1 });          // ?page=2
 updateUrl({ filters: { class_id: 'c-9' } });  // ?class_id=c-9, page/sort untouched
 ```
 
-`RequireRole` (`@biddaloy/ui/routes`) gates a route element by the active
-role (`getActiveRole()`, the same value `apiClient` sends as `X-Role`),
-redirecting to `/forbidden` (configurable) with `replace` — the guarded
-route never enters back-navigation history:
+A route that wants typed, per-field validation declares its own Zod
+`validateSearch` instead — `.catch()` is what supplies the fallback,
+checked at the type level as well as at runtime (see
+`client-admin/src/routes/students/index.tsx` for the real, in-app version
+of this):
 
 ```tsx
-{ path: '/reports', element: (
-  <RequireRole allow={['ADMIN', 'ACCOUNTANT', 'EXECUTIVE']}>
-    <ReportsPage />
-  </RequireRole>
-) }
+export const Route = createFileRoute('/students/')({
+  validateSearch: z.object({
+    page: z.number().int().positive().optional().catch(undefined),
+    order: z.enum(['asc', 'desc']).optional().catch(undefined),
+  }),
+  component: StudentsListPage,
+});
+```
+
+`RequireRole` (`@biddaloy/ui/routes`) gates a route element by the active
+role (`getActiveRole()`, the same value `apiClient` sends as `X-Role`),
+redirecting to `/forbidden` by default — the guarded route never enters
+back-navigation history. **The consuming app must register a route at that
+path** (or pass its own `redirectTo`); `client-admin` doesn't have one yet,
+so an unauthorized visit there currently falls through to the 404 page
+instead. It redirects from a `useEffect`, not a rendered
+`<Navigate>` element: `<Navigate>` re-runs its own internal effect on every
+re-render of the element that creates it, and `RequireRole` re-renders on
+every router state change, which turned an unauthorized visit into an
+infinite `navigate()` loop the first time this was tried (caught by
+`router-integration.test.tsx`'s own suite, not in production — but worth
+knowing if you're tempted to switch it back):
+
+```tsx
+const reportsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/reports',
+  component: () => (
+    <RequireRole allow={['ADMIN', 'ACCOUNTANT', 'EXECUTIVE']}>
+      <ReportsPage />
+    </RequireRole>
+  ),
+});
 ```
 
 **This is UX, not the security boundary** — the server's own
@@ -208,11 +241,23 @@ access. `RequireRole` only avoids flashing a page the API would reject
 anyway; a caller who bypasses it still hits the same 401/403 the server
 always returns.
 
+`AppShell` (`@biddaloy/ui/components`) is the nav/header frame every
+routed screen renders inside — a `navItems` array of `{ to, label, icon? }`
+rendered as real `Link`s (not `<a href>`, specifically so hovering one
+triggers the router's `defaultPreload: 'intent'`), plus a `children` slot
+a consumer's root route fills with `<Outlet />`. See its own doc comment
+for what's deliberately *not* here yet (focus management, a tenant/role
+bar — later tickets' jobs).
+
 See `src/routes/router-integration.test.tsx` for the full reference —
 mounting at an arbitrary URL, filter/sort/page changes asserted against
 `router.state.location`, permission redirects checked across
 accountant/teacher/executive, back-navigation restoring prior list state,
-and a malformed `page` param falling back instead of crashing.
+and a malformed `page` param falling back instead of crashing. Note that
+TanStack Router's initial route match resolves **asynchronously** (unlike
+react-router's `createMemoryRouter`, which matched synchronously on
+construction) — every test that asserts on the first render awaits
+`findBy*`/`waitFor` rather than a bare synchronous `getBy*`.
 
 ### Mocking (MSW)
 
@@ -401,6 +446,55 @@ for the key factory, `shouldRetryQuery` (below) for retry, invalidate
 `lists()` (not a single `list(filters)`) from any mutation that can affect
 list membership.
 
+#### The app's query client
+
+`src/api/query-client.ts`'s `createAppQueryClient()` is the one `QueryClient`
+every real app entry point should construct — `client-admin`'s `main.tsx` is
+the reference caller. It's deliberately different from the test-only client
+`renderWithProviders`/`renderHookWithProviders` build for you
+(`createTestQueryClient()`, `src/test/render-with-providers.tsx`) — the two
+exist to optimize for opposite things, cached-first rendering in the app vs.
+fast, isolated failures in a test:
+
+| Option | `createAppQueryClient()` | `createTestQueryClient()` | Why they differ |
+|---|---|---|---|
+| `staleTime` | `30_000` (30s) | `Infinity` | The app wants a revisited page to show cached data instantly, then quietly refetch if it's actually stale. A test wants "seeded data never triggers a surprise refetch" instead. |
+| `gcTime` | `300_000` (5 min) | `Infinity` | The app can afford to garbage-collect unused cache entries. A test's seeded/fetched data shouldn't vanish mid-test on a slow machine. |
+| `retry` | `shouldRetryQuery` | `false` | The app retries a transient failure (5xx, network) up to twice and never retries a 4xx. A test wants a failing query to surface immediately — see "Retry" below for how a per-query `retry: shouldRetryQuery` still gets exercised against the test client. |
+| `refetchOnWindowFocus` / `refetchOnReconnect` | TanStack's default (`true`) | `false` | This *is* the app's background-revalidation behaviour — tabbing back in can silently refresh stale data. A test has no tab to refocus and no flaky connection; leaving these on would only add nondeterminism. |
+
+`createAppQueryClient()` also wires a global `onError` (via `QueryCache`/
+`MutationCache`) that shows a translated toast (`errors.permissionDenied`,
+`common` namespace) whenever any query or mutation fails with a 403 — the
+one thing no single hook can be relied on to check for itself. A 401 needs
+nothing here: `api/client.ts`'s response interceptor already retries once
+behind a silent token refresh, so a query only ever sees a 401 after that's
+already failed and `notifySessionExpired()` has already fired.
+
+#### No fetching from `useEffect`
+
+Every read goes through `useQuery` (a mutation through `useMutation`), never
+a hand-rolled `useEffect` that calls `apiClient`/`axios`/`fetch` directly:
+
+```ts
+// ❌ Bypasses the QueryClient entirely — no cache, no retry policy, no
+// global 403 handling, and a race the moment two components want the same data.
+useEffect(() => {
+  apiClient.get('/students').then(setStudents);
+}, []);
+
+// ✅ Goes through the app's QueryClient — cached, retried per
+// `shouldRetryQuery`, and covered by the global 403 handling above.
+const { data: students } = useQuery({
+  queryKey: studentKeys.list(),
+  queryFn: () => apiClient.get('/students'),
+});
+```
+
+`ui/eslint-rules/data-fetching.mjs`'s `no-fetch-in-effect` rule fails CI on
+the first shape — applied in both `ui` and every client app's ESLint config,
+same as the optimistic-mutation guard below.
+
 **Retry**: `src/hooks/retry.ts`'s `shouldRetryQuery` is the one retry
 predicate every query/mutation in this package should pass. A 4xx means the
 request was rejected for a reason retrying can't fix (bad input, a role the
@@ -436,6 +530,75 @@ correct and doesn't need updating as more entities' hooks get added:
 switchActiveTenant(queryClient, nextTenantId);
 // queryClient.getQueryCache().getAll() is now empty
 ```
+
+#### Auth
+
+The access token lives in memory only (`src/api/auth-state.ts` — never
+`localStorage`/`sessionStorage`, so an XSS payload can't read it off disk).
+That means a hard page reload always starts with no token, even for a
+returning visitor whose httpOnly refresh cookie is still valid.
+`src/api/session.ts` is what makes that transparent — [8.9.3]'s cold-boot
+restore and proactive pre-expiry refresh, both layered on
+`src/api/client.ts`'s `postAuthRefresh()`:
+
+```mermaid
+flowchart TB
+    NAV["A route navigates\n(cold load or a click)"]
+    ROOT["__root.tsx's beforeLoad"]
+    ENSURE["ensureSessionLoaded()"]
+    HASTOKEN{"Access token\nalready set?"}
+    BOOT["Cold-boot: POST /auth/refresh\n(the httpOnly cookie, silently)"]
+    OK{"Succeeded?"}
+    ARM["scheduleTokenRefresh(token)\narms a ~60s-before-exp timer"]
+    RENDER["Route renders"]
+    LOGIN["redirect({ to: '/login', search: { redirect } })"]
+
+    NAV --> ROOT --> ENSURE --> HASTOKEN
+    HASTOKEN -->|yes, no network call| RENDER
+    HASTOKEN -->|no| BOOT --> OK
+    OK -->|yes| ARM --> RENDER
+    OK -->|no — routine, not an error| LOGIN
+```
+
+- **`ensureSessionLoaded()`** is the one function a protected route's
+  `beforeLoad` needs — `client-admin/src/routes/__root.tsx` awaits it, and
+  redirects to `/login` (preserving the attempted destination as a
+  `redirect` search param) only when it resolves `false`. It short-circuits
+  to `true` with zero network calls once a token is set — the cold-boot
+  POST only ever happens once per app lifetime, memoized.
+- **`scheduleTokenRefresh(token)`** decodes the JWT's `exp` claim (no
+  signature check — this is scheduling, never a trust decision) and arms a
+  proactive refresh ~60s before it, so a normal active session never hits
+  the reactive-401 path at all. A failed proactive refresh does nothing
+  further — the next real API call's already-tested reactive-401 refresh
+  (`client.ts`) hits the same dead refresh token and calls
+  `notifySessionExpired()` then; a second retry mechanism here would just
+  be a slower duplicate of that one.
+- **`notifySessionExpired()`** (`auth-state.ts`) is what a *mid-session*
+  failure goes through — `client-admin/src/main.tsx` registers a handler
+  that navigates to `/login`, same destination-preserving shape as the
+  `beforeLoad` guard. Both independently check `pathname !== '/login'`
+  before redirecting, which is what keeps either path from looping into
+  the other.
+- **`resetSessionBootstrap()`** cancels the proactive timer and forgets the
+  cold-boot attempt ever ran. `logout`/`logoutAll` (`src/hooks/auth.ts`)
+  call it as part of clearing everything else; `cleanupTestState()`
+  (`src/test/render-with-providers.tsx`) calls it too — without that, a
+  test's armed timer or memoized bootstrap promise would leak into the
+  next test, since ES modules are cached per worker, not reset per test.
+
+**Logout**: `src/hooks/auth.ts`'s `logout(queryClient)`/
+`logoutAll(queryClient)` mirror `switchActiveTenant`'s shape — a plain
+function taking the caller's `QueryClient`, not a hook. Both revoke
+server-side first, then in a `finally` (so an offline browser still ends
+up logged out locally) clear the proactive-refresh timer, the auth state,
+and the entire query cache — the same "every cached query is tenant-scoped
+server state" reasoning `switchActiveTenant` above already relies on.
+
+Login itself — the form, the tenant picker for a multi-membership user —
+is [8.9.4]; `scheduleTokenRefresh` is exported specifically so that
+ticket's `login()` can arm the same proactive timer after a real login
+response, the same way the cold-boot path above does.
 
 #### Optimistic updates — and where they're forbidden
 

@@ -1,18 +1,17 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { useState } from 'react';
-import { MemoryRouter } from 'react-router';
 
+import { withMemoryRouter } from '../../.storybook/router-decorator';
 import { rtlDecorator } from '../../.storybook/rtl-decorator';
 import { Input } from '../components/input';
 
 import { useWizardShellStep } from './use-wizard-shell-step';
 import { WizardShell, type WizardStep } from './wizard-shell';
 
-// No router decorator at the `meta` level — react-router doesn't allow
-// nesting `<Router>`s, so a story that needs its own `initialEntries`
-// (`DeepLinkedStep`) can't layer a second `MemoryRouter` on top of a
-// shared one. Each story that renders `useWizardShellStep` supplies its
-// own single `MemoryRouter` instead.
+// No router decorator at the `meta` level — a story that needs its own
+// `initialEntries` (`DeepLinkedStep`) needs its own router, not a shared
+// one. Each story that renders `useWizardShellStep` supplies its own via
+// `withMemoryRouter` instead.
 const meta: Meta<typeof WizardShell> = {
   title: 'Shells/WizardShell',
   tags: ['autodocs'],
@@ -74,24 +73,12 @@ function RecordPaymentWizard() {
 }
 
 export const Default: Story = {
-  decorators: [
-    (StoryFn) => (
-      <MemoryRouter initialEntries={['/payments/new']}>
-        <StoryFn />
-      </MemoryRouter>
-    ),
-  ],
+  decorators: [withMemoryRouter(['/payments/new'])],
   render: () => <RecordPaymentWizard />,
 };
 
 export const DeepLinkedStep: Story = {
-  decorators: [
-    (StoryFn) => (
-      <MemoryRouter initialEntries={['/payments/new?step=method']}>
-        <StoryFn />
-      </MemoryRouter>
-    ),
-  ],
+  decorators: [withMemoryRouter(['/payments/new?step=method'])],
   render: () => <RecordPaymentWizard />,
 };
 

@@ -16,6 +16,15 @@ export interface CommunicationSendResult {
   providerMessageId: string | null;
   error?: string;
   raw?: Record<string, any>;
+  /**
+   * Set to `false` when the failure cannot be fixed by retrying — a
+   * missing/incomplete tenant configuration (`ProviderNotConfiguredError`),
+   * not a network blip. `CommunicationsProcessor` settles the log FAILED
+   * immediately instead of spending the queue's retry budget on a failure
+   * that will be identical on every attempt. Left `undefined` for any
+   * other failure, which stays retryable exactly as before.
+   */
+  retryable?: boolean;
 }
 
 /**

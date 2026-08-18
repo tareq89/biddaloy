@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react';
-import { Navigate, useLocation } from 'react-router';
+import { useNavigate } from '@tanstack/react-router';
+import { useEffect, type ReactNode } from 'react';
 
 import { getActiveRole } from '../api/auth-state';
 
@@ -24,18 +24,27 @@ export interface RequireRoleProps {
  * API would reject anyway. A caller who bypasses this component still
  * hits the same 401/403 the server would always return.
  *
- * Redirects with `replace` (not a pushed entry) so the unauthorized route
- * doesn't sit in back-navigation history — pressing Back from the
- * redirect target shouldn't be able to land back on a page that never
- * actually rendered.
+ * Redirects via an explicit `useEffect`, not a rendered `<Navigate>` —
+ * `<Navigate>` re-runs its own internal effect on every re-render of the
+ * element that creates it, and `RequireRole` re-renders on every router
+ * state change (it reads the active role fresh each time), which turned
+ * an unauthorized visit into an infinite `navigate()` loop in testing.
+ * The `useEffect` here has `[authorized, redirectTo, navigate]` as its
+ * dependency array, so it fires exactly once per real change instead of
+ * once per render. Redirects with `replace` (not a pushed entry) so the
+ * unauthorized route doesn't sit in back-navigation history — pressing
+ * Back from the redirect target shouldn't be able to land back on a page
+ * that never actually rendered.
  */
 export function RequireRole({ allow, redirectTo = '/forbidden', children }: RequireRoleProps) {
   const role = getActiveRole();
-  const location = useLocation();
+  const authorized = Boolean(role) && allow.includes(role as string);
+  const navigate = useNavigate();
 
-  if (!role || !allow.includes(role)) {
-    return <Navigate to={redirectTo} replace state={{ from: location }} />;
-  }
+  useEffect(() => {
+    if (!authorized) void navigate({ to: redirectTo, replace: true });
+  }, [authorized, redirectTo, navigate]);
 
+  if (!authorized) return null;
   return children;
 }

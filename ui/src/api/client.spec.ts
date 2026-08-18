@@ -10,8 +10,8 @@ import {
   setActiveRole,
   setActiveTenant,
 } from './auth-state';
-import { apiClient, toApiError } from './client';
-import { ApiError, NoActiveTenantError } from './errors';
+import { apiClient, postAuthLogin, postAuthRefresh, toApiError } from './client';
+import { ApiError, NoActiveTenantError, RateLimitedError } from './errors';
 
 // Two separate mock surfaces: `apiClient` is its own axios.create() instance;
 // the refresh call deliberately uses the raw `axios` default export (see
@@ -272,5 +272,127 @@ describe('toApiError', () => {
 
     expect(wrapped).toBeInstanceOf(Error);
     expect(wrapped.message).toBe('boom');
+  });
+});
+
+describe('postAuthRefresh: session-generation guard', () => {
+  it('does not restore an access token if the session was reset while the refresh was in flight', async () => {
+    let resolveRefresh: ((value: [number, { access_token: string }]) => void) | undefined;
+    globalMock.onPost('/api/v1/auth/refresh').reply(
+      () =>
+        new Promise((resolve) => {
+          resolveRefresh = resolve;
+        }),
+    );
+
+    const refreshPromise = postAuthRefresh();
+    // Simulates a logout (or a sibling refresh's failure) completing
+    // before this already-in-flight refresh's network response arrives.
+    clearAuthState();
+    resolveRefresh?.([200, { access_token: 'stale-token' }]);
+
+    await expect(refreshPromise).resolves.toBe('stale-token');
+    expect(getAccessToken()).toBeNull();
+  });
+
+  it('still restores the token when nothing reset the session while it was in flight', async () => {
+    globalMock.onPost('/api/v1/auth/refresh').reply(200, { access_token: 'fresh-token' });
+
+    await expect(postAuthRefresh()).resolves.toBe('fresh-token');
+    expect(getAccessToken()).toBe('fresh-token');
+  });
+});
+
+describe('postAuthLogin', () => {
+  it('sends an email credential as { email, password }, not { phone }', async () => {
+    globalMock.onPost('/api/v1/auth/login').reply((config) => {
+      const body: unknown = JSON.parse(config.data as string);
+      return [200, { access_token: 'tok', memberships: [], receivedBody: body }];
+    });
+
+    const result = (await postAuthLogin({
+      email: 'rahim@greenview.edu.bd',
+      password: 'hunter2fake',
+    })) as unknown as { receivedBody: unknown };
+
+    expect(result.receivedBody).toEqual({
+      email: 'rahim@greenview.edu.bd',
+      password: 'hunter2fake',
+    });
+  });
+
+  it('sends a phone credential as { phone, password }, not { email }', async () => {
+    globalMock.onPost('/api/v1/auth/login').reply((config) => {
+      const body: unknown = JSON.parse(config.data as string);
+      return [200, { access_token: 'tok', memberships: [], receivedBody: body }];
+    });
+
+    const result = (await postAuthLogin({
+      phone: '01712345678',
+      password: 'hunter2fake',
+    })) as unknown as { receivedBody: unknown };
+
+    expect(result.receivedBody).toEqual({ phone: '01712345678', password: 'hunter2fake' });
+  });
+
+  it('resolves with the real LoginResponse on success', async () => {
+    globalMock.onPost('/api/v1/auth/login').reply(200, {
+      access_token: 'tok',
+      memberships: [{ tenantId: 'tenant-1', role: 'ADMIN' }],
+    });
+
+    await expect(
+      postAuthLogin({ email: 'rahim@greenview.edu.bd', password: 'hunter2fake' }),
+    ).resolves.toEqual({
+      access_token: 'tok',
+      memberships: [{ tenantId: 'tenant-1', role: 'ADMIN' }],
+    });
+  });
+
+  it('wraps a 401 in ApiError, same as every other endpoint', async () => {
+    globalMock.onPost('/api/v1/auth/login').reply(401, {
+      statusCode: 401,
+      message: 'Invalid credentials',
+      timestamp: 't',
+      path: '/api/v1/auth/login',
+      requestId: 'r',
+    });
+
+    await expect(
+      postAuthLogin({ email: 'rahim@greenview.edu.bd', password: 'wrong' }),
+    ).rejects.toBeInstanceOf(ApiError);
+  });
+
+  it('turns a 429 into RateLimitedError with the Retry-After header parsed', async () => {
+    globalMock.onPost('/api/v1/auth/login').reply(
+      429,
+      { statusCode: 429, message: 'ThrottlerException: Too Many Requests' },
+      {
+        'retry-after': '45',
+      },
+    );
+
+    const error = await postAuthLogin({
+      email: 'rahim@greenview.edu.bd',
+      password: 'hunter2fake',
+    }).catch((err: unknown) => err);
+
+    expect(error).toBeInstanceOf(RateLimitedError);
+    expect((error as RateLimitedError).retryAfterSeconds).toBe(45);
+  });
+
+  it('turns a 429 with no Retry-After header into RateLimitedError with a null wait', async () => {
+    globalMock.onPost('/api/v1/auth/login').reply(429, {
+      statusCode: 429,
+      message: 'ThrottlerException: Too Many Requests',
+    });
+
+    const error = await postAuthLogin({
+      email: 'rahim@greenview.edu.bd',
+      password: 'hunter2fake',
+    }).catch((err: unknown) => err);
+
+    expect(error).toBeInstanceOf(RateLimitedError);
+    expect((error as RateLimitedError).retryAfterSeconds).toBeNull();
   });
 });

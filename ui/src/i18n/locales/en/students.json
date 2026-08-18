@@ -1,5 +1,14 @@
 {
-  "feeReminder": {
-    "overdue": "The enrollment fee payment deadline has passed"
+  "feeReminder": { "overdue": "The enrollment fee payment deadline has passed" },
+  "list": {
+    "title": "Students",
+    "pageLabel": "Page {{page}}",
+    "filterByClass": "Filter: class {{classId}}",
+    "clearFilter": "Clear filter",
+    "nextPage": "Next page",
+    "viewButton": "View {{name}}"
+  },
+  "detail": {
+    "back": "Back to students"
   }
 }

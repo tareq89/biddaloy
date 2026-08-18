@@ -30,7 +30,8 @@
     "api:types": "npx --yes openapi-typescript@7.13.0 ../server/openapi.json -o src/api/schema.d.ts",
     "test": "vitest run",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "design-sync:css": "storybook build -o ../.design-sync/sb-reference && node scripts/sync-design-css.mjs"
   },
   "dependencies": {
     "@biddaloy/shared": "0.1.0",
@@ -44,6 +45,7 @@
     "i18next-resources-to-backend": "^1",
     "lucide-react": "^1.31",
     "radix-ui": "^1.6.7",
+    "@tanstack/react-router": "^1.170.29",
     "react-hook-form": "^7",
     "react-i18next": "^17",
     "react-router": "^8.3.0",
@@ -52,7 +54,7 @@
     "zod": "^4"
   },
   "devDependencies": {
-    "@storybook/addon-a11y": "^10",
+    "@storybook/addon-a11y": "^8",
     "@storybook/addon-essentials": "^8",
     "@storybook/addon-interactions": "^8",
     "@storybook/blocks": "^8",

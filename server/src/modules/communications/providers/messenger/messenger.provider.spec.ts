@@ -17,8 +17,12 @@ describe('MessengerProvider', () => {
 
     const result = await provider.send({ to: 'psid-1', body: 'hi' }, tenantId);
 
+    // A mock that resolves for any argument wouldn't catch a regression
+    // that passed a fixed or another tenant's id through to the resolver.
+    expect(configResolver.resolveMessenger).toHaveBeenCalledWith(tenantId);
     expect(result.success).toBe(false);
     expect(result.error).toBe('Messenger sending is not yet implemented');
+    expect(result.retryable).toBe(false);
   });
 
   it('reports the tenant-configuration error when Messenger is not configured', async () => {
@@ -30,6 +34,8 @@ describe('MessengerProvider', () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/configure it in settings/);
+    // Not retryable — no queued retry fixes a missing tenant configuration.
+    expect(result.retryable).toBe(false);
   });
 
   describe('testConnection', () => {

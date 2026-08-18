@@ -1,25 +1,68 @@
+import { createAppQueryClient, registerSessionExpiredHandler } from '@biddaloy/ui/api';
+import { Toaster } from '@biddaloy/ui/components';
 import { I18nProvider } from '@biddaloy/ui/i18n';
 import { enableMocking } from '@biddaloy/ui/mocks';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { createRouter, RouterProvider } from '@tanstack/react-router';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
-import App from './App';
+import { routeTree } from './routeTree.gen';
 import './index.css';
 
-// #8.7.13 is this app's first real screen — it needs both TanStack Query
-// (its data hooks) and i18next (every string on it is translated), so
-// this is also the first place either provider gets wired into a real
-// entry point rather than just `renderWithProviders`'s test stack. See
-// `App.tsx`'s own comment for why this still isn't a router/nav shell.
-const queryClient = new QueryClient();
+// [8.9.2]'s app-wide QueryClient — cache-first staleTime/gcTime, a retry
+// policy that excludes 4xx, and the global 401/403 error handling. See
+// `@biddaloy/ui/api`'s `createAppQueryClient` for the tuned values and why
+// each one is set the way it is.
+const queryClient = createAppQueryClient();
+
+// `basepath` matches `vite.config.ts`'s `base: '/admin/'` — without it,
+// the router would try to match against `/students` instead of
+// `/admin/students`, and every link/redirect would be wrong under the
+// server's production static-file mounting (see `server/src/main.ts`).
+const router = createRouter({
+  routeTree,
+  basepath: import.meta.env.BASE_URL,
+  context: { queryClient },
+  // [8.9.1]'s "hovering a sidebar link prefetches the route and data" AC.
+  defaultPreload: 'intent',
+  // Lets TanStack Query's own `staleTime` (30s, set by [8.9.2]'s
+  // `createAppQueryClient`) decide freshness instead of the router's
+  // separate preload cache — otherwise a preloaded-but-Query-stale result
+  // could still get served from the router's cache for 30s past when
+  // Query would have refetched.
+  defaultPreloadStaleTime: 0,
+});
+
+// [8.9.3]'s "failure routes to login, no redirect loop" — this fires from
+// deep inside `apiClient`'s response interceptor (`ui/src/api/client.ts`)
+// after a mid-session refresh genuinely fails, not from `__root.tsx`'s own
+// `beforeLoad` guard (the *cold-load* half of the same AC). Both converge
+// on `/login`, and both skip re-redirecting when already there, so neither
+// path can loop into the other.
+registerSessionExpiredHandler(() => {
+  const { pathname, href } = router.state.location;
+  if (pathname !== '/login') {
+    void router.navigate({ to: '/login', search: { redirect: href }, replace: true });
+  }
+});
+
+// Registers this app's concrete route tree against `@tanstack/react-
+// router`'s ambient types — every `<Link to="...">`, `useParams()`, etc.
+// across the app is checked against these exact routes from here on.
+declare module '@tanstack/react-router' {
+  interface Register {
+    router: typeof router;
+  }
+}
 
 function renderApp(): void {
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
         <I18nProvider>
-          <App />
+          <RouterProvider router={router} />
+          <Toaster />
         </I18nProvider>
       </QueryClientProvider>
     </StrictMode>,

@@ -26,15 +26,8 @@ const DEFAULT_REGION = {
   timezone: 'Asia/Dhaka',
 };
 
-const schoolList = http.get('/api/v1/schools', () =>
-  HttpResponse.json([
-    { id: '00000000-0000-4000-8000-000000000001', name: 'Ananta School' },
-    { id: '00000000-0000-4000-8000-000000000002', name: 'Zenith School' },
-  ]),
-);
-
-const getSettings = http.get('/api/v1/schools/:id/settings', () =>
-  HttpResponse.json({
+function defaultSettings() {
+  return {
     version: 1,
     region: DEFAULT_REGION,
     communications: {
@@ -55,16 +48,100 @@ const getSettings = http.get('/api/v1/schools/:id/settings', () =>
         greenweb: { apiKey: { configured: true, hint: '••••key1' } },
       },
     },
-  }),
+  };
+}
+
+const SECRET_FIELDS = new Set(['accessToken', 'password', 'apiKey']);
+
+/** Same masking contract the real controller/`settings-mask.util.ts`
+ * enforces: a submitted plaintext secret becomes `{ configured: true, hint
+ * }`, an explicit `null` clears it to `{ configured: false }`, and an
+ * omitted key leaves whatever was already stored untouched — never echoed
+ * back as the plaintext the PATCH body carried in. */
+function mergeAndMask(stored: unknown, patch: unknown): unknown {
+  if (patch === undefined) return stored;
+  if (patch === null) {
+    return typeof stored === 'object' && stored !== null && 'configured' in stored
+      ? { configured: false }
+      : null;
+  }
+  if (Array.isArray(patch) || typeof patch !== 'object') return patch;
+
+  const storedObj =
+    typeof stored === 'object' && stored !== null ? (stored as Record<string, unknown>) : {};
+  const patchObj = patch as Record<string, unknown>;
+  const merged: Record<string, unknown> = { ...storedObj };
+
+  for (const [key, value] of Object.entries(patchObj)) {
+    if (SECRET_FIELDS.has(key) && typeof value === 'string') {
+      // A value with four or fewer characters would have its whole
+      // plaintext reflected back by `.slice(-4)` — omit the hint rather
+      // than echo a short secret in full.
+      merged[key] =
+        value.length > 4
+          ? { configured: true, hint: `••••${value.slice(-4)}` }
+          : { configured: true };
+    } else {
+      merged[key] = mergeAndMask(storedObj[key], value);
+    }
+  }
+  return merged;
+}
+
+const schoolList = http.get('/api/v1/schools', () =>
+  HttpResponse.json([
+    { id: '00000000-0000-4000-8000-000000000001', name: 'Ananta School' },
+    { id: '00000000-0000-4000-8000-000000000002', name: 'Zenith School' },
+  ]),
 );
 
-const updateSettings = http.patch('/api/v1/schools/:id/settings', async ({ request }) => {
+// Per-school in-memory store, seeded lazily from `defaultSettings()` — a
+// real persisted store, unlike this file's other handlers, because a PATCH
+// followed by a GET (or a second PATCH) needs to see the first PATCH's
+// changes rather than always bouncing back to the same default. Cleared by
+// `resetSchoolsStore()`, wired into `ui/src/test/setup.ts`'s `afterEach` so
+// one test's edits never leak into the next.
+// `Record<string, unknown>`, not `ReturnType<typeof defaultSettings>` —
+// `mergeAndMask`'s result (stored back after every PATCH) is typed
+// `unknown`, since the merge is generic over whatever shape the request
+// body happens to carry.
+const schoolSettingsStore = new Map<string, Record<string, unknown>>();
+
+function getStoredSettings(schoolId: string): Record<string, unknown> {
+  let settings = schoolSettingsStore.get(schoolId);
+  if (!settings) {
+    settings = defaultSettings();
+    schoolSettingsStore.set(schoolId, settings);
+  }
+  return settings;
+}
+
+export function resetSchoolsStore(): void {
+  schoolSettingsStore.clear();
+}
+
+const getSettings = http.get('/api/v1/schools/:id/settings', ({ params }) =>
+  HttpResponse.json(getStoredSettings(params.id as string)),
+);
+
+// Merges the PATCH body onto the stored settings and persists the result —
+// enough to prove the response a test asserts against actually reflects
+// the real controller's contract: touched secrets come back masked,
+// untouched fields (region, version, and any communications the patch
+// didn't mention) come back unchanged, the plaintext the test just sent is
+// never echoed, and a second PATCH doesn't discard what the first one set.
+const updateSettings = http.patch('/api/v1/schools/:id/settings', async ({ request, params }) => {
   const body = (await request.json()) as Record<string, unknown>;
-  return HttpResponse.json({
+  const schoolId = params.id as string;
+  const current = getStoredSettings(schoolId);
+  const updated = {
+    ...current,
     version: 1,
-    region: DEFAULT_REGION,
-    communications: (body.communications as Record<string, unknown>) ?? {},
-  });
+    region: (body.region as Record<string, unknown>) ?? current.region,
+    communications: mergeAndMask(current.communications, body.communications),
+  };
+  schoolSettingsStore.set(schoolId, updated);
+  return HttpResponse.json(updated);
 });
 
 const testConnection = http.post('/api/v1/schools/:id/settings/test', () =>

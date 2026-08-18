@@ -3,11 +3,14 @@
   "accessDenied": "You don't have access to this page.",
   "schoolPicker": {
     "label": "School",
-    "placeholder": "Choose a school to configure"
+    "placeholder": "Choose a school to configure",
+    "error": "Couldn't load the list of schools. Try refreshing the page."
   },
   "configuringBanner": "Configuring settings for {{schoolName}}",
+  "settingsLoadError": "Couldn't load settings for this school. Try refreshing the page.",
   "secret": {
     "configured": "Configured — ends {{hint}}",
+    "configuredNoHint": "Configured",
     "notConfigured": "Not configured",
     "replace": "Replace",
     "clear": "Clear",

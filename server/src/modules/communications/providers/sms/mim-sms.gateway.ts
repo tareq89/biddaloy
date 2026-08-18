@@ -3,6 +3,11 @@ import { CommunicationSendResult } from '../communication-provider.interface';
 import { SmsGateway, isUnicodeMessage } from './sms-gateway.interface';
 import { normalizeBdPhoneNumber } from '../shared/phone-number.util';
 import { ConnectionTestResult } from '../shared/connection-test.types';
+import {
+  assertSafeHttpDestination,
+  DestinationBlockedError,
+} from '../shared/outbound-destination-guard';
+import { fetchPinnedJson } from '../shared/pinned-http';
 import { ResolvedMimSmsConfig } from '../../config/tenant-provider-config.resolver';
 
 const DEFAULT_BASE_URL = 'https://api.mimsms.com/api/SmsSending/SMS';
@@ -27,8 +32,9 @@ export class MimSmsGateway implements SmsGateway<ResolvedMimSmsConfig> {
   ): Promise<CommunicationSendResult> {
     try {
       const baseUrl = config.apiUrl ?? DEFAULT_BASE_URL;
+      const destination = await assertSafeHttpDestination(baseUrl);
 
-      const response = await fetch(baseUrl, {
+      const data = (await fetchPinnedJson(destination, baseUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
@@ -39,8 +45,7 @@ export class MimSmsGateway implements SmsGateway<ResolvedMimSmsConfig> {
           message,
           type: isUnicodeMessage(message) ? 'unicode' : 'text',
         }),
-      });
-      const data = await response.json();
+      })) as Record<string, any>;
 
       if (data?.status === 'success') {
         return { success: true, providerMessageId: data.transaction_id ?? null, raw: data };
@@ -56,6 +61,9 @@ export class MimSmsGateway implements SmsGateway<ResolvedMimSmsConfig> {
         success: false,
         providerMessageId: null,
         error: err instanceof Error ? err.message : String(err),
+        // Only a resolved-to-a-blocked-destination is permanent; a DNS
+        // hiccup or network blip may succeed on retry.
+        retryable: err instanceof DestinationBlockedError ? false : undefined,
       };
     }
   }
@@ -67,8 +75,13 @@ export class MimSmsGateway implements SmsGateway<ResolvedMimSmsConfig> {
   async testConnection(config: ResolvedMimSmsConfig): Promise<ConnectionTestResult> {
     try {
       const params = new URLSearchParams({ api_key: config.apiKey });
+      // BALANCE_URL is a hardcoded constant, not tenant-controlled, so
+      // there's nothing to pin — routing it through the guard/dispatcher
+      // would just add a pointless extra DNS round-trip. `redirect: 'error'`
+      // still applies directly since plain `fetch` doesn't get it for free.
       const response = await fetch(`${BALANCE_URL}?${params.toString()}`, {
         method: 'GET',
+        redirect: 'error',
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
       const data = await response.json();
