@@ -121,9 +121,16 @@ const USE_TRANSLATION_RE = /useTranslation\(\s*(['"])([^'"]+)\1/;
 // spots).
 const T_CALL_RE = /\bt\(\s*(['"])((?:(?!\1)[^\\]|\\.)*)\1(?:\s*,\s*(\{[^}]*\}))?/g;
 const NS_OPTION_RE = /\bns\s*:\s*(['"])([^'"]+)\1/;
+// i18next only resolves `someKey_one`/`someKey_other` when the call site
+// actually passes `count` — a bare `t('someKey')` looks for the exact,
+// unsuffixed key and does not fall back to a plural form. PLURAL_SUFFIXES
+// matching below is gated on this so a call site missing `count` can still
+// be caught as genuinely unresolved, rather than incorrectly "matching" a
+// plural-only key it could never actually resolve at runtime.
+const COUNT_OPTION_RE = /\bcount\s*:/;
 
 /** Every `t('key'[, options])` call site found under `sourceDirs`, with
- * its resolved namespace. */
+ * its resolved namespace and whether the call passed a `count` option. */
 function extractCallSites(sourceDirs) {
   const sites = [];
   for (const dir of sourceDirs) {
@@ -135,7 +142,8 @@ function extractCallSites(sourceDirs) {
         const key = match[2];
         const optionsText = match[3];
         const ns = (optionsText && NS_OPTION_RE.exec(optionsText)?.[2]) || fileNamespace;
-        sites.push({ file, key, ns });
+        const hasCount = Boolean(optionsText && COUNT_OPTION_RE.test(optionsText));
+        sites.push({ file, key, ns, hasCount });
       }
     }
   }
@@ -181,9 +189,14 @@ export function runCheck({ localesDir, sourceDirs, displayRoot = localesDir }) {
   // 2. Every t() call site resolves to a real key in at least one locale.
   const callSites = extractCallSites(sourceDirs);
   const referenced = new Set(); // `${ns} ${key}`, for the unused-key report below.
+  // `${ns} ${key}`, only for calls that passed `count` — the sole case a
+  // plural-suffixed locale key (`key_one`/`key_other`) counts as used.
+  const pluralReferenced = new Set();
 
-  for (const { file, key, ns } of callSites) {
+  for (const { file, key, ns, hasCount } of callSites) {
     referenced.add(`${ns} ${key}`);
+    if (hasCount) pluralReferenced.add(`${ns} ${key}`);
+
     const byLocale = namespaces.get(ns);
     if (!byLocale) {
       errors.push(
@@ -192,7 +205,9 @@ export function runCheck({ localesDir, sourceDirs, displayRoot = localesDir }) {
       continue;
     }
     const existsSomewhere = [...byLocale.values()].some(
-      (keys) => keys.has(key) || PLURAL_SUFFIXES.some((suffix) => keys.has(`${key}_${suffix}`)),
+      (keys) =>
+        keys.has(key) ||
+        (hasCount && PLURAL_SUFFIXES.some((suffix) => keys.has(`${key}_${suffix}`))),
     );
     if (!existsSomewhere) {
       errors.push(
@@ -210,7 +225,10 @@ export function runCheck({ localesDir, sourceDirs, displayRoot = localesDir }) {
     }
     for (const key of allKeys) {
       const base = stripPluralSuffix(key);
-      if (!referenced.has(`${ns} ${key}`) && !referenced.has(`${ns} ${base}`)) {
+      const isPluralForm = base !== key;
+      const used =
+        referenced.has(`${ns} ${key}`) || (isPluralForm && pluralReferenced.has(`${ns} ${base}`));
+      if (!used) {
         unused.push(`[${ns}] ${key}`);
       }
     }

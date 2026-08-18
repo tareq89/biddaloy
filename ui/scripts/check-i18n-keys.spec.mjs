@@ -164,6 +164,25 @@ describe('runCheck — t() call sites', () => {
     expect(errors).toEqual([]);
   });
 
+  it('does not resolve a plural-only key against a call with no count — i18next itself would not either', () => {
+    const { localesDir, sourceDir } = makeFixture();
+    writeLocale(localesDir, 'bn', 'common', {
+      attempts_one: 'একবার',
+      attempts_other: '{{count}} বার',
+    });
+    writeLocale(localesDir, 'en', 'common', {
+      attempts_one: 'once',
+      attempts_other: '{{count}} times',
+    });
+    // No `count` in the options — this call would render the raw key at
+    // runtime, not fall back to a plural form, so it must still fail here.
+    writeSource(sourceDir, 'banner.tsx', "const { t } = useTranslation();\nt('attempts');\n");
+
+    const { errors } = runCheck({ localesDir, sourceDirs: [sourceDir] });
+
+    expect(errors.some((e) => e.includes('t("attempts")'))).toBe(true);
+  });
+
   it('does not attempt to check a computed key — known, accepted blind spot', () => {
     const { localesDir, sourceDir } = makeFixture();
     writeLocale(localesDir, 'bn', 'common', {});
@@ -208,6 +227,23 @@ describe('runCheck — unused keys', () => {
     const { unused } = runCheck({ localesDir, sourceDirs: [sourceDir] });
 
     expect(unused).toEqual([]);
+  });
+
+  it('still reports plural-suffixed keys as unused when the only call site has no count', () => {
+    const { localesDir, sourceDir } = makeFixture();
+    writeLocale(localesDir, 'bn', 'common', {
+      attempts_one: 'একবার',
+      attempts_other: '{{count}} বার',
+    });
+    writeLocale(localesDir, 'en', 'common', {
+      attempts_one: 'once',
+      attempts_other: '{{count}} times',
+    });
+    writeSource(sourceDir, 'banner.tsx', "const { t } = useTranslation();\nt('attempts');\n");
+
+    const { unused } = runCheck({ localesDir, sourceDirs: [sourceDir] });
+
+    expect(unused.sort()).toEqual(['[common] attempts_one', '[common] attempts_other'].sort());
   });
 
   it('reports nothing unused when every key is referenced', () => {
