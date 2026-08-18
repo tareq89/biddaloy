@@ -154,3 +154,28 @@ preview build failed: StatusBadge: Cannot read file:
   sync with the rest of the `@storybook/*` devDependencies if this repo
   ever upgrades Storybook to v9/v10 — bump all of them together, not just
   the addon.
+- **[GENERAL] A prior sync session pushed `_ds_sync.json` to the remote
+  project without the content writes actually landing — the anchor
+  vouched for 27 components the project didn't have.** Diagnosed
+  2026-08-18: the local `ds-bundle/.resync-verdict.json` left behind by
+  that session showed `capture.ok: false` with all 27 components in
+  `pendingGrade` (`anchorUsed: false` — it never fetched the remote
+  anchor via `--remote` either), yet the remote `_ds_sync.json` fetched
+  via `DesignSync(get_file)` was byte-identical to that session's local
+  one (same `bundleSha12`/`scriptsSha`) — meaning it got uploaded despite
+  grading never completing. `DesignSync(list_files)` on the project
+  showed only `ErrorState` + the `templates/sign-in/` mockup the whole
+  time. Fixed by re-pushing the full local `ds-bundle/` (build + 26/27
+  cached grades were still valid and matched the anchor's hashes exactly
+  — no rebuild or re-grade needed) via the atomic-path sequence. **Watch
+  for on future re-syncs:** always pass `--remote` to `resync.mjs`
+  (§7 step 2) — never let a driver run finish an upload while
+  `verification.pendingGrade` is non-empty, whatever the diff says.
+- **`DesignSync(list_files)` is unreliable — treat it as a hint, not a
+  source of truth.** After the repair above, three consecutive
+  `list_files` calls each returned a different, incomplete subset of the
+  project's actual files (missing the components/vendor/bundle files
+  just uploaded, sometimes missing `README.md`/`github.md` too), while
+  `DesignSync(get_file)` on the same paths returned correct content every
+  time. Verify uploads by spot-checking specific paths with `get_file`,
+  not by trusting `list_files`'s completeness.
