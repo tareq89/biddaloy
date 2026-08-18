@@ -54,6 +54,20 @@ const DEFAULT_NAMESPACE = 'common';
 const SOURCE_EXTENSIONS = ['.ts', '.tsx'];
 const SKIP_DIR_NAMES = new Set(['node_modules', 'dist', 'coverage']);
 
+// i18next's CLDR plural-form suffixes — a locale file defines
+// `someKey_one`/`someKey_other` (etc.), never a bare `someKey`, but a call
+// site still writes `t('someKey', { count })` with no suffix. Without this,
+// every pluralized key would (wrongly) fail check 2 as unresolved and get
+// reported as unused in check 3.
+const PLURAL_SUFFIXES = ['zero', 'one', 'two', 'few', 'many', 'other'];
+
+function stripPluralSuffix(key) {
+  for (const suffix of PLURAL_SUFFIXES) {
+    if (key.endsWith(`_${suffix}`)) return key.slice(0, -(suffix.length + 1));
+  }
+  return key;
+}
+
 export function flattenKeys(value, prefix = '') {
   const keys = [];
   for (const [key, nested] of Object.entries(value)) {
@@ -177,7 +191,9 @@ export function runCheck({ localesDir, sourceDirs, displayRoot = localesDir }) {
       );
       continue;
     }
-    const existsSomewhere = [...byLocale.values()].some((keys) => keys.has(key));
+    const existsSomewhere = [...byLocale.values()].some(
+      (keys) => keys.has(key) || PLURAL_SUFFIXES.some((suffix) => keys.has(`${key}_${suffix}`)),
+    );
     if (!existsSomewhere) {
       errors.push(
         `${relativeTo(displayRoot, file)}: t("${key}") has no matching key in namespace "${ns}" (any locale).`,
@@ -193,7 +209,10 @@ export function runCheck({ localesDir, sourceDirs, displayRoot = localesDir }) {
       for (const key of keys) allKeys.add(key);
     }
     for (const key of allKeys) {
-      if (!referenced.has(`${ns} ${key}`)) unused.push(`[${ns}] ${key}`);
+      const base = stripPluralSuffix(key);
+      if (!referenced.has(`${ns} ${key}`) && !referenced.has(`${ns} ${base}`)) {
+        unused.push(`[${ns}] ${key}`);
+      }
     }
   }
 

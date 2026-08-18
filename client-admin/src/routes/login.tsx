@@ -59,8 +59,11 @@ function buildLoginError(error: unknown, t: TFunction<'auth'>): SignInFormError 
   if (!error) return null;
 
   if (error instanceof RateLimitedError) {
+    // `count` (not `seconds`) is i18next's own option name for selecting a
+    // plural form — `errors.rateLimited_one`/`_other` in the locale files
+    // (see check-i18n-keys.mjs's PLURAL_SUFFIXES) resolve off of it.
     return error.retryAfterSeconds !== null
-      ? { message: t('errors.rateLimited', { seconds: error.retryAfterSeconds }), tone: 'status' }
+      ? { message: t('errors.rateLimited', { count: error.retryAfterSeconds }), tone: 'status' }
       : { message: t('errors.rateLimitedGeneric'), tone: 'status' };
   }
 
