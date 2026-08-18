@@ -90,20 +90,47 @@ describe('login', () => {
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
   });
 
-  it('throws NoMembershipsError when the account has no active school membership', async () => {
+  it('revokes the session and throws NoMembershipsError, leaving no local auth state, when the account has no active school membership', async () => {
     server.use(
       http.post('/api/v1/auth/login', () =>
         HttpResponse.json(loginResponseFactory({ memberships: [] })),
       ),
+    );
+    let logoutRequests = 0;
+    server.use(
+      http.post('/api/v1/auth/logout', () => {
+        logoutRequests += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
     );
     const queryClient = new QueryClient();
 
     await expect(
       login(queryClient, { email: 'rahim@greenview.edu.bd', password: 'hunter2fake' }),
     ).rejects.toBeInstanceOf(NoMembershipsError);
-    // The token itself is real — the login succeeded — even though there's
-    // no tenant to select yet.
-    expect(getAccessToken()).not.toBeNull();
+
+    // The login itself succeeded server-side (a real token was issued and a
+    // refresh cookie set), so a memberless account must be actively revoked
+    // — not just left alone — or a page reload could silently restore an
+    // authenticated-but-unusable session via that cookie.
+    expect(logoutRequests).toBe(1);
+    expect(getAccessToken()).toBeNull();
+    expect(getActiveTenant()).toBeNull();
+  });
+
+  it('still throws NoMembershipsError even when the revoke call itself fails', async () => {
+    server.use(
+      http.post('/api/v1/auth/login', () =>
+        HttpResponse.json(loginResponseFactory({ memberships: [] })),
+      ),
+      errorHandler('post', '/api/v1/auth/logout', 500),
+    );
+    const queryClient = new QueryClient();
+
+    await expect(
+      login(queryClient, { email: 'rahim@greenview.edu.bd', password: 'hunter2fake' }),
+    ).rejects.toBeInstanceOf(NoMembershipsError);
+    expect(getAccessToken()).toBeNull();
   });
 
   it('propagates a login failure without touching any local state', async () => {

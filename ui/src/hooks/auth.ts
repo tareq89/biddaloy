@@ -43,11 +43,21 @@ import { switchActiveTenant } from './tenant';
  * school when I belong to several") replaces this with a real picker —
  * until it ships, a multi-membership user is briefly one silent step away
  * from acting in the wrong school, exactly the risk [8.9.5] exists to
- * remove. Zero memberships (a user removed from every school they used to
- * belong to) is a real, reachable case — the login itself succeeded, so
- * there's a token to clean up, but there's no tenant to select, so this
- * throws `NoMembershipsError` for the caller to translate into copy rather
- * than silently leaving the app tenant-less.
+ * remove.
+ *
+ * Zero memberships (a user removed from every school they used to belong
+ * to) is a real, reachable case. Local auth state is deliberately not set
+ * until *after* that check: `postAuthLogin` already succeeded server-side
+ * by this point — a real access token exists and the server has set the
+ * httpOnly refresh cookie — so a memberless account would otherwise leave
+ * behind a fully "authenticated" session with nowhere useful to go
+ * (`__root.tsx`'s guard only checks *for* a token, not for an active
+ * tenant, and a page reload would silently restore that same unusable
+ * session via the refresh cookie). Revoking via `postAuthLogout` before
+ * throwing closes that session server-side too — it only needs the refresh
+ * cookie the browser just stored, not the access token this function never
+ * sets in this branch (see `postAuthLogout`'s own comment on why the
+ * access token is optional for `/auth/logout`).
  */
 export async function login(
   queryClient: QueryClient,
@@ -55,13 +65,20 @@ export async function login(
 ): Promise<LoginResponse> {
   const result = await postAuthLogin(credentials);
 
-  setAccessToken(result.access_token);
-  scheduleTokenRefresh(result.access_token);
-
   const [primary] = result.memberships;
   if (!primary) {
+    await postAuthLogout('/auth/logout').catch(() => {
+      // Best-effort: the refresh cookie's own expiry is the fallback if
+      // this revoke call fails (offline, transient 5xx) — the important
+      // guarantee is that *local* state below never got set in this
+      // branch, so this browser tab isn't left looking authenticated
+      // either way.
+    });
     throw new NoMembershipsError();
   }
+
+  setAccessToken(result.access_token);
+  scheduleTokenRefresh(result.access_token);
   switchActiveTenant(queryClient, primary.tenantId, primary.role);
 
   return result;
