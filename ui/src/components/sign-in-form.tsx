@@ -1,7 +1,8 @@
 /**
  * The living version of the "Biddaloy Client UI" design project's
- * `templates/sign-in` mockup ([8.9.4], approved before this file existed —
- * see `ui/CONTRIBUTING.md`'s "Design before you build"). Presentational and
+ * `templates/sign-in` mockup — originally [8.9.4], restyled to the card /
+ * brand-mark / icon-alert mockup approved after it (see
+ * `ui/CONTRIBUTING.md`'s "Design before you build"). Presentational and
  * validation only, no network: `client-admin/src/routes/login.tsx` owns the
  * `useMutation` calling `ui/src/hooks/auth.ts`'s `login()` and the redirect
  * on success, so this component (and its Storybook states below) stays the
@@ -51,6 +52,43 @@ interface SignInFormValues {
   password: string;
 }
 
+/** Decorative, `aria-hidden` — the adjacent `<span>{error.message}</span>`
+ * is the only thing a screen reader announces for the banner. */
+function AlertIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 20 20"
+      fill="none"
+      className="mt-0.5 size-[1.125rem] shrink-0"
+    >
+      <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M10 6.5v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <circle cx="10" cy="13.25" r="0.9" fill="currentColor" />
+    </svg>
+  );
+}
+
+function ClockIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 20 20"
+      fill="none"
+      className="mt-0.5 size-[1.125rem] shrink-0"
+    >
+      <path
+        d="M10 5.5v5l3 2"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
 export function SignInForm({ onSubmit, loading = false, error = null }: SignInFormProps) {
   const { t } = useTranslation('auth');
   const regionConfig = useRegionConfig();
@@ -96,33 +134,48 @@ export function SignInForm({ onSubmit, loading = false, error = null }: SignInFo
   }
 
   return (
-    <Form {...form}>
-      <form
-        onSubmit={(event) => void form.handleSubmit(handleValidSubmit)(event)}
-        noValidate
-        className="flex flex-col gap-4"
-      >
-        <div className="text-center">
-          <p className="mb-6 text-sm font-semibold">{t('brand')}</p>
-          <h1 className="text-xl font-semibold">{t('heading')}</h1>
-          <p className="mb-5 text-sm text-muted-foreground">{t('subtext')}</p>
+    <div className="flex flex-col gap-6">
+      {/* Decorative logotype, not `t()`-translated: a brand mark keeps a
+          fixed glyph the same way a logo image would, regardless of which
+          locale's `t('brand')` wordmark sits next to it. */}
+      <div className="flex items-center justify-center gap-2">
+        <div
+          aria-hidden="true"
+          className="flex size-8 shrink-0 items-center justify-center rounded-md bg-brand text-base font-bold text-primary-foreground"
+        >
+          ব
         </div>
+        <span className="text-lg font-semibold tracking-tight">{t('brand')}</span>
+      </div>
 
-        {error && (
-          <div
-            role={error.tone === 'alert' ? 'alert' : 'status'}
-            className={cn(
-              'rounded-lg p-3 text-sm',
-              error.tone === 'alert'
-                ? 'border border-destructive/50 bg-destructive/5 text-destructive'
-                : 'bg-status-due-bg text-status-due-fg',
-            )}
-          >
-            {error.message}
+      <Form {...form}>
+        <form
+          onSubmit={(event) => void form.handleSubmit(handleValidSubmit)(event)}
+          noValidate
+          className="flex flex-col gap-6 rounded-lg border border-border bg-card p-8"
+        >
+          <div className="flex flex-col gap-1 text-center">
+            <h1 className="text-xl font-semibold text-balance">{t('heading')}</h1>
+            <p className="text-sm text-muted-foreground">{t('subtext')}</p>
           </div>
-        )}
 
-        <FormField
+          {error && (
+            <div
+              role={error.tone === 'alert' ? 'alert' : 'status'}
+              className={cn(
+                'flex items-start gap-2.5 rounded-md p-3 text-sm',
+                error.tone === 'alert'
+                  ? 'bg-status-overdue-bg text-status-overdue-fg'
+                  : 'bg-status-due-bg text-status-due-fg',
+              )}
+            >
+              {error.tone === 'alert' ? <AlertIcon /> : <ClockIcon />}
+              <span>{error.message}</span>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-4">
+            <FormField
           control={form.control}
           name="identifier"
           render={({ field }) => (
@@ -181,12 +234,14 @@ export function SignInForm({ onSubmit, loading = false, error = null }: SignInFo
               <FormMessage />
             </FormItem>
           )}
-        />
+            />
+          </div>
 
-        <Button type="submit" loading={loading} className="w-full">
-          {loading ? t('submit.loading') : t('submit.action')}
-        </Button>
-      </form>
-    </Form>
+          <Button type="submit" loading={loading} className="w-full">
+            {loading ? t('submit.loading') : t('submit.action')}
+          </Button>
+        </form>
+      </Form>
+    </div>
   );
 }
