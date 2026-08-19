@@ -526,14 +526,14 @@
       "norm_label": "paths"
     },
     {
-      "label": "@beton-boi/shared",
+      "label": "@biddaloy/shared",
       "file_type": "code",
       "source_file": "client-student/tsconfig.json",
       "source_location": "L11",
       "_origin": "ast",
       "id": "client_student_tsconfig_paths_beton_boi_shared",
       "community": 11,
-      "norm_label": "@beton-boi/shared"
+      "norm_label": "@biddaloy/shared"
     },
     {
       "label": "../shared/src",
@@ -5165,7 +5165,7 @@
       "norm_label": "typeorm migration workflow"
     },
     {
-      "label": "@beton-boi/shared Types Package",
+      "label": "@biddaloy/shared Types Package",
       "file_type": "concept",
       "source_file": "shared/README.md",
       "source_location": null,
@@ -5175,7 +5175,7 @@
       "contributor": null,
       "id": "shared_readme_shared_types_package",
       "community": 3,
-      "norm_label": "@beton-boi/shared types package"
+      "norm_label": "@biddaloy/shared types package"
     },
     {
       "label": "Shared Enums (UserRole, FeeType, PaymentMethod, etc.)",

@@ -43,7 +43,7 @@ export function isEncryptedEnvelope(value: string): boolean {
  *    first, then each of `previousKeys`, and GCM's auth tag makes "wrong
  *    key" fail cleanly rather than returning garbage, so trying multiple
  *    keys in sequence is safe.
- * 3. Run `yarn workspace @beton-boi/server settings:reencrypt`
+ * 3. Run `yarn workspace @biddaloy/server settings:reencrypt`
  *    (`server/src/scripts/reencrypt-settings.ts`). It re-encrypts every
  *    stored secret under `currentKey` — rows still on a previous key and
  *    legacy plaintext rows alike — and is safe to re-run. It exits

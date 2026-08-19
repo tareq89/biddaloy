@@ -173,6 +173,67 @@ are excluded from the denominator entirely, not just left unenforced — see
 CI uploads the `lcov`/HTML report as the `frontend-coverage` artifact on
 every run (`.github/workflows/ci.yml`), success or failure.
 
+## End-to-end Testing (Playwright)
+
+`playwright.config.ts` (repo root) drives a real browser against the real
+API and both client SPAs — `e2e/` holds the specs, separate from the
+Vitest-based `server/test/*.e2e-spec.ts` suite (`yarn test:e2e`), which
+exercises the API directly over HTTP with no browser involved.
+
+Chromium is the only active project today; Firefox and WebKit are commented
+out in `playwright.config.ts` rather than deleted, so re-enabling
+cross-browser coverage later is an uncomment, not a rewrite.
+
+```bash
+# Chromium, headless
+yarn e2e
+
+# Inspector with time-travel debugging
+yarn e2e --ui
+
+# Step through a single spec — `--debug` alone runs every spec in every
+# project, so pin both explicitly
+yarn e2e e2e/smoke.spec.ts --project=chromium --debug
+```
+
+Bring up Postgres/Redis first, same as any other local dev session — but
+point at a dedicated `betonboi_e2e` database rather than your regular dev
+one. `playwright.config.ts`'s `webServer` reuses whatever server you
+already have running locally (`reuseExistingServer: !CI`), so if that
+server is pointed at your normal dev database, `smoke.spec.ts`'s
+`page.goto` runs against whatever state your day-to-day use happens to
+have left there — "passes locally" stops meaning the same thing as
+"passes in CI", which always starts from a fresh `betonboi_e2e`:
+
+```bash
+docker compose up -d db redis
+createdb -h 127.0.0.1 -U postgres betonboi_e2e   # once, if it doesn't exist yet
+
+DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/betonboi_e2e \
+  yarn workspace @biddaloy/server migration:run
+DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/betonboi_e2e \
+  SEED_ADMIN_PASSWORD=<password> yarn workspace @biddaloy/server seed
+```
+
+Then start the server itself against that same database before running
+`yarn e2e`, so `webServer`'s `reuseExistingServer` picks it up instead of
+booting a fresh one against your default dev database:
+
+```bash
+DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/betonboi_e2e yarn dev:server
+```
+
+`webServer` in `playwright.config.ts` then starts both clients itself
+(`yarn dev:client-student`, `yarn dev:client-admin`) — or reuses them if
+you already have those two running in their own terminals, per the
+Development section above.
+
+Retries are capped at 1 in CI and 0 locally — a spec that needs more is
+hiding flake, not a slow endpoint. Traces, screenshots and video are
+captured only on failure and uploaded as CI artifacts (`playwright-report`,
+`test-results`); locally they land in the same two gitignored directories
+and `yarn e2e --ui` opens the HTML report automatically on failure.
+
 ## CI
 
 GitHub Actions (`.github/workflows/ci.yml`) runs on every PR and on push to
@@ -182,6 +243,9 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every PR and on push to
   `yarn test:unit`. No infrastructure required.
 - **integration** — spins up its own Postgres 16 and Redis 7 service
   containers, then runs `yarn test:integration` and `yarn test:e2e`.
+- **e2e** — Chromium only, with its own Postgres/Redis service containers,
+  migrated and seeded before Playwright starts the server and both clients.
+  See "End-to-end Testing" above.
 - **audit** — `node scripts/ci-audit.js`, which gates only on high/critical
   `yarn audit` findings (yarn classic's `--level` flag doesn't affect its exit
   code, so this re-implements the filter correctly). Allowlisted advisories
