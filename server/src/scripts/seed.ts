@@ -107,7 +107,14 @@ export async function seed() {
   await app.close();
 }
 
-seed().catch((err) => {
-  console.error('Seed failed:', err);
-  process.exit(1);
-});
+seed()
+  // NestFactory.createApplicationContext boots the full AppModule, including
+  // AuthModule/CommunicationsModule's BullMQ workers (@Processor). Those hold
+  // open blocking Redis connections that app.close() doesn't reliably tear
+  // down, so the process can hang indefinitely after seeding finishes —
+  // force-exit once the promise settles instead of waiting on the event loop.
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error('Seed failed:', err);
+    process.exit(1);
+  });
