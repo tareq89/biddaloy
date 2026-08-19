@@ -191,22 +191,42 @@ yarn e2e
 # Inspector with time-travel debugging
 yarn e2e --ui
 
-# Step through a single spec
-yarn e2e --debug
+# Step through a single spec — `--debug` alone runs every spec in every
+# project, so pin both explicitly
+yarn e2e e2e/smoke.spec.ts --project=chromium --debug
 ```
 
-Bring up Postgres/Redis first, same as any other local dev session:
+Bring up Postgres/Redis first, same as any other local dev session — but
+point at a dedicated `betonboi_e2e` database rather than your regular dev
+one. `playwright.config.ts`'s `webServer` reuses whatever server you
+already have running locally (`reuseExistingServer: !CI`), so if that
+server is pointed at your normal dev database, `smoke.spec.ts`'s
+`page.goto` runs against whatever state your day-to-day use happens to
+have left there — "passes locally" stops meaning the same thing as
+"passes in CI", which always starts from a fresh `betonboi_e2e`:
 
 ```bash
 docker compose up -d db redis
-yarn workspace @biddaloy/server migration:run
-SEED_ADMIN_PASSWORD=<password> yarn workspace @biddaloy/server seed
+createdb -h 127.0.0.1 -U postgres betonboi_e2e   # once, if it doesn't exist yet
+
+DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/betonboi_e2e \
+  yarn workspace @biddaloy/server migration:run
+DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/betonboi_e2e \
+  SEED_ADMIN_PASSWORD=<password> yarn workspace @biddaloy/server seed
 ```
 
-`webServer` in `playwright.config.ts` then starts the server and both
-clients itself (`yarn dev:server`, `yarn dev:client-student`,
-`yarn dev:client-admin`) — or reuses them if you already have those three
-running in their own terminals, per the Development section above.
+Then start the server itself against that same database before running
+`yarn e2e`, so `webServer`'s `reuseExistingServer` picks it up instead of
+booting a fresh one against your default dev database:
+
+```bash
+DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/betonboi_e2e yarn dev:server
+```
+
+`webServer` in `playwright.config.ts` then starts both clients itself
+(`yarn dev:client-student`, `yarn dev:client-admin`) — or reuses them if
+you already have those two running in their own terminals, per the
+Development section above.
 
 Retries are capped at 1 in CI and 0 locally — a spec that needs more is
 hiding flake, not a slow endpoint. Traces, screenshots and video are
