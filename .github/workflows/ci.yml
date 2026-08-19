@@ -231,6 +231,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: verify
     timeout-minutes: 20
+    permissions:
+      contents: read
     strategy:
       # Chromium only — Firefox and WebKit are configured in
       # playwright.config.ts and runnable locally (`yarn e2e`, which covers
@@ -273,6 +275,8 @@ jobs:
       SEED_ADMIN_PASSWORD: ci-e2e-seed-password-123
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v7
         with:
@@ -288,8 +292,24 @@ jobs:
         # not src) — same reason the other jobs build this first.
         run: yarn build:shared
 
+      # Playwright's own browser cache, keyed on the resolved package
+      # version so a dependabot bump invalidates it automatically. On a
+      # cache hit the browser binary is already there, so only the OS-level
+      # shared libraries (apt) need reinstalling — skips the ~1min download.
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ matrix.browser }}-${{ hashFiles('yarn.lock') }}
+
       - name: Install Playwright browser (${{ matrix.browser }})
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps ${{ matrix.browser }}
+
+      - name: Install Playwright OS dependencies (cache hit)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps ${{ matrix.browser }}
 
       - name: Run migrations
         run: yarn workspace @biddaloy/server migration:run
