@@ -19,6 +19,7 @@ export {
   setAccessToken,
   setActiveRole,
   setActiveTenant,
+  subscribeAuthState,
 } from './auth-state';
 export {
   decodeAccessTokenMemberships,
