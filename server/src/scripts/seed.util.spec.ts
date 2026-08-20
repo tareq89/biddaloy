@@ -1,9 +1,10 @@
-import { UserRole } from '@biddaloy/shared';
+import { UserRole, UserStatus } from '@biddaloy/shared';
 import { describe, expect, it, vi } from 'vitest';
 import type { Repository } from 'typeorm';
 import type { School } from '../modules/schools/entities/school.entity';
+import type { User } from '../modules/users/entities/user.entity';
 import type { UserTenant } from '../modules/auth/entities/user-tenant.entity';
-import { ensureSecondSchoolMembership } from './seed.util';
+import { ensureRoleTestUsers, ensureSecondSchoolMembership, ROLE_TEST_USERS } from './seed.util';
 
 let nextId = 0;
 
@@ -115,5 +116,85 @@ describe('ensureSecondSchoolMembership', () => {
 
     expect(schoolRepository.save).toHaveBeenCalledTimes(1);
     expect(userTenantRepository.save).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ensureRoleTestUsers', () => {
+  it('creates a user and a membership for every entry in ROLE_TEST_USERS', async () => {
+    const userRepository = mockRepo<User>();
+    const userTenantRepository = mockRepo<UserTenant>();
+    vi.mocked(userRepository.findOne).mockResolvedValue(null);
+    vi.mocked(userTenantRepository.findOne).mockResolvedValue(null);
+
+    await ensureRoleTestUsers(userRepository, userTenantRepository, 'school-1', 'hashed-pw');
+
+    expect(userRepository.create).toHaveBeenCalledTimes(ROLE_TEST_USERS.length);
+    expect(userTenantRepository.create).toHaveBeenCalledTimes(ROLE_TEST_USERS.length);
+    for (const [index, { email, role, fullName }] of ROLE_TEST_USERS.entries()) {
+      expect(vi.mocked(userRepository.create).mock.calls[index]?.[0]).toMatchObject({
+        email,
+        password_hash: 'hashed-pw',
+        status: UserStatus.ACTIVE,
+        full_name: fullName,
+      });
+      // `create`'s mock returns the same object `save` later mutates an
+      // `id` onto in place (see `mockRepo`'s own comment above) — reading
+      // it back from `create`'s call args, not `save`'s promise-wrapped
+      // return value, gets the post-mutation object.
+      const createdUser = vi.mocked(userRepository.create).mock.calls[index]?.[0] as
+        User | undefined;
+      expect(vi.mocked(userTenantRepository.create).mock.calls[index]?.[0]).toMatchObject({
+        tenant_id: 'school-1',
+        user_id: createdUser?.id,
+        role,
+      });
+    }
+  });
+
+  it('reuses an existing, non-deleted user and membership rather than creating duplicates', async () => {
+    const userRepository = mockRepo<User>();
+    const userTenantRepository = mockRepo<UserTenant>();
+    const existingUser = { id: 'user-1', deleted_at: null } as User;
+    const existingMembership = { user_id: 'user-1', tenant_id: 'school-1' } as UserTenant;
+    vi.mocked(userRepository.findOne).mockResolvedValue(existingUser);
+    vi.mocked(userTenantRepository.findOne).mockResolvedValue(existingMembership);
+
+    await ensureRoleTestUsers(userRepository, userTenantRepository, 'school-1', 'hashed-pw');
+
+    expect(userRepository.create).not.toHaveBeenCalled();
+    expect(userRepository.save).not.toHaveBeenCalled();
+    expect(userTenantRepository.create).not.toHaveBeenCalled();
+    expect(userTenantRepository.save).not.toHaveBeenCalled();
+  });
+
+  it('restores a soft-deleted user with a fresh password rather than erroring', async () => {
+    const userRepository = mockRepo<User>();
+    const userTenantRepository = mockRepo<UserTenant>();
+    // A fresh object per call — six distinct emails in `ROLE_TEST_USERS`
+    // means six distinct rows in reality; reusing one shared mutable
+    // object here would have the loop's own restore-mutation on role 1
+    // (`deleted_at = null`) leak into every later role's `findOne` result.
+    let findOneCallCount = 0;
+    vi.mocked(userRepository.findOne).mockImplementation(() => {
+      findOneCallCount += 1;
+      return Promise.resolve({
+        id: `deleted-user-${findOneCallCount}`,
+        deleted_at: new Date('2025-01-01'),
+        password_hash: 'stale-hash',
+        status: UserStatus.SUSPENDED,
+      } as User);
+    });
+    vi.mocked(userTenantRepository.findOne).mockResolvedValue(null);
+
+    await ensureRoleTestUsers(userRepository, userTenantRepository, 'school-1', 'fresh-hash');
+
+    expect(userRepository.create).not.toHaveBeenCalled();
+    expect(userRepository.save).toHaveBeenCalledTimes(ROLE_TEST_USERS.length);
+    const [savedUser] = vi.mocked(userRepository.save).mock.calls[0] ?? [];
+    expect(savedUser).toMatchObject({
+      password_hash: 'fresh-hash',
+      status: UserStatus.ACTIVE,
+      deleted_at: null,
+    });
   });
 });
