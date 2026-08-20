@@ -9,7 +9,7 @@
     "build:watch": "tsc --watch"
   },
   "dependencies": {
-    "sanitize-html": "^2.17.6"
+    "sanitize-html": "^2.17.7"
   },
   "devDependencies": {
     "@types/sanitize-html": "^2.16.1",
