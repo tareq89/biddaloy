@@ -7,6 +7,7 @@
  * back these setters with a real store without changing this module's
  * public surface.
  */
+import { clearPersistedTenant } from './tenant-storage';
 
 let accessToken: string | null = null;
 let activeTenantId: string | null = null;
@@ -59,6 +60,10 @@ export function clearAuthState(): void {
   activeTenantId = null;
   activeRole = null;
   sessionGeneration += 1;
+  // A different account can log into the same browser afterward — without
+  // this, [8.9.5]'s cold-boot restore could silently pick a tenant the new
+  // user happens to also belong to, one they never actually chose.
+  clearPersistedTenant();
 }
 
 /** Called exactly once per failed refresh, regardless of how many concurrent

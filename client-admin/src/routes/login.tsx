@@ -86,8 +86,16 @@ function LoginPage() {
 
   const mutation = useMutation({
     mutationFn: (credentials: SignInCredentials) => login(queryClient, credentials),
-    onSuccess: () => {
-      void navigate({ to: search.redirect ?? '/' });
+    onSuccess: (result) => {
+      // [8.9.5]: `login()` deliberately leaves the active tenant unset for
+      // 2+ memberships (no silent pick) — send that visitor to the picker
+      // instead, carrying the same `redirect` through so it can hand off
+      // to the originally-requested page once a school is chosen.
+      if (result.memberships.length > 1) {
+        void navigate({ to: '/select-school', search: { redirect: search.redirect } });
+      } else {
+        void navigate({ to: search.redirect ?? '/' });
+      }
     },
   });
 

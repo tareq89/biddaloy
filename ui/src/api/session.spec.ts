@@ -1,3 +1,4 @@
+import type { JwtMembership } from '@biddaloy/shared';
 import axios from 'axios';
 import MockAdapter from 'axios-mock-adapter';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -28,10 +29,12 @@ afterEach(() => {
 });
 
 /** Builds a token shaped enough to decode — `header.payload.signature`,
- * with a real base64url `exp` claim — without a real signature, since
- * `decodeJwtExpiryMs` never checks one (see session.ts's own comment). */
-function fakeJwt(expUnixSeconds: number): string {
-  const payload = btoa(JSON.stringify({ exp: expUnixSeconds }))
+ * with a real base64url `exp` claim (and, for [8.9.5]'s restore tests,
+ * `memberships`) — without a real signature, since neither
+ * `decodeJwtExpiryMs` nor `decodeAccessTokenMemberships` ever checks one
+ * (see session.ts's own comment). */
+function fakeJwt(expUnixSeconds: number, memberships: JwtMembership[] = []): string {
+  const payload = btoa(JSON.stringify({ exp: expUnixSeconds, memberships }))
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=+$/, '');

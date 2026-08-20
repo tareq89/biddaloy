@@ -1,6 +1,6 @@
 import { Permission } from '@biddaloy/shared';
-import { ensureSessionLoaded } from '@biddaloy/ui/api';
-import { AppShell, EmptyState } from '@biddaloy/ui/components';
+import { ensureSessionLoaded, getActiveTenant } from '@biddaloy/ui/api';
+import { AppShell, EmptyState, TenantBar } from '@biddaloy/ui/components';
 import { useHasPermission } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import type { QueryClient } from '@tanstack/react-query';
@@ -43,6 +43,21 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       // here wouldn't redirect at all.
       // eslint-disable-next-line @typescript-eslint/only-throw-error
       throw redirect({ to: '/login', search: { redirect: location.href } });
+    }
+    // [8.9.5]: authenticated but no active tenant chosen yet — either a
+    // fresh login with 2+ memberships (`ui/src/hooks/auth.ts`'s `login()`
+    // deliberately leaves this unset in that case) or a reload whose
+    // persisted tenant didn't restore (`session.ts`'s `restoreActiveTenant`).
+    // `select-school.tsx` itself decides what to do with zero memberships;
+    // this guard's only job is getting an unresolved visitor there.
+    if (
+      authenticated &&
+      !getActiveTenant() &&
+      location.pathname !== '/login' &&
+      location.pathname !== '/select-school'
+    ) {
+      // eslint-disable-next-line @typescript-eslint/only-throw-error
+      throw redirect({ to: '/select-school', search: { redirect: location.href } });
     }
   },
   // Shown only if the bootstrap attempt takes a while (Router's own
@@ -87,8 +102,11 @@ function RootLayout() {
   // nav links to pages they can't reach yet. The stub-era version of this
   // route flagged that gap in its own comment as deferred polish; this is
   // where it gets settled, rather than restructuring every route file
-  // into a pathless layout route for one page's benefit.
-  if (pathname === '/login') {
+  // into a pathless layout route for one page's benefit. [8.9.5]'s
+  // `/select-school` gets the same treatment: showing `AppShell`'s nav
+  // (and `TenantBar`'s "current school" text) before a school is even
+  // chosen would be actively misleading, not just premature.
+  if (pathname === '/login' || pathname === '/select-school') {
     return (
       <>
         <Outlet />
@@ -98,7 +116,7 @@ function RootLayout() {
   }
 
   return (
-    <AppShell navItems={navItems} brand={t('brand')}>
+    <AppShell navItems={navItems} brand={t('brand')} topBar={<TenantBar />}>
       <Outlet />
       {devtools}
     </AppShell>

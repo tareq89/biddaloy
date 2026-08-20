@@ -66,4 +66,27 @@ describe('AppShell', () => {
     await screen.findByText('Students content');
     await expect(container).toHaveNoViolations();
   });
+
+  it('[8.9.5] renders the optional topBar as a full-width row above the sidebar', async () => {
+    const rootRoute = createRootRoute();
+    const indexRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: '/',
+      component: () => (
+        <AppShell navItems={navItems} brand="Biddaloy" topBar={<div>Greenview School</div>}>
+          <p>Dashboard content</p>
+        </AppShell>
+      ),
+    });
+    renderWithRouter(rootRoute.addChildren([indexRoute]), { initialEntries: ['/'] });
+
+    expect(await screen.findByText('Greenview School')).toBeTruthy();
+  });
+
+  it('renders nothing extra when topBar is omitted', async () => {
+    renderWithRouter(buildRouteTree(), { initialEntries: ['/students'] });
+
+    await screen.findByText('Students content');
+    expect(screen.queryByText('Greenview School')).toBeNull();
+  });
 });

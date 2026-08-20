@@ -26,7 +26,7 @@ describe('JwtStrategy', () => {
       sub: 'user-1',
       email: 'test@test.com',
       phone: null,
-      memberships: [{ tenantId: 'tenant-1', role: 'ADMIN' as any }],
+      memberships: [{ tenantId: 'tenant-1', role: 'ADMIN' as any, name: 'Greenview School' }],
       jti: 'token-1',
     };
 

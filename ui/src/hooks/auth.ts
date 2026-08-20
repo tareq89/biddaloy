@@ -33,17 +33,18 @@ import { switchActiveTenant } from './tenant';
  * `postAuthLogin` (the network call) plus everything a real login needs to
  * leave the app in a working state: store the access token, arm [8.9.3]'s
  * proactive pre-expiry refresh timer (`scheduleTokenRefresh` was exported
- * from `session.ts` specifically for this call site), and pick an active
- * tenant so the very next `apiClient` request doesn't throw
- * `NoActiveTenantError`.
+ * from `session.ts` specifically for this call site), and — for a single
+ * membership only — pick it as the active tenant so the very next
+ * `apiClient` request doesn't throw `NoActiveTenantError`.
  *
- * Tenant selection here is deliberately the simplest thing that works, not
- * the real thing: a single membership sets itself, more than one silently
- * picks `memberships[0]` with no user choice at all. [8.9.5] ("pick a
- * school when I belong to several") replaces this with a real picker —
- * until it ships, a multi-membership user is briefly one silent step away
- * from acting in the wrong school, exactly the risk [8.9.5] exists to
- * remove.
+ * [8.9.5]: a *single* membership sets itself, exactly like before. Two or
+ * more is deliberately left unresolved here — no silent `memberships[0]`
+ * pick — because the caller (`client-admin/src/routes/login.tsx`) is
+ * responsible for routing to the `/select-school` picker in that case;
+ * the token (with every membership's name already in it, see
+ * `JwtMembership.name`) is set below either way, so that route can decode
+ * the list itself without a second request. The zero-membership case below
+ * is unaffected by this.
  *
  * Zero memberships (a user removed from every school they used to belong
  * to) is a real, reachable case. Local auth state is deliberately not set
@@ -79,7 +80,9 @@ export async function login(
 
   setAccessToken(result.access_token);
   scheduleTokenRefresh(result.access_token);
-  switchActiveTenant(queryClient, primary.tenantId, primary.role);
+  if (result.memberships.length === 1) {
+    switchActiveTenant(queryClient, primary.tenantId, primary.role);
+  }
 
   return result;
 }

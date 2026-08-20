@@ -37,7 +37,7 @@ describe('login', () => {
         HttpResponse.json(
           loginResponseFactory({
             access_token: 'fresh-token',
-            memberships: [{ tenantId: 'tenant-1', role: UserRole.ADMIN }],
+            memberships: [{ tenantId: 'tenant-1', role: UserRole.ADMIN, name: 'Greenview School' }],
           }),
         ),
       ),
@@ -51,14 +51,15 @@ describe('login', () => {
     expect(getActiveRole()).toBe(UserRole.ADMIN);
   });
 
-  it('picks the first membership when there is more than one, until [8.9.5] adds a real picker', async () => {
+  it('[8.9.5] leaves the active tenant unset for 2+ memberships — no silent pick — but still sets the token', async () => {
     server.use(
       http.post('/api/v1/auth/login', () =>
         HttpResponse.json(
           loginResponseFactory({
+            access_token: 'fresh-token',
             memberships: [
-              { tenantId: 'tenant-first', role: UserRole.ADMIN },
-              { tenantId: 'tenant-second', role: UserRole.TEACHER },
+              { tenantId: 'tenant-first', role: UserRole.ADMIN, name: 'Greenview School' },
+              { tenantId: 'tenant-second', role: UserRole.TEACHER, name: 'Rose Valley School' },
             ],
           }),
         ),
@@ -66,10 +67,15 @@ describe('login', () => {
     );
     const queryClient = new QueryClient();
 
-    await login(queryClient, { email: 'rahim@greenview.edu.bd', password: 'hunter2fake' });
+    const result = await login(queryClient, {
+      email: 'rahim@greenview.edu.bd',
+      password: 'hunter2fake',
+    });
 
-    expect(getActiveTenant()).toBe('tenant-first');
-    expect(getActiveRole()).toBe(UserRole.ADMIN);
+    expect(getAccessToken()).toBe('fresh-token');
+    expect(getActiveTenant()).toBeNull();
+    expect(getActiveRole()).toBeNull();
+    expect(result.memberships).toHaveLength(2);
   });
 
   it('clears any stale cached queries from a previous session, same as switchActiveTenant', async () => {
@@ -77,7 +83,7 @@ describe('login', () => {
       http.post('/api/v1/auth/login', () =>
         HttpResponse.json(
           loginResponseFactory({
-            memberships: [{ tenantId: 'tenant-1', role: UserRole.ADMIN }],
+            memberships: [{ tenantId: 'tenant-1', role: UserRole.ADMIN, name: 'Greenview School' }],
           }),
         ),
       ),

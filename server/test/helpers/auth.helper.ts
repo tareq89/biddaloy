@@ -18,6 +18,9 @@ export type { JwtPayload, JwtMembership };
  * @param tenantId - The tenant/school UUID
  * @param role - The user's role in this tenant
  * @param email - Optional email
+ * @param schoolName - Optional school display name (defaults to a fixed
+ *   test fixture — [8.9.5]'s picker/top-bar are the only consumers that
+ *   care about this value)
  * @returns JwtPayload object
  */
 export function createTestJwtPayload(
@@ -25,6 +28,7 @@ export function createTestJwtPayload(
   tenantId: string,
   role: UserRole,
   email?: string,
+  schoolName = 'Test School',
 ): JwtPayload {
   return {
     sub: userId,
@@ -34,6 +38,7 @@ export function createTestJwtPayload(
       {
         tenantId,
         role,
+        name: schoolName,
       },
     ],
   };

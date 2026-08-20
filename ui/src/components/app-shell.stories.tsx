@@ -37,3 +37,17 @@ export const Default: Story = {};
 export const RightToLeft: Story = {
   decorators: [rtlDecorator],
 };
+
+/** [8.9.5]'s persistent tenant/role bar — a plain `<div>` stand-in here
+ * rather than the real `TenantBar` (`tenant-bar.stories.tsx` covers that
+ * component's own states); this story only proves `AppShell` renders
+ * whatever `topBar` is given as a full-width row above the sidebar. */
+export const WithTopBar: Story = {
+  args: {
+    topBar: (
+      <div className="border-b border-border px-4 py-2 text-sm">
+        Greenview School <span className="text-muted-foreground">Admin</span>
+      </div>
+    ),
+  },
+};
