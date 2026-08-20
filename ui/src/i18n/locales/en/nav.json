@@ -1,5 +1,8 @@
 {
   "brand": "Biddaloy",
+  "openMenuLabel": "Open menu",
+  "closeMenuLabel": "Close menu",
+  "navLabel": "Main",
   "items": {
     "dashboard": "Dashboard",
     "students": "Students",

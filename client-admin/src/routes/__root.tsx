@@ -118,9 +118,15 @@ function RootLayout() {
       // read-only context elsewhere, e.g. a student's profile) don't see
       // a Finance section they have no operational reason to open.
       pinnedItems: [
-        { to: '/fees?tab=dues', label: t('items.studentDues'), permission: Permission.FEE_COLLECT },
         {
-          to: '/fees?tab=payment',
+          to: '/fees',
+          search: { tab: 'dues' },
+          label: t('items.studentDues'),
+          permission: Permission.FEE_COLLECT,
+        },
+        {
+          to: '/fees',
+          search: { tab: 'payment' },
           label: t('items.recordPayment'),
           permission: Permission.PAYMENT_RECORD,
         },
@@ -162,7 +168,15 @@ function RootLayout() {
   }
 
   return (
-    <AppShell navItems={navItems} navGroups={navGroups} brand={t('brand')} topBar={<TenantBar />}>
+    <AppShell
+      navItems={navItems}
+      navGroups={navGroups}
+      brand={t('brand')}
+      topBar={<TenantBar />}
+      openMenuLabel={t('openMenuLabel')}
+      closeMenuLabel={t('closeMenuLabel')}
+      navLabel={t('navLabel')}
+    >
       <Outlet />
       {devtools}
     </AppShell>

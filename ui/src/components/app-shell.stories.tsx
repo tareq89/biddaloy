@@ -23,8 +23,18 @@ const navGroups: AppShellNavGroup[] = [
     id: 'finance',
     label: 'Finance',
     pinnedItems: [
-      { to: '/fees?tab=dues', label: 'Student Dues', permission: Permission.FEE_COLLECT },
-      { to: '/fees?tab=payment', label: 'Record Payment', permission: Permission.PAYMENT_RECORD },
+      {
+        to: '/fees',
+        search: { tab: 'dues' },
+        label: 'Student Dues',
+        permission: Permission.FEE_COLLECT,
+      },
+      {
+        to: '/fees',
+        search: { tab: 'payment' },
+        label: 'Record Payment',
+        permission: Permission.PAYMENT_RECORD,
+      },
     ],
     items: [{ to: '/fees', label: 'Fees', permission: Permission.FEE_STRUCTURE_READ }],
   },

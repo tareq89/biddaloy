@@ -23,8 +23,18 @@ const navGroups: AppShellNavGroup[] = [
     // [8.9.6]'s literal AC: pinned above the rest, gated on a permission
     // only ACCOUNTANT/ADMIN hold, distinct from Fees' broader one.
     pinnedItems: [
-      { to: '/fees?tab=dues', label: 'Student Dues', permission: Permission.FEE_COLLECT },
-      { to: '/fees?tab=payment', label: 'Record Payment', permission: Permission.PAYMENT_RECORD },
+      {
+        to: '/fees',
+        search: { tab: 'dues' },
+        label: 'Student Dues',
+        permission: Permission.FEE_COLLECT,
+      },
+      {
+        to: '/fees',
+        search: { tab: 'payment' },
+        label: 'Record Payment',
+        permission: Permission.PAYMENT_RECORD,
+      },
     ],
     items: [{ to: '/fees', label: 'Fees', permission: Permission.FEE_STRUCTURE_READ }],
   },
@@ -132,8 +142,14 @@ describe('AppShell', () => {
       // then Finance's Fees — Administration absent (SETTINGS_MANAGE not
       // held by ACCOUNTANT).
       expect(links).toEqual(['Dashboard', 'Students', 'Student Dues', 'Record Payment', 'Fees']);
+      expect(within(nav).getByRole('link', { name: 'Student Dues' }).getAttribute('href')).toBe(
+        '/fees?tab=dues',
+      );
+      expect(within(nav).getByRole('link', { name: 'Record Payment' }).getAttribute('href')).toBe(
+        '/fees?tab=payment',
+      );
       expect(screen.queryByText('Settings')).toBeNull();
-      expect(screen.queryByRole('heading', { name: 'Administration' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Administration' })).toBeNull();
     });
 
     it('hides a group entirely — not disabled — when the role has zero permitted items', async () => {

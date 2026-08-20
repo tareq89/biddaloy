@@ -51,6 +51,11 @@ export interface AppShellNavItem {
    * comment on staying route-tree-agnostic), so the caller is trusted to
    * pass a real path. */
   to: string;
+  /** Query params for `to`, passed through to `Link`'s `search` prop —
+   * TanStack Router only serializes the query string from `search`, so a
+   * `?tab=...` baked into `to` is silently dropped and every such item
+   * ends up pointing at the bare path instead. */
+  search?: Record<string, string>;
   label: string;
   icon?: ReactNode;
   /** Item is hidden — not disabled — unless the active role holds this
@@ -92,6 +97,8 @@ export interface AppShellProps {
   openMenuLabel?: string;
   /** Accessible name for the mobile drawer's close button. */
   closeMenuLabel?: string;
+  /** Accessible name for the nav landmark. */
+  navLabel?: string;
   /** The active route's content — a consuming app's root route renders
    * `<AppShell navItems={...}><Outlet /></AppShell>`. */
   children: ReactNode;
@@ -117,6 +124,7 @@ function NavLink({
     <li>
       <Link
         to={item.to}
+        {...(item.search !== undefined && { search: item.search })}
         onClick={onNavigate}
         className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-accent"
         activeProps={{ className: 'bg-accent font-medium', 'aria-current': 'page' }}
@@ -182,19 +190,17 @@ function NavGroupSection({
           <ChevronDownIcon className="size-4" aria-hidden="true" />
         )}
       </button>
-      {!collapsed && (
-        <ul id={panelId} className="flex flex-col gap-1">
-          {pinned.map((item) => (
-            <NavLink key={item.to} item={item} onNavigate={onNavigate} />
-          ))}
-          {pinned.length > 0 && rest.length > 0 && (
-            <li aria-hidden="true" className="my-1 border-t border-border" />
-          )}
-          {rest.map((item) => (
-            <NavLink key={item.to} item={item} onNavigate={onNavigate} />
-          ))}
-        </ul>
-      )}
+      <ul id={panelId} hidden={collapsed} className="flex flex-col gap-1">
+        {pinned.map((item) => (
+          <NavLink key={`${item.to}:${item.label}`} item={item} onNavigate={onNavigate} />
+        ))}
+        {pinned.length > 0 && rest.length > 0 && (
+          <li aria-hidden="true" className="my-1 border-t border-border" />
+        )}
+        {rest.map((item) => (
+          <NavLink key={`${item.to}:${item.label}`} item={item} onNavigate={onNavigate} />
+        ))}
+      </ul>
     </div>
   );
 }
@@ -203,19 +209,21 @@ function NavContent({
   navItems,
   navGroups,
   role,
+  navLabel,
   onNavigate,
 }: {
   navItems: readonly AppShellNavItem[];
   navGroups: readonly AppShellNavGroup[];
   role: string | null;
+  navLabel: string;
   onNavigate?: (() => void) | undefined;
 }) {
   const topItems = visibleItems(navItems, role);
   return (
-    <nav aria-label="Main">
+    <nav aria-label={navLabel}>
       <ul className="mb-2 flex flex-col gap-1">
         {topItems.map((item) => (
-          <NavLink key={item.to} item={item} onNavigate={onNavigate} />
+          <NavLink key={`${item.to}:${item.label}`} item={item} onNavigate={onNavigate} />
         ))}
       </ul>
       {navGroups.map((group) => (
@@ -232,6 +240,7 @@ export function AppShell({
   topBar,
   openMenuLabel = 'Open menu',
   closeMenuLabel = 'Close menu',
+  navLabel = 'Main',
   children,
 }: AppShellProps) {
   const role = useActiveRole();
@@ -273,6 +282,7 @@ export function AppShell({
                 navItems={navItems}
                 navGroups={navGroups}
                 role={role}
+                navLabel={navLabel}
                 onNavigate={() => setDrawerOpen(false)}
               />
             </DialogContent>
@@ -281,7 +291,7 @@ export function AppShell({
 
         <aside className="hidden w-60 shrink-0 flex-col gap-6 border-r border-border bg-muted/30 p-4 md:flex">
           {brand !== undefined && <div className="text-sm font-semibold">{brand}</div>}
-          <NavContent navItems={navItems} navGroups={navGroups} role={role} />
+          <NavContent navItems={navItems} navGroups={navGroups} role={role} navLabel={navLabel} />
         </aside>
 
         <main className="min-w-0 flex-1 p-6">{children}</main>

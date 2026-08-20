@@ -1,5 +1,8 @@
 {
   "brand": "বিদ্যালয়",
+  "openMenuLabel": "মেনু খুলুন",
+  "closeMenuLabel": "মেনু বন্ধ করুন",
+  "navLabel": "প্রধান",
   "items": {
     "dashboard": "ড্যাশবোর্ড",
     "students": "শিক্ষার্থী",
