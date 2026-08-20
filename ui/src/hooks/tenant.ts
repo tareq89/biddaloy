@@ -1,6 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query';
 
 import { setActiveRole, setActiveTenant } from '../api/auth-state';
+import { persistTenant } from '../api/tenant-storage';
 
 /**
  * The one blessed way to switch the active tenant. Calling
@@ -29,5 +30,8 @@ export function switchActiveTenant(
   if (role !== undefined) {
     setActiveRole(role);
   }
+  // [8.9.5]'s "choice survives reload" — `session.ts`'s cold-boot bootstrap
+  // reads this back to restore the same tenant next visit.
+  persistTenant(tenantId);
   queryClient.clear();
 }

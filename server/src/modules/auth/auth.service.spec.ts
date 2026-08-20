@@ -65,7 +65,7 @@ describe('AuthService', () => {
       created_at: new Date(),
       updated_at: new Date(),
       user: undefined as any,
-      tenant: undefined as any,
+      tenant: { id: 'tenant-1', name: 'Greenview School' } as any,
     },
   ];
 
@@ -216,12 +216,13 @@ describe('AuthService', () => {
       expect(result.memberships[0]).toEqual({
         tenantId: 'tenant-1',
         role: UserRole.ADMIN,
+        name: 'Greenview School',
       });
       expect(mockJwtService.sign).toHaveBeenCalledWith({
         sub: 'user-1',
         email: 'admin@test.com',
         phone: null,
-        memberships: [{ tenantId: 'tenant-1', role: UserRole.ADMIN }],
+        memberships: [{ tenantId: 'tenant-1', role: UserRole.ADMIN, name: 'Greenview School' }],
         jti: expect.any(String),
       });
     });
@@ -458,7 +459,9 @@ describe('AuthService', () => {
       const result = await service.refresh('token-id.secret', { ip: null, userAgent: null });
 
       expect(result.access_token).toBe('test-jwt-token');
-      expect(result.memberships).toEqual([{ tenantId: 'tenant-1', role: UserRole.ADMIN }]);
+      expect(result.memberships).toEqual([
+        { tenantId: 'tenant-1', role: UserRole.ADMIN, name: 'Greenview School' },
+      ]);
       expect(result.refreshToken).toBe(mockIssuedRefreshToken);
     });
 

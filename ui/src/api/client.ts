@@ -70,19 +70,22 @@ apiClient.interceptors.request.use((config) => {
  * resets the session could resolve afterward and silently restore an
  * access token the reset just cleared — see `auth-state.ts`'s
  * `currentSessionGeneration`. The token is still returned either way;
- * only the global `setAccessToken` side effect is guarded. */
-export async function postAuthRefresh(): Promise<string> {
+ * only the global `setAccessToken` side effect is guarded.
+ *
+ * Returns the full `LoginResponse`, not just `access_token` — the server
+ * already sends fresh `memberships` (name included, see
+ * `JwtMembership.name`) alongside every refresh; `ui/src/api/session.ts`'s
+ * cold-boot bootstrap decodes them to restore [8.9.5]'s persisted active
+ * tenant, which a token-only return couldn't support. */
+export async function postAuthRefresh(): Promise<LoginResponse> {
   const generation = currentSessionGeneration();
-  const response = await axios.post<{ access_token: string }>(
-    `${API_BASE_URL}/auth/refresh`,
-    undefined,
-    { withCredentials: true },
-  );
-  const token = response.data.access_token;
+  const response = await axios.post<LoginResponse>(`${API_BASE_URL}/auth/refresh`, undefined, {
+    withCredentials: true,
+  });
   if (currentSessionGeneration() === generation) {
-    setAccessToken(token);
+    setAccessToken(response.data.access_token);
   }
-  return token;
+  return response.data;
 }
 
 /** `/auth/logout` and `/auth/logout-all`, bypassing `apiClient`'s tenant
@@ -156,6 +159,7 @@ let refreshPromise: Promise<string> | null = null;
 
 function refreshAccessToken(): Promise<string> {
   refreshPromise ??= postAuthRefresh()
+    .then((result) => result.access_token)
     .catch((err: unknown) => {
       notifySessionExpired();
       throw err;

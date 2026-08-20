@@ -20,7 +20,7 @@ import { apiErrorBody } from '../support';
 export function loginResponseFactory(overrides: Partial<LoginResponse> = {}): LoginResponse {
   return {
     access_token: 'mock-access-token',
-    memberships: [{ tenantId: 'mock-tenant-id', role: UserRole.ADMIN }],
+    memberships: [{ tenantId: 'mock-tenant-id', role: UserRole.ADMIN, name: 'Mock School' }],
     ...overrides,
   };
 }

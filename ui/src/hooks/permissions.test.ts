@@ -1,7 +1,9 @@
 import { Permission, UserRole } from '@biddaloy/shared';
+import { act } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { setActiveRole, clearAuthState } from '../api/auth-state';
+import { clearAuthState, setActiveRole } from '../api/auth-state';
+import { renderHookWithProviders } from '../test/render-hook-with-providers';
 
 import { hasPermission, useHasPermission } from './permissions';
 
@@ -32,10 +34,24 @@ describe('useHasPermission', () => {
 
   it('reads the active role from auth-state.ts', () => {
     setActiveRole(UserRole.ADMIN);
-    expect(useHasPermission(Permission.SETTINGS_MANAGE)).toBe(true);
+    const { result } = renderHookWithProviders(() => useHasPermission(Permission.SETTINGS_MANAGE));
+    expect(result.current).toBe(true);
   });
 
   it('is false with no active role set', () => {
-    expect(useHasPermission(Permission.SETTINGS_MANAGE)).toBe(false);
+    const { result } = renderHookWithProviders(() => useHasPermission(Permission.SETTINGS_MANAGE));
+    expect(result.current).toBe(false);
+  });
+
+  it('is reactive: a role change elsewhere re-renders a consumer without it re-invoking the hook itself', () => {
+    setActiveRole(UserRole.STUDENT);
+    const { result } = renderHookWithProviders(() => useHasPermission(Permission.SETTINGS_MANAGE));
+    expect(result.current).toBe(false);
+
+    act(() => {
+      setActiveRole(UserRole.ADMIN);
+    });
+
+    expect(result.current).toBe(true);
   });
 });
