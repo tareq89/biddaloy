@@ -4,7 +4,14 @@
     "dashboard": "Dashboard",
     "students": "Students",
     "fees": "Fees",
-    "settings": "Settings"
+    "settings": "Settings",
+    "studentDues": "Student Dues",
+    "recordPayment": "Record Payment"
+  },
+  "groups": {
+    "people": "People",
+    "finance": "Finance",
+    "administration": "Administration"
   },
   "dashboard": {
     "title": "Dashboard",

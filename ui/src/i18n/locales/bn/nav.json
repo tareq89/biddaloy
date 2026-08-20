@@ -4,7 +4,14 @@
     "dashboard": "ড্যাশবোর্ড",
     "students": "শিক্ষার্থী",
     "fees": "ফি",
-    "settings": "সেটিংস"
+    "settings": "সেটিংস",
+    "studentDues": "শিক্ষার্থীর বকেয়া",
+    "recordPayment": "পেমেন্ট রেকর্ড করুন"
+  },
+  "groups": {
+    "people": "ব্যক্তিবর্গ",
+    "finance": "অর্থ",
+    "administration": "প্রশাসন"
   },
   "dashboard": {
     "title": "ড্যাশবোর্ড",
