@@ -18,7 +18,11 @@ const schools = [
 
 describe('SchoolPicker', () => {
   it('renders every school as a labelled radio option, first one preselected', async () => {
-    renderWithProviders(<SchoolPicker schools={schools} onSelect={vi.fn()} />, { locale: 'en' });
+    const { localeReady } = renderWithProviders(
+      <SchoolPicker schools={schools} onSelect={vi.fn()} />,
+      { locale: 'en' },
+    );
+    await localeReady;
 
     const first = await screen.findByRole('radio', { name: 'Greenview School, Admin' });
     const second = screen.getByRole('radio', { name: 'Rose Valley School, Teacher' });
@@ -27,10 +31,11 @@ describe('SchoolPicker', () => {
   });
 
   it('has no accessibility violations', async () => {
-    const { container } = renderWithProviders(
+    const { container, localeReady } = renderWithProviders(
       <SchoolPicker schools={schools} onSelect={vi.fn()} />,
       { locale: 'en' },
     );
+    await localeReady;
 
     await expect(container).toHaveNoViolations();
   });
@@ -38,7 +43,11 @@ describe('SchoolPicker', () => {
   it('arrow keys move roving focus, Space selects, and Continue submits the selected pair', async () => {
     const onSelect = vi.fn();
     const user = userEvent.setup();
-    renderWithProviders(<SchoolPicker schools={schools} onSelect={onSelect} />, { locale: 'en' });
+    const { localeReady } = renderWithProviders(
+      <SchoolPicker schools={schools} onSelect={onSelect} />,
+      { locale: 'en' },
+    );
+    await localeReady;
 
     screen.getByRole('radio', { name: 'Greenview School, Admin' }).focus();
     await user.keyboard('{ArrowDown}');
@@ -59,7 +68,11 @@ describe('SchoolPicker', () => {
   it('clicking anywhere on a card selects it, not just the small radio dot', async () => {
     const onSelect = vi.fn();
     const user = userEvent.setup();
-    renderWithProviders(<SchoolPicker schools={schools} onSelect={onSelect} />, { locale: 'en' });
+    const { localeReady } = renderWithProviders(
+      <SchoolPicker schools={schools} onSelect={onSelect} />,
+      { locale: 'en' },
+    );
+    await localeReady;
 
     await user.click(screen.getByText('Rose Valley School'));
     await waitFor(() =>
