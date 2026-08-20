@@ -1,10 +1,5 @@
-import {
-  decodeAccessTokenMemberships,
-  getAccessToken,
-  getActiveRole,
-  getActiveTenant,
-} from '@biddaloy/ui/api';
-import { useSchoolSettings, useSchools } from '@biddaloy/ui/hooks';
+import { decodeAccessTokenMemberships, getActiveRole, getActiveTenant } from '@biddaloy/ui/api';
+import { useAccessToken, useSchoolSettings, useSchools } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
 
@@ -42,12 +37,24 @@ export function SchoolSettingsPage() {
   // SUPER_ADMIN-only — see `useSchools`'s own comment), but its name is
   // already sitting in the access token (`JwtMembership.name`, [8.9.5]) —
   // no separate fetch needed, and no raw UUID ever reaches the banner below.
+  // `useAccessToken()`, not `getAccessToken()`: this must recompute after a
+  // token refresh (`session.ts`'s proactive timer, or the request
+  // interceptor's reactive 401 retry) carries a renamed school's fresh
+  // membership name — a plain `getAccessToken()` read here would keep
+  // showing the name from whichever token was current when this component
+  // last rendered for an unrelated reason.
+  const accessToken = useAccessToken();
   const ownSchoolName = React.useMemo(() => {
-    const token = getAccessToken();
-    return token
-      ? decodeAccessTokenMemberships(token).find((m) => m.tenantId === ownSchoolId)?.name
-      : undefined;
-  }, [ownSchoolId]);
+    if (!accessToken) return undefined;
+    const membership = decodeAccessTokenMemberships(accessToken).find(
+      (m) => m.tenantId === ownSchoolId,
+    );
+    if (!membership) return undefined;
+    // A stale token from before `JwtMembership.name` existed (or one issued
+    // just before a rename propagated) can still be valid for up to its
+    // remaining lifetime — fall back rather than show a blank banner.
+    return membership.name ?? t('unnamedSchool');
+  }, [accessToken, ownSchoolId, t]);
   const schoolName = isSuperAdmin
     ? schools?.find((school) => school.id === schoolId)?.name
     : ownSchoolName;
