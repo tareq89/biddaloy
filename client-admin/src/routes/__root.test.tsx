@@ -1,5 +1,6 @@
 import { authHandlers, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../routeTree.gen';
@@ -69,5 +70,124 @@ describe('root beforeLoad: protected-route redirect', () => {
 
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Sign in' })).toBeTruthy());
     expect(router.state.location.pathname).toBe('/login');
+  });
+});
+
+/** [8.9.5]: authenticated but no active tenant chosen yet — the second
+ * half of `beforeLoad`'s guard, sitting right after the [8.9.3] one above. */
+describe('root beforeLoad: unresolved-tenant redirect', () => {
+  afterEach(async () => {
+    await cleanupTestState();
+  });
+
+  /** `decodeAccessTokenMemberships` never checks a signature (see
+   * `session.ts`'s own comment) — same fake-JWT shape as `session.test.ts`. */
+  function fakeJwtWithMemberships(memberships: unknown): string {
+    const payload = btoa(JSON.stringify({ memberships }))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+    return `header.${payload}.signature`;
+  }
+
+  const twoSchools = [
+    { tenantId: 'tenant-1', role: 'ADMIN', name: 'Greenview School' },
+    { tenantId: 'tenant-2', role: 'TEACHER', name: 'Rose Valley School' },
+  ];
+
+  it('redirects an authenticated visit with 2+ memberships and no active tenant to /select-school', async () => {
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/students'],
+      accessToken: fakeJwtWithMemberships(twoSchools),
+      locale: 'en',
+    });
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/select-school'));
+    expect(router.state.location.search).toEqual({ redirect: '/students' });
+  });
+
+  it('visiting /select-school directly does not redirect (no loop)', async () => {
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/select-school'],
+      accessToken: fakeJwtWithMemberships(twoSchools),
+      locale: 'en',
+    });
+
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'Choose a school' })).toBeTruthy(),
+    );
+    expect(router.state.location.pathname).toBe('/select-school');
+  });
+
+  it('an authenticated visit with an active tenant already set renders the requested route, no redirect', async () => {
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/students'],
+      accessToken: fakeJwtWithMemberships(twoSchools),
+      tenantId: 'tenant-1',
+      locale: 'en',
+    });
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Students' })).toBeTruthy());
+    expect(router.state.location.pathname).toBe('/students');
+  });
+
+  /** The mirror image of the redirect *to* `/select-school` above: a
+   * visitor who already has an active tenant has nothing left to resolve
+   * on the picker, and `handleSelect`/the zero-or-one-membership effect
+   * there both switch tenants with no confirmation dialog — reachable by
+   * direct URL, this would let a resolved visitor bypass `TenantBar`'s
+   * confirm-before-switch flow entirely. */
+  it('a direct visit to /select-school with an active tenant already set redirects away, not to the picker', async () => {
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/select-school'],
+      accessToken: fakeJwtWithMemberships(twoSchools),
+      tenantId: 'tenant-1',
+      locale: 'en',
+    });
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/'));
+  });
+});
+
+/** [8.9.5]: `RootLayout`'s `canManageSettings` (`useHasPermission`) and
+ * `TenantBar`'s active tenant both read the same reactive `auth-state.ts`
+ * subscription now — this is the integration test proving a `TenantBar`
+ * switch actually reaches `RootLayout`'s nav, not just `TenantBar`'s own
+ * chip (see the two components' own comments). */
+describe('root layout nav: reactive to a tenant switch', () => {
+  afterEach(async () => {
+    await cleanupTestState();
+  });
+
+  function fakeJwtWithMemberships(memberships: unknown): string {
+    const payload = btoa(JSON.stringify({ memberships }))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+    return `header.${payload}.signature`;
+  }
+
+  it('switching from an ADMIN membership to a TEACHER one removes the Settings nav item', async () => {
+    const user = userEvent.setup();
+    const memberships = [
+      { tenantId: 'tenant-1', role: 'ADMIN', name: 'Greenview School' },
+      { tenantId: 'tenant-2', role: 'TEACHER', name: 'Rose Valley School' },
+    ];
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students'],
+      accessToken: fakeJwtWithMemberships(memberships),
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Settings' })).toBeTruthy());
+
+    await user.click(screen.getByRole('button', { name: 'Switch school' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Rose Valley School' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Switch school' }));
+
+    await waitFor(() => expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull());
   });
 });
