@@ -8,7 +8,12 @@
  */
 import type { JwtMembership, LoginResponse } from '@biddaloy/shared';
 
-import { getAccessToken, setActiveRole, setActiveTenant } from './auth-state';
+import {
+  currentSessionGeneration,
+  getAccessToken,
+  setActiveRole,
+  setActiveTenant,
+} from './auth-state';
 import { postAuthRefresh } from './client';
 import { getPersistedTenant } from './tenant-storage';
 
@@ -21,6 +26,16 @@ let refreshPromise: Promise<LoginResponse> | null = null;
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 let bootstrapPromise: Promise<boolean> | null = null;
 
+/** `atob()` maps each decoded byte to one UTF-16 code unit (Latin-1), not
+ * UTF-8 — decoding a multi-byte character (a Bengali `JwtMembership.name`,
+ * for one) straight through `atob()` alone corrupts it. Re-decodes those
+ * same bytes as UTF-8 via `TextDecoder` instead. */
+function decodeBase64UrlToString(base64url: string): string {
+  const binary = atob(base64url.replace(/-/g, '+').replace(/_/g, '/'));
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
 /** Decodes a JWT's payload without verifying its signature — this is a
  * client-side scheduling/display hint, never a trust decision (the server
  * is the only party that ever validates a token). Returns `null` for
@@ -29,7 +44,7 @@ function decodeJwt(token: string): { exp?: unknown; memberships?: unknown } | nu
   const payload = token.split('.')[1];
   if (!payload) return null;
   try {
-    const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+    const json = decodeBase64UrlToString(payload);
     return JSON.parse(json) as { exp?: unknown; memberships?: unknown };
   } catch {
     return null;
@@ -129,8 +144,18 @@ function restoreActiveTenant(accessToken: string): void {
 }
 
 async function bootstrap(): Promise<boolean> {
+  const generation = currentSessionGeneration();
   try {
     const result = await quietRefresh();
+    // `postAuthRefresh()` already guards its own `setAccessToken` call the
+    // same way (see that function's own comment) — but it still *returns*
+    // `result.access_token` either way, so without this check a
+    // `clearAuthState()` that ran while this call was in flight (a
+    // concurrent logout, or a failed sibling refresh) would leave
+    // `getAccessToken()` correctly `null` while this function still
+    // restored tenant state, armed a refresh timer, and told the caller
+    // (the root route guard) the session was authenticated.
+    if (currentSessionGeneration() !== generation) return false;
     scheduleTokenRefresh(result.access_token);
     restoreActiveTenant(result.access_token);
     return true;

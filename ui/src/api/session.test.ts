@@ -28,13 +28,16 @@ afterEach(() => {
   resetSessionBootstrap();
 });
 
-/** See `session.spec.ts`'s own `fakeJwt` for why no real signature is
- * needed — `decodeAccessTokenMemberships` never checks one. */
+/** See `session.spec.ts`'s own `fakeJwt`/`encodeBase64UrlFromString` for
+ * why no real signature is needed, and why this encodes via `TextEncoder`
+ * rather than handing `btoa` the JSON string directly. */
 function fakeJwt(expUnixSeconds: number, memberships: JwtMembership[]): string {
-  const payload = btoa(JSON.stringify({ exp: expUnixSeconds, memberships }))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
+  const bytes = new TextEncoder().encode(JSON.stringify({ exp: expUnixSeconds, memberships }));
+  let binary = '';
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  const payload = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   return `header.${payload}.signature`;
 }
 

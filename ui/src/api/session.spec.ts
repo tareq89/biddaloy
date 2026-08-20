@@ -9,7 +9,12 @@ import {
   registerSessionExpiredHandler,
   setAccessToken,
 } from './auth-state';
-import { ensureSessionLoaded, resetSessionBootstrap, scheduleTokenRefresh } from './session';
+import {
+  decodeAccessTokenMemberships,
+  ensureSessionLoaded,
+  resetSessionBootstrap,
+  scheduleTokenRefresh,
+} from './session';
 
 // Plain `axios`, not `apiClient` — `postAuthRefresh` (client.ts) bypasses
 // apiClient entirely (see its own comment on why), so this mocks the same
@@ -28,16 +33,27 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+/** `btoa()` alone only accepts Latin-1 — encoding a multi-byte character (a
+ * Bengali membership name) straight through it corrupts the payload before
+ * it's even sent. Encodes via `TextEncoder` first, mirroring `session.ts`'s
+ * own `decodeBase64UrlToString`, so a non-ASCII fixture round-trips
+ * correctly through `decodeAccessTokenMemberships`. */
+function encodeBase64UrlFromString(value: string): string {
+  const bytes = new TextEncoder().encode(value);
+  let binary = '';
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
 /** Builds a token shaped enough to decode — `header.payload.signature`,
  * with a real base64url `exp` claim (and, for [8.9.5]'s restore tests,
  * `memberships`) — without a real signature, since neither
  * `decodeJwtExpiryMs` nor `decodeAccessTokenMemberships` ever checks one
  * (see session.ts's own comment). */
 function fakeJwt(expUnixSeconds: number, memberships: JwtMembership[] = []): string {
-  const payload = btoa(JSON.stringify({ exp: expUnixSeconds, memberships }))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
+  const payload = encodeBase64UrlFromString(JSON.stringify({ exp: expUnixSeconds, memberships }));
   return `header.${payload}.signature`;
 }
 
@@ -81,6 +97,40 @@ describe('ensureSessionLoaded', () => {
     expect(a).toBe(true);
     expect(b).toBe(true);
     expect(callCount).toBe(1);
+  });
+
+  it("decodes a non-ASCII membership name correctly, not corrupted by atob's Latin-1 mapping", async () => {
+    mock.onPost('/api/v1/auth/refresh').reply(200, {
+      access_token: fakeJwt(9_999_999_999, [
+        { tenantId: 'tenant-a', role: 'ADMIN' as never, name: 'গ্রীনভিউ স্কুল' },
+      ]),
+    });
+
+    await ensureSessionLoaded();
+
+    const token = getAccessToken();
+    expect(token).not.toBeNull();
+    expect(decodeAccessTokenMemberships(token ?? '')[0]?.name).toBe('গ্রীনভিউ স্কুল');
+  });
+
+  it('returns false and does not restore tenant state when the session is reset while a cold-boot refresh is in flight', async () => {
+    let resolveRefresh: ((value: [number, { access_token: string }]) => void) | undefined;
+    const refreshResponse = new Promise<[number, { access_token: string }]>((resolve) => {
+      resolveRefresh = resolve;
+    });
+    mock.onPost('/api/v1/auth/refresh').reply(() => refreshResponse);
+
+    const bootstrapping = ensureSessionLoaded();
+    // Simulates a concurrent logout (or a failed sibling refresh) resetting
+    // the session while this cold-boot refresh is still in flight —
+    // `postAuthRefresh()` (client.ts) already guards against resurrecting
+    // the access token in this case; this asserts `bootstrap()` itself
+    // doesn't still report the session as authenticated.
+    clearAuthState();
+    resolveRefresh?.([200, { access_token: fakeJwt(9_999_999_999) }]);
+
+    await expect(bootstrapping).resolves.toBe(false);
+    expect(getAccessToken()).toBeNull();
   });
 
   it('arms a proactive refresh that fires before the token expires, then re-arms with the new one', async () => {
