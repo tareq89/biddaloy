@@ -12,6 +12,7 @@ import {
   setActiveTenant,
 } from '../api/auth-state';
 import { NoMembershipsError } from '../api/errors';
+import { getPersistedTenant, persistTenant } from '../api/tenant-storage';
 import { loginResponseFactory } from '../test/msw/handlers/auth';
 import { server } from '../test/msw/server';
 import { errorHandler } from '../test/msw/support';
@@ -76,6 +77,36 @@ describe('login', () => {
     expect(getActiveTenant()).toBeNull();
     expect(getActiveRole()).toBeNull();
     expect(result.memberships).toHaveLength(2);
+  });
+
+  it('[8.9.5] clears a prior session (tenant, role, persisted tenant, cache) before a multi-membership login, keeping only the new token', async () => {
+    setActiveTenant('tenant-old');
+    setActiveRole(UserRole.ADMIN);
+    setAccessToken('old-token');
+    persistTenant('tenant-old');
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(['stale-from-previous-session'], { ok: true });
+    server.use(
+      http.post('/api/v1/auth/login', () =>
+        HttpResponse.json(
+          loginResponseFactory({
+            access_token: 'fresh-token',
+            memberships: [
+              { tenantId: 'tenant-first', role: UserRole.ADMIN, name: 'Greenview School' },
+              { tenantId: 'tenant-second', role: UserRole.TEACHER, name: 'Rose Valley School' },
+            ],
+          }),
+        ),
+      ),
+    );
+
+    await login(queryClient, { email: 'rahim@greenview.edu.bd', password: 'hunter2fake' });
+
+    expect(getAccessToken()).toBe('fresh-token');
+    expect(getActiveTenant()).toBeNull();
+    expect(getActiveRole()).toBeNull();
+    expect(getPersistedTenant()).toBeNull();
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
   });
 
   it('clears any stale cached queries from a previous session, same as switchActiveTenant', async () => {

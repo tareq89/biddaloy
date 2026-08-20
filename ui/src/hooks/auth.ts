@@ -78,6 +78,16 @@ export async function login(
     throw new NoMembershipsError();
   }
 
+  // A second account logging into the same browser tab must not inherit
+  // the previous session's active tenant/role, its persisted-tenant hint
+  // (`clearAuthState()` already clears that — see its own comment), or its
+  // React Query cache — every cached query is tenant-scoped (`tenant.ts`'s
+  // own reasoning). Left uncleared for a 2+ membership login below, a
+  // stale active tenant here would also silently suppress `__root.tsx`'s
+  // redirect to `/select-school`, skipping the picker entirely.
+  clearAuthState();
+  queryClient.clear();
+
   setAccessToken(result.access_token);
   scheduleTokenRefresh(result.access_token);
   if (result.memberships.length === 1) {
