@@ -6,6 +6,7 @@ import { UserTenant } from '../modules/auth/entities/user-tenant.entity';
 import { UserRole, UserStatus } from '@biddaloy/shared';
 import * as bcrypt from 'bcrypt';
 import { DataSource } from 'typeorm';
+import { ensureSecondSchoolMembership } from './seed.util';
 
 export async function seed() {
   const app = await NestFactory.createApplicationContext(AppModule);
@@ -53,10 +54,12 @@ export async function seed() {
         console.log(`Created default school (${newSchool.id}).`);
       }
 
+      await ensureSecondSchoolMembership(schoolRepository, userTenantRepository, existing.id);
       await app.close();
       return;
     }
     console.log('SUPER_ADMIN user already exists, skipping seed.');
+    await ensureSecondSchoolMembership(schoolRepository, userTenantRepository, existing.id);
     await app.close();
     return;
   }
@@ -103,6 +106,8 @@ export async function seed() {
   });
   await userTenantRepository.save(membership);
   console.log(`  Role: ${membership.role} at ${school.name}`);
+
+  await ensureSecondSchoolMembership(schoolRepository, userTenantRepository, admin.id);
 
   await app.close();
 }

@@ -291,14 +291,14 @@ describe('postAuthRefresh: session-generation guard', () => {
     clearAuthState();
     resolveRefresh?.([200, { access_token: 'stale-token' }]);
 
-    await expect(refreshPromise).resolves.toBe('stale-token');
+    await expect(refreshPromise).resolves.toMatchObject({ access_token: 'stale-token' });
     expect(getAccessToken()).toBeNull();
   });
 
   it('still restores the token when nothing reset the session while it was in flight', async () => {
     globalMock.onPost('/api/v1/auth/refresh').reply(200, { access_token: 'fresh-token' });
 
-    await expect(postAuthRefresh()).resolves.toBe('fresh-token');
+    await expect(postAuthRefresh()).resolves.toMatchObject({ access_token: 'fresh-token' });
     expect(getAccessToken()).toBe('fresh-token');
   });
 });

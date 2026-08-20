@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as FeesRouteImport } from './routes/fees'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as SelectSchoolRouteImport } from './routes/select-school'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as StudentsIndexRouteImport } from './routes/students/index'
 import { Route as StudentsStudentIdRouteImport } from './routes/students/$studentId'
@@ -29,6 +30,11 @@ const FeesRoute = FeesRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SelectSchoolRoute = SelectSchoolRouteImport.update({
+  id: '/select-school',
+  path: '/select-school',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
@@ -51,6 +57,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/fees': typeof FeesRoute
   '/login': typeof LoginRoute
+  '/select-school': typeof SelectSchoolRoute
   '/settings': typeof SettingsRoute
   '/students/$studentId': typeof StudentsStudentIdRoute
   '/students/': typeof StudentsIndexRoute
@@ -59,6 +66,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/fees': typeof FeesRoute
   '/login': typeof LoginRoute
+  '/select-school': typeof SelectSchoolRoute
   '/settings': typeof SettingsRoute
   '/students/$studentId': typeof StudentsStudentIdRoute
   '/students': typeof StudentsIndexRoute
@@ -68,6 +76,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/fees': typeof FeesRoute
   '/login': typeof LoginRoute
+  '/select-school': typeof SelectSchoolRoute
   '/settings': typeof SettingsRoute
   '/students/$studentId': typeof StudentsStudentIdRoute
   '/students/': typeof StudentsIndexRoute
@@ -78,6 +87,7 @@ export interface FileRouteTypes {
     | '/'
     | '/fees'
     | '/login'
+    | '/select-school'
     | '/settings'
     | '/students/$studentId'
     | '/students/'
@@ -86,6 +96,7 @@ export interface FileRouteTypes {
     | '/'
     | '/fees'
     | '/login'
+    | '/select-school'
     | '/settings'
     | '/students/$studentId'
     | '/students'
@@ -94,6 +105,7 @@ export interface FileRouteTypes {
     | '/'
     | '/fees'
     | '/login'
+    | '/select-school'
     | '/settings'
     | '/students/$studentId'
     | '/students/'
@@ -103,6 +115,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   FeesRoute: typeof FeesRoute
   LoginRoute: typeof LoginRoute
+  SelectSchoolRoute: typeof SelectSchoolRoute
   SettingsRoute: typeof SettingsRoute
   StudentsStudentIdRoute: typeof StudentsStudentIdRoute
   StudentsIndexRoute: typeof StudentsIndexRoute
@@ -129,6 +142,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/select-school': {
+      id: '/select-school'
+      path: '/select-school'
+      fullPath: '/select-school'
+      preLoaderRoute: typeof SelectSchoolRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -159,6 +179,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   FeesRoute: FeesRoute,
   LoginRoute: LoginRoute,
+  SelectSchoolRoute: SelectSchoolRoute,
   SettingsRoute: SettingsRoute,
   StudentsStudentIdRoute: StudentsStudentIdRoute,
   StudentsIndexRoute: StudentsIndexRoute,

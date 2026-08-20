@@ -1,6 +1,6 @@
 import { Permission } from '@biddaloy/shared';
-import { ensureSessionLoaded } from '@biddaloy/ui/api';
-import { AppShell, EmptyState } from '@biddaloy/ui/components';
+import { ensureSessionLoaded, getActiveTenant } from '@biddaloy/ui/api';
+import { AppShell, EmptyState, TenantBar } from '@biddaloy/ui/components';
 import { useHasPermission } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import type { QueryClient } from '@tanstack/react-query';
@@ -44,6 +44,35 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       // eslint-disable-next-line @typescript-eslint/only-throw-error
       throw redirect({ to: '/login', search: { redirect: location.href } });
     }
+    const hasActiveTenant = !!getActiveTenant();
+
+    // [8.9.5]: authenticated but no active tenant chosen yet — either a
+    // fresh login with 2+ memberships (`ui/src/hooks/auth.ts`'s `login()`
+    // deliberately leaves this unset in that case) or a reload whose
+    // persisted tenant didn't restore (`session.ts`'s `restoreActiveTenant`).
+    // `select-school.tsx` itself decides what to do with zero memberships;
+    // this guard's only job is getting an unresolved visitor there.
+    if (
+      authenticated &&
+      !hasActiveTenant &&
+      location.pathname !== '/login' &&
+      location.pathname !== '/select-school'
+    ) {
+      // eslint-disable-next-line @typescript-eslint/only-throw-error
+      throw redirect({ to: '/select-school', search: { redirect: location.href } });
+    }
+
+    // The mirror image of the redirect above: a visitor who already has an
+    // active tenant has nothing left to resolve on the picker.
+    // `select-school.tsx`'s `handleSelect` switches tenants with no
+    // confirmation dialog (it exists to *pick a first* tenant, not to
+    // switch one) — without this, the route stays reachable by direct URL
+    // and lets an already-resolved visitor bypass `TenantBar`'s
+    // confirm-before-switch flow entirely.
+    if (authenticated && hasActiveTenant && location.pathname === '/select-school') {
+      // eslint-disable-next-line @typescript-eslint/only-throw-error
+      throw redirect({ to: '/' });
+    }
   },
   // Shown only if the bootstrap attempt takes a while (Router's own
   // default `pendingMs` threshold) — a blank screen on a slow cold load
@@ -56,12 +85,10 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 });
 
 /**
- * `useHasPermission` isn't reactive (see its own doc comment in
- * `ui/src/hooks/permissions.ts`) — a role that changes mid-session (tenant
- * switch) won't re-filter this list until something else forces a
- * re-render. Acceptable for now: [8.9.6] ("see only what my role
- * permits") owns making the whole nav reactive to role changes, not this
- * ticket.
+ * `useHasPermission` is reactive (`ui/src/hooks/permissions.ts`, built on
+ * `useActiveRole`'s `useSyncExternalStore` subscription) — a role change
+ * mid-session (a `TenantBar` switch) re-filters this list on its own, no
+ * separate re-render trigger needed.
  */
 function RootLayout() {
   const { t } = useTranslation('nav');
@@ -87,8 +114,11 @@ function RootLayout() {
   // nav links to pages they can't reach yet. The stub-era version of this
   // route flagged that gap in its own comment as deferred polish; this is
   // where it gets settled, rather than restructuring every route file
-  // into a pathless layout route for one page's benefit.
-  if (pathname === '/login') {
+  // into a pathless layout route for one page's benefit. [8.9.5]'s
+  // `/select-school` gets the same treatment: showing `AppShell`'s nav
+  // (and `TenantBar`'s "current school" text) before a school is even
+  // chosen would be actively misleading, not just premature.
+  if (pathname === '/login' || pathname === '/select-school') {
     return (
       <>
         <Outlet />
@@ -98,7 +128,7 @@ function RootLayout() {
   }
 
   return (
-    <AppShell navItems={navItems} brand={t('brand')}>
+    <AppShell navItems={navItems} brand={t('brand')} topBar={<TenantBar />}>
       <Outlet />
       {devtools}
     </AppShell>
