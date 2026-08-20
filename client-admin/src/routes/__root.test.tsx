@@ -1,5 +1,6 @@
 import { authHandlers, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../routeTree.gen';
@@ -145,5 +146,48 @@ describe('root beforeLoad: unresolved-tenant redirect', () => {
     });
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/'));
+  });
+});
+
+/** [8.9.5]: `RootLayout`'s `canManageSettings` (`useHasPermission`) and
+ * `TenantBar`'s active tenant both read the same reactive `auth-state.ts`
+ * subscription now — this is the integration test proving a `TenantBar`
+ * switch actually reaches `RootLayout`'s nav, not just `TenantBar`'s own
+ * chip (see the two components' own comments). */
+describe('root layout nav: reactive to a tenant switch', () => {
+  afterEach(async () => {
+    await cleanupTestState();
+  });
+
+  function fakeJwtWithMemberships(memberships: unknown): string {
+    const payload = btoa(JSON.stringify({ memberships }))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+    return `header.${payload}.signature`;
+  }
+
+  it('switching from an ADMIN membership to a TEACHER one removes the Settings nav item', async () => {
+    const user = userEvent.setup();
+    const memberships = [
+      { tenantId: 'tenant-1', role: 'ADMIN', name: 'Greenview School' },
+      { tenantId: 'tenant-2', role: 'TEACHER', name: 'Rose Valley School' },
+    ];
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students'],
+      accessToken: fakeJwtWithMemberships(memberships),
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Settings' })).toBeTruthy());
+
+    await user.click(screen.getByRole('button', { name: 'Switch school' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Rose Valley School' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Switch school' }));
+
+    await waitFor(() => expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull());
   });
 });
