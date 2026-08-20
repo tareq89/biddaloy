@@ -1,7 +1,6 @@
 import { Permission } from '@biddaloy/shared';
 import { ensureSessionLoaded, getActiveTenant } from '@biddaloy/ui/api';
-import { AppShell, EmptyState, TenantBar } from '@biddaloy/ui/components';
-import { useHasPermission } from '@biddaloy/ui/hooks';
+import { AppShell, EmptyState, TenantBar, type AppShellNavGroup } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import type { QueryClient } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
@@ -92,14 +91,55 @@ export const Route = createRootRouteWithContext<RouterContext>()({
  */
 function RootLayout() {
   const { t } = useTranslation('nav');
-  const canManageSettings = useHasPermission(Permission.SETTINGS_MANAGE);
   const pathname = useRouterState({ select: (state) => state.location.pathname });
 
   const navItems = [
-    { to: '/', label: t('items.dashboard') },
-    { to: '/students', label: t('items.students') },
-    { to: '/fees', label: t('items.fees') },
-    ...(canManageSettings ? [{ to: '/settings', label: t('items.settings') }] : []),
+    { to: '/', label: t('items.dashboard'), permission: Permission.DASHBOARD_VIEW },
+  ];
+
+  // Domain groups per [8.9.6]'s issue text — "so future modules slot in
+  // without restructuring". Academics and Communication aren't listed
+  // here yet: no route exists for either domain until their feature
+  // modules ([8.10.x]/[8.11.x]) land, and an empty group is exactly what
+  // `AppShell` already renders as nothing. Adding a group is then just
+  // one more object in this array, not a layout change.
+  const navGroups: AppShellNavGroup[] = [
+    {
+      id: 'people',
+      label: t('groups.people'),
+      items: [{ to: '/students', label: t('items.students'), permission: Permission.STUDENT_READ }],
+    },
+    {
+      id: 'finance',
+      label: t('groups.finance'),
+      // ACCOUNTANT's whole day runs through these two — pinned above the
+      // rest of Finance. Gated on FEE_COLLECT/PAYMENT_RECORD rather than
+      // the broader FEE_READ so TEACHER/EXECUTIVE (who hold FEE_READ for
+      // read-only context elsewhere, e.g. a student's profile) don't see
+      // a Finance section they have no operational reason to open.
+      pinnedItems: [
+        {
+          to: '/fees',
+          search: { tab: 'dues' },
+          label: t('items.studentDues'),
+          permission: Permission.FEE_COLLECT,
+        },
+        {
+          to: '/fees',
+          search: { tab: 'payment' },
+          label: t('items.recordPayment'),
+          permission: Permission.PAYMENT_RECORD,
+        },
+      ],
+      items: [{ to: '/fees', label: t('items.fees'), permission: Permission.FEE_STRUCTURE_READ }],
+    },
+    {
+      id: 'administration',
+      label: t('groups.administration'),
+      items: [
+        { to: '/settings', label: t('items.settings'), permission: Permission.SETTINGS_MANAGE },
+      ],
+    },
   ];
 
   const devtools = (
@@ -128,7 +168,15 @@ function RootLayout() {
   }
 
   return (
-    <AppShell navItems={navItems} brand={t('brand')} topBar={<TenantBar />}>
+    <AppShell
+      navItems={navItems}
+      navGroups={navGroups}
+      brand={t('brand')}
+      topBar={<TenantBar />}
+      openMenuLabel={t('openMenuLabel')}
+      closeMenuLabel={t('closeMenuLabel')}
+      navLabel={t('navLabel')}
+    >
       <Outlet />
       {devtools}
     </AppShell>

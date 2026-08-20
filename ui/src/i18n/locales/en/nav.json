@@ -1,10 +1,20 @@
 {
   "brand": "Biddaloy",
+  "openMenuLabel": "Open menu",
+  "closeMenuLabel": "Close menu",
+  "navLabel": "Main",
   "items": {
     "dashboard": "Dashboard",
     "students": "Students",
     "fees": "Fees",
-    "settings": "Settings"
+    "settings": "Settings",
+    "studentDues": "Student Dues",
+    "recordPayment": "Record Payment"
+  },
+  "groups": {
+    "people": "People",
+    "finance": "Finance",
+    "administration": "Administration"
   },
   "dashboard": {
     "title": "Dashboard",
