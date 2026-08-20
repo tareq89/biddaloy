@@ -6,34 +6,65 @@
  * a separate module from `auth-state.ts` (a plain state holder) and
  * `client.ts` (the interceptor's own reactive refresh).
  */
-import { getAccessToken } from './auth-state';
+import type { JwtMembership, LoginResponse } from '@biddaloy/shared';
+
+import {
+  currentSessionGeneration,
+  getAccessToken,
+  setActiveRole,
+  setActiveTenant,
+} from './auth-state';
 import { postAuthRefresh } from './client';
+import { getPersistedTenant } from './tenant-storage';
 
 /** Refresh this long before the token's own `exp` — comfortably ahead of
  * normal request/response latency, so a proactive refresh essentially
  * never loses the race against the token actually expiring mid-request. */
 const REFRESH_MARGIN_MS = 60_000;
 
-let refreshPromise: Promise<string> | null = null;
+let refreshPromise: Promise<LoginResponse> | null = null;
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 let bootstrapPromise: Promise<boolean> | null = null;
 
-/** Reads a JWT's `exp` claim without verifying its signature — this is a
- * scheduling hint, never a trust decision (the server is the only party
- * that ever validates a token). Returns `null` for anything that doesn't
- * decode as `header.payload.signature` with a numeric `exp`, so a
- * malformed or non-JWT token just doesn't get a proactive timer — the
- * interceptor's existing reactive-401 refresh still covers it either way. */
-function decodeJwtExpiryMs(token: string): number | null {
+/** `atob()` maps each decoded byte to one UTF-16 code unit (Latin-1), not
+ * UTF-8 — decoding a multi-byte character (a Bengali `JwtMembership.name`,
+ * for one) straight through `atob()` alone corrupts it. Re-decodes those
+ * same bytes as UTF-8 via `TextDecoder` instead. */
+function decodeBase64UrlToString(base64url: string): string {
+  const binary = atob(base64url.replace(/-/g, '+').replace(/_/g, '/'));
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+/** Decodes a JWT's payload without verifying its signature — this is a
+ * client-side scheduling/display hint, never a trust decision (the server
+ * is the only party that ever validates a token). Returns `null` for
+ * anything that doesn't decode as `header.payload.signature` valid JSON. */
+function decodeJwt(token: string): { exp?: unknown; memberships?: unknown } | null {
   const payload = token.split('.')[1];
   if (!payload) return null;
   try {
-    const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
-    const { exp } = JSON.parse(json) as { exp?: unknown };
-    return typeof exp === 'number' ? exp * 1000 : null;
+    const json = decodeBase64UrlToString(payload);
+    return JSON.parse(json) as { exp?: unknown; memberships?: unknown };
   } catch {
     return null;
   }
+}
+
+/** A malformed or non-JWT token just doesn't get a proactive timer — the
+ * interceptor's existing reactive-401 refresh still covers it either way. */
+function decodeJwtExpiryMs(token: string): number | null {
+  const { exp } = decodeJwt(token) ?? {};
+  return typeof exp === 'number' ? exp * 1000 : null;
+}
+
+/** [8.9.5]'s picker/top-bar/reload-restore all read memberships (with
+ * school names) straight off the current access token rather than a
+ * separate fetch — see `shared`'s `JwtMembership.name` for why. Returns
+ * `[]` for a malformed token or a payload with no `memberships` array. */
+export function decodeAccessTokenMemberships(token: string): JwtMembership[] {
+  const { memberships } = decodeJwt(token) ?? {};
+  return Array.isArray(memberships) ? (memberships as JwtMembership[]) : [];
 }
 
 function clearScheduledRefresh(): void {
@@ -60,7 +91,7 @@ export function resetSessionBootstrap(): void {
  * `refreshAccessToken`, nothing here has "a session that just ended" to
  * announce: a cold-boot attempt from an anonymous visitor and a
  * proactive pre-expiry refresh are both routine, not error events. */
-function quietRefresh(): Promise<string> {
+function quietRefresh(): Promise<LoginResponse> {
   refreshPromise ??= postAuthRefresh().finally(() => {
     refreshPromise = null;
   });
@@ -77,7 +108,7 @@ export function scheduleTokenRefresh(token: string): void {
   const delay = Math.max(0, expiryMs - Date.now() - REFRESH_MARGIN_MS);
   refreshTimer = setTimeout(() => {
     void quietRefresh()
-      .then(scheduleTokenRefresh)
+      .then((result) => scheduleTokenRefresh(result.access_token))
       .catch(() => {
         // Swallow: a failed proactive refresh means the refresh token
         // itself is dead. The next real API call's reactive-401 path
@@ -88,10 +119,45 @@ export function scheduleTokenRefresh(token: string): void {
   }, delay);
 }
 
+/** [8.9.5]'s "choice survives reload": restores the active tenant from
+ * `getPersistedTenant()` when it's still among the caller's *current*
+ * memberships (a tenant removed since the last visit is silently dropped,
+ * never restored — same "current, not stale" reasoning as `refresh()`'s
+ * own server-side doc comment). Falls back to auto-picking a lone
+ * membership, mirroring `login()`'s single-membership behavior. Leaves the
+ * active tenant unset for 0 or 2+ unresolved memberships — the root
+ * route's own guard decides what to do with that (redirect to
+ * `/select-school`, or treat zero as unusable and log out). No
+ * `queryClient.clear()` here: a cold page load has no cache yet to clear. */
+function restoreActiveTenant(accessToken: string): void {
+  const memberships = decodeAccessTokenMemberships(accessToken);
+  const persisted = getPersistedTenant();
+  const match = memberships.find((m) => m.tenantId === persisted);
+  const [only] = memberships;
+  if (match) {
+    setActiveTenant(match.tenantId);
+    setActiveRole(match.role);
+  } else if (memberships.length === 1 && only) {
+    setActiveTenant(only.tenantId);
+    setActiveRole(only.role);
+  }
+}
+
 async function bootstrap(): Promise<boolean> {
+  const generation = currentSessionGeneration();
   try {
-    const token = await quietRefresh();
-    scheduleTokenRefresh(token);
+    const result = await quietRefresh();
+    // `postAuthRefresh()` already guards its own `setAccessToken` call the
+    // same way (see that function's own comment) — but it still *returns*
+    // `result.access_token` either way, so without this check a
+    // `clearAuthState()` that ran while this call was in flight (a
+    // concurrent logout, or a failed sibling refresh) would leave
+    // `getAccessToken()` correctly `null` while this function still
+    // restored tenant state, armed a refresh timer, and told the caller
+    // (the root route guard) the session was authenticated.
+    if (currentSessionGeneration() !== generation) return false;
+    scheduleTokenRefresh(result.access_token);
+    restoreActiveTenant(result.access_token);
     return true;
   } catch {
     return false;

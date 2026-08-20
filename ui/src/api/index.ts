@@ -19,6 +19,12 @@ export {
   setAccessToken,
   setActiveRole,
   setActiveTenant,
+  subscribeAuthState,
 } from './auth-state';
-export { ensureSessionLoaded, resetSessionBootstrap, scheduleTokenRefresh } from './session';
+export {
+  decodeAccessTokenMemberships,
+  ensureSessionLoaded,
+  resetSessionBootstrap,
+  scheduleTokenRefresh,
+} from './session';
 export type { paths, components, operations } from './schema';

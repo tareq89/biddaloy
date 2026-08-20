@@ -1,0 +1,29 @@
+import * as React from 'react';
+
+import {
+  getAccessToken,
+  getActiveRole,
+  getActiveTenant,
+  subscribeAuthState,
+} from '../api/auth-state';
+
+/**
+ * Reactive counterparts to `auth-state.ts`'s plain getters, built on
+ * `useSyncExternalStore` over that module's `subscribeAuthState`. A tenant
+ * switch, token refresh, or logout now re-renders every component reading
+ * one of these — not just the one that happened to trigger the change (a
+ * `TenantBar` switch previously only updated its own local state; see its
+ * own comment, now out of date). `useHasPermission` (`permissions.ts`)
+ * is built on `useActiveRole` for the same reason.
+ */
+export function useAccessToken(): string | null {
+  return React.useSyncExternalStore(subscribeAuthState, getAccessToken);
+}
+
+export function useActiveTenant(): string | null {
+  return React.useSyncExternalStore(subscribeAuthState, getActiveTenant);
+}
+
+export function useActiveRole(): string | null {
+  return React.useSyncExternalStore(subscribeAuthState, getActiveRole);
+}

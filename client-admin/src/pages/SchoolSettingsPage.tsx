@@ -1,5 +1,5 @@
-import { getActiveRole, getActiveTenant } from '@biddaloy/ui/api';
-import { useSchoolSettings, useSchools } from '@biddaloy/ui/hooks';
+import { decodeAccessTokenMemberships, getActiveRole, getActiveTenant } from '@biddaloy/ui/api';
+import { useAccessToken, useSchoolSettings, useSchools } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
 
@@ -33,9 +33,31 @@ export function SchoolSettingsPage() {
   const [pickedSchoolId, setPickedSchoolId] = React.useState<string | undefined>(undefined);
 
   const schoolId = isSuperAdmin ? pickedSchoolId : (ownSchoolId ?? undefined);
+  // An ADMIN's own school never appears in `schools` (that list is
+  // SUPER_ADMIN-only — see `useSchools`'s own comment), but its name is
+  // already sitting in the access token (`JwtMembership.name`, [8.9.5]) —
+  // no separate fetch needed, and no raw UUID ever reaches the banner below.
+  // `useAccessToken()`, not `getAccessToken()`: this must recompute after a
+  // token refresh (`session.ts`'s proactive timer, or the request
+  // interceptor's reactive 401 retry) carries a renamed school's fresh
+  // membership name — a plain `getAccessToken()` read here would keep
+  // showing the name from whichever token was current when this component
+  // last rendered for an unrelated reason.
+  const accessToken = useAccessToken();
+  const ownSchoolName = React.useMemo(() => {
+    if (!accessToken) return undefined;
+    const membership = decodeAccessTokenMemberships(accessToken).find(
+      (m) => m.tenantId === ownSchoolId,
+    );
+    if (!membership) return undefined;
+    // A stale token from before `JwtMembership.name` existed (or one issued
+    // just before a rename propagated) can still be valid for up to its
+    // remaining lifetime — fall back rather than show a blank banner.
+    return membership.name ?? t('unnamedSchool');
+  }, [accessToken, ownSchoolId, t]);
   const schoolName = isSuperAdmin
     ? schools?.find((school) => school.id === schoolId)?.name
-    : undefined;
+    : ownSchoolName;
 
   const settingsQuery = useSchoolSettings(schoolId ?? '');
 
@@ -69,12 +91,12 @@ export function SchoolSettingsPage() {
         </div>
       )}
 
-      {schoolId && (
+      {schoolId && schoolName && (
         <div
           role="status"
           className="sticky top-0 z-10 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2 text-sm font-medium backdrop-blur-sm"
         >
-          {t('configuringBanner', { schoolName: schoolName ?? schoolId })}
+          {t('configuringBanner', { schoolName })}
         </div>
       )}
 

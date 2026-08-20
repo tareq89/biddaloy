@@ -8,6 +8,7 @@
   },
   "settingsLoadError": "এই স্কুলের সেটিংস লোড করা যায়নি। পাতাটি রিফ্রেশ করে আবার চেষ্টা করুন।",
   "configuringBanner": "{{schoolName}} এর সেটিংস কনফিগার করা হচ্ছে",
+  "unnamedSchool": "এই স্কুল",
   "secret": {
     "configured": "কনফিগার করা আছে — শেষ {{hint}}",
     "configuredNoHint": "কনফিগার করা আছে",

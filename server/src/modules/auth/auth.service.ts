@@ -248,8 +248,14 @@ export class AuthService {
   }
 
   private async fetchMembershipPayload(userId: string): Promise<JwtMembership[]> {
-    const memberships = await this.userTenantRepository.find({ where: { user_id: userId } });
-    return memberships.map((m) => ({ tenantId: m.tenant_id, role: m.role }));
+    // `relations: ['tenant']` — [8.9.5]'s picker/top-bar need the school's
+    // display name, not just its id; this join gets it in the same query
+    // rather than a second round trip per membership.
+    const memberships = await this.userTenantRepository.find({
+      where: { user_id: userId },
+      relations: ['tenant'],
+    });
+    return memberships.map((m) => ({ tenantId: m.tenant_id, role: m.role, name: m.tenant.name }));
   }
 
   // A user can belong to several tenants, but an audit row needs exactly
