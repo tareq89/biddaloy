@@ -298,7 +298,7 @@ jobs:
       # shared libraries (apt) need reinstalling — skips the ~1min download.
       - name: Cache Playwright browsers
         id: playwright-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ matrix.browser }}-${{ hashFiles('yarn.lock') }}
