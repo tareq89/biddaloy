@@ -1,4 +1,9 @@
-import { getActiveRole, getActiveTenant } from '@biddaloy/ui/api';
+import {
+  decodeAccessTokenMemberships,
+  getAccessToken,
+  getActiveRole,
+  getActiveTenant,
+} from '@biddaloy/ui/api';
 import { useSchoolSettings, useSchools } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
@@ -33,9 +38,19 @@ export function SchoolSettingsPage() {
   const [pickedSchoolId, setPickedSchoolId] = React.useState<string | undefined>(undefined);
 
   const schoolId = isSuperAdmin ? pickedSchoolId : (ownSchoolId ?? undefined);
+  // An ADMIN's own school never appears in `schools` (that list is
+  // SUPER_ADMIN-only — see `useSchools`'s own comment), but its name is
+  // already sitting in the access token (`JwtMembership.name`, [8.9.5]) —
+  // no separate fetch needed, and no raw UUID ever reaches the banner below.
+  const ownSchoolName = React.useMemo(() => {
+    const token = getAccessToken();
+    return token
+      ? decodeAccessTokenMemberships(token).find((m) => m.tenantId === ownSchoolId)?.name
+      : undefined;
+  }, [ownSchoolId]);
   const schoolName = isSuperAdmin
     ? schools?.find((school) => school.id === schoolId)?.name
-    : undefined;
+    : ownSchoolName;
 
   const settingsQuery = useSchoolSettings(schoolId ?? '');
 
@@ -69,12 +84,12 @@ export function SchoolSettingsPage() {
         </div>
       )}
 
-      {schoolId && (
+      {schoolId && schoolName && (
         <div
           role="status"
           className="sticky top-0 z-10 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2 text-sm font-medium backdrop-blur-sm"
         >
-          {t('configuringBanner', { schoolName: schoolName ?? schoolId })}
+          {t('configuringBanner', { schoolName })}
         </div>
       )}
 
