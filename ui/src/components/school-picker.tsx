@@ -31,7 +31,7 @@ import { RadioGroup, RadioGroupItem } from './radio';
 
 export interface SchoolPickerOption {
   tenantId: string;
-  name: string;
+  name?: string;
   role: UserRole;
 }
 
@@ -40,19 +40,15 @@ export interface SchoolPickerProps {
   onSelect: (tenantId: string, role: UserRole) => void;
 }
 
-/** Title-cases a role enum key ("TEACHER" -> "Teacher") — not real i18n,
- * just a readable fallback, same convention (and same reasoning) as
- * `status-badge.tsx`'s own `humanize`. Not shared as a util: two four-line
- * copies of a trivial string transform are cheaper to read than an
- * import for this, and each one documents its own "not real i18n yet"
- * caveat right where it's used. */
-function humanizeRole(role: string): string {
-  const lower = role.toLowerCase().replace(/_/g, ' ');
-  return lower.charAt(0).toUpperCase() + lower.slice(1);
-}
-
 function SchoolCard({ school, selected }: { school: SchoolPickerOption; selected: boolean }) {
-  const roleLabel = humanizeRole(school.role);
+  const { t } = useTranslation('auth');
+  // A stale token from before `JwtMembership.name` existed can still be
+  // valid for up to its remaining lifetime — fall back rather than render
+  // blank text. Every `UserRole` value has a translated
+  // `schoolPicker.roles.*` key (`auth.json`), unlike `tenant-bar.tsx`'s own
+  // still-English-only `humanizeRole` — see that file's comment.
+  const displayName = school.name ?? t('schoolPicker.unnamedSchool');
+  const roleLabel = t(`schoolPicker.roles.${school.role}`);
   const controlId = `school-picker-option-${school.tenantId}`;
   return (
     <label
@@ -63,13 +59,13 @@ function SchoolCard({ school, selected }: { school: SchoolPickerOption; selected
       )}
     >
       <div className="flex flex-col gap-0.5">
-        <span className="text-sm font-semibold text-foreground">{school.name}</span>
+        <span className="text-sm font-semibold text-foreground">{displayName}</span>
         <span className="text-sm text-muted-foreground">{roleLabel}</span>
       </div>
       <RadioGroupItem
         id={controlId}
         value={school.tenantId}
-        aria-label={`${school.name}, ${roleLabel}`}
+        aria-label={`${displayName}, ${roleLabel}`}
       />
     </label>
   );
