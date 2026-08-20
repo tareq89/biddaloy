@@ -129,4 +129,21 @@ describe('root beforeLoad: unresolved-tenant redirect', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Students' })).toBeTruthy());
     expect(router.state.location.pathname).toBe('/students');
   });
+
+  /** The mirror image of the redirect *to* `/select-school` above: a
+   * visitor who already has an active tenant has nothing left to resolve
+   * on the picker, and `handleSelect`/the zero-or-one-membership effect
+   * there both switch tenants with no confirmation dialog — reachable by
+   * direct URL, this would let a resolved visitor bypass `TenantBar`'s
+   * confirm-before-switch flow entirely. */
+  it('a direct visit to /select-school with an active tenant already set redirects away, not to the picker', async () => {
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/select-school'],
+      accessToken: fakeJwtWithMemberships(twoSchools),
+      tenantId: 'tenant-1',
+      locale: 'en',
+    });
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/'));
+  });
 });
