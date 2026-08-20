@@ -15,5 +15,14 @@
     "title": "Page not found",
     "explanation": "There is no page at this address.",
     "action": "Back to dashboard"
+  },
+  "tenantBar": {
+    "switchSchool": "Switch school",
+    "confirmTitle": "Switch to {{name}}?",
+    "confirmDescription": "Your current view of {{current}} will close and everything cached will be cleared.",
+    "cancel": "Cancel",
+    "confirm": "Switch school",
+    "switched": "Switched to {{name}}",
+    "unnamedSchool": "this school"
   }
 }

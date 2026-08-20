@@ -40,6 +40,8 @@ export {
   type RadioGroupProps,
   type RadioGroupItemProps,
 } from './radio';
+export { SchoolPicker, type SchoolPickerOption, type SchoolPickerProps } from './school-picker';
+export { TenantBar } from './tenant-bar';
 export {
   Select,
   SelectContent,

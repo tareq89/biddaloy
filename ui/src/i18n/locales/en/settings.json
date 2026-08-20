@@ -7,6 +7,7 @@
     "error": "Couldn't load the list of schools. Try refreshing the page."
   },
   "configuringBanner": "Configuring settings for {{schoolName}}",
+  "unnamedSchool": "this school",
   "settingsLoadError": "Couldn't load settings for this school. Try refreshing the page.",
   "secret": {
     "configured": "Configured — ends {{hint}}",

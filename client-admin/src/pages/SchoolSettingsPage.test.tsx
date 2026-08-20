@@ -21,6 +21,18 @@ function apiErrorBody(statusCode: number) {
   };
 }
 
+/** `decodeAccessTokenMemberships` never checks a signature (see
+ * `session.ts`'s own comment) — same fake-JWT shape as `session.test.ts`. */
+function fakeJwtWithMemberships(memberships: unknown): string {
+  const payload = btoa(JSON.stringify({ memberships }))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+  return `header.${payload}.signature`;
+}
+
+const adminOwnSchool = [{ tenantId: 'tenant-1', role: 'ADMIN', name: 'Greenview School' }];
+
 describe('SchoolSettingsPage', () => {
   afterEach(async () => {
     await cleanupTestState();
@@ -124,11 +136,14 @@ describe('SchoolSettingsPage', () => {
       locale: 'en',
       role: 'ADMIN',
       tenantId: 'tenant-1',
+      accessToken: fakeJwtWithMemberships(adminOwnSchool),
     });
 
     expect(screen.queryByLabelText('School')).toBeNull();
+    // Names the real school, not a raw tenant id — [8.9.5] fixed this
+    // banner falling back to the UUID for a non-super-admin.
     await waitFor(() => {
-      expect(screen.getByText(/Configuring settings for/)).toBeTruthy();
+      expect(screen.getByText('Configuring settings for Greenview School')).toBeTruthy();
     });
   });
 
@@ -137,6 +152,7 @@ describe('SchoolSettingsPage', () => {
       locale: 'en',
       role: 'ADMIN',
       tenantId: 'tenant-1',
+      accessToken: fakeJwtWithMemberships(adminOwnSchool),
     });
 
     await waitFor(() => {

@@ -7,6 +7,13 @@ import { UserRole } from '../enums';
 export interface JwtMembership {
   tenantId: string;
   role: UserRole;
+  /** The school's display name — [8.9.5]'s picker/top-bar decode this
+   * straight off the access token rather than fetching it separately.
+   * Optional: a token issued before this field existed (or before a school
+   * rename has propagated through a refresh) stays valid for up to its
+   * remaining lifetime, so consumers must fall back to a placeholder rather
+   * than assume this is always present. */
+  name?: string;
 }
 
 /**
