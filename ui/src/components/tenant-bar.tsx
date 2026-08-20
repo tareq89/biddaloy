@@ -17,20 +17,20 @@
  * `/select-school`'s job (`client-admin/src/routes/select-school.tsx`),
  * reached chrome-free, before `AppShell`/this component ever mount.
  *
- * Local `activeTenantId` state, not a fresh `getActiveTenant()` read on
- * every render: nothing here is subscribed to that module's plain
- * variable (see its own "not reactive" comment, same limitation
- * `useHasPermission` documents), so a switch updates this component's own
- * state directly in `confirmSwitch` — the same "not reactive today, and
- * that's fine at this maturity level" reasoning, applied at the one call
- * site that actually needs the visible chip to update immediately.
+ * `useActiveTenant()`/`useAccessToken()` (`hooks/auth-state.ts`), not a
+ * fresh `getActiveTenant()`/`getAccessToken()` read on every render: this
+ * component isn't the only consumer of the active tenant/role any more
+ * (`__root.tsx`'s `RootLayout` also derives nav visibility from it via
+ * `useHasPermission`), so a switch here has to be visible everywhere, not
+ * just update this component's own local state the way `confirmSwitch`
+ * used to.
  */
 import type { UserRole } from '@biddaloy/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 
-import { decodeAccessTokenMemberships, getAccessToken } from '../api';
-import { getActiveTenant } from '../api/auth-state';
+import { decodeAccessTokenMemberships } from '../api';
+import { useAccessToken, useActiveTenant } from '../hooks/auth-state';
 import { switchActiveTenant } from '../hooks/tenant';
 import { useTranslation } from '../i18n';
 
@@ -48,13 +48,16 @@ import { Menu, MenuContent, MenuItem, MenuLabel, MenuTrigger } from './menu';
 
 interface SchoolOption {
   tenantId: string;
-  name: string;
+  name?: string;
   role: UserRole;
 }
 
-/** Same convention (and same reasoning) as `school-picker.tsx`'s own
- * `humanizeRole` — see that file's comment on why this four-line helper
- * isn't shared as a util. */
+/** Title-cases a role enum key ("TEACHER" -> "Teacher") — not real i18n
+ * yet, just a readable fallback (see `ui/CONTRIBUTING.md`'s "i18n rules").
+ * `school-picker.tsx`'s equivalent labels are now translated
+ * (`schoolPicker.roles.*` in `auth.json`) since a review flagged that file
+ * specifically — this copy wasn't in scope for that thread and stays as
+ * documented English-only fallback for now. */
 function humanizeRole(role: string): string {
   const lower = role.toLowerCase().replace(/_/g, ' ');
   return lower.charAt(0).toUpperCase() + lower.slice(1);
@@ -63,11 +66,11 @@ function humanizeRole(role: string): string {
 export function TenantBar() {
   const { t } = useTranslation('nav');
   const queryClient = useQueryClient();
-  const [activeTenantId, setActiveTenantId] = React.useState(() => getActiveTenant());
+  const activeTenantId = useActiveTenant();
+  const token = useAccessToken();
   const [pendingSwitch, setPendingSwitch] = React.useState<SchoolOption | null>(null);
   const [announcement, setAnnouncement] = React.useState('');
 
-  const token = getAccessToken();
   const memberships: SchoolOption[] = token ? decodeAccessTokenMemberships(token) : [];
   const active = memberships.find((m) => m.tenantId === activeTenantId);
 
@@ -76,19 +79,23 @@ export function TenantBar() {
   // — never render a half-correct chip.
   if (!active) return null;
 
+  // A stale token from before `JwtMembership.name` existed (or issued just
+  // before a rename propagated) can still be valid for up to its remaining
+  // lifetime — fall back rather than render blank text.
+  const unnamedSchool = t('tenantBar.unnamedSchool');
+  const activeName = active.name ?? unnamedSchool;
   const others = memberships.filter((m) => m.tenantId !== activeTenantId);
 
   function confirmSwitch(): void {
     if (!pendingSwitch) return;
     switchActiveTenant(queryClient, pendingSwitch.tenantId, pendingSwitch.role);
-    setActiveTenantId(pendingSwitch.tenantId);
-    setAnnouncement(t('tenantBar.switched', { name: pendingSwitch.name }));
+    setAnnouncement(t('tenantBar.switched', { name: pendingSwitch.name ?? unnamedSchool }));
     setPendingSwitch(null);
   }
 
   return (
     <div className="flex items-center gap-3 border-b border-border px-4 py-2 text-sm">
-      <span className="font-semibold text-foreground">{active.name}</span>
+      <span className="font-semibold text-foreground">{activeName}</span>
       {memberships.length > 1 && (
         <>
           <span className="text-muted-foreground">{humanizeRole(active.role)}</span>
@@ -102,7 +109,7 @@ export function TenantBar() {
               <MenuLabel>{t('tenantBar.switchSchool')}</MenuLabel>
               {others.map((school) => (
                 <MenuItem key={school.tenantId} onSelect={() => setPendingSwitch(school)}>
-                  {school.name}
+                  {school.name ?? unnamedSchool}
                 </MenuItem>
               ))}
             </MenuContent>
@@ -119,10 +126,10 @@ export function TenantBar() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {t('tenantBar.confirmTitle', { name: pendingSwitch?.name ?? '' })}
+              {t('tenantBar.confirmTitle', { name: pendingSwitch?.name ?? unnamedSchool })}
             </DialogTitle>
             <DialogDescription>
-              {t('tenantBar.confirmDescription', { current: active.name })}
+              {t('tenantBar.confirmDescription', { current: activeName })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
