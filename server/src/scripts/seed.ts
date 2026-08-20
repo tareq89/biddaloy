@@ -85,6 +85,10 @@ export async function seed() {
     });
     await userTenantRepository.save(membership);
     console.log(`  Role: ${membership.role} at ${school.name}`);
+  } else if (existingMembership.role !== UserRole.SUPER_ADMIN) {
+    existingMembership.role = UserRole.SUPER_ADMIN;
+    await userTenantRepository.save(existingMembership);
+    console.log(`  Role: reconciled to ${UserRole.SUPER_ADMIN} at ${school.name}`);
   }
 
   await ensureSecondSchoolMembership(schoolRepository, userTenantRepository, admin.id);

@@ -155,9 +155,16 @@ describe('ensureRoleTestUsers', () => {
     const userRepository = mockRepo<User>();
     const userTenantRepository = mockRepo<UserTenant>();
     const existingUser = { id: 'user-1', deleted_at: null } as User;
-    const existingMembership = { user_id: 'user-1', tenant_id: 'school-1' } as UserTenant;
     vi.mocked(userRepository.findOne).mockResolvedValue(existingUser);
-    vi.mocked(userTenantRepository.findOne).mockResolvedValue(existingMembership);
+    // Membership already holds the configured role for whichever
+    // ROLE_TEST_USERS entry is currently being processed, so nothing
+    // needs to change — a role mismatch is covered separately below.
+    let findOneCallCount = 0;
+    vi.mocked(userTenantRepository.findOne).mockImplementation(() => {
+      const role = ROLE_TEST_USERS[findOneCallCount]!.role;
+      findOneCallCount += 1;
+      return Promise.resolve({ user_id: 'user-1', tenant_id: 'school-1', role });
+    });
 
     await ensureRoleTestUsers(userRepository, userTenantRepository, 'school-1', 'hashed-pw');
 
@@ -196,5 +203,35 @@ describe('ensureRoleTestUsers', () => {
       status: UserStatus.ACTIVE,
       deleted_at: null,
     });
+  });
+
+  it('reconciles an existing membership whose role no longer matches the configured seed role', async () => {
+    const userRepository = mockRepo<User>();
+    const userTenantRepository = mockRepo<UserTenant>();
+    vi.mocked(userRepository.findOne).mockResolvedValue({ id: 'user-1', deleted_at: null } as User);
+
+    // A stale role from before ROLE_TEST_USERS was reconfigured, or a role
+    // an operator manually changed in the DB — the seed should still
+    // report the configured role as the source of truth on every run. Each
+    // entry gets the *next* entry's role (guaranteed to differ, since all
+    // six roles in ROLE_TEST_USERS are distinct), rather than one shared
+    // mutable object whose "wrongness" would depend on save() mutating it
+    // in place between loop iterations.
+    let findOneCallCount = 0;
+    vi.mocked(userTenantRepository.findOne).mockImplementation(() => {
+      const wrongRole = ROLE_TEST_USERS[(findOneCallCount + 1) % ROLE_TEST_USERS.length]!.role;
+      findOneCallCount += 1;
+      return Promise.resolve({ user_id: 'user-1', tenant_id: 'school-1', role: wrongRole });
+    });
+
+    await ensureRoleTestUsers(userRepository, userTenantRepository, 'school-1', 'hashed-pw');
+
+    expect(userTenantRepository.create).not.toHaveBeenCalled();
+    expect(userTenantRepository.save).toHaveBeenCalledTimes(ROLE_TEST_USERS.length);
+    for (const [index, { role }] of ROLE_TEST_USERS.entries()) {
+      expect(vi.mocked(userTenantRepository.save).mock.calls[index]?.[0]).toMatchObject({
+        role,
+      });
+    }
   });
 });

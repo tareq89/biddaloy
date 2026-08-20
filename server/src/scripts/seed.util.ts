@@ -108,6 +108,10 @@ export async function ensureRoleTestUsers(
       });
       await userTenantRepository.save(membership);
       console.log(`  Role: ${role} at school ${schoolId}`);
+    } else if (existingMembership.role !== role) {
+      existingMembership.role = role;
+      await userTenantRepository.save(existingMembership);
+      console.log(`  Role: reconciled to ${role} at school ${schoolId}`);
     }
   }
 }
