@@ -2239,6 +2239,11 @@
   resolved "https://registry.yarnpkg.com/@rolldown/pluginutils/-/pluginutils-1.0.0-beta.27.tgz#47d2bf4cef6d470b22f5831b420f8964e0bf755f"
   integrity sha512-+d0F4MKMCbeVUJwG96uQ4SgAznZNSq93I3V+9NHA4OpvqG8mRCpGdKmK8l/dl02h2CCDHwW2FqilnTyDcAnqjA==
 
+"@rolldown/pluginutils@^1.0.1":
+  version "1.0.1"
+  resolved "https://registry.yarnpkg.com/@rolldown/pluginutils/-/pluginutils-1.0.1.tgz#e3fcee093fbb5ce765e1ad088ff4de2889f6f9be"
+  integrity sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==
+
 "@rollup/pluginutils@^5.0.2", "@rollup/pluginutils@^5.3.0":
   version "5.4.0"
   resolved "https://registry.yarnpkg.com/@rollup/pluginutils/-/pluginutils-5.4.0.tgz#ac23a29ced0247060a210815fca39c17de4d2f26"
@@ -3538,6 +3543,13 @@
     "@rolldown/pluginutils" "1.0.0-beta.27"
     "@types/babel__core" "^7.20.5"
     react-refresh "^0.17.0"
+
+"@vitejs/plugin-react@^6":
+  version "6.0.5"
+  resolved "https://registry.yarnpkg.com/@vitejs/plugin-react/-/plugin-react-6.0.5.tgz#48ee7951093ff9054952cff9d64e874355cde372"
+  integrity sha512-BOVzne/NL162sMdResB25mUv+vWMF5NoAjNf09TeGlE7ZpszZWSD3winycicLJw72yeVsoCn/2kOhEuCvEShMA==
+  dependencies:
+    "@rolldown/pluginutils" "^1.0.1"
 
 "@vitest/coverage-v8@3.2.7":
   version "3.2.7"
