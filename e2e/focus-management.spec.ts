@@ -84,5 +84,9 @@ test.describe('focus management, skip link, and route announcements', () => {
     await expect(heading).toBeFocused();
     await expect(page).toHaveTitle('শিক্ষার্থী · বিদ্যালয়');
     await expect(page.locator('body')).not.toBeFocused();
+    // The RouteAnnouncer's aria-live region — the other half of what a
+    // screen-reader visitor actually gets on a route change, not just
+    // where visual/programmatic focus lands.
+    await expect(page.locator('[aria-live="polite"]')).toHaveText('শিক্ষার্থী');
   });
 });
