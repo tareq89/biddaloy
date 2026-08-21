@@ -8,9 +8,9 @@ import {
 } from './refresh-token-cleanup.constants';
 
 /**
- * Registers the repeatable cleanup job on boot. BullMQ dedupes a repeatable
- * job by its jobId + repeat options, so calling add() again on every
- * restart is idempotent rather than piling up duplicate schedules.
+ * Registers the repeatable cleanup job on boot via BullMQ's Job Scheduler
+ * API. upsertJobScheduler dedupes by schedulerId, so calling it again on
+ * every restart is idempotent rather than piling up duplicate schedules.
  */
 @Injectable()
 export class RefreshTokenCleanupScheduler implements OnModuleInit {
@@ -19,18 +19,18 @@ export class RefreshTokenCleanupScheduler implements OnModuleInit {
   constructor(@InjectQueue(REFRESH_TOKEN_CLEANUP_QUEUE) private readonly queue: Queue) {}
 
   async onModuleInit(): Promise<void> {
-    await this.queue.add(
+    await this.queue.upsertJobScheduler(
       REFRESH_TOKEN_CLEANUP_JOB_ID,
-      {},
+      { every: REFRESH_TOKEN_CLEANUP_INTERVAL_MS },
       {
-        jobId: REFRESH_TOKEN_CLEANUP_JOB_ID,
-        repeat: { every: REFRESH_TOKEN_CLEANUP_INTERVAL_MS },
-        // BullMQ keeps finished jobs by default, so an hourly job would
-        // otherwise accumulate Redis state forever. No need to inspect a
-        // completed cleanup run; failed ones are worth a bounded amount of
-        // history to diagnose.
-        removeOnComplete: true,
-        removeOnFail: 100,
+        opts: {
+          // BullMQ keeps finished jobs by default, so an hourly job would
+          // otherwise accumulate Redis state forever. No need to inspect a
+          // completed cleanup run; failed ones are worth a bounded amount of
+          // history to diagnose.
+          removeOnComplete: true,
+          removeOnFail: 100,
+        },
       },
     );
     this.logger.log(`Scheduled refresh token cleanup every ${REFRESH_TOKEN_CLEANUP_INTERVAL_MS}ms`);
