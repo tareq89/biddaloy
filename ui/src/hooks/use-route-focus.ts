@@ -28,21 +28,30 @@
  * across versions or build modes — it's watching the actual rendered
  * page, which is the one thing guaranteed to reflect the real route.
  *
- * On every observed `<h1>`-text change (deduped against the last text
- * seen, since most DOM mutations under `document.body` have nothing to
- * do with a route change):
+ * Every `MutationObserver` callback (most of which have nothing to do
+ * with a route change — a query refetching, a toast appearing) does two
+ * *independently* deduped things:
  * - `document.title` is set from the new route's own `<h1>` — searched
  *   inside the `mainId` landmark first, falling back to the whole
  *   `document` for the two chrome-free routes ([8.9.4]'s `/login`,
  *   [8.9.5]'s `/select-school`) that render outside `AppShell` and so
  *   have no `mainId` element at all, but do carry their own top-level
- *   `<h1>` (`SignInForm`/`SchoolPicker`'s own heading).
+ *   `<h1>` (`SignInForm`/`SchoolPicker`'s own heading). Deduped against
+ *   the last *heading text* seen, so this also catches a same-route
+ *   content update (a detail page's `<h1>` resolving from a loading
+ *   placeholder to the loaded entity's name).
  * - Focus moves to that `<h1>` (or, if none exists, to the `mainId`
- *   landmark itself) — except on the very first observed heading, where
- *   the browser's own default focus (address bar) is left alone;
- *   grabbing focus on cold load isn't a "route change" and would be
- *   surprising to a keyboard/AT visitor who didn't trigger a navigation.
- * - The same text is handed back for a `RouteAnnouncer` to announce.
+ *   landmark itself), and the same text is handed back for a
+ *   `RouteAnnouncer` to announce — but only on an actual *route* change,
+ *   deduped against the last **pathname** seen, not heading text: two
+ *   different routes that happen to render the same `<h1>` text are
+ *   still a real navigation, and a same-route heading update (the case
+ *   above) is deliberately *not* one, since yanking focus back to the
+ *   heading every time a background query resolves would be its own
+ *   surprise. Skipped entirely on the very first observed heading (cold
+ *   load), too — grabbing focus there wasn't a "route change" either,
+ *   and would be surprising to a keyboard/AT visitor who didn't trigger
+ *   a navigation.
  *
  * Returning **from** a route restores focus to a "sensible anchor"
  * rather than the new page's heading, if one was recorded — any element
@@ -83,12 +92,21 @@ export interface UseRouteFocusOptions {
 export function useRouteFocus({ mainId, appName }: UseRouteFocusOptions): string | null {
   const router = useRouter();
   const [announcement, setAnnouncement] = React.useState<string | null>(null);
-  // The `<h1>` text last actually processed — `undefined` means "nothing
-  // seen yet" (the cold-load case). Compared by value, not a one-shot
-  // boolean flag, so a `MutationObserver` callback firing more than once
-  // for what's genuinely the same heading (e.g. an unrelated re-render
-  // touching the DOM) is a no-op rather than a spurious focus steal.
+  // The `<h1>` text last actually processed — used only to avoid a
+  // redundant `document.title` write on a `MutationObserver` callback
+  // that fired for something other than a heading change.
   const lastHeadingTextRef = React.useRef<string | null | undefined>(undefined);
+  // The pathname last actually processed — `undefined` means "nothing
+  // seen yet" (the cold-load case). This, not `lastHeadingTextRef`, is
+  // what decides whether focus should move: two *different* routes that
+  // happen to render the same `<h1>` text are still a real navigation —
+  // deduping on heading text alone would silently skip the focus/
+  // announce step for exactly that case. Pathname only, not the full
+  // location (with search params): a same-route search-param change
+  // (`/students?page=1` → `?page=2`) is in-page state, not a page
+  // change, and stealing focus back to the heading on every "Next page"
+  // click would be its own regression.
+  const lastPathnameRef = React.useRef<string | undefined>(undefined);
   const lastActionTypeRef = React.useRef<string | null>(null);
 
   // `router.history` types as `any` here — `useRouter()`'s generic
@@ -128,21 +146,29 @@ export function useRouteFocus({ mainId, appName }: UseRouteFocusOptions): string
 
   React.useEffect(() => {
     function processHeading() {
+      const pathname = router.state.location.pathname;
       const container = document.getElementById(mainId) ?? document;
       const heading = container.querySelector<HTMLElement>('h1');
       const headingText = heading?.textContent ?? null;
 
-      if (headingText === lastHeadingTextRef.current) return;
-      const isColdLoad = lastHeadingTextRef.current === undefined;
-      lastHeadingTextRef.current = headingText;
+      // Keeps `document.title` in sync with whatever's actually
+      // rendered, independent of the route-change check below — a
+      // same-route content update (a detail page's `<h1>` going from a
+      // loading placeholder to the loaded entity's name, say) should
+      // still retitle the tab even though it isn't a page change.
+      if (headingText !== lastHeadingTextRef.current) {
+        lastHeadingTextRef.current = headingText;
+        document.title = headingText ? `${headingText} · ${appName}` : appName;
+      }
 
-      document.title = headingText ? `${headingText} · ${appName}` : appName;
+      const isRouteChange = pathname !== lastPathnameRef.current;
+      const isColdLoad = lastPathnameRef.current === undefined;
+      lastPathnameRef.current = pathname;
 
-      if (isColdLoad) return;
+      if (!isRouteChange || isColdLoad) return;
 
       setAnnouncement(headingText);
 
-      const pathname = router.state.location.pathname;
       const isReturning =
         lastActionTypeRef.current === 'BACK' || lastActionTypeRef.current === 'FORWARD';
       const anchorId = isReturning ? focusAnchorMemory.get(pathname) : undefined;
