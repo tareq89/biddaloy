@@ -3,7 +3,20 @@
  * `client-admin`'s `__root.tsx` so it stays package-agnostic (client-
  * student gets the same behaviour for free once it wires this in too).
  *
- * On every route change:
+ * Triggered by the router's own `onRendered` event, not a `useEffect` on
+ * `useRouterState`'s `location`/`resolvedLocation` — TanStack Router
+ * commits a route change via `React.startTransition` (see `load-
+ * client.js`'s `commit` in `@tanstack/router-core`), and only emits
+ * `onRendered` *after* that commit actually lands, in a plain callback
+ * outside React's render cycle. A `useEffect` keyed on router state can
+ * fire a tick before the transition commits — reading a stale `<h1>`
+ * that never gets corrected, since the dependency it's watching won't
+ * change again for that navigation. `onRendered` is the exact mechanism
+ * this package's own `scroll-restoration.js` uses internally for the
+ * equivalent problem (restoring scroll position only once the new
+ * route's DOM is real) — this hook does the same thing for focus.
+ *
+ * On every route render:
  * - `document.title` is set from the new route's own `<h1>` — searched
  *   inside the `mainId` landmark first, falling back to the whole
  *   `document` for the two chrome-free routes ([8.9.4]'s `/login`,
@@ -28,7 +41,7 @@
  * needing bespoke wiring — opting in is exactly one `data-focus-anchor`
  * attribute (see `client-admin`'s `students/index.tsx` row `<Link>`s).
  */
-import { type RouterHistory, useRouter, useRouterState } from '@tanstack/react-router';
+import { type RouterHistory, useRouter } from '@tanstack/react-router';
 import * as React from 'react';
 
 /** Module-level, not component state — this must outlive the component
@@ -54,38 +67,32 @@ export interface UseRouteFocusOptions {
 /** The current route's announced text for a `RouteAnnouncer` — `null`
  * before the first real route change (see the module doc above). */
 export function useRouteFocus({ mainId, appName }: UseRouteFocusOptions): string | null {
-  // `resolvedLocation`, not `location`: the router updates `location`
-  // (the URL) the moment a navigation starts, but `resolvedLocation`
-  // only once matching finishes and the new route's component is what's
-  // actually committed to the DOM — reacting to `location` here would
-  // run this effect a tick early, while `Outlet` still renders the
-  // *previous* route's `<h1>`, and (since the dependency wouldn't change
-  // again) never correct itself.
-  const pathname = useRouterState({
-    select: (state) => state.resolvedLocation?.pathname ?? state.location.pathname,
-  });
   const router = useRouter();
   const [announcement, setAnnouncement] = React.useState<string | null>(null);
-  const isFirstRender = React.useRef(true);
-  const pathnameRef = React.useRef(pathname);
+  // The pathname `processRoute` last actually handled — `undefined`
+  // means "nothing processed yet" (the cold-load case). Deduping on the
+  // *value*, not a one-shot boolean, matters because `onRendered` isn't
+  // guaranteed to fire exactly once relative to this effect's own
+  // subscribing: the initial route's own event can land either before
+  // subscribing (missed, needs the manual `processRoute()` call below)
+  // or after (caught twice for the same pathname) — a boolean flag would
+  // treat that second, duplicate call as a "real" navigation and steal
+  // focus onto a route that was actually the first paint.
+  const lastProcessedPathnameRef = React.useRef<string | undefined>(undefined);
+  const pathnameRef = React.useRef(router.state.location.pathname);
   const lastActionTypeRef = React.useRef<string | null>(null);
+  const mainIdRef = React.useRef(mainId);
+  const appNameRef = React.useRef(appName);
+  mainIdRef.current = mainId;
+  appNameRef.current = appName;
 
-  React.useEffect(() => {
-    pathnameRef.current = pathname;
-  }, [pathname]);
-
-  React.useEffect(() => {
-    // `router.history` types as `any` here — `useRouter()`'s generic
-    // defaults to `RegisteredRouter`, which only resolves to this app's
-    // concrete router via a module augmentation declared in
-    // `client-admin/src/main.tsx`, not visible from inside `ui`'s own
-    // type-checking — cast to the real `RouterHistory` (`@tanstack/
-    // react-router`) rather than let `no-unsafe-*` pass silently on `any`.
-    const history = router.history as RouterHistory;
-    return history.subscribe(({ action }) => {
-      lastActionTypeRef.current = action.type;
-    });
-  }, [router]);
+  // `router.history`/`router.subscribe` type as `any` here — `useRouter()`'s
+  // generic defaults to `RegisteredRouter`, which only resolves to this
+  // app's concrete router via a module augmentation declared in
+  // `client-admin/src/main.tsx`, not visible from inside `ui`'s own
+  // type-checking — cast to the real `RouterHistory` (`@tanstack/react-
+  // router`) rather than let `no-unsafe-*` pass silently on `any`.
+  const history = router.history as RouterHistory;
 
   // Capture phase, not `focusin`: Safari doesn't move focus to a clicked
   // `<a>` on its own, but every browser fires `click` before the
@@ -105,41 +112,65 @@ export function useRouteFocus({ mainId, appName }: UseRouteFocusOptions): string
   }, []);
 
   React.useEffect(() => {
-    const container = document.getElementById(mainId) ?? document;
-    const heading = container.querySelector<HTMLElement>('h1');
+    return history.subscribe(({ action }) => {
+      lastActionTypeRef.current = action.type;
+    });
+  }, [history]);
 
-    document.title = heading?.textContent ? `${heading.textContent} · ${appName}` : appName;
+  React.useEffect(() => {
+    function processRoute() {
+      const pathname = router.state.location.pathname;
+      pathnameRef.current = pathname;
 
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
+      const container = document.getElementById(mainIdRef.current) ?? document;
+      const heading = container.querySelector<HTMLElement>('h1');
+
+      document.title = heading?.textContent
+        ? `${heading.textContent} · ${appNameRef.current}`
+        : appNameRef.current;
+
+      const isColdLoadOrDuplicate =
+        lastProcessedPathnameRef.current === undefined ||
+        pathname === lastProcessedPathnameRef.current;
+      lastProcessedPathnameRef.current = pathname;
+      if (isColdLoadOrDuplicate) {
+        return;
+      }
+
+      setAnnouncement(heading?.textContent ?? null);
+
+      const isReturning =
+        lastActionTypeRef.current === 'BACK' || lastActionTypeRef.current === 'FORWARD';
+      const anchorId = isReturning ? focusAnchorMemory.get(pathname) : undefined;
+      const anchor = anchorId
+        ? document.querySelector<HTMLElement>(`[data-focus-anchor="${cssEscape(anchorId)}"]`)
+        : null;
+
+      if (anchor) {
+        anchor.focus();
+        return;
+      }
+
+      if (heading) {
+        heading.setAttribute('tabindex', '-1');
+        heading.focus();
+        return;
+      }
+
+      if (container instanceof HTMLElement) {
+        container.setAttribute('tabindex', '-1');
+        container.focus();
+      }
     }
 
-    setAnnouncement(heading?.textContent ?? null);
+    // The current route's own `onRendered` already fired before this
+    // effect subscribes (subscribing only happens post-mount) — this
+    // covers that first route explicitly, `isFirstRunRef` skipping its
+    // focus/announce step per the module doc above.
+    processRoute();
 
-    const isReturning =
-      lastActionTypeRef.current === 'BACK' || lastActionTypeRef.current === 'FORWARD';
-    const anchorId = isReturning ? focusAnchorMemory.get(pathname) : undefined;
-    const anchor = anchorId
-      ? document.querySelector<HTMLElement>(`[data-focus-anchor="${cssEscape(anchorId)}"]`)
-      : null;
-
-    if (anchor) {
-      anchor.focus();
-      return;
-    }
-
-    if (heading) {
-      heading.setAttribute('tabindex', '-1');
-      heading.focus();
-      return;
-    }
-
-    if (container instanceof HTMLElement) {
-      container.setAttribute('tabindex', '-1');
-      container.focus();
-    }
-  }, [pathname, mainId, appName]);
+    return router.subscribe('onRendered', processRoute);
+  }, [router]);
 
   return announcement;
 }

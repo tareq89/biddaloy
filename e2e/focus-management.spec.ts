@@ -42,8 +42,13 @@ test.describe('focus management, skip link, and route announcements', () => {
   }) => {
     // A fresh navigation, not a continuation of the login form's own tab
     // order — this is what "first Tab stop on the page" actually means.
+    // A generous timeout: unlike the SPA navigation the other test
+    // exercises, a hard reload re-runs `ensureSessionLoaded()`'s cold-boot
+    // silent-refresh network round trip before anything renders.
     await page.goto(shells.admin.baseURL);
-    await expect(page.getByRole('heading', { name: 'ড্যাশবোর্ড' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'ড্যাশবোর্ড' })).toBeVisible({
+      timeout: 15_000,
+    });
 
     await page.keyboard.press('Tab');
     const skipLink = page.getByRole('link', { name: 'মূল বিষয়বস্তুতে যান' });
