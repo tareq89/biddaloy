@@ -86,7 +86,10 @@ test.describe('focus management, skip link, and route announcements', () => {
     await expect(page.locator('body')).not.toBeFocused();
     // The RouteAnnouncer's aria-live region — the other half of what a
     // screen-reader visitor actually gets on a route change, not just
-    // where visual/programmatic focus lands.
-    await expect(page.locator('[aria-live="polite"]')).toHaveText('শিক্ষার্থী');
+    // where visual/programmatic focus lands. `data-slot`, not the bare
+    // `[aria-live="polite"]` attribute: a loading `Button`'s own live
+    // region and a toast library's notification region both match that
+    // too on a real page.
+    await expect(page.locator('[data-slot="route-announcer"]')).toHaveText('শিক্ষার্থী');
   });
 });

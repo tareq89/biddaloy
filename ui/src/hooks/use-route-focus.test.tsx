@@ -85,7 +85,7 @@ describe('useRouteFocus', () => {
     await waitFor(() => expect(document.title).toBe('Detail · TestApp'));
     const heading = await screen.findByRole('heading', { name: 'Detail' });
     await waitFor(() => expect(document.activeElement).toBe(heading));
-    expect(container.querySelector('[aria-live="polite"]')?.textContent).toBe('Detail');
+    expect(container.querySelector('[data-slot="route-announcer"]')?.textContent).toBe('Detail');
   });
 
   it('falls back to focusing the main landmark when the new route has no <h1>', async () => {
