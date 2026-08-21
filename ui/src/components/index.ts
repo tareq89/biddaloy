@@ -40,6 +40,8 @@ export {
   type RadioGroupProps,
   type RadioGroupItemProps,
 } from './radio';
+export { SchoolPicker, type SchoolPickerOption, type SchoolPickerProps } from './school-picker';
+export { TenantBar } from './tenant-bar';
 export {
   Select,
   SelectContent,
@@ -123,7 +125,12 @@ export { Toaster, toast } from './toast';
 export { Skeleton } from './skeleton';
 export { Pagination, type PaginationProps } from './pagination';
 export { LocaleSwitcher, type LocaleSwitcherProps } from './locale-switcher';
-export { AppShell, type AppShellProps, type AppShellNavItem } from './app-shell';
+export {
+  AppShell,
+  type AppShellProps,
+  type AppShellNavItem,
+  type AppShellNavGroup,
+} from './app-shell';
 export {
   SignInForm,
   type SignInCredentials,

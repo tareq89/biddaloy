@@ -6,6 +6,7 @@ import { UserTenant } from '../modules/auth/entities/user-tenant.entity';
 import { UserRole, UserStatus } from '@biddaloy/shared';
 import * as bcrypt from 'bcrypt';
 import { DataSource } from 'typeorm';
+import { ensureRoleTestUsers, ensureSecondSchoolMembership } from './seed.util';
 
 export async function seed() {
   const app = await NestFactory.createApplicationContext(AppModule);
@@ -17,50 +18,10 @@ export async function seed() {
 
   const adminEmail = 'admin@school.com';
 
-  // Check if the designated seed admin already exists (including soft-deleted)
-  const existing = await userRepository.findOne({
-    where: { email: adminEmail },
-    withDeleted: true,
-  });
-
-  if (existing) {
-    if (existing.deleted_at) {
-      // Restore soft-deleted admin with fresh credentials
-      const adminPassword = process.env.SEED_ADMIN_PASSWORD;
-      if (!adminPassword || adminPassword.length === 0) {
-        console.error(
-          'SEED_ADMIN_PASSWORD environment variable is required to restore the seed admin account.',
-        );
-        process.exit(1);
-      }
-
-      const passwordHash = await bcrypt.hash(adminPassword, 10);
-      existing.password_hash = passwordHash;
-      existing.status = UserStatus.ACTIVE;
-      existing.deleted_at = null;
-
-      await userRepository.save(existing);
-      console.log('Restored soft-deleted SUPER_ADMIN account with fresh credentials.');
-
-      // Ensure a default school exists
-      const school = await schoolRepository.findOne({ where: { slug: 'default-school' } });
-      if (!school) {
-        const newSchool = schoolRepository.create({
-          name: 'Default School',
-          slug: 'default-school',
-        });
-        await schoolRepository.save(newSchool);
-        console.log(`Created default school (${newSchool.id}).`);
-      }
-
-      await app.close();
-      return;
-    }
-    console.log('SUPER_ADMIN user already exists, skipping seed.');
-    await app.close();
-    return;
-  }
-
+  // Required unconditionally now, not just when creating/restoring the
+  // SUPER_ADMIN — `ensureRoleTestUsers` below needs it too, on every run:
+  // a re-run against an already-seeded dev DB may still be the first run
+  // to add the six [8.9.6] role-test accounts.
   const adminPassword = process.env.SEED_ADMIN_PASSWORD;
   if (!adminPassword || adminPassword.length === 0) {
     console.error(
@@ -68,41 +29,74 @@ export async function seed() {
     );
     process.exit(1);
   }
-
   const passwordHash = await bcrypt.hash(adminPassword, 10);
 
-  // Create the admin user
-  const admin = userRepository.create({
-    email: 'admin@school.com',
-    phone: '01700000000',
-    password_hash: passwordHash,
-    status: UserStatus.ACTIVE,
-    full_name: 'System Administrator',
-  });
-
-  await userRepository.save(admin);
-  console.log('SUPER_ADMIN user created:');
-  console.log('  Email: admin@school.com');
-
-  // Create a default school
+  // Ensure the default school exists — every account below is a member of it.
   let school = await schoolRepository.findOne({ where: { slug: 'default-school' } });
   if (!school) {
-    school = schoolRepository.create({
-      name: 'Default School',
-      slug: 'default-school',
-    });
+    school = schoolRepository.create({ name: 'Default School', slug: 'default-school' });
     await schoolRepository.save(school);
-    console.log(`  School: ${school.name} (${school.id})`);
+    console.log(`Created default school (${school.id}).`);
   }
 
-  // Create the user-tenant membership
-  const membership = userTenantRepository.create({
-    user_id: admin.id,
-    tenant_id: school.id,
-    role: UserRole.SUPER_ADMIN,
+  // Check if the designated seed admin already exists (including soft-deleted)
+  const existing = await userRepository.findOne({
+    where: { email: adminEmail },
+    withDeleted: true,
   });
-  await userTenantRepository.save(membership);
-  console.log(`  Role: ${membership.role} at ${school.name}`);
+
+  let admin: User;
+  if (existing) {
+    if (existing.deleted_at) {
+      existing.password_hash = passwordHash;
+      existing.status = UserStatus.ACTIVE;
+      existing.deleted_at = null;
+      await userRepository.save(existing);
+      console.log('Restored soft-deleted SUPER_ADMIN account with fresh credentials.');
+    } else {
+      console.log('SUPER_ADMIN user already exists, skipping creation.');
+    }
+    admin = existing;
+  } else {
+    admin = userRepository.create({
+      email: adminEmail,
+      phone: '01700000000',
+      password_hash: passwordHash,
+      status: UserStatus.ACTIVE,
+      full_name: 'System Administrator',
+    });
+    await userRepository.save(admin);
+    console.log('SUPER_ADMIN user created:');
+    console.log(`  Email: ${adminEmail}`);
+  }
+
+  // Create the SUPER_ADMIN's membership at the default school, if missing —
+  // idempotent the same way the block above is, so a partially-seeded DB
+  // (e.g. the admin row survived but its membership was manually deleted)
+  // self-heals on the next run instead of erroring.
+  const existingMembership = await userTenantRepository.findOne({
+    where: { user_id: admin.id, tenant_id: school.id },
+  });
+  if (!existingMembership) {
+    const membership = userTenantRepository.create({
+      user_id: admin.id,
+      tenant_id: school.id,
+      role: UserRole.SUPER_ADMIN,
+    });
+    await userTenantRepository.save(membership);
+    console.log(`  Role: ${membership.role} at ${school.name}`);
+  } else if (existingMembership.role !== UserRole.SUPER_ADMIN) {
+    existingMembership.role = UserRole.SUPER_ADMIN;
+    await userTenantRepository.save(existingMembership);
+    console.log(`  Role: reconciled to ${UserRole.SUPER_ADMIN} at ${school.name}`);
+  }
+
+  await ensureSecondSchoolMembership(schoolRepository, userTenantRepository, admin.id);
+
+  // [8.9.6]: one account per remaining role, all at the default school —
+  // see `seed.util.ts`'s own comment on why this is the manual-testing
+  // path for role-gated nav specifically.
+  await ensureRoleTestUsers(userRepository, userTenantRepository, school.id, passwordHash);
 
   await app.close();
 }

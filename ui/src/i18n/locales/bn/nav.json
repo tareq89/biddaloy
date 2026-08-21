@@ -1,10 +1,20 @@
 {
   "brand": "বিদ্যালয়",
+  "openMenuLabel": "মেনু খুলুন",
+  "closeMenuLabel": "মেনু বন্ধ করুন",
+  "navLabel": "প্রধান",
   "items": {
     "dashboard": "ড্যাশবোর্ড",
     "students": "শিক্ষার্থী",
     "fees": "ফি",
-    "settings": "সেটিংস"
+    "settings": "সেটিংস",
+    "studentDues": "শিক্ষার্থীর বকেয়া",
+    "recordPayment": "পেমেন্ট রেকর্ড করুন"
+  },
+  "groups": {
+    "people": "ব্যক্তিবর্গ",
+    "finance": "অর্থ",
+    "administration": "প্রশাসন"
   },
   "dashboard": {
     "title": "ড্যাশবোর্ড",
@@ -15,5 +25,14 @@
     "title": "পৃষ্ঠা পাওয়া যায়নি",
     "explanation": "এই ঠিকানায় কোনো পৃষ্ঠা নেই।",
     "action": "ড্যাশবোর্ডে ফিরে যান"
+  },
+  "tenantBar": {
+    "switchSchool": "স্কুল পরিবর্তন করুন",
+    "confirmTitle": "{{name}}-এ পরিবর্তন করবেন?",
+    "confirmDescription": "{{current}}-এর বর্তমান দৃশ্য বন্ধ হয়ে যাবে এবং ক্যাশে থাকা সবকিছু মুছে যাবে।",
+    "cancel": "বাতিল",
+    "confirm": "স্কুল পরিবর্তন করুন",
+    "switched": "{{name}}-এ পরিবর্তন করা হয়েছে",
+    "unnamedSchool": "এই স্কুল"
   }
 }

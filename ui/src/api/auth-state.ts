@@ -7,11 +7,32 @@
  * back these setters with a real store without changing this module's
  * public surface.
  */
+import { clearPersistedTenant } from './tenant-storage';
 
 let accessToken: string | null = null;
 let activeTenantId: string | null = null;
 let activeRole: string | null = null;
 let sessionExpiredHandler: (() => void) | null = null;
+
+/** Every setter below calls this after changing state — `ui/src/hooks/
+ * auth-state.ts`'s `useAccessToken`/`useActiveTenant`/`useActiveRole` are
+ * `useSyncExternalStore` subscribers built on it, so a tenant switch, token
+ * refresh, or logout re-renders every component reading one of those hooks,
+ * not just the one that happened to trigger the change. This module stays a
+ * plain state holder either way (see the header comment above) — this is
+ * just a subscription list, not a store. */
+const listeners = new Set<() => void>();
+
+function notifyAuthStateChange(): void {
+  listeners.forEach((listener) => listener());
+}
+
+export function subscribeAuthState(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
 
 /** Bumped by every `clearAuthState()` — logout and a failed reactive
  * refresh alike. `client.ts`'s `postAuthRefresh` captures this before its
@@ -26,6 +47,7 @@ export function currentSessionGeneration(): number {
 
 export function setAccessToken(token: string | null): void {
   accessToken = token;
+  notifyAuthStateChange();
 }
 
 export function getAccessToken(): string | null {
@@ -34,6 +56,7 @@ export function getAccessToken(): string | null {
 
 export function setActiveTenant(tenantId: string | null): void {
   activeTenantId = tenantId;
+  notifyAuthStateChange();
 }
 
 export function getActiveTenant(): string | null {
@@ -42,6 +65,7 @@ export function getActiveTenant(): string | null {
 
 export function setActiveRole(role: string | null): void {
   activeRole = role;
+  notifyAuthStateChange();
 }
 
 export function getActiveRole(): string | null {
@@ -59,6 +83,11 @@ export function clearAuthState(): void {
   activeTenantId = null;
   activeRole = null;
   sessionGeneration += 1;
+  // A different account can log into the same browser afterward — without
+  // this, [8.9.5]'s cold-boot restore could silently pick a tenant the new
+  // user happens to also belong to, one they never actually chose.
+  clearPersistedTenant();
+  notifyAuthStateChange();
 }
 
 /** Called exactly once per failed refresh, regardless of how many concurrent

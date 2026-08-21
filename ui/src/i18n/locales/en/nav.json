@@ -1,10 +1,20 @@
 {
   "brand": "Biddaloy",
+  "openMenuLabel": "Open menu",
+  "closeMenuLabel": "Close menu",
+  "navLabel": "Main",
   "items": {
     "dashboard": "Dashboard",
     "students": "Students",
     "fees": "Fees",
-    "settings": "Settings"
+    "settings": "Settings",
+    "studentDues": "Student Dues",
+    "recordPayment": "Record Payment"
+  },
+  "groups": {
+    "people": "People",
+    "finance": "Finance",
+    "administration": "Administration"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -15,5 +25,14 @@
     "title": "Page not found",
     "explanation": "There is no page at this address.",
     "action": "Back to dashboard"
+  },
+  "tenantBar": {
+    "switchSchool": "Switch school",
+    "confirmTitle": "Switch to {{name}}?",
+    "confirmDescription": "Your current view of {{current}} will close and everything cached will be cleared.",
+    "cancel": "Cancel",
+    "confirm": "Switch school",
+    "switched": "Switched to {{name}}",
+    "unnamedSchool": "this school"
   }
 }
