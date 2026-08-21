@@ -40,15 +40,13 @@ test.describe('focus management, skip link, and route announcements', () => {
   test('the skip link is the first Tab stop and jumps focus to the main content', async ({
     page,
   }) => {
-    // A fresh navigation, not a continuation of the login form's own tab
-    // order — this is what "first Tab stop on the page" actually means.
-    // A generous timeout: unlike the SPA navigation the other test
-    // exercises, a hard reload re-runs `ensureSessionLoaded()`'s cold-boot
-    // silent-refresh network round trip before anything renders.
-    await page.goto(shells.admin.baseURL);
-    await expect(page.getByRole('heading', { name: 'ড্যাশবোর্ড' })).toBeVisible({
-      timeout: 15_000,
-    });
+    // Blurs whatever `beforeEach`'s login flow left focused, rather than
+    // a second `page.goto()` — a hard reload re-triggers a real cold-boot
+    // silent-refresh network round trip, which is its own concern (session
+    // persistence across a real reload), not what this test is about.
+    // "First Tab stop" is a DOM-order property of `AppShell`, provable
+    // from any already-loaded page by starting from `document.body`.
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
 
     await page.keyboard.press('Tab');
     const skipLink = page.getByRole('link', { name: 'মূল বিষয়বস্তুতে যান' });
