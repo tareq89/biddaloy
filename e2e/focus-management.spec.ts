@@ -40,13 +40,29 @@ test.describe('focus management, skip link, and route announcements', () => {
   test('the skip link is the first Tab stop and jumps focus to the main content', async ({
     page,
   }) => {
-    // Blurs whatever `beforeEach`'s login flow left focused, rather than
-    // a second `page.goto()` — a hard reload re-triggers a real cold-boot
-    // silent-refresh network round trip, which is its own concern (session
-    // persistence across a real reload), not what this test is about.
-    // "First Tab stop" is a DOM-order property of `AppShell`, provable
-    // from any already-loaded page by starting from `document.body`.
-    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    // Resets keyboard focus to the very start of the document, rather
+    // than a second `page.goto()` reload — a hard reload re-triggers a
+    // real cold-boot silent-refresh network round trip, which is its own
+    // concern (session persistence across a real reload), not what this
+    // test is about. "First Tab stop" is a DOM-order property of
+    // `AppShell`, provable from any already-loaded page.
+    //
+    // `document.activeElement.blur()` alone is *not* enough here: it
+    // moves `document.activeElement` to `<body>`, but Chrome's Tab-key
+    // sequence cursor keeps tracking the just-blurred element's DOM
+    // position rather than resetting to the top of the document — Tab
+    // then lands on whatever comes after *that* element, not the page's
+    // actual first tab stop (verified manually: after `beforeEach` lands
+    // on the dashboard, `useRouteFocus` has already focused its `<h1>`;
+    // blurring it and pressing Tab landed on the page's action button,
+    // several stops past the skip link). Giving `<body>` a real, if
+    // temporary, `tabindex` and calling `.focus()` on it does reset that
+    // cursor correctly.
+    await page.evaluate(() => {
+      document.body.setAttribute('tabindex', '-1');
+      document.body.focus();
+      document.body.removeAttribute('tabindex');
+    });
 
     await page.keyboard.press('Tab');
     const skipLink = page.getByRole('link', { name: 'মূল বিষয়বস্তুতে যান' });
