@@ -127,10 +127,13 @@ export { Pagination, type PaginationProps } from './pagination';
 export { LocaleSwitcher, type LocaleSwitcherProps } from './locale-switcher';
 export {
   AppShell,
+  APP_SHELL_MAIN_ID,
   type AppShellProps,
   type AppShellNavItem,
   type AppShellNavGroup,
 } from './app-shell';
+export { SkipLink, type SkipLinkProps } from './skip-link';
+export { RouteAnnouncer, type RouteAnnouncerProps } from './route-announcer';
 export {
   SignInForm,
   type SignInCredentials,

@@ -27,7 +27,10 @@ function SettingsRoute() {
   if (!canManageSettings) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center p-8">
-        <p className="text-muted-foreground">{t('accessDenied')}</p>
+        {/* [8.9.7]: `<h1>`, not `<p>` — `useRouteFocus` needs one page-level
+            heading per route, this branch included, to focus after a
+            navigation. Same class, no visual change. */}
+        <h1 className="text-muted-foreground">{t('accessDenied')}</h1>
       </div>
     );
   }

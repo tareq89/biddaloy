@@ -81,6 +81,11 @@ function StudentsListPage() {
             <Link
               to="/students/$studentId"
               params={{ studentId: student.id }}
+              // [8.9.7]: opts this row into `useRouteFocus`'s "restore
+              // focus to a sensible anchor" behaviour — navigating BACK
+              // from this student's detail page refocuses this exact
+              // link, not the list's <h1>.
+              data-focus-anchor={student.id}
               className="text-primary underline"
             >
               {t('list.viewButton', { name: student.full_name })}

@@ -13,9 +13,20 @@ describe('EmptyState', () => {
         action={{ label: 'Create fee structure', onClick: vi.fn() }}
       />,
     );
-    expect(screen.getByText('No fee structures yet')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'No fee structures yet' })).toBeTruthy();
     expect(screen.getByText('Create one to start generating monthly fees.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Create fee structure' })).toBeTruthy();
+  });
+
+  it("renders title as a level-1 heading — [8.9.7]'s useRouteFocus depends on every placeholder route having exactly one <h1>", () => {
+    render(
+      <EmptyState
+        title="No students"
+        explanation="Add a student to get started."
+        action={{ label: 'Add student', onClick: vi.fn() }}
+      />,
+    );
+    expect(screen.getByRole('heading', { level: 1, name: 'No students' })).toBeTruthy();
   });
 
   it('calls the action handler on click', async () => {
