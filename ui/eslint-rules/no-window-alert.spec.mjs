@@ -20,6 +20,16 @@ ruleTester.run('no-window-alert', rule, {
     // other object isn't the global dialog.
     `myObj.alert('x');`,
     `dialog.confirm();`,
+    // A locally shadowed `alert` (a param, a function) is a different
+    // binding entirely — not the browser global.
+    `function alert(message) { return message; } alert('not the global one');`,
+    `function run(alert) { alert('not the global one'); }`,
+    // A locally shadowed `window` — `window.alert(...)` inside it isn't
+    // the real browser API either.
+    `function run(window) { window.alert('not global'); }`,
+    // A dynamic computed key can't be resolved statically — left
+    // unflagged rather than risking a false positive.
+    `const method = 'alert'; window[method]('Saved!');`,
   ],
   invalid: [
     {
@@ -45,6 +55,10 @@ ruleTester.run('no-window-alert', rule, {
     {
       code: `prompt('Name?');`,
       errors: [{ messageId: 'noWindowAlert', data: { callee: 'prompt' } }],
+    },
+    {
+      code: `window['alert']('Saved!');`,
+      errors: [{ messageId: 'noWindowAlert', data: { callee: 'window.alert' } }],
     },
   ],
 });

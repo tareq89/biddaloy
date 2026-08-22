@@ -8,6 +8,34 @@
 // blocking-native-dialog anti-pattern either way.
 const BANNED_NAMES = new Set(['alert', 'confirm', 'prompt']);
 
+// A local binding (a param, a variable, a function) named `alert`/`window`/
+// etc. shadows the browser global — `context.sourceCode.getScope(node)`
+// plus a walk up the scope chain finds whether `name` resolves to such a
+// binding. A resolved `Variable` with no `defs` is an implicit/env global
+// (i.e. the real browser API, never user-declared), so only a variable
+// with at least one `def` counts as shadowing.
+function isShadowed(context, node, name) {
+  let scope = context.sourceCode.getScope(node);
+  while (scope) {
+    const variable = scope.variables.find((candidate) => candidate.name === name);
+    if (variable) return variable.defs.length > 0;
+    scope = scope.upper;
+  }
+  return false;
+}
+
+// Dot access (`window.alert`) and static computed access (`window['alert']`)
+// both resolve to a fixed property name; a dynamic computed key
+// (`window[name]`) can't be resolved statically and is intentionally left
+// unflagged rather than risk a false positive.
+function getStaticPropertyName(memberExpression) {
+  const { property, computed } = memberExpression;
+  if (!computed) {
+    return property.type === 'Identifier' ? property.name : null;
+  }
+  return property.type === 'Literal' && typeof property.value === 'string' ? property.value : null;
+}
+
 const noWindowAlert = {
   meta: {
     type: 'problem',
@@ -26,26 +54,33 @@ const noWindowAlert = {
       CallExpression(node) {
         const { callee } = node;
 
-        // Bare `alert(...)`/`confirm(...)`/`prompt(...)`.
-        if (callee.type === 'Identifier' && BANNED_NAMES.has(callee.name)) {
+        // Bare `alert(...)`/`confirm(...)`/`prompt(...)` — but not a
+        // locally shadowed same-named function/variable/param.
+        if (
+          callee.type === 'Identifier' &&
+          BANNED_NAMES.has(callee.name) &&
+          !isShadowed(context, callee, callee.name)
+        ) {
           context.report({ node, messageId: 'noWindowAlert', data: { callee: callee.name } });
           return;
         }
 
-        // `window.alert(...)`/`window.confirm(...)`/`window.prompt(...)`.
+        // `window.alert(...)`/`window['alert'](...)` etc. — but not a
+        // locally shadowed `window` (e.g. a same-named param).
         if (
           callee.type === 'MemberExpression' &&
-          !callee.computed &&
           callee.object.type === 'Identifier' &&
           callee.object.name === 'window' &&
-          callee.property.type === 'Identifier' &&
-          BANNED_NAMES.has(callee.property.name)
+          !isShadowed(context, callee.object, 'window')
         ) {
-          context.report({
-            node,
-            messageId: 'noWindowAlert',
-            data: { callee: `window.${callee.property.name}` },
-          });
+          const propertyName = getStaticPropertyName(callee);
+          if (propertyName && BANNED_NAMES.has(propertyName)) {
+            context.report({
+              node,
+              messageId: 'noWindowAlert',
+              data: { callee: `window.${propertyName}` },
+            });
+          }
         }
       },
     };
