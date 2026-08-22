@@ -46,17 +46,19 @@
     "buttonLabel": "Search (Ctrl+K)",
     "ariaLabel": "Search everything",
     "title": "Search",
-    "placeholder": "Search students, guardians, teachers, invoices…",
-    "description": "Search across students, guardians, teachers, and invoices. Use the arrow keys to move between results and Enter to open one.",
-    "searchableHint": "Search by student name, roll number, guardian, teacher, or invoice number.",
-    "noResults": "No matches for \"{{query}}\". Try a name, roll number, or invoice number.",
+    "placeholder": "Search students, guardians, teachers, invoices, receipts…",
+    "description": "Search across students, guardians, teachers, invoices, and receipts. Use the arrow keys to move between results and Enter to open one.",
+    "searchableHint": "Search by student name, roll number, guardian, teacher, invoice number, or receipt reference.",
+    "noResults": "No matches for \"{{query}}\". Try a name, roll number, invoice number, or receipt reference.",
     "resultCount": "{{count}} result",
     "resultCountPlural": "{{count}} results",
+    "receiptFallbackLabel": "Receipt for ৳{{amount}}",
     "groups": {
       "students": "Students",
       "guardians": "Guardians",
       "teachers": "Teachers",
-      "invoices": "Invoices"
+      "invoices": "Invoices",
+      "receipts": "Receipts"
     }
   }
 }

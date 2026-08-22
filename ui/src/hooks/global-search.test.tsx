@@ -19,6 +19,7 @@ describe('useGlobalSearch', () => {
     expect(result.current.guardians.data).toEqual([]);
     expect(result.current.teachers.data).toEqual([]);
     expect(result.current.invoices.data).toEqual([]);
+    expect(result.current.receipts.data).toEqual([]);
 
     // Nothing above is async (every group is `enabled: false`), but
     // `useHasPermission`'s `useSyncExternalStore` subscription still
@@ -28,7 +29,7 @@ describe('useGlobalSearch', () => {
     await waitFor(() => expect(result.current.students.isLoading).toBe(false));
   });
 
-  it('composes students, guardians, teachers, and invoices once a query is given', async () => {
+  it('composes students, guardians, teachers, invoices, and receipts once a query is given', async () => {
     const { result } = renderHookWithProviders(() => useGlobalSearch('ahmed'), {
       tenantId: 'tenant-1',
       role: 'ADMIN',
@@ -38,6 +39,7 @@ describe('useGlobalSearch', () => {
     await waitFor(() => expect(result.current.guardians.data.length).toBeGreaterThan(0));
     await waitFor(() => expect(result.current.teachers.data.length).toBeGreaterThan(0));
     await waitFor(() => expect(result.current.invoices.data.length).toBeGreaterThan(0));
+    await waitFor(() => expect(result.current.receipts.data.length).toBeGreaterThan(0));
   });
 
   it("skips a group the active role can't read, without firing its request", async () => {
@@ -63,6 +65,10 @@ describe('useGlobalSearch', () => {
     expect(result.current.guardians.data).toEqual([]);
     expect(result.current.guardians.isLoading).toBe(false);
     expect(guardianCalls).toBe(0);
+    // PARENT holds none of PAYMENT_READ either — see `permissions.ts`'s
+    // ROLE_PERMISSIONS.
+    expect(result.current.receipts.data).toEqual([]);
+    expect(result.current.receipts.isLoading).toBe(false);
   });
 
   it('skips the teachers group for a role the server would reject too', async () => {

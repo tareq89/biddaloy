@@ -1,6 +1,17 @@
 import { http, HttpResponse } from 'msw';
 
 import { invoiceFactory, paymentFactory, type Invoice, type Payment } from '../../factories';
+import { paginate } from '../support';
+
+const fixtures: Payment[] = [paymentFactory(), paymentFactory(), paymentFactory()];
+
+const list = http.get('/api/v1/payments', ({ request }) =>
+  HttpResponse.json(paginate(fixtures, request.url)),
+);
+
+const listEmpty = http.get('/api/v1/payments', ({ request }) =>
+  HttpResponse.json(paginate([], request.url)),
+);
 
 const record = http.post('/api/v1/payments', () =>
   HttpResponse.json(paymentFactory(), { status: 201 }),
@@ -35,6 +46,8 @@ const listInvoicesByStudent = http.get(
 );
 
 export const paymentHandlers = {
+  list,
+  listEmpty,
   record,
   recordWithAllocation,
   listByStudent,
@@ -43,6 +56,7 @@ export const paymentHandlers = {
 };
 
 export const paymentDefaultHandlers = [
+  list,
   record,
   recordWithAllocation,
   listByStudent,

@@ -164,6 +164,13 @@ export class FeeController {
     return this.paymentAllocationService.recordWithAllocation(dto, tenant.id, user.sub);
   }
 
+  @Get('payments')
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @ApiOperation({ summary: 'Search payments (receipts) by transaction reference or student name.' })
+  findAll(@Query() query: QueryPaymentDto, @CurrentTenant() tenant: { id: string; role: string }) {
+    return this.paymentService.findAll(query, tenant.id);
+  }
+
   @Get('payments/student/:studentId')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
   findPaymentsByStudent(

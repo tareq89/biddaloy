@@ -6,6 +6,7 @@ import type { components } from '../api/schema';
 
 import { useActiveRole } from './auth-state';
 import { invoiceKeys, type Invoice } from './invoices';
+import { paymentKeys, type Payment } from './payments';
 import { useHasPermission } from './permissions';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
@@ -13,7 +14,7 @@ import { studentKeys, type Student } from './students';
 
 export type Guardian = components['schemas']['Guardian'];
 export type TeacherProfile = components['schemas']['TeacherResponseDto'];
-export type { Invoice };
+export type { Invoice, Payment };
 
 interface PaginatedEnvelope<T> {
   data: T[];
@@ -56,6 +57,7 @@ export interface GlobalSearchResults {
   guardians: GlobalSearchEntityResult<Guardian>;
   teachers: GlobalSearchEntityResult<TeacherProfile>;
   invoices: GlobalSearchEntityResult<Invoice>;
+  receipts: GlobalSearchEntityResult<Payment>;
 }
 
 /**
@@ -83,6 +85,7 @@ export function useGlobalSearch(query: string): GlobalSearchResults {
   const canReadStudents = useHasPermission(Permission.STUDENT_READ);
   const canReadGuardians = useHasPermission(Permission.GUARDIAN_READ);
   const canReadInvoices = useHasPermission(Permission.INVOICE_READ);
+  const canReadReceipts = useHasPermission(Permission.PAYMENT_READ);
   const activeRole = useActiveRole();
   const canReadTeachers = activeRole !== null && TEACHER_SEARCH_ROLES.includes(activeRole);
 
@@ -146,6 +149,21 @@ export function useGlobalSearch(query: string): GlobalSearchResults {
     }),
   );
 
+  const receipts = useQuery(
+    queryOptions({
+      queryKey: paymentKeys.list({ search: trimmed }),
+      queryFn: async ({ signal }) => {
+        const res = await apiClient.get<PaginatedEnvelope<Payment>>('/payments', {
+          params: { search: trimmed, limit: GLOBAL_SEARCH_LIMIT },
+          signal,
+        });
+        return res.data;
+      },
+      enabled: enabled && canReadReceipts,
+      retry: shouldRetryQuery,
+    }),
+  );
+
   return {
     students: {
       data: students.data?.data ?? [],
@@ -166,6 +184,11 @@ export function useGlobalSearch(query: string): GlobalSearchResults {
       data: invoices.data?.data ?? [],
       isLoading: enabled && canReadInvoices && invoices.isLoading,
       isError: invoices.isError,
+    },
+    receipts: {
+      data: receipts.data?.data ?? [],
+      isLoading: enabled && canReadReceipts && receipts.isLoading,
+      isError: receipts.isError,
     },
   };
 }

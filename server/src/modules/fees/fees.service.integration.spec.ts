@@ -1179,4 +1179,116 @@ describe('PaymentService (integration)', () => {
       );
     });
   });
+
+  // ────────────────────────
+  //  findAll()
+  // ────────────────────────
+  describe('findAll', () => {
+    it('should search payments by transaction reference or student name', async () => {
+      const student = await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Ahmed Khan',
+          registration_number: 'REG-2026-0010',
+          roll_number: 10,
+          class_section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+          date_of_birth: new Date('2010-01-01'),
+          preferred_communication: 'SMS',
+        }),
+      );
+      const payment = await service.create(
+        {
+          student_id: student.id,
+          total_amount: 500,
+          payment_method: 'CASH' as any,
+          transaction_reference: 'TXN-SEARCH-1',
+        },
+        TENANT_ID,
+      );
+
+      const byReference = await service.findAll(
+        { search: 'TXN-SEARCH-1', page: 1, limit: 10 },
+        TENANT_ID,
+      );
+      expect(byReference.total).toBe(1);
+      expect(byReference.data[0].id).toBe(payment.id);
+
+      const byName = await service.findAll({ search: 'Ahmed', page: 1, limit: 10 }, TENANT_ID);
+      expect(byName.total).toBe(1);
+      expect(byName.data[0].id).toBe(payment.id);
+
+      const noMatch = await service.findAll({ search: 'Nobody', page: 1, limit: 10 }, TENANT_ID);
+      expect(noMatch.total).toBe(0);
+    });
+
+    it("does not return another tenant's payment when searching", async () => {
+      const OTHER_TENANT = '00000000-0000-4000-8000-000000000099';
+      const otherStudent = await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Ahmed Khan',
+          registration_number: 'REG-OTHER-0010',
+          roll_number: 10,
+          class_section_id: '00000000-0000-4000-8000-000000000097',
+          tenant_id: OTHER_TENANT,
+          date_of_birth: new Date('2010-01-01'),
+          preferred_communication: 'SMS',
+        }),
+      );
+      // Built directly via the repository — PaymentService.create()'s own
+      // tenant check requires a real class_section/class chain this test
+      // has no need to seed just to prove findAll() scopes by tenant_id.
+      await paymentRepo.save(
+        paymentRepo.create({
+          student_id: otherStudent.id,
+          total_amount: 500,
+          payment_method: 'CASH' as any,
+          transaction_reference: 'TXN-OTHER-TENANT',
+          payment_date: new Date(),
+          tenant_id: OTHER_TENANT,
+        }),
+      );
+
+      const byReference = await service.findAll(
+        { search: 'TXN-OTHER-TENANT', page: 1, limit: 10 },
+        TENANT_ID,
+      );
+      expect(byReference.total).toBe(0);
+
+      const byName = await service.findAll({ search: 'Ahmed', page: 1, limit: 10 }, TENANT_ID);
+      expect(byName.total).toBe(0);
+    });
+
+    it('does not return a soft-deleted payment when searching', async () => {
+      const student = await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Fatima Begum',
+          registration_number: 'REG-2026-0011',
+          roll_number: 11,
+          class_section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+          date_of_birth: new Date('2010-01-01'),
+          preferred_communication: 'SMS',
+        }),
+      );
+      const payment = await service.create(
+        {
+          student_id: student.id,
+          total_amount: 500,
+          payment_method: 'CASH' as any,
+          transaction_reference: 'TXN-SOFT-DELETED',
+        },
+        TENANT_ID,
+      );
+      await paymentRepo.softDelete(payment.id);
+
+      const byReference = await service.findAll(
+        { search: 'TXN-SOFT-DELETED', page: 1, limit: 10 },
+        TENANT_ID,
+      );
+      expect(byReference.total).toBe(0);
+
+      const byName = await service.findAll({ search: 'Fatima', page: 1, limit: 10 }, TENANT_ID);
+      expect(byName.total).toBe(0);
+    });
+  });
 });
