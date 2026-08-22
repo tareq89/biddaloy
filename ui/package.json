@@ -59,7 +59,7 @@
     "@storybook/addon-essentials": "^8",
     "@storybook/addon-interactions": "^8",
     "@storybook/blocks": "^8",
-    "@storybook/react-vite": "^8",
+    "@storybook/react-vite": "^10",
     "@storybook/test": "^8",
     "@tailwindcss/vite": "^4",
     "@types/react": "^19",
