@@ -20,8 +20,10 @@ import { Route as StaffSettingsRouteImport } from './routes/_staff/settings'
 import { Route as PortalIndexRouteImport } from './routes/portal/index'
 import { Route as PortalFeesRouteImport } from './routes/portal/fees'
 import { Route as StaffInvoicesInvoiceIdRouteImport } from './routes/_staff/invoices/$invoiceId'
+import { Route as StaffPaymentsRecordRouteImport } from './routes/_staff/payments/record'
 import { Route as StaffStudentsIndexRouteImport } from './routes/_staff/students/index'
 import { Route as StaffStudentsStudentIdRouteImport } from './routes/_staff/students/$studentId'
+import { Route as StaffStudentsNewRouteImport } from './routes/_staff/students/new'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -77,6 +79,11 @@ const StaffInvoicesInvoiceIdRoute = StaffInvoicesInvoiceIdRouteImport.update({
   path: '/invoices/$invoiceId',
   getParentRoute: () => StaffRoute,
 } as any)
+const StaffPaymentsRecordRoute = StaffPaymentsRecordRouteImport.update({
+  id: '/payments/record',
+  path: '/payments/record',
+  getParentRoute: () => StaffRoute,
+} as any)
 const StaffStudentsIndexRoute = StaffStudentsIndexRouteImport.update({
   id: '/students/',
   path: '/students/',
@@ -85,6 +92,11 @@ const StaffStudentsIndexRoute = StaffStudentsIndexRouteImport.update({
 const StaffStudentsStudentIdRoute = StaffStudentsStudentIdRouteImport.update({
   id: '/students/$studentId',
   path: '/students/$studentId',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffStudentsNewRoute = StaffStudentsNewRouteImport.update({
+  id: '/students/new',
+  path: '/students/new',
   getParentRoute: () => StaffRoute,
 } as any)
 
@@ -99,7 +111,9 @@ export interface FileRoutesByFullPath {
   '/portal/fees': typeof PortalFeesRoute
   '/portal/': typeof PortalIndexRoute
   '/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
+  '/payments/record': typeof StaffPaymentsRecordRoute
   '/students/$studentId': typeof StaffStudentsStudentIdRoute
+  '/students/new': typeof StaffStudentsNewRoute
   '/students/': typeof StaffStudentsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -112,7 +126,9 @@ export interface FileRoutesByTo {
   '/portal/fees': typeof PortalFeesRoute
   '/portal': typeof PortalIndexRoute
   '/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
+  '/payments/record': typeof StaffPaymentsRecordRoute
   '/students/$studentId': typeof StaffStudentsStudentIdRoute
+  '/students/new': typeof StaffStudentsNewRoute
   '/students': typeof StaffStudentsIndexRoute
 }
 export interface FileRoutesById {
@@ -128,7 +144,9 @@ export interface FileRoutesById {
   '/portal/fees': typeof PortalFeesRoute
   '/portal/': typeof PortalIndexRoute
   '/_staff/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
+  '/_staff/payments/record': typeof StaffPaymentsRecordRoute
   '/_staff/students/$studentId': typeof StaffStudentsStudentIdRoute
+  '/_staff/students/new': typeof StaffStudentsNewRoute
   '/_staff/students/': typeof StaffStudentsIndexRoute
 }
 export interface FileRouteTypes {
@@ -144,7 +162,9 @@ export interface FileRouteTypes {
     | '/portal/fees'
     | '/portal/'
     | '/invoices/$invoiceId'
+    | '/payments/record'
     | '/students/$studentId'
+    | '/students/new'
     | '/students/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -157,7 +177,9 @@ export interface FileRouteTypes {
     | '/portal/fees'
     | '/portal'
     | '/invoices/$invoiceId'
+    | '/payments/record'
     | '/students/$studentId'
+    | '/students/new'
     | '/students'
   id:
     | '__root__'
@@ -172,7 +194,9 @@ export interface FileRouteTypes {
     | '/portal/fees'
     | '/portal/'
     | '/_staff/invoices/$invoiceId'
+    | '/_staff/payments/record'
     | '/_staff/students/$studentId'
+    | '/_staff/students/new'
     | '/_staff/students/'
   fileRoutesById: FileRoutesById
 }
@@ -263,6 +287,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffInvoicesInvoiceIdRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/payments/record': {
+      id: '/_staff/payments/record'
+      path: '/payments/record'
+      fullPath: '/payments/record'
+      preLoaderRoute: typeof StaffPaymentsRecordRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/students/': {
       id: '/_staff/students/'
       path: '/students'
@@ -277,6 +308,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffStudentsStudentIdRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/students/new': {
+      id: '/_staff/students/new'
+      path: '/students/new'
+      fullPath: '/students/new'
+      preLoaderRoute: typeof StaffStudentsNewRouteImport
+      parentRoute: typeof StaffRoute
+    }
   }
 }
 
@@ -285,7 +323,9 @@ interface StaffRouteChildren {
   StaffFeesRoute: typeof StaffFeesRoute
   StaffSettingsRoute: typeof StaffSettingsRoute
   StaffInvoicesInvoiceIdRoute: typeof StaffInvoicesInvoiceIdRoute
+  StaffPaymentsRecordRoute: typeof StaffPaymentsRecordRoute
   StaffStudentsStudentIdRoute: typeof StaffStudentsStudentIdRoute
+  StaffStudentsNewRoute: typeof StaffStudentsNewRoute
   StaffStudentsIndexRoute: typeof StaffStudentsIndexRoute
 }
 
@@ -294,7 +334,9 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffFeesRoute: StaffFeesRoute,
   StaffSettingsRoute: StaffSettingsRoute,
   StaffInvoicesInvoiceIdRoute: StaffInvoicesInvoiceIdRoute,
+  StaffPaymentsRecordRoute: StaffPaymentsRecordRoute,
   StaffStudentsStudentIdRoute: StaffStudentsStudentIdRoute,
+  StaffStudentsNewRoute: StaffStudentsNewRoute,
   StaffStudentsIndexRoute: StaffStudentsIndexRoute,
 }
 

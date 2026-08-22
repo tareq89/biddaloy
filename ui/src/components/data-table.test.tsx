@@ -1,3 +1,4 @@
+import type { VisibilityState } from '@tanstack/react-table';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
@@ -29,6 +30,8 @@ function Controlled({
   error,
   selectable = false,
   emptyMessage,
+  columnsMenu = false,
+  defaultColumnVisibility,
 }: {
   data?: Student[];
   totalCount?: number;
@@ -36,6 +39,8 @@ function Controlled({
   error?: string;
   selectable?: boolean;
   emptyMessage?: string;
+  columnsMenu?: boolean;
+  defaultColumnVisibility?: VisibilityState;
 }) {
   const [sorting, setSorting] = useState<DataTableSort | null>(null);
   const [page, setPage] = useState(1);
@@ -55,6 +60,8 @@ function Controlled({
       totalCount={totalCount}
       onPageChange={setPage}
       loading={loading}
+      columnsMenu={columnsMenu}
+      {...(defaultColumnVisibility !== undefined ? { defaultColumnVisibility } : {})}
       {...(error !== undefined ? { error } : {})}
       {...(emptyMessage !== undefined ? { emptyMessage } : {})}
       {...(selectable
@@ -239,6 +246,57 @@ describe('DataTable', () => {
   it('does not crash on a corrupt localStorage value for this tableId', () => {
     window.localStorage.setItem('data-table:students-test', 'not json');
     expect(() => render(<Controlled />)).not.toThrow();
+  });
+});
+
+describe('DataTable columns menu', () => {
+  beforeEach(() => window.localStorage.clear());
+  afterEach(() => window.localStorage.clear());
+
+  it('renders no Columns trigger when columnsMenu is off — the default', () => {
+    render(<Controlled />);
+    expect(screen.queryByRole('button', { name: 'Columns' })).toBeNull();
+  });
+
+  it('lists every column as a checked item, all columns visible by default', async () => {
+    const user = userEvent.setup();
+    render(<Controlled columnsMenu />);
+
+    await user.click(screen.getByRole('button', { name: 'Columns' }));
+
+    expect(
+      screen.getByRole('menuitemcheckbox', { name: 'Name' }).getAttribute('aria-checked'),
+    ).toBe('true');
+    expect(
+      screen.getByRole('menuitemcheckbox', { name: 'Class' }).getAttribute('aria-checked'),
+    ).toBe('true');
+  });
+
+  it('unchecking a column hides it from the table header and its cells', async () => {
+    const user = userEvent.setup();
+    render(<Controlled columnsMenu />);
+
+    expect(screen.getByRole('columnheader', { name: 'Class' })).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Columns' }));
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Class' }));
+
+    expect(screen.queryByRole('columnheader', { name: 'Class' })).toBeNull();
+    expect(screen.queryByText('Six')).toBeNull();
+  });
+
+  it('respects defaultColumnVisibility on first mount, before any localStorage value exists', () => {
+    render(<Controlled columnsMenu defaultColumnVisibility={{ className: false }} />);
+    expect(screen.queryByRole('columnheader', { name: 'Class' })).toBeNull();
+  });
+
+  it('a persisted localStorage choice wins over defaultColumnVisibility on remount', () => {
+    window.localStorage.setItem(
+      'data-table:students-test',
+      JSON.stringify({ columnVisibility: { className: true }, columnOrder: [] }),
+    );
+    render(<Controlled columnsMenu defaultColumnVisibility={{ className: false }} />);
+    expect(screen.getByRole('columnheader', { name: 'Class' })).toBeTruthy();
   });
 });
 
