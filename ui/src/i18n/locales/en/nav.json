@@ -35,5 +35,11 @@
     "confirm": "Switch school",
     "switched": "Switched to {{name}}",
     "unnamedSchool": "this school"
+  },
+  "notifications": {
+    "bellLabel": "Notifications",
+    "panelLabel": "Notifications",
+    "empty": "You're all caught up.",
+    "markAllRead": "Mark all read"
   }
 }

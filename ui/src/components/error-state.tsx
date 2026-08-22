@@ -15,9 +15,23 @@ export interface ErrorStateProps {
   onRetry: () => void;
   retryLabel?: string;
   icon?: React.ReactNode;
+  /** [8.9.8]'s route-error-boundary AC — "offers a retry and a route
+   * home." Optional so every existing caller (a failed data-table fetch,
+   * say) that only wants a retry keeps working unchanged. Router-agnostic
+   * on purpose, same as the rest of this file: the caller supplies the
+   * navigation, this component only renders the button. */
+  onHome?: () => void;
+  homeLabel?: string;
 }
 
-export function ErrorState({ message, onRetry, retryLabel = 'Try again', icon }: ErrorStateProps) {
+export function ErrorState({
+  message,
+  onRetry,
+  retryLabel = 'Try again',
+  icon,
+  onHome,
+  homeLabel = 'Go home',
+}: ErrorStateProps) {
   return (
     <div
       role="alert"
@@ -25,9 +39,16 @@ export function ErrorState({ message, onRetry, retryLabel = 'Try again', icon }:
     >
       {icon && <div className="text-muted-foreground [&_svg]:size-8">{icon}</div>}
       <p className="text-sm text-muted-foreground">{message}</p>
-      <Button type="button" variant="outline" onClick={onRetry} className="mt-2">
-        {retryLabel}
-      </Button>
+      <div className="mt-2 flex items-center gap-2">
+        <Button type="button" variant="outline" onClick={onRetry}>
+          {retryLabel}
+        </Button>
+        {onHome && (
+          <Button type="button" variant="ghost" onClick={onHome}>
+            {homeLabel}
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

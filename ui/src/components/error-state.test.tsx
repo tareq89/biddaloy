@@ -58,4 +58,36 @@ describe('ErrorState', () => {
     const { container } = render(<ErrorState message="Something went wrong." onRetry={vi.fn()} />);
     expect(container.querySelector('svg')).toBeNull();
   });
+
+  it('renders no home affordance when onHome is not passed', () => {
+    render(<ErrorState message="Something went wrong." onRetry={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: 'Go home' })).toBeNull();
+  });
+
+  it('offers a home affordance that calls onHome when passed', async () => {
+    const onHome = vi.fn();
+    const user = userEvent.setup();
+    render(<ErrorState message="Something went wrong." onRetry={vi.fn()} onHome={onHome} />);
+    await user.click(screen.getByRole('button', { name: 'Go home' }));
+    expect(onHome).toHaveBeenCalledTimes(1);
+  });
+
+  it('supports a custom home label', () => {
+    render(
+      <ErrorState
+        message="Something went wrong."
+        onRetry={vi.fn()}
+        onHome={vi.fn()}
+        homeLabel="Back to dashboard"
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Back to dashboard' })).toBeTruthy();
+  });
+
+  it('is axe clean with a home affordance too', async () => {
+    const { container } = render(
+      <ErrorState message="Something went wrong." onRetry={vi.fn()} onHome={vi.fn()} />,
+    );
+    await expect(container).toHaveNoViolations();
+  });
 });

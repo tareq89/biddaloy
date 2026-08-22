@@ -4,6 +4,7 @@ import {
   AppShell,
   APP_SHELL_MAIN_ID,
   EmptyState,
+  NotificationBell,
   RouteAnnouncer,
   TenantBar,
   type AppShellNavGroup,
@@ -188,7 +189,17 @@ function RootLayout() {
       navItems={navItems}
       navGroups={navGroups}
       brand={t('brand')}
-      topBar={<TenantBar />}
+      topBar={
+        <div className="flex items-center justify-between">
+          <TenantBar />
+          <NotificationBell
+            label={t('notifications.bellLabel')}
+            panelTitle={t('notifications.panelLabel')}
+            emptyLabel={t('notifications.empty')}
+            markAllReadLabel={t('notifications.markAllRead')}
+          />
+        </div>
+      }
       openMenuLabel={t('openMenuLabel')}
       closeMenuLabel={t('closeMenuLabel')}
       navLabel={t('navLabel')}

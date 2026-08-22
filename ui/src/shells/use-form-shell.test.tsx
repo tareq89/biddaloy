@@ -1,5 +1,6 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -95,10 +96,14 @@ function AutosaveProbe({ formKey, value }: { formKey: string; value: string }) {
       debounceMs: 10,
     },
   );
+  const [restored, setRestored] = useState<string>('');
   return (
     <div>
       <p>draftAvailable: {String(draftAvailable)}</p>
-      <button onClick={() => window.alert(JSON.stringify(restoreDraft()))}>Show draft</button>
+      <p>restored: {restored}</p>
+      <button onClick={() => setRestored(JSON.stringify(restoreDraft()) ?? 'undefined')}>
+        Show draft
+      </button>
       <button onClick={discardDraft}>Discard draft</button>
       <button onClick={clearDraft}>Clear draft</button>
     </div>
@@ -160,11 +165,9 @@ describe('useFormAutosave', () => {
       'form-shell-draft:admission-form',
       JSON.stringify({ studentName: 'Karim' }),
     );
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
     render(<AutosaveProbe formKey="admission-form" value="" />);
-    screen.getByRole('button', { name: 'Show draft' }).click();
-    expect(alertSpy).toHaveBeenCalledWith(JSON.stringify({ studentName: 'Karim' }));
-    alertSpy.mockRestore();
+    fireEvent.click(screen.getByRole('button', { name: 'Show draft' }));
+    expect(screen.getByText(`restored: ${JSON.stringify({ studentName: 'Karim' })}`)).toBeTruthy();
   });
 
   it('discardDraft removes the saved draft', async () => {
@@ -248,10 +251,8 @@ describe('useFormAutosave', () => {
 
   it('restoreDraft returns undefined when the saved value is not valid JSON', () => {
     window.localStorage.setItem('form-shell-draft:admission-form', 'not json');
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
     render(<AutosaveProbe formKey="admission-form" value="" />);
-    screen.getByRole('button', { name: 'Show draft' }).click();
-    expect(alertSpy).toHaveBeenCalledWith(undefined);
-    alertSpy.mockRestore();
+    fireEvent.click(screen.getByRole('button', { name: 'Show draft' }));
+    expect(screen.getByText('restored: undefined')).toBeTruthy();
   });
 });

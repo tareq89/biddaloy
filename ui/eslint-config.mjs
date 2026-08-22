@@ -30,6 +30,9 @@
 //     `apiClient`/`axios`/`fetch` call directly inside a `useEffect`/
 //     `useLayoutEffect`. Applied everywhere, same reasoning as
 //     `financialMutationGuardConfig` above.
+//   - `noWindowAlertConfig`: [8.9.8]'s executable guard — no
+//     `window.alert`/`alert`/`confirm`/`prompt`. Applied everywhere, same
+//     reasoning as `financialMutationGuardConfig` above.
 import js from '@eslint/js';
 import eslintConfigPrettier from 'eslint-config-prettier';
 import importPlugin from 'eslint-plugin-import';
@@ -43,6 +46,7 @@ import tseslint from 'typescript-eslint';
 import boundaryPlugin from './eslint-rules/component-boundary.mjs';
 import dataFetchingPlugin from './eslint-rules/data-fetching.mjs';
 import financialMutationPlugin from './eslint-rules/financial-mutation.mjs';
+import noWindowAlertPlugin from './eslint-rules/no-window-alert.mjs';
 
 // Type-checked rules need `parserOptions.projectService` (typescript-eslint's
 // current recommendation over the older `project: './tsconfig.json'` — it's
@@ -114,6 +118,16 @@ export const dataFetchingGuardConfig = Object.freeze({
   plugins: Object.freeze({ 'data-fetching': dataFetchingPlugin }),
   rules: Object.freeze({
     'data-fetching/no-fetch-in-effect': 'error',
+  }),
+});
+
+// [8.9.8]'s "no window.alert anywhere" AC — native alert/confirm/prompt
+// can't be styled, localized, or announced consistently with the rest of
+// the shell. Applied everywhere, same reasoning as the two guards above.
+export const noWindowAlertConfig = Object.freeze({
+  plugins: Object.freeze({ 'no-window-alert': noWindowAlertPlugin }),
+  rules: Object.freeze({
+    'no-window-alert/no-window-alert': 'error',
   }),
 });
 

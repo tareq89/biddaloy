@@ -3,6 +3,7 @@ import {
   componentBoundaryConfig,
   dataFetchingGuardConfig,
   financialMutationGuardConfig,
+  noWindowAlertConfig,
   typeCheckedRules,
   typeCheckedTestOverrides,
 } from '@biddaloy/ui/eslint-config';
@@ -33,6 +34,10 @@ export default tseslint.config(
   {
     files: ['src/**/*.{ts,tsx}'],
     ...dataFetchingGuardConfig,
+  },
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ...noWindowAlertConfig,
   },
   {
     files: ['*.ts', '*.mjs', 'scripts/**/*.mjs'],

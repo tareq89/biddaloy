@@ -121,6 +121,24 @@ export {
 export { StatusBadge, type StatusBadgeProps, type StatusTone } from './status-badge';
 export { EmptyState, type EmptyStateProps } from './empty-state';
 export { ErrorState, type ErrorStateProps } from './error-state';
+export {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+  PopoverDescription,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+  type PopoverProps,
+  type PopoverAnchorProps,
+  type PopoverContentProps,
+  type PopoverDescriptionProps,
+  type PopoverHeaderProps,
+  type PopoverTitleProps,
+  type PopoverTriggerProps,
+} from './popover';
+export { NotificationBell, type NotificationBellProps } from './notification-bell';
+export { RouteErrorFallback, type RouteErrorFallbackProps } from './route-error-boundary';
 export { Toaster, toast } from './toast';
 export { Skeleton } from './skeleton';
 export { Pagination, type PaginationProps } from './pagination';

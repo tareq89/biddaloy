@@ -27,4 +27,22 @@ export {
   resetSessionBootstrap,
   scheduleTokenRefresh,
 } from './session';
+export {
+  clearNotifications,
+  getNotifications,
+  getUnreadNotificationCount,
+  markAllNotificationsRead,
+  markNotificationRead,
+  pushNotification,
+  subscribeNotificationState,
+  type NotificationRecord,
+  type NotificationVariant,
+} from './notification-state';
+export {
+  captureRouteError,
+  initSentry,
+  updateSentryRouteTag,
+  updateSentryTenantTag,
+  type InitSentryOptions,
+} from './sentry';
 export type { paths, components, operations } from './schema';

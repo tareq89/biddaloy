@@ -35,5 +35,11 @@
     "confirm": "স্কুল পরিবর্তন করুন",
     "switched": "{{name}}-এ পরিবর্তন করা হয়েছে",
     "unnamedSchool": "এই স্কুল"
+  },
+  "notifications": {
+    "bellLabel": "বিজ্ঞপ্তি",
+    "panelLabel": "বিজ্ঞপ্তি",
+    "empty": "আপনি সব দেখে ফেলেছেন।",
+    "markAllRead": "সব পঠিত হিসেবে চিহ্নিত করুন"
   }
 }
