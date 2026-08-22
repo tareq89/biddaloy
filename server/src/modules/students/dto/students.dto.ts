@@ -111,6 +111,10 @@ export class UpdateStudentDto {
 
 export class QueryStudentDto {
   @IsOptional()
+  @IsString()
+  search?: string;
+
+  @IsOptional()
   @IsUUID()
   class_id?: string;
 

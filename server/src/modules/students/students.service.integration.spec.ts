@@ -345,6 +345,39 @@ describe('StudentService (integration)', () => {
       expect(result.data).toHaveLength(1);
       expect(result.data[0].full_name).toBe('Tenant A Student');
     });
+
+    it('should search students by name or roll number', async () => {
+      await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Ahmed Khan',
+          registration_number: 'REG-2026-0001',
+          roll_number: 7,
+          class_section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+          date_of_birth: new Date('2010-01-01'),
+        }),
+      );
+      await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Fatima Begum',
+          registration_number: 'REG-2026-0002',
+          roll_number: 8,
+          class_section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+          date_of_birth: new Date('2010-01-01'),
+        }),
+      );
+
+      // Search by name
+      const byName = await service.findAll({ search: 'Ahmed', page: 1, limit: 10 }, TENANT_ID);
+      expect(byName.data).toHaveLength(1);
+      expect(byName.data[0].full_name).toBe('Ahmed Khan');
+
+      // Search by roll number
+      const byRoll = await service.findAll({ search: '8', page: 1, limit: 10 }, TENANT_ID);
+      expect(byRoll.data).toHaveLength(1);
+      expect(byRoll.data[0].full_name).toBe('Fatima Begum');
+    });
   });
 
   describe('findOne', () => {

@@ -29,6 +29,15 @@ export {
 export { paymentKeys, useCreatePayment, type CreatePaymentInput, type Payment } from './payments';
 export { hasPermission, useHasPermission } from './permissions';
 export { useRouteFocus, type UseRouteFocusOptions } from './use-route-focus';
+export { useDebouncedValue } from './use-debounce';
+export { invoiceKeys, useInvoice, type Invoice, type InvoiceListFilters } from './invoices';
+export {
+  useGlobalSearch,
+  type GlobalSearchEntityResult,
+  type GlobalSearchResults,
+  type Guardian,
+  type TeacherProfile,
+} from './global-search';
 export { useNotifications, useUnreadNotificationCount } from './notifications';
 export {
   schoolsKeys,

@@ -61,6 +61,10 @@ export class CreateInvoiceDto {
 
 export class QueryInvoiceDto {
   @IsOptional()
+  @IsString()
+  search?: string;
+
+  @IsOptional()
   @IsUUID()
   student_id?: string;
 

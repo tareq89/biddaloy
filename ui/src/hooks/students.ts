@@ -11,6 +11,10 @@ export type CreateStudentInput = components['schemas']['CreateStudentDto'];
 export type PreferredCommunication = Student['preferred_communication'];
 
 export interface StudentListFilters {
+  /** Matches by `full_name` or `roll_number` — see `students.controller.ts`'s
+   * `QueryStudentDto`. Student has no `phone` column of its own (that
+   * lives on `Guardian`), so this can't match on phone. */
+  search?: string;
   class_id?: string;
   section_id?: string;
   enrollment_status?: string;
@@ -46,8 +50,8 @@ export const studentKeys = createEntityKeys<StudentListFilters>('students');
 export function studentsQueryOptions(filters: StudentListFilters = {}) {
   return queryOptions({
     queryKey: studentKeys.list(filters),
-    queryFn: async () => {
-      const res = await apiClient.get<PaginatedStudents>('/students', { params: filters });
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<PaginatedStudents>('/students', { params: filters, signal });
       return res.data;
     },
     retry: shouldRetryQuery,
