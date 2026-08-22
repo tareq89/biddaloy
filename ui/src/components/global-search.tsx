@@ -109,6 +109,10 @@ export function GlobalSearch({
   const totalResults = options.length;
   const anyLoading = groups.some((group) => group.isLoading);
   const trimmedQuery = query.trim();
+  // `activeIndex` can point past the end once a debounced keystroke
+  // shrinks the result set — clamp rather than reset so a still-valid
+  // selection near the top doesn't jump on every render.
+  const clampedActiveIndex = activeIndex >= totalResults ? totalResults - 1 : activeIndex;
 
   // Every open (including via the global Cmd/Ctrl+K listener, which
   // never touches this input directly) resets the walked-option index —
@@ -154,12 +158,16 @@ export function GlobalSearch({
             aria-expanded={open}
             aria-controls={listboxId}
             aria-autocomplete="list"
-            aria-activedescendant={activeIndex >= 0 ? optionId(activeIndex) : undefined}
+            aria-activedescendant={
+              clampedActiveIndex >= 0 ? optionId(clampedActiveIndex) : undefined
+            }
             placeholder={placeholder}
             value={query}
             onChange={(event) => {
               onQueryChange(event.target.value);
-              setActiveIndex(0);
+              // Reset rather than pre-select: results for the new query
+              // have not arrived yet.
+              setActiveIndex(-1);
             }}
             onKeyDown={(event) => {
               if (event.key === 'ArrowDown') {
@@ -169,10 +177,13 @@ export function GlobalSearch({
                 event.preventDefault();
                 setActiveIndex((index) => Math.max(index - 1, 0));
               } else if (event.key === 'Enter') {
-                if (activeIndex >= 0) {
+                // No walked selection yet — Enter still opens the first
+                // match, matching the pre-clamp "Enter opens first
+                // result" behaviour.
+                const option = clampedActiveIndex >= 0 ? options[clampedActiveIndex] : options[0];
+                if (option) {
                   event.preventDefault();
-                  const option = options[activeIndex];
-                  if (option) selectOption(option);
+                  selectOption(option);
                 }
               }
               // `Escape` is deliberately not handled here — `DialogContent`
@@ -187,12 +198,7 @@ export function GlobalSearch({
           {trimmedQuery !== '' ? announceResults(totalResults) : ''}
         </div>
 
-        <div
-          role="listbox"
-          id={listboxId}
-          aria-label={ariaLabel}
-          className="max-h-96 overflow-y-auto border-t border-border p-2"
-        >
+        <div className="max-h-96 overflow-y-auto border-t border-border p-2">
           {trimmedQuery === '' ? (
             <p className="px-2 py-4 text-sm text-muted-foreground">{searchableHint}</p>
           ) : anyLoading && totalResults === 0 ? (
@@ -204,48 +210,52 @@ export function GlobalSearch({
           ) : totalResults === 0 ? (
             <p className="px-2 py-4 text-sm text-muted-foreground">{noResultsText(trimmedQuery)}</p>
           ) : (
-            groups
-              .filter((group) => group.results.length > 0)
-              .map((group) => (
-                <div key={group.id} className="mb-2 last:mb-0">
-                  <div
-                    role="presentation"
-                    className="px-2 py-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
-                  >
-                    {group.label}
+            <div role="listbox" id={listboxId} aria-label={ariaLabel}>
+              {groups
+                .filter((group) => group.results.length > 0)
+                .map((group) => (
+                  <div key={group.id} className="mb-2 last:mb-0">
+                    <div
+                      role="presentation"
+                      className="px-2 py-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+                    >
+                      {group.label}
+                    </div>
+                    {group.results.map((result) => {
+                      const index = options.findIndex(
+                        (option) => option.groupId === group.id && option.result.id === result.id,
+                      );
+                      return (
+                        // Per the WAI-ARIA combobox pattern (see `combobox.tsx`'s
+                        // own comment): options are never a real keyboard
+                        // target, every interaction is handled by the input's
+                        // `onKeyDown` above.
+                        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/interactive-supports-focus
+                        <div
+                          key={result.id}
+                          id={optionId(index)}
+                          role="option"
+                          aria-selected={index === clampedActiveIndex}
+                          data-active={index === clampedActiveIndex}
+                          className="cursor-default rounded-md px-2 py-1.5 text-sm data-[active=true]:bg-accent"
+                          onMouseDown={(event) => event.preventDefault()}
+                          onMouseEnter={() => setActiveIndex(index)}
+                          onClick={() =>
+                            selectOption({ groupId: group.id, groupLabel: group.label, result })
+                          }
+                        >
+                          <div>{result.label}</div>
+                          {result.description !== undefined && (
+                            <div className="text-xs text-muted-foreground">
+                              {result.description}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                  {group.results.map((result) => {
-                    const index = options.findIndex(
-                      (option) => option.groupId === group.id && option.result.id === result.id,
-                    );
-                    return (
-                      // Per the WAI-ARIA combobox pattern (see `combobox.tsx`'s
-                      // own comment): options are never a real keyboard
-                      // target, every interaction is handled by the input's
-                      // `onKeyDown` above.
-                      // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/interactive-supports-focus
-                      <div
-                        key={result.id}
-                        id={optionId(index)}
-                        role="option"
-                        aria-selected={index === activeIndex}
-                        data-active={index === activeIndex}
-                        className="cursor-default rounded-md px-2 py-1.5 text-sm data-[active=true]:bg-accent"
-                        onMouseDown={(event) => event.preventDefault()}
-                        onMouseEnter={() => setActiveIndex(index)}
-                        onClick={() =>
-                          selectOption({ groupId: group.id, groupLabel: group.label, result })
-                        }
-                      >
-                        <div>{result.label}</div>
-                        {result.description !== undefined && (
-                          <div className="text-xs text-muted-foreground">{result.description}</div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ))
+                ))}
+            </div>
           )}
         </div>
       </DialogContent>

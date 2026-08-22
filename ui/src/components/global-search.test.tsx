@@ -75,14 +75,17 @@ describe('GlobalSearch', () => {
     await waitFor(() => expect(screen.getByText(/No matches for "zzz"/)).toBeTruthy());
   });
 
-  it('typing then Enter selects the first result (already active by default) and closes', async () => {
+  it('typing then Enter selects the first result even with no walked selection yet', async () => {
     const onSelect = vi.fn();
     const user = userEvent.setup();
     render(<Controlled onSelect={onSelect} />);
     const input = screen.getByRole('combobox', { name: 'Global search' });
     await user.type(input, 'ah');
-    const firstOption = await screen.findByRole('option', { name: /Ahmed Khan/ });
-    expect(input.getAttribute('aria-activedescendant')).toBe(firstOption.id);
+    await screen.findByRole('option', { name: /Ahmed Khan/ });
+    // No result has been walked to with the arrow keys yet — results for
+    // the latest keystroke may not have arrived, so nothing is
+    // pre-selected.
+    expect(input.getAttribute('aria-activedescendant')).toBeNull();
 
     await user.keyboard('{Enter}');
 
@@ -99,8 +102,8 @@ describe('GlobalSearch', () => {
     await screen.findByRole('option', { name: /Ahmed Khan/ });
 
     // students[0], students[1], guardians[0] — three ArrowDowns from the
-    // default index-0 position lands on the guardian.
-    await user.keyboard('{ArrowDown}{ArrowDown}{Enter}');
+    // unselected (-1) starting position lands on the guardian.
+    await user.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}{Enter}');
 
     expect(onSelect).toHaveBeenCalledWith('guardians', 'g1');
   });

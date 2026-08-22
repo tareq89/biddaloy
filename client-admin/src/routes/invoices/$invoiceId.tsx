@@ -1,3 +1,4 @@
+import { ErrorState, Skeleton } from '@biddaloy/ui/components';
 import { useInvoice } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute, Link } from '@tanstack/react-router';
@@ -26,7 +27,17 @@ function InvoiceDetailPage() {
       <Link to="/fees" className="text-sm text-primary underline">
         {t('invoiceDetail.back')}
       </Link>
-      <h1 className="text-lg font-semibold">{invoiceQuery.data?.invoice_number ?? invoiceId}</h1>
+      {invoiceQuery.isPending ? (
+        <Skeleton className="h-7 w-48" />
+      ) : invoiceQuery.isError ? (
+        <ErrorState
+          message={t('invoiceDetail.loadError')}
+          retryLabel={t('invoiceDetail.retry')}
+          onRetry={() => void invoiceQuery.refetch()}
+        />
+      ) : (
+        <h1 className="text-lg font-semibold">{invoiceQuery.data.invoice_number}</h1>
+      )}
     </div>
   );
 }

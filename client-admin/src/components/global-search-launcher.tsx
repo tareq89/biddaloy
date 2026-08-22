@@ -13,6 +13,9 @@
  *   existing destination a selection can land on, not a placeholder.
  * - invoice -> `/invoices/$invoiceId` ([8.9.9] adds this minimal stub
  *   page; the endpoint it reads already existed).
+ * - receipt (payment) -> the paying student's own `/students/$studentId`
+ *   page — same "closest existing destination" reasoning as guardian
+ *   above; a receipt has no page of its own yet either.
  * - teacher -> nowhere. No `/teachers/:id` page or `GET /teachers/:id`
  *   endpoint exists anywhere in the app yet (see `global-search.ts`'s own
  *   comment on why the group is still shown despite that) — selecting one
@@ -43,7 +46,7 @@ export function GlobalSearchLauncher() {
     function onKeyDown(event: KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
-        setOpen(true);
+        setOpen((isOpen) => !isOpen);
       }
     }
     window.addEventListener('keydown', onKeyDown);
@@ -72,11 +75,16 @@ export function GlobalSearchLauncher() {
       id: 'guardians',
       label: t('globalSearch.groups.guardians'),
       isLoading: results.guardians.isLoading,
-      results: results.guardians.data.map((guardian) => ({
-        id: guardian.id,
-        label: guardian.full_name,
-        description: guardian.relationship,
-      })),
+      // A guardian result only lands somewhere if it links a student —
+      // guardians have no page of their own yet. Showing one that
+      // navigates nowhere reads as a broken selection.
+      results: results.guardians.data
+        .filter((guardian) => guardian.students.length > 0)
+        .map((guardian) => ({
+          id: guardian.id,
+          label: guardian.full_name,
+          description: guardian.relationship,
+        })),
     },
     {
       id: 'teachers',
@@ -98,6 +106,18 @@ export function GlobalSearchLauncher() {
         description: invoice.student.full_name,
       })),
     },
+    {
+      id: 'receipts',
+      label: t('globalSearch.groups.receipts'),
+      isLoading: results.receipts.isLoading,
+      results: results.receipts.data.map((receipt) => ({
+        id: receipt.id,
+        label:
+          receipt.transaction_reference ??
+          t('globalSearch.receiptFallbackLabel', { amount: receipt.total_amount }),
+        description: receipt.student.full_name,
+      })),
+    },
   ];
 
   function handleSelect(groupId: string, resultId: string) {
@@ -115,6 +135,13 @@ export function GlobalSearchLauncher() {
     }
     if (groupId === 'invoices') {
       void navigate({ to: '/invoices/$invoiceId', params: { invoiceId: resultId } });
+      return;
+    }
+    if (groupId === 'receipts') {
+      const receipt = results.receipts.data.find((item) => item.id === resultId);
+      if (receipt) {
+        void navigate({ to: '/students/$studentId', params: { studentId: receipt.student.id } });
+      }
       return;
     }
     // 'teachers' — no destination page exists yet, see this file's own
