@@ -2661,6 +2661,7 @@ export interface operations {
     StudentController_findAllStudents_v1: {
         parameters: {
             query?: {
+                search?: string;
                 class_id?: string;
                 section_id?: string;
                 enrollment_status?: "ACTIVE" | "INACTIVE" | "TRANSFERRED" | "GRADUATED";
@@ -3419,6 +3420,7 @@ export interface operations {
     InvoicesController_findAll_v1: {
         parameters: {
             query?: {
+                search?: string;
                 student_id?: string;
                 status?: "DRAFT" | "ISSUED" | "PAID" | "CANCELLED" | "OVERDUE";
                 from_date?: string;
