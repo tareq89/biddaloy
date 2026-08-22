@@ -36,14 +36,18 @@ function redactBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb {
     ...(breadcrumb.message !== undefined && { message: redactPii(breadcrumb.message) }),
     // The default fetch/XHR breadcrumb integrations only ever populate
     // url/method/status/size fields (`FetchBreadcrumbData`/
-    // `XhrBreadcrumbData`), never a request/response body — but strip a
-    // `body`-shaped key defensively rather than trusting that stays true
-    // forever, and redact anything URL-shaped that could carry a query
-    // string.
+    // `XhrBreadcrumbData`) — all primitives, never a nested object — but
+    // drop any nested (object/array) value outright rather than trusting
+    // every future breadcrumb source to keep that shape: a flat regex
+    // pass over a top-level string can't reach PII buried in a nested
+    // value. Also strip a `body`-shaped key defensively, and redact
+    // anything URL-shaped that could carry a query string.
     ...(data !== undefined && {
       data: Object.fromEntries(
         Object.entries(data)
-          .filter(([key]) => !/body/i.test(key))
+          .filter(
+            ([key, value]) => !/body/i.test(key) && (value === null || typeof value !== 'object'),
+          )
           .map(([key, value]) => [key, typeof value === 'string' ? redactPii(value) : value]),
       ),
     }),
@@ -93,6 +97,7 @@ function scrubEvent(event: ErrorEvent): ErrorEvent {
   }
   delete scrubbed.extra;
   delete scrubbed.user;
+  delete scrubbed.contexts;
 
   return scrubbed;
 }
@@ -129,9 +134,14 @@ export function updateSentryTenantTag(tenantId: string | null): void {
 /** The route's static id (e.g. `/students/$studentId`), never the
  * resolved pathname — a resolved dynamic segment could itself be
  * name-shaped depending on what a future route ever puts in a param.
- * Called from `main.tsx`'s `router.subscribe('onResolved', ...)`. */
-export function updateSentryRouteTag(routeId: string): void {
-  Sentry.setTag('route', routeId);
+ * Falls back to the constant `'unknown'`, never a caller-supplied
+ * pathname, when no matched route is available yet — the fallback lives
+ * here rather than at the call site so it can't be bypassed by a future
+ * caller reaching for `location.pathname` as a "better than nothing"
+ * substitute. Called from `main.tsx`'s `router.subscribe('onResolved',
+ * ...)`. */
+export function updateSentryRouteTag(routeId: string | undefined): void {
+  Sentry.setTag('route', routeId ?? 'unknown');
 }
 
 /** Reports a route-render error caught by `../components/route-error-

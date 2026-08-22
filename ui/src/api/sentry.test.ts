@@ -104,6 +104,16 @@ describe('beforeSend PII scrubbing', () => {
     expect(result?.user).toBeUndefined();
   });
 
+  it('strips contexts wholesale, even guardian-shaped data', () => {
+    initSentry({ dsn: 'https://key@sentry.example/1', environment: 'test' });
+
+    const result = runBeforeSend({
+      contexts: { guardian: { email: 'guardian@example.com' } },
+    });
+
+    expect(result?.contexts).toBeUndefined();
+  });
+
   it('redacts PII on a failing-request-shaped event, not just a successful one', () => {
     // #36's own lesson: a redaction helper that only runs on the happy path
     // is worthless, since the leak is usually in an error log written
@@ -163,6 +173,21 @@ describe('beforeBreadcrumb', () => {
     expect(result?.data).not.toHaveProperty('request_body');
     expect(result?.data?.url).toBe('https://app.biddaloy.test/api/payments');
   });
+
+  it('drops a nested/object-shaped data value instead of passing it through unredacted', () => {
+    initSentry({ dsn: 'https://key@sentry.example/1', environment: 'test' });
+
+    const result = runBeforeBreadcrumb({
+      category: 'fetch',
+      data: {
+        url: 'https://app.biddaloy.test/api/students',
+        guardian: { email: 'guardian@example.com' },
+      },
+    });
+
+    expect(result?.data).not.toHaveProperty('guardian');
+    expect(result?.data?.url).toBe('https://app.biddaloy.test/api/students');
+  });
 });
 
 describe('tag helpers', () => {
@@ -178,6 +203,11 @@ describe('tag helpers', () => {
   it('updateSentryRouteTag sets the route id', () => {
     updateSentryRouteTag('/students/$studentId');
     expect(Sentry.setTag).toHaveBeenCalledWith('route', '/students/$studentId');
+  });
+
+  it('updateSentryRouteTag falls back to the constant "unknown", never a caller-supplied pathname, when no route id is given', () => {
+    updateSentryRouteTag(undefined);
+    expect(Sentry.setTag).toHaveBeenCalledWith('route', 'unknown');
   });
 });
 

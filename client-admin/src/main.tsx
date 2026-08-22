@@ -62,14 +62,15 @@ const router = createRouter({
 subscribeAuthState(() => updateSentryTenantTag(getActiveTenant()));
 
 // [8.9.8]: the route's static id (e.g. `/students/$studentId`), never the
-// resolved pathname — see `updateSentryRouteTag`'s own comment. `onResolved`
-// fires once `router.state.matches` reflects the new location, so the
-// deepest match's `routeId` is always the just-navigated-to route.
-// `router` isn't a reusable `ui` concern (each consuming app has its own
-// instance), so this lives here rather than in `ui/src/api/sentry.ts`.
-router.subscribe('onResolved', ({ toLocation }) => {
-  const deepestMatch = router.state.matches.at(-1);
-  updateSentryRouteTag(deepestMatch?.routeId ?? toLocation.pathname);
+// resolved pathname — see `updateSentryRouteTag`'s own comment, which
+// also owns the "no matched route yet" fallback so this call site never
+// needs to reach for a pathname itself. `onResolved` fires once
+// `router.state.matches` reflects the new location, so the deepest
+// match's `routeId` is always the just-navigated-to route. `router` isn't
+// a reusable `ui` concern (each consuming app has its own instance), so
+// this lives here rather than in `ui/src/api/sentry.ts`.
+router.subscribe('onResolved', () => {
+  updateSentryRouteTag(router.state.matches.at(-1)?.routeId);
 });
 
 // [8.9.3]'s "failure routes to login, no redirect loop" — this fires from
