@@ -16,6 +16,13 @@ export type NotificationVariant = 'success' | 'error' | 'info';
 
 export interface NotificationRecord {
   id: string;
+  /** The tenant active when the underlying operation *started*, not when
+   * it finished — an async outcome (a bulk import, a reminder batch) can
+   * resolve after the user has switched tenants, and `pushNotification`
+   * drops it rather than let one school's outcome land in another's
+   * panel. Callers must capture `getActiveTenant()` up front, not read it
+   * again at push time. */
+  tenantId: string | null;
   /** Already-translated/human text — same discipline as `ErrorState`'s
    * `message` (`../components/error-state.tsx`): a caller passes a string
    * meant to be read, never a raw `Error`/API payload. */
@@ -57,6 +64,12 @@ export function getUnreadNotificationCount(): number {
 export function pushNotification(
   input: Omit<NotificationRecord, 'id' | 'createdAt' | 'read'>,
 ): void {
+  // The operation's own captured tenant, not this module's — a tenant
+  // switch between when an async op started and when it resolved means
+  // `input.tenantId` and `getActiveTenant()` disagree, and the outcome
+  // belongs to a panel the user has since navigated away from.
+  if (input.tenantId !== getActiveTenant()) return;
+
   const record: NotificationRecord = {
     ...input,
     id: crypto.randomUUID(),

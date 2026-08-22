@@ -30,7 +30,7 @@ describe('useNotifications / useUnreadNotificationCount', () => {
     expect(screen.queryByText('Bulk import finished')).toBeNull();
 
     act(() => {
-      pushNotification({ message: 'Bulk import finished', variant: 'success' });
+      pushNotification({ tenantId: null, message: 'Bulk import finished', variant: 'success' });
     });
 
     expect(screen.getByText('Bulk import finished')).toBeTruthy();
@@ -41,8 +41,8 @@ describe('useNotifications / useUnreadNotificationCount', () => {
     expect(screen.getByText('unread: 0')).toBeTruthy();
 
     act(() => {
-      pushNotification({ message: 'Reminder batch completed', variant: 'info' });
-      pushNotification({ message: 'SMS delivery failed', variant: 'error' });
+      pushNotification({ tenantId: null, message: 'Reminder batch completed', variant: 'info' });
+      pushNotification({ tenantId: null, message: 'SMS delivery failed', variant: 'error' });
     });
 
     expect(screen.getByText('unread: 2')).toBeTruthy();

@@ -23,8 +23,8 @@ describe('NotificationBell', () => {
 
   it('shows an unread count in the trigger’s accessible name, and lists history in the panel', async () => {
     const user = userEvent.setup();
-    pushNotification({ message: 'Bulk import finished', variant: 'success' });
-    pushNotification({ message: 'SMS delivery failed', variant: 'error' });
+    pushNotification({ tenantId: null, message: 'Bulk import finished', variant: 'success' });
+    pushNotification({ tenantId: null, message: 'SMS delivery failed', variant: 'error' });
     render(<NotificationBell />);
 
     const trigger = screen.getByRole('button', { name: 'Notifications, 2 unread' });
@@ -36,7 +36,7 @@ describe('NotificationBell', () => {
 
   it('marking a single notification read updates the unread count', async () => {
     const user = userEvent.setup();
-    pushNotification({ message: 'Bulk import finished', variant: 'success' });
+    pushNotification({ tenantId: null, message: 'Bulk import finished', variant: 'success' });
     render(<NotificationBell />);
 
     await user.click(screen.getByRole('button', { name: 'Notifications, 1 unread' }));
@@ -47,8 +47,8 @@ describe('NotificationBell', () => {
 
   it('"mark all read" clears the unread count and is disabled once nothing is unread', async () => {
     const user = userEvent.setup();
-    pushNotification({ message: 'First', variant: 'info' });
-    pushNotification({ message: 'Second', variant: 'info' });
+    pushNotification({ tenantId: null, message: 'First', variant: 'info' });
+    pushNotification({ tenantId: null, message: 'Second', variant: 'info' });
     render(<NotificationBell />);
 
     await user.click(screen.getByRole('button', { name: 'Notifications, 2 unread' }));
@@ -78,7 +78,7 @@ describe('NotificationBell', () => {
 
   it('is axe clean, both closed and with the panel open showing history', async () => {
     const user = userEvent.setup();
-    pushNotification({ message: 'Bulk import finished', variant: 'success' });
+    pushNotification({ tenantId: null, message: 'Bulk import finished', variant: 'success' });
     const { baseElement } = render(<NotificationBell />);
     await expect(baseElement).toHaveNoViolations();
 
