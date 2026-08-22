@@ -66,6 +66,7 @@
  */
 import { type RouterHistory, useRouter } from '@tanstack/react-router';
 import * as React from 'react';
+import { flushSync } from 'react-dom';
 
 /** Module-level, not component state — this must outlive the component
  * whose route is being *left* (its DOM, and any hook state tied to it,
@@ -167,6 +168,15 @@ export function useRouteFocus({ mainId, appName }: UseRouteFocusOptions): string
 
       if (!isRouteChange || isColdLoad) return;
 
+      // Clear then re-set, not a single `setAnnouncement(headingText)` —
+      // two different routes can share the same heading text (e.g. two
+      // list pages both titled "Students"), and React bails out of a
+      // state update whose value is unchanged from the last one, so the
+      // live region's `textContent` would never actually mutate and a
+      // screen reader would never announce the navigation. `flushSync`
+      // forces the clear to commit as its own DOM mutation before the
+      // real text is set, so there's always a change to announce.
+      flushSync(() => setAnnouncement(null));
       setAnnouncement(headingText);
 
       const isReturning =
