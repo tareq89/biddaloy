@@ -12,15 +12,14 @@ import { ESLint } from 'eslint';
 import { describe, expect, it } from 'vitest';
 
 import clientAdminConfig from '../../client-admin/eslint.config.mjs';
-import clientStudentConfig from '../../client-student/eslint.config.mjs';
 import { componentBoundaryConfig } from '../eslint-config.mjs';
 import uiConfig from '../eslint.config.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 /** Lints a fixture file's *contents* through the real, exported
- * `componentBoundaryConfig` — the same object client-admin/client-student
- * import and spread — via ESLint's actual `Linter`, not RuleTester. Skips
+ * `componentBoundaryConfig` — the same object `client-admin` imports and
+ * spreads — via ESLint's actual `Linter`, not RuleTester. Skips
  * type-checked rules (recommendedTypeChecked isn't part of
  * componentBoundaryConfig itself) so no tsconfig/project wiring is needed;
  * `no-raw-intl`'s toLocaleString branch already degrades to "don't report"
@@ -86,10 +85,6 @@ describe('client config adoption and ui exemption', () => {
 
   it('client-admin adopts componentBoundaryConfig', () => {
     expect(hasBoundaryPlugin(clientAdminConfig)).toBe(true);
-  });
-
-  it('client-student adopts componentBoundaryConfig', () => {
-    expect(hasBoundaryPlugin(clientStudentConfig)).toBe(true);
   });
 
   it('ui does not adopt componentBoundaryConfig (its wrappers legitimately import Radix and primitives)', () => {

@@ -31,7 +31,9 @@ export default defineConfig({
       ? [visualizer({ filename: 'dist/stats.html', gzipSize: true, brotliSize: true, open: true })]
       : []),
   ],
-  base: '/admin/',
+  // No `base`: [8.9.10] serves this single SPA from `/`, so asset URLs are
+  // root-relative. It used to be `/admin/`, back when a second package was
+  // expected to own `/student/`.
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),

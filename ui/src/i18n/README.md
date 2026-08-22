@@ -100,7 +100,7 @@ Three things, two of them blocking:
 - **Dead `t()` calls** (blocking) — a `t('key')` call site with no
   matching key in either locale for its namespace.
 - **Unused keys** (reported, not blocking) — a key in a locale file that
-  no `t()` call in `ui`, `client-admin`, or `client-student` references.
+  no `t()` call in `ui` or `client-admin` references.
   Cleanup, not breakage; left for a reviewer to act on deliberately.
 
 Namespace resolution for a `t()` call: an explicit `{ ns: '...' }` option

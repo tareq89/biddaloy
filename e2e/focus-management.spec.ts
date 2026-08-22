@@ -30,7 +30,7 @@ test.describe('focus management, skip link, and route announcements', () => {
   test.skip(!ADMIN_PASSWORD, 'SEED_ADMIN_PASSWORD is not set — see server/.env.example');
 
   test.beforeEach(async ({ page }) => {
-    await page.goto(shells.admin.baseURL);
+    await page.goto(shells.app.baseURL);
     await page.getByLabel('ইমেইল বা ফোন নম্বর').fill('admin@biddaloy.test');
     await page.getByLabel('পাসওয়ার্ড').fill(ADMIN_PASSWORD ?? '');
     await page.getByRole('button', { name: 'লগ ইন', exact: true }).click();

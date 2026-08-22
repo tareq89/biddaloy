@@ -44,9 +44,17 @@ jobs:
       - name: UI typecheck
         run: yarn workspace @biddaloy/ui lint
 
+      # `e2e/` is not a yarn workspace, so nothing else typechecks it — and
+      # its specs only run in the much slower E2E job against a real stack.
+      # [8.9.10] renamed a key in `e2e/config.ts` and the stale reference in
+      # a spec surfaced 20 minutes later as a Playwright TypeError; this
+      # catches that class of break in seconds.
+      - name: E2E typecheck
+        run: npx tsc -p e2e/tsconfig.json --noEmit
+
       # Runs from the repo root, not `yarn workspace @biddaloy/ui test` —
-      # both resolve the same root vitest.config.ts (it covers ui,
-      # client-admin and client-student together), but coverage thresholds
+      # both resolve the same root vitest.config.ts (it covers shared, ui
+      # and client-admin together), but coverage thresholds
       # only get enforced when `--coverage` is passed, and this is also
       # the single test run that produces the lcov artifact below.
       - name: Frontend tests with coverage
@@ -64,7 +72,10 @@ jobs:
       # than as a Vitest spec — see the script's own comment for why
       # (running a production build inside the same worker pool as the
       # rest of the frontend test suite exhausted its heap).
-      - name: client-admin route code-splitting check
+      # Also enforces the entry-chunk gzip ceiling ([8.9.10]) — the number
+      # that makes "split the guardian app out again if it gets heavy" a
+      # decision CI notices rather than one someone remembers.
+      - name: client-admin route code-splitting and bundle-size check
         run: yarn workspace @biddaloy/client-admin check:route-chunks
 
       - name: UI export map check

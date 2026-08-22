@@ -9,7 +9,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
  * same student the original navigation did, because `$studentId` is the
  * only state this page needs and it lives entirely in the path.
  */
-export const Route = createFileRoute('/students/$studentId')({
+export const Route = createFileRoute('/_staff/students/$studentId')({
   component: StudentDetailPage,
 });
 

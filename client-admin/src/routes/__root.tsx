@@ -1,28 +1,12 @@
-import { Permission } from '@biddaloy/shared';
-import { ensureSessionLoaded, getActiveTenant } from '@biddaloy/ui/api';
-import {
-  AppShell,
-  APP_SHELL_MAIN_ID,
-  EmptyState,
-  NotificationBell,
-  RouteAnnouncer,
-  TenantBar,
-  type AppShellNavGroup,
-} from '@biddaloy/ui/components';
+import { isGuardianRole, isStaffRole } from '@biddaloy/shared';
+import { ensureSessionLoaded, getActiveRole, getActiveTenant } from '@biddaloy/ui/api';
+import { APP_SHELL_MAIN_ID, EmptyState, RouteAnnouncer } from '@biddaloy/ui/components';
 import { useRouteFocus } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import type { QueryClient } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import {
-  createRootRouteWithContext,
-  Outlet,
-  redirect,
-  useNavigate,
-  useRouterState,
-} from '@tanstack/react-router';
+import { createRootRouteWithContext, Outlet, redirect, useNavigate } from '@tanstack/react-router';
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools';
-
-import { GlobalSearchLauncher } from '../components/global-search-launcher';
 
 /**
  * `queryClient` in router context is what lets a route's `loader` call
@@ -54,7 +38,18 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       // eslint-disable-next-line @typescript-eslint/only-throw-error
       throw redirect({ to: '/login', search: { redirect: location.href } });
     }
-    const hasActiveTenant = !!getActiveTenant();
+    // Tenant *and* a role the audience split actually knows about: a
+    // membership is the pair ([8.9.11]), and [8.9.10]'s route tree splits on
+    // the role. A visitor with a tenant but no role, or a role neither
+    // `_staff.tsx` nor `portal.tsx` accepts (e.g. an unsupported role like
+    // HEADMASTER), would reach `/`, get redirected by audience, and be
+    // bounced back by that layout's own guard — an infinite ping-pong
+    // between `/dashboard` and `/portal`. Treating it as unresolved sends
+    // them to the picker instead, which is the one screen that can actually
+    // resolve it.
+    const activeRole = getActiveRole();
+    const hasActiveTenant =
+      !!getActiveTenant() && (isGuardianRole(activeRole) || isStaffRole(activeRole));
 
     // [8.9.5]: authenticated but no active tenant chosen yet — either a
     // fresh login with 2+ memberships (`ui/src/hooks/auth.ts`'s `login()`
@@ -89,131 +84,39 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   // would otherwise look broken rather than loading.
   pendingComponent: RootPending,
   component: RootLayout,
-  // Rendered inside `RootLayout`'s own `<Outlet />` so the sidebar/header
-  // chrome stays up around it.
+  // Chrome-free since [8.9.10] moved `AppShell` into the audience layouts:
+  // an unmatched URL is exactly the case where we can't say which shell the
+  // visitor belongs in, so it renders on its own and offers `/`, which
+  // redirects by role.
   notFoundComponent: NotFoundPage,
 });
 
 /**
- * `useHasPermission` is reactive (`ui/src/hooks/permissions.ts`, built on
- * `useActiveRole`'s `useSyncExternalStore` subscription) — a role change
- * mid-session (a `TenantBar` switch) re-filters this list on its own, no
- * separate re-render trigger needed.
+ * Chrome-free by design as of [8.9.10]: the root route owns the auth/tenant
+ * guard, the route announcer and the devtools, and nothing else. The shells
+ * live one level down — `_staff.tsx` for staff, `portal.tsx` for guardians —
+ * because "which chrome" is an audience question, and the root route is the
+ * one place that serves every audience plus `/login` and `/select-school`,
+ * which have no chrome at all. That replaces the `pathname === '/login' ||
+ * pathname === '/select-school'` special case this component used to carry.
  */
 function RootLayout() {
   const { t } = useTranslation('nav');
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
-  // [8.9.7]: called unconditionally, above the chrome-free early return
-  // below — every route gets focus management/title/announcement, not
-  // just the ones inside `AppShell`. `SignInForm`/`SchoolPicker` (the
-  // `/login`/`/select-school` routes' own content) already carry their
-  // own top-level `<h1>`, which is what `useRouteFocus` falls back to
-  // finding via `document` when `APP_SHELL_MAIN_ID` isn't in the DOM.
+  // [8.9.7]: every route gets focus management/title/announcement, not just
+  // the ones inside `AppShell` — which is why this lives here rather than in
+  // each shell. `SignInForm`/`SchoolPicker` (the `/login`/`/select-school`
+  // routes' own content) already carry their own top-level `<h1>`, which is
+  // what `useRouteFocus` falls back to finding via `document` when
+  // `APP_SHELL_MAIN_ID` isn't in the DOM.
   const announcement = useRouteFocus({ mainId: APP_SHELL_MAIN_ID, appName: t('brand') });
 
-  const navItems = [
-    { to: '/', label: t('items.dashboard'), permission: Permission.DASHBOARD_VIEW },
-  ];
-
-  // Domain groups per [8.9.6]'s issue text — "so future modules slot in
-  // without restructuring". Academics and Communication aren't listed
-  // here yet: no route exists for either domain until their feature
-  // modules ([8.10.x]/[8.11.x]) land, and an empty group is exactly what
-  // `AppShell` already renders as nothing. Adding a group is then just
-  // one more object in this array, not a layout change.
-  const navGroups: AppShellNavGroup[] = [
-    {
-      id: 'people',
-      label: t('groups.people'),
-      items: [{ to: '/students', label: t('items.students'), permission: Permission.STUDENT_READ }],
-    },
-    {
-      id: 'finance',
-      label: t('groups.finance'),
-      // ACCOUNTANT's whole day runs through these two — pinned above the
-      // rest of Finance. Gated on FEE_COLLECT/PAYMENT_RECORD rather than
-      // the broader FEE_READ so TEACHER/EXECUTIVE (who hold FEE_READ for
-      // read-only context elsewhere, e.g. a student's profile) don't see
-      // a Finance section they have no operational reason to open.
-      pinnedItems: [
-        {
-          to: '/fees',
-          search: { tab: 'dues' },
-          label: t('items.studentDues'),
-          permission: Permission.FEE_COLLECT,
-        },
-        {
-          to: '/fees',
-          search: { tab: 'payment' },
-          label: t('items.recordPayment'),
-          permission: Permission.PAYMENT_RECORD,
-        },
-      ],
-      items: [{ to: '/fees', label: t('items.fees'), permission: Permission.FEE_STRUCTURE_READ }],
-    },
-    {
-      id: 'administration',
-      label: t('groups.administration'),
-      items: [
-        { to: '/settings', label: t('items.settings'), permission: Permission.SETTINGS_MANAGE },
-      ],
-    },
-  ];
-
-  const devtools = (
+  return (
     <>
+      <RouteAnnouncer message={announcement} />
+      <Outlet />
       {import.meta.env.DEV && <TanStackRouterDevtools />}
       {import.meta.env.DEV && <ReactQueryDevtools />}
     </>
-  );
-
-  // [8.9.4]'s sign-in page is deliberately chrome-free, per the approved
-  // `templates/sign-in` mockup — an unauthenticated visitor shouldn't see
-  // nav links to pages they can't reach yet. The stub-era version of this
-  // route flagged that gap in its own comment as deferred polish; this is
-  // where it gets settled, rather than restructuring every route file
-  // into a pathless layout route for one page's benefit. [8.9.5]'s
-  // `/select-school` gets the same treatment: showing `AppShell`'s nav
-  // (and `TenantBar`'s "current school" text) before a school is even
-  // chosen would be actively misleading, not just premature.
-  if (pathname === '/login' || pathname === '/select-school') {
-    return (
-      <>
-        <RouteAnnouncer message={announcement} />
-        <Outlet />
-        {devtools}
-      </>
-    );
-  }
-
-  return (
-    <AppShell
-      navItems={navItems}
-      navGroups={navGroups}
-      brand={t('brand')}
-      topBar={
-        <div className="flex items-center justify-between">
-          <TenantBar />
-          <div className="flex items-center gap-2">
-            <GlobalSearchLauncher />
-            <NotificationBell
-              label={t('notifications.bellLabel')}
-              panelTitle={t('notifications.panelLabel')}
-              emptyLabel={t('notifications.empty')}
-              markAllReadLabel={t('notifications.markAllRead')}
-            />
-          </div>
-        </div>
-      }
-      openMenuLabel={t('openMenuLabel')}
-      closeMenuLabel={t('closeMenuLabel')}
-      navLabel={t('navLabel')}
-      skipLinkLabel={t('skipToContent')}
-    >
-      <RouteAnnouncer message={announcement} />
-      <Outlet />
-      {devtools}
-    </AppShell>
   );
 }
 

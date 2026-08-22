@@ -12,23 +12,63 @@ flowchart TB
         I18N["i18n/\n(i18next, lazy namespaces)"]
     end
 
-    ADMIN["client-admin\n(staff/admin SPA)"]
-    STUDENT["client-student\n(guardian/student SPA)"]
+    APP["client-admin\n(the SPA — staff routes + /portal)"]
 
-    ADMIN -->|"public subpaths only"| COMP
-    ADMIN --> SHELL
-    ADMIN --> HOOKS
-    STUDENT -->|"public subpaths only"| COMP
-    STUDENT --> SHELL
-    STUDENT --> HOOKS
+    APP -->|"public subpaths only"| COMP
+    APP --> SHELL
+    APP --> HOOKS
 
-    ADMIN -.->|"BLOCKED by eslint\ncomponent-boundary rule"| PRIM
-    STUDENT -.->|"BLOCKED by eslint\ncomponent-boundary rule"| PRIM
+    APP -.->|"BLOCKED by eslint\ncomponent-boundary rule"| PRIM
 ```
+
+## One SPA, two audiences
+
+There is **one** client package, served at `/`. Staff and guardians are
+separated by _route_, not by package ([8.9.10]) — `ROLE_PERMISSIONS[PARENT]`
+and `ROLE_PERMISSIONS[STUDENT]` are byte-identical, so a package (or a route
+tree) per role would be two copies of the same thing.
+
+```mermaid
+flowchart TD
+    ROOT["__root.tsx\nauth + tenant/role guard\n(no chrome)"]
+    SLASH["/ — index.tsx\nredirect by audience"]
+    LOGIN["/login, /select-school\n(chrome-free)"]
+    STAFF["_staff.tsx (pathless)\nSTAFF_ROLES guard + AppShell + staff nav"]
+    PORTAL["portal.tsx\nGUARDIAN_ROLES guard + lighter shell"]
+    SROUTES["/dashboard, /students, /students/:id,\n/fees, /settings, /invoices/:id"]
+    PROUTES["/portal, /portal/fees"]
+
+    ROOT --> SLASH
+    ROOT --> LOGIN
+    ROOT --> STAFF
+    ROOT --> PORTAL
+    SLASH -->|"staff role"| SROUTES
+    SLASH -->|"PARENT or STUDENT"| PROUTES
+    STAFF --> SROUTES
+    PORTAL --> PROUTES
+    STAFF -.->|"guardian lands here → /portal"| PORTAL
+    PORTAL -.->|"staff lands here → /dashboard"| STAFF
+```
+
+Concretely: a PARENT signing in is sent to `/portal`; typing `/students`
+redirects them back to `/portal` rather than rendering a page whose every
+request returns 403. An ADMIN typing `/portal` is sent to `/dashboard`.
+Because `_staff` is a _pathless_ layout, staff URLs are unchanged — only the
+dashboard moved, from `/` to `/dashboard`, freeing `/` to be the redirect.
+
+The audience lists live in `shared/src/enums/audiences.ts`
+(`STAFF_ROLES`, `GUARDIAN_ROLES`) and both guards are the existing
+`ui/src/routes/require-role.tsx`. Client-side gating is a UX nicety: the
+server's `RolesGuard`/`ContextGuard` remain the security boundary.
+
+**When does a second client package become right?** When the entry bundle
+says so. `client-admin/scripts/check-route-chunks.mjs` gzips the entry
+chunk and fails CI above a fixed ceiling (220,000 B today, against 215,380 B
+measured), so "split it later if it gets heavy" is a number, not a memory.
 
 ## The component boundary rule (enforced, not a convention)
 
-`client-admin` and `client-student` may **only** import from
+`client-admin` may **only** import from
 `@biddaloy/ui`'s published subpaths — never Radix directly, never a deep
 `ui/src/...` or `.../primitives/...` path, never a raw `Intl`/
 `toLocaleString()` call in place of a shared formatter. This is enforced by
@@ -73,18 +113,20 @@ to check for it in review.
 don't add optimistic updates to its mutation. Show a pending state and wait
 for the server response.
 
-## Client apps
+## The client app
 
-- **`client-admin`** — staff-facing: manages students/guardians/classes/fee
-  structures/payments, sends reminders, views audit logs. Currently also
-  serves teachers (no separate `client-teacher` app was built — see
-  [00-overview.md](00-overview.md)).
-- **`client-student`** — guardian/student self-service: view fees,
-  enrollment, invoices.
+- **`client-admin`** — the whole SPA, both audiences. Staff routes manage
+  students/guardians/classes/fee structures/payments, send reminders and
+  view audit logs (teachers use these too — no separate `client-teacher`
+  app was built, see [00-overview.md](00-overview.md)). Its `/portal`
+  routes are the guardian/student self-service side: a placeholder shell
+  today, filled in by Epic 5.0 (#187).
 
-Both are Vite + React 19 SPAs, both consume `@biddaloy/ui`, both are built
-independently and served as static assets by the NestJS server in
-production (see [00-overview.md](00-overview.md) for the system diagram).
+One Vite + React 19 SPA consuming `@biddaloy/ui`, built once and served as
+static assets at `/` by the NestJS server in production (see
+[00-overview.md](00-overview.md) for the system diagram). The package name
+is a leftover from when a second client package was planned; renaming it is
+its own mechanical change.
 
 ## Routing
 
@@ -102,21 +144,31 @@ on.
 ```mermaid
 flowchart TB
     MAIN["main.tsx\nqueryClient = createAppQueryClient()\ncreateRouter({ routeTree, context: { queryClient } })"]
-    ROOT["routes/__root.tsx\nRootLayout: AppShell + Outlet\nbeforeLoad: protected-route guard [8.9.3]\nnotFoundComponent"]
-    IDX["routes/index.tsx\n/"]
-    SETTINGS["routes/settings.tsx\n/settings\n(permission-gated)"]
-    STUDENTS["routes/students/index.tsx\n/students\nvalidateSearch: zod"]
-    STUDENT["routes/students/$studentId.tsx\n/students/$studentId"]
-    FEES["routes/fees.tsx\n/fees"]
+    ROOT["routes/__root.tsx\nbeforeLoad: auth + tenant/role guard [8.9.3]\nroute announcer + notFoundComponent\n(no chrome of its own)"]
+    IDX["routes/index.tsx\n/ → /dashboard or /portal"]
+    STAFF["routes/_staff.tsx (pathless)\nSTAFF_ROLES guard + AppShell + staff nav"]
+    PORTAL["routes/portal.tsx\n/portal — GUARDIAN_ROLES guard + lighter shell"]
+    DASH["routes/_staff/dashboard.tsx\n/dashboard"]
+    SETTINGS["routes/_staff/settings.tsx\n/settings\n(permission-gated)"]
+    STUDENTS["routes/_staff/students/index.tsx\n/students\nvalidateSearch: zod"]
+    STUDENT["routes/_staff/students/$studentId.tsx\n/students/$studentId"]
+    FEES["routes/_staff/fees.tsx\n/fees"]
+    PIDX["routes/portal/index.tsx\n/portal"]
+    PFEES["routes/portal/fees.tsx\n/portal/fees"]
     LOGIN["routes/login.tsx\n/login\n(the guard's own redirect target — stub until [8.9.4])"]
 
     MAIN --> ROOT
     ROOT --> IDX
-    ROOT --> SETTINGS
-    ROOT --> STUDENTS
-    ROOT --> STUDENT
-    ROOT --> FEES
     ROOT --> LOGIN
+    ROOT --> STAFF
+    ROOT --> PORTAL
+    STAFF --> DASH
+    STAFF --> SETTINGS
+    STAFF --> STUDENTS
+    STAFF --> STUDENT
+    STAFF --> FEES
+    PORTAL --> PIDX
+    PORTAL --> PFEES
 ```
 
 Every route runs `ROOT`'s `beforeLoad` — `/login` included, which is why

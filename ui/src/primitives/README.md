@@ -37,7 +37,7 @@ one — `dialog.tsx` importing `button.tsx` — `@/primitives/<name>`), per
 `components.json`'s `aliases` block. That `@` alias only resolves inside
 `ui`'s own tooling (`ui/tsconfig.json`, `ui/vitest.config.ts`, Storybook's
 `main.ts`) — the moment one of these files is bundled as part of
-`client-admin`/`client-student` (via `@biddaloy/ui/components`), it hits
+`client-admin` (via `@biddaloy/ui/components`), it hits
 *that app's* `@` alias instead, which points at the app's own `src/`, not
 `ui/src/`, and the build fails with "does not exist". Change
 `@/primitives/lib/utils` → `./lib/utils` and `@/primitives/<name>` →

@@ -42,8 +42,9 @@ server {
     }
 
     # Immutable, content-hashed SPA assets (Vite's dist/assets/*) — cache
-    # aggressively. Matches every client the app serves (see main.ts).
-    location ~ ^/(student|teacher|admin)/assets/ {
+    # aggressively. One SPA served at `/` since [8.9.10], so one path
+    # prefix instead of one per client package (see main.ts).
+    location ~ ^/assets/ {
         proxy_pass http://app_upstream;
         proxy_set_header Host $host;
         proxy_cache_valid 200 60m;

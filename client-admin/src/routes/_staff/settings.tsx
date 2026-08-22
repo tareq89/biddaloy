@@ -3,7 +3,7 @@ import { useHasPermission } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute } from '@tanstack/react-router';
 
-import { SchoolSettingsPage } from '../pages/SchoolSettingsPage';
+import { SchoolSettingsPage } from '../../pages/SchoolSettingsPage';
 
 /**
  * `/settings` — carries forward [8.7.13]'s permission gate exactly
@@ -15,7 +15,7 @@ import { SchoolSettingsPage } from '../pages/SchoolSettingsPage';
  * is what [8.9.6] ("see only what my role permits") is scoped to revisit,
  * not this ticket.
  */
-export const Route = createFileRoute('/settings')({
+export const Route = createFileRoute('/_staff/settings')({
   component: SettingsRoute,
 });
 

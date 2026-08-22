@@ -63,7 +63,9 @@ describe('/login', () => {
 
     await signIn();
 
-    await waitFor(() => expect(router.state.location.pathname).toBe('/'));
+    // `/` is the audience redirect since [8.9.10] — the mock login response
+    // holds a single ADMIN membership, so this lands on the staff dashboard.
+    await waitFor(() => expect(router.state.location.pathname).toBe('/dashboard'));
   });
 
   it('a failed sign-in shows plain copy, never the raw server message or JSON', async () => {

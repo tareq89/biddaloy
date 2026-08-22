@@ -34,14 +34,6 @@ reviews:
         - RESTful API design conventions
         - Migration files included when entity schemas change
         - Proper error handling and HTTP status codes
-    - path: "client-student/**"
-      instructions: |
-        Vite + React frontend (student-facing). Review for:
-        - TypeScript strictness and proper typing
-        - React component composition and reusability
-        - Tailwind CSS class usage
-        - API client patterns matching the backend
-        - Form validation and error state handling
     - path: "shared/**"
       instructions: |
         Shared types, interfaces, and constants consumed by both

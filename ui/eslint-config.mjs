@@ -1,5 +1,5 @@
-// Shared ESLint 9 flat config for every biddaloy SPA (`ui`, `client-admin`,
-// `client-student`, ...). One rule set so the four apps can't drift apart —
+// Shared ESLint 9 flat config for every biddaloy package that ships React
+// (`ui`, `client-admin`). One rule set so they can't drift apart —
 // consumers spread this array and append a `languageOptions.parserOptions
 // .projectService` for their own tsconfig(s).
 //

@@ -13,10 +13,8 @@
     "build:shared": "yarn workspace @biddaloy/shared build",
     "build:ui": "yarn workspace @biddaloy/ui lint",
     "build:server": "yarn workspace @biddaloy/server build",
-    "build:client-student": "yarn workspace @biddaloy/client-student build",
     "build:client-admin": "yarn workspace @biddaloy/client-admin build",
     "dev:server": "yarn workspace @biddaloy/server start:dev",
-    "dev:client-student": "yarn workspace @biddaloy/client-student dev",
     "dev:client-admin": "yarn workspace @biddaloy/client-admin dev",
     "api:types": "yarn workspace @biddaloy/server docs:generate && yarn workspace @biddaloy/ui api:types",
     "lint": "yarn workspace @biddaloy/server lint",
@@ -75,7 +73,6 @@
   "msw": {
     "workerDirectory": [
       "client-admin/public",
-      "client-student/public",
       "ui/.storybook/public"
     ]
   }

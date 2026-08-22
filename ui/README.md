@@ -1,8 +1,8 @@
 # `@biddaloy/ui`
 
-The shared React component package. Every biddaloy SPA — `client-admin`,
-`client-student`, `client-teacher` — imports its UI from here and builds none of
-its own.
+The shared React component package. The biddaloy SPA (`client-admin` — one
+app serving staff routes and the guardian `/portal`) imports its UI from here
+and builds none of its own.
 
 Adding or changing a component? See [`CONTRIBUTING.md`](CONTRIBUTING.md)
 for the wrapper rule, the three-file requirement, and the PR checklist.
@@ -17,7 +17,7 @@ depends on `shared`; never the reverse.
 
 There is **no build step**. `package.json` points at `src/`, and consumers
 resolve it through a Vite alias plus a tsconfig path — the same way
-`client-student` already consumes `@biddaloy/shared`. That keeps HMR working
+`client-admin` already consumes `@biddaloy/shared`. That keeps HMR working
 across package boundaries: editing a component re-renders the app immediately
 instead of waiting on a library rebuild.
 
@@ -383,8 +383,8 @@ A few things worth knowing if you touch this:
   match, so a wildcard listed first would swallow every WebSocket
   connection before a future, more specific `ws.link(...)` handler in
   `handlers` ever got a chance to run.
-- **`client-admin/public/mockServiceWorker.js` and `client-student/
-  public/mockServiceWorker.js` are generated files, checked into the
+- **`client-admin/public/mockServiceWorker.js` is a generated file,
+  checked into the
   repo, not hand-written.** They embed their own MSW version
   (`PACKAGE_VERSION`) and can drift from whatever `msw` version is
   actually installed after an upgrade. Regenerate both after bumping
@@ -392,7 +392,6 @@ A few things worth knowing if you touch this:
 
   ```bash
   npx msw init client-admin/public --save
-  npx msw init client-student/public --save
   ```
 
   (`--save` also refreshes `msw.workerDirectory` in the root

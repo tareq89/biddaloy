@@ -8,7 +8,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
  * Exists so the route tree has a fourth lazy-loaded leaf to check
  * "route-level code splitting" against in the bundle report.
  */
-export const Route = createFileRoute('/fees')({
+export const Route = createFileRoute('/_staff/fees')({
   component: FeesPage,
 });
 

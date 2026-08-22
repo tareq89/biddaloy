@@ -210,7 +210,7 @@ component.
 [8.7.4] adds the lint enforcement for "no new component introduces a raw
 string," but **scoped to consuming SPAs first**: `boundary/
 no-hardcoded-jsx-text`, wired into `componentBoundaryConfig` alongside
-the other boundary rules, applies to `client-admin`/`client-student` only
+the other boundary rules, applies to `client-admin` only
 — never to `ui` itself, same as `no-radix-import`/`no-deep-ui-import`/
 `no-raw-intl` before it. `ui`'s own wrapper layer getting the equivalent
 enforcement (and having its literals actually replaced with real `t()`
@@ -239,8 +239,8 @@ Add it here when **two or more SPAs need it, or one SPA's need is
 generic enough that a second app needing the same thing is a matter of
 when, not if** — a `MoneyInput` is inherently shared (every school app
 handles money the same way); a widget specific to `client-admin`'s bulk
-CSV importer probably isn't, at least not until `client-teacher` or
-`client-student` also needs bulk import.
+CSV importer probably isn't, at least not until the guardian `/portal`
+routes need bulk import too.
 
 Signs it belongs here:
 
@@ -285,7 +285,7 @@ alias imports (it usually does, per `components.json`'s `aliases`
 block), relative-ify them before committing: `@/primitives/lib/utils` →
 `./lib/utils`. That alias only resolves inside `ui`'s own tooling
 (`tsconfig.json`, `vitest.config.ts`, Storybook's `main.ts`) — the moment
-a file using it gets bundled into `client-admin`/`client-student`, it
+a file using it gets bundled into `client-admin`, it
 hits _that app's_ own `@` alias instead (pointing at the app's own
 `src/`), and the build fails with "module not found." See
 `src/primitives/README.md`'s "Regenerating" section for the full story —
@@ -370,5 +370,5 @@ for any PR touching `ui/`:
 - [ ] `yarn workspace @biddaloy/ui lint` passes.
 - [ ] `yarn test:frontend:coverage` (run from the **repo root**, not just
       `ui/`) passes — this is what catches a primitive-alias import that
-      only breaks once bundled into `client-admin`/`client-student`.
+      only breaks once bundled into `client-admin`.
 - [ ] `npx storybook build` (from `ui/`) succeeds.

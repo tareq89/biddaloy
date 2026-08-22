@@ -24,10 +24,6 @@
       "entry": ["src/**/*.test.{ts,tsx}"],
       "project": ["src/**/*.{ts,tsx,css}"],
       "ignoreDependencies": ["tailwindcss"]
-    },
-    "client-student": {
-      "entry": ["src/**/*.test.{ts,tsx}"],
-      "project": ["src/**/*.{ts,tsx,css}"]
     }
   }
 }

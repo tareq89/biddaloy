@@ -18,7 +18,7 @@ Any package in the monorepo can import from `@biddaloy/shared`:
 import { UserRole, UserStatus } from '@biddaloy/shared';
 ```
 
-The server's `tsconfig.json` resolves it via yarn workspace symlinks. The client-student Vite config resolves it via a direct alias to `../shared/src`.
+The server's `tsconfig.json` resolves it via yarn workspace symlinks. The client's Vite config resolves it via a direct alias to `../shared/src`.
 
 ## Commands
 

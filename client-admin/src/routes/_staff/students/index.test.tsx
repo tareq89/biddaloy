@@ -3,13 +3,17 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { routeTree } from '../../routeTree.gen';
+import { routeTree } from '../../../routeTree.gen';
 
 /**
  * Covers [8.9.1]'s "search params typed and validated per route" and
  * "deep links restore full page state" ACs against the real route tree —
  * not a hand-built test double, the actual `zod` schema in
  * `students/index.tsx`.
+ *
+ * Every case carries a staff `role` since [8.9.10]: `/students` sits under
+ * the `_staff` layout, whose `RequireRole` guard sends a guardian (or a
+ * visitor with no resolved role at all) somewhere else entirely.
  */
 describe('/students', () => {
   afterEach(async () => {
@@ -20,6 +24,7 @@ describe('/students', () => {
     renderWithRouter(routeTree, {
       initialEntries: ['/students?page=2&class_id=class-9'],
       tenantId: 'tenant-1',
+      role: 'ADMIN',
       locale: 'en',
     });
 
@@ -31,6 +36,7 @@ describe('/students', () => {
     renderWithRouter(routeTree, {
       initialEntries: ['/students?page=abc'],
       tenantId: 'tenant-1',
+      role: 'ADMIN',
       locale: 'en',
     });
 
@@ -41,6 +47,7 @@ describe('/students', () => {
     renderWithRouter(routeTree, {
       initialEntries: ['/students?page=-5'],
       tenantId: 'tenant-1',
+      role: 'ADMIN',
       locale: 'en',
     });
 
@@ -52,6 +59,7 @@ describe('/students', () => {
     const { router } = renderWithRouter(routeTree, {
       initialEntries: ['/students'],
       tenantId: 'tenant-1',
+      role: 'ADMIN',
       locale: 'en',
     });
 

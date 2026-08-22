@@ -25,28 +25,25 @@ Core workflows today:
 ```mermaid
 flowchart TB
     subgraph Browser
-        SA["client-admin\n(staff/admin SPA)"]
-        SS["client-student\n(guardian/student SPA)"]
+        APP["client-admin — one SPA served at /\nstaff routes (/dashboard, /students, …)\n+ guardian routes (/portal)"]
     end
 
     subgraph "@biddaloy/ui"
         UI["Shared component library\n(design system, shells, forms)"]
     end
 
-    SA -- imports --> UI
-    SS -- imports --> UI
+    APP -- imports --> UI
 
-    SA -- "HTTPS /api/v1/*" --> NGINX
-    SS -- "HTTPS /api/v1/*" --> NGINX
+    APP -- "HTTPS /api/v1/*" --> NGINX
 
     subgraph Server["Docker host"]
         NGINX["nginx\n(TLS, reverse proxy)"]
-        APP["NestJS server\n(single process, serves API + static SPA builds)"]
+        SERVER_APP["NestJS server\n(single process, serves API + static SPA builds)"]
         REDIS[("Redis\nrate limits, token denylist,\nlogin lockout, BullMQ jobs")]
         PG[("PostgreSQL\nall tenant data")]
-        NGINX --> APP
-        APP --> REDIS
-        APP --> PG
+        NGINX --> SERVER_APP
+        SERVER_APP --> REDIS
+        SERVER_APP --> PG
     end
 
     APP -- "SMS / WhatsApp / Email / Messenger" --> Providers["External comms providers\n(Greenweb, Mim, WhatsApp Cloud API, SMTP, Messenger)"]
@@ -78,8 +75,7 @@ biddaloy/
 ├── server/           # NestJS backend (see 03-backend-modules.md)
 ├── shared/           # Types/DTOs/enums shared by server + every client
 ├── ui/                # Shared component library (see 06-frontend-architecture.md)
-├── client-admin/     # Staff/admin SPA
-├── client-student/   # Guardian/student self-service SPA
+├── client-admin/     # The SPA — staff routes + the /portal guardian routes
 ├── docs/architecture/ # You are here
 └── scripts/, nginx/, docker-compose.yml  # Build & deploy (see 07-deployment.md)
 ```
@@ -106,8 +102,16 @@ few deliberate ways:
 - **Docker deployment shipped**, including automated Let's Encrypt
   certificate bootstrapping (`cert-bootstrap`) and a self-reloading nginx —
   see [07-deployment.md](07-deployment.md).
-- **`client-teacher` was not built.** Only `client-admin` and
-  `client-student` exist today; teachers currently use `client-admin`.
+- **There is one client package, not one per audience.** `client-teacher`
+  was never built, and `client-student` — a five-file placeholder that
+  never grew a router, providers or auth — was deleted in [8.9.10]. Staff
+  and guardians are separated by route inside `client-admin` (a `_staff`
+  layout and a `/portal` layout), because `ROLE_PERMISSIONS[PARENT]` and
+  `[STUDENT]` are identical and a package per role bought nothing but a
+  second bundle and a reload on every tenant switch. Teachers use the
+  staff routes. CI enforces an entry-chunk gzip ceiling so "split it out
+  again if it gets heavy" stays a measurable decision — see
+  [06-frontend-architecture.md](06-frontend-architecture.md).
 - **A `Reports` module was planned but not yet built.** There is no
   reporting/analytics endpoint yet — dues/payment data is queried directly
   through the fees API today.

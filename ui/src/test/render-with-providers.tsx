@@ -4,7 +4,7 @@
  * and what's planned.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, type RenderOptions, type RenderResult } from '@testing-library/react';
+import { cleanup, render, type RenderOptions, type RenderResult } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement, ReactNode } from 'react';
 
@@ -175,6 +175,16 @@ export function renderWithProviders(
  * starts in the wrong language, which is exactly the isolation its own
  * doc comment promises. */
 export async function cleanupTestState(): Promise<void> {
+  // Unmount first, *then* clear. Testing Library's own auto-cleanup runs in
+  // its own `afterEach`, and hook order isn't something a test file should
+  // have to reason about: with the tree still mounted, clearing the auth
+  // state below makes the previous test's live router re-run its root
+  // guard, which fires a cold-boot refresh whose response lands in the
+  // middle of the *next* test and overwrites the access token that test
+  // just set. That produced a failure ("the tenant switcher isn't there")
+  // with no visible connection to its cause, and only when the file ran in
+  // full — never in isolation.
+  cleanup();
   clearAuthState();
   // [8.9.3]: without this, a test's cold-boot bootstrap promise (and any
   // proactive-refresh timer it armed) would leak into the next test — ES

@@ -32,7 +32,7 @@ const studentsSearchSchema = z.object({
   class_id: z.string().min(1).optional().catch(undefined),
 });
 
-export const Route = createFileRoute('/students/')({
+export const Route = createFileRoute('/_staff/students/')({
   validateSearch: studentsSearchSchema,
   // Without `loaderDeps`, the loader only reruns when path params
   // change — a route's `search` isn't part of its cache key by default.

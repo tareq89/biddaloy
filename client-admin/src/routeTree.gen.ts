@@ -10,22 +10,26 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as FeesRouteImport } from './routes/fees'
+import { Route as StaffRouteImport } from './routes/_staff'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as PortalRouteImport } from './routes/portal'
 import { Route as SelectSchoolRouteImport } from './routes/select-school'
-import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as InvoicesInvoiceIdRouteImport } from './routes/invoices/$invoiceId'
-import { Route as StudentsIndexRouteImport } from './routes/students/index'
-import { Route as StudentsStudentIdRouteImport } from './routes/students/$studentId'
+import { Route as StaffDashboardRouteImport } from './routes/_staff/dashboard'
+import { Route as StaffFeesRouteImport } from './routes/_staff/fees'
+import { Route as StaffSettingsRouteImport } from './routes/_staff/settings'
+import { Route as PortalIndexRouteImport } from './routes/portal/index'
+import { Route as PortalFeesRouteImport } from './routes/portal/fees'
+import { Route as StaffInvoicesInvoiceIdRouteImport } from './routes/_staff/invoices/$invoiceId'
+import { Route as StaffStudentsIndexRouteImport } from './routes/_staff/students/index'
+import { Route as StaffStudentsStudentIdRouteImport } from './routes/_staff/students/$studentId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const FeesRoute = FeesRouteImport.update({
-  id: '/fees',
-  path: '/fees',
+const StaffRoute = StaffRouteImport.update({
+  id: '/_staff',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -33,105 +37,151 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PortalRoute = PortalRouteImport.update({
+  id: '/portal',
+  path: '/portal',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SelectSchoolRoute = SelectSchoolRouteImport.update({
   id: '/select-school',
   path: '/select-school',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SettingsRoute = SettingsRouteImport.update({
+const StaffDashboardRoute = StaffDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffFeesRoute = StaffFeesRouteImport.update({
+  id: '/fees',
+  path: '/fees',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffSettingsRoute = StaffSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => StaffRoute,
 } as any)
-const InvoicesInvoiceIdRoute = InvoicesInvoiceIdRouteImport.update({
+const PortalIndexRoute = PortalIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalFeesRoute = PortalFeesRouteImport.update({
+  id: '/fees',
+  path: '/fees',
+  getParentRoute: () => PortalRoute,
+} as any)
+const StaffInvoicesInvoiceIdRoute = StaffInvoicesInvoiceIdRouteImport.update({
   id: '/invoices/$invoiceId',
   path: '/invoices/$invoiceId',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => StaffRoute,
 } as any)
-const StudentsIndexRoute = StudentsIndexRouteImport.update({
+const StaffStudentsIndexRoute = StaffStudentsIndexRouteImport.update({
   id: '/students/',
   path: '/students/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => StaffRoute,
 } as any)
-const StudentsStudentIdRoute = StudentsStudentIdRouteImport.update({
+const StaffStudentsStudentIdRoute = StaffStudentsStudentIdRouteImport.update({
   id: '/students/$studentId',
   path: '/students/$studentId',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => StaffRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/fees': typeof FeesRoute
   '/login': typeof LoginRoute
+  '/portal': typeof PortalRouteWithChildren
   '/select-school': typeof SelectSchoolRoute
-  '/settings': typeof SettingsRoute
-  '/invoices/$invoiceId': typeof InvoicesInvoiceIdRoute
-  '/students/$studentId': typeof StudentsStudentIdRoute
-  '/students/': typeof StudentsIndexRoute
+  '/dashboard': typeof StaffDashboardRoute
+  '/fees': typeof StaffFeesRoute
+  '/settings': typeof StaffSettingsRoute
+  '/portal/fees': typeof PortalFeesRoute
+  '/portal/': typeof PortalIndexRoute
+  '/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
+  '/students/$studentId': typeof StaffStudentsStudentIdRoute
+  '/students/': typeof StaffStudentsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/fees': typeof FeesRoute
   '/login': typeof LoginRoute
   '/select-school': typeof SelectSchoolRoute
-  '/settings': typeof SettingsRoute
-  '/invoices/$invoiceId': typeof InvoicesInvoiceIdRoute
-  '/students/$studentId': typeof StudentsStudentIdRoute
-  '/students': typeof StudentsIndexRoute
+  '/dashboard': typeof StaffDashboardRoute
+  '/fees': typeof StaffFeesRoute
+  '/settings': typeof StaffSettingsRoute
+  '/portal/fees': typeof PortalFeesRoute
+  '/portal': typeof PortalIndexRoute
+  '/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
+  '/students/$studentId': typeof StaffStudentsStudentIdRoute
+  '/students': typeof StaffStudentsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/fees': typeof FeesRoute
+  '/_staff': typeof StaffRouteWithChildren
   '/login': typeof LoginRoute
+  '/portal': typeof PortalRouteWithChildren
   '/select-school': typeof SelectSchoolRoute
-  '/settings': typeof SettingsRoute
-  '/invoices/$invoiceId': typeof InvoicesInvoiceIdRoute
-  '/students/$studentId': typeof StudentsStudentIdRoute
-  '/students/': typeof StudentsIndexRoute
+  '/_staff/dashboard': typeof StaffDashboardRoute
+  '/_staff/fees': typeof StaffFeesRoute
+  '/_staff/settings': typeof StaffSettingsRoute
+  '/portal/fees': typeof PortalFeesRoute
+  '/portal/': typeof PortalIndexRoute
+  '/_staff/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
+  '/_staff/students/$studentId': typeof StaffStudentsStudentIdRoute
+  '/_staff/students/': typeof StaffStudentsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/fees'
     | '/login'
+    | '/portal'
     | '/select-school'
+    | '/dashboard'
+    | '/fees'
     | '/settings'
+    | '/portal/fees'
+    | '/portal/'
     | '/invoices/$invoiceId'
     | '/students/$studentId'
     | '/students/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/fees'
     | '/login'
     | '/select-school'
+    | '/dashboard'
+    | '/fees'
     | '/settings'
+    | '/portal/fees'
+    | '/portal'
     | '/invoices/$invoiceId'
     | '/students/$studentId'
     | '/students'
   id:
     | '__root__'
     | '/'
-    | '/fees'
+    | '/_staff'
     | '/login'
+    | '/portal'
     | '/select-school'
-    | '/settings'
-    | '/invoices/$invoiceId'
-    | '/students/$studentId'
-    | '/students/'
+    | '/_staff/dashboard'
+    | '/_staff/fees'
+    | '/_staff/settings'
+    | '/portal/fees'
+    | '/portal/'
+    | '/_staff/invoices/$invoiceId'
+    | '/_staff/students/$studentId'
+    | '/_staff/students/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  FeesRoute: typeof FeesRoute
+  StaffRoute: typeof StaffRouteWithChildren
   LoginRoute: typeof LoginRoute
+  PortalRoute: typeof PortalRouteWithChildren
   SelectSchoolRoute: typeof SelectSchoolRoute
-  SettingsRoute: typeof SettingsRoute
-  InvoicesInvoiceIdRoute: typeof InvoicesInvoiceIdRoute
-  StudentsStudentIdRoute: typeof StudentsStudentIdRoute
-  StudentsIndexRoute: typeof StudentsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -143,11 +193,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/fees': {
-      id: '/fees'
-      path: '/fees'
-      fullPath: '/fees'
-      preLoaderRoute: typeof FeesRouteImport
+    '/_staff': {
+      id: '/_staff'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof StaffRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -157,6 +207,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/portal': {
+      id: '/portal'
+      path: '/portal'
+      fullPath: '/portal'
+      preLoaderRoute: typeof PortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/select-school': {
       id: '/select-school'
       path: '/select-school'
@@ -164,46 +221,104 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SelectSchoolRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/settings': {
-      id: '/settings'
+    '/_staff/dashboard': {
+      id: '/_staff/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof StaffDashboardRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/fees': {
+      id: '/_staff/fees'
+      path: '/fees'
+      fullPath: '/fees'
+      preLoaderRoute: typeof StaffFeesRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/settings': {
+      id: '/_staff/settings'
       path: '/settings'
       fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof StaffSettingsRouteImport
+      parentRoute: typeof StaffRoute
     }
-    '/invoices/$invoiceId': {
-      id: '/invoices/$invoiceId'
+    '/portal/': {
+      id: '/portal/'
+      path: '/'
+      fullPath: '/portal/'
+      preLoaderRoute: typeof PortalIndexRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/fees': {
+      id: '/portal/fees'
+      path: '/fees'
+      fullPath: '/portal/fees'
+      preLoaderRoute: typeof PortalFeesRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/_staff/invoices/$invoiceId': {
+      id: '/_staff/invoices/$invoiceId'
       path: '/invoices/$invoiceId'
       fullPath: '/invoices/$invoiceId'
-      preLoaderRoute: typeof InvoicesInvoiceIdRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof StaffInvoicesInvoiceIdRouteImport
+      parentRoute: typeof StaffRoute
     }
-    '/students/': {
-      id: '/students/'
+    '/_staff/students/': {
+      id: '/_staff/students/'
       path: '/students'
       fullPath: '/students/'
-      preLoaderRoute: typeof StudentsIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof StaffStudentsIndexRouteImport
+      parentRoute: typeof StaffRoute
     }
-    '/students/$studentId': {
-      id: '/students/$studentId'
+    '/_staff/students/$studentId': {
+      id: '/_staff/students/$studentId'
       path: '/students/$studentId'
       fullPath: '/students/$studentId'
-      preLoaderRoute: typeof StudentsStudentIdRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof StaffStudentsStudentIdRouteImport
+      parentRoute: typeof StaffRoute
     }
   }
 }
 
+interface StaffRouteChildren {
+  StaffDashboardRoute: typeof StaffDashboardRoute
+  StaffFeesRoute: typeof StaffFeesRoute
+  StaffSettingsRoute: typeof StaffSettingsRoute
+  StaffInvoicesInvoiceIdRoute: typeof StaffInvoicesInvoiceIdRoute
+  StaffStudentsStudentIdRoute: typeof StaffStudentsStudentIdRoute
+  StaffStudentsIndexRoute: typeof StaffStudentsIndexRoute
+}
+
+const StaffRouteChildren: StaffRouteChildren = {
+  StaffDashboardRoute: StaffDashboardRoute,
+  StaffFeesRoute: StaffFeesRoute,
+  StaffSettingsRoute: StaffSettingsRoute,
+  StaffInvoicesInvoiceIdRoute: StaffInvoicesInvoiceIdRoute,
+  StaffStudentsStudentIdRoute: StaffStudentsStudentIdRoute,
+  StaffStudentsIndexRoute: StaffStudentsIndexRoute,
+}
+
+const StaffRouteWithChildren = StaffRoute._addFileChildren(StaffRouteChildren)
+
+interface PortalRouteChildren {
+  PortalFeesRoute: typeof PortalFeesRoute
+  PortalIndexRoute: typeof PortalIndexRoute
+}
+
+const PortalRouteChildren: PortalRouteChildren = {
+  PortalFeesRoute: PortalFeesRoute,
+  PortalIndexRoute: PortalIndexRoute,
+}
+
+const PortalRouteWithChildren =
+  PortalRoute._addFileChildren(PortalRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  FeesRoute: FeesRoute,
+  StaffRoute: StaffRouteWithChildren,
   LoginRoute: LoginRoute,
+  PortalRoute: PortalRouteWithChildren,
   SelectSchoolRoute: SelectSchoolRoute,
-  SettingsRoute: SettingsRoute,
-  InvoicesInvoiceIdRoute: InvoicesInvoiceIdRoute,
-  StudentsStudentIdRoute: StudentsStudentIdRoute,
-  StudentsIndexRoute: StudentsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
