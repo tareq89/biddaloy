@@ -1,6 +1,14 @@
 import { Permission } from '@biddaloy/shared';
 import { ensureSessionLoaded, getActiveTenant } from '@biddaloy/ui/api';
-import { AppShell, EmptyState, TenantBar, type AppShellNavGroup } from '@biddaloy/ui/components';
+import {
+  AppShell,
+  APP_SHELL_MAIN_ID,
+  EmptyState,
+  RouteAnnouncer,
+  TenantBar,
+  type AppShellNavGroup,
+} from '@biddaloy/ui/components';
+import { useRouteFocus } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import type { QueryClient } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
@@ -92,6 +100,13 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 function RootLayout() {
   const { t } = useTranslation('nav');
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  // [8.9.7]: called unconditionally, above the chrome-free early return
+  // below — every route gets focus management/title/announcement, not
+  // just the ones inside `AppShell`. `SignInForm`/`SchoolPicker` (the
+  // `/login`/`/select-school` routes' own content) already carry their
+  // own top-level `<h1>`, which is what `useRouteFocus` falls back to
+  // finding via `document` when `APP_SHELL_MAIN_ID` isn't in the DOM.
+  const announcement = useRouteFocus({ mainId: APP_SHELL_MAIN_ID, appName: t('brand') });
 
   const navItems = [
     { to: '/', label: t('items.dashboard'), permission: Permission.DASHBOARD_VIEW },
@@ -161,6 +176,7 @@ function RootLayout() {
   if (pathname === '/login' || pathname === '/select-school') {
     return (
       <>
+        <RouteAnnouncer message={announcement} />
         <Outlet />
         {devtools}
       </>
@@ -176,7 +192,9 @@ function RootLayout() {
       openMenuLabel={t('openMenuLabel')}
       closeMenuLabel={t('closeMenuLabel')}
       navLabel={t('navLabel')}
+      skipLinkLabel={t('skipToContent')}
     >
+      <RouteAnnouncer message={announcement} />
       <Outlet />
       {devtools}
     </AppShell>

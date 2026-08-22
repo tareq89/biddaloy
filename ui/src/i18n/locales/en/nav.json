@@ -3,6 +3,7 @@
   "openMenuLabel": "Open menu",
   "closeMenuLabel": "Close menu",
   "navLabel": "Main",
+  "skipToContent": "Skip to main content",
   "items": {
     "dashboard": "Dashboard",
     "students": "Students",

@@ -1,8 +1,11 @@
 /**
  * The frame every routed screen renders inside: a nav landmark down the
  * side, a main landmark for the active route's content. [8.9.1]'s job was
- * routing/code-splitting, not the full app-chrome epic (focus management
- * and the skip link are [8.9.7]'s). [8.9.5]'s tenant/role bar is the
+ * routing/code-splitting; [8.9.7] adds the skip link and the `<main>`'s
+ * `id`/`tabIndex` that both it and `useRouteFocus` (`../hooks/use-route-
+ * focus.ts`) depend on — the skip link is rendered as this component's
+ * very first child, above even `topBar`, so it's the first Tab stop on
+ * every page regardless of what's in that slot. [8.9.5]'s tenant/role bar is the
  * optional `topBar` slot below — a full-width row above the sidebar+
  * content row, rendered by the caller (`TenantBar`, `ui/src/components/
  * tenant-bar.tsx`) so this component stays app-state-agnostic.
@@ -43,6 +46,13 @@ import { hasPermission } from '../hooks/permissions';
 
 import { Button } from './button';
 import { Dialog, DialogClose, DialogContent, DialogTitle, DialogTrigger } from './dialog';
+import { SkipLink } from './skip-link';
+
+/** `id` of the `<main>` landmark below — exported so `useRouteFocus`
+ * (`../hooks/use-route-focus.ts`) targets the same element this
+ * component renders, rather than each side hand-maintaining its own
+ * copy of the string. */
+export const APP_SHELL_MAIN_ID = 'main-content';
 
 export interface AppShellNavItem {
   /** A route path, e.g. `/students`. Untyped against the app's route
@@ -99,6 +109,12 @@ export interface AppShellProps {
   closeMenuLabel?: string;
   /** Accessible name for the nav landmark. */
   navLabel?: string;
+  /** Visible text for the [8.9.7] skip link — "Skip to main content" in
+   * English. A literal English fallback, like `openMenuLabel`'s default
+   * below: `ui`'s own wrapper components don't call `t()` themselves yet
+   * (see `ui/CONTRIBUTING.md`'s "i18n rules"), so a caller that doesn't
+   * pass a translated string gets readable English rather than nothing. */
+  skipLinkLabel?: string;
   /** The active route's content — a consuming app's root route renders
    * `<AppShell navItems={...}><Outlet /></AppShell>`. */
   children: ReactNode;
@@ -241,6 +257,7 @@ export function AppShell({
   openMenuLabel = 'Open menu',
   closeMenuLabel = 'Close menu',
   navLabel = 'Main',
+  skipLinkLabel = 'Skip to main content',
   children,
 }: AppShellProps) {
   const role = useActiveRole();
@@ -248,6 +265,7 @@ export function AppShell({
 
   return (
     <div className="flex min-h-screen flex-col">
+      <SkipLink targetId={APP_SHELL_MAIN_ID}>{skipLinkLabel}</SkipLink>
       {topBar}
       <div className="flex flex-1 flex-col md:flex-row">
         <div className="flex items-center justify-between border-b border-border p-2 md:hidden">
@@ -294,7 +312,14 @@ export function AppShell({
           <NavContent navItems={navItems} navGroups={navGroups} role={role} navLabel={navLabel} />
         </aside>
 
-        <main className="min-w-0 flex-1 p-6">{children}</main>
+        {/* `tabIndex={-1}`: not a Tab stop itself, but focusable via the
+            skip link's `href="#main-content"` jump and via `useRouteFocus`'s
+            no-heading fallback — no `outline-none` here, a jump like this
+            should show the same visible focus ring any other target does
+            (WCAG 2.4.7). */}
+        <main id={APP_SHELL_MAIN_ID} tabIndex={-1} className="min-w-0 flex-1 p-6">
+          {children}
+        </main>
       </div>
     </div>
   );
