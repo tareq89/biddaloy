@@ -51,21 +51,75 @@ describe('buildSpaFallback', () => {
 
   // Answering a POST with index.html would report 200 and a page for what
   // is really a 404 — the pre-[8.9.10] `POST /admin/x` behaviour.
-  it.each(['POST', 'PUT', 'PATCH', 'DELETE'])('passes %s through to a 404', (method) => {
+  it('passes POST through to a 404', () => {
     const { res, calls } = fakeResponse();
     const next = vi.fn() as unknown as NextFunction;
 
-    buildSpaFallback(CLIENT_DIST)(fakeRequest(method, '/anything'), res, next);
+    buildSpaFallback(CLIENT_DIST)(fakeRequest('POST', '/anything'), res, next);
 
     expect(calls).toHaveLength(0);
     expect(next).toHaveBeenCalled();
   });
 
-  it.each(['/api', '/api/v1/students'])('leaves %s to the API, which owns its own 404s', (path) => {
+  it('passes PUT through to a 404', () => {
     const { res, calls } = fakeResponse();
     const next = vi.fn() as unknown as NextFunction;
 
-    buildSpaFallback(CLIENT_DIST)(fakeRequest('GET', path), res, next);
+    buildSpaFallback(CLIENT_DIST)(fakeRequest('PUT', '/anything'), res, next);
+
+    expect(calls).toHaveLength(0);
+    expect(next).toHaveBeenCalled();
+  });
+
+  it('passes PATCH through to a 404', () => {
+    const { res, calls } = fakeResponse();
+    const next = vi.fn() as unknown as NextFunction;
+
+    buildSpaFallback(CLIENT_DIST)(fakeRequest('PATCH', '/anything'), res, next);
+
+    expect(calls).toHaveLength(0);
+    expect(next).toHaveBeenCalled();
+  });
+
+  it('passes DELETE through to a 404', () => {
+    const { res, calls } = fakeResponse();
+    const next = vi.fn() as unknown as NextFunction;
+
+    buildSpaFallback(CLIENT_DIST)(fakeRequest('DELETE', '/anything'), res, next);
+
+    expect(calls).toHaveLength(0);
+    expect(next).toHaveBeenCalled();
+  });
+
+  it('leaves /api to the API, which owns its own 404s', () => {
+    const { res, calls } = fakeResponse();
+    const next = vi.fn() as unknown as NextFunction;
+
+    buildSpaFallback(CLIENT_DIST)(fakeRequest('GET', '/api'), res, next);
+
+    expect(calls).toHaveLength(0);
+    expect(next).toHaveBeenCalled();
+  });
+
+  it('leaves /api/v1/students to the API, which owns its own 404s', () => {
+    const { res, calls } = fakeResponse();
+    const next = vi.fn() as unknown as NextFunction;
+
+    buildSpaFallback(CLIENT_DIST)(fakeRequest('GET', '/api/v1/students'), res, next);
+
+    expect(calls).toHaveLength(0);
+    expect(next).toHaveBeenCalled();
+  });
+
+  // express.static() runs before this in main.ts and already looked for
+  // the file; reaching here means it's genuinely missing. Answering with
+  // index.html would hide a broken deploy (a missing hashed JS/CSS bundle)
+  // behind a silent 200 instead of a 404.
+  it('leaves a missing /assets/ file to a real 404, not index.html', () => {
+    const { res, calls } = fakeResponse();
+    const next = vi.fn() as unknown as NextFunction;
+
+    buildSpaFallback(CLIENT_DIST)(fakeRequest('GET', '/assets/missing.js'), res, next);
 
     expect(calls).toHaveLength(0);
     expect(next).toHaveBeenCalled();

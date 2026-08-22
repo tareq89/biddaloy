@@ -12,7 +12,7 @@ import type { Request, Response, NextFunction } from 'express';
  * the interesting part and booting a whole Nest app is a poor way to test
  * three `if`s.
  *
- * Two rules, both of them fixing something [8.9.10] found:
+ * Three rules, all of them fixing something [8.9.10] found:
  *
  * 1. **`GET`/`HEAD` only.** A `POST` to an unknown path isn't a
  *    navigation. Answering it with `index.html` turned a 404 into a 200
@@ -23,9 +23,16 @@ import type { Request, Response, NextFunction } from 'express';
  *    per-client loop registered `/teacher` even though `client-teacher`
  *    never existed, so every request under it hit a missing file. Passing
  *    `next` on error lets the request fall through to a plain 404.
+ * 3. **`/assets/*` is a real 404, not `index.html`.** `main.ts` mounts this
+ *    after `express.static(clientDist)`, so a request only reaches here
+ *    once static has already looked for the file and not found it. For a
+ *    navigation that's expected (no static file matches `/students/42`),
+ *    but Vite's build puts every hashed JS/CSS bundle under `/assets/`
+ *    (`assetsDir`'s default) — a missing one is a broken deploy, and
+ *    answering it with `index.html` would hide that behind a silent 200.
  *
- * `/api` is excluded because an unmatched API path is a real 404 from the
- * API — a client asking for JSON should never be handed a page.
+ * `/api` is excluded for the same reason: an unmatched API path is a real
+ * 404 from the API — a client asking for JSON should never be handed a page.
  */
 export function buildSpaFallback(clientDistPath: string) {
   const indexHtmlPath = join(clientDistPath, 'index.html');
@@ -36,6 +43,10 @@ export function buildSpaFallback(clientDistPath: string) {
       return;
     }
     if (req.path === '/api' || req.path.startsWith('/api/')) {
+      next();
+      return;
+    }
+    if (req.path.startsWith('/assets/')) {
       next();
       return;
     }
