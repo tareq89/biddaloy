@@ -32,13 +32,24 @@ describe('tenant-storage against a real localStorage', () => {
     expect(getPersistedTenant()).toEqual({ tenantId: 'tenant-1', role: null });
   });
 
-  it('drops a stored role that is no longer a real UserRole', () => {
+  // Not the same as a roleless value: this one *named* a role, we just
+  // can't resolve it. Reporting `role: null` would make `restoreActiveTenant`
+  // match on tenant alone and restore whichever role the token lists first —
+  // the behaviour [8.9.11] exists to stop. Dropping the whole value leaves
+  // the choice unresolved, and the picker asks again.
+  it('discards the whole value when the stored role is not a real UserRole', () => {
     localStorage.setItem(
       'biddaloy:activeTenant',
       JSON.stringify({ tenantId: 'tenant-1', role: 'HEADMASTER' }),
     );
 
-    expect(getPersistedTenant()).toEqual({ tenantId: 'tenant-1', role: null });
+    expect(getPersistedTenant()).toBeNull();
+  });
+
+  it('discards a stored object with a tenant but no role key at all', () => {
+    localStorage.setItem('biddaloy:activeTenant', JSON.stringify({ tenantId: 'tenant-1' }));
+
+    expect(getPersistedTenant()).toBeNull();
   });
 
   it('returns null for a stored object with no tenant id', () => {

@@ -23,12 +23,17 @@ const STORAGE_KEY = 'biddaloy:activeTenant';
 
 export interface PersistedTenant {
   tenantId: string;
-  /** `null` for a value written before [8.9.11] started storing the role —
-   * a bare UUID string still sitting in a returning user's `localStorage`.
-   * `session.ts` treats that as "match on tenant alone", i.e. exactly the
-   * pre-[8.9.11] behaviour, rather than discarding the choice. Also `null`
-   * for a stored role that isn't a `UserRole` any more (renamed or removed
-   * since it was written), which degrades the same safe way. */
+  /** `null` means exactly one thing: **this value never named a role.** A
+   * bare UUID written before [8.9.11] started storing the role, or a
+   * `{tenantId, role: null}` this module wrote itself for a switch that
+   * didn't pass one. `session.ts` reads that as "match on tenant alone",
+   * i.e. the pre-[8.9.11] behaviour, rather than discarding the choice.
+   *
+   * A value that *did* name a role but no longer resolves to a `UserRole`
+   * (renamed, removed, hand-edited) is **not** this case — `getPersistedTenant`
+   * returns `null` for the whole value instead. Folding it in here would
+   * make it match on tenant alone, which restores the first role at that
+   * tenant: the precise behaviour [8.9.11] exists to stop. */
   role: UserRole | null;
 }
 
@@ -56,7 +61,14 @@ export function getPersistedTenant(): PersistedTenant | null {
     if (typeof parsed === 'object' && parsed !== null) {
       const { tenantId, role } = parsed as { tenantId?: unknown; role?: unknown };
       if (typeof tenantId === 'string') {
-        return { tenantId, role: toRole(role) };
+        // Written with no role at all — the roleless case, restored on
+        // tenant alone.
+        if (role === null) return { tenantId, role: null };
+        // Named a role we can't resolve: unusable, not roleless. Dropping
+        // the whole value leaves the choice unresolved, which sends the
+        // user to `/select-school` to make it again.
+        const knownRole = toRole(role);
+        if (knownRole !== null) return { tenantId, role: knownRole };
       }
     }
     return null;
