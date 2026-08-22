@@ -2,13 +2,58 @@
   "feeReminder": { "overdue": "The enrollment fee payment deadline has passed" },
   "list": {
     "title": "Students",
-    "pageLabel": "Page {{page}}",
-    "filterByClass": "Filter: class {{classId}}",
-    "clearFilter": "Clear filter",
-    "nextPage": "Next page",
-    "viewButton": "View {{name}}"
+    "caption": "Students",
+    "addStudent": "Add student",
+    "searchLabel": "Search by name, roll, or registration no.",
+    "classLabel": "Class",
+    "allClasses": "All classes",
+    "sectionLabel": "Section",
+    "allSections": "All sections",
+    "statusLabel": "Status",
+    "allStatuses": "All statuses",
+    "columnsButton": "Columns",
+    "columnRoll": "Roll",
+    "columnRegistration": "Registration No.",
+    "columnName": "Name",
+    "columnClass": "Class",
+    "columnSection": "Section",
+    "columnGuardian": "Guardian",
+    "columnStatus": "Status",
+    "columnActions": "Actions",
+    "columnDateOfBirth": "Date of birth",
+    "columnGender": "Gender",
+    "columnAddress": "Address",
+    "columnPreferredCommunication": "Preferred contact",
+    "collectFees": "Collect fees",
+    "view": "View",
+    "sendReminder": "Send reminder",
+    "exportCsv": "Export CSV",
+    "clearSelection": "Clear",
+    "emptyMessage": "No students found",
+    "errorMessage": "Failed to load students",
+    "announceResults_one": "{{visible}} of {{total}} student",
+    "announceResults_other": "{{visible}} of {{total}} students",
+    "noGuardian": "—",
+    "emptyValue": "—"
+  },
+  "sendReminderDialog": {
+    "title": "Send reminder",
+    "description_one": "This message will be sent to the guardians of {{count}} selected student.",
+    "description_other": "This message will be sent to the guardians of {{count}} selected students.",
+    "messageLabel": "Message",
+    "messagePlaceholder": "Dear {{guardianName}}, {{studentName}} has an outstanding due…",
+    "send": "Send",
+    "sending": "Sending…",
+    "successMessage_one": "Reminder sent to {{count}} guardian.",
+    "successMessage_other": "Reminder sent to {{count}} guardians.",
+    "errorMessage": "Couldn't send the reminder. Nothing was sent — try again."
   },
   "detail": {
     "back": "Back to students"
+  },
+  "new": {
+    "title": "Add student",
+    "explanation": "The full add-student form is coming soon.",
+    "action": "Back to students"
   }
 }

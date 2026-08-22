@@ -186,6 +186,22 @@ describe('Students E2E', () => {
       expect(res.body.total).toBeDefined();
       expect(res.body.page).toBe(1);
     });
+
+    it('accepts an allowlisted sort field with asc/desc order', async () => {
+      await supertest(app.getHttpServer())
+        .get('/api/v1/students?sort=full_name&order=asc')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(200);
+    });
+
+    it('rejects a sort field that is not on the allowlist — no arbitrary column sort', async () => {
+      await supertest(app.getHttpServer())
+        .get('/api/v1/students?sort=tenant_id')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(400);
+    });
   });
 
   describe('GET /students/:id', () => {

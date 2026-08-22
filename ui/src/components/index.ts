@@ -11,6 +11,7 @@ export { Placeholder } from './placeholder';
 
 export { Button, type ButtonProps } from './button';
 export { Input, type InputProps } from './input';
+export { Textarea, type TextareaProps } from './textarea';
 export { Label, type LabelProps } from './label';
 export { Checkbox, type CheckboxProps } from './checkbox';
 export {
