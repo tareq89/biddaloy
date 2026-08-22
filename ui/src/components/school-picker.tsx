@@ -40,6 +40,16 @@ export interface SchoolPickerProps {
   onSelect: (tenantId: string, role: UserRole) => void;
 }
 
+/** A membership's identity is the `{tenantId, role}` pair, not the tenant —
+ * one user can be ADMIN *and* PARENT at the same school ([8.9.11]). Keying
+ * cards or radio values on `tenantId` alone gave those two memberships a
+ * duplicate React key and an identical `RadioGroupItem value`, so the radio
+ * group couldn't tell them apart and `handleSubmit`'s lookup always resolved
+ * to whichever one the token listed first. */
+function optionKey(school: SchoolPickerOption): string {
+  return `${school.tenantId}:${school.role}`;
+}
+
 function SchoolCard({ school, selected }: { school: SchoolPickerOption; selected: boolean }) {
   const { t } = useTranslation('auth');
   // A stale token from before `JwtMembership.name` existed can still be
@@ -49,7 +59,7 @@ function SchoolCard({ school, selected }: { school: SchoolPickerOption; selected
   // still-English-only `humanizeRole` — see that file's comment.
   const displayName = school.name ?? t('schoolPicker.unnamedSchool');
   const roleLabel = t(`schoolPicker.roles.${school.role}`);
-  const controlId = `school-picker-option-${school.tenantId}`;
+  const controlId = `school-picker-option-${optionKey(school)}`;
   return (
     <label
       htmlFor={controlId}
@@ -64,7 +74,7 @@ function SchoolCard({ school, selected }: { school: SchoolPickerOption; selected
       </div>
       <RadioGroupItem
         id={controlId}
-        value={school.tenantId}
+        value={optionKey(school)}
         aria-label={`${displayName}, ${roleLabel}`}
       />
     </label>
@@ -73,10 +83,12 @@ function SchoolCard({ school, selected }: { school: SchoolPickerOption; selected
 
 export function SchoolPicker({ schools, onSelect }: SchoolPickerProps) {
   const { t } = useTranslation('auth');
-  const [value, setValue] = React.useState<string | null>(schools[0]?.tenantId ?? null);
+  const [value, setValue] = React.useState<string | null>(
+    schools[0] ? optionKey(schools[0]) : null,
+  );
 
   function handleSubmit(): void {
-    const chosen = schools.find((school) => school.tenantId === value);
+    const chosen = schools.find((school) => optionKey(school) === value);
     if (chosen) onSelect(chosen.tenantId, chosen.role);
   }
 
@@ -94,7 +106,11 @@ export function SchoolPicker({ schools, onSelect }: SchoolPickerProps) {
         className="flex flex-col gap-2"
       >
         {schools.map((school) => (
-          <SchoolCard key={school.tenantId} school={school} selected={school.tenantId === value} />
+          <SchoolCard
+            key={optionKey(school)}
+            school={school}
+            selected={optionKey(school) === value}
+          />
         ))}
       </RadioGroup>
 

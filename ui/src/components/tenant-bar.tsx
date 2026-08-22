@@ -30,7 +30,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 
 import { decodeAccessTokenMemberships } from '../api';
-import { useAccessToken, useActiveTenant } from '../hooks/auth-state';
+import { useAccessToken, useActiveRole, useActiveTenant } from '../hooks/auth-state';
 import { switchActiveTenant } from '../hooks/tenant';
 import { useTranslation } from '../i18n';
 
@@ -52,27 +52,44 @@ interface SchoolOption {
   role: UserRole;
 }
 
-/** Title-cases a role enum key ("TEACHER" -> "Teacher") — not real i18n
- * yet, just a readable fallback (see `ui/CONTRIBUTING.md`'s "i18n rules").
- * `school-picker.tsx`'s equivalent labels are now translated
- * (`schoolPicker.roles.*` in `auth.json`) since a review flagged that file
- * specifically — this copy wasn't in scope for that thread and stays as
- * documented English-only fallback for now. */
-function humanizeRole(role: string): string {
-  const lower = role.toLowerCase().replace(/_/g, ' ');
-  return lower.charAt(0).toUpperCase() + lower.slice(1);
+/** A membership's identity is the `{tenantId, role}` pair — see
+ * `school-picker.tsx`'s `optionKey` for the same rule and why it exists.
+ * Used here for React keys and for "which membership is the active one",
+ * both of which were tenant-only before [8.9.11] and so collapsed a
+ * dual-role membership at one school into a single entry. */
+function membershipKey(m: SchoolOption): string {
+  return `${m.tenantId}:${m.role}`;
 }
 
 export function TenantBar() {
   const { t } = useTranslation('nav');
+  // Role names live in `auth.json` (`schoolPicker.roles.*`) because
+  // `school-picker.tsx` translated them first; [8.9.11] makes them
+  // load-bearing here too — a same-school switch is labelled by role
+  // alone — so this reuses those keys rather than the title-casing
+  // English-only fallback it used to carry. A second `useTranslation`
+  // call (not `{ ns: 'auth' }` on a `nav` `t`) so i18next actually loads
+  // the namespace, and so `check-i18n-keys.mjs` still resolves this
+  // file's bare keys to `nav` off the *first* call (see its own comment
+  // on per-file namespace resolution).
+  const { t: tAuth } = useTranslation('auth');
   const queryClient = useQueryClient();
   const activeTenantId = useActiveTenant();
+  const activeRole = useActiveRole();
   const token = useAccessToken();
   const [pendingSwitch, setPendingSwitch] = React.useState<SchoolOption | null>(null);
   const [announcement, setAnnouncement] = React.useState('');
 
   const memberships: SchoolOption[] = token ? decodeAccessTokenMemberships(token) : [];
-  const active = memberships.find((m) => m.tenantId === activeTenantId);
+  // Tenant *and* role: with two memberships at one school, matching on
+  // tenant alone would always report the first one as active, whichever
+  // role the user actually switched to. `activeRole` can legitimately be
+  // null for a moment on a cold render before the session bootstrap sets
+  // it — fall back to tenant-only rather than blanking the whole bar.
+  const active = memberships.find(
+    (m) =>
+      m.tenantId === activeTenantId && (activeRole === null || (m.role as string) === activeRole),
+  );
 
   // Nothing to show before a tenant is chosen, or if the decoded token
   // and the active tenant briefly disagree (a stale render mid-navigation)
@@ -84,12 +101,42 @@ export function TenantBar() {
   // lifetime — fall back rather than render blank text.
   const unnamedSchool = t('tenantBar.unnamedSchool');
   const activeName = active.name ?? unnamedSchool;
-  const others = memberships.filter((m) => m.tenantId !== activeTenantId);
+  const activeKey = membershipKey(active);
+  // Two seams, not one: another *school* versus another *role at this
+  // school*. The pre-[8.9.11] filter was `m.tenantId !== activeTenantId`,
+  // which excludes every same-school membership — so the one user this
+  // switcher exists for, a dual-role ADMIN/PARENT at a single school, got
+  // a menu with nothing in it and no way back to their other role.
+  const otherSchools = memberships.filter((m) => m.tenantId !== activeTenantId);
+  const rolesHere = memberships.filter(
+    (m) => m.tenantId === activeTenantId && membershipKey(m) !== activeKey,
+  );
+
+  const roleLabel = (role: string): string => tAuth(`schoolPicker.roles.${role}`);
+  /** Another school is normally named by its name alone. If the user holds
+   * more than one role *there* too, the name alone would render the same
+   * text twice — an ambiguous accessible name for two menu items that do
+   * different things — so the role disambiguates it. */
+  const schoolLabel = (m: SchoolOption): string => {
+    const name = m.name ?? unnamedSchool;
+    const multiRole = memberships.filter((x) => x.tenantId === m.tenantId).length > 1;
+    return multiRole ? t('tenantBar.schoolWithRole', { name, role: roleLabel(m.role) }) : name;
+  };
+
+  /** A same-school role change is the one switch where the school name says
+   * nothing useful — the confirm copy names the role instead. */
+  const isRoleSwitch = pendingSwitch !== null && pendingSwitch.tenantId === activeTenantId;
+  const pendingRoleLabel = pendingSwitch ? roleLabel(pendingSwitch.role) : '';
 
   function confirmSwitch(): void {
     if (!pendingSwitch) return;
     switchActiveTenant(queryClient, pendingSwitch.tenantId, pendingSwitch.role);
-    setAnnouncement(t('tenantBar.switched', { name: pendingSwitch.name ?? unnamedSchool }));
+    const name = pendingSwitch.name ?? unnamedSchool;
+    setAnnouncement(
+      pendingSwitch.tenantId === activeTenantId
+        ? t('tenantBar.switchedRole', { role: roleLabel(pendingSwitch.role) })
+        : t('tenantBar.switched', { name }),
+    );
     setPendingSwitch(null);
   }
 
@@ -98,20 +145,39 @@ export function TenantBar() {
       <span className="font-semibold text-foreground">{activeName}</span>
       {memberships.length > 1 && (
         <>
-          <span className="text-muted-foreground">{humanizeRole(active.role)}</span>
+          <span className="text-muted-foreground">{roleLabel(active.role)}</span>
           <Menu>
             <MenuTrigger asChild>
               <Button variant="ghost" size="sm">
-                {t('tenantBar.switchSchool')}
+                {rolesHere.length > 0
+                  ? t('tenantBar.switchSchoolOrRole')
+                  : t('tenantBar.switchSchool')}
               </Button>
             </MenuTrigger>
             <MenuContent align="end">
-              <MenuLabel>{t('tenantBar.switchSchool')}</MenuLabel>
-              {others.map((school) => (
-                <MenuItem key={school.tenantId} onSelect={() => setPendingSwitch(school)}>
-                  {school.name ?? unnamedSchool}
-                </MenuItem>
-              ))}
+              {otherSchools.length > 0 && (
+                <>
+                  <MenuLabel>{t('tenantBar.switchSchool')}</MenuLabel>
+                  {otherSchools.map((school) => (
+                    <MenuItem key={membershipKey(school)} onSelect={() => setPendingSwitch(school)}>
+                      {schoolLabel(school)}
+                    </MenuItem>
+                  ))}
+                </>
+              )}
+              {rolesHere.length > 0 && (
+                <>
+                  <MenuLabel>{t('tenantBar.switchRole')}</MenuLabel>
+                  {rolesHere.map((membership) => (
+                    <MenuItem
+                      key={membershipKey(membership)}
+                      onSelect={() => setPendingSwitch(membership)}
+                    >
+                      {roleLabel(membership.role)}
+                    </MenuItem>
+                  ))}
+                </>
+              )}
             </MenuContent>
           </Menu>
         </>
@@ -126,17 +192,23 @@ export function TenantBar() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {t('tenantBar.confirmTitle', { name: pendingSwitch?.name ?? unnamedSchool })}
+              {isRoleSwitch
+                ? t('tenantBar.confirmRoleTitle', { role: pendingRoleLabel })
+                : t('tenantBar.confirmTitle', { name: pendingSwitch?.name ?? unnamedSchool })}
             </DialogTitle>
             <DialogDescription>
-              {t('tenantBar.confirmDescription', { current: activeName })}
+              {isRoleSwitch
+                ? t('tenantBar.confirmRoleDescription', { current: roleLabel(active.role) })
+                : t('tenantBar.confirmDescription', { current: activeName })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <DialogClose asChild>
               <Button variant="ghost">{t('tenantBar.cancel')}</Button>
             </DialogClose>
-            <Button onClick={confirmSwitch}>{t('tenantBar.confirm')}</Button>
+            <Button onClick={confirmSwitch}>
+              {isRoleSwitch ? t('tenantBar.confirmRole') : t('tenantBar.confirm')}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
