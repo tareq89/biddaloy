@@ -221,9 +221,9 @@ booting a fresh one against your default dev database:
 DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/betonboi_e2e yarn dev:server
 ```
 
-`webServer` in `playwright.config.ts` then starts both clients itself
-(`yarn dev:client-admin`) — or reuses them if
-you already have those two running in their own terminals, per the
+`webServer` in `playwright.config.ts` then starts the client itself
+(`yarn dev:client-admin`) — or reuses it if
+you already have it running in its own terminal, per the
 Development section above.
 
 Retries are capped at 1 in CI and 0 locally — a spec that needs more is
