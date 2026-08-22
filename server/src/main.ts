@@ -6,7 +6,6 @@ import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import * as express from 'express';
 import { join } from 'path';
-import { Request, Response, NextFunction } from 'express';
 import cookieParser = require('cookie-parser');
 import helmet from 'helmet';
 import { buildCorsOptions } from './cors-origins';
@@ -15,6 +14,7 @@ import { buildValidationPipeOptions } from './validation-pipe';
 import { buildVersioningOptions } from './api-versioning';
 import { buildSwaggerDocumentConfig, shouldMountDocs, DOCS_PATH } from './swagger';
 import { buildDocsBasicAuthMiddleware, buildDocsCspOverrideMiddleware } from './docs-auth';
+import { buildSpaFallback } from './spa-fallback';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -80,29 +80,14 @@ async function bootstrap() {
 
   app.enableCors(corsOptions);
 
-  // In production, serve client static builds
+  // In production, serve the one client build at `/` ([8.9.10] — staff and
+  // guardians are separated by route inside a single SPA, not by package).
   if (process.env.NODE_ENV === 'production') {
-    const clients = ['student', 'teacher', 'admin'];
+    const clientDist = join(__dirname, '..', '..', 'client-admin');
 
-    for (const client of clients) {
-      const distPath = join(__dirname, '..', '..', `client-${client}`);
-
-      // Serve static assets
-      app.use(`/${client}`, express.static(distPath));
-
-      // SPA fallback: any unknown route under /client/ serves index.html
-      app.use(`/${client}`, (_req: Request, res: Response) => {
-        res.sendFile(join(distPath, 'index.html'));
-      });
-    }
-
-    // Root redirect to /student/ (only for non-API, non-client paths)
-    app.use('/', (req: Request, res: Response, next: NextFunction) => {
-      if (req.path.startsWith('/api/') || req.path === '/api') {
-        return next();
-      }
-      res.redirect('/student/');
-    });
+    app.use(express.static(clientDist));
+    // See spa-fallback.ts for the GET/HEAD-only and missing-file rules.
+    app.use(buildSpaFallback(clientDist));
   }
 
   await app.listen(process.env.PORT ?? 3000);

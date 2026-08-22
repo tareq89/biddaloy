@@ -6,8 +6,7 @@
  * validation only, no network: `client-admin/src/routes/login.tsx` owns the
  * `useMutation` calling `ui/src/hooks/auth.ts`'s `login()` and the redirect
  * on success, so this component (and its Storybook states below) stays the
- * one thing both `client-admin` and a future `client-student` sign-in page
- * can share.
+ * one sign-in surface the app shares, staff and guardian alike.
  *
  * One field, not two: the mockup's whole point is that a user shouldn't
  * have to decide "is this my email or my phone?" themselves —
@@ -176,64 +175,64 @@ export function SignInForm({ onSubmit, loading = false, error = null }: SignInFo
 
           <div className="flex flex-col gap-4">
             <FormField
-          control={form.control}
-          name="identifier"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel htmlFor="sign-in-identifier">{t('identifier.label')}</FormLabel>
-              <FormControl>
-                <Input
-                  {...field}
-                  id="sign-in-identifier"
-                  autoComplete="username"
-                  placeholder={t('identifier.placeholder')}
-                  disabled={loading}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+              control={form.control}
+              name="identifier"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="sign-in-identifier">{t('identifier.label')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      id="sign-in-identifier"
+                      autoComplete="username"
+                      placeholder={t('identifier.placeholder')}
+                      disabled={loading}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-        <FormField
-          control={form.control}
-          name="password"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel htmlFor="sign-in-password">{t('password.label')}</FormLabel>
-              {/* The relative-positioning wrapper stays outside FormControl:
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="sign-in-password">{t('password.label')}</FormLabel>
+                  {/* The relative-positioning wrapper stays outside FormControl:
                   FormControl's Slot merges id/aria-describedby/aria-invalid
                   onto its one immediate child, so that child must be Input
                   itself — wrapping Input and the toggle Button together
                   inside FormControl would put those attributes on this div
                   instead of the actual input. */}
-              <div className="relative">
-                <FormControl>
-                  <Input
-                    {...field}
-                    id="sign-in-password"
-                    type={showPassword ? 'text' : 'password'}
-                    autoComplete="current-password"
-                    disabled={loading}
-                    className="pe-20"
-                  />
-                </FormControl>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled={loading}
-                  aria-pressed={showPassword}
-                  aria-controls="sign-in-password"
-                  className="absolute end-1 top-1/2 -translate-y-1/2"
-                  onClick={() => setShowPassword((current) => !current)}
-                >
-                  {showPassword ? t('password.hide') : t('password.show')}
-                </Button>
-              </div>
-              <FormMessage />
-            </FormItem>
-          )}
+                  <div className="relative">
+                    <FormControl>
+                      <Input
+                        {...field}
+                        id="sign-in-password"
+                        type={showPassword ? 'text' : 'password'}
+                        autoComplete="current-password"
+                        disabled={loading}
+                        className="pe-20"
+                      />
+                    </FormControl>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={loading}
+                      aria-pressed={showPassword}
+                      aria-controls="sign-in-password"
+                      className="absolute end-1 top-1/2 -translate-y-1/2"
+                      onClick={() => setShowPassword((current) => !current)}
+                    >
+                      {showPassword ? t('password.hide') : t('password.show')}
+                    </Button>
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
           </div>
 

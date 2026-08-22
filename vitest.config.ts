@@ -1,5 +1,5 @@
 /**
- * Frontend test workspace — `ui`, `client-admin`, `client-student`. Two
+ * Frontend test workspace — `shared`, `ui`, `client-admin`. Two
  * environments per package, kept as separate leaf projects (Vitest doesn't
  * allow nesting `projects` inside a referenced project, so "one config per
  * package with an inner node/jsdom split" isn't expressible — each
@@ -16,8 +16,8 @@
  * Path aliases below mirror each package's real `vite.config.ts`/
  * `tsconfig.json` `paths` by hand, rather than importing those files —
  * `vitest`'s own config loader bundles against a *different, nested* Vite
- * major (`vitest/node_modules/vite`) than the one `client-admin`/
- * `client-student`'s own `vite.config.ts` run against (root `vite`), and
+ * major (`vitest/node_modules/vite`) than the one `client-admin`'s own
+ * `vite.config.ts` runs against (root `vite`), and
  * importing one from the other breaks on a `defineConfig` interop error
  * across the version gap. The Vite plugins those files load (`@vitejs/
  * plugin-react`, `@tailwindcss/vite`) exist for dev/build — Fast Refresh,
@@ -125,7 +125,7 @@ const coverage = {
   include: [
     'ui/src/**/*.{ts,tsx}',
     'client-admin/src/**/*.{ts,tsx}',
-    'client-student/src/**/*.{ts,tsx}',
+    'shared/src/**/*.ts',
   ],
   exclude: [
     '**/*.test.{ts,tsx}',
@@ -180,10 +180,20 @@ export default defineConfig({
         nodeInclude: ['src/**/*.spec.ts'],
         jsdomInclude: ['src/**/*.test.{ts,tsx}'],
       }),
-      ...frontendPackage('client-student', 'client-student', clientAlias('client-student'), {
-        nodeInclude: ['src/**/*.spec.ts'],
-        jsdomInclude: ['src/**/*.test.{ts,tsx}'],
-      }),
+      // `shared` is pure TypeScript with no DOM half — one node project
+      // rather than the node/jsdom pair `frontendPackage` builds, since an
+      // empty jsdom project would just fail the run with "no test files".
+      {
+        test: {
+          name: 'shared:node',
+          root: 'shared',
+          environment: 'node',
+          include: ['src/**/*.spec.ts'],
+          globals: true,
+          setupFiles: [testSetupFile],
+          testTimeout: PROJECT_TEST_TIMEOUT,
+        },
+      },
     ],
   },
 });

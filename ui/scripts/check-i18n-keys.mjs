@@ -239,13 +239,9 @@ export function runCheck({ localesDir, sourceDirs, displayRoot = localesDir }) {
 
 function main() {
   const localesDir = join(pkgRoot, 'src/i18n/locales');
-  // Source trees this repo actually ships `t()` calls from — every SPA
-  // plus the package they all import `t`/`useTranslation` through.
-  const sourceDirs = [
-    'src',
-    join('..', 'client-admin', 'src'),
-    join('..', 'client-student', 'src'),
-  ].map((dir) => join(pkgRoot, dir));
+  // Source trees this repo actually ships `t()` calls from — the SPA plus
+  // the package it imports `t`/`useTranslation` through.
+  const sourceDirs = ['src', join('..', 'client-admin', 'src')].map((dir) => join(pkgRoot, dir));
 
   const { errors, unused } = runCheck({ localesDir, sourceDirs, displayRoot: repoRoot });
 

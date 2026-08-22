@@ -10,7 +10,9 @@
     "fees": "Fees",
     "settings": "Settings",
     "studentDues": "Student Dues",
-    "recordPayment": "Record Payment"
+    "recordPayment": "Record Payment",
+    "portalOverview": "Overview",
+    "portalFees": "Fees and invoices"
   },
   "groups": {
     "people": "People",
@@ -21,6 +23,18 @@
     "title": "Dashboard",
     "explanation": "The dashboard has not been built yet.",
     "action": "Go to settings"
+  },
+  "portal": {
+    "overview": {
+      "title": "Your family portal",
+      "explanation": "Your child's fees, invoices and payments will appear here. This page is a placeholder until the family portal is built.",
+      "action": "See fees and invoices"
+    },
+    "fees": {
+      "title": "Fees and invoices",
+      "explanation": "A breakdown of what is due and what has been paid will appear here. This page is a placeholder until the family portal is built.",
+      "action": "Back to overview"
+    }
   },
   "notFound": {
     "title": "Page not found",

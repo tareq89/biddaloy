@@ -29,7 +29,7 @@ separate setup step needed.
 Every commit runs [lint-staged](https://github.com/lint-staged/lint-staged)
 (`.husky/pre-commit` → `lint-staged.config.mjs`) against **staged files
 only**: `prettier --write` everywhere Prettier applies, plus `eslint --fix`
-for `ui`/`client-admin`/`client-student` source (`scripts/lint-staged-eslint.mjs`
+for `ui`/`client-admin` source (`scripts/lint-staged-eslint.mjs`
 handles running ESLint with the right per-package working directory, since
 ESLint 9's flat config only looks for `eslint.config.*` in the current
 directory, not by walking up from each file). A remaining, unfixable error
@@ -61,16 +61,14 @@ terminal:
 # Terminal 1: NestJS server (auto-reload)
 yarn dev:server
 
-# Terminal 2: Student client (HMR)
-yarn dev:client-student
-
-# Terminal 3: Admin client (HMR)
+# Terminal 2: The client (HMR)
 yarn dev:client-admin
 ```
 
-Open http://localhost:5173/student/ for the student client, or the port Vite
-prints for `client-admin`, in your browser. Vite proxies `/api/*` requests to
-the NestJS server at port 3000.
+Open the port Vite prints for `client-admin` (5174 by default) in your
+browser. One SPA serves every audience: staff land on `/dashboard`, a
+PARENT or STUDENT lands on `/portal`. Vite proxies `/api/*` requests to the
+NestJS server at port 3000.
 
 ### Running a client against mocks, no backend
 
@@ -114,9 +112,9 @@ no manual `migration:run`/`seed` step needed.
 
 ## Frontend Testing
 
-One Vitest workspace (`vitest.config.ts` at the repo root) covers `ui`,
-`client-admin` and `client-student` together — separate from `server`'s own
-Vitest config and invocation.
+One Vitest workspace (`vitest.config.ts` at the repo root) covers `shared`,
+`ui` and `client-admin` together — separate from `server`'s own Vitest
+config and invocation.
 
 ```bash
 # Watch mode (default) — re-runs only tests affected by what changed
@@ -161,7 +159,7 @@ yarn test:frontend:coverage
 ```
 
 A global 70% floor (lines, branches, functions and statements) applies
-across `ui`, `client-admin` and `client-student`; CI fails below it.
+across `ui`, `client-admin` and `shared`; CI fails below it.
 `ui/src/utils/**` and `ui/src/api/**` (the axios client, its interceptors,
 and auth/token state) carry a 95% "near-complete" floor instead, on all
 four of the same metrics — a bug there means money is wrong or a request
@@ -224,7 +222,7 @@ DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/betonboi_e2e yarn dev:s
 ```
 
 `webServer` in `playwright.config.ts` then starts both clients itself
-(`yarn dev:client-student`, `yarn dev:client-admin`) — or reuses them if
+(`yarn dev:client-admin`) — or reuses them if
 you already have those two running in their own terminals, per the
 Development section above.
 
@@ -256,7 +254,7 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every PR and on push to
 ### Dead-code detection (`knip`)
 
 `yarn knip` finds unused files, exports and dependencies across `shared`,
-`ui`, `client-admin` and `client-student`. `server` is deliberately excluded
+`ui` and `client-admin`. `server` is deliberately excluded
 (`ignoreWorkspaces` in `knip.json`) — its NestJS decorators, TypeORM
 migrations loaded via glob, and CLI scripts produce enough false positives
 from knip's default static-analysis heuristics that a useful config for it is
@@ -459,9 +457,8 @@ instead of the bundled nginx:
 ```
 biddaloy/
 ├── server/           # NestJS backend (TypeORM + PostgreSQL)
-├── client-student/   # Vite + React SPA (student portal)
-├── client-admin/     # Vite + React SPA (admin dashboard)
-├── client-teacher/   # Future: teacher portal
+├── client-admin/     # Vite + React SPA — the whole client: staff routes
+│                  #   (/dashboard, /students, …) plus the guardian /portal
 ├── shared/           # Shared types and DTOs, consumed by server
 ├── ui/               # Shared React component package, consumed by every client
 ├── scripts/          # Build and deploy scripts

@@ -20,9 +20,6 @@ yarn workspace @biddaloy/ui lint
 echo "==> Building server..."
 yarn workspace @biddaloy/server build
 
-echo "==> Building client-student..."
-yarn workspace @biddaloy/client-student build
-
 echo "==> Building client-admin..."
 yarn workspace @biddaloy/client-admin build
 

@@ -10,7 +10,7 @@
  * directory the way `.eslintrc` resolution used to. Running plain `eslint
  * --fix <files>` from the repo root (where lint-staged itself runs) fails
  * outright: there is no root `eslint.config.mjs`, only one per package (ui,
- * client-admin, client-student).
+ * client-admin).
  *
  * This groups the staged files lint-staged hands it by which package they
  * belong to and re-invokes `eslint --fix` with `cwd` set to that package, so
@@ -20,7 +20,7 @@
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
-const ESLINT_PACKAGES = ['ui', 'client-admin', 'client-student'];
+const ESLINT_PACKAGES = ['ui', 'client-admin'];
 const repoRoot = path.resolve(import.meta.dirname, '..');
 
 const filesByPackage = new Map();

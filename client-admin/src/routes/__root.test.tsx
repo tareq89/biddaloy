@@ -32,6 +32,9 @@ describe('root beforeLoad: protected-route redirect', () => {
     const { router } = renderWithRouter(routeTree, {
       initialEntries: ['/students'],
       tenantId: 'tenant-1',
+      // [8.9.10]: the guard treats a tenant with no resolved role as
+      // unresolved, and `/students` now sits behind `_staff`'s role guard.
+      role: 'ADMIN',
       accessToken: 'test-token',
       locale: 'en',
     });
@@ -50,6 +53,7 @@ describe('root beforeLoad: protected-route redirect', () => {
     const { router } = renderWithRouter(routeTree, {
       initialEntries: ['/students'],
       tenantId: 'tenant-1',
+      role: 'ADMIN',
       locale: 'en',
     });
 
@@ -124,6 +128,7 @@ describe('root beforeLoad: unresolved-tenant redirect', () => {
       initialEntries: ['/students'],
       accessToken: fakeJwtWithMemberships(twoSchools),
       tenantId: 'tenant-1',
+      role: 'ADMIN',
       locale: 'en',
     });
 
@@ -142,10 +147,13 @@ describe('root beforeLoad: unresolved-tenant redirect', () => {
       initialEntries: ['/select-school'],
       accessToken: fakeJwtWithMemberships(twoSchools),
       tenantId: 'tenant-1',
+      role: 'ADMIN',
       locale: 'en',
     });
 
-    await waitFor(() => expect(router.state.location.pathname).toBe('/'));
+    // `/` is the role-aware redirect since [8.9.10], so a resolved staff
+    // visitor lands on the staff dashboard rather than sitting on `/`.
+    await waitFor(() => expect(router.state.location.pathname).toBe('/dashboard'));
   });
 });
 

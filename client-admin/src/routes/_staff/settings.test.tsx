@@ -2,7 +2,7 @@ import { cleanupTestState, renderWithRouter } from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { routeTree } from '../routeTree.gen';
+import { routeTree } from '../../routeTree.gen';
 
 /**
  * Ported from the pre-[8.9.1] `App.test.tsx` — `App.tsx`'s own comment
@@ -16,10 +16,16 @@ describe('/settings', () => {
     await cleanupTestState();
   });
 
-  it('hides the settings screen entirely from a role without SETTINGS_MANAGE', async () => {
+  // TEACHER rather than STUDENT since [8.9.10]: a STUDENT never reaches
+  // this route at all any more — `_staff.tsx`'s guard redirects the whole
+  // guardian audience to `/portal` before the page's own permission check
+  // runs (see `role-routing.test.tsx`). TEACHER is the case this test was
+  // always about: a staff role that is inside the shell but still lacks
+  // `SETTINGS_MANAGE`.
+  it('hides the settings screen entirely from a staff role without SETTINGS_MANAGE', async () => {
     renderWithRouter(routeTree, {
       initialEntries: ['/settings'],
-      role: 'STUDENT',
+      role: 'TEACHER',
       tenantId: 'tenant-1',
       locale: 'en',
     });
@@ -32,7 +38,7 @@ describe('/settings', () => {
   it('has no accessibility violations on the access-denied screen', async () => {
     const { container } = renderWithRouter(routeTree, {
       initialEntries: ['/settings'],
-      role: 'STUDENT',
+      role: 'TEACHER',
       tenantId: 'tenant-1',
       locale: 'en',
     });

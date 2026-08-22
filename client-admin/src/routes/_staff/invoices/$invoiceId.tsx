@@ -13,7 +13,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
  * shipped since [#14] — so this is the minimal page needed to give a
  * search result somewhere real to land, not a new backend surface.
  */
-export const Route = createFileRoute('/invoices/$invoiceId')({
+export const Route = createFileRoute('/_staff/invoices/$invoiceId')({
   component: InvoiceDetailPage,
 });
 

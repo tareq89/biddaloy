@@ -17,10 +17,11 @@
  * `check:api-types` — a dedicated CI step, not folded into `test:frontend`.
  */
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { gzipSync } from 'node:zlib';
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = mkdtempSync(join(tmpdir(), 'client-admin-build-'));
@@ -35,6 +36,30 @@ const npxCommand = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 // since the point is catching a route that *stopped* being split, not
 // discovering routes automatically.
 const EXPECTED_ROUTE_CHUNKS = ['settings', 'students', 'fees'];
+
+/**
+ * [8.9.10]: one SPA now serves staff *and* guardians, so "extract a
+ * separate guardian app later if this gets heavy" needs to be a number CI
+ * enforces rather than an intention someone remembers. Gzip, because
+ * that's what a browser actually downloads.
+ *
+ * Seeded just above the entry chunk measured when this landed: 215,380 B
+ * gzipped (674,963 B raw), down from 237,675 B gzipped (745,575 B raw) on
+ * the previous layout — moving `AppShell`, `TenantBar`, `NotificationBell`
+ * and the search launcher out of `__root.tsx` and into the `_staff` layout
+ * route took them out of the entry chunk. Raising this ceiling is allowed,
+ * but deliberately, in a PR that says why — which is the entire point.
+ */
+const ENTRY_CHUNK_GZIP_CEILING_BYTES = 220_000;
+
+/** The entry is whatever `index.html` loads as its module script — asked
+ * of the build output rather than guessed from a filename pattern, which
+ * changes with Vite's own naming. */
+function readEntryChunkName(outDir) {
+  const html = readFileSync(join(outDir, 'index.html'), 'utf8');
+  const match = /<script[^>]+src="[^"]*?assets\/([^"]+\.js)"/.exec(html);
+  return match?.[1] ?? null;
+}
 
 try {
   execFileSync(npxCommand, ['vite', 'build', '--outDir', outDir, '--logLevel', 'silent'], {
@@ -62,6 +87,26 @@ try {
     process.exitCode = 1;
   } else {
     console.log(`✓ Every feature route (${EXPECTED_ROUTE_CHUNKS.join(', ')}) has its own chunk.`);
+  }
+
+  const entryChunk = readEntryChunkName(outDir);
+  if (entryChunk === null) {
+    console.error('✗ Could not find the entry chunk referenced by index.html.');
+    process.exitCode = 1;
+  } else {
+    const gzipBytes = gzipSync(readFileSync(join(outDir, 'assets', entryChunk))).length;
+    const ceiling = ENTRY_CHUNK_GZIP_CEILING_BYTES;
+    if (gzipBytes > ceiling) {
+      console.error(
+        `✗ Entry chunk ${entryChunk} is ${gzipBytes} B gzipped, over the ${ceiling} B ceiling.`,
+      );
+      console.error(
+        '  Either trim it, split more of it per route, or raise ENTRY_CHUNK_GZIP_CEILING_BYTES on purpose.',
+      );
+      process.exitCode = 1;
+    } else {
+      console.log(`✓ Entry chunk ${entryChunk}: ${gzipBytes} B gzipped (ceiling ${ceiling} B).`);
+    }
   }
 } finally {
   rmSync(outDir, { recursive: true, force: true });

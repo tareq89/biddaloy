@@ -17,7 +17,7 @@ at hand instead of loading the whole set.
 | [03-backend-modules.md](03-backend-modules.md) | Adding/changing a NestJS module, controller, or API route |
 | [04-fees-payments-invoices.md](04-fees-payments-invoices.md) | Working on fee generation, payments, dues, or invoices — the core business flow |
 | [05-communications.md](05-communications.md) | Working on SMS/WhatsApp/email/Messenger reminders |
-| [06-frontend-architecture.md](06-frontend-architecture.md) | Working in `ui/`, `client-admin/`, or `client-student/` |
+| [06-frontend-architecture.md](06-frontend-architecture.md) | Working in `ui/` or `client-admin/` (the one SPA — staff routes + `/portal`) |
 | [07-deployment.md](07-deployment.md) | Working on Docker, nginx, CI, or production deploys |
 | [08-security.md](08-security.md) | Working on login, tokens, CSRF, audit logging, or PII/data-protection handling |
 

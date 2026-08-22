@@ -9,7 +9,7 @@
 ```mermaid
 flowchart LR
     Internet -->|HTTPS| nginx
-    nginx -->|reverse proxy| app["app\n(NestJS: API + built SPAs)"]
+    nginx -->|reverse proxy| app["app\n(NestJS: API + the built SPA at /)"]
     app --> db[("db\nPostgreSQL")]
     app --> redis[("redis")]
     certbootstrap["cert-bootstrap"] -.->|"issues/renews\nLet's Encrypt cert"| nginx
@@ -26,10 +26,29 @@ deployment mechanism.
 ## Build pipeline
 
 `yarn build:all` (`scripts/build-all.sh`) builds `shared` → `ui` →
-`client-admin`/`client-student` → `server`, and assembles a single
-deployable `build-output/` folder that can be zipped and shipped to a VPS
-without Docker too — see the README's "Production Build" / "Deploy to VPS"
+`client-admin` → `server`, and assembles a single deployable
+`build-output/` folder that can be zipped and shipped to a VPS without
+Docker too — see the README's "Production Build" / "Deploy to VPS"
 sections for that path.
+
+## How a request is served
+
+```mermaid
+flowchart LR
+    REQ["GET /students/42"] --> NGINX["nginx"]
+    NGINX --> APP["NestJS"]
+    APP --> STATIC{"file exists in\nclient-admin/dist?"}
+    STATIC -->|yes| FILE["that file\n(/assets/* → 1-year immutable cache)"]
+    STATIC -->|"no, and GET/HEAD\noutside /api"| INDEX["index.html\n(the SPA router takes over)"]
+    STATIC -->|"no, and POST\nor under /api"| NOTFOUND["404"]
+```
+
+One SPA at `/` since [8.9.10] — no `/admin/` or `/student/` prefix, and no
+root redirect. The rules above live in `server/src/spa-fallback.ts`
+(unit-tested there); nginx's long-cache rule matches `^/assets/`
+accordingly. Two behaviours this fixed: `GET /teacher/*` used to return
+**500** (the directory never existed, so `sendFile` hit ENOENT with no
+error callback) and `POST /admin/anything` used to return **200 + HTML**.
 
 ## CI
 

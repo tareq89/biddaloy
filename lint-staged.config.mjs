@@ -22,8 +22,7 @@
 export default {
   'ui/**/*.{ts,tsx,mjs}': ['node scripts/lint-staged-eslint.mjs', 'prettier --write'],
   'client-admin/**/*.{ts,tsx}': ['node scripts/lint-staged-eslint.mjs', 'prettier --write'],
-  'client-student/**/*.{ts,tsx}': ['node scripts/lint-staged-eslint.mjs', 'prettier --write'],
   '**/*.{json,md,yml,yaml,css}': 'prettier --write',
-  '!(ui|client-admin|client-student)/**/*.{ts,tsx,js,jsx,mjs,cjs}': 'prettier --write',
+  '!(ui|client-admin)/**/*.{ts,tsx,js,jsx,mjs,cjs}': 'prettier --write',
   'lint-staged.config.mjs': 'prettier --write',
 };

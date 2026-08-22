@@ -1,18 +1,18 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Cross-shell E2E harness — `e2e/` isn't a yarn workspace (it tests across
- * `client-admin`/`client-student`, not inside either one), same reasoning as
- * the root `vitest.config.ts` covering multiple frontend packages from a
- * single top-level config.
+ * E2E harness — `e2e/` isn't a yarn workspace (it drives the API and the
+ * client together, not one package from inside it), same reasoning as the
+ * root `vitest.config.ts` covering multiple frontend packages from a single
+ * top-level config.
  *
- * `webServer` boots the real API (`dev:server`) plus every client dev
- * server, the same processes `yarn dev:*` starts for a human — not a
- * separate CI-only build path. Locally that means: bring up Postgres/Redis
- * with `docker compose up -d db redis` (see README's Development section),
+ * `webServer` boots the real API (`dev:server`) plus the client dev server,
+ * the same processes `yarn dev:*` start for a human — not a separate
+ * CI-only build path. Locally that means: bring up Postgres/Redis with
+ * `docker compose up -d db redis` (see README's Development section),
  * migrate + seed once, then `yarn e2e` reuses that stack via
  * `reuseExistingServer`. CI has no persistent stack, so it migrates, seeds,
- * and lets Playwright start and tear down all three servers itself.
+ * and lets Playwright start and tear down both servers itself.
  */
 const CI = !!process.env.CI;
 
@@ -49,14 +49,8 @@ export default defineConfig({
       env: { NODE_ENV: 'test' },
     },
     {
-      command: 'yarn dev:client-student',
-      url: 'http://localhost:5173/student/',
-      reuseExistingServer: !CI,
-      timeout: 60_000,
-    },
-    {
       command: 'yarn dev:client-admin',
-      url: 'http://localhost:5174/admin/',
+      url: 'http://localhost:5174/',
       reuseExistingServer: !CI,
       timeout: 60_000,
     },
