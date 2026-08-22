@@ -44,6 +44,14 @@ jobs:
       - name: UI typecheck
         run: yarn workspace @biddaloy/ui lint
 
+      # `e2e/` is not a yarn workspace, so nothing else typechecks it — and
+      # its specs only run in the much slower E2E job against a real stack.
+      # [8.9.10] renamed a key in `e2e/config.ts` and the stale reference in
+      # a spec surfaced 20 minutes later as a Playwright TypeError; this
+      # catches that class of break in seconds.
+      - name: E2E typecheck
+        run: npx tsc -p e2e/tsconfig.json --noEmit
+
       # Runs from the repo root, not `yarn workspace @biddaloy/ui test` —
       # both resolve the same root vitest.config.ts (it covers shared, ui
       # and client-admin together), but coverage thresholds
