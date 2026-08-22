@@ -18,17 +18,11 @@ has run cleanly before.
 
 ## 0. Setup
 
-Run in order, before anything else:
-
 ```bash
-/graphify update .
 /caveman wenyan-ultra
 ```
 
-`graphify update` refreshes `graphify-out/graph.json` (AST-only, no API
-cost) so step 5's exploration reflects the checked-out PR's actual code,
-not a stale graph from a prior session. `/caveman wenyan-ultra` sets tone
-for the rest of this skill's run.
+Sets tone for the rest of this skill's run.
 
 ## 1. Preflight
 
@@ -54,6 +48,15 @@ Get the PR's base branch and repo coordinates, needed for later steps:
 gh pr view <n> --json baseRefName,headRefName,url -q '{base: .baseRefName, head: .headRefName, url: .url}'
 gh repo view --json owner,name -q '{owner: .owner.login, repo: .name}'
 ```
+
+Once checkout succeeds, refresh the graph so later exploration reflects
+this PR's actual code, not a stale graph from a prior session or branch:
+
+```bash
+/graphify update .
+```
+
+(AST-only, no API cost.)
 
 ## 3. Fetch unresolved review feedback
 
