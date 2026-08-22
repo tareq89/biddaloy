@@ -38,12 +38,12 @@ flowchart TB
 
     subgraph Server["Docker host"]
         NGINX["nginx\n(TLS, reverse proxy)"]
-        APP["NestJS server\n(single process, serves API + static SPA builds)"]
+        SERVER_APP["NestJS server\n(single process, serves API + static SPA builds)"]
         REDIS[("Redis\nrate limits, token denylist,\nlogin lockout, BullMQ jobs")]
         PG[("PostgreSQL\nall tenant data")]
-        NGINX --> APP
-        APP --> REDIS
-        APP --> PG
+        NGINX --> SERVER_APP
+        SERVER_APP --> REDIS
+        SERVER_APP --> PG
     end
 
     APP -- "SMS / WhatsApp / Email / Messenger" --> Providers["External comms providers\n(Greenweb, Mim, WhatsApp Cloud API, SMTP, Messenger)"]
