@@ -25,9 +25,25 @@ export {
   type PreferredCommunication,
   type Student,
   type StudentListFilters,
+  type StudentSortField,
 } from './students';
 export { paymentKeys, useCreatePayment, type CreatePaymentInput, type Payment } from './payments';
 export { hasPermission, useHasPermission } from './permissions';
+export {
+  classKeys,
+  classesQueryOptions,
+  classSectionsQueryOptions,
+  useClasses,
+  useClassSections,
+  type Class,
+  type ClassSection,
+  type PaginatedClasses,
+} from './classes';
+export {
+  useSendBulkReminder,
+  type ReminderBatchResponse,
+  type SendBulkReminderInput,
+} from './reminders';
 export { useRouteFocus, type UseRouteFocusOptions } from './use-route-focus';
 export { useDebouncedValue } from './use-debounce';
 export { invoiceKeys, useInvoice, type Invoice, type InvoiceListFilters } from './invoices';

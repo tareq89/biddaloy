@@ -422,6 +422,67 @@ describe('StudentService (integration)', () => {
       );
       expect(byRoll.data).toHaveLength(0);
     });
+
+    it('sorts by full_name ascending or descending when sort/order are given', async () => {
+      await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Zahid Islam',
+          registration_number: 'REG-2026-0001',
+          roll_number: 1,
+          class_section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+          date_of_birth: new Date('2010-01-01'),
+        }),
+      );
+      await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Ahmed Khan',
+          registration_number: 'REG-2026-0002',
+          roll_number: 2,
+          class_section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+          date_of_birth: new Date('2010-01-01'),
+        }),
+      );
+
+      const ascending = await service.findAll(
+        { sort: 'full_name', order: 'asc', page: 1, limit: 10 },
+        TENANT_ID,
+      );
+      expect(ascending.data.map((s) => s.full_name)).toEqual(['Ahmed Khan', 'Zahid Islam']);
+
+      const descending = await service.findAll(
+        { sort: 'full_name', order: 'desc', page: 1, limit: 10 },
+        TENANT_ID,
+      );
+      expect(descending.data.map((s) => s.full_name)).toEqual(['Zahid Islam', 'Ahmed Khan']);
+    });
+
+    it('falls back to created_at DESC when no sort is given, same as before sort support existed', async () => {
+      const first = await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Ahmed Khan',
+          registration_number: 'REG-2026-0001',
+          roll_number: 1,
+          class_section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+          date_of_birth: new Date('2010-01-01'),
+        }),
+      );
+      const second = await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Zahid Islam',
+          registration_number: 'REG-2026-0002',
+          roll_number: 2,
+          class_section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+          date_of_birth: new Date('2010-01-01'),
+        }),
+      );
+
+      const result = await service.findAll({ page: 1, limit: 10 }, TENANT_ID);
+      expect(result.data.map((s) => s.id)).toEqual([second.id, first.id]);
+    });
   });
 
   describe('findOne', () => {

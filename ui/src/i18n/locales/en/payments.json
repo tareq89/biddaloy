@@ -1,0 +1,8 @@
+{
+  "record": {
+    "title": "Record a payment",
+    "explanation": "Pick a student from the students list, then use Collect fees to start a payment.",
+    "explanationForStudent": "Recording a payment for student {{studentId}} is coming soon.",
+    "action": "Go to students"
+  }
+}

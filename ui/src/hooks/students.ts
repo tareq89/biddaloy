@@ -10,6 +10,12 @@ export type Student = components['schemas']['Student'];
 export type CreateStudentInput = components['schemas']['CreateStudentDto'];
 export type PreferredCommunication = Student['preferred_communication'];
 
+/** Allowlisted server-side — `students.controller.ts`'s `QueryStudentDto`
+ * rejects anything else with a 400 (`roll_number` deliberately excluded
+ * there: it's only unique per class section, so a tenant-wide sort by it
+ * produces a confusing, repeating sequence). */
+export type StudentSortField = 'full_name' | 'registration_number' | 'created_at';
+
 export interface StudentListFilters {
   /** Matches by `full_name` or `roll_number` — see `students.controller.ts`'s
    * `QueryStudentDto`. Student has no `phone` column of its own (that
@@ -18,6 +24,8 @@ export interface StudentListFilters {
   class_id?: string;
   section_id?: string;
   enrollment_status?: string;
+  sort?: StudentSortField;
+  order?: 'asc' | 'desc';
   page?: number;
   limit?: number;
 }

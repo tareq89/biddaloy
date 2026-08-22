@@ -20,7 +20,9 @@ import {
 } from '@tanstack/react-table';
 import * as React from 'react';
 
+import { Button } from './button';
 import { Checkbox } from './checkbox';
+import { Menu, MenuCheckboxItem, MenuContent, MenuTrigger } from './menu';
 
 export interface DataTableSort {
   id: string;
@@ -32,6 +34,11 @@ export interface DataTableColumn<TData> {
   header: string;
   accessorFn: (row: TData) => React.ReactNode;
   sortable?: boolean;
+  /** Excludes this column from `columnsMenu` and from ever being hidden —
+   * a row-actions column with no data of its own has nothing meaningful
+   * to hide, and a table with no visible way back to it would be a trap
+   * once hidden. */
+  pinned?: boolean;
 }
 
 export interface DataTableProps<TData> {
@@ -63,28 +70,52 @@ export interface DataTableProps<TData> {
    * defaults to English; pass a Bangla template for a Bangla-locale story
    * until FormField/i18next wiring exists, same as `Combobox`. */
   announceResults?: (count: number, total: number) => string;
+
+  /** Columns hidden until a caller opts them into `columnsMenu`, or until
+   * localStorage already holds a persisted choice — a column not listed
+   * here (and not in `localStorage`) starts visible. Only read on first
+   * mount, same as `readPersistedState`'s localStorage read: this seeds
+   * the *initial* state, it doesn't force-hide a column a returning user
+   * already chose to show. */
+  defaultColumnVisibility?: VisibilityState;
+  /** Renders a "Columns" toggle button (own small toolbar row above the
+   * table) backed by the same `columnVisibility` state `defaultColumnVisibility`
+   * seeds and localStorage persists — this is the only place that state
+   * is exposed to a caller, since TanStack's `Column` handle it toggles
+   * lives inside this component's own `useReactTable` instance. Off by
+   * default: a table with a fixed, small column set (most of today's
+   * callers) has nothing worth hiding. */
+  columnsMenu?: boolean;
+  /** English default, same "not yet retrofitted onto i18next" convention
+   * as `emptyMessage`/`announceResults` above. */
+  columnsMenuLabel?: string;
 }
 
-function readPersistedState(tableId: string): {
+function readPersistedState(
+  tableId: string,
+  defaultColumnVisibility: VisibilityState = {},
+): {
   columnVisibility: VisibilityState;
   columnOrder: ColumnOrderState;
 } {
-  if (typeof window === 'undefined') return { columnVisibility: {}, columnOrder: [] };
+  if (typeof window === 'undefined') {
+    return { columnVisibility: defaultColumnVisibility, columnOrder: [] };
+  }
   try {
     const raw = window.localStorage.getItem(`data-table:${tableId}`);
-    if (!raw) return { columnVisibility: {}, columnOrder: [] };
+    if (!raw) return { columnVisibility: defaultColumnVisibility, columnOrder: [] };
     const parsed = JSON.parse(raw) as {
       columnVisibility?: VisibilityState;
       columnOrder?: ColumnOrderState;
     };
     return {
-      columnVisibility: parsed.columnVisibility ?? {},
+      columnVisibility: parsed.columnVisibility ?? defaultColumnVisibility,
       columnOrder: parsed.columnOrder ?? [],
     };
   } catch {
     // Corrupt or foreign localStorage value — fall back to defaults rather
     // than crashing the table over a display preference.
-    return { columnVisibility: {}, columnOrder: [] };
+    return { columnVisibility: defaultColumnVisibility, columnOrder: [] };
   }
 }
 
@@ -107,9 +138,12 @@ export function DataTable<TData>({
   error,
   emptyMessage = 'No results',
   announceResults = (count, total) => `${count} of ${total} result${total === 1 ? '' : 's'}`,
+  defaultColumnVisibility,
+  columnsMenu = false,
+  columnsMenuLabel = 'Columns',
 }: DataTableProps<TData>) {
   const [{ columnVisibility, columnOrder }, setPersisted] = React.useState(() =>
-    readPersistedState(tableId),
+    readPersistedState(tableId, defaultColumnVisibility),
   );
 
   React.useEffect(() => {
@@ -129,6 +163,7 @@ export function DataTable<TData>({
         header: column.header,
         accessorFn: column.accessorFn,
         enableSorting: column.sortable ?? false,
+        enableHiding: !column.pinned,
       })),
     [columns],
   );
@@ -218,6 +253,35 @@ export function DataTable<TData>({
 
   return (
     <div>
+      {columnsMenu && (
+        <div className="mb-2 flex justify-end">
+          <Menu>
+            <MenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                {columnsMenuLabel}
+              </Button>
+            </MenuTrigger>
+            <MenuContent align="end">
+              {table
+                .getAllLeafColumns()
+                .filter((column) => column.getCanHide())
+                .map((column) => (
+                  <MenuCheckboxItem
+                    key={column.id}
+                    checked={column.getIsVisible()}
+                    onCheckedChange={(checked) => column.toggleVisibility(checked)}
+                    // Closing on every toggle would force a re-open per
+                    // column — this menu's whole point is checking/
+                    // unchecking several at once.
+                    onSelect={(event) => event.preventDefault()}
+                  >
+                    {column.columnDef.header as string}
+                  </MenuCheckboxItem>
+                ))}
+            </MenuContent>
+          </Menu>
+        </div>
+      )}
       {selectable && selectedIds && selectedIds.size > 0 && bulkActions && (
         <div className="mb-2 flex items-center gap-2 rounded-md bg-muted p-2">
           <span className="text-sm">{selectedIds.size} selected</span>
