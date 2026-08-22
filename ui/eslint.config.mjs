@@ -5,6 +5,7 @@ import {
   biddaloyReactConfig,
   dataFetchingGuardConfig,
   financialMutationGuardConfig,
+  noWindowAlertConfig,
   typeCheckedRules,
   typeCheckedTestOverrides,
 } from './eslint-config.mjs';
@@ -29,6 +30,10 @@ export default tseslint.config(
   {
     files: ['src/**/*.{ts,tsx}'],
     ...dataFetchingGuardConfig,
+  },
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ...noWindowAlertConfig,
   },
   // [8.7.6]: components use margin-inline-*/padding-inline-* (Tailwind's
   // ms-/me-/ps-/pe-), never -left/-right — scoped to where className

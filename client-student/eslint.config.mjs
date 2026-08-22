@@ -2,6 +2,7 @@ import {
   biddaloyReactConfig,
   componentBoundaryConfig,
   financialMutationGuardConfig,
+  noWindowAlertConfig,
   typeCheckedRules,
   typeCheckedTestOverrides,
 } from '@biddaloy/ui/eslint-config';
@@ -28,6 +29,10 @@ export default tseslint.config(
   {
     files: ['src/**/*.{ts,tsx}'],
     ...financialMutationGuardConfig,
+  },
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ...noWindowAlertConfig,
   },
   {
     files: ['*.ts', '*.mjs'],

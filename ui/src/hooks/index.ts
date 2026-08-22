@@ -29,6 +29,7 @@ export {
 export { paymentKeys, useCreatePayment, type CreatePaymentInput, type Payment } from './payments';
 export { hasPermission, useHasPermission } from './permissions';
 export { useRouteFocus, type UseRouteFocusOptions } from './use-route-focus';
+export { useNotifications, useUnreadNotificationCount } from './notifications';
 export {
   schoolsKeys,
   schoolSettingsKeys,
