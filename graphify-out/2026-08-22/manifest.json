@@ -505,9 +505,9 @@
     "semantic_hash": "806be07208d513b018ac7bda8e09ffff"
   },
   "server/src/modules/fees/fees.service.integration.spec.ts": {
-    "mtime": 1787388441.4359992,
-    "ast_hash": "3d742feb27a452e7888d3f640df315f7",
-    "semantic_hash": "3d742feb27a452e7888d3f640df315f7"
+    "mtime": 1787388748.967824,
+    "ast_hash": "5dace77ddeaceaf62eb11952d3ed2cf1",
+    "semantic_hash": ""
   },
   "server/src/modules/students/guardians.e2e-spec.ts": {
     "mtime": 1787072022.6299622,
@@ -3355,9 +3355,9 @@
     "semantic_hash": "ccc0c692146809d6b440a823653e41e2"
   },
   ".claude/skills/pr-fix/SKILL.md": {
-    "mtime": 1787072022.5211272,
-    "ast_hash": "5626789b443ec968a6aa659508761c63",
-    "semantic_hash": "5626789b443ec968a6aa659508761c63"
+    "mtime": 1787389571.824775,
+    "ast_hash": "0e5387e3aa3b296b434f597389ea9247",
+    "semantic_hash": ""
   },
   ".design-sync/NOTES.md": {
     "mtime": 1787072022.5217483,
@@ -3645,9 +3645,9 @@
     "semantic_hash": "34505128b30b8f193fbe45a713ab8137"
   },
   "ui/src/components/global-search.tsx": {
-    "mtime": 1787388441.4378161,
-    "ast_hash": "b8c0397a7e92a0e83667547f2b0af9d6",
-    "semantic_hash": "b8c0397a7e92a0e83667547f2b0af9d6"
+    "mtime": 1787388728.9184544,
+    "ast_hash": "3f8c90c1866eed311e317ffe2aa2c494",
+    "semantic_hash": ""
   },
   "ui/src/hooks/global-search.test.tsx": {
     "mtime": 1787388579.6401296,

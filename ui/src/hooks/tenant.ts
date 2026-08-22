@@ -31,7 +31,9 @@ export function switchActiveTenant(
     setActiveRole(role);
   }
   // [8.9.5]'s "choice survives reload" — `session.ts`'s cold-boot bootstrap
-  // reads this back to restore the same tenant next visit.
-  persistTenant(tenantId);
+  // reads this back to restore the same tenant next visit. [8.9.11] persists
+  // the role alongside it: for a user holding two roles at one school, the
+  // tenant id alone doesn't say which membership they chose.
+  persistTenant(tenantId, role);
   queryClient.clear();
 }

@@ -29,11 +29,18 @@
   },
   "tenantBar": {
     "switchSchool": "Switch school",
+    "switchSchoolOrRole": "Switch school or role",
+    "switchRole": "Switch role at this school",
+    "schoolWithRole": "{{name}} ({{role}})",
     "confirmTitle": "Switch to {{name}}?",
     "confirmDescription": "Your current view of {{current}} will close and everything cached will be cleared.",
+    "confirmRoleTitle": "Continue as {{role}}?",
+    "confirmRoleDescription": "Your current {{current}} view will close and everything cached will be cleared.",
     "cancel": "Cancel",
     "confirm": "Switch school",
+    "confirmRole": "Switch role",
     "switched": "Switched to {{name}}",
+    "switchedRole": "Switched to {{role}}",
     "unnamedSchool": "this school"
   },
   "notifications": {

@@ -87,6 +87,54 @@ describe('ensureSessionLoaded restores the active tenant [8.9.5]', () => {
     expect(getActiveRole()).toBe('ADMIN');
   });
 
+  // [8.9.11]: a membership is a `{tenantId, role}` pair, so restore has to
+  // match on both — one user can hold two roles at the *same* school.
+  const parentAtSchoolA: JwtMembership = {
+    tenantId: 'tenant-a',
+    role: 'PARENT' as never,
+    name: 'Greenview School',
+  };
+
+  it('restores the exact role chosen at a school where the user holds two [8.9.11]', async () => {
+    persistTenant('tenant-a', 'PARENT');
+    mock
+      .onPost('/api/v1/auth/refresh')
+      .reply(200, { access_token: fakeJwt(9_999_999_999, [schoolA, parentAtSchoolA]) });
+
+    await ensureSessionLoaded();
+
+    expect(getActiveTenant()).toBe('tenant-a');
+    // ADMIN is listed first and would have won a tenant-only match.
+    expect(getActiveRole()).toBe('PARENT');
+  });
+
+  it('drops a persisted role revoked since the last visit, rather than restoring it [8.9.11]', async () => {
+    persistTenant('tenant-a', 'PARENT');
+    mock
+      .onPost('/api/v1/auth/refresh')
+      .reply(200, { access_token: fakeJwt(9_999_999_999, [schoolA, schoolB]) });
+
+    await ensureSessionLoaded();
+
+    expect(getActiveTenant()).toBeNull();
+    expect(getActiveRole()).toBeNull();
+  });
+
+  it('restores a pre-[8.9.11] roleless value by matching the tenant alone', async () => {
+    // What a returning user's browser still holds — a bare tenant id, no
+    // role. Degrades to exactly the pre-[8.9.11] behaviour instead of
+    // discarding the choice or crashing the bootstrap.
+    persistTenant('tenant-b');
+    mock
+      .onPost('/api/v1/auth/refresh')
+      .reply(200, { access_token: fakeJwt(9_999_999_999, [schoolA, schoolB]) });
+
+    await ensureSessionLoaded();
+
+    expect(getActiveTenant()).toBe('tenant-b');
+    expect(getActiveRole()).toBe('TEACHER');
+  });
+
   it('leaves the active tenant unset for 2+ unresolved memberships — the picker route handles it', async () => {
     mock
       .onPost('/api/v1/auth/refresh')

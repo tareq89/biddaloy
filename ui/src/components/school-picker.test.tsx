@@ -30,6 +30,36 @@ describe('SchoolPicker', () => {
     expect(second.getAttribute('aria-checked')).toBe('false');
   });
 
+  // [8.9.11]: both memberships used to key and value on `tenantId` alone, so
+  // React saw a duplicate key, the radio group couldn't tell the two apart,
+  // and `handleSubmit`'s lookup always resolved to the first — the second
+  // role at a school was literally unselectable.
+  it('lets a user with two roles at one school select either of them', async () => {
+    const dualRole = [
+      { tenantId: 'tenant-1', name: 'Greenview School', role: UserRole.ADMIN },
+      { tenantId: 'tenant-1', name: 'Greenview School', role: UserRole.PARENT },
+    ];
+    const onSelect = vi.fn();
+    const user = userEvent.setup();
+    const { localeReady } = renderWithProviders(
+      <SchoolPicker schools={dualRole} onSelect={onSelect} />,
+      { locale: 'en' },
+    );
+    await localeReady;
+
+    const asAdmin = await screen.findByRole('radio', { name: 'Greenview School, Admin' });
+    const asParent = screen.getByRole('radio', { name: 'Greenview School, Parent' });
+    expect(asAdmin.getAttribute('aria-checked')).toBe('true');
+
+    await user.click(asParent);
+    await waitFor(() => expect(asParent.getAttribute('aria-checked')).toBe('true'));
+    expect(asAdmin.getAttribute('aria-checked')).toBe('false');
+
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    expect(onSelect).toHaveBeenCalledWith('tenant-1', UserRole.PARENT);
+  });
+
   it('has no accessibility violations', async () => {
     const { container, localeReady } = renderWithProviders(
       <SchoolPicker schools={schools} onSelect={vi.fn()} />,

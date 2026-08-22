@@ -123,16 +123,30 @@ export function scheduleTokenRefresh(token: string): void {
  * `getPersistedTenant()` when it's still among the caller's *current*
  * memberships (a tenant removed since the last visit is silently dropped,
  * never restored — same "current, not stale" reasoning as `refresh()`'s
- * own server-side doc comment). Falls back to auto-picking a lone
- * membership, mirroring `login()`'s single-membership behavior. Leaves the
- * active tenant unset for 0 or 2+ unresolved memberships — the root
- * route's own guard decides what to do with that (redirect to
- * `/select-school`, or treat zero as unusable and log out). No
- * `queryClient.clear()` here: a cold page load has no cache yet to clear. */
+ * own server-side doc comment). [8.9.11] widens that from a tenant to the
+ * `{tenantId, role}` pair, so a user who holds two roles at one school
+ * comes back as the role they actually chose: a persisted role that is no
+ * longer in the fresh memberships (revoked since the last visit) is
+ * dropped by the same rule a removed tenant already was. A pre-[8.9.11]
+ * value carries no role (`role: null`) and matches on tenant alone, which
+ * is exactly what it used to do.
+ *
+ * Falls back to auto-picking a lone membership, mirroring `login()`'s
+ * single-membership behavior. Leaves the active tenant unset for 0 or 2+
+ * unresolved memberships — the root route's own guard decides what to do
+ * with that (redirect to `/select-school`, or treat zero as unusable and
+ * log out). No `queryClient.clear()` here: a cold page load has no cache
+ * yet to clear. */
 function restoreActiveTenant(accessToken: string): void {
   const memberships = decodeAccessTokenMemberships(accessToken);
   const persisted = getPersistedTenant();
-  const match = memberships.find((m) => m.tenantId === persisted);
+  const match = persisted
+    ? memberships.find(
+        (m) =>
+          m.tenantId === persisted.tenantId &&
+          (persisted.role === null || m.role === persisted.role),
+      )
+    : undefined;
   const [only] = memberships;
   if (match) {
     setActiveTenant(match.tenantId);
