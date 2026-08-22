@@ -1,3 +1,4 @@
+import { isGuardianRole, isStaffRole } from '@biddaloy/shared';
 import { ensureSessionLoaded, getActiveRole, getActiveTenant } from '@biddaloy/ui/api';
 import { APP_SHELL_MAIN_ID, EmptyState, RouteAnnouncer } from '@biddaloy/ui/components';
 import { useRouteFocus } from '@biddaloy/ui/hooks';
@@ -37,13 +38,18 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       // eslint-disable-next-line @typescript-eslint/only-throw-error
       throw redirect({ to: '/login', search: { redirect: location.href } });
     }
-    // Tenant *and* role: a membership is the pair ([8.9.11]), and [8.9.10]'s
-    // route tree splits on the role. A visitor with a tenant but no resolved
-    // role would reach `/`, get redirected by audience, and be bounced back
-    // by that layout's own guard — an infinite ping-pong between `/dashboard`
-    // and `/portal`. Treating it as unresolved sends them to the picker
-    // instead, which is the one screen that can actually resolve it.
-    const hasActiveTenant = !!getActiveTenant() && !!getActiveRole();
+    // Tenant *and* a role the audience split actually knows about: a
+    // membership is the pair ([8.9.11]), and [8.9.10]'s route tree splits on
+    // the role. A visitor with a tenant but no role, or a role neither
+    // `_staff.tsx` nor `portal.tsx` accepts (e.g. an unsupported role like
+    // HEADMASTER), would reach `/`, get redirected by audience, and be
+    // bounced back by that layout's own guard — an infinite ping-pong
+    // between `/dashboard` and `/portal`. Treating it as unresolved sends
+    // them to the picker instead, which is the one screen that can actually
+    // resolve it.
+    const activeRole = getActiveRole();
+    const hasActiveTenant =
+      !!getActiveTenant() && (isGuardianRole(activeRole) || isStaffRole(activeRole));
 
     // [8.9.5]: authenticated but no active tenant chosen yet — either a
     // fresh login with 2+ memberships (`ui/src/hooks/auth.ts`'s `login()`

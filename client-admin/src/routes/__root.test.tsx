@@ -136,6 +136,29 @@ describe('root beforeLoad: unresolved-tenant redirect', () => {
     expect(router.state.location.pathname).toBe('/students');
   });
 
+  /** A tenant is only half a resolved membership — the role must be one
+   * `_staff.tsx`/`portal.tsx` actually accept, or the visitor would reach
+   * `/`, get redirected by audience, and bounce between `/dashboard` and
+   * `/portal` forever. An unsupported role (e.g. HEADMASTER) must count as
+   * unresolved, same as no role at all. */
+  it('redirects an authenticated visit with an active tenant but an unsupported role to /select-school', async () => {
+    // A real (fake) multi-membership JWT, not a bare access-token string —
+    // `select-school.tsx` decodes the token itself to auto-pick a *single*
+    // membership, and a plain string would decode to zero memberships and
+    // trigger its own logout-and-redirect-to-/login effect, which is a
+    // different code path than the one under test here.
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/students'],
+      accessToken: fakeJwtWithMemberships(twoSchools),
+      tenantId: 'tenant-1',
+      role: 'HEADMASTER',
+      locale: 'en',
+    });
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/select-school'));
+    expect(router.state.location.search).toEqual({ redirect: '/students' });
+  });
+
   /** The mirror image of the redirect *to* `/select-school` above: a
    * visitor who already has an active tenant has nothing left to resolve
    * on the picker, and `handleSelect`/the zero-or-one-membership effect
