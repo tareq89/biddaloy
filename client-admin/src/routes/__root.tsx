@@ -22,6 +22,8 @@ import {
 } from '@tanstack/react-router';
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools';
 
+import { GlobalSearchLauncher } from '../components/global-search-launcher';
+
 /**
  * `queryClient` in router context is what lets a route's `loader` call
  * `context.queryClient.ensureQueryData(...)` — the mechanism behind
@@ -192,12 +194,15 @@ function RootLayout() {
       topBar={
         <div className="flex items-center justify-between">
           <TenantBar />
-          <NotificationBell
-            label={t('notifications.bellLabel')}
-            panelTitle={t('notifications.panelLabel')}
-            emptyLabel={t('notifications.empty')}
-            markAllReadLabel={t('notifications.markAllRead')}
-          />
+          <div className="flex items-center gap-2">
+            <GlobalSearchLauncher />
+            <NotificationBell
+              label={t('notifications.bellLabel')}
+              panelTitle={t('notifications.panelLabel')}
+              emptyLabel={t('notifications.empty')}
+              markAllReadLabel={t('notifications.markAllRead')}
+            />
+          </div>
         </div>
       }
       openMenuLabel={t('openMenuLabel')}

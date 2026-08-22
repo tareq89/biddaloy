@@ -10,7 +10,7 @@ import { studentKeys } from './students';
 export type Payment = components['schemas']['Payment'];
 export type CreatePaymentInput = components['schemas']['CreatePaymentDto'];
 
-export const paymentKeys = createEntityKeys<{ studentId?: string }>('payments');
+export const paymentKeys = createEntityKeys<{ studentId?: string; search?: string }>('payments');
 
 /**
  * The reference **non-optimistic** financial mutation — [8.4.4]'s counter

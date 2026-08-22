@@ -1,5 +1,10 @@
 {
   "title": "Fees",
   "explanation": "Fee management has not been built yet.",
-  "action": "Go to settings"
+  "action": "Go to settings",
+  "invoiceDetail": {
+    "back": "Back to fees",
+    "loadError": "Couldn't load this invoice.",
+    "retry": "Try again"
+  }
 }

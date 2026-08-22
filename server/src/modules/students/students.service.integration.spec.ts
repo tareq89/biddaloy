@@ -345,6 +345,83 @@ describe('StudentService (integration)', () => {
       expect(result.data).toHaveLength(1);
       expect(result.data[0].full_name).toBe('Tenant A Student');
     });
+
+    it('should search students by name or roll number', async () => {
+      await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Ahmed Khan',
+          registration_number: 'REG-2026-0001',
+          roll_number: 7,
+          class_section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+          date_of_birth: new Date('2010-01-01'),
+        }),
+      );
+      await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Fatima Begum',
+          registration_number: 'REG-2026-0002',
+          roll_number: 8,
+          class_section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+          date_of_birth: new Date('2010-01-01'),
+        }),
+      );
+
+      // Search by name
+      const byName = await service.findAll({ search: 'Ahmed', page: 1, limit: 10 }, TENANT_ID);
+      expect(byName.data).toHaveLength(1);
+      expect(byName.data[0].full_name).toBe('Ahmed Khan');
+
+      // Search is case-insensitive
+      const byLowercaseName = await service.findAll(
+        { search: 'ahmed', page: 1, limit: 10 },
+        TENANT_ID,
+      );
+      expect(byLowercaseName.data).toHaveLength(1);
+      expect(byLowercaseName.data[0].full_name).toBe('Ahmed Khan');
+
+      // Search by roll number
+      const byRoll = await service.findAll({ search: '8', page: 1, limit: 10 }, TENANT_ID);
+      expect(byRoll.data).toHaveLength(1);
+      expect(byRoll.data[0].full_name).toBe('Fatima Begum');
+    });
+
+    it("does not return another tenant's student when searching by name or roll number", async () => {
+      await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Ahmed Khan',
+          registration_number: 'REG-2026-0001',
+          roll_number: 7,
+          class_section_id: OTHER_SECTION_ID,
+          tenant_id: OTHER_TENANT,
+          date_of_birth: new Date('2010-01-01'),
+        }),
+      );
+
+      const byName = await service.findAll({ search: 'Ahmed', page: 1, limit: 10 }, TENANT_ID);
+      expect(byName.data).toHaveLength(0);
+
+      const byRoll = await service.findAll({ search: '7', page: 1, limit: 10 }, TENANT_ID);
+      expect(byRoll.data).toHaveLength(0);
+    });
+
+    it('does not return a soft-deleted student when searching by name or roll number', async () => {
+      const created = await service.create(
+        { full_name: 'Ahmed Khan', class_section_id: SEED_SECTION_1_ID },
+        TENANT_ID,
+      );
+      await service.remove(created.id, TENANT_ID);
+
+      const byName = await service.findAll({ search: 'Ahmed', page: 1, limit: 10 }, TENANT_ID);
+      expect(byName.data).toHaveLength(0);
+
+      const byRoll = await service.findAll(
+        { search: String(created.roll_number), page: 1, limit: 10 },
+        TENANT_ID,
+      );
+      expect(byRoll.data).toHaveLength(0);
+    });
   });
 
   describe('findOne', () => {

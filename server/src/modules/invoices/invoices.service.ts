@@ -134,6 +134,11 @@ export class InvoicesService {
       .andWhere('invoice.deleted_at IS NULL')
       .orderBy('invoice.issued_date', 'DESC');
 
+    if (query.search) {
+      qb.andWhere('(invoice.invoice_number ILIKE :search OR student.full_name ILIKE :search)', {
+        search: `%${query.search}%`,
+      });
+    }
     if (query.student_id) {
       qb.andWhere('invoice.student_id = :studentId', { studentId: query.student_id });
     }

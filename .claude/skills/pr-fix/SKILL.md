@@ -16,7 +16,15 @@ Fixes review feedback on an existing PR end-to-end. Two hard pause points
 (rebase conflicts, and before push) — never skip them, even if this skill
 has run cleanly before.
 
-## 0. Preflight
+## 0. Setup
+
+```bash
+/caveman wenyan-ultra
+```
+
+Sets tone for the rest of this skill's run.
+
+## 1. Preflight
 
 ```bash
 git status --short
@@ -25,7 +33,7 @@ git status --short
 If not clean: **stop**, tell the user, do not stash or discard anything.
 This skill only ever operates on a clean tree.
 
-## 1. Checkout the PR
+## 2. Checkout the PR
 
 ```bash
 gh pr checkout <n>
@@ -41,7 +49,16 @@ gh pr view <n> --json baseRefName,headRefName,url -q '{base: .baseRefName, head:
 gh repo view --json owner,name -q '{owner: .owner.login, repo: .name}'
 ```
 
-## 2. Fetch unresolved review feedback
+Once checkout succeeds, refresh the graph so later exploration reflects
+this PR's actual code, not a stale graph from a prior session or branch:
+
+```bash
+/graphify update .
+```
+
+(AST-only, no API cost.)
+
+## 3. Fetch unresolved review feedback
 
 Inline review comments only show as "resolved" via GraphQL — the REST API
 doesn't expose it, so use this query (substitute `$owner`/`$repo`/`$pr`):
@@ -79,7 +96,7 @@ Build a short plan before touching code: one line per unresolved thread,
 file/line, and what change it implies. Show this to the user as you start,
 so they can redirect early if you've misread a comment.
 
-## 3. Rebase on the base branch
+## 4. Rebase on the base branch
 
 ```bash
 git fetch origin <base>
@@ -95,17 +112,27 @@ one.
 
 If the rebase is clean, continue.
 
-## 4. Address each unresolved thread
+## 5. Address each unresolved thread
 
-For each one from your step-2 plan: make the code change. Prefer one
+Explore via the graph first, not raw grep: `graphify query "<question>"`
+for a flagged file/symbol, `graphify path "<A>" "<B>"` for how two things
+connect, `graphify explain "<concept>"` for one concept. Fall back to
+`Read`/`Grep` only when the graph doesn't surface enough — see project
+`CLAUDE.md`'s graphify rules.
+
+For each thread from your step-3 plan: make the code change. Prefer one
 commit per logically-related fix rather than one giant commit — it makes
 the eventual review replies concrete ("fixed in `<sha>`") and makes the
 diff easier for the human reviewer to re-review.
 
+After code changes, run `graphify update .` before committing so the graph
+stays current, and stage `graphify-out/` alongside the fix in the same
+commit — never a separate trailing "regenerate graph" commit.
+
 Never amend the PR's existing commits — everything here is new commits on
 top.
 
-## 5. Tests
+## 6. Tests
 
 Run the affected suite(s). In this repo:
 
@@ -123,7 +150,7 @@ All tests must be green before moving on. If you cannot make a test pass,
 **stop and tell the user** rather than weakening or deleting the test to
 make it pass.
 
-## 6. Reply to each addressed thread
+## 7. Reply to each addressed thread
 
 For every thread you fixed, post a reply referencing the commit:
 
@@ -142,7 +169,7 @@ If a comment turned out to be something you're not going to act on (e.g.
 it's already stale, or you disagree), do not silently skip it — reply
 explaining why, and flag it to the user rather than deciding alone.
 
-## 7. Pause point — before push
+## 8. Pause point — before push
 
 Before pushing, show the user:
 - The list of new commits (`git log origin/<head>..HEAD --oneline`, or
@@ -154,7 +181,7 @@ Before pushing, show the user:
 **Wait for explicit confirmation.** Do not push automatically just because
 everything above succeeded.
 
-## 8. Push
+## 9. Push
 
 Once confirmed:
 
@@ -167,7 +194,7 @@ else has pushed to this branch since you last fetched it — exactly the
 protection you want after a rebase, since it fails loudly instead of
 silently overwriting someone else's concurrent work on the same PR branch.
 
-## 9. If the push is rejected
+## 10. If the push is rejected
 
 `--force-with-lease` fails (often as "stale info" rather than a normal
 rejection) whenever the remote branch has moved since your last fetch —
@@ -193,24 +220,24 @@ gh api repos/$OWNER/$REPO/events -q '.[] | select(.type=="PushEvent") | {actor: 
   base, a committer date matching a `PushEvent` timestamp you can see) —
   this is the PR author updating the branch elsewhere (another session, a
   manual rebase, a "update branch" click). Treat it like any other
-  upstream move: `git rebase origin/<head>`, re-run tests (step 5), and
-  push again. This is the same conflict-pause discipline as step 3 — if
+  upstream move: `git rebase origin/<head>`, re-run tests (step 6), and
+  push again. This is the same conflict-pause discipline as step 4 — if
   the rebase reports conflicts, stop and ask rather than resolving blind.
 - **Different author, or content you don't recognize** — stop, show the
   user what changed on the remote tip, and ask how to proceed. Never
   rebase over or discard someone else's unrelated work without asking.
 
-## 10. Re-checking after a push (only if asked)
+## 11. Re-checking after a push (only if asked)
 
 CodeRabbit (or another bot reviewer) typically re-reviews automatically
 once new commits land, which can produce fresh unresolved threads within
 minutes of your push — including ones re-litigating a thread you already
 replied to, if it ran before your push actually landed. This skill does
 not loop on its own; if the user asks to check for or address further
-review feedback after a push, repeat from step 2 (re-fetch threads — a
+review feedback after a push, repeat from step 3 (re-fetch threads — a
 stale review-bot comment that ran against a pre-push commit is worth a
 short reply pointing at the now-pushed SHA, not a code change) through
-step 8, including a fresh pause-before-push confirmation.
+step 9, including a fresh pause-before-push confirmation.
 
 ## Scope notes
 

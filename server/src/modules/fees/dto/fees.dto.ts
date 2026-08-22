@@ -213,6 +213,10 @@ export class RecordPaymentWithAllocationDto {
 
 export class QueryPaymentDto {
   @IsOptional()
+  @IsString()
+  search?: string;
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)

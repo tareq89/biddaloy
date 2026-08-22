@@ -18,6 +18,7 @@ import {
   UpdateFeeStructureDto,
   QueryFeeStructureDto,
   CreatePaymentDto,
+  QueryPaymentDto,
 } from './dto/fees.dto';
 
 @Injectable()
@@ -313,6 +314,30 @@ export class PaymentService {
     });
 
     return this.repo.save(entity);
+  }
+
+  async findAll(query: QueryPaymentDto, tenantId: string) {
+    const page = query.page || 1;
+    const limit = query.limit || 10;
+    const skip = (page - 1) * limit;
+
+    const qb = this.repo
+      .createQueryBuilder('payment')
+      .leftJoinAndSelect('payment.student', 'student')
+      .where('payment.tenant_id = :tenantId', { tenantId })
+      .andWhere('payment.deleted_at IS NULL')
+      .orderBy('payment.payment_date', 'DESC');
+
+    if (query.search) {
+      qb.andWhere(
+        '(payment.transaction_reference ILIKE :search OR student.full_name ILIKE :search)',
+        { search: `%${query.search}%` },
+      );
+    }
+
+    const [data, total] = await qb.skip(skip).take(limit).getManyAndCount();
+
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
   async findByStudent(studentId: string, tenantId: string) {

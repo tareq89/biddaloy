@@ -506,7 +506,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Search payments (receipts) by transaction reference or student name. */
+        get: operations["FeeController_findAll_v1"];
         put?: never;
         post: operations["FeeController_createPayment_v1"];
         delete?: never;
@@ -2661,6 +2662,7 @@ export interface operations {
     StudentController_findAllStudents_v1: {
         parameters: {
             query?: {
+                search?: string;
                 class_id?: string;
                 section_id?: string;
                 enrollment_status?: "ACTIVE" | "INACTIVE" | "TRANSFERRED" | "GRADUATED";
@@ -3282,6 +3284,39 @@ export interface operations {
             };
         };
     };
+    FeeController_findAll_v1: {
+        parameters: {
+            query?: {
+                search?: string;
+                page?: number;
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     FeeController_createPayment_v1: {
         parameters: {
             query?: never;
@@ -3419,6 +3454,7 @@ export interface operations {
     InvoicesController_findAll_v1: {
         parameters: {
             query?: {
+                search?: string;
                 student_id?: string;
                 status?: "DRAFT" | "ISSUED" | "PAID" | "CANCELLED" | "OVERDUE";
                 from_date?: string;

@@ -153,6 +153,12 @@ export {
 export { SkipLink, type SkipLinkProps } from './skip-link';
 export { RouteAnnouncer, type RouteAnnouncerProps } from './route-announcer';
 export {
+  GlobalSearch,
+  type GlobalSearchProps,
+  type GlobalSearchGroup,
+  type GlobalSearchResult,
+} from './global-search';
+export {
   SignInForm,
   type SignInCredentials,
   type SignInFormError,

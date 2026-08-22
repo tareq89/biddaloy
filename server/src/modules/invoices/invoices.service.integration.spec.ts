@@ -381,6 +381,72 @@ describe('InvoicesService (integration)', () => {
       expect(result.total).toBe(0);
     });
 
+    it('searches by invoice number or student name', async () => {
+      const student = await studentRepo.save(makeStudent({ full_name: 'Ahmed Khan' }));
+      const fee = await studentFeeRepo.save(makeFee(student.id));
+      const invoice = await service.create(
+        { student_id: student.id, student_fee_id: fee.id },
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      const byNumber = await service.findAll(
+        { search: invoice.invoice_number, page: 1, limit: 10 },
+        TENANT_ID,
+      );
+      expect(byNumber.total).toBe(1);
+      expect(byNumber.data[0].id).toBe(invoice.id);
+
+      const byName = await service.findAll({ search: 'Ahmed', page: 1, limit: 10 }, TENANT_ID);
+      expect(byName.total).toBe(1);
+      expect(byName.data[0].id).toBe(invoice.id);
+
+      const noMatch = await service.findAll({ search: 'Nobody', page: 1, limit: 10 }, TENANT_ID);
+      expect(noMatch.total).toBe(0);
+    });
+
+    it("does not return another tenant's invoice when searching by invoice number or student name", async () => {
+      const student = await studentRepo.save(makeStudent({ full_name: 'Ahmed Khan' }));
+      const fee = await studentFeeRepo.save(makeFee(student.id));
+      const invoice = await service.create(
+        { student_id: student.id, student_fee_id: fee.id },
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      const byNumber = await service.findAll(
+        { search: invoice.invoice_number, page: 1, limit: 10 },
+        OTHER_TENANT_ID,
+      );
+      expect(byNumber.total).toBe(0);
+
+      const byName = await service.findAll(
+        { search: 'Ahmed', page: 1, limit: 10 },
+        OTHER_TENANT_ID,
+      );
+      expect(byName.total).toBe(0);
+    });
+
+    it('does not return a soft-deleted invoice when searching by invoice number or student name', async () => {
+      const student = await studentRepo.save(makeStudent({ full_name: 'Ahmed Khan' }));
+      const fee = await studentFeeRepo.save(makeFee(student.id));
+      const invoice = await service.create(
+        { student_id: student.id, student_fee_id: fee.id },
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      await invoiceRepo.softDelete(invoice.id);
+
+      const byNumber = await service.findAll(
+        { search: invoice.invoice_number, page: 1, limit: 10 },
+        TENANT_ID,
+      );
+      expect(byNumber.total).toBe(0);
+
+      const byName = await service.findAll({ search: 'Ahmed', page: 1, limit: 10 }, TENANT_ID);
+      expect(byName.total).toBe(0);
+    });
+
     it('excludes soft-deleted invoices', async () => {
       const student = await studentRepo.save(makeStudent());
       const fee = await studentFeeRepo.save(makeFee(student.id));

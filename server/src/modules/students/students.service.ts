@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, In, Like, EntityManager } from 'typeorm';
+import { Repository, IsNull, In, Like, ILike, EntityManager } from 'typeorm';
 import { Student } from './entities/student.entity';
 import { Guardian } from './entities/guardian.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
@@ -158,8 +158,23 @@ export class StudentService {
     if (query.section_id) where.class_section_id = query.section_id;
     if (query.enrollment_status) where.enrollment_status = query.enrollment_status;
 
+    // Matches GuardianService.findAll's OR-array pattern below: each branch
+    // carries the same base filters, so a search never bypasses class/
+    // section/enrollment scoping already applied above. Student has no
+    // `phone` column of its own (that lives on Guardian) — name and roll
+    // number are the only student-owned fields a free-text search can hit.
+    let whereClause: typeof where | (typeof where)[] = where;
+    if (query.search) {
+      const search = `%${query.search}%`;
+      const rollNumber = Number(query.search);
+      whereClause = [
+        { ...where, full_name: ILike(search) },
+        ...(Number.isInteger(rollNumber) ? [{ ...where, roll_number: rollNumber }] : []),
+      ];
+    }
+
     const [data, total] = await this.repo.findAndCount({
-      where,
+      where: whereClause,
       relations: ['class_section', 'class_section.class', 'guardians'],
       order: { created_at: 'DESC' },
       skip,
