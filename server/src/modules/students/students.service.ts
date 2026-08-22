@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, In, Like, EntityManager } from 'typeorm';
+import { Repository, IsNull, In, Like, ILike, EntityManager } from 'typeorm';
 import { Student } from './entities/student.entity';
 import { Guardian } from './entities/guardian.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
@@ -168,7 +168,7 @@ export class StudentService {
       const search = `%${query.search}%`;
       const rollNumber = Number(query.search);
       whereClause = [
-        { ...where, full_name: Like(search) },
+        { ...where, full_name: ILike(search) },
         ...(Number.isInteger(rollNumber) ? [{ ...where, roll_number: rollNumber }] : []),
       ];
     }
