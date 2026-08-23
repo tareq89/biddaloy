@@ -90,3 +90,22 @@ export function parseCurrency(input: string, config: RegionConfig): number {
   const minorUnits = Number(minorUnitsBig);
   return signPart === '-' ? -minorUnits : minorUnits;
 }
+
+/**
+ * Formats a server-supplied amount that isn't already in minor units —
+ * either a decimal-column string (`"500.00"`) or a JS number the server
+ * summed in SQL (`SUM(...)`, which can carry float artifacts like
+ * `2000.0000000000002` with more fractional digits than the currency's
+ * configured precision). Rounding a number to `config.currency.decimals`
+ * before handing it to `parseCurrency` absorbs that artifact; a string is
+ * passed through unchanged, since it came straight off a `decimal` column
+ * and is already exact.
+ *
+ * Second call site of this exact pattern (`fees-tab.tsx`'s summary cards,
+ * originally [8.10.2]) is the line past which it earns a shared home next
+ * to `formatCurrency`/`parseCurrency` instead of staying a local helper.
+ */
+export function formatServerAmount(amount: number | string, config: RegionConfig): string {
+  const normalized = typeof amount === 'number' ? amount.toFixed(config.currency.decimals) : amount;
+  return formatCurrency(parseCurrency(normalized, config), config);
+}

@@ -717,6 +717,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/communications/last-reminders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Batch lookup of each student's most recent fee reminder, for [8.10.4]'s dues queue. */
+        get: operations["CommunicationsController_findLastReminders_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/communications/student/{studentId}": {
         parameters: {
             query?: never;
@@ -3833,6 +3850,37 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["CommunicationResponseDto"];
                 };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CommunicationsController_findLastReminders_v1: {
+        parameters: {
+            query: {
+                student_ids: string[];
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {

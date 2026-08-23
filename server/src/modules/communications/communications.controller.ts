@@ -5,6 +5,7 @@ import {
   Body,
   Param,
   ParseUUIDPipe,
+  Query,
   Req,
   UseGuards,
   Inject,
@@ -24,7 +25,7 @@ import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator
 import { CommunicationsService } from './communications.service';
 import { BulkReminderService } from './reminders.service';
 import { SingleReminderService } from './single-reminder.service';
-import { SendCommunicationDto } from './dto/communications.dto';
+import { SendCommunicationDto, QueryLastRemindersDto } from './dto/communications.dto';
 import { SendBulkReminderDto } from './dto/reminders.dto';
 import { SendSingleReminderDto } from './dto/single-reminder.dto';
 import { UserRole, JwtPayload } from '@biddaloy/shared';
@@ -116,6 +117,28 @@ export class CommunicationsController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.communicationsService.enqueue(dto, tenant.id, user.sub);
+  }
+
+  // Declared before `@Get(':id')` — same reasoning as `reminder/bulk`
+  // above: 'last-reminders' would otherwise be swallowed by the UUID
+  // param route and rejected by its ParseUUIDPipe.
+  @Get('last-reminders')
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @ApiOperation({
+    summary: "Batch lookup of each student's most recent fee reminder, for [8.10.4]'s dues queue.",
+  })
+  findLastReminders(
+    @Query() query: QueryLastRemindersDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.communicationsService
+      .findLastReminders(query.student_ids, tenant.id)
+      .then((byStudent) =>
+        Array.from(byStudent.entries()).map(([student_id, reminder]) => ({
+          student_id,
+          ...reminder,
+        })),
+      );
   }
 
   // Declared before `@Get(':id')` — same reasoning as `reminder/bulk`

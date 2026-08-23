@@ -101,6 +101,7 @@ export enum CommunicationTrigger {
   MANUAL = 'MANUAL',
   AUTOMATED = 'AUTOMATED',
   BULK_REMINDER = 'BULK_REMINDER',
+  SINGLE_REMINDER = 'SINGLE_REMINDER',
 }
 
 export enum ReminderBatchStatus {

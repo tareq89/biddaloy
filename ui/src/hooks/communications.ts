@@ -29,3 +29,30 @@ export function useStudentCommunicationLogs(studentId: string) {
     }),
   );
 }
+
+export interface LastReminder {
+  student_id: string;
+  sent_at: string;
+  medium: string;
+}
+
+/** [8.10.4]'s dues queue "Last reminder" column — one batch request for a
+ * page's worth of students instead of one per row. Disabled when
+ * `studentIds` is empty, since `GET /communications/last-reminders`
+ * requires at least one id and an empty page shouldn't fire it. */
+export function useLastReminders(studentIds: string[]) {
+  return useQuery(
+    queryOptions({
+      queryKey: [...communicationLogKeys.all, 'last-reminders', [...studentIds].sort()] as const,
+      queryFn: async ({ signal }) => {
+        const res = await apiClient.get<LastReminder[]>('/communications/last-reminders', {
+          params: { student_ids: studentIds.join(',') },
+          signal,
+        });
+        return new Map(res.data.map((reminder) => [reminder.student_id, reminder]));
+      },
+      enabled: studentIds.length > 0,
+      retry: shouldRetryQuery,
+    }),
+  );
+}

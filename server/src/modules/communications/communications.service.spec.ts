@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { CommunicationsService } from './communications.service';
-import { CommunicationMedium, CommunicationStatus } from '@biddaloy/shared';
+import { CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '@biddaloy/shared';
 
 describe('CommunicationsService', () => {
   let service: CommunicationsService;
@@ -13,12 +13,25 @@ describe('CommunicationsService', () => {
   const TENANT_ID = 'tenant-1';
   const USER_ID = 'user-1';
 
+  let queryBuilder: Record<string, ReturnType<typeof vi.fn>>;
+
   beforeEach(() => {
+    queryBuilder = {
+      distinctOn: vi.fn().mockReturnThis(),
+      select: vi.fn().mockReturnThis(),
+      addSelect: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      addOrderBy: vi.fn().mockReturnThis(),
+      getRawMany: vi.fn().mockResolvedValue([]),
+    };
     repo = {
       create: vi.fn((data) => data),
       save: vi.fn(async (data) => ({ id: 'log-1', created_at: new Date(), ...data })),
       findOne: vi.fn(),
       find: vi.fn(),
+      createQueryBuilder: vi.fn(() => queryBuilder),
     };
     queue = { add: vi.fn() };
     studentService = { findOne: vi.fn() };
@@ -157,6 +170,35 @@ describe('CommunicationsService', () => {
       const result = await service.findByStudent('student-1', TENANT_ID);
 
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('findLastReminders', () => {
+    // [8.10.4]'s dues queue "Last reminder" column.
+    it('returns a map of student_id to the most recent reminder', async () => {
+      const sentAt = new Date('2026-03-01');
+      queryBuilder.getRawMany.mockResolvedValue([
+        { student_id: 'student-1', medium: CommunicationMedium.SMS, sent_at: sentAt },
+      ]);
+
+      const result = await service.findLastReminders(['student-1'], TENANT_ID);
+
+      expect(result.get('student-1')).toEqual({ sent_at: sentAt, medium: CommunicationMedium.SMS });
+    });
+
+    it('scopes the query to BULK_REMINDER and SINGLE_REMINDER triggers only, excluding MANUAL', async () => {
+      await service.findLastReminders(['student-1'], TENANT_ID);
+
+      expect(queryBuilder.andWhere).toHaveBeenCalledWith('log.trigger IN (:...triggers)', {
+        triggers: [CommunicationTrigger.BULK_REMINDER, CommunicationTrigger.SINGLE_REMINDER],
+      });
+    });
+
+    it('resolves an empty map without querying when no student IDs are given', async () => {
+      const result = await service.findLastReminders([], TENANT_ID);
+
+      expect(result.size).toBe(0);
+      expect(repo.createQueryBuilder).not.toHaveBeenCalled();
     });
   });
 });

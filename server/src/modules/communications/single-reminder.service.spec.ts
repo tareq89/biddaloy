@@ -338,7 +338,7 @@ describe('SingleReminderService', () => {
           guardian_id: 'g-1',
           sent_by_user_id: USER,
           status: CommunicationStatus.QUEUED,
-          trigger: CommunicationTrigger.MANUAL,
+          trigger: CommunicationTrigger.SINGLE_REMINDER,
         }),
       );
       expect(logRepo.create.mock.calls[0][0]).not.toHaveProperty('reminder_batch_id');

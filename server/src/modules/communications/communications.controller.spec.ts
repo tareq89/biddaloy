@@ -27,7 +27,12 @@ describe('CommunicationsController', () => {
   const REQUEST_CONTEXT = { ip: '1.2.3.4', userAgent: 'test-agent' };
 
   beforeEach(() => {
-    service = { enqueue: vi.fn(), findOne: vi.fn(), findByStudent: vi.fn() };
+    service = {
+      enqueue: vi.fn(),
+      findOne: vi.fn(),
+      findByStudent: vi.fn(),
+      findLastReminders: vi.fn(),
+    };
     bulkReminderService = { sendBulk: vi.fn(), findBatch: vi.fn() };
     singleReminderService = { preview: vi.fn(), sendSingle: vi.fn() };
     controller = new CommunicationsController(
@@ -217,6 +222,26 @@ describe('CommunicationsController', () => {
 
       expect(service.findByStudent).toHaveBeenCalledWith('student-1', TENANT.id);
       expect(result).toEqual(expected);
+    });
+  });
+
+  describe('findLastReminders', () => {
+    // [8.10.4]'s dues queue "Last reminder" column.
+    it('should call service.findLastReminders with the parsed student ids and tenant id, flattening the map into an array', async () => {
+      const sentAt = new Date('2026-03-01');
+      service.findLastReminders.mockResolvedValue(
+        new Map([['student-1', { sent_at: sentAt, medium: CommunicationMedium.SMS }]]),
+      );
+
+      const result = await controller.findLastReminders(
+        { student_ids: ['student-1', 'student-2'] } as any,
+        TENANT,
+      );
+
+      expect(service.findLastReminders).toHaveBeenCalledWith(['student-1', 'student-2'], TENANT.id);
+      expect(result).toEqual([
+        { student_id: 'student-1', sent_at: sentAt, medium: CommunicationMedium.SMS },
+      ]);
     });
   });
 });

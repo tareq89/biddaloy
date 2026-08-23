@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { REGION_BD_BN, REGION_BD_EN, type RegionConfig } from '../i18n/region-config';
 
-import { formatCurrency, parseCurrency } from './currency';
+import { formatCurrency, formatServerAmount, parseCurrency } from './currency';
 
 describe('formatCurrency', () => {
   it("matches the issue's own example digit grouping — ৳1,23,456 in minor units (paisa), so the decimals show", () => {
@@ -103,5 +103,26 @@ describe('parseCurrency', () => {
 
   it('parses an amount right at Number.MAX_SAFE_INTEGER exactly', () => {
     expect(parseCurrency('90071992547409.91', REGION_BD_EN)).toBe(Number.MAX_SAFE_INTEGER);
+  });
+});
+
+describe('formatServerAmount', () => {
+  it('formats a decimal-column string amount unchanged', () => {
+    expect(formatServerAmount('1234.56', REGION_BD_EN)).toBe('৳1,234.56');
+  });
+
+  it('formats a plain server-summed number', () => {
+    expect(formatServerAmount(1234.56, REGION_BD_EN)).toBe('৳1,234.56');
+  });
+
+  it('absorbs float artifacts past the currency precision instead of throwing', () => {
+    // SUM(...) style server arithmetic can produce e.g. 2000.0000000000002 —
+    // more fractional digits than BDT's configured 2 decimals, which
+    // parseCurrency would otherwise reject outright.
+    expect(formatServerAmount(2000.0000000000002, REGION_BD_EN)).toBe('৳2,000.00');
+  });
+
+  it('rounds to the currency-configured decimal places', () => {
+    expect(formatServerAmount(1234.565, REGION_BD_EN)).toBe('৳1,234.57');
   });
 });
