@@ -9,7 +9,12 @@ import { apiErrorBody } from '../test/msw/support';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
 import { createTestQueryClient, renderWithProviders } from '../test/render-with-providers';
 
-import { useCreatePayment, usePaymentsByStudent, useStudentFeeSummary } from './payments';
+import {
+  useCreatePayment,
+  usePaymentsByStudent,
+  useRecordPaymentWithAllocation,
+  useStudentFeeSummary,
+} from './payments';
 
 /**
  * [8.4.4]'s AC calls for a submit control and preserved form state, which
@@ -158,5 +163,149 @@ describe('useStudentFeeSummary', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.summary.balance).toBe(2000);
+  });
+
+  it('[8.10.5] stays disabled and issues no request when studentId is undefined', () => {
+    let requestCount = 0;
+    server.use(
+      http.get('/api/v1/payments/invoices/student/:studentId', () => {
+        requestCount += 1;
+        return HttpResponse.json({
+          student_id: 'student-1',
+          student_name: 'Rahim Uddin',
+          summary: { total_due: 0, total_paid: 0, total_discount: 0, balance: 0 },
+          fee_breakdown: [],
+          payments: [],
+        });
+      }),
+    );
+
+    const { result } = renderHookWithProviders(() => useStudentFeeSummary(undefined), {
+      tenantId: 'tenant-1',
+    });
+
+    expect(result.current.isPending).toBe(true);
+    expect(result.current.fetchStatus).toBe('idle');
+    expect(requestCount).toBe(0);
+  });
+});
+
+describe('useRecordPaymentWithAllocation', () => {
+  it('[8.10.5] posts to record-with-allocation and returns the recorded payment', async () => {
+    server.use(
+      http.post('/api/v1/payments/record-with-allocation', async ({ request }) => {
+        const body = (await request.json()) as { student_id: string; total_amount: number };
+        return HttpResponse.json(
+          paymentFactory({ student_id: body.student_id, total_amount: body.total_amount }),
+          { status: 201 },
+        );
+      }),
+    );
+
+    const { result } = renderHookWithProviders(() => useRecordPaymentWithAllocation(), {
+      tenantId: 'tenant-1',
+    });
+
+    result.current.mutate({
+      student_id: 'student-1',
+      total_amount: 4500,
+      payment_method: 'CASH',
+      allocations: [{ student_fee_id: 'fee-1', allocated_amount: 4500, allocation_type: 'DUE' }],
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.student_id).toBe('student-1');
+    expect(result.current.data?.total_amount).toBe(4500);
+  });
+
+  it("[8.10.5] invalidates the student's fee summary on success — a re-opened Fees tab shows the new balance, not a stale one", async () => {
+    const queryClient = createTestQueryClient();
+    server.use(
+      http.get('/api/v1/payments/invoices/student/:studentId', () =>
+        HttpResponse.json({
+          student_id: 'student-1',
+          student_name: 'Rahim Uddin',
+          summary: { total_due: 5000, total_paid: 0, total_discount: 0, balance: 5000 },
+          fee_breakdown: [],
+          payments: [],
+        }),
+      ),
+      http.post('/api/v1/payments/record-with-allocation', () =>
+        HttpResponse.json(paymentFactory({ student_id: 'student-1' }), { status: 201 }),
+      ),
+    );
+
+    // A live `useStudentFeeSummary` observer, same reasoning as
+    // `students.test.tsx`'s `useUpdateStudentEnrollmentStatus` test —
+    // `invalidateQueries` only triggers a background refetch for a query
+    // someone is actually watching.
+    const { result } = renderHookWithProviders(
+      () => ({
+        summary: useStudentFeeSummary('student-1'),
+        record: useRecordPaymentWithAllocation(),
+      }),
+      { tenantId: 'tenant-1', queryClient },
+    );
+
+    await waitFor(() => expect(result.current.summary.isSuccess).toBe(true));
+    expect(result.current.summary.data?.summary.balance).toBe(5000);
+
+    server.use(
+      http.get('/api/v1/payments/invoices/student/:studentId', () =>
+        HttpResponse.json({
+          student_id: 'student-1',
+          student_name: 'Rahim Uddin',
+          summary: { total_due: 5000, total_paid: 4500, total_discount: 0, balance: 500 },
+          fee_breakdown: [],
+          payments: [],
+        }),
+      ),
+    );
+
+    result.current.record.mutate({
+      student_id: 'student-1',
+      total_amount: 4500,
+      payment_method: 'CASH',
+      allocations: [{ student_fee_id: 'fee-1', allocated_amount: 4500, allocation_type: 'DUE' }],
+    });
+
+    await waitFor(() => expect(result.current.record.isSuccess).toBe(true));
+    await waitFor(() => expect(result.current.summary.data?.summary.balance).toBe(500));
+  });
+
+  it('preserves the mutation input on failure — nothing the accountant typed needs retyping', async () => {
+    server.use(
+      http.post('/api/v1/payments/record-with-allocation', () =>
+        HttpResponse.json(
+          apiErrorBody(
+            400,
+            'Allocation amounts must sum to total_amount',
+            '/api/v1/payments/record-with-allocation',
+          ),
+          { status: 400 },
+        ),
+      ),
+    );
+
+    const { result } = renderHookWithProviders(() => useRecordPaymentWithAllocation(), {
+      tenantId: 'tenant-1',
+    });
+
+    const input = {
+      student_id: 'student-1',
+      total_amount: 4500,
+      payment_method: 'CASH' as const,
+      allocations: [
+        { student_fee_id: 'fee-1', allocated_amount: 100, allocation_type: 'DUE' as const },
+      ],
+    };
+    result.current.mutate(input);
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.isSuccess).toBe(false);
+    // React Query keeps the last `variables` around on failure — a caller
+    // reads this instead of holding its own separate copy, so nothing
+    // needs to be retyped after a failed submit.
+    expect(result.current.variables).toEqual(input);
   });
 });

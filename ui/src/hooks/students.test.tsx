@@ -177,6 +177,24 @@ describe('useStudent fetches a single student by id', () => {
     expect(result.current.data?.id).toBe('student-1');
     expect(result.current.data?.full_name).toBe('Single Student');
   });
+
+  it('[8.10.5] stays disabled and issues no request when id is undefined', () => {
+    let requestCount = 0;
+    server.use(
+      http.get('/api/v1/students/:id', () => {
+        requestCount += 1;
+        return HttpResponse.json(studentFactory());
+      }),
+    );
+
+    const { result } = renderHookWithProviders(() => useStudent(undefined), {
+      tenantId: 'tenant-1',
+    });
+
+    expect(result.current.isPending).toBe(true);
+    expect(result.current.fetchStatus).toBe('idle');
+    expect(requestCount).toBe(0);
+  });
 });
 
 describe('useCreateStudent invalidates the students list (create -> refetch -> new row appears)', () => {

@@ -1,18 +1,20 @@
-import { EmptyState } from '@biddaloy/ui/components';
-import { useTranslation } from '@biddaloy/ui/i18n';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { RegionConfigProvider, useTenantRegionConfig } from '@biddaloy/ui/i18n';
+import { createFileRoute } from '@tanstack/react-router';
 import { z } from 'zod';
 
+import { RecordPaymentWizard } from './-record/record-payment-wizard';
+
 /**
- * `/payments/record` — a placeholder, same reasoning as `/fees`: the real
- * Record Payment flow is [8.10.5]'s ticket, not this one's. Exists now so
- * [8.10.1]'s "Collect Fees" row action has a real, typed route to
- * `<Link>` into — `student_id` is declared and read here already so
- * [8.10.5] only has to replace `RecordPaymentPage`'s body, not re-wire the
- * deep link this ticket's students list already depends on.
+ * `/payments/record` — [8.10.5]'s Record Payment wizard. `student_id` was
+ * declared and read here since [8.10.1] wired the students list's
+ * "Collect fees" row action to deep-link into this route before this
+ * ticket built a real destination for it; `step` is `WizardShell`'s own
+ * `useWizardShellStep` contract (`?step=` as the source of truth for the
+ * active step, so it survives a refresh).
  */
 const recordPaymentSearchSchema = z.object({
   student_id: z.string().min(1).optional().catch(undefined),
+  step: z.string().optional().catch(undefined),
 });
 
 export const Route = createFileRoute('/_staff/payments/record')({
@@ -21,19 +23,20 @@ export const Route = createFileRoute('/_staff/payments/record')({
 });
 
 function RecordPaymentPage() {
-  const { t } = useTranslation('payments');
-  const navigate = useNavigate();
   const { student_id } = Route.useSearch();
-
+  // `useRegionConfig()` has no ambient provider above the route tree
+  // (same reasoning `students/$studentId.tsx`'s own `RegionConfigProvider`
+  // wrap gives) — every amount on this page (`MoneyInput`, the running
+  // total, the receipt) would silently fall back to the provider's
+  // hardcoded default region rather than the active tenant's actual one
+  // without this.
+  const regionConfig = useTenantRegionConfig();
   return (
-    <EmptyState
-      title={t('record.title')}
-      explanation={
-        student_id !== undefined
-          ? t('record.explanationForStudent', { studentId: student_id })
-          : t('record.explanation')
-      }
-      action={{ label: t('record.action'), onClick: () => void navigate({ to: '/students' }) }}
-    />
+    <RegionConfigProvider value={regionConfig}>
+      {/* `exactOptionalPropertyTypes` — omit rather than set `undefined`. */}
+      <RecordPaymentWizard
+        {...(student_id !== undefined ? { initialStudentId: student_id } : {})}
+      />
+    </RegionConfigProvider>
   );
 }

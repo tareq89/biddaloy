@@ -1,8 +1,69 @@
 {
   "record": {
     "title": "Record a payment",
-    "explanation": "Pick a student from the students list, then use Collect fees to start a payment.",
-    "explanationForStudent": "Recording a payment for student {{studentId}} is coming soon.",
-    "action": "Go to students"
+    "steps": {
+      "findStudent": "Find student",
+      "outstandingFees": "Outstanding fees",
+      "allocate": "Allocate",
+      "method": "Method & reference",
+      "confirm": "Confirm"
+    },
+    "findStudent": {
+      "searchLabel": "Search for a student",
+      "searchPlaceholder": "Search by name or roll number",
+      "noResults": "No students match that search.",
+      "rollAndClass": "Roll {{roll}} · {{className}} {{sectionName}}"
+    },
+    "outstandingFees": {
+      "forStudent": "Outstanding fees for {{name}}",
+      "forbidden": "You don't have permission to view this student's fees.",
+      "errorMessage": "Couldn't load outstanding fees. Try again.",
+      "noBalance": "This student has no outstanding balance.",
+      "totalDue": "Total billed",
+      "totalPaid": "Total paid",
+      "balance": "Outstanding balance",
+      "amountReceivedLabel": "Amount received"
+    },
+    "allocate": {
+      "columnPeriod": "Period",
+      "columnType": "Type",
+      "columnRemaining": "Remaining",
+      "columnAllocated": "Allocated",
+      "typeDue": "Due",
+      "typeCurrent": "Current",
+      "typeAdvance": "Advance",
+      "lineAmountLabel": "Amount allocated to {{month}}/{{year}}",
+      "lineLocked": "An earlier fee isn't fully paid yet, so this line can't be allocated.",
+      "runningTotal": "Allocated {{allocated}} of {{total}} — {{unallocated}} unallocated",
+      "overAllocated": "The allocated amount is {{over}} more than the amount received. Reduce a line before continuing."
+    },
+    "method": {
+      "methodLabel": "Payment method",
+      "referenceLabel": "Transaction reference",
+      "remarksLabel": "Remarks",
+      "generateInvoiceLabel": "Generate invoice on full payment",
+      "generateInvoiceExplanationFull": "Every fee this payment touches will be fully paid — an invoice will be generated.",
+      "generateInvoiceExplanationPartial": "This payment won't fully pay off every fee it touches, so no invoice will be generated regardless of this setting.",
+      "methods": {
+        "CASH": "Cash",
+        "CHEQUE": "Cheque",
+        "BANK_TRANSFER": "Bank transfer",
+        "ONLINE": "Online",
+        "CARD": "Card",
+        "UPI": "UPI"
+      }
+    },
+    "confirm": {
+      "summary": "Recording a payment of {{amount}} for {{name}}.",
+      "line": "{{month}}/{{year}}: {{amount}}",
+      "invoiceWillGenerate": "An invoice will be generated for this payment.",
+      "submitAction": "Record payment"
+    },
+    "receipt": {
+      "success": "{{amount}} received from {{name}}.",
+      "invoiceGenerated": "Invoice {{number}} generated.",
+      "printAction": "Print receipt",
+      "printError": "Couldn't open the print window. Check your browser's popup blocker and try again."
+    }
   }
 }

@@ -153,3 +153,37 @@ export function formatServerAmount(amount: number | string, config: RegionConfig
     typeof amount === 'number' ? roundDecimalString(amount, config.currency.decimals) : amount;
   return formatCurrency(parseCurrency(normalized, config), config);
 }
+
+/**
+ * Same server-decimal-to-minor-units conversion `formatServerAmount` does
+ * internally (round, then `parseCurrency`), stopping one step short of
+ * formatting — for callers doing arithmetic on the amount (allocation
+ * math, `MoneyInput`'s `value`) rather than displaying it. Keeps that
+ * arithmetic entirely in integer minor units, never the server's `number |
+ * string` decimal, which is exactly the float risk `formatCurrency`'s
+ * header comment rules out.
+ */
+export function serverAmountToMinorUnits(amount: number | string, config: RegionConfig): number {
+  const normalized =
+    typeof amount === 'number' ? roundDecimalString(amount, config.currency.decimals) : amount;
+  return parseCurrency(normalized, config);
+}
+
+/**
+ * Inverse of `serverAmountToMinorUnits` — integer minor units back to the
+ * plain decimal string a DTO like `RecordPaymentWithAllocationDto` expects
+ * (`"4500.00"`, no symbol or grouping). `MoneyInput`'s `value` is always
+ * minor units; this is the only supported way to turn one back into a
+ * request body field.
+ */
+export function minorUnitsToDecimalString(minorUnits: number, config: RegionConfig): string {
+  const { decimals } = config.currency;
+  const negative = minorUnits < 0;
+  const digits = Math.abs(minorUnits)
+    .toString()
+    .padStart(decimals + 1, '0');
+  const integerPart = digits.slice(0, digits.length - decimals);
+  const fractionPart = digits.slice(digits.length - decimals);
+  const sign = negative ? '-' : '';
+  return decimals > 0 ? `${sign}${integerPart}.${fractionPart}` : `${sign}${integerPart}`;
+}
