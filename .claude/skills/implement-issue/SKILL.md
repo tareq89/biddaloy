@@ -42,6 +42,31 @@ stories, commit messages, PR descriptions, and the per-issue plans must stay
 normal, complete, and readable — a compressed plan defeats its own purpose,
 since the user needs to be able to review it.
 
+## Model routing
+
+Each phase of the loop runs on a different model and effort level. Switch
+explicitly at each phase boundary — don't let a phase inherit the previous
+phase's setting.
+
+| Phase | Model | Effort | Commands |
+|---|---|---|---|
+| Research + plan (steps 2–3) | Opus | xhigh | `/model opus` then `/effort xhigh` |
+| Implement, tests, stories (steps 4–6) | Sonnet | high | `/model sonnet` then `/effort high` |
+| Code review (step 7) | Opus | xhigh | `/model opus` then `/effort xhigh` |
+| Commit, push, PR (steps 8–9) | — | — | stays on Opus from review |
+
+Notes:
+
+- Announce each switch in one line so the log shows which model produced what.
+- `/effort` accepts `low`, `medium`, `high`, `xhigh`, `max`. If the active model
+  doesn't support the level you set, Claude Code falls back to the highest
+  supported level at or below it.
+- `low`, `medium`, `high`, and `xhigh` persist across sessions when set in an
+  interactive session — so after a usage-limit resume, re-assert both model and
+  effort for the phase you're resuming into rather than trusting what's active.
+- Set effort **after** the model switch, since some models apply their own
+  default effort on first use in a session.
+
 ## Step 0 — Resolve the work
 
 1. Detect the issue source from what's available: a tracker MCP server, `gh`,
@@ -98,14 +123,19 @@ implementation before issue N's PR is open.
   onto `main` and retarget the open PRs rather than leaving them stacked on a
   merged branch.
 
-### 2. Research with graphify
+### 2. Research with graphify — Opus, xhigh
+
+```
+/model opus
+/effort xhigh
+```
 
 Use graphify to find the call sites, dependents, and existing patterns that this
 issue touches — before forming any opinion about the implementation. Grepping
 blind wastes tokens and misses indirect dependents, which is exactly the failure
 mode graphify exists to prevent.
 
-### 3. Plan
+### 3. Plan — Opus, xhigh (continues)
 
 Write a detailed plan before any code:
 
@@ -124,7 +154,17 @@ Write a detailed plan before any code:
 Save it to the state file. If the plan reveals the issue is much bigger than it
 looked, say so before starting rather than after.
 
-### 4. Implement
+### 4. Implement — Sonnet, high
+
+```
+/model sonnet
+/effort high
+```
+
+The plan is on disk, so the model change costs nothing: Sonnet reads the plan
+and executes it. If Sonnet finds the plan is wrong rather than merely
+incomplete, stop and escalate back to Opus xhigh to re-plan — don't improvise a
+new approach at implementation effort.
 
 - Follow the plan. If reality diverges, update the plan first.
 - Backend work belongs in the **NestJS project as part of the same issue** —
@@ -151,7 +191,30 @@ is part of the issue, not follow-up work — a PR without them isn't done.
 
 Run the test suite and lint before committing. Don't push red.
 
-### 7. Graph, commit, push
+### 7. Code review — Opus, xhigh
+
+```
+/model opus
+/effort xhigh
+/code-review
+```
+
+Review the working tree **before** committing, so fixes land in the same commit
+rather than as follow-up noise in the PR diff.
+
+Act on what it finds:
+
+- Fix anything real. Re-run tests and lint after the fixes.
+- If a finding is a deliberate choice, note it in the PR description rather than
+  silently ignoring it.
+- If it surfaces a design problem rather than a defect, update the plan on disk
+  before rewriting — the plan should end the issue matching what was actually
+  built.
+
+This is your reviewer before CodeRabbit is your reviewer. Anything caught here
+is a fix; anything caught there is a round trip.
+
+### 8. Graph, commit, push
 
 ```bash
 graphify update
@@ -163,7 +226,11 @@ git push -u origin <branch>
 Never commit without running `graphify update` first — a stale graph poisons the
 research step for every subsequent issue in the chain.
 
-### 8. Open the PR
+Regenerate committed artifacts that the change invalidates before committing —
+API types in particular, if endpoints or DTOs moved. A generated file that
+drifts from its source fails CI and costs a whole round trip.
+
+### 9. Open the PR
 
 Target the parent branch. In the description: what the issue asked for, the
 approach, any design-system additions, and how to test it. Then record the PR
@@ -204,14 +271,17 @@ expendable and disk as the source of truth.
 
 When the limit hits: write the current position to the state file, stop
 cleanly, and wait for the reset. On resume, read the state file, confirm against
-`git status` and `git log`, and continue from that exact step. Don't restart an
-issue from scratch, don't skip ahead, and don't re-plan work that's already
-planned.
+`git status` and `git log`, and continue from that exact step. Re-assert the
+model and effort for that phase before continuing — the resumed session may
+carry over whatever was last set. Don't restart an issue from scratch, don't
+skip ahead, and don't re-plan work that's already planned.
 
 ## Rules that hold throughout
 
 - Strictly sequential — one issue in flight at a time.
 - Never skip the plan.
+- Never plan on Sonnet; never implement on Opus xhigh.
+- Never commit before `/code-review` has run and its findings are resolved.
 - Never commit without `graphify update`.
 - Never bypass the design system.
 - Never open a PR less than an hour after the previous one.
