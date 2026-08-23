@@ -194,6 +194,18 @@ describe('CommunicationsService', () => {
       });
     });
 
+    // Tenant isolation: a Tenant A caller must never see Tenant B's
+    // reminder history for a student id it happens to also pass in,
+    // same coverage `findOne`'s tenant_id assertion above already gives
+    // the single-log lookup.
+    it("scopes the query to the caller's own tenant", async () => {
+      await service.findLastReminders(['student-1'], TENANT_ID);
+
+      expect(queryBuilder.where).toHaveBeenCalledWith('log.tenant_id = :tenantId', {
+        tenantId: TENANT_ID,
+      });
+    });
+
     it('resolves an empty map without querying when no student IDs are given', async () => {
       const result = await service.findLastReminders([], TENANT_ID);
 
