@@ -32,6 +32,7 @@ function Controlled({
   emptyMessage,
   columnsMenu = false,
   defaultColumnVisibility,
+  columns = COLUMNS,
 }: {
   data?: Student[];
   totalCount?: number;
@@ -41,6 +42,7 @@ function Controlled({
   emptyMessage?: string;
   columnsMenu?: boolean;
   defaultColumnVisibility?: VisibilityState;
+  columns?: DataTableColumn<Student>[];
 }) {
   const [sorting, setSorting] = useState<DataTableSort | null>(null);
   const [page, setPage] = useState(1);
@@ -50,7 +52,7 @@ function Controlled({
     <DataTable
       tableId="students-test"
       caption="Students"
-      columns={COLUMNS}
+      columns={columns}
       data={data}
       getRowId={(row) => row.id}
       sorting={sorting}
@@ -297,6 +299,42 @@ describe('DataTable columns menu', () => {
     );
     render(<Controlled columnsMenu defaultColumnVisibility={{ className: false }} />);
     expect(screen.getByRole('columnheader', { name: 'Class' })).toBeTruthy();
+  });
+});
+
+describe('DataTable pinned columns', () => {
+  const PINNED_COLUMNS: DataTableColumn<Student>[] = [
+    { id: 'name', header: 'Name', accessorFn: (row) => row.name, sortable: true },
+    { id: 'className', header: 'Class', accessorFn: (row) => row.className, pinned: true },
+  ];
+
+  beforeEach(() => window.localStorage.clear());
+  afterEach(() => window.localStorage.clear());
+
+  it('stays visible even when defaultColumnVisibility names it hidden', () => {
+    render(<Controlled columns={PINNED_COLUMNS} defaultColumnVisibility={{ className: false }} />);
+    expect(screen.getByRole('columnheader', { name: 'Class' })).toBeTruthy();
+  });
+
+  it('stays visible even when a stale localStorage value names it hidden', () => {
+    window.localStorage.setItem(
+      'data-table:students-test',
+      JSON.stringify({ columnVisibility: { className: false }, columnOrder: [] }),
+    );
+    render(<Controlled columns={PINNED_COLUMNS} />);
+    expect(screen.getByRole('columnheader', { name: 'Class' })).toBeTruthy();
+  });
+
+  it('is omitted from the columns menu, so it cannot be toggled off', async () => {
+    const user = userEvent.setup();
+    render(<Controlled columns={PINNED_COLUMNS} columnsMenu />);
+
+    expect(screen.getByRole('columnheader', { name: 'Class' })).toBeTruthy();
+
+    // Radix marks the rest of the page aria-hidden while the menu is open,
+    // so the columnheader check above has to happen before this point.
+    await user.click(screen.getByRole('button', { name: 'Columns' }));
+    expect(screen.queryByRole('menuitemcheckbox', { name: 'Class' })).toBeNull();
   });
 });
 

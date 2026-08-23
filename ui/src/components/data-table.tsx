@@ -146,6 +146,25 @@ export function DataTable<TData>({
     readPersistedState(tableId, defaultColumnVisibility),
   );
 
+  // `enableHiding: !column.pinned` below only stops the columns menu from
+  // offering to hide a pinned column — it does nothing about `columnVisibility`
+  // state itself already holding `false` for that id (a stale localStorage
+  // value from before the column was pinned, or a `defaultColumnVisibility`
+  // prop that names it). TanStack Table renders from that state regardless
+  // of `enableHiding`, so pinned columns are force-visible here — the one
+  // place all three sources (default, persisted, live toggle) resolve
+  // through before reaching the table.
+  const pinnedColumnIds = React.useMemo(
+    () => columns.filter((column) => column.pinned).map((column) => column.id),
+    [columns],
+  );
+  const effectiveColumnVisibility = React.useMemo(() => {
+    if (pinnedColumnIds.length === 0) return columnVisibility;
+    const next = { ...columnVisibility };
+    for (const id of pinnedColumnIds) next[id] = true;
+    return next;
+  }, [columnVisibility, pinnedColumnIds]);
+
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
     window.localStorage.setItem(
@@ -172,7 +191,7 @@ export function DataTable<TData>({
     data,
     columns: tanstackColumns,
     state: {
-      columnVisibility,
+      columnVisibility: effectiveColumnVisibility,
       columnOrder,
       sorting: sorting ? [{ id: sorting.id, desc: sorting.desc }] : [],
     },
