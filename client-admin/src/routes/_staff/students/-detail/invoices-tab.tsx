@@ -26,16 +26,31 @@ export interface InvoicesTabProps {
  * HTML blob opened in a new tab instead of downloaded. A 403 (student
  * outside the caller's tenant) or a network failure rejects the request —
  * `onError` surfaces that instead of leaving the click looking like a
- * no-op. */
+ * no-op.
+ *
+ * The tab is opened *before* the `await`, still inside the click's user-
+ * activation window — opening it only after the request resolves is
+ * outside that window, so a browser's popup blocker can silently drop it
+ * (`window.open` returning `null` with no error). `.opener` is cleared by
+ * hand instead of passing `noopener` to `window.open`, since `noopener`
+ * would also drop the window reference this needs to navigate later. */
 async function openPrintableInvoice(invoiceId: string, onError: () => void): Promise<void> {
+  const printWindow = window.open('', '_blank', 'noreferrer');
+  if (!printWindow) {
+    onError();
+    return;
+  }
+  printWindow.opener = null;
+
   try {
     const res = await apiClient.get<string>(`/invoices/${invoiceId}/print`, {
       responseType: 'text',
     });
     const url = URL.createObjectURL(new Blob([res.data], { type: 'text/html' }));
-    window.open(url, '_blank', 'noopener,noreferrer');
+    printWindow.location.href = url;
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
   } catch {
+    printWindow.close();
     onError();
   }
 }

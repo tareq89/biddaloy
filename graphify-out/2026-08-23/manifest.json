@@ -3770,8 +3770,8 @@
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/students/-detail/invoices-tab.tsx": {
-    "mtime": 1787464974.0640423,
-    "ast_hash": "b066877ded30a891c21c1e914ba68208",
+    "mtime": 1787465702.6692355,
+    "ast_hash": "c08b5abd119117f6b05e4dc85a7d929e",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/students/-detail/overview-tab.tsx": {
