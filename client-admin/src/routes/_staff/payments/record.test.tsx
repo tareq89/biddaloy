@@ -291,4 +291,48 @@ describe('/payments/record', () => {
       '৳500.00',
     );
   });
+
+  it('[8.10.5] still prefills FIFO if the amount is typed before the fee query resolves', async () => {
+    mockEnglishRegion();
+    mockStudent();
+    server.use(
+      http.get('/api/v1/payments/invoices/student/:studentId', async ({ params }) => {
+        // The race the FIFO-prefill effect must survive: the amount
+        // field isn't gated behind this query, so an accountant can
+        // finish typing and click Next before it resolves. Long enough
+        // that typing three characters and clicking Next reliably
+        // finishes first — this is the query that's in flight from the
+        // moment the page mounts, not one triggered by typing.
+        await delay(400);
+        const fees = [outstandingFee()];
+        return HttpResponse.json({
+          student_id: params.studentId,
+          student_name: 'Karim Rahman',
+          summary: { total_due: 500, total_paid: 0, total_discount: 0, balance: 500 },
+          fee_breakdown: fees,
+          payments: [],
+        });
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithRouter(routeTree, {
+      initialEntries: ['/payments/record?student_id=student-1'],
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+
+    // Types the amount as soon as the field exists — doesn't wait for
+    // "Outstanding balance" (the fee summary itself) to render first,
+    // the way every other test here does. The amount field lives
+    // outside `QueryState`, so it's available well before the (here,
+    // deliberately delayed) fee query resolves.
+    await user.type(await screen.findByLabelText('Amount received'), '500');
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+
+    // The fee query resolves after the click; the Allocate step must
+    // still end up FIFO-prefilled, not stuck on an empty table.
+    await screen.findByText(/Allocated ৳500.00 of ৳500.00/, {}, { timeout: 2000 });
+  });
 });

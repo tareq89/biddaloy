@@ -107,13 +107,21 @@ export function RecordPaymentWizard({ initialStudentId }: RecordPaymentWizardPro
 
   // Re-prefills FIFO whenever the amount received changes — an edit made
   // under a previous amount doesn't carry over, since changing the
-  // amount invalidates the whole breakdown anyway. Not re-run when
-  // `outstandingFees` changes on its own (it's stable once fetched).
+  // amount invalidates the whole breakdown anyway. `outstandingFees` is a
+  // required dependency, not just a guard: the accountant can type the
+  // amount before `feeSummaryQuery` resolves (the `MoneyInput` isn't
+  // gated behind the query), so `outstandingFees` can still be `[]` on
+  // this effect's first run. Without it in the dependency list, the fee
+  // data arriving later would never re-trigger the prefill and `lines`
+  // would stay `[]` forever — the accountant would be stuck on the
+  // Allocate step with no way to proceed except re-typing the amount.
+  // It's still a `useMemo`-stable reference once fetched, so this
+  // doesn't cause a re-prefill on every render — only when the amount or
+  // the fetched fee data actually changes.
   React.useEffect(() => {
     if (totalMinorUnits === undefined || outstandingFees.length === 0) return;
     setLines(prefillFifoAllocations(outstandingFees, totalMinorUnits));
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- see comment above
-  }, [totalMinorUnits]);
+  }, [totalMinorUnits, outstandingFees]);
 
   const summary = summarizeAllocation(lines, totalMinorUnits ?? 0);
   const willFullyPay = willFullyPayAllTouchedFees(lines);
