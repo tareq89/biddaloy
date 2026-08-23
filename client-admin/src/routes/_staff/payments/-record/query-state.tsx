@@ -2,12 +2,13 @@ import { ApiError } from '@biddaloy/ui/api';
 import { ErrorState, Skeleton } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import type { UseQueryResult } from '@tanstack/react-query';
+import type { ReactNode } from 'react';
 
 export interface QueryStateProps<T> {
   query: UseQueryResult<T, unknown>;
   forbiddenMessage: string;
   errorMessage: string;
-  children: (data: T) => React.ReactNode;
+  children: (data: T) => ReactNode;
 }
 
 /**

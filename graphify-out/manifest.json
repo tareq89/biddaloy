@@ -1865,8 +1865,8 @@
     "semantic_hash": ""
   },
   "ui/src/hooks/payments.ts": {
-    "mtime": 1787494948.0314608,
-    "ast_hash": "a023818bc7c64ef82939666346a92e0d",
+    "mtime": 1787496439.7997274,
+    "ast_hash": "7875f3db15e72cfa68f71e8f6634fb52",
     "semantic_hash": ""
   },
   "ui/src/hooks/query-keys.spec.ts": {
@@ -2455,8 +2455,8 @@
     "semantic_hash": ""
   },
   "ui/src/utils/currency.ts": {
-    "mtime": 1787494067.171755,
-    "ast_hash": "e872bd1a9b829526eef2b356867af25c",
+    "mtime": 1787496439.8818703,
+    "ast_hash": "e21a583a1147ebf793e1f83bb5046a76",
     "semantic_hash": ""
   },
   "ui/src/utils/date.spec.ts": {
@@ -3670,8 +3670,8 @@
     "semantic_hash": "aa43820041056394a71170129ffe6ead"
   },
   "client-admin/src/routes/_staff/payments/record.tsx": {
-    "mtime": 1787496046.7931774,
-    "ast_hash": "0a01f192e93a90aafec8c44f99d048bd",
+    "mtime": 1787496440.142853,
+    "ast_hash": "4392803daf310fae143c864ec4a744e1",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/students/-send-reminder-dialog.tsx": {
@@ -3720,13 +3720,13 @@
     "semantic_hash": "6687106a452b2bf0d65f5108ef9b0ab5"
   },
   "ui/src/i18n/locales/bn/payments.json": {
-    "mtime": 1787495569.0475268,
-    "ast_hash": "73360ae0c75924bf2f8bd47d830179c6",
+    "mtime": 1787497956.4720976,
+    "ast_hash": "99550e5620e153e02629a6f732088050",
     "semantic_hash": ""
   },
   "ui/src/i18n/locales/en/payments.json": {
-    "mtime": 1787495550.0688922,
-    "ast_hash": "f9e3c00c52c1e3edf4bdbe9ea3916430",
+    "mtime": 1787497936.5150144,
+    "ast_hash": "0302cb66e61b4dc742f4fc0c9a5ba271",
     "semantic_hash": ""
   },
   "ui/src/primitives/textarea.tsx": {
@@ -3945,23 +3945,23 @@
     "semantic_hash": "475b6ed705b03c12ba174e229097fbfe"
   },
   "client-admin/src/routes/_staff/payments/-record/allocate-step.tsx": {
-    "mtime": 1787494782.8818614,
-    "ast_hash": "626b8de2bf868ebd1dae58abb427d93f",
+    "mtime": 1787496439.9886131,
+    "ast_hash": "ae9005a022a44dbd5b454115fb8b8ebd",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/payments/-record/allocation-math.spec.ts": {
-    "mtime": 1787495281.477074,
-    "ast_hash": "e2b23fb6dfc6ad4106fac56d5d2a1798",
+    "mtime": 1787496440.0237844,
+    "ast_hash": "c92b15e9421daa0a73c3c90df4884637",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/payments/-record/allocation-math.ts": {
-    "mtime": 1787494253.4606638,
-    "ast_hash": "0d0f029d4ec31b2a105195bbcbb2d63e",
+    "mtime": 1787496440.042786,
+    "ast_hash": "114c9ad0383a1f3a0eb69fead8e73889",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/payments/-record/confirm-step.tsx": {
-    "mtime": 1787495042.2224598,
-    "ast_hash": "891ab0d11aa4bb896ca0441de56670a4",
+    "mtime": 1787497539.6662388,
+    "ast_hash": "d0bb851f479243cd481a7b9d0742963e",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/payments/-record/find-student-step.tsx": {
@@ -3970,33 +3970,38 @@
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/payments/-record/method-step.tsx": {
-    "mtime": 1787494804.7663748,
-    "ast_hash": "0619fe9933a6305c9db92f32220361d6",
+    "mtime": 1787496440.0691953,
+    "ast_hash": "b7ab6a51b7da3159e3b56c23f51b40ae",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/payments/-record/outstanding-fees-step.tsx": {
-    "mtime": 1787494743.070201,
-    "ast_hash": "b0dd6bff8aa312c7388131465840e447",
+    "mtime": 1787496440.077922,
+    "ast_hash": "cbf1b69ca0f5c1e073690ff6d4c0a1bb",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/payments/-record/query-state.tsx": {
-    "mtime": 1787494666.2076044,
-    "ast_hash": "dc0700ab1f292cee60da500ba7a67ec5",
+    "mtime": 1787498126.4445772,
+    "ast_hash": "7ffc7048fc0f163339439a1cf31f53e0",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/payments/-record/receipt.tsx": {
-    "mtime": 1787494888.7560978,
-    "ast_hash": "3af4a86631ed2e79d68991f116554525",
+    "mtime": 1787498003.3815002,
+    "ast_hash": "1c00e4cbbe5c4d6898f4b3914243c56a",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/payments/-record/record-payment-wizard.tsx": {
-    "mtime": 1787496123.8415077,
-    "ast_hash": "b8a43597f28f925a96679f6aaa9b23a5",
+    "mtime": 1787497863.4699738,
+    "ast_hash": "1fa0ab630cfd653a9fadc08087d94a77",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/payments/record.test.tsx": {
-    "mtime": 1787496267.9747853,
-    "ast_hash": "ae32f9645c0e3283cdc0ba4ae6704f62",
+    "mtime": 1787497797.1511402,
+    "ast_hash": "10d91e85445b0991d7cac4feb6284ef2",
+    "semantic_hash": ""
+  },
+  "client-admin/src/routes/_staff/payments/-record/receipt.test.ts": {
+    "mtime": 1787498097.421509,
+    "ast_hash": "88b5cd9944d9fd506fbce900e236133f",
     "semantic_hash": ""
   }
 }
