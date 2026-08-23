@@ -26,9 +26,15 @@ export function FeesTab({ studentId }: FeesTabProps) {
   // `"500.00"`-shaped strings, not floats — `parseCurrency` already
   // parses exactly that shape into minor units without re-implementing
   // the conversion here. `summary.*` are pre-summed on the server as
-  // JS numbers, but `String(1500.5)` is just as valid an input to it.
+  // JS numbers, so they can carry float artifacts (e.g. `2000.0000000000002`)
+  // that have more fractional digits than the configured currency
+  // precision — round those to `regionConfig.currency.decimals` before
+  // handing them to `parseCurrency`, which otherwise throws on the extra
+  // digits.
   function money(amount: number | string): string {
-    return formatCurrency(parseCurrency(String(amount), regionConfig), regionConfig);
+    const normalized =
+      typeof amount === 'number' ? amount.toFixed(regionConfig.currency.decimals) : amount;
+    return formatCurrency(parseCurrency(normalized, regionConfig), regionConfig);
   }
 
   return (
