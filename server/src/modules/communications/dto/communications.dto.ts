@@ -1,4 +1,13 @@
-import { IsString, IsOptional, IsUUID, IsArray, IsEnum, IsNotEmpty } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsUUID,
+  IsArray,
+  IsEnum,
+  IsNotEmpty,
+  ArrayMinSize,
+} from 'class-validator';
+import { Transform } from 'class-transformer';
 import { CommunicationMedium, CommunicationStatus } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 
@@ -61,4 +70,24 @@ export class CommunicationResponseDto {
   status: CommunicationStatus;
   provider_message_id: string | null;
   created_at: Date;
+}
+
+/** [8.10.4]'s dues queue "Last reminder" column — one batch lookup for a
+ * page's worth of students instead of one request per row. `student_ids`
+ * arrives as a comma-joined query string (`?student_ids=a,b,c`), same
+ * shape a `<Link search={{ student_ids: [...] }}>` produces. */
+export class QueryLastRemindersDto {
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.split(',').filter(Boolean) : value,
+  )
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsUUID('4', { each: true })
+  student_ids: string[];
+}
+
+export class LastReminderDto {
+  student_id: string;
+  sent_at: Date;
+  medium: CommunicationMedium;
 }

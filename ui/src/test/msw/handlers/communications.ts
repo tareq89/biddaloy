@@ -95,6 +95,13 @@ const listByStudentEmpty = http.get('/api/v1/communications/student/:studentId',
   HttpResponse.json([]),
 );
 
+/** [8.10.4]'s dues queue "Last reminder" column — empty by default (no
+ * fixture student id ever matches), same "opt in per test" shape
+ * `listByStudentEmpty` sets for the single-student version. */
+const lastReminders = http.get('/api/v1/communications/last-reminders', () =>
+  HttpResponse.json([]),
+);
+
 export const communicationHandlers = {
   previewReminder,
   sendSingleReminder,
@@ -104,6 +111,7 @@ export const communicationHandlers = {
   getOne,
   listByStudent,
   listByStudentEmpty,
+  lastReminders,
 };
 
 export const communicationDefaultHandlers = [
@@ -114,4 +122,5 @@ export const communicationDefaultHandlers = [
   send,
   getOne,
   listByStudent,
+  lastReminders,
 ];

@@ -6,7 +6,7 @@ import { Repository } from 'typeorm';
 import { CommunicationLog } from './entities/communication-log.entity';
 import { StudentService, GuardianService } from '../students/students.service';
 import { SendCommunicationDto, CommunicationResponseDto } from './dto/communications.dto';
-import { CommunicationStatus, CommunicationTrigger } from '@biddaloy/shared';
+import { CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '@biddaloy/shared';
 import { COMMUNICATIONS_QUEUE } from './communications.constants';
 
 function toResponseDto(log: CommunicationLog): CommunicationResponseDto {
@@ -111,5 +111,46 @@ export class CommunicationsService {
     });
 
     return logs.map(toResponseDto);
+  }
+
+  /**
+   * [8.10.4]'s dues queue "Last reminder" column — the most recent fee
+   * reminder (bulk or single-send) per student, for an explicit set of
+   * student IDs. Mirrors `FeeDuesService.getDueSnapshots`'s "batch keyed
+   * by caller-supplied IDs" shape, for the same reason: a list page needs
+   * one field per row without a request per row.
+   *
+   * Scoped to `BULK_REMINDER`/`SINGLE_REMINDER` triggers only — `MANUAL`
+   * also covers unrelated freeform staff messages (`enqueue()` above), so
+   * including it here would surface "you sent a message" as if it were a
+   * fee reminder.
+   */
+  async findLastReminders(
+    studentIds: string[],
+    tenantId: string,
+  ): Promise<Map<string, { sent_at: Date; medium: CommunicationMedium }>> {
+    const byStudent = new Map<string, { sent_at: Date; medium: CommunicationMedium }>();
+    if (studentIds.length === 0) return byStudent;
+
+    const rows = await this.repo
+      .createQueryBuilder('log')
+      .distinctOn(['log.student_id'])
+      .select('log.student_id', 'student_id')
+      .addSelect('log.medium', 'medium')
+      .addSelect('log.created_at', 'sent_at')
+      .where('log.tenant_id = :tenantId', { tenantId })
+      .andWhere('log.student_id IN (:...studentIds)', { studentIds })
+      .andWhere('log.trigger IN (:...triggers)', {
+        triggers: [CommunicationTrigger.BULK_REMINDER, CommunicationTrigger.SINGLE_REMINDER],
+      })
+      .orderBy('log.student_id', 'ASC')
+      .addOrderBy('log.created_at', 'DESC')
+      .getRawMany<{ student_id: string; medium: CommunicationMedium; sent_at: Date }>();
+
+    for (const row of rows) {
+      byStudent.set(row.student_id, { sent_at: row.sent_at, medium: row.medium });
+    }
+
+    return byStudent;
   }
 }

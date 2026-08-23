@@ -214,7 +214,10 @@ function StudentsListPage() {
         .join(','),
     );
     const csv = [header.join(','), ...lines].join('\r\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    // Excel on Windows decodes a BOM-less CSV using the system code page,
+    // mangling non-Latin header text (e.g. the bn locale) — prepend the
+    // UTF-8 BOM so it reads the file as UTF-8 instead.
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;

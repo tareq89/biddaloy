@@ -137,7 +137,12 @@ export {
   type MenuSubTriggerProps,
   type MenuSubContentProps,
 } from './menu';
-export { StatusBadge, type StatusBadgeProps, type StatusTone } from './status-badge';
+export {
+  StatusBadge,
+  humanizeStatus,
+  type StatusBadgeProps,
+  type StatusTone,
+} from './status-badge';
 export { EmptyState, type EmptyStateProps } from './empty-state';
 export { ErrorState, type ErrorStateProps } from './error-state';
 export {

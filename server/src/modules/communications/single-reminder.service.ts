@@ -119,7 +119,7 @@ export class SingleReminderService {
           guardian_id: recipient.guardian.id,
           sent_by_user_id: userId,
           status: CommunicationStatus.QUEUED,
-          trigger: CommunicationTrigger.MANUAL,
+          trigger: CommunicationTrigger.SINGLE_REMINDER,
           metadata: this.whatsAppMetadata(dto, recipient),
         }),
       );

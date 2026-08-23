@@ -6,7 +6,7 @@ import { invoiceFactory } from '../test/factories';
 import { server } from '../test/msw/server';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
 
-import { useInvoice, useInvoices } from './invoices';
+import { useCreateInvoice, useInvoice, useInvoices } from './invoices';
 
 describe('useInvoice', () => {
   it('resolves the invoice the handler returns for the given id', async () => {
@@ -44,5 +44,25 @@ describe('useInvoices', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(requestedStudentId).toBe('student-1');
+  });
+});
+
+describe('useCreateInvoice', () => {
+  // [8.10.4]'s dues queue "Generate Invoice" bulk action.
+  it('posts the input and resolves with the created invoice', async () => {
+    const created = invoiceFactory({ invoice_number: 'INV-2026-00002' });
+    server.use(http.post('/api/v1/invoices', () => HttpResponse.json(created, { status: 201 })));
+
+    const { result } = renderHookWithProviders(() => useCreateInvoice(), {
+      tenantId: 'tenant-1',
+    });
+
+    result.current.mutate({
+      student_id: 'student-1',
+      line_items: [{ description: 'Fee for 3/2026', amount: 500, quantity: 1 }],
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.invoice_number).toBe('INV-2026-00002');
   });
 });

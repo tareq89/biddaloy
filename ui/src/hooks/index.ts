@@ -54,7 +54,9 @@ export { enrollmentKeys, useStudentEnrollments, type Enrollment } from './enroll
 export {
   communicationLogKeys,
   useStudentCommunicationLogs,
+  useLastReminders,
   type CommunicationLog,
+  type LastReminder,
 } from './communications';
 export {
   auditLogKeys,
@@ -83,12 +85,25 @@ export { useDebouncedValue } from './use-debounce';
 export {
   invoiceKeys,
   invoicesQueryOptions,
+  useCreateInvoice,
   useInvoice,
   useInvoices,
+  type CreateInvoiceInput,
   type Invoice,
   type InvoiceListFilters,
   type PaginatedInvoices,
 } from './invoices';
+export {
+  feeDuesKeys,
+  feeDuesQueryOptions,
+  useFeeDues,
+  type FeeDueEntry,
+  type FeeDueRow,
+  type FeeDuesFilters,
+  type FeeDuesSortBy,
+  type PaginatedFeeDues,
+  type SortOrder,
+} from './fee-dues';
 export {
   useGlobalSearch,
   type GlobalSearchEntityResult,

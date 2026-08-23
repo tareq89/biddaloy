@@ -1,4 +1,4 @@
-import { queryOptions, useQuery } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
@@ -7,6 +7,7 @@ import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
 export type Invoice = components['schemas']['Invoice'];
+export type CreateInvoiceInput = components['schemas']['CreateInvoiceDto'];
 
 /** `search` lives in the filter shape (not a separate key namespace) so
  * [8.9.9]'s global-search palette and a future invoices list page share
@@ -58,4 +59,24 @@ export function useInvoice(id: string) {
       retry: shouldRetryQuery,
     }),
   );
+}
+
+/** [8.10.4]'s dues queue "Generate Invoice" bulk action — one call per
+ * selected student. Deliberately **no `onMutate`**: this creates a real
+ * financial document, the same "never optimistic" case `payments.ts`'s
+ * `useCreatePayment` documents (and the `no-optimistic-financial-mutation`
+ * ESLint rule enforces) — an invoice appearing in the UI before the
+ * server confirms it exists would misrepresent what's actually been
+ * billed if the request fails. */
+export function useCreateInvoice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CreateInvoiceInput) => {
+      const res = await apiClient.post<Invoice>('/invoices', input);
+      return res.data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: invoiceKeys.lists() });
+    },
+  });
 }

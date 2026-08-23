@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { REGION_BD_BN, REGION_BD_EN, type RegionConfig } from '../i18n/region-config';
 
-import { formatCurrency, parseCurrency } from './currency';
+import { formatCurrency, formatServerAmount, parseCurrency } from './currency';
 
 describe('formatCurrency', () => {
   it("matches the issue's own example digit grouping — ৳1,23,456 in minor units (paisa), so the decimals show", () => {
@@ -103,5 +103,54 @@ describe('parseCurrency', () => {
 
   it('parses an amount right at Number.MAX_SAFE_INTEGER exactly', () => {
     expect(parseCurrency('90071992547409.91', REGION_BD_EN)).toBe(Number.MAX_SAFE_INTEGER);
+  });
+});
+
+describe('formatServerAmount', () => {
+  it('formats a decimal-column string amount unchanged', () => {
+    expect(formatServerAmount('1234.56', REGION_BD_EN)).toBe('৳1,234.56');
+  });
+
+  it('formats a plain server-summed number', () => {
+    expect(formatServerAmount(1234.56, REGION_BD_EN)).toBe('৳1,234.56');
+  });
+
+  it('absorbs float artifacts past the currency precision instead of throwing', () => {
+    // SUM(...) style server arithmetic can produce e.g. 2000.0000000000002 —
+    // more fractional digits than BDT's configured 2 decimals, which
+    // parseCurrency would otherwise reject outright.
+    expect(formatServerAmount(2000.0000000000002, REGION_BD_EN)).toBe('৳2,000.00');
+  });
+
+  it('rounds to the currency-configured decimal places', () => {
+    expect(formatServerAmount(1234.565, REGION_BD_EN)).toBe('৳1,234.57');
+  });
+
+  it('rounds a half-cent value up instead of truncating it', () => {
+    // The closest double to 1.005 is actually 1.00499999999999989... —
+    // `(1.005).toFixed(2)` rounds that binary value down to "1.00".
+    // formatServerAmount must round the decimal value itself, not that
+    // binary artifact, so a genuine half-cent rounds up like a human
+    // reading "1.005" would expect.
+    expect(formatServerAmount(1.005, REGION_BD_EN)).toBe('৳1.01');
+  });
+
+  it('falls back to toFixed for a magnitude that toString() itself renders in exponential notation', () => {
+    // 0.0000001 is small enough that `(0.0000001).toString()` is "1e-7",
+    // not a plain decimal string — there's no digit string to round by
+    // hand at that point, so this goes through the toFixed fallback.
+    expect(formatServerAmount(0.0000001, REGION_BD_EN)).toBe('৳0.00');
+  });
+
+  it('rounds a negative half-cent value away from zero', () => {
+    expect(formatServerAmount(-1.005, REGION_BD_EN)).toBe('-৳1.01');
+  });
+
+  it('rounds a zero-decimal currency amount to a whole number', () => {
+    const zeroDecimalConfig: RegionConfig = {
+      ...REGION_BD_EN,
+      currency: { ...REGION_BD_EN.currency, decimals: 0 },
+    };
+    expect(formatServerAmount(1234.5, zeroDecimalConfig)).toBe('৳1,235');
   });
 });

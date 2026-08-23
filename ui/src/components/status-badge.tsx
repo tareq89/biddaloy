@@ -48,8 +48,12 @@ const TONE_STYLES: Record<
  * replaces it (see `ui/CONTRIBUTING.md`'s "i18n rules" section for why
  * i18next landing in [8.7.1] didn't close this on its own). There's no
  * prop to override the derived label today — nothing should come to
- * depend on these English strings as if they were stable. */
-function humanize(key: string): string {
+ * depend on these English strings as if they were stable.
+ *
+ * Exported as `humanizeStatus` so callers rendering a status outside a
+ * `StatusBadge` (a `<SelectItem>` filter option, a CSV cell, ...) show
+ * the same label this component does instead of the raw enum value. */
+export function humanizeStatus(key: string): string {
   const lower = key.toLowerCase().replace(/_/g, ' ');
   return lower.charAt(0).toUpperCase() + lower.slice(1);
 }
@@ -128,7 +132,7 @@ function resolveTone(props: StatusBadgeProps): StatusTone {
 export function StatusBadge(props: StatusBadgeProps) {
   const tone = resolveTone(props);
   const { fg, bg, icon: Icon } = TONE_STYLES[tone];
-  const label = humanize(props.status);
+  const label = humanizeStatus(props.status);
 
   return (
     <span

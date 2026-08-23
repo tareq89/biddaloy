@@ -1,7 +1,7 @@
 /**
  * Formatters and helpers. All currency, number, phone and date formatting lives here so no component ever calls `Intl` directly.
  */
-export { formatCurrency, parseCurrency } from './currency';
+export { formatCurrency, parseCurrency, formatServerAmount } from './currency';
 export { formatDate, parseDate, getAcademicYear, formatAcademicYear } from './date';
 export { renderDigits, toLatinDigits } from './digits';
 export { groupDigits } from './grouping';

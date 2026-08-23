@@ -8,7 +8,7 @@ import {
 } from '@biddaloy/ui/components';
 import { useStudentFeeSummary } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatCurrency, parseCurrency } from '@biddaloy/ui/utils';
+import { formatServerAmount } from '@biddaloy/ui/utils';
 
 import { TabQueryState } from './tab-query-state';
 
@@ -22,19 +22,8 @@ export function FeesTab({ studentId }: FeesTabProps) {
   const regionConfig = useRegionConfig();
   const query = useStudentFeeSummary(studentId);
 
-  // Server decimal columns (`total_amount`, etc.) serialize as plain
-  // `"500.00"`-shaped strings, not floats — `parseCurrency` already
-  // parses exactly that shape into minor units without re-implementing
-  // the conversion here. `summary.*` are pre-summed on the server as
-  // JS numbers, so they can carry float artifacts (e.g. `2000.0000000000002`)
-  // that have more fractional digits than the configured currency
-  // precision — round those to `regionConfig.currency.decimals` before
-  // handing them to `parseCurrency`, which otherwise throws on the extra
-  // digits.
   function money(amount: number | string): string {
-    const normalized =
-      typeof amount === 'number' ? amount.toFixed(regionConfig.currency.decimals) : amount;
-    return formatCurrency(parseCurrency(normalized, regionConfig), regionConfig);
+    return formatServerAmount(amount, regionConfig);
   }
 
   return (
