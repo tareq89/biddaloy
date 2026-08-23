@@ -2666,6 +2666,8 @@ export interface operations {
                 class_id?: string;
                 section_id?: string;
                 enrollment_status?: "ACTIVE" | "INACTIVE" | "TRANSFERRED" | "GRADUATED";
+                sort?: "full_name" | "registration_number" | "created_at";
+                order?: "asc" | "desc";
                 page?: number;
                 limit?: number;
             };
