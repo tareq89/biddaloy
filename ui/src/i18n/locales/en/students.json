@@ -161,12 +161,69 @@
   },
   "new": {
     "title": "Add student",
-    "explanation": "The full add-student form is coming soon.",
-    "action": "Back to students"
+    "submitAction": "Add student"
   },
   "edit": {
     "title": "Edit student",
-    "explanation": "The full edit-student form is coming soon.",
-    "action": "Back to student"
+    "submitAction": "Save changes"
+  },
+  "form": {
+    "sections": {
+      "identity": "Identity",
+      "placement": "Placement",
+      "guardians": "Guardians",
+      "preferences": "Preferences"
+    },
+    "fields": {
+      "fullName": "Full name",
+      "dateOfBirth": "Date of birth",
+      "gender": "Gender",
+      "class": "Class",
+      "classPlaceholder": "Select a class",
+      "section": "Section",
+      "sectionPlaceholder": "Select a section",
+      "rollNumber": "Roll number",
+      "preferredCommunication": "Preferred contact",
+      "address": "Home address"
+    },
+    "preferredCommunicationOptions": {
+      "SMS": "SMS",
+      "WHATSAPP": "WhatsApp",
+      "EMAIL": "Email",
+      "PHONE_CALL": "Phone call",
+      "MESSENGER": "Messenger"
+    },
+    "errors": {
+      "fullNameRequired": "Full name is required.",
+      "classSectionRequired": "Select a class and section.",
+      "rollNumberInvalid": "Roll number must be a positive whole number."
+    },
+    "draftAvailable": "You have an unsaved draft of this form.",
+    "restoreDraftAction": "Restore draft",
+    "discardDraftAction": "Discard",
+    "unsavedChangesDialog": {
+      "title": "Leave without saving?",
+      "description": "You have unsaved changes. If you leave now, they will be lost.",
+      "stayAction": "Stay on this page",
+      "leaveAction": "Leave without saving"
+    },
+    "guardians": {
+      "selectedLabel": "Linked guardians",
+      "removeAction": "Remove {{name}}",
+      "removeAction_short": "Remove",
+      "searchLabel": "Search guardians",
+      "searchPlaceholder": "Search by name or phone",
+      "noResults": "No guardians found.",
+      "addNewAction": "Add a new guardian",
+      "newGuardian": {
+        "nameLabel": "Guardian's full name",
+        "relationshipLabel": "Guardian's relationship to student",
+        "phoneLabel": "Guardian's phone",
+        "emailLabel": "Guardian's email",
+        "nameRequired": "Guardian name is required.",
+        "saveAction": "Add guardian",
+        "cancelAction": "Cancel"
+      }
+    }
   }
 }

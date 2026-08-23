@@ -5,6 +5,7 @@ import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
 
 import { useActiveRole } from './auth-state';
+import { type Guardian } from './guardians';
 import { invoiceKeys, type Invoice } from './invoices';
 import { paymentKeys, type Payment } from './payments';
 import { useHasPermission } from './permissions';
@@ -12,7 +13,6 @@ import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 import { studentKeys, type Student } from './students';
 
-export type Guardian = components['schemas']['Guardian'];
 export type TeacherProfile = components['schemas']['TeacherResponseDto'];
 export type { Invoice, Payment };
 

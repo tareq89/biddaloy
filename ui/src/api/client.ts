@@ -181,7 +181,7 @@ export function toApiError(error: unknown): Error {
     if (
       body &&
       typeof body.statusCode === 'number' &&
-      typeof body.message === 'string' &&
+      (typeof body.message === 'string' || Array.isArray(body.message)) &&
       typeof body.requestId === 'string'
     ) {
       return new ApiError(body as ApiErrorBody);

@@ -161,12 +161,69 @@
   },
   "new": {
     "title": "শিক্ষার্থী যোগ করুন",
-    "explanation": "সম্পূর্ণ ফর্মটি শীঘ্রই আসছে।",
-    "action": "শিক্ষার্থী তালিকায় ফিরুন"
+    "submitAction": "শিক্ষার্থী যোগ করুন"
   },
   "edit": {
     "title": "শিক্ষার্থী সম্পাদনা",
-    "explanation": "সম্পূর্ণ সম্পাদনা ফর্মটি শীঘ্রই আসছে।",
-    "action": "শিক্ষার্থীর পাতায় ফিরুন"
+    "submitAction": "পরিবর্তন সংরক্ষণ করুন"
+  },
+  "form": {
+    "sections": {
+      "identity": "পরিচিতি",
+      "placement": "শ্রেণি বিন্যাস",
+      "guardians": "অভিভাবক",
+      "preferences": "পছন্দসমূহ"
+    },
+    "fields": {
+      "fullName": "পূর্ণ নাম",
+      "dateOfBirth": "জন্ম তারিখ",
+      "gender": "লিঙ্গ",
+      "class": "শ্রেণি",
+      "classPlaceholder": "একটি শ্রেণি নির্বাচন করুন",
+      "section": "শাখা",
+      "sectionPlaceholder": "একটি শাখা নির্বাচন করুন",
+      "rollNumber": "রোল নম্বর",
+      "preferredCommunication": "পছন্দের যোগাযোগ মাধ্যম",
+      "address": "বাড়ির ঠিকানা"
+    },
+    "preferredCommunicationOptions": {
+      "SMS": "এসএমএস",
+      "WHATSAPP": "হোয়াটসঅ্যাপ",
+      "EMAIL": "ইমেইল",
+      "PHONE_CALL": "ফোন কল",
+      "MESSENGER": "মেসেঞ্জার"
+    },
+    "errors": {
+      "fullNameRequired": "পূর্ণ নাম আবশ্যক।",
+      "classSectionRequired": "একটি শ্রেণি ও শাখা নির্বাচন করুন।",
+      "rollNumberInvalid": "রোল নম্বর অবশ্যই একটি ধনাত্মক পূর্ণসংখ্যা হতে হবে।"
+    },
+    "draftAvailable": "এই ফর্মের একটি অসংরক্ষিত খসড়া রয়েছে।",
+    "restoreDraftAction": "খসড়া পুনরুদ্ধার করুন",
+    "discardDraftAction": "বাতিল করুন",
+    "unsavedChangesDialog": {
+      "title": "সংরক্ষণ না করে ছেড়ে যাবেন?",
+      "description": "আপনার অসংরক্ষিত পরিবর্তন রয়েছে। এখন ছেড়ে গেলে তা হারিয়ে যাবে।",
+      "stayAction": "এই পাতায় থাকুন",
+      "leaveAction": "সংরক্ষণ ছাড়া ছেড়ে যান"
+    },
+    "guardians": {
+      "selectedLabel": "যুক্ত অভিভাবক",
+      "removeAction": "{{name}}-কে সরান",
+      "removeAction_short": "সরান",
+      "searchLabel": "অভিভাবক খুঁজুন",
+      "searchPlaceholder": "নাম বা ফোন নম্বর দিয়ে খুঁজুন",
+      "noResults": "কোনো অভিভাবক পাওয়া যায়নি।",
+      "addNewAction": "নতুন অভিভাবক যোগ করুন",
+      "newGuardian": {
+        "nameLabel": "অভিভাবকের পূর্ণ নাম",
+        "relationshipLabel": "শিক্ষার্থীর সাথে অভিভাবকের সম্পর্ক",
+        "phoneLabel": "অভিভাবকের ফোন",
+        "emailLabel": "অভিভাবকের ইমেইল",
+        "nameRequired": "অভিভাবকের নাম আবশ্যক।",
+        "saveAction": "অভিভাবক যোগ করুন",
+        "cancelAction": "বাতিল"
+      }
+    }
   }
 }
