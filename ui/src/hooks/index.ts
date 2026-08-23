@@ -88,12 +88,14 @@ export { useDebouncedValue } from './use-debounce';
 export {
   invoiceKeys,
   invoicesQueryOptions,
+  openPrintableInvoice,
   useCreateInvoice,
   useInvoice,
   useInvoices,
   type CreateInvoiceInput,
   type Invoice,
   type InvoiceListFilters,
+  type InvoiceStatus,
   type PaginatedInvoices,
 } from './invoices';
 export {

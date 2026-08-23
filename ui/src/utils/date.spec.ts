@@ -1,8 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { REGION_BD_BN, REGION_BD_EN, type RegionConfig } from '../i18n/region-config';
 
-import { formatAcademicYear, formatDate, getAcademicYear, parseDate } from './date';
+import {
+  formatAcademicYear,
+  formatDate,
+  getAcademicYear,
+  parseDate,
+  parseServerDate,
+} from './date';
 
 const julyStart: RegionConfig = { ...REGION_BD_EN, academicYear: { startMonth: 7 } };
 const julyStartBn: RegionConfig = { ...REGION_BD_BN, academicYear: { startMonth: 7 } };
@@ -85,5 +91,31 @@ describe('formatAcademicYear', () => {
 
   it('renders Bengali digits in a straddling label', () => {
     expect(formatAcademicYear(new Date(2024, 6, 1), julyStartBn)).toBe('২০২৪–২০২৫');
+  });
+});
+
+describe('parseServerDate', () => {
+  const originalTz = process.env.TZ;
+  afterEach(() => {
+    process.env.TZ = originalTz;
+  });
+
+  it('does not roll a `date`-column value back a day in a UTC-negative timezone', () => {
+    // Regression: `Invoice.issued_date` (a Postgres `date` column) reaches
+    // the client as `"2024-01-05T00:00:00.000Z"`, not a bare
+    // `"2024-01-05"` — `new Date(...)` on that full string, then reading
+    // local-timezone fields, showed 2024-01-04 in `America/Los_Angeles`.
+    process.env.TZ = 'America/Los_Angeles';
+    const date = parseServerDate('2024-01-05T00:00:00.000Z');
+    expect(date.getFullYear()).toBe(2024);
+    expect(date.getMonth()).toBe(0);
+    expect(date.getDate()).toBe(5);
+  });
+
+  it('accepts a bare date-only string the same way', () => {
+    const date = parseServerDate('2024-01-05');
+    expect(date.getFullYear()).toBe(2024);
+    expect(date.getMonth()).toBe(0);
+    expect(date.getDate()).toBe(5);
   });
 });

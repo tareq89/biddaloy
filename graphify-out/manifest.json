@@ -1855,17 +1855,17 @@
     "semantic_hash": "bed60923f21867f5e41b695f04a5714f"
   },
   "ui/src/hooks/index.ts": {
-    "mtime": 1787494436.4057612,
-    "ast_hash": "545e38720bc2523e8db73f301aa61731",
+    "mtime": 1787500423.9084938,
+    "ast_hash": "787f8006317421df9d7959573ca01e5e",
     "semantic_hash": ""
   },
   "ui/src/hooks/payments.test.tsx": {
-    "mtime": 1787495376.478304,
+    "mtime": 1787500274.196995,
     "ast_hash": "a75f6974428347b0cb71dc8c3ef85531",
     "semantic_hash": ""
   },
   "ui/src/hooks/payments.ts": {
-    "mtime": 1787496439.7997274,
+    "mtime": 1787500274.197668,
     "ast_hash": "7875f3db15e72cfa68f71e8f6634fb52",
     "semantic_hash": ""
   },
@@ -1890,12 +1890,12 @@
     "semantic_hash": "c94a3b06fcb59aa67806808b108bc079"
   },
   "ui/src/hooks/students.test.tsx": {
-    "mtime": 1787495148.830323,
+    "mtime": 1787500274.1981854,
     "ast_hash": "9e7e0e4ad3da64c1416fef8b90d899c4",
     "semantic_hash": ""
   },
   "ui/src/hooks/students.ts": {
-    "mtime": 1787495123.1459572,
+    "mtime": 1787500274.1987147,
     "ast_hash": "e1312a96bc7826f5082a8c89616d90df",
     "semantic_hash": ""
   },
@@ -2450,24 +2450,24 @@
     "semantic_hash": "508cd9e096e92107f8fc2fbcaea9c020"
   },
   "ui/src/utils/currency.spec.ts": {
-    "mtime": 1787494107.739872,
+    "mtime": 1787500274.2000046,
     "ast_hash": "561fcd86589a05e7f90d42ac4dd15e0a",
     "semantic_hash": ""
   },
   "ui/src/utils/currency.ts": {
-    "mtime": 1787496439.8818703,
+    "mtime": 1787500274.20048,
     "ast_hash": "e21a583a1147ebf793e1f83bb5046a76",
     "semantic_hash": ""
   },
   "ui/src/utils/date.spec.ts": {
-    "mtime": 1787072022.6873112,
-    "ast_hash": "f0cdbdfe17aa2803768fffd95e3016a2",
-    "semantic_hash": "f0cdbdfe17aa2803768fffd95e3016a2"
+    "mtime": 1787502173.3795877,
+    "ast_hash": "a91b4d1dba6a7a67bc455c991e70778d",
+    "semantic_hash": ""
   },
   "ui/src/utils/date.ts": {
-    "mtime": 1787072022.6874166,
-    "ast_hash": "8ca9be11191fe4efee2b0730d295fc64",
-    "semantic_hash": "8ca9be11191fe4efee2b0730d295fc64"
+    "mtime": 1787501969.0706365,
+    "ast_hash": "90e20893719a6aaed85e9070be5efee1",
+    "semantic_hash": ""
   },
   "ui/src/utils/digits.spec.ts": {
     "mtime": 1787072022.687511,
@@ -2490,8 +2490,8 @@
     "semantic_hash": "7c6e712baac32be23fdb0f0d6e611ddb"
   },
   "ui/src/utils/index.ts": {
-    "mtime": 1787494079.6069415,
-    "ast_hash": "90d7eb9f1d5ee666092f2173458be046",
+    "mtime": 1787501981.218424,
+    "ast_hash": "71ab3d08d4db6dc5f85f0efd86d06949",
     "semantic_hash": ""
   },
   "ui/src/utils/name.spec.ts": {
@@ -2655,9 +2655,9 @@
     "semantic_hash": "1f2600b1a94a8b811fc2dec78706e2e1"
   },
   "client-admin/scripts/check-route-chunks.mjs": {
-    "mtime": 1787457255.5542712,
-    "ast_hash": "81f38410c5a4998d2593bec1282313f9",
-    "semantic_hash": "81f38410c5a4998d2593bec1282313f9"
+    "mtime": 1787502297.8325672,
+    "ast_hash": "88bb8d083852d70251938e80c433a3a2",
+    "semantic_hash": ""
   },
   "client-admin/src/components/ConnectionTestResultMessage.tsx": {
     "mtime": 1787072022.5257962,
@@ -2730,9 +2730,9 @@
     "semantic_hash": "f897785b38a42c3d5c152bc9b665d1a7"
   },
   "client-admin/src/routeTree.gen.ts": {
-    "mtime": 1787493345.599969,
-    "ast_hash": "441519034a7de4b74ae6e3c1b36aa1aa",
-    "semantic_hash": "441519034a7de4b74ae6e3c1b36aa1aa"
+    "mtime": 1787500489.8805156,
+    "ast_hash": "c7c2ef39bfd62a2ce447bd6504fd579a",
+    "semantic_hash": ""
   },
   "client-admin/src/routes/__root.test.tsx": {
     "mtime": 1787457255.5561094,
@@ -3150,14 +3150,14 @@
     "semantic_hash": "c1a2a6d62cc5f597a8a41c6721cdb276"
   },
   "ui/src/i18n/locales/bn/fees.json": {
-    "mtime": 1787493345.6441817,
-    "ast_hash": "2c12723cf581a27a82e9c5fd82417e5d",
-    "semantic_hash": "2c12723cf581a27a82e9c5fd82417e5d"
+    "mtime": 1787500567.0815134,
+    "ast_hash": "73a5cd9bd89e17d5b9ec5bfdf9b2ec2b",
+    "semantic_hash": ""
   },
   "ui/src/i18n/locales/bn/nav.json": {
-    "mtime": 1787457255.65348,
-    "ast_hash": "489b45506ff81ed7ec7d03bcd52948ce",
-    "semantic_hash": "489b45506ff81ed7ec7d03bcd52948ce"
+    "mtime": 1787500590.1901302,
+    "ast_hash": "4156cfd2753327721bcb25db45863c3f",
+    "semantic_hash": ""
   },
   "ui/src/i18n/locales/bn/settings.json": {
     "mtime": 1787281674.8994646,
@@ -3170,14 +3170,14 @@
     "semantic_hash": "ee8648ba48d5ecab66d460c853b96857"
   },
   "ui/src/i18n/locales/en/fees.json": {
-    "mtime": 1787493345.6448143,
-    "ast_hash": "1f4549153f62a07ab70bacb016f4e2ae",
-    "semantic_hash": "1f4549153f62a07ab70bacb016f4e2ae"
+    "mtime": 1787500551.7558022,
+    "ast_hash": "c96564a9a34439dfc0f5abf34e692b50",
+    "semantic_hash": ""
   },
   "ui/src/i18n/locales/en/nav.json": {
-    "mtime": 1787457255.6544716,
-    "ast_hash": "07b9191069b09c3ca1019de2e98bb580",
-    "semantic_hash": "07b9191069b09c3ca1019de2e98bb580"
+    "mtime": 1787500582.0796518,
+    "ast_hash": "0bb05efc54955c7cec56ea9faecd592e",
+    "semantic_hash": ""
   },
   "ui/src/i18n/locales/en/settings.json": {
     "mtime": 1787281674.9004483,
@@ -3575,9 +3575,9 @@
     "semantic_hash": "fefe725d2986ae68ec3e0109e500a64a"
   },
   "ui/src/hooks/invoices.ts": {
-    "mtime": 1787493345.6434467,
-    "ast_hash": "977c721dd60aa72029ad897cf902d342",
-    "semantic_hash": "977c721dd60aa72029ad897cf902d342"
+    "mtime": 1787502088.5941055,
+    "ast_hash": "df264218819342a29f98f9828c6d9305",
+    "semantic_hash": ""
   },
   "ui/src/hooks/use-debounce.ts": {
     "mtime": 1787457255.6521802,
@@ -3585,9 +3585,9 @@
     "semantic_hash": "20029bcccc3b532d908576a5b53f57cf"
   },
   "client-admin/src/routes/_staff.tsx": {
-    "mtime": 1787457255.557135,
-    "ast_hash": "55d13830ddbfd8b17cc1ad1a681063e5",
-    "semantic_hash": "55d13830ddbfd8b17cc1ad1a681063e5"
+    "mtime": 1787500544.0898924,
+    "ast_hash": "52a154300a4a74aead1ab7199b4f3f7d",
+    "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/dashboard.tsx": {
     "mtime": 1787457255.5574965,
@@ -3600,9 +3600,9 @@
     "semantic_hash": "1f85986ac690a5d984ea8fc8bd5025a0"
   },
   "client-admin/src/routes/_staff/invoices/$invoiceId.tsx": {
-    "mtime": 1787457255.5579386,
-    "ast_hash": "ffa73f45a3be421041a04b2c3934fbd1",
-    "semantic_hash": "ffa73f45a3be421041a04b2c3934fbd1"
+    "mtime": 1787502010.4437428,
+    "ast_hash": "dd262c8c503f670a171ecc26faa4e603",
+    "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/settings.test.tsx": {
     "mtime": 1787457255.558132,
@@ -3670,7 +3670,7 @@
     "semantic_hash": "aa43820041056394a71170129ffe6ead"
   },
   "client-admin/src/routes/_staff/payments/record.tsx": {
-    "mtime": 1787496440.142853,
+    "mtime": 1787500274.1671748,
     "ast_hash": "4392803daf310fae143c864ec4a744e1",
     "semantic_hash": ""
   },
@@ -3720,12 +3720,12 @@
     "semantic_hash": "6687106a452b2bf0d65f5108ef9b0ab5"
   },
   "ui/src/i18n/locales/bn/payments.json": {
-    "mtime": 1787497956.4720976,
+    "mtime": 1787500274.1992176,
     "ast_hash": "99550e5620e153e02629a6f732088050",
     "semantic_hash": ""
   },
   "ui/src/i18n/locales/en/payments.json": {
-    "mtime": 1787497936.5150144,
+    "mtime": 1787500274.1995654,
     "ast_hash": "0302cb66e61b4dc742f4fc0c9a5ba271",
     "semantic_hash": ""
   },
@@ -3770,9 +3770,9 @@
     "semantic_hash": "d819bf033690be7a185cdac327510c6f"
   },
   "client-admin/src/routes/_staff/students/-detail/invoices-tab.tsx": {
-    "mtime": 1787468383.3620396,
-    "ast_hash": "c08b5abd119117f6b05e4dc85a7d929e",
-    "semantic_hash": "c08b5abd119117f6b05e4dc85a7d929e"
+    "mtime": 1787500411.4679523,
+    "ast_hash": "5f02796b548cb0d4dad92552caf775c3",
+    "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/students/-detail/overview-tab.tsx": {
     "mtime": 1787468383.3621373,
@@ -3945,63 +3945,78 @@
     "semantic_hash": "475b6ed705b03c12ba174e229097fbfe"
   },
   "client-admin/src/routes/_staff/payments/-record/allocate-step.tsx": {
-    "mtime": 1787496439.9886131,
+    "mtime": 1787500274.1615925,
     "ast_hash": "ae9005a022a44dbd5b454115fb8b8ebd",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/payments/-record/allocation-math.spec.ts": {
-    "mtime": 1787496440.0237844,
+    "mtime": 1787500274.1620529,
     "ast_hash": "c92b15e9421daa0a73c3c90df4884637",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/payments/-record/allocation-math.ts": {
-    "mtime": 1787496440.042786,
+    "mtime": 1787500274.1624334,
     "ast_hash": "114c9ad0383a1f3a0eb69fead8e73889",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/payments/-record/confirm-step.tsx": {
-    "mtime": 1787497539.6662388,
+    "mtime": 1787500274.1628332,
     "ast_hash": "d0bb851f479243cd481a7b9d0742963e",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/payments/-record/find-student-step.tsx": {
-    "mtime": 1787495304.5818012,
+    "mtime": 1787500274.1632252,
     "ast_hash": "28fa4b5c35d2ad2428cf24a43ebd39cb",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/payments/-record/method-step.tsx": {
-    "mtime": 1787496440.0691953,
+    "mtime": 1787500274.1635184,
     "ast_hash": "b7ab6a51b7da3159e3b56c23f51b40ae",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/payments/-record/outstanding-fees-step.tsx": {
-    "mtime": 1787496440.077922,
+    "mtime": 1787500274.1640499,
     "ast_hash": "cbf1b69ca0f5c1e073690ff6d4c0a1bb",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/payments/-record/query-state.tsx": {
-    "mtime": 1787498126.4445772,
+    "mtime": 1787500274.1644964,
     "ast_hash": "7ffc7048fc0f163339439a1cf31f53e0",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/payments/-record/receipt.tsx": {
-    "mtime": 1787498003.3815002,
+    "mtime": 1787500274.1652553,
     "ast_hash": "1c00e4cbbe5c4d6898f4b3914243c56a",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/payments/-record/record-payment-wizard.tsx": {
-    "mtime": 1787497863.4699738,
+    "mtime": 1787500274.1660314,
     "ast_hash": "1fa0ab630cfd653a9fadc08087d94a77",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/payments/record.test.tsx": {
-    "mtime": 1787497797.1511402,
+    "mtime": 1787500274.1666489,
     "ast_hash": "10d91e85445b0991d7cac4feb6284ef2",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/payments/-record/receipt.test.ts": {
-    "mtime": 1787498097.421509,
+    "mtime": 1787500274.1648877,
     "ast_hash": "88b5cd9944d9fd506fbce900e236133f",
+    "semantic_hash": ""
+  },
+  "client-admin/src/routes/_staff/invoices/$invoiceId.test.tsx": {
+    "mtime": 1787501084.4241076,
+    "ast_hash": "93d19fb5217d633bc7e65ebc2400f551",
+    "semantic_hash": ""
+  },
+  "client-admin/src/routes/_staff/invoices/index.test.tsx": {
+    "mtime": 1787502103.1094294,
+    "ast_hash": "04f7f4c68965baf89b6cae5baee864dd",
+    "semantic_hash": ""
+  },
+  "client-admin/src/routes/_staff/invoices/index.tsx": {
+    "mtime": 1787501995.9538996,
+    "ast_hash": "aae587aced5bc84635c2e486c564e3a0",
     "semantic_hash": ""
   }
 }
