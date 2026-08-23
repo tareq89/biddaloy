@@ -30,11 +30,7 @@ export function useStudentCommunicationLogs(studentId: string) {
   );
 }
 
-export interface LastReminder {
-  student_id: string;
-  sent_at: string;
-  medium: string;
-}
+export type LastReminder = components['schemas']['LastReminderDto'];
 
 /** [8.10.4]'s dues queue "Last reminder" column — one batch request for a
  * page's worth of students instead of one per row. Disabled when

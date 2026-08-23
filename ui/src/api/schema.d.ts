@@ -1521,6 +1521,13 @@ export interface components {
             /** Format: date-time */
             created_at: string;
         };
+        LastReminderDto: {
+            student_id: string;
+            /** Format: date-time */
+            sent_at: string;
+            /** @enum {string} */
+            medium: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER";
+        };
         TestConnectionDto: {
             /** @enum {string} */
             medium: "SMS" | "WHATSAPP" | "EMAIL" | "MESSENGER";
@@ -3880,7 +3887,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["LastReminderDto"][];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {

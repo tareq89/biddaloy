@@ -15,7 +15,7 @@ import {
 import { Request } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { STRICT_RATE_LIMIT } from '../../rate-limit';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -25,7 +25,11 @@ import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator
 import { CommunicationsService } from './communications.service';
 import { BulkReminderService } from './reminders.service';
 import { SingleReminderService } from './single-reminder.service';
-import { SendCommunicationDto, QueryLastRemindersDto } from './dto/communications.dto';
+import {
+  SendCommunicationDto,
+  QueryLastRemindersDto,
+  LastReminderDto,
+} from './dto/communications.dto';
 import { SendBulkReminderDto } from './dto/reminders.dto';
 import { SendSingleReminderDto } from './dto/single-reminder.dto';
 import { UserRole, JwtPayload } from '@biddaloy/shared';
@@ -127,6 +131,7 @@ export class CommunicationsController {
   @ApiOperation({
     summary: "Batch lookup of each student's most recent fee reminder, for [8.10.4]'s dues queue.",
   })
+  @ApiOkResponse({ type: LastReminderDto, isArray: true })
   findLastReminders(
     @Query() query: QueryLastRemindersDto,
     @CurrentTenant() tenant: { id: string; role: string },
