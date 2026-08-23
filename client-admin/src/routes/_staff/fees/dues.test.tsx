@@ -87,6 +87,7 @@ describe('/fees/dues', () => {
   it('the Flagged toggle preserves class/section filters and calls the flagged endpoint', async () => {
     const klass = classFactory({ id: 'class-9', name: 'Class 9' });
     let flaggedRequested = false;
+    let flaggedClassId: string | null = null;
     server.use(
       http.get('/api/v1/classes', () =>
         HttpResponse.json({ data: [klass], total: 1, page: 1, limit: 100, totalPages: 1 }),
@@ -95,8 +96,8 @@ describe('/fees/dues', () => {
         HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 0 }),
       ),
       http.get('/api/v1/fees/dues/flagged', ({ request }) => {
+        flaggedClassId = new URL(request.url).searchParams.get('class_id');
         flaggedRequested = true;
-        expect(new URL(request.url).searchParams.get('class_id')).toBe('class-9');
         return HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 0 });
       }),
     );
@@ -116,6 +117,7 @@ describe('/fees/dues', () => {
     await user.click(screen.getByRole('checkbox', { name: 'Show flagged/overdue accounts only' }));
 
     await waitFor(() => expect(flaggedRequested).toBe(true));
+    expect(flaggedClassId).toBe('class-9');
     expect(router.state.location.search).toMatchObject({ class_id: 'class-9', flagged: 'true' });
   });
 
