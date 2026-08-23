@@ -213,6 +213,7 @@
   "212": "API Versioning (/api/v1)",
   "213": "Component Boundary Rule (ESLint)",
   "214": "CSRF Posture",
+  "215": "eslint-plugin-import",
   "216": "eslint-plugin-react",
   "217": "@faker-js/faker",
   "218": "PR template",

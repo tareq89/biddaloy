@@ -1,16 +1,16 @@
 # Graph Report - biddaloy  (2026-08-23)
 
 ## Corpus Check
-- 797 files · ~375,878 words
+- 797 files · ~375,821 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 4655 nodes · 11548 edges · 265 communities (193 shown, 72 thin omitted)
+- 4655 nodes · 11548 edges · 266 communities (194 shown, 72 thin omitted)
 - Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 193 edges (avg confidence: 0.74)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `7210ed02`
+- Built from commit: `aca8ed56`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -229,6 +229,7 @@
 - API Versioning (/api/v1)
 - Component Boundary Rule (ESLint)
 - CSRF Posture
+- eslint-plugin-import
 - eslint-plugin-react
 - @faker-js/faker
 - PR template
@@ -292,8 +293,8 @@
   CLAUDE.md → docs/architecture/README.md
 - `Serena Project Config` --conceptually_related_to--> `Biddaloy CLAUDE.md`  [AMBIGUOUS]
   .serena/project.yml → CLAUDE.md
-- `FindStudentStepProps` --references--> `Student`  [EXTRACTED]
-  client-admin/src/routes/_staff/payments/-record/find-student-step.tsx → ui/src/hooks/students.ts
+- `ReceiptProps` --references--> `Payment`  [EXTRACTED]
+  client-admin/src/routes/_staff/payments/-record/receipt.tsx → ui/src/hooks/payments.ts
 
 ## Import Cycles
 - 1-file cycle: `ui/eslint.config.mjs -> ui/eslint.config.mjs`
@@ -306,11 +307,11 @@
 - **Design-System Wrapper Boundary Pattern** — ui_contributing_wrapperrule, ui_src_primitives_readme_doc, ui_readme_doc, ui_contributing_threefile_requirement [INFERRED 0.85]
 - **Multi-Tenant Scoping Enforced Across Stack** — claude_skills_multi_tenancy_skill_doc, server_claude_testingstandards, ui_readme_apiclient, ui_readme_hooks [INFERRED 0.85]
 
-## Communities (265 total, 72 thin omitted)
+## Communities (266 total, 72 thin omitted)
 
 ### Community 0 - "index.ts"
-Cohesion: 0.09
-Nodes (20): AuditAction, AuditEntry, auditEntryFactory(), auditLogDefaultHandlers, auditLogHandlers, fixtures, list, listByEntity (+12 more)
+Cohesion: 0.07
+Nodes (27): AuditAction, AuditEntry, auditEntryFactory(), auditLogDefaultHandlers, auditLogHandlers, fixtures, list, listByEntity (+19 more)
 
 ### Community 1 - "index.ts"
 Cohesion: 0.06
@@ -373,8 +374,8 @@ Cohesion: 0.06
 Nodes (40): DataTable(), DataTableColumn, DataTableProps, DataTableSort, readPersistedState(), COLUMNS, Default, Empty (+32 more)
 
 ### Community 16 - "EmailSection.tsx"
-Cohesion: 0.07
-Nodes (56): ConnectionTestResultMessage(), ConnectionTestResultMessageProps, MutationErrorMessage(), SecretField(), EmailConfig, EmailFormValues, emailSchema, EmailSection() (+48 more)
+Cohesion: 0.11
+Nodes (45): ConnectionTestResultMessage(), ConnectionTestResultMessageProps, MutationErrorMessage(), SecretField(), EmailConfig, EmailFormValues, emailSchema, EmailSection() (+37 more)
 
 ### Community 17 - "button.tsx"
 Cohesion: 0.07
@@ -389,7 +390,7 @@ Cohesion: 0.15
 Nodes (31): CreateFeeStructureDto, CreatePaymentDto, FeeDuesSortBy, GenerateFeesResultDto, GenerateStudentFeesDto, PaymentAllocationInputDto, QueryFeeDuesDto, QueryFeeStructureDto (+23 more)
 
 ### Community 20 - "index.ts"
-Cohesion: 0.10
+Cohesion: 0.08
 Nodes (23): collectErrorPaths(), RHF_ERROR_METADATA_KEYS, FormSectionProps, FormShellError, FormShellProps, AdmissionFormWithAutosave(), admissionSchema, AdmissionValues (+15 more)
 
 ### Community 21 - "rtl-decorator.tsx"
@@ -513,8 +514,8 @@ Cohesion: 0.13
 Nodes (14): SchoolSettingsPage(), getAccessToken(), getActiveRole(), getActiveTenant(), subscribeAuthState(), TenantBar(), dualRoleOneSchool, singleSchool (+6 more)
 
 ### Community 51 - "-student-form.tsx"
-Cohesion: 0.17
-Nodes (20): NewStudentPage(), Route, fieldId(), buildCreatePayload(), buildStudentFormSchema(), buildUpdatePayload(), defaultStudentFormValues(), PREFERRED_COMMUNICATION_VALUES (+12 more)
+Cohesion: 0.20
+Nodes (15): NewStudentPage(), Route, buildCreatePayload(), buildStudentFormSchema(), buildUpdatePayload(), defaultStudentFormValues(), PREFERRED_COMMUNICATION_VALUES, messages (+7 more)
 
 ### Community 52 - "compilerOptions"
 Cohesion: 0.07
@@ -525,8 +526,8 @@ Cohesion: 0.11
 Nodes (25): CommunicationStatus, CommunicationTrigger, FeeApplicability, FeeStatus, FeeType, PaymentAllocationType, PaymentMethod, PaymentStatus (+17 more)
 
 ### Community 54 - "global-search.tsx"
-Cohesion: 0.22
-Nodes (8): create, fixtures, guardianDefaultHandlers, guardianHandlers, list, listEmpty, remove, update
+Cohesion: 0.10
+Nodes (13): FormDescription(), FormFieldContext, FormFieldContextValue, FormItemContext, FormItemContextValue, Default, Disabled, ErrorState (+5 more)
 
 ### Community 55 - "cn"
 Cohesion: 0.24
@@ -582,7 +583,7 @@ Nodes (20): formatViolations(), JSDOM_AXE_OPTIONS, Matchers, toHaveNoViolations(
 
 ### Community 68 - "devDependencies"
 Cohesion: 0.08
-Nodes (25): axe-core, eslint-config-prettier, @eslint/js, eslint-plugin-import, eslint-plugin-jsx-a11y, eslint-plugin-react-hooks, eslint-plugin-unused-imports, lint-staged (+17 more)
+Nodes (25): axe-core, eslint-config-prettier, @eslint/js, eslint-plugin-jsx-a11y, eslint-plugin-react-hooks, eslint-plugin-unused-imports, lint-staged, devDependencies (+17 more)
 
 ### Community 69 - "scripts"
 Cohesion: 0.08
@@ -718,7 +719,7 @@ Nodes (11): Overview, Domain Model, Auth & Multi-Tenancy, Backend Modules, Fees,
 
 ### Community 103 - "guardians.ts"
 Cohesion: 0.09
-Nodes (28): GlobalSearchLauncher(), FindStudentStep(), FindStudentStepProps, emptyDraft(), GuardianPicker(), GuardianPickerProps, NewGuardianDraft, GlobalSearchEntityResult (+20 more)
+Nodes (31): GlobalSearchLauncher(), FindStudentStep(), FindStudentStepProps, emptyDraft(), GuardianPicker(), GuardianPickerProps, NewGuardianDraft, StudentFormValues (+23 more)
 
 ### Community 104 - "status-badge.tsx"
 Cohesion: 0.25
@@ -821,8 +822,8 @@ Cohesion: 0.22
 Nodes (8): encryptionServiceFactory(), SchoolsModule, Module, buildEncryptionKey(), buildPreviousEncryptionKeys(), decodeKey(), VALID_KEY, WRONG_LENGTH_KEY
 
 ### Community 129 - "communications.ts"
-Cohesion: 0.04
-Nodes (48): worker, wsPassthrough, authDefaultHandlers, login, loginInvalidCredentials, loginRateLimited, loginResponseFactory(), logout (+40 more)
+Cohesion: 0.05
+Nodes (40): worker, wsPassthrough, authDefaultHandlers, login, loginInvalidCredentials, loginRateLimited, loginResponseFactory(), logout (+32 more)
 
 ### Community 130 - "design-sync notes — @biddaloy/ui → Claude Design"
 Cohesion: 0.12
@@ -835,6 +836,10 @@ Nodes (10): MaskedCommunicationsSettingsResponseDto, MaskedEmailSettingsResponse
 ### Community 133 - "StudentBulkUploadService"
 Cohesion: 0.53
 Nodes (4): fakeCache(), fakeConfig(), fakeSchools(), resolverWith()
+
+### Community 134 - "classes.ts"
+Cohesion: 0.20
+Nodes (9): create, fixtures, getOne, list, listEmpty, remove, update, userDefaultHandlers (+1 more)
 
 ### Community 135 - "scripts"
 Cohesion: 0.18
@@ -1065,4 +1070,4 @@ _Questions this graph is uniquely positioned to answer:_
 - **What connects `semi`, `singleQuote`, `trailingComma` to the rest of the system?**
   _1159 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `index.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.09090909090909091 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.06666666666666667 - nodes in this community are weakly interconnected._
