@@ -59,7 +59,7 @@ export function ConfirmStep({
       </ul>
 
       <p className="text-sm text-muted-foreground">
-        {t('record.method.methods.' + paymentMethod)}
+        {t(`record.method.methods.${paymentMethod}`)}
         {transactionReference.trim() !== '' ? ` · ${transactionReference.trim()}` : ''}
       </p>
 
