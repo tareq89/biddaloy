@@ -62,7 +62,8 @@
     "receipt": {
       "success": "{{amount}} received from {{name}}.",
       "invoiceGenerated": "Invoice {{number}} generated.",
-      "printAction": "Print receipt"
+      "printAction": "Print receipt",
+      "printError": "Couldn't open the print window. Check your browser's popup blocker and try again."
     }
   }
 }

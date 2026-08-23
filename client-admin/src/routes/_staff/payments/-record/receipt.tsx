@@ -16,7 +16,7 @@
  * open-before-fetch dance — there's no async gap for a popup blocker to
  * catch the window open in.
  */
-import { Button } from '@biddaloy/ui/components';
+import { Button, toast } from '@biddaloy/ui/components';
 import type { Payment } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation, type RegionConfig } from '@biddaloy/ui/i18n';
 import { formatServerAmount } from '@biddaloy/ui/utils';
@@ -38,6 +38,7 @@ export function buildReceiptHtml(
   payment: Payment,
   studentName: string,
   config: RegionConfig,
+  labels: { period: string; amount: string },
 ): string {
   const money = (amount: number | string) => formatServerAmount(amount, config);
   const rows = payment.allocations
@@ -64,14 +65,14 @@ export function buildReceiptHtml(
   </head>
   <body>
     <h1>${escapeHtml(studentName)}</h1>
-    <p>${escapeHtml(new Date(payment.payment_date).toLocaleDateString())} · ${escapeHtml(payment.payment_method)}${
+    <p>${escapeHtml(new Date(payment.payment_date).toLocaleDateString(config.locale))} · ${escapeHtml(payment.payment_method)}${
       payment.transaction_reference !== null
         ? ` · ${escapeHtml(payment.transaction_reference)}`
         : ''
     }</p>
     <table>
       <thead>
-        <tr><th>Period</th><th>Amount</th></tr>
+        <tr><th>${escapeHtml(labels.period)}</th><th>${escapeHtml(labels.amount)}</th></tr>
       </thead>
       <tbody>${rows}</tbody>
     </table>
@@ -81,13 +82,28 @@ export function buildReceiptHtml(
 </html>`;
 }
 
-function printReceipt(payment: Payment, studentName: string, config: RegionConfig): void {
-  const html = buildReceiptHtml(payment, studentName, config);
+/** `false` when the popup was blocked — same "open before any `await`"
+ * reasoning `invoices-tab.tsx`'s `openPrintableInvoice` gives doesn't
+ * apply here (no `await` between the click and `window.open`), but a
+ * blocked popup is exactly as silent either way, so this still needs to
+ * report failure rather than leave the click looking like a no-op — and
+ * revoke the object URL immediately rather than leaking it for the full
+ * 60s timeout when nothing is ever going to load it. */
+export function printReceipt(
+  payment: Payment,
+  studentName: string,
+  config: RegionConfig,
+  labels: { period: string; amount: string },
+): boolean {
+  const html = buildReceiptHtml(payment, studentName, config, labels);
   const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
   const printWindow = window.open(url, '_blank', 'noopener,noreferrer');
-  if (printWindow) {
-    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  if (printWindow === null) {
+    URL.revokeObjectURL(url);
+    return false;
   }
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  return true;
 }
 
 export function Receipt({ payment, studentName }: ReceiptProps) {
@@ -107,7 +123,18 @@ export function Receipt({ payment, studentName }: ReceiptProps) {
           {t('record.receipt.invoiceGenerated', { number: payment.invoice.invoice_number })}
         </p>
       )}
-      <Button type="button" onClick={() => printReceipt(payment, studentName, config)}>
+      <Button
+        type="button"
+        onClick={() => {
+          const labels = {
+            period: t('record.allocate.columnPeriod'),
+            amount: t('record.allocate.columnAllocated'),
+          };
+          if (!printReceipt(payment, studentName, config, labels)) {
+            toast.error(t('record.receipt.printError'));
+          }
+        }}
+      >
         {t('record.receipt.printAction')}
       </Button>
     </div>
