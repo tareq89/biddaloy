@@ -87,8 +87,13 @@ export function studentQueryOptions(id: string) {
   });
 }
 
-export function useStudent(id: string) {
-  return useQuery(studentQueryOptions(id));
+/** [8.10.5]'s Record Payment wizard doesn't have a student id yet on its
+ * deep-link-less path — `id: undefined` disables the query rather than
+ * every such caller passing a placeholder id to satisfy a `string`-only
+ * signature. `studentQueryOptions` itself stays `string`-only: its other
+ * caller (the CSV export's `ensureQueryData`) always has a real id. */
+export function useStudent(id: string | undefined) {
+  return useQuery({ ...studentQueryOptions(id ?? ''), enabled: id !== undefined });
 }
 
 /**

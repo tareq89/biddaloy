@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import { REGION_BD_BN, REGION_BD_EN, type RegionConfig } from '../i18n/region-config';
 
-import { formatCurrency, formatServerAmount, parseCurrency } from './currency';
+import {
+  formatCurrency,
+  formatServerAmount,
+  minorUnitsToDecimalString,
+  parseCurrency,
+  serverAmountToMinorUnits,
+} from './currency';
 
 describe('formatCurrency', () => {
   it("matches the issue's own example digit grouping — ৳1,23,456 in minor units (paisa), so the decimals show", () => {
@@ -152,5 +158,46 @@ describe('formatServerAmount', () => {
       currency: { ...REGION_BD_EN.currency, decimals: 0 },
     };
     expect(formatServerAmount(1234.5, zeroDecimalConfig)).toBe('৳1,235');
+  });
+});
+
+describe('serverAmountToMinorUnits', () => {
+  it('converts a decimal-column string amount to minor units', () => {
+    expect(serverAmountToMinorUnits('1234.56', REGION_BD_EN)).toBe(123456);
+  });
+
+  it('rounds a server-summed float amount before converting', () => {
+    expect(serverAmountToMinorUnits(2000.0000000000002, REGION_BD_EN)).toBe(200000);
+  });
+
+  it('rounds a half-cent value up instead of truncating it', () => {
+    expect(serverAmountToMinorUnits(1.005, REGION_BD_EN)).toBe(101);
+  });
+});
+
+describe('minorUnitsToDecimalString', () => {
+  it.each([
+    [123456, '1234.56'],
+    [100, '1.00'],
+    [1, '0.01'],
+    [0, '0.00'],
+    [-123456, '-1234.56'],
+  ])('converts %i minor units to %s', (minorUnits, expected) => {
+    expect(minorUnitsToDecimalString(minorUnits, REGION_BD_EN)).toBe(expected);
+  });
+
+  it('omits the decimal point for a zero-decimal currency', () => {
+    const zeroDecimalConfig: RegionConfig = {
+      ...REGION_BD_EN,
+      currency: { ...REGION_BD_EN.currency, decimals: 0 },
+    };
+    expect(minorUnitsToDecimalString(1234, zeroDecimalConfig)).toBe('1234');
+  });
+
+  it('round-trips through serverAmountToMinorUnits for a range of amounts', () => {
+    for (const minorUnits of [0, 1, 100, 99999, 999999, 12345600, 9999999999]) {
+      const decimalString = minorUnitsToDecimalString(minorUnits, REGION_BD_EN);
+      expect(serverAmountToMinorUnits(decimalString, REGION_BD_EN)).toBe(minorUnits);
+    }
   });
 });

@@ -10,6 +10,9 @@ import { studentKeys } from './students';
 export type Payment = components['schemas']['Payment'];
 export type CreatePaymentInput = components['schemas']['CreatePaymentDto'];
 export type StudentFee = components['schemas']['StudentFee'];
+export type PaymentAllocationInput = components['schemas']['PaymentAllocationInputDto'];
+export type RecordPaymentWithAllocationInput =
+  components['schemas']['RecordPaymentWithAllocationDto'];
 
 /** `FeesController.getInvoiceSummary`'s untyped 200 body — same
  * documentation gap as `students.ts`'s `PaginatedStudents`, hand-typed
@@ -83,13 +86,16 @@ export function usePaymentsByStudent(studentId: string) {
  * separate `feeKeys` — this is `FeesController`'s own
  * `payments/invoices/student/:studentId`, the payment side of the fees
  * module, not the `fee-structures`/`fees/dues` side. */
-export function useStudentFeeSummary(studentId: string) {
+export function useStudentFeeSummary(studentId: string | undefined) {
   return useQuery(
     queryOptions({
       // Not `paymentKeys.list(...)` — that shape is a `Payment[]`, and this
       // is a `StudentFeeSummary` object; sharing the key would let this
-      // query's cache entry collide with `usePaymentsByStudent`'s.
-      queryKey: [...paymentKeys.all, 'fee-summary', studentId] as const,
+      // query's cache entry collide with `usePaymentsByStudent`'s. `??
+      // studentId` for a defined caller (every caller before [8.10.5])
+      // doesn't change the key at all — the fallback only matters once
+      // `studentId` is `undefined`.
+      queryKey: [...paymentKeys.all, 'fee-summary', studentId ?? null] as const,
       queryFn: async ({ signal }) => {
         const res = await apiClient.get<StudentFeeSummary>(
           `/payments/invoices/student/${studentId}`,
@@ -97,7 +103,46 @@ export function useStudentFeeSummary(studentId: string) {
         );
         return res.data;
       },
+      // [8.10.5]'s Record Payment wizard doesn't know the student yet on
+      // its first step — `enabled: false` until it does, rather than
+      // every caller having to pass a placeholder id just to satisfy this
+      // hook's old `string`-only signature.
+      enabled: studentId !== undefined,
       retry: shouldRetryQuery,
     }),
   );
+}
+
+/**
+ * [8.10.5]'s Record Payment wizard. Same non-optimistic shape as
+ * `useCreatePayment` — this is the endpoint the "money is never
+ * optimistic" rule most directly protects, since a counter payment that
+ * looked successful and then rolled back is exactly the failure mode the
+ * issue calls out.
+ *
+ * `record-with-allocation`'s response never asks for the `student`
+ * relation (`payment-allocation.service.ts`'s final `findOneOrFail` only
+ * loads `allocations`, `allocations.student_fee`, `invoice`) — the
+ * generated `Payment` type still claims `student` is present because it's
+ * shared across every endpoint that returns a `Payment`, not because this
+ * one populates it. Using `payment.student_id` (a plain column, always
+ * present) instead of `payment.student.id` avoids reading through
+ * `undefined`.
+ */
+export function useRecordPaymentWithAllocation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: RecordPaymentWithAllocationInput) => {
+      const res = await apiClient.post<Payment>('/payments/record-with-allocation', input);
+      return res.data;
+    },
+    retry: shouldRetryQuery,
+    onSuccess: (payment) => {
+      void queryClient.invalidateQueries({ queryKey: paymentKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: studentKeys.detail(payment.student_id) });
+      void queryClient.invalidateQueries({
+        queryKey: [...paymentKeys.all, 'fee-summary', payment.student_id],
+      });
+    },
+  });
 }

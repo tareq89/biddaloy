@@ -45,8 +45,11 @@ export {
   useCreatePayment,
   usePaymentsByStudent,
   useStudentFeeSummary,
+  useRecordPaymentWithAllocation,
   type CreatePaymentInput,
   type Payment,
+  type PaymentAllocationInput,
+  type RecordPaymentWithAllocationInput,
   type StudentFee,
   type StudentFeeSummary,
 } from './payments';
