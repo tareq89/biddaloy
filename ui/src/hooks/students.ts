@@ -70,8 +70,12 @@ export function useStudents(filters: StudentListFilters = {}) {
   return useQuery(studentsQueryOptions(filters));
 }
 
-export function useStudent(id: string) {
-  return useQuery({
+/** Split out from `useStudent` so an imperative caller (e.g. a CSV export
+ * building rows for students spread across pages) can `queryClient
+ * .ensureQueryData(studentQueryOptions(id))` outside render — a hook can't
+ * be called from a click handler, but this object can. */
+export function studentQueryOptions(id: string) {
+  return queryOptions({
     queryKey: studentKeys.detail(id),
     queryFn: async () => {
       const res = await apiClient.get<Student>(`/students/${id}`);
@@ -79,6 +83,10 @@ export function useStudent(id: string) {
     },
     retry: shouldRetryQuery,
   });
+}
+
+export function useStudent(id: string) {
+  return useQuery(studentQueryOptions(id));
 }
 
 /**

@@ -9,7 +9,7 @@ import {
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
@@ -178,6 +178,105 @@ describe('/students', () => {
     // The selection clears once the batch is accepted — the bulk bar
     // (and its now-stale "Send reminder"/"Export CSV" actions) goes with it.
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Send reminder' })).toBeNull());
+  });
+
+  it('a filter change made while the search debounce is pending is not reverted when it fires', async () => {
+    // Regression test: the debounce timer used to close over `filters`
+    // from the render that scheduled it. Changing `class_id` mid-debounce
+    // meant the timer's stale closure would overwrite it back to
+    // `undefined` when it fired 300ms later, alongside the search term.
+    const klass = classFactory({ id: 'class-9', name: 'Class 9' });
+    server.use(
+      http.get('/api/v1/classes', () =>
+        HttpResponse.json({ data: [klass], total: 1, page: 1, limit: 100, totalPages: 1 }),
+      ),
+      http.get('/api/v1/students', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
+      ),
+    );
+
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/students'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await screen.findByRole('region', { name: 'Students' });
+
+    await user.type(
+      screen.getByRole('textbox', { name: 'Search by name, roll, or registration no.' }),
+      'Rahim',
+    );
+    await user.click(screen.getByRole('combobox', { name: 'Class' }));
+    await user.click(await screen.findByRole('option', { name: 'Class 9' }));
+
+    await waitFor(() =>
+      expect(router.state.location.search).toMatchObject({
+        class_id: 'class-9',
+        search: 'Rahim',
+      }),
+    );
+  });
+
+  it('exports every selected student to CSV, including one not on the current page, with formula-leading values neutralized', async () => {
+    const currentPageStudent = studentFactory({ id: 'student-1', full_name: 'Rahim Uddin' });
+    // Not in the current page's `studentsQuery.data` — only reachable via
+    // its own id. Also a formula-injection value: a guardian/name field
+    // starting with `=` must be neutralized, not passed through as-is.
+    const otherPageStudent = studentFactory({ id: 'student-2', full_name: '=cmd|/c calc' });
+
+    server.use(
+      http.get('/api/v1/students', () =>
+        HttpResponse.json({
+          data: [currentPageStudent],
+          total: 2,
+          page: 1,
+          limit: 10,
+          totalPages: 1,
+        }),
+      ),
+      http.get('/api/v1/students/:id', ({ params }) =>
+        HttpResponse.json(params.id === 'student-1' ? currentPageStudent : otherPageStudent),
+      ),
+    );
+
+    let capturedBlob: Blob | undefined;
+    // jsdom doesn't implement `URL.createObjectURL`/`revokeObjectURL` at
+    // all — nothing pre-existing to save and restore, just delete the
+    // stub afterwards so this test doesn't leak state into the next one.
+    URL.createObjectURL = (blob: Blob) => {
+      capturedBlob = blob;
+      return 'blob:mock';
+    };
+    URL.revokeObjectURL = () => {};
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    try {
+      renderWithRouter(routeTree, {
+        // Selection lives in the `selected` URL bag — seeding it directly
+        // simulates "selected on an earlier page, now viewing a different
+        // one" without needing a real multi-page click-through.
+        initialEntries: ['/students?selected=student-1,student-2'],
+        tenantId: 'tenant-1',
+        role: 'ACCOUNTANT',
+        locale: 'en',
+      });
+
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole('button', { name: 'Export CSV' }));
+
+      await waitFor(() => expect(capturedBlob).toBeDefined());
+      const csvText = await capturedBlob!.text();
+
+      expect(csvText).toContain('Rahim Uddin');
+      expect(csvText).toContain(`"'=cmd|/c calc"`);
+    } finally {
+      delete (URL as { createObjectURL?: typeof URL.createObjectURL }).createObjectURL;
+      delete (URL as { revokeObjectURL?: typeof URL.revokeObjectURL }).revokeObjectURL;
+      clickSpy.mockRestore();
+    }
   });
 
   it('filter -> result -> navigate to detail -> back -> state restored', async () => {

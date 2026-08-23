@@ -11,6 +11,7 @@ import {
   type DataTableColumn,
 } from '@biddaloy/ui/components';
 import {
+  studentQueryOptions,
   studentsQueryOptions,
   useClasses,
   useClassSections,
@@ -21,6 +22,7 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState } from '@biddaloy/ui/shells';
+import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import * as React from 'react';
 import { z } from 'zod';
@@ -122,6 +124,7 @@ export const Route = createFileRoute('/_staff/students/')({
 
 function StudentsListPage() {
   const { t } = useTranslation('students');
+  const queryClient = useQueryClient();
   const [state, actions] = useListShellState({ limit: 10 });
   const filters = state.filters as StudentFilters;
 
@@ -135,16 +138,28 @@ function StudentsListPage() {
   React.useEffect(() => {
     setSearchInput(filters.search ?? '');
   }, [filters.search]);
+
+  // The timeout below only keys off `searchInput`, so its closure would
+  // otherwise capture whichever `filters`/`actions` existed at the render
+  // that scheduled it — stale if another filter (e.g. class_id) changes
+  // during the 300ms window, silently reverting that change when the
+  // timeout fires. Refs updated every render keep the callback reading
+  // current values instead.
+  const filtersRef = React.useRef(filters);
+  filtersRef.current = filters;
+  const actionsRef = React.useRef(actions);
+  actionsRef.current = actions;
+
   React.useEffect(() => {
     const timeout = setTimeout(() => {
-      if (searchInput === (filters.search ?? '')) return;
-      actions.setFilters({ ...filters, search: searchInput || undefined } as Record<
-        string,
-        string
-      >);
+      const currentFilters = filtersRef.current;
+      if (searchInput === (currentFilters.search ?? '')) return;
+      actionsRef.current.setFilters({
+        ...currentFilters,
+        search: searchInput || undefined,
+      } as Record<string, string>);
     }, 300);
     return () => clearTimeout(timeout);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- debounce keys off searchInput only; filters/actions read fresh values via closure each render
   }, [searchInput]);
 
   const studentsQuery = useStudents({
@@ -173,9 +188,16 @@ function StudentsListPage() {
     actions.setFilters(next as Record<string, string>);
   }
 
-  function exportSelectedToCsv() {
-    const rows = (studentsQuery.data?.data ?? []).filter((student) =>
-      state.selectedIds.has(student.id),
+  async function exportSelectedToCsv() {
+    // `selectedIds` persists across pages, but `studentsQuery.data` only
+    // holds the current page — resolve every selected student by id so a
+    // selection made on an earlier page isn't silently dropped from the
+    // export. `ensureQueryData` reuses the cache for rows already fetched
+    // (e.g. via the current page or a visited detail page).
+    const rows = await Promise.all(
+      Array.from(state.selectedIds).map((id) =>
+        queryClient.ensureQueryData(studentQueryOptions(id)),
+      ),
     );
     const header = ['Roll', 'Registration No.', 'Name', 'Class', 'Section', 'Guardian', 'Status'];
     const lines = rows.map((student) =>
@@ -188,7 +210,7 @@ function StudentsListPage() {
         primaryGuardianName(student),
         student.enrollment_status,
       ]
-        .map((value) => `"${String(value).replace(/"/g, '""')}"`)
+        .map((value) => csvCell(value))
         .join(','),
     );
     const csv = [header.join(','), ...lines].join('\r\n');
@@ -399,7 +421,12 @@ function StudentsListPage() {
                 {t('list.sendReminder')}
               </Button>
             )}
-            <Button type="button" size="sm" variant="outline" onClick={exportSelectedToCsv}>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => void exportSelectedToCsv()}
+            >
               {t('list.exportCsv')}
             </Button>
             <Button
@@ -425,4 +452,16 @@ function StudentsListPage() {
 
 function primaryGuardianName(student: Student): string | undefined {
   return (student.guardians.find((g) => g.is_primary_contact) ?? student.guardians[0])?.full_name;
+}
+
+// A value starting with `=`, `+`, `-`, `@`, or a tab/CR is a formula to
+// spreadsheet software (Excel, Sheets) — a guardian name like
+// `=HYPERLINK(...)` would execute on open. Prefixing with `'` forces it
+// to render as text instead, same as Excel's own CSV-injection guidance.
+const CSV_FORMULA_PREFIX = /^[=+\-@\t\r]/;
+
+function csvCell(value: unknown): string {
+  let text = String(value);
+  if (CSV_FORMULA_PREFIX.test(text)) text = `'${text}`;
+  return `"${text.replace(/"/g, '""')}"`;
 }

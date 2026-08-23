@@ -15,6 +15,7 @@ export { login, logout, logoutAll } from './auth';
 export { useAccessToken, useActiveRole, useActiveTenant } from './auth-state';
 export {
   studentKeys,
+  studentQueryOptions,
   studentsQueryOptions,
   useCreateStudent,
   useStudent,
