@@ -12,6 +12,24 @@ export { Placeholder } from './placeholder';
 export { Button, type ButtonProps } from './button';
 export { Input, type InputProps } from './input';
 export { Textarea, type TextareaProps } from './textarea';
+export {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+  type TableBodyProps,
+  type TableCaptionProps,
+  type TableCellProps,
+  type TableFooterProps,
+  type TableHeadProps,
+  type TableHeaderProps,
+  type TableProps,
+  type TableRowProps,
+} from './table';
 export { Label, type LabelProps } from './label';
 export { Checkbox, type CheckboxProps } from './checkbox';
 export {

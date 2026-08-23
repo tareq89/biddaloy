@@ -86,6 +86,15 @@ const getOne = http.get('/api/v1/communications/:id', ({ params }) =>
   HttpResponse.json(communicationFactory({ id: params.id as string }) satisfies Communication),
 );
 
+/** [8.10.2]'s Communication tab. */
+const listByStudent = http.get('/api/v1/communications/student/:studentId', () =>
+  HttpResponse.json([communicationFactory(), communicationFactory()] satisfies Communication[]),
+);
+
+const listByStudentEmpty = http.get('/api/v1/communications/student/:studentId', () =>
+  HttpResponse.json([]),
+);
+
 export const communicationHandlers = {
   previewReminder,
   sendSingleReminder,
@@ -93,6 +102,8 @@ export const communicationHandlers = {
   getBulkReminder,
   send,
   getOne,
+  listByStudent,
+  listByStudentEmpty,
 };
 
 export const communicationDefaultHandlers = [
@@ -102,4 +113,5 @@ export const communicationDefaultHandlers = [
   getBulkReminder,
   send,
   getOne,
+  listByStudent,
 ];

@@ -6,7 +6,7 @@ import { invoiceFactory } from '../test/factories';
 import { server } from '../test/msw/server';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
 
-import { useInvoice } from './invoices';
+import { useInvoice, useInvoices } from './invoices';
 
 describe('useInvoice', () => {
   it('resolves the invoice the handler returns for the given id', async () => {
@@ -25,5 +25,24 @@ describe('useInvoice', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.id).toBe('invoice-1');
     expect(result.current.data?.invoice_number).toBe('INV-2026-00001');
+  });
+});
+
+describe('useInvoices', () => {
+  it('[8.10.2] requests the student_id filter as a query param — the Invoices tab', async () => {
+    let requestedStudentId: string | null = null;
+    server.use(
+      http.get('/api/v1/invoices', ({ request }) => {
+        requestedStudentId = new URL(request.url).searchParams.get('student_id');
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 });
+      }),
+    );
+
+    const { result } = renderHookWithProviders(() => useInvoices({ student_id: 'student-1' }), {
+      tenantId: 'tenant-1',
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(requestedStudentId).toBe('student-1');
   });
 });

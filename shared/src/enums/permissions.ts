@@ -72,6 +72,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.STUDENT_CREATE,
     Permission.STUDENT_READ,
     Permission.STUDENT_UPDATE,
+    Permission.STUDENT_DELETE,
     Permission.STUDENT_BULK_UPLOAD,
     Permission.GUARDIAN_CREATE,
     Permission.GUARDIAN_READ,

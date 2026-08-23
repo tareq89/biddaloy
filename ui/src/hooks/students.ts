@@ -9,6 +9,7 @@ import { shouldRetryQuery } from './retry';
 export type Student = components['schemas']['Student'];
 export type CreateStudentInput = components['schemas']['CreateStudentDto'];
 export type PreferredCommunication = Student['preferred_communication'];
+export type EnrollmentStatus = Student['enrollment_status'];
 
 /** Allowlisted server-side — `students.controller.ts`'s `QueryStudentDto`
  * rejects anything else with a 400 (`roll_number` deliberately excluded
@@ -175,6 +176,46 @@ export function useUpdateStudentPreferredCommunication(id: string) {
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: studentKeys.detail(id) });
+    },
+  });
+}
+
+/** [8.10.2]'s Transfer/Change Status action. Deliberately **not**
+ * optimistic like `useUpdateStudentPreferredCommunication` above —
+ * transferring or graduating a student is a consequential change a staff
+ * member is actively confirming through a dialog, not a background
+ * preference flip, so there's no UX cost to waiting for the server the
+ * way there would be for a dropdown. */
+export function useUpdateStudentEnrollmentStatus(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (enrollment_status: EnrollmentStatus) => {
+      const res = await apiClient.patch<Student>(`/students/${id}`, { enrollment_status });
+      return res.data;
+    },
+    retry: shouldRetryQuery,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: studentKeys.detail(id) });
+      void queryClient.invalidateQueries({ queryKey: studentKeys.lists() });
+    },
+  });
+}
+
+/** [8.10.2]'s Delete action — `Student.deleted_at` soft delete
+ * (`students.service.ts`'s `remove`), same reasoning as
+ * `useCreateStudent`: a removed student can affect any cached list
+ * variant, so every list, not just one filter combination, is
+ * invalidated. */
+export function useDeleteStudent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/students/${id}`);
+    },
+    retry: shouldRetryQuery,
+    onSuccess: (_data, id) => {
+      void queryClient.invalidateQueries({ queryKey: studentKeys.lists() });
+      queryClient.removeQueries({ queryKey: studentKeys.detail(id) });
     },
   });
 }

@@ -18,7 +18,34 @@ export interface InvoiceListFilters {
   limit?: number;
 }
 
+export interface PaginatedInvoices {
+  data: Invoice[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 export const invoiceKeys = createEntityKeys<InvoiceListFilters>('invoices');
+
+/** [8.10.2]'s Invoices tab — `GET /invoices?student_id=` — shares
+ * `invoiceKeys.list(filters)` with [8.9.9]'s global-search palette and
+ * any future tenant-wide invoices list ([8.10.6]), so a mutation that
+ * invalidates `invoiceKeys.lists()` invalidates this too. */
+export function invoicesQueryOptions(filters: InvoiceListFilters = {}) {
+  return queryOptions({
+    queryKey: invoiceKeys.list(filters),
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<PaginatedInvoices>('/invoices', { params: filters, signal });
+      return res.data;
+    },
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useInvoices(filters: InvoiceListFilters = {}) {
+  return useQuery(invoicesQueryOptions(filters));
+}
 
 export function useInvoice(id: string) {
   return useQuery(

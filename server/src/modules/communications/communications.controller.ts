@@ -118,6 +118,21 @@ export class CommunicationsController {
     return this.communicationsService.enqueue(dto, tenant.id, user.sub);
   }
 
+  // Declared before `@Get(':id')` — same reasoning as `reminder/bulk`
+  // above: 'student' would otherwise be swallowed by the UUID param route
+  // and rejected by its ParseUUIDPipe.
+  @Get('student/:studentId')
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @ApiOperation({
+    summary: "Get every message sent about a student's guardians, newest first.",
+  })
+  findByStudent(
+    @Param('studentId', ParseUUIDPipe) studentId: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.communicationsService.findByStudent(studentId, tenant.id);
+  }
+
   @Get(':id')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
   findOne(

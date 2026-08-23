@@ -108,4 +108,48 @@ export class AuditService {
 
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
+
+  /**
+   * A narrower, separately-authorized sibling of `findAll` — scoped to one
+   * entity (e.g. a single student's activity tab) rather than the tenant's
+   * whole audit trail, so it can be granted to roles (ACCOUNTANT, EXECUTIVE,
+   * TEACHER) that must never see `findAll`'s unscoped dump. See
+   * `AuditController`'s `@Roles` on each route for the actual boundary.
+   */
+  async findByEntity(
+    entityType: string,
+    entityId: string,
+    query: QueryAuditLogDto,
+    tenantId: string,
+  ) {
+    const page = query.page || 1;
+    const limit = query.limit || 10;
+    const skip = (page - 1) * limit;
+
+    const qb = this.repo
+      .createQueryBuilder('audit_log')
+      .where('audit_log.tenant_id = :tenantId', { tenantId })
+      .andWhere('audit_log.entity_type = :entityType', { entityType })
+      .andWhere('audit_log.entity_id = :entityId', { entityId })
+      .orderBy('audit_log.created_at', 'DESC');
+
+    if (query.action) {
+      qb.andWhere('audit_log.action = :action', { action: query.action });
+    }
+    if (query.from_date) {
+      qb.andWhere('audit_log.created_at >= :fromDate', { fromDate: query.from_date });
+    }
+    if (query.to_date) {
+      const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(query.to_date);
+      const toDate = new Date(query.to_date);
+      if (isDateOnly) {
+        toDate.setUTCHours(23, 59, 59, 999);
+      }
+      qb.andWhere('audit_log.created_at <= :toDate', { toDate });
+    }
+
+    const [data, total] = await qb.skip(skip).take(limit).getManyAndCount();
+
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+  }
 }

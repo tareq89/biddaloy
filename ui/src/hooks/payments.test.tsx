@@ -6,9 +6,10 @@ import { describe, expect, it } from 'vitest';
 import { paymentFactory } from '../test/factories';
 import { server } from '../test/msw/server';
 import { apiErrorBody } from '../test/msw/support';
+import { renderHookWithProviders } from '../test/render-hook-with-providers';
 import { createTestQueryClient, renderWithProviders } from '../test/render-with-providers';
 
-import { useCreatePayment } from './payments';
+import { useCreatePayment, usePaymentsByStudent, useStudentFeeSummary } from './payments';
 
 /**
  * [8.4.4]'s AC calls for a submit control and preserved form state, which
@@ -117,5 +118,45 @@ describe('financial mutations are never optimistic (useCreatePayment reference)'
     // retype "4500" after a failure.
     expect(amountInput.value).toBe('4500');
     expect(submit.disabled).toBe(false);
+  });
+});
+
+describe('usePaymentsByStudent', () => {
+  it('[8.10.2] resolves the payment history for one student', async () => {
+    server.use(
+      http.get('/api/v1/payments/student/:studentId', () =>
+        HttpResponse.json([paymentFactory(), paymentFactory()]),
+      ),
+    );
+
+    const { result } = renderHookWithProviders(() => usePaymentsByStudent('student-1'), {
+      tenantId: 'tenant-1',
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toHaveLength(2);
+  });
+});
+
+describe('useStudentFeeSummary', () => {
+  it("[8.10.2] resolves the Fees tab's billed/paid/outstanding summary", async () => {
+    server.use(
+      http.get('/api/v1/payments/invoices/student/:studentId', () =>
+        HttpResponse.json({
+          student_id: 'student-1',
+          student_name: 'Rahim Uddin',
+          summary: { total_due: 5000, total_paid: 3000, total_discount: 0, balance: 2000 },
+          fee_breakdown: [],
+          payments: [],
+        }),
+      ),
+    );
+
+    const { result } = renderHookWithProviders(() => useStudentFeeSummary('student-1'), {
+      tenantId: 'tenant-1',
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.summary.balance).toBe(2000);
   });
 });

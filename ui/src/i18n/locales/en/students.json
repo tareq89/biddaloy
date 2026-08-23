@@ -49,11 +49,123 @@
     "errorMessage": "Couldn't send the reminder. Nothing was sent — try again."
   },
   "detail": {
-    "back": "Back to students"
+    "back": "Back to students",
+    "identifiers": "{{registrationNumber}} · Class {{className}} · Roll {{roll}}",
+    "forbidden": "You don't have permission to view this.",
+    "loadError": "Couldn't load this student.",
+    "actions": {
+      "edit": "Edit",
+      "collectFees": "Collect fees",
+      "sendReminder": "Send reminder",
+      "transferStatus": "Transfer / change status",
+      "delete": "Delete"
+    },
+    "tabs": {
+      "overview": "Overview",
+      "enrollment": "Enrollment",
+      "fees": "Fees",
+      "payments": "Payments",
+      "invoices": "Invoices",
+      "guardians": "Guardians",
+      "communication": "Communication",
+      "activity": "Activity"
+    },
+    "overview": {
+      "dateOfBirth": "Date of birth",
+      "gender": "Gender",
+      "address": "Address",
+      "preferredCommunication": "Preferred contact"
+    },
+    "enrollment": {
+      "columnClass": "Class",
+      "columnSection": "Section",
+      "columnAcademicYear": "Academic year",
+      "columnStatus": "Status",
+      "columnEnrolledAt": "Enrolled on",
+      "emptyMessage": "No enrolment history yet.",
+      "errorMessage": "Couldn't load enrolment history."
+    },
+    "fees": {
+      "totalBilled": "Total billed",
+      "totalPaid": "Total paid",
+      "outstanding": "Outstanding",
+      "columnMonth": "Month",
+      "columnAmount": "Amount",
+      "columnPaid": "Paid",
+      "columnDiscount": "Discount",
+      "columnStatus": "Status",
+      "emptyMessage": "No fees recorded yet.",
+      "errorMessage": "Couldn't load fee details."
+    },
+    "payments": {
+      "columnDate": "Date",
+      "columnAmount": "Amount",
+      "columnMethod": "Method",
+      "columnReference": "Reference",
+      "columnReceivedBy": "Received by",
+      "emptyMessage": "No payments recorded yet.",
+      "errorMessage": "Couldn't load payment history."
+    },
+    "invoices": {
+      "columnNumber": "Invoice",
+      "columnAmount": "Amount",
+      "columnStatus": "Status",
+      "columnDueDate": "Due date",
+      "print": "Print",
+      "emptyMessage": "No invoices issued yet.",
+      "errorMessage": "Couldn't load invoices."
+    },
+    "guardians": {
+      "columnName": "Name",
+      "columnRelationship": "Relationship",
+      "columnContact": "Contact",
+      "primary": "Primary",
+      "emptyMessage": "No guardians on file."
+    },
+    "communication": {
+      "columnDate": "Date",
+      "columnMedium": "Medium",
+      "columnRecipient": "Recipient",
+      "columnStatus": "Status",
+      "emptyMessage": "No messages sent yet.",
+      "errorMessage": "Couldn't load message history."
+    },
+    "activity": {
+      "columnDate": "Date",
+      "columnAction": "Action",
+      "emptyMessage": "No activity recorded yet.",
+      "errorMessage": "Couldn't load activity."
+    },
+    "transferDialog": {
+      "title": "Transfer / change status",
+      "description": "Change {{name}}'s enrolment status.",
+      "statusLabel": "New status",
+      "status": {
+        "ACTIVE": "Active",
+        "INACTIVE": "Inactive",
+        "TRANSFERRED": "Transferred",
+        "GRADUATED": "Graduated"
+      },
+      "confirm": "Save",
+      "saving": "Saving…",
+      "errorMessage": "Couldn't update the status. Try again."
+    },
+    "deleteDialog": {
+      "title": "Delete student",
+      "description": "This removes {{name}} from active lists. This can be undone by support, but not from here.",
+      "confirm": "Delete",
+      "deleting": "Deleting…",
+      "errorMessage": "Couldn't delete the student. Try again."
+    }
   },
   "new": {
     "title": "Add student",
     "explanation": "The full add-student form is coming soon.",
     "action": "Back to students"
+  },
+  "edit": {
+    "title": "Edit student",
+    "explanation": "The full edit-student form is coming soon.",
+    "action": "Back to student"
   }
 }

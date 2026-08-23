@@ -49,11 +49,123 @@
     "errorMessage": "রিমাইন্ডার পাঠানো যায়নি। কিছুই পাঠানো হয়নি — আবার চেষ্টা করুন।"
   },
   "detail": {
-    "back": "শিক্ষার্থী তালিকায় ফিরুন"
+    "back": "শিক্ষার্থী তালিকায় ফিরুন",
+    "identifiers": "{{registrationNumber}} · শ্রেণি {{className}} · রোল {{roll}}",
+    "forbidden": "এটি দেখার অনুমতি আপনার নেই।",
+    "loadError": "শিক্ষার্থীর তথ্য লোড করা যায়নি।",
+    "actions": {
+      "edit": "সম্পাদনা",
+      "collectFees": "ফি আদায়",
+      "sendReminder": "রিমাইন্ডার পাঠান",
+      "transferStatus": "স্থানান্তর / অবস্থা পরিবর্তন",
+      "delete": "মুছে ফেলুন"
+    },
+    "tabs": {
+      "overview": "সংক্ষিপ্ত বিবরণ",
+      "enrollment": "ভর্তি তথ্য",
+      "fees": "ফি",
+      "payments": "পেমেন্ট",
+      "invoices": "চালান",
+      "guardians": "অভিভাবক",
+      "communication": "যোগাযোগ",
+      "activity": "কার্যক্রম"
+    },
+    "overview": {
+      "dateOfBirth": "জন্ম তারিখ",
+      "gender": "লিঙ্গ",
+      "address": "ঠিকানা",
+      "preferredCommunication": "পছন্দের যোগাযোগ মাধ্যম"
+    },
+    "enrollment": {
+      "columnClass": "শ্রেণি",
+      "columnSection": "শাখা",
+      "columnAcademicYear": "শিক্ষাবর্ষ",
+      "columnStatus": "অবস্থা",
+      "columnEnrolledAt": "ভর্তির তারিখ",
+      "emptyMessage": "এখনো কোনো ভর্তির ইতিহাস নেই।",
+      "errorMessage": "ভর্তির ইতিহাস লোড করা যায়নি।"
+    },
+    "fees": {
+      "totalBilled": "মোট বিল",
+      "totalPaid": "মোট পরিশোধিত",
+      "outstanding": "বকেয়া",
+      "columnMonth": "মাস",
+      "columnAmount": "পরিমাণ",
+      "columnPaid": "পরিশোধিত",
+      "columnDiscount": "ছাড়",
+      "columnStatus": "অবস্থা",
+      "emptyMessage": "এখনো কোনো ফি নথিভুক্ত নেই।",
+      "errorMessage": "ফি-এর তথ্য লোড করা যায়নি।"
+    },
+    "payments": {
+      "columnDate": "তারিখ",
+      "columnAmount": "পরিমাণ",
+      "columnMethod": "পদ্ধতি",
+      "columnReference": "রেফারেন্স",
+      "columnReceivedBy": "গ্রহণকারী",
+      "emptyMessage": "এখনো কোনো পেমেন্ট নথিভুক্ত নেই।",
+      "errorMessage": "পেমেন্টের ইতিহাস লোড করা যায়নি।"
+    },
+    "invoices": {
+      "columnNumber": "চালান",
+      "columnAmount": "পরিমাণ",
+      "columnStatus": "অবস্থা",
+      "columnDueDate": "শেষ তারিখ",
+      "print": "প্রিন্ট",
+      "emptyMessage": "এখনো কোনো চালান ইস্যু করা হয়নি।",
+      "errorMessage": "চালান লোড করা যায়নি।"
+    },
+    "guardians": {
+      "columnName": "নাম",
+      "columnRelationship": "সম্পর্ক",
+      "columnContact": "যোগাযোগ",
+      "primary": "প্রধান",
+      "emptyMessage": "কোনো অভিভাবকের তথ্য নেই।"
+    },
+    "communication": {
+      "columnDate": "তারিখ",
+      "columnMedium": "মাধ্যম",
+      "columnRecipient": "প্রাপক",
+      "columnStatus": "অবস্থা",
+      "emptyMessage": "এখনো কোনো বার্তা পাঠানো হয়নি।",
+      "errorMessage": "বার্তার ইতিহাস লোড করা যায়নি।"
+    },
+    "activity": {
+      "columnDate": "তারিখ",
+      "columnAction": "কার্যক্রম",
+      "emptyMessage": "এখনো কোনো কার্যক্রম নথিভুক্ত নেই।",
+      "errorMessage": "কার্যক্রম লোড করা যায়নি।"
+    },
+    "transferDialog": {
+      "title": "স্থানান্তর / অবস্থা পরিবর্তন",
+      "description": "{{name}}-এর ভর্তির অবস্থা পরিবর্তন করুন।",
+      "statusLabel": "নতুন অবস্থা",
+      "status": {
+        "ACTIVE": "সক্রিয়",
+        "INACTIVE": "নিষ্ক্রিয়",
+        "TRANSFERRED": "স্থানান্তরিত",
+        "GRADUATED": "উত্তীর্ণ"
+      },
+      "confirm": "সংরক্ষণ",
+      "saving": "সংরক্ষণ হচ্ছে…",
+      "errorMessage": "অবস্থা পরিবর্তন করা যায়নি। আবার চেষ্টা করুন।"
+    },
+    "deleteDialog": {
+      "title": "শিক্ষার্থী মুছে ফেলুন",
+      "description": "এটি {{name}}-কে সক্রিয় তালিকা থেকে সরিয়ে দেবে। সাপোর্টের মাধ্যমে এটি পুনরুদ্ধার করা গেলেও, এখান থেকে নয়।",
+      "confirm": "মুছে ফেলুন",
+      "deleting": "মুছে ফেলা হচ্ছে…",
+      "errorMessage": "শিক্ষার্থীকে মুছে ফেলা যায়নি। আবার চেষ্টা করুন।"
+    }
   },
   "new": {
     "title": "শিক্ষার্থী যোগ করুন",
     "explanation": "সম্পূর্ণ ফর্মটি শীঘ্রই আসছে।",
     "action": "শিক্ষার্থী তালিকায় ফিরুন"
+  },
+  "edit": {
+    "title": "শিক্ষার্থী সম্পাদনা",
+    "explanation": "সম্পূর্ণ সম্পাদনা ফর্মটি শীঘ্রই আসছে।",
+    "action": "শিক্ষার্থীর পাতায় ফিরুন"
   }
 }
