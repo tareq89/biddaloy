@@ -113,7 +113,8 @@
       "columnDueDate": "Due date",
       "print": "Print",
       "emptyMessage": "No invoices issued yet.",
-      "errorMessage": "Couldn't load invoices."
+      "errorMessage": "Couldn't load invoices.",
+      "printError": "Couldn't open the printable invoice."
     },
     "guardians": {
       "columnName": "Name",

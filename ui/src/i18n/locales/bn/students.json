@@ -113,7 +113,8 @@
       "columnDueDate": "শেষ তারিখ",
       "print": "প্রিন্ট",
       "emptyMessage": "এখনো কোনো চালান ইস্যু করা হয়নি।",
-      "errorMessage": "চালান লোড করা যায়নি।"
+      "errorMessage": "চালান লোড করা যায়নি।",
+      "printError": "প্রিন্টযোগ্য চালান খোলা যায়নি।"
     },
     "guardians": {
       "columnName": "নাম",
