@@ -2460,14 +2460,14 @@
     "semantic_hash": ""
   },
   "ui/src/utils/date.spec.ts": {
-    "mtime": 1787072022.6873112,
-    "ast_hash": "f0cdbdfe17aa2803768fffd95e3016a2",
-    "semantic_hash": "f0cdbdfe17aa2803768fffd95e3016a2"
+    "mtime": 1787502063.3487608,
+    "ast_hash": "bd5258accb8101266f3b88bcefe3e630",
+    "semantic_hash": ""
   },
   "ui/src/utils/date.ts": {
-    "mtime": 1787072022.6874166,
-    "ast_hash": "8ca9be11191fe4efee2b0730d295fc64",
-    "semantic_hash": "8ca9be11191fe4efee2b0730d295fc64"
+    "mtime": 1787501969.0706365,
+    "ast_hash": "90e20893719a6aaed85e9070be5efee1",
+    "semantic_hash": ""
   },
   "ui/src/utils/digits.spec.ts": {
     "mtime": 1787072022.687511,
@@ -2490,8 +2490,8 @@
     "semantic_hash": "7c6e712baac32be23fdb0f0d6e611ddb"
   },
   "ui/src/utils/index.ts": {
-    "mtime": 1787500274.2007856,
-    "ast_hash": "90d7eb9f1d5ee666092f2173458be046",
+    "mtime": 1787501981.218424,
+    "ast_hash": "71ab3d08d4db6dc5f85f0efd86d06949",
     "semantic_hash": ""
   },
   "ui/src/utils/name.spec.ts": {
@@ -3575,8 +3575,8 @@
     "semantic_hash": "fefe725d2986ae68ec3e0109e500a64a"
   },
   "ui/src/hooks/invoices.ts": {
-    "mtime": 1787501083.668406,
-    "ast_hash": "83cabe72cdfc4437a3b05f8ec3f49170",
+    "mtime": 1787502088.5941055,
+    "ast_hash": "df264218819342a29f98f9828c6d9305",
     "semantic_hash": ""
   },
   "ui/src/hooks/use-debounce.ts": {
@@ -3600,8 +3600,8 @@
     "semantic_hash": "1f85986ac690a5d984ea8fc8bd5025a0"
   },
   "client-admin/src/routes/_staff/invoices/$invoiceId.tsx": {
-    "mtime": 1787500522.7015595,
-    "ast_hash": "75e1bf023a5a732296e7eb4fa6949e2d",
+    "mtime": 1787502010.4437428,
+    "ast_hash": "dd262c8c503f670a171ecc26faa4e603",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/settings.test.tsx": {
@@ -4010,13 +4010,13 @@
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/invoices/index.test.tsx": {
-    "mtime": 1787501084.4633324,
-    "ast_hash": "4febba1bda144330696af492f3ffe709",
+    "mtime": 1787502103.1094294,
+    "ast_hash": "04f7f4c68965baf89b6cae5baee864dd",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/invoices/index.tsx": {
-    "mtime": 1787501084.4905722,
-    "ast_hash": "74a464c134d5c86c32d2a8ed0d8fea2a",
+    "mtime": 1787501995.9538996,
+    "ast_hash": "aae587aced5bc84635c2e486c564e3a0",
     "semantic_hash": ""
   }
 }

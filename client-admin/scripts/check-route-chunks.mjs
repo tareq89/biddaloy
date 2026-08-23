@@ -49,8 +49,14 @@ const EXPECTED_ROUTE_CHUNKS = ['settings', 'students', 'fees'];
  * and the search launcher out of `__root.tsx` and into the `_staff` layout
  * route took them out of the entry chunk. Raising this ceiling is allowed,
  * but deliberately, in a PR that says why — which is the entire point.
+ *
+ * Raised for [8.10.6]: 220,019 B gzipped (690,690 B raw) measured with
+ * the new `/invoices` and `/invoices/$invoiceId` routes registered —
+ * `routeTree.gen.ts`'s lazy-import wrapper for each new route lives in
+ * the entry even though the route's own component is still code-split,
+ * so every new route nudges this up a little on its own.
  */
-const ENTRY_CHUNK_GZIP_CEILING_BYTES = 220_000;
+const ENTRY_CHUNK_GZIP_CEILING_BYTES = 220_500;
 
 /** The entry is whatever `index.html` loads as its module script — asked
  * of the build output rather than guessed from a filename pattern, which

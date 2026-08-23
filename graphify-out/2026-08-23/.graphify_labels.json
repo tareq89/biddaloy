@@ -157,12 +157,14 @@
   "155": "tsconfig.json",
   "156": ".prettierrc.json",
   "157": "AppController",
+  "158": "client-admin/src/main.tsx entry point",
   "159": "package.json",
   "160": "check-exports.mjs",
   "161": "scripts",
   "162": "nest-cli.json",
   "163": "eslint-config.mjs",
   "164": "no-window-alert.mjs",
+  "165": "parseValidationFieldErrors",
   "166": "FailOpenThrottlerStorage",
   "167": "tenant-provider-config.resolver.spec.ts",
   "168": "settings-mask.util.ts",
@@ -219,7 +221,6 @@
   "220": "husky",
   "221": "ioredis",
   "222": "jsdom",
-  "223": "lint-staged",
   "224": "@nestjs/core",
   "225": "@nestjs/jwt",
   "226": "@nestjs/passport",
@@ -256,7 +257,6 @@
   "258": "playwright.config.ts",
   "259": "data-source.spec.ts",
   "260": "ApiResponse",
-  "261": "single-reminder.service.spec.ts",
   "285": ".hasPointerCapture",
   "286": ".releasePointerCapture",
   "287": ".scrollIntoView",
@@ -264,6 +264,5 @@
   "289": "node-environment-boundary.spec.ts",
   "290": "vitest.config.ts",
   "291": "index.ts",
-  "292": "school-picker.tsx",
-  "293": "CommunicationsService"
+  "292": "school-picker.tsx"
 }
