@@ -13,9 +13,11 @@
  * fifth tone for terminal/inactive states (`DRAFT`, `CANCELLED`,
  * `WAIVED`, ...) that don't fit the fee lifecycle's tones at all.
  *
- * One `StatusBadge` covers all six domains from `shared/src/enums` via a
- * discriminated union on `domain` — passing a `FeeStatus` value with
- * `domain="payment"` is a type error, not a runtime mismatch.
+ * One `StatusBadge` covers every domain via a discriminated union on
+ * `domain` — passing a `FeeStatus` value with `domain="payment"` is a
+ * type error, not a runtime mismatch. Most domains are `shared/src/enums`
+ * lifecycles; `academicYear` is the one exception (see its own comment
+ * below).
  */
 import {
   CommunicationStatus,
@@ -104,13 +106,26 @@ const ENROLLMENT_STATUS_TONE: Record<EnrollmentStatus, StatusTone> = {
   [EnrollmentStatus.GRADUATED]: 'success',
 };
 
+/** Not a `shared/src/enums` domain — `AcademicYear.is_current` is a plain
+ * boolean, not a lifecycle enum. [8.11.1]'s "is_current visually distinct
+ * without relying on colour alone" AC is exactly what this component
+ * already guarantees for every other domain, so it's added as one more
+ * domain here rather than a bespoke boolean pill. */
+export type AcademicYearCurrentStatus = 'CURRENT' | 'NOT_CURRENT';
+
+const ACADEMIC_YEAR_STATUS_TONE: Record<AcademicYearCurrentStatus, StatusTone> = {
+  CURRENT: 'success',
+  NOT_CURRENT: 'neutral',
+};
+
 export type StatusBadgeProps =
   | { domain: 'fee'; status: FeeStatus }
   | { domain: 'payment'; status: PaymentStatus }
   | { domain: 'invoice'; status: InvoiceStatus }
   | { domain: 'communication'; status: CommunicationStatus }
   | { domain: 'reminderBatch'; status: ReminderBatchStatus }
-  | { domain: 'enrollment'; status: EnrollmentStatus };
+  | { domain: 'enrollment'; status: EnrollmentStatus }
+  | { domain: 'academicYear'; status: AcademicYearCurrentStatus };
 
 function resolveTone(props: StatusBadgeProps): StatusTone {
   switch (props.domain) {
@@ -126,6 +141,8 @@ function resolveTone(props: StatusBadgeProps): StatusTone {
       return REMINDER_BATCH_STATUS_TONE[props.status];
     case 'enrollment':
       return ENROLLMENT_STATUS_TONE[props.status];
+    case 'academicYear':
+      return ACADEMIC_YEAR_STATUS_TONE[props.status];
   }
 }
 

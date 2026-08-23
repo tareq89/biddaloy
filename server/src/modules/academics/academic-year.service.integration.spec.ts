@@ -6,10 +6,14 @@ import { AcademicYearService } from './academic-year.service';
 import { AcademicYear } from './entities/academic-year.entity';
 import { Class } from './entities/class.entity';
 import { ClassSection } from './entities/class-section.entity';
+import { Student } from '../students/entities/student.entity';
+import { Enrollment } from '../students/entities/enrollment.entity';
+import { FeeStructure } from '../fees/entities/fee-structure.entity';
 import { School } from '../schools/entities/school.entity';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_TENANT_ID } from '@test/constants';
+import { EnrollmentStatus, FeeType, FeeApplicability } from '@biddaloy/shared';
 
 /**
  * Integration tests for AcademicYearService.
@@ -237,6 +241,108 @@ describe('AcademicYearService (integration)', () => {
       });
       expect(raw).toBeDefined();
       expect(raw?.deleted_at).not.toBeNull();
+    });
+  });
+
+  describe('getStats', () => {
+    it('should count classes, active-enrolled students, and fee structures for the year', async () => {
+      const year = await service.create(
+        { name: '2026-2027', start_date: '2026-01-01', end_date: '2026-12-31' },
+        TENANT_ID,
+      );
+
+      const classRepo = dataSource.getRepository(Class);
+      const sectionRepo = dataSource.getRepository(ClassSection);
+      const studentRepo = dataSource.getRepository(Student);
+      const enrollmentRepo = dataSource.getRepository(Enrollment);
+      const feeStructureRepo = dataSource.getRepository(FeeStructure);
+
+      const klass = await classRepo.save({
+        name: 'Class 10',
+        academic_year_id: year.id,
+        tenant_id: TENANT_ID,
+      });
+      const section = await sectionRepo.save({
+        class_id: klass.id,
+        section_name: 'A',
+        tenant_id: TENANT_ID,
+      });
+      const student = await studentRepo.save({
+        full_name: 'Test Student',
+        registration_number: 'REG-STATS-1',
+        roll_number: 1,
+        class_section_id: section.id,
+        tenant_id: TENANT_ID,
+      });
+      await enrollmentRepo.save({
+        student_id: student.id,
+        class_id: klass.id,
+        section_id: section.id,
+        academic_year_id: year.id,
+        tenant_id: TENANT_ID,
+        enrollment_status: EnrollmentStatus.ACTIVE,
+      });
+      await feeStructureRepo.save({
+        fee_type: FeeType.MONTHLY_TUITION,
+        name: 'Tuition',
+        amount: 500,
+        applicability: FeeApplicability.ALL,
+        class_id: klass.id,
+        academic_year_id: year.id,
+        month: 1,
+        is_recurring: true,
+        tenant_id: TENANT_ID,
+      });
+
+      const stats = await service.getStats(year.id, TENANT_ID);
+
+      expect(stats).toEqual({
+        classes_count: 1,
+        students_count: 1,
+        fee_structures_count: 1,
+      });
+    });
+
+    it('should return zero counts for a year with nothing attached', async () => {
+      const year = await service.create(
+        { name: '2027-2028', start_date: '2027-01-01', end_date: '2027-12-31' },
+        TENANT_ID,
+      );
+
+      const stats = await service.getStats(year.id, TENANT_ID);
+
+      expect(stats).toEqual({ classes_count: 0, students_count: 0, fee_structures_count: 0 });
+    });
+
+    it("should not count another tenant's classes/students/fee structures", async () => {
+      const year = await service.create(
+        { name: '2028-2029', start_date: '2028-01-01', end_date: '2028-12-31' },
+        TENANT_ID,
+      );
+      const otherYear = await service.create(
+        { name: '2028-2029', start_date: '2028-01-01', end_date: '2028-12-31' },
+        OTHER_TENANT,
+      );
+
+      const classRepo = dataSource.getRepository(Class);
+      await classRepo.save({
+        name: 'Other Tenant Class',
+        academic_year_id: otherYear.id,
+        tenant_id: OTHER_TENANT,
+      });
+
+      const stats = await service.getStats(year.id, TENANT_ID);
+
+      expect(stats.classes_count).toBe(0);
+    });
+
+    it('should reject a stats lookup for a year that does not belong to the tenant', async () => {
+      const otherYear = await service.create(
+        { name: '2029-2030', start_date: '2029-01-01', end_date: '2029-12-31' },
+        OTHER_TENANT,
+      );
+
+      await expect(service.getStats(otherYear.id, TENANT_ID)).rejects.toThrow(NotFoundException);
     });
   });
 });

@@ -21,30 +21,37 @@ export interface PaginatedClasses {
   totalPages: number;
 }
 
-export const classKeys = createEntityKeys<{ limit?: number }>('classes');
+export interface ClassListFilters {
+  academic_year_id?: string;
+  page?: number;
+  limit?: number;
+}
 
-/** A class list backs a filter dropdown ("All classes"), not a paginated
- * table — a school's whole class list comfortably fits one page at a
- * generous limit, so callers don't need to wire pagination through a
- * `<select>`. `limit: 100` is a deliberate ceiling, not a real page size. */
+export const classKeys = createEntityKeys<ClassListFilters>('classes');
+
+/** Bare `useClasses()` (a filter dropdown's "All classes" list, e.g.
+ * `dues.tsx`, `students/index.tsx`) never sets `page`/`limit` — a school's
+ * whole class list comfortably fits one page at this generous default, so
+ * those callers don't need to wire pagination through a `<select>`.
+ * `academic_year_id`-scoped callers (the Academic Year detail page's
+ * Classes tab) pass their own `page`/`limit` to page through a year that
+ * genuinely has more classes than the default ceiling. */
 const CLASS_FILTER_LIMIT = 100;
 
-export function classesQueryOptions() {
+export function classesQueryOptions(filters: ClassListFilters = {}) {
+  const params = { limit: CLASS_FILTER_LIMIT, ...filters };
   return queryOptions({
-    queryKey: classKeys.list({ limit: CLASS_FILTER_LIMIT }),
+    queryKey: classKeys.list(params),
     queryFn: async ({ signal }) => {
-      const res = await apiClient.get<PaginatedClasses>('/classes', {
-        params: { limit: CLASS_FILTER_LIMIT },
-        signal,
-      });
+      const res = await apiClient.get<PaginatedClasses>('/classes', { params, signal });
       return res.data;
     },
     retry: shouldRetryQuery,
   });
 }
 
-export function useClasses() {
-  return useQuery(classesQueryOptions());
+export function useClasses(filters: ClassListFilters = {}) {
+  return useQuery(classesQueryOptions(filters));
 }
 
 /** `GET /classes/:classId/sections` returns a plain array, not the
