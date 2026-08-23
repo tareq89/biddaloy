@@ -207,6 +207,12 @@ describe('/academic-years', () => {
           totalPages: 1,
         }),
       ),
+      // Test-local, not the shared default handler's stats — this test
+      // waits for its own known value, not a value it happens to share
+      // with whatever the default handler currently returns.
+      http.get('/api/v1/academic-years/:id/stats', () =>
+        HttpResponse.json({ classes_count: 3, students_count: 17, fee_structures_count: 5 }),
+      ),
     );
 
     const { container } = renderWithRouter(routeTree, {
@@ -220,7 +226,7 @@ describe('/academic-years', () => {
     // Waits for the per-row stats cells to settle too — otherwise their
     // fetch resolves after this test's own assertions, which React logs
     // as an unwrapped `act()` update against a since-finished test.
-    await screen.findByText('42');
+    await screen.findByText('17');
     await expect(container).toHaveNoViolations();
   });
 });

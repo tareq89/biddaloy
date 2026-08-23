@@ -8,7 +8,7 @@ import {
   useUpdateAcademicYear,
   type AcademicYear,
 } from '@biddaloy/ui/hooks';
-import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState } from '@biddaloy/ui/shells';
 import { formatAcademicYear, formatDate, parseServerDate } from '@biddaloy/ui/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
@@ -38,7 +38,9 @@ function StudentsCountCell({ academicYearId }: { academicYearId: string }) {
 
 function AcademicYearsListPage() {
   const { t } = useTranslation('academicYears');
-  const regionConfig = useRegionConfig();
+  // `useRegionConfig()` has no ambient provider above the route tree —
+  // see `$academicYearId.tsx`'s identical wrap for why this is needed.
+  const regionConfig = useTenantRegionConfig();
   const [state, actions] = useListShellState({ limit: 10 });
   const canManage = useHasPermission(Permission.ACADEMIC_YEAR_MANAGE);
 
@@ -141,7 +143,7 @@ function AcademicYearsListPage() {
   ];
 
   return (
-    <>
+    <RegionConfigProvider value={regionConfig}>
       <ListShell
         title={t('list.title')}
         primaryAction={
@@ -217,6 +219,6 @@ function AcademicYearsListPage() {
           onConfirmed={() => setSettingCurrent(null)}
         />
       )}
-    </>
+    </RegionConfigProvider>
   );
 }

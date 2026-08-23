@@ -44,14 +44,22 @@ describe('/academic-years/$academicYearId', () => {
       http.get('/api/v1/academic-years/:id/stats', () =>
         HttpResponse.json({ classes_count: 4, students_count: 120, fee_structures_count: 6 }),
       ),
+      // Counts render through `formatNumber(count, regionConfig)` — override
+      // the tenant's region settings to Latin numerals so this test's plain
+      // digit assertions test "are the right counts shown", not numeral-system
+      // formatting (`number.spec.ts`/`region-config.spec.ts` already own that).
+      http.get('/api/v1/schools/:id/settings', () =>
+        HttpResponse.json({ version: 1, region: { numerals: 'latin' } }),
+      ),
     );
 
-    renderWithRouter(routeTree, {
+    const { localeReady } = renderWithRouter(routeTree, {
       initialEntries: ['/academic-years/year-1?tab=statistics'],
       tenantId: 'tenant-1',
       role: 'ADMIN',
       locale: 'en',
     });
+    await localeReady;
 
     await screen.findByText('4');
     expect(screen.getByText('120')).toBeTruthy();
@@ -84,6 +92,7 @@ describe('/academic-years/$academicYearId', () => {
 
     await screen.findByRole('tab', { name: 'Classes' });
     expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Set as current' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
   });
 
