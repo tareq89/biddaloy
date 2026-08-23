@@ -312,15 +312,72 @@ describe('Academic Years E2E', () => {
       });
     });
 
+    it('should return 401 without X-Tenant-ID header', async () => {
+      const createRes = await supertest(app.getHttpServer())
+        .post('/api/v1/academic-years')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ name: 'No Header Year', start_date: '2026-01-01', end_date: '2026-12-31' })
+        .expect(201);
+
+      const res = await supertest(app.getHttpServer())
+        .get(`/api/v1/academic-years/${createRes.body.id}/stats`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        // No X-Tenant-ID
+        .expect(401);
+
+      expect(res.body.message).toBe('X-Tenant-ID header is required');
+    });
+
+    it('should return 401 for an invalid tenant context', async () => {
+      const createRes = await supertest(app.getHttpServer())
+        .post('/api/v1/academic-years')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ name: 'Invalid Context Year', start_date: '2026-01-01', end_date: '2026-12-31' })
+        .expect(201);
+
+      // Tenant the admin has no membership in — simulates an invalid tenant context.
+      const OTHER_TENANT_ID = '00000000-0000-4000-8000-000000000099';
+      await dataSource.query(
+        `INSERT INTO schools (id, name, slug, created_at, updated_at)
+         VALUES ('${OTHER_TENANT_ID}', 'Other School', 'other-school', NOW(), NOW())
+         ON CONFLICT DO NOTHING`,
+      );
+
+      const res = await supertest(app.getHttpServer())
+        .get(`/api/v1/academic-years/${createRes.body.id}/stats`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', OTHER_TENANT_ID)
+        .expect(401);
+
+      expect(res.body.message).toContain('not a member');
+    });
+
     it('should return 404 for a year that does not belong to the tenant', async () => {
+      // Tenant B, with its own academic year — proves the 404 comes from
+      // real tenant-scoped isolation, not just a nonexistent-ID lookup.
+      const OTHER_TENANT_ID = '00000000-0000-4000-8000-000000000099';
+      await dataSource.query(
+        `INSERT INTO schools (id, name, slug, created_at, updated_at)
+         VALUES ('${OTHER_TENANT_ID}', 'Other School', 'other-school', NOW(), NOW())
+         ON CONFLICT DO NOTHING`,
+      );
+      const otherTenantYearId = '00000000-0000-4000-8000-000000000098';
+      await dataSource.query(
+        `INSERT INTO academic_years (id, name, start_date, end_date, tenant_id, created_at, updated_at)
+         VALUES ('${otherTenantYearId}', 'Tenant B Year', '2026-01-01', '2026-12-31', '${OTHER_TENANT_ID}', NOW(), NOW())
+         ON CONFLICT DO NOTHING`,
+      );
+
       await supertest(app.getHttpServer())
-        .get('/api/v1/academic-years/00000000-0000-4000-8000-000000000000/stats')
+        .get(`/api/v1/academic-years/${otherTenantYearId}/stats`)
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .expect(404);
     });
 
-    it('should return 403 for STUDENT role', async () => {
+    it('should return 401 for STUDENT role', async () => {
       const createRes = await supertest(app.getHttpServer())
         .post('/api/v1/academic-years')
         .set('Authorization', `Bearer ${adminToken}`)
