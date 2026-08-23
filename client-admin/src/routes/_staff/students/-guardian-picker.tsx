@@ -62,6 +62,17 @@ export function GuardianPicker({
   const searchQuery = useGuardians({ search: debouncedSearch });
   const createGuardian = useCreateGuardian();
 
+  // `handleCreateGuardian`'s `onSuccess` fires after the mutation's own
+  // round trip, by which point a re-render (another checkbox toggled, a
+  // guardian removed) may have moved `selectedIds` on from whatever this
+  // render's closure captured. A ref always reads the latest value, so
+  // the new guardian gets appended to what the user has actually selected
+  // by the time the response comes back, not a stale snapshot.
+  const selectedIdsRef = React.useRef(selectedIds);
+  React.useEffect(() => {
+    selectedIdsRef.current = selectedIds;
+  }, [selectedIds]);
+
   React.useEffect(() => {
     const results = searchQuery.data?.data;
     if (!results || results.length === 0) return;
@@ -104,9 +115,15 @@ export function GuardianPicker({
       {
         onSuccess: (guardian) => {
           setKnownGuardians((current) => ({ ...current, [guardian.id]: guardian }));
-          onSelectedIdsChange([...selectedIds, guardian.id]);
+          onSelectedIdsChange([...selectedIdsRef.current, guardian.id]);
           setDraft(emptyDraft());
           setAddingNew(false);
+        },
+        onError: (error) => {
+          // Otherwise a server validation failure or network error leaves
+          // the panel just... sitting there, `isPending` back to false,
+          // with nothing telling the user their guardian wasn't created.
+          setDraftError(error instanceof Error ? error.message : String(error));
         },
       },
     );
