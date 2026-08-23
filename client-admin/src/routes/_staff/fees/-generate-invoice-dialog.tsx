@@ -17,10 +17,17 @@ export interface GenerateInvoiceDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   rows: readonly FeeDueRow[];
-  /** Called once every request has settled — the caller (the dues queue)
-   * uses this to clear its own selection, same contract as
-   * `SendReminderDialog`'s `onSent`. */
+  /** Called only when every request in the batch succeeded — the caller
+   * (the dues queue) uses this to clear its own selection, same contract
+   * as `SendReminderDialog`'s `onSent`. Not called on partial failure, so
+   * a row that already got its invoice isn't silently deselected while
+   * the dialog is still showing the failure. */
   onGenerated: () => void;
+  /** Called on partial failure with the student ids that succeeded, so
+   * the caller can drop just those from selection (avoids resubmitting
+   * rows that already got an invoice on retry) and refresh the dues list,
+   * without clearing the still-selected failed rows. */
+  onPartialGenerate: (succeededStudentIds: readonly string[]) => void;
 }
 
 /**
@@ -41,6 +48,7 @@ export function GenerateInvoiceDialog({
   onOpenChange,
   rows,
   onGenerated,
+  onPartialGenerate,
 }: GenerateInvoiceDialogProps) {
   const { t } = useTranslation('fees');
   const createInvoice = useCreateInvoice();
@@ -89,9 +97,16 @@ export function GenerateInvoiceDialog({
       return;
     }
 
-    onOpenChange(false);
-    onGenerated();
-    toast.warning(t('dues.generateInvoiceDialog.partialMessage', { succeeded, failed }));
+    // Partial failure: keep the dialog open instead of clearing the whole
+    // selection. `rows` is the caller's selection, so once it drops the
+    // succeeded ids, `billableRows` above shrinks to just the still-failed
+    // ones on the next render — Confirm then retries only those instead of
+    // resubmitting rows that already got an invoice.
+    const succeededStudentIds = billableRows
+      .filter((_row, index) => results[index]?.status === 'fulfilled')
+      .map((row) => row.student_id);
+    onPartialGenerate(succeededStudentIds);
+    setError(t('dues.generateInvoiceDialog.partialMessage', { succeeded, failed }));
   }
 
   return (

@@ -520,6 +520,12 @@ function DuesQueuePage() {
           actions.setSelectedIds(new Set());
           void queryClient.invalidateQueries({ queryKey: feeDuesKeys.all });
         }}
+        onPartialGenerate={(succeededStudentIds) => {
+          const next = new Set(state.selectedIds);
+          for (const id of succeededStudentIds) next.delete(id);
+          actions.setSelectedIds(next);
+          void queryClient.invalidateQueries({ queryKey: feeDuesKeys.all });
+        }}
       />
     </>
   );
