@@ -9,7 +9,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
  * links here from its Edit action so that link isn't a dead end while
  * [8.10.3] is still unbuilt.
  */
-export const Route = createFileRoute('/_staff/students/$studentId/edit')({
+export const Route = createFileRoute('/_staff/students/$studentId_/edit')({
   component: EditStudentPage,
 });
 

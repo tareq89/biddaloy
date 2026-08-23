@@ -155,6 +155,28 @@ describe('/students/$studentId', () => {
     expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
   });
 
+  it('clicking Edit navigates to the edit placeholder page, not a dead end', async () => {
+    const student = studentFactory({ id: 'student-1' });
+    server.use(http.get('/api/v1/students/:id', () => HttpResponse.json(student)));
+
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/students/student-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/students/student-1/edit'));
+    // The edit route opts out of nesting under `$studentId` (a
+    // `$studentId_.edit.tsx` file, not `$studentId.edit.tsx`) — without
+    // that, the parent page never renders an `<Outlet />` and this
+    // heading would never appear.
+    expect(await screen.findByRole('heading', { name: 'Edit student' })).toBeTruthy();
+  });
+
   it('a tab whose endpoint 403s shows a clear message instead of crashing the page', async () => {
     const student = studentFactory({ id: 'student-1' });
     server.use(
