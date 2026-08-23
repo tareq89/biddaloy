@@ -2,7 +2,7 @@ import { InvoiceStatus, Permission } from '@biddaloy/shared';
 import { Button, ErrorState, Skeleton, StatusBadge, toast } from '@biddaloy/ui/components';
 import { openPrintableInvoice, useHasPermission, useInvoice } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatDate, formatServerAmount } from '@biddaloy/ui/utils';
+import { formatDate, formatServerAmount, parseServerDate } from '@biddaloy/ui/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 
 /**
@@ -54,11 +54,11 @@ function InvoiceDetailPage() {
           <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
             <div>
               <dt className="text-muted-foreground">{t('invoiceDetail.issuedDate')}</dt>
-              <dd>{formatDate(new Date(invoiceQuery.data.issued_date), regionConfig)}</dd>
+              <dd>{formatDate(parseServerDate(invoiceQuery.data.issued_date), regionConfig)}</dd>
             </div>
             <div>
               <dt className="text-muted-foreground">{t('invoiceDetail.dueDate')}</dt>
-              <dd>{formatDate(new Date(invoiceQuery.data.due_date), regionConfig)}</dd>
+              <dd>{formatDate(parseServerDate(invoiceQuery.data.due_date), regionConfig)}</dd>
             </div>
             <div>
               <dt className="text-muted-foreground">{t('invoiceDetail.taxAmount')}</dt>

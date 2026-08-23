@@ -41,6 +41,24 @@ export function parseDate(input: string): Date {
   return date;
 }
 
+/**
+ * Parses a server `date`-column value into a **local** calendar date.
+ *
+ * A Postgres `date` column (e.g. `Invoice.issued_date`) round-trips
+ * through the API as an ISO datetime string — `"2024-01-05T00:00:00.000Z"`,
+ * not a bare `"2024-01-05"` — because TypeORM reads the column into a JS
+ * `Date` and Nest's JSON serialization calls `.toISOString()` on it.
+ * Handing that string straight to `new Date(...)` and then reading
+ * `.getDate()`/`formatDate` (both local-timezone) rolls the displayed date
+ * back a day for anyone west of UTC: `new Date('2024-01-05T00:00:00.000Z')`
+ * is 2024-01-04 18:00 in `America/Los_Angeles`. Slicing to the date-only
+ * prefix and handing that to `parseDate` (which builds the `Date` from
+ * local calendar fields, no UTC round-trip) avoids the shift.
+ */
+export function parseServerDate(value: string): Date {
+  return parseDate(value.slice(0, 10));
+}
+
 /** Which academic-year window `date` falls into, per
  * `config.academicYear.startMonth` (1–12). A school on a January start
  * never straddles a calendar year (`startYear === endYear`); one on, say,

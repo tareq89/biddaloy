@@ -21,7 +21,13 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState } from '@biddaloy/ui/shells';
-import { formatDate, formatServerAmount, parseDate, toLatinDigits } from '@biddaloy/ui/utils';
+import {
+  formatDate,
+  formatServerAmount,
+  parseDate,
+  parseServerDate,
+  toLatinDigits,
+} from '@biddaloy/ui/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import * as React from 'react';
 import { z } from 'zod';
@@ -170,12 +176,12 @@ function InvoicesListPage() {
     {
       id: 'issuedDate',
       header: t('invoices.columnIssueDate'),
-      accessorFn: (row) => formatDate(new Date(row.issued_date), regionConfig),
+      accessorFn: (row) => formatDate(parseServerDate(row.issued_date), regionConfig),
     },
     {
       id: 'dueDate',
       header: t('invoices.columnDueDate'),
-      accessorFn: (row) => formatDate(new Date(row.due_date), regionConfig),
+      accessorFn: (row) => formatDate(parseServerDate(row.due_date), regionConfig),
     },
     ...(canPrint
       ? [
