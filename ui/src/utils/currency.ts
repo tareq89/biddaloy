@@ -92,20 +92,59 @@ export function parseCurrency(input: string, config: RegionConfig): number {
 }
 
 /**
+ * Rounds `value` to `decimals` fractional digits half-up, working on its
+ * shortest round-trip decimal string (`value.toString()`) rather than
+ * `toFixed`, which rounds the underlying binary double directly.
+ * `(1.005).toFixed(2)` is `"1.00"` — the closest double to `1.005` is
+ * actually `1.00499999999999989...`, so binary rounding truncates it down
+ * — but `(1.005).toString()` is the exact literal `"1.005"`, since that's
+ * the shortest decimal string that round-trips back to the same double.
+ * Rounding that string by digit instead recovers the half-up result a
+ * human typing `1.005` expects: `1.01`.
+ */
+function roundDecimalString(value: number, decimals: number): string {
+  const str = value.toString();
+  if (/e/i.test(str)) {
+    // Magnitude far enough from zero that `toString()` itself switches to
+    // exponential notation — there's no extra binary-vs-decimal precision
+    // to recover at that scale, so fall back to `toFixed`.
+    return value.toFixed(decimals);
+  }
+
+  const negative = str.startsWith('-');
+  const unsigned = negative ? str.slice(1) : str;
+  const [integerPart, fractionPart = ''] = unsigned.split('.');
+  if (fractionPart.length <= decimals) return value.toFixed(decimals);
+
+  const keptFraction = fractionPart.slice(0, decimals);
+  const roundUp = fractionPart.charCodeAt(decimals) >= '5'.charCodeAt(0);
+
+  let combined = BigInt(integerPart + keptFraction || '0');
+  if (roundUp) combined += 1n;
+
+  const digits = combined.toString().padStart(decimals + 1, '0');
+  const newInteger = digits.slice(0, digits.length - decimals) || '0';
+  const newFraction = digits.slice(digits.length - decimals);
+  const sign = negative && combined !== 0n ? '-' : '';
+  return decimals > 0 ? `${sign}${newInteger}.${newFraction}` : `${sign}${newInteger}`;
+}
+
+/**
  * Formats a server-supplied amount that isn't already in minor units —
  * either a decimal-column string (`"500.00"`) or a JS number the server
  * summed in SQL (`SUM(...)`, which can carry float artifacts like
  * `2000.0000000000002` with more fractional digits than the currency's
- * configured precision). Rounding a number to `config.currency.decimals`
- * before handing it to `parseCurrency` absorbs that artifact; a string is
- * passed through unchanged, since it came straight off a `decimal` column
- * and is already exact.
+ * configured precision, or a genuine half-cent value like `1.005`).
+ * Rounding a number to `config.currency.decimals` before handing it to
+ * `parseCurrency` absorbs both; a string is passed through unchanged,
+ * since it came straight off a `decimal` column and is already exact.
  *
  * Second call site of this exact pattern (`fees-tab.tsx`'s summary cards,
  * originally [8.10.2]) is the line past which it earns a shared home next
  * to `formatCurrency`/`parseCurrency` instead of staying a local helper.
  */
 export function formatServerAmount(amount: number | string, config: RegionConfig): string {
-  const normalized = typeof amount === 'number' ? amount.toFixed(config.currency.decimals) : amount;
+  const normalized =
+    typeof amount === 'number' ? roundDecimalString(amount, config.currency.decimals) : amount;
   return formatCurrency(parseCurrency(normalized, config), config);
 }

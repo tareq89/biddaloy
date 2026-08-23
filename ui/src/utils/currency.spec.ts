@@ -125,4 +125,13 @@ describe('formatServerAmount', () => {
   it('rounds to the currency-configured decimal places', () => {
     expect(formatServerAmount(1234.565, REGION_BD_EN)).toBe('৳1,234.57');
   });
+
+  it('rounds a half-cent value up instead of truncating it', () => {
+    // The closest double to 1.005 is actually 1.00499999999999989... —
+    // `(1.005).toFixed(2)` rounds that binary value down to "1.00".
+    // formatServerAmount must round the decimal value itself, not that
+    // binary artifact, so a genuine half-cent rounds up like a human
+    // reading "1.005" would expect.
+    expect(formatServerAmount(1.005, REGION_BD_EN)).toBe('৳1.01');
+  });
 });
