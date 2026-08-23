@@ -86,6 +86,7 @@ export function YearFormDialog({
   const [endDate, setEndDate] = React.useState<Date | undefined>(initialValues?.endDate);
   const [isCurrent, setIsCurrent] = React.useState(initialValues?.isCurrent ?? false);
   const [validationError, setValidationError] = React.useState<string | null>(null);
+  const [confirmingIsCurrent, setConfirmingIsCurrent] = React.useState(false);
 
   React.useEffect(() => {
     if (!open) return;
@@ -95,8 +96,28 @@ export function YearFormDialog({
     setEndDate(values.endDate);
     setIsCurrent(values.isCurrent);
     setValidationError(null);
+    setConfirmingIsCurrent(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/close transitions
   }, [open]);
+
+  /** Checking the box unsets every other current academic year server-side
+   * (`academic-year.service.ts`'s `create`/`update`) — same side effect
+   * `SetCurrentDialog` requires explicit confirmation for. Route through
+   * the same confirmation here rather than flipping `isCurrent` straight
+   * from the checkbox, so this form can't bypass it. Unchecking has no
+   * such side effect and stays a direct toggle. */
+  function handleIsCurrentChange(checked: boolean) {
+    if (checked) {
+      setConfirmingIsCurrent(true);
+      return;
+    }
+    setIsCurrent(false);
+  }
+
+  function handleConfirmIsCurrent() {
+    setIsCurrent(true);
+    setConfirmingIsCurrent(false);
+  }
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -171,12 +192,31 @@ export function YearFormDialog({
             <Checkbox
               id="year-form-is-current"
               checked={isCurrent}
-              onCheckedChange={(checked) => setIsCurrent(checked === true)}
+              onCheckedChange={(checked) => handleIsCurrentChange(checked === true)}
             />
             <label htmlFor="year-form-is-current" className="text-sm">
               {t('form.isCurrentLabel')}
             </label>
           </div>
+
+          {confirmingIsCurrent && (
+            <div className="rounded-md border border-border bg-muted p-3 text-sm">
+              <p>{t('form.confirmIsCurrentDescription')}</p>
+              <div className="mt-2 flex gap-2">
+                <Button type="button" size="sm" onClick={handleConfirmIsCurrent}>
+                  {t('form.confirmIsCurrentConfirm')}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setConfirmingIsCurrent(false)}
+                >
+                  {t('form.confirmIsCurrentCancel')}
+                </Button>
+              </div>
+            </div>
+          )}
 
           {validationError && (
             <p role="alert" className="text-sm text-destructive">
