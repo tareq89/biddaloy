@@ -74,8 +74,14 @@ const duesSearchSchema = z.object({
   selected: z.string().optional().catch(undefined),
 });
 
-function toFeeDuesFilters(filters: DuesFilters, sortColumnId: string | undefined) {
-  const sortField = sortColumnId ? SORT_FIELD_BY_COLUMN[sortColumnId] : undefined;
+function toFeeDuesFilters(
+  filters: DuesFilters,
+  sortColumnId: string | undefined,
+  flagged: boolean,
+) {
+  // The flagged endpoint accepts no sort fields (see the QueryFeeDuesDto
+  // note above) — never send sort_by/sort_order alongside flagged=true.
+  const sortField = !flagged && sortColumnId ? SORT_FIELD_BY_COLUMN[sortColumnId] : undefined;
   return {
     ...(filters.class_id !== undefined ? { class_id: filters.class_id } : {}),
     ...(filters.section_id !== undefined ? { section_id: filters.section_id } : {}),
@@ -117,8 +123,9 @@ export const Route = createFileRoute('/_staff/fees/dues')({
               status: deps.status,
             },
             deps.sort,
+            deps.flagged,
           ),
-          ...(deps.order !== undefined
+          ...(deps.order !== undefined && !deps.flagged
             ? { sort_order: deps.order === 'desc' ? 'DESC' : 'ASC' }
             : {}),
         },
@@ -164,7 +171,7 @@ function DuesQueuePage() {
     {
       page: state.page,
       limit: state.limit,
-      ...toFeeDuesFilters(filters, state.sorting?.id),
+      ...toFeeDuesFilters(filters, state.sorting?.id, flagged),
       ...(state.sorting && !flagged ? { sort_order: state.sorting.desc ? 'DESC' : 'ASC' } : {}),
     },
     flagged,
