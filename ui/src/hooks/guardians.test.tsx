@@ -51,6 +51,24 @@ describe('useGuardians', () => {
     expect(requestedSearch).toBe('Karim');
     expect(requestedLimit).toBe('10');
   });
+
+  it('always requests GUARDIAN_SEARCH_LIMIT, even if a caller passes its own limit', async () => {
+    let requestedLimit: string | null = null;
+    server.use(
+      http.get('/api/v1/guardians', ({ request }) => {
+        requestedLimit = new URL(request.url).searchParams.get('limit');
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 });
+      }),
+    );
+
+    const { result } = renderHookWithProviders(
+      () => useGuardians({ search: 'Karim', limit: 100 }),
+      { tenantId: 'tenant-1' },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(requestedLimit).toBe('10');
+  });
 });
 
 describe('useCreateGuardian', () => {

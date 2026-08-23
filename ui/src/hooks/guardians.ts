@@ -36,11 +36,20 @@ export const guardianKeys = createEntityKeys<GuardianListFilters>('guardians');
 const GUARDIAN_SEARCH_LIMIT = 10;
 
 export function guardiansQueryOptions(filters: GuardianListFilters) {
+  // One object, used for both the cache key and the request params —
+  // built with `limit` forced to `GUARDIAN_SEARCH_LIMIT` last, so it
+  // always wins over anything a caller passed in `filters.limit`. Building
+  // the key from raw `filters` instead would let a defined `filters.limit`
+  // silently override the actual requested limit while the cache key
+  // stayed unaware of it, and `{ limit: undefined }` would cache
+  // identically to an omitted `limit` despite the two overriding the
+  // request differently were `limit` ever spread after this point.
+  const effectiveFilters: GuardianListFilters = { ...filters, limit: GUARDIAN_SEARCH_LIMIT };
   return queryOptions({
-    queryKey: guardianKeys.list(filters),
+    queryKey: guardianKeys.list(effectiveFilters),
     queryFn: async ({ signal }) => {
       const res = await apiClient.get<PaginatedGuardians>('/guardians', {
-        params: { limit: GUARDIAN_SEARCH_LIMIT, ...filters },
+        params: effectiveFilters,
         signal,
       });
       return res.data;
