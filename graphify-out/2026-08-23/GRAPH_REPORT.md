@@ -4,12 +4,12 @@
 - cluster-only mode — file stats not available
 
 ## Summary
-- 4485 nodes · 10821 edges · 270 communities (195 shown, 75 thin omitted)
+- 4485 nodes · 10821 edges · 271 communities (196 shown, 75 thin omitted)
 - Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 182 edges (avg confidence: 0.74)
-- Token cost: 0 input · 0 output
+- Token cost: 25,234 input · 121 output
 
 ## Graph Freshness
-- Built from commit: `9cad36ba`
+- Built from commit: `7226befc`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -270,6 +270,7 @@
 - CodeQL workflow
 - enrollments.ts
 - $invoiceId.tsx
+- Student Enrollment
 - dashboard.tsx
 - new.tsx
 - Rate Limiting (Throttler)
@@ -309,11 +310,11 @@
 - **Design-System Wrapper Boundary Pattern** — ui_contributing_wrapperrule, ui_src_primitives_readme_doc, ui_readme_doc, ui_contributing_threefile_requirement [INFERRED 0.85]
 - **Multi-Tenant Scoping Enforced Across Stack** — claude_skills_multi_tenancy_skill_doc, server_claude_testingstandards, ui_readme_apiclient, ui_readme_hooks [INFERRED 0.85]
 
-## Communities (270 total, 75 thin omitted)
+## Communities (271 total, 75 thin omitted)
 
 ### Community 0 - "School"
-Cohesion: 0.06
-Nodes (62): AcademicYearModule, Module, AcademicYear, Column, CreateDateColumn, DeleteDateColumn, Entity, Index (+54 more)
+Cohesion: 0.08
+Nodes (48): AcademicYear, Column, CreateDateColumn, DeleteDateColumn, Entity, Index, JoinColumn, ManyToOne (+40 more)
 
 ### Community 1 - "index.ts"
 Cohesion: 0.05
@@ -328,8 +329,8 @@ Cohesion: 0.25
 Nodes (8): TeacherClassSection, Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, Unique
 
 ### Community 4 - "student.entity.ts"
-Cohesion: 0.04
-Nodes (75): Check, buildRateLimitTracker(), AuditModule, Module, AuditService, RecordAuditEntryInput, Injectable, ClassModule (+67 more)
+Cohesion: 0.05
+Nodes (55): Check, PaymentAllocation, Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne (+47 more)
 
 ### Community 5 - "index.ts"
 Cohesion: 0.06
@@ -389,11 +390,11 @@ Nodes (50): CommunicationMedium, AcademicYear, academicYearFactory(), AuditEntry
 
 ### Community 19 - "AuditService"
 Cohesion: 0.05
-Nodes (50): ApiHideProperty, Global, Optional, AccessTokenDenylistService, Inject, Injectable, AuthModule, Module (+42 more)
+Nodes (45): ApiHideProperty, Optional, AccessTokenDenylistService, Inject, Injectable, AuthResult, Inject, InjectRepository (+37 more)
 
 ### Community 20 - "FeeStructure"
-Cohesion: 0.09
-Nodes (21): FeeStructure, Column, CreateDateColumn, DeleteDateColumn, Entity, Index, JoinColumn, ManyToOne (+13 more)
+Cohesion: 0.10
+Nodes (20): FeeStructure, Column, CreateDateColumn, DeleteDateColumn, Entity, Index, JoinColumn, ManyToOne (+12 more)
 
 ### Community 21 - "UserController"
 Cohesion: 0.06
@@ -412,8 +413,8 @@ Cohesion: 0.09
 Nodes (32): ENROLLMENT_STATUSES, TransferStatusDialog(), TransferStatusDialogProps, InputProps, Label(), LabelProps, Placeholder(), Select() (+24 more)
 
 ### Community 25 - "app.module.ts"
-Cohesion: 0.20
-Nodes (9): InjectRepository, AuditLog, Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne (+1 more)
+Cohesion: 0.05
+Nodes (37): Global, buildRateLimitTracker(), AcademicYearModule, Module, AuditModule, Module, AuditService, RecordAuditEntryInput (+29 more)
 
 ### Community 26 - "cn"
 Cohesion: 0.19
@@ -452,8 +453,8 @@ Cohesion: 0.10
 Nodes (20): CommunicationLog, Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn (+12 more)
 
 ### Community 35 - "outbound-destination-guard.ts"
-Cohesion: 0.18
-Nodes (12): ResolvedGreenwebSmsConfig, ResolvedMimSmsConfig, CommunicationSendResult, ConnectionTestResult, normalizeBdPhoneNumber(), fetchPinnedJson(), GreenwebSmsGateway, Injectable (+4 more)
+Cohesion: 0.15
+Nodes (18): ResolvedGreenwebSmsConfig, ResolvedMimSmsConfig, CommunicationSendResult, ConnectionTestResult, assertSafeHttpDestination(), DestinationBlockedError, normalizeBdPhoneNumber(), fetchPinnedJson() (+10 more)
 
 ### Community 36 - "ignoreDependencies"
 Cohesion: 0.06
@@ -488,7 +489,7 @@ Cohesion: 0.06
 Nodes (31): @nestjs/cli, @nestjs/testing, devDependencies, @nestjs/cli, @nestjs/testing, supertest, ts-node, tsconfig-paths (+23 more)
 
 ### Community 44 - "greenweb-sms.gateway.ts"
-Cohesion: 0.17
+Cohesion: 0.16
 Nodes (16): CommunicationsModule, Module, CommunicationProvider, CommunicationProviderRegistry, CommunicationProviderRegistryService, Injectable, SmtpEmailProvider, Injectable (+8 more)
 
 ### Community 45 - "data-source.ts"
@@ -617,7 +618,7 @@ Nodes (20): CommunicationsSettings, CurrencyGrouping, CurrencyPosition, EmailSet
 
 ### Community 77 - "auth-state.ts"
 Cohesion: 0.09
-Nodes (33): TableBodyProps, TableCaptionProps, TableCellProps, TableFooter(), TableFooterProps, TableHeaderProps, TableHeadProps, TableProps (+25 more)
+Nodes (34): TableBodyProps, TableCaptionProps, TableCellProps, TableFooter(), TableFooterProps, TableHeaderProps, TableHeadProps, TableProps (+26 more)
 
 ### Community 78 - "tooltip.tsx"
 Cohesion: 0.15
@@ -756,8 +757,8 @@ Cohesion: 0.12
 Nodes (17): UserRole, PersistedTenant, optionKey(), SchoolCard(), SchoolPicker(), SchoolPickerOption, SchoolPickerProps, schools (+9 more)
 
 ### Community 113 - "tenant-bar.stories.tsx"
-Cohesion: 0.15
-Nodes (9): ResolvedEmailConfig, TenantProviderConfigResolver, Injectable, CommunicationSendParams, isSmtpConnectionError(), mapSmtpError(), SMTP_CONNECTION_ERROR_CODES, withPinnedAddressFallback() (+1 more)
+Cohesion: 0.20
+Nodes (3): TenantProviderConfigResolver, Injectable, CommunicationSendParams
 
 ### Community 114 - "Multi-Tenancy Rules (Biddaloy)"
 Cohesion: 0.17
@@ -797,7 +798,7 @@ Nodes (12): COLUMNS, Default, Empty, ErrorState, Loading, meta, RightToLeft, Sel
 
 ### Community 123 - "TenantProviderConfigResolver"
 Cohesion: 0.11
-Nodes (24): DestinationBlockedError, OutboundDestinationError, assertResolvesToPublicAddress(), assertSafeHttpDestination(), assertSafeSmtpDestination(), DestinationBlockedError, DestinationResolutionError, ipv4ToInt() (+16 more)
+Nodes (24): ResolvedEmailConfig, isSmtpConnectionError(), mapSmtpError(), SMTP_CONNECTION_ERROR_CODES, DestinationBlockedError, OutboundDestinationError, withPinnedAddressFallback(), assertResolvesToPublicAddress() (+16 more)
 
 ### Community 124 - "ReminderBatch"
 Cohesion: 0.15
@@ -1020,8 +1021,8 @@ Cohesion: 0.53
 Nodes (4): fakeCache(), fakeConfig(), fakeSchools(), resolverWith()
 
 ### Community 223 - "checkbox.stories.tsx"
-Cohesion: 0.16
-Nodes (11): Checkbox(), CheckboxProps, Checked, Default, Disabled, Indeterminate, Invalid, meta (+3 more)
+Cohesion: 0.18
+Nodes (10): Checkbox(), CheckboxProps, Checked, Default, Disabled, Indeterminate, Invalid, meta (+2 more)
 
 ### Community 224 - "matchers.ts"
 Cohesion: 0.40
@@ -1047,6 +1048,10 @@ Nodes (3): ALLOWLIST, AllowlistEntry, JWT_AUTH_GUARD
 Cohesion: 0.25
 Nodes (7): create, Enrollment, enrollmentDefaultHandlers, enrollmentHandlers, listByStudent, listByStudentEmpty, update
 
+### Community 267 - "Student Enrollment"
+Cohesion: 0.14
+Nodes (12): EnrollmentService, Injectable, InjectRepository, Enrollment, Column, CreateDateColumn, Entity, Index (+4 more)
+
 ## Ambiguous Edges - Review These
 - `Serena Project Config` → `Biddaloy CLAUDE.md`  [AMBIGUOUS]
   .serena/project.yml · relation: conceptually_related_to
@@ -1070,6 +1075,6 @@ _Questions this graph is uniquely positioned to answer:_
 - **What connects `semi`, `singleQuote`, `trailingComma` to the rest of the system?**
   _1131 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `School` be split into smaller, more focused modules?**
-  _Cohesion score 0.06368985808238145 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.08180708180708181 - nodes in this community are weakly interconnected._
 - **Should `index.ts` be split into smaller, more focused modules?**
   _Cohesion score 0.05493221131369799 - nodes in this community are weakly interconnected._
