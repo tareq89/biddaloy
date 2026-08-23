@@ -136,7 +136,7 @@ describe('/invoices', () => {
       await user.click(await screen.findByRole('button', { name: 'Print' }));
 
       await waitFor(() => expect(fakeWindow.location.href).toBe('blob:mock'));
-      expect(openSpy).toHaveBeenCalledWith('', '_blank', 'noreferrer');
+      expect(openSpy).toHaveBeenCalledWith('', '_blank');
     } finally {
       openSpy.mockRestore();
       delete (URL as { createObjectURL?: typeof URL.createObjectURL }).createObjectURL;

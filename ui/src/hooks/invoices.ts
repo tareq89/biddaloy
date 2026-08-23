@@ -108,11 +108,14 @@ export function useCreateInvoice() {
  * activation window — opening it only after the request resolves is
  * outside that window, so a browser's popup blocker can silently drop it
  * (`window.open` returning `null` with no error). `.opener` is cleared by
- * hand instead of passing `noopener` to `window.open`, since `noopener`
- * would also drop the window reference this needs to navigate later.
+ * hand instead of passing `noopener`/`noreferrer` to `window.open` — per
+ * MDN, either one implies the other, and passing it makes `window.open`
+ * itself always return `null` (the new window is deliberately
+ * unreachable), which would make every call look like a blocked popup
+ * and also drop the reference this needs to navigate later.
  */
 export async function openPrintableInvoice(invoiceId: string, onError: () => void): Promise<void> {
-  const printWindow = window.open('', '_blank', 'noreferrer');
+  const printWindow = window.open('', '_blank');
   if (!printWindow) {
     onError();
     return;
