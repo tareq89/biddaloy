@@ -134,4 +134,23 @@ describe('formatServerAmount', () => {
     // reading "1.005" would expect.
     expect(formatServerAmount(1.005, REGION_BD_EN)).toBe('৳1.01');
   });
+
+  it('falls back to toFixed for a magnitude that toString() itself renders in exponential notation', () => {
+    // 0.0000001 is small enough that `(0.0000001).toString()` is "1e-7",
+    // not a plain decimal string — there's no digit string to round by
+    // hand at that point, so this goes through the toFixed fallback.
+    expect(formatServerAmount(0.0000001, REGION_BD_EN)).toBe('৳0.00');
+  });
+
+  it('rounds a negative half-cent value away from zero', () => {
+    expect(formatServerAmount(-1.005, REGION_BD_EN)).toBe('-৳1.01');
+  });
+
+  it('rounds a zero-decimal currency amount to a whole number', () => {
+    const zeroDecimalConfig: RegionConfig = {
+      ...REGION_BD_EN,
+      currency: { ...REGION_BD_EN.currency, decimals: 0 },
+    };
+    expect(formatServerAmount(1234.5, zeroDecimalConfig)).toBe('৳1,235');
+  });
 });

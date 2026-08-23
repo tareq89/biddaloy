@@ -119,11 +119,16 @@ function roundDecimalString(value: number, decimals: number): string {
   const keptFraction = fractionPart.slice(0, decimals);
   const roundUp = fractionPart.charCodeAt(decimals) >= '5'.charCodeAt(0);
 
-  let combined = BigInt(integerPart + keptFraction || '0');
+  // `integerPart` is never empty (`.split('.')` on a JS number's own
+  // `toString()` always has at least "0" before the dot), so `combined`
+  // is never parsed from an empty string, and — since `digits` is
+  // padded to at least `decimals + 1` chars below — `newInteger` is
+  // never empty either.
+  let combined = BigInt(integerPart + keptFraction);
   if (roundUp) combined += 1n;
 
   const digits = combined.toString().padStart(decimals + 1, '0');
-  const newInteger = digits.slice(0, digits.length - decimals) || '0';
+  const newInteger = digits.slice(0, digits.length - decimals);
   const newFraction = digits.slice(digits.length - decimals);
   const sign = negative && combined !== 0n ? '-' : '';
   return decimals > 0 ? `${sign}${newInteger}.${newFraction}` : `${sign}${newInteger}`;

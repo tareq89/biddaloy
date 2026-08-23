@@ -471,8 +471,6 @@
       "apibody",
       "apiconsumes",
       "server_src_modules_auth_decorators_current_tenant_decorator_currenttenant",
-      "server_src_modules_auth_decorators_decorators_spec",
-      "server_src_modules_auth_decorators_decorators_spec_testcontroller",
       "server_src_modules_auth_decorators_roles_decorator_roles",
       "server_src_modules_classes_classes_controller_classcontroller",
       "server_src_modules_classes_classes_controller_classcontroller_createsection",
@@ -547,6 +545,83 @@
       "uploadedfile"
     ],
     "5": [
+      "ref_nestjs_swagger",
+      "server_src_common_decorators_api_tenant_auth_decorator",
+      "server_src_common_decorators_api_tenant_auth_decorator_apitenantauth",
+      "server_src_common_decorators_api_tenant_auth_decorator_spec",
+      "server_src_common_decorators_api_tenant_auth_decorator_spec_testcontroller",
+      "server_src_common_request_context_util",
+      "server_src_common_request_context_util_requestcontext",
+      "server_src_modules_audit_audit_interceptor",
+      "server_src_modules_audit_audit_interceptor_auditinterceptor",
+      "server_src_modules_audit_audit_interceptor_auditinterceptor_constructor",
+      "server_src_modules_audit_audit_interceptor_auditinterceptor_intercept",
+      "server_src_modules_audit_audit_interceptor_requestwithtenant",
+      "server_src_modules_audit_audit_interceptor_spec",
+      "server_src_modules_audit_audit_interceptor_spec_contextfor",
+      "server_src_modules_audit_audit_interceptor_spec_handlerreturning",
+      "server_src_modules_audit_audit_interceptor_ts_injectable",
+      "server_src_modules_audit_decorators_audited_decorator",
+      "server_src_modules_audit_decorators_audited_decorator_audited",
+      "server_src_modules_audit_decorators_audited_decorator_auditedmetadata",
+      "server_src_modules_auth_auth_controller",
+      "server_src_modules_auth_decorators_current_tenant_decorator",
+      "server_src_modules_auth_decorators_current_user_decorator",
+      "server_src_modules_auth_decorators_current_user_decorator_currentuser",
+      "server_src_modules_auth_decorators_decorators_spec",
+      "server_src_modules_auth_decorators_decorators_spec_testcontroller",
+      "server_src_modules_auth_decorators_roles_decorator",
+      "server_src_modules_auth_guards_context_guard",
+      "server_src_modules_auth_guards_context_guard_contextguard",
+      "server_src_modules_auth_guards_context_guard_contextguard_canactivate",
+      "server_src_modules_auth_guards_context_guard_contextguard_constructor",
+      "server_src_modules_auth_guards_context_guard_resolverole",
+      "server_src_modules_auth_guards_context_guard_role_priority",
+      "server_src_modules_auth_guards_context_guard_rolesguard",
+      "server_src_modules_auth_guards_context_guard_rolesguard_canactivate",
+      "server_src_modules_auth_guards_context_guard_rolesguard_constructor",
+      "server_src_modules_auth_guards_context_guard_spec",
+      "server_src_modules_auth_guards_context_guard_spec_createmockcontext",
+      "server_src_modules_auth_guards_context_guard_ts_inject",
+      "server_src_modules_auth_guards_context_guard_ts_injectable",
+      "server_src_modules_communications_testing_connection_test_result_dto",
+      "server_src_modules_communications_testing_connection_test_result_dto_connectiontestresultdto",
+      "server_src_modules_communications_testing_connection_test_result_dto_ts_apiproperty",
+      "server_src_modules_communications_testing_provider_connection_test_controller",
+      "server_src_modules_invoices_invoices_controller",
+      "server_src_modules_schools_assert_can_manage_school_util",
+      "server_src_modules_schools_assert_can_manage_school_util_assertcanmanageschool",
+      "server_src_modules_schools_dto_school_list_item_dto",
+      "server_src_modules_schools_dto_school_list_item_dto_schoollistitemdto",
+      "server_src_modules_schools_dto_school_list_item_dto_ts_apiproperty",
+      "server_src_modules_schools_schools_controller",
+      "server_src_modules_students_students_controller",
+      "server_src_modules_users_dto_teacher_response_dto",
+      "server_src_modules_users_dto_teacher_response_dto_teacherlistresponsedto",
+      "server_src_modules_users_dto_teacher_response_dto_teacherresponsedto",
+      "server_src_modules_users_dto_teacher_response_dto_ts_apiproperty",
+      "server_src_modules_users_dto_user_response_dto",
+      "server_src_modules_users_dto_user_response_dto_ts_apiproperty",
+      "server_src_modules_users_dto_user_response_dto_userresponsedto",
+      "server_src_modules_users_dto_user_response_dto_userresponsedto_fromentity",
+      "server_src_modules_users_users_controller",
+      "server_src_rate_limit",
+      "server_src_rate_limit_provider_test_rate_limit",
+      "server_src_rate_limit_ratelimittieroptions",
+      "server_src_rate_limit_resolvedefaultratelimit",
+      "server_src_rate_limit_settings_rate_limit",
+      "server_src_rate_limit_spec",
+      "server_src_rate_limit_strict_rate_limit",
+      "server_src_route_guard_coverage_e2e_spec",
+      "server_src_route_guard_coverage_e2e_spec_allowlist",
+      "server_src_route_guard_coverage_e2e_spec_allowlistentry",
+      "server_src_route_guard_coverage_e2e_spec_buildfullpath",
+      "server_src_route_guard_coverage_e2e_spec_describeguards",
+      "server_src_route_guard_coverage_e2e_spec_findallowlistentry",
+      "server_src_route_guard_coverage_e2e_spec_jwt_auth_guard",
+      "server_src_route_guard_coverage_e2e_spec_requestmethodname"
+    ],
+    "6": [
       "apihideproperty",
       "server_src_modules_academics_entities_teacher_class_section_entity",
       "server_src_modules_academics_entities_teacher_class_section_entity_teacherclasssection",
@@ -622,7 +697,7 @@
       "server_src_scripts_seed_util_spec",
       "server_src_scripts_seed_util_spec_mockrepo"
     ],
-    "6": [
+    "7": [
       "arraymaxsize",
       "server_src_modules_communications_dto_reminders_dto",
       "server_src_modules_communications_dto_reminders_dto_reminderbatchresponsedto",
@@ -696,15 +771,11 @@
       "server_src_modules_fees_fee_dues_service_ts_injectable",
       "server_src_modules_students_students_service_studentservice_findmanywithguardians"
     ],
-    "7": [
+    "8": [
       "client_admin_src_routes_staff_invoices_invoiceid",
       "client_admin_src_routes_staff_invoices_invoiceid_invoicedetailpage",
       "client_admin_src_routes_staff_invoices_invoiceid_route",
       "client_admin_src_routes_staff_students_detail_activity_tab_activitytab",
-      "client_admin_src_routes_staff_students_send_reminder_dialog",
-      "client_admin_src_routes_staff_students_send_reminder_dialog_sendreminderdialog",
-      "client_admin_src_routes_staff_students_send_reminder_dialog_sendreminderdialogprops",
-      "server_src_modules_students_students_service_integration_spec_seedreferencedata",
       "ui_src_api_client_apiclient",
       "ui_src_hooks_audit_logs",
       "ui_src_hooks_audit_logs_auditlog",
@@ -712,16 +783,6 @@
       "ui_src_hooks_audit_logs_paginatedauditlogs",
       "ui_src_hooks_audit_logs_test",
       "ui_src_hooks_audit_logs_useauditlogsbyentity",
-      "ui_src_hooks_classes",
-      "ui_src_hooks_classes_class",
-      "ui_src_hooks_classes_classesqueryoptions",
-      "ui_src_hooks_classes_classkeys",
-      "ui_src_hooks_classes_classsection",
-      "ui_src_hooks_classes_classsectionsqueryoptions",
-      "ui_src_hooks_classes_paginatedclasses",
-      "ui_src_hooks_classes_test",
-      "ui_src_hooks_classes_useclasses",
-      "ui_src_hooks_classes_useclasssections",
       "ui_src_hooks_communications",
       "ui_src_hooks_communications_communicationlog",
       "ui_src_hooks_communications_communicationlogkeys",
@@ -745,9 +806,18 @@
       "ui_src_hooks_fee_dues_test_empty_page",
       "ui_src_hooks_fee_dues_toflaggedparams",
       "ui_src_hooks_fee_dues_usefeedues",
+      "ui_src_hooks_global_search",
+      "ui_src_hooks_global_search_globalsearchentityresult",
+      "ui_src_hooks_global_search_globalsearchresults",
+      "ui_src_hooks_global_search_guardiansearchkeys",
+      "ui_src_hooks_global_search_paginatedenvelope",
+      "ui_src_hooks_global_search_teacherprofile",
+      "ui_src_hooks_global_search_teachersearchkeys",
       "ui_src_hooks_index",
       "ui_src_hooks_invoices",
       "ui_src_hooks_invoices_createinvoiceinput",
+      "ui_src_hooks_invoices_invoice",
+      "ui_src_hooks_invoices_invoicekeys",
       "ui_src_hooks_invoices_invoicelistfilters",
       "ui_src_hooks_invoices_invoicesqueryoptions",
       "ui_src_hooks_invoices_paginatedinvoices",
@@ -755,12 +825,20 @@
       "ui_src_hooks_invoices_usecreateinvoice",
       "ui_src_hooks_invoices_useinvoice",
       "ui_src_hooks_invoices_useinvoices",
+      "ui_src_hooks_payments",
+      "ui_src_hooks_payments_createpaymentinput",
+      "ui_src_hooks_payments_payment",
+      "ui_src_hooks_payments_paymentkeys",
+      "ui_src_hooks_payments_studentfee",
+      "ui_src_hooks_payments_studentfeesummary",
+      "ui_src_hooks_payments_test",
+      "ui_src_hooks_payments_test_paymentform",
+      "ui_src_hooks_payments_usecreatepayment",
       "ui_src_hooks_reminders",
       "ui_src_hooks_reminders_reminderbatchresponse",
-      "ui_src_hooks_reminders_sendbulkreminderinput",
-      "ui_src_hooks_reminders_usesendbulkreminder"
+      "ui_src_hooks_reminders_sendbulkreminderinput"
     ],
-    "8": [
+    "9": [
       "ui_src_api_notification_state",
       "ui_src_api_notification_state_clearnotifications",
       "ui_src_api_notification_state_getnotifications",
@@ -826,7 +904,66 @@
       "ui_src_primitives_popover_popovertitle",
       "ui_src_primitives_popover_popovertrigger"
     ],
-    "9": [
+    "10": [
+      "ui_src_components_locale_switcher",
+      "ui_src_components_locale_switcher_locale_labels",
+      "ui_src_components_locale_switcher_localeswitcherprops",
+      "ui_src_components_menu",
+      "ui_src_components_menu_menu",
+      "ui_src_components_menu_menucheckboxitem",
+      "ui_src_components_menu_menucheckboxitemprops",
+      "ui_src_components_menu_menucontent",
+      "ui_src_components_menu_menucontentprops",
+      "ui_src_components_menu_menugroup",
+      "ui_src_components_menu_menugroupprops",
+      "ui_src_components_menu_menuitem",
+      "ui_src_components_menu_menuitemprops",
+      "ui_src_components_menu_menulabel",
+      "ui_src_components_menu_menulabelprops",
+      "ui_src_components_menu_menuprops",
+      "ui_src_components_menu_menuradiogroup",
+      "ui_src_components_menu_menuradiogroupprops",
+      "ui_src_components_menu_menuradioitem",
+      "ui_src_components_menu_menuradioitemprops",
+      "ui_src_components_menu_menuseparator",
+      "ui_src_components_menu_menuseparatorprops",
+      "ui_src_components_menu_menushortcut",
+      "ui_src_components_menu_menushortcutprops",
+      "ui_src_components_menu_menusub",
+      "ui_src_components_menu_menusubcontent",
+      "ui_src_components_menu_menusubcontentprops",
+      "ui_src_components_menu_menusubprops",
+      "ui_src_components_menu_menusubtrigger",
+      "ui_src_components_menu_menusubtriggerprops",
+      "ui_src_components_menu_menutrigger",
+      "ui_src_components_menu_menutriggerprops",
+      "ui_src_components_menu_stories",
+      "ui_src_components_menu_stories_default",
+      "ui_src_components_menu_stories_disableditem",
+      "ui_src_components_menu_stories_empty",
+      "ui_src_components_menu_stories_meta",
+      "ui_src_components_menu_stories_righttoleft",
+      "ui_src_components_menu_stories_story",
+      "ui_src_components_menu_test",
+      "ui_src_components_menu_test_rowactionsmenu",
+      "ui_src_primitives_dropdown_menu",
+      "ui_src_primitives_dropdown_menu_dropdownmenu",
+      "ui_src_primitives_dropdown_menu_dropdownmenucheckboxitem",
+      "ui_src_primitives_dropdown_menu_dropdownmenucontent",
+      "ui_src_primitives_dropdown_menu_dropdownmenugroup",
+      "ui_src_primitives_dropdown_menu_dropdownmenuitem",
+      "ui_src_primitives_dropdown_menu_dropdownmenulabel",
+      "ui_src_primitives_dropdown_menu_dropdownmenuportal",
+      "ui_src_primitives_dropdown_menu_dropdownmenuradiogroup",
+      "ui_src_primitives_dropdown_menu_dropdownmenuradioitem",
+      "ui_src_primitives_dropdown_menu_dropdownmenuseparator",
+      "ui_src_primitives_dropdown_menu_dropdownmenushortcut",
+      "ui_src_primitives_dropdown_menu_dropdownmenusub",
+      "ui_src_primitives_dropdown_menu_dropdownmenusubcontent",
+      "ui_src_primitives_dropdown_menu_dropdownmenusubtrigger",
+      "ui_src_primitives_dropdown_menu_dropdownmenutrigger"
+    ],
+    "11": [
       "client_admin_src_components_secretfield_test",
       "client_admin_src_pages_schoolsettingspage_test",
       "client_admin_src_pages_schoolsettingspage_test_adminownschool",
@@ -883,121 +1020,6 @@
       "ui_src_test_render_with_providers_seedquery",
       "ui_src_test_render_with_router",
       "ui_src_test_render_with_router_renderwithrouter"
-    ],
-    "10": [
-      "ui_src_components_locale_switcher",
-      "ui_src_components_locale_switcher_locale_labels",
-      "ui_src_components_locale_switcher_localeswitcherprops",
-      "ui_src_components_menu",
-      "ui_src_components_menu_menucheckboxitem",
-      "ui_src_components_menu_menucheckboxitemprops",
-      "ui_src_components_menu_menucontent",
-      "ui_src_components_menu_menucontentprops",
-      "ui_src_components_menu_menugroup",
-      "ui_src_components_menu_menugroupprops",
-      "ui_src_components_menu_menuitem",
-      "ui_src_components_menu_menuitemprops",
-      "ui_src_components_menu_menulabel",
-      "ui_src_components_menu_menulabelprops",
-      "ui_src_components_menu_menuprops",
-      "ui_src_components_menu_menuradiogroup",
-      "ui_src_components_menu_menuradiogroupprops",
-      "ui_src_components_menu_menuradioitem",
-      "ui_src_components_menu_menuradioitemprops",
-      "ui_src_components_menu_menuseparator",
-      "ui_src_components_menu_menuseparatorprops",
-      "ui_src_components_menu_menushortcut",
-      "ui_src_components_menu_menushortcutprops",
-      "ui_src_components_menu_menusub",
-      "ui_src_components_menu_menusubcontent",
-      "ui_src_components_menu_menusubcontentprops",
-      "ui_src_components_menu_menusubprops",
-      "ui_src_components_menu_menusubtrigger",
-      "ui_src_components_menu_menusubtriggerprops",
-      "ui_src_components_menu_menutrigger",
-      "ui_src_components_menu_menutriggerprops",
-      "ui_src_components_menu_stories",
-      "ui_src_components_menu_stories_default",
-      "ui_src_components_menu_stories_disableditem",
-      "ui_src_components_menu_stories_empty",
-      "ui_src_components_menu_stories_meta",
-      "ui_src_components_menu_stories_righttoleft",
-      "ui_src_components_menu_stories_story",
-      "ui_src_components_menu_test",
-      "ui_src_components_menu_test_rowactionsmenu",
-      "ui_src_primitives_dropdown_menu",
-      "ui_src_primitives_dropdown_menu_dropdownmenu",
-      "ui_src_primitives_dropdown_menu_dropdownmenucheckboxitem",
-      "ui_src_primitives_dropdown_menu_dropdownmenucontent",
-      "ui_src_primitives_dropdown_menu_dropdownmenugroup",
-      "ui_src_primitives_dropdown_menu_dropdownmenuitem",
-      "ui_src_primitives_dropdown_menu_dropdownmenulabel",
-      "ui_src_primitives_dropdown_menu_dropdownmenuportal",
-      "ui_src_primitives_dropdown_menu_dropdownmenuradiogroup",
-      "ui_src_primitives_dropdown_menu_dropdownmenuradioitem",
-      "ui_src_primitives_dropdown_menu_dropdownmenuseparator",
-      "ui_src_primitives_dropdown_menu_dropdownmenushortcut",
-      "ui_src_primitives_dropdown_menu_dropdownmenusub",
-      "ui_src_primitives_dropdown_menu_dropdownmenusubcontent",
-      "ui_src_primitives_dropdown_menu_dropdownmenusubtrigger",
-      "ui_src_primitives_dropdown_menu_dropdownmenutrigger"
-    ],
-    "11": [
-      "ref_nestjs_swagger",
-      "server_src_common_decorators_api_tenant_auth_decorator",
-      "server_src_common_decorators_api_tenant_auth_decorator_apitenantauth",
-      "server_src_common_decorators_api_tenant_auth_decorator_spec",
-      "server_src_common_decorators_api_tenant_auth_decorator_spec_testcontroller",
-      "server_src_common_request_context_util",
-      "server_src_common_request_context_util_requestcontext",
-      "server_src_modules_academics_academic_year_controller",
-      "server_src_modules_auth_auth_controller",
-      "server_src_modules_auth_decorators_current_tenant_decorator",
-      "server_src_modules_auth_decorators_current_user_decorator",
-      "server_src_modules_auth_decorators_current_user_decorator_currentuser",
-      "server_src_modules_auth_decorators_roles_decorator",
-      "server_src_modules_auth_guards_context_guard",
-      "server_src_modules_auth_guards_context_guard_contextguard",
-      "server_src_modules_auth_guards_context_guard_contextguard_canactivate",
-      "server_src_modules_auth_guards_context_guard_contextguard_constructor",
-      "server_src_modules_auth_guards_context_guard_resolverole",
-      "server_src_modules_auth_guards_context_guard_role_priority",
-      "server_src_modules_auth_guards_context_guard_rolesguard",
-      "server_src_modules_auth_guards_context_guard_rolesguard_canactivate",
-      "server_src_modules_auth_guards_context_guard_rolesguard_constructor",
-      "server_src_modules_auth_guards_context_guard_spec",
-      "server_src_modules_auth_guards_context_guard_spec_createmockcontext",
-      "server_src_modules_auth_guards_context_guard_ts_inject",
-      "server_src_modules_auth_guards_context_guard_ts_injectable",
-      "server_src_modules_communications_testing_connection_test_result_dto",
-      "server_src_modules_communications_testing_connection_test_result_dto_connectiontestresultdto",
-      "server_src_modules_communications_testing_connection_test_result_dto_ts_apiproperty",
-      "server_src_modules_communications_testing_provider_connection_test_controller",
-      "server_src_modules_enrollments_enrollments_controller",
-      "server_src_modules_invoices_invoices_controller",
-      "server_src_modules_schools_assert_can_manage_school_util",
-      "server_src_modules_schools_assert_can_manage_school_util_assertcanmanageschool",
-      "server_src_modules_schools_dto_school_list_item_dto",
-      "server_src_modules_schools_dto_school_list_item_dto_schoollistitemdto",
-      "server_src_modules_schools_dto_school_list_item_dto_ts_apiproperty",
-      "server_src_modules_schools_schools_controller",
-      "server_src_modules_students_students_controller",
-      "server_src_modules_users_dto_teacher_response_dto",
-      "server_src_modules_users_dto_teacher_response_dto_teacherlistresponsedto",
-      "server_src_modules_users_dto_teacher_response_dto_teacherresponsedto",
-      "server_src_modules_users_dto_teacher_response_dto_ts_apiproperty",
-      "server_src_modules_users_dto_user_response_dto",
-      "server_src_modules_users_dto_user_response_dto_ts_apiproperty",
-      "server_src_modules_users_dto_user_response_dto_userresponsedto",
-      "server_src_modules_users_dto_user_response_dto_userresponsedto_fromentity",
-      "server_src_modules_users_users_controller",
-      "server_src_rate_limit",
-      "server_src_rate_limit_provider_test_rate_limit",
-      "server_src_rate_limit_ratelimittieroptions",
-      "server_src_rate_limit_resolvedefaultratelimit",
-      "server_src_rate_limit_settings_rate_limit",
-      "server_src_rate_limit_spec",
-      "server_src_rate_limit_strict_rate_limit"
     ],
     "12": [
       "client_admin_src_routes_staff_students_detail_activity_tab",
@@ -1110,10 +1132,6 @@
       "client_admin_src_routetree_gen_tanstack_react_router"
     ],
     "14": [
-      "client_admin_src_routes_select_school",
-      "client_admin_src_routes_select_school_issameappredirect",
-      "client_admin_src_routes_select_school_route",
-      "client_admin_src_routes_select_school_selectschoolsearchschema",
       "shared_src_enums_index_userrole",
       "shared_src_types_auth_types",
       "shared_src_types_auth_types_jwtmembership",
@@ -1146,22 +1164,7 @@
       "ui_src_api_tenant_storage_persisttenant",
       "ui_src_api_tenant_storage_spec",
       "ui_src_api_tenant_storage_test",
-      "ui_src_api_tenant_storage_torole",
-      "ui_src_components_locale_switcher_localeswitcher",
-      "ui_src_components_school_picker",
-      "ui_src_components_school_picker_optionkey",
-      "ui_src_components_school_picker_schoolcard",
-      "ui_src_components_school_picker_schoolpicker",
-      "ui_src_components_school_picker_schoolpickeroption",
-      "ui_src_components_school_picker_schoolpickerprops",
-      "ui_src_components_school_picker_stories",
-      "ui_src_components_school_picker_stories_default",
-      "ui_src_components_school_picker_stories_meta",
-      "ui_src_components_school_picker_stories_righttoleft",
-      "ui_src_components_school_picker_stories_story",
-      "ui_src_components_school_picker_stories_threeschools",
-      "ui_src_components_school_picker_test",
-      "ui_src_components_school_picker_test_schools"
+      "ui_src_api_tenant_storage_torole"
     ],
     "15": [
       "ui_src_components_data_table",
@@ -1268,11 +1271,13 @@
       "ui_src_shells_use_form_shell_usewarnunsavedchanges"
     ],
     "17": [
+      "ui_src_components_button",
+      "ui_src_components_button_buttonbaseprops",
+      "ui_src_components_button_buttonprops",
       "ui_src_components_dialog",
       "ui_src_components_dialog_dialog",
       "ui_src_components_dialog_dialogclose",
       "ui_src_components_dialog_dialogcloseprops",
-      "ui_src_components_dialog_dialogcontent",
       "ui_src_components_dialog_dialogcontentprops",
       "ui_src_components_dialog_dialogdescription",
       "ui_src_components_dialog_dialogdescriptionprops",
@@ -1297,14 +1302,11 @@
       "ui_src_components_dialog_stories_triggerdisabled",
       "ui_src_components_dialog_test",
       "ui_src_components_dialog_test_recordpaymentdialog",
-      "ui_src_components_global_search",
-      "ui_src_components_global_search_flatoption",
-      "ui_src_components_global_search_globalsearchprops",
-      "ui_src_components_global_search_globalsearchresult",
-      "ui_src_components_global_search_visuallyhiddentitle",
-      "ui_src_components_menu_menu",
       "ui_src_components_tenant_bar",
       "ui_src_components_tenant_bar_schooloption",
+      "ui_src_primitives_button",
+      "ui_src_primitives_button_button",
+      "ui_src_primitives_button_buttonvariants",
       "ui_src_primitives_dialog",
       "ui_src_primitives_dialog_dialog",
       "ui_src_primitives_dialog_dialogclose",
@@ -1318,6 +1320,53 @@
       "ui_src_primitives_dialog_dialogtrigger"
     ],
     "18": [
+      "server_src_common_decorators_sanitize_text_decorator",
+      "server_src_common_decorators_sanitize_text_decorator_sanitizeallowlist",
+      "server_src_common_decorators_sanitize_text_decorator_sanitizetext",
+      "server_src_common_decorators_sanitize_text_decorator_shared",
+      "server_src_common_decorators_sanitize_text_decorator_spec",
+      "server_src_common_decorators_sanitize_text_decorator_spec_allowlistdto",
+      "server_src_common_decorators_sanitize_text_decorator_spec_sanitizeallowlist_sanitizestrict",
+      "server_src_common_decorators_sanitize_text_decorator_spec_strictdto",
+      "server_src_modules_academics_academic_year_controller",
+      "server_src_modules_academics_dto_create_academic_year_dto",
+      "server_src_modules_academics_dto_create_academic_year_dto_createacademicyeardto",
+      "server_src_modules_academics_dto_create_academic_year_dto_isbeforeconstraint",
+      "server_src_modules_academics_dto_create_academic_year_dto_isbeforeconstraint_defaultmessage",
+      "server_src_modules_academics_dto_create_academic_year_dto_isbeforeconstraint_validate",
+      "server_src_modules_academics_dto_create_academic_year_dto_ts_isboolean",
+      "server_src_modules_academics_dto_create_academic_year_dto_ts_isdatestring",
+      "server_src_modules_academics_dto_create_academic_year_dto_ts_isnotempty",
+      "server_src_modules_academics_dto_create_academic_year_dto_ts_isoptional",
+      "server_src_modules_academics_dto_create_academic_year_dto_ts_isstring",
+      "server_src_modules_academics_dto_create_academic_year_dto_ts_validate",
+      "server_src_modules_academics_dto_create_academic_year_dto_ts_validatorconstraint",
+      "server_src_modules_academics_dto_update_academic_year_dto",
+      "server_src_modules_academics_dto_update_academic_year_dto_ts_isboolean",
+      "server_src_modules_academics_dto_update_academic_year_dto_ts_isdatestring",
+      "server_src_modules_academics_dto_update_academic_year_dto_ts_isoptional",
+      "server_src_modules_academics_dto_update_academic_year_dto_ts_isstring",
+      "server_src_modules_academics_dto_update_academic_year_dto_updateacademicyeardto",
+      "server_src_modules_users_dto_users_dto",
+      "server_src_modules_users_dto_users_dto_createteacherdto",
+      "server_src_modules_users_dto_users_dto_createuserdto",
+      "server_src_modules_users_dto_users_dto_queryteacherdto",
+      "server_src_modules_users_dto_users_dto_queryuserdto",
+      "server_src_modules_users_dto_users_dto_ts_isarray",
+      "server_src_modules_users_dto_users_dto_ts_isdatestring",
+      "server_src_modules_users_dto_users_dto_ts_isemail",
+      "server_src_modules_users_dto_users_dto_ts_isenum",
+      "server_src_modules_users_dto_users_dto_ts_isint",
+      "server_src_modules_users_dto_users_dto_ts_isoptional",
+      "server_src_modules_users_dto_users_dto_ts_isstring",
+      "server_src_modules_users_dto_users_dto_ts_isuuid",
+      "server_src_modules_users_dto_users_dto_ts_max",
+      "server_src_modules_users_dto_users_dto_ts_min",
+      "server_src_modules_users_dto_users_dto_ts_type",
+      "server_src_modules_users_dto_users_dto_updateteacherdto",
+      "server_src_modules_users_dto_users_dto_updateuserdto"
+    ],
+    "19": [
       "server_src_modules_fees_dto_fees_dto",
       "server_src_modules_fees_dto_fees_dto_createfeestructuredto",
       "server_src_modules_fees_dto_fees_dto_createpaymentdto",
@@ -1363,52 +1412,6 @@
       "server_src_modules_fees_fees_service_paymentservice_findbystudent",
       "server_src_modules_fees_fees_service_paymentservice_getinvoicesummary",
       "server_src_modules_fees_fees_service_ts_injectable"
-    ],
-    "19": [
-      "server_src_modules_academics_academic_year_controller_academicyearcontroller",
-      "server_src_modules_academics_academic_year_controller_academicyearcontroller_constructor",
-      "server_src_modules_academics_academic_year_controller_academicyearcontroller_create",
-      "server_src_modules_academics_academic_year_controller_academicyearcontroller_findall",
-      "server_src_modules_academics_academic_year_controller_academicyearcontroller_findone",
-      "server_src_modules_academics_academic_year_controller_academicyearcontroller_remove",
-      "server_src_modules_academics_academic_year_controller_academicyearcontroller_setcurrent",
-      "server_src_modules_academics_academic_year_controller_academicyearcontroller_update",
-      "server_src_modules_academics_academic_year_controller_ts_apioperation",
-      "server_src_modules_academics_academic_year_controller_ts_apitags",
-      "server_src_modules_academics_academic_year_controller_ts_body",
-      "server_src_modules_academics_academic_year_controller_ts_controller",
-      "server_src_modules_academics_academic_year_controller_ts_delete",
-      "server_src_modules_academics_academic_year_controller_ts_get",
-      "server_src_modules_academics_academic_year_controller_ts_inject",
-      "server_src_modules_academics_academic_year_controller_ts_param",
-      "server_src_modules_academics_academic_year_controller_ts_patch",
-      "server_src_modules_academics_academic_year_controller_ts_post",
-      "server_src_modules_academics_academic_year_controller_ts_query",
-      "server_src_modules_academics_academic_year_controller_ts_useguards",
-      "server_src_modules_academics_academic_year_service_academicyearservice",
-      "server_src_modules_academics_academic_year_service_academicyearservice_constructor",
-      "server_src_modules_academics_academic_year_service_academicyearservice_create",
-      "server_src_modules_academics_academic_year_service_academicyearservice_findall",
-      "server_src_modules_academics_academic_year_service_academicyearservice_findone",
-      "server_src_modules_academics_academic_year_service_academicyearservice_remove",
-      "server_src_modules_academics_academic_year_service_academicyearservice_setcurrent",
-      "server_src_modules_academics_academic_year_service_academicyearservice_update",
-      "server_src_modules_academics_academic_year_service_ts_injectable",
-      "server_src_modules_academics_academic_year_service_ts_injectrepository",
-      "server_src_modules_academics_dto_create_academic_year_dto_createacademicyeardto",
-      "server_src_modules_academics_dto_create_academic_year_dto_ts_isboolean",
-      "server_src_modules_academics_dto_create_academic_year_dto_ts_isdatestring",
-      "server_src_modules_academics_dto_create_academic_year_dto_ts_isnotempty",
-      "server_src_modules_academics_dto_create_academic_year_dto_ts_isoptional",
-      "server_src_modules_academics_dto_create_academic_year_dto_ts_isstring",
-      "server_src_modules_academics_dto_create_academic_year_dto_ts_validate",
-      "server_src_modules_academics_dto_query_academic_year_dto",
-      "server_src_modules_academics_dto_query_academic_year_dto_queryacademicyeardto",
-      "server_src_modules_academics_dto_query_academic_year_dto_ts_isint",
-      "server_src_modules_academics_dto_query_academic_year_dto_ts_isoptional",
-      "server_src_modules_academics_dto_query_academic_year_dto_ts_max",
-      "server_src_modules_academics_dto_query_academic_year_dto_ts_min",
-      "server_src_modules_academics_dto_query_academic_year_dto_ts_type"
     ],
     "20": [
       "client_admin_src_routes_index",
@@ -1544,7 +1547,6 @@
     ],
     "23": [
       "header",
-      "server_src_modules_audit_decorators_audited_decorator_audited",
       "server_src_modules_invoices_dto_invoices_dto",
       "server_src_modules_invoices_dto_invoices_dto_createinvoicedto",
       "server_src_modules_invoices_dto_invoices_dto_lineitemdto",
@@ -1614,7 +1616,17 @@
       "server_src_modules_schools_settings_nested_settings_decorator_nestedsettings",
       "server_src_modules_schools_settings_optional_setting_decorator",
       "server_src_modules_schools_settings_optional_setting_decorator_optionalsetting",
-      "server_src_modules_schools_settings_secret_field_decorator_secret"
+      "server_src_modules_schools_settings_regex_source_validator",
+      "server_src_modules_schools_settings_regex_source_validator_isregexsourceconstraint",
+      "server_src_modules_schools_settings_regex_source_validator_isregexsourceconstraint_defaultmessage",
+      "server_src_modules_schools_settings_regex_source_validator_isregexsourceconstraint_validate",
+      "server_src_modules_schools_settings_regex_source_validator_ts_validatorconstraint",
+      "server_src_modules_schools_settings_secret_field_decorator_secret",
+      "server_src_modules_schools_settings_sms_provider_config_validator",
+      "server_src_modules_schools_settings_sms_provider_config_validator_smsproviderisconfiguredconstraint",
+      "server_src_modules_schools_settings_sms_provider_config_validator_smsproviderisconfiguredconstraint_defaultmessage",
+      "server_src_modules_schools_settings_sms_provider_config_validator_smsproviderisconfiguredconstraint_validate",
+      "server_src_modules_schools_settings_sms_provider_config_validator_ts_validatorconstraint"
     ],
     "25": [
       "ref_supertest",
@@ -1735,43 +1747,43 @@
       "ui_package_json_vitest"
     ],
     "28": [
-      "server_src_common_decorators_sanitize_text_decorator",
-      "server_src_common_decorators_sanitize_text_decorator_sanitizeallowlist",
-      "server_src_common_decorators_sanitize_text_decorator_sanitizetext",
-      "server_src_common_decorators_sanitize_text_decorator_shared",
-      "server_src_common_decorators_sanitize_text_decorator_spec",
-      "server_src_common_decorators_sanitize_text_decorator_spec_allowlistdto",
-      "server_src_common_decorators_sanitize_text_decorator_spec_sanitizeallowlist_sanitizestrict",
-      "server_src_common_decorators_sanitize_text_decorator_spec_strictdto",
-      "server_src_modules_academics_dto_create_academic_year_dto",
-      "server_src_modules_academics_dto_create_academic_year_dto_isbeforeconstraint",
-      "server_src_modules_academics_dto_create_academic_year_dto_isbeforeconstraint_defaultmessage",
-      "server_src_modules_academics_dto_create_academic_year_dto_isbeforeconstraint_validate",
-      "server_src_modules_academics_dto_create_academic_year_dto_ts_validatorconstraint",
-      "server_src_modules_academics_dto_update_academic_year_dto",
-      "server_src_modules_academics_dto_update_academic_year_dto_ts_isboolean",
-      "server_src_modules_academics_dto_update_academic_year_dto_ts_isdatestring",
-      "server_src_modules_academics_dto_update_academic_year_dto_ts_isoptional",
-      "server_src_modules_academics_dto_update_academic_year_dto_ts_isstring",
-      "server_src_modules_academics_dto_update_academic_year_dto_updateacademicyeardto",
-      "server_src_modules_users_dto_users_dto",
-      "server_src_modules_users_dto_users_dto_createteacherdto",
-      "server_src_modules_users_dto_users_dto_createuserdto",
-      "server_src_modules_users_dto_users_dto_queryteacherdto",
-      "server_src_modules_users_dto_users_dto_queryuserdto",
-      "server_src_modules_users_dto_users_dto_ts_isarray",
-      "server_src_modules_users_dto_users_dto_ts_isdatestring",
-      "server_src_modules_users_dto_users_dto_ts_isemail",
-      "server_src_modules_users_dto_users_dto_ts_isenum",
-      "server_src_modules_users_dto_users_dto_ts_isint",
-      "server_src_modules_users_dto_users_dto_ts_isoptional",
-      "server_src_modules_users_dto_users_dto_ts_isstring",
-      "server_src_modules_users_dto_users_dto_ts_isuuid",
-      "server_src_modules_users_dto_users_dto_ts_max",
-      "server_src_modules_users_dto_users_dto_ts_min",
-      "server_src_modules_users_dto_users_dto_ts_type",
-      "server_src_modules_users_dto_users_dto_updateteacherdto",
-      "server_src_modules_users_dto_users_dto_updateuserdto"
+      "server_src_modules_academics_academic_year_controller_academicyearcontroller",
+      "server_src_modules_academics_academic_year_controller_academicyearcontroller_constructor",
+      "server_src_modules_academics_academic_year_controller_academicyearcontroller_create",
+      "server_src_modules_academics_academic_year_controller_academicyearcontroller_findall",
+      "server_src_modules_academics_academic_year_controller_academicyearcontroller_findone",
+      "server_src_modules_academics_academic_year_controller_academicyearcontroller_remove",
+      "server_src_modules_academics_academic_year_controller_academicyearcontroller_setcurrent",
+      "server_src_modules_academics_academic_year_controller_academicyearcontroller_update",
+      "server_src_modules_academics_academic_year_controller_ts_apioperation",
+      "server_src_modules_academics_academic_year_controller_ts_apitags",
+      "server_src_modules_academics_academic_year_controller_ts_body",
+      "server_src_modules_academics_academic_year_controller_ts_controller",
+      "server_src_modules_academics_academic_year_controller_ts_delete",
+      "server_src_modules_academics_academic_year_controller_ts_get",
+      "server_src_modules_academics_academic_year_controller_ts_inject",
+      "server_src_modules_academics_academic_year_controller_ts_param",
+      "server_src_modules_academics_academic_year_controller_ts_patch",
+      "server_src_modules_academics_academic_year_controller_ts_post",
+      "server_src_modules_academics_academic_year_controller_ts_query",
+      "server_src_modules_academics_academic_year_controller_ts_useguards",
+      "server_src_modules_academics_academic_year_service_academicyearservice",
+      "server_src_modules_academics_academic_year_service_academicyearservice_constructor",
+      "server_src_modules_academics_academic_year_service_academicyearservice_create",
+      "server_src_modules_academics_academic_year_service_academicyearservice_findall",
+      "server_src_modules_academics_academic_year_service_academicyearservice_findone",
+      "server_src_modules_academics_academic_year_service_academicyearservice_remove",
+      "server_src_modules_academics_academic_year_service_academicyearservice_setcurrent",
+      "server_src_modules_academics_academic_year_service_academicyearservice_update",
+      "server_src_modules_academics_academic_year_service_ts_injectable",
+      "server_src_modules_academics_academic_year_service_ts_injectrepository",
+      "server_src_modules_academics_dto_query_academic_year_dto",
+      "server_src_modules_academics_dto_query_academic_year_dto_queryacademicyeardto",
+      "server_src_modules_academics_dto_query_academic_year_dto_ts_isint",
+      "server_src_modules_academics_dto_query_academic_year_dto_ts_isoptional",
+      "server_src_modules_academics_dto_query_academic_year_dto_ts_max",
+      "server_src_modules_academics_dto_query_academic_year_dto_ts_min",
+      "server_src_modules_academics_dto_query_academic_year_dto_ts_type"
     ],
     "29": [
       "docs_architecture_01_domain_model_academicyear",
@@ -1981,42 +1993,6 @@
       "server_src_modules_communications_providers_sms_mim_sms_gateway_spec_outbounddestinationerror"
     ],
     "35": [
-      "ui_src_components_label",
-      "ui_src_components_label_label",
-      "ui_src_components_label_labelprops",
-      "ui_src_components_skeleton",
-      "ui_src_components_skeleton_skeleton",
-      "ui_src_components_skeleton_stories",
-      "ui_src_components_skeleton_stories_default",
-      "ui_src_components_skeleton_stories_meta",
-      "ui_src_components_skeleton_stories_rowoffields",
-      "ui_src_components_skeleton_stories_story",
-      "ui_src_components_skeleton_test",
-      "ui_src_primitives_checkbox",
-      "ui_src_primitives_checkbox_checkbox",
-      "ui_src_primitives_input",
-      "ui_src_primitives_input_input",
-      "ui_src_primitives_label",
-      "ui_src_primitives_label_label",
-      "ui_src_primitives_lib_utils",
-      "ui_src_primitives_lib_utils_cn",
-      "ui_src_primitives_select",
-      "ui_src_primitives_select_selectcontent",
-      "ui_src_primitives_select_selectgroup",
-      "ui_src_primitives_select_selectitem",
-      "ui_src_primitives_select_selectlabel",
-      "ui_src_primitives_select_selectscrolldownbutton",
-      "ui_src_primitives_select_selectscrollupbutton",
-      "ui_src_primitives_select_selectseparator",
-      "ui_src_primitives_select_selecttrigger",
-      "ui_src_primitives_tabs",
-      "ui_src_primitives_tabs_tabs",
-      "ui_src_primitives_tabs_tabscontent",
-      "ui_src_primitives_tabs_tabslist",
-      "ui_src_primitives_tabs_tabslistvariants",
-      "ui_src_primitives_tabs_tabstrigger"
-    ],
-    "36": [
       "bcrypt",
       "bullmq",
       "class_transformer",
@@ -2051,13 +2027,17 @@
       "server_package_dependencies_undici",
       "undici"
     ],
-    "37": [
+    "36": [
       "client_admin_src_routes_login",
       "client_admin_src_routes_login_buildloginerror",
       "client_admin_src_routes_login_issameappredirect",
       "client_admin_src_routes_login_loginpage",
       "client_admin_src_routes_login_loginsearchschema",
       "client_admin_src_routes_login_route",
+      "client_admin_src_routes_select_school",
+      "client_admin_src_routes_select_school_issameappredirect",
+      "client_admin_src_routes_select_school_route",
+      "client_admin_src_routes_select_school_selectschoolsearchschema",
       "ui_src_api_client",
       "ui_src_api_client_postauthlogin",
       "ui_src_api_client_retryableconfig",
@@ -2079,6 +2059,7 @@
       "ui_src_api_query_client_handleglobalqueryerror",
       "ui_src_api_query_client_test",
       "ui_src_api_query_client_test_apierror",
+      "ui_src_components_locale_switcher_localeswitcher",
       "ui_src_components_sign_in_form_signincredentials",
       "ui_src_components_sign_in_form_signinformerror",
       "ui_src_hooks_retry",
@@ -2086,7 +2067,7 @@
       "ui_src_hooks_retry_spec",
       "ui_src_hooks_retry_spec_apierror"
     ],
-    "38": [
+    "37": [
       "server_src_modules_auth_entities_refresh_token_entity_refreshtoken",
       "server_src_modules_auth_entities_refresh_token_entity_ts_column",
       "server_src_modules_auth_entities_refresh_token_entity_ts_createdatecolumn",
@@ -2121,7 +2102,7 @@
       "server_src_modules_auth_refresh_token_service_ts_injectable",
       "server_src_modules_auth_refresh_token_service_ts_injectrepository"
     ],
-    "39": [
+    "38": [
       "server_src_modules_audit_audit_controller",
       "server_src_modules_audit_audit_module",
       "server_src_modules_audit_audit_service",
@@ -2155,7 +2136,7 @@
       "server_src_modules_auth_refresh_token_service_refreshtokenreusedetectedexception_constructor",
       "server_src_modules_auth_refresh_token_service_rotateresult"
     ],
-    "40": [
+    "39": [
       "ui_src_components_form_field",
       "ui_src_components_form_field_formdescription",
       "ui_src_components_form_field_formfieldcontext",
@@ -2189,7 +2170,7 @@
       "ui_src_components_sign_in_form_signinformprops",
       "ui_src_components_sign_in_form_signinformvalues"
     ],
-    "41": [
+    "40": [
       "client_admin_src_routes_staff_settings",
       "client_admin_src_routes_staff_settings_route",
       "client_admin_src_routes_staff_settings_settingsroute",
@@ -2222,7 +2203,7 @@
       "ui_storybook_preview_preview",
       "ui_storybook_preview_queryclient"
     ],
-    "42": [
+    "41": [
       "isobject",
       "server_src_modules_communications_dto_test_connection_dto",
       "server_src_modules_communications_dto_test_connection_dto_testconnectiondto",
@@ -2255,7 +2236,7 @@
       "server_src_modules_communications_testing_provider_connection_test_controller_ts_throttle",
       "server_src_modules_communications_testing_provider_connection_test_controller_ts_useguards"
     ],
-    "43": [
+    "42": [
       "nestjs_cli",
       "nestjs_testing",
       "server_package_devdependencies",
@@ -2288,7 +2269,7 @@
       "types_nodemailer",
       "types_passport_jwt"
     ],
-    "44": [
+    "43": [
       "ui_src_routes_index",
       "ui_src_routes_navigate_search",
       "ui_src_routes_navigate_search_usesearchnavigate",
@@ -2321,7 +2302,7 @@
       "ui_src_shells_use_wizard_shell_step_usewizardshellstep",
       "ui_src_shells_wizard_shell_stories_recordpaymentwizard"
     ],
-    "45": [
+    "44": [
       "apiokresponse",
       "apioperation",
       "apitags",
@@ -2353,7 +2334,7 @@
       "throttle",
       "useguards"
     ],
-    "46": [
+    "45": [
       "catch",
       "server_src_common_filters_error_response",
       "server_src_common_filters_error_response_builderrorresponsebody",
@@ -2385,7 +2366,7 @@
       "server_src_db_ssl_databasesslresult",
       "server_src_db_ssl_spec"
     ],
-    "47": [
+    "46": [
       "client_admin_src_main",
       "client_admin_src_main_queryclient",
       "client_admin_src_main_register",
@@ -2417,7 +2398,7 @@
       "ui_src_test_msw_enable_mocking",
       "ui_src_test_msw_enable_mocking_enablemocking"
     ],
-    "48": [
+    "47": [
       "server_src_modules_classes_classes_controller",
       "server_src_modules_classes_classes_controller_classcontroller_constructor",
       "server_src_modules_classes_classes_controller_classcontroller_createclass",
@@ -2449,7 +2430,7 @@
       "server_src_modules_classes_dto_classes_dto_updateclassdto",
       "server_src_modules_classes_dto_classes_dto_updatesectiondto"
     ],
-    "49": [
+    "48": [
       "server_src_modules_communications_config_tenant_provider_config_resolver_resolvedgreenwebsmsconfig",
       "server_src_modules_communications_config_tenant_provider_config_resolver_resolvedmimsmsconfig",
       "server_src_modules_communications_providers_communication_provider_interface",
@@ -2481,7 +2462,7 @@
       "server_src_modules_communications_providers_sms_sms_provider_factory_smsproviderfactory_send",
       "server_src_modules_communications_providers_whatsapp_whatsapp_cloud_provider_whatsappcloudprovider_send"
     ],
-    "50": [
+    "49": [
       "ui_src_components_select",
       "ui_src_components_select_select",
       "ui_src_components_select_selectcontent",
@@ -2513,7 +2494,7 @@
       "ui_src_primitives_select_select",
       "ui_src_primitives_select_selectvalue"
     ],
-    "51": [
+    "50": [
       "client_admin_src_pages_schoolsettingspage_schoolsettingspage",
       "ui_src_api_auth_state_getaccesstoken",
       "ui_src_api_auth_state_getactiverole",
@@ -2544,7 +2525,7 @@
       "ui_src_test_render_with_providers_test_queryprobe",
       "ui_src_test_render_with_providers_test_savebutton"
     ],
-    "52": [
+    "51": [
       "client_admin_src_routes_staff_students_new",
       "client_admin_src_routes_staff_students_new_newstudentpage",
       "client_admin_src_routes_staff_students_student_form",
@@ -2575,7 +2556,7 @@
       "ui_src_hooks_students_usecreatestudent",
       "ui_src_hooks_students_useupdatestudent"
     ],
-    "53": [
+    "52": [
       "ref_multer",
       "ref_shared_dist",
       "ref_vitest_globals",
@@ -2606,7 +2587,7 @@
       "server_tsconfig_paths_biddaloy_shared",
       "server_tsconfig_paths_test"
     ],
-    "54": [
+    "53": [
       "ui_src_shells_wizard_shell",
       "ui_src_shells_wizard_shell_stories",
       "ui_src_shells_wizard_shell_stories_deeplinkedstep",
@@ -2625,7 +2606,69 @@
       "ui_src_shells_wizard_shell_wizardshellprops",
       "ui_src_shells_wizard_shell_wizardstep"
     ],
+    "54": [
+      "ui_src_components_dialog_dialogcontent",
+      "ui_src_components_global_search",
+      "ui_src_components_global_search_flatoption",
+      "ui_src_components_global_search_flatten",
+      "ui_src_components_global_search_globalsearch",
+      "ui_src_components_global_search_globalsearchgroup",
+      "ui_src_components_global_search_globalsearchprops",
+      "ui_src_components_global_search_globalsearchresult",
+      "ui_src_components_global_search_stories",
+      "ui_src_components_global_search_stories_default",
+      "ui_src_components_global_search_stories_demo",
+      "ui_src_components_global_search_stories_meta",
+      "ui_src_components_global_search_stories_noresults",
+      "ui_src_components_global_search_stories_populated",
+      "ui_src_components_global_search_stories_populated_groups",
+      "ui_src_components_global_search_stories_righttoleft",
+      "ui_src_components_global_search_stories_story",
+      "ui_src_components_global_search_test",
+      "ui_src_components_global_search_test_controlled",
+      "ui_src_components_global_search_test_groups",
+      "ui_src_components_global_search_visuallyhiddentitle",
+      "ui_src_components_skeleton",
+      "ui_src_components_skeleton_skeleton",
+      "ui_src_components_skeleton_stories",
+      "ui_src_components_skeleton_stories_default",
+      "ui_src_components_skeleton_stories_meta",
+      "ui_src_components_skeleton_stories_rowoffields",
+      "ui_src_components_skeleton_stories_story",
+      "ui_src_components_skeleton_test"
+    ],
     "55": [
+      "ui_src_components_label",
+      "ui_src_components_label_label",
+      "ui_src_components_label_labelprops",
+      "ui_src_primitives_checkbox",
+      "ui_src_primitives_checkbox_checkbox",
+      "ui_src_primitives_input",
+      "ui_src_primitives_input_input",
+      "ui_src_primitives_label",
+      "ui_src_primitives_label_label",
+      "ui_src_primitives_lib_utils",
+      "ui_src_primitives_lib_utils_cn",
+      "ui_src_primitives_radio_group",
+      "ui_src_primitives_radio_group_radiogroup",
+      "ui_src_primitives_radio_group_radiogroupitem",
+      "ui_src_primitives_select",
+      "ui_src_primitives_select_selectcontent",
+      "ui_src_primitives_select_selectgroup",
+      "ui_src_primitives_select_selectitem",
+      "ui_src_primitives_select_selectlabel",
+      "ui_src_primitives_select_selectscrolldownbutton",
+      "ui_src_primitives_select_selectscrollupbutton",
+      "ui_src_primitives_select_selectseparator",
+      "ui_src_primitives_select_selecttrigger",
+      "ui_src_primitives_tabs",
+      "ui_src_primitives_tabs_tabs",
+      "ui_src_primitives_tabs_tabscontent",
+      "ui_src_primitives_tabs_tabslist",
+      "ui_src_primitives_tabs_tabslistvariants",
+      "ui_src_primitives_tabs_tabstrigger"
+    ],
+    "56": [
       "client_admin_index_doc",
       "client_admin_src_main_tsx",
       "client_admin_src_routes_login_tsx",
@@ -2655,7 +2698,7 @@
       "ui_src_primitives_readme_doc",
       "ui_src_primitives_readme_regenerating"
     ],
-    "56": [
+    "57": [
       "client_admin_src_components_secretfield_secretfieldprops",
       "client_admin_src_pages_settings_emailsection_emailsectionprops",
       "client_admin_src_pages_settings_messengersection_messengersectionprops",
@@ -2685,7 +2728,7 @@
       "ui_src_hooks_school_settings_testconnectioninput",
       "ui_src_hooks_school_settings_useschools"
     ],
-    "57": [
+    "58": [
       "server_src_modules_fees_entities_fee_structure_entity_feestructure",
       "server_src_modules_fees_entities_fee_structure_entity_ts_column",
       "server_src_modules_fees_entities_fee_structure_entity_ts_createdatecolumn",
@@ -2715,7 +2758,7 @@
       "server_src_modules_fees_fee_generation_service_ts_injectable",
       "server_src_modules_fees_fee_generation_service_ts_injectrepository"
     ],
-    "58": [
+    "59": [
       "ui_src_components_app_shell_stories",
       "ui_src_components_app_shell_stories_default",
       "ui_src_components_app_shell_stories_grouped",
@@ -2747,7 +2790,7 @@
       "ui_storybook_router_decorator",
       "ui_storybook_router_decorator_withmemoryrouter"
     ],
-    "59": [
+    "60": [
       "client_admin_src_routes_root_rootlayout",
       "ui_src_components_route_announcer",
       "ui_src_components_route_announcer_routeannouncer",
@@ -2776,7 +2819,7 @@
       "ui_src_hooks_use_route_focus_useroutefocus",
       "ui_src_hooks_use_route_focus_useroutefocusoptions"
     ],
-    "60": [
+    "61": [
       "server_src_modules_communications_communications_service",
       "server_src_modules_communications_communications_service_communicationsservice_constructor",
       "server_src_modules_communications_communications_service_ts_injectqueue",
@@ -2799,7 +2842,7 @@
       "server_src_modules_students_students_service_ts_injectable",
       "server_src_modules_students_students_service_ts_injectrepository"
     ],
-    "61": [
+    "62": [
       "server_src_modules_communications_config_provider_not_configured_error",
       "server_src_modules_communications_config_provider_not_configured_error_providernotconfigurederror",
       "server_src_modules_communications_config_provider_not_configured_error_providernotconfigurederror_constructor",
@@ -2828,7 +2871,36 @@
       "server_src_modules_communications_testing_connection_test_service",
       "server_src_modules_communications_testing_connection_test_service_spec"
     ],
-    "62": [
+    "63": [
+      "server_src_modules_enrollments_dto_enrollments_dto",
+      "server_src_modules_enrollments_dto_enrollments_dto_createenrollmentdto",
+      "server_src_modules_enrollments_dto_enrollments_dto_ts_isenum",
+      "server_src_modules_enrollments_dto_enrollments_dto_ts_isoptional",
+      "server_src_modules_enrollments_dto_enrollments_dto_ts_isuuid",
+      "server_src_modules_enrollments_dto_enrollments_dto_updateenrollmentdto",
+      "server_src_modules_enrollments_enrollments_controller",
+      "server_src_modules_enrollments_enrollments_controller_enrollmentcontroller",
+      "server_src_modules_enrollments_enrollments_controller_enrollmentcontroller_constructor",
+      "server_src_modules_enrollments_enrollments_controller_enrollmentcontroller_create",
+      "server_src_modules_enrollments_enrollments_controller_enrollmentcontroller_findbystudent",
+      "server_src_modules_enrollments_enrollments_controller_enrollmentcontroller_update",
+      "server_src_modules_enrollments_enrollments_controller_spec",
+      "server_src_modules_enrollments_enrollments_controller_ts_apitags",
+      "server_src_modules_enrollments_enrollments_controller_ts_body",
+      "server_src_modules_enrollments_enrollments_controller_ts_controller",
+      "server_src_modules_enrollments_enrollments_controller_ts_get",
+      "server_src_modules_enrollments_enrollments_controller_ts_param",
+      "server_src_modules_enrollments_enrollments_controller_ts_patch",
+      "server_src_modules_enrollments_enrollments_controller_ts_post",
+      "server_src_modules_enrollments_enrollments_controller_ts_useguards",
+      "server_src_modules_enrollments_enrollments_service_enrollmentservice",
+      "server_src_modules_enrollments_enrollments_service_enrollmentservice_create",
+      "server_src_modules_enrollments_enrollments_service_enrollmentservice_findbystudent",
+      "server_src_modules_enrollments_enrollments_service_enrollmentservice_findcurrentbystudent",
+      "server_src_modules_enrollments_enrollments_service_enrollmentservice_update",
+      "server_src_modules_enrollments_enrollments_service_ts_injectable"
+    ],
+    "64": [
       "global",
       "server_src_app_module",
       "server_src_common_rate_limit_rate_limit_tracker",
@@ -2856,35 +2928,7 @@
       "server_src_modules_students_students_module_studentmodule",
       "server_src_modules_students_students_module_ts_module"
     ],
-    "63": [
-      "server_src_modules_enrollments_dto_enrollments_dto",
-      "server_src_modules_enrollments_dto_enrollments_dto_createenrollmentdto",
-      "server_src_modules_enrollments_dto_enrollments_dto_ts_isenum",
-      "server_src_modules_enrollments_dto_enrollments_dto_ts_isoptional",
-      "server_src_modules_enrollments_dto_enrollments_dto_ts_isuuid",
-      "server_src_modules_enrollments_dto_enrollments_dto_updateenrollmentdto",
-      "server_src_modules_enrollments_enrollments_controller_enrollmentcontroller",
-      "server_src_modules_enrollments_enrollments_controller_enrollmentcontroller_constructor",
-      "server_src_modules_enrollments_enrollments_controller_enrollmentcontroller_create",
-      "server_src_modules_enrollments_enrollments_controller_enrollmentcontroller_findbystudent",
-      "server_src_modules_enrollments_enrollments_controller_enrollmentcontroller_update",
-      "server_src_modules_enrollments_enrollments_controller_spec",
-      "server_src_modules_enrollments_enrollments_controller_ts_apitags",
-      "server_src_modules_enrollments_enrollments_controller_ts_body",
-      "server_src_modules_enrollments_enrollments_controller_ts_controller",
-      "server_src_modules_enrollments_enrollments_controller_ts_get",
-      "server_src_modules_enrollments_enrollments_controller_ts_param",
-      "server_src_modules_enrollments_enrollments_controller_ts_patch",
-      "server_src_modules_enrollments_enrollments_controller_ts_post",
-      "server_src_modules_enrollments_enrollments_controller_ts_useguards",
-      "server_src_modules_enrollments_enrollments_service_enrollmentservice",
-      "server_src_modules_enrollments_enrollments_service_enrollmentservice_create",
-      "server_src_modules_enrollments_enrollments_service_enrollmentservice_findbystudent",
-      "server_src_modules_enrollments_enrollments_service_enrollmentservice_findcurrentbystudent",
-      "server_src_modules_enrollments_enrollments_service_enrollmentservice_update",
-      "server_src_modules_enrollments_enrollments_service_ts_injectable"
-    ],
-    "64": [
+    "65": [
       "isdatestring",
       "isemail",
       "isin",
@@ -2914,7 +2958,7 @@
       "type",
       "validateif"
     ],
-    "65": [
+    "66": [
       "server_src_modules_schools_schools_module",
       "server_src_modules_schools_schools_module_schoolsmodule",
       "server_src_modules_schools_schools_module_ts_module",
@@ -2941,7 +2985,7 @@
       "server_src_scripts_reencrypt_settings_util_migrateschools",
       "server_src_scripts_reencrypt_settings_util_schoollike"
     ],
-    "66": [
+    "67": [
       "ui_src_test_a11y_matchers",
       "ui_src_test_a11y_matchers_formatviolations",
       "ui_src_test_a11y_matchers_jsdom_axe_options",
@@ -2968,7 +3012,7 @@
       "ui_src_test_msw_handlers_schools_updatesettings",
       "ui_src_test_setup"
     ],
-    "67": [
+    "68": [
       "axe_core",
       "eslint_config_prettier",
       "eslint_js",
@@ -2994,7 +3038,7 @@
       "testing_library_user_event",
       "vitest_coverage_v8"
     ],
-    "68": [
+    "69": [
       "package_scripts",
       "package_scripts_api_types",
       "package_scripts_build_all",
@@ -3020,7 +3064,7 @@
       "package_scripts_test_integration",
       "package_scripts_test_unit"
     ],
-    "69": [
+    "70": [
       "ref_scripts",
       "ref_tailwind_preset_ts",
       "ref_vite_client",
@@ -3046,7 +3090,7 @@
       "ui_tsconfig_json_ref_tsconfig_frontend_json",
       "ui_tsconfig_paths_biddaloy_shared"
     ],
-    "70": [
+    "71": [
       "server_src_modules_schools_settings_encryption_service_encryptionservice_decrypt",
       "server_src_modules_schools_settings_encryption_service_encryptionservice_encrypt",
       "server_src_modules_schools_settings_encryption_service_encryptionservice_iscurrent",
@@ -3072,7 +3116,7 @@
       "server_src_modules_schools_settings_settings_encryption_util_spec_service",
       "server_src_modules_schools_settings_settings_encryption_util_transformatpaths"
     ],
-    "71": [
+    "72": [
       "ui_src_components_date_picker_calendarprops",
       "ui_src_components_date_picker_datepickerprops",
       "ui_src_components_phone_input",
@@ -3082,7 +3126,6 @@
       "ui_src_components_phone_input_test",
       "ui_src_components_phone_input_test_controlled",
       "ui_src_components_sign_in_form_signinform",
-      "ui_src_i18n_region_config",
       "ui_src_i18n_region_config_region_bd_en",
       "ui_src_i18n_region_config_regionconfig",
       "ui_src_i18n_region_config_spec",
@@ -3098,7 +3141,7 @@
       "ui_src_utils_phone_phoneparseresult",
       "ui_src_utils_phone_spec"
     ],
-    "72": [
+    "73": [
       "arrayminsize",
       "server_src_modules_communications_dto_communications_dto",
       "server_src_modules_communications_dto_communications_dto_lastreminderdto",
@@ -3113,7 +3156,7 @@
       "server_src_modules_communications_dto_communications_dto_ts_sanitizetext",
       "transform"
     ],
-    "73": [
+    "74": [
       "server_package_scripts",
       "server_package_scripts_build",
       "server_package_scripts_db_clear",
@@ -3137,7 +3180,7 @@
       "server_package_scripts_test_unit",
       "server_package_scripts_test_watch"
     ],
-    "74": [
+    "75": [
       "server_src_modules_users_dto_teacher_response_dto_teacherresponsedto_fromentity",
       "server_src_modules_users_users_controller_ts_apioperation",
       "server_src_modules_users_users_controller_ts_apiresponse",
@@ -3161,7 +3204,7 @@
       "server_src_modules_users_users_service_teacherservice_findall",
       "server_src_modules_users_users_service_userservice_findall"
     ],
-    "75": [
+    "76": [
       "ui_src_components_button_test",
       "ui_src_components_skip_link",
       "ui_src_components_skip_link_skiplink",
@@ -3185,7 +3228,7 @@
       "ui_src_test_a11y_keyboard_keyboardoptions",
       "ui_src_test_a11y_keyboard_link_keys"
     ],
-    "76": [
+    "77": [
       "optional",
       "server_src_modules_auth_access_token_denylist_service",
       "server_src_modules_auth_access_token_denylist_service_accesstokendenylistservice",
@@ -3208,7 +3251,7 @@
       "server_src_modules_auth_strategies_jwt_strategy_spec_configservicewithsecret",
       "server_src_modules_auth_strategies_jwt_strategy_ts_injectable"
     ],
-    "77": [
+    "78": [
       "server_src_modules_communications_communications_module",
       "server_src_modules_communications_communications_module_communicationsmodule",
       "server_src_modules_communications_communications_module_ts_module",
@@ -3231,7 +3274,7 @@
       "server_src_modules_communications_providers_whatsapp_whatsapp_cloud_provider_whatsappcloudprovider",
       "server_src_modules_communications_testing_connection_test_service_connectiontestservice_constructor"
     ],
-    "78": [
+    "79": [
       "shared_src_types_tenant_settings_types",
       "shared_src_types_tenant_settings_types_communicationssettings",
       "shared_src_types_tenant_settings_types_currencygrouping",
@@ -3254,7 +3297,7 @@
       "shared_src_types_tenant_settings_types_tenantsettings",
       "shared_src_types_tenant_settings_types_whatsappsettings"
     ],
-    "79": [
+    "80": [
       "ui_src_components_date_picker",
       "ui_src_components_date_picker_calendar",
       "ui_src_components_date_picker_datepicker",
@@ -3277,7 +3320,7 @@
       "ui_src_utils_digits_spec",
       "ui_src_utils_digits_tolatindigits"
     ],
-    "80": [
+    "81": [
       "ui_src_components_tooltip",
       "ui_src_components_tooltip_stories",
       "ui_src_components_tooltip_stories_default",
@@ -3300,7 +3343,7 @@
       "ui_src_primitives_tooltip_tooltipprovider",
       "ui_src_primitives_tooltip_tooltiptrigger"
     ],
-    "81": [
+    "82": [
       "claude_skills_implement_issue_skill",
       "claude_skills_implement_issue_skill_1_branch",
       "claude_skills_implement_issue_skill_2_research_with_graphify",
@@ -3322,7 +3365,7 @@
       "claude_skills_implement_issue_skill_step_4_surviving_compaction",
       "claude_skills_implement_issue_skill_step_5_usage_limits"
     ],
-    "82": [
+    "83": [
       "server_src_docs_auth",
       "server_src_docs_auth_builddocsbasicauthmiddleware",
       "server_src_docs_auth_builddocscspoverridemiddleware",
@@ -3344,7 +3387,7 @@
       "server_src_spa_fallback_spec_fakeresponse",
       "server_src_spa_fallback_spec_sendfilecall"
     ],
-    "83": [
+    "84": [
       "ui_components",
       "ui_components_aliases",
       "ui_components_aliases_components",
@@ -3366,7 +3409,7 @@
       "ui_components_tailwind_prefix",
       "ui_components_tsx"
     ],
-    "84": [
+    "85": [
       "biddaloy_ui",
       "client_admin_package_dependencies",
       "client_admin_package_dependencies_biddaloy_shared",
@@ -3387,7 +3430,7 @@
       "client_admin_package_json_tanstack_react_router",
       "client_admin_package_json_zod"
     ],
-    "85": [
+    "86": [
       "ui_scripts_check_i18n_keys",
       "ui_scripts_check_i18n_keys_extractcallsites",
       "ui_scripts_check_i18n_keys_flattenkeys",
@@ -3408,7 +3451,7 @@
       "ui_scripts_check_i18n_keys_strippluralsuffix",
       "ui_scripts_check_i18n_keys_walkfiles"
     ],
-    "86": [
+    "87": [
       "ui_src_components_table",
       "ui_src_components_table_tablebodyprops",
       "ui_src_components_table_tablecaptionprops",
@@ -3429,7 +3472,7 @@
       "ui_src_primitives_table_tableheader",
       "ui_src_primitives_table_tablerow"
     ],
-    "87": [
+    "88": [
       "apibearerauth",
       "apiunauthorizedresponse",
       "res",
@@ -3449,7 +3492,7 @@
       "server_src_modules_auth_auth_controller_ts_throttle",
       "server_src_modules_auth_auth_controller_ts_useguards"
     ],
-    "88": [
+    "89": [
       "apiresponse",
       "server_src_modules_audit_audit_controller_auditcontroller",
       "server_src_modules_audit_audit_controller_auditcontroller_constructor",
@@ -3469,7 +3512,7 @@
       "server_src_modules_audit_audit_service_auditservice_findall",
       "server_src_modules_audit_audit_service_auditservice_findbyentity"
     ],
-    "89": [
+    "90": [
       "claude_skills_multi_tenancy_skill_doc",
       "claude_skills_multi_tenancy_skill_onerule",
       "claude_skills_pr_fix_skill_doc",
@@ -3489,7 +3532,7 @@
       "shared_readme_usage",
       "ui_readme_apiclient"
     ],
-    "90": [
+    "91": [
       "client_admin_src_routes_portal_fees",
       "client_admin_src_routes_portal_fees_portalfeespage",
       "client_admin_src_routes_portal_fees_route",
@@ -3509,7 +3552,7 @@
       "ui_src_components_empty_state_stories_story",
       "ui_src_components_empty_state_test"
     ],
-    "91": [
+    "92": [
       "server_src_modules_communications_communications_constants",
       "server_src_modules_communications_reminder_batch_counters",
       "server_src_modules_communications_reminder_batch_counters_batchoutcome",
@@ -3529,7 +3572,7 @@
       "server_src_modules_communications_worker_communications_processor_ts_injectrepository",
       "server_src_modules_communications_worker_communications_processor_ts_processor"
     ],
-    "92": [
+    "93": [
       "server_src_modules_communications_config_tenant_provider_config_resolver_tenantproviderconfigresolver",
       "server_src_modules_communications_config_tenant_provider_config_resolver_tenantproviderconfigresolver_constructor",
       "server_src_modules_communications_config_tenant_provider_config_resolver_tenantproviderconfigresolver_loadsettings",
@@ -3549,7 +3592,7 @@
       "server_src_modules_schools_settings_tenant_settings_cache_service_tenantsettingscache_invalidate",
       "server_src_modules_schools_settings_tenant_settings_cache_service_ts_injectable"
     ],
-    "93": [
+    "94": [
       "server_src_modules_schools_schools_controller_schoolscontroller",
       "server_src_modules_schools_schools_controller_schoolscontroller_constructor",
       "server_src_modules_schools_schools_controller_schoolscontroller_findall",
@@ -3569,47 +3612,7 @@
       "server_src_modules_schools_schools_controller_ts_useguards",
       "server_src_modules_schools_schools_service_schoolsservice_findall"
     ],
-    "94": [
-      "ui_src_components_button",
-      "ui_src_components_button_buttonbaseprops",
-      "ui_src_components_button_buttonprops",
-      "ui_src_components_pagination",
-      "ui_src_components_pagination_pagination",
-      "ui_src_components_pagination_paginationprops",
-      "ui_src_components_pagination_stories",
-      "ui_src_components_pagination_stories_default",
-      "ui_src_components_pagination_stories_empty",
-      "ui_src_components_pagination_stories_firstpage",
-      "ui_src_components_pagination_stories_lastpage",
-      "ui_src_components_pagination_stories_meta",
-      "ui_src_components_pagination_stories_righttoleft",
-      "ui_src_components_pagination_stories_story",
-      "ui_src_components_pagination_test",
-      "ui_src_primitives_button",
-      "ui_src_primitives_button_button",
-      "ui_src_primitives_button_buttonvariants"
-    ],
     "95": [
-      "ui_src_components_radio",
-      "ui_src_components_radio_radiogroup",
-      "ui_src_components_radio_radiogroupitem",
-      "ui_src_components_radio_radiogroupitemprops",
-      "ui_src_components_radio_radiogroupprops",
-      "ui_src_components_radio_stories",
-      "ui_src_components_radio_stories_default",
-      "ui_src_components_radio_stories_disabled",
-      "ui_src_components_radio_stories_invalid",
-      "ui_src_components_radio_stories_meta",
-      "ui_src_components_radio_stories_options",
-      "ui_src_components_radio_stories_righttoleft",
-      "ui_src_components_radio_stories_story",
-      "ui_src_components_radio_test",
-      "ui_src_components_radio_test_threeoptions",
-      "ui_src_primitives_radio_group",
-      "ui_src_primitives_radio_group_radiogroup",
-      "ui_src_primitives_radio_group_radiogroupitem"
-    ],
-    "96": [
       "client_admin_package_devdependencies",
       "client_admin_package_devdependencies_rollup_plugin_visualizer",
       "client_admin_package_devdependencies_tailwindcss",
@@ -3628,7 +3631,7 @@
       "tanstack_react_query_devtools",
       "tanstack_router_plugin"
     ],
-    "97": [
+    "96": [
       "sanitize_html",
       "shared_package",
       "shared_package_dependencies",
@@ -3647,7 +3650,7 @@
       "shared_package_version",
       "types_sanitize_html"
     ],
-    "98": [
+    "97": [
       "server_src_modules_auth_login_attempt_service_integration_spec",
       "server_src_modules_auth_login_attempt_service_integration_spec_service",
       "server_src_modules_auth_login_attempt_service_loginattemptredisclient",
@@ -3666,7 +3669,7 @@
       "server_src_modules_auth_login_attempt_service_spec",
       "server_src_modules_auth_login_attempt_service_spec_fakeredis"
     ],
-    "99": [
+    "98": [
       "server_test_helpers_auth_helper",
       "server_test_helpers_auth_helper_createmockexecutioncontext",
       "server_test_helpers_auth_helper_createmockrequest",
@@ -3685,7 +3688,7 @@
       "server_test_setup_seedbaselinedata",
       "server_test_setup_setuptestdatabase"
     ],
-    "100": [
+    "99": [
       "tsconfig_base",
       "tsconfig_base_compileroptions",
       "tsconfig_base_compileroptions_declaration",
@@ -3704,7 +3707,7 @@
       "tsconfig_base_compileroptions_strict",
       "tsconfig_base_compileroptions_target"
     ],
-    "101": [
+    "100": [
       "ui_src_components_date_picker_stories",
       "ui_src_components_date_picker_stories_default",
       "ui_src_components_date_picker_stories_demo",
@@ -3716,13 +3719,14 @@
       "ui_src_components_money_input_test_controlled",
       "ui_src_components_money_input_test_getinput",
       "ui_src_components_money_input_test_resettablecontrolled",
+      "ui_src_i18n_region_config",
       "ui_src_i18n_region_config_region_bd_bn",
       "ui_src_i18n_region_config_resolver",
       "ui_src_i18n_region_config_resolver_compilepattern",
       "ui_src_i18n_region_config_resolver_resolveregionconfig",
       "ui_src_i18n_region_config_resolver_spec"
     ],
-    "102": [
+    "101": [
       "ui_src_i18n_i18n",
       "ui_src_i18n_i18n_createi18ninstance",
       "ui_src_i18n_i18n_spec",
@@ -3741,7 +3745,7 @@
       "ui_src_i18n_locale_storage_test",
       "ui_src_i18n_locale_storage_tosupportedlocale"
     ],
-    "103": [
+    "102": [
       "claude_root_doc",
       "claude_root_doc_documentation_style",
       "claude_root_doc_rtk",
@@ -3759,7 +3763,7 @@
       "serena_project_config",
       "server_claude_md"
     ],
-    "104": [
+    "103": [
       "client_admin_src_routes_staff_students_guardian_picker",
       "client_admin_src_routes_staff_students_guardian_picker_emptydraft",
       "client_admin_src_routes_staff_students_guardian_picker_guardianpicker",
@@ -3777,7 +3781,7 @@
       "ui_src_hooks_guardians_usecreateguardian",
       "ui_src_hooks_guardians_useguardians"
     ],
-    "105": [
+    "104": [
       "design_sync_conventions_statusbadge_tones",
       "design_sync_notes_statusbadge_floorcard",
       "shared_readme_enums",
@@ -3795,7 +3799,7 @@
       "ui_src_components_status_badge_statustone",
       "ui_src_components_status_badge_tone_styles"
     ],
-    "106": [
+    "105": [
       "server_src_modules_schools_dto_tenant_settings_dto_spec",
       "server_src_modules_schools_dto_tenant_settings_dto_spec_todto",
       "server_src_modules_schools_dto_tenant_settings_dto_spec_validation_options",
@@ -3813,7 +3817,7 @@
       "server_src_modules_schools_settings_tenant_settings_resolver_resolvetenantsettings",
       "server_src_modules_schools_settings_tenant_settings_resolver_spec"
     ],
-    "107": [
+    "106": [
       "ui_eslint_rules_component_boundary",
       "ui_eslint_rules_component_boundary_checkintlconstructor",
       "ui_eslint_rules_component_boundary_deep_import_patterns",
@@ -3831,7 +3835,7 @@
       "ui_eslint_rules_component_boundary_translatable_attributes",
       "ui_eslint_rules_component_boundary_wrapped_intl_constructors"
     ],
-    "108": [
+    "107": [
       "ui_scripts_check_contrast",
       "ui_scripts_check_contrast_buildreverselookup",
       "ui_scripts_check_contrast_contrastratio",
@@ -3849,7 +3853,7 @@
       "ui_scripts_check_contrast_srgbtolinear",
       "ui_scripts_check_contrast_themebody"
     ],
-    "109": [
+    "108": [
       "ui_src_components_file_upload",
       "ui_src_components_file_upload_fileupload",
       "ui_src_components_file_upload_fileuploaditem",
@@ -3867,7 +3871,7 @@
       "ui_src_components_file_upload_test",
       "ui_src_components_file_upload_test_makefile"
     ],
-    "110": [
+    "109": [
       "package",
       "package_json_ref_server",
       "package_msw",
@@ -3884,7 +3888,7 @@
       "ref_ui",
       "ref_ui_storybook_public"
     ],
-    "111": [
+    "110": [
       "server_src_modules_audit_audit_service_auditservice_record",
       "server_src_modules_auth_auth_controller_authcontroller_constructor",
       "server_src_modules_auth_auth_controller_ts_inject",
@@ -3901,7 +3905,7 @@
       "server_src_modules_auth_auth_service_ts_injectable",
       "server_src_modules_auth_refresh_token_service_requestcontext"
     ],
-    "112": [
+    "111": [
       "server_src_modules_communications_single_reminder_service",
       "server_src_modules_communications_single_reminder_service_resolvedcontext",
       "server_src_modules_communications_single_reminder_service_resolvedsinglerecipient",
@@ -3918,24 +3922,24 @@
       "server_src_modules_communications_single_reminder_service_spec_student",
       "server_src_modules_communications_single_reminder_service_ts_injectable"
     ],
-    "113": [
-      "ui_src_components_global_search_flatten",
-      "ui_src_components_global_search_globalsearch",
-      "ui_src_components_global_search_globalsearchgroup",
-      "ui_src_components_global_search_stories",
-      "ui_src_components_global_search_stories_default",
-      "ui_src_components_global_search_stories_demo",
-      "ui_src_components_global_search_stories_meta",
-      "ui_src_components_global_search_stories_noresults",
-      "ui_src_components_global_search_stories_populated",
-      "ui_src_components_global_search_stories_populated_groups",
-      "ui_src_components_global_search_stories_righttoleft",
-      "ui_src_components_global_search_stories_story",
-      "ui_src_components_global_search_test",
-      "ui_src_components_global_search_test_controlled",
-      "ui_src_components_global_search_test_groups"
+    "112": [
+      "ui_src_components_radio",
+      "ui_src_components_radio_radiogroup",
+      "ui_src_components_radio_radiogroupitem",
+      "ui_src_components_radio_radiogroupitemprops",
+      "ui_src_components_radio_radiogroupprops",
+      "ui_src_components_radio_stories",
+      "ui_src_components_radio_stories_default",
+      "ui_src_components_radio_stories_disabled",
+      "ui_src_components_radio_stories_invalid",
+      "ui_src_components_radio_stories_meta",
+      "ui_src_components_radio_stories_options",
+      "ui_src_components_radio_stories_righttoleft",
+      "ui_src_components_radio_stories_story",
+      "ui_src_components_radio_test",
+      "ui_src_components_radio_test_threeoptions"
     ],
-    "114": [
+    "113": [
       "ui_src_components_textarea",
       "ui_src_components_textarea_stories",
       "ui_src_components_textarea_stories_default",
@@ -3952,7 +3956,7 @@
       "ui_src_primitives_textarea",
       "ui_src_primitives_textarea_textarea"
     ],
-    "115": [
+    "114": [
       "server_src_modules_communications_dto_single_reminder_dto",
       "server_src_modules_communications_dto_single_reminder_dto_reminderpreviewrecipientdto",
       "server_src_modules_communications_dto_single_reminder_dto_reminderpreviewresponsedto",
@@ -3968,7 +3972,7 @@
       "server_src_modules_communications_dto_single_reminder_dto_ts_isuuid",
       "server_src_modules_communications_dto_single_reminder_dto_ts_maxlength"
     ],
-    "116": [
+    "115": [
       "server_src_modules_schools_dto_tenant_settings_dto_tenantsettingsdto",
       "server_src_modules_schools_schools_service_schoolsservice_updatesettings",
       "server_src_modules_schools_settings_settings_audit_redact_util",
@@ -3984,7 +3988,7 @@
       "server_src_modules_schools_settings_tenant_settings_merge_util_spec_topatch",
       "server_src_modules_schools_settings_tenant_settings_merge_util_toplainsettingspatch"
     ],
-    "117": [
+    "116": [
       "server_src_modules_students_bulk_upload_parser",
       "server_src_modules_students_bulk_upload_parser_bulkuploadheader",
       "server_src_modules_students_bulk_upload_parser_bulkuploadparseerror",
@@ -4000,7 +4004,7 @@
       "server_src_modules_students_bulk_upload_parser_spec_defaults",
       "server_src_modules_students_bulk_upload_parser_spec_rowvalues"
     ],
-    "118": [
+    "117": [
       "server_tsconfig_build",
       "server_tsconfig_build_compileroptions",
       "server_tsconfig_build_compileroptions_rootdir",
@@ -4016,7 +4020,7 @@
       "server_tsconfig_build_json_ref_test",
       "server_tsconfig_build_json_ref_tsconfig_json"
     ],
-    "119": [
+    "118": [
       "server_tsconfig_lint",
       "server_tsconfig_lint_compileroptions",
       "server_tsconfig_lint_compileroptions_rootdir",
@@ -4032,7 +4036,7 @@
       "server_tsconfig_lint_json_ref_test",
       "server_tsconfig_lint_json_ref_tsconfig_json"
     ],
-    "120": [
+    "119": [
       "shared_tsconfig",
       "shared_tsconfig_compileroptions",
       "shared_tsconfig_compileroptions_composite",
@@ -4048,7 +4052,7 @@
       "shared_tsconfig_json_ref_src",
       "shared_tsconfig_json_ref_tsconfig_base_json"
     ],
-    "121": [
+    "120": [
       "ui_src_components_money_input",
       "ui_src_components_money_input_moneyinput",
       "ui_src_components_money_input_moneyinputprops",
@@ -4064,7 +4068,7 @@
       "ui_src_utils_server_validation_errors_parsevalidationfielderrors",
       "ui_src_utils_server_validation_errors_spec"
     ],
-    "122": [
+    "121": [
       "server_src_modules_audit_dto_audit_log_response_dto",
       "server_src_modules_audit_dto_audit_log_response_dto_auditloglistresponsedto",
       "server_src_modules_audit_dto_audit_log_response_dto_auditlogresponsedto",
@@ -4079,7 +4083,7 @@
       "server_src_modules_audit_entities_audit_log_entity_ts_manytoone",
       "server_src_modules_audit_entities_audit_log_entity_ts_primarygeneratedcolumn"
     ],
-    "123": [
+    "122": [
       "server_src_modules_auth_refresh_token_service_spec_fakerepo",
       "server_src_modules_schools_schools_controller_spec",
       "server_src_modules_schools_schools_controller_spec_fakeservice",
@@ -4094,7 +4098,7 @@
       "server_src_modules_schools_schools_service_schoolsservice_logmaskingfailure",
       "server_src_modules_schools_schools_service_ts_injectable"
     ],
-    "124": [
+    "123": [
       "ui_package_exports",
       "ui_package_exports_api",
       "ui_package_exports_components",
@@ -4109,7 +4113,7 @@
       "ui_package_exports_test",
       "ui_package_exports_utils"
     ],
-    "125": [
+    "124": [
       "ui_src_components_checkbox",
       "ui_src_components_checkbox_checkbox",
       "ui_src_components_checkbox_checkboxprops",
@@ -4124,7 +4128,7 @@
       "ui_src_components_checkbox_stories_story",
       "ui_src_components_checkbox_test"
     ],
-    "126": [
+    "125": [
       "client_admin_src_routes_staff_fees_dues",
       "client_admin_src_routes_staff_fees_dues_csvcell",
       "client_admin_src_routes_staff_fees_dues_deriverowstatus",
@@ -4138,7 +4142,7 @@
       "client_admin_src_routes_staff_fees_generate_invoice_dialog_generateinvoicedialog",
       "client_admin_src_routes_staff_fees_generate_invoice_dialog_generateinvoicedialogprops"
     ],
-    "127": [
+    "126": [
       "server_src_config_env_validation",
       "server_src_config_env_validation_environmentvariables",
       "server_src_config_env_validation_node_envs",
@@ -4152,7 +4156,7 @@
       "server_src_config_env_validation_ts_minlength",
       "server_src_config_env_validation_validate"
     ],
-    "128": [
+    "127": [
       "server_src_modules_auth_dto_login_dto",
       "server_src_modules_auth_dto_login_dto_hasemailorphoneconstraint",
       "server_src_modules_auth_dto_login_dto_hasemailorphoneconstraint_defaultmessage",
@@ -4165,6 +4169,20 @@
       "server_src_modules_auth_dto_login_dto_ts_minlength",
       "server_src_modules_auth_dto_login_dto_ts_validate",
       "server_src_modules_auth_dto_login_dto_ts_validatorconstraint"
+    ],
+    "128": [
+      "ui_src_components_pagination",
+      "ui_src_components_pagination_pagination",
+      "ui_src_components_pagination_paginationprops",
+      "ui_src_components_pagination_stories",
+      "ui_src_components_pagination_stories_default",
+      "ui_src_components_pagination_stories_empty",
+      "ui_src_components_pagination_stories_firstpage",
+      "ui_src_components_pagination_stories_lastpage",
+      "ui_src_components_pagination_stories_meta",
+      "ui_src_components_pagination_stories_righttoleft",
+      "ui_src_components_pagination_stories_story",
+      "ui_src_components_pagination_test"
     ],
     "129": [
       "ui_src_test_msw_handlers_communications",
@@ -4207,19 +4225,6 @@
       "server_src_swagger_spec"
     ],
     "132": [
-      "server_src_modules_audit_audit_interceptor",
-      "server_src_modules_audit_audit_interceptor_auditinterceptor",
-      "server_src_modules_audit_audit_interceptor_auditinterceptor_constructor",
-      "server_src_modules_audit_audit_interceptor_auditinterceptor_intercept",
-      "server_src_modules_audit_audit_interceptor_requestwithtenant",
-      "server_src_modules_audit_audit_interceptor_spec",
-      "server_src_modules_audit_audit_interceptor_spec_contextfor",
-      "server_src_modules_audit_audit_interceptor_spec_handlerreturning",
-      "server_src_modules_audit_audit_interceptor_ts_injectable",
-      "server_src_modules_audit_decorators_audited_decorator",
-      "server_src_modules_audit_decorators_audited_decorator_auditedmetadata"
-    ],
-    "133": [
       "server_src_modules_schools_dto_school_settings_response_dto",
       "server_src_modules_schools_dto_school_settings_response_dto_maskedcommunicationssettingsresponsedto",
       "server_src_modules_schools_dto_school_settings_response_dto_maskedemailsettingsresponsedto",
@@ -4232,7 +4237,7 @@
       "server_src_modules_schools_dto_school_settings_response_dto_tenantsettingsresponsedto",
       "server_src_modules_schools_dto_school_settings_response_dto_ts_apiproperty"
     ],
-    "134": [
+    "133": [
       "server_src_modules_students_bulk_upload_parser_parsedrow",
       "server_src_modules_students_bulk_upload_service_studentbulkuploadservice",
       "server_src_modules_students_bulk_upload_service_studentbulkuploadservice_buildclasssectionmap",
@@ -4248,7 +4253,904 @@
       "server_src_modules_students_students_service_studentservice_create",
       "ui_src_hooks_guardians_guardian"
     ],
+    "134": [
+      "server_src_modules_students_students_service_integration_spec_seedreferencedata",
+      "ui_src_hooks_classes",
+      "ui_src_hooks_classes_class",
+      "ui_src_hooks_classes_classesqueryoptions",
+      "ui_src_hooks_classes_classkeys",
+      "ui_src_hooks_classes_classsection",
+      "ui_src_hooks_classes_classsectionsqueryoptions",
+      "ui_src_hooks_classes_paginatedclasses",
+      "ui_src_hooks_classes_test",
+      "ui_src_hooks_classes_useclasses",
+      "ui_src_hooks_classes_useclasssections"
+    ],
     "135": [
+      "ui_package_scripts",
+      "ui_package_scripts_api_types",
+      "ui_package_scripts_build_storybook",
+      "ui_package_scripts_check_api_types",
+      "ui_package_scripts_check_contrast",
+      "ui_package_scripts_check_exports",
+      "ui_package_scripts_check_i18n",
+      "ui_package_scripts_design_sync_css",
+      "ui_package_scripts_lint",
+      "ui_package_scripts_storybook",
+      "ui_package_scripts_test"
+    ],
+    "136": [
+      "server_src_modules_audit_dto_audit_log_dto",
+      "server_src_modules_audit_dto_audit_log_dto_queryauditlogdto",
+      "server_src_modules_audit_dto_audit_log_dto_ts_isdatestring",
+      "server_src_modules_audit_dto_audit_log_dto_ts_isenum",
+      "server_src_modules_audit_dto_audit_log_dto_ts_isint",
+      "server_src_modules_audit_dto_audit_log_dto_ts_isoptional",
+      "server_src_modules_audit_dto_audit_log_dto_ts_isstring",
+      "server_src_modules_audit_dto_audit_log_dto_ts_max",
+      "server_src_modules_audit_dto_audit_log_dto_ts_min",
+      "server_src_modules_audit_dto_audit_log_dto_ts_type"
+    ],
+    "137": [
+      "server_src_modules_schools_schools_module_encryptionservicefactory",
+      "server_src_modules_schools_schools_module_spec",
+      "server_src_modules_schools_schools_module_spec_fakeconfig",
+      "server_src_modules_schools_settings_encryption_key",
+      "server_src_modules_schools_settings_encryption_key_buildencryptionkey",
+      "server_src_modules_schools_settings_encryption_key_buildpreviousencryptionkeys",
+      "server_src_modules_schools_settings_encryption_key_decodekey",
+      "server_src_modules_schools_settings_encryption_key_spec",
+      "server_src_modules_schools_settings_encryption_key_spec_valid_key",
+      "server_src_modules_schools_settings_encryption_key_spec_wrong_length_key"
+    ],
+    "138": [
+      "ui_src_components_tenant_bar_stories",
+      "ui_src_components_tenant_bar_stories_default",
+      "ui_src_components_tenant_bar_stories_fakejwt",
+      "ui_src_components_tenant_bar_stories_meta",
+      "ui_src_components_tenant_bar_stories_righttoleft",
+      "ui_src_components_tenant_bar_stories_singlemembership",
+      "ui_src_components_tenant_bar_stories_singleschool",
+      "ui_src_components_tenant_bar_stories_story",
+      "ui_src_components_tenant_bar_stories_switchmenuopen",
+      "ui_src_components_tenant_bar_stories_twoschools"
+    ],
+    "139": [
+      "ui_src_i18n_region_config_currencygrouping",
+      "ui_src_utils_grouping",
+      "ui_src_utils_grouping_groupdigits",
+      "ui_src_utils_grouping_grouplakhcrore",
+      "ui_src_utils_grouping_groupthousand",
+      "ui_src_utils_grouping_spec",
+      "ui_src_utils_number",
+      "ui_src_utils_number_formatnumber",
+      "ui_src_utils_number_parsenumber",
+      "ui_src_utils_number_spec"
+    ],
+    "140": [
+      "ui_tailwind_preset",
+      "ui_tailwind_preset_biddaloypreset",
+      "ui_tailwind_preset_brand",
+      "ui_tailwind_preset_contrast_pairs",
+      "ui_tailwind_preset_dark",
+      "ui_tailwind_preset_light",
+      "ui_tailwind_preset_neutral",
+      "ui_tailwind_preset_radius",
+      "ui_tailwind_preset_status",
+      "ui_tailwind_preset_statuskey"
+    ],
+    "141": [
+      "client_admin_public_mockserviceworker",
+      "client_admin_public_mockserviceworker_activeclientids",
+      "client_admin_public_mockserviceworker_getresponse",
+      "client_admin_public_mockserviceworker_handlerequest",
+      "client_admin_public_mockserviceworker_is_mocked_response",
+      "client_admin_public_mockserviceworker_resolvemainclient",
+      "client_admin_public_mockserviceworker_respondwithmock",
+      "client_admin_public_mockserviceworker_sendtoclient",
+      "client_admin_public_mockserviceworker_serializerequest"
+    ],
+    "142": [
+      "scripts_ci_audit",
+      "scripts_ci_audit_advisories",
+      "scripts_ci_audit_allowlist",
+      "scripts_ci_audit_expired",
+      "scripts_ci_audit_result",
+      "scripts_ci_audit_seen",
+      "scripts_ci_audit_spawnsync",
+      "scripts_ci_audit_today",
+      "scripts_ci_audit_unallowed"
+    ],
+    "143": [
+      "server_src_modules_auth_guards_same_origin_guard",
+      "server_src_modules_auth_guards_same_origin_guard_isoriginallowed",
+      "server_src_modules_auth_guards_same_origin_guard_requestorigin",
+      "server_src_modules_auth_guards_same_origin_guard_sameoriginguard",
+      "server_src_modules_auth_guards_same_origin_guard_sameoriginguard_canactivate",
+      "server_src_modules_auth_guards_same_origin_guard_spec",
+      "server_src_modules_auth_guards_same_origin_guard_spec_contextfor",
+      "server_src_modules_auth_guards_same_origin_guard_spec_fakerequest",
+      "server_src_modules_auth_guards_same_origin_guard_ts_injectable"
+    ],
+    "144": [
+      "server_src_modules_communications_config_tenant_provider_config_resolver_resolvedemailconfig",
+      "server_src_modules_communications_providers_email_smtp_email_provider",
+      "server_src_modules_communications_providers_email_smtp_email_provider_issmtpconnectionerror",
+      "server_src_modules_communications_providers_email_smtp_email_provider_mapsmtperror",
+      "server_src_modules_communications_providers_email_smtp_email_provider_smtp_connection_error_codes",
+      "server_src_modules_communications_providers_email_smtp_email_provider_smtpemailprovider_send",
+      "server_src_modules_communications_providers_email_smtp_email_provider_smtpemailprovider_testconnection",
+      "server_src_modules_communications_providers_email_smtp_email_provider_withpinnedaddressfallback",
+      "server_src_modules_communications_providers_shared_outbound_destination_guard_safesmtpdestination"
+    ],
+    "145": [
+      "tsconfig_frontend",
+      "tsconfig_frontend_compileroptions",
+      "tsconfig_frontend_compileroptions_exactoptionalpropertytypes",
+      "tsconfig_frontend_compileroptions_nouncheckedindexedaccess",
+      "tsconfig_frontend_compileroptions_nounusedlocals",
+      "tsconfig_frontend_compileroptions_nounusedparameters",
+      "tsconfig_frontend_compileroptions_strict",
+      "tsconfig_frontend_extends",
+      "tsconfig_frontend_json_ref_tsconfig_base_json"
+    ],
+    "146": [
+      "ui_eslint_rules_data_fetching",
+      "ui_eslint_rules_data_fetching_effect_hook_names",
+      "ui_eslint_rules_data_fetching_findnetworkcall",
+      "ui_eslint_rules_data_fetching_geteffecthookname",
+      "ui_eslint_rules_data_fetching_isnetworkcallcallee",
+      "ui_eslint_rules_data_fetching_nofetchineffect",
+      "ui_eslint_rules_data_fetching_spec",
+      "ui_eslint_rules_data_fetching_spec_ruletester",
+      "ui_eslint_rules_data_fetching_walk"
+    ],
+    "147": [
+      "ui_eslint_rules_financial_mutation",
+      "ui_eslint_rules_financial_mutation_findguardedendpointliteral",
+      "ui_eslint_rules_financial_mutation_findonmutateproperty",
+      "ui_eslint_rules_financial_mutation_guarded_endpoint_patterns",
+      "ui_eslint_rules_financial_mutation_matchesguardedendpoint",
+      "ui_eslint_rules_financial_mutation_nooptimisticfinancialmutation",
+      "ui_eslint_rules_financial_mutation_spec",
+      "ui_eslint_rules_financial_mutation_spec_ruletester",
+      "ui_eslint_rules_financial_mutation_walk"
+    ],
+    "148": [
+      "ui_eslint_rules_logical_properties",
+      "ui_eslint_rules_logical_properties_class_attribute_names",
+      "ui_eslint_rules_logical_properties_inset_replacement",
+      "ui_eslint_rules_logical_properties_logicalreplacement",
+      "ui_eslint_rules_logical_properties_nophysicaldirectionclasses",
+      "ui_eslint_rules_logical_properties_spacing_replacement",
+      "ui_eslint_rules_logical_properties_spec",
+      "ui_eslint_rules_logical_properties_spec_ruletester",
+      "ui_eslint_rules_logical_properties_text_align_replacement"
+    ],
+    "149": [
+      "ui_src_components_money_input_stories",
+      "ui_src_components_money_input_stories_default",
+      "ui_src_components_money_input_stories_demo",
+      "ui_src_components_money_input_stories_disabled",
+      "ui_src_components_money_input_stories_empty",
+      "ui_src_components_money_input_stories_invalid",
+      "ui_src_components_money_input_stories_meta",
+      "ui_src_components_money_input_stories_righttoleft",
+      "ui_src_components_money_input_stories_story"
+    ],
+    "150": [
+      "ui_src_components_phone_input_stories",
+      "ui_src_components_phone_input_stories_default",
+      "ui_src_components_phone_input_stories_demo",
+      "ui_src_components_phone_input_stories_disabled",
+      "ui_src_components_phone_input_stories_empty",
+      "ui_src_components_phone_input_stories_invalid",
+      "ui_src_components_phone_input_stories_meta",
+      "ui_src_components_phone_input_stories_righttoleft",
+      "ui_src_components_phone_input_stories_story"
+    ],
+    "151": [
+      "ui_src_components_toast",
+      "ui_src_components_toast_stories",
+      "ui_src_components_toast_stories_default",
+      "ui_src_components_toast_stories_errorvariant",
+      "ui_src_components_toast_stories_meta",
+      "ui_src_components_toast_stories_story",
+      "ui_src_components_toast_stories_successvariant",
+      "ui_src_components_toast_test",
+      "ui_src_components_toast_toaster"
+    ],
+    "152": [
+      "ui_storybook_public_mockserviceworker",
+      "ui_storybook_public_mockserviceworker_activeclientids",
+      "ui_storybook_public_mockserviceworker_getresponse",
+      "ui_storybook_public_mockserviceworker_handlerequest",
+      "ui_storybook_public_mockserviceworker_is_mocked_response",
+      "ui_storybook_public_mockserviceworker_resolvemainclient",
+      "ui_storybook_public_mockserviceworker_respondwithmock",
+      "ui_storybook_public_mockserviceworker_sendtoclient",
+      "ui_storybook_public_mockserviceworker_serializerequest"
+    ],
+    "153": [
+      "client_admin_eslint_config",
+      "eslint",
+      "package_devdependencies_eslint",
+      "ui_eslint_config_componentboundaryconfig",
+      "ui_eslint_rules_component_boundary_config_spec",
+      "ui_eslint_rules_component_boundary_config_spec_hasboundaryplugin",
+      "ui_eslint_rules_component_boundary_config_spec_here",
+      "ui_eslint_rules_component_boundary_config_spec_lintfixture"
+    ],
+    "154": [
+      "client_admin_src_routes_staff_students_index",
+      "client_admin_src_routes_staff_students_index_csvcell",
+      "client_admin_src_routes_staff_students_index_primaryguardianname",
+      "client_admin_src_routes_staff_students_index_sort_field_by_column",
+      "client_admin_src_routes_staff_students_index_studentfilters",
+      "client_admin_src_routes_staff_students_index_studentslistpage",
+      "client_admin_src_routes_staff_students_index_studentssearchschema",
+      "client_admin_src_routes_staff_students_index_tostudentlistfilters"
+    ],
+    "155": [
+      "e2e_tsconfig",
+      "e2e_tsconfig_compileroptions",
+      "e2e_tsconfig_compileroptions_types",
+      "e2e_tsconfig_extends",
+      "e2e_tsconfig_include",
+      "e2e_tsconfig_json_ref_tsconfig_base_json",
+      "ref_node",
+      "ref_ts"
+    ],
+    "156": [
+      "prettierrc",
+      "prettierrc_plugins",
+      "prettierrc_printwidth",
+      "prettierrc_semi",
+      "prettierrc_singlequote",
+      "prettierrc_tailwindstylesheet",
+      "prettierrc_trailingcomma",
+      "ref_prettier_plugin_tailwindcss"
+    ],
+    "157": [
+      "server_src_app_controller",
+      "server_src_app_controller_appcontroller",
+      "server_src_app_controller_appcontroller_health",
+      "server_src_app_controller_spec",
+      "server_src_app_controller_ts_controller",
+      "server_src_app_controller_ts_get",
+      "skipthrottle",
+      "version"
+    ],
+    "158": [
+      "server_src_modules_auth_auth_controller_spec",
+      "server_src_modules_auth_auth_controller_spec_fakerequest",
+      "server_src_modules_auth_auth_controller_spec_fakeresponse",
+      "server_src_modules_auth_auth_controller_spec_mockissuedrefreshtoken",
+      "server_src_modules_auth_token_cookie",
+      "server_src_modules_auth_token_cookie_buildrefreshtokenclearcookieoptions",
+      "server_src_modules_auth_token_cookie_buildrefreshtokencookieoptions",
+      "server_src_modules_auth_token_cookie_spec"
+    ],
+    "159": [
+      "ui_package",
+      "ui_package_description",
+      "ui_package_main",
+      "ui_package_name",
+      "ui_package_private",
+      "ui_package_type",
+      "ui_package_types",
+      "ui_package_version"
+    ],
+    "160": [
+      "ui_scripts_check_exports",
+      "ui_scripts_check_exports_entries",
+      "ui_scripts_check_exports_errors",
+      "ui_scripts_check_exports_exported",
+      "ui_scripts_check_exports_pkg",
+      "ui_scripts_check_exports_pkgroot",
+      "ui_scripts_check_exports_private_dirs",
+      "ui_scripts_check_exports_srcdir"
+    ],
+    "161": [
+      "client_admin_package_scripts",
+      "client_admin_package_scripts_build",
+      "client_admin_package_scripts_build_analyze",
+      "client_admin_package_scripts_check_route_chunks",
+      "client_admin_package_scripts_dev",
+      "client_admin_package_scripts_lint",
+      "client_admin_package_scripts_preview"
+    ],
+    "162": [
+      "server_nest_cli",
+      "server_nest_cli_collection",
+      "server_nest_cli_compileroptions",
+      "server_nest_cli_compileroptions_deleteoutdir",
+      "server_nest_cli_compileroptions_plugins",
+      "server_nest_cli_schema",
+      "server_nest_cli_sourceroot"
+    ],
+    "163": [
+      "ui_eslint_config_biddaloyreactconfig",
+      "ui_eslint_config_datafetchingguardconfig",
+      "ui_eslint_config_financialmutationguardconfig",
+      "ui_eslint_config_mjs_ui_eslint_config_84dce3",
+      "ui_eslint_config_mjs_ui_eslint_config_92ee27",
+      "ui_eslint_config_nowindowalertconfig",
+      "ui_eslint_config_typecheckedtestoverrides"
+    ],
+    "164": [
+      "ui_eslint_rules_no_window_alert",
+      "ui_eslint_rules_no_window_alert_banned_names",
+      "ui_eslint_rules_no_window_alert_getstaticpropertyname",
+      "ui_eslint_rules_no_window_alert_isshadowed",
+      "ui_eslint_rules_no_window_alert_nowindowalert",
+      "ui_eslint_rules_no_window_alert_spec",
+      "ui_eslint_rules_no_window_alert_spec_ruletester"
+    ],
+    "165": [
+      "client_admin_src_components_global_search_launcher",
+      "client_admin_src_components_global_search_launcher_globalsearchlauncher",
+      "ui_src_hooks_global_search_teacher_search_roles",
+      "ui_src_hooks_global_search_useglobalsearch",
+      "ui_src_hooks_use_debounce",
+      "ui_src_hooks_use_debounce_usedebouncedvalue"
+    ],
+    "166": [
+      "server_src_common_rate_limit_fail_open_throttler_storage",
+      "server_src_common_rate_limit_fail_open_throttler_storage_failopenthrottlerstorage",
+      "server_src_common_rate_limit_fail_open_throttler_storage_failopenthrottlerstorage_constructor",
+      "server_src_common_rate_limit_fail_open_throttler_storage_failopenthrottlerstorage_increment",
+      "server_src_common_rate_limit_fail_open_throttler_storage_spec",
+      "server_src_common_rate_limit_fail_open_throttler_storage_ts_injectable"
+    ],
+    "167": [
+      "server_src_modules_communications_config_tenant_provider_config_resolver_spec",
+      "server_src_modules_communications_config_tenant_provider_config_resolver_spec_fakecache",
+      "server_src_modules_communications_config_tenant_provider_config_resolver_spec_fakeconfig",
+      "server_src_modules_communications_config_tenant_provider_config_resolver_spec_fakeschools",
+      "server_src_modules_communications_config_tenant_provider_config_resolver_spec_fakeschoolsbytenant",
+      "server_src_modules_communications_config_tenant_provider_config_resolver_spec_resolverwith"
+    ],
+    "168": [
+      "server_src_modules_schools_settings_settings_mask_util",
+      "server_src_modules_schools_settings_settings_mask_util_isplainobject",
+      "server_src_modules_schools_settings_settings_mask_util_maskedsecret",
+      "server_src_modules_schools_settings_settings_mask_util_masksecretfields",
+      "server_src_modules_schools_settings_settings_mask_util_maskvalue",
+      "server_src_modules_schools_settings_settings_mask_util_resolveparent"
+    ],
+    "169": [
+      "shared_src_sanitize_index",
+      "shared_src_sanitize_index_decoderesidualentitiesforplaintext",
+      "shared_src_sanitize_index_normalize",
+      "shared_src_sanitize_index_residual_entities",
+      "shared_src_sanitize_index_sanitizeallowlist",
+      "shared_src_sanitize_index_sanitizestrict"
+    ],
+    "170": [
+      "ui_scripts_check_api_types",
+      "ui_scripts_check_api_types_checkedin",
+      "ui_scripts_check_api_types_fresh",
+      "ui_scripts_check_api_types_openapijson",
+      "ui_scripts_check_api_types_pkgroot",
+      "ui_scripts_check_api_types_tmpdir"
+    ],
+    "171": [
+      "ui_scripts_sync_design_css",
+      "ui_scripts_sync_design_css_assetsdir",
+      "ui_scripts_sync_design_css_dest",
+      "ui_scripts_sync_design_css_matches",
+      "ui_scripts_sync_design_css_pkgroot",
+      "ui_scripts_sync_design_css_reporoot"
+    ],
+    "172": [
+      "ui_src_api_schema_d",
+      "ui_src_api_schema_d_components",
+      "ui_src_api_schema_d_defs",
+      "ui_src_api_schema_d_operations",
+      "ui_src_api_schema_d_paths",
+      "ui_src_api_schema_d_webhooks"
+    ],
+    "173": [
+      "vitest_config",
+      "vitest_config_clientalias",
+      "vitest_config_coverage",
+      "vitest_config_frontendpackage",
+      "vitest_config_testsetupfile",
+      "vitest_config_uialias"
+    ],
+    "174": [
+      "claude_skills_caveman_readme",
+      "claude_skills_caveman_readme_caveman_mode",
+      "claude_skills_caveman_skill",
+      "claude_skills_caveman_skill_auto_clarity_rule",
+      "claude_skills_caveman_skill_intensity_levels"
+    ],
+    "175": [
+      "client_admin_package",
+      "client_admin_package_name",
+      "client_admin_package_private",
+      "client_admin_package_type",
+      "client_admin_package_version"
+    ],
+    "176": [
+      "client_admin_scripts_check_route_chunks",
+      "client_admin_scripts_check_route_chunks_expected_route_chunks",
+      "client_admin_scripts_check_route_chunks_outdir",
+      "client_admin_scripts_check_route_chunks_projectroot",
+      "client_admin_scripts_check_route_chunks_readentrychunkname"
+    ],
+    "177": [
+      "docs_architecture_08_security_access_token_denylist",
+      "docs_architecture_08_security_audit_trail",
+      "docs_architecture_08_security_column_level_encryption",
+      "docs_architecture_08_security_login_lockout",
+      "docs_architecture_08_security_refresh_token_rotation"
+    ],
+    "178": [
+      "scripts_lint_staged_eslint",
+      "scripts_lint_staged_eslint_eslint_packages",
+      "scripts_lint_staged_eslint_eslintbin",
+      "scripts_lint_staged_eslint_filesbypackage",
+      "scripts_lint_staged_eslint_reporoot"
+    ],
+    "179": [
+      "server_src_cors_e2e_spec",
+      "server_src_cors_origins",
+      "server_src_cors_origins_buildcorsoptions",
+      "server_src_cors_origins_resolvecorsorigins",
+      "server_src_cors_origins_spec"
+    ],
+    "180": [
+      "server_src_modules_audit_redact_util",
+      "server_src_modules_audit_redact_util_redact",
+      "server_src_modules_audit_redact_util_redactsensitivefields",
+      "server_src_modules_audit_redact_util_sensitive_keys",
+      "server_src_modules_audit_redact_util_spec"
+    ],
+    "181": [
+      "client_admin_src_routes_staff_students_send_reminder_dialog",
+      "client_admin_src_routes_staff_students_send_reminder_dialog_sendreminderdialog",
+      "client_admin_src_routes_staff_students_send_reminder_dialog_sendreminderdialogprops",
+      "ui_src_hooks_reminders_usesendbulkreminder"
+    ],
+    "182": [
+      "docker_compose_services",
+      "docs_architecture_07_deployment_docker_topology",
+      "github_workflows_ci_pipeline",
+      "readme_root_doc_knip"
+    ],
+    "183": [
+      "e2e_config",
+      "e2e_config_shells",
+      "e2e_focus_management_spec",
+      "e2e_smoke_spec"
+    ],
+    "184": [
+      "server_package",
+      "server_package_name",
+      "server_package_private",
+      "server_package_version"
+    ],
+    "185": [
+      "server_src_migrations_1784175065078_initialschema",
+      "server_src_migrations_1784175065078_initialschema_initialschema1784175065078",
+      "server_src_migrations_1784175065078_initialschema_initialschema1784175065078_down",
+      "server_src_migrations_1784175065078_initialschema_initialschema1784175065078_up"
+    ],
+    "186": [
+      "server_src_migrations_1784175065079_multitenantauth",
+      "server_src_migrations_1784175065079_multitenantauth_multitenantauth1784175065079",
+      "server_src_migrations_1784175065079_multitenantauth_multitenantauth1784175065079_down",
+      "server_src_migrations_1784175065079_multitenantauth_multitenantauth1784175065079_up"
+    ],
+    "187": [
+      "server_src_migrations_1784175065080_addtenantisolationandenrollments",
+      "server_src_migrations_1784175065080_addtenantisolationandenrollments_addtenantisolationandenrollments1784175065080",
+      "server_src_migrations_1784175065080_addtenantisolationandenrollments_addtenantisolationandenrollments1784175065080_down",
+      "server_src_migrations_1784175065080_addtenantisolationandenrollments_addtenantisolationandenrollments1784175065080_up"
+    ],
+    "188": [
+      "server_src_migrations_1785304003457_addtenantidtocommunicationlogs",
+      "server_src_migrations_1785304003457_addtenantidtocommunicationlogs_addtenantidtocommunicationlogs1785304003457",
+      "server_src_migrations_1785304003457_addtenantidtocommunicationlogs_addtenantidtocommunicationlogs1785304003457_down",
+      "server_src_migrations_1785304003457_addtenantidtocommunicationlogs_addtenantidtocommunicationlogs1785304003457_up"
+    ],
+    "189": [
+      "server_src_migrations_1785316147772_addreminderbatchtenantandloglink",
+      "server_src_migrations_1785316147772_addreminderbatchtenantandloglink_addreminderbatchtenantandloglink1785316147772",
+      "server_src_migrations_1785316147772_addreminderbatchtenantandloglink_addreminderbatchtenantandloglink1785316147772_down",
+      "server_src_migrations_1785316147772_addreminderbatchtenantandloglink_addreminderbatchtenantandloglink1785316147772_up"
+    ],
+    "190": [
+      "server_src_migrations_1785702546209_addloginfailedauditaction",
+      "server_src_migrations_1785702546209_addloginfailedauditaction_addloginfailedauditaction1785702546209",
+      "server_src_migrations_1785702546209_addloginfailedauditaction_addloginfailedauditaction1785702546209_down",
+      "server_src_migrations_1785702546209_addloginfailedauditaction_addloginfailedauditaction1785702546209_up"
+    ],
+    "191": [
+      "server_src_migrations_1785740608549_addrefreshtokens",
+      "server_src_migrations_1785740608549_addrefreshtokens_addrefreshtokens1785740608549",
+      "server_src_migrations_1785740608549_addrefreshtokens_addrefreshtokens1785740608549_down",
+      "server_src_migrations_1785740608549_addrefreshtokens_addrefreshtokens1785740608549_up"
+    ],
+    "192": [
+      "server_src_migrations_1785749259955_addtenantidtoauditlogs",
+      "server_src_migrations_1785749259955_addtenantidtoauditlogs_addtenantidtoauditlogs1785749259955",
+      "server_src_migrations_1785749259955_addtenantidtoauditlogs_addtenantidtoauditlogs1785749259955_down",
+      "server_src_migrations_1785749259955_addtenantidtoauditlogs_addtenantidtoauditlogs1785749259955_up"
+    ],
+    "193": [
+      "server_src_migrations_1786097609707_addsettingschangeauditaction",
+      "server_src_migrations_1786097609707_addsettingschangeauditaction_addsettingschangeauditaction1786097609707",
+      "server_src_migrations_1786097609707_addsettingschangeauditaction_addsettingschangeauditaction1786097609707_down",
+      "server_src_migrations_1786097609707_addsettingschangeauditaction_addsettingschangeauditaction1786097609707_up"
+    ],
+    "194": [
+      "server_src_migrations_1786642308000_addsettingstestauditaction",
+      "server_src_migrations_1786642308000_addsettingstestauditaction_addsettingstestauditaction1786642308000",
+      "server_src_migrations_1786642308000_addsettingstestauditaction_addsettingstestauditaction1786642308000_down",
+      "server_src_migrations_1786642308000_addsettingstestauditaction_addsettingstestauditaction1786642308000_up"
+    ],
+    "195": [
+      "server_src_migrations_1787486700000_addsingleremindercommunicationtrigger",
+      "server_src_migrations_1787486700000_addsingleremindercommunicationtrigger_addsingleremindercommunicationtrigger1787486700000",
+      "server_src_migrations_1787486700000_addsingleremindercommunicationtrigger_addsingleremindercommunicationtrigger1787486700000_down",
+      "server_src_migrations_1787486700000_addsingleremindercommunicationtrigger_addsingleremindercommunicationtrigger1787486700000_up"
+    ],
+    "196": [
+      "server_src_validation_pipe_spec",
+      "server_src_validation_pipe_spec_testdto",
+      "server_src_validation_pipe_spec_ts_isint",
+      "server_src_validation_pipe_spec_ts_isstring"
+    ],
+    "197": [
+      "ui_eslint_rules_component_boundary_spec",
+      "ui_eslint_rules_component_boundary_spec_jsxruletester",
+      "ui_eslint_rules_component_boundary_spec_ruletester",
+      "ui_eslint_rules_component_boundary_spec_typedruletester"
+    ],
+    "198": [
+      "docs_architecture_02_auth_and_multitenancy_context_guard",
+      "docs_architecture_02_auth_and_multitenancy_rbac",
+      "docs_architecture_02_auth_and_multitenancy_tenant_header_contract"
+    ],
+    "199": [
+      "github_dependabot_doc",
+      "github_dependabot_npm_group",
+      "github_dependabot_pr_59"
+    ],
+    "200": [
+      "scripts_start",
+      "scripts_start_node_env",
+      "scripts_start_sh__entry"
+    ],
+    "201": [
+      "server_src_modules_auth_normalize_identifier",
+      "server_src_modules_auth_normalize_identifier_normalizeloginidentifier",
+      "server_src_modules_auth_normalize_identifier_spec"
+    ],
+    "202": [
+      "server_src_scripts_db_clear",
+      "server_src_scripts_db_clear_datasource",
+      "server_src_scripts_db_clear_dbclear"
+    ],
+    "203": [
+      "ui_src_utils_name",
+      "ui_src_utils_name_formatname",
+      "ui_src_utils_name_spec"
+    ],
+    "204": [
+      "ui_src_utils_zod_helpers",
+      "ui_src_utils_zod_helpers_boundednumericstring",
+      "ui_src_utils_zod_helpers_spec"
+    ],
+    "205": [
+      "class_variance_authority",
+      "ui_package_dependencies_class_variance_authority"
+    ],
+    "206": [
+      "client_admin_package_devdependencies_tailwindcss_vite",
+      "client_admin_package_json_tailwindcss_vite"
+    ],
+    "207": [
+      "client_admin_package_devdependencies_tanstack_react_router_devtools",
+      "tanstack_react_router_devtools"
+    ],
+    "208": [
+      "client_admin_package_devdependencies_vite",
+      "client_admin_package_json_vite"
+    ],
+    "209": [
+      "client_admin_src_routes_staff_fees_dues_test",
+      "client_admin_src_routes_staff_fees_dues_test_duesrow"
+    ],
+    "210": [
+      "client_admin_src_vite_env_d",
+      "client_admin_src_vite_env_d_importmetaenv"
+    ],
+    "211": [
+      "cookie_parser",
+      "server_package_dependencies_cookie_parser"
+    ],
+    "212": [
+      "docs_architecture_03_backend_modules_api_versioning",
+      "docs_architecture_03_backend_modules_swagger_docs"
+    ],
+    "213": [
+      "docs_architecture_06_frontend_architecture_component_boundary_rule",
+      "docs_architecture_06_frontend_architecture_financial_mutation_guard"
+    ],
+    "214": [
+      "docs_architecture_08_security_csrf_posture",
+      "docs_architecture_08_security_same_origin_guard"
+    ],
+    "215": [
+      "eslint_plugin_import",
+      "package_devdependencies_eslint_plugin_import"
+    ],
+    "216": [
+      "eslint_plugin_react",
+      "package_devdependencies_eslint_plugin_react"
+    ],
+    "217": [
+      "faker_js_faker",
+      "package_devdependencies_faker_js_faker"
+    ],
+    "218": [
+      "github_pull_request_template_doc",
+      "github_pull_request_template_ui_checklist"
+    ],
+    "219": [
+      "globals",
+      "package_devdependencies_globals"
+    ],
+    "220": [
+      "husky",
+      "package_devdependencies_husky"
+    ],
+    "221": [
+      "ioredis",
+      "server_package_dependencies_ioredis"
+    ],
+    "222": [
+      "jsdom",
+      "package_devdependencies_jsdom"
+    ],
+    "223": [
+      "lint_staged",
+      "package_devdependencies_lint_staged"
+    ],
+    "224": [
+      "nestjs_core",
+      "server_package_dependencies_nestjs_core"
+    ],
+    "225": [
+      "nestjs_jwt",
+      "server_package_dependencies_nestjs_jwt"
+    ],
+    "226": [
+      "nestjs_passport",
+      "server_package_dependencies_nestjs_passport"
+    ],
+    "227": [
+      "nestjs_platform_express",
+      "server_package_dependencies_nestjs_platform_express"
+    ],
+    "228": [
+      "nestjs_swagger",
+      "server_package_dependencies_nestjs_swagger"
+    ],
+    "229": [
+      "nginx_generate_dummy_cert",
+      "nginx_generate_dummy_cert_sh__entry"
+    ],
+    "230": [
+      "nginx_reload_loop",
+      "nginx_reload_loop_sh__entry"
+    ],
+    "231": [
+      "nodemailer",
+      "server_package_dependencies_nodemailer"
+    ],
+    "232": [
+      "open",
+      "package_devdependencies_open"
+    ],
+    "233": [
+      "package_devdependencies_knip",
+      "package_json_knip"
+    ],
+    "234": [
+      "package_devdependencies_prettier",
+      "prettier"
+    ],
+    "235": [
+      "package_devdependencies_prettier_plugin_tailwindcss",
+      "prettier_plugin_tailwindcss"
+    ],
+    "236": [
+      "package_devdependencies_supertest",
+      "package_json_supertest"
+    ],
+    "237": [
+      "package_devdependencies_swc_core",
+      "swc_core"
+    ],
+    "238": [
+      "package_devdependencies_types_bcrypt",
+      "package_json_types_bcrypt"
+    ],
+    "239": [
+      "package_devdependencies_types_supertest",
+      "package_json_types_supertest"
+    ],
+    "240": [
+      "package_devdependencies_typescript_eslint",
+      "typescript_eslint"
+    ],
+    "241": [
+      "package_devdependencies_typescript_eslint_utils",
+      "typescript_eslint_utils"
+    ],
+    "242": [
+      "package_devdependencies_unplugin_swc",
+      "unplugin_swc"
+    ],
+    "243": [
+      "package_devdependencies_vitest_axe",
+      "vitest_axe"
+    ],
+    "244": [
+      "pg",
+      "server_package_dependencies_pg"
+    ],
+    "245": [
+      "reflect_metadata",
+      "server_package_dependencies_reflect_metadata"
+    ],
+    "246": [
+      "scripts_build_all",
+      "scripts_build_all_sh__entry"
+    ],
+    "247": [
+      "scripts_open_coverage_report",
+      "scripts_open_coverage_report_reportpath"
+    ],
+    "248": [
+      "server_package_dependencies_typeorm",
+      "typeorm"
+    ],
+    "249": [
+      "ui_package_devdependencies_typescript",
+      "ui_package_json_typescript"
+    ],
+    "250": [
+      "ui_src_shells_shell_stories_test",
+      "ui_src_shells_shell_stories_test_storymodules"
+    ],
+    "251": [
+      "ui_storybook_main",
+      "ui_storybook_main_config"
+    ],
+    "252": [
+      "agents_agents_md"
+    ],
+    "253": [
+      "client_admin_vite_config"
+    ],
+    "254": [
+      "coderabbit_coderabbit_config"
+    ],
+    "255": [
+      "docs_architecture_06_frontend_architecture_tanstack_router"
+    ],
+    "256": [
+      "github_workflows_codeql_doc"
+    ],
+    "257": [
+      "lint_staged_config"
+    ],
+    "258": [
+      "playwright_config"
+    ],
+    "259": [
+      "server_src_data_source_spec"
+    ],
+    "260": [
+      "server_src_modules_audit_audit_controller_ts_apiresponse"
+    ],
+    "261": [
+      "server_src_modules_communications_communications_controller_ts_apioperation"
+    ],
+    "262": [
+      "server_src_modules_communications_communications_controller_ts_apitags"
+    ],
+    "263": [
+      "server_src_modules_communications_communications_controller_ts_apitenantauth"
+    ],
+    "264": [
+      "server_src_modules_communications_communications_controller_ts_body"
+    ],
+    "265": [
+      "server_src_modules_communications_communications_controller_ts_controller"
+    ],
+    "266": [
+      "server_src_modules_communications_communications_controller_ts_currenttenant"
+    ],
+    "267": [
+      "server_src_modules_communications_communications_controller_ts_get"
+    ],
+    "268": [
+      "server_src_modules_communications_communications_controller_ts_httpcode"
+    ],
+    "269": [
+      "server_src_modules_communications_communications_controller_ts_inject"
+    ],
+    "270": [
+      "server_src_modules_communications_communications_controller_ts_param"
+    ],
+    "271": [
+      "server_src_modules_communications_communications_controller_ts_post"
+    ],
+    "272": [
+      "server_src_modules_communications_communications_controller_ts_query"
+    ],
+    "273": [
+      "server_src_modules_communications_communications_controller_ts_req"
+    ],
+    "274": [
+      "server_src_modules_communications_communications_controller_ts_roles"
+    ],
+    "275": [
+      "server_src_modules_communications_communications_controller_ts_throttle"
+    ],
+    "276": [
+      "server_src_modules_communications_communications_controller_ts_useguards"
+    ],
+    "277": [
+      "server_src_modules_communications_communications_service_spec"
+    ],
+    "278": [
+      "server_src_modules_students_dto_students_dto_ts_isdatestring"
+    ],
+    "279": [
+      "server_src_modules_students_dto_students_dto_ts_isemail"
+    ],
+    "280": [
+      "server_src_modules_students_dto_students_dto_ts_isin"
+    ],
+    "281": [
+      "server_src_modules_students_dto_students_dto_ts_isint"
+    ],
+    "282": [
+      "server_src_modules_students_dto_students_dto_ts_matches"
+    ],
+    "283": [
+      "server_src_modules_students_dto_students_dto_ts_min"
+    ],
+    "284": [
+      "server_src_modules_students_dto_students_dto_ts_type"
+    ],
+    "285": [
+      "ui_src_test_jsdom_polyfills_element_haspointercapture"
+    ],
+    "286": [
+      "ui_src_test_jsdom_polyfills_element_releasepointercapture"
+    ],
+    "287": [
+      "ui_src_test_jsdom_polyfills_element_scrollintoview"
+    ],
+    "288": [
+      "ui_src_test_jsdom_polyfills_element_setpointercapture"
+    ],
+    "289": [
+      "ui_src_test_node_environment_boundary_spec"
+    ],
+    "290": [
+      "ui_vitest_config"
+    ],
+    "291": [
       "ui_src_shells_detail_shell",
       "ui_src_shells_detail_shell_detailshell",
       "ui_src_shells_detail_shell_detailshellaction",
@@ -4274,477 +5176,23 @@
       "ui_src_shells_form_shell_test_controlled",
       "ui_src_shells_index"
     ],
-    "136": [
-      "ui_package_scripts",
-      "ui_package_scripts_api_types",
-      "ui_package_scripts_build_storybook",
-      "ui_package_scripts_check_api_types",
-      "ui_package_scripts_check_contrast",
-      "ui_package_scripts_check_exports",
-      "ui_package_scripts_check_i18n",
-      "ui_package_scripts_design_sync_css",
-      "ui_package_scripts_lint",
-      "ui_package_scripts_storybook",
-      "ui_package_scripts_test"
+    "292": [
+      "ui_src_components_school_picker",
+      "ui_src_components_school_picker_optionkey",
+      "ui_src_components_school_picker_schoolcard",
+      "ui_src_components_school_picker_schoolpicker",
+      "ui_src_components_school_picker_schoolpickeroption",
+      "ui_src_components_school_picker_schoolpickerprops",
+      "ui_src_components_school_picker_stories",
+      "ui_src_components_school_picker_stories_default",
+      "ui_src_components_school_picker_stories_meta",
+      "ui_src_components_school_picker_stories_righttoleft",
+      "ui_src_components_school_picker_stories_story",
+      "ui_src_components_school_picker_stories_threeschools",
+      "ui_src_components_school_picker_test",
+      "ui_src_components_school_picker_test_schools"
     ],
-    "137": [
-      "server_src_modules_audit_dto_audit_log_dto",
-      "server_src_modules_audit_dto_audit_log_dto_queryauditlogdto",
-      "server_src_modules_audit_dto_audit_log_dto_ts_isdatestring",
-      "server_src_modules_audit_dto_audit_log_dto_ts_isenum",
-      "server_src_modules_audit_dto_audit_log_dto_ts_isint",
-      "server_src_modules_audit_dto_audit_log_dto_ts_isoptional",
-      "server_src_modules_audit_dto_audit_log_dto_ts_isstring",
-      "server_src_modules_audit_dto_audit_log_dto_ts_max",
-      "server_src_modules_audit_dto_audit_log_dto_ts_min",
-      "server_src_modules_audit_dto_audit_log_dto_ts_type"
-    ],
-    "138": [
-      "server_src_modules_schools_schools_module_encryptionservicefactory",
-      "server_src_modules_schools_schools_module_spec",
-      "server_src_modules_schools_schools_module_spec_fakeconfig",
-      "server_src_modules_schools_settings_encryption_key",
-      "server_src_modules_schools_settings_encryption_key_buildencryptionkey",
-      "server_src_modules_schools_settings_encryption_key_buildpreviousencryptionkeys",
-      "server_src_modules_schools_settings_encryption_key_decodekey",
-      "server_src_modules_schools_settings_encryption_key_spec",
-      "server_src_modules_schools_settings_encryption_key_spec_valid_key",
-      "server_src_modules_schools_settings_encryption_key_spec_wrong_length_key"
-    ],
-    "139": [
-      "ui_src_components_tenant_bar_stories",
-      "ui_src_components_tenant_bar_stories_default",
-      "ui_src_components_tenant_bar_stories_fakejwt",
-      "ui_src_components_tenant_bar_stories_meta",
-      "ui_src_components_tenant_bar_stories_righttoleft",
-      "ui_src_components_tenant_bar_stories_singlemembership",
-      "ui_src_components_tenant_bar_stories_singleschool",
-      "ui_src_components_tenant_bar_stories_story",
-      "ui_src_components_tenant_bar_stories_switchmenuopen",
-      "ui_src_components_tenant_bar_stories_twoschools"
-    ],
-    "140": [
-      "ui_src_i18n_region_config_currencygrouping",
-      "ui_src_utils_grouping",
-      "ui_src_utils_grouping_groupdigits",
-      "ui_src_utils_grouping_grouplakhcrore",
-      "ui_src_utils_grouping_groupthousand",
-      "ui_src_utils_grouping_spec",
-      "ui_src_utils_number",
-      "ui_src_utils_number_formatnumber",
-      "ui_src_utils_number_parsenumber",
-      "ui_src_utils_number_spec"
-    ],
-    "141": [
-      "ui_tailwind_preset",
-      "ui_tailwind_preset_biddaloypreset",
-      "ui_tailwind_preset_brand",
-      "ui_tailwind_preset_contrast_pairs",
-      "ui_tailwind_preset_dark",
-      "ui_tailwind_preset_light",
-      "ui_tailwind_preset_neutral",
-      "ui_tailwind_preset_radius",
-      "ui_tailwind_preset_status",
-      "ui_tailwind_preset_statuskey"
-    ],
-    "142": [
-      "client_admin_public_mockserviceworker",
-      "client_admin_public_mockserviceworker_activeclientids",
-      "client_admin_public_mockserviceworker_getresponse",
-      "client_admin_public_mockserviceworker_handlerequest",
-      "client_admin_public_mockserviceworker_is_mocked_response",
-      "client_admin_public_mockserviceworker_resolvemainclient",
-      "client_admin_public_mockserviceworker_respondwithmock",
-      "client_admin_public_mockserviceworker_sendtoclient",
-      "client_admin_public_mockserviceworker_serializerequest"
-    ],
-    "143": [
-      "scripts_ci_audit",
-      "scripts_ci_audit_advisories",
-      "scripts_ci_audit_allowlist",
-      "scripts_ci_audit_expired",
-      "scripts_ci_audit_result",
-      "scripts_ci_audit_seen",
-      "scripts_ci_audit_spawnsync",
-      "scripts_ci_audit_today",
-      "scripts_ci_audit_unallowed"
-    ],
-    "144": [
-      "server_src_modules_auth_guards_same_origin_guard",
-      "server_src_modules_auth_guards_same_origin_guard_isoriginallowed",
-      "server_src_modules_auth_guards_same_origin_guard_requestorigin",
-      "server_src_modules_auth_guards_same_origin_guard_sameoriginguard",
-      "server_src_modules_auth_guards_same_origin_guard_sameoriginguard_canactivate",
-      "server_src_modules_auth_guards_same_origin_guard_spec",
-      "server_src_modules_auth_guards_same_origin_guard_spec_contextfor",
-      "server_src_modules_auth_guards_same_origin_guard_spec_fakerequest",
-      "server_src_modules_auth_guards_same_origin_guard_ts_injectable"
-    ],
-    "145": [
-      "server_src_modules_communications_config_tenant_provider_config_resolver_resolvedemailconfig",
-      "server_src_modules_communications_providers_email_smtp_email_provider",
-      "server_src_modules_communications_providers_email_smtp_email_provider_issmtpconnectionerror",
-      "server_src_modules_communications_providers_email_smtp_email_provider_mapsmtperror",
-      "server_src_modules_communications_providers_email_smtp_email_provider_smtp_connection_error_codes",
-      "server_src_modules_communications_providers_email_smtp_email_provider_smtpemailprovider_send",
-      "server_src_modules_communications_providers_email_smtp_email_provider_smtpemailprovider_testconnection",
-      "server_src_modules_communications_providers_email_smtp_email_provider_withpinnedaddressfallback",
-      "server_src_modules_communications_providers_shared_outbound_destination_guard_safesmtpdestination"
-    ],
-    "146": [
-      "tsconfig_frontend",
-      "tsconfig_frontend_compileroptions",
-      "tsconfig_frontend_compileroptions_exactoptionalpropertytypes",
-      "tsconfig_frontend_compileroptions_nouncheckedindexedaccess",
-      "tsconfig_frontend_compileroptions_nounusedlocals",
-      "tsconfig_frontend_compileroptions_nounusedparameters",
-      "tsconfig_frontend_compileroptions_strict",
-      "tsconfig_frontend_extends",
-      "tsconfig_frontend_json_ref_tsconfig_base_json"
-    ],
-    "147": [
-      "ui_eslint_rules_data_fetching",
-      "ui_eslint_rules_data_fetching_effect_hook_names",
-      "ui_eslint_rules_data_fetching_findnetworkcall",
-      "ui_eslint_rules_data_fetching_geteffecthookname",
-      "ui_eslint_rules_data_fetching_isnetworkcallcallee",
-      "ui_eslint_rules_data_fetching_nofetchineffect",
-      "ui_eslint_rules_data_fetching_spec",
-      "ui_eslint_rules_data_fetching_spec_ruletester",
-      "ui_eslint_rules_data_fetching_walk"
-    ],
-    "148": [
-      "ui_eslint_rules_financial_mutation",
-      "ui_eslint_rules_financial_mutation_findguardedendpointliteral",
-      "ui_eslint_rules_financial_mutation_findonmutateproperty",
-      "ui_eslint_rules_financial_mutation_guarded_endpoint_patterns",
-      "ui_eslint_rules_financial_mutation_matchesguardedendpoint",
-      "ui_eslint_rules_financial_mutation_nooptimisticfinancialmutation",
-      "ui_eslint_rules_financial_mutation_spec",
-      "ui_eslint_rules_financial_mutation_spec_ruletester",
-      "ui_eslint_rules_financial_mutation_walk"
-    ],
-    "149": [
-      "ui_eslint_rules_logical_properties",
-      "ui_eslint_rules_logical_properties_class_attribute_names",
-      "ui_eslint_rules_logical_properties_inset_replacement",
-      "ui_eslint_rules_logical_properties_logicalreplacement",
-      "ui_eslint_rules_logical_properties_nophysicaldirectionclasses",
-      "ui_eslint_rules_logical_properties_spacing_replacement",
-      "ui_eslint_rules_logical_properties_spec",
-      "ui_eslint_rules_logical_properties_spec_ruletester",
-      "ui_eslint_rules_logical_properties_text_align_replacement"
-    ],
-    "150": [
-      "ui_src_components_money_input_stories",
-      "ui_src_components_money_input_stories_default",
-      "ui_src_components_money_input_stories_demo",
-      "ui_src_components_money_input_stories_disabled",
-      "ui_src_components_money_input_stories_empty",
-      "ui_src_components_money_input_stories_invalid",
-      "ui_src_components_money_input_stories_meta",
-      "ui_src_components_money_input_stories_righttoleft",
-      "ui_src_components_money_input_stories_story"
-    ],
-    "151": [
-      "ui_src_components_phone_input_stories",
-      "ui_src_components_phone_input_stories_default",
-      "ui_src_components_phone_input_stories_demo",
-      "ui_src_components_phone_input_stories_disabled",
-      "ui_src_components_phone_input_stories_empty",
-      "ui_src_components_phone_input_stories_invalid",
-      "ui_src_components_phone_input_stories_meta",
-      "ui_src_components_phone_input_stories_righttoleft",
-      "ui_src_components_phone_input_stories_story"
-    ],
-    "152": [
-      "ui_src_components_toast",
-      "ui_src_components_toast_stories",
-      "ui_src_components_toast_stories_default",
-      "ui_src_components_toast_stories_errorvariant",
-      "ui_src_components_toast_stories_meta",
-      "ui_src_components_toast_stories_story",
-      "ui_src_components_toast_stories_successvariant",
-      "ui_src_components_toast_test",
-      "ui_src_components_toast_toaster"
-    ],
-    "153": [
-      "ui_storybook_public_mockserviceworker",
-      "ui_storybook_public_mockserviceworker_activeclientids",
-      "ui_storybook_public_mockserviceworker_getresponse",
-      "ui_storybook_public_mockserviceworker_handlerequest",
-      "ui_storybook_public_mockserviceworker_is_mocked_response",
-      "ui_storybook_public_mockserviceworker_resolvemainclient",
-      "ui_storybook_public_mockserviceworker_respondwithmock",
-      "ui_storybook_public_mockserviceworker_sendtoclient",
-      "ui_storybook_public_mockserviceworker_serializerequest"
-    ],
-    "154": [
-      "client_admin_eslint_config",
-      "eslint",
-      "package_devdependencies_eslint",
-      "ui_eslint_config_componentboundaryconfig",
-      "ui_eslint_rules_component_boundary_config_spec",
-      "ui_eslint_rules_component_boundary_config_spec_hasboundaryplugin",
-      "ui_eslint_rules_component_boundary_config_spec_here",
-      "ui_eslint_rules_component_boundary_config_spec_lintfixture"
-    ],
-    "155": [
-      "client_admin_src_routes_staff_students_index",
-      "client_admin_src_routes_staff_students_index_csvcell",
-      "client_admin_src_routes_staff_students_index_primaryguardianname",
-      "client_admin_src_routes_staff_students_index_sort_field_by_column",
-      "client_admin_src_routes_staff_students_index_studentfilters",
-      "client_admin_src_routes_staff_students_index_studentslistpage",
-      "client_admin_src_routes_staff_students_index_studentssearchschema",
-      "client_admin_src_routes_staff_students_index_tostudentlistfilters"
-    ],
-    "156": [
-      "e2e_tsconfig",
-      "e2e_tsconfig_compileroptions",
-      "e2e_tsconfig_compileroptions_types",
-      "e2e_tsconfig_extends",
-      "e2e_tsconfig_include",
-      "e2e_tsconfig_json_ref_tsconfig_base_json",
-      "ref_node",
-      "ref_ts"
-    ],
-    "157": [
-      "prettierrc",
-      "prettierrc_plugins",
-      "prettierrc_printwidth",
-      "prettierrc_semi",
-      "prettierrc_singlequote",
-      "prettierrc_tailwindstylesheet",
-      "prettierrc_trailingcomma",
-      "ref_prettier_plugin_tailwindcss"
-    ],
-    "158": [
-      "server_src_app_controller",
-      "server_src_app_controller_appcontroller",
-      "server_src_app_controller_appcontroller_health",
-      "server_src_app_controller_spec",
-      "server_src_app_controller_ts_controller",
-      "server_src_app_controller_ts_get",
-      "skipthrottle",
-      "version"
-    ],
-    "159": [
-      "server_src_modules_auth_auth_controller_spec",
-      "server_src_modules_auth_auth_controller_spec_fakerequest",
-      "server_src_modules_auth_auth_controller_spec_fakeresponse",
-      "server_src_modules_auth_auth_controller_spec_mockissuedrefreshtoken",
-      "server_src_modules_auth_token_cookie",
-      "server_src_modules_auth_token_cookie_buildrefreshtokenclearcookieoptions",
-      "server_src_modules_auth_token_cookie_buildrefreshtokencookieoptions",
-      "server_src_modules_auth_token_cookie_spec"
-    ],
-    "160": [
-      "server_src_route_guard_coverage_e2e_spec",
-      "server_src_route_guard_coverage_e2e_spec_allowlist",
-      "server_src_route_guard_coverage_e2e_spec_allowlistentry",
-      "server_src_route_guard_coverage_e2e_spec_buildfullpath",
-      "server_src_route_guard_coverage_e2e_spec_describeguards",
-      "server_src_route_guard_coverage_e2e_spec_findallowlistentry",
-      "server_src_route_guard_coverage_e2e_spec_jwt_auth_guard",
-      "server_src_route_guard_coverage_e2e_spec_requestmethodname"
-    ],
-    "161": [
-      "ui_package",
-      "ui_package_description",
-      "ui_package_main",
-      "ui_package_name",
-      "ui_package_private",
-      "ui_package_type",
-      "ui_package_types",
-      "ui_package_version"
-    ],
-    "162": [
-      "ui_scripts_check_exports",
-      "ui_scripts_check_exports_entries",
-      "ui_scripts_check_exports_errors",
-      "ui_scripts_check_exports_exported",
-      "ui_scripts_check_exports_pkg",
-      "ui_scripts_check_exports_pkgroot",
-      "ui_scripts_check_exports_private_dirs",
-      "ui_scripts_check_exports_srcdir"
-    ],
-    "163": [
-      "client_admin_package_scripts",
-      "client_admin_package_scripts_build",
-      "client_admin_package_scripts_build_analyze",
-      "client_admin_package_scripts_check_route_chunks",
-      "client_admin_package_scripts_dev",
-      "client_admin_package_scripts_lint",
-      "client_admin_package_scripts_preview"
-    ],
-    "164": [
-      "server_nest_cli",
-      "server_nest_cli_collection",
-      "server_nest_cli_compileroptions",
-      "server_nest_cli_compileroptions_deleteoutdir",
-      "server_nest_cli_compileroptions_plugins",
-      "server_nest_cli_schema",
-      "server_nest_cli_sourceroot"
-    ],
-    "165": [
-      "ui_eslint_config_biddaloyreactconfig",
-      "ui_eslint_config_datafetchingguardconfig",
-      "ui_eslint_config_financialmutationguardconfig",
-      "ui_eslint_config_mjs_ui_eslint_config_84dce3",
-      "ui_eslint_config_mjs_ui_eslint_config_92ee27",
-      "ui_eslint_config_nowindowalertconfig",
-      "ui_eslint_config_typecheckedtestoverrides"
-    ],
-    "166": [
-      "ui_eslint_rules_no_window_alert",
-      "ui_eslint_rules_no_window_alert_banned_names",
-      "ui_eslint_rules_no_window_alert_getstaticpropertyname",
-      "ui_eslint_rules_no_window_alert_isshadowed",
-      "ui_eslint_rules_no_window_alert_nowindowalert",
-      "ui_eslint_rules_no_window_alert_spec",
-      "ui_eslint_rules_no_window_alert_spec_ruletester"
-    ],
-    "167": [
-      "client_admin_src_components_global_search_launcher",
-      "client_admin_src_components_global_search_launcher_globalsearchlauncher",
-      "ui_src_hooks_global_search",
-      "ui_src_hooks_global_search_globalsearchentityresult",
-      "ui_src_hooks_global_search_globalsearchresults",
-      "ui_src_hooks_global_search_guardiansearchkeys",
-      "ui_src_hooks_global_search_paginatedenvelope",
-      "ui_src_hooks_global_search_teacher_search_roles",
-      "ui_src_hooks_global_search_teacherprofile",
-      "ui_src_hooks_global_search_teachersearchkeys",
-      "ui_src_hooks_global_search_useglobalsearch",
-      "ui_src_hooks_invoices_invoice",
-      "ui_src_hooks_invoices_invoicekeys",
-      "ui_src_hooks_payments",
-      "ui_src_hooks_payments_createpaymentinput",
-      "ui_src_hooks_payments_payment",
-      "ui_src_hooks_payments_paymentkeys",
-      "ui_src_hooks_payments_studentfee",
-      "ui_src_hooks_payments_studentfeesummary",
-      "ui_src_hooks_payments_test",
-      "ui_src_hooks_payments_test_paymentform",
-      "ui_src_hooks_payments_usecreatepayment",
-      "ui_src_hooks_use_debounce",
-      "ui_src_hooks_use_debounce_usedebouncedvalue"
-    ],
-    "168": [
-      "server_src_common_rate_limit_fail_open_throttler_storage",
-      "server_src_common_rate_limit_fail_open_throttler_storage_failopenthrottlerstorage",
-      "server_src_common_rate_limit_fail_open_throttler_storage_failopenthrottlerstorage_constructor",
-      "server_src_common_rate_limit_fail_open_throttler_storage_failopenthrottlerstorage_increment",
-      "server_src_common_rate_limit_fail_open_throttler_storage_spec",
-      "server_src_common_rate_limit_fail_open_throttler_storage_ts_injectable"
-    ],
-    "169": [
-      "server_src_modules_communications_config_tenant_provider_config_resolver_spec",
-      "server_src_modules_communications_config_tenant_provider_config_resolver_spec_fakecache",
-      "server_src_modules_communications_config_tenant_provider_config_resolver_spec_fakeconfig",
-      "server_src_modules_communications_config_tenant_provider_config_resolver_spec_fakeschools",
-      "server_src_modules_communications_config_tenant_provider_config_resolver_spec_fakeschoolsbytenant",
-      "server_src_modules_communications_config_tenant_provider_config_resolver_spec_resolverwith"
-    ],
-    "170": [
-      "server_src_modules_schools_settings_settings_mask_util",
-      "server_src_modules_schools_settings_settings_mask_util_isplainobject",
-      "server_src_modules_schools_settings_settings_mask_util_maskedsecret",
-      "server_src_modules_schools_settings_settings_mask_util_masksecretfields",
-      "server_src_modules_schools_settings_settings_mask_util_maskvalue",
-      "server_src_modules_schools_settings_settings_mask_util_resolveparent"
-    ],
-    "171": [
-      "shared_src_sanitize_index",
-      "shared_src_sanitize_index_decoderesidualentitiesforplaintext",
-      "shared_src_sanitize_index_normalize",
-      "shared_src_sanitize_index_residual_entities",
-      "shared_src_sanitize_index_sanitizeallowlist",
-      "shared_src_sanitize_index_sanitizestrict"
-    ],
-    "172": [
-      "ui_scripts_check_api_types",
-      "ui_scripts_check_api_types_checkedin",
-      "ui_scripts_check_api_types_fresh",
-      "ui_scripts_check_api_types_openapijson",
-      "ui_scripts_check_api_types_pkgroot",
-      "ui_scripts_check_api_types_tmpdir"
-    ],
-    "173": [
-      "ui_scripts_sync_design_css",
-      "ui_scripts_sync_design_css_assetsdir",
-      "ui_scripts_sync_design_css_dest",
-      "ui_scripts_sync_design_css_matches",
-      "ui_scripts_sync_design_css_pkgroot",
-      "ui_scripts_sync_design_css_reporoot"
-    ],
-    "174": [
-      "ui_src_api_schema_d",
-      "ui_src_api_schema_d_components",
-      "ui_src_api_schema_d_defs",
-      "ui_src_api_schema_d_operations",
-      "ui_src_api_schema_d_paths",
-      "ui_src_api_schema_d_webhooks"
-    ],
-    "175": [
-      "vitest_config",
-      "vitest_config_clientalias",
-      "vitest_config_coverage",
-      "vitest_config_frontendpackage",
-      "vitest_config_testsetupfile",
-      "vitest_config_uialias"
-    ],
-    "176": [
-      "claude_skills_caveman_readme",
-      "claude_skills_caveman_readme_caveman_mode",
-      "claude_skills_caveman_skill",
-      "claude_skills_caveman_skill_auto_clarity_rule",
-      "claude_skills_caveman_skill_intensity_levels"
-    ],
-    "177": [
-      "client_admin_package",
-      "client_admin_package_name",
-      "client_admin_package_private",
-      "client_admin_package_type",
-      "client_admin_package_version"
-    ],
-    "178": [
-      "client_admin_scripts_check_route_chunks",
-      "client_admin_scripts_check_route_chunks_expected_route_chunks",
-      "client_admin_scripts_check_route_chunks_outdir",
-      "client_admin_scripts_check_route_chunks_projectroot",
-      "client_admin_scripts_check_route_chunks_readentrychunkname"
-    ],
-    "179": [
-      "docs_architecture_08_security_access_token_denylist",
-      "docs_architecture_08_security_audit_trail",
-      "docs_architecture_08_security_column_level_encryption",
-      "docs_architecture_08_security_login_lockout",
-      "docs_architecture_08_security_refresh_token_rotation"
-    ],
-    "180": [
-      "scripts_lint_staged_eslint",
-      "scripts_lint_staged_eslint_eslint_packages",
-      "scripts_lint_staged_eslint_eslintbin",
-      "scripts_lint_staged_eslint_filesbypackage",
-      "scripts_lint_staged_eslint_reporoot"
-    ],
-    "181": [
-      "server_src_cors_e2e_spec",
-      "server_src_cors_origins",
-      "server_src_cors_origins_buildcorsoptions",
-      "server_src_cors_origins_resolvecorsorigins",
-      "server_src_cors_origins_spec"
-    ],
-    "182": [
-      "server_src_modules_audit_redact_util",
-      "server_src_modules_audit_redact_util_redact",
-      "server_src_modules_audit_redact_util_redactsensitivefields",
-      "server_src_modules_audit_redact_util_sensitive_keys",
-      "server_src_modules_audit_redact_util_spec"
-    ],
-    "183": [
+    "293": [
       "server_src_modules_communications_communications_service_communicationsservice",
       "server_src_modules_communications_communications_service_communicationsservice_enqueue",
       "server_src_modules_communications_communications_service_communicationsservice_findbystudent",
@@ -4754,456 +5202,6 @@
       "server_src_modules_communications_communications_service_ts_injectable",
       "server_src_modules_communications_dto_communications_dto_communicationresponsedto",
       "server_src_modules_students_students_service_studentservice_findone"
-    ],
-    "184": [
-      "docker_compose_services",
-      "docs_architecture_07_deployment_docker_topology",
-      "github_workflows_ci_pipeline",
-      "readme_root_doc_knip"
-    ],
-    "185": [
-      "e2e_config",
-      "e2e_config_shells",
-      "e2e_focus_management_spec",
-      "e2e_smoke_spec"
-    ],
-    "186": [
-      "server_package",
-      "server_package_name",
-      "server_package_private",
-      "server_package_version"
-    ],
-    "187": [
-      "server_src_migrations_1784175065078_initialschema",
-      "server_src_migrations_1784175065078_initialschema_initialschema1784175065078",
-      "server_src_migrations_1784175065078_initialschema_initialschema1784175065078_down",
-      "server_src_migrations_1784175065078_initialschema_initialschema1784175065078_up"
-    ],
-    "188": [
-      "server_src_migrations_1784175065079_multitenantauth",
-      "server_src_migrations_1784175065079_multitenantauth_multitenantauth1784175065079",
-      "server_src_migrations_1784175065079_multitenantauth_multitenantauth1784175065079_down",
-      "server_src_migrations_1784175065079_multitenantauth_multitenantauth1784175065079_up"
-    ],
-    "189": [
-      "server_src_migrations_1784175065080_addtenantisolationandenrollments",
-      "server_src_migrations_1784175065080_addtenantisolationandenrollments_addtenantisolationandenrollments1784175065080",
-      "server_src_migrations_1784175065080_addtenantisolationandenrollments_addtenantisolationandenrollments1784175065080_down",
-      "server_src_migrations_1784175065080_addtenantisolationandenrollments_addtenantisolationandenrollments1784175065080_up"
-    ],
-    "190": [
-      "server_src_migrations_1785304003457_addtenantidtocommunicationlogs",
-      "server_src_migrations_1785304003457_addtenantidtocommunicationlogs_addtenantidtocommunicationlogs1785304003457",
-      "server_src_migrations_1785304003457_addtenantidtocommunicationlogs_addtenantidtocommunicationlogs1785304003457_down",
-      "server_src_migrations_1785304003457_addtenantidtocommunicationlogs_addtenantidtocommunicationlogs1785304003457_up"
-    ],
-    "191": [
-      "server_src_migrations_1785316147772_addreminderbatchtenantandloglink",
-      "server_src_migrations_1785316147772_addreminderbatchtenantandloglink_addreminderbatchtenantandloglink1785316147772",
-      "server_src_migrations_1785316147772_addreminderbatchtenantandloglink_addreminderbatchtenantandloglink1785316147772_down",
-      "server_src_migrations_1785316147772_addreminderbatchtenantandloglink_addreminderbatchtenantandloglink1785316147772_up"
-    ],
-    "192": [
-      "server_src_migrations_1785702546209_addloginfailedauditaction",
-      "server_src_migrations_1785702546209_addloginfailedauditaction_addloginfailedauditaction1785702546209",
-      "server_src_migrations_1785702546209_addloginfailedauditaction_addloginfailedauditaction1785702546209_down",
-      "server_src_migrations_1785702546209_addloginfailedauditaction_addloginfailedauditaction1785702546209_up"
-    ],
-    "193": [
-      "server_src_migrations_1785740608549_addrefreshtokens",
-      "server_src_migrations_1785740608549_addrefreshtokens_addrefreshtokens1785740608549",
-      "server_src_migrations_1785740608549_addrefreshtokens_addrefreshtokens1785740608549_down",
-      "server_src_migrations_1785740608549_addrefreshtokens_addrefreshtokens1785740608549_up"
-    ],
-    "194": [
-      "server_src_migrations_1785749259955_addtenantidtoauditlogs",
-      "server_src_migrations_1785749259955_addtenantidtoauditlogs_addtenantidtoauditlogs1785749259955",
-      "server_src_migrations_1785749259955_addtenantidtoauditlogs_addtenantidtoauditlogs1785749259955_down",
-      "server_src_migrations_1785749259955_addtenantidtoauditlogs_addtenantidtoauditlogs1785749259955_up"
-    ],
-    "195": [
-      "server_src_migrations_1786097609707_addsettingschangeauditaction",
-      "server_src_migrations_1786097609707_addsettingschangeauditaction_addsettingschangeauditaction1786097609707",
-      "server_src_migrations_1786097609707_addsettingschangeauditaction_addsettingschangeauditaction1786097609707_down",
-      "server_src_migrations_1786097609707_addsettingschangeauditaction_addsettingschangeauditaction1786097609707_up"
-    ],
-    "196": [
-      "server_src_migrations_1786642308000_addsettingstestauditaction",
-      "server_src_migrations_1786642308000_addsettingstestauditaction_addsettingstestauditaction1786642308000",
-      "server_src_migrations_1786642308000_addsettingstestauditaction_addsettingstestauditaction1786642308000_down",
-      "server_src_migrations_1786642308000_addsettingstestauditaction_addsettingstestauditaction1786642308000_up"
-    ],
-    "197": [
-      "server_src_migrations_1787486700000_addsingleremindercommunicationtrigger",
-      "server_src_migrations_1787486700000_addsingleremindercommunicationtrigger_addsingleremindercommunicationtrigger1787486700000",
-      "server_src_migrations_1787486700000_addsingleremindercommunicationtrigger_addsingleremindercommunicationtrigger1787486700000_down",
-      "server_src_migrations_1787486700000_addsingleremindercommunicationtrigger_addsingleremindercommunicationtrigger1787486700000_up"
-    ],
-    "198": [
-      "server_src_validation_pipe_spec",
-      "server_src_validation_pipe_spec_testdto",
-      "server_src_validation_pipe_spec_ts_isint",
-      "server_src_validation_pipe_spec_ts_isstring"
-    ],
-    "199": [
-      "ui_eslint_rules_component_boundary_spec",
-      "ui_eslint_rules_component_boundary_spec_jsxruletester",
-      "ui_eslint_rules_component_boundary_spec_ruletester",
-      "ui_eslint_rules_component_boundary_spec_typedruletester"
-    ],
-    "200": [
-      "docs_architecture_02_auth_and_multitenancy_context_guard",
-      "docs_architecture_02_auth_and_multitenancy_rbac",
-      "docs_architecture_02_auth_and_multitenancy_tenant_header_contract"
-    ],
-    "201": [
-      "github_dependabot_doc",
-      "github_dependabot_npm_group",
-      "github_dependabot_pr_59"
-    ],
-    "202": [
-      "scripts_start",
-      "scripts_start_node_env",
-      "scripts_start_sh__entry"
-    ],
-    "203": [
-      "server_src_modules_auth_normalize_identifier",
-      "server_src_modules_auth_normalize_identifier_normalizeloginidentifier",
-      "server_src_modules_auth_normalize_identifier_spec"
-    ],
-    "204": [
-      "server_src_scripts_db_clear",
-      "server_src_scripts_db_clear_datasource",
-      "server_src_scripts_db_clear_dbclear"
-    ],
-    "205": [
-      "ui_src_utils_name",
-      "ui_src_utils_name_formatname",
-      "ui_src_utils_name_spec"
-    ],
-    "206": [
-      "ui_src_utils_zod_helpers",
-      "ui_src_utils_zod_helpers_boundednumericstring",
-      "ui_src_utils_zod_helpers_spec"
-    ],
-    "207": [
-      "class_variance_authority",
-      "ui_package_dependencies_class_variance_authority"
-    ],
-    "208": [
-      "client_admin_package_devdependencies_tailwindcss_vite",
-      "client_admin_package_json_tailwindcss_vite"
-    ],
-    "209": [
-      "client_admin_package_devdependencies_tanstack_react_router_devtools",
-      "tanstack_react_router_devtools"
-    ],
-    "210": [
-      "client_admin_package_devdependencies_vite",
-      "client_admin_package_json_vite"
-    ],
-    "211": [
-      "client_admin_src_routes_staff_fees_dues_test",
-      "client_admin_src_routes_staff_fees_dues_test_duesrow"
-    ],
-    "212": [
-      "client_admin_src_vite_env_d",
-      "client_admin_src_vite_env_d_importmetaenv"
-    ],
-    "213": [
-      "cookie_parser",
-      "server_package_dependencies_cookie_parser"
-    ],
-    "214": [
-      "docs_architecture_03_backend_modules_api_versioning",
-      "docs_architecture_03_backend_modules_swagger_docs"
-    ],
-    "215": [
-      "docs_architecture_06_frontend_architecture_component_boundary_rule",
-      "docs_architecture_06_frontend_architecture_financial_mutation_guard"
-    ],
-    "216": [
-      "docs_architecture_08_security_csrf_posture",
-      "docs_architecture_08_security_same_origin_guard"
-    ],
-    "217": [
-      "eslint_plugin_import",
-      "package_devdependencies_eslint_plugin_import"
-    ],
-    "218": [
-      "eslint_plugin_react",
-      "package_devdependencies_eslint_plugin_react"
-    ],
-    "219": [
-      "faker_js_faker",
-      "package_devdependencies_faker_js_faker"
-    ],
-    "220": [
-      "github_pull_request_template_doc",
-      "github_pull_request_template_ui_checklist"
-    ],
-    "221": [
-      "globals",
-      "package_devdependencies_globals"
-    ],
-    "222": [
-      "husky",
-      "package_devdependencies_husky"
-    ],
-    "223": [
-      "ioredis",
-      "server_package_dependencies_ioredis"
-    ],
-    "224": [
-      "jsdom",
-      "package_devdependencies_jsdom"
-    ],
-    "225": [
-      "lint_staged",
-      "package_devdependencies_lint_staged"
-    ],
-    "226": [
-      "nestjs_core",
-      "server_package_dependencies_nestjs_core"
-    ],
-    "227": [
-      "nestjs_jwt",
-      "server_package_dependencies_nestjs_jwt"
-    ],
-    "228": [
-      "nestjs_passport",
-      "server_package_dependencies_nestjs_passport"
-    ],
-    "229": [
-      "nestjs_swagger",
-      "server_package_dependencies_nestjs_swagger"
-    ],
-    "230": [
-      "server_src_modules_schools_settings_regex_source_validator",
-      "server_src_modules_schools_settings_regex_source_validator_isregexsourceconstraint",
-      "server_src_modules_schools_settings_regex_source_validator_isregexsourceconstraint_defaultmessage",
-      "server_src_modules_schools_settings_regex_source_validator_isregexsourceconstraint_validate",
-      "server_src_modules_schools_settings_regex_source_validator_ts_validatorconstraint"
-    ],
-    "231": [
-      "nginx_generate_dummy_cert",
-      "nginx_generate_dummy_cert_sh__entry"
-    ],
-    "232": [
-      "nginx_reload_loop",
-      "nginx_reload_loop_sh__entry"
-    ],
-    "233": [
-      "nodemailer",
-      "server_package_dependencies_nodemailer"
-    ],
-    "234": [
-      "open",
-      "package_devdependencies_open"
-    ],
-    "235": [
-      "package_devdependencies_knip",
-      "package_json_knip"
-    ],
-    "236": [
-      "package_devdependencies_prettier",
-      "prettier"
-    ],
-    "237": [
-      "package_devdependencies_prettier_plugin_tailwindcss",
-      "prettier_plugin_tailwindcss"
-    ],
-    "238": [
-      "package_devdependencies_supertest",
-      "package_json_supertest"
-    ],
-    "239": [
-      "package_devdependencies_swc_core",
-      "swc_core"
-    ],
-    "240": [
-      "package_devdependencies_types_bcrypt",
-      "package_json_types_bcrypt"
-    ],
-    "241": [
-      "package_devdependencies_types_supertest",
-      "package_json_types_supertest"
-    ],
-    "242": [
-      "package_devdependencies_typescript_eslint",
-      "typescript_eslint"
-    ],
-    "243": [
-      "package_devdependencies_typescript_eslint_utils",
-      "typescript_eslint_utils"
-    ],
-    "244": [
-      "package_devdependencies_unplugin_swc",
-      "unplugin_swc"
-    ],
-    "245": [
-      "package_devdependencies_vitest_axe",
-      "vitest_axe"
-    ],
-    "246": [
-      "pg",
-      "server_package_dependencies_pg"
-    ],
-    "247": [
-      "reflect_metadata",
-      "server_package_dependencies_reflect_metadata"
-    ],
-    "248": [
-      "scripts_build_all",
-      "scripts_build_all_sh__entry"
-    ],
-    "249": [
-      "scripts_open_coverage_report",
-      "scripts_open_coverage_report_reportpath"
-    ],
-    "250": [
-      "server_package_dependencies_typeorm",
-      "typeorm"
-    ],
-    "251": [
-      "ui_package_devdependencies_typescript",
-      "ui_package_json_typescript"
-    ],
-    "252": [
-      "ui_src_shells_shell_stories_test",
-      "ui_src_shells_shell_stories_test_storymodules"
-    ],
-    "253": [
-      "ui_storybook_main",
-      "ui_storybook_main_config"
-    ],
-    "254": [
-      "agents_agents_md"
-    ],
-    "255": [
-      "client_admin_vite_config"
-    ],
-    "256": [
-      "coderabbit_coderabbit_config"
-    ],
-    "257": [
-      "docs_architecture_06_frontend_architecture_tanstack_router"
-    ],
-    "258": [
-      "github_workflows_codeql_doc"
-    ],
-    "259": [
-      "lint_staged_config"
-    ],
-    "260": [
-      "playwright_config"
-    ],
-    "261": [
-      "server_src_data_source_spec"
-    ],
-    "262": [
-      "server_src_modules_audit_audit_controller_ts_apiresponse"
-    ],
-    "263": [
-      "server_src_modules_communications_communications_controller_ts_apioperation"
-    ],
-    "264": [
-      "server_src_modules_communications_communications_controller_ts_apitags"
-    ],
-    "265": [
-      "server_src_modules_communications_communications_controller_ts_apitenantauth"
-    ],
-    "266": [
-      "server_src_modules_communications_communications_controller_ts_body"
-    ],
-    "267": [
-      "server_src_modules_communications_communications_controller_ts_controller"
-    ],
-    "268": [
-      "server_src_modules_communications_communications_controller_ts_currenttenant"
-    ],
-    "269": [
-      "server_src_modules_communications_communications_controller_ts_get"
-    ],
-    "270": [
-      "server_src_modules_communications_communications_controller_ts_httpcode"
-    ],
-    "271": [
-      "server_src_modules_communications_communications_controller_ts_inject"
-    ],
-    "272": [
-      "server_src_modules_communications_communications_controller_ts_param"
-    ],
-    "273": [
-      "server_src_modules_communications_communications_controller_ts_post"
-    ],
-    "274": [
-      "server_src_modules_communications_communications_controller_ts_query"
-    ],
-    "275": [
-      "server_src_modules_communications_communications_controller_ts_req"
-    ],
-    "276": [
-      "server_src_modules_communications_communications_controller_ts_roles"
-    ],
-    "277": [
-      "server_src_modules_communications_communications_controller_ts_throttle"
-    ],
-    "278": [
-      "server_src_modules_communications_communications_controller_ts_useguards"
-    ],
-    "279": [
-      "server_src_modules_communications_communications_service_spec"
-    ],
-    "280": [
-      "server_src_modules_students_dto_students_dto_ts_isdatestring"
-    ],
-    "281": [
-      "server_src_modules_students_dto_students_dto_ts_isemail"
-    ],
-    "282": [
-      "server_src_modules_students_dto_students_dto_ts_isin"
-    ],
-    "283": [
-      "server_src_modules_students_dto_students_dto_ts_isint"
-    ],
-    "284": [
-      "server_src_modules_students_dto_students_dto_ts_matches"
-    ],
-    "285": [
-      "server_src_modules_students_dto_students_dto_ts_min"
-    ],
-    "286": [
-      "server_src_modules_students_dto_students_dto_ts_type"
-    ],
-    "287": [
-      "ui_src_test_jsdom_polyfills_element_haspointercapture"
-    ],
-    "288": [
-      "ui_src_test_jsdom_polyfills_element_releasepointercapture"
-    ],
-    "289": [
-      "ui_src_test_jsdom_polyfills_element_scrollintoview"
-    ],
-    "290": [
-      "ui_src_test_jsdom_polyfills_element_setpointercapture"
-    ],
-    "291": [
-      "ui_src_test_node_environment_boundary_spec"
-    ],
-    "292": [
-      "ui_vitest_config"
-    ],
-    "293": [
-      "server_src_modules_schools_settings_sms_provider_config_validator",
-      "server_src_modules_schools_settings_sms_provider_config_validator_smsproviderisconfiguredconstraint",
-      "server_src_modules_schools_settings_sms_provider_config_validator_smsproviderisconfiguredconstraint_defaultmessage",
-      "server_src_modules_schools_settings_sms_provider_config_validator_smsproviderisconfiguredconstraint_validate",
-      "server_src_modules_schools_settings_sms_provider_config_validator_ts_validatorconstraint"
-    ],
-    "294": [
-      "nestjs_platform_express",
-      "server_package_dependencies_nestjs_platform_express"
     ]
   },
   "cohesion": {
@@ -5211,188 +5209,188 @@
     "1": 0.05128205128205128,
     "2": 0.06153846153846154,
     "3": 0.04897276636407071,
-    "4": 0.06288448393711552,
-    "5": 0.053313587560162905,
-    "6": 0.057902973395931145,
-    "7": 0.06345848757271286,
-    "8": 0.06001984126984127,
-    "9": 0.09935064935064936,
-    "10": 0.05974025974025974,
-    "11": 0.10168350168350168,
+    "4": 0.06522522522522523,
+    "5": 0.06054054054054054,
+    "6": 0.053313587560162905,
+    "7": 0.057902973395931145,
+    "8": 0.06201923076923077,
+    "9": 0.06001984126984127,
+    "10": 0.06015037593984962,
+    "11": 0.09935064935064936,
     "12": 0.09713487071977638,
     "13": 0.049773755656108594,
-    "14": 0.07692307692307693,
+    "14": 0.13825757575757575,
     "15": 0.0596078431372549,
     "16": 0.125,
-    "17": 0.07180851063829788,
-    "18": 0.12222222222222222,
-    "19": 0.06553911205073996,
+    "17": 0.07400555041628122,
+    "18": 0.08181818181818182,
+    "19": 0.12222222222222222,
     "20": 0.08416389811738649,
     "21": 0.053426248548199766,
     "22": 0.04878048780487805,
-    "23": 0.06829268292682927,
-    "24": 0.17980295566502463,
+    "23": 0.07051282051282051,
+    "24": 0.11470985155195682,
     "25": 0.155049786628734,
     "26": 0.05405405405405406,
     "27": 0.05405405405405406,
-    "28": 0.1036036036036036,
+    "28": 0.08108108108108109,
     "29": 0.10793650793650794,
     "30": 0.08403361344537816,
     "31": 0.06386554621848739,
     "32": 0.12857142857142856,
     "33": 0.062388591800356503,
     "34": 0.1140819964349376,
-    "35": 0.1051693404634581,
-    "36": 0.06060606060606061,
-    "37": 0.13068181818181818,
-    "38": 0.09090909090909091,
-    "39": 0.10887096774193548,
-    "40": 0.08870967741935484,
-    "41": 0.14838709677419354,
-    "42": 0.07741935483870968,
-    "43": 0.06451612903225806,
-    "44": 0.11397849462365592,
-    "45": 0.15172413793103448,
-    "46": 0.11954022988505747,
-    "47": 0.11724137931034483,
-    "48": 0.15402298850574714,
-    "49": 0.1793103448275862,
-    "50": 0.09655172413793103,
-    "51": 0.12315270935960591,
-    "52": 0.14532019704433496,
-    "53": 0.07142857142857142,
-    "54": 0.14705882352941177,
-    "55": 0.09523809523809523,
-    "56": 0.07671957671957672,
-    "57": 0.09788359788359788,
-    "58": 0.08045977011494253,
-    "59": 0.08831908831908832,
-    "60": 0.1523809523809524,
-    "61": 0.1737891737891738,
-    "62": 0.08923076923076922,
-    "63": 0.11076923076923077,
-    "64": 0.17724867724867724,
-    "65": 0.14,
-    "66": 0.09333333333333334,
-    "67": 0.08695652173913043,
-    "68": 0.08333333333333333,
+    "35": 0.06060606060606061,
+    "36": 0.10668563300142248,
+    "37": 0.09090909090909091,
+    "38": 0.10887096774193548,
+    "39": 0.08870967741935484,
+    "40": 0.14838709677419354,
+    "41": 0.07741935483870968,
+    "42": 0.06451612903225806,
+    "43": 0.11397849462365592,
+    "44": 0.15172413793103448,
+    "45": 0.11954022988505747,
+    "46": 0.11724137931034483,
+    "47": 0.15402298850574714,
+    "48": 0.1793103448275862,
+    "49": 0.09655172413793103,
+    "50": 0.12315270935960591,
+    "51": 0.14532019704433496,
+    "52": 0.07142857142857142,
+    "53": 0.14705882352941177,
+    "54": 0.08866995073891626,
+    "55": 0.13054187192118227,
+    "56": 0.09523809523809523,
+    "57": 0.07671957671957672,
+    "58": 0.09788359788359788,
+    "59": 0.08045977011494253,
+    "60": 0.08831908831908832,
+    "61": 0.1523809523809524,
+    "62": 0.1737891737891738,
+    "63": 0.11965811965811966,
+    "64": 0.08923076923076922,
+    "65": 0.17724867724867724,
+    "66": 0.14,
+    "67": 0.09333333333333334,
+    "68": 0.08695652173913043,
     "69": 0.08333333333333333,
-    "70": 0.15579710144927536,
-    "71": 0.18840579710144928,
-    "72": 0.1794871794871795,
-    "73": 0.09090909090909091,
-    "74": 0.15151515151515152,
-    "75": 0.15584415584415584,
-    "76": 0.14285714285714285,
-    "77": 0.18571428571428572,
-    "78": 0.09523809523809523,
-    "79": 0.2,
-    "80": 0.1523809523809524,
-    "81": 0.1,
-    "82": 0.17894736842105263,
-    "83": 0.1,
-    "84": 0.10526315789473684,
-    "85": 0.17543859649122806,
-    "86": 0.15204678362573099,
-    "87": 0.26143790849673204,
-    "88": 0.1503267973856209,
-    "89": 0.12418300653594772,
+    "70": 0.08333333333333333,
+    "71": 0.15579710144927536,
+    "72": 0.16996047430830039,
+    "73": 0.1794871794871795,
+    "74": 0.09090909090909091,
+    "75": 0.15151515151515152,
+    "76": 0.15584415584415584,
+    "77": 0.14285714285714285,
+    "78": 0.18571428571428572,
+    "79": 0.09523809523809523,
+    "80": 0.2,
+    "81": 0.1523809523809524,
+    "82": 0.1,
+    "83": 0.17894736842105263,
+    "84": 0.1,
+    "85": 0.10526315789473684,
+    "86": 0.17543859649122806,
+    "87": 0.15204678362573099,
+    "88": 0.26143790849673204,
+    "89": 0.1503267973856209,
     "90": 0.12418300653594772,
-    "91": 0.1568627450980392,
-    "92": 0.16339869281045752,
+    "91": 0.12418300653594772,
+    "92": 0.1568627450980392,
     "93": 0.16339869281045752,
-    "94": 0.1437908496732026,
-    "95": 0.1503267973856209,
+    "94": 0.16339869281045752,
+    "95": 0.11764705882352941,
     "96": 0.11764705882352941,
-    "97": 0.11764705882352941,
-    "98": 0.17647058823529413,
-    "99": 0.13970588235294118,
-    "100": 0.11764705882352941,
-    "101": 0.14166666666666666,
-    "102": 0.25,
-    "103": 0.2833333333333333,
-    "104": 0.19166666666666668,
-    "105": 0.15,
-    "106": 0.21666666666666667,
-    "107": 0.15833333333333333,
-    "108": 0.14166666666666666,
-    "109": 0.15833333333333333,
-    "110": 0.13333333333333333,
-    "111": 0.2761904761904762,
-    "112": 0.20952380952380953,
-    "113": 0.14285714285714285,
-    "114": 0.1619047619047619,
-    "115": 0.14285714285714285,
-    "116": 0.31868131868131866,
-    "117": 0.24175824175824176,
+    "97": 0.17647058823529413,
+    "98": 0.13970588235294118,
+    "99": 0.11764705882352941,
+    "100": 0.16176470588235295,
+    "101": 0.25,
+    "102": 0.2833333333333333,
+    "103": 0.19166666666666668,
+    "104": 0.15,
+    "105": 0.21666666666666667,
+    "106": 0.15833333333333333,
+    "107": 0.14166666666666666,
+    "108": 0.15833333333333333,
+    "109": 0.13333333333333333,
+    "110": 0.2761904761904762,
+    "111": 0.20952380952380953,
+    "112": 0.17142857142857143,
+    "113": 0.1619047619047619,
+    "114": 0.14285714285714285,
+    "115": 0.31868131868131866,
+    "116": 0.24175824175824176,
+    "117": 0.14285714285714285,
     "118": 0.14285714285714285,
     "119": 0.14285714285714285,
-    "120": 0.14285714285714285,
-    "121": 0.3076923076923077,
-    "122": 0.1794871794871795,
-    "123": 0.20512820512820512,
-    "124": 0.15384615384615385,
-    "125": 0.1794871794871795,
-    "126": 0.21212121212121213,
-    "127": 0.19696969696969696,
-    "128": 0.18181818181818182,
+    "120": 0.3076923076923077,
+    "121": 0.1794871794871795,
+    "122": 0.20512820512820512,
+    "123": 0.15384615384615385,
+    "124": 0.1794871794871795,
+    "125": 0.21212121212121213,
+    "126": 0.19696969696969696,
+    "127": 0.18181818181818182,
+    "128": 0.19696969696969696,
     "129": 0.16666666666666666,
     "130": 0.18181818181818182,
     "131": 0.45454545454545453,
-    "132": 0.23636363636363636,
-    "133": 0.32727272727272727,
-    "134": 0.24175824175824176,
-    "135": 0.15217391304347827,
-    "136": 0.18181818181818182,
-    "137": 0.2,
-    "138": 0.3111111111111111,
-    "139": 0.2,
-    "140": 0.35555555555555557,
-    "141": 0.2,
-    "142": 0.4166666666666667,
-    "143": 0.2222222222222222,
-    "144": 0.3611111111111111,
-    "145": 0.3333333333333333,
-    "146": 0.2222222222222222,
+    "132": 0.32727272727272727,
+    "133": 0.24175824175824176,
+    "134": 0.2727272727272727,
+    "135": 0.18181818181818182,
+    "136": 0.2,
+    "137": 0.3111111111111111,
+    "138": 0.2,
+    "139": 0.35555555555555557,
+    "140": 0.2,
+    "141": 0.4166666666666667,
+    "142": 0.2222222222222222,
+    "143": 0.3611111111111111,
+    "144": 0.3333333333333333,
+    "145": 0.2222222222222222,
+    "146": 0.3055555555555556,
     "147": 0.3055555555555556,
-    "148": 0.3055555555555556,
+    "148": 0.2222222222222222,
     "149": 0.2222222222222222,
     "150": 0.2222222222222222,
-    "151": 0.2222222222222222,
-    "152": 0.2777777777777778,
-    "153": 0.4166666666666667,
-    "154": 0.25,
-    "155": 0.32142857142857145,
+    "151": 0.2777777777777778,
+    "152": 0.4166666666666667,
+    "153": 0.25,
+    "154": 0.32142857142857145,
+    "155": 0.25,
     "156": 0.25,
-    "157": 0.25,
-    "158": 0.2857142857142857,
-    "159": 0.32142857142857145,
+    "157": 0.2857142857142857,
+    "158": 0.32142857142857145,
+    "159": 0.25,
     "160": 0.25,
-    "161": 0.25,
-    "162": 0.25,
-    "163": 0.2857142857142857,
+    "161": 0.2857142857142857,
+    "162": 0.2857142857142857,
+    "163": 0.47619047619047616,
     "164": 0.2857142857142857,
-    "165": 0.47619047619047616,
-    "166": 0.2857142857142857,
-    "167": 0.11594202898550725,
-    "168": 0.4,
+    "165": 0.4666666666666667,
+    "166": 0.4,
+    "167": 0.5333333333333333,
+    "168": 0.5333333333333333,
     "169": 0.5333333333333333,
-    "170": 0.5333333333333333,
-    "171": 0.5333333333333333,
+    "170": 0.3333333333333333,
+    "171": 0.3333333333333333,
     "172": 0.3333333333333333,
     "173": 0.3333333333333333,
-    "174": 0.3333333333333333,
-    "175": 0.3333333333333333,
-    "176": 0.7,
+    "174": 0.7,
+    "175": 0.4,
+    "176": 0.4,
     "177": 0.4,
     "178": 0.4,
-    "179": 0.4,
-    "180": 0.4,
-    "181": 0.8,
-    "182": 0.7,
-    "183": 0.3333333333333333,
+    "179": 0.8,
+    "180": 0.7,
+    "181": 0.6666666666666666,
+    "182": 0.5,
+    "183": 0.8333333333333334,
     "184": 0.5,
-    "185": 0.8333333333333334,
+    "185": 0.5,
     "186": 0.5,
     "187": 0.5,
     "188": 0.5,
@@ -5405,13 +5403,13 @@
     "195": 0.5,
     "196": 0.5,
     "197": 0.5,
-    "198": 0.5,
-    "199": 0.5,
+    "198": 0.6666666666666666,
+    "199": 0.6666666666666666,
     "200": 0.6666666666666666,
-    "201": 0.6666666666666666,
+    "201": 1.0,
     "202": 0.6666666666666666,
     "203": 1.0,
-    "204": 0.6666666666666666,
+    "204": 1.0,
     "205": 1.0,
     "206": 1.0,
     "207": 1.0,
@@ -5437,7 +5435,7 @@
     "227": 1.0,
     "228": 1.0,
     "229": 1.0,
-    "230": 0.4,
+    "230": 1.0,
     "231": 1.0,
     "232": 1.0,
     "233": 1.0,
@@ -5498,10 +5496,9 @@
     "288": 1.0,
     "289": 1.0,
     "290": 1.0,
-    "291": 1.0,
-    "292": 1.0,
-    "293": 0.4,
-    "294": 1.0
+    "291": 0.15217391304347827,
+    "292": 0.18681318681318682,
+    "293": 0.3333333333333333
   },
   "gods": [
     {
@@ -5601,15 +5598,15 @@
       "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; peripheral node `settings()` unexpectedly reaches hub `useUpdateSchoolSettings()`"
     },
     {
-      "source": "SchoolOption",
+      "source": "SchoolPickerOption",
       "target": "UserRole",
       "source_files": [
-        "ui/src/components/tenant-bar.tsx",
+        "ui/src/components/school-picker.tsx",
         "shared/src/enums/index.ts"
       ],
       "confidence": "EXTRACTED",
       "relation": "references",
-      "why": "connects across different repos/directories; bridges separate communities; peripheral node `SchoolOption` unexpectedly reaches hub `UserRole`"
+      "why": "connects across different repos/directories; bridges separate communities; peripheral node `SchoolPickerOption` unexpectedly reaches hub `UserRole`"
     }
   ],
   "questions": [
@@ -5625,7 +5622,7 @@
     },
     {
       "type": "bridge_node",
-      "question": "Why does `Guardian` connect `StudentBulkUploadService` to `guardians.ts`, `-student-form.tsx`, `index.ts`, `global-search.ts`?",
+      "question": "Why does `Guardian` connect `StudentBulkUploadService` to `index.ts`, `-student-form.tsx`, `guardians.ts`?",
       "why": "High betweenness centrality (0.069) - this node is a cross-community bridge."
     },
     {
