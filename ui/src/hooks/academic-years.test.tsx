@@ -185,6 +185,13 @@ describe('useSetCurrentAcademicYear', () => {
       academicYearKeys.detail('year-2'),
       academicYearFactory({ id: 'year-2', is_current: false }),
     );
+    // year-1 was the previously-current year; set-current must unset it too —
+    // seeding its cache entry proves invalidation covers every detail entry,
+    // not just the target year's.
+    queryClient.setQueryData(
+      academicYearKeys.detail('year-1'),
+      academicYearFactory({ id: 'year-1', is_current: true }),
+    );
 
     server.use(
       http.post('/api/v1/academic-years/:id/set-current', ({ params }) =>
@@ -203,6 +210,7 @@ describe('useSetCurrentAcademicYear', () => {
     const { result } = renderHookWithProviders(
       () => ({
         year: useAcademicYear('year-2'),
+        otherYear: useAcademicYear('year-1'),
         setCurrent: useSetCurrentAcademicYear(),
       }),
       { tenantId: 'tenant-1', queryClient },
@@ -212,5 +220,9 @@ describe('useSetCurrentAcademicYear', () => {
 
     await waitFor(() => expect(result.current.setCurrent.isSuccess).toBe(true));
     await waitFor(() => expect(result.current.year.data?.is_current).toBe(true));
+    // The non-target year's detail entry must refetch and drop its stale
+    // `is_current` flag — invalidating `detail(id)` alone would leave it
+    // stuck at `true` and this assertion would fail.
+    await waitFor(() => expect(result.current.otherYear.data?.is_current).toBe(false));
   });
 });
