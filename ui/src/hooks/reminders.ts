@@ -3,8 +3,6 @@ import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
 
-import { shouldRetryQuery } from './retry';
-
 export type SendBulkReminderInput = components['schemas']['SendBulkReminderDto'];
 export type ReminderBatchResponse = components['schemas']['ReminderBatchResponseDto'];
 
@@ -26,6 +24,11 @@ export function useSendBulkReminder() {
       );
       return res.data;
     },
-    retry: shouldRetryQuery,
+    // Not `shouldRetryQuery` like every other mutation here: this endpoint
+    // isn't idempotent — a retry after a dropped response (not just a
+    // dropped request) creates a second ReminderBatch, a second set of
+    // communication logs, and a second batch of outbound queue jobs for
+    // the same students, not just a harmless re-send of an identical one.
+    retry: false,
   });
 }
