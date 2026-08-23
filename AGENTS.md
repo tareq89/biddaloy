@@ -13,5 +13,5 @@ For **narrow questions** (e.g. "what does this function do?", "how is this entit
 
 ### For graph lifecycle
 
-- **Before any git commit:** run `graphify . --update` first, then commit
+- **Before any git commit:** run `graphify update .` first, then commit
 - **Dirty** graphify-out/ files are expected after incremental updates

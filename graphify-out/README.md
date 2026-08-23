@@ -6,7 +6,7 @@ commit that last touched them.
 
 The dated subfolders (`2026-07-18/`, `2026-08-23/`, ...) are **historical
 snapshots**, not a second copy of the current graph. Each one is a backup
-`graphify --update` takes automatically of the *previous* curated graph,
+`graphify update .` takes automatically of the *previous* curated graph,
 right before writing the new one — so a dated folder's `GRAPH_REPORT.md`
 is always built from the commit just before the one that created the
 snapshot, one step behind whatever landed alongside it. That's expected:
@@ -15,7 +15,7 @@ after," not to mirror `HEAD`.
 
 ```mermaid
 flowchart LR
-    A["graph.json @ commit N-1"] -- "graphify --update runs for commit N" --> B["backup -> graphify-out/&lt;date&gt;/"]
+    A["graph.json @ commit N-1"] -- "graphify update . runs for commit N" --> B["backup -> graphify-out/&lt;date&gt;/"]
     B --> C["graph.json rewritten @ commit N"]
 ```
 
