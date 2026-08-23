@@ -1,0 +1,80 @@
+{
+  "list": {
+    "title": "শিক্ষাবর্ষ",
+    "caption": "শিক্ষাবর্ষ",
+    "addYear": "বর্ষ যোগ করুন",
+    "columnYear": "বর্ষ",
+    "columnStartDate": "শুরুর তারিখ",
+    "columnEndDate": "শেষের তারিখ",
+    "columnCurrent": "চলমান",
+    "columnClasses": "শ্রেণি",
+    "columnStudents": "শিক্ষার্থী",
+    "columnActions": "কার্যক্রম",
+    "edit": "সম্পাদনা",
+    "delete": "মুছুন",
+    "setCurrent": "চলমান হিসেবে নির্ধারণ করুন",
+    "emptyMessage": "কোনো শিক্ষাবর্ষ পাওয়া যায়নি",
+    "errorMessage": "শিক্ষাবর্ষ লোড করতে ব্যর্থ হয়েছে",
+    "announceResults_one": "{{total}} টির মধ্যে {{visible}} টি শিক্ষাবর্ষ",
+    "announceResults_other": "{{total}} টির মধ্যে {{visible}} টি শিক্ষাবর্ষ"
+  },
+  "form": {
+    "createTitle": "শিক্ষাবর্ষ যোগ করুন",
+    "editTitle": "শিক্ষাবর্ষ সম্পাদনা করুন",
+    "description": "শ্রেণি, ফি কাঠামো এবং ভর্তি যে বর্ষে তৈরি হবে সেই বর্ষের সাথে যুক্ত থাকবে।",
+    "nameLabel": "নাম",
+    "namePlaceholder": "যেমন ২০২৬-২০২৭",
+    "startDateLabel": "শুরুর তারিখ",
+    "endDateLabel": "শেষের তারিখ",
+    "isCurrentLabel": "চলমান শিক্ষাবর্ষ হিসেবে নির্ধারণ করুন",
+    "errorNameRequired": "নাম আবশ্যক",
+    "errorDatesRequired": "শুরু ও শেষের তারিখ আবশ্যক",
+    "errorEndBeforeStart": "শেষের তারিখ অবশ্যই শুরুর তারিখের পরে হতে হবে",
+    "errorMessage": "শিক্ষাবর্ষ সংরক্ষণ করতে ব্যর্থ হয়েছে",
+    "save": "সংরক্ষণ করুন",
+    "saving": "সংরক্ষণ করা হচ্ছে…"
+  },
+  "deleteDialog": {
+    "title": "শিক্ষাবর্ষ মুছুন",
+    "description": "\"{{name}}\" মুছে ফেলবেন? এটি ফিরিয়ে আনা যাবে না।",
+    "confirm": "মুছুন",
+    "deleting": "মুছে ফেলা হচ্ছে…",
+    "errorMessage": "শিক্ষাবর্ষ মুছতে ব্যর্থ হয়েছে"
+  },
+  "setCurrentDialog": {
+    "title": "চলমান শিক্ষাবর্ষ নির্ধারণ করুন",
+    "description": "\"{{name}}\" কে চলমান শিক্ষাবর্ষ হিসেবে নির্ধারণ করবেন? এতে বর্তমানে চলমান হিসেবে চিহ্নিত অন্য সকল শিক্ষাবর্ষ চলমান থাকবে না — একবারে শুধু একটি বর্ষই চলমান থাকতে পারে।",
+    "confirm": "চলমান হিসেবে নির্ধারণ করুন",
+    "confirming": "নির্ধারণ করা হচ্ছে…",
+    "errorMessage": "চলমান শিক্ষাবর্ষ নির্ধারণ করতে ব্যর্থ হয়েছে"
+  },
+  "detail": {
+    "tabClasses": "শ্রেণি",
+    "tabFeeStructures": "ফি কাঠামো",
+    "tabStatistics": "পরিসংখ্যান",
+    "forbidden": "এটি দেখার অনুমতি আপনার নেই।",
+    "classes": {
+      "columnName": "নাম",
+      "columnGrade": "গ্রেড",
+      "emptyMessage": "এই শিক্ষাবর্ষে কোনো শ্রেণি নেই",
+      "errorMessage": "শ্রেণি লোড করতে ব্যর্থ হয়েছে"
+    },
+    "feeStructures": {
+      "columnName": "নাম",
+      "columnType": "ধরন",
+      "columnClass": "শ্রেণি",
+      "columnAmount": "পরিমাণ",
+      "columnRecurring": "পুনরাবৃত্ত",
+      "yes": "হ্যাঁ",
+      "no": "না",
+      "emptyMessage": "এই শিক্ষাবর্ষে কোনো ফি কাঠামো নেই",
+      "errorMessage": "ফি কাঠামো লোড করতে ব্যর্থ হয়েছে"
+    },
+    "statistics": {
+      "classes": "শ্রেণি",
+      "students": "শিক্ষার্থী",
+      "feeStructures": "ফি কাঠামো",
+      "errorMessage": "পরিসংখ্যান লোড করতে ব্যর্থ হয়েছে"
+    }
+  }
+}

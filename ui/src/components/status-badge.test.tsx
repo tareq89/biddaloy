@@ -76,6 +76,19 @@ describe('StatusBadge', () => {
     },
   );
 
+  it.each([
+    ['CURRENT', 'success'],
+    ['NOT_CURRENT', 'neutral'],
+  ] as const)('maps academicYear %s to the %s tone', (status, tone) => {
+    render(<StatusBadge domain="academicYear" status={status} />);
+    expect(screen.getByText(/./).getAttribute('data-tone')).toBe(tone);
+  });
+
+  it('renders a humanized label for the academicYear domain', () => {
+    render(<StatusBadge domain="academicYear" status="NOT_CURRENT" />);
+    expect(screen.getByText('Not current')).toBeTruthy();
+  });
+
   it('every tone within one domain maps to a visually distinct icon (the greyscale guarantee)', () => {
     const { container } = render(
       <>

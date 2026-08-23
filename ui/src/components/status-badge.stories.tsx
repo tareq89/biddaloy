@@ -24,8 +24,10 @@ export const Default: Story = {
   render: () => <StatusBadge domain="fee" status={FeeStatus.PAID} />,
 };
 
-/** Every status this component covers, across all six domains from
- * `shared/src/enums` — the issue's own acceptance criterion. */
+/** Every status this component covers, across all `shared/src/enums`
+ * domains plus `academicYear` (a plain boolean, not a `shared` enum —
+ * see the component's own header comment) — the issue's own acceptance
+ * criterion. */
 export const AllDomains: Story = {
   render: () => (
     <div className="flex flex-col gap-3">
@@ -58,6 +60,10 @@ export const AllDomains: Story = {
         {Object.values(EnrollmentStatus).map((status) => (
           <StatusBadge key={status} domain="enrollment" status={status} />
         ))}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <StatusBadge domain="academicYear" status="CURRENT" />
+        <StatusBadge domain="academicYear" status="NOT_CURRENT" />
       </div>
     </div>
   ),

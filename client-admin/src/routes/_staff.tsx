@@ -86,6 +86,11 @@ function StaffLayout() {
       id: 'administration',
       label: t('groups.administration'),
       items: [
+        {
+          to: '/academic-years',
+          label: t('items.academicYears'),
+          permission: Permission.ACADEMIC_YEAR_MANAGE,
+        },
         { to: '/settings', label: t('items.settings'), permission: Permission.SETTINGS_MANAGE },
       ],
     },

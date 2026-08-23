@@ -13,13 +13,10 @@
     "studentDues": "Student Dues",
     "recordPayment": "Record Payment",
     "portalOverview": "Overview",
-    "portalFees": "Fees and invoices"
+    "portalFees": "Fees and invoices",
+    "academicYears": "Academic Years"
   },
-  "groups": {
-    "people": "People",
-    "finance": "Finance",
-    "administration": "Administration"
-  },
+  "groups": { "people": "People", "finance": "Finance", "administration": "Administration" },
   "dashboard": {
     "title": "Dashboard",
     "explanation": "The dashboard has not been built yet.",

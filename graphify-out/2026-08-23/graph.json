@@ -933,7 +933,7 @@
       "label": "readEntryChunkName()",
       "file_type": "code",
       "source_file": "client-admin/scripts/check-route-chunks.mjs",
-      "source_location": "L58",
+      "source_location": "L64",
       "_origin": "ast",
       "id": "client_admin_scripts_check_route_chunks_readentrychunkname",
       "community": 176,
@@ -3840,8 +3840,8 @@
       "source_location": "L79",
       "_origin": "ast",
       "id": "client_admin_src_routes_staff_students_student_form_schema_studentformvalues",
-      "community": 103,
-      "community_name": "guardians.ts",
+      "community": 51,
+      "community_name": "-student-form.tsx",
       "norm_label": "studentformvalues"
     },
     {
@@ -3928,8 +3928,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "client_admin_src_routes_staff_students_student_form",
-      "community": 16,
-      "community_name": "EmailSection.tsx",
+      "community": 51,
+      "community_name": "-student-form.tsx",
       "norm_label": "-student-form.tsx"
     },
     {
@@ -3939,8 +3939,8 @@
       "source_location": "L69",
       "_origin": "ast",
       "id": "client_admin_src_routes_staff_students_student_form_studentformprops",
-      "community": 103,
-      "community_name": "guardians.ts",
+      "community": 51,
+      "community_name": "-student-form.tsx",
       "norm_label": "studentformprops"
     },
     {
@@ -3950,8 +3950,8 @@
       "source_location": "L85",
       "_origin": "ast",
       "id": "client_admin_src_routes_staff_students_student_form_fieldid",
-      "community": 16,
-      "community_name": "EmailSection.tsx",
+      "community": 51,
+      "community_name": "-student-form.tsx",
       "norm_label": "fieldid()"
     },
     {
@@ -3961,8 +3961,8 @@
       "source_location": "L89",
       "_origin": "ast",
       "id": "client_admin_src_routes_staff_students_student_form_studentform",
-      "community": 16,
-      "community_name": "EmailSection.tsx",
+      "community": 51,
+      "community_name": "-student-form.tsx",
       "norm_label": "studentform()"
     },
     {
@@ -5979,8 +5979,8 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "package_devdependencies_testing_library_react",
-      "community": 68,
-      "community_name": "devDependencies",
+      "community": 168,
+      "community_name": "settings-mask.util.ts",
       "norm_label": "@testing-library/react"
     },
     {
@@ -5990,8 +5990,8 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "testing_library_react",
-      "community": 68,
-      "community_name": "devDependencies",
+      "community": 168,
+      "community_name": "settings-mask.util.ts",
       "norm_label": "@testing-library/react"
     },
     {
@@ -6177,8 +6177,8 @@
       "source_location": "L51",
       "_origin": "ast",
       "id": "package_devdependencies_eslint_plugin_import",
-      "community": 215,
-      "community_name": "eslint-plugin-import",
+      "community": 68,
+      "community_name": "devDependencies",
       "norm_label": "eslint-plugin-import"
     },
     {
@@ -6188,8 +6188,8 @@
       "source_location": "L51",
       "_origin": "ast",
       "id": "eslint_plugin_import",
-      "community": 215,
-      "community_name": "eslint-plugin-import",
+      "community": 68,
+      "community_name": "devDependencies",
       "norm_label": "eslint-plugin-import"
     },
     {
@@ -7440,8 +7440,8 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "server_package_dependencies_nestjs_platform_express",
-      "community": 168,
-      "community_name": "settings-mask.util.ts",
+      "community": 35,
+      "community_name": "dependencies",
       "norm_label": "@nestjs/platform-express"
     },
     {
@@ -7451,8 +7451,8 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "nestjs_platform_express",
-      "community": 168,
-      "community_name": "settings-mask.util.ts",
+      "community": 35,
+      "community_name": "dependencies",
       "norm_label": "@nestjs/platform-express"
     },
     {
@@ -7484,8 +7484,8 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "server_package_dependencies_nestjs_throttler",
-      "community": 35,
-      "community_name": "dependencies",
+      "community": 134,
+      "community_name": "classes.ts",
       "norm_label": "@nestjs/throttler"
     },
     {
@@ -7495,8 +7495,8 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "nestjs_throttler",
-      "community": 35,
-      "community_name": "dependencies",
+      "community": 134,
+      "community_name": "classes.ts",
       "norm_label": "@nestjs/throttler"
     },
     {
@@ -35567,8 +35567,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_components_form_field_stories",
-      "community": 54,
-      "community_name": "global-search.tsx",
+      "community": 16,
+      "community_name": "EmailSection.tsx",
       "norm_label": "form-field.stories.tsx"
     },
     {
@@ -35578,8 +35578,8 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "ui_src_components_form_field_stories_meta",
-      "community": 54,
-      "community_name": "global-search.tsx",
+      "community": 16,
+      "community_name": "EmailSection.tsx",
       "norm_label": "meta"
     },
     {
@@ -35589,8 +35589,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "ui_src_components_form_field_stories_story",
-      "community": 54,
-      "community_name": "global-search.tsx",
+      "community": 16,
+      "community_name": "EmailSection.tsx",
       "norm_label": "story"
     },
     {
@@ -35600,8 +35600,8 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "ui_src_components_form_field_stories_schema",
-      "community": 54,
-      "community_name": "global-search.tsx",
+      "community": 16,
+      "community_name": "EmailSection.tsx",
       "norm_label": "schema"
     },
     {
@@ -35611,8 +35611,8 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "ui_src_components_form_field_stories_demoform",
-      "community": 54,
-      "community_name": "global-search.tsx",
+      "community": 16,
+      "community_name": "EmailSection.tsx",
       "norm_label": "demoform()"
     },
     {
@@ -35622,8 +35622,8 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "ui_src_components_form_field_stories_default",
-      "community": 54,
-      "community_name": "global-search.tsx",
+      "community": 16,
+      "community_name": "EmailSection.tsx",
       "norm_label": "default"
     },
     {
@@ -35633,8 +35633,8 @@
       "source_location": "L68",
       "_origin": "ast",
       "id": "ui_src_components_form_field_stories_errorstate",
-      "community": 54,
-      "community_name": "global-search.tsx",
+      "community": 16,
+      "community_name": "EmailSection.tsx",
       "norm_label": "errorstate"
     },
     {
@@ -35644,8 +35644,8 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "ui_src_components_form_field_stories_disabled",
-      "community": 54,
-      "community_name": "global-search.tsx",
+      "community": 16,
+      "community_name": "EmailSection.tsx",
       "norm_label": "disabled"
     },
     {
@@ -35655,8 +35655,8 @@
       "source_location": "L106",
       "_origin": "ast",
       "id": "ui_src_components_form_field_stories_righttoleft",
-      "community": 54,
-      "community_name": "global-search.tsx",
+      "community": 16,
+      "community_name": "EmailSection.tsx",
       "norm_label": "righttoleft"
     },
     {
@@ -35666,8 +35666,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_components_form_field_test",
-      "community": 54,
-      "community_name": "global-search.tsx",
+      "community": 16,
+      "community_name": "EmailSection.tsx",
       "norm_label": "form-field.test.tsx"
     },
     {
@@ -35677,8 +35677,8 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "ui_src_components_form_field_test_schema",
-      "community": 54,
-      "community_name": "global-search.tsx",
+      "community": 16,
+      "community_name": "EmailSection.tsx",
       "norm_label": "schema"
     },
     {
@@ -35688,8 +35688,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "ui_src_components_form_field_test_nameform",
-      "community": 54,
-      "community_name": "global-search.tsx",
+      "community": 16,
+      "community_name": "EmailSection.tsx",
       "norm_label": "nameform()"
     },
     {
@@ -35699,8 +35699,8 @@
       "source_location": "L97",
       "_origin": "ast",
       "id": "ui_src_components_form_field_test_broken",
-      "community": 54,
-      "community_name": "global-search.tsx",
+      "community": 16,
+      "community_name": "EmailSection.tsx",
       "norm_label": "broken()"
     },
     {
@@ -35710,8 +35710,8 @@
       "source_location": "L108",
       "_origin": "ast",
       "id": "ui_src_components_form_field_test_outsideformfield",
-      "community": 54,
-      "community_name": "global-search.tsx",
+      "community": 16,
+      "community_name": "EmailSection.tsx",
       "norm_label": "outsideformfield()"
     },
     {
@@ -35721,8 +35721,8 @@
       "source_location": "L124",
       "_origin": "ast",
       "id": "ui_src_components_form_field_test_outsideformitem",
-      "community": 54,
-      "community_name": "global-search.tsx",
+      "community": 16,
+      "community_name": "EmailSection.tsx",
       "norm_label": "outsideformitem()"
     },
     {
@@ -35732,8 +35732,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_components_form_field",
-      "community": 54,
-      "community_name": "global-search.tsx",
+      "community": 16,
+      "community_name": "EmailSection.tsx",
       "norm_label": "form-field.tsx"
     },
     {
@@ -35743,8 +35743,8 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "ui_src_components_form_field_formfieldcontextvalue",
-      "community": 54,
-      "community_name": "global-search.tsx",
+      "community": 16,
+      "community_name": "EmailSection.tsx",
       "norm_label": "formfieldcontextvalue"
     },
     {
@@ -35754,8 +35754,8 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "ui_src_components_form_field_formfieldcontext",
-      "community": 54,
-      "community_name": "global-search.tsx",
+      "community": 16,
+      "community_name": "EmailSection.tsx",
       "norm_label": "formfieldcontext"
     },
     {
@@ -35776,8 +35776,8 @@
       "source_location": "L54",
       "_origin": "ast",
       "id": "ui_src_components_form_field_formitemcontextvalue",
-      "community": 54,
-      "community_name": "global-search.tsx",
+      "community": 16,
+      "community_name": "EmailSection.tsx",
       "norm_label": "formitemcontextvalue"
     },
     {
@@ -35787,8 +35787,8 @@
       "source_location": "L58",
       "_origin": "ast",
       "id": "ui_src_components_form_field_formitemcontext",
-      "community": 54,
-      "community_name": "global-search.tsx",
+      "community": 16,
+      "community_name": "EmailSection.tsx",
       "norm_label": "formitemcontext"
     },
     {
@@ -35842,8 +35842,8 @@
       "source_location": "L141",
       "_origin": "ast",
       "id": "ui_src_components_form_field_formdescription",
-      "community": 54,
-      "community_name": "global-search.tsx",
+      "community": 16,
+      "community_name": "EmailSection.tsx",
       "norm_label": "formdescription()"
     },
     {
@@ -41584,8 +41584,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "ui_src_hooks_students_student",
-      "community": 103,
-      "community_name": "guardians.ts",
+      "community": 51,
+      "community_name": "-student-form.tsx",
       "norm_label": "student"
     },
     {
@@ -44356,8 +44356,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_shells_index",
-      "community": 16,
-      "community_name": "EmailSection.tsx",
+      "community": 20,
+      "community_name": "index.ts",
       "norm_label": "index.ts"
     },
     {
@@ -47282,8 +47282,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_test_msw_handlers_guardians",
-      "community": 0,
-      "community_name": "index.ts",
+      "community": 54,
+      "community_name": "global-search.tsx",
       "norm_label": "guardians.ts"
     },
     {
@@ -47293,8 +47293,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ui_src_test_msw_handlers_guardians_fixtures",
-      "community": 0,
-      "community_name": "index.ts",
+      "community": 54,
+      "community_name": "global-search.tsx",
       "norm_label": "fixtures"
     },
     {
@@ -47304,8 +47304,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "ui_src_test_msw_handlers_guardians_list",
-      "community": 0,
-      "community_name": "index.ts",
+      "community": 54,
+      "community_name": "global-search.tsx",
       "norm_label": "list"
     },
     {
@@ -47315,8 +47315,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "ui_src_test_msw_handlers_guardians_listempty",
-      "community": 0,
-      "community_name": "index.ts",
+      "community": 54,
+      "community_name": "global-search.tsx",
       "norm_label": "listempty"
     },
     {
@@ -47326,8 +47326,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "ui_src_test_msw_handlers_guardians_create",
-      "community": 0,
-      "community_name": "index.ts",
+      "community": 54,
+      "community_name": "global-search.tsx",
       "norm_label": "create"
     },
     {
@@ -47337,8 +47337,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "ui_src_test_msw_handlers_guardians_update",
-      "community": 0,
-      "community_name": "index.ts",
+      "community": 54,
+      "community_name": "global-search.tsx",
       "norm_label": "update"
     },
     {
@@ -47348,8 +47348,8 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "ui_src_test_msw_handlers_guardians_remove",
-      "community": 0,
-      "community_name": "index.ts",
+      "community": 54,
+      "community_name": "global-search.tsx",
       "norm_label": "remove"
     },
     {
@@ -47359,8 +47359,8 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "ui_src_test_msw_handlers_guardians_guardianhandlers",
-      "community": 0,
-      "community_name": "index.ts",
+      "community": 54,
+      "community_name": "global-search.tsx",
       "norm_label": "guardianhandlers"
     },
     {
@@ -47370,8 +47370,8 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "ui_src_test_msw_handlers_guardians_guardiandefaulthandlers",
-      "community": 0,
-      "community_name": "index.ts",
+      "community": 54,
+      "community_name": "global-search.tsx",
       "norm_label": "guardiandefaulthandlers"
     },
     {
@@ -47381,8 +47381,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_test_msw_handlers_invoices",
-      "community": 0,
-      "community_name": "index.ts",
+      "community": 129,
+      "community_name": "communications.ts",
       "norm_label": "invoices.ts"
     },
     {
@@ -47392,8 +47392,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ui_src_test_msw_handlers_invoices_fixtures",
-      "community": 0,
-      "community_name": "index.ts",
+      "community": 129,
+      "community_name": "communications.ts",
       "norm_label": "fixtures"
     },
     {
@@ -47403,8 +47403,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "ui_src_test_msw_handlers_invoices_list",
-      "community": 0,
-      "community_name": "index.ts",
+      "community": 129,
+      "community_name": "communications.ts",
       "norm_label": "list"
     },
     {
@@ -47414,8 +47414,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "ui_src_test_msw_handlers_invoices_listempty",
-      "community": 0,
-      "community_name": "index.ts",
+      "community": 129,
+      "community_name": "communications.ts",
       "norm_label": "listempty"
     },
     {
@@ -47425,8 +47425,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "ui_src_test_msw_handlers_invoices_getone",
-      "community": 0,
-      "community_name": "index.ts",
+      "community": 129,
+      "community_name": "communications.ts",
       "norm_label": "getone"
     },
     {
@@ -47436,8 +47436,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "ui_src_test_msw_handlers_invoices_create",
-      "community": 0,
-      "community_name": "index.ts",
+      "community": 129,
+      "community_name": "communications.ts",
       "norm_label": "create"
     },
     {
@@ -47447,8 +47447,8 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "ui_src_test_msw_handlers_invoices_print",
-      "community": 0,
-      "community_name": "index.ts",
+      "community": 129,
+      "community_name": "communications.ts",
       "norm_label": "print"
     },
     {
@@ -47458,8 +47458,8 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "ui_src_test_msw_handlers_invoices_invoicehandlers",
-      "community": 0,
-      "community_name": "index.ts",
+      "community": 129,
+      "community_name": "communications.ts",
       "norm_label": "invoicehandlers"
     },
     {
@@ -47469,8 +47469,8 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "ui_src_test_msw_handlers_invoices_invoicedefaulthandlers",
-      "community": 0,
-      "community_name": "index.ts",
+      "community": 129,
+      "community_name": "communications.ts",
       "norm_label": "invoicedefaulthandlers"
     },
     {
@@ -47975,8 +47975,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_test_msw_handlers_users",
-      "community": 134,
-      "community_name": "classes.ts",
+      "community": 0,
+      "community_name": "index.ts",
       "norm_label": "users.ts"
     },
     {
@@ -47986,8 +47986,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ui_src_test_msw_handlers_users_fixtures",
-      "community": 134,
-      "community_name": "classes.ts",
+      "community": 0,
+      "community_name": "index.ts",
       "norm_label": "fixtures"
     },
     {
@@ -47997,8 +47997,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "ui_src_test_msw_handlers_users_list",
-      "community": 134,
-      "community_name": "classes.ts",
+      "community": 0,
+      "community_name": "index.ts",
       "norm_label": "list"
     },
     {
@@ -48008,8 +48008,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "ui_src_test_msw_handlers_users_listempty",
-      "community": 134,
-      "community_name": "classes.ts",
+      "community": 0,
+      "community_name": "index.ts",
       "norm_label": "listempty"
     },
     {
@@ -48019,8 +48019,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "ui_src_test_msw_handlers_users_getone",
-      "community": 134,
-      "community_name": "classes.ts",
+      "community": 0,
+      "community_name": "index.ts",
       "norm_label": "getone"
     },
     {
@@ -48030,8 +48030,8 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "ui_src_test_msw_handlers_users_create",
-      "community": 134,
-      "community_name": "classes.ts",
+      "community": 0,
+      "community_name": "index.ts",
       "norm_label": "create"
     },
     {
@@ -48041,8 +48041,8 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "ui_src_test_msw_handlers_users_update",
-      "community": 134,
-      "community_name": "classes.ts",
+      "community": 0,
+      "community_name": "index.ts",
       "norm_label": "update"
     },
     {
@@ -48052,8 +48052,8 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "ui_src_test_msw_handlers_users_remove",
-      "community": 134,
-      "community_name": "classes.ts",
+      "community": 0,
+      "community_name": "index.ts",
       "norm_label": "remove"
     },
     {
@@ -48063,8 +48063,8 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "ui_src_test_msw_handlers_users_userhandlers",
-      "community": 134,
-      "community_name": "classes.ts",
+      "community": 0,
+      "community_name": "index.ts",
       "norm_label": "userhandlers"
     },
     {
@@ -48074,8 +48074,8 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "ui_src_test_msw_handlers_users_userdefaulthandlers",
-      "community": 134,
-      "community_name": "classes.ts",
+      "community": 0,
+      "community_name": "index.ts",
       "norm_label": "userdefaulthandlers"
     },
     {
@@ -48632,7 +48632,7 @@
       "label": "julyStart",
       "file_type": "code",
       "source_file": "ui/src/utils/date.spec.ts",
-      "source_location": "L7",
+      "source_location": "L13",
       "_origin": "ast",
       "id": "ui_src_utils_date_spec_julystart",
       "community": 120,
@@ -48643,7 +48643,7 @@
       "label": "julyStartBn",
       "file_type": "code",
       "source_file": "ui/src/utils/date.spec.ts",
-      "source_location": "L8",
+      "source_location": "L14",
       "_origin": "ast",
       "id": "ui_src_utils_date_spec_julystartbn",
       "community": 120,
@@ -52702,7 +52702,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "client-admin/scripts/check-route-chunks.mjs",
-      "source_location": "L58",
+      "source_location": "L64",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_admin_scripts_check_route_chunks",
@@ -183311,7 +183311,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/utils/date.spec.ts",
-      "source_location": "L7",
+      "source_location": "L13",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ui_src_utils_date_spec",
@@ -183322,7 +183322,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/utils/date.spec.ts",
-      "source_location": "L8",
+      "source_location": "L14",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ui_src_utils_date_spec",
@@ -187127,5 +187127,5 @@
       "source_file": ".claude/skills/multi-tenancy/SKILL.md"
     }
   ],
-  "built_at_commit": "aca8ed56c3f03ef101806f6b10a63d0fec7c1752"
+  "built_at_commit": "7210ed0252c825082e60bee0656b62a53c4c8827"
 }

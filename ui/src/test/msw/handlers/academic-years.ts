@@ -38,6 +38,14 @@ const setCurrent = http.post('/api/v1/academic-years/:id/set-current', ({ params
   HttpResponse.json(academicYearFactory({ id: params.id as string, is_current: true })),
 );
 
+const stats = http.get('/api/v1/academic-years/:id/stats', () =>
+  HttpResponse.json({ classes_count: 3, students_count: 42, fee_structures_count: 5 }),
+);
+
+const statsEmpty = http.get('/api/v1/academic-years/:id/stats', () =>
+  HttpResponse.json({ classes_count: 0, students_count: 0, fee_structures_count: 0 }),
+);
+
 export const academicYearHandlers = {
   list,
   listEmpty,
@@ -46,6 +54,16 @@ export const academicYearHandlers = {
   update,
   remove,
   setCurrent,
+  stats,
+  statsEmpty,
 };
 
-export const academicYearDefaultHandlers = [list, getOne, create, update, remove, setCurrent];
+export const academicYearDefaultHandlers = [
+  list,
+  getOne,
+  create,
+  update,
+  remove,
+  setCurrent,
+  stats,
+];

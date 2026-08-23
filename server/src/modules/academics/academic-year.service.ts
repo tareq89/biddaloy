@@ -2,15 +2,31 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import { AcademicYear } from './entities/academic-year.entity';
+import { Class } from './entities/class.entity';
+import { Enrollment } from '../students/entities/enrollment.entity';
+import { FeeStructure } from '../fees/entities/fee-structure.entity';
 import { CreateAcademicYearDto } from './dto/create-academic-year.dto';
 import { UpdateAcademicYearDto } from './dto/update-academic-year.dto';
 import { QueryAcademicYearDto } from './dto/query-academic-year.dto';
+import { EnrollmentStatus } from '@biddaloy/shared';
+
+export interface AcademicYearStats {
+  classes_count: number;
+  students_count: number;
+  fee_structures_count: number;
+}
 
 @Injectable()
 export class AcademicYearService {
   constructor(
     @InjectRepository(AcademicYear)
     private readonly repo: Repository<AcademicYear>,
+    @InjectRepository(Class)
+    private readonly classRepo: Repository<Class>,
+    @InjectRepository(Enrollment)
+    private readonly enrollmentRepo: Repository<Enrollment>,
+    @InjectRepository(FeeStructure)
+    private readonly feeStructureRepo: Repository<FeeStructure>,
   ) {}
 
   async create(dto: CreateAcademicYearDto, tenantId: string): Promise<AcademicYear> {
@@ -96,6 +112,33 @@ export class AcademicYearService {
   async remove(id: string, tenantId: string): Promise<void> {
     await this.findOne(id, tenantId);
     await this.repo.softDelete({ id, tenant_id: tenantId });
+  }
+
+  /**
+   * Counts feeding the List page's Classes/Students columns and the
+   * Detail page's Statistics tab. `students_count` counts ACTIVE
+   * enrollments, not all Student rows — `Enrollment`'s own unique index
+   * (one ACTIVE row per student per year) makes that a real distinct-
+   * student count for the year, not an over-count from enrollment history.
+   */
+  async getStats(id: string, tenantId: string): Promise<AcademicYearStats> {
+    await this.findOne(id, tenantId);
+
+    const [classes_count, students_count, fee_structures_count] = await Promise.all([
+      this.classRepo.count({ where: { academic_year_id: id, tenant_id: tenantId } }),
+      this.enrollmentRepo.count({
+        where: {
+          academic_year_id: id,
+          tenant_id: tenantId,
+          enrollment_status: EnrollmentStatus.ACTIVE,
+        },
+      }),
+      this.feeStructureRepo.count({
+        where: { academic_year_id: id, tenant_id: tenantId },
+      }),
+    ]);
+
+    return { classes_count, students_count, fee_structures_count };
   }
 
   async setCurrent(id: string, tenantId: string): Promise<AcademicYear> {

@@ -53,6 +53,15 @@ export class AcademicYearController {
     return this.service.findOne(id, tenant.id);
   }
 
+  @Get(':id/stats')
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @ApiOperation({
+    summary: 'Class/student/fee-structure counts attached to this academic year.',
+  })
+  getStats(@Param('id') id: string, @CurrentTenant() tenant: { id: string; role: string }) {
+    return this.service.getStats(id, tenant.id);
+  }
+
   @Patch(':id')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
   update(

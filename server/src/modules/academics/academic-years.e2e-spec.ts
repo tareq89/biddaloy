@@ -289,4 +289,51 @@ describe('Academic Years E2E', () => {
         .expect(401);
     });
   });
+
+  describe('GET /academic-years/:id/stats', () => {
+    it('should return zero counts for a freshly created academic year', async () => {
+      const createRes = await supertest(app.getHttpServer())
+        .post('/api/v1/academic-years')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ name: 'Stats Year', start_date: '2026-01-01', end_date: '2026-12-31' })
+        .expect(201);
+
+      const res = await supertest(app.getHttpServer())
+        .get(`/api/v1/academic-years/${createRes.body.id}/stats`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(200);
+
+      expect(res.body).toEqual({
+        classes_count: 0,
+        students_count: 0,
+        fee_structures_count: 0,
+      });
+    });
+
+    it('should return 404 for a year that does not belong to the tenant', async () => {
+      await supertest(app.getHttpServer())
+        .get('/api/v1/academic-years/00000000-0000-4000-8000-000000000000/stats')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(404);
+    });
+
+    it('should return 403 for STUDENT role', async () => {
+      const createRes = await supertest(app.getHttpServer())
+        .post('/api/v1/academic-years')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ name: 'Guarded Year', start_date: '2026-01-01', end_date: '2026-12-31' })
+        .expect(201);
+
+      await supertest(app.getHttpServer())
+        .get(`/api/v1/academic-years/${createRes.body.id}/stats`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.STUDENT)
+        .expect(401);
+    });
+  });
 });

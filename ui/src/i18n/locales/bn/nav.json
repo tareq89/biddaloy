@@ -13,13 +13,10 @@
     "studentDues": "শিক্ষার্থীর বকেয়া",
     "recordPayment": "পেমেন্ট রেকর্ড করুন",
     "portalOverview": "সারসংক্ষেপ",
-    "portalFees": "ফি ও চালান"
+    "portalFees": "ফি ও চালান",
+    "academicYears": "শিক্ষাবর্ষ"
   },
-  "groups": {
-    "people": "ব্যক্তিবর্গ",
-    "finance": "অর্থ",
-    "administration": "প্রশাসন"
-  },
+  "groups": { "people": "ব্যক্তিবর্গ", "finance": "অর্থ", "administration": "প্রশাসন" },
   "dashboard": {
     "title": "ড্যাশবোর্ড",
     "explanation": "ড্যাশবোর্ড এখনও তৈরি হয়নি।",
