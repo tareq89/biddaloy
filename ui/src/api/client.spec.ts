@@ -255,6 +255,27 @@ describe('ApiError mapping', () => {
       expect(apiErr.requestId).toBe('req-123');
     }
   });
+
+  it('wraps a validation error body whose message is an array (ValidationPipe shape)', async () => {
+    setActiveTenant('tenant-1');
+    apiMock.onPost('/students').reply(400, {
+      statusCode: 400,
+      message: ['full_name should not be empty', 'email must be an email'],
+      timestamp: '2026-01-01T00:00:00.000Z',
+      path: '/students',
+      requestId: 'req-456',
+    });
+
+    try {
+      await apiClient.post('/students', {});
+      expect.unreachable('expected apiClient.post to reject');
+    } catch (err) {
+      expect(err).toBeInstanceOf(ApiError);
+      const apiErr = err as ApiError;
+      expect(apiErr.messages).toEqual(['full_name should not be empty', 'email must be an email']);
+      expect(apiErr.message).toBe('full_name should not be empty email must be an email');
+    }
+  });
 });
 
 describe('toApiError', () => {

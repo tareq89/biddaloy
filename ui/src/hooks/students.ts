@@ -8,6 +8,7 @@ import { shouldRetryQuery } from './retry';
 
 export type Student = components['schemas']['Student'];
 export type CreateStudentInput = components['schemas']['CreateStudentDto'];
+export type UpdateStudentInput = components['schemas']['UpdateStudentDto'];
 export type PreferredCommunication = Student['preferred_communication'];
 export type EnrollmentStatus = Student['enrollment_status'];
 
@@ -108,6 +109,28 @@ export function useCreateStudent() {
     },
     retry: shouldRetryQuery,
     onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: studentKeys.lists() });
+    },
+  });
+}
+
+/** [8.10.3]'s Edit Student form — the general-purpose counterpart to
+ * `useUpdateStudentPreferredCommunication`/`useUpdateStudentEnrollmentStatus`
+ * above. Not optimistic, same reasoning as `useUpdateStudentEnrollmentStatus`:
+ * a full edit is a deliberate, form-submit action a staff member is already
+ * waiting on, not a background preference flip. Invalidates both the detail
+ * (fields shown on the student page) and every list variant (name, roll
+ * number and class/section — all list-column values — can all change here). */
+export function useUpdateStudent(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: UpdateStudentInput) => {
+      const res = await apiClient.patch<Student>(`/students/${id}`, input);
+      return res.data;
+    },
+    retry: shouldRetryQuery,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: studentKeys.detail(id) });
       void queryClient.invalidateQueries({ queryKey: studentKeys.lists() });
     },
   });

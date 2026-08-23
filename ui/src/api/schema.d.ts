@@ -1165,9 +1165,9 @@ export interface components {
             /** Format: uuid */
             class_section_id?: string;
             roll_number?: number;
-            date_of_birth?: string;
-            gender?: string;
-            home_address?: string;
+            date_of_birth?: string | null;
+            gender?: string | null;
+            home_address?: string | null;
             /** @enum {string} */
             preferred_communication?: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER";
             /** @enum {string} */

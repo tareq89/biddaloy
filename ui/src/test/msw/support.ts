@@ -17,13 +17,20 @@ export const ROLE_HEADER = 'X-Role';
  * `error.statusCode`/`error.requestId`. */
 export interface ApiErrorBody {
   statusCode: number;
-  message: string;
+  // `string | string[]` matches the real wire shape (`ui/src/api/
+  // errors.ts`'s own `ApiErrorBody`) — a test simulating a `ValidationPipe`
+  // 400 needs to send the array shape, not just a single message.
+  message: string | string[];
   timestamp: string;
   path: string;
   requestId: string;
 }
 
-export function apiErrorBody(statusCode: number, message: string, path: string): ApiErrorBody {
+export function apiErrorBody(
+  statusCode: number,
+  message: string | string[],
+  path: string,
+): ApiErrorBody {
   return {
     statusCode,
     message,

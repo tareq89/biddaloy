@@ -1,13 +1,19 @@
-import { EmptyState } from '@biddaloy/ui/components';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { ApiError } from '@biddaloy/ui/api';
+import { ErrorState, Skeleton } from '@biddaloy/ui/components';
+import { useStudent, useUpdateStudent } from '@biddaloy/ui/hooks';
+import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 
+import { StudentForm } from './-student-form';
+import { buildUpdatePayload, studentToFormValues } from './-student-form-schema';
+
 /**
- * `/students/$studentId/edit` — a placeholder, same reasoning as
- * `/students/new`: the real Edit Student form is [8.10.3]'s ticket
- * ("Add and edit a student"), not this one's. [8.10.2]'s detail page
- * links here from its Edit action so that link isn't a dead end while
- * [8.10.3] is still unbuilt.
+ * `/students/$studentId/edit` — [8.10.3]'s real Edit Student form,
+ * replacing the placeholder [8.10.2] left here (its detail page's Edit
+ * action already links here). Same `StudentForm` as `new.tsx`, prefilled
+ * from `useStudent` — no separate loader/`ensureQueryData` wiring since
+ * `$studentId.tsx` (the detail page this is reached from) has already
+ * warmed the same `studentQueryOptions(studentId)` cache entry.
  */
 export const Route = createFileRoute('/_staff/students/$studentId_/edit')({
   component: EditStudentPage,
@@ -17,15 +23,37 @@ function EditStudentPage() {
   const { studentId } = Route.useParams();
   const { t } = useTranslation('students');
   const navigate = useNavigate();
+  const config = useTenantRegionConfig();
+  const studentQuery = useStudent(studentId);
+  const mutation = useUpdateStudent(studentId);
 
   return (
-    <EmptyState
-      title={t('edit.title')}
-      explanation={t('edit.explanation')}
-      action={{
-        label: t('edit.action'),
-        onClick: () => void navigate({ to: '/students/$studentId', params: { studentId } }),
-      }}
-    />
+    <RegionConfigProvider value={config}>
+      <div className="mx-auto max-w-xl p-6">
+        <h1 className="mb-6 text-lg font-semibold">{t('edit.title')}</h1>
+        {studentQuery.isPending ? (
+          <Skeleton className="h-7 w-64" />
+        ) : studentQuery.isError ? (
+          <ErrorState
+            message={
+              studentQuery.error instanceof ApiError && studentQuery.error.statusCode === 403
+                ? t('detail.forbidden')
+                : t('detail.loadError')
+            }
+            onRetry={() => void studentQuery.refetch()}
+          />
+        ) : (
+          <StudentForm
+            initialValues={studentToFormValues(studentQuery.data)}
+            initialGuardians={studentQuery.data.guardians}
+            autosaveKey={studentId}
+            submitLabel={t('edit.submitAction')}
+            mutation={mutation}
+            buildPayload={buildUpdatePayload}
+            onSuccess={() => void navigate({ to: '/students/$studentId', params: { studentId } })}
+          />
+        )}
+      </div>
+    </RegionConfigProvider>
   );
 }

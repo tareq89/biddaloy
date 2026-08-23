@@ -21,6 +21,7 @@ export {
   useDeleteStudent,
   useStudent,
   useStudents,
+  useUpdateStudent,
   useUpdateStudentEnrollmentStatus,
   useUpdateStudentPreferredCommunication,
   type CreateStudentInput,
@@ -30,7 +31,15 @@ export {
   type Student,
   type StudentListFilters,
   type StudentSortField,
+  type UpdateStudentInput,
 } from './students';
+export {
+  guardianKeys,
+  useCreateGuardian,
+  useGuardians,
+  type CreateGuardianInput,
+  type Guardian,
+} from './guardians';
 export {
   paymentKeys,
   useCreatePayment,
@@ -84,7 +93,6 @@ export {
   useGlobalSearch,
   type GlobalSearchEntityResult,
   type GlobalSearchResults,
-  type Guardian,
   type TeacherProfile,
 } from './global-search';
 export { useNotifications, useUnreadNotificationCount } from './notifications';
