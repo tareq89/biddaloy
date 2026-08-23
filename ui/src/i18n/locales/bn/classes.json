@@ -1,0 +1,116 @@
+{
+  "list": {
+    "title": "শ্রেণি",
+    "caption": "শ্রেণি",
+    "addClass": "শ্রেণি যোগ করুন",
+    "academicYearLabel": "শিক্ষাবর্ষ",
+    "allAcademicYears": "সকল শিক্ষাবর্ষ",
+    "columnName": "শ্রেণি",
+    "columnGrade": "গ্রেড",
+    "columnSections": "শাখা",
+    "columnStudents": "শিক্ষার্থী",
+    "columnActions": "কার্যক্রম",
+    "edit": "সম্পাদনা",
+    "delete": "মুছুন",
+    "emptyMessage": "কোনো শ্রেণি পাওয়া যায়নি",
+    "errorMessage": "শ্রেণি লোড করতে ব্যর্থ হয়েছে",
+    "announceResults_one": "{{total}} টির মধ্যে {{visible}} টি শ্রেণি",
+    "announceResults_other": "{{total}} টির মধ্যে {{visible}} টি শ্রেণি",
+    "expandLabel": "{{name}}-এর শাখা",
+    "noGrade": "—"
+  },
+  "classForm": {
+    "createTitle": "শ্রেণি যোগ করুন",
+    "editTitle": "শ্রেণি সম্পাদনা করুন",
+    "description": "শাখা, শিক্ষার্থী ও ফি কাঠামো যে শ্রেণির অধীনে তৈরি হবে সেই শ্রেণির সাথে যুক্ত থাকবে।",
+    "nameLabel": "নাম",
+    "namePlaceholder": "যেমন ষষ্ঠ শ্রেণি",
+    "gradeLabel": "গ্রেড",
+    "gradePlaceholder": "যেমন ৬",
+    "academicYearLabel": "শিক্ষাবর্ষ",
+    "academicYearPlaceholder": "একটি শিক্ষাবর্ষ নির্বাচন করুন",
+    "errorNameRequired": "নাম আবশ্যক",
+    "errorAcademicYearRequired": "শিক্ষাবর্ষ আবশ্যক",
+    "errorGradeInvalid": "গ্রেড অবশ্যই একটি ধনাত্মক পূর্ণসংখ্যা হতে হবে",
+    "errorMessage": "শ্রেণি সংরক্ষণ করতে ব্যর্থ হয়েছে",
+    "save": "সংরক্ষণ করুন",
+    "saving": "সংরক্ষণ করা হচ্ছে…"
+  },
+  "sectionForm": {
+    "createTitle": "শাখা যোগ করুন",
+    "editTitle": "শাখা সম্পাদনা করুন",
+    "description": "শিক্ষার্থীরা এই শ্রেণির একটি নির্দিষ্ট শাখায় ভর্তি হয়।",
+    "nameLabel": "শাখার নাম",
+    "namePlaceholder": "যেমন এ",
+    "capacityLabel": "ধারণক্ষমতা",
+    "capacityPlaceholder": "যেমন ৪০",
+    "errorNameRequired": "শাখার নাম আবশ্যক",
+    "errorCapacityInvalid": "ধারণক্ষমতা অবশ্যই একটি ধনাত্মক পূর্ণসংখ্যা হতে হবে",
+    "errorMessage": "শাখা সংরক্ষণ করতে ব্যর্থ হয়েছে",
+    "save": "সংরক্ষণ করুন",
+    "saving": "সংরক্ষণ করা হচ্ছে…"
+  },
+  "deleteClassDialog": {
+    "title": "শ্রেণি মুছুন",
+    "description": "\"{{name}}\" মুছে ফেলবেন? এটি ফিরিয়ে আনা যাবে না।",
+    "confirm": "মুছুন",
+    "deleting": "মুছে ফেলা হচ্ছে…",
+    "errorMessage": "শ্রেণি মুছতে ব্যর্থ হয়েছে",
+    "moveStudents": "শিক্ষার্থী স্থানান্তর করুন",
+    "close": "বন্ধ করুন"
+  },
+  "deleteSectionDialog": {
+    "title": "শাখা মুছুন",
+    "description": "\"{{name}}\" মুছে ফেলবেন? এটি ফিরিয়ে আনা যাবে না।",
+    "confirm": "মুছুন",
+    "deleting": "মুছে ফেলা হচ্ছে…",
+    "errorMessage": "শাখা মুছতে ব্যর্থ হয়েছে"
+  },
+  "sections": {
+    "heading": "শাখা — {{className}}",
+    "addSection": "+ শাখা",
+    "columnName": "শাখা",
+    "columnCapacity": "ধারণক্ষমতা",
+    "columnEnrolled": "ভর্তিকৃত",
+    "columnActions": "কার্যক্রম",
+    "noCapacity": "—",
+    "edit": "সম্পাদনা",
+    "delete": "মুছুন",
+    "emptyMessage": "এখনও কোনো শাখা নেই",
+    "errorMessage": "শাখা লোড করতে ব্যর্থ হয়েছে"
+  },
+  "detail": {
+    "tabSections": "শাখা",
+    "tabStudents": "শিক্ষার্থী",
+    "tabFeeStructures": "ফি কাঠামো",
+    "tabTeachers": "শিক্ষক",
+    "forbidden": "এটি দেখার অনুমতি আপনার নেই।",
+    "grade": "গ্রেড {{grade}}",
+    "students": {
+      "columnName": "নাম",
+      "columnRoll": "রোল",
+      "columnSection": "শাখা",
+      "columnStatus": "অবস্থা",
+      "emptyMessage": "এই শ্রেণিতে কোনো শিক্ষার্থী নেই",
+      "errorMessage": "শিক্ষার্থী লোড করতে ব্যর্থ হয়েছে"
+    },
+    "feeStructures": {
+      "columnName": "নাম",
+      "columnType": "ধরন",
+      "columnAmount": "পরিমাণ",
+      "columnRecurring": "পুনরাবৃত্ত",
+      "yes": "হ্যাঁ",
+      "no": "না",
+      "emptyMessage": "এই শ্রেণির জন্য কোনো ফি কাঠামো নেই",
+      "errorMessage": "ফি কাঠামো লোড করতে ব্যর্থ হয়েছে"
+    },
+    "teachers": {
+      "columnName": "নাম",
+      "columnEmployeeId": "কর্মচারী আইডি",
+      "columnDesignations": "পদবি",
+      "columnSections": "শাখা",
+      "emptyMessage": "এই শ্রেণিতে কোনো শিক্ষক নিয়োজিত নেই",
+      "errorMessage": "শিক্ষক লোড করতে ব্যর্থ হয়েছে"
+    }
+  }
+}

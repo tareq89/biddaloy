@@ -256,6 +256,23 @@ export interface paths {
         patch: operations["ClassController_updateSection_v1"];
         trace?: never;
     };
+    "/api/v1/classes/{classId}/teachers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List distinct teachers assigned to any section of this class. */
+        get: operations["ClassController_findClassTeachers_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/enrollments": {
         parameters: {
             query?: never;
@@ -958,7 +975,7 @@ export interface components {
         };
         UpdateClassDto: {
             name?: string;
-            numeric_grade?: number;
+            numeric_grade?: number | null;
         };
         CreateSectionDto: {
             section_name: string;
@@ -966,7 +983,7 @@ export interface components {
         };
         UpdateSectionDto: {
             section_name?: string;
-            capacity?: number;
+            capacity?: number | null;
         };
         CreateEnrollmentDto: {
             /** Format: uuid */
@@ -2310,7 +2327,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ClassSection"][];
+                    "application/json": Record<string, never>[];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -2418,6 +2435,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClassSection"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ClassController_findClassTeachers_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                classId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>[];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

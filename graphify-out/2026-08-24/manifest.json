@@ -425,13 +425,13 @@
     "semantic_hash": "c2d0e1d48ec410748643a95ad7fcabd5"
   },
   "server/src/modules/academics/academic-year.service.integration.spec.ts": {
-    "mtime": 1787505650.9888582,
-    "ast_hash": "4e44fba8cc43f4a5a363353c7c0ea031",
+    "mtime": 1787507341.04638,
+    "ast_hash": "b5d7ca6c2cfbe38a83138baac5726cba",
     "semantic_hash": ""
   },
   "server/src/modules/academics/academic-years.e2e-spec.ts": {
-    "mtime": 1787505718.12716,
-    "ast_hash": "5fb8eab1631e4ca1735d05301f99a258",
+    "mtime": 1787509163.045721,
+    "ast_hash": "ccb7b307c0e8c60ab8bfb55d50d36021",
     "semantic_hash": ""
   },
   "server/src/modules/auth/auth.e2e-spec.ts": {
@@ -965,8 +965,8 @@
     "semantic_hash": "b88447447694ccf69d8f9711194a106c"
   },
   "client-admin/public/mockServiceWorker.js": {
-    "mtime": 1787506778.2305105,
-    "ast_hash": "85eab4e98c331c0310cdb32687447d99",
+    "mtime": 1787507317.557617,
+    "ast_hash": "c8f0dfa140ec246071c4cc5a03df5c9d",
     "semantic_hash": ""
   },
   "client-admin/src/main.tsx": {
@@ -3155,8 +3155,8 @@
     "semantic_hash": ""
   },
   "ui/src/i18n/locales/bn/nav.json": {
-    "mtime": 1787506246.6015375,
-    "ast_hash": "ebe651ec9c7cae229eca3d74578bf8cb",
+    "mtime": 1787507340.9211903,
+    "ast_hash": "7feb09f00af8fb4773428c665b076847",
     "semantic_hash": ""
   },
   "ui/src/i18n/locales/bn/settings.json": {
@@ -3175,8 +3175,8 @@
     "semantic_hash": ""
   },
   "ui/src/i18n/locales/en/nav.json": {
-    "mtime": 1787506246.6009688,
-    "ast_hash": "70ea893665a204d3476bcba6a0fb0304",
+    "mtime": 1787507340.9340217,
+    "ast_hash": "e1b663431b3e2deaa6cde6d4130478f9",
     "semantic_hash": ""
   },
   "ui/src/i18n/locales/en/settings.json": {
@@ -3705,8 +3705,8 @@
     "semantic_hash": "f399bb4141daa80bcde9354eceb93f96"
   },
   "ui/src/hooks/classes.ts": {
-    "mtime": 1787506582.9654183,
-    "ast_hash": "0fe2270fbee5fec2b074c1a16a2dede9",
+    "mtime": 1787509233.0514193,
+    "ast_hash": "9940c76d77942a2c113a3d11725c5bc1",
     "semantic_hash": ""
   },
   "ui/src/hooks/reminders.test.tsx": {
@@ -4020,13 +4020,13 @@
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/academic-years/$academicYearId.test.tsx": {
-    "mtime": 1787507165.7684755,
-    "ast_hash": "39802725dcfe25ed1f824fc2054f4dcd",
+    "mtime": 1787510137.8137085,
+    "ast_hash": "20b0f2185331c21ed462a479e398ba24",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/academic-years/$academicYearId.tsx": {
-    "mtime": 1787507017.4963925,
-    "ast_hash": "f6f4ef64ccb7096581bedb1964b500b4",
+    "mtime": 1787509809.2457976,
+    "ast_hash": "6bfcd0583ab206afc59b0d6a7fa23ae1",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/academic-years/-delete-year-dialog.tsx": {
@@ -4035,18 +4035,18 @@
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/academic-years/-detail/classes-tab.tsx": {
-    "mtime": 1787506557.5846477,
-    "ast_hash": "1e0d566ef5daea3eb47f424b9d5ed050",
+    "mtime": 1787509272.0251276,
+    "ast_hash": "5d6fd4616c6854f429c51ff337d3638e",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/academic-years/-detail/fee-structures-tab.tsx": {
-    "mtime": 1787506604.8945346,
-    "ast_hash": "4453f627a23fd670d08608fe4177206d",
+    "mtime": 1787509302.887303,
+    "ast_hash": "32310c484f900a6c815d5f9e2641f088",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/academic-years/-detail/statistics-tab.tsx": {
-    "mtime": 1787506613.4782856,
-    "ast_hash": "89c9f1be2786dec6d3122f7f2b836a55",
+    "mtime": 1787510048.4884162,
+    "ast_hash": "8e9b5ca8d2f27ff6d6798c7feb747f0e",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/academic-years/-detail/tab-query-state.tsx": {
@@ -4055,28 +4055,28 @@
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/academic-years/-set-current-dialog.tsx": {
-    "mtime": 1787506485.5954523,
-    "ast_hash": "f768a8038fba16fabf503a3b55346f8a",
+    "mtime": 1787507347.2855387,
+    "ast_hash": "277a8f5989e641a217d63f747b4d47bf",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/academic-years/-year-form-dialog.tsx": {
-    "mtime": 1787506451.1127021,
-    "ast_hash": "26afabd974689f73f151051d52105d4f",
+    "mtime": 1787509022.5975878,
+    "ast_hash": "e7b1bf39325f34397ac32d5d9904ea3f",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/academic-years/index.test.tsx": {
-    "mtime": 1787507122.1036026,
-    "ast_hash": "5c225764dc4a5aa6c09041b18b3ba158",
+    "mtime": 1787510186.322253,
+    "ast_hash": "5a538c76a7f8d2f7319eb96c0d4fbd6e",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/academic-years/index.tsx": {
-    "mtime": 1787506817.3205407,
-    "ast_hash": "4f264eca1e604dde71e6316e884c1b7b",
+    "mtime": 1787509842.3243978,
+    "ast_hash": "252e494951f5fbbcb57b8ab59c922fe8",
     "semantic_hash": ""
   },
   "ui/src/hooks/academic-years.test.tsx": {
-    "mtime": 1787505980.0948699,
-    "ast_hash": "70cc09fded5ed95de583209ed34868e5",
+    "mtime": 1787510160.242431,
+    "ast_hash": "ed96665b0dbf5bf792143f7f5ff2d75a",
     "semantic_hash": ""
   },
   "ui/src/hooks/academic-years.ts": {
@@ -4090,13 +4090,13 @@
     "semantic_hash": ""
   },
   "ui/src/i18n/locales/bn/academicYears.json": {
-    "mtime": 1787506459.1693797,
-    "ast_hash": "01a1d076102d0fffdd079f74afdd1ba7",
+    "mtime": 1787508987.0339758,
+    "ast_hash": "8ac531f348f5b65aa1807f2da2852f6c",
     "semantic_hash": ""
   },
   "ui/src/i18n/locales/en/academicYears.json": {
-    "mtime": 1787506459.1689095,
-    "ast_hash": "301f19b222aaed8579d7239817c685d4",
+    "mtime": 1787508976.3921208,
+    "ast_hash": "1d8e2be5041af859380058c9768aedbe",
     "semantic_hash": ""
   }
 }

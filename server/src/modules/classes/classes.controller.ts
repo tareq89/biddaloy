@@ -127,4 +127,16 @@ export class ClassController {
   ) {
     return this.sectionService.remove(classId, sectionId, tenant.id);
   }
+
+  // --- Teachers (read-only; teacher CRUD is #177) ---
+
+  @Get(':classId/teachers')
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @ApiOperation({ summary: 'List distinct teachers assigned to any section of this class.' })
+  findClassTeachers(
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.sectionService.findTeachers(classId, tenant.id);
+  }
 }

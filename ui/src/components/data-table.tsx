@@ -18,6 +18,7 @@ import {
   type ColumnOrderState,
   type VisibilityState,
 } from '@tanstack/react-table';
+import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { Button } from './button';
@@ -89,6 +90,20 @@ export interface DataTableProps<TData> {
   /** English default, same "not yet retrofitted onto i18next" convention
    * as `emptyMessage`/`announceResults` above. */
   columnsMenuLabel?: string;
+
+  /** Renders an inline expansion panel below a row (e.g. classes/index.tsx's
+   * sections panel) when supplied. Adds a leading toggle column, same as
+   * the checkbox column: a real `<button aria-expanded aria-controls>`
+   * with its own native tab stop, not part of the roving-tabindex grid, so
+   * expanding a row never shifts `focusedCell.col`. Expansion state is
+   * local to this component (which rows are expanded is a display detail,
+   * not something a caller's query needs to know) and multiple rows may
+   * be expanded at once. */
+  renderExpandedRow?: (row: TData) => React.ReactNode;
+  /** Accessible name for a row's expand/collapse toggle button — e.g.
+   * `(row) => \`Sections for ${row.name}\`` — since "Expand row" alone
+   * wouldn't distinguish rows for screen-reader users. */
+  expandRowLabel?: (row: TData) => string;
 }
 
 function readPersistedState(
@@ -141,7 +156,19 @@ export function DataTable<TData>({
   defaultColumnVisibility,
   columnsMenu = false,
   columnsMenuLabel = 'Columns',
+  renderExpandedRow,
+  expandRowLabel = () => 'Expand row',
 }: DataTableProps<TData>) {
+  const [expandedRowIds, setExpandedRowIds] = React.useState<ReadonlySet<string>>(new Set());
+  const expandable = renderExpandedRow !== undefined;
+  function toggleExpanded(id: string) {
+    setExpandedRowIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
   const [{ columnVisibility, columnOrder }, setPersisted] = React.useState(() =>
     readPersistedState(tableId, defaultColumnVisibility),
   );
@@ -235,7 +262,7 @@ export function DataTable<TData>({
   // stop, not part of the roving-tabindex grid, so it isn't a valid
   // `focusedCell.col` target.
   const dataColCount = table.getVisibleFlatColumns().length;
-  const colSpanCount = dataColCount + (selectable ? 1 : 0);
+  const colSpanCount = dataColCount + (selectable ? 1 : 0) + (expandable ? 1 : 0);
   const regionRef = React.useRef<HTMLDivElement>(null);
 
   // Roving tabindex only moves the *tab stop* by re-rendering with a new
@@ -330,6 +357,11 @@ export function DataTable<TData>({
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
+                {expandable && (
+                  <th scope="col" className="w-8 p-2 text-start">
+                    <span className="sr-only">Expand</span>
+                  </th>
+                )}
                 {selectable && (
                   <th scope="col" className="p-2 text-start">
                     <Checkbox
@@ -402,61 +434,110 @@ export function DataTable<TData>({
             )}
             {!loading &&
               !error &&
-              rows.map((row, rowIndex) => (
-                <tr
-                  key={row.id}
-                  className="border-t border-border"
-                  data-selected={selectedIds?.has(row.id) || undefined}
-                >
-                  {selectable && (
-                    <td className="p-2">
-                      <Checkbox
-                        aria-label={`Select row ${rowIndex + 1}`}
-                        checked={selectedIds?.has(row.id) ?? false}
-                        onCheckedChange={() => toggleRow(row.id)}
-                      />
-                    </td>
-                  )}
-                  {row.getVisibleCells().map((cell, colIndex) => {
-                    const isFocused = focusedCell.row === rowIndex && focusedCell.col === colIndex;
-                    return (
-                      <td
-                        key={cell.id}
-                        tabIndex={isFocused ? 0 : -1}
-                        data-focused={isFocused || undefined}
-                        className="p-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
-                        onFocus={() => setFocusedCell({ row: rowIndex, col: colIndex })}
-                        onKeyDown={(event) => {
-                          if (event.key === 'ArrowRight') {
-                            event.preventDefault();
-                            moveFocus(0, 1);
-                          } else if (event.key === 'ArrowLeft') {
-                            event.preventDefault();
-                            moveFocus(0, -1);
-                          } else if (event.key === 'ArrowDown') {
-                            event.preventDefault();
-                            moveFocus(1, 0);
-                          } else if (event.key === 'ArrowUp') {
-                            event.preventDefault();
-                            moveFocus(-1, 0);
-                          } else if (event.key === 'Home') {
-                            event.preventDefault();
-                            setFocusedCell({ row: rowIndex, col: 0 });
-                          } else if (event.key === 'End') {
-                            event.preventDefault();
-                            setFocusedCell({ row: rowIndex, col: dataColCount - 1 });
-                          } else if (event.key === ' ') {
-                            event.preventDefault();
-                            toggleRow(row.id);
-                          }
-                        }}
-                      >
-                        {cell.getValue() as React.ReactNode}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
+              rows.map((row, rowIndex) => {
+                const isExpanded = expandable && expandedRowIds.has(row.id);
+                // Stable, DOM-unique id for the toggle's `aria-controls` /
+                // the expansion panel's own id — scoped by `tableId` so two
+                // `DataTable`s on the same page (unlikely, but cheap to
+                // guard against) never collide.
+                const expandedPanelId = `${tableId}-expanded-${row.id}`;
+                return (
+                  <React.Fragment key={row.id}>
+                    <tr
+                      className="border-t border-border"
+                      data-selected={selectedIds?.has(row.id) || undefined}
+                    >
+                      {expandable && (
+                        <td className="p-2">
+                          <button
+                            type="button"
+                            aria-expanded={isExpanded}
+                            // Only set while expanded — the `<tr id=
+                            // {expandedPanelId}>` it names doesn't exist
+                            // in the DOM at all when collapsed (see
+                            // `renderExpandedRow`'s own conditional
+                            // render below), so pointing `aria-controls`
+                            // at it unconditionally would name an
+                            // element assistive tech can never find.
+                            aria-controls={isExpanded ? expandedPanelId : undefined}
+                            aria-label={expandRowLabel(row.original)}
+                            className="inline-flex items-center justify-center rounded-md p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+                            onClick={() => toggleExpanded(row.id)}
+                          >
+                            {isExpanded ? (
+                              <ChevronDownIcon className="h-4 w-4" aria-hidden="true" />
+                            ) : (
+                              <ChevronRightIcon className="h-4 w-4" aria-hidden="true" />
+                            )}
+                          </button>
+                        </td>
+                      )}
+                      {selectable && (
+                        <td className="p-2">
+                          <Checkbox
+                            aria-label={`Select row ${rowIndex + 1}`}
+                            checked={selectedIds?.has(row.id) ?? false}
+                            onCheckedChange={() => toggleRow(row.id)}
+                          />
+                        </td>
+                      )}
+                      {row.getVisibleCells().map((cell, colIndex) => {
+                        const isFocused =
+                          focusedCell.row === rowIndex && focusedCell.col === colIndex;
+                        return (
+                          <td
+                            key={cell.id}
+                            tabIndex={isFocused ? 0 : -1}
+                            data-focused={isFocused || undefined}
+                            className="p-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+                            onFocus={() => setFocusedCell({ row: rowIndex, col: colIndex })}
+                            onKeyDown={(event) => {
+                              if (event.key === 'ArrowRight') {
+                                event.preventDefault();
+                                moveFocus(0, 1);
+                              } else if (event.key === 'ArrowLeft') {
+                                event.preventDefault();
+                                moveFocus(0, -1);
+                              } else if (event.key === 'ArrowDown') {
+                                event.preventDefault();
+                                moveFocus(1, 0);
+                              } else if (event.key === 'ArrowUp') {
+                                event.preventDefault();
+                                moveFocus(-1, 0);
+                              } else if (event.key === 'Home') {
+                                event.preventDefault();
+                                setFocusedCell({ row: rowIndex, col: 0 });
+                              } else if (event.key === 'End') {
+                                event.preventDefault();
+                                setFocusedCell({ row: rowIndex, col: dataColCount - 1 });
+                              } else if (event.key === ' ') {
+                                event.preventDefault();
+                                toggleRow(row.id);
+                              }
+                            }}
+                          >
+                            {cell.getValue() as React.ReactNode}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                    {isExpanded && (
+                      // Own `<tr>`/`<td colSpan>`, not inside the row above —
+                      // keeps every data `<td>`'s `colIndex` (and therefore
+                      // `focusedCell.col`) meaning exactly what it always
+                      // has. `rows[]`/`rowIndex` (TanStack's row model) is
+                      // what Up/Down arrow navigation walks, not DOM
+                      // position, so this extra sibling `<tr>` never shifts
+                      // it either.
+                      <tr id={expandedPanelId} className="bg-muted/30">
+                        <td colSpan={colSpanCount} className="p-0">
+                          {renderExpandedRow?.(row.original)}
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
           </tbody>
         </table>
       </div>

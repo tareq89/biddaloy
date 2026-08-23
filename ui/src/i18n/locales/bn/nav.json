@@ -14,7 +14,8 @@
     "recordPayment": "পেমেন্ট রেকর্ড করুন",
     "portalOverview": "সারসংক্ষেপ",
     "portalFees": "ফি ও চালান",
-    "academicYears": "শিক্ষাবর্ষ"
+    "academicYears": "শিক্ষাবর্ষ",
+    "classes": "ক্লাস"
   },
   "groups": { "people": "ব্যক্তিবর্গ", "finance": "অর্থ", "administration": "প্রশাসন" },
   "dashboard": {
