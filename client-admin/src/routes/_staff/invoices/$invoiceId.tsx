@@ -1,17 +1,21 @@
-import { ErrorState, Skeleton } from '@biddaloy/ui/components';
-import { useInvoice } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { InvoiceStatus, Permission } from '@biddaloy/shared';
+import { Button, ErrorState, Skeleton, StatusBadge, toast } from '@biddaloy/ui/components';
+import { openPrintableInvoice, useHasPermission, useInvoice } from '@biddaloy/ui/hooks';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatDate, formatServerAmount } from '@biddaloy/ui/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 
 /**
- * `/invoices/$invoiceId` — [8.9.9]'s Cmd/Ctrl+K palette is the only
- * caller today (an invoice result's `onSelect` navigates here); there is
- * no invoices list page yet to link in from, same gap `students/
- * $studentId.tsx`'s own header comment predates for students before
- * [8.9.1]. `GET /invoices/:id` (`invoices.controller.ts`) already
- * existed before this route did — printing (`invoices/:id/print`) has
- * shipped since [#14] — so this is the minimal page needed to give a
- * search result somewhere real to land, not a new backend surface.
+ * `/invoices/$invoiceId` — [8.9.9]'s Cmd/Ctrl+K palette and [8.10.6]'s
+ * `/invoices` list both link here. `GET /invoices/:id` (`invoices.
+ * controller.ts`) already existed before this route did — printing
+ * (`invoices/:id/print`) has shipped since [#14] — so [8.10.6] only
+ * fleshes out the fields this page renders, not a new backend surface.
+ *
+ * `line_items` isn't rendered: the generated `Invoice` schema types the
+ * response field `Record<string, never> | null` (jsonb has no OpenAPI
+ * shape for Swagger to infer), so reading it here would mean an unsound
+ * cast for a field the acceptance criteria don't actually ask for.
  */
 export const Route = createFileRoute('/_staff/invoices/$invoiceId')({
   component: InvoiceDetailPage,
@@ -20,11 +24,13 @@ export const Route = createFileRoute('/_staff/invoices/$invoiceId')({
 function InvoiceDetailPage() {
   const { invoiceId } = Route.useParams();
   const { t } = useTranslation('fees');
+  const regionConfig = useRegionConfig();
   const invoiceQuery = useInvoice(invoiceId);
+  const canPrint = useHasPermission(Permission.INVOICE_PRINT);
 
   return (
     <div className="flex flex-col gap-4">
-      <Link to="/fees" className="text-sm text-primary underline">
+      <Link to="/invoices" className="text-sm text-primary underline">
         {t('invoiceDetail.back')}
       </Link>
       {invoiceQuery.isPending ? (
@@ -36,7 +42,58 @@ function InvoiceDetailPage() {
           onRetry={() => void invoiceQuery.refetch()}
         />
       ) : (
-        <h1 className="text-lg font-semibold">{invoiceQuery.data.invoice_number}</h1>
+        <>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <h1 className="text-lg font-semibold">{invoiceQuery.data.invoice_number}</h1>
+              <p className="text-sm text-muted-foreground">{invoiceQuery.data.student.full_name}</p>
+            </div>
+            <StatusBadge domain="invoice" status={invoiceQuery.data.status as InvoiceStatus} />
+          </div>
+
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
+            <div>
+              <dt className="text-muted-foreground">{t('invoiceDetail.issuedDate')}</dt>
+              <dd>{formatDate(new Date(invoiceQuery.data.issued_date), regionConfig)}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">{t('invoiceDetail.dueDate')}</dt>
+              <dd>{formatDate(new Date(invoiceQuery.data.due_date), regionConfig)}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">{t('invoiceDetail.taxAmount')}</dt>
+              <dd>{formatServerAmount(invoiceQuery.data.tax_amount, regionConfig)}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">{t('invoiceDetail.discountAmount')}</dt>
+              <dd>{formatServerAmount(invoiceQuery.data.discount_amount, regionConfig)}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">{t('invoiceDetail.totalAmount')}</dt>
+              <dd className="font-medium">
+                {formatServerAmount(invoiceQuery.data.total_amount, regionConfig)}
+              </dd>
+            </div>
+          </dl>
+
+          {invoiceQuery.data.notes !== null && (
+            <p className="text-sm text-muted-foreground">{invoiceQuery.data.notes}</p>
+          )}
+
+          {canPrint && (
+            <Button
+              type="button"
+              className="self-start"
+              onClick={() =>
+                void openPrintableInvoice(invoiceQuery.data.id, () =>
+                  toast.error(t('invoiceDetail.printError')),
+                )
+              }
+            >
+              {t('invoiceDetail.print')}
+            </Button>
+          )}
+        </>
       )}
     </div>
   );

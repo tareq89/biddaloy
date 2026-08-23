@@ -77,7 +77,10 @@ function StaffLayout() {
           permission: Permission.PAYMENT_RECORD,
         },
       ],
-      items: [{ to: '/fees', label: t('items.fees'), permission: Permission.FEE_STRUCTURE_READ }],
+      items: [
+        { to: '/fees', label: t('items.fees'), permission: Permission.FEE_STRUCTURE_READ },
+        { to: '/invoices', label: t('items.invoices'), permission: Permission.INVOICE_READ },
+      ],
     },
     {
       id: 'administration',
