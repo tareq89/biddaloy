@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
   StatusBadge,
+  humanizeStatus,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
 import {
@@ -266,14 +267,17 @@ function DuesQueuePage() {
         formatServerAmount(totalBilled, regionConfig),
         formatServerAmount(paid, regionConfig),
         formatServerAmount(row.total_due, regionConfig),
-        deriveRowStatus(row),
+        humanizeStatus(deriveRowStatus(row)),
         toReminderLabel(row.student_id),
       ]
         .map((value) => csvCell(value))
         .join(',');
     });
     const csv = [header.join(','), ...lines].join('\r\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    // Excel on Windows decodes a BOM-less CSV using the system code page,
+    // mangling non-Latin header text (e.g. the bn locale) — prepend the
+    // UTF-8 BOM so it reads the file as UTF-8 instead.
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
@@ -445,8 +449,12 @@ function DuesQueuePage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL_VALUE}>{t('dues.allStatuses')}</SelectItem>
-                <SelectItem value={FeeStatus.PENDING}>{FeeStatus.PENDING}</SelectItem>
-                <SelectItem value={FeeStatus.PARTIALLY_PAID}>{FeeStatus.PARTIALLY_PAID}</SelectItem>
+                <SelectItem value={FeeStatus.PENDING}>
+                  {humanizeStatus(FeeStatus.PENDING)}
+                </SelectItem>
+                <SelectItem value={FeeStatus.PARTIALLY_PAID}>
+                  {humanizeStatus(FeeStatus.PARTIALLY_PAID)}
+                </SelectItem>
               </SelectContent>
             </Select>
             <div className="flex items-center gap-2">
