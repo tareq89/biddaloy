@@ -32,8 +32,9 @@ const listByEntity = http.get(
     ),
 );
 
-const listByEntityEmpty = http.get('/api/v1/audit-logs/entity/:entityType/:entityId', () =>
-  HttpResponse.json(paginate([], 'http://localhost/api/v1/audit-logs/entity/Student/1')),
+const listByEntityEmpty = http.get(
+  '/api/v1/audit-logs/entity/:entityType/:entityId',
+  ({ request }) => HttpResponse.json(paginate([], request.url)),
 );
 
 export const auditLogHandlers = { list, listEmpty, listByEntity, listByEntityEmpty };
