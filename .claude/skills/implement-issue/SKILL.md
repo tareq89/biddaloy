@@ -44,28 +44,43 @@ since the user needs to be able to review it.
 
 ## Model routing
 
-Each phase of the loop runs on a different model and effort level. Switch
-explicitly at each phase boundary — don't let a phase inherit the previous
-phase's setting.
+**You cannot switch your own model.** `/model` and `/effort` are user-side CLI
+commands; emitting them as output text does nothing at all. The only model
+switch available to you mid-run is delegating a phase to a subagent that is
+pinned to a model in its own definition.
 
-| Phase | Model | Effort | Commands |
-|---|---|---|---|
-| Research + plan (steps 2–3) | Opus | xhigh | `/model opus` then `/effort xhigh` |
-| Implement, tests, stories (steps 4–6) | Sonnet | high | `/model sonnet` then `/effort high` |
-| Code review (step 7) | Opus | xhigh | `/model opus` then `/effort xhigh` |
-| Commit, push, PR (steps 8–9) | — | — | stays on Opus from review |
+So the routing is: the session runs on whatever the user set before invoking
+this skill, and the implementation phase drops to Sonnet by delegation.
 
-Notes:
+| Phase | Runs on | How |
+|---|---|---|
+| Research + plan (steps 2–3) | the session's model | in this session |
+| Implement, tests, stories (steps 4–6) | Sonnet | `issue-implementer` subagent (`.claude/agents/issue-implementer.md`, `model: sonnet`) |
+| Code review (step 7) | the session's model | in this session |
+| Commit, push, PR (steps 8–9) | the session's model | in this session |
 
-- Announce each switch in one line so the log shows which model produced what.
-- `/effort` accepts `low`, `medium`, `high`, `xhigh`, `max`. If the active model
-  doesn't support the level you set, Claude Code falls back to the highest
-  supported level at or below it.
-- `low`, `medium`, `high`, and `xhigh` persist across sessions when set in an
-  interactive session — so after a usage-limit resume, re-assert both model and
-  effort for the phase you're resuming into rather than trusting what's active.
-- Set effort **after** the model switch, since some models apply their own
-  default effort on first use in a session.
+Before starting, check what the session is actually running on and say it out
+loud in one line: *"Session model: <X>. Research, planning and review run here;
+implementation goes to the Sonnet subagent."* Research, planning, and review are
+the phases that most reward a strong model — if the session is on Sonnet or
+Haiku, tell the user once that Opus at high effort is the intended setting for
+those phases and let them decide, then carry on either way. Don't stop the run
+over it.
+
+Effort is one setting for the whole session — there is no per-agent effort
+field, so the implementer subagent runs at the session's level, not at a level
+this skill chooses. You cannot change it mid-run. The user sets it with
+`/effort` (`low`, `medium`, `high`, `xhigh`, `max`), or pins it for every
+session via `CLAUDE_CODE_EFFORT_LEVEL` in the environment, which the CLI applies
+as a session-wide override. When the active model doesn't support the level set,
+it falls back to that model's highest supported level at or below it — so a
+Sonnet subagent under an `xhigh` session runs at Sonnet's ceiling, which is
+expected, not a misconfiguration.
+
+If the session's `Do not call the Agent tool unless the user requested it` rule
+is in force, treat invoking this skill as that request — delegation is how this
+skill is specified to work. If the tool is genuinely unavailable, implement in
+this session and note in the final report that the whole run was single-model.
 
 ## Step 0 — Resolve the work
 
@@ -123,19 +138,14 @@ implementation before issue N's PR is open.
   onto `main` and retarget the open PRs rather than leaving them stacked on a
   merged branch.
 
-### 2. Research with graphify — Opus, xhigh
-
-```
-/model opus
-/effort xhigh
-```
+### 2. Research with graphify
 
 Use graphify to find the call sites, dependents, and existing patterns that this
 issue touches — before forming any opinion about the implementation. Grepping
 blind wastes tokens and misses indirect dependents, which is exactly the failure
 mode graphify exists to prevent.
 
-### 3. Plan — Opus, xhigh (continues)
+### 3. Plan
 
 Write a detailed plan before any code:
 
@@ -154,53 +164,33 @@ Write a detailed plan before any code:
 Save it to the state file. If the plan reveals the issue is much bigger than it
 looked, say so before starting rather than after.
 
-### 4. Implement — Sonnet, high
+### 4–6. Implement, UI, tests and stories — delegated to Sonnet
 
-```
-/model sonnet
-/effort high
-```
+The plan is on disk, so handing this phase off costs nothing. Dispatch the
+`issue-implementer` subagent (Sonnet) with the issue ID and the state file path,
+and let it do the code, the backend work, the UI, the tests, and the stories.
+Its definition carries the full contract — design system, test and story
+coverage, scope discipline, no committing.
 
-The plan is on disk, so the model change costs nothing: Sonnet reads the plan
-and executes it. If Sonnet finds the plan is wrong rather than merely
-incomplete, stop and escalate back to Opus xhigh to re-plan — don't improvise a
-new approach at implementation effort.
+Two things the parent still owns:
 
-- Follow the plan. If reality diverges, update the plan first.
-- Backend work belongs in the **NestJS project as part of the same issue** —
-  don't defer it or split it into a separate PR.
-- Keep the change scoped to the issue. Unrelated cleanups you notice go in the
-  PR description as a note, not in the diff.
+- **Escalation.** If the subagent reports the plan is wrong rather than merely
+  incomplete, re-run research and planning here, rewrite the plan on disk, and
+  dispatch again. Don't let a new approach get improvised at implementation
+  effort.
+- **Acceptance.** When it returns, verify rather than trust: read the diff, and
+  re-run the test suite and lint yourself. A subagent's "tests pass" is a claim
+  until you've seen the output. Don't proceed to review on red.
 
-### 5. UI — biddaloy design system
+Unrelated cleanups the subagent reports go in the PR description as a note, not
+in the diff.
 
-All UI uses the **biddaloy client UI design system**: its components, tokens,
-spacing scale, and typography.
+### 7. Code review
 
-- No one-off styles, no ad-hoc hex colors, no new external component libraries.
-- If a needed component genuinely doesn't exist, extend the design system
-  following its own conventions, and call that out in the plan and the PR
-  description so it gets reviewed as a design-system change.
-- Stories render against the design system, not raw markup.
-
-### 6. Tests and stories
-
-Every added or changed behavior gets test coverage and, for UI, Storybook
-stories covering the meaningful states (loading, empty, error, populated). This
-is part of the issue, not follow-up work — a PR without them isn't done.
-
-Run the test suite and lint before committing. Don't push red.
-
-### 7. Code review — Opus, xhigh
-
-```
-/model opus
-/effort xhigh
-/code-review
-```
-
-Review the working tree **before** committing, so fixes land in the same commit
-rather than as follow-up noise in the PR diff.
+Invoke the `code-review` skill on the working tree **before** committing, so
+fixes land in the same commit rather than as follow-up noise in the PR diff.
+(It's a skill, so you invoke it directly — unlike `/model`, this one really
+runs.)
 
 Act on what it finds:
 
@@ -271,17 +261,20 @@ expendable and disk as the source of truth.
 
 When the limit hits: write the current position to the state file, stop
 cleanly, and wait for the reset. On resume, read the state file, confirm against
-`git status` and `git log`, and continue from that exact step. Re-assert the
-model and effort for that phase before continuing — the resumed session may
-carry over whatever was last set. Don't restart an issue from scratch, don't
-skip ahead, and don't re-plan work that's already planned.
+`git status` and `git log`, and continue from that exact step. Re-check what
+model the resumed session is on and report it, as at the start of a fresh run —
+the resume may land on a different one than the work so far was done at. Don't
+restart an issue from scratch, don't skip ahead, and don't re-plan work that's
+already planned.
 
 ## Rules that hold throughout
 
 - Strictly sequential — one issue in flight at a time.
 - Never skip the plan.
-- Never plan on Sonnet; never implement on Opus xhigh.
-- Never commit before `/code-review` has run and its findings are resolved.
+- Never plan inside the implementer subagent; never let it commit.
+- Never claim a model or effort switch happened — you can't make one happen.
+- Never commit before the `code-review` skill has run and its findings are
+  resolved.
 - Never commit without `graphify update`.
 - Never bypass the design system.
 - Never open a PR less than an hour after the previous one.
