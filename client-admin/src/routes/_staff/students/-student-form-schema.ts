@@ -59,10 +59,12 @@ export function buildStudentFormSchema(messages: StudentFormMessages) {
     full_name: z.string().trim().min(1, messages.fullNameRequired),
     classId: z.string(),
     class_section_id: z.string().min(1, messages.classSectionRequired),
+    // `[1-9]\d*` — not `\d+` — since `"0"` isn't a positive whole number,
+    // the rule both locale messages already state.
     roll_number: z
       .string()
       .trim()
-      .refine((value) => value === '' || /^\d+$/.test(value), {
+      .refine((value) => value === '' || /^[1-9]\d*$/.test(value), {
         message: messages.rollNumberInvalid,
       }),
     date_of_birth: z.date().optional(),
@@ -113,6 +115,19 @@ function toOptional(value: string): string | undefined {
   return trimmed === '' ? undefined : trimmed;
 }
 
+/** `date.toISOString().slice(0, 10)` converts to UTC first — `DatePicker`
+ * hands back a local-midnight `Date`, so in any timezone ahead of UTC
+ * (Bangladesh, this app's only region, is UTC+6) that conversion rolls
+ * the date back a day: local midnight Jan 15 is 18:00 UTC Jan 14. Reading
+ * the local year/month/day components instead serializes the calendar
+ * date the user actually picked. */
+function toLocalDateString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 /** Shared by both create and update — `UpdateStudentInput` is a subset of
  * `CreateStudentInput` (every field optional, no extras), so building the
  * full payload and letting the caller narrow it via the return-type
@@ -130,9 +145,7 @@ function toStudentPayload(values: StudentFormValues): CreateStudentInput {
     // than assigned directly (same pattern `EmailSection.tsx`'s
     // `buildConfig` already uses for its own optional `password`).
     ...(rollNumber !== undefined ? { roll_number: rollNumber } : {}),
-    ...(values.date_of_birth
-      ? { date_of_birth: values.date_of_birth.toISOString().slice(0, 10) }
-      : {}),
+    ...(values.date_of_birth ? { date_of_birth: toLocalDateString(values.date_of_birth) } : {}),
     ...(gender !== undefined ? { gender } : {}),
     ...(homeAddress !== undefined ? { home_address: homeAddress } : {}),
     preferred_communication: values.preferred_communication,
