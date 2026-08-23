@@ -27,7 +27,7 @@ describe('CommunicationsController', () => {
   const REQUEST_CONTEXT = { ip: '1.2.3.4', userAgent: 'test-agent' };
 
   beforeEach(() => {
-    service = { enqueue: vi.fn(), findOne: vi.fn() };
+    service = { enqueue: vi.fn(), findOne: vi.fn(), findByStudent: vi.fn() };
     bulkReminderService = { sendBulk: vi.fn(), findBatch: vi.fn() };
     singleReminderService = { preview: vi.fn(), sendSingle: vi.fn() };
     controller = new CommunicationsController(
@@ -205,6 +205,18 @@ describe('CommunicationsController', () => {
           REQUEST,
         ),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('findByStudent', () => {
+    it('should call service.findByStudent with student id and tenant id', async () => {
+      const expected = [{ id: 'log-1', recipient_name: 'Guardian' }];
+      service.findByStudent.mockResolvedValue(expected);
+
+      const result = await controller.findByStudent('student-1', TENANT);
+
+      expect(service.findByStudent).toHaveBeenCalledWith('student-1', TENANT.id);
+      expect(result).toEqual(expected);
     });
   });
 });

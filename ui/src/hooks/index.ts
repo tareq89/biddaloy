@@ -18,17 +18,41 @@ export {
   studentQueryOptions,
   studentsQueryOptions,
   useCreateStudent,
+  useDeleteStudent,
   useStudent,
   useStudents,
+  useUpdateStudentEnrollmentStatus,
   useUpdateStudentPreferredCommunication,
   type CreateStudentInput,
+  type EnrollmentStatus,
   type PaginatedStudents,
   type PreferredCommunication,
   type Student,
   type StudentListFilters,
   type StudentSortField,
 } from './students';
-export { paymentKeys, useCreatePayment, type CreatePaymentInput, type Payment } from './payments';
+export {
+  paymentKeys,
+  useCreatePayment,
+  usePaymentsByStudent,
+  useStudentFeeSummary,
+  type CreatePaymentInput,
+  type Payment,
+  type StudentFee,
+  type StudentFeeSummary,
+} from './payments';
+export { enrollmentKeys, useStudentEnrollments, type Enrollment } from './enrollments';
+export {
+  communicationLogKeys,
+  useStudentCommunicationLogs,
+  type CommunicationLog,
+} from './communications';
+export {
+  auditLogKeys,
+  useAuditLogsByEntity,
+  type AuditLog,
+  type PaginatedAuditLogs,
+} from './audit-logs';
 export { hasPermission, useHasPermission } from './permissions';
 export {
   classKeys,
@@ -47,7 +71,15 @@ export {
 } from './reminders';
 export { useRouteFocus, type UseRouteFocusOptions } from './use-route-focus';
 export { useDebouncedValue } from './use-debounce';
-export { invoiceKeys, useInvoice, type Invoice, type InvoiceListFilters } from './invoices';
+export {
+  invoiceKeys,
+  invoicesQueryOptions,
+  useInvoice,
+  useInvoices,
+  type Invoice,
+  type InvoiceListFilters,
+  type PaginatedInvoices,
+} from './invoices';
 export {
   useGlobalSearch,
   type GlobalSearchEntityResult,

@@ -196,6 +196,7 @@ describe('Cross-tenant access (regression)', () => {
         recipient_address: '01712345678',
         recipient_name: 'Cross Tenant Guardian',
         message_body: 'Cross tenant test message',
+        student_id: studentId,
       })
       .expect(201);
     const communicationId = communicationRes.body.id;
@@ -229,6 +230,30 @@ describe('Cross-tenant access (regression)', () => {
         .set('X-Tenant-ID', TENANT_A)
         .expect(200);
     }
+
+    // `GET /communications/student/:studentId` (`findByStudent`) doesn't fit
+    // the 404-on-cross-tenant pattern above: it's a list filtered by
+    // `student_id` *and* `tenant_id` in its own WHERE clause, not a
+    // lookup-or-throw, so a tenant-B read of tenant-A's student doesn't
+    // 404 — it silently returns nothing. That empty result proves the same
+    // thing the 404s do (no tenant-A data crosses the boundary), just
+    // shaped as an empty list instead of a rejected lookup.
+    const crossTenantCommsRes = await supertest(app.getHttpServer())
+      .get(`/api/v1/communications/student/${studentId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Tenant-ID', TENANT_B)
+      .expect(200);
+    expect(
+      crossTenantCommsRes.body,
+      'tenant-B member should see no messages for a tenant-A student',
+    ).toEqual([]);
+
+    const sameTenantCommsRes = await supertest(app.getHttpServer())
+      .get(`/api/v1/communications/student/${studentId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Tenant-ID', TENANT_A)
+      .expect(200);
+    expect(sameTenantCommsRes.body).toHaveLength(1);
   });
 
   /**

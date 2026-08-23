@@ -13,6 +13,30 @@ const listEmpty = http.get('/api/v1/audit-logs', ({ request }) =>
   HttpResponse.json(paginate([], request.url)),
 );
 
-export const auditLogHandlers = { list, listEmpty };
+/** [8.10.2]'s Activity tab — the narrower, entity-scoped sibling of
+ * `list` above. `entity_type`/`entity_id` default to matching this
+ * route's own path params, same as the real `findByEntity` query. */
+const listByEntity = http.get(
+  '/api/v1/audit-logs/entity/:entityType/:entityId',
+  ({ params, request }) =>
+    HttpResponse.json(
+      paginate(
+        [
+          auditEntryFactory({
+            entity_type: params.entityType as string,
+            entity_id: params.entityId as string,
+          }),
+        ],
+        request.url,
+      ),
+    ),
+);
 
-export const auditLogDefaultHandlers = [list];
+const listByEntityEmpty = http.get(
+  '/api/v1/audit-logs/entity/:entityType/:entityId',
+  ({ request }) => HttpResponse.json(paginate([], request.url)),
+);
+
+export const auditLogHandlers = { list, listEmpty, listByEntity, listByEntityEmpty };
+
+export const auditLogDefaultHandlers = [list, listByEntity];

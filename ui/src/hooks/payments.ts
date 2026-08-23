@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
@@ -9,6 +9,23 @@ import { studentKeys } from './students';
 
 export type Payment = components['schemas']['Payment'];
 export type CreatePaymentInput = components['schemas']['CreatePaymentDto'];
+export type StudentFee = components['schemas']['StudentFee'];
+
+/** `FeesController.getInvoiceSummary`'s untyped 200 body — same
+ * documentation gap as `students.ts`'s `PaginatedStudents`, hand-typed
+ * against what `fees.service.ts`'s `getInvoiceSummary` actually returns. */
+export interface StudentFeeSummary {
+  student_id: string;
+  student_name: string;
+  summary: {
+    total_due: number;
+    total_paid: number;
+    total_discount: number;
+    balance: number;
+  };
+  fee_breakdown: StudentFee[];
+  payments: Payment[];
+}
 
 export const paymentKeys = createEntityKeys<{ studentId?: string; search?: string }>('payments');
 
@@ -44,4 +61,43 @@ export function useCreatePayment() {
       void queryClient.invalidateQueries({ queryKey: studentKeys.detail(payment.student.id) });
     },
   });
+}
+
+/** [8.10.2]'s Payments tab — every payment ever recorded for one student,
+ * newest first. */
+export function usePaymentsByStudent(studentId: string) {
+  return useQuery(
+    queryOptions({
+      queryKey: paymentKeys.list({ studentId }),
+      queryFn: async ({ signal }) => {
+        const res = await apiClient.get<Payment[]>(`/payments/student/${studentId}`, { signal });
+        return res.data;
+      },
+      retry: shouldRetryQuery,
+    }),
+  );
+}
+
+/** [8.10.2]'s Fees tab — outstanding/paid/billed balance plus the
+ * fee-by-fee breakdown behind it. Keyed under `paymentKeys`, not a
+ * separate `feeKeys` — this is `FeesController`'s own
+ * `payments/invoices/student/:studentId`, the payment side of the fees
+ * module, not the `fee-structures`/`fees/dues` side. */
+export function useStudentFeeSummary(studentId: string) {
+  return useQuery(
+    queryOptions({
+      // Not `paymentKeys.list(...)` — that shape is a `Payment[]`, and this
+      // is a `StudentFeeSummary` object; sharing the key would let this
+      // query's cache entry collide with `usePaymentsByStudent`'s.
+      queryKey: [...paymentKeys.all, 'fee-summary', studentId] as const,
+      queryFn: async ({ signal }) => {
+        const res = await apiClient.get<StudentFeeSummary>(
+          `/payments/invoices/student/${studentId}`,
+          { signal },
+        );
+        return res.data;
+      },
+      retry: shouldRetryQuery,
+    }),
+  );
 }

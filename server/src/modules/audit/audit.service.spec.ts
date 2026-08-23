@@ -230,4 +230,69 @@ describe('AuditService', () => {
       expect(call[1].toDate.toISOString()).toBe('2026-01-31T10:00:00.000Z');
     });
   });
+
+  describe('findByEntity', () => {
+    // [8.10.2]'s Activity tab — scoped to one entity, not the tenant's
+    // whole audit trail `findAll` returns.
+    it('scopes the query to the tenant and the given entity', async () => {
+      const qb: any = {
+        where: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        skip: vi.fn().mockReturnThis(),
+        take: vi.fn().mockReturnThis(),
+        getManyAndCount: vi.fn().mockResolvedValue([[{ id: 'log-1' }], 1]),
+      };
+      const repo = { createQueryBuilder: vi.fn(() => qb) };
+      const service = new AuditService(repo as any);
+
+      const result = await service.findByEntity(
+        'Student',
+        'student-1',
+        { page: 1, limit: 10 } as any,
+        'tenant-1',
+      );
+
+      expect(qb.where).toHaveBeenCalledWith('audit_log.tenant_id = :tenantId', {
+        tenantId: 'tenant-1',
+      });
+      expect(qb.andWhere).toHaveBeenCalledWith('audit_log.entity_type = :entityType', {
+        entityType: 'Student',
+      });
+      expect(qb.andWhere).toHaveBeenCalledWith('audit_log.entity_id = :entityId', {
+        entityId: 'student-1',
+      });
+      expect(result).toEqual({
+        data: [{ id: 'log-1' }],
+        total: 1,
+        page: 1,
+        limit: 10,
+        totalPages: 1,
+      });
+    });
+
+    it('still applies the action/date filters on top of the entity scope', async () => {
+      const qb: any = {
+        where: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        skip: vi.fn().mockReturnThis(),
+        take: vi.fn().mockReturnThis(),
+        getManyAndCount: vi.fn().mockResolvedValue([[], 0]),
+      };
+      const repo = { createQueryBuilder: vi.fn(() => qb) };
+      const service = new AuditService(repo as any);
+
+      await service.findByEntity(
+        'Student',
+        'student-1',
+        { action: AuditAction.UPDATE } as any,
+        'tenant-1',
+      );
+
+      expect(qb.andWhere).toHaveBeenCalledWith('audit_log.action = :action', {
+        action: AuditAction.UPDATE,
+      });
+    });
+  });
 });

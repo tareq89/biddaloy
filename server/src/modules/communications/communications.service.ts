@@ -97,4 +97,19 @@ export class CommunicationsService {
 
     return toResponseDto(log);
   }
+
+  /** [8.10.2]'s Communication tab — every message ever sent about this
+   * student (single sends, and each recipient's row from a bulk reminder
+   * batch), newest first. Plain array, no pagination — matches
+   * `StudentService.findByStudent`/`PaymentService.findByStudent`'s own
+   * by-student endpoints, since a single student's message history is
+   * bounded in a way a tenant-wide list isn't. */
+  async findByStudent(studentId: string, tenantId: string): Promise<CommunicationResponseDto[]> {
+    const logs = await this.repo.find({
+      where: { student_id: studentId, tenant_id: tenantId },
+      order: { created_at: 'DESC' },
+    });
+
+    return logs.map(toResponseDto);
+  }
 }

@@ -18,6 +18,7 @@ describe('CommunicationsService', () => {
       create: vi.fn((data) => data),
       save: vi.fn(async (data) => ({ id: 'log-1', created_at: new Date(), ...data })),
       findOne: vi.fn(),
+      find: vi.fn(),
     };
     queue = { add: vi.fn() };
     studentService = { findOne: vi.fn() };
@@ -122,6 +123,40 @@ describe('CommunicationsService', () => {
       repo.findOne.mockResolvedValue(null);
 
       await expect(service.findOne('log-1', TENANT_ID)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('findByStudent', () => {
+    // [8.10.2]'s Communication tab.
+    it('scopes the query to the student and the caller tenant, newest first', async () => {
+      repo.find.mockResolvedValue([
+        {
+          id: 'log-2',
+          medium: CommunicationMedium.SMS,
+          recipient_address: '01712345678',
+          recipient_name: 'Guardian',
+          status: CommunicationStatus.SENT,
+          provider_message_id: null,
+          created_at: new Date('2026-02-01'),
+        },
+      ]);
+
+      const result = await service.findByStudent('student-1', TENANT_ID);
+
+      expect(repo.find).toHaveBeenCalledWith({
+        where: { student_id: 'student-1', tenant_id: TENANT_ID },
+        order: { created_at: 'DESC' },
+      });
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('log-2');
+    });
+
+    it('resolves an empty array for a student nothing has ever been sent to', async () => {
+      repo.find.mockResolvedValue([]);
+
+      const result = await service.findByStudent('student-1', TENANT_ID);
+
+      expect(result).toEqual([]);
     });
   });
 });
