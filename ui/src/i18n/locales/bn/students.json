@@ -2,13 +2,58 @@
   "feeReminder": { "overdue": "সংশ্লিষ্ট শিক্ষার্থীর ভর্তি ফি পরিশোধের সময়সীমা উত্তীর্ণ হয়েছে" },
   "list": {
     "title": "শিক্ষার্থী",
-    "pageLabel": "পৃষ্ঠা {{page}}",
-    "filterByClass": "ফিল্টার: শ্রেণি {{classId}}",
-    "clearFilter": "ফিল্টার মুছুন",
-    "nextPage": "পরবর্তী পৃষ্ঠা",
-    "viewButton": "{{name}} দেখুন"
+    "caption": "শিক্ষার্থী",
+    "addStudent": "শিক্ষার্থী যোগ করুন",
+    "searchLabel": "নাম, রোল বা রেজিস্ট্রেশন নম্বর দিয়ে খুঁজুন",
+    "classLabel": "শ্রেণি",
+    "allClasses": "সকল শ্রেণি",
+    "sectionLabel": "শাখা",
+    "allSections": "সকল শাখা",
+    "statusLabel": "অবস্থা",
+    "allStatuses": "সকল অবস্থা",
+    "columnsButton": "কলাম",
+    "columnRoll": "রোল",
+    "columnRegistration": "রেজিস্ট্রেশন নম্বর",
+    "columnName": "নাম",
+    "columnClass": "শ্রেণি",
+    "columnSection": "শাখা",
+    "columnGuardian": "অভিভাবক",
+    "columnStatus": "অবস্থা",
+    "columnActions": "কার্যক্রম",
+    "columnDateOfBirth": "জন্ম তারিখ",
+    "columnGender": "লিঙ্গ",
+    "columnAddress": "ঠিকানা",
+    "columnPreferredCommunication": "পছন্দের যোগাযোগ মাধ্যম",
+    "collectFees": "ফি আদায়",
+    "view": "দেখুন",
+    "sendReminder": "রিমাইন্ডার পাঠান",
+    "exportCsv": "সিএসভি এক্সপোর্ট",
+    "clearSelection": "মুছুন",
+    "emptyMessage": "কোনো শিক্ষার্থী পাওয়া যায়নি",
+    "errorMessage": "শিক্ষার্থীদের তথ্য লোড করা যায়নি",
+    "announceResults_one": "{{total}} জনের মধ্যে {{visible}} জন শিক্ষার্থী",
+    "announceResults_other": "{{total}} জনের মধ্যে {{visible}} জন শিক্ষার্থী",
+    "noGuardian": "—",
+    "emptyValue": "—"
+  },
+  "sendReminderDialog": {
+    "title": "রিমাইন্ডার পাঠান",
+    "description_one": "নির্বাচিত {{count}} জন শিক্ষার্থীর অভিভাবকের কাছে এই বার্তা পাঠানো হবে।",
+    "description_other": "নির্বাচিত {{count}} জন শিক্ষার্থীর অভিভাবকদের কাছে এই বার্তা পাঠানো হবে।",
+    "messageLabel": "বার্তা",
+    "messagePlaceholder": "প্রিয় {{guardianName}}, {{studentName}}-এর বকেয়া রয়েছে…",
+    "send": "পাঠান",
+    "sending": "পাঠানো হচ্ছে…",
+    "successMessage_one": "{{count}} জন অভিভাবকের কাছে রিমাইন্ডার পাঠানো হয়েছে।",
+    "successMessage_other": "{{count}} জন অভিভাবকের কাছে রিমাইন্ডার পাঠানো হয়েছে।",
+    "errorMessage": "রিমাইন্ডার পাঠানো যায়নি। কিছুই পাঠানো হয়নি — আবার চেষ্টা করুন।"
   },
   "detail": {
     "back": "শিক্ষার্থী তালিকায় ফিরুন"
+  },
+  "new": {
+    "title": "শিক্ষার্থী যোগ করুন",
+    "explanation": "সম্পূর্ণ ফর্মটি শীঘ্রই আসছে।",
+    "action": "শিক্ষার্থী তালিকায় ফিরুন"
   }
 }

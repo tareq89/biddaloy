@@ -422,6 +422,101 @@ describe('StudentService (integration)', () => {
       );
       expect(byRoll.data).toHaveLength(0);
     });
+
+    it('sorts by full_name ascending or descending when sort/order are given', async () => {
+      await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Zahid Islam',
+          registration_number: 'REG-2026-0001',
+          roll_number: 1,
+          class_section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+          date_of_birth: new Date('2010-01-01'),
+        }),
+      );
+      await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Ahmed Khan',
+          registration_number: 'REG-2026-0002',
+          roll_number: 2,
+          class_section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+          date_of_birth: new Date('2010-01-01'),
+        }),
+      );
+
+      const ascending = await service.findAll(
+        { sort: 'full_name', order: 'asc', page: 1, limit: 10 },
+        TENANT_ID,
+      );
+      expect(ascending.data.map((s) => s.full_name)).toEqual(['Ahmed Khan', 'Zahid Islam']);
+
+      const descending = await service.findAll(
+        { sort: 'full_name', order: 'desc', page: 1, limit: 10 },
+        TENANT_ID,
+      );
+      expect(descending.data.map((s) => s.full_name)).toEqual(['Zahid Islam', 'Ahmed Khan']);
+    });
+
+    it('falls back to created_at DESC when no sort is given, same as before sort support existed', async () => {
+      const first = await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Ahmed Khan',
+          registration_number: 'REG-2026-0001',
+          roll_number: 1,
+          class_section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+          date_of_birth: new Date('2010-01-01'),
+        }),
+      );
+      const second = await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Zahid Islam',
+          registration_number: 'REG-2026-0002',
+          roll_number: 2,
+          class_section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+          date_of_birth: new Date('2010-01-01'),
+        }),
+      );
+
+      const result = await service.findAll({ page: 1, limit: 10 }, TENANT_ID);
+      expect(result.data.map((s) => s.id)).toEqual([second.id, first.id]);
+    });
+
+    it('paginates deterministically with duplicate sort values — no row is skipped or repeated across pages', async () => {
+      // Same full_name and same date_of_birth on every row: with `sort:
+      // 'full_name'` alone, ties leave row order unspecified page to page,
+      // so a `limit: 1` walk can duplicate or skip a row across requests.
+      // `id: 'ASC'` as a tiebreaker makes the order (and thus the walk)
+      // deterministic.
+      const students = await studentRepo.save(
+        [1, 2, 3].map((n) =>
+          studentRepo.create({
+            full_name: 'Ahmed Khan',
+            registration_number: `REG-2026-DUP-${n}`,
+            roll_number: n,
+            class_section_id: SEED_SECTION_1_ID,
+            tenant_id: TENANT_ID,
+            date_of_birth: new Date('2010-01-01'),
+          }),
+        ),
+      );
+      const expectedIds = [...students.map((s) => s.id)].sort();
+
+      const seenIds: string[] = [];
+      for (let page = 1; page <= students.length; page++) {
+        const result = await service.findAll(
+          { sort: 'full_name', order: 'asc', page, limit: 1 },
+          TENANT_ID,
+        );
+        expect(result.data).toHaveLength(1);
+        seenIds.push(result.data[0].id);
+      }
+
+      expect([...seenIds].sort()).toEqual(expectedIds);
+      expect(new Set(seenIds).size).toBe(students.length);
+    });
   });
 
   describe('findOne', () => {

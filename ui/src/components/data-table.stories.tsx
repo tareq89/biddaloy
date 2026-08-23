@@ -42,6 +42,7 @@ function Demo(props: {
   tableId?: string;
   caption?: string;
   columns?: DataTableColumn<Student>[];
+  columnsMenu?: boolean;
 }) {
   const {
     data = STUDENTS,
@@ -52,6 +53,7 @@ function Demo(props: {
     tableId = 'students-demo',
     caption = 'Students',
     columns = COLUMNS,
+    columnsMenu = false,
   } = props;
   const [sorting, setSorting] = useState<DataTableSort | null>(null);
   const [page, setPage] = useState(1);
@@ -71,6 +73,7 @@ function Demo(props: {
       totalCount={totalCount}
       onPageChange={setPage}
       loading={loading}
+      columnsMenu={columnsMenu}
       {...(error !== undefined ? { error } : {})}
       {...(selectable
         ? {
@@ -106,6 +109,14 @@ export const ErrorState: Story = {
 
 export const Selectable: Story = {
   render: () => <Demo tableId="students-selectable" selectable />,
+};
+
+/** The opt-in "Columns" toggle — [8.10.1]'s "default columns visible, the
+ * rest behind a Columns menu" requirement. Off by default (see `Default`
+ * above, which renders no trigger at all); a caller with more columns
+ * than belong in the default view turns this on. */
+export const WithColumnsMenu: Story = {
+  render: () => <Demo tableId="students-columns-menu" columnsMenu />,
 };
 
 /** No dedicated "Disabled" story: a table of data has no meaningful

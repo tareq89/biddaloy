@@ -5,6 +5,7 @@ import {
   IsUUID,
   IsArray,
   IsEnum,
+  IsIn,
   IsInt,
   Min,
   IsDateString,
@@ -125,6 +126,20 @@ export class QueryStudentDto {
   @IsOptional()
   @IsEnum(EnrollmentStatus)
   enrollment_status?: EnrollmentStatus;
+
+  /** Allowlisted, not free-text — a raw column name from the client would
+   * let `order: { [query.sort]: ... }` in `StudentService.findAll` sort
+   * (or, with a crafted key, error on) an arbitrary TypeORM-mapped column.
+   * `roll_number` deliberately excluded: it's only unique per class
+   * section (see this entity's own composite unique index), so sorting
+   * the whole tenant by it produces a confusing, repeating sequence. */
+  @IsOptional()
+  @IsIn(['full_name', 'registration_number', 'created_at'])
+  sort?: 'full_name' | 'registration_number' | 'created_at';
+
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  order?: 'asc' | 'desc';
 
   @IsOptional()
   @Type(() => Number)

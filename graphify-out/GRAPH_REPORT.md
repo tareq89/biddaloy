@@ -1,15 +1,15 @@
-# Graph Report - .  (2026-08-22)
+# Graph Report - biddaloy  (2026-08-23)
 
 ## Corpus Check
-- cluster-only mode — file stats not available
+- Large corpus: 748 files · ~342,754 words. Semantic extraction will be expensive (many Claude tokens). Consider running on a subfolder.
 
 ## Summary
-- 4300 nodes · 9832 edges · 263 communities (192 shown, 71 thin omitted)
-- Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 158 edges (avg confidence: 0.74)
+- 4350 nodes · 10346 edges · 263 communities (191 shown, 72 thin omitted)
+- Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 172 edges (avg confidence: 0.74)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `26fea4b9`
+- Built from commit: `471b135`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -131,12 +131,12 @@
 - Multi-Tenancy Rules (Biddaloy)
 - schools.module.ts
 - exports
-- checkbox.stories.tsx
+- ESLint Configuration Rules
 - students.ts
 - schools.ts
 - EnvironmentVariables
 - LoginDto
-- teachers.ts
+- Route Error Helpers
 - TenantProviderConfigResolver
 - ReminderBatch
 - tenant-settings-defaults.ts
@@ -144,7 +144,7 @@
 - Architecture Docs Index
 - audit.interceptor.ts
 - school-settings-response.dto.ts
-- StudentBulkUploadService
+- Rule Tester Helpers
 - scripts
 - FileRoutesByPath
 - communications.ts
@@ -236,28 +236,29 @@
 - eslint-config-prettier
 - eslint-plugin-jsx-a11y
 - eslint-plugin-react
-- eslint-plugin-react-hooks
-- eslint-plugin-unused-imports
+- Community 223
+- Community 224
 - @faker-js/faker
 - PR template
 - husky
 - ioredis
-- lint-staged
+- Community 229
 - @nestjs/jwt
 - @nestjs/passport
-- @nestjs/platform-express
+- Community 232
 - @nestjs/swagger
 - generate-dummy-cert.sh
 - reload-loop.sh
 - nodemailer
 - supertest
-- @testing-library/user-event
+- Community 238
 - @types/bcrypt
-- @types/supertest
+- Community 240
 - pg
 - reflect-metadata
 - build-all.sh
 - open-coverage-report.mjs
+- Community 246
 - typescript
 - shell-stories.test.tsx
 - main.ts
@@ -291,7 +292,7 @@
   ui/README.md → .claude/skills/multi-tenancy/SKILL.md
 
 ## Import Cycles
-- None detected.
+- 1-file cycle: `ui/eslint.config.mjs -> ui/eslint.config.mjs`
 
 ## Hyperedges (group relationships)
 - **Caveman Mode Documentation Set** — claude_skills_caveman_readme, claude_skills_caveman_skill, claude_skills_caveman_readme_caveman_mode [EXTRACTED 1.00]
@@ -301,7 +302,7 @@
 - **Design-System Wrapper Boundary Pattern** — ui_contributing_wrapperrule, ui_src_primitives_readme_doc, ui_readme_doc, ui_contributing_threefile_requirement [INFERRED 0.85]
 - **Multi-Tenant Scoping Enforced Across Stack** — claude_skills_multi_tenancy_skill_doc, server_claude_testingstandards, ui_readme_apiclient, ui_readme_hooks [INFERRED 0.85]
 
-## Communities (263 total, 71 thin omitted)
+## Communities (263 total, 72 thin omitted)
 
 ### Community 0 - "School"
 Cohesion: 0.06
@@ -437,7 +438,7 @@ Nodes (36): AcademicYear, AuditLog, Class, ClassSection, CommunicationLog, Enrol
 
 ### Community 33 - "devDependencies"
 Cohesion: 0.06
-Nodes (36): @eslint/js, eslint-plugin-import, globals, jsdom, open, devDependencies, @eslint/js, eslint-plugin-import (+28 more)
+Nodes (35): @eslint/js, eslint-plugin-import, globals, jsdom, open, devDependencies, @eslint/js, eslint-plugin-import (+27 more)
 
 ### Community 34 - "Student"
 Cohesion: 0.07
@@ -767,7 +768,7 @@ Nodes (8): encryptionServiceFactory(), SchoolsModule, Module, buildEncryptionKey
 Cohesion: 0.15
 Nodes (13): exports, ./api, ./components, ./eslint-config, ./hooks, ./i18n, ./mocks, ./routes (+5 more)
 
-### Community 117 - "checkbox.stories.tsx"
+### Community 117 - "ESLint Configuration Rules"
 Cohesion: 0.18
 Nodes (10): Checkbox(), CheckboxProps, Checked, Default, Disabled, Indeterminate, Invalid, meta (+2 more)
 
@@ -787,7 +788,7 @@ Nodes (10): EnvironmentVariables, NODE_ENVS, validConfig, IsIn, IsNotEmpty, IsOp
 Cohesion: 0.18
 Nodes (8): HasEmailOrPhoneConstraint, LoginDto, IsEmail, IsOptional, IsString, MinLength, Validate, ValidatorConstraint
 
-### Community 122 - "teachers.ts"
+### Community 122 - "Route Error Helpers"
 Cohesion: 0.22
 Nodes (8): Teacher, create, fixtures, list, listEmpty, teacherDefaultHandlers, teacherHandlers, update
 
@@ -815,7 +816,7 @@ Nodes (4): AuditInterceptor, RequestWithTenant, Injectable, AuditedMetadata
 Cohesion: 0.33
 Nodes (10): MaskedCommunicationsSettingsResponseDto, MaskedEmailSettingsResponseDto, MaskedGreenwebSmsResponseDto, MaskedMessengerSettingsResponseDto, MaskedMimSmsResponseDto, MaskedSecretResponseDto, MaskedSmsSettingsResponseDto, MaskedWhatsAppSettingsResponseDto (+2 more)
 
-### Community 130 - "StudentBulkUploadService"
+### Community 130 - "Rule Tester Helpers"
 Cohesion: 0.29
 Nodes (4): ParsedRow, StudentBulkUploadService, Injectable, BulkUploadResultDto
 
@@ -825,7 +826,7 @@ Nodes (11): scripts, api:types, build-storybook, check:api-types, check:contrast
 
 ### Community 132 - "FileRoutesByPath"
 Cohesion: 0.20
-Nodes (5): Route, Route, Route, studentsSearchSchema, FileRoutesByPath
+Nodes (6): Route, Route, Route, StudentsListPage(), studentsSearchSchema, FileRoutesByPath
 
 ### Community 133 - "communications.ts"
 Cohesion: 0.20
@@ -929,7 +930,7 @@ Nodes (7): scripts, build, build:analyze, check:route-chunks, dev, lint, preview
 
 ### Community 160 - "__root.tsx"
 Cohesion: 0.29
-Nodes (3): Route, RouterContext, FileRoutesById
+Nodes (4): RootLayout(), Route, RouterContext, FileRoutesById
 
 ### Community 161 - "nest-cli.json"
 Cohesion: 0.29
@@ -1028,9 +1029,9 @@ Nodes (3): Dependabot config, npm minor-and-patch update group, PR #59 (nodemail
   .serena/project.yml · relation: conceptually_related_to
 
 ## Knowledge Gaps
-- **1094 isolated node(s):** `semi`, `singleQuote`, `trailingComma`, `printWidth`, `prettier-plugin-tailwindcss` (+1089 more)
+- **1090 isolated node(s):** `semi`, `singleQuote`, `trailingComma`, `printWidth`, `prettier-plugin-tailwindcss` (+1085 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **71 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **72 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
@@ -1038,14 +1039,14 @@ _Questions this graph is uniquely positioned to answer:_
 - **What is the exact relationship between `Serena Project Config` and `Biddaloy CLAUDE.md`?**
   _Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low._
 - **Why does `useListUrlState()` connect `router-integration.test.tsx` to `list-shell.stories.tsx`, `AuditService`?**
-  _High betweenness centrality (0.122) - this node is a cross-community bridge._
-- **Why does `collectErrorPaths()` connect `index.ts` to `AuditService`, `EmailSection.tsx`?**
-  _High betweenness centrality (0.083) - this node is a cross-community bridge._
-- **Are the 12 inferred relationships involving `School` (e.g. with `seedReferenceData()` and `seedReferenceData()`) actually correct?**
-  _`School` has 12 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 9 inferred relationships involving `ClassSection` (e.g. with `seedReferenceData()` and `seedReferenceData()`) actually correct?**
-  _`ClassSection` has 9 INFERRED edges - model-reasoned connections that need verification._
+  _High betweenness centrality (0.160) - this node is a cross-community bridge._
+- **Why does `useUpdateSchoolSettings()` connect `EmailSection.tsx` to `RegionalSection.tsx`, `schools.service.spec.ts`, `index.ts`?**
+  _High betweenness centrality (0.054) - this node is a cross-community bridge._
+- **Are the 13 inferred relationships involving `School` (e.g. with `seedReferenceData()` and `seedReferenceData()`) actually correct?**
+  _`School` has 13 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 10 inferred relationships involving `ClassSection` (e.g. with `seedReferenceData()` and `seedReferenceData()`) actually correct?**
+  _`ClassSection` has 10 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `semi`, `singleQuote`, `trailingComma` to the rest of the system?**
-  _1094 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _1090 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `School` be split into smaller, more focused modules?**
   _Cohesion score 0.06431663574520717 - nodes in this community are weakly interconnected._

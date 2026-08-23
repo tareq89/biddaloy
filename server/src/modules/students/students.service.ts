@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, In, Like, ILike, EntityManager } from 'typeorm';
+import { Repository, IsNull, In, Like, ILike, EntityManager, type FindOptionsOrder } from 'typeorm';
 import { Student } from './entities/student.entity';
 import { Guardian } from './entities/guardian.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
@@ -173,10 +173,26 @@ export class StudentService {
       ];
     }
 
+    // `query.sort` is already allowlisted to real columns by
+    // `QueryStudentDto`'s `@IsIn` — safe to use directly as a TypeORM
+    // `order` key. Falls back to the original `created_at DESC` when the
+    // caller doesn't ask for a sort, so an unsorted list page's row order
+    // doesn't change under it. `id: 'ASC'` is always appended as a
+    // tiebreaker — the primary sort column alone isn't unique (e.g. two
+    // students named the same, or created in the same instant), and
+    // without a unique secondary key, `LIMIT`/`OFFSET` pagination can
+    // return a row twice or skip one across pages when ties reorder.
+    const order: FindOptionsOrder<Student> = query.sort
+      ? ({
+          [query.sort]: query.order === 'desc' ? 'DESC' : 'ASC',
+          id: 'ASC',
+        } as FindOptionsOrder<Student>)
+      : { created_at: 'DESC', id: 'ASC' };
+
     const [data, total] = await this.repo.findAndCount({
       where: whereClause,
       relations: ['class_section', 'class_section.class', 'guardians'],
-      order: { created_at: 'DESC' },
+      order,
       skip,
       take: limit,
     });
