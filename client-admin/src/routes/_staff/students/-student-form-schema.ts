@@ -128,15 +128,13 @@ function toLocalDateString(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-/** Shared by both create and update — `UpdateStudentInput` is a subset of
- * `CreateStudentInput` (every field optional, no extras), so building the
- * full payload and letting the caller narrow it via the return-type
- * annotation is simpler than two separate builders that would drift out
- * of sync field-by-field. */
-function toStudentPayload(values: StudentFormValues): CreateStudentInput {
+/** The fields create and update share identically — `roll_number` isn't
+ * nullable on `Student` (unlike `date_of_birth`/`gender`/`home_address`),
+ * so there's no "clear it" case for it either mode: an empty value just
+ * means "let the server pick the next roll number" on create, or "leave
+ * it as-is" on update. */
+function toBasePayload(values: StudentFormValues) {
   const rollNumber = values.roll_number.trim() === '' ? undefined : Number(values.roll_number);
-  const gender = toOptional(values.gender);
-  const homeAddress = toOptional(values.home_address);
   return {
     full_name: values.full_name.trim(),
     class_section_id: values.class_section_id,
@@ -145,18 +143,37 @@ function toStudentPayload(values: StudentFormValues): CreateStudentInput {
     // than assigned directly (same pattern `EmailSection.tsx`'s
     // `buildConfig` already uses for its own optional `password`).
     ...(rollNumber !== undefined ? { roll_number: rollNumber } : {}),
-    ...(values.date_of_birth ? { date_of_birth: toLocalDateString(values.date_of_birth) } : {}),
-    ...(gender !== undefined ? { gender } : {}),
-    ...(homeAddress !== undefined ? { home_address: homeAddress } : {}),
     preferred_communication: values.preferred_communication,
     guardian_ids: values.guardian_ids,
   };
 }
 
+/** On create, an empty optional field is simply absent — there's nothing
+ * to "clear" on a student that doesn't exist yet, and `CreateStudentDto`'s
+ * fields aren't nullable (only `UpdateStudentDto`'s are — see that DTO's
+ * own comment on why). */
 export function buildCreatePayload(values: StudentFormValues): CreateStudentInput {
-  return toStudentPayload(values);
+  const gender = toOptional(values.gender);
+  const homeAddress = toOptional(values.home_address);
+  return {
+    ...toBasePayload(values),
+    ...(values.date_of_birth ? { date_of_birth: toLocalDateString(values.date_of_birth) } : {}),
+    ...(gender !== undefined ? { gender } : {}),
+    ...(homeAddress !== undefined ? { home_address: homeAddress } : {}),
+  };
 }
 
+/** On update, an empty field means the user cleared a previously-set
+ * value — sent as an explicit `null`, not omitted. A PATCH's absent key
+ * means "leave unchanged"; omitting it here (as `buildCreatePayload` does
+ * for "nothing to clear yet") would silently leave the old value in place
+ * instead of clearing it, which is what "Save" with a blanked-out field
+ * has to mean. */
 export function buildUpdatePayload(values: StudentFormValues): UpdateStudentInput {
-  return toStudentPayload(values);
+  return {
+    ...toBasePayload(values),
+    date_of_birth: values.date_of_birth ? toLocalDateString(values.date_of_birth) : null,
+    gender: toOptional(values.gender) ?? null,
+    home_address: toOptional(values.home_address) ?? null,
+  };
 }

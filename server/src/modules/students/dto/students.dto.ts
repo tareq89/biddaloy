@@ -82,19 +82,27 @@ export class UpdateStudentDto {
   @Min(1)
   roll_number?: number;
 
+  // `| null` (not just optional) — `@IsOptional()` already skips the
+  // string/date-format validators below for `null` same as `undefined`,
+  // and `StudentService.update` spreads the DTO straight into a TypeORM
+  // partial update, so an explicit `null` clears the column. Without the
+  // `| null` in the type, editing a student had no way to *remove* a
+  // previously-set date of birth, gender or address — an absent key means
+  // "leave unchanged" in a PATCH, so the client's only option was to omit
+  // the field entirely, which never clears it.
   @IsOptional()
   @IsDateString()
-  date_of_birth?: string;
+  date_of_birth?: string | null;
 
   @IsOptional()
   @IsString()
   @SanitizeText()
-  gender?: string;
+  gender?: string | null;
 
   @IsOptional()
   @IsString()
   @SanitizeText()
-  home_address?: string;
+  home_address?: string | null;
 
   @IsOptional()
   @IsEnum(CommunicationMedium)

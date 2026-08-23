@@ -252,6 +252,32 @@ describe('Students E2E', () => {
       expect(res.body.full_name).toBe('Updated Name');
     });
 
+    it('clears date_of_birth, gender and home_address when explicitly set to null', async () => {
+      const createRes = await supertest(app.getHttpServer())
+        .post('/api/v1/students')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({
+          full_name: 'Clearable Fields',
+          class_section_id: SEED_SECTION_1_ID,
+          date_of_birth: '2010-05-15',
+          gender: 'Male',
+          home_address: '123 Main St',
+        })
+        .expect(201);
+
+      const res = await supertest(app.getHttpServer())
+        .patch(`/api/v1/students/${createRes.body.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ date_of_birth: null, gender: null, home_address: null })
+        .expect(200);
+
+      expect(res.body.date_of_birth).toBeNull();
+      expect(res.body.gender).toBeNull();
+      expect(res.body.home_address).toBeNull();
+    });
+
     it('neutralises a script payload on update, same as create (issue #33)', async () => {
       const createRes = await supertest(app.getHttpServer())
         .post('/api/v1/students')
