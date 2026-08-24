@@ -109,9 +109,7 @@ describe('/fees/dues', () => {
       locale: 'en',
     });
 
-    await waitFor(() =>
-      expect(screen.getByRole('combobox', { name: 'Class' }).textContent).toBe('Class 9'),
-    );
+    await within(await screen.findByRole('combobox', { name: 'Class' })).findByText('Class 9');
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('checkbox', { name: 'Show flagged/overdue accounts only' }));

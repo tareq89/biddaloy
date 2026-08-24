@@ -123,6 +123,9 @@ yarn test:frontend
 # Single run (CI)
 yarn test:frontend --run
 
+# Only tests affected by files changed since origin/main
+yarn test:frontend:changed
+
 # A specific file or directory
 yarn test:frontend client-admin/src/App.test.tsx
 
@@ -132,6 +135,10 @@ yarn test:frontend -t "renders the admin welcome copy"
 # A single package/environment (see below)
 yarn test:frontend --project client-admin:jsdom
 ```
+
+While iterating, use watch mode (`yarn test:frontend`) or the `:changed`
+scripts. Repeated full `--run` passes are the slow path, not a safety net —
+CI runs the full suite anyway.
 
 Each package has two projects, split by environment:
 
@@ -234,11 +241,30 @@ and `yarn e2e --ui` opens the HTML report automatically on failure.
 
 ## CI
 
+Bundle budgets live in `client-admin/scripts/check-route-chunks.mjs` — the
+entry-chunk gzip ceiling and its raise history are documented in that file's
+header, and every raise happens there, in a PR that says why, referencing the
+measured number and the ticket that caused it — never silently. On PRs a
+sticky comment (`scripts/bundle-delta.mjs`) shows the per-chunk gzip delta
+against the latest `main` build.
+
+`yarn ci:local` (`scripts/ci-local.sh`) reproduces the pipeline locally,
+job-for-job with the identical commands, so a CI failure can be replayed
+before pushing. By default it runs the `verify`, `frontend` and `audit`
+sections (no external services; measured ~1.5 min on a warm checkout).
+Flags: `--integration` and `--e2e` add the service-backed sections
+(self-provisioning `docker compose up -d db redis` against a dedicated
+`biddaloy_ci_local` database), `--full` runs everything (~8–10 min), and
+`--coverage` switches the frontend section to the `main`-push coverage
+variant. The script and `ci.yml` cross-reference each other — edit both
+together.
+
 GitHub Actions (`.github/workflows/ci.yml`) runs on every PR and on push to
 `main`:
 
 - **verify** — install, `yarn build:shared`, `yarn build:server`, `yarn lint`,
-  `yarn test:unit`. No infrastructure required.
+  `yarn test:unit`. No infrastructure required. `yarn test:unit:changed`
+  runs only the unit tests affected by files changed since `origin/main`.
 - **integration** — spins up its own Postgres 16 and Redis 7 service
   containers, then runs `yarn test:integration` and `yarn test:e2e`.
 - **e2e** — Chromium only, with its own Postgres/Redis service containers,

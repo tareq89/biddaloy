@@ -44,9 +44,7 @@ describe('/students', () => {
       locale: 'en',
     });
 
-    await waitFor(() =>
-      expect(screen.getByRole('combobox', { name: 'Class' }).textContent).toBe('Class 9'),
-    );
+    await within(await screen.findByRole('combobox', { name: 'Class' })).findByText('Class 9');
   });
 
   it('a non-numeric page falls back to page 1 instead of crashing', async () => {

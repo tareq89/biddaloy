@@ -133,7 +133,7 @@ export const noWindowAlertConfig = Object.freeze({
 
 export const biddaloyReactConfig = tseslint.config(
   {
-    ignores: ['dist/**', 'coverage/**', 'node_modules/**'],
+    ignores: ['dist/**', 'coverage/**', 'node_modules/**', 'storybook-static/**'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

@@ -1,14 +1,63 @@
 name: CI
+# Editing a job? Mirror it in scripts/ci-local.sh (#152) — the script runs
+# the same commands job-for-job so "works on my machine" stays true.
 
 on:
   pull_request:
   push:
     branches: [main]
+  # For running the lighthouse job on demand from a feature branch.
+  workflow_dispatch:
 
 env:
   NODE_VERSION: "24"
 
+concurrency:
+  group: ci-${{ github.ref }}
+  # Guarded: cancel superseded PR pushes, but never a main run — the main
+  # run is the only run that enforces frontend coverage thresholds.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
+  # Path-filter gate (#147): PRs skip jobs whose paths are untouched.
+  # Push to main always runs everything — it's the merge gate, and
+  # dorny diffs against the previous push there, which under-reports
+  # on force-pushes.
+  changes:
+    name: Detect changed areas
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      server: ${{ steps.filter.outputs.server }}
+      api-surface: ${{ steps.filter.outputs.api-surface }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'ui/**'
+              - 'client-admin/**'
+              - 'shared/**'
+              - 'e2e/**'
+              - 'package.json'
+              - 'yarn.lock'
+              - 'vitest.config.ts'
+              - 'playwright.config.ts'
+              - '.github/workflows/ci.yml'
+            server:
+              - 'server/**'
+              - 'shared/**'
+              - 'package.json'
+              - 'yarn.lock'
+              - '.github/workflows/ci.yml'
+            api-surface:
+              - 'server/src/**'
+              - 'ui/src/api/**'
+
   verify:
     name: Build, lint, unit tests
     runs-on: ubuntu-latest
@@ -52,22 +101,6 @@ jobs:
       - name: E2E typecheck
         run: npx tsc -p e2e/tsconfig.json --noEmit
 
-      # Runs from the repo root, not `yarn workspace @biddaloy/ui test` —
-      # both resolve the same root vitest.config.ts (it covers shared, ui
-      # and client-admin together), but coverage thresholds
-      # only get enforced when `--coverage` is passed, and this is also
-      # the single test run that produces the lcov artifact below.
-      - name: Frontend tests with coverage
-        run: yarn test:frontend:coverage
-
-      - name: Upload frontend coverage
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: frontend-coverage
-          path: coverage/
-          if-no-files-found: ignore
-
       # [8.9.1]: a real `vite build`, so it runs on its own here rather
       # than as a Vitest spec — see the script's own comment for why
       # (running a production build inside the same worker pool as the
@@ -78,60 +111,19 @@ jobs:
       - name: client-admin route code-splitting and bundle-size check
         run: yarn workspace @biddaloy/client-admin check:route-chunks
 
+      # Baseline for the bundle-delta PR comment (#150): the latest
+      # successful main run's report is downloaded by the bundle-delta job.
+      - name: Upload route-chunks report
+        uses: actions/upload-artifact@v7
+        with:
+          name: route-chunks-report
+          path: client-admin/dist/route-chunks-report.json
+
       - name: UI export map check
         run: yarn workspace @biddaloy/ui check:exports
 
       - name: UI contrast check
         run: yarn workspace @biddaloy/ui check:contrast
-
-      # [8.7.5]: fails on a translation key present in one locale but not
-      # the other, or a t() call with no matching key in any locale.
-      # Cheap enough (a handful of JSON files + a source-tree regex scan)
-      # to sit in this same job rather than needing its own.
-      - name: UI missing-translation-key check
-        run: yarn workspace @biddaloy/ui check:i18n
-
-      # [8.7.5]: fails on a translation key present in one locale but not
-      # the other, or a t() call with no matching key in any locale.
-      # Cheap enough (a handful of JSON files + a source-tree regex scan)
-      # to sit in this same job rather than needing its own.
-      - name: UI missing-translation-key check
-        run: yarn workspace @biddaloy/ui check:i18n
-
-      # [8.7.5]: fails on a translation key present in one locale but not
-      # the other, or a t() call with no matching key in any locale.
-      # Cheap enough (a handful of JSON files + a source-tree regex scan)
-      # to sit in this same job rather than needing its own.
-      - name: UI missing-translation-key check
-        run: yarn workspace @biddaloy/ui check:i18n
-
-      # [8.7.5]: fails on a translation key present in one locale but not
-      # the other, or a t() call with no matching key in any locale.
-      # Cheap enough (a handful of JSON files + a source-tree regex scan)
-      # to sit in this same job rather than needing its own.
-      - name: UI missing-translation-key check
-        run: yarn workspace @biddaloy/ui check:i18n
-
-      # [8.7.5]: fails on a translation key present in one locale but not
-      # the other, or a t() call with no matching key in any locale.
-      # Cheap enough (a handful of JSON files + a source-tree regex scan)
-      # to sit in this same job rather than needing its own.
-      - name: UI missing-translation-key check
-        run: yarn workspace @biddaloy/ui check:i18n
-
-      # [8.7.5]: fails on a translation key present in one locale but not
-      # the other, or a t() call with no matching key in any locale.
-      # Cheap enough (a handful of JSON files + a source-tree regex scan)
-      # to sit in this same job rather than needing its own.
-      - name: UI missing-translation-key check
-        run: yarn workspace @biddaloy/ui check:i18n
-
-      # [8.7.5]: fails on a translation key present in one locale but not
-      # the other, or a t() call with no matching key in any locale.
-      # Cheap enough (a handful of JSON files + a source-tree regex scan)
-      # to sit in this same job rather than needing its own.
-      - name: UI missing-translation-key check
-        run: yarn workspace @biddaloy/ui check:i18n
 
       # [8.7.5]: fails on a translation key present in one locale but not
       # the other, or a t() call with no matching key in any locale.
@@ -150,10 +142,83 @@ jobs:
         run: yarn knip
         continue-on-error: true
 
+  frontend:
+    name: Frontend tests
+    runs-on: ubuntu-latest
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.frontend == 'true'
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      # The root vitest.config.ts aliases @biddaloy/shared to shared/src
+      # for most of the suite, but shared:node's own specs resolve the
+      # package through its "main" (dist/index.js) — proven by the first
+      # CI run failing with "Failed to resolve entry for package
+      # @biddaloy/shared" without this build.
+      - name: Build shared package
+        run: yarn build:shared
+
+      # Coverage on every run (#153 amends #307's PR/no-coverage split):
+      # the PR delta comment below needs PR coverage, and since this job is
+      # parallel the ~105s instrumentation penalty sits off the critical
+      # path — the wall stays under 4 minutes.
+      - name: Frontend tests with coverage
+        run: yarn test:frontend:coverage
+
+      # `if: failure()` also fires on non-coverage failures; the script
+      # prints nothing when nothing is under threshold, which is the
+      # honest output in that case.
+      - name: Name files under threshold
+        if: failure()
+        run: node scripts/coverage-offenders.mjs coverage/lcov.info
+
+      - name: Upload frontend coverage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: frontend-coverage
+          path: coverage/
+          if-no-files-found: ignore
+
+      # Baseline = latest successful main run's coverage artifact (same
+      # pattern as bundle-delta). A missing baseline (first ever run)
+      # degrades to an absolute-numbers comment, not a failure.
+      - name: Fetch main coverage baseline
+        if: github.event_name == 'pull_request'
+        run: |
+          RUN_ID=$(gh api "repos/${{ github.repository }}/actions/workflows/ci.yml/runs?branch=main&status=success&per_page=1" -q '.workflow_runs[0].id')
+          gh run download "$RUN_ID" -n frontend-coverage -D coverage-baseline || echo "no baseline yet"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Compose coverage comment
+        if: github.event_name == 'pull_request'
+        run: node scripts/coverage-delta.mjs coverage-baseline/lcov.info coverage/lcov.info > coverage-comment.md
+
+      - name: Comment coverage on PR
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: coverage
+          path: coverage-comment.md
+
   integration:
     name: Integration & e2e tests
     runs-on: ubuntu-latest
-    needs: verify
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.server == 'true' || needs.changes.outputs.api-surface == 'true'
     services:
       postgres:
         image: postgres:16-alpine
@@ -240,21 +305,21 @@ jobs:
   e2e:
     name: E2E (${{ matrix.browser }})
     runs-on: ubuntu-latest
-    needs: verify
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.frontend == 'true'
     timeout-minutes: 20
     permissions:
       contents: read
     strategy:
-      # Chromium only — Firefox and WebKit are configured in
-      # playwright.config.ts and runnable locally (`yarn e2e`, which covers
-      # all three), but three-way sharding on every PR/push spends more CI
-      # time than the marginal non-Chromium regressions are worth day to
-      # day. `browser` stays a matrix dimension (rather than hardcoding
-      # "chromium" into the steps below) purely so a later ticket can widen
-      # this array without restructuring the job.
+      # Chromium only by default — a product decision (#148). To widen:
+      # set the repo Actions variable E2E_BROWSERS_JSON to e.g.
+      # ["chromium","firefox","webkit"] — no workflow edit needed.
+      # The cache key, install step, --project flag and artifact names
+      # below are already per-browser. Within-browser sharding stays out
+      # until the suite passes ~5 min (see #307's out-of-scope notes).
       fail-fast: false
       matrix:
-        browser: [chromium]
+        browser: ${{ fromJSON(vars.E2E_BROWSERS_JSON || '["chromium"]') }}
     services:
       postgres:
         image: postgres:16-alpine
@@ -284,6 +349,9 @@ jobs:
       JWT_SECRET: ci-e2e-jwt-secret-do-not-use-in-production-1234567890
       NODE_ENV: test
       SEED_ADMIN_PASSWORD: ci-e2e-seed-password-123
+      # Keeps playwright.config.ts's projects list consistent with the
+      # --project flag this matrix entry passes.
+      E2E_BROWSERS: ${{ matrix.browser }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -345,6 +413,172 @@ jobs:
         with:
           name: test-results-${{ matrix.browser }}
           path: test-results/
+          if-no-files-found: ignore
+
+  bundle-delta:
+    name: Bundle size delta
+    runs-on: ubuntu-latest
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.frontend == 'true'
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build shared package
+        run: yarn build:shared
+
+      - name: Build report (PR)
+        run: yarn workspace @biddaloy/client-admin check:route-chunks
+
+      # Baseline = the latest successful main run's artifact — one build
+      # instead of two (~1.5 min saved). The delta reads "current main vs
+      # this PR" rather than the PR's exact merge-base; fine for a drift
+      # signal, the hard ceiling still gates absolutes.
+      - name: Download baseline report from latest main run
+        run: |
+          RUN_ID=$(gh api "repos/${{ github.repository }}/actions/workflows/ci.yml/runs?branch=main&status=success&per_page=1" -q '.workflow_runs[0].id')
+          gh run download "$RUN_ID" -n route-chunks-report -D baseline || echo "no baseline yet"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Compose delta comment
+        run: node scripts/bundle-delta.mjs baseline/route-chunks-report.json client-admin/dist/route-chunks-report.json delta.md
+
+      - name: Post sticky PR comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: bundle-delta
+          path: delta.md
+
+  storybook:
+    name: Storybook build
+    runs-on: ubuntu-latest
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.frontend == 'true'
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      # Storybook resolves @biddaloy/shared through the ui vite config's
+      # alias; if the build errors on shared imports, add `yarn build:shared`
+      # above this step (same caveat as the frontend job).
+      - name: Build Storybook
+        run: yarn workspace @biddaloy/ui build-storybook
+
+      - name: Upload Storybook static build
+        uses: actions/upload-artifact@v7
+        with:
+          name: storybook-static
+          path: ui/storybook-static/
+          retention-days: 14
+
+  # Not PR-blocking (#149): full stack boot + 3 routes x 3 runs would
+  # become the wall and break #307's <4-min PR target. A perf regression
+  # is caught at merge instead; revisit if that proves too late.
+  lighthouse:
+    name: Lighthouse (3G budgets)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: biddaloy_lighthouse
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/biddaloy_lighthouse
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-lighthouse-jwt-secret-do-not-use-in-production-1234567890
+      NODE_ENV: test
+      SEED_ADMIN_PASSWORD: ci-lighthouse-seed-password-123
+      SETTINGS_ENCRYPTION_KEY: YmSqNpwxzusjAF12JSD+JNe+3LXrbNJiQza2yTnQyR0=
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build shared package
+        run: yarn build:shared
+
+      - name: Run migrations
+        run: yarn workspace @biddaloy/server migration:run
+
+      - name: Seed database
+        run: yarn workspace @biddaloy/server seed
+
+      # Production builds on both sides — never the dev servers.
+      - name: Build and start server
+        run: |
+          yarn build:server
+          node server/dist/main.js &
+
+      - name: Build and start client preview
+        run: |
+          yarn build:client-admin
+          yarn workspace @biddaloy/client-admin preview --port 5174 &
+
+      - name: Wait for server and client
+        run: npx wait-on tcp:3000 tcp:5174 --timeout 120000
+
+      - name: Resolve seeded student detail URL
+        id: student
+        run: echo "url=$(node scripts/lighthouse-student-url.mjs)" >> "$GITHUB_OUTPUT"
+
+      - name: Lighthouse
+        run: >
+          npx lhci autorun
+          --collect.url=http://localhost:5174/login
+          --collect.url=http://localhost:5174/fees/dues
+          --collect.url=${{ steps.student.outputs.url }}
+
+      - name: Upload Lighthouse reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lighthouse-reports
+          path: .lighthouseci/
           if-no-files-found: ignore
 
   audit:

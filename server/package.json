@@ -13,6 +13,7 @@
     "test:cov": "vitest run --coverage",
     "test:watch": "vitest --watch",
     "test:unit": "vitest run --config vitest.unit.config.ts",
+    "test:unit:changed": "vitest run --config vitest.unit.config.ts --changed origin/main",
     "test:integration": "vitest run 'integration.spec.ts' --reporter=verbose",
     "test:e2e": "vitest run 'e2e-spec.ts' --reporter=verbose",
     "test:file": "vitest run",
