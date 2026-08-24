@@ -7,7 +7,8 @@ import {
   TableRow,
 } from '@biddaloy/ui/components';
 import { useGuardianCommunicationLogs } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatDate, parseServerDate } from '@biddaloy/ui/utils';
 
 import { TabQueryState } from './tab-query-state';
 
@@ -17,6 +18,7 @@ export interface CommunicationTabProps {
 
 export function CommunicationTab({ guardianId }: CommunicationTabProps) {
   const { t } = useTranslation('guardians');
+  const regionConfig = useRegionConfig();
   const query = useGuardianCommunicationLogs(guardianId);
 
   return (
@@ -41,7 +43,7 @@ export function CommunicationTab({ guardianId }: CommunicationTabProps) {
             <TableBody>
               {logs.map((log) => (
                 <TableRow key={log.id}>
-                  <TableCell>{log.created_at}</TableCell>
+                  <TableCell>{formatDate(parseServerDate(log.created_at), regionConfig)}</TableCell>
                   <TableCell>{log.medium}</TableCell>
                   <TableCell>{log.recipient_name}</TableCell>
                   <TableCell>{log.status}</TableCell>
