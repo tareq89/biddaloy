@@ -193,6 +193,22 @@ describe('useFormAutosave', () => {
     render(<AutosaveProbe formKey="admission-form" value="" />);
     expect(screen.getByText('draftAvailable: true')).toBeTruthy();
 
+    // Let the probe's own mount-time autosave land before clearing.
+    // Mounting schedules a write of *this* probe's values (empty) 10ms
+    // later, which overwrites the seeded draft above. Clicking without
+    // waiting races that timer: `user.click()` flushes asynchronously and
+    // under a loaded parallel run can easily outlast 10ms, so the pending
+    // write resurrects the key right after `clearDraft` removed it and the
+    // assertion below fails with `{"studentName":""}` instead of null.
+    // Once this write has happened, `lastWrittenRef` in `useFormAutosave`
+    // suppresses any rewrite while the values stay unchanged — so there is
+    // no second timer left to race.
+    await waitFor(() =>
+      expect(window.localStorage.getItem('form-shell-draft:admission-form')).toBe(
+        JSON.stringify({ studentName: '' }),
+      ),
+    );
+
     await user.click(screen.getByRole('button', { name: 'Clear draft' }));
     expect(window.localStorage.getItem('form-shell-draft:admission-form')).toBeNull();
     await waitFor(() => expect(screen.getByText('draftAvailable: false')).toBeTruthy());
