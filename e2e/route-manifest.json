@@ -1,68 +1,136 @@
 {
   "$comment": "[8.5.3] Every navigable route in client-admin. `role` is the seed-contract role specs log in with; `archetype` names the ui/src/shells building block (or 'bespoke'); `overlays` are named dialog/drawer states for the 8.5.5 visual suite. Drift-guarded by client-admin/src/route-manifest.test.ts against routeTree.gen.ts.",
   "routes": [
-    { "path": "/", "role": "admin", "archetype": "redirect" },
-    { "path": "/login", "role": "guest", "archetype": "bespoke" },
-    { "path": "/select-school", "role": "admin", "archetype": "bespoke" },
-    { "path": "/dashboard", "role": "admin", "archetype": "bespoke" },
-    { "path": "/settings", "role": "admin", "archetype": "form" },
-    { "path": "/academic-years", "role": "admin", "archetype": "list" },
+    {
+      "path": "/",
+      "role": "admin",
+      "archetype": "redirect"
+    },
+    {
+      "path": "/login",
+      "role": "guest",
+      "archetype": "bespoke"
+    },
+    {
+      "path": "/select-school",
+      "role": "admin",
+      "archetype": "bespoke"
+    },
+    {
+      "path": "/dashboard",
+      "role": "admin",
+      "archetype": "bespoke"
+    },
+    {
+      "path": "/settings",
+      "role": "admin",
+      "archetype": "form"
+    },
+    {
+      "path": "/academic-years",
+      "role": "admin",
+      "archetype": "list"
+    },
     {
       "path": "/academic-years/$academicYearId",
-      "params": { "academicYearId": "seeded" },
+      "params": {
+        "academicYearId": "seeded"
+      },
       "role": "admin",
       "archetype": "detail"
     },
-    { "path": "/classes", "role": "admin", "archetype": "list" },
+    {
+      "path": "/classes",
+      "role": "admin",
+      "archetype": "list"
+    },
     {
       "path": "/classes/$classId",
-      "params": { "classId": "seeded" },
+      "params": {
+        "classId": "seeded"
+      },
       "role": "admin",
       "archetype": "detail"
     },
-    { "path": "/fees", "role": "accountant", "archetype": "list" },
+    {
+      "path": "/fees",
+      "role": "accountant",
+      "archetype": "list"
+    },
     {
       "path": "/fees/dues",
       "role": "accountant",
       "archetype": "list",
-      "overlays": ["send-reminder"]
+      "overlays": ["send-reminder", "generate-invoices"]
     },
-    { "path": "/guardians", "role": "admin", "archetype": "list" },
+    {
+      "path": "/guardians",
+      "role": "admin",
+      "archetype": "list"
+    },
     {
       "path": "/guardians/$guardianId",
-      "params": { "guardianId": "seeded" },
+      "params": {
+        "guardianId": "seeded"
+      },
       "role": "admin",
       "archetype": "detail"
     },
     {
       "path": "/invoices",
       "role": "accountant",
-      "archetype": "list",
-      "overlays": ["generate-invoices"]
+      "archetype": "list"
     },
     {
       "path": "/invoices/$invoiceId",
-      "params": { "invoiceId": "seeded" },
+      "params": {
+        "invoiceId": "seeded"
+      },
       "role": "accountant",
       "archetype": "detail"
     },
-    { "path": "/payments/record", "role": "accountant", "archetype": "wizard" },
-    { "path": "/students", "role": "admin", "archetype": "list", "overlays": ["send-reminder"] },
-    { "path": "/students/new", "role": "admin", "archetype": "form" },
     {
-      "path": "/students/$studentId",
-      "params": { "studentId": "seeded" },
+      "path": "/payments/record",
+      "role": "accountant",
+      "archetype": "wizard"
+    },
+    {
+      "path": "/students",
       "role": "admin",
-      "archetype": "detail",
+      "archetype": "list",
       "overlays": ["send-reminder"]
     },
     {
-      "path": "/students/$studentId/edit",
-      "params": { "studentId": "seeded" },
+      "path": "/students/new",
       "role": "admin",
       "archetype": "form"
     },
-    { "path": "/portal", "role": "parent", "archetype": "bespoke" },
-    { "path": "/portal/fees", "role": "parent", "archetype": "list" }
+    {
+      "path": "/students/$studentId",
+      "params": {
+        "studentId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail",
+      "overlays": ["send-reminder", "delete-student", "transfer-status"]
+    },
+    {
+      "path": "/students/$studentId/edit",
+      "params": {
+        "studentId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "form"
+    },
+    {
+      "path": "/portal",
+      "role": "parent",
+      "archetype": "bespoke"
+    },
+    {
+      "path": "/portal/fees",
+      "role": "parent",
+      "archetype": "list"
+    }
   ]
 }

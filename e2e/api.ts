@@ -72,6 +72,7 @@ export interface ClassSectionChain {
   academicYearId: string;
   classId: string;
   sectionId: string;
+  className: string;
 }
 
 export async function createClassSection(
@@ -79,19 +80,20 @@ export async function createClassSection(
   session: ApiSession,
 ): Promise<ClassSectionChain> {
   const suffix = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
+  const className = `E2E ${suffix}`.slice(0, 50);
   const year = await post<{ id: string }>(request, session, '/academic-years', {
     name: `E2E Year ${suffix}`,
     start_date: '2026-01-01',
     end_date: '2026-12-31',
   });
   const klass = await post<{ id: string }>(request, session, '/classes', {
-    name: `E2E ${suffix}`.slice(0, 50),
+    name: className,
     academic_year_id: year.id,
   });
   const section = await post<{ id: string }>(request, session, `/classes/${klass.id}/sections`, {
     section_name: 'A',
   });
-  return { academicYearId: year.id, classId: klass.id, sectionId: section.id };
+  return { academicYearId: year.id, classId: klass.id, sectionId: section.id, className };
 }
 
 export async function createGuardian(
@@ -123,6 +125,17 @@ export async function createStudentsInSection(
     });
   }
   return chain;
+}
+
+export async function createInvoice(
+  request: APIRequestContext,
+  session: ApiSession,
+  studentId: string,
+): Promise<{ id: string }> {
+  return post<{ id: string }>(request, session, '/invoices', {
+    student_id: studentId,
+    line_items: [{ description: 'E2E line item', amount: 100 }],
+  });
 }
 
 /** A student with an outstanding fee: builds the class chain, a fee

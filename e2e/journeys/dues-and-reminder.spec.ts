@@ -18,14 +18,18 @@ test('filter the dues queue and send a single reminder', async ({ page, request 
   const session = await adminApiSession(request);
   const name = `Dues Student ${Date.now()}`;
   const guardian = await createGuardian(request, session, `Guardian of ${Date.now()}`);
-  const { studentId } = await createStudentWithDues(request, session, name, {
+  const { studentId, chain } = await createStudentWithDues(request, session, name, {
     guardianId: guardian.id,
   });
 
   const dues = new ListShellPage(page, { titleKey: 'fees.dues.title' });
 
   await test.step('the seeded student appears in the dues queue', async () => {
-    await page.goto('/fees/dues');
+    // The queue is shared and paginated — deep-link the class filter
+    // (URL-backed list state) so this spec's unique class is page 1
+    // regardless of what other specs seeded. The select UI itself only
+    // lists the first page of classes.
+    await page.goto(`/fees/dues?class_id=${chain.classId}`);
     await dues.expectLoaded();
     await expect(dues.row(name).first()).toBeVisible();
   });
