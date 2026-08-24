@@ -2560,8 +2560,8 @@
     "semantic_hash": "23f296f56f50e29a878e3a644feeed3e"
   },
   ".github/workflows/ci.yml": {
-    "mtime": 1787569741.5327058,
-    "ast_hash": "d57d699c9cee3b771d920b07c99d59d2",
+    "mtime": 1787569789.3204482,
+    "ast_hash": "c6c048e58793d078d0ddb73531280e88",
     "semantic_hash": ""
   },
   ".github/workflows/codeql.yml": {
@@ -2775,9 +2775,9 @@
     "semantic_hash": "6b04de98201ff4cb3bacee6683942b86"
   },
   "playwright.config.ts": {
-    "mtime": 1787457255.6213775,
-    "ast_hash": "b2447a5e616f02094428593e5f4805ac",
-    "semantic_hash": "b2447a5e616f02094428593e5f4805ac"
+    "mtime": 1787569777.7927868,
+    "ast_hash": "bc8ba3f16d5b9d9b0f4b80b5be1f2b4f",
+    "semantic_hash": ""
   },
   "server/src/migrations/1786097609707-AddSettingsChangeAuditAction.ts": {
     "mtime": 1787072022.5674393,

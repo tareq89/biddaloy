@@ -17,7 +17,7 @@
  * `check:api-types` — a dedicated CI step, not folded into `test:frontend`.
  */
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -121,6 +121,27 @@ try {
     } else {
       console.log(`✓ Entry chunk ${entryChunk}: ${gzipBytes} B gzipped (ceiling ${ceiling} B).`);
     }
+
+    // Machine-readable report for the bundle-delta PR comment (#150):
+    // every JS chunk's gzip size, plus which one is the entry and the
+    // ceiling it is held to. Written to dist/ (gitignored) so CI can
+    // upload it as an artifact.
+    const report = {
+      entry: { file: entryChunk, gzipBytes, ceilingBytes: ceiling },
+      chunks: jsChunks
+        .map((fileName) => ({
+          file: fileName,
+          gzipBytes: gzipSync(readFileSync(join(outDir, 'assets', fileName))).length,
+        }))
+        .sort((a, b) => b.gzipBytes - a.gzipBytes),
+      pass: process.exitCode !== 1,
+    };
+    mkdirSync(join(projectRoot, 'dist'), { recursive: true });
+    writeFileSync(
+      join(projectRoot, 'dist', 'route-chunks-report.json'),
+      JSON.stringify(report, null, 2) + '\n',
+    );
+    console.log('✓ Wrote dist/route-chunks-report.json');
   }
 } finally {
   rmSync(outDir, { recursive: true, force: true });
