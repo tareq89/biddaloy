@@ -9,6 +9,10 @@ export interface ListShellConfig {
    * route has one (it lives in the route's own filter bar, not in
    * `ListShell` itself). */
   searchLabelKey?: string;
+  /** Translation key of the row's "view" link when the row carries more
+   * than one link (e.g. students rows lead with a collect-fees action);
+   * omitted, `openRowByText` clicks the row's first link. */
+  openLabelKey?: string;
 }
 
 /**
@@ -49,9 +53,13 @@ export class ListShellPage {
     return this.dataRows().filter({ hasText: text });
   }
 
-  /** Opens a row's detail view via the row's first link. */
+  /** Opens a row's detail view. */
   async openRowByText(text: string): Promise<void> {
-    await this.row(text).first().getByRole('link').first().click();
+    const row = this.row(text).first();
+    const link = this.config.openLabelKey
+      ? row.getByRole('link', { name: t(this.config.openLabelKey) })
+      : row.getByRole('link').first();
+    await link.click();
   }
 
   async expectEmptyState(messageKey: string): Promise<void> {
@@ -68,10 +76,20 @@ export class ListShellPage {
   // DataTable's pagination strings are currently untranslated English
   // literals (data-table.tsx) — these locators track that markup.
   async nextPage(): Promise<void> {
-    await this.page.getByRole('button', { name: 'Next' }).click();
+    await this.pagerClick('Next');
   }
 
   async previousPage(): Promise<void> {
-    await this.page.getByRole('button', { name: 'Previous' }).click();
+    await this.pagerClick('Previous');
+  }
+
+  /** The pager sits under the table, whose rows re-render as data
+   * settles — Playwright's stability check never converges. Waiting for
+   * enabled and dispatching the click on the element is equivalent for a
+   * plain button and immune to layout shift above it. */
+  private async pagerClick(name: 'Next' | 'Previous'): Promise<void> {
+    const button = this.page.getByRole('button', { name, exact: true });
+    await expect(button).toBeEnabled();
+    await button.evaluate((el) => (el as HTMLButtonElement).click());
   }
 }
