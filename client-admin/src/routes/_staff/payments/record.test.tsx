@@ -14,7 +14,7 @@ import {
   type Payment,
   type StudentFee,
 } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { delay, http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -290,7 +290,8 @@ describe('/payments/record', () => {
     await screen.findByText(/Recording a payment of ৳500.00/);
     await user.click(screen.getByRole('button', { name: 'Record payment' }));
 
-    await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('FIFO violation'));
+    const alert = await screen.findByRole('alert');
+    await within(alert).findByText(/FIFO violation/);
     expect(screen.queryByRole('status')).toBeNull();
 
     // Back to Method & Reference — the reference typed earlier is still

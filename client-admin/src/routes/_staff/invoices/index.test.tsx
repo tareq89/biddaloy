@@ -6,7 +6,7 @@ import {
   server,
   studentFactory,
 } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -31,9 +31,7 @@ describe('/invoices', () => {
       locale: 'en',
     });
 
-    await waitFor(() =>
-      expect(screen.getByRole('combobox', { name: 'Status' }).textContent).toBe('Overdue'),
-    );
+    await within(await screen.findByRole('combobox', { name: 'Status' })).findByText('Overdue');
   });
 
   it('renders invoice rows with number, student, amount, status and dates', async () => {

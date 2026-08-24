@@ -123,6 +123,9 @@ yarn test:frontend
 # Single run (CI)
 yarn test:frontend --run
 
+# Only tests affected by files changed since origin/main
+yarn test:frontend:changed
+
 # A specific file or directory
 yarn test:frontend client-admin/src/App.test.tsx
 
@@ -132,6 +135,10 @@ yarn test:frontend -t "renders the admin welcome copy"
 # A single package/environment (see below)
 yarn test:frontend --project client-admin:jsdom
 ```
+
+While iterating, use watch mode (`yarn test:frontend`) or the `:changed`
+scripts. Repeated full `--run` passes are the slow path, not a safety net —
+CI runs the full suite anyway.
 
 Each package has two projects, split by environment:
 
@@ -238,7 +245,8 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every PR and on push to
 `main`:
 
 - **verify** — install, `yarn build:shared`, `yarn build:server`, `yarn lint`,
-  `yarn test:unit`. No infrastructure required.
+  `yarn test:unit`. No infrastructure required. `yarn test:unit:changed`
+  runs only the unit tests affected by files changed since `origin/main`.
 - **integration** — spins up its own Postgres 16 and Redis 7 service
   containers, then runs `yarn test:integration` and `yarn test:e2e`.
 - **e2e** — Chromium only, with its own Postgres/Redis service containers,
