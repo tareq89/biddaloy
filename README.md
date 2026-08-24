@@ -250,14 +250,24 @@ against the latest `main` build.
 
 `yarn ci:local` (`scripts/ci-local.sh`) reproduces the pipeline locally,
 job-for-job with the identical commands, so a CI failure can be replayed
-before pushing. By default it runs the `verify`, `frontend` and `audit`
-sections (no external services; measured ~1.5 min on a warm checkout).
-Flags: `--integration` and `--e2e` add the service-backed sections
-(self-provisioning `docker compose up -d db redis` against a dedicated
-`biddaloy_ci_local` database), `--full` runs everything (~8–10 min), and
-`--coverage` switches the frontend section to the `main`-push coverage
-variant. The script and `ci.yml` cross-reference each other — edit both
-together.
+before pushing. The frontend section collects coverage by default — the
+same command CI runs; `--no-coverage` is a faster, non-CI-equivalent check.
+The service-backed sections self-provision `docker compose up -d db redis`
+against a dedicated `biddaloy_ci_local` database. The script and `ci.yml`
+cross-reference each other — edit both together.
+
+```mermaid
+flowchart LR
+    CI["yarn ci:local"] --> verify --> frontend --> audit
+    CI -- "--integration" --> integration
+    CI -- "--e2e" --> e2e
+    CI -- "--lighthouse" --> lighthouse
+    CI -- "--full" --> integration & e2e & lighthouse
+    CI -. "--no-coverage\n(frontend skips coverage,\nnot CI-equivalent)" .-> frontend
+```
+
+Default (`verify` + `frontend` + `audit`) needs no external services and
+measured ~1.5 min on a warm checkout; `--full` runs everything (~8–10 min).
 
 GitHub Actions (`.github/workflows/ci.yml`) runs on every PR and on push to
 `main`:

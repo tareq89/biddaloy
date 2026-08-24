@@ -7,7 +7,7 @@
  * Resolved at runtime rather than hardcoding a UUID a seed change would
  * silently break.
  */
-const API = process.env.API_URL ?? 'http://localhost:3000/api';
+const API = process.env.API_URL ?? 'http://localhost:3000/api/v1';
 const password = process.env.SEED_ADMIN_PASSWORD;
 if (!password) {
   console.error('SEED_ADMIN_PASSWORD is not set');
