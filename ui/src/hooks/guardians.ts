@@ -75,8 +75,8 @@ export function useGuardians(filters: GuardianListFilters) {
 export function guardianQueryOptions(id: string) {
   return queryOptions({
     queryKey: guardianKeys.detail(id),
-    queryFn: async () => {
-      const res = await apiClient.get<Guardian>(`/guardians/${id}`);
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<Guardian>(`/guardians/${id}`, { signal });
       return res.data;
     },
     retry: shouldRetryQuery,
