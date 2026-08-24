@@ -1,6 +1,7 @@
-import type { Preview } from '@storybook/react';
+import type { Preview } from '@storybook/react-vite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { initialize, mswLoader } from 'msw-storybook-addon';
+import { setupWorker } from 'msw/browser';
+import { mswLoader } from 'msw-storybook-addon/csf3';
 import { useEffect } from 'react';
 
 import { i18n, I18nProvider, type Locale } from '../src/i18n';
@@ -18,9 +19,14 @@ const LOCALE_META: Record<Locale, { label: string; dir: 'ltr' | 'rtl' }> = {
 // Registers the MSW Service Worker in the Storybook iframe. `public/` isn't
 // set up in this package (it isn't an app with its own dev server), so the
 // worker script is served from Storybook's own static dir — see
-// `staticDirs` in `main.ts` — via `msw-storybook-addon`'s default
-// `serviceWorker.url`, which resolves relative to that.
-initialize({ onUnhandledRequest: 'bypass' });
+// `staticDirs` in `main.ts` — at the default `/mockServiceWorker.js` URL.
+// Passed to `mswLoader` below: msw-storybook-addon 3.x dropped
+// `initialize()` in favour of a caller-supplied setup function.
+const startWorker = async () => {
+  const worker = setupWorker();
+  await worker.start({ quiet: true, onUnhandledRequest: 'bypass' });
+  return worker;
+};
 
 // One QueryClient per Storybook session (not per story): stories mount and
 // unmount as the user navigates, and a fresh client per story would drop
@@ -52,7 +58,7 @@ const preview: Preview = {
       test: 'todo',
     },
   },
-  loaders: [mswLoader],
+  loaders: [mswLoader(startWorker)],
   globalTypes: {
     locale: {
       description: 'Locale for text-expansion and layout checks',

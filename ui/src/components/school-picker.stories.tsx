@@ -3,7 +3,7 @@
  * access token, see the component's own header comment) before this ever
  * renders, so there's no network state to represent here. */
 import { UserRole } from '@biddaloy/shared';
-import type { Meta, StoryObj } from '@storybook/react';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import { rtlDecorator } from '../../.storybook/rtl-decorator';
 

@@ -2,7 +2,7 @@
  * distinct way — it either shows content on hover/focus or it doesn't,
  * there's no separate data-fetching or validation state at this layer.
  * `Default` and `RightToLeft` are the two states worth documenting. */
-import type { Meta, StoryObj } from '@storybook/react';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import { rtlDecorator } from '../../.storybook/rtl-decorator';
 

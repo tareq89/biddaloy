@@ -1,5 +1,5 @@
 /**
- * Storybook 8 config for `@biddaloy/ui` — [8.6.1].
+ * Storybook 10 config for `@biddaloy/ui`.
  *
  * Uses the same Vite plugins (`@vitejs/plugin-react`, `@tailwindcss/vite`) and
  * path aliases as the real consuming apps' `vite.config.ts` (see
@@ -9,16 +9,21 @@
  * Vitest's own bundled Vite out of the picture (see that file's header
  * comment). Stories should see exactly what an app sees.
  */
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import type { StorybookConfig } from '@storybook/react-vite';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { mergeConfig } from 'vite';
 
+// `main.ts` is loaded as ESM from Storybook 9 on, so CJS `__dirname` is not
+// available here.
+const configDir = dirname(fileURLToPath(import.meta.url));
+
 const config: StorybookConfig = {
   stories: ['../src/**/*.stories.@(ts|tsx)'],
-  addons: ['@storybook/addon-essentials', '@storybook/addon-interactions', '@storybook/addon-a11y'],
+  addons: ['@storybook/addon-a11y', '@storybook/addon-docs', 'msw-storybook-addon'],
   framework: {
     name: '@storybook/react-vite',
     options: {},
@@ -30,16 +35,13 @@ const config: StorybookConfig = {
   // `package.json`'s `msw.workerDirectory`) at the iframe root so
   // `msw-storybook-addon`'s default `serviceWorker.url` resolves it.
   staticDirs: ['./public'],
-  docs: {
-    autodocs: 'tag',
-  },
   async viteFinal(viteConfig) {
     return mergeConfig(viteConfig, {
       plugins: [react(), tailwindcss()],
       resolve: {
         alias: {
-          '@': resolve(__dirname, '../src'),
-          '@biddaloy/shared': resolve(__dirname, '../../shared/src'),
+          '@': resolve(configDir, '../src'),
+          '@biddaloy/shared': resolve(configDir, '../../shared/src'),
         },
       },
     });

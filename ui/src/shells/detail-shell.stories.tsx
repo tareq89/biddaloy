@@ -1,6 +1,6 @@
-import type { Meta, StoryObj } from '@storybook/react';
-import { expect, userEvent, within } from '@storybook/test';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import * as React from 'react';
+import { expect, userEvent, within } from 'storybook/test';
 
 import { withMemoryRouter } from '../../.storybook/router-decorator';
 import { rtlDecorator } from '../../.storybook/rtl-decorator';

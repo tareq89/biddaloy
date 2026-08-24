@@ -2,9 +2,9 @@
  * Storybook infra proof ([8.6.1]) — not a real component's stories. Delete
  * alongside `placeholder.tsx` once a real wrapper ([8.6.2]) replaces it.
  */
-import type { Meta, StoryObj } from '@storybook/react';
-import { expect, waitFor, within } from '@storybook/test';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useTranslation } from 'react-i18next';
+import { expect, waitFor, within } from 'storybook/test';
 
 import { useStudents } from '../hooks/students';
 
