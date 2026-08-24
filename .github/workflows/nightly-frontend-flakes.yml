@@ -20,6 +20,11 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
+      # Same reason as ci.yml's frontend job: shared:node specs resolve
+      # @biddaloy/shared through dist/index.js.
+      - name: Build shared package
+        run: yarn build:shared
+
       # Three consecutive full passes. vitest has no --repeat flag, and
       # --retry would hide exactly the flakes this job exists to surface,
       # so a plain loop it is. Any failing pass fails the job.

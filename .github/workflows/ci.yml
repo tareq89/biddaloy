@@ -162,10 +162,13 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
-      # No build:shared — the root vitest.config.ts aliases
-      # @biddaloy/shared to shared/src, so vitest compiles shared
-      # sources itself. (If a resolution error ever proves otherwise,
-      # add `yarn build:shared` back above this step.)
+      # The root vitest.config.ts aliases @biddaloy/shared to shared/src
+      # for most of the suite, but shared:node's own specs resolve the
+      # package through its "main" (dist/index.js) — proven by the first
+      # CI run failing with "Failed to resolve entry for package
+      # @biddaloy/shared" without this build.
+      - name: Build shared package
+        run: yarn build:shared
 
       # Coverage on every run (#153 amends #307's PR/no-coverage split):
       # the PR delta comment below needs PR coverage, and since this job is
