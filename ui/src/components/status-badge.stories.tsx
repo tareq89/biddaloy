@@ -65,6 +65,10 @@ export const AllDomains: Story = {
         <StatusBadge domain="academicYear" status="CURRENT" />
         <StatusBadge domain="academicYear" status="NOT_CURRENT" />
       </div>
+      <div className="flex flex-wrap gap-2">
+        <StatusBadge domain="guardian" status="PRIMARY" />
+        <StatusBadge domain="guardian" status="SECONDARY" />
+      </div>
     </div>
   ),
 };

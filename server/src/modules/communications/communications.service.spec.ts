@@ -173,6 +173,45 @@ describe('CommunicationsService', () => {
     });
   });
 
+  describe('findByGuardian', () => {
+    // [8.11.4]'s Communication History tab.
+    it('verifies the guardian belongs to the tenant, then scopes the query to the guardian', async () => {
+      guardianService.findOne.mockResolvedValue({ id: 'guardian-1', tenant_id: TENANT_ID });
+      repo.find.mockResolvedValue([
+        {
+          id: 'log-3',
+          medium: CommunicationMedium.SMS,
+          recipient_address: '01712345678',
+          recipient_name: 'Guardian',
+          status: CommunicationStatus.SENT,
+          provider_message_id: null,
+          created_at: new Date('2026-02-02'),
+        },
+      ]);
+
+      const result = await service.findByGuardian('guardian-1', TENANT_ID);
+
+      expect(guardianService.findOne).toHaveBeenCalledWith('guardian-1', TENANT_ID);
+      expect(repo.find).toHaveBeenCalledWith({
+        where: { guardian_id: 'guardian-1', tenant_id: TENANT_ID },
+        order: { created_at: 'DESC' },
+      });
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('log-3');
+    });
+
+    it('propagates NotFoundException for a guardian outside the tenant, without querying logs', async () => {
+      guardianService.findOne.mockRejectedValue(
+        new NotFoundException('Guardian with ID "x" not found'),
+      );
+
+      await expect(service.findByGuardian('guardian-1', TENANT_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(repo.find).not.toHaveBeenCalled();
+    });
+  });
+
   describe('findLastReminders', () => {
     // [8.10.4]'s dues queue "Last reminder" column.
     it('returns a map of student_id to the most recent reminder', async () => {

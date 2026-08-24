@@ -1,0 +1,105 @@
+{
+  "list": {
+    "title": "Guardians",
+    "caption": "Guardians",
+    "searchLabel": "Search by name, phone, or email",
+    "columnName": "Name",
+    "columnRelationship": "Relationship",
+    "columnPhone": "Phone",
+    "columnPreferredCommunication": "Preferred channel",
+    "columnLinkedStudents": "Linked students",
+    "columnPrimaryContact": "Primary contact",
+    "columnActions": "Actions",
+    "view": "View",
+    "emptyValue": "—",
+    "emptyMessage": "No guardians found",
+    "errorMessage": "Failed to load guardians",
+    "announceResults": "{{count}} of {{total}} guardians shown"
+  },
+  "preferredCommunicationOptions": {
+    "SMS": "SMS",
+    "WHATSAPP": "WhatsApp",
+    "EMAIL": "Email",
+    "PHONE_CALL": "Phone call",
+    "MESSENGER": "Messenger"
+  },
+  "detail": {
+    "back": "Back to guardians",
+    "identifiers": "{{relationship}}",
+    "forbidden": "You don't have permission to view this.",
+    "loadError": "Couldn't load this guardian.",
+    "tabs": {
+      "information": "Information",
+      "linkedStudents": "Linked Students",
+      "communication": "Communication History",
+      "payments": "Payment History"
+    },
+    "actions": {
+      "edit": "Edit"
+    },
+    "information": {
+      "columnPhone": "Phone",
+      "columnAlternatePhone": "Alternate phone",
+      "columnEmail": "Email",
+      "columnAddress": "Address",
+      "columnOccupation": "Occupation",
+      "columnPreferredCommunication": "Preferred channel",
+      "columnPrimaryContact": "Primary contact",
+      "emptyValue": "—"
+    },
+    "linkedStudents": {
+      "columnName": "Name",
+      "columnClass": "Class",
+      "columnSection": "Section",
+      "editAction": "Edit linked students",
+      "saveAction": "Save",
+      "saving": "Saving…",
+      "cancelAction": "Cancel",
+      "emptyMessage": "No students linked yet.",
+      "saveErrorMessage": "Couldn't update linked students. Try again."
+    },
+    "communication": {
+      "columnDate": "Date",
+      "columnMedium": "Medium",
+      "columnRecipient": "Recipient",
+      "columnStatus": "Status",
+      "emptyMessage": "No messages sent yet.",
+      "errorMessage": "Couldn't load message history."
+    },
+    "payments": {
+      "columnDate": "Date",
+      "columnAmount": "Amount",
+      "columnMethod": "Method",
+      "columnReference": "Reference",
+      "columnStudent": "Student",
+      "emptyMessage": "No payments recorded yet.",
+      "errorMessage": "Couldn't load payment history."
+    }
+  },
+  "editDialog": {
+    "title": "Edit guardian",
+    "description": "Update {{name}}'s details.",
+    "fields": {
+      "fullName": "Full name",
+      "relationship": "Relationship",
+      "phone": "Phone",
+      "email": "Email",
+      "alternatePhone": "Alternate phone",
+      "address": "Address",
+      "occupation": "Occupation",
+      "preferredCommunication": "Preferred channel"
+    },
+    "fullNameRequired": "Full name is required.",
+    "save": "Save changes",
+    "saving": "Saving…",
+    "errorMessage": "Couldn't update the guardian. Try again."
+  },
+  "studentPicker": {
+    "selectedLabel": "Linked students",
+    "removeAction": "Remove {{name}}",
+    "removeAction_short": "Remove",
+    "searchLabel": "Search students",
+    "searchPlaceholder": "Search by name or registration no.",
+    "noResults": "No students found."
+  }
+}

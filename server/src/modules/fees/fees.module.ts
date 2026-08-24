@@ -11,6 +11,7 @@ import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Invoice } from '../invoices/entities/invoice.entity';
 import { AuditModule } from '../audit/audit.module';
+import { StudentModule } from '../students/students.module';
 import { FeeStructureService, PaymentService } from './fees.service';
 import { FeeGenerationService } from './fee-generation.service';
 import { PaymentAllocationService } from './payment-allocation.service';
@@ -32,6 +33,7 @@ import { FeeController } from './fees.controller';
       Invoice,
     ]),
     AuditModule,
+    StudentModule,
   ],
   providers: [
     FeeStructureService,

@@ -16,8 +16,8 @@
  * One `StatusBadge` covers every domain via a discriminated union on
  * `domain` — passing a `FeeStatus` value with `domain="payment"` is a
  * type error, not a runtime mismatch. Most domains are `shared/src/enums`
- * lifecycles; `academicYear` is the one exception (see its own comment
- * below).
+ * lifecycles; `academicYear` and `guardian` are plain-boolean exceptions
+ * (see their own comments below).
  */
 import {
   CommunicationStatus,
@@ -118,6 +118,18 @@ const ACADEMIC_YEAR_STATUS_TONE: Record<AcademicYearCurrentStatus, StatusTone> =
   NOT_CURRENT: 'neutral',
 };
 
+/** Not a `shared/src/enums` domain either — `Guardian.is_primary_contact`
+ * is a plain boolean, same shape as `AcademicYearCurrentStatus` above.
+ * [8.11.4]'s "primary-contact status clearly indicated without relying on
+ * colour" AC is exactly what this component already guarantees for every
+ * other domain. */
+export type GuardianPrimaryContactStatus = 'PRIMARY' | 'SECONDARY';
+
+const GUARDIAN_STATUS_TONE: Record<GuardianPrimaryContactStatus, StatusTone> = {
+  PRIMARY: 'success',
+  SECONDARY: 'neutral',
+};
+
 export type StatusBadgeProps =
   | { domain: 'fee'; status: FeeStatus }
   | { domain: 'payment'; status: PaymentStatus }
@@ -125,7 +137,8 @@ export type StatusBadgeProps =
   | { domain: 'communication'; status: CommunicationStatus }
   | { domain: 'reminderBatch'; status: ReminderBatchStatus }
   | { domain: 'enrollment'; status: EnrollmentStatus }
-  | { domain: 'academicYear'; status: AcademicYearCurrentStatus };
+  | { domain: 'academicYear'; status: AcademicYearCurrentStatus }
+  | { domain: 'guardian'; status: GuardianPrimaryContactStatus };
 
 function resolveTone(props: StatusBadgeProps): StatusTone {
   switch (props.domain) {
@@ -143,6 +156,8 @@ function resolveTone(props: StatusBadgeProps): StatusTone {
       return ENROLLMENT_STATUS_TONE[props.status];
     case 'academicYear':
       return ACADEMIC_YEAR_STATUS_TONE[props.status];
+    case 'guardian':
+      return GUARDIAN_STATUS_TONE[props.status];
   }
 }
 

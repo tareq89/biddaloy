@@ -161,6 +161,20 @@ export class CommunicationsController {
     return this.communicationsService.findByStudent(studentId, tenant.id);
   }
 
+  // Declared before `@Get(':id')` — same reasoning as `student/:studentId`
+  // above.
+  @Get('guardian/:guardianId')
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @ApiOperation({
+    summary: 'Get every message sent directly to a guardian, newest first.',
+  })
+  findByGuardian(
+    @Param('guardianId', ParseUUIDPipe) guardianId: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.communicationsService.findByGuardian(guardianId, tenant.id);
+  }
+
   @Get(':id')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
   findOne(

@@ -17,12 +17,29 @@ const create = http.post('/api/v1/guardians', () =>
   HttpResponse.json(guardianFactory(), { status: 201 }),
 );
 
+/** [8.11.4]'s detail page. */
+const getOne = http.get('/api/v1/guardians/:id', ({ params }) =>
+  HttpResponse.json(guardianFactory({ id: params.id as string })),
+);
+
+const getOneNotFound = http.get('/api/v1/guardians/:id', () =>
+  HttpResponse.json({ message: 'Guardian not found', statusCode: 404 }, { status: 404 }),
+);
+
 const update = http.patch('/api/v1/guardians/:id', ({ params }) =>
   HttpResponse.json(guardianFactory({ id: params.id as string })),
 );
 
 const remove = http.delete('/api/v1/guardians/:id', () => new HttpResponse(null, { status: 204 }));
 
-export const guardianHandlers = { list, listEmpty, create, update, remove };
+export const guardianHandlers = {
+  list,
+  listEmpty,
+  create,
+  getOne,
+  getOneNotFound,
+  update,
+  remove,
+};
 
-export const guardianDefaultHandlers = [list, create, update, remove];
+export const guardianDefaultHandlers = [list, create, getOne, update, remove];

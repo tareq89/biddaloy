@@ -31,6 +31,7 @@ describe('CommunicationsController', () => {
       enqueue: vi.fn(),
       findOne: vi.fn(),
       findByStudent: vi.fn(),
+      findByGuardian: vi.fn(),
       findLastReminders: vi.fn(),
     };
     bulkReminderService = { sendBulk: vi.fn(), findBatch: vi.fn() };
@@ -221,6 +222,18 @@ describe('CommunicationsController', () => {
       const result = await controller.findByStudent('student-1', TENANT);
 
       expect(service.findByStudent).toHaveBeenCalledWith('student-1', TENANT.id);
+      expect(result).toEqual(expected);
+    });
+  });
+
+  describe('findByGuardian', () => {
+    it('should call service.findByGuardian with guardian id and tenant id', async () => {
+      const expected = [{ id: 'log-1', recipient_name: 'Guardian' }];
+      service.findByGuardian.mockResolvedValue(expected);
+
+      const result = await controller.findByGuardian('guardian-1', TENANT);
+
+      expect(service.findByGuardian).toHaveBeenCalledWith('guardian-1', TENANT.id);
       expect(result).toEqual(expected);
     });
   });

@@ -30,7 +30,11 @@ export interface StudentFeeSummary {
   payments: Payment[];
 }
 
-export const paymentKeys = createEntityKeys<{ studentId?: string; search?: string }>('payments');
+export const paymentKeys = createEntityKeys<{
+  studentId?: string;
+  guardianId?: string;
+  search?: string;
+}>('payments');
 
 /**
  * The reference **non-optimistic** financial mutation — [8.4.4]'s counter
@@ -74,6 +78,24 @@ export function usePaymentsByStudent(studentId: string) {
       queryKey: paymentKeys.list({ studentId }),
       queryFn: async ({ signal }) => {
         const res = await apiClient.get<Payment[]>(`/payments/student/${studentId}`, { signal });
+        return res.data;
+      },
+      retry: shouldRetryQuery,
+    }),
+  );
+}
+
+/** [8.11.4]'s Payment History tab — every payment recorded for any of a
+ * guardian's linked students, newest first. Mirrors `usePaymentsByStudent`
+ * above, backed by `fees.controller.ts`'s `GET payments/guardian/:guardianId`. */
+export function usePaymentsByGuardian(guardianId: string) {
+  return useQuery(
+    queryOptions({
+      queryKey: paymentKeys.list({ guardianId }),
+      queryFn: async ({ signal }) => {
+        const res = await apiClient.get<Payment[]>(`/payments/guardian/${guardianId}`, {
+          signal,
+        });
         return res.data;
       },
       retry: shouldRetryQuery,

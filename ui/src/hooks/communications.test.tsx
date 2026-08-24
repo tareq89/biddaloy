@@ -6,7 +6,11 @@ import { communicationFactory } from '../test/factories';
 import { server } from '../test/msw/server';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
 
-import { useLastReminders, useStudentCommunicationLogs } from './communications';
+import {
+  useGuardianCommunicationLogs,
+  useLastReminders,
+  useStudentCommunicationLogs,
+} from './communications';
 
 describe('useStudentCommunicationLogs', () => {
   it("[8.10.2] resolves the Communication tab's message history for one student", async () => {
@@ -28,6 +32,36 @@ describe('useStudentCommunicationLogs', () => {
     server.use(http.get('/api/v1/communications/student/:studentId', () => HttpResponse.json([])));
 
     const { result } = renderHookWithProviders(() => useStudentCommunicationLogs('student-1'), {
+      tenantId: 'tenant-1',
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual([]);
+  });
+});
+
+describe('useGuardianCommunicationLogs', () => {
+  it("[8.11.4] resolves the Communication History tab's message history for one guardian", async () => {
+    server.use(
+      http.get('/api/v1/communications/guardian/:guardianId', () =>
+        HttpResponse.json([communicationFactory(), communicationFactory()]),
+      ),
+    );
+
+    const { result } = renderHookWithProviders(() => useGuardianCommunicationLogs('guardian-1'), {
+      tenantId: 'tenant-1',
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toHaveLength(2);
+  });
+
+  it('resolves an empty list for a guardian nothing has ever been sent to', async () => {
+    server.use(
+      http.get('/api/v1/communications/guardian/:guardianId', () => HttpResponse.json([])),
+    );
+
+    const { result } = renderHookWithProviders(() => useGuardianCommunicationLogs('guardian-1'), {
       tenantId: 'tenant-1',
     });
 

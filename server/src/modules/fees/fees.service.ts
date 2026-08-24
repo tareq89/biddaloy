@@ -7,6 +7,7 @@ import { Payment } from './entities/payment.entity';
 import { PaymentAllocation } from './entities/payment-allocation.entity';
 import { StudentFee } from './entities/student-fee.entity';
 import { Student } from '../students/entities/student.entity';
+import { GuardianService } from '../students/students.service';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
@@ -286,6 +287,7 @@ export class PaymentService {
     private readonly repo: Repository<Payment>,
     @InjectRepository(Student)
     private readonly studentRepo: Repository<Student>,
+    private readonly guardianService: GuardianService,
   ) {}
 
   async create(dto: CreatePaymentDto, tenantId: string, userId?: string): Promise<Payment> {
@@ -355,6 +357,27 @@ export class PaymentService {
     return this.repo.find({
       where: { student_id: studentId, tenant_id: tenantId, deleted_at: IsNull() },
       relations: ['allocations'],
+      order: { payment_date: 'DESC' },
+    });
+  }
+
+  /** [8.11.4]'s Payment History tab — every payment recorded for any of a
+   * guardian's linked students, newest first. `GuardianService.findOne`
+   * throws `NotFoundException` for a guardian outside this tenant, so a
+   * cross-tenant guardian ID never falls through to the payments query.
+   * One `IN (...)` query over the guardian's `student_ids`, not a
+   * per-student loop. */
+  async findByGuardian(guardianId: string, tenantId: string) {
+    const guardian = await this.guardianService.findOne(guardianId, tenantId);
+    const studentIds = (guardian.students ?? []).map((s) => s.id);
+
+    if (studentIds.length === 0) {
+      return [];
+    }
+
+    return this.repo.find({
+      where: { student_id: In(studentIds), tenant_id: tenantId, deleted_at: IsNull() },
+      relations: ['allocations', 'student'],
       order: { payment_date: 'DESC' },
     });
   }

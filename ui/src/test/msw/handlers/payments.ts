@@ -40,6 +40,15 @@ const listByStudentEmpty = http.get('/api/v1/payments/student/:studentId', () =>
   HttpResponse.json([]),
 );
 
+/** [8.11.4]'s Payment History tab. */
+const listByGuardian = http.get('/api/v1/payments/guardian/:guardianId', () =>
+  HttpResponse.json([paymentFactory(), paymentFactory()]),
+);
+
+const listByGuardianEmpty = http.get('/api/v1/payments/guardian/:guardianId', () =>
+  HttpResponse.json([]),
+);
+
 /** `FeesController.getInvoiceSummary`'s actual shape — a fee/payment/
  * balance summary, not a bare invoice list the endpoint's own path
  * segment ("invoices/student") might suggest. See `payments.ts`'s
@@ -78,6 +87,8 @@ export const paymentHandlers = {
   recordWithAllocation,
   listByStudent,
   listByStudentEmpty,
+  listByGuardian,
+  listByGuardianEmpty,
   listInvoicesByStudent,
 };
 
@@ -86,5 +97,6 @@ export const paymentDefaultHandlers = [
   record,
   recordWithAllocation,
   listByStudent,
+  listByGuardian,
   listInvoicesByStudent,
 ];
