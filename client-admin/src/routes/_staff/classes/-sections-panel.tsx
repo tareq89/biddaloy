@@ -106,14 +106,14 @@ export function SectionsPanel({ classId, className, padded = true }: SectionsPan
                     <div className="flex gap-3">
                       <button
                         type="button"
-                        className="inline-flex min-h-6 items-center text-sm font-medium text-primary underline"
+                        className="inline-flex min-h-6 min-w-6 items-center justify-center text-sm font-medium text-primary underline"
                         onClick={() => setEditing(section)}
                       >
                         {t('sections.edit')}
                       </button>
                       <button
                         type="button"
-                        className="inline-flex min-h-6 items-center text-sm font-medium text-destructive underline"
+                        className="inline-flex min-h-6 min-w-6 items-center justify-center text-sm font-medium text-destructive underline"
                         onClick={() => setDeleting(section)}
                       >
                         {t('sections.delete')}

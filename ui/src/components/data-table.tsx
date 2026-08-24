@@ -355,7 +355,7 @@ export function DataTable<TData>({
         {/* [8.5.6] `[&_td_a]:min-h-6` etc.: links inside cells (view/detail
             links, invoice numbers) get a 24px minimum hit area — WCAG
             2.2 SC 2.5.8 — without each column having to remember it. */}
-        <table className="w-full border-collapse text-sm [&_td_a]:inline-flex [&_td_a]:min-h-6 [&_td_a]:items-center [&_td_button]:min-h-6 [&_th_button]:min-h-6 [&_th_button]:min-w-6">
+        <table className="w-full border-collapse text-sm [&_td_a]:inline-flex [&_td_a]:min-h-6 [&_td_a]:min-w-6 [&_td_a]:items-center [&_td_a]:justify-center [&_td_button]:min-h-6 [&_td_button]:min-w-6 [&_th_button]:min-h-6 [&_th_button]:min-w-6">
           <caption className="sr-only">{caption}</caption>
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
