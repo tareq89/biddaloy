@@ -89,7 +89,12 @@ if [ "$RUN_E2E" = 1 ]; then
   provision_stack
   yarn workspace @biddaloy/server migration:run
   yarn workspace @biddaloy/server seed
-  yarn e2e
+  # CI=1 mirrors the pipeline and stops playwright.config.ts's
+  # reuseExistingServer from grabbing an already-running dev server wired
+  # to the dev database — that mismatch fails login against the freshly
+  # seeded biddaloy_ci_local. If dev servers hold ports 3000/5174,
+  # Playwright now fails fast with a clear port-in-use message instead.
+  CI=1 yarn e2e
   section_done "e2e"
 fi
 

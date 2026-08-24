@@ -33,6 +33,7 @@
     "test:e2e": "yarn workspace @biddaloy/server test:e2e",
     "test:file": "yarn workspace @biddaloy/server test:file",
     "e2e": "playwright test",
+    "ci:local": "bash scripts/ci-local.sh",
     "prepare": "husky"
   },
   "devDependencies": {

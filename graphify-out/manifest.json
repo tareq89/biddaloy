@@ -1,7 +1,7 @@
 {
   "package.json": {
-    "mtime": 1787571250.5552049,
-    "ast_hash": "fa5c92c7a7b6f8bd52d0cb085263ae37",
+    "mtime": 1787571310.9602358,
+    "ast_hash": "cbc37fbd7faa368fb18328901075bf85",
     "semantic_hash": ""
   },
   "scripts/build-all.sh": {
@@ -565,9 +565,9 @@
     "semantic_hash": "d99472b145ded5478b0b65ee60303a02"
   },
   "scripts/ci-audit.js": {
-    "mtime": 1785922616.1079996,
-    "ast_hash": "90051569b84f6e26ea54228bd3604e4c",
-    "semantic_hash": "90051569b84f6e26ea54228bd3604e4c"
+    "mtime": 1787571684.3866196,
+    "ast_hash": "ceeb9314bb49258897491711e8f2e84e",
+    "semantic_hash": ""
   },
   "server/src/config/env.validation.spec.ts": {
     "mtime": 1787072022.566661,
@@ -1430,9 +1430,9 @@
     "semantic_hash": "aebc1d41f583c2bebad5f42ff0defbdf"
   },
   "ui/eslint-config.mjs": {
-    "mtime": 1787457255.6361814,
-    "ast_hash": "352b9bd143d2210de74ea8523b65b4ac",
-    "semantic_hash": "352b9bd143d2210de74ea8523b65b4ac"
+    "mtime": 1787571494.8137465,
+    "ast_hash": "686ca50d6f746fd144e6a470c6a86673",
+    "semantic_hash": ""
   },
   "ui/eslint-rules/component-boundary.config.spec.mjs": {
     "mtime": 1787457255.6365917,
@@ -2560,8 +2560,8 @@
     "semantic_hash": "23f296f56f50e29a878e3a644feeed3e"
   },
   ".github/workflows/ci.yml": {
-    "mtime": 1787571250.5550637,
-    "ast_hash": "3ee6892c8e0a55823053fddb6d7b6517",
+    "mtime": 1787571310.9600666,
+    "ast_hash": "5e9aafe1f1e7661a2b00fb937937bd4e",
     "semantic_hash": ""
   },
   ".github/workflows/codeql.yml": {
@@ -2575,8 +2575,8 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1787570037.467773,
-    "ast_hash": "1edb99ba4c0264222ff2f512065ea547",
+    "mtime": 1787571822.2905006,
+    "ast_hash": "02519ccdb6bc879bb4b058b4c716e958",
     "semantic_hash": ""
   },
   "client-admin/index.html": {
@@ -4235,22 +4235,22 @@
     "semantic_hash": ""
   },
   "lighthouserc.cjs": {
-    "mtime": 1787571127.8333766,
+    "mtime": 1787571289.086303,
     "ast_hash": "885573cbcae1e28a520aabe2fcc95b4b",
     "semantic_hash": ""
   },
   "scripts/ci-local.sh": {
-    "mtime": 1787571216.850129,
-    "ast_hash": "7af3b4a4a59ae5146f0cf8b5a946b0aa",
+    "mtime": 1787572156.1944532,
+    "ast_hash": "75c52ce3b2753b4a1ea0d8ad8d69bfd5",
     "semantic_hash": ""
   },
   "scripts/lighthouse-auth.cjs": {
-    "mtime": 1787571128.6580324,
+    "mtime": 1787571289.086838,
     "ast_hash": "07b402121d341813940e765b29a9a2a3",
     "semantic_hash": ""
   },
   "scripts/lighthouse-student-url.mjs": {
-    "mtime": 1787571129.3780153,
+    "mtime": 1787571289.0869858,
     "ast_hash": "3cf21e9928a68bf37b1678ffffdce1be",
     "semantic_hash": ""
   }

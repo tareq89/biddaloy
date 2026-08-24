@@ -1,7 +1,7 @@
 {
   "package.json": {
-    "mtime": 1787569723.9308186,
-    "ast_hash": "e631de3f4811d638c9ede6ca4c89a55a",
+    "mtime": 1787571250.5552049,
+    "ast_hash": "fa5c92c7a7b6f8bd52d0cb085263ae37",
     "semantic_hash": ""
   },
   "scripts/build-all.sh": {
@@ -2560,8 +2560,8 @@
     "semantic_hash": "23f296f56f50e29a878e3a644feeed3e"
   },
   ".github/workflows/ci.yml": {
-    "mtime": 1787570376.86087,
-    "ast_hash": "173cf0904a7ab757a0063594ca1593ec",
+    "mtime": 1787571250.5550637,
+    "ast_hash": "3ee6892c8e0a55823053fddb6d7b6517",
     "semantic_hash": ""
   },
   ".github/workflows/codeql.yml": {
@@ -4220,18 +4220,38 @@
     "semantic_hash": ""
   },
   "scripts/coverage-delta.mjs": {
-    "mtime": 1787570290.5027602,
-    "ast_hash": "df936b7f1a0b1400006ecd28a299c7cf",
+    "mtime": 1787570399.6719928,
+    "ast_hash": "e74b0c34492b373feb8342fd3ca66e04",
     "semantic_hash": ""
   },
   "scripts/coverage-offenders.mjs": {
-    "mtime": 1787570376.8572767,
+    "mtime": 1787570399.6721494,
     "ast_hash": "4bb8eb7a0895611d3ca4c40fb309ec13",
     "semantic_hash": ""
   },
   "scripts/coverage-summary.mjs": {
-    "mtime": 1787570376.851524,
+    "mtime": 1787570399.672289,
     "ast_hash": "7d6964b76196dcce61091998cadfa0c3",
+    "semantic_hash": ""
+  },
+  "lighthouserc.cjs": {
+    "mtime": 1787571127.8333766,
+    "ast_hash": "885573cbcae1e28a520aabe2fcc95b4b",
+    "semantic_hash": ""
+  },
+  "scripts/ci-local.sh": {
+    "mtime": 1787571216.850129,
+    "ast_hash": "7af3b4a4a59ae5146f0cf8b5a946b0aa",
+    "semantic_hash": ""
+  },
+  "scripts/lighthouse-auth.cjs": {
+    "mtime": 1787571128.6580324,
+    "ast_hash": "07b402121d341813940e765b29a9a2a3",
+    "semantic_hash": ""
+  },
+  "scripts/lighthouse-student-url.mjs": {
+    "mtime": 1787571129.3780153,
+    "ast_hash": "3cf21e9928a68bf37b1678ffffdce1be",
     "semantic_hash": ""
   }
 }
