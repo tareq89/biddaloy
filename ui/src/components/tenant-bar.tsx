@@ -141,8 +141,8 @@ export function TenantBar() {
   }
 
   return (
-    <div className="flex items-center gap-3 border-b border-border px-4 py-2 text-sm">
-      <span className="font-semibold text-foreground">{activeName}</span>
+    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-4 py-2 text-sm">
+      <span className="truncate font-semibold text-foreground">{activeName}</span>
       {memberships.length > 1 && (
         <>
           <span className="text-muted-foreground">{roleLabel(active.role)}</span>

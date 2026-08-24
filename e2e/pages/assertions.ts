@@ -16,5 +16,6 @@ export async function expectNoHorizontalScroll(page: Page): Promise<void> {
     const el = document.documentElement;
     return el.scrollWidth - el.clientWidth;
   });
-  expect(overflow, 'document should not scroll horizontally').toBeLessThanOrEqual(0);
+  // +1 absorbs subpixel rounding (WCAG 1.4.10 reflow check, [8.5.6]).
+  expect(overflow, 'document should not scroll horizontally').toBeLessThanOrEqual(1);
 }

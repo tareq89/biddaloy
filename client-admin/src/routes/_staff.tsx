@@ -74,12 +74,12 @@ function StaffLayout() {
       // get a collection queue they can't act on.
       pinnedItems: [
         {
-          to: '/fees',
+          to: '/fees/dues',
           label: t('items.studentDues'),
           permission: Permission.FEE_COLLECT,
         },
         {
-          to: '/fees',
+          to: '/payments/record',
           label: t('items.recordPayment'),
           permission: Permission.PAYMENT_RECORD,
         },
@@ -111,7 +111,7 @@ function StaffLayout() {
         navGroups={navGroups}
         brand={t('brand')}
         topBar={
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-x-2">
             <TenantBar />
             <div className="flex items-center gap-2">
               <GlobalSearchLauncher />

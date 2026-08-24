@@ -77,7 +77,10 @@ function StudentDetailPage() {
   return (
     <RegionConfigProvider value={regionConfig}>
       <div className="flex flex-col gap-4">
-        <Link to="/students" className="text-sm text-primary underline">
+        <Link
+          to="/students"
+          className="inline-flex min-h-6 items-center self-start text-sm text-primary underline"
+        >
           {t('detail.back')}
         </Link>
 

@@ -92,7 +92,7 @@ export function DetailShell({
           {identifiers && <div className="text-sm text-muted-foreground">{identifiers}</div>}
         </div>
         {visibleActions.length > 0 && (
-          <div className="flex gap-1.5">
+          <div className="flex flex-wrap gap-1.5">
             {visibleActions.map((action) => (
               <Button
                 key={action.id}
@@ -108,7 +108,10 @@ export function DetailShell({
       </div>
 
       <Tabs value={activeTab} onValueChange={onTabChange}>
-        <TabsList>
+        {/* The strip scrolls in its own container at narrow widths —
+            page-level horizontal scroll is a WCAG 1.4.10 failure
+            ([8.5.6]); scrolling the tab strip itself is not. */}
+        <TabsList className="max-w-full overflow-x-auto">
           {tabs.map((tab) => (
             <TabsTrigger key={tab.id} value={tab.id}>
               {tab.label}
