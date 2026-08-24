@@ -113,17 +113,23 @@ if [ "$RUN_LIGHTHOUSE" = 1 ]; then
   yarn build:server
   node server/dist/main.js &
   LH_SERVER_PID=$!
+  cleanup_lighthouse() {
+    kill "$LH_SERVER_PID" 2>/dev/null || true
+    if [ -n "${LH_PREVIEW_PID:-}" ]; then
+      kill "$LH_PREVIEW_PID" 2>/dev/null || true
+    fi
+  }
+  trap cleanup_lighthouse EXIT
   yarn build:client-admin
   yarn workspace @biddaloy/client-admin preview --port 5174 &
   LH_PREVIEW_PID=$!
-  trap 'kill "$LH_SERVER_PID" "$LH_PREVIEW_PID" 2>/dev/null || true' EXIT
   npx wait-on tcp:3000 tcp:5174 --timeout 120000
   STUDENT_URL="$(node scripts/lighthouse-student-url.mjs)"
   npx lhci autorun \
     --collect.url=http://localhost:5174/login \
     --collect.url=http://localhost:5174/fees/dues \
     --collect.url="$STUDENT_URL"
-  kill "$LH_SERVER_PID" "$LH_PREVIEW_PID" 2>/dev/null || true
+  cleanup_lighthouse
   trap - EXIT
   section_done "lighthouse"
 fi

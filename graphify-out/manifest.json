@@ -4240,8 +4240,8 @@
     "semantic_hash": ""
   },
   "scripts/ci-local.sh": {
-    "mtime": 1787578970.2642953,
-    "ast_hash": "ccedc3db3d5b0f9ae914853320404486",
+    "mtime": 1787579598.1572466,
+    "ast_hash": "f8ae73630996a76abba1b7d6b327f736",
     "semantic_hash": ""
   },
   "scripts/lighthouse-auth.cjs": {
