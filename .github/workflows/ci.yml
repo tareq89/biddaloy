@@ -27,6 +27,7 @@ jobs:
     name: Detect changed areas
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pull-requests: read
     outputs:
       frontend: ${{ steps.filter.outputs.frontend }}
@@ -43,6 +44,9 @@ jobs:
               - 'client-admin/**'
               - 'shared/**'
               - 'e2e/**'
+              - 'scripts/coverage-offenders.mjs'
+              - 'scripts/coverage-delta.mjs'
+              - 'scripts/bundle-delta.mjs'
               - 'package.json'
               - 'yarn.lock'
               - 'vitest.config.ts'
