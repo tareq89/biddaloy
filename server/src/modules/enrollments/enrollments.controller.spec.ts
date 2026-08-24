@@ -67,29 +67,49 @@ describe('EnrollmentController', () => {
   //  findCurrent — [8.11.3]
   // ────────────────────────
   describe('findCurrent', () => {
-    it('should call service.findCurrentByStudent with studentId and tenant id', async () => {
+    // `findCurrent` replies via `@Res({ passthrough: false })` (Nest's
+    // default handling would otherwise send an empty body instead of the
+    // JSON literal `null` for a legacy student — see the handler's own
+    // comment), so tests assert on the mocked `res` rather than a return
+    // value.
+    function mockResponse() {
+      const res: { status: ReturnType<typeof vi.fn>; json: ReturnType<typeof vi.fn> } = {
+        status: vi.fn(),
+        json: vi.fn(),
+      };
+      res.status.mockReturnValue(res);
+      return res;
+    }
+
+    it('should call service.findCurrentByStudent with studentId and tenant id, and reply with the result', async () => {
       const expected = { id: 'e1', student_id: 's1', enrollment_status: 'ACTIVE' };
       service.findCurrentByStudent.mockResolvedValue(expected);
+      const res = mockResponse();
 
-      const result = await controller.findCurrent('s1', TENANT);
+      await controller.findCurrent('s1', TENANT, res as any);
 
       expect(service.findCurrentByStudent).toHaveBeenCalledWith('s1', TENANT.id);
-      expect(result).toEqual(expected);
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith(expected);
     });
 
-    it('should return null when the student has no ACTIVE enrollment', async () => {
+    it('should reply with JSON null when the student has no ACTIVE enrollment', async () => {
       service.findCurrentByStudent.mockResolvedValue(null);
+      const res = mockResponse();
 
-      const result = await controller.findCurrent('s1', TENANT);
+      await controller.findCurrent('s1', TENANT, res as any);
 
-      expect(result).toBeNull();
+      expect(res.json).toHaveBeenCalledWith(null);
     });
 
     it('should propagate NotFoundException from service.findCurrentByStudent', async () => {
       const { NotFoundException } = await import('@nestjs/common');
       service.findCurrentByStudent.mockRejectedValue(new NotFoundException('Student not found'));
+      const res = mockResponse();
 
-      await expect(controller.findCurrent('bad', TENANT)).rejects.toThrow(NotFoundException);
+      await expect(controller.findCurrent('bad', TENANT, res as any)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
