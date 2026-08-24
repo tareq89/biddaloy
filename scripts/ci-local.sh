@@ -6,20 +6,25 @@
 # Default:        verify + frontend + audit (no external services needed)
 # --integration:  adds the integration section (self-provisions db+redis)
 # --e2e:          adds the e2e section (self-provisions db+redis)
+# --lighthouse:   adds the lighthouse section (self-provisions db+redis)
 # --full:         everything
-# --coverage:     frontend section runs yarn test:frontend:coverage
+# --no-coverage:  frontend section runs yarn test:frontend --run instead of
+#                 the coverage variant — faster, but NOT CI-equivalent (CI
+#                 always collects coverage in the frontend job)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 RUN_INTEGRATION=0
 RUN_E2E=0
-COVERAGE=0
+RUN_LIGHTHOUSE=0
+COVERAGE=1
 for arg in "$@"; do
   case "$arg" in
     --integration) RUN_INTEGRATION=1 ;;
     --e2e) RUN_E2E=1 ;;
-    --full) RUN_INTEGRATION=1; RUN_E2E=1 ;;
-    --coverage) COVERAGE=1 ;;
+    --lighthouse) RUN_LIGHTHOUSE=1 ;;
+    --full) RUN_INTEGRATION=1; RUN_E2E=1; RUN_LIGHTHOUSE=1 ;;
+    --no-coverage) COVERAGE=0 ;;
     *) echo "unknown flag: $arg" >&2; exit 2 ;;
   esac
 done
@@ -96,6 +101,31 @@ if [ "$RUN_E2E" = 1 ]; then
   # Playwright now fails fast with a clear port-in-use message instead.
   CI=1 yarn e2e
   section_done "e2e"
+fi
+
+if [ "$RUN_LIGHTHOUSE" = 1 ]; then
+  section "lighthouse"
+  provision_stack
+  yarn workspace @biddaloy/server migration:run
+  yarn workspace @biddaloy/server seed
+  # Production builds on both sides, same as the CI lighthouse job —
+  # never the dev servers.
+  yarn build:server
+  node server/dist/main.js &
+  LH_SERVER_PID=$!
+  yarn build:client-admin
+  yarn workspace @biddaloy/client-admin preview --port 5174 &
+  LH_PREVIEW_PID=$!
+  trap 'kill "$LH_SERVER_PID" "$LH_PREVIEW_PID" 2>/dev/null || true' EXIT
+  npx wait-on tcp:3000 tcp:5174 --timeout 120000
+  STUDENT_URL="$(node scripts/lighthouse-student-url.mjs)"
+  npx lhci autorun \
+    --collect.url=http://localhost:5174/login \
+    --collect.url=http://localhost:5174/fees/dues \
+    --collect.url="$STUDENT_URL"
+  kill "$LH_SERVER_PID" "$LH_PREVIEW_PID" 2>/dev/null || true
+  trap - EXIT
+  section_done "lighthouse"
 fi
 
 section "audit"
