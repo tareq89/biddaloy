@@ -91,6 +91,7 @@ function StaffLayout() {
           label: t('items.academicYears'),
           permission: Permission.ACADEMIC_YEAR_MANAGE,
         },
+        { to: '/classes', label: t('items.classes'), permission: Permission.CLASS_MANAGE },
         { to: '/settings', label: t('items.settings'), permission: Permission.SETTINGS_MANAGE },
       ],
     },

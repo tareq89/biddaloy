@@ -1,0 +1,167 @@
+/**
+ * A class's sections — name, capacity, enrolled count — with inline
+ * create/edit/delete. Shared by two call sites, not duplicated:
+ * `index.tsx`'s `renderExpandedRow` (the inline expansion panel the
+ * issue's own AC asks for) and `$classId.tsx`'s Sections tab
+ * (`-detail/sections-tab.tsx`) — same data, same actions, only the
+ * surrounding chrome differs.
+ */
+import { Permission } from '@biddaloy/shared';
+import { ApiError } from '@biddaloy/ui/api';
+import {
+  Button,
+  ErrorState,
+  Skeleton,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@biddaloy/ui/components';
+import { useClassSections, useHasPermission, type ClassSectionWithCount } from '@biddaloy/ui/hooks';
+import { useTranslation } from '@biddaloy/ui/i18n';
+import * as React from 'react';
+
+import { DeleteSectionDialog } from './-delete-section-dialog';
+import { SectionFormDialog } from './-section-form-dialog';
+
+export interface SectionsPanelProps {
+  classId: string;
+  className: string;
+  /** `index.tsx`'s inline expansion panel needs its own padding (the
+   * `<td>` it sits in is `p-0`); `$classId.tsx`'s Sections tab sits inside
+   * `DetailShell`'s already-unpadded `TabsContent` (same as every other
+   * tab in this route — see `-detail/*-tab.tsx`), so it opts out.
+   * Defaults `true` for the expansion-panel call site, the more common
+   * one today. */
+  padded?: boolean;
+}
+
+export function SectionsPanel({ classId, className, padded = true }: SectionsPanelProps) {
+  const { t } = useTranslation('classes');
+  const { t: tCommon } = useTranslation('common');
+  const canManage = useHasPermission(Permission.CLASS_MANAGE);
+  const query = useClassSections(classId);
+
+  const [createOpen, setCreateOpen] = React.useState(false);
+  const [editing, setEditing] = React.useState<ClassSectionWithCount | null>(null);
+  const [deleting, setDeleting] = React.useState<ClassSectionWithCount | null>(null);
+
+  if (query.isPending) {
+    return (
+      <div className={`flex flex-col gap-2 ${padded ? 'p-4' : ''}`} aria-hidden="true">
+        <Skeleton className="h-6 w-full" />
+        <Skeleton className="h-6 w-full" />
+      </div>
+    );
+  }
+
+  if (query.isError) {
+    const forbidden = query.error instanceof ApiError && query.error.statusCode === 403;
+    return (
+      <div className={padded ? 'p-4' : undefined}>
+        <ErrorState
+          message={forbidden ? t('detail.forbidden') : t('sections.errorMessage')}
+          retryLabel={tCommon('actions.retry')}
+          onRetry={() => void query.refetch()}
+        />
+      </div>
+    );
+  }
+
+  const sections = query.data ?? [];
+
+  return (
+    <div className={`flex flex-col gap-3 ${padded ? 'p-4' : ''}`}>
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold">{t('sections.heading', { className })}</h2>
+        {canManage && (
+          <Button type="button" size="sm" variant="outline" onClick={() => setCreateOpen(true)}>
+            {t('sections.addSection')}
+          </Button>
+        )}
+      </div>
+
+      {sections.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{t('sections.emptyMessage')}</p>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t('sections.columnName')}</TableHead>
+              <TableHead>{t('sections.columnCapacity')}</TableHead>
+              <TableHead>{t('sections.columnEnrolled')}</TableHead>
+              {canManage && <TableHead>{t('sections.columnActions')}</TableHead>}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {sections.map((section) => (
+              <TableRow key={section.id}>
+                <TableCell>{section.section_name}</TableCell>
+                <TableCell>{section.capacity ?? t('sections.noCapacity')}</TableCell>
+                <TableCell>{section.enrolled_count}</TableCell>
+                {canManage && (
+                  <TableCell>
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        className="text-sm font-medium text-primary underline"
+                        onClick={() => setEditing(section)}
+                      >
+                        {t('sections.edit')}
+                      </button>
+                      <button
+                        type="button"
+                        className="text-sm font-medium text-destructive underline"
+                        onClick={() => setDeleting(section)}
+                      >
+                        {t('sections.delete')}
+                      </button>
+                    </div>
+                  </TableCell>
+                )}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+
+      {canManage && (
+        <SectionFormDialog
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          mode="create"
+          classId={classId}
+          onSaved={() => setCreateOpen(false)}
+        />
+      )}
+
+      {canManage && editing && (
+        <SectionFormDialog
+          open={editing !== null}
+          onOpenChange={(open) => !open && setEditing(null)}
+          mode="edit"
+          classId={classId}
+          sectionId={editing.id}
+          initialValues={{
+            sectionName: editing.section_name,
+            capacity: editing.capacity ?? undefined,
+          }}
+          onSaved={() => setEditing(null)}
+        />
+      )}
+
+      {canManage && deleting && (
+        <DeleteSectionDialog
+          open={deleting !== null}
+          onOpenChange={(open) => !open && setDeleting(null)}
+          classId={classId}
+          sectionId={deleting.id}
+          sectionName={deleting.section_name}
+          onDeleted={() => setDeleting(null)}
+        />
+      )}
+    </div>
+  );
+}

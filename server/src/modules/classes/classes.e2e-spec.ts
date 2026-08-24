@@ -6,7 +6,12 @@ import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { DataSource } from 'typeorm';
-import { UserRole } from '@biddaloy/shared';
+import { UserRole, EnrollmentStatus, TeacherDesignation } from '@biddaloy/shared';
+import { Student } from '../students/entities/student.entity';
+import { Enrollment } from '../students/entities/enrollment.entity';
+import { Teacher } from '../academics/entities/teacher.entity';
+import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
+import { User } from '../users/entities/user.entity';
 import {
   SEED_TENANT_ID,
   SEED_ADMIN_EMAIL,
@@ -330,6 +335,166 @@ describe('Classes & Sections E2E', () => {
         .expect(200);
 
       expect(listRes.body.find((s: any) => s.id === sectionRes.body.id)).toBeUndefined();
+    });
+  });
+
+  describe('DELETE /classes/:id — enrolled students blocked (409)', () => {
+    it('returns 409 naming the enrolled-student count, not a generic failure', async () => {
+      const classRes = await supertest(app.getHttpServer())
+        .post('/api/v1/classes')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ name: 'Class With Enrolled Student', academic_year_id: SEED_ACADEMIC_YEAR_ID })
+        .expect(201);
+
+      const sectionRes = await supertest(app.getHttpServer())
+        .post(`/api/v1/classes/${classRes.body.id}/sections`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ section_name: 'E', capacity: 30 })
+        .expect(201);
+
+      // `Student` (joined through `class_section`) is what the service's
+      // delete guard counts — `POST /students` never writes an
+      // `Enrollment` row, so the guard cannot rely on that table. An
+      // `Enrollment` row is seeded alongside it anyway, matching
+      // `classes.service.integration.spec.ts`'s `createStudentEnrolledIn`,
+      // to prove the guard fires on the `Student` row alone.
+      const studentRepo = dataSource.getRepository(Student);
+      const enrollmentRepo = dataSource.getRepository(Enrollment);
+      const student = await studentRepo.save({
+        full_name: 'Enrolled Student',
+        registration_number: `REG-E2E-${Math.random().toString(36).slice(2, 10)}`,
+        roll_number: 901,
+        class_section_id: sectionRes.body.id,
+        tenant_id: TENANT_ID,
+        enrollment_status: EnrollmentStatus.ACTIVE,
+      });
+      await enrollmentRepo.save({
+        student_id: student.id,
+        class_id: classRes.body.id,
+        section_id: sectionRes.body.id,
+        academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        tenant_id: TENANT_ID,
+        enrollment_status: EnrollmentStatus.ACTIVE,
+      });
+
+      const res = await supertest(app.getHttpServer())
+        .delete(`/api/v1/classes/${classRes.body.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(409);
+
+      // The AC's own "explanation why" — the delete-blocked dialog reads
+      // this message verbatim rather than showing a generic failure toast.
+      expect(res.body.message).toContain('1 student');
+      expect(res.body.message).toContain('still enrolled');
+
+      // Cleanup so it doesn't linger for later tests in this file.
+      await enrollmentRepo.delete({ student_id: student.id });
+      await studentRepo.delete({ id: student.id });
+    });
+  });
+
+  describe('GET /classes/:classId/teachers', () => {
+    it('lists distinct teachers assigned to any section of the class, folding section names', async () => {
+      const classRes = await supertest(app.getHttpServer())
+        .post('/api/v1/classes')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ name: 'Class With Teacher', academic_year_id: SEED_ACADEMIC_YEAR_ID })
+        .expect(201);
+
+      const sectionRes = await supertest(app.getHttpServer())
+        .post(`/api/v1/classes/${classRes.body.id}/sections`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ section_name: 'F', capacity: 30 })
+        .expect(201);
+
+      const userRepo = dataSource.getRepository(User);
+      const teacherRepo = dataSource.getRepository(Teacher);
+      const tcsRepo = dataSource.getRepository(TeacherClassSection);
+      const user = await userRepo.save({
+        full_name: 'Teacher E2E',
+        email: `teacher-e2e-${Math.random().toString(36).slice(2, 10)}@test.com`,
+      });
+      const teacher = await teacherRepo.save({
+        user_id: user.id,
+        employee_id: `EMP-E2E-${Math.random().toString(36).slice(2, 8)}`,
+        designations: [TeacherDesignation.CLASS_TEACHER],
+        tenant_id: TENANT_ID,
+      });
+      await tcsRepo.save({ teacher_id: teacher.id, section_id: sectionRes.body.id });
+
+      const res = await supertest(app.getHttpServer())
+        .get(`/api/v1/classes/${classRes.body.id}/teachers`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(200);
+
+      expect(Array.isArray(res.body)).toBe(true);
+      const row = res.body.find((t: any) => t.id === teacher.id);
+      expect(row).toBeDefined();
+      expect(row.full_name).toBe('Teacher E2E');
+      expect(row.section_names).toContain('F');
+      // A real array over the wire, not the raw-query text form of a
+      // Postgres enum array (e.g. a string) — the MSW handler and
+      // `teachers-tab.tsx`'s `.map()` both assume `designations` is
+      // `TeacherDesignation[]`.
+      expect(Array.isArray(row.designations)).toBe(true);
+      expect(row.designations).toContain(TeacherDesignation.CLASS_TEACHER);
+
+      // Cleanup so it doesn't linger for later tests in this file.
+      await tcsRepo.delete({ teacher_id: teacher.id });
+      await teacherRepo.delete({ id: teacher.id });
+      await userRepo.delete({ id: user.id });
+    });
+
+    it('returns 401 for STUDENT role (read roles are ADMIN/ACCOUNTANT/EXECUTIVE/TEACHER only)', async () => {
+      // `RolesGuard` (`context.guard.ts`) throws `UnauthorizedException`,
+      // not `ForbiddenException`, for a role mismatch — 401, not 403 — so
+      // the assertion below matches that guard's actual behaviour rather
+      // than the REST convention of 403 for "authenticated but not
+      // permitted". This is project-wide `RolesGuard` behaviour, not
+      // something specific to this endpoint, and out of scope to change
+      // here.
+      // Reuses the STUDENT-role user seeded by the `POST /classes` 403
+      // test above — `ON CONFLICT DO NOTHING` makes this safe to repeat.
+      await dataSource.query(
+        `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+         VALUES ('${SEED_ADMIN_USER_ID}', '${TENANT_ID}', '${UserRole.STUDENT}', NOW(), NOW())
+         ON CONFLICT DO NOTHING`,
+      );
+      const loginRes = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+        .expect(200);
+      const studentToken = loginRes.body.access_token;
+
+      const classRes = await supertest(app.getHttpServer())
+        .post('/api/v1/classes')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ name: 'Role Gated Class', academic_year_id: SEED_ACADEMIC_YEAR_ID })
+        .expect(201);
+
+      const res = await supertest(app.getHttpServer())
+        .get(`/api/v1/classes/${classRes.body.id}/teachers`)
+        .set('Authorization', `Bearer ${studentToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.STUDENT)
+        .expect(401);
+
+      expect(res.body.message).toContain('Requires one of roles');
+    });
+
+    it('returns 404 for a class in another tenant', async () => {
+      await supertest(app.getHttpServer())
+        .get('/api/v1/classes/00000000-0000-4000-8000-000000000000/teachers')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(404);
     });
   });
 });

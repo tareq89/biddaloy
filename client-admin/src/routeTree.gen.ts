@@ -21,6 +21,8 @@ import { Route as PortalIndexRouteImport } from './routes/portal/index'
 import { Route as PortalFeesRouteImport } from './routes/portal/fees'
 import { Route as StaffAcademicYearsIndexRouteImport } from './routes/_staff/academic-years/index'
 import { Route as StaffAcademicYearsAcademicYearIdRouteImport } from './routes/_staff/academic-years/$academicYearId'
+import { Route as StaffClassesIndexRouteImport } from './routes/_staff/classes/index'
+import { Route as StaffClassesClassIdRouteImport } from './routes/_staff/classes/$classId'
 import { Route as StaffFeesIndexRouteImport } from './routes/_staff/fees/index'
 import { Route as StaffFeesDuesRouteImport } from './routes/_staff/fees/dues'
 import { Route as StaffInvoicesIndexRouteImport } from './routes/_staff/invoices/index'
@@ -91,6 +93,16 @@ const StaffAcademicYearsAcademicYearIdRoute =
     path: '/academic-years/$academicYearId',
     getParentRoute: () => StaffRoute,
   } as any)
+const StaffClassesIndexRoute = StaffClassesIndexRouteImport.update({
+  id: '/classes/',
+  path: '/classes/',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffClassesClassIdRoute = StaffClassesClassIdRouteImport.update({
+  id: '/classes/$classId',
+  path: '/classes/$classId',
+  getParentRoute: () => StaffRoute,
+} as any)
 const StaffFeesIndexRoute = StaffFeesIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -149,12 +161,14 @@ export interface FileRoutesByFullPath {
   '/portal/fees': typeof PortalFeesRoute
   '/portal/': typeof PortalIndexRoute
   '/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
+  '/classes/$classId': typeof StaffClassesClassIdRoute
   '/fees/dues': typeof StaffFeesDuesRoute
   '/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
   '/payments/record': typeof StaffPaymentsRecordRoute
   '/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/students/new': typeof StaffStudentsNewRoute
   '/academic-years/': typeof StaffAcademicYearsIndexRoute
+  '/classes/': typeof StaffClassesIndexRoute
   '/fees/': typeof StaffFeesIndexRoute
   '/invoices/': typeof StaffInvoicesIndexRoute
   '/students/': typeof StaffStudentsIndexRoute
@@ -169,12 +183,14 @@ export interface FileRoutesByTo {
   '/portal/fees': typeof PortalFeesRoute
   '/portal': typeof PortalIndexRoute
   '/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
+  '/classes/$classId': typeof StaffClassesClassIdRoute
   '/fees/dues': typeof StaffFeesDuesRoute
   '/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
   '/payments/record': typeof StaffPaymentsRecordRoute
   '/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/students/new': typeof StaffStudentsNewRoute
   '/academic-years': typeof StaffAcademicYearsIndexRoute
+  '/classes': typeof StaffClassesIndexRoute
   '/fees': typeof StaffFeesIndexRoute
   '/invoices': typeof StaffInvoicesIndexRoute
   '/students': typeof StaffStudentsIndexRoute
@@ -193,12 +209,14 @@ export interface FileRoutesById {
   '/portal/fees': typeof PortalFeesRoute
   '/portal/': typeof PortalIndexRoute
   '/_staff/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
+  '/_staff/classes/$classId': typeof StaffClassesClassIdRoute
   '/_staff/fees/dues': typeof StaffFeesDuesRoute
   '/_staff/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
   '/_staff/payments/record': typeof StaffPaymentsRecordRoute
   '/_staff/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/_staff/students/new': typeof StaffStudentsNewRoute
   '/_staff/academic-years/': typeof StaffAcademicYearsIndexRoute
+  '/_staff/classes/': typeof StaffClassesIndexRoute
   '/_staff/fees/': typeof StaffFeesIndexRoute
   '/_staff/invoices/': typeof StaffInvoicesIndexRoute
   '/_staff/students/': typeof StaffStudentsIndexRoute
@@ -217,12 +235,14 @@ export interface FileRouteTypes {
     | '/portal/fees'
     | '/portal/'
     | '/academic-years/$academicYearId'
+    | '/classes/$classId'
     | '/fees/dues'
     | '/invoices/$invoiceId'
     | '/payments/record'
     | '/students/$studentId'
     | '/students/new'
     | '/academic-years/'
+    | '/classes/'
     | '/fees/'
     | '/invoices/'
     | '/students/'
@@ -237,12 +257,14 @@ export interface FileRouteTypes {
     | '/portal/fees'
     | '/portal'
     | '/academic-years/$academicYearId'
+    | '/classes/$classId'
     | '/fees/dues'
     | '/invoices/$invoiceId'
     | '/payments/record'
     | '/students/$studentId'
     | '/students/new'
     | '/academic-years'
+    | '/classes'
     | '/fees'
     | '/invoices'
     | '/students'
@@ -260,12 +282,14 @@ export interface FileRouteTypes {
     | '/portal/fees'
     | '/portal/'
     | '/_staff/academic-years/$academicYearId'
+    | '/_staff/classes/$classId'
     | '/_staff/fees/dues'
     | '/_staff/invoices/$invoiceId'
     | '/_staff/payments/record'
     | '/_staff/students/$studentId'
     | '/_staff/students/new'
     | '/_staff/academic-years/'
+    | '/_staff/classes/'
     | '/_staff/fees/'
     | '/_staff/invoices/'
     | '/_staff/students/'
@@ -366,6 +390,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffAcademicYearsAcademicYearIdRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/classes/': {
+      id: '/_staff/classes/'
+      path: '/classes'
+      fullPath: '/classes/'
+      preLoaderRoute: typeof StaffClassesIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/classes/$classId': {
+      id: '/_staff/classes/$classId'
+      path: '/classes/$classId'
+      fullPath: '/classes/$classId'
+      preLoaderRoute: typeof StaffClassesClassIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/fees/': {
       id: '/_staff/fees/'
       path: '/'
@@ -451,11 +489,13 @@ interface StaffRouteChildren {
   StaffFeesRoute: typeof StaffFeesRouteWithChildren
   StaffSettingsRoute: typeof StaffSettingsRoute
   StaffAcademicYearsAcademicYearIdRoute: typeof StaffAcademicYearsAcademicYearIdRoute
+  StaffClassesClassIdRoute: typeof StaffClassesClassIdRoute
   StaffInvoicesInvoiceIdRoute: typeof StaffInvoicesInvoiceIdRoute
   StaffPaymentsRecordRoute: typeof StaffPaymentsRecordRoute
   StaffStudentsStudentIdRoute: typeof StaffStudentsStudentIdRoute
   StaffStudentsNewRoute: typeof StaffStudentsNewRoute
   StaffAcademicYearsIndexRoute: typeof StaffAcademicYearsIndexRoute
+  StaffClassesIndexRoute: typeof StaffClassesIndexRoute
   StaffInvoicesIndexRoute: typeof StaffInvoicesIndexRoute
   StaffStudentsIndexRoute: typeof StaffStudentsIndexRoute
   StaffStudentsStudentIdEditRoute: typeof StaffStudentsStudentIdEditRoute
@@ -466,11 +506,13 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffFeesRoute: StaffFeesRouteWithChildren,
   StaffSettingsRoute: StaffSettingsRoute,
   StaffAcademicYearsAcademicYearIdRoute: StaffAcademicYearsAcademicYearIdRoute,
+  StaffClassesClassIdRoute: StaffClassesClassIdRoute,
   StaffInvoicesInvoiceIdRoute: StaffInvoicesInvoiceIdRoute,
   StaffPaymentsRecordRoute: StaffPaymentsRecordRoute,
   StaffStudentsStudentIdRoute: StaffStudentsStudentIdRoute,
   StaffStudentsNewRoute: StaffStudentsNewRoute,
   StaffAcademicYearsIndexRoute: StaffAcademicYearsIndexRoute,
+  StaffClassesIndexRoute: StaffClassesIndexRoute,
   StaffInvoicesIndexRoute: StaffInvoicesIndexRoute,
   StaffStudentsIndexRoute: StaffStudentsIndexRoute,
   StaffStudentsStudentIdEditRoute: StaffStudentsStudentIdEditRoute,

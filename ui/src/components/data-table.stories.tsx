@@ -124,6 +124,42 @@ export const WithColumnsMenu: Story = {
  * button, a disabled pagination control) are already covered by
  * `Button`'s own `Disabled` story. */
 
+/** [8.11.2]'s classes list: rows expand inline to reveal each class's
+ * sections, rather than navigating away. */
+export const ExpandableRows: Story = {
+  render: () => {
+    function ExpandableDemo() {
+      const [sorting, setSorting] = useState<DataTableSort | null>(null);
+      const [page, setPage] = useState(1);
+      return (
+        <DataTable
+          tableId="students-expandable"
+          caption="Students"
+          columns={COLUMNS}
+          data={STUDENTS}
+          getRowId={(row) => row.id}
+          sorting={sorting}
+          onSortingChange={setSorting}
+          page={page}
+          pageSize={20}
+          totalCount={STUDENTS.length}
+          onPageChange={setPage}
+          expandRowLabel={(row) => `Details for ${row.name}`}
+          renderExpandedRow={(row) => (
+            <div className="p-4">
+              <p className="text-sm font-medium">Details for {row.name}</p>
+              <p className="text-sm text-muted-foreground">
+                Class: {row.className} · Status: {row.status}
+              </p>
+            </div>
+          )}
+        />
+      );
+    }
+    return <ExpandableDemo />;
+  },
+};
+
 export const RightToLeft: Story = {
   render: () => (
     <Demo

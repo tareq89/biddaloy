@@ -35,7 +35,7 @@ const npxCommand = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 // small, deliberate list rather than something derived from a glob,
 // since the point is catching a route that *stopped* being split, not
 // discovering routes automatically.
-const EXPECTED_ROUTE_CHUNKS = ['settings', 'students', 'fees'];
+const EXPECTED_ROUTE_CHUNKS = ['settings', 'students', 'fees', 'classes'];
 
 /**
  * [8.9.10]: one SPA now serves staff *and* guardians, so "extract a
@@ -55,8 +55,16 @@ const EXPECTED_ROUTE_CHUNKS = ['settings', 'students', 'fees'];
  * `routeTree.gen.ts`'s lazy-import wrapper for each new route lives in
  * the entry even though the route's own component is still code-split,
  * so every new route nudges this up a little on its own.
+ *
+ * Raised for [8.11.2]: 220,588 B gzipped measured with `/classes` and
+ * `/classes/$classId` registered — 88 B over the previous ceiling. Same
+ * cause as [8.10.6] above, not a regression in what gets split: both
+ * classes routes do get their own chunks (`classes-*.js`, `_classId-*.js`,
+ * now asserted by `EXPECTED_ROUTE_CHUNKS`), and only `routeTree.gen.ts`'s
+ * per-route lazy-import wrappers land in the entry. Two new routes buys
+ * ~44 B each, so this raise is the cost of registering them at all.
  */
-const ENTRY_CHUNK_GZIP_CEILING_BYTES = 220_500;
+const ENTRY_CHUNK_GZIP_CEILING_BYTES = 221_000;
 
 /** The entry is whatever `index.html` loads as its module script — asked
  * of the build output rather than guessed from a filename pattern, which

@@ -14,7 +14,8 @@
     "recordPayment": "Record Payment",
     "portalOverview": "Overview",
     "portalFees": "Fees and invoices",
-    "academicYears": "Academic Years"
+    "academicYears": "Academic Years",
+    "classes": "Classes"
   },
   "groups": { "people": "People", "finance": "Finance", "administration": "Administration" },
   "dashboard": {

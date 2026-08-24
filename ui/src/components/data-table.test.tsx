@@ -33,6 +33,7 @@ function Controlled({
   columnsMenu = false,
   defaultColumnVisibility,
   columns = COLUMNS,
+  expandable = false,
 }: {
   data?: Student[];
   totalCount?: number;
@@ -43,6 +44,7 @@ function Controlled({
   columnsMenu?: boolean;
   defaultColumnVisibility?: VisibilityState;
   columns?: DataTableColumn<Student>[];
+  expandable?: boolean;
 }) {
   const [sorting, setSorting] = useState<DataTableSort | null>(null);
   const [page, setPage] = useState(1);
@@ -71,6 +73,12 @@ function Controlled({
             selectedIds,
             onSelectedIdsChange: setSelectedIds,
             bulkActions: <button type="button">Delete selected</button>,
+          }
+        : {})}
+      {...(expandable
+        ? {
+            expandRowLabel: (row: Student) => `Details for ${row.name}`,
+            renderExpandedRow: (row: Student) => <p>Expanded details for {row.name}</p>,
           }
         : {})}
     />
@@ -371,5 +379,93 @@ describe('DataTable pagination', () => {
     render(<PageProbe />);
     await user.click(screen.getByRole('button', { name: 'Next' }));
     await waitFor(() => expect(screen.getByText('Page 2 of 5')).toBeTruthy());
+  });
+});
+
+describe('DataTable expandable rows', () => {
+  afterEach(() => window.localStorage.clear());
+
+  it('is absent when renderExpandedRow is not supplied', () => {
+    render(<Controlled />);
+    expect(screen.queryAllByRole('button', { name: /Details for/ })).toHaveLength(0);
+  });
+
+  it('renders a per-row toggle, collapsed by default, that expands and collapses on click', async () => {
+    const user = userEvent.setup();
+    render(<Controlled expandable />);
+
+    const toggle = screen.getByRole('button', { name: 'Details for Rahim Uddin' });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByText('Expanded details for Rahim Uddin')).toBeNull();
+    // Not set while collapsed — the `<tr>` it would name doesn't exist in
+    // the DOM yet, so `aria-controls` mustn't point at a nonexistent id.
+    expect(toggle.getAttribute('aria-controls')).toBeNull();
+
+    await user.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByText('Expanded details for Rahim Uddin')).toBeTruthy();
+
+    // `aria-controls` must actually resolve to the panel it names.
+    const controlsId = toggle.getAttribute('aria-controls');
+    expect(controlsId).toBeTruthy();
+    expect(document.getElementById(controlsId as string)?.textContent).toContain(
+      'Expanded details for Rahim Uddin',
+    );
+
+    await user.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByText('Expanded details for Rahim Uddin')).toBeNull();
+    // Removed again on re-collapse, same reasoning as the initial state.
+    expect(toggle.getAttribute('aria-controls')).toBeNull();
+  });
+
+  it("expanding one row does not affect another row's expanded state", async () => {
+    const user = userEvent.setup();
+    render(<Controlled expandable />);
+
+    await user.click(screen.getByRole('button', { name: 'Details for Rahim Uddin' }));
+    expect(screen.getByText('Expanded details for Rahim Uddin')).toBeTruthy();
+    expect(screen.queryByText('Expanded details for Karim Ahmed')).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Details for Karim Ahmed' }));
+    // Both stay expanded — the AC only requires each row's toggle to be
+    // independently keyboard-operable, not an accordion (single-open) group.
+    expect(screen.getByText('Expanded details for Rahim Uddin')).toBeTruthy();
+    expect(screen.getByText('Expanded details for Karim Ahmed')).toBeTruthy();
+  });
+
+  it('the toggle button is a native tab stop, not part of the roving-tabindex data-cell grid', async () => {
+    const user = userEvent.setup();
+    render(<Controlled expandable />);
+    const cells = screen.getAllByRole('cell');
+    // Same reasoning as the checkbox column: the first *data* cell is the
+    // roving stop, at index 1 (index 0 is the expand-toggle cell).
+    cells[1]?.focus();
+    await user.keyboard('{ArrowRight}');
+    await waitFor(() => expect(document.activeElement).toBe(cells[2]));
+  });
+
+  it('the toggle is keyboard-operable — Enter and Space both activate it, same as any native button', async () => {
+    const user = userEvent.setup();
+    render(<Controlled expandable />);
+    const toggle = screen.getByRole('button', { name: 'Details for Rahim Uddin' });
+
+    // Three tab stops precede the first row's toggle: the scrollable
+    // region wrapper (`role="region" tabIndex={0}`, the 320px
+    // keyboard-scroll technique — see this component's own header
+    // comment), then the sortable "Name" column header's own `<button>`
+    // (`COLUMNS`' one `sortable: true` column) — both ahead of the toggle
+    // in DOM order, which itself sits ahead of that row's one
+    // roving-tabindex data cell.
+    await user.tab();
+    await user.tab();
+    await user.tab();
+    await waitFor(() => expect(document.activeElement).toBe(toggle));
+
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(toggle.getAttribute('aria-expanded')).toBe('true'));
+
+    await user.keyboard(' ');
+    await waitFor(() => expect(toggle.getAttribute('aria-expanded')).toBe('false'));
   });
 });
