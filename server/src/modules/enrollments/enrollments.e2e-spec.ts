@@ -96,6 +96,17 @@ describe('Enrollments E2E — GET /enrollments/:studentId/current', () => {
   }, 60000);
 
   afterAll(async () => {
+    // user_tenants is excluded from clearTransactionalTables (it holds the
+    // seeded admin's baseline membership), so the extra roles added above
+    // must be cleaned up here to avoid leaking into later e2e suites.
+    await dataSource.query(
+      `DELETE FROM user_tenants WHERE user_id = $1 AND tenant_id = $2 AND role = ANY($3)`,
+      [
+        SEED_ADMIN_USER_ID,
+        TENANT_ID,
+        [UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER, UserRole.STUDENT],
+      ],
+    );
     await app.close();
   });
 
