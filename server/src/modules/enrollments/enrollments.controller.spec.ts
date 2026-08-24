@@ -21,6 +21,7 @@ describe('EnrollmentController', () => {
     service = {
       create: vi.fn(),
       findByStudent: vi.fn(),
+      findCurrentByStudent: vi.fn(),
       update: vi.fn(),
     };
     controller = new EnrollmentController(service as unknown as EnrollmentService);
@@ -63,6 +64,36 @@ describe('EnrollmentController', () => {
   });
 
   // ────────────────────────
+  //  findCurrent — [8.11.3]
+  // ────────────────────────
+  describe('findCurrent', () => {
+    it('should call service.findCurrentByStudent with studentId and tenant id', async () => {
+      const expected = { id: 'e1', student_id: 's1', enrollment_status: 'ACTIVE' };
+      service.findCurrentByStudent.mockResolvedValue(expected);
+
+      const result = await controller.findCurrent('s1', TENANT);
+
+      expect(service.findCurrentByStudent).toHaveBeenCalledWith('s1', TENANT.id);
+      expect(result).toEqual(expected);
+    });
+
+    it('should return null when the student has no ACTIVE enrollment', async () => {
+      service.findCurrentByStudent.mockResolvedValue(null);
+
+      const result = await controller.findCurrent('s1', TENANT);
+
+      expect(result).toBeNull();
+    });
+
+    it('should propagate NotFoundException from service.findCurrentByStudent', async () => {
+      const { NotFoundException } = await import('@nestjs/common');
+      service.findCurrentByStudent.mockRejectedValue(new NotFoundException('Student not found'));
+
+      await expect(controller.findCurrent('bad', TENANT)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ────────────────────────
   //  update
   // ────────────────────────
   describe('update', () => {
@@ -72,6 +103,17 @@ describe('EnrollmentController', () => {
       service.update.mockResolvedValue(expected);
 
       const result = await controller.update('e1', dto as any, TENANT);
+
+      expect(service.update).toHaveBeenCalledWith('e1', dto, TENANT.id);
+      expect(result).toEqual(expected);
+    });
+
+    it('[8.11.3] should pass a class_id move through to service.update unchanged', async () => {
+      const dto = { class_id: 'c2', section_id: 'sec2' } as any;
+      const expected = { id: 'e1', class_id: 'c2', section_id: 'sec2' };
+      service.update.mockResolvedValue(expected);
+
+      const result = await controller.update('e1', dto, TENANT);
 
       expect(service.update).toHaveBeenCalledWith('e1', dto, TENANT.id);
       expect(result).toEqual(expected);

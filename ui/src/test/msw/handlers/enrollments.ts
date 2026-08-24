@@ -57,6 +57,26 @@ const update = http.patch('/api/v1/enrollments/:id', ({ params }) =>
   HttpResponse.json(enrollmentFactory({ id: params.id as string })),
 );
 
-export const enrollmentHandlers = { create, listByStudent, listByStudentEmpty, update };
+/** [8.11.3] — the "Move class" dialog's starting point. */
+const current = http.get('/api/v1/enrollments/:studentId/current', ({ params }) =>
+  HttpResponse.json(
+    enrollmentFactory({ student: studentFactory({ id: params.studentId as string }) }),
+  ),
+);
 
-export const enrollmentDefaultHandlers = [create, listByStudent, update];
+/** [8.11.3] — the get-or-create fallback branch: a legacy student with no
+ * ACTIVE `Enrollment` row yet. */
+const currentEmpty = http.get('/api/v1/enrollments/:studentId/current', () =>
+  HttpResponse.json(null),
+);
+
+export const enrollmentHandlers = {
+  create,
+  listByStudent,
+  listByStudentEmpty,
+  update,
+  current,
+  currentEmpty,
+};
+
+export const enrollmentDefaultHandlers = [create, listByStudent, update, current];

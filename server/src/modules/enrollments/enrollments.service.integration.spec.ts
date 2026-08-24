@@ -17,10 +17,15 @@ import { ALL_ENTITIES } from '@test/all-entities';
 import {
   SEED_TENANT_ID,
   SEED_CLASS_1_ID,
+  SEED_CLASS_2_ID,
   SEED_SECTION_1_ID,
   SEED_ACADEMIC_YEAR_ID,
 } from '@test/constants';
 import { EnrollmentStatus } from '@biddaloy/shared';
+
+// [8.11.3] — a second class+section under the same tenant/academic year,
+// so "move class" tests have somewhere real to move a student to.
+const SEED_CLASS_2_SECTION_ID = '00000000-0000-4000-8000-000000000043';
 
 /**
  * Integration tests for EnrollmentService.
@@ -88,6 +93,25 @@ async function seedReferenceData(ds: DataSource): Promise<void> {
       id: SEED_SECTION_1_ID,
       section_name: 'Section A',
       class_id: SEED_CLASS_1_ID,
+      tenant_id: SEED_TENANT_ID,
+    }),
+  );
+
+  // [8.11.3] — a second class + section, same tenant/academic year, for
+  // "move class" tests.
+  await classRepo.save(
+    classRepo.create({
+      id: SEED_CLASS_2_ID,
+      name: 'Class Two',
+      academic_year_id: SEED_ACADEMIC_YEAR_ID,
+      tenant_id: SEED_TENANT_ID,
+    }),
+  );
+  await sectionRepo.save(
+    sectionRepo.create({
+      id: SEED_CLASS_2_SECTION_ID,
+      section_name: 'Section A',
+      class_id: SEED_CLASS_2_ID,
       tenant_id: SEED_TENANT_ID,
     }),
   );
@@ -404,6 +428,32 @@ describe('EnrollmentService (integration)', () => {
 
       expect(second).toBeDefined();
       expect(second.enrollment_status).toBe(EnrollmentStatus.ACTIVE);
+    });
+
+    // ────────────────────────
+    //  [8.11.3] get-or-create fallback — a legacy student with no
+    //  Enrollment row yet (created before this issue's
+    //  StudentService.create dual-write) still gets moved for real when
+    //  the transfer dialog POSTs a fresh enrollment instead of PATCHing.
+    // ────────────────────────
+    it('syncs Student.class_section_id when creating a fresh ACTIVE enrollment for a legacy student', async () => {
+      const student = await buildStudent({ class_section_id: SEED_SECTION_1_ID, roll_number: 3 });
+
+      const created = await service.create(
+        {
+          student_id: student.id,
+          class_id: SEED_CLASS_2_ID,
+          section_id: SEED_CLASS_2_SECTION_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        },
+        TENANT_ID,
+      );
+
+      expect(created.enrollment_status).toBe(EnrollmentStatus.ACTIVE);
+
+      const movedStudent = await studentRepo.findOne({ where: { id: student.id } });
+      expect(movedStudent!.class_section_id).toBe(SEED_CLASS_2_SECTION_ID);
+      expect(movedStudent!.roll_number).toBe(1);
     });
   });
 
@@ -790,6 +840,180 @@ describe('EnrollmentService (integration)', () => {
       expect(updated.class).toBeDefined();
       expect(updated.section).toBeDefined();
       expect(updated.academic_year).toBeDefined();
+    });
+
+    // ────────────────────────
+    //  [8.11.3] Move class — Student.class_section_id sync
+    // ────────────────────────
+    it('moving to a different class+section updates Student.class_section_id and reassigns roll_number', async () => {
+      const student = await buildStudent({ class_section_id: SEED_SECTION_1_ID, roll_number: 1 });
+      const enrollment = await service.create(
+        {
+          student_id: student.id,
+          class_id: SEED_CLASS_1_ID,
+          section_id: SEED_SECTION_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        },
+        TENANT_ID,
+      );
+
+      // Another student already sits at roll 1 in the target section, so
+      // the move should land on roll 2, not collide.
+      await buildStudent({
+        full_name: 'Already In Target Section',
+        registration_number: 'REG-2026-0002',
+        class_section_id: SEED_CLASS_2_SECTION_ID,
+        roll_number: 1,
+      });
+
+      const updated = await service.update(
+        enrollment.id,
+        { class_id: SEED_CLASS_2_ID, section_id: SEED_CLASS_2_SECTION_ID },
+        TENANT_ID,
+      );
+
+      expect(updated.class_id).toBe(SEED_CLASS_2_ID);
+      expect(updated.section_id).toBe(SEED_CLASS_2_SECTION_ID);
+
+      const movedStudent = await studentRepo.findOne({ where: { id: student.id } });
+      expect(movedStudent!.class_section_id).toBe(SEED_CLASS_2_SECTION_ID);
+      expect(movedStudent!.roll_number).toBe(2);
+    });
+
+    it('throws BadRequestException when class_id changes without a section_id', async () => {
+      const { BadRequestException } = await import('@nestjs/common');
+      const student = await buildStudent();
+      const enrollment = await service.create(
+        {
+          student_id: student.id,
+          class_id: SEED_CLASS_1_ID,
+          section_id: SEED_SECTION_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        },
+        TENANT_ID,
+      );
+
+      await expect(
+        service.update(enrollment.id, { class_id: SEED_CLASS_2_ID }, TENANT_ID),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws NotFoundException when the target class belongs to a different tenant', async () => {
+      const student = await buildStudent();
+      const enrollment = await service.create(
+        {
+          student_id: student.id,
+          class_id: SEED_CLASS_1_ID,
+          section_id: SEED_SECTION_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        },
+        TENANT_ID,
+      );
+
+      await expect(
+        service.update(
+          enrollment.id,
+          { class_id: '00000000-0000-4000-8000-000000000098', section_id: SEED_SECTION_1_ID },
+          TENANT_ID,
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws BadRequestException when the target class belongs to a different academic year', async () => {
+      const { BadRequestException } = await import('@nestjs/common');
+      const student = await buildStudent();
+      const enrollment = await service.create(
+        {
+          student_id: student.id,
+          class_id: SEED_CLASS_1_ID,
+          section_id: SEED_SECTION_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        },
+        TENANT_ID,
+      );
+
+      // A class in a *different* academic year — a class move must stay
+      // within the enrollment's own year (a year change is a new
+      // enrollment/promotion, not this "move class" flow).
+      const otherYear = await academicYearRepo.save(
+        academicYearRepo.create({
+          name: '2028-2029',
+          start_date: new Date('2028-01-01'),
+          end_date: new Date('2028-12-31'),
+          is_current: false,
+          tenant_id: TENANT_ID,
+        }),
+      );
+      const classInOtherYear = await classRepo.save(
+        classRepo.create({
+          name: 'Class In Other Year',
+          academic_year_id: otherYear.id,
+          tenant_id: TENANT_ID,
+        }),
+      );
+      const sectionInOtherYear = await sectionRepo.save(
+        sectionRepo.create({
+          section_name: 'Section X',
+          class_id: classInOtherYear.id,
+          tenant_id: TENANT_ID,
+        }),
+      );
+
+      await expect(
+        service.update(
+          enrollment.id,
+          { class_id: classInOtherYear.id, section_id: sectionInOtherYear.id },
+          TENANT_ID,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('a status-only patch (e.g. GRADUATED) never touches Student.class_section_id', async () => {
+      const student = await buildStudent({ class_section_id: SEED_SECTION_1_ID, roll_number: 1 });
+      const enrollment = await service.create(
+        {
+          student_id: student.id,
+          class_id: SEED_CLASS_1_ID,
+          section_id: SEED_SECTION_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        },
+        TENANT_ID,
+      );
+
+      await service.update(
+        enrollment.id,
+        { enrollment_status: EnrollmentStatus.GRADUATED },
+        TENANT_ID,
+      );
+
+      const unchangedStudent = await studentRepo.findOne({ where: { id: student.id } });
+      expect(unchangedStudent!.class_section_id).toBe(SEED_SECTION_1_ID);
+      expect(unchangedStudent!.roll_number).toBe(1);
+    });
+
+    it('moving to the section the student is already placed in is a no-op on roll_number', async () => {
+      const student = await buildStudent({ class_section_id: SEED_SECTION_1_ID, roll_number: 7 });
+      const enrollment = await service.create(
+        {
+          student_id: student.id,
+          class_id: SEED_CLASS_1_ID,
+          section_id: SEED_SECTION_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        },
+        TENANT_ID,
+      );
+
+      // Re-affirming the same section (e.g. a status flip back to ACTIVE
+      // that happens to also resend the current section) must not bump
+      // the student's own roll number against themselves.
+      await service.update(
+        enrollment.id,
+        { section_id: SEED_SECTION_1_ID, enrollment_status: EnrollmentStatus.ACTIVE },
+        TENANT_ID,
+      );
+
+      const sameStudent = await studentRepo.findOne({ where: { id: student.id } });
+      expect(sameStudent!.roll_number).toBe(7);
     });
   });
 });

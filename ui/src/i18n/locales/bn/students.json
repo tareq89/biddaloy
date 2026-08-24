@@ -83,7 +83,8 @@
       "columnStatus": "অবস্থা",
       "columnEnrolledAt": "ভর্তির তারিখ",
       "emptyMessage": "এখনো কোনো ভর্তির ইতিহাস নেই।",
-      "errorMessage": "ভর্তির ইতিহাস লোড করা যায়নি।"
+      "errorMessage": "ভর্তির ইতিহাস লোড করা যায়নি।",
+      "moveClassAction": "শ্রেণি পরিবর্তন"
     },
     "fees": {
       "totalBilled": "মোট বিল",
@@ -157,6 +158,18 @@
       "confirm": "মুছে ফেলুন",
       "deleting": "মুছে ফেলা হচ্ছে…",
       "errorMessage": "শিক্ষার্থীকে মুছে ফেলা যায়নি। আবার চেষ্টা করুন।"
+    },
+    "moveClassDialog": {
+      "title": "শ্রেণি পরিবর্তন",
+      "description": "{{name}}-কে ভিন্ন শ্রেণি বা শাখায় স্থানান্তর করুন।",
+      "classLabel": "শ্রেণি",
+      "classPlaceholder": "একটি শ্রেণি নির্বাচন করুন",
+      "sectionLabel": "শাখা",
+      "sectionPlaceholder": "একটি শাখা নির্বাচন করুন",
+      "capacityWarning": "এই শাখাটি পূর্ণ ({{enrolled}}/{{capacity}})। আপনি চাইলে এগিয়ে যেতে পারেন।",
+      "confirm": "স্থানান্তর করুন",
+      "moving": "স্থানান্তর হচ্ছে…",
+      "errorMessage": "শিক্ষার্থীকে স্থানান্তর করা যায়নি। আবার চেষ্টা করুন।"
     }
   },
   "new": {

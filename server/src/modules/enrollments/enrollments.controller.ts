@@ -31,6 +31,19 @@ export class EnrollmentController {
     return this.service.findByStudent(studentId, tenant.id);
   }
 
+  // [8.11.3] — the "move class" dialog's starting point: the student's
+  // current (ACTIVE) enrollment, or null for a legacy student that
+  // predates [8.11.3]'s day-one enrollment write (see EnrollmentService's
+  // already-tested `findCurrentByStudent`, unrouted until now).
+  @Get(':studentId/current')
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  findCurrent(
+    @Param('studentId') studentId: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.service.findCurrentByStudent(studentId, tenant.id);
+  }
+
   @Patch(':id')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
   update(

@@ -83,7 +83,8 @@
       "columnStatus": "Status",
       "columnEnrolledAt": "Enrolled on",
       "emptyMessage": "No enrolment history yet.",
-      "errorMessage": "Couldn't load enrolment history."
+      "errorMessage": "Couldn't load enrolment history.",
+      "moveClassAction": "Move class"
     },
     "fees": {
       "totalBilled": "Total billed",
@@ -157,6 +158,18 @@
       "confirm": "Delete",
       "deleting": "Deleting…",
       "errorMessage": "Couldn't delete the student. Try again."
+    },
+    "moveClassDialog": {
+      "title": "Move class",
+      "description": "Move {{name}} to a different class or section.",
+      "classLabel": "Class",
+      "classPlaceholder": "Select a class",
+      "sectionLabel": "Section",
+      "sectionPlaceholder": "Select a section",
+      "capacityWarning": "This section is at capacity ({{enrolled}}/{{capacity}}). You can still proceed.",
+      "confirm": "Move",
+      "moving": "Moving…",
+      "errorMessage": "Couldn't move the student. Try again."
     }
   },
   "new": {
