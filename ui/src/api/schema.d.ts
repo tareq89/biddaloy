@@ -305,6 +305,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/enrollments/{studentId}/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["EnrollmentController_findCurrent_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/enrollments/{id}": {
         parameters: {
             query?: never;
@@ -985,16 +1001,6 @@ export interface components {
             section_name?: string;
             capacity?: number | null;
         };
-        CreateEnrollmentDto: {
-            /** Format: uuid */
-            student_id: string;
-            /** Format: uuid */
-            class_id: string;
-            /** Format: uuid */
-            section_id?: string;
-            /** Format: uuid */
-            academic_year_id: string;
-        };
         UserTenant: {
             id: string;
             user: components["schemas"]["User"];
@@ -1104,9 +1110,21 @@ export interface components {
             /** Format: date-time */
             updated_at: string;
         };
+        CreateEnrollmentDto: {
+            /** Format: uuid */
+            student_id: string;
+            /** Format: uuid */
+            class_id: string;
+            /** Format: uuid */
+            section_id?: string;
+            /** Format: uuid */
+            academic_year_id: string;
+        };
         UpdateEnrollmentDto: {
             /** @enum {string} */
             enrollment_status?: "ACTIVE" | "INACTIVE" | "TRANSFERRED" | "GRADUATED";
+            /** Format: uuid */
+            class_id?: string;
             /** Format: uuid */
             section_id?: string;
         };
@@ -2536,6 +2554,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Enrollment"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EnrollmentController_findCurrent_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                studentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The student's current ACTIVE enrollment, or null for a legacy student with none yet. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Enrollment"] | null;
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

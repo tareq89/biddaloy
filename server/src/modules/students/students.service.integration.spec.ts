@@ -5,6 +5,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { StudentService, GuardianService } from './students.service';
 import { Student } from './entities/student.entity';
 import { Guardian } from './entities/guardian.entity';
+import { Enrollment } from './entities/enrollment.entity';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { School } from '../schools/entities/school.entity';
 import { Class } from '../academics/entities/class.entity';
@@ -12,6 +13,7 @@ import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { createTestModule } from '@test/helpers/module.helper';
 import { SEED_TENANT_ID, SEED_SECTION_1_ID, SEED_ACADEMIC_YEAR_ID } from '@test/constants';
+import { EnrollmentStatus } from '@biddaloy/shared';
 
 /**
  * Integration tests for StudentService and GuardianService.
@@ -36,6 +38,7 @@ async function seedReferenceData(ds: DataSource): Promise<void> {
   await ds.query('DELETE FROM fee_structures');
   await ds.query('DELETE FROM payments');
   await ds.query('DELETE FROM student_guardians');
+  await ds.query('DELETE FROM enrollments');
   await ds.query('DELETE FROM students');
   await ds.query('DELETE FROM guardians');
   await ds.query('DELETE FROM class_sections');
@@ -129,6 +132,7 @@ describe('StudentService (integration)', () => {
   let guardianService: GuardianService;
   let studentRepo: Repository<Student>;
   let guardianRepo: Repository<Guardian>;
+  let enrollmentRepo: Repository<Enrollment>;
   let dataSource: DataSource;
 
   const TENANT_ID = SEED_TENANT_ID;
@@ -144,6 +148,7 @@ describe('StudentService (integration)', () => {
     guardianService = module.get<GuardianService>(GuardianService);
     studentRepo = module.get<Repository<Student>>(getRepositoryToken(Student));
     guardianRepo = module.get<Repository<Guardian>>(getRepositoryToken(Guardian));
+    enrollmentRepo = module.get<Repository<Enrollment>>(getRepositoryToken(Enrollment));
     dataSource = module.get(DataSource);
 
     await seedReferenceData(dataSource);
@@ -158,6 +163,7 @@ describe('StudentService (integration)', () => {
   beforeEach(async () => {
     if (dataSource) {
       await dataSource.query('DELETE FROM student_guardians');
+      await dataSource.query('DELETE FROM enrollments');
       await dataSource.query('DELETE FROM guardians');
       await dataSource.query('DELETE FROM students');
     }
@@ -284,6 +290,55 @@ describe('StudentService (integration)', () => {
       const registrationNumbers = students.map((s) => s.registration_number);
       expect(new Set(rollNumbers).size).toBe(5);
       expect(new Set(registrationNumbers).size).toBe(5);
+    });
+
+    // ────────────────────────
+    //  [8.11.3] Day-one enrollment history
+    // ────────────────────────
+    it('also creates an ACTIVE Enrollment row matching the target class/section/year', async () => {
+      const student = await service.create(
+        { full_name: 'Enrolled Student', class_section_id: SEED_SECTION_1_ID },
+        TENANT_ID,
+      );
+
+      const enrollment = await enrollmentRepo.findOne({ where: { student_id: student.id } });
+
+      expect(enrollment).not.toBeNull();
+      expect(enrollment!.enrollment_status).toBe(EnrollmentStatus.ACTIVE);
+      expect(enrollment!.section_id).toBe(SEED_SECTION_1_ID);
+      expect(enrollment!.class_id).toBe(student.class_section.class.id);
+      expect(enrollment!.academic_year_id).toBe(SEED_ACADEMIC_YEAR_ID);
+      expect(enrollment!.tenant_id).toBe(TENANT_ID);
+    });
+
+    it('rolls back the enrollment write too when the student insert itself fails', async () => {
+      // An explicit roll_number that collides with an existing student in
+      // the same section trips the unique (class_section_id, roll_number)
+      // index inside the create transaction — proves the enrollment write
+      // is part of the same atomic unit as the student insert, not a
+      // separate best-effort call after it: if the transaction ever did
+      // partially commit, this section would show orphaned rows behind it.
+      const existing = await service.create(
+        { full_name: 'Existing Student', class_section_id: SEED_SECTION_1_ID, roll_number: 5 },
+        TENANT_ID,
+      );
+
+      await expect(
+        service.create(
+          {
+            full_name: 'Colliding Student',
+            class_section_id: SEED_SECTION_1_ID,
+            roll_number: 5,
+          },
+          TENANT_ID,
+        ),
+      ).rejects.toThrow();
+
+      const enrollmentsInSection = await enrollmentRepo.find({
+        where: { section_id: SEED_SECTION_1_ID },
+      });
+      expect(enrollmentsInSection).toHaveLength(1);
+      expect(enrollmentsInSection[0].student_id).toBe(existing.id);
     });
   });
 
@@ -597,6 +652,7 @@ describe('GuardianService (integration)', () => {
   beforeEach(async () => {
     if (dataSource) {
       await dataSource.query('DELETE FROM student_guardians');
+      await dataSource.query('DELETE FROM enrollments');
       await dataSource.query('DELETE FROM guardians');
       await dataSource.query('DELETE FROM students');
     }

@@ -53,7 +53,16 @@ export {
   type StudentFee,
   type StudentFeeSummary,
 } from './payments';
-export { enrollmentKeys, useStudentEnrollments, type Enrollment } from './enrollments';
+export {
+  enrollmentKeys,
+  useStudentEnrollments,
+  useCurrentEnrollment,
+  useCreateEnrollment,
+  useUpdateEnrollment,
+  type Enrollment,
+  type CreateEnrollmentInput,
+  type UpdateEnrollmentInput,
+} from './enrollments';
 export {
   communicationLogKeys,
   useStudentCommunicationLogs,

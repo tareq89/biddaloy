@@ -21,6 +21,7 @@ describe('EnrollmentController', () => {
     service = {
       create: vi.fn(),
       findByStudent: vi.fn(),
+      findCurrentByStudent: vi.fn(),
       update: vi.fn(),
     };
     controller = new EnrollmentController(service as unknown as EnrollmentService);
@@ -63,6 +64,56 @@ describe('EnrollmentController', () => {
   });
 
   // ────────────────────────
+  //  findCurrent — [8.11.3]
+  // ────────────────────────
+  describe('findCurrent', () => {
+    // `findCurrent` replies via `@Res({ passthrough: false })` (Nest's
+    // default handling would otherwise send an empty body instead of the
+    // JSON literal `null` for a legacy student — see the handler's own
+    // comment), so tests assert on the mocked `res` rather than a return
+    // value.
+    function mockResponse() {
+      const res: { status: ReturnType<typeof vi.fn>; json: ReturnType<typeof vi.fn> } = {
+        status: vi.fn(),
+        json: vi.fn(),
+      };
+      res.status.mockReturnValue(res);
+      return res;
+    }
+
+    it('should call service.findCurrentByStudent with studentId and tenant id, and reply with the result', async () => {
+      const expected = { id: 'e1', student_id: 's1', enrollment_status: 'ACTIVE' };
+      service.findCurrentByStudent.mockResolvedValue(expected);
+      const res = mockResponse();
+
+      await controller.findCurrent('s1', TENANT, res as any);
+
+      expect(service.findCurrentByStudent).toHaveBeenCalledWith('s1', TENANT.id);
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith(expected);
+    });
+
+    it('should reply with JSON null when the student has no ACTIVE enrollment', async () => {
+      service.findCurrentByStudent.mockResolvedValue(null);
+      const res = mockResponse();
+
+      await controller.findCurrent('s1', TENANT, res as any);
+
+      expect(res.json).toHaveBeenCalledWith(null);
+    });
+
+    it('should propagate NotFoundException from service.findCurrentByStudent', async () => {
+      const { NotFoundException } = await import('@nestjs/common');
+      service.findCurrentByStudent.mockRejectedValue(new NotFoundException('Student not found'));
+      const res = mockResponse();
+
+      await expect(controller.findCurrent('bad', TENANT, res as any)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  // ────────────────────────
   //  update
   // ────────────────────────
   describe('update', () => {
@@ -72,6 +123,17 @@ describe('EnrollmentController', () => {
       service.update.mockResolvedValue(expected);
 
       const result = await controller.update('e1', dto as any, TENANT);
+
+      expect(service.update).toHaveBeenCalledWith('e1', dto, TENANT.id);
+      expect(result).toEqual(expected);
+    });
+
+    it('[8.11.3] should pass a class_id move through to service.update unchanged', async () => {
+      const dto = { class_id: 'c2', section_id: 'sec2' } as any;
+      const expected = { id: 'e1', class_id: 'c2', section_id: 'sec2' };
+      service.update.mockResolvedValue(expected);
+
+      const result = await controller.update('e1', dto, TENANT);
 
       expect(service.update).toHaveBeenCalledWith('e1', dto, TENANT.id);
       expect(result).toEqual(expected);

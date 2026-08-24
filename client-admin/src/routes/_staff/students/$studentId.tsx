@@ -154,7 +154,12 @@ function StudentDetailPage() {
                 {
                   id: 'enrollment',
                   label: t('detail.tabs.enrollment'),
-                  content: <EnrollmentTab studentId={studentId} />,
+                  content: (
+                    <EnrollmentTab
+                      studentId={studentId}
+                      studentName={studentQuery.data.full_name}
+                    />
+                  ),
                 },
                 {
                   id: 'fees',

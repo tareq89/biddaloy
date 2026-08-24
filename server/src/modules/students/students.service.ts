@@ -3,16 +3,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, In, Like, ILike, EntityManager, type FindOptionsOrder } from 'typeorm';
 import { Student } from './entities/student.entity';
 import { Guardian } from './entities/guardian.entity';
+import { Enrollment } from './entities/enrollment.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Class } from '../academics/entities/class.entity';
 import { CreateStudentDto, UpdateStudentDto, QueryStudentDto } from './dto/students.dto';
 import { CreateGuardianDto, UpdateGuardianDto, QueryGuardianDto } from './dto/students.dto';
 import { CommunicationMedium } from '@biddaloy/shared';
-
-// Second key for the roll-number advisory lock, distinguishing it from the
-// registration-number lock's (hashtext(tenant_id), year) pair — see
-// StudentService.create.
-const ROLL_NUMBER_LOCK_NAMESPACE = 741852;
+import { nextRollNumber } from './roll-number.util';
 
 @Injectable()
 export class StudentService {
@@ -93,21 +90,10 @@ export class StudentService {
       }
       const regNumber = `REG-${currentYear}-${String(nextSeq).padStart(4, '0')}`;
 
-      // Same reasoning for roll numbers, scoped per class_section.
-      await txManager.query('SELECT pg_advisory_xact_lock(hashtext($1), $2)', [
-        dto.class_section_id,
-        ROLL_NUMBER_LOCK_NAMESPACE,
-      ]);
-
-      const lastRoll = await txStudentRepo.findOne({
-        where: {
-          class_section_id: dto.class_section_id,
-          tenant_id: tenantId,
-          deleted_at: IsNull(),
-        },
-        order: { roll_number: 'DESC' },
-      });
-      const rollNumber = dto.roll_number ?? (lastRoll ? lastRoll.roll_number + 1 : 1);
+      // Same reasoning for roll numbers, scoped per class_section — see
+      // roll-number.util.ts's own comment.
+      const rollNumber =
+        dto.roll_number ?? (await nextRollNumber(txManager, dto.class_section_id, tenantId));
 
       // Create and save student
       const student = txStudentRepo.create({
@@ -122,7 +108,28 @@ export class StudentService {
         tenant_id: tenantId,
       });
 
-      return txStudentRepo.save(student);
+      const savedStudent = await txStudentRepo.save(student);
+
+      // [8.11.3] Every new student gets a day-one enrollment history row —
+      // `EnrollmentService.create` isn't reused here (it re-validates the
+      // student/class/section chain this method already just validated,
+      // and its ACTIVE-sync side effect would immediately reassign the
+      // roll number this call just picked). Written directly against the
+      // same transaction manager so a rollback here undoes both writes.
+      // `section` (validated above, `relations: ['class']`) supplies both
+      // the class and its academic year without an extra query.
+      const txEnrollmentRepo = txManager.getRepository(Enrollment);
+      await txEnrollmentRepo.save(
+        txEnrollmentRepo.create({
+          student_id: savedStudent.id,
+          class_id: section.class_id,
+          section_id: dto.class_section_id,
+          academic_year_id: section.class.academic_year_id,
+          tenant_id: tenantId,
+        }),
+      );
+
+      return savedStudent;
     };
 
     const savedStudent = manager
