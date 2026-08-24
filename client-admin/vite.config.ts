@@ -57,7 +57,11 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://localhost:3000',
-        changeOrigin: true,
+        // No changeOrigin: the API's SameOriginGuard compares the Origin
+        // header (always :5174 from the browser) against the Host header —
+        // rewriting Host to :3000 makes every /auth/refresh a 403 ([8.5.2]).
+        // The target is a plain local port, not a vhost, so Host rewriting
+        // buys nothing.
       },
     },
   },
