@@ -965,7 +965,7 @@
     "semantic_hash": "b88447447694ccf69d8f9711194a106c"
   },
   "client-admin/public/mockServiceWorker.js": {
-    "mtime": 1787507317.557617,
+    "mtime": 1787570176.9581783,
     "ast_hash": "c8f0dfa140ec246071c4cc5a03df5c9d",
     "semantic_hash": "c8f0dfa140ec246071c4cc5a03df5c9d"
   },
@@ -1415,7 +1415,7 @@
     "semantic_hash": "1412b350ac6dab1ab392606ce1ac38f6"
   },
   "ui/.storybook/public/mockServiceWorker.js": {
-    "mtime": 1787485690.8021684,
+    "mtime": 1787570176.9589617,
     "ast_hash": "c8f0dfa140ec246071c4cc5a03df5c9d",
     "semantic_hash": "c8f0dfa140ec246071c4cc5a03df5c9d"
   },
@@ -1465,9 +1465,9 @@
     "semantic_hash": "3dd1dc96d4474cf04d84b2a345eb7a8b"
   },
   "ui/package.json": {
-    "mtime": 1787368681.9037318,
-    "ast_hash": "312f9e14a7e9d751e1f9ad8f9939a6d8",
-    "semantic_hash": "312f9e14a7e9d751e1f9ad8f9939a6d8"
+    "mtime": 1787570159.308444,
+    "ast_hash": "edb2c3a905c021be67dbd8404a7db084",
+    "semantic_hash": ""
   },
   "ui/scripts/check-api-types.mjs": {
     "mtime": 1787072022.6446888,
@@ -2560,8 +2560,8 @@
     "semantic_hash": "23f296f56f50e29a878e3a644feeed3e"
   },
   ".github/workflows/ci.yml": {
-    "mtime": 1787570026.2277756,
-    "ast_hash": "a0e74c37a32de9ccf88ab9be232863a6",
+    "mtime": 1787570376.86087,
+    "ast_hash": "173cf0904a7ab757a0063594ca1593ec",
     "semantic_hash": ""
   },
   ".github/workflows/codeql.yml": {
@@ -2575,7 +2575,7 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1787570026.2282834,
+    "mtime": 1787570037.467773,
     "ast_hash": "1edb99ba4c0264222ff2f512065ea547",
     "semantic_hash": ""
   },
@@ -2655,7 +2655,7 @@
     "semantic_hash": "1f2600b1a94a8b811fc2dec78706e2e1"
   },
   "client-admin/scripts/check-route-chunks.mjs": {
-    "mtime": 1787569937.466984,
+    "mtime": 1787570037.4681108,
     "ast_hash": "497a10f9cd39a76d3cf193b6a272e89a",
     "semantic_hash": ""
   },
@@ -4215,8 +4215,23 @@
     "semantic_hash": ""
   },
   "scripts/bundle-delta.mjs": {
-    "mtime": 1787570003.9207706,
-    "ast_hash": "c39b1f475b290b4532744644948b5ca9",
+    "mtime": 1787570037.5004845,
+    "ast_hash": "9ffdcd03155dad5ec66e9ec2f5ebd061",
+    "semantic_hash": ""
+  },
+  "scripts/coverage-delta.mjs": {
+    "mtime": 1787570290.5027602,
+    "ast_hash": "df936b7f1a0b1400006ecd28a299c7cf",
+    "semantic_hash": ""
+  },
+  "scripts/coverage-offenders.mjs": {
+    "mtime": 1787570376.8572767,
+    "ast_hash": "4bb8eb7a0895611d3ca4c40fb309ec13",
+    "semantic_hash": ""
+  },
+  "scripts/coverage-summary.mjs": {
+    "mtime": 1787570376.851524,
+    "ast_hash": "7d6964b76196dcce61091998cadfa0c3",
     "semantic_hash": ""
   }
 }
