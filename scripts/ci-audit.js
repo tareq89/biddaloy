@@ -24,25 +24,48 @@ const { spawnSync } = require('child_process');
 // or merely stale.
 const ALLOWLIST = {
   1130734: {
-    module: "brace-expansion",
+    module: 'brace-expansion',
     reason:
-      "DoS via unbounded intermediate arrays; no non-breaking fix exists. " +
-      "brace-expansion@1.1.18 (installed) is already the newest 1.x release — " +
-      "the advisory covers the whole 1.x line, not a stale patch, so unlike " +
+      'DoS via unbounded intermediate arrays; no non-breaking fix exists. ' +
+      'brace-expansion@1.1.18 (installed) is already the newest 1.x release — ' +
+      'the advisory covers the whole 1.x line, not a stale patch, so unlike ' +
       "#1124334 this isn't fixable by refreshing the lockfile. Every 2.x+ " +
-      "release switched to a dual ESM/CJS package (dist/commonjs/index.js) " +
+      'release switched to a dual ESM/CJS package (dist/commonjs/index.js) ' +
       "that breaks the plain `require('brace-expansion')(pattern)` call " +
-      "style minimatch@3.x uses — confirmed by force-resolving to 5.0.9, " +
-      "which threw `brace_expansion_1.default is not a function` inside " +
+      'style minimatch@3.x uses — confirmed by force-resolving to 5.0.9, ' +
+      'which threw `brace_expansion_1.default is not a function` inside ' +
       "typeorm's own bundled minimatch@3 during entity glob-loading in " +
-      "test:integration. The transitive pin (glob@7→minimatch@3→ " +
+      'test:integration. The transitive pin (glob@7→minimatch@3→ ' +
       "brace-expansion@^1.1.7, via typeorm's and exceljs's dependency " +
-      "trees) needs those packages to bump their own minimatch major " +
-      "before this can move — tracked, not silently dropped. Actual " +
-      "exposure here is low: brace-expansion only processes developer-" +
-      "authored glob patterns (entity paths, build globs), never " +
-      "request-supplied input.",
-    recheckBy: "2026-10-04",
+      'trees) needs those packages to bump their own minimatch major ' +
+      'before this can move — tracked, not silently dropped. Actual ' +
+      'exposure here is low: brace-expansion only processes developer-' +
+      'authored glob patterns (entity paths, build globs), never ' +
+      'request-supplied input.',
+    recheckBy: '2026-10-04',
+  },
+  1120654: {
+    module: 'tmp',
+    reason:
+      'Path traversal via unsanitized prefix/postfix. Reached only through ' +
+      '@lhci/cli (devDependency, #149) — tmp@^0.1.0 directly and ' +
+      'tmp@^0.0.33 via inquirer>external-editor; neither range can reach ' +
+      'the patched 0.2.6, so a lockfile refresh cannot fix it. lhci runs ' +
+      'only in CI and locally against repo-controlled arguments — the ' +
+      'prefix/postfix values are never attacker-supplied here. Re-check ' +
+      'for an @lhci/cli release that bumps both chains.',
+    recheckBy: '2026-10-24',
+  },
+  1139346: {
+    module: 'extract-zip',
+    reason:
+      'Unvalidated symlink path traversal; no patched release exists ' +
+      '(advisory lists <0.0.0 as patched). Reached only through ' +
+      '@lhci/cli>lighthouse>puppeteer-core>@puppeteer/browsers ' +
+      '(devDependency, #149), where extract-zip unpacks Chrome archives ' +
+      "downloaded from Google's own distribution URLs — not " +
+      'attacker-supplied zips. Re-check for an upstream fix release.',
+    recheckBy: '2026-10-24',
   },
 };
 

@@ -248,6 +248,17 @@ measured number and the ticket that caused it — never silently. On PRs a
 sticky comment (`scripts/bundle-delta.mjs`) shows the per-chunk gzip delta
 against the latest `main` build.
 
+`yarn ci:local` (`scripts/ci-local.sh`) reproduces the pipeline locally,
+job-for-job with the identical commands, so a CI failure can be replayed
+before pushing. By default it runs the `verify`, `frontend` and `audit`
+sections (no external services; measured ~1.5 min on a warm checkout).
+Flags: `--integration` and `--e2e` add the service-backed sections
+(self-provisioning `docker compose up -d db redis` against a dedicated
+`biddaloy_ci_local` database), `--full` runs everything (~8–10 min), and
+`--coverage` switches the frontend section to the `main`-push coverage
+variant. The script and `ci.yml` cross-reference each other — edit both
+together.
+
 GitHub Actions (`.github/workflows/ci.yml`) runs on every PR and on push to
 `main`:
 

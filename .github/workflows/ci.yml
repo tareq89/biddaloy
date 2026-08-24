@@ -1,4 +1,6 @@
 name: CI
+# Editing a job? Mirror it in scripts/ci-local.sh (#152) — the script runs
+# the same commands job-for-job so "works on my machine" stays true.
 
 on:
   pull_request:
