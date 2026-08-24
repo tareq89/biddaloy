@@ -12,6 +12,7 @@ import {
   UploadedFile,
   UnauthorizedException,
   Inject,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
@@ -162,7 +163,10 @@ export class StudentController {
 
   @Get('guardians/:id')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
-  findOneGuardian(@Param('id') id: string, @CurrentTenant() tenant: { id: string; role: string }) {
+  findOneGuardian(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
     return this.guardianService.findOne(id, tenant.id);
   }
 

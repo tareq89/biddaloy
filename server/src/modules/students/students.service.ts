@@ -379,7 +379,7 @@ export class GuardianService {
   async findOne(id: string, tenantId: string): Promise<Guardian> {
     const guardian = await this.repo.findOne({
       where: { id, tenant_id: tenantId, deleted_at: IsNull() },
-      relations: ['students'],
+      relations: ['students', 'students.class_section', 'students.class_section.class'],
     });
     if (!guardian) {
       throw new NotFoundException(`Guardian with ID "${id}" not found`);

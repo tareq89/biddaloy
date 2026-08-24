@@ -10,6 +10,7 @@ import {
   Req,
   UseGuards,
   Inject,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { AuthGuard } from '@nestjs/passport';
@@ -184,7 +185,7 @@ export class FeeController {
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
   @ApiOperation({ summary: "Get every payment recorded for a guardian's linked students." })
   findPaymentsByGuardian(
-    @Param('guardianId') guardianId: string,
+    @Param('guardianId', ParseUUIDPipe) guardianId: string,
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     return this.paymentService.findByGuardian(guardianId, tenant.id);
