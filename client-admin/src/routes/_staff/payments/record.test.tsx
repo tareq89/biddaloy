@@ -119,14 +119,23 @@ describe('/payments/record', () => {
     mockFeeSummary([outstandingFee()]);
 
     let capturedBody: Record<string, unknown> | undefined;
+    // The in-flight window is held open by this gate rather than by a
+    // `delay(n)`, because the assertions below are about *observing* the
+    // pending state. Any fixed delay is a race: `user.click()` does its own
+    // async event flushing, which under a loaded parallel test run can
+    // outlast the delay on its own, letting the mutation settle before the
+    // `waitFor` even starts. Raising the delay only trades this test's
+    // flakiness for extra wall-clock contention on every test sharing the
+    // run. The gate makes it deterministic — the response cannot arrive
+    // until `releasePayment()` is called.
+    let releasePayment!: () => void;
+    const paymentGate = new Promise<void>((resolve) => {
+      releasePayment = resolve;
+    });
     server.use(
       http.post('/api/v1/payments/record-with-allocation', async ({ request }) => {
         capturedBody = (await request.json()) as Record<string, unknown>;
-        // Same reasoning `payments.test.tsx`'s own non-optimistic-mutation
-        // reference test gives for its `delay(30)`: without it, the mock
-        // resolves inside the same tick the click happens in, and the
-        // in-flight `disabled` state is never actually observable.
-        await delay(30);
+        await paymentGate;
         const invoice = invoiceFactory({
           id: 'invoice-1',
           invoice_number: 'INV-0001',
@@ -195,6 +204,8 @@ describe('/payments/record', () => {
     await waitFor(() => expect(submit.disabled).toBe(true));
     expect(screen.queryByRole('status')).toBeNull();
 
+    // Only now let the server answer, so the two states can't overlap.
+    releasePayment();
     await waitFor(() => expect(screen.getByRole('status')).toBeTruthy());
     expect(screen.getByText(/৳500.00 received from Karim Rahman/)).toBeTruthy();
     expect(screen.getByText(/Invoice INV-0001 generated/)).toBeTruthy();
