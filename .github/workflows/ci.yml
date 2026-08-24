@@ -689,6 +689,84 @@ jobs:
           path: test-results/
           if-no-files-found: ignore
 
+  # [8.5.4] Visual regression — runs inside the pinned Playwright
+  # container so baselines are byte-comparable with the Linux images
+  # yarn e2e:visual:update produces. Non-blocking at introduction:
+  # TODO(2026-09-08, ~2 weeks after merge): remove continue-on-error
+  # once two weeks pass with no false positives.
+  e2e-visual:
+    name: E2E visual regression
+    runs-on: ubuntu-latest
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.frontend == 'true'
+    timeout-minutes: 30
+    continue-on-error: true
+    permissions:
+      contents: read
+    container:
+      # Keep the tag in lockstep with @playwright/test in package.json —
+      # scripts/e2e-visual-update.sh derives it the same way.
+      image: mcr.microsoft.com/playwright:v1.62.1-jammy
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: betonboi_e2e
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Inside a container job, services resolve by service name — not
+      # localhost.
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/betonboi_e2e
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ci-e2e-jwt-secret-do-not-use-in-production-1234567890
+      NODE_ENV: test
+      SEED_ADMIN_PASSWORD: ci-e2e-seed-password-123
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile --ignore-engines
+
+      - name: Build shared package
+        run: yarn build:shared
+
+      - name: Run migrations
+        run: yarn workspace @biddaloy/server migration:run
+
+      - name: Seed database
+        run: yarn workspace @biddaloy/server seed
+
+      - name: Route screenshots
+        run: npx playwright test -c e2e/visual.config.ts
+
+      - name: Storybook screenshots
+        run: npx playwright test -c e2e/visual-stories.config.ts
+
+      - name: Upload visual report and diffs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: visual-report
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+
   bundle-delta:
     name: Bundle size delta
     runs-on: ubuntu-latest
