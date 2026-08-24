@@ -14,12 +14,12 @@ test.use(loggedIn('accountant'));
 test('generate an invoice from dues and open its detail', async ({ page, request }) => {
   const session = await adminApiSession(request);
   const name = `Invoice Student ${Date.now()}`;
-  await createStudentWithDues(request, session, name);
+  const { chain } = await createStudentWithDues(request, session, name);
 
   const dues = new ListShellPage(page, { titleKey: 'fees.dues.title' });
 
   await test.step('select the row and run the generate-invoice dialog', async () => {
-    await page.goto('/fees/dues');
+    await page.goto(`/fees/dues?class_id=${chain.classId}`);
     await dues.expectLoaded();
     await dues.row(name).first().getByRole('checkbox').check();
     await page.getByRole('button', { name: t('fees.dues.generateInvoice') }).click();

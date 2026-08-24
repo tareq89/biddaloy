@@ -34,7 +34,15 @@ type StorageState = Awaited<
   ReturnType<Awaited<ReturnType<typeof request.newContext>>['storageState']>
 >;
 
-async function freshLogin(role: SeedRole, tenant: 'persisted' | 'none'): Promise<StorageState> {
+function localeEntry(locale: string) {
+  return { name: 'biddaloy:locale', value: locale };
+}
+
+async function freshLogin(
+  role: SeedRole,
+  tenant: 'persisted' | 'none',
+  locale: string,
+): Promise<StorageState> {
   const password = process.env[SEED_PASSWORD_ENV];
   if (!password) {
     throw new Error(`${SEED_PASSWORD_ENV} is not set — see server/.env.example.`);
@@ -57,20 +65,21 @@ async function freshLogin(role: SeedRole, tenant: 'persisted' | 'none'): Promise
       );
     }
     const state = await ctx.storageState();
-    if (tenant === 'none') return state;
-    return {
-      ...state,
-      origins: [
-        {
-          origin: shells.app.baseURL.replace(/\/$/, ''),
-          localStorage: [
+    const localStorage = [
+      ...(tenant === 'none'
+        ? []
+        : [
             {
               name: 'biddaloy:activeTenant',
               value: JSON.stringify({ tenantId: membership.tenantId, role: membership.role }),
             },
-          ],
-        },
-      ],
+          ]),
+      ...(locale === 'bn' ? [] : [localeEntry(locale)]),
+    ];
+    if (localStorage.length === 0) return state;
+    return {
+      ...state,
+      origins: [{ origin: shells.app.baseURL.replace(/\/$/, ''), localStorage }],
     };
   } finally {
     await ctx.dispose();
@@ -80,17 +89,33 @@ async function freshLogin(role: SeedRole, tenant: 'persisted' | 'none'): Promise
 interface AuthOptions {
   e2eRole: SeedRole | null;
   e2eTenant: 'persisted' | 'none';
+  /** UI locale seeded into localStorage — 'bn' is the app default and
+   * adds no entry. */
+  e2eLocale: string;
 }
 
 export const test = base.extend<AuthOptions>({
   e2eRole: [null, { option: true }],
   e2eTenant: ['persisted', { option: true }],
-  storageState: async ({ e2eRole, e2eTenant }, use) => {
+  e2eLocale: ['bn', { option: true }],
+  storageState: async ({ e2eRole, e2eTenant, e2eLocale }, use) => {
     if (!e2eRole) {
-      await use(undefined);
+      if (e2eLocale === 'bn') {
+        await use(undefined);
+        return;
+      }
+      await use({
+        cookies: [],
+        origins: [
+          {
+            origin: shells.app.baseURL.replace(/\/$/, ''),
+            localStorage: [localeEntry(e2eLocale)],
+          },
+        ],
+      });
       return;
     }
-    await use(await freshLogin(e2eRole, e2eTenant));
+    await use(await freshLogin(e2eRole, e2eTenant, e2eLocale));
   },
 });
 
