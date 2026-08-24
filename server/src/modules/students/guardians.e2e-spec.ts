@@ -187,11 +187,22 @@ describe('Guardians E2E', () => {
 
   describe('GET /guardians/:id', () => {
     it('should return a single guardian with linked students', async () => {
+      const studentRes = await supertest(app.getHttpServer())
+        .post('/api/v1/students')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ full_name: 'Detail Page Student', class_section_id: SEED_SECTION_1_ID })
+        .expect(201);
+
       const createRes = await supertest(app.getHttpServer())
         .post('/api/v1/guardians')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
-        .send({ full_name: 'Detail Page Guardian', relationship: 'Father' })
+        .send({
+          full_name: 'Detail Page Guardian',
+          relationship: 'Father',
+          student_ids: [studentRes.body.id],
+        })
         .expect(201);
 
       const res = await supertest(app.getHttpServer())
@@ -202,7 +213,8 @@ describe('Guardians E2E', () => {
 
       expect(res.body.id).toBe(createRes.body.id);
       expect(res.body.full_name).toBe('Detail Page Guardian');
-      expect(res.body.students).toEqual([]);
+      expect(res.body.students).toHaveLength(1);
+      expect(res.body.students[0].id).toBe(studentRes.body.id);
     });
 
     it('should return 404 for a guardian that does not exist', async () => {
@@ -211,6 +223,14 @@ describe('Guardians E2E', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .expect(404);
+    });
+
+    it('should return 400 for a malformed (non-UUID) guardian id', async () => {
+      await supertest(app.getHttpServer())
+        .get('/api/v1/guardians/not-a-uuid')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(400);
     });
 
     it('should return 401 for STUDENT role', async () => {
@@ -272,6 +292,51 @@ describe('Guardians E2E', () => {
       expect(Array.isArray(res.body)).toBe(true);
       expect(res.body).toHaveLength(1);
       expect(Number(res.body[0].total_amount)).toBe(1500);
+    });
+
+    it('should return 401 for STUDENT role', async () => {
+      const guardianRes = await supertest(app.getHttpServer())
+        .post('/api/v1/guardians')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ full_name: 'Role Checked Payment Guardian', relationship: 'Mother' })
+        .expect(201);
+
+      const res = await supertest(app.getHttpServer())
+        .get(`/api/v1/payments/guardian/${guardianRes.body.id}`)
+        .set('Authorization', `Bearer ${studentToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.STUDENT)
+        .expect(401);
+
+      expect(res.body.message).toContain('Requires one of roles');
+    });
+
+    it('should return 401 when X-Tenant-ID names a tenant the user is not a member of', async () => {
+      const guardianRes = await supertest(app.getHttpServer())
+        .post('/api/v1/guardians')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ full_name: 'Foreign Tenant Header Guardian', relationship: 'Mother' })
+        .expect(201);
+
+      const FOREIGN_TENANT_ID = '00000000-0000-4000-8000-000000000099';
+
+      const res = await supertest(app.getHttpServer())
+        .get(`/api/v1/payments/guardian/${guardianRes.body.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', FOREIGN_TENANT_ID)
+        .expect(401);
+
+      expect(res.body.message).toContain('is not a member of tenant');
+    });
+
+    it('should return 400 for a malformed (non-UUID) guardian id', async () => {
+      await supertest(app.getHttpServer())
+        .get('/api/v1/payments/guardian/not-a-uuid')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(400);
     });
 
     it('should return 404 for a guardian in a different tenant', async () => {
