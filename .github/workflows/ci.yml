@@ -268,16 +268,15 @@ jobs:
     permissions:
       contents: read
     strategy:
-      # Chromium only — Firefox and WebKit are configured in
-      # playwright.config.ts and runnable locally (`yarn e2e`, which covers
-      # all three), but three-way sharding on every PR/push spends more CI
-      # time than the marginal non-Chromium regressions are worth day to
-      # day. `browser` stays a matrix dimension (rather than hardcoding
-      # "chromium" into the steps below) purely so a later ticket can widen
-      # this array without restructuring the job.
+      # Chromium only by default — a product decision (#148). To widen:
+      # set the repo Actions variable E2E_BROWSERS_JSON to e.g.
+      # ["chromium","firefox","webkit"] — no workflow edit needed.
+      # The cache key, install step, --project flag and artifact names
+      # below are already per-browser. Within-browser sharding stays out
+      # until the suite passes ~5 min (see #307's out-of-scope notes).
       fail-fast: false
       matrix:
-        browser: [chromium]
+        browser: ${{ fromJSON(vars.E2E_BROWSERS_JSON || '["chromium"]') }}
     services:
       postgres:
         image: postgres:16-alpine
@@ -307,6 +306,9 @@ jobs:
       JWT_SECRET: ci-e2e-jwt-secret-do-not-use-in-production-1234567890
       NODE_ENV: test
       SEED_ADMIN_PASSWORD: ci-e2e-seed-password-123
+      # Keeps playwright.config.ts's projects list consistent with the
+      # --project flag this matrix entry passes.
+      E2E_BROWSERS: ${{ matrix.browser }}
     steps:
       - uses: actions/checkout@v7
         with:
