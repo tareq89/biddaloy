@@ -30,7 +30,7 @@ const BROWSER_DEVICES = {
 const browsers = (process.env.E2E_BROWSERS ?? 'chromium')
   .split(',')
   .map((b) => b.trim())
-  .filter((b): b is keyof typeof BROWSER_DEVICES => b in BROWSER_DEVICES);
+  .filter((b): b is keyof typeof BROWSER_DEVICES => Object.hasOwn(BROWSER_DEVICES, b));
 
 export default defineConfig({
   testDir: './e2e',
