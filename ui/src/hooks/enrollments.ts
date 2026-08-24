@@ -39,11 +39,11 @@ export function useStudentEnrollments(studentId: string) {
  * (see `EnrollmentController.findCurrent`'s own comment). Keyed as this
  * entity's `detail(studentId)` — "the student's current enrollment" is a
  * natural fit for that branch, and it's what a class/section move
- * invalidates below alongside the history list. Response is untyped in
- * `schema.d.ts` (`EnrollmentController.findCurrent` has no
- * `@ApiResponse`, same gap `useStudentEnrollments`'s neighbours document)
- * — hand-typed as `Enrollment | null` against what the service actually
- * returns. */
+ * invalidates below alongside the history list. `EnrollmentController.findCurrent`
+ * carries an explicit `@ApiOkResponse` for the nullable case, so
+ * `schema.d.ts` already types this operation's response as
+ * `Enrollment | null` — the generic below matches it, not a hand-rolled
+ * guess. */
 export function useCurrentEnrollment(studentId: string) {
   return useQuery(
     queryOptions({

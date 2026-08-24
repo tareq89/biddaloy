@@ -1001,16 +1001,6 @@ export interface components {
             section_name?: string;
             capacity?: number | null;
         };
-        CreateEnrollmentDto: {
-            /** Format: uuid */
-            student_id: string;
-            /** Format: uuid */
-            class_id: string;
-            /** Format: uuid */
-            section_id?: string;
-            /** Format: uuid */
-            academic_year_id: string;
-        };
         UserTenant: {
             id: string;
             user: components["schemas"]["User"];
@@ -1119,6 +1109,16 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+        };
+        CreateEnrollmentDto: {
+            /** Format: uuid */
+            student_id: string;
+            /** Format: uuid */
+            class_id: string;
+            /** Format: uuid */
+            section_id?: string;
+            /** Format: uuid */
+            academic_year_id: string;
         };
         UpdateEnrollmentDto: {
             /** @enum {string} */
@@ -2581,12 +2581,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description The student's current ACTIVE enrollment, or null for a legacy student with none yet. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["Enrollment"] | null;
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
