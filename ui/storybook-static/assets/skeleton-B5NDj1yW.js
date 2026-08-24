@@ -1,0 +1,1 @@
+import{j as t}from"./jsx-runtime-D_zvdyIk.js";import{c as n}from"./utils-DCADjnpI.js";function s({className:e,...o}){return t.jsx("div",{"data-slot":"skeleton",className:n("animate-pulse rounded-md bg-muted motion-reduce:animate-none",e),...o})}s.__docgenInfo={description:"",methods:[],displayName:"Skeleton"};export{s as S};

@@ -1,0 +1,1 @@
+const o={save:"Save",cancel:"Cancel",retry:"Retry",close:"Close"},e={loading:"Loading…",error:"Something went wrong"},n={permissionDenied:"You don't have permission to do that."},t={actions:o,status:e,errors:n};export{o as actions,t as default,n as errors,e as status};

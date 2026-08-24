@@ -1,0 +1,1656 @@
+{
+  "v": 5,
+  "entries": {
+    "components-appshell--docs": {
+      "id": "components-appshell--docs",
+      "title": "Components/AppShell",
+      "name": "Docs",
+      "importPath": "./src/components/app-shell.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs"],
+      "storiesImports": []
+    },
+    "components-appshell--default": {
+      "type": "story",
+      "id": "components-appshell--default",
+      "name": "Default",
+      "title": "Components/AppShell",
+      "importPath": "./src/components/app-shell.stories.tsx",
+      "componentPath": "./src/components/app-shell.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-appshell--right-to-left": {
+      "type": "story",
+      "id": "components-appshell--right-to-left",
+      "name": "Right To Left",
+      "title": "Components/AppShell",
+      "importPath": "./src/components/app-shell.stories.tsx",
+      "componentPath": "./src/components/app-shell.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-appshell--with-top-bar": {
+      "type": "story",
+      "id": "components-appshell--with-top-bar",
+      "name": "With Top Bar",
+      "title": "Components/AppShell",
+      "importPath": "./src/components/app-shell.stories.tsx",
+      "componentPath": "./src/components/app-shell.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-appshell--grouped": {
+      "type": "story",
+      "id": "components-appshell--grouped",
+      "name": "Grouped",
+      "title": "Components/AppShell",
+      "importPath": "./src/components/app-shell.stories.tsx",
+      "componentPath": "./src/components/app-shell.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-appshell--mobile-drawer": {
+      "type": "story",
+      "id": "components-appshell--mobile-drawer",
+      "name": "Mobile Drawer",
+      "title": "Components/AppShell",
+      "importPath": "./src/components/app-shell.stories.tsx",
+      "componentPath": "./src/components/app-shell.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-button--docs": {
+      "id": "components-button--docs",
+      "title": "Components/Button",
+      "name": "Docs",
+      "importPath": "./src/components/button.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs", "play-fn"],
+      "storiesImports": []
+    },
+    "components-button--default": {
+      "type": "story",
+      "id": "components-button--default",
+      "name": "Default",
+      "title": "Components/Button",
+      "importPath": "./src/components/button.stories.tsx",
+      "componentPath": "./src/components/button.tsx",
+      "tags": ["dev", "test", "autodocs", "play-fn"]
+    },
+    "components-button--loading": {
+      "type": "story",
+      "id": "components-button--loading",
+      "name": "Loading",
+      "title": "Components/Button",
+      "importPath": "./src/components/button.stories.tsx",
+      "componentPath": "./src/components/button.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-button--disabled": {
+      "type": "story",
+      "id": "components-button--disabled",
+      "name": "Disabled",
+      "title": "Components/Button",
+      "importPath": "./src/components/button.stories.tsx",
+      "componentPath": "./src/components/button.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-button--icon-only": {
+      "type": "story",
+      "id": "components-button--icon-only",
+      "name": "Icon Only",
+      "title": "Components/Button",
+      "importPath": "./src/components/button.stories.tsx",
+      "componentPath": "./src/components/button.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-button--error": {
+      "type": "story",
+      "id": "components-button--error",
+      "name": "Error",
+      "title": "Components/Button",
+      "importPath": "./src/components/button.stories.tsx",
+      "componentPath": "./src/components/button.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-button--right-to-left": {
+      "type": "story",
+      "id": "components-button--right-to-left",
+      "name": "Right To Left",
+      "title": "Components/Button",
+      "importPath": "./src/components/button.stories.tsx",
+      "componentPath": "./src/components/button.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-checkbox--docs": {
+      "id": "components-checkbox--docs",
+      "title": "Components/Checkbox",
+      "name": "Docs",
+      "importPath": "./src/components/checkbox.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs"],
+      "storiesImports": []
+    },
+    "components-checkbox--default": {
+      "type": "story",
+      "id": "components-checkbox--default",
+      "name": "Default",
+      "title": "Components/Checkbox",
+      "importPath": "./src/components/checkbox.stories.tsx",
+      "componentPath": "./src/components/checkbox.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-checkbox--checked": {
+      "type": "story",
+      "id": "components-checkbox--checked",
+      "name": "Checked",
+      "title": "Components/Checkbox",
+      "importPath": "./src/components/checkbox.stories.tsx",
+      "componentPath": "./src/components/checkbox.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-checkbox--indeterminate": {
+      "type": "story",
+      "id": "components-checkbox--indeterminate",
+      "name": "Indeterminate",
+      "title": "Components/Checkbox",
+      "importPath": "./src/components/checkbox.stories.tsx",
+      "componentPath": "./src/components/checkbox.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-checkbox--disabled": {
+      "type": "story",
+      "id": "components-checkbox--disabled",
+      "name": "Disabled",
+      "title": "Components/Checkbox",
+      "importPath": "./src/components/checkbox.stories.tsx",
+      "componentPath": "./src/components/checkbox.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-checkbox--invalid": {
+      "type": "story",
+      "id": "components-checkbox--invalid",
+      "name": "Invalid",
+      "title": "Components/Checkbox",
+      "importPath": "./src/components/checkbox.stories.tsx",
+      "componentPath": "./src/components/checkbox.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-checkbox--right-to-left": {
+      "type": "story",
+      "id": "components-checkbox--right-to-left",
+      "name": "Right To Left",
+      "title": "Components/Checkbox",
+      "importPath": "./src/components/checkbox.stories.tsx",
+      "componentPath": "./src/components/checkbox.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-combobox--docs": {
+      "id": "components-combobox--docs",
+      "title": "Components/Combobox",
+      "name": "Docs",
+      "importPath": "./src/components/combobox.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs"],
+      "storiesImports": []
+    },
+    "components-combobox--default": {
+      "type": "story",
+      "id": "components-combobox--default",
+      "name": "Default",
+      "title": "Components/Combobox",
+      "importPath": "./src/components/combobox.stories.tsx",
+      "componentPath": "./src/components/combobox.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-combobox--empty": {
+      "type": "story",
+      "id": "components-combobox--empty",
+      "name": "Empty",
+      "title": "Components/Combobox",
+      "importPath": "./src/components/combobox.stories.tsx",
+      "componentPath": "./src/components/combobox.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-combobox--no-results": {
+      "type": "story",
+      "id": "components-combobox--no-results",
+      "name": "No Results",
+      "title": "Components/Combobox",
+      "importPath": "./src/components/combobox.stories.tsx",
+      "componentPath": "./src/components/combobox.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-combobox--right-to-left": {
+      "type": "story",
+      "id": "components-combobox--right-to-left",
+      "name": "Right To Left",
+      "title": "Components/Combobox",
+      "importPath": "./src/components/combobox.stories.tsx",
+      "componentPath": "./src/components/combobox.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-datatable--docs": {
+      "id": "components-datatable--docs",
+      "title": "Components/DataTable",
+      "name": "Docs",
+      "importPath": "./src/components/data-table.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs"],
+      "storiesImports": []
+    },
+    "components-datatable--default": {
+      "type": "story",
+      "id": "components-datatable--default",
+      "name": "Default",
+      "title": "Components/DataTable",
+      "importPath": "./src/components/data-table.stories.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-datatable--loading": {
+      "type": "story",
+      "id": "components-datatable--loading",
+      "name": "Loading",
+      "title": "Components/DataTable",
+      "importPath": "./src/components/data-table.stories.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-datatable--empty": {
+      "type": "story",
+      "id": "components-datatable--empty",
+      "name": "Empty",
+      "title": "Components/DataTable",
+      "importPath": "./src/components/data-table.stories.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-datatable--error-state": {
+      "type": "story",
+      "id": "components-datatable--error-state",
+      "name": "Error State",
+      "title": "Components/DataTable",
+      "importPath": "./src/components/data-table.stories.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-datatable--selectable": {
+      "type": "story",
+      "id": "components-datatable--selectable",
+      "name": "Selectable",
+      "title": "Components/DataTable",
+      "importPath": "./src/components/data-table.stories.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-datatable--with-columns-menu": {
+      "type": "story",
+      "id": "components-datatable--with-columns-menu",
+      "name": "With Columns Menu",
+      "title": "Components/DataTable",
+      "importPath": "./src/components/data-table.stories.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-datatable--expandable-rows": {
+      "type": "story",
+      "id": "components-datatable--expandable-rows",
+      "name": "Expandable Rows",
+      "title": "Components/DataTable",
+      "importPath": "./src/components/data-table.stories.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-datatable--right-to-left": {
+      "type": "story",
+      "id": "components-datatable--right-to-left",
+      "name": "Right To Left",
+      "title": "Components/DataTable",
+      "importPath": "./src/components/data-table.stories.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-datepicker--docs": {
+      "id": "components-datepicker--docs",
+      "title": "Components/DatePicker",
+      "name": "Docs",
+      "importPath": "./src/components/date-picker.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs"],
+      "storiesImports": []
+    },
+    "components-datepicker--default": {
+      "type": "story",
+      "id": "components-datepicker--default",
+      "name": "Default",
+      "title": "Components/DatePicker",
+      "importPath": "./src/components/date-picker.stories.tsx",
+      "componentPath": "./src/components/date-picker.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-datepicker--empty": {
+      "type": "story",
+      "id": "components-datepicker--empty",
+      "name": "Empty",
+      "title": "Components/DatePicker",
+      "importPath": "./src/components/date-picker.stories.tsx",
+      "componentPath": "./src/components/date-picker.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-datepicker--right-to-left": {
+      "type": "story",
+      "id": "components-datepicker--right-to-left",
+      "name": "Right To Left",
+      "title": "Components/DatePicker",
+      "importPath": "./src/components/date-picker.stories.tsx",
+      "componentPath": "./src/components/date-picker.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-dialog--docs": {
+      "id": "components-dialog--docs",
+      "title": "Components/Dialog",
+      "name": "Docs",
+      "importPath": "./src/components/dialog.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs", "play-fn"],
+      "storiesImports": []
+    },
+    "components-dialog--default": {
+      "type": "story",
+      "id": "components-dialog--default",
+      "name": "Default",
+      "title": "Components/Dialog",
+      "importPath": "./src/components/dialog.stories.tsx",
+      "componentPath": "./src/components/dialog.tsx",
+      "tags": ["dev", "test", "autodocs", "play-fn"]
+    },
+    "components-dialog--loading": {
+      "type": "story",
+      "id": "components-dialog--loading",
+      "name": "Loading (confirm in flight)",
+      "title": "Components/Dialog",
+      "importPath": "./src/components/dialog.stories.tsx",
+      "componentPath": "./src/components/dialog.tsx",
+      "tags": ["dev", "test", "autodocs", "play-fn"]
+    },
+    "components-dialog--empty": {
+      "type": "story",
+      "id": "components-dialog--empty",
+      "name": "Empty",
+      "title": "Components/Dialog",
+      "importPath": "./src/components/dialog.stories.tsx",
+      "componentPath": "./src/components/dialog.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-dialog--error-state": {
+      "type": "story",
+      "id": "components-dialog--error-state",
+      "name": "Error State",
+      "title": "Components/Dialog",
+      "importPath": "./src/components/dialog.stories.tsx",
+      "componentPath": "./src/components/dialog.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-dialog--trigger-disabled": {
+      "type": "story",
+      "id": "components-dialog--trigger-disabled",
+      "name": "Trigger Disabled",
+      "title": "Components/Dialog",
+      "importPath": "./src/components/dialog.stories.tsx",
+      "componentPath": "./src/components/dialog.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-dialog--right-to-left": {
+      "type": "story",
+      "id": "components-dialog--right-to-left",
+      "name": "Right To Left",
+      "title": "Components/Dialog",
+      "importPath": "./src/components/dialog.stories.tsx",
+      "componentPath": "./src/components/dialog.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-emptystate--docs": {
+      "id": "components-emptystate--docs",
+      "title": "Components/EmptyState",
+      "name": "Docs",
+      "importPath": "./src/components/empty-state.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs"],
+      "storiesImports": []
+    },
+    "components-emptystate--default": {
+      "type": "story",
+      "id": "components-emptystate--default",
+      "name": "Default",
+      "title": "Components/EmptyState",
+      "importPath": "./src/components/empty-state.stories.tsx",
+      "componentPath": "./src/components/empty-state.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-emptystate--right-to-left": {
+      "type": "story",
+      "id": "components-emptystate--right-to-left",
+      "name": "Right To Left",
+      "title": "Components/EmptyState",
+      "importPath": "./src/components/empty-state.stories.tsx",
+      "componentPath": "./src/components/empty-state.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-errorstate--docs": {
+      "id": "components-errorstate--docs",
+      "title": "Components/ErrorState",
+      "name": "Docs",
+      "importPath": "./src/components/error-state.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs"],
+      "storiesImports": []
+    },
+    "components-errorstate--default": {
+      "type": "story",
+      "id": "components-errorstate--default",
+      "name": "Default",
+      "title": "Components/ErrorState",
+      "importPath": "./src/components/error-state.stories.tsx",
+      "componentPath": "./src/components/error-state.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-errorstate--custom-retry-label": {
+      "type": "story",
+      "id": "components-errorstate--custom-retry-label",
+      "name": "Custom Retry Label",
+      "title": "Components/ErrorState",
+      "importPath": "./src/components/error-state.stories.tsx",
+      "componentPath": "./src/components/error-state.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-errorstate--right-to-left": {
+      "type": "story",
+      "id": "components-errorstate--right-to-left",
+      "name": "Right To Left",
+      "title": "Components/ErrorState",
+      "importPath": "./src/components/error-state.stories.tsx",
+      "componentPath": "./src/components/error-state.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-fileupload--docs": {
+      "id": "components-fileupload--docs",
+      "title": "Components/FileUpload",
+      "name": "Docs",
+      "importPath": "./src/components/file-upload.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs"],
+      "storiesImports": []
+    },
+    "components-fileupload--empty": {
+      "type": "story",
+      "id": "components-fileupload--empty",
+      "name": "Empty",
+      "title": "Components/FileUpload",
+      "importPath": "./src/components/file-upload.stories.tsx",
+      "componentPath": "./src/components/file-upload.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-fileupload--default": {
+      "type": "story",
+      "id": "components-fileupload--default",
+      "name": "Default",
+      "title": "Components/FileUpload",
+      "importPath": "./src/components/file-upload.stories.tsx",
+      "componentPath": "./src/components/file-upload.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-fileupload--loading": {
+      "type": "story",
+      "id": "components-fileupload--loading",
+      "name": "Loading (upload in progress)",
+      "title": "Components/FileUpload",
+      "importPath": "./src/components/file-upload.stories.tsx",
+      "componentPath": "./src/components/file-upload.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-fileupload--error-state": {
+      "type": "story",
+      "id": "components-fileupload--error-state",
+      "name": "Error State",
+      "title": "Components/FileUpload",
+      "importPath": "./src/components/file-upload.stories.tsx",
+      "componentPath": "./src/components/file-upload.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-fileupload--right-to-left": {
+      "type": "story",
+      "id": "components-fileupload--right-to-left",
+      "name": "Right To Left",
+      "title": "Components/FileUpload",
+      "importPath": "./src/components/file-upload.stories.tsx",
+      "componentPath": "./src/components/file-upload.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-formfield--docs": {
+      "id": "components-formfield--docs",
+      "title": "Components/FormField",
+      "name": "Docs",
+      "importPath": "./src/components/form-field.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs"],
+      "storiesImports": []
+    },
+    "components-formfield--default": {
+      "type": "story",
+      "id": "components-formfield--default",
+      "name": "Default",
+      "title": "Components/FormField",
+      "importPath": "./src/components/form-field.stories.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-formfield--error-state": {
+      "type": "story",
+      "id": "components-formfield--error-state",
+      "name": "Error State",
+      "title": "Components/FormField",
+      "importPath": "./src/components/form-field.stories.tsx",
+      "tags": ["dev", "test", "autodocs", "play-fn"]
+    },
+    "components-formfield--disabled": {
+      "type": "story",
+      "id": "components-formfield--disabled",
+      "name": "Disabled",
+      "title": "Components/FormField",
+      "importPath": "./src/components/form-field.stories.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-formfield--right-to-left": {
+      "type": "story",
+      "id": "components-formfield--right-to-left",
+      "name": "Right To Left",
+      "title": "Components/FormField",
+      "importPath": "./src/components/form-field.stories.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-globalsearch--docs": {
+      "id": "components-globalsearch--docs",
+      "title": "Components/GlobalSearch",
+      "name": "Docs",
+      "importPath": "./src/components/global-search.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs"],
+      "storiesImports": []
+    },
+    "components-globalsearch--default": {
+      "type": "story",
+      "id": "components-globalsearch--default",
+      "name": "Default",
+      "title": "Components/GlobalSearch",
+      "importPath": "./src/components/global-search.stories.tsx",
+      "componentPath": "./src/components/global-search.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-globalsearch--populated": {
+      "type": "story",
+      "id": "components-globalsearch--populated",
+      "name": "Populated",
+      "title": "Components/GlobalSearch",
+      "importPath": "./src/components/global-search.stories.tsx",
+      "componentPath": "./src/components/global-search.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-globalsearch--no-results": {
+      "type": "story",
+      "id": "components-globalsearch--no-results",
+      "name": "No Results",
+      "title": "Components/GlobalSearch",
+      "importPath": "./src/components/global-search.stories.tsx",
+      "componentPath": "./src/components/global-search.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-globalsearch--right-to-left": {
+      "type": "story",
+      "id": "components-globalsearch--right-to-left",
+      "name": "Right To Left",
+      "title": "Components/GlobalSearch",
+      "importPath": "./src/components/global-search.stories.tsx",
+      "componentPath": "./src/components/global-search.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-input--docs": {
+      "id": "components-input--docs",
+      "title": "Components/Input",
+      "name": "Docs",
+      "importPath": "./src/components/input.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs"],
+      "storiesImports": []
+    },
+    "components-input--default": {
+      "type": "story",
+      "id": "components-input--default",
+      "name": "Default",
+      "title": "Components/Input",
+      "importPath": "./src/components/input.stories.tsx",
+      "componentPath": "./src/components/input.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-input--empty": {
+      "type": "story",
+      "id": "components-input--empty",
+      "name": "Empty",
+      "title": "Components/Input",
+      "importPath": "./src/components/input.stories.tsx",
+      "componentPath": "./src/components/input.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-input--disabled": {
+      "type": "story",
+      "id": "components-input--disabled",
+      "name": "Disabled",
+      "title": "Components/Input",
+      "importPath": "./src/components/input.stories.tsx",
+      "componentPath": "./src/components/input.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-input--invalid-value": {
+      "type": "story",
+      "id": "components-input--invalid-value",
+      "name": "Invalid Value",
+      "title": "Components/Input",
+      "importPath": "./src/components/input.stories.tsx",
+      "componentPath": "./src/components/input.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-input--loading": {
+      "type": "story",
+      "id": "components-input--loading",
+      "name": "Loading",
+      "title": "Components/Input",
+      "importPath": "./src/components/input.stories.tsx",
+      "componentPath": "./src/components/input.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-input--right-to-left": {
+      "type": "story",
+      "id": "components-input--right-to-left",
+      "name": "Right To Left",
+      "title": "Components/Input",
+      "importPath": "./src/components/input.stories.tsx",
+      "componentPath": "./src/components/input.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-localeswitcher--docs": {
+      "id": "components-localeswitcher--docs",
+      "title": "Components/LocaleSwitcher",
+      "name": "Docs",
+      "importPath": "./src/components/locale-switcher.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs"],
+      "storiesImports": []
+    },
+    "components-localeswitcher--default": {
+      "type": "story",
+      "id": "components-localeswitcher--default",
+      "name": "Default",
+      "title": "Components/LocaleSwitcher",
+      "importPath": "./src/components/locale-switcher.stories.tsx",
+      "componentPath": "./src/components/locale-switcher.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-localeswitcher--open": {
+      "type": "story",
+      "id": "components-localeswitcher--open",
+      "name": "Open",
+      "title": "Components/LocaleSwitcher",
+      "importPath": "./src/components/locale-switcher.stories.tsx",
+      "componentPath": "./src/components/locale-switcher.tsx",
+      "tags": ["dev", "test", "autodocs", "play-fn"]
+    },
+    "components-localeswitcher--rtl": {
+      "type": "story",
+      "id": "components-localeswitcher--rtl",
+      "name": "Rtl",
+      "title": "Components/LocaleSwitcher",
+      "importPath": "./src/components/locale-switcher.stories.tsx",
+      "componentPath": "./src/components/locale-switcher.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-menu--docs": {
+      "id": "components-menu--docs",
+      "title": "Components/Menu",
+      "name": "Docs",
+      "importPath": "./src/components/menu.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs"],
+      "storiesImports": []
+    },
+    "components-menu--default": {
+      "type": "story",
+      "id": "components-menu--default",
+      "name": "Default",
+      "title": "Components/Menu",
+      "importPath": "./src/components/menu.stories.tsx",
+      "componentPath": "./src/components/menu.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-menu--empty": {
+      "type": "story",
+      "id": "components-menu--empty",
+      "name": "Empty",
+      "title": "Components/Menu",
+      "importPath": "./src/components/menu.stories.tsx",
+      "componentPath": "./src/components/menu.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-menu--disabled-item": {
+      "type": "story",
+      "id": "components-menu--disabled-item",
+      "name": "Disabled Item",
+      "title": "Components/Menu",
+      "importPath": "./src/components/menu.stories.tsx",
+      "componentPath": "./src/components/menu.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-menu--right-to-left": {
+      "type": "story",
+      "id": "components-menu--right-to-left",
+      "name": "Right To Left",
+      "title": "Components/Menu",
+      "importPath": "./src/components/menu.stories.tsx",
+      "componentPath": "./src/components/menu.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-moneyinput--docs": {
+      "id": "components-moneyinput--docs",
+      "title": "Components/MoneyInput",
+      "name": "Docs",
+      "importPath": "./src/components/money-input.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs"],
+      "storiesImports": []
+    },
+    "components-moneyinput--default": {
+      "type": "story",
+      "id": "components-moneyinput--default",
+      "name": "Default",
+      "title": "Components/MoneyInput",
+      "importPath": "./src/components/money-input.stories.tsx",
+      "componentPath": "./src/components/money-input.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-moneyinput--empty": {
+      "type": "story",
+      "id": "components-moneyinput--empty",
+      "name": "Empty",
+      "title": "Components/MoneyInput",
+      "importPath": "./src/components/money-input.stories.tsx",
+      "componentPath": "./src/components/money-input.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-moneyinput--disabled": {
+      "type": "story",
+      "id": "components-moneyinput--disabled",
+      "name": "Disabled",
+      "title": "Components/MoneyInput",
+      "importPath": "./src/components/money-input.stories.tsx",
+      "componentPath": "./src/components/money-input.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-moneyinput--invalid": {
+      "type": "story",
+      "id": "components-moneyinput--invalid",
+      "name": "Invalid",
+      "title": "Components/MoneyInput",
+      "importPath": "./src/components/money-input.stories.tsx",
+      "componentPath": "./src/components/money-input.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-moneyinput--right-to-left": {
+      "type": "story",
+      "id": "components-moneyinput--right-to-left",
+      "name": "Right To Left",
+      "title": "Components/MoneyInput",
+      "importPath": "./src/components/money-input.stories.tsx",
+      "componentPath": "./src/components/money-input.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-pagination--docs": {
+      "id": "components-pagination--docs",
+      "title": "Components/Pagination",
+      "name": "Docs",
+      "importPath": "./src/components/pagination.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs"],
+      "storiesImports": []
+    },
+    "components-pagination--default": {
+      "type": "story",
+      "id": "components-pagination--default",
+      "name": "Default",
+      "title": "Components/Pagination",
+      "importPath": "./src/components/pagination.stories.tsx",
+      "componentPath": "./src/components/pagination.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-pagination--first-page": {
+      "type": "story",
+      "id": "components-pagination--first-page",
+      "name": "First Page",
+      "title": "Components/Pagination",
+      "importPath": "./src/components/pagination.stories.tsx",
+      "componentPath": "./src/components/pagination.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-pagination--last-page": {
+      "type": "story",
+      "id": "components-pagination--last-page",
+      "name": "Last Page",
+      "title": "Components/Pagination",
+      "importPath": "./src/components/pagination.stories.tsx",
+      "componentPath": "./src/components/pagination.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-pagination--empty": {
+      "type": "story",
+      "id": "components-pagination--empty",
+      "name": "Empty",
+      "title": "Components/Pagination",
+      "importPath": "./src/components/pagination.stories.tsx",
+      "componentPath": "./src/components/pagination.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-pagination--right-to-left": {
+      "type": "story",
+      "id": "components-pagination--right-to-left",
+      "name": "Right To Left",
+      "title": "Components/Pagination",
+      "importPath": "./src/components/pagination.stories.tsx",
+      "componentPath": "./src/components/pagination.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-phoneinput--docs": {
+      "id": "components-phoneinput--docs",
+      "title": "Components/PhoneInput",
+      "name": "Docs",
+      "importPath": "./src/components/phone-input.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs"],
+      "storiesImports": []
+    },
+    "components-phoneinput--default": {
+      "type": "story",
+      "id": "components-phoneinput--default",
+      "name": "Default",
+      "title": "Components/PhoneInput",
+      "importPath": "./src/components/phone-input.stories.tsx",
+      "componentPath": "./src/components/phone-input.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-phoneinput--empty": {
+      "type": "story",
+      "id": "components-phoneinput--empty",
+      "name": "Empty",
+      "title": "Components/PhoneInput",
+      "importPath": "./src/components/phone-input.stories.tsx",
+      "componentPath": "./src/components/phone-input.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-phoneinput--disabled": {
+      "type": "story",
+      "id": "components-phoneinput--disabled",
+      "name": "Disabled",
+      "title": "Components/PhoneInput",
+      "importPath": "./src/components/phone-input.stories.tsx",
+      "componentPath": "./src/components/phone-input.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-phoneinput--invalid": {
+      "type": "story",
+      "id": "components-phoneinput--invalid",
+      "name": "Invalid",
+      "title": "Components/PhoneInput",
+      "importPath": "./src/components/phone-input.stories.tsx",
+      "componentPath": "./src/components/phone-input.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-phoneinput--right-to-left": {
+      "type": "story",
+      "id": "components-phoneinput--right-to-left",
+      "name": "Right To Left",
+      "title": "Components/PhoneInput",
+      "importPath": "./src/components/phone-input.stories.tsx",
+      "componentPath": "./src/components/phone-input.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "infra-placeholder--docs": {
+      "id": "infra-placeholder--docs",
+      "title": "Infra/Placeholder",
+      "name": "Docs",
+      "importPath": "./src/components/placeholder.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs"],
+      "storiesImports": []
+    },
+    "infra-placeholder--default": {
+      "type": "story",
+      "id": "infra-placeholder--default",
+      "name": "Default",
+      "title": "Infra/Placeholder",
+      "importPath": "./src/components/placeholder.stories.tsx",
+      "componentPath": "./src/components/placeholder.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "infra-placeholder--locale-text-expansion": {
+      "type": "story",
+      "id": "infra-placeholder--locale-text-expansion",
+      "name": "Locale Text Expansion",
+      "title": "Infra/Placeholder",
+      "importPath": "./src/components/placeholder.stories.tsx",
+      "componentPath": "./src/components/placeholder.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "infra-placeholder--msw-backed-data": {
+      "type": "story",
+      "id": "infra-placeholder--msw-backed-data",
+      "name": "Msw Backed Data",
+      "title": "Infra/Placeholder",
+      "importPath": "./src/components/placeholder.stories.tsx",
+      "componentPath": "./src/components/placeholder.tsx",
+      "tags": ["dev", "test", "autodocs", "play-fn"]
+    },
+    "components-radiogroup--docs": {
+      "id": "components-radiogroup--docs",
+      "title": "Components/RadioGroup",
+      "name": "Docs",
+      "importPath": "./src/components/radio.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs"],
+      "storiesImports": []
+    },
+    "components-radiogroup--default": {
+      "type": "story",
+      "id": "components-radiogroup--default",
+      "name": "Default",
+      "title": "Components/RadioGroup",
+      "importPath": "./src/components/radio.stories.tsx",
+      "componentPath": "./src/components/radio.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-radiogroup--disabled": {
+      "type": "story",
+      "id": "components-radiogroup--disabled",
+      "name": "Disabled",
+      "title": "Components/RadioGroup",
+      "importPath": "./src/components/radio.stories.tsx",
+      "componentPath": "./src/components/radio.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-radiogroup--invalid": {
+      "type": "story",
+      "id": "components-radiogroup--invalid",
+      "name": "Invalid",
+      "title": "Components/RadioGroup",
+      "importPath": "./src/components/radio.stories.tsx",
+      "componentPath": "./src/components/radio.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-radiogroup--right-to-left": {
+      "type": "story",
+      "id": "components-radiogroup--right-to-left",
+      "name": "Right To Left",
+      "title": "Components/RadioGroup",
+      "importPath": "./src/components/radio.stories.tsx",
+      "componentPath": "./src/components/radio.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-routeannouncer--docs": {
+      "id": "components-routeannouncer--docs",
+      "title": "Components/RouteAnnouncer",
+      "name": "Docs",
+      "importPath": "./src/components/route-announcer.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs"],
+      "storiesImports": []
+    },
+    "components-routeannouncer--default": {
+      "type": "story",
+      "id": "components-routeannouncer--default",
+      "name": "Default",
+      "title": "Components/RouteAnnouncer",
+      "importPath": "./src/components/route-announcer.stories.tsx",
+      "componentPath": "./src/components/route-announcer.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-routeannouncer--empty": {
+      "type": "story",
+      "id": "components-routeannouncer--empty",
+      "name": "Empty",
+      "title": "Components/RouteAnnouncer",
+      "importPath": "./src/components/route-announcer.stories.tsx",
+      "componentPath": "./src/components/route-announcer.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-schoolpicker--docs": {
+      "id": "components-schoolpicker--docs",
+      "title": "Components/SchoolPicker",
+      "name": "Docs",
+      "importPath": "./src/components/school-picker.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs"],
+      "storiesImports": []
+    },
+    "components-schoolpicker--default": {
+      "type": "story",
+      "id": "components-schoolpicker--default",
+      "name": "Default",
+      "title": "Components/SchoolPicker",
+      "importPath": "./src/components/school-picker.stories.tsx",
+      "componentPath": "./src/components/school-picker.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-schoolpicker--three-schools": {
+      "type": "story",
+      "id": "components-schoolpicker--three-schools",
+      "name": "Three Schools",
+      "title": "Components/SchoolPicker",
+      "importPath": "./src/components/school-picker.stories.tsx",
+      "componentPath": "./src/components/school-picker.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-schoolpicker--right-to-left": {
+      "type": "story",
+      "id": "components-schoolpicker--right-to-left",
+      "name": "Right To Left",
+      "title": "Components/SchoolPicker",
+      "importPath": "./src/components/school-picker.stories.tsx",
+      "componentPath": "./src/components/school-picker.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-select--docs": {
+      "id": "components-select--docs",
+      "title": "Components/Select",
+      "name": "Docs",
+      "importPath": "./src/components/select.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs"],
+      "storiesImports": []
+    },
+    "components-select--default": {
+      "type": "story",
+      "id": "components-select--default",
+      "name": "Default",
+      "title": "Components/Select",
+      "importPath": "./src/components/select.stories.tsx",
+      "componentPath": "./src/components/select.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-select--empty": {
+      "type": "story",
+      "id": "components-select--empty",
+      "name": "Empty",
+      "title": "Components/Select",
+      "importPath": "./src/components/select.stories.tsx",
+      "componentPath": "./src/components/select.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-select--disabled": {
+      "type": "story",
+      "id": "components-select--disabled",
+      "name": "Disabled",
+      "title": "Components/Select",
+      "importPath": "./src/components/select.stories.tsx",
+      "componentPath": "./src/components/select.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-select--invalid": {
+      "type": "story",
+      "id": "components-select--invalid",
+      "name": "Invalid",
+      "title": "Components/Select",
+      "importPath": "./src/components/select.stories.tsx",
+      "componentPath": "./src/components/select.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-select--right-to-left": {
+      "type": "story",
+      "id": "components-select--right-to-left",
+      "name": "Right To Left",
+      "title": "Components/Select",
+      "importPath": "./src/components/select.stories.tsx",
+      "componentPath": "./src/components/select.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-signinform--docs": {
+      "id": "components-signinform--docs",
+      "title": "Components/SignInForm",
+      "name": "Docs",
+      "importPath": "./src/components/sign-in-form.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs"],
+      "storiesImports": []
+    },
+    "components-signinform--default": {
+      "type": "story",
+      "id": "components-signinform--default",
+      "name": "Default",
+      "title": "Components/SignInForm",
+      "importPath": "./src/components/sign-in-form.stories.tsx",
+      "componentPath": "./src/components/sign-in-form.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-signinform--validation-error": {
+      "type": "story",
+      "id": "components-signinform--validation-error",
+      "name": "Validation Error",
+      "title": "Components/SignInForm",
+      "importPath": "./src/components/sign-in-form.stories.tsx",
+      "componentPath": "./src/components/sign-in-form.tsx",
+      "tags": ["dev", "test", "autodocs", "play-fn"]
+    },
+    "components-signinform--rate-limited": {
+      "type": "story",
+      "id": "components-signinform--rate-limited",
+      "name": "Rate Limited",
+      "title": "Components/SignInForm",
+      "importPath": "./src/components/sign-in-form.stories.tsx",
+      "componentPath": "./src/components/sign-in-form.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-signinform--invalid-credentials": {
+      "type": "story",
+      "id": "components-signinform--invalid-credentials",
+      "name": "Invalid Credentials",
+      "title": "Components/SignInForm",
+      "importPath": "./src/components/sign-in-form.stories.tsx",
+      "componentPath": "./src/components/sign-in-form.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-signinform--submitting": {
+      "type": "story",
+      "id": "components-signinform--submitting",
+      "name": "Submitting",
+      "title": "Components/SignInForm",
+      "importPath": "./src/components/sign-in-form.stories.tsx",
+      "componentPath": "./src/components/sign-in-form.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-signinform--right-to-left": {
+      "type": "story",
+      "id": "components-signinform--right-to-left",
+      "name": "Right To Left",
+      "title": "Components/SignInForm",
+      "importPath": "./src/components/sign-in-form.stories.tsx",
+      "componentPath": "./src/components/sign-in-form.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-skeleton--docs": {
+      "id": "components-skeleton--docs",
+      "title": "Components/Skeleton",
+      "name": "Docs",
+      "importPath": "./src/components/skeleton.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs"],
+      "storiesImports": []
+    },
+    "components-skeleton--default": {
+      "type": "story",
+      "id": "components-skeleton--default",
+      "name": "Default",
+      "title": "Components/Skeleton",
+      "importPath": "./src/components/skeleton.stories.tsx",
+      "componentPath": "./src/components/skeleton.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-skeleton--row-of-fields": {
+      "type": "story",
+      "id": "components-skeleton--row-of-fields",
+      "name": "Row Of Fields",
+      "title": "Components/Skeleton",
+      "importPath": "./src/components/skeleton.stories.tsx",
+      "componentPath": "./src/components/skeleton.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-skiplink--docs": {
+      "id": "components-skiplink--docs",
+      "title": "Components/SkipLink",
+      "name": "Docs",
+      "importPath": "./src/components/skip-link.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs"],
+      "storiesImports": []
+    },
+    "components-skiplink--default": {
+      "type": "story",
+      "id": "components-skiplink--default",
+      "name": "Default",
+      "title": "Components/SkipLink",
+      "importPath": "./src/components/skip-link.stories.tsx",
+      "componentPath": "./src/components/skip-link.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-skiplink--right-to-left": {
+      "type": "story",
+      "id": "components-skiplink--right-to-left",
+      "name": "Right To Left",
+      "title": "Components/SkipLink",
+      "importPath": "./src/components/skip-link.stories.tsx",
+      "componentPath": "./src/components/skip-link.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-statusbadge--docs": {
+      "id": "components-statusbadge--docs",
+      "title": "Components/StatusBadge",
+      "name": "Docs",
+      "importPath": "./src/components/status-badge.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs"],
+      "storiesImports": []
+    },
+    "components-statusbadge--default": {
+      "type": "story",
+      "id": "components-statusbadge--default",
+      "name": "Default",
+      "title": "Components/StatusBadge",
+      "importPath": "./src/components/status-badge.stories.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-statusbadge--all-domains": {
+      "type": "story",
+      "id": "components-statusbadge--all-domains",
+      "name": "All Domains",
+      "title": "Components/StatusBadge",
+      "importPath": "./src/components/status-badge.stories.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-statusbadge--greyscale": {
+      "type": "story",
+      "id": "components-statusbadge--greyscale",
+      "name": "Greyscale",
+      "title": "Components/StatusBadge",
+      "importPath": "./src/components/status-badge.stories.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-statusbadge--right-to-left": {
+      "type": "story",
+      "id": "components-statusbadge--right-to-left",
+      "name": "Right To Left",
+      "title": "Components/StatusBadge",
+      "importPath": "./src/components/status-badge.stories.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-table--docs": {
+      "id": "components-table--docs",
+      "title": "Components/Table",
+      "name": "Docs",
+      "importPath": "./src/components/table.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs"],
+      "storiesImports": []
+    },
+    "components-table--default": {
+      "type": "story",
+      "id": "components-table--default",
+      "name": "Default",
+      "title": "Components/Table",
+      "importPath": "./src/components/table.stories.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-table--empty": {
+      "type": "story",
+      "id": "components-table--empty",
+      "name": "Empty",
+      "title": "Components/Table",
+      "importPath": "./src/components/table.stories.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-table--right-to-left": {
+      "type": "story",
+      "id": "components-table--right-to-left",
+      "name": "Right To Left",
+      "title": "Components/Table",
+      "importPath": "./src/components/table.stories.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-tenantbar--docs": {
+      "id": "components-tenantbar--docs",
+      "title": "Components/TenantBar",
+      "name": "Docs",
+      "importPath": "./src/components/tenant-bar.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs"],
+      "storiesImports": []
+    },
+    "components-tenantbar--default": {
+      "type": "story",
+      "id": "components-tenantbar--default",
+      "name": "Default",
+      "title": "Components/TenantBar",
+      "importPath": "./src/components/tenant-bar.stories.tsx",
+      "componentPath": "./src/components/tenant-bar.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-tenantbar--single-membership": {
+      "type": "story",
+      "id": "components-tenantbar--single-membership",
+      "name": "Single Membership",
+      "title": "Components/TenantBar",
+      "importPath": "./src/components/tenant-bar.stories.tsx",
+      "componentPath": "./src/components/tenant-bar.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-tenantbar--switch-menu-open": {
+      "type": "story",
+      "id": "components-tenantbar--switch-menu-open",
+      "name": "Switch Menu Open",
+      "title": "Components/TenantBar",
+      "importPath": "./src/components/tenant-bar.stories.tsx",
+      "componentPath": "./src/components/tenant-bar.tsx",
+      "tags": ["dev", "test", "autodocs", "play-fn"]
+    },
+    "components-tenantbar--right-to-left": {
+      "type": "story",
+      "id": "components-tenantbar--right-to-left",
+      "name": "Right To Left",
+      "title": "Components/TenantBar",
+      "importPath": "./src/components/tenant-bar.stories.tsx",
+      "componentPath": "./src/components/tenant-bar.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-textarea--docs": {
+      "id": "components-textarea--docs",
+      "title": "Components/Textarea",
+      "name": "Docs",
+      "importPath": "./src/components/textarea.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs"],
+      "storiesImports": []
+    },
+    "components-textarea--default": {
+      "type": "story",
+      "id": "components-textarea--default",
+      "name": "Default",
+      "title": "Components/Textarea",
+      "importPath": "./src/components/textarea.stories.tsx",
+      "componentPath": "./src/components/textarea.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-textarea--empty": {
+      "type": "story",
+      "id": "components-textarea--empty",
+      "name": "Empty",
+      "title": "Components/Textarea",
+      "importPath": "./src/components/textarea.stories.tsx",
+      "componentPath": "./src/components/textarea.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-textarea--disabled": {
+      "type": "story",
+      "id": "components-textarea--disabled",
+      "name": "Disabled",
+      "title": "Components/Textarea",
+      "importPath": "./src/components/textarea.stories.tsx",
+      "componentPath": "./src/components/textarea.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-textarea--invalid-value": {
+      "type": "story",
+      "id": "components-textarea--invalid-value",
+      "name": "Invalid Value",
+      "title": "Components/Textarea",
+      "importPath": "./src/components/textarea.stories.tsx",
+      "componentPath": "./src/components/textarea.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-textarea--loading": {
+      "type": "story",
+      "id": "components-textarea--loading",
+      "name": "Loading",
+      "title": "Components/Textarea",
+      "importPath": "./src/components/textarea.stories.tsx",
+      "componentPath": "./src/components/textarea.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-textarea--right-to-left": {
+      "type": "story",
+      "id": "components-textarea--right-to-left",
+      "name": "Right To Left",
+      "title": "Components/Textarea",
+      "importPath": "./src/components/textarea.stories.tsx",
+      "componentPath": "./src/components/textarea.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-toast--docs": {
+      "id": "components-toast--docs",
+      "title": "Components/Toast",
+      "name": "Docs",
+      "importPath": "./src/components/toast.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs", "play-fn"],
+      "storiesImports": []
+    },
+    "components-toast--default": {
+      "type": "story",
+      "id": "components-toast--default",
+      "name": "Default",
+      "title": "Components/Toast",
+      "importPath": "./src/components/toast.stories.tsx",
+      "tags": ["dev", "test", "autodocs", "play-fn"]
+    },
+    "components-toast--success-variant": {
+      "type": "story",
+      "id": "components-toast--success-variant",
+      "name": "Success Variant",
+      "title": "Components/Toast",
+      "importPath": "./src/components/toast.stories.tsx",
+      "tags": ["dev", "test", "autodocs", "play-fn"]
+    },
+    "components-toast--error-variant": {
+      "type": "story",
+      "id": "components-toast--error-variant",
+      "name": "Error Variant",
+      "title": "Components/Toast",
+      "importPath": "./src/components/toast.stories.tsx",
+      "tags": ["dev", "test", "autodocs", "play-fn"]
+    },
+    "components-tooltip--docs": {
+      "id": "components-tooltip--docs",
+      "title": "Components/Tooltip",
+      "name": "Docs",
+      "importPath": "./src/components/tooltip.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs"],
+      "storiesImports": []
+    },
+    "components-tooltip--default": {
+      "type": "story",
+      "id": "components-tooltip--default",
+      "name": "Default",
+      "title": "Components/Tooltip",
+      "importPath": "./src/components/tooltip.stories.tsx",
+      "componentPath": "./src/components/tooltip.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "components-tooltip--right-to-left": {
+      "type": "story",
+      "id": "components-tooltip--right-to-left",
+      "name": "Right To Left",
+      "title": "Components/Tooltip",
+      "importPath": "./src/components/tooltip.stories.tsx",
+      "componentPath": "./src/components/tooltip.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "shells-detailshell--docs": {
+      "id": "shells-detailshell--docs",
+      "title": "Shells/DetailShell",
+      "name": "Docs",
+      "importPath": "./src/shells/detail-shell.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs"],
+      "storiesImports": []
+    },
+    "shells-detailshell--default": {
+      "type": "story",
+      "id": "shells-detailshell--default",
+      "name": "Default",
+      "title": "Shells/DetailShell",
+      "importPath": "./src/shells/detail-shell.stories.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "shells-detailshell--cached-tab-state": {
+      "type": "story",
+      "id": "shells-detailshell--cached-tab-state",
+      "name": "Cached Tab State",
+      "title": "Shells/DetailShell",
+      "importPath": "./src/shells/detail-shell.stories.tsx",
+      "tags": ["dev", "test", "autodocs", "play-fn"]
+    },
+    "shells-detailshell--permission-gated": {
+      "type": "story",
+      "id": "shells-detailshell--permission-gated",
+      "name": "Permission Gated",
+      "title": "Shells/DetailShell",
+      "importPath": "./src/shells/detail-shell.stories.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "shells-detailshell--deep-linked-tab": {
+      "type": "story",
+      "id": "shells-detailshell--deep-linked-tab",
+      "name": "Deep Linked Tab",
+      "title": "Shells/DetailShell",
+      "importPath": "./src/shells/detail-shell.stories.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "shells-detailshell--right-to-left": {
+      "type": "story",
+      "id": "shells-detailshell--right-to-left",
+      "name": "Right To Left",
+      "title": "Shells/DetailShell",
+      "importPath": "./src/shells/detail-shell.stories.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "shells-formshell--docs": {
+      "id": "shells-formshell--docs",
+      "title": "Shells/FormShell",
+      "name": "Docs",
+      "importPath": "./src/shells/form-shell.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs"],
+      "storiesImports": []
+    },
+    "shells-formshell--default": {
+      "type": "story",
+      "id": "shells-formshell--default",
+      "name": "Default",
+      "title": "Shells/FormShell",
+      "importPath": "./src/shells/form-shell.stories.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "shells-formshell--error-summary": {
+      "type": "story",
+      "id": "shells-formshell--error-summary",
+      "name": "Error Summary",
+      "title": "Shells/FormShell",
+      "importPath": "./src/shells/form-shell.stories.tsx",
+      "tags": ["dev", "test", "autodocs", "play-fn"]
+    },
+    "shells-formshell--server-field-error": {
+      "type": "story",
+      "id": "shells-formshell--server-field-error",
+      "name": "Server Field Error",
+      "title": "Shells/FormShell",
+      "importPath": "./src/shells/form-shell.stories.tsx",
+      "tags": ["dev", "test", "autodocs", "play-fn"]
+    },
+    "shells-formshell--successful-submit": {
+      "type": "story",
+      "id": "shells-formshell--successful-submit",
+      "name": "Successful Submit",
+      "title": "Shells/FormShell",
+      "importPath": "./src/shells/form-shell.stories.tsx",
+      "tags": ["dev", "test", "autodocs", "play-fn"]
+    },
+    "shells-formshell--draft-restore": {
+      "type": "story",
+      "id": "shells-formshell--draft-restore",
+      "name": "Draft Restore",
+      "title": "Shells/FormShell",
+      "importPath": "./src/shells/form-shell.stories.tsx",
+      "tags": ["dev", "test", "autodocs", "play-fn"]
+    },
+    "shells-formshell--right-to-left": {
+      "type": "story",
+      "id": "shells-formshell--right-to-left",
+      "name": "Right To Left",
+      "title": "Shells/FormShell",
+      "importPath": "./src/shells/form-shell.stories.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "shells-listshell--docs": {
+      "id": "shells-listshell--docs",
+      "title": "Shells/ListShell",
+      "name": "Docs",
+      "importPath": "./src/shells/list-shell.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs"],
+      "storiesImports": []
+    },
+    "shells-listshell--default": {
+      "type": "story",
+      "id": "shells-listshell--default",
+      "name": "Default",
+      "title": "Shells/ListShell",
+      "importPath": "./src/shells/list-shell.stories.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "shells-listshell--with-selection": {
+      "type": "story",
+      "id": "shells-listshell--with-selection",
+      "name": "With Selection",
+      "title": "Shells/ListShell",
+      "importPath": "./src/shells/list-shell.stories.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "shells-listshell--filtered-and-sorted": {
+      "type": "story",
+      "id": "shells-listshell--filtered-and-sorted",
+      "name": "Filtered And Sorted",
+      "title": "Shells/ListShell",
+      "importPath": "./src/shells/list-shell.stories.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "shells-wizardshell--docs": {
+      "id": "shells-wizardshell--docs",
+      "title": "Shells/WizardShell",
+      "name": "Docs",
+      "importPath": "./src/shells/wizard-shell.stories.tsx",
+      "type": "docs",
+      "tags": ["dev", "test", "autodocs"],
+      "storiesImports": []
+    },
+    "shells-wizardshell--default": {
+      "type": "story",
+      "id": "shells-wizardshell--default",
+      "name": "Default",
+      "title": "Shells/WizardShell",
+      "importPath": "./src/shells/wizard-shell.stories.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "shells-wizardshell--deep-linked-step": {
+      "type": "story",
+      "id": "shells-wizardshell--deep-linked-step",
+      "name": "Deep Linked Step",
+      "title": "Shells/WizardShell",
+      "importPath": "./src/shells/wizard-shell.stories.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "shells-wizardshell--invalid-first-step": {
+      "type": "story",
+      "id": "shells-wizardshell--invalid-first-step",
+      "name": "Invalid First Step",
+      "title": "Shells/WizardShell",
+      "importPath": "./src/shells/wizard-shell.stories.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "shells-wizardshell--result-screen": {
+      "type": "story",
+      "id": "shells-wizardshell--result-screen",
+      "name": "Result Screen",
+      "title": "Shells/WizardShell",
+      "importPath": "./src/shells/wizard-shell.stories.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "shells-wizardshell--right-to-left": {
+      "type": "story",
+      "id": "shells-wizardshell--right-to-left",
+      "name": "Right To Left",
+      "title": "Shells/WizardShell",
+      "importPath": "./src/shells/wizard-shell.stories.tsx",
+      "tags": ["dev", "test", "autodocs"]
+    }
+  }
+}

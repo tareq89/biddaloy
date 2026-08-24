@@ -1,0 +1,1 @@
+import{t as a}from"./digits-fLpplXzt.js";function s(r,t){let e=a(r).replace(/[^\d]/g,"");return e.startsWith(t.phone.country)?e=e.slice(t.phone.country.length):e.startsWith("0")&&(e=e.slice(1)),t.phone.pattern.test(e)?{valid:!0,value:e}:{valid:!1,reason:`expected a number matching ${t.phone.country}'s pattern (e.g. ${t.phone.example})`}}export{s as p};

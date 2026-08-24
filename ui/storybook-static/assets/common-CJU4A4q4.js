@@ -1,0 +1,1 @@
+const o={save:"সংরক্ষণ করুন",cancel:"বাতিল করুন",retry:"আবার চেষ্টা করুন",close:"বন্ধ করুন"},s={loading:"লোড হচ্ছে…",error:"কিছু একটা সমস্যা হয়েছে"},e={permissionDenied:"এই কাজটি করার অনুমতি আপনার নেই।"},n={actions:o,status:s,errors:e};export{o as actions,n as default,e as errors,s as status};

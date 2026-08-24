@@ -4,6 +4,8 @@ on:
   pull_request:
   push:
     branches: [main]
+  # For running the lighthouse job on demand from a feature branch.
+  workflow_dispatch:
 
 env:
   NODE_VERSION: "24"
@@ -482,6 +484,97 @@ jobs:
           name: storybook-static
           path: ui/storybook-static/
           retention-days: 14
+
+  # Not PR-blocking (#149): full stack boot + 3 routes x 3 runs would
+  # become the wall and break #307's <4-min PR target. A perf regression
+  # is caught at merge instead; revisit if that proves too late.
+  lighthouse:
+    name: Lighthouse (3G budgets)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: biddaloy_lighthouse
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/biddaloy_lighthouse
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-lighthouse-jwt-secret-do-not-use-in-production-1234567890
+      NODE_ENV: test
+      SEED_ADMIN_PASSWORD: ci-lighthouse-seed-password-123
+      SETTINGS_ENCRYPTION_KEY: YmSqNpwxzusjAF12JSD+JNe+3LXrbNJiQza2yTnQyR0=
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build shared package
+        run: yarn build:shared
+
+      - name: Run migrations
+        run: yarn workspace @biddaloy/server migration:run
+
+      - name: Seed database
+        run: yarn workspace @biddaloy/server seed
+
+      # Production builds on both sides — never the dev servers.
+      - name: Build and start server
+        run: |
+          yarn build:server
+          node server/dist/main.js &
+
+      - name: Build and start client preview
+        run: |
+          yarn build:client-admin
+          yarn workspace @biddaloy/client-admin preview --port 5174 &
+
+      - name: Wait for server and client
+        run: npx wait-on tcp:3000 tcp:5174 --timeout 120000
+
+      - name: Resolve seeded student detail URL
+        id: student
+        run: echo "url=$(node scripts/lighthouse-student-url.mjs)" >> "$GITHUB_OUTPUT"
+
+      - name: Lighthouse
+        run: >
+          npx lhci autorun
+          --collect.url=http://localhost:5174/login
+          --collect.url=http://localhost:5174/fees/dues
+          --collect.url=${{ steps.student.outputs.url }}
+
+      - name: Upload Lighthouse reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lighthouse-reports
+          path: .lighthouseci/
+          if-no-files-found: ignore
 
   audit:
     name: Dependency vulnerability scan
