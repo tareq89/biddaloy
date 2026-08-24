@@ -71,7 +71,10 @@ function AcademicYearDetailPage() {
   return (
     <RegionConfigProvider value={regionConfig}>
       <div className="flex flex-col gap-4">
-        <Link to="/academic-years" className="text-sm text-primary underline">
+        <Link
+          to="/academic-years"
+          className="inline-flex min-h-6 items-center self-start text-sm text-primary underline"
+        >
           {t('list.title')}
         </Link>
 

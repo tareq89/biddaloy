@@ -30,7 +30,10 @@ function InvoiceDetailPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Link to="/invoices" className="text-sm text-primary underline">
+      <Link
+        to="/invoices"
+        className="inline-flex min-h-6 items-center self-start text-sm text-primary underline"
+      >
         {t('invoiceDetail.back')}
       </Link>
       {invoiceQuery.isPending ? (

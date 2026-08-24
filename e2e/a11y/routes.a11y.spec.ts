@@ -1,17 +1,10 @@
 import AxeBuilder from '@axe-core/playwright';
 import type { APIRequestContext, Page } from '@playwright/test';
 
-import {
-  adminApiSession,
-  createClassSection,
-  createGuardian,
-  createInvoice,
-  createStudentWithDues,
-  type ApiSession,
-} from '../api';
+import { adminApiSession, createStudentWithDues } from '../api';
 import { expect, guest, loggedIn, test } from '../fixtures/test';
 import type { SeedRole } from '../seed-contract';
-import manifest from '../route-manifest.json';
+import { resolvePath, routes } from '../responsive/routes';
 import { overlayOpeners } from './overlay-openers';
 
 /**
@@ -24,16 +17,6 @@ import { overlayOpeners } from './overlay-openers';
 
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 const LOCALES = ['bn', 'en'] as const;
-
-interface ManifestRoute {
-  path: string;
-  role: string;
-  archetype: string;
-  params?: Record<string, string>;
-  overlays?: string[];
-}
-
-const routes = (manifest as { routes: ManifestRoute[] }).routes;
 
 function formatViolations(violations: Awaited<ReturnType<AxeBuilder['analyze']>>['violations']) {
   return violations
@@ -52,33 +35,6 @@ async function expectNoViolations(page: Page, include?: string): Promise<void> {
   expect(results.violations, `axe violations:\n${formatViolations(results.violations)}`).toEqual(
     [],
   );
-}
-
-/** Resolves `$param` segments by seeding real records over the API. */
-async function resolvePath(request: APIRequestContext, route: ManifestRoute): Promise<string> {
-  if (!route.path.includes('$')) return route.path;
-  const session: ApiSession = await adminApiSession(request);
-  const stamp = Date.now();
-  if (route.path.includes('$studentId')) {
-    const { studentId } = await createStudentWithDues(request, session, `A11y Student ${stamp}`);
-    return route.path.replace('$studentId', studentId);
-  }
-  if (route.path.includes('$guardianId')) {
-    const guardian = await createGuardian(request, session, `A11y Guardian ${stamp}`);
-    return route.path.replace('$guardianId', guardian.id);
-  }
-  if (route.path.includes('$invoiceId')) {
-    const { studentId } = await createStudentWithDues(request, session, `A11y Invoicee ${stamp}`);
-    const invoice = await createInvoice(request, session, studentId);
-    return route.path.replace('$invoiceId', invoice.id);
-  }
-  if (route.path.includes('$academicYearId') || route.path.includes('$classId')) {
-    const chain = await createClassSection(request, session);
-    return route.path
-      .replace('$academicYearId', chain.academicYearId)
-      .replace('$classId', chain.classId);
-  }
-  throw new Error(`no resolver for ${route.path}`);
 }
 
 async function ensureDuesRow(request: APIRequestContext): Promise<void> {

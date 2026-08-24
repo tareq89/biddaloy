@@ -55,7 +55,10 @@ function GuardianDetailPage() {
   return (
     <RegionConfigProvider value={regionConfig}>
       <div className="flex flex-col gap-4">
-        <Link to="/guardians" className="text-sm text-primary underline">
+        <Link
+          to="/guardians"
+          className="inline-flex min-h-6 items-center self-start text-sm text-primary underline"
+        >
           {t('detail.back')}
         </Link>
 
