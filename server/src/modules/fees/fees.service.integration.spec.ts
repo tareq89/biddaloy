@@ -1126,20 +1126,63 @@ describe('PaymentService (integration)', () => {
         }),
       );
 
-      await service.create(
-        { student_id: studentA.id, total_amount: 300, payment_method: 'CASH' as any },
+      const older = await service.create(
+        {
+          student_id: studentA.id,
+          total_amount: 300,
+          payment_method: 'CASH' as any,
+          payment_date: '2026-01-05',
+        },
         TENANT_ID,
       );
-      await service.create(
-        { student_id: studentB.id, total_amount: 400, payment_method: 'CHEQUE' as any },
+      const newer = await service.create(
+        {
+          student_id: studentB.id,
+          total_amount: 400,
+          payment_method: 'CHEQUE' as any,
+          payment_date: '2026-02-05',
+        },
         TENANT_ID,
       );
 
       const results = await service.findByGuardian(guardian.id, TENANT_ID);
 
       expect(results).toHaveLength(2);
-      const amounts = results.map((r) => Number(r.total_amount)).sort();
-      expect(amounts).toEqual([300, 400]);
+      // Newest payment_date first — an ascending query would fail this.
+      expect(results.map((r) => r.id)).toEqual([newer.id, older.id]);
+    });
+
+    it('excludes soft-deleted payments', async () => {
+      const student = await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Guardian Child With Deleted Payment',
+          registration_number: 'REG-2026-0012',
+          roll_number: 12,
+          class_section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+          date_of_birth: new Date('2010-01-01'),
+          preferred_communication: 'SMS',
+        }),
+      );
+      const guardian = await guardianRepo.save(
+        guardianRepo.create({
+          full_name: 'Guardian With Deleted Payment',
+          relationship: 'FATHER',
+          preferred_communication: 'SMS',
+          tenant_id: TENANT_ID,
+          students: [student],
+        }),
+      );
+
+      const payment = await service.create(
+        { student_id: student.id, total_amount: 500, payment_method: 'CASH' as any },
+        TENANT_ID,
+      );
+      await paymentRepo.softDelete(payment.id);
+
+      const results = await service.findByGuardian(guardian.id, TENANT_ID);
+
+      expect(results).toEqual([]);
     });
 
     it('returns an empty array for a guardian with no linked students', async () => {
