@@ -38,6 +38,7 @@ async function seedReferenceData(ds: DataSource): Promise<void> {
   await ds.query('DELETE FROM fee_structures');
   await ds.query('DELETE FROM payments');
   await ds.query('DELETE FROM student_guardians');
+  await ds.query('DELETE FROM enrollments');
   await ds.query('DELETE FROM students');
   await ds.query('DELETE FROM guardians');
   await ds.query('DELETE FROM class_sections');
@@ -162,6 +163,7 @@ describe('StudentService (integration)', () => {
   beforeEach(async () => {
     if (dataSource) {
       await dataSource.query('DELETE FROM student_guardians');
+      await dataSource.query('DELETE FROM enrollments');
       await dataSource.query('DELETE FROM guardians');
       await dataSource.query('DELETE FROM students');
     }
@@ -650,6 +652,7 @@ describe('GuardianService (integration)', () => {
   beforeEach(async () => {
     if (dataSource) {
       await dataSource.query('DELETE FROM student_guardians');
+      await dataSource.query('DELETE FROM enrollments');
       await dataSource.query('DELETE FROM guardians');
       await dataSource.query('DELETE FROM students');
     }
