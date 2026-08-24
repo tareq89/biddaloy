@@ -1,1 +1,0 @@
-import{r as t}from"./index-UiW3gZKV.js";import{j as u}from"./jsx-runtime-D_zvdyIk.js";var o=t.createContext(void 0),i=r=>{const e=t.useContext(o);if(!e)throw new Error("No QueryClient set, use QueryClientProvider to set one");return e},a=({client:r,children:e})=>(t.useEffect(()=>(r.mount(),()=>{r.unmount()}),[r]),u.jsx(o.Provider,{value:r,children:e}));export{a as Q,i as u};

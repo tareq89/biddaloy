@@ -1,1 +1,0 @@
-import{b as t}from"./region-config--uWVo8X_.js";const i="0123456789";function o(r,n){return n==="latin"?r:r.replace(/[0-9]/g,e=>t[i.indexOf(e)]??e)}function s(r){return r.replace(/[০-৯]/g,n=>i[t.indexOf(n)]??n)}export{o as r,s as t};
