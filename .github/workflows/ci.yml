@@ -15,6 +15,45 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
+  # Path-filter gate (#147): PRs skip jobs whose paths are untouched.
+  # Push to main always runs everything — it's the merge gate, and
+  # dorny diffs against the previous push there, which under-reports
+  # on force-pushes.
+  changes:
+    name: Detect changed areas
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      server: ${{ steps.filter.outputs.server }}
+      api-surface: ${{ steps.filter.outputs.api-surface }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'ui/**'
+              - 'client-admin/**'
+              - 'shared/**'
+              - 'e2e/**'
+              - 'package.json'
+              - 'yarn.lock'
+              - 'vitest.config.ts'
+              - 'playwright.config.ts'
+              - '.github/workflows/ci.yml'
+            server:
+              - 'server/**'
+              - 'shared/**'
+              - 'package.json'
+              - 'yarn.lock'
+              - '.github/workflows/ci.yml'
+            api-surface:
+              - 'server/src/**'
+              - 'ui/src/api/**'
+
   verify:
     name: Build, lint, unit tests
     runs-on: ubuntu-latest
@@ -94,6 +133,8 @@ jobs:
   frontend:
     name: Frontend tests
     runs-on: ubuntu-latest
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.frontend == 'true'
     steps:
       - uses: actions/checkout@v7
 
@@ -133,6 +174,8 @@ jobs:
   integration:
     name: Integration & e2e tests
     runs-on: ubuntu-latest
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.server == 'true' || needs.changes.outputs.api-surface == 'true'
     services:
       postgres:
         image: postgres:16-alpine
@@ -219,6 +262,8 @@ jobs:
   e2e:
     name: E2E (${{ matrix.browser }})
     runs-on: ubuntu-latest
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.frontend == 'true'
     timeout-minutes: 20
     permissions:
       contents: read

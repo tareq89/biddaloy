@@ -1,6 +1,6 @@
 {
   "package.json": {
-    "mtime": 1787569184.197968,
+    "mtime": 1787569723.9308186,
     "ast_hash": "e631de3f4811d638c9ede6ca4c89a55a",
     "semantic_hash": ""
   },
@@ -20,7 +20,7 @@
     "semantic_hash": "a0f3f2e05241f0aeac9f367061fe4e0b"
   },
   "server/package.json": {
-    "mtime": 1787569184.1984055,
+    "mtime": 1787569723.9326022,
     "ast_hash": "2726372a1227d9754949a972f1fffbec",
     "semantic_hash": ""
   },
@@ -2560,8 +2560,8 @@
     "semantic_hash": "23f296f56f50e29a878e3a644feeed3e"
   },
   ".github/workflows/ci.yml": {
-    "mtime": 1787569159.2562244,
-    "ast_hash": "cc7289921d8131db0faeed90c4911b0f",
+    "mtime": 1787569741.5327058,
+    "ast_hash": "d57d699c9cee3b771d920b07c99d59d2",
     "semantic_hash": ""
   },
   ".github/workflows/codeql.yml": {
@@ -2575,7 +2575,7 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1787569184.1989028,
+    "mtime": 1787569723.8901405,
     "ast_hash": "b9cae1f84aadb7bc659bee11d8e1c431",
     "semantic_hash": ""
   },
@@ -3620,7 +3620,7 @@
     "semantic_hash": "5a8c5b86d1adca513b7b282cf32ab3ad"
   },
   "client-admin/src/routes/_staff/students/index.test.tsx": {
-    "mtime": 1787569331.271557,
+    "mtime": 1787569723.891837,
     "ast_hash": "c7b21e08572e84704d8f2c5dcf42e2b4",
     "semantic_hash": ""
   },
@@ -3915,7 +3915,7 @@
     "semantic_hash": "f0666462ffd20d3ea2f79492063a2e92"
   },
   "client-admin/src/routes/_staff/fees/dues.test.tsx": {
-    "mtime": 1787569331.270708,
+    "mtime": 1787569723.8905516,
     "ast_hash": "fb73e370991e4f334a84eb06bfa960f0",
     "semantic_hash": ""
   },
@@ -3995,7 +3995,7 @@
     "semantic_hash": "1fa0ab630cfd653a9fadc08087d94a77"
   },
   "client-admin/src/routes/_staff/payments/record.test.tsx": {
-    "mtime": 1787569210.3373787,
+    "mtime": 1787569723.8914104,
     "ast_hash": "ae81837ee7c19cd780d1d9b86b459d96",
     "semantic_hash": ""
   },
@@ -4010,7 +4010,7 @@
     "semantic_hash": "93d19fb5217d633bc7e65ebc2400f551"
   },
   "client-admin/src/routes/_staff/invoices/index.test.tsx": {
-    "mtime": 1787569331.2711496,
+    "mtime": 1787569723.8909576,
     "ast_hash": "7c0e4af7094f23bfe4a0b9eea97b87f0",
     "semantic_hash": ""
   },
@@ -4210,7 +4210,7 @@
     "semantic_hash": ""
   },
   ".github/workflows/nightly-frontend-flakes.yml": {
-    "mtime": 1787569218.8102214,
+    "mtime": 1787569723.8897524,
     "ast_hash": "0dcd4d5892b5c0644d3a3393ef0debab",
     "semantic_hash": ""
   }
