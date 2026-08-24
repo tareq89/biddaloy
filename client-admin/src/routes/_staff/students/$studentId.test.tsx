@@ -388,7 +388,7 @@ describe('/students/$studentId', () => {
     const dialog = within(await screen.findByRole('dialog'));
 
     expect(
-      await dialog.findByText("Couldn't load the student's current enrolment. Try again."),
+      await dialog.findByText("Couldn't load the student's current enrollment. Try again."),
     ).toBeTruthy();
 
     await user.click(dialog.getByRole('combobox', { name: 'Class' }));

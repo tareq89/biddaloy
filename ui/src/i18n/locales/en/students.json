@@ -170,7 +170,7 @@
       "confirm": "Move",
       "moving": "Moving…",
       "errorMessage": "Couldn't move the student. Try again.",
-      "loadError": "Couldn't load the student's current enrolment. Try again."
+      "loadError": "Couldn't load the student's current enrollment. Try again."
     }
   },
   "new": {
