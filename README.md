@@ -241,6 +241,13 @@ and `yarn e2e --ui` opens the HTML report automatically on failure.
 
 ## CI
 
+Bundle budgets live in `client-admin/scripts/check-route-chunks.mjs` — the
+entry-chunk gzip ceiling and its raise history are documented in that file's
+header, and every raise happens there, in a PR that says why, referencing the
+measured number and the ticket that caused it — never silently. On PRs a
+sticky comment (`scripts/bundle-delta.mjs`) shows the per-chunk gzip delta
+against the latest `main` build.
+
 GitHub Actions (`.github/workflows/ci.yml`) runs on every PR and on push to
 `main`:
 

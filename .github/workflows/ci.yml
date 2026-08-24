@@ -107,6 +107,14 @@ jobs:
       - name: client-admin route code-splitting and bundle-size check
         run: yarn workspace @biddaloy/client-admin check:route-chunks
 
+      # Baseline for the bundle-delta PR comment (#150): the latest
+      # successful main run's report is downloaded by the bundle-delta job.
+      - name: Upload route-chunks report
+        uses: actions/upload-artifact@v7
+        with:
+          name: route-chunks-report
+          path: client-admin/dist/route-chunks-report.json
+
       - name: UI export map check
         run: yarn workspace @biddaloy/ui check:exports
 
@@ -371,6 +379,52 @@ jobs:
           name: test-results-${{ matrix.browser }}
           path: test-results/
           if-no-files-found: ignore
+
+  bundle-delta:
+    name: Bundle size delta
+    runs-on: ubuntu-latest
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.frontend == 'true'
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build shared package
+        run: yarn build:shared
+
+      - name: Build report (PR)
+        run: yarn workspace @biddaloy/client-admin check:route-chunks
+
+      # Baseline = the latest successful main run's artifact — one build
+      # instead of two (~1.5 min saved). The delta reads "current main vs
+      # this PR" rather than the PR's exact merge-base; fine for a drift
+      # signal, the hard ceiling still gates absolutes.
+      - name: Download baseline report from latest main run
+        run: |
+          RUN_ID=$(gh api "repos/${{ github.repository }}/actions/workflows/ci.yml/runs?branch=main&status=success&per_page=1" -q '.workflow_runs[0].id')
+          gh run download "$RUN_ID" -n route-chunks-report -D baseline || echo "no baseline yet"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Compose delta comment
+        run: node scripts/bundle-delta.mjs baseline/route-chunks-report.json client-admin/dist/route-chunks-report.json delta.md
+
+      - name: Post sticky PR comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: bundle-delta
+          path: delta.md
 
   audit:
     name: Dependency vulnerability scan

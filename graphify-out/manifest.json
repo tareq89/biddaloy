@@ -2560,8 +2560,8 @@
     "semantic_hash": "23f296f56f50e29a878e3a644feeed3e"
   },
   ".github/workflows/ci.yml": {
-    "mtime": 1787569789.3204482,
-    "ast_hash": "c6c048e58793d078d0ddb73531280e88",
+    "mtime": 1787570026.2277756,
+    "ast_hash": "a0e74c37a32de9ccf88ab9be232863a6",
     "semantic_hash": ""
   },
   ".github/workflows/codeql.yml": {
@@ -2575,8 +2575,8 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1787569723.8901405,
-    "ast_hash": "b9cae1f84aadb7bc659bee11d8e1c431",
+    "mtime": 1787570026.2282834,
+    "ast_hash": "1edb99ba4c0264222ff2f512065ea547",
     "semantic_hash": ""
   },
   "client-admin/index.html": {
@@ -2655,9 +2655,9 @@
     "semantic_hash": "1f2600b1a94a8b811fc2dec78706e2e1"
   },
   "client-admin/scripts/check-route-chunks.mjs": {
-    "mtime": 1787569077.81211,
-    "ast_hash": "33bd1d66de82bb8ff95e3402393f9297",
-    "semantic_hash": "33bd1d66de82bb8ff95e3402393f9297"
+    "mtime": 1787569937.466984,
+    "ast_hash": "497a10f9cd39a76d3cf193b6a272e89a",
+    "semantic_hash": ""
   },
   "client-admin/src/components/ConnectionTestResultMessage.tsx": {
     "mtime": 1787072022.5257962,
@@ -2775,7 +2775,7 @@
     "semantic_hash": "6b04de98201ff4cb3bacee6683942b86"
   },
   "playwright.config.ts": {
-    "mtime": 1787569777.7927868,
+    "mtime": 1787569911.8336985,
     "ast_hash": "bc8ba3f16d5b9d9b0f4b80b5be1f2b4f",
     "semantic_hash": ""
   },
@@ -4212,6 +4212,11 @@
   ".github/workflows/nightly-frontend-flakes.yml": {
     "mtime": 1787569723.8897524,
     "ast_hash": "0dcd4d5892b5c0644d3a3393ef0debab",
+    "semantic_hash": ""
+  },
+  "scripts/bundle-delta.mjs": {
+    "mtime": 1787570003.9207706,
+    "ast_hash": "c39b1f475b290b4532744644948b5ca9",
     "semantic_hash": ""
   }
 }
