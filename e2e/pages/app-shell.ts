@@ -32,9 +32,10 @@ export class AppShellPage {
       .click();
   }
 
-  /** Cmd/Ctrl+K palette ([8.9.9]). */
+  /** Cmd/Ctrl+K palette ([8.9.9]) — opened via its toolbar button; the
+   * keyboard shortcut itself is covered by the a11y/keyboard suite. */
   async openGlobalSearch(): Promise<void> {
-    await this.page.keyboard.press(process.platform === 'darwin' ? 'Meta+k' : 'Control+k');
+    await this.page.getByRole('button', { name: t('nav.globalSearch.buttonLabel') }).click();
     await expect(this.searchInput()).toBeVisible();
   }
 
@@ -48,5 +49,23 @@ export class AppShellPage {
 
   private searchInput() {
     return this.page.getByRole('combobox', { name: t('nav.globalSearch.ariaLabel') });
+  }
+
+  /** Permission assertions: is a sidebar item rendered for this role? */
+  async expectNavItem(tKey: string, visible: boolean): Promise<void> {
+    const nav = this.page.getByRole('navigation', { name: t('nav.navLabel') });
+    const link = nav.getByRole('link', { name: t(tKey), exact: true });
+    if (visible) await expect(link).toBeVisible();
+    else await expect(link).toHaveCount(0);
+  }
+
+  /** Tenant-bar school switch, driving the confirm dialog. */
+  async switchSchool(schoolName: string): Promise<void> {
+    await this.openSchoolSwitcher();
+    await this.page.getByRole('menuitem', { name: new RegExp(schoolName) }).click();
+    await this.page
+      .getByRole('dialog')
+      .getByRole('button', { name: t('nav.tenantBar.confirm'), exact: true })
+      .click();
   }
 }
