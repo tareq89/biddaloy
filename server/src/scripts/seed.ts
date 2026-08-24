@@ -98,6 +98,16 @@ export async function seed() {
   // path for role-gated nav specifically.
   await ensureRoleTestUsers(userRepository, userTenantRepository, school.id, passwordHash);
 
+  // [8.5.2]: the ADMIN seed account must be multi-membership so the E2E
+  // tenant-picker specs have a real picker to land on — same second
+  // school the super admin gets above.
+  const adminTestUser = await userRepository.findOne({
+    where: { email: 'admin@biddaloy.test' },
+  });
+  if (adminTestUser) {
+    await ensureSecondSchoolMembership(schoolRepository, userTenantRepository, adminTestUser.id);
+  }
+
   await app.close();
 }
 

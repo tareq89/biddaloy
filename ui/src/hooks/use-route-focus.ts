@@ -109,6 +109,16 @@ export function useRouteFocus({ mainId, appName }: UseRouteFocusOptions): string
   // click would be its own regression.
   const lastPathnameRef = React.useRef<string | undefined>(undefined);
   const lastActionTypeRef = React.useRef<string | null>(null);
+  // The previous route's `<h1>` DOM node, plus a flag for a route change
+  // seen while that node was still the one in the document — see the
+  // deferral comment in `processHeading`.
+  const lastHeadingElRef = React.useRef<HTMLElement | null>(null);
+  const pendingRouteChangeRef = React.useRef(false);
+  // The node this hook last moved focus to — so a same-route re-render
+  // that replaces it (skeleton → loaded content re-creating the `<h1>`)
+  // can be detected and focus re-anchored instead of silently falling
+  // back to `<body>`.
+  const focusedHeadingRef = React.useRef<HTMLElement | null>(null);
 
   // `router.history` types as `any` here — `useRouter()`'s generic
   // defaults to `RegisteredRouter`, which only resolves to this app's
@@ -166,7 +176,50 @@ export function useRouteFocus({ mainId, appName }: UseRouteFocusOptions): string
       const isColdLoad = lastPathnameRef.current === undefined;
       lastPathnameRef.current = pathname;
 
-      if (!isRouteChange || isColdLoad) return;
+      if (isColdLoad) {
+        lastHeadingElRef.current = heading;
+        return;
+      }
+
+      // The router can commit the new pathname before the new page's DOM
+      // lands — the first mutation after a click is often the nav link's
+      // own class change, at which point `heading` is still the *old*
+      // page's `<h1>`. Announcing/focusing it would announce the page
+      // being left and then lose focus to `<body>` when that node
+      // unmounts. Defer: remember a route change is pending and process
+      // it on the mutation that delivers a different heading node.
+      const wasPending = pendingRouteChangeRef.current;
+      if (
+        (isRouteChange || wasPending) &&
+        heading !== null &&
+        heading === lastHeadingElRef.current
+      ) {
+        pendingRouteChangeRef.current = true;
+        return;
+      }
+
+      const isPending = wasPending;
+      pendingRouteChangeRef.current = false;
+      lastHeadingElRef.current = heading;
+
+      if (!isRouteChange && !isPending) {
+        // A same-route re-render can replace the very node the
+        // route-change focus landed on, dropping focus to `<body>`.
+        // Only re-anchor when *this hook's* target vanished and nothing
+        // else took focus — a user who tabbed elsewhere is left alone.
+        if (
+          heading !== null &&
+          focusedHeadingRef.current !== null &&
+          heading !== focusedHeadingRef.current &&
+          !document.contains(focusedHeadingRef.current) &&
+          document.activeElement === document.body
+        ) {
+          heading.setAttribute('tabindex', '-1');
+          heading.focus();
+          focusedHeadingRef.current = heading;
+        }
+        return;
+      }
 
       // Clear then re-set, not a single `setAnnouncement(headingText)` —
       // two different routes can share the same heading text (e.g. two
@@ -194,6 +247,7 @@ export function useRouteFocus({ mainId, appName }: UseRouteFocusOptions): string
       if (heading) {
         heading.setAttribute('tabindex', '-1');
         heading.focus();
+        focusedHeadingRef.current = heading;
         return;
       }
 
