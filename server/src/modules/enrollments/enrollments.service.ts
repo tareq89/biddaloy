@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, EntityManager } from 'typeorm';
+import { Repository, IsNull, Not, EntityManager } from 'typeorm';
 import { Enrollment } from '../students/entities/enrollment.entity';
 import { Student } from '../students/entities/student.entity';
 import { Class } from '../academics/entities/class.entity';
@@ -217,6 +217,28 @@ export class EnrollmentService {
 
     const targetSectionId = dto.section_id ?? enrollment.section_id;
     const targetStatus = dto.enrollment_status ?? enrollment.enrollment_status;
+
+    // [8.11.3] Reactivating an older row (e.g. an INACTIVE/TRANSFERRED one)
+    // back to ACTIVE must not leave two ACTIVE rows for the same student
+    // and academic year — `findCurrentByStudent` picks whichever one it
+    // finds first, and `IDX_enr_active_student_year` (a unique partial
+    // index) already rejects this at the database level. Pre-checking
+    // here just turns that into a clean 409 instead of a raw DB error.
+    if (targetStatus === EnrollmentStatus.ACTIVE) {
+      const conflictingActive = await this.repo.findOne({
+        where: {
+          student_id: enrollment.student_id,
+          academic_year_id: enrollment.academic_year_id,
+          enrollment_status: EnrollmentStatus.ACTIVE,
+          id: Not(id),
+        },
+      });
+      if (conflictingActive) {
+        throw new ConflictException(
+          `Student is already actively enrolled in academic year "${enrollment.academic_year_id}"`,
+        );
+      }
+    }
 
     // [8.11.3] A "move" only happens when the resulting row is ACTIVE and
     // resolves to a concrete section — `Student.class_section_id` can

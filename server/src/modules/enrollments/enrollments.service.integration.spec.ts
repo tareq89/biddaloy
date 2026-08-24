@@ -1015,5 +1015,43 @@ describe('EnrollmentService (integration)', () => {
       const sameStudent = await studentRepo.findOne({ where: { id: student.id } });
       expect(sameStudent!.roll_number).toBe(7);
     });
+
+    // ────────────────────────
+    //  [8.11.3] one-active-enrollment invariant — a PATCH must not
+    //  reactivate an older row to ACTIVE while another row is already
+    //  ACTIVE for the same student and academic year (findCurrentByStudent
+    //  picks whichever it finds first, so two actives is ambiguous).
+    // ────────────────────────
+    it('throws ConflictException when reactivating an enrollment would create a second ACTIVE row for the same student and academic year', async () => {
+      const student = await buildStudent();
+
+      const first = await service.create(
+        {
+          student_id: student.id,
+          class_id: SEED_CLASS_1_ID,
+          section_id: SEED_SECTION_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        },
+        TENANT_ID,
+      );
+      await service.update(first.id, { enrollment_status: EnrollmentStatus.INACTIVE }, TENANT_ID);
+
+      // A second, currently-ACTIVE enrollment for the same student/year.
+      const second = await service.create(
+        {
+          student_id: student.id,
+          class_id: SEED_CLASS_2_ID,
+          section_id: SEED_CLASS_2_SECTION_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        },
+        TENANT_ID,
+      );
+      expect(second.enrollment_status).toBe(EnrollmentStatus.ACTIVE);
+
+      // Reactivating the first row would leave two ACTIVE rows at once.
+      await expect(
+        service.update(first.id, { enrollment_status: EnrollmentStatus.ACTIVE }, TENANT_ID),
+      ).rejects.toThrow(ConflictException);
+    });
   });
 });
