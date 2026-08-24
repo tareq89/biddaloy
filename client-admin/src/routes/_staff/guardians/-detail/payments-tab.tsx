@@ -8,7 +8,7 @@ import {
 } from '@biddaloy/ui/components';
 import { usePaymentsByGuardian } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatCurrency, parseCurrency } from '@biddaloy/ui/utils';
+import { formatCurrency, formatDate, parseCurrency, parseServerDate } from '@biddaloy/ui/utils';
 import { Link } from '@tanstack/react-router';
 
 import { TabQueryState } from './tab-query-state';
@@ -50,7 +50,9 @@ export function PaymentsTab({ guardianId }: PaymentsTabProps) {
             <TableBody>
               {payments.map((payment) => (
                 <TableRow key={payment.id}>
-                  <TableCell>{payment.payment_date}</TableCell>
+                  <TableCell>
+                    {formatDate(parseServerDate(payment.payment_date), regionConfig)}
+                  </TableCell>
                   <TableCell>
                     <Link
                       to="/students/$studentId"
