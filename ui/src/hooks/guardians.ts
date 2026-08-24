@@ -8,6 +8,7 @@ import { shouldRetryQuery } from './retry';
 
 export type Guardian = components['schemas']['Guardian'];
 export type CreateGuardianInput = components['schemas']['CreateGuardianDto'];
+export type UpdateGuardianInput = components['schemas']['UpdateGuardianDto'];
 
 export interface GuardianListFilters {
   search?: string;
@@ -29,22 +30,23 @@ export interface PaginatedGuardians {
 
 export const guardianKeys = createEntityKeys<GuardianListFilters>('guardians');
 
-/** Search-as-you-type result count kept small — this backs an inline
- * picker, not a browsable list page, so there's no pagination UI to page
- * through a large result set with. A caller debounces `filters.search`
- * itself (`useDebouncedValue`) before this fires. */
+/** Default result count for the inline picker (`GuardianPicker`), which
+ * never passes its own `limit` — search-as-you-type there has no
+ * pagination UI to page a large result set through. [8.11.4]'s Guardians
+ * list page is the other caller of `guardiansQueryOptions`/`useGuardians`
+ * and *does* page through results, so it passes its own `filters.limit`
+ * (from `useListShellState`'s page-size), which wins over this default. */
 const GUARDIAN_SEARCH_LIMIT = 10;
 
 export function guardiansQueryOptions(filters: GuardianListFilters) {
-  // One object, used for both the cache key and the request params —
-  // built with `limit` forced to `GUARDIAN_SEARCH_LIMIT` last, so it
-  // always wins over anything a caller passed in `filters.limit`. Building
-  // the key from raw `filters` instead would let a defined `filters.limit`
-  // silently override the actual requested limit while the cache key
-  // stayed unaware of it, and `{ limit: undefined }` would cache
-  // identically to an omitted `limit` despite the two overriding the
-  // request differently were `limit` ever spread after this point.
-  const effectiveFilters: GuardianListFilters = { ...filters, limit: GUARDIAN_SEARCH_LIMIT };
+  // One object, used for both the cache key and the request params — a
+  // caller-supplied `filters.limit` wins over the picker's default, kept
+  // in the same object the cache key is built from so the two never
+  // drift apart the way a param built separately from the key could.
+  const effectiveFilters: GuardianListFilters = {
+    ...filters,
+    limit: filters.limit ?? GUARDIAN_SEARCH_LIMIT,
+  };
   return queryOptions({
     queryKey: guardianKeys.list(effectiveFilters),
     queryFn: async ({ signal }) => {
@@ -66,6 +68,25 @@ export function useGuardians(filters: GuardianListFilters) {
   return useQuery(guardiansQueryOptions(filters));
 }
 
+/** [8.11.4]'s detail page — mirrors `students.ts`'s `studentQueryOptions`.
+ * Split out from `useGuardian` so a loader (`context.queryClient
+ * .ensureQueryData(guardianQueryOptions(id))`) can share the same cache
+ * entry a hook can't reach outside render. */
+export function guardianQueryOptions(id: string) {
+  return queryOptions({
+    queryKey: guardianKeys.detail(id),
+    queryFn: async () => {
+      const res = await apiClient.get<Guardian>(`/guardians/${id}`);
+      return res.data;
+    },
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useGuardian(id: string | undefined) {
+  return useQuery({ ...guardianQueryOptions(id ?? ''), enabled: id !== undefined });
+}
+
 /** The "create one inline" half of [8.10.3]'s guardian linking — a new
  * sibling's guardian usually already exists, but when they don't, this
  * lets the student form create one without leaving the page. Invalidates
@@ -82,6 +103,44 @@ export function useCreateGuardian() {
     retry: shouldRetryQuery,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: guardianKeys.lists() });
+    },
+  });
+}
+
+/** [8.11.4]'s Information tab edit action, and the Linked Students tab's
+ * add/remove-a-student editor (`student_ids` replaces the guardian's full
+ * link set — see `GuardianService.update`). Invalidates both the detail
+ * (every field the Information tab shows, plus the Linked Students list
+ * once `student_ids` changes) and every list variant, same reasoning as
+ * `students.ts`'s `useUpdateStudent`: a changed name/phone/relationship
+ * is also a list-column value. */
+export function useUpdateGuardian(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: UpdateGuardianInput) => {
+      const res = await apiClient.patch<Guardian>(`/guardians/${id}`, input);
+      return res.data;
+    },
+    retry: shouldRetryQuery,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: guardianKeys.detail(id) });
+      void queryClient.invalidateQueries({ queryKey: guardianKeys.lists() });
+    },
+  });
+}
+
+/** Mirrors `students.ts`'s `useDeleteStudent` — `Guardian.deleted_at` soft
+ * delete (`GuardianService.remove`). */
+export function useDeleteGuardian() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/guardians/${id}`);
+    },
+    retry: shouldRetryQuery,
+    onSuccess: (_data, id) => {
+      void queryClient.invalidateQueries({ queryKey: guardianKeys.lists() });
+      queryClient.removeQueries({ queryKey: guardianKeys.detail(id) });
     },
   });
 }

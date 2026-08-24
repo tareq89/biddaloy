@@ -160,6 +160,12 @@ export class StudentController {
     return this.guardianService.findAll(query, tenant.id);
   }
 
+  @Get('guardians/:id')
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  findOneGuardian(@Param('id') id: string, @CurrentTenant() tenant: { id: string; role: string }) {
+    return this.guardianService.findOne(id, tenant.id);
+  }
+
   @Patch('guardians/:id')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
   updateGuardian(

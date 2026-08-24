@@ -1,0 +1,105 @@
+{
+  "list": {
+    "title": "অভিভাবক",
+    "caption": "অভিভাবক",
+    "searchLabel": "নাম, ফোন বা ইমেইল দিয়ে খুঁজুন",
+    "columnName": "নাম",
+    "columnRelationship": "সম্পর্ক",
+    "columnPhone": "ফোন",
+    "columnPreferredCommunication": "পছন্দের যোগাযোগ মাধ্যম",
+    "columnLinkedStudents": "যুক্ত শিক্ষার্থী",
+    "columnPrimaryContact": "প্রধান যোগাযোগ",
+    "columnActions": "কার্যক্রম",
+    "view": "দেখুন",
+    "emptyValue": "—",
+    "emptyMessage": "কোনো অভিভাবক পাওয়া যায়নি",
+    "errorMessage": "অভিভাবকের তথ্য লোড করা যায়নি",
+    "announceResults": "{{total}} জনের মধ্যে {{count}} জন অভিভাবক দেখানো হচ্ছে"
+  },
+  "preferredCommunicationOptions": {
+    "SMS": "এসএমএস",
+    "WHATSAPP": "হোয়াটসঅ্যাপ",
+    "EMAIL": "ইমেইল",
+    "PHONE_CALL": "ফোন কল",
+    "MESSENGER": "মেসেঞ্জার"
+  },
+  "detail": {
+    "back": "অভিভাবক তালিকায় ফিরুন",
+    "identifiers": "{{relationship}}",
+    "forbidden": "এটি দেখার অনুমতি আপনার নেই।",
+    "loadError": "অভিভাবকের তথ্য লোড করা যায়নি।",
+    "tabs": {
+      "information": "তথ্য",
+      "linkedStudents": "যুক্ত শিক্ষার্থী",
+      "communication": "যোগাযোগের ইতিহাস",
+      "payments": "পেমেন্টের ইতিহাস"
+    },
+    "actions": {
+      "edit": "সম্পাদনা"
+    },
+    "information": {
+      "columnPhone": "ফোন",
+      "columnAlternatePhone": "বিকল্প ফোন",
+      "columnEmail": "ইমেইল",
+      "columnAddress": "ঠিকানা",
+      "columnOccupation": "পেশা",
+      "columnPreferredCommunication": "পছন্দের যোগাযোগ মাধ্যম",
+      "columnPrimaryContact": "প্রধান যোগাযোগ",
+      "emptyValue": "—"
+    },
+    "linkedStudents": {
+      "columnName": "নাম",
+      "columnClass": "শ্রেণি",
+      "columnSection": "শাখা",
+      "editAction": "যুক্ত শিক্ষার্থী সম্পাদনা করুন",
+      "saveAction": "সংরক্ষণ করুন",
+      "saving": "সংরক্ষণ করা হচ্ছে…",
+      "cancelAction": "বাতিল",
+      "emptyMessage": "এখনো কোনো শিক্ষার্থী যুক্ত করা হয়নি।",
+      "saveErrorMessage": "যুক্ত শিক্ষার্থী হালনাগাদ করা যায়নি। আবার চেষ্টা করুন।"
+    },
+    "communication": {
+      "columnDate": "তারিখ",
+      "columnMedium": "মাধ্যম",
+      "columnRecipient": "প্রাপক",
+      "columnStatus": "অবস্থা",
+      "emptyMessage": "এখনো কোনো বার্তা পাঠানো হয়নি।",
+      "errorMessage": "বার্তার ইতিহাস লোড করা যায়নি।"
+    },
+    "payments": {
+      "columnDate": "তারিখ",
+      "columnAmount": "পরিমাণ",
+      "columnMethod": "পদ্ধতি",
+      "columnReference": "রেফারেন্স",
+      "columnStudent": "শিক্ষার্থী",
+      "emptyMessage": "এখনো কোনো পেমেন্ট নথিভুক্ত নেই।",
+      "errorMessage": "পেমেন্টের ইতিহাস লোড করা যায়নি।"
+    }
+  },
+  "editDialog": {
+    "title": "অভিভাবক সম্পাদনা",
+    "description": "{{name}}-এর তথ্য হালনাগাদ করুন।",
+    "fields": {
+      "fullName": "পূর্ণ নাম",
+      "relationship": "সম্পর্ক",
+      "phone": "ফোন",
+      "email": "ইমেইল",
+      "alternatePhone": "বিকল্প ফোন",
+      "address": "ঠিকানা",
+      "occupation": "পেশা",
+      "preferredCommunication": "পছন্দের যোগাযোগ মাধ্যম"
+    },
+    "fullNameRequired": "পূর্ণ নাম আবশ্যক।",
+    "save": "পরিবর্তন সংরক্ষণ করুন",
+    "saving": "সংরক্ষণ করা হচ্ছে…",
+    "errorMessage": "অভিভাবকের তথ্য হালনাগাদ করা যায়নি। আবার চেষ্টা করুন।"
+  },
+  "studentPicker": {
+    "selectedLabel": "যুক্ত শিক্ষার্থী",
+    "removeAction": "{{name}} সরান",
+    "removeAction_short": "সরান",
+    "searchLabel": "শিক্ষার্থী খুঁজুন",
+    "searchPlaceholder": "নাম বা রেজিস্ট্রেশন নম্বর দিয়ে খুঁজুন",
+    "noResults": "কোনো শিক্ষার্থী পাওয়া যায়নি।"
+  }
+}

@@ -8,9 +8,9 @@
  *
  * Result targets today:
  * - student -> its own `/students/$studentId` page.
- * - guardian -> the first student it's linked to (`Guardian.students[0]`)
- *   — guardians have no page of their own yet, so this is the closest
- *   existing destination a selection can land on, not a placeholder.
+ * - guardian -> its own `/guardians/$guardianId` page ([8.11.4] — before
+ *   that page existed, this fell back to the first student the guardian
+ *   linked, since a guardian had nowhere else to land on).
  * - invoice -> `/invoices/$invoiceId` ([8.9.9] adds this minimal stub
  *   page; the endpoint it reads already existed).
  * - receipt (payment) -> the paying student's own `/students/$studentId`
@@ -75,16 +75,11 @@ export function GlobalSearchLauncher() {
       id: 'guardians',
       label: t('globalSearch.groups.guardians'),
       isLoading: results.guardians.isLoading,
-      // A guardian result only lands somewhere if it links a student —
-      // guardians have no page of their own yet. Showing one that
-      // navigates nowhere reads as a broken selection.
-      results: results.guardians.data
-        .filter((guardian) => guardian.students.length > 0)
-        .map((guardian) => ({
-          id: guardian.id,
-          label: guardian.full_name,
-          description: guardian.relationship,
-        })),
+      results: results.guardians.data.map((guardian) => ({
+        id: guardian.id,
+        label: guardian.full_name,
+        description: guardian.relationship,
+      })),
     },
     {
       id: 'teachers',
@@ -126,11 +121,7 @@ export function GlobalSearchLauncher() {
       return;
     }
     if (groupId === 'guardians') {
-      const guardian = results.guardians.data.find((item) => item.id === resultId);
-      const firstStudent = guardian?.students[0];
-      if (firstStudent) {
-        void navigate({ to: '/students/$studentId', params: { studentId: firstStudent.id } });
-      }
+      void navigate({ to: '/guardians/$guardianId', params: { guardianId: resultId } });
       return;
     }
     if (groupId === 'invoices') {
