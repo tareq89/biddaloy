@@ -169,7 +169,8 @@
       "capacityWarning": "This section is at capacity ({{enrolled}}/{{capacity}}). You can still proceed.",
       "confirm": "Move",
       "moving": "Moving…",
-      "errorMessage": "Couldn't move the student. Try again."
+      "errorMessage": "Couldn't move the student. Try again.",
+      "loadError": "Couldn't load the student's current enrolment. Try again."
     }
   },
   "new": {

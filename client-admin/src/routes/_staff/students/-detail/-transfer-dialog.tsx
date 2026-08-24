@@ -106,7 +106,11 @@ export function TransferDialog({
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (!classId || !sectionId) return;
+    // A failed GET leaves `currentEnrollment` falsy too — only a
+    // successful `null` means "no current enrollment, POST a fresh one";
+    // anything else (still loading, or the query errored) must not fall
+    // through to create-and-duplicate an active enrollment.
+    if (!classId || !sectionId || !currentEnrollmentQuery.isSuccess) return;
 
     if (currentEnrollment) {
       updateEnrollment.mutate(
@@ -129,7 +133,7 @@ export function TransferDialog({
     );
   }
 
-  const canSubmit = !!classId && !!sectionId && !currentEnrollmentQuery.isPending;
+  const canSubmit = !!classId && !!sectionId && currentEnrollmentQuery.isSuccess;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -204,6 +208,12 @@ export function TransferDialog({
                   })}
                 </span>
               </div>
+            )}
+
+            {currentEnrollmentQuery.isError && (
+              <p role="alert" className="text-sm text-destructive">
+                {t('detail.moveClassDialog.loadError')}
+              </p>
             )}
 
             {mutation.isError && (

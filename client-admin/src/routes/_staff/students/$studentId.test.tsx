@@ -331,6 +331,75 @@ describe('/students/$studentId', () => {
     expect(patchBody).toEqual({ class_id: 'class-2', section_id: 'section-2' });
   });
 
+  it('[8.11.3] Move class dialog blocks submission and shows an error when the current-enrollment lookup fails', async () => {
+    const student = studentFactory({ id: 'student-1', full_name: 'Rahim Uddin' });
+    const targetClass = classFactory({ id: 'class-2', name: 'Class Two' });
+    const targetSection = classSectionFactory({
+      id: 'section-2',
+      class: targetClass,
+      section_name: 'B',
+      capacity: 40,
+    });
+    let createCalled = false;
+
+    server.use(
+      http.get('/api/v1/students/:id', () => HttpResponse.json(student)),
+      http.get('/api/v1/enrollments/student/:studentId', () => HttpResponse.json([])),
+      // A failed GET must not be treated the same as a successful "no
+      // current enrollment" — that would wrongly take the create-fresh-row
+      // branch below and duplicate an existing active enrollment.
+      // A 4xx status so `shouldRetryQuery` fails fast instead of retrying
+      // with backoff — this only needs to exercise the error state, not
+      // any particular status code.
+      http.get('/api/v1/enrollments/:studentId/current', () =>
+        HttpResponse.json(
+          {
+            statusCode: 400,
+            message: 'Bad Request',
+            timestamp: new Date().toISOString(),
+            path: '/api/v1/enrollments/student-1/current',
+            requestId: 'req-1',
+          },
+          { status: 400 },
+        ),
+      ),
+      http.get('/api/v1/classes', () =>
+        HttpResponse.json({ data: [targetClass], total: 1, page: 1, limit: 100, totalPages: 1 }),
+      ),
+      http.get('/api/v1/classes/:classId/sections', () => HttpResponse.json([targetSection])),
+      http.post('/api/v1/enrollments', () => {
+        createCalled = true;
+        return HttpResponse.json(
+          { id: 'enrollment-new', student_id: 'student-1', enrollment_status: 'ACTIVE' },
+          { status: 201 },
+        );
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students/student-1?tab=enrollment'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Move class' }));
+    const dialog = within(await screen.findByRole('dialog'));
+
+    expect(
+      await dialog.findByText("Couldn't load the student's current enrolment. Try again."),
+    ).toBeTruthy();
+
+    await user.click(dialog.getByRole('combobox', { name: 'Class' }));
+    await user.click(await screen.findByRole('option', { name: 'Class Two' }));
+    await user.click(dialog.getByRole('combobox', { name: 'Section' }));
+    await user.click(await screen.findByRole('option', { name: 'B' }));
+
+    expect(dialog.getByRole('button', { name: 'Move' })).toHaveProperty('disabled', true);
+    expect(createCalled).toBe(false);
+  });
+
   it('[8.11.3] Move class dialog POSTs a fresh enrollment for a legacy student with no current row', async () => {
     const student = studentFactory({ id: 'student-1', full_name: 'Rahim Uddin' });
     const targetClass = classFactory({ id: 'class-2', name: 'Class Two' });
