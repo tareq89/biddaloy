@@ -1,0 +1,1 @@
+import{r as e}from"./index-UiW3gZKV.js";import{s as t,g as s,a as n,b as r}from"./auth-state-ZwiaXXcL.js";function o(){return e.useSyncExternalStore(t,r)}function u(){return e.useSyncExternalStore(t,s)}function i(){return e.useSyncExternalStore(t,n)}export{u as a,o as b,i as u};
