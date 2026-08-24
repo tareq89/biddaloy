@@ -770,6 +770,61 @@ describe('GuardianService (integration)', () => {
       expect(result.data).toHaveLength(1);
       expect(result.data[0].full_name).toBe('Ahmed Khan');
     });
+
+    // [8.11.4]'s list page "Linked students" column, and the global-search
+    // launcher's `guardian.students.length > 0` filter — both need
+    // `students` loaded, which neither findAll branch loaded before.
+    it('loads each guardian`s linked students (no-search branch)', async () => {
+      const student = await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Linked Student',
+          registration_number: 'REG-2026-0002',
+          roll_number: 2,
+          class_section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+          date_of_birth: new Date('2010-01-01'),
+        }),
+      );
+      await service.create(
+        { full_name: 'Guardian With Child', relationship: 'FATHER', student_ids: [student.id] },
+        TENANT_ID,
+      );
+
+      const result = await service.findAll({ page: 1, limit: 10 }, TENANT_ID);
+
+      const guardian = result.data.find((g) => g.full_name === 'Guardian With Child');
+      expect(guardian?.students).toBeDefined();
+      expect(guardian?.students).toHaveLength(1);
+      expect(guardian?.students[0].id).toBe(student.id);
+    });
+
+    it('loads each guardian`s linked students (search branch)', async () => {
+      const student = await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Linked Student',
+          registration_number: 'REG-2026-0003',
+          roll_number: 3,
+          class_section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+          date_of_birth: new Date('2010-01-01'),
+        }),
+      );
+      await service.create(
+        {
+          full_name: 'Searchable Guardian',
+          relationship: 'FATHER',
+          student_ids: [student.id],
+        },
+        TENANT_ID,
+      );
+
+      const result = await service.findAll({ search: 'Searchable', page: 1, limit: 10 }, TENANT_ID);
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].students).toBeDefined();
+      expect(result.data[0].students).toHaveLength(1);
+      expect(result.data[0].students[0].id).toBe(student.id);
+    });
   });
 
   describe('remove (soft delete)', () => {

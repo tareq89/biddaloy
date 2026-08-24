@@ -35,14 +35,23 @@ export {
 } from './students';
 export {
   guardianKeys,
+  guardianQueryOptions,
+  guardiansQueryOptions,
   useCreateGuardian,
+  useDeleteGuardian,
+  useGuardian,
   useGuardians,
+  useUpdateGuardian,
   type CreateGuardianInput,
   type Guardian,
+  type GuardianListFilters,
+  type PaginatedGuardians,
+  type UpdateGuardianInput,
 } from './guardians';
 export {
   paymentKeys,
   useCreatePayment,
+  usePaymentsByGuardian,
   usePaymentsByStudent,
   useStudentFeeSummary,
   useRecordPaymentWithAllocation,
@@ -65,6 +74,7 @@ export {
 } from './enrollments';
 export {
   communicationLogKeys,
+  useGuardianCommunicationLogs,
   useStudentCommunicationLogs,
   useLastReminders,
   type CommunicationLog,

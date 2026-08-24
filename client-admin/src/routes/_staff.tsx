@@ -55,7 +55,14 @@ function StaffLayout() {
     {
       id: 'people',
       label: t('groups.people'),
-      items: [{ to: '/students', label: t('items.students'), permission: Permission.STUDENT_READ }],
+      items: [
+        { to: '/students', label: t('items.students'), permission: Permission.STUDENT_READ },
+        // [8.11.4] — gated on GUARDIAN_READ, the same permission
+        // `GuardianController`'s `GET /guardians` requires server-side
+        // (`students.controller.ts`'s `@Roles(ADMIN, ACCOUNTANT,
+        // EXECUTIVE, TEACHER)` on that endpoint).
+        { to: '/guardians', label: t('items.guardians'), permission: Permission.GUARDIAN_READ },
+      ],
     },
     {
       id: 'finance',

@@ -11,6 +11,7 @@ import { createTestQueryClient, renderWithProviders } from '../test/render-with-
 
 import {
   useCreatePayment,
+  usePaymentsByGuardian,
   usePaymentsByStudent,
   useRecordPaymentWithAllocation,
   useStudentFeeSummary,
@@ -135,6 +136,23 @@ describe('usePaymentsByStudent', () => {
     );
 
     const { result } = renderHookWithProviders(() => usePaymentsByStudent('student-1'), {
+      tenantId: 'tenant-1',
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toHaveLength(2);
+  });
+});
+
+describe('usePaymentsByGuardian', () => {
+  it("[8.11.4] resolves the payment history for a guardian's linked students", async () => {
+    server.use(
+      http.get('/api/v1/payments/guardian/:guardianId', () =>
+        HttpResponse.json([paymentFactory(), paymentFactory()]),
+      ),
+    );
+
+    const { result } = renderHookWithProviders(() => usePaymentsByGuardian('guardian-1'), {
       tenantId: 'tenant-1',
     });
 

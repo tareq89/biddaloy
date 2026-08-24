@@ -113,6 +113,22 @@ export class CommunicationsService {
     return logs.map(toResponseDto);
   }
 
+  /** [8.11.4]'s Communication History tab — every message ever sent to
+   * this guardian directly, newest first. Mirrors `findByStudent` above;
+   * `findOne` below throws `NotFoundException` if the guardian doesn't
+   * belong to this tenant, so a cross-tenant guardian ID never leaks a
+   * (necessarily empty) log list. */
+  async findByGuardian(guardianId: string, tenantId: string): Promise<CommunicationResponseDto[]> {
+    await this.guardianService.findOne(guardianId, tenantId);
+
+    const logs = await this.repo.find({
+      where: { guardian_id: guardianId, tenant_id: tenantId },
+      order: { created_at: 'DESC' },
+    });
+
+    return logs.map(toResponseDto);
+  }
+
   /**
    * [8.10.4]'s dues queue "Last reminder" column — the most recent fee
    * reminder (bulk or single-send) per student, for an explicit set of

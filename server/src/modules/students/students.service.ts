@@ -351,6 +351,7 @@ export class GuardianService {
             { ...where, phone: Like(search) },
             { ...where, email: Like(search) },
           ],
+          relations: ['students'],
           order: { created_at: 'DESC' },
           skip,
           take: limit,
@@ -366,6 +367,7 @@ export class GuardianService {
 
     const [data, total] = await this.repo.findAndCount({
       where,
+      relations: ['students'],
       order: { created_at: 'DESC' },
       skip,
       take: limit,
@@ -377,7 +379,7 @@ export class GuardianService {
   async findOne(id: string, tenantId: string): Promise<Guardian> {
     const guardian = await this.repo.findOne({
       where: { id, tenant_id: tenantId, deleted_at: IsNull() },
-      relations: ['students'],
+      relations: ['students', 'students.class_section', 'students.class_section.class'],
     });
     if (!guardian) {
       throw new NotFoundException(`Guardian with ID "${id}" not found`);
@@ -400,6 +402,13 @@ export class GuardianService {
     const updateData: any = { ...dto };
     if (dto.student_ids !== undefined) {
       delete updateData.student_ids;
+    }
+
+    // The edit-guardian dialog sends `''` (not an omitted key) to
+    // explicitly clear one of these nullable columns — store that as a
+    // real NULL rather than a stray empty string sitting in the column.
+    for (const key of ['phone', 'email', 'alternate_phone', 'address', 'occupation'] as const) {
+      if (updateData[key] === '') updateData[key] = null;
     }
 
     await this.repo.update({ id, tenant_id: tenantId }, updateData);

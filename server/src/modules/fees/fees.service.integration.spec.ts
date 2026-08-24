@@ -3,12 +3,14 @@ import { NotFoundException, ConflictException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { FeeStructureService, PaymentService } from './fees.service';
+import { GuardianService } from '../students/students.service';
 import { FeeStructure } from './entities/fee-structure.entity';
 import { FeeStructureStudent } from './entities/fee-structure-student.entity';
 import { Payment } from './entities/payment.entity';
 import { PaymentAllocation } from './entities/payment-allocation.entity';
 import { StudentFee } from './entities/student-fee.entity';
 import { Student } from '../students/entities/student.entity';
+import { Guardian } from '../students/entities/guardian.entity';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
@@ -885,12 +887,13 @@ describe('PaymentService (integration)', () => {
   let studentRepo: Repository<Student>;
   let paymentRepo: Repository<Payment>;
   let studentFeeRepo: Repository<StudentFee>;
+  let guardianRepo: Repository<Guardian>;
   let dataSource: DataSource;
 
   const TENANT_ID = SEED_TENANT_ID;
 
   beforeAll(async () => {
-    const module = await createTestModule(ALL_ENTITIES, [PaymentService], [], {
+    const module = await createTestModule(ALL_ENTITIES, [PaymentService, GuardianService], [], {
       synchronize: true,
       dropSchema: true,
     });
@@ -899,6 +902,7 @@ describe('PaymentService (integration)', () => {
     studentRepo = module.get<Repository<Student>>(getRepositoryToken(Student));
     paymentRepo = module.get<Repository<Payment>>(getRepositoryToken(Payment));
     studentFeeRepo = module.get<Repository<StudentFee>>(getRepositoryToken(StudentFee));
+    guardianRepo = module.get<Repository<Guardian>>(getRepositoryToken(Guardian));
     dataSource = module.get(DataSource);
 
     await seedReferenceData(dataSource);
@@ -915,6 +919,8 @@ describe('PaymentService (integration)', () => {
       await dataSource.query('DELETE FROM payment_allocations');
       await dataSource.query('DELETE FROM student_fees');
       await dataSource.query('DELETE FROM payments');
+      await dataSource.query('DELETE FROM student_guardians');
+      await dataSource.query('DELETE FROM guardians');
       await dataSource.query('DELETE FROM students');
     }
   });
@@ -1080,6 +1086,139 @@ describe('PaymentService (integration)', () => {
       );
 
       await expect(service.findByStudent(student.id, TENANT_ID)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ────────────────────────
+  //  findByGuardian()
+  // ────────────────────────
+  describe('findByGuardian', () => {
+    it('returns payments for every student linked to the guardian, newest first, as one IN() query', async () => {
+      const studentA = await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Guardian Child A',
+          registration_number: 'REG-2026-0010',
+          roll_number: 10,
+          class_section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+          date_of_birth: new Date('2010-01-01'),
+          preferred_communication: 'SMS',
+        }),
+      );
+      const studentB = await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Guardian Child B',
+          registration_number: 'REG-2026-0011',
+          roll_number: 11,
+          class_section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+          date_of_birth: new Date('2011-01-01'),
+          preferred_communication: 'SMS',
+        }),
+      );
+      const guardian = await guardianRepo.save(
+        guardianRepo.create({
+          full_name: 'Payment Guardian',
+          relationship: 'FATHER',
+          preferred_communication: 'SMS',
+          tenant_id: TENANT_ID,
+          students: [studentA, studentB],
+        }),
+      );
+
+      const older = await service.create(
+        {
+          student_id: studentA.id,
+          total_amount: 300,
+          payment_method: 'CASH' as any,
+          payment_date: '2026-01-05',
+        },
+        TENANT_ID,
+      );
+      const newer = await service.create(
+        {
+          student_id: studentB.id,
+          total_amount: 400,
+          payment_method: 'CHEQUE' as any,
+          payment_date: '2026-02-05',
+        },
+        TENANT_ID,
+      );
+
+      const results = await service.findByGuardian(guardian.id, TENANT_ID);
+
+      expect(results).toHaveLength(2);
+      // Newest payment_date first — an ascending query would fail this.
+      expect(results.map((r) => r.id)).toEqual([newer.id, older.id]);
+    });
+
+    it('excludes soft-deleted payments', async () => {
+      const student = await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Guardian Child With Deleted Payment',
+          registration_number: 'REG-2026-0012',
+          roll_number: 12,
+          class_section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+          date_of_birth: new Date('2010-01-01'),
+          preferred_communication: 'SMS',
+        }),
+      );
+      const guardian = await guardianRepo.save(
+        guardianRepo.create({
+          full_name: 'Guardian With Deleted Payment',
+          relationship: 'FATHER',
+          preferred_communication: 'SMS',
+          tenant_id: TENANT_ID,
+          students: [student],
+        }),
+      );
+
+      const payment = await service.create(
+        { student_id: student.id, total_amount: 500, payment_method: 'CASH' as any },
+        TENANT_ID,
+      );
+      await paymentRepo.softDelete(payment.id);
+
+      const results = await service.findByGuardian(guardian.id, TENANT_ID);
+
+      expect(results).toEqual([]);
+    });
+
+    it('returns an empty array for a guardian with no linked students', async () => {
+      const guardian = await guardianRepo.save(
+        guardianRepo.create({
+          full_name: 'Childless Guardian',
+          relationship: 'FATHER',
+          preferred_communication: 'SMS',
+          tenant_id: TENANT_ID,
+        }),
+      );
+
+      const results = await service.findByGuardian(guardian.id, TENANT_ID);
+
+      expect(results).toEqual([]);
+    });
+
+    it('throws NotFoundException when the guardian does not exist', async () => {
+      await expect(
+        service.findByGuardian('00000000-0000-4000-8000-000000000000', TENANT_ID),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws NotFoundException when the guardian belongs to a different tenant', async () => {
+      const guardian = await guardianRepo.save(
+        guardianRepo.create({
+          full_name: 'Other Tenant Guardian',
+          relationship: 'FATHER',
+          preferred_communication: 'SMS',
+          tenant_id: '00000000-0000-4000-8000-000000000099',
+        }),
+      );
+
+      await expect(service.findByGuardian(guardian.id, TENANT_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 

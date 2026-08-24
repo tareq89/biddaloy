@@ -220,7 +220,13 @@ export class UpdateGuardianDto {
   @IsString()
   phone?: string;
 
+  // [8.11.4]'s edit-guardian dialog sends `''` (not an omitted key) to
+  // explicitly clear an optional field — `GuardianService.update` maps
+  // that to a real NULL. `@IsEmail()` alone would reject `''` as an
+  // invalid address, so it's skipped for that one case; a non-empty
+  // value still has to be a real email.
   @IsOptional()
+  @ValidateIf((o: UpdateGuardianDto) => o.email !== '')
   @IsEmail()
   email?: string;
 

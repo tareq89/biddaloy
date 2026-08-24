@@ -89,6 +89,19 @@ describe('StatusBadge', () => {
     expect(screen.getByText('Not current')).toBeTruthy();
   });
 
+  it.each([
+    ['PRIMARY', 'success'],
+    ['SECONDARY', 'neutral'],
+  ] as const)('[8.11.4] maps guardian %s to the %s tone', (status, tone) => {
+    render(<StatusBadge domain="guardian" status={status} />);
+    expect(screen.getByText(/./).getAttribute('data-tone')).toBe(tone);
+  });
+
+  it('[8.11.4] renders a humanized label for the guardian domain', () => {
+    render(<StatusBadge domain="guardian" status="SECONDARY" />);
+    expect(screen.getByText('Secondary')).toBeTruthy();
+  });
+
   it('every tone within one domain maps to a visually distinct icon (the greyscale guarantee)', () => {
     const { container } = render(
       <>
