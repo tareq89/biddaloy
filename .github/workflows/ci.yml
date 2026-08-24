@@ -143,6 +143,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: changes
     if: github.event_name == 'push' || needs.changes.outputs.frontend == 'true'
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: read
     steps:
       - uses: actions/checkout@v7
 
@@ -159,17 +163,19 @@ jobs:
       # sources itself. (If a resolution error ever proves otherwise,
       # add `yarn build:shared` back above this step.)
 
-      # PRs run the suite without coverage instrumentation (~2.5x faster,
-      # see the coverage-overhead comment in vitest.config.ts). Coverage
-      # thresholds are enforced on push instead — thresholds unchanged,
-      # only the gate moves.
-      - name: Frontend tests (no coverage)
-        if: github.event_name == 'pull_request'
-        run: yarn test:frontend --run
-
+      # Coverage on every run (#153 amends #307's PR/no-coverage split):
+      # the PR delta comment below needs PR coverage, and since this job is
+      # parallel the ~105s instrumentation penalty sits off the critical
+      # path — the wall stays under 4 minutes.
       - name: Frontend tests with coverage
-        if: github.event_name == 'push'
         run: yarn test:frontend:coverage
+
+      # `if: failure()` also fires on non-coverage failures; the script
+      # prints nothing when nothing is under threshold, which is the
+      # honest output in that case.
+      - name: Name files under threshold
+        if: failure()
+        run: node scripts/coverage-offenders.mjs coverage/lcov.info
 
       - name: Upload frontend coverage
         if: always()
@@ -178,6 +184,28 @@ jobs:
           name: frontend-coverage
           path: coverage/
           if-no-files-found: ignore
+
+      # Baseline = latest successful main run's coverage artifact (same
+      # pattern as bundle-delta). A missing baseline (first ever run)
+      # degrades to an absolute-numbers comment, not a failure.
+      - name: Fetch main coverage baseline
+        if: github.event_name == 'pull_request'
+        run: |
+          RUN_ID=$(gh api "repos/${{ github.repository }}/actions/workflows/ci.yml/runs?branch=main&status=success&per_page=1" -q '.workflow_runs[0].id')
+          gh run download "$RUN_ID" -n frontend-coverage -D coverage-baseline || echo "no baseline yet"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Compose coverage comment
+        if: github.event_name == 'pull_request'
+        run: node scripts/coverage-delta.mjs coverage-baseline/lcov.info coverage/lcov.info > coverage-comment.md
+
+      - name: Comment coverage on PR
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: coverage
+          path: coverage-comment.md
 
   integration:
     name: Integration & e2e tests
