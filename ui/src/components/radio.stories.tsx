@@ -2,7 +2,7 @@
  * rendered (or none selected, which `Default` already shows) — there's no
  * separate loading state at this bare-control layer, same reasoning as
  * `checkbox.stories.tsx`. */
-import type { Meta, StoryObj } from '@storybook/react';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import { rtlDecorator } from '../../.storybook/rtl-decorator';
 

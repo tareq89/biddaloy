@@ -11,7 +11,7 @@
  * alone never reaches portaled content — only the document-level attribute
  * does.
  */
-import type { Decorator } from '@storybook/react';
+import type { Decorator } from '@storybook/react-vite';
 import { useEffect } from 'react';
 
 // A real (PascalCase) component, not the decorator function itself, so the

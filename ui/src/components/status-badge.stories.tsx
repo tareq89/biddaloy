@@ -6,7 +6,7 @@ import {
   PaymentStatus,
   ReminderBatchStatus,
 } from '@biddaloy/shared';
-import type { Meta, StoryObj } from '@storybook/react';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import { rtlDecorator } from '../../.storybook/rtl-decorator';
 

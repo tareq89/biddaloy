@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import type { Meta, StoryObj } from '@storybook/react';
-import { userEvent, within } from '@storybook/test';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useForm } from 'react-hook-form';
+import { userEvent, within } from 'storybook/test';
 import { z } from 'zod';
 
 import { rtlDecorator } from '../../.storybook/rtl-decorator';

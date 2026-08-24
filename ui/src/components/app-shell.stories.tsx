@@ -8,7 +8,7 @@
  * sidebar` mockup.
  */
 import { Permission } from '@biddaloy/shared';
-import type { Meta, StoryObj } from '@storybook/react';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import { withMemoryRouter } from '../../.storybook/router-decorator';
 import { rtlDecorator } from '../../.storybook/rtl-decorator';

@@ -7,8 +7,8 @@
  * layout survive a bidi flip.
  */
 import { UserRole } from '@biddaloy/shared';
-import type { Meta, StoryObj } from '@storybook/react';
-import { userEvent, within } from '@storybook/test';
+import type { Meta, StoryObj } from '@storybook/react-vite';
+import { userEvent, within } from 'storybook/test';
 
 import { rtlDecorator } from '../../.storybook/rtl-decorator';
 import { setAccessToken, setActiveTenant } from '../api/auth-state';

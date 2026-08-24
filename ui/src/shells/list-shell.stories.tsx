@@ -5,7 +5,7 @@
  * no bespoke table markup, no local `useState` standing in for page/sort/
  * filter/selection.
  */
-import type { Meta, StoryObj } from '@storybook/react';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import { withMemoryRouter } from '../../.storybook/router-decorator';
 import { Button } from '../components/button';

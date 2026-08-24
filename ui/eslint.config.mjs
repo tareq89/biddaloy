@@ -1,3 +1,4 @@
+import storybook from 'eslint-plugin-storybook';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
@@ -52,4 +53,5 @@ export default tseslint.config(
       globals: { ...globals.node },
     },
   },
+  ...storybook.configs['flat/recommended'],
 );

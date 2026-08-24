@@ -19,7 +19,7 @@
  * doesn't (a real browser API, a required provider this test doesn't
  * set up) shouldn't have to satisfy this file's narrower guarantee.
  */
-import { composeStories } from '@storybook/react';
+import { composeStories } from '@storybook/react-vite';
 import { render } from '@testing-library/react';
 import * as React from 'react';
 import { describe, it } from 'vitest';

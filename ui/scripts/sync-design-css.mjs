@@ -34,14 +34,15 @@ if (!existsSync(assetsDir)) {
 }
 
 // The filename's content hash changes every build, so match by prefix
-// rather than a fixed name.
+// rather than a fixed name. Storybook 8 emitted the global stylesheet as
+// `preview-*.css`; Storybook 10 renamed the chunk to `iframe-*.css`.
 const matches = readdirSync(assetsDir).filter(
-  (name) => name.startsWith('preview-') && name.endsWith('.css'),
+  (name) => (name.startsWith('preview-') || name.startsWith('iframe-')) && name.endsWith('.css'),
 );
 
 if (matches.length === 0) {
   console.error(
-    `sync-design-css: FAILED — no preview-*.css asset found in ${assetsDir}.\n` +
+    `sync-design-css: FAILED — no preview-*.css/iframe-*.css asset found in ${assetsDir}.\n` +
       "  Storybook's Vite build may have changed how it names or emits this file — " +
       'see .design-sync/NOTES.md\'s "cfg.cssEntry" entry before changing this script.',
   );
@@ -50,7 +51,7 @@ if (matches.length === 0) {
 
 if (matches.length > 1) {
   console.error(
-    `sync-design-css: FAILED — ${matches.length} preview-*.css assets found in ${assetsDir}, expected exactly 1:\n` +
+    `sync-design-css: FAILED — ${matches.length} preview-*.css/iframe-*.css assets found in ${assetsDir}, expected exactly 1:\n` +
       matches.map((name) => `    ${name}`).join('\n') +
       '\n  Picking one at random would silently ship the wrong stylesheet — resolve the ambiguity first.',
   );
