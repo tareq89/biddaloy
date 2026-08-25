@@ -5,6 +5,7 @@ import {
   createClassSection,
   createGuardian,
   createInvoice,
+  createStaffUser,
   createStudentWithDues,
   type ApiSession,
 } from '../api';
@@ -48,6 +49,10 @@ export async function resolvePath(
   if (route.path.includes('$guardianId')) {
     const guardian = await createGuardian(request, session, `Reflow Guardian ${stamp}`);
     return route.path.replace('$guardianId', guardian.id);
+  }
+  if (route.path.includes('$userId')) {
+    const staffUser = await createStaffUser(request, session, `Reflow Staff ${stamp}`);
+    return route.path.replace('$userId', staffUser.id);
   }
   if (route.path.includes('$invoiceId')) {
     const { studentId } = await createStudentWithDues(request, session, `Reflow Invoicee ${stamp}`);
