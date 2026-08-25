@@ -84,8 +84,10 @@ export function EditTeacherDialog({ open, onOpenChange, teacher }: EditTeacherDi
       {
         employee_id: employeeId.trim(),
         designations,
-        ...(subject.trim() !== '' ? { subject_specialization: subject.trim() } : {}),
-        ...(joiningDate !== undefined ? { joining_date: toLocalDateString(joiningDate) } : {}),
+        // Cleared fields send null — omitting them would silently keep
+        // the stored value (the server treats null as "clear").
+        subject_specialization: subject.trim() !== '' ? subject.trim() : null,
+        joining_date: joiningDate !== undefined ? toLocalDateString(joiningDate) : null,
       },
       { onSuccess: () => onOpenChange(false) },
     );

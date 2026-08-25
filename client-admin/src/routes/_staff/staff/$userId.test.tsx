@@ -103,6 +103,7 @@ describe('/staff/$userId', () => {
       id: 'user-1',
       role: 'ACCOUNTANT',
       created_at: '2025-02-01T00:00:00.000Z',
+      member_since: '2025-06-10T00:00:00.000Z',
     });
     server.use(
       http.get('/api/v1/users/:id', () => HttpResponse.json(user)),
@@ -121,7 +122,10 @@ describe('/staff/$userId', () => {
     });
 
     expect(await screen.findByText('Member since')).toBeTruthy();
-    expect(await screen.findByText('2025-02-01')).toBeTruthy();
+    // The membership's own date — not the account's created_at, which
+    // predates it here exactly to catch that mix-up.
+    expect(await screen.findByText('2025-06-10')).toBeTruthy();
+    expect(screen.queryByText('2025-02-01')).toBeNull();
     expect((await screen.findAllByText('Accountant')).length).toBeGreaterThan(0);
     expect(
       screen.getByText(

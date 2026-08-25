@@ -40,7 +40,12 @@ export function MembershipsTab({ userId }: MembershipsTabProps) {
               <dt className="text-sm text-muted-foreground">
                 {t('detail.memberships.columnJoined')}
               </dt>
-              <dd>{formatDate(new Date(user.created_at), regionConfig)}</dd>
+              <dd>
+                {/* Membership date, not account date — an account that
+                    predates the membership would otherwise show the wrong
+                    "member since". Falls back for older cached payloads. */}
+                {formatDate(new Date(user.member_since ?? user.created_at), regionConfig)}
+              </dd>
             </div>
           </dl>
           <p className="text-sm text-muted-foreground">{t('detail.memberships.note')}</p>

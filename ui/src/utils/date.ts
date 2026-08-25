@@ -23,9 +23,24 @@ export function formatDate(date: Date, config: RegionConfig): string {
  * `formatDate`.
  */
 export function formatDateTime(date: Date, config: RegionConfig): string {
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  return `${formatDate(date, config)} ${renderDigits(`${hours}:${minutes}`, config.numerals)}`;
+  // Rendered in the tenant's own time zone (`config.timezone`), not the
+  // viewer's — an administrator abroad must see logins on the school's
+  // clock, and a timestamp near midnight must not shift date.
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: config.timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes): string =>
+    parts.find((p) => p.type === type)?.value ?? '';
+  return renderDigits(
+    `${part('year')}-${part('month')}-${part('day')} ${part('hour')}:${part('minute')}`,
+    config.numerals,
+  );
 }
 
 /** Inverse of `formatDate`. Throws `RangeError` on anything that isn't a

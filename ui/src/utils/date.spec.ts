@@ -122,13 +122,21 @@ describe('parseServerDate', () => {
 });
 
 describe('formatDateTime', () => {
-  it('appends zero-padded 24h wall-clock time to the date', () => {
-    const date = new Date(2026, 7, 25, 9, 5);
+  // REGION_BD_* pin timezone: 'Asia/Dhaka' (UTC+6, no DST) — instants are
+  // built in UTC so these assertions hold in any test-runner time zone.
+  it('renders the instant on the tenant clock, zero-padded, 24h', () => {
+    const date = new Date(Date.UTC(2026, 7, 25, 3, 5)); // 09:05 in Dhaka
     expect(formatDateTime(date, REGION_BD_EN)).toBe('2026-08-25 09:05');
   });
 
   it('renders time digits in the configured numeral system', () => {
-    const date = new Date(2026, 7, 25, 23, 50);
+    const date = new Date(Date.UTC(2026, 7, 25, 17, 50)); // 23:50 in Dhaka
     expect(formatDateTime(date, REGION_BD_BN)).toBe('২০২৬-০৮-২৫ ২৩:৫০');
+  });
+
+  it('keeps the tenant-local date across the UTC midnight boundary', () => {
+    // 19:00 UTC on the 24th is already 01:00 on the 25th in Dhaka.
+    const date = new Date(Date.UTC(2026, 7, 24, 19, 0));
+    expect(formatDateTime(date, REGION_BD_EN)).toBe('2026-08-25 01:00');
   });
 });
