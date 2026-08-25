@@ -22,6 +22,7 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState } from '@biddaloy/ui/shells';
+import { downloadCsv } from '@biddaloy/ui/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import * as React from 'react';
@@ -174,6 +175,7 @@ function StudentsListPage() {
   const canCollectFees = useHasPermission(Permission.FEE_COLLECT);
   const canSendReminder = useHasPermission(Permission.COMMUNICATION_BULK_SEND);
   const canAddStudent = useHasPermission(Permission.STUDENT_CREATE);
+  const canBulkImport = useHasPermission(Permission.STUDENT_BULK_UPLOAD);
 
   const [reminderDialogOpen, setReminderDialogOpen] = React.useState(false);
 
@@ -200,30 +202,16 @@ function StudentsListPage() {
       ),
     );
     const header = ['Roll', 'Registration No.', 'Name', 'Class', 'Section', 'Guardian', 'Status'];
-    const lines = rows.map((student) =>
-      [
-        student.roll_number,
-        student.registration_number,
-        student.full_name,
-        student.class_section.class.name,
-        student.class_section.section_name,
-        primaryGuardianName(student),
-        student.enrollment_status,
-      ]
-        .map((value) => csvCell(value))
-        .join(','),
-    );
-    const csv = [header.join(','), ...lines].join('\r\n');
-    // Excel on Windows decodes a BOM-less CSV using the system code page,
-    // mangling non-Latin header text (e.g. the bn locale) — prepend the
-    // UTF-8 BOM so it reads the file as UTF-8 instead.
-    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = 'students.csv';
-    anchor.click();
-    URL.revokeObjectURL(url);
+    const lines = rows.map((student) => [
+      student.roll_number,
+      student.registration_number,
+      student.full_name,
+      student.class_section.class.name,
+      student.class_section.section_name,
+      primaryGuardianName(student),
+      student.enrollment_status,
+    ]);
+    downloadCsv('students.csv', [header, ...lines]);
   }
 
   const columns: DataTableColumn<Student>[] = [
@@ -319,11 +307,18 @@ function StudentsListPage() {
       <ListShell
         title={t('list.title')}
         primaryAction={
-          canAddStudent && (
-            <Button asChild>
-              <Link to="/students/new">{t('list.addStudent')}</Link>
-            </Button>
-          )
+          <div className="flex items-center gap-2">
+            {canBulkImport && (
+              <Button asChild variant="outline">
+                <Link to="/students/import">{t('list.importStudents')}</Link>
+              </Button>
+            )}
+            {canAddStudent && (
+              <Button asChild>
+                <Link to="/students/new">{t('list.addStudent')}</Link>
+              </Button>
+            )}
+          </div>
         }
         filterBar={
           <>
@@ -455,16 +450,4 @@ function StudentsListPage() {
 
 function primaryGuardianName(student: Student): string | undefined {
   return (student.guardians.find((g) => g.is_primary_contact) ?? student.guardians[0])?.full_name;
-}
-
-// A value starting with `=`, `+`, `-`, `@`, or a tab/CR is a formula to
-// spreadsheet software (Excel, Sheets) — a guardian name like
-// `=HYPERLINK(...)` would execute on open. Prefixing with `'` forces it
-// to render as text instead, same as Excel's own CSV-injection guidance.
-const CSV_FORMULA_PREFIX = /^[=+\-@\t\r]/;
-
-function csvCell(value: unknown): string {
-  let text = String(value);
-  if (CSV_FORMULA_PREFIX.test(text)) text = `'${text}`;
-  return `"${text.replace(/"/g, '""')}"`;
 }

@@ -1,9 +1,12 @@
 {
-  "feeReminder": { "overdue": "The enrollment fee payment deadline has passed" },
+  "feeReminder": {
+    "overdue": "The enrollment fee payment deadline has passed"
+  },
   "list": {
     "title": "Students",
     "caption": "Students",
     "addStudent": "Add student",
+    "importStudents": "Import students",
     "searchLabel": "Search by name, roll, or registration no.",
     "classLabel": "Class",
     "allClasses": "All classes",

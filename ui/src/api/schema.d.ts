@@ -1254,6 +1254,8 @@ export interface components {
         };
         BulkUploadErrorDto: {
             row: number;
+            field?: string;
+            value?: string;
             reason: string;
         };
         BulkUploadResultDto: {

@@ -44,8 +44,13 @@ const bulkUploadWithErrors = http.post('/api/v1/students/bulk-upload', () =>
     error_count: 2,
     created_student_ids: [studentFactory().id],
     errors: [
-      { row: 2, reason: 'Duplicate registration number' },
-      { row: 3, reason: 'Unknown class_section_id' },
+      {
+        row: 2,
+        field: 'guardian1_phone',
+        value: '০১৭১২৩৪৫৬৭',
+        reason: 'Invalid phone format: guardian1_phone',
+      },
+      { row: 3, field: 'class', value: 'Class 99', reason: "Class 'Class 99' not found" },
     ],
   }),
 );

@@ -17,6 +17,7 @@ export {
 } from './date';
 export { renderDigits, toLatinDigits } from './digits';
 export { groupDigits } from './grouping';
+export { csvCell, downloadCsv, toCsvContent } from './csv';
 export { detectLoginIdentifier, type LoginIdentifier } from './login-identifier';
 export { formatName } from './name';
 export { formatNumber, parseNumber } from './number';

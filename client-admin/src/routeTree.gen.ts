@@ -34,6 +34,7 @@ import { Route as StaffInvoicesInvoiceIdRouteImport } from './routes/_staff/invo
 import { Route as StaffPaymentsRecordRouteImport } from './routes/_staff/payments/record'
 import { Route as StaffStudentsIndexRouteImport } from './routes/_staff/students/index'
 import { Route as StaffStudentsStudentIdRouteImport } from './routes/_staff/students/$studentId'
+import { Route as StaffStudentsImportRouteImport } from './routes/_staff/students/import'
 import { Route as StaffStudentsNewRouteImport } from './routes/_staff/students/new'
 import { Route as StaffStudentsStudentIdEditRouteImport } from './routes/_staff/students/$studentId_.edit'
 
@@ -163,6 +164,11 @@ const StaffStudentsStudentIdRoute = StaffStudentsStudentIdRouteImport.update({
   path: '/students/$studentId',
   getParentRoute: () => StaffRoute,
 } as any)
+const StaffStudentsImportRoute = StaffStudentsImportRouteImport.update({
+  id: '/students/import',
+  path: '/students/import',
+  getParentRoute: () => StaffRoute,
+} as any)
 const StaffStudentsNewRoute = StaffStudentsNewRouteImport.update({
   id: '/students/new',
   path: '/students/new',
@@ -193,6 +199,7 @@ export interface FileRoutesByFullPath {
   '/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
   '/payments/record': typeof StaffPaymentsRecordRoute
   '/students/$studentId': typeof StaffStudentsStudentIdRoute
+  '/students/import': typeof StaffStudentsImportRoute
   '/students/new': typeof StaffStudentsNewRoute
   '/academic-years/': typeof StaffAcademicYearsIndexRoute
   '/classes/': typeof StaffClassesIndexRoute
@@ -219,6 +226,7 @@ export interface FileRoutesByTo {
   '/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
   '/payments/record': typeof StaffPaymentsRecordRoute
   '/students/$studentId': typeof StaffStudentsStudentIdRoute
+  '/students/import': typeof StaffStudentsImportRoute
   '/students/new': typeof StaffStudentsNewRoute
   '/academic-years': typeof StaffAcademicYearsIndexRoute
   '/classes': typeof StaffClassesIndexRoute
@@ -249,6 +257,7 @@ export interface FileRoutesById {
   '/_staff/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
   '/_staff/payments/record': typeof StaffPaymentsRecordRoute
   '/_staff/students/$studentId': typeof StaffStudentsStudentIdRoute
+  '/_staff/students/import': typeof StaffStudentsImportRoute
   '/_staff/students/new': typeof StaffStudentsNewRoute
   '/_staff/academic-years/': typeof StaffAcademicYearsIndexRoute
   '/_staff/classes/': typeof StaffClassesIndexRoute
@@ -279,6 +288,7 @@ export interface FileRouteTypes {
     | '/invoices/$invoiceId'
     | '/payments/record'
     | '/students/$studentId'
+    | '/students/import'
     | '/students/new'
     | '/academic-years/'
     | '/classes/'
@@ -305,6 +315,7 @@ export interface FileRouteTypes {
     | '/invoices/$invoiceId'
     | '/payments/record'
     | '/students/$studentId'
+    | '/students/import'
     | '/students/new'
     | '/academic-years'
     | '/classes'
@@ -334,6 +345,7 @@ export interface FileRouteTypes {
     | '/_staff/invoices/$invoiceId'
     | '/_staff/payments/record'
     | '/_staff/students/$studentId'
+    | '/_staff/students/import'
     | '/_staff/students/new'
     | '/_staff/academic-years/'
     | '/_staff/classes/'
@@ -530,6 +542,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffStudentsStudentIdRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/students/import': {
+      id: '/_staff/students/import'
+      path: '/students/import'
+      fullPath: '/students/import'
+      preLoaderRoute: typeof StaffStudentsImportRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/students/new': {
       id: '/_staff/students/new'
       path: '/students/new'
@@ -573,6 +592,7 @@ interface StaffRouteChildren {
   StaffInvoicesInvoiceIdRoute: typeof StaffInvoicesInvoiceIdRoute
   StaffPaymentsRecordRoute: typeof StaffPaymentsRecordRoute
   StaffStudentsStudentIdRoute: typeof StaffStudentsStudentIdRoute
+  StaffStudentsImportRoute: typeof StaffStudentsImportRoute
   StaffStudentsNewRoute: typeof StaffStudentsNewRoute
   StaffAcademicYearsIndexRoute: typeof StaffAcademicYearsIndexRoute
   StaffClassesIndexRoute: typeof StaffClassesIndexRoute
@@ -593,6 +613,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffInvoicesInvoiceIdRoute: StaffInvoicesInvoiceIdRoute,
   StaffPaymentsRecordRoute: StaffPaymentsRecordRoute,
   StaffStudentsStudentIdRoute: StaffStudentsStudentIdRoute,
+  StaffStudentsImportRoute: StaffStudentsImportRoute,
   StaffStudentsNewRoute: StaffStudentsNewRoute,
   StaffAcademicYearsIndexRoute: StaffAcademicYearsIndexRoute,
   StaffClassesIndexRoute: StaffClassesIndexRoute,

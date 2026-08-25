@@ -25,7 +25,7 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState } from '@biddaloy/ui/shells';
-import { formatDate, formatServerAmount } from '@biddaloy/ui/utils';
+import { downloadCsv, formatDate, formatServerAmount } from '@biddaloy/ui/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import * as React from 'react';
@@ -149,17 +149,6 @@ function deriveRowStatus(row: FeeDueRow): FeeStatus {
     : FeeStatus.PENDING;
 }
 
-// A value starting with `=`, `+`, `-`, `@`, or a tab/CR is a formula to
-// spreadsheet software — same CSV-injection guard `students/index.tsx`
-// uses.
-const CSV_FORMULA_PREFIX = /^[=+\-@\t\r]/;
-
-function csvCell(value: unknown): string {
-  let text = String(value);
-  if (CSV_FORMULA_PREFIX.test(text)) text = `'${text}`;
-  return `"${text.replace(/"/g, '""')}"`;
-}
-
 function DuesQueuePage() {
   const { t } = useTranslation('fees');
   const regionConfig = useRegionConfig();
@@ -269,21 +258,9 @@ function DuesQueuePage() {
         formatServerAmount(row.total_due, regionConfig),
         humanizeStatus(deriveRowStatus(row)),
         toReminderLabel(row.student_id),
-      ]
-        .map((value) => csvCell(value))
-        .join(',');
+      ];
     });
-    const csv = [header.join(','), ...lines].join('\r\n');
-    // Excel on Windows decodes a BOM-less CSV using the system code page,
-    // mangling non-Latin header text (e.g. the bn locale) — prepend the
-    // UTF-8 BOM so it reads the file as UTF-8 instead.
-    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = 'dues.csv';
-    anchor.click();
-    URL.revokeObjectURL(url);
+    downloadCsv('dues.csv', [header, ...lines]);
   }
 
   const columns: DataTableColumn<FeeDueRow>[] = [

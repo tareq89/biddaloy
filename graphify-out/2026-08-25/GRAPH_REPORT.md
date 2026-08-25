@@ -1,7 +1,7 @@
 # Graph Report - biddaloy  (2026-08-25)
 
 ## Corpus Check
-- 918 files · ~447,668 words
+- 918 files · ~447,922 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `00c33bef`
+- Built from commit: `3ec9b0a4`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -365,8 +365,8 @@ Cohesion: 0.14
 Nodes (50): CommunicationMedium, academicYearFactory(), auditEntryFactory(), BD_MOBILE_PREFIXES, BN_DISTRICTS, BN_FEMALE_FIRST_NAMES, BN_LAST_NAMES, BN_MALE_FIRST_NAMES (+42 more)
 
 ### Community 5 - "invoices.controller.ts"
-Cohesion: 0.08
-Nodes (32): @nestjs/swagger, ApiTenantAuth(), TestController, requestContext, AuditLogListResponseDto, AuditLogResponseDto, ApiProperty, CurrentUser (+24 more)
+Cohesion: 0.09
+Nodes (28): @nestjs/swagger, ApiTenantAuth(), TestController, requestContext, AuditInterceptor, RequestWithTenant, Injectable, AuditedMetadata (+20 more)
 
 ### Community 6 - "StudentService"
 Cohesion: 0.06
@@ -385,8 +385,8 @@ Cohesion: 0.06
 Nodes (67): AcademicYearStats, InjectRepository, AcademicYear, Column, CreateDateColumn, DeleteDateColumn, Entity, Index (+59 more)
 
 ### Community 12 - "Roles"
-Cohesion: 0.04
-Nodes (62): ApiBody, ApiConsumes, Body, Patch, CurrentTenant, TestController, Roles(), ClassController (+54 more)
+Cohesion: 0.05
+Nodes (61): ApiBody, ApiConsumes, Body, Patch, CurrentTenant, TestController, Roles(), ClassController (+53 more)
 
 ### Community 13 - "client.ts"
 Cohesion: 0.27
@@ -401,8 +401,8 @@ Cohesion: 0.17
 Nodes (5): Inject, ClassService, SectionService, Injectable, InjectRepository
 
 ### Community 16 - "list-shell.stories.tsx"
-Cohesion: 0.10
-Nodes (30): CreateTeacherDto, CreateUserDto, QueryTeacherDto, QueryUserDto, IsArray, IsDateString, IsEmail, IsEnum (+22 more)
+Cohesion: 0.08
+Nodes (35): TeacherListResponseDto, TeacherResponseDto, ApiProperty, ApiProperty, UserResponseDto, CreateTeacherDto, CreateUserDto, QueryTeacherDto (+27 more)
 
 ### Community 17 - "all-entities.ts"
 Cohesion: 0.12
@@ -417,8 +417,8 @@ Cohesion: 0.05
 Nodes (94): DeleteYearDialog(), DeleteYearDialogProps, AcademicYearsListPage(), SetCurrentDialog(), SetCurrentDialogProps, EMPTY_VALUES, YearFormDialog(), YearFormDialogProps (+86 more)
 
 ### Community 20 - "students.controller.ts"
-Cohesion: 0.22
-Nodes (22): BulkUploadErrorDto, BulkUploadRowDto, CreateGuardianDto, CreateStudentDto, QueryGuardianDto, QueryStudentDto, IsArray, IsDateString (+14 more)
+Cohesion: 0.18
+Nodes (23): BulkUploadErrorDto, BulkUploadRowDto, CreateGuardianDto, CreateStudentDto, QueryGuardianDto, QueryStudentDto, IsArray, IsDateString (+15 more)
 
 ### Community 21 - "Payment"
 Cohesion: 0.04
@@ -489,7 +489,7 @@ Cohesion: 0.18
 Nodes (11): EncryptionService, isEncryptedEnvelope(), Injectable, decryptSecretFields(), encryptSecretFields(), reencryptSecretFields(), resolveParent(), transformAtPaths() (+3 more)
 
 ### Community 38 - "students.ts"
-Cohesion: 0.06
+Cohesion: 0.07
 Nodes (44): SanitizeAllowlist(), SanitizeText(), shared, AllowlistDto, { sanitizeAllowlist, sanitizeStrict }, StrictDto, CreateAcademicYearDto, IsBeforeConstraint (+36 more)
 
 ### Community 39 - "School (Tenant)"
@@ -514,7 +514,7 @@ Nodes (31): entry, ignoreDependencies, project, ignoreDependencies, ignoreIssues
 
 ### Community 44 - "dependencies"
 Cohesion: 0.06
-Nodes (33): bcrypt, bullmq, class-transformer, helmet, @nest-lab/throttler-storage-redis, @nestjs/bullmq, @nestjs/common, @nestjs/config (+25 more)
+Nodes (33): bullmq, class-transformer, exceljs, helmet, @nest-lab/throttler-storage-redis, @nestjs/bullmq, @nestjs/common, @nestjs/config (+25 more)
 
 ### Community 45 - "tenant-bar.tsx"
 Cohesion: 0.18
@@ -541,7 +541,7 @@ Cohesion: 0.06
 Nodes (31): @nestjs/cli, @nestjs/testing, devDependencies, @nestjs/cli, @nestjs/testing, supertest, ts-node, tsconfig-paths (+23 more)
 
 ### Community 51 - "fees.controller.ts"
-Cohesion: 0.20
+Cohesion: 0.18
 Nodes (29): CreateFeeStructureDto, CreatePaymentDto, FeeDuesSortBy, GenerateFeesResultDto, GenerateStudentFeesDto, PaymentAllocationInputDto, QueryFeeDuesDto, QueryFeeStructureDto (+21 more)
 
 ### Community 52 - "index.ts"
@@ -626,7 +626,7 @@ Nodes (13): ArrayMaxSize, ReminderBatchResponseDto, SendBulkReminderDto, ArrayNo
 
 ### Community 72 - "devDependencies"
 Cohesion: 0.07
-Nodes (27): axe-core, @axe-core/playwright, @faker-js/faker, jsdom, open, devDependencies, axe-core, @axe-core/playwright (+19 more)
+Nodes (27): axe-core, eslint-config-prettier, globals, jsdom, devDependencies, axe-core, eslint-config-prettier, globals (+19 more)
 
 ### Community 73 - "school-settings.ts"
 Cohesion: 0.09
@@ -869,8 +869,8 @@ Cohesion: 0.21
 Nodes (10): ButtonBaseProps, ButtonProps, optionKey(), SchoolCard(), SchoolPicker(), SchoolPickerOption, SchoolPickerProps, schools (+2 more)
 
 ### Community 133 - "schools.ts"
-Cohesion: 0.24
-Nodes (4): AuditInterceptor, RequestWithTenant, Injectable, AuditedMetadata
+Cohesion: 0.25
+Nodes (3): ALLOWLIST, AllowlistEntry, JWT_AUTH_GUARD
 
 ### Community 134 - "Multi-Tenancy Rules (Biddaloy)"
 Cohesion: 0.17

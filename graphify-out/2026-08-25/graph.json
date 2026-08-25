@@ -9565,8 +9565,8 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "package_devdependencies_axe_core_playwright",
-      "community": 72,
-      "community_name": "devDependencies",
+      "community": 254,
+      "community_name": "globals",
       "norm_label": "@axe-core/playwright"
     },
     {
@@ -9576,8 +9576,8 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "axe_core_playwright",
-      "community": 72,
-      "community_name": "devDependencies",
+      "community": 254,
+      "community_name": "globals",
       "norm_label": "@axe-core/playwright"
     },
     {
@@ -9609,8 +9609,8 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "package_devdependencies_faker_js_faker",
-      "community": 72,
-      "community_name": "devDependencies",
+      "community": 264,
+      "community_name": "checkbox.stories.tsx",
       "norm_label": "@faker-js/faker"
     },
     {
@@ -9620,8 +9620,8 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "faker_js_faker",
-      "community": 72,
-      "community_name": "devDependencies",
+      "community": 264,
+      "community_name": "checkbox.stories.tsx",
       "norm_label": "@faker-js/faker"
     },
     {
@@ -9653,8 +9653,8 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "package_devdependencies_playwright_test",
-      "community": 259,
-      "community_name": "@playwright/test",
+      "community": 72,
+      "community_name": "devDependencies",
       "norm_label": "@playwright/test"
     },
     {
@@ -9664,8 +9664,8 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "playwright_test",
-      "community": 259,
-      "community_name": "@playwright/test",
+      "community": 72,
+      "community_name": "devDependencies",
       "norm_label": "@playwright/test"
     },
     {
@@ -9741,8 +9741,8 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "package_devdependencies_testing_library_user_event",
-      "community": 72,
-      "community_name": "devDependencies",
+      "community": 303,
+      "community_name": "eslint-config-prettier",
       "norm_label": "@testing-library/user-event"
     },
     {
@@ -9752,8 +9752,8 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "testing_library_user_event",
-      "community": 72,
-      "community_name": "devDependencies",
+      "community": 303,
+      "community_name": "eslint-config-prettier",
       "norm_label": "@testing-library/user-event"
     },
     {
@@ -9829,8 +9829,8 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "package_devdependencies_vitest_coverage_v8",
-      "community": 281,
-      "community_name": "@vitest/coverage-v8",
+      "community": 72,
+      "community_name": "devDependencies",
       "norm_label": "@vitest/coverage-v8"
     },
     {
@@ -9840,8 +9840,8 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "vitest_coverage_v8",
-      "community": 281,
-      "community_name": "@vitest/coverage-v8",
+      "community": 72,
+      "community_name": "devDependencies",
       "norm_label": "@vitest/coverage-v8"
     },
     {
@@ -9895,8 +9895,8 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "package_devdependencies_eslint_config_prettier",
-      "community": 303,
-      "community_name": "eslint-config-prettier",
+      "community": 72,
+      "community_name": "devDependencies",
       "norm_label": "eslint-config-prettier"
     },
     {
@@ -9906,8 +9906,8 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "eslint_config_prettier",
-      "community": 303,
-      "community_name": "eslint-config-prettier",
+      "community": 72,
+      "community_name": "devDependencies",
       "norm_label": "eslint-config-prettier"
     },
     {
@@ -10027,8 +10027,8 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "package_devdependencies_globals",
-      "community": 254,
-      "community_name": "globals",
+      "community": 72,
+      "community_name": "devDependencies",
       "norm_label": "globals"
     },
     {
@@ -10038,8 +10038,8 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "globals",
-      "community": 254,
-      "community_name": "globals",
+      "community": 72,
+      "community_name": "devDependencies",
       "norm_label": "globals"
     },
     {
@@ -10137,8 +10137,8 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "package_devdependencies_open",
-      "community": 72,
-      "community_name": "devDependencies",
+      "community": 281,
+      "community_name": "@vitest/coverage-v8",
       "norm_label": "open"
     },
     {
@@ -10148,8 +10148,8 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "open",
-      "community": 72,
-      "community_name": "devDependencies",
+      "community": 281,
+      "community_name": "@vitest/coverage-v8",
       "norm_label": "open"
     },
     {
@@ -10203,8 +10203,8 @@
       "source_location": "L69",
       "_origin": "ast",
       "id": "package_devdependencies_puppeteer",
-      "community": 264,
-      "community_name": "checkbox.stories.tsx",
+      "community": 72,
+      "community_name": "devDependencies",
       "norm_label": "puppeteer"
     },
     {
@@ -10214,8 +10214,8 @@
       "source_location": "L69",
       "_origin": "ast",
       "id": "puppeteer",
-      "community": 264,
-      "community_name": "checkbox.stories.tsx",
+      "community": 72,
+      "community_name": "devDependencies",
       "norm_label": "puppeteer"
     },
     {
@@ -10225,8 +10225,8 @@
       "source_location": "L70",
       "_origin": "ast",
       "id": "package_devdependencies_supertest",
-      "community": 72,
-      "community_name": "devDependencies",
+      "community": 294,
+      "community_name": "exceljs",
       "norm_label": "supertest"
     },
     {
@@ -10236,8 +10236,8 @@
       "source_location": "L70",
       "_origin": "ast",
       "id": "package_json_supertest",
-      "community": 72,
-      "community_name": "devDependencies",
+      "community": 294,
+      "community_name": "exceljs",
       "norm_label": "supertest"
     },
     {
@@ -11644,8 +11644,8 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "server_package_dependencies_bcrypt",
-      "community": 44,
-      "community_name": "dependencies",
+      "community": 259,
+      "community_name": "@playwright/test",
       "norm_label": "bcrypt"
     },
     {
@@ -11655,8 +11655,8 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "bcrypt",
-      "community": 44,
-      "community_name": "dependencies",
+      "community": 259,
+      "community_name": "@playwright/test",
       "norm_label": "bcrypt"
     },
     {
@@ -11754,8 +11754,8 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "server_package_dependencies_exceljs",
-      "community": 294,
-      "community_name": "exceljs",
+      "community": 44,
+      "community_name": "dependencies",
       "norm_label": "exceljs"
     },
     {
@@ -11765,8 +11765,8 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "exceljs",
-      "community": 294,
-      "community_name": "exceljs",
+      "community": 44,
+      "community_name": "dependencies",
       "norm_label": "exceljs"
     },
     {
@@ -15351,8 +15351,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_audit_audit_interceptor_spec",
-      "community": 133,
-      "community_name": "schools.ts",
+      "community": 5,
+      "community_name": "invoices.controller.ts",
       "norm_label": "audit.interceptor.spec.ts"
     },
     {
@@ -15362,8 +15362,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "server_src_modules_audit_audit_interceptor_spec_contextfor",
-      "community": 133,
-      "community_name": "schools.ts",
+      "community": 5,
+      "community_name": "invoices.controller.ts",
       "norm_label": "contextfor()"
     },
     {
@@ -15373,8 +15373,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "server_src_modules_audit_audit_interceptor_spec_handlerreturning",
-      "community": 133,
-      "community_name": "schools.ts",
+      "community": 5,
+      "community_name": "invoices.controller.ts",
       "norm_label": "handlerreturning()"
     },
     {
@@ -15384,8 +15384,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_audit_audit_interceptor",
-      "community": 133,
-      "community_name": "schools.ts",
+      "community": 5,
+      "community_name": "invoices.controller.ts",
       "norm_label": "audit.interceptor.ts"
     },
     {
@@ -15395,8 +15395,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "server_src_modules_audit_audit_interceptor_requestwithtenant",
-      "community": 133,
-      "community_name": "schools.ts",
+      "community": 5,
+      "community_name": "invoices.controller.ts",
       "norm_label": "requestwithtenant"
     },
     {
@@ -15406,8 +15406,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "server_src_modules_audit_audit_interceptor_auditinterceptor",
-      "community": 133,
-      "community_name": "schools.ts",
+      "community": 5,
+      "community_name": "invoices.controller.ts",
       "norm_label": "auditinterceptor"
     },
     {
@@ -15417,8 +15417,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_audit_audit_interceptor_ts_injectable",
-      "community": 133,
-      "community_name": "schools.ts",
+      "community": 5,
+      "community_name": "invoices.controller.ts",
       "norm_label": "injectable"
     },
     {
@@ -15428,8 +15428,8 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "server_src_modules_audit_audit_interceptor_auditinterceptor_constructor",
-      "community": 133,
-      "community_name": "schools.ts",
+      "community": 5,
+      "community_name": "invoices.controller.ts",
       "norm_label": ".constructor()"
     },
     {
@@ -15439,8 +15439,8 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "server_src_modules_audit_audit_interceptor_auditinterceptor_intercept",
-      "community": 133,
-      "community_name": "schools.ts",
+      "community": 5,
+      "community_name": "invoices.controller.ts",
       "norm_label": ".intercept()"
     },
     {
@@ -15615,8 +15615,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_audit_decorators_audited_decorator",
-      "community": 133,
-      "community_name": "schools.ts",
+      "community": 5,
+      "community_name": "invoices.controller.ts",
       "norm_label": "audited.decorator.ts"
     },
     {
@@ -15626,8 +15626,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "server_src_modules_audit_decorators_audited_decorator_auditedmetadata",
-      "community": 133,
-      "community_name": "schools.ts",
+      "community": 5,
+      "community_name": "invoices.controller.ts",
       "norm_label": "auditedmetadata"
     },
     {
@@ -18134,8 +18134,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_controller",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 38,
+      "community_name": "students.ts",
       "norm_label": "classes.controller.ts"
     },
     {
@@ -24668,8 +24668,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_fees_fees_controller",
-      "community": 51,
-      "community_name": "fees.controller.ts",
+      "community": 5,
+      "community_name": "invoices.controller.ts",
       "norm_label": "fees.controller.ts"
     },
     {
@@ -25207,8 +25207,8 @@
       "source_location": "L330",
       "_origin": "ast",
       "id": "server_src_modules_fees_fees_service_paymentservice_findall",
-      "community": 12,
-      "community_name": "Roles",
+      "community": 51,
+      "community_name": "fees.controller.ts",
       "norm_label": ".findall()"
     },
     {
@@ -29695,8 +29695,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_students_students_controller_ts_query",
-      "community": 12,
-      "community_name": "Roles",
+      "community": 20,
+      "community_name": "students.controller.ts",
       "norm_label": "query"
     },
     {
@@ -29772,8 +29772,8 @@
       "source_location": "L84",
       "_origin": "ast",
       "id": "server_src_modules_students_students_controller_studentcontroller_findallstudents",
-      "community": 12,
-      "community_name": "Roles",
+      "community": 20,
+      "community_name": "students.controller.ts",
       "norm_label": ".findallstudents()"
     },
     {
@@ -29827,8 +29827,8 @@
       "source_location": "L157",
       "_origin": "ast",
       "id": "server_src_modules_students_students_controller_studentcontroller_findallguardians",
-      "community": 12,
-      "community_name": "Roles",
+      "community": 20,
+      "community_name": "students.controller.ts",
       "norm_label": ".findallguardians()"
     },
     {
@@ -30091,8 +30091,8 @@
       "source_location": "L338",
       "_origin": "ast",
       "id": "server_src_modules_students_students_service_guardianservice_findall",
-      "community": 12,
-      "community_name": "Roles",
+      "community": 20,
+      "community_name": "students.controller.ts",
       "norm_label": ".findall()"
     },
     {
@@ -30146,8 +30146,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_users_dto_teacher_response_dto",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 16,
+      "community_name": "list-shell.stories.tsx",
       "norm_label": "teacher-response.dto.ts"
     },
     {
@@ -30157,8 +30157,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "server_src_modules_users_dto_teacher_response_dto_teacherresponsedto",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 16,
+      "community_name": "list-shell.stories.tsx",
       "norm_label": "teacherresponsedto"
     },
     {
@@ -30168,8 +30168,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_users_dto_teacher_response_dto_ts_apiproperty",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 16,
+      "community_name": "list-shell.stories.tsx",
       "norm_label": "apiproperty"
     },
     {
@@ -30190,8 +30190,8 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "server_src_modules_users_dto_teacher_response_dto_teacherlistresponsedto",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 16,
+      "community_name": "list-shell.stories.tsx",
       "norm_label": "teacherlistresponsedto"
     },
     {
@@ -30201,8 +30201,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_users_dto_user_response_dto",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 16,
+      "community_name": "list-shell.stories.tsx",
       "norm_label": "user-response.dto.ts"
     },
     {
@@ -30212,8 +30212,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "server_src_modules_users_dto_user_response_dto_userresponsedto",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 16,
+      "community_name": "list-shell.stories.tsx",
       "norm_label": "userresponsedto"
     },
     {
@@ -30223,8 +30223,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_users_dto_user_response_dto_ts_apiproperty",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 16,
+      "community_name": "list-shell.stories.tsx",
       "norm_label": "apiproperty"
     },
     {
@@ -30234,8 +30234,8 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "server_src_modules_users_dto_user_response_dto_userresponsedto_fromentity",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 16,
+      "community_name": "list-shell.stories.tsx",
       "norm_label": ".fromentity()"
     },
     {
@@ -30575,8 +30575,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_users_users_controller",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 16,
+      "community_name": "list-shell.stories.tsx",
       "norm_label": "users.controller.ts"
     },
     {
@@ -31158,8 +31158,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_route_guard_coverage_e2e_spec",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 133,
+      "community_name": "schools.ts",
       "norm_label": "route-guard-coverage.e2e-spec.ts"
     },
     {
@@ -31169,8 +31169,8 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "server_src_route_guard_coverage_e2e_spec_jwt_auth_guard",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 133,
+      "community_name": "schools.ts",
       "norm_label": "jwt_auth_guard"
     },
     {
@@ -31180,8 +31180,8 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "server_src_route_guard_coverage_e2e_spec_allowlistentry",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 133,
+      "community_name": "schools.ts",
       "norm_label": "allowlistentry"
     },
     {
@@ -31191,8 +31191,8 @@
       "source_location": "L50",
       "_origin": "ast",
       "id": "server_src_route_guard_coverage_e2e_spec_allowlist",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 133,
+      "community_name": "schools.ts",
       "norm_label": "allowlist"
     },
     {
@@ -31202,8 +31202,8 @@
       "source_location": "L86",
       "_origin": "ast",
       "id": "server_src_route_guard_coverage_e2e_spec_findallowlistentry",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 133,
+      "community_name": "schools.ts",
       "norm_label": "findallowlistentry()"
     },
     {
@@ -31213,8 +31213,8 @@
       "source_location": "L208",
       "_origin": "ast",
       "id": "server_src_route_guard_coverage_e2e_spec_buildfullpath",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 133,
+      "community_name": "schools.ts",
       "norm_label": "buildfullpath()"
     },
     {
@@ -31224,8 +31224,8 @@
       "source_location": "L217",
       "_origin": "ast",
       "id": "server_src_route_guard_coverage_e2e_spec_requestmethodname",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 133,
+      "community_name": "schools.ts",
       "norm_label": "requestmethodname()"
     },
     {
@@ -31235,8 +31235,8 @@
       "source_location": "L231",
       "_origin": "ast",
       "id": "server_src_route_guard_coverage_e2e_spec_describeguards",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 133,
+      "community_name": "schools.ts",
       "norm_label": "describeguards()"
     },
     {
@@ -72691,7 +72691,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "client-admin/src/routes/_staff/fees/-generate/generate-fees-wizard.tsx",
-      "source_location": "L161",
+      "source_location": "L166",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_admin_src_routes_staff_fees_generate_generate_fees_wizard_generatefeeswizard",
@@ -72715,7 +72715,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "client-admin/src/routes/_staff/fees/-generate/generate-fees-wizard.tsx",
-      "source_location": "L135",
+      "source_location": "L137",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_admin_src_routes_staff_fees_generate_generate_fees_wizard_generatefeeswizard",
@@ -72727,7 +72727,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "client-admin/src/routes/_staff/fees/-generate/generate-fees-wizard.tsx",
-      "source_location": "L444",
+      "source_location": "L455",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_admin_src_routes_staff_fees_generate_generate_fees_wizard_generatefeeswizard",
@@ -72764,7 +72764,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "client-admin/src/routes/_staff/fees/-generate/generate-fees-wizard.tsx",
-      "source_location": "L140",
+      "source_location": "L145",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_admin_src_routes_staff_fees_generate_generate_fees_wizard_generatefeeswizard",
@@ -72776,7 +72776,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "client-admin/src/routes/_staff/fees/-generate/generate-fees-wizard.tsx",
-      "source_location": "L143",
+      "source_location": "L148",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_admin_src_routes_staff_fees_generate_generate_fees_wizard_generatefeeswizard",
@@ -72788,7 +72788,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "client-admin/src/routes/_staff/fees/-generate/generate-fees-wizard.tsx",
-      "source_location": "L190",
+      "source_location": "L195",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_admin_src_routes_staff_fees_generate_generate_fees_wizard_generatefeeswizard",
@@ -72800,7 +72800,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "client-admin/src/routes/_staff/fees/-generate/generate-fees-wizard.tsx",
-      "source_location": "L186",
+      "source_location": "L191",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_admin_src_routes_staff_fees_generate_generate_fees_wizard_generatefeeswizard",
@@ -72836,7 +72836,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "client-admin/src/routes/_staff/fees/-generate/generate-fees-wizard.tsx",
-      "source_location": "L258",
+      "source_location": "L263",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_admin_src_routes_staff_fees_generate_generate_fees_wizard_generatefeeswizard",
@@ -216745,5 +216745,5 @@
       "source_file": ".claude/skills/multi-tenancy/SKILL.md"
     }
   ],
-  "built_at_commit": "00c33bef855a729afc21c3d4b9e09a66fa9af260"
+  "built_at_commit": "3ec9b0a40b1b638f92bd5769fb780ae6586fe1ca"
 }
