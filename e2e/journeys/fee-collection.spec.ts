@@ -1,3 +1,5 @@
+import { REGION_BD_BN } from '../../ui/src/i18n/region-config';
+import { formatServerAmount } from '../../ui/src/utils/currency';
 import { adminApiSession, createStudentWithDues } from '../api';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
@@ -57,13 +59,16 @@ test('record a full payment through the wizard', async ({ page, request }) => {
     await page.goto(`/students/${studentId}`);
     await detail.expectLoaded(name);
     await detail.openTab('students.detail.tabs.payments', 'payments');
+    await expect(
+      page.getByRole('cell', { name: formatServerAmount(500, REGION_BD_BN) }),
+    ).toBeVisible();
   });
 });
 
 test('partial payment allocates less than the balance', async ({ page, request }) => {
   const session = await adminApiSession(request);
   const name = `Partial Payer ${Date.now()}`;
-  await createStudentWithDues(request, session, name, { amount: 500 });
+  const { studentId } = await createStudentWithDues(request, session, name, { amount: 500 });
 
   const wizard = new RecordPaymentWizardPage(page);
   await page.goto('/payments/record');
@@ -81,4 +86,20 @@ test('partial payment allocates less than the balance', async ({ page, request }
   await expect(
     page.getByRole('button', { name: t('payments.record.receipt.printAction') }),
   ).toBeVisible();
+
+  await test.step('the ৳200 payment is recorded and ৳300 remains outstanding', async () => {
+    const detail = new DetailShellPage(page);
+    await page.goto(`/students/${studentId}`);
+    await detail.expectLoaded(name);
+
+    await detail.openTab('students.detail.tabs.payments', 'payments');
+    await expect(
+      page.getByRole('cell', { name: formatServerAmount(200, REGION_BD_BN) }),
+    ).toBeVisible();
+
+    await detail.openTab('students.detail.tabs.fees', 'fees');
+    await expect(
+      page.getByText(formatServerAmount(300, REGION_BD_BN), { exact: true }),
+    ).toBeVisible();
+  });
 });
