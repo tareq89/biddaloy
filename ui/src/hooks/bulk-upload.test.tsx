@@ -2,7 +2,7 @@ import { File as NodeFile } from 'node:buffer';
 
 import { act, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { server } from '../test/msw/server';
 import { apiErrorBody } from '../test/msw/support';
@@ -25,11 +25,25 @@ describe('useBulkUploadStudents', () => {
   it('posts the file under the multipart field name `file` and returns the result', async () => {
     // Field name matters: multer's FileInterceptor('file') silently ignores
     // any other name and the server answers 400 "No file uploaded".
-    let fieldNames: string[] = [];
+    //
+    // Asserted by spying on FormData rather than by parsing the request body
+    // in the handler: MSW's XHR interceptor does not serialize jsdom
+    // FormData under Node 24 (it sends the string "[object FormData]"), so a
+    // `request.formData()` assertion tests the harness, not our hook. A real
+    // browser XHR sends the multipart body correctly.
+    const appended: [string, unknown][] = [];
+    const appendSpy = vi.spyOn(FormData.prototype, 'append').mockImplementation(function (
+      this: FormData,
+      name: string,
+      value: unknown,
+    ) {
+      appended.push([name, value]);
+    });
+
+    let requestReceived = false;
     server.use(
-      http.post('/api/v1/students/bulk-upload', async ({ request }) => {
-        const form = await request.formData();
-        fieldNames = Array.from(form.keys());
+      http.post('/api/v1/students/bulk-upload', () => {
+        requestReceived = true;
         return HttpResponse.json(
           {
             total_rows: 1,
@@ -47,11 +61,15 @@ describe('useBulkUploadStudents', () => {
       tenantId: 'tenant-1',
       role: 'ADMIN',
     });
+    const file = makeCsvFile();
     await act(async () => {
-      const res = await result.current.mutateAsync({ file: makeCsvFile() });
+      const res = await result.current.mutateAsync({ file });
       expect(res.success_count).toBe(1);
     });
-    expect(fieldNames).toEqual(['file']);
+
+    expect(requestReceived).toBe(true);
+    expect(appended).toEqual([['file', file]]);
+    appendSpy.mockRestore();
   });
 
   it('invalidates the students list branch after a partial success (some rows created)', async () => {

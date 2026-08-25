@@ -79,6 +79,10 @@ function ImportStudentsContent() {
   function handleFilesSelected(files: File[]) {
     const file = files[0];
     if (!file) return;
+    // `mutation.reset()` clears state but cannot cancel a request already on
+    // the wire, so a second pick mid-flight would import the same students
+    // twice. FileUpload is disabled while pending; this is the guard behind it.
+    if (mutation.isPending) return;
     setResult(null);
     mutation.reset();
     setProgress(undefined);
@@ -112,6 +116,7 @@ function ImportStudentsContent() {
   }
 
   function resetForAnotherFile() {
+    if (mutation.isPending) return;
     setSelectedFile(null);
     setFileError(null);
     setProgress(undefined);
@@ -193,6 +198,7 @@ function ImportStudentsContent() {
           }
           onFilesSelected={handleFilesSelected}
           onRemove={resetForAnotherFile}
+          disabled={mutation.isPending}
           accept=".csv,.xlsx"
           multiple={false}
           aria-label={t('upload.inputLabel')}

@@ -259,6 +259,54 @@ describe('/students/import', () => {
     expect(liveRegions.some((node) => node.textContent?.includes('1 file selected'))).toBe(true);
   });
 
+  it('blocks a second import while the first is still in flight', async () => {
+    // `mutation.reset()` cannot cancel a request already on the wire, so a
+    // replacement pick mid-flight would import the same students twice.
+    let requestCount = 0;
+    let release: (() => void) | undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.post('/api/v1/students/bulk-upload', async () => {
+        requestCount += 1;
+        await held;
+        return HttpResponse.json(
+          {
+            total_rows: 1,
+            success_count: 1,
+            error_count: 0,
+            created_student_ids: ['s'],
+            errors: [],
+          },
+          { status: 201 },
+        );
+      }),
+    );
+
+    renderImportPage();
+    await uploadFile(makeFile('students.csv'));
+
+    // While pending, both entry points are disabled...
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Choose file' }).hasAttribute('disabled')).toBe(
+        true,
+      ),
+    );
+    expect(
+      screen.getByRole('button', { name: 'Remove students.csv' }).hasAttribute('disabled'),
+    ).toBe(true);
+
+    // ...and a direct second selection still does not fire a request.
+    const input = screen.getByLabelText('Spreadsheet file to import');
+    await userEvent.upload(input, makeFile('students-again.csv'), { applyAccept: false });
+    expect(requestCount).toBe(1);
+
+    release?.();
+    await screen.findByText('All 1 students were imported.');
+    expect(requestCount).toBe(1);
+  });
+
   it('shows the forbidden copy to a role without the bulk-upload permission (TEACHER)', async () => {
     renderImportPage('TEACHER');
     await screen.findByText("You don't have permission to view this.");

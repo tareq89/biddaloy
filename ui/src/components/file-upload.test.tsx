@@ -144,4 +144,30 @@ describe('FileUpload', () => {
     );
     expect(screen.getByRole('button', { name: 'Attach files' })).toBeTruthy();
   });
+
+  it('blocks choosing and removing while disabled', async () => {
+    // Guards against a second submission racing an upload already on the
+    // wire — a replacement pick cannot cancel the first request.
+    const onFilesSelected = vi.fn();
+    const onRemove = vi.fn();
+    render(
+      <FileUpload
+        aria-label="Attachments"
+        disabled
+        items={[{ id: 'a', file: new File(['x'], 'roster.csv'), progress: 100 }]}
+        onFilesSelected={onFilesSelected}
+        onRemove={onRemove}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Choose files' }).hasAttribute('disabled')).toBe(
+      true,
+    );
+    expect(screen.getByRole('button', { name: 'Remove roster.csv' }).hasAttribute('disabled')).toBe(
+      true,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remove roster.csv' }));
+    expect(onRemove).not.toHaveBeenCalled();
+  });
 });
