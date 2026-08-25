@@ -734,7 +734,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/communications/reminder/bulk": {
+    "/api/v1/communications/reminder/bulk/preview": {
         parameters: {
             query?: never;
             header?: never;
@@ -743,8 +743,43 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Resolve a bulk reminder without sending it — who would receive what, and who would be skipped and why. */
+        post: operations["CommunicationsController_previewBulkReminder_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/communications/reminder/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reminder History — every bulk reminder batch this tenant sent, newest first. */
+        get: operations["CommunicationsController_findReminderBatches_v1"];
+        put?: never;
         /** Queue fee reminders to every student/guardian matching the given filters. */
         post: operations["CommunicationsController_sendBulkReminder_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/communications/reminder/bulk/{id}/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One batch's per-recipient delivery records, for the batch detail page. */
+        get: operations["CommunicationsController_findReminderBatchLogs_v1"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1577,6 +1612,23 @@ export interface components {
             whatsapp_template_language?: string;
             whatsapp_template_params?: string[];
         };
+        BulkPreviewSkippedDto: {
+            guardian_id: string | null;
+            guardian_name: string | null;
+            reason: string;
+        };
+        BulkPreviewStudentDto: {
+            student_id: string;
+            student_name: string;
+            recipients: components["schemas"]["ReminderPreviewRecipientDto"][];
+            skipped: components["schemas"]["BulkPreviewSkippedDto"][];
+        };
+        BulkReminderPreviewResponseDto: {
+            total_students: number;
+            recipients_count: number;
+            skipped_count: number;
+            students: components["schemas"]["BulkPreviewStudentDto"][];
+        };
         SkippedRecipientDto: {
             student_id: string;
             guardian_id: string | null;
@@ -1594,6 +1646,46 @@ export interface components {
             /** Format: date-time */
             created_at: string;
             skipped: components["schemas"]["SkippedRecipientDto"][];
+        };
+        ReminderBatchListItemDto: {
+            id: string;
+            batch_name: string;
+            /** @enum {string} */
+            status: "PROCESSING" | "COMPLETED" | "PARTIALLY_FAILED" | "FAILED";
+            total_recipients: number;
+            successful_count: number;
+            failed_count: number;
+            /** Format: date-time */
+            created_at: string;
+        };
+        ReminderBatchListResponseDto: {
+            data: components["schemas"]["ReminderBatchListItemDto"][];
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+        ReminderBatchLogDto: {
+            id: string;
+            /** @enum {string} */
+            medium: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER";
+            recipient_address: string;
+            recipient_name: string;
+            /** @enum {string} */
+            status: "QUEUED" | "SENT" | "DELIVERED" | "FAILED" | "READ";
+            student_id: string | null;
+            guardian_id: string | null;
+            provider_message_id: string | null;
+            error: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        ReminderBatchLogListResponseDto: {
+            data: components["schemas"]["ReminderBatchLogDto"][];
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
         };
         SendCommunicationDto: {
             /** @enum {string} */
@@ -4035,6 +4127,75 @@ export interface operations {
             };
         };
     };
+    CommunicationsController_previewBulkReminder_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendBulkReminderDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkReminderPreviewResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CommunicationsController_findReminderBatches_v1: {
+        parameters: {
+            query?: {
+                page?: number;
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReminderBatchListResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     CommunicationsController_sendBulkReminder_v1: {
         parameters: {
             query?: never;
@@ -4059,6 +4220,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReminderBatchResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CommunicationsController_findReminderBatchLogs_v1: {
+        parameters: {
+            query?: {
+                page?: number;
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReminderBatchLogListResponseDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

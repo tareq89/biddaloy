@@ -13,6 +13,14 @@ import {
   SendBulkReminderDto,
   ReminderBatchResponseDto,
   SkippedRecipientDto,
+  QueryReminderBatchesDto,
+  ReminderBatchListResponseDto,
+  ReminderBatchListItemDto,
+  BulkReminderPreviewResponseDto,
+  BulkPreviewStudentDto,
+  QueryReminderBatchLogsDto,
+  ReminderBatchLogListResponseDto,
+  ReminderBatchLogDto,
 } from './dto/reminders.dto';
 import {
   findUnsupportedPlaceholders,
@@ -87,30 +95,7 @@ export class BulkReminderService {
     userId: string,
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<ReminderBatchResponseDto> {
-    const unsupported = findUnsupportedPlaceholders(dto.message_template);
-    if (unsupported.length > 0) {
-      throw new BadRequestException(
-        `Unsupported template placeholder(s): ${unsupported.join(', ')}. ` +
-          `Supported: ${SUPPORTED_PLACEHOLDERS.join(', ')}`,
-      );
-    }
-    this.validateWhatsAppParams(dto);
-
-    // A duplicated ID would otherwise send the same guardian the same
-    // reminder twice and inflate total_recipients.
-    const studentIds = [...new Set(dto.student_ids)];
-
-    const students = await this.studentService.findManyWithGuardians(studentIds, tenantId);
-    const found = new Set(students.map((s) => s.id));
-    const missing = studentIds.filter((id) => !found.has(id));
-    if (missing.length > 0) {
-      throw new NotFoundException(`Student(s) not found: ${missing.join(', ')}`);
-    }
-
-    const dueSnapshots = await this.feeDuesService.getDueSnapshots(studentIds, tenantId);
-
-    const skipped: SkippedRecipientDto[] = [];
-    const recipients = this.resolveRecipients(students, dueSnapshots, dto, skipped);
+    const { studentIds, recipients, skipped } = await this.validateAndResolve(dto, tenantId);
 
     const batch = await this.batchRepo.save(
       this.batchRepo.create({
@@ -169,6 +154,180 @@ export class BulkReminderService {
     }
     const skipped = (batch.filters_applied?.skipped as SkippedRecipientDto[] | undefined) ?? [];
     return this.toResponseDto(batch, skipped);
+  }
+
+  /**
+   * Reminder History's data source: every batch this tenant ever sent,
+   * newest first. Excludes each batch's skip list — see
+   * ReminderBatchListItemDto for why.
+   */
+  async findBatches(
+    query: QueryReminderBatchesDto,
+    tenantId: string,
+  ): Promise<ReminderBatchListResponseDto> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+
+    const [batches, total] = await this.batchRepo.findAndCount({
+      where: { tenant_id: tenantId },
+      order: { created_at: 'DESC', id: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    return {
+      data: batches.map((batch) => this.toListItemDto(batch)),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  /**
+   * Exactly what sendBulk would do with this request, without doing any of
+   * it — no batch row, no logs, no queue jobs, no audit record. The epic
+   * makes preview mandatory before send: the sender must see the resolved
+   * recipients *and* the skipped ones (with reasons), because the server's
+   * skip logic (dues, guardian preferences, missing addresses) cannot be
+   * reproduced client-side.
+   */
+  async previewBulk(
+    dto: SendBulkReminderDto,
+    tenantId: string,
+  ): Promise<BulkReminderPreviewResponseDto> {
+    const { studentIds, students, recipients, skipped } = await this.validateAndResolve(
+      dto,
+      tenantId,
+    );
+
+    const guardianNames = new Map<string, string>();
+    const studentsById = new Map(students.map((s) => [s.id, s]));
+    for (const student of students) {
+      for (const guardian of student.guardians ?? []) {
+        guardianNames.set(guardian.id, guardian.full_name);
+      }
+    }
+
+    // Grouped per student, in request order — the review step reads
+    // "for this student, these guardians get this exact message."
+    const byStudent = new Map<string, BulkPreviewStudentDto>();
+    for (const id of studentIds) {
+      const student = studentsById.get(id);
+      if (!student) continue; // unreachable: validateAndResolve 404s on missing ids
+      byStudent.set(id, {
+        student_id: id,
+        student_name: student.full_name,
+        recipients: [],
+        skipped: [],
+      });
+    }
+
+    for (const r of recipients) {
+      byStudent.get(r.student.id)?.recipients.push({
+        guardian_id: r.guardian.id,
+        guardian_name: r.guardian.full_name,
+        medium: r.medium,
+        address: r.address,
+        message_body: renderReminderTemplate(dto.message_template, r.vars),
+        subject: r.medium === CommunicationMedium.EMAIL ? this.emailSubject(dto) : null,
+      });
+    }
+
+    for (const s of skipped) {
+      byStudent.get(s.student_id)?.skipped.push({
+        guardian_id: s.guardian_id,
+        guardian_name: s.guardian_id ? (guardianNames.get(s.guardian_id) ?? null) : null,
+        reason: s.reason,
+      });
+    }
+
+    return {
+      total_students: studentIds.length,
+      recipients_count: recipients.length,
+      skipped_count: skipped.length,
+      students: [...byStudent.values()],
+    };
+  }
+
+  /**
+   * Per-recipient delivery status for one batch — the batch detail page's
+   * table, and the source a retry composes its failed-students list from.
+   * The batch is looked up first (tenant-scoped) so a cross-tenant batch id
+   * 404s rather than returning an empty page indistinguishable from a
+   * batch with no logs.
+   */
+  async findBatchLogs(
+    id: string,
+    query: QueryReminderBatchLogsDto,
+    tenantId: string,
+  ): Promise<ReminderBatchLogListResponseDto> {
+    const batch = await this.batchRepo.findOne({ where: { id, tenant_id: tenantId } });
+    if (!batch) {
+      throw new NotFoundException(`Reminder batch with ID "${id}" not found`);
+    }
+
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 50;
+
+    const [logs, total] = await this.logRepo.findAndCount({
+      where: { reminder_batch_id: id, tenant_id: tenantId },
+      order: { created_at: 'DESC', id: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    return {
+      data: logs.map((log) => this.toBatchLogDto(log)),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  /**
+   * The request-shaped half shared by previewBulk and sendBulk: template
+   * and WhatsApp-param validation, id dedupe, tenant-scoped batch loads
+   * (one query for students+guardians, one for due snapshots — never one
+   * per student; input is capped at 500), and recipient resolution.
+   * Shared so preview can never disagree with what send would then do.
+   */
+  private async validateAndResolve(
+    dto: SendBulkReminderDto,
+    tenantId: string,
+  ): Promise<{
+    studentIds: string[];
+    students: Student[];
+    recipients: ResolvedRecipient[];
+    skipped: SkippedRecipientDto[];
+  }> {
+    const unsupported = findUnsupportedPlaceholders(dto.message_template);
+    if (unsupported.length > 0) {
+      throw new BadRequestException(
+        `Unsupported template placeholder(s): ${unsupported.join(', ')}. ` +
+          `Supported: ${SUPPORTED_PLACEHOLDERS.join(', ')}`,
+      );
+    }
+    this.validateWhatsAppParams(dto);
+
+    // A duplicated ID would otherwise send the same guardian the same
+    // reminder twice and inflate total_recipients.
+    const studentIds = [...new Set(dto.student_ids)];
+
+    const students = await this.studentService.findManyWithGuardians(studentIds, tenantId);
+    const found = new Set(students.map((s) => s.id));
+    const missing = studentIds.filter((id) => !found.has(id));
+    if (missing.length > 0) {
+      throw new NotFoundException(`Student(s) not found: ${missing.join(', ')}`);
+    }
+
+    const dueSnapshots = await this.feeDuesService.getDueSnapshots(studentIds, tenantId);
+
+    const skipped: SkippedRecipientDto[] = [];
+    const recipients = this.resolveRecipients(students, dueSnapshots, dto, skipped);
+
+    return { studentIds, students, recipients, skipped };
   }
 
   /**
@@ -351,6 +510,33 @@ export class BulkReminderService {
 
   private defaultBatchName(): string {
     return `Fee Reminder ${new Date().toISOString().slice(0, 10)}`;
+  }
+
+  private toListItemDto(batch: ReminderBatch): ReminderBatchListItemDto {
+    return {
+      id: batch.id,
+      batch_name: batch.batch_name,
+      status: batch.status,
+      total_recipients: batch.total_recipients,
+      successful_count: batch.successful_count,
+      failed_count: batch.failed_count,
+      created_at: batch.created_at,
+    };
+  }
+
+  private toBatchLogDto(log: CommunicationLog): ReminderBatchLogDto {
+    return {
+      id: log.id,
+      medium: log.medium,
+      recipient_address: log.recipient_address,
+      recipient_name: log.recipient_name,
+      status: log.status,
+      student_id: log.student_id,
+      guardian_id: log.guardian_id,
+      provider_message_id: log.provider_message_id,
+      error: typeof log.metadata?.error === 'string' ? log.metadata.error : null,
+      created_at: log.created_at,
+    };
   }
 
   private toResponseDto(

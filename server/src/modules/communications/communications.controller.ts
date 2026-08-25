@@ -30,7 +30,11 @@ import {
   QueryLastRemindersDto,
   LastReminderDto,
 } from './dto/communications.dto';
-import { SendBulkReminderDto } from './dto/reminders.dto';
+import {
+  SendBulkReminderDto,
+  QueryReminderBatchesDto,
+  QueryReminderBatchLogsDto,
+} from './dto/reminders.dto';
 import { SendSingleReminderDto } from './dto/single-reminder.dto';
 import { UserRole, JwtPayload } from '@biddaloy/shared';
 import { requestContext } from '../../common/request-context.util';
@@ -82,6 +86,22 @@ export class CommunicationsController {
     );
   }
 
+  // Declared before the send route below, matching the single-reminder
+  // pair above: preview-before-send is the reading order the epic mandates.
+  @Post('reminder/bulk/preview')
+  @HttpCode(HttpStatus.OK)
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  @ApiOperation({
+    summary:
+      'Resolve a bulk reminder without sending it — who would receive what, and who would be skipped and why.',
+  })
+  previewBulkReminder(
+    @Body() dto: SendBulkReminderDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.bulkReminderService.previewBulk(dto, tenant.id);
+  }
+
   // Declared before @Get(':id') — Nest matches in declaration order, and
   // 'reminder' would otherwise be swallowed by the UUID param route and
   // rejected by its ParseUUIDPipe.
@@ -98,6 +118,33 @@ export class CommunicationsController {
     @Req() request: Request,
   ) {
     return this.bulkReminderService.sendBulk(dto, tenant.id, user.sub, requestContext(request));
+  }
+
+  // Declared before @Get(':id') — same reasoning as the POST above:
+  // 'reminder' would otherwise be swallowed by the UUID param route.
+  @Get('reminder/bulk')
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  @ApiOperation({
+    summary: 'Reminder History — every bulk reminder batch this tenant sent, newest first.',
+  })
+  findReminderBatches(
+    @Query() query: QueryReminderBatchesDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.bulkReminderService.findBatches(query, tenant.id);
+  }
+
+  @Get('reminder/bulk/:id/logs')
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  @ApiOperation({
+    summary: "One batch's per-recipient delivery records, for the batch detail page.",
+  })
+  findReminderBatchLogs(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: QueryReminderBatchLogsDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.bulkReminderService.findBatchLogs(id, query, tenant.id);
   }
 
   @Get('reminder/bulk/:id')
