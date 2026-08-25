@@ -147,7 +147,13 @@ export function useFormAutosave<TValues>(
       // See the state initializer above — storage access itself can
       // throw, not just a specific operation.
     }
-    lastWrittenRef.current = null;
+    // Mark *these* values as already handled, not just "nothing written"
+    // — the debounce effect above reschedules on every render (`values`
+    // is typically a fresh object each time), so a still-pending or
+    // soon-to-be-scheduled timer for the very values just discarded
+    // would otherwise immediately rewrite localStorage and resurrect
+    // the draft. A real edit still changes `values` and clears this.
+    lastWrittenRef.current = { storageKey, serialized: JSON.stringify(values) };
     setDraftAvailable(false);
   }
 
