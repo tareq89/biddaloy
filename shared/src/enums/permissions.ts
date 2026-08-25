@@ -142,9 +142,13 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
 
   [UserRole.EXECUTIVE]: [
     Permission.STUDENT_READ,
-    Permission.FEE_STRUCTURE_CREATE,
-    Permission.FEE_STRUCTURE_READ,
-    Permission.FEE_STRUCTURE_UPDATE,
+    // Deliberately no FEE_STRUCTURE_* — same call as TEACHER above. The
+    // controller's `@Roles` does let an EXECUTIVE hit these endpoints, but
+    // `/fees` and `/fee-structures` are both gated on FEE_STRUCTURE_READ,
+    // so granting it here surfaces the whole Finance group to a role whose
+    // navigation is deliberately scoped to Students
+    // (`e2e/journeys/permissions.spec.ts`'s CASES pin that). Widening it is
+    // a product decision, not a mapping fix.
     Permission.FEE_READ,
     Permission.REPORTS_VIEW,
     Permission.DASHBOARD_VIEW,
