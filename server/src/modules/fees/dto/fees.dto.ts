@@ -47,9 +47,11 @@ export class CreateFeeStructureDto {
   @IsUUID()
   class_id: string;
 
+  /** Nullable for the same reason as `UpdateFeeStructureDto.section_id`:
+   * "whole class" is an explicit `null`, not an absent key. */
   @IsOptional()
   @IsUUID()
-  section_id?: string;
+  section_id?: string | null;
 
   @IsUUID()
   academic_year_id: string;
@@ -87,9 +89,14 @@ export class UpdateFeeStructureDto {
   @IsEnum(FeeApplicability)
   applicability?: FeeApplicability;
 
+  /** Explicitly nullable: widening a section-scoped structure back to the
+   * whole class needs `null` to be *sent*. Omitting the key leaves the
+   * column untouched, so an omitted-when-empty payload silently kept the
+   * old section. `@IsOptional()` skips `null` as well as `undefined`, so
+   * the `@IsUUID()` check still applies to every non-null value. */
   @IsOptional()
   @IsUUID()
-  section_id?: string;
+  section_id?: string | null;
 
   @IsOptional()
   @Type(() => Number)

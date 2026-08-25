@@ -102,6 +102,21 @@ describe('StatusBadge', () => {
     expect(screen.getByText('Secondary')).toBeTruthy();
   });
 
+  it.each([
+    ['RECURRING', 'info'],
+    ['ONE_TIME', 'neutral'],
+  ] as const)('[8.11.5] maps feeStructure %s to the %s tone', (status, tone) => {
+    render(<StatusBadge domain="feeStructure" status={status} />);
+    expect(screen.getByText(/./).getAttribute('data-tone')).toBe(tone);
+  });
+
+  // The AC is "recurring structures visually distinguished without relying
+  // on colour" — the label text is what satisfies it, so assert the text.
+  it('[8.11.5] renders a humanized label for the feeStructure domain', () => {
+    render(<StatusBadge domain="feeStructure" status="ONE_TIME" />);
+    expect(screen.getByText('One time')).toBeTruthy();
+  });
+
   it('every tone within one domain maps to a visually distinct icon (the greyscale guarantee)', () => {
     const { container } = render(
       <>

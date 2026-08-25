@@ -18,9 +18,16 @@ export class FeeStructureStudent {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => FeeStructure, { onDelete: 'CASCADE' })
+  @ManyToOne(() => FeeStructure, (structure) => structure.selected_students, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'fee_structure_id' })
-  fee_structure: FeeStructure;
+  // Optional on the type because the only path that serializes these pivot
+  // rows — `FeeStructureService.findOne` — loads `student` but never joins
+  // back to the parent it already has. Marking it required would put a
+  // circular `fee_structure` on the generated client type that no response
+  // ever actually carries.
+  fee_structure?: FeeStructure;
 
   @Column({ type: 'uuid' })
   fee_structure_id: string;

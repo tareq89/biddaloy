@@ -1329,7 +1329,7 @@ export interface components {
             /** Format: uuid */
             class_id: string;
             /** Format: uuid */
-            section_id?: string;
+            section_id?: string | null;
             /** Format: uuid */
             academic_year_id: string;
             month: number;
@@ -1352,6 +1352,7 @@ export interface components {
             academic_year_id: string;
             month: number;
             is_recurring: boolean;
+            selected_students?: components["schemas"]["FeeStructureStudent"][];
             tenant: components["schemas"]["School"];
             tenant_id: string;
             /** Format: date-time */
@@ -1361,6 +1362,13 @@ export interface components {
             /** Format: date-time */
             deleted_at: string | null;
         };
+        FeeStructureStudent: {
+            id: string;
+            fee_structure?: components["schemas"]["FeeStructure"];
+            fee_structure_id: string;
+            student: components["schemas"]["Student"];
+            student_id: string;
+        };
         UpdateFeeStructureDto: {
             /** @enum {string} */
             fee_type?: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "OTHER";
@@ -1369,7 +1377,7 @@ export interface components {
             /** @enum {string} */
             applicability?: "ALL" | "SELECTED";
             /** Format: uuid */
-            section_id?: string;
+            section_id?: string | null;
             month?: number;
             is_recurring?: boolean;
             student_ids?: string[];

@@ -11,7 +11,12 @@ export { userFactory, userResponseFactory, type User, type UserResponseDto } fro
 export { guardianFactory, type Guardian } from './guardian.factory';
 export { studentFactory, type Student } from './student.factory';
 export { teacherFactory, type Teacher } from './teacher.factory';
-export { feeStructureFactory, type FeeStructure } from './fee-structure.factory';
+export {
+  feeStructureFactory,
+  feeStructureStudentFactory,
+  type FeeStructure,
+  type FeeStructureStudent,
+} from './fee-structure.factory';
 export { studentFeeFactory, type StudentFee } from './student-fee.factory';
 export { paymentFactory, type Payment } from './payment.factory';
 export { invoiceFactory, type Invoice } from './invoice.factory';

@@ -35,7 +35,19 @@ const npxCommand = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 // small, deliberate list rather than something derived from a glob,
 // since the point is catching a route that *stopped* being split, not
 // discovering routes automatically.
-const EXPECTED_ROUTE_CHUNKS = ['settings', 'students', 'fees', 'classes', 'guardians'];
+const EXPECTED_ROUTE_CHUNKS = [
+  'settings',
+  'students',
+  'fees',
+  'classes',
+  'guardians',
+  // The [8.11.5] route's own chunk is named generically (`index-*.js`,
+  // like every other `index.tsx` route entry); what carries the route's
+  // name is its i18n namespace chunk, `feeStructures-*.js` — one per
+  // locale, loaded only when the route is. That's the same thing
+  // 'guardians'/'classes'/'fees' above actually match.
+  'feeStructures',
+];
 
 /**
  * [8.9.10]: one SPA now serves staff *and* guardians, so "extract a
@@ -71,7 +83,15 @@ const EXPECTED_ROUTE_CHUNKS = ['settings', 'students', 'fees', 'classes', 'guard
  * `EXPECTED_ROUTE_CHUNKS`), and only `routeTree.gen.ts`'s per-route
  * lazy-import wrappers land in the entry.
  */
-const ENTRY_CHUNK_GZIP_CEILING_BYTES = 221_500;
+/**
+ * Raised in [8.11.5]: 221,837 B gzipped measured with the new
+ * `/fee-structures` route registered — 337 B over the previous ceiling.
+ * Same cause as every bump above, not a regression: the route's own
+ * component still code-splits into its own chunk (verified by
+ * `EXPECTED_ROUTE_CHUNKS`), only `routeTree.gen.ts`'s per-route
+ * lazy-import wrapper lands in the entry.
+ */
+const ENTRY_CHUNK_GZIP_CEILING_BYTES = 222_300;
 
 /** The entry is whatever `index.html` loads as its module script — asked
  * of the build output rather than guessed from a filename pattern, which

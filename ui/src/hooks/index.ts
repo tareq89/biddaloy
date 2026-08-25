@@ -142,11 +142,19 @@ export {
 } from './academic-years';
 export {
   feeStructureKeys,
+  feeStructureQueryOptions,
   feeStructuresQueryOptions,
+  useCreateFeeStructure,
+  useDeleteFeeStructure,
+  useFeeStructure,
   useFeeStructures,
+  useUpdateFeeStructure,
+  type CreateFeeStructureInput,
   type FeeStructure,
   type FeeStructureListFilters,
+  type FeeStructureStudent,
   type PaginatedFeeStructures,
+  type UpdateFeeStructureInput,
 } from './fee-structures';
 export { useRouteFocus, type UseRouteFocusOptions } from './use-route-focus';
 export { useDebouncedValue } from './use-debounce';

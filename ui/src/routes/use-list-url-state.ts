@@ -42,7 +42,12 @@ export interface ListUrlStatePatch {
    * page/limit/filters always have a meaningful value to fall back to. */
   sort?: string | null;
   order?: 'asc' | 'desc' | null;
-  filters?: Record<string, string>;
+  /** Same convention as `sort`/`order` above: a string sets the param and
+   * `null` removes it. Removal has to be explicit — an *absent* key leaves
+   * the param untouched, so a "clear this filter" control must pass `null`
+   * rather than dropping the key from the object, or the old value survives
+   * in the URL and the list stays filtered with no way back. */
+  filters?: Record<string, string | null>;
 }
 
 const RESERVED_KEYS = new Set(['page', 'limit', 'sort', 'order']);
@@ -112,7 +117,8 @@ export function useListUrlState(
           // otherwise run after (and silently win over) the explicit
           // patch.page/limit/sort updates above.
           if (RESERVED_KEYS.has(key)) continue;
-          next[key] = value;
+          if (value === null) delete next[key];
+          else next[key] = value;
         }
       }
       return next;

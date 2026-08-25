@@ -6,9 +6,11 @@ import {
   UpdateDateColumn,
   DeleteDateColumn,
   ManyToOne,
+  OneToMany,
   JoinColumn,
   Index,
 } from 'typeorm';
+import { FeeStructureStudent } from './fee-structure-student.entity';
 import { Class } from '../../academics/entities/class.entity';
 import { ClassSection } from '../../academics/entities/class-section.entity';
 import { AcademicYear } from '../../academics/entities/academic-year.entity';
@@ -28,7 +30,8 @@ import { FeeType, FeeApplicability } from '@biddaloy/shared';
  * - @ManyToOne → Class: the class this fee applies to
  * - @ManyToOne → ClassSection (optional): specific section within the class
  * - @ManyToOne → AcademicYear: the academic year this fee is for
- * - @OneToMany → FeeStructureStudent: selected-student overrides
+ * - @OneToMany → FeeStructureStudent (`selected_students`): selected-student
+ *   overrides, loaded by `findOne` only
  * - Referenced-by → StudentFee: generated fee records reference this
  */
 @Entity('fee_structures')
@@ -76,6 +79,16 @@ export class FeeStructure {
 
   @Column({ type: 'boolean', default: true })
   is_recurring: boolean;
+
+  /**
+   * Selected-student overrides, only meaningful when applicability=SELECTED.
+   *
+   * Loaded by `findOne` alone, never by `findAll`: a list page never renders
+   * individual students, so fanning this join out across every listed row
+   * would cost N extra joins for data nobody reads.
+   */
+  @OneToMany(() => FeeStructureStudent, (link) => link.fee_structure)
+  selected_students?: FeeStructureStudent[];
 
   @ManyToOne(() => School, { nullable: false, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'tenant_id' })

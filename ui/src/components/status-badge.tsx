@@ -130,6 +130,18 @@ const GUARDIAN_STATUS_TONE: Record<GuardianPrimaryContactStatus, StatusTone> = {
   SECONDARY: 'neutral',
 };
 
+/** Not a `shared/src/enums` domain either — `FeeStructure.is_recurring` is
+ * a plain boolean, same shape as the two booleans above. [8.11.5]'s
+ * "recurring structures visually distinguished without relying on colour"
+ * AC is exactly what this component already guarantees: the label text
+ * ("Recurring" vs "One time") carries the meaning, tone only decorates. */
+export type FeeStructureRecurrenceStatus = 'RECURRING' | 'ONE_TIME';
+
+const FEE_STRUCTURE_STATUS_TONE: Record<FeeStructureRecurrenceStatus, StatusTone> = {
+  RECURRING: 'info',
+  ONE_TIME: 'neutral',
+};
+
 export type StatusBadgeProps =
   | { domain: 'fee'; status: FeeStatus }
   | { domain: 'payment'; status: PaymentStatus }
@@ -138,7 +150,8 @@ export type StatusBadgeProps =
   | { domain: 'reminderBatch'; status: ReminderBatchStatus }
   | { domain: 'enrollment'; status: EnrollmentStatus }
   | { domain: 'academicYear'; status: AcademicYearCurrentStatus }
-  | { domain: 'guardian'; status: GuardianPrimaryContactStatus };
+  | { domain: 'guardian'; status: GuardianPrimaryContactStatus }
+  | { domain: 'feeStructure'; status: FeeStructureRecurrenceStatus };
 
 function resolveTone(props: StatusBadgeProps): StatusTone {
   switch (props.domain) {
@@ -158,6 +171,8 @@ function resolveTone(props: StatusBadgeProps): StatusTone {
       return ACADEMIC_YEAR_STATUS_TONE[props.status];
     case 'guardian':
       return GUARDIAN_STATUS_TONE[props.status];
+    case 'feeStructure':
+      return FEE_STRUCTURE_STATUS_TONE[props.status];
   }
 }
 
