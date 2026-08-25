@@ -121,14 +121,18 @@ export class UpdateTeacherDto {
   @IsEnum(TeacherDesignation, { each: true })
   designations?: TeacherDesignation[];
 
+  /** `null` clears the stored value; `@IsOptional()` skips validation
+   * for both `null` and `undefined`. */
   @IsOptional()
   @IsString()
   @SanitizeText()
-  subject_specialization?: string;
+  subject_specialization?: string | null;
 
+  /** `null` clears the stored value — the service maps it to a SQL NULL
+   * instead of `new Date(null)`'s Unix epoch. */
   @IsOptional()
   @IsDateString()
-  joining_date?: string;
+  joining_date?: string | null;
 
   @IsOptional()
   @IsArray()

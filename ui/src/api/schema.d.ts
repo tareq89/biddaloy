@@ -1183,6 +1183,8 @@ export interface components {
             full_name: string;
             /** @enum {string|null} */
             role: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE" | null;
+            /** Format: date-time */
+            member_since: string | null;
             profile_picture_url: string | null;
             preferences: {
                 [key: string]: unknown;
@@ -1236,8 +1238,8 @@ export interface components {
         UpdateTeacherDto: {
             employee_id?: string;
             designations?: ("CLASS_TEACHER" | "SUBJECT_TEACHER" | "HEAD_TEACHER" | "ASSISTANT_TEACHER" | "PRINCIPAL" | "VICE_PRINCIPAL" | "COORDINATOR")[];
-            subject_specialization?: string;
-            joining_date?: string;
+            subject_specialization?: string | null;
+            joining_date?: string | null;
             assigned_section_ids?: string[];
         };
         CreateStudentDto: {

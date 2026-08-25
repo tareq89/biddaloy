@@ -486,6 +486,17 @@ describe('UserService (integration)', () => {
 
     // Trust-boundary guard: an admin must never lock themselves out of the
     // school, even if the UI check is bypassed.
+    it('should reject self-removal even when the route id is uppercased', async () => {
+      const { user } = await service.create(
+        { full_name: 'Case Insensitive Self', role: UserRole.ADMIN },
+        TENANT_ID,
+      );
+
+      await expect(service.remove(user.id.toUpperCase(), TENANT_ID, user.id)).rejects.toThrow(
+        'You cannot remove your own account from this school',
+      );
+    });
+
     it('should reject self-removal with BadRequestException and keep the membership', async () => {
       const { user } = await service.create(
         { full_name: 'Self Admin', role: UserRole.ADMIN },

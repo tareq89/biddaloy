@@ -53,6 +53,7 @@ export class UserController {
     // just created instead.
     const userDto = UserResponseDto.fromEntity(user, tenant.id);
     userDto.role = membership.role;
+    userDto.member_since = membership.created_at;
     return { user: userDto, membership };
   }
 

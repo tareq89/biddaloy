@@ -271,8 +271,13 @@ describe('Users & Teachers E2E [8.11.8]', () => {
 
   describe('GET /audit-logs (performed_by_user_id filter)', () => {
     it('returns only rows performed by the given user', async () => {
-      // The admin login in beforeAll wrote a LOGIN audit row for tenant A's
-      // context resolution; assert scoping rather than a specific count.
+      // audit_logs is truncated before every test (test/setup.ts), so the
+      // beforeAll login's row is gone — write a fresh LOGIN row here.
+      await request()
+        .post('/api/v1/auth/login')
+        .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+        .expect(200);
+
       const res = await request()
         .get('/api/v1/audit-logs')
         .query({ performed_by_user_id: SEED_ADMIN_USER_ID })
@@ -280,6 +285,7 @@ describe('Users & Teachers E2E [8.11.8]', () => {
         .set('X-Tenant-ID', TENANT_A)
         .expect(200);
 
+      expect(res.body.data.length).toBeGreaterThan(0);
       for (const log of res.body.data) {
         expect(log.performed_by_user_id).toBe(SEED_ADMIN_USER_ID);
       }
@@ -292,6 +298,70 @@ describe('Users & Teachers E2E [8.11.8]', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_A)
         .expect(400);
+    });
+  });
+
+  describe('authorization and tenant-context boundaries', () => {
+    let teacherToken: string;
+
+    beforeAll(async () => {
+      // Member A is a TEACHER in tenant A — the denied side of every
+      // ADMIN/EXECUTIVE-only endpoint this suite covers. The self-removal
+      // suite above deleted this membership; restore it before login so
+      // the JWT carries the TEACHER membership again.
+      await dataSource.query(
+        `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+         VALUES ($1, $2, $3, NOW(), NOW())
+         ON CONFLICT DO NOTHING`,
+        [MEMBER_A_ID, TENANT_A, UserRole.TEACHER],
+      );
+      const res = await request()
+        .post('/api/v1/auth/login')
+        .send({ email: 'staff-a@example.com', password: SEED_ADMIN_PASSWORD })
+        .expect(200);
+      teacherToken = res.body.access_token;
+    });
+
+    it('denies a TEACHER creating a user (ADMIN/EXECUTIVE only)', async () => {
+      const res = await request()
+        .post('/api/v1/users')
+        .set('Authorization', `Bearer ${teacherToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .send({ full_name: 'Should Not Exist', role: UserRole.TEACHER })
+        .expect(401);
+      expect(res.body.message).toContain('Requires one of roles');
+    });
+
+    it('denies a TEACHER removing a member (ADMIN only)', async () => {
+      const res = await request()
+        .delete(`/api/v1/users/${MEMBER_A_ID}`)
+        .set('Authorization', `Bearer ${teacherToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .expect(401);
+      expect(res.body.message).toContain('Requires one of roles');
+    });
+
+    it('denies a TEACHER reading audit logs (ADMIN only)', async () => {
+      const res = await request()
+        .get('/api/v1/audit-logs')
+        .set('Authorization', `Bearer ${teacherToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .expect(401);
+      expect(res.body.message).toContain('Requires one of roles');
+    });
+
+    it('rejects a request with no X-Tenant-ID header', async () => {
+      await request().get('/api/v1/users').set('Authorization', `Bearer ${adminToken}`).expect(401);
+    });
+
+    it('rejects a tenant the caller is not a member of', async () => {
+      // Member A belongs to tenant A only — presenting tenant B's id
+      // must fail context resolution, not fall through to data access.
+      await request()
+        .get('/api/v1/users')
+        .set('Authorization', `Bearer ${teacherToken}`)
+        .set('X-Tenant-ID', TENANT_B)
+        .expect(401);
     });
   });
 });

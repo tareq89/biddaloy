@@ -34,6 +34,13 @@ export class UserResponseDto {
   @ApiProperty({ enum: UserRole, nullable: true })
   role: UserRole | null;
 
+  /** When the active-tenant membership was created (`user_tenants.created_at`)
+   * — the real "member since" date. `user.created_at` is the global account
+   * date, which predates the membership when an existing account joins a
+   * second school. Null under the same conditions as `role`. */
+  @ApiProperty({ nullable: true, type: Date })
+  member_since: Date | null;
+
   @ApiProperty({ nullable: true, type: String })
   profile_picture_url: string | null;
 
@@ -55,9 +62,11 @@ export class UserResponseDto {
     dto.email = user.email;
     dto.phone = user.phone;
     dto.status = user.status;
-    dto.role = tenantId
-      ? (user.user_tenants?.find((ut) => ut.tenant_id === tenantId)?.role ?? null)
-      : null;
+    const membership = tenantId
+      ? user.user_tenants?.find((ut) => ut.tenant_id === tenantId)
+      : undefined;
+    dto.role = membership?.role ?? null;
+    dto.member_since = membership?.created_at ?? null;
     dto.full_name = user.full_name;
     dto.profile_picture_url = user.profile_picture_url;
     dto.preferences = user.preferences;

@@ -96,7 +96,7 @@ describe('UserController', () => {
       const result = await controller.findOneUser('u1', TENANT);
 
       expect(userService.findOne).toHaveBeenCalledWith('u1', TENANT.id);
-      expect(result).toEqual({ ...expected, role: null });
+      expect(result).toEqual({ ...expected, role: null, member_since: null });
     });
   });
 
@@ -112,7 +112,7 @@ describe('UserController', () => {
       const result = await controller.updateUser('u1', dto as any, TENANT);
 
       expect(userService.update).toHaveBeenCalledWith('u1', dto, TENANT.id);
-      expect(result).toEqual({ ...expected, role: null });
+      expect(result).toEqual({ ...expected, role: null, member_since: null });
     });
   });
 

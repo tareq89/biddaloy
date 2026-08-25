@@ -144,7 +144,9 @@ export class UserService {
     // Trust-boundary guard: an admin must never be able to lock themselves
     // out of the school. The UI disables the action too, but the server is
     // the boundary that matters.
-    if (id === requestingUserId) {
+    // Postgres uuid columns compare case-insensitively, so an uppercase
+    // self-UUID in the route must not slip past a string comparison.
+    if (id.toLowerCase() === requestingUserId.toLowerCase()) {
       throw new BadRequestException('You cannot remove your own account from this school');
     }
 
@@ -289,7 +291,10 @@ export class TeacherService {
     if (dto.designations !== undefined) updateData.designations = dto.designations;
     if (dto.subject_specialization !== undefined)
       updateData.subject_specialization = dto.subject_specialization;
-    if (dto.joining_date !== undefined) updateData.joining_date = new Date(dto.joining_date);
+    // `null` clears the joining date — `new Date(null)` would silently
+    // store the Unix epoch instead.
+    if (dto.joining_date !== undefined)
+      updateData.joining_date = dto.joining_date === null ? null : new Date(dto.joining_date);
 
     await this.teacherRepo.update({ id, tenant_id: tenantId }, updateData);
 
