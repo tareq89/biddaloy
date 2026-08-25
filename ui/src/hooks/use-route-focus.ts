@@ -119,6 +119,11 @@ export function useRouteFocus({ mainId, appName }: UseRouteFocusOptions): string
   // can be detected and focus re-anchored instead of silently falling
   // back to `<body>`.
   const focusedHeadingRef = React.useRef<HTMLElement | null>(null);
+  // Timer that forces a pending route change to resolve even if no
+  // further DOM mutation ever arrives (a route with no `<h1>` at all —
+  // see the fallback-to-landmark branch below). Cleared as soon as a
+  // real mutation resolves the navigation on its own.
+  const pendingHeadingTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // `router.history` types as `any` here — `useRouter()`'s generic
   // defaults to `RegisteredRouter`, which only resolves to this app's
@@ -156,7 +161,7 @@ export function useRouteFocus({ mainId, appName }: UseRouteFocusOptions): string
   }, [router]);
 
   React.useEffect(() => {
-    function processHeading() {
+    function processHeading(force = false) {
       const pathname = router.state.location.pathname;
       const container = document.getElementById(mainId) ?? document;
       const heading = container.querySelector<HTMLElement>('h1');
@@ -188,14 +193,29 @@ export function useRouteFocus({ mainId, appName }: UseRouteFocusOptions): string
       // being left and then lose focus to `<body>` when that node
       // unmounts. Defer: remember a route change is pending and process
       // it on the mutation that delivers a different heading node.
+      // A loading skeleton between the old heading unmounting and the
+      // real one mounting reports `heading === null` on this same
+      // deferral path — without it, that transient no-heading paint
+      // gets treated as the navigation's final state (see below) and
+      // the real heading that mounts moments later never gets
+      // announced or focused. `force` (set only by the fallback timer
+      // below) is the escape hatch for routes with no `<h1>` at all.
       const wasPending = pendingRouteChangeRef.current;
-      if (
-        (isRouteChange || wasPending) &&
-        heading !== null &&
-        heading === lastHeadingElRef.current
-      ) {
+      const headingUnresolved = heading === null || heading === lastHeadingElRef.current;
+      if (!force && (isRouteChange || wasPending) && headingUnresolved) {
         pendingRouteChangeRef.current = true;
+        if (pendingHeadingTimeoutRef.current === null) {
+          pendingHeadingTimeoutRef.current = setTimeout(() => {
+            pendingHeadingTimeoutRef.current = null;
+            processHeading(true);
+          }, 100);
+        }
         return;
+      }
+
+      if (pendingHeadingTimeoutRef.current !== null) {
+        clearTimeout(pendingHeadingTimeoutRef.current);
+        pendingHeadingTimeoutRef.current = null;
       }
 
       const isPending = wasPending;
@@ -263,9 +283,12 @@ export function useRouteFocus({ mainId, appName }: UseRouteFocusOptions): string
     // happen *after* `observe()` is called below, not this one.
     processHeading();
 
-    const observer = new MutationObserver(processHeading);
+    const observer = new MutationObserver(() => processHeading());
     observer.observe(document.body, { childList: true, subtree: true, characterData: true });
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (pendingHeadingTimeoutRef.current !== null) clearTimeout(pendingHeadingTimeoutRef.current);
+    };
   }, [router, mainId, appName]);
 
   return announcement;
