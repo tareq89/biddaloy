@@ -47,6 +47,9 @@ const EXPECTED_ROUTE_CHUNKS = [
   // locale, loaded only when the route is. That's the same thing
   // 'guardians'/'classes'/'fees' above actually match.
   'feeStructures',
+  // [8.11.8]'s /staff and /staff/$userId routes — like the routes above,
+  // what carries the name is the i18n namespace chunk (`staff-*.js`).
+  'staff',
 ];
 
 /**
@@ -91,7 +94,15 @@ const EXPECTED_ROUTE_CHUNKS = [
  * `EXPECTED_ROUTE_CHUNKS`), only `routeTree.gen.ts`'s per-route
  * lazy-import wrapper lands in the entry.
  */
-const ENTRY_CHUNK_GZIP_CEILING_BYTES = 222_300;
+/**
+ * Raised for [8.11.8]: 222,808 B gzipped measured with the new `/staff`
+ * and `/staff/$userId` routes registered — 508 B over the previous
+ * ceiling. Same cause as every bump above, not a regression: both staff
+ * routes get their own chunks (asserted by `EXPECTED_ROUTE_CHUNKS`), and
+ * only `routeTree.gen.ts`'s per-route lazy-import wrappers land in the
+ * entry.
+ */
+const ENTRY_CHUNK_GZIP_CEILING_BYTES = 223_300;
 
 /** The entry is whatever `index.html` loads as its module script — asked
  * of the build output rather than guessed from a filename pattern, which

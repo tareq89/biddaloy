@@ -12,7 +12,36 @@ export { createEntityKeys, type EntityKeys } from './query-keys';
 export { shouldRetryQuery } from './retry';
 export { switchActiveTenant } from './tenant';
 export { login, logout, logoutAll } from './auth';
-export { useAccessToken, useActiveRole, useActiveTenant } from './auth-state';
+export { useAccessToken, useActiveRole, useActiveTenant, useCurrentUserId } from './auth-state';
+export {
+  userKeys,
+  userQueryOptions,
+  usersQueryOptions,
+  useCreateUser,
+  useRemoveMember,
+  useUpdateUser,
+  useUser,
+  useUsers,
+  type CreateUserInput,
+  type CreateUserResult,
+  type PaginatedUsers,
+  type StaffUser,
+  type UpdateUserInput,
+  type UserListFilters,
+  type UserRoleFilter,
+} from './users';
+export {
+  teacherKeys,
+  teachersQueryOptions,
+  useCreateTeacher,
+  useTeachers,
+  useUpdateTeacher,
+  type CreateTeacherInput,
+  type PaginatedTeachers,
+  type Teacher,
+  type TeacherListFilters,
+  type UpdateTeacherInput,
+} from './teachers';
 export {
   studentKeys,
   studentQueryOptions,
@@ -83,7 +112,9 @@ export {
 export {
   auditLogKeys,
   useAuditLogsByEntity,
+  useLoginAuditLogs,
   type AuditLog,
+  type AuditLogListFilters,
   type PaginatedAuditLogs,
 } from './audit-logs';
 export { hasPermission, useHasPermission } from './permissions';

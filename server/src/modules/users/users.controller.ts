@@ -14,6 +14,7 @@ import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { UserService, TeacherService } from './users.service';
 import {
@@ -26,7 +27,7 @@ import {
 } from './dto/users.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { TeacherListResponseDto, TeacherResponseDto } from './dto/teacher-response.dto';
-import { UserRole } from '@biddaloy/shared';
+import { UserRole, JwtPayload } from '@biddaloy/shared';
 
 @ApiTags('users')
 @ApiTenantAuth()
@@ -47,7 +48,12 @@ export class UserController {
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     const { user, membership } = await this.userService.create(dto, tenant.id);
-    return { user: UserResponseDto.fromEntity(user), membership };
+    // The freshly created entity has no user_tenants relation loaded, so
+    // fromEntity would report role: null — take it from the membership we
+    // just created instead.
+    const userDto = UserResponseDto.fromEntity(user, tenant.id);
+    userDto.role = membership.role;
+    return { user: userDto, membership };
   }
 
   @Get('users')
@@ -57,7 +63,7 @@ export class UserController {
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     const result = await this.userService.findAll(query, tenant.id);
-    return { ...result, data: result.data.map(UserResponseDto.fromEntity) };
+    return { ...result, data: result.data.map((u) => UserResponseDto.fromEntity(u, tenant.id)) };
   }
 
   @Get('users/:id')
@@ -68,7 +74,7 @@ export class UserController {
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     const user = await this.userService.findOne(id, tenant.id);
-    return UserResponseDto.fromEntity(user);
+    return UserResponseDto.fromEntity(user, tenant.id);
   }
 
   @Patch('users/:id')
@@ -79,13 +85,20 @@ export class UserController {
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     const user = await this.userService.update(id, dto, tenant.id);
-    return UserResponseDto.fromEntity(user);
+    return UserResponseDto.fromEntity(user, tenant.id);
   }
 
   @Delete('users/:id')
   @Roles(UserRole.ADMIN)
-  removeUser(@Param('id') id: string, @CurrentTenant() tenant: { id: string; role: string }) {
-    return this.userService.remove(id, tenant.id);
+  @ApiOperation({
+    summary: "Remove a member's access to this school (deletes the membership, not the account).",
+  })
+  removeUser(
+    @Param('id') id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.userService.remove(id, tenant.id, user.sub);
   }
 
   // --- Teacher endpoints ---

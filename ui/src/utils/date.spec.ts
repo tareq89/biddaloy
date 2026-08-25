@@ -5,6 +5,7 @@ import { REGION_BD_BN, REGION_BD_EN, type RegionConfig } from '../i18n/region-co
 import {
   formatAcademicYear,
   formatDate,
+  formatDateTime,
   getAcademicYear,
   parseDate,
   parseServerDate,
@@ -117,5 +118,17 @@ describe('parseServerDate', () => {
     expect(date.getFullYear()).toBe(2024);
     expect(date.getMonth()).toBe(0);
     expect(date.getDate()).toBe(5);
+  });
+});
+
+describe('formatDateTime', () => {
+  it('appends zero-padded 24h wall-clock time to the date', () => {
+    const date = new Date(2026, 7, 25, 9, 5);
+    expect(formatDateTime(date, REGION_BD_EN)).toBe('2026-08-25 09:05');
+  });
+
+  it('renders time digits in the configured numeral system', () => {
+    const date = new Date(2026, 7, 25, 23, 50);
+    expect(formatDateTime(date, REGION_BD_BN)).toBe('২০২৬-০৮-২৫ ২৩:৫০');
   });
 });

@@ -1,4 +1,4 @@
-import { UserStatus } from '@biddaloy/shared';
+import { UserRole, UserStatus } from '@biddaloy/shared';
 
 import type { components } from '../../api/schema';
 
@@ -50,6 +50,9 @@ export function userResponseFactory(
 ): UserResponseDto {
   return {
     ...buildPersonFields(options),
+    // Tenant-scoped membership role — [8.11.8]'s staff list/detail read
+    // it for the Role column and the read-only ROLE_PERMISSIONS tab.
+    role: UserRole.TEACHER,
     ...overrides,
   };
 }

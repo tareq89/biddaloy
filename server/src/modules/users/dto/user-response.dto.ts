@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { UserStatus } from '@biddaloy/shared';
+import { UserRole, UserStatus } from '@biddaloy/shared';
 import { User } from '../entities/user.entity';
 
 /**
@@ -26,6 +26,14 @@ export class UserResponseDto {
   @ApiProperty()
   full_name: string;
 
+  /** The caller's-tenant membership role — tenant-scoped, not a global
+   * user attribute (`user_tenants.role`). Null when the entity was built
+   * without its memberships loaded, or the user somehow has none in the
+   * active tenant. Added for [8.11.8]'s staff list/detail (Role column,
+   * read-only ROLE_PERMISSIONS tab), which cannot exist without it. */
+  @ApiProperty({ enum: UserRole, nullable: true })
+  role: UserRole | null;
+
   @ApiProperty({ nullable: true, type: String })
   profile_picture_url: string | null;
 
@@ -41,12 +49,15 @@ export class UserResponseDto {
   @ApiProperty()
   updated_at: Date;
 
-  static fromEntity(user: User): UserResponseDto {
+  static fromEntity(user: User, tenantId?: string): UserResponseDto {
     const dto = new UserResponseDto();
     dto.id = user.id;
     dto.email = user.email;
     dto.phone = user.phone;
     dto.status = user.status;
+    dto.role = tenantId
+      ? (user.user_tenants?.find((ut) => ut.tenant_id === tenantId)?.role ?? null)
+      : null;
     dto.full_name = user.full_name;
     dto.profile_picture_url = user.profile_picture_url;
     dto.preferences = user.preferences;

@@ -16,6 +16,18 @@ export function formatDate(date: Date, config: RegionConfig): string {
   return renderDigits(`${year}-${month}-${day}`, config.numerals);
 }
 
+/**
+ * `formatDate` plus wall-clock time (`YYYY-MM-DD HH:mm`), for rows where
+ * the time of day matters — e.g. login history, where three same-day
+ * logins must stay distinguishable. Same digit-rendering rules as
+ * `formatDate`.
+ */
+export function formatDateTime(date: Date, config: RegionConfig): string {
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${formatDate(date, config)} ${renderDigits(`${hours}:${minutes}`, config.numerals)}`;
+}
+
 /** Inverse of `formatDate`. Throws `RangeError` on anything that isn't a
  * `YYYY-MM-DD` shape in either digit system, or a calendar date that
  * doesn't exist (`2024-02-30`) — `new Date(...)` silently rolls invalid

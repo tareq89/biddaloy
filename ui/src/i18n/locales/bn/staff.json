@@ -1,0 +1,145 @@
+{
+  "list": {
+    "title": "কর্মী",
+    "caption": "এই স্কুলে প্রবেশাধিকার আছে এমন ব্যবহারকারী",
+    "searchLabel": "নাম বা ইমেইল দিয়ে খুঁজুন",
+    "roleFilterLabel": "ভূমিকা দিয়ে ফিল্টার করুন",
+    "roleFilterAll": "সব ভূমিকা",
+    "columnName": "নাম",
+    "columnEmail": "ইমেইল",
+    "columnPhone": "ফোন",
+    "columnRole": "ভূমিকা",
+    "columnStatus": "অবস্থা",
+    "columnJoined": "যোগদান",
+    "columnActions": "কার্যক্রম",
+    "view": "দেখুন",
+    "emptyValue": "—",
+    "emptyMessage": "কোনো ব্যবহারকারী পাওয়া যায়নি",
+    "errorMessage": "ব্যবহারকারী লোড করা যায়নি। আবার চেষ্টা করুন।",
+    "announceResults": "{{total}}টির মধ্যে {{count}}টি ব্যবহারকারী দেখানো হচ্ছে",
+    "addUser": "ব্যবহারকারী যোগ করুন",
+    "promoteTeacher": "শিক্ষক হিসেবে উন্নীত করুন"
+  },
+  "roles": {
+    "SUPER_ADMIN": "সুপার অ্যাডমিন",
+    "ADMIN": "অ্যাডমিন",
+    "ACCOUNTANT": "হিসাবরক্ষক",
+    "TEACHER": "শিক্ষক",
+    "EXECUTIVE": "নির্বাহী",
+    "PARENT": "অভিভাবক",
+    "STUDENT": "শিক্ষার্থী"
+  },
+  "addUser": {
+    "title": "ব্যবহারকারী যোগ করুন",
+    "description": "একটি অ্যাকাউন্ট তৈরি করুন এবং এই স্কুলে প্রবেশাধিকার দিন।",
+    "nameLabel": "পূর্ণ নাম",
+    "emailLabel": "ইমেইল",
+    "phoneLabel": "ফোন",
+    "roleLabel": "ভূমিকা",
+    "rolePlaceholder": "একটি ভূমিকা বেছে নিন",
+    "errorNameRequired": "ব্যক্তির পূর্ণ নাম লিখুন।",
+    "errorRoleRequired": "একটি ভূমিকা বেছে নিন।",
+    "errorDuplicateEmail": "এই ইমেইল দিয়ে ইতিমধ্যে একজন ব্যবহারকারী আছে।",
+    "errorMessage": "ব্যবহারকারী যোগ করা যায়নি। আবার চেষ্টা করুন।",
+    "save": "ব্যবহারকারী যোগ করুন",
+    "saving": "যোগ করা হচ্ছে…"
+  },
+  "teacherForm": {
+    "promoteTitle": "সদস্যকে শিক্ষক হিসেবে উন্নীত করুন",
+    "promoteDescription": "এই স্কুলের একজন বিদ্যমান সদস্য বেছে নিন এবং তাঁকে একটি শিক্ষক প্রোফাইল দিন। এতে নতুন কোনো ব্যক্তি তৈরি হয় না।",
+    "editTitle": "শিক্ষক প্রোফাইল সম্পাদনা করুন",
+    "editDescription": "এই শিক্ষকের প্রোফাইলের বিবরণ হালনাগাদ করুন।",
+    "memberLabel": "সদস্য",
+    "memberEmpty": "শিক্ষক প্রোফাইল নেই এমন কোনো সদস্য মেলেনি",
+    "memberAnnounce": "{{count}} জন সদস্য পাওয়া গেছে",
+    "employeeIdLabel": "কর্মচারী আইডি",
+    "designationsLabel": "পদবি",
+    "subjectLabel": "বিষয়ের বিশেষত্ব",
+    "joiningDateLabel": "যোগদানের তারিখ",
+    "designations": {
+      "CLASS_TEACHER": "শ্রেণি শিক্ষক",
+      "SUBJECT_TEACHER": "বিষয় শিক্ষক",
+      "HEAD_TEACHER": "প্রধান শিক্ষক",
+      "ASSISTANT_TEACHER": "সহকারী শিক্ষক",
+      "PRINCIPAL": "অধ্যক্ষ",
+      "VICE_PRINCIPAL": "উপাধ্যক্ষ",
+      "COORDINATOR": "সমন্বয়ক"
+    },
+    "errorMemberRequired": "যাঁকে উন্নীত করবেন সেই সদস্যকে বেছে নিন।",
+    "errorEmployeeIdRequired": "একটি কর্মচারী আইডি লিখুন।",
+    "errorDuplicateEmployeeId": "এই কর্মচারী আইডি ইতিমধ্যে ব্যবহৃত হচ্ছে। কর্মচারী আইডি সব স্কুল জুড়ে অনন্য।",
+    "errorAlreadyTeacher": "এই ব্যক্তির ইতিমধ্যে একটি শিক্ষক প্রোফাইল রয়েছে।",
+    "errorNotMember": "এই ব্যক্তি এই স্কুলের সদস্য নন।",
+    "errorMessage": "শিক্ষক প্রোফাইল সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।",
+    "promoteSave": "শিক্ষক হিসেবে উন্নীত করুন",
+    "editSave": "পরিবর্তন সংরক্ষণ করুন",
+    "saving": "সংরক্ষণ করা হচ্ছে…"
+  },
+  "editUser": {
+    "title": "ব্যবহারকারী সম্পাদনা করুন",
+    "description": "এই ব্যক্তির যোগাযোগের তথ্য হালনাগাদ করুন। এখানে ভূমিকা বা অবস্থা পরিবর্তন করা যায় না।",
+    "nameLabel": "পূর্ণ নাম",
+    "emailLabel": "ইমেইল",
+    "phoneLabel": "ফোন",
+    "errorNameRequired": "ব্যক্তির পূর্ণ নাম লিখুন।",
+    "errorEmailRequired": "ইমেইল খালি রাখা যাবে না।",
+    "errorMessage": "পরিবর্তন সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।",
+    "save": "পরিবর্তন সংরক্ষণ করুন",
+    "saving": "সংরক্ষণ করা হচ্ছে…"
+  },
+  "removeMember": {
+    "title": "এই স্কুল থেকে সরান",
+    "description": "{{name}} এই স্কুলে প্রবেশাধিকার হারাবেন। তাঁর অ্যাকাউন্ট ও ইতিহাস থেকে যাবে, এবং অন্য স্কুলের সদস্যপদে কোনো প্রভাব পড়বে না।",
+    "selfBlocked": "আপনি নিজের অ্যাকাউন্ট এই স্কুল থেকে সরাতে পারবেন না।",
+    "confirm": "প্রবেশাধিকার সরান",
+    "removing": "সরানো হচ্ছে…",
+    "errorMessage": "এই সদস্যকে সরানো যায়নি। আবার চেষ্টা করুন।"
+  },
+  "detail": {
+    "back": "কর্মী তালিকায় ফিরে যান",
+    "forbidden": "এই ব্যবহারকারীকে দেখার অনুমতি আপনার নেই।",
+    "loadError": "এই ব্যবহারকারীকে লোড করা যায়নি। আবার চেষ্টা করুন।",
+    "actions": {
+      "editUser": "ব্যবহারকারী সম্পাদনা করুন",
+      "editTeacher": "শিক্ষক প্রোফাইল সম্পাদনা করুন",
+      "remove": "স্কুল থেকে সরান"
+    },
+    "tabs": {
+      "profile": "প্রোফাইল",
+      "permissions": "অনুমতি",
+      "memberships": "সদস্যপদ",
+      "loginHistory": "লগইন ইতিহাস"
+    },
+    "profile": {
+      "columnEmail": "ইমেইল",
+      "columnPhone": "ফোন",
+      "columnRole": "ভূমিকা",
+      "columnStatus": "অবস্থা",
+      "columnJoined": "যোগদান",
+      "columnLastLogin": "সর্বশেষ লগইন",
+      "emptyValue": "—",
+      "teacherHeading": "শিক্ষক প্রোফাইল",
+      "employeeId": "কর্মচারী আইডি",
+      "designations": "পদবি",
+      "subject": "বিষয়ের বিশেষত্ব",
+      "joiningDate": "যোগদানের তারিখ"
+    },
+    "permissions": {
+      "explainer": "অনুমতিগুলি ভূমিকা অনুসরণ করে — সার্ভার এই একই তালিকা প্রয়োগ করে। ব্যক্তি অনুযায়ী এগুলি সম্পাদনা করা যায় না।",
+      "unknownRole": "এই স্কুলে এই ব্যবহারকারীর ভূমিকা নির্ধারণ করা যায়নি।"
+    },
+    "memberships": {
+      "columnRole": "ভূমিকা",
+      "columnJoined": "সদস্য হওয়ার তারিখ",
+      "note": "শুধু এই স্কুলের সদস্যপদ দেখানো হচ্ছে। অন্য স্কুলের সদস্যপদ এখান থেকে দেখা যায় না।"
+    },
+    "loginHistory": {
+      "columnWhen": "কখন",
+      "columnIp": "আইপি ঠিকানা",
+      "columnDevice": "ডিভাইস",
+      "empty": "এখনও কোনো লগইন রেকর্ড হয়নি।",
+      "emptyValue": "—",
+      "errorMessage": "লগইন ইতিহাস লোড করা যায়নি। আবার চেষ্টা করুন।"
+    }
+  }
+}

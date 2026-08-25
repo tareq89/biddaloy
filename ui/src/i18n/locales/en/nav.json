@@ -8,6 +8,7 @@
     "dashboard": "Dashboard",
     "students": "Students",
     "guardians": "Guardians",
+    "staff": "Staff",
     "fees": "Fees",
     "feeStructures": "Fee Structures",
     "generateFees": "Generate Fees",

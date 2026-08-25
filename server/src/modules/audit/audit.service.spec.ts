@@ -187,6 +187,46 @@ describe('AuditService', () => {
       });
     });
 
+    // [8.11.8] Login History tab: scope the tenant-wide trail to one user.
+    it('filters by performed_by_user_id when given', async () => {
+      const qb: any = {
+        where: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        skip: vi.fn().mockReturnThis(),
+        take: vi.fn().mockReturnThis(),
+        getManyAndCount: vi.fn().mockResolvedValue([[], 0]),
+      };
+      const repo = { createQueryBuilder: vi.fn(() => qb) };
+      const service = new AuditService(repo as any);
+
+      await service.findAll({ performed_by_user_id: 'user-9' } as any, 'tenant-1');
+
+      expect(qb.andWhere).toHaveBeenCalledWith('audit_log.performed_by_user_id = :performedBy', {
+        performedBy: 'user-9',
+      });
+    });
+
+    it('does not add the performed-by clause when the filter is absent', async () => {
+      const qb: any = {
+        where: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        skip: vi.fn().mockReturnThis(),
+        take: vi.fn().mockReturnThis(),
+        getManyAndCount: vi.fn().mockResolvedValue([[], 0]),
+      };
+      const repo = { createQueryBuilder: vi.fn(() => qb) };
+      const service = new AuditService(repo as any);
+
+      await service.findAll({} as any, 'tenant-1');
+
+      const call = qb.andWhere.mock.calls.find(
+        (c: any[]) => c[0] === 'audit_log.performed_by_user_id = :performedBy',
+      );
+      expect(call).toBeUndefined();
+    });
+
     // A date-only to_date must include the entire day — otherwise Postgres
     // casts it to that day's midnight and every row from the day itself
     // (an inclusive range end, per the field's own meaning) is excluded.

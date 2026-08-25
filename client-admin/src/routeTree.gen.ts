@@ -32,6 +32,8 @@ import { Route as StaffGuardiansGuardianIdRouteImport } from './routes/_staff/gu
 import { Route as StaffInvoicesIndexRouteImport } from './routes/_staff/invoices/index'
 import { Route as StaffInvoicesInvoiceIdRouteImport } from './routes/_staff/invoices/$invoiceId'
 import { Route as StaffPaymentsRecordRouteImport } from './routes/_staff/payments/record'
+import { Route as StaffStaffIndexRouteImport } from './routes/_staff/staff/index'
+import { Route as StaffStaffUserIdRouteImport } from './routes/_staff/staff/$userId'
 import { Route as StaffStudentsIndexRouteImport } from './routes/_staff/students/index'
 import { Route as StaffStudentsStudentIdRouteImport } from './routes/_staff/students/$studentId'
 import { Route as StaffStudentsImportRouteImport } from './routes/_staff/students/import'
@@ -154,6 +156,16 @@ const StaffPaymentsRecordRoute = StaffPaymentsRecordRouteImport.update({
   path: '/payments/record',
   getParentRoute: () => StaffRoute,
 } as any)
+const StaffStaffIndexRoute = StaffStaffIndexRouteImport.update({
+  id: '/staff/',
+  path: '/staff/',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffStaffUserIdRoute = StaffStaffUserIdRouteImport.update({
+  id: '/staff/$userId',
+  path: '/staff/$userId',
+  getParentRoute: () => StaffRoute,
+} as any)
 const StaffStudentsIndexRoute = StaffStudentsIndexRouteImport.update({
   id: '/students/',
   path: '/students/',
@@ -198,6 +210,7 @@ export interface FileRoutesByFullPath {
   '/guardians/$guardianId': typeof StaffGuardiansGuardianIdRoute
   '/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
   '/payments/record': typeof StaffPaymentsRecordRoute
+  '/staff/$userId': typeof StaffStaffUserIdRoute
   '/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/students/import': typeof StaffStudentsImportRoute
   '/students/new': typeof StaffStudentsNewRoute
@@ -207,6 +220,7 @@ export interface FileRoutesByFullPath {
   '/fees/': typeof StaffFeesIndexRoute
   '/guardians/': typeof StaffGuardiansIndexRoute
   '/invoices/': typeof StaffInvoicesIndexRoute
+  '/staff/': typeof StaffStaffIndexRoute
   '/students/': typeof StaffStudentsIndexRoute
   '/students/$studentId/edit': typeof StaffStudentsStudentIdEditRoute
 }
@@ -225,6 +239,7 @@ export interface FileRoutesByTo {
   '/guardians/$guardianId': typeof StaffGuardiansGuardianIdRoute
   '/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
   '/payments/record': typeof StaffPaymentsRecordRoute
+  '/staff/$userId': typeof StaffStaffUserIdRoute
   '/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/students/import': typeof StaffStudentsImportRoute
   '/students/new': typeof StaffStudentsNewRoute
@@ -234,6 +249,7 @@ export interface FileRoutesByTo {
   '/fees': typeof StaffFeesIndexRoute
   '/guardians': typeof StaffGuardiansIndexRoute
   '/invoices': typeof StaffInvoicesIndexRoute
+  '/staff': typeof StaffStaffIndexRoute
   '/students': typeof StaffStudentsIndexRoute
   '/students/$studentId/edit': typeof StaffStudentsStudentIdEditRoute
 }
@@ -256,6 +272,7 @@ export interface FileRoutesById {
   '/_staff/guardians/$guardianId': typeof StaffGuardiansGuardianIdRoute
   '/_staff/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
   '/_staff/payments/record': typeof StaffPaymentsRecordRoute
+  '/_staff/staff/$userId': typeof StaffStaffUserIdRoute
   '/_staff/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/_staff/students/import': typeof StaffStudentsImportRoute
   '/_staff/students/new': typeof StaffStudentsNewRoute
@@ -265,6 +282,7 @@ export interface FileRoutesById {
   '/_staff/fees/': typeof StaffFeesIndexRoute
   '/_staff/guardians/': typeof StaffGuardiansIndexRoute
   '/_staff/invoices/': typeof StaffInvoicesIndexRoute
+  '/_staff/staff/': typeof StaffStaffIndexRoute
   '/_staff/students/': typeof StaffStudentsIndexRoute
   '/_staff/students/$studentId_/edit': typeof StaffStudentsStudentIdEditRoute
 }
@@ -287,6 +305,7 @@ export interface FileRouteTypes {
     | '/guardians/$guardianId'
     | '/invoices/$invoiceId'
     | '/payments/record'
+    | '/staff/$userId'
     | '/students/$studentId'
     | '/students/import'
     | '/students/new'
@@ -296,6 +315,7 @@ export interface FileRouteTypes {
     | '/fees/'
     | '/guardians/'
     | '/invoices/'
+    | '/staff/'
     | '/students/'
     | '/students/$studentId/edit'
   fileRoutesByTo: FileRoutesByTo
@@ -314,6 +334,7 @@ export interface FileRouteTypes {
     | '/guardians/$guardianId'
     | '/invoices/$invoiceId'
     | '/payments/record'
+    | '/staff/$userId'
     | '/students/$studentId'
     | '/students/import'
     | '/students/new'
@@ -323,6 +344,7 @@ export interface FileRouteTypes {
     | '/fees'
     | '/guardians'
     | '/invoices'
+    | '/staff'
     | '/students'
     | '/students/$studentId/edit'
   id:
@@ -344,6 +366,7 @@ export interface FileRouteTypes {
     | '/_staff/guardians/$guardianId'
     | '/_staff/invoices/$invoiceId'
     | '/_staff/payments/record'
+    | '/_staff/staff/$userId'
     | '/_staff/students/$studentId'
     | '/_staff/students/import'
     | '/_staff/students/new'
@@ -353,6 +376,7 @@ export interface FileRouteTypes {
     | '/_staff/fees/'
     | '/_staff/guardians/'
     | '/_staff/invoices/'
+    | '/_staff/staff/'
     | '/_staff/students/'
     | '/_staff/students/$studentId_/edit'
   fileRoutesById: FileRoutesById
@@ -528,6 +552,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffPaymentsRecordRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/staff/': {
+      id: '/_staff/staff/'
+      path: '/staff'
+      fullPath: '/staff/'
+      preLoaderRoute: typeof StaffStaffIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/staff/$userId': {
+      id: '/_staff/staff/$userId'
+      path: '/staff/$userId'
+      fullPath: '/staff/$userId'
+      preLoaderRoute: typeof StaffStaffUserIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/students/': {
       id: '/_staff/students/'
       path: '/students'
@@ -591,6 +629,7 @@ interface StaffRouteChildren {
   StaffGuardiansGuardianIdRoute: typeof StaffGuardiansGuardianIdRoute
   StaffInvoicesInvoiceIdRoute: typeof StaffInvoicesInvoiceIdRoute
   StaffPaymentsRecordRoute: typeof StaffPaymentsRecordRoute
+  StaffStaffUserIdRoute: typeof StaffStaffUserIdRoute
   StaffStudentsStudentIdRoute: typeof StaffStudentsStudentIdRoute
   StaffStudentsImportRoute: typeof StaffStudentsImportRoute
   StaffStudentsNewRoute: typeof StaffStudentsNewRoute
@@ -599,6 +638,7 @@ interface StaffRouteChildren {
   StaffFeeStructuresIndexRoute: typeof StaffFeeStructuresIndexRoute
   StaffGuardiansIndexRoute: typeof StaffGuardiansIndexRoute
   StaffInvoicesIndexRoute: typeof StaffInvoicesIndexRoute
+  StaffStaffIndexRoute: typeof StaffStaffIndexRoute
   StaffStudentsIndexRoute: typeof StaffStudentsIndexRoute
   StaffStudentsStudentIdEditRoute: typeof StaffStudentsStudentIdEditRoute
 }
@@ -612,6 +652,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffGuardiansGuardianIdRoute: StaffGuardiansGuardianIdRoute,
   StaffInvoicesInvoiceIdRoute: StaffInvoicesInvoiceIdRoute,
   StaffPaymentsRecordRoute: StaffPaymentsRecordRoute,
+  StaffStaffUserIdRoute: StaffStaffUserIdRoute,
   StaffStudentsStudentIdRoute: StaffStudentsStudentIdRoute,
   StaffStudentsImportRoute: StaffStudentsImportRoute,
   StaffStudentsNewRoute: StaffStudentsNewRoute,
@@ -620,6 +661,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffFeeStructuresIndexRoute: StaffFeeStructuresIndexRoute,
   StaffGuardiansIndexRoute: StaffGuardiansIndexRoute,
   StaffInvoicesIndexRoute: StaffInvoicesIndexRoute,
+  StaffStaffIndexRoute: StaffStaffIndexRoute,
   StaffStudentsIndexRoute: StaffStudentsIndexRoute,
   StaffStudentsStudentIdEditRoute: StaffStudentsStudentIdEditRoute,
 }

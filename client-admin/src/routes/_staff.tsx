@@ -62,6 +62,12 @@ function StaffLayout() {
         // (`students.controller.ts`'s `@Roles(ADMIN, ACCOUNTANT,
         // EXECUTIVE, TEACHER)` on that endpoint).
         { to: '/guardians', label: t('items.guardians'), permission: Permission.GUARDIAN_READ },
+        // [8.11.8] — gated on USER_READ, which ROLE_PERMISSIONS grants
+        // to ADMIN only. Deliberately stricter than `GET /users`'s own
+        // `@Roles(ADMIN, ACCOUNTANT, EXECUTIVE, TEACHER)` server-side —
+        // the server-broader-than-ROLE_PERMISSIONS pattern is flagged
+        // rather than fixed (see shared/src/enums/permissions.ts).
+        { to: '/staff', label: t('items.staff'), permission: Permission.USER_READ },
       ],
     },
     {

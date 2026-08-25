@@ -88,6 +88,19 @@
       "archetype": "detail"
     },
     {
+      "path": "/staff",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/staff/$userId",
+      "params": {
+        "userId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
       "path": "/invoices",
       "role": "accountant",
       "archetype": "list"

@@ -5,6 +5,7 @@ import {
   InvoiceStatus,
   PaymentStatus,
   ReminderBatchStatus,
+  UserStatus,
 } from '@biddaloy/shared';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
@@ -115,6 +116,22 @@ describe('StatusBadge', () => {
   it('[8.11.5] renders a humanized label for the feeStructure domain', () => {
     render(<StatusBadge domain="feeStructure" status="ONE_TIME" />);
     expect(screen.getByText('One time')).toBeTruthy();
+  });
+
+  it.each([
+    ['ACTIVE', 'success'],
+    ['INACTIVE', 'neutral'],
+    ['SUSPENDED', 'warning'],
+  ] as const)('[8.11.8] maps user %s to the %s tone', (status, tone) => {
+    render(<StatusBadge domain="user" status={UserStatus[status]} />);
+    expect(screen.getByText(/./).getAttribute('data-tone')).toBe(tone);
+  });
+
+  // The AC is "status conveyed by text, not colour alone" — assert the
+  // humanized label text is what actually renders.
+  it('[8.11.8] renders a humanized label for the user domain', () => {
+    render(<StatusBadge domain="user" status={UserStatus.SUSPENDED} />);
+    expect(screen.getByText('Suspended')).toBeTruthy();
   });
 
   it('every tone within one domain maps to a visually distinct icon (the greyscale guarantee)', () => {

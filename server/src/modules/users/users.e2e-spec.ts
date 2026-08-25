@@ -1,0 +1,297 @@
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import supertest = require('supertest');
+import { Test, TestingModule } from '@nestjs/testing';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { AppModule } from '../../app.module';
+import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
+import { buildValidationPipeOptions } from '../../validation-pipe';
+import { DataSource } from 'typeorm';
+import { UserRole } from '@biddaloy/shared';
+import {
+  SEED_TENANT_ID,
+  SEED_ADMIN_EMAIL,
+  SEED_ADMIN_USER_ID,
+  SEED_ADMIN_PASSWORD,
+  SEED_ADMIN_PASSWORD_HASH,
+} from '@test/constants';
+
+/**
+ * E2E tests for the [8.11.8] staff-management backend surface:
+ * - GET /users role + search filters
+ * - GET /teachers user_id filter (promote-dialog exclusion)
+ * - DELETE /users/{id} self-removal guard (trust boundary)
+ * - GET /audit-logs performed_by_user_id filter
+ * - Tenant isolation: a member of tenant A must not be searchable via a
+ *   tenant B context.
+ */
+
+describe('Users & Teachers E2E [8.11.8]', () => {
+  let app: INestApplication;
+  let dataSource: DataSource;
+  let adminToken: string;
+
+  const TENANT_A = SEED_TENANT_ID;
+  const TENANT_B = '00000000-0000-4000-8000-000000000299';
+  // Members created for this suite (fixed ids so re-runs stay idempotent)
+  const MEMBER_A_ID = '00000000-0000-4000-8000-000000000211';
+  const MEMBER_B_ID = '00000000-0000-4000-8000-000000000212';
+
+  const request = () => supertest(app.getHttpServer());
+
+  beforeAll(async () => {
+    process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-do-not-use-in-production';
+    process.env.NODE_ENV = 'test';
+
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+
+    app = moduleFixture.createNestApplication();
+    configureApiVersioning(app);
+    app.useGlobalPipes(new ValidationPipe(buildValidationPipeOptions()));
+    await app.init();
+
+    dataSource = app.get(DataSource);
+
+    // Second school, with the seed admin as ADMIN there too — lets one
+    // login exercise both tenant contexts via X-Tenant-ID.
+    await dataSource.query(
+      `INSERT INTO schools (id, name, slug, created_at, updated_at)
+       VALUES ($1, 'Staff E2E Other School', 'staff-e2e-other-school', NOW(), NOW())
+       ON CONFLICT (id) DO NOTHING`,
+      [TENANT_B],
+    );
+    await dataSource.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+       VALUES ($1, $2, $3, NOW(), NOW())
+       ON CONFLICT DO NOTHING`,
+      [SEED_ADMIN_USER_ID, TENANT_B, UserRole.ADMIN],
+    );
+
+    // One member in each tenant, distinctly named so search results are
+    // unambiguous.
+    await dataSource.query(
+      `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
+       VALUES ($1, 'staff-a@example.com', $2, 'Anwara TenantA Member', 'ACTIVE', NOW(), NOW())
+       ON CONFLICT (id) DO NOTHING`,
+      [MEMBER_A_ID, SEED_ADMIN_PASSWORD_HASH],
+    );
+    await dataSource.query(
+      `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
+       VALUES ($1, 'staff-b@example.com', $2, 'Borhan TenantB Member', 'ACTIVE', NOW(), NOW())
+       ON CONFLICT (id) DO NOTHING`,
+      [MEMBER_B_ID, SEED_ADMIN_PASSWORD_HASH],
+    );
+    await dataSource.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+       VALUES ($1, $2, $3, NOW(), NOW())
+       ON CONFLICT DO NOTHING`,
+      [MEMBER_A_ID, TENANT_A, UserRole.TEACHER],
+    );
+    await dataSource.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+       VALUES ($1, $2, $3, NOW(), NOW())
+       ON CONFLICT DO NOTHING`,
+      [MEMBER_B_ID, TENANT_B, UserRole.TEACHER],
+    );
+
+    const loginRes = await request()
+      .post('/api/v1/auth/login')
+      .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+      .expect(200);
+    adminToken = loginRes.body.access_token;
+  }, 60000);
+
+  afterAll(async () => {
+    // Leave the shared seed database as we found it.
+    await dataSource.query('DELETE FROM teachers WHERE user_id = ANY($1)', [
+      [MEMBER_A_ID, MEMBER_B_ID],
+    ]);
+    await dataSource.query('DELETE FROM user_tenants WHERE user_id = ANY($1)', [
+      [MEMBER_A_ID, MEMBER_B_ID],
+    ]);
+    await dataSource.query('DELETE FROM users WHERE id = ANY($1)', [[MEMBER_A_ID, MEMBER_B_ID]]);
+    await dataSource.query('DELETE FROM user_tenants WHERE user_id = $1 AND tenant_id = $2', [
+      SEED_ADMIN_USER_ID,
+      TENANT_B,
+    ]);
+    await dataSource.query('DELETE FROM schools WHERE id = $1', [TENANT_B]);
+    await app.close();
+  });
+
+  describe('GET /users (role + search filters)', () => {
+    it('filters by role', async () => {
+      const res = await request()
+        .get('/api/v1/users')
+        .query({ role: UserRole.TEACHER })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .expect(200);
+
+      // Member A holds TEACHER in tenant A; the seed admin holds ADMIN and
+      // must be excluded. (UserResponseDto now also carries the
+      // tenant-scoped membership role — asserted below.)
+      const ids = res.body.data.map((u: { id: string }) => u.id);
+      expect(ids).toContain(MEMBER_A_ID);
+      expect(ids).not.toContain(SEED_ADMIN_USER_ID);
+      const memberA = res.body.data.find((u: { id: string }) => u.id === MEMBER_A_ID);
+      expect(memberA.role).toBe(UserRole.TEACHER);
+    });
+
+    it('searches by full_name, case-insensitively', async () => {
+      const res = await request()
+        .get('/api/v1/users')
+        .query({ search: 'anwara tenanta' })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .expect(200);
+
+      expect(res.body.data).toHaveLength(1);
+      expect(res.body.data[0].id).toBe(MEMBER_A_ID);
+    });
+
+    it('searches by email', async () => {
+      const res = await request()
+        .get('/api/v1/users')
+        .query({ search: 'staff-a@example' })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .expect(200);
+
+      expect(res.body.data).toHaveLength(1);
+      expect(res.body.data[0].email).toBe('staff-a@example.com');
+    });
+
+    // Tenant isolation: tenant B's member must not surface through a
+    // tenant A context — even for the same (admin) caller, on exact match.
+    it("does not expose another tenant's member via search", async () => {
+      const res = await request()
+        .get('/api/v1/users')
+        .query({ search: 'Borhan TenantB Member' })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .expect(200);
+
+      expect(res.body.data).toEqual([]);
+      expect(res.body.total).toBe(0);
+    });
+
+    it('rejects an unknown role value with 400', async () => {
+      await request()
+        .get('/api/v1/users')
+        .query({ role: 'NOT_A_ROLE' })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .expect(400);
+    });
+  });
+
+  describe('GET /teachers (user_id filter)', () => {
+    it('returns only the teacher profile for the given user_id', async () => {
+      // Promote member A in tenant A
+      await request()
+        .post('/api/v1/teachers')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .send({ user_id: MEMBER_A_ID, employee_id: 'E2E-STAFF-001' })
+        .expect(201);
+
+      const res = await request()
+        .get('/api/v1/teachers')
+        .query({ user_id: MEMBER_A_ID })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .expect(200);
+
+      expect(res.body.data).toHaveLength(1);
+      expect(res.body.data[0].user.id).toBe(MEMBER_A_ID);
+    });
+
+    it('returns an empty list for a member with no teacher profile', async () => {
+      const res = await request()
+        .get('/api/v1/teachers')
+        .query({ user_id: SEED_ADMIN_USER_ID })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .expect(200);
+
+      expect(res.body.data).toEqual([]);
+    });
+
+    it('rejects a non-UUID user_id with 400', async () => {
+      await request()
+        .get('/api/v1/teachers')
+        .query({ user_id: 'not-a-uuid' })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .expect(400);
+    });
+  });
+
+  describe('DELETE /users/{id} (self-removal guard)', () => {
+    it('refuses to remove the requesting admin with 400 and a clear message', async () => {
+      const res = await request()
+        .delete(`/api/v1/users/${SEED_ADMIN_USER_ID}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .expect(400);
+
+      expect(res.body.message).toBe('You cannot remove your own account from this school');
+
+      // The membership must still exist (the admin is not locked out)
+      await request()
+        .get('/api/v1/users')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .expect(200);
+    });
+
+    it('still removes another member, deleting only the membership row', async () => {
+      await request()
+        .delete(`/api/v1/users/${MEMBER_A_ID}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .expect(200);
+
+      // Membership row gone…
+      const memberships = await dataSource.query(
+        'SELECT 1 FROM user_tenants WHERE user_id = $1 AND tenant_id = $2',
+        [MEMBER_A_ID, TENANT_A],
+      );
+      expect(memberships).toEqual([]);
+
+      // …but the global account survives, undeleted.
+      const [row] = await dataSource.query('SELECT deleted_at FROM users WHERE id = $1', [
+        MEMBER_A_ID,
+      ]);
+      expect(row).toBeDefined();
+      expect(row.deleted_at).toBeNull();
+    });
+  });
+
+  describe('GET /audit-logs (performed_by_user_id filter)', () => {
+    it('returns only rows performed by the given user', async () => {
+      // The admin login in beforeAll wrote a LOGIN audit row for tenant A's
+      // context resolution; assert scoping rather than a specific count.
+      const res = await request()
+        .get('/api/v1/audit-logs')
+        .query({ performed_by_user_id: SEED_ADMIN_USER_ID })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .expect(200);
+
+      for (const log of res.body.data) {
+        expect(log.performed_by_user_id).toBe(SEED_ADMIN_USER_ID);
+      }
+    });
+
+    it('rejects a non-UUID performed_by_user_id with 400', async () => {
+      await request()
+        .get('/api/v1/audit-logs')
+        .query({ performed_by_user_id: 'not-a-uuid' })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .expect(400);
+    });
+  });
+});

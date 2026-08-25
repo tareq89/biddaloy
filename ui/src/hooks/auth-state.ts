@@ -6,6 +6,7 @@ import {
   getActiveTenant,
   subscribeAuthState,
 } from '../api/auth-state';
+import { decodeAccessTokenSubject } from '../api/session';
 
 /**
  * Reactive counterparts to `auth-state.ts`'s plain getters, built on
@@ -26,4 +27,14 @@ export function useActiveTenant(): string | null {
 
 export function useActiveRole(): string | null {
   return React.useSyncExternalStore(subscribeAuthState, getActiveRole);
+}
+
+/** The logged-in user's own id, decoded from the access token's `sub`
+ * claim ([8.11.8]'s "you cannot remove your own account" guard). `null`
+ * while logged out or for a malformed token — callers treat that as "not
+ * self", which fails safe: the server's own self-removal 400 is the real
+ * boundary either way. */
+export function useCurrentUserId(): string | null {
+  const token = useAccessToken();
+  return token === null ? null : decodeAccessTokenSubject(token);
 }
