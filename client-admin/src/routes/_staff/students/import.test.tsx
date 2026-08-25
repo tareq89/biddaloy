@@ -307,6 +307,17 @@ describe('/students/import', () => {
     expect(requestCount).toBe(1);
   });
 
+  // [8.11.8] The server route admits ACCOUNTANT and EXECUTIVE, so the page
+  // must open for them too — it used to be ADMIN-only, which hid a feature
+  // those roles could actually use.
+  for (const role of ['ACCOUNTANT', 'EXECUTIVE']) {
+    it(`opens the import page for ${role}, which the server route admits`, async () => {
+      renderImportPage(role);
+      await screen.findByRole('button', { name: 'Download template' });
+      expect(screen.queryByText("You don't have permission to view this.")).toBeNull();
+    });
+  }
+
   it('shows the forbidden copy to a role without the bulk-upload permission (TEACHER)', async () => {
     renderImportPage('TEACHER');
     await screen.findByText("You don't have permission to view this.");

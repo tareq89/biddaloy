@@ -93,6 +93,12 @@ describe('Bulk Student Upload E2E', () => {
        ON CONFLICT DO NOTHING`,
       [SEED_ADMIN_USER_ID, TENANT_ID, UserRole.TEACHER],
     );
+    await dataSource.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+       VALUES ($1, $2, $3, NOW(), NOW())
+       ON CONFLICT DO NOTHING`,
+      [SEED_ADMIN_USER_ID, TENANT_ID, UserRole.EXECUTIVE],
+    );
 
     const loginRes = await supertest(app.getHttpServer())
       .post('/api/v1/auth/login')
@@ -133,6 +139,24 @@ describe('Bulk Student Upload E2E', () => {
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ACCOUNTANT)
+        .attach('file', buffer, 'students.xlsx')
+        .expect(201);
+    });
+
+    // [8.11.8] EXECUTIVE is on the route's `@Roles` list and now holds
+    // STUDENT_BULK_UPLOAD in ROLE_PERMISSIONS. Without this case, dropping
+    // the role from the decorator would leave every test green while the UI
+    // kept offering an import that 401s.
+    it('allows EXECUTIVE role', async () => {
+      const buffer = await buildXlsxBuffer([
+        rowValues(REQUIRED_HEADERS, { roll: '103', guardian1_phone: '+8801711110003' }),
+      ]);
+
+      await supertest(app.getHttpServer())
+        .post('/api/v1/students/bulk-upload')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.EXECUTIVE)
         .attach('file', buffer, 'students.xlsx')
         .expect(201);
     });
