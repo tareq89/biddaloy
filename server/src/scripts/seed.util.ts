@@ -50,17 +50,8 @@ export interface RoleTestUserSeed {
   fullName: string;
 }
 
-/** One account per role — [8.9.6] manual-testing aid: log
- * in as each and compare the sidebar, since role-gated nav (`AppShell`'s
- * `navGroups`) is the one thing in this app that visibly differs per
- * role today; list/detail pages are still permission-gated stubs with no
- * per-record filtering to demonstrate. SUPER_ADMIN got its own
- * `@biddaloy.test` entry in [8.5.2] so the E2E auth fixtures
- * (`e2e/fixtures/auth.setup.ts`) can cover every role from one list —
- * `seed()`'s own `admin@school.com` account predates this and stays as
- * the bootstrap credential. SUPER_ADMIN membership is tenant-scoped
- * like every other role (a `UserTenant` row), so the shared
- * find-or-create loop below covers it with no special casing. */
+/** One test account per role, for manual role-based UI checks and the
+ * E2E auth fixtures. */
 export const ROLE_TEST_USERS: readonly RoleTestUserSeed[] = [
   { email: 'superadmin@biddaloy.test', role: UserRole.SUPER_ADMIN, fullName: 'Super Admin User' },
   { email: 'admin@biddaloy.test', role: UserRole.ADMIN, fullName: 'Admin User' },
