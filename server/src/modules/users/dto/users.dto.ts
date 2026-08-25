@@ -43,9 +43,11 @@ export class UpdateUserDto {
   @IsEmail()
   email?: string;
 
+  /** `null` clears the stored phone number; `@IsOptional()` skips
+   * validation for both `null` and `undefined`. */
   @IsOptional()
   @IsString()
-  phone?: string;
+  phone?: string | null;
 
   @IsOptional()
   @IsString()
@@ -61,6 +63,11 @@ export class QueryUserDto {
   @IsOptional()
   @IsEnum(UserRole)
   role?: UserRole;
+
+  /** Case-insensitive match against full_name or email. */
+  @IsOptional()
+  @IsString()
+  search?: string;
 
   @IsOptional()
   @Type(() => Number)
@@ -114,14 +121,18 @@ export class UpdateTeacherDto {
   @IsEnum(TeacherDesignation, { each: true })
   designations?: TeacherDesignation[];
 
+  /** `null` clears the stored value; `@IsOptional()` skips validation
+   * for both `null` and `undefined`. */
   @IsOptional()
   @IsString()
   @SanitizeText()
-  subject_specialization?: string;
+  subject_specialization?: string | null;
 
+  /** `null` clears the stored value — the service maps it to a SQL NULL
+   * instead of `new Date(null)`'s Unix epoch. */
   @IsOptional()
   @IsDateString()
-  joining_date?: string;
+  joining_date?: string | null;
 
   @IsOptional()
   @IsArray()
@@ -133,6 +144,11 @@ export class QueryTeacherDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  /** Scope to one member's teacher profile (e.g. "is this user already a teacher?"). */
+  @IsOptional()
+  @IsUUID()
+  user_id?: string;
 
   @IsOptional()
   @Type(() => Number)

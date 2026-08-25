@@ -51,13 +51,21 @@ describe('UserController', () => {
   describe('createUser', () => {
     it('should call userService.create with dto and tenant id', async () => {
       const dto = { full_name: 'John', email: 'john@test.com', role: UserRole.TEACHER };
-      const expected = { user: { id: 'u1' }, membership: { id: 'm1' } };
+      const expected = {
+        user: { id: 'u1' },
+        membership: { id: 'm1', role: UserRole.TEACHER },
+      };
       userService.create.mockResolvedValue(expected);
 
       const result = await controller.createUser(dto as any, TENANT);
 
       expect(userService.create).toHaveBeenCalledWith(dto, TENANT.id);
-      expect(result).toEqual(expected);
+      // The created entity has no user_tenants relation loaded, so the
+      // controller copies the role from the membership it just created.
+      expect(result).toEqual({
+        user: { id: 'u1', role: UserRole.TEACHER },
+        membership: { id: 'm1', role: UserRole.TEACHER },
+      });
     });
   });
 
@@ -88,7 +96,7 @@ describe('UserController', () => {
       const result = await controller.findOneUser('u1', TENANT);
 
       expect(userService.findOne).toHaveBeenCalledWith('u1', TENANT.id);
-      expect(result).toEqual(expected);
+      expect(result).toEqual({ ...expected, role: null, member_since: null });
     });
   });
 
@@ -104,7 +112,7 @@ describe('UserController', () => {
       const result = await controller.updateUser('u1', dto as any, TENANT);
 
       expect(userService.update).toHaveBeenCalledWith('u1', dto, TENANT.id);
-      expect(result).toEqual(expected);
+      expect(result).toEqual({ ...expected, role: null, member_since: null });
     });
   });
 
@@ -112,12 +120,16 @@ describe('UserController', () => {
   //  removeUser
   // ────────────────────────
   describe('removeUser', () => {
-    it('should call userService.remove with id and tenant id', async () => {
+    // The service needs the requester's id to refuse self-removal, so the
+    // controller must forward `user.sub` from the JWT.
+    const JWT = { sub: 'requester-1', email: null, phone: null, memberships: [] };
+
+    it('should call userService.remove with id, tenant id, and requesting user id', async () => {
       userService.remove.mockResolvedValue(undefined);
 
-      const result = await controller.removeUser('u1', TENANT);
+      const result = await controller.removeUser('u1', TENANT, JWT);
 
-      expect(userService.remove).toHaveBeenCalledWith('u1', TENANT.id);
+      expect(userService.remove).toHaveBeenCalledWith('u1', TENANT.id, JWT.sub);
       expect(result).toBeUndefined();
     });
   });

@@ -10,6 +10,7 @@ export {
 } from './currency';
 export {
   formatDate,
+  formatDateTime,
   parseDate,
   parseServerDate,
   getAcademicYear,

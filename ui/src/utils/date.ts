@@ -16,6 +16,33 @@ export function formatDate(date: Date, config: RegionConfig): string {
   return renderDigits(`${year}-${month}-${day}`, config.numerals);
 }
 
+/**
+ * `formatDate` plus wall-clock time (`YYYY-MM-DD HH:mm`), for rows where
+ * the time of day matters — e.g. login history, where three same-day
+ * logins must stay distinguishable. Same digit-rendering rules as
+ * `formatDate`.
+ */
+export function formatDateTime(date: Date, config: RegionConfig): string {
+  // Rendered in the tenant's own time zone (`config.timezone`), not the
+  // viewer's — an administrator abroad must see logins on the school's
+  // clock, and a timestamp near midnight must not shift date.
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: config.timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes): string =>
+    parts.find((p) => p.type === type)?.value ?? '';
+  return renderDigits(
+    `${part('year')}-${part('month')}-${part('day')} ${part('hour')}:${part('minute')}`,
+    config.numerals,
+  );
+}
+
 /** Inverse of `formatDate`. Throws `RangeError` on anything that isn't a
  * `YYYY-MM-DD` shape in either digit system, or a calendar date that
  * doesn't exist (`2024-02-30`) — `new Date(...)` silently rolls invalid

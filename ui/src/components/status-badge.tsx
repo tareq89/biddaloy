@@ -26,6 +26,7 @@ import {
   InvoiceStatus,
   PaymentStatus,
   ReminderBatchStatus,
+  UserStatus,
 } from '@biddaloy/shared';
 import { AlertTriangle, CheckCircle2, CircleDashed, Clock, MinusCircle } from 'lucide-react';
 import * as React from 'react';
@@ -142,6 +143,22 @@ const FEE_STRUCTURE_STATUS_TONE: Record<FeeStructureRecurrenceStatus, StatusTone
   ONE_TIME: 'neutral',
 };
 
+/** [8.11.8]'s staff list/detail — `UserStatus` is a real
+ * `shared/src/enums` lifecycle (`user.entity.ts`'s `status` column), read
+ * -only in the UI (no activate/deactivate endpoint exists). `SUSPENDED`
+ * is `warning` rather than `danger`: it's an administrative hold, not a
+ * failure state. Text label + icon shape carry the meaning, per this
+ * component's greyscale guarantee. */
+/** Accepts the plain literal union too (`\`${UserStatus}\``) — callers
+ * hold `schema.d.ts`'s string literals, not the shared enum object. */
+type UserStatusValue = `${UserStatus}`;
+
+const USER_STATUS_TONE: Record<UserStatusValue, StatusTone> = {
+  [UserStatus.ACTIVE]: 'success',
+  [UserStatus.INACTIVE]: 'neutral',
+  [UserStatus.SUSPENDED]: 'warning',
+};
+
 export type StatusBadgeProps =
   | { domain: 'fee'; status: FeeStatus }
   | { domain: 'payment'; status: PaymentStatus }
@@ -151,7 +168,8 @@ export type StatusBadgeProps =
   | { domain: 'enrollment'; status: EnrollmentStatus }
   | { domain: 'academicYear'; status: AcademicYearCurrentStatus }
   | { domain: 'guardian'; status: GuardianPrimaryContactStatus }
-  | { domain: 'feeStructure'; status: FeeStructureRecurrenceStatus };
+  | { domain: 'feeStructure'; status: FeeStructureRecurrenceStatus }
+  | { domain: 'user'; status: UserStatusValue };
 
 function resolveTone(props: StatusBadgeProps): StatusTone {
   switch (props.domain) {
@@ -173,6 +191,8 @@ function resolveTone(props: StatusBadgeProps): StatusTone {
       return GUARDIAN_STATUS_TONE[props.status];
     case 'feeStructure':
       return FEE_STRUCTURE_STATUS_TONE[props.status];
+    case 'user':
+      return USER_STATUS_TONE[props.status];
   }
 }
 

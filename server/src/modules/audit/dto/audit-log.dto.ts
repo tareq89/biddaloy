@@ -1,4 +1,13 @@
-import { IsOptional, IsEnum, IsString, IsInt, Min, Max, IsDateString } from 'class-validator';
+import {
+  IsOptional,
+  IsEnum,
+  IsString,
+  IsInt,
+  Min,
+  Max,
+  IsDateString,
+  IsUUID,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { AuditAction } from '@biddaloy/shared';
 
@@ -10,6 +19,11 @@ export class QueryAuditLogDto {
   @IsOptional()
   @IsString()
   entity_type?: string;
+
+  /** Scope to actions performed by one user (e.g. a user's login history). */
+  @IsOptional()
+  @IsUUID()
+  performed_by_user_id?: string;
 
   @IsOptional()
   @IsDateString()

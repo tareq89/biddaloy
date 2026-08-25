@@ -108,6 +108,25 @@ export async function createGuardian(
   });
 }
 
+/** A staff member (tenant user) for the /staff/$userId detail page —
+ * `POST /users` creates the account plus the school membership in one
+ * call and returns both. */
+export async function createStaffUser(
+  request: APIRequestContext,
+  session: ApiSession,
+  fullName: string,
+): Promise<{ id: string }> {
+  const created = await post<{ user: { id: string } }>(request, session, '/users', {
+    full_name: fullName,
+    email: `staff-${Date.now()}-${Math.floor(Math.random() * 1e6)}@e2e.example.com`,
+    role: 'TEACHER',
+    // CreateUserDto requires tenantId in the body even though the server
+    // resolves the tenant from X-Tenant-ID — same as the add-user dialog.
+    tenantId: session.tenantId,
+  });
+  return { id: created.user.id };
+}
+
 /** N students in one shared, freshly-created section — for pagination
  * specs that need more than a page's worth of rows without paying for a
  * class chain per student. */

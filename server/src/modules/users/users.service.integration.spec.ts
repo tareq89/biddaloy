@@ -32,6 +32,8 @@ import { UserRole, TeacherDesignation } from '@biddaloy/shared';
  */
 
 const OTHER_TENANT = '00000000-0000-4000-8000-000000000099';
+// A stand-in for the admin making the request in remove() calls — never the target.
+const REQUESTING_ADMIN_ID = '00000000-0000-4000-8000-000000000aaa';
 
 async function seedReferenceData(ds: DataSource): Promise<void> {
   await ds.query('DELETE FROM teacher_class_sections');
@@ -281,6 +283,73 @@ describe('UserService (integration)', () => {
       expect(result.data[0].full_name).toBe('Teacher A');
     });
 
+    it('should search by full_name (case-insensitive, partial match)', async () => {
+      await service.create({ full_name: 'Rahim Uddin', role: UserRole.TEACHER }, TENANT_ID);
+      await service.create({ full_name: 'Karim Mia', role: UserRole.TEACHER }, TENANT_ID);
+
+      const result = await service.findAll({ search: 'rahim', page: 1, limit: 10 }, TENANT_ID);
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].full_name).toBe('Rahim Uddin');
+    });
+
+    it('should treat % and _ in search as literal text, not wildcards', async () => {
+      await service.create({ full_name: 'Rahim Uddin', role: UserRole.TEACHER }, TENANT_ID);
+      await service.create({ full_name: '100% Attendance', role: UserRole.TEACHER }, TENANT_ID);
+
+      // A bare % would match every user if unescaped.
+      const percent = await service.findAll({ search: '100%', page: 1, limit: 10 }, TENANT_ID);
+      expect(percent.data).toHaveLength(1);
+      expect(percent.data[0].full_name).toBe('100% Attendance');
+
+      // `_` matches any single character when unescaped — 'R_him' must not find Rahim.
+      const underscore = await service.findAll({ search: 'R_him', page: 1, limit: 10 }, TENANT_ID);
+      expect(underscore.data).toHaveLength(0);
+    });
+
+    it('should search by email', async () => {
+      await service.create(
+        { full_name: 'User 1', email: 'rahim@example.com', role: UserRole.TEACHER },
+        TENANT_ID,
+      );
+      await service.create(
+        { full_name: 'User 2', email: 'karim@example.com', role: UserRole.TEACHER },
+        TENANT_ID,
+      );
+
+      const result = await service.findAll(
+        { search: 'karim@example', page: 1, limit: 10 },
+        TENANT_ID,
+      );
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].email).toBe('karim@example.com');
+    });
+
+    it('should combine role and search filters', async () => {
+      await service.create({ full_name: 'Rahim Teacher', role: UserRole.TEACHER }, TENANT_ID);
+      await service.create({ full_name: 'Rahim Admin', role: UserRole.ADMIN }, TENANT_ID);
+
+      const result = await service.findAll(
+        { role: UserRole.ADMIN, search: 'Rahim', page: 1, limit: 10 },
+        TENANT_ID,
+      );
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].full_name).toBe('Rahim Admin');
+    });
+
+    // Tenant isolation: a member of tenant A must never surface through
+    // tenant B's search, even on an exact name match.
+    it("should not find another tenant's member via search", async () => {
+      await service.create({ full_name: 'Hidden Member', role: UserRole.TEACHER }, OTHER_TENANT);
+
+      const result = await service.findAll({ search: 'Hidden', page: 1, limit: 10 }, TENANT_ID);
+
+      expect(result.data).toEqual([]);
+      expect(result.total).toBe(0);
+    });
+
     it('should enforce tenant isolation', async () => {
       await service.create({ full_name: 'Tenant 1 User', role: UserRole.TEACHER }, TENANT_ID);
       await service.create({ full_name: 'Tenant 2 User', role: UserRole.ADMIN }, OTHER_TENANT);
@@ -328,7 +397,7 @@ describe('UserService (integration)', () => {
         TENANT_ID,
       );
 
-      await service.remove(user.id, TENANT_ID);
+      await service.remove(user.id, TENANT_ID, REQUESTING_ADMIN_ID);
 
       await expect(service.findOne(user.id, TENANT_ID)).rejects.toThrow(NotFoundException);
     });
@@ -359,6 +428,17 @@ describe('UserService (integration)', () => {
       expect(updated.phone).toBe('+8802');
     });
 
+    it('should clear the phone number when phone is null', async () => {
+      const { user } = await service.create(
+        { full_name: 'Clear Phone', phone: '+8801711111111', role: UserRole.TEACHER },
+        TENANT_ID,
+      );
+
+      const updated = await service.update(user.id, { phone: null }, TENANT_ID);
+
+      expect(updated.phone).toBeNull();
+    });
+
     it('should update user full_name', async () => {
       const { user } = await service.create(
         { full_name: 'Original Name', role: UserRole.ADMIN },
@@ -387,7 +467,7 @@ describe('UserService (integration)', () => {
         TENANT_ID,
       );
 
-      await service.remove(user.id, TENANT_ID);
+      await service.remove(user.id, TENANT_ID, REQUESTING_ADMIN_ID);
 
       // Should not be found via findOne (no membership in this tenant)
       await expect(service.findOne(user.id, TENANT_ID)).rejects.toThrow(NotFoundException);
@@ -400,8 +480,39 @@ describe('UserService (integration)', () => {
 
     it('should throw NotFoundException when user does not exist', async () => {
       await expect(
-        service.remove('00000000-0000-4000-8000-000000000000', TENANT_ID),
+        service.remove('00000000-0000-4000-8000-000000000000', TENANT_ID, REQUESTING_ADMIN_ID),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    // Trust-boundary guard: an admin must never lock themselves out of the
+    // school, even if the UI check is bypassed.
+    it('should reject self-removal even when the route id is uppercased', async () => {
+      const { user } = await service.create(
+        { full_name: 'Case Insensitive Self', role: UserRole.ADMIN },
+        TENANT_ID,
+      );
+
+      await expect(service.remove(user.id.toUpperCase(), TENANT_ID, user.id)).rejects.toThrow(
+        'You cannot remove your own account from this school',
+      );
+    });
+
+    it('should reject self-removal with BadRequestException and keep the membership', async () => {
+      const { user } = await service.create(
+        { full_name: 'Self Admin', role: UserRole.ADMIN },
+        TENANT_ID,
+      );
+
+      await expect(service.remove(user.id, TENANT_ID, user.id)).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(service.remove(user.id, TENANT_ID, user.id)).rejects.toThrow(
+        'You cannot remove your own account from this school',
+      );
+
+      // Membership survives the refused attempt
+      const stillThere = await service.findOne(user.id, TENANT_ID);
+      expect(stillThere.id).toBe(user.id);
     });
   });
 });
@@ -530,6 +641,15 @@ describe('TeacherService (integration)', () => {
       ).rejects.toThrow(ConflictException);
     });
 
+    it('should throw ConflictException when the user already has a teacher profile', async () => {
+      const user = await createTenantUser();
+      await teacherService.create({ user_id: user.id, employee_id: 'EMP-A' }, TENANT_ID);
+
+      await expect(
+        teacherService.create({ user_id: user.id, employee_id: 'EMP-B' }, TENANT_ID),
+      ).rejects.toThrow('already has a teacher profile');
+    });
+
     it('should assign sections when provided', async () => {
       const user = await createTenantUser();
 
@@ -627,6 +747,38 @@ describe('TeacherService (integration)', () => {
       const result = await teacherService.findAll({ page: 1, limit: 10 }, TENANT_ID);
       expect(result.data).toHaveLength(1);
       expect(result.data[0].employee_id).toBe('EMP-001');
+    });
+
+    it('should filter by user_id (so the promote dialog can exclude existing teachers)', async () => {
+      const u1 = await createTenantUser({ email: 't1@example.com' });
+      const u2 = await createTenantUser({ email: 't2@example.com' });
+      await teacherService.create({ user_id: u1.id, employee_id: 'EMP-001' }, TENANT_ID);
+      await teacherService.create({ user_id: u2.id, employee_id: 'EMP-002' }, TENANT_ID);
+
+      const result = await teacherService.findAll(
+        { user_id: u2.id, page: 1, limit: 10 },
+        TENANT_ID,
+      );
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].user_id).toBe(u2.id);
+      expect(result.total).toBe(1);
+    });
+
+    it("should not find another tenant's teacher via user_id filter", async () => {
+      const { user: otherUser } = await userService.create(
+        { full_name: 'Other Teacher', email: 'other-t@example.com', role: UserRole.TEACHER },
+        OTHER_TENANT,
+      );
+      await teacherService.create({ user_id: otherUser.id, employee_id: 'EMP-009' }, OTHER_TENANT);
+
+      const result = await teacherService.findAll(
+        { user_id: otherUser.id, page: 1, limit: 10 },
+        TENANT_ID,
+      );
+
+      expect(result.data).toEqual([]);
+      expect(result.total).toBe(0);
     });
 
     it('should return empty list when no teachers exist', async () => {

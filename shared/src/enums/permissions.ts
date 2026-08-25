@@ -4,6 +4,9 @@ export enum Permission {
   USER_READ = 'USER_READ',
   USER_UPDATE = 'USER_UPDATE',
   USER_DELETE = 'USER_DELETE',
+  // Removing a member's access to one school (deletes the user_tenants row,
+  // not the account) — distinct from USER_DELETE, which no staff role holds.
+  MEMBER_REMOVE = 'MEMBER_REMOVE',
 
   // Student Management
   STUDENT_CREATE = 'STUDENT_CREATE',
@@ -70,6 +73,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.USER_CREATE,
     Permission.USER_READ,
     Permission.USER_UPDATE,
+    Permission.MEMBER_REMOVE,
     Permission.STUDENT_CREATE,
     Permission.STUDENT_READ,
     Permission.STUDENT_UPDATE,

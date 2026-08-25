@@ -5,6 +5,7 @@ import {
   InvoiceStatus,
   PaymentStatus,
   ReminderBatchStatus,
+  UserStatus,
 } from '@biddaloy/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
@@ -73,6 +74,24 @@ export const AllDomains: Story = {
         <StatusBadge domain="feeStructure" status="RECURRING" />
         <StatusBadge domain="feeStructure" status="ONE_TIME" />
       </div>
+      <div className="flex flex-wrap gap-2">
+        {Object.values(UserStatus).map((status) => (
+          <StatusBadge key={status} domain="user" status={status} />
+        ))}
+      </div>
+    </div>
+  ),
+};
+
+/** [8.11.8]'s user account status (read-only — no activate/deactivate
+ * endpoint exists), shown greyscale so the label text and icon shape are
+ * the only things left doing the distinguishing. */
+export const UserAccountStatus: Story = {
+  render: () => (
+    <div className="flex flex-wrap gap-2" style={{ filter: 'grayscale(1)' }}>
+      {Object.values(UserStatus).map((status) => (
+        <StatusBadge key={status} domain="user" status={status} />
+      ))}
     </div>
   ),
 };

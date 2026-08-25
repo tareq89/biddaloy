@@ -12,6 +12,7 @@ import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
+import { escapeLikePattern } from '../../common/utils/escape-like.util';
 import {
   CreateUserDto,
   UpdateUserDto,
@@ -85,6 +86,12 @@ export class UserService {
       qb.andWhere('ut.role = :role', { role: query.role });
     }
 
+    if (query.search) {
+      qb.andWhere('(u.full_name ILIKE :search OR u.email ILIKE :search)', {
+        search: `%${escapeLikePattern(query.search)}%`,
+      });
+    }
+
     const total = await qb.getCount();
     qb.orderBy('u.created_at', 'DESC').skip(skip).take(limit);
     const data = await qb.getMany();
@@ -133,7 +140,16 @@ export class UserService {
     return this.findOne(id, tenantId);
   }
 
-  async remove(id: string, tenantId: string): Promise<void> {
+  async remove(id: string, tenantId: string, requestingUserId: string): Promise<void> {
+    // Trust-boundary guard: an admin must never be able to lock themselves
+    // out of the school. The UI disables the action too, but the server is
+    // the boundary that matters.
+    // Postgres uuid columns compare case-insensitively, so an uppercase
+    // self-UUID in the route must not slip past a string comparison.
+    if (id.toLowerCase() === requestingUserId.toLowerCase()) {
+      throw new BadRequestException('You cannot remove your own account from this school');
+    }
+
     await this.findOne(id, tenantId);
 
     // Remove only the tenant membership, not the global user record
@@ -170,6 +186,17 @@ export class TeacherService {
     });
     if (!membership) {
       throw new BadRequestException(`User "${dto.user_id}" is not a member of this tenant`);
+    }
+
+    // A user can hold at most one teacher profile (unique index on
+    // teachers.user_id) — guard here so the client sees a mapped 409
+    // instead of a raw DB constraint error. The promote dialog's
+    // client-side exclusion only sees the first 100 teachers.
+    const existingProfile = await this.teacherRepo.findOne({
+      where: { user_id: dto.user_id },
+    });
+    if (existingProfile) {
+      throw new ConflictException(`User "${dto.user_id}" already has a teacher profile`);
     }
 
     // Check for duplicate employee_id
@@ -231,7 +258,11 @@ export class TeacherService {
       .andWhere('t.deleted_at IS NULL');
 
     if (query.search) {
-      qb.andWhere('u.full_name ILIKE :search', { search: `%${query.search}%` });
+      qb.andWhere('u.full_name ILIKE :search', { search: `%${escapeLikePattern(query.search)}%` });
+    }
+
+    if (query.user_id) {
+      qb.andWhere('t.user_id = :userId', { userId: query.user_id });
     }
 
     const total = await qb.getCount();
@@ -260,7 +291,10 @@ export class TeacherService {
     if (dto.designations !== undefined) updateData.designations = dto.designations;
     if (dto.subject_specialization !== undefined)
       updateData.subject_specialization = dto.subject_specialization;
-    if (dto.joining_date !== undefined) updateData.joining_date = new Date(dto.joining_date);
+    // `null` clears the joining date — `new Date(null)` would silently
+    // store the Unix epoch instead.
+    if (dto.joining_date !== undefined)
+      updateData.joining_date = dto.joining_date === null ? null : new Date(dto.joining_date);
 
     await this.teacherRepo.update({ id, tenant_id: tenantId }, updateData);
 

@@ -40,12 +40,12 @@ function decodeBase64UrlToString(base64url: string): string {
  * client-side scheduling/display hint, never a trust decision (the server
  * is the only party that ever validates a token). Returns `null` for
  * anything that doesn't decode as `header.payload.signature` valid JSON. */
-function decodeJwt(token: string): { exp?: unknown; memberships?: unknown } | null {
+function decodeJwt(token: string): { exp?: unknown; sub?: unknown; memberships?: unknown } | null {
   const payload = token.split('.')[1];
   if (!payload) return null;
   try {
     const json = decodeBase64UrlToString(payload);
-    return JSON.parse(json) as { exp?: unknown; memberships?: unknown };
+    return JSON.parse(json) as { exp?: unknown; sub?: unknown; memberships?: unknown };
   } catch {
     return null;
   }
@@ -62,6 +62,15 @@ function decodeJwtExpiryMs(token: string): number | null {
  * school names) straight off the current access token rather than a
  * separate fetch — see `shared`'s `JwtMembership.name` for why. Returns
  * `[]` for a malformed token or a payload with no `memberships` array. */
+/** [8.11.8]'s self-removal guard reads the logged-in user's own id off
+ * the access token's `sub` claim (`JwtPayload.sub` = `user.id`, set by
+ * `auth.service.ts`) — a display/UX hint, never a trust decision, same
+ * caveat as every decode in this module. `null` for a malformed token. */
+export function decodeAccessTokenSubject(token: string): string | null {
+  const { sub } = decodeJwt(token) ?? {};
+  return typeof sub === 'string' ? sub : null;
+}
+
 export function decodeAccessTokenMemberships(token: string): JwtMembership[] {
   const { memberships } = decodeJwt(token) ?? {};
   return Array.isArray(memberships) ? (memberships as JwtMembership[]) : [];

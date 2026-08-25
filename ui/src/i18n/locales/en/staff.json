@@ -1,0 +1,145 @@
+{
+  "list": {
+    "title": "Staff",
+    "caption": "Users with access to this school",
+    "searchLabel": "Search by name or email",
+    "roleFilterLabel": "Filter by role",
+    "roleFilterAll": "All roles",
+    "columnName": "Name",
+    "columnEmail": "Email",
+    "columnPhone": "Phone",
+    "columnRole": "Role",
+    "columnStatus": "Status",
+    "columnJoined": "Joined",
+    "columnActions": "Actions",
+    "view": "View",
+    "emptyValue": "—",
+    "emptyMessage": "No users found",
+    "errorMessage": "Could not load users. Please try again.",
+    "announceResults": "Showing {{count}} of {{total}} users",
+    "addUser": "Add user",
+    "promoteTeacher": "Promote to teacher"
+  },
+  "roles": {
+    "SUPER_ADMIN": "Super admin",
+    "ADMIN": "Admin",
+    "ACCOUNTANT": "Accountant",
+    "TEACHER": "Teacher",
+    "EXECUTIVE": "Executive",
+    "PARENT": "Parent",
+    "STUDENT": "Student"
+  },
+  "addUser": {
+    "title": "Add user",
+    "description": "Create an account and give it access to this school.",
+    "nameLabel": "Full name",
+    "emailLabel": "Email",
+    "phoneLabel": "Phone",
+    "roleLabel": "Role",
+    "rolePlaceholder": "Choose a role",
+    "errorNameRequired": "Enter the person's full name.",
+    "errorRoleRequired": "Choose a role.",
+    "errorDuplicateEmail": "A user with this email already exists.",
+    "errorMessage": "Could not add the user. Please try again.",
+    "save": "Add user",
+    "saving": "Adding…"
+  },
+  "teacherForm": {
+    "promoteTitle": "Promote a member to teacher",
+    "promoteDescription": "Pick an existing member of this school and give them a teacher profile. This does not create a new person.",
+    "editTitle": "Edit teacher profile",
+    "editDescription": "Update this teacher's profile details.",
+    "memberLabel": "Member",
+    "memberEmpty": "No members without a teacher profile match",
+    "memberAnnounce": "{{count}} members found",
+    "employeeIdLabel": "Employee ID",
+    "designationsLabel": "Designations",
+    "subjectLabel": "Subject specialization",
+    "joiningDateLabel": "Joining date",
+    "designations": {
+      "CLASS_TEACHER": "Class teacher",
+      "SUBJECT_TEACHER": "Subject teacher",
+      "HEAD_TEACHER": "Head teacher",
+      "ASSISTANT_TEACHER": "Assistant teacher",
+      "PRINCIPAL": "Principal",
+      "VICE_PRINCIPAL": "Vice principal",
+      "COORDINATOR": "Coordinator"
+    },
+    "errorMemberRequired": "Pick the member to promote.",
+    "errorEmployeeIdRequired": "Enter an employee ID.",
+    "errorDuplicateEmployeeId": "This employee ID is already in use. Employee IDs are unique across all schools.",
+    "errorAlreadyTeacher": "This person already has a teacher profile.",
+    "errorNotMember": "That person is not a member of this school.",
+    "errorMessage": "Could not save the teacher profile. Please try again.",
+    "promoteSave": "Promote to teacher",
+    "editSave": "Save changes",
+    "saving": "Saving…"
+  },
+  "editUser": {
+    "title": "Edit user",
+    "description": "Update this person's contact details. Their role and status cannot be changed here.",
+    "nameLabel": "Full name",
+    "emailLabel": "Email",
+    "phoneLabel": "Phone",
+    "errorNameRequired": "Enter the person's full name.",
+    "errorEmailRequired": "Email cannot be empty.",
+    "errorMessage": "Could not save the changes. Please try again.",
+    "save": "Save changes",
+    "saving": "Saving…"
+  },
+  "removeMember": {
+    "title": "Remove from this school",
+    "description": "{{name}} will lose access to this school. Their account and history remain, and any memberships at other schools are unaffected.",
+    "selfBlocked": "You cannot remove your own account from this school.",
+    "confirm": "Remove access",
+    "removing": "Removing…",
+    "errorMessage": "Could not remove this member. Please try again."
+  },
+  "detail": {
+    "back": "Back to staff",
+    "forbidden": "You do not have permission to view this user.",
+    "loadError": "Could not load this user. Please try again.",
+    "actions": {
+      "editUser": "Edit user",
+      "editTeacher": "Edit teacher profile",
+      "remove": "Remove from school"
+    },
+    "tabs": {
+      "profile": "Profile",
+      "permissions": "Permissions",
+      "memberships": "Memberships",
+      "loginHistory": "Login history"
+    },
+    "profile": {
+      "columnEmail": "Email",
+      "columnPhone": "Phone",
+      "columnRole": "Role",
+      "columnStatus": "Status",
+      "columnJoined": "Joined",
+      "columnLastLogin": "Last login",
+      "emptyValue": "—",
+      "teacherHeading": "Teacher profile",
+      "employeeId": "Employee ID",
+      "designations": "Designations",
+      "subject": "Subject specialization",
+      "joiningDate": "Joining date"
+    },
+    "permissions": {
+      "explainer": "Permissions follow the role — the server enforces this same list. They cannot be edited per person.",
+      "unknownRole": "This user's role in this school could not be determined."
+    },
+    "memberships": {
+      "columnRole": "Role",
+      "columnJoined": "Member since",
+      "note": "Only this school's membership is shown. Memberships at other schools are not visible from here."
+    },
+    "loginHistory": {
+      "columnWhen": "When",
+      "columnIp": "IP address",
+      "columnDevice": "Device",
+      "empty": "No logins recorded yet.",
+      "emptyValue": "—",
+      "errorMessage": "Could not load the login history. Please try again."
+    }
+  }
+}

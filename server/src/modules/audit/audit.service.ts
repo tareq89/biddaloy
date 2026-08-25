@@ -88,6 +88,11 @@ export class AuditService {
     if (query.entity_type) {
       qb.andWhere('audit_log.entity_type = :entityType', { entityType: query.entity_type });
     }
+    if (query.performed_by_user_id) {
+      qb.andWhere('audit_log.performed_by_user_id = :performedBy', {
+        performedBy: query.performed_by_user_id,
+      });
+    }
     if (query.from_date) {
       qb.andWhere('audit_log.created_at >= :fromDate', { fromDate: query.from_date });
     }

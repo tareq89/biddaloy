@@ -363,6 +363,7 @@ export interface paths {
         get: operations["UserController_findOneUser_v1"];
         put?: never;
         post?: never;
+        /** Remove a member's access to this school (deletes the membership, not the account). */
         delete: operations["UserController_removeUser_v1"];
         options?: never;
         head?: never;
@@ -1180,6 +1181,10 @@ export interface components {
             /** @enum {string} */
             status: "ACTIVE" | "INACTIVE" | "SUSPENDED";
             full_name: string;
+            /** @enum {string|null} */
+            role: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE" | null;
+            /** Format: date-time */
+            member_since: string | null;
             profile_picture_url: string | null;
             preferences: {
                 [key: string]: unknown;
@@ -1194,7 +1199,7 @@ export interface components {
         UpdateUserDto: {
             /** Format: email */
             email?: string;
-            phone?: string;
+            phone?: string | null;
             full_name?: string;
             profile_picture_url?: string;
         };
@@ -1233,8 +1238,8 @@ export interface components {
         UpdateTeacherDto: {
             employee_id?: string;
             designations?: ("CLASS_TEACHER" | "SUBJECT_TEACHER" | "HEAD_TEACHER" | "ASSISTANT_TEACHER" | "PRINCIPAL" | "VICE_PRINCIPAL" | "COORDINATOR")[];
-            subject_specialization?: string;
-            joining_date?: string;
+            subject_specialization?: string | null;
+            joining_date?: string | null;
             assigned_section_ids?: string[];
         };
         CreateStudentDto: {
@@ -1801,6 +1806,7 @@ export interface operations {
             query?: {
                 action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST";
                 entity_type?: string;
+                performed_by_user_id?: string;
                 from_date?: string;
                 to_date?: string;
                 page?: number;
@@ -1839,6 +1845,7 @@ export interface operations {
             query?: {
                 action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST";
                 entity_type?: string;
+                performed_by_user_id?: string;
                 from_date?: string;
                 to_date?: string;
                 page?: number;
@@ -2684,6 +2691,7 @@ export interface operations {
         parameters: {
             query?: {
                 role?: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE";
+                search?: string;
                 page?: number;
                 limit?: number;
             };
@@ -2851,6 +2859,7 @@ export interface operations {
         parameters: {
             query?: {
                 search?: string;
+                user_id?: string;
                 page?: number;
                 limit?: number;
             };

@@ -50,3 +50,37 @@ describe('bulk-upload role grants [8.11.8]', () => {
     }
   });
 });
+
+describe('member-remove grant [8.11.8]', () => {
+  /**
+   * `DELETE /users/{id}` is declared `@Roles(ADMIN)` in
+   * `server/src/modules/users/users.controller.ts` and removes only the
+   * membership row (school access), not the account. The frontend gates the
+   * "Remove from school" action on MEMBER_REMOVE, so only ADMIN may hold it.
+   */
+  it('grants MEMBER_REMOVE to ADMIN, which the server route admits', () => {
+    expect(ROLE_PERMISSIONS[UserRole.ADMIN]).toContain(Permission.MEMBER_REMOVE);
+  });
+
+  const ROLES_REFUSED_BY_THE_SERVER = [
+    UserRole.ACCOUNTANT,
+    UserRole.EXECUTIVE,
+    UserRole.TEACHER,
+    UserRole.PARENT,
+    UserRole.STUDENT,
+  ] as const;
+
+  for (const role of ROLES_REFUSED_BY_THE_SERVER) {
+    it(`withholds MEMBER_REMOVE from ${role}, which the server route refuses`, () => {
+      expect(ROLE_PERMISSIONS[role]).not.toContain(Permission.MEMBER_REMOVE);
+    });
+  }
+
+  // USER_DELETE (true account deletion) is deliberately granted to no staff
+  // role — MEMBER_REMOVE must not quietly become a synonym for it.
+  it('still grants USER_DELETE to no staff role', () => {
+    for (const role of [UserRole.ADMIN, ...ROLES_REFUSED_BY_THE_SERVER]) {
+      expect(ROLE_PERMISSIONS[role]).not.toContain(Permission.USER_DELETE);
+    }
+  });
+});
