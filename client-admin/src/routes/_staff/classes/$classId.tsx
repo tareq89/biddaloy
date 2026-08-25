@@ -59,7 +59,7 @@ function ClassDetailPage() {
     <div className="flex flex-col gap-4">
       <Link
         to="/classes"
-        className="inline-flex min-h-6 items-center self-start text-sm text-primary underline"
+        className="inline-flex min-h-6 min-w-6 items-center self-start text-sm text-primary underline"
       >
         {t('list.title')}
       </Link>
