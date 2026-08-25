@@ -11,6 +11,7 @@ import bnAcademicYears from '../ui/src/i18n/locales/bn/academicYears.json';
 import bnAuth from '../ui/src/i18n/locales/bn/auth.json';
 import bnClasses from '../ui/src/i18n/locales/bn/classes.json';
 import bnCommon from '../ui/src/i18n/locales/bn/common.json';
+import bnFeeGeneration from '../ui/src/i18n/locales/bn/feeGeneration.json';
 import bnFees from '../ui/src/i18n/locales/bn/fees.json';
 import bnFeeStructures from '../ui/src/i18n/locales/bn/feeStructures.json';
 import bnGuardians from '../ui/src/i18n/locales/bn/guardians.json';
@@ -22,6 +23,7 @@ import enAcademicYears from '../ui/src/i18n/locales/en/academicYears.json';
 import enAuth from '../ui/src/i18n/locales/en/auth.json';
 import enClasses from '../ui/src/i18n/locales/en/classes.json';
 import enCommon from '../ui/src/i18n/locales/en/common.json';
+import enFeeGeneration from '../ui/src/i18n/locales/en/feeGeneration.json';
 import enFees from '../ui/src/i18n/locales/en/fees.json';
 import enFeeStructures from '../ui/src/i18n/locales/en/feeStructures.json';
 import enGuardians from '../ui/src/i18n/locales/en/guardians.json';
@@ -36,6 +38,7 @@ const catalogs = {
     auth: bnAuth,
     classes: bnClasses,
     common: bnCommon,
+    feeGeneration: bnFeeGeneration,
     fees: bnFees,
     feeStructures: bnFeeStructures,
     guardians: bnGuardians,
@@ -49,6 +52,7 @@ const catalogs = {
     auth: enAuth,
     classes: enClasses,
     common: enCommon,
+    feeGeneration: enFeeGeneration,
     fees: enFees,
     feeStructures: enFeeStructures,
     guardians: enGuardians,

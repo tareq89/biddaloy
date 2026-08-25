@@ -91,6 +91,15 @@ function StaffLayout() {
           label: t('items.feeStructures'),
           permission: Permission.FEE_STRUCTURE_READ,
         },
+        // [8.11.6] — FEE_GENERATE, the same permission
+        // `FeeController.generateStudentFees`'s `@Roles(ADMIN, ACCOUNTANT)`
+        // maps to, so TEACHER/EXECUTIVE never see a batch write they'd
+        // only be refused at submit time.
+        {
+          to: '/fees/generate',
+          label: t('items.generateFees'),
+          permission: Permission.FEE_GENERATE,
+        },
         { to: '/invoices', label: t('items.invoices'), permission: Permission.INVOICE_READ },
       ],
     },

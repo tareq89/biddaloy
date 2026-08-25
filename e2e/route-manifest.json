@@ -64,6 +64,11 @@
       "overlays": ["send-reminder", "generate-invoices"]
     },
     {
+      "path": "/fees/generate",
+      "role": "accountant",
+      "archetype": "wizard"
+    },
+    {
       "path": "/guardians",
       "role": "admin",
       "archetype": "list"

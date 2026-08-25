@@ -26,6 +26,7 @@ import { Route as StaffClassesClassIdRouteImport } from './routes/_staff/classes
 import { Route as StaffFeeStructuresIndexRouteImport } from './routes/_staff/fee-structures/index'
 import { Route as StaffFeesIndexRouteImport } from './routes/_staff/fees/index'
 import { Route as StaffFeesDuesRouteImport } from './routes/_staff/fees/dues'
+import { Route as StaffFeesGenerateRouteImport } from './routes/_staff/fees/generate'
 import { Route as StaffGuardiansIndexRouteImport } from './routes/_staff/guardians/index'
 import { Route as StaffGuardiansGuardianIdRouteImport } from './routes/_staff/guardians/$guardianId'
 import { Route as StaffInvoicesIndexRouteImport } from './routes/_staff/invoices/index'
@@ -121,6 +122,11 @@ const StaffFeesDuesRoute = StaffFeesDuesRouteImport.update({
   path: '/dues',
   getParentRoute: () => StaffFeesRoute,
 } as any)
+const StaffFeesGenerateRoute = StaffFeesGenerateRouteImport.update({
+  id: '/generate',
+  path: '/generate',
+  getParentRoute: () => StaffFeesRoute,
+} as any)
 const StaffGuardiansIndexRoute = StaffGuardiansIndexRouteImport.update({
   id: '/guardians/',
   path: '/guardians/',
@@ -182,6 +188,7 @@ export interface FileRoutesByFullPath {
   '/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
   '/classes/$classId': typeof StaffClassesClassIdRoute
   '/fees/dues': typeof StaffFeesDuesRoute
+  '/fees/generate': typeof StaffFeesGenerateRoute
   '/guardians/$guardianId': typeof StaffGuardiansGuardianIdRoute
   '/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
   '/payments/record': typeof StaffPaymentsRecordRoute
@@ -207,6 +214,7 @@ export interface FileRoutesByTo {
   '/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
   '/classes/$classId': typeof StaffClassesClassIdRoute
   '/fees/dues': typeof StaffFeesDuesRoute
+  '/fees/generate': typeof StaffFeesGenerateRoute
   '/guardians/$guardianId': typeof StaffGuardiansGuardianIdRoute
   '/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
   '/payments/record': typeof StaffPaymentsRecordRoute
@@ -236,6 +244,7 @@ export interface FileRoutesById {
   '/_staff/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
   '/_staff/classes/$classId': typeof StaffClassesClassIdRoute
   '/_staff/fees/dues': typeof StaffFeesDuesRoute
+  '/_staff/fees/generate': typeof StaffFeesGenerateRoute
   '/_staff/guardians/$guardianId': typeof StaffGuardiansGuardianIdRoute
   '/_staff/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
   '/_staff/payments/record': typeof StaffPaymentsRecordRoute
@@ -265,6 +274,7 @@ export interface FileRouteTypes {
     | '/academic-years/$academicYearId'
     | '/classes/$classId'
     | '/fees/dues'
+    | '/fees/generate'
     | '/guardians/$guardianId'
     | '/invoices/$invoiceId'
     | '/payments/record'
@@ -290,6 +300,7 @@ export interface FileRouteTypes {
     | '/academic-years/$academicYearId'
     | '/classes/$classId'
     | '/fees/dues'
+    | '/fees/generate'
     | '/guardians/$guardianId'
     | '/invoices/$invoiceId'
     | '/payments/record'
@@ -318,6 +329,7 @@ export interface FileRouteTypes {
     | '/_staff/academic-years/$academicYearId'
     | '/_staff/classes/$classId'
     | '/_staff/fees/dues'
+    | '/_staff/fees/generate'
     | '/_staff/guardians/$guardianId'
     | '/_staff/invoices/$invoiceId'
     | '/_staff/payments/record'
@@ -462,6 +474,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffFeesDuesRouteImport
       parentRoute: typeof StaffFeesRoute
     }
+    '/_staff/fees/generate': {
+      id: '/_staff/fees/generate'
+      path: '/generate'
+      fullPath: '/fees/generate'
+      preLoaderRoute: typeof StaffFeesGenerateRouteImport
+      parentRoute: typeof StaffFeesRoute
+    }
     '/_staff/guardians/': {
       id: '/_staff/guardians/'
       path: '/guardians'
@@ -530,11 +549,13 @@ declare module '@tanstack/react-router' {
 
 interface StaffFeesRouteChildren {
   StaffFeesDuesRoute: typeof StaffFeesDuesRoute
+  StaffFeesGenerateRoute: typeof StaffFeesGenerateRoute
   StaffFeesIndexRoute: typeof StaffFeesIndexRoute
 }
 
 const StaffFeesRouteChildren: StaffFeesRouteChildren = {
   StaffFeesDuesRoute: StaffFeesDuesRoute,
+  StaffFeesGenerateRoute: StaffFeesGenerateRoute,
   StaffFeesIndexRoute: StaffFeesIndexRoute,
 }
 

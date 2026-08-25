@@ -98,6 +98,14 @@ const generate = http.post('/api/v1/fees/generate', () =>
   HttpResponse.json({ generated: 42, skipped: 3, students_evaluated: 45 }, { status: 201 }),
 );
 
+/** [8.11.6] — the re-run case: every student already has a fee record for
+ * the chosen period, so `ON CONFLICT DO NOTHING` skips all of them and
+ * nothing is generated. Still a 201 success, not an error, which is
+ * exactly what the wizard's summary screen has to make readable. */
+const generateAllSkipped = http.post('/api/v1/fees/generate', () =>
+  HttpResponse.json({ generated: 0, skipped: 42, students_evaluated: 42 }, { status: 201 }),
+);
+
 export const feeStructureHandlers = {
   list: listStructures,
   listEmpty: listStructuresEmpty,
@@ -115,6 +123,6 @@ export const feeStructureDefaultHandlers = [
   removeStructure,
 ];
 
-export const feeHandlers = { dues, duesEmpty, flaggedDues, generate };
+export const feeHandlers = { dues, duesEmpty, flaggedDues, generate, generateAllSkipped };
 
 export const feeDefaultHandlers = [dues, flaggedDues, generate];
