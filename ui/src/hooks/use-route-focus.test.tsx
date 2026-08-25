@@ -1,6 +1,7 @@
 import { createRootRoute, createRoute, Link, Outlet } from '@tanstack/react-router';
 import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useEffect, useState } from 'react';
 import { describe, expect, it } from 'vitest';
 
 import { RouteAnnouncer } from '../components/route-announcer';
@@ -46,6 +47,19 @@ function BlankPage() {
   return <p>No heading on this route</p>;
 }
 
+// A detail route that mounts a headingless skeleton first, then swaps in
+// its real <h1> a beat later — reproducing the loading-skeleton paint a
+// real detail page renders between old-heading unmount and new-heading
+// mount.
+function SlowDetailPage() {
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    const id = setTimeout(() => setLoaded(true), 20);
+    return () => clearTimeout(id);
+  }, []);
+  return loaded ? <h1>Slow Detail</h1> : <p>Loading…</p>;
+}
+
 function OtherListPage() {
   return <h1>List</h1>;
 }
@@ -71,7 +85,18 @@ const blankRoute = createRoute({
   path: '/blank',
   component: BlankPage,
 });
-const routeTree = rootRoute.addChildren([listRoute, otherListRoute, detailRoute, blankRoute]);
+const slowDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/slow-detail',
+  component: SlowDetailPage,
+});
+const routeTree = rootRoute.addChildren([
+  listRoute,
+  otherListRoute,
+  detailRoute,
+  blankRoute,
+  slowDetailRoute,
+]);
 
 describe('useRouteFocus', () => {
   it("sets document.title from the route's <h1> on initial mount, without stealing focus", async () => {
@@ -110,6 +135,27 @@ describe('useRouteFocus', () => {
 
     await waitFor(() => screen.getByText('No heading on this route'));
     await waitFor(() => expect((document.activeElement as HTMLElement | null)?.id).toBe(MAIN_ID));
+  });
+
+  it('stays pending through a headingless loading skeleton and focuses the real heading once it mounts', async () => {
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/list'],
+      tenantId: 'tenant-1',
+    });
+    await waitFor(() => screen.getByRole('heading', { name: 'List' }));
+
+    act(() => {
+      void router.navigate({ to: '/slow-detail' });
+    });
+
+    // The skeleton paints with no <h1> at all — focus must not jump to
+    // the main landmark here, unlike the permanently-headingless /blank
+    // case above.
+    await waitFor(() => screen.getByText('Loading…'));
+    expect((document.activeElement as HTMLElement | null)?.id).not.toBe(MAIN_ID);
+
+    const heading = await screen.findByRole('heading', { name: 'Slow Detail' });
+    await waitFor(() => expect(document.activeElement).toBe(heading));
   });
 
   it('restores focus to the clicked data-focus-anchor element on BACK navigation, not the heading', async () => {

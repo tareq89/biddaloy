@@ -103,12 +103,17 @@ async function dbReset() {
     console.log('SUPER_ADMIN user created:');
     console.log('  Email: admin@school.com');
 
-    // Create a default school
-    const school = schoolRepository.create({
-      name: 'Default School',
-      slug: 'default-school',
-    });
-    await schoolRepository.save(school);
+    // Find-or-create the default school — the MultiTenantAuth migration
+    // already inserts `default-school`, so an unconditional insert here
+    // collides with the unique slug index on every fresh reset.
+    let school = await schoolRepository.findOne({ where: { slug: 'default-school' } });
+    if (!school) {
+      school = schoolRepository.create({
+        name: 'Default School',
+        slug: 'default-school',
+      });
+      await schoolRepository.save(school);
+    }
     console.log(`  School: ${school.name} (${school.id})`);
 
     // Create the user-tenant membership

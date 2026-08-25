@@ -41,6 +41,9 @@ export default defineConfig({
   retries: CI ? 1 : 0,
   reporter: CI ? [['html', { open: 'never' }], ['list']] : [['html', { open: 'on-failure' }]],
   use: {
+    // Relative page.goto()/request URLs resolve against the client shell —
+    // matches e2e/config.ts's single-shell entry ([8.5.2]).
+    baseURL: 'http://localhost:5174',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -48,7 +51,17 @@ export default defineConfig({
   // iOS Safari (WebKit) is a real share of Bangladeshi device traffic and
   // where CSS/date-input differences tend to surface first, so it's the one
   // to bring back first when cross-browser coverage is worth the CI time.
-  projects: browsers.map((name) => ({ name, use: { ...BROWSER_DEVICES[name] } })),
+  // `setup` logs in every seed role once per shard and writes storageState
+  // files ([8.5.2], e2e/fixtures/auth.setup.ts); every browser project
+  // depends on it so specs can `test.use(loggedIn(role))`.
+  projects: [
+    { name: 'setup', testMatch: /fixtures\/auth\.setup\.ts/ },
+    ...browsers.map((name) => ({
+      name,
+      use: { ...BROWSER_DEVICES[name] },
+      dependencies: ['setup'],
+    })),
+  ],
   webServer: [
     {
       command: 'yarn dev:server',

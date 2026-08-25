@@ -50,13 +50,10 @@ export interface RoleTestUserSeed {
   fullName: string;
 }
 
-/** One account per non-SUPER_ADMIN role — [8.9.6] manual-testing aid: log
- * in as each and compare the sidebar, since role-gated nav (`AppShell`'s
- * `navGroups`) is the one thing in this app that visibly differs per
- * role today; list/detail pages are still permission-gated stubs with no
- * per-record filtering to demonstrate. SUPER_ADMIN is excluded — `seed()`
- * already creates that account. */
+/** One test account per role, for manual role-based UI checks and the
+ * E2E auth fixtures. */
 export const ROLE_TEST_USERS: readonly RoleTestUserSeed[] = [
+  { email: 'superadmin@biddaloy.test', role: UserRole.SUPER_ADMIN, fullName: 'Super Admin User' },
   { email: 'admin@biddaloy.test', role: UserRole.ADMIN, fullName: 'Admin User' },
   { email: 'accountant@biddaloy.test', role: UserRole.ACCOUNTANT, fullName: 'Accountant User' },
   { email: 'teacher@biddaloy.test', role: UserRole.TEACHER, fullName: 'Teacher User' },

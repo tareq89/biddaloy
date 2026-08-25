@@ -5,6 +5,7 @@ import type { School } from '../modules/schools/entities/school.entity';
 import type { User } from '../modules/users/entities/user.entity';
 import type { UserTenant } from '../modules/auth/entities/user-tenant.entity';
 import { ensureRoleTestUsers, ensureSecondSchoolMembership, ROLE_TEST_USERS } from './seed.util';
+import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS } from '../../../e2e/seed-contract';
 
 let nextId = 0;
 
@@ -233,5 +234,24 @@ describe('ensureRoleTestUsers', () => {
         role,
       });
     }
+  });
+});
+
+// [8.5.2] drift guard: the E2E suite's credentials live in
+// `e2e/seed-contract.ts` and must always describe exactly what this seed
+// creates. The server suite imports the e2e contract (never the reverse)
+// so a mismatch fails here, next to the code being changed.
+describe('e2e seed contract', () => {
+  it('matches ROLE_TEST_USERS exactly — one entry per role, same emails', () => {
+    const expected = Object.fromEntries(
+      ROLE_TEST_USERS.map(({ role, email }) => [role.toLowerCase(), email]),
+    );
+    expect(SEED_ROLE_EMAILS).toEqual(expected);
+  });
+
+  it('names the same password env var the seed script requires', () => {
+    // seed.ts reads process.env.SEED_ADMIN_PASSWORD; the contract must
+    // point E2E fixtures at the same variable.
+    expect(SEED_PASSWORD_ENV).toBe('SEED_ADMIN_PASSWORD');
   });
 });

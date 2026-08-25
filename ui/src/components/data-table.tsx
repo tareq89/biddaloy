@@ -352,7 +352,10 @@ export function DataTable<TData>({
         className="w-full overflow-x-auto rounded-lg border border-border focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
       >
         {/* eslint-enable jsx-a11y/no-noninteractive-tabindex */}
-        <table className="w-full border-collapse text-sm">
+        {/* [8.5.6] `[&_td_a]:min-h-6` etc.: links inside cells (view/detail
+            links, invoice numbers) get a 24px minimum hit area — WCAG
+            2.2 SC 2.5.8 — without each column having to remember it. */}
+        <table className="w-full border-collapse text-sm [&_td_a]:inline-flex [&_td_a]:min-h-6 [&_td_a]:min-w-6 [&_td_a]:items-center [&_td_a]:justify-center [&_td_button]:min-h-6 [&_td_button]:min-w-6 [&_th_button]:min-h-6 [&_th_button]:min-w-6">
           <caption className="sr-only">{caption}</caption>
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -461,7 +464,7 @@ export function DataTable<TData>({
                             // element assistive tech can never find.
                             aria-controls={isExpanded ? expandedPanelId : undefined}
                             aria-label={expandRowLabel(row.original)}
-                            className="inline-flex items-center justify-center rounded-md p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+                            className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
                             onClick={() => toggleExpanded(row.id)}
                           >
                             {isExpanded ? (

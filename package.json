@@ -37,6 +37,7 @@
     "prepare": "husky"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.10",
     "@eslint/js": "^10.0.1",
     "@faker-js/faker": "^10",
     "@lhci/cli": "^0.15.1",
