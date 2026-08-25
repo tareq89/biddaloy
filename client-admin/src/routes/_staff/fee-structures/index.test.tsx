@@ -166,7 +166,6 @@ describe('/fee-structures', () => {
           id: 's-1',
           applicability: FeeApplicability.SELECTED,
           class: KLASS,
-          selected_students: undefined,
         }),
       ]),
       ...referenceHandlers(),

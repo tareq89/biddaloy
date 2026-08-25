@@ -1,0 +1,77 @@
+{
+  "title": "Generate a month's fees",
+  "forbidden": {
+    "title": "You don't have permission to view this.",
+    "explanation": "Generating a month's fees is limited to administrators and accountants.",
+    "action": "Back to fees"
+  },
+  "steps": {
+    "year": "Academic year",
+    "scope": "Class and section",
+    "period": "Month and year",
+    "review": "Review"
+  },
+  "year": {
+    "label": "Academic year",
+    "placeholder": "Choose an academic year",
+    "hint": "Fees are generated from the fee structures defined for this academic year.",
+    "range": "{{start}} to {{end}}"
+  },
+  "scope": {
+    "classLabel": "Class",
+    "allClasses": "All classes",
+    "sectionLabel": "Section",
+    "allSections": "All sections",
+    "hint": "Leave both on \"All\" to run the whole school for this academic year."
+  },
+  "period": {
+    "monthLabel": "Month",
+    "yearLabel": "Year",
+    "outsideYear": "{{month}} {{year}} is outside {{name}} ({{start}} to {{end}}). Choose a month inside the academic year, or go back and choose a different year."
+  },
+  "review": {
+    "heading": "Check this before generating",
+    "academicYearLabel": "Academic year",
+    "classLabel": "Class",
+    "sectionLabel": "Section",
+    "periodLabel": "Month",
+    "period": "{{month}} {{year}}",
+    "countLoading": "Counting the students in scope…",
+    "countFailed": "The student count couldn't be loaded. You can still generate — the count is only a preview.",
+    "count_one": "{{count}} active student is in scope and will be evaluated.",
+    "count_other": "{{count}} active students are in scope and will be evaluated.",
+    "estimateNote": "That is how many students will be looked at, not how many fee records will be created. A student with no fee structure that applies this month gets nothing, and a student who already has a fee for this month is skipped.",
+    "submitAction": "Generate fees"
+  },
+  "result": {
+    "title": "Fee generation finished",
+    "generated_one": "{{count}} fee record created",
+    "generated_other": "{{count}} fee records created",
+    "skipped_one": "{{count}} skipped",
+    "skipped_other": "{{count}} skipped",
+    "evaluated_one": "{{count}} student evaluated",
+    "evaluated_other": "{{count}} students evaluated",
+    "skippedExplainer": "Skipped means a fee record already exists for that student and month — re-running is safe and will skip everything already generated.",
+    "nothingGenerated": "Nothing new was created this time. Everything in scope already had a fee record for this month.",
+    "runAgain": "Generate another month",
+    "goToDues": "Go to student dues"
+  },
+  "errors": {
+    "rateLimited": "Fee generation is limited to 5 runs per minute — wait a moment and try again.",
+    "unknown": "We couldn't confirm the result of this run. Re-running is safe — anything already created will be skipped."
+  },
+  "months": {
+    "1": "January",
+    "2": "February",
+    "3": "March",
+    "4": "April",
+    "5": "May",
+    "6": "June",
+    "7": "July",
+    "8": "August",
+    "9": "September",
+    "10": "October",
+    "11": "November",
+    "12": "December"
+  }
+}

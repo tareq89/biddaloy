@@ -156,6 +156,7 @@ export {
   type PaginatedFeeStructures,
   type UpdateFeeStructureInput,
 } from './fee-structures';
+export { useGenerateFees, type GenerateFeesInput, type GenerateFeesResult } from './fee-generation';
 export { useRouteFocus, type UseRouteFocusOptions } from './use-route-focus';
 export { useDebouncedValue } from './use-debounce';
 export {
