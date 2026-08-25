@@ -30,6 +30,10 @@ export interface FileUploadProps {
   multiple?: boolean;
   'aria-label': string;
   chooseLabel?: string;
+  /** Blocks choosing and removing files. Use while an upload is in flight:
+   * a replacement pick cannot cancel the request already on the wire, so
+   * without this a second submission can duplicate the first one's work. */
+  disabled?: boolean;
 }
 
 export function FileUpload({
@@ -39,6 +43,7 @@ export function FileUpload({
   accept,
   multiple = true,
   chooseLabel,
+  disabled = false,
   ...props
 }: FileUploadProps) {
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -60,6 +65,7 @@ export function FileUpload({
         accept={accept}
         multiple={multiple}
         aria-label={props['aria-label']}
+        disabled={disabled}
         onChange={(event) => {
           handleFiles(event.target.files);
           // Reset so selecting the exact same file again still fires
@@ -69,7 +75,12 @@ export function FileUpload({
           event.target.value = '';
         }}
       />
-      <Button type="button" variant="outline" onClick={() => inputRef.current?.click()}>
+      <Button
+        type="button"
+        variant="outline"
+        disabled={disabled}
+        onClick={() => inputRef.current?.click()}
+      >
         {chooseLabel ?? (multiple ? 'Choose files' : 'Choose file')}
       </Button>
       <div aria-live="polite" className="sr-only">
@@ -96,6 +107,7 @@ export function FileUpload({
                   aria-label={`Remove ${item.file.name}`}
                   variant="ghost"
                   size="icon-sm"
+                  disabled={disabled}
                   onClick={() => onRemove(item.file)}
                 >
                   <span aria-hidden="true">×</span>

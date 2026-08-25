@@ -157,6 +157,12 @@ export {
   type UpdateFeeStructureInput,
 } from './fee-structures';
 export { useGenerateFees, type GenerateFeesInput, type GenerateFeesResult } from './fee-generation';
+export {
+  useBulkUploadStudents,
+  type BulkUploadError,
+  type BulkUploadResult,
+  type BulkUploadStudentsInput,
+} from './bulk-upload';
 export { useRouteFocus, type UseRouteFocusOptions } from './use-route-focus';
 export { useDebouncedValue } from './use-debounce';
 export {

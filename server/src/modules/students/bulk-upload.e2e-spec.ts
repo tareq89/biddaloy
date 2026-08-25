@@ -167,7 +167,11 @@ describe('Bulk Student Upload E2E', () => {
 
       expect(res.body.success_count).toBe(1);
       expect(res.body.error_count).toBe(1);
-      expect(res.body.errors[0]).toMatchObject({ row: 3 });
+      expect(res.body.errors[0]).toMatchObject({
+        row: 3,
+        field: 'guardian1_phone',
+        value: 'not-a-phone',
+      });
       expect(res.body.errors[0].reason).toContain('Invalid phone format');
     });
 

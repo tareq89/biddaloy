@@ -9,8 +9,32 @@ import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { AuditService } from '../audit/audit.service';
 import { StudentService, GuardianService } from './students.service';
 import { parseSpreadsheet, BulkUploadParseError, ParsedRow } from './bulk-upload.parser';
-import { BulkUploadRowDto, BulkUploadResultDto } from './dto/students.dto';
+import { BulkUploadErrorDto, BulkUploadRowDto, BulkUploadResultDto } from './dto/students.dto';
 import { AuditAction, CommunicationMedium } from '@biddaloy/shared';
+
+/**
+ * A row-scoped failure enriched with which spreadsheet column the problem
+ * sits in and the offending cell value, when a single culprit exists.
+ * Extends BadRequestException so process()'s "row-scoped vs whole-request"
+ * catch keeps working unchanged.
+ */
+class BulkRowError extends BadRequestException {
+  constructor(
+    message: string,
+    readonly field?: string,
+    readonly value?: string,
+  ) {
+    super(message);
+  }
+}
+
+/** Current-academic-year class/section names resolved once per upload. */
+interface ClassSectionLookup {
+  /** `"<class name>::<section name>"` → class-section id. */
+  sectionIdByKey: Map<string, string>;
+  /** Every class name of the year, sections or not. */
+  classNames: Set<string>;
+}
 
 interface GuardianInput {
   name: string;
@@ -61,9 +85,9 @@ export class StudentBulkUploadService {
       throw err;
     }
 
-    const classSectionMap = await this.buildClassSectionMap(tenantId);
+    const classSections = await this.buildClassSectionMap(tenantId);
 
-    const errors: { row: number; reason: string }[] = [];
+    const errors: BulkUploadErrorDto[] = [];
     const createdStudentIds: string[] = [];
     const guardianCache = new Map<string, string>();
     const rollsSeenThisRequest = new Map<string, Set<number>>();
@@ -73,7 +97,7 @@ export class StudentBulkUploadService {
         const studentId = await this.processRow(
           parsed,
           tenantId,
-          classSectionMap,
+          classSections,
           guardianCache,
           rollsSeenThisRequest,
         );
@@ -84,7 +108,12 @@ export class StudentBulkUploadService {
         // request instead of silently degrading into confusing per-row
         // noise while grinding through the remaining rows.
         if (err instanceof BadRequestException) {
-          errors.push({ row: parsed.rowNumber, reason: this.describeError(err) });
+          errors.push({
+            row: parsed.rowNumber,
+            ...(err instanceof BulkRowError && err.field !== undefined ? { field: err.field } : {}),
+            ...(err instanceof BulkRowError && err.value !== undefined ? { value: err.value } : {}),
+            reason: this.describeError(err),
+          });
         } else {
           throw err;
         }
@@ -116,7 +145,7 @@ export class StudentBulkUploadService {
   private async processRow(
     parsed: ParsedRow,
     tenantId: string,
-    classSectionMap: Map<string, string>,
+    classSections: ClassSectionLookup,
     guardianCache: Map<string, string>,
     rollsSeenThisRequest: Map<string, Set<number>>,
   ): Promise<string> {
@@ -124,14 +153,36 @@ export class StudentBulkUploadService {
     const validationErrors = await validate(dto);
     if (validationErrors.length > 0) {
       const messages = validationErrors.flatMap((e) => Object.values(e.constraints ?? {}));
+      // A single failing property has an unambiguous field/value to report;
+      // multiple failing properties fall back to the joined reason only.
+      if (validationErrors.length === 1) {
+        const failed = validationErrors[0];
+        // Report the cell as it appears in the admin's file, not
+        // `failed.value` — that has already been through @SanitizeText, so
+        // the "value in your file" column could show something they cannot
+        // find when they go looking for it. An empty cell has no offending
+        // value to show, so it stays absent rather than rendering as "".
+        const rawValue = (parsed.values as Record<string, string | undefined>)[failed.property];
+        throw new BulkRowError(
+          messages.join('; '),
+          failed.property,
+          rawValue === '' ? undefined : rawValue,
+        );
+      }
       throw new BadRequestException(messages.join('; '));
     }
 
     const sectionKey = `${dto.class}::${dto.section}`;
-    const classSectionId = classSectionMap.get(sectionKey);
+    const classSectionId = classSections.sectionIdByKey.get(sectionKey);
     if (!classSectionId) {
-      throw new BadRequestException(
+      // Blame the class only when the class name itself is unknown for the
+      // year; if the class exists (even with no sections configured) the
+      // class name is correct and the section is the culprit.
+      const classExists = classSections.classNames.has(dto.class);
+      throw new BulkRowError(
         `Class '${dto.class}' / Section '${dto.section}' not found for the current academic year`,
+        classExists ? 'section' : 'class',
+        classExists ? dto.section : dto.class,
       );
     }
 
@@ -140,8 +191,10 @@ export class StudentBulkUploadService {
       rollNumber = parseInt(dto.roll, 10);
       const seen = rollsSeenThisRequest.get(classSectionId) ?? new Set<number>();
       if (seen.has(rollNumber)) {
-        throw new BadRequestException(
+        throw new BulkRowError(
           `Duplicate roll number ${rollNumber} in class '${dto.class}' section '${dto.section}' (already used earlier in this file)`,
+          'roll',
+          dto.roll,
         );
       }
     }
@@ -195,11 +248,18 @@ export class StudentBulkUploadService {
       });
     } catch (err) {
       if (this.isUniqueViolation(err)) {
-        throw new BadRequestException(
-          rollNumber !== undefined
-            ? `Duplicate roll number ${rollNumber} in class '${dto.class}' section '${dto.section}'`
-            : 'A student with conflicting unique fields already exists',
-        );
+        // Student carries two unique indexes — (class_section_id, roll_number)
+        // and (tenant_id, registration_number). Blaming `roll` for either one
+        // would tell the admin to fix a column that is actually correct, so
+        // read which columns Postgres actually reported.
+        if (rollNumber !== undefined && this.violatedColumns(err).includes('roll_number')) {
+          throw new BulkRowError(
+            `Duplicate roll number ${rollNumber} in class '${dto.class}' section '${dto.section}'`,
+            'roll',
+            dto.roll,
+          );
+        }
+        throw new BadRequestException('A student with conflicting unique fields already exists');
       }
       throw err;
     }
@@ -228,7 +288,7 @@ export class StudentBulkUploadService {
     return out;
   }
 
-  private async buildClassSectionMap(tenantId: string): Promise<Map<string, string>> {
+  private async buildClassSectionMap(tenantId: string): Promise<ClassSectionLookup> {
     const currentYear = await this.academicYearRepo.findOne({
       where: { tenant_id: tenantId, is_current: true, deleted_at: IsNull() },
     });
@@ -247,13 +307,15 @@ export class StudentBulkUploadService {
       : [];
 
     const classById = new Map(classes.map((c) => [c.id, c]));
-    const map = new Map<string, string>();
+    const sectionIdByKey = new Map<string, string>();
     for (const section of sections) {
       const cls = classById.get(section.class_id);
       if (!cls) continue;
-      map.set(`${cls.name}::${section.section_name}`, section.id);
+      sectionIdByKey.set(`${cls.name}::${section.section_name}`, section.id);
     }
-    return map;
+    // Every class of the year, including ones with no sections yet — needed
+    // to tell "unknown class name" apart from "known class, unknown section".
+    return { sectionIdByKey, classNames: new Set(classes.map((c) => c.name)) };
   }
 
   /**
@@ -285,6 +347,20 @@ export class StudentBulkUploadService {
     return (
       err instanceof QueryFailedError && (err as unknown as { code?: string }).code === '23505'
     );
+  }
+
+  /**
+   * Column names from a Postgres 23505 `detail`, which reads
+   * `Key (class_section_id, roll_number)=(…, 12) already exists.`
+   * Returns an empty list when the driver gave us no detail — callers then
+   * fall back to the unattributed message rather than guessing a column.
+   */
+  private violatedColumns(err: unknown): string[] {
+    const detail = (err as { detail?: unknown }).detail;
+    if (typeof detail !== 'string') return [];
+    const match = /^Key \(([^)]+)\)=/.exec(detail);
+    if (!match) return [];
+    return match[1].split(',').map((column) => column.trim());
   }
 
   private describeError(err: unknown): string {

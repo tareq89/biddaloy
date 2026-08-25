@@ -18,12 +18,19 @@ function makeFile(name: string): File {
   return new File(['content'], name, { type: 'text/csv' });
 }
 
-function Demo({ initialItems = [] }: { initialItems?: FileUploadItem[] }) {
+function Demo({
+  initialItems = [],
+  disabled = false,
+}: {
+  initialItems?: FileUploadItem[];
+  disabled?: boolean;
+}) {
   const [items, setItems] = useState<FileUploadItem[]>(initialItems);
   return (
     <FileUpload
       aria-label="Attachments"
       items={items}
+      disabled={disabled}
       onFilesSelected={(files) =>
         setItems((prev) => [
           ...prev,
@@ -50,6 +57,18 @@ export const Loading: Story = {
   name: 'Loading (upload in progress)',
   render: () => (
     <Demo initialItems={[{ id: 'roster', file: makeFile('roster.csv'), progress: 42 }]} />
+  ),
+};
+
+/**
+ * Choosing and removing are blocked while a request is in flight — a
+ * replacement pick cannot cancel the upload already on the wire, so allowing
+ * one risks submitting the same work twice.
+ */
+export const Disabled: Story = {
+  name: 'Disabled (request in flight)',
+  render: () => (
+    <Demo disabled initialItems={[{ id: 'roster', file: makeFile('roster.csv'), progress: 100 }]} />
   ),
 };
 

@@ -318,6 +318,12 @@ export class BulkUploadRowDto {
 
 export class BulkUploadErrorDto {
   row: number;
+  /** Spreadsheet column the problem sits in (e.g. `guardian1_phone`,
+   * `class`, `roll`). Absent when the problem spans the whole row. */
+  field?: string;
+  /** The offending cell's raw value, so the reporter can show exactly
+   * what to fix. Absent when there is no single offending value. */
+  value?: string;
   reason: string;
 }
 

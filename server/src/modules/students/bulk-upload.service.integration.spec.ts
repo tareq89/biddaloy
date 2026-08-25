@@ -284,7 +284,7 @@ describe('StudentBulkUploadService (integration)', () => {
 
     expect(result.success_count).toBe(1);
     expect(result.error_count).toBe(1);
-    expect(result.errors[0]).toMatchObject({ row: 3 });
+    expect(result.errors[0]).toMatchObject({ row: 3, field: 'roll', value: '5' });
     expect(result.errors[0].reason).toContain('Duplicate roll number 5');
   });
 
@@ -302,6 +302,7 @@ describe('StudentBulkUploadService (integration)', () => {
 
     expect(result.success_count).toBe(0);
     expect(result.error_count).toBe(1);
+    expect(result.errors[0]).toMatchObject({ field: 'roll', value: '9' });
     expect(result.errors[0].reason).toContain('Duplicate roll number 9');
   });
 
@@ -337,6 +338,9 @@ describe('StudentBulkUploadService (integration)', () => {
 
     expect(result.success_count).toBe(0);
     expect(result.errors[0].reason).toContain('Missing required field: guardian1_phone');
+    // Empty cell — a field to blame, but no offending value to echo back.
+    expect(result.errors[0].field).toBe('guardian1_phone');
+    expect(result.errors[0].value).toBeUndefined();
   });
 
   it('reports a specific error for an invalid phone format', async () => {
@@ -345,6 +349,7 @@ describe('StudentBulkUploadService (integration)', () => {
     const result = await service.process(file, TENANT_ID, SEED_ADMIN_USER_ID);
 
     expect(result.success_count).toBe(0);
+    expect(result.errors[0]).toMatchObject({ field: 'guardian1_phone', value: '12345' });
     expect(result.errors[0].reason).toContain('Invalid phone format: guardian1_phone');
   });
 
@@ -354,7 +359,36 @@ describe('StudentBulkUploadService (integration)', () => {
     const result = await service.process(file, TENANT_ID, SEED_ADMIN_USER_ID);
 
     expect(result.success_count).toBe(0);
+    expect(result.errors[0]).toMatchObject({ field: 'class', value: 'Nonexistent Class' });
     expect(result.errors[0].reason).toContain("Class 'Nonexistent Class'");
+  });
+
+  it('blames the section column when the class exists but the section does not', async () => {
+    const file = await buildXlsxFile([rowValues(headers, { section: 'Nonexistent Section' })]);
+
+    const result = await service.process(file, TENANT_ID, SEED_ADMIN_USER_ID);
+
+    expect(result.success_count).toBe(0);
+    expect(result.errors[0]).toMatchObject({ field: 'section', value: 'Nonexistent Section' });
+  });
+
+  // A class can exist for the year with no sections configured yet. Blaming
+  // `class` there would tell the admin to fix a class name that is correct.
+  it('blames the section column for a class that exists but has no sections', async () => {
+    const classRepo = dataSource.getRepository(Class);
+    await classRepo.save(
+      classRepo.create({
+        name: 'Class Sectionless',
+        academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        tenant_id: SEED_TENANT_ID,
+      }),
+    );
+    const file = await buildXlsxFile([rowValues(headers, { class: 'Class Sectionless' })]);
+
+    const result = await service.process(file, TENANT_ID, SEED_ADMIN_USER_ID);
+
+    expect(result.success_count).toBe(0);
+    expect(result.errors[0]).toMatchObject({ field: 'section', value: 'Section A' });
   });
 
   it('ignores the registration_number column and always system-generates it', async () => {
