@@ -46,9 +46,12 @@ test('guardian login lands in the portal', async ({ page }) => {
 test.describe('protected visit after logout', () => {
   test.use(loggedIn('teacher'));
 
-  test('redirects to /login once the session is revoked', async ({ page, request }) => {
+  test('redirects to /login once the session is revoked', async ({ page }) => {
     await test.step('revoke server-side', async () => {
-      const response = await request.post('/api/v1/auth/logout');
+      // page.request shares the page's own browsing context, so it
+      // carries the refresh cookie the login set — the standalone
+      // `request` fixture is its own context and would not.
+      const response = await page.request.post('/api/v1/auth/logout');
       expect(response.ok()).toBe(true);
     });
     await test.step('protected visit redirects', async () => {

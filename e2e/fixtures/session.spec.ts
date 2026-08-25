@@ -33,13 +33,11 @@ test.describe('refresh-path bootstrap', () => {
 test.describe('revoked session', () => {
   test.use(loggedIn('teacher'));
 
-  test('a logged-out cookie redirects to /login instead of half-rendering', async ({
-    page,
-    request,
-  }) => {
-    // Revoke server-side first — logout reads the cookie from the request
-    // context, which shares this test's storageState.
-    const response = await request.post('/api/v1/auth/logout');
+  test('a logged-out cookie redirects to /login instead of half-rendering', async ({ page }) => {
+    // Revoke server-side first — page.request shares the page's own
+    // browsing context, so it carries the refresh cookie the login set;
+    // the standalone `request` fixture is its own context and would not.
+    const response = await page.request.post('/api/v1/auth/logout');
     expect(response.ok()).toBe(true);
 
     await page.goto('/students');
