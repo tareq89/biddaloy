@@ -65,7 +65,7 @@
     },
     {
       "path": "/fees/generate",
-      "role": "admin",
+      "role": "accountant",
       "archetype": "wizard"
     },
     {

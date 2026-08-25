@@ -4555,8 +4555,8 @@
     "semantic_hash": ""
   },
   "e2e/route-manifest.json": {
-    "mtime": 1787637125.6979609,
-    "ast_hash": "77dd42f8bfe382b4d23f9b2303f018d9",
+    "mtime": 1787643570.411047,
+    "ast_hash": "9d89eaf1d1f6b2799f9132e0a27b0638",
     "semantic_hash": ""
   },
   "e2e/seed-contract.ts": {
@@ -4590,13 +4590,13 @@
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/fees/-generate/generate-fees-wizard.tsx": {
-    "mtime": 1787637906.4966526,
-    "ast_hash": "62b996463b66d3c35e13b9decdea7c13",
+    "mtime": 1787643644.6283875,
+    "ast_hash": "3dc3ebb77c8255bc38af2c0be9fbb7f0",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/fees/generate.test.tsx": {
-    "mtime": 1787637871.6410034,
-    "ast_hash": "007d6bac922e5481e2d4d080e075c934",
+    "mtime": 1787643625.221439,
+    "ast_hash": "bcd3f0e9bec0e562e4e60af7699f5c19",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/fees/generate.tsx": {

@@ -130,12 +130,17 @@ export function GenerateFeesWizard() {
   // not "this month": a default that depends on the wall clock would sit
   // outside the academic year for part of the calendar and land the
   // accountant on an invalid period they didn't choose.
+  // Keyed on `academicYearId`, deliberately not on the `selectedYear`
+  // object: a background refetch of the year list hands back a new object
+  // for the same year, and depending on it would re-run this and quietly
+  // throw away a period the accountant had already chosen.
+  const yearStart = selectedYear ? academicYearBounds(selectedYear).start : undefined;
   React.useEffect(() => {
-    if (!selectedYear) return;
-    const { start } = academicYearBounds(selectedYear);
-    setMonth(String(start.getMonth() + 1));
-    setCalendarYear(String(start.getFullYear()));
-  }, [selectedYear]);
+    if (!yearStart) return;
+    setMonth(String(yearStart.getMonth() + 1));
+    setCalendarYear(String(yearStart.getFullYear()));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [academicYearId]);
 
   const classesQuery = useClasses(
     academicYearId !== '' ? { academic_year_id: academicYearId } : {},
@@ -299,7 +304,13 @@ export function GenerateFeesWizard() {
           {classId !== ALL_VALUE && (
             <div className="flex flex-col gap-1.5">
               <span className="text-sm font-medium">{t('scope.sectionLabel')}</span>
-              <Select value={sectionId} onValueChange={setSectionId}>
+              <Select
+                value={sectionId}
+                onValueChange={(value) => {
+                  setSectionId(value);
+                  clearStaleSubmitError();
+                }}
+              >
                 <SelectTrigger aria-label={t('scope.sectionLabel')}>
                   <SelectValue />
                 </SelectTrigger>

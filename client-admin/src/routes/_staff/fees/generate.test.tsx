@@ -525,6 +525,53 @@ describe('/fees/generate', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
+  // Same rule, reached through the scope step: narrowing to a section
+  // after a failure must not leave the old alert describing the wider run.
+  it('drops a stale failure alert once the section is changed', async () => {
+    server.use(
+      ...referenceHandlers(),
+      http.post('/api/v1/fees/generate', () =>
+        HttpResponse.json(
+          {
+            statusCode: 500,
+            message: 'Fee generation failed',
+            timestamp: new Date().toISOString(),
+            path: '/api/v1/fees/generate',
+            requestId: crypto.randomUUID(),
+          },
+          { status: 500 },
+        ),
+      ),
+    );
+
+    const user = userEvent.setup();
+    render();
+
+    await screen.findByRole('combobox', { name: 'Academic year' });
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    await user.click(await screen.findByRole('combobox', { name: 'Class' }));
+    await user.click(await screen.findByRole('option', { name: 'Class 9' }));
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    await screen.findByRole('combobox', { name: 'Month' });
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    await screen.findByText('Check this before generating');
+    await user.click(screen.getByRole('button', { name: 'Generate fees' }));
+    expect(await screen.findByRole('alert')).toBeTruthy();
+
+    // Review -> period -> scope.
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    await screen.findByRole('combobox', { name: 'Month' });
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    await user.click(await screen.findByRole('combobox', { name: 'Section' }));
+    await user.click(await screen.findByRole('option', { name: 'A' }));
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    await screen.findByRole('combobox', { name: 'Month' });
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    await screen.findByText('Check this before generating');
+
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
   it('is axe clean', async () => {
     server.use(...referenceHandlers());
 
