@@ -103,11 +103,14 @@ export {
 } from './enrollments';
 export {
   communicationLogKeys,
+  useCommunicationLog,
   useGuardianCommunicationLogs,
+  useSendCommunication,
   useStudentCommunicationLogs,
   useLastReminders,
   type CommunicationLog,
   type LastReminder,
+  type SendCommunicationInput,
 } from './communications';
 export {
   auditLogKeys,
@@ -149,8 +152,16 @@ export {
 } from './classes';
 export {
   useSendBulkReminder,
+  useSendSingleReminder,
+  useSingleReminderPreview,
   type ReminderBatchResponse,
+  type ReminderPreview,
+  type ReminderPreviewRecipient,
   type SendBulkReminderInput,
+  type SendSingleReminderInput,
+  type SingleReminderResult,
+  type SingleReminderVariables,
+  type SkippedGuardian,
 } from './reminders';
 export {
   academicYearKeys,

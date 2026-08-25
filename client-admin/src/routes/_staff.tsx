@@ -110,6 +110,32 @@ function StaffLayout() {
       ],
     },
     {
+      id: 'communications',
+      label: t('groups.communications'),
+      items: [
+        // [8.11.9] — COMMUNICATION_SEND matches `POST /communications/send`'s
+        // `@Roles(ADMIN, ACCOUNTANT, EXECUTIVE, TEACHER)` for every role
+        // ROLE_PERMISSIONS actually grants it to (EXECUTIVE's missing grant
+        // is the flagged server-broader-than-ROLE_PERMISSIONS pattern, same
+        // as `/staff` above).
+        {
+          to: '/communications/send',
+          label: t('items.sendMessage'),
+          permission: Permission.COMMUNICATION_SEND,
+        },
+        // Gated on COMMUNICATION_BULK_SEND, not COMMUNICATION_SEND: the
+        // reminder routes are `@Roles(ADMIN, ACCOUNTANT, EXECUTIVE)` —
+        // no TEACHER — and BULK_SEND is the permission whose holders
+        // (ADMIN, ACCOUNTANT) are a subset of that server list. Gating on
+        // SEND would show a TEACHER a page every request of which 403s.
+        {
+          to: '/communications/reminders',
+          label: t('items.feeReminders'),
+          permission: Permission.COMMUNICATION_BULK_SEND,
+        },
+      ],
+    },
+    {
       id: 'administration',
       label: t('groups.administration'),
       items: [

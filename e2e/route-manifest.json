@@ -118,6 +118,19 @@
       "role": "accountant",
       "archetype": "wizard"
     },
+
+    {
+      "path": "/communications/send",
+      "role": "admin",
+      "archetype": "form",
+      "overlays": ["confirm-send"]
+    },
+
+    {
+      "path": "/communications/reminders",
+      "role": "accountant",
+      "archetype": "form"
+    },
     {
       "path": "/students",
       "role": "admin",

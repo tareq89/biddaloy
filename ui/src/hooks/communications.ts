@@ -1,4 +1,4 @@
-import { queryOptions, useQuery } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
@@ -70,6 +70,46 @@ export function useLastReminders(studentIds: string[]) {
         return new Map(res.data.map((reminder) => [reminder.student_id, reminder]));
       },
       enabled: studentIds.length > 0,
+      retry: shouldRetryQuery,
+    }),
+  );
+}
+
+export type SendCommunicationInput = components['schemas']['SendCommunicationDto'];
+
+/**
+ * [8.11.9]'s Send Message page — one staff-composed message to one
+ * recipient via `POST /communications/send`. The 201 body's `status` is
+ * `QUEUED` (dispatch happens async via BullMQ), so the page pairs this
+ * with `useCommunicationLog` below to show where the message actually
+ * got to. `retry: false` — same non-idempotency reasoning as
+ * `reminders.ts`'s send mutations: a retry after a dropped response
+ * would queue the same message twice.
+ */
+export function useSendCommunication() {
+  return useMutation({
+    mutationFn: async (input: SendCommunicationInput) => {
+      const res = await apiClient.post<CommunicationLog>('/communications/send', input);
+      return res.data;
+    },
+    retry: false,
+  });
+}
+
+/**
+ * `GET /communications/{id}` — one log entry, used by the Send Message
+ * page's post-send panel to show the queued message's current delivery
+ * status. `enabled` gates it until a send has actually produced an id.
+ */
+export function useCommunicationLog(id: string | undefined) {
+  return useQuery(
+    queryOptions({
+      queryKey: communicationLogKeys.detail(id ?? ''),
+      queryFn: async ({ signal }) => {
+        const res = await apiClient.get<CommunicationLog>(`/communications/${id}`, { signal });
+        return res.data;
+      },
+      enabled: id !== undefined,
       retry: shouldRetryQuery,
     }),
   );
