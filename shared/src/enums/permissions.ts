@@ -105,6 +105,18 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
 
   [UserRole.ACCOUNTANT]: [
     Permission.STUDENT_READ,
+    // Matches `@Roles(ADMIN, ACCOUNTANT, EXECUTIVE)` on
+    // `POST /students/bulk-upload`. Without it the endpoint is callable but
+    // the "Import students" button is hidden, which reads as a broken
+    // feature rather than a deliberate restriction.
+    //
+    // Deliberately NOT paired with STUDENT_CREATE/GUARDIAN_CREATE, even
+    // though `POST /students` and `POST /guardians` carry the identical
+    // `@Roles`. The consequence is odd on its face — this role can import
+    // 500 students from a spreadsheet but cannot add one by hand — and it is
+    // flagged rather than fixed here: [8.11.8] was scoped to unhiding the
+    // import feature, and granting create rights is a separate product call.
+    Permission.STUDENT_BULK_UPLOAD,
     Permission.GUARDIAN_READ,
     Permission.FEE_STRUCTURE_CREATE,
     Permission.FEE_STRUCTURE_READ,
@@ -142,6 +154,16 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
 
   [UserRole.EXECUTIVE]: [
     Permission.STUDENT_READ,
+    // Same reasoning as ACCOUNTANT above — the server route already admits
+    // EXECUTIVE, so the UI gate matches it rather than being stricter. The
+    // same STUDENT_CREATE caveat noted there applies here too.
+    //
+    // Also deliberately no GUARDIAN_READ: a bulk import creates guardian
+    // rows as a side effect, and this role has no surface for viewing them
+    // (`/guardians` is hidden and guardians are excluded from global
+    // search). Granting a read that the nav does not expose is a wider
+    // change than [8.11.8]; flagged rather than fixed.
+    Permission.STUDENT_BULK_UPLOAD,
     // Deliberately no FEE_STRUCTURE_* — same call as TEACHER above. The
     // controller's `@Roles` does let an EXECUTIVE hit these endpoints, but
     // `/fees` and `/fee-structures` are both gated on FEE_STRUCTURE_READ,
