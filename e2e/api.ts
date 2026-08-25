@@ -120,6 +120,9 @@ export async function createStaffUser(
     full_name: fullName,
     email: `staff-${Date.now()}-${Math.floor(Math.random() * 1e6)}@e2e.example.com`,
     role: 'TEACHER',
+    // CreateUserDto requires tenantId in the body even though the server
+    // resolves the tenant from X-Tenant-ID — same as the add-user dialog.
+    tenantId: session.tenantId,
   });
   return { id: created.user.id };
 }
