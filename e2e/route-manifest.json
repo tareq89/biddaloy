@@ -72,7 +72,7 @@
       "path": "/fee-structures",
       "role": "admin",
       "archetype": "list",
-      "overlays": ["create-structure", "edit-structure", "delete-structure"]
+      "overlays": ["create-structure"]
     },
     {
       "path": "/guardians/$guardianId",
