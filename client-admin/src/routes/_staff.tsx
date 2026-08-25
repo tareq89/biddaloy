@@ -86,6 +86,11 @@ function StaffLayout() {
       ],
       items: [
         { to: '/fees', label: t('items.fees'), permission: Permission.FEE_STRUCTURE_READ },
+        {
+          to: '/fee-structures',
+          label: t('items.feeStructures'),
+          permission: Permission.FEE_STRUCTURE_READ,
+        },
         { to: '/invoices', label: t('items.invoices'), permission: Permission.INVOICE_READ },
       ],
     },

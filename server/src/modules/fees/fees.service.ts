@@ -145,7 +145,16 @@ export class FeeStructureService {
   async findOne(id: string, tenantId: string): Promise<FeeStructure> {
     const entity = await this.repo.findOne({
       where: { id, tenant_id: tenantId, deleted_at: IsNull() },
-      relations: ['class', 'academic_year', 'section'],
+      // `selected_students` is loaded here but deliberately not in `findAll`:
+      // the edit dialog needs it to prefill its student picker, list rows
+      // never show it.
+      relations: [
+        'class',
+        'academic_year',
+        'section',
+        'selected_students',
+        'selected_students.student',
+      ],
     });
     if (!entity) {
       throw new NotFoundException(`Fee structure with ID "${id}" not found`);

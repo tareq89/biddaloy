@@ -9,6 +9,7 @@
     "students": "Students",
     "guardians": "Guardians",
     "fees": "Fees",
+    "feeStructures": "Fee Structures",
     "invoices": "Invoices",
     "settings": "Settings",
     "studentDues": "Student Dues",
@@ -18,7 +19,11 @@
     "academicYears": "Academic Years",
     "classes": "Classes"
   },
-  "groups": { "people": "People", "finance": "Finance", "administration": "Administration" },
+  "groups": {
+    "people": "People",
+    "finance": "Finance",
+    "administration": "Administration"
+  },
   "dashboard": {
     "title": "Dashboard",
     "explanation": "The dashboard has not been built yet.",

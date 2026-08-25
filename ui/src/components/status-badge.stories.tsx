@@ -69,6 +69,22 @@ export const AllDomains: Story = {
         <StatusBadge domain="guardian" status="PRIMARY" />
         <StatusBadge domain="guardian" status="SECONDARY" />
       </div>
+      <div className="flex flex-wrap gap-2">
+        <StatusBadge domain="feeStructure" status="RECURRING" />
+        <StatusBadge domain="feeStructure" status="ONE_TIME" />
+      </div>
+    </div>
+  ),
+};
+
+/** [8.11.5]'s "recurring structures visually distinguished without relying
+ * on colour" AC, shown greyscale so the label text and icon shape are the
+ * only things left doing the distinguishing. */
+export const FeeStructureRecurrence: Story = {
+  render: () => (
+    <div className="flex flex-wrap gap-2" style={{ filter: 'grayscale(1)' }}>
+      <StatusBadge domain="feeStructure" status="RECURRING" />
+      <StatusBadge domain="feeStructure" status="ONE_TIME" />
     </div>
   ),
 };

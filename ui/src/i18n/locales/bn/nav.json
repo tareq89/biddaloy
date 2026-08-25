@@ -9,6 +9,7 @@
     "students": "শিক্ষার্থী",
     "guardians": "অভিভাবক",
     "fees": "ফি",
+    "feeStructures": "ফি কাঠামো",
     "invoices": "চালান",
     "settings": "সেটিংস",
     "studentDues": "শিক্ষার্থীর বকেয়া",
@@ -18,7 +19,11 @@
     "academicYears": "শিক্ষাবর্ষ",
     "classes": "ক্লাস"
   },
-  "groups": { "people": "ব্যক্তিবর্গ", "finance": "অর্থ", "administration": "প্রশাসন" },
+  "groups": {
+    "people": "ব্যক্তিবর্গ",
+    "finance": "অর্থ",
+    "administration": "প্রশাসন"
+  },
   "dashboard": {
     "title": "ড্যাশবোর্ড",
     "explanation": "ড্যাশবোর্ড এখনও তৈরি হয়নি।",

@@ -40,6 +40,20 @@ export const overlayOpeners: Record<string, (page: Page, locale: Locale) => Prom
     await page.getByRole('button', { name: makeT(locale)('students.list.sendReminder') }).click();
     await expectDialogOpen(page);
   },
+  // Only the create state is declared for this route. `edit-structure` and
+  // `delete-structure` both need an existing row, which the a11y suite
+  // doesn't seed for `/fee-structures` — and the edit dialog is the same
+  // `StructureFormDialog` component this opens, so the form's composition
+  // is covered either way. The delete confirm is the gap; seeding a
+  // structure here would close it.
+  '/fee-structures::create-structure': async (page, locale) => {
+    const list = new ListShellPage(page, { titleKey: 'feeStructures.list.title' }, locale);
+    await list.expectLoaded();
+    await page
+      .getByRole('button', { name: makeT(locale)('feeStructures.list.addStructure') })
+      .click();
+    await expectDialogOpen(page);
+  },
   '/students/$studentId::send-reminder': async (page, locale) => {
     await new DetailShellPage(page, locale).clickAction('students.detail.actions.sendReminder');
     await expectDialogOpen(page);

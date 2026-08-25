@@ -30,7 +30,8 @@ export interface ListShellState {
 export interface ListShellActions {
   setPage: (page: number) => void;
   setSorting: (sorting: DataTableSort | null) => void;
-  setFilters: (filters: Record<string, string>) => void;
+  /** A string sets a filter, `null` clears it — see `ListUrlStatePatch`. */
+  setFilters: (filters: Record<string, string | null>) => void;
   setSelectedIds: (ids: ReadonlySet<string>) => void;
 }
 

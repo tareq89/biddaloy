@@ -12,6 +12,7 @@ import bnAuth from '../ui/src/i18n/locales/bn/auth.json';
 import bnClasses from '../ui/src/i18n/locales/bn/classes.json';
 import bnCommon from '../ui/src/i18n/locales/bn/common.json';
 import bnFees from '../ui/src/i18n/locales/bn/fees.json';
+import bnFeeStructures from '../ui/src/i18n/locales/bn/feeStructures.json';
 import bnGuardians from '../ui/src/i18n/locales/bn/guardians.json';
 import bnNav from '../ui/src/i18n/locales/bn/nav.json';
 import bnPayments from '../ui/src/i18n/locales/bn/payments.json';
@@ -22,6 +23,7 @@ import enAuth from '../ui/src/i18n/locales/en/auth.json';
 import enClasses from '../ui/src/i18n/locales/en/classes.json';
 import enCommon from '../ui/src/i18n/locales/en/common.json';
 import enFees from '../ui/src/i18n/locales/en/fees.json';
+import enFeeStructures from '../ui/src/i18n/locales/en/feeStructures.json';
 import enGuardians from '../ui/src/i18n/locales/en/guardians.json';
 import enNav from '../ui/src/i18n/locales/en/nav.json';
 import enPayments from '../ui/src/i18n/locales/en/payments.json';
@@ -35,6 +37,7 @@ const catalogs = {
     classes: bnClasses,
     common: bnCommon,
     fees: bnFees,
+    feeStructures: bnFeeStructures,
     guardians: bnGuardians,
     nav: bnNav,
     payments: bnPayments,
@@ -47,6 +50,7 @@ const catalogs = {
     classes: enClasses,
     common: enCommon,
     fees: enFees,
+    feeStructures: enFeeStructures,
     guardians: enGuardians,
     nav: enNav,
     payments: enPayments,

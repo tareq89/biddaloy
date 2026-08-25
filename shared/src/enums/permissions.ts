@@ -21,6 +21,7 @@ export enum Permission {
   FEE_STRUCTURE_CREATE = 'FEE_STRUCTURE_CREATE',
   FEE_STRUCTURE_READ = 'FEE_STRUCTURE_READ',
   FEE_STRUCTURE_UPDATE = 'FEE_STRUCTURE_UPDATE',
+  FEE_STRUCTURE_DELETE = 'FEE_STRUCTURE_DELETE',
   FEE_GENERATE = 'FEE_GENERATE',
   FEE_READ = 'FEE_READ',
   FEE_COLLECT = 'FEE_COLLECT',
@@ -80,6 +81,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.FEE_STRUCTURE_CREATE,
     Permission.FEE_STRUCTURE_READ,
     Permission.FEE_STRUCTURE_UPDATE,
+    Permission.FEE_STRUCTURE_DELETE,
     Permission.FEE_GENERATE,
     Permission.FEE_READ,
     Permission.FEE_COLLECT,
@@ -104,7 +106,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   [UserRole.ACCOUNTANT]: [
     Permission.STUDENT_READ,
     Permission.GUARDIAN_READ,
+    Permission.FEE_STRUCTURE_CREATE,
     Permission.FEE_STRUCTURE_READ,
+    Permission.FEE_STRUCTURE_UPDATE,
     Permission.FEE_GENERATE,
     Permission.FEE_READ,
     Permission.FEE_COLLECT,
@@ -123,6 +127,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   [UserRole.TEACHER]: [
     Permission.STUDENT_READ,
     Permission.GUARDIAN_READ,
+    // Deliberately no FEE_STRUCTURE_READ, even though the controller's
+    // `@Roles` lets a TEACHER call the fee-structure GETs: granting it here
+    // would surface the whole Finance nav group to teachers, which is a
+    // product decision well outside [8.11.5]. Flagged rather than fixed.
     Permission.FEE_READ,
     Permission.COMMUNICATION_SEND,
     Permission.DASHBOARD_VIEW,
@@ -134,6 +142,13 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
 
   [UserRole.EXECUTIVE]: [
     Permission.STUDENT_READ,
+    // Deliberately no FEE_STRUCTURE_* — same call as TEACHER above. The
+    // controller's `@Roles` does let an EXECUTIVE hit these endpoints, but
+    // `/fees` and `/fee-structures` are both gated on FEE_STRUCTURE_READ,
+    // so granting it here surfaces the whole Finance group to a role whose
+    // navigation is deliberately scoped to Students
+    // (`e2e/journeys/permissions.spec.ts`'s CASES pin that). Widening it is
+    // a product decision, not a mapping fix.
     Permission.FEE_READ,
     Permission.REPORTS_VIEW,
     Permission.DASHBOARD_VIEW,

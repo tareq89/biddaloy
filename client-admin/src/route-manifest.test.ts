@@ -1,3 +1,4 @@
+import { QueryClient } from '@tanstack/react-query';
 import { createRouter } from '@tanstack/react-router';
 import { describe, expect, it } from 'vitest';
 
@@ -13,7 +14,11 @@ import { routeTree } from './routeTree.gen';
  * shrinking E2E coverage.
  */
 
-const router = createRouter({ routeTree });
+// `context` is required because routes' loaders read `context.queryClient`
+// (see `__root.tsx`'s `RouterContext`). This router is only ever used for its
+// static `routesById` map below — it never navigates or runs a loader — so a
+// throwaway `QueryClient` is enough to satisfy the type.
+const router = createRouter({ routeTree, context: { queryClient: new QueryClient() } });
 
 /** TanStack writes index routes as `/students/` — the manifest uses the
  * canonical no-trailing-slash form. */
