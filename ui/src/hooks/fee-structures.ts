@@ -74,7 +74,12 @@ export function useCreateFeeStructure() {
       const res = await apiClient.post<FeeStructure>('/fee-structures', input);
       return res.data;
     },
-    retry: shouldRetryQuery,
+    // No `retry` — POST isn't idempotent. `shouldRetryQuery` retries network
+    // errors, timeouts and 5xx, so a request that committed before its
+    // response was lost would create a *second* structure, and
+    // `FeeGenerationService` sums every matching structure into one
+    // `StudentFee` — a silently doubled monthly charge. Matches
+    // `useCreateClass`; only the DELETE hooks opt into retries.
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: feeStructureKeys.lists() });
     },
@@ -88,7 +93,9 @@ export function useUpdateFeeStructure(id: string) {
       const res = await apiClient.patch<FeeStructure>(`/fee-structures/${id}`, input);
       return res.data;
     },
-    retry: shouldRetryQuery,
+    // No `retry`, matching `useUpdateClass`. A retried PATCH is harmless on
+    // its own, but `student_ids` is a full replacement set, so a retry that
+    // races a concurrent edit would silently reinstate a stale link set.
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: feeStructureKeys.detail(id) });
       void queryClient.invalidateQueries({ queryKey: feeStructureKeys.lists() });

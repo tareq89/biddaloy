@@ -27,6 +27,11 @@ export interface FeeStructureStudentPickerProps {
   /** Already-linked students (edit mode) — seeds the name cache so they
    * render immediately, before the roster query resolves. */
   initialStudents?: Student[];
+  /** Read-only while the edit detail that supplies `initialStudents` is
+   * still in flight (or failed): the submitted set replaces every existing
+   * link, so accepting input before the current set is known would drop
+   * links the user never saw. */
+  disabled?: boolean;
 }
 
 export function FeeStructureStudentPicker({
@@ -34,6 +39,7 @@ export function FeeStructureStudentPicker({
   selectedIds,
   onSelectedIdsChange,
   initialStudents = [],
+  disabled = false,
 }: FeeStructureStudentPickerProps) {
   const { t } = useTranslation('feeStructures');
   const [search, setSearch] = React.useState('');
@@ -100,6 +106,7 @@ export function FeeStructureStudentPicker({
           placeholder={t('studentPicker.searchLabel')}
           value={search}
           onChange={(event) => setSearch(event.target.value)}
+          disabled={disabled}
         />
       </div>
 
@@ -126,6 +133,7 @@ export function FeeStructureStudentPicker({
                 id={`fee-structure-student-${student.id}`}
                 checked={selectedIds.includes(student.id)}
                 onCheckedChange={() => toggleSelected(student.id)}
+                disabled={disabled}
               />
               <label htmlFor={`fee-structure-student-${student.id}`} className="text-sm">
                 {student.full_name} · {student.registration_number}
@@ -146,6 +154,7 @@ export function FeeStructureStudentPicker({
               id={`fee-structure-selected-${id}`}
               checked
               onCheckedChange={() => toggleSelected(id)}
+              disabled={disabled}
             />
             <label htmlFor={`fee-structure-selected-${id}`} className="text-sm">
               {knownStudents[id]?.full_name ?? id}

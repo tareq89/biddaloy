@@ -129,6 +129,16 @@ export function StructureFormDialog({
     setStudentIds(prefillKey.split(','));
   }, [open, prefillKey]);
 
+  // `student_ids` is a full replacement set, so submitting an edit before
+  // the detail response lands would send whatever interim selection exists
+  // and silently unlink every student already attached. Until it resolves
+  // the selection isn't known, so the picker is read-only and Save is
+  // blocked; if the load fails outright, replacement stays blocked rather
+  // than proceeding from an empty set.
+  const selectionLoading = mode === 'edit' && open && detailQuery.isPending;
+  const selectionFailed = mode === 'edit' && open && detailQuery.isError;
+  const selectionUnavailable = selectionLoading || selectionFailed;
+
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
 
@@ -146,6 +156,14 @@ export function StructureFormDialog({
     }
     if (mode === 'create' && classId === '') {
       setValidationError(t('form.errorClassRequired'));
+      return;
+    }
+    if (selectionFailed) {
+      setValidationError(t('form.errorSelectionLoadFailed'));
+      return;
+    }
+    if (selectionLoading) {
+      setValidationError(t('form.errorSelectionLoading'));
       return;
     }
     if (applicability === FeeApplicability.SELECTED && studentIds.length === 0) {
@@ -355,11 +373,15 @@ export function StructureFormDialog({
               classId={classId === '' ? undefined : classId}
               selectedIds={studentIds}
               onSelectedIdsChange={setStudentIds}
+              disabled={selectionUnavailable}
               initialStudents={prefilledStudents
                 .map((link) => link.student)
                 .filter((student): student is NonNullable<typeof student> => student !== undefined)}
             />
           )}
+
+          {selectionLoading && <p role="status">{t('form.selectionLoading')}</p>}
+          {selectionFailed && <p role="alert">{t('form.errorSelectionLoadFailed')}</p>}
 
           {validationError && (
             <p role="alert" className="text-sm text-destructive">
@@ -378,7 +400,7 @@ export function StructureFormDialog({
                 {t('actions.cancel', { ns: 'common' })}
               </Button>
             </DialogClose>
-            <Button type="submit" loading={mutation.isPending}>
+            <Button type="submit" loading={mutation.isPending} disabled={selectionUnavailable}>
               {mutation.isPending ? t('form.saving') : t('form.save')}
             </Button>
           </DialogFooter>

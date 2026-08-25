@@ -55,6 +55,9 @@
     "errorAcademicYearRequired": "Academic year is required",
     "errorClassRequired": "Class is required",
     "errorStudentsRequired": "Select at least one student",
+    "selectionLoading": "Loading the students this fee structure already applies to…",
+    "errorSelectionLoading": "Wait for the current student selection to finish loading before saving.",
+    "errorSelectionLoadFailed": "The students this fee structure applies to couldn’t be loaded, so saving would remove them. Close the dialog and try again.",
     "errorMessage": "Failed to save fee structure",
     "save": "Save",
     "saving": "Saving…"

@@ -155,6 +155,28 @@ describe('/fee-structures', () => {
     expect(await screen.findByText('2 selected students')).toBeTruthy();
   });
 
+  // The contract-compliant list response: `findAll` omits the
+  // `selected_students` relation deliberately, so the column has no count to
+  // show and must degrade to the generic label rather than inventing a number
+  // or rendering "0 selected students".
+  it('falls back to a generic label when the list omits selected_students', async () => {
+    server.use(
+      listHandler([
+        feeStructureFactory({
+          id: 's-1',
+          applicability: FeeApplicability.SELECTED,
+          class: KLASS,
+          selected_students: undefined,
+        }),
+      ]),
+      ...referenceHandlers(),
+    );
+
+    render();
+
+    expect(await screen.findByText('Selected students')).toBeTruthy();
+  });
+
   it('shows the empty state when the tenant has no fee structures', async () => {
     server.use(listHandler([]), ...referenceHandlers());
 
@@ -362,6 +384,46 @@ describe('/fee-structures', () => {
     // Never patchable — the dialog must not send them even though it knows them.
     expect(body).not.toHaveProperty('class_id');
     expect(body).not.toHaveProperty('academic_year_id');
+  });
+
+  // Regression: `student_ids` is a full replacement set, so submitting an
+  // edit before the detail response lands would send the interim selection
+  // and silently unlink every student already attached. Save stays blocked
+  // until the current set is known.
+  it('blocks saving an edit until the existing student selection has loaded', async () => {
+    const row = feeStructureFactory({
+      id: 'structure-1',
+      applicability: FeeApplicability.SELECTED,
+      class: KLASS,
+      class_id: KLASS.id,
+      academic_year: YEAR,
+      academic_year_id: YEAR.id,
+    });
+    let patched = false;
+    server.use(
+      listHandler([row]),
+      // Never resolves within the test — stands in for a slow detail load.
+      http.get('/api/v1/fee-structures/:id', () => new Promise(() => {})),
+      http.get('/api/v1/students', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 1 }),
+      ),
+      http.patch('/api/v1/fee-structures/:id', () => {
+        patched = true;
+        return HttpResponse.json(row);
+      }),
+      ...referenceHandlers(),
+    );
+
+    render();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+
+    const dialog = within(await screen.findByRole('dialog'));
+    const save = await dialog.findByRole('button', { name: 'Save' });
+    expect(save).toHaveProperty('disabled', true);
+
+    await user.click(save);
+    expect(patched).toBe(false);
   });
 
   // Regression: switching SELECTED → ALL used to omit `student_ids`, so the
