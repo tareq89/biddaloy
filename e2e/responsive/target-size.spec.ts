@@ -10,7 +10,7 @@ import { resolvePath, routes } from './routes';
  */
 
 const SELECTOR =
-  'a, button, [role="button"], [role="menuitem"], input, select, [tabindex]:not([tabindex="-1"])';
+  'a, button, [role="button"], [role="menuitem"], input, textarea, select, [tabindex]:not([tabindex="-1"])';
 
 for (const route of routes) {
   test.describe(route.path, () => {

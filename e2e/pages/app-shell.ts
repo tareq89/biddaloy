@@ -1,6 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 
 import { t } from '../i18n';
+import { escapeRegExp } from '../regex';
 
 /**
  * Drives the persistent chrome every staff screen shares
@@ -62,7 +63,7 @@ export class AppShellPage {
   /** Tenant-bar school switch, driving the confirm dialog. */
   async switchSchool(schoolName: string): Promise<void> {
     await this.openSchoolSwitcher();
-    await this.page.getByRole('menuitem', { name: new RegExp(schoolName) }).click();
+    await this.page.getByRole('menuitem', { name: new RegExp(escapeRegExp(schoolName)) }).click();
     await this.page
       .getByRole('dialog')
       .getByRole('button', { name: t('nav.tenantBar.confirm'), exact: true })

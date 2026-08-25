@@ -23,12 +23,23 @@ export interface ManifestRoute {
 
 export const routes = (manifest as { routes: ManifestRoute[] }).routes;
 
+// One admin login per worker process, not one per dynamic route resolved —
+// every call in this file needs the same ADMIN session, and re-logging in
+// for each of the manifest's several dynamic routes was pointless load on
+// the auth endpoint.
+let sharedSessionPromise: Promise<ApiSession> | null = null;
+
+function sharedAdminSession(request: APIRequestContext): Promise<ApiSession> {
+  sharedSessionPromise ??= adminApiSession(request);
+  return sharedSessionPromise;
+}
+
 export async function resolvePath(
   request: APIRequestContext,
   route: ManifestRoute,
 ): Promise<string> {
   if (!route.path.includes('$')) return route.path;
-  const session: ApiSession = await adminApiSession(request);
+  const session: ApiSession = await sharedAdminSession(request);
   const stamp = Date.now();
   if (route.path.includes('$studentId')) {
     const { studentId } = await createStudentWithDues(request, session, `Reflow Student ${stamp}`);

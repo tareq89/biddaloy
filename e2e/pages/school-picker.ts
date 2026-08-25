@@ -1,6 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 
 import { t } from '../i18n';
+import { escapeRegExp } from '../regex';
 
 /** `/select-school` — radio-style school buttons + continue
  * (`ui/src/components/school-picker.tsx`). */
@@ -15,7 +16,7 @@ export class SchoolPickerPage {
   }
 
   async choose(schoolName: string): Promise<void> {
-    await this.page.getByRole('radio', { name: new RegExp(schoolName) }).click();
+    await this.page.getByRole('radio', { name: new RegExp(escapeRegExp(schoolName)) }).click();
     await this.page.getByRole('button', { name: t('auth.schoolPicker.continue') }).click();
   }
 }

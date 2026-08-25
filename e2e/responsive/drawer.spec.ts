@@ -25,13 +25,15 @@ test('drawer opens, traps focus, and restores it on close', async ({ page }) => 
   });
 
   await test.step('25 Tab presses stay inside', async () => {
-    for (let i = 0; i < 25; i += 1) {
-      await page.keyboard.press('Tab');
-      const inside = await page.evaluate(() => {
-        const dialog = document.querySelector('[role="dialog"]');
-        return dialog?.contains(document.activeElement) ?? false;
-      });
-      expect(inside, `Tab press ${i + 1} left the drawer`).toBe(true);
+    for (const key of ['Tab', 'Shift+Tab']) {
+      for (let i = 0; i < 25; i += 1) {
+        await page.keyboard.press(key);
+        const inside = await page.evaluate(() => {
+          const dialog = document.querySelector('[role="dialog"]');
+          return dialog?.contains(document.activeElement) ?? false;
+        });
+        expect(inside, `${key} press ${i + 1} left the drawer`).toBe(true);
+      }
     }
   });
 
