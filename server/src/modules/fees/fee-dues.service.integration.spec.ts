@@ -387,6 +387,127 @@ describe('FeeDuesService (integration)', () => {
     });
   });
 
+  /**
+   * [5.1] — the seam a PARENT/STUDENT caller comes through. `FeeController`
+   * resolves the caller's linked students via `FamilyAccessService` and
+   * hands them to `getDues`; everything below is what the service must do
+   * with that list. Staff callers pass `undefined` and are unaffected.
+   */
+  describe('getDues with restrictToStudentIds', () => {
+    it('narrows the result to the given students', async () => {
+      const mine = await studentRepo.save(makeStudent());
+      const theirs = await studentRepo.save(makeStudent());
+      await studentFeeRepo.save(makeFee(mine.id));
+      await studentFeeRepo.save(makeFee(theirs.id));
+
+      const result = await service.getDues({ page: 1, limit: 10 }, TENANT_ID, [mine.id]);
+
+      expect(result.total).toBe(1);
+      expect(result.data[0].student_id).toBe(mine.id);
+    });
+
+    // The distinction that matters: `undefined` means "no restriction"
+    // (staff), while `[]` means "linked to nobody". Collapsing the two would
+    // hand a childless parent the entire tenant.
+    it('returns an empty page for an empty list, not the whole tenant', async () => {
+      const student = await studentRepo.save(makeStudent());
+      await studentFeeRepo.save(makeFee(student.id));
+
+      const restricted = await service.getDues({ page: 1, limit: 10 }, TENANT_ID, []);
+      const unrestricted = await service.getDues({ page: 1, limit: 10 }, TENANT_ID);
+
+      expect(restricted).toEqual({ data: [], total: 0, page: 1, limit: 10, totalPages: 0 });
+      expect(unrestricted.total).toBe(1);
+    });
+
+    it('leaves staff callers unrestricted when the argument is omitted', async () => {
+      const one = await studentRepo.save(makeStudent());
+      const two = await studentRepo.save(makeStudent());
+      await studentFeeRepo.save(makeFee(one.id));
+      await studentFeeRepo.save(makeFee(two.id));
+
+      const result = await service.getDues({ page: 1, limit: 10 }, TENANT_ID);
+
+      expect(result.total).toBe(2);
+    });
+
+    // A section filter is caller-controlled; it may only narrow the
+    // restricted set further, never reach past it.
+    it('intersects with the other query filters rather than replacing them', async () => {
+      const mine = await studentRepo.save(makeStudent());
+      const theirs = await studentRepo.save(makeStudent());
+      await studentFeeRepo.save(makeFee(mine.id, { month: 1 }));
+      await studentFeeRepo.save(makeFee(theirs.id, { month: 1 }));
+
+      const bothInSection = await service.getDues(
+        { section_id: SEED_SECTION_1_ID, page: 1, limit: 10 },
+        TENANT_ID,
+        [mine.id],
+      );
+      expect(bothInSection.data.map((d) => d.student_id)).toEqual([mine.id]);
+
+      // A month with no fees still yields nothing, restriction or not.
+      const wrongMonth = await service.getDues(
+        { month: 9, year: 2026, page: 1, limit: 10 },
+        TENANT_ID,
+        [mine.id],
+      );
+      expect(wrongMonth.total).toBe(0);
+    });
+
+    // The restriction is not a substitute for the tenant filter — both are
+    // applied, so an id from another tenant matches nothing.
+    it('still enforces the tenant filter on top of the restriction', async () => {
+      const student = await studentRepo.save(makeStudent());
+      await studentFeeRepo.save(makeFee(student.id));
+
+      const result = await service.getDues({ page: 1, limit: 10 }, OTHER_TENANT_ID, [student.id]);
+
+      expect(result.total).toBe(0);
+    });
+
+    /**
+     * `getDues` short-circuits on an empty list before the query is built,
+     * so this case can only be reached through the private helper. Tested
+     * directly because the helper is shared: a future caller (a widened
+     * `getFlaggedDues`, say) that passes `[]` must get "nobody" rather than
+     * the whole tenant — and must not hit an invalid `IN ()`, which is what
+     * a naive truthiness check on `[]` would produce.
+     */
+    it('fails closed inside findMatchingStudentIds when the restriction is empty', async () => {
+      const student = await studentRepo.save(makeStudent());
+      await studentFeeRepo.save(makeFee(student.id));
+
+      const findMatching = (
+        service as unknown as {
+          findMatchingStudentIds: (
+            tenantId: string,
+            statuses: FeeStatus[],
+            filters: { restrictToStudentIds?: string[] },
+          ) => Promise<string[]>;
+        }
+      ).findMatchingStudentIds.bind(service);
+
+      await expect(
+        findMatching(TENANT_ID, [FeeStatus.PENDING], { restrictToStudentIds: [] }),
+      ).resolves.toEqual([]);
+
+      // `undefined` still means "no restriction", so the two are not
+      // collapsed into one another.
+      await expect(findMatching(TENANT_ID, [FeeStatus.PENDING], {})).resolves.toEqual([student.id]);
+    });
+
+    it('excludes a soft-deleted student even when their id is in the restriction', async () => {
+      const student = await studentRepo.save(makeStudent());
+      await studentFeeRepo.save(makeFee(student.id));
+      await studentRepo.softDelete(student.id);
+
+      const result = await service.getDues({ page: 1, limit: 10 }, TENANT_ID, [student.id]);
+
+      expect(result.total).toBe(0);
+    });
+  });
+
   describe('getFlaggedDues', () => {
     it('returns only students past their reminder_threshold_date', async () => {
       const flagged = await studentRepo.save(makeStudent());

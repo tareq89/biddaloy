@@ -10,6 +10,19 @@ export enum Permission {
 
   // Student Management
   STUDENT_CREATE = 'STUDENT_CREATE',
+  // "May read the student records visible to you" — an *object-scoped*
+  // read, not "may read the roster". [5.1] settled this deliberately
+  // rather than splitting it into STUDENT_READ/STUDENT_LIST.
+  //
+  // Which records are visible is the server's decision, in two layers:
+  //   - route `@Roles` — `GET /students` (the roster) admits staff only;
+  //   - object-level linkage — `GET /students/mine` and `GET /students/:id`
+  //     give a PARENT/STUDENT only the students they are linked to, via
+  //     `FamilyAccessService` (server/src/modules/students/).
+  //
+  // So PARENT and STUDENT holding STUDENT_READ is correct and not a
+  // client/server disagreement: they hold the read, the server decides the
+  // scope. Compare PAYMENT_READ below, which is scoped the same way.
   STUDENT_READ = 'STUDENT_READ',
   STUDENT_UPDATE = 'STUDENT_UPDATE',
   STUDENT_DELETE = 'STUDENT_DELETE',
@@ -37,6 +50,14 @@ export enum Permission {
 
   // Payment
   PAYMENT_RECORD = 'PAYMENT_RECORD',
+  // The tenant-wide payment ledger — `GET /payments` (ADMIN, ACCOUNTANT
+  // only) and the receipts surface the UI gates on it.
+  //
+  // Deliberately *not* required for per-student payment history:
+  // `GET /payments/student/:studentId` admits TEACHER and EXECUTIVE, who
+  // hold no PAYMENT_READ, and since [5.1] a linked PARENT/STUDENT too.
+  // Per-student history rides on the caller's relationship to that student,
+  // not on the ledger permission.
   PAYMENT_READ = 'PAYMENT_READ',
   PAYMENT_REFUND = 'PAYMENT_REFUND',
 
@@ -152,6 +173,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.DASHBOARD_VIEW,
   ],
 
+  // [5.1] added no permissions to either family role. The widened server
+  // routes (`/students/mine`, `/fees/dues`, `/fee-structures`,
+  // `/payments/student/:id`, `/payments/invoices/student/:id`, `/invoices`,
+  // `/invoices/:id`, `/invoices/:id/print`) are all covered by the three
+  // reads below — object-scoped, per the STUDENT_READ note above.
+  // Deliberately no PAYMENT_READ: that is the tenant-wide ledger.
   [UserRole.PARENT]: [Permission.STUDENT_READ, Permission.FEE_READ, Permission.INVOICE_READ],
 
   [UserRole.STUDENT]: [Permission.STUDENT_READ, Permission.FEE_READ, Permission.INVOICE_READ],

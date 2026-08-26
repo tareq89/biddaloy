@@ -10,7 +10,6 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
-  UnauthorizedException,
   Inject,
   ParseUUIDPipe,
 } from '@nestjs/common';
@@ -26,6 +25,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { StudentService, GuardianService } from './students.service';
 import { StudentBulkUploadService } from './bulk-upload.service';
+import { FamilyAccessService } from './family-access.service';
 import {
   CreateStudentDto,
   UpdateStudentDto,
@@ -47,6 +47,7 @@ export class StudentController {
     @Inject(StudentService) private readonly studentService: StudentService,
     @Inject(GuardianService) private readonly guardianService: GuardianService,
     @Inject(StudentBulkUploadService) private readonly bulkUploadService: StudentBulkUploadService,
+    @Inject(FamilyAccessService) private readonly familyAccess: FamilyAccessService,
   ) {}
 
   // --- Student endpoints ---
@@ -88,6 +89,24 @@ export class StudentController {
     return this.studentService.findAll(query, tenant.id);
   }
 
+  /**
+   * MUST stay declared above `students/:id` — that route has no
+   * `ParseUUIDPipe` on its param, so Nest (which matches in declaration
+   * order) would otherwise capture `mine` as a student id and 404. [5.1]
+   */
+  @Get('students/mine')
+  @Roles(UserRole.PARENT, UserRole.STUDENT)
+  @ApiOperation({
+    summary:
+      "List the students the calling PARENT or STUDENT is linked to. The discovery route for the family portal: without it a parent has no way to learn their own children's IDs.",
+  })
+  findMyStudents(
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.familyAccess.getLinkedStudents(tenant.role, user.sub, tenant.id);
+  }
+
   @Get('students/:id')
   @Roles(
     UserRole.ADMIN,
@@ -107,21 +126,10 @@ export class StudentController {
     @CurrentUser() user: JwtPayload,
   ) {
     const student = await this.studentService.findOne(id, tenant.id);
-
-    // For PARENT and STUDENT roles, enforce object-level authorization
-    if (tenant.role === UserRole.PARENT) {
-      // Verify the current user is linked as a guardian of this student
-      const isGuardian = student.guardians?.some((g) => g.user_id === user.sub);
-      if (!isGuardian) {
-        throw new UnauthorizedException("You do not have access to this student's information");
-      }
-    } else if (tenant.role === UserRole.STUDENT) {
-      // Verify the student belongs to the current user
-      if (student.user_id !== user.sub) {
-        throw new UnauthorizedException("You do not have access to this student's information");
-      }
-    }
-
+    // Object-level authorization for PARENT/STUDENT; a no-op for staff.
+    // [5.1] moved the check that used to be inline here into
+    // FamilyAccessService so every widened family route shares one copy.
+    await this.familyAccess.assertLinked(tenant.role, user.sub, id, tenant.id);
     return student;
   }
 

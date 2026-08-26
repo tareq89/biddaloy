@@ -84,3 +84,110 @@ describe('member-remove grant [8.11.8]', () => {
     }
   });
 });
+
+describe('family read grants [5.1]', () => {
+  /**
+   * [5.1] opened a set of read routes to PARENT and STUDENT, each guarded by
+   * an object-level linkage check (`FamilyAccessService`) rather than by a
+   * new permission. The deliberate outcome is that **neither family role
+   * gained a permission**: the three reads they already held were always
+   * object-scoped, and the server — not this table — decides which objects.
+   *
+   * This block is the tripwire for that decision. If someone later adds a
+   * permission here to "make the portal work", these tests fail and force
+   * the question back into review.
+   */
+  const FAMILY_ROLES = [UserRole.PARENT, UserRole.STUDENT] as const;
+
+  const FAMILY_PERMISSIONS = [
+    Permission.STUDENT_READ,
+    Permission.FEE_READ,
+    Permission.INVOICE_READ,
+  ] as const;
+
+  for (const role of FAMILY_ROLES) {
+    it(`grants ${role} exactly STUDENT_READ, FEE_READ and INVOICE_READ`, () => {
+      expect([...ROLE_PERMISSIONS[role]].sort()).toEqual([...FAMILY_PERMISSIONS].sort());
+    });
+  }
+
+  // PARENT and STUDENT are byte-identical by design (see audiences.ts) —
+  // the portal is one route tree, not two.
+  it('gives PARENT and STUDENT the same permission set', () => {
+    expect(ROLE_PERMISSIONS[UserRole.PARENT]).toEqual(ROLE_PERMISSIONS[UserRole.STUDENT]);
+  });
+
+  /**
+   * `GET /payments/student/{studentId}` admits PARENT and STUDENT since
+   * [5.1], and already admitted TEACHER and EXECUTIVE. None of them hold
+   * PAYMENT_READ, because that permission means the *tenant-wide ledger*
+   * (`GET /payments`, ADMIN + ACCOUNTANT). Per-student payment history is
+   * authorized by the caller's relationship to the student instead.
+   */
+  it('withholds PAYMENT_READ from every role the per-student payments route admits but the ledger refuses', () => {
+    for (const role of [UserRole.TEACHER, UserRole.EXECUTIVE, UserRole.PARENT, UserRole.STUDENT]) {
+      expect(ROLE_PERMISSIONS[role]).not.toContain(Permission.PAYMENT_READ);
+    }
+  });
+
+  it('keeps PAYMENT_READ on exactly the roles the tenant-wide ledger route admits', () => {
+    expect(ROLE_PERMISSIONS[UserRole.ADMIN]).toContain(Permission.PAYMENT_READ);
+    expect(ROLE_PERMISSIONS[UserRole.ACCOUNTANT]).toContain(Permission.PAYMENT_READ);
+  });
+
+  /**
+   * The roster (`GET /students`) stays staff-only, while `/students/mine`
+   * and `/students/{id}` are open to family roles. Both are gated on the
+   * same STUDENT_READ — which is precisely why STUDENT_READ was *not* split
+   * into STUDENT_READ/STUDENT_LIST: the split would have described a
+   * distinction the server already makes at the object level.
+   */
+  it('keeps STUDENT_READ as the single student-read permission, held by staff and family alike', () => {
+    for (const role of [
+      UserRole.ADMIN,
+      UserRole.ACCOUNTANT,
+      UserRole.EXECUTIVE,
+      UserRole.TEACHER,
+      UserRole.PARENT,
+      UserRole.STUDENT,
+    ]) {
+      expect(ROLE_PERMISSIONS[role]).toContain(Permission.STUDENT_READ);
+    }
+    // No STUDENT_LIST was introduced — [5.1] settled against the split.
+    expect(Object.keys(Permission)).not.toContain('STUDENT_LIST');
+  });
+
+  /**
+   * Staff-only write and triage surfaces that [5.1] deliberately did not
+   * widen. A family role holding any of these would mean the server's
+   * `@Roles` lists and this table had drifted apart again.
+   */
+  it('withholds every staff-only fee/invoice capability from family roles', () => {
+    const STAFF_ONLY = [
+      Permission.STUDENT_CREATE,
+      Permission.STUDENT_UPDATE,
+      Permission.STUDENT_DELETE,
+      Permission.STUDENT_BULK_UPLOAD,
+      Permission.GUARDIAN_READ,
+      Permission.FEE_STRUCTURE_CREATE,
+      Permission.FEE_STRUCTURE_UPDATE,
+      Permission.FEE_STRUCTURE_DELETE,
+      Permission.FEE_GENERATE,
+      Permission.FEE_COLLECT,
+      Permission.INVOICE_CREATE,
+      Permission.INVOICE_DELETE,
+      Permission.PAYMENT_RECORD,
+      Permission.PAYMENT_REFUND,
+      Permission.COMMUNICATION_SEND,
+      Permission.REPORTS_VIEW,
+    ] as const;
+
+    for (const role of FAMILY_ROLES) {
+      for (const permission of STAFF_ONLY) {
+        expect(ROLE_PERMISSIONS[role], `${role} should not hold ${permission}`).not.toContain(
+          permission,
+        );
+      }
+    }
+  });
+});

@@ -121,7 +121,17 @@ export class InvoicesService {
     return invoice;
   }
 
-  async findAll(query: QueryInvoiceDto, tenantId: string) {
+  /**
+   * @param restrictToStudentIds [5.1] — when supplied, only invoices for
+   *   these students are returned. `InvoicesController` fills this in for
+   *   PARENT/STUDENT callers from `FamilyAccessService`. `query.student_id`
+   *   is caller-controlled and merely *intersects* with it, so naming an
+   *   unlinked student yields an empty page rather than a leak.
+   *
+   *   An empty array means "linked to nobody" → empty page; `undefined`
+   *   means "no restriction" (staff).
+   */
+  async findAll(query: QueryInvoiceDto, tenantId: string, restrictToStudentIds?: string[]) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
@@ -138,6 +148,12 @@ export class InvoicesService {
       qb.andWhere('(invoice.invoice_number ILIKE :search OR student.full_name ILIKE :search)', {
         search: `%${query.search}%`,
       });
+    }
+    if (restrictToStudentIds !== undefined) {
+      if (restrictToStudentIds.length === 0) {
+        return { data: [], total: 0, page, limit, totalPages: 0 };
+      }
+      qb.andWhere('invoice.student_id IN (:...restrictToStudentIds)', { restrictToStudentIds });
     }
     if (query.student_id) {
       qb.andWhere('invoice.student_id = :studentId', { studentId: query.student_id });

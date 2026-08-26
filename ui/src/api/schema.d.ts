@@ -436,6 +436,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/students/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the students the calling PARENT or STUDENT is linked to. The discovery route for the family portal: without it a parent has no way to learn their own children's IDs. */
+        get: operations["StudentController_findMyStudents_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/students/{id}": {
         parameters: {
             query?: never;
@@ -492,6 +509,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** List outstanding dues. Staff see the whole tenant (subject to the query filters); a PARENT or STUDENT sees only their linked students' dues, whatever filters they send. */
         get: operations["FeeController_getDues_v1"];
         put?: never;
         post?: never;
@@ -542,6 +560,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** The school's fee catalog. Tenant-scoped but not student-scoped — it is the published price list, so no object-level check applies. [5.1] opened it to PARENT/STUDENT so the portal can explain what a due is for. */
         get: operations["FeeController_findAllFeeStructures_v1"];
         put?: never;
         post: operations["FeeController_createFeeStructure_v1"];
@@ -558,6 +577,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Get one fee structure. Family callers get a reduced shape without the `selected_students` roster — that relation carries other families' children in full. */
         get: operations["FeeController_findOneFeeStructure_v1"];
         put?: never;
         post?: never;
@@ -608,6 +628,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** A student's payment history. A PARENT or STUDENT must additionally be linked to this student, and gets a reduced payment shape without staff-only fields. */
         get: operations["FeeController_findPaymentsByStudent_v1"];
         put?: never;
         post?: never;
@@ -641,7 +662,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get a student's fee/payment/balance summary. */
+        /** Get a student's fee/payment/balance summary. A PARENT or STUDENT must additionally be linked to this student. */
         get: operations["FeeController_getInvoiceSummary_v1"];
         put?: never;
         post?: never;
@@ -658,6 +679,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** List invoices. Staff see the tenant's invoices; a PARENT or STUDENT sees only their linked students', even if `student_id` names someone else. */
         get: operations["InvoicesController_findAll_v1"];
         put?: never;
         post: operations["InvoicesController_create_v1"];
@@ -674,6 +696,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Get one invoice. A PARENT or STUDENT must additionally be linked to the invoice's student. */
         get: operations["InvoicesController_findOne_v1"];
         put?: never;
         post?: never;
@@ -690,7 +713,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get a printable HTML rendering of the invoice. */
+        /** Get a printable HTML rendering of the invoice. A PARENT or STUDENT must additionally be linked to its student. */
         get: operations["InvoicesController_print_v1"];
         put?: never;
         post?: never;
@@ -1346,39 +1369,6 @@ export interface components {
             preferred_communication?: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER";
             student_ids?: string[];
         };
-        Object: Record<string, never>;
-        GenerateStudentFeesDto: {
-            /** Format: uuid */
-            academic_year_id: string;
-            month: number;
-            year: number;
-            /** Format: uuid */
-            class_id?: string;
-            /** Format: uuid */
-            section_id?: string;
-        };
-        GenerateFeesResultDto: {
-            generated: number;
-            skipped: number;
-            students_evaluated: number;
-        };
-        CreateFeeStructureDto: {
-            /** @enum {string} */
-            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "OTHER";
-            name: string;
-            amount: number;
-            /** @enum {string} */
-            applicability?: "ALL" | "SELECTED";
-            /** Format: uuid */
-            class_id: string;
-            /** Format: uuid */
-            section_id?: string | null;
-            /** Format: uuid */
-            academic_year_id: string;
-            month: number;
-            is_recurring?: boolean;
-            student_ids?: string[];
-        };
         FeeStructure: {
             id: string;
             /** @enum {string} */
@@ -1412,30 +1402,19 @@ export interface components {
             student: components["schemas"]["Student"];
             student_id: string;
         };
-        UpdateFeeStructureDto: {
+        FamilyFeeStructureDto: {
+            id: string;
             /** @enum {string} */
-            fee_type?: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "OTHER";
-            name?: string;
-            amount?: number;
+            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "OTHER";
+            name: string;
+            amount: number;
             /** @enum {string} */
-            applicability?: "ALL" | "SELECTED";
-            /** Format: uuid */
-            section_id?: string | null;
-            month?: number;
-            is_recurring?: boolean;
-            student_ids?: string[];
-        };
-        CreatePaymentDto: {
-            /** Format: uuid */
-            student_id: string;
-            total_amount: number;
-            /** @enum {string} */
-            payment_method: "CASH" | "CHEQUE" | "BANK_TRANSFER" | "ONLINE" | "CARD" | "UPI";
-            /** @enum {string} */
-            payment_status?: "SUCCESS" | "PENDING" | "FAILED" | "REFUNDED";
-            transaction_reference?: string;
-            remarks?: string;
-            payment_date?: string;
+            applicability: "ALL" | "SELECTED";
+            class_id: string;
+            section_id: string | null;
+            academic_year_id: string;
+            month: number;
+            is_recurring: boolean;
         };
         StudentFee: {
             id: string;
@@ -1529,6 +1508,137 @@ export interface components {
             /** Format: date-time */
             created_at: string;
         };
+        FamilyPaymentAllocationDto: {
+            id: string;
+            student_fee_id: string;
+            allocated_amount: number;
+            /** @enum {string} */
+            allocation_type: "DUE" | "CURRENT" | "ADVANCE";
+        };
+        FamilyPaymentDto: {
+            id: string;
+            student_id: string;
+            total_amount: number;
+            /** @enum {string} */
+            payment_method: "CASH" | "CHEQUE" | "BANK_TRANSFER" | "ONLINE" | "CARD" | "UPI";
+            /** @enum {string} */
+            payment_status: "SUCCESS" | "PENDING" | "FAILED" | "REFUNDED";
+            transaction_reference: string | null;
+            invoice_id: string | null;
+            /** Format: date-time */
+            payment_date: string;
+            /** Format: date-time */
+            created_at: string;
+            allocations?: components["schemas"]["FamilyPaymentAllocationDto"][];
+        };
+        StaffDueEntryDto: {
+            student_fee_id: string;
+            month: number;
+            year: number;
+            total_amount: number;
+            paid_amount: number;
+            discount_amount: number;
+            balance: number;
+            /** @enum {string} */
+            status: "PENDING" | "PARTIALLY_PAID" | "PAID" | "OVERDUE" | "WAIVED" | "ADVANCE";
+            /** Format: date-time */
+            due_date: string | null;
+            /** Format: date-time */
+            reminder_threshold_date: string | null;
+        };
+        StaffStudentDueDto: {
+            student_id: string;
+            full_name: string;
+            registration_number: string;
+            roll_number: number;
+            class_name: string | null;
+            section_name: string | null;
+            total_due: number;
+            months_overdue: number;
+            dues: components["schemas"]["StaffDueEntryDto"][];
+        };
+        FamilyDueEntryDto: {
+            student_fee_id: string;
+            month: number;
+            year: number;
+            total_amount: number;
+            paid_amount: number;
+            discount_amount: number;
+            balance: number;
+            /** @enum {string} */
+            status: "PENDING" | "PARTIALLY_PAID" | "PAID" | "OVERDUE" | "WAIVED" | "ADVANCE";
+            /** Format: date-time */
+            due_date: string | null;
+        };
+        FamilyStudentDueDto: {
+            student_id: string;
+            full_name: string;
+            registration_number: string;
+            roll_number: number;
+            class_name: string | null;
+            section_name: string | null;
+            total_due: number;
+            months_overdue: number;
+            dues: components["schemas"]["FamilyDueEntryDto"][];
+        };
+        Object: Record<string, never>;
+        GenerateStudentFeesDto: {
+            /** Format: uuid */
+            academic_year_id: string;
+            month: number;
+            year: number;
+            /** Format: uuid */
+            class_id?: string;
+            /** Format: uuid */
+            section_id?: string;
+        };
+        GenerateFeesResultDto: {
+            generated: number;
+            skipped: number;
+            students_evaluated: number;
+        };
+        CreateFeeStructureDto: {
+            /** @enum {string} */
+            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "OTHER";
+            name: string;
+            amount: number;
+            /** @enum {string} */
+            applicability?: "ALL" | "SELECTED";
+            /** Format: uuid */
+            class_id: string;
+            /** Format: uuid */
+            section_id?: string | null;
+            /** Format: uuid */
+            academic_year_id: string;
+            month: number;
+            is_recurring?: boolean;
+            student_ids?: string[];
+        };
+        UpdateFeeStructureDto: {
+            /** @enum {string} */
+            fee_type?: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "OTHER";
+            name?: string;
+            amount?: number;
+            /** @enum {string} */
+            applicability?: "ALL" | "SELECTED";
+            /** Format: uuid */
+            section_id?: string | null;
+            month?: number;
+            is_recurring?: boolean;
+            student_ids?: string[];
+        };
+        CreatePaymentDto: {
+            /** Format: uuid */
+            student_id: string;
+            total_amount: number;
+            /** @enum {string} */
+            payment_method: "CASH" | "CHEQUE" | "BANK_TRANSFER" | "ONLINE" | "CARD" | "UPI";
+            /** @enum {string} */
+            payment_status?: "SUCCESS" | "PENDING" | "FAILED" | "REFUNDED";
+            transaction_reference?: string;
+            remarks?: string;
+            payment_date?: string;
+        };
         PaymentAllocationInputDto: {
             /** Format: uuid */
             student_fee_id: string;
@@ -1546,6 +1656,78 @@ export interface components {
             transaction_reference?: string;
             remarks?: string;
             generate_invoice?: boolean;
+        };
+        StaffInvoiceDto: {
+            id: string;
+            invoice_number: string;
+            student: components["schemas"]["Student"];
+            student_id: string;
+            student_fee: components["schemas"]["StudentFee"] | null;
+            student_fee_id: string | null;
+            total_amount: number;
+            tax_amount: number;
+            discount_amount: number;
+            /** @enum {string} */
+            status: "DRAFT" | "ISSUED" | "PAID" | "CANCELLED" | "OVERDUE";
+            /** Format: date-time */
+            issued_date: string;
+            /** Format: date-time */
+            due_date: string;
+            line_items: Record<string, never>;
+            issued_by: components["schemas"]["UserResponseDto"] | null;
+            issued_by_user_id: string | null;
+            notes: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            deleted_at: string | null;
+        };
+        FamilyInvoiceStudentDto: {
+            id: string;
+            full_name: string;
+            registration_number: string;
+        };
+        FamilyStudentFeeDto: {
+            id: string;
+            student_id: string;
+            academic_year_id: string;
+            month: number;
+            year: number;
+            total_amount: number;
+            paid_amount: number;
+            discount_amount: number;
+            /** @enum {string} */
+            status: "PENDING" | "PARTIALLY_PAID" | "PAID" | "OVERDUE" | "WAIVED" | "ADVANCE";
+            /** Format: date-time */
+            due_date: string | null;
+            is_advance_payment: boolean;
+        };
+        FamilyInvoiceDto: {
+            /** @description Always `null` for a family caller; the staff variant carries the issuing user. */
+            issued_by: Record<string, never> | null;
+            id: string;
+            invoice_number: string;
+            student_id: string;
+            student: components["schemas"]["FamilyInvoiceStudentDto"] | null;
+            student_fee_id: string | null;
+            student_fee: components["schemas"]["FamilyStudentFeeDto"] | null;
+            total_amount: number;
+            tax_amount: number;
+            discount_amount: number;
+            /** @enum {string} */
+            status: "DRAFT" | "ISSUED" | "PAID" | "CANCELLED" | "OVERDUE";
+            /** Format: date-time */
+            issued_date: string;
+            /** Format: date-time */
+            due_date: string;
+            line_items: Record<string, never>;
+            notes: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
         };
         LineItemDto: {
             description: string;
@@ -3177,6 +3359,37 @@ export interface operations {
             };
         };
     };
+    StudentController_findMyStudents_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Student"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     StudentController_findOneStudent_v1: {
         parameters: {
             query?: never;
@@ -3471,11 +3684,24 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description A page of per-student due summaries: `StaffStudentDueDto` rows for staff, `FamilyStudentDueDto` rows (no `reminder_threshold_date`) for a PARENT/STUDENT. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: (components["schemas"]["StaffStudentDueDto"] | components["schemas"]["FamilyStudentDueDto"])[];
+                        /** @description Total rows matching the query, across all pages. */
+                        total: number;
+                        /** @description 1-based index of the page returned. */
+                        page: number;
+                        /** @description Maximum rows per page. */
+                        limit: number;
+                        /** @description Number of pages at this `limit`. */
+                        totalPages: number;
+                    };
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
@@ -3575,11 +3801,24 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description A page of fee structures: full `FeeStructure` rows for staff, reduced `FamilyFeeStructureDto` rows for a PARENT/STUDENT. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: (components["schemas"]["FeeStructure"] | components["schemas"]["FamilyFeeStructureDto"])[];
+                        /** @description Total rows matching the query, across all pages. */
+                        total: number;
+                        /** @description 1-based index of the page returned. */
+                        page: number;
+                        /** @description Maximum rows per page. */
+                        limit: number;
+                        /** @description Number of pages at this `limit`. */
+                        totalPages: number;
+                    };
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
@@ -3641,12 +3880,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description The full `FeeStructure` for staff; a `FamilyFeeStructureDto` without `selected_students` for a PARENT/STUDENT. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["FeeStructure"];
+                    "application/json": components["schemas"]["FeeStructure"] | components["schemas"]["FamilyFeeStructureDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -3845,12 +4085,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description Raw `Payment` rows for staff; reduced `FamilyPaymentDto` rows for a PARENT/STUDENT. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Payment"][];
+                    "application/json": (components["schemas"]["Payment"] | components["schemas"]["FamilyPaymentDto"])[];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -3948,11 +4189,24 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description A page of invoices: `Invoice` rows for staff, allow-listed `FamilyInvoiceDto` rows for a PARENT/STUDENT. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: (components["schemas"]["Invoice"] | components["schemas"]["FamilyInvoiceDto"])[];
+                        /** @description Total rows matching the query, across all pages. */
+                        total: number;
+                        /** @description 1-based index of the page returned. */
+                        page: number;
+                        /** @description Maximum rows per page. */
+                        limit: number;
+                        /** @description Number of pages at this `limit`. */
+                        totalPages: number;
+                    };
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
@@ -4014,12 +4268,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description A `StaffInvoiceDto` (the full invoice, with `issued_by` reduced to `UserResponseDto`) for staff; an allow-listed `FamilyInvoiceDto` for a PARENT/STUDENT. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["StaffInvoiceDto"] | components["schemas"]["FamilyInvoiceDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

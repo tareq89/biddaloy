@@ -147,15 +147,26 @@ describe('Fee Dues E2E', () => {
         .expect(200);
     });
 
-    it('returns 401 for STUDENT role', async () => {
+    /**
+     * [5.1] opened this route to STUDENT/PARENT, restricted to the caller's
+     * own linked students. This token's user is linked to nobody, so the
+     * page is empty rather than refused — and, critically, does not contain
+     * the other students' dues that an ADMIN sees above. The full matrix
+     * lives in `src/family-read-api.e2e-spec.ts`.
+     */
+    it('admits a STUDENT since [5.1], scoped to their own (here: no) students', async () => {
+      const studentId = await createStudent();
+      await createFee(studentId, { status: 'PENDING' });
+
       const res = await supertest(app.getHttpServer())
         .get('/api/v1/fees/dues')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
-        .expect(401);
+        .expect(200);
 
-      expect(res.body.message).toContain('Requires one of roles');
+      expect(res.body.data).toEqual([]);
+      expect(res.body.total).toBe(0);
     });
 
     it('supports sorting by due amount', async () => {
