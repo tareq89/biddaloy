@@ -345,13 +345,13 @@
     "semantic_hash": "c6e310a2dc10adfaeff3ff9d6334144d"
   },
   "server/src/modules/fees/dto/fees.dto.ts": {
-    "mtime": 1787744648.5477118,
-    "ast_hash": "b5aa590ba724bf0b9c7391d3f64e528a",
+    "mtime": 1787752629.620572,
+    "ast_hash": "cd1fc05179ae2cad2dd83db88ed56f85",
     "semantic_hash": ""
   },
   "server/src/modules/fees/fees.controller.ts": {
-    "mtime": 1787744677.172527,
-    "ast_hash": "5169f6affba6af93ae584064912ea649",
+    "mtime": 1787752695.4861462,
+    "ast_hash": "b407f9bdc3f7f016ad630b93da35aace",
     "semantic_hash": ""
   },
   "server/src/modules/fees/fees.module.ts": {
@@ -375,8 +375,8 @@
     "semantic_hash": "3f179a9b4af4c4cb9ac1f30a53162944"
   },
   "server/src/modules/students/students.controller.ts": {
-    "mtime": 1787741621.8717875,
-    "ast_hash": "a61f93de47170ad5e05578a52fb935cc",
+    "mtime": 1787746308.6761255,
+    "ast_hash": "f107fb83631f16aabed1103ccb02172b",
     "semantic_hash": ""
   },
   "server/src/modules/students/students.module.ts": {
@@ -790,8 +790,8 @@
     "semantic_hash": ""
   },
   "server/src/modules/fees/fee-dues.service.integration.spec.ts": {
-    "mtime": 1787745017.0730693,
-    "ast_hash": "7e69ee24bd7fc90b62b397316625fa1f",
+    "mtime": 1787746308.473796,
+    "ast_hash": "d4c6d1ecd335dd39a5788cc1cee259fc",
     "semantic_hash": ""
   },
   "server/src/modules/fees/fee-dues.service.spec.ts": {
@@ -835,8 +835,8 @@
     "semantic_hash": "241facc5e1a9670f016685fe29443902"
   },
   "server/src/modules/invoices/dto/invoices.dto.ts": {
-    "mtime": 1787744761.3016562,
-    "ast_hash": "0d847b0889e5573413c983ee9db56f87",
+    "mtime": 1787753645.8526444,
+    "ast_hash": "7b79bdadd25a307e2076fdc9580945c6",
     "semantic_hash": ""
   },
   "server/src/modules/invoices/invoice-numbering.util.ts": {
@@ -850,8 +850,8 @@
     "semantic_hash": "43e60740f314f7732b9800dbc81979de"
   },
   "server/src/modules/invoices/invoices.controller.ts": {
-    "mtime": 1787744736.6296449,
-    "ast_hash": "c72c728857a867e85ca8eda609e5e442",
+    "mtime": 1787753667.419743,
+    "ast_hash": "3ee4930d7609677be72aa02c43fbf056",
     "semantic_hash": ""
   },
   "server/src/modules/invoices/invoices.e2e-spec.ts": {
@@ -865,8 +865,8 @@
     "semantic_hash": ""
   },
   "server/src/modules/invoices/invoices.service.integration.spec.ts": {
-    "mtime": 1787742517.1284773,
-    "ast_hash": "328998c94b25ee1bee5c787b46e492c2",
+    "mtime": 1787746308.6140215,
+    "ast_hash": "6038882533d65035cdbdcab47c3b5e05",
     "semantic_hash": ""
   },
   "server/src/modules/invoices/invoices.service.ts": {
@@ -1510,8 +1510,8 @@
     "semantic_hash": "e485051e0b0cc146177eb746f9c76545"
   },
   "ui/src/api/schema.d.ts": {
-    "mtime": 1787746044.0830991,
-    "ast_hash": "748f09746cc1cb9a2905090fd365067b",
+    "mtime": 1787753684.851907,
+    "ast_hash": "42846cc58a71698b037409d49438bc08",
     "semantic_hash": ""
   },
   "ui/src/components/button.stories.tsx": {
@@ -4680,8 +4680,8 @@
     "semantic_hash": ""
   },
   "shared/src/enums/permissions.spec.ts": {
-    "mtime": 1787741851.8558376,
-    "ast_hash": "bfd0c80a49a935cf47074931ad05c6fa",
+    "mtime": 1787746308.6923852,
+    "ast_hash": "9b8db90f16e9f4f01aab77a4287d25ff",
     "semantic_hash": ""
   },
   "server/src/modules/users/users.e2e-spec.ts": {
@@ -4975,23 +4975,28 @@
     "semantic_hash": ""
   },
   "server/src/family-read-api.e2e-spec.ts": {
-    "mtime": 1787744969.2163768,
-    "ast_hash": "b09b92759e3f5802070896804afddb40",
+    "mtime": 1787752717.4400213,
+    "ast_hash": "3cadcd4bdc520832c1047bd2d080f258",
     "semantic_hash": ""
   },
   "server/src/modules/students/family-access.service.integration.spec.ts": {
-    "mtime": 1787742046.0398304,
-    "ast_hash": "f7e2b5581686f2a2cc8ab40b1ec897ae",
+    "mtime": 1787746308.6447105,
+    "ast_hash": "8bcfa51415801e935c629cb793cecd8b",
     "semantic_hash": ""
   },
   "server/src/modules/students/family-access.service.spec.ts": {
-    "mtime": 1787741936.4557147,
-    "ast_hash": "dd28dbbcce47a59b385affff5ce6bcf8",
+    "mtime": 1787746308.659419,
+    "ast_hash": "4b241021023b48d6ff552c2552ec0ea4",
     "semantic_hash": ""
   },
   "server/src/modules/students/family-access.service.ts": {
-    "mtime": 1787741590.8936567,
-    "ast_hash": "01195189ebcf1efeecb7f625072da3a4",
+    "mtime": 1787746308.6676018,
+    "ast_hash": "7c11bddb4759b17c97b3b0d7ee551524",
+    "semantic_hash": ""
+  },
+  "server/src/common/swagger/paginated-schema.util.ts": {
+    "mtime": 1787752734.2236798,
+    "ast_hash": "099cf0a6c6d01f7d7c18639dbc71c980",
     "semantic_hash": ""
   }
 }

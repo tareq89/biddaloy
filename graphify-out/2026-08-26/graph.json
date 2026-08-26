@@ -11743,8 +11743,8 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "package_devdependencies_axe_core_playwright",
-      "community": 229,
-      "community_name": "@axe-core/playwright",
+      "community": 72,
+      "community_name": "devDependencies",
       "norm_label": "@axe-core/playwright"
     },
     {
@@ -11754,8 +11754,8 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "axe_core_playwright",
-      "community": 229,
-      "community_name": "@axe-core/playwright",
+      "community": 72,
+      "community_name": "devDependencies",
       "norm_label": "@axe-core/playwright"
     },
     {
@@ -11787,8 +11787,8 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "package_devdependencies_faker_js_faker",
-      "community": 242,
-      "community_name": "@faker-js/faker",
+      "community": 72,
+      "community_name": "devDependencies",
       "norm_label": "@faker-js/faker"
     },
     {
@@ -11798,8 +11798,8 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "faker_js_faker",
-      "community": 242,
-      "community_name": "@faker-js/faker",
+      "community": 72,
+      "community_name": "devDependencies",
       "norm_label": "@faker-js/faker"
     },
     {
@@ -11831,8 +11831,8 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "package_devdependencies_playwright_test",
-      "community": 72,
-      "community_name": "devDependencies",
+      "community": 255,
+      "community_name": "@faker-js/faker",
       "norm_label": "@playwright/test"
     },
     {
@@ -11842,8 +11842,8 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "playwright_test",
-      "community": 72,
-      "community_name": "devDependencies",
+      "community": 255,
+      "community_name": "@faker-js/faker",
       "norm_label": "@playwright/test"
     },
     {
@@ -11919,8 +11919,8 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "package_devdependencies_testing_library_user_event",
-      "community": 260,
-      "community_name": "sign-in-form.stories.tsx",
+      "community": 72,
+      "community_name": "devDependencies",
       "norm_label": "@testing-library/user-event"
     },
     {
@@ -11930,8 +11930,8 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "testing_library_user_event",
-      "community": 260,
-      "community_name": "sign-in-form.stories.tsx",
+      "community": 72,
+      "community_name": "devDependencies",
       "norm_label": "@testing-library/user-event"
     },
     {
@@ -12007,8 +12007,8 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "package_devdependencies_vitest_coverage_v8",
-      "community": 72,
-      "community_name": "devDependencies",
+      "community": 264,
+      "community_name": "@vitest/coverage-v8",
       "norm_label": "@vitest/coverage-v8"
     },
     {
@@ -12018,8 +12018,8 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "vitest_coverage_v8",
-      "community": 72,
-      "community_name": "devDependencies",
+      "community": 264,
+      "community_name": "@vitest/coverage-v8",
       "norm_label": "@vitest/coverage-v8"
     },
     {
@@ -12073,8 +12073,8 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "package_devdependencies_eslint_config_prettier",
-      "community": 72,
-      "community_name": "devDependencies",
+      "community": 242,
+      "community_name": "@faker-js/faker",
       "norm_label": "eslint-config-prettier"
     },
     {
@@ -12084,8 +12084,8 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "eslint_config_prettier",
-      "community": 72,
-      "community_name": "devDependencies",
+      "community": 242,
+      "community_name": "@faker-js/faker",
       "norm_label": "eslint-config-prettier"
     },
     {
@@ -12205,8 +12205,8 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "package_devdependencies_globals",
-      "community": 72,
-      "community_name": "devDependencies",
+      "community": 253,
+      "community_name": "Route",
       "norm_label": "globals"
     },
     {
@@ -12216,8 +12216,8 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "globals",
-      "community": 72,
-      "community_name": "devDependencies",
+      "community": 253,
+      "community_name": "Route",
       "norm_label": "globals"
     },
     {
@@ -12315,8 +12315,8 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "package_devdependencies_open",
-      "community": 253,
-      "community_name": "Route",
+      "community": 72,
+      "community_name": "devDependencies",
       "norm_label": "open"
     },
     {
@@ -12326,8 +12326,8 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "open",
-      "community": 253,
-      "community_name": "Route",
+      "community": 72,
+      "community_name": "devDependencies",
       "norm_label": "open"
     },
     {
@@ -12381,8 +12381,8 @@
       "source_location": "L69",
       "_origin": "ast",
       "id": "package_devdependencies_puppeteer",
-      "community": 72,
-      "community_name": "devDependencies",
+      "community": 260,
+      "community_name": "sign-in-form.stories.tsx",
       "norm_label": "puppeteer"
     },
     {
@@ -12392,8 +12392,8 @@
       "source_location": "L69",
       "_origin": "ast",
       "id": "puppeteer",
-      "community": 72,
-      "community_name": "devDependencies",
+      "community": 260,
+      "community_name": "sign-in-form.stories.tsx",
       "norm_label": "puppeteer"
     },
     {
@@ -12403,8 +12403,8 @@
       "source_location": "L70",
       "_origin": "ast",
       "id": "package_devdependencies_supertest",
-      "community": 255,
-      "community_name": "@faker-js/faker",
+      "community": 72,
+      "community_name": "devDependencies",
       "norm_label": "supertest"
     },
     {
@@ -12414,8 +12414,8 @@
       "source_location": "L70",
       "_origin": "ast",
       "id": "package_json_supertest",
-      "community": 255,
-      "community_name": "@faker-js/faker",
+      "community": 72,
+      "community_name": "devDependencies",
       "norm_label": "supertest"
     },
     {
@@ -16253,8 +16253,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_academics_academic_year_controller_ts_get",
-      "community": 29,
-      "community_name": "AcademicYearController",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "get"
     },
     {
@@ -16275,8 +16275,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_academics_academic_year_controller_ts_param",
-      "community": 29,
-      "community_name": "AcademicYearController",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "param"
     },
     {
@@ -16308,8 +16308,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_academics_academic_year_controller_ts_delete",
-      "community": 29,
-      "community_name": "AcademicYearController",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "delete"
     },
     {
@@ -16352,8 +16352,8 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "server_src_modules_academics_academic_year_controller_academicyearcontroller_findone",
-      "community": 29,
-      "community_name": "AcademicYearController",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": ".findone()"
     },
     {
@@ -16363,8 +16363,8 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "server_src_modules_academics_academic_year_controller_academicyearcontroller_getstats",
-      "community": 29,
-      "community_name": "AcademicYearController",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": ".getstats()"
     },
     {
@@ -16385,8 +16385,8 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "server_src_modules_academics_academic_year_controller_academicyearcontroller_remove",
-      "community": 29,
-      "community_name": "AcademicYearController",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": ".remove()"
     },
     {
@@ -17969,8 +17969,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_audit_dto_audit_log_response_dto_spec",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 229,
+      "community_name": "@axe-core/playwright",
       "norm_label": "audit-log-response.dto.spec.ts"
     },
     {
@@ -17980,8 +17980,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "server_src_modules_audit_dto_audit_log_response_dto_spec_auditlogentity",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 229,
+      "community_name": "@axe-core/playwright",
       "norm_label": "auditlogentity()"
     },
     {
@@ -17991,8 +17991,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_audit_dto_audit_log_response_dto",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 229,
+      "community_name": "@axe-core/playwright",
       "norm_label": "audit-log-response.dto.ts"
     },
     {
@@ -18002,8 +18002,8 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "server_src_modules_audit_dto_audit_log_response_dto_auditlogresponsedto",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 229,
+      "community_name": "@axe-core/playwright",
       "norm_label": "auditlogresponsedto"
     },
     {
@@ -18013,8 +18013,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_audit_dto_audit_log_response_dto_ts_apiproperty",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 229,
+      "community_name": "@axe-core/playwright",
       "norm_label": "apiproperty"
     },
     {
@@ -18024,8 +18024,8 @@
       "source_location": "L59",
       "_origin": "ast",
       "id": "server_src_modules_audit_dto_audit_log_response_dto_auditlogresponsedto_fromentity",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 229,
+      "community_name": "@axe-core/playwright",
       "norm_label": ".fromentity()"
     },
     {
@@ -18035,8 +18035,8 @@
       "source_location": "L79",
       "_origin": "ast",
       "id": "server_src_modules_audit_dto_audit_log_response_dto_auditloglistresponsedto",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 229,
+      "community_name": "@axe-core/playwright",
       "norm_label": "auditloglistresponsedto"
     },
     {
@@ -19036,8 +19036,8 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "server_src_modules_auth_decorators_current_user_decorator_currentuser",
-      "community": 15,
-      "community_name": "index.ts",
+      "community": 5,
+      "community_name": "invoices.controller.ts",
       "norm_label": "currentuser"
     },
     {
@@ -19047,8 +19047,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_auth_decorators_decorators_spec",
-      "community": 15,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "decorators.spec.ts"
     },
     {
@@ -19058,8 +19058,8 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "server_src_modules_auth_decorators_decorators_spec_testcontroller",
-      "community": 15,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "testcontroller"
     },
     {
@@ -19080,8 +19080,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "server_src_modules_auth_decorators_roles_decorator_roles",
-      "community": 15,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "roles()"
     },
     {
@@ -20499,8 +20499,8 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_controller_classcontroller",
-      "community": 3,
-      "community_name": "Student",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "classcontroller"
     },
     {
@@ -20510,8 +20510,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_controller_ts_apitags",
-      "community": 3,
-      "community_name": "Student",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "apitags"
     },
     {
@@ -20521,8 +20521,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_controller_ts_controller",
-      "community": 3,
-      "community_name": "Student",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "controller"
     },
     {
@@ -20532,8 +20532,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_controller_ts_useguards",
-      "community": 3,
-      "community_name": "Student",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "useguards"
     },
     {
@@ -20554,8 +20554,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_controller_ts_post",
-      "community": 3,
-      "community_name": "Student",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "post"
     },
     {
@@ -20565,8 +20565,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_controller_ts_apioperation",
-      "community": 3,
-      "community_name": "Student",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "apioperation"
     },
     {
@@ -20576,8 +20576,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_controller_ts_body",
-      "community": 3,
-      "community_name": "Student",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "body"
     },
     {
@@ -20587,8 +20587,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_controller_ts_get",
-      "community": 3,
-      "community_name": "Student",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "get"
     },
     {
@@ -20598,8 +20598,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_controller_ts_query",
-      "community": 3,
-      "community_name": "Student",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "query"
     },
     {
@@ -20609,8 +20609,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_controller_ts_param",
-      "community": 3,
-      "community_name": "Student",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "param"
     },
     {
@@ -20620,8 +20620,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_controller_ts_patch",
-      "community": 3,
-      "community_name": "Student",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "patch"
     },
     {
@@ -20631,8 +20631,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_controller_ts_delete",
-      "community": 3,
-      "community_name": "Student",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "delete"
     },
     {
@@ -20653,8 +20653,8 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_controller_classcontroller_createclass",
-      "community": 3,
-      "community_name": "Student",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": ".createclass()"
     },
     {
@@ -20664,8 +20664,8 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_controller_classcontroller_findallclasses",
-      "community": 3,
-      "community_name": "Student",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": ".findallclasses()"
     },
     {
@@ -20675,8 +20675,8 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_controller_classcontroller_findoneclass",
-      "community": 3,
-      "community_name": "Student",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": ".findoneclass()"
     },
     {
@@ -20686,8 +20686,8 @@
       "source_location": "L72",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_controller_classcontroller_updateclass",
-      "community": 3,
-      "community_name": "Student",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": ".updateclass()"
     },
     {
@@ -20697,8 +20697,8 @@
       "source_location": "L82",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_controller_classcontroller_removeclass",
-      "community": 3,
-      "community_name": "Student",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": ".removeclass()"
     },
     {
@@ -20708,8 +20708,8 @@
       "source_location": "L93",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_controller_classcontroller_createsection",
-      "community": 3,
-      "community_name": "Student",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": ".createsection()"
     },
     {
@@ -20719,8 +20719,8 @@
       "source_location": "L103",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_controller_classcontroller_findallsections",
-      "community": 3,
-      "community_name": "Student",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": ".findallsections()"
     },
     {
@@ -20730,8 +20730,8 @@
       "source_location": "L112",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_controller_classcontroller_updatesection",
-      "community": 3,
-      "community_name": "Student",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": ".updatesection()"
     },
     {
@@ -20741,8 +20741,8 @@
       "source_location": "L123",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_controller_classcontroller_removesection",
-      "community": 3,
-      "community_name": "Student",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": ".removesection()"
     },
     {
@@ -20752,8 +20752,8 @@
       "source_location": "L136",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_controller_classcontroller_findclassteachers",
-      "community": 3,
-      "community_name": "Student",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": ".findclassteachers()"
     },
     {
@@ -21027,8 +21027,8 @@
       "source_location": "L237",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_service_sectionservice_findall",
-      "community": 3,
-      "community_name": "Student",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": ".findall()"
     },
     {
@@ -21038,8 +21038,8 @@
       "source_location": "L282",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_service_sectionservice_findteachers",
-      "community": 3,
-      "community_name": "Student",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": ".findteachers()"
     },
     {
@@ -21060,8 +21060,8 @@
       "source_location": "L352",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_service_sectionservice_remove",
-      "community": 3,
-      "community_name": "Student",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": ".remove()"
     },
     {
@@ -21302,8 +21302,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_controller_ts_inject",
-      "community": 12,
-      "community_name": "Roles",
+      "community": 1,
+      "community_name": "User",
       "norm_label": "inject"
     },
     {
@@ -21423,8 +21423,8 @@
       "source_location": "L47",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_controller_communicationscontroller_constructor",
-      "community": 12,
-      "community_name": "Roles",
+      "community": 1,
+      "community_name": "User",
       "norm_label": ".constructor()"
     },
     {
@@ -21599,8 +21599,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_service_spec",
-      "community": 12,
-      "community_name": "Roles",
+      "community": 1,
+      "community_name": "User",
       "norm_label": "communications.service.spec.ts"
     },
     {
@@ -21621,8 +21621,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_service_toresponsedto",
-      "community": 12,
-      "community_name": "Roles",
+      "community": 1,
+      "community_name": "User",
       "norm_label": "toresponsedto()"
     },
     {
@@ -21632,8 +21632,8 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_service_communicationsservice",
-      "community": 12,
-      "community_name": "Roles",
+      "community": 1,
+      "community_name": "User",
       "norm_label": "communicationsservice"
     },
     {
@@ -21643,8 +21643,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_service_ts_injectable",
-      "community": 12,
-      "community_name": "Roles",
+      "community": 1,
+      "community_name": "User",
       "norm_label": "injectable"
     },
     {
@@ -21687,8 +21687,8 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_service_communicationsservice_enqueue",
-      "community": 12,
-      "community_name": "Roles",
+      "community": 1,
+      "community_name": "User",
       "norm_label": ".enqueue()"
     },
     {
@@ -21698,8 +21698,8 @@
       "source_location": "L91",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_service_communicationsservice_findone",
-      "community": 12,
-      "community_name": "Roles",
+      "community": 1,
+      "community_name": "User",
       "norm_label": ".findone()"
     },
     {
@@ -21709,8 +21709,8 @@
       "source_location": "L107",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_service_communicationsservice_findbystudent",
-      "community": 12,
-      "community_name": "Roles",
+      "community": 1,
+      "community_name": "User",
       "norm_label": ".findbystudent()"
     },
     {
@@ -21720,8 +21720,8 @@
       "source_location": "L121",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_service_communicationsservice_findbyguardian",
-      "community": 12,
-      "community_name": "Roles",
+      "community": 1,
+      "community_name": "User",
       "norm_label": ".findbyguardian()"
     },
     {
@@ -21731,8 +21731,8 @@
       "source_location": "L144",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_service_communicationsservice_findlastreminders",
-      "community": 12,
-      "community_name": "Roles",
+      "community": 1,
+      "community_name": "User",
       "norm_label": ".findlastreminders()"
     },
     {
@@ -22061,8 +22061,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "server_src_modules_communications_dto_communications_dto_sendcommunicationdto",
-      "community": 20,
-      "community_name": "students.controller.ts",
+      "community": 1,
+      "community_name": "User",
       "norm_label": "sendcommunicationdto"
     },
     {
@@ -22072,8 +22072,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_communications_dto_communications_dto_ts_isenum",
-      "community": 20,
-      "community_name": "students.controller.ts",
+      "community": 1,
+      "community_name": "User",
       "norm_label": "isenum"
     },
     {
@@ -22083,8 +22083,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_communications_dto_communications_dto_ts_isstring",
-      "community": 20,
-      "community_name": "students.controller.ts",
+      "community": 1,
+      "community_name": "User",
       "norm_label": "isstring"
     },
     {
@@ -22094,8 +22094,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_communications_dto_communications_dto_ts_isnotempty",
-      "community": 20,
-      "community_name": "students.controller.ts",
+      "community": 1,
+      "community_name": "User",
       "norm_label": "isnotempty"
     },
     {
@@ -22105,8 +22105,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_communications_dto_communications_dto_ts_isoptional",
-      "community": 20,
-      "community_name": "students.controller.ts",
+      "community": 1,
+      "community_name": "User",
       "norm_label": "isoptional"
     },
     {
@@ -22116,8 +22116,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_communications_dto_communications_dto_ts_isuuid",
-      "community": 20,
-      "community_name": "students.controller.ts",
+      "community": 1,
+      "community_name": "User",
       "norm_label": "isuuid"
     },
     {
@@ -22127,8 +22127,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_communications_dto_communications_dto_ts_isarray",
-      "community": 20,
-      "community_name": "students.controller.ts",
+      "community": 1,
+      "community_name": "User",
       "norm_label": "isarray"
     },
     {
@@ -22138,8 +22138,8 @@
       "source_location": "L65",
       "_origin": "ast",
       "id": "server_src_modules_communications_dto_communications_dto_communicationresponsedto",
-      "community": 12,
-      "community_name": "Roles",
+      "community": 1,
+      "community_name": "User",
       "norm_label": "communicationresponsedto"
     },
     {
@@ -22149,8 +22149,8 @@
       "source_location": "L79",
       "_origin": "ast",
       "id": "server_src_modules_communications_dto_communications_dto_querylastremindersdto",
-      "community": 20,
-      "community_name": "students.controller.ts",
+      "community": 1,
+      "community_name": "User",
       "norm_label": "querylastremindersdto"
     },
     {
@@ -22160,8 +22160,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "transform",
-      "community": 20,
-      "community_name": "students.controller.ts",
+      "community": 1,
+      "community_name": "User",
       "norm_label": "transform"
     },
     {
@@ -22171,8 +22171,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_communications_dto_communications_dto_ts_arrayminsize",
-      "community": 20,
-      "community_name": "students.controller.ts",
+      "community": 1,
+      "community_name": "User",
       "norm_label": "arrayminsize"
     },
     {
@@ -26263,8 +26263,8 @@
       "source_location": "L266",
       "_origin": "ast",
       "id": "server_src_modules_fees_dto_fees_dto_generatefeesresultdto",
-      "community": 17,
-      "community_name": "all-entities.ts",
+      "community": 15,
+      "community_name": "index.ts",
       "norm_label": "generatefeesresultdto"
     },
     {
@@ -26329,8 +26329,8 @@
       "source_location": "L386",
       "_origin": "ast",
       "id": "server_src_modules_fees_dto_fees_dto_tofamilypayment",
-      "community": 17,
-      "community_name": "all-entities.ts",
+      "community": 15,
+      "community_name": "index.ts",
       "norm_label": "tofamilypayment()"
     },
     {
@@ -26340,8 +26340,8 @@
       "source_location": "L425",
       "_origin": "ast",
       "id": "server_src_modules_fees_dto_fees_dto_familystudentfeedto",
-      "community": 1,
-      "community_name": "User",
+      "community": 34,
+      "community_name": "CreateInvoiceDto",
       "norm_label": "familystudentfeedto"
     },
     {
@@ -26351,8 +26351,8 @@
       "source_location": "L439",
       "_origin": "ast",
       "id": "server_src_modules_fees_dto_fees_dto_tofamilystudentfee",
-      "community": 17,
-      "community_name": "all-entities.ts",
+      "community": 34,
+      "community_name": "CreateInvoiceDto",
       "norm_label": "tofamilystudentfee()"
     },
     {
@@ -26384,8 +26384,8 @@
       "source_location": "L491",
       "_origin": "ast",
       "id": "server_src_modules_fees_dto_fees_dto_tofamilystudentdue",
-      "community": 17,
-      "community_name": "all-entities.ts",
+      "community": 15,
+      "community_name": "index.ts",
       "norm_label": "tofamilystudentdue()"
     },
     {
@@ -26406,8 +26406,8 @@
       "source_location": "L545",
       "_origin": "ast",
       "id": "server_src_modules_fees_dto_fees_dto_tofamilyfeestructure",
-      "community": 17,
-      "community_name": "all-entities.ts",
+      "community": 15,
+      "community_name": "index.ts",
       "norm_label": "tofamilyfeestructure()"
     },
     {
@@ -27528,8 +27528,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_fees_fees_controller",
-      "community": 17,
-      "community_name": "all-entities.ts",
+      "community": 5,
+      "community_name": "invoices.controller.ts",
       "norm_label": "fees.controller.ts"
     },
     {
@@ -27693,8 +27693,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_fees_fees_controller_ts_delete",
-      "community": 15,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "delete"
     },
     {
@@ -27792,8 +27792,8 @@
       "source_location": "L203",
       "_origin": "ast",
       "id": "server_src_modules_fees_fees_controller_feecontroller_removefeestructure",
-      "community": 15,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": ".removefeestructure()"
     },
     {
@@ -27990,8 +27990,8 @@
       "source_location": "L124",
       "_origin": "ast",
       "id": "server_src_modules_fees_fees_service_feestructureservice_findall",
-      "community": 17,
-      "community_name": "all-entities.ts",
+      "community": 15,
+      "community_name": "index.ts",
       "norm_label": ".findall()"
     },
     {
@@ -28067,8 +28067,8 @@
       "source_location": "L330",
       "_origin": "ast",
       "id": "server_src_modules_fees_fees_service_paymentservice_findall",
-      "community": 17,
-      "community_name": "all-entities.ts",
+      "community": 15,
+      "community_name": "index.ts",
       "norm_label": ".findall()"
     },
     {
@@ -28320,8 +28320,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_invoices_dto_invoices_dto",
-      "community": 1,
-      "community_name": "User",
+      "community": 34,
+      "community_name": "CreateInvoiceDto",
       "norm_label": "invoices.dto.ts"
     },
     {
@@ -28331,8 +28331,8 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "server_src_modules_invoices_dto_invoices_dto_lineitemdto",
-      "community": 1,
-      "community_name": "User",
+      "community": 34,
+      "community_name": "CreateInvoiceDto",
       "norm_label": "lineitemdto"
     },
     {
@@ -28342,8 +28342,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_invoices_dto_invoices_dto_ts_isstring",
-      "community": 1,
-      "community_name": "User",
+      "community": 34,
+      "community_name": "CreateInvoiceDto",
       "norm_label": "isstring"
     },
     {
@@ -28353,8 +28353,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_invoices_dto_invoices_dto_ts_maxlength",
-      "community": 1,
-      "community_name": "User",
+      "community": 34,
+      "community_name": "CreateInvoiceDto",
       "norm_label": "maxlength"
     },
     {
@@ -28364,8 +28364,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_invoices_dto_invoices_dto_ts_isnumber",
-      "community": 1,
-      "community_name": "User",
+      "community": 34,
+      "community_name": "CreateInvoiceDto",
       "norm_label": "isnumber"
     },
     {
@@ -28375,8 +28375,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_invoices_dto_invoices_dto_ts_min",
-      "community": 1,
-      "community_name": "User",
+      "community": 34,
+      "community_name": "CreateInvoiceDto",
       "norm_label": "min"
     },
     {
@@ -28386,8 +28386,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_invoices_dto_invoices_dto_ts_isoptional",
-      "community": 1,
-      "community_name": "User",
+      "community": 34,
+      "community_name": "CreateInvoiceDto",
       "norm_label": "isoptional"
     },
     {
@@ -28397,8 +28397,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_invoices_dto_invoices_dto_ts_isint",
-      "community": 1,
-      "community_name": "User",
+      "community": 34,
+      "community_name": "CreateInvoiceDto",
       "norm_label": "isint"
     },
     {
@@ -28408,8 +28408,8 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "server_src_modules_invoices_dto_invoices_dto_createinvoicedto",
-      "community": 1,
-      "community_name": "User",
+      "community": 34,
+      "community_name": "CreateInvoiceDto",
       "norm_label": "createinvoicedto"
     },
     {
@@ -28419,8 +28419,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_invoices_dto_invoices_dto_ts_isuuid",
-      "community": 1,
-      "community_name": "User",
+      "community": 34,
+      "community_name": "CreateInvoiceDto",
       "norm_label": "isuuid"
     },
     {
@@ -28430,8 +28430,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_invoices_dto_invoices_dto_ts_isdatestring",
-      "community": 1,
-      "community_name": "User",
+      "community": 34,
+      "community_name": "CreateInvoiceDto",
       "norm_label": "isdatestring"
     },
     {
@@ -28441,8 +28441,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_invoices_dto_invoices_dto_ts_isarray",
-      "community": 1,
-      "community_name": "User",
+      "community": 34,
+      "community_name": "CreateInvoiceDto",
       "norm_label": "isarray"
     },
     {
@@ -28452,8 +28452,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_invoices_dto_invoices_dto_ts_arrayminsize",
-      "community": 1,
-      "community_name": "User",
+      "community": 34,
+      "community_name": "CreateInvoiceDto",
       "norm_label": "arrayminsize"
     },
     {
@@ -28463,8 +28463,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_invoices_dto_invoices_dto_ts_validatenested",
-      "community": 1,
-      "community_name": "User",
+      "community": 34,
+      "community_name": "CreateInvoiceDto",
       "norm_label": "validatenested"
     },
     {
@@ -28474,8 +28474,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_invoices_dto_invoices_dto_ts_type",
-      "community": 1,
-      "community_name": "User",
+      "community": 34,
+      "community_name": "CreateInvoiceDto",
       "norm_label": "type"
     },
     {
@@ -28485,8 +28485,8 @@
       "source_location": "L67",
       "_origin": "ast",
       "id": "server_src_modules_invoices_dto_invoices_dto_queryinvoicedto",
-      "community": 1,
-      "community_name": "User",
+      "community": 34,
+      "community_name": "CreateInvoiceDto",
       "norm_label": "queryinvoicedto"
     },
     {
@@ -28496,8 +28496,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_invoices_dto_invoices_dto_ts_isenum",
-      "community": 1,
-      "community_name": "User",
+      "community": 34,
+      "community_name": "CreateInvoiceDto",
       "norm_label": "isenum"
     },
     {
@@ -28507,8 +28507,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_invoices_dto_invoices_dto_ts_max",
-      "community": 1,
-      "community_name": "User",
+      "community": 34,
+      "community_name": "CreateInvoiceDto",
       "norm_label": "max"
     },
     {
@@ -28518,8 +28518,8 @@
       "source_location": "L120",
       "_origin": "ast",
       "id": "server_src_modules_invoices_dto_invoices_dto_familyinvoicestudentdto",
-      "community": 1,
-      "community_name": "User",
+      "community": 34,
+      "community_name": "CreateInvoiceDto",
       "norm_label": "familyinvoicestudentdto"
     },
     {
@@ -28529,8 +28529,8 @@
       "source_location": "L126",
       "_origin": "ast",
       "id": "server_src_modules_invoices_dto_invoices_dto_familyinvoicedto",
-      "community": 1,
-      "community_name": "User",
+      "community": 34,
+      "community_name": "CreateInvoiceDto",
       "norm_label": "familyinvoicedto"
     },
     {
@@ -32654,8 +32654,8 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "server_src_modules_students_students_controller_studentcontroller",
-      "community": 18,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "studentcontroller"
     },
     {
@@ -32665,8 +32665,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_students_students_controller_ts_apitags",
-      "community": 18,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "apitags"
     },
     {
@@ -32676,8 +32676,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_students_students_controller_ts_controller",
-      "community": 18,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "controller"
     },
     {
@@ -32687,8 +32687,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_students_students_controller_ts_useguards",
-      "community": 18,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "useguards"
     },
     {
@@ -32709,8 +32709,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_students_students_controller_ts_post",
-      "community": 18,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "post"
     },
     {
@@ -32720,8 +32720,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_students_students_controller_ts_body",
-      "community": 18,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "body"
     },
     {
@@ -32731,8 +32731,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_students_students_controller_ts_throttle",
-      "community": 18,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "throttle"
     },
     {
@@ -32742,8 +32742,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_students_students_controller_ts_useinterceptors",
-      "community": 18,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "useinterceptors"
     },
     {
@@ -32753,8 +32753,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_students_students_controller_ts_apioperation",
-      "community": 18,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "apioperation"
     },
     {
@@ -32764,8 +32764,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "apiconsumes",
-      "community": 18,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "apiconsumes"
     },
     {
@@ -32775,8 +32775,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "apibody",
-      "community": 18,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "apibody"
     },
     {
@@ -32786,8 +32786,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "uploadedfile",
-      "community": 18,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "uploadedfile"
     },
     {
@@ -32797,8 +32797,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_students_students_controller_ts_get",
-      "community": 18,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "get"
     },
     {
@@ -32819,8 +32819,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_students_students_controller_ts_param",
-      "community": 18,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "param"
     },
     {
@@ -32830,8 +32830,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_students_students_controller_ts_patch",
-      "community": 18,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "patch"
     },
     {
@@ -32841,8 +32841,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_students_students_controller_ts_delete",
-      "community": 18,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "delete"
     },
     {
@@ -32863,8 +32863,8 @@
       "source_location": "L57",
       "_origin": "ast",
       "id": "server_src_modules_students_students_controller_studentcontroller_createstudent",
-      "community": 18,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": ".createstudent()"
     },
     {
@@ -32874,8 +32874,8 @@
       "source_location": "L75",
       "_origin": "ast",
       "id": "server_src_modules_students_students_controller_studentcontroller_bulkuploadstudents",
-      "community": 18,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": ".bulkuploadstudents()"
     },
     {
@@ -32896,8 +32896,8 @@
       "source_location": "L103",
       "_origin": "ast",
       "id": "server_src_modules_students_students_controller_studentcontroller_findmystudents",
-      "community": 18,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": ".findmystudents()"
     },
     {
@@ -32907,8 +32907,8 @@
       "source_location": "L123",
       "_origin": "ast",
       "id": "server_src_modules_students_students_controller_studentcontroller_findonestudent",
-      "community": 18,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": ".findonestudent()"
     },
     {
@@ -32918,8 +32918,8 @@
       "source_location": "L138",
       "_origin": "ast",
       "id": "server_src_modules_students_students_controller_studentcontroller_updatestudent",
-      "community": 18,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": ".updatestudent()"
     },
     {
@@ -32929,8 +32929,8 @@
       "source_location": "L148",
       "_origin": "ast",
       "id": "server_src_modules_students_students_controller_studentcontroller_removestudent",
-      "community": 18,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": ".removestudent()"
     },
     {
@@ -32940,8 +32940,8 @@
       "source_location": "L156",
       "_origin": "ast",
       "id": "server_src_modules_students_students_controller_studentcontroller_createguardian",
-      "community": 18,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": ".createguardian()"
     },
     {
@@ -32962,8 +32962,8 @@
       "source_location": "L174",
       "_origin": "ast",
       "id": "server_src_modules_students_students_controller_studentcontroller_findoneguardian",
-      "community": 18,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": ".findoneguardian()"
     },
     {
@@ -32973,8 +32973,8 @@
       "source_location": "L183",
       "_origin": "ast",
       "id": "server_src_modules_students_students_controller_studentcontroller_updateguardian",
-      "community": 18,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": ".updateguardian()"
     },
     {
@@ -32984,8 +32984,8 @@
       "source_location": "L193",
       "_origin": "ast",
       "id": "server_src_modules_students_students_controller_studentcontroller_removeguardian",
-      "community": 18,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": ".removeguardian()"
     },
     {
@@ -33776,8 +33776,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_users_users_controller_ts_get",
-      "community": 52,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "get"
     },
     {
@@ -33787,8 +33787,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_users_users_controller_ts_query",
-      "community": 52,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "query"
     },
     {
@@ -33798,8 +33798,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_users_users_controller_ts_apiresponse",
-      "community": 52,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "apiresponse"
     },
     {
@@ -33875,8 +33875,8 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "server_src_modules_users_users_controller_usercontroller_findallusers",
-      "community": 52,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": ".findallusers()"
     },
     {
@@ -33886,8 +33886,8 @@
       "source_location": "L73",
       "_origin": "ast",
       "id": "server_src_modules_users_users_controller_usercontroller_findoneuser",
-      "community": 52,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": ".findoneuser()"
     },
     {
@@ -33930,8 +33930,8 @@
       "source_location": "L122",
       "_origin": "ast",
       "id": "server_src_modules_users_users_controller_usercontroller_findallteachers",
-      "community": 52,
-      "community_name": "index.ts",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": ".findallteachers()"
     },
     {
@@ -34293,8 +34293,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_route_guard_coverage_e2e_spec",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 18,
+      "community_name": "index.ts",
       "norm_label": "route-guard-coverage.e2e-spec.ts"
     },
     {
@@ -34304,8 +34304,8 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "server_src_route_guard_coverage_e2e_spec_jwt_auth_guard",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 18,
+      "community_name": "index.ts",
       "norm_label": "jwt_auth_guard"
     },
     {
@@ -34315,8 +34315,8 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "server_src_route_guard_coverage_e2e_spec_allowlistentry",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 18,
+      "community_name": "index.ts",
       "norm_label": "allowlistentry"
     },
     {
@@ -34326,8 +34326,8 @@
       "source_location": "L50",
       "_origin": "ast",
       "id": "server_src_route_guard_coverage_e2e_spec_allowlist",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 18,
+      "community_name": "index.ts",
       "norm_label": "allowlist"
     },
     {
@@ -34337,8 +34337,8 @@
       "source_location": "L86",
       "_origin": "ast",
       "id": "server_src_route_guard_coverage_e2e_spec_findallowlistentry",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 18,
+      "community_name": "index.ts",
       "norm_label": "findallowlistentry()"
     },
     {
@@ -34348,8 +34348,8 @@
       "source_location": "L208",
       "_origin": "ast",
       "id": "server_src_route_guard_coverage_e2e_spec_buildfullpath",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 18,
+      "community_name": "index.ts",
       "norm_label": "buildfullpath()"
     },
     {
@@ -34359,8 +34359,8 @@
       "source_location": "L217",
       "_origin": "ast",
       "id": "server_src_route_guard_coverage_e2e_spec_requestmethodname",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 18,
+      "community_name": "index.ts",
       "norm_label": "requestmethodname()"
     },
     {
@@ -34370,8 +34370,8 @@
       "source_location": "L231",
       "_origin": "ast",
       "id": "server_src_route_guard_coverage_e2e_spec_describeguards",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 18,
+      "community_name": "index.ts",
       "norm_label": "describeguards()"
     },
     {
@@ -40769,7 +40769,7 @@
       "label": "webhooks",
       "file_type": "code",
       "source_file": "ui/src/api/schema.d.ts",
-      "source_location": "L943",
+      "source_location": "L966",
       "_origin": "ast",
       "id": "ui_src_api_schema_d_webhooks",
       "community": 189,
@@ -40780,7 +40780,7 @@
       "label": "components",
       "file_type": "code",
       "source_file": "ui/src/api/schema.d.ts",
-      "source_location": "L944",
+      "source_location": "L967",
       "_origin": "ast",
       "id": "ui_src_api_schema_d_components",
       "community": 189,
@@ -40791,7 +40791,7 @@
       "label": "$defs",
       "file_type": "code",
       "source_file": "ui/src/api/schema.d.ts",
-      "source_location": "L1888",
+      "source_location": "L1934",
       "_origin": "ast",
       "id": "ui_src_api_schema_d_defs",
       "community": 189,
@@ -40802,7 +40802,7 @@
       "label": "operations",
       "file_type": "code",
       "source_file": "ui/src/api/schema.d.ts",
-      "source_location": "L1889",
+      "source_location": "L1935",
       "_origin": "ast",
       "id": "ui_src_api_schema_d_operations",
       "community": 189,
@@ -189474,7 +189474,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/api/schema.d.ts",
-      "source_location": "L944",
+      "source_location": "L967",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ui_src_api_schema_d",
@@ -189485,7 +189485,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/api/schema.d.ts",
-      "source_location": "L1888",
+      "source_location": "L1934",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ui_src_api_schema_d",
@@ -189496,7 +189496,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/api/schema.d.ts",
-      "source_location": "L1889",
+      "source_location": "L1935",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ui_src_api_schema_d",
@@ -189518,7 +189518,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/api/schema.d.ts",
-      "source_location": "L943",
+      "source_location": "L966",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ui_src_api_schema_d",

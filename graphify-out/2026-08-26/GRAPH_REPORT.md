@@ -1,11 +1,11 @@
 # Graph Report - biddaloy  (2026-08-26)
 
 ## Corpus Check
-- 991 files · ~518,502 words
+- 991 files · ~518,925 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 5577 nodes · 15116 edges · 299 communities (219 shown, 80 thin omitted)
+- 5577 nodes · 15116 edges · 300 communities (220 shown, 80 thin omitted)
 - Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 283 edges (avg confidence: 0.74)
 - Token cost: 0 input · 0 output
 
@@ -275,6 +275,7 @@
 - open
 - sign-in-form.stories.tsx
 - eslint-plugin-jsx-a11y
+- @vitest/coverage-v8
 - eslint-plugin-react
 - build-all.sh
 - open-coverage-report.mjs
@@ -337,31 +338,31 @@
 - **Design-System Wrapper Boundary Pattern** — ui_contributing_wrapperrule, ui_src_primitives_readme_doc, ui_readme_doc, ui_contributing_threefile_requirement [INFERRED 0.85]
 - **Multi-Tenant Scoping Enforced Across Stack** — claude_skills_multi_tenancy_skill_doc, server_claude_testingstandards, ui_readme_apiclient, ui_readme_hooks [INFERRED 0.85]
 
-## Communities (299 total, 80 thin omitted)
+## Communities (300 total, 80 thin omitted)
 
 ### Community 0 - "app.module.ts"
 Cohesion: 0.08
 Nodes (24): KLASS, paisaRegionHandler(), referenceHandlers(), render(), YEAR, FeeApplicability, FeeType, FeeStructure (+16 more)
 
 ### Community 1 - "User"
-Cohesion: 0.15
-Nodes (20): FamilyStudentFeeDto, CreateInvoiceDto, FamilyInvoiceDto, FamilyInvoiceStudentDto, LineItemDto, QueryInvoiceDto, ArrayMinSize, IsArray (+12 more)
+Cohesion: 0.12
+Nodes (15): Inject, CommunicationsService, toResponseDto(), Injectable, CommunicationResponseDto, QueryLastRemindersDto, SendCommunicationDto, ArrayMinSize (+7 more)
 
 ### Community 2 - "ClassController"
 Cohesion: 0.10
 Nodes (27): ApiHideProperty, Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn (+19 more)
 
 ### Community 3 - "Student"
-Cohesion: 0.11
-Nodes (25): ClassController, ApiOperation, ApiTags, Body, Controller, Delete, Get, Param (+17 more)
+Cohesion: 0.32
+Nodes (13): CreateClassDto, CreateSectionDto, QueryClassDto, IsInt, IsNotEmpty, IsOptional, IsString, IsUUID (+5 more)
 
 ### Community 4 - "index.ts"
 Cohesion: 0.11
 Nodes (58): mockStudent(), outstandingFee(), CommunicationMedium, academicYearFactory(), auditEntryFactory(), BD_MOBILE_PREFIXES, BN_DISTRICTS, BN_FEMALE_FIRST_NAMES (+50 more)
 
 ### Community 5 - "invoices.controller.ts"
-Cohesion: 0.08
-Nodes (31): @nestjs/swagger, ApiTenantAuth(), TestController, requestContext, AuditLogListResponseDto, AuditLogResponseDto, ApiProperty, ContextGuard (+23 more)
+Cohesion: 0.11
+Nodes (26): @nestjs/swagger, ApiTenantAuth(), TestController, requestContext, CurrentUser, ContextGuard, resolveRole(), ROLE_PRIORITY (+18 more)
 
 ### Community 6 - "StudentService"
 Cohesion: 0.07
@@ -388,8 +389,8 @@ Cohesion: 0.07
 Nodes (48): ClassesTab(), ClassFormDialog(), ClassDetailPage(), DeleteSectionDialog(), SectionFormDialog(), academicYearBounds(), describeSubmitError(), GenerateFeesWizard() (+40 more)
 
 ### Community 12 - "Roles"
-Cohesion: 0.12
-Nodes (21): CurrentTenant, CommunicationsController, ApiOkResponse, ApiOperation, ApiTags, Body, Controller, Get (+13 more)
+Cohesion: 0.05
+Nodes (53): ApiBody, ApiConsumes, Delete, Get, Param, CurrentTenant, TestController, Roles() (+45 more)
 
 ### Community 13 - "client.ts"
 Cohesion: 0.17
@@ -400,28 +401,28 @@ Cohesion: 0.02
 Nodes (99): worker, wsPassthrough, academicYearDefaultHandlers, academicYearHandlers, create, fixtures, getOne, list (+91 more)
 
 ### Community 15 - "index.ts"
-Cohesion: 0.16
-Nodes (17): CurrentUser, TestController, Roles(), FeeController, ApiOperation, ApiTags, Body, Controller (+9 more)
+Cohesion: 0.12
+Nodes (17): GenerateFeesResultDto, toFamilyFeeStructure(), toFamilyPayment(), toFamilyStudentDue(), FeeController, ApiOperation, ApiTags, Body (+9 more)
 
 ### Community 16 - "list-shell.stories.tsx"
 Cohesion: 0.09
 Nodes (23): buildRateLimitTracker(), AcademicYearModule, Module, AuditModule, Module, ClassModule, Module, CommunicationsModule (+15 more)
 
 ### Community 17 - "all-entities.ts"
-Cohesion: 0.13
-Nodes (38): CreateFeeStructureDto, CreatePaymentDto, FamilyDueEntryDto, FamilyFeeStructureDto, FamilyPaymentAllocationDto, FamilyPaymentDto, FamilyStudentDueDto, FeeDuesSortBy (+30 more)
+Cohesion: 0.16
+Nodes (33): CreateFeeStructureDto, CreatePaymentDto, FamilyDueEntryDto, FamilyFeeStructureDto, FamilyPaymentAllocationDto, FamilyPaymentDto, FamilyStudentDueDto, FeeDuesSortBy (+25 more)
 
 ### Community 18 - "index.ts"
-Cohesion: 0.13
-Nodes (16): ApiBody, ApiConsumes, StudentController, ApiOperation, ApiTags, Body, Controller, Delete (+8 more)
+Cohesion: 0.25
+Nodes (3): ALLOWLIST, AllowlistEntry, JWT_AUTH_GUARD
 
 ### Community 19 - "dialog.tsx"
 Cohesion: 0.07
 Nodes (70): DeleteYearDialogProps, SetCurrentDialogProps, EMPTY_VALUES, YearFormDialogProps, YearFormInitialValues, ClassFormDialogProps, ClassFormInitialValues, EMPTY_VALUES (+62 more)
 
 ### Community 20 - "students.controller.ts"
-Cohesion: 0.07
-Nodes (47): SanitizeAllowlist(), SanitizeText(), shared, AllowlistDto, { sanitizeAllowlist, sanitizeStrict }, StrictDto, IsBeforeConstraint, ValidatorConstraint (+39 more)
+Cohesion: 0.09
+Nodes (37): SanitizeAllowlist(), SanitizeText(), shared, AllowlistDto, { sanitizeAllowlist, sanitizeStrict }, StrictDto, IsBeforeConstraint, ValidatorConstraint (+29 more)
 
 ### Community 21 - "Payment"
 Cohesion: 0.04
@@ -457,7 +458,7 @@ Nodes (49): LOCALE_LABELS, LocaleSwitcherProps, Menu(), MenuCheckboxItemProps, M
 
 ### Community 29 - "AcademicYearController"
 Cohesion: 0.07
-Nodes (28): AcademicYearController, ApiOperation, ApiTags, Body, Controller, Delete, Get, Inject (+20 more)
+Nodes (25): AcademicYearController, ApiOperation, ApiTags, Body, Controller, Inject, Patch, Post (+17 more)
 
 ### Community 30 - "index.ts"
 Cohesion: 0.18
@@ -476,8 +477,8 @@ Cohesion: 0.05
 Nodes (40): compilerOptions, jsx, lib, noEmit, outDir, paths, rootDir, extends (+32 more)
 
 ### Community 34 - "CreateInvoiceDto"
-Cohesion: 0.10
-Nodes (20): Header, Audited(), toFamilyInvoice(), InvoicesController, toSafeInvoice(), ApiOperation, ApiTags, Body (+12 more)
+Cohesion: 0.06
+Nodes (41): Header, Audited(), FamilyStudentFeeDto, toFamilyStudentFee(), CreateInvoiceDto, FamilyInvoiceDto, FamilyInvoiceStudentDto, LineItemDto (+33 more)
 
 ### Community 35 - "dependencies"
 Cohesion: 0.06
@@ -548,8 +549,8 @@ Cohesion: 0.13
 Nodes (5): Optional, Inject, InjectRepository, LoginAttemptRedisClient, LoginAttemptService
 
 ### Community 52 - "index.ts"
-Cohesion: 0.16
-Nodes (13): ApiOperation, ApiResponse, ApiTags, Body, Controller, Delete, Get, Param (+5 more)
+Cohesion: 0.20
+Nodes (10): ApiOperation, ApiTags, Body, Controller, Delete, Param, Patch, Post (+2 more)
 
 ### Community 53 - "http-exception.filter.ts"
 Cohesion: 0.12
@@ -629,7 +630,7 @@ Nodes (10): Tabs(), TabsContent(), TabsList(), tabsListVariants, TabsTrigger(), 
 
 ### Community 72 - "devDependencies"
 Cohesion: 0.07
-Nodes (27): axe-core, eslint-config-prettier, globals, jsdom, devDependencies, axe-core, eslint-config-prettier, globals (+19 more)
+Nodes (27): axe-core, @axe-core/playwright, @faker-js/faker, jsdom, open, devDependencies, axe-core, @axe-core/playwright (+19 more)
 
 ### Community 73 - "school-settings.ts"
 Cohesion: 0.15
@@ -1131,6 +1132,10 @@ Nodes (3): Global, AuthModule, Module
 Cohesion: 0.29
 Nodes (6): Driving a new list page — worked example, E2E page objects ([8.5.3]), Locator policy (this is an accessibility decision), Route manifest, Test data, URL state
 
+### Community 229 - "@axe-core/playwright"
+Cohesion: 0.38
+Nodes (3): AuditLogListResponseDto, AuditLogResponseDto, ApiProperty
+
 ### Community 237 - "component-boundary.spec.mjs"
 Cohesion: 0.40
 Nodes (4): Current, Done, Epic 8.5 run state, Order
@@ -1179,7 +1184,7 @@ _Questions this graph is uniquely positioned to answer:_
   _Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low._
 - **Why does `DiffPanel()` connect `locale-storage.ts` to `date-picker.tsx`, `payments-tab.tsx`?**
   _High betweenness centrality (0.130) - this node is a cross-community bridge._
-- **Why does `requestContext` connect `invoices.controller.ts` to `.updateSettings`, `StudentService`, `Roles`, `pagination.stories.tsx`, `index.ts`, `audit.interceptor.ts`, `all-entities.ts`, `.testConnection`, `Payment`, `combobox.stories.tsx`, `.login`?**
+- **Why does `requestContext` connect `invoices.controller.ts` to `.updateSettings`, `StudentService`, `Roles`, `pagination.stories.tsx`, `index.ts`, `audit.interceptor.ts`, `.testConnection`, `Payment`, `combobox.stories.tsx`, `.login`?**
   _High betweenness centrality (0.055) - this node is a cross-community bridge._
 - **Why does `buildXlsxFile()` connect `Payment` to `date-picker.tsx`?**
   _High betweenness centrality (0.054) - this node is a cross-community bridge._

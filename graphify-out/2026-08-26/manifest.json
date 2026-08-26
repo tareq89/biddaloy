@@ -1510,8 +1510,8 @@
     "semantic_hash": "e485051e0b0cc146177eb746f9c76545"
   },
   "ui/src/api/schema.d.ts": {
-    "mtime": 1787740956.5733876,
-    "ast_hash": "a06cd62c7dba4ce1f1d6a5c6c92cb1f1",
+    "mtime": 1787746044.0830991,
+    "ast_hash": "748f09746cc1cb9a2905090fd365067b",
     "semantic_hash": ""
   },
   "ui/src/components/button.stories.tsx": {
