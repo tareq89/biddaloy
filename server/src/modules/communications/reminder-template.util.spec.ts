@@ -65,6 +65,20 @@ describe('renderReminderTemplate', () => {
   it('leaves an empty placeholder verbatim', () => {
     expect(renderReminderTemplate('Hi {{}}', VARS)).toBe('Hi {{}}');
   });
+  // CodeQL js/polynomial-redos: the previous pattern padded a lazy capture
+  // with `\s*` on both sides, and `\s` is a subset of `[^{}]`, so a
+  // template holding a long run of spaces after `{{` with no closing braces
+  // backtracked polynomially. Staff author these templates, and the request
+  // that carries one is already authenticated — but a 2000-character
+  // template is well within the DTO's limit, so this must stay linear.
+  it('matches in linear time on a long unclosed placeholder', () => {
+    const hostile = `{{${' '.repeat(50_000)}`;
+
+    const started = Date.now();
+    expect(renderReminderTemplate(hostile, VARS)).toBe(hostile);
+    expect(findUnsupportedPlaceholders(hostile)).toEqual([]);
+    expect(Date.now() - started).toBeLessThan(1000);
+  });
 });
 
 describe('findUnsupportedPlaceholders', () => {

@@ -340,6 +340,37 @@ describe('/communications/reminders', () => {
     );
   });
 
+  // Re-picking the *same* student after "Change student" must re-apply the
+  // all-guardians default. It used to leave the checklist empty with Preview
+  // disabled and no on-screen reason, because the "defaults applied for"
+  // marker still held that student's id.
+  it('re-applies the guardian defaults when the same student is picked again', async () => {
+    server.use(...referenceHandlers());
+    const user = userEvent.setup();
+    render();
+
+    await pickStudent(user);
+    expect(
+      screen
+        .getByRole('checkbox', { name: /Rahima Begum \(Mother\)/ })
+        .getAttribute('aria-checked'),
+    ).toBe('true');
+
+    await user.click(screen.getByRole('button', { name: 'Change student' }));
+    await pickStudent(user);
+
+    expect(
+      screen
+        .getByRole('checkbox', { name: /Rahima Begum \(Mother\)/ })
+        .getAttribute('aria-checked'),
+    ).toBe('true');
+    await user.click(screen.getByRole('textbox', { name: 'Message template' }));
+    await user.paste('Dues reminder.');
+    expect(
+      screen.getByRole<HTMLButtonElement>('button', { name: 'Preview recipients' }).disabled,
+    ).toBe(false);
+  });
+
   it('keeps a deliberate guardian deselection across a background refetch', async () => {
     server.use(...referenceHandlers());
 

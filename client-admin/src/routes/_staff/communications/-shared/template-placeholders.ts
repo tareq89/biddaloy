@@ -15,10 +15,12 @@ export const SUPPORTED_PLACEHOLDERS = [
 const SUPPORTED_NAMES = new Set(['student_name', 'guardian_name', 'due_amount', 'due_month']);
 
 // Same semantics as the server's PLACEHOLDER_PATTERN
-// (`/\{\{\s*([^{}]*?)\s*\}\}/` in reminder-template.util.ts): inner
-// whitespace padding is trimmed before the name is checked, so
-// `{{ guardian_name }}` is as valid here as it is server-side.
-const PLACEHOLDER_PATTERN = /\{\{\s*([^{}]*?)\s*\}\}/g;
+// (`/\{\{([^{}]*)\}\}/` in reminder-template.util.ts): one unambiguous
+// capture, with the padding trimmed in code, so `{{ guardian_name }}` is as
+// valid here as it is server-side. Padding is deliberately not matched by
+// the pattern itself — `\s` is a subset of `[^{}]`, and that overlap is
+// what made the earlier `\s*([^{}]*?)\s*` form backtrack polynomially.
+const PLACEHOLDER_PATTERN = /\{\{([^{}]*)\}\}/g;
 
 /** Every `{{…}}` token in the template that the server would reject,
  * reported in normalized `{{name}}` form (padding stripped, matching how
@@ -26,7 +28,7 @@ const PLACEHOLDER_PATTERN = /\{\{\s*([^{}]*?)\s*\}\}/g;
 export function findUnsupportedPlaceholders(template: string): string[] {
   const unsupported: string[] = [];
   for (const match of template.matchAll(PLACEHOLDER_PATTERN)) {
-    const name = match[1] ?? '';
+    const name = (match[1] ?? '').trim();
     const normalized = `{{${name}}}`;
     if (!SUPPORTED_NAMES.has(name) && !unsupported.includes(normalized)) {
       unsupported.push(normalized);

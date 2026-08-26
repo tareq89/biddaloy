@@ -29,9 +29,16 @@ export function templateVarValue(vars: ReminderTemplateVars, name: string): stri
 // Captures anything between the braces — not just [a-zA-Z0-9_] — so a typo
 // like `{{student-name}}` is still recognized as a placeholder attempt and
 // validated (and rejected) rather than silently skipped by the pattern and
-// shipped to a guardian's phone as literal text. Inner padding is trimmed
-// separately so `{{ student_name }}` still resolves.
-const PLACEHOLDER_PATTERN = /\{\{\s*([^{}]*?)\s*\}\}/g;
+// shipped to a guardian's phone as literal text.
+//
+// Deliberately has no `\s*` padding around a lazy capture: `\s` is a subset
+// of `[^{}]`, so `\{\{\s*([^{}]*?)\s*\}\}` made the whitespace ambiguous
+// between three parts of the pattern and backtracked polynomially on a
+// staff-authored template holding a long run of spaces with no closing
+// braces (CodeQL js/polynomial-redos). One unambiguous capture matches in
+// linear time; both call sites trim the name themselves, so
+// `{{ student_name }}` still resolves exactly as before.
+const PLACEHOLDER_PATTERN = /\{\{([^{}]*)\}\}/g;
 
 const MONTH_NAMES = [
   'January',

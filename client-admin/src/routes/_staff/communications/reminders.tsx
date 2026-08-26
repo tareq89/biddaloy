@@ -265,6 +265,11 @@ function SingleReminderForm() {
   function handleChangeStudent() {
     setStudentId(null);
     setGuardianIds([]);
+    // Clear the "defaults already applied for" marker too. Without this,
+    // re-picking the *same* student leaves the ref matching their id, the
+    // default-all effect never runs, and the guardian checklist stays empty
+    // with Preview permanently disabled and nothing on screen explaining why.
+    guardianDefaultsForRef.current = null;
     previewRequestRef.current += 1;
     setAcceptedPreview(null);
     preview.reset();
