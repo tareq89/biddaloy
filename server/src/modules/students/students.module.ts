@@ -9,6 +9,7 @@ import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { AuditModule } from '../audit/audit.module';
 import { StudentService, GuardianService } from './students.service';
 import { StudentBulkUploadService } from './bulk-upload.service';
+import { FamilyAccessService } from './family-access.service';
 import { StudentController } from './students.controller';
 
 @Module({
@@ -16,8 +17,8 @@ import { StudentController } from './students.controller';
     TypeOrmModule.forFeature([Student, Guardian, Enrollment, ClassSection, Class, AcademicYear]),
     AuditModule,
   ],
-  providers: [StudentService, GuardianService, StudentBulkUploadService],
+  providers: [StudentService, GuardianService, StudentBulkUploadService, FamilyAccessService],
   controllers: [StudentController],
-  exports: [StudentService, GuardianService, StudentBulkUploadService],
+  exports: [StudentService, GuardianService, StudentBulkUploadService, FamilyAccessService],
 })
 export class StudentModule {}

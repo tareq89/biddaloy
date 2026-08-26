@@ -368,6 +368,90 @@ describe('InvoicesService (integration)', () => {
       expect(statusResult.total).toBe(2);
     });
 
+    /**
+     * [5.1] — `restrictToStudentIds` is how a PARENT/STUDENT caller reaches
+     * this list. `InvoicesController` fills it from `FamilyAccessService`;
+     * `query.student_id` stays caller-controlled and must only intersect
+     * with it.
+     */
+    it('narrows the result to restrictToStudentIds', async () => {
+      const mine = await studentRepo.save(makeStudent());
+      const theirs = await studentRepo.save(makeStudent());
+      const feeMine = await studentFeeRepo.save(makeFee(mine.id));
+      const feeTheirs = await studentFeeRepo.save(makeFee(theirs.id));
+      await service.create(
+        { student_id: mine.id, student_fee_id: feeMine.id },
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      await service.create(
+        { student_id: theirs.id, student_fee_id: feeTheirs.id },
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      const result = await service.findAll({ page: 1, limit: 10 }, TENANT_ID, [mine.id]);
+
+      expect(result.total).toBe(1);
+      expect(result.data[0].student_id).toBe(mine.id);
+    });
+
+    // The URL-manipulation case at the service layer: asking for someone
+    // else's invoices while restricted to your own yields nothing, rather
+    // than the caller's filter winning.
+    it('returns an empty page when student_id names a student outside the restriction', async () => {
+      const mine = await studentRepo.save(makeStudent());
+      const theirs = await studentRepo.save(makeStudent());
+      const feeTheirs = await studentFeeRepo.save(makeFee(theirs.id));
+      await service.create(
+        { student_id: theirs.id, student_fee_id: feeTheirs.id },
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      const result = await service.findAll(
+        { student_id: theirs.id, page: 1, limit: 10 },
+        TENANT_ID,
+        [mine.id],
+      );
+
+      expect(result.data).toEqual([]);
+      expect(result.total).toBe(0);
+    });
+
+    // `[]` ("linked to nobody") must not collapse into `undefined`
+    // ("no restriction"), or a childless parent would see the tenant.
+    it('returns an empty page for an empty restriction, not the whole tenant', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id));
+      await service.create(
+        { student_id: student.id, student_fee_id: fee.id },
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      const restricted = await service.findAll({ page: 1, limit: 10 }, TENANT_ID, []);
+      const unrestricted = await service.findAll({ page: 1, limit: 10 }, TENANT_ID);
+
+      expect(restricted.total).toBe(0);
+      expect(restricted.data).toEqual([]);
+      expect(unrestricted.total).toBe(1);
+    });
+
+    it('still enforces the tenant filter on top of the restriction', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id));
+      await service.create(
+        { student_id: student.id, student_fee_id: fee.id },
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      const result = await service.findAll({ page: 1, limit: 10 }, OTHER_TENANT_ID, [student.id]);
+
+      expect(result.total).toBe(0);
+    });
+
     it('does not return invoices belonging to another tenant', async () => {
       const student = await studentRepo.save(makeStudent());
       const fee = await studentFeeRepo.save(makeFee(student.id));

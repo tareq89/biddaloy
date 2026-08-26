@@ -436,6 +436,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/students/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the students the calling PARENT or STUDENT is linked to. The discovery route for the family portal: without it a parent has no way to learn their own children's IDs. */
+        get: operations["StudentController_findMyStudents_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/students/{id}": {
         parameters: {
             query?: never;
@@ -492,6 +509,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** List outstanding dues. Staff see the whole tenant (subject to the query filters); a PARENT or STUDENT sees only their linked students' dues, whatever filters they send. */
         get: operations["FeeController_getDues_v1"];
         put?: never;
         post?: never;
@@ -542,6 +560,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** The school's fee catalog. Tenant-scoped but not student-scoped — it is the published price list, so no object-level check applies. [5.1] opened it to PARENT/STUDENT so the portal can explain what a due is for. */
         get: operations["FeeController_findAllFeeStructures_v1"];
         put?: never;
         post: operations["FeeController_createFeeStructure_v1"];
@@ -558,6 +577,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Get one fee structure. Family callers get a reduced shape without the `selected_students` roster — that relation carries other families' children in full. */
         get: operations["FeeController_findOneFeeStructure_v1"];
         put?: never;
         post?: never;
@@ -608,6 +628,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** A student's payment history. A PARENT or STUDENT must additionally be linked to this student, and gets a reduced payment shape without staff-only fields. */
         get: operations["FeeController_findPaymentsByStudent_v1"];
         put?: never;
         post?: never;
@@ -641,7 +662,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get a student's fee/payment/balance summary. */
+        /** Get a student's fee/payment/balance summary. A PARENT or STUDENT must additionally be linked to this student. */
         get: operations["FeeController_getInvoiceSummary_v1"];
         put?: never;
         post?: never;
@@ -658,6 +679,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** List invoices. Staff see the tenant's invoices; a PARENT or STUDENT sees only their linked students', even if `student_id` names someone else. */
         get: operations["InvoicesController_findAll_v1"];
         put?: never;
         post: operations["InvoicesController_create_v1"];
@@ -674,6 +696,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Get one invoice. A PARENT or STUDENT must additionally be linked to the invoice's student. */
         get: operations["InvoicesController_findOne_v1"];
         put?: never;
         post?: never;
@@ -690,7 +713,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get a printable HTML rendering of the invoice. */
+        /** Get a printable HTML rendering of the invoice. A PARENT or STUDENT must additionally be linked to its student. */
         get: operations["InvoicesController_print_v1"];
         put?: never;
         post?: never;
@@ -1546,6 +1569,29 @@ export interface components {
             transaction_reference?: string;
             remarks?: string;
             generate_invoice?: boolean;
+        };
+        FamilyPaymentAllocationDto: {
+            id: string;
+            student_fee_id: string;
+            allocated_amount: number;
+            /** @enum {string} */
+            allocation_type: "DUE" | "CURRENT" | "ADVANCE";
+        };
+        FamilyPaymentDto: {
+            id: string;
+            student_id: string;
+            total_amount: number;
+            /** @enum {string} */
+            payment_method: "CASH" | "CHEQUE" | "BANK_TRANSFER" | "ONLINE" | "CARD" | "UPI";
+            /** @enum {string} */
+            payment_status: "SUCCESS" | "PENDING" | "FAILED" | "REFUNDED";
+            transaction_reference: string | null;
+            invoice_id: string | null;
+            /** Format: date-time */
+            payment_date: string;
+            /** Format: date-time */
+            created_at: string;
+            allocations?: components["schemas"]["FamilyPaymentAllocationDto"][];
         };
         LineItemDto: {
             description: string;
@@ -3177,6 +3223,37 @@ export interface operations {
             };
         };
     };
+    StudentController_findMyStudents_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Student"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     StudentController_findOneStudent_v1: {
         parameters: {
             query?: never;
@@ -3646,7 +3723,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["FeeStructure"];
+                    "application/json": Record<string, never>;
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -3850,7 +3927,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Payment"][];
+                    "application/json": components["schemas"]["FamilyPaymentDto"][];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -3952,7 +4029,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {

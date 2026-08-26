@@ -182,15 +182,21 @@ describe('Fee Structures E2E', () => {
       expect(res.body.total).toBeDefined();
     });
 
-    it('should return 401 for STUDENT role', async () => {
+    /**
+     * [5.1] opened the fee catalog to family roles. It is the school's
+     * published price list — tenant-scoped but not student-scoped, so a
+     * STUDENT sees exactly what staff see and no object-level check applies.
+     * Writes (POST/PATCH/DELETE below) stay staff-only.
+     */
+    it('admits a STUDENT since [5.1]', async () => {
       const res = await supertest(app.getHttpServer())
         .get('/api/v1/fee-structures')
         .set('Authorization', `Bearer ${studentToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
-        .expect(401);
+        .expect(200);
 
-      expect(res.body.message).toContain('Requires one of roles');
+      expect(Array.isArray(res.body.data)).toBe(true);
     });
   });
 
@@ -228,7 +234,13 @@ describe('Fee Structures E2E', () => {
         .expect(404);
     });
 
-    it('should return 401 for STUDENT role', async () => {
+    /**
+     * [5.1] opened the fee catalog to family roles. It is the school's
+     * published price list — tenant-scoped but not student-scoped, so a
+     * STUDENT sees exactly what staff see and no object-level check applies.
+     * Writes (POST/PATCH/DELETE below) stay staff-only.
+     */
+    it('admits a STUDENT reading one fee structure since [5.1]', async () => {
       const createRes = await supertest(app.getHttpServer())
         .post('/api/v1/fee-structures')
         .set('Authorization', `Bearer ${adminToken}`)
@@ -248,9 +260,9 @@ describe('Fee Structures E2E', () => {
         .set('Authorization', `Bearer ${studentToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
-        .expect(401);
+        .expect(200);
 
-      expect(res.body.message).toContain('Requires one of roles');
+      expect(res.body.id).toBe(createRes.body.id);
     });
 
     describe('cross-tenant access', () => {

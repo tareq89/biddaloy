@@ -94,21 +94,38 @@ export class FeeDuesService {
     private readonly studentRepo: Repository<Student>,
   ) {}
 
-  async getDues(query: QueryFeeDuesDto, tenantId: string) {
+  /**
+   * @param restrictToStudentIds [5.1] — when supplied, results are narrowed
+   *   to these students on top of every other filter. This is the seam a
+   *   PARENT/STUDENT caller comes through: `FeeController` resolves the
+   *   caller's linked students via `FamilyAccessService` and passes them
+   *   here, so a family caller can never widen the query with `class_id`
+   *   or `section_id`. Staff callers pass nothing and are unaffected.
+   *
+   *   An **empty array** means "linked to nobody" and returns an empty page
+   *   — it is not treated the same as `undefined` ("no restriction"), which
+   *   would hand a family caller the whole tenant.
+   */
+  async getDues(query: QueryFeeDuesDto, tenantId: string, restrictToStudentIds?: string[]) {
     // `status` only narrows which students match (e.g. only those with a
     // PARTIALLY_PAID fee); the total_due/dues breakdown below always covers
     // every open (PENDING or PARTIALLY_PAID) fee for a matched student.
     const matchStatuses = query.status ? [query.status] : OPEN_STATUSES;
+
+    const page = query.page || 1;
+    const limit = query.limit || 10;
+
+    if (restrictToStudentIds !== undefined && restrictToStudentIds.length === 0) {
+      return { data: [], total: 0, page, limit, totalPages: 0 };
+    }
 
     const studentIds = await this.findMatchingStudentIds(tenantId, matchStatuses, {
       class_id: query.class_id,
       section_id: query.section_id,
       month: query.month,
       year: query.year,
+      restrictToStudentIds,
     });
-
-    const page = query.page || 1;
-    const limit = query.limit || 10;
 
     if (studentIds.length === 0) {
       return { data: [], total: 0, page, limit, totalPages: 0 };
@@ -232,8 +249,19 @@ export class FeeDuesService {
       month?: number;
       year?: number;
       reminderThresholdBefore?: Date;
+      restrictToStudentIds?: string[];
     },
   ): Promise<string[]> {
+    // Fail closed before building anything: a *defined but empty*
+    // restriction means "linked to nobody", which is not the same as the
+    // `undefined` staff case. Handling it here rather than relying on
+    // `getDues`'s own short-circuit keeps this private helper self-guarding
+    // — a future caller (a widened `getFlaggedDues`, say) can pass `[]`
+    // without either leaking the tenant or hitting an invalid `IN ()`.
+    if (filters.restrictToStudentIds?.length === 0) {
+      return [];
+    }
+
     const qb = this.studentFeeRepo
       .createQueryBuilder('sf')
       .innerJoin('sf.student', 'student')
@@ -254,6 +282,11 @@ export class FeeDuesService {
     }
     if (filters.year) {
       qb.andWhere('sf.year = :year', { year: filters.year });
+    }
+    if (filters.restrictToStudentIds?.length) {
+      qb.andWhere('sf.student_id IN (:...restrictToStudentIds)', {
+        restrictToStudentIds: filters.restrictToStudentIds,
+      });
     }
     if (filters.reminderThresholdBefore) {
       qb.andWhere('sf.reminder_threshold_date IS NOT NULL').andWhere(
