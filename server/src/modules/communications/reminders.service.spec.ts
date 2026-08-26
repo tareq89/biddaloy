@@ -11,6 +11,7 @@ import {
   CommunicationStatus,
   CommunicationTrigger,
   ReminderBatchStatus,
+  AuditAction,
 } from '@biddaloy/shared';
 
 const TENANT = 'tenant-1';
@@ -584,6 +585,56 @@ describe('BulkReminderService', () => {
   });
 
   describe('findBatch', () => {
+    // Business-critical: the detail page composes "retry the failures" from
+    // this response. If the original targeting is missing, an email-only
+    // batch retries onto every preferred channel and a WhatsApp template
+    // batch retries as freeform text Meta rejects.
+    it('replays the original targeting so a retry can reproduce the send', async () => {
+      batchRepo.findOne.mockResolvedValue({
+        id: 'batch-1',
+        batch_name: 'b',
+        status: ReminderBatchStatus.COMPLETED,
+        total_recipients: 1,
+        successful_count: 0,
+        failed_count: 1,
+        message_template: 'x',
+        created_at: new Date(),
+        filters_applied: {
+          mediums: [CommunicationMedium.EMAIL],
+          whatsapp_template_name: 'fee_reminder',
+          whatsapp_template_language: 'bn',
+          whatsapp_template_params: ['guardian_name'],
+          skipped: [],
+        },
+      });
+
+      const result = await service.findBatch('batch-1', TENANT);
+
+      expect(result.mediums).toEqual([CommunicationMedium.EMAIL]);
+      expect(result.whatsapp_template_name).toBe('fee_reminder');
+      expect(result.whatsapp_template_language).toBe('bn');
+      expect(result.whatsapp_template_params).toEqual(['guardian_name']);
+    });
+
+    it('reports null targeting for a batch sent on guardian preferences', async () => {
+      batchRepo.findOne.mockResolvedValue({
+        id: 'batch-1',
+        batch_name: 'b',
+        status: ReminderBatchStatus.COMPLETED,
+        total_recipients: 1,
+        successful_count: 1,
+        failed_count: 0,
+        message_template: 'x',
+        created_at: new Date(),
+        filters_applied: { skipped: [] },
+      });
+
+      const result = await service.findBatch('batch-1', TENANT);
+
+      expect(result.mediums).toBeNull();
+      expect(result.whatsapp_template_name).toBeNull();
+    });
+
     it('scopes the lookup to the caller tenant', async () => {
       batchRepo.findOne.mockResolvedValue({
         id: 'batch-1',
@@ -634,13 +685,43 @@ describe('BulkReminderService', () => {
   });
 
   describe('previewBulk', () => {
-    it('writes nothing: no batch, no logs, no queue jobs, no audit record', async () => {
-      await service.previewBulk(dto as any, TENANT);
+    it('sends nothing: no batch, no logs, no queue jobs', async () => {
+      await service.previewBulk(dto as any, TENANT, 'user-1');
 
       expect(batchRepo.save).not.toHaveBeenCalled();
       expect(logRepo.save).not.toHaveBeenCalled();
       expect(queue.add).not.toHaveBeenCalled();
-      expect(auditService.record).not.toHaveBeenCalled();
+    });
+
+    // Business-critical: preview hands back every guardian's name, channel and
+    // contact address behind a filter. Nothing is sent, but who asked for that
+    // data must leave a trace — and the trace must carry counts only, never a
+    // second copy of the contact data itself.
+    it('audits the preview with counts only, never the resolved contacts', async () => {
+      await service.previewBulk(dto as any, TENANT, 'user-1', {
+        ip: '1.2.3.4',
+        userAgent: 'test-agent',
+      });
+
+      expect(auditService.record).toHaveBeenCalledTimes(1);
+      expect(auditService.record).toHaveBeenCalledWith({
+        action: AuditAction.REMINDER_PREVIEWED,
+        entity_type: 'ReminderBatchPreview',
+        entity_id: null,
+        tenant_id: TENANT,
+        performed_by_user_id: 'user-1',
+        ip_address: '1.2.3.4',
+        user_agent: 'test-agent',
+        new_values: {
+          student_count: 1,
+          recipient_count: 1,
+          skipped_count: 0,
+          mediums: null,
+        },
+      });
+
+      const [[recorded]] = auditService.record.mock.calls;
+      expect(JSON.stringify(recorded)).not.toContain('01712345678');
     });
 
     it('rejects a template using an unsupported placeholder before loading anything', async () => {
@@ -714,6 +795,9 @@ describe('BulkReminderService', () => {
                 address: '01712345678',
                 message_body: 'Dear Karim Uddin, Rahim Uddin owes 1,500.00 for March 2026.',
                 subject: null,
+                // SMS, so no approved template is in play — the rendered body
+                // above is exactly what this guardian receives.
+                whatsapp_template: null,
               },
             ],
             skipped: [],
@@ -812,6 +896,17 @@ describe('BulkReminderService', () => {
 
       expect(batchRepo.findAndCount).toHaveBeenCalledWith({
         where: { tenant_id: TENANT },
+        // Only the columns the list item maps: the heavy message_template and
+        // filters_applied jsonb stay in the database.
+        select: {
+          id: true,
+          batch_name: true,
+          status: true,
+          total_recipients: true,
+          successful_count: true,
+          failed_count: true,
+          created_at: true,
+        },
         order: { created_at: 'DESC', id: 'DESC' },
         skip: 40,
         take: 20,

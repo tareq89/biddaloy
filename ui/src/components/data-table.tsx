@@ -294,8 +294,30 @@ export function DataTable<TData>({
     onSelectedIdsChange?.(next);
   }
 
+  /**
+   * The header checkbox is **page-scoped**: `data` only ever holds the page
+   * the caller's query fetched (`manualPagination`), so "all" can only
+   * honestly mean "all rows on this page". It therefore *adds to* and
+   * *removes from* the caller's selection rather than replacing it —
+   * replacing it silently discarded every row picked on a previous page,
+   * which for `bulk-reminder-wizard.tsx` meant a sender who selected four
+   * students on page 1 and then used select-all on page 2 sent to ten
+   * students instead of fourteen, with the "N of 500" counter agreeing
+   * with the wrong number.
+   */
   const allSelected =
     selectable && rows.length > 0 && rows.every((row) => selectedIds?.has(row.id));
+  const someSelected =
+    selectable && rows.length > 0 && rows.some((row) => selectedIds?.has(row.id));
+
+  function setPageSelection(selected: boolean) {
+    const next = new Set(selectedIds);
+    for (const row of rows) {
+      if (selected) next.add(row.id);
+      else next.delete(row.id);
+    }
+    onSelectedIdsChange?.(next);
+  }
 
   return (
     <div>
@@ -368,12 +390,9 @@ export function DataTable<TData>({
                 {selectable && (
                   <th scope="col" className="p-2 text-start">
                     <Checkbox
-                      aria-label="Select all rows"
-                      checked={rows.length > 0 && allSelected}
-                      onCheckedChange={(checked) => {
-                        if (checked) onSelectedIdsChange?.(new Set(rows.map((row) => row.id)));
-                        else onSelectedIdsChange?.(new Set());
-                      }}
+                      aria-label="Select all rows on this page"
+                      checked={allSelected ? true : someSelected ? 'indeterminate' : false}
+                      onCheckedChange={(checked) => setPageSelection(checked === true)}
                     />
                   </th>
                 )}

@@ -113,7 +113,16 @@ const EXPECTED_ROUTE_CHUNKS = [
  * chunks (asserted by `EXPECTED_ROUTE_CHUNKS`), and only
  * `routeTree.gen.ts`'s per-route lazy-import wrappers land in the entry.
  */
-const ENTRY_CHUNK_GZIP_CEILING_BYTES = 223_700;
+/**
+ * Raised again for [8.11.9]'s final slice: 223,738 B gzipped measured
+ * with the `/communications/batches` and `/communications/batches/$batchId`
+ * routes registered plus the third Communications nav item in
+ * `_staff.tsx` — 38 B over the previous ceiling. Same cause as every
+ * bump above, not a regression: both batch routes land in the existing
+ * `communications` chunk, and only `routeTree.gen.ts`'s per-route
+ * lazy-import wrappers (and the nav entry) land in the entry.
+ */
+const ENTRY_CHUNK_GZIP_CEILING_BYTES = 224_000;
 
 /** The entry is whatever `index.html` loads as its module script — asked
  * of the build output rather than guessed from a filename pattern, which

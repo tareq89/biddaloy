@@ -14,7 +14,9 @@ import {
   SEED_ADMIN_PASSWORD,
   SEED_SECTION_1_ID,
   SEED_ACADEMIC_YEAR_ID,
+  SEED_ADMIN_PASSWORD_HASH,
 } from '@test/constants';
+import { UserRole } from '@biddaloy/shared';
 
 /**
  * E2E tests for the bulk-reminder read/preview endpoints added for the
@@ -32,8 +34,18 @@ describe('Bulk Reminder Read/Preview E2E', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let token: string;
+  // An authenticated caller inside the tenant whose role is NOT on
+  // @Roles(ADMIN, ACCOUNTANT, EXECUTIVE) — so RolesGuard, not "no token",
+  // is what rejects them.
+  let teacherToken: string;
+  // A real ADMIN of the *other* school, for the cross-tenant case.
+  let otherTenantAdminToken: string;
 
   const TENANT_ID = SEED_TENANT_ID;
+  const TEACHER_USER_ID = '00000000-0000-4000-8000-00000000b0b1';
+  const TEACHER_EMAIL = 'teacher@bulk-reminder-e2e.example';
+  const OTHER_ADMIN_USER_ID = '00000000-0000-4000-8000-00000000b0b2';
+  const OTHER_ADMIN_EMAIL = 'admin@bulk-reminder-e2e-other.example';
   const OTHER_TENANT_ID = '00000000-0000-4000-8000-00000000b0b0';
   let seq = 0;
 
@@ -160,11 +172,53 @@ describe('Bulk Reminder Read/Preview E2E', () => {
       [OTHER_TENANT_ID],
     );
 
+    // A TEACHER membership inside the caller tenant: authenticated, but off
+    // the @Roles list every bulk-reminder route carries.
+    await dataSource.query(
+      `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
+       VALUES ($1, $2, $3, 'Reminder E2E Teacher', 'ACTIVE', NOW(), NOW())
+       ON CONFLICT DO NOTHING`,
+      [TEACHER_USER_ID, TEACHER_EMAIL, SEED_ADMIN_PASSWORD_HASH],
+    );
+    await dataSource.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+       VALUES ($1, $2, $3, NOW(), NOW())
+       ON CONFLICT DO NOTHING`,
+      [TEACHER_USER_ID, TENANT_ID, UserRole.TEACHER],
+    );
+
+    // An ADMIN who belongs only to the other school — the right role, the
+    // wrong tenant.
+    await dataSource.query(
+      `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
+       VALUES ($1, $2, $3, 'Reminder E2E Other Admin', 'ACTIVE', NOW(), NOW())
+       ON CONFLICT DO NOTHING`,
+      [OTHER_ADMIN_USER_ID, OTHER_ADMIN_EMAIL, SEED_ADMIN_PASSWORD_HASH],
+    );
+    await dataSource.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+       VALUES ($1, $2, $3, NOW(), NOW())
+       ON CONFLICT DO NOTHING`,
+      [OTHER_ADMIN_USER_ID, OTHER_TENANT_ID, UserRole.ADMIN],
+    );
+
     const loginRes = await supertest(app.getHttpServer())
       .post('/api/v1/auth/login')
       .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
       .expect(200);
     token = loginRes.body.access_token;
+
+    const teacherLoginRes = await supertest(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email: TEACHER_EMAIL, password: SEED_ADMIN_PASSWORD })
+      .expect(200);
+    teacherToken = teacherLoginRes.body.access_token;
+
+    const otherAdminLoginRes = await supertest(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email: OTHER_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+      .expect(200);
+    otherTenantAdminToken = otherAdminLoginRes.body.access_token;
   }, 60000);
 
   afterAll(async () => {
@@ -281,6 +335,26 @@ describe('Bulk Reminder Read/Preview E2E', () => {
       expect(JSON.stringify(res.body.message)).toContain('500');
     });
 
+    // Fails closed: `[]` means "no channel at all", and the resolver would
+    // otherwise read it the same as an omitted field — "any channel" — and
+    // fan a send out to everybody.
+    it('rejects an explicitly empty mediums list rather than defaulting to every channel', async () => {
+      const studentId = await createStudent();
+      await createGuardian(studentId);
+      await createFee(studentId);
+
+      await supertest(app.getHttpServer())
+        .post('/api/v1/communications/reminder/bulk/preview')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({
+          student_ids: [studentId],
+          message_template: 'Dear {{guardian_name}}',
+          mediums: [],
+        })
+        .expect(400);
+    });
+
     it('rejects an unsupported template placeholder, naming it', async () => {
       const studentId = await createStudent();
 
@@ -385,5 +459,57 @@ describe('Bulk Reminder Read/Preview E2E', () => {
         .set('X-Tenant-ID', TENANT_ID)
         .expect(404);
     });
+  });
+  // Mandatory per server/CLAUDE.md: every route is exercised by a role the
+  // @Roles list excludes, and by a tenant header the caller has no
+  // membership in. RolesGuard answers a disallowed role with 401 (see
+  // context.guard.ts's own comment), so these pin the documented behavior
+  // rather than assuming 403.
+  describe('authorization and tenant scoping', () => {
+    const routes: Array<{ name: string; call: (t: string, tenant: string) => supertest.Test }> = [
+      {
+        name: 'GET /communications/reminder/bulk',
+        call: (t, tenant) =>
+          supertest(app.getHttpServer())
+            .get('/api/v1/communications/reminder/bulk')
+            .set('Authorization', `Bearer ${t}`)
+            .set('X-Tenant-ID', tenant),
+      },
+      {
+        name: 'POST /communications/reminder/bulk/preview',
+        call: (t, tenant) =>
+          supertest(app.getHttpServer())
+            .post('/api/v1/communications/reminder/bulk/preview')
+            .set('Authorization', `Bearer ${t}`)
+            .set('X-Tenant-ID', tenant)
+            .send({ student_ids: [randomUUID()], message_template: 'Dear {{guardian_name}}' }),
+      },
+      {
+        name: 'GET /communications/reminder/bulk/:id/logs',
+        call: (t, tenant) =>
+          supertest(app.getHttpServer())
+            .get(`/api/v1/communications/reminder/bulk/${randomUUID()}/logs`)
+            .set('Authorization', `Bearer ${t}`)
+            .set('X-Tenant-ID', tenant),
+      },
+    ];
+
+    for (const route of routes) {
+      it(`${route.name} rejects a TEACHER — a role outside its @Roles list`, async () => {
+        await route.call(teacherToken, TENANT_ID).expect(401);
+      });
+
+      it(`${route.name} rejects an X-Tenant-ID the caller has no membership in`, async () => {
+        // Right role, wrong school: an ADMIN of the other tenant cannot
+        // borrow this tenant's header to read its reminders. Tenant here is
+        // resolved from the header alone (no tenant path param), so the
+        // guard answers 401 rather than the 403 a path-scoped route gives.
+        await route.call(otherTenantAdminToken, TENANT_ID).expect(401);
+      });
+
+      it(`${route.name} rejects an X-Tenant-ID that matches no school`, async () => {
+        await route.call(token, '00000000-0000-4000-8000-000000000fff').expect(401);
+      });
+    }
   });
 });

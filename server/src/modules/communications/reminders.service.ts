@@ -30,7 +30,6 @@ import {
   ReminderTemplateVars,
   SUPPORTED_PLACEHOLDERS,
   isSupportedPlaceholder,
-  templateVarValue,
 } from './reminder-template.util';
 import { recordBatchOutcome } from './reminder-batch-counters';
 import { COMMUNICATIONS_QUEUE } from './communications.constants';
@@ -39,6 +38,7 @@ import {
   addressForMedium,
   DISPATCHABLE_MEDIA,
 } from './reminder-recipients.util';
+import { resolveWhatsAppTemplate, whatsAppTemplateMetadata } from './whatsapp-template.util';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
 import {
@@ -110,6 +110,14 @@ export class BulkReminderService {
         filters_applied: {
           student_ids: studentIds,
           mediums: dto.mediums ?? null,
+          // Persisted so a retry can reproduce this batch exactly. Without
+          // them, retrying an email-only batch would fan back out to every
+          // preferred channel, and retrying a WhatsApp template batch would
+          // become a freeform send Meta rejects outside its 24-hour window
+          // — reproducing the very failure being retried.
+          whatsapp_template_name: dto.whatsapp_template_name ?? null,
+          whatsapp_template_language: dto.whatsapp_template_language ?? null,
+          whatsapp_template_params: dto.whatsapp_template_params ?? null,
           skipped,
         },
       }),
@@ -170,6 +178,20 @@ export class BulkReminderService {
 
     const [batches, total] = await this.batchRepo.findAndCount({
       where: { tenant_id: tenantId },
+      // Exactly the columns toListItemDto maps. Without this, every row on
+      // the page also drags back `message_template` (up to 2000 chars) and
+      // the `filters_applied` jsonb — which holds the batch's whole
+      // student_ids list *and* its skip list, potentially hundreds of
+      // entries — only for them to be discarded here.
+      select: {
+        id: true,
+        batch_name: true,
+        status: true,
+        total_recipients: true,
+        successful_count: true,
+        failed_count: true,
+        created_at: true,
+      },
       order: { created_at: 'DESC', id: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
@@ -185,16 +207,30 @@ export class BulkReminderService {
   }
 
   /**
-   * Exactly what sendBulk would do with this request, without doing any of
-   * it — no batch row, no logs, no queue jobs, no audit record. The epic
-   * makes preview mandatory before send: the sender must see the resolved
-   * recipients *and* the skipped ones (with reasons), because the server's
-   * skip logic (dues, guardian preferences, missing addresses) cannot be
-   * reproduced client-side.
+   * Exactly what sendBulk would deliver for this request, without doing
+   * any of it — no batch row, no communication logs, no queue jobs. The
+   * epic makes preview mandatory before send: the sender must see the
+   * resolved recipients *and* the skipped ones (with reasons), because the
+   * server's skip logic (dues, guardian preferences, missing addresses)
+   * cannot be reproduced client-side.
+   *
+   * "Delivers" rather than "does": WhatsApp recipients are dispatched as a
+   * Meta-approved template, not as the rendered `message_body`, so each
+   * recipient also carries the resolved `whatsapp_template` — see
+   * whatsapp-template.util.ts, which both this and the send path share so
+   * the two can never disagree.
+   *
+   * One write does happen, deliberately: an audit record. Nothing is sent,
+   * but the response names every guardian, channel and contact address
+   * behind the filter, so who asked for it must leave a trace — same
+   * reasoning as SETTINGS_TEST. Only counts are recorded, never the
+   * resolved contact data itself.
    */
   async previewBulk(
     dto: SendBulkReminderDto,
     tenantId: string,
+    userId: string,
+    context: RequestContext = { ip: null, userAgent: null },
   ): Promise<BulkReminderPreviewResponseDto> {
     const { studentIds, students, recipients, skipped } = await this.validateAndResolve(
       dto,
@@ -231,6 +267,7 @@ export class BulkReminderService {
         address: r.address,
         message_body: renderReminderTemplate(dto.message_template, r.vars),
         subject: r.medium === CommunicationMedium.EMAIL ? this.emailSubject(dto) : null,
+        whatsapp_template: resolveWhatsAppTemplate(r.medium, r.vars, dto),
       });
     }
 
@@ -241,6 +278,24 @@ export class BulkReminderService {
         reason: s.reason,
       });
     }
+
+    // Counts only — the point of the record is "this user resolved this
+    // many contacts", not a second copy of the contacts themselves.
+    await this.auditService.record({
+      action: AuditAction.REMINDER_PREVIEWED,
+      entity_type: 'ReminderBatchPreview',
+      entity_id: null,
+      tenant_id: tenantId,
+      performed_by_user_id: userId,
+      ip_address: context.ip,
+      user_agent: context.userAgent,
+      new_values: {
+        student_count: studentIds.length,
+        recipient_count: recipients.length,
+        skipped_count: skipped.length,
+        mediums: dto.mediums ?? null,
+      },
+    });
 
     return {
       total_students: studentIds.length,
@@ -488,20 +543,16 @@ export class BulkReminderService {
     }
   }
 
+  /**
+   * Shares resolveWhatsAppTemplate with previewBulk on purpose: the review
+   * step must show the same template name, language and positional params
+   * the worker will actually dispatch.
+   */
   private whatsAppMetadata(
     dto: SendBulkReminderDto,
     recipient: ResolvedRecipient,
-  ): Record<string, any> | null {
-    if (recipient.medium !== CommunicationMedium.WHATSAPP || !dto.whatsapp_template_name) {
-      return null;
-    }
-    return {
-      template_name: dto.whatsapp_template_name,
-      template_language: dto.whatsapp_template_language,
-      template_params: (dto.whatsapp_template_params ?? []).map(
-        (name) => templateVarValue(recipient.vars, name) ?? '',
-      ),
-    };
+  ): Record<string, unknown> | null {
+    return whatsAppTemplateMetadata(resolveWhatsAppTemplate(recipient.medium, recipient.vars, dto));
   }
 
   private emailSubject(dto: SendBulkReminderDto): string {
@@ -552,6 +603,17 @@ export class BulkReminderService {
       failed_count: batch.failed_count,
       message_template: batch.message_template,
       created_at: batch.created_at,
+      // The batch's original targeting, so the detail page can retry the
+      // failures on the same channels with the same approved template
+      // rather than on looser defaults. Null means "each guardian's
+      // preferred channel", which is what the send used.
+      mediums: (batch.filters_applied?.mediums as CommunicationMedium[] | null) ?? null,
+      whatsapp_template_name:
+        (batch.filters_applied?.whatsapp_template_name as string | null) ?? null,
+      whatsapp_template_language:
+        (batch.filters_applied?.whatsapp_template_language as string | null) ?? null,
+      whatsapp_template_params:
+        (batch.filters_applied?.whatsapp_template_params as string[] | null) ?? null,
       skipped,
     };
   }

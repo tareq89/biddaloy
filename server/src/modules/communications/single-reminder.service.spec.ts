@@ -483,7 +483,9 @@ describe('SingleReminderService', () => {
           expect.objectContaining({
             metadata: {
               template_name: 'fee_reminder',
-              template_language: undefined,
+              // Defaulted here, not left unset: 'en' is what WhatsAppCloudProvider
+              // sends when the request omits a language, so the log records it.
+              template_language: 'en',
               template_params: [],
             },
           }),

@@ -9,6 +9,7 @@ import { ConnectionTestResult } from '../shared/connection-test.types';
 import { isValidGraphApiId, isValidGraphApiVersion } from '../shared/graph-api-path-segment.util';
 import { mapMetaGraphError } from '../shared/meta-graph-error.util';
 import { ProviderNotConfiguredError } from '../../config/provider-not-configured.error';
+import { DEFAULT_WHATSAPP_TEMPLATE_LANGUAGE } from '../../whatsapp-template.util';
 import {
   ResolvedWhatsAppConfig,
   TenantProviderConfigResolver,
@@ -50,7 +51,9 @@ export class WhatsAppCloudProvider implements CommunicationProvider {
             type: 'template',
             template: {
               name: params.templateName,
-              language: { code: params.templateLanguage ?? 'en' },
+              // Shared with the reminder preview path so the review step
+              // shows the language Meta will really receive.
+              language: { code: params.templateLanguage ?? DEFAULT_WHATSAPP_TEMPLATE_LANGUAGE },
               components: params.templateParams?.length
                 ? [
                     {

@@ -40,6 +40,8 @@ import { Route as StaffStudentsIndexRouteImport } from './routes/_staff/students
 import { Route as StaffStudentsStudentIdRouteImport } from './routes/_staff/students/$studentId'
 import { Route as StaffStudentsImportRouteImport } from './routes/_staff/students/import'
 import { Route as StaffStudentsNewRouteImport } from './routes/_staff/students/new'
+import { Route as StaffCommunicationsBatchesIndexRouteImport } from './routes/_staff/communications/batches/index'
+import { Route as StaffCommunicationsBatchesBatchIdRouteImport } from './routes/_staff/communications/batches/$batchId'
 import { Route as StaffStudentsStudentIdEditRouteImport } from './routes/_staff/students/$studentId_.edit'
 
 const IndexRoute = IndexRouteImport.update({
@@ -199,6 +201,18 @@ const StaffStudentsNewRoute = StaffStudentsNewRouteImport.update({
   path: '/students/new',
   getParentRoute: () => StaffRoute,
 } as any)
+const StaffCommunicationsBatchesIndexRoute =
+  StaffCommunicationsBatchesIndexRouteImport.update({
+    id: '/communications/batches/',
+    path: '/communications/batches/',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffCommunicationsBatchesBatchIdRoute =
+  StaffCommunicationsBatchesBatchIdRouteImport.update({
+    id: '/communications/batches/$batchId',
+    path: '/communications/batches/$batchId',
+    getParentRoute: () => StaffRoute,
+  } as any)
 const StaffStudentsStudentIdEditRoute =
   StaffStudentsStudentIdEditRouteImport.update({
     id: '/students/$studentId_/edit',
@@ -237,7 +251,9 @@ export interface FileRoutesByFullPath {
   '/invoices/': typeof StaffInvoicesIndexRoute
   '/staff/': typeof StaffStaffIndexRoute
   '/students/': typeof StaffStudentsIndexRoute
+  '/communications/batches/$batchId': typeof StaffCommunicationsBatchesBatchIdRoute
   '/students/$studentId/edit': typeof StaffStudentsStudentIdEditRoute
+  '/communications/batches/': typeof StaffCommunicationsBatchesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -268,7 +284,9 @@ export interface FileRoutesByTo {
   '/invoices': typeof StaffInvoicesIndexRoute
   '/staff': typeof StaffStaffIndexRoute
   '/students': typeof StaffStudentsIndexRoute
+  '/communications/batches/$batchId': typeof StaffCommunicationsBatchesBatchIdRoute
   '/students/$studentId/edit': typeof StaffStudentsStudentIdEditRoute
+  '/communications/batches': typeof StaffCommunicationsBatchesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -303,7 +321,9 @@ export interface FileRoutesById {
   '/_staff/invoices/': typeof StaffInvoicesIndexRoute
   '/_staff/staff/': typeof StaffStaffIndexRoute
   '/_staff/students/': typeof StaffStudentsIndexRoute
+  '/_staff/communications/batches/$batchId': typeof StaffCommunicationsBatchesBatchIdRoute
   '/_staff/students/$studentId_/edit': typeof StaffStudentsStudentIdEditRoute
+  '/_staff/communications/batches/': typeof StaffCommunicationsBatchesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -338,7 +358,9 @@ export interface FileRouteTypes {
     | '/invoices/'
     | '/staff/'
     | '/students/'
+    | '/communications/batches/$batchId'
     | '/students/$studentId/edit'
+    | '/communications/batches/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -369,7 +391,9 @@ export interface FileRouteTypes {
     | '/invoices'
     | '/staff'
     | '/students'
+    | '/communications/batches/$batchId'
     | '/students/$studentId/edit'
+    | '/communications/batches'
   id:
     | '__root__'
     | '/'
@@ -403,7 +427,9 @@ export interface FileRouteTypes {
     | '/_staff/invoices/'
     | '/_staff/staff/'
     | '/_staff/students/'
+    | '/_staff/communications/batches/$batchId'
     | '/_staff/students/$studentId_/edit'
+    | '/_staff/communications/batches/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -633,6 +659,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffStudentsNewRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/communications/batches/': {
+      id: '/_staff/communications/batches/'
+      path: '/communications/batches'
+      fullPath: '/communications/batches/'
+      preLoaderRoute: typeof StaffCommunicationsBatchesIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/communications/batches/$batchId': {
+      id: '/_staff/communications/batches/$batchId'
+      path: '/communications/batches/$batchId'
+      fullPath: '/communications/batches/$batchId'
+      preLoaderRoute: typeof StaffCommunicationsBatchesBatchIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/students/$studentId_/edit': {
       id: '/_staff/students/$studentId_/edit'
       path: '/students/$studentId/edit'
@@ -681,7 +721,9 @@ interface StaffRouteChildren {
   StaffInvoicesIndexRoute: typeof StaffInvoicesIndexRoute
   StaffStaffIndexRoute: typeof StaffStaffIndexRoute
   StaffStudentsIndexRoute: typeof StaffStudentsIndexRoute
+  StaffCommunicationsBatchesBatchIdRoute: typeof StaffCommunicationsBatchesBatchIdRoute
   StaffStudentsStudentIdEditRoute: typeof StaffStudentsStudentIdEditRoute
+  StaffCommunicationsBatchesIndexRoute: typeof StaffCommunicationsBatchesIndexRoute
 }
 
 const StaffRouteChildren: StaffRouteChildren = {
@@ -706,7 +748,10 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffInvoicesIndexRoute: StaffInvoicesIndexRoute,
   StaffStaffIndexRoute: StaffStaffIndexRoute,
   StaffStudentsIndexRoute: StaffStudentsIndexRoute,
+  StaffCommunicationsBatchesBatchIdRoute:
+    StaffCommunicationsBatchesBatchIdRoute,
   StaffStudentsStudentIdEditRoute: StaffStudentsStudentIdEditRoute,
+  StaffCommunicationsBatchesIndexRoute: StaffCommunicationsBatchesIndexRoute,
 }
 
 const StaffRouteWithChildren = StaffRoute._addFileChildren(StaffRouteChildren)

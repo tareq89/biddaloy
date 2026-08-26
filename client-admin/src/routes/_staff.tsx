@@ -133,6 +133,17 @@ function StaffLayout() {
           label: t('items.feeReminders'),
           permission: Permission.COMMUNICATION_BULK_SEND,
         },
+        // Gated on COMMUNICATION_BULK_SEND rather than the plan's
+        // COMMUNICATION_LOG_READ: the batch read routes are
+        // `@Roles(ADMIN, ACCOUNTANT, EXECUTIVE)`, and ACCOUNTANT — the
+        // story's primary persona — holds BULK_SEND but *not* LOG_READ
+        // (ROLE_PERMISSIONS). Gating on LOG_READ would hide the history
+        // this role's own bulk sends produce.
+        {
+          to: '/communications/batches',
+          label: t('items.reminderHistory'),
+          permission: Permission.COMMUNICATION_BULK_SEND,
+        },
       ],
     },
     {

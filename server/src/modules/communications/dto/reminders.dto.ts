@@ -48,9 +48,15 @@ export class SendBulkReminderDto {
    * Channels this batch is allowed to use. Omit to accept whatever each
    * guardian prefers; supply a list to restrict the batch to guardians who
    * prefer one of those channels.
+   *
+   * `@ArrayNotEmpty` because `[]` and "omitted" mean opposite things to a
+   * caller — "no channel at all" vs "any channel" — but resolveRecipients
+   * collapses both to "any channel". A UI that deselects every channel
+   * must get a 400, not a send to everybody.
    */
   @IsOptional()
   @IsArray()
+  @ArrayNotEmpty()
   @IsEnum(CommunicationMedium, { each: true })
   mediums?: CommunicationMedium[];
 
@@ -102,6 +108,16 @@ export class ReminderBatchResponseDto {
   failed_count: number;
   message_template: string | null;
   created_at: Date;
+  /**
+   * The batch's original targeting, replayed from filters_applied so the
+   * detail page can retry failures on the same channels with the same
+   * approved template. Null mediums means the send used each guardian's
+   * preferred channel.
+   */
+  mediums: CommunicationMedium[] | null;
+  whatsapp_template_name: string | null;
+  whatsapp_template_language: string | null;
+  whatsapp_template_params: string[] | null;
   /** Recipients deliberately not queued, with the reason for each. */
   skipped: SkippedRecipientDto[];
 }
