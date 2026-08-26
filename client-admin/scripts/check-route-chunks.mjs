@@ -126,15 +126,28 @@ const EXPECTED_ROUTE_CHUNKS = [
  * lazy-import wrappers (and the nav entry) land in the entry.
  */
 /**
- * Raised for [8.11.10]: 224,059 B gzipped measured with the new
- * `/audit-logs` route registered plus its nav item in `_staff.tsx` — 59 B
- * over the previous ceiling. Same cause as every bump above, not a
- * regression: the route's own component and its `auditLogs` i18n
- * namespace both code-split into their own chunks (asserted by
- * `EXPECTED_ROUTE_CHUNKS`), and only `routeTree.gen.ts`'s per-route
- * lazy-import wrapper and the nav entry land in the entry.
+ * Raised for [8.11.10]: 224,783 B gzipped with the new `/audit-logs`
+ * route registered, its nav item in `_staff.tsx`, and the tenant-wide
+ * list hook added to `ui/src/hooks/audit-logs.ts`.
+ *
+ * **Measure this on Node 24, the version CI runs.** Node 22 builds the
+ * same tree ~700 B smaller (224,059 B for this exact commit), so a number
+ * taken on Node 22 sets the ceiling below what CI will enforce and the
+ * check passes locally while failing in CI. That is what happened here:
+ * the first attempt at this bump read 224,059 on Node 22 and set 224,200,
+ * which CI rejected at 224,783.
+ *
+ * The route's own component, its diff panel and its `auditLogs` i18n
+ * namespace all code-split into their own chunks — verified by grepping
+ * the built entry for route-only strings (`ReminderBatchPreview`,
+ * `__all__`, `Audit trail`): none appear. What does land in the entry is
+ * the per-route `routeTree.gen.ts` wrapper, the nav entry, and the new
+ * exports in `ui/src/hooks/audit-logs.ts` — that module is already pulled
+ * into the entry by `useAuditLogsByEntity`/`useLoginAuditLogs`, so adding
+ * to it grows the entry rather than a route chunk. Measured against base
+ * `a12b6a5` on Node 24 (223,465 B), this issue's total cost is 1,318 B.
  */
-const ENTRY_CHUNK_GZIP_CEILING_BYTES = 224_200;
+const ENTRY_CHUNK_GZIP_CEILING_BYTES = 224_900;
 
 /** The entry is whatever `index.html` loads as its module script — asked
  * of the build output rather than guessed from a filename pattern, which

@@ -4945,13 +4945,13 @@
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/audit-logs/index.test.tsx": {
-    "mtime": 1787734330.2389464,
-    "ast_hash": "c19e3603cdf92090c6c7f032e6875723",
+    "mtime": 1787736978.739747,
+    "ast_hash": "bc3f8ce8ba0988b1e1d12e554f45d038",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/audit-logs/index.tsx": {
-    "mtime": 1787734792.7027004,
-    "ast_hash": "71d99e42e0f74773f9aa600d0cbfd909",
+    "mtime": 1787737006.5434425,
+    "ast_hash": "26ec56a49090464fd5e60fdd6913083d",
     "semantic_hash": ""
   },
   "server/src/modules/audit/audit.service.integration.spec.ts": {
