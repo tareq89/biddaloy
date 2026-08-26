@@ -68,8 +68,14 @@ export function studentsQueryOptions(filters: StudentListFilters = {}) {
   });
 }
 
-export function useStudents(filters: StudentListFilters = {}) {
-  return useQuery(studentsQueryOptions(filters));
+/**
+ * `enabled` exists for the search pickers: with no search term there is
+ * nothing to pick from, so firing the request on mount (and again after
+ * every selection clears the box) only spends a round trip on a list
+ * nobody sees.
+ */
+export function useStudents(filters: StudentListFilters = {}, { enabled = true } = {}) {
+  return useQuery({ ...studentsQueryOptions(filters), enabled });
 }
 
 /** Split out from `useStudent` so an imperative caller (e.g. a CSV export

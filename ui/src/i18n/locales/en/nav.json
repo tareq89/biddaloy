@@ -19,12 +19,16 @@
     "portalOverview": "Overview",
     "portalFees": "Fees and invoices",
     "academicYears": "Academic Years",
-    "classes": "Classes"
+    "classes": "Classes",
+    "sendMessage": "Send Message",
+    "feeReminders": "Fee Reminders",
+    "reminderHistory": "Reminder History"
   },
   "groups": {
     "people": "People",
     "finance": "Finance",
-    "administration": "Administration"
+    "administration": "Administration",
+    "communications": "Communications"
   },
   "dashboard": {
     "title": "Dashboard",

@@ -30,7 +30,11 @@ import {
   QueryLastRemindersDto,
   LastReminderDto,
 } from './dto/communications.dto';
-import { SendBulkReminderDto } from './dto/reminders.dto';
+import {
+  SendBulkReminderDto,
+  QueryReminderBatchesDto,
+  QueryReminderBatchLogsDto,
+} from './dto/reminders.dto';
 import { SendSingleReminderDto } from './dto/single-reminder.dto';
 import { UserRole, JwtPayload } from '@biddaloy/shared';
 import { requestContext } from '../../common/request-context.util';
@@ -82,6 +86,32 @@ export class CommunicationsController {
     );
   }
 
+  // Declared before the send route below, matching the single-reminder
+  // pair above: preview-before-send is the reading order the epic mandates.
+  //
+  // Same STRICT_RATE_LIMIT as the send route it mirrors. Preview runs the
+  // identical resolution work (student + guardian + dues loads for up to
+  // 500 students) and hands back every guardian's name, channel and
+  // contact address. On the default tier one ACCOUNTANT token could page
+  // the tenant's whole guardian directory out through it; the fact that
+  // nothing is sent makes it cheaper to abuse, not safer.
+  @Post('reminder/bulk/preview')
+  @HttpCode(HttpStatus.OK)
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  @Throttle({ default: STRICT_RATE_LIMIT })
+  @ApiOperation({
+    summary:
+      'Resolve a bulk reminder without sending it — who would receive what, and who would be skipped and why.',
+  })
+  previewBulkReminder(
+    @Body() dto: SendBulkReminderDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.bulkReminderService.previewBulk(dto, tenant.id, user.sub, requestContext(request));
+  }
+
   // Declared before @Get(':id') — Nest matches in declaration order, and
   // 'reminder' would otherwise be swallowed by the UUID param route and
   // rejected by its ParseUUIDPipe.
@@ -98,6 +128,33 @@ export class CommunicationsController {
     @Req() request: Request,
   ) {
     return this.bulkReminderService.sendBulk(dto, tenant.id, user.sub, requestContext(request));
+  }
+
+  // Declared before @Get(':id') — same reasoning as the POST above:
+  // 'reminder' would otherwise be swallowed by the UUID param route.
+  @Get('reminder/bulk')
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  @ApiOperation({
+    summary: 'Reminder History — every bulk reminder batch this tenant sent, newest first.',
+  })
+  findReminderBatches(
+    @Query() query: QueryReminderBatchesDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.bulkReminderService.findBatches(query, tenant.id);
+  }
+
+  @Get('reminder/bulk/:id/logs')
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  @ApiOperation({
+    summary: "One batch's per-recipient delivery records, for the batch detail page.",
+  })
+  findReminderBatchLogs(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: QueryReminderBatchLogsDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.bulkReminderService.findBatchLogs(id, query, tenant.id);
   }
 
   @Get('reminder/bulk/:id')

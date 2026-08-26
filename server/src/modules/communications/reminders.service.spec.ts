@@ -11,6 +11,7 @@ import {
   CommunicationStatus,
   CommunicationTrigger,
   ReminderBatchStatus,
+  AuditAction,
 } from '@biddaloy/shared';
 
 const TENANT = 'tenant-1';
@@ -130,6 +131,7 @@ describe('BulkReminderService', () => {
     logRepo = {
       create: vi.fn((v) => ({ ...v })),
       save: vi.fn(async (v) => ({ id: 'log-1', ...v })),
+      findAndCount: vi.fn(async () => [[], 0]),
       manager: { transaction: vi.fn(async (cb: any) => cb(txManager)) },
     };
     batchRepo = {
@@ -145,6 +147,7 @@ describe('BulkReminderService', () => {
         return savedBatch;
       }),
       findOne: vi.fn(async () => savedBatch),
+      findAndCount: vi.fn(async () => [[], 0]),
       query: vi.fn(async () => undefined),
     };
     queue = { add: vi.fn(async () => undefined) };
@@ -582,6 +585,56 @@ describe('BulkReminderService', () => {
   });
 
   describe('findBatch', () => {
+    // Business-critical: the detail page composes "retry the failures" from
+    // this response. If the original targeting is missing, an email-only
+    // batch retries onto every preferred channel and a WhatsApp template
+    // batch retries as freeform text Meta rejects.
+    it('replays the original targeting so a retry can reproduce the send', async () => {
+      batchRepo.findOne.mockResolvedValue({
+        id: 'batch-1',
+        batch_name: 'b',
+        status: ReminderBatchStatus.COMPLETED,
+        total_recipients: 1,
+        successful_count: 0,
+        failed_count: 1,
+        message_template: 'x',
+        created_at: new Date(),
+        filters_applied: {
+          mediums: [CommunicationMedium.EMAIL],
+          whatsapp_template_name: 'fee_reminder',
+          whatsapp_template_language: 'bn',
+          whatsapp_template_params: ['guardian_name'],
+          skipped: [],
+        },
+      });
+
+      const result = await service.findBatch('batch-1', TENANT);
+
+      expect(result.mediums).toEqual([CommunicationMedium.EMAIL]);
+      expect(result.whatsapp_template_name).toBe('fee_reminder');
+      expect(result.whatsapp_template_language).toBe('bn');
+      expect(result.whatsapp_template_params).toEqual(['guardian_name']);
+    });
+
+    it('reports null targeting for a batch sent on guardian preferences', async () => {
+      batchRepo.findOne.mockResolvedValue({
+        id: 'batch-1',
+        batch_name: 'b',
+        status: ReminderBatchStatus.COMPLETED,
+        total_recipients: 1,
+        successful_count: 1,
+        failed_count: 0,
+        message_template: 'x',
+        created_at: new Date(),
+        filters_applied: { skipped: [] },
+      });
+
+      const result = await service.findBatch('batch-1', TENANT);
+
+      expect(result.mediums).toBeNull();
+      expect(result.whatsapp_template_name).toBeNull();
+    });
+
     it('scopes the lookup to the caller tenant', async () => {
       batchRepo.findOne.mockResolvedValue({
         id: 'batch-1',
@@ -628,6 +681,343 @@ describe('BulkReminderService', () => {
       const result = await service.findBatch('batch-1', TENANT);
 
       expect(result.skipped).toEqual([]);
+    });
+  });
+
+  describe('previewBulk', () => {
+    it('sends nothing: no batch, no logs, no queue jobs', async () => {
+      await service.previewBulk(dto as any, TENANT, 'user-1');
+
+      expect(batchRepo.save).not.toHaveBeenCalled();
+      expect(logRepo.save).not.toHaveBeenCalled();
+      expect(queue.add).not.toHaveBeenCalled();
+    });
+
+    // Business-critical: preview hands back every guardian's name, channel and
+    // contact address behind a filter. Nothing is sent, but who asked for that
+    // data must leave a trace — and the trace must carry counts only, never a
+    // second copy of the contact data itself.
+    it('audits the preview with counts only, never the resolved contacts', async () => {
+      await service.previewBulk(dto as any, TENANT, 'user-1', {
+        ip: '1.2.3.4',
+        userAgent: 'test-agent',
+      });
+
+      expect(auditService.record).toHaveBeenCalledTimes(1);
+      expect(auditService.record).toHaveBeenCalledWith({
+        action: AuditAction.REMINDER_PREVIEWED,
+        entity_type: 'ReminderBatchPreview',
+        entity_id: null,
+        tenant_id: TENANT,
+        performed_by_user_id: 'user-1',
+        ip_address: '1.2.3.4',
+        user_agent: 'test-agent',
+        new_values: {
+          student_count: 1,
+          recipient_count: 1,
+          skipped_count: 0,
+          mediums: null,
+        },
+      });
+
+      const [[recorded]] = auditService.record.mock.calls;
+      expect(JSON.stringify(recorded)).not.toContain('01712345678');
+    });
+
+    it('rejects a template using an unsupported placeholder before loading anything', async () => {
+      await expect(
+        service.previewBulk({ ...dto, message_template: 'Hi {{parent}}' } as any, TENANT),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(studentService.findManyWithGuardians).not.toHaveBeenCalled();
+    });
+
+    it('rejects whatsapp_template_params naming a placeholder it cannot fill', async () => {
+      await expect(
+        service.previewBulk(
+          {
+            ...dto,
+            whatsapp_template_name: 'fee_reminder',
+            whatsapp_template_params: ['nope'],
+          } as any,
+          TENANT,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws NotFound for student ids that do not resolve within the tenant', async () => {
+      // findManyWithGuardians is tenant-scoped and soft-delete-aware
+      // (deleted_at IS NULL), so a cross-tenant or soft-deleted student
+      // comes back missing and 404s here — Tenant A cannot preview
+      // against Tenant B's students.
+      studentService.findManyWithGuardians.mockResolvedValue([student({ id: 's-1' })]);
+
+      await expect(
+        service.previewBulk({ ...dto, student_ids: ['s-1', 's-other-tenant'] } as any, TENANT),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('scopes the student and dues lookups to the caller tenant, batched (one call each)', async () => {
+      await service.previewBulk(dto as any, TENANT);
+
+      expect(studentService.findManyWithGuardians).toHaveBeenCalledTimes(1);
+      expect(studentService.findManyWithGuardians).toHaveBeenCalledWith(['s-1'], TENANT);
+      expect(feeDuesService.getDueSnapshots).toHaveBeenCalledTimes(1);
+      expect(feeDuesService.getDueSnapshots).toHaveBeenCalledWith(['s-1'], TENANT);
+    });
+
+    it('deduplicates repeated student ids', async () => {
+      const result = await service.previewBulk(
+        { ...dto, student_ids: ['s-1', 's-1'] } as any,
+        TENANT,
+      );
+
+      expect(result.total_students).toBe(1);
+      expect(result.students).toHaveLength(1);
+    });
+
+    it('renders the exact message each recipient would receive, grouped by student', async () => {
+      const result = await service.previewBulk(dto as any, TENANT);
+
+      expect(result).toEqual({
+        total_students: 1,
+        recipients_count: 1,
+        skipped_count: 0,
+        students: [
+          {
+            student_id: 's-1',
+            student_name: 'Rahim Uddin',
+            recipients: [
+              {
+                guardian_id: 'g-1',
+                guardian_name: 'Karim Uddin',
+                medium: CommunicationMedium.SMS,
+                address: '01712345678',
+                message_body: 'Dear Karim Uddin, Rahim Uddin owes 1,500.00 for March 2026.',
+                subject: null,
+                // SMS, so no approved template is in play — the rendered body
+                // above is exactly what this guardian receives.
+                whatsapp_template: null,
+              },
+            ],
+            skipped: [],
+          },
+        ],
+      });
+    });
+
+    it('sets the email subject the send would use (batch_name, else Fee Reminder)', async () => {
+      studentService.findManyWithGuardians.mockResolvedValue([
+        student({ guardians: [guardian({ preferred_communication: CommunicationMedium.EMAIL })] }),
+      ]);
+
+      const named = await service.previewBulk(
+        { ...dto, batch_name: 'March chase-up' } as any,
+        TENANT,
+      );
+      expect(named.students[0].recipients[0].subject).toBe('March chase-up');
+
+      const unnamed = await service.previewBulk(dto as any, TENANT);
+      expect(unnamed.students[0].recipients[0].subject).toBe('Fee Reminder');
+    });
+
+    it('names skipped guardians with the reason, so the list is reviewable', async () => {
+      studentService.findManyWithGuardians.mockResolvedValue([
+        student({
+          guardians: [
+            guardian({ id: 'g-1', is_primary_contact: true }),
+            guardian({
+              id: 'g-2',
+              full_name: 'Salma Begum',
+              is_primary_contact: true,
+              phone: null,
+              alternate_phone: null,
+            }),
+          ],
+        }),
+      ]);
+
+      const result = await service.previewBulk(dto as any, TENANT);
+
+      expect(result.recipients_count).toBe(1);
+      expect(result.skipped_count).toBe(1);
+      expect(result.students[0].skipped).toEqual([
+        {
+          guardian_id: 'g-2',
+          guardian_name: 'Salma Begum',
+          reason: SkipReason.MISSING_ADDRESS,
+        },
+      ]);
+    });
+
+    it('reports a student-level skip (no open dues) with a null guardian', async () => {
+      feeDuesService.getDueSnapshots.mockResolvedValue(new Map());
+
+      const result = await service.previewBulk(dto as any, TENANT);
+
+      expect(result.recipients_count).toBe(0);
+      expect(result.students[0].skipped).toEqual([
+        { guardian_id: null, guardian_name: null, reason: SkipReason.NO_OPEN_DUES },
+      ]);
+    });
+
+    it('does not throw when every candidate is skipped — bulk skipping is normal', async () => {
+      // Unlike the single-reminder flow, which 400s when nobody is
+      // deliverable: in a bulk set, some students being undeliverable is
+      // the expected case, and the review step is where the sender sees it.
+      feeDuesService.getDueSnapshots.mockResolvedValue(new Map());
+
+      const result = await service.previewBulk(dto as any, TENANT);
+
+      expect(result.recipients_count).toBe(0);
+      expect(result.skipped_count).toBe(1);
+    });
+  });
+
+  describe('findBatches', () => {
+    const batchRow = {
+      id: 'batch-1',
+      batch_name: 'March chase-up',
+      status: ReminderBatchStatus.COMPLETED,
+      total_recipients: 3,
+      successful_count: 2,
+      failed_count: 1,
+      message_template: 'x',
+      filters_applied: {
+        skipped: [{ student_id: 's-9', guardian_id: null, reason: 'no_open_dues' }],
+      },
+      created_at: new Date('2026-03-01T00:00:00Z'),
+    };
+
+    it('scopes the list to the caller tenant, newest first, paginated', async () => {
+      batchRepo.findAndCount.mockResolvedValue([[batchRow], 41]);
+
+      const result = await service.findBatches({ page: 3, limit: 20 }, TENANT);
+
+      expect(batchRepo.findAndCount).toHaveBeenCalledWith({
+        where: { tenant_id: TENANT },
+        // Only the columns the list item maps: the heavy message_template and
+        // filters_applied jsonb stay in the database.
+        select: {
+          id: true,
+          batch_name: true,
+          status: true,
+          total_recipients: true,
+          successful_count: true,
+          failed_count: true,
+          created_at: true,
+        },
+        order: { created_at: 'DESC', id: 'DESC' },
+        skip: 40,
+        take: 20,
+      });
+      expect(result).toEqual({
+        data: [
+          {
+            id: 'batch-1',
+            batch_name: 'March chase-up',
+            status: ReminderBatchStatus.COMPLETED,
+            total_recipients: 3,
+            successful_count: 2,
+            failed_count: 1,
+            created_at: batchRow.created_at,
+          },
+        ],
+        total: 41,
+        page: 3,
+        limit: 20,
+        totalPages: 3,
+      });
+    });
+
+    it('defaults to page 1 with 20 rows', async () => {
+      await service.findBatches({}, TENANT);
+
+      expect(batchRepo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 0, take: 20 }),
+      );
+    });
+
+    it('does not leak each batch skip list into the list rows', async () => {
+      batchRepo.findAndCount.mockResolvedValue([[batchRow], 1]);
+
+      const result = await service.findBatches({}, TENANT);
+
+      expect(result.data[0]).not.toHaveProperty('skipped');
+      expect(result.data[0]).not.toHaveProperty('filters_applied');
+    });
+  });
+
+  describe('findBatchLogs', () => {
+    const logRow = {
+      id: 'log-1',
+      medium: CommunicationMedium.SMS,
+      recipient_address: '01712345678',
+      recipient_name: 'Karim Uddin',
+      status: CommunicationStatus.FAILED,
+      student_id: 's-1',
+      guardian_id: 'g-1',
+      provider_message_id: null,
+      metadata: { error: 'No provider registered for medium "SMS"' },
+      created_at: new Date('2026-03-01T00:00:00Z'),
+    };
+
+    beforeEach(() => {
+      batchRepo.findOne.mockResolvedValue({ id: 'batch-1', tenant_id: TENANT });
+    });
+
+    it('throws NotFound for a batch belonging to another tenant, before touching the logs', async () => {
+      batchRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.findBatchLogs('batch-1', {}, 'other-tenant')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(batchRepo.findOne).toHaveBeenCalledWith({
+        where: { id: 'batch-1', tenant_id: 'other-tenant' },
+      });
+      expect(logRepo.findAndCount).not.toHaveBeenCalled();
+    });
+
+    it('pages the batch logs, scoped to both the batch and the tenant', async () => {
+      logRepo.findAndCount.mockResolvedValue([[logRow], 101]);
+
+      const result = await service.findBatchLogs('batch-1', { page: 2, limit: 50 }, TENANT);
+
+      expect(logRepo.findAndCount).toHaveBeenCalledWith({
+        where: { reminder_batch_id: 'batch-1', tenant_id: TENANT },
+        order: { created_at: 'DESC', id: 'DESC' },
+        skip: 50,
+        take: 50,
+      });
+      expect(result.total).toBe(101);
+      expect(result.totalPages).toBe(3);
+    });
+
+    it('surfaces the worker failure reason so FAILED rows are never unexplained', async () => {
+      logRepo.findAndCount.mockResolvedValue([[logRow], 1]);
+
+      const result = await service.findBatchLogs('batch-1', {}, TENANT);
+
+      expect(result.data[0]).toEqual({
+        id: 'log-1',
+        medium: CommunicationMedium.SMS,
+        recipient_address: '01712345678',
+        recipient_name: 'Karim Uddin',
+        status: CommunicationStatus.FAILED,
+        student_id: 's-1',
+        guardian_id: 'g-1',
+        provider_message_id: null,
+        error: 'No provider registered for medium "SMS"',
+        created_at: logRow.created_at,
+      });
+    });
+
+    it('returns a null error when the log has no metadata', async () => {
+      logRepo.findAndCount.mockResolvedValue([[{ ...logRow, metadata: null }], 1]);
+
+      const result = await service.findBatchLogs('batch-1', {}, TENANT);
+
+      expect(result.data[0].error).toBeNull();
     });
   });
 });

@@ -118,6 +118,32 @@
       "role": "accountant",
       "archetype": "wizard"
     },
+
+    {
+      "path": "/communications/send",
+      "role": "admin",
+      "archetype": "form",
+      "overlays": ["confirm-send"]
+    },
+
+    {
+      "path": "/communications/reminders",
+      "role": "accountant",
+      "archetype": "form"
+    },
+    {
+      "path": "/communications/batches",
+      "role": "accountant",
+      "archetype": "list"
+    },
+    {
+      "path": "/communications/batches/$batchId",
+      "params": {
+        "batchId": "seeded"
+      },
+      "role": "accountant",
+      "archetype": "detail"
+    },
     {
       "path": "/students",
       "role": "admin",

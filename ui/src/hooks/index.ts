@@ -103,11 +103,14 @@ export {
 } from './enrollments';
 export {
   communicationLogKeys,
+  useCommunicationLog,
   useGuardianCommunicationLogs,
+  useSendCommunication,
   useStudentCommunicationLogs,
   useLastReminders,
   type CommunicationLog,
   type LastReminder,
+  type SendCommunicationInput,
 } from './communications';
 export {
   auditLogKeys,
@@ -148,9 +151,38 @@ export {
   type UpdateSectionInput,
 } from './classes';
 export {
+  collectFailedStudentIds,
+  REMINDER_BATCH_POLL_MS,
+  reminderBatchKeys,
+  reminderBatchLogsKey,
+  reminderBatchLogsKeyPrefix,
+  reminderBatchLogsQueryOptions,
+  reminderBatchQueryOptions,
+  reminderBatchesQueryOptions,
+  useBulkReminderPreview,
+  useReminderBatch,
+  useReminderBatchLogs,
+  useReminderBatches,
   useSendBulkReminder,
+  useSendSingleReminder,
+  useSingleReminderPreview,
+  type BulkPreviewSkipped,
+  type BulkPreviewStudent,
+  type BulkReminderPreview,
+  type PaginatedReminderBatchLogs,
+  type PaginatedReminderBatches,
+  type ReminderBatchListFilters,
+  type ReminderBatchListItem,
+  type ReminderBatchLog,
   type ReminderBatchResponse,
+  type ReminderPreview,
+  type ReminderPreviewRecipient,
   type SendBulkReminderInput,
+  type SendSingleReminderInput,
+  type SingleReminderResult,
+  type SingleReminderVariables,
+  type SkippedGuardian,
+  type SkippedRecipient,
 } from './reminders';
 export {
   academicYearKeys,

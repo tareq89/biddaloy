@@ -85,7 +85,14 @@ const INVOICE_STATUS_TONE: Record<InvoiceStatus, StatusTone> = {
   [InvoiceStatus.OVERDUE]: 'danger',
 };
 
-const COMMUNICATION_STATUS_TONE: Record<CommunicationStatus, StatusTone> = {
+/** Accepts the plain literal union too (`\`${CommunicationStatus}\``) —
+ * [8.11.9]'s callers hold `schema.d.ts`'s string literals (a
+ * `CommunicationResponseDto.status`, a sent-reminder recipient's
+ * `status`), not the shared enum object. Same shape as `UserStatusValue`
+ * below. */
+type CommunicationStatusValue = `${CommunicationStatus}`;
+
+const COMMUNICATION_STATUS_TONE: Record<CommunicationStatusValue, StatusTone> = {
   [CommunicationStatus.QUEUED]: 'neutral',
   [CommunicationStatus.SENT]: 'info',
   [CommunicationStatus.DELIVERED]: 'info',
@@ -93,7 +100,12 @@ const COMMUNICATION_STATUS_TONE: Record<CommunicationStatus, StatusTone> = {
   [CommunicationStatus.READ]: 'success',
 };
 
-const REMINDER_BATCH_STATUS_TONE: Record<ReminderBatchStatus, StatusTone> = {
+/** Same plain-literal widening as `CommunicationStatusValue` above —
+ * the Reminder History pages hold `schema.d.ts`'s string literals
+ * (`ReminderBatchListItemDto.status`), not the shared enum object. */
+type ReminderBatchStatusValue = `${ReminderBatchStatus}`;
+
+const REMINDER_BATCH_STATUS_TONE: Record<ReminderBatchStatusValue, StatusTone> = {
   [ReminderBatchStatus.PROCESSING]: 'info',
   [ReminderBatchStatus.COMPLETED]: 'success',
   [ReminderBatchStatus.PARTIALLY_FAILED]: 'warning',
@@ -163,8 +175,8 @@ export type StatusBadgeProps =
   | { domain: 'fee'; status: FeeStatus }
   | { domain: 'payment'; status: PaymentStatus }
   | { domain: 'invoice'; status: InvoiceStatus }
-  | { domain: 'communication'; status: CommunicationStatus }
-  | { domain: 'reminderBatch'; status: ReminderBatchStatus }
+  | { domain: 'communication'; status: CommunicationStatusValue }
+  | { domain: 'reminderBatch'; status: ReminderBatchStatusValue }
   | { domain: 'enrollment'; status: EnrollmentStatus }
   | { domain: 'academicYear'; status: AcademicYearCurrentStatus }
   | { domain: 'guardian'; status: GuardianPrimaryContactStatus }

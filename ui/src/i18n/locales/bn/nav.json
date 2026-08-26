@@ -19,12 +19,16 @@
     "portalOverview": "সারসংক্ষেপ",
     "portalFees": "ফি ও চালান",
     "academicYears": "শিক্ষাবর্ষ",
-    "classes": "ক্লাস"
+    "classes": "ক্লাস",
+    "sendMessage": "বার্তা পাঠান",
+    "feeReminders": "ফি রিমাইন্ডার",
+    "reminderHistory": "রিমাইন্ডার ইতিহাস"
   },
   "groups": {
     "people": "ব্যক্তিবর্গ",
     "finance": "অর্থ",
-    "administration": "প্রশাসন"
+    "administration": "প্রশাসন",
+    "communications": "যোগাযোগ"
   },
   "dashboard": {
     "title": "ড্যাশবোর্ড",

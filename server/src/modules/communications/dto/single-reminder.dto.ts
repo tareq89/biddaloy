@@ -5,6 +5,7 @@ import {
   IsArray,
   IsEnum,
   IsNotEmpty,
+  ArrayNotEmpty,
   MaxLength,
 } from 'class-validator';
 import { CommunicationMedium, CommunicationStatus } from '@biddaloy/shared';
@@ -20,9 +21,15 @@ export class SendSingleReminderDto {
   @MaxLength(2000)
   message_template: string;
 
-  /** Contact exactly these guardians. Omit to default to the primary contact(s). */
+  /**
+   * Contact exactly these guardians. Omit to default to the primary
+   * contact(s). `@ArrayNotEmpty` for the same reason as
+   * SendBulkReminderDto.mediums: `[]` reads as "nobody" but would fall
+   * through to the primary-contact default, so it must 400 instead.
+   */
   @IsOptional()
   @IsArray()
+  @ArrayNotEmpty()
   @IsUUID('4', { each: true })
   guardian_ids?: string[];
 
@@ -59,13 +66,37 @@ export class SkippedGuardianDto {
   reason: string;
 }
 
+/**
+ * The Meta-approved template a WhatsApp recipient will actually be sent,
+ * with the request's named parameters already resolved to the positional
+ * values Meta receives ({{1}}, {{2}}, … in order).
+ *
+ * Exists because WhatsApp is the one channel where `message_body` is not
+ * what leaves the building: Meta rejects freeform text outside its
+ * 24-hour session window, so the send path dispatches this template
+ * instead. Without it the mandatory review step would show the sender
+ * text no WhatsApp guardian will ever receive.
+ */
+export class WhatsAppTemplatePreviewDto {
+  name: string;
+  language: string;
+  params: string[];
+}
+
 export class ReminderPreviewRecipientDto {
   guardian_id: string;
   guardian_name: string;
   medium: CommunicationMedium;
   address: string;
+  /**
+   * The rendered text. Delivered as-is on SMS and email. On WhatsApp it is
+   * delivered only when `whatsapp_template` is null — and such a send is
+   * freeform outside Meta's session window, so it will be rejected.
+   */
   message_body: string;
   subject: string | null;
+  /** Non-null only for a WhatsApp recipient sent as an approved template. */
+  whatsapp_template: WhatsAppTemplatePreviewDto | null;
 }
 
 export class ReminderPreviewResponseDto {

@@ -123,6 +123,14 @@ export enum AuditAction {
   INVOICE_GENERATED = 'INVOICE_GENERATED',
   BULK_UPLOAD = 'BULK_UPLOAD',
   REMINDER_SENT = 'REMINDER_SENT',
+  /**
+   * A bulk-reminder preview. Nothing is sent, but the response names every
+   * guardian, channel and contact address behind a filter — the same
+   * exposure a send has, minus the message. Audited for the same reason
+   * SETTINGS_TEST is: a read that hands back sensitive data still needs a
+   * trace of who asked for it.
+   */
+  REMINDER_PREVIEWED = 'REMINDER_PREVIEWED',
   FEE_STRUCTURE_CHANGE = 'FEE_STRUCTURE_CHANGE',
   SETTINGS_CHANGE = 'SETTINGS_CHANGE',
   SETTINGS_TEST = 'SETTINGS_TEST',

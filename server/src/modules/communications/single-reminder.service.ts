@@ -22,13 +22,13 @@ import {
   ReminderTemplateVars,
   SUPPORTED_PLACEHOLDERS,
   isSupportedPlaceholder,
-  templateVarValue,
 } from './reminder-template.util';
 import {
   selectReminderGuardians,
   addressForMedium,
   DISPATCHABLE_MEDIA,
 } from './reminder-recipients.util';
+import { resolveWhatsAppTemplate, whatsAppTemplateMetadata } from './whatsapp-template.util';
 import { SkipReason } from './reminders.service';
 import { COMMUNICATIONS_QUEUE } from './communications.constants';
 import { AuditService } from '../audit/audit.service';
@@ -91,6 +91,11 @@ export class SingleReminderService {
         address: r.address,
         message_body: renderReminderTemplate(dto.message_template, r.vars),
         subject: r.medium === CommunicationMedium.EMAIL ? DEFAULT_EMAIL_SUBJECT : null,
+        // A WhatsApp recipient receives this approved template, not the
+        // rendered body above — see whatsapp-template.util.ts. Resolved
+        // with the same helper sendSingle uses, so the review step and the
+        // send cannot disagree.
+        whatsapp_template: resolveWhatsAppTemplate(r.medium, r.vars, dto),
       })),
       skipped,
     };
@@ -299,19 +304,11 @@ export class SingleReminderService {
     }
   }
 
+  /** Shares resolveWhatsAppTemplate with preview — see that method. */
   private whatsAppMetadata(
     dto: SendSingleReminderDto,
     recipient: ResolvedSingleRecipient,
-  ): Record<string, any> | null {
-    if (recipient.medium !== CommunicationMedium.WHATSAPP || !dto.whatsapp_template_name) {
-      return null;
-    }
-    return {
-      template_name: dto.whatsapp_template_name,
-      template_language: dto.whatsapp_template_language,
-      template_params: (dto.whatsapp_template_params ?? []).map(
-        (name) => templateVarValue(recipient.vars, name) ?? '',
-      ),
-    };
+  ): Record<string, unknown> | null {
+    return whatsAppTemplateMetadata(resolveWhatsAppTemplate(recipient.medium, recipient.vars, dto));
   }
 }
