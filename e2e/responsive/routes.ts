@@ -5,6 +5,7 @@ import {
   createClassSection,
   createGuardian,
   createInvoice,
+  createReminderBatch,
   createStaffUser,
   createStudentWithDues,
   type ApiSession,
@@ -53,6 +54,10 @@ export async function resolvePath(
   if (route.path.includes('$userId')) {
     const staffUser = await createStaffUser(request, session, `Reflow Staff ${stamp}`);
     return route.path.replace('$userId', staffUser.id);
+  }
+  if (route.path.includes('$batchId')) {
+    const batch = await createReminderBatch(request, session, `Reflow Batch ${stamp}`);
+    return route.path.replace('$batchId', batch.id);
   }
   if (route.path.includes('$invoiceId')) {
     const { studentId } = await createStudentWithDues(request, session, `Reflow Invoicee ${stamp}`);

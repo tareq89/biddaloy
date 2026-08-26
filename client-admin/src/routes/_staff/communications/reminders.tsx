@@ -33,7 +33,9 @@ import {
 import { formatDate, formatServerAmount } from '@biddaloy/ui/utils';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
+import { z } from 'zod';
 
+import { BulkReminderWizard } from './-bulk/bulk-reminder-wizard';
 import { RecipientList } from './-shared/recipient-list';
 import { skipReasonKey } from './-shared/skip-reason';
 import { SmsSegmentCounter } from './-shared/sms-segment-counter';
@@ -60,7 +62,19 @@ import { splitTemplateParams, WhatsappTemplateFields } from './-shared/whatsapp-
  * holds COMMUNICATION_SEND but would 403 on every request this page
  * makes. Same UX-gate-not-security-boundary framing as `/fees/generate`.
  */
+/**
+ * `mode=bulk` switches the page from the single-student form to
+ * [8.11.9]'s bulk wizard — a search param rather than a second route so
+ * the wizard's own `?step=` (`useWizardShellStep`'s contract) and the
+ * mode both survive a refresh together.
+ */
+const remindersSearchSchema = z.object({
+  mode: z.enum(['bulk']).optional().catch(undefined),
+  step: z.string().optional().catch(undefined),
+});
+
 export const Route = createFileRoute('/_staff/communications/reminders')({
+  validateSearch: remindersSearchSchema,
   component: FeeRemindersPage,
 });
 
@@ -75,6 +89,7 @@ function FeeRemindersPage() {
   const navigate = useNavigate();
   const canRemind = useHasPermission(Permission.COMMUNICATION_BULK_SEND);
   const regionConfig = useTenantRegionConfig();
+  const { mode } = Route.useSearch();
 
   if (!canRemind) {
     return (
@@ -94,7 +109,7 @@ function FeeRemindersPage() {
   // `/payments/record`'s own provider wrap.
   return (
     <RegionConfigProvider value={regionConfig}>
-      <SingleReminderForm />
+      {mode === 'bulk' ? <BulkReminderWizard /> : <SingleReminderForm />}
     </RegionConfigProvider>
   );
 }
@@ -102,6 +117,7 @@ function FeeRemindersPage() {
 function SingleReminderForm() {
   const { t } = useTranslation('communications');
   const config = useRegionConfig();
+  const navigate = useNavigate();
 
   const [studentId, setStudentId] = React.useState<string | null>(null);
   const [guardianIds, setGuardianIds] = React.useState<string[]>([]);
@@ -337,7 +353,18 @@ function SingleReminderForm() {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 p-4">
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">{t('reminders.title')}</h1>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h1 className="text-2xl font-semibold">{t('reminders.title')}</h1>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() =>
+              void navigate({ to: '/communications/reminders', search: { mode: 'bulk' } })
+            }
+          >
+            {t('bulk.entryAction')}
+          </Button>
+        </div>
         <p className="text-sm text-muted-foreground">{t('reminders.description')}</p>
       </header>
 

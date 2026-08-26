@@ -88,9 +88,17 @@ export class CommunicationsController {
 
   // Declared before the send route below, matching the single-reminder
   // pair above: preview-before-send is the reading order the epic mandates.
+  //
+  // Same STRICT_RATE_LIMIT as the send route it mirrors. Preview runs the
+  // identical resolution work (student + guardian + dues loads for up to
+  // 500 students) and hands back every guardian's name, channel and
+  // contact address. On the default tier one ACCOUNTANT token could page
+  // the tenant's whole guardian directory out through it; the fact that
+  // nothing is sent makes it cheaper to abuse, not safer.
   @Post('reminder/bulk/preview')
   @HttpCode(HttpStatus.OK)
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  @Throttle({ default: STRICT_RATE_LIMIT })
   @ApiOperation({
     summary:
       'Resolve a bulk reminder without sending it — who would receive what, and who would be skipped and why.',
@@ -98,8 +106,10 @@ export class CommunicationsController {
   previewBulkReminder(
     @Body() dto: SendBulkReminderDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
-    return this.bulkReminderService.previewBulk(dto, tenant.id);
+    return this.bulkReminderService.previewBulk(dto, tenant.id, user.sub, requestContext(request));
   }
 
   // Declared before @Get(':id') — Nest matches in declaration order, and

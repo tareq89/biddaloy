@@ -29,7 +29,10 @@ export function StudentSearch({
   const [search, setSearch] = React.useState('');
   const debouncedSearch = useDebouncedValue(search, 300);
 
-  const searchQuery = useStudents({ search: debouncedSearch, limit: 10 });
+  const searchQuery = useStudents(
+    { search: debouncedSearch, limit: 10 },
+    { enabled: debouncedSearch.trim().length > 0 },
+  );
 
   function handleSelect(student: Student) {
     setSearch('');

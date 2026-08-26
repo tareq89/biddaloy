@@ -21,7 +21,8 @@
     "academicYears": "Academic Years",
     "classes": "Classes",
     "sendMessage": "Send Message",
-    "feeReminders": "Fee Reminders"
+    "feeReminders": "Fee Reminders",
+    "reminderHistory": "Reminder History"
   },
   "groups": {
     "people": "People",

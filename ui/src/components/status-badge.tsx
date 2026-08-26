@@ -100,7 +100,12 @@ const COMMUNICATION_STATUS_TONE: Record<CommunicationStatusValue, StatusTone> = 
   [CommunicationStatus.READ]: 'success',
 };
 
-const REMINDER_BATCH_STATUS_TONE: Record<ReminderBatchStatus, StatusTone> = {
+/** Same plain-literal widening as `CommunicationStatusValue` above —
+ * the Reminder History pages hold `schema.d.ts`'s string literals
+ * (`ReminderBatchListItemDto.status`), not the shared enum object. */
+type ReminderBatchStatusValue = `${ReminderBatchStatus}`;
+
+const REMINDER_BATCH_STATUS_TONE: Record<ReminderBatchStatusValue, StatusTone> = {
   [ReminderBatchStatus.PROCESSING]: 'info',
   [ReminderBatchStatus.COMPLETED]: 'success',
   [ReminderBatchStatus.PARTIALLY_FAILED]: 'warning',
@@ -171,7 +176,7 @@ export type StatusBadgeProps =
   | { domain: 'payment'; status: PaymentStatus }
   | { domain: 'invoice'; status: InvoiceStatus }
   | { domain: 'communication'; status: CommunicationStatusValue }
-  | { domain: 'reminderBatch'; status: ReminderBatchStatus }
+  | { domain: 'reminderBatch'; status: ReminderBatchStatusValue }
   | { domain: 'enrollment'; status: EnrollmentStatus }
   | { domain: 'academicYear'; status: AcademicYearCurrentStatus }
   | { domain: 'guardian'; status: GuardianPrimaryContactStatus }
