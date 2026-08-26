@@ -4810,8 +4810,8 @@
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/communications/-shared/recipient-list.tsx": {
-    "mtime": 1787670846.1061997,
-    "ast_hash": "c3ec9b563f7bcc3077688aeb3d3b7986",
+    "mtime": 1787676543.2944124,
+    "ast_hash": "a4db5588e9be1196f159980c4136f6d4",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/communications/-shared/skip-reason.ts": {
@@ -4820,8 +4820,8 @@
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/communications/-shared/sms-segment-counter.tsx": {
-    "mtime": 1787670208.465468,
-    "ast_hash": "2874aa5dbf291f67c42d422bea5cb4f5",
+    "mtime": 1787676529.47785,
+    "ast_hash": "162f9e898a19711646a8374cfc632d4f",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/communications/-shared/student-search.tsx": {
@@ -4830,43 +4830,43 @@
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/communications/-shared/template-placeholders.test.ts": {
-    "mtime": 1787670171.4078128,
-    "ast_hash": "0de6a59269e23e1c7f3a1f1d22e4d248",
+    "mtime": 1787676502.8498719,
+    "ast_hash": "34b7f41ab7e274b3d3c39a7d1bee9092",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/communications/-shared/template-placeholders.ts": {
-    "mtime": 1787670163.3284078,
-    "ast_hash": "5bf592057089b9864e36ce8901097fd0",
+    "mtime": 1787676492.0719664,
+    "ast_hash": "58959500029bc1ebc1dc8a6b1430d9af",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/communications/reminders.test.tsx": {
-    "mtime": 1787670739.9799345,
-    "ast_hash": "e52b494367c003dc6a2304fb5ee2e8b3",
+    "mtime": 1787676785.7309413,
+    "ast_hash": "a604c085d56f0161e8c425693a2350de",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/communications/reminders.tsx": {
-    "mtime": 1787670846.1055002,
-    "ast_hash": "080120c1fe5d2236d5a25b33e94254fe",
+    "mtime": 1787676683.7563875,
+    "ast_hash": "e85591d622287bddf7a818940dd86f1b",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/communications/send.test.tsx": {
-    "mtime": 1787670631.3280585,
-    "ast_hash": "a6ea6f90d8d538b6376848193d649d89",
+    "mtime": 1787676754.443796,
+    "ast_hash": "c2a052a460fb7856d927194de48eaf36",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/communications/send.tsx": {
-    "mtime": 1787670846.105501,
-    "ast_hash": "d3587f26cad3d1ecaabb2ea5351f1aec",
+    "mtime": 1787676575.2073653,
+    "ast_hash": "fc9fbe64b37c7ad46bea0cfe516d2990",
     "semantic_hash": ""
   },
   "ui/src/i18n/locales/bn/communications.json": {
-    "mtime": 1787670143.0740585,
-    "ast_hash": "371346fa87426403a9387d5f9ab22430",
+    "mtime": 1787676665.1886265,
+    "ast_hash": "e430202f81bf314e8108dd364d7c205a",
     "semantic_hash": ""
   },
   "ui/src/i18n/locales/en/communications.json": {
-    "mtime": 1787670108.8359509,
-    "ast_hash": "9775079d04544c079335c42354ebbf65",
+    "mtime": 1787676665.1879876,
+    "ast_hash": "abaa4e3d1398cff0d1257040bd761ae7",
     "semantic_hash": ""
   },
   "ui/src/utils/sms.spec.ts": {
@@ -4877,6 +4877,11 @@
   "ui/src/utils/sms.ts": {
     "mtime": 1787669899.9555953,
     "ast_hash": "c32e26b8dcb6fdbc5e6dbb99b48ecd95",
+    "semantic_hash": ""
+  },
+  "client-admin/src/routes/_staff/communications/-shared/whatsapp-template-fields.tsx": {
+    "mtime": 1787676518.8629036,
+    "ast_hash": "a90c4b0595c71de767ca18a701b94539",
     "semantic_hash": ""
   }
 }

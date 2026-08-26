@@ -165,14 +165,21 @@ describe('CommunicationsController', () => {
   });
 
   describe('previewBulkReminder', () => {
-    it('should call bulkReminderService.previewBulk with dto and tenant id', async () => {
+    it('should call bulkReminderService.previewBulk with dto, tenant id, user id, and request context', async () => {
       const dto = { student_ids: ['s-1'], message_template: 'Dear {{guardian_name}}' };
       const expected = { total_students: 1, recipients_count: 1, skipped_count: 0, students: [] };
       bulkReminderService.previewBulk.mockResolvedValue(expected);
 
-      const result = await controller.previewBulkReminder(dto as any, TENANT);
+      // Preview resolves and returns guardian contact data, so it is audited
+      // like the send route: the caller and their request context travel with it.
+      const result = await controller.previewBulkReminder(dto as any, TENANT, USER, REQUEST);
 
-      expect(bulkReminderService.previewBulk).toHaveBeenCalledWith(dto, TENANT.id);
+      expect(bulkReminderService.previewBulk).toHaveBeenCalledWith(
+        dto,
+        TENANT.id,
+        USER.sub,
+        REQUEST_CONTEXT,
+      );
       expect(result).toEqual(expected);
     });
 
@@ -186,6 +193,8 @@ describe('CommunicationsController', () => {
         controller.previewBulkReminder(
           { student_ids: ['s-1'], message_template: '{{parent}}' } as any,
           TENANT,
+          USER,
+          REQUEST,
         ),
       ).rejects.toThrow(BadRequestException);
     });

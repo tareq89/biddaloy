@@ -21,7 +21,8 @@
     "academicYears": "শিক্ষাবর্ষ",
     "classes": "ক্লাস",
     "sendMessage": "বার্তা পাঠান",
-    "feeReminders": "ফি রিমাইন্ডার"
+    "feeReminders": "ফি রিমাইন্ডার",
+    "reminderHistory": "রিমাইন্ডার ইতিহাস"
   },
   "groups": {
     "people": "ব্যক্তিবর্গ",

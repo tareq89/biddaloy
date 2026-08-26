@@ -146,6 +146,25 @@ export async function createStudentsInSection(
   return chain;
 }
 
+/** A reminder batch for the /communications/batches/$batchId detail
+ * page — a student with open dues and a linked guardian (so the batch
+ * has at least one real recipient), then one bulk-reminder POST. */
+export async function createReminderBatch(
+  request: APIRequestContext,
+  session: ApiSession,
+  batchName: string,
+): Promise<{ id: string }> {
+  const guardian = await createGuardian(request, session, `${batchName} Guardian`);
+  const { studentId } = await createStudentWithDues(request, session, `${batchName} Student`, {
+    guardianId: guardian.id,
+  });
+  return post<{ id: string }>(request, session, '/communications/reminder/bulk', {
+    student_ids: [studentId],
+    message_template: 'Dear {{guardian_name}}, {{student_name}} has dues of {{due_amount}}.',
+    batch_name: batchName,
+  });
+}
+
 export async function createInvoice(
   request: APIRequestContext,
   session: ApiSession,

@@ -2,16 +2,33 @@
  * SMS segment counting for [8.11.9]'s message composition — "Bangla text
  * correctly, including character-count limits for SMS" is an AC, and the
  * two encodings behave very differently: GSM-7 fits 160 characters in one
- * segment (153 each once concatenated), while any character outside the
- * GSM-7 tables — which is *every* Bangla character — forces the whole
- * message to UCS-2 at 70 per segment (67 concatenated). A composer that
- * quoted "160 characters left" against a Bangla message would be wrong by
- * more than half, which is why this exists rather than a plain
- * `maxLength`.
+ * segment (153 each once concatenated), while a unicode message drops to
+ * 70 per segment (67 concatenated). A composer that quoted "160 characters
+ * left" against a Bangla message would be wrong by more than half, which
+ * is why this exists rather than a plain `maxLength`.
  *
- * Tables are 3GPP TS 23.038's default alphabet. Extension-table
- * characters (`{}[]~^€|\` and form feed) are GSM-7 but cost two septets
- * each — an escape plus the character — so they count double.
+ * **The encoding rule here is the server's, not 3GPP TS 23.038's.**
+ * `isUnicodeMessage` (`server/src/modules/communications/providers/sms/
+ * sms-gateway.interface.ts`) is the only thing that decides how a message
+ * is billed, and it is a single ASCII test:
+ *
+ * ```ts
+ * return /[^\x00-\x7F]/.test(message);
+ * ```
+ *
+ * GreenWeb then gets `unicode=1` and MIM gets `type: 'unicode'`, i.e. 70
+ * characters per segment. So `é`, `£`, `ñ`, `ø`, `Ç`, `€` — all genuine
+ * GSM-7 characters under TS 23.038 — are non-ASCII and therefore billed as
+ * unicode by our gateways. Counting them as GSM-7 (the earlier version of
+ * this file did) told a sender that a 150-character message containing one
+ * "é" was 1 segment when it is actually billed as 3.
+ *
+ * Within the ASCII branch the septet accounting *is* TS 23.038's, because
+ * that is what a GSM-7 route actually puts on the air: the ASCII extension
+ * characters (`^ { } \ [ ~ ] |` and form feed) cost an escape septet plus
+ * the character, so they count double. That only ever over-estimates, and
+ * over-estimating a segment count is the safe direction — a sender is
+ * never surprised by an extra segment on the bill.
  */
 
 export type SmsEncoding = 'GSM_7' | 'UCS_2';
@@ -30,18 +47,17 @@ export interface SmsSegmentInfo {
   perSegment: number;
 }
 
-// 3GPP TS 23.038 basic character set. `\n`/`\r` are real members; the
-// ESC slot is omitted (it's the escape *into* the extension table, not a
-// typable character).
-const GSM7_BASIC =
-  '@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !"#¤%&\'()*+,-./0123456789:;<=>?' +
-  '¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑܧ¿abcdefghijklmnopqrstuvwxyzäöñüà';
+/** Mirror of the server's `isUnicodeMessage` — any character outside
+ * 7-bit ASCII flips the whole message to unicode billing. */
+// The server's own rule is literally this range; narrowing it here would
+// re-introduce the drift this constant exists to remove.
+/* eslint-disable-next-line no-control-regex */
+const NON_ASCII = /[^\x00-\x7F]/;
 
-// Extension table — each costs two septets (ESC + char).
-const GSM7_EXTENSION = '^{}\\[~]|€\f';
-
-const GSM7_BASIC_SET = new Set(GSM7_BASIC);
-const GSM7_EXTENSION_SET = new Set(GSM7_EXTENSION);
+/** GSM-7 extension-table members that are also ASCII, so they survive the
+ * unicode test above and still cost two septets each. (`€` is in the
+ * extension table too, but it is non-ASCII, so it never reaches here.) */
+const GSM7_ASCII_EXTENSION_SET = new Set('^{}\\[~]|\f');
 
 const GSM7_SINGLE = 160;
 const GSM7_CONCAT = 153;
@@ -49,28 +65,16 @@ const UCS2_SINGLE = 70;
 const UCS2_CONCAT = 67;
 
 export function countSmsSegments(text: string): SmsSegmentInfo {
-  let gsmSeptets = 0;
-  let fitsGsm7 = true;
-
-  // `for..of` iterates code points, so an astral character (emoji, some
-  // symbols) arrives whole here and correctly fails both GSM-7 tables.
-  for (const char of text) {
-    if (GSM7_BASIC_SET.has(char)) {
-      gsmSeptets += 1;
-    } else if (GSM7_EXTENSION_SET.has(char)) {
-      gsmSeptets += 2;
-    } else {
-      fitsGsm7 = false;
-      break;
+  if (!NON_ASCII.test(text)) {
+    let septets = 0;
+    for (const char of text) {
+      septets += GSM7_ASCII_EXTENSION_SET.has(char) ? 2 : 1;
     }
-  }
-
-  if (fitsGsm7) {
     const segments =
-      gsmSeptets === 0 ? 0 : gsmSeptets <= GSM7_SINGLE ? 1 : Math.ceil(gsmSeptets / GSM7_CONCAT);
+      septets === 0 ? 0 : septets <= GSM7_SINGLE ? 1 : Math.ceil(septets / GSM7_CONCAT);
     return {
       encoding: 'GSM_7',
-      chars: gsmSeptets,
+      chars: septets,
       segments,
       perSegment: segments > 1 ? GSM7_CONCAT : GSM7_SINGLE,
     };

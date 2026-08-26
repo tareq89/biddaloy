@@ -947,7 +947,7 @@ export interface components {
             id: string;
             tenant_id: string | null;
             /** @enum {string} */
-            action: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST";
+            action: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST";
             entity_type: string;
             entity_id: string | null;
             performed_by_user_id: string | null;
@@ -1570,6 +1570,11 @@ export interface components {
             whatsapp_template_language?: string;
             whatsapp_template_params?: string[];
         };
+        WhatsAppTemplatePreviewDto: {
+            name: string;
+            language: string;
+            params: string[];
+        };
         ReminderPreviewRecipientDto: {
             guardian_id: string;
             guardian_name: string;
@@ -1578,6 +1583,7 @@ export interface components {
             address: string;
             message_body: string;
             subject: string | null;
+            whatsapp_template: components["schemas"]["WhatsAppTemplatePreviewDto"] | null;
         };
         SkippedGuardianDto: {
             guardian_id: string;
@@ -1645,6 +1651,10 @@ export interface components {
             message_template: string | null;
             /** Format: date-time */
             created_at: string;
+            mediums: ("SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER")[] | null;
+            whatsapp_template_name: string | null;
+            whatsapp_template_language: string | null;
+            whatsapp_template_params: string[] | null;
             skipped: components["schemas"]["SkippedRecipientDto"][];
         };
         ReminderBatchListItemDto: {
@@ -1896,7 +1906,7 @@ export interface operations {
     AuditController_findAll_v1: {
         parameters: {
             query?: {
-                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST";
+                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST";
                 entity_type?: string;
                 performed_by_user_id?: string;
                 from_date?: string;
@@ -1935,7 +1945,7 @@ export interface operations {
     AuditController_findByEntity_v1: {
         parameters: {
             query?: {
-                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST";
+                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST";
                 entity_type?: string;
                 performed_by_user_id?: string;
                 from_date?: string;

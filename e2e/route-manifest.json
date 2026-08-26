@@ -132,6 +132,19 @@
       "archetype": "form"
     },
     {
+      "path": "/communications/batches",
+      "role": "accountant",
+      "archetype": "list"
+    },
+    {
+      "path": "/communications/batches/$batchId",
+      "params": {
+        "batchId": "seeded"
+      },
+      "role": "accountant",
+      "archetype": "detail"
+    },
+    {
       "path": "/students",
       "role": "admin",
       "archetype": "list",

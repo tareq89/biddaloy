@@ -36,15 +36,14 @@ describe('countSmsSegments', () => {
     expect(countSmsSegments('a'.repeat(307)).segments).toBe(3);
   });
 
-  it('counts GSM-7 extension characters ({}[]~^€|\\) double', () => {
-    // 5 plain + 2 extension characters = 5 + 2×2 = 9 septets.
+  it('counts the ASCII GSM-7 extension characters ({}[]~^|\\) double', () => {
     const result = countSmsSegments('Tk 50 {}');
     expect(result.encoding).toBe('GSM_7');
     // 'T','k',' ','5','0',' ' = 6 septets, '{' and '}' = 4 septets.
     expect(result.chars).toBe(10);
   });
 
-  it('80 characters ending in an extension char tips into a second segment', () => {
+  it('159 plain characters plus an extension char tips into a second segment', () => {
     // 159 plain septets + '{' (2 septets) = 161 septets → 2 segments.
     const result = countSmsSegments(`${'a'.repeat(159)}{`);
     expect(result.encoding).toBe('GSM_7');
@@ -83,6 +82,27 @@ describe('countSmsSegments', () => {
     // 101 code units > 70 → concatenated.
     expect(result.segments).toBe(2);
   });
+
+  // The finding this file exists to lock down. `é` is a legitimate GSM-7
+  // character under 3GPP TS 23.038, but the server's `isUnicodeMessage` is
+  // a bare `/[^\x00-\x7F]/` test and GreenWeb/MIM then bill the message as
+  // unicode at 70 characters per segment. Counting it as GSM-7 said
+  // "1 segment"; the school is invoiced for 3.
+  it('a single Latin-1 accent bills as UCS-2, matching the server, not TS 23.038', () => {
+    const result = countSmsSegments(`${'a'.repeat(149)}é`);
+    expect(result.encoding).toBe('UCS_2');
+    expect(result.chars).toBe(150);
+    // 150 code units / 67 per concatenated segment = 3.
+    expect(result.segments).toBe(3);
+    expect(result.perSegment).toBe(67);
+  });
+
+  it.each(['£', 'é', 'Ä', 'ñ', 'à', 'ø', 'Ç', '§', '€'])(
+    'treats the non-ASCII GSM-7 character %s as UCS-2',
+    (char) => {
+      expect(countSmsSegments(`Dues ${char}`).encoding).toBe('UCS_2');
+    },
+  );
 
   it('counts an emoji as two UCS-2 characters (surrogate pair)', () => {
     const result = countSmsSegments('👍');

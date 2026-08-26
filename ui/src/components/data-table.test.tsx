@@ -85,6 +85,39 @@ function Controlled({
   );
 }
 
+/** Page two of the same server-paginated list — `manualPagination` means
+ * `data` only ever holds one page, which is exactly what makes the header
+ * "select all" checkbox page-scoped. */
+const STUDENTS_PAGE_2: Student[] = [
+  { id: '4', name: 'Nadia Islam', className: 'Eight' },
+  { id: '5', name: 'Sabbir Hossain', className: 'Eight' },
+  { id: '6', name: 'Tania Akter', className: 'Nine' },
+];
+
+function PagedControlled() {
+  const [page, setPage] = useState(1);
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
+
+  return (
+    <DataTable
+      tableId="students-paged-test"
+      caption="Students"
+      columns={COLUMNS}
+      data={page === 1 ? STUDENTS : STUDENTS_PAGE_2}
+      getRowId={(row) => row.id}
+      sorting={null}
+      onSortingChange={() => undefined}
+      page={page}
+      pageSize={3}
+      totalCount={6}
+      onPageChange={setPage}
+      selectedIds={selectedIds}
+      onSelectedIdsChange={setSelectedIds}
+      bulkActions={<button type="button">Delete selected</button>}
+    />
+  );
+}
+
 describe('DataTable', () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -237,13 +270,62 @@ describe('DataTable', () => {
     expect(screen.getByText('1 selected')).toBeTruthy();
   });
 
-  it('selecting all rows via the header checkbox selects every row', async () => {
+  it('selecting all rows via the header checkbox selects every row on the page', async () => {
     const user = userEvent.setup();
     render(<Controlled selectable />);
-    await user.click(screen.getByRole('checkbox', { name: 'Select all rows' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Select all rows on this page' }));
     for (const checkbox of screen.getAllByRole('checkbox', { name: /Select row/ })) {
       expect(checkbox.getAttribute('aria-checked')).toBe('true');
     }
+  });
+
+  // Business-critical for `bulk-reminder-wizard.tsx`: the selection is the
+  // literal list of students who get an SMS, so a header checkbox that
+  // *replaced* the selection instead of adding to it silently dropped
+  // everyone picked on an earlier page.
+  it('select-all on page two keeps rows already selected on page one', async () => {
+    const user = userEvent.setup();
+    render(<PagedControlled />);
+
+    await user.click(screen.getByRole('checkbox', { name: 'Select row 1' }));
+    expect(screen.getByText('1 selected')).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    await screen.findByText('Nadia Islam');
+    // Page two starts unselected, so the header checkbox reads unchecked
+    // even though the overall selection is non-empty.
+    const selectAll = screen.getByRole('checkbox', { name: 'Select all rows on this page' });
+    expect(selectAll.getAttribute('aria-checked')).toBe('false');
+
+    await user.click(selectAll);
+    // 1 from page one + 3 from page two — not 3.
+    expect(screen.getByText('4 selected')).toBeTruthy();
+  });
+
+  it('clearing select-all on page two leaves page one selections alone', async () => {
+    const user = userEvent.setup();
+    render(<PagedControlled />);
+
+    await user.click(screen.getByRole('checkbox', { name: 'Select all rows on this page' }));
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    await screen.findByText('Nadia Islam');
+    await user.click(screen.getByRole('checkbox', { name: 'Select all rows on this page' }));
+    expect(screen.getByText('6 selected')).toBeTruthy();
+
+    await user.click(screen.getByRole('checkbox', { name: 'Select all rows on this page' }));
+    // Only page two was cleared.
+    expect(screen.getByText('3 selected')).toBeTruthy();
+  });
+
+  it('shows the header checkbox as indeterminate when only some page rows are selected', async () => {
+    const user = userEvent.setup();
+    render(<Controlled selectable />);
+    await user.click(screen.getAllByRole('checkbox', { name: /Select row/ })[0]!);
+    expect(
+      screen
+        .getByRole('checkbox', { name: 'Select all rows on this page' })
+        .getAttribute('aria-checked'),
+    ).toBe('mixed');
   });
 
   it('persists column visibility to localStorage per tableId', () => {
