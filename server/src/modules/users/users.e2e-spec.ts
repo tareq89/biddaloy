@@ -291,6 +291,48 @@ describe('Users & Teachers E2E [8.11.8]', () => {
       }
     });
 
+    // [8.11.10]: the tenant-wide audit screen renders a "Who" column, so
+    // `findAll` left-joins the acting user and flattens their name onto
+    // each row. Asserted against a real database because the failure mode
+    // is a SQL/relation-mapping one a mocked query builder cannot catch.
+    it('returns the acting user’s name, not just their id', async () => {
+      await request()
+        .post('/api/v1/auth/login')
+        .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+        .expect(200);
+
+      const res = await request()
+        .get('/api/v1/audit-logs')
+        .query({ performed_by_user_id: SEED_ADMIN_USER_ID })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .expect(200);
+
+      expect(res.body.data.length).toBeGreaterThan(0);
+      for (const log of res.body.data) {
+        expect(typeof log.performed_by_name).toBe('string');
+        expect(log.performed_by_name.length).toBeGreaterThan(0);
+      }
+      // The join must not widen the response into the whole User row —
+      // no credential or contact column may ride along with the name.
+      expect(res.body.data[0]).not.toHaveProperty('performed_by');
+    });
+
+    // The entity-scoped sibling never joins the relation, so its rows are
+    // deliberately nameless — its caller (a student's Activity tab) shows
+    // no "Who" column.
+    it('leaves performed_by_name null on the entity-scoped route', async () => {
+      const res = await request()
+        .get(`/api/v1/audit-logs/entity/User/${SEED_ADMIN_USER_ID}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .expect(200);
+
+      for (const log of res.body.data) {
+        expect(log.performed_by_name).toBeNull();
+      }
+    });
+
     it('rejects a non-UUID performed_by_user_id with 400', async () => {
       await request()
         .get('/api/v1/audit-logs')

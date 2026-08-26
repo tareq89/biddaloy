@@ -53,6 +53,11 @@
       "archetype": "detail"
     },
     {
+      "path": "/audit-logs",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
       "path": "/fees",
       "role": "accountant",
       "archetype": "list"

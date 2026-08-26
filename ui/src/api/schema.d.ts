@@ -951,6 +951,7 @@ export interface components {
             entity_type: string;
             entity_id: string | null;
             performed_by_user_id: string | null;
+            performed_by_name: string | null;
             old_values: {
                 [key: string]: unknown;
             } | null;
