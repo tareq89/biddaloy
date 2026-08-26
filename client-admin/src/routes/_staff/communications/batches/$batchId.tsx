@@ -261,7 +261,9 @@ function BatchDetail() {
       <div>
         <Link
           to="/communications/batches"
-          className="text-sm text-primary underline-offset-2 hover:underline"
+          // min-h-6 / min-w-6: the 24x24 CSS px floor the responsive
+          // target-size spec enforces — the bare text link measured 35x16.
+          className="inline-flex min-h-6 min-w-6 items-center self-start text-sm text-primary underline underline-offset-2"
         >
           {t('batches.detail.backToList')}
         </Link>

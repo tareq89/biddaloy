@@ -4900,8 +4900,8 @@
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/communications/batches/$batchId.tsx": {
-    "mtime": 1787724847.415275,
-    "ast_hash": "491f032363f6b3fcd69936da3919de61",
+    "mtime": 1787726752.0691485,
+    "ast_hash": "4d2cc2df31146133706c2ead942d48f7",
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/communications/batches/index.test.tsx": {
