@@ -32,3 +32,53 @@ export function useSendBulkReminder() {
     retry: false,
   });
 }
+
+export type SendSingleReminderInput = components['schemas']['SendSingleReminderDto'];
+export type ReminderPreview = components['schemas']['ReminderPreviewResponseDto'];
+export type ReminderPreviewRecipient = components['schemas']['ReminderPreviewRecipientDto'];
+export type SkippedGuardian = components['schemas']['SkippedGuardianDto'];
+export type SingleReminderResult = components['schemas']['SingleReminderResponseDto'];
+
+export interface SingleReminderVariables {
+  studentId: string;
+  input: SendSingleReminderInput;
+}
+
+/**
+ * `POST /communications/reminder/single/{studentId}/preview` — [8.11.9]'s
+ * mandatory review step. A mutation rather than a query on purpose: a
+ * preview is an explicit user action against the inputs *as composed right
+ * now* (the page's staleness guard hashes those inputs), not a cacheable
+ * read that background refetching should ever re-run on its own. Returns
+ * 200 with `recipients[]` and `skipped[]`; sends nothing.
+ */
+export function useSingleReminderPreview() {
+  return useMutation({
+    mutationFn: async ({ studentId, input }: SingleReminderVariables) => {
+      const res = await apiClient.post<ReminderPreview>(
+        `/communications/reminder/single/${studentId}/preview`,
+        input,
+      );
+      return res.data;
+    },
+  });
+}
+
+/**
+ * `POST /communications/reminder/single/{studentId}` — the send half of
+ * the preview/send pair above. `retry: false` for the same reason
+ * `useSendBulkReminder` gives: a retry after a dropped *response* would
+ * queue a second, identical reminder to the same guardians.
+ */
+export function useSendSingleReminder() {
+  return useMutation({
+    mutationFn: async ({ studentId, input }: SingleReminderVariables) => {
+      const res = await apiClient.post<SingleReminderResult>(
+        `/communications/reminder/single/${studentId}`,
+        input,
+      );
+      return res.data;
+    },
+    retry: false,
+  });
+}

@@ -85,7 +85,14 @@ const INVOICE_STATUS_TONE: Record<InvoiceStatus, StatusTone> = {
   [InvoiceStatus.OVERDUE]: 'danger',
 };
 
-const COMMUNICATION_STATUS_TONE: Record<CommunicationStatus, StatusTone> = {
+/** Accepts the plain literal union too (`\`${CommunicationStatus}\``) —
+ * [8.11.9]'s callers hold `schema.d.ts`'s string literals (a
+ * `CommunicationResponseDto.status`, a sent-reminder recipient's
+ * `status`), not the shared enum object. Same shape as `UserStatusValue`
+ * below. */
+type CommunicationStatusValue = `${CommunicationStatus}`;
+
+const COMMUNICATION_STATUS_TONE: Record<CommunicationStatusValue, StatusTone> = {
   [CommunicationStatus.QUEUED]: 'neutral',
   [CommunicationStatus.SENT]: 'info',
   [CommunicationStatus.DELIVERED]: 'info',
@@ -163,7 +170,7 @@ export type StatusBadgeProps =
   | { domain: 'fee'; status: FeeStatus }
   | { domain: 'payment'; status: PaymentStatus }
   | { domain: 'invoice'; status: InvoiceStatus }
-  | { domain: 'communication'; status: CommunicationStatus }
+  | { domain: 'communication'; status: CommunicationStatusValue }
   | { domain: 'reminderBatch'; status: ReminderBatchStatus }
   | { domain: 'enrollment'; status: EnrollmentStatus }
   | { domain: 'academicYear'; status: AcademicYearCurrentStatus }

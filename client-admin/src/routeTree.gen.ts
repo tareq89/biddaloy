@@ -23,6 +23,8 @@ import { Route as StaffAcademicYearsIndexRouteImport } from './routes/_staff/aca
 import { Route as StaffAcademicYearsAcademicYearIdRouteImport } from './routes/_staff/academic-years/$academicYearId'
 import { Route as StaffClassesIndexRouteImport } from './routes/_staff/classes/index'
 import { Route as StaffClassesClassIdRouteImport } from './routes/_staff/classes/$classId'
+import { Route as StaffCommunicationsRemindersRouteImport } from './routes/_staff/communications/reminders'
+import { Route as StaffCommunicationsSendRouteImport } from './routes/_staff/communications/send'
 import { Route as StaffFeeStructuresIndexRouteImport } from './routes/_staff/fee-structures/index'
 import { Route as StaffFeesIndexRouteImport } from './routes/_staff/fees/index'
 import { Route as StaffFeesDuesRouteImport } from './routes/_staff/fees/dues'
@@ -108,6 +110,17 @@ const StaffClassesIndexRoute = StaffClassesIndexRouteImport.update({
 const StaffClassesClassIdRoute = StaffClassesClassIdRouteImport.update({
   id: '/classes/$classId',
   path: '/classes/$classId',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffCommunicationsRemindersRoute =
+  StaffCommunicationsRemindersRouteImport.update({
+    id: '/communications/reminders',
+    path: '/communications/reminders',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffCommunicationsSendRoute = StaffCommunicationsSendRouteImport.update({
+  id: '/communications/send',
+  path: '/communications/send',
   getParentRoute: () => StaffRoute,
 } as any)
 const StaffFeeStructuresIndexRoute = StaffFeeStructuresIndexRouteImport.update({
@@ -205,6 +218,8 @@ export interface FileRoutesByFullPath {
   '/portal/': typeof PortalIndexRoute
   '/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
   '/classes/$classId': typeof StaffClassesClassIdRoute
+  '/communications/reminders': typeof StaffCommunicationsRemindersRoute
+  '/communications/send': typeof StaffCommunicationsSendRoute
   '/fees/dues': typeof StaffFeesDuesRoute
   '/fees/generate': typeof StaffFeesGenerateRoute
   '/guardians/$guardianId': typeof StaffGuardiansGuardianIdRoute
@@ -234,6 +249,8 @@ export interface FileRoutesByTo {
   '/portal': typeof PortalIndexRoute
   '/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
   '/classes/$classId': typeof StaffClassesClassIdRoute
+  '/communications/reminders': typeof StaffCommunicationsRemindersRoute
+  '/communications/send': typeof StaffCommunicationsSendRoute
   '/fees/dues': typeof StaffFeesDuesRoute
   '/fees/generate': typeof StaffFeesGenerateRoute
   '/guardians/$guardianId': typeof StaffGuardiansGuardianIdRoute
@@ -267,6 +284,8 @@ export interface FileRoutesById {
   '/portal/': typeof PortalIndexRoute
   '/_staff/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
   '/_staff/classes/$classId': typeof StaffClassesClassIdRoute
+  '/_staff/communications/reminders': typeof StaffCommunicationsRemindersRoute
+  '/_staff/communications/send': typeof StaffCommunicationsSendRoute
   '/_staff/fees/dues': typeof StaffFeesDuesRoute
   '/_staff/fees/generate': typeof StaffFeesGenerateRoute
   '/_staff/guardians/$guardianId': typeof StaffGuardiansGuardianIdRoute
@@ -300,6 +319,8 @@ export interface FileRouteTypes {
     | '/portal/'
     | '/academic-years/$academicYearId'
     | '/classes/$classId'
+    | '/communications/reminders'
+    | '/communications/send'
     | '/fees/dues'
     | '/fees/generate'
     | '/guardians/$guardianId'
@@ -329,6 +350,8 @@ export interface FileRouteTypes {
     | '/portal'
     | '/academic-years/$academicYearId'
     | '/classes/$classId'
+    | '/communications/reminders'
+    | '/communications/send'
     | '/fees/dues'
     | '/fees/generate'
     | '/guardians/$guardianId'
@@ -361,6 +384,8 @@ export interface FileRouteTypes {
     | '/portal/'
     | '/_staff/academic-years/$academicYearId'
     | '/_staff/classes/$classId'
+    | '/_staff/communications/reminders'
+    | '/_staff/communications/send'
     | '/_staff/fees/dues'
     | '/_staff/fees/generate'
     | '/_staff/guardians/$guardianId'
@@ -487,6 +512,20 @@ declare module '@tanstack/react-router' {
       path: '/classes/$classId'
       fullPath: '/classes/$classId'
       preLoaderRoute: typeof StaffClassesClassIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/communications/reminders': {
+      id: '/_staff/communications/reminders'
+      path: '/communications/reminders'
+      fullPath: '/communications/reminders'
+      preLoaderRoute: typeof StaffCommunicationsRemindersRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/communications/send': {
+      id: '/_staff/communications/send'
+      path: '/communications/send'
+      fullPath: '/communications/send'
+      preLoaderRoute: typeof StaffCommunicationsSendRouteImport
       parentRoute: typeof StaffRoute
     }
     '/_staff/fee-structures/': {
@@ -626,6 +665,8 @@ interface StaffRouteChildren {
   StaffSettingsRoute: typeof StaffSettingsRoute
   StaffAcademicYearsAcademicYearIdRoute: typeof StaffAcademicYearsAcademicYearIdRoute
   StaffClassesClassIdRoute: typeof StaffClassesClassIdRoute
+  StaffCommunicationsRemindersRoute: typeof StaffCommunicationsRemindersRoute
+  StaffCommunicationsSendRoute: typeof StaffCommunicationsSendRoute
   StaffGuardiansGuardianIdRoute: typeof StaffGuardiansGuardianIdRoute
   StaffInvoicesInvoiceIdRoute: typeof StaffInvoicesInvoiceIdRoute
   StaffPaymentsRecordRoute: typeof StaffPaymentsRecordRoute
@@ -649,6 +690,8 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffSettingsRoute: StaffSettingsRoute,
   StaffAcademicYearsAcademicYearIdRoute: StaffAcademicYearsAcademicYearIdRoute,
   StaffClassesClassIdRoute: StaffClassesClassIdRoute,
+  StaffCommunicationsRemindersRoute: StaffCommunicationsRemindersRoute,
+  StaffCommunicationsSendRoute: StaffCommunicationsSendRoute,
   StaffGuardiansGuardianIdRoute: StaffGuardiansGuardianIdRoute,
   StaffInvoicesInvoiceIdRoute: StaffInvoicesInvoiceIdRoute,
   StaffPaymentsRecordRoute: StaffPaymentsRecordRoute,

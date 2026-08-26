@@ -58,6 +58,17 @@ export const overlayOpeners: Record<string, (page: Page, locale: Locale) => Prom
     await new DetailShellPage(page, locale).clickAction('students.detail.actions.sendReminder');
     await expectDialogOpen(page);
   },
+  // [8.11.9] Send Message's confirm dialog — the page's review step. The
+  // form's three required fields must be filled first or the submit is
+  // blocked by native validation and no dialog opens.
+  '/communications/send::confirm-send': async (page, locale) => {
+    const t = makeT(locale);
+    await page.getByLabel(t('communications.send.recipientNameLabel')).fill('Rahima Begum');
+    await page.getByLabel(t('communications.send.recipientAddressLabel')).fill('+8801700000001');
+    await page.getByLabel(t('communications.send.messageLabel')).fill('School closed tomorrow.');
+    await page.getByRole('button', { name: t('communications.send.submit') }).click();
+    await expectDialogOpen(page);
+  },
   '/students/$studentId::delete-student': async (page, locale) => {
     await new DetailShellPage(page, locale).clickAction('students.detail.actions.delete');
     await expectDialogOpen(page);

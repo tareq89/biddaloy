@@ -7,8 +7,10 @@ import { server } from '../test/msw/server';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
 
 import {
+  useCommunicationLog,
   useGuardianCommunicationLogs,
   useLastReminders,
+  useSendCommunication,
   useStudentCommunicationLogs,
 } from './communications';
 
@@ -99,5 +101,56 @@ describe('useLastReminders', () => {
     });
 
     expect(result.current.fetchStatus).toBe('idle');
+  });
+});
+
+describe('useSendCommunication posts the message and resolves the queued log', () => {
+  it('sends the composed body and resolves the 201 response', async () => {
+    let body: Record<string, unknown> | undefined;
+    server.use(
+      http.post('/api/v1/communications/send', async ({ request }) => {
+        body = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(
+          communicationFactory({ id: 'log-9', status: 'QUEUED', recipient_name: 'Rahima Begum' }),
+          { status: 201 },
+        );
+      }),
+    );
+
+    const { result } = renderHookWithProviders(() => useSendCommunication(), {
+      tenantId: 'tenant-1',
+    });
+
+    result.current.mutate({
+      medium: 'SMS',
+      recipient_address: '+8801700000000',
+      recipient_name: 'Rahima Begum',
+      message_body: 'School closed tomorrow.',
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(body?.['medium']).toBe('SMS');
+    expect(result.current.data?.status).toBe('QUEUED');
+  });
+});
+
+describe('useCommunicationLog fetches one log entry', () => {
+  it('resolves the entry for a real id and stays idle for undefined', async () => {
+    server.use(
+      http.get('/api/v1/communications/:id', ({ params }) =>
+        HttpResponse.json(communicationFactory({ id: params['id'] as string, status: 'SENT' })),
+      ),
+    );
+
+    const { result } = renderHookWithProviders(() => useCommunicationLog('log-9'), {
+      tenantId: 'tenant-1',
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.status).toBe('SENT');
+
+    const idle = renderHookWithProviders(() => useCommunicationLog(undefined), {
+      tenantId: 'tenant-1',
+    });
+    expect(idle.result.current.fetchStatus).toBe('idle');
   });
 });
