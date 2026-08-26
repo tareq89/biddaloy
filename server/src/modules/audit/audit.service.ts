@@ -79,6 +79,24 @@ export class AuditService {
 
     const qb = this.repo
       .createQueryBuilder('audit_log')
+      // [8.11.10]'s audit-trail screen shows a "Who" column, and a raw
+      // `performed_by_user_id` UUID is not an answer to "who". Only the
+      // two columns the DTO reads are selected — `leftJoinAndSelect` would
+      // pull the whole `User` row (email, phone, password hash) into a
+      // list response that has no business carrying it. `id` is selected
+      // alongside `full_name` because TypeORM needs the relation's primary
+      // key to hydrate `performed_by` as an object at all.
+      // Must come *before* the join below, not after: TypeORM bakes
+      // `performed_by.deleted_at IS NULL` into the join condition at the
+      // moment `leftJoin` is called, reading this flag as it stands then
+      // (`SelectQueryBuilder`'s own `join()`). Users are soft-deleted, so
+      // without this a removed administrator's rows resolve no name and
+      // render as "System" — destroying exactly the attribution an audit
+      // trail exists to preserve. `AuditLog` itself has no `deleted_at`,
+      // so widening the query cannot leak deleted audit rows.
+      .withDeleted()
+      .leftJoin('audit_log.performed_by', 'performed_by')
+      .addSelect(['performed_by.id', 'performed_by.full_name'])
       .where('audit_log.tenant_id = :tenantId', { tenantId })
       .orderBy('audit_log.created_at', 'DESC');
 

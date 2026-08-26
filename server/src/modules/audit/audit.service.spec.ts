@@ -152,6 +152,9 @@ describe('AuditService', () => {
   describe('findAll', () => {
     it('scopes the query to the given tenant and applies filters', async () => {
       const qb: any = {
+        leftJoin: vi.fn().mockReturnThis(),
+        addSelect: vi.fn().mockReturnThis(),
+        withDeleted: vi.fn().mockReturnThis(),
         where: vi.fn().mockReturnThis(),
         andWhere: vi.fn().mockReturnThis(),
         orderBy: vi.fn().mockReturnThis(),
@@ -190,6 +193,9 @@ describe('AuditService', () => {
     // [8.11.8] Login History tab: scope the tenant-wide trail to one user.
     it('filters by performed_by_user_id when given', async () => {
       const qb: any = {
+        leftJoin: vi.fn().mockReturnThis(),
+        addSelect: vi.fn().mockReturnThis(),
+        withDeleted: vi.fn().mockReturnThis(),
         where: vi.fn().mockReturnThis(),
         andWhere: vi.fn().mockReturnThis(),
         orderBy: vi.fn().mockReturnThis(),
@@ -209,6 +215,9 @@ describe('AuditService', () => {
 
     it('does not add the performed-by clause when the filter is absent', async () => {
       const qb: any = {
+        leftJoin: vi.fn().mockReturnThis(),
+        addSelect: vi.fn().mockReturnThis(),
+        withDeleted: vi.fn().mockReturnThis(),
         where: vi.fn().mockReturnThis(),
         andWhere: vi.fn().mockReturnThis(),
         orderBy: vi.fn().mockReturnThis(),
@@ -227,11 +236,52 @@ describe('AuditService', () => {
       expect(call).toBeUndefined();
     });
 
+    // [8.11.10]'s audit-trail screen renders a "Who" column, so the
+    // acting user's name has to come back with the row — a bare
+    // `performed_by_user_id` UUID is not something an administrator can
+    // read. Only `id` and `full_name` are selected: the rest of the User
+    // row (email, phone, password hash) has no business in a list
+    // response.
+    it('joins the acting user and selects only their id and name', async () => {
+      const qb: any = {
+        leftJoin: vi.fn().mockReturnThis(),
+        addSelect: vi.fn().mockReturnThis(),
+        withDeleted: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        skip: vi.fn().mockReturnThis(),
+        take: vi.fn().mockReturnThis(),
+        getManyAndCount: vi.fn().mockResolvedValue([[], 0]),
+      };
+      const repo = { createQueryBuilder: vi.fn(() => qb) };
+      const service = new AuditService(repo as any);
+
+      await service.findAll({} as any, 'tenant-1');
+
+      expect(qb.leftJoin).toHaveBeenCalledWith('audit_log.performed_by', 'performed_by');
+      expect(qb.addSelect).toHaveBeenCalledWith(['performed_by.id', 'performed_by.full_name']);
+      // Without `withDeleted`, TypeORM adds `performed_by.deleted_at IS
+      // NULL` to the join and a soft-deleted administrator's actions come
+      // back nameless — attributed to "System" by the client. An audit
+      // trail that forgets who acted the moment they leave is worthless.
+      // The *order* is the assertion: TypeORM reads the flag when
+      // `leftJoin` runs, so calling `withDeleted()` afterwards is a no-op
+      // that looks correct. `audit.service.integration.spec.ts` proves the
+      // resulting SQL; this pins the call order that produces it.
+      expect(qb.withDeleted.mock.invocationCallOrder[0]).toBeLessThan(
+        qb.leftJoin.mock.invocationCallOrder[0],
+      );
+    });
+
     // A date-only to_date must include the entire day — otherwise Postgres
     // casts it to that day's midnight and every row from the day itself
     // (an inclusive range end, per the field's own meaning) is excluded.
     it('extends a date-only to_date to the end of that day', async () => {
       const qb: any = {
+        leftJoin: vi.fn().mockReturnThis(),
+        addSelect: vi.fn().mockReturnThis(),
+        withDeleted: vi.fn().mockReturnThis(),
         where: vi.fn().mockReturnThis(),
         andWhere: vi.fn().mockReturnThis(),
         orderBy: vi.fn().mockReturnThis(),
@@ -252,6 +302,9 @@ describe('AuditService', () => {
 
     it('leaves a to_date that already carries a time untouched', async () => {
       const qb: any = {
+        leftJoin: vi.fn().mockReturnThis(),
+        addSelect: vi.fn().mockReturnThis(),
+        withDeleted: vi.fn().mockReturnThis(),
         where: vi.fn().mockReturnThis(),
         andWhere: vi.fn().mockReturnThis(),
         orderBy: vi.fn().mockReturnThis(),

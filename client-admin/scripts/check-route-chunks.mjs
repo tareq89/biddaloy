@@ -53,6 +53,9 @@ const EXPECTED_ROUTE_CHUNKS = [
   // [8.11.9]'s /communications/send and /communications/reminders routes —
   // the i18n namespace chunk (`communications-*.js`) carries the name.
   'communications',
+  // [8.11.10]'s /audit-logs route — same as every entry above, what
+  // carries the name is its i18n namespace chunk, `auditLogs-*.js`.
+  'auditLogs',
 ];
 
 /**
@@ -122,7 +125,16 @@ const EXPECTED_ROUTE_CHUNKS = [
  * `communications` chunk, and only `routeTree.gen.ts`'s per-route
  * lazy-import wrappers (and the nav entry) land in the entry.
  */
-const ENTRY_CHUNK_GZIP_CEILING_BYTES = 224_000;
+/**
+ * Raised for [8.11.10]: 224,059 B gzipped measured with the new
+ * `/audit-logs` route registered plus its nav item in `_staff.tsx` — 59 B
+ * over the previous ceiling. Same cause as every bump above, not a
+ * regression: the route's own component and its `auditLogs` i18n
+ * namespace both code-split into their own chunks (asserted by
+ * `EXPECTED_ROUTE_CHUNKS`), and only `routeTree.gen.ts`'s per-route
+ * lazy-import wrapper and the nav entry land in the entry.
+ */
+const ENTRY_CHUNK_GZIP_CEILING_BYTES = 224_200;
 
 /** The entry is whatever `index.html` loads as its module script — asked
  * of the build output rather than guessed from a filename pattern, which
@@ -139,7 +151,9 @@ try {
     stdio: 'pipe',
   });
 
-  const jsChunks = readdirSync(join(outDir, 'assets')).filter((fileName) => fileName.endsWith('.js'));
+  const jsChunks = readdirSync(join(outDir, 'assets')).filter((fileName) =>
+    fileName.endsWith('.js'),
+  );
 
   // Each route must claim its own, not-already-claimed chunk — matching
   // independently (route.some(chunk => chunk.includes(route))) would let a
@@ -147,7 +161,9 @@ try {
   // route's check at once without actually proving any of them are split.
   const claimed = new Set();
   const missing = EXPECTED_ROUTE_CHUNKS.filter((routeName) => {
-    const match = jsChunks.find((fileName) => !claimed.has(fileName) && fileName.includes(routeName));
+    const match = jsChunks.find(
+      (fileName) => !claimed.has(fileName) && fileName.includes(routeName),
+    );
     if (match === undefined) return true;
     claimed.add(match);
     return false;

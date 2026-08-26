@@ -114,6 +114,8 @@ export {
 } from './communications';
 export {
   auditLogKeys,
+  auditLogsQueryOptions,
+  useAuditLogs,
   useAuditLogsByEntity,
   useLoginAuditLogs,
   type AuditLog,

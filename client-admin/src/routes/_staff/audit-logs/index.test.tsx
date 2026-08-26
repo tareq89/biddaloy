@@ -1,0 +1,413 @@
+/**
+ * [8.11.10]'s acceptance criteria against the real route tree — same
+ * reasoning `invoices/index.test.tsx`'s header comment gives for that
+ * page: the route, its `validateSearch`, its loader and the `_staff`
+ * layout's nav all participate, so a regression in any of them shows up
+ * here rather than in a component test that mocked them away.
+ */
+import {
+  auditEntryFactory,
+  auditLogHandlers,
+  cleanupTestState,
+  errorHandler,
+  mixedActionFixtures,
+  renderWithRouter,
+  server,
+  type AuditEntry,
+} from '@biddaloy/ui/test';
+import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
+import { afterEach, describe, expect, it } from 'vitest';
+
+import { routeTree } from '../../../routeTree.gen';
+
+/** `DataTable` names its scroll container with the table `caption`, so
+ * this is the page's own `list.caption` string, not its `<h1>`. */
+const TABLE_REGION = 'Audit trail, newest first';
+
+function renderAuditLogs(options: { initialEntries?: string[]; role?: string } = {}) {
+  return renderWithRouter(routeTree, {
+    initialEntries: options.initialEntries ?? ['/audit-logs'],
+    tenantId: 'tenant-1',
+    role: options.role ?? 'ADMIN',
+    locale: 'en',
+  });
+}
+
+interface PaginatedAuditEntries {
+  data: AuditEntry[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+/** Captures the query string of the next `GET /api/v1/audit-logs`. */
+function captureParams(
+  body: PaginatedAuditEntries = { data: [], total: 0, page: 1, limit: 10, totalPages: 1 },
+) {
+  const seen: { params: URLSearchParams | null } = { params: null };
+  server.use(
+    http.get('/api/v1/audit-logs', ({ request }) => {
+      seen.params = new URL(request.url).searchParams;
+      return HttpResponse.json(body);
+    }),
+  );
+  return seen;
+}
+
+describe('/audit-logs', () => {
+  afterEach(async () => {
+    await cleanupTestState();
+  });
+
+  it('renders each row in plain language — when, who, action, what, summary', async () => {
+    server.use(auditLogHandlers.listMixedActions);
+
+    renderAuditLogs();
+
+    // The UPDATE row's summary is derived from the diff, not from the
+    // action name alone.
+    expect(await screen.findByText('3 fields were changed on this student.')).toBeTruthy();
+    // Four of the five fixtures were performed by her; the fifth is
+    // system-triggered.
+    expect(screen.getAllByText('Fatema Begum')).toHaveLength(4);
+    expect(screen.getByText('Updated')).toBeTruthy();
+    expect(screen.getByText('A new fee structure was added.')).toBeTruthy();
+    expect(screen.getByText('This invoice was deleted.')).toBeTruthy();
+    expect(screen.getByText('Signed in to the school.')).toBeTruthy();
+    expect(screen.getByText('Records were imported from a file.')).toBeTruthy();
+  });
+
+  it('renders "System" when no user performed the action', async () => {
+    server.use(auditLogHandlers.listMixedActions);
+
+    renderAuditLogs();
+
+    await screen.findByText('Records were imported from a file.');
+    expect(screen.getByText('System')).toBeTruthy();
+  });
+
+  // The AC's "entries render in plain language, not raw JSON" — the
+  // collapsed table must never leak a snapshot's serialization.
+  it('never shows raw JSON in a collapsed row', async () => {
+    server.use(auditLogHandlers.listMixedActions);
+
+    const { container } = renderAuditLogs();
+
+    await screen.findByText('3 fields were changed on this student.');
+    const table = container.querySelector('table');
+    expect(table).not.toBeNull();
+    expect(table!.textContent).not.toContain('{');
+    expect(table!.textContent).not.toContain('"full_name"');
+  });
+
+  it('shows the timestamp, not just the date, so same-day entries stay distinct', async () => {
+    server.use(auditLogHandlers.listMixedActions);
+
+    renderAuditLogs();
+
+    // `mixedActionFixtures[0]` is 2026-01-05T10:30:00Z; Asia/Dhaka is
+    // UTC+6, and timestamps render on the school's clock.
+    expect(mixedActionFixtures[0]?.created_at).toBe('2026-01-05T10:30:00.000Z');
+    expect(await screen.findByText('2026-01-05 16:30')).toBeTruthy();
+  });
+
+  it('reads its initial filter state from the URL, not a default', async () => {
+    renderAuditLogs({ initialEntries: ['/audit-logs?action=LOGIN&entity_type=User'] });
+
+    await within(await screen.findByRole('combobox', { name: 'Action' })).findByText('Signed in');
+    expect(within(screen.getByRole('combobox', { name: 'Record type' })).getByText('User'));
+  });
+
+  it('sends the URL filters to the server as snake_case query params', async () => {
+    const seen = captureParams();
+
+    renderAuditLogs({
+      initialEntries: [
+        '/audit-logs?action=UPDATE&entity_type=Student&from_date=2026-01-01&to_date=2026-01-31',
+      ],
+    });
+
+    await waitFor(() => expect(seen.params).not.toBeNull());
+    expect(seen.params!.get('action')).toBe('UPDATE');
+    expect(seen.params!.get('entity_type')).toBe('Student');
+    expect(seen.params!.get('from_date')).toBe('2026-01-01');
+    expect(seen.params!.get('to_date')).toBe('2026-01-31');
+  });
+
+  it('changing the action filter writes it to the URL and refetches', async () => {
+    captureParams();
+
+    const { router } = renderAuditLogs();
+
+    const user = userEvent.setup();
+    await screen.findByRole('region', { name: TABLE_REGION });
+    await user.click(screen.getByRole('combobox', { name: 'Action' }));
+    await user.click(await screen.findByRole('option', { name: 'Payment recorded' }));
+
+    await waitFor(() =>
+      expect(router.state.location.search).toMatchObject({ action: 'PAYMENT_RECEIVED' }),
+    );
+  });
+
+  // `ListUrlStatePatch` reads an *absent* key as "leave this param
+  // untouched", so clearing a filter has to send `null`. Get this wrong
+  // and "All actions" is a dead control: the URL keeps the old value and
+  // an administrator has no way back to the unfiltered trail.
+  it('clearing the action filter removes it from the URL', async () => {
+    captureParams();
+
+    const { router } = renderAuditLogs({ initialEntries: ['/audit-logs?action=UPDATE'] });
+
+    const user = userEvent.setup();
+    await screen.findByRole('region', { name: TABLE_REGION });
+    await user.click(screen.getByRole('combobox', { name: 'Action' }));
+    await user.click(await screen.findByRole('option', { name: 'All actions' }));
+
+    await waitFor(() => expect(router.state.location.search).not.toHaveProperty('action'));
+  });
+
+  it('changing the record-type filter writes it to the URL', async () => {
+    captureParams();
+
+    const { router } = renderAuditLogs();
+
+    const user = userEvent.setup();
+    await screen.findByRole('region', { name: TABLE_REGION });
+    await user.click(screen.getByRole('combobox', { name: 'Record type' }));
+    await user.click(await screen.findByRole('option', { name: 'Fee structure' }));
+
+    await waitFor(() =>
+      expect(router.state.location.search).toMatchObject({ entity_type: 'FeeStructure' }),
+    );
+  });
+
+  // Never `toISOString().slice(0, 10)` — that shifts the day for anyone
+  // west of UTC. `formatDate` builds the string from local calendar fields.
+  it('writes a picked date to the URL as a plain ISO date', async () => {
+    captureParams();
+
+    const { router } = renderAuditLogs();
+
+    const user = userEvent.setup();
+    await screen.findByRole('region', { name: TABLE_REGION });
+    await user.type(screen.getByRole('textbox', { name: 'From date' }), '2026-01-01');
+
+    await waitFor(() =>
+      expect(router.state.location.search).toMatchObject({ from_date: '2026-01-01' }),
+    );
+  });
+
+  // A hand-edited or stale URL must not take the page down, and must not
+  // put a value the server's `@IsDateString` would 400 on onto the wire.
+  it('drops a malformed date filter from the URL instead of crashing', async () => {
+    const seen = captureParams();
+
+    renderAuditLogs({ initialEntries: ['/audit-logs?from_date=not-a-date&to_date=2026-02-30'] });
+
+    await screen.findByRole('region', { name: TABLE_REGION });
+    expect(seen.params!.get('from_date')).toBeNull();
+    // `2026-02-30` is the right shape but not a real calendar date: it
+    // still reaches the server (which rejects it), but the picker renders
+    // empty rather than throwing out of `parseDate`.
+    expect(screen.getByRole('textbox', { name: 'To date' }).getAttribute('value')).toBe('');
+  });
+
+  // Same reasoning as the dates: `?action=foo` fails the server's
+  // `@IsEnum(AuditAction)` and `?limit=500` its `@Max(100)`. Either would
+  // reject the loader's request and replace the page with the router's
+  // error fallback, so both are dropped before they reach the wire.
+  it('drops out-of-range action and limit params instead of crashing', async () => {
+    const seen = captureParams();
+
+    renderAuditLogs({ initialEntries: ['/audit-logs?action=NOT_AN_ACTION&limit=500'] });
+
+    await screen.findByRole('region', { name: TABLE_REGION });
+    expect(seen.params!.get('action')).toBeNull();
+    expect(seen.params!.get('limit')).toBe('10');
+  });
+
+  it('offers every action in the shared enum, including the newest one', async () => {
+    captureParams();
+
+    renderAuditLogs();
+
+    const user = userEvent.setup();
+    await screen.findByRole('region', { name: TABLE_REGION });
+    await user.click(screen.getByRole('combobox', { name: 'Action' }));
+
+    // [8.11.9]'s addition — a hardcoded list in this page would have
+    // silently omitted it.
+    expect(await screen.findByRole('option', { name: 'Reminder previewed' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Connection tested' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'All actions' })).toBeTruthy();
+  });
+
+  it('pages through the trail by asking the server for the next page', async () => {
+    const seen = captureParams({
+      data: [auditEntryFactory({ action: 'LOGIN' })],
+      total: 25,
+      page: 1,
+      limit: 10,
+      totalPages: 3,
+    });
+
+    const { router } = renderAuditLogs();
+
+    const user = userEvent.setup();
+    await screen.findByRole('region', { name: TABLE_REGION });
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ page: 2 }));
+    await waitFor(() => expect(seen.params!.get('page')).toBe('2'));
+  });
+
+  it('expands a row into its field-level diff, keyboard-operable', async () => {
+    server.use(auditLogHandlers.listMixedActions);
+
+    renderAuditLogs();
+
+    const toggle = await screen.findByRole('button', {
+      name: 'Show changes: 3 fields were changed on this student., 2026-01-05 16:30',
+    });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    // Collapsed: the panel isn't in the DOM, so naming it would point at
+    // nothing (`data-table.tsx`'s own conditional `aria-controls`).
+    expect(toggle.getAttribute('aria-controls')).toBeNull();
+
+    const user = userEvent.setup();
+    toggle.focus();
+    await user.keyboard('{Enter}');
+
+    await waitFor(() => expect(toggle.getAttribute('aria-expanded')).toBe('true'));
+    const panelId = toggle.getAttribute('aria-controls');
+    expect(panelId).toBe('audit-logs-list-expanded-audit-update');
+    expect(document.getElementById(panelId!)).not.toBeNull();
+    expect(within(document.getElementById(panelId!)!).getByText('Rahim Uddin')).toBeTruthy();
+  });
+
+  it('collapses again on Space, and drops aria-controls with the panel', async () => {
+    server.use(auditLogHandlers.listMixedActions);
+
+    renderAuditLogs();
+
+    const toggle = await screen.findByRole('button', {
+      name: 'Show changes: Signed in to the school., 2026-01-02 13:00',
+    });
+
+    const user = userEvent.setup();
+    toggle.focus();
+    await user.keyboard(' ');
+    await waitFor(() => expect(toggle.getAttribute('aria-expanded')).toBe('true'));
+
+    // An event row still gets a toggle (expansion is table-level in
+    // `DataTable`), and its panel explains there was nothing to diff.
+    expect(
+      screen.getByText('This entry records an event, not an edit, so no field values changed.'),
+    ).toBeTruthy();
+
+    await user.keyboard(' ');
+    await waitFor(() => expect(toggle.getAttribute('aria-expanded')).toBe('false'));
+    expect(toggle.getAttribute('aria-controls')).toBeNull();
+  });
+
+  // The AC: "Read-only — no mutation affordances anywhere on page." The
+  // only interactive controls are the filters, `DataTable`'s pagination,
+  // and the per-row expand toggles.
+  it('offers no mutation affordance anywhere on the page', async () => {
+    server.use(auditLogHandlers.listMixedActions);
+
+    const { container } = renderAuditLogs();
+
+    await screen.findByText('3 fields were changed on this student.');
+    const main = container.querySelector('main');
+    expect(main).not.toBeNull();
+
+    // Anchored to the start of the accessible name on purpose: an
+    // unanchored /new/i would match the expand toggle whose name quotes
+    // the summary "A new fee structure was added."
+    const MUTATION_VERB =
+      /^(add|new|edit|delete|remove|save|import|export|create|send|generate)\b/i;
+    const buttonNames = within(main!)
+      .getAllByRole('button')
+      .map((button) => button.getAttribute('aria-label') ?? button.textContent ?? '');
+    expect(buttonNames.filter((name) => MUTATION_VERB.test(name.trim()))).toEqual([]);
+
+    // No row links out to an editable record either — every cell is text.
+    const table = within(main!).getByRole('region', { name: TABLE_REGION });
+    expect(within(table).queryAllByRole('link')).toHaveLength(0);
+  });
+
+  it('renders the empty state when no entries match', async () => {
+    server.use(auditLogHandlers.listEmpty);
+
+    renderAuditLogs();
+
+    expect(await screen.findByText('No audit entries match these filters')).toBeTruthy();
+  });
+
+  // A failed *initial* load is the route loader's failure, not the
+  // component's: `ensureQueryData` rejecting hands the match to the
+  // router's `CatchBoundary` (`main.tsx`'s `RouteErrorFallback`, [8.9.8]),
+  // exactly like every other list route in this app. `DataTable`'s inline
+  // `error` message stays wired for a later refetch failure, which the
+  // test harness has no way to provoke without a loader round-trip.
+
+  // `GET /audit-logs` is `@Roles(ADMIN)`; AUDIT_LOG_READ is ADMIN-only in
+  // `ROLE_PERMISSIONS`, so every other staff role gets the forbidden copy
+  // instead of a screen whose every request would 403.
+  it.each(['ACCOUNTANT', 'EXECUTIVE', 'TEACHER'])(
+    'shows the forbidden state to a %s on direct navigation',
+    async (role) => {
+      // The server 403s these roles, so the route loader's request fails
+      // before the component's permission check ever runs. Serving a 403
+      // here rather than a 200 is the point of the test: with a
+      // success-returning handler it passed even when an unhandled loader
+      // rejection would have replaced the designed copy with the router's
+      // generic error fallback in production. `errorHandler` (not a
+      // hand-rolled body) because only a full `ApiErrorBody` becomes a
+      // typed `ApiError` — anything else is a generic `Error` that
+      // `shouldRetryQuery` retries twice before giving up.
+      server.use(errorHandler('get', '/api/v1/audit-logs', 403, 'Forbidden resource'));
+
+      renderAuditLogs({ role });
+
+      expect(await screen.findByText("You don't have access to the audit trail")).toBeTruthy();
+      expect(screen.queryByRole('region', { name: TABLE_REGION })).toBeNull();
+    },
+  );
+
+  it.each(['ACCOUNTANT', 'EXECUTIVE', 'TEACHER'])(
+    'hides the Audit Logs nav item from a %s',
+    async (role) => {
+      renderAuditLogs({ role });
+
+      await screen.findByRole('navigation', { name: 'Main' });
+      expect(
+        within(screen.getByRole('navigation', { name: 'Main' })).queryByRole('link', {
+          name: 'Audit Logs',
+        }),
+      ).toBeNull();
+    },
+  );
+
+  it('shows the Audit Logs nav item to an ADMIN', async () => {
+    server.use(auditLogHandlers.listMixedActions);
+
+    renderAuditLogs();
+
+    const nav = await screen.findByRole('navigation', { name: 'Main' });
+    expect(within(nav).getByRole('link', { name: 'Audit Logs' })).toBeTruthy();
+  });
+
+  it('is axe clean', async () => {
+    server.use(auditLogHandlers.listMixedActions);
+
+    const { container } = renderAuditLogs();
+
+    await screen.findByText('3 fields were changed on this student.');
+    await expect(container).toHaveNoViolations();
+  });
+});

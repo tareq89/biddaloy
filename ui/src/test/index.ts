@@ -72,7 +72,7 @@ export { feeStructureHandlers, feeHandlers } from './msw/handlers/fees';
 export { paymentHandlers } from './msw/handlers/payments';
 export { invoiceHandlers } from './msw/handlers/invoices';
 export { communicationHandlers } from './msw/handlers/communications';
-export { auditLogHandlers } from './msw/handlers/audit-logs';
+export { auditLogHandlers, mixedActionFixtures } from './msw/handlers/audit-logs';
 export { schoolsHandlers, resetSchoolsStore } from './msw/handlers/schools';
 
 export * from './factories';

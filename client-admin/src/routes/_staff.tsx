@@ -156,6 +156,15 @@ function StaffLayout() {
           permission: Permission.ACADEMIC_YEAR_MANAGE,
         },
         { to: '/classes', label: t('items.classes'), permission: Permission.CLASS_MANAGE },
+        // [8.11.10] — AUDIT_LOG_READ is ADMIN-only in `ROLE_PERMISSIONS`,
+        // exactly matching `GET /audit-logs`'s own `@Roles(ADMIN)`. Every
+        // other staff role sees no item at all rather than a page that
+        // could only refuse them.
+        {
+          to: '/audit-logs',
+          label: t('items.auditLogs'),
+          permission: Permission.AUDIT_LOG_READ,
+        },
         { to: '/settings', label: t('items.settings'), permission: Permission.SETTINGS_MANAGE },
       ],
     },
