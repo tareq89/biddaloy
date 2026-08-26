@@ -1087,7 +1087,7 @@ describe('[5.1] Family-facing read API', () => {
 
     it('cannot reach their tenant-B child’s invoice through an X-Tenant-ID: A call', async () => {
       for (const path of [
-        `${API}/invoices/${childInBId ? childInBInvoiceId : ''}`,
+        `${API}/invoices/${childInBInvoiceId}`,
         `${API}/invoices/${childInBInvoiceId}/print`,
       ]) {
         const res = await http()

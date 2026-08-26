@@ -28,7 +28,7 @@ import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator
 import { Payment } from '../entities/payment.entity';
 import { StudentFee } from '../entities/student-fee.entity';
 import { FeeStructure } from '../entities/fee-structure.entity';
-import type { StudentDueSummary } from '../fee-dues.service';
+import type { DueEntry, StudentDueSummary } from '../fee-dues.service';
 
 export type FeeDuesSortBy = 'due_amount' | 'name' | 'class';
 export type SortOrder = 'ASC' | 'DESC';
@@ -555,4 +555,43 @@ export function toFamilyFeeStructure(structure: FeeStructure): FamilyFeeStructur
     month: structure.month,
     is_recurring: structure.is_recurring,
   };
+}
+
+/**
+ * Swagger-only mirrors of the staff `GET /fees/dues` payload [5.1 review].
+ *
+ * `getDues` returns a role-dependent union (staff rows vs. `FamilyStudentDueDto`),
+ * which defeats the Nest swagger plugin's return-type inference — the route
+ * generated as an untyped body. The controller now declares the union
+ * explicitly with `getSchemaPath`, and that needs the staff variant to exist
+ * as a *class* the plugin can emit; `DueEntry`/`StudentDueSummary` are plain
+ * interfaces on `FeeDuesService` and are erased at compile time.
+ *
+ * `implements` is what keeps these honest: adding a field to the service
+ * interface fails the build here until it is mirrored, so the published
+ * contract cannot silently drift from the runtime shape.
+ */
+export class StaffDueEntryDto implements DueEntry {
+  student_fee_id: string;
+  month: number;
+  year: number;
+  total_amount: number;
+  paid_amount: number;
+  discount_amount: number;
+  balance: number;
+  status: FeeStatus;
+  due_date: Date | null;
+  reminder_threshold_date: Date | null;
+}
+
+export class StaffStudentDueDto implements StudentDueSummary {
+  student_id: string;
+  full_name: string;
+  registration_number: string;
+  roll_number: number;
+  class_name: string | null;
+  section_name: string | null;
+  total_due: number;
+  months_overdue: number;
+  dues: StaffDueEntryDto[];
 }

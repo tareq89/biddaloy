@@ -1,3 +1,4 @@
+import { ApiProperty } from '@nestjs/swagger';
 import {
   IsString,
   IsNumber,
@@ -17,6 +18,9 @@ import { Type } from 'class-transformer';
 import { InvoiceStatus } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 import { Invoice } from '../entities/invoice.entity';
+import { Student } from '../../students/entities/student.entity';
+import { StudentFee } from '../../fees/entities/student-fee.entity';
+import { UserResponseDto } from '../../users/dto/user-response.dto';
 import { FamilyStudentFeeDto, toFamilyStudentFee } from '../../fees/dto/fees.dto';
 
 export class LineItemDto {
@@ -139,6 +143,18 @@ export class FamilyInvoiceDto {
   due_date: Date;
   line_items: Invoice['line_items'];
   notes: string | null;
+  // Explicitly described rather than inferred: the plugin cannot build a
+  // schema from the literal type `null` and reports it as a circular
+  // dependency, which aborts OpenAPI generation once this DTO is registered
+  // via `@ApiExtraModels`. The runtime value is always `null` — the staff
+  // variant's `issued_by` user is withheld from family callers, and the key
+  // is kept (rather than omitted) so both variants share a stable shape.
+  @ApiProperty({
+    type: 'object',
+    additionalProperties: false,
+    nullable: true,
+    description: 'Always `null` for a family caller; the staff variant carries the issuing user.',
+  })
   issued_by: null;
   created_at: Date;
   updated_at: Date;
@@ -170,4 +186,42 @@ export function toFamilyInvoice(invoice: Invoice): FamilyInvoiceDto {
     created_at: invoice.created_at,
     updated_at: invoice.updated_at,
   };
+}
+
+/**
+ * Swagger-only mirror of the staff `GET /invoices/:id` payload [5.1 review].
+ *
+ * `findOne` returns a role-dependent union — this shape for staff, a
+ * `FamilyInvoiceDto` for a PARENT/STUDENT — which the Nest swagger plugin
+ * cannot infer, so the route published an untyped body. Declaring the union
+ * explicitly needs the staff variant to exist as a class the plugin can emit.
+ *
+ * It is *not* the `Invoice` entity: `toSafeInvoice` narrows `issued_by` from
+ * the full `User` (password_hash included) to `UserResponseDto`. Pointing the
+ * published contract at `Invoice` would advertise the very leak that helper
+ * exists to prevent.
+ *
+ * `implements Omit<Invoice, 'issued_by'>` keeps the rest honest — a column
+ * added to the entity fails the build here until it is mirrored.
+ */
+export class StaffInvoiceDto implements Omit<Invoice, 'issued_by'> {
+  id: string;
+  invoice_number: string;
+  student: Student;
+  student_id: string;
+  student_fee: StudentFee | null;
+  student_fee_id: string | null;
+  total_amount: number;
+  tax_amount: number;
+  discount_amount: number;
+  status: InvoiceStatus;
+  issued_date: Date;
+  due_date: Date;
+  line_items: Invoice['line_items'];
+  issued_by: UserResponseDto | null;
+  issued_by_user_id: string | null;
+  notes: string | null;
+  created_at: Date;
+  updated_at: Date;
+  deleted_at: Date | null;
 }

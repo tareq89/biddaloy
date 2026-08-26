@@ -15,7 +15,13 @@ import {
 import { Request } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiExtraModels,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  getSchemaPath,
+} from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { STRICT_RATE_LIMIT } from '../../rate-limit';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -42,13 +48,36 @@ import {
   toFamilyStudentFee,
   toFamilyStudentDue,
   toFamilyFeeStructure,
+  FamilyFeeStructureDto,
+  FamilyPaymentDto,
+  FamilyStudentDueDto,
+  StaffStudentDueDto,
 } from './dto/fees.dto';
+import { FeeStructure } from './entities/fee-structure.entity';
+import { Payment } from './entities/payment.entity';
 import { UserRole, isGuardianRole } from '@biddaloy/shared';
 import { JwtPayload } from '@biddaloy/shared';
 import { requestContext } from '../../common/request-context.util';
+import { paginatedSchema } from '../../common/swagger/paginated-schema.util';
 
+// [5.1 review] Several routes below return a *role-dependent union* — the
+// staff shape for staff, an allow-listed family DTO for a PARENT/STUDENT.
+// Nest's swagger plugin infers response schemas from a method's return type
+// and cannot express a union, so those routes generated as an untyped body
+// (`Record<string, never>` in the client's `schema.d.ts`) or, worse, as the
+// family-only shape that staff callers never receive. Each such route
+// declares its contract explicitly with `@ApiOkResponse` + `oneOf`, following
+// the `@ApiExtraModels`/`getSchemaPath` precedent in `EnrollmentController`.
 @ApiTags('fees')
 @ApiTenantAuth()
+@ApiExtraModels(
+  FeeStructure,
+  FamilyFeeStructureDto,
+  Payment,
+  FamilyPaymentDto,
+  StaffStudentDueDto,
+  FamilyStudentDueDto,
+)
 @Controller()
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard)
 export class FeeController {
@@ -76,6 +105,14 @@ export class FeeController {
   @ApiOperation({
     summary:
       "List outstanding dues. Staff see the whole tenant (subject to the query filters); a PARENT or STUDENT sees only their linked students' dues, whatever filters they send.",
+  })
+  @ApiOkResponse({
+    description:
+      'A page of per-student due summaries: `StaffStudentDueDto` rows for staff, `FamilyStudentDueDto` rows (no `reminder_threshold_date`) for a PARENT/STUDENT.',
+    schema: paginatedSchema([
+      { $ref: getSchemaPath(StaffStudentDueDto) },
+      { $ref: getSchemaPath(FamilyStudentDueDto) },
+    ]),
   })
   async getDues(
     @Query() query: QueryFeeDuesDto,
@@ -150,6 +187,14 @@ export class FeeController {
     summary:
       "The school's fee catalog. Tenant-scoped but not student-scoped — it is the published price list, so no object-level check applies. [5.1] opened it to PARENT/STUDENT so the portal can explain what a due is for.",
   })
+  @ApiOkResponse({
+    description:
+      'A page of fee structures: full `FeeStructure` rows for staff, reduced `FamilyFeeStructureDto` rows for a PARENT/STUDENT.',
+    schema: paginatedSchema([
+      { $ref: getSchemaPath(FeeStructure) },
+      { $ref: getSchemaPath(FamilyFeeStructureDto) },
+    ]),
+  })
   async findAllFeeStructures(
     @Query() query: QueryFeeStructureDto,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -173,6 +218,16 @@ export class FeeController {
   @ApiOperation({
     summary:
       "Get one fee structure. Family callers get a reduced shape without the `selected_students` roster — that relation carries other families' children in full.",
+  })
+  @ApiOkResponse({
+    description:
+      'The full `FeeStructure` for staff; a `FamilyFeeStructureDto` without `selected_students` for a PARENT/STUDENT.',
+    schema: {
+      oneOf: [
+        { $ref: getSchemaPath(FeeStructure) },
+        { $ref: getSchemaPath(FamilyFeeStructureDto) },
+      ],
+    },
   })
   async findOneFeeStructure(
     @Param('id') id: string,
@@ -252,6 +307,16 @@ export class FeeController {
   @ApiOperation({
     summary:
       "A student's payment history. A PARENT or STUDENT must additionally be linked to this student, and gets a reduced payment shape without staff-only fields.",
+  })
+  @ApiOkResponse({
+    description:
+      'Raw `Payment` rows for staff; reduced `FamilyPaymentDto` rows for a PARENT/STUDENT.',
+    schema: {
+      type: 'array',
+      items: {
+        oneOf: [{ $ref: getSchemaPath(Payment) }, { $ref: getSchemaPath(FamilyPaymentDto) }],
+      },
+    },
   })
   async findPaymentsByStudent(
     @Param('studentId') studentId: string,
