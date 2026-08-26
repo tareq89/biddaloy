@@ -75,10 +75,27 @@ type AuditLogFilters = {
 };
 
 /** A URL can be hand-edited, bookmarked from an old session, or built by
- * a bug upstream. A date filter that isn't `YYYY-MM-DD` is dropped rather
- * than forwarded: the server's `@IsDateString` would 400 on it, and
- * `parseDate` (which the `DatePicker` reads through) throws on it. */
+ * a bug upstream. A date filter that isn't a real `YYYY-MM-DD` calendar
+ * date is dropped rather than forwarded.
+ *
+ * The shape check alone is not enough, and the server is no backstop:
+ * `@IsDateString` is `isISO8601`, which accepts `2026-02-30`, and the
+ * date then normalizes to `2026-03-02` before the filter is applied. So
+ * `?to_date=2026-02-30` would silently filter by a date nobody chose,
+ * with an empty picker giving no hint that it happened. `parseDate` —
+ * the same helper the `DatePicker` reads through — throws on exactly
+ * those, so it decides here too. */
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+function isRealCalendarDate(value: string): boolean {
+  if (!ISO_DATE.test(value)) return false;
+  try {
+    parseDate(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 const auditLogsSearchSchema = z.object({
   page: z.number().int().positive().optional().catch(undefined),
@@ -91,8 +108,8 @@ const auditLogsSearchSchema = z.object({
   // list.
   action: z.enum(AuditAction).optional().catch(undefined),
   entity_type: z.string().optional().catch(undefined),
-  from_date: z.string().regex(ISO_DATE).optional().catch(undefined),
-  to_date: z.string().regex(ISO_DATE).optional().catch(undefined),
+  from_date: z.string().refine(isRealCalendarDate).optional().catch(undefined),
+  to_date: z.string().refine(isRealCalendarDate).optional().catch(undefined),
   // Reserved key `use-list-shell-state.ts` stores the row selection under
   // — must be declared here or TanStack Router's `validateSearch` strips
   // it from the URL on every navigation. This page has no bulk actions
@@ -101,10 +118,10 @@ const auditLogsSearchSchema = z.object({
   selected: z.string().optional().catch(undefined),
 });
 
-/** `ISO_DATE` above lets `2026-02-30` through — it is the right shape but
- * not a real calendar date, and `parseDate` throws on exactly that. A
- * filter value must never take the page down, so the picker simply shows
- * nothing selected. */
+/** `validateSearch` has already dropped anything `parseDate` rejects, so
+ * by the time a value reaches here it parses. The guard stays as a
+ * belt-and-braces: this reads `filters`, which is typed as plain strings,
+ * and a filter value must never take the page down. */
 function parseFilterDate(value: string | undefined): Date | undefined {
   if (value === undefined) return undefined;
   try {

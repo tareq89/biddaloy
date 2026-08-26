@@ -209,9 +209,12 @@ describe('/audit-logs', () => {
 
     await screen.findByRole('region', { name: TABLE_REGION });
     expect(seen.params!.get('from_date')).toBeNull();
-    // `2026-02-30` is the right shape but not a real calendar date: it
-    // still reaches the server (which rejects it), but the picker renders
-    // empty rather than throwing out of `parseDate`.
+    // `2026-02-30` is the right *shape* but not a real calendar date, and
+    // the server is no backstop: `@IsDateString` is `isISO8601`, which
+    // accepts it, and it then normalizes to `2026-03-02` before filtering.
+    // Forwarding it would silently filter by a date nobody chose while the
+    // picker sat empty, giving no hint that it had happened.
+    expect(seen.params!.get('to_date')).toBeNull();
     expect(screen.getByRole('textbox', { name: 'To date' }).getAttribute('value')).toBe('');
   });
 
