@@ -67,50 +67,79 @@ describe('CreateUserDto length pinning', () => {
  * keep the BD rule and are not covered by this file. [5.4a]
  */
 describe('user phone shape (international)', () => {
-  const accepted = [
-    '01712345678', // BD local, unchanged
-    '+8801712345678', // BD E.164
-    '+880 1712-345678', // human-formatted
-    '+447700900123', // UK
-    '+1 (555) 123-4567', // US, parenthesised
-  ];
+  const updateWith = (phone: string) => plainToInstance(UpdateUserDto, { phone });
 
-  const rejected = [
-    'not-a-phone',
-    'admin@example.com', // the impersonation case: `@` is not in the class
-    '1234567', // 7 digits — below the 8-digit floor
-    '1234567890123456', // 16 digits — above E.164's 15
-    '', // handled by @ValidateIf on UpdateUserDto only
-    '+',
-  ];
-
-  for (const phone of accepted) {
-    it(`UpdateUserDto accepts "${phone}"`, async () => {
-      expect(await failedProps(plainToInstance(UpdateUserDto, { phone }))).not.toContain('phone');
+  const createWith = (phone: string) =>
+    plainToInstance(CreateUserDto, {
+      phone,
+      full_name: 'X',
+      role: UserRole.TEACHER,
+      tenantId: '00000000-0000-4000-8000-000000000000',
     });
 
-    it(`CreateUserDto accepts "${phone}"`, async () => {
-      const dto = plainToInstance(CreateUserDto, {
-        phone,
-        full_name: 'X',
-        role: UserRole.TEACHER,
-        tenantId: '00000000-0000-4000-8000-000000000000',
-      });
-      expect(await failedProps(dto)).not.toContain('phone');
-    });
-  }
+  it('accepts 01712345678 on UpdateUserDto — BD local, unchanged', async () => {
+    expect(await failedProps(updateWith('01712345678'))).not.toContain('phone');
+  });
 
-  for (const phone of rejected) {
-    it(`CreateUserDto rejects ${JSON.stringify(phone)}`, async () => {
-      const dto = plainToInstance(CreateUserDto, {
-        phone,
-        full_name: 'X',
-        role: UserRole.TEACHER,
-        tenantId: '00000000-0000-4000-8000-000000000000',
-      });
-      expect(await failedProps(dto)).toContain('phone');
-    });
-  }
+  it('accepts 01712345678 on CreateUserDto — BD local, unchanged', async () => {
+    expect(await failedProps(createWith('01712345678'))).not.toContain('phone');
+  });
+
+  it('accepts +8801712345678 on UpdateUserDto — BD E.164', async () => {
+    expect(await failedProps(updateWith('+8801712345678'))).not.toContain('phone');
+  });
+
+  it('accepts +8801712345678 on CreateUserDto — BD E.164', async () => {
+    expect(await failedProps(createWith('+8801712345678'))).not.toContain('phone');
+  });
+
+  it('accepts +880 1712-345678 on UpdateUserDto — human-formatted', async () => {
+    expect(await failedProps(updateWith('+880 1712-345678'))).not.toContain('phone');
+  });
+
+  it('accepts +880 1712-345678 on CreateUserDto — human-formatted', async () => {
+    expect(await failedProps(createWith('+880 1712-345678'))).not.toContain('phone');
+  });
+
+  it('accepts +447700900123 on UpdateUserDto — UK', async () => {
+    expect(await failedProps(updateWith('+447700900123'))).not.toContain('phone');
+  });
+
+  it('accepts +447700900123 on CreateUserDto — UK', async () => {
+    expect(await failedProps(createWith('+447700900123'))).not.toContain('phone');
+  });
+
+  it('accepts +1 (555) 123-4567 on UpdateUserDto — US, parenthesised', async () => {
+    expect(await failedProps(updateWith('+1 (555) 123-4567'))).not.toContain('phone');
+  });
+
+  it('accepts +1 (555) 123-4567 on CreateUserDto — US, parenthesised', async () => {
+    expect(await failedProps(createWith('+1 (555) 123-4567'))).not.toContain('phone');
+  });
+
+  it('rejects not-a-phone on CreateUserDto — plainly not a number', async () => {
+    expect(await failedProps(createWith('not-a-phone'))).toContain('phone');
+  });
+
+  it('rejects admin@example.com on CreateUserDto — the impersonation case: @ is not in the identifier class', async () => {
+    expect(await failedProps(createWith('admin@example.com'))).toContain('phone');
+  });
+
+  it('rejects 1234567 on CreateUserDto — 7 digits — below the 8-digit floor', async () => {
+    expect(await failedProps(createWith('1234567'))).toContain('phone');
+  });
+
+  it('rejects 1234567890123456 on CreateUserDto — 16 digits — above the E.164 maximum of 15', async () => {
+    expect(await failedProps(createWith('1234567890123456'))).toContain('phone');
+  });
+
+  it('rejects (empty string) on CreateUserDto — handled by @ValidateIf on UpdateUserDto only', async () => {
+    expect(await failedProps(createWith(''))).toContain('phone');
+  });
+
+  it('rejects + on CreateUserDto — a lone plus carries no digits', async () => {
+    expect(await failedProps(createWith('+'))).toContain('phone');
+  });
 
   it('still rejects a phone longer than the varchar(20) column', async () => {
     const dto = plainToInstance(UpdateUserDto, { phone: '+880171234567890123456789' });

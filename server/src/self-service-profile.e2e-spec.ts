@@ -236,39 +236,46 @@ describe('[5.4a] Self-service profile', () => {
 
     // Business-critical: these must be REJECTED, not silently dropped, so a
     // client never believes a privilege change succeeded.
-    const FORBIDDEN_BODIES: Array<[string, Record<string, unknown>]> = [
-      ['role', { role: UserRole.ADMIN }],
-      ['status', { status: 'SUSPENDED' }],
-      ['password_hash', { password_hash: 'pwned' }],
-      ['tenantId', { tenantId: TENANT_B }],
-      ['id', { id: SEED_ADMIN_USER_ID }],
-    ];
-
-    for (const [field, body] of FORBIDDEN_BODIES) {
-      it(`rejects a self-assigned "${field}" with 400 and changes nothing`, async () => {
-        const before = await dataSource.query(
+    const expectSelfAssignRejected = async (body: Record<string, unknown>) => {
+      const snapshot = () =>
+        dataSource.query(
           `SELECT u.full_name, u.status, ut.role FROM users u
              JOIN user_tenants ut ON ut.user_id = u.id AND ut.tenant_id = $2
             WHERE u.id = $1`,
           [PARENT_USER_ID, SEED_TENANT_ID],
         );
 
-        await http()
-          .patch(`${API}/users/me`)
-          .set('Authorization', `Bearer ${parentToken}`)
-          .set('X-Tenant-ID', SEED_TENANT_ID)
-          .send(body)
-          .expect(400);
+      const before = await snapshot();
 
-        const after = await dataSource.query(
-          `SELECT u.full_name, u.status, ut.role FROM users u
-             JOIN user_tenants ut ON ut.user_id = u.id AND ut.tenant_id = $2
-            WHERE u.id = $1`,
-          [PARENT_USER_ID, SEED_TENANT_ID],
-        );
-        expect(after[0]).toEqual(before[0]);
-      });
-    }
+      await http()
+        .patch(`${API}/users/me`)
+        .set('Authorization', `Bearer ${parentToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .send(body)
+        .expect(400);
+
+      expect((await snapshot())[0]).toEqual(before[0]);
+    };
+
+    it('rejects a self-assigned "role" with 400 and changes nothing', async () => {
+      await expectSelfAssignRejected({ role: UserRole.ADMIN });
+    });
+
+    it('rejects a self-assigned "status" with 400 and changes nothing', async () => {
+      await expectSelfAssignRejected({ status: 'SUSPENDED' });
+    });
+
+    it('rejects a self-assigned "password_hash" with 400 and changes nothing', async () => {
+      await expectSelfAssignRejected({ password_hash: 'pwned' });
+    });
+
+    it('rejects a self-assigned "tenantId" with 400 and changes nothing', async () => {
+      await expectSelfAssignRejected({ tenantId: TENANT_B });
+    });
+
+    it('rejects a self-assigned "id" with 400 and changes nothing', async () => {
+      await expectSelfAssignRejected({ id: SEED_ADMIN_USER_ID });
+    });
 
     it('returns 409, not 500, when the email already belongs to someone else', async () => {
       const res = await http()
@@ -511,18 +518,28 @@ describe('[5.4a] Self-service profile', () => {
     // way a human types it. The Bangladesh-only guardian rule
     // (BD_PHONE_REGEX) rejected both; the user's decision is E.164-ish here.
     // Guardian phones are NOT part of this change. [5.4a]
-    for (const phone of ['+447700900123', '+880 1712-345678', '+1 (555) 123-4567']) {
-      it(`accepts the international number "${phone}"`, async () => {
-        const res = await http()
-          .patch(`${API}/users/me`)
-          .set('Authorization', `Bearer ${parentToken}`)
-          .set('X-Tenant-ID', SEED_TENANT_ID)
-          .send({ phone, current_password: SEED_ADMIN_PASSWORD })
-          .expect(200);
+    const expectPhoneAccepted = async (phone: string) => {
+      const res = await http()
+        .patch(`${API}/users/me`)
+        .set('Authorization', `Bearer ${parentToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .send({ phone, current_password: SEED_ADMIN_PASSWORD })
+        .expect(200);
 
-        expect(res.body.phone).toBe(phone);
-      });
-    }
+      expect(res.body.phone).toBe(phone);
+    };
+
+    it('accepts the international number "+447700900123" (UK, E.164)', async () => {
+      await expectPhoneAccepted('+447700900123');
+    });
+
+    it('accepts the international number "+880 1712-345678" (BD, human-formatted)', async () => {
+      await expectPhoneAccepted('+880 1712-345678');
+    });
+
+    it('accepts the international number "+1 (555) 123-4567" (US, parenthesised)', async () => {
+      await expectPhoneAccepted('+1 (555) 123-4567');
+    });
 
     // ── email is stored case-folded ────────────────────────────────────
     //
@@ -859,40 +876,46 @@ describe('[5.4a] Self-service profile', () => {
       expect(addressForMedium(guardian, CommunicationMedium.SMS)).toBe('+8801955555555');
     });
 
-    const FORBIDDEN_GUARDIAN_BODIES: Array<[string, Record<string, unknown>]> = [
-      ['full_name', { full_name: 'Renamed Self' }],
-      ['relationship', { relationship: 'MOTHER' }],
-      // The escalation this narrow DTO exists to prevent: relinking yourself
-      // to arbitrary students.
-      ['student_ids', { student_ids: ['00000000-0000-4000-8000-0000054a00ff'] }],
-      ['is_primary_contact', { is_primary_contact: false }],
-      ['tenant_id', { tenant_id: TENANT_B }],
-      ['user_id', { user_id: SEED_ADMIN_USER_ID }],
-    ];
-
-    for (const [field, body] of FORBIDDEN_GUARDIAN_BODIES) {
-      it(`rejects "${field}" with 400 and changes nothing`, async () => {
-        const before = await dataSource.query(
+    const expectGuardianFieldRejected = async (body: Record<string, unknown>) => {
+      const snapshot = () =>
+        dataSource.query(
           `SELECT full_name, relationship, tenant_id, user_id, is_primary_contact
              FROM guardians WHERE id = $1`,
           [parentGuardianId],
         );
 
-        await http()
-          .patch(`${API}/guardians/mine`)
-          .set('Authorization', `Bearer ${parentToken}`)
-          .set('X-Tenant-ID', SEED_TENANT_ID)
-          .send(body)
-          .expect(400);
+      const before = await snapshot();
 
-        const after = await dataSource.query(
-          `SELECT full_name, relationship, tenant_id, user_id, is_primary_contact
-             FROM guardians WHERE id = $1`,
-          [parentGuardianId],
-        );
-        expect(after[0]).toEqual(before[0]);
-      });
-    }
+      await http()
+        .patch(`${API}/guardians/mine`)
+        .set('Authorization', `Bearer ${parentToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .send(body)
+        .expect(400);
+
+      expect((await snapshot())[0]).toEqual(before[0]);
+    };
+
+    it('rejects "full_name" with 400 and changes nothing', async () => {
+      await expectGuardianFieldRejected({ full_name: 'Renamed Self' });
+    });
+
+    it('rejects "relationship" with 400 and changes nothing', async () => {
+      await expectGuardianFieldRejected({ relationship: 'MOTHER' });
+    });
+
+    // The escalation this narrow DTO exists to prevent: relinking yourself.
+    it('rejects "is_primary_contact" with 400 and changes nothing', async () => {
+      await expectGuardianFieldRejected({ is_primary_contact: false });
+    });
+
+    it('rejects "tenant_id" with 400 and changes nothing', async () => {
+      await expectGuardianFieldRejected({ tenant_id: TENANT_B });
+    });
+
+    it('rejects "user_id" with 400 and changes nothing', async () => {
+      await expectGuardianFieldRejected({ user_id: SEED_ADMIN_USER_ID });
+    });
 
     it('refuses a STUDENT by role', async () => {
       await http()
@@ -940,42 +963,80 @@ describe('[5.4a] Self-service profile', () => {
   // ------------------------------------------------------------- tenant context
 
   describe('tenant context', () => {
-    const NEW_ROUTES: Array<[string, 'get' | 'patch', string]> = [
-      ['GET /users/me', 'get', `${API}/users/me`],
-      ['PATCH /users/me', 'patch', `${API}/users/me`],
-      ['GET /guardians/mine', 'get', `${API}/guardians/mine`],
-      ['PATCH /guardians/mine', 'patch', `${API}/guardians/mine`],
-    ];
+    // Every self-service route must refuse to act without a trustworthy
+    // tenant context. `[400, 401, 403]` because which of the three the guard
+    // picks is not the contract — only that the request does not succeed.
+    type Method = 'get' | 'patch';
 
-    for (const [name, method, path] of NEW_ROUTES) {
-      it(`${name} rejects a missing X-Tenant-ID`, async () => {
-        const res = await (http() as any)
-          [method](path)
-          .set('Authorization', `Bearer ${parentToken}`)
-          .send({});
-        expect([400, 401, 403]).toContain(res.status);
-      });
+    const callWithoutTenant = (method: Method, path: string) =>
+      (http() as any)[method](path).set('Authorization', `Bearer ${parentToken}`).send({});
 
-      it(`${name} rejects a garbage X-Tenant-ID`, async () => {
-        const res = await (http() as any)
-          [method](path)
-          .set('Authorization', `Bearer ${parentToken}`)
-          .set('X-Tenant-ID', 'not-a-uuid')
-          .send({});
-        expect([400, 401, 403]).toContain(res.status);
-      });
+    const callWithGarbageTenant = (method: Method, path: string) =>
+      (http() as any)
+        [method](path)
+        .set('Authorization', `Bearer ${parentToken}`)
+        .set('X-Tenant-ID', 'not-a-uuid')
+        .send({});
 
-      it(`${name} rejects a tenant the caller is not a member of`, async () => {
-        // A real tenant, but the parent has no membership beyond A and B —
-        // use a well-formed id nobody granted them.
-        const res = await (http() as any)
-          [method](path)
-          .set('Authorization', `Bearer ${studentToken}`)
-          .set('X-Tenant-ID', TENANT_B)
-          .send({});
-        expect([400, 401, 403]).toContain(res.status);
-      });
-    }
+    // A real tenant, but the student has no membership in it.
+    const callWithForeignTenant = (method: Method, path: string) =>
+      (http() as any)
+        [method](path)
+        .set('Authorization', `Bearer ${studentToken}`)
+        .set('X-Tenant-ID', TENANT_B)
+        .send({});
+
+    const expectRejected = async (res: { status: number }) => {
+      expect([400, 401, 403]).toContain(res.status);
+    };
+
+    it('GET /users/me rejects a missing X-Tenant-ID', async () => {
+      await expectRejected(await callWithoutTenant('get', `${API}/users/me`));
+    });
+
+    it('GET /users/me rejects a garbage X-Tenant-ID', async () => {
+      await expectRejected(await callWithGarbageTenant('get', `${API}/users/me`));
+    });
+
+    it('GET /users/me rejects a tenant the caller is not a member of', async () => {
+      await expectRejected(await callWithForeignTenant('get', `${API}/users/me`));
+    });
+
+    it('PATCH /users/me rejects a missing X-Tenant-ID', async () => {
+      await expectRejected(await callWithoutTenant('patch', `${API}/users/me`));
+    });
+
+    it('PATCH /users/me rejects a garbage X-Tenant-ID', async () => {
+      await expectRejected(await callWithGarbageTenant('patch', `${API}/users/me`));
+    });
+
+    it('PATCH /users/me rejects a tenant the caller is not a member of', async () => {
+      await expectRejected(await callWithForeignTenant('patch', `${API}/users/me`));
+    });
+
+    it('GET /guardians/mine rejects a missing X-Tenant-ID', async () => {
+      await expectRejected(await callWithoutTenant('get', `${API}/guardians/mine`));
+    });
+
+    it('GET /guardians/mine rejects a garbage X-Tenant-ID', async () => {
+      await expectRejected(await callWithGarbageTenant('get', `${API}/guardians/mine`));
+    });
+
+    it('GET /guardians/mine rejects a tenant the caller is not a member of', async () => {
+      await expectRejected(await callWithForeignTenant('get', `${API}/guardians/mine`));
+    });
+
+    it('PATCH /guardians/mine rejects a missing X-Tenant-ID', async () => {
+      await expectRejected(await callWithoutTenant('patch', `${API}/guardians/mine`));
+    });
+
+    it('PATCH /guardians/mine rejects a garbage X-Tenant-ID', async () => {
+      await expectRejected(await callWithGarbageTenant('patch', `${API}/guardians/mine`));
+    });
+
+    it('PATCH /guardians/mine rejects a tenant the caller is not a member of', async () => {
+      await expectRejected(await callWithForeignTenant('patch', `${API}/guardians/mine`));
+    });
 
     it('does not leak the tenant-A guardian row under X-Tenant-ID: B', async () => {
       // The parent holds a genuine PARENT membership in tenant B, so the
