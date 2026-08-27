@@ -97,6 +97,16 @@ jobs:
       - name: UI typecheck
         run: yarn workspace @biddaloy/ui lint
 
+      # [8.12.1]: `client-admin`'s own lint had never run in CI — the root
+      # `yarn lint` above is the server's. That was tolerable while `tsc -b`
+      # inside `build:client-admin` covered the app's types, but the service
+      # worker (`src/sw.ts`) is compiled by esbuild through `vite-plugin-pwa`
+      # and is excluded from the app's tsconfig, so *nothing* type-checked
+      # the one file that talks to Cache Storage. This step runs both `tsc`
+      # passes (app and `tsconfig.sw.json`) plus eslint.
+      - name: Admin SPA typecheck
+        run: yarn workspace @biddaloy/client-admin lint
+
       # `e2e/` is not a yarn workspace, so nothing else typechecks it — and
       # its specs only run in the much slower E2E job against a real stack.
       # [8.9.10] renamed a key in `e2e/config.ts` and the stale reference in

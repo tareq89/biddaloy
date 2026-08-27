@@ -21,6 +21,7 @@ export {
   setActiveTenant,
   subscribeAuthState,
 } from './auth-state';
+export { clearApiCache } from './sw-cache';
 export {
   decodeAccessTokenMemberships,
   ensureSessionLoaded,

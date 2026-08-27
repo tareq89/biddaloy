@@ -15,6 +15,7 @@ import { createRouter, RouterProvider } from '@tanstack/react-router';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
+import { registerServiceWorker } from './pwa/register';
 import { routeTree } from './routeTree.gen';
 import './index.css';
 
@@ -123,3 +124,11 @@ void enableMocking()
     console.error('[enableMocking] failed to start the mock worker — continuing without it', error);
   })
   .then(renderApp);
+
+// [8.12.1]: kicked off alongside the render, not awaited before it —
+// registration is not on the critical path to pixels, and keeping it out
+// of the promise chain above means a service-worker failure can never
+// block the app from mounting. No-ops under `VITE_USE_MOCKS=true` so it
+// can't race `enableMocking`'s worker for the root scope — see its own
+// comment in `pwa/register.ts`.
+registerServiceWorker();

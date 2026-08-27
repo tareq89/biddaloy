@@ -1,0 +1,25 @@
+{
+  // The service worker is type-checked in its own program, separate from
+  // the app's.
+  //
+  // `src/sw.ts` runs in a `ServiceWorkerGlobalScope`, so it needs the
+  // `WebWorker` lib for `ExtendableMessageEvent`, `skipWaiting` and
+  // friends. A `/// <reference lib="webworker" />` inside the file would
+  // pull that lib into the *whole* `tsconfig.json` program instead —
+  // silently redefining shared globals (`File`, `Request`, ...) for every
+  // app and test file, which measurably changed type-checking results
+  // elsewhere. Two programs is the only clean split.
+  //
+  // `DOM` is deliberately absent here: it is what would let the worker
+  // reference `window`/`document`, neither of which exists at runtime.
+  "extends": "../tsconfig.frontend.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "WebWorker"],
+    "types": ["vite/client"],
+    "noEmit": true,
+    "moduleResolution": "bundler",
+    "module": "ESNext",
+    "target": "ES2022"
+  },
+  "include": ["src/sw.ts", "src/pwa/cache-policy.ts"]
+}
