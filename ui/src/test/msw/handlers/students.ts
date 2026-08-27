@@ -13,6 +13,14 @@ const listEmpty = http.get('/api/v1/students', ({ request }) =>
   HttpResponse.json(paginate([], request.url)),
 );
 
+/** [5.1]'s family discovery route. Registered **before** `getOne` in the
+ * defaults below — MSW matches in registration order, and
+ * `/api/v1/students/:id` would otherwise swallow `/students/mine` and
+ * answer it with a student whose id is the literal string "mine". */
+const mine = http.get('/api/v1/students/mine', () => HttpResponse.json(fixtures.slice(0, 2)));
+
+const mineEmpty = http.get('/api/v1/students/mine', () => HttpResponse.json([]));
+
 const getOne = http.get('/api/v1/students/:id', ({ params }) =>
   HttpResponse.json(studentFactory({ id: params.id as string })),
 );
@@ -58,6 +66,8 @@ const bulkUploadWithErrors = http.post('/api/v1/students/bulk-upload', () =>
 export const studentHandlers = {
   list,
   listEmpty,
+  mine,
+  mineEmpty,
   getOne,
   create,
   update,
@@ -66,4 +76,4 @@ export const studentHandlers = {
   bulkUploadWithErrors,
 };
 
-export const studentDefaultHandlers = [list, getOne, create, update, remove, bulkUpload];
+export const studentDefaultHandlers = [list, mine, getOne, create, update, remove, bulkUpload];

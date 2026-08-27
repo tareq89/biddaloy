@@ -8,6 +8,11 @@ import { shouldRetryQuery } from './retry';
 import { studentKeys } from './students';
 
 export type Payment = components['schemas']['Payment'];
+/** What a PARENT/STUDENT actually gets back from
+ * `GET /payments/student/:studentId` — a reduced row with no `student`,
+ * `received_by` or `remarks` (`schema.d.ts`'s `FamilyPaymentDto`, and the
+ * published response contract on that operation). */
+export type FamilyPayment = components['schemas']['FamilyPaymentDto'];
 export type CreatePaymentInput = components['schemas']['CreatePaymentDto'];
 export type StudentFee = components['schemas']['StudentFee'];
 export type PaymentAllocationInput = components['schemas']['PaymentAllocationInputDto'];
@@ -71,13 +76,27 @@ export function useCreatePayment() {
 }
 
 /** [8.10.2]'s Payments tab — every payment ever recorded for one student,
- * newest first. */
+ * newest first.
+ *
+ * The response type is a union because the endpoint's is: staff get raw
+ * `Payment` rows, a PARENT/STUDENT gets reduced `FamilyPaymentDto` rows
+ * ([5.1] widened the route to family callers, and the operation's
+ * published contract says so). Typing it `Payment[]` was a lie for half
+ * the callers — it let a family-facing screen write `payment.student.id`
+ * and type-check, against a body where `student` does not exist. Callers
+ * that need staff-only fields must narrow first; the fields both shapes
+ * share (`payment_date`, `payment_method`, `transaction_reference`,
+ * `total_amount`, `payment_status`) are readable without narrowing. No
+ * behaviour change — staff callers get exactly the same rows as before. */
 export function usePaymentsByStudent(studentId: string) {
   return useQuery(
     queryOptions({
       queryKey: paymentKeys.list({ studentId }),
       queryFn: async ({ signal }) => {
-        const res = await apiClient.get<Payment[]>(`/payments/student/${studentId}`, { signal });
+        const res = await apiClient.get<(Payment | FamilyPayment)[]>(
+          `/payments/student/${studentId}`,
+          { signal },
+        );
         return res.data;
       },
       retry: shouldRetryQuery,

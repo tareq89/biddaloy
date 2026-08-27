@@ -50,7 +50,7 @@ export interface PaginatedStudents {
  * mirror — see `./query-keys.ts`'s own comment on the hierarchical shape
  * and why it matters for invalidation precision.
  */
-export const studentKeys = createEntityKeys<StudentListFilters>('students');
+export const studentKeys = createEntityKeys<StudentListFilters & { mine?: boolean }>('students');
 
 /** Shared with a route's `loader` (`context.queryClient.ensureQueryData
  * (studentsQueryOptions(filters))`), not just `useStudents` below — a
@@ -76,6 +76,42 @@ export function studentsQueryOptions(filters: StudentListFilters = {}) {
  */
 export function useStudents(filters: StudentListFilters = {}, { enabled = true } = {}) {
   return useQuery({ ...studentsQueryOptions(filters), enabled });
+}
+
+/**
+ * [5.1]'s `GET /students/mine` — the students the calling PARENT or
+ * STUDENT is linked to. The family portal's discovery route: without it a
+ * parent has no way to learn their own children's ids, and every other
+ * family-facing endpoint is keyed by one.
+ *
+ * Deliberately a plain `Student[]`, not the `{ data, total, ... }`
+ * envelope `useStudents` unwraps — the server returns a bare array here
+ * (`students.controller.ts`'s `findMyStudents`), since a family's linked
+ * set is small enough that paginating it would be ceremony.
+ *
+ * Keyed as `studentKeys.list({ mine: true })` rather than a key factory of
+ * its own, so `invalidateQueries({ queryKey: studentKeys.lists() })` —
+ * what every student mutation already fires — refetches this too.
+ *
+ * Note for callers: `class_section` and `class_section.class` are loaded,
+ * `guardians` deliberately is **not** (`family-access.service.ts`) — a
+ * parent shouldn't be handed the other guardians' contact details as a
+ * side effect of listing their own children. Reading `.guardians` here
+ * type-checks (it's on the shared `Student` type) and is empty at runtime.
+ */
+export function myStudentsQueryOptions() {
+  return queryOptions({
+    queryKey: studentKeys.list({ mine: true }),
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<Student[]>('/students/mine', { signal });
+      return res.data;
+    },
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useMyStudents() {
+  return useQuery(myStudentsQueryOptions());
 }
 
 /** Split out from `useStudent` so an imperative caller (e.g. a CSV export

@@ -43,11 +43,13 @@ export {
   type UpdateTeacherInput,
 } from './teachers';
 export {
+  myStudentsQueryOptions,
   studentKeys,
   studentQueryOptions,
   studentsQueryOptions,
   useCreateStudent,
   useDeleteStudent,
+  useMyStudents,
   useStudent,
   useStudents,
   useUpdateStudent,
@@ -85,6 +87,7 @@ export {
   useStudentFeeSummary,
   useRecordPaymentWithAllocation,
   type CreatePaymentInput,
+  type FamilyPayment,
   type Payment,
   type PaymentAllocationInput,
   type RecordPaymentWithAllocationInput,
