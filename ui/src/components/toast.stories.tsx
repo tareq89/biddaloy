@@ -56,3 +56,30 @@ export const ErrorVariant: Story = {
     await userEvent.click(canvas.getByRole('button', { name: 'Show error toast' }));
   },
 };
+
+/**
+ * [8.12.2]'s update prompt as `client-admin` raises it (`src/pwa/update-
+ * prompt.ts`): persistent rather than timed, because it waits for a
+ * decision instead of expiring mid-payment, with a Reload action and the
+ * `Toaster`'s own close button as the dismiss affordance.
+ */
+export const UpdateAvailable: Story = {
+  render: () => (
+    <Button
+      type="button"
+      onClick={() =>
+        toast('A new version of the app is available.', {
+          id: 'app-update',
+          duration: Number.POSITIVE_INFINITY,
+          action: { label: 'Reload', onClick: () => {} },
+        })
+      }
+    >
+      Show update prompt
+    </Button>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Show update prompt' }));
+  },
+};

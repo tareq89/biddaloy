@@ -11,5 +11,10 @@
   },
   "errors": {
     "permissionDenied": "You don't have permission to do that."
+  },
+  "update": {
+    "available": "A new version of the app is available.",
+    "reload": "Reload",
+    "activatedElsewhere": "The app has been updated in another tab. Reload this tab when you're ready."
   }
 }
