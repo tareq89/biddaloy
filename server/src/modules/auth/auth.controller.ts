@@ -175,9 +175,20 @@ export class AuthController {
     refreshToken: { cookieValue: string; expiresAt: Date },
   ): void {
     const maxAgeMs = refreshToken.expiresAt.getTime() - Date.now();
+    // CodeQL's `SensitiveCall` heuristic (SensitiveActions.qll) marks the
+    // return value of any call whose NAME matches a password-like regex, with
+    // no dataflow involved — so `authService.changePassword()` is treated as
+    // returning sensitive data purely because of what it is called, and every
+    // field reached from it, including this one, inherits that. `login()` and
+    // `refresh()` reach this same line with the same shape and are not
+    // flagged, which is the tell.
+    //
+    // What is actually written here is a freshly issued refresh token
+    // (`id.secret`, see RefreshTokenService.buildCookieValue) — never password
+    // material, hashed or plain — under httpOnly + secure + sameSite=strict.
     response.cookie(
       REFRESH_TOKEN_COOKIE,
-      refreshToken.cookieValue,
+      refreshToken.cookieValue, // codeql[js/clear-text-storage-of-sensitive-data]
       buildRefreshTokenCookieOptions(maxAgeMs),
     );
   }
