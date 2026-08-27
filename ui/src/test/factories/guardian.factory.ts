@@ -31,6 +31,8 @@ export function guardianFactory(overrides: Partial<Guardian> = {}, script?: Scri
     occupation: faker.person.jobTitle(),
     preferred_communication: CommunicationMedium.SMS,
     is_primary_contact: true,
+    // Matches the column default: a guardian is reachable unless they opt out.
+    notifications_enabled: true,
     tenant,
     tenant_id: tenant.id,
     students: [],
