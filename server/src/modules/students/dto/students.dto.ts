@@ -11,6 +11,7 @@ import {
   IsDateString,
   IsNotEmpty,
   Matches,
+  MaxLength,
   ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -264,19 +265,34 @@ export class UpdateGuardianDto {
  * a 400 here. [5.4a]
  */
 export class UpdateOwnGuardianDto {
+  /** Shape- and length-pinned exactly like `users.phone`: this is the number
+   * fee-reminder SMS actually dials, and a parent editing their own record
+   * could otherwise store `"call me"` in it. The column is varchar(20), so an
+   * unpinned over-long value would also reach Postgres as a 22001 and surface
+   * as a 500. `''` still clears the column (the service maps it to NULL), so
+   * the checks are skipped for that one value. [5.4a] */
   @IsOptional()
+  @ValidateIf((o: UpdateOwnGuardianDto) => o.phone !== '')
   @IsString()
+  @MaxLength(20)
+  @Matches(BD_PHONE_REGEX, { message: 'Invalid phone format' })
   phone?: string;
 
+  /** Same pinning as `phone` above — varchar(20), `''` clears. */
   @IsOptional()
+  @ValidateIf((o: UpdateOwnGuardianDto) => o.alternate_phone !== '')
   @IsString()
+  @MaxLength(20)
+  @Matches(BD_PHONE_REGEX, { message: 'Invalid phone format' })
   alternate_phone?: string;
 
   // `''` explicitly clears the column (mapped to NULL by the service), and
   // `@IsEmail()` alone would reject it — same trick as UpdateGuardianDto.
+  // varchar(100), pinned so an over-long address is a 400 and not a 22001/500.
   @IsOptional()
   @ValidateIf((o: UpdateOwnGuardianDto) => o.email !== '')
   @IsEmail()
+  @MaxLength(100)
   email?: string;
 
   @IsOptional()

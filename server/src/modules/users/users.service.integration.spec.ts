@@ -430,7 +430,12 @@ describe('UserService (integration)', () => {
 
     it('should clear the phone number when phone is null', async () => {
       const { user } = await service.create(
-        { full_name: 'Clear Phone', phone: '+8801711111111', role: UserRole.TEACHER },
+        {
+          full_name: 'Clear Phone',
+          email: 'clearphone@example.com',
+          phone: '+8801711111111',
+          role: UserRole.TEACHER,
+        },
         TENANT_ID,
       );
 
@@ -519,7 +524,12 @@ describe('UserService (integration)', () => {
 
     it("should store a real NULL (not '') when phone is cleared with an empty string", async () => {
       const { user } = await service.create(
-        { full_name: 'Empty String Clear', phone: '+8801755555555', role: UserRole.TEACHER },
+        {
+          full_name: 'Empty String Clear',
+          email: 'emptyclear@example.com',
+          phone: '+8801755555555',
+          role: UserRole.TEACHER,
+        },
         TENANT_ID,
       );
 
@@ -537,11 +547,21 @@ describe('UserService (integration)', () => {
 
     it('should let TWO different users clear their phone (the case that used to 500)', async () => {
       const { user: first } = await service.create(
-        { full_name: 'Clearer One', phone: '+8801756666666', role: UserRole.TEACHER },
+        {
+          full_name: 'Clearer One',
+          email: 'clearer-one@example.com',
+          phone: '+8801756666666',
+          role: UserRole.TEACHER,
+        },
         TENANT_ID,
       );
       const { user: second } = await service.create(
-        { full_name: 'Clearer Two', phone: '+8801757777777', role: UserRole.PARENT },
+        {
+          full_name: 'Clearer Two',
+          email: 'clearer-two@example.com',
+          phone: '+8801757777777',
+          role: UserRole.PARENT,
+        },
         TENANT_ID,
       );
 
@@ -627,6 +647,129 @@ describe('UserService (integration)', () => {
           message: expect.not.stringContaining('+8801751111111') as string,
         }) as Error,
       );
+    });
+    // ── Regression pins: the login-identifier invariant ─────────────────
+    //
+    // `AuthService.validateUser` matches on email OR phone and nothing else,
+    // and there is no reset flow. `@IsOptional()` skips validation for
+    // `null`, so `{email: null, phone: null}` used to reach the service and
+    // NULL both columns — a permanent, self-inflicted lockout, reachable by
+    // any user through `PATCH /users/me`.
+
+    it('should reject an update that would clear BOTH email and phone', async () => {
+      const { user } = await service.create(
+        {
+          full_name: 'Lockout Me',
+          email: 'lockout@example.com',
+          phone: '+8801799999999',
+          role: UserRole.PARENT,
+        },
+        TENANT_ID,
+      );
+
+      await expect(
+        service.update(user.id, { email: null as unknown as string, phone: null }, TENANT_ID),
+      ).rejects.toThrow(BadRequestException);
+
+      // Both identifiers survive the refused write.
+      const [row] = await dataSource.query<Array<{ email: string | null; phone: string | null }>>(
+        'SELECT email, phone FROM users WHERE id = $1',
+        [user.id],
+      );
+      expect(row.email).toBe('lockout@example.com');
+      expect(row.phone).toBe('+8801799999999');
+    });
+
+    it("should reject clearing phone with '' when the user has no email", async () => {
+      // `''` is normalized to NULL before the invariant runs, so the
+      // browser-form shape of the same lockout has to be caught too.
+      const { user } = await service.create(
+        { full_name: 'No Email', phone: '+8801788888888', role: UserRole.PARENT },
+        TENANT_ID,
+      );
+
+      await expect(service.update(user.id, { phone: '' }, TENANT_ID)).rejects.toThrow(
+        /at least one login identifier/i,
+      );
+
+      const [row] = await dataSource.query<Array<{ phone: string | null }>>(
+        'SELECT phone FROM users WHERE id = $1',
+        [user.id],
+      );
+      expect(row.phone).toBe('+8801788888888');
+    });
+
+    it('should reject clearing email when the user has no phone', async () => {
+      const { user } = await service.create(
+        { full_name: 'No Phone', email: 'onlyemail@example.com', role: UserRole.PARENT },
+        TENANT_ID,
+      );
+
+      await expect(
+        service.update(user.id, { email: null as unknown as string }, TENANT_ID),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should ALLOW clearing phone while the DTO simultaneously sets an email', async () => {
+      // The invariant is about the post-update state, not about the DTO in
+      // isolation — swapping one identifier for the other is legitimate.
+      const { user } = await service.create(
+        { full_name: 'Swapper', phone: '+8801777777777', role: UserRole.PARENT },
+        TENANT_ID,
+      );
+
+      const updated = await service.update(
+        user.id,
+        { phone: null, email: 'swapped@example.com' },
+        TENANT_ID,
+      );
+
+      expect(updated.phone).toBeNull();
+      expect(updated.email).toBe('swapped@example.com');
+    });
+
+    it('should ALLOW clearing phone when an untouched email still remains', async () => {
+      const { user } = await service.create(
+        {
+          full_name: 'Keeps Email',
+          email: 'keeps@example.com',
+          phone: '+8801766666666',
+          role: UserRole.PARENT,
+        },
+        TENANT_ID,
+      );
+
+      const updated = await service.update(user.id, { phone: null }, TENANT_ID);
+
+      expect(updated.phone).toBeNull();
+      expect(updated.email).toBe('keeps@example.com');
+    });
+
+    // ── Regression pin: case-insensitive UUID comparison ─────────────────
+    //
+    // Postgres `uuid` compares case-insensitively and `users/:id` has no
+    // `ParseUUIDPipe`, so `existing.id !== id` (a JS string compare) used to
+    // decide a user was somebody else and raise a spurious 409 on their own
+    // unchanged email. Same hazard `remove()` already guards.
+
+    it('should NOT 409 when an UPPERCASE route id resubmits the user own email/phone', async () => {
+      const { user } = await service.create(
+        {
+          full_name: 'Upper Case Id',
+          email: 'uppercase@example.com',
+          phone: '+8801755550000',
+          role: UserRole.TEACHER,
+        },
+        TENANT_ID,
+      );
+
+      const updated = await service.update(
+        user.id.toUpperCase(),
+        { email: 'uppercase@example.com', phone: '+8801755550000', full_name: 'Renamed Upper' },
+        TENANT_ID,
+      );
+
+      expect(updated.full_name).toBe('Renamed Upper');
     });
   });
 

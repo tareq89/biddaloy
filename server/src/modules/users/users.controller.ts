@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Throttle } from '@nestjs/throttler';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -28,6 +29,7 @@ import {
 import { UserResponseDto } from './dto/user-response.dto';
 import { TeacherListResponseDto, TeacherResponseDto } from './dto/teacher-response.dto';
 import { UserRole, JwtPayload } from '@biddaloy/shared';
+import { SETTINGS_RATE_LIMIT } from '../../rate-limit';
 
 @ApiTags('users')
 @ApiTenantAuth()
@@ -100,14 +102,19 @@ export class UserController {
    * KNOWN, ACCEPTED: the 409 this can return is an account-existence oracle
    * — `users.email`/`users.phone` are unique GLOBALLY, so a parent in one
    * school can learn whether an address belongs to an account in any other.
-   * It is not fixable here: the status code IS the signal the profile form
-   * needs, and login is already an oracle over the same column. This route
-   * therefore keeps the generous global default tier (100/60s) that every
-   * other CRUD write gets; `STRICT_RATE_LIMIT` is documented in
-   * `rate-limit.ts` as being for genuinely expensive endpoints, which a
-   * single-row profile write is not. [5.4a]
+   * The status code itself cannot be hidden: it IS the signal the profile
+   * form needs, and login is already an oracle over the same column.
+   *
+   * What can be limited is the RATE of probing, which is what makes an
+   * oracle worth attacking — one lookup is a nuisance, ten thousand is an
+   * account list. Hence `SETTINGS_RATE_LIMIT` (20/60s), the tier
+   * `rate-limit.ts` documents for exactly this shape: probing-sensitive but
+   * cheap. `STRICT_RATE_LIMIT` (5/60s) is reserved there for genuinely
+   * expensive endpoints, which a single-row profile write is not, and 5/60s
+   * would sit on top of a normal edit-and-fix-a-typo session. [5.4a]
    */
   @Patch('users/me')
+  @Throttle({ default: SETTINGS_RATE_LIMIT })
   @Roles(
     UserRole.ADMIN,
     UserRole.ACCOUNTANT,

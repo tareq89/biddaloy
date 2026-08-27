@@ -124,13 +124,36 @@ export class UserService {
   }
 
   async update(id: string, dto: UpdateUserDto, tenantId: string): Promise<User> {
-    await this.findOne(id, tenantId);
+    const current = await this.findOne(id, tenantId);
 
     // `''` means "clear this column" (a browser form submits a cleared input
     // that way). It must become a real NULL: `''` is a value as far as the
     // UNIQUE index is concerned, so storing it would let only one user ever
     // have a blank phone. [5.4a]
     const phone = dto.phone === '' ? null : dto.phone;
+
+    // Login-identifier invariant. `AuthService.validateUser` looks a caller up
+    // by email OR phone and nothing else, and there is no password-reset flow,
+    // so a user left with neither is permanently locked out of every school
+    // they belong to. `@IsOptional()` skips validation for `null`, so
+    // `{"email": null, "phone": null}` sails through the DTO — and `''` is
+    // normalized to NULL just above, so `{"phone": ""}` on a user with no
+    // email is the same hazard. Decide on the POST-UPDATE state: the DTO's
+    // values merged over the row as it stands. This lives in the service, not
+    // the controller, because admin `PATCH /users/:id` can do it just as
+    // easily as self-service `PATCH /users/me`. [5.4a]
+    // Scoped to updates that actually touch an identifier: a row that already
+    // has neither (users can be created without one — see `create()`) is not
+    // made any worse by a `full_name` edit, and blocking that would be
+    // collateral damage rather than protection.
+    const touchesIdentifier = dto.email !== undefined || dto.phone !== undefined;
+    const nextEmail = dto.email !== undefined ? dto.email : current.email;
+    const nextPhone = dto.phone !== undefined ? phone : current.phone;
+    if (touchesIdentifier && !nextEmail && !nextPhone) {
+      throw new BadRequestException(
+        'An account must keep at least one login identifier — set an email address or a phone number before clearing the other',
+      );
+    }
 
     // `email` and `phone` are globally unique (see User entity). Without a
     // pre-check the DB unique index surfaces as a raw 500 — tolerable when
@@ -144,7 +167,12 @@ export class UserService {
         where: { email: dto.email },
         withDeleted: true,
       });
-      if (existing && existing.id !== id) {
+      // Postgres `uuid` compares case-insensitively and `users/:id` carries no
+      // `ParseUUIDPipe`, so an uppercase route id must not make a user look
+      // like a different account from themselves — that would turn a resubmit
+      // of their own unchanged email into a spurious 409. Same guard, and the
+      // same reason, as `remove()` below.
+      if (existing && existing.id.toLowerCase() !== id.toLowerCase()) {
         throw new ConflictException('That email address is already in use');
       }
     }
@@ -153,7 +181,8 @@ export class UserService {
         where: { phone },
         withDeleted: true,
       });
-      if (existing && existing.id !== id) {
+      // See the case-folding note on the email pre-check above.
+      if (existing && existing.id.toLowerCase() !== id.toLowerCase()) {
         throw new ConflictException('That phone number is already in use');
       }
     }

@@ -2,6 +2,12 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { UserController } from './users.controller';
 import { UserService, TeacherService } from './users.service';
 import { UserRole } from '@biddaloy/shared';
+import { SETTINGS_RATE_LIMIT, STRICT_RATE_LIMIT } from '../../rate-limit';
+
+// @nestjs/throttler does not re-export these from its entrypoint; the values
+// are the ones `@Throttle()` writes (throttler.constants.ts).
+const THROTTLER_LIMIT = 'THROTTLER:LIMIT';
+const THROTTLER_TTL = 'THROTTLER:TTL';
 
 /**
  * Unit tests for UserController.
@@ -313,6 +319,36 @@ describe('UserController', () => {
           TENANT,
         ),
       ).rejects.toThrow(ConflictException);
+    });
+  });
+  // ────────────────────────
+  //  rate limiting
+  // ────────────────────────
+  describe('PATCH /users/me throttling', () => {
+    // The 409 this route returns is an account-existence oracle over a
+    // GLOBALLY unique column. The status code cannot be hidden — it is the
+    // signal the profile form needs — so the rate of probing is what has to
+    // be capped. SETTINGS_RATE_LIMIT (20/60s) is the documented tier for
+    // "probing-sensitive but cheap"; STRICT_RATE_LIMIT is reserved for
+    // genuinely expensive endpoints. Metadata is asserted rather than
+    // behaviour because app.module.ts skips throttling entirely when
+    // NODE_ENV === 'test'. [5.4a]
+    it('carries an explicit @Throttle of SETTINGS_RATE_LIMIT', () => {
+      const handler = UserController.prototype.updateMe;
+
+      expect(Reflect.getMetadata(`${THROTTLER_LIMIT}default`, handler)).toBe(
+        SETTINGS_RATE_LIMIT.limit,
+      );
+      expect(Reflect.getMetadata(`${THROTTLER_TTL}default`, handler)).toBe(SETTINGS_RATE_LIMIT.ttl);
+    });
+
+    it('uses the SETTINGS tier, not the STRICT tier reserved for expensive endpoints', () => {
+      const limit: unknown = Reflect.getMetadata(
+        `${THROTTLER_LIMIT}default`,
+        UserController.prototype.updateMe,
+      );
+      expect(limit).toBe(20);
+      expect(limit).not.toBe(STRICT_RATE_LIMIT.limit);
     });
   });
 });

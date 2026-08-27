@@ -390,13 +390,13 @@
     "semantic_hash": ""
   },
   "server/src/modules/users/dto/users.dto.ts": {
-    "mtime": 1787666797.2104588,
-    "ast_hash": "e2a4e9c4efce460457cc6dd7536c4cc3",
+    "mtime": 1787832333.7958982,
+    "ast_hash": "d3a8fd53c1853fd7c7b319f8b95903cb",
     "semantic_hash": ""
   },
   "server/src/modules/users/users.controller.ts": {
-    "mtime": 1787828819.3966596,
-    "ast_hash": "5dda3e59291885cbe4bcc34109fa41c2",
+    "mtime": 1787832998.1998775,
+    "ast_hash": "cbf021f9a3e93c880753a3afea4b9994",
     "semantic_hash": ""
   },
   "server/src/modules/users/users.module.ts": {
@@ -405,8 +405,8 @@
     "semantic_hash": "9e6ea1bd58d4fb6aea5b1f25512e0c89"
   },
   "server/src/modules/users/users.service.ts": {
-    "mtime": 1787828819.3969505,
-    "ast_hash": "a53408296f09afc31c85d4aa64ecc4b5",
+    "mtime": 1787832130.810434,
+    "ast_hash": "ea7669c51e4273420ad8849c5173ce67",
     "semantic_hash": ""
   },
   "server/src/app.controller.spec.ts": {
@@ -500,8 +500,8 @@
     "semantic_hash": ""
   },
   "server/src/modules/users/users.service.integration.spec.ts": {
-    "mtime": 1787829637.5375948,
-    "ast_hash": "1adb4828f1483a7f103e8eb27031519d",
+    "mtime": 1787832745.8943632,
+    "ast_hash": "aa3da70c8857a30a9cae1663cb4831ac",
     "semantic_hash": ""
   },
   "server/test/all-entities.ts": {
@@ -5050,8 +5050,8 @@
     "semantic_hash": ""
   },
   "server/src/self-service-profile.e2e-spec.ts": {
-    "mtime": 1787829637.4769793,
-    "ast_hash": "4baf4b0d4127e726c67357e9bd516289",
+    "mtime": 1787832745.8276362,
+    "ast_hash": "265f4ef3388fac972424b8b4f4131ad9",
     "semantic_hash": ""
   }
 }

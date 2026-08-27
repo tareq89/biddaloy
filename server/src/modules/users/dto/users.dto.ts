@@ -39,6 +39,7 @@ export class CreateUserDto {
   password?: string;
 
   @IsString()
+  @MaxLength(100)
   @SanitizeText()
   full_name: string;
 
@@ -67,13 +68,20 @@ export class UpdateUserDto {
   @Matches(BD_PHONE_REGEX, { message: 'Invalid phone format' })
   phone?: string | null;
 
+  // Length-pinned to the column widths (`full_name` varchar(100),
+  // `profile_picture_url` varchar(255)). Without these an over-long value
+  // reaches Postgres and comes back as a 22001 `string_data_right_truncation`
+  // — which `UserService.update` does not map (it only handles 23505), so
+  // the caller sees a 500 instead of a 400. [5.4a]
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   @SanitizeText()
   full_name?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(255)
   profile_picture_url?: string;
 }
 

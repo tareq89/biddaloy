@@ -90,7 +90,7 @@
     "semantic_hash": "bfb2c8ec23d7e8c8a10bee7d7588b9a4"
   },
   "server/src/modules/auth/auth.controller.ts": {
-    "mtime": 1787072022.5719416,
+    "mtime": 1787835527.3351665,
     "ast_hash": "e16e648b393be0376563d0ea2d2853d8",
     "semantic_hash": "e16e648b393be0376563d0ea2d2853d8"
   },
@@ -100,7 +100,7 @@
     "semantic_hash": "920f6f5285ad58e93a3d4500e1c3e85e"
   },
   "server/src/modules/auth/auth.service.ts": {
-    "mtime": 1787281674.8836522,
+    "mtime": 1787835527.336943,
     "ast_hash": "911cb8ff9aed2c59feffb5f6ea3ebe14",
     "semantic_hash": "911cb8ff9aed2c59feffb5f6ea3ebe14"
   },
@@ -365,8 +365,8 @@
     "semantic_hash": ""
   },
   "server/src/modules/students/dto/students.dto.ts": {
-    "mtime": 1787828836.45717,
-    "ast_hash": "2d6a272bdba1ec259598f8fea3743161",
+    "mtime": 1787836668.3354394,
+    "ast_hash": "cfc06e5dba10f942c7e6420ce3e4ab77",
     "semantic_hash": ""
   },
   "server/src/modules/students/entities/enrollment.entity.ts": {
@@ -390,13 +390,13 @@
     "semantic_hash": ""
   },
   "server/src/modules/users/dto/users.dto.ts": {
-    "mtime": 1787832333.7958982,
-    "ast_hash": "d3a8fd53c1853fd7c7b319f8b95903cb",
+    "mtime": 1787836668.335676,
+    "ast_hash": "df832cdffc64b1eef4e5037efdd461a5",
     "semantic_hash": ""
   },
   "server/src/modules/users/users.controller.ts": {
-    "mtime": 1787832998.1998775,
-    "ast_hash": "cbf021f9a3e93c880753a3afea4b9994",
+    "mtime": 1787836668.3360932,
+    "ast_hash": "99992aceefcbafb594867f4b40ef9b3b",
     "semantic_hash": ""
   },
   "server/src/modules/users/users.module.ts": {
@@ -405,8 +405,8 @@
     "semantic_hash": "9e6ea1bd58d4fb6aea5b1f25512e0c89"
   },
   "server/src/modules/users/users.service.ts": {
-    "mtime": 1787832130.810434,
-    "ast_hash": "ea7669c51e4273420ad8849c5173ce67",
+    "mtime": 1787836668.336528,
+    "ast_hash": "955f9327fb8970737e3f1e4cc59578f8",
     "semantic_hash": ""
   },
   "server/src/app.controller.spec.ts": {
@@ -435,12 +435,12 @@
     "semantic_hash": "ccb7b307c0e8c60ab8bfb55d50d36021"
   },
   "server/src/modules/auth/auth.e2e-spec.ts": {
-    "mtime": 1787072022.5724628,
+    "mtime": 1787835527.3360019,
     "ast_hash": "08ce988e678bf8b8d267af5820dd301a",
     "semantic_hash": "08ce988e678bf8b8d267af5820dd301a"
   },
   "server/src/modules/auth/auth.service.spec.ts": {
-    "mtime": 1787281674.8830724,
+    "mtime": 1787835527.3365061,
     "ast_hash": "05cb38d4e4a3eb0ad198061c0ce91055",
     "semantic_hash": "05cb38d4e4a3eb0ad198061c0ce91055"
   },
@@ -495,13 +495,13 @@
     "semantic_hash": ""
   },
   "server/src/modules/users/users.controller.spec.ts": {
-    "mtime": 1787666797.2112863,
-    "ast_hash": "d46e4338f6d919b64b2c000b80c208d6",
+    "mtime": 1787836668.3358772,
+    "ast_hash": "69ae25155f249ceb8116e0e28d05d5f3",
     "semantic_hash": ""
   },
   "server/src/modules/users/users.service.integration.spec.ts": {
-    "mtime": 1787832745.8943632,
-    "ast_hash": "aa3da70c8857a30a9cae1663cb4831ac",
+    "mtime": 1787836668.3363209,
+    "ast_hash": "4dae61cd180ddbf655de4911178209f7",
     "semantic_hash": ""
   },
   "server/test/all-entities.ts": {
@@ -600,7 +600,7 @@
     "semantic_hash": "e0abc624ed4c31a8795f3f5a79b72922"
   },
   "server/src/modules/auth/auth.controller.spec.ts": {
-    "mtime": 1785922616.133852,
+    "mtime": 1787835527.3344855,
     "ast_hash": "7b52142bb0299ff10f1af9be789feb0b",
     "semantic_hash": "7b52142bb0299ff10f1af9be789feb0b"
   },
@@ -1365,7 +1365,7 @@
     "semantic_hash": "c3596887c743adcb54a00e8bfb8c3e4c"
   },
   "server/src/route-guard-coverage.e2e-spec.ts": {
-    "mtime": 1785922616.1733181,
+    "mtime": 1787835527.3372283,
     "ast_hash": "952b6df72e7729deec9fde332676cb84",
     "semantic_hash": "952b6df72e7729deec9fde332676cb84"
   },
@@ -5052,6 +5052,16 @@
   "server/src/self-service-profile.e2e-spec.ts": {
     "mtime": 1787832745.8276362,
     "ast_hash": "265f4ef3388fac972424b8b4f4131ad9",
+    "semantic_hash": ""
+  },
+  "server/src/modules/students/dto/update-own-guardian.dto.spec.ts": {
+    "mtime": 1787836546.5582793,
+    "ast_hash": "aef3792dbbeaf6f1a8096ef8a2b06e00",
+    "semantic_hash": ""
+  },
+  "server/src/modules/users/dto/users.dto.spec.ts": {
+    "mtime": 1787836158.7682166,
+    "ast_hash": "43291e0f809aacc643090b548a2ca965",
     "semantic_hash": ""
   }
 }
