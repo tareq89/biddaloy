@@ -17,9 +17,11 @@ import { AuditAction, UserRole, UserStatus } from '@biddaloy/shared';
 // This must be before any imports of bcrypt
 vi.mock('bcrypt', () => {
   const mockCompare = vi.fn();
+  const mockHash = vi.fn();
   return {
-    default: { compare: mockCompare },
+    default: { compare: mockCompare, hash: mockHash },
     compare: mockCompare,
+    hash: mockHash,
   };
 });
 
@@ -573,6 +575,139 @@ describe('AuthService', () => {
           new_values: { scope: 'all_sessions' },
         }),
       );
+    });
+  });
+  describe('changePassword', () => {
+    const context = { ip: '1.2.3.4', userAgent: 'ua' };
+
+    beforeEach(() => {
+      mockUserTenantRepo.find.mockResolvedValue(mockMemberships);
+      (bcrypt.hash as any).mockResolvedValue('$2b$10$brand-new-hash');
+    });
+
+    it('rotates the hash, revokes other sessions, and issues a fresh family', async () => {
+      const user = { ...mockUser };
+      mockUserRepo.findOne.mockResolvedValue(user);
+      (bcrypt.compare as any).mockResolvedValue(true);
+
+      const result = await service.changePassword(
+        'user-1',
+        { current_password: 'password123', new_password: 'new-password' },
+        context,
+      );
+
+      // The new hash is what gets persisted — cost 10, matching UsersService.create.
+      expect(bcrypt.hash).toHaveBeenCalledWith('new-password', 10);
+      expect(mockUserRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'user-1', password_hash: '$2b$10$brand-new-hash' }),
+      );
+      // Every OTHER session dies...
+      expect(mockRefreshTokens.revokeAllForUser).toHaveBeenCalledWith('user-1');
+      // ...but the caller's own session survives: its jti is never denylisted,
+      // and it gets a brand new refresh-token family back.
+      expect(mockAccessTokenDenylist.revoke).not.toHaveBeenCalled();
+      expect(mockRefreshTokens.issueForUser).toHaveBeenCalledWith(
+        'user-1',
+        expect.any(String),
+        context,
+      );
+      expect(result.refreshToken).toEqual(mockIssuedRefreshToken);
+      expect(result.access_token).toBe('test-jwt-token');
+      expect(result.memberships).toEqual([
+        { tenantId: 'tenant-1', role: UserRole.ADMIN, name: 'Greenview School' },
+      ]);
+    });
+
+    it('audits the change as UPDATE with a password scope and no password material', async () => {
+      mockUserRepo.findOne.mockResolvedValue({ ...mockUser });
+      (bcrypt.compare as any).mockResolvedValue(true);
+
+      await service.changePassword(
+        'user-1',
+        { current_password: 'password123', new_password: 'new-password' },
+        context,
+      );
+
+      // AuditAction has no PASSWORD_CHANGED value and adding one needs an
+      // enum migration, so the row is UPDATE + a scope marker.
+      expect(mockAuditService.record).toHaveBeenCalledWith({
+        action: AuditAction.UPDATE,
+        entity_type: 'User',
+        entity_id: 'user-1',
+        tenant_id: 'tenant-1',
+        performed_by_user_id: 'user-1',
+        ip_address: '1.2.3.4',
+        user_agent: 'ua',
+        new_values: { scope: 'password' },
+      });
+      // Business-critical: no password, old or new, plain or hashed, may
+      // ever be written to an audit row.
+      const recorded = JSON.stringify(mockAuditService.record.mock.calls);
+      expect(recorded).not.toContain('new-password');
+      expect(recorded).not.toContain('password123');
+      expect(recorded).not.toContain('brand-new-hash');
+    });
+
+    it('rejects a wrong current password without touching the hash or the sessions', async () => {
+      const user = { ...mockUser };
+      mockUserRepo.findOne.mockResolvedValue(user);
+      (bcrypt.compare as any).mockResolvedValue(false);
+
+      await expect(
+        service.changePassword(
+          'user-1',
+          { current_password: 'wrong', new_password: 'new-password' },
+          context,
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+
+      expect(bcrypt.hash).not.toHaveBeenCalled();
+      expect(mockUserRepo.save).not.toHaveBeenCalled();
+      expect(mockRefreshTokens.revokeAllForUser).not.toHaveBeenCalled();
+      expect(user.password_hash).toBe(mockUser.password_hash);
+    });
+
+    it('rejects a user whose password_hash is null, even if bcrypt.compare says yes', async () => {
+      // Accounts created without a password (bulk guardian upload) compare
+      // against the dummy hash; a truthy compare must still not let them
+      // set a password through this endpoint.
+      mockUserRepo.findOne.mockResolvedValue({ ...mockUser, password_hash: null });
+      (bcrypt.compare as any).mockResolvedValue(true);
+
+      await expect(
+        service.changePassword(
+          'user-1',
+          { current_password: 'anything', new_password: 'new-password' },
+          context,
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(mockUserRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('rejects a non-ACTIVE user holding a still-valid access token', async () => {
+      mockUserRepo.findOne.mockResolvedValue({ ...mockUser, status: UserStatus.INACTIVE });
+      (bcrypt.compare as any).mockResolvedValue(true);
+
+      await expect(
+        service.changePassword(
+          'user-1',
+          { current_password: 'password123', new_password: 'new-password' },
+          context,
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(mockRefreshTokens.revokeAllForUser).not.toHaveBeenCalled();
+    });
+
+    it('rejects an unknown user id', async () => {
+      mockUserRepo.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.changePassword(
+          'ghost',
+          { current_password: 'password123', new_password: 'new-password' },
+          context,
+        ),
+      ).rejects.toThrow(UnauthorizedException);
     });
   });
 });

@@ -49,6 +49,11 @@ describe('AuthController', () => {
       }),
       logout: vi.fn().mockResolvedValue(undefined),
       logoutAll: vi.fn().mockResolvedValue(undefined),
+      changePassword: vi.fn().mockResolvedValue({
+        access_token: 'post-change-jwt-token',
+        memberships: [],
+        refreshToken: mockIssuedRefreshToken,
+      }),
     };
     controller = new AuthController(mockAuthService as AuthService);
   });
@@ -167,6 +172,35 @@ describe('AuthController', () => {
         expect.anything(),
       );
       expect(response.clearCookie).toHaveBeenCalled();
+    });
+  });
+  describe('changePassword', () => {
+    it('acts on the verified caller, sets the fresh cookie, and returns a LoginResponse', async () => {
+      const response = fakeResponse();
+      const request = fakeRequest({ user: { sub: 'user-1', jti: 'jti-123', memberships: [] } });
+
+      const result = await controller.changePassword(
+        { current_password: 'old-pass', new_password: 'new-pass' } as any,
+        request,
+        response as any,
+      );
+
+      // The user id comes from the verified token, never from the body —
+      // this is what makes changing someone else's password impossible.
+      expect(mockAuthService.changePassword).toHaveBeenCalledWith(
+        'user-1',
+        { current_password: 'old-pass', new_password: 'new-pass' },
+        { ip: '127.0.0.1', userAgent: 'test-agent' },
+      );
+      // The caller stays signed in: a new refresh cookie is set, not cleared.
+      expect(response.cookie).toHaveBeenCalledWith(
+        REFRESH_TOKEN_COOKIE,
+        'token-id.secret',
+        expect.objectContaining({ httpOnly: true }),
+      );
+      expect(response.clearCookie).not.toHaveBeenCalled();
+      expect(result.access_token).toBe('post-change-jwt-token');
+      expect(result).not.toHaveProperty('refreshToken');
     });
   });
 });

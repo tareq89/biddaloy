@@ -15,6 +15,7 @@ import { ApiOperation, ApiTags, ApiUnauthorizedResponse, ApiBearerAuth } from '@
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginResponse, JwtPayload } from '@biddaloy/shared';
 import { STRICT_RATE_LIMIT } from '../../rate-limit';
 import {
@@ -107,6 +108,45 @@ export class AuthController {
     const user = request.user as JwtPayload;
     await this.authService.logoutAll(user.sub, user.jti, requestContext(request));
     response.clearCookie(REFRESH_TOKEN_COOKIE, buildRefreshTokenClearCookieOptions());
+  }
+
+  /**
+   * Changes the authenticated caller's own password.
+   *
+   * Revocation contract: on success **every other session is revoked** —
+   * refresh tokens for this user are dead everywhere. The caller's own
+   * access token is deliberately *not* denylisted, and the response carries
+   * a freshly issued refresh-token family, so the device that made the
+   * change stays signed in. Someone changing a password over a feared
+   * compromise wants the attacker signed out, not themselves.
+   *
+   * The route takes no user id from the client — it always acts on
+   * `JwtPayload.sub` — so changing another user's password is impossible by
+   * construction, and `forbidNonWhitelisted` turns a smuggled `user_id`
+   * field into a 400.
+   */
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: STRICT_RATE_LIMIT })
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth('bearer')
+  @ApiOperation({
+    summary:
+      "Change the caller's own password. Revokes every other session; the current one stays signed in.",
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing/invalid access token, or a wrong current password.',
+  })
+  async changePassword(
+    @Body() dto: ChangePasswordDto,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<LoginResponse> {
+    const user = request.user as JwtPayload;
+    const result = await this.authService.changePassword(user.sub, dto, requestContext(request));
+
+    this.setRefreshCookie(response, result.refreshToken);
+    return { access_token: result.access_token, memberships: result.memberships };
   }
 
   private setRefreshCookie(
