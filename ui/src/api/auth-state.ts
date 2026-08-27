@@ -7,6 +7,7 @@
  * back these setters with a real store without changing this module's
  * public surface.
  */
+import { clearApiCache } from './sw-cache';
 import { clearPersistedTenant } from './tenant-storage';
 
 let accessToken: string | null = null;
@@ -55,6 +56,15 @@ export function getAccessToken(): string | null {
 }
 
 export function setActiveTenant(tenantId: string | null): void {
+  // [8.12.1]: a mid-session tenant switch invalidates every API response
+  // the service worker cached for the tenant we're leaving. Guarded on an
+  // actual change *away from a real tenant* so the common cases — the
+  // cold-boot restore setting the first tenant, or a re-set to the same
+  // id — don't throw away a cache that is still correct. See
+  // `sw-cache.ts` for why this is belt-and-braces with the cache key.
+  if (activeTenantId !== null && activeTenantId !== tenantId) {
+    clearApiCache();
+  }
   activeTenantId = tenantId;
   notifyAuthStateChange();
 }
@@ -87,6 +97,10 @@ export function clearAuthState(): void {
   // this, [8.9.5]'s cold-boot restore could silently pick a tenant the new
   // user happens to also belong to, one they never actually chose.
   clearPersistedTenant();
+  // [8.12.1]: unconditional, unlike the switch above — logout and session
+  // expiry both land here, and the next person at this browser must not
+  // be able to read the previous session's data out of the offline cache.
+  clearApiCache();
   notifyAuthStateChange();
 }
 

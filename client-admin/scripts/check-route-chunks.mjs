@@ -167,7 +167,32 @@ const EXPECTED_ROUTE_CHUNKS = [
  * into the entry by `useStudents`, so adding exports to it grows the entry
  * rather than a route chunk, exactly as [8.11.10]'s audit-logs hook did.
  */
-const ENTRY_CHUNK_GZIP_CEILING_BYTES = 225_000;
+/**
+ * Raised for [8.12.1]: 225,734 B gzipped measured against a 224,975 B base
+ * on the same branch point — 759 B of growth.
+ *
+ * Unlike every bump above, this one is not route bookkeeping. It is the
+ * offline UI itself: `OfflineState` and its `WifiOff` glyph
+ * (`@biddaloy/ui/components`) plus `RouteErrorFallback`'s connectivity
+ * fork, all reachable from `main.tsx`'s `defaultErrorComponent` and
+ * therefore in the entry by construction. That is the point — the
+ * component that renders when nothing else can load cannot itself live in
+ * a chunk that has to be fetched.
+ *
+ * `workbox-window` is deliberately *not* in this number:
+ * `src/pwa/register.ts` reaches `virtual:pwa-register` through a dynamic
+ * `import()`, so its ~4 KB splits into its own chunk instead. A static
+ * import there costs ~290 B in the entry and was measured before being
+ * rejected.
+ *
+ * Set with ~1.2 KB of deliberate headroom rather than the ~25 B the
+ * previous value happened to leave. A ceiling a hair above the current
+ * measurement fails the *next* unrelated change, and that failure reads
+ * as "your PR broke the bundle budget" to whoever trips it rather than
+ * "the budget was never given room". Headroom is the point of a budget;
+ * a tripwire is not.
+ */
+const ENTRY_CHUNK_GZIP_CEILING_BYTES = 227_000;
 
 /** The entry is whatever `index.html` loads as its module script — asked
  * of the build output rather than guessed from a filename pattern, which

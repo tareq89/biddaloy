@@ -148,6 +148,7 @@ export { BottomNav, type BottomNavProps } from './bottom-nav';
 export { EmptyState, type EmptyStateProps } from './empty-state';
 export { StudentPicker, type StudentPickerProps, type StudentPickerItem } from './student-picker';
 export { ErrorState, type ErrorStateProps } from './error-state';
+export { OfflineState, type OfflineStateProps } from './offline-state';
 export {
   Popover,
   PopoverAnchor,
