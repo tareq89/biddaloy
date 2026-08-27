@@ -64,7 +64,7 @@
     "@tailwindcss/vite": "^4",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@vitejs/plugin-react": "^4",
+    "@vitejs/plugin-react": "^6",
     "axios-mock-adapter": "^2.1.0",
     "eslint-plugin-storybook": "^10",
     "fake-indexeddb": "^6.2.5",
