@@ -893,6 +893,15 @@ describe('GuardianService (integration)', () => {
       await guardianRepo.softDelete({ id: guardian.id });
 
       await expect(service.findOwn(OWNER_USER_ID, TENANT_ID)).rejects.toThrow(NotFoundException);
+
+      // The row is still there — `findOwn` skipped it because `deleted_at` is
+      // set, not because the delete was a hard one.
+      const softDeleted = await guardianRepo.findOne({
+        where: { id: guardian.id },
+        withDeleted: true,
+      });
+      expect(softDeleted).not.toBeNull();
+      expect(softDeleted?.deleted_at).not.toBeNull();
     });
 
     it('findOwn throws for a user with no guardian row', async () => {
