@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -648,18 +648,28 @@ describe('AuthService', () => {
       expect(recorded).not.toContain('brand-new-hash');
     });
 
-    it('rejects a wrong current password without touching the hash or the sessions', async () => {
+    it('rejects a wrong current password with 403, NOT 401, and leaves everything alone', async () => {
       const user = { ...mockUser };
       mockUserRepo.findOne.mockResolvedValue(user);
       (bcrypt.compare as any).mockResolvedValue(false);
 
-      await expect(
-        service.changePassword(
+      const thrown = await service
+        .changePassword(
           'user-1',
           { current_password: 'wrong', new_password: 'new-password' },
           context,
-        ),
-      ).rejects.toThrow(UnauthorizedException);
+        )
+        .then(
+          () => null,
+          (error: unknown) => error,
+        );
+
+      // Regression guard: 401 here makes the shared frontend axios client
+      // refresh-and-replay the request, silently double-spending the route's
+      // 5/60s strict budget on one typo and risking a logout mid-form.
+      expect(thrown).toBeInstanceOf(ForbiddenException);
+      expect(thrown).not.toBeInstanceOf(UnauthorizedException);
+      expect((thrown as ForbiddenException).getStatus()).toBe(403);
 
       expect(bcrypt.hash).not.toHaveBeenCalled();
       expect(mockUserRepo.save).not.toHaveBeenCalled();
@@ -680,7 +690,7 @@ describe('AuthService', () => {
           { current_password: 'anything', new_password: 'new-password' },
           context,
         ),
-      ).rejects.toThrow(UnauthorizedException);
+      ).rejects.toThrow(ForbiddenException);
       expect(mockUserRepo.save).not.toHaveBeenCalled();
     });
 
@@ -708,6 +718,60 @@ describe('AuthService', () => {
           context,
         ),
       ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('clears the login lockout for every identifier the user has', async () => {
+      // The user forgot their password, got locked out at /auth/login, and is
+      // now changing it from a still-live session in another tab. Without the
+      // reset the NEW password keeps being rejected as "Invalid credentials"
+      // for the rest of the lockout window.
+      mockUserRepo.findOne.mockResolvedValue({
+        ...mockUser,
+        email: 'Admin@Test.com ',
+        phone: '+8801711111111',
+      });
+      (bcrypt.compare as any).mockResolvedValue(true);
+
+      await service.changePassword(
+        'user-1',
+        { current_password: 'password123', new_password: 'new-password' },
+        context,
+      );
+
+      // Keyed by the NORMALIZED identifier, exactly as login() does it, and
+      // for BOTH identifiers — either one could hold the lockout.
+      expect(mockLoginAttempts.reset).toHaveBeenCalledWith('admin@test.com');
+      expect(mockLoginAttempts.reset).toHaveBeenCalledWith('+8801711111111');
+      expect(mockLoginAttempts.reset).toHaveBeenCalledTimes(2);
+    });
+
+    it('resets only the identifiers that exist (no null/empty keys)', async () => {
+      mockUserRepo.findOne.mockResolvedValue({ ...mockUser, phone: null });
+      (bcrypt.compare as any).mockResolvedValue(true);
+
+      await service.changePassword(
+        'user-1',
+        { current_password: 'password123', new_password: 'new-password' },
+        context,
+      );
+
+      expect(mockLoginAttempts.reset).toHaveBeenCalledTimes(1);
+      expect(mockLoginAttempts.reset).toHaveBeenCalledWith('admin@test.com');
+    });
+
+    it('does not clear the lockout when the current password is wrong', async () => {
+      mockUserRepo.findOne.mockResolvedValue({ ...mockUser });
+      (bcrypt.compare as any).mockResolvedValue(false);
+
+      await expect(
+        service.changePassword(
+          'user-1',
+          { current_password: 'wrong', new_password: 'new-password' },
+          context,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockLoginAttempts.reset).not.toHaveBeenCalled();
     });
   });
 });

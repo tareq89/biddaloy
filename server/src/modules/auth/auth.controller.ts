@@ -11,7 +11,13 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
-import { ApiOperation, ApiTags, ApiUnauthorizedResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+  ApiForbiddenResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -113,12 +119,22 @@ export class AuthController {
   /**
    * Changes the authenticated caller's own password.
    *
-   * Revocation contract: on success **every other session is revoked** —
-   * refresh tokens for this user are dead everywhere. The caller's own
-   * access token is deliberately *not* denylisted, and the response carries
-   * a freshly issued refresh-token family, so the device that made the
-   * change stays signed in. Someone changing a password over a feared
-   * compromise wants the attacker signed out, not themselves.
+   * Revocation contract: on success **every refresh token for this user is
+   * revoked** — no other device can renew a session, and the response carries
+   * a freshly issued refresh-token family so the device that made the change
+   * stays signed in. Note what this does *not* do: already-issued access
+   * tokens on other devices keep working until they expire on their own (up
+   * to ~15 minutes), so other sessions are cut off at their next refresh, not
+   * instantly. Only the caller's own `jti` is knowable here and there is no
+   * per-user "issued before" cutoff, so there is nothing to denylist the
+   * others with. The caller's own access token is deliberately not denylisted
+   * either — someone changing a password over a feared compromise wants the
+   * attacker signed out, not themselves.
+   *
+   * A wrong `current_password` is a **403**, never a 401: the shared frontend
+   * client silently refreshes and replays 401s, which would double-spend this
+   * route's strict rate limit on a single typo. 401 here means the access
+   * token is missing, invalid, or belongs to a non-active user.
    *
    * The route takes no user id from the client — it always acts on
    * `JwtPayload.sub` — so changing another user's password is impossible by
@@ -131,12 +147,17 @@ export class AuthController {
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth('bearer')
   @ApiOperation({
-    summary:
-      "Change the caller's own password. Revokes every other session; the current one stays signed in.",
+    summary: "Change the caller's own password.",
+    description:
+      'Revokes every refresh token for the caller and issues a fresh one, so the calling device ' +
+      'stays signed in while no other device can renew its session. Access tokens already issued ' +
+      'to other devices are NOT revoked — those sessions keep working until their token expires ' +
+      '(up to ~15 minutes), then cannot refresh.',
   })
   @ApiUnauthorizedResponse({
-    description: 'Missing/invalid access token, or a wrong current password.',
+    description: 'Missing or invalid access token, or the account is not active.',
   })
+  @ApiForbiddenResponse({ description: 'The supplied current_password is incorrect.' })
   async changePassword(
     @Body() dto: ChangePasswordDto,
     @Req() request: Request,

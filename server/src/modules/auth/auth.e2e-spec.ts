@@ -467,14 +467,19 @@ describe('Auth E2E', () => {
         .expect(200);
     });
 
-    it('returns 401 for a wrong current password and leaves the old one working', async () => {
+    // 403 and not 401 on purpose: the shared frontend axios client
+    // (ui/src/api/client.ts) refreshes and REPLAYS any 401 once, so a 401 here
+    // would turn a single password typo into two requests against this route's
+    // 5/60s strict limit — and log the user out mid-form if the refresh failed.
+    it('returns 403 for a wrong current password and leaves the old one working', async () => {
       const loginRes = await loginAsChanger(ORIGINAL_PASSWORD);
 
-      await supertest(app.getHttpServer())
+      const res = await supertest(app.getHttpServer())
         .post('/api/v1/auth/change-password')
         .set('Authorization', `Bearer ${loginRes.body.access_token}`)
         .send({ current_password: 'not-the-current-password', new_password: NEW_PASSWORD })
-        .expect(401);
+        .expect(403);
+      expect(res.body.statusCode).toBe(403);
 
       await loginAsChanger(ORIGINAL_PASSWORD);
     });

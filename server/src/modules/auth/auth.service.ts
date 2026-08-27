@@ -1,4 +1,10 @@
-import { Injectable, UnauthorizedException, Inject, Optional } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ForbiddenException,
+  Inject,
+  Optional,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -296,7 +302,16 @@ export class AuthService {
       user.password_hash ?? DUMMY_PASSWORD_HASH,
     );
     if (!user.password_hash || !currentMatches) {
-      throw new UnauthorizedException('Invalid credentials');
+      // 403, deliberately NOT 401. The shared frontend axios client
+      // (ui/src/api/client.ts) treats any 401 as an expired access token: it
+      // silently refreshes and REPLAYS the request exactly once. A single
+      // mistyped current password would therefore cost two of this route's
+      // five-per-minute budget, and a refresh leg that failed for any reason
+      // would clear auth state and sign the user out mid-form. 401 on this
+      // endpoint must mean "your token is bad" and nothing else; a wrong
+      // `current_password` is an authenticated caller being refused, which is
+      // what 403 is for. The client does not replay 403.
+      throw new ForbiddenException('Current password is incorrect');
     }
 
     user.password_hash = await bcrypt.hash(dto.new_password, BCRYPT_COST);
@@ -305,6 +320,18 @@ export class AuthService {
     await this.refreshTokens.revokeAllForUser(userId);
     // Intentionally NO this.accessTokenDenylist.revoke(...) here — see the
     // session semantics in this method's doc comment.
+
+    // Clear any login lockout the *old* password earned. Without this, a user
+    // who forgot their password, failed login five times, and then changed it
+    // from a still-live session in another tab would keep being rejected at
+    // /auth/login with a generic "Invalid credentials" for the rest of the
+    // lockout window — with the new, correct password. `login()` resets on
+    // success for the same reason.
+    //
+    // The lockout is keyed by normalized identifier and a user may hold both
+    // an email and a phone, either of which they could have been locked out
+    // on, so every identifier this user actually has gets reset — not just one.
+    await this.resetLoginLockouts(user);
 
     const membershipPayload = await this.fetchMembershipPayload(userId);
 
@@ -333,6 +360,13 @@ export class AuthService {
       memberships: membershipPayload,
       refreshToken,
     };
+  }
+
+  private async resetLoginLockouts(user: User): Promise<void> {
+    const identifiers = [user.email, user.phone]
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      .map(normalizeLoginIdentifier);
+    await Promise.all(identifiers.map((identifier) => this.loginAttempts.reset(identifier)));
   }
 
   private async fetchMembershipPayload(userId: string): Promise<JwtMembership[]> {
