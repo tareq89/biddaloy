@@ -79,6 +79,7 @@ describe('AuthService', () => {
     mockUserRepo = {
       findOne: vi.fn(),
       save: vi.fn(),
+      update: vi.fn(),
     };
     mockUserTenantRepo = {
       find: vi.fn(),
@@ -598,8 +599,9 @@ describe('AuthService', () => {
 
       // The new hash is what gets persisted — cost 10, matching UsersService.create.
       expect(bcrypt.hash).toHaveBeenCalledWith('new-password', 10);
-      expect(mockUserRepo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'user-1', password_hash: '$2b$10$brand-new-hash' }),
+      expect(mockUserRepo.update).toHaveBeenCalledWith(
+        { id: 'user-1' },
+        expect.objectContaining({ password_hash: '$2b$10$brand-new-hash' }),
       );
       // Every OTHER session dies...
       expect(mockRefreshTokens.revokeAllForUser).toHaveBeenCalledWith('user-1');
@@ -616,6 +618,26 @@ describe('AuthService', () => {
       expect(result.memberships).toEqual([
         { tenantId: 'tenant-1', role: UserRole.ADMIN, name: 'Greenview School' },
       ]);
+    });
+
+    it('never puts the new hash on the entity it signs the access token from', async () => {
+      // The loaded `user` is reused to sign the access token and, in the
+      // controller, to set the refresh cookie. Writing the new hash to the
+      // column instead of onto that object keeps password material out of
+      // scope on the token path entirely — CodeQL flagged the mutate-then-
+      // reuse shape as clear-text storage of sensitive data. [5.4b]
+      const loaded = { ...mockUser };
+      mockUserRepo.findOne.mockResolvedValue(loaded);
+      (bcrypt.compare as any).mockResolvedValue(true);
+
+      await service.changePassword(
+        'user-1',
+        { current_password: 'password123', new_password: 'new-password' },
+        context,
+      );
+
+      expect(loaded.password_hash).toBe(mockUser.password_hash);
+      expect(mockUserRepo.save).not.toHaveBeenCalled();
     });
 
     it('audits the change as UPDATE with a password scope and no password material', async () => {
@@ -672,6 +694,7 @@ describe('AuthService', () => {
       expect((thrown as ForbiddenException).getStatus()).toBe(403);
 
       expect(bcrypt.hash).not.toHaveBeenCalled();
+      expect(mockUserRepo.update).not.toHaveBeenCalled();
       expect(mockUserRepo.save).not.toHaveBeenCalled();
       expect(mockRefreshTokens.revokeAllForUser).not.toHaveBeenCalled();
       expect(user.password_hash).toBe(mockUser.password_hash);
@@ -691,6 +714,7 @@ describe('AuthService', () => {
           context,
         ),
       ).rejects.toThrow(ForbiddenException);
+      expect(mockUserRepo.update).not.toHaveBeenCalled();
       expect(mockUserRepo.save).not.toHaveBeenCalled();
     });
 

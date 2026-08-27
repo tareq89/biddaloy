@@ -314,8 +314,15 @@ export class AuthService {
       throw new ForbiddenException('Current password is incorrect');
     }
 
-    user.password_hash = await bcrypt.hash(dto.new_password, BCRYPT_COST);
-    await this.userRepository.save(user);
+    // Write the new hash straight to the column rather than mutating the
+    // loaded entity. `user` is reused below — to reset lockouts and to sign
+    // the access token — and neither needs the password, so keeping the new
+    // hash off that object means no password material is ever in scope on
+    // the path that produces the token and the refresh cookie. A targeted
+    // update also avoids `save()` writing back every column that was read at
+    // the top of this method.
+    const password_hash = await bcrypt.hash(dto.new_password, BCRYPT_COST);
+    await this.userRepository.update({ id: user.id }, { password_hash });
 
     await this.refreshTokens.revokeAllForUser(userId);
     // Intentionally NO this.accessTokenDenylist.revoke(...) here — see the
