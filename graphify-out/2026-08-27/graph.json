@@ -933,7 +933,7 @@
       "label": "readEntryChunkName()",
       "file_type": "code",
       "source_file": "client-admin/scripts/check-route-chunks.mjs",
-      "source_location": "L155",
+      "source_location": "L175",
       "_origin": "ast",
       "id": "client_admin_scripts_check_route_chunks_readentrychunkname",
       "community": 195,
@@ -14086,8 +14086,8 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "server_package_dependencies_bcrypt",
-      "community": 44,
-      "community_name": "dependencies",
+      "community": 216,
+      "community_name": "bcrypt",
       "norm_label": "bcrypt"
     },
     {
@@ -14097,8 +14097,8 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "bcrypt",
-      "community": 44,
-      "community_name": "dependencies",
+      "community": 216,
+      "community_name": "bcrypt",
       "norm_label": "bcrypt"
     },
     {
@@ -14152,8 +14152,8 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "server_package_dependencies_class_validator",
-      "community": 241,
-      "community_name": "@vitest/coverage-v8",
+      "community": 44,
+      "community_name": "dependencies",
       "norm_label": "class-validator"
     },
     {
@@ -14163,8 +14163,8 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "class_validator",
-      "community": 241,
-      "community_name": "@vitest/coverage-v8",
+      "community": 44,
+      "community_name": "dependencies",
       "norm_label": "class-validator"
     },
     {
@@ -21137,8 +21137,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_service",
-      "community": 8,
-      "community_name": "classes.ts",
+      "community": 2,
+      "community_name": "ClassController",
       "norm_label": "classes.service.ts"
     },
     {
@@ -21148,8 +21148,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_service_classsectionwithcount",
-      "community": 8,
-      "community_name": "classes.ts",
+      "community": 2,
+      "community_name": "ClassController",
       "norm_label": "classsectionwithcount"
     },
     {
@@ -21159,8 +21159,8 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_service_classwithcounts",
-      "community": 8,
-      "community_name": "classes.ts",
+      "community": 2,
+      "community_name": "ClassController",
       "norm_label": "classwithcounts"
     },
     {
@@ -21170,8 +21170,8 @@
       "source_location": "L39",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_service_classteacher",
-      "community": 8,
-      "community_name": "classes.ts",
+      "community": 2,
+      "community_name": "ClassController",
       "norm_label": "classteacher"
     },
     {
@@ -21203,8 +21203,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_service_ts_injectrepository",
-      "community": 8,
-      "community_name": "classes.ts",
+      "community": 215,
+      "community_name": "Student",
       "norm_label": "injectrepository"
     },
     {
@@ -21214,8 +21214,8 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_service_classservice_constructor",
-      "community": 8,
-      "community_name": "classes.ts",
+      "community": 215,
+      "community_name": "Student",
       "norm_label": ".constructor()"
     },
     {
@@ -21280,8 +21280,8 @@
       "source_location": "L207",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_service_sectionservice",
-      "community": 8,
-      "community_name": "classes.ts",
+      "community": 215,
+      "community_name": "Student",
       "norm_label": "sectionservice"
     },
     {
@@ -21291,8 +21291,8 @@
       "source_location": "L208",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_service_sectionservice_constructor",
-      "community": 8,
-      "community_name": "classes.ts",
+      "community": 215,
+      "community_name": "Student",
       "norm_label": ".constructor()"
     },
     {
@@ -21302,8 +21302,8 @@
       "source_location": "L219",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_service_sectionservice_create",
-      "community": 8,
-      "community_name": "classes.ts",
+      "community": 215,
+      "community_name": "Student",
       "norm_label": ".create()"
     },
     {
@@ -21335,8 +21335,8 @@
       "source_location": "L333",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_service_sectionservice_update",
-      "community": 8,
-      "community_name": "classes.ts",
+      "community": 215,
+      "community_name": "Student",
       "norm_label": ".update()"
     },
     {
@@ -27528,8 +27528,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_fees_fee_dues_service_ts_injectrepository",
-      "community": 121,
-      "community_name": "FeeDuesService",
+      "community": 215,
+      "community_name": "Student",
       "norm_label": "injectrepository"
     },
     {
@@ -27539,8 +27539,8 @@
       "source_location": "L90",
       "_origin": "ast",
       "id": "server_src_modules_fees_fee_dues_service_feeduesservice_constructor",
-      "community": 121,
-      "community_name": "FeeDuesService",
+      "community": 215,
+      "community_name": "Student",
       "norm_label": ".constructor()"
     },
     {
@@ -32643,8 +32643,8 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "server_src_modules_students_entities_student_entity_student",
-      "community": 121,
-      "community_name": "FeeDuesService",
+      "community": 215,
+      "community_name": "Student",
       "norm_label": "student"
     },
     {
@@ -32654,8 +32654,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_students_entities_student_entity_ts_entity",
-      "community": 121,
-      "community_name": "FeeDuesService",
+      "community": 215,
+      "community_name": "Student",
       "norm_label": "entity"
     },
     {
@@ -32665,8 +32665,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_students_entities_student_entity_ts_index",
-      "community": 121,
-      "community_name": "FeeDuesService",
+      "community": 215,
+      "community_name": "Student",
       "norm_label": "index"
     },
     {
@@ -32676,8 +32676,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_students_entities_student_entity_ts_primarygeneratedcolumn",
-      "community": 121,
-      "community_name": "FeeDuesService",
+      "community": 215,
+      "community_name": "Student",
       "norm_label": "primarygeneratedcolumn"
     },
     {
@@ -32687,8 +32687,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_students_entities_student_entity_ts_onetoone",
-      "community": 121,
-      "community_name": "FeeDuesService",
+      "community": 215,
+      "community_name": "Student",
       "norm_label": "onetoone"
     },
     {
@@ -32698,8 +32698,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_students_entities_student_entity_ts_joincolumn",
-      "community": 121,
-      "community_name": "FeeDuesService",
+      "community": 215,
+      "community_name": "Student",
       "norm_label": "joincolumn"
     },
     {
@@ -32709,8 +32709,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_students_entities_student_entity_ts_column",
-      "community": 121,
-      "community_name": "FeeDuesService",
+      "community": 215,
+      "community_name": "Student",
       "norm_label": "column"
     },
     {
@@ -32720,8 +32720,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_students_entities_student_entity_ts_manytoone",
-      "community": 121,
-      "community_name": "FeeDuesService",
+      "community": 215,
+      "community_name": "Student",
       "norm_label": "manytoone"
     },
     {
@@ -32731,8 +32731,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_students_entities_student_entity_ts_manytomany",
-      "community": 121,
-      "community_name": "FeeDuesService",
+      "community": 215,
+      "community_name": "Student",
       "norm_label": "manytomany"
     },
     {
@@ -32742,8 +32742,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "jointable",
-      "community": 121,
-      "community_name": "FeeDuesService",
+      "community": 215,
+      "community_name": "Student",
       "norm_label": "jointable"
     },
     {
@@ -32753,8 +32753,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_students_entities_student_entity_ts_createdatecolumn",
-      "community": 121,
-      "community_name": "FeeDuesService",
+      "community": 215,
+      "community_name": "Student",
       "norm_label": "createdatecolumn"
     },
     {
@@ -32764,8 +32764,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_students_entities_student_entity_ts_updatedatecolumn",
-      "community": 121,
-      "community_name": "FeeDuesService",
+      "community": 215,
+      "community_name": "Student",
       "norm_label": "updatedatecolumn"
     },
     {
@@ -32775,8 +32775,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_students_entities_student_entity_ts_deletedatecolumn",
-      "community": 121,
-      "community_name": "FeeDuesService",
+      "community": 215,
+      "community_name": "Student",
       "norm_label": "deletedatecolumn"
     },
     {
@@ -32819,8 +32819,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_students_family_access_service_spec",
-      "community": 121,
-      "community_name": "FeeDuesService",
+      "community": 215,
+      "community_name": "Student",
       "norm_label": "family-access.service.spec.ts"
     },
     {
@@ -32830,8 +32830,8 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "server_src_modules_students_family_access_service_spec_createquerybuilderstub",
-      "community": 121,
-      "community_name": "FeeDuesService",
+      "community": 215,
+      "community_name": "Student",
       "norm_label": "createquerybuilderstub()"
     },
     {
@@ -32841,8 +32841,8 @@
       "source_location": "L58",
       "_origin": "ast",
       "id": "server_src_modules_students_family_access_service_spec_build",
-      "community": 121,
-      "community_name": "FeeDuesService",
+      "community": 215,
+      "community_name": "Student",
       "norm_label": "build()"
     },
     {
@@ -32852,8 +32852,8 @@
       "source_location": "L70",
       "_origin": "ast",
       "id": "server_src_modules_students_family_access_service_spec_sql",
-      "community": 121,
-      "community_name": "FeeDuesService",
+      "community": 215,
+      "community_name": "Student",
       "norm_label": "sql()"
     },
     {
@@ -32863,8 +32863,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_students_family_access_service",
-      "community": 121,
-      "community_name": "FeeDuesService",
+      "community": 215,
+      "community_name": "Student",
       "norm_label": "family-access.service.ts"
     },
     {
@@ -32973,8 +32973,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_students_roll_number_util_spec",
-      "community": 121,
-      "community_name": "FeeDuesService",
+      "community": 215,
+      "community_name": "Student",
       "norm_label": "roll-number.util.spec.ts"
     },
     {
@@ -32984,8 +32984,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "server_src_modules_students_roll_number_util_spec_buildmanager",
-      "community": 121,
-      "community_name": "FeeDuesService",
+      "community": 215,
+      "community_name": "Student",
       "norm_label": "buildmanager()"
     },
     {
@@ -32995,8 +32995,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_students_roll_number_util",
-      "community": 121,
-      "community_name": "FeeDuesService",
+      "community": 215,
+      "community_name": "Student",
       "norm_label": "roll-number.util.ts"
     },
     {
@@ -33006,8 +33006,8 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "server_src_modules_students_roll_number_util_nextrollnumber",
-      "community": 121,
-      "community_name": "FeeDuesService",
+      "community": 215,
+      "community_name": "Student",
       "norm_label": "nextrollnumber()"
     },
     {
@@ -39111,8 +39111,8 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "ui_package_dependencies_biddaloy_shared",
-      "community": 259,
-      "community_name": "open",
+      "community": 35,
+      "community_name": "dependencies",
       "norm_label": "@biddaloy/shared"
     },
     {
@@ -39122,8 +39122,8 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "ui_package_json_biddaloy_shared",
-      "community": 259,
-      "community_name": "open",
+      "community": 35,
+      "community_name": "dependencies",
       "norm_label": "@biddaloy/shared"
     },
     {
@@ -39199,8 +39199,8 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "ui_package_dependencies_tanstack_react_table",
-      "community": 35,
-      "community_name": "dependencies",
+      "community": 229,
+      "community_name": "@tanstack/react-table",
       "norm_label": "@tanstack/react-table"
     },
     {
@@ -39210,8 +39210,8 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "tanstack_react_table",
-      "community": 35,
-      "community_name": "dependencies",
+      "community": 229,
+      "community_name": "@tanstack/react-table",
       "norm_label": "@tanstack/react-table"
     },
     {
@@ -40574,8 +40574,8 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "ui_src_api_auth_state_currentsessiongeneration",
-      "community": 61,
-      "community_name": "tenant-provider-config.resolver.ts",
+      "community": 152,
+      "community_name": "app-shell.stories.tsx",
       "norm_label": "currentsessiongeneration()"
     },
     {
@@ -40728,8 +40728,8 @@
       "source_location": "L80",
       "_origin": "ast",
       "id": "ui_src_api_client_postauthrefresh",
-      "community": 61,
-      "community_name": "tenant-provider-config.resolver.ts",
+      "community": 152,
+      "community_name": "app-shell.stories.tsx",
       "norm_label": "postauthrefresh()"
     },
     {
@@ -40893,8 +40893,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_api_index",
-      "community": 152,
-      "community_name": "app-shell.stories.tsx",
+      "community": 287,
+      "community_name": "sms.ts",
       "norm_label": "index.ts"
     },
     {
@@ -40904,8 +40904,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_api_notification_state_test",
-      "community": 152,
-      "community_name": "app-shell.stories.tsx",
+      "community": 287,
+      "community_name": "sms.ts",
       "norm_label": "notification-state.test.ts"
     },
     {
@@ -41748,7 +41748,7 @@
       "label": "navItems",
       "file_type": "code",
       "source_file": "ui/src/components/app-shell.test.tsx",
-      "source_location": "L12",
+      "source_location": "L13",
       "_origin": "ast",
       "id": "ui_src_components_app_shell_test_navitems",
       "community": 96,
@@ -41759,7 +41759,7 @@
       "label": "navGroups",
       "file_type": "code",
       "source_file": "ui/src/components/app-shell.test.tsx",
-      "source_location": "L14",
+      "source_location": "L15",
       "_origin": "ast",
       "id": "ui_src_components_app_shell_test_navgroups",
       "community": 96,
@@ -41770,7 +41770,7 @@
       "label": "buildRouteTree()",
       "file_type": "code",
       "source_file": "ui/src/components/app-shell.test.tsx",
-      "source_location": "L48",
+      "source_location": "L49",
       "_origin": "ast",
       "id": "ui_src_components_app_shell_test_buildroutetree",
       "community": 96,
@@ -41781,7 +41781,7 @@
       "label": "buildBottomNavTree()",
       "file_type": "code",
       "source_file": "ui/src/components/app-shell.test.tsx",
-      "source_location": "L228",
+      "source_location": "L233",
       "_origin": "ast",
       "id": "ui_src_components_app_shell_test_buildbottomnavtree",
       "community": 96,
@@ -62452,8 +62452,8 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 176,
-      "community_name": "@biddaloy/server README",
+      "community": 56,
+      "community_name": "session.ts",
       "norm_label": "shared domain enums (feestatus, userrole, etc.)",
       "id": "shared_readme_enums"
     },
@@ -63627,7 +63627,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "client-admin/scripts/check-route-chunks.mjs",
-      "source_location": "L155",
+      "source_location": "L175",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_admin_scripts_check_route_chunks",
@@ -193389,7 +193389,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/components/app-shell.test.tsx",
-      "source_location": "L10",
+      "source_location": "L11",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ui_src_components_app_shell_test",
@@ -193401,7 +193401,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/components/app-shell.test.tsx",
-      "source_location": "L10",
+      "source_location": "L11",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ui_src_components_app_shell_test",
@@ -193413,7 +193413,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/components/app-shell.test.tsx",
-      "source_location": "L10",
+      "source_location": "L11",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ui_src_components_app_shell_test",
@@ -193424,7 +193424,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/components/app-shell.test.tsx",
-      "source_location": "L228",
+      "source_location": "L233",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ui_src_components_app_shell_test",
@@ -193435,7 +193435,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/components/app-shell.test.tsx",
-      "source_location": "L48",
+      "source_location": "L49",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ui_src_components_app_shell_test",
@@ -193446,7 +193446,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/components/app-shell.test.tsx",
-      "source_location": "L14",
+      "source_location": "L15",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ui_src_components_app_shell_test",
@@ -193457,7 +193457,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/components/app-shell.test.tsx",
-      "source_location": "L12",
+      "source_location": "L13",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ui_src_components_app_shell_test",
@@ -193469,7 +193469,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/components/app-shell.test.tsx",
-      "source_location": "L7",
+      "source_location": "L8",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ui_src_components_app_shell_test",
@@ -193481,7 +193481,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/components/app-shell.test.tsx",
-      "source_location": "L7",
+      "source_location": "L8",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ui_src_components_app_shell_test",
@@ -193493,7 +193493,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/components/app-shell.test.tsx",
-      "source_location": "L7",
+      "source_location": "L8",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ui_src_components_app_shell_test",
@@ -193505,7 +193505,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/components/app-shell.test.tsx",
-      "source_location": "L8",
+      "source_location": "L9",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ui_src_components_app_shell_test",
@@ -193517,7 +193517,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/components/app-shell.test.tsx",
-      "source_location": "L8",
+      "source_location": "L9",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ui_src_components_app_shell_test",
@@ -193965,7 +193965,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ui/src/components/app-shell.tsx",
-      "source_location": "L342",
+      "source_location": "L346",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ui_src_components_app_shell_appshell",
@@ -242786,5 +242786,5 @@
       "source_file": ".claude/skills/multi-tenancy/SKILL.md"
     }
   ],
-  "built_at_commit": "2876763046a3e899f009a6df78472e9851fefe61"
+  "built_at_commit": "d107f0b7dd1478a37abfb3bc365157c1b7f5011c"
 }
