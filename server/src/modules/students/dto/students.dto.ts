@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsString,
   IsEmail,
   IsOptional,
@@ -249,6 +250,12 @@ export class UpdateGuardianDto {
   @IsEnum(CommunicationMedium)
   preferred_communication?: CommunicationMedium;
 
+  /** Staff override of the guardian's reminder opt-out — same field the
+   * parent flips on `PATCH /guardians/mine`, one source of truth. [5.4c] */
+  @IsOptional()
+  @IsBoolean()
+  notifications_enabled?: boolean;
+
   @IsOptional()
   @IsArray()
   @IsUUID('4', { each: true })
@@ -298,6 +305,11 @@ export class UpdateOwnGuardianDto {
   @IsOptional()
   @IsEnum(CommunicationMedium)
   preferred_communication?: CommunicationMedium;
+
+  /** The parent's own opt-out from automated fee reminders. [5.4c] */
+  @IsOptional()
+  @IsBoolean()
+  notifications_enabled?: boolean;
 }
 
 /**

@@ -673,6 +673,16 @@ describe('GuardianService (integration)', () => {
       expect(result.tenant_id).toBe(TENANT_ID);
     });
 
+    it('defaults notifications_enabled to true, so existing reminders keep flowing', async () => {
+      const result = await service.create(
+        { full_name: 'Parent Name', relationship: 'FATHER', phone: '+880****0001' },
+        TENANT_ID,
+      );
+
+      const stored = await guardianRepo.findOneOrFail({ where: { id: result.id } });
+      expect(stored.notifications_enabled).toBe(true);
+    });
+
     it('should link to students when student_ids are provided', async () => {
       // Create a student first
       const student = await studentRepo.save(
@@ -930,6 +940,42 @@ describe('GuardianService (integration)', () => {
       expect(untouched.phone).toBe('+8801700000001');
       const changed = await guardianRepo.findOneOrFail({ where: { id: mine.id } });
       expect(changed.phone).toBe('+8801788888888');
+    });
+
+    it('updateOwn flips notifications_enabled and returns it', async () => {
+      await makeGuardian(OWNER_USER_ID, TENANT_ID);
+
+      const off = await service.updateOwn(
+        OWNER_USER_ID,
+        { notifications_enabled: false },
+        TENANT_ID,
+      );
+      expect(off.notifications_enabled).toBe(false);
+
+      const on = await service.updateOwn(OWNER_USER_ID, { notifications_enabled: true }, TENANT_ID);
+      expect(on.notifications_enabled).toBe(true);
+    });
+
+    it("updateOwn never flips notifications_enabled on another tenant's row", async () => {
+      const theirs = await makeGuardian(OTHER_USER_ID, OTHER_TENANT);
+      await makeGuardian(OWNER_USER_ID, TENANT_ID);
+
+      await service.updateOwn(OWNER_USER_ID, { notifications_enabled: false }, TENANT_ID);
+
+      const untouched = await guardianRepo.findOneOrFail({ where: { id: theirs.id } });
+      expect(untouched.notifications_enabled).toBe(true);
+    });
+
+    it('staff update can flip notifications_enabled too', async () => {
+      const guardian = await makeGuardian(OWNER_USER_ID, TENANT_ID);
+
+      const updated = await service.update(
+        guardian.id,
+        { notifications_enabled: false },
+        TENANT_ID,
+      );
+
+      expect(updated.notifications_enabled).toBe(false);
     });
 
     it('updateOwn refuses when the caller has no guardian row', async () => {
