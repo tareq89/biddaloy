@@ -122,6 +122,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/change-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change the caller's own password.
+         * @description Revokes every refresh token for the caller and issues a fresh one, so the calling device stays signed in while no other device can renew its session. Access tokens already issued to other devices are NOT revoked — those sessions keep working until their token expires (up to ~15 minutes), then cannot refresh.
+         */
+        post: operations["AuthController_changePassword_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/academic-years": {
         parameters: {
             query?: never;
@@ -353,6 +373,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the calling user's own record. The id comes from the JWT, never the path — a caller can only ever read themselves. */
+        get: operations["UserController_findMe_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update the calling user's own record. Only the UpdateOwnProfileDto fields are accepted; role/status/tenant fields are rejected with 400 by forbidNonWhitelisted. Changing email or phone requires `current_password` (400 if missing, 403 if wrong). */
+        patch: operations["UserController_updateMe_v1"];
+        trace?: never;
+    };
     "/api/v1/users/{id}": {
         parameters: {
             query?: never;
@@ -484,6 +522,24 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/guardians/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the guardian record linked to the calling PARENT's own account. Ownership comes from the JWT, never a path id. */
+        get: operations["StudentController_findMyGuardian_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update the contact details on the calling PARENT's own guardian record. These are the fields fee reminders dial, so a stale number is self-fixable. */
+        patch: operations["StudentController_updateMyGuardian_v1"];
         trace?: never;
     };
     "/api/v1/guardians/{id}": {
@@ -999,6 +1055,32 @@ export interface components {
             phone?: string;
             password: string;
         };
+        MembershipResponseDto: {
+            /**
+             * Format: uuid
+             * @description The school this membership is in.
+             */
+            tenantId: string;
+            /**
+             * @description The role held in that school.
+             * @enum {string}
+             */
+            role: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE";
+            /** @description The school's display name. Absent on tokens issued before this field existed, so consumers must fall back to a placeholder rather than assume it is present. */
+            name?: string;
+        };
+        LoginResponseDto: {
+            /** @description Short-lived bearer token for the Authorization header. */
+            access_token: string;
+            /** @description Every school/role pair the caller holds, for the tenant picker. */
+            memberships: components["schemas"]["MembershipResponseDto"][];
+        };
+        ChangePasswordDto: {
+            /** @description The caller's current password, re-entered to prove possession. */
+            current_password: string;
+            /** @description The new password to store. */
+            new_password: string;
+        };
         CreateAcademicYearDto: {
             name: string;
             start_date: string;
@@ -1146,6 +1228,7 @@ export interface components {
             /** @enum {string} */
             preferred_communication: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER";
             is_primary_contact: boolean;
+            notifications_enabled: boolean;
             tenant: components["schemas"]["School"];
             tenant_id: string;
             students: components["schemas"]["Student"][];
@@ -1255,9 +1338,17 @@ export interface components {
             /** Format: date-time */
             updated_at: string;
         };
+        UpdateOwnProfileDto: {
+            current_password?: string;
+            /** Format: email */
+            email?: string | null;
+            phone?: string | null;
+            full_name?: string;
+            profile_picture_url?: string;
+        };
         UpdateUserDto: {
             /** Format: email */
-            email?: string;
+            email?: string | null;
             phone?: string | null;
             full_name?: string;
             profile_picture_url?: string;
@@ -1356,6 +1447,15 @@ export interface components {
             preferred_communication?: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER";
             student_ids?: string[];
         };
+        UpdateOwnGuardianDto: {
+            phone?: string;
+            alternate_phone?: string;
+            /** Format: email */
+            email?: string;
+            /** @enum {string} */
+            preferred_communication?: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER";
+            notifications_enabled?: boolean;
+        };
         UpdateGuardianDto: {
             full_name?: string;
             relationship?: string;
@@ -1367,6 +1467,7 @@ export interface components {
             occupation?: string;
             /** @enum {string} */
             preferred_communication?: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER";
+            notifications_enabled?: boolean;
             student_ids?: string[];
         };
         FeeStructure: {
@@ -2185,7 +2286,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["LoginResponseDto"];
                 };
             };
             /** @description Invalid credentials — identical response for an unknown identifier, a wrong password, and a locked-out account (see the README's "Login brute-force protection" section). */
@@ -2211,7 +2312,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["LoginResponseDto"];
                 };
             };
             /** @description Missing, expired, invalid, or already-used refresh token. */
@@ -2250,6 +2351,43 @@ export interface operations {
         requestBody?: never;
         responses: {
             204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AuthController_changePassword_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponseDto"];
+                };
+            };
+            /** @description Missing or invalid access token, or the account is not active. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The supplied current_password is incorrect. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3039,6 +3177,72 @@ export interface operations {
             };
         };
     };
+    UserController_findMe_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UserController_updateMe_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateOwnProfileDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     UserController_findOneUser_v1: {
         parameters: {
             query?: never;
@@ -3543,6 +3747,72 @@ export interface operations {
         };
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Guardian"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StudentController_findMyGuardian_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Guardian"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StudentController_updateMyGuardian_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateOwnGuardianDto"];
+            };
+        };
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

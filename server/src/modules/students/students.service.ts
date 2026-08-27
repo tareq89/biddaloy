@@ -7,7 +7,12 @@ import { Enrollment } from './entities/enrollment.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Class } from '../academics/entities/class.entity';
 import { CreateStudentDto, UpdateStudentDto, QueryStudentDto } from './dto/students.dto';
-import { CreateGuardianDto, UpdateGuardianDto, QueryGuardianDto } from './dto/students.dto';
+import {
+  CreateGuardianDto,
+  UpdateGuardianDto,
+  UpdateOwnGuardianDto,
+  QueryGuardianDto,
+} from './dto/students.dto';
 import { CommunicationMedium } from '@biddaloy/shared';
 import { nextRollNumber } from './roll-number.util';
 
@@ -394,6 +399,41 @@ export class GuardianService {
   ): Promise<Guardian | null> {
     const repo = manager ? manager.getRepository(Guardian) : this.repo;
     return repo.findOne({ where: { phone, tenant_id: tenantId, deleted_at: IsNull() } });
+  }
+
+  /**
+   * The guardian row linked to this user account, in this tenant.
+   * `Guardian.user_id` is a unique one-to-one, so this is exact ownership —
+   * no FamilyAccessService indirection needed (that models user → student). [5.4a]
+   */
+  async findOwn(userId: string, tenantId: string): Promise<Guardian> {
+    const guardian = await this.repo.findOne({
+      where: { user_id: userId, tenant_id: tenantId, deleted_at: IsNull() },
+      relations: ['students', 'students.class_section', 'students.class_section.class'],
+    });
+    if (!guardian) {
+      throw new NotFoundException('No guardian record is linked to your account');
+    }
+    return guardian;
+  }
+
+  /** Self-service contact-detail edit. Ownership comes from the JWT sub, never a path id. */
+  async updateOwn(userId: string, dto: UpdateOwnGuardianDto, tenantId: string): Promise<Guardian> {
+    const guardian = await this.findOwn(userId, tenantId);
+
+    const updateData: any = { ...dto };
+    // `''` means "clear this column" — store a real NULL, as update() does.
+    for (const key of ['phone', 'email', 'alternate_phone'] as const) {
+      if (updateData[key] === '') updateData[key] = null;
+    }
+
+    if (Object.keys(updateData).length > 0) {
+      // tenant_id stays in the criteria so this can never touch another
+      // tenant's row even if ids were to collide.
+      await this.repo.update({ id: guardian.id, tenant_id: tenantId }, updateData);
+    }
+
+    return this.findOne(guardian.id, tenantId);
   }
 
   async update(id: string, dto: UpdateGuardianDto, tenantId: string): Promise<Guardian> {

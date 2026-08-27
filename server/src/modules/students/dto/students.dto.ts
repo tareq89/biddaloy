@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsString,
   IsEmail,
   IsOptional,
@@ -11,6 +12,7 @@ import {
   IsDateString,
   IsNotEmpty,
   Matches,
+  MaxLength,
   ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -248,10 +250,72 @@ export class UpdateGuardianDto {
   @IsEnum(CommunicationMedium)
   preferred_communication?: CommunicationMedium;
 
+  /** Staff override of the guardian's reminder opt-out — same field the
+   * parent flips on `PATCH /guardians/mine`, one source of truth. [5.4c] */
+  // NOT `@IsOptional()`: that skips validation for `null` as well as
+  // `undefined`, so an explicit `null` would pass here and only fail at the
+  // NOT NULL column as a 500. Validating whenever the key is present turns
+  // it into the 400 it should be. Same on UpdateOwnGuardianDto below.
+  @ValidateIf((_, value) => value !== undefined)
+  @IsBoolean()
+  notifications_enabled?: boolean;
+
   @IsOptional()
   @IsArray()
   @IsUUID('4', { each: true })
   student_ids?: string[];
+}
+
+/**
+ * The narrow self-service slice of a guardian record: contact details only.
+ *
+ * Deliberately NOT `UpdateGuardianDto` — that one also allows `full_name`,
+ * `relationship`, `address`, `occupation` and, critically, `student_ids`,
+ * which would let a guardian relink themselves to arbitrary students
+ * (privilege escalation). `forbidNonWhitelisted` rejects any of those with
+ * a 400 here. [5.4a]
+ */
+export class UpdateOwnGuardianDto {
+  /** Shape- and length-pinned exactly like `users.phone`: this is the number
+   * fee-reminder SMS actually dials, and a parent editing their own record
+   * could otherwise store `"call me"` in it. The column is varchar(20), so an
+   * unpinned over-long value would also reach Postgres as a 22001 and surface
+   * as a 500. `''` still clears the column (the service maps it to NULL), so
+   * the checks are skipped for that one value. [5.4a] */
+  @IsOptional()
+  @ValidateIf((o: UpdateOwnGuardianDto) => o.phone !== '')
+  @IsString()
+  @MaxLength(20)
+  @Matches(BD_PHONE_REGEX, { message: 'Invalid phone format' })
+  phone?: string;
+
+  /** Same pinning as `phone` above — varchar(20), `''` clears. */
+  @IsOptional()
+  @ValidateIf((o: UpdateOwnGuardianDto) => o.alternate_phone !== '')
+  @IsString()
+  @MaxLength(20)
+  @Matches(BD_PHONE_REGEX, { message: 'Invalid phone format' })
+  alternate_phone?: string;
+
+  // `''` explicitly clears the column (mapped to NULL by the service), and
+  // `@IsEmail()` alone would reject it — same trick as UpdateGuardianDto.
+  // varchar(100), pinned so an over-long address is a 400 and not a 22001/500.
+  @IsOptional()
+  @ValidateIf((o: UpdateOwnGuardianDto) => o.email !== '')
+  @IsEmail()
+  @MaxLength(100)
+  email?: string;
+
+  @IsOptional()
+  @IsEnum(CommunicationMedium)
+  preferred_communication?: CommunicationMedium;
+
+  /** The parent's own opt-out from automated fee reminders. [5.4c] */
+  // See the note on UpdateGuardianDto.notifications_enabled — `@IsOptional()`
+  // would let an explicit `null` through to a NOT NULL column.
+  @ValidateIf((_, value) => value !== undefined)
+  @IsBoolean()
+  notifications_enabled?: boolean;
 }
 
 /**

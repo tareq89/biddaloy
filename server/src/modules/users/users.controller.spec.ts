@@ -2,6 +2,12 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { UserController } from './users.controller';
 import { UserService, TeacherService } from './users.service';
 import { UserRole } from '@biddaloy/shared';
+import { SETTINGS_RATE_LIMIT, STRICT_RATE_LIMIT } from '../../rate-limit';
+
+// @nestjs/throttler does not re-export these from its entrypoint; the values
+// are the ones `@Throttle()` writes (throttler.constants.ts).
+const THROTTLER_LIMIT = 'THROTTLER:LIMIT';
+const THROTTLER_TTL = 'THROTTLER:TTL';
 
 /**
  * Unit tests for UserController.
@@ -31,6 +37,7 @@ describe('UserController', () => {
       findAll: vi.fn(),
       findOne: vi.fn(),
       update: vi.fn(),
+      updateOwnProfile: vi.fn(),
       remove: vi.fn(),
     };
     teacherService = {
@@ -313,6 +320,67 @@ describe('UserController', () => {
           TENANT,
         ),
       ).rejects.toThrow(ConflictException);
+    });
+  });
+  // ────────────────────────
+  // ────────────────────────
+  //  self-service vs admin write path
+  // ────────────────────────
+  describe('PATCH /users/me routing', () => {
+    const JWT = { sub: 'requester-1', email: null, phone: null, memberships: [] } as any;
+
+    // `/users/me` goes through updateOwnProfile, which is the ONLY place the
+    // current-password gate lives. Admin `PATCH /users/:id` keeps plain
+    // update(): an admin editing someone else's record cannot know that
+    // person's password, and making them prove it would break the route. [5.4a]
+    it("sends the caller's own edit through updateOwnProfile, with the id from the JWT", async () => {
+      userService.updateOwnProfile.mockResolvedValue({ id: JWT.sub, full_name: 'Me' });
+      const dto = { email: 'me@example.com', current_password: 'pw' } as any;
+
+      await controller.updateMe(dto, TENANT, JWT);
+
+      expect(userService.updateOwnProfile).toHaveBeenCalledWith(JWT.sub, dto, TENANT.id);
+      expect(userService.update).not.toHaveBeenCalled();
+    });
+
+    it('leaves the admin route on plain update()', async () => {
+      userService.update.mockResolvedValue({ id: 'u1', full_name: 'Them' });
+
+      await controller.updateUser('u1', { phone: '+8801712345678' } as any, TENANT);
+
+      expect(userService.update).toHaveBeenCalledWith('u1', { phone: '+8801712345678' }, TENANT.id);
+      expect(userService.updateOwnProfile).not.toHaveBeenCalled();
+    });
+  });
+
+  // ────────────────────────
+  //  rate limiting
+  // ────────────────────────
+  describe('PATCH /users/me throttling', () => {
+    // The 409 this route returns is an account-existence oracle over a
+    // GLOBALLY unique column. The status code cannot be hidden — it is the
+    // signal the profile form needs — so the rate of probing is what has to
+    // be capped. SETTINGS_RATE_LIMIT (20/60s) is the documented tier for
+    // "probing-sensitive but cheap"; STRICT_RATE_LIMIT is reserved for
+    // genuinely expensive endpoints. Metadata is asserted rather than
+    // behaviour because app.module.ts skips throttling entirely when
+    // NODE_ENV === 'test'. [5.4a]
+    it('carries an explicit @Throttle of SETTINGS_RATE_LIMIT', () => {
+      const handler = UserController.prototype.updateMe;
+
+      expect(Reflect.getMetadata(`${THROTTLER_LIMIT}default`, handler)).toBe(
+        SETTINGS_RATE_LIMIT.limit,
+      );
+      expect(Reflect.getMetadata(`${THROTTLER_TTL}default`, handler)).toBe(SETTINGS_RATE_LIMIT.ttl);
+    });
+
+    it('uses the SETTINGS tier, not the STRICT tier reserved for expensive endpoints', () => {
+      const limit: unknown = Reflect.getMetadata(
+        `${THROTTLER_LIMIT}default`,
+        UserController.prototype.updateMe,
+      );
+      expect(limit).toBe(20);
+      expect(limit).not.toBe(STRICT_RATE_LIMIT.limit);
     });
   });
 });

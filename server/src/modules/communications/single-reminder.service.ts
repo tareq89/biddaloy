@@ -24,7 +24,8 @@ import {
   isSupportedPlaceholder,
 } from './reminder-template.util';
 import {
-  selectReminderGuardians,
+  partitionByOptOut,
+  resolveReminderAudience,
   addressForMedium,
   DISPATCHABLE_MEDIA,
 } from './reminder-recipients.util';
@@ -194,12 +195,34 @@ export class SingleReminderService {
 
     const student = await this.studentService.findOne(studentId, tenantId);
 
-    const guardians = dto.guardian_ids?.length
-      ? await this.resolveExplicitGuardians(student, dto.guardian_ids, tenantId)
-      : selectReminderGuardians(student.guardians ?? []);
+    const linked = student.guardians ?? [];
 
-    if (guardians.length === 0) {
+    // Candidates: either the explicit staff selection (tenant- and
+    // linkage-validated) or the default primary-contact selection. The
+    // opt-out is applied to BOTH — resolveExplicitGuardians bypasses
+    // selectReminderGuardians, so gating only the latter would still
+    // message opted-out guardians staff picked by hand. Explicit selection
+    // deliberately does NOT override the opt-out; the ungated channel for
+    // obligatory messages is the staff freeform send. [5.4c]
+    const candidates = dto.guardian_ids?.length
+      ? await this.resolveExplicitGuardians(student, dto.guardian_ids, tenantId)
+      : linked;
+
+    if (candidates.length === 0) {
       throw new BadRequestException(`Student "${studentId}" has no guardians on file`);
+    }
+
+    // Explicit path: staff named these guardians, so every opt-out among
+    // them is worth reporting back. Default path: selection still runs over
+    // the reachable guardians (an opted-out sole primary promotes the
+    // reachable non-primaries), but only opt-outs that would actually have
+    // been selected are reported — see resolveReminderAudience. [5.4c]
+    let guardians: Guardian[];
+    let optedOut: Guardian[];
+    if (dto.guardian_ids?.length) {
+      ({ reachable: guardians, optedOut } = partitionByOptOut(candidates));
+    } else {
+      ({ guardians, skippedOptOut: optedOut } = resolveReminderAudience(candidates));
     }
 
     const snapshot = (await this.feeDuesService.getDueSnapshots([studentId], tenantId)).get(
@@ -215,7 +238,11 @@ export class SingleReminderService {
         : '';
 
     const recipients: ResolvedSingleRecipient[] = [];
-    const skipped: SkippedGuardianDto[] = [];
+    const skipped: SkippedGuardianDto[] = optedOut.map((guardian) => ({
+      guardian_id: guardian.id,
+      guardian_name: guardian.full_name,
+      reason: SkipReason.NOTIFICATIONS_DISABLED,
+    }));
 
     for (const guardian of guardians) {
       // `dto.medium` overrides every selected guardian's channel for this

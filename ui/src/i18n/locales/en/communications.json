@@ -15,7 +15,8 @@
     "no_guardians": "No guardians on file",
     "preferred_medium_not_in_requested_mediums": "Preferred channel is not among the requested channels",
     "preferred_medium_has_no_automated_provider": "Preferred channel cannot be sent automatically",
-    "guardian_has_no_address_for_preferred_medium": "No phone or email on file for the preferred channel"
+    "guardian_has_no_address_for_preferred_medium": "No phone or email on file for the preferred channel",
+    "guardian_notifications_disabled": "Guardian has turned off notifications"
   },
   "recipientList": {
     "recipientsTitle": "Will receive ({{count}})",

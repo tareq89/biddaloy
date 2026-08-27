@@ -8,7 +8,12 @@
  * transpile hook, requiring the raw `*.entity.ts`/migration `.ts` files
  * fails with `SyntaxError: Invalid or unexpected token` (Node can't parse
  * TypeScript directly). Registering ts-node here fixes that.
+ *
+ * `reflect-metadata` is loaded first because class-transformer's `@Type()`
+ * decorator calls `Reflect.getMetadata` while a DTO module is being
+ * evaluated — before any test body runs.
  */
+import 'reflect-metadata';
 import 'ts-node/register/transpile-only';
 import { join } from 'path';
 import { DataSource } from 'typeorm';

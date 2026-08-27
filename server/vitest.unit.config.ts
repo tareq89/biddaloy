@@ -16,6 +16,12 @@ export default defineConfig({
     environment: 'node',
     globals: true,
 
+    // class-transformer's `@Type()` calls `Reflect.getMetadata` at module
+    // evaluation time, so any spec importing a DTO crashes on collection
+    // unless the shim is loaded first. `vitest.config.ts` gets this via
+    // `test/setup.ts`; unit tests have no setup file of their own.
+    setupFiles: ['reflect-metadata'],
+
     // Coverage
     coverage: {
       provider: 'v8',

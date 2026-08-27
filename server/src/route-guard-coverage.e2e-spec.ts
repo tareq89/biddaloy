@@ -81,6 +81,13 @@ const ALLOWLIST: AllowlistEntry[] = [
     reason:
       "Bearer-authenticated but tenant-agnostic — operates on the caller's own user.sub/jti (AuthGuard(jwt) only, no ContextGuard/RolesGuard, since it is not a tenant-scoped resource).",
   },
+  {
+    controller: 'AuthController',
+    method: 'POST',
+    path: '/auth/change-password',
+    reason:
+      "Bearer-authenticated but tenant-agnostic — rotates the caller's own password, identified solely by user.sub, and takes no user id from the body (AuthGuard(jwt) only, same rationale as /auth/logout-all).",
+  },
 ];
 
 function findAllowlistEntry(

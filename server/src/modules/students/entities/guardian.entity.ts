@@ -71,6 +71,18 @@ export class Guardian {
   @Column({ type: 'boolean', default: true })
   is_primary_contact: boolean;
 
+  /**
+   * The guardian's opt-out from automated fee reminders. `true` (the column
+   * default) means "reachable" — every pre-existing guardian keeps receiving
+   * reminders after the migration. Set `false` and both reminder flows skip
+   * this guardian with reason `guardian_notifications_disabled`, including
+   * when staff picked them explicitly. Staff freeform sends
+   * (`CommunicationsService.enqueue`) are deliberately NOT gated by this:
+   * that is the channel for anything a school is obliged to deliver. [5.4c]
+   */
+  @Column({ type: 'boolean', default: true })
+  notifications_enabled: boolean;
+
   @ManyToOne(() => School, { nullable: false, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'tenant_id' })
   tenant: School;

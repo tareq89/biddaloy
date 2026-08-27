@@ -430,7 +430,12 @@ describe('UserService (integration)', () => {
 
     it('should clear the phone number when phone is null', async () => {
       const { user } = await service.create(
-        { full_name: 'Clear Phone', phone: '+8801711111111', role: UserRole.TEACHER },
+        {
+          full_name: 'Clear Phone',
+          email: 'clearphone@example.com',
+          phone: '+8801711111111',
+          role: UserRole.TEACHER,
+        },
         TENANT_ID,
       );
 
@@ -454,6 +459,317 @@ describe('UserService (integration)', () => {
       await expect(
         service.update('00000000-0000-4000-8000-000000000000', { full_name: 'Nope' }, TENANT_ID),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    // [5.4a] `email`/`phone` are globally unique. Before the pre-check the
+    // DB index surfaced as a raw 500 — unacceptable once end users can call
+    // this through PATCH /users/me.
+    it('should throw ConflictException when the email belongs to another user', async () => {
+      await service.create(
+        { full_name: 'Email Owner', email: 'taken@example.com', role: UserRole.TEACHER },
+        TENANT_ID,
+      );
+      const { user } = await service.create(
+        { full_name: 'Collider', email: 'mine@example.com', role: UserRole.PARENT },
+        TENANT_ID,
+      );
+
+      await expect(
+        service.update(user.id, { email: 'taken@example.com' }, TENANT_ID),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('should throw ConflictException when the phone belongs to another user', async () => {
+      await service.create(
+        { full_name: 'Phone Owner', phone: '+8801722222222', role: UserRole.TEACHER },
+        TENANT_ID,
+      );
+      const { user } = await service.create(
+        { full_name: 'Phone Collider', phone: '+8801733333333', role: UserRole.PARENT },
+        TENANT_ID,
+      );
+
+      await expect(service.update(user.id, { phone: '+8801722222222' }, TENANT_ID)).rejects.toThrow(
+        ConflictException,
+      );
+    });
+
+    it("should NOT throw when the email/phone submitted is the user's own", async () => {
+      const { user } = await service.create(
+        {
+          full_name: 'Unchanged',
+          email: 'same@example.com',
+          phone: '+8801744444444',
+          role: UserRole.PARENT,
+        },
+        TENANT_ID,
+      );
+
+      const updated = await service.update(
+        user.id,
+        { email: 'same@example.com', phone: '+8801744444444', full_name: 'Renamed' },
+        TENANT_ID,
+      );
+
+      expect(updated.full_name).toBe('Renamed');
+    });
+
+    // ── Regression pins for the `''` phone / uniqueness defects ──────────
+    //
+    // `users.phone` carries a GLOBAL unique index. `''` is a perfectly good
+    // value as far as that index is concerned, so writing `''` instead of
+    // NULL means only ONE user in the entire system can ever have a "blank"
+    // phone — the second one to clear theirs used to get a raw 500 out of
+    // the unique-violation. `update()` now maps `''` to a real NULL.
+
+    it("should store a real NULL (not '') when phone is cleared with an empty string", async () => {
+      const { user } = await service.create(
+        {
+          full_name: 'Empty String Clear',
+          email: 'emptyclear@example.com',
+          phone: '+8801755555555',
+          role: UserRole.TEACHER,
+        },
+        TENANT_ID,
+      );
+
+      const updated = await service.update(user.id, { phone: '' }, TENANT_ID);
+
+      expect(updated.phone).toBeNull();
+      // Read straight from the DB: `''` and NULL both look falsy on the
+      // entity, and only one of them is safe against the unique index.
+      const [row] = await dataSource.query<Array<{ phone: string | null }>>(
+        'SELECT phone FROM users WHERE id = $1',
+        [user.id],
+      );
+      expect(row.phone).toBeNull();
+    });
+
+    it('should let TWO different users clear their phone (the case that used to 500)', async () => {
+      const { user: first } = await service.create(
+        {
+          full_name: 'Clearer One',
+          email: 'clearer-one@example.com',
+          phone: '+8801756666666',
+          role: UserRole.TEACHER,
+        },
+        TENANT_ID,
+      );
+      const { user: second } = await service.create(
+        {
+          full_name: 'Clearer Two',
+          email: 'clearer-two@example.com',
+          phone: '+8801757777777',
+          role: UserRole.PARENT,
+        },
+        TENANT_ID,
+      );
+
+      const firstCleared = await service.update(first.id, { phone: '' }, TENANT_ID);
+      // Before the fix this second call hit the unique index on `''`.
+      const secondCleared = await service.update(second.id, { phone: '' }, TENANT_ID);
+
+      expect(firstCleared.phone).toBeNull();
+      expect(secondCleared.phone).toBeNull();
+    });
+
+    // The unique index does not care about soft-deletion, but TypeORM's
+    // default query filter does. Without `withDeleted: true` the pre-check
+    // waved these through and the write blew up as a 500.
+    it('should throw ConflictException when the email belongs to a SOFT-DELETED user', async () => {
+      const { user: ghost } = await service.create(
+        { full_name: 'Deleted Owner', email: 'ghost@example.com', role: UserRole.TEACHER },
+        TENANT_ID,
+      );
+      await userRepo.softDelete(ghost.id);
+
+      const { user } = await service.create(
+        { full_name: 'Ghost Collider', email: 'alive@example.com', role: UserRole.PARENT },
+        TENANT_ID,
+      );
+
+      await expect(
+        service.update(user.id, { email: 'ghost@example.com' }, TENANT_ID),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('should throw ConflictException when the phone belongs to a SOFT-DELETED user', async () => {
+      const { user: ghost } = await service.create(
+        { full_name: 'Deleted Phone Owner', phone: '+8801758888888', role: UserRole.TEACHER },
+        TENANT_ID,
+      );
+      await userRepo.softDelete(ghost.id);
+
+      const { user } = await service.create(
+        { full_name: 'Ghost Phone Collider', phone: '+8801759999999', role: UserRole.PARENT },
+        TENANT_ID,
+      );
+
+      await expect(service.update(user.id, { phone: '+8801758888888' }, TENANT_ID)).rejects.toThrow(
+        ConflictException,
+      );
+    });
+
+    // `email`/`phone` are unique GLOBALLY, across every school. Echoing the
+    // submitted value back turns the 409 into a confirmed "yes, an account
+    // with this address exists somewhere" — so the message must stay generic.
+    it('should not echo the submitted email back in the conflict message', async () => {
+      await service.create(
+        { full_name: 'Secret Owner', email: 'secret-owner@example.com', role: UserRole.TEACHER },
+        TENANT_ID,
+      );
+      const { user } = await service.create(
+        { full_name: 'Prober', email: 'prober@example.com', role: UserRole.PARENT },
+        TENANT_ID,
+      );
+
+      await expect(
+        service.update(user.id, { email: 'secret-owner@example.com' }, TENANT_ID),
+      ).rejects.toThrow(
+        expect.objectContaining({
+          message: expect.not.stringContaining('secret-owner@example.com') as string,
+        }) as Error,
+      );
+    });
+
+    it('should not echo the submitted phone back in the conflict message', async () => {
+      await service.create(
+        { full_name: 'Secret Phone Owner', phone: '+8801751111111', role: UserRole.TEACHER },
+        TENANT_ID,
+      );
+      const { user } = await service.create(
+        { full_name: 'Phone Prober', phone: '+8801752222222', role: UserRole.PARENT },
+        TENANT_ID,
+      );
+
+      await expect(service.update(user.id, { phone: '+8801751111111' }, TENANT_ID)).rejects.toThrow(
+        expect.objectContaining({
+          message: expect.not.stringContaining('+8801751111111') as string,
+        }) as Error,
+      );
+    });
+    // ── Regression pins: the login-identifier invariant ─────────────────
+    //
+    // `AuthService.validateUser` matches on email OR phone and nothing else,
+    // and there is no reset flow. `@IsOptional()` skips validation for
+    // `null`, so `{email: null, phone: null}` used to reach the service and
+    // NULL both columns — a permanent, self-inflicted lockout, reachable by
+    // any user through `PATCH /users/me`.
+
+    it('should reject an update that would clear BOTH email and phone', async () => {
+      const { user } = await service.create(
+        {
+          full_name: 'Lockout Me',
+          email: 'lockout@example.com',
+          phone: '+8801799999999',
+          role: UserRole.PARENT,
+        },
+        TENANT_ID,
+      );
+
+      await expect(
+        service.update(user.id, { email: null as unknown as string, phone: null }, TENANT_ID),
+      ).rejects.toThrow(BadRequestException);
+
+      // Both identifiers survive the refused write.
+      const [row] = await dataSource.query<Array<{ email: string | null; phone: string | null }>>(
+        'SELECT email, phone FROM users WHERE id = $1',
+        [user.id],
+      );
+      expect(row.email).toBe('lockout@example.com');
+      expect(row.phone).toBe('+8801799999999');
+    });
+
+    it("should reject clearing phone with '' when the user has no email", async () => {
+      // `''` is normalized to NULL before the invariant runs, so the
+      // browser-form shape of the same lockout has to be caught too.
+      const { user } = await service.create(
+        { full_name: 'No Email', phone: '+8801788888888', role: UserRole.PARENT },
+        TENANT_ID,
+      );
+
+      await expect(service.update(user.id, { phone: '' }, TENANT_ID)).rejects.toThrow(
+        /at least one login identifier/i,
+      );
+
+      const [row] = await dataSource.query<Array<{ phone: string | null }>>(
+        'SELECT phone FROM users WHERE id = $1',
+        [user.id],
+      );
+      expect(row.phone).toBe('+8801788888888');
+    });
+
+    it('should reject clearing email when the user has no phone', async () => {
+      const { user } = await service.create(
+        { full_name: 'No Phone', email: 'onlyemail@example.com', role: UserRole.PARENT },
+        TENANT_ID,
+      );
+
+      await expect(
+        service.update(user.id, { email: null as unknown as string }, TENANT_ID),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should ALLOW clearing phone while the DTO simultaneously sets an email', async () => {
+      // The invariant is about the post-update state, not about the DTO in
+      // isolation — swapping one identifier for the other is legitimate.
+      const { user } = await service.create(
+        { full_name: 'Swapper', phone: '+8801777777777', role: UserRole.PARENT },
+        TENANT_ID,
+      );
+
+      const updated = await service.update(
+        user.id,
+        { phone: null, email: 'swapped@example.com' },
+        TENANT_ID,
+      );
+
+      expect(updated.phone).toBeNull();
+      expect(updated.email).toBe('swapped@example.com');
+    });
+
+    it('should ALLOW clearing phone when an untouched email still remains', async () => {
+      const { user } = await service.create(
+        {
+          full_name: 'Keeps Email',
+          email: 'keeps@example.com',
+          phone: '+8801766666666',
+          role: UserRole.PARENT,
+        },
+        TENANT_ID,
+      );
+
+      const updated = await service.update(user.id, { phone: null }, TENANT_ID);
+
+      expect(updated.phone).toBeNull();
+      expect(updated.email).toBe('keeps@example.com');
+    });
+
+    // ── Regression pin: case-insensitive UUID comparison ─────────────────
+    //
+    // Postgres `uuid` compares case-insensitively and `users/:id` has no
+    // `ParseUUIDPipe`, so `existing.id !== id` (a JS string compare) used to
+    // decide a user was somebody else and raise a spurious 409 on their own
+    // unchanged email. Same hazard `remove()` already guards.
+
+    it('should NOT 409 when an UPPERCASE route id resubmits the user own email/phone', async () => {
+      const { user } = await service.create(
+        {
+          full_name: 'Upper Case Id',
+          email: 'uppercase@example.com',
+          phone: '+8801755550000',
+          role: UserRole.TEACHER,
+        },
+        TENANT_ID,
+      );
+
+      const updated = await service.update(
+        user.id.toUpperCase(),
+        { email: 'uppercase@example.com', phone: '+8801755550000', full_name: 'Renamed Upper' },
+        TENANT_ID,
+      );
+
+      expect(updated.full_name).toBe('Renamed Upper');
     });
   });
 

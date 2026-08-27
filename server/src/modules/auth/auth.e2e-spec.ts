@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import supertest = require('supertest');
 import cookieParser = require('cookie-parser');
 import { Test, TestingModule } from '@nestjs/testing';
@@ -13,6 +13,7 @@ import {
   SEED_ADMIN_EMAIL,
   SEED_ADMIN_USER_ID,
   SEED_ADMIN_PASSWORD,
+  SEED_ADMIN_PASSWORD_HASH,
 } from '@test/constants';
 
 function extractSetCookieHeaders(res: supertest.Response): string[] {
@@ -380,6 +381,154 @@ describe('Auth E2E', () => {
         [SEED_ADMIN_USER_ID],
       );
       expect(rows).toHaveLength(1);
+    });
+  });
+  // A dedicated user, never the seed admin: this suite changes the password
+  // for real, and every other e2e file (and the specs above) logs in as the
+  // seed admin with 'password123'.
+  describe('POST /auth/change-password', () => {
+    const CHANGER_ID = '00000000-0000-4000-8000-0000000003c4';
+    const CHANGER_EMAIL = 'change-password@testschool.com';
+    const ORIGINAL_PASSWORD = SEED_ADMIN_PASSWORD; // same plaintext, own row
+    const NEW_PASSWORD = 'brand-new-password-1';
+
+    async function loginAsChanger(password: string): Promise<supertest.Response> {
+      return supertest(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: CHANGER_EMAIL, password })
+        .expect(200);
+    }
+
+    beforeAll(async () => {
+      await dataSource.query(
+        `INSERT INTO users (id, email, password_hash, full_name, status)
+         VALUES ($1, $2, $3, 'Password Changer', 'ACTIVE')
+         ON CONFLICT (id) DO UPDATE
+           SET email = EXCLUDED.email,
+               password_hash = EXCLUDED.password_hash,
+               status = 'ACTIVE'`,
+        [CHANGER_ID, CHANGER_EMAIL, SEED_ADMIN_PASSWORD_HASH],
+      );
+      await dataSource.query(
+        `INSERT INTO user_tenants (user_id, tenant_id, role) VALUES ($1, $2, 'ADMIN')
+         ON CONFLICT DO NOTHING`,
+        [CHANGER_ID, SEED_TENANT_ID],
+      );
+    });
+
+    afterAll(async () => {
+      await dataSource.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [CHANGER_ID]);
+      await dataSource.query(`DELETE FROM user_tenants WHERE user_id = $1`, [CHANGER_ID]);
+      // audit_logs is append-only (a trigger rejects UPDATE and DELETE), so
+      // the rows this suite wrote stay — and the user row has to stay with
+      // them, since deleting it would fire the FK's ON DELETE SET NULL as an
+      // update against that same trigger. Blanking the credentials is enough:
+      // the account can no longer log in or be found by email.
+      await dataSource.query(
+        `UPDATE users SET password_hash = NULL, email = NULL, status = 'INACTIVE' WHERE id = $1`,
+        [CHANGER_ID],
+      );
+    });
+
+    beforeEach(async () => {
+      // Each test starts from the original password regardless of what the
+      // previous one left behind.
+      await dataSource.query(`UPDATE users SET password_hash = $1 WHERE id = $2`, [
+        SEED_ADMIN_PASSWORD_HASH,
+        CHANGER_ID,
+      ]);
+    });
+
+    it('requires authentication', async () => {
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/change-password')
+        .send({ current_password: ORIGINAL_PASSWORD, new_password: NEW_PASSWORD })
+        .expect(401);
+    });
+
+    it('rejects a smuggled user_id field with 400 — you cannot target another account', async () => {
+      const loginRes = await loginAsChanger(ORIGINAL_PASSWORD);
+
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/change-password')
+        .set('Authorization', `Bearer ${loginRes.body.access_token}`)
+        .send({
+          current_password: ORIGINAL_PASSWORD,
+          new_password: NEW_PASSWORD,
+          user_id: SEED_ADMIN_USER_ID,
+        })
+        .expect(400);
+
+      // The seed admin's password is untouched — the request never reached
+      // the handler.
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+        .expect(200);
+    });
+
+    // 403 and not 401 on purpose: the shared frontend axios client
+    // (ui/src/api/client.ts) refreshes and REPLAYS any 401 once, so a 401 here
+    // would turn a single password typo into two requests against this route's
+    // 5/60s strict limit — and log the user out mid-form if the refresh failed.
+    it('returns 403 for a wrong current password and leaves the old one working', async () => {
+      const loginRes = await loginAsChanger(ORIGINAL_PASSWORD);
+
+      const res = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/change-password')
+        .set('Authorization', `Bearer ${loginRes.body.access_token}`)
+        .send({ current_password: 'not-the-current-password', new_password: NEW_PASSWORD })
+        .expect(403);
+      expect(res.body.statusCode).toBe(403);
+
+      await loginAsChanger(ORIGINAL_PASSWORD);
+    });
+
+    it('rotates the password, kills other sessions, and keeps the calling one alive', async () => {
+      // Two independent sessions for the same user.
+      const sessionA = await loginAsChanger(ORIGINAL_PASSWORD);
+      const sessionB = await loginAsChanger(ORIGINAL_PASSWORD);
+      const cookieB = extractRefreshCookie(sessionB);
+
+      const res = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/change-password')
+        .set('Authorization', `Bearer ${sessionA.body.access_token}`)
+        .send({ current_password: ORIGINAL_PASSWORD, new_password: NEW_PASSWORD })
+        .expect(200);
+
+      expect(res.body.access_token).toBeDefined();
+      expect(res.body.memberships).toBeDefined();
+
+      // Session B is dead: its refresh token was revoked along with all the
+      // others.
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/refresh')
+        .set('Cookie', `__Host-refresh_token=${cookieB}`)
+        .expect(401);
+
+      // Session A survives: the response carried a freshly issued cookie,
+      // and it refreshes normally.
+      const cookieAfter = extractRefreshCookie(res);
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/refresh')
+        .set('Cookie', `__Host-refresh_token=${cookieAfter}`)
+        .expect(200);
+
+      // The hash really rotated: only the new password logs in.
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: CHANGER_EMAIL, password: ORIGINAL_PASSWORD })
+        .expect(401);
+      await loginAsChanger(NEW_PASSWORD);
+
+      // Audited as UPDATE + scope marker (no PASSWORD_CHANGED enum value
+      // exists, and this issue ships no migration).
+      const rows = await dataSource.query(
+        `SELECT * FROM audit_logs WHERE action = 'UPDATE' AND performed_by_user_id = $1 AND new_values->>'scope' = 'password' ORDER BY created_at DESC LIMIT 1`,
+        [CHANGER_ID],
+      );
+      expect(rows).toHaveLength(1);
+      expect(rows[0].new_values).toEqual({ scope: 'password' });
     });
   });
 });

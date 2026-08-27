@@ -1,4 +1,10 @@
-import { Injectable, UnauthorizedException, Inject, Optional } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ForbiddenException,
+  Inject,
+  Optional,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -16,6 +22,7 @@ import {
 } from '@biddaloy/shared';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { LoginAttemptService } from './login-attempt.service';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { normalizeLoginIdentifier } from './normalize-identifier';
 import {
   RefreshTokenService,
@@ -37,6 +44,11 @@ export interface AuthResult extends LoginResponse {
 // time — a timing oracle that lets an attacker enumerate valid identifiers
 // without ever seeing a different response body.
 const DUMMY_PASSWORD_HASH = '$2b$10$rGV9zEDpgnc/spXBlHqA9O5IjpBvndIyZE78fIhV8ZV4.5GAUfPJ.';
+
+// Matches the cost factor used at the only other place a password hash is
+// created (UsersService.create) — a user's hash must not silently get
+// weaker or slower depending on which endpoint last wrote it.
+const BCRYPT_COST = 10;
 
 function sleep(ms: number): Promise<void> {
   return ms > 0 ? new Promise((resolve) => setTimeout(resolve, ms)) : Promise.resolve();
@@ -245,6 +257,123 @@ export class AuthService {
       user_agent: context.userAgent,
       new_values: { scope: 'all_sessions' },
     });
+  }
+
+  /**
+   * Rotates the caller's own password hash after verifying the current one.
+   *
+   * Session semantics (deliberate — see issue #334):
+   *   - Every refresh token for this user is revoked, so **all other
+   *     sessions** die. Someone changing their password because they think
+   *     it leaked wants the attacker signed out everywhere.
+   *   - The caller's own access token is **not** denylisted, and a fresh
+   *     rotation family is issued for them immediately (exactly as `login`
+   *     does). The device that just performed the change stays signed in —
+   *     being logged out of the tab you're looking at is a confusing way to
+   *     be told the change worked.
+   *   - This is why `logoutAll` is not reused here: it denylists the
+   *     caller's jti and issues nothing back, which would end the current
+   *     session too.
+   *
+   * `LoginAttemptService` lockout is deliberately not wired in either.
+   * That counter is keyed to the login identifier, so feeding it from here
+   * would let anyone holding a stolen access token lock the real owner out
+   * of logging in at all. Wrong-current-password attempts are braked by the
+   * route's `STRICT_RATE_LIMIT` (5/60s), the same tier `login` uses.
+   */
+  async changePassword(
+    userId: string,
+    dto: ChangePasswordDto,
+    context: RequestContext,
+  ): Promise<AuthResult> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    // Same rule as `refresh`: a suspended user holding a still-valid access
+    // token must not be able to act, and must not learn anything from the
+    // difference between "no such user" and "not active".
+    if (!user || user.status !== UserStatus.ACTIVE) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // A null hash (accounts created without a password — see
+    // UsersService.create) can never match; comparing against the dummy
+    // hash anyway keeps the bcrypt cost paid in every branch.
+    const currentMatches = await bcrypt.compare(
+      dto.current_password,
+      user.password_hash ?? DUMMY_PASSWORD_HASH,
+    );
+    if (!user.password_hash || !currentMatches) {
+      // 403, deliberately NOT 401. The shared frontend axios client
+      // (ui/src/api/client.ts) treats any 401 as an expired access token: it
+      // silently refreshes and REPLAYS the request exactly once. A single
+      // mistyped current password would therefore cost two of this route's
+      // five-per-minute budget, and a refresh leg that failed for any reason
+      // would clear auth state and sign the user out mid-form. 401 on this
+      // endpoint must mean "your token is bad" and nothing else; a wrong
+      // `current_password` is an authenticated caller being refused, which is
+      // what 403 is for. The client does not replay 403.
+      throw new ForbiddenException('Current password is incorrect');
+    }
+
+    // Write the new hash straight to the column rather than mutating the
+    // loaded entity. `user` is reused below — to reset lockouts and to sign
+    // the access token — and neither needs the password, so keeping the new
+    // hash off that object means no password material is ever in scope on
+    // the path that produces the token and the refresh cookie. A targeted
+    // update also avoids `save()` writing back every column that was read at
+    // the top of this method.
+    const password_hash = await bcrypt.hash(dto.new_password, BCRYPT_COST);
+    await this.userRepository.update({ id: user.id }, { password_hash });
+
+    await this.refreshTokens.revokeAllForUser(userId);
+    // Intentionally NO this.accessTokenDenylist.revoke(...) here — see the
+    // session semantics in this method's doc comment.
+
+    // Clear any login lockout the *old* password earned. Without this, a user
+    // who forgot their password, failed login five times, and then changed it
+    // from a still-live session in another tab would keep being rejected at
+    // /auth/login with a generic "Invalid credentials" for the rest of the
+    // lockout window — with the new, correct password. `login()` resets on
+    // success for the same reason.
+    //
+    // The lockout is keyed by normalized identifier and a user may hold both
+    // an email and a phone, either of which they could have been locked out
+    // on, so every identifier this user actually has gets reset — not just one.
+    await this.resetLoginLockouts(user);
+
+    const membershipPayload = await this.fetchMembershipPayload(userId);
+
+    // `PASSWORD_CHANGED` would need a Postgres enum migration (audit_logs.action
+    // is an enum column), and this issue ships none — so the row reuses UPDATE
+    // with a `{ scope: 'password' }` marker, mirroring logoutAll's
+    // `{ scope: 'all_sessions' }`. No password material, old or new, hashed or
+    // plain, ever goes into an audit row.
+    await this.auditService.record({
+      action: AuditAction.UPDATE,
+      entity_type: 'User',
+      entity_id: userId,
+      tenant_id: await this.primaryTenantId(userId),
+      performed_by_user_id: userId,
+      ip_address: context.ip,
+      user_agent: context.userAgent,
+      new_values: { scope: 'password' },
+    });
+
+    // A brand new rotation family, never chained onto the one just revoked.
+    const familyId = randomUUID();
+    const refreshToken = await this.refreshTokens.issueForUser(userId, familyId, context);
+
+    return {
+      access_token: this.signAccessToken(user, membershipPayload),
+      memberships: membershipPayload,
+      refreshToken,
+    };
+  }
+
+  private async resetLoginLockouts(user: User): Promise<void> {
+    const identifiers = [user.email, user.phone]
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      .map(normalizeLoginIdentifier);
+    await Promise.all(identifiers.map((identifier) => this.loginAttempts.reset(identifier)));
   }
 
   private async fetchMembershipPayload(userId: string): Promise<JwtMembership[]> {
