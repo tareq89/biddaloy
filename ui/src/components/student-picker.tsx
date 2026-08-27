@@ -1,36 +1,23 @@
 /**
- * [5.5] — the horizontal row of student chips a guardian of more than one
- * child uses to switch between their per-child fee views. Shipped
- * route-local in `client-admin/src/routes/portal/fees.tsx` for [5.3];
- * promoted here unchanged now that a second caller (the portal landing's
- * child cards link at the same `?student=` param) makes it shared
- * surface. The markup is the reviewed 5.3 markup — nothing restyled.
+ * [5.5] — the row of chips a guardian of more than one child uses to
+ * switch between their per-child fee views. Shipped route-local in
+ * `client-admin/src/routes/portal/fees.tsx` for [5.3]; promoted here
+ * unchanged once the portal landing became a second caller. The markup is
+ * the reviewed 5.3 markup — nothing restyled.
  *
- * Real `Link`s, not a `<select>`: this control *is* the `?student=`
- * search param made visible, so each option is a navigable, bookmarkable
- * URL, the back button walks the choices, and switching is keyboard
- * operable and announced for free — an `<a>` is focusable, activates on
- * Enter, and the active chip carries `aria-current="page"`. Swipe (the
- * `overflow-x-auto` row) is an addition on top, never the only way.
+ * Renders `null` below two items: a guardian of exactly one child must see
+ * no switching affordance at all, and that belongs to the control rather
+ * than to each call site.
  *
- * **`?student=` contract.** Chips link to `to` with `search={{ student:
- * id }}`. The receiving route is expected to validate that param the way
- * `feesSearchSchema` does: an id the caller cannot see falls back to
- * their first linked student rather than erroring, and the server
- * re-checks the family link on every request regardless — the param
- * never widens access.
- *
- * **Fewer than two items renders nothing.** A guardian of exactly one
- * child must see no switching affordance at all, and that rule belongs in
- * the component rather than only at the call site: it is an accessibility
- * and clarity requirement of the control itself ("no redundant one-item
- * list"), not a layout decision a caller may reasonably differ on.
- * Callers may still gate on top of it; both hold.
- *
+ * Chips are real `Link`s to `to` with `search={{ student: id }}`, which is
+ * what makes switching keyboard-operable and announced without extra ARIA.
  * i18n is prop-driven — `@biddaloy/ui` components never call
- * `useTranslation` (same as `BottomNav`, `EmptyState`, `StatusBadge`), so
- * the caller passes the landmark `label` and pre-formats each item's
- * `meta` line with its own translations.
+ * `useTranslation` (same as `BottomNav`, `EmptyState`, `StatusBadge`).
+ *
+ * The navigation flow this belongs to, the `?student=` contract, and why
+ * that param never widens access are documented in
+ * `docs/architecture/06-frontend-architecture.md` ("How a guardian moves
+ * between their children").
  */
 import { Link } from '@tanstack/react-router';
 
