@@ -17,6 +17,7 @@ import {
 } from '@biddaloy/ui/i18n';
 import { formatDate, formatServerAmount, isPastDueDate, parseServerDate } from '@biddaloy/ui/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
+import { ChevronRightIcon } from 'lucide-react';
 
 /**
  * [5.2] — the family portal's landing page, replacing [8.9.10]'s
@@ -40,9 +41,11 @@ import { createFileRoute, Link } from '@tanstack/react-router';
  *   own record want the identical page.
  * - No "pay now" anywhere — self-service payment is #291 and has no
  *   backend behind it yet.
- * - Child cards are **not** links. The per-child drill-down they point at
- *   in the mockup is #25 and does not exist; a card that navigates
- *   nowhere useful is worse than a card that doesn't navigate.
+ * - Each child card **is** a link, into that child's fee view
+ *   (`/portal/fees?student=<id>`) — the mockup's per-child drill-down,
+ *   built in [5.3] and wired up here in [5.5]. The whole card is the one
+ *   tap target (`Card asChild` merging onto a `Link`), so it stays a
+ *   single ≥44px hit area and holds no nested interactive child.
  *
  * **Heading structure is load-bearing, not cosmetic.** `useRouteFocus`
  * (`ui/src/hooks/use-route-focus.ts`) finds a route's heading with
@@ -354,22 +357,37 @@ function ChildCard({ child, config }: { child: ChildSummary; config: RegionConfi
   }
 
   return (
-    <Card className="flex flex-col gap-1.5 p-3.5">
-      <div className="text-sm font-semibold">{child.fullName}</div>
-      <div className="text-xs text-muted-foreground">{child.meta}</div>
-      {/* `flex-wrap` is what keeps this row honest at 320px: the amount
-          and the badge stack instead of the badge being pushed off. */}
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <span className={`text-base font-bold tabular-nums ${toneFor(child.status)}`}>
-          {child.totalDue > 0 ? formatServerAmount(child.totalDue, config) : t('hero.nothingDue')}
-        </span>
-        {/* The badge is why the amount's colour is never the only carrier
-            of status — it repeats the same meaning as text. */}
-        <StatusBadge domain="fee" status={child.status} />
-      </div>
-      {dueParts.length > 0 && (
-        <div className="text-xs text-muted-foreground">{dueParts.join(' · ')}</div>
-      )}
+    // The whole card is the link — one target rather than a "view" link
+    // inside a card, which is both a smaller tap area and a nested
+    // interactive element for a screen reader to step through. The
+    // accessible name is the card's own text (name, class, amount,
+    // status), so no `aria-label` is needed or wanted: an override would
+    // hide the very figures the parent is scanning for.
+    <Card asChild>
+      <Link
+        to="/portal/fees"
+        search={{ student: child.id }}
+        className="flex flex-col gap-1.5 p-3.5 no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-semibold">{child.fullName}</span>
+          <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        </div>
+        <div className="text-xs text-muted-foreground">{child.meta}</div>
+        {/* `flex-wrap` is what keeps this row honest at 320px: the amount
+            and the badge stack instead of the badge being pushed off. */}
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <span className={`text-base font-bold tabular-nums ${toneFor(child.status)}`}>
+            {child.totalDue > 0 ? formatServerAmount(child.totalDue, config) : t('hero.nothingDue')}
+          </span>
+          {/* The badge is why the amount's colour is never the only carrier
+              of status — it repeats the same meaning as text. */}
+          <StatusBadge domain="fee" status={child.status} />
+        </div>
+        {dueParts.length > 0 && (
+          <div className="text-xs text-muted-foreground">{dueParts.join(' · ')}</div>
+        )}
+      </Link>
     </Card>
   );
 }

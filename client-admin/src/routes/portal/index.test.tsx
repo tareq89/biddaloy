@@ -201,7 +201,12 @@ describe('/portal', () => {
       expect(screen.queryByText(/৳5,000\.00 overdue/)).toBeNull();
     });
 
-    it('shows no recent-payments feed — a merged multi-child feed is #25', async () => {
+    // Only `SingleStudentView` carries `RecentPayments`; the multi-child frame
+    // is child cards alone. That asymmetry is a known gap, not an oversight —
+    // a merged, child-attributed feed for this frame is #339. This test pins
+    // today's behaviour so #339 has to change it deliberately rather than
+    // arriving as a silent side effect of some other portal change.
+    it('shows no recent-payments feed on the multi-child frame', async () => {
       mockPortal(students, dues);
       renderPortal();
 
@@ -218,12 +223,39 @@ describe('/portal', () => {
       expect(screen.queryByText(/2025–26/)).toBeNull();
     });
 
-    it('renders child cards as plain cards, not links — the drill-down is #25', async () => {
+    it('makes each child card a link into that child\u2019s fee view', async () => {
       mockPortal(students, dues);
       renderPortal();
 
-      const name = await screen.findByText('Fatima Rahman');
-      expect(name.closest('a')).toBeNull();
+      // The whole card is the link, not a "view" control inside it — so
+      // the tap target is the card and there is no nested interactive
+      // element for a screen reader to step through.
+      const link = (await screen.findByText('Fatima Rahman')).closest('a') as HTMLAnchorElement;
+      expect(link).toBeTruthy();
+      expect(link.getAttribute('href')).toBe('/portal/fees?student=student-1');
+      expect(link.getAttribute('data-slot')).toBe('card');
+
+      // Every child gets their own, including the paid-up one.
+      expect(
+        (screen.getByText('Ayesha Rahman').closest('a') as HTMLAnchorElement).getAttribute('href'),
+      ).toBe('/portal/fees?student=student-3');
+    });
+
+    it('reconciles the hero total against the cards of the children who owe', async () => {
+      mockPortal(students, dues);
+      renderPortal();
+
+      // The hero counts only children who owe — 5,000 + 6,000 — and the
+      // paid-up child contributes nothing. This is [5.2]'s deliberate
+      // semantics, restated here as the arithmetic a parent does by eye.
+      expect(await screen.findByText('\u09f311,000.00')).toBeTruthy();
+      const owing = ['Fatima Rahman', 'Imran Rahman'].map((name) => {
+        const card = screen.getByText(name).closest('[data-slot="card"]') as HTMLElement;
+        return within(card).getByText(/\u09f3/).textContent;
+      });
+      expect(owing).toEqual(['\u09f35,000.00', '\u09f36,000.00']);
+      const paidUp = screen.getByText('Ayesha Rahman').closest('[data-slot="card"]') as HTMLElement;
+      expect(within(paidUp).getByText('Nothing due')).toBeTruthy();
     });
 
     it('has exactly one h1: the hero label', async () => {
@@ -303,6 +335,17 @@ describe('/portal', () => {
       expect(await screen.findByRole('heading', { level: 1, name: 'Fatima Rahman' })).toBeTruthy();
       expect(screen.getByText('Class 8 B · Roll 14')).toBeTruthy();
       expect(screen.queryByText('Your children')).toBeNull();
+    });
+
+    it('offers no switching UI at all to a guardian of exactly one child', async () => {
+      mockPortal(students, dues, payments);
+      renderPortal();
+
+      await screen.findByRole('heading', { level: 1, name: 'Fatima Rahman' });
+      // No picker, and the promoted student is not itself a drill-down
+      // link — there is nowhere else to switch to.
+      expect(screen.queryByRole('navigation', { name: 'Choose a student' })).toBeNull();
+      expect(screen.queryByRole('link', { name: /Fatima Rahman/ })).toBeNull();
     });
 
     it('has exactly one h1: the student name, not the hero label', async () => {

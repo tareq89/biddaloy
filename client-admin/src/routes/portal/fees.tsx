@@ -5,6 +5,7 @@ import {
   ErrorState,
   Skeleton,
   StatusBadge,
+  StudentPicker,
   toast,
 } from '@biddaloy/ui/components';
 import {
@@ -30,7 +31,7 @@ import {
   renderDigits,
 } from '@biddaloy/ui/utils';
 import { useQuery } from '@tanstack/react-query';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import { PrinterIcon } from 'lucide-react';
 import { z } from 'zod';
 
@@ -181,6 +182,7 @@ function PortalFees() {
   const { t } = useTranslation('portal');
   const config = useRegionConfig();
   const search = Route.useSearch();
+  const studentMeta = useStudentMeta();
 
   const studentsQuery = useMyStudents();
   const students: Student[] = studentsQuery.data ?? [];
@@ -261,8 +263,21 @@ function PortalFees() {
   return (
     <div className="flex max-w-2xl flex-col gap-3">
       <FeesHeader student={selected} />
-      {/* Only when there is a real choice to make. */}
-      {students.length > 1 && <StudentPicker students={students} selectedId={selected.id} />}
+      {/* Only when there is a real choice to make. `StudentPicker` holds
+          the same rule itself (it renders nothing below two items), so a
+          guardian of one child sees no switching UI either way. */}
+      {students.length > 1 && (
+        <StudentPicker
+          label={t('fees.pickerLabel')}
+          items={students.map((student) => ({
+            id: student.id,
+            name: student.full_name,
+            meta: studentMeta(student),
+          }))}
+          selectedId={selected.id}
+          to="/portal/fees"
+        />
+      )}
       <FeesSummary summary={summaryQuery.data} config={config} />
       <BreakdownCard fees={summaryQuery.data.fee_breakdown} config={config} />
       <InvoicesCard
@@ -317,35 +332,6 @@ function FeesHeader({ student }: { student: Student }) {
         {`${student.full_name} · ${studentMeta(student)}`}
       </p>
     </div>
-  );
-}
-
-/** Real links, not a `<select>`: this control *is* the `?student=` param
- * made visible, so each option is a navigable, bookmarkable URL and the
- * back button walks the choices. Chips carry a >=44px target. */
-function StudentPicker({ students, selectedId }: { students: Student[]; selectedId: string }) {
-  const { t } = useTranslation('portal');
-  const studentMeta = useStudentMeta();
-  return (
-    <nav aria-label={t('fees.pickerLabel')} className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-      {students.map((student) => {
-        const active = student.id === selectedId;
-        return (
-          <Link
-            key={student.id}
-            to="/portal/fees"
-            search={{ student: student.id }}
-            aria-current={active ? 'page' : undefined}
-            className={`flex min-h-11 flex-shrink-0 flex-col justify-center gap-0.5 rounded-lg border px-3 py-1.5 no-underline ${
-              active ? 'border-primary bg-primary/10' : 'border-border bg-background'
-            }`}
-          >
-            <span className="text-sm font-semibold">{student.full_name}</span>
-            <span className="text-[11px] text-muted-foreground">{studentMeta(student)}</span>
-          </Link>
-        );
-      })}
-    </nav>
   );
 }
 

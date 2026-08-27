@@ -192,6 +192,50 @@ re-fetched by the router's separate preload cache. See [`ui/README.md`'s
 "The app's query client" section](../../ui/README.md) for the full set of
 tuned defaults and why each one is set the way it is.
 
+### How a guardian moves between their children
+
+A guardian linked to several students switches children by **navigating**,
+not by holding state. The chosen child rides in the `?student=` search
+param, so every switch is an ordinary URL:
+
+```text
+/portal/fees?student=8f3c1e02-4b7a-4d19-9c55-2a1f6b0d77e4
+```
+
+That single decision is what makes switching bookmarkable, back-button
+friendly, and keyboard-operable and screen-reader-announced without any
+extra ARIA wiring — the chips are real links, so an `<a>` is focusable,
+activates on Enter, and the active one carries `aria-current="page"`.
+
+```mermaid
+flowchart LR
+    LAND["/portal<br/>landing — one card per child"]
+    FEES["/portal/fees?student=&lt;id&gt;<br/>that child's fee view"]
+    PICK["StudentPicker<br/>(@biddaloy/ui)"]
+    API["GET /students/mine<br/>the caller's own children"]
+    SRV["FamilyAccessService<br/>(server)"]
+
+    LAND -->|"tap a child card<br/>(whole card is the link)"| FEES
+    FEES --> PICK
+    PICK -->|"switch child<br/>rewrites ?student="| FEES
+    FEES --> API
+    API --> SRV
+    SRV -.->|"re-checks the family link<br/>on every request"| FEES
+```
+
+Two rules hold at both ends of that flow:
+
+- **Fewer than two children renders no switcher at all.** `StudentPicker`
+  returns `null` below two items, so the rule lives in the component
+  rather than in each call site. A guardian of one child sees no chips and
+  no chevrons anywhere.
+- **`?student=` never widens access.** It is a hint, not an authorization.
+  A value the caller cannot see falls back to their first linked student
+  rather than erroring (see `feesSearchSchema`), and the server re-checks
+  the family link on every request regardless — so hand-editing the URL to
+  another family's student id returns that guardian's own data, not
+  someone else's.
+
 **404s render inside the shell, not a bare page** — `notFoundComponent` is
 set on the _root_ route, so when nothing matches, the root's own
 `AppShell` (sidebar, header) still renders around the not-found content,

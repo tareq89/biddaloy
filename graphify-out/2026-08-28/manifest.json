@@ -90,8 +90,8 @@
     "semantic_hash": "bfb2c8ec23d7e8c8a10bee7d7588b9a4"
   },
   "server/src/modules/auth/auth.controller.ts": {
-    "mtime": 1787860840.7125328,
-    "ast_hash": "5a340553cecbd2f7cf3977eedee42800",
+    "mtime": 1787861554.446987,
+    "ast_hash": "b98ecb6c41b9787574c196ec40f337a7",
     "semantic_hash": ""
   },
   "server/src/modules/auth/auth.module.ts": {
@@ -365,8 +365,8 @@
     "semantic_hash": ""
   },
   "server/src/modules/students/dto/students.dto.ts": {
-    "mtime": 1787858028.7452166,
-    "ast_hash": "76f11b9281d47619ca5eded40056b848",
+    "mtime": 1787861415.5725162,
+    "ast_hash": "9a5ff5d88cb956cd69f3bc3c5266bdf0",
     "semantic_hash": ""
   },
   "server/src/modules/students/entities/enrollment.entity.ts": {
@@ -1510,8 +1510,8 @@
     "semantic_hash": "e485051e0b0cc146177eb746f9c76545"
   },
   "ui/src/api/schema.d.ts": {
-    "mtime": 1787858028.7532308,
-    "ast_hash": "724fd842151a26632eb207f2dc06dada",
+    "mtime": 1787861575.2423031,
+    "ast_hash": "55869469f8b2e7e2f183aab45ccb9678",
     "semantic_hash": ""
   },
   "ui/src/components/button.stories.tsx": {
@@ -5050,8 +5050,8 @@
     "semantic_hash": ""
   },
   "server/src/self-service-profile.e2e-spec.ts": {
-    "mtime": 1787858028.7515259,
-    "ast_hash": "54b3922141b047855a06d675a594b83d",
+    "mtime": 1787861473.1305783,
+    "ast_hash": "d1f9117c3315adafd67864011c2bbadf",
     "semantic_hash": ""
   },
   "server/src/modules/auth/dto/change-password.dto.spec.ts": {
@@ -5065,8 +5065,8 @@
     "semantic_hash": ""
   },
   "server/src/modules/students/dto/update-own-guardian.dto.spec.ts": {
-    "mtime": 1787858028.7458296,
-    "ast_hash": "aef3792dbbeaf6f1a8096ef8a2b06e00",
+    "mtime": 1787861433.7215455,
+    "ast_hash": "4bfe83f3706c212d3b2306c890e4155c",
     "semantic_hash": ""
   },
   "server/src/modules/users/dto/users.dto.spec.ts": {
@@ -5082,6 +5082,11 @@
   "server/src/migrations/1787702400000-AddGuardianNotificationsEnabled.ts": {
     "mtime": 1787858028.7361867,
     "ast_hash": "ad287cb8daed454d23c7591f7c1d4ce4",
+    "semantic_hash": ""
+  },
+  "server/src/modules/auth/dto/auth-response.dto.ts": {
+    "mtime": 1787861520.1385577,
+    "ast_hash": "fbce23cc8454c965c668963c6a167040",
     "semantic_hash": ""
   }
 }
