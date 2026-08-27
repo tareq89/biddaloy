@@ -303,7 +303,8 @@
   "301": "vitest-axe",
   "302": "@vitest/coverage-v8",
   "303": "@tanstack/react-table",
-  "306": "exceljs",
+  "304": "bcrypt",
+  "305": "@biddaloy/shared",
   "312": "IsRegexSourceConstraint",
   "313": "SmsProviderIsConfiguredConstraint",
   "321": "undici"

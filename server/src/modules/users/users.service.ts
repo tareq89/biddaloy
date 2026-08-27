@@ -50,9 +50,12 @@ export class UserService {
     // unique index agree with each other and with login. See normalizeEmail.
     const email = dto.email ? normalizeEmail(dto.email) : null;
 
-    // Check for duplicate email
+    // Check for duplicate email. `withDeleted` because the unique index does
+    // not care about soft-deletion but TypeORM's default filter does: without
+    // it, an email still owned by a soft-deleted row passes this check and
+    // then fails at `save()` as an unmapped 500. Same reasoning as `update()`.
     if (email) {
-      const existing = await this.userRepo.findOne({ where: { email } });
+      const existing = await this.userRepo.findOne({ where: { email }, withDeleted: true });
       if (existing) {
         throw new ConflictException(`User with email "${email}" already exists`);
       }
@@ -63,27 +66,41 @@ export class UserService {
       password_hash = await bcrypt.hash(dto.password, 10);
     }
 
-    return this.userRepo.manager.transaction(async (manager) => {
-      const userRepo = manager.getRepository(User);
-      const userTenantRepo = manager.getRepository(UserTenant);
+    try {
+      return await this.userRepo.manager.transaction(async (manager) => {
+        const userRepo = manager.getRepository(User);
+        const userTenantRepo = manager.getRepository(UserTenant);
 
-      const user = userRepo.create({
-        email,
-        phone: dto.phone ?? null,
-        password_hash,
-        full_name: dto.full_name,
+        const user = userRepo.create({
+          email,
+          phone: dto.phone ?? null,
+          password_hash,
+          full_name: dto.full_name,
+        });
+        const savedUser = await userRepo.save(user);
+
+        const membership = userTenantRepo.create({
+          user_id: savedUser.id,
+          tenant_id: tenantId,
+          role: dto.role,
+        });
+        const savedMembership = await userTenantRepo.save(membership);
+
+        return { user: savedUser, membership: savedMembership };
       });
-      const savedUser = await userRepo.save(user);
-
-      const membership = userTenantRepo.create({
-        user_id: savedUser.id,
-        tenant_id: tenantId,
-        role: dto.role,
-      });
-      const savedMembership = await userTenantRepo.save(membership);
-
-      return { user: savedUser, membership: savedMembership };
-    });
+    } catch (err) {
+      // The pre-check above is not atomic: two concurrent creates claiming the
+      // same address both pass it and the loser hits the index. Map that to a
+      // 409 rather than a 500, exactly as `update()` does. `phone` has no
+      // pre-check at all, so this is its only guard.
+      if (
+        err instanceof QueryFailedError &&
+        (err as unknown as { code?: string }).code === '23505'
+      ) {
+        throw new ConflictException('That email address or phone number is already in use');
+      }
+      throw err;
+    }
   }
 
   async findAll(query: QueryUserDto, tenantId: string) {
