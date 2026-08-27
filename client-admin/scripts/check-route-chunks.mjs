@@ -147,7 +147,27 @@ const EXPECTED_ROUTE_CHUNKS = [
  * to it grows the entry rather than a route chunk. Measured against base
  * `a12b6a5` on Node 24 (223,465 B), this issue's total cost is 1,318 B.
  */
-const ENTRY_CHUNK_GZIP_CEILING_BYTES = 224_900;
+/**
+ * Raised for [5.2]: 224,902 B gzipped measured on Node 24 with the family
+ * portal's landing page — 2 B over the previous ceiling, and 119 B over
+ * the 224,783 B base this ceiling was last set from (`main` has only moved
+ * in `.github/workflows/ci.yml` since, so that base still stands).
+ *
+ * The smallest bump in this list, and worth saying why a whole new page
+ * costs so little: almost none of it is in the entry. Verified the same
+ * way [8.11.10] above was — grepping the built entry for strings that
+ * exist only in the new code. `bottom-nav` (the component's `data-slot`),
+ * the hero's "Total outstanding" and even the nav icons' SVG path data are
+ * all absent from the entry and present in exactly one route chunk:
+ * `BottomNav`, `Card`, the icons and the page itself all code-split with
+ * `/portal`.
+ *
+ * What does land in the entry is `routeTree.gen.ts`'s bookkeeping and the
+ * new `/students/mine` hook — `ui/src/hooks/students.ts` is already pulled
+ * into the entry by `useStudents`, so adding exports to it grows the entry
+ * rather than a route chunk, exactly as [8.11.10]'s audit-logs hook did.
+ */
+const ENTRY_CHUNK_GZIP_CEILING_BYTES = 225_000;
 
 /** The entry is whatever `index.html` loads as its module script — asked
  * of the build output rather than guessed from a filename pattern, which

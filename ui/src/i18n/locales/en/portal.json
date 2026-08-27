@@ -1,0 +1,48 @@
+{
+  "hero": {
+    "label": "Total outstanding",
+    "nothingDue": "Nothing due",
+    "acrossChildren": "Across {{withDue}} of {{total}} children",
+    "overdueAmount": "{{amount}} overdue",
+    "dueOn": "Due {{date}}",
+    "daysLate_one": "{{count}} day late",
+    "daysLate_other": "{{count}} days late",
+    "lastPaid": "Last paid {{date}}",
+    "allSettled": "Everything is paid up"
+  },
+  "children": {
+    "title": "Your children",
+    "meta": "{{className}} {{section}} · Roll {{roll}}",
+    "metaNoClass": "Roll {{roll}}"
+  },
+  "actions": {
+    "viewFeeBreakdown": "View fee breakdown"
+  },
+  "payments": {
+    "title": "Recent payments",
+    "seeAll": "See all payments",
+    "none": "No payments recorded yet.",
+    "loadError": "Could not load recent payments.",
+    "retry": "Try again",
+    "method": {
+      "CASH": "Cash",
+      "CHEQUE": "Cheque",
+      "BANK_TRANSFER": "Bank transfer",
+      "ONLINE": "Online",
+      "CARD": "Card",
+      "UPI": "UPI"
+    }
+  },
+  "loading": {
+    "label": "Loading your portal"
+  },
+  "empty": {
+    "title": "No students linked to you yet",
+    "explanation": "Your account is not connected to any student at this school. Ask the school office to link your children, then check again.",
+    "action": "Check again"
+  },
+  "error": {
+    "message": "Could not load your portal. Something went wrong reaching the school's records — check your connection and try again.",
+    "retry": "Try again"
+  }
+}

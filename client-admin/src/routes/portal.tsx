@@ -1,8 +1,9 @@
 import { GUARDIAN_ROLES, Permission } from '@biddaloy/shared';
-import { AppShell, TenantBar } from '@biddaloy/ui/components';
+import { AppShell, BottomNav, TenantBar } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { RequireRole } from '@biddaloy/ui/routes';
 import { createFileRoute, Outlet } from '@tanstack/react-router';
+import { CreditCardIcon, HomeIcon } from 'lucide-react';
 
 /**
  * [8.9.10]'s guardian half of one SPA — the family-facing audience
@@ -41,9 +42,23 @@ function PortalLayout() {
   // `FEE_READ`/`INVOICE_READ` are what `ROLE_PERMISSIONS[PARENT]` and
   // `[STUDENT]` actually hold, so `AppShell`'s own `visibleItems()` filter
   // keeps this honest without a second list of "guardian links".
+  //
+  // [5.2]: one array, two renderings — the sidebar at >=768px and the
+  // `BottomNav` below it. Icons are only ever decorative here; the label
+  // is always real text, so an item is never an unlabelled glyph.
   const navItems = [
-    { to: '/portal', label: t('items.portalOverview'), permission: Permission.FEE_READ },
-    { to: '/portal/fees', label: t('items.portalFees'), permission: Permission.INVOICE_READ },
+    {
+      to: '/portal',
+      label: t('items.portalOverview'),
+      icon: <HomeIcon className="size-5" aria-hidden="true" />,
+      permission: Permission.FEE_READ,
+    },
+    {
+      to: '/portal/fees',
+      label: t('items.portalFees'),
+      icon: <CreditCardIcon className="size-5" aria-hidden="true" />,
+      permission: Permission.INVOICE_READ,
+    },
   ];
 
   return (
@@ -56,6 +71,7 @@ function PortalLayout() {
         closeMenuLabel={t('closeMenuLabel')}
         navLabel={t('navLabel')}
         skipLinkLabel={t('skipToContent')}
+        bottomNav={<BottomNav items={navItems} label={t('bottomNavLabel')} />}
       >
         <Outlet />
       </AppShell>

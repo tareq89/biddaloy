@@ -9,13 +9,26 @@
  */
 import { Permission } from '@biddaloy/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { CreditCardIcon, HomeIcon } from 'lucide-react';
 
 import { withMemoryRouter } from '../../.storybook/router-decorator';
 import { rtlDecorator } from '../../.storybook/rtl-decorator';
 
 import { AppShell, type AppShellNavGroup } from './app-shell';
+import { BottomNav } from './bottom-nav';
 
 const navItems = [{ to: '/', label: 'Dashboard' }];
+
+/** The family portal's two items — the same array feeds `AppShell`'s nav
+ * and the bottom bar, which is the point of them sharing a shape. */
+const portalNavItems = [
+  { to: '/portal', label: 'Overview', icon: <HomeIcon className="size-5" aria-hidden="true" /> },
+  {
+    to: '/portal/fees',
+    label: 'Fees and invoices',
+    icon: <CreditCardIcon className="size-5" aria-hidden="true" />,
+  },
+];
 
 const navGroups: AppShellNavGroup[] = [
   { id: 'people', label: 'People', items: [{ to: '/students', label: 'Students' }] },
@@ -97,4 +110,18 @@ export const MobileDrawer: Story = {
   parameters: {
     viewport: { defaultViewport: 'mobile1' },
   },
+};
+
+/** [5.2]'s opt-in `bottomNav` slot — the family portal's two-item mobile
+ * bar in place of the hamburger drawer. Narrowed to a mobile viewport
+ * because the slot is `md:hidden`: at desktop width this story looks
+ * identical to `Default`, which is exactly the guarantee the staff shell
+ * relies on. */
+export const WithBottomNav: Story = {
+  args: {
+    navItems: portalNavItems,
+    bottomNav: <BottomNav items={portalNavItems} label="Portal" />,
+  },
+  decorators: [withMemoryRouter(['/portal'])],
+  parameters: { viewport: { defaultViewport: 'mobile1' } },
 };

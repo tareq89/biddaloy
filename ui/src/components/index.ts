@@ -143,6 +143,8 @@ export {
   type StatusBadgeProps,
   type StatusTone,
 } from './status-badge';
+export { Card, type CardProps } from './card';
+export { BottomNav, type BottomNavProps } from './bottom-nav';
 export { EmptyState, type EmptyStateProps } from './empty-state';
 export { ErrorState, type ErrorStateProps } from './error-state';
 export {

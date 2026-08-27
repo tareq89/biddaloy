@@ -13,6 +13,7 @@ import {
   studentKeys,
   useCreateStudent,
   useDeleteStudent,
+  useMyStudents,
   useStudent,
   useStudents,
   useUpdateStudentEnrollmentStatus,
@@ -401,5 +402,60 @@ describe('useDeleteStudent', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(deleteCalledWith).toBe('student-1');
     expect(queryClient.getQueryData(studentKeys.detail('student-1'))).toBeUndefined();
+  });
+});
+
+describe('[5.2] useMyStudents', () => {
+  it('calls GET /students/mine and returns the bare array the route actually sends', async () => {
+    let requestedUrl: string | null = null;
+    server.use(
+      http.get('/api/v1/students/mine', ({ request }) => {
+        requestedUrl = new URL(request.url).pathname;
+        return HttpResponse.json([
+          studentFactory({ id: 'student-1', full_name: 'Fatima Rahman' }),
+          studentFactory({ id: 'student-2', full_name: 'Imran Rahman' }),
+        ]);
+      }),
+    );
+
+    const { result } = renderHookWithProviders(() => useMyStudents(), { tenantId: 'tenant-1' });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(requestedUrl).toBe('/api/v1/students/mine');
+    expect(result.current.data?.map((s) => s.full_name)).toEqual(['Fatima Rahman', 'Imran Rahman']);
+  });
+
+  it('caches under studentKeys.list({ mine: true }) so student invalidations reach it', async () => {
+    const queryClient = createTestQueryClient();
+    server.use(
+      http.get('/api/v1/students/mine', () =>
+        HttpResponse.json([studentFactory({ id: 'student-1' })]),
+      ),
+    );
+
+    const { result } = renderHookWithProviders(() => useMyStudents(), {
+      tenantId: 'tenant-1',
+      queryClient,
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(queryClient.getQueryData(studentKeys.list({ mine: true }))).toHaveLength(1);
+    // `studentKeys.lists()` is the prefix every student mutation
+    // invalidates — this query has to sit underneath it, not beside it.
+    expect(
+      queryClient.getQueryCache().findAll({ queryKey: studentKeys.lists() }).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it('does not retry a 403 — an unlinked caller is a settled answer, not a blip', async () => {
+    server.use(
+      http.get('/api/v1/students/mine', () =>
+        HttpResponse.json(apiErrorBody(403, 'Forbidden', '/api/v1/students/mine'), { status: 403 }),
+      ),
+    );
+
+    const { result } = renderHookWithProviders(() => useMyStudents(), { tenantId: 'tenant-1' });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
   });
 });

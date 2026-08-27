@@ -3,6 +3,7 @@
   "openMenuLabel": "Open menu",
   "closeMenuLabel": "Close menu",
   "navLabel": "Main",
+  "bottomNavLabel": "Portal",
   "skipToContent": "Skip to main content",
   "items": {
     "dashboard": "Dashboard",
@@ -37,11 +38,6 @@
     "action": "Go to settings"
   },
   "portal": {
-    "overview": {
-      "title": "Your family portal",
-      "explanation": "Your child's fees, invoices and payments will appear here. This page is a placeholder until the family portal is built.",
-      "action": "See fees and invoices"
-    },
     "fees": {
       "title": "Fees and invoices",
       "explanation": "A breakdown of what is due and what has been paid will appear here. This page is a placeholder until the family portal is built.",

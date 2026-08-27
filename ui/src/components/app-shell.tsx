@@ -43,6 +43,7 @@ import type { ReactNode } from 'react';
 
 import { useActiveRole } from '../hooks/auth-state';
 import { hasPermission } from '../hooks/permissions';
+import { cn } from '../primitives/lib/utils';
 
 import { Button } from './button';
 import { Dialog, DialogClose, DialogContent, DialogTitle, DialogTrigger } from './dialog';
@@ -115,6 +116,20 @@ export interface AppShellProps {
    * (see `ui/CONTRIBUTING.md`'s "i18n rules"), so a caller that doesn't
    * pass a translated string gets readable English rather than nothing. */
   skipLinkLabel?: string;
+  /** [5.2]'s opt-in mobile bottom bar — pass a `BottomNav`
+   * (`./bottom-nav.tsx`). When provided, the `<md` header-bar + hamburger
+   * drawer above is not rendered (a two-item portal behind a hamburger is
+   * one tap too many, and the approved mockup shows no drawer), the slot
+   * is pinned to the bottom of the viewport below `md`, and `<main>` gets
+   * bottom padding so content can scroll clear of it.
+   *
+   * **When omitted — every staff route — nothing about this component's
+   * rendering changes.** That's deliberate and regression-tested in
+   * `app-shell.test.tsx`: `_staff.tsx` and `portal.tsx` share this
+   * component, and folding bottom-nav behaviour into the shell's own nav
+   * rendering would push the staff shell through a code path it never
+   * uses. */
+  bottomNav?: ReactNode;
   /** The active route's content — a consuming app's root route renders
    * `<AppShell navItems={...}><Outlet /></AppShell>`. */
   children: ReactNode;
@@ -258,54 +273,62 @@ export function AppShell({
   closeMenuLabel = 'Close menu',
   navLabel = 'Main',
   skipLinkLabel = 'Skip to main content',
+  bottomNav,
   children,
 }: AppShellProps) {
   const role = useActiveRole();
   const [drawerOpen, setDrawerOpen] = React.useState(false);
+  // `Boolean`, not `!== undefined`: `ReactNode` admits `null` and `false`,
+  // so a caller writing `bottomNav={showBar && <BottomNav />}` would
+  // otherwise pass the presence check while rendering nothing — hiding the
+  // `<md` drawer and leaving that viewport with no navigation at all.
+  const hasBottomNav = Boolean(bottomNav);
 
   return (
     <div className="flex min-h-screen flex-col">
       <SkipLink targetId={APP_SHELL_MAIN_ID}>{skipLinkLabel}</SkipLink>
       {topBar}
       <div className="flex flex-1 flex-col md:flex-row">
-        <div className="flex items-center justify-between border-b border-border p-2 md:hidden">
-          {brand !== undefined && <div className="text-sm font-semibold">{brand}</div>}
-          <Dialog open={drawerOpen} onOpenChange={setDrawerOpen}>
-            <DialogTrigger asChild>
-              <Button type="button" variant="ghost" size="icon-sm">
-                <MenuIcon />
-                <span className="sr-only">{openMenuLabel}</span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent
-              showCloseButton={false}
-              className="start-0 top-0 h-full w-72 max-w-[85vw] translate-x-0 translate-y-0 rounded-none p-4 sm:max-w-[85vw]"
-            >
-              <div className="mb-4 flex items-center justify-between">
-                {brand !== undefined ? (
-                  <DialogTitle className="text-sm font-semibold">{brand}</DialogTitle>
-                ) : (
-                  <VisuallyHidden.Root asChild>
-                    <DialogTitle>Navigation</DialogTitle>
-                  </VisuallyHidden.Root>
-                )}
-                <DialogClose asChild>
-                  <Button type="button" variant="ghost" size="icon-sm">
-                    <XIcon />
-                    <span className="sr-only">{closeMenuLabel}</span>
-                  </Button>
-                </DialogClose>
-              </div>
-              <NavContent
-                navItems={navItems}
-                navGroups={navGroups}
-                role={role}
-                navLabel={navLabel}
-                onNavigate={() => setDrawerOpen(false)}
-              />
-            </DialogContent>
-          </Dialog>
-        </div>
+        {!hasBottomNav && (
+          <div className="flex items-center justify-between border-b border-border p-2 md:hidden">
+            {brand !== undefined && <div className="text-sm font-semibold">{brand}</div>}
+            <Dialog open={drawerOpen} onOpenChange={setDrawerOpen}>
+              <DialogTrigger asChild>
+                <Button type="button" variant="ghost" size="icon-sm">
+                  <MenuIcon />
+                  <span className="sr-only">{openMenuLabel}</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent
+                showCloseButton={false}
+                className="start-0 top-0 h-full w-72 max-w-[85vw] translate-x-0 translate-y-0 rounded-none p-4 sm:max-w-[85vw]"
+              >
+                <div className="mb-4 flex items-center justify-between">
+                  {brand !== undefined ? (
+                    <DialogTitle className="text-sm font-semibold">{brand}</DialogTitle>
+                  ) : (
+                    <VisuallyHidden.Root asChild>
+                      <DialogTitle>Navigation</DialogTitle>
+                    </VisuallyHidden.Root>
+                  )}
+                  <DialogClose asChild>
+                    <Button type="button" variant="ghost" size="icon-sm">
+                      <XIcon />
+                      <span className="sr-only">{closeMenuLabel}</span>
+                    </Button>
+                  </DialogClose>
+                </div>
+                <NavContent
+                  navItems={navItems}
+                  navGroups={navGroups}
+                  role={role}
+                  navLabel={navLabel}
+                  onNavigate={() => setDrawerOpen(false)}
+                />
+              </DialogContent>
+            </Dialog>
+          </div>
+        )}
 
         <aside className="hidden w-60 shrink-0 flex-col gap-6 border-r border-border bg-muted/30 p-4 md:flex">
           {brand !== undefined && <div className="text-sm font-semibold">{brand}</div>}
@@ -317,10 +340,15 @@ export function AppShell({
             no-heading fallback — no `outline-none` here, a jump like this
             should show the same visible focus ring any other target does
             (WCAG 2.4.7). */}
-        <main id={APP_SHELL_MAIN_ID} tabIndex={-1} className="min-w-0 flex-1 p-6">
+        <main
+          id={APP_SHELL_MAIN_ID}
+          tabIndex={-1}
+          className={cn('min-w-0 flex-1 p-6', hasBottomNav && 'pb-24 md:pb-6')}
+        >
           {children}
         </main>
       </div>
+      {hasBottomNav && <div className="sticky bottom-0 z-10 md:hidden">{bottomNav}</div>}
     </div>
   );
 }
