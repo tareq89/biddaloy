@@ -978,11 +978,17 @@ describe('[5.4a] Self-service profile', () => {
         .set('X-Tenant-ID', 'not-a-uuid')
         .send({});
 
-    // A real tenant, but the student has no membership in it.
+    // A real tenant the caller has no membership in. Deliberately the LONELY
+    // parent and not the student: the student would be turned away by the
+    // ROLE guard on /guardians/mine (PARENT-only) before the tenant was ever
+    // considered, so the assertion would pass without proving anything about
+    // tenant handling. The lonely parent holds PARENT — the right role for
+    // every route here — and a membership in the seed tenant only, so a
+    // rejection can only be about TENANT_B.
     const callWithForeignTenant = (method: Method, path: string) =>
       (http() as any)
         [method](path)
-        .set('Authorization', `Bearer ${studentToken}`)
+        .set('Authorization', `Bearer ${lonelyToken}`)
         .set('X-Tenant-ID', TENANT_B)
         .send({});
 
