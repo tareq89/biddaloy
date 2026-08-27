@@ -278,7 +278,11 @@ export function AppShell({
 }: AppShellProps) {
   const role = useActiveRole();
   const [drawerOpen, setDrawerOpen] = React.useState(false);
-  const hasBottomNav = bottomNav !== undefined;
+  // `Boolean`, not `!== undefined`: `ReactNode` admits `null` and `false`,
+  // so a caller writing `bottomNav={showBar && <BottomNav />}` would
+  // otherwise pass the presence check while rendering nothing — hiding the
+  // `<md` drawer and leaving that viewport with no navigation at all.
+  const hasBottomNav = Boolean(bottomNav);
 
   return (
     <div className="flex min-h-screen flex-col">

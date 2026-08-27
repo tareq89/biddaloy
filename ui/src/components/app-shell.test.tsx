@@ -2,6 +2,7 @@ import { Permission } from '@biddaloy/shared';
 import { createRootRoute, createRoute } from '@tanstack/react-router';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { LINK_KEYS, expectKeyboardOperable } from '../test/a11y';
@@ -225,17 +226,17 @@ describe('AppShell', () => {
   });
 
   describe('[5.2] optional bottomNav slot', () => {
-    function buildBottomNavTree() {
+    const portalBar = <nav aria-label="Portal">Bottom bar</nav>;
+
+    // No default parameter: one of the cases below passes `undefined`
+    // deliberately, and a default would quietly swap the real bar back in.
+    function buildBottomNavTree(slot: ReactNode) {
       const rootRoute = createRootRoute();
       const indexRoute = createRoute({
         getParentRoute: () => rootRoute,
         path: '/',
         component: () => (
-          <AppShell
-            navItems={navItems}
-            brand="Biddaloy"
-            bottomNav={<nav aria-label="Portal">Bottom bar</nav>}
-          >
+          <AppShell navItems={navItems} brand="Biddaloy" bottomNav={slot}>
             <p>Portal content</p>
           </AppShell>
         ),
@@ -244,7 +245,7 @@ describe('AppShell', () => {
     }
 
     it('renders the slot and drops the mobile hamburger drawer when provided', async () => {
-      renderWithRouter(buildBottomNavTree(), { initialEntries: ['/'], role: 'PARENT' });
+      renderWithRouter(buildBottomNavTree(portalBar), { initialEntries: ['/'], role: 'PARENT' });
 
       expect(await screen.findByRole('navigation', { name: 'Portal' })).toBeTruthy();
       // The <md header bar exists only to open the drawer; with a bottom
@@ -253,7 +254,7 @@ describe('AppShell', () => {
     });
 
     it('pads <main> below the bar so content can scroll clear of it', async () => {
-      renderWithRouter(buildBottomNavTree(), { initialEntries: ['/'], role: 'PARENT' });
+      renderWithRouter(buildBottomNavTree(portalBar), { initialEntries: ['/'], role: 'PARENT' });
 
       await screen.findByText('Portal content');
       const main = document.getElementById(APP_SHELL_MAIN_ID);
@@ -262,7 +263,7 @@ describe('AppShell', () => {
     });
 
     it('is axe clean with a bottom bar', async () => {
-      const { container } = renderWithRouter(buildBottomNavTree(), {
+      const { container } = renderWithRouter(buildBottomNavTree(portalBar), {
         initialEntries: ['/'],
         role: 'PARENT',
       });
@@ -278,6 +279,22 @@ describe('AppShell', () => {
       const main = document.getElementById(APP_SHELL_MAIN_ID);
       expect(main?.className).toBe('min-w-0 flex-1 p-6');
       expect(screen.queryByRole('navigation', { name: 'Portal' })).toBeNull();
+    });
+
+    // `ReactNode` admits `null`/`false`, so `bottomNav={enabled && <Bar />}`
+    // is a shape a caller can reach with no type error. Treating that as
+    // "has a bottom bar" would drop the drawer *and* render no bar, leaving
+    // the <md viewport with no navigation at all.
+    it.each([
+      ['false', false],
+      ['null', null],
+      ['undefined', undefined],
+    ])('treats a %s slot as omitted, keeping the drawer', async (_label, slot) => {
+      renderWithRouter(buildBottomNavTree(slot), { initialEntries: ['/'], role: 'PARENT' });
+
+      await screen.findByText('Portal content');
+      expect(screen.getByRole('button', { name: 'Open menu' })).toBeTruthy();
+      expect(document.getElementById(APP_SHELL_MAIN_ID)?.className).toBe('min-w-0 flex-1 p-6');
     });
   });
 });
