@@ -252,7 +252,11 @@ export class UpdateGuardianDto {
 
   /** Staff override of the guardian's reminder opt-out — same field the
    * parent flips on `PATCH /guardians/mine`, one source of truth. [5.4c] */
-  @IsOptional()
+  // NOT `@IsOptional()`: that skips validation for `null` as well as
+  // `undefined`, so an explicit `null` would pass here and only fail at the
+  // NOT NULL column as a 500. Validating whenever the key is present turns
+  // it into the 400 it should be. Same on UpdateOwnGuardianDto below.
+  @ValidateIf((_, value) => value !== undefined)
   @IsBoolean()
   notifications_enabled?: boolean;
 
@@ -307,7 +311,9 @@ export class UpdateOwnGuardianDto {
   preferred_communication?: CommunicationMedium;
 
   /** The parent's own opt-out from automated fee reminders. [5.4c] */
-  @IsOptional()
+  // See the note on UpdateGuardianDto.notifications_enabled — `@IsOptional()`
+  // would let an explicit `null` through to a NOT NULL column.
+  @ValidateIf((_, value) => value !== undefined)
   @IsBoolean()
   notifications_enabled?: boolean;
 }

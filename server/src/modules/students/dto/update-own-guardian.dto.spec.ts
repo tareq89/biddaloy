@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { CommunicationMedium } from '@biddaloy/shared';
-import { UpdateOwnGuardianDto } from './students.dto';
+import { UpdateGuardianDto, UpdateOwnGuardianDto } from './students.dto';
 
 /**
  * `PATCH /guardians/mine` is self-service: a parent edits their own contact
@@ -69,5 +69,42 @@ describe('UpdateOwnGuardianDto', () => {
     const email = `${'a'.repeat(60)}@${'b'.repeat(35)}.com`;
     expect(email).toHaveLength(100);
     expect(await validate(dto0(email))).toHaveLength(0);
+  });
+});
+
+/**
+ * `guardians.notifications_enabled` is NOT NULL with a `true` default. With
+ * `@IsOptional()` an explicit `null` skipped validation entirely and only
+ * failed at the column, as a 500 rather than a 400. [5.4c]
+ */
+describe('notifications_enabled null handling', () => {
+  it('accepts an omitted notifications_enabled on UpdateOwnGuardianDto', async () => {
+    const dto = plainToInstance(UpdateOwnGuardianDto, { phone: '+8801712345678' });
+    expect(await failedProps(dto)).not.toContain('notifications_enabled');
+  });
+
+  it('accepts a boolean notifications_enabled on UpdateOwnGuardianDto', async () => {
+    const dto = plainToInstance(UpdateOwnGuardianDto, { notifications_enabled: false });
+    expect(await failedProps(dto)).not.toContain('notifications_enabled');
+  });
+
+  it('rejects an explicit null notifications_enabled on UpdateOwnGuardianDto', async () => {
+    const dto = plainToInstance(UpdateOwnGuardianDto, { notifications_enabled: null });
+    expect(await failedProps(dto)).toContain('notifications_enabled');
+  });
+
+  it('rejects a non-boolean notifications_enabled on UpdateOwnGuardianDto', async () => {
+    const dto = plainToInstance(UpdateOwnGuardianDto, { notifications_enabled: 'yes' });
+    expect(await failedProps(dto)).toContain('notifications_enabled');
+  });
+
+  it('accepts an omitted notifications_enabled on UpdateGuardianDto', async () => {
+    const dto = plainToInstance(UpdateGuardianDto, { full_name: 'Staff Edit' });
+    expect(await failedProps(dto)).not.toContain('notifications_enabled');
+  });
+
+  it('rejects an explicit null notifications_enabled on UpdateGuardianDto', async () => {
+    const dto = plainToInstance(UpdateGuardianDto, { notifications_enabled: null });
+    expect(await failedProps(dto)).toContain('notifications_enabled');
   });
 });
