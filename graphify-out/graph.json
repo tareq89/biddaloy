@@ -14405,8 +14405,8 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "server_package_dependencies_bcrypt",
-      "community": 44,
-      "community_name": "dependencies",
+      "community": 304,
+      "community_name": "bcrypt",
       "norm_label": "bcrypt"
     },
     {
@@ -14416,8 +14416,8 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "bcrypt",
-      "community": 44,
-      "community_name": "dependencies",
+      "community": 304,
+      "community_name": "bcrypt",
       "norm_label": "bcrypt"
     },
     {
@@ -14515,8 +14515,8 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "server_package_dependencies_exceljs",
-      "community": 306,
-      "community_name": "exceljs",
+      "community": 44,
+      "community_name": "dependencies",
       "norm_label": "exceljs"
     },
     {
@@ -14526,8 +14526,8 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "exceljs",
-      "community": 306,
-      "community_name": "exceljs",
+      "community": 44,
+      "community_name": "dependencies",
       "norm_label": "exceljs"
     },
     {
@@ -15703,8 +15703,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_common_swagger_paginated_schema_util",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 17,
+      "community_name": "all-entities.ts",
       "norm_label": "paginated-schema.util.ts"
     },
     {
@@ -15714,8 +15714,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "server_src_common_swagger_paginated_schema_util_paginatedschema",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 17,
+      "community_name": "all-entities.ts",
       "norm_label": "paginatedschema()"
     },
     {
@@ -16946,8 +16946,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_academics_academic_year_controller_ts_patch",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 29,
+      "community_name": "AcademicYearController",
       "norm_label": "patch"
     },
     {
@@ -17023,8 +17023,8 @@
       "source_location": "L67",
       "_origin": "ast",
       "id": "server_src_modules_academics_academic_year_controller_academicyearcontroller_update",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 29,
+      "community_name": "AcademicYearController",
       "norm_label": ".update()"
     },
     {
@@ -17474,8 +17474,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "server_src_modules_academics_dto_update_academic_year_dto_updateacademicyeardto",
-      "community": 3,
-      "community_name": "Student",
+      "community": 29,
+      "community_name": "AcademicYearController",
       "norm_label": "updateacademicyeardto"
     },
     {
@@ -17485,8 +17485,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_academics_dto_update_academic_year_dto_ts_isoptional",
-      "community": 3,
-      "community_name": "Student",
+      "community": 29,
+      "community_name": "AcademicYearController",
       "norm_label": "isoptional"
     },
     {
@@ -17496,8 +17496,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_academics_dto_update_academic_year_dto_ts_isstring",
-      "community": 3,
-      "community_name": "Student",
+      "community": 29,
+      "community_name": "AcademicYearController",
       "norm_label": "isstring"
     },
     {
@@ -17507,8 +17507,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_academics_dto_update_academic_year_dto_ts_isdatestring",
-      "community": 3,
-      "community_name": "Student",
+      "community": 29,
+      "community_name": "AcademicYearController",
       "norm_label": "isdatestring"
     },
     {
@@ -17518,8 +17518,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_academics_dto_update_academic_year_dto_ts_isboolean",
-      "community": 3,
-      "community_name": "Student",
+      "community": 29,
+      "community_name": "AcademicYearController",
       "norm_label": "isboolean"
     },
     {
@@ -20642,8 +20642,8 @@
       "source_location": "L99",
       "_origin": "ast",
       "id": "server_src_modules_auth_login_attempt_service_loginattemptservice_reset",
-      "community": 51,
-      "community_name": "fees.controller.ts",
+      "community": 64,
+      "community_name": "communications.module.ts",
       "norm_label": ".reset()"
     },
     {
@@ -21280,8 +21280,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_controller",
-      "community": 99,
-      "community_name": "status-badge.tsx",
+      "community": 5,
+      "community_name": "invoices.controller.ts",
       "norm_label": "classes.controller.ts"
     },
     {
@@ -21423,8 +21423,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_controller_ts_delete",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 99,
+      "community_name": "status-badge.tsx",
       "norm_label": "delete"
     },
     {
@@ -21533,8 +21533,8 @@
       "source_location": "L123",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_controller_classcontroller_removesection",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 99,
+      "community_name": "status-badge.tsx",
       "norm_label": ".removesection()"
     },
     {
@@ -21852,8 +21852,8 @@
       "source_location": "L352",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_service_sectionservice_remove",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 99,
+      "community_name": "status-badge.tsx",
       "norm_label": ".remove()"
     },
     {
@@ -22028,8 +22028,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_controller_spec",
-      "community": 166,
-      "community_name": "class-validator",
+      "community": 54,
+      "community_name": "auth.service.ts",
       "norm_label": "communications.controller.spec.ts"
     },
     {
@@ -22050,8 +22050,8 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_controller_communicationscontroller",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 180,
+      "community_name": "enrollments.ts",
       "norm_label": "communicationscontroller"
     },
     {
@@ -22061,8 +22061,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_controller_ts_apitags",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 180,
+      "community_name": "enrollments.ts",
       "norm_label": "apitags"
     },
     {
@@ -22072,8 +22072,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_controller_ts_controller",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 180,
+      "community_name": "enrollments.ts",
       "norm_label": "controller"
     },
     {
@@ -22083,8 +22083,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_controller_ts_useguards",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 180,
+      "community_name": "enrollments.ts",
       "norm_label": "useguards"
     },
     {
@@ -22094,8 +22094,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_controller_ts_inject",
-      "community": 166,
-      "community_name": "class-validator",
+      "community": 54,
+      "community_name": "auth.service.ts",
       "norm_label": "inject"
     },
     {
@@ -22105,8 +22105,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_controller_ts_post",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 180,
+      "community_name": "enrollments.ts",
       "norm_label": "post"
     },
     {
@@ -22116,8 +22116,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_controller_ts_httpcode",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 180,
+      "community_name": "enrollments.ts",
       "norm_label": "httpcode"
     },
     {
@@ -22127,8 +22127,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_controller_ts_apioperation",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 180,
+      "community_name": "enrollments.ts",
       "norm_label": "apioperation"
     },
     {
@@ -22138,8 +22138,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_controller_ts_param",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 180,
+      "community_name": "enrollments.ts",
       "norm_label": "param"
     },
     {
@@ -22149,8 +22149,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_controller_ts_body",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 180,
+      "community_name": "enrollments.ts",
       "norm_label": "body"
     },
     {
@@ -22160,8 +22160,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_controller_ts_req",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 180,
+      "community_name": "enrollments.ts",
       "norm_label": "req"
     },
     {
@@ -22171,8 +22171,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_controller_ts_throttle",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 180,
+      "community_name": "enrollments.ts",
       "norm_label": "throttle"
     },
     {
@@ -22182,8 +22182,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_controller_ts_get",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 180,
+      "community_name": "enrollments.ts",
       "norm_label": "get"
     },
     {
@@ -22193,8 +22193,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_controller_ts_query",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 180,
+      "community_name": "enrollments.ts",
       "norm_label": "query"
     },
     {
@@ -22204,8 +22204,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_controller_ts_apiokresponse",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 180,
+      "community_name": "enrollments.ts",
       "norm_label": "apiokresponse"
     },
     {
@@ -22215,8 +22215,8 @@
       "source_location": "L47",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_controller_communicationscontroller_constructor",
-      "community": 166,
-      "community_name": "class-validator",
+      "community": 54,
+      "community_name": "auth.service.ts",
       "norm_label": ".constructor()"
     },
     {
@@ -22226,8 +22226,8 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_controller_communicationscontroller_previewsinglereminder",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 180,
+      "community_name": "enrollments.ts",
       "norm_label": ".previewsinglereminder()"
     },
     {
@@ -22237,8 +22237,8 @@
       "source_location": "L73",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_controller_communicationscontroller_sendsinglereminder",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 180,
+      "community_name": "enrollments.ts",
       "norm_label": ".sendsinglereminder()"
     },
     {
@@ -22248,8 +22248,8 @@
       "source_location": "L106",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_controller_communicationscontroller_previewbulkreminder",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 180,
+      "community_name": "enrollments.ts",
       "norm_label": ".previewbulkreminder()"
     },
     {
@@ -22259,8 +22259,8 @@
       "source_location": "L124",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_controller_communicationscontroller_sendbulkreminder",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 180,
+      "community_name": "enrollments.ts",
       "norm_label": ".sendbulkreminder()"
     },
     {
@@ -22270,8 +22270,8 @@
       "source_location": "L140",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_controller_communicationscontroller_findreminderbatches",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 180,
+      "community_name": "enrollments.ts",
       "norm_label": ".findreminderbatches()"
     },
     {
@@ -22281,8 +22281,8 @@
       "source_location": "L152",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_controller_communicationscontroller_findreminderbatchlogs",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 180,
+      "community_name": "enrollments.ts",
       "norm_label": ".findreminderbatchlogs()"
     },
     {
@@ -22292,8 +22292,8 @@
       "source_location": "L165",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_controller_communicationscontroller_findreminderbatch",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 180,
+      "community_name": "enrollments.ts",
       "norm_label": ".findreminderbatch()"
     },
     {
@@ -22303,8 +22303,8 @@
       "source_location": "L175",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_controller_communicationscontroller_send",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 180,
+      "community_name": "enrollments.ts",
       "norm_label": ".send()"
     },
     {
@@ -22314,8 +22314,8 @@
       "source_location": "L192",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_controller_communicationscontroller_findlastreminders",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 180,
+      "community_name": "enrollments.ts",
       "norm_label": ".findlastreminders()"
     },
     {
@@ -22325,8 +22325,8 @@
       "source_location": "L214",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_controller_communicationscontroller_findbystudent",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 180,
+      "community_name": "enrollments.ts",
       "norm_label": ".findbystudent()"
     },
     {
@@ -22336,8 +22336,8 @@
       "source_location": "L228",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_controller_communicationscontroller_findbyguardian",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 180,
+      "community_name": "enrollments.ts",
       "norm_label": ".findbyguardian()"
     },
     {
@@ -22347,8 +22347,8 @@
       "source_location": "L237",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_controller_communicationscontroller_findone",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 180,
+      "community_name": "enrollments.ts",
       "norm_label": ".findone()"
     },
     {
@@ -22523,8 +22523,8 @@
       "source_location": "L144",
       "_origin": "ast",
       "id": "server_src_modules_communications_communications_service_communicationsservice_findlastreminders",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 180,
+      "community_name": "enrollments.ts",
       "norm_label": ".findlastreminders()"
     },
     {
@@ -22655,8 +22655,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "server_src_modules_communications_config_tenant_provider_config_resolver_resolvedemailconfig",
-      "community": 62,
-      "community_name": "global-search.tsx",
+      "community": 140,
+      "community_name": "TenantProviderConfigResolver",
       "norm_label": "resolvedemailconfig"
     },
     {
@@ -23425,8 +23425,8 @@
       "source_location": "L102",
       "_origin": "ast",
       "id": "server_src_modules_communications_dto_single_reminder_dto_reminderpreviewresponsedto",
-      "community": 54,
-      "community_name": "auth.service.ts",
+      "community": 303,
+      "community_name": "@tanstack/react-table",
       "norm_label": "reminderpreviewresponsedto"
     },
     {
@@ -23733,8 +23733,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_communications_providers_communication_provider_interface",
-      "community": 119,
-      "community_name": "provider-connection-test.controller.spec.ts",
+      "community": 68,
+      "community_name": "schools.module.ts",
       "norm_label": "communication-provider.interface.ts"
     },
     {
@@ -23898,8 +23898,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_communications_providers_email_smtp_email_provider",
-      "community": 62,
-      "community_name": "global-search.tsx",
+      "community": 140,
+      "community_name": "TenantProviderConfigResolver",
       "norm_label": "smtp-email.provider.ts"
     },
     {
@@ -23909,8 +23909,8 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "server_src_modules_communications_providers_email_smtp_email_provider_mapsmtperror",
-      "community": 62,
-      "community_name": "global-search.tsx",
+      "community": 140,
+      "community_name": "TenantProviderConfigResolver",
       "norm_label": "mapsmtperror()"
     },
     {
@@ -23920,8 +23920,8 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "server_src_modules_communications_providers_email_smtp_email_provider_smtp_connection_error_codes",
-      "community": 62,
-      "community_name": "global-search.tsx",
+      "community": 140,
+      "community_name": "TenantProviderConfigResolver",
       "norm_label": "smtp_connection_error_codes"
     },
     {
@@ -23931,8 +23931,8 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "server_src_modules_communications_providers_email_smtp_email_provider_issmtpconnectionerror",
-      "community": 62,
-      "community_name": "global-search.tsx",
+      "community": 140,
+      "community_name": "TenantProviderConfigResolver",
       "norm_label": "issmtpconnectionerror()"
     },
     {
@@ -23942,8 +23942,8 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "server_src_modules_communications_providers_email_smtp_email_provider_withpinnedaddressfallback",
-      "community": 62,
-      "community_name": "global-search.tsx",
+      "community": 140,
+      "community_name": "TenantProviderConfigResolver",
       "norm_label": "withpinnedaddressfallback()"
     },
     {
@@ -23997,8 +23997,8 @@
       "source_location": "L141",
       "_origin": "ast",
       "id": "server_src_modules_communications_providers_email_smtp_email_provider_smtpemailprovider_testconnection",
-      "community": 62,
-      "community_name": "global-search.tsx",
+      "community": 140,
+      "community_name": "TenantProviderConfigResolver",
       "norm_label": ".testconnection()"
     },
     {
@@ -24250,8 +24250,8 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "server_src_modules_communications_providers_shared_outbound_destination_guard_destinationblockederror",
-      "community": 140,
-      "community_name": "TenantProviderConfigResolver",
+      "community": 119,
+      "community_name": "provider-connection-test.controller.spec.ts",
       "norm_label": "destinationblockederror"
     },
     {
@@ -24261,8 +24261,8 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "server_src_modules_communications_providers_shared_outbound_destination_guard_destinationblockederror_constructor",
-      "community": 140,
-      "community_name": "TenantProviderConfigResolver",
+      "community": 119,
+      "community_name": "provider-connection-test.controller.spec.ts",
       "norm_label": ".constructor()"
     },
     {
@@ -24404,8 +24404,8 @@
       "source_location": "L161",
       "_origin": "ast",
       "id": "server_src_modules_communications_providers_shared_outbound_destination_guard_safesmtpdestination",
-      "community": 62,
-      "community_name": "global-search.tsx",
+      "community": 140,
+      "community_name": "TenantProviderConfigResolver",
       "norm_label": "safesmtpdestination"
     },
     {
@@ -24415,8 +24415,8 @@
       "source_location": "L167",
       "_origin": "ast",
       "id": "server_src_modules_communications_providers_shared_outbound_destination_guard_assertsafehttpdestination",
-      "community": 140,
-      "community_name": "TenantProviderConfigResolver",
+      "community": 119,
+      "community_name": "provider-connection-test.controller.spec.ts",
       "norm_label": "assertsafehttpdestination()"
     },
     {
@@ -24536,8 +24536,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_communications_providers_sms_greenweb_sms_gateway_spec",
-      "community": 140,
-      "community_name": "TenantProviderConfigResolver",
+      "community": 119,
+      "community_name": "provider-connection-test.controller.spec.ts",
       "norm_label": "greenweb-sms.gateway.spec.ts"
     },
     {
@@ -24547,8 +24547,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "server_src_modules_communications_providers_sms_greenweb_sms_gateway_spec_outbounddestinationerror",
-      "community": 140,
-      "community_name": "TenantProviderConfigResolver",
+      "community": 119,
+      "community_name": "provider-connection-test.controller.spec.ts",
       "norm_label": "outbounddestinationerror"
     },
     {
@@ -24558,8 +24558,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "server_src_modules_communications_providers_sms_greenweb_sms_gateway_spec_destinationblockederror",
-      "community": 140,
-      "community_name": "TenantProviderConfigResolver",
+      "community": 119,
+      "community_name": "provider-connection-test.controller.spec.ts",
       "norm_label": "destinationblockederror"
     },
     {
@@ -24624,8 +24624,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_communications_providers_sms_mim_sms_gateway_spec",
-      "community": 140,
-      "community_name": "TenantProviderConfigResolver",
+      "community": 119,
+      "community_name": "provider-connection-test.controller.spec.ts",
       "norm_label": "mim-sms.gateway.spec.ts"
     },
     {
@@ -24635,8 +24635,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "server_src_modules_communications_providers_sms_mim_sms_gateway_spec_outbounddestinationerror",
-      "community": 140,
-      "community_name": "TenantProviderConfigResolver",
+      "community": 119,
+      "community_name": "provider-connection-test.controller.spec.ts",
       "norm_label": "outbounddestinationerror"
     },
     {
@@ -24646,8 +24646,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "server_src_modules_communications_providers_sms_mim_sms_gateway_spec_destinationblockederror",
-      "community": 140,
-      "community_name": "TenantProviderConfigResolver",
+      "community": 119,
+      "community_name": "provider-connection-test.controller.spec.ts",
       "norm_label": "destinationblockederror"
     },
     {
@@ -24833,8 +24833,8 @@
       "source_location": "L57",
       "_origin": "ast",
       "id": "server_src_modules_communications_providers_sms_sms_provider_factory_smsproviderfactory_testconnection",
-      "community": 119,
-      "community_name": "provider-connection-test.controller.spec.ts",
+      "community": 62,
+      "community_name": "global-search.tsx",
       "norm_label": ".testconnection()"
     },
     {
@@ -24899,8 +24899,8 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "server_src_modules_communications_providers_whatsapp_whatsapp_cloud_provider_whatsappcloudprovider_send",
-      "community": 119,
-      "community_name": "provider-connection-test.controller.spec.ts",
+      "community": 62,
+      "community_name": "global-search.tsx",
       "norm_label": ".send()"
     },
     {
@@ -25130,8 +25130,8 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "server_src_modules_communications_reminder_template_util_templatevarvalue",
-      "community": 54,
-      "community_name": "auth.service.ts",
+      "community": 303,
+      "community_name": "@tanstack/react-table",
       "norm_label": "templatevarvalue()"
     },
     {
@@ -25163,8 +25163,8 @@
       "source_location": "L76",
       "_origin": "ast",
       "id": "server_src_modules_communications_reminder_template_util_renderremindertemplate",
-      "community": 54,
-      "community_name": "auth.service.ts",
+      "community": 303,
+      "community_name": "@tanstack/react-table",
       "norm_label": "renderremindertemplate()"
     },
     {
@@ -25647,8 +25647,8 @@
       "source_location": "L67",
       "_origin": "ast",
       "id": "server_src_modules_communications_single_reminder_service_singlereminderservice",
-      "community": 166,
-      "community_name": "class-validator",
+      "community": 54,
+      "community_name": "auth.service.ts",
       "norm_label": "singlereminderservice"
     },
     {
@@ -25658,8 +25658,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_communications_single_reminder_service_ts_injectable",
-      "community": 166,
-      "community_name": "class-validator",
+      "community": 54,
+      "community_name": "auth.service.ts",
       "norm_label": "injectable"
     },
     {
@@ -25702,8 +25702,8 @@
       "source_location": "L79",
       "_origin": "ast",
       "id": "server_src_modules_communications_single_reminder_service_singlereminderservice_preview",
-      "community": 54,
-      "community_name": "auth.service.ts",
+      "community": 303,
+      "community_name": "@tanstack/react-table",
       "norm_label": ".preview()"
     },
     {
@@ -25746,8 +25746,8 @@
       "source_location": "L322",
       "_origin": "ast",
       "id": "server_src_modules_communications_single_reminder_service_singlereminderservice_validatewhatsappparams",
-      "community": 166,
-      "community_name": "class-validator",
+      "community": 54,
+      "community_name": "auth.service.ts",
       "norm_label": ".validatewhatsappparams()"
     },
     {
@@ -26120,8 +26120,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_communications_whatsapp_template_util",
-      "community": 54,
-      "community_name": "auth.service.ts",
+      "community": 303,
+      "community_name": "@tanstack/react-table",
       "norm_label": "whatsapp-template.util.ts"
     },
     {
@@ -26131,8 +26131,8 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "server_src_modules_communications_whatsapp_template_util_whatsapptemplatedispatch",
-      "community": 54,
-      "community_name": "auth.service.ts",
+      "community": 303,
+      "community_name": "@tanstack/react-table",
       "norm_label": "whatsapptemplatedispatch"
     },
     {
@@ -26142,8 +26142,8 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "server_src_modules_communications_whatsapp_template_util_whatsapptemplaterequest",
-      "community": 54,
-      "community_name": "auth.service.ts",
+      "community": 303,
+      "community_name": "@tanstack/react-table",
       "norm_label": "whatsapptemplaterequest"
     },
     {
@@ -26153,8 +26153,8 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "server_src_modules_communications_whatsapp_template_util_resolvewhatsapptemplate",
-      "community": 54,
-      "community_name": "auth.service.ts",
+      "community": 303,
+      "community_name": "@tanstack/react-table",
       "norm_label": "resolvewhatsapptemplate()"
     },
     {
@@ -26461,8 +26461,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_enrollments_enrollments_controller_ts_post",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 161,
+      "community_name": ".findCurrent",
       "norm_label": "post"
     },
     {
@@ -26472,8 +26472,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_enrollments_enrollments_controller_ts_body",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 161,
+      "community_name": ".findCurrent",
       "norm_label": "body"
     },
     {
@@ -26527,8 +26527,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_enrollments_enrollments_controller_ts_patch",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 161,
+      "community_name": ".findCurrent",
       "norm_label": "patch"
     },
     {
@@ -26549,8 +26549,8 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "server_src_modules_enrollments_enrollments_controller_enrollmentcontroller_create",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 161,
+      "community_name": ".findCurrent",
       "norm_label": ".create()"
     },
     {
@@ -26582,8 +26582,8 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "server_src_modules_enrollments_enrollments_controller_enrollmentcontroller_update",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 161,
+      "community_name": ".findCurrent",
       "norm_label": ".update()"
     },
     {
@@ -27143,8 +27143,8 @@
       "source_location": "L386",
       "_origin": "ast",
       "id": "server_src_modules_fees_dto_fees_dto_tofamilypayment",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 17,
+      "community_name": "all-entities.ts",
       "norm_label": "tofamilypayment()"
     },
     {
@@ -27165,8 +27165,8 @@
       "source_location": "L439",
       "_origin": "ast",
       "id": "server_src_modules_fees_dto_fees_dto_tofamilystudentfee",
-      "community": 34,
-      "community_name": "CreateInvoiceDto",
+      "community": 17,
+      "community_name": "all-entities.ts",
       "norm_label": "tofamilystudentfee()"
     },
     {
@@ -27220,8 +27220,8 @@
       "source_location": "L545",
       "_origin": "ast",
       "id": "server_src_modules_fees_dto_fees_dto_tofamilyfeestructure",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 17,
+      "community_name": "all-entities.ts",
       "norm_label": "tofamilyfeestructure()"
     },
     {
@@ -28364,8 +28364,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_fees_fees_controller",
-      "community": 5,
-      "community_name": "invoices.controller.ts",
+      "community": 17,
+      "community_name": "all-entities.ts",
       "norm_label": "fees.controller.ts"
     },
     {
@@ -28496,8 +28496,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_fees_fees_controller_ts_throttle",
-      "community": 17,
-      "community_name": "all-entities.ts",
+      "community": 2,
+      "community_name": "ClassController",
       "norm_label": "throttle"
     },
     {
@@ -28595,8 +28595,8 @@
       "source_location": "L159",
       "_origin": "ast",
       "id": "server_src_modules_fees_fees_controller_feecontroller_generatefees",
-      "community": 17,
-      "community_name": "all-entities.ts",
+      "community": 2,
+      "community_name": "ClassController",
       "norm_label": ".generatefees()"
     },
     {
@@ -28925,8 +28925,8 @@
       "source_location": "L330",
       "_origin": "ast",
       "id": "server_src_modules_fees_fees_service_paymentservice_findall",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 17,
+      "community_name": "all-entities.ts",
       "norm_label": ".findall()"
     },
     {
@@ -36270,7 +36270,7 @@
       "label": "assertTestDatabaseUrl()",
       "file_type": "code",
       "source_file": "server/test/setup.ts",
-      "source_location": "L49",
+      "source_location": "L54",
       "_origin": "ast",
       "id": "server_test_setup_asserttestdatabaseurl",
       "community": 58,
@@ -36281,7 +36281,7 @@
       "label": "setupTestDatabase()",
       "file_type": "code",
       "source_file": "server/test/setup.ts",
-      "source_location": "L63",
+      "source_location": "L68",
       "_origin": "ast",
       "id": "server_test_setup_setuptestdatabase",
       "community": 58,
@@ -36292,7 +36292,7 @@
       "label": "seedBaselineData()",
       "file_type": "code",
       "source_file": "server/test/setup.ts",
-      "source_location": "L92",
+      "source_location": "L97",
       "_origin": "ast",
       "id": "server_test_setup_seedbaselinedata",
       "community": 58,
@@ -36303,7 +36303,7 @@
       "label": "clearTransactionalTables()",
       "file_type": "code",
       "source_file": "server/test/setup.ts",
-      "source_location": "L159",
+      "source_location": "L164",
       "_origin": "ast",
       "id": "server_test_setup_cleartransactionaltables",
       "community": 58,
@@ -39881,8 +39881,8 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "ui_package_dependencies_biddaloy_shared",
-      "community": 35,
-      "community_name": "dependencies",
+      "community": 305,
+      "community_name": "@biddaloy/shared",
       "norm_label": "@biddaloy/shared"
     },
     {
@@ -39892,8 +39892,8 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "ui_package_json_biddaloy_shared",
-      "community": 35,
-      "community_name": "dependencies",
+      "community": 305,
+      "community_name": "@biddaloy/shared",
       "norm_label": "@biddaloy/shared"
     },
     {
@@ -39969,8 +39969,8 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "ui_package_dependencies_tanstack_react_table",
-      "community": 303,
-      "community_name": "@tanstack/react-table",
+      "community": 35,
+      "community_name": "dependencies",
       "norm_label": "@tanstack/react-table"
     },
     {
@@ -39980,8 +39980,8 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "tanstack_react_table",
-      "community": 303,
-      "community_name": "@tanstack/react-table",
+      "community": 35,
+      "community_name": "dependencies",
       "norm_label": "@tanstack/react-table"
     },
     {
@@ -43709,8 +43709,8 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "ui_src_components_data_table_datatablesort",
-      "community": 71,
-      "community_name": "SendBulkReminderDto",
+      "community": 183,
+      "community_name": "index.test.tsx",
       "norm_label": "datatablesort"
     },
     {
@@ -55655,8 +55655,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_shells_use_list_shell_state_test",
-      "community": 71,
-      "community_name": "SendBulkReminderDto",
+      "community": 183,
+      "community_name": "index.test.tsx",
       "norm_label": "use-list-shell-state.test.tsx"
     },
     {
@@ -55666,8 +55666,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "ui_src_shells_use_list_shell_state_test_probe",
-      "community": 71,
-      "community_name": "SendBulkReminderDto",
+      "community": 183,
+      "community_name": "index.test.tsx",
       "norm_label": "probe()"
     },
     {
@@ -55677,8 +55677,8 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "ui_src_shells_use_list_shell_state_test_buildroutetree",
-      "community": 71,
-      "community_name": "SendBulkReminderDto",
+      "community": 183,
+      "community_name": "index.test.tsx",
       "norm_label": "buildroutetree()"
     },
     {
@@ -55688,8 +55688,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_shells_use_list_shell_state",
-      "community": 71,
-      "community_name": "SendBulkReminderDto",
+      "community": 183,
+      "community_name": "index.test.tsx",
       "norm_label": "use-list-shell-state.ts"
     },
     {
@@ -55699,8 +55699,8 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "ui_src_shells_use_list_shell_state_listshellstate",
-      "community": 71,
-      "community_name": "SendBulkReminderDto",
+      "community": 183,
+      "community_name": "index.test.tsx",
       "norm_label": "listshellstate"
     },
     {
@@ -55710,8 +55710,8 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "ui_src_shells_use_list_shell_state_listshellactions",
-      "community": 71,
-      "community_name": "SendBulkReminderDto",
+      "community": 183,
+      "community_name": "index.test.tsx",
       "norm_label": "listshellactions"
     },
     {
@@ -55908,8 +55908,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_shells_wizard_shell_test",
-      "community": 183,
-      "community_name": "index.test.tsx",
+      "community": 77,
+      "community_name": "RefreshTokenService",
       "norm_label": "wizard-shell.test.tsx"
     },
     {
@@ -55919,8 +55919,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "ui_src_shells_wizard_shell_test_amountstep",
-      "community": 183,
-      "community_name": "index.test.tsx",
+      "community": 77,
+      "community_name": "RefreshTokenService",
       "norm_label": "amountstep()"
     },
     {
@@ -55930,8 +55930,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "ui_src_shells_wizard_shell_test_controlled",
-      "community": 183,
-      "community_name": "index.test.tsx",
+      "community": 77,
+      "community_name": "RefreshTokenService",
       "norm_label": "controlled()"
     },
     {
@@ -55941,8 +55941,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_shells_wizard_shell",
-      "community": 183,
-      "community_name": "index.test.tsx",
+      "community": 77,
+      "community_name": "RefreshTokenService",
       "norm_label": "wizard-shell.tsx"
     },
     {
@@ -55952,8 +55952,8 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "ui_src_shells_wizard_shell_wizardstep",
-      "community": 183,
-      "community_name": "index.test.tsx",
+      "community": 77,
+      "community_name": "RefreshTokenService",
       "norm_label": "wizardstep"
     },
     {
@@ -55963,8 +55963,8 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "ui_src_shells_wizard_shell_wizardshellbaseprops",
-      "community": 183,
-      "community_name": "index.test.tsx",
+      "community": 77,
+      "community_name": "RefreshTokenService",
       "norm_label": "wizardshellbaseprops"
     },
     {
@@ -55974,8 +55974,8 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "ui_src_shells_wizard_shell_wizardshellprops",
-      "community": 183,
-      "community_name": "index.test.tsx",
+      "community": 77,
+      "community_name": "RefreshTokenService",
       "norm_label": "wizardshellprops"
     },
     {
@@ -55985,8 +55985,8 @@
       "source_location": "L56",
       "_origin": "ast",
       "id": "ui_src_shells_wizard_shell_wizardshell",
-      "community": 183,
-      "community_name": "index.test.tsx",
+      "community": 77,
+      "community_name": "RefreshTokenService",
       "norm_label": "wizardshell()"
     },
     {
@@ -63219,8 +63219,8 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 97,
-      "community_name": "design-sync notes \u2014 @biddaloy/ui \u2192 Claude Design",
+      "community": 52,
+      "community_name": "index.ts",
       "norm_label": "statusbadge five-tone status vocabulary",
       "id": "design_sync_conventions_statusbadge_tones"
     },
@@ -63233,8 +63233,8 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 97,
-      "community_name": "design-sync notes \u2014 @biddaloy/ui \u2192 Claude Design",
+      "community": 52,
+      "community_name": "index.ts",
       "norm_label": "shared domain enums (feestatus, userrole, etc.)",
       "id": "shared_readme_enums"
     },
@@ -63247,8 +63247,8 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 97,
-      "community_name": "design-sync notes \u2014 @biddaloy/ui \u2192 Claude Design",
+      "community": 52,
+      "community_name": "index.ts",
       "norm_label": "statusbadge unauthored floor card build bug",
       "id": "design_sync_notes_statusbadge_floorcard"
     },
@@ -63261,8 +63261,8 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 97,
-      "community_name": "design-sync notes \u2014 @biddaloy/ui \u2192 Claude Design",
+      "community": 85,
+      "community_name": "@biddaloy/ui README",
       "norm_label": "client-admin/src/routes/login.tsx placeholder login route",
       "id": "client_admin_src_routes_login_tsx"
     },
@@ -63317,8 +63317,8 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 97,
-      "community_name": "design-sync notes \u2014 @biddaloy/ui \u2192 Claude Design",
+      "community": 85,
+      "community_name": "@biddaloy/ui README",
       "norm_label": "tanstack router adoption, uselisturlstate, requirerole",
       "id": "ui_readme_routing"
     },
@@ -63499,8 +63499,8 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 97,
-      "community_name": "design-sync notes \u2014 @biddaloy/ui \u2192 Claude Design",
+      "community": 85,
+      "community_name": "@biddaloy/ui README",
       "norm_label": "design before you build (mockup approval gate)",
       "id": "ui_contributing_designbeforebuild"
     }
@@ -183200,7 +183200,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "server/test/setup.ts",
-      "source_location": "L16",
+      "source_location": "L21",
       "weight": 1.0,
       "_origin": "ast",
       "source": "server_test_setup",
@@ -183417,7 +183417,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "server/test/setup.ts",
-      "source_location": "L49",
+      "source_location": "L54",
       "weight": 1.0,
       "_origin": "ast",
       "source": "server_test_setup",
@@ -183428,7 +183428,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "server/test/setup.ts",
-      "source_location": "L159",
+      "source_location": "L164",
       "weight": 1.0,
       "_origin": "ast",
       "source": "server_test_setup",
@@ -183439,7 +183439,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "server/test/setup.ts",
-      "source_location": "L92",
+      "source_location": "L97",
       "weight": 1.0,
       "_origin": "ast",
       "source": "server_test_setup",
@@ -183450,7 +183450,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "server/test/setup.ts",
-      "source_location": "L63",
+      "source_location": "L68",
       "weight": 1.0,
       "_origin": "ast",
       "source": "server_test_setup",
@@ -183462,7 +183462,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "server/test/setup.ts",
-      "source_location": "L71",
+      "source_location": "L76",
       "weight": 1.0,
       "_origin": "ast",
       "source": "server_test_setup_setuptestdatabase",
@@ -246802,5 +246802,5 @@
       "source_file": ".claude/skills/multi-tenancy/SKILL.md"
     }
   ],
-  "built_at_commit": "fe8713b32d5abc1ef84d0a68ea5750a9a1f4becc"
+  "built_at_commit": "05c8ae2b3fb910c99c3075adad272a9d4bd49783"
 }
