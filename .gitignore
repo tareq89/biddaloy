@@ -155,8 +155,11 @@ vite.config.ts.timestamp-*
 # @tanstack/router-plugin's watch-mode cache
 .tanstack/
 
-# Graphify cache (regenerated, contains absolute local paths)
-graphify-out/cache/
+# Graphify cache (regenerated, contains absolute local paths).
+# `**/` because a bare `graphify-out/cache/` anchors to the repo root and so
+# missed the copy under server/ that `graphify update .` creates when it is
+# run from inside a workspace.
+**/graphify-out/cache/
 
 # Build output (deployable artifact)
 build-output/
