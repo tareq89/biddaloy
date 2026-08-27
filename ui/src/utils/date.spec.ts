@@ -7,6 +7,7 @@ import {
   formatDate,
   formatDateTime,
   getAcademicYear,
+  isPastDueDate,
   parseDate,
   parseServerDate,
 } from './date';
@@ -118,6 +119,33 @@ describe('parseServerDate', () => {
     expect(date.getFullYear()).toBe(2024);
     expect(date.getMonth()).toBe(0);
     expect(date.getDate()).toBe(5);
+  });
+});
+
+describe('isPastDueDate', () => {
+  // Mid-afternoon, so a naive `parseServerDate(due) < now` comparison
+  // would already be true for a fee due today — that is the bug these
+  // cases pin.
+  const now = new Date(2026, 7, 25, 14, 30);
+
+  it('does not call a fee due today overdue', () => {
+    expect(isPastDueDate('2026-08-25T00:00:00.000Z', now)).toBe(false);
+  });
+
+  it('does not call a fee due today overdue at one minute to midnight', () => {
+    expect(isPastDueDate('2026-08-25T00:00:00.000Z', new Date(2026, 7, 25, 23, 59))).toBe(false);
+  });
+
+  it('calls yesterday overdue', () => {
+    expect(isPastDueDate('2026-08-24T00:00:00.000Z', now)).toBe(true);
+  });
+
+  it('does not call a future due date overdue', () => {
+    expect(isPastDueDate('2026-08-26T00:00:00.000Z', now)).toBe(false);
+  });
+
+  it('treats a missing due date as not overdue', () => {
+    expect(isPastDueDate(null, now)).toBe(false);
   });
 });
 

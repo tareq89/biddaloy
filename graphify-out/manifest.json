@@ -790,8 +790,8 @@
     "semantic_hash": ""
   },
   "server/src/modules/fees/fee-dues.service.integration.spec.ts": {
-    "mtime": 1787756117.7290006,
-    "ast_hash": "d4c6d1ecd335dd39a5788cc1cee259fc",
+    "mtime": 1787824608.3145757,
+    "ast_hash": "fa6811549ac7096775c78901a2ed8646",
     "semantic_hash": ""
   },
   "server/src/modules/fees/fee-dues.service.spec.ts": {
@@ -800,8 +800,8 @@
     "semantic_hash": "9f0de9eaf9de4b5463806ff0c044b385"
   },
   "server/src/modules/fees/fee-dues.service.ts": {
-    "mtime": 1787756117.729691,
-    "ast_hash": "d639ca64120edc2507c4db9a1340b028",
+    "mtime": 1787824268.3387854,
+    "ast_hash": "c1a71137062a8ee7ed68aa7d4df61e19",
     "semantic_hash": ""
   },
   "server/src/modules/fees/fee-generation.e2e-spec.ts": {
@@ -2460,13 +2460,13 @@
     "semantic_hash": "e21a583a1147ebf793e1f83bb5046a76"
   },
   "ui/src/utils/date.spec.ts": {
-    "mtime": 1787666797.2242615,
-    "ast_hash": "4ce097a91fc5a7c542342fb33877e08f",
+    "mtime": 1787824488.6184309,
+    "ast_hash": "b67db88bd869b6f097573f79e636e08f",
     "semantic_hash": ""
   },
   "ui/src/utils/date.ts": {
-    "mtime": 1787666797.2246552,
-    "ast_hash": "58049bffdbd533bf65c9ea09fdfcdb9a",
+    "mtime": 1787824278.053972,
+    "ast_hash": "adf50b582164a9b99bc75324f0404aa5",
     "semantic_hash": ""
   },
   "ui/src/utils/digits.spec.ts": {
@@ -2490,8 +2490,8 @@
     "semantic_hash": "7c6e712baac32be23fdb0f0d6e611ddb"
   },
   "ui/src/utils/index.ts": {
-    "mtime": 1787729804.125884,
-    "ast_hash": "141f1373fd6f24607b66ca04ad549d40",
+    "mtime": 1787824318.5424914,
+    "ast_hash": "df7393be61f19be82c3aaf7a24364a8f",
     "semantic_hash": ""
   },
   "ui/src/utils/name.spec.ts": {
@@ -3635,13 +3635,13 @@
     "semantic_hash": ""
   },
   "client-admin/src/routes/portal/fees.tsx": {
-    "mtime": 1787820268.0843122,
-    "ast_hash": "083239084b6e7b9ff5b0dd4642bae85d",
+    "mtime": 1787824372.4416564,
+    "ast_hash": "198da24e1a346a55e413cd5dfd327d1d",
     "semantic_hash": ""
   },
   "client-admin/src/routes/portal/index.tsx": {
-    "mtime": 1787817375.183189,
-    "ast_hash": "a85df903b2e4dbf236776402aaafb1e3",
+    "mtime": 1787824422.0934026,
+    "ast_hash": "77843f71a5674885962e9c2372cd3a5f",
     "semantic_hash": ""
   },
   "client-admin/src/routes/role-routing.test.tsx": {
@@ -5035,18 +5035,18 @@
     "semantic_hash": ""
   },
   "ui/src/i18n/locales/bn/portal.json": {
-    "mtime": 1787819693.174971,
-    "ast_hash": "e53bd032e858703f5285a87717c50607",
+    "mtime": 1787822644.7700975,
+    "ast_hash": "550d837e98eb9040a6ba49c44716e27a",
     "semantic_hash": ""
   },
   "ui/src/i18n/locales/en/portal.json": {
-    "mtime": 1787819693.1741583,
-    "ast_hash": "e7d989c5d1deb471d6a415e928eaf02c",
+    "mtime": 1787822644.7674196,
+    "ast_hash": "37557bb42117a94fabdf6c3fc5817a53",
     "semantic_hash": ""
   },
   "client-admin/src/routes/portal/fees.test.tsx": {
-    "mtime": 1787820268.138343,
-    "ast_hash": "6fb8e4d0e73aaad3088d03aa991901c1",
+    "mtime": 1787824537.0994775,
+    "ast_hash": "df2273d67e31a1a061f8eaf085383933",
     "semantic_hash": ""
   }
 }

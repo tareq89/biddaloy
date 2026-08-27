@@ -86,6 +86,29 @@ export function parseServerDate(value: string): Date {
   return parseDate(value.slice(0, 10));
 }
 
+/**
+ * Whether a server due date has actually **passed** — i.e. is strictly
+ * earlier than today.
+ *
+ * The obvious spelling, `parseServerDate(due).getTime() < now.getTime()`,
+ * is wrong in a way that only shows up on one day per fee:
+ * `parseServerDate` returns *local midnight*, so from 00:00 on the due
+ * date itself the comparison is already true and a fee is reported
+ * overdue on the very day the school asked for it. Comparing against the
+ * start of today instead makes "due today" current, and only yesterday
+ * and earlier late.
+ *
+ * This is the client-side twin of `fee-dues.service.ts`'s
+ * `months_overdue` predicate (`sf.due_date < CURRENT_DATE`). The two must
+ * agree, or a badge here contradicts a count from the server for the
+ * same fee — so change them together or not at all.
+ */
+export function isPastDueDate(dueDate: string | null, now: Date): boolean {
+  if (dueDate === null) return false;
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return parseServerDate(dueDate).getTime() < startOfToday.getTime();
+}
+
 /** Which academic-year window `date` falls into, per
  * `config.academicYear.startMonth` (1–12). A school on a January start
  * never straddles a calendar year (`startYear === endYear`); one on, say,

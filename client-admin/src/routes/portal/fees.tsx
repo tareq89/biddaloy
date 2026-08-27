@@ -22,7 +22,13 @@ import {
   useTranslation,
   type RegionConfig,
 } from '@biddaloy/ui/i18n';
-import { formatDate, formatServerAmount, parseServerDate, renderDigits } from '@biddaloy/ui/utils';
+import {
+  formatDate,
+  formatServerAmount,
+  isPastDueDate,
+  parseServerDate,
+  renderDigits,
+} from '@biddaloy/ui/utils';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { PrinterIcon } from 'lucide-react';
@@ -131,7 +137,7 @@ function balanceOf(fee: StudentFee): number {
  */
 function deriveMonthStatus(fee: StudentFee, now: Date): FeeStatus {
   if (balanceOf(fee) <= 0) return fee.status as FeeStatus;
-  if (fee.due_date !== null && parseServerDate(fee.due_date).getTime() < now.getTime()) {
+  if (isPastDueDate(fee.due_date, now)) {
     return FeeStatus.OVERDUE;
   }
   return fee.status as FeeStatus;
@@ -168,6 +174,9 @@ function useMonthNames(): string[] {
   ];
 }
 
+/** The server's own `@Max` on `QueryInvoiceDto.limit`. */
+const INVOICE_HISTORY_LIMIT = 100;
+
 function PortalFees() {
   const { t } = useTranslation('portal');
   const config = useRegionConfig();
@@ -182,6 +191,15 @@ function PortalFees() {
     students.find((student) => student.id === search.student) ?? students[0] ?? undefined;
 
   const summaryQuery = useStudentFeeSummary(selected?.id);
+  // `GET /invoices` defaults to 10 per page, and a monthly fee schedule
+  // issues twelve invoices a year — so the default silently hides part of
+  // the first year and more of every year after. 100 is the server's own
+  // `@Max` on `limit` (`QueryInvoiceDto`), which covers a full school
+  // career of monthly invoicing in one request; `InvoicesCard` says so
+  // out loud on the arithmetically-possible day it isn't enough, rather
+  // than truncating in silence. There is no unpaginated alternative:
+  // `/payments/invoices/student/:id` carries fees and payments, not
+  // invoices.
   // `invoicesQueryOptions` composed by hand rather than `useInvoices`,
   // purely for the `enabled` guard: `useInvoices` has no way to stay
   // parked, and while `/students/mine` is still in flight there is no
@@ -189,7 +207,9 @@ function PortalFees() {
   // `GET /invoices`, which is the tenant-wide staff list, and cache it
   // under the `invoiceKeys.list({})` key staff surfaces share.
   const invoicesQuery = useQuery({
-    ...invoicesQueryOptions(selected === undefined ? {} : { student_id: selected.id }),
+    ...invoicesQueryOptions(
+      selected === undefined ? {} : { student_id: selected.id, limit: INVOICE_HISTORY_LIMIT },
+    ),
     enabled: selected !== undefined,
   });
 
@@ -245,7 +265,11 @@ function PortalFees() {
       {students.length > 1 && <StudentPicker students={students} selectedId={selected.id} />}
       <FeesSummary summary={summaryQuery.data} config={config} />
       <BreakdownCard fees={summaryQuery.data.fee_breakdown} config={config} />
-      <InvoicesCard invoices={invoicesQuery.data.data} config={config} />
+      <InvoicesCard
+        invoices={invoicesQuery.data.data}
+        total={invoicesQuery.data.total}
+        config={config}
+      />
     </div>
   );
 }
@@ -346,12 +370,7 @@ function FeesSummary({
   // together would tell a parent with one late month and four future ones
   // that all five are late.
   const overdue = summary.fee_breakdown
-    .filter(
-      (fee) =>
-        balanceOf(fee) > 0 &&
-        fee.due_date !== null &&
-        parseServerDate(fee.due_date).getTime() < now.getTime(),
-    )
+    .filter((fee) => balanceOf(fee) > 0 && isPastDueDate(fee.due_date, now))
     .reduce((sum, fee) => sum + balanceOf(fee), 0);
 
   const metaParts: string[] = [];
@@ -511,8 +530,21 @@ function BreakdownCard({ fees, config }: { fees: StudentFee[]; config: RegionCon
  * particular `issued_by` is pinned `null` for a family caller by design,
  * so nothing on this row may depend on it.
  */
-function InvoicesCard({ invoices, config }: { invoices: Invoice[]; config: RegionConfig }) {
+function InvoicesCard({
+  invoices,
+  total,
+  config,
+}: {
+  invoices: Invoice[];
+  total: number;
+  config: RegionConfig;
+}) {
   const { t } = useTranslation('portal');
+  // Only reachable once a student has more than INVOICE_HISTORY_LIMIT
+  // invoices. Saying "showing the most recent 100 of 112" is the one
+  // thing that must not be left unsaid: a parent counting a missing
+  // month would otherwise conclude the school never issued it.
+  const truncated = total > invoices.length;
 
   return (
     <Card className="flex flex-col">
@@ -520,6 +552,14 @@ function InvoicesCard({ invoices, config }: { invoices: Invoice[]; config: Regio
         <h2 className="text-sm font-semibold">{t('fees.invoicesTitle')}</h2>
         <span className="text-[11px] text-muted-foreground">{t('fees.newestFirst')}</span>
       </div>
+      {truncated && (
+        <p className="border-b border-border px-3.5 py-2 text-[11px] text-muted-foreground">
+          {t('fees.invoicesTruncated', {
+            shown: renderDigits(String(invoices.length), config.numerals),
+            total: renderDigits(String(total), config.numerals),
+          })}
+        </p>
+      )}
       {invoices.length === 0 ? (
         <p className="p-3.5 text-sm text-muted-foreground">{t('fees.invoicesEmpty')}</p>
       ) : (

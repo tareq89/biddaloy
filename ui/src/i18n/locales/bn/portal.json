@@ -31,6 +31,7 @@
     "monthLabel": "{{month}} {{year}}",
     "invoicesTitle": "চালান",
     "newestFirst": "নতুন থেকে পুরনো",
+    "invoicesTruncated": "{{total}}টি চালানের মধ্যে সাম্প্রতিক {{shown}}টি দেখানো হচ্ছে। পুরনো চালানের জন্য স্কুল অফিসে যোগাযোগ করুন।",
     "invoicesEmpty": "এখনও কোনো চালান নেই।",
     "printLabel": "{{number}} চালানটি প্রিন্ট করুন",
     "printError": "প্রিন্টযোগ্য চালানটি খোলা যায়নি। আবার চেষ্টা করুন।",

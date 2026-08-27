@@ -31,6 +31,7 @@
     "monthLabel": "{{month}} {{year}}",
     "invoicesTitle": "Invoices",
     "newestFirst": "Newest first",
+    "invoicesTruncated": "Showing the most recent {{shown}} of {{total}} invoices. Ask the school office for older ones.",
     "invoicesEmpty": "No invoices yet.",
     "printLabel": "Print invoice {{number}}",
     "printError": "Could not open the printable invoice. Try again.",

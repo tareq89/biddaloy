@@ -133,16 +133,24 @@ describe('/portal/fees', () => {
 
   const summaryRequests: string[] = [];
   const invoiceRequests: string[] = [];
+  /** The `limit` each `GET /invoices` actually asked for. The default of
+   * 10 hides part of a single year of monthly invoicing, so the value
+   * sent is load-bearing, not incidental. */
+  const invoiceLimits: (string | null)[] = [];
 
   beforeEach(() => {
     summaryRequests.length = 0;
     invoiceRequests.length = 0;
+    invoiceLimits.length = 0;
   });
 
   function mockFees(options: {
     students: unknown[];
     summaries: Record<string, unknown>;
     invoices: Record<string, unknown[]>;
+    /** Server-side `total` when it exceeds the rows returned — i.e. the
+     * history is longer than one page. Defaults to the row count. */
+    invoiceTotals?: Record<string, number>;
   }) {
     server.use(
       http.get('/api/v1/students/mine', () => HttpResponse.json(options.students)),
@@ -152,15 +160,18 @@ describe('/portal/fees', () => {
         return HttpResponse.json(options.summaries[id] ?? summary(id, []));
       }),
       http.get('/api/v1/invoices', ({ request }) => {
-        const studentId = new URL(request.url).searchParams.get('student_id') ?? '';
+        const url = new URL(request.url);
+        const studentId = url.searchParams.get('student_id') ?? '';
         invoiceRequests.push(studentId);
+        invoiceLimits.push(url.searchParams.get('limit'));
         const rows = options.invoices[studentId] ?? [];
+        const total = options.invoiceTotals?.[studentId] ?? rows.length;
         return HttpResponse.json({
           data: rows,
-          total: rows.length,
+          total,
           page: 1,
-          limit: 10,
-          totalPages: 1,
+          limit: Number(url.searchParams.get('limit') ?? 10),
+          totalPages: Math.max(1, Math.ceil(total / rows.length || 1)),
         });
       }),
     );
@@ -230,8 +241,9 @@ describe('/portal/fees', () => {
     invoice('inv-3', 'INV-2025-0705', 3000, 'PAID', 74),
   ];
 
-  function standardMocks() {
+  function standardMocks(extra?: { invoiceTotals?: Record<string, number> }) {
     mockFees({
+      ...extra,
       students: [fatima, imran],
       summaries: {
         'student-1': summary('student-1', fatimaFees, []),
@@ -368,6 +380,35 @@ describe('/portal/fees', () => {
       expect(badgeText(august)).toEqual(['Partially paid']);
     });
 
+    it('does not call a month due today overdue', async () => {
+      // `parseServerDate` returns local midnight, so a naive
+      // `< now` comparison flips to Overdue at 00:00 on the due date and
+      // tells a parent they are late on the day they were asked to pay.
+      // The server's `months_overdue` predicate matches this
+      // (`sf.due_date < CURRENT_DATE`).
+      mockFees({
+        students: [fatima],
+        summaries: {
+          'student-1': summary('student-1', [
+            fee('student-1', {
+              id: 'today-1',
+              month: 9,
+              year: 2025,
+              total: 3000,
+              paid: 0,
+              status: 'PENDING',
+              dueInDays: 0,
+            }),
+          ]),
+        },
+        invoices: { 'student-1': [] },
+      });
+      renderFees();
+
+      const row = monthRow(await screen.findByText('September 2025'));
+      expect(badgeText(row)).toEqual(['Pending']);
+    });
+
     it('says so plainly when nothing has been charged yet', async () => {
       mockFees({
         students: [fatima],
@@ -391,6 +432,34 @@ describe('/portal/fees', () => {
       const numbers = screen.getAllByText(/^INV-2025-/).map((node) => node.textContent);
       expect(numbers).toEqual(['INV-2025-0912', 'INV-2025-0811', 'INV-2025-0705']);
       expect(screen.getByText('Newest first')).toBeTruthy();
+    });
+
+    it('asks for the whole history, not the ten-row default page', async () => {
+      // `GET /invoices` defaults to limit=10 and a monthly fee schedule
+      // issues twelve invoices a year, so the default drops invoices
+      // inside a single school year. Regression for that.
+      standardMocks();
+      renderFees();
+
+      await screen.findByText('INV-2025-0912');
+      expect(invoiceLimits).toEqual(['100']);
+    });
+
+    it('says how many invoices it is showing when the history is longer', async () => {
+      standardMocks({ invoiceTotals: { 'student-1': 112 } });
+      renderFees();
+
+      // Never silently truncated: a parent counting a missing month must
+      // not conclude the school never issued it.
+      expect(await screen.findByText(/most recent 3 of 112 invoices/i)).toBeTruthy();
+    });
+
+    it('says nothing about truncation when the whole history fits', async () => {
+      standardMocks();
+      renderFees();
+
+      await screen.findByText('INV-2025-0912');
+      expect(screen.queryByText(/most recent/i)).toBeNull();
     });
 
     it('does not make the row a link — there is no invoice detail page', async () => {
