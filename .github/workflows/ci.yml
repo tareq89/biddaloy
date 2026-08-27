@@ -213,7 +213,7 @@ jobs:
 
       - name: Comment coverage on PR
         if: github.event_name == 'pull_request'
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@v3
         with:
           header: coverage
           path: coverage-comment.md
@@ -460,7 +460,7 @@ jobs:
         run: node scripts/bundle-delta.mjs baseline/route-chunks-report.json client-admin/dist/route-chunks-report.json delta.md
 
       - name: Post sticky PR comment
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@v3
         with:
           header: bundle-delta
           path: delta.md
