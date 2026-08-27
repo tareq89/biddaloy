@@ -225,7 +225,7 @@ describe('[5.4a] Self-service profile', () => {
         .patch(`${API}/users/me`)
         .set('Authorization', `Bearer ${parentToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
-        .send({ phone: '+8801900000001' })
+        .send({ phone: '+8801900000001', current_password: SEED_ADMIN_PASSWORD })
         .expect(200);
 
       const rows = await dataSource.query(`SELECT phone FROM users WHERE id = $1`, [
@@ -275,7 +275,7 @@ describe('[5.4a] Self-service profile', () => {
         .patch(`${API}/users/me`)
         .set('Authorization', `Bearer ${parentToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
-        .send({ email: SEED_ADMIN_EMAIL })
+        .send({ email: SEED_ADMIN_EMAIL, current_password: SEED_ADMIN_PASSWORD })
         .expect(409);
 
       // The message must not name the other account's tenant or owner —
@@ -310,7 +310,7 @@ describe('[5.4a] Self-service profile', () => {
         .patch(`${API}/users/me`)
         .set('Authorization', `Bearer ${parentToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
-        .send({ phone: '' })
+        .send({ phone: '', current_password: SEED_ADMIN_PASSWORD })
         .expect(200);
 
       const rows = await dataSource.query(`SELECT phone FROM users WHERE id = $1`, [
@@ -332,7 +332,7 @@ describe('[5.4a] Self-service profile', () => {
         .patch(`${API}/users/me`)
         .set('Authorization', `Bearer ${parentToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
-        .send({ phone: '' })
+        .send({ phone: '', current_password: SEED_ADMIN_PASSWORD })
         .expect(200);
 
       // The second clear is the one that hit the unique index on `''`.
@@ -340,7 +340,7 @@ describe('[5.4a] Self-service profile', () => {
         .patch(`${API}/users/me`)
         .set('Authorization', `Bearer ${lonelyToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
-        .send({ phone: '' })
+        .send({ phone: '', current_password: SEED_ADMIN_PASSWORD })
         .expect(200);
 
       const rows = await dataSource.query(
@@ -384,8 +384,11 @@ describe('[5.4a] Self-service profile', () => {
       expect(me.body.email).toBe(SEED_ADMIN_EMAIL);
     });
 
-    it('rejects any other non-BD-format phone with 400', async () => {
-      for (const phone of ['not-a-phone', '12345', '+15551234567']) {
+    // Still garbage-rejecting, but the rule is now E.164-ish rather than
+    // Bangladesh-only — see INTERNATIONAL_PHONE_REGEX. `12345` fails on digit
+    // count (8 minimum), `not-a-phone` and the email on the character class.
+    it('rejects a phone that is not a phone number with 400', async () => {
+      for (const phone of ['not-a-phone', '12345', 'a@b.example', '++', '1234567']) {
         await http()
           .patch(`${API}/users/me`)
           .set('Authorization', `Bearer ${parentToken}`)
@@ -444,7 +447,7 @@ describe('[5.4a] Self-service profile', () => {
         .patch(`${API}/users/me`)
         .set('Authorization', `Bearer ${parentToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
-        .send({ email: SEED_ADMIN_EMAIL })
+        .send({ email: SEED_ADMIN_EMAIL, current_password: SEED_ADMIN_PASSWORD })
         .expect(409);
 
       expect(JSON.stringify(res.body)).not.toContain(SEED_ADMIN_EMAIL);
@@ -461,7 +464,7 @@ describe('[5.4a] Self-service profile', () => {
         .patch(`${API}/users/me`)
         .set('Authorization', `Bearer ${parentToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
-        .send({ phone: takenPhone })
+        .send({ phone: takenPhone, current_password: SEED_ADMIN_PASSWORD })
         .expect(409);
 
       expect(JSON.stringify(res.body)).not.toContain(takenPhone);
@@ -476,7 +479,7 @@ describe('[5.4a] Self-service profile', () => {
         .patch(`${API}/users/me`)
         .set('Authorization', `Bearer ${parentToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
-        .send({ phone: '01712345678' })
+        .send({ phone: '01712345678', current_password: SEED_ADMIN_PASSWORD })
         .expect(200);
 
       expect(res.body.phone).toBe('01712345678');
@@ -499,6 +502,223 @@ describe('[5.4a] Self-service profile', () => {
         PARENT_USER_ID,
       ]);
       expect(rows[0].phone).toBe('01812345678');
+    });
+
+    // ── international phone numbers ────────────────────────────────────
+    //
+    // `users.phone` is a login identifier for a staff member or parent who
+    // may hold a foreign number, and a browser form submits the number the
+    // way a human types it. The Bangladesh-only guardian rule
+    // (BD_PHONE_REGEX) rejected both; the user's decision is E.164-ish here.
+    // Guardian phones are NOT part of this change. [5.4a]
+    for (const phone of ['+447700900123', '+880 1712-345678', '+1 (555) 123-4567']) {
+      it(`accepts the international number "${phone}"`, async () => {
+        const res = await http()
+          .patch(`${API}/users/me`)
+          .set('Authorization', `Bearer ${parentToken}`)
+          .set('X-Tenant-ID', SEED_TENANT_ID)
+          .send({ phone, current_password: SEED_ADMIN_PASSWORD })
+          .expect(200);
+
+        expect(res.body.phone).toBe(phone);
+      });
+    }
+
+    // ── email is stored case-folded ────────────────────────────────────
+    //
+    // `users.email` is a plain `character varying` under a plain unique
+    // index, so Postgres would happily hold BOTH `foo@x` and `Foo@x`. Two
+    // accounts would then claim one address and `AuthService.validateUser`
+    // (exact match) would hand out whichever the typed casing hit. Worse for
+    // the ordinary user: retyping their own address with different
+    // capitalisation silently changed the identifier they log in with, and
+    // there is no password-reset flow to recover from it.
+    describe('email case-folding', () => {
+      it('stores a mixed-case email lowercased', async () => {
+        const res = await http()
+          .patch(`${API}/users/me`)
+          .set('Authorization', `Bearer ${parentToken}`)
+          .set('X-Tenant-ID', SEED_TENANT_ID)
+          .send({ email: 'Profile.Parent@E2E.Example', current_password: SEED_ADMIN_PASSWORD })
+          .expect(200);
+
+        expect(res.body.email).toBe('profile.parent@e2e.example');
+        const rows = await dataSource.query(`SELECT email FROM users WHERE id = $1`, [
+          PARENT_USER_ID,
+        ]);
+        expect(rows[0].email).toBe('profile.parent@e2e.example');
+      });
+
+      it("refuses a case variant of ANOTHER account's email with 409", async () => {
+        const shouty = SEED_ADMIN_EMAIL.toUpperCase();
+        expect(shouty).not.toBe(SEED_ADMIN_EMAIL);
+
+        await http()
+          .patch(`${API}/users/me`)
+          .set('Authorization', `Bearer ${parentToken}`)
+          .set('X-Tenant-ID', SEED_TENANT_ID)
+          .send({ email: shouty, current_password: SEED_ADMIN_PASSWORD })
+          .expect(409);
+
+        // The victim's login still resolves to the victim.
+        const rows = await dataSource.query(`SELECT email FROM users WHERE id = $1`, [
+          PARENT_USER_ID,
+        ]);
+        expect(rows[0].email).toBe(PARENT_EMAIL);
+      });
+
+      it("treats a case variant of the caller's OWN email as unchanged", async () => {
+        // No current_password: nothing is actually changing, so no re-auth.
+        await http()
+          .patch(`${API}/users/me`)
+          .set('Authorization', `Bearer ${parentToken}`)
+          .set('X-Tenant-ID', SEED_TENANT_ID)
+          .send({ email: PARENT_EMAIL.toUpperCase() })
+          .expect(200);
+      });
+    });
+
+    // ── `email: ''` clears the column, like `phone: ''` ────────────────
+    //
+    // A profile form submits a cleared input as `''`. `phone: ''` cleared
+    // the column while `email: ''` 400'd with "email must be an email", so
+    // `{"email": "", "phone": ""}` failed for the wrong reason.
+    describe("email: '' (cleared form input)", () => {
+      it('clears the email to a real NULL when a phone survives', async () => {
+        await dataSource.query(`UPDATE users SET phone = '+8801815555555' WHERE id = $1`, [
+          PARENT_USER_ID,
+        ]);
+
+        await http()
+          .patch(`${API}/users/me`)
+          .set('Authorization', `Bearer ${parentToken}`)
+          .set('X-Tenant-ID', SEED_TENANT_ID)
+          .send({ email: '', current_password: SEED_ADMIN_PASSWORD })
+          .expect(200);
+
+        const rows = await dataSource.query(`SELECT email FROM users WHERE id = $1`, [
+          PARENT_USER_ID,
+        ]);
+        expect(rows[0].email).toBeNull();
+      });
+
+      it('refuses to clear BOTH identifiers, and says why', async () => {
+        const res = await http()
+          .patch(`${API}/users/me`)
+          .set('Authorization', `Bearer ${parentToken}`)
+          .set('X-Tenant-ID', SEED_TENANT_ID)
+          .send({ email: '', phone: '', current_password: SEED_ADMIN_PASSWORD })
+          .expect(400);
+
+        // Not "email must be an email" — the real reason.
+        expect(JSON.stringify(res.body)).toContain('login identifier');
+
+        const rows = await dataSource.query(`SELECT email FROM users WHERE id = $1`, [
+          PARENT_USER_ID,
+        ]);
+        expect(rows[0].email).toBe(PARENT_EMAIL);
+      });
+    });
+
+    // ── re-authentication for identifier changes ───────────────────────
+    //
+    // An access token lives ~15 minutes and there is no password-reset flow,
+    // so whoever rewrites both identifiers owns the account permanently.
+    // Changing one therefore costs the current password, like
+    // POST /auth/change-password. 403 and NOT 401, because
+    // `ui/src/api/client.ts` transparently refreshes and replays any 401.
+    describe('re-authentication', () => {
+      it('rejects an identifier change with no current_password (400, nothing written)', async () => {
+        const res = await http()
+          .patch(`${API}/users/me`)
+          .set('Authorization', `Bearer ${parentToken}`)
+          .set('X-Tenant-ID', SEED_TENANT_ID)
+          .send({ email: 'hijacked@e2e.example' })
+          .expect(400);
+
+        expect(JSON.stringify(res.body)).toContain('current password');
+        const rows = await dataSource.query(`SELECT email FROM users WHERE id = $1`, [
+          PARENT_USER_ID,
+        ]);
+        expect(rows[0].email).toBe(PARENT_EMAIL);
+      });
+
+      it('rejects a WRONG current_password with 403, not 401', async () => {
+        await http()
+          .patch(`${API}/users/me`)
+          .set('Authorization', `Bearer ${parentToken}`)
+          .set('X-Tenant-ID', SEED_TENANT_ID)
+          .send({ email: 'hijacked@e2e.example', current_password: 'not-my-password' })
+          .expect(403);
+
+        const rows = await dataSource.query(`SELECT email FROM users WHERE id = $1`, [
+          PARENT_USER_ID,
+        ]);
+        expect(rows[0].email).toBe(PARENT_EMAIL);
+      });
+
+      it('accepts the right current_password with 200 and writes the change', async () => {
+        await http()
+          .patch(`${API}/users/me`)
+          .set('Authorization', `Bearer ${parentToken}`)
+          .set('X-Tenant-ID', SEED_TENANT_ID)
+          .send({ email: 'moved@e2e.example', current_password: SEED_ADMIN_PASSWORD })
+          .expect(200);
+
+        const rows = await dataSource.query(`SELECT email FROM users WHERE id = $1`, [
+          PARENT_USER_ID,
+        ]);
+        expect(rows[0].email).toBe('moved@e2e.example');
+      });
+
+      it('guards a PHONE change too', async () => {
+        await http()
+          .patch(`${API}/users/me`)
+          .set('Authorization', `Bearer ${parentToken}`)
+          .set('X-Tenant-ID', SEED_TENANT_ID)
+          .send({ phone: '+8801816666666' })
+          .expect(400);
+
+        await http()
+          .patch(`${API}/users/me`)
+          .set('Authorization', `Bearer ${parentToken}`)
+          .set('X-Tenant-ID', SEED_TENANT_ID)
+          .send({ phone: '+8801816666666', current_password: 'wrong' })
+          .expect(403);
+      });
+
+      it('leaves a cosmetic-only change friction-free', async () => {
+        await http()
+          .patch(`${API}/users/me`)
+          .set('Authorization', `Bearer ${parentToken}`)
+          .set('X-Tenant-ID', SEED_TENANT_ID)
+          .send({ full_name: 'Renamed Parent' })
+          .expect(200);
+
+        const rows = await dataSource.query(`SELECT full_name FROM users WHERE id = $1`, [
+          PARENT_USER_ID,
+        ]);
+        expect(rows[0].full_name).toBe('Renamed Parent');
+      });
+
+      it('does not accept current_password on the ADMIN route (different trust model)', async () => {
+        // forbidNonWhitelisted: the admin DTO has no such field.
+        await http()
+          .patch(`${API}/users/${PARENT_USER_ID}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('X-Tenant-ID', SEED_TENANT_ID)
+          .send({ phone: '+8801817777777', current_password: SEED_ADMIN_PASSWORD })
+          .expect(400);
+
+        // ...and an admin still changes someone else's identifier with no
+        // password at all.
+        await http()
+          .patch(`${API}/users/${PARENT_USER_ID}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('X-Tenant-ID', SEED_TENANT_ID)
+          .send({ phone: '+8801817777777' })
+          .expect(200);
+      });
     });
   });
 

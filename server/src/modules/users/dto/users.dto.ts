@@ -16,7 +16,27 @@ import {
 import { Type } from 'class-transformer';
 import { UserRole, TeacherDesignation } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
-import { BD_PHONE_REGEX } from '../../students/dto/students.dto';
+
+/**
+ * Phone shape accepted on `users.phone`. Deliberately NOT `BD_PHONE_REGEX`
+ * (the guardian/bulk-upload rule, which is Bangladesh-only): a staff member
+ * or parent may legitimately hold a foreign number (`+447700900123`), and a
+ * browser form happily submits a human-formatted one (`+880 1712-345678`).
+ *
+ * Rules, in order of the pattern:
+ *   - optional leading `+`
+ *   - only digits and the usual separators (space, dash, dot, parentheses)
+ *   - 8–15 digits in total (E.164 caps at 15; 8 is the shortest national
+ *     number in real use)
+ *
+ * What it still forbids is the thing that actually matters here: anything
+ * email-shaped. `AuthService.validateUser` looks a caller up by
+ * `email OR phone`, so a phone containing `@` would let one account shadow
+ * another's login identifier. `@` is not in the character class, so it
+ * cannot get in. Guardian phones keep `BD_PHONE_REGEX` — that path feeds SMS
+ * dialling for a Bangladeshi school and is not changed here. [5.4a]
+ */
+export const INTERNATIONAL_PHONE_REGEX = /^(?=(?:\D*\d){8,15}\D*$)\+?[\d\s().-]+$/;
 
 export class CreateUserDto {
   @IsOptional()
@@ -31,7 +51,7 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   @MaxLength(20)
-  @Matches(BD_PHONE_REGEX, { message: 'Invalid phone format' })
+  @Matches(INTERNATIONAL_PHONE_REGEX, { message: 'Invalid phone format' })
   phone?: string;
 
   @IsOptional()
@@ -51,10 +71,20 @@ export class CreateUserDto {
 }
 
 export class UpdateUserDto {
+  /** `null` and `''` both clear the stored email; the service maps `''` to a
+   * real NULL, exactly as it does for `phone` and exactly as
+   * `UpdateOwnGuardianDto.email` already does. Without the `@ValidateIf`,
+   * a profile form that submits both cleared inputs (`{"email": "",
+   * "phone": ""}`) got a 400 "email must be an email" while the identical
+   * `phone: ''` cleared its column — two self-service endpoints disagreeing
+   * about the same gesture. Clearing BOTH is still refused, but by the
+   * at-least-one-identifier check in the service, with a message that says
+   * so. [5.4a] */
   @IsOptional()
+  @ValidateIf((o: UpdateUserDto) => o.email !== '')
   @IsEmail()
   @MaxLength(100)
-  email?: string;
+  email?: string | null;
 
   /** `null` and `''` both clear the stored phone number (a browser form
    * submits a cleared input as `''`); the service maps `''` to a real NULL.
@@ -65,7 +95,7 @@ export class UpdateUserDto {
   @ValidateIf((o: UpdateUserDto) => o.phone !== '')
   @IsString()
   @MaxLength(20)
-  @Matches(BD_PHONE_REGEX, { message: 'Invalid phone format' })
+  @Matches(INTERNATIONAL_PHONE_REGEX, { message: 'Invalid phone format' })
   phone?: string | null;
 
   // Length-pinned to the column widths (`full_name` varchar(100),
@@ -83,6 +113,31 @@ export class UpdateUserDto {
   @IsString()
   @MaxLength(255)
   profile_picture_url?: string;
+}
+
+/**
+ * Body of `PATCH /users/me`. Same fields as `UpdateUserDto` plus the
+ * re-authentication field.
+ *
+ * A stolen access token (~15 minutes of life) was enough to rewrite BOTH
+ * login identifiers, and there is no password-reset flow, so the real owner
+ * was locked out of every school they belong to — permanently. Changing an
+ * identifier therefore costs a password, the same price
+ * `POST /auth/change-password` charges. `full_name` and
+ * `profile_picture_url` stay friction-free: getting those wrong is a typo,
+ * not a lockout.
+ *
+ * Only the self-service route takes this DTO. Admin `PATCH /users/:id` is a
+ * different trust model — an admin editing someone else's record does not
+ * know that person's password — and keeps plain `UpdateUserDto`. [5.4a]
+ */
+export class UpdateOwnProfileDto extends UpdateUserDto {
+  /** Required only when the request actually changes `email` or `phone`;
+   * the service enforces that, because only it can see the current values. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  current_password?: string;
 }
 
 export class QueryUserDto {

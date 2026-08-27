@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, In, QueryFailedError } from 'typeorm';
@@ -13,14 +14,24 @@ import { Teacher } from '../academics/entities/teacher.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { escapeLikePattern } from '../../common/utils/escape-like.util';
+import { normalizeEmail } from '../auth/normalize-identifier';
 import {
   CreateUserDto,
   UpdateUserDto,
+  UpdateOwnProfileDto,
   QueryUserDto,
   CreateTeacherDto,
   UpdateTeacherDto,
   QueryTeacherDto,
 } from './dto/users.dto';
+
+/**
+ * Compared against when the caller has no password hash, so a passwordless
+ * account costs the same bcrypt time as a wrong password rather than
+ * answering instantly. Mirrors AuthService's dummy hash. It is not a hash of
+ * any real password.
+ */
+const DUMMY_PASSWORD_HASH = '$2b$10$rGV9zEDpgnc/spXBlHqA9O5IjpBvndIyZE78fIhV8ZV4.5GAUfPJ.';
 
 @Injectable()
 export class UserService {
@@ -35,11 +46,15 @@ export class UserService {
     dto: CreateUserDto,
     tenantId: string,
   ): Promise<{ user: User; membership: UserTenant }> {
+    // Stored lowercased, so this pre-check and the DB's case-sensitive
+    // unique index agree with each other and with login. See normalizeEmail.
+    const email = dto.email ? normalizeEmail(dto.email) : null;
+
     // Check for duplicate email
-    if (dto.email) {
-      const existing = await this.userRepo.findOne({ where: { email: dto.email } });
+    if (email) {
+      const existing = await this.userRepo.findOne({ where: { email } });
       if (existing) {
-        throw new ConflictException(`User with email "${dto.email}" already exists`);
+        throw new ConflictException(`User with email "${email}" already exists`);
       }
     }
 
@@ -53,7 +68,7 @@ export class UserService {
       const userTenantRepo = manager.getRepository(UserTenant);
 
       const user = userRepo.create({
-        email: dto.email ?? null,
+        email,
         phone: dto.phone ?? null,
         password_hash,
         full_name: dto.full_name,
@@ -132,6 +147,19 @@ export class UserService {
     // have a blank phone. [5.4a]
     const phone = dto.phone === '' ? null : dto.phone;
 
+    // Same gesture, same meaning for email: `''` is a cleared form input, not
+    // an address. Everything else is lowercased before it is compared OR
+    // written — a case-sensitive `character varying` unique index cannot tell
+    // `foo@example.com` from `Foo@example.com`, so without this the
+    // "already in use" pre-check below misses case variants and the index
+    // does not catch them either. [5.4a]
+    const email =
+      dto.email === '' || dto.email === null
+        ? null
+        : dto.email
+          ? normalizeEmail(dto.email)
+          : undefined;
+
     // Login-identifier invariant. `AuthService.validateUser` looks a caller up
     // by email OR phone and nothing else, and there is no password-reset flow,
     // so a user left with neither is permanently locked out of every school
@@ -147,7 +175,7 @@ export class UserService {
     // made any worse by a `full_name` edit, and blocking that would be
     // collateral damage rather than protection.
     const touchesIdentifier = dto.email !== undefined || dto.phone !== undefined;
-    const nextEmail = dto.email !== undefined ? dto.email : current.email;
+    const nextEmail = dto.email !== undefined ? email : current.email;
     const nextPhone = dto.phone !== undefined ? phone : current.phone;
     if (touchesIdentifier && !nextEmail && !nextPhone) {
       throw new BadRequestException(
@@ -162,9 +190,9 @@ export class UserService {
     // soft-deletion but TypeORM's default filter does. The message names no
     // account and no tenant: email/phone are unique GLOBALLY, so the owner
     // of a colliding value may well be in another school. [5.4a]
-    if (dto.email) {
+    if (email) {
       const existing = await this.userRepo.findOne({
-        where: { email: dto.email },
+        where: { email },
         withDeleted: true,
       });
       // Postgres `uuid` compares case-insensitively and `users/:id` carries no
@@ -189,7 +217,7 @@ export class UserService {
 
     // Update user-level fields (shared across tenants)
     const updateData: any = {};
-    if (dto.email !== undefined) updateData.email = dto.email;
+    if (dto.email !== undefined) updateData.email = email ?? null;
     if (dto.phone !== undefined) updateData.phone = phone;
     if (dto.full_name !== undefined) updateData.full_name = dto.full_name;
     if (dto.profile_picture_url !== undefined)
@@ -213,6 +241,61 @@ export class UserService {
     }
 
     return this.findOne(id, tenantId);
+  }
+
+  /**
+   * `PATCH /users/me`. Same write as `update()`, with one extra gate: if the
+   * request actually CHANGES a login identifier, it must carry the caller's
+   * current password.
+   *
+   * Why: an access token lives ~15 minutes, there is no password-reset flow,
+   * and `AuthService.validateUser` matches on email OR phone and nothing
+   * else — so whoever rewrites both identifiers owns the account and the real
+   * user is locked out of every school they belong to, forever. That is the
+   * same stake `POST /auth/change-password` protects with `current_password`.
+   * Cosmetic fields (`full_name`, `profile_picture_url`) stay friction-free.
+   *
+   * "Changes" is compared against the stored values, so re-submitting your
+   * own unchanged email (what a profile form does on every save) costs
+   * nothing.
+   *
+   * 403, not 401: `ui/src/api/client.ts` transparently refreshes and replays
+   * ANY 401 once, which would turn a wrong password into a silent double
+   * submit. Admin `PATCH /users/:id` deliberately does not go through here —
+   * an admin does not know the password of the person they are editing. [5.4a]
+   */
+  async updateOwnProfile(id: string, dto: UpdateOwnProfileDto, tenantId: string): Promise<User> {
+    const { current_password, ...rest } = dto;
+    const current = await this.findOne(id, tenantId);
+
+    const nextEmail =
+      rest.email === '' || rest.email === null
+        ? null
+        : rest.email
+          ? normalizeEmail(rest.email)
+          : undefined;
+    const nextPhone = rest.phone === '' ? null : rest.phone;
+
+    const changesEmail = nextEmail !== undefined && nextEmail !== (current.email ?? null);
+    const changesPhone = nextPhone !== undefined && nextPhone !== (current.phone ?? null);
+
+    if (changesEmail || changesPhone) {
+      if (!current_password) {
+        throw new BadRequestException(
+          'Changing your email address or phone number requires your current password',
+        );
+      }
+      // A user created without a password (invited, never set one) cannot
+      // prove anything — same stance changePassword takes. Constant work
+      // either way so this is not a "has a password?" oracle.
+      const hash = current.password_hash ?? DUMMY_PASSWORD_HASH;
+      const valid = await bcrypt.compare(current_password, hash);
+      if (!current.password_hash || !valid) {
+        throw new ForbiddenException('Current password is incorrect');
+      }
+    }
+
+    return this.update(id, rest, tenantId);
   }
 
   async remove(id: string, tenantId: string, requestingUserId: string): Promise<void> {

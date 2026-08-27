@@ -37,6 +37,7 @@ describe('UserController', () => {
       findAll: vi.fn(),
       findOne: vi.fn(),
       update: vi.fn(),
+      updateOwnProfile: vi.fn(),
       remove: vi.fn(),
     };
     teacherService = {
@@ -321,6 +322,37 @@ describe('UserController', () => {
       ).rejects.toThrow(ConflictException);
     });
   });
+  // ────────────────────────
+  // ────────────────────────
+  //  self-service vs admin write path
+  // ────────────────────────
+  describe('PATCH /users/me routing', () => {
+    const JWT = { sub: 'requester-1', email: null, phone: null, memberships: [] } as any;
+
+    // `/users/me` goes through updateOwnProfile, which is the ONLY place the
+    // current-password gate lives. Admin `PATCH /users/:id` keeps plain
+    // update(): an admin editing someone else's record cannot know that
+    // person's password, and making them prove it would break the route. [5.4a]
+    it("sends the caller's own edit through updateOwnProfile, with the id from the JWT", async () => {
+      userService.updateOwnProfile.mockResolvedValue({ id: JWT.sub, full_name: 'Me' });
+      const dto = { email: 'me@example.com', current_password: 'pw' } as any;
+
+      await controller.updateMe(dto, TENANT, JWT);
+
+      expect(userService.updateOwnProfile).toHaveBeenCalledWith(JWT.sub, dto, TENANT.id);
+      expect(userService.update).not.toHaveBeenCalled();
+    });
+
+    it('leaves the admin route on plain update()', async () => {
+      userService.update.mockResolvedValue({ id: 'u1', full_name: 'Them' });
+
+      await controller.updateUser('u1', { phone: '+8801712345678' } as any, TENANT);
+
+      expect(userService.update).toHaveBeenCalledWith('u1', { phone: '+8801712345678' }, TENANT.id);
+      expect(userService.updateOwnProfile).not.toHaveBeenCalled();
+    });
+  });
+
   // ────────────────────────
   //  rate limiting
   // ────────────────────────

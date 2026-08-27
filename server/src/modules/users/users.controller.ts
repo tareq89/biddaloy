@@ -21,6 +21,7 @@ import { UserService, TeacherService } from './users.service';
 import {
   CreateUserDto,
   UpdateUserDto,
+  UpdateOwnProfileDto,
   QueryUserDto,
   CreateTeacherDto,
   UpdateTeacherDto,
@@ -125,15 +126,15 @@ export class UserController {
   )
   @ApiOperation({
     summary:
-      "Update the calling user's own record. Only the UpdateUserDto fields are accepted; role/status/tenant/password fields are rejected with 400 by forbidNonWhitelisted.",
+      "Update the calling user's own record. Only the UpdateOwnProfileDto fields are accepted; role/status/tenant fields are rejected with 400 by forbidNonWhitelisted. Changing email or phone requires `current_password` (400 if missing, 403 if wrong).",
   })
   @ApiResponse({ status: 200, type: UserResponseDto })
   async updateMe(
-    @Body() dto: UpdateUserDto,
+    @Body() dto: UpdateOwnProfileDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() jwt: JwtPayload,
   ) {
-    const user = await this.userService.update(jwt.sub, dto, tenant.id);
+    const user = await this.userService.updateOwnProfile(jwt.sub, dto, tenant.id);
     return UserResponseDto.fromEntity(user, tenant.id);
   }
 

@@ -56,3 +56,91 @@ describe('CreateUserDto length pinning', () => {
     expect(await validate(dto)).toHaveLength(0);
   });
 });
+
+/**
+ * Phone shape on `users.phone`. The earlier fix pinned it to the
+ * Bangladesh-only `BD_PHONE_REGEX`, which rejects a staff member's foreign
+ * number and a human-formatted local one. The rule here is E.164-ish:
+ * optional `+`, separators allowed, 8–15 digits, and — the part that
+ * actually protects login — nothing email-shaped, because
+ * `AuthService.validateUser` matches on `email OR phone`. Guardian phones
+ * keep the BD rule and are not covered by this file. [5.4a]
+ */
+describe('user phone shape (international)', () => {
+  const accepted = [
+    '01712345678', // BD local, unchanged
+    '+8801712345678', // BD E.164
+    '+880 1712-345678', // human-formatted
+    '+447700900123', // UK
+    '+1 (555) 123-4567', // US, parenthesised
+  ];
+
+  const rejected = [
+    'not-a-phone',
+    'admin@example.com', // the impersonation case: `@` is not in the class
+    '1234567', // 7 digits — below the 8-digit floor
+    '1234567890123456', // 16 digits — above E.164's 15
+    '', // handled by @ValidateIf on UpdateUserDto only
+    '+',
+  ];
+
+  for (const phone of accepted) {
+    it(`UpdateUserDto accepts "${phone}"`, async () => {
+      expect(await failedProps(plainToInstance(UpdateUserDto, { phone }))).not.toContain('phone');
+    });
+
+    it(`CreateUserDto accepts "${phone}"`, async () => {
+      const dto = plainToInstance(CreateUserDto, {
+        phone,
+        full_name: 'X',
+        role: UserRole.TEACHER,
+        tenantId: '00000000-0000-4000-8000-000000000000',
+      });
+      expect(await failedProps(dto)).not.toContain('phone');
+    });
+  }
+
+  for (const phone of rejected) {
+    it(`CreateUserDto rejects ${JSON.stringify(phone)}`, async () => {
+      const dto = plainToInstance(CreateUserDto, {
+        phone,
+        full_name: 'X',
+        role: UserRole.TEACHER,
+        tenantId: '00000000-0000-4000-8000-000000000000',
+      });
+      expect(await failedProps(dto)).toContain('phone');
+    });
+  }
+
+  it('still rejects a phone longer than the varchar(20) column', async () => {
+    const dto = plainToInstance(UpdateUserDto, { phone: '+880171234567890123456789' });
+    expect(await failedProps(dto)).toContain('phone');
+  });
+});
+
+/**
+ * A browser form submits a cleared input as `''`. `phone: ''` already meant
+ * "clear this column"; `email: ''` 400'd with "email must be an email", so
+ * a form clearing both failed for the wrong reason — and the sibling
+ * self-service DTO (`UpdateOwnGuardianDto`) already got this right. Clearing
+ * both is still refused, but by the service, with a message that explains
+ * the real problem. [5.4a]
+ */
+describe("UpdateUserDto email: '' (cleared form input)", () => {
+  it("lets '' through validation, the same way phone: '' does", async () => {
+    const dto = plainToInstance(UpdateUserDto, { email: '', phone: '' });
+    expect(await validate(dto)).toHaveLength(0);
+  });
+
+  it('still rejects a non-empty value that is not an email', async () => {
+    const dto = plainToInstance(UpdateUserDto, { email: 'nope' });
+    expect(await failedProps(dto)).toContain('email');
+  });
+
+  it('still rejects an email longer than the varchar(100) column', async () => {
+    const dto = plainToInstance(UpdateUserDto, {
+      email: `${'a'.repeat(60)}@${'b'.repeat(50)}.example`,
+    });
+    expect(await failedProps(dto)).toContain('email');
+  });
+});
