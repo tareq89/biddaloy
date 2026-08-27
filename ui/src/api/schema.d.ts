@@ -1055,6 +1055,26 @@ export interface components {
             phone?: string;
             password: string;
         };
+        MembershipResponseDto: {
+            /**
+             * Format: uuid
+             * @description The school this membership is in.
+             */
+            tenantId: string;
+            /**
+             * @description The role held in that school.
+             * @enum {string}
+             */
+            role: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE";
+            /** @description The school's display name. Absent on tokens issued before this field existed, so consumers must fall back to a placeholder rather than assume it is present. */
+            name?: string;
+        };
+        LoginResponseDto: {
+            /** @description Short-lived bearer token for the Authorization header. */
+            access_token: string;
+            /** @description Every school/role pair the caller holds, for the tenant picker. */
+            memberships: components["schemas"]["MembershipResponseDto"][];
+        };
         ChangePasswordDto: {
             /** @description The caller's current password, re-entered to prove possession. */
             current_password: string;
@@ -2266,7 +2286,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["LoginResponseDto"];
                 };
             };
             /** @description Invalid credentials — identical response for an unknown identifier, a wrong password, and a locked-out account (see the README's "Login brute-force protection" section). */
@@ -2292,7 +2312,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["LoginResponseDto"];
                 };
             };
             /** @description Missing, expired, invalid, or already-used refresh token. */
@@ -2356,7 +2376,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["LoginResponseDto"];
                 };
             };
             /** @description Missing or invalid access token, or the account is not active. */

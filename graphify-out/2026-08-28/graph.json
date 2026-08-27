@@ -19058,8 +19058,8 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "server_src_modules_auth_access_token_denylist_service_accesstokendenylistservice_revoke",
-      "community": 64,
-      "community_name": "communications.module.ts",
+      "community": 48,
+      "community_name": "auth.test.ts",
       "norm_label": ".revoke()"
     },
     {
@@ -19080,8 +19080,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_auth_auth_tokens",
-      "community": 48,
-      "community_name": "auth.test.ts",
+      "community": 163,
+      "community_name": "auth.service.ts",
       "norm_label": "auth-tokens.ts"
     },
     {
@@ -19443,8 +19443,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_auth_auth_module",
-      "community": 48,
-      "community_name": "auth.test.ts",
+      "community": 127,
+      "community_name": ".updateSettings",
       "norm_label": "auth.module.ts"
     },
     {
@@ -19454,8 +19454,8 @@
       "source_location": "L132",
       "_origin": "ast",
       "id": "server_src_modules_auth_auth_module_authmodule",
-      "community": 48,
-      "community_name": "auth.test.ts",
+      "community": 127,
+      "community_name": ".updateSettings",
       "norm_label": "authmodule"
     },
     {
@@ -19465,8 +19465,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "global",
-      "community": 48,
-      "community_name": "auth.test.ts",
+      "community": 127,
+      "community_name": ".updateSettings",
       "norm_label": "global"
     },
     {
@@ -19476,8 +19476,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_auth_auth_module_ts_module",
-      "community": 48,
-      "community_name": "auth.test.ts",
+      "community": 127,
+      "community_name": ".updateSettings",
       "norm_label": "module"
     },
     {
@@ -19487,8 +19487,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_auth_auth_service_spec",
-      "community": 48,
-      "community_name": "auth.test.ts",
+      "community": 163,
+      "community_name": "auth.service.ts",
       "norm_label": "auth.service.spec.ts"
     },
     {
@@ -19498,8 +19498,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_auth_auth_service",
-      "community": 48,
-      "community_name": "auth.test.ts",
+      "community": 163,
+      "community_name": "auth.service.ts",
       "norm_label": "auth.service.ts"
     },
     {
@@ -19509,8 +19509,8 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "server_src_modules_auth_auth_service_authresult",
-      "community": 48,
-      "community_name": "auth.test.ts",
+      "community": 163,
+      "community_name": "auth.service.ts",
       "norm_label": "authresult"
     },
     {
@@ -19520,8 +19520,8 @@
       "source_location": "L53",
       "_origin": "ast",
       "id": "server_src_modules_auth_auth_service_sleep",
-      "community": 64,
-      "community_name": "communications.module.ts",
+      "community": 163,
+      "community_name": "auth.service.ts",
       "norm_label": "sleep()"
     },
     {
@@ -19553,8 +19553,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_auth_auth_service_ts_injectrepository",
-      "community": 51,
-      "community_name": "fees.controller.ts",
+      "community": 48,
+      "community_name": "auth.test.ts",
       "norm_label": "injectrepository"
     },
     {
@@ -19564,8 +19564,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_auth_auth_service_ts_inject",
-      "community": 51,
-      "community_name": "fees.controller.ts",
+      "community": 48,
+      "community_name": "auth.test.ts",
       "norm_label": "inject"
     },
     {
@@ -19575,8 +19575,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "optional",
-      "community": 51,
-      "community_name": "fees.controller.ts",
+      "community": 48,
+      "community_name": "auth.test.ts",
       "norm_label": "optional"
     },
     {
@@ -19586,8 +19586,8 @@
       "source_location": "L59",
       "_origin": "ast",
       "id": "server_src_modules_auth_auth_service_authservice_constructor",
-      "community": 51,
-      "community_name": "fees.controller.ts",
+      "community": 48,
+      "community_name": "auth.test.ts",
       "norm_label": ".constructor()"
     },
     {
@@ -20510,8 +20510,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_auth_login_attempt_service",
-      "community": 48,
-      "community_name": "auth.test.ts",
+      "community": 163,
+      "community_name": "auth.service.ts",
       "norm_label": "login-attempt.service.ts"
     },
     {
@@ -20587,8 +20587,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "server_src_modules_auth_login_attempt_service_loginattemptresult",
-      "community": 48,
-      "community_name": "auth.test.ts",
+      "community": 163,
+      "community_name": "auth.service.ts",
       "norm_label": "loginattemptresult"
     },
     {
@@ -20675,8 +20675,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_auth_normalize_identifier_spec",
-      "community": 64,
-      "community_name": "communications.module.ts",
+      "community": 163,
+      "community_name": "auth.service.ts",
       "norm_label": "normalize-identifier.spec.ts"
     },
     {
@@ -20686,8 +20686,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_auth_normalize_identifier",
-      "community": 64,
-      "community_name": "communications.module.ts",
+      "community": 163,
+      "community_name": "auth.service.ts",
       "norm_label": "normalize-identifier.ts"
     },
     {
@@ -20697,8 +20697,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "server_src_modules_auth_normalize_identifier_normalizeloginidentifier",
-      "community": 64,
-      "community_name": "communications.module.ts",
+      "community": 163,
+      "community_name": "auth.service.ts",
       "norm_label": "normalizeloginidentifier()"
     },
     {
@@ -20730,8 +20730,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_auth_refresh_token_cleanup_processor",
-      "community": 16,
-      "community_name": "list-shell.stories.tsx",
+      "community": 127,
+      "community_name": ".updateSettings",
       "norm_label": "refresh-token-cleanup.processor.ts"
     },
     {
@@ -20741,8 +20741,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "server_src_modules_auth_refresh_token_cleanup_processor_refreshtokencleanupprocessor",
-      "community": 16,
-      "community_name": "list-shell.stories.tsx",
+      "community": 127,
+      "community_name": ".updateSettings",
       "norm_label": "refreshtokencleanupprocessor"
     },
     {
@@ -20752,8 +20752,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_auth_refresh_token_cleanup_processor_ts_processor",
-      "community": 16,
-      "community_name": "list-shell.stories.tsx",
+      "community": 127,
+      "community_name": ".updateSettings",
       "norm_label": "processor"
     },
     {
@@ -20763,8 +20763,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "server_src_modules_auth_refresh_token_cleanup_processor_refreshtokencleanupprocessor_constructor",
-      "community": 16,
-      "community_name": "list-shell.stories.tsx",
+      "community": 127,
+      "community_name": ".updateSettings",
       "norm_label": ".constructor()"
     },
     {
@@ -20851,8 +20851,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_auth_refresh_token_service_spec",
-      "community": 16,
-      "community_name": "list-shell.stories.tsx",
+      "community": 163,
+      "community_name": "auth.service.ts",
       "norm_label": "refresh-token.service.spec.ts"
     },
     {
@@ -20873,8 +20873,8 @@
       "source_location": "L81",
       "_origin": "ast",
       "id": "server_src_modules_auth_refresh_token_service_spec_parsecookie",
-      "community": 16,
-      "community_name": "list-shell.stories.tsx",
+      "community": 163,
+      "community_name": "auth.service.ts",
       "norm_label": "parsecookie()"
     },
     {
@@ -20884,8 +20884,8 @@
       "source_location": "L115",
       "_origin": "ast",
       "id": "server_src_modules_auth_refresh_token_service_spec_issue",
-      "community": 16,
-      "community_name": "list-shell.stories.tsx",
+      "community": 163,
+      "community_name": "auth.service.ts",
       "norm_label": "issue()"
     },
     {
@@ -20895,8 +20895,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "server_src_modules_auth_refresh_token_service",
-      "community": 16,
-      "community_name": "list-shell.stories.tsx",
+      "community": 163,
+      "community_name": "auth.service.ts",
       "norm_label": "refresh-token.service.ts"
     },
     {
@@ -20917,8 +20917,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "server_src_modules_auth_refresh_token_service_issuedrefreshtoken",
-      "community": 48,
-      "community_name": "auth.test.ts",
+      "community": 163,
+      "community_name": "auth.service.ts",
       "norm_label": "issuedrefreshtoken"
     },
     {
@@ -20928,8 +20928,8 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "server_src_modules_auth_refresh_token_service_rotateresult",
-      "community": 16,
-      "community_name": "list-shell.stories.tsx",
+      "community": 163,
+      "community_name": "auth.service.ts",
       "norm_label": "rotateresult"
     },
     {
@@ -20939,8 +20939,8 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "server_src_modules_auth_refresh_token_service_refreshtokenreusedetectedexception",
-      "community": 48,
-      "community_name": "auth.test.ts",
+      "community": 163,
+      "community_name": "auth.service.ts",
       "norm_label": "refreshtokenreusedetectedexception"
     },
     {
@@ -20950,8 +20950,8 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "server_src_modules_auth_refresh_token_service_refreshtokenreusedetectedexception_constructor",
-      "community": 48,
-      "community_name": "auth.test.ts",
+      "community": 163,
+      "community_name": "auth.service.ts",
       "norm_label": ".constructor()"
     },
     {
@@ -21742,8 +21742,8 @@
       "source_location": "L68",
       "_origin": "ast",
       "id": "server_src_modules_classes_classes_service_classservice_findall",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 3,
+      "community_name": "Student",
       "norm_label": ".findall()"
     },
     {
@@ -34920,8 +34920,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_src_modules_users_users_controller_ts_param",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": "param"
     },
     {
@@ -34997,8 +34997,8 @@
       "source_location": "L144",
       "_origin": "ast",
       "id": "server_src_modules_users_users_controller_usercontroller_findoneuser",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": ".findoneuser()"
     },
     {
@@ -35008,8 +35008,8 @@
       "source_location": "L154",
       "_origin": "ast",
       "id": "server_src_modules_users_users_controller_usercontroller_updateuser",
-      "community": 2,
-      "community_name": "ClassController",
+      "community": 12,
+      "community_name": "Roles",
       "norm_label": ".updateuser()"
     },
     {
@@ -133090,7 +133090,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server/src/modules/auth/auth.controller.ts",
-      "source_location": "L181",
+      "source_location": "L192",
       "weight": 1.0,
       "_origin": "ast",
       "source": "server_src_modules_auth_auth_controller_authcontroller_setrefreshcookie",
@@ -246824,5 +246824,5 @@
       "source_file": ".claude/skills/multi-tenancy/SKILL.md"
     }
   ],
-  "built_at_commit": "a0d8b31894d4133a97c47582cfc76e57af3021cb"
+  "built_at_commit": "7098f74d4deae782408d4491825d091c0322d6f2"
 }

@@ -1,16 +1,16 @@
 # Graph Report - biddaloy  (2026-08-28)
 
 ## Corpus Check
-- 1009 files · ~551,798 words
+- 1009 files · ~551,906 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 5718 nodes · 15615 edges · 294 communities (233 shown, 61 thin omitted)
+- 5718 nodes · 15615 edges · 295 communities (233 shown, 62 thin omitted)
 - Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 296 edges (avg confidence: 0.74)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `a0d8b318`
+- Built from commit: `7098f74d`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -178,6 +178,7 @@
 - notification-bell.tsx
 - .findCurrent
 - rate-limit-tracker.ts
+- auth.service.ts
 - mockServiceWorker.js
 - component-boundary.config.spec.mjs
 - class-validator
@@ -332,7 +333,7 @@
 - **Design-System Wrapper Boundary Pattern** — ui_contributing_wrapperrule, ui_src_primitives_readme_doc, ui_readme_doc, ui_contributing_threefile_requirement [INFERRED 0.85]
 - **Multi-Tenant Scoping Enforced Across Stack** — claude_skills_multi_tenancy_skill_doc, server_claude_testingstandards, ui_readme_apiclient, ui_readme_hooks [INFERRED 0.85]
 
-## Communities (294 total, 61 thin omitted)
+## Communities (295 total, 62 thin omitted)
 
 ### Community 0 - "app.module.ts"
 Cohesion: 0.03
@@ -344,7 +345,7 @@ Nodes (36): clearAuthState(), currentSessionGeneration(), listeners, notifyAuthS
 
 ### Community 2 - "ClassController"
 Cohesion: 0.06
-Nodes (50): ApiBody, ApiConsumes, Delete, CurrentTenant, CurrentUser, TestController, Roles(), ClassController (+42 more)
+Nodes (49): ApiBody, ApiConsumes, Delete, CurrentTenant, CurrentUser, TestController, Roles(), ClassController (+41 more)
 
 ### Community 3 - "Student"
 Cohesion: 0.08
@@ -384,7 +385,7 @@ Nodes (24): KLASS, PRIOR_KLASS, PRIOR_YEAR, render(), SECTION, YEAR, AcademicYea
 
 ### Community 12 - "Roles"
 Cohesion: 0.08
-Nodes (39): escapeLikePattern(), normalizeEmail(), CreateTeacherDto, CreateUserDto, QueryTeacherDto, QueryUserDto, IsArray, IsDateString (+31 more)
+Nodes (40): escapeLikePattern(), normalizeEmail(), CreateTeacherDto, CreateUserDto, QueryTeacherDto, QueryUserDto, IsArray, IsDateString (+32 more)
 
 ### Community 13 - "client.ts"
 Cohesion: 0.18
@@ -399,8 +400,8 @@ Cohesion: 0.08
 Nodes (23): FeeStructure, Column, CreateDateColumn, DeleteDateColumn, Entity, Index, JoinColumn, ManyToOne (+15 more)
 
 ### Community 16 - "list-shell.stories.tsx"
-Cohesion: 0.09
-Nodes (17): RefreshToken, Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn (+9 more)
+Cohesion: 0.12
+Nodes (14): RefreshToken, Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn (+6 more)
 
 ### Community 17 - "all-entities.ts"
 Cohesion: 0.07
@@ -527,8 +528,8 @@ Cohesion: 0.09
 Nodes (30): Default, Empty, meta, RightToLeft, Story, MoneyInput(), MoneyInputProps, Default (+22 more)
 
 ### Community 48 - "auth.test.ts"
-Cohesion: 0.13
-Nodes (12): Global, AccessTokenDenylistService, Inject, Injectable, AuthModule, Module, AuthResult, LoginAttemptResult (+4 more)
+Cohesion: 0.14
+Nodes (8): Optional, AccessTokenDenylistService, Inject, Injectable, Inject, InjectRepository, JwtStrategy, Injectable
 
 ### Community 49 - "index.tsx"
 Cohesion: 0.05
@@ -537,10 +538,6 @@ Nodes (56): ApiHideProperty, TeacherClassSection, Column, CreateDateColumn, Enti
 ### Community 50 - "devDependencies"
 Cohesion: 0.06
 Nodes (31): @nestjs/cli, @nestjs/testing, devDependencies, @nestjs/cli, @nestjs/testing, supertest, ts-node, tsconfig-paths (+23 more)
-
-### Community 51 - "fees.controller.ts"
-Cohesion: 0.13
-Nodes (5): Optional, Inject, InjectRepository, LoginAttemptRedisClient, LoginAttemptService
 
 ### Community 52 - "index.ts"
 Cohesion: 0.09
@@ -591,8 +588,8 @@ Cohesion: 0.15
 Nodes (16): Default, meta, RightToLeft, Story, Tooltip(), TooltipContent(), TooltipContentProps, TooltipProps (+8 more)
 
 ### Community 64 - "communications.module.ts"
-Cohesion: 0.19
-Nodes (6): Inject, AuthService, sleep(), Injectable, normalizeLoginIdentifier(), RequestContext
+Cohesion: 0.28
+Nodes (4): Inject, AuthService, Injectable, RequestContext
 
 ### Community 65 - "index.ts"
 Cohesion: 0.14
@@ -839,8 +836,8 @@ Cohesion: 0.33
 Nodes (5): [basePath, prPath, outPath], kb(), lines, pr, signed()
 
 ### Community 127 - ".updateSettings"
-Cohesion: 0.29
-Nodes (3): RefreshTokenCleanupScheduler, Injectable, InjectQueue
+Cohesion: 0.17
+Nodes (8): Global, AuthModule, Module, RefreshTokenCleanupProcessor, Processor, RefreshTokenCleanupScheduler, Injectable, InjectQueue
 
 ### Community 128 - "exports"
 Cohesion: 0.15
@@ -973,6 +970,10 @@ Nodes (12): EnrollmentController, ApiExtraModels, ApiOkResponse, ApiTags, Body, 
 ### Community 162 - "rate-limit-tracker.ts"
 Cohesion: 0.20
 Nodes (8): biddaloyReactConfig, dataFetchingGuardConfig, financialMutationGuardConfig, noWindowAlertConfig, typeCheckedTestOverrides, BANNED_NAMES, noWindowAlert, ruleTester
+
+### Community 163 - "auth.service.ts"
+Cohesion: 0.18
+Nodes (7): AuthResult, sleep(), LoginAttemptResult, normalizeLoginIdentifier(), IssuedRefreshToken, RefreshTokenReuseDetectedException, RotateResult
 
 ### Community 164 - "mockServiceWorker.js"
 Cohesion: 0.42
@@ -1221,7 +1222,7 @@ Nodes (4): fakeCache(), fakeConfig(), fakeSchools(), resolverWith()
 ## Knowledge Gaps
 - **1389 isolated node(s):** `semi`, `singleQuote`, `trailingComma`, `printWidth`, `prettier-plugin-tailwindcss` (+1384 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **61 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **62 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_

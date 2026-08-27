@@ -14,6 +14,7 @@ import { Throttle } from '@nestjs/throttler';
 import {
   ApiOperation,
   ApiTags,
+  ApiOkResponse,
   ApiUnauthorizedResponse,
   ApiForbiddenResponse,
   ApiBearerAuth,
@@ -23,6 +24,7 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginResponse, JwtPayload } from '@biddaloy/shared';
+import { LoginResponseDto } from './dto/auth-response.dto';
 import { STRICT_RATE_LIMIT } from '../../rate-limit';
 import {
   REFRESH_TOKEN_COOKIE,
@@ -44,6 +46,7 @@ export class AuthController {
     summary:
       "Log in with email or phone + password, returning a bearer token and the caller's tenant memberships.",
   })
+  @ApiOkResponse({ type: LoginResponseDto })
   @ApiUnauthorizedResponse({
     description:
       'Invalid credentials — identical response for an unknown identifier, a wrong password, and a locked-out account (see the README\'s "Login brute-force protection" section).',
@@ -69,6 +72,7 @@ export class AuthController {
     summary:
       "Rotate the refresh token cookie and issue a fresh access token reflecting the caller's current memberships.",
   })
+  @ApiOkResponse({ type: LoginResponseDto })
   @ApiUnauthorizedResponse({
     description: 'Missing, expired, invalid, or already-used refresh token.',
   })
@@ -154,6 +158,7 @@ export class AuthController {
       'to other devices are NOT revoked — those sessions keep working until their token expires ' +
       '(up to ~15 minutes), then cannot refresh.',
   })
+  @ApiOkResponse({ type: LoginResponseDto })
   @ApiUnauthorizedResponse({
     description: 'Missing or invalid access token, or the account is not active.',
   })
