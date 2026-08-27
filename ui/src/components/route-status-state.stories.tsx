@@ -1,24 +1,47 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { RefreshCw, WifiOff } from 'lucide-react';
 
 import { rtlDecorator } from '../../.storybook/rtl-decorator';
 
-import { OfflineState } from './offline-state';
+import { RouteStatusState } from './route-status-state';
 
-const meta: Meta<typeof OfflineState> = {
-  title: 'Components/OfflineState',
-  component: OfflineState,
+const meta: Meta<typeof RouteStatusState> = {
+  title: 'Components/RouteStatusState',
+  component: RouteStatusState,
   tags: ['autodocs'],
+  // The component has no default copy — it serves two situations that say
+  // different things, so `RouteErrorFallback` owns both sets of strings.
+  // These are the offline caller's; `UpdateAvailable` below overrides them.
   args: {
+    title: "You're offline",
+    explanation:
+      'This page needs a connection to load. Check your network and try again — anything already loaded is still available.',
+    retryLabel: 'Try again',
+    icon: <WifiOff aria-hidden="true" />,
     onRetry: () => {},
   },
 };
 
 export default meta;
-type Story = StoryObj<typeof OfflineState>;
+type Story = StoryObj<typeof RouteStatusState>;
 
 /** What a route renders when navigation failed with no connection —
  * [8.12.1]'s "designed offline page, not a browser error". */
 export const Default: Story = {};
+
+/** [8.12.2]'s other caller: a tab running code whose lazy chunks a deploy
+ * has already deleted. Same polite treatment as offline — a routine
+ * deploy is no more the user's fault than a tunnel is. */
+export const UpdateAvailable: Story = {
+  args: {
+    title: 'A newer version is available',
+    explanation:
+      'This page is from an older version of the app. Reload to pick up the new one — anything you have already saved is safe.',
+    retryLabel: 'Reload to update',
+    icon: <RefreshCw aria-hidden="true" />,
+    onHome: () => {},
+  },
+};
 
 /** As rendered by `RouteErrorFallback`, which supplies both affordances. */
 export const WithHomeAffordance: Story = {

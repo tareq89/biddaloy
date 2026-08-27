@@ -11,11 +11,11 @@ import { RouteErrorFallback, Toaster } from '@biddaloy/ui/components';
 import { I18nProvider } from '@biddaloy/ui/i18n';
 import { enableMocking } from '@biddaloy/ui/mocks';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { createRouter, RouterProvider } from '@tanstack/react-router';
+import { createRouter, RouterProvider, type ErrorComponentProps } from '@tanstack/react-router';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
-import { registerServiceWorker } from './pwa/register';
+import { registerServiceWorker, reloadForUpdate } from './pwa/register';
 import { routeTree } from './routeTree.gen';
 import './index.css';
 
@@ -29,6 +29,15 @@ initSentry({ dsn: import.meta.env.VITE_SENTRY_DSN, environment: import.meta.env.
 // `@biddaloy/ui/api`'s `createAppQueryClient` for the tuned values and why
 // each one is set the way it is.
 const queryClient = createAppQueryClient();
+
+// [8.12.2]: the boundary's "this page is from an older version" fork
+// reloads through the service-worker-aware `reloadForUpdate` (it lets a
+// waiting worker activate first) instead of `ui`'s app-agnostic plain
+// `location.reload()` default. A named wrapper rather than an inline
+// arrow so the component identity is stable across renders.
+function RouteErrorFallbackWithUpdate(props: ErrorComponentProps) {
+  return <RouteErrorFallback {...props} onReloadForUpdate={reloadForUpdate} />;
+}
 
 // `basepath` matches `vite.config.ts`'s `base: '/admin/'` — without it,
 // the router would try to match against `/students` instead of
@@ -52,7 +61,7 @@ const router = createRouter({
   // this when a route doesn't set its own `errorComponent`. The sidebar/
   // header chrome (`__root.tsx`'s `AppShell`) lives above the `<Outlet />`
   // this replaces, so it stays up around the failure.
-  defaultErrorComponent: RouteErrorFallback,
+  defaultErrorComponent: RouteErrorFallbackWithUpdate,
 });
 
 // [8.9.8]: opaque tenant id only, kept current across a mid-session

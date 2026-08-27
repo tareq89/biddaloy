@@ -1,4 +1,10 @@
-import { createRootRoute, createRoute, Link, Outlet } from '@tanstack/react-router';
+import {
+  createRootRoute,
+  createRoute,
+  Link,
+  Outlet,
+  type ErrorComponentProps,
+} from '@tanstack/react-router';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type * as React from 'react';
@@ -24,10 +30,20 @@ function NetworkErrorPage(): React.ReactNode {
 }
 
 /** [8.12.1]: what the browser throws when a lazily-imported route chunk
- * cannot be fetched — the shape of navigating to an uncached route with no
- * connection. Message wording differs per engine; this is Chrome's. */
-function UncachedRoutePage(): React.ReactNode {
-  throw new Error('Failed to fetch dynamically imported module: /assets/students-Bv7carHk.js');
+ * cannot be fetched — offline on an uncached route, or a deploy that
+ * deleted the chunk this tab is asking for.
+ *
+ * A real `TypeError`, not a plain `Error`, because that is what browsers
+ * actually throw — and the distinction is not cosmetic. A plain `Error`
+ * skipped the generic network-`TypeError` branch in `classifyRouteError`
+ * entirely, so this fixture passed happily while [8.12.2]'s update fork
+ * was unreachable in Chrome. Both shipped engine wordings are covered. */
+function ChromeUncachedRoutePage(): React.ReactNode {
+  throw new TypeError('Failed to fetch dynamically imported module: /assets/students-Bv7carHk.js');
+}
+
+function FirefoxUncachedRoutePage(): React.ReactNode {
+  throw new TypeError('error loading dynamically imported module: /assets/students-Bv7carHk.js');
 }
 
 /** jsdom reports `navigator.onLine === true`; this flips it for the
@@ -41,7 +57,12 @@ function goOffline(): () => void {
   };
 }
 
-function buildRouteTree(brokenComponent: () => React.ReactNode = BrokenPage) {
+function buildRouteTree(
+  brokenComponent: () => React.ReactNode = BrokenPage,
+  // [8.12.2]: lets a test pass props (the update fork's copy and reload
+  // handler) that the router's own `errorComponent` slot cannot.
+  errorComponent: (props: ErrorComponentProps) => React.ReactNode = RouteErrorFallback,
+) {
   const rootRoute = createRootRoute({
     component: () => (
       <>
@@ -66,7 +87,7 @@ function buildRouteTree(brokenComponent: () => React.ReactNode = BrokenPage) {
     getParentRoute: () => rootRoute,
     path: '/broken',
     component: brokenComponent,
-    errorComponent: RouteErrorFallback,
+    errorComponent,
   });
   return rootRoute.addChildren([indexRoute, brokenRoute]);
 }
@@ -113,7 +134,7 @@ describe('RouteErrorFallback', () => {
   it('renders the offline state, and reports nothing, for an uncached route while offline', async () => {
     const restore = goOffline();
     try {
-      renderWithRouter(buildRouteTree(UncachedRoutePage), { initialEntries: ['/broken'] });
+      renderWithRouter(buildRouteTree(ChromeUncachedRoutePage), { initialEntries: ['/broken'] });
 
       // `role="status"`, not `role="alert"` — losing signal is not an
       // application fault, so it neither interrupts a screen reader nor
@@ -152,14 +173,84 @@ describe('RouteErrorFallback', () => {
     }
   });
 
-  it('does not treat a chunk load failure as offline while online (a deploy replaced it)', async () => {
-    // Same throw, connection intact: this is stale-tab-after-deploy, which
-    // [8.12.2]'s update prompt owns. Showing "you're offline" would be a
-    // lie, and swallowing it would hide a broken deploy.
-    renderWithRouter(buildRouteTree(UncachedRoutePage), { initialEntries: ['/broken'] });
+  it('renders the update state, not the offline one, for a chunk load failure while online', async () => {
+    // Same throw, connection intact: this is stale-tab-after-deploy
+    // ([8.12.2]). "You're offline" would be a lie, and a retry that
+    // re-imports the same deleted chunk can only fail again — the way out
+    // is a reload onto the new version.
+    renderWithRouter(buildRouteTree(ChromeUncachedRoutePage), { initialEntries: ['/broken'] });
 
-    expect(await screen.findByRole('alert')).toBeTruthy();
-    expect(captureRouteError).toHaveBeenCalledTimes(1);
+    // `role="status"`, not `role="alert"`: a routine deploy is no more the
+    // app's fault than a tunnel is, and announcing it assertively
+    // interrupts a screen-reader user mid-form.
+    expect(await screen.findByRole('status')).toBeTruthy();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByRole('heading', { level: 1, name: /newer version/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Reload to update' })).toBeTruthy();
+    expect(screen.queryByText("You're offline")).toBeNull();
+  });
+
+  it("shows the update state for Firefox's wording too, not a generic error", async () => {
+    // Firefox says "error loading dynamically imported module" where
+    // Chrome says "Failed to fetch…". Missing the Firefox wording sent
+    // every Firefox user, every deploy, down the generic error path —
+    // complete with a Sentry issue apiece.
+    renderWithRouter(buildRouteTree(FirefoxUncachedRoutePage), { initialEntries: ['/broken'] });
+
+    expect(await screen.findByText(/older version/i)).toBeTruthy();
+    expect(captureRouteError).not.toHaveBeenCalled();
+  });
+
+  it('shows the update state, not the offline state, for a real Chrome TypeError', async () => {
+    // The regression that shipped past a green suite: Chrome throws a
+    // `TypeError` whose message matches both the chunk-load pattern and
+    // the generic network pattern. Checked in the wrong order, every
+    // stale tab on Chrome read as "you're offline" and the retry button
+    // re-imported the same deleted chunk forever.
+    renderWithRouter(buildRouteTree(ChromeUncachedRoutePage), { initialEntries: ['/broken'] });
+
+    expect(await screen.findByText(/older version/i)).toBeTruthy();
+    expect(screen.queryByText(/offline/i)).toBeNull();
+  });
+
+  it('does not report a deploy-replaced chunk to Sentry', async () => {
+    // Same rationale as the offline fork: a deploy is not an application
+    // fault, and one issue per user per deploy would bury real errors.
+    renderWithRouter(buildRouteTree(ChromeUncachedRoutePage), { initialEntries: ['/broken'] });
+
+    expect(await screen.findByRole('status')).toBeTruthy();
+    expect(captureRouteError).not.toHaveBeenCalled();
+  });
+
+  it('reloads through the caller-supplied handler from the update state', async () => {
+    const user = userEvent.setup();
+    const onReloadForUpdate = vi.fn();
+    renderWithRouter(
+      buildRouteTree(ChromeUncachedRoutePage, (props) => (
+        <RouteErrorFallback {...props} onReloadForUpdate={onReloadForUpdate} />
+      )),
+      { initialEntries: ['/broken'] },
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Reload to update' }));
+    expect(onReloadForUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it('accepts translated update copy', async () => {
+    renderWithRouter(
+      buildRouteTree(ChromeUncachedRoutePage, (props) => (
+        <RouteErrorFallback
+          {...props}
+          updateMessage="নতুন সংস্করণ এসেছে"
+          updateRetryLabel="রিলোড করুন"
+          onReloadForUpdate={() => {}}
+        />
+      )),
+      { initialEntries: ['/broken'] },
+    );
+
+    expect(await screen.findByText('নতুন সংস্করণ এসেছে')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'রিলোড করুন' })).toBeTruthy();
   });
 
   it('still reports a genuine error while online', async () => {
@@ -172,7 +263,7 @@ describe('RouteErrorFallback', () => {
   it('offers a retry from the offline state too', async () => {
     const restore = goOffline();
     try {
-      renderWithRouter(buildRouteTree(UncachedRoutePage), { initialEntries: ['/broken'] });
+      renderWithRouter(buildRouteTree(ChromeUncachedRoutePage), { initialEntries: ['/broken'] });
 
       await screen.findByRole('status');
       expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
@@ -185,7 +276,7 @@ describe('RouteErrorFallback', () => {
   it('is axe clean offline as well as errored', async () => {
     const restore = goOffline();
     try {
-      const { container } = renderWithRouter(buildRouteTree(UncachedRoutePage), {
+      const { container } = renderWithRouter(buildRouteTree(ChromeUncachedRoutePage), {
         initialEntries: ['/broken'],
       });
 

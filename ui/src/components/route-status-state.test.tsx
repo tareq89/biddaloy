@@ -2,18 +2,29 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
-import { OfflineState } from './offline-state';
+import { RouteStatusState } from './route-status-state';
 
-describe('OfflineState', () => {
+/** The component takes no default copy — the two situations it serves
+ * (offline, and "a newer version exists") say different things, so a
+ * default would be wrong half the time. These stand in for the offline
+ * caller's strings; individual tests override what they are about. */
+const offlineProps = {
+  title: "You're offline",
+  explanation: 'This page needs a connection to load. Check your network and try again.',
+  retryLabel: 'Try again',
+  icon: <span data-testid="icon" aria-hidden="true" />,
+};
+
+describe('RouteStatusState', () => {
   it('says the user is offline and what to do about it', () => {
-    render(<OfflineState onRetry={() => {}} />);
+    render(<RouteStatusState {...offlineProps} onRetry={() => {}} />);
 
     expect(screen.getByRole('heading', { level: 1, name: "You're offline" })).toBeTruthy();
     expect(screen.getByText(/check your network/i)).toBeTruthy();
   });
 
   it('announces politely, not as an alert — no signal is not an error', () => {
-    render(<OfflineState onRetry={() => {}} />);
+    render(<RouteStatusState {...offlineProps} onRetry={() => {}} />);
 
     expect(screen.getByRole('status')).toBeTruthy();
     expect(screen.queryByRole('alert')).toBeNull();
@@ -22,7 +33,7 @@ describe('OfflineState', () => {
   it('retries on demand', async () => {
     const user = userEvent.setup();
     const onRetry = vi.fn();
-    render(<OfflineState onRetry={onRetry} />);
+    render(<RouteStatusState {...offlineProps} onRetry={onRetry} />);
 
     await user.click(screen.getByRole('button', { name: 'Try again' }));
 
@@ -30,17 +41,17 @@ describe('OfflineState', () => {
   });
 
   it('omits the home affordance unless the caller supplies navigation', () => {
-    const { rerender } = render(<OfflineState onRetry={() => {}} />);
+    const { rerender } = render(<RouteStatusState {...offlineProps} onRetry={() => {}} />);
     expect(screen.queryByRole('button', { name: 'Go home' })).toBeNull();
 
-    rerender(<OfflineState onRetry={() => {}} onHome={() => {}} />);
+    rerender(<RouteStatusState {...offlineProps} onRetry={() => {}} onHome={() => {}} />);
     expect(screen.getByRole('button', { name: 'Go home' })).toBeTruthy();
   });
 
   it('navigates home on demand', async () => {
     const user = userEvent.setup();
     const onHome = vi.fn();
-    render(<OfflineState onRetry={() => {}} onHome={onHome} />);
+    render(<RouteStatusState {...offlineProps} onRetry={() => {}} onHome={onHome} />);
 
     await user.click(screen.getByRole('button', { name: 'Go home' }));
 
@@ -49,7 +60,8 @@ describe('OfflineState', () => {
 
   it('accepts translated copy and labels', () => {
     render(
-      <OfflineState
+      <RouteStatusState
+        {...offlineProps}
         title="আপনি অফলাইনে আছেন"
         explanation="সংযোগ পরীক্ষা করুন।"
         retryLabel="আবার চেষ্টা করুন"
@@ -62,7 +74,9 @@ describe('OfflineState', () => {
   });
 
   it('is axe clean', async () => {
-    const { container } = render(<OfflineState onRetry={() => {}} onHome={() => {}} />);
+    const { container } = render(
+      <RouteStatusState {...offlineProps} onRetry={() => {}} onHome={() => {}} />,
+    );
 
     await expect(container).toHaveNoViolations();
   });
