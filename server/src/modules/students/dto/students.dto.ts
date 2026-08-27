@@ -255,6 +255,36 @@ export class UpdateGuardianDto {
 }
 
 /**
+ * The narrow self-service slice of a guardian record: contact details only.
+ *
+ * Deliberately NOT `UpdateGuardianDto` — that one also allows `full_name`,
+ * `relationship`, `address`, `occupation` and, critically, `student_ids`,
+ * which would let a guardian relink themselves to arbitrary students
+ * (privilege escalation). `forbidNonWhitelisted` rejects any of those with
+ * a 400 here. [5.4a]
+ */
+export class UpdateOwnGuardianDto {
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
+  alternate_phone?: string;
+
+  // `''` explicitly clears the column (mapped to NULL by the service), and
+  // `@IsEmail()` alone would reject it — same trick as UpdateGuardianDto.
+  @IsOptional()
+  @ValidateIf((o: UpdateOwnGuardianDto) => o.email !== '')
+  @IsEmail()
+  email?: string;
+
+  @IsOptional()
+  @IsEnum(CommunicationMedium)
+  preferred_communication?: CommunicationMedium;
+}
+
+/**
  * One row of a bulk-upload spreadsheet, validated after empty cells have
  * been normalized to `undefined` (see StudentBulkUploadService.toDtoInput).
  * "Essential" fields are required; the rest of the fixed column schema is

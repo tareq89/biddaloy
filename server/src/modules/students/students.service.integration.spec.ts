@@ -13,7 +13,7 @@ import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { createTestModule } from '@test/helpers/module.helper';
 import { SEED_TENANT_ID, SEED_SECTION_1_ID, SEED_ACADEMIC_YEAR_ID } from '@test/constants';
-import { EnrollmentStatus } from '@biddaloy/shared';
+import { EnrollmentStatus, CommunicationMedium } from '@biddaloy/shared';
 
 /**
  * Integration tests for StudentService and GuardianService.
@@ -824,6 +824,118 @@ describe('GuardianService (integration)', () => {
       expect(result.data[0].students).toBeDefined();
       expect(result.data[0].students).toHaveLength(1);
       expect(result.data[0].students[0].id).toBe(student.id);
+    });
+  });
+
+  /**
+   * [5.4a] Self-service ownership. The caller never names a guardian id —
+   * the row is chosen by `user_id` AND `tenant_id`, so a user holding
+   * memberships in two tenants can only ever reach the row in the tenant
+   * they are currently acting in.
+   */
+  describe('findOwn / updateOwn', () => {
+    const OWNER_USER_ID = '00000000-0000-4000-8000-0000054a1001';
+    const OTHER_USER_ID = '00000000-0000-4000-8000-0000054a1002';
+
+    beforeEach(async () => {
+      for (const [id, email] of [
+        [OWNER_USER_ID, 'own-guardian-owner@example.com'],
+        [OTHER_USER_ID, 'own-guardian-other@example.com'],
+      ]) {
+        await dataSource.query(
+          `INSERT INTO users (id, email, full_name, status, created_at, updated_at)
+           VALUES ($1, $2, 'Own Guardian Fixture', 'ACTIVE', NOW(), NOW())
+           ON CONFLICT DO NOTHING`,
+          [id, email],
+        );
+      }
+    });
+
+    const makeGuardian = (userId: string | null, tenantId: string) =>
+      guardianRepo.save(
+        guardianRepo.create({
+          full_name: 'Own Guardian',
+          relationship: 'FATHER',
+          phone: '+8801700000001',
+          alternate_phone: '+8801700000002',
+          email: 'own-guardian@example.com',
+          tenant_id: tenantId,
+          user_id: userId,
+        }),
+      );
+
+    it('findOwn returns the row linked to that user in that tenant', async () => {
+      const guardian = await makeGuardian(OWNER_USER_ID, TENANT_ID);
+
+      const found = await service.findOwn(OWNER_USER_ID, TENANT_ID);
+
+      expect(found.id).toBe(guardian.id);
+    });
+
+    it('findOwn does not cross tenants, even for the same user_id', async () => {
+      await makeGuardian(OWNER_USER_ID, TENANT_ID);
+
+      await expect(service.findOwn(OWNER_USER_ID, OTHER_TENANT)).rejects.toThrow(NotFoundException);
+    });
+
+    it('findOwn ignores soft-deleted rows', async () => {
+      const guardian = await makeGuardian(OWNER_USER_ID, TENANT_ID);
+      await guardianRepo.softDelete({ id: guardian.id });
+
+      await expect(service.findOwn(OWNER_USER_ID, TENANT_ID)).rejects.toThrow(NotFoundException);
+    });
+
+    it('findOwn throws for a user with no guardian row', async () => {
+      await expect(service.findOwn(OTHER_USER_ID, TENANT_ID)).rejects.toThrow(NotFoundException);
+    });
+
+    it('updateOwn writes only the contact fields', async () => {
+      const guardian = await makeGuardian(OWNER_USER_ID, TENANT_ID);
+
+      const updated = await service.updateOwn(
+        OWNER_USER_ID,
+        { phone: '+8801799999999', preferred_communication: CommunicationMedium.EMAIL },
+        TENANT_ID,
+      );
+
+      expect(updated.id).toBe(guardian.id);
+      expect(updated.phone).toBe('+8801799999999');
+      expect(updated.preferred_communication).toBe(CommunicationMedium.EMAIL);
+      expect(updated.full_name).toBe('Own Guardian');
+    });
+
+    it("updateOwn maps '' to NULL", async () => {
+      await makeGuardian(OWNER_USER_ID, TENANT_ID);
+
+      const updated = await service.updateOwn(
+        OWNER_USER_ID,
+        { alternate_phone: '', email: '' },
+        TENANT_ID,
+      );
+
+      expect(updated.alternate_phone).toBeNull();
+      expect(updated.email).toBeNull();
+    });
+
+    it("updateOwn never touches another tenant's row with a matching user_id", async () => {
+      // Guardian.user_id is a global @OneToOne, so the two rows below cannot
+      // share a user. The stand-in: an identically-shaped row in the other
+      // tenant that must be untouched by the tenant-scoped update.
+      const mine = await makeGuardian(OWNER_USER_ID, TENANT_ID);
+      const theirs = await makeGuardian(OTHER_USER_ID, OTHER_TENANT);
+
+      await service.updateOwn(OWNER_USER_ID, { phone: '+8801788888888' }, TENANT_ID);
+
+      const untouched = await guardianRepo.findOneOrFail({ where: { id: theirs.id } });
+      expect(untouched.phone).toBe('+8801700000001');
+      const changed = await guardianRepo.findOneOrFail({ where: { id: mine.id } });
+      expect(changed.phone).toBe('+8801788888888');
+    });
+
+    it('updateOwn refuses when the caller has no guardian row', async () => {
+      await expect(
+        service.updateOwn(OTHER_USER_ID, { phone: '+8801777777777' }, TENANT_ID),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 

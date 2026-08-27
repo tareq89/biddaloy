@@ -32,6 +32,7 @@ import {
   QueryStudentDto,
   CreateGuardianDto,
   UpdateGuardianDto,
+  UpdateOwnGuardianDto,
   QueryGuardianDto,
 } from './dto/students.dto';
 import { UserRole, JwtPayload } from '@biddaloy/shared';
@@ -167,6 +168,41 @@ export class StudentController {
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     return this.guardianService.findAll(query, tenant.id);
+  }
+
+  /**
+   * MUST stay declared above `guardians/:id` (PATCH has a bare
+   * `@Param('id')`, so `mine` would be captured as an id). [5.4a]
+   *
+   * PARENT only: STUDENT accounts link through `students.user_id`, not a
+   * guardian row, so they get a 403 rather than a guaranteed 404.
+   */
+  @Get('guardians/mine')
+  @Roles(UserRole.PARENT)
+  @ApiOperation({
+    summary:
+      "Read the guardian record linked to the calling PARENT's own account. Ownership comes from the JWT, never a path id.",
+  })
+  findMyGuardian(
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.guardianService.findOwn(user.sub, tenant.id);
+  }
+
+  /** See the ordering note on `GET guardians/mine`. */
+  @Patch('guardians/mine')
+  @Roles(UserRole.PARENT)
+  @ApiOperation({
+    summary:
+      "Update the contact details on the calling PARENT's own guardian record. These are the fields fee reminders dial, so a stale number is self-fixable.",
+  })
+  updateMyGuardian(
+    @Body() dto: UpdateOwnGuardianDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.guardianService.updateOwn(user.sub, dto, tenant.id);
   }
 
   @Get('guardians/:id')

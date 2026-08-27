@@ -67,6 +67,69 @@ export class UserController {
     return { ...result, data: result.data.map((u) => UserResponseDto.fromEntity(u, tenant.id)) };
   }
 
+  /**
+   * MUST stay declared above `users/:id` and `users/:id` (PATCH) — those
+   * routes have no `ParseUUIDPipe` on their param, so Nest (which matches
+   * in declaration order) would otherwise capture `me` as a user id. [5.4a]
+   */
+  @Get('users/me')
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.ACCOUNTANT,
+    UserRole.EXECUTIVE,
+    UserRole.TEACHER,
+    UserRole.PARENT,
+    UserRole.STUDENT,
+  )
+  @ApiOperation({
+    summary:
+      "Read the calling user's own record. The id comes from the JWT, never the path — a caller can only ever read themselves.",
+  })
+  @ApiResponse({ status: 200, type: UserResponseDto })
+  async findMe(
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() jwt: JwtPayload,
+  ) {
+    const user = await this.userService.findOne(jwt.sub, tenant.id);
+    return UserResponseDto.fromEntity(user, tenant.id);
+  }
+
+  /**
+   * See the ordering note on `GET users/me`.
+   *
+   * KNOWN, ACCEPTED: the 409 this can return is an account-existence oracle
+   * — `users.email`/`users.phone` are unique GLOBALLY, so a parent in one
+   * school can learn whether an address belongs to an account in any other.
+   * It is not fixable here: the status code IS the signal the profile form
+   * needs, and login is already an oracle over the same column. This route
+   * therefore keeps the generous global default tier (100/60s) that every
+   * other CRUD write gets; `STRICT_RATE_LIMIT` is documented in
+   * `rate-limit.ts` as being for genuinely expensive endpoints, which a
+   * single-row profile write is not. [5.4a]
+   */
+  @Patch('users/me')
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.ACCOUNTANT,
+    UserRole.EXECUTIVE,
+    UserRole.TEACHER,
+    UserRole.PARENT,
+    UserRole.STUDENT,
+  )
+  @ApiOperation({
+    summary:
+      "Update the calling user's own record. Only the UpdateUserDto fields are accepted; role/status/tenant/password fields are rejected with 400 by forbidNonWhitelisted.",
+  })
+  @ApiResponse({ status: 200, type: UserResponseDto })
+  async updateMe(
+    @Body() dto: UpdateUserDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() jwt: JwtPayload,
+  ) {
+    const user = await this.userService.update(jwt.sub, dto, tenant.id);
+    return UserResponseDto.fromEntity(user, tenant.id);
+  }
+
   @Get('users/:id')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
   @ApiResponse({ status: 200, type: UserResponseDto })

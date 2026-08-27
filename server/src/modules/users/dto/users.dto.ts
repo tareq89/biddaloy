@@ -2,6 +2,9 @@ import {
   IsString,
   IsEmail,
   IsOptional,
+  MaxLength,
+  Matches,
+  ValidateIf,
   IsUUID,
   IsArray,
   IsEnum,
@@ -13,14 +16,22 @@ import {
 import { Type } from 'class-transformer';
 import { UserRole, TeacherDesignation } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
+import { BD_PHONE_REGEX } from '../../students/dto/students.dto';
 
 export class CreateUserDto {
   @IsOptional()
   @IsEmail()
+  @MaxLength(100)
   email?: string;
 
+  // `users.phone` is matched by the OR'd login lookup in
+  // AuthService.validateUser, so a phone that looks like an email would let
+  // one account shadow another's login identifier. Pinning the shape closes
+  // that door; the column is varchar(20). [5.4a]
   @IsOptional()
   @IsString()
+  @MaxLength(20)
+  @Matches(BD_PHONE_REGEX, { message: 'Invalid phone format' })
   phone?: string;
 
   @IsOptional()
@@ -41,12 +52,19 @@ export class CreateUserDto {
 export class UpdateUserDto {
   @IsOptional()
   @IsEmail()
+  @MaxLength(100)
   email?: string;
 
-  /** `null` clears the stored phone number; `@IsOptional()` skips
-   * validation for both `null` and `undefined`. */
+  /** `null` and `''` both clear the stored phone number (a browser form
+   * submits a cleared input as `''`); the service maps `''` to a real NULL.
+   * `@IsOptional()` skips validation for `null`/`undefined`, and the
+   * `@ValidateIf` lets `''` through the same way UpdateGuardianDto does.
+   * Otherwise the shape is pinned — see the note on CreateUserDto.phone. */
   @IsOptional()
+  @ValidateIf((o: UpdateUserDto) => o.phone !== '')
   @IsString()
+  @MaxLength(20)
+  @Matches(BD_PHONE_REGEX, { message: 'Invalid phone format' })
   phone?: string | null;
 
   @IsOptional()

@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, In } from 'typeorm';
+import { Repository, IsNull, In, QueryFailedError } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
@@ -126,15 +126,61 @@ export class UserService {
   async update(id: string, dto: UpdateUserDto, tenantId: string): Promise<User> {
     await this.findOne(id, tenantId);
 
+    // `''` means "clear this column" (a browser form submits a cleared input
+    // that way). It must become a real NULL: `''` is a value as far as the
+    // UNIQUE index is concerned, so storing it would let only one user ever
+    // have a blank phone. [5.4a]
+    const phone = dto.phone === '' ? null : dto.phone;
+
+    // `email` and `phone` are globally unique (see User entity). Without a
+    // pre-check the DB unique index surfaces as a raw 500 — tolerable when
+    // only admins could call this, not for the self-service `/users/me`
+    // route. `withDeleted` because the constraint does not care about
+    // soft-deletion but TypeORM's default filter does. The message names no
+    // account and no tenant: email/phone are unique GLOBALLY, so the owner
+    // of a colliding value may well be in another school. [5.4a]
+    if (dto.email) {
+      const existing = await this.userRepo.findOne({
+        where: { email: dto.email },
+        withDeleted: true,
+      });
+      if (existing && existing.id !== id) {
+        throw new ConflictException('That email address is already in use');
+      }
+    }
+    if (phone) {
+      const existing = await this.userRepo.findOne({
+        where: { phone },
+        withDeleted: true,
+      });
+      if (existing && existing.id !== id) {
+        throw new ConflictException('That phone number is already in use');
+      }
+    }
+
     // Update user-level fields (shared across tenants)
     const updateData: any = {};
     if (dto.email !== undefined) updateData.email = dto.email;
-    if (dto.phone !== undefined) updateData.phone = dto.phone;
+    if (dto.phone !== undefined) updateData.phone = phone;
     if (dto.full_name !== undefined) updateData.full_name = dto.full_name;
     if (dto.profile_picture_url !== undefined)
       updateData.profile_picture_url = dto.profile_picture_url;
     if (Object.keys(updateData).length > 0) {
-      await this.userRepo.update({ id }, updateData);
+      try {
+        await this.userRepo.update({ id }, updateData);
+      } catch (err) {
+        // The pre-check above is not atomic: two concurrent updates claiming
+        // the same address both pass it and the loser hits the index. Map
+        // that to the same 409 rather than a 500.
+        // Same shape the bulk-upload service uses for 23505 (unique_violation).
+        if (
+          err instanceof QueryFailedError &&
+          (err as unknown as { code?: string }).code === '23505'
+        ) {
+          throw new ConflictException('That email address or phone number is already in use');
+        }
+        throw err;
+      }
     }
 
     return this.findOne(id, tenantId);
