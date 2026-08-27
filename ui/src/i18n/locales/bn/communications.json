@@ -15,7 +15,8 @@
     "no_guardians": "কোনো অভিভাবক নথিভুক্ত নেই",
     "preferred_medium_not_in_requested_mediums": "পছন্দের মাধ্যম অনুরোধ করা মাধ্যমগুলোর মধ্যে নেই",
     "preferred_medium_has_no_automated_provider": "পছন্দের মাধ্যমে স্বয়ংক্রিয়ভাবে পাঠানো যায় না",
-    "guardian_has_no_address_for_preferred_medium": "পছন্দের মাধ্যমের জন্য ফোন বা ইমেইল নথিভুক্ত নেই"
+    "guardian_has_no_address_for_preferred_medium": "পছন্দের মাধ্যমের জন্য ফোন বা ইমেইল নথিভুক্ত নেই",
+    "guardian_notifications_disabled": "অভিভাবক নোটিফিকেশন বন্ধ করে রেখেছেন"
   },
   "recipientList": {
     "recipientsTitle": "যারা পাবেন ({{count}})",

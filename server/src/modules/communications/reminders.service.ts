@@ -35,6 +35,8 @@ import { recordBatchOutcome } from './reminder-batch-counters';
 import { COMMUNICATIONS_QUEUE } from './communications.constants';
 import {
   selectReminderGuardians,
+  partitionByOptOut,
+  resolveReminderAudience,
   addressForMedium,
   DISPATCHABLE_MEDIA,
 } from './reminder-recipients.util';
@@ -52,7 +54,7 @@ import {
 // Re-exported so existing imports (this file's own spec, in particular)
 // keep working — the shared #18 single-reminder flow needs these too, so
 // they now live in reminder-recipients.util.ts.
-export { selectReminderGuardians, addressForMedium };
+export { selectReminderGuardians, partitionByOptOut, resolveReminderAudience, addressForMedium };
 
 /**
  * Why a recipient was left out of a batch. Returned verbatim to the caller
@@ -65,6 +67,7 @@ export const SkipReason = {
   MEDIUM_NOT_ALLOWED: 'preferred_medium_not_in_requested_mediums',
   NO_AUTOMATED_PROVIDER: 'preferred_medium_has_no_automated_provider',
   MISSING_ADDRESS: 'guardian_has_no_address_for_preferred_medium',
+  NOTIFICATIONS_DISABLED: 'guardian_notifications_disabled',
 } as const;
 
 export interface ResolvedRecipient {
@@ -412,13 +415,32 @@ export class BulkReminderService {
         continue;
       }
 
-      const guardians = selectReminderGuardians(student.guardians ?? []);
-      if (guardians.length === 0) {
+      const linked = student.guardians ?? [];
+      if (linked.length === 0) {
         skipped.push({
           student_id: student.id,
           guardian_id: null,
           reason: SkipReason.NO_GUARDIANS,
         });
+        continue;
+      }
+
+      // Selection runs over the reachable guardians (so an opted-out sole
+      // primary promotes the reachable non-primaries rather than silencing
+      // the student), while the reported skips are limited to opt-outs that
+      // would actually have been selected. See resolveReminderAudience. [5.4c]
+      const { guardians, skippedOptOut } = resolveReminderAudience(linked);
+      for (const guardian of skippedOptOut) {
+        skipped.push({
+          student_id: student.id,
+          guardian_id: guardian.id,
+          reason: SkipReason.NOTIFICATIONS_DISABLED,
+        });
+      }
+
+      // A student whose guardians have ALL opted out gets the per-guardian
+      // entries above only — no misleading NO_GUARDIANS on top.
+      if (guardians.length === 0) {
         continue;
       }
 

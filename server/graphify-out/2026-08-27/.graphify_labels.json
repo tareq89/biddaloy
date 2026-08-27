@@ -121,18 +121,5 @@
   "119": "vitest",
   "120": "data-source.spec.ts",
   "121": "vitest.config.ts",
-  "122": "vitest.unit.config.ts",
-  "123": "ClassService",
-  "124": "smtp-email.provider.ts",
-  "125": "route-guard-coverage.e2e-spec.ts",
-  "126": "CreateAcademicYearDto",
-  "127": "reminders.e2e-spec.ts",
-  "128": "redact.util.ts",
-  "129": "IsRegexSourceConstraint",
-  "130": "SmsProviderIsConfiguredConstraint",
-  "131": "AddReminderPreviewedAuditAction1787616000000",
-  "132": "AddGuardianNotificationsEnabled1787702400000",
-  "133": "IsBeforeConstraint",
-  "134": "@types/nodemailer",
-  "135": "@types/supertest"
+  "122": "vitest.unit.config.ts"
 }

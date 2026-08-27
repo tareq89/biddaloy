@@ -4,6 +4,8 @@ import {
   BulkReminderService,
   SkipReason,
   selectReminderGuardians,
+  partitionByOptOut,
+  resolveReminderAudience,
   addressForMedium,
 } from './reminders.service';
 import {
@@ -25,6 +27,7 @@ function guardian(overrides: Partial<any> = {}) {
     alternate_phone: null,
     email: 'karim@example.com',
     is_primary_contact: true,
+    notifications_enabled: true,
     preferred_communication: CommunicationMedium.SMS,
     ...overrides,
   };
@@ -66,6 +69,82 @@ describe('selectReminderGuardians', () => {
 
   it('returns an empty list for a student with no guardians', () => {
     expect(selectReminderGuardians([])).toEqual([]);
+  });
+});
+
+describe('partitionByOptOut', () => {
+  it('separates opted-out guardians from reachable ones', () => {
+    const on = guardian({ id: 'g-1', notifications_enabled: true });
+    const off = guardian({ id: 'g-2', notifications_enabled: false });
+
+    expect(partitionByOptOut([on, off] as any)).toEqual({ reachable: [on], optedOut: [off] });
+  });
+
+  it('promotes a reachable non-primary when the sole primary has opted out', () => {
+    // Partitioning BEFORE selectReminderGuardians is the whole point: the
+    // primary is gone, so the fallback reaches the remaining guardian
+    // rather than sending nothing. [5.4c]
+    const primaryOptedOut = guardian({
+      id: 'g-1',
+      is_primary_contact: true,
+      notifications_enabled: false,
+    });
+    const secondary = guardian({
+      id: 'g-2',
+      is_primary_contact: false,
+      notifications_enabled: true,
+    });
+
+    const { reachable, optedOut } = partitionByOptOut([primaryOptedOut, secondary] as any);
+    expect(optedOut).toEqual([primaryOptedOut]);
+    expect(selectReminderGuardians(reachable)).toEqual([secondary]);
+  });
+
+  it('returns everything as reachable when nobody opted out', () => {
+    const a = guardian({ id: 'g-1' });
+    expect(partitionByOptOut([a] as any)).toEqual({ reachable: [a], optedOut: [] });
+  });
+});
+
+describe('resolveReminderAudience', () => {
+  it('does not report a non-primary opt-out when a reachable primary exists', () => {
+    // Regression: partitioning over ALL linked guardians reported g-2, who
+    // primary selection would never have chosen anyway. [5.4c]
+    const primary = guardian({ id: 'g-1', is_primary_contact: true, notifications_enabled: true });
+    const secondary = guardian({
+      id: 'g-2',
+      is_primary_contact: false,
+      notifications_enabled: false,
+    });
+
+    const { guardians, skippedOptOut } = resolveReminderAudience([primary, secondary] as any);
+
+    expect(guardians).toEqual([primary]);
+    expect(skippedOptOut).toEqual([]);
+  });
+
+  it('still promotes a reachable non-primary when the sole primary opted out', () => {
+    const primary = guardian({ id: 'g-1', is_primary_contact: true, notifications_enabled: false });
+    const secondary = guardian({
+      id: 'g-2',
+      is_primary_contact: false,
+      notifications_enabled: true,
+    });
+
+    const { guardians, skippedOptOut } = resolveReminderAudience([primary, secondary] as any);
+
+    expect(guardians).toEqual([secondary]);
+    expect(skippedOptOut).toEqual([primary]);
+  });
+
+  it('reports every opt-out when no guardian is flagged primary', () => {
+    const a = guardian({ id: 'g-1', is_primary_contact: false, notifications_enabled: false });
+    const b = guardian({ id: 'g-2', is_primary_contact: false, notifications_enabled: true });
+
+    const { guardians, skippedOptOut } = resolveReminderAudience([a, b] as any);
+
+    expect(guardians).toEqual([b]);
+    expect(skippedOptOut).toEqual([a]);
   });
 });
 
@@ -418,6 +497,93 @@ describe('BulkReminderService', () => {
       });
 
       expect(reason).toBe(SkipReason.NO_GUARDIANS);
+    });
+
+    it('skips a guardian who has opted out of notifications', async () => {
+      const reason = await skipReasonFor(() => {
+        studentService.findManyWithGuardians.mockResolvedValue([
+          student({ guardians: [guardian({ notifications_enabled: false })] }),
+        ]);
+      });
+
+      expect(reason).toBe(SkipReason.NOTIFICATIONS_DISABLED);
+      expect(queue.add).not.toHaveBeenCalled();
+    });
+
+    it('still reaches the guardians who have not opted out', async () => {
+      studentService.findManyWithGuardians.mockResolvedValue([
+        student({
+          guardians: [
+            guardian({ id: 'g-1', notifications_enabled: false }),
+            guardian({ id: 'g-2', notifications_enabled: true }),
+          ],
+        }),
+      ]);
+
+      const result = await service.sendBulk(dto as any, TENANT, USER);
+
+      expect(result.skipped).toEqual([
+        { student_id: 's-1', guardian_id: 'g-1', reason: SkipReason.NOTIFICATIONS_DISABLED },
+      ]);
+      expect(queue.add).toHaveBeenCalledTimes(1);
+      expect(logRepo.save).toHaveBeenCalledWith(expect.objectContaining({ guardian_id: 'g-2' }));
+    });
+
+    it('promotes a reachable non-primary when the sole primary has opted out', async () => {
+      studentService.findManyWithGuardians.mockResolvedValue([
+        student({
+          guardians: [
+            guardian({ id: 'g-1', is_primary_contact: true, notifications_enabled: false }),
+            guardian({ id: 'g-2', is_primary_contact: false, notifications_enabled: true }),
+          ],
+        }),
+      ]);
+
+      const result = await service.sendBulk(dto as any, TENANT, USER);
+
+      expect(result.skipped).toEqual([
+        { student_id: 's-1', guardian_id: 'g-1', reason: SkipReason.NOTIFICATIONS_DISABLED },
+      ]);
+      expect(logRepo.save).toHaveBeenCalledWith(expect.objectContaining({ guardian_id: 'g-2' }));
+    });
+
+    it('does not report a non-primary opt-out when the primary is reachable', async () => {
+      // Regression: this guardian is not a primary contact, so they would
+      // never have been messaged — reporting them inflated skipped_count
+      // and the REMINDER_PREVIEWED audit row. [5.4c]
+      studentService.findManyWithGuardians.mockResolvedValue([
+        student({
+          guardians: [
+            guardian({ id: 'g-1', is_primary_contact: true, notifications_enabled: true }),
+            guardian({ id: 'g-2', is_primary_contact: false, notifications_enabled: false }),
+          ],
+        }),
+      ]);
+
+      const result = await service.sendBulk(dto as any, TENANT, USER);
+
+      expect(result.skipped).toEqual([]);
+      expect(logRepo.save).toHaveBeenCalledWith(expect.objectContaining({ guardian_id: 'g-1' }));
+    });
+
+    it('reports only per-guardian opt-outs, not NO_GUARDIANS, when all opted out', async () => {
+      studentService.findManyWithGuardians.mockResolvedValue([
+        student({
+          guardians: [
+            guardian({ id: 'g-1', notifications_enabled: false }),
+            guardian({ id: 'g-2', notifications_enabled: false }),
+          ],
+        }),
+      ]);
+
+      const result = await service.sendBulk(dto as any, TENANT, USER);
+
+      expect(result.skipped).toEqual([
+        { student_id: 's-1', guardian_id: 'g-1', reason: SkipReason.NOTIFICATIONS_DISABLED },
+        { student_id: 's-1', guardian_id: 'g-2', reason: SkipReason.NOTIFICATIONS_DISABLED },
+      ]);
+      expect(result.skipped.some((s: any) => s.reason === SkipReason.NO_GUARDIANS)).toBe(false);
+      expect(queue.add).not.toHaveBeenCalled();
     });
 
     it('skips PHONE_CALL, which has no automated provider', async () => {

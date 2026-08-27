@@ -16,6 +16,7 @@ function guardian(overrides: Partial<any> = {}) {
     alternate_phone: null,
     email: 'karim@example.com',
     is_primary_contact: true,
+    notifications_enabled: true,
     preferred_communication: CommunicationMedium.SMS,
     ...overrides,
   };
@@ -197,6 +198,119 @@ describe('SingleReminderService', () => {
 
       expect(guardianService.findOne).not.toHaveBeenCalled();
       expect(result.recipients.map((r) => r.guardian_id)).toEqual(['g-1']);
+    });
+
+    it('skips an opted-out guardian on the default path', async () => {
+      studentService.findOne.mockResolvedValue(
+        student({ guardians: [guardian({ notifications_enabled: false })] }),
+      );
+
+      await expect(service.preview(STUDENT_ID, dto as any, TENANT)).rejects.toThrow(
+        new RegExp(SkipReason.NOTIFICATIONS_DISABLED),
+      );
+    });
+
+    it('still reaches opted-in guardians when one of several opted out', async () => {
+      studentService.findOne.mockResolvedValue(
+        student({
+          guardians: [
+            guardian({ id: 'g-1', notifications_enabled: false }),
+            guardian({ id: 'g-2', notifications_enabled: true }),
+          ],
+        }),
+      );
+
+      const result = await service.preview(STUDENT_ID, dto as any, TENANT);
+
+      expect(result.recipients.map((r) => r.guardian_id)).toEqual(['g-2']);
+      expect(result.skipped).toEqual([
+        {
+          guardian_id: 'g-1',
+          guardian_name: 'Karim Uddin',
+          reason: SkipReason.NOTIFICATIONS_DISABLED,
+        },
+      ]);
+    });
+
+    it('does not report a non-primary opt-out when the primary is reachable', async () => {
+      // Default path only ever messages the primary, so the opted-out
+      // non-primary is not a skip worth surfacing. [5.4c]
+      studentService.findOne.mockResolvedValue(
+        student({
+          guardians: [
+            guardian({ id: 'g-1', is_primary_contact: true, notifications_enabled: true }),
+            guardian({ id: 'g-2', is_primary_contact: false, notifications_enabled: false }),
+          ],
+        }),
+      );
+
+      const result = await service.preview(STUDENT_ID, dto as any, TENANT);
+
+      expect(result.recipients.map((r) => r.guardian_id)).toEqual(['g-1']);
+      expect(result.skipped).toEqual([]);
+    });
+
+    it('promotes a reachable non-primary when the sole primary opted out', async () => {
+      studentService.findOne.mockResolvedValue(
+        student({
+          guardians: [
+            guardian({ id: 'g-1', is_primary_contact: true, notifications_enabled: false }),
+            guardian({ id: 'g-2', is_primary_contact: false, notifications_enabled: true }),
+          ],
+        }),
+      );
+
+      const result = await service.preview(STUDENT_ID, dto as any, TENANT);
+
+      expect(result.recipients.map((r) => r.guardian_id)).toEqual(['g-2']);
+    });
+
+    it('honours the opt-out even when staff picked the guardian explicitly', async () => {
+      // resolveExplicitGuardians bypasses selectReminderGuardians, so this
+      // path is gated separately — explicit selection is not an override. [5.4c]
+      studentService.findOne.mockResolvedValue(
+        student({
+          guardians: [
+            guardian({ id: 'g-1', notifications_enabled: false }),
+            guardian({ id: 'g-2', notifications_enabled: true }),
+          ],
+        }),
+      );
+      guardianService.findOne.mockImplementation(async (id: string) =>
+        id === 'g-1'
+          ? guardian({ id: 'g-1', notifications_enabled: false })
+          : guardian({ id: 'g-2', notifications_enabled: true }),
+      );
+
+      const result = await service.preview(
+        STUDENT_ID,
+        { ...dto, guardian_ids: ['g-1', 'g-2'] } as any,
+        TENANT,
+      );
+
+      expect(result.recipients.map((r) => r.guardian_id)).toEqual(['g-2']);
+      expect(result.skipped).toEqual([
+        {
+          guardian_id: 'g-1',
+          guardian_name: 'Karim Uddin',
+          reason: SkipReason.NOTIFICATIONS_DISABLED,
+        },
+      ]);
+    });
+
+    it('errors naming the opt-out when every candidate has opted out', async () => {
+      studentService.findOne.mockResolvedValue(
+        student({ guardians: [guardian({ id: 'g-1', notifications_enabled: false })] }),
+      );
+      guardianService.findOne.mockResolvedValue(
+        guardian({ id: 'g-1', notifications_enabled: false }),
+      );
+
+      await expect(
+        service.preview(STUDENT_ID, { ...dto, guardian_ids: ['g-1'] } as any, TENANT),
+      ).rejects.toThrow(
+        new RegExp(`every candidate was skipped.*${SkipReason.NOTIFICATIONS_DISABLED}`),
+      );
     });
 
     it('rejects guardian_ids when the guardians relation was not loaded on the student', async () => {
