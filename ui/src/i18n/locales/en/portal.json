@@ -18,6 +18,42 @@
   "actions": {
     "viewFeeBreakdown": "View fee breakdown"
   },
+  "fees": {
+    "title": "Fees",
+    "loading": "Loading fee details",
+    "pickerLabel": "Choose a student",
+    "outstanding": "Outstanding",
+    "charged": "Charged",
+    "discount": "Discount",
+    "paid": "Paid",
+    "breakdownTitle": "Month by month",
+    "breakdownEmpty": "No fees have been charged yet. Once the school issues one it will appear here, month by month.",
+    "monthLabel": "{{month}} {{year}}",
+    "invoicesTitle": "Invoices",
+    "newestFirst": "Newest first",
+    "invoicesTruncated": "Showing the most recent {{shown}} of {{total}} invoices. Ask the school office for older ones.",
+    "invoicesEmpty": "No invoices yet.",
+    "printLabel": "Print invoice {{number}}",
+    "printError": "Could not open the printable invoice. Try again.",
+    "error": {
+      "message": "Could not load these fees. Something went wrong reaching the school's records — check your connection and try again.",
+      "retry": "Try again"
+    },
+    "months": {
+      "1": "January",
+      "2": "February",
+      "3": "March",
+      "4": "April",
+      "5": "May",
+      "6": "June",
+      "7": "July",
+      "8": "August",
+      "9": "September",
+      "10": "October",
+      "11": "November",
+      "12": "December"
+    }
+  },
   "payments": {
     "title": "Recent payments",
     "seeAll": "See all payments",

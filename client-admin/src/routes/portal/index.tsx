@@ -15,7 +15,7 @@ import {
   useTranslation,
   type RegionConfig,
 } from '@biddaloy/ui/i18n';
-import { formatDate, formatServerAmount, parseServerDate } from '@biddaloy/ui/utils';
+import { formatDate, formatServerAmount, isPastDueDate, parseServerDate } from '@biddaloy/ui/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 
 /**
@@ -124,7 +124,8 @@ function daysBetween(due: string, now: Date): number {
  *
  * The row's own `months_overdue` is the real signal, and it is present on
  * the family DTO: the server computes it as `COUNT(*) FILTER (WHERE
- * sf.due_date IS NOT NULL AND sf.due_date < NOW())`. This is the same
+ * sf.due_date IS NOT NULL AND sf.due_date < CURRENT_DATE)` — a fee due
+ * *today* is current, not yet late. This is the same
  * derivation the staff dues queue uses (`_staff/fees/dues.tsx`'s
  * `deriveRowStatus`) — deliberately reused rather than a second, parallel
  * rule that could drift from it.
@@ -162,7 +163,7 @@ function isReceived(payment: { payment_status: PaymentStatusValue }): boolean {
  * amount merely outstanding. Same test the SQL runs, so the two can't
  * disagree about which months count. */
 function isPastDue(due: { due_date: string | null }, now: Date): boolean {
-  return due.due_date !== null && parseServerDate(due.due_date).getTime() < now.getTime();
+  return isPastDueDate(due.due_date, now);
 }
 
 function toneFor(status: FeeStatus): string {

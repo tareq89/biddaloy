@@ -37,13 +37,6 @@
     "explanation": "The dashboard has not been built yet.",
     "action": "Go to settings"
   },
-  "portal": {
-    "fees": {
-      "title": "Fees and invoices",
-      "explanation": "A breakdown of what is due and what has been paid will appear here. This page is a placeholder until the family portal is built.",
-      "action": "Back to overview"
-    }
-  },
   "notFound": {
     "title": "Page not found",
     "explanation": "There is no page at this address.",

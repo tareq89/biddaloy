@@ -321,7 +321,14 @@ export class FeeDuesService {
       .addSelect('cs.section_name', 'section_name')
       .addSelect('SUM(sf.total_amount - sf.paid_amount - sf.discount_amount)', 'total_due')
       .addSelect(
-        'COUNT(*) FILTER (WHERE sf.due_date IS NOT NULL AND sf.due_date < NOW())',
+        // `< CURRENT_DATE`, not `< NOW()`. `sf.due_date` is a `date`
+        // column, so `< NOW()` widens it to midnight of that day and any
+        // fee due *today* counts as overdue from 00:00 onwards — a
+        // parent was told they were late on the very day they were asked
+        // to pay. A fee is overdue only once its due date has passed.
+        // `ui/src/utils/date.ts`'s `isPastDueDate` is the client-side
+        // twin of this predicate; the two must move together.
+        'COUNT(*) FILTER (WHERE sf.due_date IS NOT NULL AND sf.due_date < CURRENT_DATE)',
         'months_overdue',
       )
       .where('sf.student_id IN (:...studentIds)', { studentIds })

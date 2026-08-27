@@ -13,6 +13,7 @@ export {
   formatDateTime,
   parseDate,
   parseServerDate,
+  isPastDueDate,
   getAcademicYear,
   formatAcademicYear,
 } from './date';

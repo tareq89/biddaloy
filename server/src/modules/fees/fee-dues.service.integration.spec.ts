@@ -119,6 +119,7 @@ describe('FeeDuesService (integration)', () => {
 
   const TENANT_ID = SEED_TENANT_ID;
   const YESTERDAY = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const TODAY = new Date();
   const TOMORROW = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
   function makeStudent(overrides: Partial<Student> = {}) {
@@ -244,6 +245,19 @@ describe('FeeDuesService (integration)', () => {
       const result = await service.getDues({ page: 1, limit: 10 }, TENANT_ID);
 
       expect(result.data[0].months_overdue).toBe(1);
+    });
+
+    it('does not count a fee due today as overdue', async () => {
+      // `due_date` is a `date` column, so the old `< NOW()` widened it to
+      // midnight and counted today's fee from 00:00 onwards — telling a
+      // parent they were late on the day they were asked to pay.
+      // `< CURRENT_DATE` is the fix; this pins it.
+      const student = await studentRepo.save(makeStudent());
+      await studentFeeRepo.save(makeFee(student.id, { month: 1, due_date: TODAY }));
+
+      const result = await service.getDues({ page: 1, limit: 10 }, TENANT_ID);
+
+      expect(result.data[0].months_overdue).toBe(0);
     });
 
     it('filters by class_id', async () => {
