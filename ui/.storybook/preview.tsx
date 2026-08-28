@@ -16,6 +16,38 @@ const LOCALE_META: Record<Locale, { label: string; dir: 'ltr' | 'rtl' }> = {
   bn: { label: 'বাংলা', dir: 'ltr' },
 };
 
+// Storybook-only density metadata, the same shape as `LOCALE_META` above and
+// for the same reason: the design contract (section 6) knows the two mode
+// names, but not how a toolbar should label them.
+//
+// `compact` maps to `undefined` rather than to `data-density="compact"`,
+// because compact is the default BY ABSENCE — no attribute means no
+// `--control-h`, which means every size class resolves its own fallback.
+// Rendering a literal `data-density="compact"` would be a Storybook-only
+// state that no route ever produces, so a story could look right in the
+// toolbar while the real staff shell behaved differently.
+const DENSITY_META = {
+  compact: { label: 'Compact (staff)', attribute: undefined },
+  comfortable: { label: 'Comfortable (/portal, auth)', attribute: 'comfortable' },
+} as const;
+
+type Density = keyof typeof DENSITY_META;
+
+// CAVEAT, deliberate: the toolbar applies the attribute to the story WRAPPER,
+// while the real app applies it to `document.documentElement` (see
+// `hooks/use-density.ts` — Radix portals dialogs and menus into
+// `document.body`, where a wrapper cannot reach them). So a story that opens
+// a Dialog, Select, DropdownMenu, Popover or Tooltip will show that content
+// at COMPACT sizes no matter what the toolbar says.
+//
+// The wrapper is kept anyway because it is what makes per-subtree stories
+// possible at all — `button.stories.tsx` renders both modes side by side in
+// one canvas, and `sign-in-form.stories.tsx` is `autodocs`, where a
+// document-level mutation would leak into every sibling story on the page
+// (the same trap `dark-decorator.tsx` documents). Portalled density is
+// verified in a real browser by `e2e/responsive/target-size.spec.ts`
+// instead, which is where it can actually be measured.
+
 // Registers the MSW Service Worker in the Storybook iframe. `public/` isn't
 // set up in this package (it isn't an app with its own dev server), so the
 // worker script is served from Storybook's own static dir — see
@@ -73,11 +105,35 @@ const preview: Preview = {
         dynamicTitle: true,
       },
     },
+    density: {
+      description: 'Density mode — staff routes are compact, /portal is comfortable',
+      defaultValue: 'compact',
+      toolbar: {
+        title: 'Density',
+        icon: 'component',
+        items: Object.entries(DENSITY_META).map(([value, { label }]) => ({
+          value,
+          title: label,
+        })),
+        dynamicTitle: true,
+      },
+    },
   },
   decorators: [
     (Story, context) => {
       const locale = context.globals.locale as Locale;
       const { dir } = LOCALE_META[locale] ?? LOCALE_META.en;
+      const density = context.globals.density as Density;
+      // A story that renders both densities side by side (see
+      // `button.stories.tsx`'s `Density`) opts out of the toolbar global
+      // with `parameters.density: 'both'`. Without this, the toolbar's
+      // wrapper would sit ABOVE such a story's own columns, and the column
+      // that demonstrates compact-by-absence would silently inherit
+      // `--control-h` from the wrapper and stop being compact.
+      const densityAttribute =
+        context.parameters.density === 'both'
+          ? undefined
+          : (DENSITY_META[density] ?? DENSITY_META.compact).attribute;
 
       // Drives the real i18next instance, not a Storybook-only stand-in —
       // a story's `useTranslation()` calls resolve against whatever the
@@ -90,7 +146,7 @@ const preview: Preview = {
       return (
         <QueryClientProvider client={queryClient}>
           <I18nProvider>
-            <div dir={dir} lang={locale}>
+            <div dir={dir} lang={locale} data-density={densityAttribute}>
               <Story />
             </div>
           </I18nProvider>

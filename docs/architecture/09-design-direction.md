@@ -610,8 +610,8 @@ Why two: a staff member scanning 200 fee rows wants information density. A
 guardian on a 360 px phone tapping one button wants a 44 px target.
 
 **Mechanism (this is the direction #349 implements):** a
-`data-density="comfortable"` attribute on the portal/auth shell sets CSS
-variables (`--control-h`, `--row-h`). The size classes in
+`data-density="comfortable"` attribute sets CSS variables (`--control-h`,
+`--row-h`) for the routes that want them. The size classes in
 `ui/src/primitives/button.tsx` and `input.tsx` do **not** read any
 variable today — they are literal `h-8` / `h-7` / `size-8`. #349 rewrites
 each one to `h-[var(--control-h,<today's height>)]` (and
@@ -622,27 +622,98 @@ height, and the comfortable shell lifts every variant with one declaration,
 
 ```mermaid
 flowchart LR
-  S["&lt;div data-density='comfortable'&gt;<br/>portal shell"] --> V["--control-h: 44px"]
-  D["default (no attribute)<br/>staff shell"] --> V2["--control-h unset<br/>→ per-variant fallback"]
-  V --> B["button.tsx / input.tsx<br/>h-[var(--control-h,…)] after #349's rewrite"]
+  S["&lt;html data-density='comfortable'&gt;<br/>set by useDensity() on /portal + auth"] --> V["--control-h: 44px"]
+  D["default (no attribute)<br/>staff routes"] --> V2["--control-h unset<br/>→ per-variant fallback"]
+  V --> B["button.tsx / input.tsx / select.tsx / tabs.tsx<br/>h-[var(--control-h,…)] after #349's rewrite"]
   V2 --> B
 ```
+
+**The attribute goes on `document.documentElement`, not on a wrapper around
+the shell.** `ui/src/hooks/use-density.ts` (`useDensity('comfortable')`) sets
+it on mount and restores the previous value on unmount, the same shape
+`.storybook/dark-decorator.tsx` uses for `data-theme`.
+
+A wrapper `<div data-density="comfortable">` looks like it should work —
+custom properties inherit down the DOM tree, so even a `position: fixed`
+descendant resolves `--control-h` from an ancestor. It fails for a different
+reason: **React portals**. Radix mounts `Dialog`, `Select`, `DropdownMenu`,
+`Popover` and `Tooltip` content into `document.body` (see
+`primitives/dialog.tsx` — `DialogPrimitive.Portal` with no `container`), so
+that content is a sibling of the app root and inherits from `<html>`, never
+from a wrapper inside it. On the guardian surface that is not a corner case:
+
+| Portalled thing                                           | What a wrapper would have missed                                                 |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `app-shell.tsx` mobile off-canvas nav (a `DialogContent`) | its close button (`size="icon-sm"`) and every nav link — 28 px on a 360 px phone |
+| `locale-switcher.tsx` on `/login`, `/select-school`       | the `MenuContent` items, while the trigger itself grew to 44 px                  |
+
+`document.documentElement` is an ancestor of `document.body`, so portalled
+content inherits like everything else.
 
 The complete per-variant mapping #349 implements — every size variant
 clamps to 44 px under comfortable, because WCAG SC 2.5.5 has no "small"
 exception and `xs`/`sm` exist for dense staff tables, which are compact:
 
-| Size variant       | Today (compact keeps it via fallback) | Comfortable |
-| ------------------ | ------------------------------------- | ----------- |
-| `button` `default` | `h-8` — 32 px                         | 44 px       |
-| `button` `xs`      | `h-6` — 24 px                         | 44 px       |
-| `button` `sm`      | `h-7` — 28 px                         | 44 px       |
-| `button` `lg`      | `h-9` — 36 px                         | 44 px       |
-| `button` `icon`    | `size-8` — 32 px                      | 44 px       |
-| `button` `icon-xs` | `size-6` — 24 px                      | 44 px       |
-| `button` `icon-sm` | `size-7` — 28 px                      | 44 px       |
-| `button` `icon-lg` | `size-9` — 36 px                      | 44 px       |
-| `input.tsx`        | `h-8` — 32 px                         | 44 px       |
+| Size variant           | Today (compact keeps it via fallback) | Comfortable |
+| ---------------------- | ------------------------------------- | ----------- |
+| `button` `default`     | `h-8` — 32 px                         | 44 px       |
+| `button` `xs`          | `h-6` — 24 px                         | 44 px       |
+| `button` `sm`          | `h-7` — 28 px                         | 44 px       |
+| `button` `lg`          | `h-9` — 36 px                         | 44 px       |
+| `button` `icon`        | `size-8` — 32 px                      | 44 px       |
+| `button` `icon-xs`     | `size-6` — 24 px                      | 44 px       |
+| `button` `icon-sm`     | `size-7` — 28 px                      | 44 px       |
+| `button` `icon-lg`     | `size-9` — 36 px                      | 44 px       |
+| `input.tsx`            | `h-8` — 32 px                         | 44 px       |
+| `select.tsx` `default` | `data-[size=default]:h-8` — 32 px     | 44 px       |
+| `select.tsx` `sm`      | `data-[size=sm]:h-7` — 28 px          | 44 px       |
+| `tabs.tsx` `TabsList`  | `h-8` (horizontal) — 32 px            | 44 px       |
+
+The two `select.tsx` rows were added during #349 and were not in this
+table's first draft. A `Select` trigger is a control exactly like `button`
+and `input` — it just carries its height on a `data-[size=…]` variant rather
+than a plain class, which is why a first read missed it. Left out, a
+`<Select>` on `/portal` would have stayed 32 px next to 44 px neighbours,
+and the e2e gate would have failed on a control this contract never named.
+
+**Checkbox and radio are the one exception to the `--control-h` rule.**
+`primitives/checkbox.tsx` and `primitives/radio-group.tsx` are 16 px boxes
+(`size-4`) whose real target is a negative-inset `::after` pseudo-element.
+The visible box is small on purpose — growing it to 44 px would make a
+checkbox the size of a button. Their effective target today is 40x32 px,
+which clears SC 2.5.8's 24 px but not SC 2.5.5's 44 px. So they read a second
+variable, `--target-inset`, set to `0.875rem` (14 px) in the comfortable
+block: 16 + 2 x 14 = 44 on both axes. One variable, a different fallback per
+axis, because the compact insets are asymmetric while the comfortable one is
+square:
+
+```
+after:-inset-x-[var(--target-inset,0.75rem)]   compact 12px -> comfortable 14px
+after:-inset-y-[var(--target-inset,0.5rem)]    compact  8px -> comfortable 14px
+```
+
+**Known constraint — checkbox/radio targets can overlap.** The `::after`
+extension is not clipped, so two adjacent boxes closer together than twice
+the inset share hit area, and in the overlap the later-painted one wins the
+click. The minimum safe gap between two 16 px boxes is therefore:
+
+| Mode        | Inset | Minimum gap between boxes | Row pitch |
+| ----------- | ----- | ------------------------- | --------- |
+| compact     | 12 px | 24 px                     | 40 px     |
+| comfortable | 14 px | 28 px                     | 44 px     |
+
+`RadioGroup`'s default `gap-2` (8 px) is below that in **both** modes — this
+predates #349, which only widens the overlap. It is not a live bug today: no
+comfortable route renders a multi-item checkbox or radio group. The first
+screen that does must set its own spacing rather than take the default, and
+`e2e/responsive/target-size.spec.ts` measures size, not overlap, so it will
+not catch this for you.
+
+**Not in scope for #349:** the table-row, card-padding, page-gutter and
+body-step rows of the first table. `--row-h` is named in the mechanism sketch
+above but has no consumer — no `/portal` route renders `DataTable` today, and
+inventing one to carry the variable would be worse than leaving it to the
+ticket that first needs it.
 
 **No component prop API changes.** No `<Button density="...">`. That
 satisfies the epic's constraint that this layer stays invisible to callers.

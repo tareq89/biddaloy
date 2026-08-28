@@ -94,6 +94,25 @@ function extractBlock(css, selectorRe) {
   return null;
 }
 
+/**
+ * Every block in `css` whose selector matches `selectorRe`, not just the
+ * first. `extractBlock` above binds to one block on purpose (it is looking
+ * for a specific, contents-identified block); this one is for guards that
+ * must hold for ALL blocks of a shape, where finding one clean example
+ * proves nothing.
+ */
+function extractAllBlocks(css, selectorRe) {
+  const bodies = [];
+  const re = new RegExp(selectorRe.source, `${selectorRe.flags.replace('g', '')}g`);
+  let match;
+  while ((match = re.exec(css))) {
+    const body = extractBlock(css.slice(match.index), selectorRe);
+    if (body !== null) bodies.push(body);
+    re.lastIndex = match.index + match[0].length;
+  }
+  return bodies;
+}
+
 /** `#RRGGBB` -> the `var(--color-scale-key)` string it should appear as, by
  * reverse-lookup against the raw scale. Semantic role tokens are authored as
  * references to the raw scale (see globals.css's own comment on why), so the
@@ -142,17 +161,50 @@ const rootBody = extractBlock(css, /:root\s*\{(?=[^}]*--elevation-)/);
 // matched block, for the same reason and with the same protection against
 // binding to whichever plain `:root` happens to come first in the file.
 const motionRootBody = extractBlock(css, /:root\s*\{(?=[^}]*--motion-)/);
+// Density (contract §6) lives on an attribute selector, not `:root`: it is a
+// mode applied to a SUBTREE (the portal/auth shell) while the rest of the app
+// keeps the compact default. Matched by the attribute rather than by
+// position, same as the contents-matched blocks above.
+const densityBody = extractBlock(css, /\[data-density=["']comfortable["']\]\s*\{/);
 if (themeBody === null) errors.push('globals.css: could not find an @theme block to check.');
 if (darkBody === null)
   errors.push('globals.css: could not find a :root[data-theme="dark"] block to check.');
 if (rootBody === null) errors.push('globals.css: could not find a plain :root block to check.');
 if (motionRootBody === null)
   errors.push('globals.css: could not find a plain :root block declaring --motion-* to check.');
+if (densityBody === null)
+  errors.push(
+    "globals.css: could not find a [data-density='comfortable'] block to check — comfortable " +
+      'density (contract §6) is unreachable, so /portal renders at the compact 32px control ' +
+      'height while its e2e gate demands 44px.',
+  );
 
 const lightVars = themeBody === null ? {} : parseDeclarations(themeBody);
 const darkVars = darkBody === null ? {} : parseDeclarations(darkBody);
 const rootVars = rootBody === null ? {} : parseDeclarations(rootBody);
 const motionVars = motionRootBody === null ? {} : parseDeclarations(motionRootBody);
+const densityVars = densityBody === null ? {} : parseDeclarations(densityBody);
+
+/**
+ * EVERY plain `:root { … }` block in the file, parsed.
+ *
+ * `rootVars`/`motionVars` above are each bound to one specific block by a
+ * contents lookahead (`--elevation-`, `--motion-`). That is right for what
+ * they assert, but it left the "no plain `:root` density default" guard
+ * below with a hole big enough to drive the regression through: a THIRD
+ * plain `:root { --control-h: … }` block containing neither marker was
+ * extracted by neither lookahead, so the guard inspected two blocks that
+ * could not contain the variable, found nothing, and passed — while compact
+ * density had just become globally unreachable. The guard promised a check
+ * it did not perform, which is worse than not having it.
+ *
+ * Comments are stripped FIRST. `globals.css`'s own density note spells out
+ * the banned shape in prose — it literally writes `:root { --control-h: … }`
+ * to explain why there isn't one — so scanning the raw text would match the
+ * documentation and fail on a correct file.
+ */
+const cssWithoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
+const plainRootVars = extractAllBlocks(cssWithoutComments, /:root\s*\{/).map(parseDeclarations);
 
 function expectVar(scopeVars, scopeName, varName, expectedValue) {
   const actual = scopeVars[varName];
@@ -325,6 +377,110 @@ for (const [key, cssVarName] of Object.entries(motionVarNames)) {
 }
 
 /**
+ * Density (design contract §6). Two numeric modes selected by a
+ * `data-density` attribute, not by a component prop.
+ *
+ * Unlike colour, type, elevation and motion, density has NO
+ * `tailwind.preset.ts` export to mirror — §9's row for #349 asks for the
+ * attribute mechanism and the per-variant mapping, not a preset family, and
+ * inventing one would give the drift check a second source of truth for a
+ * single number. So the contract's 44px is written here as the literal it is
+ * in §6's table.
+ *
+ * Scope matters exactly as much as it does for motion, and for one more
+ * reason on top: `@theme` is asserted NOT to hold `--control-h` both because
+ * Tailwind v4 tree-shakes unused `@theme` variables AND because `@theme`
+ * only ever emits into `:root`. A `:root` density variable is not a mode at
+ * all — it would apply the portal's 44px controls to every staff table in
+ * the app, which is the precise regression this ticket exists to avoid.
+ *
+ * There must also be no plain `:root` default, checked against EVERY plain
+ * `:root` block in the file rather than the two contents-identified ones the
+ * elevation and motion guards bind to — a third block holding neither marker
+ * is exactly how this default would sneak in. The compact heights are eight
+ * DIFFERENT values (24/28/32/36px and their icon twins), carried by the
+ * per-variant `var(--control-h, <today>)` fallbacks; a root default would
+ * shadow all eight with one number and, worse, make every fallback dead code
+ * so a typo in one could never be caught.
+ */
+const DENSITY_EXPECTATIONS = [
+  ['--control-h', '2.75rem', 'comfortable control height — 44px, WCAG 2.2 SC 2.5.5'],
+  [
+    '--target-inset',
+    '0.875rem',
+    'comfortable checkbox/radio hit-area inset — 16px + 2x14px = 44px',
+  ],
+];
+for (const [cssVarName, expectedValue, description] of DENSITY_EXPECTATIONS) {
+  expectVar(densityVars, "[data-density='comfortable']", cssVarName, expectedValue);
+  if (lightVars[cssVarName] !== undefined) {
+    errors.push(
+      `@theme: ${cssVarName} is declared here. @theme is tree-shaken AND only ever emits into ` +
+        ':root, so density would stop being a per-subtree mode and every staff route would ' +
+        `inherit the portal's target sizes. Declare it in the [data-density='comfortable'] ` +
+        'block instead.',
+    );
+  }
+  if (plainRootVars.some((vars) => vars[cssVarName] !== undefined)) {
+    errors.push(
+      `globals.css: ${cssVarName} is declared in a plain :root, which makes compact density ` +
+        'unreachable — every staff control would take the comfortable value, and the ' +
+        'per-variant var() fallbacks that carry the eight compact heights would become dead ' +
+        `code. The ${description} belongs only in the [data-density='comfortable'] block.`,
+    );
+  }
+  if (darkVars[cssVarName] !== undefined) {
+    errors.push(
+      `:root[data-theme="dark"]: ${cssVarName} is redefined ("${darkVars[cssVarName]}"). ` +
+        'A target does not change size in dark mode — remove it from the dark block.',
+    );
+  }
+}
+
+/**
+ * The literal class strings shipped by
+ * `primitives/{button,input,select,tabs,checkbox,radio-group}.tsx` and the
+ * inset password toggle in `components/sign-in-form.tsx`, paired with
+ * the declaration each must compile to. Asserted against real compiler
+ * output further down; see the long note there for why source text alone is
+ * not enough. Keeping this list in sync with the primitives is the point: a
+ * fallback typo (`2rem` written as `2em`) changes a STAFF control's height,
+ * where nothing else looks, while the portal — which never reads the
+ * fallback — stays perfect.
+ */
+const densityCandidates = [
+  // `button` size `default` and `input` share the 32px fallback.
+  ['h-[var(--control-h,2rem)]', 'height: var(--control-h,2rem)'],
+  ['h-[var(--control-h,1.5rem)]', 'height: var(--control-h,1.5rem)'],
+  ['h-[var(--control-h,1.75rem)]', 'height: var(--control-h,1.75rem)'],
+  ['h-[var(--control-h,2.25rem)]', 'height: var(--control-h,2.25rem)'],
+  ['size-[var(--control-h,2rem)]', 'height: var(--control-h,2rem)'],
+  ['size-[var(--control-h,1.5rem)]', 'height: var(--control-h,1.5rem)'],
+  ['size-[var(--control-h,1.75rem)]', 'height: var(--control-h,1.75rem)'],
+  ['size-[var(--control-h,2.25rem)]', 'height: var(--control-h,2.25rem)'],
+  ['data-[size=default]:h-[var(--control-h,2rem)]', 'height: var(--control-h,2rem)'],
+  ['data-[size=sm]:h-[var(--control-h,1.75rem)]', 'height: var(--control-h,1.75rem)'],
+  [
+    'group-data-[orientation=horizontal]/tabs:h-[var(--control-h,2rem)]',
+    'height: var(--control-h,2rem)',
+  ],
+  // The password toggle in `sign-in-form.tsx` is INSET inside the field, so
+  // it derives its height from `--control-h` rather than taking it: minus
+  // 4px keeps the 2px-per-side inset it has always had. Without this it
+  // would be exactly as tall as the input it sits in and its hover
+  // background would paint over the field's borders and rounded end corner.
+  ['h-[calc(var(--control-h,2rem)-0.25rem)]', 'height: calc(var(--control-h,2rem) - 0.25rem)'],
+  [
+    'after:-inset-x-[var(--target-inset,0.75rem)]',
+    'inset-inline: calc(var(--target-inset,0.75rem) * -1)',
+  ],
+  [
+    'after:-inset-y-[var(--target-inset,0.5rem)]',
+    'inset-block: calc(var(--target-inset,0.5rem) * -1)',
+  ],
+];
+
+/**
  * The global `prefers-reduced-motion: reduce` rule (design contract §7).
  *
  * Nothing else in the repo would notice if this block were deleted: no unit
@@ -495,6 +651,71 @@ if (compiledCss !== null) {
     );
   }
 
+  /**
+   * Density, end to end (contract §6). Two separate things have to be true,
+   * and checking either one alone lets the other fail silently.
+   *
+   * 1. The variable REACHES the bundle. `build([])` — no scanned candidates
+   *    at all — is the strict case: a `[data-density='comfortable']` rule
+   *    mistakenly written into `@theme` would be tree-shaken away here, and
+   *    every portal control would quietly stay 32px.
+   *
+   * 2. The utilities that READ it compile to real rules. This is the half a
+   *    source grep cannot do. `h-[var(--control-h,2rem)]` is an arbitrary
+   *    value containing a comma and parentheses; if Tailwind's parser ever
+   *    rejects that shape it emits NO rule, the class silently does nothing,
+   *    and the button loses its height entirely rather than merely failing
+   *    to grow. So compile the exact class strings the primitives ship and
+   *    assert each produced the declaration it was supposed to.
+   *
+   * The candidate list itself is `densityCandidates` above.
+   */
+  for (const [cssVarName, expectedValue, description] of DENSITY_EXPECTATIONS) {
+    if (!compiledCss.includes(`${cssVarName}: ${expectedValue}`)) {
+      errors.push(
+        `compiled CSS: ${cssVarName}: ${expectedValue} is not in the build output, so the ` +
+          `${description} ships nothing and /portal renders at compact size while its e2e ` +
+          "gate demands 44px. Declare it in a plain [data-density='comfortable'] block, not " +
+          '@theme (Tailwind drops unused @theme vars).',
+      );
+    }
+  }
+  const densityUtilityCss = compiler.build(densityCandidates.map(([candidate]) => candidate));
+  /**
+   * Each candidate is checked against ITS OWN rule, not against the sheet as
+   * a whole. Several of these compile to the same declaration on purpose —
+   * `h-[var(--control-h,2rem)]`, `size-[var(--control-h,2rem)]` and
+   * `data-[size=default]:h-[var(--control-h,2rem)]` all emit
+   * `height: var(--control-h,2rem)` — so a sheet-wide `includes()` would be
+   * satisfied by any one of the three and would report all twelve healthy
+   * while eleven of them emitted nothing. That is not hypothetical: it is
+   * how the first version of this check behaved when deliberately broken.
+   *
+   * Selectors arrive CSS-escaped (`.h-\[var\(--control-h\,2rem\)\]`), so
+   * backslashes are stripped before comparing to the raw candidate. Every
+   * density utility compiles to a flat `selector { declarations }` rule with
+   * no nested braces, which is what makes this scan sufficient.
+   */
+  const compiledRules = [...densityUtilityCss.matchAll(/([^{}]*)\{([^{}]*)\}/g)].map(
+    ([, selector, body]) => [selector.replaceAll('\\', '').trim(), body],
+  );
+  for (const [candidate, expectedDeclaration] of densityCandidates) {
+    const rule = compiledRules.find(([selector]) => selector.includes(`.${candidate}`));
+    if (rule === undefined) {
+      errors.push(
+        `compiled CSS: the density utility \`${candidate}\` produced no rule at all. The class ` +
+          'is shipped by a primitive, so that control has no height at all — not merely the ' +
+          'wrong one. Tailwind rejected the arbitrary value.',
+      );
+    } else if (!rule[1].includes(expectedDeclaration)) {
+      errors.push(
+        `compiled CSS: the density utility \`${candidate}\` compiled to ` +
+          `\`${rule[1].trim()}\`, not \`${expectedDeclaration}\` — it no longer reads the ` +
+          'density variable, so its control is frozen at one size in both modes.',
+      );
+    }
+  }
+
   if (!/@media\s*\(prefers-reduced-motion:\s*reduce\)/.test(compiledCss)) {
     errors.push(
       'compiled CSS: the global @media (prefers-reduced-motion: reduce) rule is not in the ' +
@@ -572,6 +793,8 @@ console.log(
     `${Object.keys(preset.typography.ramp).length} type steps mirrored, ` +
     `${lightSteps.length} elevation steps mirrored in light and dark, ` +
     `${Object.keys(motionVarNames).length} motion tokens mirrored under a live reduced-motion rule, ` +
+    `${DENSITY_EXPECTATIONS.length} density variables scoped to [data-density='comfortable'] ` +
+    `with ${densityCandidates.length} reading utilities proven to compile, ` +
     `all of them plus every elevation step verified present in the compiled CSS, ` +
     `the dark: variant proven attribute-scoped in the compiled CSS, ` +
     `CSS mirror matches tailwind.preset.ts by name and scope, ` +

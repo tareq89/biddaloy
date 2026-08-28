@@ -290,3 +290,4 @@ export {
   type TestConnectionInput,
   type TestableMedium,
 } from './school-settings';
+export { useDensity, type DensityMode } from './use-density';
