@@ -16,5 +16,9 @@
     "available": "A new version of the app is available.",
     "reload": "Reload",
     "activatedElsewhere": "The app has been updated in another tab. Reload this tab when you're ready."
+  },
+  "offline": {
+    "showingSavedData": "Showing saved data from {{age}}.",
+    "youAreOffline": "You're offline — this will refresh when you reconnect."
   }
 }

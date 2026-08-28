@@ -9,6 +9,9 @@
 import * as React from 'react';
 import type { FieldPath, FieldValues, UseFormSetError } from 'react-hook-form';
 
+import { currentSessionGeneration, getActiveTenant } from '../api/auth-state';
+import { formDraftKey } from '../api/form-draft-storage';
+
 /**
  * "Validation runs on blur and on submit — never on every keystroke" is a
  * `useForm` config, not something a wrapper component can enforce on
@@ -81,14 +84,22 @@ export interface UseFormAutosaveResult<TValues> {
  * on the same origin don't collide. Fails silently on a full/unavailable
  * `localStorage` (private browsing, quota) — autosave is a convenience on
  * top of a form that already works, not something whose failure should
- * block submission. */
+ * block submission.
+ *
+ * [8.12.3]: the storage key now also carries the **active tenant**
+ * (`formDraftKey`), and `clearAuthState()` purges every draft on logout.
+ * Before that, an administrator of two schools was offered school A's
+ * abandoned draft while filling in the same form at school B, and a draft
+ * outlived the session that typed it. Callers pass the same `key` as
+ * before — the scoping happens here. */
 export function useFormAutosave<TValues>(
   key: string,
   values: TValues,
   options: { enabled?: boolean; debounceMs?: number } = {},
 ): UseFormAutosaveResult<TValues> {
   const { enabled = true, debounceMs = 500 } = options;
-  const storageKey = `form-shell-draft:${key}`;
+  const tenantId = getActiveTenant();
+  const storageKey = formDraftKey(key, tenantId);
 
   const [draftAvailable, setDraftAvailable] = React.useState(() => {
     if (typeof window === 'undefined') return false;
@@ -111,7 +122,20 @@ export function useFormAutosave<TValues>(
 
   React.useEffect(() => {
     if (!enabled) return;
+    // Captured at arm time and re-checked when the timer fires. The
+    // debounce means a write is routinely still pending when the session
+    // ends: a mid-session 401 calls `clearAuthState()`, which wipes every
+    // draft, but navigation to `/login` is async and the form can still be
+    // mounted when this fires. Without the check it would write the draft
+    // straight back under the departed session's key, where the next
+    // person at the browser could restore it — undoing the purge that had
+    // just run. The same guard stops a tenant switch from writing school
+    // A's typed values under school B's key.
+    const armedGeneration = currentSessionGeneration();
+    const armedTenant = tenantId;
     const timeout = setTimeout(() => {
+      if (currentSessionGeneration() !== armedGeneration) return;
+      if (getActiveTenant() !== armedTenant) return;
       const serialized = JSON.stringify(values);
       if (
         lastWrittenRef.current?.storageKey === storageKey &&
@@ -129,7 +153,7 @@ export function useFormAutosave<TValues>(
       }
     }, debounceMs);
     return () => clearTimeout(timeout);
-  }, [enabled, storageKey, values, debounceMs]);
+  }, [enabled, storageKey, tenantId, values, debounceMs]);
 
   function restoreDraft(): TValues | undefined {
     try {

@@ -142,3 +142,33 @@ export function formatAcademicYear(date: Date, config: RegionConfig): string {
   const label = startYear === endYear ? String(startYear) : `${startYear}–${endYear}`;
   return renderDigits(label, config.numerals);
 }
+
+/**
+ * [8.12.3] "how old is this data", phrased for a human: `"5 minutes ago"`,
+ * `"23 hours ago"`, `"২ দিন আগে"`.
+ *
+ * `Intl.RelativeTimeFormat` rather than a hand-rolled string table,
+ * because it is the one formatter that already knows both the phrasing
+ * *and* the numeral system of every locale this app ships — Bengali
+ * digits come out of it for free, which is exactly the kind of thing
+ * `renderDigits` exists to guarantee elsewhere and which a bespoke
+ * "N minutes ago" template would quietly get wrong.
+ *
+ * Rounds toward the coarser unit (a 119-second-old row reads "1 minute
+ * ago", not "119 seconds ago"): the caller is labelling staleness, where
+ * the order of magnitude is the whole message and the precision is noise.
+ * Anything under a minute is "just now" — sub-minute precision on a
+ * cache-age badge invites a user to watch it tick.
+ */
+export function formatRelativeAge(fetchedAt: number, locale: string, now = Date.now()): string {
+  const formatter = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
+  // Clamped at 0: a server clock a few seconds ahead of the browser would
+  // otherwise produce "in 3 seconds" on a badge whose entire job is to
+  // say how far in the past something happened.
+  const elapsedSeconds = Math.max(0, Math.round((now - fetchedAt) / 1000));
+
+  if (elapsedSeconds < 60) return formatter.format(0, 'second');
+  if (elapsedSeconds < 3600) return formatter.format(-Math.floor(elapsedSeconds / 60), 'minute');
+  if (elapsedSeconds < 86_400) return formatter.format(-Math.floor(elapsedSeconds / 3600), 'hour');
+  return formatter.format(-Math.floor(elapsedSeconds / 86_400), 'day');
+}

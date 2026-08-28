@@ -22,6 +22,22 @@ export {
   subscribeAuthState,
 } from './auth-state';
 export { clearApiCache } from './sw-cache';
+// [8.12.3]'s offline read cache. Only the pieces a consuming app or a
+// query hook actually needs are re-exported here — the database handle,
+// the row reader/writer and the purges stay internal to `ui/src/api`,
+// because every legitimate use of them goes through `offlineCachedQueryFn`
+// or the two `auth-state.ts` funnels. See `offline-db.ts` for the design.
+export { type CacheableEntity } from './offline-db';
+export { offlineCachedQueryFn, REF_CACHE_TTL_MS } from './offline-cache';
+export {
+  clearFreshness,
+  getFreshness,
+  recordFreshness,
+  subscribeFreshness,
+  type FreshnessSource,
+  type QueryFreshness,
+} from './freshness';
+export { clearAllFormDrafts, formDraftKey, FORM_DRAFT_KEY_PREFIX } from './form-draft-storage';
 export {
   decodeAccessTokenMemberships,
   ensureSessionLoaded,

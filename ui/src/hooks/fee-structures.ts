@@ -1,6 +1,7 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
+import { offlineCachedQueryFn } from '../api/offline-cache';
 import type { components } from '../api/schema';
 
 import { createEntityKeys } from './query-keys';
@@ -32,15 +33,21 @@ export interface FeeStructureListFilters {
 export const feeStructureKeys = createEntityKeys<FeeStructureListFilters>('fee-structures');
 
 export function feeStructuresQueryOptions(filters: FeeStructureListFilters = {}) {
+  const queryKey = feeStructureKeys.list(filters);
   return queryOptions({
-    queryKey: feeStructureKeys.list(filters),
-    queryFn: async ({ signal }) => {
-      const res = await apiClient.get<PaginatedFeeStructures>('/fee-structures', {
-        params: filters,
-        signal,
-      });
-      return res.data;
-    },
+    queryKey,
+    // [8.12.3] offline read cache — see `studentsQueryOptions`. A fee
+    // *structure* is reference data (what a class costs per month), not a
+    // balance: caching it says nothing about who has paid. The
+    // money-adjacent reads — fee dues, invoices, payments — are
+    // deliberately not cacheable at all; `CacheableEntity` in
+    // `ui/src/api/offline-db.ts` makes wrapping them a type error.
+    queryFn: offlineCachedQueryFn<PaginatedFeeStructures>({
+      entity: 'fee-structures',
+      queryKey,
+      fetch: (signal) =>
+        apiClient.get<PaginatedFeeStructures>('/fee-structures', { params: filters, signal }),
+    }),
     retry: shouldRetryQuery,
   });
 }

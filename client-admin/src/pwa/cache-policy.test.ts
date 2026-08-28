@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   API_CACHE_NAME,
+  SW_CACHED_AT_HEADER,
   apiCacheKeyFor,
   ASSET_CACHE_NAME,
   isCacheableApiRequest,
@@ -134,5 +135,16 @@ describe('API_CACHE_NAME', () => {
     // one without the other would leave a cache of a departed tenant's
     // data that nothing ever purges.
     expect(API_CACHE_NAME).toBe('api-cache');
+  });
+});
+
+describe('SW_CACHED_AT_HEADER', () => {
+  it('matches the literal `offlineCachedQueryFn` reads in `ui/src/api/offline-cache.ts`', () => {
+    // Duplicated on purpose (`ui` must not depend on one app's build), so
+    // each side pins the literal. If these drift, every service-worker
+    // replay silently reports itself as a live network response and the
+    // "showing saved data" notice never appears — the one thing that makes
+    // serving cached data acceptable at all.
+    expect(SW_CACHED_AT_HEADER).toBe('x-sw-cached-at');
   });
 });

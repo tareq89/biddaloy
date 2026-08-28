@@ -192,3 +192,4 @@ export {
   type SignInFormError,
   type SignInFormProps,
 } from './sign-in-form';
+export { CachedDataNotice, type CachedDataNoticeProps } from './cached-data-notice';

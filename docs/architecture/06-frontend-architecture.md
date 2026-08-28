@@ -241,6 +241,84 @@ set on the _root_ route, so when nothing matches, the root's own
 `AppShell` (sidebar, header) still renders around the not-found content,
 in the same `<Outlet />` position a matched route's content would occupy.
 
+## Offline reads: two caches, one rule
+
+The admin SPA keeps working when the network drops. Two independent layers
+do that, and they answer different questions.
+
+```mermaid
+flowchart LR
+    Q["queryFn<br/>(TanStack Query)"] --> AX[axios]
+    AX --> SW["Service worker<br/>NetworkFirst 'api-cache'"]
+    SW -->|"online"| NET[["Server"]]
+    SW -->|"offline, cached"| AX
+    AX -->|"no response at all"| DX[("Dexie<br/>'biddaloy-offline'")]
+    DX --> Q
+    NET --> AX
+```
+
+|                                                              | Service worker `api-cache`                                       | Dexie `biddaloy-offline`                                  |
+| ------------------------------------------------------------ | ---------------------------------------------------------------- | --------------------------------------------------------- |
+| Added by                                                     | [8.12.1]                                                         | [8.12.3]                                                  |
+| Caches                                                       | every `GET /api/v1/*`, as raw HTTP responses                     | 4 reference lists, as structured rows                     |
+| Knows the data's age?                                        | no — the app cannot tell a replay from a live 200                | yes — `fetchedAt` per row                                 |
+| Works with no service worker (dev, first visit, other SPAs)? | no                                                               | yes                                                       |
+| Cap / expiry                                                 | 100 entries, 24h                                                 | 20 rows per tenant+entity, 24h                            |
+| Lives in                                                     | `client-admin/src/sw.ts`, `client-admin/src/pwa/cache-policy.ts` | `ui/src/api/offline-db.ts`, `ui/src/api/offline-cache.ts` |
+
+The Dexie layer **complements** the service worker; it does not replace it.
+
+**What is cached: students, classes, class sections, fee structures.** That
+list is a closed union (`CacheableEntity`), not a convention — so wrapping a
+money query is a compile error.
+
+**What is deliberately never cached: fee dues, invoices, payments.** A
+balance that is silently an hour old is how a school takes a payment twice.
+If a later issue needs one of these offline, it has to build the "this
+figure is N hours old, do not act on it" affordance first.
+
+**Cached data is always labelled.** `CachedDataNotice` renders
+`"Showing saved data from 23 hours ago"` above any list served from either
+cache, and adds an offline hint when `navigator.onLine` is false. It
+renders nothing for fresh data. The age travels beside the query result in
+a side channel (`ui/src/api/freshness.ts`) rather than inside it, so no
+query's data type or route loader had to change.
+
+**How "is this stale?" is decided.** The service worker stamps every
+response it stores with `x-sw-cached-at`, holding `Date.now()` at the
+moment it cached it; the presence of that header is what marks a response
+as a replay. It is deliberately _not_ decided by comparing the server's
+`Date` header against the browser's clock — that compares two different
+clocks, so a phone running a couple of minutes fast would label every
+fresh response stale and show "showing saved data" permanently to a
+fully-online user. Unsynced clocks are routine on the low-end Android this
+work targets. Same clock in, same clock out.
+
+**An HTTP error is never answered from cache.** A 401/403/404 means the
+server refused the request — often because the caller lost access to that
+tenant — so serving the cached copy would render data the server just said
+this user may not see. Only a _no-response_ network failure falls back.
+
+### Tenant isolation
+
+Same rule as everywhere else in Biddaloy, with two independent mechanisms
+because one silent failure shows one school's students under another
+school's name:
+
+1. **Structural.** Every Dexie row's primary key starts with its tenant id,
+   and every read filters on the _currently active_ tenant. A cross-tenant
+   hit is impossible even if every purge below failed.
+2. **Purge.** `setActiveTenant` (a real switch) drops the leaving tenant's
+   rows; `clearAuthState` (logout, session expiry, failed refresh) deletes
+   the whole database. These are the same two funnels that already clear
+   the service-worker cache.
+
+Both funnels also clear the freshness map and — as of [8.12.3] — every
+autosaved form draft. Draft storage keys are tenant-scoped too
+(`form-shell-draft:<tenantId>:<formKey>`); before that, an administrator of
+two schools was offered school A's abandoned draft while working in
+school B.
+
 ## Testing
 
 Vitest for unit/component tests (colocated `*.test.tsx`), Playwright for

@@ -7,6 +7,7 @@
 import { Permission } from '@biddaloy/shared';
 import {
   Button,
+  CachedDataNotice,
   Select,
   SelectContent,
   SelectItem,
@@ -15,6 +16,7 @@ import {
   type DataTableColumn,
 } from '@biddaloy/ui/components';
 import {
+  classesQueryOptions,
   useAcademicYears,
   useClasses,
   useHasPermission,
@@ -69,11 +71,14 @@ function ClassesListPage() {
         ? undefined
         : filters.academic_year_id;
 
-  const classesQuery = useClasses({
+  // [8.12.3]: shared between the query and `CachedDataNotice`'s key —
+  // see `students/index.tsx` for why the object is lifted.
+  const classListFilters = {
     ...(effectiveAcademicYearId !== undefined ? { academic_year_id: effectiveAcademicYearId } : {}),
     page: state.page,
     limit: state.limit,
-  });
+  };
+  const classesQuery = useClasses(classListFilters);
 
   const [createOpen, setCreateOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<ClassWithCounts | null>(null);
@@ -146,6 +151,7 @@ function ClassesListPage() {
 
   return (
     <>
+      <CachedDataNotice queryKey={classesQueryOptions(classListFilters).queryKey} />
       <ListShell
         title={t('list.title')}
         primaryAction={

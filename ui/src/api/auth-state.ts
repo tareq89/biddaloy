@@ -7,6 +7,9 @@
  * back these setters with a real store without changing this module's
  * public surface.
  */
+import { clearAllFormDrafts } from './form-draft-storage';
+import { clearFreshness } from './freshness';
+import { deleteOfflineDb, purgeTenantRefCache } from './offline-db';
 import { clearApiCache } from './sw-cache';
 import { clearPersistedTenant } from './tenant-storage';
 
@@ -64,6 +67,19 @@ export function setActiveTenant(tenantId: string | null): void {
   // `sw-cache.ts` for why this is belt-and-braces with the cache key.
   if (activeTenantId !== null && activeTenantId !== tenantId) {
     clearApiCache();
+    // [8.12.3]: the Dexie read cache and the freshness map are the second
+    // and third things holding the leaving tenant's data, and they purge
+    // through this exact funnel for the same reason `clearApiCache()`
+    // does — one place a switch can be missed is one place another
+    // school's students show up under this school's name.
+    //
+    // Fire-and-forget: this setter is synchronous and must stay so. A
+    // failed purge is survivable because every Dexie row's key begins
+    // with its own tenant id and every read filters on the *active*
+    // tenant, so the leftovers are unreadable rather than dangerous —
+    // the same "two mechanisms" argument `sw-cache.ts` documents.
+    void purgeTenantRefCache(activeTenantId);
+    clearFreshness();
   }
   activeTenantId = tenantId;
   notifyAuthStateChange();
@@ -101,6 +117,14 @@ export function clearAuthState(): void {
   // expiry both land here, and the next person at this browser must not
   // be able to read the previous session's data out of the offline cache.
   clearApiCache();
+  // [8.12.3]: same unconditional reasoning as `clearApiCache()` above —
+  // the whole offline database goes, not just one tenant's rows, and the
+  // autosaved form drafts with it. A half-typed student record is
+  // somebody's personal data too, and until now it outlived the session
+  // that created it.
+  void deleteOfflineDb();
+  clearFreshness();
+  clearAllFormDrafts();
   notifyAuthStateChange();
 }
 

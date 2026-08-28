@@ -1,8 +1,11 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { clearAuthState, getActiveTenant, setActiveTenant } from '../api/auth-state';
+import { FORM_DRAFT_KEY_PREFIX, formDraftKey } from '../api/form-draft-storage';
 
 import {
   applyServerFieldErrors,
@@ -127,7 +130,7 @@ describe('useFormAutosave', () => {
   it('saves a debounced draft to localStorage', async () => {
     render(<AutosaveProbe formKey="admission-form" value="Rahim Uddin" />);
     await waitFor(() => {
-      const raw = window.localStorage.getItem('form-shell-draft:admission-form');
+      const raw = window.localStorage.getItem(formDraftKey('admission-form', getActiveTenant()));
       expect(raw).toBe(JSON.stringify({ studentName: 'Rahim Uddin' }));
     });
   });
@@ -153,7 +156,7 @@ describe('useFormAutosave', () => {
 
   it('reports a draft available on mount when one already exists in localStorage', () => {
     window.localStorage.setItem(
-      'form-shell-draft:admission-form',
+      formDraftKey('admission-form', getActiveTenant()),
       JSON.stringify({ studentName: 'Karim' }),
     );
     render(<AutosaveProbe formKey="admission-form" value="" />);
@@ -162,7 +165,7 @@ describe('useFormAutosave', () => {
 
   it('restoreDraft returns the saved values', () => {
     window.localStorage.setItem(
-      'form-shell-draft:admission-form',
+      formDraftKey('admission-form', getActiveTenant()),
       JSON.stringify({ studentName: 'Karim' }),
     );
     render(<AutosaveProbe formKey="admission-form" value="" />);
@@ -173,21 +176,23 @@ describe('useFormAutosave', () => {
   it('discardDraft removes the saved draft', async () => {
     const user = userEvent.setup();
     window.localStorage.setItem(
-      'form-shell-draft:admission-form',
+      formDraftKey('admission-form', getActiveTenant()),
       JSON.stringify({ studentName: 'Karim' }),
     );
     render(<AutosaveProbe formKey="admission-form" value="" />);
     expect(screen.getByText('draftAvailable: true')).toBeTruthy();
 
     await user.click(screen.getByRole('button', { name: 'Discard draft' }));
-    expect(window.localStorage.getItem('form-shell-draft:admission-form')).toBeNull();
+    expect(
+      window.localStorage.getItem(formDraftKey('admission-form', getActiveTenant())),
+    ).toBeNull();
     await waitFor(() => expect(screen.getByText('draftAvailable: false')).toBeTruthy());
   });
 
   it('clearDraft removes the saved draft (direct coverage — not just via its discardDraft alias)', async () => {
     const user = userEvent.setup();
     window.localStorage.setItem(
-      'form-shell-draft:admission-form',
+      formDraftKey('admission-form', getActiveTenant()),
       JSON.stringify({ studentName: 'Karim' }),
     );
     render(<AutosaveProbe formKey="admission-form" value="" />);
@@ -204,13 +209,15 @@ describe('useFormAutosave', () => {
     // suppresses any rewrite while the values stay unchanged — so there is
     // no second timer left to race.
     await waitFor(() =>
-      expect(window.localStorage.getItem('form-shell-draft:admission-form')).toBe(
+      expect(window.localStorage.getItem(formDraftKey('admission-form', getActiveTenant()))).toBe(
         JSON.stringify({ studentName: '' }),
       ),
     );
 
     await user.click(screen.getByRole('button', { name: 'Clear draft' }));
-    expect(window.localStorage.getItem('form-shell-draft:admission-form')).toBeNull();
+    expect(
+      window.localStorage.getItem(formDraftKey('admission-form', getActiveTenant())),
+    ).toBeNull();
     await waitFor(() => expect(screen.getByText('draftAvailable: false')).toBeTruthy());
   });
 
@@ -218,10 +225,10 @@ describe('useFormAutosave', () => {
     render(<AutosaveProbe formKey="form-a" value="Alpha" />);
     render(<AutosaveProbe formKey="form-b" value="Beta" />);
     await waitFor(() => {
-      expect(window.localStorage.getItem('form-shell-draft:form-a')).toBe(
+      expect(window.localStorage.getItem(formDraftKey('form-a', getActiveTenant()))).toBe(
         JSON.stringify({ studentName: 'Alpha' }),
       );
-      expect(window.localStorage.getItem('form-shell-draft:form-b')).toBe(
+      expect(window.localStorage.getItem(formDraftKey('form-b', getActiveTenant()))).toBe(
         JSON.stringify({ studentName: 'Beta' }),
       );
     });
@@ -249,7 +256,7 @@ describe('useFormAutosave', () => {
   it('discardDraft still resets local state even when localStorage.removeItem throws', async () => {
     const user = userEvent.setup();
     window.localStorage.setItem(
-      'form-shell-draft:admission-form',
+      formDraftKey('admission-form', getActiveTenant()),
       JSON.stringify({ studentName: 'Karim' }),
     );
     render(<AutosaveProbe formKey="admission-form" value="" />);
@@ -266,9 +273,127 @@ describe('useFormAutosave', () => {
   });
 
   it('restoreDraft returns undefined when the saved value is not valid JSON', () => {
-    window.localStorage.setItem('form-shell-draft:admission-form', 'not json');
+    window.localStorage.setItem(formDraftKey('admission-form', getActiveTenant()), 'not json');
     render(<AutosaveProbe formKey="admission-form" value="" />);
     fireEvent.click(screen.getByRole('button', { name: 'Show draft' }));
     expect(screen.getByText('restored: undefined')).toBeTruthy();
+  });
+});
+
+/**
+ * [8.12.3]: drafts were previously stored under a bare
+ * `form-shell-draft:<key>`, shared by every tenant on the origin. These
+ * pin the two properties that fixed it — neither is visible from the
+ * hook's own API, so only a storage-key assertion can catch a regression.
+ */
+describe('useFormAutosave tenant scoping', () => {
+  afterEach(() => {
+    clearAuthState();
+    window.localStorage.clear();
+  });
+
+  function DraftProbe({ value }: { value: string }) {
+    const { draftAvailable } = useFormAutosave('student-new', { name: value }, { debounceMs: 0 });
+    return <p>draft: {String(draftAvailable)}</p>;
+  }
+
+  it('writes the same form under two different keys for two tenants', async () => {
+    setActiveTenant('tenant-a');
+    const first = render(<DraftProbe value="Ayesha" />);
+    await waitFor(() => expect(screen.getByText('draft: true')).toBeTruthy());
+    first.unmount();
+
+    setActiveTenant('tenant-b');
+    render(<DraftProbe value="Rahim" />);
+    await waitFor(() => expect(screen.getByText('draft: true')).toBeTruthy());
+
+    const keys = Object.keys(window.localStorage).filter((key) =>
+      key.startsWith(FORM_DRAFT_KEY_PREFIX),
+    );
+    // Two keys, not one overwritten one: school B's admin must never be
+    // offered school A's half-typed student as if it were their own.
+    expect(keys).toHaveLength(2);
+    expect(window.localStorage.getItem(formDraftKey('student-new', getActiveTenant()))).toContain(
+      'Rahim',
+    );
+  });
+
+  it('does not offer a draft written under a different tenant', async () => {
+    setActiveTenant('tenant-a');
+    const first = render(<DraftProbe value="Ayesha" />);
+    await waitFor(() => expect(screen.getByText('draft: true')).toBeTruthy());
+    first.unmount();
+
+    setActiveTenant('tenant-b');
+    render(<DraftProbe value="" />);
+
+    expect(screen.getByText('draft: false')).toBeTruthy();
+  });
+
+  it('is wiped by logout', async () => {
+    setActiveTenant('tenant-a');
+    render(<DraftProbe value="Ayesha" />);
+    await waitFor(() => expect(screen.getByText('draft: true')).toBeTruthy());
+
+    clearAuthState();
+
+    // The next person at this browser is a different person, and a
+    // half-typed student record is their predecessor's personal data.
+    expect(
+      Object.keys(window.localStorage).filter((key) => key.startsWith(FORM_DRAFT_KEY_PREFIX)),
+    ).toEqual([]);
+  });
+});
+
+describe('useFormAutosave — a pending write must not outlive its session', () => {
+  it('does not write a draft back after the session ended', async () => {
+    // The debounce means a write is routinely still pending when a
+    // mid-session 401 fires. `clearAuthState()` wipes every draft, but
+    // navigation to /login is async and the form can still be mounted —
+    // so an unguarded timer writes the draft straight back under the
+    // departed session's key, where the next person at this browser can
+    // restore it.
+    vi.useFakeTimers();
+    try {
+      setActiveTenant('school-a');
+      const key = formDraftKey('admission-form', 'school-a');
+
+      const { rerender } = renderHook(
+        ({ values }: { values: { full_name: string } }) =>
+          useFormAutosave('admission-form', values),
+        { initialProps: { values: { full_name: '' } } },
+      );
+      rerender({ values: { full_name: 'Ayesha' } });
+
+      // The session ends while the write is still pending.
+      clearAuthState();
+      expect(window.localStorage.getItem(key)).toBeNull();
+
+      await vi.advanceTimersByTimeAsync(1000);
+
+      expect(window.localStorage.getItem(key)).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not write one tenant's typed values under another tenant's key", async () => {
+    vi.useFakeTimers();
+    try {
+      setActiveTenant('school-a');
+      const { rerender } = renderHook(
+        ({ values }: { values: { full_name: string } }) =>
+          useFormAutosave('admission-form', values),
+        { initialProps: { values: { full_name: '' } } },
+      );
+      rerender({ values: { full_name: 'Typed at school A' } });
+
+      setActiveTenant('school-b');
+      await vi.advanceTimersByTimeAsync(1000);
+
+      expect(window.localStorage.getItem(formDraftKey('admission-form', 'school-b'))).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
