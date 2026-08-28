@@ -34,6 +34,14 @@ const browsers = (process.env.E2E_BROWSERS ?? 'chromium')
 
 export default defineConfig({
   testDir: './e2e',
+  // [8.12.6]'s PWA suite is excluded here and run by
+  // `playwright.pwa.config.ts` (`yarn e2e:pwa`) instead. It needs a
+  // *production* build served by `vite preview`, because the dev server
+  // this config points at has no service worker at all
+  // (`devOptions.enabled: false` in `client-admin/vite.config.ts`).
+  // Without this ignore, `testDir: './e2e'` globs those specs too and
+  // runs every one of them against a stack that cannot satisfy them.
+  testIgnore: '**/pwa/**',
   fullyParallel: true,
   forbidOnly: CI,
   // A suite needing more than one CI retry is hiding flake — see
