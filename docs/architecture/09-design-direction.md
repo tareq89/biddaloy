@@ -286,14 +286,14 @@ every lifted surface to `bg-card`.
 Between those tickets the epic branch renders an **inverted interim
 state**, and this is expected rather than a defect. #344 alone leaves
 `client-admin/index.html`'s `<body>` hardcoded to `bg-white` (that line is
-#348's), so cards, the bottom nav, outline buttons and the active tab
+\#348's), so cards, the bottom nav, outline buttons and the active tab
 render `#f8fafc` on a white page — grey panels on white, which is exactly
 the _Before_ "cards sink" picture this section sets out to fix. It is safe
 to pass through because the epic merges to `main` as a **single PR**, so
 no user ever sees a branch state; and because every text and border pair
 on the new ground still clears AA, so accessibility does not regress while
 it is in that state. Do not "fix" it inside #344 by pulling #348's or
-#350's work forward — that collapses three reviewable tickets into one.
+\#350's work forward — that collapses three reviewable tickets into one.
 
 ```mermaid
 flowchart LR
@@ -413,7 +413,7 @@ light-scope-only.
 `--color-primary-foreground: var(--color-neutral-0)` once, and the
 `:root[data-theme="dark"]` block never overrides it. A dark primary button
 therefore renders white on `--color-brand-400` `#8f96f4` = **2.68:1**.
-#344 adds the override `--color-primary-foreground: var(--color-neutral-900)`
+\#344 adds the override `--color-primary-foreground: var(--color-neutral-900)`
 to the dark block — `#0f172a` on `#8f96f4` is 6.66:1 — in the same PR that
 changes `dark.brand`.
 
@@ -433,7 +433,7 @@ flowchart LR
 
 Flip the attribute on a light-OS machine and those utilities stay inert —
 a half-dark UI. **#348 adds one line to `globals.css`, so it lands before
-#353 ships a toggle:**
+\#353 ships a toggle:**
 
 ```css
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
@@ -498,7 +498,7 @@ is visually loud: it is a _control_ border doing a _decoration_ job.
 
 Concretely, `ui/src/components/card.tsx:35` today reads:
 
-```
+```text
 'rounded-lg border border-border bg-background'
 ```
 
@@ -687,7 +687,7 @@ block: 16 + 2 x 14 = 44 on both axes. One variable, a different fallback per
 axis, because the compact insets are asymmetric while the comfortable one is
 square:
 
-```
+```text
 after:-inset-x-[var(--target-inset,0.75rem)]   compact 12px -> comfortable 14px
 after:-inset-y-[var(--target-inset,0.5rem)]    compact  8px -> comfortable 14px
 ```
