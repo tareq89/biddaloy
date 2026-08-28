@@ -5,8 +5,147 @@ import { School } from '../modules/schools/entities/school.entity';
 import { UserTenant } from '../modules/auth/entities/user-tenant.entity';
 import { UserRole, UserStatus } from '@biddaloy/shared';
 import * as bcrypt from 'bcrypt';
-import { DataSource } from 'typeorm';
-import { ensureRoleTestUsers, ensureSecondSchoolMembership } from './seed.util';
+import { DataSource, Repository } from 'typeorm';
+import { AcademicYear } from '../modules/academics/entities/academic-year.entity';
+import { Class } from '../modules/academics/entities/class.entity';
+import { ClassSection } from '../modules/academics/entities/class-section.entity';
+import { Student } from '../modules/students/entities/student.entity';
+import { Guardian } from '../modules/students/entities/guardian.entity';
+import { ensureDemoStudents, ensureRoleTestUsers, ensureSecondSchoolMembership } from './seed.util';
+
+/** Every repository `seedAccounts` writes through. Passed in rather than
+ * pulled off the DataSource so the ordering invariant below is unit
+ * testable without booting Nest. */
+export interface SeedAccountRepositories {
+  userRepository: Repository<User>;
+  schoolRepository: Repository<School>;
+  userTenantRepository: Repository<UserTenant>;
+  academicYearRepository: Repository<AcademicYear>;
+  classRepository: Repository<Class>;
+  classSectionRepository: Repository<ClassSection>;
+  studentRepository: Repository<Student>;
+  guardianRepository: Repository<Guardian>;
+}
+
+/** Creates/repairs the seed accounts, their memberships and the demo
+ * roster, at the default `school`. The *order* of the calls in here is
+ * load-bearing — see the ORDER MATTERS comment inside. */
+export async function seedAccounts(
+  repos: SeedAccountRepositories,
+  school: School,
+  adminEmail: string,
+  passwordHash: string,
+): Promise<void> {
+  // Check if the designated seed admin already exists (including soft-deleted)
+  const existing = await repos.userRepository.findOne({
+    where: { email: adminEmail },
+    withDeleted: true,
+  });
+
+  let admin: User;
+  if (existing) {
+    if (existing.deleted_at) {
+      existing.password_hash = passwordHash;
+      existing.status = UserStatus.ACTIVE;
+      existing.deleted_at = null;
+      await repos.userRepository.save(existing);
+      console.log('Restored soft-deleted SUPER_ADMIN account with fresh credentials.');
+    } else {
+      console.log('SUPER_ADMIN user already exists, skipping creation.');
+    }
+    admin = existing;
+  } else {
+    admin = repos.userRepository.create({
+      email: adminEmail,
+      phone: '01700000000',
+      password_hash: passwordHash,
+      status: UserStatus.ACTIVE,
+      full_name: 'System Administrator',
+    });
+    await repos.userRepository.save(admin);
+    console.log('SUPER_ADMIN user created:');
+    console.log(`  Email: ${adminEmail}`);
+  }
+
+  // Create the SUPER_ADMIN's membership at the default school, if missing —
+  // idempotent the same way the block above is, so a partially-seeded DB
+  // (e.g. the admin row survived but its membership was manually deleted)
+  // self-heals on the next run instead of erroring.
+  const existingMembership = await repos.userTenantRepository.findOne({
+    where: { user_id: admin.id, tenant_id: school.id },
+  });
+  if (!existingMembership) {
+    const membership = repos.userTenantRepository.create({
+      user_id: admin.id,
+      tenant_id: school.id,
+      role: UserRole.SUPER_ADMIN,
+    });
+    await repos.userTenantRepository.save(membership);
+    console.log(`  Role: ${membership.role} at ${school.name}`);
+  } else if (existingMembership.role !== UserRole.SUPER_ADMIN) {
+    existingMembership.role = UserRole.SUPER_ADMIN;
+    await repos.userTenantRepository.save(existingMembership);
+    console.log(`  Role: reconciled to ${UserRole.SUPER_ADMIN} at ${school.name}`);
+  }
+
+  await ensureSecondSchoolMembership(repos.schoolRepository, repos.userTenantRepository, admin.id);
+
+  // [8.9.6]: one account per remaining role, all at the default school —
+  // see `seed.util.ts`'s own comment on why this is the manual-testing
+  // path for role-gated nav specifically.
+  //
+  // ORDER MATTERS (#356), do not move this below the
+  // `ensureSecondSchoolMembership` call that follows. Memberships are
+  // resolved earliest-first (`AuthService.EARLIEST_MEMBERSHIP_ORDER`), so
+  // whichever membership is inserted first becomes `memberships[0]` — the
+  // tenant `scripts/lighthouse-student-url.mjs` queries for a student id.
+  // Demo students are seeded at the default school only, so the default
+  // school's membership has to be created before the second school's or
+  // that script queries a deliberately empty tenant and the Lighthouse job
+  // fails. `seed.spec.ts` pins this.
+  await ensureRoleTestUsers(
+    repos.userRepository,
+    repos.userTenantRepository,
+    school.id,
+    passwordHash,
+  );
+
+  // [8.5.2]: the ADMIN seed account must be multi-membership so the E2E
+  // tenant-picker specs have a real picker to land on — same second
+  // school the super admin gets above. Deliberately *after*
+  // `ensureRoleTestUsers` — see the ordering note above.
+  const adminTestUser = await repos.userRepository.findOne({
+    where: { email: 'admin@biddaloy.test' },
+  });
+  if (adminTestUser) {
+    await ensureSecondSchoolMembership(
+      repos.schoolRepository,
+      repos.userTenantRepository,
+      adminTestUser.id,
+    );
+  }
+
+  // [8.13 / #356]: real Student rows at the default school. Without these
+  // `scripts/lighthouse-student-url.mjs` has no student detail route to
+  // resolve and the whole Lighthouse budget job crashes — see the comment
+  // on `ensureDemoStudents`. Seeded only at the default school; the second
+  // school stays deliberately empty so the tenant-picker specs still have
+  // a visibly different tenant to switch into.
+  const parentTestUser = await repos.userRepository.findOne({
+    where: { email: 'parent@biddaloy.test' },
+  });
+  await ensureDemoStudents(
+    {
+      academicYearRepository: repos.academicYearRepository,
+      classRepository: repos.classRepository,
+      classSectionRepository: repos.classSectionRepository,
+      studentRepository: repos.studentRepository,
+      guardianRepository: repos.guardianRepository,
+    },
+    school.id,
+    parentTestUser?.id ?? null,
+  );
+}
 
 export async function seed() {
   const app = await NestFactory.createApplicationContext(AppModule);
@@ -39,86 +178,42 @@ export async function seed() {
     console.log(`Created default school (${school.id}).`);
   }
 
-  // Check if the designated seed admin already exists (including soft-deleted)
-  const existing = await userRepository.findOne({
-    where: { email: adminEmail },
-    withDeleted: true,
-  });
-
-  let admin: User;
-  if (existing) {
-    if (existing.deleted_at) {
-      existing.password_hash = passwordHash;
-      existing.status = UserStatus.ACTIVE;
-      existing.deleted_at = null;
-      await userRepository.save(existing);
-      console.log('Restored soft-deleted SUPER_ADMIN account with fresh credentials.');
-    } else {
-      console.log('SUPER_ADMIN user already exists, skipping creation.');
-    }
-    admin = existing;
-  } else {
-    admin = userRepository.create({
-      email: adminEmail,
-      phone: '01700000000',
-      password_hash: passwordHash,
-      status: UserStatus.ACTIVE,
-      full_name: 'System Administrator',
-    });
-    await userRepository.save(admin);
-    console.log('SUPER_ADMIN user created:');
-    console.log(`  Email: ${adminEmail}`);
-  }
-
-  // Create the SUPER_ADMIN's membership at the default school, if missing —
-  // idempotent the same way the block above is, so a partially-seeded DB
-  // (e.g. the admin row survived but its membership was manually deleted)
-  // self-heals on the next run instead of erroring.
-  const existingMembership = await userTenantRepository.findOne({
-    where: { user_id: admin.id, tenant_id: school.id },
-  });
-  if (!existingMembership) {
-    const membership = userTenantRepository.create({
-      user_id: admin.id,
-      tenant_id: school.id,
-      role: UserRole.SUPER_ADMIN,
-    });
-    await userTenantRepository.save(membership);
-    console.log(`  Role: ${membership.role} at ${school.name}`);
-  } else if (existingMembership.role !== UserRole.SUPER_ADMIN) {
-    existingMembership.role = UserRole.SUPER_ADMIN;
-    await userTenantRepository.save(existingMembership);
-    console.log(`  Role: reconciled to ${UserRole.SUPER_ADMIN} at ${school.name}`);
-  }
-
-  await ensureSecondSchoolMembership(schoolRepository, userTenantRepository, admin.id);
-
-  // [8.9.6]: one account per remaining role, all at the default school —
-  // see `seed.util.ts`'s own comment on why this is the manual-testing
-  // path for role-gated nav specifically.
-  await ensureRoleTestUsers(userRepository, userTenantRepository, school.id, passwordHash);
-
-  // [8.5.2]: the ADMIN seed account must be multi-membership so the E2E
-  // tenant-picker specs have a real picker to land on — same second
-  // school the super admin gets above.
-  const adminTestUser = await userRepository.findOne({
-    where: { email: 'admin@biddaloy.test' },
-  });
-  if (adminTestUser) {
-    await ensureSecondSchoolMembership(schoolRepository, userTenantRepository, adminTestUser.id);
-  }
+  await seedAccounts(
+    {
+      userRepository,
+      schoolRepository,
+      userTenantRepository,
+      academicYearRepository: dataSource.getRepository(AcademicYear),
+      classRepository: dataSource.getRepository(Class),
+      classSectionRepository: dataSource.getRepository(ClassSection),
+      studentRepository: dataSource.getRepository(Student),
+      guardianRepository: dataSource.getRepository(Guardian),
+    },
+    school,
+    adminEmail,
+    passwordHash,
+  );
 
   await app.close();
 }
 
-seed()
-  // NestFactory.createApplicationContext boots the full AppModule, including
-  // AuthModule/CommunicationsModule's BullMQ workers (@Processor). Those hold
-  // open blocking Redis connections that app.close() doesn't reliably tear
-  // down, so the process can hang indefinitely after seeding finishes —
-  // force-exit once the promise settles instead of waiting on the event loop.
-  .then(() => process.exit(0))
-  .catch((err) => {
-    console.error('Seed failed:', err);
-    process.exit(1);
-  });
+// Only self-execute when run as a script (`yarn seed`). `seed.spec.ts`
+// imports `seedAccounts` from this file, and an unguarded call here would
+// try to boot the whole AppModule — and then `process.exit` — during the
+// test run.
+const isDirectRun =
+  typeof require !== 'undefined' && typeof module !== 'undefined' && require.main === module;
+
+if (isDirectRun) {
+  seed()
+    // NestFactory.createApplicationContext boots the full AppModule, including
+    // AuthModule/CommunicationsModule's BullMQ workers (@Processor). Those hold
+    // open blocking Redis connections that app.close() doesn't reliably tear
+    // down, so the process can hang indefinitely after seeding finishes —
+    // force-exit once the promise settles instead of waiting on the event loop.
+    .then(() => process.exit(0))
+    .catch((err) => {
+      console.error('Seed failed:', err);
+      process.exit(1);
+    });
+}

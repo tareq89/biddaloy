@@ -19,8 +19,15 @@ module.exports = {
         // swap is most likely to shift — [8.13.2] added the two self-hosted
         // subsets, and this is where the 0.1 CLS budget has to prove it.
         'http://localhost:5174/portal',
-        // STUDENT_DETAIL_URL is appended at runtime by the CI step —
-        // it contains a seeded student's real id.
+        // No student-detail URL here: its id only exists once the database
+        // is seeded, so CI resolves it at runtime. CI does not *append* to
+        // this list either — `--collect.url` flags replace it wholesale, so
+        // a URL added here is a no-op in CI unless it is also added to the
+        // Lighthouse step in .github/workflows/ci.yml.
+        //
+        // /portal is last so the one guardian login happens once, at the
+        // end; lighthouse-auth.cjs re-logs-in only when the required
+        // identity changes.
       ],
       settings: {
         formFactor: 'mobile',

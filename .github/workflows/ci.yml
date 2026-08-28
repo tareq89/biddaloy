@@ -607,7 +607,21 @@ jobs:
 
       - name: Resolve seeded student detail URL
         id: student
-        run: echo "url=$(node scripts/lighthouse-student-url.mjs)" >> "$GITHUB_OUTPUT"
+        # Assigned on its own line, never inside the `echo` (#356): command
+        # substitution discards the resolver's exit status, so the old
+        # one-liner *succeeded* while writing an empty `url=`, and lhci then
+        # died on `--collect.url=` with `TypeError: Invalid URL`. Worse, the
+        # same shape meant a URL could silently drop out of the measured set
+        # while this job stayed green. `set -euo pipefail` + an explicit
+        # non-empty check make both failures loud.
+        run: |
+          set -euo pipefail
+          url="$(node scripts/lighthouse-student-url.mjs)"
+          if [ -z "${url//[[:space:]]/}" ]; then
+            echo "::error::lighthouse-student-url.mjs produced no URL" >&2
+            exit 1
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
 
       # These flags override lighthouserc.cjs's own url list entirely, so a URL
       # added there is a no-op in CI unless it is added here too. /portal comes
