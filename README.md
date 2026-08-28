@@ -239,6 +239,45 @@ captured only on failure and uploaded as CI artifacts (`playwright-report`,
 `test-results`); locally they land in the same two gitignored directories
 and `yarn e2e --ui` opens the HTML report automatically on failure.
 
+### PWA and offline suite (`yarn e2e:pwa`)
+
+The service worker does not exist in `vite dev` — `client-admin/vite.config.ts`
+sets `devOptions: { enabled: false }`, because a dev-server worker would cache
+unhashed module URLs and make every later edit look like it did not apply. So
+the suite above, which drives the dev server, can never see one. The PWA
+suite therefore has its own config that builds the client and serves the real
+`dist/` through `vite preview`:
+
+```text
+  playwright.config.ts       ──▶ yarn dev:client-admin (:5174) ──▶ no service worker
+  playwright.pwa.config.ts   ──▶ vite build + vite preview (:5175) ──▶ real dist/sw.js
+```
+
+```bash
+# Everything: installability, offline navigation, the update flow,
+# the mutation queue, and the tenant-switch purge
+yarn e2e:pwa
+
+# One spec
+yarn e2e:pwa e2e/pwa/update-flow.spec.ts
+```
+
+It reuses the same API and the same seeded database as `yarn e2e`, and runs
+serially on a single worker (the update spec rewrites the `dist/sw.js` every
+other spec is being served). Reports land in `playwright-report-pwa/` and
+`test-results-pwa/`.
+
+Two rules for anything added under `e2e/pwa/`, both of which are easy to get
+wrong in a way that leaves a green test proving nothing:
+
+- **Offline is always `context.setOffline()`.** In the pinned Playwright it is
+  applied to service-worker targets too, and it fires the `online`/`offline`
+  events the app listens to.
+- **Never fake offline with `context.route()`,** and never set
+  `serviceWorkers: 'block'`. Route interception cannot see requests made by a
+  service worker, so a routed "offline" spec passes while the worker quietly
+  serves everything from cache.
+
 ## CI
 
 Bundle budgets live in `client-admin/scripts/check-route-chunks.mjs` — the

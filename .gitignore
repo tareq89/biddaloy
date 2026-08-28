@@ -166,7 +166,9 @@ build-output/
 
 # Playwright E2E ([8.5.1])
 /test-results/
+/test-results-pwa/
 /playwright-report/
+/playwright-report-pwa/
 /blob-report/
 /playwright/.cache/
 
