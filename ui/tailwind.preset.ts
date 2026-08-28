@@ -138,6 +138,48 @@ export const shadows = {
 } as const;
 
 /**
+ * Motion — three durations and two easing curves (design contract §7).
+ *
+ * The vocabulary is deliberately tiny: every animated thing in the product
+ * picks one of three speeds and one of two curves, so "how fast should this
+ * be?" is a lookup rather than a judgement call.
+ *
+ *   durationFast (120ms) — hover, focus ring, active
+ *   durationBase (180ms) — dropdown, popover, select, tooltip
+ *   durationSlow (240ms) — dialog, drawer, toast
+ *   easeStandard        — enter and move
+ *   easeExit            — exit
+ *
+ * These are theme-invariant — a dialog does not open faster in dark mode —
+ * so globals.css mirrors them once and `check-contrast.mjs` asserts the dark
+ * block never redefines one.
+ *
+ * That mirror is a plain `:root`, NOT `@theme`. Tailwind v4 tree-shakes
+ * `@theme`, emitting a variable only once a scanned utility reads it, and
+ * nothing reads these (see the namespace note below) — so an `@theme`
+ * declaration would ship zero bytes and every `var(--motion-*)` would
+ * silently compute to `0s`. `check-contrast.mjs` compiles globals.css and
+ * asserts these five values are in the build output.
+ *
+ * Note for consumers: `--motion-*` is NOT one of Tailwind v4's utility
+ * namespaces (`--duration-*` / `--ease-*` are), so no `duration-fast`
+ * utility is generated from these. Reach for them with v4's arbitrary
+ * custom-property syntax instead:
+ *
+ *   duration-(--motion-duration-base) ease-(--motion-ease-standard)
+ *
+ * The names come from the approved contract, so this is accepted rather
+ * than worked around.
+ */
+export const motion = {
+  durationFast: '120ms',
+  durationBase: '180ms',
+  durationSlow: '240ms',
+  easeStandard: 'cubic-bezier(0.2, 0, 0, 1)',
+  easeExit: 'cubic-bezier(0.4, 0, 1, 1)',
+} as const;
+
+/**
  * Semantic role tokens — what a component should actually reach for. `bg`,
  * `surface`, `textPrimary` etc. keep a fixed *meaning* across themes, unlike
  * `neutral`/`brand` above which keep a fixed *value*. A component built from
@@ -251,6 +293,7 @@ export const biddaloyPreset = {
   dark,
   typography,
   shadows,
+  motion,
 } as const;
 
 export default biddaloyPreset;

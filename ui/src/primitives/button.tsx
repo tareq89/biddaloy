@@ -4,8 +4,23 @@ import * as React from 'react';
 
 import { cn } from './lib/utils';
 
+// An explicit property list rather than `transition-all`: only colour,
+// background, border colour, box-shadow and opacity should travel.
+// `transition-all` also animated `active:translate-y-px`, which turned the
+// 1px press into a visible slide instead of the instant tactile response it
+// is meant to be, and animated layout properties (width, padding) on any
+// consumer that changes them — paying layout+paint cost every frame for a
+// change nobody asked to animate.
+//
+// `opacity` is in the list because `disabled:opacity-50` on the base class
+// is a real state change: a submit button going disabled mid-interaction
+// should fade, not snap. `transform` is deliberately out, per above.
+//
+// Written without the literal utility syntax on purpose — Tailwind's scanner
+// reads comments as plain text, so spelling a bracketed transition utility
+// here would compile a real, junk rule into every bundle.
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-[color,background-color,border-color,box-shadow,opacity] outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
