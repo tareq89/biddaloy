@@ -28,7 +28,7 @@ import { useNavigate, type ErrorComponentProps } from '@tanstack/react-router';
 import { RefreshCw, WifiOff } from 'lucide-react';
 import * as React from 'react';
 
-import { captureRouteError } from '../api/sentry';
+import { captureRouteError, recordRouteChunkFallback } from '../api/sentry';
 
 import { ErrorState } from './error-state';
 import { RouteStatusState } from './route-status-state';
@@ -150,9 +150,15 @@ export function RouteErrorFallback({
   React.useEffect(() => {
     // Neither the offline fork nor the update fork is an application
     // fault, and one Sentry issue per tunnel or per deploy would bury the
-    // real errors this boundary exists to surface. #186 can revisit
-    // whether a genuine CDN outage deserves its own signal.
-    if (kind !== 'error') return;
+    // real errors this boundary exists to surface. [8.12.7] settled that
+    // for good — they stay unreported, and instead leave a fixed-string
+    // breadcrumb so the next real error in the session carries the trail.
+    // See `recordRouteChunkFallback` for why an online chunk failure does
+    // not deserve an issue of its own in this deployment.
+    if (kind !== 'error') {
+      recordRouteChunkFallback(kind);
+      return;
+    }
     captureRouteError(error);
   }, [error, kind]);
 

@@ -303,11 +303,16 @@
   "301": "@typescript-eslint/utils",
   "302": "skeleton.stories.tsx",
   "303": "playwright.pwa.config.ts",
+  "304": "rollup-plugin-visualizer",
   "305": "component-boundary.spec.mjs",
+  "306": "eslint-plugin-import",
+  "307": "exceljs",
   "308": "@eslint/js",
+  "309": "sonner",
   "310": "eslint-plugin-react",
   "311": "eslint-plugin-react-hooks",
   "312": "eslint-plugin-unused-imports",
+  "313": "@biddaloy/shared",
   "316": "@lhci/cli",
   "317": "lint-staged",
   "318": "knip",
@@ -316,6 +321,5 @@
   "322": "prettier-plugin-tailwindcss",
   "323": "puppeteer",
   "325": "@testing-library/dom",
-  "328": "@vitest/coverage-v8",
-  "329": "@biddaloy/shared"
+  "328": "@vitest/coverage-v8"
 }

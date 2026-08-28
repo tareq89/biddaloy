@@ -20,11 +20,6 @@ import { registerServiceWorker, reloadForUpdate } from './pwa/register';
 import { routeTree } from './routeTree.gen';
 import './index.css';
 
-// [8.9.8]: no-ops without `VITE_SENTRY_DSN` set (local dev, CI, a preview
-// build without one wired up yet) — see `initSentry`'s own comment
-// (`ui/src/api/sentry.ts`).
-initSentry({ dsn: import.meta.env.VITE_SENTRY_DSN, environment: import.meta.env.MODE });
-
 // [8.9.2]'s app-wide QueryClient — cache-first staleTime/gcTime, a retry
 // policy that excludes 4xx, and the global 401/403 error handling. See
 // `@biddaloy/ui/api`'s `createAppQueryClient` for the tuned values and why
@@ -79,6 +74,29 @@ const router = createRouter({
   // header chrome (`__root.tsx`'s `AppShell`) lives above the `<Outlet />`
   // this replaces, so it stays up around the failure.
   defaultErrorComponent: RouteErrorFallbackWithUpdate,
+});
+
+// [8.9.8]: no-ops without `VITE_SENTRY_DSN` set (local dev, CI, a preview
+// build without one wired up yet) — see `initSentry`'s own comment
+// (`ui/src/api/sentry.ts`).
+//
+// [8.12.7]: `router` is what turns on browser tracing, which is what
+// collects real-user LCP/CLS/INP and names each transaction after the
+// route id. That is why this call now sits *below* `createRouter` rather
+// than at the top of the module: the integration instruments this exact
+// instance. The cost is that a throw inside `createRouter` itself goes
+// unreported — the same exposure every line above it already had.
+//
+// `VITE_SENTRY_TRACES_SAMPLE_RATE` is left `undefined` when unset (rather
+// than defaulted here) so `initSentry` owns the single default, and an
+// out-of-range or non-numeric value falls back to it too.
+initSentry({
+  dsn: import.meta.env.VITE_SENTRY_DSN,
+  environment: import.meta.env.MODE,
+  router,
+  ...(import.meta.env.VITE_SENTRY_TRACES_SAMPLE_RATE !== undefined && {
+    tracesSampleRate: Number.parseFloat(import.meta.env.VITE_SENTRY_TRACES_SAMPLE_RATE),
+  }),
 });
 
 // [8.9.8]: opaque tenant id only, kept current across a mid-session
