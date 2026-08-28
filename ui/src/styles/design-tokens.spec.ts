@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { CONTRAST_PAIRS, dark, light, neutral, shadows } from '../../tailwind.preset';
+import { CONTRAST_PAIRS, dark, light, motion, neutral, shadows } from '../../tailwind.preset';
 
 /** Every `/ 0.NN` alpha in a shadow string, in order. */
 function alphasOf(shadow: string): number[] {
@@ -118,5 +118,68 @@ describe('elevation scale (design contract §5)', () => {
         expect(alpha).toBeGreaterThan(strongest[index] as number);
       }
     }
+  });
+});
+
+/**
+ * Motion, design contract §7. Same division of labour as the two families
+ * above: `check-contrast.mjs` guards the values against globals.css (and,
+ * since [8.13.6]'s review, against the *compiled* CSS); this spec guards the
+ * decisions.
+ */
+describe('motion tokens (design contract §7)', () => {
+  it('is exactly three durations and two curves', () => {
+    // The vocabulary is deliberately tiny so "how fast should this be?" is a
+    // lookup rather than a judgement call. Growing it needs a §7 revision,
+    // not a new key.
+    expect(Object.keys(motion)).toEqual([
+      'durationFast',
+      'durationBase',
+      'durationSlow',
+      'easeStandard',
+      'easeExit',
+    ]);
+  });
+
+  it('orders the durations fast < base < slow', () => {
+    const ms = (value: string) => Number.parseFloat(value);
+
+    expect(ms(motion.durationFast)).toBeLessThan(ms(motion.durationBase));
+    expect(ms(motion.durationBase)).toBeLessThan(ms(motion.durationSlow));
+  });
+
+  it('keeps every duration inside the range that reads as responsive', () => {
+    // Under ~100ms a transition is not perceived as motion at all, and over
+    // ~300ms the UI starts to feel like it is waiting on itself.
+    for (const value of [motion.durationFast, motion.durationBase, motion.durationSlow]) {
+      expect(value).toMatch(/^\d+ms$/);
+      expect(Number.parseFloat(value)).toBeGreaterThanOrEqual(100);
+      expect(Number.parseFloat(value)).toBeLessThanOrEqual(300);
+    }
+  });
+
+  it('gives exit its own curve, decelerating on enter and accelerating on exit', () => {
+    // Enter/move eases OUT (fast start, soft landing); exit eases IN (soft
+    // start, quick departure) so a dismissed thing gets out of the way.
+    expect(motion.easeStandard).not.toBe(motion.easeExit);
+    expect(motion.easeStandard).toMatch(/^cubic-bezier\(/);
+    expect(motion.easeExit).toMatch(/^cubic-bezier\(/);
+
+    const controlPoints = (curve: string) =>
+      curve
+        .slice(curve.indexOf('(') + 1, curve.indexOf(')'))
+        .split(',')
+        .map((part) => Number.parseFloat(part));
+
+    const [, standardY1] = controlPoints(motion.easeStandard) as [number, number];
+    const [, exitY1] = controlPoints(motion.easeExit) as [number, number];
+
+    expect(standardY1).toBe(0);
+    expect(exitY1).toBe(0);
+    // The distinguishing point is the second handle's x: standard pulls it to
+    // 0 (decelerate), exit pushes it to 1 (accelerate).
+    expect(controlPoints(motion.easeStandard)[2]).toBeLessThan(
+      controlPoints(motion.easeExit)[2] as number,
+    );
   });
 });

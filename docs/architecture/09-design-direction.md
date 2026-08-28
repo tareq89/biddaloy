@@ -48,11 +48,11 @@ radius, the status vars, and the six role vars in its `roleVarNames` map.
 A token it has never heard of drifts freely. So every ticket below that
 introduces a token family also extends the gate, in the same PR:
 
-| Ticket | Adds to `ui/tailwind.preset.ts`            | Adds to `check-contrast.mjs`                              |
-| ------ | ------------------------------------------ | --------------------------------------------------------- |
-| #345   | `light.borderSubtle` / `dark.borderSubtle` | `borderSubtle: '--color-border-subtle'` in `roleVarNames` |
-| #346   | a `shadows` export (e1–e3, light + dark)   | drift check for the `--elevation-*` wiring, three scopes  |
-| #347   | a `motion` export (durations, easings)     | drift check for `--motion-*` (same value in both scopes)  |
+| Ticket | Adds to `ui/tailwind.preset.ts`            | Adds to `check-contrast.mjs`                                 |
+| ------ | ------------------------------------------ | ------------------------------------------------------------ |
+| #345   | `light.borderSubtle` / `dark.borderSubtle` | `borderSubtle: '--color-border-subtle'` in `roleVarNames`    |
+| #346   | a `shadows` export (e1–e3, light + dark)   | drift check for the `--elevation-*` wiring, three scopes     |
+| #347   | a `motion` export (durations, easings)     | drift check for `--motion-*` (plain `:root`, never `@theme`) |
 
 The density vars in §6 (`--control-h`, row heights) are set per shell by a
 `data-density` attribute, not declared in `@theme` — they sit outside this
@@ -62,6 +62,19 @@ gate, stated here so nobody assumes otherwise.
 originally got the mechanism wrong. §5 below explains why; the short version
 is that a shadow cannot be themed from `@theme` the way a colour can, so the
 values do not live where the other families' values live.
+
+Two families keep their values **outside** `@theme`, for two different
+reasons that land on the same shape:
+
+| Family          | Why not `@theme`                                                                  | Where the values live        |
+| --------------- | --------------------------------------------------------------------------------- | ---------------------------- |
+| `--elevation-*` | `@theme` shadows are inlined at build time, so dark mode cannot retheme them (§5) | plain `:root` + dark `:root` |
+| `--motion-*`    | `@theme` is tree-shaken, so a token with no scanned consumer ships nothing (§7)   | plain `:root`                |
+
+`check-contrast.mjs` guards both by scope, and additionally **compiles**
+`globals.css` with the pinned Tailwind and asserts each value is present in
+the build output — reading the source file alone cannot tell you what
+actually shipped.
 
 ---
 
@@ -648,6 +661,36 @@ satisfies the epic's constraint that this layer stays invisible to callers.
 
 That is the entire motion vocabulary. Nothing else animates.
 
+**These live in a plain `:root`, not in `@theme`.** Tailwind v4 tree-shakes
+`@theme`: a custom property declared there is emitted only once the class
+scanner sees a utility that reads it. Because `--motion-*` is not one of
+Tailwind's utility namespaces (`--duration-*` and `--ease-*` are), no utility
+ever reads these names, so an `@theme` declaration compiles to **zero bytes**
+— verified against the pinned tailwindcss 4.3.3, not assumed. The first
+consumer to reach for one outside a scanned class (a hand-written rule, a
+`style={{ transitionDuration: 'var(--motion-duration-base)' }}`, a class name
+assembled at runtime) would then resolve an undefined variable, compute
+`transition-duration: 0s`, and silently not animate. This is the same trap
+§5's shadow inlining sets, arrived at from the other direction.
+
+```mermaid
+flowchart LR
+  A["@theme<br/>--motion-duration-base: 180ms"] -->|no scanned utility reads it| B["dropped from the build<br/>var() resolves invalid → 0s"]
+  C[":root<br/>--motion-duration-base: 180ms"] -->|ordinary runtime custom property| D["always in the build<br/>var() resolves → 180ms"]
+```
+
+A plain `:root` costs nothing and works with Tailwind's arbitrary
+custom-property syntax exactly as a theme variable would:
+
+```html
+<button
+  class="transition-colors duration-(--motion-duration-fast) ease-(--motion-ease-standard)"
+></button>
+```
+
+`check-contrast.mjs` compiles the stylesheet and fails if any of the five
+values is absent from the output, so this cannot regress unnoticed.
+
 **Reduced motion is global, not per-component.** #347 adds one rule in
 `globals.css`:
 
@@ -663,6 +706,22 @@ That is the entire motion vocabulary. Nothing else animates.
   }
 }
 ```
+
+`0.01ms` rather than `0s` on purpose: at `0s` the browser skips the
+transition entirely and never dispatches `transitionend`, so any code
+awaiting that event hangs. At `0.01ms` the transition still runs, lands its
+end state, and fires the event within a frame. `e2e/reduced-motion.spec.ts`
+asserts that by awaiting the event, not by reading the duration back.
+
+One sharp edge to know about before anyone reaches for an `!important`
+animation utility: per CSS Cascade 5, **layer order is reversed for
+`!important` declarations**. A normal declaration in a later layer wins, but
+an `!important` one in an _earlier_ layer wins — and unlayered `!important`
+declarations lose to `!important` declarations inside any layer. This rule is
+unlayered, so a `!` modifier on an animation utility (which Tailwind emits
+into `@layer utilities`) would beat it. Nothing in the repo does that today;
+if something ever needs to, the rule has to move into a layer rather than
+gain more `!important`.
 
 ---
 

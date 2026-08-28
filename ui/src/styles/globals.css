@@ -376,6 +376,46 @@
 }
 
 /**
+ * Motion — three durations, two curves (design contract §7). Mirrors
+ * `motion` in `../../tailwind.preset.ts`; the drift gate compares them.
+ *
+ * A plain `:root`, NOT `@theme`, for the same reason `--elevation-*` above
+ * is: Tailwind v4 tree-shakes `@theme`. A variable declared there is only
+ * emitted once the scanner sees a utility class that reads it, so an
+ * `@theme` motion family with no consumer yet ships zero bytes. The first
+ * consumer that reaches for it outside a scanned class — a hand-written
+ * rule, a `style={{ transitionDuration: 'var(--motion-duration-base)' }}`,
+ * a runtime-assembled class name — would then resolve an undefined variable,
+ * compute `transition-duration: 0s`, and silently not animate. Declaring
+ * them in `:root` makes them ordinary runtime custom properties that are
+ * always present. `scripts/check-contrast.mjs` compiles this stylesheet and
+ * asserts the values actually survive into the built CSS, so this cannot
+ * regress unnoticed.
+ *
+ * Theme-invariant on purpose: a dialog does not open faster in dark mode,
+ * so these are declared here once and never overridden in the dark block
+ * (`scripts/check-contrast.mjs` fails the build if one appears there).
+ *
+ * `--motion-*` is NOT a Tailwind v4 utility namespace (`--duration-*` and
+ * `--ease-*` are), so no `duration-fast` class is generated from them. That
+ * is deliberate — the names are fixed by the approved contract. Consume them
+ * with v4's arbitrary custom-property syntax, which works against a `:root`
+ * variable exactly as it would against a theme one:
+ *
+ *   class="transition-colors duration-(--motion-duration-fast)
+ *          ease-(--motion-ease-standard)"
+ *
+ * Nothing consumes them yet; [8.13.10]/[8.13.11] re-time the components.
+ */
+:root {
+  --motion-duration-fast: 120ms; /* hover, focus ring, active */
+  --motion-duration-base: 180ms; /* dropdown, popover, select, tooltip */
+  --motion-duration-slow: 240ms; /* dialog, drawer, toast */
+  --motion-ease-standard: cubic-bezier(0.2, 0, 0, 1); /* enter and move */
+  --motion-ease-exit: cubic-bezier(0.4, 0, 1, 1); /* exit */
+}
+
+/**
  * Dark-mode token values, defined now per [8.1.2] but deliberately not yet
  * reachable: nothing in any SPA sets `data-theme="dark"` on the root element
  * today. This is intentionally not `@media (prefers-color-scheme: dark)` —
@@ -444,4 +484,45 @@
   --elevation-e1: 0 1px 2px 0 rgb(0 0 0 / 0.40), 0 1px 3px 0 rgb(0 0 0 / 0.45);
   --elevation-e2: 0 4px 6px -1px rgb(0 0 0 / 0.50), 0 8px 24px -4px rgb(0 0 0 / 0.55);
   --elevation-e3: 0 12px 24px -6px rgb(0 0 0 / 0.60), 0 24px 48px -12px rgb(0 0 0 / 0.65);
+}
+
+/**
+ * Reduced motion — one global rule, not per-component opt-in (design
+ * contract §7).
+ *
+ * A user who has asked their OS for less motion has asked once, for
+ * everything. Making each component remember a `motion-reduce:` variant
+ * means the preference holds only where somebody remembered it, and the one
+ * place it gets forgotten is the one place it mattered. This rule is
+ * authored once in the single stylesheet every SPA and Storybook already
+ * imports (`client-admin/src/index.css`, `ui/.storybook/preview.tsx`), so it
+ * covers Tailwind utilities, hand-written CSS, and any future third-party
+ * keyframes alike, including ones nobody has written yet.
+ *
+ * Why `0.01ms` and not `0` or `none`:
+ *
+ *   - `animation: none` would stop `animationend` / `transitionend` from
+ *     firing, and code that waits for those events to unmount an element or
+ *     advance a state machine would simply hang.
+ *   - A near-zero duration still runs the animation, so the end state —
+ *     including opacity — is applied, instantly. That is how §7's "preserve
+ *     opacity where removing it would make the state change unreadable" is
+ *     satisfied: the change still lands, it just does not travel.
+ *
+ * `animation-iteration-count: 1` is what stops an infinite spinner
+ * (`animate-spin`, `animate-pulse`) from becoming a 0.01ms strobe.
+ *
+ * `skeleton.tsx` keeps its own `motion-reduce:animate-none` — it predates
+ * this rule and is stricter, so it stays as a belt-and-braces backstop. Do
+ * not add new per-component `motion-reduce:` variants; this is the rule.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

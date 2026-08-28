@@ -1475,8 +1475,8 @@
     "semantic_hash": "ee5f5a3bef7a06467bd34888253ac499"
   },
   "ui/scripts/check-contrast.mjs": {
-    "mtime": 1787931397.4968948,
-    "ast_hash": "3f50bc1fe89b0ce886ceb8b6463446f2",
+    "mtime": 1787932788.9411173,
+    "ast_hash": "73ca19eeb0c1910a86f33578a5a6b688",
     "semantic_hash": ""
   },
   "ui/scripts/check-exports.mjs": {
@@ -1985,9 +1985,9 @@
     "semantic_hash": "0a97635916416e067f1a8d382760d8d5"
   },
   "ui/src/primitives/button.tsx": {
-    "mtime": 1787072022.67079,
-    "ast_hash": "b1330fe17568a55dba32a051d10cbaaa",
-    "semantic_hash": "b1330fe17568a55dba32a051d10cbaaa"
+    "mtime": 1787932829.8008397,
+    "ast_hash": "3c257a2efae4583422db7f66650f4c2c",
+    "semantic_hash": ""
   },
   "ui/src/primitives/checkbox.tsx": {
     "mtime": 1787072022.6708813,
@@ -2035,9 +2035,9 @@
     "semantic_hash": "b5f0edb7d6851f51ef081296e5283aa1"
   },
   "ui/src/primitives/tabs.tsx": {
-    "mtime": 1787072022.6719413,
-    "ast_hash": "67b91affdad33450fc2bd64e8d78d593",
-    "semantic_hash": "67b91affdad33450fc2bd64e8d78d593"
+    "mtime": 1787932829.8010855,
+    "ast_hash": "de45d0ffd6e97559417a5c63edf9fd3a",
+    "semantic_hash": ""
   },
   "ui/src/primitives/tooltip.tsx": {
     "mtime": 1787072022.672142,
@@ -2525,8 +2525,8 @@
     "semantic_hash": "3daebdd0945fd1534c90a6b3b3df9d0e"
   },
   "ui/tailwind.preset.ts": {
-    "mtime": 1787930725.65872,
-    "ast_hash": "5ce51bcfcd8c128cf1ac4aed62f67a12",
+    "mtime": 1787932911.7788398,
+    "ast_hash": "cc647b119d01aab90222e7c6f44fa305",
     "semantic_hash": ""
   },
   "ui/tsconfig.json": {
@@ -5355,8 +5355,8 @@
     "semantic_hash": ""
   },
   "docs/architecture/09-design-direction.md": {
-    "mtime": 1787930887.9946504,
-    "ast_hash": "9713ac98c9a9637b66f44313cf55be40",
+    "mtime": 1787932918.329303,
+    "ast_hash": "eeb829152ff4bd5a90351885de1a5fb3",
     "semantic_hash": ""
   },
   "ui/scripts/fonts/build-fonts.mjs": {
@@ -5400,13 +5400,18 @@
     "semantic_hash": ""
   },
   "ui/src/styles/design-tokens.spec.ts": {
-    "mtime": 1787930937.9508924,
-    "ast_hash": "4a7a735ebdfc44ffdce608ff5ab63f44",
+    "mtime": 1787933088.919499,
+    "ast_hash": "6ea4f9696cee29e89e40bf5b2c1b5e9f",
     "semantic_hash": ""
   },
   "ui/src/foundations/elevation.stories.tsx": {
-    "mtime": 1787930862.668018,
+    "mtime": 1787931524.8422928,
     "ast_hash": "c171d29d78b2619cec7ea817adaf9430",
+    "semantic_hash": ""
+  },
+  "e2e/reduced-motion.spec.ts": {
+    "mtime": 1787932862.7493184,
+    "ast_hash": "243c6165d756eb1c75bb5dac7791de08",
     "semantic_hash": ""
   }
 }
