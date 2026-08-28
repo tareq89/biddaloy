@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { expect, userEvent, within } from 'storybook/test';
 
 import { rtlDecorator } from '../../.storybook/rtl-decorator';
 
@@ -87,4 +88,44 @@ export const RightToLeft: Story = {
     </Menu>
   ),
   decorators: [rtlDecorator],
+};
+
+/**
+ * [8.13.10] Proves the open animation is genuinely live, not merely present
+ * as class names. Before this ticket, `MenuContent`'s
+ * `animate-in`/`zoom-in-95`/`slide-in-from-*` classes compiled to nothing —
+ * `tw-animate-css` was not installed — so every menu opened with a snap
+ * despite the "correct-looking" shadcn class strings. `play()` opens the
+ * menu for real and reads the *computed* `animationDuration` back: the
+ * DOM-truth check a source read (or a class-string unit test) cannot do,
+ * same rationale as `check-contrast.mjs`'s compiled-output guard for this
+ * ticket (contract §7).
+ */
+export const OpenAnimation: Story = {
+  render: () => (
+    <Menu>
+      <MenuTrigger asChild>
+        <Button iconOnly aria-label="Row actions">
+          ⋮
+        </Button>
+      </MenuTrigger>
+      <MenuContent>
+        <MenuItem>Edit</MenuItem>
+        <MenuItem>Duplicate</MenuItem>
+        <MenuSeparator />
+        <MenuItem variant="destructive">Delete</MenuItem>
+      </MenuContent>
+    </Menu>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Row actions' }));
+    const content = await canvas.findByRole('menu');
+    const animationDuration = getComputedStyle(content).animationDuration;
+    // An unrecognised utility (the pre-[8.13.10] state) computes to "0s".
+    // Contract §7's dropdown/popover/select/tooltip duration is 180ms,
+    // which the CSS OM serialises as "0.18s".
+    await expect(animationDuration).not.toBe('0s');
+    await expect(animationDuration).toBe('0.18s');
+  },
 };

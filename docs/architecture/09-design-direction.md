@@ -894,6 +894,24 @@ custom-property syntax exactly as a theme variable would:
 `check-contrast.mjs` compiles the stylesheet and fails if any of the five
 values is absent from the output, so this cannot regress unnoticed.
 
+**Amendment ([8.13.10]):** the table above assigns durations to utilities
+that did not exist when #347 wrote it — `animate-in`, `fade-in-0`,
+`zoom-in-95`, `slide-in-from-*` are not Tailwind v4 core, and this repo did
+not depend on anything that defined them, so every overlay's enter/exit
+class strings compiled to nothing and every overlay snapped open with no
+animation at all. `tw-animate-css@^1.4.0` (imported in `globals.css`
+immediately after `@import "tailwindcss"`) is the Tailwind v4 successor to
+`tailwindcss-animate` and is what actually provides `animate-in` and the
+rest — installing it is what makes the seven already-written class strings
+across the five overlay primitives (popover, tooltip, dialog, dropdown-menu,
+select) live. Durations still bind exactly as this section already
+documents: `tw-animate-css` reads Tailwind's own `--tw-duration`, which
+`duration-(--motion-duration-base)` / `duration-(--motion-duration-slow)`
+set per component, so no separate binding mechanism was needed once the
+package existed. `scripts/check-contrast.mjs` compiles this stylesheet and
+asserts a canary set of those utilities produce real rules, so removing the
+import fails a gate rather than silently re-deadening the animations.
+
 **Reduced motion is global, not per-component.** #347 adds one rule in
 `globals.css`:
 
