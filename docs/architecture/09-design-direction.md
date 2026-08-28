@@ -99,7 +99,8 @@ Concrete `unicode-range` values #343 must ship:
 The Taka sign `৳` is `U+09F3`, inside the Bengali block — it comes from the
 Bangla face, which is correct: it should match the Bangla numerals beside it.
 
-Both faces: `font-display: swap`, variable `wght` axis subset to **400–800**,
+Both faces: `font-display: swap`, variable `wght` axis subset to **400–800**
+for Latin and **400–700** for Bangla (see the budget table below for why),
 `wdth` axis **pinned to 100** via `fonttools varLib.instancer` (dropping an
 axis is a large byte win and Biddaloy never uses width variation).
 
@@ -115,20 +116,49 @@ shift.
 
 ### Webfont budget
 
-| Asset                                  | Budget (gzip, woff2) |
-| -------------------------------------- | -------------------- |
-| Anek Latin VF, subset, `wght` 400–800  | **45 KB**            |
-| Anek Bangla VF, subset, `wght` 400–800 | **135 KB**           |
-| **Total**                              | **180 KB**           |
+| Asset                                  | Budget (woff2) | Measured in #343        |
+| -------------------------------------- | -------------- | ----------------------- |
+| Anek Latin VF, subset, `wght` 400–800  | **45 KB**      | 38,720 B (37.8 KB) ✅   |
+| Anek Bangla VF, subset, `wght` 400–700 | **135 KB**     | 135,952 B (132.8 KB) ✅ |
+| **Total**                              | **180 KB**     | 174,672 B (170.6 KB) ✅ |
+
+**Relief valve used.** At the originally specified `wght` 400–800 the Bangla
+subset measured **141,116 B (137.8 KB)** — over budget. #343 applied the
+sanctioned narrowing to 400–700, which is where the 135,952 B above comes
+from. The heaviest step in the ramp is 620, so nothing in this document is
+lost; only the Latin face still reaches 800.
 
 Lighthouse CI (`lighthouserc.cjs`) throttles to 700 kbps / 400 ms RTT / 4×
 CPU on a 360×640 viewport, with `LCP ≤ 4000 ms`. 180 KB at 700 kbps is
 about 2.1 s of transfer, and `font-display: swap` means text paints from
 the metric-matched fallback immediately — the font is not on the LCP path.
 
-**Relief valve, if #343 measures over budget:** narrow the Bangla `wght`
-range from 400–800 to 400–700. Record the measured number in #343; do not
+**Relief valve, if a re-subset measures over budget:** narrow the Bangla
+`wght` range from 400–800 to 400–700 (already applied, see above); do not
 silently exceed 180 KB.
+
+### Measured metric-override numbers
+
+The metric-matched fallback described above needs real numbers, which only
+exist once the subsets exist. #343 measured them with
+`node ui/scripts/fonts/build-fonts.mjs --metrics` and committed them into
+`globals.css`:
+
+| Fallback face                  | `size-adjust` | `ascent-override` | `descent-override` | `line-gap-override` |
+| ------------------------------ | ------------- | ----------------- | ------------------ | ------------------- |
+| Latin, vs `Arial`              | 113.274%      | 79.453%           | 17.656%            | 0%                  |
+| Bangla, vs `Noto Sans Bengali` | 115.053%      | 108.646%          | 53.541%            | 0%                  |
+
+Derived with the web.dev "Improved font fallbacks" formula from the shipped
+subsets' own `head`/`hhea`/`OS/2` tables — Latin 2000 upm, 1800/−400/0,
+xAvg 1000; Bangla 2000 upm, 2500/−1232/0, xAvg 1307.
+
+**No preload.** The LCP reasoning above only works while the fonts stay off
+the critical path: `font-display: swap` plus the metric-matched fallback
+means text paints before the fonts arrive. A `<link rel="preload">` would put
+170 KB back on that path, so #343 deliberately shipped none, and the PWA
+precache globs in `client-admin/vite.config.ts` deliberately do not match
+`.woff2` either.
 
 ### The ramp
 
@@ -150,6 +180,18 @@ Two more rules:
 
 - **Money and number columns use `font-variant-numeric: tabular-nums`**, so
   amounts in an invoice table align on the decimal.
+
+  Honest limitation: this works on **Latin digits only** (`REGION_BD_EN`, e.g.
+  `৳ 12,345.00`). The shipped `anek-bangla.woff2` subset has no `tnum` GSUB
+  feature and its Bengali digits have proportional advance widths, so
+  `tabular-nums` is a **no-op on Bengali numerals** — and `bn` is the app's
+  default locale (`ui/src/i18n/locale-storage.ts`). Bangla money columns
+  therefore do **not** align on the decimal; we keep the class on every money
+  column anyway because it is correct under `en` and harmless under `bn`.
+  Fixing it properly would mean a Bangla face that ships tabular figures, which
+  no subset of Anek Bangla provides, so this is a documented limitation rather
+  than a promise the code cannot keep.
+
 - **No italic faces are shipped.** This UI never needs them, and skipping
   them saves bytes on both scripts.
 

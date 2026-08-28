@@ -166,6 +166,37 @@ for (const [statusKey, entry] of Object.entries(preset.status)) {
   expectVar(darkVars, ':root[data-theme="dark"]', `--color-status-${statusKey}-fg`, entry.fgDark);
 }
 
+// Typography (design contract §2). Typography is a token family like colour
+// is, so it gets the same drift gate: the ramp lives in tailwind.preset.ts and
+// globals.css only mirrors it. Unlike colour these are theme-invariant — a
+// heading is 22px in dark mode too — so they are asserted in the @theme scope
+// only, and the dark block is asserted NOT to redefine them.
+expectVar(lightVars, '@theme', '--font-sans', preset.typography.fontSans);
+
+const RAMP_SUBPROPS = [
+  ['size', ''],
+  ['lineHeight', '--line-height'],
+  ['weight', '--font-weight'],
+  ['tracking', '--letter-spacing'],
+];
+for (const [step, values] of Object.entries(preset.typography.ramp)) {
+  for (const [tsKey, cssSuffix] of RAMP_SUBPROPS) {
+    expectVar(lightVars, '@theme', `--text-${step}${cssSuffix}`, values[tsKey]);
+  }
+  for (const [, cssSuffix] of RAMP_SUBPROPS) {
+    const name = `--text-${step}${cssSuffix}`;
+    if (darkVars[name] !== undefined) {
+      errors.push(
+        `:root[data-theme="dark"]: ${name} is redefined ("${darkVars[name]}"). ` +
+          'The type ramp is theme-invariant — remove it from the dark block.',
+      );
+    }
+  }
+}
+if (darkVars['--font-sans'] !== undefined) {
+  errors.push(':root[data-theme="dark"]: --font-sans is redefined; the family is theme-invariant.');
+}
+
 // Semantic roles: authored as `var(--color-scale-key)` references where the
 // value matches a raw-scale entry, or a literal hex where it does not (e.g.
 // dark.surface has no raw-scale equivalent).
@@ -194,5 +225,6 @@ if (errors.length > 0) {
 
 console.log(
   `check-contrast: OK — ${preset.CONTRAST_PAIRS.length} pairs meet WCAG 2.2, ` +
+    `${Object.keys(preset.typography.ramp).length} type steps mirrored, ` +
     'CSS mirror matches tailwind.preset.ts by name and scope.',
 );

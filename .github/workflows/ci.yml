@@ -609,12 +609,18 @@ jobs:
         id: student
         run: echo "url=$(node scripts/lighthouse-student-url.mjs)" >> "$GITHUB_OUTPUT"
 
+      # These flags override lighthouserc.cjs's own url list entirely, so a URL
+      # added there is a no-op in CI unless it is added here too. /portal comes
+      # last on purpose: it is the only guardian-authenticated URL, and
+      # lighthouse-auth.cjs re-logs-in whenever the required identity changes,
+      # so measuring it last costs exactly one extra login.
       - name: Lighthouse
         run: >
           npx lhci autorun
           --collect.url=http://localhost:5174/login
           --collect.url=http://localhost:5174/fees/dues
           --collect.url=${{ steps.student.outputs.url }}
+          --collect.url=http://localhost:5174/portal
 
       - name: Upload Lighthouse reports
         if: always()

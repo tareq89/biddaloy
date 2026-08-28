@@ -14,6 +14,11 @@ module.exports = {
       url: [
         'http://localhost:5174/login',
         'http://localhost:5174/fees/dues',
+        // The guardian portal landing, measured as parent@biddaloy.test (see
+        // lighthouse-auth.cjs). It is here because it is the page a webfont
+        // swap is most likely to shift — [8.13.2] added the two self-hosted
+        // subsets, and this is where the 0.1 CLS budget has to prove it.
+        'http://localhost:5174/portal',
         // STUDENT_DETAIL_URL is appended at runtime by the CI step —
         // it contains a seeded student's real id.
       ],

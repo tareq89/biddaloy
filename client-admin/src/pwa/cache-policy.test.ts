@@ -103,6 +103,19 @@ describe('isHashedAssetRequest', () => {
     expect(isHashedAssetRequest(asset('/assets/index-DkQ1p2Za.css'))).toBe(true);
   });
 
+  it('matches a content-hashed font subset, so the app is not stuck in the fallback offline', () => {
+    // [8.13.2] emits `ui/src/styles/fonts/*.woff2` through Vite, so they get
+    // the same content hash the JS/CSS chunks do. They are not precached
+    // (170 KB on first visit), so the runtime route is the only thing that
+    // makes them available on a second, offline visit.
+    expect(isHashedAssetRequest(asset('/assets/anek-bangla-Bv7carHk.woff2'))).toBe(true);
+    expect(isHashedAssetRequest(asset('/assets/anek-latin-DkQ1p2Za.woff2'))).toBe(true);
+  });
+
+  it('rejects an unhashed font, which could be superseded at the same URL', () => {
+    expect(isHashedAssetRequest(asset('/assets/anek-bangla.woff2'))).toBe(false);
+  });
+
   it('rejects an unhashed asset, whose URL promises nothing about its contents', () => {
     // Cache-first on a stable URL pins a stale copy forever. Only the
     // hash makes "cache this immutably" a true statement.

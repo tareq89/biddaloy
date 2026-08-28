@@ -23,7 +23,178 @@
  */
 @source "../**/*.{ts,tsx}";
 
+/* ------------------------------------------------------------------------
+ * Typography — one CSS family, two scripts (design contract §2).
+ *
+ * `Biddaloy Sans` is Anek Latin + Anek Bangla (Ek Type, SIL OFL 1.1), two
+ * files served under one family name and split by `unicode-range`, so the
+ * browser picks the script per character with no `lang`-based CSS:
+ *
+ *   "Rahim — ফি পরিশোধ ৳ ১,২০০"
+ *    ^^^^^ Latin face          ^^^^^^^^^^^^^^^^^^^^ Bangla face
+ *
+ * Both files are self-hosted and committed under `./fonts/`. Vite (both the
+ * SPA builds and Storybook) resolves and emits these relative URLs as hashed
+ * same-origin assets — no third-party font origin is ever contacted.
+ * `ui/scripts/fonts/build-fonts.mjs` regenerates them; it is dev-only.
+ *
+ * `font-display: swap` plus the metric-matched fallback faces below keep the
+ * fonts off the LCP critical path: text paints immediately in the fallback,
+ * and the swap does not move layout. They are deliberately NOT preloaded —
+ * preloading 170 KB on a 700 kbps profile would put them back on it.
+ * ---------------------------------------------------------------------- */
+
+@font-face {
+  font-family: "Biddaloy Sans";
+  src: url("./fonts/anek-latin.woff2") format("woff2");
+  font-weight: 400 800;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2013-2014, U+2018-201A, U+201C-201E, U+2022,
+    U+2026, U+2212;
+}
+
+/* 400-700, not 400-800 like the Latin face: at 400-800 the Bangla subset
+   measured 141,116 B against §2's 135 KB budget, so #343 used the contract's
+   one sanctioned relief valve and narrowed the axis. It measures 135,952 B.
+   The heaviest step in the ramp below is 620, so nothing is lost. */
+@font-face {
+  font-family: "Biddaloy Sans";
+  src: url("./fonts/anek-bangla.woff2") format("woff2");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0980-09FF, U+0964-0965, U+200C-200D, U+25CC;
+}
+
+/**
+ * Metric-matched fallback. Same two-range split, but pointing at fonts the
+ * user already has, scaled so a line of text occupies the same box before and
+ * after the webfont arrives — that is what keeps `cumulative-layout-shift`
+ * under the 0.1 budget in `lighthouserc.cjs` while `swap` is in effect.
+ *
+ * The numbers are not taste. They come from the web.dev "Improved font
+ * fallbacks" formula, computed by `build-fonts.mjs --metrics` from the real
+ * `head`/`hhea`/`OS/2` tables of the shipped subsets:
+ *
+ *   size-adjust       = (web.xAvgCharWidth / web.upm) / (fb.xAvgCharWidth / fb.upm)
+ *   ascent-override   = (web.ascent / web.upm) / size-adjust      (same for descent, line-gap)
+ *
+ * Latin  vs Arial              : web 2000upm 1800/-400/0, xAvg 1000; fb 2048upm 1854/-434/67, xAvg 904
+ * Bangla vs Noto Sans Bengali  : web 2000upm 2500/-1232/0, xAvg 1307; fb 1000upm 917/-408/0, xAvg 568
+ *
+ * Re-run `node ui/scripts/fonts/build-fonts.mjs --metrics` if either subset
+ * changes; do not hand-tune these to make a CLS number pass.
+ *
+ * The `local()` lists are long on purpose. A `local()`-only `@font-face` that
+ * matches nothing on the machine is silently dropped, and with it every
+ * override above — the CLS protection disappears without any error. So each
+ * list names a face for every platform this app is actually rendered on,
+ * including the headless-Chrome CI container that polices the 0.1 CLS budget
+ * in `lighthouserc.cjs`, where none of the desktop fonts exist. Downloadable
+ * `url()` fallbacks would be the airtight fix, but a second pair of font
+ * binaries blows §2's byte budget, which is the whole reason the real faces
+ * are subset in the first place.
+ *
+ * The declared `font-weight` ranges mirror the real faces above. Without
+ * them a fallback `@font-face` is weight 400 only, and the ramp's 620
+ * headings (`text-display`, `text-h1`) fall outside it — exactly the text
+ * whose reflow is most visible.
+ */
+@font-face {
+  font-family: "Biddaloy Sans Fallback";
+  /* Arial/Helvetica: Windows + macOS. Roboto: Android. Liberation Sans is
+     the metric clone of Arial on nearly every Linux distro and CI image;
+     DejaVu Sans is the last-resort face that is present when nothing else
+     is. */
+  src: local("Arial"), local("Helvetica"), local("Roboto"), local("Liberation Sans"),
+    local("DejaVu Sans"), local("FreeSans");
+  font-weight: 400 800;
+  font-display: swap;
+  size-adjust: 113.274%;
+  ascent-override: 79.453%;
+  descent-override: 17.656%;
+  line-gap-override: 0%;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2013-2014, U+2018-201A, U+201C-201E, U+2022,
+    U+2026, U+2212;
+}
+
+/* `Nirmala UI` (Windows) and `Bangla Sangam MN` (macOS) are listed first
+   because they are what those platforms actually have, but the override
+   numbers match Noto Sans Bengali — the Bengali face on Android and on the
+   headless Chrome that Lighthouse CI measures the CLS budget with. The tail
+   of the list (Lohit/Mukti/FreeSans Bengali) is what Linux and CI images
+   ship — see the note above on why a list that matches nothing is worse
+   than a list that is too long. */
+@font-face {
+  font-family: "Biddaloy Sans Fallback";
+  src: local("Nirmala UI"), local("Bangla Sangam MN"), local("Noto Sans Bengali"),
+    local("Noto Serif Bengali"), local("Lohit Bengali"), local("Mukti Narrow"),
+    local("FreeSans Bengali"), local("Kalpurush");
+  font-weight: 400 700;
+  font-display: swap;
+  size-adjust: 115.053%;
+  ascent-override: 108.646%;
+  descent-override: 53.541%;
+  line-gap-override: 0%;
+  unicode-range: U+0980-09FF, U+0964-0965, U+200C-200D, U+25CC;
+}
+
 @theme {
+  /* Typography (design contract §2). `--font-sans` is what Tailwind v4's
+     preflight derives `--default-font-family` from, so every SPA and every
+     Storybook story picks up `Biddaloy Sans` with no per-app change.
+     `Biddaloy Sans Fallback` sits between it and `system-ui` so the metric
+     overrides above apply during the swap. */
+  --font-sans: "Biddaloy Sans", "Biddaloy Sans Fallback", system-ui, "Segoe UI", sans-serif;
+
+  /* The eight-step ramp. Each step declares size, line-height, weight and
+     tracking together, so `text-h1` alone is the whole heading decision —
+     there is no "and don't forget the leading" to get wrong. Line-heights are
+     deliberately loose: Bengali has a taller vertical extent than Latin at the
+     same size. Weight 620 is legal on the variable `wght` axis (400-800 Latin,
+     400-700 Bangla). Tracking is declared even where it is `0em`, so the drift
+     gate in check-contrast.mjs can assert all four sub-properties uniformly. */
+  --text-display: 1.75rem; /* 28px — portal page title */
+  --text-display--line-height: 2.25rem; /* 36px */
+  --text-display--font-weight: 620;
+  --text-display--letter-spacing: -0.01em;
+
+  --text-h1: 1.375rem; /* 22px — admin page titles */
+  --text-h1--line-height: 1.875rem; /* 30px */
+  --text-h1--font-weight: 620;
+  --text-h1--letter-spacing: -0.01em;
+
+  --text-h2: 1.125rem; /* 18px — section headings */
+  --text-h2--line-height: 1.625rem; /* 26px */
+  --text-h2--font-weight: 600;
+  --text-h2--letter-spacing: 0em;
+
+  --text-h3: 1rem; /* 16px — card headings */
+  --text-h3--line-height: 1.5rem; /* 24px */
+  --text-h3--font-weight: 600;
+  --text-h3--letter-spacing: 0em;
+
+  --text-body-lg: 1rem; /* 16px — portal default body */
+  --text-body-lg--line-height: 1.625rem; /* 26px */
+  --text-body-lg--font-weight: 400;
+  --text-body-lg--letter-spacing: 0em;
+
+  --text-body: 0.875rem; /* 14px — admin default body */
+  --text-body--line-height: 1.375rem; /* 22px */
+  --text-body--font-weight: 400;
+  --text-body--letter-spacing: 0em;
+
+  --text-label: 0.8125rem; /* 13px — form labels, table headers */
+  --text-label--line-height: 1.125rem; /* 18px */
+  --text-label--font-weight: 500;
+  --text-label--letter-spacing: 0em;
+
+  --text-caption: 0.75rem; /* 12px — help text, timestamps */
+  --text-caption--line-height: 1.0625rem; /* 17px */
+  --text-caption--font-weight: 400;
+  --text-caption--letter-spacing: 0em;
+
   /* Raw scale — fixed value, fixed meaning, in every theme. Reach for these
      only when a colour must stay the same regardless of theme (e.g. a
      brand mark). For anything else use the semantic role tokens below. */

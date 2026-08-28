@@ -48,16 +48,38 @@ export const radius = {
 } as const;
 
 /**
- * Spacing and typography are deliberately absent from this file. Tailwind
- * v4's own default scale (`p-4`, `text-lg`, `gap-2`, ...) is already a
- * coherent, well-tested system — redefining it here would only be
- * duplication with no functional benefit, since nothing about a fee-payment
- * admin UI needs a spacing or type scale different from Tailwind's own. A
- * custom scale is worth adding the moment a real need appears (an unusual
- * type ramp, a non-4px spacing grid); until then, extending it means every
- * SPA gets it for free by importing `@biddaloy/ui/tailwind` — there is
- * nothing to wire up.
+ * Typography — the two-script type system decided in
+ * `docs/architecture/09-design-direction.md` §2. Spacing is still deliberately
+ * absent: Tailwind v4's own 4px scale is already coherent and nothing about a
+ * fee-payment admin UI needs a different one. Typography is different — the
+ * product renders Bengali and English on the same line, and Tailwind's stock
+ * `text-lg`/`text-sm` carry no weight or tracking decision at all.
+ *
+ * `fontSans` is one CSS family, `Biddaloy Sans`, backed by two files (Anek
+ * Latin + Anek Bangla) split by `unicode-range` in globals.css, so one string
+ * serves both scripts at one apparent weight. `Biddaloy Sans Fallback` is the
+ * metric-matched local stack that holds the layout still during the swap.
+ *
+ * `ramp` is the eight steps, each carrying all four decisions (size, leading,
+ * weight, tracking) so a caller writing `text-h1` cannot forget one. Values
+ * assume a 16px root. globals.css mirrors every one of these as a Tailwind v4
+ * `--text-*` theme variable, and check-contrast.mjs fails on drift.
  */
+export const typography = {
+  fontSans: '"Biddaloy Sans", "Biddaloy Sans Fallback", system-ui, "Segoe UI", sans-serif',
+  ramp: {
+    display: { size: '1.75rem', lineHeight: '2.25rem', weight: '620', tracking: '-0.01em' },
+    h1: { size: '1.375rem', lineHeight: '1.875rem', weight: '620', tracking: '-0.01em' },
+    h2: { size: '1.125rem', lineHeight: '1.625rem', weight: '600', tracking: '0em' },
+    h3: { size: '1rem', lineHeight: '1.5rem', weight: '600', tracking: '0em' },
+    'body-lg': { size: '1rem', lineHeight: '1.625rem', weight: '400', tracking: '0em' },
+    body: { size: '0.875rem', lineHeight: '1.375rem', weight: '400', tracking: '0em' },
+    label: { size: '0.8125rem', lineHeight: '1.125rem', weight: '500', tracking: '0em' },
+    caption: { size: '0.75rem', lineHeight: '1.0625rem', weight: '400', tracking: '0em' },
+  },
+} as const;
+
+export type TypeStep = keyof typeof typography.ramp;
 
 /**
  * Fee/invoice/payment status. Each state pairs a colour with a distinct
@@ -162,6 +184,6 @@ export const CONTRAST_PAIRS = [
   },
 ] as const;
 
-export const biddaloyPreset = { neutral, brand, radius, status, light, dark } as const;
+export const biddaloyPreset = { neutral, brand, radius, status, light, dark, typography } as const;
 
 export default biddaloyPreset;
