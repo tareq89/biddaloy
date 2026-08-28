@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { FindOptionsOrder, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
 import { User } from '../users/entities/user.entity';
@@ -49,6 +49,20 @@ const DUMMY_PASSWORD_HASH = '$2b$10$rGV9zEDpgnc/spXBlHqA9O5IjpBvndIyZE78fIhV8ZV4
 // created (UsersService.create) — a user's hash must not silently get
 // weaker or slower depending on which endpoint last wrote it.
 const BCRYPT_COST = 10;
+
+// "Earliest membership wins" (#356). Both `getUserMemberships` (whose
+// `memberships[0]` is the session's default tenant, preselected by
+// SchoolPicker and queried by scripts/lighthouse-student-url.mjs) and
+// `primaryTenantId` (which stamps the audit row) must resolve to the *same*
+// membership, so they share one ordering rather than each spelling it out.
+// `created_at` alone is not enough: a bulk import or a backfill migration
+// can insert several memberships in one statement with identical
+// timestamps, and the `id` tiebreak is what keeps the two call sites in
+// agreement when that happens.
+const EARLIEST_MEMBERSHIP_ORDER = {
+  created_at: 'ASC',
+  id: 'ASC',
+} as const satisfies FindOptionsOrder<UserTenant>;
 
 function sleep(ms: number): Promise<void> {
   return ms > 0 ? new Promise((resolve) => setTimeout(resolve, ms)) : Promise.resolve();
@@ -380,16 +394,25 @@ export class AuthService {
     // `relations: ['tenant']` — [8.9.5]'s picker/top-bar need the school's
     // display name, not just its id; this join gets it in the same query
     // rather than a second round trip per membership.
+    // Ordered oldest-first, not left to Postgres' arbitrary row order
+    // (#356). Callers treat `memberships[0]` as "the default tenant" —
+    // `SchoolPicker` preselects it and `scripts/lighthouse-student-url.mjs`
+    // queries it — so an unordered result meant those two could disagree
+    // about which school the session is in.
     const memberships = await this.userTenantRepository.find({
       where: { user_id: userId },
       relations: ['tenant'],
+      order: EARLIEST_MEMBERSHIP_ORDER,
     });
     return memberships.map((m) => ({ tenantId: m.tenant_id, role: m.role, name: m.tenant.name }));
   }
 
   // A user can belong to several tenants, but an audit row needs exactly
   // one — this picks the earliest membership as a stable, deterministic
-  // choice, the same rule the tenant-id backfill migrations use.
+  // choice, the same rule the tenant-id backfill migrations use. It must
+  // stay byte-for-byte the same ordering `getUserMemberships` uses, hence
+  // the shared `EARLIEST_MEMBERSHIP_ORDER`: if the two diverged, the audit
+  // tenant and `memberships[0]` could name different schools.
   private async primaryTenantId(userId: string): Promise<string | null> {
     // This lookup only feeds an audit record, but it runs before
     // AuditService.record() ever gets a chance to fail open — left
@@ -399,7 +422,7 @@ export class AuthService {
     try {
       const membership = await this.userTenantRepository.findOne({
         where: { user_id: userId },
-        order: { created_at: 'ASC' },
+        order: EARLIEST_MEMBERSHIP_ORDER,
       });
       return membership?.tenant_id ?? null;
     } catch {
