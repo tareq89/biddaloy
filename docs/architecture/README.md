@@ -20,6 +20,7 @@ at hand instead of loading the whole set.
 | [06-frontend-architecture.md](06-frontend-architecture.md) | Working in `ui/` or `client-admin/` (the one SPA — staff routes + `/portal`) |
 | [07-deployment.md](07-deployment.md) | Working on Docker, nginx, CI, or production deploys |
 | [08-security.md](08-security.md) | Working on login, tokens, CSRF, audit logging, or PII/data-protection handling |
+| [09-design-direction.md](09-design-direction.md) | Touching design tokens — type, colour, elevation, borders, density, motion. The approved values epic 8.13 (#343–#354) implements |
 
 For practical "how do I run/develop/test this" instructions, see the root
 [`README.md`](../../README.md) — these docs cover the *why* behind the
