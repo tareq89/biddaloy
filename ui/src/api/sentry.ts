@@ -187,13 +187,17 @@ function redactBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb {
  * error and transaction scrubbers so the two can't drift.
  */
 function allowListRequest(request: RequestEventData): RequestEventData {
-  const { url, method, query_string: queryString, env } = request;
+  const { url, method, env } = request;
   return {
-    ...(url !== undefined && { url: redactPii(url) }),
+    // Query string stripped here too, for the same reason it is stripped
+    // off span attributes: this app puts free text in it
+    // (`/students?search=Karim+Rahman`), and no pattern can tell a name
+    // from a page title.
+    ...(url !== undefined && { url: redactPii(stripQueryString(url)) }),
     ...(method !== undefined && { method }),
-    ...(queryString !== undefined && {
-      query_string: typeof queryString === 'string' ? redactPii(queryString) : queryString,
-    }),
+    // `query_string` is *only* the part that was just stripped, so it is
+    // dropped outright rather than redacted — there is nothing in it this
+    // app is willing to export.
     ...(env !== undefined && { env }),
   };
 }

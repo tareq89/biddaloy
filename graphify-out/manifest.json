@@ -960,7 +960,7 @@
     "semantic_hash": ""
   },
   "client-admin/package.json": {
-    "mtime": 1787887633.3969402,
+    "mtime": 1787890071.0149407,
     "ast_hash": "438ce979a1d01b678403e1587779e5e5",
     "semantic_hash": ""
   },
@@ -970,12 +970,12 @@
     "semantic_hash": "c8f0dfa140ec246071c4cc5a03df5c9d"
   },
   "client-admin/src/main.tsx": {
-    "mtime": 1787887813.1170993,
+    "mtime": 1787890071.0156333,
     "ast_hash": "a52c2daa4901987554ed87466cc90031",
     "semantic_hash": ""
   },
   "client-admin/src/vite-env.d.ts": {
-    "mtime": 1787887813.117825,
+    "mtime": 1787890071.016042,
     "ast_hash": "ad40e8ace50f6e339d2e787afb256899",
     "semantic_hash": ""
   },
@@ -985,7 +985,7 @@
     "semantic_hash": ""
   },
   "client-admin/vite.config.ts": {
-    "mtime": 1787887827.567171,
+    "mtime": 1787890071.0163748,
     "ast_hash": "7d12868892ff1bdf6de5488fe2116e64",
     "semantic_hash": ""
   },
@@ -2655,8 +2655,8 @@
     "semantic_hash": "1f2600b1a94a8b811fc2dec78706e2e1"
   },
   "client-admin/scripts/check-route-chunks.mjs": {
-    "mtime": 1787869127.8564498,
-    "ast_hash": "56a7041f39e92f206e95dcbc118e231d",
+    "mtime": 1787892198.2798352,
+    "ast_hash": "a2b48677445887a8227c0347a5a00ed3",
     "semantic_hash": ""
   },
   "client-admin/src/components/ConnectionTestResultMessage.tsx": {
@@ -2775,8 +2775,8 @@
     "semantic_hash": ""
   },
   "playwright.config.ts": {
-    "mtime": 1787628143.7184155,
-    "ast_hash": "d929e0df8e3b2a3ff5fd768fc74990df",
+    "mtime": 1787891097.478266,
+    "ast_hash": "4f0614a9c09354bc5300542916b223e5",
     "semantic_hash": ""
   },
   "server/src/migrations/1786097609707-AddSettingsChangeAuditAction.ts": {
@@ -3325,7 +3325,7 @@
     "semantic_hash": ""
   },
   "docs/architecture/07-deployment.md": {
-    "mtime": 1787889729.886722,
+    "mtime": 1787890071.0167773,
     "ast_hash": "c28f1a626ca007e21142e83cd608a7bb",
     "semantic_hash": ""
   },
@@ -3495,13 +3495,13 @@
     "semantic_hash": "4bdc3feba785af983135d1428785dd99"
   },
   "ui/src/api/sentry.test.ts": {
-    "mtime": 1787889902.6258762,
-    "ast_hash": "65fb54f9f1c5cdae71dd1b62091445b5",
+    "mtime": 1787893412.9508393,
+    "ast_hash": "54e6604ecb7dee21ea12aed020c05c40",
     "semantic_hash": ""
   },
   "ui/src/api/sentry.ts": {
-    "mtime": 1787889771.8120449,
-    "ast_hash": "dfa0c10dc26fc4f886449f5b13a11c85",
+    "mtime": 1787892578.8505592,
+    "ast_hash": "1f3aed8722d20bcec305901a5e70ae6b",
     "semantic_hash": ""
   },
   "ui/src/components/notification-bell.test.tsx": {
@@ -3520,12 +3520,12 @@
     "semantic_hash": "723c26aeb5113e3a9366b191d13ef584"
   },
   "ui/src/components/route-error-boundary.test.tsx": {
-    "mtime": 1787887980.9148507,
+    "mtime": 1787890071.044812,
     "ast_hash": "9b80dd36f83a02ede20a1179ed15bbd7",
     "semantic_hash": ""
   },
   "ui/src/components/route-error-boundary.tsx": {
-    "mtime": 1787887747.7492602,
+    "mtime": 1787890071.0454066,
     "ast_hash": "796ec9df129640c2a7d920c6f7ef4825",
     "semantic_hash": ""
   },
@@ -5225,28 +5225,28 @@
     "semantic_hash": ""
   },
   "ui/src/api/offline-cache.test.ts": {
-    "mtime": 1787876368.6371384,
-    "ast_hash": "375b47bf0a5856cfc10460e9b244ef65",
+    "mtime": 1787891510.902302,
+    "ast_hash": "0202fbb2c70f4b0469d9c2cdb4eb152e",
     "semantic_hash": ""
   },
   "ui/src/api/offline-cache.ts": {
-    "mtime": 1787878369.2434354,
-    "ast_hash": "6607d51fa2106f36ad3d8ad0155862b9",
+    "mtime": 1787891495.0631618,
+    "ast_hash": "5b0625abb63b51db193f2a26e100e591",
     "semantic_hash": ""
   },
   "ui/src/api/offline-db.test.ts": {
-    "mtime": 1787878369.2437325,
-    "ast_hash": "021ad6ba2435c8d719048992fd858748",
+    "mtime": 1787891755.710415,
+    "ast_hash": "a453c7280da29e0921083d302318940f",
     "semantic_hash": ""
   },
   "ui/src/api/offline-db.ts": {
-    "mtime": 1787878369.2442124,
-    "ast_hash": "87feab95d0d22a9bbd9c65f1982fe60a",
+    "mtime": 1787892101.3788655,
+    "ast_hash": "7cd8bef6a6f441351eb844f4628dad2f",
     "semantic_hash": ""
   },
   "ui/src/api/offline-purge.test.ts": {
-    "mtime": 1787886929.5286849,
-    "ast_hash": "1968a3e2211846303920d88ea29f4f24",
+    "mtime": 1787891510.9027188,
+    "ast_hash": "96cf87ef673f93a80132aac8378f7d0f",
     "semantic_hash": ""
   },
   "ui/src/components/cached-data-notice.stories.tsx": {
@@ -5280,13 +5280,13 @@
     "semantic_hash": ""
   },
   "ui/src/api/mutation-queue.test.ts": {
-    "mtime": 1787888067.31605,
-    "ast_hash": "748119c4201c41820a10722748b6e29c",
+    "mtime": 1787893522.3695066,
+    "ast_hash": "df9d2398221d958f59a5dff3de8cf87b",
     "semantic_hash": ""
   },
   "ui/src/api/mutation-queue.ts": {
-    "mtime": 1787888679.6504834,
-    "ast_hash": "7967e31808918a1be5f0c8ca9ebb07bf",
+    "mtime": 1787891495.0638201,
+    "ast_hash": "5b21ebdfbe11429e660d318883366a33",
     "semantic_hash": ""
   },
   "ui/src/components/sync-status.stories.tsx": {
@@ -5350,7 +5350,7 @@
     "semantic_hash": ""
   },
   "client-admin/src/main.sentry-wiring.test.ts": {
-    "mtime": 1787888452.9865804,
+    "mtime": 1787890071.0152807,
     "ast_hash": "c8e3a64b7d3ebf405e09140192ab1429",
     "semantic_hash": ""
   }

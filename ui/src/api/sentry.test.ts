@@ -118,7 +118,7 @@ describe('beforeSend PII scrubbing', () => {
     expect(result?.request?.data).toBeUndefined();
     expect(result?.request?.cookies).toBeUndefined();
     expect(result?.request?.headers).toBeUndefined();
-    expect(result?.request?.url).toBe('https://app.biddaloy.test/api/students?token=[REDACTED]');
+    expect(result?.request?.url).toBe('https://app.biddaloy.test/api/students?[REDACTED_QUERY]');
   });
 
   it('strips arbitrary extra context and user context wholesale, even amount-shaped data', () => {
@@ -169,9 +169,7 @@ describe('beforeSend PII scrubbing', () => {
     expect(result?.exception?.values?.[0]?.value).toBe(
       'POST /students failed — duplicate guardian phone [REDACTED_PHONE] for [REDACTED_EMAIL]',
     );
-    expect(result?.request?.url).toBe(
-      'https://app.biddaloy.test/api/students?access_token=[REDACTED]',
-    );
+    expect(result?.request?.url).toBe('https://app.biddaloy.test/api/students?[REDACTED_QUERY]');
   });
 });
 
@@ -462,7 +460,7 @@ describe('[8.12.7] beforeSendTransaction PII scrubbing', () => {
     expect(result?.request?.data).toBeUndefined();
     expect(result?.request?.cookies).toBeUndefined();
     expect(result?.request?.headers).toBeUndefined();
-    expect(result?.request?.url).toBe('https://app.biddaloy.test/students?access_token=[REDACTED]');
+    expect(result?.request?.url).toBe('https://app.biddaloy.test/students?[REDACTED_QUERY]');
     expect(result?.breadcrumbs?.[0]?.message).toBe('GET for [REDACTED_EMAIL]');
   });
 
@@ -651,5 +649,152 @@ describe('[8.12.7] queue-failure reporting is deduplicated per error, not per se
 
     captureQueueFailure(Object.assign(new Error('other'), { name: 'VersionError' }));
     expect(Sentry.captureException).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('[8.12.7] the transaction request and breadcrumb paths', () => {
+  beforeEach(() => {
+    initSentry({ dsn: 'https://key@example.ingest.sentry.io/1', environment: 'test', router });
+  });
+
+  it('strips the query string from a transaction request URL and drops query_string', () => {
+    const result = runBeforeSendTransaction({
+      type: 'transaction',
+      transaction: '/students',
+      request: {
+        url: 'https://app.biddaloy.test/students?search=Karim+Rahman',
+        method: 'GET',
+        query_string: 'search=Karim+Rahman',
+        headers: { cookie: 'session=abc' },
+      },
+    });
+
+    expect(JSON.stringify(result)).not.toMatch(/Karim|Rahman/);
+    expect(result?.request?.url).toBe('https://app.biddaloy.test/students?[REDACTED_QUERY]');
+    // Dropped outright: `query_string` is exactly the part just removed.
+    expect(result?.request?.query_string).toBeUndefined();
+    // Headers were never allow-listed, so the cookie goes too.
+    expect(result?.request?.headers).toBeUndefined();
+  });
+
+  it('keeps a request that carries only a method', () => {
+    const result = runBeforeSendTransaction({
+      type: 'transaction',
+      request: { method: 'POST' },
+    });
+
+    expect(result?.request).toEqual({ method: 'POST' });
+  });
+
+  it('runs transaction breadcrumbs through the same allow-list as errors', () => {
+    const result = runBeforeSendTransaction({
+      type: 'transaction',
+      breadcrumbs: [
+        {
+          category: 'fetch',
+          message: 'guardian karim@example.com',
+          data: { url: 'https://app.biddaloy.test/api/v1/guardians?q=Karim', amount: 500 },
+        },
+      ],
+    });
+
+    expect(JSON.stringify(result)).not.toMatch(/Karim|karim@|500/);
+    expect(result?.breadcrumbs?.[0]?.data?.url).toContain('[REDACTED_QUERY]');
+  });
+});
+
+describe('[8.12.7] scrubbers on sparse and fully-populated events', () => {
+  beforeEach(() => {
+    initSentry({ dsn: 'https://key@example.ingest.sentry.io/1', environment: 'test', router });
+  });
+
+  it('rebuilds a span that carries only its required fields', () => {
+    // The other half of every `...(x !== undefined && …)` in `scrubSpan`.
+    // Rebuilding by construction means an absent field must stay absent,
+    // not reappear as an explicit `undefined` — which is a different
+    // thing on the wire and under `exactOptionalPropertyTypes`.
+    const span = runBeforeSendSpan({
+      span_id: 'a',
+      trace_id: 'b',
+      start_timestamp: 1,
+      data: {},
+    });
+
+    expect(span).toEqual({ span_id: 'a', trace_id: 'b', start_timestamp: 1, data: {} });
+    expect('description' in span).toBe(false);
+    expect('links' in span).toBe(false);
+  });
+
+  it('preserves every field it is allowed to keep on a fully-populated span', () => {
+    const span = runBeforeSendSpan({
+      span_id: 'a',
+      trace_id: 'b',
+      parent_span_id: 'p',
+      start_timestamp: 1,
+      timestamp: 2,
+      op: 'http.client',
+      status: 'ok',
+      origin: 'auto.http.browser',
+      description: 'GET /api/v1/students',
+      measurements: { inp: { value: 12, unit: 'millisecond' } },
+      data: { 'http.method': 'GET', 'sentry.op': 'http.client' },
+    });
+
+    expect(span).toMatchObject({
+      parent_span_id: 'p',
+      timestamp: 2,
+      op: 'http.client',
+      status: 'ok',
+      origin: 'auto.http.browser',
+      description: 'GET /api/v1/students',
+    });
+    // Vitals must survive the scrubbing — a scrubber that also strips the
+    // telemetry is a silent failure.
+    expect(span.measurements?.inp?.value).toBe(12);
+  });
+
+  it('handles a transaction with none of the optional carriers present', () => {
+    const result = runBeforeSendTransaction({ type: 'transaction', transaction: '/students' });
+
+    expect(result?.transaction).toBe('/students');
+    expect(result?.request).toBeUndefined();
+    expect(result?.breadcrumbs).toBeUndefined();
+    expect(result?.spans).toBeUndefined();
+  });
+
+  it('drops a non-string query_string without redacting it', () => {
+    const result = runBeforeSendTransaction({
+      type: 'transaction',
+      request: { url: 'https://app.biddaloy.test/students', method: 'GET' },
+    });
+
+    expect(result?.request).toEqual({
+      url: 'https://app.biddaloy.test/students',
+      method: 'GET',
+    });
+  });
+});
+
+describe('[8.12.7] error scrubbing on sparse events', () => {
+  beforeEach(() => {
+    initSentry({ dsn: 'https://key@example.ingest.sentry.io/1', environment: 'test', router });
+  });
+
+  it('leaves an exception value that carries no message alone', () => {
+    const result = runBeforeSend({
+      exception: { values: [{ type: 'TypeError' }] },
+    });
+
+    expect(result?.exception?.values?.[0]).toEqual({ type: 'TypeError' });
+  });
+
+  it('handles an event with no message, request or breadcrumbs at all', () => {
+    // The absent-carrier half of every guard in `scrubEvent`. Worth
+    // pinning: the scrubber runs on every event Sentry sends, so it has
+    // to survive the minimal ones, not just the rich ones the PII tests
+    // construct.
+    const result = runBeforeSend({ event_id: 'abc' });
+
+    expect(result).toEqual({ event_id: 'abc' });
   });
 });

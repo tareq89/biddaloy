@@ -3325,8 +3325,8 @@
     "semantic_hash": ""
   },
   "docs/architecture/07-deployment.md": {
-    "mtime": 1787888453.0335908,
-    "ast_hash": "b0bf498a6120ebcde4e92e96059b6676",
+    "mtime": 1787889729.886722,
+    "ast_hash": "c28f1a626ca007e21142e83cd608a7bb",
     "semantic_hash": ""
   },
   "docs/architecture/08-security.md": {
@@ -3495,13 +3495,13 @@
     "semantic_hash": "4bdc3feba785af983135d1428785dd99"
   },
   "ui/src/api/sentry.test.ts": {
-    "mtime": 1787888282.4236383,
-    "ast_hash": "a9a267eee0628f552caa86878e814f3f",
+    "mtime": 1787889902.6258762,
+    "ast_hash": "65fb54f9f1c5cdae71dd1b62091445b5",
     "semantic_hash": ""
   },
   "ui/src/api/sentry.ts": {
-    "mtime": 1787888452.8336506,
-    "ast_hash": "b84eb3601fcff2deca9c2d7ea9e811a8",
+    "mtime": 1787889771.8120449,
+    "ast_hash": "dfa0c10dc26fc4f886449f5b13a11c85",
     "semantic_hash": ""
   },
   "ui/src/components/notification-bell.test.tsx": {
@@ -5285,8 +5285,8 @@
     "semantic_hash": ""
   },
   "ui/src/api/mutation-queue.ts": {
-    "mtime": 1787888058.1901765,
-    "ast_hash": "27ee01e90f05a4937ec5655b06c41e4b",
+    "mtime": 1787888679.6504834,
+    "ast_hash": "7967e31808918a1be5f0c8ca9ebb07bf",
     "semantic_hash": ""
   },
   "ui/src/components/sync-status.stories.tsx": {
