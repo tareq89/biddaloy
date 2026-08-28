@@ -8,7 +8,7 @@ import type { Class } from '../modules/academics/entities/class.entity';
 import type { ClassSection } from '../modules/academics/entities/class-section.entity';
 import type { Student } from '../modules/students/entities/student.entity';
 import type { Guardian } from '../modules/students/entities/guardian.entity';
-import { seedAccounts, type SeedAccountRepositories } from './seed';
+import { seedAccounts, type SeedAccountRepositories } from './seed.accounts';
 
 /**
  * A deliberately small in-memory stand-in for a TypeORM repository. It only
