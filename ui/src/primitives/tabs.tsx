@@ -58,6 +58,16 @@ function TabsTrigger({ className, ...props }: React.ComponentProps<typeof TabsPr
         'group-data-[variant=line]/tabs-list:bg-transparent group-data-[variant=line]/tabs-list:data-[state=active]:bg-transparent dark:group-data-[variant=line]/tabs-list:data-[state=active]:border-transparent dark:group-data-[variant=line]/tabs-list:data-[state=active]:bg-transparent',
         'data-[state=active]:bg-card data-[state=active]:text-foreground dark:data-[state=active]:border-input dark:data-[state=active]:bg-input/30 dark:data-[state=active]:text-foreground',
         'after:absolute after:bg-foreground after:opacity-0 after:transition-opacity group-data-[orientation=horizontal]/tabs:after:inset-x-0 group-data-[orientation=horizontal]/tabs:after:bottom-[-5px] group-data-[orientation=horizontal]/tabs:after:h-0.5 group-data-[orientation=vertical]/tabs:after:inset-y-0 group-data-[orientation=vertical]/tabs:after:-right-1 group-data-[orientation=vertical]/tabs:after:w-0.5 group-data-[variant=line]/tabs-list:data-[state=active]:after:opacity-100',
+        // `TabsList`'s p-[3px] plus this trigger's own h-[calc(100%-1px)]
+        // put the real box 7px short of --control-h (3px top pad, 3px
+        // bottom pad, 1px fudge). `after:` is already the active-state
+        // underline (a real, visible indicator, so it can't double as an
+        // invisible hit box) — `before:` is free, so it carries the
+        // contiguous vertical extension instead, the same inset-pinned
+        // technique checkbox/radio-group use, sized to close that exact
+        // 7px gap in both densities (it's a fixed padding/fudge overhead,
+        // not something that scales with --control-h).
+        'before:absolute before:inset-x-0 before:-inset-y-[3.5px]',
         className,
       )}
       {...props}
