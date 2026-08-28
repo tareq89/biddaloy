@@ -69,6 +69,7 @@ import {
   type QueuedMutationRow,
   type QueueableEntity,
 } from './offline-db';
+import { captureQueueFailure } from './sentry';
 
 /**
  * Money-shaped paths, anchored to whole path segments.
@@ -252,12 +253,18 @@ async function readTenantRows(
   try {
     const rows = await db.mutationQueue.where('tenantId').equals(tenantId).toArray();
     return { rows: rows.sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0)), readFailed: false };
-  } catch {
+  } catch (error) {
     // A read failure means "we cannot show the queue" — never "the queue
     // is empty and it is safe to proceed". Reporting an empty queue here
     // would tell the user, through 8.12.5's indicator, that everything
     // synced. `readFailed` is what lets that indicator say "can't read
     // your pending changes" instead of a reassuring zero.
+    //
+    // [8.12.7]: same reasoning as the replay-loop catch below — the
+    // rejection is swallowed so the caller can degrade gracefully, so it
+    // has to be reported deliberately or nobody ever learns that the
+    // database is unreadable.
+    captureQueueFailure(error);
     return { rows: [], readFailed: true };
   }
 }
@@ -398,8 +405,6 @@ async function runReplay(): Promise<void> {
           // untouched for the next attempt.
           _retry: true,
         } as Parameters<typeof apiClient.request>[0]);
-        await db.mutationQueue.delete(row.seq);
-        changed = true;
       } catch (error) {
         if (isNoResponseNetworkError(error)) {
           // Still offline. Not a strike: leave the row untouched, stop,
@@ -440,15 +445,42 @@ async function runReplay(): Promise<void> {
         scheduleBackoffReplay(attempts);
         break;
       }
+
+      // Outside the `catch` above, deliberately ([8.12.7]). Inside it,
+      // a rejecting `delete` — a database closed by a logout, a quota
+      // error — was indistinguishable from the request having failed:
+      // the row got a strike and a `lastError` of "DatabaseClosedError",
+      // so five *successfully sent* mutations in a row could dead-letter
+      // a row the server had already accepted. Out here it stops the
+      // pass and gets reported instead, which is the truth: the send
+      // worked, the bookkeeping did not.
+      //
+      // The residual risk, stated plainly because it is not fixed here: a
+      // row whose send succeeded but whose delete failed stays `pending`,
+      // so the next pass sends it again. That is a duplicate write — the
+      // thing this queue otherwise works hard to avoid. It is the better
+      // of two bad outcomes (the alternative dead-letters work the server
+      // already accepted, and tells the user it failed when it did not),
+      // but the real fix is an idempotency key on the mutation, which
+      // needs a server contract that does not exist yet.
+      await db.mutationQueue.delete(row.seq);
+      changed = true;
     }
-  } catch {
+  } catch (error) {
     // A Dexie write inside the loop (the delete on success, the status
     // updates on failure) can reject — `DatabaseClosedError` when a
-    // logout lands mid-replay, or a quota error. `handleOnline` calls
-    // this as `void replayQueue()`, so an escaping rejection becomes an
-    // `unhandledrejection` that 8.12.7's Sentry handler reports. Stopping
-    // the pass is the correct response either way: the next `online`
-    // event or backoff tick retries from a clean read.
+    // logout lands mid-replay, or a quota error. Stopping the pass is the
+    // correct response either way: the next `online` event or backoff
+    // tick retries from a clean read.
+    //
+    // [8.12.7]: reported explicitly. An earlier version of this comment
+    // claimed the rejection escaped to Sentry's global
+    // `unhandledrejection` handler — it never could, because this `catch`
+    // is what swallows it. A queue that quietly stopped draining is
+    // invisible to the user *and* to us, so `captureQueueFailure`
+    // forwards the error itself (never the row or its body), once per
+    // session.
+    captureQueueFailure(error);
   } finally {
     if (changed) await refreshQueueSnapshot();
   }

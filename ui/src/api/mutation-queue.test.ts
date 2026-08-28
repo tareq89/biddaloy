@@ -38,6 +38,15 @@ import {
   subscribeQueueChanges,
 } from './mutation-queue';
 import { deleteOfflineDb, getOfflineDb, resetOfflineDbForTests } from './offline-db';
+import { captureQueueFailure } from './sentry';
+
+// [8.12.7]: the queue reports its own IndexedDB failures, because it
+// catches them itself — nothing here ever reaches Sentry's global
+// handlers. Mocked rather than driven through the real module so these
+// tests do not depend on its once-per-session latch.
+vi.mock('./sentry', () => ({
+  captureQueueFailure: vi.fn(),
+}));
 
 /** The shape axios produces when the request never reached a server:
  * `response` is `undefined`. A real `AxiosError`, not a hand-rolled
@@ -351,18 +360,45 @@ describe('a replay must not destroy the work it is replaying', () => {
     expect(rows[0]!.attempts).toBe(0);
   });
 
-  it('stops cleanly when a database write fails mid-replay', async () => {
-    // A logout landing mid-replay closes the database under the loop.
-    // Uncaught, the rejection escapes `void replayQueue()` in the online
-    // handler and surfaces as an unhandledrejection — which 8.12.7's
-    // Sentry handler would then report as a crash.
-    await queue();
+  it('[8.12.7] does not strike a row whose send succeeded but whose delete failed', async () => {
+    // The bug this fixes: the success-path `delete` used to sit inside
+    // the same `try` as the request, so a database closed by a logout
+    // read as "the mutation failed". Five such passes dead-lettered a
+    // row the server had already accepted — and told the user their work
+    // could not be saved when it had been.
+    const row = await queue();
     vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null });
-    vi.spyOn(getOfflineDb()!.mutationQueue, 'delete').mockRejectedValue(
-      new Error('DatabaseClosedError'),
-    );
+    const dexieError = new Error('DatabaseClosedError');
+    vi.spyOn(getOfflineDb()!.mutationQueue, 'delete').mockRejectedValue(dexieError);
 
     await expect(replayQueue()).resolves.toBeUndefined();
+
+    const stored = await getOfflineDb()!.mutationQueue.get(row.seq!);
+    expect(stored?.attempts).toBe(0);
+    expect(stored?.status).toBe('pending');
+    expect(stored?.lastError).toBeUndefined();
+    expect(captureQueueFailure).toHaveBeenCalledWith(dexieError);
+  });
+
+  it('stops cleanly when a database write fails mid-replay, and reports it', async () => {
+    // A logout landing mid-replay closes the database under the loop.
+    // The pass has to stop — but stopping silently means a queue that
+    // never drains again, invisible to the user and to us. [8.12.7]:
+    // this `catch` is exactly why nothing ever reached Sentry's global
+    // `unhandledrejection` handler, so the report is explicit.
+    await queue();
+    // A failed request, so the loop takes its status-update write — the
+    // write that a closed database rejects.
+    vi.spyOn(apiClient, 'request').mockRejectedValue(serverError(500));
+    const dexieError = new Error('DatabaseClosedError');
+    vi.spyOn(getOfflineDb()!.mutationQueue, 'update').mockRejectedValue(dexieError);
+
+    await expect(replayQueue()).resolves.toBeUndefined();
+
+    expect(captureQueueFailure).toHaveBeenCalledWith(dexieError);
+    // The error itself, never the row or its body — a queued mutation's
+    // payload is user-authored content.
+    expect(vi.mocked(captureQueueFailure).mock.calls[0]).toHaveLength(1);
   });
 });
 
@@ -414,6 +450,10 @@ describe('a snapshot must not claim an empty queue it could not read', () => {
 
     const snapshot = getQueueSnapshot();
     expect(snapshot.readFailed).toBe(true);
+    // [8.12.7]: swallowed here so the indicator can degrade gracefully,
+    // so it has to be reported deliberately or an unreadable database is
+    // never heard about.
+    expect(captureQueueFailure).toHaveBeenCalledWith(expect.any(Error));
     // "You have no unsynced changes" and "I cannot tell whether you have
     // unsynced changes" must not look the same to someone deciding
     // whether it is safe to close the tab.

@@ -10,13 +10,14 @@ import userEvent from '@testing-library/user-event';
 import type * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { captureRouteError } from '../api/sentry';
+import { captureRouteError, recordRouteChunkFallback } from '../api/sentry';
 import { renderWithRouter } from '../test/render-with-router';
 
 import { RouteErrorFallback } from './route-error-boundary';
 
 vi.mock('../api/sentry', () => ({
   captureRouteError: vi.fn(),
+  recordRouteChunkFallback: vi.fn(),
 }));
 
 function BrokenPage(): React.ReactNode {
@@ -213,13 +214,33 @@ describe('RouteErrorFallback', () => {
     expect(screen.queryByText(/offline/i)).toBeNull();
   });
 
-  it('does not report a deploy-replaced chunk to Sentry', async () => {
+  it('does not report a deploy-replaced chunk to Sentry, but does leave a breadcrumb', async () => {
     // Same rationale as the offline fork: a deploy is not an application
     // fault, and one issue per user per deploy would bury real errors.
+    // [8.12.7] settled that for good and added the breadcrumb, so the
+    // *next* real error in the session still carries the trail.
     renderWithRouter(buildRouteTree(ChromeUncachedRoutePage), { initialEntries: ['/broken'] });
 
     expect(await screen.findByRole('status')).toBeTruthy();
     expect(captureRouteError).not.toHaveBeenCalled();
+    expect(recordRouteChunkFallback).toHaveBeenCalledWith('update');
+  });
+
+  it('[8.12.7] leaves an offline-fork breadcrumb too, and none on the reported error path', async () => {
+    const restore = goOffline();
+    try {
+      renderWithRouter(buildRouteTree(ChromeUncachedRoutePage), { initialEntries: ['/broken'] });
+      expect(await screen.findByRole('status')).toBeTruthy();
+      expect(recordRouteChunkFallback).toHaveBeenCalledWith('offline');
+    } finally {
+      restore();
+    }
+
+    vi.mocked(recordRouteChunkFallback).mockClear();
+    renderWithRouter(buildRouteTree(), { initialEntries: ['/broken'] });
+
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(recordRouteChunkFallback).not.toHaveBeenCalled();
   });
 
   it('reloads through the caller-supplied handler from the update state', async () => {

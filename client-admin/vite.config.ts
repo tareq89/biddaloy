@@ -1,5 +1,6 @@
 import { resolve } from 'path';
 
+import { sentryVitePlugin } from '@sentry/vite-plugin';
 import tailwindcss from '@tailwindcss/vite';
 import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
@@ -94,11 +95,39 @@ export default defineConfig({
     ...(process.env.ANALYZE === 'true'
       ? [visualizer({ filename: 'dist/stats.html', gzipSize: true, brotliSize: true, open: true })]
       : []),
+    // [8.12.7]: uploads source maps and stamps the release, so a Sentry
+    // stack trace points at `students/index.tsx:42` instead of
+    // `app-a1b2c3.js:1:98421`, and every issue says which deploy it came
+    // from. There is no separate deploy pipeline to host this step (the
+    // Docker image is built from `scripts/build-all.sh` — see
+    // `docs/architecture/07-deployment.md`), so it lives in the build
+    // itself, gated on the token being present: without
+    // `SENTRY_AUTH_TOKEN` a normal `yarn build:client-admin` (dev, CI,
+    // anyone's laptop) produces byte-identical output to before, same
+    // "missing config degrades gracefully" shape as `VITE_SENTRY_DSN`.
+    ...(process.env.SENTRY_AUTH_TOKEN
+      ? [
+          sentryVitePlugin({
+            org: process.env.SENTRY_ORG,
+            project: process.env.SENTRY_PROJECT,
+            authToken: process.env.SENTRY_AUTH_TOKEN,
+            // Deleted after upload: the maps exist for Sentry, not for
+            // the public — shipping them would hand anyone the app's
+            // unminified source.
+            sourcemaps: { filesToDeleteAfterUpload: ['dist/**/*.map'] },
+          }),
+        ]
+      : []),
   ],
   // No `base`: [8.9.10] serves this single SPA from `/`, so asset URLs are
   // root-relative. It used to be `/admin/`, back when a second package was
   // expected to own `/student/`.
   build: {
+    // `'hidden'` = maps are generated (for the upload above) but no
+    // `//# sourceMappingURL` comment is emitted, so a browser never
+    // fetches them. Only when uploading: an ordinary build must not pay
+    // the extra build time or write `.map` files it will never delete.
+    ...(process.env.SENTRY_AUTH_TOKEN ? { sourcemap: 'hidden' as const } : {}),
     rollupOptions: {
       output: {
         // [8.12.1]: distinguishes the entry from route chunks by name, so
