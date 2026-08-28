@@ -1,5 +1,5 @@
 import { ApiError } from '@biddaloy/ui/api';
-import { ErrorState, Skeleton } from '@biddaloy/ui/components';
+import { ErrorState, SkeletonTable } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import type { UseQueryResult } from '@tanstack/react-query';
 
@@ -15,6 +15,14 @@ export interface TabQueryStateProps<T> {
    * crashing the whole page the way an unhandled rejection would. */
   forbiddenMessage: string;
   errorMessage: string;
+  /** What to show while the query is pending. Defaults to a shape that
+   * matches what this route's tabs actually render — six of its eight
+   * tabs are a `Table` (fees, invoices, payments, guardians, enrolment,
+   * activity) —
+   * so the tab does not jump when the data lands. The CLS ≤ 0.1 budget is
+   * the reason this is shaped at all rather than three generic bars
+   * ([8.13.11]); a tab whose content is a different shape passes its own. */
+  skeleton?: React.ReactNode;
   children: (data: T) => React.ReactNode;
 }
 
@@ -28,18 +36,13 @@ export function TabQueryState<T>({
   query,
   forbiddenMessage,
   errorMessage,
+  skeleton = <SkeletonTable rows={4} columns={5} />,
   children,
 }: TabQueryStateProps<T>) {
   const { t } = useTranslation('common');
 
   if (query.isPending) {
-    return (
-      <div className="flex flex-col gap-2" aria-hidden="true">
-        <Skeleton className="h-6 w-full" />
-        <Skeleton className="h-6 w-full" />
-        <Skeleton className="h-6 w-2/3" />
-      </div>
-    );
+    return <>{skeleton}</>;
   }
 
   if (query.isError) {

@@ -50,8 +50,22 @@ describe('ErrorState', () => {
     );
     const icon = screen.getByTestId('icon');
     const wrapper = icon.parentElement;
-    expect(wrapper?.className).toContain('text-muted-foreground');
+    // [8.13.11] re-tinted this well from `text-muted-foreground` to the
+    // `bg-destructive/10 text-destructive` pairing `button.tsx`'s
+    // `destructive` variant already uses — the one assertion in this file
+    // that pins a colour, and the one the restyle had to move. Every
+    // behavioural test around it is untouched.
+    expect(wrapper?.className).toContain('text-destructive');
+    expect(wrapper?.className).toContain('bg-destructive/10');
     expect(wrapper?.className).toContain('size-8');
+  });
+
+  it('sits on a solid, elevated card — the visual difference from EmptyState/RouteStatusState, which are dashed and flat', () => {
+    render(<ErrorState message="Something went wrong." onRetry={vi.fn()} />);
+    const container = screen.getByRole('alert');
+    expect(container.className).toContain('shadow-e1');
+    expect(container.className).toContain('bg-card');
+    expect(container.className).not.toContain('border-dashed');
   });
 
   it('renders no icon wrapper at all when no icon is passed', () => {

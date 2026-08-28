@@ -1,4 +1,4 @@
-import { StatusBadge } from '@biddaloy/ui/components';
+import { SkeletonFieldList, StatusBadge } from '@biddaloy/ui/components';
 import { useGuardian } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 
@@ -21,6 +21,9 @@ export function InformationTab({ guardianId }: InformationTabProps) {
   return (
     <TabQueryState
       query={query}
+      // Seven label/value pairs, not this route's default table shape —
+      // Information is the one guardians tab that renders a `<dl>`.
+      skeleton={<SkeletonFieldList fields={7} />}
       forbiddenMessage={t('detail.forbidden')}
       errorMessage={t('detail.loadError')}
     >

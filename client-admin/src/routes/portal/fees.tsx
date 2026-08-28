@@ -240,7 +240,7 @@ function PortalFees() {
   }
 
   if (summaryQuery.isPending || invoicesQuery.isPending) {
-    return <FeesSkeleton label={t('fees.loading')} />;
+    return <FeesSkeleton label={t('fees.loading')} showPicker={students.length > 1} />;
   }
 
   if (summaryQuery.isError || invoicesQuery.isError) {
@@ -289,13 +289,27 @@ function PortalFees() {
   );
 }
 
-function FeesSkeleton({ label }: { label: string }) {
+function FeesSkeleton({ label, showPicker = false }: { label: string; showPicker?: boolean }) {
   return (
     // No `<h1>` while pending — see this file's header table. The
     // `aria-busy` region carries the state for a screen reader instead.
     <div className="flex max-w-2xl flex-col gap-3" aria-busy="true" aria-live="polite">
       <span className="sr-only">{label}</span>
-      <Skeleton className="h-5 w-2/5" />
+      {/* `FeesHeader` is two stacked lines, not one: a `text-lg` title and
+          a `text-xs` student/meta line, `gap-0.5` apart. Standing in for
+          only the title left a ~1rem gap that the real header would then
+          close, pushing the three cards below down by that amount when it
+          lands ([8.13.11]). */}
+      <div className="flex flex-col gap-0.5">
+        <Skeleton className="h-[1.625rem] w-2/5" />
+        <Skeleton className="h-4 w-3/5" />
+      </div>
+      {/* `showPicker` is only true from the second FeesSkeleton call site
+          (student count already known, summary/invoices still pending) —
+          `StudentPicker`'s chips are `min-h-11` plus the nav's `pb-1`, so
+          h-12 reserves its real footprint instead of letting it insert
+          below the header once summary/invoices resolve. */}
+      {showPicker && <Skeleton className="h-12 w-full rounded-lg" />}
       <Skeleton className="h-32 w-full rounded-lg" />
       <Skeleton className="h-44 w-full rounded-lg" />
       <Skeleton className="h-28 w-full rounded-lg" />

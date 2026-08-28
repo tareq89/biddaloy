@@ -290,12 +290,26 @@ function PortalSkeleton({ label }: { label: string }) {
     // No `<h1>` while pending — see this file's header comment. The
     // `aria-busy` region carries the state for a screen reader instead, so
     // the frame is never silently blank.
-    <div className="flex flex-col gap-3" aria-busy="true" aria-live="polite">
+    // `max-w-2xl` and `gap-3` are `MultiChildView`'s own container classes,
+    // and the three heights below are the boxes it actually renders: the
+    // hero `Card` (p-4 around a label, a `text-3xl` figure and a meta
+    // line), the uppercase section label, and a `ChildCard` (p-3.5 around
+    // a name row, a meta line and an amount/badge row). ([8.13.11])
+    //
+    // This shape is only correct for the multi-child branch. `studentsQuery`
+    // is itself still pending here, so whether the real content will be
+    // `MultiChildView` or `SingleStudentView` isn't known yet — a
+    // single-student account still reflows when this resolves. Picking
+    // `MultiChildView`'s geometry over a compromise shape is deliberate:
+    // it's the more common case (see this file's header comment on why a
+    // single student skips the list entirely), and a shape that's wrong for
+    // neither branch would be wrong for both.
+    <div className="flex max-w-2xl flex-col gap-3" aria-busy="true" aria-live="polite">
       <span className="sr-only">{label}</span>
-      <Skeleton className="h-24 w-full rounded-lg" />
-      <Skeleton className="h-4 w-32" />
-      <Skeleton className="h-24 w-full rounded-lg" />
-      <Skeleton className="h-24 w-full rounded-lg" />
+      <Skeleton className="h-[7.25rem] w-full rounded-lg" />
+      <Skeleton className="mt-1 h-4 w-32" />
+      <Skeleton className="h-[6.25rem] w-full rounded-lg" />
+      <Skeleton className="h-[6.25rem] w-full rounded-lg" />
     </div>
   );
 }

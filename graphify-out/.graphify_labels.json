@@ -324,6 +324,22 @@
   "322": "@testing-library/dom",
   "323": "@testing-library/react",
   "324": "@typescript-eslint/utils",
+  "325": ".resolve",
   "326": "@vitest/coverage-v8",
-  "327": "@nestjs/core"
+  "327": "@nestjs/core",
+  "328": "empty-state.stories.tsx",
+  "329": "app-shell.stories.tsx",
+  "330": "receipt.tsx",
+  "331": "FailOpenThrottlerStorage",
+  "332": "Biddaloy CLAUDE.md",
+  "333": "client-admin/src/main.tsx entry point",
+  "334": "buildCorsOptions",
+  "335": "auth.e2e-spec.ts",
+  "336": "buildHelmetOptions",
+  "337": "rate-limit-tracker.ts",
+  "338": "use-detail-shell-tab.test.tsx",
+  "339": "use-list-shell-state.test.tsx",
+  "340": "rollup-plugin-visualizer",
+  "341": "exceljs",
+  "342": "supertest"
 }
