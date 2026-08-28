@@ -9,7 +9,7 @@ import {
   updateSentryTenantTag,
 } from '@biddaloy/ui/api';
 import { RouteErrorFallback, Toaster } from '@biddaloy/ui/components';
-import { I18nProvider } from '@biddaloy/ui/i18n';
+import { I18nProvider, useTranslation } from '@biddaloy/ui/i18n';
 import { enableMocking } from '@biddaloy/ui/mocks';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { createRouter, RouterProvider, type ErrorComponentProps } from '@tanstack/react-router';
@@ -37,7 +37,23 @@ const queryClient = createAppQueryClient();
 // `location.reload()` default. A named wrapper rather than an inline
 // arrow so the component identity is stable across renders.
 function RouteErrorFallbackWithUpdate(props: ErrorComponentProps) {
-  return <RouteErrorFallback {...props} onReloadForUpdate={reloadForUpdate} />;
+  // [8.12.6]: the copy is passed translated. `@biddaloy/ui` stays
+  // translation-agnostic and defaults its strings to English, which meant
+  // this Bangla-default app rendered "You're offline" in English on the
+  // one screen a user sees precisely when nothing else is working.
+  const { t } = useTranslation();
+  return (
+    <RouteErrorFallback
+      {...props}
+      onReloadForUpdate={reloadForUpdate}
+      offlineTitle={t('offline.pageTitle')}
+      offlineMessage={t('offline.pageExplanation')}
+      updateTitle={t('update.pageTitle')}
+      updateMessage={t('update.pageExplanation')}
+      updateRetryLabel={t('update.reload')}
+      retryLabel={t('offline.retry')}
+    />
+  );
 }
 
 // `basepath` matches `vite.config.ts`'s `base: '/admin/'` — without it,

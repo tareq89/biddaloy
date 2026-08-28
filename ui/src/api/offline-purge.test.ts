@@ -32,6 +32,13 @@ afterEach(async () => {
   vi.restoreAllMocks();
   await new Promise((resolve) => setTimeout(resolve, 0));
   clearAuthState();
+  // Awaited, not left in flight. `clearAuthState()` fires the database
+  // delete without awaiting it, so leaving it running lets it land inside
+  // the *next* test and wipe rows that test just seeded. Same fix as
+  // `offline-cache.test.ts`'s teardown; joining here is cheap because
+  // `deleteOfflineDb()` reuses an in-flight delete rather than starting a
+  // second one.
+  await deleteOfflineDb();
   window.localStorage.clear();
 });
 
