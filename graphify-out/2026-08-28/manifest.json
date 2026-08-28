@@ -1465,8 +1465,8 @@
     "semantic_hash": ""
   },
   "ui/package.json": {
-    "mtime": 1787906739.0601418,
-    "ast_hash": "a13798bb46c8c1a6eda8a3ce08a8dd95",
+    "mtime": 1787933950.5152135,
+    "ast_hash": "dbc68dd6585ed8d180a198a9044950ac",
     "semantic_hash": ""
   },
   "ui/scripts/check-api-types.mjs": {
@@ -1475,8 +1475,8 @@
     "semantic_hash": "ee5f5a3bef7a06467bd34888253ac499"
   },
   "ui/scripts/check-contrast.mjs": {
-    "mtime": 1787931397.4968948,
-    "ast_hash": "3f50bc1fe89b0ce886ceb8b6463446f2",
+    "mtime": 1787933950.5157857,
+    "ast_hash": "1da66b45b912326ce2d5edfed4ec3a71",
     "semantic_hash": ""
   },
   "ui/scripts/check-exports.mjs": {
@@ -1985,9 +1985,9 @@
     "semantic_hash": "0a97635916416e067f1a8d382760d8d5"
   },
   "ui/src/primitives/button.tsx": {
-    "mtime": 1787072022.67079,
-    "ast_hash": "b1330fe17568a55dba32a051d10cbaaa",
-    "semantic_hash": "b1330fe17568a55dba32a051d10cbaaa"
+    "mtime": 1787933332.6857092,
+    "ast_hash": "3c257a2efae4583422db7f66650f4c2c",
+    "semantic_hash": ""
   },
   "ui/src/primitives/checkbox.tsx": {
     "mtime": 1787072022.6708813,
@@ -2035,9 +2035,9 @@
     "semantic_hash": "b5f0edb7d6851f51ef081296e5283aa1"
   },
   "ui/src/primitives/tabs.tsx": {
-    "mtime": 1787072022.6719413,
-    "ast_hash": "67b91affdad33450fc2bd64e8d78d593",
-    "semantic_hash": "67b91affdad33450fc2bd64e8d78d593"
+    "mtime": 1787933332.6859355,
+    "ast_hash": "de45d0ffd6e97559417a5c63edf9fd3a",
+    "semantic_hash": ""
   },
   "ui/src/primitives/tooltip.tsx": {
     "mtime": 1787072022.672142,
@@ -2525,8 +2525,8 @@
     "semantic_hash": "3daebdd0945fd1534c90a6b3b3df9d0e"
   },
   "ui/tailwind.preset.ts": {
-    "mtime": 1787930725.65872,
-    "ast_hash": "5ce51bcfcd8c128cf1ac4aed62f67a12",
+    "mtime": 1787933332.6868043,
+    "ast_hash": "cc647b119d01aab90222e7c6f44fa305",
     "semantic_hash": ""
   },
   "ui/tsconfig.json": {
@@ -2560,8 +2560,8 @@
     "semantic_hash": "23f296f56f50e29a878e3a644feeed3e"
   },
   ".github/workflows/ci.yml": {
-    "mtime": 1787928868.2798002,
-    "ast_hash": "fc324d4500fa7b81e085547ec4add9d6",
+    "mtime": 1787933950.513398,
+    "ast_hash": "037bdd0ae3d18e18a56285b3bc53ee73",
     "semantic_hash": ""
   },
   ".github/workflows/codeql.yml": {
@@ -2580,8 +2580,8 @@
     "semantic_hash": ""
   },
   "client-admin/index.html": {
-    "mtime": 1787928868.280713,
-    "ast_hash": "326b6eff81865183eefc9b4db70348c7",
+    "mtime": 1787933950.5138965,
+    "ast_hash": "be2d57b0815653111ac833fac467546e",
     "semantic_hash": ""
   },
   "docker-compose.yml": {
@@ -2660,9 +2660,9 @@
     "semantic_hash": ""
   },
   "client-admin/src/components/ConnectionTestResultMessage.tsx": {
-    "mtime": 1787072022.5257962,
-    "ast_hash": "2faadc892da614e3310022a0093964b7",
-    "semantic_hash": "2faadc892da614e3310022a0093964b7"
+    "mtime": 1787933950.514292,
+    "ast_hash": "fc60668aacaba3ab407dfd14170c4783",
+    "semantic_hash": ""
   },
   "client-admin/src/components/MutationErrorMessage.tsx": {
     "mtime": 1787072022.5258772,
@@ -5115,13 +5115,13 @@
     "semantic_hash": ""
   },
   "client-admin/src/pwa/manifest.test.ts": {
-    "mtime": 1787928868.2842636,
-    "ast_hash": "c22f6252a820a7a357b36561ccd53066",
+    "mtime": 1787933950.5145957,
+    "ast_hash": "af13512bdf81afe93732d3164faf5ace",
     "semantic_hash": ""
   },
   "client-admin/src/pwa/manifest.ts": {
-    "mtime": 1787928868.2848046,
-    "ast_hash": "49b710ac3049f46e056609d0ad54ffb3",
+    "mtime": 1787933950.5148368,
+    "ast_hash": "c6cacb055ad0ea88a7eabe9d2b793b51",
     "semantic_hash": ""
   },
   "client-admin/src/pwa/register.ts": {
@@ -5355,8 +5355,8 @@
     "semantic_hash": ""
   },
   "docs/architecture/09-design-direction.md": {
-    "mtime": 1787930887.9946504,
-    "ast_hash": "9713ac98c9a9637b66f44313cf55be40",
+    "mtime": 1787933332.664242,
+    "ast_hash": "eeb829152ff4bd5a90351885de1a5fb3",
     "semantic_hash": ""
   },
   "ui/scripts/fonts/build-fonts.mjs": {
@@ -5400,13 +5400,28 @@
     "semantic_hash": ""
   },
   "ui/src/styles/design-tokens.spec.ts": {
-    "mtime": 1787930937.9508924,
-    "ast_hash": "4a7a735ebdfc44ffdce608ff5ab63f44",
+    "mtime": 1787933332.686236,
+    "ast_hash": "6ea4f9696cee29e89e40bf5b2c1b5e9f",
     "semantic_hash": ""
   },
   "ui/src/foundations/elevation.stories.tsx": {
-    "mtime": 1787930862.668018,
+    "mtime": 1787931524.8422928,
     "ast_hash": "c171d29d78b2619cec7ea817adaf9430",
+    "semantic_hash": ""
+  },
+  "e2e/reduced-motion.spec.ts": {
+    "mtime": 1787933332.664536,
+    "ast_hash": "243c6165d756eb1c75bb5dac7791de08",
+    "semantic_hash": ""
+  },
+  "e2e/color-scheme.spec.ts": {
+    "mtime": 1787934039.8111677,
+    "ast_hash": "6c1ab4fcba0365c09bed9229820e4f14",
+    "semantic_hash": ""
+  },
+  "ui/scripts/check-raw-palette.mjs": {
+    "mtime": 1787933505.0516098,
+    "ast_hash": "1fe3d2451fc670b5788453fef821298d",
     "semantic_hash": ""
   }
 }

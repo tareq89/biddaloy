@@ -139,6 +139,13 @@ jobs:
       - name: UI contrast check
         run: yarn workspace @biddaloy/ui check:contrast
 
+      # [8.13.7]: a raw Tailwind hue class (bg-zinc-900, text-blue-500) is
+      # invisible to the contrast check above — it reads tokens, and these
+      # classes bypass tokens entirely. Cheap regex scan, so it rides along
+      # in the same job.
+      - name: UI raw-palette check
+        run: yarn workspace @biddaloy/ui check:raw-palette
+
       # [8.7.5]: fails on a translation key present in one locale but not
       # the other, or a t() call with no matching key in any locale.
       # Cheap enough (a handful of JSON files + a source-tree regex scan)

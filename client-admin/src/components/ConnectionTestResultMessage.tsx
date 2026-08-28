@@ -25,7 +25,7 @@ export function ConnectionTestResultMessage({
       {data && (
         <p
           role="status"
-          className={data.success ? 'text-sm text-emerald-700' : 'text-sm text-destructive'}
+          className={data.success ? 'text-sm text-status-paid-fg' : 'text-sm text-destructive'}
         >
           {data.message}
         </p>
