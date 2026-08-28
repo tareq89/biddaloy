@@ -42,6 +42,45 @@ async function undersizedTargets(page: Page, minimum: number): Promise<string[]>
           (n) => n.nodeType === Node.TEXT_NODE && (n.textContent ?? '').trim() !== '',
         );
       }
+      /**
+       * A negative-inset pseudo-element is the standard hit-area-extension
+       * pattern (e.g. primitives/radio-group, primitives/tabs' trigger) —
+       * the pseudo-element receives clicks, so it counts toward the target
+       * size. But a negative offset alone doesn't prove that: a *decorative*
+       * pseudo-element can declare one too (e.g. tabs' active-tab underline
+       * sits `bottom-[-5px]` with its own `h-0.5`, floating 3px clear of the
+       * trigger's real edge) without covering the gap in between. Growth
+       * only counts when the pseudo's own computed geometry is genuinely
+       * contiguous with the element's edge on that side — either the box is
+       * inset-stretched (both opposing offsets set, so it fills the gap by
+       * construction, same as radio-group/checkbox) or its explicit size on
+       * that axis exactly reaches the offset with no float left over.
+       */
+      function pseudoGrowth(el: Element, pseudo: string) {
+        const s = getComputedStyle(el, pseudo);
+        const zero = { near: 0, far: 0 };
+        if (s.position !== 'absolute' || s.content === 'none') return { x: zero, y: zero };
+        const num = (v: string) => (v === 'auto' ? null : Number.parseFloat(v));
+        const axisGrowth = (near: number | null, far: number | null, size: number | null) => {
+          const stretched = near !== null && far !== null;
+          const out = { near: 0, far: 0 };
+          if (near !== null && near < 0) {
+            const claim = -near;
+            const gap = stretched ? 0 : claim - (size ?? 0);
+            if (gap <= 0.5) out.near = claim;
+          }
+          if (far !== null && far < 0) {
+            const claim = -far;
+            const gap = stretched ? 0 : claim - (size ?? 0);
+            if (gap <= 0.5) out.far = claim;
+          }
+          return out;
+        };
+        return {
+          x: axisGrowth(num(s.left), num(s.right), num(s.width)),
+          y: axisGrowth(num(s.top), num(s.bottom), num(s.height)),
+        };
+      }
       const out: string[] = [];
       document.querySelectorAll(selector).forEach((el) => {
         const rect = el.getBoundingClientRect();
@@ -53,17 +92,17 @@ async function undersizedTargets(page: Page, minimum: number): Promise<string[]>
         if (rect.width <= 1 && rect.height <= 1) return;
         if (el.getAttribute('aria-hidden') === 'true') return;
         if (isInlineTextLink(el)) return;
-        // A negative-inset ::after is the standard hit-area-extension
-        // pattern (e.g. primitives/radio-group) — the pseudo-element
-        // receives clicks, so it counts toward the target size.
-        const after = getComputedStyle(el, '::after');
-        let width = rect.width;
-        let height = rect.height;
-        if (after.position === 'absolute' && after.content !== 'none') {
-          const grow = (v: string) => Math.max(0, -Number.parseFloat(v) || 0);
-          width += grow(after.left) + grow(after.right);
-          height += grow(after.top) + grow(after.bottom);
-        }
+        // Two pseudo slots can both be in play on one element — e.g. tabs'
+        // trigger uses `after:` for the visible underline and `before:` for
+        // the invisible hit-area extension. Take the max per side rather
+        // than summing, since an overlapping claim from both isn't extra
+        // reach.
+        const before = pseudoGrowth(el, '::before');
+        const after = pseudoGrowth(el, '::after');
+        const width =
+          rect.width + Math.max(before.x.near, after.x.near) + Math.max(before.x.far, after.x.far);
+        const height =
+          rect.height + Math.max(before.y.near, after.y.near) + Math.max(before.y.far, after.y.far);
         if (width < min || height < min) {
           const label = el.getAttribute('aria-label') ?? (el.textContent ?? '').trim().slice(0, 40);
           out.push(
