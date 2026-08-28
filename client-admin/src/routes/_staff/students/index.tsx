@@ -1,6 +1,7 @@
 import { EnrollmentStatus, Permission } from '@biddaloy/shared';
 import {
   Button,
+  CachedDataNotice,
   Input,
   Select,
   SelectContent,
@@ -18,6 +19,7 @@ import {
   useHasPermission,
   useStudents,
   type Student,
+  type StudentListFilters,
   type StudentSortField,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
@@ -163,12 +165,20 @@ function StudentsListPage() {
     return () => clearTimeout(timeout);
   }, [searchInput]);
 
-  const studentsQuery = useStudents({
+  // [8.12.3]: the filter bag is lifted into a variable so the exact same
+  // object feeds the query *and* `CachedDataNotice`'s key. Rebuilding the
+  // key by hand at the render site is how the notice silently stops
+  // matching the query it is supposed to be describing.
+  // Annotated, not inferred: spreading a conditional `order` into a
+  // fresh object widens it to `string`, which `StudentListFilters` (an
+  // `'asc' | 'desc'` union) rightly rejects.
+  const studentListFilters: StudentListFilters = {
     page: state.page,
     limit: state.limit,
     ...toStudentListFilters(filters, state.sorting?.id),
     ...(state.sorting ? { order: state.sorting.desc ? 'desc' : 'asc' } : {}),
-  });
+  };
+  const studentsQuery = useStudents(studentListFilters);
   const classesQuery = useClasses();
   const sectionsQuery = useClassSections(filters.class_id);
 
@@ -304,6 +314,7 @@ function StudentsListPage() {
 
   return (
     <>
+      <CachedDataNotice queryKey={studentsQueryOptions(studentListFilters).queryKey} />
       <ListShell
         title={t('list.title')}
         primaryAction={

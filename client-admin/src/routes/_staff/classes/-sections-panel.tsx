@@ -10,6 +10,7 @@ import { Permission } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
+  CachedDataNotice,
   ErrorState,
   Skeleton,
   Table,
@@ -19,7 +20,12 @@ import {
   TableHeader,
   TableRow,
 } from '@biddaloy/ui/components';
-import { useClassSections, useHasPermission, type ClassSectionWithCount } from '@biddaloy/ui/hooks';
+import {
+  classSectionsQueryOptions,
+  useClassSections,
+  useHasPermission,
+  type ClassSectionWithCount,
+} from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
 
@@ -74,6 +80,11 @@ export function SectionsPanel({ classId, className, padded = true }: SectionsPan
 
   return (
     <div className={`flex flex-col gap-3 ${padded ? 'p-4' : ''}`}>
+      {/* [8.12.3]: lives here rather than in `$classId.tsx` so both
+          consumers of this panel — the class detail page's Sections tab
+          and the list page's inline expansion — label stale sections,
+          not just one of them. */}
+      <CachedDataNotice queryKey={classSectionsQueryOptions(classId).queryKey} />
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold">{t('sections.heading', { className })}</h2>
         {canManage && (

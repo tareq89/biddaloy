@@ -27,6 +27,7 @@ import {
   apiCacheKeyFor,
   isCacheableApiRequest,
   isHashedAssetRequest,
+  SW_CACHED_AT_HEADER,
 } from './pwa/cache-policy';
 
 declare const self: ServiceWorkerGlobalScope & {
@@ -89,8 +90,30 @@ registerRoute(
       // `Promise.resolve` rather than an `async` hook: both decisions are
       // synchronous, and Workbox only requires a thenable.
       {
-        cacheWillUpdate: ({ response }) =>
-          Promise.resolve(response.status === 200 ? response : null),
+        // Explicitly [200] only: Workbox's default also caches opaque (0)
+        // responses, and an opaque response here would be an unreadable
+        // stand-in for real data.
+        //
+        // The stored copy is stamped with `x-sw-cached-at`, read back by
+        // `offlineCachedQueryFn` (`@biddaloy/ui/api`) to decide whether a
+        // response came from the network or from this cache. The stamp is
+        // the *browser's* clock, deliberately: the obvious alternative —
+        // comparing the server's `Date` header against `Date.now()` —
+        // compares two different clocks, so a phone running a couple of
+        // minutes fast would label every fresh response as stale and
+        // permanently show "showing saved data" to a fully-online user.
+        // Unsynced clocks are routine on the low-end Android this epic
+        // targets. Same clock in, same clock out, no skew budget needed.
+        cacheWillUpdate: async ({ response }) => {
+          if (response.status !== 200) return null;
+          const headers = new Headers(response.headers);
+          headers.set(SW_CACHED_AT_HEADER, String(Date.now()));
+          return new Response(await response.blob(), {
+            status: response.status,
+            statusText: response.statusText,
+            headers,
+          });
+        },
       },
       {
         // The tenant-scoped key — see `pwa/cache-policy.ts`. Applied to

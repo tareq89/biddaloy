@@ -4,6 +4,16 @@
  * themselves (see the former's own comment on `cleanupTestState`). Wired
  * into `vitest.config.ts`'s `setupFiles` for every project.
  */
+// [8.12.3] Must be the first import in this file, and this file is the
+// first thing every project runs. `dexie` captures `globalThis.indexedDB`
+// once, at *its* import time (`Dexie.dependencies`), and this setup file
+// transitively imports `api/auth-state.ts` → `api/offline-db.ts` → dexie.
+// Installing the polyfill from inside an individual test file is
+// therefore too late: dexie has already recorded "no IndexedDB here" and
+// every query throws `MissingAPIError`. Neither jsdom nor Node provides
+// IndexedDB, so without this the offline cache is untestable at all.
+import 'fake-indexeddb/auto';
+
 import { afterAll, afterEach, beforeAll } from 'vitest';
 
 import './a11y/matchers';

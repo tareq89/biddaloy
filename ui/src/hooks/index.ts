@@ -10,6 +10,8 @@
  */
 export { createEntityKeys, type EntityKeys } from './query-keys';
 export { shouldRetryQuery } from './retry';
+export { useOnline } from './use-online';
+export { useQueryFreshness } from './use-query-freshness';
 export { switchActiveTenant } from './tenant';
 export { login, logout, logoutAll } from './auth';
 export { useAccessToken, useActiveRole, useActiveTenant, useCurrentUserId } from './auth-state';

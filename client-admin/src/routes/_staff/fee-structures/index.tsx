@@ -11,6 +11,7 @@
 import { Permission } from '@biddaloy/shared';
 import {
   Button,
+  CachedDataNotice,
   Select,
   SelectContent,
   SelectItem,
@@ -115,11 +116,14 @@ function FeeStructuresListPage() {
   const canUpdate = useHasPermission(Permission.FEE_STRUCTURE_UPDATE);
   const canDelete = useHasPermission(Permission.FEE_STRUCTURE_DELETE);
 
-  const structuresQuery = useFeeStructures({
+  // [8.12.3]: shared between the query and `CachedDataNotice`'s key —
+  // see `students/index.tsx` for why the object is lifted.
+  const structureListFilters = {
     page: state.page,
     limit: state.limit,
     ...toListFilters(filters),
-  });
+  };
+  const structuresQuery = useFeeStructures(structureListFilters);
   const yearsQuery = useAcademicYears();
   const classesQuery = useClasses(
     filters.academic_year_id !== undefined ? { academic_year_id: filters.academic_year_id } : {},
@@ -245,6 +249,7 @@ function FeeStructuresListPage() {
 
   return (
     <RegionConfigProvider value={regionConfig}>
+      <CachedDataNotice queryKey={feeStructuresQueryOptions(structureListFilters).queryKey} />
       <ListShell
         title={t('list.title')}
         primaryAction={

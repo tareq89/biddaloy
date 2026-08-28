@@ -46,6 +46,17 @@ const AUTH_PATH_PREFIX = '/api/v1/auth/';
 
 export const TENANT_HEADER = 'X-Tenant-ID';
 
+/**
+ * Stamped onto every response this worker stores, holding `Date.now()` at
+ * the moment it was cached. Read by `offlineCachedQueryFn`
+ * (`@biddaloy/ui/api`) to tell a live network response from a replay of
+ * this cache, and to age the replay honestly.
+ *
+ * Must stay in sync with the copy in `ui/src/api/offline-cache.ts`, which
+ * cannot import from an app package. Both sides pin the literal in tests.
+ */
+export const SW_CACHED_AT_HEADER = 'x-sw-cached-at';
+
 /** Stands in for a `Request` so tests don't need one — jsdom's `Request`
  * support is not something this policy should depend on. */
 export interface TenantScopedRequest {

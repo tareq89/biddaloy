@@ -2,6 +2,7 @@ import type { TeacherDesignation } from '@biddaloy/shared';
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
+import { offlineCachedQueryFn } from '../api/offline-cache';
 import type { components } from '../api/schema';
 
 import { createEntityKeys } from './query-keys';
@@ -75,12 +76,15 @@ const CLASS_FILTER_LIMIT = 100;
 
 export function classesQueryOptions(filters: ClassListFilters = {}) {
   const params = { limit: CLASS_FILTER_LIMIT, ...filters };
+  const queryKey = classKeys.list(params);
   return queryOptions({
-    queryKey: classKeys.list(params),
-    queryFn: async ({ signal }) => {
-      const res = await apiClient.get<PaginatedClasses>('/classes', { params, signal });
-      return res.data;
-    },
+    queryKey,
+    // [8.12.3] offline read cache — see `studentsQueryOptions`.
+    queryFn: offlineCachedQueryFn<PaginatedClasses>({
+      entity: 'classes',
+      queryKey,
+      fetch: (signal) => apiClient.get<PaginatedClasses>('/classes', { params, signal }),
+    }),
     retry: shouldRetryQuery,
   });
 }
@@ -122,14 +126,16 @@ export function classSectionsKey(classId: string | undefined) {
  * section (see `ClassSectionWithCount` above) — `SectionService.findAll`
  * already returns it, so this is a type-only change, not a new request. */
 export function classSectionsQueryOptions(classId: string | undefined) {
+  const queryKey = classSectionsKey(classId);
   return queryOptions({
-    queryKey: classSectionsKey(classId),
-    queryFn: async ({ signal }) => {
-      const res = await apiClient.get<ClassSectionWithCount[]>(`/classes/${classId}/sections`, {
-        signal,
-      });
-      return res.data;
-    },
+    queryKey,
+    // [8.12.3] offline read cache — see `studentsQueryOptions`.
+    queryFn: offlineCachedQueryFn<ClassSectionWithCount[]>({
+      entity: 'class-sections',
+      queryKey,
+      fetch: (signal) =>
+        apiClient.get<ClassSectionWithCount[]>(`/classes/${classId}/sections`, { signal }),
+    }),
     enabled: classId !== undefined,
     retry: shouldRetryQuery,
   });

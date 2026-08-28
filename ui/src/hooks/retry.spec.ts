@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '../api/errors';
 
@@ -29,5 +29,33 @@ describe('shouldRetryQuery', () => {
     expect(shouldRetryQuery(0, new Error('network down'))).toBe(true);
     expect(shouldRetryQuery(1, new Error('network down'))).toBe(true);
     expect(shouldRetryQuery(2, new Error('network down'))).toBe(false);
+  });
+
+  describe('[8.12.3] when the browser reports no network at all', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it('does not retry, so the Dexie fallback is reached immediately', () => {
+      vi.stubGlobal('navigator', { onLine: false });
+
+      // Two retries of a request that provably cannot leave the device
+      // buy nothing but ~3s of spinner before the cached copy appears.
+      expect(shouldRetryQuery(0, new Error('network down'))).toBe(false);
+    });
+
+    it('still retries when the browser claims to be online', () => {
+      // `onLine === true` proves nothing (a captive portal reads as
+      // online), so it must not change the existing behaviour.
+      vi.stubGlobal('navigator', { onLine: true });
+
+      expect(shouldRetryQuery(0, new Error('network down'))).toBe(true);
+    });
+
+    it('falls through where there is no navigator at all', () => {
+      vi.stubGlobal('navigator', undefined);
+
+      expect(shouldRetryQuery(0, new Error('network down'))).toBe(true);
+    });
   });
 });
