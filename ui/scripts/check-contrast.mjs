@@ -217,6 +217,45 @@ for (const [roleKey, cssVarName] of Object.entries(roleVarNames)) {
   expectVar(darkVars, ':root[data-theme="dark"]', cssVarName, darkExpected);
 }
 
+/**
+ * The brand hex also appears OUTSIDE `ui/`, in files this script previously
+ * never opened: the PWA manifest constant, the `<meta name="theme-color">`
+ * tag, and the favicon artwork. A `.webmanifest` is consumed by the OS and an
+ * `index.html` meta tag is read before any CSS loads, so neither can resolve a
+ * custom property — the hex has to be repeated as a literal in both.
+ *
+ * Repeated literals drift. During [8.13.3]'s re-grade the favicon and the
+ * three PWA PNGs were missed on the first pass precisely because nothing
+ * checked them, while a comment in manifest.ts claimed this script already
+ * did. It didn't: everything above only ever reads globals.css and
+ * tailwind.preset.ts. So check them here, where the brand value is known.
+ *
+ * The PNG icons are renders of favicon.svg and cannot be verified by reading
+ * text; see #358.
+ */
+const repoRoot = resolve(pkgRoot, '..');
+const brandHex = preset.brand[600].toLowerCase();
+const brandHexSites = [
+  ['client-admin/src/pwa/manifest.ts', 'PWA manifest theme_color constant'],
+  ['client-admin/index.html', '<meta name="theme-color">'],
+  ['client-admin/public/favicon.svg', 'favicon artwork'],
+];
+for (const [relPath, description] of brandHexSites) {
+  let contents;
+  try {
+    contents = readFileSync(join(repoRoot, relPath), 'utf8');
+  } catch {
+    errors.push(`${relPath} could not be read — the ${description} is unguarded`);
+    continue;
+  }
+  if (!contents.toLowerCase().includes(brandHex)) {
+    errors.push(
+      `${relPath} does not contain the brand-600 hex ${brandHex} — ` +
+        `the ${description} has drifted from tailwind.preset.ts`,
+    );
+  }
+}
+
 if (errors.length > 0) {
   console.error('check-contrast: FAILED\n');
   for (const error of errors) console.error(`  - ${error}`);
@@ -226,5 +265,6 @@ if (errors.length > 0) {
 console.log(
   `check-contrast: OK — ${preset.CONTRAST_PAIRS.length} pairs meet WCAG 2.2, ` +
     `${Object.keys(preset.typography.ramp).length} type steps mirrored, ` +
-    'CSS mirror matches tailwind.preset.ts by name and scope.',
+    `CSS mirror matches tailwind.preset.ts by name and scope, ` +
+    `and ${brandHexSites.length} out-of-ui brand-hex sites match brand-600.`,
 );

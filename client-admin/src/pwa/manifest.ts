@@ -25,9 +25,13 @@
 /** Matches `--color-brand-600` in `ui/src/styles/globals.css`. Repeated as
  * a literal because a `.webmanifest` is consumed by the OS, not by
  * Tailwind — there is no CSS custom property to resolve at install time.
- * `ui/scripts/check-contrast.mjs` owns the token itself; this constant only
- * has to stay equal to it. */
-export const THEME_COLOR = '#2563eb';
+ *
+ * `ui/scripts/check-contrast.mjs` owns the token itself, and since [8.13.3]
+ * it also asserts that this file, `index.html`'s `theme-color` meta tag and
+ * `public/favicon.svg` all still contain the brand-600 hex. Before that it
+ * only ever read `globals.css` and `tailwind.preset.ts`, so this literal and
+ * the favicon were free to drift — and did. */
+export const THEME_COLOR = '#4a3fd4';
 
 interface PwaManifestIcon {
   src: string;

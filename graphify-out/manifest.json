@@ -985,7 +985,7 @@
     "semantic_hash": ""
   },
   "client-admin/vite.config.ts": {
-    "mtime": 1787913817.4698126,
+    "mtime": 1787914229.2751896,
     "ast_hash": "0814d624ec964d7d700ed90e405f85a3",
     "semantic_hash": ""
   },
@@ -1475,8 +1475,8 @@
     "semantic_hash": "ee5f5a3bef7a06467bd34888253ac499"
   },
   "ui/scripts/check-contrast.mjs": {
-    "mtime": 1787912923.3040073,
-    "ast_hash": "2ed4d9215c8b5369553f0f844619cec8",
+    "mtime": 1787924867.1049733,
+    "ast_hash": "48bc6f3ff9906dd95326cce3a5aafc57",
     "semantic_hash": ""
   },
   "ui/scripts/check-exports.mjs": {
@@ -2525,8 +2525,8 @@
     "semantic_hash": "3daebdd0945fd1534c90a6b3b3df9d0e"
   },
   "ui/tailwind.preset.ts": {
-    "mtime": 1787912923.3045993,
-    "ast_hash": "1aeb55fa615e6cc63deb854510cbefc2",
+    "mtime": 1787924838.53078,
+    "ast_hash": "14fed2e62e886bdba5f114b3e65d43bb",
     "semantic_hash": ""
   },
   "ui/tsconfig.json": {
@@ -2560,7 +2560,7 @@
     "semantic_hash": "23f296f56f50e29a878e3a644feeed3e"
   },
   ".github/workflows/ci.yml": {
-    "mtime": 1787912923.3014705,
+    "mtime": 1787914229.2725916,
     "ast_hash": "2510ecefa152f44cc6d1441e9dc61501",
     "semantic_hash": ""
   },
@@ -2580,8 +2580,8 @@
     "semantic_hash": ""
   },
   "client-admin/index.html": {
-    "mtime": 1787906739.002364,
-    "ast_hash": "b5338a46aff6d7e939d7576d996b3cae",
+    "mtime": 1787914419.5717764,
+    "ast_hash": "326b6eff81865183eefc9b4db70348c7",
     "semantic_hash": ""
   },
   "docker-compose.yml": {
@@ -3760,7 +3760,7 @@
     "semantic_hash": "bbd981c71c0e8daf1d0b7360d65d41f8"
   },
   "client-admin/src/routes/_staff/students/-detail/fees-tab.tsx": {
-    "mtime": 1787913796.0436895,
+    "mtime": 1787914229.2744186,
     "ast_hash": "53ec850a689ba99c46c4c391bd514651",
     "semantic_hash": ""
   },
@@ -4015,7 +4015,7 @@
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/invoices/index.tsx": {
-    "mtime": 1787913788.092421,
+    "mtime": 1787914229.2742198,
     "ast_hash": "f074236e9e89d3f71842e2ff115e235f",
     "semantic_hash": ""
   },
@@ -4235,7 +4235,7 @@
     "semantic_hash": ""
   },
   "lighthouserc.cjs": {
-    "mtime": 1787912923.3034842,
+    "mtime": 1787914229.2970092,
     "ast_hash": "19fc091a4533d90590a3721230eeebb9",
     "semantic_hash": ""
   },
@@ -4245,7 +4245,7 @@
     "semantic_hash": ""
   },
   "scripts/lighthouse-auth.cjs": {
-    "mtime": 1787913862.8098626,
+    "mtime": 1787914229.2975092,
     "ast_hash": "bea345c29b5c302bc9363230d9828296",
     "semantic_hash": ""
   },
@@ -4845,7 +4845,7 @@
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/communications/reminders.tsx": {
-    "mtime": 1787913800.9725251,
+    "mtime": 1787914229.2738965,
     "ast_hash": "9277c7cd295d4278b256c2602f251511",
     "semantic_hash": ""
   },
@@ -4890,7 +4890,7 @@
     "semantic_hash": ""
   },
   "client-admin/src/routes/_staff/communications/-bulk/bulk-reminder-wizard.tsx": {
-    "mtime": 1787913788.0929794,
+    "mtime": 1787914229.27364,
     "ast_hash": "e33001ef82d8fa1d0b8f184ecbbec9fd",
     "semantic_hash": ""
   },
@@ -5105,23 +5105,23 @@
     "semantic_hash": ""
   },
   "client-admin/src/pwa/cache-policy.test.ts": {
-    "mtime": 1787913826.1325073,
+    "mtime": 1787914229.273012,
     "ast_hash": "dc18668f4f7e282087620dcf422e5920",
     "semantic_hash": ""
   },
   "client-admin/src/pwa/cache-policy.ts": {
-    "mtime": 1787913817.4688196,
+    "mtime": 1787914229.2733784,
     "ast_hash": "90913cd962ce39871ab52cf20d36a7f2",
     "semantic_hash": ""
   },
   "client-admin/src/pwa/manifest.test.ts": {
-    "mtime": 1787906739.0080528,
-    "ast_hash": "1b7b9f6f38c807549a1aba63bef6abce",
+    "mtime": 1787914419.572635,
+    "ast_hash": "c22f6252a820a7a357b36561ccd53066",
     "semantic_hash": ""
   },
   "client-admin/src/pwa/manifest.ts": {
-    "mtime": 1787906739.0081613,
-    "ast_hash": "74b5232fc2370b73805c3404d7106f08",
+    "mtime": 1787924894.097032,
+    "ast_hash": "49b710ac3049f46e056609d0ad54ffb3",
     "semantic_hash": ""
   },
   "client-admin/src/pwa/register.ts": {
@@ -5130,7 +5130,7 @@
     "semantic_hash": ""
   },
   "client-admin/src/sw.ts": {
-    "mtime": 1787913817.4692523,
+    "mtime": 1787914229.2748687,
     "ast_hash": "161c3b2b026499dabb8ee6711f728ecf",
     "semantic_hash": ""
   },
@@ -5150,23 +5150,23 @@
     "semantic_hash": ""
   },
   "client-admin/public/favicon.svg": {
-    "mtime": 1787906739.0032265,
-    "ast_hash": "589a712b462d58d822a4dff4e64e4fda",
+    "mtime": 1787924884.6568046,
+    "ast_hash": "a94b84e9c830ff06568d22179a701292",
     "semantic_hash": ""
   },
   "client-admin/public/icons/maskable-512.png": {
-    "mtime": 1787906739.003545,
-    "ast_hash": "29e18fefc86a8132791ed26c6ad0d5e2",
+    "mtime": 1787914504.2667882,
+    "ast_hash": "2915b4c596b15dabb2eba867641a1c5e",
     "semantic_hash": ""
   },
   "client-admin/public/icons/pwa-192.png": {
-    "mtime": 1787906739.003649,
-    "ast_hash": "8189c4e883edaa2187c2590b18c0c00a",
+    "mtime": 1787914504.2047968,
+    "ast_hash": "bc0494a4577c155ee3fd336b210a9257",
     "semantic_hash": ""
   },
   "client-admin/public/icons/pwa-512.png": {
-    "mtime": 1787906739.0039434,
-    "ast_hash": "01fb47427121b9108b4431ee58961678",
+    "mtime": 1787914504.2504194,
+    "ast_hash": "d68e15cfa65546c70ffce2560819002a",
     "semantic_hash": ""
   },
   "client-admin/src/pwa/register.test.ts": {
@@ -5355,32 +5355,32 @@
     "semantic_hash": ""
   },
   "docs/architecture/09-design-direction.md": {
-    "mtime": 1787913889.1380594,
-    "ast_hash": "bd8de0a68b2cb43c67a9f13be5875309",
+    "mtime": 1787925000.8023078,
+    "ast_hash": "88e483faa64a7343d0cfadf08e1771c1",
     "semantic_hash": ""
   },
   "ui/scripts/fonts/build-fonts.mjs": {
-    "mtime": 1787912923.3222156,
+    "mtime": 1787914229.2987394,
     "ast_hash": "ffc9407933194f1ff5305cebd13c2601",
     "semantic_hash": ""
   },
   "ui/src/components/typography.stories.tsx": {
-    "mtime": 1787913766.6107535,
+    "mtime": 1787914229.299231,
     "ast_hash": "8afd3a2733a3035d4c8240fc6ec6f4aa",
     "semantic_hash": ""
   },
   "ui/src/styles/fonts.spec.ts": {
-    "mtime": 1787912923.323151,
+    "mtime": 1787914229.3000743,
     "ast_hash": "840dae3034fafe05469766d0e45e464f",
     "semantic_hash": ""
   },
   "ui/src/styles/fonts/OFL-anek-bangla.txt": {
-    "mtime": 1787912923.3235683,
+    "mtime": 1787914229.3009918,
     "ast_hash": "26e5ec398edabccb66807465fb44293b",
     "semantic_hash": ""
   },
   "ui/src/styles/fonts/OFL-anek-latin.txt": {
-    "mtime": 1787912923.3238792,
+    "mtime": 1787914229.3013055,
     "ast_hash": "26e5ec398edabccb66807465fb44293b",
     "semantic_hash": ""
   }

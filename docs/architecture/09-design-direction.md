@@ -256,13 +256,26 @@ flowchart LR
 **No neutral scale value changes.** Only which role points at which value.
 That keeps `check-contrast.mjs`'s drift check purely mechanical.
 
-**The role swap alone is a no-op on screen.** Nearly every surface
-component paints `bg-background`, and `--color-background` aliases
-`--color-bg` — the _ground_ role. After the swap those components repaint
-`#f8fafc` on an `#f8fafc` page: zero separation. The utility that reads
-the _surface_ role is `bg-card` (`--color-card` → `--color-surface`). So
-the inversion ships in two parts: #344 swaps the roles, and #350 moves
-every lifted surface to `bg-card`:
+**The role swap alone does not produce the picture below — on its own it
+makes things worse.** Nearly every surface component paints
+`bg-background`, and `--color-background` aliases `--color-bg` — the
+_ground_ role. After the swap those components repaint `#f8fafc`. The
+utility that reads the _surface_ role is `bg-card` (`--color-card` →
+`--color-surface`). So the inversion ships in three parts: #344 swaps the
+roles, #348 makes the page itself read the ground token, and #350 moves
+every lifted surface to `bg-card`.
+
+Between those tickets the epic branch renders an **inverted interim
+state**, and this is expected rather than a defect. #344 alone leaves
+`client-admin/index.html`'s `<body>` hardcoded to `bg-white` (that line is
+#348's), so cards, the bottom nav, outline buttons and the active tab
+render `#f8fafc` on a white page — grey panels on white, which is exactly
+the _Before_ "cards sink" picture this section sets out to fix. It is safe
+to pass through because the epic merges to `main` as a **single PR**, so
+no user ever sees a branch state; and because every text and border pair
+on the new ground still clears AA, so accessibility does not regress while
+it is in that state. Do not "fix" it inside #344 by pulling #348's or
+#350's work forward — that collapses three reviewable tickets into one.
 
 ```mermaid
 flowchart LR
@@ -306,6 +319,18 @@ cards):
    buttons become white pills on the grey ground. Intended — the
    fee/invoice mockup shows it. Their hover already darkens via
    `color-mix`, so the hover direction survives.
+
+   **Known limitation, allocated to #351.** That reasoning holds for
+   page-level chrome sitting on the ground, but not inside the card
+   interiors this same section turns white. `ui/src/primitives/button.tsx:16`
+   renders the secondary variant as `bg-secondary text-secondary-foreground`
+   with **no border**, so on a `bg-card` panel it is white-on-white and only
+   its `color-mix(… 5%)` hover reveals it. This is latent today — no
+   `variant="secondary"` call site exists anywhere — and becomes a real
+   defect the moment one is added. #351 owns the fix (most likely a border
+   or a distinct surface for the variant), not #344: changing the token
+   value here would undo the deliberate white-pill decision above.
+
 2. `--color-muted` and `--color-accent` **stop** aliasing
    `--color-surface`. Kept as aliases they turn white, and every
    `hover:bg-muted` / `focus:bg-accent` highlight becomes white-on-white —
@@ -318,11 +343,25 @@ cards):
    direction_: resting grey — invisible against the grey page — and hover
    white. With the two fixes above it rests `bg-card` white and hovers to
    `#f1f5f9`, the same direction as today.
-4. The AdminShell sidebar: `--color-sidebar` aliases `--color-bg`, so the
-   rail turns grey and matches the page ground. **Approved as-is** — a
-   ground-coloured rail beside lifting content cards. Hover/active items
-   lift to white via `--color-sidebar-accent` (surface), and the
-   _selected_ nav item uses `brand-50`/`brand-700` (7.89:1, §3.6).
+4. The AdminShell sidebar. **An earlier draft of this section described
+   tokens that nothing renders.** The `--color-sidebar-*` group is dead
+   code: `bg-sidebar`, `bg-sidebar-accent` and `bg-sidebar-primary` appear
+   in no component in `ui/src` or `client-admin/src`. What actually paints
+   the rail is `bg-muted/30` (`ui/src/components/app-shell.tsx:333`), and
+   nav state is `hover:bg-accent` plus `activeProps: 'bg-accent'`
+   (`app-shell.tsx:160-161`).
+
+   So the token that really governs the nav is `--color-accent`, which
+   §3.3 re-points to `neutral-100` `#f1f5f9`. The honest consequence:
+   hovered and selected nav items get **darker** — a light grey wash —
+   rather than lifting to white as the earlier draft claimed. The rail
+   itself becomes `neutral-100` at 30% over the page. **Approved as-is**:
+   a subtly tinted rail beside lifting white content is the intended
+   relationship, and a darker-on-hover nav is conventional for a rail that
+   is itself tinted. The `brand-50`/`brand-700` selected-item treatment
+   (7.89:1, §3.6) is **not** implemented and is not implied by this
+   ticket; #351 owns interactive states, and #353 owns deciding whether to
+   wire the `--color-sidebar-*` group up or delete it.
 
 ### 3.4 Dark mode
 
@@ -566,15 +605,28 @@ That is the entire motion vocabulary. Nothing else animates.
 
 ## 8. Brand colour outside the token files
 
-Two places hardcode the brand hex outside `ui/`. Both must change to
-`#4a3fd4` in **#344**, or the PWA install banner and the mobile browser
-chrome will keep showing the old blue:
+Several places hardcode the brand hex outside `ui/`. All must change to
+`#4a3fd4` in **#344**, or the PWA install banner, the browser tab and the
+mobile browser chrome will keep showing the old blue:
 
-| File                                       | What                           |
-| ------------------------------------------ | ------------------------------ |
-| `client-admin/index.html:18`               | `<meta name="theme-color">`    |
-| `client-admin/src/pwa/manifest.ts:30`      | `THEME_COLOR`                  |
-| `client-admin/src/pwa/manifest.test.ts:38` | the assertion on that constant |
+| File                                         | What                              |
+| -------------------------------------------- | --------------------------------- |
+| `client-admin/index.html:18`                 | `<meta name="theme-color">`       |
+| `client-admin/src/pwa/manifest.ts:30`        | `THEME_COLOR`                     |
+| `client-admin/src/pwa/manifest.test.ts:38`   | the assertion on that constant    |
+| `client-admin/public/favicon.svg:2`          | the `<rect fill>` behind the "B"  |
+| `client-admin/public/icons/pwa-192.png`      | raster install icon (same mark)   |
+| `client-admin/public/icons/pwa-512.png`      | raster install icon (same mark)   |
+| `client-admin/public/icons/maskable-512.png` | maskable install icon (same mark) |
+
+The bottom four rows were missed when this section was first written and
+were found during #344; recorded here per §10.3. There is no SVG→PNG step
+in the repo and no rasteriser on the build image, so the three PNGs were
+re-coloured in place rather than re-rendered: each pixel's blend fraction
+between the old brand and white was solved from its own channels and
+re-mixed against the new brand, leaving geometry, alpha and dimensions
+byte-identical. Anything that changes the icon _shape_ still needs a real
+rasteriser.
 
 Separately, `client-admin/index.html:20` currently hardcodes
 `class="bg-white text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100"` on
@@ -601,20 +653,20 @@ This table is the contract. If a downstream ticket needs a value that is
 not here, that is a gap in this document — reopen #342 rather than
 inventing one.
 
-| Ticket                                          | Receives from this document                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **#343** Two-script type system                 | §2 in full: Anek Latin + Anek Bangla, family name `Biddaloy Sans`, both `unicode-range` strings, `wght` 400–800, `wdth` pinned 100, `font-display: swap`, metric-matched fallback, the 8-step ramp, 45 + 135 = 180 KB budget and the 400–700 relief valve. Also: add `http://localhost:5174/portal` to `lighthouserc.cjs`'s url list (§2), and rewrite the now-stale "Spacing and typography are deliberately absent" comment block in `ui/tailwind.preset.ts` — the type ramp is exactly the "real need" that comment was waiting for |
-| **#344** Palette re-grade                       | §3: brand ramp `#eef1fe` / `#dfe3fd` / `#8f96f4` / `#4a3fd4` / `#3d33b8`; ground↔surface inversion; `dark.brand` → `#8f96f4`; dark `--color-primary-foreground` → `#0f172a` (§3.4); `--color-muted` / `--color-accent` → `neutral-100` in light (§3.3); the `CONTRAST_PAIRS` changes in §3.6 — 3 adds + 2 literal updates, not nine adds; plus §8's `theme-color` and `THEME_COLOR` → `#4a3fd4`                                                                                                                                        |
-| **#345** Split border roles                     | §4: `--color-border-subtle` (`#e2e8f0` light / `#334155` dark) and `--color-border-functional` (`#64748b` both); the utility is `border-border-subtle` / `border-border-functional` (§4); the rule that subtle gets no contrast pair. Also: `light.borderSubtle` / `dark.borderSubtle` in the preset and the `roleVarNames` extension in `check-contrast.mjs` (§1)                                                                                                                                                                     |
-| **#346** Elevation scale                        | §5: the three `--shadow-e*` token values, light and dark; the dark border-plus-shadow rule. Also: a `shadows` export in the preset and its drift check (§1)                                                                                                                                                                                                                                                                                                                                                                            |
-| **#347** Motion tokens                          | §7: three durations, two easings, and the exact global reduced-motion rule. Also: a `motion` export in the preset and its drift check (§1)                                                                                                                                                                                                                                                                                                                                                                                             |
-| **#348** Token-driven `<body>`                  | §8 in full: `client-admin/index.html:20` → `bg-background text-foreground`; PWA `background_color` → `#f8fafc` plus its comment and `manifest.test.ts:40`; §3.4.1's `@custom-variant dark` line. **Size note:** bigger than its `size-S` label: three files plus a behavioural prerequisite for #353                                                                                                                                                                                                                                   |
-| **#349** Density modes                          | §6: the full numeric table, the `data-density` CSS-variable mechanism, and the complete per-variant 44 px mapping table. The mechanism is a _rewrite_ of every literal size class to `h-[var(--control-h,…)]` — not a read of a variable that already exists. No prop API change                                                                                                                                                                                                                                                       |
-| **#350** Elevation and borders on every surface | §4 + §5, including the six-row shadow mapping table in §5, **plus the `bg-card` migration table in §3.3** (~12 call sites across `ui/src` and `client-admin`, with their tests). **Size note:** materially bigger than the shadow swap its `size-M` label priced — the inversion is invisible without it                                                                                                                                                                                                                               |
-| **#351** Interactive-state pass                 | §3.2 (`brand-600` / `brand-700` for hover and active), §4 (functional border for focus-adjacent edges), §7 (`--motion-duration-fast`)                                                                                                                                                                                                                                                                                                                                                                                                  |
-| **#352** Empty, loading, error, skeleton states | §3.3 ground/surface (skeletons sit on `surface`, shimmer toward `muted` `#f1f5f9`), §2 `caption` step for helper copy, §7 `--motion-duration-base`                                                                                                                                                                                                                                                                                                                                                                                     |
-| **#353** Expose dark mode                       | §3.4 dark role values, §5 dark shadows plus the border rule, §4 dark border values. Prerequisite: #348's `@custom-variant dark` (§3.4.1) must already be on the branch, or the toggle produces a half-dark UI                                                                                                                                                                                                                                                                                                                          |
-| **#354** Storybook Foundations page             | Every table in this document is the page's content. **No visual-baseline re-pin exists to do**: the repo has no visual-regression harness — no `toHaveScreenshot`, no snapshot directories; that harness is #128 ([8.5.4], still open). If #128 lands before this ticket, re-pin there; otherwise #354's PR carries manual before/after screenshots of the three mockup screens in light and dark                                                                                                                                      |
+| Ticket                                          | Receives from this document                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **#343** Two-script type system                 | §2 in full: Anek Latin + Anek Bangla, family name `Biddaloy Sans`, both `unicode-range` strings, `wght` 400–800, `wdth` pinned 100, `font-display: swap`, metric-matched fallback, the 8-step ramp, 45 + 135 = 180 KB budget and the 400–700 relief valve. Also: add `http://localhost:5174/portal` to `lighthouserc.cjs`'s url list (§2), and rewrite the now-stale "Spacing and typography are deliberately absent" comment block in `ui/tailwind.preset.ts` — the type ramp is exactly the "real need" that comment was waiting for                                                                                                                                                                   |
+| **#344** Palette re-grade                       | §3: brand ramp `#eef1fe` / `#dfe3fd` / `#8f96f4` / `#4a3fd4` / `#3d33b8`; ground↔surface inversion; `dark.brand` → `#8f96f4`; dark `--color-primary-foreground` → `#0f172a` (§3.4); `--color-muted` / `--color-accent` → `neutral-100` in light (§3.3); the `CONTRAST_PAIRS` changes in §3.6 — 3 adds + 2 literal updates, not nine adds; plus §8's `theme-color` and `THEME_COLOR` → `#4a3fd4`                                                                                                                                                                                                                                                                                                          |
+| **#345** Split border roles                     | §4: `--color-border-subtle` (`#e2e8f0` light / `#334155` dark) and `--color-border-functional` (`#64748b` both); the utility is `border-border-subtle` / `border-border-functional` (§4); the rule that subtle gets no contrast pair. Also: `light.borderSubtle` / `dark.borderSubtle` in the preset and the `roleVarNames` extension in `check-contrast.mjs` (§1)                                                                                                                                                                                                                                                                                                                                       |
+| **#346** Elevation scale                        | §5: the three `--shadow-e*` token values, light and dark; the dark border-plus-shadow rule. Also: a `shadows` export in the preset and its drift check (§1)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **#347** Motion tokens                          | §7: three durations, two easings, and the exact global reduced-motion rule. Also: a `motion` export in the preset and its drift check (§1)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| **#348** Token-driven `<body>`                  | §8 in full: `client-admin/index.html:20` → `bg-background text-foreground`; PWA `background_color` → `#f8fafc` plus its comment and `manifest.test.ts:40`; §3.4.1's `@custom-variant dark` line. **Size note:** bigger than its `size-S` label: three files plus a behavioural prerequisite for #353                                                                                                                                                                                                                                                                                                                                                                                                     |
+| **#349** Density modes                          | §6: the full numeric table, the `data-density` CSS-variable mechanism, and the complete per-variant 44 px mapping table. The mechanism is a _rewrite_ of every literal size class to `h-[var(--control-h,…)]` — not a read of a variable that already exists. No prop API change                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| **#350** Elevation and borders on every surface | §4 + §5, including the six-row shadow mapping table in §5, **plus the `bg-card` migration table in §3.3** (~12 call sites across `ui/src` and `client-admin`, with their tests). **Size note:** materially bigger than the shadow swap its `size-M` label priced — the inversion is invisible without it                                                                                                                                                                                                                                                                                                                                                                                                 |
+| **#351** Interactive-state pass                 | §3.2 (`brand-600` / `brand-700` for hover and active), §4 (functional border for focus-adjacent edges), §7 (`--motion-duration-fast`). Also owns two things found during #344's review: the latent white-on-white `bg-secondary` button inside white cards (§3.3 item 1), and making the overlay animations real — `animate-in`/`fade-in-0`/`zoom-in-95` appear 7 times across 5 primitives but **no animation package is installed**, so they compile to nothing and every overlay snaps today. Install `tw-animate-css` (the Tailwind v4 successor to `tailwindcss-animate`), which makes the existing class strings live with zero component edits; the result must honour #347's reduced-motion rule |
+| **#352** Empty, loading, error, skeleton states | §3.3 ground/surface (skeletons sit on `surface`, shimmer toward `muted` `#f1f5f9`), §2 `caption` step for helper copy, §7 `--motion-duration-base`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **#353** Expose dark mode                       | §3.4 dark role values, §5 dark shadows plus the border rule, §4 dark border values. Prerequisite: #348's `@custom-variant dark` (§3.4.1) must already be on the branch, or the toggle produces a half-dark UI. Also decide the fate of the dead `--color-sidebar-*` group (§3.3 item 4): wire it up or delete it — nothing renders it today                                                                                                                                                                                                                                                                                                                                                              |
+| **#354** Storybook Foundations page             | Every table in this document is the page's content. **No visual-baseline re-pin exists to do**: the repo has no visual-regression harness — no `toHaveScreenshot`, no snapshot directories; that harness is #128 ([8.5.4], still open). If #128 lands before this ticket, re-pin there; otherwise #354's PR carries manual before/after screenshots of the three mockup screens in light and dark                                                                                                                                                                                                                                                                                                        |
 
 ---
 
