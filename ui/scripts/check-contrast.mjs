@@ -402,8 +402,9 @@ const { compile } = await import('tailwindcss');
 const require = createRequire(import.meta.url);
 
 let compiledCss = null;
+let compiler = null;
 try {
-  const compiler = await compile(css, {
+  compiler = await compile(css, {
     base: dirname(cssPath),
     // Tailwind hands back `@import` specifiers to be resolved by the host.
     // `globals.css` imports the bare package (`tailwindcss`), whose own
@@ -450,6 +451,50 @@ if (compiledCss !== null) {
     }
   }
 
+  /**
+   * The `dark:` variant must compile to the `data-theme` attribute, not to
+   * `prefers-color-scheme`. Grepping globals.css for `@custom-variant` would
+   * not prove this: the at-rule can be present and still be shadowed,
+   * mis-spelled as a no-op, or overridden by a later declaration, and the
+   * failure is invisible — utilities keep compiling, just against the wrong
+   * switch. So compile a real `dark:` candidate and read the emitted rule.
+   *
+   * `build([])` above cannot be reused here: with no candidates Tailwind
+   * emits no variant rules at all, which is precisely the case that would
+   * make a source-text check pass for the wrong reason.
+   */
+  const darkVariantCss = compiler.build(['dark:underline']);
+  // Match the emitted *selector line* for the candidate, not the whole
+  // sheet: globals.css already contains a `:root[data-theme="dark"]` token
+  // block, so a whole-sheet `includes('[data-theme="dark"]')` passes even
+  // when the variant is broken. Verified by deleting the @custom-variant
+  // line and watching this fail.
+  const darkRuleSelector = darkVariantCss
+    .split('\n')
+    .find((line) => line.includes('.dark\\:underline'));
+  if (darkRuleSelector === undefined) {
+    errors.push(
+      'compiled CSS: the `dark:underline` candidate produced no rule at all, so this ' +
+        'assertion cannot prove anything about the dark variant.',
+    );
+  } else if (!darkRuleSelector.includes('[data-theme="dark"]')) {
+    errors.push(
+      'compiled CSS: `dark:underline` compiles to `' +
+        darkRuleSelector.trim() +
+        '`, not a [data-theme="dark"] selector — ' +
+        'the @custom-variant dark line in globals.css is missing or not taking effect, so ' +
+        'every dark: utility keys off a different switch than the token overrides ' +
+        '(contract §3.4.1).',
+    );
+  }
+  if (/@media\s*\([^)]*prefers-color-scheme:\s*dark/.test(darkVariantCss)) {
+    errors.push(
+      'compiled CSS: `dark:underline` still compiles to @media (prefers-color-scheme: dark) — ' +
+        'dark styling would activate from the OS setting alone, giving every dark-OS user a ' +
+        'half-dark UI on light tokens (contract §3.4.1).',
+    );
+  }
+
   if (!/@media\s*\(prefers-reduced-motion:\s*reduce\)/.test(compiledCss)) {
     errors.push(
       'compiled CSS: the global @media (prefers-reduced-motion: reduce) rule is not in the ' +
@@ -459,8 +504,8 @@ if (compiledCss !== null) {
 }
 
 /**
- * The brand hex also appears OUTSIDE `ui/`, in files this script previously
- * never opened: the PWA manifest constant, the `<meta name="theme-color">`
+ * Token hexes also appear OUTSIDE `ui/`, in files this script previously
+ * never opened: the PWA manifest constants, the `<meta name="theme-color">`
  * tag, and the favicon artwork. A `.webmanifest` is consumed by the OS and an
  * `index.html` meta tag is read before any CSS loads, so neither can resolve a
  * custom property — the hex has to be repeated as a literal in both.
@@ -469,19 +514,38 @@ if (compiledCss !== null) {
  * three PWA PNGs were missed on the first pass precisely because nothing
  * checked them, while a comment in manifest.ts claimed this script already
  * did. It didn't: everything above only ever reads globals.css and
- * tailwind.preset.ts. So check them here, where the brand value is known.
+ * tailwind.preset.ts. So check them here, where the token values are known.
+ *
+ * The manifest's splash `background_color` is on this list for the same
+ * reason as the brand sites, one step removed: it is a copy of neutral-50,
+ * the ground the app's first painted frame uses. If the ground token moves
+ * and this literal does not, every install flashes the old colour before the
+ * app boots — a mismatch nothing else in the repo would notice, because the
+ * manifest test that pins it is itself a hand-written copy of the same
+ * literal and would keep passing.
  *
  * The PNG icons are renders of favicon.svg and cannot be verified by reading
  * text; see #358.
  */
 const repoRoot = resolve(pkgRoot, '..');
-const brandHex = preset.brand[600].toLowerCase();
-const brandHexSites = [
-  ['client-admin/src/pwa/manifest.ts', 'PWA manifest theme_color constant'],
-  ['client-admin/index.html', '<meta name="theme-color">'],
-  ['client-admin/public/favicon.svg', 'favicon artwork'],
+const outOfUiHexSites = [
+  [
+    'client-admin/src/pwa/manifest.ts',
+    preset.brand[600],
+    'brand-600',
+    'PWA manifest theme_color constant',
+  ],
+  ['client-admin/index.html', preset.brand[600], 'brand-600', '<meta name="theme-color">'],
+  ['client-admin/public/favicon.svg', preset.brand[600], 'brand-600', 'favicon artwork'],
+  [
+    'client-admin/src/pwa/manifest.ts',
+    preset.neutral[50],
+    'neutral-50',
+    'PWA manifest background_color (splash ground)',
+  ],
 ];
-for (const [relPath, description] of brandHexSites) {
+for (const [relPath, rawHex, tokenName, description] of outOfUiHexSites) {
+  const hex = rawHex.toLowerCase();
   let contents;
   try {
     contents = readFileSync(join(repoRoot, relPath), 'utf8');
@@ -489,9 +553,9 @@ for (const [relPath, description] of brandHexSites) {
     errors.push(`${relPath} could not be read — the ${description} is unguarded`);
     continue;
   }
-  if (!contents.toLowerCase().includes(brandHex)) {
+  if (!contents.toLowerCase().includes(hex)) {
     errors.push(
-      `${relPath} does not contain the brand-600 hex ${brandHex} — ` +
+      `${relPath} does not contain the ${tokenName} hex ${hex} — ` +
         `the ${description} has drifted from tailwind.preset.ts`,
     );
   }
@@ -509,6 +573,7 @@ console.log(
     `${lightSteps.length} elevation steps mirrored in light and dark, ` +
     `${Object.keys(motionVarNames).length} motion tokens mirrored under a live reduced-motion rule, ` +
     `all of them plus every elevation step verified present in the compiled CSS, ` +
+    `the dark: variant proven attribute-scoped in the compiled CSS, ` +
     `CSS mirror matches tailwind.preset.ts by name and scope, ` +
-    `and ${brandHexSites.length} out-of-ui brand-hex sites match brand-600.`,
+    `and ${outOfUiHexSites.length} out-of-ui hex sites match their tokens.`,
 );

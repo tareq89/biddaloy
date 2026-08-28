@@ -23,6 +23,42 @@
  */
 @source "../**/*.{ts,tsx}";
 
+/**
+ * Re-point the `dark:` variant at the `data-theme` attribute.
+ *
+ * Without this line Tailwind v4 compiles every `dark:` utility to
+ * `@media (prefers-color-scheme: dark)`, while the token overrides at the
+ * bottom of this file key off `:root[data-theme="dark"]`. The two switches
+ * are unrelated, which produces a half-dark UI in both directions: a user
+ * with a dark OS preference gets dark-styled primitives on light tokens
+ * today, and once [8.13.12]'s toggle flips the attribute on a light-OS
+ * machine the tokens would move while the utilities stayed inert.
+ *
+ * The `*` half of the selector is what lets a dark-variant utility apply to
+ * *descendants* of the themed element rather than only to the element
+ * carrying the attribute — without it, only the themed node itself would be
+ * styled and every child would stay light.
+ *
+ * That is all it buys. It does NOT make the attribute safe to put anywhere
+ * other than the document element: the token overrides at the bottom of this
+ * file are written against `:root`, so an attribute set on some inner
+ * wrapper switches the utilities over while the tokens underneath stay light
+ * — a half-dark UI, the same failure this whole change exists to remove.
+ * `ui/.storybook/dark-decorator.tsx` documents that trap and is why the
+ * Storybook decorator mutates `document.documentElement` instead of
+ * wrapping the story in a themed element.
+ *
+ * This lives in globals.css because every SPA imports it
+ * (`client-admin/src/index.css`) and so does Storybook
+ * (`ui/.storybook/preview.tsx`), and Tailwind processes it in each
+ * consumer — one line covers all of them. Design contract §3.4.1.
+ *
+ * `check-contrast.mjs` compiles a `dark:` candidate and asserts the emitted
+ * rule is attribute-scoped, not media-scoped; grepping this file for the
+ * at-rule would not prove the variant actually reached the bundle.
+ */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 /* ------------------------------------------------------------------------
  * Typography — one CSS family, two scripts (design contract §2).
  *
