@@ -133,7 +133,7 @@ describe('the financial-mutation exclusion', () => {
       enqueueMutation({ entity: 'attendance', method: 'post', path }),
     ).rejects.toBeInstanceOf(ForbiddenQueueMutationError);
 
-    await expect(getOfflineDb()!.mutationQueue.count()).resolves.toBe(0);
+    await expect((await getOfflineDb())!.mutationQueue.count()).resolves.toBe(0);
   });
 
   it('does not false-positive on a fees sub-path that is not generation', async () => {
@@ -172,7 +172,7 @@ describe('enqueueMutation', () => {
     resetOfflineDbForTests();
     resetMutationQueueForTests();
 
-    const rows = await getOfflineDb()!.mutationQueue.orderBy('seq').toArray();
+    const rows = await (await getOfflineDb())!.mutationQueue.orderBy('seq').toArray();
     expect(rows.map((row) => row.path)).toEqual([
       '/attendance/1',
       '/attendance/2',
@@ -210,7 +210,7 @@ describe('replayQueue', () => {
     ]);
     // Cleared rows are deleted, not marked done — a queue that only ever
     // grows is a storage leak.
-    await expect(getOfflineDb()!.mutationQueue.count()).resolves.toBe(0);
+    await expect((await getOfflineDb())!.mutationQueue.count()).resolves.toBe(0);
   });
 
   it('sends each row once even when several triggers fire together', async () => {
@@ -232,7 +232,7 @@ describe('replayQueue', () => {
 
     await replayQueue();
 
-    const rows = await getOfflineDb()!.mutationQueue.orderBy('seq').toArray();
+    const rows = await (await getOfflineDb())!.mutationQueue.orderBy('seq').toArray();
     // Being offline is not a strike — counting it would dead-letter a
     // perfectly good mutation for the crime of being made in a lift.
     expect(rows.map((row) => [row.status, row.attempts])).toEqual([
@@ -250,7 +250,7 @@ describe('replayQueue', () => {
 
     await replayQueue();
 
-    const rows = await getOfflineDb()!.mutationQueue.orderBy('seq').toArray();
+    const rows = await (await getOfflineDb())!.mutationQueue.orderBy('seq').toArray();
     expect(rows[0]).toMatchObject({
       status: 'conflict',
       lastError: { statusCode: status, message: 'already marked' },
@@ -282,7 +282,7 @@ describe('replayQueue', () => {
       await replayQueue();
     }
 
-    const row = (await getOfflineDb()!.mutationQueue.orderBy('seq').first())!;
+    const row = (await (await getOfflineDb())!.mutationQueue.orderBy('seq').first())!;
     // Kept, not dropped: the row is the user's work, and 8.12.5's UI
     // offers retry/discard with this message attached.
     expect(row).toMatchObject({
@@ -322,7 +322,9 @@ describe('replayQueue', () => {
 
     await replayQueue();
 
-    await expect(getOfflineDb()!.mutationQueue.orderBy('seq').first()).resolves.toMatchObject({
+    await expect(
+      (await getOfflineDb())!.mutationQueue.orderBy('seq').first(),
+    ).resolves.toMatchObject({
       status: 'conflict',
     });
   });
@@ -341,7 +343,7 @@ describe('a replay must not destroy the work it is replaying', () => {
 
     await replayQueue();
 
-    const rows = await getOfflineDb()!.mutationQueue.toArray();
+    const rows = await (await getOfflineDb())!.mutationQueue.toArray();
     expect(rows).toHaveLength(1);
     expect(rows[0]!.status).toBe('pending');
     // Not a strike either: five replays before the user gets round to
@@ -355,7 +357,7 @@ describe('a replay must not destroy the work it is replaying', () => {
 
     await replayQueue();
 
-    const rows = await getOfflineDb()!.mutationQueue.toArray();
+    const rows = await (await getOfflineDb())!.mutationQueue.toArray();
     expect(rows[0]!.status).toBe('pending');
     expect(rows[0]!.attempts).toBe(0);
   });
@@ -369,11 +371,11 @@ describe('a replay must not destroy the work it is replaying', () => {
     const row = await queue();
     vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null });
     const dexieError = new Error('DatabaseClosedError');
-    vi.spyOn(getOfflineDb()!.mutationQueue, 'delete').mockRejectedValue(dexieError);
+    vi.spyOn((await getOfflineDb())!.mutationQueue, 'delete').mockRejectedValue(dexieError);
 
     await expect(replayQueue()).resolves.toBeUndefined();
 
-    const stored = await getOfflineDb()!.mutationQueue.get(row.seq!);
+    const stored = await (await getOfflineDb())!.mutationQueue.get(row.seq!);
     expect(stored?.attempts).toBe(0);
     expect(stored?.status).toBe('pending');
     expect(stored?.lastError).toBeUndefined();
@@ -391,7 +393,7 @@ describe('a replay must not destroy the work it is replaying', () => {
     // write that a closed database rejects.
     vi.spyOn(apiClient, 'request').mockRejectedValue(serverError(500));
     const dexieError = new Error('DatabaseClosedError');
-    vi.spyOn(getOfflineDb()!.mutationQueue, 'update').mockRejectedValue(dexieError);
+    vi.spyOn((await getOfflineDb())!.mutationQueue, 'update').mockRejectedValue(dexieError);
 
     await expect(replayQueue()).resolves.toBeUndefined();
 
@@ -429,20 +431,20 @@ describe('replay actually gets triggered', () => {
     const row = await queue();
     vi.spyOn(apiClient, 'request').mockRejectedValue(serverError(409, 'moved on'));
     await replayQueue();
-    expect((await getOfflineDb()!.mutationQueue.get(row.seq!))!.status).toBe('conflict');
+    expect((await (await getOfflineDb())!.mutationQueue.get(row.seq!))!.status).toBe('conflict');
 
     const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null });
     await retryMutation(row.seq!);
 
     expect(request).toHaveBeenCalledTimes(1);
-    await expect(getOfflineDb()!.mutationQueue.count()).resolves.toBe(0);
+    await expect((await getOfflineDb())!.mutationQueue.count()).resolves.toBe(0);
   });
 });
 
 describe('a snapshot must not claim an empty queue it could not read', () => {
   it('reports readFailed rather than a reassuring zero', async () => {
     await queue();
-    vi.spyOn(getOfflineDb()!.mutationQueue, 'where').mockImplementation(() => {
+    vi.spyOn((await getOfflineDb())!.mutationQueue, 'where').mockImplementation(() => {
       throw new Error('IDB read failed');
     });
 
@@ -463,7 +465,7 @@ describe('a snapshot must not claim an empty queue it could not read', () => {
   it('does not report a successful no-op replay when the queue is unreadable', async () => {
     await queue();
     const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null });
-    vi.spyOn(getOfflineDb()!.mutationQueue, 'where').mockImplementation(() => {
+    vi.spyOn((await getOfflineDb())!.mutationQueue, 'where').mockImplementation(() => {
       throw new Error('IDB read failed');
     });
 
@@ -477,7 +479,7 @@ describe('enqueue failures are distinguishable', () => {
   it('reports a storage failure as QueueUnavailableError, not a raw Dexie error', async () => {
     // The caller is about to tell someone "saved, will sync" and catches
     // this specific error to avoid saying it.
-    vi.spyOn(getOfflineDb()!.mutationQueue, 'add').mockRejectedValue(
+    vi.spyOn((await getOfflineDb())!.mutationQueue, 'add').mockRejectedValue(
       new DOMException('quota', 'QuotaExceededError'),
     );
 
@@ -528,7 +530,7 @@ describe('retryMutation / discardMutation', () => {
     vi.spyOn(apiClient, 'request').mockRejectedValue(networkError());
     await retryMutation(row.seq!);
 
-    const stored = (await getOfflineDb()!.mutationQueue.get(row.seq!))!;
+    const stored = (await (await getOfflineDb())!.mutationQueue.get(row.seq!))!;
     expect(stored).toMatchObject({ status: 'pending', attempts: 0 });
     expect(stored.lastError).toBeUndefined();
   });
@@ -539,7 +541,7 @@ describe('retryMutation / discardMutation', () => {
 
     await discardMutation(first.seq!);
 
-    const rows = await getOfflineDb()!.mutationQueue.orderBy('seq').toArray();
+    const rows = await (await getOfflineDb())!.mutationQueue.orderBy('seq').toArray();
     expect(rows.map((r) => r.path)).toEqual(['/attendance/2']);
   });
 
@@ -551,6 +553,137 @@ describe('retryMutation / discardMutation', () => {
 
     // A stale id from another school must not be able to delete work
     // this session cannot even see.
-    await expect(getOfflineDb()!.mutationQueue.count()).resolves.toBe(1);
+    await expect((await getOfflineDb())!.mutationQueue.count()).resolves.toBe(1);
+  });
+});
+
+describe('the backoff timer must not fire into the wrong session', () => {
+  afterEach(() => {
+    stopQueueReplay();
+    vi.useRealTimers();
+  });
+
+  function useBackoffTimers() {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+  }
+
+  /** Drives one server failure, which is what arms the backoff timer. */
+  async function armBackoff() {
+    await queue();
+    startQueueReplay();
+    vi.spyOn(apiClient, 'request').mockRejectedValue(serverError(500, 'boom'));
+    await replayQueue();
+  }
+
+  it('does not replay after the session it was armed in has ended', async () => {
+    // Same guard as the autosave debounce: a timer armed for one user must
+    // never send that user's writes after somebody else has logged in.
+    // Only the timer functions the backoff itself uses. Faking the whole
+    // clock also stalls `fake-indexeddb`, which drives its requests off
+    // microtask/immediate scheduling — every Dexie call would hang.
+    useBackoffTimers();
+    await armBackoff();
+    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null });
+
+    clearAuthState();
+    setActiveTenant('tenant-a');
+    await vi.advanceTimersByTimeAsync(120_000);
+
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it('does not replay while still offline', async () => {
+    // Only the timer functions the backoff itself uses. Faking the whole
+    // clock also stalls `fake-indexeddb`, which drives its requests off
+    // microtask/immediate scheduling — every Dexie call would hang.
+    useBackoffTimers();
+    await armBackoff();
+    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null });
+    Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => false });
+
+    try {
+      await vi.advanceTimersByTimeAsync(120_000);
+      expect(request).not.toHaveBeenCalled();
+    } finally {
+      Reflect.deleteProperty(navigator, 'onLine');
+    }
+  });
+
+  it('does not replay once replay has been stopped', async () => {
+    // Only the timer functions the backoff itself uses. Faking the whole
+    // clock also stalls `fake-indexeddb`, which drives its requests off
+    // microtask/immediate scheduling — every Dexie call would hang.
+    useBackoffTimers();
+    await armBackoff();
+    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null });
+
+    stopQueueReplay();
+    await vi.advanceTimersByTimeAsync(120_000);
+
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it('retries once the backoff elapses in the same session', async () => {
+    // Only the timer functions the backoff itself uses. Faking the whole
+    // clock also stalls `fake-indexeddb`, which drives its requests off
+    // microtask/immediate scheduling — every Dexie call would hang.
+    useBackoffTimers();
+    await armBackoff();
+    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null });
+
+    await vi.advanceTimersByTimeAsync(120_000);
+
+    expect(request).toHaveBeenCalled();
+  });
+});
+
+describe('snapshot and error-shape edges', () => {
+  it('returns the stable empty snapshot when the active tenant has moved on', () => {
+    // Identity matters, not just contents: `useSyncExternalStore` loops
+    // forever if `getSnapshot` returns a fresh object each call.
+    setActiveTenant('tenant-z');
+
+    const first = getQueueSnapshot();
+    const second = getQueueSnapshot();
+
+    expect(first.total).toBe(0);
+    expect(first).toBe(second);
+  });
+
+  it('clears the snapshot when there is no tenant at all', async () => {
+    await queue();
+    await refreshQueueSnapshot();
+    expect(getQueueSnapshot().total).toBe(1);
+
+    setActiveTenant(null);
+    await refreshQueueSnapshot();
+
+    expect(getQueueSnapshot().total).toBe(0);
+  });
+
+  it('records a non-Error rejection without crashing on it', async () => {
+    // Anything can be thrown. `messageOf`/`statusCodeOf` have to cope with
+    // a string as readily as with an `ApiError`, because a row's
+    // `lastError` is what the sync panel shows the user.
+    await queue();
+    vi.spyOn(apiClient, 'request').mockRejectedValue('plain string failure');
+
+    await replayQueue();
+
+    const row = (await (await getOfflineDb())!.mutationQueue.orderBy('seq').first())!;
+    expect(row.lastError?.message).toBe('plain string failure');
+    expect(row.lastError?.statusCode).toBeUndefined();
+  });
+
+  it('records a bodyless axios failure that still carries a response status', async () => {
+    await queue();
+    const err = new AxiosError('Bad Gateway', 'ERR_BAD_RESPONSE', { headers: new AxiosHeaders() });
+    err.response = { status: 502 } as never;
+    vi.spyOn(apiClient, 'request').mockRejectedValue(err);
+
+    await replayQueue();
+
+    const row = (await (await getOfflineDb())!.mutationQueue.orderBy('seq').first())!;
+    expect(row.lastError?.statusCode).toBe(502);
   });
 });

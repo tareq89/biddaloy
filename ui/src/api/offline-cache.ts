@@ -53,7 +53,7 @@ export async function writeRefCache(params: {
   fetchedAt: number;
 }): Promise<void> {
   const { entity, queryKey, data, fetchedAt } = params;
-  const db = getOfflineDb();
+  const db = await getOfflineDb();
   const tenantId = getActiveTenant();
   if (!db || !tenantId) return;
 
@@ -111,7 +111,7 @@ function isQuotaExceeded(error: unknown): boolean {
  * store so a heavily-filtered student list can never evict the only
  * cached copy of the class list. */
 async function evictOverCap(tenantId: string, entity: CacheableEntity): Promise<void> {
-  const db = getOfflineDb();
+  const db = await getOfflineDb();
   if (!db) return;
   const rows = await db.refCache.where({ tenantId, entity }).toArray();
   if (rows.length <= MAX_ROWS_PER_ENTITY) return;
@@ -137,7 +137,7 @@ export async function readRefCache(params: {
   now?: number;
 }): Promise<{ data: unknown; fetchedAt: number } | undefined> {
   const { entity, queryKey, now = Date.now() } = params;
-  const db = getOfflineDb();
+  const db = await getOfflineDb();
   const tenantId = getActiveTenant();
   if (!db || !tenantId) return undefined;
 

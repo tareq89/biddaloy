@@ -29,7 +29,7 @@ afterEach(async () => {
 
 describe('offline database', () => {
   it('is versioned, and the version is a deliberate value', async () => {
-    const db = getOfflineDb()!;
+    const db = (await getOfflineDb())!;
     await db.open();
 
     expect(db.name).toBe(OFFLINE_DB_NAME);
@@ -43,7 +43,7 @@ describe('offline database', () => {
   });
 
   it('indexes the mutation queue on the columns replay actually queries', async () => {
-    const db = getOfflineDb()!;
+    const db = (await getOfflineDb())!;
     await db.open();
 
     const indexNames = db.mutationQueue.schema.indexes.map((index) => index.name);
@@ -74,7 +74,7 @@ describe('offline database', () => {
     v1.close();
     resetOfflineDbForTests();
 
-    const db = getOfflineDb()!;
+    const db = (await getOfflineDb())!;
     await db.open();
 
     expect(db.verno).toBe(2);
@@ -87,7 +87,7 @@ describe('offline database', () => {
   });
 
   it('indexes the columns the tenant purge and eviction actually query', async () => {
-    const db = getOfflineDb()!;
+    const db = (await getOfflineDb())!;
     await db.open();
 
     const indexNames = db.refCache.schema.indexes.map((index) => index.name);
@@ -99,18 +99,18 @@ describe('offline database', () => {
     expect(db.refCache.schema.primKey.name).toBe('id');
   });
 
-  it('reuses one connection rather than opening a database per call', () => {
-    expect(getOfflineDb()).toBe(getOfflineDb());
+  it('reuses one connection rather than opening a database per call', async () => {
+    expect(await getOfflineDb()).toBe(await getOfflineDb());
   });
 
-  it('returns null where IndexedDB does not exist, instead of throwing', () => {
+  it('returns null where IndexedDB does not exist, instead of throwing', async () => {
     resetOfflineDbForTests();
     vi.stubGlobal('indexedDB', undefined);
 
     // A storage-blocked browser, an SSR pass, a `:node` test — all must
     // get "no cache", not a crash, exactly like `sw-cache.ts` when
     // `caches` is missing.
-    expect(getOfflineDb()).toBeNull();
+    expect(await getOfflineDb()).toBeNull();
 
     resetOfflineDbForTests();
   });
@@ -122,7 +122,7 @@ describe('offline database', () => {
     // `indexedDB.deleteDatabase`, the delete would never land, and the
     // previous session's rows would survive — served straight back to
     // whoever used the browser next.
-    const db = getOfflineDb()!;
+    const db = (await getOfflineDb())!;
     await db.open();
 
     let releaseDelete: () => void = () => {};
@@ -134,17 +134,17 @@ describe('offline database', () => {
 
     const deleting = deleteOfflineDb();
 
-    expect(getOfflineDb()).toBeNull();
+    expect(await getOfflineDb()).toBeNull();
 
     releaseDelete();
     await deleting;
 
     // ...and available again once it has landed.
-    expect(getOfflineDb()).not.toBeNull();
+    expect(await getOfflineDb()).not.toBeNull();
   });
 
   it('deleteOfflineDb resolves even when the delete is blocked', async () => {
-    const db = getOfflineDb()!;
+    const db = (await getOfflineDb())!;
     await db.open();
     vi.spyOn(db, 'delete').mockRejectedValue(new Error('blocked by another tab'));
 
@@ -153,10 +153,10 @@ describe('offline database', () => {
   });
 
   it('deleteOfflineDb drops the handle so the next call opens a fresh one', async () => {
-    const first = getOfflineDb();
+    const first = await getOfflineDb();
     await deleteOfflineDb();
 
-    expect(getOfflineDb()).not.toBe(first);
+    expect(await getOfflineDb()).not.toBe(first);
   });
 
   it('deleteOfflineDb is a no-op with no IndexedDB at all', async () => {

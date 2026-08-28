@@ -248,7 +248,7 @@ export async function refreshQueueSnapshot(): Promise<void> {
 async function readTenantRows(
   tenantId: string,
 ): Promise<{ rows: QueuedMutationRow[]; readFailed: boolean }> {
-  const db = getOfflineDb();
+  const db = await getOfflineDb();
   if (!db) return { rows: [], readFailed: false };
   try {
     const rows = await db.mutationQueue.where('tenantId').equals(tenantId).toArray();
@@ -289,7 +289,7 @@ export async function enqueueMutation(input: EnqueueMutationInput): Promise<Queu
     throw new QueueUnavailableError('no tenant is active');
   }
 
-  const db = getOfflineDb();
+  const db = await getOfflineDb();
   if (!db) {
     throw new QueueUnavailableError('no offline database is available in this browser');
   }
@@ -365,7 +365,7 @@ export function replayQueue(): Promise<void> {
 async function runReplay(): Promise<void> {
   const tenantId = getActiveTenant();
   if (!tenantId) return;
-  const db = getOfflineDb();
+  const db = await getOfflineDb();
   if (!db) return;
 
   // All rows, not just `pending` ones, because a `conflict`/`dead` row
@@ -592,7 +592,7 @@ function scheduleBackoffReplay(attempts: number): void {
  * the conflict. Scoped to the active tenant so a stale `seq` from
  * another school cannot be resurrected. */
 export async function retryMutation(seq: number): Promise<void> {
-  const db = getOfflineDb();
+  const db = await getOfflineDb();
   const tenantId = getActiveTenant();
   if (!db || !tenantId) return;
   const row = await db.mutationQueue.get(seq);
@@ -618,7 +618,7 @@ export async function retryMutation(seq: number): Promise<void> {
 /** Throws the row away — "discard my change" once the user has seen what
  * it was. The only path that destroys queued work on purpose. */
 export async function discardMutation(seq: number): Promise<void> {
-  const db = getOfflineDb();
+  const db = await getOfflineDb();
   const tenantId = getActiveTenant();
   if (!db || !tenantId) return;
   const row = await db.mutationQueue.get(seq);

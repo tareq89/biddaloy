@@ -122,7 +122,7 @@ describe('writeRefCache / readRefCache', () => {
       data: { data: [{ id: 'school-a-student' }] },
       fetchedAt: Date.now(),
     });
-    const db = getOfflineDb()!;
+    const db = (await getOfflineDb())!;
     await expect(db.refCache.count()).resolves.toBe(1);
 
     // The second, independent mechanism deliberately sabotaged: the
@@ -173,7 +173,7 @@ describe('writeRefCache / readRefCache', () => {
       });
     }
 
-    const db = getOfflineDb()!;
+    const db = (await getOfflineDb())!;
     const rows = await db.refCache.toArray();
     expect(rows).toHaveLength(MAX_ROWS_PER_ENTITY);
     // The five *oldest* went, not five arbitrary ones.
@@ -202,7 +202,7 @@ describe('writeRefCache / readRefCache', () => {
   });
 
   it('does not reject when the write fails — a dead cache must not fail a good response', async () => {
-    const db = getOfflineDb()!;
+    const db = (await getOfflineDb())!;
     vi.spyOn(db.refCache, 'put').mockRejectedValue(new Error('disk on fire'));
 
     await expect(
@@ -211,7 +211,7 @@ describe('writeRefCache / readRefCache', () => {
   });
 
   it('drops the entity and retries once on QuotaExceededError', async () => {
-    const db = getOfflineDb()!;
+    const db = (await getOfflineDb())!;
     // The real thing a browser throws is a `DOMException` whose `name` is
     // `QuotaExceededError` — reproduced by name here rather than as a
     // generic `Error('quota')`, since matching on the name is exactly
@@ -230,7 +230,7 @@ describe('writeRefCache / readRefCache', () => {
   });
 
   it('gives up quietly when the retry after a quota purge also fails', async () => {
-    const db = getOfflineDb()!;
+    const db = (await getOfflineDb())!;
     vi.spyOn(db.refCache, 'put').mockRejectedValue(new DOMException('quota', 'QuotaExceededError'));
 
     await expect(
@@ -239,7 +239,7 @@ describe('writeRefCache / readRefCache', () => {
   });
 
   it('returns undefined rather than throwing when the read itself fails', async () => {
-    const db = getOfflineDb()!;
+    const db = (await getOfflineDb())!;
     vi.spyOn(db.refCache, 'get').mockRejectedValue(new Error('db closed'));
 
     await expect(readRefCache({ entity: 'students', queryKey: KEY })).resolves.toBeUndefined();
@@ -251,7 +251,7 @@ describe('purgeTenantRefCache', () => {
     await writeRefCache({ entity: 'students', queryKey: KEY, data: { a: 1 }, fetchedAt: 1 });
     // Written straight to the table rather than by switching tenants,
     // because switching would fire the very purge under test.
-    await getOfflineDb()!.refCache.put({
+    await (await getOfflineDb())!.refCache.put({
       id: 'tenant-b students x',
       tenantId: 'tenant-b',
       entity: 'students',
@@ -262,12 +262,12 @@ describe('purgeTenantRefCache', () => {
 
     await purgeTenantRefCache('tenant-a');
 
-    const rows = await getOfflineDb()!.refCache.toArray();
+    const rows = await (await getOfflineDb())!.refCache.toArray();
     expect(rows.map((r) => r.tenantId)).toEqual(['tenant-b']);
   });
 
   it('swallows a failed purge — the key scoping is what keeps tenants apart', async () => {
-    const db = getOfflineDb()!;
+    const db = (await getOfflineDb())!;
     vi.spyOn(db.refCache, 'where').mockImplementation(() => {
       throw new Error('db closed');
     });

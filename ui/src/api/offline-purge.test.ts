@@ -65,12 +65,12 @@ describe('setActiveTenant', () => {
   it('purges the leaving tenant’s cached rows on a real switch', async () => {
     setActiveTenant('tenant-a');
     await writeRefCache({ entity: 'students', queryKey: KEY, data: { a: 1 }, fetchedAt: 1 });
-    await expect(getOfflineDb()!.refCache.count()).resolves.toBe(1);
+    await expect((await getOfflineDb())!.refCache.count()).resolves.toBe(1);
 
     setActiveTenant('tenant-b');
     await settlePurge();
 
-    await expect(getOfflineDb()!.refCache.count()).resolves.toBe(0);
+    await expect((await getOfflineDb())!.refCache.count()).resolves.toBe(0);
   });
 
   it('clears the freshness map on a switch, so no age label survives it', () => {
@@ -96,7 +96,7 @@ describe('setActiveTenant', () => {
     setActiveTenant('tenant-a');
     await settlePurge();
 
-    await expect(getOfflineDb()!.refCache.count()).resolves.toBe(1);
+    await expect((await getOfflineDb())!.refCache.count()).resolves.toBe(1);
   });
 });
 
@@ -109,7 +109,7 @@ describe('clearAuthState', () => {
     await settleDatabaseDelete();
 
     // The next person at this browser is a different person.
-    await expect(getOfflineDb()!.refCache.count()).resolves.toBe(0);
+    await expect((await getOfflineDb())!.refCache.count()).resolves.toBe(0);
   });
 
   it('clears the freshness map', () => {
@@ -124,7 +124,7 @@ describe('clearAuthState', () => {
   it('takes [8.12.4]’s queued mutations with it', async () => {
     setActiveTenant('tenant-a');
     await enqueueMutation({ entity: 'attendance', method: 'post', path: '/attendance' });
-    await expect(getOfflineDb()!.mutationQueue.count()).resolves.toBe(1);
+    await expect((await getOfflineDb())!.mutationQueue.count()).resolves.toBe(1);
 
     clearAuthState();
     await settleDatabaseDelete();
@@ -132,7 +132,7 @@ describe('clearAuthState', () => {
     // No queue-specific purge code exists, and that is the point: the
     // queue lives in the database `clearAuthState()` already deletes
     // whole. One funnel, nothing to forget to wire up.
-    await expect(getOfflineDb()!.mutationQueue.count()).resolves.toBe(0);
+    await expect((await getOfflineDb())!.mutationQueue.count()).resolves.toBe(0);
   });
 
   it('removes every autosaved form draft, for every tenant', () => {

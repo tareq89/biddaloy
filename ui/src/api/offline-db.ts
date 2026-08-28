@@ -51,7 +51,8 @@
  * matches the code. `OFFLINE_DB_VERSION` is asserted by the unit tests so
  * the bump is deliberate rather than accidental.
  */
-import Dexie, { type Table } from 'dexie';
+import type Dexie from 'dexie';
+import type { Table } from 'dexie';
 
 /**
  * The only entities this cache will ever serve.
@@ -162,35 +163,64 @@ export interface QueuedMutationRow {
 export const OFFLINE_DB_NAME = 'biddaloy-offline';
 export const OFFLINE_DB_VERSION = 2;
 
-export class OfflineDb extends Dexie {
-  refCache!: Table<RefCacheRow, string>;
-  mutationQueue!: Table<QueuedMutationRow, number>;
+/**
+ * The database class, built behind a **dynamic import** of Dexie.
+ *
+ * Dexie is ~35 KB gzipped and, imported statically, it lands in the entry
+ * chunk — 15% of the app's whole first-load budget, paid by every user on
+ * every first visit, for a store that only matters once they lose their
+ * connection. On the mid-range Android on 3G this epic targets, that is
+ * the opposite of the point.
+ *
+ * So the class is declared *inside* the loader: `class X extends Dexie`
+ * needs the constructor as a value, which a static import would pull into
+ * the entry. Every caller is already `async`, so this costs nothing at the
+ * call sites, and the promise is memoised so the module loads once.
+ */
+type OfflineDbCtor = new () => OfflineDb;
 
-  constructor() {
-    super(OFFLINE_DB_NAME);
-    // `id` is the primary key; `[tenantId+entity]` backs both eviction
-    // (newest-20-per-pair) and the tenant purge; `tenantId` alone backs
-    // the purge when a tenant is switched away from.
-    this.version(1).stores({
-      refCache: 'id, tenantId, [tenantId+entity], fetchedAt',
-    });
-    // [8.12.4]: appended below `version(1)`, never edited into it — see
-    // the "Schema versioning" section of this file's header. A browser
-    // still holding v1 replays the chain from where it is.
-    //
-    // No `.upgrade()` callback: this version only *adds* a table, and an
-    // empty new table has no data to migrate. `refCache` is omitted
-    // because Dexie carries unchanged tables forward untouched (the
-    // upgrade test proves a v1 row survives).
-    //
-    // `++seq` is the auto-increment primary key and therefore the
-    // ordering guarantee; `[tenantId+status]` is the exact index replay
-    // and `getQueueSnapshot` query on, so neither ever scans another
-    // tenant's rows.
-    this.version(OFFLINE_DB_VERSION).stores({
-      mutationQueue: '++seq, tenantId, [tenantId+status]',
-    });
-  }
+export interface OfflineDb extends Dexie {
+  refCache: Table<RefCacheRow, string>;
+  mutationQueue: Table<QueuedMutationRow, number>;
+}
+
+let ctorPromise: Promise<OfflineDbCtor> | null = null;
+
+function loadOfflineDbCtor(): Promise<OfflineDbCtor> {
+  ctorPromise ??= import('dexie').then(({ default: Dexie }) => {
+    class OfflineDbImpl extends Dexie {
+      refCache!: Table<RefCacheRow, string>;
+      mutationQueue!: Table<QueuedMutationRow, number>;
+
+      constructor() {
+        super(OFFLINE_DB_NAME);
+        // `id` is the primary key; `[tenantId+entity]` backs both eviction
+        // (newest-20-per-pair) and the tenant purge; `tenantId` alone backs
+        // the purge when a tenant is switched away from.
+        this.version(1).stores({
+          refCache: 'id, tenantId, [tenantId+entity], fetchedAt',
+        });
+        // [8.12.4]: appended below `version(1)`, never edited into it — see
+        // the "Schema versioning" section of this file's header. A browser
+        // still holding v1 replays the chain from where it is.
+        //
+        // No `.upgrade()` callback: this version only *adds* a table, and an
+        // empty new table has no data to migrate. `refCache` is omitted
+        // because Dexie carries unchanged tables forward untouched (the
+        // upgrade test proves a v1 row survives).
+        //
+        // `++seq` is the auto-increment primary key and therefore the
+        // ordering guarantee; `[tenantId+status]` is the exact index replay
+        // and `getQueueSnapshot` query on, so neither ever scans another
+        // tenant's rows.
+        this.version(OFFLINE_DB_VERSION).stores({
+          mutationQueue: '++seq, tenantId, [tenantId+status]',
+        });
+      }
+    }
+    return OfflineDbImpl;
+  });
+  return ctorPromise;
 }
 
 /**
@@ -228,7 +258,7 @@ let pendingDelete: Promise<void> | null = null;
  * `sw-cache.ts` no-ops when `caches` is absent: an offline *cache* going
  * missing must never break the online path that is the real feature.
  */
-export function getOfflineDb(): OfflineDb | null {
+export async function getOfflineDb(): Promise<OfflineDb | null> {
   // Never hand back a connection while a delete is landing — opening one
   // would block the delete outright. See `pendingDelete`.
   if (pendingDelete) return null;
@@ -237,7 +267,13 @@ export function getOfflineDb(): OfflineDb | null {
     dbInstance = null;
     return dbInstance;
   }
-  dbInstance = new OfflineDb();
+
+  const Ctor = await loadOfflineDbCtor();
+  // Re-checked after the await: a logout can start a delete while the
+  // Dexie chunk is still downloading, and opening a connection then is
+  // exactly the race `pendingDelete` exists to prevent.
+  if (pendingDelete) return null;
+  dbInstance ??= new Ctor();
   return dbInstance;
 }
 
@@ -256,16 +292,26 @@ export async function deleteOfflineDb(): Promise<void> {
   // gone when it was moments from being deleted again.
   if (pendingDelete) return pendingDelete;
 
-  const db = getOfflineDb();
-  // Drop the handle *first* so the next `getOfflineDb()` opens a fresh
-  // connection rather than handing back one whose database was deleted
-  // underneath it, and close the window in which anything can open a new
-  // one before the delete lands.
+  // Both of these happen **synchronously**, before the first `await`.
+  // `getOfflineDb()` became async when Dexie moved behind a dynamic
+  // import, so awaiting anything first would leave a window in which a
+  // concurrent read opens a fresh connection — and an open connection
+  // blocks `deleteDatabase` outright, which is the leak `pendingDelete`
+  // exists to prevent.
+  const existing = dbInstance ?? undefined;
   dbInstance = undefined;
 
   pendingDelete = (async () => {
     try {
-      if (db) await db.delete();
+      if (existing) {
+        await existing.delete();
+        return;
+      }
+      // Nothing open in this tab: delete the underlying database directly
+      // rather than loading the Dexie chunk purely to throw it away. This
+      // is the common case at logout — a session that never touched the
+      // offline store still must not leave one behind.
+      await deleteDatabaseDirectly();
     } catch {
       // Swallowed on purpose — see this function's own comment.
     }
@@ -276,6 +322,20 @@ export async function deleteOfflineDb(): Promise<void> {
   } finally {
     pendingDelete = null;
   }
+}
+
+/** `indexedDB.deleteDatabase` as a promise. Resolves on `blocked` too:
+ * another tab holding the database open is not something this tab can
+ * fix, and the tenant-scoped keys mean the rows left behind are
+ * unreadable under any other session anyway. */
+function deleteDatabaseDirectly(): Promise<void> {
+  if (typeof indexedDB === 'undefined') return Promise.resolve();
+  return new Promise((resolve) => {
+    const request = indexedDB.deleteDatabase(OFFLINE_DB_NAME);
+    request.onsuccess = () => resolve();
+    request.onerror = () => resolve();
+    request.onblocked = () => resolve();
+  });
 }
 
 /** Test-only: drops the memoized handle so the next `getOfflineDb()`
@@ -297,7 +357,7 @@ export function resetOfflineDbForTests(): void {
  * cross-tenant data leak.
  */
 export async function purgeTenantRefCache(tenantId: string): Promise<void> {
-  const db = getOfflineDb();
+  const db = await getOfflineDb();
   if (!db) return;
   try {
     await db.refCache.where('tenantId').equals(tenantId).delete();
