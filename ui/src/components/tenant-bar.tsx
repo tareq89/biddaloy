@@ -141,7 +141,7 @@ export function TenantBar() {
   }
 
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-4 py-2 text-sm">
+    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-border-subtle px-4 py-2 text-sm">
       <span className="truncate font-semibold text-foreground">{activeName}</span>
       {memberships.length > 1 && (
         <>

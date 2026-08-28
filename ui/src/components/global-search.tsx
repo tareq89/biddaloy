@@ -198,7 +198,7 @@ export function GlobalSearch({
           {trimmedQuery !== '' ? announceResults(totalResults) : ''}
         </div>
 
-        <div className="max-h-96 overflow-y-auto border-t border-border p-2">
+        <div className="max-h-96 overflow-y-auto border-t border-border-subtle p-2">
           {trimmedQuery === '' ? (
             <p className="px-2 py-4 text-sm text-muted-foreground">{searchableHint}</p>
           ) : anyLoading && totalResults === 0 ? (

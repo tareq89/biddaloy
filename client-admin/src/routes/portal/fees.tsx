@@ -390,7 +390,7 @@ function FeesSummary({
         )}
       </div>
       {/* The arithmetic behind the headline, in reading order. */}
-      <dl className="grid grid-cols-3 gap-2 border-t border-border pt-3">
+      <dl className="grid grid-cols-3 gap-2 border-t border-border-subtle pt-3">
         <Figure label={t('fees.charged')} value={formatServerAmount(totals.total_due, config)} />
         <Figure
           label={t('fees.discount')}
@@ -437,7 +437,7 @@ function BreakdownCard({ fees, config }: { fees: StudentFee[]; config: RegionCon
 
   return (
     <Card className="flex flex-col">
-      <h2 className="border-b border-border px-3.5 py-3 text-sm font-semibold">
+      <h2 className="border-b border-border-subtle px-3.5 py-3 text-sm font-semibold">
         {t('fees.breakdownTitle')}
       </h2>
       {rows.length === 0 ? (
@@ -452,7 +452,7 @@ function BreakdownCard({ fees, config }: { fees: StudentFee[]; config: RegionCon
             <div
               key={fee.id}
               className={`flex flex-col gap-1.5 px-3.5 py-3 ${
-                index > 0 ? 'border-t border-border' : ''
+                index > 0 ? 'border-t border-border-subtle' : ''
               }`}
             >
               <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -534,12 +534,12 @@ function InvoicesCard({
 
   return (
     <Card className="flex flex-col">
-      <div className="flex items-center justify-between gap-2 border-b border-border px-3.5 py-3">
+      <div className="flex items-center justify-between gap-2 border-b border-border-subtle px-3.5 py-3">
         <h2 className="text-sm font-semibold">{t('fees.invoicesTitle')}</h2>
         <span className="text-[11px] text-muted-foreground">{t('fees.newestFirst')}</span>
       </div>
       {truncated && (
-        <p className="border-b border-border px-3.5 py-2 text-[11px] text-muted-foreground">
+        <p className="border-b border-border-subtle px-3.5 py-2 text-[11px] text-muted-foreground">
           {t('fees.invoicesTruncated', {
             shown: renderDigits(String(invoices.length), config.numerals),
             total: renderDigits(String(total), config.numerals),
@@ -553,7 +553,7 @@ function InvoicesCard({
           <div
             key={invoice.id}
             className={`flex items-center gap-2.5 px-3.5 py-2.5 ${
-              index > 0 ? 'border-t border-border' : ''
+              index > 0 ? 'border-t border-border-subtle' : ''
             }`}
           >
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">

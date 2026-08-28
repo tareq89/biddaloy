@@ -25,7 +25,7 @@ export interface EmptyStateProps {
 
 export function EmptyState({ title, explanation, action, icon }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border p-8 text-center">
+    <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border-subtle p-8 text-center">
       {icon && <div className="text-muted-foreground [&_svg]:size-8">{icon}</div>}
       <h1 className="font-medium">{title}</h1>
       <p className="text-sm text-muted-foreground">{explanation}</p>

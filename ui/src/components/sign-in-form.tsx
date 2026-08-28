@@ -151,7 +151,7 @@ export function SignInForm({ onSubmit, loading = false, error = null }: SignInFo
         <form
           onSubmit={(event) => void form.handleSubmit(handleValidSubmit)(event)}
           noValidate
-          className="flex flex-col gap-6 rounded-lg border border-border bg-card p-8"
+          className="flex flex-col gap-6 rounded-lg border border-border-subtle bg-card p-8"
         >
           <div className="flex flex-col gap-1 text-center">
             <h1 className="text-xl font-semibold text-balance">{t('heading')}</h1>

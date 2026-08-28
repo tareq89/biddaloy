@@ -295,25 +295,50 @@ on the new ground still clears AA, so accessibility does not regress while
 it is in that state. Do not "fix" it inside #344 by pulling #348's or
 #350's work forward — that collapses three reviewable tickets into one.
 
+> **Resolved by #350 ([8.13.9]).** The interim state above no longer exists
+> on the epic branch. #350 moved all 15 lifted-surface call sites to
+> `bg-card` — `card.tsx`, `bottom-nav.tsx`, `student-picker.tsx` (inactive
+> branch), `skip-link.tsx`, `tabs.tsx`'s active trigger, `button.tsx`'s
+> outline variant, `input.tsx`, `select.tsx` and `textarea.tsx` (from `bg-transparent`) and six raw
+> `<select>`/`<input>` elements in `client-admin` — so cards are white on a
+> `#f8fafc` ground and the _After_ picture in this section is what the app
+> actually renders. Keep the paragraph: it explains why the intermediate
+> commits look the way they do to anyone reading the branch history.
+
 ```mermaid
 flowchart LR
   BB["bg-background<br/>ground #f8fafc"] --> G["page shells only"]
   BC["bg-card<br/>surface #ffffff"] --> S["everything that lifts:<br/>cards, bars, fields"]
 ```
 
-| Call site                                                                                                                                                                            | Today                               | #350 changes it to                                             |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- | -------------------------------------------------------------- |
-| `ui/src/components/card.tsx:35`                                                                                                                                                      | `bg-background`                     | `bg-card`                                                      |
-| `ui/src/components/bottom-nav.tsx:72`                                                                                                                                                | `bg-background`                     | `bg-card`                                                      |
-| `ui/src/components/student-picker.tsx:67`                                                                                                                                            | `bg-background`                     | `bg-card`                                                      |
-| `ui/src/components/skip-link.tsx:24`                                                                                                                                                 | `bg-background`                     | `bg-card`                                                      |
-| `ui/src/primitives/tabs.tsx:59` (active trigger)                                                                                                                                     | `data-[state=active]:bg-background` | `data-[state=active]:bg-card`                                  |
-| `ui/src/primitives/button.tsx:14` (outline variant)                                                                                                                                  | `bg-background`                     | `bg-card`                                                      |
-| `ui/src/primitives/input.tsx:11`                                                                                                                                                     | `bg-transparent`                    | `bg-card` — a field reads as fillable white on the grey ground |
-| `client-admin` raw inputs: `components/SecretField.tsx:86`, `pages/SchoolSettingsPage.tsx:75`, `pages/settings/SmsSection.tsx:172`, `pages/settings/RegionalSection.tsx:164,230,267` | `bg-background`                     | `bg-card`                                                      |
+| Call site                                                                                                                                                                            | Today                               | #350 changes it to                                                                                                            |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `ui/src/components/card.tsx:35`                                                                                                                                                      | `bg-background`                     | `bg-card`                                                                                                                     |
+| `ui/src/components/bottom-nav.tsx:72`                                                                                                                                                | `bg-background`                     | `bg-card`                                                                                                                     |
+| `ui/src/components/student-picker.tsx:67`                                                                                                                                            | `bg-background`                     | `bg-card`                                                                                                                     |
+| `ui/src/components/skip-link.tsx:24`                                                                                                                                                 | `bg-background`                     | `bg-card`                                                                                                                     |
+| `ui/src/primitives/tabs.tsx:59` (active trigger)                                                                                                                                     | `data-[state=active]:bg-background` | `data-[state=active]:bg-card`                                                                                                 |
+| `ui/src/primitives/button.tsx:29` (outline variant)                                                                                                                                  | `bg-background`                     | `bg-card`                                                                                                                     |
+| `ui/src/primitives/input.tsx:11`                                                                                                                                                     | `bg-transparent`                    | `bg-card` — a field reads as fillable white on the grey ground                                                                |
+| `ui/src/primitives/select.tsx:38` (`SelectTrigger`)                                                                                                                                  | `bg-transparent`                    | `bg-card` — same rationale as `input.tsx`; a `<Select>` and an `<Input>` in one form row must not read as two different fills |
+| `ui/src/primitives/textarea.tsx:10`                                                                                                                                                  | `bg-transparent`                    | `bg-card` — same rationale as `input.tsx`                                                                                     |
+| `client-admin` raw inputs: `components/SecretField.tsx:86`, `pages/SchoolSettingsPage.tsx:75`, `pages/settings/SmsSection.tsx:172`, `pages/settings/RegionalSection.tsx:164,230,267` | `bg-background`                     | `bg-card`                                                                                                                     |
 
-That is ~12 call sites plus their tests — #350 is materially bigger than
+That is 15 call sites plus their tests — #350 is materially bigger than
 its original "swap six shadow classes" shape. §9 says so on its row.
+
+_Line numbers corrected while implementing #350: the outline variant is
+`button.tsx:29`, not `:14`, and the active tab trigger is `tabs.tsx:59`
+(`:57` is the trigger's base class string, which is where the `shadow-sm` in
+§5's table lives). All 15 were applied — `select.tsx` and `textarea.tsx`
+were added during review, because leaving them on `bg-transparent` made a
+`<Select>`/`<Textarea>` render grey beside a white `<Input>` in the same form
+row, and made the design-system `Select` disagree with the six raw
+`<select>` elements this same table moved to `bg-card`. `SelectTrigger` also
+picked up `disabled:bg-input/50` and `dark:disabled:bg-input/80` — it was the
+one field primitive without them, and once the resting fill is opaque a
+disabled select with no disabled fill is indistinguishable from an enabled
+one. `textarea.tsx` already carried both._
 
 Verified on the new `#f8fafc` ground:
 
@@ -496,14 +521,35 @@ is visually loud: it is a _control_ border doing a _decoration_ job.
 | `--color-border-subtle`     | `neutral-200` `#e2e8f0` | `neutral-700` `#334155` | Card outlines, dividers, table rules — decoration                     |
 | `--color-border-functional` | `neutral-500` `#64748b` | `neutral-500` `#64748b` | Inputs, selects, checkboxes, anything focus-adjacent — must clear 3:1 |
 
-Concretely, `ui/src/components/card.tsx:35` today reads:
+Concretely, `ui/src/components/card.tsx:35` read, before #350:
 
 ```
 'rounded-lg border border-border bg-background'
 ```
 
-After #345 + #346 + #350 it reads `border-border-subtle bg-card` plus
-`shadow-e1` — a hairline and a lift, instead of a hard outline.
+After #345 + #346 + #350 it reads, and now really does read:
+
+```
+'rounded-lg border border-border-subtle bg-card shadow-e1'
+```
+
+A hairline and a lift, instead of a hard outline on a grey panel.
+
+**Where the functional role stays.** #350 routed ~55 `border-border` call
+sites to `border-border-subtle`. Four lines were deliberately left on
+`border-border` (which aliases the functional role) because the edge _is_ the
+control affordance — remove it and the user cannot tell the thing is
+pressable:
+
+| Kept functional                                              | Why                                     |
+| ------------------------------------------------------------ | --------------------------------------- |
+| `ui/src/components/data-table.tsx:576`, `:584`               | Prev/next pagination buttons            |
+| `ui/src/components/student-picker.tsx:67`                    | Unselected child option (selectable)    |
+| `ui/src/primitives/button.tsx:29`                            | The `outline` button variant's own edge |
+| `client-admin/.../payments/-record/find-student-step.tsx:49` | Search-result row, a button             |
+
+`border-input` sites are already functional through the `--color-input`
+alias and were left alone.
 
 **Utility names, exactly.** Tailwind v4 derives the utility from the full
 variable name after the namespace: `--color-border` → `border-border`, so
@@ -589,6 +635,92 @@ Existing call sites map one-to-one — #350 makes these edits:
 | `ui/src/primitives/dropdown-menu.tsx:36`  | `shadow-md` | `shadow-e2` |
 | `ui/src/primitives/dropdown-menu.tsx:233` | `shadow-lg` | `shadow-e3` |
 | `ui/src/components/skip-link.tsx:24`      | `shadow-lg` | `shadow-e3` |
+| `ui/src/primitives/dialog.tsx:56`         | _none_      | `shadow-e3` |
+
+The `dialog.tsx` row was added during #350. The table was written by reading
+the source for existing `shadow-*` utilities, and `DialogContent` had none —
+it carried only `ring-1 ring-foreground/10`. But the `--shadow-e3` row above
+names _dialog_ as the first thing that step is for, so a dialog with no
+elevation at all was a gap in the contract, not a deliberate exemption.
+
+**Dark mode on ring-carrying overlays.** The dark-mode rule above ("every
+elevated surface also carries a 1px subtle border") prescribes a _border_,
+and five overlays — `popover.tsx:29`, `select.tsx:64`, `dropdown-menu.tsx:36`
+and `:233`, `dialog.tsx:56` — draw their edge with `ring-1
+ring-foreground/10` instead. Adding a border to those would give them two
+concentric edges. They satisfy the rule by **recolouring the ring they
+already have**: `dark:ring-border-subtle` re-points `--tw-ring-color` at
+`#334155` in dark mode, which is the same 1px `border-border-subtle` edge the
+rule asks for, drawn by the utility already present.
+
+```mermaid
+flowchart LR
+  R["ring-1 ring-foreground/10<br/>(light: faint dark ring)"] --> O["overlay edge"]
+  D["dark:ring-border-subtle<br/>(dark: #334155)"] --> O
+  S["shadow-e2 / shadow-e3"] --> O
+```
+
+Surfaces that draw a real border — `Card`, `bottom-nav`, the active tab —
+satisfy the rule directly through `border-border-subtle`, whose dark value
+is already `#334155`.
+
+### The gate (added in [8.13.9])
+
+`ui/scripts/check-raw-palette.mjs` now fails the build on any raw Tailwind
+shadow-scale class (`shadow-sm`, `focus-visible:shadow-lg`, …) anywhere in
+`ui/src` or a `client-*` app, and on an inlined arbitrary shadow value
+(`shadow-[0_1px_2px_rgb(0_0_0/0.1)]`) — which is the same escape hatch written
+the most direct way there is. `shadow-none`, `shadow-e1/e2/e3` and
+`shadow-[var(--…)]` stay legal. The reason is the same one this section already
+explains: Tailwind inlines the literal rgba value, so a shadow written that way
+can never follow the theme, and nothing reports an error when it doesn't.
+
+Two deliberate limits on the gate, both settled in review:
+
+- **`drop-shadow-*` is not banned.** There is no `--drop-shadow-e*` token and
+  `filter: drop-shadow()` cannot take a `box-shadow` value, so the ban demanded
+  a replacement that does not exist. A gate with no green path is a gate people
+  switch off. Add the tokens first if a themed drop-shadow scale is ever needed.
+- **Comments are stripped before scanning.** The scan is a raw line match, so it
+  could not tell a `className` from prose about one: the explanatory comment in
+  `ui/src/foundations/elevation.stories.tsx` had to be reworded around the regex
+  rather than saying what it meant. It now says what it means, and
+  `ui/scripts/check-raw-palette.spec.mjs` holds that as a negative test.
+
+`ui/scripts/check-raw-palette.spec.mjs` covers the rules directly — every banned
+spelling and, more importantly, every legal one — because a check whose only
+test is "the repo passes today" cannot tell a working rule from a rule that
+matches nothing.
+
+### tailwind-merge has to know the elevation scale
+
+`cn()` (`ui/src/primitives/lib/utils.ts`) extends tailwind-merge so `e1`/`e2`/
+`e3` are members of the real `shadow` class group. Stock tailwind-merge has
+never heard of them: it parses `shadow-<unknown>` as a shadow _colour_, files
+`shadow-e1` under `shadow-color`, and then finds no conflict with `shadow-none`
+or `shadow-md`, which live in the `shadow` group.
+
+```
+twMerge('shadow-e1', 'shadow-none')  // -> 'shadow-e1 shadow-none'   ← both
+cn('shadow-e1', 'shadow-none')       // -> 'shadow-none'             ← fixed
+```
+
+That mattered the moment `card.tsx` baked `shadow-e1` into its base string:
+`<Card className="shadow-none">` only _looked_ flat because `.shadow-none` is
+emitted after `.shadow-e1` in the compiled stylesheet. The caller's override was
+silently riding on source order. Registering the scale fixes it once for every
+component that uses `cn`, and colour modifiers still merge correctly
+(`cn('shadow-e1', 'shadow-brand-600')` keeps both — a size and a colour do not
+conflict).
+
+`ui/scripts/check-contrast.mjs` compiles the seven surface utilities this
+section and §3.3/§4 depend on — `bg-card`, `border-border-subtle`,
+`border-border-functional`, `shadow-e1/e2/e3`, `dark:ring-border-subtle` — and
+asserts each produced the declaration it is named after. It also compiles the
+near-miss `border-subtle` and asserts it produces **nothing**, because that is
+the trap: the utility name is the token name minus the `--color-` prefix, so
+`border-subtle` matches no colour utility, emits no rule, and leaves a black
+`currentColor` hairline with no error anywhere.
 
 ---
 

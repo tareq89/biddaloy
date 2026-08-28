@@ -169,7 +169,7 @@ export function SmsSection({ schoolId, sms }: SmsSectionProps) {
                 <FormControl>
                   <select
                     id="sms-provider"
-                    className="h-8 rounded-md border border-input bg-background px-2.5 text-sm"
+                    className="h-8 rounded-md border border-input bg-card px-2.5 text-sm"
                     {...field}
                   >
                     <option value="greenweb">{t('sms.providerGreenweb')}</option>

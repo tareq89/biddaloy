@@ -201,7 +201,7 @@ function SendMessageForm() {
         <h1 className="text-2xl font-semibold">{t('send.title')}</h1>
         <section
           aria-label={t('send.resultTitle')}
-          className="flex flex-col gap-3 rounded-md border border-border p-4"
+          className="flex flex-col gap-3 rounded-md border border-border-subtle p-4"
         >
           <h2 className="text-lg font-medium">{t('send.resultTitle')}</h2>
           <p className="text-sm text-muted-foreground">
@@ -253,7 +253,7 @@ function SendMessageForm() {
 
         <section
           aria-label={t('send.linkStudentTitle')}
-          className="flex flex-col gap-2 rounded-md border border-border p-3"
+          className="flex flex-col gap-2 rounded-md border border-border-subtle p-3"
         >
           <h2 className="text-sm font-medium">{t('send.linkStudentTitle')}</h2>
           {student === null ? (

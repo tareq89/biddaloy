@@ -138,7 +138,7 @@ export function GuardianPicker({
             return (
               <li
                 key={id}
-                className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-1.5 text-sm"
+                className="flex items-center justify-between gap-2 rounded-md border border-border-subtle px-3 py-1.5 text-sm"
               >
                 <span>
                   {guardian?.full_name ?? id}
@@ -195,7 +195,7 @@ export function GuardianPicker({
           {t('form.guardians.addNewAction')}
         </Button>
       ) : (
-        <div className="flex flex-col gap-2 rounded-md border border-border p-3">
+        <div className="flex flex-col gap-2 rounded-md border border-border-subtle p-3">
           <Input
             id="student-form-new-guardian-name"
             aria-label={t('form.guardians.newGuardian.nameLabel')}

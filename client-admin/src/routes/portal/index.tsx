@@ -500,7 +500,7 @@ function RecentPayments({
 
   return (
     <Card className="flex flex-col">
-      <h2 className="border-b border-border px-3.5 py-3 text-sm font-semibold">
+      <h2 className="border-b border-border-subtle px-3.5 py-3 text-sm font-semibold">
         {t('payments.title')}
       </h2>
 
@@ -538,7 +538,7 @@ function RecentPayments({
               <div
                 key={payment.id}
                 className={`flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 ${
-                  index > 0 ? 'border-t border-border' : ''
+                  index > 0 ? 'border-t border-border-subtle' : ''
                 }`}
               >
                 <div className="flex min-w-0 flex-col">
@@ -569,7 +569,7 @@ function RecentPayments({
               </div>
             );
           })}
-          <div className="border-t border-border px-3.5 py-2.5">
+          <div className="border-t border-border-subtle px-3.5 py-2.5">
             <Link to="/portal/fees" className="text-sm text-primary underline">
               {t('payments.seeAll')}
             </Link>

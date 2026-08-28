@@ -13,7 +13,7 @@
  * badge: a permanent banner is a banner people stop reading, and by the
  * time it says something important it is furniture.
  *
- * Composition only — `text-muted-foreground`/`bg-muted`/`border-border`
+ * Composition only — `text-muted-foreground`/`bg-muted`/`border-border-subtle`
  * from the design system's tokens and `cn`, the way `empty-state.tsx`
  * does. No new primitive, no bespoke colour.
  */
@@ -73,7 +73,7 @@ export function CachedDataNotice({ queryKey, className }: CachedDataNoticeProps)
       // interrupted. Stale data is important, not urgent.
       role="status"
       className={cn(
-        'flex flex-wrap items-center gap-1 rounded-md border border-border bg-muted px-3 py-2 text-sm text-muted-foreground',
+        'flex flex-wrap items-center gap-1 rounded-md border border-border-subtle bg-muted px-3 py-2 text-sm text-muted-foreground',
         className,
       )}
     >

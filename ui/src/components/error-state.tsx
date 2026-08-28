@@ -35,7 +35,7 @@ export function ErrorState({
   return (
     <div
       role="alert"
-      className="flex flex-col items-center gap-2 rounded-lg border border-border p-8 text-center"
+      className="flex flex-col items-center gap-2 rounded-lg border border-border-subtle p-8 text-center"
     >
       {icon && <div className="text-muted-foreground [&_svg]:size-8">{icon}</div>}
       <p className="text-sm text-muted-foreground">{message}</p>

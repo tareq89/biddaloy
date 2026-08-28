@@ -304,7 +304,7 @@ function SingleReminderForm() {
         <h1 className="text-2xl font-semibold">{t('reminders.title')}</h1>
         <section
           aria-label={t('reminders.resultTitle')}
-          className="flex flex-col gap-4 rounded-md border border-border p-4"
+          className="flex flex-col gap-4 rounded-md border border-border-subtle p-4"
         >
           <h2 className="text-lg font-medium">{t('reminders.resultTitle')}</h2>
           <div>
@@ -375,7 +375,7 @@ function SingleReminderForm() {
 
       <section
         aria-label={t('reminders.studentSectionTitle')}
-        className="flex flex-col gap-2 rounded-md border border-border p-3"
+        className="flex flex-col gap-2 rounded-md border border-border-subtle p-3"
       >
         <h2 className="text-sm font-medium">{t('reminders.studentSectionTitle')}</h2>
         {studentId === null ? (
@@ -430,7 +430,7 @@ function SingleReminderForm() {
 
       {student !== undefined && studentId !== null && (
         <>
-          <fieldset className="flex flex-col gap-2 rounded-md border border-border p-3">
+          <fieldset className="flex flex-col gap-2 rounded-md border border-border-subtle p-3">
             <legend className="px-1 text-sm font-medium">{t('reminders.guardiansLabel')}</legend>
             {student.guardians.length === 0 ? (
               <p role="alert" className="text-sm text-destructive">
@@ -586,7 +586,7 @@ function SingleReminderForm() {
           )}
 
           {acceptedPreview !== null && previewMatchesInputs && (
-            <section className="rounded-md border border-border p-3">
+            <section className="rounded-md border border-border-subtle p-3">
               <RecipientList
                 recipients={acceptedPreview.result.recipients}
                 skipped={acceptedPreview.result.skipped}

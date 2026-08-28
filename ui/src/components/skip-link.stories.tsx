@@ -37,7 +37,11 @@ export const Default: Story = {
           Nav link two
         </a>
       </nav>
-      <main id="story-main-content" tabIndex={-1} className="rounded-md border border-border p-4">
+      <main
+        id="story-main-content"
+        tabIndex={-1}
+        className="rounded-md border border-border-subtle p-4"
+      >
         Page content — Tab from the top of this story to reveal the skip link before it reaches the
         nav links above.
       </main>
@@ -53,7 +57,7 @@ export const RightToLeft: Story = {
       <main
         id="story-main-content-rtl"
         tabIndex={-1}
-        className="rounded-md border border-border p-4"
+        className="rounded-md border border-border-subtle p-4"
       >
         পৃষ্ঠার বিষয়বস্তু — এই গল্পের শুরু থেকে Tab চাপুন স্কিপ লিংক দেখতে।
       </main>

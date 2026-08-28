@@ -56,7 +56,7 @@ export function RouteStatusState({
   return (
     <div
       role="status"
-      className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border p-8 text-center"
+      className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border-subtle p-8 text-center"
     >
       <div className="text-muted-foreground [&_svg]:size-8">{icon}</div>
       <h1 className="font-medium">{title}</h1>

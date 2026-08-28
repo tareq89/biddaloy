@@ -1,10 +1,16 @@
 /**
  * Foundations story for the three elevation steps added in [8.13.5] (design
  * contract §5). As with `borders.stories.tsx` there is no component here on
- * purpose: this ticket registers tokens and changes no component. The six
- * existing `shadow-sm`/`shadow-md`/`shadow-lg` call sites move to `shadow-e*`
- * in #350, so these demos are plain `div`s that show what each step looks
- * like and spell the utility name out in full.
+ * purpose: [8.13.5] registered the tokens and changed no component. The six
+ * existing `shadow-sm`/`shadow-md`/`shadow-lg` call sites moved to `shadow-e*`
+ * in [8.13.9], which also added the `ui/scripts/check-raw-palette.mjs` gate
+ * that now fails the build on Tailwind's raw shadow scale. These demos stay
+ * plain `div`s that show what each step looks like and spell the utility name
+ * out in full.
+ *
+ * (That sentence naming `shadow-sm` is deliberate, and is a live negative test
+ * of the gate: it strips comments before scanning, so documentation may say
+ * what it means instead of being reworded around a regex.)
  *
  * The dark story is the one worth looking at. `shadow-e*` resolves through a
  * runtime `--elevation-*` custom property (see the note in globals.css) —

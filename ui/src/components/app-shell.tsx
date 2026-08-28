@@ -226,7 +226,7 @@ function NavGroupSection({
           <NavLink key={`${item.to}:${item.label}`} item={item} onNavigate={onNavigate} />
         ))}
         {pinned.length > 0 && rest.length > 0 && (
-          <li aria-hidden="true" className="my-1 border-t border-border" />
+          <li aria-hidden="true" className="my-1 border-t border-border-subtle" />
         )}
         {rest.map((item) => (
           <NavLink key={`${item.to}:${item.label}`} item={item} onNavigate={onNavigate} />
@@ -290,7 +290,7 @@ export function AppShell({
       {topBar}
       <div className="flex flex-1 flex-col md:flex-row">
         {!hasBottomNav && (
-          <div className="flex items-center justify-between border-b border-border p-2 md:hidden">
+          <div className="flex items-center justify-between border-b border-border-subtle p-2 md:hidden">
             {brand !== undefined && <div className="text-sm font-semibold">{brand}</div>}
             <Dialog open={drawerOpen} onOpenChange={setDrawerOpen}>
               <DialogTrigger asChild>
@@ -330,7 +330,7 @@ export function AppShell({
           </div>
         )}
 
-        <aside className="hidden w-60 shrink-0 flex-col gap-6 border-r border-border bg-muted/30 p-4 md:flex">
+        <aside className="hidden w-60 shrink-0 flex-col gap-6 border-r border-border-subtle bg-muted/30 p-4 md:flex">
           {brand !== undefined && <div className="text-sm font-semibold">{brand}</div>}
           <NavContent navItems={navItems} navGroups={navGroups} role={role} navLabel={navLabel} />
         </aside>

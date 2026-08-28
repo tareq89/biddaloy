@@ -64,7 +64,7 @@ export function StudentPicker({ label, items, selectedId, to, className }: Stude
             aria-current={active ? 'page' : undefined}
             // `min-h-11` is 44px — the portal's minimum touch target.
             className={`flex min-h-11 flex-shrink-0 flex-col justify-center gap-0.5 rounded-lg border px-3 py-1.5 no-underline ${
-              active ? 'border-primary bg-primary/10' : 'border-border bg-background'
+              active ? 'border-primary bg-primary/10' : 'border-border bg-card'
             }`}
           >
             <span className="text-sm font-semibold">{item.name}</span>
