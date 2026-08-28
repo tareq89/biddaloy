@@ -49,6 +49,28 @@ export const WithSkeletonContent: Story = {
   },
 };
 
+/**
+ * The point of [8.13.9], in one frame. A `Card` is `border-border-subtle
+ * bg-card shadow-e1` (contract §4), and none of that reads as a *lift* until
+ * you see it against the ground it sits on: the page is `bg-background`
+ * (`#f8fafc`), the card is `bg-card` (white). Before this ticket the card
+ * painted `bg-background` too, so on a white page it read as a grey panel —
+ * §3.3's documented interim state, which this story exists to prove is over.
+ *
+ * The wrapper deliberately paints the ground itself instead of relying on the
+ * Storybook canvas background, so the comparison survives a theme change to
+ * the canvas.
+ */
+export const OnGround: Story = {
+  decorators: [
+    (StoryFn) => (
+      <div className="bg-background p-8">
+        <StoryFn />
+      </div>
+    ),
+  ],
+};
+
 export const RightToLeft: Story = {
   decorators: [rtlDecorator],
 };

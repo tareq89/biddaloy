@@ -48,19 +48,19 @@ export function OutstandingFeesStep({
             <p className="text-sm text-muted-foreground">{t('record.outstandingFees.noBalance')}</p>
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div className="rounded-lg border border-border p-4">
+              <div className="rounded-lg border border-border-subtle p-4">
                 <p className="text-sm text-muted-foreground">
                   {t('record.outstandingFees.totalDue')}
                 </p>
                 <p className="text-lg font-semibold">{money(feeSummary.summary.total_due)}</p>
               </div>
-              <div className="rounded-lg border border-border p-4">
+              <div className="rounded-lg border border-border-subtle p-4">
                 <p className="text-sm text-muted-foreground">
                   {t('record.outstandingFees.totalPaid')}
                 </p>
                 <p className="text-lg font-semibold">{money(feeSummary.summary.total_paid)}</p>
               </div>
-              <div className="rounded-lg border border-border p-4">
+              <div className="rounded-lg border border-border-subtle p-4">
                 <p className="text-sm text-muted-foreground">
                   {t('record.outstandingFees.balance')}
                 </p>

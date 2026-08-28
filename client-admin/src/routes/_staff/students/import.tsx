@@ -149,7 +149,7 @@ function ImportStudentsContent() {
               {t('reference.caption')}
             </caption>
             <thead>
-              <tr className="border-b border-border">
+              <tr className="border-b border-border-subtle">
                 <th scope="col" className="py-1 pr-4 font-medium">
                   {t('reference.column')}
                 </th>
@@ -163,7 +163,7 @@ function ImportStudentsContent() {
             </thead>
             <tbody>
               {TEMPLATE_HEADERS.map((header) => (
-                <tr key={header} className="border-b border-border">
+                <tr key={header} className="border-b border-border-subtle">
                   <td className="py-1 pr-4 font-mono text-xs">{header}</td>
                   <td className="py-1 pr-4">
                     {REQUIRED_COLUMNS.has(header)
@@ -231,13 +231,13 @@ function ImportStudentsContent() {
             {t('result.title')}
           </h2>
           {result.error_count === 0 ? (
-            <p className="rounded-md border border-border bg-muted p-3 text-sm">
+            <p className="rounded-md border border-border-subtle bg-muted p-3 text-sm">
               {t('result.allImported', { count: result.success_count })}
             </p>
           ) : (
             // Deliberately neutral styling: partial success is the normal
             // case — neither a green tick nor a red failure.
-            <p className="rounded-md border border-border bg-muted p-3 text-sm">
+            <p className="rounded-md border border-border-subtle bg-muted p-3 text-sm">
               {t('result.partialSummary', {
                 success: result.success_count,
                 total: result.total_rows,

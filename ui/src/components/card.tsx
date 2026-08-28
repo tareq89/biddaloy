@@ -1,6 +1,6 @@
 /**
  * The surface primitive every screen was re-declaring inline: `rounded-lg
- * border border-border bg-background`. [5.2]'s portal landing alone uses
+ * border border-border-subtle bg-card shadow-e1`. [5.2]'s portal landing alone uses
  * it six times (hero, one per child, recent payments), which is the point
  * past which the class string earns a component rather than a sixth copy.
  *
@@ -32,7 +32,7 @@ export function Card({ className, asChild = false, ...props }: CardProps) {
   return (
     <Comp
       data-slot="card"
-      className={cn('rounded-lg border border-border bg-background', className)}
+      className={cn('rounded-lg border border-border-subtle bg-card shadow-e1', className)}
       {...props}
     />
   );

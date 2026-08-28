@@ -716,6 +716,70 @@ if (compiledCss !== null) {
     }
   }
 
+  /**
+   * Surface application, end to end (contract §3.3, §4, §5 — [8.13.9]).
+   *
+   * [8.13.9] moved every lifted surface onto `bg-card`, routed decorative
+   * edges to `border-border-subtle`, and swapped the raw Tailwind shadow
+   * scale for `shadow-e1/e2/e3`. A source grep proves none of that: the
+   * utility name is the token name MINUS the `--color-` prefix, so the
+   * plausible-looking `border-subtle` matches no colour utility at all,
+   * compiles to no rule, and leaves the element on the `border: 0 solid`
+   * preflight default with `currentColor` — a black hairline instead of a
+   * subtle one, with nothing anywhere reporting an error. The only way to
+   * know is to compile the exact class strings the components ship and read
+   * the declarations back.
+   *
+   * `dark:ring-border-subtle` is in the list because §5's dark rule (edges
+   * carry a border AND a shadow in dark mode) is satisfied on the five
+   * ring-carrying overlays by recolouring their existing ring rather than
+   * adding a second edge — which only works if the variant and the colour
+   * utility compose.
+   */
+  const SURFACE_CANDIDATES = [
+    ['bg-card', 'background-color: var(--color-card)'],
+    ['border-border-subtle', 'border-color: var(--color-border-subtle)'],
+    ['border-border-functional', 'border-color: var(--color-border-functional)'],
+    ['shadow-e1', '--tw-shadow: var(--elevation-e1)'],
+    ['shadow-e2', '--tw-shadow: var(--elevation-e2)'],
+    ['shadow-e3', '--tw-shadow: var(--elevation-e3)'],
+    ['dark:ring-border-subtle', '--tw-ring-color: var(--color-border-subtle)'],
+  ];
+  /**
+   * The near-miss name is compiled alongside the real ones and asserted to
+   * produce NOTHING. That inverted assertion is what keeps the check honest:
+   * if a future Tailwind release started emitting a rule for `border-subtle`
+   * this list would go stale silently, and the comment above would be wrong.
+   */
+  const SURFACE_TRAP = 'border-subtle';
+  const surfaceCss = compiler.build([...SURFACE_CANDIDATES.map(([c]) => c), SURFACE_TRAP]);
+  const surfaceRules = [...surfaceCss.matchAll(/([^{}]*)\{([^{}]*)\}/g)].map(
+    ([, selector, body]) => [selector.replaceAll('\\', '').trim(), body],
+  );
+  for (const [candidate, expectedDeclaration] of SURFACE_CANDIDATES) {
+    const rule = surfaceRules.find(([selector]) => selector.includes(`.${candidate}`));
+    if (rule === undefined) {
+      errors.push(
+        `compiled CSS: the surface utility \`${candidate}\` produced no rule at all, so every ` +
+          'component shipping that class renders with no fill, no edge or no elevation ' +
+          '(contract §3.3/§4/§5).',
+      );
+    } else if (!rule[1].includes(expectedDeclaration)) {
+      errors.push(
+        `compiled CSS: the surface utility \`${candidate}\` compiled to ` +
+          `\`${rule[1].trim()}\`, not \`${expectedDeclaration}\` — it no longer reads the ` +
+          'token it is named after.',
+      );
+    }
+  }
+  if (surfaceRules.some(([selector]) => /\.border-subtle(?![a-z-])/.test(selector))) {
+    errors.push(
+      'compiled CSS: `border-subtle` now compiles to a real rule. The comment above and the ' +
+        'warning in globals.css both say it cannot — update them, because the trap they ' +
+        'describe no longer exists.',
+    );
+  }
+
   if (!/@media\s*\(prefers-reduced-motion:\s*reduce\)/.test(compiledCss)) {
     errors.push(
       'compiled CSS: the global @media (prefers-reduced-motion: reduce) rule is not in the ' +
@@ -797,6 +861,7 @@ console.log(
     `with ${densityCandidates.length} reading utilities proven to compile, ` +
     `all of them plus every elevation step verified present in the compiled CSS, ` +
     `the dark: variant proven attribute-scoped in the compiled CSS, ` +
+    `7 surface utilities compiled and the border-subtle near-miss proven dead, ` +
     `CSS mirror matches tailwind.preset.ts by name and scope, ` +
     `and ${outOfUiHexSites.length} out-of-ui hex sites match their tokens.`,
 );

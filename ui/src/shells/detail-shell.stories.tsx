@@ -74,7 +74,7 @@ function PaymentNotePanel() {
       <label className="flex flex-col gap-1 text-sm">
         Follow-up note
         <input
-          className="rounded border border-border px-2 py-1"
+          className="rounded border border-border-subtle px-2 py-1"
           value={note}
           onChange={(event) => setNote(event.target.value)}
         />

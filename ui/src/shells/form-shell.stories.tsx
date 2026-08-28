@@ -223,7 +223,7 @@ function AdmissionFormWithAutosave() {
         onSubmit={(event) => void form.handleSubmit(handleSubmit)(event)}
       >
         {hadDraftOnMount && !form.formState.isSubmitSuccessful && (
-          <div role="status" className="rounded-lg border border-border p-3 text-sm">
+          <div role="status" className="rounded-lg border border-border-subtle p-3 text-sm">
             A previous draft was found.{' '}
             <button
               type="button"

@@ -425,7 +425,7 @@ export function BulkReminderWizard() {
           )}
         </div>
 
-        <fieldset className="flex flex-col gap-2 rounded-md border border-border p-3">
+        <fieldset className="flex flex-col gap-2 rounded-md border border-border-subtle p-3">
           <legend className="px-1 text-sm font-medium">{t('bulk.message.mediumsLabel')}</legend>
           {BULK_MEDIUMS.map((medium) => (
             <span key={medium} className="flex items-center gap-2 text-sm">
@@ -505,7 +505,7 @@ export function BulkReminderWizard() {
         {previewResult !== null && (
           <section
             aria-label={t('bulk.steps.review')}
-            className="flex flex-col gap-4 rounded-md border border-border p-3"
+            className="flex flex-col gap-4 rounded-md border border-border-subtle p-3"
           >
             <p className="text-sm font-medium">
               {t('bulk.review.summary', {
@@ -540,7 +540,10 @@ export function BulkReminderWizard() {
               <h2 className="text-sm font-semibold">{t('bulk.review.perStudentTitle')}</h2>
               <div className="mt-2 flex flex-col gap-2">
                 {previewResult.students.map((student) => (
-                  <details key={student.student_id} className="rounded-md border border-border p-2">
+                  <details
+                    key={student.student_id}
+                    className="rounded-md border border-border-subtle p-2"
+                  >
                     <summary className="cursor-pointer text-sm font-medium">
                       {student.student_name} ·{' '}
                       {t('bulk.review.studentRecipients', { count: student.recipients.length })} ·{' '}
@@ -568,7 +571,7 @@ export function BulkReminderWizard() {
   const result = send.isSuccess ? (
     <section
       aria-label={t('bulk.result.title')}
-      className="flex flex-col gap-3 rounded-md border border-border p-4"
+      className="flex flex-col gap-3 rounded-md border border-border-subtle p-4"
     >
       <h2 className="text-lg font-medium">{t('bulk.result.title')}</h2>
       <p className="text-sm">{t('bulk.result.queued', { name: send.data.batch_name })}</p>

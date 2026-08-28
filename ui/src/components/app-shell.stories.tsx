@@ -85,7 +85,7 @@ export const RightToLeft: Story = {
 export const WithTopBar: Story = {
   args: {
     topBar: (
-      <div className="border-b border-border px-4 py-2 text-sm">
+      <div className="border-b border-border-subtle px-4 py-2 text-sm">
         Greenview School <span className="text-muted-foreground">Admin</span>
       </div>
     ),

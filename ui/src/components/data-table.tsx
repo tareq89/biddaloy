@@ -371,7 +371,7 @@ export function DataTable<TData>({
         role="region"
         tabIndex={0}
         aria-label={caption}
-        className="w-full overflow-x-auto rounded-lg border border-border focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+        className="w-full overflow-x-auto rounded-lg border border-border-subtle focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
       >
         {/* eslint-enable jsx-a11y/no-noninteractive-tabindex */}
         {/* [8.5.6] `[&_td_a]:min-h-6` etc.: links inside cells (view/detail
@@ -466,7 +466,7 @@ export function DataTable<TData>({
                 return (
                   <React.Fragment key={row.id}>
                     <tr
-                      className="border-t border-border"
+                      className="border-t border-border-subtle"
                       data-selected={selectedIds?.has(row.id) || undefined}
                     >
                       {expandable && (

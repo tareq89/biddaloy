@@ -161,7 +161,7 @@ export function RegionalSection({ schoolId, region }: RegionalSectionProps) {
                 <FormControl>
                   <select
                     id="regional-numerals"
-                    className="h-8 rounded-md border border-input bg-background px-2.5 text-sm"
+                    className="h-8 rounded-md border border-input bg-card px-2.5 text-sm"
                     {...field}
                   >
                     <option value="latin">{t('regional.numeralsLatin')}</option>
@@ -227,7 +227,7 @@ export function RegionalSection({ schoolId, region }: RegionalSectionProps) {
                 <FormControl>
                   <select
                     id="regional-currency-position"
-                    className="h-8 rounded-md border border-input bg-background px-2.5 text-sm"
+                    className="h-8 rounded-md border border-input bg-card px-2.5 text-sm"
                     {...field}
                   >
                     <option value="prefix">{t('regional.currencyPositionPrefix')}</option>
@@ -264,7 +264,7 @@ export function RegionalSection({ schoolId, region }: RegionalSectionProps) {
                 <FormControl>
                   <select
                     id="regional-currency-grouping"
-                    className="h-8 rounded-md border border-input bg-background px-2.5 text-sm"
+                    className="h-8 rounded-md border border-input bg-card px-2.5 text-sm"
                     {...field}
                   >
                     <option value="lakh-crore">{t('regional.currencyGroupingLakhCrore')}</option>

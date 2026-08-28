@@ -68,7 +68,7 @@ export function StudentPicker({
             return (
               <li
                 key={id}
-                className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-1.5 text-sm"
+                className="flex items-center justify-between gap-2 rounded-md border border-border-subtle px-3 py-1.5 text-sm"
               >
                 <span>{student?.full_name ?? id}</span>
                 <Button
