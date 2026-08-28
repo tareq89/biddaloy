@@ -13,6 +13,32 @@
 @import "tailwindcss";
 
 /**
+ * Overlay enter/exit animation vocabulary (design contract §7).
+ *
+ * Five primitives — popover, tooltip, dialog, dropdown-menu, select — ship
+ * `animate-in`, `fade-in-0`, `zoom-in-95` and `slide-in-from-*` class
+ * strings inherited from shadcn/ui. Those names are NOT part of Tailwind
+ * core: `tailwindcss-animate` defined them for v3, and nothing defined them
+ * here. Tailwind emits no rule for a class it does not recognise and reports
+ * no error, so every one of those strings compiled to nothing and every
+ * overlay snapped open. `tw-animate-css` is the Tailwind v4 successor to
+ * `tailwindcss-animate` and provides exactly that vocabulary; in v4 it is a
+ * CSS import, not a plugin entry, and it must come AFTER `tailwindcss` so
+ * its `@utility` definitions land in the utilities layer.
+ *
+ * `scripts/check-contrast.mjs` compiles this stylesheet and asserts those
+ * utilities produce real rules, so removing this line fails a gate rather
+ * than silently re-deadening the animations.
+ *
+ * The durations come from `--motion-duration-*` below, bound per component
+ * with `duration-(--motion-duration-base)`; `tw-animate-css` reads
+ * Tailwind's own `--tw-duration`, which `duration-*` sets. The global
+ * reduced-motion rule at the bottom of this file still wins over all of it —
+ * it is unlayered and `!important`, these are layered normal declarations.
+ */
+@import "tw-animate-css";
+
+/**
  * `@tailwindcss/vite`'s automatic content detection scans the *consuming
  * app's* own directory tree — it never sees this sibling package, so a class
  * name used only inside a `ui/src` component would silently generate no CSS
@@ -332,8 +358,16 @@
   --color-popover-foreground: var(--color-text-primary);
   --color-primary: var(--color-brand);
   --color-primary-foreground: var(--color-neutral-0);
-  --color-secondary: var(--color-surface);
-  --color-secondary-foreground: var(--color-text-primary);
+  /* [8.13.10]: was `var(--color-surface)` / `var(--color-text-primary)` —
+   * after #344's ground/surface inversion (§3.3) that made `--secondary`
+   * white text on a white card (~1.00:1) with a `border-transparent` variant
+   * giving no boundary either, failing SC 1.4.11. Re-pointed to a brand-50
+   * tint so the variant reads as a distinct, bordered surface rather than
+   * an invisible one. Both sides are existing, contract-verified tokens —
+   * 'brand-700 on brand-50 (selected nav item)' in CONTRAST_PAIRS below,
+   * 7.89:1. */
+  --color-secondary: var(--color-brand-50);
+  --color-secondary-foreground: var(--color-brand-700);
   --color-muted: var(--color-neutral-100);
   --color-muted-foreground: var(--color-text-secondary);
   --color-accent: var(--color-neutral-100);
@@ -542,10 +576,19 @@
        primary button. `neutral-900` on `brand-400` is 6.66:1 (§3.4).
      - `--color-muted` / `--color-accent` point at `neutral-100` in light
        mode (see the note above). In dark mode the hover/active highlight
-       should lift toward the elevated surface, not toward a light grey. */
+       should lift toward the elevated surface, not toward a light grey.
+     - `--color-secondary` is `brand-50` in light mode — a light tint that
+       has no dark-mode equivalent in the ramp. [8.13.10] lifts it to the
+       elevated surface instead, same move as `--color-muted`/`--color-accent`
+       just above, with `--color-brand` (already `brand-400` in this block)
+       as its foreground. That exact pair — `dark.brand` on `dark.surface` —
+       is already the 'dark brand text on dark surface' row in
+       CONTRAST_PAIRS, so no new row is needed. */
   --color-primary-foreground: var(--color-neutral-900);
   --color-muted: var(--color-surface);
   --color-accent: var(--color-surface);
+  --color-secondary: var(--color-surface);
+  --color-secondary-foreground: var(--color-brand);
 
   /* `--color-sidebar-primary` follows `--color-brand`, so in dark mode it is
      `brand-400`. Its foreground therefore needs exactly the same correction as

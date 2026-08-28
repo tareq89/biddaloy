@@ -1,4 +1,6 @@
-import { expect, guest, test } from './fixtures/test';
+import { expect, guest, loggedIn, test } from './fixtures/test';
+import { makeT } from './i18n';
+import { ListShellPage } from './pages/list-shell';
 
 /**
  * [8.13.6] The global `prefers-reduced-motion: reduce` rule in
@@ -175,5 +177,46 @@ test.describe('global prefers-reduced-motion rule', () => {
     expect(longestMs(inlineAnimated.animationDuration)).toBeLessThan(1);
     expect(longestMs(inlineAnimated.transitionDuration)).toBeLessThan(1);
     expect(inlineAnimated.iterationCount).toBe('1');
+  });
+});
+
+/**
+ * [8.13.10] The Radix overlays this ticket brings to life with
+ * `tw-animate-css` (see the file header) must obey the same global rule as
+ * everything above, not just re-time under normal conditions. A real
+ * dialog rather than a synthetic probe: `DialogContent` carries
+ * `animate-in fade-in-0 zoom-in-95 ... duration-(--motion-duration-slow)`
+ * verbatim (`ui/src/primitives/dialog.tsx`), so its `animationDuration`
+ * either resolves to the contract's 240ms or, under reduce, to the global
+ * rule's `0.01ms !important` — same paired-assertion shape as `timings()`
+ * above, just read off a component instead of a hand-mounted probe.
+ *
+ * The create-fee-structure dialog is reused rather than a bespoke fixture:
+ * `e2e/a11y/overlay-openers.ts` already opens it this exact way for the a11y
+ * suite, so this is the same reachable overlay, not a new one.
+ */
+test.describe('overlay open animation obeys the reduced-motion rule', () => {
+  test.use(loggedIn('accountant'));
+
+  test('a real dialog animates normally, and settles instantly under reduce', async ({ page }) => {
+    const t = makeT();
+
+    async function openDialogAndReadAnimationMs(): Promise<number> {
+      await page.goto('/fee-structures');
+      const list = new ListShellPage(page, { titleKey: 'feeStructures.list.title' });
+      await list.expectLoaded();
+      await page.getByRole('button', { name: t('feeStructures.list.addStructure') }).click();
+      const dialog = page.getByRole('dialog');
+      await expect(dialog).toBeVisible();
+      return longestMs(await dialog.evaluate((el) => getComputedStyle(el).animationDuration));
+    }
+
+    // --- Baseline. Without this the reduced assertion below is vacuous.
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    expect(await openDialogAndReadAnimationMs()).toBeGreaterThanOrEqual(100);
+
+    // --- Same dialog, preference on.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    expect(await openDialogAndReadAnimationMs()).toBeLessThan(1);
   });
 });

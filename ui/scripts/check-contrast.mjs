@@ -29,7 +29,7 @@
  * references other exported constants (e.g. `light.textPrimary`), not
  * repeated literals, so a text-regex parse cannot reconstruct it correctly.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -557,18 +557,59 @@ if (reducedMotionBody === null) {
 const { compile } = await import('tailwindcss');
 const require = createRequire(import.meta.url);
 
+/**
+ * Resolve a bare `@import "pkg"` to a real stylesheet path.
+ *
+ * Order matters: `pkg/index.css` first (that is how `tailwindcss` itself is
+ * laid out), then the package manifest's `exports["."].style` / `style` /
+ * `main`, which is the `style` condition every CSS-only package publishes
+ * under and Node's own resolver will not follow.
+ */
+function resolveBareStylesheet(id) {
+  if (id.endsWith('.css')) return require.resolve(id);
+  try {
+    return require.resolve(`${id}/index.css`);
+  } catch {
+    // fall through to the manifest
+  }
+  // Not `require.resolve(`${id}/package.json`)`: a package whose `exports`
+  // map does not list `./package.json` (tw-animate-css does not) makes that
+  // throw. Walk the same node_modules chain Node would and read the manifest
+  // off disk instead.
+  const manifestPath = (require.resolve.paths(id) ?? [])
+    .map((dir) => join(dir, id, 'package.json'))
+    .find((candidate) => existsSync(candidate));
+  if (manifestPath === undefined) {
+    throw new Error(`cannot find the package "${id}" for a bare stylesheet import`);
+  }
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  const entry = manifest.exports?.['.']?.style ?? manifest.style ?? manifest.main;
+  if (typeof entry !== 'string' || !entry.endsWith('.css')) {
+    throw new Error(`cannot resolve a stylesheet entry for the bare import "${id}"`);
+  }
+  return resolve(dirname(manifestPath), entry);
+}
+
 let compiledCss = null;
 let compiler = null;
+// Reported in the summary line so the count cannot drift from the list below.
+let ANIMATION_CANDIDATE_COUNT = 0;
 try {
   compiler = await compile(css, {
     base: dirname(cssPath),
     // Tailwind hands back `@import` specifiers to be resolved by the host.
     // `globals.css` imports the bare package (`tailwindcss`), whose own
     // index.css then imports its siblings relatively.
+    //
+    // A bare CSS-only package (`tw-animate-css`) resolves neither way: its
+    // entry is not `index.css`, and its `exports` map declares only a
+    // `"style"` condition, which Node's resolver — which only knows
+    // `import`/`require`/`node` — refuses outright. Bundlers ask for the
+    // `style` condition; here we read the package manifest and honour it
+    // ourselves, so the compiled output this script asserts on is the same
+    // stylesheet the Vite build produces.
     loadStylesheet: async (id, base) => {
-      const path = id.startsWith('.')
-        ? resolve(base, id)
-        : require.resolve(id.endsWith('.css') ? id : `${id}/index.css`);
+      const path = id.startsWith('.') ? resolve(base, id) : resolveBareStylesheet(id);
       return { path, base: dirname(path), content: readFileSync(path, 'utf8') };
     },
   });
@@ -780,6 +821,59 @@ if (compiledCss !== null) {
     );
   }
 
+  /**
+   * Overlay animation vocabulary, end to end (contract §7 — [8.13.10]).
+   *
+   * The same trap as `border-subtle` above, one order of magnitude worse:
+   * `animate-in`, `fade-in-0`, `zoom-in-95` and `slide-in-from-top-2` are
+   * NOT Tailwind core utilities. They came from `tailwindcss-animate`, a v3
+   * plugin this repo never depended on, so for five primitives and seven
+   * class strings Tailwind emitted nothing and reported nothing — the source
+   * read like canonical shadcn while every overlay snapped open. Only
+   * compiling the exact strings the primitives ship and reading the
+   * declarations back can tell the difference.
+   *
+   * `--tw-duration` is asserted on the `duration-(--motion-duration-*)`
+   * candidate because that is the seam between the two halves: the
+   * animations are live only if the package is imported, and they run at the
+   * contract's durations only if Tailwind's duration variable is what
+   * `tw-animate-css` reads.
+   */
+  const ANIMATION_CANDIDATES = [
+    // The duration fallback literal is trimmed off each `animation:`
+    // expectation on purpose — the point is that the utility resolves to the
+    // `enter`/`exit` keyframes and reads `--tw-duration`, not that
+    // tw-animate-css never changes its own default.
+    ['animate-in', 'animation: enter var(--tw-animation-duration,var(--tw-duration,'],
+    ['animate-out', 'animation: exit var(--tw-animation-duration,var(--tw-duration,'],
+    ['fade-in-0', '--tw-enter-opacity: 0'],
+    ['fade-out-0', '--tw-exit-opacity: 0'],
+    ['zoom-in-95', '--tw-enter-scale: .95'],
+    ['zoom-out-95', '--tw-exit-scale: .95'],
+    ['slide-in-from-top-2', '--tw-enter-translate-y: calc(2*var(--spacing)*-1)'],
+    ['duration-(--motion-duration-base)', '--tw-duration: var(--motion-duration-base)'],
+  ];
+  ANIMATION_CANDIDATE_COUNT = ANIMATION_CANDIDATES.length;
+  const animationCss = compiler.build(ANIMATION_CANDIDATES.map(([c]) => c));
+  const animationRules = [...animationCss.matchAll(/([^{}]*)\{([^{}]*)\}/g)].map(
+    ([, selector, body]) => [selector.replaceAll('\\', '').trim(), body],
+  );
+  for (const [candidate, expectedDeclaration] of ANIMATION_CANDIDATES) {
+    const rule = animationRules.find(([selector]) => selector.includes(`.${candidate}`));
+    if (rule === undefined) {
+      errors.push(
+        `compiled CSS: the animation utility \`${candidate}\` produced no rule at all, so the ` +
+          'overlay primitives that ship it open and close with no transition — check that ' +
+          '`@import "tw-animate-css"` is still in globals.css (contract §7).',
+      );
+    } else if (!rule[1].includes(expectedDeclaration)) {
+      errors.push(
+        `compiled CSS: the animation utility \`${candidate}\` compiled to ` +
+          `\`${rule[1].trim()}\`, not \`${expectedDeclaration}\`.`,
+      );
+    }
+  }
+
   if (!/@media\s*\(prefers-reduced-motion:\s*reduce\)/.test(compiledCss)) {
     errors.push(
       'compiled CSS: the global @media (prefers-reduced-motion: reduce) rule is not in the ' +
@@ -862,6 +956,7 @@ console.log(
     `all of them plus every elevation step verified present in the compiled CSS, ` +
     `the dark: variant proven attribute-scoped in the compiled CSS, ` +
     `7 surface utilities compiled and the border-subtle near-miss proven dead, ` +
+    `${ANIMATION_CANDIDATE_COUNT} overlay animation utilities proven to compile, ` +
     `CSS mirror matches tailwind.preset.ts by name and scope, ` +
     `and ${outOfUiHexSites.length} out-of-ui hex sites match their tokens.`,
 );
