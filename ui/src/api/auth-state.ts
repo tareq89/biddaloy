@@ -80,6 +80,16 @@ export function setActiveTenant(tenantId: string | null): void {
     // the same "two mechanisms" argument `sw-cache.ts` documents.
     void purgeTenantRefCache(activeTenantId);
     clearFreshness();
+    // [8.12.4]: the mutation queue is deliberately *not* purged here.
+    // The asymmetry is the point — a cached read is reproducible, so
+    // throwing it away costs a refetch; a queued mutation is the user's
+    // unsaved work, so throwing it away costs the work. Isolation on a
+    // switch is structural instead: `mutation-queue.ts` filters every
+    // replay and every snapshot on the active tenant, so school A's
+    // rows can never be sent or counted under school B, and they resume
+    // when the user switches back. Logout is the destructive case, and
+    // `clearAuthState()` below already covers it by deleting the whole
+    // database.
   }
   activeTenantId = tenantId;
   notifyAuthStateChange();

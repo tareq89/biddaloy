@@ -230,7 +230,7 @@ export function offlineCachedQueryFn<TData>(params: {
  * `AxiosError` with a `response` likewise; a cancellation is the caller's
  * own doing. Everything else with no response is a transport failure.
  */
-function isNoResponseNetworkError(error: unknown): boolean {
+export function isNoResponseNetworkError(error: unknown): boolean {
   if (axios.isCancel(error)) return false;
   if (error instanceof ApiError) return false;
   if (axios.isAxiosError(error)) return error.response === undefined;
