@@ -91,10 +91,18 @@ export function isCacheableApiRequest({ url, request, sameOrigin = true }: ApiRo
  * forever safe: a changed file is a different URL, so a cached entry can
  * never be stale — it can only become garbage, which expiry collects. */
 const ASSET_PATH_PREFIX = '/assets/';
-const HASHED_ASSET_PATTERN = /-[A-Za-z0-9_-]{8,}\.(?:js|css)$/;
+// `woff2` is in the list for [8.13.2]'s self-hosted subsets
+// (`assets/anek-bangla-<hash>.woff2`, ~170 KB for the pair). They are
+// deliberately *not* precached — pulling 170 KB on first visit is exactly
+// the byte budget §2 of the design contract avoids — and they are not
+// `app-*.js`/`*.css`, so without this they were fetched from the network on
+// every visit and were unavailable offline, leaving the app rendering in the
+// metric-matched fallback stack. Content-hashed like the chunks, so
+// cache-first is equally safe.
+const HASHED_ASSET_PATTERN = /-[A-Za-z0-9_-]{8,}\.(?:js|css|woff2)$/;
 
 /**
- * True for a same-origin GET of a content-hashed JS/CSS chunk.
+ * True for a same-origin GET of a content-hashed JS/CSS/woff2 asset.
  *
  * These are precisely the route chunks [8.9.1] split out of the entry.
  * They are *not* precached (see `vite.config.ts` for why eagerly

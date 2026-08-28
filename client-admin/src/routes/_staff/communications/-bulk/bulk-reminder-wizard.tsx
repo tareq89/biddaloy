@@ -250,7 +250,12 @@ export function BulkReminderWizard() {
     {
       id: 'due',
       header: t('bulk.recipients.dueHeader'),
-      accessorFn: (row) => formatServerAmount(row.total_due, config),
+      // tabular-nums: money columns align on the decimal (design contract §2).
+      // Effective for Latin digits (`en`); a no-op on Bengali numerals, whose
+      // face ships no `tnum` — see §2's note.
+      accessorFn: (row) => (
+        <span className="tabular-nums">{formatServerAmount(row.total_due, config)}</span>
+      ),
     },
     {
       id: 'monthsOverdue',

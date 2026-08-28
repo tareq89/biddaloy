@@ -52,8 +52,12 @@ export default defineConfig({
       injectRegister: null,
       includeAssets: [],
       injectManifest: {
-        // The *shell* only — `index.html`, the entry JS/CSS, fonts and
-        // icons. Deliberately not `**/*.js`: [8.9.1] split every route
+        // The *shell* only — `index.html`, the entry JS/CSS, the manifest
+        // and icons. The [8.13.2] font subsets are deliberately absent too:
+        // 170 KB of woff2 on first visit is what `font-display: swap` plus
+        // the metric-matched fallbacks exist to avoid. They are runtime
+        // cache-first instead (`isHashedAssetRequest`).
+        // Deliberately not `**/*.js`: [8.9.1] split every route
         // into its own lazily-fetched chunk, and precaching all of them
         // would eagerly pull ~1.4 MB on first visit and re-pull it on
         // every deploy. That is the exact cost this epic exists to avoid
