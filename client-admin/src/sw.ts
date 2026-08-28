@@ -34,12 +34,15 @@ declare const self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: Array<{ url: string; revision: string | null }>;
 };
 
-// The app shell: hashed JS/CSS chunks, `index.html`, fonts and icons. The
+// The app shell: the entry JS/CSS, `index.html`, the manifest and icons —
+// not the route chunks and not the fonts, both of which are runtime-cached
+// below so first visit stays small. The
 // list itself is injected at build time by `vite-plugin-pwa` from the real
 // Rollup output, so it can never drift from what actually shipped.
 precacheAndRoute(self.__WB_MANIFEST);
 
-// Lazily-fetched route chunks: cache-first, because their filenames carry
+// Lazily-fetched route chunks and the self-hosted font subsets: cache-first,
+// because their filenames carry
 // a content hash and therefore can never go stale — a changed file is a
 // new URL. Precaching them instead would mean downloading every route on
 // first visit (~1.4 MB) and again on every deploy; this way each route

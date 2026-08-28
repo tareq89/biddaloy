@@ -37,15 +37,21 @@ export function FeesTab({ studentId }: FeesTabProps) {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="rounded-lg border border-border p-4">
               <p className="text-sm text-muted-foreground">{t('detail.fees.totalBilled')}</p>
-              <p className="text-lg font-semibold">{money(feeSummary.summary.total_due)}</p>
+              <p className="text-lg font-semibold tabular-nums">
+                {money(feeSummary.summary.total_due)}
+              </p>
             </div>
             <div className="rounded-lg border border-border p-4">
               <p className="text-sm text-muted-foreground">{t('detail.fees.totalPaid')}</p>
-              <p className="text-lg font-semibold">{money(feeSummary.summary.total_paid)}</p>
+              <p className="text-lg font-semibold tabular-nums">
+                {money(feeSummary.summary.total_paid)}
+              </p>
             </div>
             <div className="rounded-lg border border-border p-4">
               <p className="text-sm text-muted-foreground">{t('detail.fees.outstanding')}</p>
-              <p className="text-lg font-semibold">{money(feeSummary.summary.balance)}</p>
+              <p className="text-lg font-semibold tabular-nums">
+                {money(feeSummary.summary.balance)}
+              </p>
             </div>
           </div>
           {feeSummary.fee_breakdown.length === 0 ? (
@@ -67,9 +73,13 @@ export function FeesTab({ studentId }: FeesTabProps) {
                     <TableCell>
                       {fee.year}-{String(fee.month).padStart(2, '0')}
                     </TableCell>
-                    <TableCell>{money(fee.total_amount)}</TableCell>
-                    <TableCell>{money(fee.paid_amount)}</TableCell>
-                    <TableCell>{money(fee.discount_amount)}</TableCell>
+                    {/* tabular-nums per design contract §2: these three
+                        columns are read down, not across. Effective for Latin
+                        digits (`en`); a no-op on Bengali numerals, whose face
+                        ships no `tnum` — see §2's note. */}
+                    <TableCell className="tabular-nums">{money(fee.total_amount)}</TableCell>
+                    <TableCell className="tabular-nums">{money(fee.paid_amount)}</TableCell>
+                    <TableCell className="tabular-nums">{money(fee.discount_amount)}</TableCell>
                     <TableCell>{fee.status}</TableCell>
                   </TableRow>
                 ))}

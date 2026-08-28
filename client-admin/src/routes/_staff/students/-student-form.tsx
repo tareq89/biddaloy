@@ -297,7 +297,11 @@ export function StudentForm<TInput>({
                       form.setValue('class_section_id', '', { shouldDirty: true });
                     }}
                   >
-                    <SelectTrigger id={fieldId('classId')} aria-label={t('form.fields.class')}>
+                    <SelectTrigger
+                      id={fieldId('classId')}
+                      aria-label={t('form.fields.class')}
+                      className="w-full"
+                    >
                       <SelectValue placeholder={t('form.fields.classPlaceholder')} />
                     </SelectTrigger>
                     <SelectContent>
@@ -327,6 +331,7 @@ export function StudentForm<TInput>({
                       id={fieldId('class_section_id')}
                       aria-label={t('form.fields.section')}
                       aria-invalid={fieldState.invalid}
+                      className="w-full"
                     >
                       <SelectValue placeholder={t('form.fields.sectionPlaceholder')} />
                     </SelectTrigger>
@@ -392,6 +397,7 @@ export function StudentForm<TInput>({
                     <SelectTrigger
                       id={fieldId('preferred_communication')}
                       aria-label={t('form.fields.preferredCommunication')}
+                      className="w-full"
                     >
                       <SelectValue />
                     </SelectTrigger>

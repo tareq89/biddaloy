@@ -139,6 +139,13 @@ jobs:
       - name: UI contrast check
         run: yarn workspace @biddaloy/ui check:contrast
 
+      # [8.13.7]: a raw Tailwind hue class (bg-zinc-900, text-blue-500) is
+      # invisible to the contrast check above — it reads tokens, and these
+      # classes bypass tokens entirely. Cheap regex scan, so it rides along
+      # in the same job.
+      - name: UI raw-palette check
+        run: yarn workspace @biddaloy/ui check:raw-palette
+
       # [8.7.5]: fails on a translation key present in one locale but not
       # the other, or a t() call with no matching key in any locale.
       # Cheap enough (a handful of JSON files + a source-tree regex scan)
@@ -607,14 +614,34 @@ jobs:
 
       - name: Resolve seeded student detail URL
         id: student
-        run: echo "url=$(node scripts/lighthouse-student-url.mjs)" >> "$GITHUB_OUTPUT"
+        # Assigned on its own line, never inside the `echo` (#356): command
+        # substitution discards the resolver's exit status, so the old
+        # one-liner *succeeded* while writing an empty `url=`, and lhci then
+        # died on `--collect.url=` with `TypeError: Invalid URL`. Worse, the
+        # same shape meant a URL could silently drop out of the measured set
+        # while this job stayed green. `set -euo pipefail` + an explicit
+        # non-empty check make both failures loud.
+        run: |
+          set -euo pipefail
+          url="$(node scripts/lighthouse-student-url.mjs)"
+          if [ -z "${url//[[:space:]]/}" ]; then
+            echo "::error::lighthouse-student-url.mjs produced no URL" >&2
+            exit 1
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
 
+      # These flags override lighthouserc.cjs's own url list entirely, so a URL
+      # added there is a no-op in CI unless it is added here too. /portal comes
+      # last on purpose: it is the only guardian-authenticated URL, and
+      # lighthouse-auth.cjs re-logs-in whenever the required identity changes,
+      # so measuring it last costs exactly one extra login.
       - name: Lighthouse
         run: >
           npx lhci autorun
           --collect.url=http://localhost:5174/login
           --collect.url=http://localhost:5174/fees/dues
           --collect.url=${{ steps.student.outputs.url }}
+          --collect.url=http://localhost:5174/portal
 
       - name: Upload Lighthouse reports
         if: always()

@@ -402,7 +402,14 @@ function SingleReminderForm() {
               {feeSummary.data !== undefined && (
                 <div className="flex gap-2">
                   <dt>{t('reminders.balanceLabel')}:</dt>
-                  <dd>{formatServerAmount(feeSummary.data.summary.balance, config)}</dd>
+                  {/* tabular-nums per design contract §2 — this balance is
+                      re-rendered as the selected student changes, and
+                      proportional figures make it jitter. Effective for Latin
+                      digits (`en`); a no-op on Bengali numerals, whose face
+                      ships no `tnum` — see §2's note. */}
+                  <dd className="tabular-nums">
+                    {formatServerAmount(feeSummary.data.summary.balance, config)}
+                  </dd>
                 </div>
               )}
               <div className="flex gap-2">

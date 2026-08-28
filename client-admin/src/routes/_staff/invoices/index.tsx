@@ -166,7 +166,12 @@ function InvoicesListPage() {
     {
       id: 'amount',
       header: t('invoices.columnAmount'),
-      accessorFn: (row) => formatServerAmount(row.total_amount, regionConfig),
+      // tabular-nums: money columns align on the decimal (design contract §2).
+      // Effective for Latin digits (`en`); a no-op on Bengali numerals, whose
+      // face ships no `tnum` — see §2's note.
+      accessorFn: (row) => (
+        <span className="tabular-nums">{formatServerAmount(row.total_amount, regionConfig)}</span>
+      ),
     },
     {
       id: 'status',

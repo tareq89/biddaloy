@@ -33,11 +33,11 @@ export const neutral = {
 } as const;
 
 export const brand = {
-  50: '#eff6ff',
-  100: '#dbeafe',
-  400: '#60a5fa', // dark-mode link/text — clears 4.5:1 on neutral-900
-  600: '#2563eb', // light-mode link/text and interactive component colour
-  700: '#1d4ed8', // light-mode link/text, higher-contrast variant
+  50: '#eef1fe',
+  100: '#dfe3fd',
+  400: '#8f96f4', // dark-mode link/text — 6.66:1 on dark bg #0f172a, 5.46:1 on dark surface #1e293b
+  600: '#4a3fd4', // light-mode link/text and interactive component colour — 7.11:1 on white, 6.80:1 on the #f8fafc ground
+  700: '#3d33b8', // light-mode link/text, higher-contrast variant — 8.88:1 on white, 7.89:1 on brand-50
 } as const;
 
 export const radius = {
@@ -48,16 +48,38 @@ export const radius = {
 } as const;
 
 /**
- * Spacing and typography are deliberately absent from this file. Tailwind
- * v4's own default scale (`p-4`, `text-lg`, `gap-2`, ...) is already a
- * coherent, well-tested system — redefining it here would only be
- * duplication with no functional benefit, since nothing about a fee-payment
- * admin UI needs a spacing or type scale different from Tailwind's own. A
- * custom scale is worth adding the moment a real need appears (an unusual
- * type ramp, a non-4px spacing grid); until then, extending it means every
- * SPA gets it for free by importing `@biddaloy/ui/tailwind` — there is
- * nothing to wire up.
+ * Typography — the two-script type system decided in
+ * `docs/architecture/09-design-direction.md` §2. Spacing is still deliberately
+ * absent: Tailwind v4's own 4px scale is already coherent and nothing about a
+ * fee-payment admin UI needs a different one. Typography is different — the
+ * product renders Bengali and English on the same line, and Tailwind's stock
+ * `text-lg`/`text-sm` carry no weight or tracking decision at all.
+ *
+ * `fontSans` is one CSS family, `Biddaloy Sans`, backed by two files (Anek
+ * Latin + Anek Bangla) split by `unicode-range` in globals.css, so one string
+ * serves both scripts at one apparent weight. `Biddaloy Sans Fallback` is the
+ * metric-matched local stack that holds the layout still during the swap.
+ *
+ * `ramp` is the eight steps, each carrying all four decisions (size, leading,
+ * weight, tracking) so a caller writing `text-h1` cannot forget one. Values
+ * assume a 16px root. globals.css mirrors every one of these as a Tailwind v4
+ * `--text-*` theme variable, and check-contrast.mjs fails on drift.
  */
+export const typography = {
+  fontSans: '"Biddaloy Sans", "Biddaloy Sans Fallback", system-ui, "Segoe UI", sans-serif',
+  ramp: {
+    display: { size: '1.75rem', lineHeight: '2.25rem', weight: '620', tracking: '-0.01em' },
+    h1: { size: '1.375rem', lineHeight: '1.875rem', weight: '620', tracking: '-0.01em' },
+    h2: { size: '1.125rem', lineHeight: '1.625rem', weight: '600', tracking: '0em' },
+    h3: { size: '1rem', lineHeight: '1.5rem', weight: '600', tracking: '0em' },
+    'body-lg': { size: '1rem', lineHeight: '1.625rem', weight: '400', tracking: '0em' },
+    body: { size: '0.875rem', lineHeight: '1.375rem', weight: '400', tracking: '0em' },
+    label: { size: '0.8125rem', lineHeight: '1.125rem', weight: '500', tracking: '0em' },
+    caption: { size: '0.75rem', lineHeight: '1.0625rem', weight: '400', tracking: '0em' },
+  },
+} as const;
+
+export type TypeStep = keyof typeof typography.ramp;
 
 /**
  * Fee/invoice/payment status. Each state pairs a colour with a distinct
@@ -77,6 +99,87 @@ export const status = {
 } as const;
 
 /**
+ * Elevation — three steps, each with a job (design contract §5). Replaces the
+ * ad-hoc `shadow-sm`/`shadow-md`/`shadow-lg` picks; #350 moves the call sites.
+ *
+ *  - `e1` — cards, resting panels, tabs
+ *  - `e2` — dropdown, select, popover
+ *  - `e3` — dialog, drawer, toast, skip-link
+ *
+ * Two things about the dark half that are not obvious:
+ *
+ *  1. It is not the light scale reused. A shadow is a darkening of what is
+ *     behind it, and on `#0f172a` there is almost nothing left to darken, so
+ *     the alphas roughly triple (0.05–0.18 → 0.40–0.65) and the tint drops to
+ *     pure black.
+ *  2. Even tripled, a shadow alone still barely reads on `#0f172a`. So the
+ *     contract makes dark elevation a *pair*: every elevated surface in dark
+ *     mode also carries a 1px `border-border-subtle`, never a shadow alone.
+ *
+ * These are mirrored into `globals.css` as `--elevation-*` custom properties
+ * rather than straight into `--shadow-*`, and `check-contrast.mjs` compares
+ * the strings character-for-character. See the long note in globals.css for
+ * why the indirection is load-bearing rather than stylistic — briefly,
+ * Tailwind v4 inlines a `--shadow-*` theme value into the `.shadow-*` utility
+ * at build time, so overriding `--shadow-e1` in the dark block would be dead
+ * CSS that silently does nothing.
+ */
+export const shadows = {
+  light: {
+    e1: '0 1px 2px 0 rgb(15 23 42 / 0.05), 0 1px 3px 0 rgb(15 23 42 / 0.06)',
+    e2: '0 4px 6px -1px rgb(15 23 42 / 0.07), 0 8px 24px -4px rgb(15 23 42 / 0.10)',
+    e3: '0 12px 24px -6px rgb(15 23 42 / 0.14), 0 24px 48px -12px rgb(15 23 42 / 0.18)',
+  },
+  dark: {
+    e1: '0 1px 2px 0 rgb(0 0 0 / 0.40), 0 1px 3px 0 rgb(0 0 0 / 0.45)',
+    e2: '0 4px 6px -1px rgb(0 0 0 / 0.50), 0 8px 24px -4px rgb(0 0 0 / 0.55)',
+    e3: '0 12px 24px -6px rgb(0 0 0 / 0.60), 0 24px 48px -12px rgb(0 0 0 / 0.65)',
+  },
+} as const;
+
+/**
+ * Motion — three durations and two easing curves (design contract §7).
+ *
+ * The vocabulary is deliberately tiny: every animated thing in the product
+ * picks one of three speeds and one of two curves, so "how fast should this
+ * be?" is a lookup rather than a judgement call.
+ *
+ *   durationFast (120ms) — hover, focus ring, active
+ *   durationBase (180ms) — dropdown, popover, select, tooltip
+ *   durationSlow (240ms) — dialog, drawer, toast
+ *   easeStandard        — enter and move
+ *   easeExit            — exit
+ *
+ * These are theme-invariant — a dialog does not open faster in dark mode —
+ * so globals.css mirrors them once and `check-contrast.mjs` asserts the dark
+ * block never redefines one.
+ *
+ * That mirror is a plain `:root`, NOT `@theme`. Tailwind v4 tree-shakes
+ * `@theme`, emitting a variable only once a scanned utility reads it, and
+ * nothing reads these (see the namespace note below) — so an `@theme`
+ * declaration would ship zero bytes and every `var(--motion-*)` would
+ * silently compute to `0s`. `check-contrast.mjs` compiles globals.css and
+ * asserts these five values are in the build output.
+ *
+ * Note for consumers: `--motion-*` is NOT one of Tailwind v4's utility
+ * namespaces (`--duration-*` / `--ease-*` are), so no `duration-fast`
+ * utility is generated from these. Reach for them with v4's arbitrary
+ * custom-property syntax instead:
+ *
+ *   duration-(--motion-duration-base) ease-(--motion-ease-standard)
+ *
+ * The names come from the approved contract, so this is accepted rather
+ * than worked around.
+ */
+export const motion = {
+  durationFast: '120ms',
+  durationBase: '180ms',
+  durationSlow: '240ms',
+  easeStandard: 'cubic-bezier(0.2, 0, 0, 1)',
+  easeExit: 'cubic-bezier(0.4, 0, 1, 1)',
+} as const;
+
+/**
  * Semantic role tokens — what a component should actually reach for. `bg`,
  * `surface`, `textPrimary` etc. keep a fixed *meaning* across themes, unlike
  * `neutral`/`brand` above which keep a fixed *value*. A component built from
@@ -86,11 +189,21 @@ export const status = {
  * side of a pair is swapped.
  */
 export const light = {
-  bg: neutral[0],
-  surface: neutral[50],
+  // Ground/surface inversion, design contract §3.3: the page is the tinted
+  // ground and lifted things (cards, panels, fields) are white, so a card
+  // reads as paper on a desk rather than a slightly grey hole in a white
+  // page. Call sites move from `bg-background` to `bg-card` in [8.13.9].
+  bg: neutral[50],
+  surface: neutral[0],
   textPrimary: neutral[900],
   textSecondary: neutral[600],
+  // Two border roles, design contract §4. `border` is the *functional* one —
+  // it marks where a control begins and ends, so SC 1.4.11 holds it to 3:1.
+  // `borderSubtle` is decoration (card outlines, dividers, table rules); it
+  // conveys nothing, so it is exempt from 3:1 and deliberately has no
+  // CONTRAST_PAIRS entry below.
   border: neutral[500],
+  borderSubtle: neutral[200],
   brand: brand[600],
 } as const;
 
@@ -107,6 +220,7 @@ export const dark = {
   textPrimary: neutral[50],
   textSecondary: '#cbd5e1',
   border: neutral[500], // same value as light mode; verified separately below
+  borderSubtle: neutral[700], // decorative only — exempt from 3:1, see `light` above
   brand: brand[400],
 } as const;
 
@@ -125,7 +239,7 @@ export const CONTRAST_PAIRS = [
   { name: 'brand-600 text on white', fg: brand[600], bg: neutral[0], min: 4.5 },
   { name: 'light textPrimary on light bg', fg: light.textPrimary, bg: light.bg, min: 4.5 },
   { name: 'light textSecondary on light bg', fg: light.textSecondary, bg: light.bg, min: 4.5 },
-  { name: 'light border on light bg', fg: light.border, bg: light.bg, min: 3 },
+  { name: 'light functional border on light bg', fg: light.border, bg: light.bg, min: 3 },
   { name: 'paid fg on white', fg: status.paid.fg, bg: neutral[0], min: 4.5 },
   { name: 'paid fg on paid bg', fg: status.paid.fg, bg: status.paid.bg, min: 4.5 },
   { name: 'partial fg on white', fg: status.partial.fg, bg: neutral[0], min: 4.5 },
@@ -146,22 +260,40 @@ export const CONTRAST_PAIRS = [
   // under new names — most pairs are mathematically identical to one already
   // above (e.g. --primary-foreground on --primary is the white-on-brand
   // inverse of 'brand-600 text on white'). Only the genuinely new numeric
-  // pairs get their own entry: neutral-50 as a background was never checked
-  // against text before.
+  // pairs get their own entry: the shadcn `secondary`/`muted` backgrounds
+  // resolve to neutrals that were never checked against text before.
+  //
+  // [8.13.3] re-pointed both. `muted` stopped following `--color-surface` and
+  // landed on neutral-100, so its row moved with it and is still genuinely
+  // new. `secondary` went the other way: it follows `--color-surface`, which
+  // the ground/surface inversion moved to white, so its pair collapsed into
+  // 'neutral-900 text on white' above and its row was removed rather than
+  // duplicated — per the rule this comment states.
   {
-    name: 'secondary-foreground on secondary (neutral-900 on neutral-50)',
-    fg: neutral[900],
-    bg: neutral[50],
-    min: 4.5,
-  },
-  {
-    name: 'muted-foreground on muted (neutral-600 on neutral-50)',
+    name: 'muted-foreground on muted (neutral-600 on neutral-100)',
     fg: neutral[600],
-    bg: neutral[50],
+    bg: neutral[100],
     min: 4.5,
   },
+  // Brand pairs the ramp re-grade in [8.13.3] makes newly reachable (design
+  // contract §3.6). The white-on-brand-600 primary button and the
+  // neutral-900-on-brand-400 dark primary button are the symmetric twins of
+  // rows already here — contrast is symmetric, so they get no duplicate row.
+  { name: 'brand-700 on brand-50 (selected nav item)', fg: brand[700], bg: brand[50], min: 4.5 },
+  { name: 'brand-600 on light ground', fg: brand[600], bg: light.bg, min: 4.5 },
+  { name: 'dark brand text on dark surface', fg: dark.brand, bg: dark.surface, min: 4.5 },
 ] as const;
 
-export const biddaloyPreset = { neutral, brand, radius, status, light, dark } as const;
+export const biddaloyPreset = {
+  neutral,
+  brand,
+  radius,
+  status,
+  light,
+  dark,
+  typography,
+  shadows,
+  motion,
+} as const;
 
 export default biddaloyPreset;

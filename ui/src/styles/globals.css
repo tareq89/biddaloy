@@ -23,7 +23,214 @@
  */
 @source "../**/*.{ts,tsx}";
 
+/**
+ * Re-point the `dark:` variant at the `data-theme` attribute.
+ *
+ * Without this line Tailwind v4 compiles every `dark:` utility to
+ * `@media (prefers-color-scheme: dark)`, while the token overrides at the
+ * bottom of this file key off `:root[data-theme="dark"]`. The two switches
+ * are unrelated, which produces a half-dark UI in both directions: a user
+ * with a dark OS preference gets dark-styled primitives on light tokens
+ * today, and once [8.13.12]'s toggle flips the attribute on a light-OS
+ * machine the tokens would move while the utilities stayed inert.
+ *
+ * The `*` half of the selector is what lets a dark-variant utility apply to
+ * *descendants* of the themed element rather than only to the element
+ * carrying the attribute — without it, only the themed node itself would be
+ * styled and every child would stay light.
+ *
+ * That is all it buys. It does NOT make the attribute safe to put anywhere
+ * other than the document element: the token overrides at the bottom of this
+ * file are written against `:root`, so an attribute set on some inner
+ * wrapper switches the utilities over while the tokens underneath stay light
+ * — a half-dark UI, the same failure this whole change exists to remove.
+ * `ui/.storybook/dark-decorator.tsx` documents that trap and is why the
+ * Storybook decorator mutates `document.documentElement` instead of
+ * wrapping the story in a themed element.
+ *
+ * This lives in globals.css because every SPA imports it
+ * (`client-admin/src/index.css`) and so does Storybook
+ * (`ui/.storybook/preview.tsx`), and Tailwind processes it in each
+ * consumer — one line covers all of them. Design contract §3.4.1.
+ *
+ * `check-contrast.mjs` compiles a `dark:` candidate and asserts the emitted
+ * rule is attribute-scoped, not media-scoped; grepping this file for the
+ * at-rule would not prove the variant actually reached the bundle.
+ */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* ------------------------------------------------------------------------
+ * Typography — one CSS family, two scripts (design contract §2).
+ *
+ * `Biddaloy Sans` is Anek Latin + Anek Bangla (Ek Type, SIL OFL 1.1), two
+ * files served under one family name and split by `unicode-range`, so the
+ * browser picks the script per character with no `lang`-based CSS:
+ *
+ *   "Rahim — ফি পরিশোধ ৳ ১,২০০"
+ *    ^^^^^ Latin face          ^^^^^^^^^^^^^^^^^^^^ Bangla face
+ *
+ * Both files are self-hosted and committed under `./fonts/`. Vite (both the
+ * SPA builds and Storybook) resolves and emits these relative URLs as hashed
+ * same-origin assets — no third-party font origin is ever contacted.
+ * `ui/scripts/fonts/build-fonts.mjs` regenerates them; it is dev-only.
+ *
+ * `font-display: swap` plus the metric-matched fallback faces below keep the
+ * fonts off the LCP critical path: text paints immediately in the fallback,
+ * and the swap does not move layout. They are deliberately NOT preloaded —
+ * preloading 170 KB on a 700 kbps profile would put them back on it.
+ * ---------------------------------------------------------------------- */
+
+@font-face {
+  font-family: "Biddaloy Sans";
+  src: url("./fonts/anek-latin.woff2") format("woff2");
+  font-weight: 400 800;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2013-2014, U+2018-201A, U+201C-201E, U+2022,
+    U+2026, U+2212;
+}
+
+/* 400-700, not 400-800 like the Latin face: at 400-800 the Bangla subset
+   measured 141,116 B against §2's 135 KB budget, so #343 used the contract's
+   one sanctioned relief valve and narrowed the axis. It measures 135,952 B.
+   The heaviest step in the ramp below is 620, so nothing is lost. */
+@font-face {
+  font-family: "Biddaloy Sans";
+  src: url("./fonts/anek-bangla.woff2") format("woff2");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0980-09FF, U+0964-0965, U+200C-200D, U+25CC;
+}
+
+/**
+ * Metric-matched fallback. Same two-range split, but pointing at fonts the
+ * user already has, scaled so a line of text occupies the same box before and
+ * after the webfont arrives — that is what keeps `cumulative-layout-shift`
+ * under the 0.1 budget in `lighthouserc.cjs` while `swap` is in effect.
+ *
+ * The numbers are not taste. They come from the web.dev "Improved font
+ * fallbacks" formula, computed by `build-fonts.mjs --metrics` from the real
+ * `head`/`hhea`/`OS/2` tables of the shipped subsets:
+ *
+ *   size-adjust       = (web.xAvgCharWidth / web.upm) / (fb.xAvgCharWidth / fb.upm)
+ *   ascent-override   = (web.ascent / web.upm) / size-adjust      (same for descent, line-gap)
+ *
+ * Latin  vs Arial              : web 2000upm 1800/-400/0, xAvg 1000; fb 2048upm 1854/-434/67, xAvg 904
+ * Bangla vs Noto Sans Bengali  : web 2000upm 2500/-1232/0, xAvg 1307; fb 1000upm 917/-408/0, xAvg 568
+ *
+ * Re-run `node ui/scripts/fonts/build-fonts.mjs --metrics` if either subset
+ * changes; do not hand-tune these to make a CLS number pass.
+ *
+ * The `local()` lists are long on purpose. A `local()`-only `@font-face` that
+ * matches nothing on the machine is silently dropped, and with it every
+ * override above — the CLS protection disappears without any error. So each
+ * list names a face for every platform this app is actually rendered on,
+ * including the headless-Chrome CI container that polices the 0.1 CLS budget
+ * in `lighthouserc.cjs`, where none of the desktop fonts exist. Downloadable
+ * `url()` fallbacks would be the airtight fix, but a second pair of font
+ * binaries blows §2's byte budget, which is the whole reason the real faces
+ * are subset in the first place.
+ *
+ * The declared `font-weight` ranges mirror the real faces above. Without
+ * them a fallback `@font-face` is weight 400 only, and the ramp's 620
+ * headings (`text-display`, `text-h1`) fall outside it — exactly the text
+ * whose reflow is most visible.
+ */
+@font-face {
+  font-family: "Biddaloy Sans Fallback";
+  /* Arial/Helvetica: Windows + macOS. Roboto: Android. Liberation Sans is
+     the metric clone of Arial on nearly every Linux distro and CI image;
+     DejaVu Sans is the last-resort face that is present when nothing else
+     is. */
+  src: local("Arial"), local("Helvetica"), local("Roboto"), local("Liberation Sans"),
+    local("DejaVu Sans"), local("FreeSans");
+  font-weight: 400 800;
+  font-display: swap;
+  size-adjust: 113.274%;
+  ascent-override: 79.453%;
+  descent-override: 17.656%;
+  line-gap-override: 0%;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2013-2014, U+2018-201A, U+201C-201E, U+2022,
+    U+2026, U+2212;
+}
+
+/* `Nirmala UI` (Windows) and `Bangla Sangam MN` (macOS) are listed first
+   because they are what those platforms actually have, but the override
+   numbers match Noto Sans Bengali — the Bengali face on Android and on the
+   headless Chrome that Lighthouse CI measures the CLS budget with. The tail
+   of the list (Lohit/Mukti/FreeSans Bengali) is what Linux and CI images
+   ship — see the note above on why a list that matches nothing is worse
+   than a list that is too long. */
+@font-face {
+  font-family: "Biddaloy Sans Fallback";
+  src: local("Nirmala UI"), local("Bangla Sangam MN"), local("Noto Sans Bengali"),
+    local("Noto Serif Bengali"), local("Lohit Bengali"), local("Mukti Narrow"),
+    local("FreeSans Bengali"), local("Kalpurush");
+  font-weight: 400 700;
+  font-display: swap;
+  size-adjust: 115.053%;
+  ascent-override: 108.646%;
+  descent-override: 53.541%;
+  line-gap-override: 0%;
+  unicode-range: U+0980-09FF, U+0964-0965, U+200C-200D, U+25CC;
+}
+
 @theme {
+  /* Typography (design contract §2). `--font-sans` is what Tailwind v4's
+     preflight derives `--default-font-family` from, so every SPA and every
+     Storybook story picks up `Biddaloy Sans` with no per-app change.
+     `Biddaloy Sans Fallback` sits between it and `system-ui` so the metric
+     overrides above apply during the swap. */
+  --font-sans: "Biddaloy Sans", "Biddaloy Sans Fallback", system-ui, "Segoe UI", sans-serif;
+
+  /* The eight-step ramp. Each step declares size, line-height, weight and
+     tracking together, so `text-h1` alone is the whole heading decision —
+     there is no "and don't forget the leading" to get wrong. Line-heights are
+     deliberately loose: Bengali has a taller vertical extent than Latin at the
+     same size. Weight 620 is legal on the variable `wght` axis (400-800 Latin,
+     400-700 Bangla). Tracking is declared even where it is `0em`, so the drift
+     gate in check-contrast.mjs can assert all four sub-properties uniformly. */
+  --text-display: 1.75rem; /* 28px — portal page title */
+  --text-display--line-height: 2.25rem; /* 36px */
+  --text-display--font-weight: 620;
+  --text-display--letter-spacing: -0.01em;
+
+  --text-h1: 1.375rem; /* 22px — admin page titles */
+  --text-h1--line-height: 1.875rem; /* 30px */
+  --text-h1--font-weight: 620;
+  --text-h1--letter-spacing: -0.01em;
+
+  --text-h2: 1.125rem; /* 18px — section headings */
+  --text-h2--line-height: 1.625rem; /* 26px */
+  --text-h2--font-weight: 600;
+  --text-h2--letter-spacing: 0em;
+
+  --text-h3: 1rem; /* 16px — card headings */
+  --text-h3--line-height: 1.5rem; /* 24px */
+  --text-h3--font-weight: 600;
+  --text-h3--letter-spacing: 0em;
+
+  --text-body-lg: 1rem; /* 16px — portal default body */
+  --text-body-lg--line-height: 1.625rem; /* 26px */
+  --text-body-lg--font-weight: 400;
+  --text-body-lg--letter-spacing: 0em;
+
+  --text-body: 0.875rem; /* 14px — admin default body */
+  --text-body--line-height: 1.375rem; /* 22px */
+  --text-body--font-weight: 400;
+  --text-body--letter-spacing: 0em;
+
+  --text-label: 0.8125rem; /* 13px — form labels, table headers */
+  --text-label--line-height: 1.125rem; /* 18px */
+  --text-label--font-weight: 500;
+  --text-label--letter-spacing: 0em;
+
+  --text-caption: 0.75rem; /* 12px — help text, timestamps */
+  --text-caption--line-height: 1.0625rem; /* 17px */
+  --text-caption--font-weight: 400;
+  --text-caption--letter-spacing: 0em;
+
   /* Raw scale — fixed value, fixed meaning, in every theme. Reach for these
      only when a colour must stay the same regardless of theme (e.g. a
      brand mark). For anything else use the semantic role tokens below. */
@@ -38,11 +245,11 @@
   --color-neutral-900: #0f172a;
   --color-neutral-950: #020617;
 
-  --color-brand-50: #eff6ff;
-  --color-brand-100: #dbeafe;
-  --color-brand-400: #60a5fa;
-  --color-brand-600: #2563eb;
-  --color-brand-700: #1d4ed8;
+  --color-brand-50: #eef1fe;
+  --color-brand-100: #dfe3fd;
+  --color-brand-400: #8f96f4; /* dark-mode link/text — 6.66:1 on #0f172a, 5.46:1 on #1e293b */
+  --color-brand-600: #4a3fd4; /* 7.11:1 on white, 6.80:1 on the #f8fafc ground */
+  --color-brand-700: #3d33b8; /* 8.88:1 on white, 7.89:1 on brand-50 */
 
   --radius-sm: 0.25rem;
   --radius-md: 0.5rem;
@@ -68,11 +275,34 @@
      *value*. Default to light; the dark-mode block below overrides only
      these, never the raw scale, so a component that mixes a role token with
      a raw one can never end up with light text on a light background. */
-  --color-bg: var(--color-neutral-0);
-  --color-surface: var(--color-neutral-50);
+  /* Ground/surface inversion (design contract §3.3): the page ground is the
+     tinted neutral-50 and lifted things — cards, panels, fields — are white. */
+  --color-bg: var(--color-neutral-50);
+  --color-surface: var(--color-neutral-0);
   --color-text-primary: var(--color-neutral-900);
   --color-text-secondary: var(--color-neutral-600);
+  /* Two border roles (design contract §4). Choosing between them is a
+     question about meaning, not taste:
+
+       - `--color-border-functional` (neutral-500) marks where a *control*
+         begins and ends, or conveys state — input, select, checkbox,
+         focus-adjacent outlines. WCAG SC 1.4.11 holds these to 3:1 against
+         their background, which is exactly why neutral-500 was picked.
+       - `--color-border-subtle` (neutral-200) is decoration — card outlines,
+         dividers, table rules. It separates regions that background and
+         spacing already separate, conveys no information, and is therefore
+         outside SC 1.4.11. At ~1.2:1 on white it is intentionally quiet, and
+         intentionally has no CONTRAST_PAIRS row in tailwind.preset.ts.
+
+     If in doubt: would a user who cannot see this line lose information? Yes
+     -> functional. No -> subtle.
+
+     The Tailwind v4 utility name is the full token name minus the
+     `--color-` prefix, so these are `border-border-functional` and
+     `border-border-subtle` — NOT `border-subtle`, which matches no colour
+     utility and silently leaves a `currentColor` (black) hairline. */
   --color-border-functional: var(--color-neutral-500);
+  --color-border-subtle: var(--color-neutral-200);
   --color-brand: var(--color-brand-600);
 
   /* shadcn/ui's own standard vocabulary — required by every vendored
@@ -84,10 +314,16 @@
    * presentation follows automatically from the referenced token's own
    * override — no separate dark entries needed here.
    *
-   * card, popover, accent, chart-N and sidebar-N have no bespoke identity in
-   * this design yet; they alias to the closest existing semantic token
-   * rather than introduce unreviewed colours. Revisit once a component
-   * actually needs them to look different from what they're aliased to. */
+   * card, popover, chart-N and sidebar-N have no bespoke identity in this
+   * design yet; they alias to the closest existing semantic token rather
+   * than introduce unreviewed colours. Revisit once a component actually
+   * needs them to look different from what they're aliased to.
+   *
+   * `--color-muted` and `--color-accent` are the exception: once `--surface`
+   * became white (§3.3), aliasing them to it made every `hover:bg-muted` /
+   * `focus:bg-accent` highlight white-on-white inside a white card. They
+   * point at `neutral-100` in light mode instead, and are restored to
+   * `--color-surface` in the dark block below where surface is not white. */
   --color-background: var(--color-bg);
   --color-foreground: var(--color-text-primary);
   --color-card: var(--color-surface);
@@ -98,9 +334,9 @@
   --color-primary-foreground: var(--color-neutral-0);
   --color-secondary: var(--color-surface);
   --color-secondary-foreground: var(--color-text-primary);
-  --color-muted: var(--color-surface);
+  --color-muted: var(--color-neutral-100);
   --color-muted-foreground: var(--color-text-secondary);
-  --color-accent: var(--color-surface);
+  --color-accent: var(--color-neutral-100);
   --color-accent-foreground: var(--color-text-primary);
   --color-destructive: var(--color-status-overdue-fg);
   --color-border: var(--color-border-functional);
@@ -119,6 +355,161 @@
   --color-sidebar-accent-foreground: var(--color-text-primary);
   --color-sidebar-border: var(--color-border-functional);
   --color-sidebar-ring: var(--color-brand);
+
+  /**
+   * Elevation — three steps, each with a job (design contract §5):
+   *
+   *   e1 — cards, resting panels, tabs
+   *   e2 — dropdown, select, popover
+   *   e3 — dialog, drawer, toast, skip-link
+   *
+   * Note what these are NOT: they are not the shadow values. They are
+   * one-hop references to `--elevation-*`, which the plain `:root` block
+   * below defines for light and the dark block redefines for dark. The
+   * indirection is load-bearing, not stylistic.
+   *
+   * Why: Tailwind v4 treats a `--shadow-*` theme variable as a *build-time*
+   * value. It inlines the value straight into the utility rather than
+   * emitting a `var()` — a colour role compiles to
+   * `background-color: var(--color-bg)`, but a shadow compiles to a
+   * `.shadow-e1` rule whose declaration reads
+   * `--tw-shadow: 0 1px 2px 0 var(--tw-shadow-color, …)` —
+   * with the numbers baked in. So redefining `--shadow-e1` in the dark block
+   * would be dead CSS: the utility no longer reads that variable, nothing
+   * would change, and nothing would report an error. Pointing `--shadow-e1`
+   * at a runtime custom property instead makes the utility compile to
+   * `--tw-shadow: var(--elevation-e1)`, which the dark block CAN re-theme —
+   * the same way `bg-background` re-themes. Verified by compiling against
+   * the pinned tailwindcss 4.3.3, not assumed.
+   *
+   * Accepted limitation: Tailwind's shadow-colour modifier (`shadow-e1/50`,
+   * `shadow-e1 shadow-brand-600`) cannot reach into an opaque `var()`, so it
+   * has no effect on these steps. Nothing in the repo uses it today.
+   *
+   * Dark-mode rule (§5): a shadow alone does not read on `#0f172a`. Every
+   * elevated surface in dark mode must ALSO carry a 1px subtle border
+   * (`border border-border-subtle`). Dark elevation is a border-plus-shadow
+   * pair, never a shadow alone.
+   */
+  --shadow-e1: var(--elevation-e1);
+  --shadow-e2: var(--elevation-e2);
+  --shadow-e3: var(--elevation-e3);
+}
+
+/**
+ * The light half of the elevation scale. A plain `:root` rather than part of
+ * `@theme` above, because these are ordinary runtime custom properties that
+ * exist to be overridden per theme — see the long note on `--shadow-e*`.
+ *
+ * Values mirror `shadows.light` in `../../tailwind.preset.ts` exactly;
+ * `scripts/check-contrast.mjs` compares them character-for-character, so
+ * `0.10` may not be shortened to `0.1`.
+ */
+:root {
+  --elevation-e1: 0 1px 2px 0 rgb(15 23 42 / 0.05), 0 1px 3px 0 rgb(15 23 42 / 0.06);
+  --elevation-e2: 0 4px 6px -1px rgb(15 23 42 / 0.07), 0 8px 24px -4px rgb(15 23 42 / 0.10);
+  --elevation-e3: 0 12px 24px -6px rgb(15 23 42 / 0.14), 0 24px 48px -12px rgb(15 23 42 / 0.18);
+}
+
+/**
+ * Motion — three durations, two curves (design contract §7). Mirrors
+ * `motion` in `../../tailwind.preset.ts`; the drift gate compares them.
+ *
+ * A plain `:root`, NOT `@theme`, for the same reason `--elevation-*` above
+ * is: Tailwind v4 tree-shakes `@theme`. A variable declared there is only
+ * emitted once the scanner sees a utility class that reads it, so an
+ * `@theme` motion family with no consumer yet ships zero bytes. The first
+ * consumer that reaches for it outside a scanned class — a hand-written
+ * rule, a `style={{ transitionDuration: 'var(--motion-duration-base)' }}`,
+ * a runtime-assembled class name — would then resolve an undefined variable,
+ * compute `transition-duration: 0s`, and silently not animate. Declaring
+ * them in `:root` makes them ordinary runtime custom properties that are
+ * always present. `scripts/check-contrast.mjs` compiles this stylesheet and
+ * asserts the values actually survive into the built CSS, so this cannot
+ * regress unnoticed.
+ *
+ * Theme-invariant on purpose: a dialog does not open faster in dark mode,
+ * so these are declared here once and never overridden in the dark block
+ * (`scripts/check-contrast.mjs` fails the build if one appears there).
+ *
+ * `--motion-*` is NOT a Tailwind v4 utility namespace (`--duration-*` and
+ * `--ease-*` are), so no `duration-fast` class is generated from them. That
+ * is deliberate — the names are fixed by the approved contract. Consume them
+ * with v4's arbitrary custom-property syntax, which works against a `:root`
+ * variable exactly as it would against a theme one:
+ *
+ *   class="transition-colors duration-(--motion-duration-fast)
+ *          ease-(--motion-ease-standard)"
+ *
+ * Nothing consumes them yet; [8.13.10]/[8.13.11] re-time the components.
+ */
+:root {
+  --motion-duration-fast: 120ms; /* hover, focus ring, active */
+  --motion-duration-base: 180ms; /* dropdown, popover, select, tooltip */
+  --motion-duration-slow: 240ms; /* dialog, drawer, toast */
+  --motion-ease-standard: cubic-bezier(0.2, 0, 0, 1); /* enter and move */
+  --motion-ease-exit: cubic-bezier(0.4, 0, 1, 1); /* exit */
+}
+
+/**
+ * Density (design contract section 6). Two numeric modes, selected by a
+ * `data-density` attribute on a shell element, never by a component prop:
+ *
+ *   compact      staff routes (AdminShell). The DEFAULT, and it is the
+ *                default by ABSENCE — no attribute, no variable, so every
+ *                size class falls back to the exact height it shipped with
+ *                before this block existed. A staff table is not one pixel
+ *                taller than it was.
+ *   comfortable  `/portal` and the auth screens. One declaration lifts every
+ *                control to the 44 px WCAG SC 2.5.5 target at once.
+ *
+ * There is deliberately NO `:root { --control-h: ... }` default. Writing one
+ * would mean the fallback in `h-[var(--control-h,2rem)]` never applies, so a
+ * typo in a per-variant fallback would be invisible; more importantly a
+ * single root default cannot express eight different compact heights
+ * (`h-6`/`h-7`/`h-8`/`h-9` and their `size-*` icon twins). The variable is
+ * therefore set in exactly one place — here — and read with a per-variant
+ * fallback everywhere else.
+ *
+ * A plain attribute selector, NOT `@theme`, for the same reason
+ * `--elevation-*` and `--motion-*` above are plain: Tailwind v4 tree-shakes
+ * `@theme`, emitting a custom property only once its class scanner sees a
+ * utility that reads it. `@theme` also only ever emits into `:root`, which
+ * is the wrong scope for a mode that must apply to a subtree. Declared here
+ * it is an ordinary runtime custom property that inherits down the DOM tree
+ * rather than the layout tree, so even a `position: fixed` descendant
+ * resolves it from an ancestor.
+ *
+ * It is nonetheless set on `document.documentElement` (by `useDensity`),
+ * never on a wrapper inside the app: Radix portals dialogs, menus, popovers
+ * and tooltips into `document.body`, where they are siblings of the app root
+ * and inherit from `<html>` only. `AppShell`'s mobile off-canvas navigation
+ * is one of those dialogs.
+ *
+ * `scripts/check-contrast.mjs` compiles this stylesheet and asserts both
+ * that `--control-h` survives into the built CSS and that the
+ * `h-[var(--control-h,...)]` utilities compile to real rules that read it.
+ *
+ * `--target-inset` is the checkbox/radio half of the same idea. Those two
+ * are 16 px boxes (`size-4`) whose real target is a negative-inset `::after`
+ * — 40x32 px today, which clears SC 2.5.8's 24 px but not SC 2.5.5's 44 px.
+ * One value, read with a different fallback per axis, because the compact
+ * insets are asymmetric (12 px across, 8 px down) while the comfortable one
+ * is square: 16 + 2 x 14 = 44 on both axes.
+ *
+ * KNOWN CONSTRAINT (pre-existing, widened by comfortable — see §6): those
+ * `::after` targets are not clipped, so two adjacent checkboxes or radios
+ * whose boxes sit closer together than 2 x the inset have OVERLAPPING
+ * targets, and the later-painted one wins the click in the overlap. Minimum
+ * safe gap between two 16 px boxes is therefore 24 px compact (2 x 12) and
+ * 28 px comfortable (2 x 14), i.e. a 44 px row pitch. `RadioGroup`'s own
+ * `gap-2` (8 px) is BELOW that in both modes; no comfortable route renders a
+ * multi-item checkbox or radio group today, and the first one that does must
+ * set its own spacing rather than take the default.
+ */
+[data-density='comfortable'] {
+  --control-h: 2.75rem; /* 44px — WCAG 2.2 SC 2.5.5 target size (minimum) */
+  --target-inset: 0.875rem; /* 14px — lifts a 16px checkbox/radio target to 44px */
 }
 
 /**
@@ -140,7 +531,31 @@
   --color-text-primary: var(--color-neutral-50);
   --color-text-secondary: #cbd5e1;
   --color-border-functional: var(--color-neutral-500); /* same value; verified separately against the dark bg */
+  --color-border-subtle: var(--color-neutral-700); /* decorative only — exempt from 3:1, see the light block */
   --color-brand: var(--color-brand-400);
+
+  /* Dark-scope shadcn aliases. These are the only ones that cannot follow
+     their referenced token automatically:
+
+     - `--color-primary-foreground` is white in light mode, which is correct
+       on `brand-600` (7.11:1) but only 2.68:1 on the dark `brand-400`
+       primary button. `neutral-900` on `brand-400` is 6.66:1 (§3.4).
+     - `--color-muted` / `--color-accent` point at `neutral-100` in light
+       mode (see the note above). In dark mode the hover/active highlight
+       should lift toward the elevated surface, not toward a light grey. */
+  --color-primary-foreground: var(--color-neutral-900);
+  --color-muted: var(--color-surface);
+  --color-accent: var(--color-surface);
+
+  /* `--color-sidebar-primary` follows `--color-brand`, so in dark mode it is
+     `brand-400`. Its foreground therefore needs exactly the same correction as
+     `--color-primary-foreground` above: white on `brand-400` is 2.68:1, while
+     `neutral-900` on it is 6.66:1. Nothing renders `bg-sidebar-primary` today
+     (see §3.3 item 4 — the whole `--color-sidebar-*` group is currently dead
+     code that #353 will either wire up or delete), but a token that is wrong
+     only while unused is still wrong, and this one sits three lines from its
+     own fix. */
+  --color-sidebar-primary-foreground: var(--color-neutral-900);
 
   /* -bg tints intentionally unchanged: a production dark theme wants darker,
      desaturated tints here rather than the light pastels above, but that is
@@ -150,4 +565,61 @@
   --color-status-partial-fg: #22d3ee;
   --color-status-due-fg: #fbbf24;
   --color-status-overdue-fg: #f87171;
+
+  /* Dark elevation (design contract §5). Not the light scale reused: a shadow
+     darkens what is behind it, and on `#0f172a` there is little left to
+     darken, so the alphas roughly triple and the tint drops to pure black.
+     `--elevation-*` and not `--shadow-*` — overriding the latter here would
+     be dead CSS (see the note in `@theme`).
+
+     Even at these alphas a shadow alone is barely legible on the dark ground,
+     so an elevated dark surface must also carry `border border-border-subtle`
+     (`neutral-700`). Border-plus-shadow, never shadow alone.
+
+     Mirrors `shadows.dark` in `../../tailwind.preset.ts` character-for-
+     character; `0.40` may not be shortened to `0.4`. */
+  --elevation-e1: 0 1px 2px 0 rgb(0 0 0 / 0.40), 0 1px 3px 0 rgb(0 0 0 / 0.45);
+  --elevation-e2: 0 4px 6px -1px rgb(0 0 0 / 0.50), 0 8px 24px -4px rgb(0 0 0 / 0.55);
+  --elevation-e3: 0 12px 24px -6px rgb(0 0 0 / 0.60), 0 24px 48px -12px rgb(0 0 0 / 0.65);
+}
+
+/**
+ * Reduced motion — one global rule, not per-component opt-in (design
+ * contract §7).
+ *
+ * A user who has asked their OS for less motion has asked once, for
+ * everything. Making each component remember a `motion-reduce:` variant
+ * means the preference holds only where somebody remembered it, and the one
+ * place it gets forgotten is the one place it mattered. This rule is
+ * authored once in the single stylesheet every SPA and Storybook already
+ * imports (`client-admin/src/index.css`, `ui/.storybook/preview.tsx`), so it
+ * covers Tailwind utilities, hand-written CSS, and any future third-party
+ * keyframes alike, including ones nobody has written yet.
+ *
+ * Why `0.01ms` and not `0` or `none`:
+ *
+ *   - `animation: none` would stop `animationend` / `transitionend` from
+ *     firing, and code that waits for those events to unmount an element or
+ *     advance a state machine would simply hang.
+ *   - A near-zero duration still runs the animation, so the end state —
+ *     including opacity — is applied, instantly. That is how §7's "preserve
+ *     opacity where removing it would make the state change unreadable" is
+ *     satisfied: the change still lands, it just does not travel.
+ *
+ * `animation-iteration-count: 1` is what stops an infinite spinner
+ * (`animate-spin`, `animate-pulse`) from becoming a 0.01ms strobe.
+ *
+ * `skeleton.tsx` keeps its own `motion-reduce:animate-none` — it predates
+ * this rule and is stricter, so it stays as a belt-and-braces backstop. Do
+ * not add new per-component `motion-reduce:` variants; this is the rule.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -230,6 +230,65 @@ describe('AuthService', () => {
       });
     });
 
+    // #356: `memberships[0]` is treated as "the default tenant" by both
+    // `SchoolPicker` (it preselects it) and the Lighthouse student-URL
+    // resolver. Unordered, Postgres was free to hand those two different
+    // schools, so a resolved student id could belong to a tenant the
+    // browser session was not in.
+    it('orders memberships oldest-first so memberships[0] is deterministic', async () => {
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      (bcrypt.compare as any).mockResolvedValue(true);
+      mockUserTenantRepo.find.mockResolvedValue(mockMemberships);
+      mockUserRepo.save.mockResolvedValue(mockUser);
+
+      await service.login('admin@test.com', 'password123');
+
+      expect(mockUserTenantRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({ order: { created_at: 'ASC', id: 'ASC' } }),
+      );
+    });
+
+    // #356 follow-up: `created_at` alone does not decide anything when a
+    // bulk import or a backfill migration inserts two memberships in one
+    // statement — both rows share a timestamp. The audit tenant
+    // (`primaryTenantId`, a `findOne`) and `memberships[0]` (a `find`) must
+    // therefore break that tie the *same* way, or they can name different
+    // schools for the same login. This pins that they use one identical
+    // ordering, `id` tiebreak included.
+    it('breaks created_at ties identically for memberships[0] and the audit tenant', async () => {
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      (bcrypt.compare as any).mockResolvedValue(true);
+      // Two memberships, same created_at: only the `id` tiebreak separates
+      // them, so an ordering that stops at `created_at` is non-deterministic.
+      const sameInstant = new Date('2026-01-01T00:00:00.000Z');
+      mockUserTenantRepo.find.mockResolvedValue([
+        {
+          tenant_id: 'tenant-1',
+          role: UserRole.ADMIN,
+          created_at: sameInstant,
+          id: 'aaa',
+          tenant: { name: 'Greenview School' },
+        },
+        {
+          tenant_id: 'tenant-2',
+          role: UserRole.ADMIN,
+          created_at: sameInstant,
+          id: 'bbb',
+          tenant: { name: 'Rose Valley School' },
+        },
+      ]);
+      mockUserRepo.save.mockResolvedValue(mockUser);
+
+      const result = await service.login('admin@test.com', 'password123');
+
+      const listOrder = mockUserTenantRepo.find.mock.calls[0][0].order;
+      const auditOrder = mockUserTenantRepo.findOne.mock.calls[0][0].order;
+      expect(listOrder).toEqual({ created_at: 'ASC', id: 'ASC' });
+      expect(auditOrder).toEqual(listOrder);
+      // And the shared rule really is a total order over the tied rows.
+      expect(result.memberships[0]?.tenantId).toBe('tenant-1');
+    });
+
     // Every login starts a fresh rotation family — see auth.service.ts's
     // comment on why this isn't chained onto any previous session.
     it('issues a refresh token scoped to the logged-in user', async () => {

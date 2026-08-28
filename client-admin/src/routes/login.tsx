@@ -5,7 +5,7 @@ import {
   type SignInCredentials,
   type SignInFormError,
 } from '@biddaloy/ui/components';
-import { login } from '@biddaloy/ui/hooks';
+import { login, useDensity } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTranslation } from '@biddaloy/ui/i18n';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
@@ -83,6 +83,16 @@ function LoginPage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  // [8.13.8] Comfortable density (contract section 6). Auth screens sit with
+  // `/portal` rather than with the staff routes because they are
+  // PRE-authentication: at this point nobody knows whether the visitor is a
+  // guardian on a 360 px phone or an administrator on a desktop, so the
+  // accessible 44 px target is the safe default for the unknown user.
+  //
+  // Set on `document.documentElement`, not on the wrapper below, so the
+  // portalled `LocaleSwitcher` menu inherits it too — see `useDensity`.
+  useDensity('comfortable');
 
   const mutation = useMutation({
     mutationFn: (credentials: SignInCredentials) => login(queryClient, credentials),

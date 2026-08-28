@@ -25,9 +25,13 @@
 /** Matches `--color-brand-600` in `ui/src/styles/globals.css`. Repeated as
  * a literal because a `.webmanifest` is consumed by the OS, not by
  * Tailwind — there is no CSS custom property to resolve at install time.
- * `ui/scripts/check-contrast.mjs` owns the token itself; this constant only
- * has to stay equal to it. */
-export const THEME_COLOR = '#2563eb';
+ *
+ * `ui/scripts/check-contrast.mjs` owns the token itself, and since [8.13.3]
+ * it also asserts that this file, `index.html`'s `theme-color` meta tag and
+ * `public/favicon.svg` all still contain the brand-600 hex. Before that it
+ * only ever read `globals.css` and `tailwind.preset.ts`, so this literal and
+ * the favicon were free to drift — and did. */
+export const THEME_COLOR = '#4a3fd4';
 
 interface PwaManifestIcon {
   src: string;
@@ -58,11 +62,23 @@ export const pwaManifest: PwaManifest = {
   scope: '/',
   display: 'standalone',
   theme_color: THEME_COLOR,
-  // White, not the brand colour: this paints the splash screen behind the
-  // icon, and the app itself boots onto a white surface
-  // (`index.html`'s `bg-white`). A brand-coloured splash would flash blue
-  // and then snap to white on first paint.
-  background_color: '#ffffff',
+  // The token ground, not the brand colour: this paints the splash screen
+  // behind the icon, and the app itself boots onto that same surface
+  // (`index.html`'s `bg-background`, which resolves to `--color-bg` =
+  // `neutral-50`, design contract §3.3). A brand-coloured splash would
+  // flash indigo and then snap to the ground colour on first paint.
+  //
+  // Repeated as a literal for the same reason as `THEME_COLOR` above: a
+  // `.webmanifest` is consumed by the OS, not by Tailwind, so there is no
+  // custom property to resolve at install time.
+  //
+  // `manifest.test.ts` pins the value, but that test is a second hand-written
+  // copy of the same literal, so on its own it only proves the two copies
+  // agree with each other — not that either still matches the token. The
+  // check that compares this file against tailwind.preset.ts is
+  // `ui/scripts/check-contrast.mjs`, which reads the neutral-50 value from
+  // the preset and asserts it appears here.
+  background_color: '#f8fafc',
   icons: [
     { src: '/icons/pwa-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
     { src: '/icons/pwa-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },

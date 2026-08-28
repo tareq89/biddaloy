@@ -35,9 +35,17 @@ describe('pwaManifest', () => {
 
   it('requests a standalone window with brand-600 chrome', () => {
     expect(pwaManifest.display).toBe('standalone');
-    expect(pwaManifest.theme_color).toBe('#2563eb');
+    expect(pwaManifest.theme_color).toBe('#4a3fd4');
     expect(THEME_COLOR).toBe(pwaManifest.theme_color);
-    expect(pwaManifest.background_color).toBe('#ffffff');
+    // The token ground (`--color-bg` = neutral-50), matching what
+    // `index.html`'s `bg-background` paints, so the splash does not flash a
+    // different colour than the first frame of the app.
+    //
+    // This literal and the one in `manifest.ts` are two hand-written copies,
+    // so this assertion alone only proves they agree with each other.
+    // `ui/scripts/check-contrast.mjs` is what ties them back to
+    // `tailwind.preset.ts`; if the ground token moves, that gate fails here.
+    expect(pwaManifest.background_color).toBe('#f8fafc');
   });
 
   it('describes the app, so the install dialog is not just a bare name', () => {

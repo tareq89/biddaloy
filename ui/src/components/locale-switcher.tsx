@@ -55,7 +55,7 @@ export function LocaleSwitcher({ align = 'end' }: LocaleSwitcherProps) {
     <>
       <Menu>
         <MenuTrigger asChild>
-          <Button variant="ghost" iconOnly aria-label="Change language">
+          <Button variant="ghost" size="icon" iconOnly aria-label="Change language">
             <LanguagesIcon />
           </Button>
         </MenuTrigger>

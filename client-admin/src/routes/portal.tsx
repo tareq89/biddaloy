@@ -1,5 +1,6 @@
 import { GUARDIAN_ROLES, Permission } from '@biddaloy/shared';
 import { AppShell, BottomNav, SyncStatusIndicator, TenantBar } from '@biddaloy/ui/components';
+import { useDensity } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { RequireRole } from '@biddaloy/ui/routes';
 import { createFileRoute, Outlet } from '@tanstack/react-router';
@@ -38,6 +39,21 @@ export const Route = createFileRoute('/portal')({
 
 function PortalLayout() {
   const { t } = useTranslation('nav');
+
+  // [8.13.8] Comfortable density (contract section 6): one attribute lifts
+  // every control under the guardian shell to the 44 px WCAG SC 2.5.5 target,
+  // without a single component prop changing. The staff shell sets no
+  // attribute and so keeps today's 32 px controls.
+  //
+  // Set on `document.documentElement`, NOT on a wrapper element around
+  // `AppShell`. A wrapper would miss everything Radix renders through a
+  // portal into `document.body` — and on this shell that is the part that
+  // matters most: the mobile off-canvas navigation IS a `DialogContent`, so
+  // its close button (`size="icon-sm"`) and every nav link would have stayed
+  // 28 px on the exact 360 px phone this rule exists for. `useDensity`
+  // restores the previous value on unmount, so navigating (or going Back) to
+  // a staff route leaves the document compact again.
+  useDensity('comfortable');
 
   // `FEE_READ`/`INVOICE_READ` are what `ROLE_PERMISSIONS[PARENT]` and
   // `[STUDENT]` actually hold, so `AppShell`'s own `visibleItems()` filter
