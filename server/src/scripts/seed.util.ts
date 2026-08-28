@@ -218,6 +218,14 @@ export interface DemoStudentSeedResult {
  *   one. Those call sites must go through `findLivePreferred` below, or they
  *   risk undeleting the dead row into a collision with the live one.
  *
+ * A row can also sit under *more than one* index. `academic_years` carries a
+ * second partial unique index,
+ * `academic_years(is_current, tenant_id) WHERE is_current = true AND
+ * deleted_at IS NULL`, so restoring a dead year that was `is_current` puts it
+ * back into that index too — and collides if the tenant has crowned another
+ * year meanwhile. Callers must re-check `is_current` before restoring, exactly
+ * as the create path does.
+ *
  * `guardians` has no unique index at all; restoring there is idempotence,
  * not constraint avoidance. */
 function undelete<T extends { deleted_at: Date | null }>(row: T): T {
@@ -236,6 +244,36 @@ async function findLivePreferred<T extends ObjectLiteral>(
   const live = await repository.findOne({ where });
   if (live) return live;
   return repository.findOne({ where, withDeleted: true });
+}
+
+/** `students(class_section_id, roll_number)` is a *plain* unique index, so a
+ * soft-deleted row still owns its slot, and a dev database that hand-made a
+ * `Class 6` / section `A` under `2026-2027` already owns rolls 1..3 — the
+ * roster's preferred numbers. The registration-number check upstream cannot
+ * see those rows (they carry different registration numbers), so the roll has
+ * to be resolved against the section itself: walk forward from the preferred
+ * number to the first free slot.
+ *
+ * Bounded rather than unbounded: a section this crowded means something other
+ * than "seed re-run" is going on, and a loud failure beats an endless probe. */
+const MAX_ROLL_PROBE = 500;
+
+async function findFreeRollNumber(
+  studentRepository: Repository<Student>,
+  classSectionId: string,
+  preferred: number,
+): Promise<number> {
+  for (let roll = preferred; roll < preferred + MAX_ROLL_PROBE; roll += 1) {
+    const taken = await studentRepository.findOne({
+      where: { class_section_id: classSectionId, roll_number: roll },
+      withDeleted: true,
+    });
+    if (!taken) return roll;
+  }
+  throw new Error(
+    `Could not find a free roll number in section ${classSectionId} after ` +
+      `${MAX_ROLL_PROBE} attempts starting at ${preferred}.`,
+  );
 }
 
 /** Idempotent, in exactly the same find-or-create shape as
@@ -278,6 +316,16 @@ export async function ensureDemoStudents(
     await academicYearRepository.save(year);
     console.log(`  Academic year: ${year.name} (${year.id})`);
   } else if (year.deleted_at) {
+    // Restoring re-enters the `is_current` partial unique index as well as
+    // the `(name, tenant_id)` one: while this year was deleted, a dev may
+    // have marked another year current by hand. Ask the same question the
+    // create path asks, or the restore aborts the whole seed.
+    if (year.is_current) {
+      const existingCurrent = await academicYearRepository.findOne({
+        where: { tenant_id: schoolId, is_current: true },
+      });
+      if (existingCurrent) year.is_current = false;
+    }
     await academicYearRepository.save(undelete(year));
   }
 
@@ -363,7 +411,10 @@ export async function ensureDemoStudents(
         await classSectionRepository.save(undelete(section));
       }
 
-      for (let roll = 1; roll <= DEMO_STUDENTS_PER_SECTION; roll += 1) {
+      // Only ever moves forward, so two students in the same section can
+      // never be handed the same resolved roll.
+      let nextRoll = 1;
+      for (let slot = 0; slot < DEMO_STUDENTS_PER_SECTION; slot += 1) {
         const registrationNumber = `${DEMO_ACADEMIC_YEAR.name}-${String(rosterIndex + 1).padStart(4, '0')}`;
         const fullName = DEMO_STUDENT_NAMES[rosterIndex % DEMO_STUDENT_NAMES.length] as string;
         const guardian = guardians[rosterIndex % guardians.length];
@@ -378,10 +429,13 @@ export async function ensureDemoStudents(
           continue;
         }
 
+        const rollNumber = await findFreeRollNumber(studentRepository, section.id, nextRoll);
+        nextRoll = rollNumber + 1;
+
         const student = studentRepository.create({
           full_name: fullName,
           registration_number: registrationNumber,
-          roll_number: roll,
+          roll_number: rollNumber,
           class_section_id: section.id,
           date_of_birth: new Date(`${2012 - classSeed.numericGrade + 6}-03-15`),
           gender: rosterIndex % 2 === 0 ? 'female' : 'male',

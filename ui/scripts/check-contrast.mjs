@@ -207,6 +207,10 @@ const roleVarNames = {
   textPrimary: '--color-text-primary',
   textSecondary: '--color-text-secondary',
   border: '--color-border-functional',
+  // Subtle border is registered here for drift/lockstep only. It has no
+  // CONTRAST_PAIRS row on purpose (decorative, exempt from SC 1.4.11) —
+  // this gate is what stops the preset and globals.css disagreeing about it.
+  borderSubtle: '--color-border-subtle',
   brand: '--color-brand',
 };
 for (const [roleKey, cssVarName] of Object.entries(roleVarNames)) {

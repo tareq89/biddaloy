@@ -245,7 +245,28 @@
   --color-surface: var(--color-neutral-0);
   --color-text-primary: var(--color-neutral-900);
   --color-text-secondary: var(--color-neutral-600);
+  /* Two border roles (design contract §4). Choosing between them is a
+     question about meaning, not taste:
+
+       - `--color-border-functional` (neutral-500) marks where a *control*
+         begins and ends, or conveys state — input, select, checkbox,
+         focus-adjacent outlines. WCAG SC 1.4.11 holds these to 3:1 against
+         their background, which is exactly why neutral-500 was picked.
+       - `--color-border-subtle` (neutral-200) is decoration — card outlines,
+         dividers, table rules. It separates regions that background and
+         spacing already separate, conveys no information, and is therefore
+         outside SC 1.4.11. At ~1.2:1 on white it is intentionally quiet, and
+         intentionally has no CONTRAST_PAIRS row in tailwind.preset.ts.
+
+     If in doubt: would a user who cannot see this line lose information? Yes
+     -> functional. No -> subtle.
+
+     The Tailwind v4 utility name is the full token name minus the
+     `--color-` prefix, so these are `border-border-functional` and
+     `border-border-subtle` — NOT `border-subtle`, which matches no colour
+     utility and silently leaves a `currentColor` (black) hairline. */
   --color-border-functional: var(--color-neutral-500);
+  --color-border-subtle: var(--color-neutral-200);
   --color-brand: var(--color-brand-600);
 
   /* shadcn/ui's own standard vocabulary — required by every vendored
@@ -319,6 +340,7 @@
   --color-text-primary: var(--color-neutral-50);
   --color-text-secondary: #cbd5e1;
   --color-border-functional: var(--color-neutral-500); /* same value; verified separately against the dark bg */
+  --color-border-subtle: var(--color-neutral-700); /* decorative only — exempt from 3:1, see the light block */
   --color-brand: var(--color-brand-400);
 
   /* Dark-scope shadcn aliases. These are the only ones that cannot follow

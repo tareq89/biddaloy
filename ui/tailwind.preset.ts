@@ -116,7 +116,13 @@ export const light = {
   surface: neutral[0],
   textPrimary: neutral[900],
   textSecondary: neutral[600],
+  // Two border roles, design contract §4. `border` is the *functional* one —
+  // it marks where a control begins and ends, so SC 1.4.11 holds it to 3:1.
+  // `borderSubtle` is decoration (card outlines, dividers, table rules); it
+  // conveys nothing, so it is exempt from 3:1 and deliberately has no
+  // CONTRAST_PAIRS entry below.
   border: neutral[500],
+  borderSubtle: neutral[200],
   brand: brand[600],
 } as const;
 
@@ -133,6 +139,7 @@ export const dark = {
   textPrimary: neutral[50],
   textSecondary: '#cbd5e1',
   border: neutral[500], // same value as light mode; verified separately below
+  borderSubtle: neutral[700], // decorative only — exempt from 3:1, see `light` above
   brand: brand[400],
 } as const;
 
@@ -151,7 +158,7 @@ export const CONTRAST_PAIRS = [
   { name: 'brand-600 text on white', fg: brand[600], bg: neutral[0], min: 4.5 },
   { name: 'light textPrimary on light bg', fg: light.textPrimary, bg: light.bg, min: 4.5 },
   { name: 'light textSecondary on light bg', fg: light.textSecondary, bg: light.bg, min: 4.5 },
-  { name: 'light border on light bg', fg: light.border, bg: light.bg, min: 3 },
+  { name: 'light functional border on light bg', fg: light.border, bg: light.bg, min: 3 },
   { name: 'paid fg on white', fg: status.paid.fg, bg: neutral[0], min: 4.5 },
   { name: 'paid fg on paid bg', fg: status.paid.fg, bg: status.paid.bg, min: 4.5 },
   { name: 'partial fg on white', fg: status.partial.fg, bg: neutral[0], min: 4.5 },

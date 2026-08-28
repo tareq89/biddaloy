@@ -491,6 +491,100 @@ describe('ensureDemoStudents', () => {
     });
   });
 
+  // #345 review, finding 1: `academic_years` carries a *second* partial unique
+  // index on `(is_current, tenant_id) WHERE is_current = true AND deleted_at IS
+  // NULL`. Restoring a dead year that was current, while another year has since
+  // been crowned by hand, would violate it and abort the entire seed.
+  it('drops is_current when restoring a dead year and another year is already current', async () => {
+    const repos = demoRepos();
+    emptyDatabase(repos);
+    const softDeleted = {
+      id: 'year-dead',
+      deleted_at: new Date(),
+      is_current: true,
+    } as AcademicYear;
+    vi.mocked(repos.academicYearRepository.findOne).mockImplementation(
+      (options?: { withDeleted?: boolean; where?: { is_current?: boolean } }) => {
+        // Someone else already owns the `is_current` slot.
+        if (options?.where?.is_current === true) {
+          return Promise.resolve({ id: 'other-year' } as AcademicYear);
+        }
+        return Promise.resolve(options?.withDeleted === true ? softDeleted : null);
+      },
+    );
+
+    await ensureDemoStudents(repos, 'school-1');
+
+    expect(softDeleted.deleted_at).toBeNull();
+    expect(softDeleted.is_current).toBe(false);
+    expect(repos.academicYearRepository.save).toHaveBeenCalledWith(softDeleted);
+  });
+
+  it('keeps is_current when restoring a dead year and no other year is current', async () => {
+    const repos = demoRepos();
+    emptyDatabase(repos);
+    const softDeleted = {
+      id: 'year-dead',
+      deleted_at: new Date(),
+      is_current: true,
+    } as AcademicYear;
+    vi.mocked(repos.academicYearRepository.findOne).mockImplementation(
+      (options?: { withDeleted?: boolean }) =>
+        Promise.resolve(options?.withDeleted === true ? softDeleted : null),
+    );
+
+    await ensureDemoStudents(repos, 'school-1');
+
+    expect(softDeleted.deleted_at).toBeNull();
+    expect(softDeleted.is_current).toBe(true);
+  });
+
+  // #345 review, finding 2: `students(class_section_id, roll_number)` is a
+  // plain unique index. A hand-made roster in the same section owns rolls 1..3
+  // under different registration numbers, so the registration-number check
+  // cannot see it and a blind `roll_number: 1` insert aborts the seed.
+  it('skips roll numbers already taken in the section', async () => {
+    const repos = demoRepos();
+    emptyDatabase(repos);
+    const TAKEN = new Set([1, 2, 3]);
+    vi.mocked(repos.studentRepository.findOne).mockImplementation(
+      (options?: { where?: { roll_number?: number } }) => {
+        const roll = options?.where?.roll_number;
+        // Registration-number lookups have no `roll_number`: nothing seeded yet.
+        if (roll === undefined) return Promise.resolve(null);
+        return Promise.resolve(
+          TAKEN.has(roll) ? ({ id: `pre-existing-${roll}` } as Student) : null,
+        );
+      },
+    );
+
+    await ensureDemoStudents(repos, 'school-1');
+
+    const rolls = vi
+      .mocked(repos.studentRepository.create)
+      .mock.calls.map(([payload]) => (payload as Partial<Student>).roll_number);
+    // Every seeded student lands past the hand-made 1..3 block.
+    expect(rolls.every((roll) => (roll as number) > 3)).toBe(true);
+    expect(rolls).toHaveLength(EXPECTED_STUDENTS);
+  });
+
+  it('gives each student in a section a distinct roll number', async () => {
+    const repos = demoRepos();
+    emptyDatabase(repos);
+
+    await ensureDemoStudents(repos, 'school-1');
+
+    const bySection = new Map<string, number[]>();
+    for (const [payload] of vi.mocked(repos.studentRepository.create).mock.calls) {
+      const student = payload as Partial<Student>;
+      const key = String(student.class_section_id);
+      bySection.set(key, [...(bySection.get(key) ?? []), student.roll_number as number]);
+    }
+    for (const rolls of bySection.values()) {
+      expect(new Set(rolls).size).toBe(rolls.length);
+    }
+  });
+
   it('links only the first guardian to the portal account', async () => {
     const repos = demoRepos();
     emptyDatabase(repos);
