@@ -167,7 +167,41 @@ const EXPECTED_ROUTE_CHUNKS = [
  * into the entry by `useStudents`, so adding exports to it grows the entry
  * rather than a route chunk, exactly as [8.11.10]'s audit-logs hook did.
  */
-const ENTRY_CHUNK_GZIP_CEILING_BYTES = 225_000;
+/**
+ * 278,492 B gzipped measured on epic 8.12, against 225,734 B before it.
+ *
+ * Two things grew the entry, and only one of them was worth paying for.
+ *
+ * **Dexie (~34 KB) was not.** The offline store is useless until the user
+ * loses their connection, so a static import made every first visit pay
+ * 15% of the budget for a feature most sessions never reach. It is now
+ * behind a dynamic `import()` in `ui/src/api/offline-db.ts` and out of
+ * this number entirely.
+ *
+ * **Sentry's tracing SDK (~50 KB) was.** [8.12.7]'s acceptance criterion
+ * is that LCP, CLS and INP report *from real users*, and there is no way
+ * to measure real users without shipping the code that measures them. It
+ * cannot be deferred the way Dexie can: browser tracing has to be
+ * registered before the page finishes loading or the pageload
+ * transaction — the one carrying LCP — never happens.
+ *
+ * So this ceiling is a deliberate, and uncomfortable, trade: a 23%
+ * larger entry chunk on an app whose target is a mid-range Android on 3G,
+ * in exchange for knowing what that device actually experiences. The
+ * honest way to claw it back is to load the tracing SDK only for the
+ * ~10% of sessions `tracesSampleRate` actually samples, deciding
+ * sampling client-side before the import. That is a real piece of work,
+ * not a tweak, and it is not in this epic.
+ *
+ * `workbox-window` is deliberately *not* in this number:
+ * `src/pwa/register.ts` reaches `virtual:pwa-register` through a dynamic
+ * `import()`, so its ~4 KB splits into its own chunk instead.
+ *
+ * ~1.5 KB of headroom, per the note on the previous bump: a ceiling set
+ * flush against the current measurement fails the next unrelated change
+ * and reads as "your PR broke the budget" to whoever trips it.
+ */
+const ENTRY_CHUNK_GZIP_CEILING_BYTES = 280_000;
 
 /** The entry is whatever `index.html` loads as its module script — asked
  * of the build output rather than guessed from a filename pattern, which

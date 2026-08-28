@@ -7,6 +7,10 @@
  * back these setters with a real store without changing this module's
  * public surface.
  */
+import { clearAllFormDrafts } from './form-draft-storage';
+import { clearFreshness } from './freshness';
+import { deleteOfflineDb, purgeTenantRefCache } from './offline-db';
+import { clearApiCache } from './sw-cache';
 import { clearPersistedTenant } from './tenant-storage';
 
 let accessToken: string | null = null;
@@ -55,6 +59,38 @@ export function getAccessToken(): string | null {
 }
 
 export function setActiveTenant(tenantId: string | null): void {
+  // [8.12.1]: a mid-session tenant switch invalidates every API response
+  // the service worker cached for the tenant we're leaving. Guarded on an
+  // actual change *away from a real tenant* so the common cases — the
+  // cold-boot restore setting the first tenant, or a re-set to the same
+  // id — don't throw away a cache that is still correct. See
+  // `sw-cache.ts` for why this is belt-and-braces with the cache key.
+  if (activeTenantId !== null && activeTenantId !== tenantId) {
+    clearApiCache();
+    // [8.12.3]: the Dexie read cache and the freshness map are the second
+    // and third things holding the leaving tenant's data, and they purge
+    // through this exact funnel for the same reason `clearApiCache()`
+    // does — one place a switch can be missed is one place another
+    // school's students show up under this school's name.
+    //
+    // Fire-and-forget: this setter is synchronous and must stay so. A
+    // failed purge is survivable because every Dexie row's key begins
+    // with its own tenant id and every read filters on the *active*
+    // tenant, so the leftovers are unreadable rather than dangerous —
+    // the same "two mechanisms" argument `sw-cache.ts` documents.
+    void purgeTenantRefCache(activeTenantId);
+    clearFreshness();
+    // [8.12.4]: the mutation queue is deliberately *not* purged here.
+    // The asymmetry is the point — a cached read is reproducible, so
+    // throwing it away costs a refetch; a queued mutation is the user's
+    // unsaved work, so throwing it away costs the work. Isolation on a
+    // switch is structural instead: `mutation-queue.ts` filters every
+    // replay and every snapshot on the active tenant, so school A's
+    // rows can never be sent or counted under school B, and they resume
+    // when the user switches back. Logout is the destructive case, and
+    // `clearAuthState()` below already covers it by deleting the whole
+    // database.
+  }
   activeTenantId = tenantId;
   notifyAuthStateChange();
 }
@@ -87,6 +123,18 @@ export function clearAuthState(): void {
   // this, [8.9.5]'s cold-boot restore could silently pick a tenant the new
   // user happens to also belong to, one they never actually chose.
   clearPersistedTenant();
+  // [8.12.1]: unconditional, unlike the switch above — logout and session
+  // expiry both land here, and the next person at this browser must not
+  // be able to read the previous session's data out of the offline cache.
+  clearApiCache();
+  // [8.12.3]: same unconditional reasoning as `clearApiCache()` above —
+  // the whole offline database goes, not just one tenant's rows, and the
+  // autosaved form drafts with it. A half-typed student record is
+  // somebody's personal data too, and until now it outlived the session
+  // that created it.
+  void deleteOfflineDb();
+  clearFreshness();
+  clearAllFormDrafts();
   notifyAuthStateChange();
 }
 

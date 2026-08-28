@@ -11,5 +11,56 @@
   },
   "errors": {
     "permissionDenied": "You don't have permission to do that."
+  },
+  "update": {
+    "available": "A new version of the app is available.",
+    "reload": "Reload",
+    "activatedElsewhere": "The app has been updated in another tab. Reload this tab when you're ready.",
+    "pageTitle": "A newer version is available",
+    "pageExplanation": "This page is from an older version of the app. Reload to pick up the new one — anything you have already saved is safe."
+  },
+  "offline": {
+    "showingSavedData": "Showing saved data from {{age}}.",
+    "youAreOffline": "You're offline — this will refresh when you reconnect.",
+    "pageTitle": "You're offline",
+    "pageExplanation": "This page needs a connection to load. Check your network and try again — anything already loaded is still available.",
+    "retry": "Try again"
+  },
+  "sync": {
+    "offline": "You're offline",
+    "offlineWithCount_one": "You're offline — 1 change waiting to send",
+    "offlineWithCount_other": "You're offline — {{count}} changes waiting to send",
+    "pendingCount_one": "1 change waiting to send",
+    "pendingCount_other": "{{count}} changes waiting to send",
+    "needsAttention": "Some changes need your attention",
+    "readFailed": "Can't check for unsent changes",
+    "readFailedDetail": "We can't read your pending changes right now. Your work may still be unsent — keep this tab open and try again.",
+    "panelTitle": "Your changes",
+    "allSaved": "All your changes are saved.",
+    "addedAge": "Added {{age}}",
+    "blockedExplanation": "Changes are sent in the order you made them. The first item needs your decision before the rest can be sent.",
+    "waitingForAbove": "Waiting for the item above",
+    "holdingUp_one": "Holding up 1 other change",
+    "holdingUp_other": "Holding up {{count}} other changes",
+    "status": {
+      "pending": "Waiting to send",
+      "conflict": "This was changed somewhere else while it waited. Decide what to do with your version.",
+      "dead": "This couldn't be sent after several tries."
+    },
+    "actions": {
+      "sendNow": "Send now",
+      "tryAgain": "Try again",
+      "discard": "Discard this change"
+    },
+    "discardConfirm": {
+      "title": "Discard this change?",
+      "body": "It will not be sent, and this can't be undone.",
+      "confirm": "Discard",
+      "cancel": "Keep it"
+    },
+    "entity": {
+      "attendance": "Attendance"
+    },
+    "actionFailed": "Could not update your pending changes. Please try again."
   }
 }

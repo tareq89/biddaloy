@@ -1,6 +1,7 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
+import { offlineCachedQueryFn } from '../api/offline-cache';
 import type { components } from '../api/schema';
 
 import { createEntityKeys } from './query-keys';
@@ -58,12 +59,19 @@ export const studentKeys = createEntityKeys<StudentListFilters & { mine?: boolea
  * object, which is what lets [8.9.1]'s hover-intent preload warm the
  * TanStack Query cache, not just fetch the route's JS chunk. */
 export function studentsQueryOptions(filters: StudentListFilters = {}) {
+  const queryKey = studentKeys.list(filters);
   return queryOptions({
-    queryKey: studentKeys.list(filters),
-    queryFn: async ({ signal }) => {
-      const res = await apiClient.get<PaginatedStudents>('/students', { params: filters, signal });
-      return res.data;
-    },
+    queryKey,
+    // [8.12.3]: identical success behaviour to a plain `queryFn` (still
+    // resolves `res.data`, so route loaders and every consumer are
+    // untouched) — it additionally records the response's age and, when
+    // the *network* fails outright, serves the last cached copy instead
+    // of an error. See `ui/src/api/offline-cache.ts`.
+    queryFn: offlineCachedQueryFn<PaginatedStudents>({
+      entity: 'students',
+      queryKey,
+      fetch: (signal) => apiClient.get<PaginatedStudents>('/students', { params: filters, signal }),
+    }),
     retry: shouldRetryQuery,
   });
 }

@@ -15,5 +15,10 @@ export const shells = {
   // (ui/src/i18n/locale-storage.ts) and a fresh browser context has no
   // persisted locale, so this is what renders first regardless of test
   // environment locale.
-  app: { baseURL: 'http://localhost:5174/', heading: 'লগ ইন' },
+  // [8.12.6]: overridable via `E2E_BASE_URL` so the PWA suite
+  // (`playwright.pwa.config.ts`, `vite preview` on :5175) reuses
+  // `fixtures/test.ts`'s `loggedIn()` unchanged instead of forking it.
+  // Unset — every existing run — this is the dev server on :5174 exactly
+  // as before.
+  app: { baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:5174/', heading: 'লগ ইন' },
 } as const;

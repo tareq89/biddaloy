@@ -97,6 +97,16 @@ jobs:
       - name: UI typecheck
         run: yarn workspace @biddaloy/ui lint
 
+      # [8.12.1]: `client-admin`'s own lint had never run in CI — the root
+      # `yarn lint` above is the server's. That was tolerable while `tsc -b`
+      # inside `build:client-admin` covered the app's types, but the service
+      # worker (`src/sw.ts`) is compiled by esbuild through `vite-plugin-pwa`
+      # and is excluded from the app's tsconfig, so *nothing* type-checked
+      # the one file that talks to Cache Storage. This step runs both `tsc`
+      # passes (app and `tsconfig.sw.json`) plus eslint.
+      - name: Admin SPA typecheck
+        run: yarn workspace @biddaloy/client-admin lint
+
       # `e2e/` is not a yarn workspace, so nothing else typechecks it — and
       # its specs only run in the much slower E2E job against a real stack.
       # [8.9.10] renamed a key in `e2e/config.ts` and the stale reference in
@@ -403,12 +413,41 @@ jobs:
       - name: E2E tests (${{ matrix.browser }})
         run: yarn e2e --project=${{ matrix.browser }}
 
+      # [8.12.6]: the PWA/offline suite runs here rather than as its own
+      # job so it reuses this job's postgres, redis, migrations, seed and
+      # browser cache. It has its own config because the service worker
+      # only exists in a production build (`devOptions.enabled: false`),
+      # so it builds client-admin and drives `vite preview` on :5175 —
+      # roughly 2-4 minutes, paid on every PR deliberately: a PWA suite
+      # that only ran post-merge would not have caught the class of bug
+      # #184 found. Chromium only; offline emulation reaching service
+      # workers is verified on Chromium's CDP path.
+      - name: PWA and offline E2E tests
+        if: matrix.browser == 'chromium'
+        run: yarn e2e:pwa
+
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v7
         with:
           name: playwright-report-${{ matrix.browser }}
           path: playwright-report/
+          if-no-files-found: ignore
+
+      - name: Upload PWA Playwright report
+        if: failure() && matrix.browser == 'chromium'
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-pwa
+          path: playwright-report-pwa/
+          if-no-files-found: ignore
+
+      - name: Upload PWA traces, screenshots and videos
+        if: failure() && matrix.browser == 'chromium'
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-pwa
+          path: test-results-pwa/
           if-no-files-found: ignore
 
       - name: Upload traces, screenshots and videos

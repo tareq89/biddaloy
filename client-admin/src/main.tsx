@@ -3,31 +3,53 @@ import {
   getActiveTenant,
   initSentry,
   registerSessionExpiredHandler,
+  startQueueReplay,
   subscribeAuthState,
   updateSentryRouteTag,
   updateSentryTenantTag,
 } from '@biddaloy/ui/api';
 import { RouteErrorFallback, Toaster } from '@biddaloy/ui/components';
-import { I18nProvider } from '@biddaloy/ui/i18n';
+import { I18nProvider, useTranslation } from '@biddaloy/ui/i18n';
 import { enableMocking } from '@biddaloy/ui/mocks';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { createRouter, RouterProvider } from '@tanstack/react-router';
+import { createRouter, RouterProvider, type ErrorComponentProps } from '@tanstack/react-router';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
+import { registerServiceWorker, reloadForUpdate } from './pwa/register';
 import { routeTree } from './routeTree.gen';
 import './index.css';
-
-// [8.9.8]: no-ops without `VITE_SENTRY_DSN` set (local dev, CI, a preview
-// build without one wired up yet) — see `initSentry`'s own comment
-// (`ui/src/api/sentry.ts`).
-initSentry({ dsn: import.meta.env.VITE_SENTRY_DSN, environment: import.meta.env.MODE });
 
 // [8.9.2]'s app-wide QueryClient — cache-first staleTime/gcTime, a retry
 // policy that excludes 4xx, and the global 401/403 error handling. See
 // `@biddaloy/ui/api`'s `createAppQueryClient` for the tuned values and why
 // each one is set the way it is.
 const queryClient = createAppQueryClient();
+
+// [8.12.2]: the boundary's "this page is from an older version" fork
+// reloads through the service-worker-aware `reloadForUpdate` (it lets a
+// waiting worker activate first) instead of `ui`'s app-agnostic plain
+// `location.reload()` default. A named wrapper rather than an inline
+// arrow so the component identity is stable across renders.
+function RouteErrorFallbackWithUpdate(props: ErrorComponentProps) {
+  // [8.12.6]: the copy is passed translated. `@biddaloy/ui` stays
+  // translation-agnostic and defaults its strings to English, which meant
+  // this Bangla-default app rendered "You're offline" in English on the
+  // one screen a user sees precisely when nothing else is working.
+  const { t } = useTranslation();
+  return (
+    <RouteErrorFallback
+      {...props}
+      onReloadForUpdate={reloadForUpdate}
+      offlineTitle={t('offline.pageTitle')}
+      offlineMessage={t('offline.pageExplanation')}
+      updateTitle={t('update.pageTitle')}
+      updateMessage={t('update.pageExplanation')}
+      updateRetryLabel={t('update.reload')}
+      retryLabel={t('offline.retry')}
+    />
+  );
+}
 
 // `basepath` matches `vite.config.ts`'s `base: '/admin/'` — without it,
 // the router would try to match against `/students` instead of
@@ -51,7 +73,30 @@ const router = createRouter({
   // this when a route doesn't set its own `errorComponent`. The sidebar/
   // header chrome (`__root.tsx`'s `AppShell`) lives above the `<Outlet />`
   // this replaces, so it stays up around the failure.
-  defaultErrorComponent: RouteErrorFallback,
+  defaultErrorComponent: RouteErrorFallbackWithUpdate,
+});
+
+// [8.9.8]: no-ops without `VITE_SENTRY_DSN` set (local dev, CI, a preview
+// build without one wired up yet) — see `initSentry`'s own comment
+// (`ui/src/api/sentry.ts`).
+//
+// [8.12.7]: `router` is what turns on browser tracing, which is what
+// collects real-user LCP/CLS/INP and names each transaction after the
+// route id. That is why this call now sits *below* `createRouter` rather
+// than at the top of the module: the integration instruments this exact
+// instance. The cost is that a throw inside `createRouter` itself goes
+// unreported — the same exposure every line above it already had.
+//
+// `VITE_SENTRY_TRACES_SAMPLE_RATE` is left `undefined` when unset (rather
+// than defaulted here) so `initSentry` owns the single default, and an
+// out-of-range or non-numeric value falls back to it too.
+initSentry({
+  dsn: import.meta.env.VITE_SENTRY_DSN,
+  environment: import.meta.env.MODE,
+  router,
+  ...(import.meta.env.VITE_SENTRY_TRACES_SAMPLE_RATE !== undefined && {
+    tracesSampleRate: Number.parseFloat(import.meta.env.VITE_SENTRY_TRACES_SAMPLE_RATE),
+  }),
 });
 
 // [8.9.8]: opaque tenant id only, kept current across a mid-session
@@ -123,3 +168,23 @@ void enableMocking()
     console.error('[enableMocking] failed to start the mock worker — continuing without it', error);
   })
   .then(renderApp);
+
+// [8.12.1]: kicked off alongside the render, not awaited before it —
+// registration is not on the critical path to pixels, and keeping it out
+// of the promise chain above means a service-worker failure can never
+// block the app from mounting. No-ops under `VITE_USE_MOCKS=true` so it
+// can't race `enableMocking`'s worker for the root scope — see its own
+// comment in `pwa/register.ts`.
+registerServiceWorker();
+
+// [8.12.5]: the offline mutation queue's replay listeners. #183 made
+// registration explicit rather than an import side effect, which left the
+// call itself to the consuming app — without this line `replayQueue` is
+// only ever reached by a direct "Send now"/"Try again" click, and rows
+// queued in a previous session would sit unsent forever. Kicked off
+// alongside the render for the same reason `registerServiceWorker()` is:
+// it is not on the critical path to pixels. Idempotent (`started` latch),
+// and the auth-state subscription it installs lives as long as the tab, so
+// there is nothing for this module to tear down — `stopQueueReplay()`
+// exists for tests, which is where module state actually needs resetting.
+startQueueReplay();

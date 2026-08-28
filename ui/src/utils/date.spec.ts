@@ -6,6 +6,7 @@ import {
   formatAcademicYear,
   formatDate,
   formatDateTime,
+  formatRelativeAge,
   getAcademicYear,
   isPastDueDate,
   parseDate,
@@ -166,5 +167,38 @@ describe('formatDateTime', () => {
     // 19:00 UTC on the 24th is already 01:00 on the 25th in Dhaka.
     const date = new Date(Date.UTC(2026, 7, 24, 19, 0));
     expect(formatDateTime(date, REGION_BD_EN)).toBe('2026-08-25 01:00');
+  });
+});
+
+describe('formatRelativeAge', () => {
+  const NOW = Date.parse('2026-08-28T12:00:00Z');
+
+  it('says "now" for anything under a minute, rather than ticking seconds', () => {
+    expect(formatRelativeAge(NOW - 30_000, 'en', NOW)).toBe('now');
+  });
+
+  it('rounds toward the coarser unit', () => {
+    // 119s is "1 minute ago", not "119 seconds ago" — the order of
+    // magnitude is the message on a staleness badge.
+    expect(formatRelativeAge(NOW - 119_000, 'en', NOW)).toBe('1 minute ago');
+  });
+
+  it.each([
+    [5 * 60_000, '5 minutes ago'],
+    [2 * 60 * 60_000, '2 hours ago'],
+    [23 * 60 * 60_000, '23 hours ago'],
+    [3 * 24 * 60 * 60_000, '3 days ago'],
+  ])('formats an age of %ims as "%s"', (ageMs, expected) => {
+    expect(formatRelativeAge(NOW - ageMs, 'en', NOW)).toBe(expected);
+  });
+
+  it('renders Bengali numerals for the bn locale without any digit plumbing', () => {
+    expect(formatRelativeAge(NOW - 5 * 60_000, 'bn', NOW)).toContain('৫');
+  });
+
+  it('clamps a server clock running ahead of the browser to "now"', () => {
+    // Otherwise a badge whose entire job is to say how far in the past
+    // something happened would read "in 3 seconds".
+    expect(formatRelativeAge(NOW + 3_000, 'en', NOW)).toBe('now');
   });
 });

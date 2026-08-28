@@ -33,6 +33,29 @@ export function createAppQueryClient(): QueryClient {
         staleTime: 30_000,
         gcTime: 5 * 60_000,
         retry: shouldRetryQuery,
+        // [8.12.6]: `offlineFirst`, not TanStack Query's default
+        // `online`. Under `online`, a query with no cached data does not
+        // run at all while `navigator.onLine` is false — it goes to
+        // `paused` and its promise never settles. For a route whose
+        // `loader` awaits `ensureQueryData`, that means an offline
+        // navigation hangs on the previous screen forever: no data, no
+        // error, no offline state, nothing to retry.
+        //
+        // It also made the whole offline read path unreachable in exactly
+        // the case it was built for. Both fallbacks live *inside* the
+        // query function — the service worker's `api-cache`
+        // (`client-admin/src/sw.ts`) and the Dexie read cache
+        // (`offlineCachedQueryFn`) — and a paused query never calls its
+        // query function, so neither could ever answer.
+        //
+        // `offlineFirst` lets the fetch run once regardless of what the
+        // browser believes about connectivity; the SW answers from cache
+        // if it can, and `offlineCachedQueryFn` falls back to Dexie if it
+        // cannot. A genuine failure then surfaces as an error the route
+        // boundary renders as the offline state. `shouldRetryQuery`
+        // already declines to retry while offline, so this costs one
+        // attempt, not a retry storm.
+        networkMode: 'offlineFirst',
       },
       mutations: {
         retry: shouldRetryQuery,

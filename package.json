@@ -33,6 +33,7 @@
     "test:e2e": "yarn workspace @biddaloy/server test:e2e",
     "test:file": "yarn workspace @biddaloy/server test:file",
     "e2e": "playwright test",
+    "e2e:pwa": "playwright test -c playwright.pwa.config.ts",
     "ci:local": "bash scripts/ci-local.sh",
     "prepare": "husky"
   },

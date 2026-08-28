@@ -11,6 +11,7 @@ export {
 export {
   formatDate,
   formatDateTime,
+  formatRelativeAge,
   parseDate,
   parseServerDate,
   isPastDueDate,

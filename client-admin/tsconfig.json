@@ -23,5 +23,8 @@
       "@biddaloy/ui/tailwind": ["../ui/tailwind.preset.ts"]
     }
   },
-  "include": ["src"]
+  "include": ["src"],
+  // Checked separately, against the `WebWorker` lib — see
+  // `tsconfig.sw.json` for why it cannot share this program.
+  "exclude": ["src/sw.ts"]
 }

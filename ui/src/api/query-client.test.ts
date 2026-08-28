@@ -37,6 +37,29 @@ describe('createAppQueryClient', () => {
     expect(mutations?.retry).toBe(shouldRetryQuery);
   });
 
+  it('runs queries offline-first, so a query with no data still calls its queryFn while offline', async () => {
+    const queryClient = createAppQueryClient();
+    expect(queryClient.getDefaultOptions().queries?.networkMode).toBe('offlineFirst');
+
+    // The reason the option exists ([8.12.6]): under TanStack Query's
+    // default `online` mode this query would be *paused* and its promise
+    // would never settle, which is exactly what made an offline route
+    // navigation hang forever on the previous screen — and what stopped
+    // the service-worker cache and `offlineCachedQueryFn`'s Dexie
+    // fallback, both of which live inside the query function, from ever
+    // being consulted.
+    const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    try {
+      const data = await queryClient.fetchQuery({
+        queryKey: ['test', 'offline'],
+        queryFn: () => Promise.resolve('served from a cache the queryFn owns'),
+      });
+      expect(data).toBe('served from a cache the queryFn owns');
+    } finally {
+      onLine.mockRestore();
+    }
+  });
+
   it('excludes 4xx from the client-level retry default — one call, then gives up', async () => {
     const queryClient = createAppQueryClient();
     let callCount = 0;

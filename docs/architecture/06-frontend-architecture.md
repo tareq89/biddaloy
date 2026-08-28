@@ -241,6 +241,139 @@ set on the _root_ route, so when nothing matches, the root's own
 `AppShell` (sidebar, header) still renders around the not-found content,
 in the same `<Outlet />` position a matched route's content would occupy.
 
+## Offline reads: two caches, one rule
+
+The admin SPA keeps working when the network drops. Two independent layers
+do that, and they answer different questions.
+
+```mermaid
+flowchart LR
+    Q["queryFn<br/>(TanStack Query)"] --> AX[axios]
+    AX --> SW["Service worker<br/>NetworkFirst 'api-cache'"]
+    SW -->|"online"| NET[["Server"]]
+    SW -->|"offline, cached"| AX
+    AX -->|"no response at all"| DX[("Dexie<br/>'biddaloy-offline'")]
+    DX --> Q
+    NET --> AX
+```
+
+|                                                              | Service worker `api-cache`                                       | Dexie `biddaloy-offline`                                  |
+| ------------------------------------------------------------ | ---------------------------------------------------------------- | --------------------------------------------------------- |
+| Added by                                                     | [8.12.1]                                                         | [8.12.3]                                                  |
+| Caches                                                       | every `GET /api/v1/*`, as raw HTTP responses                     | 4 reference lists, as structured rows                     |
+| Knows the data's age?                                        | yes — it stamps `x-sw-cached-at` on every response it stores     | yes — `fetchedAt` per row                                 |
+| Works with no service worker (dev, first visit, other SPAs)? | no                                                               | yes                                                       |
+| Cap / expiry                                                 | 100 entries, 24h                                                 | 20 rows per tenant+entity, 24h                            |
+| Lives in                                                     | `client-admin/src/sw.ts`, `client-admin/src/pwa/cache-policy.ts` | `ui/src/api/offline-db.ts`, `ui/src/api/offline-cache.ts` |
+
+The Dexie layer **complements** the service worker; it does not replace it.
+
+**What is cached: students, classes, class sections, fee structures.** That
+list is a closed union (`CacheableEntity`), not a convention — so wrapping a
+money query is a compile error.
+
+**What is deliberately never cached: fee dues, invoices, payments.** A
+balance that is silently an hour old is how a school takes a payment twice.
+If a later issue needs one of these offline, it has to build the "this
+figure is N hours old, do not act on it" affordance first.
+
+**Cached data is always labelled.** `CachedDataNotice` renders
+`"Showing saved data from 23 hours ago"` above any list served from either
+cache, and adds an offline hint when `navigator.onLine` is false. It
+renders nothing for fresh data. The age travels beside the query result in
+a side channel (`ui/src/api/freshness.ts`) rather than inside it, so no
+query's data type or route loader had to change.
+
+**How "is this stale?" is decided.** The service worker stamps every
+response it stores with `x-sw-cached-at`, holding `Date.now()` at the
+moment it cached it; the presence of that header is what marks a response
+as a replay. It is deliberately _not_ decided by comparing the server's
+`Date` header against the browser's clock — that compares two different
+clocks, so a phone running a couple of minutes fast would label every
+fresh response stale and show "showing saved data" permanently to a
+fully-online user. Unsynced clocks are routine on the low-end Android this
+work targets. Same clock in, same clock out.
+
+**An HTTP error is never answered from cache.** A 401/403/404 means the
+server refused the request — often because the caller lost access to that
+tenant — so serving the cached copy would render data the server just said
+this user may not see. Only a _no-response_ network failure falls back.
+
+### The write path: queue, replay, and telling the user
+
+Reads are only half of it. A write made with no connection is persisted
+and replayed later, and the user is told where it stands.
+
+```mermaid
+flowchart TD
+    W["a write, made offline"] --> Q[("Dexie 'mutationQueue'<br/>++seq = submission order")]
+    ONLINE(["browser goes online<br/>· or login · or 'Send now'"]) --> R{replay,<br/>oldest first}
+    Q --> R
+    R -->|2xx| DONE["row deleted"]
+    R -->|"409 / 412"| C["status: conflict<br/>a human decides"]
+    R -->|"5 strikes"| D["status: dead"]
+    R -->|"no response"| Q
+    R -->|"401 / 403"| Q
+    C --> STOP["everything behind it waits"]
+    D --> STOP
+```
+
+**Ordering is the point.** Replay walks ascending `seq` and stops at the
+first row it cannot clear. Queued writes commonly touch the same record —
+correcting a mark you just made — so letting later rows overtake a blocked
+one applies edits out of order against server state nobody reconciled.
+`SyncStatus` explains the block rather than working around it.
+
+**Money is never queued.** `QueueableEntity` is a closed union, so
+`entity: 'payments'` does not compile; a second, case-insensitive path
+guard catches strings built at runtime, which the union cannot see. A
+queued payment replayed hours later — after the parent walked out with a
+receipt — is unrecoverable.
+
+**A 401 during replay is not a strike and never ends the session.** A token
+routinely expires while a tab sits offline, so the first replayed row would
+otherwise trigger the refresh-then-logout path, and logout deletes the whole
+database. Replay opts out of that branch: it stops, changes nothing, and
+waits for the user to re-authenticate.
+
+| State the user sees              | Means                                        |
+| -------------------------------- | -------------------------------------------- |
+| _(nothing)_                      | online, queue empty and readable             |
+| "N changes waiting to send"      | queued, will go on their own                 |
+| "Some changes need attention"    | a conflict or dead row is blocking the queue |
+| "Can't check for unsent changes" | the queue could not be read — **not** zero   |
+
+That last row is the one worth guarding: "you have nothing unsynced" and
+"I cannot tell whether you have anything unsynced" must never look the same
+to someone deciding whether it is safe to close the tab.
+
+**Nothing produces queued mutations yet.** [8.12.4] shipped the engine and
+[8.12.5] the indicator, but the anticipated first consumer — a teacher
+marking attendance — needs attendance endpoints that are not in
+`openapi.json`, and a `client-teacher` app that does not exist. The engine
+is wired (`startQueueReplay()` runs at boot in `client-admin/src/main.tsx`)
+and tested against mocks; it is not yet exercised by a real feature.
+
+### Tenant isolation
+
+Same rule as everywhere else in Biddaloy, with two independent mechanisms
+because one silent failure shows one school's students under another
+school's name:
+
+1. **Structural.** Every Dexie row's primary key starts with its tenant id,
+   and every read filters on the _currently active_ tenant. A cross-tenant
+   hit is impossible even if every purge below failed.
+2. **Purge.** `setActiveTenant` (a real switch) drops the leaving tenant's
+   rows; `clearAuthState` (logout, session expiry, failed refresh) deletes
+   the whole database. These are the same two funnels that already clear
+   the service-worker cache.
+
+Both funnels also clear the freshness map and — as of [8.12.3] — every
+autosaved form draft. Draft storage keys are tenant-scoped too
+(`form-shell-draft:<tenantId>:<formKey>`); before that, an administrator of
+two schools was offered school A's abandoned draft while working in
+school B.
+
 ## Testing
 
 Vitest for unit/component tests (colocated `*.test.tsx`), Playwright for
