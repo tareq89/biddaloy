@@ -1475,8 +1475,8 @@
     "semantic_hash": "ee5f5a3bef7a06467bd34888253ac499"
   },
   "ui/scripts/check-contrast.mjs": {
-    "mtime": 1787933950.5157857,
-    "ast_hash": "1da66b45b912326ce2d5edfed4ec3a71",
+    "mtime": 1787934739.6619005,
+    "ast_hash": "ab1fd08d469a3e75a23d57a051cc4382",
     "semantic_hash": ""
   },
   "ui/scripts/check-exports.mjs": {
@@ -2580,7 +2580,7 @@
     "semantic_hash": ""
   },
   "client-admin/index.html": {
-    "mtime": 1787933950.5138965,
+    "mtime": 1787934674.106065,
     "ast_hash": "be2d57b0815653111ac833fac467546e",
     "semantic_hash": ""
   },
@@ -5115,13 +5115,13 @@
     "semantic_hash": ""
   },
   "client-admin/src/pwa/manifest.test.ts": {
-    "mtime": 1787933950.5145957,
-    "ast_hash": "af13512bdf81afe93732d3164faf5ace",
+    "mtime": 1787934717.707923,
+    "ast_hash": "9310771b03621b1641b9867b75ce12eb",
     "semantic_hash": ""
   },
   "client-admin/src/pwa/manifest.ts": {
-    "mtime": 1787933950.5148368,
-    "ast_hash": "c6cacb055ad0ea88a7eabe9d2b793b51",
+    "mtime": 1787934673.9941049,
+    "ast_hash": "6b68567394a01a7cf3ef369b079d8032",
     "semantic_hash": ""
   },
   "client-admin/src/pwa/register.ts": {
@@ -5150,7 +5150,7 @@
     "semantic_hash": ""
   },
   "client-admin/public/favicon.svg": {
-    "mtime": 1787928868.2812142,
+    "mtime": 1787934674.2220492,
     "ast_hash": "a94b84e9c830ff06568d22179a701292",
     "semantic_hash": ""
   },
@@ -5420,8 +5420,8 @@
     "semantic_hash": ""
   },
   "ui/scripts/check-raw-palette.mjs": {
-    "mtime": 1787933505.0516098,
-    "ast_hash": "1fe3d2451fc670b5788453fef821298d",
+    "mtime": 1787934739.626413,
+    "ast_hash": "146e6a74f43ac51400394d044a8d73de",
     "semantic_hash": ""
   }
 }

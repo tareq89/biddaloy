@@ -1,7 +1,7 @@
 import type { UserRole } from '@biddaloy/shared';
 import { decodeAccessTokenMemberships, getAccessToken } from '@biddaloy/ui/api';
 import { LocaleSwitcher, SchoolPicker } from '@biddaloy/ui/components';
-import { logout, switchActiveTenant } from '@biddaloy/ui/hooks';
+import { logout, switchActiveTenant, useDensity } from '@biddaloy/ui/hooks';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
@@ -47,6 +47,18 @@ function SelectSchoolPage() {
 
   const token = getAccessToken();
   const memberships = token ? decodeAccessTokenMemberships(token) : [];
+
+  // [8.13.8] Comfortable density (contract section 6). Auth screens sit with
+  // `/portal` rather than with the staff routes because they are
+  // PRE-authentication: at this point nobody knows whether the visitor is a
+  // guardian on a 360 px phone or an administrator on a desktop, so the
+  // accessible 44 px target is the safe default for the unknown user.
+  //
+  // Called ABOVE the `memberships.length < 2` early return — a hook cannot
+  // sit behind a conditional — and set on `document.documentElement` rather
+  // than on the wrapper below, so the portalled `LocaleSwitcher` menu
+  // inherits it too. See `useDensity`.
+  useDensity('comfortable');
 
   // Both branches below are real, reachable edge cases — not just
   // defensive filler — but neither is the common path: `login()`/

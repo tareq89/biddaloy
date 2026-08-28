@@ -217,6 +217,26 @@ export function SignInForm({ onSubmit, loading = false, error = null }: SignInFo
                         className="pe-20"
                       />
                     </FormControl>
+                    {/* [8.13.8] This toggle is INSET inside the field, so it
+                    is the one control that must not simply take
+                    `--control-h`. `size="sm"` used to be 28 px inside a 32 px
+                    input; once both sides read the same variable they became
+                    44 px inside a 44 px field, and the ghost hover background
+                    painted straight over the input's top/bottom borders and
+                    rounded end corner.
+
+                    So the height is derived from the field's rather than
+                    equal to it: `--control-h` minus 4 px keeps exactly the
+                    2 px-per-side inset it has always had (28 px compact,
+                    40 px comfortable). The `::after` then gives back the
+                    4 px the inset costs, using the same negative-inset
+                    hit-area-extension pattern as `primitives/checkbox.tsx`
+                    (`inset-x-0` so the pseudo-element has real width to
+                    receive the clicks — an `inset-y`-only `::after` would be
+                    zero-wide and catch nothing)
+                    — which `e2e/responsive/target-size.spec.ts` measures — so
+                    the tap target is the full 44 px even though the painted
+                    button is not. See the density note in §6. */}
                     <Button
                       type="button"
                       variant="ghost"
@@ -224,7 +244,7 @@ export function SignInForm({ onSubmit, loading = false, error = null }: SignInFo
                       disabled={loading}
                       aria-pressed={showPassword}
                       aria-controls="sign-in-password"
-                      className="absolute end-1 top-1/2 -translate-y-1/2"
+                      className="absolute end-1 top-1/2 h-[calc(var(--control-h,2rem)-0.25rem)] -translate-y-1/2 after:absolute after:inset-x-0 after:-inset-y-[0.125rem]"
                       onClick={() => setShowPassword((current) => !current)}
                     >
                       {showPassword ? t('password.hide') : t('password.show')}
