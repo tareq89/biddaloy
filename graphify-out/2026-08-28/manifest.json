@@ -100,8 +100,8 @@
     "semantic_hash": "920f6f5285ad58e93a3d4500e1c3e85e"
   },
   "server/src/modules/auth/auth.service.ts": {
-    "mtime": 1787865400.3059633,
-    "ast_hash": "a291d8d978bdb52e4d984c8b259cc696",
+    "mtime": 1787927918.8339238,
+    "ast_hash": "c239ce506237d378491850d2e476534f",
     "semantic_hash": ""
   },
   "server/src/modules/auth/decorators/current-tenant.decorator.ts": {
@@ -215,8 +215,8 @@
     "semantic_hash": ""
   },
   "server/src/scripts/seed.ts": {
-    "mtime": 1787628143.7758882,
-    "ast_hash": "f8d0cea2a0691a221719ef6ebebb56ab",
+    "mtime": 1787927918.835055,
+    "ast_hash": "4121dc50a71abe05e118fc6c9ac5932d",
     "semantic_hash": ""
   },
   "server/tsconfig.json": {
@@ -440,8 +440,8 @@
     "semantic_hash": ""
   },
   "server/src/modules/auth/auth.service.spec.ts": {
-    "mtime": 1787865400.3052964,
-    "ast_hash": "57c0e3ed15120e2bf2fb07cbe81fe8f3",
+    "mtime": 1787927918.8334668,
+    "ast_hash": "1489b7d0385dc5381d35a7476c993de0",
     "semantic_hash": ""
   },
   "server/src/modules/auth/decorators/decorators.spec.ts": {
@@ -1475,8 +1475,8 @@
     "semantic_hash": "ee5f5a3bef7a06467bd34888253ac499"
   },
   "ui/scripts/check-contrast.mjs": {
-    "mtime": 1787924867.1049733,
-    "ast_hash": "48bc6f3ff9906dd95326cce3a5aafc57",
+    "mtime": 1787928052.2487178,
+    "ast_hash": "a61babd9cb80a347e3344185d2257f01",
     "semantic_hash": ""
   },
   "ui/scripts/check-exports.mjs": {
@@ -2525,8 +2525,8 @@
     "semantic_hash": "3daebdd0945fd1534c90a6b3b3df9d0e"
   },
   "ui/tailwind.preset.ts": {
-    "mtime": 1787924838.53078,
-    "ast_hash": "14fed2e62e886bdba5f114b3e65d43bb",
+    "mtime": 1787928026.019044,
+    "ast_hash": "d6a9d6b78a2d1f77dd7bd6955d65189b",
     "semantic_hash": ""
   },
   "ui/tsconfig.json": {
@@ -2560,8 +2560,8 @@
     "semantic_hash": "23f296f56f50e29a878e3a644feeed3e"
   },
   ".github/workflows/ci.yml": {
-    "mtime": 1787914229.2725916,
-    "ast_hash": "2510ecefa152f44cc6d1441e9dc61501",
+    "mtime": 1787927918.8078334,
+    "ast_hash": "fc324d4500fa7b81e085547ec4add9d6",
     "semantic_hash": ""
   },
   ".github/workflows/codeql.yml": {
@@ -2580,7 +2580,7 @@
     "semantic_hash": ""
   },
   "client-admin/index.html": {
-    "mtime": 1787914419.5717764,
+    "mtime": 1787925126.120706,
     "ast_hash": "326b6eff81865183eefc9b4db70348c7",
     "semantic_hash": ""
   },
@@ -3365,13 +3365,13 @@
     "semantic_hash": ""
   },
   "server/src/scripts/seed.util.spec.ts": {
-    "mtime": 1787628143.7762845,
-    "ast_hash": "999c8da5b77db39d9c0f817f7522f9aa",
+    "mtime": 1787927918.8354456,
+    "ast_hash": "c587fbd1c5377c28fd79a2eb508c313f",
     "semantic_hash": ""
   },
   "server/src/scripts/seed.util.ts": {
-    "mtime": 1787628143.776624,
-    "ast_hash": "7284be133d47e0822c61e3c2888c8a55",
+    "mtime": 1787927918.8358843,
+    "ast_hash": "07bc98450384dc48d17d37724f8f171a",
     "semantic_hash": ""
   },
   "ui/src/api/session.test.ts": {
@@ -4235,8 +4235,8 @@
     "semantic_hash": ""
   },
   "lighthouserc.cjs": {
-    "mtime": 1787914229.2970092,
-    "ast_hash": "19fc091a4533d90590a3721230eeebb9",
+    "mtime": 1787927918.8327825,
+    "ast_hash": "aa98d427104ea06fb6c5c3df54d097e1",
     "semantic_hash": ""
   },
   "scripts/ci-local.sh": {
@@ -5115,12 +5115,12 @@
     "semantic_hash": ""
   },
   "client-admin/src/pwa/manifest.test.ts": {
-    "mtime": 1787914419.572635,
+    "mtime": 1787925126.1222064,
     "ast_hash": "c22f6252a820a7a357b36561ccd53066",
     "semantic_hash": ""
   },
   "client-admin/src/pwa/manifest.ts": {
-    "mtime": 1787924894.097032,
+    "mtime": 1787925126.1224513,
     "ast_hash": "49b710ac3049f46e056609d0ad54ffb3",
     "semantic_hash": ""
   },
@@ -5150,22 +5150,22 @@
     "semantic_hash": ""
   },
   "client-admin/public/favicon.svg": {
-    "mtime": 1787924884.6568046,
+    "mtime": 1787925126.1209383,
     "ast_hash": "a94b84e9c830ff06568d22179a701292",
     "semantic_hash": ""
   },
   "client-admin/public/icons/maskable-512.png": {
-    "mtime": 1787914504.2667882,
+    "mtime": 1787925126.1212196,
     "ast_hash": "2915b4c596b15dabb2eba867641a1c5e",
     "semantic_hash": ""
   },
   "client-admin/public/icons/pwa-192.png": {
-    "mtime": 1787914504.2047968,
+    "mtime": 1787925126.1214108,
     "ast_hash": "bc0494a4577c155ee3fd336b210a9257",
     "semantic_hash": ""
   },
   "client-admin/public/icons/pwa-512.png": {
-    "mtime": 1787914504.2504194,
+    "mtime": 1787925126.1218472,
     "ast_hash": "d68e15cfa65546c70ffce2560819002a",
     "semantic_hash": ""
   },
@@ -5355,7 +5355,7 @@
     "semantic_hash": ""
   },
   "docs/architecture/09-design-direction.md": {
-    "mtime": 1787925000.8023078,
+    "mtime": 1787925126.1227589,
     "ast_hash": "88e483faa64a7343d0cfadf08e1771c1",
     "semantic_hash": ""
   },
@@ -5382,6 +5382,26 @@
   "ui/src/styles/fonts/OFL-anek-latin.txt": {
     "mtime": 1787914229.3013055,
     "ast_hash": "26e5ec398edabccb66807465fb44293b",
+    "semantic_hash": ""
+  },
+  "server/src/scripts/seed.spec.ts": {
+    "mtime": 1787927918.8344932,
+    "ast_hash": "5509c99114ee5194a8ce40c54f06109a",
+    "semantic_hash": ""
+  },
+  "ui/.storybook/dark-decorator.tsx": {
+    "mtime": 1787928129.0779297,
+    "ast_hash": "b0778f352098193909b45401359c3d8b",
+    "semantic_hash": ""
+  },
+  "ui/src/foundations/borders.stories.tsx": {
+    "mtime": 1787928129.0595512,
+    "ast_hash": "f7707b94b5d8f33dd1d187de3f6601f2",
+    "semantic_hash": ""
+  },
+  "ui/src/styles/design-tokens.spec.ts": {
+    "mtime": 1787928162.7246108,
+    "ast_hash": "60736962445d15d7fb5c43b25b380c42",
     "semantic_hash": ""
   }
 }
