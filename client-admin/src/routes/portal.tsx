@@ -1,5 +1,5 @@
 import { GUARDIAN_ROLES, Permission } from '@biddaloy/shared';
-import { AppShell, BottomNav, TenantBar } from '@biddaloy/ui/components';
+import { AppShell, BottomNav, SyncStatusIndicator, TenantBar } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { RequireRole } from '@biddaloy/ui/routes';
 import { createFileRoute, Outlet } from '@tanstack/react-router';
@@ -66,7 +66,12 @@ function PortalLayout() {
       <AppShell
         navItems={navItems}
         brand={t('brand')}
-        topBar={<TenantBar />}
+        topBar={
+          <div className="flex flex-wrap items-center justify-between gap-x-2">
+            <TenantBar />
+            <SyncStatusIndicator />
+          </div>
+        }
         openMenuLabel={t('openMenuLabel')}
         closeMenuLabel={t('closeMenuLabel')}
         navLabel={t('navLabel')}

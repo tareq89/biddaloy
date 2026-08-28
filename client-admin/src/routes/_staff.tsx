@@ -2,6 +2,7 @@ import { Permission, STAFF_ROLES } from '@biddaloy/shared';
 import {
   AppShell,
   NotificationBell,
+  SyncStatusIndicator,
   TenantBar,
   type AppShellNavGroup,
 } from '@biddaloy/ui/components';
@@ -180,6 +181,7 @@ function StaffLayout() {
           <div className="flex flex-wrap items-center justify-between gap-x-2">
             <TenantBar />
             <div className="flex items-center gap-2">
+              <SyncStatusIndicator />
               <GlobalSearchLauncher />
               <NotificationBell
                 label={t('notifications.bellLabel')}

@@ -261,7 +261,7 @@ flowchart LR
 | ------------------------------------------------------------ | ---------------------------------------------------------------- | --------------------------------------------------------- |
 | Added by                                                     | [8.12.1]                                                         | [8.12.3]                                                  |
 | Caches                                                       | every `GET /api/v1/*`, as raw HTTP responses                     | 4 reference lists, as structured rows                     |
-| Knows the data's age?                                        | no — the app cannot tell a replay from a live 200                | yes — `fetchedAt` per row                                 |
+| Knows the data's age?                                        | yes — it stamps `x-sw-cached-at` on every response it stores     | yes — `fetchedAt` per row                                 |
 | Works with no service worker (dev, first visit, other SPAs)? | no                                                               | yes                                                       |
 | Cap / expiry                                                 | 100 entries, 24h                                                 | 20 rows per tenant+entity, 24h                            |
 | Lives in                                                     | `client-admin/src/sw.ts`, `client-admin/src/pwa/cache-policy.ts` | `ui/src/api/offline-db.ts`, `ui/src/api/offline-cache.ts` |
@@ -298,6 +298,61 @@ work targets. Same clock in, same clock out.
 server refused the request — often because the caller lost access to that
 tenant — so serving the cached copy would render data the server just said
 this user may not see. Only a _no-response_ network failure falls back.
+
+### The write path: queue, replay, and telling the user
+
+Reads are only half of it. A write made with no connection is persisted
+and replayed later, and the user is told where it stands.
+
+```mermaid
+flowchart TD
+    W["a write, made offline"] --> Q[("Dexie 'mutationQueue'<br/>++seq = submission order")]
+    ONLINE(["browser goes online<br/>· or login · or 'Send now'"]) --> R{replay,<br/>oldest first}
+    Q --> R
+    R -->|2xx| DONE["row deleted"]
+    R -->|"409 / 412"| C["status: conflict<br/>a human decides"]
+    R -->|"5 strikes"| D["status: dead"]
+    R -->|"no response"| Q
+    R -->|"401 / 403"| Q
+    C --> STOP["everything behind it waits"]
+    D --> STOP
+```
+
+**Ordering is the point.** Replay walks ascending `seq` and stops at the
+first row it cannot clear. Queued writes commonly touch the same record —
+correcting a mark you just made — so letting later rows overtake a blocked
+one applies edits out of order against server state nobody reconciled.
+`SyncStatus` explains the block rather than working around it.
+
+**Money is never queued.** `QueueableEntity` is a closed union, so
+`entity: 'payments'` does not compile; a second, case-insensitive path
+guard catches strings built at runtime, which the union cannot see. A
+queued payment replayed hours later — after the parent walked out with a
+receipt — is unrecoverable.
+
+**A 401 during replay is not a strike and never ends the session.** A token
+routinely expires while a tab sits offline, so the first replayed row would
+otherwise trigger the refresh-then-logout path, and logout deletes the whole
+database. Replay opts out of that branch: it stops, changes nothing, and
+waits for the user to re-authenticate.
+
+| State the user sees              | Means                                        |
+| -------------------------------- | -------------------------------------------- |
+| _(nothing)_                      | online, queue empty and readable             |
+| "N changes waiting to send"      | queued, will go on their own                 |
+| "Some changes need attention"    | a conflict or dead row is blocking the queue |
+| "Can't check for unsent changes" | the queue could not be read — **not** zero   |
+
+That last row is the one worth guarding: "you have nothing unsynced" and
+"I cannot tell whether you have anything unsynced" must never look the same
+to someone deciding whether it is safe to close the tab.
+
+**Nothing produces queued mutations yet.** [8.12.4] shipped the engine and
+[8.12.5] the indicator, but the anticipated first consumer — a teacher
+marking attendance — needs attendance endpoints that are not in
+`openapi.json`, and a `client-teacher` app that does not exist. The engine
+is wired (`startQueueReplay()` runs at boot in `client-admin/src/main.tsx`)
+and tested against mocks; it is not yet exercised by a real feature.
 
 ### Tenant isolation
 
