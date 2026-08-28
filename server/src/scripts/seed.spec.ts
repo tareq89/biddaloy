@@ -1,3 +1,4 @@
+import { UserStatus } from '@biddaloy/shared';
 import { describe, expect, it } from 'vitest';
 import type { Repository } from 'typeorm';
 import type { School } from '../modules/schools/entities/school.entity';
@@ -147,5 +148,42 @@ describe('seedAccounts', () => {
     const superAdmin = users.rows.find((u) => u.email === 'admin@school.com');
     const memberships = earliestFirst(userTenants.rows.filter((m) => m.user_id === superAdmin?.id));
     expect(memberships[0]?.tenant_id).toBe(DEFAULT_SCHOOL.id);
+  });
+
+  it('restores a soft-deleted SUPER_ADMIN with the freshly supplied credentials', async () => {
+    const { repos, users } = makeRepos();
+    // Pre-existing row, as if an operator had soft-deleted the account
+    // before this run — same prior state (SUSPENDED, a stale hash) the
+    // sibling `ensureRoleTestUsers` restoration test in seed.util.spec.ts
+    // uses, since it's the same self-healing shape.
+    users.rows.push({
+      id: 'user-existing',
+      email: 'admin@school.com',
+      password_hash: 'stale-hash',
+      status: UserStatus.SUSPENDED,
+      deleted_at: new Date('2025-01-01'),
+      created_at: new Date('2024-01-01'),
+    });
+
+    // A standard lookup must not see the account before seeding runs —
+    // proves the pre-existing row really is excluded like any other
+    // soft-deleted user, not just present with a `deleted_at` field that
+    // happens to be ignored.
+    const before = await repos.userRepository.findOne({ where: { email: 'admin@school.com' } });
+    expect(before).toBeNull();
+
+    await seedAccounts(
+      repos,
+      DEFAULT_SCHOOL as unknown as School,
+      'admin@school.com',
+      'fresh-hash',
+    );
+
+    const restored = users.rows.find((u) => u.email === 'admin@school.com');
+    expect(restored).toMatchObject({
+      deleted_at: null,
+      status: UserStatus.ACTIVE,
+      password_hash: 'fresh-hash',
+    });
   });
 });

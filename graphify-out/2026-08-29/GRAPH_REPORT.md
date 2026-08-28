@@ -5,12 +5,12 @@
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 6183 nodes · 16757 edges · 311 communities (225 shown, 86 thin omitted)
+- 6183 nodes · 16757 edges · 310 communities (224 shown, 86 thin omitted)
 - Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 340 edges (avg confidence: 0.74)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `b9fdfda4`
+- Built from commit: `59c819c8`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -294,7 +294,6 @@
 - puppeteer
 - error-state.stories.tsx
 - ChangePasswordDto
-- supertest
 - bulk-reminder-wizard.test.tsx
 - @testing-library/dom
 - @testing-library/react
@@ -335,8 +334,8 @@
   .serena/project.yml → CLAUDE.md
 - `renderPanel()` --calls--> `renderWithProviders()`  [EXTRACTED]
   client-admin/src/routes/_staff/audit-logs/-diff-panel.test.tsx → ui/src/test/render-with-providers.tsx
-- `isRealCalendarDate()` --calls--> `parseDate()`  [EXTRACTED]
-  client-admin/src/routes/_staff/audit-logs/index.tsx → ui/src/utils/date.ts
+- `renderAuditLogs()` --calls--> `renderWithRouter()`  [EXTRACTED]
+  client-admin/src/routes/_staff/audit-logs/index.test.tsx → ui/src/test/render-with-router.tsx
 
 ## Import Cycles
 - 1-file cycle: `ui/eslint.config.mjs -> ui/eslint.config.mjs`
@@ -349,19 +348,19 @@
 - **Design-System Wrapper Boundary Pattern** — ui_contributing_wrapperrule, ui_src_primitives_readme_doc, ui_readme_doc, ui_contributing_threefile_requirement [INFERRED 0.85]
 - **Multi-Tenant Scoping Enforced Across Stack** — claude_skills_multi_tenancy_skill_doc, server_claude_testingstandards, ui_readme_apiclient, ui_readme_hooks [INFERRED 0.85]
 
-## Communities (311 total, 86 thin omitted)
+## Communities (310 total, 86 thin omitted)
 
 ### Community 0 - "app.module.ts"
 Cohesion: 0.09
 Nodes (26): QueueSnapshot, subscribeQueueChanges(), QueuedMutationRow, deriveState(), AllSavedRendersNothing, ConflictBlockingTheQueue, DeadLetter, meta (+18 more)
 
 ### Community 1 - "User"
-Cohesion: 0.08
-Nodes (45): SelectSchoolPage(), selectSchoolSearchSchema, clearAuthState(), currentSessionGeneration(), getAccessToken(), getActiveRole(), listeners, notifyAuthStateChange() (+37 more)
+Cohesion: 0.06
+Nodes (56): SelectSchoolPage(), selectSchoolSearchSchema, clearAuthState(), currentSessionGeneration(), getAccessToken(), getActiveRole(), listeners, notifyAuthStateChange() (+48 more)
 
 ### Community 2 - "ClassController"
-Cohesion: 0.13
-Nodes (41): CreateFeeStructureDto, CreatePaymentDto, FamilyDueEntryDto, FamilyFeeStructureDto, FamilyPaymentAllocationDto, FamilyPaymentDto, FamilyStudentDueDto, FeeDuesSortBy (+33 more)
+Cohesion: 0.08
+Nodes (46): paginatedSchema(), CreateFeeStructureDto, CreatePaymentDto, FamilyDueEntryDto, FamilyFeeStructureDto, FamilyPaymentAllocationDto, FamilyPaymentDto, FamilyStudentDueDto (+38 more)
 
 ### Community 3 - "Student"
 Cohesion: 0.15
@@ -369,11 +368,11 @@ Nodes (21): evictOverCap(), isQuotaExceeded(), readRefCache(), rowId(), KEY, okR
 
 ### Community 4 - "index.ts"
 Cohesion: 0.12
-Nodes (51): CommunicationMedium, academicYearFactory(), auditEntryFactory(), BD_MOBILE_PREFIXES, BN_DISTRICTS, BN_FEMALE_FIRST_NAMES, BN_LAST_NAMES, BN_MALE_FIRST_NAMES (+43 more)
+Nodes (50): CommunicationMedium, academicYearFactory(), auditEntryFactory(), BD_MOBILE_PREFIXES, BN_DISTRICTS, BN_FEMALE_FIRST_NAMES, BN_LAST_NAMES, BN_MALE_FIRST_NAMES (+42 more)
 
 ### Community 5 - "invoices.controller.ts"
 Cohesion: 0.05
-Nodes (46): @nestjs/swagger, ApiTenantAuth(), TestController, QueryAcademicYearDto, IsInt, IsOptional, Max, Min (+38 more)
+Nodes (47): @nestjs/swagger, ApiTenantAuth(), TestController, AuditInterceptor, RequestWithTenant, Injectable, Audited(), AuditedMetadata (+39 more)
 
 ### Community 6 - "StudentService"
 Cohesion: 0.10
@@ -389,7 +388,7 @@ Nodes (26): BulkUploadErrorDto, BulkUploadRowDto, CreateGuardianDto, CreateStude
 
 ### Community 9 - "School"
 Cohesion: 0.05
-Nodes (106): DeleteYearDialogProps, SetCurrentDialogProps, EMPTY_VALUES, YearFormDialogProps, YearFormInitialValues, ClassFormDialogProps, ClassFormInitialValues, EMPTY_VALUES (+98 more)
+Nodes (104): DeleteYearDialogProps, SetCurrentDialogProps, EMPTY_VALUES, YearFormDialogProps, YearFormInitialValues, ClassFormDialogProps, ClassFormInitialValues, EMPTY_VALUES (+96 more)
 
 ### Community 10 - "rtl-decorator.tsx"
 Cohesion: 0.21
@@ -408,12 +407,12 @@ Cohesion: 0.06
 Nodes (49): Combobox(), ComboboxOption, ComboboxProps, CLASS_OPTIONS, Calendar(), CalendarProps, DatePickerProps, daysInMonth() (+41 more)
 
 ### Community 14 - "support.ts"
-Cohesion: 0.08
-Nodes (21): FeeController, ApiExtraModels, ApiOkResponse, ApiOperation, ApiTags, Controller, Delete, Get (+13 more)
+Cohesion: 0.13
+Nodes (20): LoginHistoryTab(), LoginHistoryTabProps, MembershipsTab(), MembershipsTabProps, groupPermissions(), PermissionsTab(), PermissionsTabProps, TabQueryState() (+12 more)
 
 ### Community 15 - "index.ts"
-Cohesion: 0.12
-Nodes (25): StudentSearch(), StudentSearchProps, FeeStructureStudentPicker(), FeeStructureStudentPickerProps, academicYearBounds(), describeSubmitError(), GenerateFeesWizard(), monthIndex() (+17 more)
+Cohesion: 0.28
+Nodes (11): StudentSearch(), StudentSearchProps, FeeStructureStudentPicker(), FeeStructureStudentPickerProps, StudentPicker(), StudentPickerProps, FindStudentStep(), FindStudentStepProps (+3 more)
 
 ### Community 16 - "list-shell.stories.tsx"
 Cohesion: 0.05
@@ -433,7 +432,7 @@ Nodes (27): Route, Route, Route, Route, Route, Route, Route, Route (+19 more)
 
 ### Community 20 - "students.controller.ts"
 Cohesion: 0.05
-Nodes (85): ClassesTab(), ClassesTabProps, FeeStructuresTab(), FeeStructuresTabProps, StatisticsTab(), StatisticsTabProps, TabQueryState(), TabQueryStateProps (+77 more)
+Nodes (90): ClassesTab(), ClassesTabProps, FeeStructuresTab(), FeeStructuresTabProps, StatisticsTab(), StatisticsTabProps, TabQueryState(), TabQueryStateProps (+82 more)
 
 ### Community 21 - "Payment"
 Cohesion: 0.05
@@ -441,7 +440,7 @@ Nodes (55): DataTable(), DataTableProps, readPersistedState(), LOCALE_LABELS, Lo
 
 ### Community 22 - "index.ts"
 Cohesion: 0.04
-Nodes (55): adminOwnSchool, CONFIGURED_EMAIL, child(), FeeInput, invoice(), mockFees(), renderFees(), serverDate() (+47 more)
+Nodes (50): child(), FeeInput, invoice(), mockFees(), renderFees(), serverDate(), standardMocks(), summary() (+42 more)
 
 ### Community 23 - "app-shell.tsx"
 Cohesion: 0.08
@@ -521,7 +520,7 @@ Nodes (16): BulkPreviewSkippedDto, BulkPreviewStudentDto, BulkReminderPreviewRes
 
 ### Community 42 - "index.ts"
 Cohesion: 0.09
-Nodes (31): requestContext, CurrentUser, CommunicationsController, ApiOkResponse, ApiOperation, ApiTags, Body, Controller (+23 more)
+Nodes (30): requestContext, CommunicationsController, ApiOkResponse, ApiOperation, ApiTags, Body, Controller, Get (+22 more)
 
 ### Community 43 - "ignoreDependencies"
 Cohesion: 0.06
@@ -540,16 +539,16 @@ Cohesion: 0.05
 Nodes (47): Card(), CardProps, AsLink, Default, meta, RightToLeft, Story, WithSkeletonContent (+39 more)
 
 ### Community 47 - "router-integration.test.tsx"
-Cohesion: 0.12
-Nodes (16): createStructure, dueEntryFixture(), dueFixtures, dues, duesEmpty, feeDueRowFixture(), feeStructureHandlers, flaggedDues (+8 more)
+Cohesion: 0.10
+Nodes (19): classHandlers, classWithCounts(), create, createSection, fixtures, getOne, list, listEmpty (+11 more)
 
 ### Community 48 - "auth.test.ts"
 Cohesion: 0.02
-Nodes (113): PaginatedAuditEntries, AuditEntry, worker, wsPassthrough, academicYearDefaultHandlers, academicYearHandlers, create, fixtures (+105 more)
+Nodes (125): LoginResponse, worker, wsPassthrough, academicYearDefaultHandlers, academicYearHandlers, create, fixtures, getOne (+117 more)
 
 ### Community 49 - "index.tsx"
-Cohesion: 0.11
-Nodes (16): KEY, renderInEnglish(), dualRoleOneSchool, singleSchool, twoSchools, EMPTY_PAGE, PaymentForm(), apiErrorBody (+8 more)
+Cohesion: 0.12
+Nodes (10): adminOwnSchool, CONFIGURED_EMAIL, EMPTY_PAGE, PaymentForm(), server, apiErrorBody, renderHookWithProviders(), RenderHookWithProvidersOptions (+2 more)
 
 ### Community 50 - "devDependencies"
 Cohesion: 0.06
@@ -577,7 +576,7 @@ Nodes (9): supertest, AppModule, Module, createFee(), monthOffset(), Method, cre
 
 ### Community 56 - "session.ts"
 Cohesion: 0.05
-Nodes (66): AuditLogFilters, AuditLogsList(), AuditLogsPage(), auditLogsSearchSchema, ENTITY_TYPES, FILTER_KEYS, isRealCalendarDate(), parseFilterDate() (+58 more)
+Nodes (70): AuditLogFilters, AuditLogsList(), AuditLogsPage(), auditLogsSearchSchema, ENTITY_TYPES, FILTER_KEYS, isRealCalendarDate(), parseFilterDate() (+62 more)
 
 ### Community 57 - "school-picker.tsx"
 Cohesion: 0.04
@@ -596,8 +595,8 @@ Cohesion: 0.15
 Nodes (26): CommunicationsSettingsDto, EmailSettingsDto, GreenwebSmsDto, MessengerSettingsDto, MimSmsDto, RegionAcademicYearDto, RegionAddressDto, RegionCurrencyDto (+18 more)
 
 ### Community 61 - "tenant-provider-config.resolver.ts"
-Cohesion: 0.33
-Nodes (3): Inject, AcademicYearService, Injectable
+Cohesion: 0.07
+Nodes (28): AcademicYearController, ApiTags, Body, Controller, Inject, Post, Query, UseGuards (+20 more)
 
 ### Community 62 - "global-search.tsx"
 Cohesion: 0.12
@@ -633,7 +632,7 @@ Nodes (6): t, AppShellPage, FormShellPage, LoginPage, SchoolPickerPage, escapeRe
 
 ### Community 72 - "devDependencies"
 Cohesion: 0.07
-Nodes (27): axe-core, eslint-config-prettier, globals, jsdom, devDependencies, axe-core, eslint-config-prettier, globals (+19 more)
+Nodes (27): axe-core, eslint-config-prettier, eslint-plugin-unused-imports, globals, jsdom, devDependencies, axe-core, eslint-config-prettier (+19 more)
 
 ### Community 73 - "school-settings.ts"
 Cohesion: 0.24
@@ -684,8 +683,8 @@ Cohesion: 0.14
 Nodes (20): client-admin index.html, client-admin/src/main.tsx entry point, client-admin/src/routes/__root.tsx beforeLoad session guard, Accessibility expectations (color-alone rule, icon-only aria-label), Contributing to @biddaloy/ui, i18n rules for literal strings and lint enforcement, Three-file component requirement, Design token usage rule (+12 more)
 
 ### Community 86 - "auth.service.ts"
-Cohesion: 0.05
-Nodes (47): Header, paginatedSchema(), AuditInterceptor, RequestWithTenant, Injectable, Audited(), AuditedMetadata, FamilyStudentFeeDto (+39 more)
+Cohesion: 0.06
+Nodes (38): Header, CreateInvoiceDto, LineItemDto, QueryInvoiceDto, ArrayMinSize, IsArray, IsDateString, IsEnum (+30 more)
 
 ### Community 87 - "SendSingleReminderDto"
 Cohesion: 0.10
@@ -736,8 +735,8 @@ Cohesion: 0.09
 Nodes (15): RootLayout(), Route, RouterContext, FileRoutesById, focusAnchorMemory, blankRoute, detailRoute, listRoute (+7 more)
 
 ### Community 99 - "status-badge.tsx"
-Cohesion: 0.03
-Nodes (174): SchoolSettingsPage(), BatchDetail(), buildRetryName(), guardianAddressFor(), SendMessageForm(), RecipientListProps, StructureFormDialog(), ReceiptProps (+166 more)
+Cohesion: 0.02
+Nodes (191): SchoolSettingsPage(), ClassFormDialog(), DeleteClassDialog(), DeleteSectionDialog(), SectionFormDialog(), BatchDetail(), batchDetailSearchSchema, buildRetryName() (+183 more)
 
 ### Community 100 - ".updateSettings"
 Cohesion: 0.16
@@ -808,8 +807,8 @@ Cohesion: 0.31
 Nodes (6): apiCacheKeyFor(), ApiRouteMatch, get(), isCacheableApiRequest(), isHashedAssetRequest(), TenantScopedRequest
 
 ### Community 117 - "auth-state.ts"
-Cohesion: 0.07
-Nodes (36): SanitizeAllowlist(), SanitizeText(), shared, AllowlistDto, { sanitizeAllowlist, sanitizeStrict }, StrictDto, CreateAcademicYearDto, IsBeforeConstraint (+28 more)
+Cohesion: 0.11
+Nodes (24): SanitizeAllowlist(), SanitizeText(), shared, AllowlistDto, { sanitizeAllowlist, sanitizeStrict }, StrictDto, IsBeforeConstraint, ValidatorConstraint (+16 more)
 
 ### Community 118 - "number.ts"
 Cohesion: 0.29
@@ -840,8 +839,8 @@ Cohesion: 0.14
 Nodes (13): compilerOptions, composite, declaration, declarationMap, ignoreDeprecations, module, moduleResolution, outDir (+5 more)
 
 ### Community 125 - "jsdom"
-Cohesion: 0.05
-Nodes (84): balanceOf(), BreakdownCard(), deriveMonthStatus(), FeesHeader(), feesSearchSchema, FeesSummary(), InvoicesCard(), PaymentStatusValue (+76 more)
+Cohesion: 0.04
+Nodes (89): balanceOf(), BreakdownCard(), deriveMonthStatus(), FeesHeader(), feesSearchSchema, FeesSummary(), InvoicesCard(), PaymentStatusValue (+81 more)
 
 ### Community 126 - "SchoolsService"
 Cohesion: 0.33
@@ -849,7 +848,7 @@ Nodes (5): [basePath, prPath, outPath], kb(), lines, pr, signed()
 
 ### Community 127 - ".updateSettings"
 Cohesion: 0.04
-Nodes (60): ApiBody, ApiConsumes, AcademicYearController, ApiOperation, ApiTags, Body, Controller, Delete (+52 more)
+Nodes (67): ApiBody, ApiConsumes, ApiOperation, Delete, Get, Param, Patch, CurrentTenant (+59 more)
 
 ### Community 128 - "exports"
 Cohesion: 0.15
@@ -904,8 +903,8 @@ Cohesion: 0.52
 Nodes (5): biddaloyReactConfig, dataFetchingGuardConfig, financialMutationGuardConfig, noWindowAlertConfig, typeCheckedTestOverrides
 
 ### Community 142 - "payments.ts"
-Cohesion: 0.07
-Nodes (21): formatViolations(), JSDOM_AXE_OPTIONS, Matchers, toHaveNoViolations(), vitest, mockOnlineStatus(), resetOnlineStatus(), DEFAULT_REGION (+13 more)
+Cohesion: 0.09
+Nodes (18): formatViolations(), JSDOM_AXE_OPTIONS, Matchers, toHaveNoViolations(), vitest, DEFAULT_REGION, defaultSettings(), getSettings (+10 more)
 
 ### Community 143 - "exceljs"
 Cohesion: 0.40
@@ -1032,8 +1031,8 @@ Cohesion: 0.29
 Nodes (7): scripts, build, build:analyze, check:route-chunks, dev, lint, preview
 
 ### Community 178 - "students.ts"
-Cohesion: 0.11
-Nodes (29): ClassFormDialog(), DeleteSectionDialog(), SectionsTab(), SectionsTabProps, SectionFormDialog(), SectionsPanel(), SectionsPanelProps, TeacherDesignation (+21 more)
+Cohesion: 0.16
+Nodes (12): PaginatedAuditEntries, renderAuditLogs(), AuditEntry, auditLogDefaultHandlers, auditLogHandlers, fixtures, list, listByEntity (+4 more)
 
 ### Community 179 - "FamilyAccessService"
 Cohesion: 0.15
@@ -1044,8 +1043,8 @@ Cohesion: 0.07
 Nodes (23): DataTableSort, COLUMNS, Default, Empty, ErrorState, ExpandableRows, Loading, meta (+15 more)
 
 ### Community 183 - "EnrollmentController"
-Cohesion: 0.11
-Nodes (12): EnrollmentController, ApiExtraModels, ApiOkResponse, ApiTags, Body, Controller, Get, Param (+4 more)
+Cohesion: 0.10
+Nodes (17): CreateEnrollmentDto, IsEnum, IsOptional, IsUUID, UpdateEnrollmentDto, EnrollmentController, ApiExtraModels, ApiOkResponse (+9 more)
 
 ### Community 184 - "app-shell.stories.tsx"
 Cohesion: 0.29
@@ -1072,8 +1071,8 @@ Cohesion: 0.33
 Nodes (5): components, $defs, operations, paths, webhooks
 
 ### Community 190 - "fees.tsx"
-Cohesion: 0.12
-Nodes (15): getBulkReminder, getBulkReminderLogs, getOne, lastReminders, listBulkReminders, listBulkRemindersEmpty, listByGuardian, listByGuardianEmpty (+7 more)
+Cohesion: 0.11
+Nodes (16): communicationHandlers, getBulkReminder, getBulkReminderLogs, getOne, lastReminders, listBulkReminders, listBulkRemindersEmpty, listByGuardian (+8 more)
 
 ### Community 191 - "vitest.config.ts"
 Cohesion: 0.33
@@ -1104,8 +1103,8 @@ Cohesion: 0.40
 Nodes (4): ESLINT_PACKAGES, eslintBin, filesByPackage, repoRoot
 
 ### Community 199 - "audit-logs.ts"
-Cohesion: 0.20
-Nodes (13): ACCEPTED_EXTENSIONS, ImportErrorTable(), hasAcceptedExtension(), ImportStudentsContent(), REQUIRED_COLUMNS, downloadTemplate(), TEMPLATE_EXAMPLE_ROW, TEMPLATE_HEADERS (+5 more)
+Cohesion: 0.38
+Nodes (5): dueRow(), duesHandler(), fillMessageStep(), render(), wizardNext()
 
 ### Community 201 - "Docker Compose Services"
 Cohesion: 0.50
@@ -1120,12 +1119,12 @@ Cohesion: 0.50
 Nodes (3): name, private, version
 
 ### Community 215 - "Student"
-Cohesion: 0.07
-Nodes (30): KLASS, paisaRegionHandler(), referenceHandlers(), render(), YEAR, GUARDIAN_ROLES, isGuardianRole(), isStaffRole() (+22 more)
+Cohesion: 0.14
+Nodes (13): GUARDIAN_ROLES, isGuardianRole(), isStaffRole(), STAFF_ROLES, CommunicationTrigger, FeeApplicability, FeeType, UserRole (+5 more)
 
 ### Community 216 - "global-search.stories.tsx"
-Cohesion: 0.13
-Nodes (26): AcademicYearDetailPage(), TAB_IDS, DeleteYearDialog(), AcademicYearsListPage(), ClassesCountCell(), StudentsCountCell(), SetCurrentDialog(), YearFormDialog() (+18 more)
+Cohesion: 0.10
+Nodes (33): AcademicYearDetailPage(), TAB_IDS, DeleteYearDialog(), AcademicYearsListPage(), ClassesCountCell(), StudentsCountCell(), SetCurrentDialog(), YearFormDialog() (+25 more)
 
 ### Community 218 - "ContextGuard"
 Cohesion: 0.67
@@ -1178,10 +1177,6 @@ Nodes (20): FormControl(), FormDescription(), FormField(), FormFieldContext, For
 ### Community 284 - "ChangePasswordDto"
 Cohesion: 0.38
 Nodes (5): ChangePasswordDto, messagesFor(), ApiProperty, IsString, MinLength
-
-### Community 285 - "supertest"
-Cohesion: 0.15
-Nodes (12): fixtures, list, listByGuardian, listByGuardianEmpty, listByStudent, listByStudentEmpty, listEmpty, listInvoicesByStudent (+4 more)
 
 ### Community 298 - "tenant-provider-config.resolver.spec.ts"
 Cohesion: 0.53

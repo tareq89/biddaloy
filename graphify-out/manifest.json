@@ -5385,8 +5385,8 @@
     "semantic_hash": ""
   },
   "server/src/scripts/seed.spec.ts": {
-    "mtime": 1787940987.139172,
-    "ast_hash": "5eb894de4f75f0b617a5171813eef24c",
+    "mtime": 1787946287.182601,
+    "ast_hash": "56b1be5fa1331ef908c902dc685a3dd7",
     "semantic_hash": ""
   },
   "ui/.storybook/dark-decorator.tsx": {
@@ -5440,8 +5440,18 @@
     "semantic_hash": ""
   },
   "server/src/scripts/seed.accounts.ts": {
-    "mtime": 1787940987.138326,
+    "mtime": 1787946321.7343724,
     "ast_hash": "166f6597feb4f165d93ea11a680e0be7",
+    "semantic_hash": ""
+  },
+  "e2e/seed-contract.d.ts": {
+    "mtime": 1787946356.9761107,
+    "ast_hash": "8c91b7e9b1a5f99804f5ce76e9af626e",
+    "semantic_hash": ""
+  },
+  "e2e/seed-contract.js": {
+    "mtime": 1787946356.9751606,
+    "ast_hash": "687c03261f12c3f8364bfba009d54d36",
     "semantic_hash": ""
   }
 }
