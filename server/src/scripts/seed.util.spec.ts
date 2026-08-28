@@ -4,7 +4,19 @@ import type { Repository } from 'typeorm';
 import type { School } from '../modules/schools/entities/school.entity';
 import type { User } from '../modules/users/entities/user.entity';
 import type { UserTenant } from '../modules/auth/entities/user-tenant.entity';
-import { ensureRoleTestUsers, ensureSecondSchoolMembership, ROLE_TEST_USERS } from './seed.util';
+import type { AcademicYear } from '../modules/academics/entities/academic-year.entity';
+import type { Class } from '../modules/academics/entities/class.entity';
+import type { ClassSection } from '../modules/academics/entities/class-section.entity';
+import type { Student } from '../modules/students/entities/student.entity';
+import type { Guardian } from '../modules/students/entities/guardian.entity';
+import {
+  DEMO_CLASSES,
+  DEMO_STUDENTS_PER_SECTION,
+  ensureDemoStudents,
+  ensureRoleTestUsers,
+  ensureSecondSchoolMembership,
+  ROLE_TEST_USERS,
+} from './seed.util';
 import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS } from '../../../e2e/seed-contract';
 
 let nextId = 0;
@@ -253,5 +265,254 @@ describe('e2e seed contract', () => {
     // seed.ts reads process.env.SEED_ADMIN_PASSWORD; the contract must
     // point E2E fixtures at the same variable.
     expect(SEED_PASSWORD_ENV).toBe('SEED_ADMIN_PASSWORD');
+  });
+});
+
+describe('ensureDemoStudents', () => {
+  function demoRepos() {
+    return {
+      academicYearRepository: mockRepo<AcademicYear>(),
+      classRepository: mockRepo<Class>(),
+      classSectionRepository: mockRepo<ClassSection>(),
+      studentRepository: mockRepo<Student>(),
+      guardianRepository: mockRepo<Guardian>(),
+    };
+  }
+
+  /** Every findOne returns null — the "empty database" path. */
+  function emptyDatabase(repos: ReturnType<typeof demoRepos>) {
+    for (const repo of Object.values(repos)) {
+      vi.mocked(repo.findOne).mockResolvedValue(null);
+    }
+  }
+
+  const EXPECTED_SECTIONS = DEMO_CLASSES.reduce((n, c) => n + c.sections.length, 0);
+  const EXPECTED_STUDENTS = EXPECTED_SECTIONS * DEMO_STUDENTS_PER_SECTION;
+
+  it('creates the whole academic chain and a multi-section roster', async () => {
+    const repos = demoRepos();
+    emptyDatabase(repos);
+
+    const result = await ensureDemoStudents(repos, 'school-1');
+
+    expect(result).toEqual({
+      classes: DEMO_CLASSES.length,
+      sections: EXPECTED_SECTIONS,
+      students: EXPECTED_STUDENTS,
+      guardians: 5,
+    });
+    // More than one degenerate row, and spread over sections rather than
+    // all piled into one — this is what makes the list route's pagination
+    // and class column render something real (#356).
+    expect(EXPECTED_STUDENTS).toBeGreaterThan(1);
+    expect(EXPECTED_SECTIONS).toBeGreaterThan(1);
+    expect(repos.academicYearRepository.create).toHaveBeenCalledTimes(1);
+    expect(repos.classRepository.create).toHaveBeenCalledTimes(DEMO_CLASSES.length);
+    expect(repos.classSectionRepository.create).toHaveBeenCalledTimes(EXPECTED_SECTIONS);
+    expect(repos.studentRepository.create).toHaveBeenCalledTimes(EXPECTED_STUDENTS);
+  });
+
+  it('scopes every created row to the given tenant', async () => {
+    const repos = demoRepos();
+    emptyDatabase(repos);
+
+    await ensureDemoStudents(repos, 'school-1');
+
+    for (const repo of Object.values(repos)) {
+      const calls = vi.mocked(repo.create).mock.calls;
+      expect(calls.length).toBeGreaterThan(0);
+      for (const [payload] of calls) {
+        expect(payload).toMatchObject({ tenant_id: 'school-1' });
+      }
+    }
+  });
+
+  it('gives every student a section, a unique registration number and a guardian', async () => {
+    const repos = demoRepos();
+    emptyDatabase(repos);
+
+    await ensureDemoStudents(repos, 'school-1');
+
+    const students = vi
+      .mocked(repos.studentRepository.create)
+      .mock.calls.map(([payload]) => payload as Partial<Student>);
+    expect(new Set(students.map((s) => s.registration_number)).size).toBe(EXPECTED_STUDENTS);
+    for (const student of students) {
+      expect(student.class_section_id).toBeTruthy();
+      expect(student.full_name).toBeTruthy();
+      expect(student.guardians).toHaveLength(1);
+    }
+    // Roll numbers restart per section rather than running 1..N globally —
+    // the (class_section_id, roll_number) unique index is what they have to
+    // satisfy, and a global sequence would look wrong on the detail page.
+    expect(students.map((s) => s.roll_number)).toContain(1);
+    expect(Math.max(...students.map((s) => s.roll_number as number))).toBe(
+      DEMO_STUDENTS_PER_SECTION,
+    );
+  });
+
+  it('is idempotent: a second run against a seeded database creates nothing', async () => {
+    const repos = demoRepos();
+    vi.mocked(repos.academicYearRepository.findOne).mockResolvedValue({
+      id: 'year-1',
+      deleted_at: null,
+    } as AcademicYear);
+    vi.mocked(repos.classRepository.findOne).mockResolvedValue({
+      id: 'class-1',
+      deleted_at: null,
+    } as Class);
+    vi.mocked(repos.classSectionRepository.findOne).mockResolvedValue({
+      id: 'section-1',
+      deleted_at: null,
+    } as ClassSection);
+    vi.mocked(repos.studentRepository.findOne).mockResolvedValue({
+      id: 'student-1',
+      deleted_at: null,
+    } as Student);
+    vi.mocked(repos.guardianRepository.findOne).mockResolvedValue({
+      id: 'guardian-1',
+      deleted_at: null,
+      user_id: null,
+    } as Guardian);
+
+    const result = await ensureDemoStudents(repos, 'school-1');
+
+    expect(result).toEqual({ classes: 0, sections: 0, students: 0, guardians: 0 });
+    for (const repo of Object.values(repos)) {
+      expect(repo.create).not.toHaveBeenCalled();
+      expect(repo.save).not.toHaveBeenCalled();
+    }
+  });
+
+  it('restores a soft-deleted student instead of inserting a duplicate', async () => {
+    // The students unique index has no `WHERE deleted_at IS NULL`, so the
+    // soft-deleted row still owns its registration number — inserting again
+    // would be a constraint violation, not a duplicate.
+    const repos = demoRepos();
+    emptyDatabase(repos);
+    const deleted = { id: 'student-1', deleted_at: new Date() } as Student;
+    vi.mocked(repos.studentRepository.findOne).mockResolvedValue(deleted);
+
+    const result = await ensureDemoStudents(repos, 'school-1');
+
+    expect(result.students).toBe(0);
+    expect(repos.studentRepository.create).not.toHaveBeenCalled();
+    expect(deleted.deleted_at).toBeNull();
+    expect(repos.studentRepository.save).toHaveBeenCalledWith(deleted);
+  });
+
+  // #356 review: `academic_years(name, tenant_id)` and
+  // `class_sections(class_id, section_name)` are *partial* unique indexes
+  // (`WHERE "deleted_at" IS NULL`), unlike students/classes. A soft-deleted
+  // row is therefore allowed to sit alongside a live one with the same key,
+  // so a plain `withDeleted: true` lookup could return the dead row and
+  // undeleting it would violate the index against the live one.
+  it('prefers a live academic year over a soft-deleted namesake', async () => {
+    const repos = demoRepos();
+    emptyDatabase(repos);
+    const live = { id: 'year-live', deleted_at: null } as AcademicYear;
+    const softDeleted = { id: 'year-dead', deleted_at: new Date() } as AcademicYear;
+    vi.mocked(repos.academicYearRepository.findOne).mockImplementation(
+      (options?: { withDeleted?: boolean }) =>
+        Promise.resolve(options?.withDeleted === true ? softDeleted : live),
+    );
+
+    await ensureDemoStudents(repos, 'school-1');
+
+    // The dead row is left dead, and the live row is not resurrected-and-saved.
+    expect(softDeleted.deleted_at).not.toBeNull();
+    expect(repos.academicYearRepository.save).not.toHaveBeenCalledWith(softDeleted);
+    expect(repos.academicYearRepository.create).not.toHaveBeenCalled();
+    // Classes hang off the live year, not the deleted one.
+    expect(vi.mocked(repos.classRepository.create).mock.calls[0]?.[0]).toMatchObject({
+      academic_year_id: 'year-live',
+    });
+  });
+
+  it('still restores a soft-deleted academic year when no live one exists', async () => {
+    const repos = demoRepos();
+    emptyDatabase(repos);
+    const softDeleted = { id: 'year-dead', deleted_at: new Date() } as AcademicYear;
+    vi.mocked(repos.academicYearRepository.findOne).mockImplementation(
+      (options?: { withDeleted?: boolean }) =>
+        Promise.resolve(options?.withDeleted === true ? softDeleted : null),
+    );
+
+    await ensureDemoStudents(repos, 'school-1');
+
+    expect(softDeleted.deleted_at).toBeNull();
+    expect(repos.academicYearRepository.save).toHaveBeenCalledWith(softDeleted);
+    expect(repos.academicYearRepository.create).not.toHaveBeenCalled();
+  });
+
+  it('prefers a live class section over a soft-deleted namesake', async () => {
+    // Same partial-index reasoning as the academic year above.
+    const repos = demoRepos();
+    emptyDatabase(repos);
+    const live = { id: 'section-live', deleted_at: null } as ClassSection;
+    const softDeleted = { id: 'section-dead', deleted_at: new Date() } as ClassSection;
+    vi.mocked(repos.classSectionRepository.findOne).mockImplementation(
+      (options?: { withDeleted?: boolean }) =>
+        Promise.resolve(options?.withDeleted === true ? softDeleted : live),
+    );
+
+    await ensureDemoStudents(repos, 'school-1');
+
+    expect(softDeleted.deleted_at).not.toBeNull();
+    expect(repos.classSectionRepository.save).not.toHaveBeenCalled();
+    expect(vi.mocked(repos.studentRepository.create).mock.calls[0]?.[0]).toMatchObject({
+      class_section_id: 'section-live',
+    });
+  });
+
+  it('claims is_current only when the tenant has no current academic year', async () => {
+    const withCurrent = demoRepos();
+    emptyDatabase(withCurrent);
+    // Keyed on the `where` clause rather than call order: the year lookup
+    // makes more than one `findOne` call (live row first, then a
+    // `withDeleted` fallback — see `findLivePreferred`), so a
+    // `mockResolvedValueOnce` chain would silently answer the wrong query.
+    vi.mocked(withCurrent.academicYearRepository.findOne).mockImplementation(
+      (options?: { where?: { is_current?: boolean } }) =>
+        Promise.resolve(
+          options?.where?.is_current === true ? ({ id: 'other-year' } as AcademicYear) : null,
+        ),
+    );
+    await ensureDemoStudents(withCurrent, 'school-1');
+    expect(vi.mocked(withCurrent.academicYearRepository.create).mock.calls[0]?.[0]).toMatchObject({
+      is_current: false,
+    });
+
+    const without = demoRepos();
+    emptyDatabase(without);
+    await ensureDemoStudents(without, 'school-1');
+    expect(vi.mocked(without.academicYearRepository.create).mock.calls[0]?.[0]).toMatchObject({
+      is_current: true,
+    });
+  });
+
+  it('links only the first guardian to the portal account', async () => {
+    const repos = demoRepos();
+    emptyDatabase(repos);
+
+    await ensureDemoStudents(repos, 'school-1', 'parent-user-1');
+
+    const guardians = vi
+      .mocked(repos.guardianRepository.create)
+      .mock.calls.map(([payload]) => payload as Partial<Guardian>);
+    expect(guardians[0]?.user_id).toBe('parent-user-1');
+    expect(guardians.slice(1).every((g) => g.user_id === null)).toBe(true);
+  });
+
+  it('re-links the portal guardian when an older seed left it unlinked', async () => {
+    const repos = demoRepos();
+    emptyDatabase(repos);
+    const existing = { id: 'guardian-1', deleted_at: null, user_id: null } as Guardian;
+    vi.mocked(repos.guardianRepository.findOne).mockResolvedValueOnce(existing);
+
+    await ensureDemoStudents(repos, 'school-1', 'parent-user-1');
+
+    expect(existing.user_id).toBe('parent-user-1');
+    expect(repos.guardianRepository.save).toHaveBeenCalledWith(existing);
   });
 });
