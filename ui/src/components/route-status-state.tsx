@@ -4,14 +4,14 @@
  * page. `RouteErrorFallback` picks between this and `ErrorState`.
  *
  * Deliberately a sibling of `ErrorState` rather than a variant of it,
- * because neither of these is an error and neither should read like one:
+ * because neither of these is an error and neither should read like one —
+ * see `EmptyState`'s file comment for the border/elevation table shared
+ * across the family; this one matches `EmptyState`'s dashed, flat
+ * treatment, not `ErrorState`'s solid + elevated one. Also:
  *
  *   - `role="status"`, not `role="alert"` — a screen reader announces this
  *     politely. "You have no signal", or "a newer version exists", does not
  *     warrant interrupting whatever the user was being read.
- *   - Dashed border (`EmptyState`'s treatment), not the solid one
- *     `ErrorState` uses. Visually this is "nothing here yet", not "something
- *     broke".
  *   - It never asks the user to report anything, and its caller
  *     (`route-error-boundary.tsx`) skips Sentry when it renders this.
  *
@@ -56,12 +56,15 @@ export function RouteStatusState({
   return (
     <div
       role="status"
-      className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border-subtle p-8 text-center"
+      data-slot="route-status-state"
+      className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border-subtle bg-card p-8 text-center"
     >
-      <div className="text-muted-foreground [&_svg]:size-8">{icon}</div>
+      <div className="mb-1 flex size-14 items-center justify-center rounded-full bg-muted text-muted-foreground [&_svg]:size-8">
+        {icon}
+      </div>
       <h1 className="font-medium">{title}</h1>
       <p className="max-w-prose text-sm text-muted-foreground">{explanation}</p>
-      <div className="mt-2 flex items-center gap-2">
+      <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
         <Button type="button" variant="outline" onClick={onRetry}>
           {retryLabel}
         </Button>

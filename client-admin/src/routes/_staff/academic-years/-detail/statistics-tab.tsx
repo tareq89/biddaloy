@@ -1,3 +1,4 @@
+import { Skeleton } from '@biddaloy/ui/components';
 import { useAcademicYearStats } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatNumber } from '@biddaloy/ui/utils';
@@ -18,6 +19,11 @@ export function StatisticsTab({ academicYearId }: StatisticsTabProps) {
       query={query}
       forbiddenMessage={t('detail.forbidden')}
       errorMessage={t('detail.statistics.errorMessage')}
+      // Three stat cards, not this route's default table shape. The height
+      // is the real card's box: `p-4` (32px) + a `text-sm` label (20px
+      // line-height, per tailwindcss/theme.css) + `gap-1` (4px) + the
+      // `text-2xl` figure (32px line-height) + 2px of border = 90px.
+      skeleton={<StatisticsSkeleton />}
     >
       {(stats) => (
         <div className="flex flex-wrap gap-4">
@@ -44,5 +50,15 @@ export function StatisticsTab({ academicYearId }: StatisticsTabProps) {
         </div>
       )}
     </TabQueryState>
+  );
+}
+
+function StatisticsSkeleton() {
+  return (
+    <div aria-hidden="true" className="flex flex-wrap gap-4">
+      <Skeleton className="h-[5.625rem] w-32 rounded-md" />
+      <Skeleton className="h-[5.625rem] w-32 rounded-md" />
+      <Skeleton className="h-[5.625rem] w-32 rounded-md" />
+    </div>
   );
 }

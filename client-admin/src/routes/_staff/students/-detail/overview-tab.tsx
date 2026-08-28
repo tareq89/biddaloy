@@ -1,3 +1,4 @@
+import { SkeletonFieldList } from '@biddaloy/ui/components';
 import { useStudent } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 
@@ -19,6 +20,9 @@ export function OverviewTab({ studentId }: OverviewTabProps) {
       query={query}
       forbiddenMessage={t('detail.forbidden')}
       errorMessage={t('detail.loadError')}
+      // Four label/value pairs, not this route's default table shape —
+      // Overview is the one students tab that renders a `<dl>`.
+      skeleton={<SkeletonFieldList fields={4} />}
     >
       {(student) => (
         <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
