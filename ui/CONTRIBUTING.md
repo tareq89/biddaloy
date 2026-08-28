@@ -177,6 +177,14 @@ instead:
 
 ## Token usage
 
+Before reaching for a colour, border, elevation, motion or density value by
+hand, check Storybook's **Foundations** section (`Foundations/Colors`,
+`Foundations/Borders`, `Foundations/Elevation`, `Foundations/Motion`,
+`Foundations/Density`, `Foundations/Typography`, `Foundations/Overview`) —
+every token category is rendered there live, with the decision rule for
+picking one option over another, not just a swatch. `yarn storybook` from
+`ui/`.
+
 Reach for a semantic role token (`bg-muted`, `text-destructive`,
 `text-status-paid-fg`) before a raw scale value (`bg-neutral-100`). Raw
 scale entries in `tailwind.preset.ts` keep a fixed _value_ across themes;
