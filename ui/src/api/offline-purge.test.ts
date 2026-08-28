@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearAuthState, setActiveTenant, getActiveTenant } from './auth-state';
 import { FORM_DRAFT_KEY_PREFIX, formDraftKey } from './form-draft-storage';
 import { getFreshness, recordFreshness } from './freshness';
+import { enqueueMutation } from './mutation-queue';
 import { writeRefCache } from './offline-cache';
 import { deleteOfflineDb, getOfflineDb } from './offline-db';
 
@@ -39,6 +40,18 @@ afterEach(async () => {
  * wait for the promise they deliberately do not return. */
 async function settlePurge(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+/** For the logout assertions specifically: `clearAuthState()` fires
+ * `deleteOfflineDb()` without awaiting it, and a whole-database delete
+ * can outlive a single macrotask on a loaded machine. `getOfflineDb()`
+ * deliberately returns `null` while one is in flight, so a test that
+ * only waited a tick would read `null.refCache` rather than a count.
+ * `deleteOfflineDb()` joins the in-flight delete instead of starting a
+ * second one — that is exactly what its `pendingDelete` guard is for. */
+async function settleDatabaseDelete(): Promise<void> {
+  await settlePurge();
+  await deleteOfflineDb();
 }
 
 describe('setActiveTenant', () => {
@@ -86,7 +99,7 @@ describe('clearAuthState', () => {
     await writeRefCache({ entity: 'students', queryKey: KEY, data: { a: 1 }, fetchedAt: 1 });
 
     clearAuthState();
-    await settlePurge();
+    await settleDatabaseDelete();
 
     // The next person at this browser is a different person.
     await expect(getOfflineDb()!.refCache.count()).resolves.toBe(0);
@@ -99,6 +112,20 @@ describe('clearAuthState', () => {
     clearAuthState();
 
     expect(getFreshness(KEY)).toBeUndefined();
+  });
+
+  it('takes [8.12.4]’s queued mutations with it', async () => {
+    setActiveTenant('tenant-a');
+    await enqueueMutation({ entity: 'attendance', method: 'post', path: '/attendance' });
+    await expect(getOfflineDb()!.mutationQueue.count()).resolves.toBe(1);
+
+    clearAuthState();
+    await settleDatabaseDelete();
+
+    // No queue-specific purge code exists, and that is the point: the
+    // queue lives in the database `clearAuthState()` already deletes
+    // whole. One funnel, nothing to forget to wire up.
+    await expect(getOfflineDb()!.mutationQueue.count()).resolves.toBe(0);
   });
 
   it('removes every autosaved form draft, for every tenant', () => {

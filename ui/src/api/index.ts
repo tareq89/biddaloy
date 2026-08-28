@@ -29,6 +29,31 @@ export { clearApiCache } from './sw-cache';
 // or the two `auth-state.ts` funnels. See `offline-db.ts` for the design.
 export { type CacheableEntity } from './offline-db';
 export { offlineCachedQueryFn, REF_CACHE_TTL_MS } from './offline-cache';
+
+// [8.12.4]'s mutation queue. Same policy as the read cache above: the
+// Dexie table stays private, and only the operations a consuming app or
+// a sync indicator legitimately needs are re-exported.
+export {
+  discardMutation,
+  enqueueMutation,
+  ForbiddenQueueMutationError,
+  getQueueSnapshot,
+  MAX_REPLAY_ATTEMPTS,
+  QueueUnavailableError,
+  replayQueue,
+  retryMutation,
+  startQueueReplay,
+  stopQueueReplay,
+  subscribeQueueChanges,
+  type EnqueueMutationInput,
+  type QueueSnapshot,
+} from './mutation-queue';
+export type {
+  QueueableEntity,
+  QueuedMutationMethod,
+  QueuedMutationRow,
+  QueuedMutationStatus,
+} from './offline-db';
 export {
   clearFreshness,
   getFreshness,

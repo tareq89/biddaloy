@@ -1,6 +1,7 @@
 /**
  * [8.12.3] Schema/version pinning and the "no IndexedDB here" degradation.
  */
+import Dexie from 'dexie';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -35,7 +36,54 @@ describe('offline database', () => {
     // Pinned so bumping the schema is a conscious edit in two places — a
     // silent bump would run an upgrade path nobody wrote.
     expect(db.verno).toBe(OFFLINE_DB_VERSION);
-    expect(OFFLINE_DB_VERSION).toBe(1);
+    // [8.12.4] bumped this to 2 to add `mutationQueue`. Bumping the pin
+    // is the deliberate edit — do it in the same change as the schema,
+    // and with an upgrade test like the one below.
+    expect(OFFLINE_DB_VERSION).toBe(2);
+  });
+
+  it('indexes the mutation queue on the columns replay actually queries', async () => {
+    const db = getOfflineDb()!;
+    await db.open();
+
+    const indexNames = db.mutationQueue.schema.indexes.map((index) => index.name);
+    expect(indexNames).toContain('tenantId');
+    expect(indexNames).toContain('[tenantId+status]');
+    // `++seq` is not decoration: replay walks rows in ascending primary
+    // key, so the auto-increment *is* the submission-order guarantee.
+    expect(db.mutationQueue.schema.primKey.name).toBe('seq');
+    expect(db.mutationQueue.schema.primKey.auto).toBe(true);
+  });
+
+  it('upgrades a v1 database in place, keeping the rows already in it', async () => {
+    // The one change here that can hurt somebody: every browser holding
+    // v1 replays the version chain on next open. If the upgrade dropped
+    // `refCache`, a staff member's offline reference data would vanish
+    // on a deploy they never asked for.
+    const v1 = new Dexie(OFFLINE_DB_NAME);
+    v1.version(1).stores({ refCache: 'id, tenantId, [tenantId+entity], fetchedAt' });
+    await v1.open();
+    await v1.table('refCache').put({
+      id: 'tenant-a students hash',
+      tenantId: 'tenant-a',
+      entity: 'students',
+      queryHash: 'hash',
+      fetchedAt: 1,
+      payload: { items: [] },
+    });
+    v1.close();
+    resetOfflineDbForTests();
+
+    const db = getOfflineDb()!;
+    await db.open();
+
+    expect(db.verno).toBe(2);
+    await expect(db.refCache.get('tenant-a students hash')).resolves.toMatchObject({
+      tenantId: 'tenant-a',
+    });
+    // ...and the new table exists and is empty, which is why no
+    // `.upgrade()` callback was needed.
+    await expect(db.mutationQueue.count()).resolves.toBe(0);
   });
 
   it('indexes the columns the tenant purge and eviction actually query', async () => {
