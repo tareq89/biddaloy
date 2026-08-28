@@ -128,12 +128,23 @@ const css = readFileSync(cssPath, 'utf8');
 
 const themeBody = extractBlock(css, /@theme\s*\{/);
 const darkBody = extractBlock(css, /:root\[data-theme=["']dark["']\]\s*\{/);
+// The plain `:root` block holding the light elevation values. `@theme`
+// cannot hold them itself — see the long note in globals.css.
+//
+// Matched by its CONTENTS, not by being the first plain `:root` in the file.
+// Binding to the first one would break the moment another plain `:root` is
+// added above it (a `color-scheme` declaration is the obvious candidate when
+// #353 ships the theme toggle): the gate would parse that block, find no
+// `--elevation-*`, and fail while pointing at entirely the wrong thing.
+const rootBody = extractBlock(css, /:root\s*\{(?=[^}]*--elevation-)/);
 if (themeBody === null) errors.push('globals.css: could not find an @theme block to check.');
 if (darkBody === null)
   errors.push('globals.css: could not find a :root[data-theme="dark"] block to check.');
+if (rootBody === null) errors.push('globals.css: could not find a plain :root block to check.');
 
 const lightVars = themeBody === null ? {} : parseDeclarations(themeBody);
 const darkVars = darkBody === null ? {} : parseDeclarations(darkBody);
+const rootVars = rootBody === null ? {} : parseDeclarations(rootBody);
 
 function expectVar(scopeVars, scopeName, varName, expectedValue) {
   const actual = scopeVars[varName];
@@ -222,6 +233,50 @@ for (const [roleKey, cssVarName] of Object.entries(roleVarNames)) {
 }
 
 /**
+ * Elevation (design contract §5). Shadows are not colours, so there is no
+ * ratio to check — but they are a mirrored token family, so they get the same
+ * drift gate everything else here gets, across three scopes:
+ *
+ *  1. `@theme` must point `--shadow-eN` at `var(--elevation-eN)` and not at a
+ *     literal. This is the assertion that actually matters: Tailwind v4
+ *     inlines a `--shadow-*` theme value into the utility at build time, so
+ *     writing the numbers here instead would compile a shadow the dark block
+ *     cannot override — dead CSS that silently does nothing. Someone
+ *     "simplifying" the indirection away breaks dark mode and sees no error
+ *     anywhere else; this line is that error.
+ *  2. The plain `:root` block holds the light values.
+ *  3. `:root[data-theme="dark"]` holds the dark ones.
+ *
+ * Values are compared as exact strings, so `0.40` may not become `0.4`.
+ */
+const lightSteps = Object.keys(preset.shadows.light);
+const darkSteps = Object.keys(preset.shadows.dark);
+if (lightSteps.join(',') !== darkSteps.join(',')) {
+  errors.push(
+    `tailwind.preset.ts: shadows.light has steps [${lightSteps}] but shadows.dark has ` +
+      `[${darkSteps}] — every step needs both halves or one theme silently loses it.`,
+  );
+}
+for (const step of lightSteps) {
+  expectVar(lightVars, '@theme', `--shadow-${step}`, `var(--elevation-${step})`);
+  expectVar(rootVars, ':root', `--elevation-${step}`, preset.shadows.light[step]);
+  expectVar(darkVars, ':root[data-theme="dark"]', `--elevation-${step}`, preset.shadows.dark[step]);
+
+  // The other route to the same dead-CSS bug. Asserting `@theme` holds the
+  // indirection is only half the guard: someone debugging dark shadows will
+  // reach for `--shadow-e2` in the dark block, and because the utility reads
+  // `var(--elevation-e2)`, that declaration does nothing at all. Without this
+  // check the gate would print OK over exactly the silent failure it exists
+  // to catch.
+  if (darkVars[`--shadow-${step}`] !== undefined) {
+    errors.push(
+      `globals.css: :root[data-theme="dark"] declares --shadow-${step}, which has no effect — ` +
+        `the .shadow-${step} utility reads var(--elevation-${step}). Override --elevation-${step} instead.`,
+    );
+  }
+}
+
+/**
  * The brand hex also appears OUTSIDE `ui/`, in files this script previously
  * never opened: the PWA manifest constant, the `<meta name="theme-color">`
  * tag, and the favicon artwork. A `.webmanifest` is consumed by the OS and an
@@ -269,6 +324,7 @@ if (errors.length > 0) {
 console.log(
   `check-contrast: OK — ${preset.CONTRAST_PAIRS.length} pairs meet WCAG 2.2, ` +
     `${Object.keys(preset.typography.ramp).length} type steps mirrored, ` +
+    `${lightSteps.length} elevation steps mirrored in light and dark, ` +
     `CSS mirror matches tailwind.preset.ts by name and scope, ` +
     `and ${brandHexSites.length} out-of-ui brand-hex sites match brand-600.`,
 );
