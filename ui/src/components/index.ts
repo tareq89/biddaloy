@@ -193,3 +193,4 @@ export {
   type SignInFormProps,
 } from './sign-in-form';
 export { CachedDataNotice, type CachedDataNoticeProps } from './cached-data-notice';
+export { SyncStatus, SyncStatusIndicator, type SyncStatusProps } from './sync-status';

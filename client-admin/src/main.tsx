@@ -3,6 +3,7 @@ import {
   getActiveTenant,
   initSentry,
   registerSessionExpiredHandler,
+  startQueueReplay,
   subscribeAuthState,
   updateSentryRouteTag,
   updateSentryTenantTag,
@@ -141,3 +142,15 @@ void enableMocking()
 // can't race `enableMocking`'s worker for the root scope — see its own
 // comment in `pwa/register.ts`.
 registerServiceWorker();
+
+// [8.12.5]: the offline mutation queue's replay listeners. #183 made
+// registration explicit rather than an import side effect, which left the
+// call itself to the consuming app — without this line `replayQueue` is
+// only ever reached by a direct "Send now"/"Try again" click, and rows
+// queued in a previous session would sit unsent forever. Kicked off
+// alongside the render for the same reason `registerServiceWorker()` is:
+// it is not on the critical path to pixels. Idempotent (`started` latch),
+// and the auth-state subscription it installs lives as long as the tab, so
+// there is nothing for this module to tear down — `stopQueueReplay()`
+// exists for tests, which is where module state actually needs resetting.
+startQueueReplay();
