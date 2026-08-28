@@ -209,11 +209,11 @@
   --color-neutral-900: #0f172a;
   --color-neutral-950: #020617;
 
-  --color-brand-50: #eff6ff;
-  --color-brand-100: #dbeafe;
-  --color-brand-400: #60a5fa;
-  --color-brand-600: #2563eb;
-  --color-brand-700: #1d4ed8;
+  --color-brand-50: #eef1fe;
+  --color-brand-100: #dfe3fd;
+  --color-brand-400: #8f96f4; /* dark-mode link/text — 6.66:1 on #0f172a, 5.46:1 on #1e293b */
+  --color-brand-600: #4a3fd4; /* 7.11:1 on white, 6.80:1 on the #f8fafc ground */
+  --color-brand-700: #3d33b8; /* 8.88:1 on white, 7.89:1 on brand-50 */
 
   --radius-sm: 0.25rem;
   --radius-md: 0.5rem;
@@ -239,8 +239,10 @@
      *value*. Default to light; the dark-mode block below overrides only
      these, never the raw scale, so a component that mixes a role token with
      a raw one can never end up with light text on a light background. */
-  --color-bg: var(--color-neutral-0);
-  --color-surface: var(--color-neutral-50);
+  /* Ground/surface inversion (design contract §3.3): the page ground is the
+     tinted neutral-50 and lifted things — cards, panels, fields — are white. */
+  --color-bg: var(--color-neutral-50);
+  --color-surface: var(--color-neutral-0);
   --color-text-primary: var(--color-neutral-900);
   --color-text-secondary: var(--color-neutral-600);
   --color-border-functional: var(--color-neutral-500);
@@ -255,10 +257,16 @@
    * presentation follows automatically from the referenced token's own
    * override — no separate dark entries needed here.
    *
-   * card, popover, accent, chart-N and sidebar-N have no bespoke identity in
-   * this design yet; they alias to the closest existing semantic token
-   * rather than introduce unreviewed colours. Revisit once a component
-   * actually needs them to look different from what they're aliased to. */
+   * card, popover, chart-N and sidebar-N have no bespoke identity in this
+   * design yet; they alias to the closest existing semantic token rather
+   * than introduce unreviewed colours. Revisit once a component actually
+   * needs them to look different from what they're aliased to.
+   *
+   * `--color-muted` and `--color-accent` are the exception: once `--surface`
+   * became white (§3.3), aliasing them to it made every `hover:bg-muted` /
+   * `focus:bg-accent` highlight white-on-white inside a white card. They
+   * point at `neutral-100` in light mode instead, and are restored to
+   * `--color-surface` in the dark block below where surface is not white. */
   --color-background: var(--color-bg);
   --color-foreground: var(--color-text-primary);
   --color-card: var(--color-surface);
@@ -269,9 +277,9 @@
   --color-primary-foreground: var(--color-neutral-0);
   --color-secondary: var(--color-surface);
   --color-secondary-foreground: var(--color-text-primary);
-  --color-muted: var(--color-surface);
+  --color-muted: var(--color-neutral-100);
   --color-muted-foreground: var(--color-text-secondary);
-  --color-accent: var(--color-surface);
+  --color-accent: var(--color-neutral-100);
   --color-accent-foreground: var(--color-text-primary);
   --color-destructive: var(--color-status-overdue-fg);
   --color-border: var(--color-border-functional);
@@ -312,6 +320,29 @@
   --color-text-secondary: #cbd5e1;
   --color-border-functional: var(--color-neutral-500); /* same value; verified separately against the dark bg */
   --color-brand: var(--color-brand-400);
+
+  /* Dark-scope shadcn aliases. These are the only ones that cannot follow
+     their referenced token automatically:
+
+     - `--color-primary-foreground` is white in light mode, which is correct
+       on `brand-600` (7.11:1) but only 2.68:1 on the dark `brand-400`
+       primary button. `neutral-900` on `brand-400` is 6.66:1 (§3.4).
+     - `--color-muted` / `--color-accent` point at `neutral-100` in light
+       mode (see the note above). In dark mode the hover/active highlight
+       should lift toward the elevated surface, not toward a light grey. */
+  --color-primary-foreground: var(--color-neutral-900);
+  --color-muted: var(--color-surface);
+  --color-accent: var(--color-surface);
+
+  /* `--color-sidebar-primary` follows `--color-brand`, so in dark mode it is
+     `brand-400`. Its foreground therefore needs exactly the same correction as
+     `--color-primary-foreground` above: white on `brand-400` is 2.68:1, while
+     `neutral-900` on it is 6.66:1. Nothing renders `bg-sidebar-primary` today
+     (see §3.3 item 4 — the whole `--color-sidebar-*` group is currently dead
+     code that #353 will either wire up or delete), but a token that is wrong
+     only while unused is still wrong, and this one sits three lines from its
+     own fix. */
+  --color-sidebar-primary-foreground: var(--color-neutral-900);
 
   /* -bg tints intentionally unchanged: a production dark theme wants darker,
      desaturated tints here rather than the light pastels above, but that is

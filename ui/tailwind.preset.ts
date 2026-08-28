@@ -33,11 +33,11 @@ export const neutral = {
 } as const;
 
 export const brand = {
-  50: '#eff6ff',
-  100: '#dbeafe',
-  400: '#60a5fa', // dark-mode link/text — clears 4.5:1 on neutral-900
-  600: '#2563eb', // light-mode link/text and interactive component colour
-  700: '#1d4ed8', // light-mode link/text, higher-contrast variant
+  50: '#eef1fe',
+  100: '#dfe3fd',
+  400: '#8f96f4', // dark-mode link/text — 6.66:1 on dark bg #0f172a, 5.46:1 on dark surface #1e293b
+  600: '#4a3fd4', // light-mode link/text and interactive component colour — 7.11:1 on white, 6.80:1 on the #f8fafc ground
+  700: '#3d33b8', // light-mode link/text, higher-contrast variant — 8.88:1 on white, 7.89:1 on brand-50
 } as const;
 
 export const radius = {
@@ -108,8 +108,12 @@ export const status = {
  * side of a pair is swapped.
  */
 export const light = {
-  bg: neutral[0],
-  surface: neutral[50],
+  // Ground/surface inversion, design contract §3.3: the page is the tinted
+  // ground and lifted things (cards, panels, fields) are white, so a card
+  // reads as paper on a desk rather than a slightly grey hole in a white
+  // page. Call sites move from `bg-background` to `bg-card` in [8.13.9].
+  bg: neutral[50],
+  surface: neutral[0],
   textPrimary: neutral[900],
   textSecondary: neutral[600],
   border: neutral[500],
@@ -168,20 +172,28 @@ export const CONTRAST_PAIRS = [
   // under new names — most pairs are mathematically identical to one already
   // above (e.g. --primary-foreground on --primary is the white-on-brand
   // inverse of 'brand-600 text on white'). Only the genuinely new numeric
-  // pairs get their own entry: neutral-50 as a background was never checked
-  // against text before.
+  // pairs get their own entry: the shadcn `secondary`/`muted` backgrounds
+  // resolve to neutrals that were never checked against text before.
+  //
+  // [8.13.3] re-pointed both. `muted` stopped following `--color-surface` and
+  // landed on neutral-100, so its row moved with it and is still genuinely
+  // new. `secondary` went the other way: it follows `--color-surface`, which
+  // the ground/surface inversion moved to white, so its pair collapsed into
+  // 'neutral-900 text on white' above and its row was removed rather than
+  // duplicated — per the rule this comment states.
   {
-    name: 'secondary-foreground on secondary (neutral-900 on neutral-50)',
-    fg: neutral[900],
-    bg: neutral[50],
-    min: 4.5,
-  },
-  {
-    name: 'muted-foreground on muted (neutral-600 on neutral-50)',
+    name: 'muted-foreground on muted (neutral-600 on neutral-100)',
     fg: neutral[600],
-    bg: neutral[50],
+    bg: neutral[100],
     min: 4.5,
   },
+  // Brand pairs the ramp re-grade in [8.13.3] makes newly reachable (design
+  // contract §3.6). The white-on-brand-600 primary button and the
+  // neutral-900-on-brand-400 dark primary button are the symmetric twins of
+  // rows already here — contrast is symmetric, so they get no duplicate row.
+  { name: 'brand-700 on brand-50 (selected nav item)', fg: brand[700], bg: brand[50], min: 4.5 },
+  { name: 'brand-600 on light ground', fg: brand[600], bg: light.bg, min: 4.5 },
+  { name: 'dark brand text on dark surface', fg: dark.brand, bg: dark.surface, min: 4.5 },
 ] as const;
 
 export const biddaloyPreset = { neutral, brand, radius, status, light, dark, typography } as const;

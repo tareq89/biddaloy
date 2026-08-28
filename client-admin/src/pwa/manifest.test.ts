@@ -35,7 +35,7 @@ describe('pwaManifest', () => {
 
   it('requests a standalone window with brand-600 chrome', () => {
     expect(pwaManifest.display).toBe('standalone');
-    expect(pwaManifest.theme_color).toBe('#2563eb');
+    expect(pwaManifest.theme_color).toBe('#4a3fd4');
     expect(THEME_COLOR).toBe(pwaManifest.theme_color);
     expect(pwaManifest.background_color).toBe('#ffffff');
   });
