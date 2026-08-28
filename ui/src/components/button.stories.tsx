@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, userEvent, within } from 'storybook/test';
 
-import { darkDecorator } from '../../.storybook/dark-decorator';
+import { darkDecorator, darkDecoratorParameters } from '../../.storybook/dark-decorator';
 import { rtlDecorator } from '../../.storybook/rtl-decorator';
 import { buttonVariants } from '../primitives/button';
 
@@ -252,5 +252,6 @@ export const States: StoryObj<typeof Button> = {
 export const StatesDark: StoryObj<typeof Button> = {
   tags: ['!autodocs'],
   decorators: [darkDecorator],
+  parameters: darkDecoratorParameters,
   render: () => renderButtonStateMatrix('dark'),
 };

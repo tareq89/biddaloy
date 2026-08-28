@@ -1,5 +1,11 @@
 import { GUARDIAN_ROLES, Permission } from '@biddaloy/shared';
-import { AppShell, BottomNav, SyncStatusIndicator, TenantBar } from '@biddaloy/ui/components';
+import {
+  AppShell,
+  BottomNav,
+  SyncStatusIndicator,
+  TenantBar,
+  ThemeToggle,
+} from '@biddaloy/ui/components';
 import { useDensity } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { RequireRole } from '@biddaloy/ui/routes';
@@ -85,7 +91,10 @@ function PortalLayout() {
         topBar={
           <div className="flex flex-wrap items-center justify-between gap-x-2">
             <TenantBar />
-            <SyncStatusIndicator />
+            <div className="flex items-center gap-2">
+              <SyncStatusIndicator />
+              <ThemeToggle />
+            </div>
           </div>
         }
         openMenuLabel={t('openMenuLabel')}

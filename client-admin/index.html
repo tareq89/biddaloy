@@ -14,8 +14,32 @@
     <!-- iOS ignores the manifest's icons for "Add to Home Screen". -->
     <link rel="apple-touch-icon" href="/icons/pwa-192.png" />
     <!-- brand-600, matching the manifest's `theme_color`: tints Android's
-         status bar and the desktop title bar in standalone mode. -->
+         status bar and the desktop title bar in standalone mode. This
+         static value is pinned by `check-contrast.mjs` and left alone —
+         the inline script below only ever rewrites it at runtime, on an
+         already-parsed DOM node, never the source markup. -->
     <meta name="theme-color" content="#4a3fd4" />
+    <!-- [8.13.12]: dark-mode "flash of wrong theme" prevention. Runs
+         before the module script below (and before any bundle has parsed),
+         so a dark-OS or dark-choice visitor never sees a light first paint
+         that then snaps dark. Mirrors `ui/src/theme/theme-storage.ts`'s
+         `STORAGE_KEY`/`resolveTheme()` semantics by hand — no bundler runs
+         yet at this point, so it cannot import that module — keep the two
+         in sync if either changes. `ui/src/theme/theme-provider.tsx` takes
+         over both the attribute and this meta tag the moment its module
+         loads. -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('biddaloy:theme');
+          var dark = stored === 'dark' || (stored !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+          if (dark) {
+            document.documentElement.dataset.theme = 'dark';
+            document.querySelector('meta[name="theme-color"]').setAttribute('content', '#1e293b');
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body class="bg-background text-foreground">
     <div id="root"></div>

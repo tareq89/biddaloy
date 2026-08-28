@@ -1,6 +1,6 @@
 import type { UserRole } from '@biddaloy/shared';
 import { decodeAccessTokenMemberships, getAccessToken } from '@biddaloy/ui/api';
-import { LocaleSwitcher, SchoolPicker } from '@biddaloy/ui/components';
+import { LocaleSwitcher, SchoolPicker, ThemeToggle } from '@biddaloy/ui/components';
 import { logout, switchActiveTenant, useDensity } from '@biddaloy/ui/hooks';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
@@ -96,7 +96,8 @@ function SelectSchoolPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-muted/20">
-      <div className="flex justify-end p-4">
+      <div className="flex justify-end gap-2 p-4">
+        <ThemeToggle />
         <LocaleSwitcher />
       </div>
       <div className="flex flex-1 items-center justify-center p-8">

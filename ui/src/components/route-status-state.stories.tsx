@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { RefreshCw, WifiOff } from 'lucide-react';
 
-import { darkDecorator } from '../../.storybook/dark-decorator';
+import { darkDecorator, darkDecoratorParameters } from '../../.storybook/dark-decorator';
 import { rtlDecorator } from '../../.storybook/rtl-decorator';
 
 import { RouteStatusState } from './route-status-state';
@@ -129,5 +129,6 @@ export const StatusForks: StoryObj<typeof RouteStatusState> = {
 export const StatusForksDark: StoryObj<typeof RouteStatusState> = {
   tags: ['!autodocs'],
   decorators: [darkDecorator],
+  parameters: darkDecoratorParameters,
   render: renderStatusForks,
 };

@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { FolderPlus, SearchX, TriangleAlert, WifiOff } from 'lucide-react';
 
-import { darkDecorator } from '../../.storybook/dark-decorator';
+import { darkDecorator, darkDecoratorParameters } from '../../.storybook/dark-decorator';
 import { rtlDecorator } from '../../.storybook/rtl-decorator';
 
 import { EmptyState } from './empty-state';
@@ -137,5 +137,6 @@ export const StateFamily: StoryObj<typeof ErrorState> = {
 export const StateFamilyDark: StoryObj<typeof ErrorState> = {
   tags: ['!autodocs'],
   decorators: [darkDecorator],
+  parameters: darkDecoratorParameters,
   render: renderStateFamily,
 };

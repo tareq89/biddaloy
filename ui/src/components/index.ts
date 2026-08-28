@@ -179,6 +179,7 @@ export {
 } from './skeleton';
 export { Pagination, type PaginationProps } from './pagination';
 export { LocaleSwitcher, type LocaleSwitcherProps } from './locale-switcher';
+export { ThemeToggle } from './theme-toggle';
 export {
   AppShell,
   APP_SHELL_MAIN_ID,

@@ -20,7 +20,7 @@
  */
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { darkDecorator } from '../../.storybook/dark-decorator';
+import { darkDecorator, darkDecoratorParameters } from '../../.storybook/dark-decorator';
 
 /**
  * No `tags: ['autodocs']` here, deliberately, for the same reason
@@ -105,6 +105,9 @@ export const Scale: Story = {
  * carries the mandatory 1px subtle border alongside its shadow.
  */
 export const ScaleDark: Story = {
+  // [8.13.12]: see `borders.stories.tsx`'s `RolesDark` for why this is
+  // required alongside `darkDecorator`, not merely belt-and-braces.
+  parameters: darkDecoratorParameters,
   decorators: [darkDecorator],
   render: () => <ElevationScale dark />,
 };

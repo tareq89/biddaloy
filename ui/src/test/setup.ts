@@ -24,11 +24,13 @@ import { resetFactorySeed } from './factories/faker';
 import { resetSchoolsStore } from './msw/handlers/schools';
 import { server } from './msw/server';
 import { cleanupTestState } from './render-with-providers';
+import { resetSystemPrefersDark } from './system-theme';
 
 afterEach(cleanupTestState);
 afterEach(resetFactorySeed);
 afterEach(resetOnlineStatus);
 afterEach(resetSchoolsStore);
+afterEach(resetSystemPrefersDark);
 
 // onUnhandledRequest: 'error' is the important setting here — silent
 // pass-through would let a test hit a real, un-mocked network call and

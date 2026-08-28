@@ -228,13 +228,16 @@ for (const [key, value] of Object.entries(preset.radius)) {
   expectVar(lightVars, '@theme', `--radius-${key}`, value);
 }
 
-// Status: fg/bg literal in light scope; fgDark literal in dark scope; bg is
-// intentionally not overridden in dark scope (see globals.css's own note),
-// so it is not asserted there.
+// Status: fg/bg literal in light scope; fgDark/bgDark literal in dark scope.
+// [8.13.12]: `-bg` IS overridden in dark scope now that dark mode is
+// reachable — `status-badge.tsx` has no `dark:` variant, so without this
+// override the badge would paint `fgDark` onto the inherited light pastel
+// `bg` (see the `status.bgDark` doc comment in tailwind.preset.ts).
 for (const [statusKey, entry] of Object.entries(preset.status)) {
   expectVar(lightVars, '@theme', `--color-status-${statusKey}-fg`, entry.fg);
   expectVar(lightVars, '@theme', `--color-status-${statusKey}-bg`, entry.bg);
   expectVar(darkVars, ':root[data-theme="dark"]', `--color-status-${statusKey}-fg`, entry.fgDark);
+  expectVar(darkVars, ':root[data-theme="dark"]', `--color-status-${statusKey}-bg`, entry.bgDark);
 }
 
 // Typography (design contract §2). Typography is a token family like colour

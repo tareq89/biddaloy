@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { FolderPlus, SearchX } from 'lucide-react';
 
-import { darkDecorator } from '../../.storybook/dark-decorator';
+import { darkDecorator, darkDecoratorParameters } from '../../.storybook/dark-decorator';
 import { rtlDecorator } from '../../.storybook/rtl-decorator';
 
 import { EmptyState } from './empty-state';
@@ -143,5 +143,6 @@ export const Kinds: StoryObj<typeof EmptyState> = {
 export const KindsDark: StoryObj<typeof EmptyState> = {
   tags: ['!autodocs'],
   decorators: [darkDecorator],
+  parameters: darkDecoratorParameters,
   render: renderKindMatrix,
 };

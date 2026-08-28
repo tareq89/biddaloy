@@ -14,7 +14,7 @@
  */
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { darkDecorator } from '../../.storybook/dark-decorator';
+import { darkDecorator, darkDecoratorParameters } from '../../.storybook/dark-decorator';
 
 /** The subtle-vs-functional rule, in one sentence. Rendered in the story
  * canvas rather than parked in `parameters.docs.description.component`,
@@ -90,6 +90,13 @@ export const Roles: Story = {
  * `neutral-700` while functional stays on `neutral-500`.
  */
 export const RolesDark: Story = {
+  // [8.13.12]: tells the toolbar-driven `theme` global (`preview.tsx`) to
+  // leave `document.documentElement.dataset.theme` alone here — without
+  // this, its effect (which runs AFTER `darkDecorator`'s on mount, since
+  // preview-level decorators wrap outside story-level ones) would undo
+  // `darkDecorator`'s own attribute write back to whatever the toolbar
+  // currently says, the instant it is not itself set to dark.
+  parameters: darkDecoratorParameters,
   decorators: [darkDecorator],
   render: () => <BorderRoles />,
 };

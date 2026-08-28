@@ -2,6 +2,7 @@ import { ApiError, NoMembershipsError, RateLimitedError } from '@biddaloy/ui/api
 import {
   LocaleSwitcher,
   SignInForm,
+  ThemeToggle,
   type SignInCredentials,
   type SignInFormError,
 } from '@biddaloy/ui/components';
@@ -117,7 +118,8 @@ function LoginPage() {
     // exactly the right default here.
     <RegionConfigProvider>
       <div className="flex min-h-screen flex-col bg-muted/20">
-        <div className="flex justify-end p-4">
+        <div className="flex justify-end gap-2 p-4">
+          <ThemeToggle />
           <LocaleSwitcher />
         </div>
         <div className="flex flex-1 items-center justify-center p-8">

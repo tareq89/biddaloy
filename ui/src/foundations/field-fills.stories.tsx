@@ -18,7 +18,7 @@
  */
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { darkDecorator } from '../../.storybook/dark-decorator';
+import { darkDecorator, darkDecoratorParameters } from '../../.storybook/dark-decorator';
 import { Input } from '../components/input';
 import {
   Select,
@@ -97,5 +97,6 @@ export const Fills: Story = {
  */
 export const FillsDark: Story = {
   decorators: [darkDecorator],
+  parameters: darkDecoratorParameters,
   render: () => <FieldFills />,
 };

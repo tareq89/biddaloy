@@ -4,6 +4,7 @@ import {
   NotificationBell,
   SyncStatusIndicator,
   TenantBar,
+  ThemeToggle,
   type AppShellNavGroup,
 } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
@@ -183,6 +184,7 @@ function StaffLayout() {
             <div className="flex items-center gap-2">
               <SyncStatusIndicator />
               <GlobalSearchLauncher />
+              <ThemeToggle />
               <NotificationBell
                 label={t('notifications.bellLabel')}
                 panelTitle={t('notifications.panelLabel')}
