@@ -1,16 +1,16 @@
 # Graph Report - biddaloy  (2026-08-29)
 
 ## Corpus Check
-- 1075 files · ~638,320 words
+- 1075 files · ~638,723 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 6183 nodes · 16757 edges · 309 communities (223 shown, 86 thin omitted)
+- 6183 nodes · 16757 edges · 310 communities (224 shown, 86 thin omitted)
 - Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 340 edges (avg confidence: 0.74)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `3592d6f3`
+- Built from commit: `59c819c8`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -294,7 +294,6 @@
 - puppeteer
 - error-state.stories.tsx
 - ChangePasswordDto
-- supertest
 - bulk-reminder-wizard.test.tsx
 - @testing-library/dom
 - @testing-library/react
@@ -305,12 +304,14 @@
 - @typescript-eslint/utils
 - radio.tsx
 - @vitest/coverage-v8
+- @axe-core/playwright
+- rollup-plugin-visualizer
+- ioredis
 - exceljs
 - radio.stories.tsx
 - reduced-motion.spec.ts
 - undici
 - route-manifest.test.ts
-- exceljs
 
 ## God Nodes (most connected - your core abstractions)
 1. `Student` - 103 edges
@@ -333,8 +334,8 @@
   .serena/project.yml → CLAUDE.md
 - `renderPanel()` --calls--> `renderWithProviders()`  [EXTRACTED]
   client-admin/src/routes/_staff/audit-logs/-diff-panel.test.tsx → ui/src/test/render-with-providers.tsx
-- `isRealCalendarDate()` --calls--> `parseDate()`  [EXTRACTED]
-  client-admin/src/routes/_staff/audit-logs/index.tsx → ui/src/utils/date.ts
+- `renderAuditLogs()` --calls--> `renderWithRouter()`  [EXTRACTED]
+  client-admin/src/routes/_staff/audit-logs/index.test.tsx → ui/src/test/render-with-router.tsx
 
 ## Import Cycles
 - 1-file cycle: `ui/eslint.config.mjs -> ui/eslint.config.mjs`
@@ -347,7 +348,7 @@
 - **Design-System Wrapper Boundary Pattern** — ui_contributing_wrapperrule, ui_src_primitives_readme_doc, ui_readme_doc, ui_contributing_threefile_requirement [INFERRED 0.85]
 - **Multi-Tenant Scoping Enforced Across Stack** — claude_skills_multi_tenancy_skill_doc, server_claude_testingstandards, ui_readme_apiclient, ui_readme_hooks [INFERRED 0.85]
 
-## Communities (309 total, 86 thin omitted)
+## Communities (310 total, 86 thin omitted)
 
 ### Community 0 - "app.module.ts"
 Cohesion: 0.09
@@ -355,7 +356,7 @@ Nodes (26): QueueSnapshot, subscribeQueueChanges(), QueuedMutationRow, deriveSta
 
 ### Community 1 - "User"
 Cohesion: 0.06
-Nodes (57): SelectSchoolPage(), selectSchoolSearchSchema, UserRole, JwtMembership, JwtPayload, LoginResponse, clearAuthState(), currentSessionGeneration() (+49 more)
+Nodes (56): SelectSchoolPage(), selectSchoolSearchSchema, clearAuthState(), currentSessionGeneration(), getAccessToken(), getActiveRole(), listeners, notifyAuthStateChange() (+48 more)
 
 ### Community 2 - "ClassController"
 Cohesion: 0.08
@@ -366,12 +367,12 @@ Cohesion: 0.15
 Nodes (21): evictOverCap(), isQuotaExceeded(), readRefCache(), rowId(), KEY, okResponse(), swCachedResponse(), writeRefCache() (+13 more)
 
 ### Community 4 - "index.ts"
-Cohesion: 0.11
-Nodes (55): mockStudent(), outstandingFee(), CommunicationMedium, academicYearFactory(), auditEntryFactory(), BD_MOBILE_PREFIXES, BN_DISTRICTS, BN_FEMALE_FIRST_NAMES (+47 more)
+Cohesion: 0.12
+Nodes (50): CommunicationMedium, academicYearFactory(), auditEntryFactory(), BD_MOBILE_PREFIXES, BN_DISTRICTS, BN_FEMALE_FIRST_NAMES, BN_LAST_NAMES, BN_MALE_FIRST_NAMES (+42 more)
 
 ### Community 5 - "invoices.controller.ts"
-Cohesion: 0.04
-Nodes (52): @nestjs/swagger, ApiTenantAuth(), TestController, AuditInterceptor, RequestWithTenant, Injectable, Audited(), AuditedMetadata (+44 more)
+Cohesion: 0.05
+Nodes (47): @nestjs/swagger, ApiTenantAuth(), TestController, AuditInterceptor, RequestWithTenant, Injectable, Audited(), AuditedMetadata (+39 more)
 
 ### Community 6 - "StudentService"
 Cohesion: 0.10
@@ -406,8 +407,8 @@ Cohesion: 0.06
 Nodes (49): Combobox(), ComboboxOption, ComboboxProps, CLASS_OPTIONS, Calendar(), CalendarProps, DatePickerProps, daysInMonth() (+41 more)
 
 ### Community 14 - "support.ts"
-Cohesion: 0.05
-Nodes (44): child(), FeeInput, invoice(), mockFees(), renderFees(), serverDate(), standardMocks(), summary() (+36 more)
+Cohesion: 0.13
+Nodes (20): LoginHistoryTab(), LoginHistoryTabProps, MembershipsTab(), MembershipsTabProps, groupPermissions(), PermissionsTab(), PermissionsTabProps, TabQueryState() (+12 more)
 
 ### Community 15 - "index.ts"
 Cohesion: 0.28
@@ -438,8 +439,8 @@ Cohesion: 0.05
 Nodes (55): DataTable(), DataTableProps, readPersistedState(), LOCALE_LABELS, LocaleSwitcher(), LocaleSwitcherProps, Menu(), MenuCheckboxItem() (+47 more)
 
 ### Community 22 - "index.ts"
-Cohesion: 0.05
-Nodes (38): adminOwnSchool, CONFIGURED_EMAIL, twoSchools, PaginatedAuditEntries, renderAuditLogs(), render(), render(), dueRow() (+30 more)
+Cohesion: 0.04
+Nodes (50): child(), FeeInput, invoice(), mockFees(), renderFees(), serverDate(), standardMocks(), summary() (+42 more)
 
 ### Community 23 - "app-shell.tsx"
 Cohesion: 0.08
@@ -527,7 +528,7 @@ Nodes (31): entry, ignoreDependencies, project, ignoreDependencies, ignoreIssues
 
 ### Community 44 - "dependencies"
 Cohesion: 0.06
-Nodes (33): bullmq, class-transformer, helmet, ioredis, @nest-lab/throttler-storage-redis, @nestjs/bullmq, @nestjs/common, @nestjs/config (+25 more)
+Nodes (33): bullmq, class-transformer, exceljs, helmet, @nest-lab/throttler-storage-redis, @nestjs/bullmq, @nestjs/common, @nestjs/config (+25 more)
 
 ### Community 45 - "tenant-bar.tsx"
 Cohesion: 0.13
@@ -538,16 +539,16 @@ Cohesion: 0.05
 Nodes (47): Card(), CardProps, AsLink, Default, meta, RightToLeft, Story, WithSkeletonContent (+39 more)
 
 ### Community 47 - "router-integration.test.tsx"
-Cohesion: 0.12
-Nodes (16): createStructure, dueEntryFixture(), dueFixtures, dues, duesEmpty, feeDueRowFixture(), feeStructureHandlers, flaggedDues (+8 more)
+Cohesion: 0.10
+Nodes (19): classHandlers, classWithCounts(), create, createSection, fixtures, getOne, list, listEmpty (+11 more)
 
 ### Community 48 - "auth.test.ts"
 Cohesion: 0.02
-Nodes (104): worker, wsPassthrough, academicYearDefaultHandlers, academicYearHandlers, create, fixtures, getOne, list (+96 more)
+Nodes (125): LoginResponse, worker, wsPassthrough, academicYearDefaultHandlers, academicYearHandlers, create, fixtures, getOne (+117 more)
 
 ### Community 49 - "index.tsx"
-Cohesion: 0.18
-Nodes (8): EMPTY_PAGE, PaymentForm(), apiErrorBody, renderHookWithProviders(), RenderHookWithProvidersOptions, RenderHookWithProvidersResult, createTestQueryClient(), SeedQuery
+Cohesion: 0.12
+Nodes (10): adminOwnSchool, CONFIGURED_EMAIL, EMPTY_PAGE, PaymentForm(), server, apiErrorBody, renderHookWithProviders(), RenderHookWithProvidersOptions (+2 more)
 
 ### Community 50 - "devDependencies"
 Cohesion: 0.06
@@ -595,7 +596,7 @@ Nodes (26): CommunicationsSettingsDto, EmailSettingsDto, GreenwebSmsDto, Messeng
 
 ### Community 61 - "tenant-provider-config.resolver.ts"
 Cohesion: 0.07
-Nodes (32): AcademicYearController, ApiOperation, ApiTags, Body, Controller, Get, Inject, Param (+24 more)
+Nodes (28): AcademicYearController, ApiTags, Body, Controller, Inject, Post, Query, UseGuards (+20 more)
 
 ### Community 62 - "global-search.tsx"
 Cohesion: 0.12
@@ -631,7 +632,7 @@ Nodes (6): t, AppShellPage, FormShellPage, LoginPage, SchoolPickerPage, escapeRe
 
 ### Community 72 - "devDependencies"
 Cohesion: 0.07
-Nodes (27): axe-core, @axe-core/playwright, eslint-config-prettier, globals, jsdom, devDependencies, axe-core, @axe-core/playwright (+19 more)
+Nodes (27): axe-core, eslint-config-prettier, eslint-plugin-unused-imports, globals, jsdom, devDependencies, axe-core, eslint-config-prettier (+19 more)
 
 ### Community 73 - "school-settings.ts"
 Cohesion: 0.24
@@ -747,7 +748,7 @@ Nodes (13): DEFAULTS, BulkUploadHeader, BulkUploadParseError, cellToString(), ge
 
 ### Community 102 - "devDependencies"
 Cohesion: 0.11
-Nodes (19): devDependencies, rollup-plugin-visualizer, @sentry/vite-plugin, tailwindcss, @tailwindcss/vite, @tanstack/router-plugin, @types/react-dom, vite-plugin-pwa (+11 more)
+Nodes (19): devDependencies, @sentry/vite-plugin, tailwindcss, @tailwindcss/vite, @tanstack/router-plugin, @types/react, @types/react-dom, vite-plugin-pwa (+11 more)
 
 ### Community 103 - "package.json"
 Cohesion: 0.12
@@ -806,8 +807,8 @@ Cohesion: 0.31
 Nodes (6): apiCacheKeyFor(), ApiRouteMatch, get(), isCacheableApiRequest(), isHashedAssetRequest(), TenantScopedRequest
 
 ### Community 117 - "auth-state.ts"
-Cohesion: 0.07
-Nodes (36): SanitizeAllowlist(), SanitizeText(), shared, AllowlistDto, { sanitizeAllowlist, sanitizeStrict }, StrictDto, IsBeforeConstraint, ValidatorConstraint (+28 more)
+Cohesion: 0.11
+Nodes (24): SanitizeAllowlist(), SanitizeText(), shared, AllowlistDto, { sanitizeAllowlist, sanitizeStrict }, StrictDto, IsBeforeConstraint, ValidatorConstraint (+16 more)
 
 ### Community 118 - "number.ts"
 Cohesion: 0.29
@@ -846,8 +847,8 @@ Cohesion: 0.33
 Nodes (5): [basePath, prPath, outPath], kb(), lines, pr, signed()
 
 ### Community 127 - ".updateSettings"
-Cohesion: 0.06
-Nodes (51): ApiBody, ApiConsumes, Delete, CurrentTenant, CurrentUser, FeeController, ApiExtraModels, ApiOkResponse (+43 more)
+Cohesion: 0.04
+Nodes (67): ApiBody, ApiConsumes, ApiOperation, Delete, Get, Param, Patch, CurrentTenant (+59 more)
 
 ### Community 128 - "exports"
 Cohesion: 0.15
@@ -902,8 +903,8 @@ Cohesion: 0.52
 Nodes (5): biddaloyReactConfig, dataFetchingGuardConfig, financialMutationGuardConfig, noWindowAlertConfig, typeCheckedTestOverrides
 
 ### Community 142 - "payments.ts"
-Cohesion: 0.07
-Nodes (23): KEY, renderInEnglish(), formatViolations(), JSDOM_AXE_OPTIONS, Matchers, toHaveNoViolations(), vitest, mockOnlineStatus() (+15 more)
+Cohesion: 0.09
+Nodes (18): formatViolations(), JSDOM_AXE_OPTIONS, Matchers, toHaveNoViolations(), vitest, DEFAULT_REGION, defaultSettings(), getSettings (+10 more)
 
 ### Community 143 - "exceljs"
 Cohesion: 0.40
@@ -1029,6 +1030,10 @@ Nodes (7): entries, errors, exported, pkg, pkgRoot, PRIVATE_DIRS, srcDir
 Cohesion: 0.29
 Nodes (7): scripts, build, build:analyze, check:route-chunks, dev, lint, preview
 
+### Community 178 - "students.ts"
+Cohesion: 0.16
+Nodes (12): PaginatedAuditEntries, renderAuditLogs(), AuditEntry, auditLogDefaultHandlers, auditLogHandlers, fixtures, list, listByEntity (+4 more)
+
 ### Community 179 - "FamilyAccessService"
 Cohesion: 0.15
 Nodes (9): meta, RolesDark, Story, meta, Scale, ScaleDark, STEPS, Story (+1 more)
@@ -1038,8 +1043,8 @@ Cohesion: 0.07
 Nodes (23): DataTableSort, COLUMNS, Default, Empty, ErrorState, ExpandableRows, Loading, meta (+15 more)
 
 ### Community 183 - "EnrollmentController"
-Cohesion: 0.11
-Nodes (12): EnrollmentController, ApiExtraModels, ApiOkResponse, ApiTags, Body, Controller, Get, Param (+4 more)
+Cohesion: 0.10
+Nodes (17): CreateEnrollmentDto, IsEnum, IsOptional, IsUUID, UpdateEnrollmentDto, EnrollmentController, ApiExtraModels, ApiOkResponse (+9 more)
 
 ### Community 184 - "app-shell.stories.tsx"
 Cohesion: 0.29
@@ -1066,8 +1071,8 @@ Cohesion: 0.33
 Nodes (5): components, $defs, operations, paths, webhooks
 
 ### Community 190 - "fees.tsx"
-Cohesion: 0.12
-Nodes (15): getBulkReminder, getBulkReminderLogs, getOne, lastReminders, listBulkReminders, listBulkRemindersEmpty, listByGuardian, listByGuardianEmpty (+7 more)
+Cohesion: 0.11
+Nodes (16): communicationHandlers, getBulkReminder, getBulkReminderLogs, getOne, lastReminders, listBulkReminders, listBulkRemindersEmpty, listByGuardian (+8 more)
 
 ### Community 191 - "vitest.config.ts"
 Cohesion: 0.33
@@ -1098,8 +1103,8 @@ Cohesion: 0.40
 Nodes (4): ESLINT_PACKAGES, eslintBin, filesByPackage, repoRoot
 
 ### Community 199 - "audit-logs.ts"
-Cohesion: 0.13
-Nodes (20): LoginHistoryTab(), LoginHistoryTabProps, MembershipsTab(), MembershipsTabProps, groupPermissions(), PermissionsTab(), PermissionsTabProps, TabQueryState() (+12 more)
+Cohesion: 0.38
+Nodes (5): dueRow(), duesHandler(), fillMessageStep(), render(), wizardNext()
 
 ### Community 201 - "Docker Compose Services"
 Cohesion: 0.50
@@ -1115,7 +1120,7 @@ Nodes (3): name, private, version
 
 ### Community 215 - "Student"
 Cohesion: 0.14
-Nodes (14): KLASS, paisaRegionHandler(), referenceHandlers(), render(), YEAR, GUARDIAN_ROLES, isGuardianRole(), isStaffRole() (+6 more)
+Nodes (13): GUARDIAN_ROLES, isGuardianRole(), isStaffRole(), STAFF_ROLES, CommunicationTrigger, FeeApplicability, FeeType, UserRole (+5 more)
 
 ### Community 216 - "global-search.stories.tsx"
 Cohesion: 0.10
@@ -1203,9 +1208,9 @@ _Questions this graph is uniquely positioned to answer:_
 
 - **What is the exact relationship between `Serena Project Config` and `Biddaloy CLAUDE.md`?**
   _Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low._
-- **Why does `fee()` connect `jsdom` to `outbound-destination-guard.ts`, `Roles`, `support.ts`?**
+- **Why does `fee()` connect `jsdom` to `outbound-destination-guard.ts`, `Roles`, `index.ts`?**
   _High betweenness centrality (0.099) - this node is a cross-community bridge._
-- **Why does `payment()` connect `jsdom` to `outbound-destination-guard.ts`, `students.controller.ts`, `support.ts`?**
+- **Why does `payment()` connect `jsdom` to `outbound-destination-guard.ts`, `students.controller.ts`, `index.ts`?**
   _High betweenness centrality (0.060) - this node is a cross-community bridge._
 - **Why does `DiffPanel()` connect `rtl-decorator.tsx` to `session.ts`, `students.controller.ts`?**
   _High betweenness centrality (0.051) - this node is a cross-community bridge._
