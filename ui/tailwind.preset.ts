@@ -99,6 +99,45 @@ export const status = {
 } as const;
 
 /**
+ * Elevation — three steps, each with a job (design contract §5). Replaces the
+ * ad-hoc `shadow-sm`/`shadow-md`/`shadow-lg` picks; #350 moves the call sites.
+ *
+ *  - `e1` — cards, resting panels, tabs
+ *  - `e2` — dropdown, select, popover
+ *  - `e3` — dialog, drawer, toast, skip-link
+ *
+ * Two things about the dark half that are not obvious:
+ *
+ *  1. It is not the light scale reused. A shadow is a darkening of what is
+ *     behind it, and on `#0f172a` there is almost nothing left to darken, so
+ *     the alphas roughly triple (0.05–0.18 → 0.40–0.65) and the tint drops to
+ *     pure black.
+ *  2. Even tripled, a shadow alone still barely reads on `#0f172a`. So the
+ *     contract makes dark elevation a *pair*: every elevated surface in dark
+ *     mode also carries a 1px `border-border-subtle`, never a shadow alone.
+ *
+ * These are mirrored into `globals.css` as `--elevation-*` custom properties
+ * rather than straight into `--shadow-*`, and `check-contrast.mjs` compares
+ * the strings character-for-character. See the long note in globals.css for
+ * why the indirection is load-bearing rather than stylistic — briefly,
+ * Tailwind v4 inlines a `--shadow-*` theme value into the `.shadow-*` utility
+ * at build time, so overriding `--shadow-e1` in the dark block would be dead
+ * CSS that silently does nothing.
+ */
+export const shadows = {
+  light: {
+    e1: '0 1px 2px 0 rgb(15 23 42 / 0.05), 0 1px 3px 0 rgb(15 23 42 / 0.06)',
+    e2: '0 4px 6px -1px rgb(15 23 42 / 0.07), 0 8px 24px -4px rgb(15 23 42 / 0.10)',
+    e3: '0 12px 24px -6px rgb(15 23 42 / 0.14), 0 24px 48px -12px rgb(15 23 42 / 0.18)',
+  },
+  dark: {
+    e1: '0 1px 2px 0 rgb(0 0 0 / 0.40), 0 1px 3px 0 rgb(0 0 0 / 0.45)',
+    e2: '0 4px 6px -1px rgb(0 0 0 / 0.50), 0 8px 24px -4px rgb(0 0 0 / 0.55)',
+    e3: '0 12px 24px -6px rgb(0 0 0 / 0.60), 0 24px 48px -12px rgb(0 0 0 / 0.65)',
+  },
+} as const;
+
+/**
  * Semantic role tokens — what a component should actually reach for. `bg`,
  * `surface`, `textPrimary` etc. keep a fixed *meaning* across themes, unlike
  * `neutral`/`brand` above which keep a fixed *value*. A component built from
@@ -203,6 +242,15 @@ export const CONTRAST_PAIRS = [
   { name: 'dark brand text on dark surface', fg: dark.brand, bg: dark.surface, min: 4.5 },
 ] as const;
 
-export const biddaloyPreset = { neutral, brand, radius, status, light, dark, typography } as const;
+export const biddaloyPreset = {
+  neutral,
+  brand,
+  radius,
+  status,
+  light,
+  dark,
+  typography,
+  shadows,
+} as const;
 
 export default biddaloyPreset;

@@ -1475,8 +1475,8 @@
     "semantic_hash": "ee5f5a3bef7a06467bd34888253ac499"
   },
   "ui/scripts/check-contrast.mjs": {
-    "mtime": 1787928868.4129593,
-    "ast_hash": "a61babd9cb80a347e3344185d2257f01",
+    "mtime": 1787931397.4968948,
+    "ast_hash": "3f50bc1fe89b0ce886ceb8b6463446f2",
     "semantic_hash": ""
   },
   "ui/scripts/check-exports.mjs": {
@@ -2525,8 +2525,8 @@
     "semantic_hash": "3daebdd0945fd1534c90a6b3b3df9d0e"
   },
   "ui/tailwind.preset.ts": {
-    "mtime": 1787928868.414797,
-    "ast_hash": "d6a9d6b78a2d1f77dd7bd6955d65189b",
+    "mtime": 1787930725.65872,
+    "ast_hash": "5ce51bcfcd8c128cf1ac4aed62f67a12",
     "semantic_hash": ""
   },
   "ui/tsconfig.json": {
@@ -3365,12 +3365,12 @@
     "semantic_hash": ""
   },
   "server/src/scripts/seed.util.spec.ts": {
-    "mtime": 1787929382.6423588,
+    "mtime": 1787929625.7020395,
     "ast_hash": "15f85cb3cde7992095923d7ccd55b28e",
     "semantic_hash": ""
   },
   "server/src/scripts/seed.util.ts": {
-    "mtime": 1787929168.4365222,
+    "mtime": 1787929625.7022743,
     "ast_hash": "92d7fed75459dfac007a3f11aeb427f6",
     "semantic_hash": ""
   },
@@ -5355,8 +5355,8 @@
     "semantic_hash": ""
   },
   "docs/architecture/09-design-direction.md": {
-    "mtime": 1787929382.7950287,
-    "ast_hash": "93a11276d710fcf02591ba8a738f67b1",
+    "mtime": 1787930887.9946504,
+    "ast_hash": "9713ac98c9a9637b66f44313cf55be40",
     "semantic_hash": ""
   },
   "ui/scripts/fonts/build-fonts.mjs": {
@@ -5390,18 +5390,23 @@
     "semantic_hash": ""
   },
   "ui/.storybook/dark-decorator.tsx": {
-    "mtime": 1787929248.547222,
+    "mtime": 1787929625.7024777,
     "ast_hash": "552eaea3e15ccd202b38efe5358963b7",
     "semantic_hash": ""
   },
   "ui/src/foundations/borders.stories.tsx": {
-    "mtime": 1787929382.5485468,
+    "mtime": 1787929625.7037947,
     "ast_hash": "ccbacc52676a8102607f153fb636b415",
     "semantic_hash": ""
   },
   "ui/src/styles/design-tokens.spec.ts": {
-    "mtime": 1787928868.4336007,
-    "ast_hash": "60736962445d15d7fb5c43b25b380c42",
+    "mtime": 1787930937.9508924,
+    "ast_hash": "4a7a735ebdfc44ffdce608ff5ab63f44",
+    "semantic_hash": ""
+  },
+  "ui/src/foundations/elevation.stories.tsx": {
+    "mtime": 1787930862.668018,
+    "ast_hash": "c171d29d78b2619cec7ea817adaf9430",
     "semantic_hash": ""
   }
 }

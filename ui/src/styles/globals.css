@@ -319,6 +319,60 @@
   --color-sidebar-accent-foreground: var(--color-text-primary);
   --color-sidebar-border: var(--color-border-functional);
   --color-sidebar-ring: var(--color-brand);
+
+  /**
+   * Elevation — three steps, each with a job (design contract §5):
+   *
+   *   e1 — cards, resting panels, tabs
+   *   e2 — dropdown, select, popover
+   *   e3 — dialog, drawer, toast, skip-link
+   *
+   * Note what these are NOT: they are not the shadow values. They are
+   * one-hop references to `--elevation-*`, which the plain `:root` block
+   * below defines for light and the dark block redefines for dark. The
+   * indirection is load-bearing, not stylistic.
+   *
+   * Why: Tailwind v4 treats a `--shadow-*` theme variable as a *build-time*
+   * value. It inlines the value straight into the utility rather than
+   * emitting a `var()` — a colour role compiles to
+   * `background-color: var(--color-bg)`, but a shadow compiles to a
+   * `.shadow-e1` rule whose declaration reads
+   * `--tw-shadow: 0 1px 2px 0 var(--tw-shadow-color, …)` —
+   * with the numbers baked in. So redefining `--shadow-e1` in the dark block
+   * would be dead CSS: the utility no longer reads that variable, nothing
+   * would change, and nothing would report an error. Pointing `--shadow-e1`
+   * at a runtime custom property instead makes the utility compile to
+   * `--tw-shadow: var(--elevation-e1)`, which the dark block CAN re-theme —
+   * the same way `bg-background` re-themes. Verified by compiling against
+   * the pinned tailwindcss 4.3.3, not assumed.
+   *
+   * Accepted limitation: Tailwind's shadow-colour modifier (`shadow-e1/50`,
+   * `shadow-e1 shadow-brand-600`) cannot reach into an opaque `var()`, so it
+   * has no effect on these steps. Nothing in the repo uses it today.
+   *
+   * Dark-mode rule (§5): a shadow alone does not read on `#0f172a`. Every
+   * elevated surface in dark mode must ALSO carry a 1px subtle border
+   * (`border border-border-subtle`). Dark elevation is a border-plus-shadow
+   * pair, never a shadow alone.
+   */
+  --shadow-e1: var(--elevation-e1);
+  --shadow-e2: var(--elevation-e2);
+  --shadow-e3: var(--elevation-e3);
+}
+
+/**
+ * The light half of the elevation scale. A plain `:root` rather than part of
+ * `@theme` above, because these are ordinary runtime custom properties that
+ * exist to be overridden per theme — see the long note on `--shadow-e*`.
+ *
+ * Values mirror `shadows.light` in `../../tailwind.preset.ts` exactly;
+ * `scripts/check-contrast.mjs` compares them character-for-character, so
+ * `0.10` may not be shortened to `0.1`.
+ */
+:root {
+  --elevation-e1: 0 1px 2px 0 rgb(15 23 42 / 0.05), 0 1px 3px 0 rgb(15 23 42 / 0.06);
+  --elevation-e2: 0 4px 6px -1px rgb(15 23 42 / 0.07), 0 8px 24px -4px rgb(15 23 42 / 0.10);
+  --elevation-e3: 0 12px 24px -6px rgb(15 23 42 / 0.14), 0 24px 48px -12px rgb(15 23 42 / 0.18);
 }
 
 /**
@@ -374,4 +428,20 @@
   --color-status-partial-fg: #22d3ee;
   --color-status-due-fg: #fbbf24;
   --color-status-overdue-fg: #f87171;
+
+  /* Dark elevation (design contract §5). Not the light scale reused: a shadow
+     darkens what is behind it, and on `#0f172a` there is little left to
+     darken, so the alphas roughly triple and the tint drops to pure black.
+     `--elevation-*` and not `--shadow-*` — overriding the latter here would
+     be dead CSS (see the note in `@theme`).
+
+     Even at these alphas a shadow alone is barely legible on the dark ground,
+     so an elevated dark surface must also carry `border border-border-subtle`
+     (`neutral-700`). Border-plus-shadow, never shadow alone.
+
+     Mirrors `shadows.dark` in `../../tailwind.preset.ts` character-for-
+     character; `0.40` may not be shortened to `0.4`. */
+  --elevation-e1: 0 1px 2px 0 rgb(0 0 0 / 0.40), 0 1px 3px 0 rgb(0 0 0 / 0.45);
+  --elevation-e2: 0 4px 6px -1px rgb(0 0 0 / 0.50), 0 8px 24px -4px rgb(0 0 0 / 0.55);
+  --elevation-e3: 0 12px 24px -6px rgb(0 0 0 / 0.60), 0 24px 48px -12px rgb(0 0 0 / 0.65);
 }

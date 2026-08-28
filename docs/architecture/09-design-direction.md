@@ -51,12 +51,17 @@ introduces a token family also extends the gate, in the same PR:
 | Ticket | Adds to `ui/tailwind.preset.ts`            | Adds to `check-contrast.mjs`                              |
 | ------ | ------------------------------------------ | --------------------------------------------------------- |
 | #345   | `light.borderSubtle` / `dark.borderSubtle` | `borderSubtle: '--color-border-subtle'` in `roleVarNames` |
-| #346   | a `shadows` export (e1–e3, light + dark)   | drift check for `--shadow-e1..e3` in both scopes          |
+| #346   | a `shadows` export (e1–e3, light + dark)   | drift check for the `--elevation-*` wiring, three scopes  |
 | #347   | a `motion` export (durations, easings)     | drift check for `--motion-*` (same value in both scopes)  |
 
 The density vars in §6 (`--control-h`, row heights) are set per shell by a
 `data-density` attribute, not declared in `@theme` — they sit outside this
 gate, stated here so nobody assumes otherwise.
+
+"Three scopes" for #346 is not a typo, and it is the one place this document
+originally got the mechanism wrong. §5 below explains why; the short version
+is that a shadow cannot be themed from `@theme` the way a colour can, so the
+values do not live where the other families' values live.
 
 ---
 
@@ -516,6 +521,50 @@ state (an error field, a selected row), it uses the functional role.
 elevated surface in dark mode _also_ carries a 1px subtle border
 (`border-border-subtle`, `#334155` in dark). Elevation in dark mode is a
 border-plus-shadow pair, never a shadow alone.
+
+### How these are actually wired (corrected in [8.13.5])
+
+The obvious wiring — put the light values on `--shadow-e1..e3` in `@theme`
+and override the same names in the dark block — **does not work**, and fails
+silently. Tailwind v4 treats a `--shadow-*` theme variable as a build-time
+value and inlines it into the utility rather than emitting a `var()`:
+
+```css
+/* what `--shadow-e1: 0 1px 2px 0 rgb(15 23 42 / 0.05)` in @theme compiles to */
+.shadow-e1 {
+  --tw-shadow: 0 1px 2px 0 var(--tw-shadow-color, rgb(15 23 42 / 0.05));
+}
+```
+
+The numbers are baked in, so `.shadow-e1` never reads `--shadow-e1` at
+runtime and a dark-block override of that name is dead CSS. No error, no
+warning — dark mode just silently keeps the light shadow. Colour roles do not
+have this problem because `bg-background` compiles to
+`background-color: var(--color-bg)`.
+
+The fix is one hop of indirection. `@theme` points the shadow at a plain
+custom property; the values live in ordinary `:root` blocks, which are
+runtime and therefore themeable:
+
+```mermaid
+flowchart LR
+  T["@theme<br/>--shadow-e1: var(--elevation-e1)"] --> U[".shadow-e1<br/>--tw-shadow: var(--elevation-e1)"]
+  L[":root<br/>--elevation-e1: light value"] --> U
+  D[":root[data-theme=dark]<br/>--elevation-e1: dark value"] --> U
+```
+
+So three scopes, and `check-contrast.mjs` guards all three: `@theme` must
+hold the `var(--elevation-*)` reference (not a literal — that is the
+regression this catches), plain `:root` must hold `shadows.light`, and
+`:root[data-theme="dark"]` must hold `shadows.dark`. Comparison is
+character-exact, so `0.40` may not be shortened to `0.4`.
+
+The values in the table above are unchanged by this correction; only where
+they are written changed.
+
+One accepted limitation: Tailwind's shadow-colour modifier (`shadow-e1/50`,
+`shadow-e1 shadow-brand-600`) cannot reach inside an opaque `var()`, so it
+has no effect on these steps. Nothing in the repo uses it.
 
 Existing call sites map one-to-one — #350 makes these edits:
 
