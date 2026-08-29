@@ -76,10 +76,17 @@ First: invoke the `code-review` skill on the uncommitted working tree, so fixes
 land in the same commit instead of becoming PR noise.
 
 Second: dispatch a review subagent with `model: "opus"` to check the change
-against **two named objects** — the published plan comment, and the ticket's
-acceptance-criteria checklist from the issue body. Not a general impression:
-which ACs are met, which are not, and what the diff does that the plan didn't
-ask for.
+against **three named objects** — the published plan comment, the ticket's
+acceptance-criteria checklist from the issue body, and the existing UI. Not a
+general impression: which ACs are met, which are not, and what the diff does
+that the plan didn't ask for.
+
+For anything touching UI, the third check is the substantive one, because there
+is no design-approval gate anywhere in this pipeline: does it use `@biddaloy/ui`
+components and tokens rather than one-off styles, does it reuse the established
+patterns (the four shells, the portal card grammar, the density modes), and
+would it look out of place next to the screens already shipped? Storybook
+stories for the meaningful states are part of that answer, not an extra.
 
 Cap at **2 review-fix rounds**. After that, commit what you have and report the
 unresolved findings upward rather than looping.

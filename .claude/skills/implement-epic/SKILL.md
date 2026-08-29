@@ -142,13 +142,21 @@ Rules:
   components", "server fees module + its DTOs"). If you cannot write that line,
   the partition is wrong.
 
-### Tickets the run must not touch
+### UI work needs no mockup gate
 
-Hold a ticket out of the run — plan-only, flagged for the user — when its
-acceptance criteria include **"Approved design mockup first"**. That is a
-standing project rule (visually-changed UI gets a Claude Design mockup approved
-before its functional plan), and it is a human gate an autonomous run cannot
-satisfy. List these at GATE 1 so the user can approve mockups in parallel.
+There is no design-approval step. A ticket that changes UI ships in the same run
+as everything else — the standard it is held to is **consistency with the app
+that already exists**: `@biddaloy/ui` components and tokens only, the
+established patterns reused (the four shells, the portal card grammar, the
+density modes), no one-off styles or ad-hoc colors, and Storybook stories for
+the meaningful states.
+
+If a needed component genuinely does not exist, extend the design system
+following its own conventions rather than inventing a local one, and report the
+addition so it lands in the PR description.
+
+Consistency is checked in the review pass (step 4's second reviewer), not by a
+human gate before the work starts.
 
 ## GATE 1 — user approves the plan
 
@@ -156,7 +164,6 @@ Before spawning anything, print and stop for approval:
 
 - waves and groups, with each group's ticket queue and territory line
 - the serialized hot-path lane, if any
-- tickets held out for design mockups
 - how many agents will run and roughly what that costs
 
 Do not spawn on assumed approval.
@@ -178,9 +185,6 @@ Branch chain: epic/8.14/w1-g1-01-sidebar → epic/8.14/w1-g1-02-header
 - 367 mobile nav     status: pending
 ### w1-g2 — router + query layer
 - 369 transitions    status: blocked — plan wrong, re-planning
-
-## Held out (design mockup required)
-- 368, 371
 
 ## Integration
 Branch: epic/8.14/integration   status: not started
@@ -340,8 +344,8 @@ session model and report it. Never re-plan a ticket that already has a current
 - Never cross the 90-file hard ceiling on a branch.
 - Never open PRs before integration is green.
 - Never pass a gate on assumed approval.
-- Never implement a ticket whose ACs require a design mockup that hasn't been
-  approved.
+- Never bypass the design system: existing components and tokens first,
+  extend it by its own conventions if something is genuinely missing.
 - Never re-plan a ticket that already has a current plan comment.
 - Update the state file after every ticket and every state change.
 
@@ -353,6 +357,5 @@ session model and report it. Never re-plan a ticket that already has a current
 ```
 
 Plus, in plain sentences: what merged, what is still open and why, tickets that
-came back `blocked` and what blocked them, tickets held out for design mockups,
-design-system additions made, and any CI failure judged pre-existing rather
+came back `blocked` and what blocked them, design-system additions made, and any CI failure judged pre-existing rather
 than caused by this epic.
