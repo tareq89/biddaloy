@@ -529,7 +529,7 @@ Concretely, `ui/src/components/card.tsx:35` read, before #350:
 
 After #345 + #346 + #350 it reads, and now really does read:
 
-```
+```text
 'rounded-lg border border-border-subtle bg-card shadow-e1'
 ```
 
@@ -700,9 +700,9 @@ never heard of them: it parses `shadow-<unknown>` as a shadow _colour_, files
 `shadow-e1` under `shadow-color`, and then finds no conflict with `shadow-none`
 or `shadow-md`, which live in the `shadow` group.
 
-```
-twMerge('shadow-e1', 'shadow-none')  // -> 'shadow-e1 shadow-none'   ← both
-cn('shadow-e1', 'shadow-none')       // -> 'shadow-none'             ← fixed
+```js
+twMerge('shadow-e1', 'shadow-none'); // -> 'shadow-e1 shadow-none'   ← both
+cn('shadow-e1', 'shadow-none'); // -> 'shadow-none'             ← fixed
 ```
 
 That mattered the moment `card.tsx` baked `shadow-e1` into its base string:
