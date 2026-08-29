@@ -34,12 +34,9 @@ const DENSITY_META = {
 type Density = keyof typeof DENSITY_META;
 
 // [8.13.12]: theme toolbar metadata, same shape as `LOCALE_META`/
-// `DENSITY_META` above. Unlike those two, the theme toggle has no wrapper-div
-// escape hatch — `globals.css`'s dark tokens live behind
-// `:root[data-theme="dark"]`, which only `document.documentElement` can
-// satisfy — so `DocumentThemeEffect` below mutates the document directly,
-// the same way `dark-decorator.tsx` does for its own, per-file opt-in case.
-// See that file's own comment for the resulting autodocs caveat this shares.
+// `DENSITY_META` above. Why this mutates `document.documentElement` instead
+// of a wrapper `<div>`, and how it interacts with `dark-decorator.tsx`'s
+// own mount-order caveat: docs/architecture/09-design-direction.md §3.4.3.
 const THEME_META = {
   light: { label: 'Light' },
   dark: { label: 'Dark' },
@@ -187,15 +184,9 @@ const preview: Preview = {
       //
       // `parameters.theme === 'fixed'` is this global's escape hatch, same
       // shape and same reason as `density`'s own `parameters.density ===
-      // 'both'` above: `dark-decorator.tsx`'s `darkDecorator` ALSO mutates
-      // this exact attribute, and Storybook composes a file's own
-      // `decorators` INSIDE this preview-level one, so on mount its effect
-      // fires first (children-before-parent) and this one would otherwise
-      // fire second and silently undo it back to whatever the toolbar's
-      // `theme` global currently says — turning every `darkDecorator` story
-      // back light the instant the toolbar itself is not set to dark. A
-      // file using `darkDecorator` sets this parameter so this effect skips
-      // the DOM write entirely and leaves the attribute to that decorator.
+      // 'both'` above. Why it's needed — the mount-order race with
+      // `dark-decorator.tsx`'s own effect, and which one wins without it —
+      // is docs/architecture/09-design-direction.md §3.4.3, not here.
       const theme = (context.globals.theme as ThemeGlobal) ?? 'light';
       const themeFixed = context.parameters.theme === 'fixed';
       useEffect(() => {

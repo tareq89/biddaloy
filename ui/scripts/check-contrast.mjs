@@ -229,10 +229,8 @@ for (const [key, value] of Object.entries(preset.radius)) {
 }
 
 // Status: fg/bg literal in light scope; fgDark/bgDark literal in dark scope.
-// [8.13.12]: `-bg` IS overridden in dark scope now that dark mode is
-// reachable — `status-badge.tsx` has no `dark:` variant, so without this
-// override the badge would paint `fgDark` onto the inherited light pastel
-// `bg` (see the `status.bgDark` doc comment in tailwind.preset.ts).
+// Why `-bg` needs a dark-scope override at all:
+// docs/architecture/09-design-direction.md §3.5.1.
 for (const [statusKey, entry] of Object.entries(preset.status)) {
   expectVar(lightVars, '@theme', `--color-status-${statusKey}-fg`, entry.fg);
   expectVar(lightVars, '@theme', `--color-status-${statusKey}-bg`, entry.bg);

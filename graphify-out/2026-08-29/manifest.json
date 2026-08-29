@@ -1985,8 +1985,8 @@
     "semantic_hash": "0a97635916416e067f1a8d382760d8d5"
   },
   "ui/src/primitives/button.tsx": {
-    "mtime": 1787975399.9026537,
-    "ast_hash": "fa800bb8ca0a60529fb21ed2e8c6c7bb",
+    "mtime": 1787975634.3621123,
+    "ast_hash": "5dd0280138e8fdade48e09c7d4f064db",
     "semantic_hash": ""
   },
   "ui/src/primitives/checkbox.tsx": {
@@ -4380,8 +4380,8 @@
     "semantic_hash": ""
   },
   "e2e/a11y/overlay-openers.ts": {
-    "mtime": 1787729804.0125163,
-    "ast_hash": "b70f4002cf74bb16317ff6540d94f896",
+    "mtime": 1787976610.0346477,
+    "ast_hash": "b490da234634878fd36e1104fb8e41ee",
     "semantic_hash": ""
   },
   "e2e/a11y/routes.a11y.spec.ts": {

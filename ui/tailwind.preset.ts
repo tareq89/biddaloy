@@ -91,13 +91,11 @@ export type TypeStep = keyof typeof typography.ramp;
  * `fg` is verified at >=4.5:1 against both `#ffffff` and its own `bg`. `bg`
  * is a light tint meant only as a badge background, never as a text colour.
  *
- * `bgDark` is [8.13.12]'s dark-mode counterpart to `bg` — a deep, desaturated
- * tint (Tailwind 950-level hue) rather than the light pastel `bg` uses,
- * computed so `fgDark` clears >=4.5:1 against it (verified below in
- * CONTRAST_PAIRS, not eyeballed). `status-badge.tsx` renders `text-status-*-fg`
- * on `bg-status-*-bg` unconditionally — it has no `dark:` variant — so this is
- * what keeps the badge legible once `:root[data-theme="dark"]` overrides
- * `--color-status-*-bg` to this value.
+ * `bgDark` is [8.13.12]'s dark-mode counterpart to `bg` — computed (not
+ * eyeballed) so `fgDark` clears >=4.5:1 against it (verified below in
+ * CONTRAST_PAIRS). Why a dark-mode `bg` override exists at all — `status-
+ * badge.tsx` has no `dark:` variant of its own — is
+ * docs/architecture/09-design-direction.md §3.5.1.
  */
 export const status = {
   paid: {

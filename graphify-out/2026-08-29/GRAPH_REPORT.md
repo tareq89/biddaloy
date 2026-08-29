@@ -1,7 +1,7 @@
 # Graph Report - biddaloy  (2026-08-29)
 
 ## Corpus Check
-- 1095 files · ~661,143 words
+- 1095 files · ~661,322 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `19cbc2d0`
+- Built from commit: `e4dda976`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -539,7 +539,7 @@ Nodes (31): entry, ignoreDependencies, project, ignoreDependencies, ignoreIssues
 
 ### Community 44 - "dependencies"
 Cohesion: 0.06
-Nodes (33): bullmq, class-transformer, exceljs, helmet, @nest-lab/throttler-storage-redis, @nestjs/bullmq, @nestjs/common, @nestjs/config (+25 more)
+Nodes (33): bcrypt, bullmq, class-transformer, helmet, @nest-lab/throttler-storage-redis, @nestjs/bullmq, @nestjs/common, @nestjs/config (+25 more)
 
 ### Community 45 - "tenant-bar.tsx"
 Cohesion: 0.16
@@ -602,8 +602,8 @@ Cohesion: 0.07
 Nodes (28): multer, ../shared/dist, vitest/globals, compilerOptions, baseUrl, emitDecoratorMetadata, experimentalDecorators, ignoreDeprecations (+20 more)
 
 ### Community 60 - "tenant-settings.dto.ts"
-Cohesion: 0.19
-Nodes (25): CommunicationsSettingsDto, EmailSettingsDto, GreenwebSmsDto, MessengerSettingsDto, MimSmsDto, RegionAcademicYearDto, RegionAddressDto, RegionCurrencyDto (+17 more)
+Cohesion: 0.18
+Nodes (27): CommunicationsSettingsDto, EmailSettingsDto, GreenwebSmsDto, MessengerSettingsDto, MimSmsDto, RegionAcademicYearDto, RegionAddressDto, RegionCurrencyDto (+19 more)
 
 ### Community 61 - "tenant-provider-config.resolver.ts"
 Cohesion: 0.14
@@ -771,7 +771,7 @@ Nodes (21): BulkUploadHeader, BulkUploadParseError, cellToString(), getExtension
 
 ### Community 102 - "devDependencies"
 Cohesion: 0.11
-Nodes (19): devDependencies, @sentry/vite-plugin, tailwindcss, @tailwindcss/vite, @tanstack/router-plugin, @types/react-dom, vite-plugin-pwa, workbox-precaching (+11 more)
+Nodes (19): devDependencies, rollup-plugin-visualizer, @sentry/vite-plugin, tailwindcss, @tailwindcss/vite, @tanstack/router-plugin, @types/react-dom, vite-plugin-pwa (+11 more)
 
 ### Community 103 - "package.json"
 Cohesion: 0.12
@@ -842,8 +842,8 @@ Cohesion: 0.18
 Nodes (11): ResolvedGreenwebSmsConfig, ResolvedMimSmsConfig, CommunicationSendResult, ConnectionTestResult, normalizeBdPhoneNumber(), GreenwebSmsGateway, Injectable, MimSmsGateway (+3 more)
 
 ### Community 120 - "Textarea"
-Cohesion: 0.16
-Nodes (16): fakeRepo(), toDto(), VALIDATION_OPTIONS, TenantSettingsDto, IsIn, patch(), REQUEST, USER (+8 more)
+Cohesion: 0.17
+Nodes (15): fakeRepo(), toDto(), VALIDATION_OPTIONS, TenantSettingsDto, patch(), REQUEST, USER, isPlainObject() (+7 more)
 
 ### Community 121 - "FeeDuesService"
 Cohesion: 0.13
@@ -942,8 +942,8 @@ Cohesion: 0.70
 Nodes (3): redact(), redactSensitiveFields(), SENSITIVE_KEYS
 
 ### Community 146 - "school-settings-response.dto.ts"
-Cohesion: 0.30
-Nodes (11): MaskedCommunicationsSettingsResponseDto, MaskedEmailSettingsResponseDto, MaskedGreenwebSmsResponseDto, MaskedMessengerSettingsResponseDto, MaskedMimSmsResponseDto, MaskedSecretResponseDto, MaskedSmsSettingsResponseDto, MaskedWhatsAppSettingsResponseDto (+3 more)
+Cohesion: 0.33
+Nodes (10): MaskedCommunicationsSettingsResponseDto, MaskedEmailSettingsResponseDto, MaskedGreenwebSmsResponseDto, MaskedMessengerSettingsResponseDto, MaskedMimSmsResponseDto, MaskedSecretResponseDto, MaskedSmsSettingsResponseDto, MaskedWhatsAppSettingsResponseDto (+2 more)
 
 ### Community 147 - "scripts"
 Cohesion: 0.17
@@ -1007,11 +1007,11 @@ Nodes (8): HasEmailOrPhoneConstraint, LoginDto, IsEmail, IsOptional, IsString, M
 
 ### Community 162 - "rate-limit-tracker.ts"
 Cohesion: 0.15
-Nodes (18): SkippedGuardianDto, findUnsupportedPlaceholders(), formatDueMonth(), isSupportedPlaceholder(), MONTH_NAMES, ReminderTemplateVars, { sanitizeStrict }, VARS (+10 more)
+Nodes (16): findUnsupportedPlaceholders(), formatDueMonth(), isSupportedPlaceholder(), MONTH_NAMES, ReminderTemplateVars, { sanitizeStrict }, VARS, SUPPORTED_PLACEHOLDERS (+8 more)
 
 ### Community 163 - "auth.service.ts"
-Cohesion: 0.14
-Nodes (14): ReminderPreviewResponseDto, SendSingleReminderDto, SentReminderRecipientDto, SingleReminderResponseDto, ArrayNotEmpty, IsArray, IsEnum, IsNotEmpty (+6 more)
+Cohesion: 0.15
+Nodes (12): Inject, ReminderPreviewResponseDto, SentReminderRecipientDto, SingleReminderResponseDto, SkippedGuardianDto, WhatsAppTemplatePreviewDto, renderReminderTemplate(), ResolvedContext (+4 more)
 
 ### Community 164 - "mockServiceWorker.js"
 Cohesion: 0.42
@@ -1218,8 +1218,8 @@ Cohesion: 0.40
 Nodes (6): Server architecture notes (API prefix, validation, CORS), @biddaloy/server README, Server environment variables table, Free-text sanitization via @SanitizeText / sanitizeStrict, @biddaloy/shared README, @biddaloy/shared import usage across packages
 
 ### Community 242 - "recipient-list.tsx"
-Cohesion: 0.25
-Nodes (5): Inject, SingleReminderService, guardian(), student(), Injectable
+Cohesion: 0.22
+Nodes (9): SendSingleReminderDto, ArrayNotEmpty, IsArray, IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID (+1 more)
 
 ### Community 245 - "fee-collection.spec.ts"
 Cohesion: 0.29

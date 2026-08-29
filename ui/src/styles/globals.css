@@ -541,13 +541,12 @@
 
 /**
  * Dark-mode token values, defined per [8.1.2] and exposed by [8.13.12]'s
- * theme toggle (`ui/src/components/theme-toggle.tsx`), which sets
- * `data-theme="dark"` on the root element from an explicit user choice or,
- * absent one, from `prefers-color-scheme` — see `ui/src/theme/` for the
- * resolution logic. This is intentionally not `@media (prefers-color-scheme:
- * dark)` directly: that selector would activate for every dark-OS user
- * regardless of an explicit light choice, which the toggle's contract does
- * not allow (an explicit choice always wins over the OS setting).
+ * theme toggle. Selector is `:root[data-theme="dark"]`, not `@media
+ * (prefers-color-scheme: dark)` directly — the media query would activate
+ * for every dark-OS user regardless of an explicit light choice, which the
+ * toggle's contract does not allow. How `data-theme` actually gets set —
+ * explicit choice vs. OS preference — is
+ * docs/architecture/09-design-direction.md §3.4.2.
  *
  * Only semantic role tokens are overridden here — never `--color-neutral-*`
  * or `--color-brand-*`. Redefining the raw scale would flip what
@@ -592,14 +591,10 @@
      wants a bespoke sidebar identity should reintroduce the tokens together
      with the component that consumes them. */
 
-  /* [8.13.12]: `-bg` tints are now genuinely dark — desaturated, near-black
-     tints rather than the light pastels above, computed (not eyeballed) so
-     each `fgDark` clears 4.5:1 against its own `bgDark`; see
-     `tailwind.preset.ts`'s `status.*.bgDark` for the exact ratios.
-     `status-badge.tsx` always renders `text-status-*-fg` on `bg-status-*-bg`
-     — it never grew a `dark:` variant — so before this override shipped a
-     dark-mode badge painted the light-mode `fg` onto this now-inherited
-     light pastel, which is why the toggle could not ship without it. */
+  /* [8.13.12]: `-fg`/`-bg` dark-scope overrides, one pair per status —
+     computed (not eyeballed) against `tailwind.preset.ts`'s `status.*Dark`
+     values. Why this override exists at all:
+     docs/architecture/09-design-direction.md §3.5.1. */
   --color-status-paid-fg: #4ade80;
   --color-status-paid-bg: #052e16;
   --color-status-partial-fg: #22d3ee;

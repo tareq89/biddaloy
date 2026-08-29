@@ -90,12 +90,10 @@ export const Roles: Story = {
  * `neutral-700` while functional stays on `neutral-500`.
  */
 export const RolesDark: Story = {
-  // [8.13.12]: tells the toolbar-driven `theme` global (`preview.tsx`) to
-  // leave `document.documentElement.dataset.theme` alone here — without
-  // this, its effect (which runs AFTER `darkDecorator`'s on mount, since
-  // preview-level decorators wrap outside story-level ones) would undo
-  // `darkDecorator`'s own attribute write back to whatever the toolbar
-  // currently says, the instant it is not itself set to dark.
+  // [8.13.12]: required alongside `darkDecorator`, not belt-and-braces —
+  // without it the toolbar-driven `theme` global's own effect undoes this
+  // decorator's attribute write. Why: docs/architecture/09-design-direction.md
+  // §3.4.3.
   parameters: darkDecoratorParameters,
   decorators: [darkDecorator],
   render: () => <BorderRoles />,
