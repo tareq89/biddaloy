@@ -25,6 +25,11 @@ function apiError(statusCode: number): ApiError {
 // assumptions, same concern `cleanupTestState`'s own doc comment raises.
 afterEach(async () => {
   await i18n.changeLanguage(DEFAULT_LOCALE);
+  // Vitest 4's `vi.spyOn` returns the same mock when re-spying an
+  // already-spied method, carrying over an earlier test's calls — several
+  // tests here spy on the same `toast.error`/`navigator.onLine`, so without
+  // this a later test's `not.toHaveBeenCalled()` sees a prior test's calls.
+  vi.restoreAllMocks();
 });
 
 describe('createAppQueryClient', () => {

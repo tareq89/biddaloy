@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Logger as NestLogger } from '@nestjs/common';
 import { RedactingTypeOrmLogger } from './db-logger';
 
@@ -9,6 +9,14 @@ describe('RedactingTypeOrmLogger', () => {
   beforeEach(() => {
     logSpy = vi.spyOn(NestLogger.prototype, 'log').mockImplementation(() => undefined);
     warnSpy = vi.spyOn(NestLogger.prototype, 'warn').mockImplementation(() => undefined);
+  });
+
+  // Vitest 4's `vi.spyOn` returns the same mock when re-spying an
+  // already-spied method, carrying over a prior test's calls into this
+  // one — without restoring here, `beforeEach`'s fresh `vi.spyOn` above
+  // isn't actually fresh.
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('logs the query text but never the bound parameters', () => {

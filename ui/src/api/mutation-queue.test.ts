@@ -268,7 +268,11 @@ describe('replayQueue', () => {
     await queue('/attendance/2');
     await replayQueue();
 
-    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null });
+    // Vitest 4's `vi.spyOn` returns the same mock when re-spying an
+    // already-spied method, carrying over the earlier call from the
+    // `replayQueue()` above -- `mockClear()` gives this a clean slate
+    // to assert against, same as a fresh spy under Vitest 3.
+    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null }).mockClear();
     await replayQueue();
 
     expect(request).not.toHaveBeenCalled();
@@ -298,7 +302,10 @@ describe('replayQueue', () => {
     await queue('/attendance/1');
     for (let attempt = 0; attempt < MAX_REPLAY_ATTEMPTS; attempt += 1) await replayQueue();
 
-    const request = vi.spyOn(apiClient, 'request').mockRejectedValue(serverError(500));
+    // Vitest 4's `vi.spyOn` returns the same mock when re-spying an
+    // already-spied method, carrying over the earlier calls -- see the
+    // comment on the equivalent line above.
+    const request = vi.spyOn(apiClient, 'request').mockRejectedValue(serverError(500)).mockClear();
     await replayQueue();
 
     // The cap is what stops a permanently broken item spinning against
@@ -433,7 +440,10 @@ describe('replay actually gets triggered', () => {
     await replayQueue();
     expect((await (await getOfflineDb())!.mutationQueue.get(row.seq!))!.status).toBe('conflict');
 
-    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null });
+    // Vitest 4's `vi.spyOn` returns the same mock when re-spying an
+    // already-spied method, carrying over the earlier call above --
+    // `mockClear()` isolates this assertion to `retryMutation`'s own call.
+    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null }).mockClear();
     await retryMutation(row.seq!);
 
     expect(request).toHaveBeenCalledTimes(1);
@@ -583,7 +593,10 @@ describe('the backoff timer must not fire into the wrong session', () => {
     // microtask/immediate scheduling — every Dexie call would hang.
     useBackoffTimers();
     await armBackoff();
-    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null });
+    // Vitest 4's `vi.spyOn` returns the same mock when re-spying an
+    // already-spied method, carrying over `armBackoff`'s own call --
+    // `mockClear()` gives this a clean slate to assert against.
+    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null }).mockClear();
 
     clearAuthState();
     setActiveTenant('tenant-a');
@@ -598,7 +611,10 @@ describe('the backoff timer must not fire into the wrong session', () => {
     // microtask/immediate scheduling — every Dexie call would hang.
     useBackoffTimers();
     await armBackoff();
-    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null });
+    // Vitest 4's `vi.spyOn` returns the same mock when re-spying an
+    // already-spied method, carrying over `armBackoff`'s own call --
+    // `mockClear()` gives this a clean slate to assert against.
+    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null }).mockClear();
     Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => false });
 
     try {
@@ -615,7 +631,10 @@ describe('the backoff timer must not fire into the wrong session', () => {
     // microtask/immediate scheduling — every Dexie call would hang.
     useBackoffTimers();
     await armBackoff();
-    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null });
+    // Vitest 4's `vi.spyOn` returns the same mock when re-spying an
+    // already-spied method, carrying over `armBackoff`'s own call --
+    // `mockClear()` gives this a clean slate to assert against.
+    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null }).mockClear();
 
     stopQueueReplay();
     await vi.advanceTimersByTimeAsync(120_000);
@@ -629,7 +648,10 @@ describe('the backoff timer must not fire into the wrong session', () => {
     // microtask/immediate scheduling — every Dexie call would hang.
     useBackoffTimers();
     await armBackoff();
-    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null });
+    // Vitest 4's `vi.spyOn` returns the same mock when re-spying an
+    // already-spied method, carrying over `armBackoff`'s own call --
+    // `mockClear()` gives this a clean slate to assert against.
+    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null }).mockClear();
 
     await vi.advanceTimersByTimeAsync(120_000);
 
