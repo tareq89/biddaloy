@@ -268,7 +268,11 @@ describe('replayQueue', () => {
     await queue('/attendance/2');
     await replayQueue();
 
-    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null });
+    // Vitest 4's `vi.spyOn` returns the same mock when re-spying an
+    // already-spied method, carrying over the earlier call from the
+    // `replayQueue()` above -- `mockClear()` gives this a clean slate
+    // to assert against, same as a fresh spy under Vitest 3.
+    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null }).mockClear();
     await replayQueue();
 
     expect(request).not.toHaveBeenCalled();
@@ -298,7 +302,10 @@ describe('replayQueue', () => {
     await queue('/attendance/1');
     for (let attempt = 0; attempt < MAX_REPLAY_ATTEMPTS; attempt += 1) await replayQueue();
 
-    const request = vi.spyOn(apiClient, 'request').mockRejectedValue(serverError(500));
+    // Vitest 4's `vi.spyOn` returns the same mock when re-spying an
+    // already-spied method, carrying over the earlier calls -- see the
+    // comment on the equivalent line above.
+    const request = vi.spyOn(apiClient, 'request').mockRejectedValue(serverError(500)).mockClear();
     await replayQueue();
 
     // The cap is what stops a permanently broken item spinning against
@@ -424,6 +431,56 @@ describe('replay actually gets triggered', () => {
     stopQueueReplay();
   });
 
+  it('a second startQueueReplay call while already started is a no-op', async () => {
+    // The `started` latch itself — re-arming the `online` listener twice
+    // would fire `handleOnline` twice per event.
+    await queue();
+    startQueueReplay();
+    startQueueReplay();
+    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null });
+
+    window.dispatchEvent(new Event('online'));
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(1));
+
+    stopQueueReplay();
+  });
+
+  it('does not replay immediately, or on the next tenant change, while offline', async () => {
+    await queue();
+    Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => false });
+
+    try {
+      startQueueReplay();
+      const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null });
+
+      // The auth-state subscription's own `isOnline()` check — same
+      // start-up race `startQueueReplay`'s own doc comment describes,
+      // just while offline.
+      setActiveTenant('tenant-b');
+      await Promise.resolve();
+
+      expect(request).not.toHaveBeenCalled();
+    } finally {
+      Reflect.deleteProperty(navigator, 'onLine');
+      stopQueueReplay();
+    }
+  });
+
+  it('replays when the browser fires an online event', async () => {
+    // The other half of `startQueueReplay`'s wiring — a connectivity
+    // transition while the tab is already logged in, not the
+    // tenant-appears case above.
+    await queue();
+    startQueueReplay();
+    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null });
+
+    window.dispatchEvent(new Event('online'));
+
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(1));
+
+    stopQueueReplay();
+  });
+
   it('sends again when a conflicted row is retried', async () => {
     // Otherwise 8.12.5's "Try again" resets the row and then waits for an
     // online transition that may never come — a button that visibly does
@@ -433,7 +490,10 @@ describe('replay actually gets triggered', () => {
     await replayQueue();
     expect((await (await getOfflineDb())!.mutationQueue.get(row.seq!))!.status).toBe('conflict');
 
-    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null });
+    // Vitest 4's `vi.spyOn` returns the same mock when re-spying an
+    // already-spied method, carrying over the earlier call above --
+    // `mockClear()` isolates this assertion to `retryMutation`'s own call.
+    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null }).mockClear();
     await retryMutation(row.seq!);
 
     expect(request).toHaveBeenCalledTimes(1);
@@ -514,6 +574,29 @@ describe('tenant scoping', () => {
     // switch isolates them, it does not destroy them.
     expect(getQueueSnapshot()).toMatchObject({ tenantId: 'tenant-a', total: 1, pending: 1 });
   });
+
+  it('stops mid-pass if the tenant changes between two rows in the same replay', async () => {
+    // The single-row tenant-switch above proves a *new* pass never sends
+    // another tenant's row. This proves a pass already in flight also
+    // stops — row 2 must not go out under `tenant-b`'s `X-Tenant-ID` just
+    // because the switch landed after row 1 sent but before row 2 did.
+    await queue('/attendance/1');
+    await queue('/attendance/2');
+
+    const request = vi.spyOn(apiClient, 'request').mockImplementation((config) => {
+      if (config.url === '/attendance/1') setActiveTenant('tenant-b');
+      return Promise.resolve({ data: null });
+    });
+
+    setActiveTenant('tenant-a');
+    await replayQueue();
+
+    expect(request).toHaveBeenCalledTimes(1);
+    setActiveTenant('tenant-a');
+    await expect((await getOfflineDb())!.mutationQueue.get(2)).resolves.toMatchObject({
+      status: 'pending',
+    });
+  });
 });
 
 describe('retryMutation / discardMutation', () => {
@@ -555,6 +638,61 @@ describe('retryMutation / discardMutation', () => {
     // this session cannot even see.
     await expect((await getOfflineDb())!.mutationQueue.count()).resolves.toBe(1);
   });
+
+  it('retryMutation is a no-op with no active tenant', async () => {
+    const row = await queue('/attendance/1');
+    setActiveTenant(null);
+
+    await expect(retryMutation(row.seq!)).resolves.toBeUndefined();
+    setActiveTenant('tenant-a');
+    await expect((await getOfflineDb())!.mutationQueue.get(row.seq!)).resolves.toMatchObject({
+      status: 'pending',
+    });
+  });
+
+  it('retryMutation ignores a seq belonging to another tenant', async () => {
+    vi.spyOn(apiClient, 'request').mockRejectedValue(serverError(409));
+    const row = await queue('/attendance/1');
+    await replayQueue();
+    setActiveTenant('tenant-b');
+
+    await retryMutation(row.seq!);
+
+    setActiveTenant('tenant-a');
+    // Still `conflict`, not reset to `pending` — the other school's
+    // "try again" must not touch this row's state.
+    await expect((await getOfflineDb())!.mutationQueue.get(row.seq!)).resolves.toMatchObject({
+      status: 'conflict',
+    });
+  });
+
+  it('retryMutation resets the row but does not replay while offline', async () => {
+    vi.spyOn(apiClient, 'request').mockRejectedValue(serverError(409));
+    const row = await queue('/attendance/1');
+    await replayQueue();
+
+    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null }).mockClear();
+    Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => false });
+
+    try {
+      await retryMutation(row.seq!);
+      expect(request).not.toHaveBeenCalled();
+      await expect((await getOfflineDb())!.mutationQueue.get(row.seq!)).resolves.toMatchObject({
+        status: 'pending',
+      });
+    } finally {
+      Reflect.deleteProperty(navigator, 'onLine');
+    }
+  });
+
+  it('discardMutation is a no-op with no active tenant', async () => {
+    const row = await queue('/attendance/1');
+    setActiveTenant(null);
+
+    await expect(discardMutation(row.seq!)).resolves.toBeUndefined();
+    setActiveTenant('tenant-a');
+    await expect((await getOfflineDb())!.mutationQueue.count()).resolves.toBe(1);
+  });
 });
 
 describe('the backoff timer must not fire into the wrong session', () => {
@@ -583,7 +721,10 @@ describe('the backoff timer must not fire into the wrong session', () => {
     // microtask/immediate scheduling — every Dexie call would hang.
     useBackoffTimers();
     await armBackoff();
-    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null });
+    // Vitest 4's `vi.spyOn` returns the same mock when re-spying an
+    // already-spied method, carrying over `armBackoff`'s own call --
+    // `mockClear()` gives this a clean slate to assert against.
+    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null }).mockClear();
 
     clearAuthState();
     setActiveTenant('tenant-a');
@@ -598,7 +739,10 @@ describe('the backoff timer must not fire into the wrong session', () => {
     // microtask/immediate scheduling — every Dexie call would hang.
     useBackoffTimers();
     await armBackoff();
-    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null });
+    // Vitest 4's `vi.spyOn` returns the same mock when re-spying an
+    // already-spied method, carrying over `armBackoff`'s own call --
+    // `mockClear()` gives this a clean slate to assert against.
+    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null }).mockClear();
     Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => false });
 
     try {
@@ -615,7 +759,10 @@ describe('the backoff timer must not fire into the wrong session', () => {
     // microtask/immediate scheduling — every Dexie call would hang.
     useBackoffTimers();
     await armBackoff();
-    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null });
+    // Vitest 4's `vi.spyOn` returns the same mock when re-spying an
+    // already-spied method, carrying over `armBackoff`'s own call --
+    // `mockClear()` gives this a clean slate to assert against.
+    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null }).mockClear();
 
     stopQueueReplay();
     await vi.advanceTimersByTimeAsync(120_000);
@@ -629,7 +776,10 @@ describe('the backoff timer must not fire into the wrong session', () => {
     // microtask/immediate scheduling — every Dexie call would hang.
     useBackoffTimers();
     await armBackoff();
-    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null });
+    // Vitest 4's `vi.spyOn` returns the same mock when re-spying an
+    // already-spied method, carrying over `armBackoff`'s own call --
+    // `mockClear()` gives this a clean slate to assert against.
+    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null }).mockClear();
 
     await vi.advanceTimersByTimeAsync(120_000);
 

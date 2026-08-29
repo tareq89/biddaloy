@@ -10,7 +10,13 @@ vi.mock('node:dns/promises', () => ({ lookup: vi.fn() }));
 // than referenced from module-scope consts declared below.
 const { ClientMock, fetchMock, destroy } = vi.hoisted(() => {
   const destroy = vi.fn().mockResolvedValue(undefined);
-  const ClientMock = vi.fn().mockImplementation(() => ({ destroy }));
+  // `pinned-http.ts` calls `new Client(...)` — Vitest 4 only treats a mock
+  // implementation as constructible when it's an actual `function`, not an
+  // arrow function (arrow functions were never constructible in real JS
+  // either; Vitest 3's mock just didn't enforce that).
+  const ClientMock = vi.fn().mockImplementation(function ClientMock() {
+    return { destroy };
+  });
   const fetchMock = vi.fn();
   return { ClientMock, fetchMock, destroy };
 });

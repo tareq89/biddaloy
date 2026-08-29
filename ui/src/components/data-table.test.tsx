@@ -1,4 +1,4 @@
-import type { VisibilityState } from '@tanstack/react-table';
+import type { ColumnVisibilityState } from '@tanstack/react-table';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
@@ -42,7 +42,7 @@ function Controlled({
   selectable?: boolean;
   emptyMessage?: string;
   columnsMenu?: boolean;
-  defaultColumnVisibility?: VisibilityState;
+  defaultColumnVisibility?: ColumnVisibilityState;
   columns?: DataTableColumn<Student>[];
   expandable?: boolean;
 }) {

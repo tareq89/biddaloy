@@ -19,7 +19,7 @@ import { TEMPLATE_HEADERS } from './-import/template';
  * axios read.
  */
 function makeFile(name: string, content = 'a,b', type = 'text/csv'): File {
-  return new NodeFile([content], name, { type }) as unknown as File;
+  return new NodeFile([content], name, { type }) as File;
 }
 
 /** jsdom implements neither `URL.createObjectURL` nor `revokeObjectURL` —
