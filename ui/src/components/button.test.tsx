@@ -85,8 +85,16 @@ describe('Button', () => {
     const button = screen.getByRole('button', { name: 'Archive' });
     expect(button.className).toContain('bg-secondary');
     expect(button.className).toContain('text-secondary-foreground');
-    expect(button.className).toContain('border-border-subtle');
+    // The functional 3:1 border token, not the decorative `-subtle` one —
+    // this border is the button's only explicit boundary.
+    expect(button.className).toContain('border-border');
+    expect(button.className).not.toContain('border-border-subtle');
     expect(button.className).toContain('hover:bg-brand-100');
+    // Dark mode's hover/expanded states reuse the already-validated
+    // 'dark brand text on dark surface' pair rather than the light-only
+    // brand-700-on-brand-100 hover.
+    expect(button.className).toContain('dark:hover:bg-secondary');
+    expect(button.className).toContain('dark:aria-expanded:bg-secondary');
     expect(button.className).not.toContain('color-mix');
     expect(button.className).not.toContain('border-transparent');
   });

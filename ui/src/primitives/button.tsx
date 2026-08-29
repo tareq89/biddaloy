@@ -81,7 +81,7 @@ const buttonVariants = cva(
         // now needs a real border instead of the base's transparent one, and
         // a real hover instead of the dead color-mix.
         secondary:
-          'bg-secondary text-secondary-foreground border-border-subtle hover:bg-brand-100 aria-expanded:bg-brand-100 aria-expanded:text-secondary-foreground disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100',
+          'bg-secondary text-secondary-foreground border-border hover:bg-brand-100 aria-expanded:bg-brand-100 dark:hover:bg-secondary dark:aria-expanded:bg-secondary aria-expanded:text-secondary-foreground disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100',
         ghost:
           'hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50',
         destructive:
