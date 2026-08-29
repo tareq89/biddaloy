@@ -14,6 +14,7 @@
 // IndexedDB, so without this the offline cache is untestable at all.
 import 'fake-indexeddb/auto';
 
+import { configure } from '@testing-library/dom';
 import { afterAll, afterEach, beforeAll } from 'vitest';
 
 import './a11y/matchers';
@@ -23,8 +24,23 @@ import { resetOnlineStatus } from './connectivity';
 import { resetFactorySeed } from './factories/faker';
 import { resetSchoolsStore } from './msw/handlers/schools';
 import { server } from './msw/server';
+import { installQuarantine } from './quarantine';
 import { cleanupTestState } from './render-with-providers';
 import { resetSystemPrefersDark } from './system-theme';
+
+// [#437] RTL's default `asyncUtilTimeout` is 1000ms — plenty on an idle
+// laptop, not always enough on a loaded CI runner: the 2026-08-25 nightly
+// flake hunt (run 32908102522) failed `students > gates Collect fees by
+// permission` with `Unable to find role="link" name "View"` on pass 2/3,
+// and passed on pass 1/3 with no code change in between — an RTL `findBy`
+// timeout under CPU load, not a real assertion failure. Raising the
+// ceiling costs nothing on a passing test — the query resolves as soon as
+// the element appears — it only makes a genuinely broken query fail
+// later, not less loudly.
+configure({ asyncUtilTimeout: 5_000 });
+
+// [#437] See `quarantine.ts`'s module header for the full mechanism.
+installQuarantine();
 
 afterEach(cleanupTestState);
 afterEach(resetFactorySeed);

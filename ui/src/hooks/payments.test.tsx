@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
@@ -116,9 +116,10 @@ describe('financial mutations are never optimistic (useCreatePayment reference)'
     const submit = screen.getByRole<HTMLButtonElement>('button', { name: 'Record payment' });
     fireEvent.click(submit);
 
-    await waitFor(() =>
-      expect(screen.getByRole('alert').textContent).toBe('Payment gateway unavailable'),
-    );
+    // Scoped to the alert region on purpose: the assertion this replaced was
+    // `getByRole('alert').textContent`, and an unscoped findByText would pass
+    // on the same words rendered anywhere, losing the role contract.
+    await within(await screen.findByRole('alert')).findByText('Payment gateway unavailable');
     expect(screen.queryByText('Payment recorded')).toBeNull();
     // The value the accountant typed is still there — they don't have to
     // retype "4500" after a failure.

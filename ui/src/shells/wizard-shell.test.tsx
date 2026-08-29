@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useEffect, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -162,9 +162,8 @@ describe('WizardShell', () => {
     await user.click(screen.getByRole('button', { name: 'Next' }));
     await user.click(screen.getByRole('button', { name: 'Submit' }));
 
-    await waitFor(() =>
-      expect(screen.getByRole('status').textContent).toBe('142 payments recorded.'),
-    );
+    // Scoped to the status region — see payments.test.tsx for the rationale.
+    await within(await screen.findByRole('status')).findByText('142 payments recorded.');
     expect(screen.queryByRole('textbox', { name: 'Amount' })).toBeNull();
   });
 
