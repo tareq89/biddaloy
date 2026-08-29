@@ -120,7 +120,9 @@ export const OpenAnimation: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole('button', { name: 'Row actions' }));
-    const content = await canvas.findByRole('menu');
+    // `MenuContent` renders through a Radix portal, outside `canvasElement`
+    // — the document body is the actual root it lands in.
+    const content = await within(canvasElement.ownerDocument.body).findByRole('menu');
     const animationDuration = getComputedStyle(content).animationDuration;
     // An unrecognised utility (the pre-[8.13.10] state) computes to "0s".
     // Contract §7's dropdown/popover/select/tooltip duration is 180ms,
