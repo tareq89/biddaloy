@@ -26,16 +26,18 @@ separate setup step needed.
 
 ### Code graph (optional, but agents expect it)
 
-`graphify-out/` holds a queryable graph of the codebase. It is **gitignored**
-— a derived artifact regenerated from source — so a fresh clone has none.
-Build it once:
+`graphify-out/` holds a queryable graph of the codebase. Its generated output
+is **gitignored** — a derived artifact rebuilt from source — so a fresh clone
+has none. (Only `graphify-out/README.md` and `cost.json` are tracked.) Build it
+once:
 
 ```bash
 graphify update .
 ```
 
-AST-only, no API cost. Re-run it after significant changes to keep
-`graphify query`/`explain`/`path` accurate; the output never gets committed.
+AST-only, no API cost. Re-run it **after modifying code** — a stale graph makes
+`graphify query`/`explain`/`path` inaccurate, and refreshing costs nothing since
+the output never gets committed.
 
 ### Pre-commit hooks
 

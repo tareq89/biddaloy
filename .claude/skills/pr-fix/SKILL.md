@@ -126,9 +126,10 @@ the eventual review replies concrete ("fixed in `<sha>`") and makes the
 diff easier for the human reviewer to re-review.
 
 After code changes, run `graphify update .` so the graph stays current for
-later exploration. Do not stage it: `graphify-out/` is gitignored as of
-2026-08-29, so there is nothing to commit and no "regenerate graph" commit
-to make.
+later exploration. Do not stage its output: the generated files under
+`graphify-out/` were untracked on 2026-08-29, so there is nothing to commit
+and no "regenerate graph" commit to make. (`README.md` and `cost.json` there
+stay tracked, and `graphify update .` does not touch them.)
 
 Never amend the PR's existing commits — everything here is new commits on
 top.
