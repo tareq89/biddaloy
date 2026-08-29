@@ -6,6 +6,7 @@ import {
   noWindowAlertConfig,
   typeCheckedRules,
   typeCheckedTestOverrides,
+  waitForTextContentConfig,
 } from '@biddaloy/ui/eslint-config';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
@@ -60,6 +61,10 @@ export default tseslint.config(
   {
     files: ['src/**/*.{ts,tsx}'],
     ...noWindowAlertConfig,
+  },
+  {
+    files: ['src/**/*.test.{ts,tsx}'],
+    ...waitForTextContentConfig,
   },
   {
     files: ['*.ts', '*.mjs', 'scripts/**/*.mjs'],

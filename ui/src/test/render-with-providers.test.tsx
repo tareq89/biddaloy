@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -137,7 +137,8 @@ describe('renderWithProviders', () => {
     const button = screen.getByRole('button');
     expect(button.textContent).toBe('save');
     await user.click(button);
-    await waitFor(() => expect(button.textContent).toBe('saved'));
+    // Scoped to the button that was clicked, not the whole document.
+    await within(button).findByText('saved');
   });
 
   describe('locale', () => {

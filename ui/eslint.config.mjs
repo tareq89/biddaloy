@@ -9,6 +9,7 @@ import {
   noWindowAlertConfig,
   typeCheckedRules,
   typeCheckedTestOverrides,
+  waitForTextContentConfig,
 } from './eslint-config.mjs';
 import logicalPropertiesPlugin from './eslint-rules/logical-properties.mjs';
 
@@ -35,6 +36,10 @@ export default tseslint.config(
   {
     files: ['src/**/*.{ts,tsx}'],
     ...noWindowAlertConfig,
+  },
+  {
+    files: ['src/**/*.test.{ts,tsx}'],
+    ...waitForTextContentConfig,
   },
   // [8.7.6]: components use margin-inline-*/padding-inline-* (Tailwind's
   // ms-/me-/ps-/pe-), never -left/-right — scoped to where className

@@ -466,6 +466,77 @@ rg -n "waitForTimeout" e2e/
 rg -n "describe\.serial|describe\.configure" e2e/
 ```
 
+### Flake policy: quarantine, retries, and the nightly hunt
+
+A red run should mean "your change is broken" — not "run it again."
+
+**Baseline (last 60 `ci.yml` runs, 2026-08-26 → 2026-08-29):** 37 failed,
+20 succeeded, 2 cancelled — **61% of concluded runs red**, well above the
+28% the issue assumed. But the headline number was the wrong instrument.
+Classifying all 65 failing *steps* across those 37 runs found exactly one
+true, load-sensitive flake shape (an RTL query timing out under CPU load).
+Everything else was real: chronic Lighthouse budget misses (16), unit-test
+breaks (11), a stale committed `schema.d.ts` (9), broken WIP builds (6).
+Most of what looked like flake was a real bug or a real performance
+regression wearing a flake costume.
+
+**Target: under 10% of runs red for non-deterministic reasons**, tracked by
+the nightly hunt's sticky issue (below) and the per-job durations in the
+[Test timings & budgets](#test-timings--budgets) summary. Re-measure with
+the same query before claiming an improvement — the rate above counts *all*
+red runs, so fixing flake alone will not move it to 10% while Lighthouse
+stays chronically over budget.
+
+The policy below treats each of those
+three differently on purpose:
+
+```mermaid
+flowchart TD
+    R["A test fails in CI"] --> Q{"Real bug, real\nregression, or flake?"}
+    Q -- "real bug" --> F["Fix it — no shortcut"]
+    Q -- "real regression\n(e.g. Lighthouse budget)" --> E["File its own issue —\nquarantining hides it"]
+    Q -- "genuinely flaky" --> QT["Add to quarantine.json:\ntest, issue, addedAt, reason"]
+    QT --> NB["Runs non-blocking in ci.yml\n(QUARANTINE_MODE=only)"]
+    NB --> X{"Fixed inside\n14 days?"}
+    X -- yes --> D["Remove the entry"]
+    X -- no --> S["quarantine.spec.ts fails the\nblocking frontend job"]
+```
+
+- **No blanket retries on unit/component tests.** A retried unit test
+  hides a real bug behind a green tick — Vitest has no `retry` option set
+  anywhere in this repo, and it should stay that way. If a test only
+  passes on the second try, the test (or the code it exercises) is
+  broken, not "a bit flaky."
+- **Playwright keeps its own retry** (`retries: process.env.CI ? 1 : 0`,
+  `playwright.config.ts` / `playwright.pwa.config.ts`) — that is
+  browser-level flake (a slow paint, a network jitter under a real
+  headless engine), a different class of problem than a unit test's
+  logic, and it stays visible: a retried E2E test still shows up in the
+  Playwright HTML report as retried, it does not silently disappear.
+- **Quarantine is a queue, not a graveyard.** A quarantined test still
+  *runs* in CI — just in a separate, non-blocking step
+  (`ci.yml`'s "Quarantined frontend tests" step, `QUARANTINE_MODE=only`)
+  instead of the gating one — so nobody forgets it exists and it keeps
+  reporting whether it's still broken. `ui/src/test/quarantine.spec.ts`
+  enforces the queue part: a hard cap of 10 entries and a 14-day expiry,
+  both checked in the *blocking* frontend job, so an over-full or stale
+  `quarantine.json` fails the pipeline it was supposed to protect.
+- **How to quarantine a test:** copy its full path verbatim off the CI
+  `FAIL` line (e.g. `src/foo.test.tsx > outer suite > the test name`,
+  minus the leading `FAIL  |project|` marker) into `quarantine.json`'s
+  `test` field, alongside a tracking `issue` number, today's date as
+  `addedAt`, and a short `reason`. See `ui/src/test/quarantine.ts`'s
+  header comment for the exact key format.
+- **The nightly flake hunt finds candidates for you.**
+  `.github/workflows/nightly-frontend-flakes.yml` runs the frontend suite
+  three consecutive times every night and diffs the results:
+  `scripts/flake-report.mjs` classifies a test as a **flake** (failed at
+  least once, passed at least once) or a **real failure** (failed every
+  pass — not quarantine material), then the workflow files or updates one
+  sticky `flake-hunt`-labelled issue with a table of each, the flaky ones
+  already formatted as a `test` value ready to paste into
+  `quarantine.json`.
+
 ### Dead-code detection (`knip`)
 
 `yarn knip` finds unused files, exports and dependencies across `shared`,

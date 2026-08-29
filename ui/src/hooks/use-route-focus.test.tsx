@@ -1,5 +1,5 @@
 import { createRootRoute, createRoute, Link, Outlet } from '@tanstack/react-router';
-import { act, screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useEffect, useState } from 'react';
 import { describe, expect, it } from 'vitest';
@@ -194,7 +194,12 @@ describe('useRouteFocus', () => {
       void router.navigate({ to: '/other-list' });
     });
     await waitFor(() => screen.getByRole('heading', { name: 'List' }));
-    await waitFor(() => expect(announcer()?.textContent).toBe('List'));
+    // `RouteAnnouncer` is always-mounted (see its own header comment) —
+    // scoping `findByText` to it, rather than querying the whole
+    // document, is load-bearing here: the route's own `<h1>` says
+    // 'List' too, so an unscoped `screen.findByText('List')` would be
+    // ambiguous.
+    await within(announcer() as HTMLElement).findByText('List');
 
     // `/list`'s <h1> is the same text as `/other-list`'s — a naive
     // `setAnnouncement(headingText)` would be a no-op React update here,
@@ -214,7 +219,8 @@ describe('useRouteFocus', () => {
     });
 
     await waitFor(() => screen.getByRole('link', { name: 'Row one' }));
-    await waitFor(() => expect(announcer()?.textContent).toBe('List'));
+    // Same ambiguity reason as above — scope to the announcer, not the document.
+    await within(announcer() as HTMLElement).findByText('List');
     observer.disconnect();
 
     expect(textMutations).toContain('');
