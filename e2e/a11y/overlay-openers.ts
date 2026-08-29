@@ -13,7 +13,20 @@ import { ListShellPage } from '../pages/list-shell';
  */
 
 async function expectDialogOpen(page: Page): Promise<void> {
-  await expect(page.getByRole('dialog')).toBeVisible();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  // `role="dialog"` resolves to `DialogContent` (`ui/src/primitives/
+  // dialog.tsx`), which itself carries the open transition
+  // (`fade-in-0 zoom-in-95`, 240ms — contract §7). `toBeVisible()` passes
+  // as soon as the element mounts, while that transition is still
+  // animating its own opacity — an axe scan that lands mid-fade blends
+  // every descendant's rendered colour with whatever is behind the
+  // dialog, producing a different (and often wrongly failing)
+  // color-contrast reading each run. Wait for the dialog's own
+  // animations to finish before scanning.
+  await dialog.evaluate((el) =>
+    Promise.all(el.getAnimations().map((animation) => animation.finished)),
+  );
 }
 
 async function selectFirstDuesRow(page: Page, locale: Locale): Promise<void> {
