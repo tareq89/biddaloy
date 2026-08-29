@@ -125,9 +125,11 @@ commit per logically-related fix rather than one giant commit — it makes
 the eventual review replies concrete ("fixed in `<sha>`") and makes the
 diff easier for the human reviewer to re-review.
 
-After code changes, run `graphify update .` before committing so the graph
-stays current, and stage `graphify-out/` alongside the fix in the same
-commit — never a separate trailing "regenerate graph" commit.
+After code changes, run `graphify update .` so the graph stays current for
+later exploration. Do not stage its output: the generated files under
+`graphify-out/` were untracked on 2026-08-29, so there is nothing to commit
+and no "regenerate graph" commit to make. (`README.md` and `cost.json` there
+stay tracked, and `graphify update .` does not touch them.)
 
 Never amend the PR's existing commits — everything here is new commits on
 top.

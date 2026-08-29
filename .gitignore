@@ -155,7 +155,22 @@ vite.config.ts.timestamp-*
 # @tanstack/router-plugin's watch-mode cache
 .tanstack/
 
-# Graphify cache (regenerated, contains absolute local paths).
+# Graphify output is a DERIVED artifact — `graphify update .` rebuilds it from
+# source (AST-only, no API cost), so git should not carry it.
+#
+# It was tracked until 2026-08-29. The cost: 79 MB in the working tree, 67 MB of
+# it dated snapshot directories duplicating what git history already stores, and
+# ~8.5M lines of churn in six weeks (graph.json alone: 8.8 MB, touched by 115
+# commits). Nothing in CI or package.json ever read it. Worse, an 8.8 MB JSON
+# blob regenerated on every commit conflicts unmergeably the moment two branches
+# run in parallel — which is what the implement-epic skill does by design.
+#
+# README.md and cost.json stay tracked: near-static, and cost.json is the
+# provenance record of what the graph build actually spent.
+graphify-out/*
+!graphify-out/README.md
+!graphify-out/cost.json
+
 # `**/` because a bare `graphify-out/cache/` anchors to the repo root and so
 # missed the copy under server/ that `graphify update .` creates when it is
 # run from inside a workspace.

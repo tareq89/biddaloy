@@ -59,7 +59,7 @@ on whatever the user set before invoking this skill.
 
 | Phase | Runs on | How |
 |---|---|---|
-| Research + plan (steps 2–3) | Fable | `issue-planner` subagent (`.claude/agents/issue-planner.md`, `model: claude-fable-5`) |
+| Research + plan (steps 2–3) | Opus | `issue-planner` subagent (`.claude/agents/issue-planner.md`, `model: claude-opus-5`) |
 | Implement, tests, stories (steps 4–6) | Opus | `issue-implementer` subagent (`.claude/agents/issue-implementer.md`, `model: claude-opus-5`) |
 | Code review (step 7) | the session's model | in this session |
 | Commit, push, PR (steps 8–9) | the session's model | in this session |
@@ -70,7 +70,7 @@ session happens to be running on. It also means the plan is produced by an agent
 whose only job is the plan, and published to GitHub before any code exists.
 
 Before starting, check what the session is actually running on and say it out
-loud in one line: *"Session model: <X>. Planning goes to the Fable subagent,
+loud in one line: *"Session model: <X>. Planning goes to the Opus subagent,
 implementation to the Opus subagent; review, commit and PR run here."*
 
 ### Effort cannot be routed per phase
@@ -171,9 +171,9 @@ implementation before issue N's PR is open.
   onto `main` and retarget the open PRs rather than leaving them stacked on a
   merged branch.
 
-### 2–3. Research and plan — delegated to Fable
+### 2–3. Research and plan — delegated to Opus
 
-Dispatch the `issue-planner` subagent (Fable) with the issue ID and the base
+Dispatch the `issue-planner` subagent (Opus) with the issue ID and the base
 branch. It owns graphify research, verification against the current code, the
 written plan, and publishing that plan to the GitHub issue as a comment. Its
 definition carries the full contract.
@@ -245,14 +245,21 @@ is a fix; anything caught there is a round trip.
 ### 8. Graph, commit, push
 
 ```bash
-graphify update
-git add -A            # includes graph changes
+graphify update .     # keeps YOUR graph current; its output is gitignored
+git add -A
 git commit -m "..."
 git push -u origin <branch>
 ```
 
-Never commit without running `graphify update` first — a stale graph poisons the
-research step for every subsequent issue in the chain.
+Run `graphify update .` before moving on — a stale graph poisons the research
+step for every subsequent issue in the chain. Its output never enters the
+commit: the generated files under `graphify-out/` were untracked on 2026-08-29,
+because an 8.8 MB blob regenerated per commit is unmergeable across branches.
+Keeping the graph fresh is now free.
+
+(`graphify-out/README.md` and `cost.json` remain tracked — they are
+documentation and the provenance record of what the graph build spent, not
+generated output. `graphify update .` does not modify them.)
 
 Regenerate committed artifacts that the change invalidates before committing —
 API types in particular, if endpoints or DTOs moved. A generated file that
@@ -319,7 +326,7 @@ already planned.
   you cannot change it.
 - Never commit before the `code-review` skill has run and its findings are
   resolved.
-- Never commit without `graphify update`.
+- Never leave a stale graph behind; never commit generated graph output.
 - Never bypass the design system.
 - Never open a PR less than an hour after the previous one.
 - Update the state file after every step.
