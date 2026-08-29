@@ -96,6 +96,11 @@ describe('arbitrary shadow values', () => {
     expect(scan('<div className="shadow-[var(--elevation-e1)]" />')).toEqual([]);
   });
 
+  it('flags a var() reference with a literal shadow appended after it', () => {
+    const source = '<div className="shadow-[var(--elevation-e1),0_1px_2px_rgb(0_0_0/0.1)]" />';
+    expect(messages(source)).toContain('hard-codes a literal shadow');
+  });
+
   it('reports a bracketed pure colour once, as a colour, not twice', () => {
     const errors = scan('<div className="shadow-[#000000]" />');
     expect(errors).toHaveLength(1);

@@ -156,7 +156,7 @@ const RAW_SHADOW_RE =
  * rule, rather than twice.
  */
 const ARBITRARY_SHADOW_RE = new RegExp(
-  `(?:^|[^a-z-])(?:[a-z-]+:)*shadow-\\[(?!var\\(|#|rgba?\\(|hsla?\\(|oklch\\(|oklab\\()`,
+  `(?:^|[^a-z-])(?:[a-z-]+:)*shadow-\\[(?!var\\(--[a-zA-Z0-9_-]+\\)\\]|#|rgba?\\(|hsla?\\(|oklch\\(|oklab\\()`,
   'g',
 );
 
