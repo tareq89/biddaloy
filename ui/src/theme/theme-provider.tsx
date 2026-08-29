@@ -105,10 +105,19 @@ applyTheme(computeTheme());
  * subscribed `useTheme()` call. An explicit choice always wins over the OS
  * preference from this point on — the live `matchMedia` listener below
  * checks `getPersistedTheme()` before ever acting, so it steps aside the
- * moment this has been called once. */
+ * moment this has been called once.
+ *
+ * Applies `computeTheme()` — the recomputed result — rather than the raw
+ * `theme` argument. `persistTheme()` silently swallows a storage failure
+ * (quota exceeded, disabled storage); if the write is lost, `computeTheme()`
+ * falls back to the OS preference, same as any other read. Applying that
+ * recomputed value, instead of the value storage never actually recorded,
+ * is what keeps the DOM and every future `getSnapshot()` call in agreement
+ * — this module's "no cache" invariant (see the file header) means there is
+ * no other source of truth for either of them to fall back on. */
 function setExplicitTheme(theme: Theme): void {
   persistTheme(theme);
-  applyTheme(theme);
+  applyTheme(computeTheme());
   notify();
 }
 

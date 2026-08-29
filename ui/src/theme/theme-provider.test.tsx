@@ -1,5 +1,5 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { cleanupTestState, userEvent } from '../test/render-with-providers';
 import { mockSystemPrefersDark } from '../test/system-theme';
@@ -90,5 +90,27 @@ describe('useTheme', () => {
     expect(screen.getByTestId('theme').textContent).toBe('dark');
     expect(document.documentElement.dataset.theme).toBe('dark');
     expect(getPersistedTheme()).toBe('dark');
+  });
+
+  it('when the persisted write fails, applies the recomputed theme rather than the requested one, so the DOM cannot drift from the next getSnapshot() read', async () => {
+    const user = userEvent.setup();
+    // OS prefers light — the fallback `computeTheme()` resolves to once the
+    // write below fails, distinct from the 'dark' this test requests.
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('storage disabled');
+    });
+    render(<ThemeProbe />);
+
+    await user.click(screen.getByText('set dark'));
+
+    // The requested theme was never actually persisted — applying it to
+    // the DOM anyway would show 'dark' now and silently flip back to
+    // 'light' on the next render that recomputes from storage. Assert the
+    // steady state directly: there is no successful write to wait for.
+    expect(getPersistedTheme()).toBeNull();
+    expect(document.documentElement.dataset.theme).not.toBe('dark');
+    expect(screen.getByTestId('theme').textContent).toBe('light');
+
+    setItemSpy.mockRestore();
   });
 });
