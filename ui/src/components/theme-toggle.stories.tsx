@@ -23,11 +23,9 @@ import { ThemeToggle } from './theme-toggle';
  * No `tags: ['autodocs']` here, deliberately, for the same reason
  * `borders.stories.tsx`/`elevation.stories.tsx` omit it: `Dark` uses
  * `darkDecorator`, whose document-level mutation would turn the whole docs
- * page dark for as long as it is mounted (see that decorator's own
- * comment). The same caveat applies to the toolbar-driven `theme` global in
- * `.storybook/preview.tsx` — switching it does not retroactively make an
- * `autodocs` page's other, light-pinned stories safe to view together
- * either.
+ * page dark for as long as it is mounted — see that decorator's own file
+ * comment for why, and why the toolbar-driven `theme` global carries the
+ * identical restriction.
  */
 const meta: Meta<typeof ThemeToggle> = {
   title: 'Components/ThemeToggle',
@@ -40,7 +38,11 @@ type Story = StoryObj<typeof ThemeToggle>;
 export const Light: Story = {
   loaders: [
     () => {
-      localStorage.removeItem('biddaloy:theme');
+      // An explicit choice, not `removeItem` — removing the key would
+      // resolve through `prefers-color-scheme` instead, which renders dark
+      // (and fails this story's own `aria-pressed="false"` assertion) on
+      // any host whose OS preference is dark.
+      localStorage.setItem('biddaloy:theme', 'light');
       return {};
     },
   ],
