@@ -50,13 +50,20 @@ export default defineConfig({
       },
     },
 
-    // Integration and E2E tests run sequentially
+    // Integration and E2E tests run sequentially — `singleThread` alone
+    // only forces one worker *thread*; Vitest still runs multiple test
+    // *files*' beforeAll/beforeEach concurrently within that thread by
+    // default, which raced `clearTransactionalTables`'s TRUNCATEs against
+    // each other (and against another file's still-running migrations)
+    // on the one shared Postgres test database, producing real deadlocks
+    // and "relation does not exist" failures.
     pool: 'threads',
     poolOptions: {
       threads: {
         singleThread: true,
       },
     },
+    fileParallelism: false,
   },
   resolve: {
     alias: {
