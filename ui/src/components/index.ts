@@ -145,7 +145,7 @@ export {
 } from './status-badge';
 export { Card, type CardProps } from './card';
 export { BottomNav, type BottomNavProps } from './bottom-nav';
-export { EmptyState, type EmptyStateProps } from './empty-state';
+export { EmptyState, type EmptyStateKind, type EmptyStateProps } from './empty-state';
 export { StudentPicker, type StudentPickerProps, type StudentPickerItem } from './student-picker';
 export { ErrorState, type ErrorStateProps } from './error-state';
 export { RouteStatusState, type RouteStatusStateProps } from './route-status-state';
@@ -168,7 +168,15 @@ export {
 export { NotificationBell, type NotificationBellProps } from './notification-bell';
 export { RouteErrorFallback, type RouteErrorFallbackProps } from './route-error-boundary';
 export { Toaster, toast } from './toast';
-export { Skeleton } from './skeleton';
+export {
+  Skeleton,
+  SkeletonFieldList,
+  type SkeletonFieldListProps,
+  SkeletonTable,
+  type SkeletonTableProps,
+  SkeletonText,
+  type SkeletonTextProps,
+} from './skeleton';
 export { Pagination, type PaginationProps } from './pagination';
 export { LocaleSwitcher, type LocaleSwitcherProps } from './locale-switcher';
 export {

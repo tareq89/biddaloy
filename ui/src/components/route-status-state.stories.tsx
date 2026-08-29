@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { RefreshCw, WifiOff } from 'lucide-react';
 
+import { darkDecorator } from '../../.storybook/dark-decorator';
 import { rtlDecorator } from '../../.storybook/rtl-decorator';
 
 import { RouteStatusState } from './route-status-state';
@@ -83,4 +84,50 @@ export const NarrowViewport: Story = {
       </div>
     ),
   ],
+};
+
+function renderStatusForks() {
+  return (
+    <div className="flex flex-col gap-6">
+      <section className="flex flex-col gap-2">
+        <p className="text-sm font-medium text-muted-foreground">offline fork ([8.12.1])</p>
+        <RouteStatusState
+          title="You're offline"
+          explanation="This page needs a connection to load. Check your network and try again — anything already loaded is still available."
+          retryLabel="Try again"
+          onRetry={() => {}}
+          onHome={() => {}}
+          icon={<WifiOff aria-hidden="true" />}
+        />
+      </section>
+      <section className="flex flex-col gap-2">
+        <p className="text-sm font-medium text-muted-foreground">update fork ([8.12.2])</p>
+        <RouteStatusState
+          title="A newer version is available"
+          explanation="This page is from an older version of the app. Reload to pick up the new one — anything you have already saved is safe."
+          retryLabel="Reload to update"
+          onRetry={() => {}}
+          onHome={() => {}}
+          icon={<RefreshCw aria-hidden="true" />}
+        />
+      </section>
+    </div>
+  );
+}
+
+/** Both forks `RouteErrorFallback` routes here, side by side. They share
+ * `EmptyState`'s dashed, flat card on purpose — neither is a fault, so
+ * neither wears `ErrorState`'s solid, elevated one ([8.13.11]). */
+export const StatusForks: StoryObj<typeof RouteStatusState> = {
+  tags: ['!autodocs'],
+  render: renderStatusForks,
+};
+
+/** Same pair on the dark half of every token pair. Its own story and
+ * excluded from autodocs because `darkDecorator` sets `data-theme` on
+ * `<html>` — see the decorator's own doc comment. */
+export const StatusForksDark: StoryObj<typeof RouteStatusState> = {
+  tags: ['!autodocs'],
+  decorators: [darkDecorator],
+  render: renderStatusForks,
 };

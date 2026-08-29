@@ -34,7 +34,7 @@
  * comprehensible.
  *
  * Composition only — `Popover`, `Dialog`, `Button` and the design
- * system's `text-muted-foreground`/`bg-muted`/`border-border`/
+ * system's `text-muted-foreground`/`bg-muted`/`border-border-subtle`/
  * `bg-destructive` tokens. No new primitive, no bespoke colour, and every
  * state carries an icon *and* words, never colour alone.
  */
@@ -268,7 +268,7 @@ export function SyncStatus({
             ) : (
               <>
                 {blockedCount > 0 && (
-                  <p className="rounded-md border border-border bg-muted p-2 text-sm text-muted-foreground">
+                  <p className="rounded-md border border-border-subtle bg-muted p-2 text-sm text-muted-foreground">
                     {t('sync.blockedExplanation')}
                   </p>
                 )}

@@ -79,4 +79,87 @@ describe('EmptyState', () => {
     );
     expect(container.querySelector('svg')).toBeNull();
   });
+
+  it('defaults to the "nothing yet" kind — a dashed outline, the shape every caller written before [8.13.11] already had', () => {
+    const { container } = render(
+      <EmptyState
+        title="No students"
+        explanation="Add a student to get started."
+        action={{ label: 'Add student', onClick: vi.fn() }}
+      />,
+    );
+    const root = container.querySelector('[data-slot="empty-state"]');
+    expect(root?.getAttribute('data-kind')).toBe('empty');
+    expect(root?.className).toContain('border-dashed');
+  });
+
+  it('renders "no results" as a visually distinct state — a solid outline, because the container is real and populated elsewhere', () => {
+    const { container } = render(
+      <EmptyState
+        kind="no-results"
+        title="No students match these filters"
+        explanation="Try a different class or clear the filters."
+        action={{ label: 'Clear filters', onClick: vi.fn() }}
+      />,
+    );
+    const root = container.querySelector('[data-slot="empty-state"]');
+    expect(root?.getAttribute('data-kind')).toBe('no-results');
+    expect(root?.className).not.toContain('border-dashed');
+  });
+
+  it('gives the "no results" icon its own well so the two kinds differ before a word of copy is read', () => {
+    const { container } = render(
+      <EmptyState
+        kind="no-results"
+        title="No students match these filters"
+        explanation="Try a different class or clear the filters."
+        action={{ label: 'Clear filters', onClick: vi.fn() }}
+        icon={<svg data-testid="icon" />}
+      />,
+    );
+    const wrapper = container.querySelector('[data-testid="icon"]')?.parentElement;
+    expect(wrapper?.className).toContain('bg-secondary');
+    expect(wrapper?.className).toContain('text-secondary-foreground');
+  });
+
+  it('renders no secondary action unless one is passed', () => {
+    render(
+      <EmptyState
+        title="No students"
+        explanation="Add a student to get started."
+        action={{ label: 'Add student', onClick: vi.fn() }}
+      />,
+    );
+    expect(screen.getAllByRole('button')).toHaveLength(1);
+  });
+
+  it('offers a second way out when one is passed, and calls it', async () => {
+    const onSecondary = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <EmptyState
+        kind="no-results"
+        title="No students match these filters"
+        explanation="Try a different class, or add the student you were looking for."
+        action={{ label: 'Clear filters', onClick: vi.fn() }}
+        secondaryAction={{ label: 'Add student', onClick: onSecondary }}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Add student' }));
+    expect(onSecondary).toHaveBeenCalledTimes(1);
+  });
+
+  it('is axe clean in the no-results kind too', async () => {
+    const { container } = render(
+      <EmptyState
+        kind="no-results"
+        title="No students match these filters"
+        explanation="Try a different class or clear the filters."
+        action={{ label: 'Clear filters', onClick: vi.fn() }}
+        secondaryAction={{ label: 'Add student', onClick: vi.fn() }}
+        icon={<svg data-testid="icon" aria-hidden="true" />}
+      />,
+    );
+    await expect(container).toHaveNoViolations();
+  });
 });

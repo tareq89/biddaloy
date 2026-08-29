@@ -41,7 +41,7 @@ export function WhatsappTemplateFields({
 }: WhatsappTemplateFieldsProps) {
   const { t } = useTranslation('communications');
   return (
-    <section className="flex flex-col gap-3 rounded-md border border-border p-3">
+    <section className="flex flex-col gap-3 rounded-md border border-border-subtle p-3">
       <p className="text-xs text-muted-foreground">{helperText}</p>
       <div className="grid gap-1.5">
         <Label htmlFor={`${idPrefix}-wa-template-name`}>{t('whatsapp.templateNameLabel')}</Label>

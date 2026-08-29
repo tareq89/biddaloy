@@ -43,7 +43,7 @@ export function RecipientList({ recipients, skipped }: RecipientListProps) {
         ) : (
           <table className="mt-2 w-full border-collapse text-sm">
             <thead>
-              <tr className="border-b border-border text-left text-muted-foreground">
+              <tr className="border-b border-border-subtle text-left text-muted-foreground">
                 <th scope="col" className="py-2 pr-3 font-medium">
                   {t('recipientList.guardianHeader')}
                 </th>
@@ -62,7 +62,7 @@ export function RecipientList({ recipients, skipped }: RecipientListProps) {
               {recipients.map((recipient) => (
                 <tr
                   key={`${recipient.guardian_id}-${recipient.medium}`}
-                  className="border-b border-border align-top"
+                  className="border-b border-border-subtle align-top"
                 >
                   <td className="py-2 pr-3">{recipient.guardian_name}</td>
                   <td className="py-2 pr-3">{t(`mediums.${recipient.medium}`)}</td>
@@ -98,7 +98,7 @@ export function RecipientList({ recipients, skipped }: RecipientListProps) {
         ) : (
           <table className="mt-2 w-full border-collapse text-sm">
             <thead>
-              <tr className="border-b border-border text-left text-muted-foreground">
+              <tr className="border-b border-border-subtle text-left text-muted-foreground">
                 <th scope="col" className="py-2 pr-3 font-medium">
                   {t('recipientList.guardianHeader')}
                 </th>
@@ -111,7 +111,7 @@ export function RecipientList({ recipients, skipped }: RecipientListProps) {
               {skipped.map((entry, index) => {
                 const reasonKey = skipReasonKey(entry.reason);
                 return (
-                  <tr key={entry.guardian_id ?? index} className="border-b border-border">
+                  <tr key={entry.guardian_id ?? index} className="border-b border-border-subtle">
                     <td className="py-2 pr-3">{entry.guardian_name ?? '—'}</td>
                     {/* Unknown reason: show the raw wire string rather than
                         nothing — never leave a skip unexplained. */}

@@ -67,4 +67,81 @@ describe('Button', () => {
     expect(screen.queryByText('Loading')).toBeNull();
     await expect(container).toHaveNoViolations();
   });
+
+  // [8.13.10]
+  it('the focus ring is a two-tone offset ring, not the old brand-on-brand 50%-alpha ring', () => {
+    render(<Button>Save</Button>);
+    const button = screen.getByRole('button', { name: 'Save' });
+    expect(button.className).toContain('focus-visible:ring-2');
+    expect(button.className).toContain('focus-visible:ring-ring');
+    expect(button.className).toContain('focus-visible:ring-offset-2');
+    expect(button.className).toContain('focus-visible:ring-offset-background');
+    expect(button.className).not.toContain('ring-ring/50');
+    expect(button.className).not.toContain('border-ring');
+  });
+
+  it('secondary renders a brand-tinted surface with a real border and hover, not the dead color-mix on a transparent border', () => {
+    render(<Button variant="secondary">Archive</Button>);
+    const button = screen.getByRole('button', { name: 'Archive' });
+    expect(button.className).toContain('bg-secondary');
+    expect(button.className).toContain('text-secondary-foreground');
+    // The functional 3:1 border token, not the decorative `-subtle` one —
+    // this border is the button's only explicit boundary.
+    expect(button.className).toContain('border-border');
+    expect(button.className).not.toContain('border-border-subtle');
+    expect(button.className).toContain('hover:bg-brand-100');
+    // Dark mode's hover/expanded states reuse the already-validated
+    // 'dark brand text on dark surface' pair rather than the light-only
+    // brand-700-on-brand-100 hover.
+    expect(button.className).toContain('dark:hover:bg-secondary');
+    expect(button.className).toContain('dark:aria-expanded:bg-secondary');
+    expect(button.className).not.toContain('color-mix');
+    expect(button.className).not.toContain('border-transparent');
+  });
+
+  it('disabled default and secondary buttons use an explicit muted token pair instead of a blanket opacity halving', () => {
+    render(
+      <>
+        <Button disabled>Save</Button>
+        <Button disabled variant="secondary">
+          Archive
+        </Button>
+      </>,
+    );
+    for (const button of screen.getAllByRole('button')) {
+      expect(button.className).toContain('disabled:bg-muted');
+      expect(button.className).toContain('disabled:text-muted-foreground');
+      expect(button.className).toContain('disabled:opacity-100');
+      // The base cva string still carries `disabled:opacity-50`; only
+      // `tailwind-merge`'s conflict resolution (via `cn()`) drops it in
+      // favour of this variant's `disabled:opacity-100`. Asserting its
+      // absence, not just the override's presence, is what would catch a
+      // regression that reintroduces the below-4.5:1 disabled-text bug this
+      // pair fixes — e.g. a reordered cva string or a `cn()` bypass that
+      // left both classes in the DOM together.
+      expect(button.className).not.toContain('disabled:opacity-50');
+    }
+  });
+
+  // Documents the deliberate exception noted in the base cva string's
+  // comment: variants this ticket did not re-point (outline/ghost/
+  // destructive/link) — and icon-only usage of any variant — keep the plain
+  // opacity halving, since they are not the solid-filled 4.5:1 text case
+  // `default`/`secondary` are.
+  it('disabled outline and ghost buttons still use the plain opacity treatment', () => {
+    render(
+      <>
+        <Button disabled variant="outline">
+          Cancel
+        </Button>
+        <Button disabled variant="ghost">
+          Dismiss
+        </Button>
+      </>,
+    );
+    for (const button of screen.getAllByRole('button')) {
+      expect(button.className).toContain('disabled:opacity-50');
+      expect(button.className).not.toContain('disabled:bg-muted');
+    }
+  });
 });

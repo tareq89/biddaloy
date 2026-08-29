@@ -69,7 +69,7 @@ export function BottomNav({ items, label, className }: BottomNavProps) {
     <nav
       aria-label={label}
       data-slot="bottom-nav"
-      className={cn('flex border-t border-border bg-background', className)}
+      className={cn('flex border-t border-border-subtle bg-card', className)}
     >
       {visible.map((item) => (
         <Link

@@ -119,7 +119,7 @@ export interface FormSectionProps {
  * "within {legend}" context for free, no `aria-*` wiring needed. */
 export function FormSection({ legend, children }: FormSectionProps) {
   return (
-    <fieldset className="flex min-w-0 flex-col gap-4 rounded-lg border border-border p-4">
+    <fieldset className="flex min-w-0 flex-col gap-4 rounded-lg border border-border-subtle p-4">
       <legend className="px-1 text-sm font-medium">{legend}</legend>
       {children}
     </fieldset>

@@ -200,7 +200,7 @@ export function YearFormDialog({
           </div>
 
           {confirmingIsCurrent && (
-            <div className="rounded-md border border-border bg-muted p-3 text-sm">
+            <div className="rounded-md border border-border-subtle bg-muted p-3 text-sm">
               <p>{t('form.confirmIsCurrentDescription')}</p>
               <div className="mt-2 flex gap-2">
                 <Button type="button" size="sm" onClick={handleConfirmIsCurrent}>

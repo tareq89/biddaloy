@@ -21,7 +21,7 @@ export function SkipLink({ targetId, children }: SkipLinkProps) {
   return (
     <a
       href={`#${targetId}`}
-      className="sr-only focus-visible:not-sr-only focus-visible:fixed focus-visible:start-2 focus-visible:top-2 focus-visible:z-50 focus-visible:rounded-md focus-visible:bg-background focus-visible:px-4 focus-visible:py-2 focus-visible:text-sm focus-visible:font-medium focus-visible:text-foreground focus-visible:shadow-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      className="sr-only focus-visible:not-sr-only focus-visible:fixed focus-visible:start-2 focus-visible:top-2 focus-visible:z-50 focus-visible:rounded-md focus-visible:bg-card focus-visible:px-4 focus-visible:py-2 focus-visible:text-sm focus-visible:font-medium focus-visible:text-foreground focus-visible:shadow-e3 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
     >
       {children}
     </a>

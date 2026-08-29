@@ -195,7 +195,7 @@ export function StudentForm<TInput>({
       {draftBannerVisible && (
         <div
           role="status"
-          className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/50 p-3 text-sm"
+          className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-border-subtle bg-muted/50 p-3 text-sm"
         >
           <span>{t('form.draftAvailable')}</span>
           <div className="flex gap-2">

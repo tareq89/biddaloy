@@ -115,6 +115,79 @@ const ARBITRARY_COLOUR_RE = new RegExp(
   'g',
 );
 
+/**
+ * Elevation is a token role, not a size. Tailwind's own shadow scale
+ * (`shadow-sm`, `shadow-md`, `shadow-lg`, …) bakes a fixed rgba value into the
+ * compiled rule, so a shadow written that way cannot follow the theme: the
+ * dark block can re-point `--shadow-e2` at a different value, but nothing can
+ * reach a literal `0 4px 6px -1px rgb(0 0 0 / 0.1)` that Tailwind already
+ * inlined. [8.13.9] routed every surface shadow through `--shadow-e1/e2/e3`
+ * (§5 of docs/architecture/09-design-direction.md); this gate keeps them there.
+ *
+ * `shadow-none` stays legal — it removes elevation rather than inventing one —
+ * and so do the `shadow-e*` tokens themselves. Variant prefixes are seen
+ * through, because `focus-visible:shadow-lg` is exactly as unthemed as a bare
+ * `shadow-lg`. Colour modifiers (`shadow-brand-600`) are already covered by the
+ * raw-palette check above, so this one only looks at the size scale.
+ *
+ * **`drop-shadow-*` is deliberately NOT banned here.** An earlier revision
+ * folded it in via a `(?:drop-)?` prefix, which made the gate demand a
+ * replacement that does not exist: there is no `--drop-shadow-e*` token, and
+ * `filter: drop-shadow()` cannot consume a `box-shadow` value, so
+ * `drop-shadow-md` had no legal spelling to move to. A gate with no green path
+ * is a gate people disable. If the design system ever grows a themed
+ * drop-shadow scale, add the tokens first and then add `drop-` back.
+ */
+const RAW_SHADOW_RE =
+  /(?:^|[^a-z-])(?:[a-z-]+:)*shadow-(?:2xs|xs|sm|md|lg|xl|2xl|inner)(?![a-z0-9-])/g;
+
+/**
+ * The named scale is only half of the escape hatch. `shadow-[0_1px_2px_rgb(0_0_0/0.1)]`
+ * inlines exactly the same untouchable literal, and it slipped through both
+ * gates: it is not a size keyword, so `RAW_SHADOW_RE` never saw it, and
+ * `ARBITRARY_COLOUR_RE` requires the `[` to be followed *immediately* by a hex
+ * or colour function, which an offset-first box-shadow value never is. That is
+ * precisely the "cannot follow the theme" failure this check exists to catch,
+ * written in the most direct way available.
+ *
+ * A bracket holding nothing but a `var()` reference is allowed: that IS the
+ * token system, just spelled long-hand. Pure colour literals are excluded from
+ * the lookahead so `shadow-[#000]` reports once, through the arbitrary-colour
+ * rule, rather than twice.
+ */
+const ARBITRARY_SHADOW_RE = new RegExp(
+  `(?:^|[^a-z-])(?:[a-z-]+:)*shadow-\\[(?!var\\(--[a-zA-Z0-9_-]+\\)\\]|#|rgba?\\(|hsla?\\(|oklch\\(|oklab\\()`,
+  'g',
+);
+
+/**
+ * Strip comments before scanning.
+ *
+ * The scan is a raw line match, so it could not tell a class attribute from
+ * prose *about* a class. That already cost real work: the explanatory comment
+ * in `ui/src/foundations/elevation.stories.tsx` had to be reworded around the
+ * gate rather than saying what it meant, and any future comment in `ui/src`
+ * that names `shadow-md` — including the one you are reading, in a file this
+ * check happens not to scan — would fail the build with an error pointing at
+ * documentation. `src/styles/density.spec.ts` already learned to strip
+ * comments before asserting on CSS; the same discipline applies here.
+ *
+ * Line numbers are preserved: a block comment is replaced by the newlines it
+ * spanned, so reported positions still point at the real line.
+ *
+ * `//` is only treated as a comment when it opens the line's content. That is
+ * deliberately conservative — a regex that stripped from any `//` to the end
+ * of the line would eat the tail of any string containing `https://`, which is
+ * a far more common way to hide a violation than a trailing comment is.
+ */
+export function stripComments(contents) {
+  return contents
+    .replace(/\/\*[\s\S]*?\*\//g, (block) => '\n'.repeat((block.match(/\n/g) ?? []).length))
+    .split('\n')
+    .map((line) => (/^\s*\/\//.test(line) ? '' : line))
+    .join('\n');
+}
+
 const SKIP_DIRS = new Set(['node_modules', 'dist', 'storybook-static', 'coverage', '.turbo']);
 
 function walk(dir, matches, files = []) {
@@ -178,74 +251,122 @@ function clientApps() {
   );
 }
 
-const apps = clientApps();
+/**
+ * Scan one file's contents and return the human-readable violations.
+ *
+ * Exported so `check-raw-palette.spec.mjs` can assert the *negative* cases —
+ * that a legal spelling stays green — as well as the positive ones. A gate
+ * that only ever gets tested by "does the repo pass today" cannot tell the
+ * difference between a rule that works and a rule that matches nothing.
+ */
+export function scanFile(displayPath, rawContents) {
+  const errors = [];
+  const contents = stripComments(rawContents);
 
-// Stories are included on purpose: a story is rendered UI, and the whole
-// point of the design system is that it obeys the same tokens everywhere.
-const targets = [
-  ...walk(join(pkgRoot, 'src'), isSource),
-  ...apps.flatMap((app) => [
-    ...walk(join(repoRoot, app, 'src'), isSource),
-    // Not every workspace member is guaranteed to have one; a missing entry
-    // point is not this gate's business to report.
-    ...(existsSync(join(repoRoot, app, 'index.html')) ? [join(repoRoot, app, 'index.html')] : []),
-  ]),
-];
-
-const errors = [];
-let scanned = 0;
-
-for (const file of targets) {
-  let contents;
-  try {
-    contents = readFileSync(file, 'utf8');
-  } catch {
-    errors.push(`${relative(repoRoot, file)} could not be read`);
-    continue;
-  }
-  scanned += 1;
   contents.split('\n').forEach((line, index) => {
     for (const match of line.matchAll(RAW_PALETTE_RE)) {
       // Trim the single leading boundary character the regex had to consume.
       const utility = match[0].replace(/^[^a-z]/, '');
       errors.push(
-        `${relative(repoRoot, file)}:${index + 1} uses the raw Tailwind palette class ` +
+        `${displayPath}:${index + 1} uses the raw Tailwind palette class ` +
           `\`${utility}\` — that colour comes from Tailwind's defaults, not from the ` +
           'design tokens, so it will not follow the palette. Use a token-backed class ' +
           '(bg-background, text-foreground, border-border-subtle, text-neutral-600, …).',
       );
     }
+    for (const match of line.matchAll(RAW_SHADOW_RE)) {
+      const utility = match[0].replace(/^[^a-z]/, '');
+      errors.push(
+        `${displayPath}:${index + 1} uses the raw Tailwind shadow scale ` +
+          `\`${utility}\` — Tailwind inlines that shadow's literal rgba value, so it ` +
+          'cannot follow the theme. Use an elevation token instead (shadow-e1 for a ' +
+          'resting card, shadow-e2 for a popover/menu, shadow-e3 for a dialog), or ' +
+          'shadow-none to remove elevation.',
+      );
+    }
+    for (const match of line.matchAll(ARBITRARY_SHADOW_RE)) {
+      const utility = match[0].replace(/^[^a-z]/, '');
+      errors.push(
+        `${displayPath}:${index + 1} hard-codes a literal shadow in ` +
+          `\`${utility}…\` — an inlined box-shadow value is exactly as unthemed as ` +
+          'shadow-md: the dark block cannot reach it. Use an elevation token ' +
+          '(shadow-e1/e2/e3), or shadow-none.',
+      );
+    }
     for (const match of line.matchAll(ARBITRARY_COLOUR_RE)) {
       const utility = match[0].replace(/^[^a-z]/, '');
       errors.push(
-        `${relative(repoRoot, file)}:${index + 1} hard-codes a literal colour in ` +
+        `${displayPath}:${index + 1} hard-codes a literal colour in ` +
           `\`${utility}…\` — an arbitrary value bypasses the token system entirely, ` +
           'so the palette cannot reach it at all. Use a token-backed class instead, ' +
           'or add the colour to tailwind.preset.ts if it is genuinely a new token.',
       );
     }
   });
+
+  return errors;
 }
 
-if (apps.length === 0) {
-  errors.push(
-    'no client-* app directories were found next to ui/ — the workspace glob has ' +
-      'moved, so no application source was scanned by this check',
+export function runCheck() {
+  const apps = clientApps();
+
+  // Stories are included on purpose: a story is rendered UI, and the whole
+  // point of the design system is that it obeys the same tokens everywhere.
+  const targets = [
+    ...walk(join(pkgRoot, 'src'), isSource),
+    ...apps.flatMap((app) => [
+      ...walk(join(repoRoot, app, 'src'), isSource),
+      // Not every workspace member is guaranteed to have one; a missing entry
+      // point is not this gate's business to report.
+      ...(existsSync(join(repoRoot, app, 'index.html')) ? [join(repoRoot, app, 'index.html')] : []),
+    ]),
+  ];
+
+  const errors = [];
+  let scanned = 0;
+
+  for (const file of targets) {
+    let contents;
+    try {
+      contents = readFileSync(file, 'utf8');
+    } catch {
+      errors.push(`${relative(repoRoot, file)} could not be read`);
+      continue;
+    }
+    scanned += 1;
+    errors.push(...scanFile(relative(repoRoot, file), contents));
+  }
+
+  if (apps.length === 0) {
+    errors.push(
+      'no client-* app directories were found next to ui/ — the workspace glob has ' +
+        'moved, so no application source was scanned by this check',
+    );
+  }
+
+  if (targets.length === 0) {
+    errors.push('no files were scanned — the target globs are wrong, so this check proves nothing');
+  }
+
+  return { errors, scanned, apps };
+}
+
+function main() {
+  const { errors, scanned, apps } = runCheck();
+
+  if (errors.length > 0) {
+    console.error('check-raw-palette: FAILED\n');
+    for (const error of errors) console.error(`  - ${error}`);
+    process.exit(1);
+  }
+
+  console.log(
+    `check-raw-palette: OK — ${scanned} files in ui/src and ${apps.length} client app(s) ` +
+      `(${apps.join(', ')}) carry no raw ${DEFAULT_HUES.length}-hue Tailwind palette ` +
+      'classes, no hard-coded literal colours and no raw Tailwind shadow-scale classes.',
   );
 }
 
-if (targets.length === 0) {
-  errors.push('no files were scanned — the target globs are wrong, so this check proves nothing');
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main();
 }
-
-if (errors.length > 0) {
-  console.error('check-raw-palette: FAILED\n');
-  for (const error of errors) console.error(`  - ${error}`);
-  process.exit(1);
-}
-
-console.log(
-  `check-raw-palette: OK — ${scanned} files in ui/src and ${apps.length} client app(s) ` +
-    `(${apps.join(', ')}) carry no raw ${DEFAULT_HUES.length}-hue Tailwind palette ` +
-    'classes and no hard-coded literal colours.',
-);

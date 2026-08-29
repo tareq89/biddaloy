@@ -238,7 +238,7 @@ function PortalOverview() {
       : t('children.meta', { className, section, roll });
 
   if (studentsQuery.isPending || duesQuery.isPending) {
-    return <PortalSkeleton label={t('loading.label')} />;
+    return <PortalSkeleton label={t('loading.label')} studentCount={studentsQuery.data?.length} />;
   }
 
   if (studentsQuery.isError || duesQuery.isError) {
@@ -285,17 +285,59 @@ function PortalOverview() {
   return <MultiChildView items={children} config={config} />;
 }
 
-function PortalSkeleton({ label }: { label: string }) {
+function PortalSkeleton({
+  label,
+  studentCount,
+}: {
+  label: string;
+  // `studentsQuery.data?.length` from the caller — defined once that
+  // query resolves, even while `duesQuery` is still pending. Undefined
+  // while `studentsQuery` is itself still pending, which is the only
+  // time the eventual branch (`MultiChildView` vs `SingleStudentView`)
+  // is genuinely unknown here.
+  studentCount: number | undefined;
+}) {
+  if (studentCount === 1) {
+    return (
+      // No `<h1>` while pending — see this file's header comment. The
+      // `aria-busy` region carries the state for a screen reader instead,
+      // so the frame is never silently blank.
+      // Mirrors `SingleStudentView`'s own frame: the name+meta header (not
+      // a `Card`), the hero `Card`, then `RecentPayments`' card shell —
+      // that query has its own pending skeleton, so only its shell height
+      // is approximated here.
+      <div className="flex max-w-2xl flex-col gap-3" aria-busy="true" aria-live="polite">
+        <span className="sr-only">{label}</span>
+        <div className="flex flex-col gap-0.5">
+          <Skeleton className="h-7 w-40" />
+          <Skeleton className="h-4 w-24" />
+        </div>
+        <Skeleton className="h-[6.5rem] w-full rounded-lg" />
+        <Skeleton className="h-24 w-full rounded-lg" />
+      </div>
+    );
+  }
+
   return (
     // No `<h1>` while pending — see this file's header comment. The
     // `aria-busy` region carries the state for a screen reader instead, so
     // the frame is never silently blank.
-    <div className="flex flex-col gap-3" aria-busy="true" aria-live="polite">
+    // `max-w-2xl` and `gap-3` are `MultiChildView`'s own container classes,
+    // and the three heights below are the boxes it actually renders: the
+    // hero `Card` (p-4 around a label, a `text-3xl` figure and a meta
+    // line), the uppercase section label, and a `ChildCard` (p-3.5 around
+    // a name row, a meta line and an amount/badge row). ([8.13.11])
+    //
+    // Also the fallback while `studentCount` is still unknown (neither
+    // query has resolved) — see this file's header comment on why a
+    // single student is the less common case, so a shape that's wrong for
+    // neither branch is wrong for both.
+    <div className="flex max-w-2xl flex-col gap-3" aria-busy="true" aria-live="polite">
       <span className="sr-only">{label}</span>
-      <Skeleton className="h-24 w-full rounded-lg" />
-      <Skeleton className="h-4 w-32" />
-      <Skeleton className="h-24 w-full rounded-lg" />
-      <Skeleton className="h-24 w-full rounded-lg" />
+      <Skeleton className="h-[7.25rem] w-full rounded-lg" />
+      <Skeleton className="mt-1 h-4 w-32" />
+      <Skeleton className="h-[6.25rem] w-full rounded-lg" />
+      <Skeleton className="h-[6.25rem] w-full rounded-lg" />
     </div>
   );
 }
@@ -500,7 +542,7 @@ function RecentPayments({
 
   return (
     <Card className="flex flex-col">
-      <h2 className="border-b border-border px-3.5 py-3 text-sm font-semibold">
+      <h2 className="border-b border-border-subtle px-3.5 py-3 text-sm font-semibold">
         {t('payments.title')}
       </h2>
 
@@ -538,7 +580,7 @@ function RecentPayments({
               <div
                 key={payment.id}
                 className={`flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 ${
-                  index > 0 ? 'border-t border-border' : ''
+                  index > 0 ? 'border-t border-border-subtle' : ''
                 }`}
               >
                 <div className="flex min-w-0 flex-col">
@@ -569,7 +611,7 @@ function RecentPayments({
               </div>
             );
           })}
-          <div className="border-t border-border px-3.5 py-2.5">
+          <div className="border-t border-border-subtle px-3.5 py-2.5">
             <Link to="/portal/fees" className="text-sm text-primary underline">
               {t('payments.seeAll')}
             </Link>

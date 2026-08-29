@@ -8,6 +8,11 @@ export interface QueryStateProps<T> {
   query: UseQueryResult<T, unknown>;
   forbiddenMessage: string;
   errorMessage: string;
+  /** What to show while the query is pending. Defaults to the three
+   * summary cards `OutstandingFeesStep` renders once the fee summary
+   * arrives — same grid, same card height — so the amount field below it
+   * does not jump down the screen mid-load ([8.13.11], CLS <= 0.1). */
+  skeleton?: ReactNode;
   children: (data: T) => ReactNode;
 }
 
@@ -25,18 +30,13 @@ export function QueryState<T>({
   query,
   forbiddenMessage,
   errorMessage,
+  skeleton = <OutstandingFeesSkeleton />,
   children,
 }: QueryStateProps<T>) {
   const { t } = useTranslation('common');
 
   if (query.isPending) {
-    return (
-      <div className="flex flex-col gap-2" aria-hidden="true">
-        <Skeleton className="h-6 w-full" />
-        <Skeleton className="h-6 w-full" />
-        <Skeleton className="h-6 w-2/3" />
-      </div>
-    );
+    return <>{skeleton}</>;
   }
 
   if (query.isError) {
@@ -51,4 +51,20 @@ export function QueryState<T>({
   }
 
   return <>{children(query.data)}</>;
+}
+
+/**
+ * Mirrors `outstanding-fees-step.tsx`'s own summary grid: three cards, one
+ * `sm:grid-cols-3` row, each `p-4` around a `text-sm` label and a
+ * `text-lg` figure. `h-[5.125rem]` is that sum (16 + 22 + 26 + 16 + 2px of
+ * border), so the placeholder occupies exactly the box the real cards take.
+ */
+function OutstandingFeesSkeleton() {
+  return (
+    <div aria-hidden="true" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <Skeleton className="h-[5.125rem] rounded-lg" />
+      <Skeleton className="h-[5.125rem] rounded-lg" />
+      <Skeleton className="h-[5.125rem] rounded-lg" />
+    </div>
+  );
 }

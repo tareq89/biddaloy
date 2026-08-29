@@ -304,7 +304,7 @@ function BatchDetail() {
               </div>
             </dl>
             {batch.message_template !== null && (
-              <div className="rounded-md border border-border p-3">
+              <div className="rounded-md border border-border-subtle p-3">
                 <h2 className="text-sm font-semibold">{t('batches.detail.templateLabel')}</h2>
                 <p className="mt-1 text-sm whitespace-pre-wrap">{batch.message_template}</p>
               </div>

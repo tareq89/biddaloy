@@ -265,10 +265,20 @@ export const CONTRAST_PAIRS = [
   //
   // [8.13.3] re-pointed both. `muted` stopped following `--color-surface` and
   // landed on neutral-100, so its row moved with it and is still genuinely
-  // new. `secondary` went the other way: it follows `--color-surface`, which
-  // the ground/surface inversion moved to white, so its pair collapsed into
-  // 'neutral-900 text on white' above and its row was removed rather than
-  // duplicated — per the rule this comment states.
+  // new. `secondary` went the other way: it followed `--color-surface`,
+  // which the ground/surface inversion moved to white, so its pair collapsed
+  // into 'neutral-900 text on white' above and its row was removed rather
+  // than duplicated — per the rule this comment states.
+  //
+  // [8.13.10] re-pointed `secondary` a second time, this time off
+  // `--color-surface` entirely: white-on-white measured ~1.00:1 with a
+  // `border-transparent` variant giving no boundary either (SC 1.4.11). It
+  // now follows `--color-brand-50` / `--color-brand-700`, so its rest-state
+  // pair is 'brand-700 on brand-50 (selected nav item)' below (reused, not
+  // duplicated) and its hover state gets the new row just after it. Dark
+  // mode lifts `secondary` to the elevated surface with `dark.brand` text —
+  // that pair already exists as 'dark brand text on dark surface' below, so
+  // it collapses the same way `secondary`'s old row once did.
   {
     name: 'muted-foreground on muted (neutral-600 on neutral-100)',
     fg: neutral[600],
@@ -282,6 +292,10 @@ export const CONTRAST_PAIRS = [
   { name: 'brand-700 on brand-50 (selected nav item)', fg: brand[700], bg: brand[50], min: 4.5 },
   { name: 'brand-600 on light ground', fg: brand[600], bg: light.bg, min: 4.5 },
   { name: 'dark brand text on dark surface', fg: dark.brand, bg: dark.surface, min: 4.5 },
+  // [8.13.10]: secondary variant's hover state (`hover:bg-brand-100`) is a
+  // genuinely new numeric pair — brand-100 is lighter than brand-50, so this
+  // is not the rest-state row above recomputed.
+  { name: 'brand-700 on brand-100 (secondary hover)', fg: brand[700], bg: brand[100], min: 4.5 },
 ] as const;
 
 export const biddaloyPreset = {
