@@ -30,8 +30,10 @@ never be disjoint.
 ```
 
 - **epic number or link** → full run.
-- **`plan <epic>`** → group the epic, publish every plan to its issue, write no
-  code, stop. Mirrors `/implement-issue plan`.
+- **`plan <epic>`** → run steps 0–3 only: resolve, plan every sub-issue,
+  publish each plan to its GitHub issue, partition, then stop at GATE 1 without
+  writing code. Mirrors `/implement-issue plan`. A later full run picks up the
+  published plans instead of redoing them.
 - **`resume`** (or no argument with a state file present) → read
   `.implement-epic-state.md` and continue.
 - **`--groups N`** → cap parallel lanes (default 3).
@@ -48,9 +50,10 @@ defeats its purpose, since the user has to review it.
 
 ```mermaid
 flowchart TB
-    E["Epic #364"] --> DG["Dependency graph\ndeclared + file-overlap + hot paths"]
-    DG --> W["Waves → Groups\n(file-disjoint lanes)"]
-    W --> G1{{"GATE 1\nuser approves groups"}}
+    E["Epic #364"] --> DG["Provisional graph\ndeclared edges + hot paths"]
+    DG --> P["Plan EVERY sub-issue\npublished to GitHub · file lists extracted"]
+    P --> W["Waves → Groups\npartitioned on real file lists"]
+    W --> G1{{"GATE 1\nuser approves groups\n(plan mode stops here)"}}
     G1 --> A1["group agent w1-g1\nworktree"]
     G1 --> A2["group agent w1-g2\nworktree"]
     G1 --> A3["group agent w1-g3\nworktree"]
@@ -87,11 +90,14 @@ this skill is specified to work.
 ## Step 0 — Resolve the epic
 
 ```bash
-gh api repos/<owner>/<repo>/issues/<epic>/sub_issues --jq '.[] | "\(.number)|\(.title)|\(.state)"'
+gh api --paginate repos/<owner>/<repo>/issues/<epic>/sub_issues \
+  --jq '.[] | "\(.number)|\(.title)|\(.state)"'
 ```
 
 Sub-issues are **native** in this repo — read them from that endpoint, don't
-scrape the epic body's table. Skip anything already closed.
+scrape the epic body's table. Skip anything already closed. `--paginate` is not
+optional: the endpoint returns 30 per page, so a large epic silently loses its
+tail without it, and a missing ticket is invisible rather than loud.
 
 If the epic has no native sub-issues, fall back to the body's issue links and
 say which source you used.
@@ -103,7 +109,7 @@ Three sources, in descending confidence:
 1. **Declared.** Sub-issue bodies state their edges in prose: *"Depends on
    13.1"*, *"**Blocks every other sub-issue**"*, *"Depends on #410"*. Parse
    every body and extract them. These are authoritative.
-2. **Predicted file overlap.** After planning (step 4), each plan names the
+2. **Predicted file overlap.** After planning (step 2), each plan names the
    files it will touch. Two tickets sharing a file are dependent even when no
    body says so — e.g. a sidebar ticket and a header ticket both editing
    `ui/src/components/app-shell.tsx`. This is the edge type that actually
@@ -119,12 +125,34 @@ Three sources, in descending confidence:
    | `ui/src/api/schema.d.ts` | generated + committed |
    | `client-admin/src/routeTree.gen.ts` | generated + committed |
 
-Chicken-and-egg note: source 2 needs plans, and plans are cheaper once grouped.
-Resolve it by grouping on sources 1 and 3 first, then **re-checking after
-plans exist**. If a plan reveals an overlap that breaks the partition, move the
-ticket to the owning lane and say so — do not start two lanes on the same file.
+Source 2 is the one that actually prevents conflicts, and it does not exist
+until every ticket has a plan. That ordering is not negotiable: a partition
+built on sources 1 and 3 alone is a **guess**, and discovering an overlap after
+workers are already editing separate worktrees means two lanes have been writing
+the same file for however long the discovery took. Step 2 therefore plans the
+whole epic before any implementation starts.
 
-## Step 2 — Partition into waves and groups
+## Step 2 — Plan the whole epic first (discovery)
+
+Build a **provisional** grouping from sources 1 and 3 — enough to order the
+planning work, not to run implementation on. Then plan every open sub-issue
+before any code is written:
+
+- Dispatch `issue-planner` per ticket. These are independent and cheap to
+  parallelize; batch them, respecting the same concurrency cap as groups.
+- Each plan is published to its own GitHub issue as a `## Plan — <id>` comment.
+  That is the durable artifact; it survives compaction, and step 5's workers
+  read it instead of re-planning.
+- Skip any ticket that already carries a current plan comment.
+- From each plan, extract **the list of files it intends to touch**. If a plan
+  doesn't name its files, send it back for revision — the partition depends on
+  it, and so does the workers' territory rule.
+
+`/implement-epic plan <epic>` stops here, after GATE 1, having published every
+plan and written no code. That is the whole of its contract: this phase, then
+stop.
+
+## Step 3 — Partition into waves and groups
 
 - A **wave** is a dependency level: everything in wave N+1 depends on something
   in wave N. Waves run one after another.
@@ -155,12 +183,14 @@ If a needed component genuinely does not exist, extend the design system
 following its own conventions rather than inventing a local one, and report the
 addition so it lands in the PR description.
 
-Consistency is checked in the review pass (step 4's second reviewer), not by a
+Consistency is checked in the review pass (step 5's second reviewer), not by a
 human gate before the work starts.
 
 ## GATE 1 — user approves the plan
 
-Before spawning anything, print and stop for approval:
+Every plan is published by now, so this gate reviews a partition built on real
+file lists rather than a guess. Before spawning any implementation worker,
+print and stop for approval:
 
 - waves and groups, with each group's ticket queue and territory line
 - the serialized hot-path lane, if any
@@ -168,10 +198,23 @@ Before spawning anything, print and stop for approval:
 
 Do not spawn on assumed approval.
 
-## Step 3 — Write the state file
+## Step 4 — Write the state file
 
-`.implement-epic-state.md` at the repo root, gitignored via
-`.git/info/exclude`:
+`.implement-epic-state.md` at the repo root. `.git/info/exclude` is per-clone,
+so add the rule before the first write rather than assuming it exists —
+otherwise a later `git add -A` in a fresh clone stages the state file into
+someone's PR:
+
+```bash
+grep -qxF '.implement-epic-state.md' .git/info/exclude \
+  || echo '.implement-epic-state.md' >> .git/info/exclude
+```
+
+Each worktree has its own exclude file; the workers inherit this one only if
+they were created from a clone that already has it, so re-run the same
+idempotent line in any worktree that writes state.
+
+The file:
 
 ```markdown
 # Epic 364 — UX & Interaction Layer
@@ -196,7 +239,7 @@ Update after **every** completed ticket and every state change, not once per
 group. This plus `git log` is how a fresh session reconstructs position after
 compaction or a usage limit.
 
-## Step 4 — Run the groups
+## Step 5 — Run the groups
 
 Spawn one `epic-group-worker` subagent per group in the current wave, **in a
 single message so they run concurrently**, each with
@@ -206,7 +249,10 @@ Worktree isolation is not optional. Parallel agents sharing one working tree
 will `git checkout` over each other within seconds.
 
 Give each agent: its ticket queue in order, its base branch, its branch-name
-prefix, its territory line, and the file cap. Its definition
+prefix, its territory line, and the file cap. Every ticket already has a
+published plan from step 2, so the worker's planning step is a lookup, not a
+fresh plan — it only re-dispatches the planner when implementation proves a
+plan wrong. Its definition
 (`.claude/agents/epic-group-worker.md`) carries the rest of the contract.
 
 ### What group agents do NOT do — and why
@@ -271,7 +317,7 @@ A failed ticket blocks only its own group's downstream tickets. Mark it
 report at the end. One bad ticket never stalls the fleet, and never silently
 disappears.
 
-## Step 5 — Integration
+## Step 6 — Integration
 
 Every group green in isolation does not mean the union is green. Before any PR:
 
@@ -282,11 +328,35 @@ git checkout -b epic/<slug>/integration main
 yarn ci:local
 ```
 
-Red integration is fixed **now**, on the branch that caused it, before PRs
-exist. Never at merge time.
+Red integration is fixed **now**, before PRs exist — never at merge time.
 
-Commit the regenerated artifacts here, as their own commit, on the last group's
-head branch, so they arrive with the epic rather than as an orphan.
+### Everything fixed here must reach the PR heads
+
+The integration branch is throwaway; the PRs come from the group chains. So a
+fix made *only* on the integration branch is tested and then thrown away, and
+`main` receives the untested version. Nothing in the merge order catches this,
+because each chain merges green on its own.
+
+For every change made during integration:
+
+1. Apply it to the **chain that owns the file** — the same territory rule the
+   workers followed. Cherry-pick it onto that chain's head, or make it there
+   and re-merge.
+2. Regenerated artifacts (`schema.d.ts`, `routeTree.gen.ts`) go as their own
+   commit on the chain that changed the endpoints, DTOs or routes behind them —
+   not on whichever chain happens to be last.
+3. Re-merge the updated heads into the integration branch and re-run
+   `yarn ci:local`.
+
+Then verify the transfer landed rather than assuming it: the integration tree
+and the merge of the PR heads must be identical.
+
+```bash
+git diff --stat epic/<slug>/integration <last-merged-head>   # expect: empty
+```
+
+A non-empty diff means something green exists only on the integration branch.
+Find it and move it before opening any PR.
 
 ## GATE 2 — integration green
 
@@ -294,7 +364,7 @@ Report the integration result, the full branch/PR table, and total files
 changed per chain. Stop for approval before opening PRs — a PR is
 outward-facing and hard to unpublish.
 
-## Step 6 — Open the PRs
+## Step 7 — Open the PRs
 
 The orchestrator opens them, never the agents.
 
@@ -307,7 +377,7 @@ The orchestrator opens them, never the agents.
   order.
 - Record every PR number and timestamp in the state file as it opens.
 
-## Step 7 — CodeRabbit and CI
+## Step 8 — CodeRabbit and CI
 
 Use the `pr-fix` skill's semantics rather than restating them. **Cap: 3 rounds
 per PR.** Each round reads unresolved review comments and failing checks, fixes,
