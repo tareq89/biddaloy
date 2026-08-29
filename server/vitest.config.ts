@@ -9,12 +9,24 @@ export default defineConfig({
   // DTO. SWC does emit it; this is the standard NestJS+Vitest fix.
   plugins: [swc.vite()],
   test: {
-    // Test file patterns
-    include: ['src/**/*.spec.ts', 'src/**/*.integration.spec.ts', 'src/**/*.e2e-spec.ts'],
+    // Test file patterns. `test/*.integration.spec.ts` (not `src/`) covers
+    // this suite's own guard specs — e.g. reset-order.integration.spec.ts —
+    // which validate test infrastructure itself, not application code.
+    include: [
+      'src/**/*.spec.ts',
+      'src/**/*.integration.spec.ts',
+      'src/**/*.e2e-spec.ts',
+      'test/*.integration.spec.ts',
+    ],
 
     // Environment
     environment: 'node',
     globals: true,
+
+    // Runs once per `vitest run` invocation, before any spec file's worker
+    // starts: migrates the schema and seeds baseline data exactly once
+    // instead of once per spec file. See test/global-setup.ts.
+    globalSetup: ['./test/global-setup.ts'],
 
     // Setup runs before all tests
     setupFiles: ['./test/setup.ts'],
@@ -50,19 +62,17 @@ export default defineConfig({
       },
     },
 
-    // Integration and E2E tests run sequentially — `singleThread` alone
-    // only forces one worker *thread*; Vitest still runs multiple test
-    // *files*' beforeAll/beforeEach concurrently within that thread by
-    // default, which raced `clearTransactionalTables`'s TRUNCATEs against
-    // each other (and against another file's still-running migrations)
-    // on the one shared Postgres test database, producing real deadlocks
-    // and "relation does not exist" failures.
+    // Integration and E2E tests run sequentially — one file at a time — so
+    // `clearTransactionalTables`'s DELETEs never race against each other on
+    // the one shared Postgres test database, which produced real deadlocks
+    // and "relation does not exist" failures otherwise.
+    //
+    // `fileParallelism: false` is the whole mechanism: Vitest's own docs say
+    // it "will override `maxWorkers` option to `1`", so an explicit
+    // `maxWorkers` here would be redundant. This previously also set
+    // `poolOptions.threads.singleThread`, which Vitest 4 removed — it was a
+    // no-op that only printed a DEPRECATED warning.
     pool: 'threads',
-    poolOptions: {
-      threads: {
-        singleThread: true,
-      },
-    },
     fileParallelism: false,
   },
   resolve: {
