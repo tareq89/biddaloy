@@ -90,12 +90,36 @@ export type TypeStep = keyof typeof typography.ramp;
  *
  * `fg` is verified at >=4.5:1 against both `#ffffff` and its own `bg`. `bg`
  * is a light tint meant only as a badge background, never as a text colour.
+ *
+ * `bgDark` is [8.13.12]'s dark-mode counterpart to `bg` — computed (not
+ * eyeballed) so `fgDark` clears >=4.5:1 against it (verified below in
+ * CONTRAST_PAIRS). Why a dark-mode `bg` override exists at all — `status-
+ * badge.tsx` has no `dark:` variant of its own — is
+ * docs/architecture/09-design-direction.md §3.5.1.
  */
 export const status = {
-  paid: { fg: '#15803d', bg: '#dcfce7', fgDark: '#4ade80', icon: 'check-circle' },
-  partial: { fg: '#0e7490', bg: '#cffafe', fgDark: '#22d3ee', icon: 'circle-half' },
-  due: { fg: '#b45309', bg: '#fef3c7', fgDark: '#fbbf24', icon: 'clock' },
-  overdue: { fg: '#b91c1c', bg: '#fee2e2', fgDark: '#f87171', icon: 'alert-triangle' },
+  paid: {
+    fg: '#15803d',
+    bg: '#dcfce7',
+    fgDark: '#4ade80',
+    bgDark: '#052e16',
+    icon: 'check-circle',
+  },
+  partial: {
+    fg: '#0e7490',
+    bg: '#cffafe',
+    fgDark: '#22d3ee',
+    bgDark: '#083344',
+    icon: 'circle-half',
+  },
+  due: { fg: '#b45309', bg: '#fef3c7', fgDark: '#fbbf24', bgDark: '#451a03', icon: 'clock' },
+  overdue: {
+    fg: '#b91c1c',
+    bg: '#fee2e2',
+    fgDark: '#f87171',
+    bgDark: '#450a0a',
+    icon: 'alert-triangle',
+  },
 } as const;
 
 /**
@@ -256,6 +280,24 @@ export const CONTRAST_PAIRS = [
   { name: 'partial fgDark on dark bg', fg: status.partial.fgDark, bg: dark.bg, min: 4.5 },
   { name: 'due fgDark on dark bg', fg: status.due.fgDark, bg: dark.bg, min: 4.5 },
   { name: 'overdue fgDark on dark bg', fg: status.overdue.fgDark, bg: dark.bg, min: 4.5 },
+  // [8.13.12]: `status-badge.tsx` renders `fgDark` on `bgDark`, not on
+  // `dark.bg` — the pairs above prove the text alone survives the page
+  // ground, these prove the actual badge (text-on-tint) is legible now that
+  // dark mode is reachable.
+  { name: 'paid fgDark on paid bgDark', fg: status.paid.fgDark, bg: status.paid.bgDark, min: 4.5 },
+  {
+    name: 'partial fgDark on partial bgDark',
+    fg: status.partial.fgDark,
+    bg: status.partial.bgDark,
+    min: 4.5,
+  },
+  { name: 'due fgDark on due bgDark', fg: status.due.fgDark, bg: status.due.bgDark, min: 4.5 },
+  {
+    name: 'overdue fgDark on overdue bgDark',
+    fg: status.overdue.fgDark,
+    bg: status.overdue.bgDark,
+    min: 4.5,
+  },
   // [8.1.3]'s shadcn vocabulary bridge (globals.css) reuses existing tokens
   // under new names — most pairs are mathematically identical to one already
   // above (e.g. --primary-foreground on --primary is the white-on-brand

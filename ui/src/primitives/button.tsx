@@ -84,8 +84,18 @@ const buttonVariants = cva(
           'bg-secondary text-secondary-foreground border-border hover:bg-brand-100 aria-expanded:bg-brand-100 dark:hover:bg-secondary dark:aria-expanded:bg-secondary aria-expanded:text-secondary-foreground disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100',
         ghost:
           'hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50',
+        // Dark mode's rest/hover fills are the solid `status-overdue`
+        // pair, not an alpha blend of `--color-destructive` over
+        // whatever's behind the button — `bg-destructive/20` composited
+        // onto a dialog footer's own translucent surface reads as a
+        // muddy red close enough in luminance to `text-destructive`
+        // (itself `--color-status-overdue-fg` in dark mode) to fail
+        // 4.5:1 (measured 3.94:1 inside a `DialogFooter`, axe-flagged).
+        // `status-overdue-fg` on `status-overdue-bg` is the same pair
+        // already in CONTRAST_PAIRS as 'overdue fgDark on overdue
+        // bgDark' — reused, not duplicated.
         destructive:
-          'bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40',
+          'bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-status-overdue-bg dark:hover:bg-status-overdue-bg dark:focus-visible:ring-destructive/40',
         link: 'text-primary underline-offset-4 hover:underline',
       },
       size: {

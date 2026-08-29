@@ -467,11 +467,101 @@ a half-dark UI. **#348 adds one line to `globals.css`, so it lands before
 (This is the form Tailwind v4 documents for attribute-driven dark mode;
 verify against the installed 4.x minor at implementation time.)
 
+### 3.4.2 Runtime resolution — one source of truth, no cache
+
+[8.13.12]'s toggle (`ui/src/theme/`) resolves a `Theme` from two signals:
+
+```mermaid
+flowchart LR
+  choice["localStorage: an explicit choice?"] -->|yes| use["use it — explicit always wins"]
+  choice -->|no| os["prefers-color-scheme"]
+  os -->|dark| dark["dark"]
+  os -->|light| light["light"]
+```
+
+`theme-storage.ts`'s `resolveTheme(stored, systemPrefersDark)` is that whole
+diagram in one line: `stored ?? (systemPrefersDark ? 'dark' : 'light')`.
+`theme-provider.tsx`'s `useTheme()` deliberately holds **no cached `Theme`**
+of its own — every read recomputes from storage + OS preference, so a
+component can never render a value that has drifted from what
+`localStorage`/`matchMedia` actually say. The one place this matters in
+practice: `setExplicitTheme()` applies `computeTheme()` (the recomputed
+result) to the DOM, not the raw requested value — so if `persistTheme()`
+silently loses the write (quota exceeded, disabled storage), the DOM and
+every future `getSnapshot()` read still agree with each other, instead of
+the DOM briefly showing a choice that storage never actually recorded.
+
+`client-admin/index.html`'s inline boot script re-implements the read half
+of this in plain JS, to avoid a flash of the wrong theme before any bundle
+has loaded — see that file's own comment, and keep the two in sync by hand
+if the resolution rule ever changes.
+
+### 3.4.3 Storybook: two mechanisms, one DOM attribute, a fixed mount order
+
+Dark tokens live behind `:root[data-theme="dark"]` (§3.4.1), so nothing but
+`document.documentElement` can reach them — a class or attribute on a
+wrapping `<div>` cannot. Two independent pieces of Storybook config both
+mutate that same document-level attribute, for different reasons:
+
+| Mechanism              | Purpose                                                                           | Lives in                        |
+| ---------------------- | --------------------------------------------------------------------------------- | ------------------------------- |
+| Toolbar `theme` global | Browse the whole component tree in one theme at a time                            | `.storybook/preview.tsx`        |
+| `darkDecorator`        | Pin one story dark regardless of the toolbar — a fixed reference/regression story | `.storybook/dark-decorator.tsx` |
+
+Storybook composes the toolbar's preview-level decorator **outside** any
+story-level `darkDecorator`, but React fires mount effects inner-before-outer
+— so on a story using both, `darkDecorator`'s effect wins the DOM write
+first, then the toolbar's effect immediately overwrites it:
+
+```mermaid
+sequenceDiagram
+    participant Dark as darkDecorator's effect (story-level, inner)
+    participant Toolbar as toolbar's effect (preview-level, outer)
+    participant DOM as document.documentElement
+    Dark->>DOM: data-theme = "dark"
+    Toolbar->>DOM: data-theme = (toolbar's current setting)
+    Note over DOM: Story now shows whatever the toolbar says,<br/>not "dark" — the fixed-dark story silently<br/>stopped being fixed.
+```
+
+The fix is an opt-out, not a mount-order change: every story using
+`darkDecorator` must also spread `darkDecoratorParameters` (`{ theme:
+'fixed' }`) into its own `parameters`, which tells the toolbar's effect to
+skip that story entirely. `dark-decorator.tsx`'s own file comment is the
+canonical explanation (including the exported constant, so a consumer can't
+drift by retyping the literal) and the warning that this already broke
+silently once — a code-review catch after [8.13.12] missed 4 of 9
+consumers.
+
 ### 3.5 Status colours — unchanged
 
 All four states keep their existing `fg` / `bg` / `fgDark` values and their
 paired icons (`check-circle`, `circle-half`, `clock`, `alert-triangle`).
 Colour is never the only signal. This epic does not touch them.
+
+### 3.5.1 Dark-mode status tokens — an explicit override, not a `dark:` variant
+
+`status-badge.tsx` renders `text-status-*-fg` on `bg-status-*-bg`
+unconditionally — it never grew a `dark:` variant of its own. In light mode
+`-bg` is a light pastel tint (`paid` = `#dcfce7`), which is illegible under
+dark tokens if inherited as-is. [8.13.12] adds a dark-scope override for
+both `-fg` and `-bg` in `globals.css`'s `:root[data-theme="dark"]` block —
+deep, desaturated tints rather than the light pastels above, **computed, not
+eyeballed**, so each `fgDark` clears 4.5:1 against its own `bgDark`:
+
+| Status  | Light `bg` | Dark `bg` |
+| ------- | ---------- | --------- |
+| paid    | `#dcfce7`  | `#052e16` |
+| partial | `#cffafe`  | `#083344` |
+| due     | `#fef3c7`  | `#451a03` |
+| overdue | `#fee2e2`  | `#450a0a` |
+
+`tailwind.preset.ts`'s `status.*.bgDark` doc comment carries the exact
+ratios; `check-contrast.mjs` asserts every one of these dark-scope values
+against the compiled CSS output (not just the source `tailwind.preset.ts`
+object), the same "verify the compiled artifact" discipline §3.6 and the
+elevation gate (§5) both use — a token that looks declared and reads as
+working code but emits nothing is the specific failure mode this epic kept
+finding.
 
 ### 3.6 `CONTRAST_PAIRS` — what actually changes in the file
 

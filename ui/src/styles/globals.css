@@ -285,7 +285,8 @@
   /* Fee/invoice/payment status. Each pairs a colour with a non-colour
      affordance (icon) in tailwind.preset.ts's `status` export — the colour
      alone is not a sufficient signal for red/green colour-vision deficiency.
-     `-bg` tints are light-mode only for now; see the dark-mode block below. */
+     These `-bg` tints are the light-mode pastels; the dark-mode block below
+     overrides them with darker, desaturated tints of their own. */
   --color-status-paid-fg: #15803d;
   --color-status-paid-bg: #dcfce7;
   --color-status-partial-fg: #0e7490;
@@ -340,7 +341,7 @@
    * presentation follows automatically from the referenced token's own
    * override — no separate dark entries needed here.
    *
-   * card, popover, chart-N and sidebar-N have no bespoke identity in this
+   * card, popover and chart-N have no bespoke identity in this
    * design yet; they alias to the closest existing semantic token rather
    * than introduce unreviewed colours. Revisit once a component actually
    * needs them to look different from what they're aliased to.
@@ -381,14 +382,6 @@
   --color-chart-3: var(--color-status-due-fg);
   --color-chart-4: var(--color-status-overdue-fg);
   --color-chart-5: var(--color-brand);
-  --color-sidebar: var(--color-bg);
-  --color-sidebar-foreground: var(--color-text-primary);
-  --color-sidebar-primary: var(--color-brand);
-  --color-sidebar-primary-foreground: var(--color-neutral-0);
-  --color-sidebar-accent: var(--color-surface);
-  --color-sidebar-accent-foreground: var(--color-text-primary);
-  --color-sidebar-border: var(--color-border-functional);
-  --color-sidebar-ring: var(--color-brand);
 
   /**
    * Elevation — three steps, each with a job (design contract §5):
@@ -547,11 +540,13 @@
 }
 
 /**
- * Dark-mode token values, defined now per [8.1.2] but deliberately not yet
- * reachable: nothing in any SPA sets `data-theme="dark"` on the root element
- * today. This is intentionally not `@media (prefers-color-scheme: dark)` —
- * that selector activates for every user with a dark OS preference right
- * now, which would expose dark mode rather than merely prepare for it.
+ * Dark-mode token values, defined per [8.1.2] and exposed by [8.13.12]'s
+ * theme toggle. Selector is `:root[data-theme="dark"]`, not `@media
+ * (prefers-color-scheme: dark)` directly — the media query would activate
+ * for every dark-OS user regardless of an explicit light choice, which the
+ * toggle's contract does not allow. How `data-theme` actually gets set —
+ * explicit choice vs. OS preference — is
+ * docs/architecture/09-design-direction.md §3.4.2.
  *
  * Only semantic role tokens are overridden here — never `--color-neutral-*`
  * or `--color-brand-*`. Redefining the raw scale would flip what
@@ -590,24 +585,24 @@
   --color-secondary: var(--color-surface);
   --color-secondary-foreground: var(--color-brand);
 
-  /* `--color-sidebar-primary` follows `--color-brand`, so in dark mode it is
-     `brand-400`. Its foreground therefore needs exactly the same correction as
-     `--color-primary-foreground` above: white on `brand-400` is 2.68:1, while
-     `neutral-900` on it is 6.66:1. Nothing renders `bg-sidebar-primary` today
-     (see §3.3 item 4 — the whole `--color-sidebar-*` group is currently dead
-     code that #353 will either wire up or delete), but a token that is wrong
-     only while unused is still wrong, and this one sits three lines from its
-     own fix. */
-  --color-sidebar-primary-foreground: var(--color-neutral-900);
+  /* [8.13.12]: the whole `--color-sidebar-*` group was deleted from the
+     `@theme` block above — nothing ever rendered it, no gate guarded it, and
+     a dead token cannot be verified honestly. A future sidebar re-skin that
+     wants a bespoke sidebar identity should reintroduce the tokens together
+     with the component that consumes them. */
 
-  /* -bg tints intentionally unchanged: a production dark theme wants darker,
-     desaturated tints here rather than the light pastels above, but that is
-     unverified work this ticket does not need yet since dark mode is not
-     exposed. Revisit when a theme toggle actually ships. */
+  /* [8.13.12]: `-fg`/`-bg` dark-scope overrides, one pair per status —
+     computed (not eyeballed) against `tailwind.preset.ts`'s `status.*Dark`
+     values. Why this override exists at all:
+     docs/architecture/09-design-direction.md §3.5.1. */
   --color-status-paid-fg: #4ade80;
+  --color-status-paid-bg: #052e16;
   --color-status-partial-fg: #22d3ee;
+  --color-status-partial-bg: #083344;
   --color-status-due-fg: #fbbf24;
+  --color-status-due-bg: #451a03;
   --color-status-overdue-fg: #f87171;
+  --color-status-overdue-bg: #450a0a;
 
   /* Dark elevation (design contract §5). Not the light scale reused: a shadow
      darkens what is behind it, and on `#0f172a` there is little left to

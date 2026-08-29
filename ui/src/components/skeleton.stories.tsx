@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { darkDecorator } from '../../.storybook/dark-decorator';
+import { darkDecorator, darkDecoratorParameters } from '../../.storybook/dark-decorator';
 
 import { Skeleton, SkeletonFieldList, SkeletonTable, SkeletonText } from './skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './table';
@@ -118,6 +118,7 @@ export const Shapes: StoryObj<typeof Skeleton> = {
 export const ShapesDark: StoryObj<typeof Skeleton> = {
   tags: ['!autodocs'],
   decorators: [darkDecorator],
+  parameters: darkDecoratorParameters,
   render: renderShapeMatrix,
 };
 

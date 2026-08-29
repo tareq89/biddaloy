@@ -228,13 +228,14 @@ for (const [key, value] of Object.entries(preset.radius)) {
   expectVar(lightVars, '@theme', `--radius-${key}`, value);
 }
 
-// Status: fg/bg literal in light scope; fgDark literal in dark scope; bg is
-// intentionally not overridden in dark scope (see globals.css's own note),
-// so it is not asserted there.
+// Status: fg/bg literal in light scope; fgDark/bgDark literal in dark scope.
+// Why `-bg` needs a dark-scope override at all:
+// docs/architecture/09-design-direction.md §3.5.1.
 for (const [statusKey, entry] of Object.entries(preset.status)) {
   expectVar(lightVars, '@theme', `--color-status-${statusKey}-fg`, entry.fg);
   expectVar(lightVars, '@theme', `--color-status-${statusKey}-bg`, entry.bg);
   expectVar(darkVars, ':root[data-theme="dark"]', `--color-status-${statusKey}-fg`, entry.fgDark);
+  expectVar(darkVars, ':root[data-theme="dark"]', `--color-status-${statusKey}-bg`, entry.bgDark);
 }
 
 // Typography (design contract §2). Typography is a token family like colour

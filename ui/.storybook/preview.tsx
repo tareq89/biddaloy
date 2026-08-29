@@ -33,6 +33,17 @@ const DENSITY_META = {
 
 type Density = keyof typeof DENSITY_META;
 
+// [8.13.12]: theme toolbar metadata, same shape as `LOCALE_META`/
+// `DENSITY_META` above. Why this mutates `document.documentElement` instead
+// of a wrapper `<div>`, and how it interacts with `dark-decorator.tsx`'s
+// own mount-order caveat: docs/architecture/09-design-direction.md §3.4.3.
+const THEME_META = {
+  light: { label: 'Light' },
+  dark: { label: 'Dark' },
+} as const;
+
+type ThemeGlobal = keyof typeof THEME_META;
+
 // CAVEAT, deliberate: the toolbar applies the attribute to the story WRAPPER,
 // while the real app applies it to `document.documentElement` (see
 // `hooks/use-density.ts` — Radix portals dialogs and menus into
@@ -118,6 +129,25 @@ const preview: Preview = {
         dynamicTitle: true,
       },
     },
+    // [8.13.12]: unlike `locale`/`density`, this does not drive
+    // `useTheme()`/`localStorage` — it drives `document.documentElement`
+    // directly (see the `THEME_META` comment above), the same lever the
+    // real toggle uses but without persisting anything, so leaving a story
+    // does not leave a `biddaloy:theme` value behind in the browser's
+    // `localStorage` for whichever story runs next.
+    theme: {
+      description: 'Light/dark theme — every story renders under this',
+      defaultValue: 'light',
+      toolbar: {
+        title: 'Theme',
+        icon: 'sun',
+        items: Object.entries(THEME_META).map(([value, { label }]) => ({
+          value,
+          title: label,
+        })),
+        dynamicTitle: true,
+      },
+    },
   },
   decorators: [
     (Story, context) => {
@@ -142,6 +172,31 @@ const preview: Preview = {
       useEffect(() => {
         void i18n.changeLanguage(locale);
       }, [locale]);
+
+      // [8.13.12]: sets `document.documentElement.dataset.theme` directly —
+      // there is no wrapper-div option for dark tokens, see `THEME_META`'s
+      // own comment above. Deliberately bypasses `useTheme()`/
+      // `theme-provider.tsx` entirely rather than driving them from the
+      // toolbar: that module reads `localStorage`/`prefers-color-scheme` on
+      // every render, which is real per-browser state a toolbar selection
+      // should not be able to overwrite from underneath a viewer who has
+      // never opened this Storybook build before.
+      //
+      // `parameters.theme === 'fixed'` is this global's escape hatch, same
+      // shape and same reason as `density`'s own `parameters.density ===
+      // 'both'` above. Why it's needed — the mount-order race with
+      // `dark-decorator.tsx`'s own effect, and which one wins without it —
+      // is docs/architecture/09-design-direction.md §3.4.3, not here.
+      const theme = (context.globals.theme as ThemeGlobal) ?? 'light';
+      const themeFixed = context.parameters.theme === 'fixed';
+      useEffect(() => {
+        if (themeFixed) return;
+        if (theme === 'dark') {
+          document.documentElement.dataset.theme = 'dark';
+        } else {
+          delete document.documentElement.dataset.theme;
+        }
+      }, [theme, themeFixed]);
 
       return (
         <QueryClientProvider client={queryClient}>
