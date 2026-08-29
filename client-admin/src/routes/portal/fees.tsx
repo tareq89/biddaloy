@@ -301,7 +301,8 @@ function FeesSkeleton({ label, showPicker = false }: { label: string; showPicker
           close, pushing the three cards below down by that amount when it
           lands ([8.13.11]). */}
       <div className="flex flex-col gap-0.5">
-        <Skeleton className="h-[1.625rem] w-2/5" />
+        {/* `h-7` — `text-lg`'s line-height is 1.75rem exactly. */}
+        <Skeleton className="h-7 w-2/5" />
         <Skeleton className="h-4 w-3/5" />
       </div>
       {/* `showPicker` is only true from the second FeesSkeleton call site

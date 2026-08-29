@@ -104,7 +104,9 @@ export function SkeletonTable({ rows = 4, columns = 4, ...props }: SkeletonTable
           <TableRow key={row}>
             {columnIndexes.map((column) => (
               <TableCell key={column}>
-                <Skeleton className="h-4 w-full" />
+                {/* `h-5`, not `h-4` — `TableCell` renders at `text-sm`,
+                    whose line-height is 1.25rem. */}
+                <Skeleton className="h-5 w-full" />
               </TableCell>
             ))}
           </TableRow>
