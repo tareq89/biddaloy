@@ -578,6 +578,25 @@ describe('/portal', () => {
       expect(screen.queryAllByRole('heading', { level: 1 })).toHaveLength(0);
       expect(screen.getByText('Loading your portal')).toBeTruthy();
     });
+
+    it('switches to the single-student skeleton shape once the student count is known, even while dues is still pending', async () => {
+      server.use(
+        http.get('/api/v1/students/mine', () =>
+          HttpResponse.json([child('Fatima Rahman', 'student-1', 'Class 8', 'B', 14)]),
+        ),
+        http.get('/api/v1/fees/dues', () => new Promise(() => {})),
+      );
+      const { container } = renderPortal();
+
+      // `w-40` is unique to the single-student shape's name placeholder —
+      // the multi-child shape never uses it. Its appearance here, while
+      // `duesQuery` is still unresolved, is the regression this pins: the
+      // skeleton must not wait for both queries before picking a shape.
+      await waitFor(() =>
+        expect(container.querySelector('[data-slot="skeleton"].w-40')).toBeTruthy(),
+      );
+      expect(screen.queryAllByRole('heading', { level: 1 })).toHaveLength(0);
+    });
   });
 
   it('renders the whole page in Bangla when the locale is bn', async () => {
