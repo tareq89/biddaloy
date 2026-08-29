@@ -59,7 +59,7 @@ on whatever the user set before invoking this skill.
 
 | Phase | Runs on | How |
 |---|---|---|
-| Research + plan (steps 2–3) | Fable | `issue-planner` subagent (`.claude/agents/issue-planner.md`, `model: claude-fable-5`) |
+| Research + plan (steps 2–3) | Opus | `issue-planner` subagent (`.claude/agents/issue-planner.md`, `model: claude-opus-5`) |
 | Implement, tests, stories (steps 4–6) | Opus | `issue-implementer` subagent (`.claude/agents/issue-implementer.md`, `model: claude-opus-5`) |
 | Code review (step 7) | the session's model | in this session |
 | Commit, push, PR (steps 8–9) | the session's model | in this session |
@@ -70,7 +70,7 @@ session happens to be running on. It also means the plan is produced by an agent
 whose only job is the plan, and published to GitHub before any code exists.
 
 Before starting, check what the session is actually running on and say it out
-loud in one line: *"Session model: <X>. Planning goes to the Fable subagent,
+loud in one line: *"Session model: <X>. Planning goes to the Opus subagent,
 implementation to the Opus subagent; review, commit and PR run here."*
 
 ### Effort cannot be routed per phase
@@ -171,9 +171,9 @@ implementation before issue N's PR is open.
   onto `main` and retarget the open PRs rather than leaving them stacked on a
   merged branch.
 
-### 2–3. Research and plan — delegated to Fable
+### 2–3. Research and plan — delegated to Opus
 
-Dispatch the `issue-planner` subagent (Fable) with the issue ID and the base
+Dispatch the `issue-planner` subagent (Opus) with the issue ID and the base
 branch. It owns graphify research, verification against the current code, the
 written plan, and publishing that plan to the GitHub issue as a comment. Its
 definition carries the full contract.
