@@ -54,9 +54,16 @@ describe('deriveVitestProject', () => {
     expect(deriveVitestProject('client-admin/src/a.test.tsx')).toBe('client-admin:jsdom');
   });
 
+  it('attributes repo-root scripts/ to the scripts project', () => {
+    // `scripts:node` is a real Vitest project ([15.1]); reporting its specs
+    // as an unattributed null meant ci-timings' own tests were invisible in
+    // ci-timings' own report.
+    expect(deriveVitestProject('scripts/ci-timings.spec.mjs')).toBe('scripts');
+  });
+
   it('returns null for anything outside the known top-level packages', () => {
-    expect(deriveVitestProject('scripts/ci-timings.spec.mjs')).toBeNull();
     expect(deriveVitestProject('e2e/journeys/auth.spec.ts')).toBeNull();
+    expect(deriveVitestProject('docs/architecture/README.md')).toBeNull();
   });
 });
 

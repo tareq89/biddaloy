@@ -57,6 +57,11 @@ jobs:
       - name: Frontend tests, three consecutive runs
         run: |
           mkdir -p flake-runs
+          # Seed all three so a pass that dies before writing its report
+          # still occupies its own column downstream. flake-report pads by
+          # the number of files it is GIVEN, so passing a glob that matched
+          # only passes 1 and 3 would present pass 3's result as pass 2.
+          for i in 1 2 3; do echo '{"testResults":[]}' > "flake-runs/pass-$i.json"; done
           for i in 1 2 3; do
             echo "=== pass $i/3 ==="
             yarn test:frontend --run --reporter=default --reporter=json --outputFile.json=flake-runs/pass-$i.json || true
@@ -94,11 +99,18 @@ jobs:
           # Exit 2 means no pass file had any results (runner died, install
           # failed, or the glob matched nothing) — say so and stop, rather
           # than overwriting a real flake table with a false "all green".
-          if ! node scripts/flake-report.mjs flake-runs/pass-*.json > flake-report.md; then
+          # Explicit names, not a glob — the file set must be exactly the
+          # three passes, in order, for the pass columns to mean anything.
+          if ! node scripts/flake-report.mjs flake-runs/pass-1.json flake-runs/pass-2.json flake-runs/pass-3.json > flake-report.md; then
             echo "::warning title=Flake hunt::no usable pass reports; leaving the tracking issue untouched"
             exit 0
           fi
-          ISSUE_NUMBER=$(gh issue list --repo "${{ github.repository }}" --label flake-hunt --state open --json number --jq '.[0].number')
+          # `// empty` is load-bearing: on an empty list `.[0].number` yields
+          # JSON null, which `--jq -r` prints as the literal string "null" —
+          # non-empty, so the `-z` test below would be false, the create
+          # branch would be unreachable, and every night would run
+          # `gh issue edit null` and fail the step under `bash -e`.
+          ISSUE_NUMBER=$(gh issue list --repo "${{ github.repository }}" --label flake-hunt --state open --json number --jq '.[0].number // empty')
           if [ -z "$ISSUE_NUMBER" ]; then
             gh issue create --repo "${{ github.repository }}" \
               --title "Nightly frontend flake hunt" \

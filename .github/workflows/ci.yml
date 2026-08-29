@@ -230,12 +230,26 @@ jobs:
 
       # Coverage on every run (#153 amends #307's PR/no-coverage split):
       # the PR delta comment below needs PR coverage, and since this job is
-      # parallel the ~105s instrumentation penalty sits off the critical
-      # path — the wall stays under 4 minutes.
+      # parallel the instrumentation cost sits off the critical path either
+      # way. [15.3] re-measured this from scratch rather than trust the old
+      # "~105s instrumentation penalty" note here — it didn't survive
+      # re-measurement: coverage on vs. off was ~4.7s wall / ~58 CPU-s
+      # locally (10 cores), a few seconds on a 4-vCPU runner, not 105s.
+      # `--coverage.reporter` narrowed to `text` (the console summary a
+      # human reads on a failed run) and `lcovonly` (the machine-readable
+      # `lcov.info` `coverage-offenders.mjs`/`coverage-delta.mjs` below both
+      # read — deliberately `lcovonly`, not `lcov`: istanbul's plain `lcov`
+      # reporter writes an `lcov-report/` html tree alongside `lcov.info`,
+      # `lcovonly` writes just the file). Dropping `html` costs nothing
+      # downstream (nothing in CI opens it) and shrinks the
+      # `frontend-coverage` artifact every PR run re-downloads for its
+      # baseline diff (see "Upload frontend coverage" below). `yarn
+      # coverage` (local) is untouched — its `vitest.config.ts` reporter
+      # list still includes `html` for the local report.
       - name: Frontend tests with coverage
         env:
           CI_TIMINGS_OUT: ci-timings/raw-frontend.json
-        run: yarn test:frontend:coverage
+        run: yarn test:frontend:coverage --coverage.reporter=text --coverage.reporter=lcovonly
 
       # [#437] Quarantined tests still run, just don't gate the pipeline —
       # otherwise "quarantine" would mean "deleted" and nobody ever learns
@@ -283,12 +297,18 @@ jobs:
         if: failure()
         run: node scripts/coverage-offenders.mjs coverage/lcov.info
 
+      # [15.3] Narrowed from `coverage/` (the whole reporter output — text,
+      # lcov, and an html tree) to just `lcov.info`: nothing downstream
+      # reads the html tree (`coverage-offenders.mjs`, `coverage-delta.mjs`
+      # below both take only `lcov.info`), and this artifact is
+      # re-downloaded whole on *every* PR run for the baseline diff — see
+      # "Fetch main coverage baseline" below.
       - name: Upload frontend coverage
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: frontend-coverage
-          path: coverage/
+          path: coverage/lcov.info
           if-no-files-found: ignore
 
       # Baseline = latest successful main run's coverage artifact (same

@@ -64,6 +64,46 @@ const timingsOut = process.env.CI_TIMINGS_OUT;
 // get its own easy-to-forget bespoke value.
 const PROJECT_TEST_TIMEOUT = 20_000;
 
+// [15.3] Vitest 4 defaults to the `forks` pool. `threads` is real, free
+// money here: 61.7s vs 69.4s wall (measured locally, coverage off, over
+// the 201-file suite) with every test still green — no test-code change, no isolation
+// trade-off. Set per-project, same as `PROJECT_TEST_TIMEOUT` above and for
+// the same reason: a top-level `test.pool` is *not* inherited into
+// `projects` mode either — verified empirically (a run with only the
+// top-level key set still showed `workers/forks.js` in `ps -ef` for every
+// worker process; only setting it per-project switched them to
+// `workers/threads.js`).
+const PROJECT_POOL = 'threads' as const;
+
+// [15.3] `isolate: false` runs every test file in a project inside the same
+// worker/module registry instead of a fresh one each time — real speedup
+// (measured ~2.9s wall / ~26.4 CPU-s off the four `:node` projects
+// combined), but it trades "each file starts clean" for "files sharing a
+// worker share module state". Safe here specifically because these four
+// projects have **zero** `vi.mock()` calls between them — checked across
+// all six include globs (`ui/src/**/*.spec.ts`, `ui/eslint-rules/**`,
+// `ui/scripts/**`, `client-admin/src/**/*.spec.ts`, `shared/src/**`,
+// `scripts/**/*.spec.mjs`), and now enforced on every run by
+// `scripts/no-vi-mock-in-node-specs.spec.mjs` rather than left as a comment
+// that quietly stops being true. Two other shared-registry hazards do exist
+// there and are safe only because they clean up after themselves:
+// `ui/src/hooks/retry.spec.ts` (`vi.stubGlobal` + `vi.unstubAllGlobals`) and
+// `ui/src/api/session.spec.ts` (fake timers + `vi.useRealTimers`) — nothing hoists a fake module for a later file in
+// the same worker to inherit. The `:jsdom` projects are NOT given this
+// setting: they DO have `vi.mock()` users, and turning this on there
+// reproduces two independent kinds of cross-file contamination — fake
+// timers leaking past a file that forgets `vi.useRealTimers()`, and (found
+// while investigating this ticket) a partial `vi.mock('@biddaloy/ui/api')`
+// in `client-admin/src/main.sentry-wiring.test.ts` that omits
+// `ensureSessionLoaded`, which then poisons the *real* module's consumers
+// (`select-school.test.tsx`, `_staff/invoices/$invoiceId.test.tsx`) when
+// they share a worker with it. Fixing every `vi.mock()` user to tolerate a
+// shared registry is real work across 7 files — out of scope for this
+// ticket, and NOT yet filed as an issue (don't read "follow-up" as "someone
+// is on it"). It is the only remaining lever on #438's own ~80s target, so
+// it needs filing under epic #428. See README's "Frontend Testing" section.
+const NODE_PROJECT_ISOLATE = false;
+
 function frontendPackage(
   name: string,
   dir: string,
@@ -81,6 +121,8 @@ function frontendPackage(
         globals: true,
         setupFiles: [testSetupFile],
         testTimeout: PROJECT_TEST_TIMEOUT,
+        isolate: NODE_PROJECT_ISOLATE,
+        pool: PROJECT_POOL,
       },
     }),
     mergeConfig(base, {
@@ -92,6 +134,7 @@ function frontendPackage(
         globals: true,
         setupFiles: [testSetupFile],
         testTimeout: PROJECT_TEST_TIMEOUT,
+        pool: PROJECT_POOL,
       },
     }),
   ];
@@ -151,10 +194,18 @@ const coverage = {
   ],
   thresholds: {
     perFile: false,
-    branches: 70,
-    functions: 70,
-    lines: 70,
-    statements: 70,
+    // [15.3] Raised from 70 to 80. Actual coverage on this branch is
+    // statements 90.15%, branches 82.54% (the weakest metric), functions
+    // 87.11%, lines 90.80% (`vitest run --coverage`, measured locally) — a
+    // 70 floor sat 12.5-20.8 points under every real number, so no
+    // realistic regression could ever trip it (same "gate never fires"
+    // shape as #356). 80 sits ~2.5 points under branches, the weakest
+    // metric, so it's a live gate rather than a number that only looks
+    // enforced.
+    branches: 80,
+    functions: 80,
+    lines: 80,
+    statements: 80,
     // "Near-complete" tier ([8.3.5]'s own acceptance criteria): a bug here
     // means money is wrong or a request goes out with the wrong auth
     // state. Only covers what actually exists in `ui/src` today —
@@ -214,6 +265,8 @@ export default defineConfig({
           globals: true,
           setupFiles: [testSetupFile],
           testTimeout: PROJECT_TEST_TIMEOUT,
+          isolate: NODE_PROJECT_ISOLATE,
+          pool: PROJECT_POOL,
         },
       },
       // [15.1] Root `scripts/` had no Vitest project before this — the
@@ -232,6 +285,11 @@ export default defineConfig({
           globals: true,
           setupFiles: [testSetupFile],
           testTimeout: PROJECT_TEST_TIMEOUT,
+          // [15.3] Added after this project itself landed ([15.1], after
+          // the plan for this ticket was written) — same zero-`vi.mock()`
+          // safety argument as `NODE_PROJECT_ISOLATE`'s comment above.
+          isolate: NODE_PROJECT_ISOLATE,
+          pool: PROJECT_POOL,
         },
       },
     ],
