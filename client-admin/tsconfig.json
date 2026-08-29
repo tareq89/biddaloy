@@ -6,6 +6,14 @@
     "outDir": "./dist",
     "noEmit": true,
     "rootDir": "..",
+    // Without an explicit list here, TypeScript 6's automatic @types/*
+    // discovery silently fails to pick up @types/node in this project
+    // (confirmed via --listFiles: it loads @types/react, @types/chai,
+    // etc. automatically, but never @types/node) — every `node:fs`/
+    // `process`/`node:buffer` reference in a *.test.ts(x) file then
+    // errors with "Cannot find name". vite/client is listed for parity
+    // with src/vite-env.d.ts's triple-slash reference.
+    "types": ["vite/client", "node"],
     "paths": {
       "@/*": ["./src/*"],
       "@biddaloy/shared": ["../shared/src"],

@@ -75,7 +75,8 @@
     "vitest-axe": "0.1.0"
   },
   "resolutions": {
-    "js-yaml": "^5.2.2"
+    "js-yaml": "^5.2.2",
+    "typescript": "^6"
   },
   "msw": {
     "workerDirectory": [
