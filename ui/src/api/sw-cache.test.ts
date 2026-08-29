@@ -70,6 +70,17 @@ describe('clearApiCache', () => {
     expect(del).toHaveBeenCalledWith('api-cache');
   });
 
+  it('no-ops where navigator does not exist at all', () => {
+    // SSR / a non-browser context — the guard `typeof navigator !==
+    // 'undefined'` exists for, distinct from jsdom's navigator-with-no-
+    // service-worker case covered above.
+    vi.stubGlobal('navigator', undefined);
+    const del = installCaches();
+
+    expect(() => clearApiCache()).not.toThrow();
+    expect(del).toHaveBeenCalledWith('api-cache');
+  });
+
   it('no-ops where Cache Storage does not exist', () => {
     // jsdom, an insecure context, storage disabled — all environments with
     // no service worker either, so there is nothing to purge. Must not

@@ -1,7 +1,7 @@
 {
   "package.json": {
-    "mtime": 1787984927.2746902,
-    "ast_hash": "47e63f7ee4c98953803dd9c87ee1214c",
+    "mtime": 1787993774.9544601,
+    "ast_hash": "1f50bf62f533d400e0e72ee88cea55ee",
     "semantic_hash": ""
   },
   "scripts/build-all.sh": {
@@ -545,9 +545,9 @@
     "semantic_hash": "fe75c640198833b006f3746f52881635"
   },
   "server/vitest.config.ts": {
-    "mtime": 1787072022.635292,
-    "ast_hash": "8bc507bea58a9af7541ed7f1095c7d1a",
-    "semantic_hash": "8bc507bea58a9af7541ed7f1095c7d1a"
+    "mtime": 1787993774.9547307,
+    "ast_hash": "b68aef69d31f1c4fff42b3fbea5e02eb",
+    "semantic_hash": ""
   },
   "server/vitest.unit.config.ts": {
     "mtime": 1787983706.2556062,
@@ -960,12 +960,12 @@
     "semantic_hash": ""
   },
   "client-admin/package.json": {
-    "mtime": 1787986265.7439377,
-    "ast_hash": "0f411c2d1743a18920177184363f071a",
+    "mtime": 1787993774.9540293,
+    "ast_hash": "75a17cf81f8a957350b6bd9043b00608",
     "semantic_hash": ""
   },
   "client-admin/public/mockServiceWorker.js": {
-    "mtime": 1787939197.7544334,
+    "mtime": 1787991471.8717973,
     "ast_hash": "c8f0dfa140ec246071c4cc5a03df5c9d",
     "semantic_hash": ""
   },
@@ -980,8 +980,8 @@
     "semantic_hash": ""
   },
   "client-admin/tsconfig.json": {
-    "mtime": 1787983706.109451,
-    "ast_hash": "1aa2140854741f81f060c1136d1e215d",
+    "mtime": 1787993774.9542484,
+    "ast_hash": "114fd2df8c3ceb7bcf0778bfc78e4635",
     "semantic_hash": ""
   },
   "client-admin/vite.config.ts": {
@@ -1415,7 +1415,7 @@
     "semantic_hash": ""
   },
   "ui/.storybook/public/mockServiceWorker.js": {
-    "mtime": 1787952638.0888343,
+    "mtime": 1787991471.8724933,
     "ast_hash": "c8f0dfa140ec246071c4cc5a03df5c9d",
     "semantic_hash": ""
   },
@@ -1465,8 +1465,8 @@
     "semantic_hash": ""
   },
   "ui/package.json": {
-    "mtime": 1787984881.7492478,
-    "ast_hash": "3a4c7edf33de0437c3664ef07d327297",
+    "mtime": 1787993774.9550314,
+    "ast_hash": "c6d8e2ce180c458e843c7ba650edfd25",
     "semantic_hash": ""
   },
   "ui/scripts/check-api-types.mjs": {
@@ -2530,9 +2530,9 @@
     "semantic_hash": ""
   },
   "ui/tsconfig.json": {
-    "mtime": 1787986328.7622201,
-    "ast_hash": "d44da7dce6107442d4d3963e921db8c9",
-    "semantic_hash": "d44da7dce6107442d4d3963e921db8c9"
+    "mtime": 1787993774.9560306,
+    "ast_hash": "12452c269b36b680d226bb3b7470e0df",
+    "semantic_hash": ""
   },
   "ui/vitest.config.ts": {
     "mtime": 1787072022.690402,
@@ -3495,8 +3495,8 @@
     "semantic_hash": "4bdc3feba785af983135d1428785dd99"
   },
   "ui/src/api/sentry.test.ts": {
-    "mtime": 1787983706.2708247,
-    "ast_hash": "09ffe41c0e18827fe2ebfe215393953d",
+    "mtime": 1787996393.1525738,
+    "ast_hash": "16cde3aba38f9b34bc1044ab22684110",
     "semantic_hash": ""
   },
   "ui/src/api/sentry.ts": {
@@ -5140,8 +5140,8 @@
     "semantic_hash": ""
   },
   "ui/src/api/sw-cache.test.ts": {
-    "mtime": 1787983706.271759,
-    "ast_hash": "51292f8a37a66ad80069652b7d494f24",
+    "mtime": 1787996195.4397545,
+    "ast_hash": "f17a6e28fd8afe6a112005ca1740d856",
     "semantic_hash": ""
   },
   "ui/src/api/sw-cache.ts": {
@@ -5280,8 +5280,8 @@
     "semantic_hash": ""
   },
   "ui/src/api/mutation-queue.test.ts": {
-    "mtime": 1787987106.5772567,
-    "ast_hash": "f7377fa31204249d20d5d0c1baf780bd",
+    "mtime": 1787996748.705261,
+    "ast_hash": "ed1a179d370d973fa7b87707fcf39830",
     "semantic_hash": ""
   },
   "ui/src/api/mutation-queue.ts": {

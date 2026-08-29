@@ -762,6 +762,54 @@ describe('[8.12.7] scrubbers on sparse and fully-populated events', () => {
     expect(result?.spans).toBeUndefined();
   });
 
+  it('preserves every non-PII metadata field on a fully-populated transaction', () => {
+    // The other half of every `...(event.x !== undefined && …)` above —
+    // the sparse test only exercises the absent side of each of these.
+    const result = runBeforeSendTransaction({
+      type: 'transaction',
+      transaction: '/students',
+      event_id: 'evt-1',
+      timestamp: 100,
+      start_timestamp: 99,
+      platform: 'javascript',
+      environment: 'test',
+      release: '8.13.0',
+      dist: '1',
+      sdk: { name: '@sentry/react', version: '10' },
+      transaction_info: { source: 'route' },
+      contexts: {
+        trace: {
+          trace_id: 't',
+          span_id: 's',
+          parent_span_id: 'p',
+          status: 'ok',
+          origin: 'auto.http.browser',
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      event_id: 'evt-1',
+      timestamp: 100,
+      start_timestamp: 99,
+      platform: 'javascript',
+      environment: 'test',
+      release: '8.13.0',
+      dist: '1',
+      sdk: { name: '@sentry/react', version: '10' },
+      transaction_info: { source: 'route' },
+      contexts: {
+        trace: {
+          trace_id: 't',
+          span_id: 's',
+          parent_span_id: 'p',
+          status: 'ok',
+          origin: 'auto.http.browser',
+        },
+      },
+    });
+  });
+
   it('drops a non-string query_string without redacting it', () => {
     const result = runBeforeSendTransaction({
       type: 'transaction',
