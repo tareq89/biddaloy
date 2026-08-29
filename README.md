@@ -24,6 +24,19 @@ cp .env.example .env
 `yarn install` also installs a pre-commit hook (husky's `prepare` script) — no
 separate setup step needed.
 
+### Code graph (optional, but agents expect it)
+
+`graphify-out/` holds a queryable graph of the codebase. It is **gitignored**
+— a derived artifact regenerated from source — so a fresh clone has none.
+Build it once:
+
+```bash
+graphify update .
+```
+
+AST-only, no API cost. Re-run it after significant changes to keep
+`graphify query`/`explain`/`path` accurate; the output never gets committed.
+
 ### Pre-commit hooks
 
 Every commit runs [lint-staged](https://github.com/lint-staged/lint-staged)

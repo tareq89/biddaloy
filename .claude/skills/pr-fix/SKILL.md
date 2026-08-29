@@ -125,9 +125,10 @@ commit per logically-related fix rather than one giant commit — it makes
 the eventual review replies concrete ("fixed in `<sha>`") and makes the
 diff easier for the human reviewer to re-review.
 
-After code changes, run `graphify update .` before committing so the graph
-stays current, and stage `graphify-out/` alongside the fix in the same
-commit — never a separate trailing "regenerate graph" commit.
+After code changes, run `graphify update .` so the graph stays current for
+later exploration. Do not stage it: `graphify-out/` is gitignored as of
+2026-08-29, so there is nothing to commit and no "regenerate graph" commit
+to make.
 
 Never amend the PR's existing commits — everything here is new commits on
 top.

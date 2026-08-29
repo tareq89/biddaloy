@@ -245,14 +245,16 @@ is a fix; anything caught there is a round trip.
 ### 8. Graph, commit, push
 
 ```bash
-graphify update
-git add -A            # includes graph changes
+graphify update .     # keeps YOUR graph current; graphify-out/ is gitignored
+git add -A
 git commit -m "..."
 git push -u origin <branch>
 ```
 
-Never commit without running `graphify update` first — a stale graph poisons the
-research step for every subsequent issue in the chain.
+Run `graphify update .` before moving on — a stale graph poisons the research
+step for every subsequent issue in the chain. It never enters the commit:
+`graphify-out/` was untracked on 2026-08-29 because an 8.8 MB blob regenerated
+per commit is unmergeable across branches. Keeping it fresh is now free.
 
 Regenerate committed artifacts that the change invalidates before committing —
 API types in particular, if endpoints or DTOs moved. A generated file that
@@ -319,7 +321,7 @@ already planned.
   you cannot change it.
 - Never commit before the `code-review` skill has run and its findings are
   resolved.
-- Never commit without `graphify update`.
+- Never leave a stale graph behind; never commit `graphify-out/`.
 - Never bypass the design system.
 - Never open a PR less than an hour after the previous one.
 - Update the state file after every step.
