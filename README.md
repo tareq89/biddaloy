@@ -323,6 +323,76 @@ flowchart LR
 Default (`verify` + `frontend` + `audit`) needs no external services and
 measured ~1.5 min on a warm checkout; `--full` runs everything (~8–10 min).
 
+### Test timings & budgets
+
+Every `ci.yml` run ends with a **"Test timings & budgets"** job summary —
+wall/work/gap, a per-job budget verdict, and the 10 slowest test files —
+without opening a single log:
+
+```mermaid
+flowchart LR
+    R["raw reporter JSON\n(vitest --reporter=json /\nplaywright json reporter)"] -- "ci-timings.mjs collect" --> N["normalized record\nci-timings/<suite>.json"]
+    N -- "upload-artifact" --> A["ci-timings-<suite>\nartifact, one per test job"]
+    A -- "gh run download\n(this run)" --> D["ci-timings/\n(every artifact, one job)"]
+    D -- "ci-timings.mjs summarize" --> S["job summary\n(GITHUB_STEP_SUMMARY)"]
+```
+
+Three words, precisely:
+
+- **wall** — last job's `completed_at` minus the first job's `started_at`,
+  for the whole run. What a human waits for.
+- **work** — the sum of every job's own duration. Billable runner seconds;
+  can be (and usually is) far larger than wall, since jobs run in parallel.
+- **gap** — wall minus the single longest job's duration. Near zero means
+  the pipeline is essentially as parallel as its critical path allows; a
+  large gap means something is serializing that doesn't need to.
+
+Example, from a real green PR run: wall 574s, work 1577s, longest job
+`E2E (chromium)` 558s, gap 16s — the whole 8-minute wait *is* the e2e job;
+nothing else on the critical path is worth optimizing until that changes.
+(That sample predates #440's 3-way e2e shard split, which is why it names a
+single unsharded `E2E (chromium)` job.)
+
+**Read the per-suite numbers with one caveat.** The `Suites` table and the
+top-10 slowest files come from the test runners' own JSON reports, which
+time only *test execution* — not module transform, import, or `setupFiles`.
+For the frontend suites that is the minority of the real cost: a `ui:node`
+run that takes 6.4s of wall clock reports ~1.4s of per-file work, because
+setup and imports dominate. So the top-10 reliably ranks files against each
+other, but a suite whose slowness lives in its imports will look cheap here.
+Use the `Jobs` table (real GitHub job durations) for "what is actually
+slow", and the `Suites` table for "which file within a suite".
+
+**Budgets** live in `ci-budgets.json`, next to `knip.json` — one entry per
+job (`budgetSeconds`, optional per-job `enforce`), plus a global
+`burnIn.enforce` flag. A job with no entry always shows `budget: —` and
+never fails — an unlisted or renamed job degrades to "unmeasured", not
+"silently blocking". Today every budget warns only (`burnIn.enforce:
+false`): an over-budget job shows `⚠️ over by Ns` in the summary and emits
+a `::warning::` annotation, but the `timings` job itself stays green. The
+same raise protocol as `check-route-chunks.mjs`'s bundle-size ceiling
+applies: every budget change happens in a PR that says why, citing the
+measured number and the ticket that caused it — never silently.
+
+Locally, `yarn test:timings` runs the frontend suite once and prints the
+same wall/work + top-10 table straight to the terminal — no artifact, no
+CI, just `scripts/ci-timings.mjs collect` followed by its `report`
+subcommand.
+
+A **weekly trend** (`.github/workflows/ci-timings-trend.yml`, Mondays
+06:00 UTC) walks the trailing 60 `ci.yml` runs and publishes per-job
+median/p90, wall median/p90, and failure rate to the orphan `ci-timings`
+git branch (`history/ci-timings.md` / `.json` — generated data with its
+own history, not source, so it never touches `main`). It deliberately does
+**not** filter runs by `status=success` — failure rate is one of the
+tracked series precisely so a red window still shows a real number instead
+of a stale one.
+
+**Baseline** (60-run window ending 2026-08-29, see issue #436 for the full
+table): median wall 8 min 17s, p90 wall 11 min 54s, failure rate 65%
+overall (55% on PRs, 100% on `main` — the `main` red streak is a Lighthouse
+assertion failure unrelated to timing, not a flaky pipeline).
+
 GitHub Actions (`.github/workflows/ci.yml`) runs on every PR and on push to
 `main`:
 

@@ -42,6 +42,15 @@ import { defineConfig, mergeConfig } from 'vitest/config';
 // get the same cleanup guarantee.
 const testSetupFile = resolve(__dirname, 'ui/src/test/setup.ts');
 
+// [15.1] Set only by ci.yml's per-job collect step (`CI_TIMINGS_OUT=<path>`
+// on the test command's env). Unset — every local run, and every job that
+// hasn't been wired up — means zero behaviour change: `reporters` below is
+// simply omitted and Vitest keeps its own default. Verified: setting
+// `test.reporters` at the *top level* of a `projects`-mode config works
+// (unlike `testTimeout`, which projects silently ignore when set only at
+// the top level — see PROJECT_TEST_TIMEOUT's own comment below).
+const timingsOut = process.env.CI_TIMINGS_OUT;
+
 // v8 coverage instrumentation adds real per-test overhead — enough that
 // eslint-rules/component-boundary.spec.mjs's type-aware RuleTester cases
 // (already the slowest tests here, since they run real TypeScript
@@ -163,6 +172,7 @@ const coverage = {
 export default defineConfig({
   test: {
     coverage,
+    ...(timingsOut ? { reporters: ['default', ['json', { outputFile: timingsOut }]] } : {}),
     projects: [
       ...frontendPackage('ui', 'ui', uiAlias, {
         // eslint-rules specs are ESLint RuleTester fixtures, and
@@ -201,6 +211,24 @@ export default defineConfig({
           root: 'shared',
           environment: 'node',
           include: ['src/**/*.spec.ts'],
+          globals: true,
+          setupFiles: [testSetupFile],
+          testTimeout: PROJECT_TEST_TIMEOUT,
+        },
+      },
+      // [15.1] Root `scripts/` had no Vitest project before this — the
+      // `ui:node` project above also matches `scripts/**/*.spec.mjs`, but
+      // it's rooted at `dir: 'ui'` (see `frontendPackage`'s `nodeInclude`),
+      // so that glob only ever resolved `ui/scripts/**/*.spec.mjs`. This
+      // project is rooted at the repo root so hand-rolled CI scripts like
+      // `scripts/ci-timings.mjs` get the same test coverage its `ui/scripts`
+      // siblings (`check-i18n-keys.mjs`, `check-raw-palette.mjs`) already do.
+      {
+        test: {
+          name: 'scripts:node',
+          root: '.',
+          environment: 'node',
+          include: ['scripts/**/*.spec.mjs'],
           globals: true,
           setupFiles: [testSetupFile],
           testTimeout: PROJECT_TEST_TIMEOUT,

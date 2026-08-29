@@ -1,0 +1,95 @@
+name: CI timing trend
+
+# [15.1] Weekly view over the trailing 60 `ci.yml` runs: per-job median/p90,
+# wall median/p90, and failure rate — the cheapest thing that works, no
+# external service. Cron is Monday 06:00 UTC so the first thing anyone sees
+# each week is whether CI got slower, not a feeling that it did.
+#
+# Deliberately does NOT filter runs by `status=success` — main has been red
+# on every run since 2026-08-24 (Lighthouse, unrelated to timing; see #436's
+# plan corrections), and a trend that silently drops every red run would
+# report a stale number forever while looking current. Failure rate is one
+# of the tracked series instead.
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: "24"
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  trend:
+    name: Build CI timing trend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: true
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Fetch recent CI runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api "repos/${{ github.repository }}/actions/workflows/ci.yml/runs?per_page=60" > runs.json
+
+      # One `gh api` call per run for its jobs, appended as one JSON object
+      # per line — a plain array here would mean holding all 60 responses
+      # in memory before writing anything; JSON Lines lets
+      # ci-timings-trend.mjs stream-parse instead. `python3 -c` json.dumps
+      # is not available on `ubuntu-latest` by default in the way `jq -c`
+      # is, so this uses `jq` (already required by other steps in `ci.yml`,
+      # always present on GitHub-hosted runners) to compact each run's own
+      # response before appending its run id.
+      - name: Fetch jobs for each run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          : > jobs.jsonl
+          for id in $(jq -r '.workflow_runs[].id' runs.json); do
+            jobs=$(gh api "repos/${{ github.repository }}/actions/runs/$id/jobs?per_page=100" -q '.jobs')
+            jq -c -n --argjson runId "$id" --argjson jobs "$jobs" '{runId: $runId, jobs: $jobs}' >> jobs.jsonl
+          done
+
+      - name: Build trend
+        run: node scripts/ci-timings-trend.mjs runs.json jobs.jsonl trend.md trend.json
+
+      - name: Publish to job summary
+        run: cat trend.md >> "$GITHUB_STEP_SUMMARY"
+
+      # Orphan branch, not a directory in `main` — this is generated data
+      # with its own history, not source. `git checkout --orphan` only runs
+      # the first time the branch doesn't exist yet; every later run just
+      # fetches and commits onto it.
+      - name: Publish to the ci-timings branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # trend.md/trend.json are untracked in every branch — they survive
+          # the checkout below untouched, so this order (build the files,
+          # then switch branches, then copy them into history/) works
+          # whether or not the ci-timings branch already exists.
+          if git ls-remote --exit-code --heads origin ci-timings > /dev/null 2>&1; then
+            git fetch origin ci-timings
+            git checkout ci-timings
+          else
+            git checkout --orphan ci-timings
+            git rm -rf --quiet . || true
+          fi
+          mkdir -p history
+          cp trend.md history/ci-timings.md
+          cp trend.json history/ci-timings.json
+          git add history/ci-timings.md history/ci-timings.json
+          if git diff --cached --quiet; then
+            echo "No change to the trend — nothing to commit."
+          else
+            git commit -m "chore(ci-timings): weekly trend update"
+            git push origin ci-timings
+          fi

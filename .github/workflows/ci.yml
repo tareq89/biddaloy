@@ -47,6 +47,11 @@ jobs:
               - 'scripts/coverage-offenders.mjs'
               - 'scripts/coverage-delta.mjs'
               - 'scripts/bundle-delta.mjs'
+              - 'scripts/ci-timings.mjs'
+              - 'scripts/ci-timings.spec.mjs'
+              - 'scripts/ci-timings-trend.mjs'
+              - 'scripts/ci-timings-trend.spec.mjs'
+              - 'ci-budgets.json'
               - 'package.json'
               - 'yarn.lock'
               - 'vitest.config.ts'
@@ -55,6 +60,11 @@ jobs:
             server:
               - 'server/**'
               - 'shared/**'
+              - 'scripts/ci-timings.mjs'
+              - 'scripts/ci-timings.spec.mjs'
+              - 'scripts/ci-timings-trend.mjs'
+              - 'scripts/ci-timings-trend.spec.mjs'
+              - 'ci-budgets.json'
               - 'package.json'
               - 'yarn.lock'
               - '.github/workflows/ci.yml'
@@ -86,7 +96,31 @@ jobs:
         run: yarn lint
 
       - name: Unit tests
+        env:
+          # Absolute: `yarn test:unit` delegates to `yarn workspace @biddaloy/server`,
+          # so the test process runs with cwd=server/ and a relative path would
+          # write server/ci-timings/ — where the repo-root collect step below
+          # (and .gitignore's root-anchored /ci-timings/) would never look.
+          CI_TIMINGS_OUT: ${{ github.workspace }}/ci-timings/raw-unit.json
         run: yarn test:unit
+
+      # [15.1]: `if: always()` so a red "Unit tests" step above still
+      # produces a timing record — a failing suite's timing is exactly the
+      # kind of run the timings job most needs to see, not one it should
+      # silently drop. `ci-timings.mjs collect` never crashes on a missing
+      # `--in` (a failure early enough not to reach the reporter's write)
+      # either, so this step itself never fails the job.
+      - name: Collect unit test timings
+        if: always()
+        run: node scripts/ci-timings.mjs collect --runner vitest --suite unit --job "Build, lint, unit tests" --in ci-timings/raw-unit.json --out ci-timings/unit.json
+
+      - name: Upload unit test timings
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-timings-unit
+          path: ci-timings/unit.json
+          if-no-files-found: ignore
 
       # `ui`'s own checks — none of these ran in CI before [8.1.5], even
       # check:exports and check:contrast from already-merged tickets. Wired
@@ -196,7 +230,23 @@ jobs:
       # parallel the ~105s instrumentation penalty sits off the critical
       # path — the wall stays under 4 minutes.
       - name: Frontend tests with coverage
+        env:
+          CI_TIMINGS_OUT: ci-timings/raw-frontend.json
         run: yarn test:frontend:coverage
+
+      # [15.1]: see the "verify" job's "Collect unit test timings" comment —
+      # same `if: always()` reasoning applies here.
+      - name: Collect frontend test timings
+        if: always()
+        run: node scripts/ci-timings.mjs collect --runner vitest --suite frontend --job "Frontend tests" --in ci-timings/raw-frontend.json --out ci-timings/frontend.json
+
+      - name: Upload frontend test timings
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-timings-frontend
+          path: ci-timings/frontend.json
+          if-no-files-found: ignore
 
       # `if: failure()` also fires on non-coverage failures; the script
       # prints nothing when nothing is under threshold, which is the
@@ -310,10 +360,39 @@ jobs:
         run: yarn workspace @biddaloy/ui check:api-types
 
       - name: Integration tests
+        env:
+          # Absolute — same cwd=server/ reason as the verify job's unit tests.
+          CI_TIMINGS_OUT: ${{ github.workspace }}/ci-timings/raw-integration.json
         run: yarn test:integration
 
       - name: E2E tests
+        env:
+          # Absolute — same cwd=server/ reason as the verify job's unit tests.
+          CI_TIMINGS_OUT: ${{ github.workspace }}/ci-timings/raw-server-e2e.json
         run: yarn test:e2e
+
+      # [15.1]: `test:integration`/`test:e2e` (server/package.json) already
+      # pass their own `--reporter=verbose`, which — verified locally — a
+      # CLI `--reporter` flag replaces the vitest config's `reporters`
+      # entirely, so `server/vitest.config.ts`'s env-gated reporters alone
+      # wouldn't reach these two. Those two scripts append a conditional
+      # `--reporter=json --outputFile.json=$CI_TIMINGS_OUT` of their own for
+      # exactly that reason — see `server/package.json`.
+      - name: Collect integration/server-e2e test timings
+        if: always()
+        run: |
+          node scripts/ci-timings.mjs collect --runner vitest --suite integration --job "Integration & e2e tests" --in ci-timings/raw-integration.json --out ci-timings/integration.json
+          node scripts/ci-timings.mjs collect --runner vitest --suite server-e2e --job "Integration & e2e tests" --in ci-timings/raw-server-e2e.json --out ci-timings/server-e2e.json
+
+      - name: Upload integration/server-e2e test timings
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-timings-integration
+          path: |
+            ci-timings/integration.json
+            ci-timings/server-e2e.json
+          if-no-files-found: ignore
 
       - name: Upload coverage
         if: always()
@@ -457,6 +536,8 @@ jobs:
         run: yarn workspace @biddaloy/server seed
 
       - name: E2E tests (${{ matrix.browser }} ${{ matrix.shard }}/3)
+        env:
+          CI_TIMINGS_OUT: ci-timings/raw-e2e-${{ matrix.browser }}-${{ matrix.shard }}.json
         run: yarn e2e --project=${{ matrix.browser }} --shard=${{ matrix.shard }}/3
 
       # [8.12.6]: the PWA/offline suite runs here rather than as its own
@@ -487,7 +568,38 @@ jobs:
       # PWA/offline suite silently stops running while CI stays green.
       - name: PWA and offline E2E tests
         if: matrix.browser == 'chromium' && matrix.shard == 3
+        env:
+          CI_TIMINGS_OUT: ci-timings/raw-e2e-pwa.json
         run: yarn e2e:pwa
+
+      # [15.1]: the main record always exists (this step is `if: always()`);
+      # the PWA one only does on the one matrix leg that ran it (chromium,
+      # last shard). Rather than a 4th `matrix.shard == 3` pin duplicating
+      # the invariant the comment above already tracks, this checks for the
+      # raw PWA file directly — the file's presence *is* the signal that the
+      # PWA step ran, so this stays correct even if the "lightest shard"
+      # this suite is pinned to ever moves.
+      - name: Collect E2E timings
+        if: always()
+        run: |
+          node scripts/ci-timings.mjs collect --runner playwright --suite e2e-${{ matrix.browser }}-${{ matrix.shard }} --job "E2E (${{ matrix.browser }} ${{ matrix.shard }}/3)" --in ci-timings/raw-e2e-${{ matrix.browser }}-${{ matrix.shard }}.json --out ci-timings/e2e-${{ matrix.browser }}-${{ matrix.shard }}.json
+          if [ -f ci-timings/raw-e2e-pwa.json ]; then
+            node scripts/ci-timings.mjs collect --runner playwright --suite e2e-pwa --job "E2E (${{ matrix.browser }} ${{ matrix.shard }}/3)" --in ci-timings/raw-e2e-pwa.json --out ci-timings/e2e-pwa.json
+          fi
+
+      # Artifact name includes both browser and shard — REQUIRED, not
+      # cosmetic: this job is a 3-way (browser x shard) matrix, and
+      # `actions/upload-artifact@v7` errors on two legs uploading the same
+      # artifact name within one run.
+      - name: Upload E2E timings
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-timings-e2e-${{ matrix.browser }}-${{ matrix.shard }}
+          path: |
+            ci-timings/e2e-${{ matrix.browser }}-${{ matrix.shard }}.json
+            ci-timings/e2e-pwa.json
+          if-no-files-found: ignore
 
       - name: Upload Playwright report
         if: failure()
@@ -723,3 +835,57 @@ jobs:
 
       - name: yarn audit (fails on new high/critical, ignores allowlisted advisories)
         run: node scripts/ci-audit.js
+
+  # [15.1] "tests got slower" needs to be a graph, not a feeling — this
+  # publishes wall/work/gap, a per-job budget verdict, and the top-10
+  # slowest files as a job summary, on every run, so nobody has to open logs
+  # to see it. `if: always()` is required so a red run — the run whose
+  # timing usually matters most — still gets a summary.
+  #
+  # `needs:` MUST list every job above that can produce a `ci-timings-*`
+  # artifact, or that otherwise finishes test work (bundle-delta, storybook,
+  # lighthouse, audit have no timing artifact of their own today, but their
+  # `completed_at` still feeds wall/work via the Jobs API). Add a job above
+  # without adding it here and this job starts — and queries the Jobs API —
+  # before that job finishes, silently under-reporting wall time.
+  timings:
+    name: Test timings & budgets
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [changes, verify, frontend, integration, e2e, bundle-delta, storybook, lighthouse, audit]
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # Every `ci-timings-*` artifact from this run, whichever jobs actually
+      # produced one. `|| echo` because a run where every test-producing job
+      # was path-filtered out (a docs-only PR) uploads zero timing
+      # artifacts, and that must not fail this job — same "in-progress
+      # current run" `gh run download` mechanism the coverage and
+      # bundle-size baselines already use (see README's CI section), just
+      # against this run instead of a past one.
+      - name: Download timing artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download "$GITHUB_RUN_ID" -p 'ci-timings-*' -D ci-timings || echo "no timing artifacts to download"
+
+      - name: Fetch job timings
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api "repos/${{ github.repository }}/actions/runs/$GITHUB_RUN_ID/jobs?per_page=100" > jobs.json
+
+      - name: Summarize
+        # `--out`, not `>> $GITHUB_STEP_SUMMARY`. The markdown has to reach the
+        # step summary, but the `::warning::` lines have to reach the step LOG —
+        # that is where GitHub parses workflow commands from. Redirecting all of
+        # stdout sends the annotations into the summary file, where they render
+        # as literal `::warning title=...` text and no annotation is ever created.
+        run: node scripts/ci-timings.mjs summarize --records ci-timings --jobs jobs.json --budgets ci-budgets.json --out "$GITHUB_STEP_SUMMARY"

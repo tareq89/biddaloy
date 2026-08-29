@@ -2,6 +2,14 @@ import { defineConfig } from 'vitest/config';
 import { resolve } from 'path';
 import swc from 'unplugin-swc';
 
+// [15.1] Set only by ci.yml's per-job collect step. Unset (every local run)
+// means zero behaviour change. NOTE: `test:integration` and `test:e2e` in
+// `package.json` pass their own `--reporter=verbose` on the CLI, and a CLI
+// `--reporter` flag replaces this config's `reporters` array entirely — so
+// this alone does not cover those two commands. See the conditional
+// `--reporter=json` appended to those two scripts.
+const timingsOut = process.env.CI_TIMINGS_OUT;
+
 export default defineConfig({
   // esbuild (Vite/Vitest's default TS transform) does not emit
   // `emitDecoratorMetadata` output, so NestJS can't reflect `@Body()`
@@ -15,6 +23,7 @@ export default defineConfig({
     // Environment
     environment: 'node',
     globals: true,
+    ...(timingsOut ? { reporters: ['default', ['json', { outputFile: timingsOut }]] } : {}),
 
     // Setup runs before all tests
     setupFiles: ['./test/setup.ts'],

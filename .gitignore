@@ -215,3 +215,8 @@ storybook-static/
 
 # Playwright auth storageState files ([8.5.2]) — session cookies, never committed
 e2e/.auth/
+
+# CI timing records ([15.1]) — regenerated every run/every `yarn
+# test:timings`, never committed. The weekly trend (a *derived* history of
+# these) lives on the orphan `ci-timings` git branch instead, not here.
+/ci-timings/
