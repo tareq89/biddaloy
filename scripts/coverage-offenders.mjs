@@ -15,7 +15,10 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { parseLcov } from './coverage-summary.mjs';
 
-const THRESHOLD = 70; // global lines/branches/functions floor
+// Mirrors `vitest.config.ts`'s `coverage.thresholds` global floor. [15.3]
+// raised that from 70 to 80; if the two ever drift this step reports
+// against a number CI is not actually enforcing.
+const THRESHOLD = 80;
 
 const path = process.argv[2] ?? 'coverage/lcov.info';
 if (!existsSync(path)) process.exit(0);

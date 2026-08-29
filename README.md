@@ -170,6 +170,29 @@ Each package has two projects, split by environment:
 not because they couldn't technically share a workspace, but because the
 server's coverage thresholds and setup are its own concern.
 
+### Runner settings (pool, isolation)
+
+[15.3] `vitest.config.ts` sets two runner options, both per-project (a
+top-level `test.pool`/`test.isolate` is silently ignored in `projects`
+mode — verified the same way `PROJECT_TEST_TIMEOUT`'s own comment already
+documents for `testTimeout`):
+
+| Setting | Where | Why |
+|---|---|---|
+| `pool: 'threads'` | every project | Vitest 4 defaults to `forks` (one OS process per worker). `threads` (worker threads in the same process) measured ~61.7s vs ~69.4s wall locally, coverage off — free, no test-code change. |
+| `isolate: false` | `<pkg>:node` and `shared:node`/`scripts:node` only — **not** `:jsdom` | Skips resetting each project's module registry between files. Safe on the `:node` projects because they have zero `vi.mock()` calls between them. **Not** applied to `:jsdom`: those *do* have `vi.mock()` users, and turning this on there reproduces real cross-file contamination — fake timers left running past a file that forgets `vi.useRealTimers()`, and a partial `vi.mock('@biddaloy/ui/api')` in `client-admin/src/main.sentry-wiring.test.ts` that omits `ensureSessionLoaded`, which then breaks unrelated files (`select-school.test.tsx`, `_staff/invoices/$invoiceId.test.tsx`) sharing its worker. Fixing every `vi.mock()` user to tolerate a shared registry is real work across 7 files — not done here, and not yet filed as an issue either; it is the only remaining lever on this ticket's own ~80s target, so it needs filing under epic #428. The `:node` half of the invariant is enforced by `scripts/no-vi-mock-in-node-specs.spec.mjs` so it cannot rot. |
+
+Measured locally (macOS, Node 22, 10 cores, `vitest run --coverage`, the
+plus the CI reporter flags — 201 files / 2164 tests, all green on both sides):
+
+| | wall |
+|---|---|
+| Before (this branch, before [15.3]) | 63.8s |
+| After (`pool: threads` + `isolate: false` on `:node` projects) | ~60.5s (3 runs: 60.8s, 60.3s, 60.5s) |
+
+That's a modest local win because `:jsdom` — left isolated — is 153 of the
+201 files and dominates the wall clock; see the CI-vs-local caveat below.
+
 ### Coverage
 
 ```bash
@@ -180,8 +203,17 @@ yarn coverage
 yarn test:frontend:coverage
 ```
 
-A global 70% floor (lines, branches, functions and statements) applies
-across `ui`, `client-admin` and `shared`; CI fails below it.
+A global 80% floor (lines, branches, functions and statements) applies
+across `ui`, `client-admin` and `shared`; CI fails below it. [15.3] raised
+this from 70 — actual coverage on the frontend suite today is statements
+90.15%, branches 82.54% (the weakest metric), functions 87.11%, lines
+90.80% (`vitest run --coverage`), so a 70 floor sat 12.5-20.8 points under
+every real number and could never fire on a realistic regression. 80 sits
+~2.5 points under branches, the weakest metric — proven live, not just
+present: raising it further to 95 locally and re-running does fail the
+build (`ERROR: Coverage for lines (90.8%) does not meet global threshold
+(95%)`), confirming the gate actually executes rather than being silently
+skipped.
 `ui/src/utils/**` and `ui/src/api/**` (the axios client, its interceptors,
 and auth/token state) carry a 95% "near-complete" floor instead, on all
 four of the same metrics — a bug there means money is wrong or a request
@@ -190,8 +222,28 @@ goes out with stale auth. Generated types, `*.stories.{ts,tsx}`, vendored
 are excluded from the denominator entirely, not just left unenforced — see
 `vitest.config.ts`'s `coverage.exclude`.
 
-CI uploads the `lcov`/HTML report as the `frontend-coverage` artifact on
-every run (`.github/workflows/ci.yml`), success or failure.
+CI runs coverage with `--coverage.reporter=text --coverage.reporter=lcovonly`
+(`.github/workflows/ci.yml`, the `frontend` job's "Frontend tests with
+coverage" step) and uploads just `coverage/lcov.info` as the
+`frontend-coverage` artifact, not the full `html` report tree — nothing in
+CI opens the HTML report (`scripts/coverage-offenders.mjs` and
+`scripts/coverage-delta.mjs` both read only `lcov.info`), and this artifact
+is re-downloaded whole on *every* PR run for the baseline diff, so a
+smaller artifact is a real, if small, win. `yarn coverage` (local) is
+unaffected — `vitest.config.ts`'s own `coverage.reporter` list still
+includes `html` for the browser report that command opens.
+
+**CI-vs-local timing divergence:** local numbers above (Node 22, 10 cores)
+are directional, not literal CI numbers. The 3 most recent CI runs on
+`main` with a green `Frontend tests` job (`gh run list --workflow=ci.yml
+--branch=main`, runs `33265595614`, `33252546294`, `33237194595` — cite the
+run IDs, not a `--status=success` filter: all three runs concluded *failure*
+on an unrelated job, so that filter returns none of them) — all against the
+pre-[15.3] suite, since
+this is the first PR to touch the runner config — show the "Frontend tests
+with coverage" step taking 252s, 276s, and 323s (Node 24, 4 vCPU), far
+higher than the ~64s local wall time for the same suite state. Treat any
+"under Xs locally" claim about this suite as a floor, not a CI prediction.
 
 ## End-to-end Testing (Playwright)
 
@@ -522,12 +574,27 @@ flowchart TD
   enforces the queue part: a hard cap of 10 entries and a 14-day expiry,
   both checked in the *blocking* frontend job, so an over-full or stale
   `quarantine.json` fails the pipeline it was supposed to protect.
-- **How to quarantine a test:** copy its full path verbatim off the CI
-  `FAIL` line (e.g. `src/foo.test.tsx > outer suite > the test name`,
-  minus the leading `FAIL  |project|` marker) into `quarantine.json`'s
-  `test` field, alongside a tracking `issue` number, today's date as
-  `addedAt`, and a short `reason`. See `ui/src/test/quarantine.ts`'s
-  header comment for the exact key format.
+- **How to quarantine a test:** take the path off the CI `FAIL` line and
+  **prefix it with the package directory**, then put that in
+  `quarantine.json`'s `test` field with a tracking `issue` number, today's
+  date as `addedAt`, and a short `reason`. Vitest prints a path relative to
+  the *project* root; the key is relative to the *repo* root, because
+  `src/foo.test.tsx` alone is ambiguous between `ui` and `client-admin`.
+  The `|client-admin:jsdom|` marker tells you which prefix to add:
+
+  ```text
+  FAIL  |client-admin:jsdom| src/routes/portal/fees.test.tsx > /portal/fees > shows the total
+  ```
+
+  ```jsonc
+  // quarantine.json — note the added "client-admin/" prefix
+  { "test": "client-admin/src/routes/portal/fees.test.tsx > /portal/fees > shows the total" }
+  ```
+
+  Getting the prefix wrong fails silently — the entry matches nothing and
+  the test keeps gating. `scripts/flake-report.mjs`'s nightly output already
+  prints keys in the correct repo-relative form, so paste from there when
+  you can. See `ui/src/test/quarantine.ts`'s header for the full format.
 - **The nightly flake hunt finds candidates for you.**
   `.github/workflows/nightly-frontend-flakes.yml` runs the frontend suite
   three consecutive times every night and diffs the results:

@@ -110,6 +110,11 @@ export function isExpired(entry: QuarantineEntry, now: Date = new Date()): boole
   const added = new Date(entry.addedAt);
   if (Number.isNaN(added.getTime())) return true;
   const ageMs = now.getTime() - added.getTime();
+  // A future `addedAt` — a typo like 2027-, or someone in a UTC-ahead zone
+  // writing tomorrow's date — would otherwise give a negative age and never
+  // expire, turning the queue into exactly the graveyard this file exists to
+  // prevent. Treat it as expired so it has to be corrected.
+  if (ageMs < 0) return true;
   return ageMs > QUARANTINE_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
 }
 
