@@ -14,17 +14,18 @@
  * lets `list-shell.stories.tsx` render it in Storybook (no router needed
  * there) while a real page wires the URL-backed hook.
  */
+import type { RowData } from '@tanstack/react-table';
 import type { ReactNode } from 'react';
 
 import { DataTable, type DataTableProps } from '../components/data-table';
 
-export interface ListShellProps<TData> extends DataTableProps<TData> {
+export interface ListShellProps<TData extends RowData> extends DataTableProps<TData> {
   title: string;
   primaryAction?: ReactNode;
   filterBar?: ReactNode;
 }
 
-export function ListShell<TData>({
+export function ListShell<TData extends RowData>({
   title,
   primaryAction,
   filterBar,

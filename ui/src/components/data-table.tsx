@@ -5,18 +5,23 @@
  * this component supplies the markup — a real semantic `<table>` with
  * `<caption>`, `<th scope>` and `aria-sort`, not a div-soup grid.
  *
- * Sorting, pagination and filtering are **server-side** (`manualSorting`/
- * `manualPagination`): this component never sorts or slices `data` itself,
- * it only reports intent (`onSortingChange`/`onPageChange`) and renders
- * whatever page the caller's query already fetched.
+ * Sorting, pagination and filtering are **server-side** (`manualSorting`;
+ * pagination is entirely caller-owned, outside the table instance): this
+ * component never sorts or slices `data` itself, it only reports intent
+ * (`onSortingChange`/`onPageChange`) and renders whatever page the
+ * caller's query already fetched.
  */
 import {
+  columnOrderingFeature,
+  columnVisibilityFeature,
   flexRender,
-  getCoreRowModel,
-  useReactTable,
+  rowSortingFeature,
+  tableFeatures,
+  useTable,
   type ColumnDef,
   type ColumnOrderState,
-  type VisibilityState,
+  type ColumnVisibilityState,
+  type RowData,
 } from '@tanstack/react-table';
 import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react';
 import * as React from 'react';
@@ -25,12 +30,21 @@ import { Button } from './button';
 import { Checkbox } from './checkbox';
 import { Menu, MenuCheckboxItem, MenuContent, MenuTrigger } from './menu';
 
+// Declared once at module scope (not per-render) — the sort/visibility/order
+// features this table actually uses. v9 requires an explicit feature set
+// instead of bundling everything, so bundle size scales with what's used.
+const dataTableFeatures = tableFeatures({
+  rowSortingFeature,
+  columnVisibilityFeature,
+  columnOrderingFeature,
+});
+
 export interface DataTableSort {
   id: string;
   desc: boolean;
 }
 
-export interface DataTableColumn<TData> {
+export interface DataTableColumn<TData extends RowData> {
   id: string;
   header: string;
   accessorFn: (row: TData) => React.ReactNode;
@@ -42,7 +56,7 @@ export interface DataTableColumn<TData> {
   pinned?: boolean;
 }
 
-export interface DataTableProps<TData> {
+export interface DataTableProps<TData extends RowData> {
   /** Persists column visibility/order to `localStorage` under this key —
    * unique per table instance in the app (e.g. `'students-list'`). */
   tableId: string;
@@ -78,12 +92,12 @@ export interface DataTableProps<TData> {
    * mount, same as `readPersistedState`'s localStorage read: this seeds
    * the *initial* state, it doesn't force-hide a column a returning user
    * already chose to show. */
-  defaultColumnVisibility?: VisibilityState;
+  defaultColumnVisibility?: ColumnVisibilityState;
   /** Renders a "Columns" toggle button (own small toolbar row above the
    * table) backed by the same `columnVisibility` state `defaultColumnVisibility`
    * seeds and localStorage persists — this is the only place that state
    * is exposed to a caller, since TanStack's `Column` handle it toggles
-   * lives inside this component's own `useReactTable` instance. Off by
+   * lives inside this component's own `useTable` instance. Off by
    * default: a table with a fixed, small column set (most of today's
    * callers) has nothing worth hiding. */
   columnsMenu?: boolean;
@@ -108,9 +122,9 @@ export interface DataTableProps<TData> {
 
 function readPersistedState(
   tableId: string,
-  defaultColumnVisibility: VisibilityState = {},
+  defaultColumnVisibility: ColumnVisibilityState = {},
 ): {
-  columnVisibility: VisibilityState;
+  columnVisibility: ColumnVisibilityState;
   columnOrder: ColumnOrderState;
 } {
   if (typeof window === 'undefined') {
@@ -120,7 +134,7 @@ function readPersistedState(
     const raw = window.localStorage.getItem(`data-table:${tableId}`);
     if (!raw) return { columnVisibility: defaultColumnVisibility, columnOrder: [] };
     const parsed = JSON.parse(raw) as {
-      columnVisibility?: VisibilityState;
+      columnVisibility?: ColumnVisibilityState;
       columnOrder?: ColumnOrderState;
     };
     return {
@@ -134,7 +148,7 @@ function readPersistedState(
   }
 }
 
-export function DataTable<TData>({
+export function DataTable<TData extends RowData>({
   tableId,
   caption,
   columns,
@@ -202,7 +216,7 @@ export function DataTable<TData>({
 
   const selectable = selectedIds !== undefined && onSelectedIdsChange !== undefined;
 
-  const tanstackColumns = React.useMemo<ColumnDef<TData>[]>(
+  const tanstackColumns = React.useMemo<ColumnDef<typeof dataTableFeatures, TData>[]>(
     () =>
       columns.map((column) => ({
         id: column.id,
@@ -214,7 +228,8 @@ export function DataTable<TData>({
     [columns],
   );
 
-  const table = useReactTable({
+  const table = useTable({
+    features: dataTableFeatures,
     data,
     columns: tanstackColumns,
     state: {
@@ -223,8 +238,6 @@ export function DataTable<TData>({
       sorting: sorting ? [{ id: sorting.id, desc: sorting.desc }] : [],
     },
     manualSorting: true,
-    manualPagination: true,
-    pageCount: Math.max(1, Math.ceil(totalCount / pageSize)),
     onColumnVisibilityChange: (updater) => {
       setPersisted((prev) => ({
         ...prev,
@@ -245,7 +258,6 @@ export function DataTable<TData>({
       const first = next[0];
       onSortingChange(first ? { id: first.id, desc: first.desc } : null);
     },
-    getCoreRowModel: getCoreRowModel(),
     getRowId,
   });
 
@@ -296,8 +308,8 @@ export function DataTable<TData>({
 
   /**
    * The header checkbox is **page-scoped**: `data` only ever holds the page
-   * the caller's query fetched (`manualPagination`), so "all" can only
-   * honestly mean "all rows on this page". It therefore *adds to* and
+   * the caller's query fetched, so "all" can only honestly mean "all rows
+   * on this page". It therefore *adds to* and
    * *removes from* the caller's selection rather than replacing it —
    * replacing it silently discarded every row picked on a previous page,
    * which for `bulk-reminder-wizard.tsx` meant a sender who selected four
