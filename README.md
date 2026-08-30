@@ -341,6 +341,61 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every PR and on push to
 - **verify** also runs `yarn knip` (dead-code detection) as a **non-blocking**
   step — see below.
 
+### E2E browser policy & sharding
+
+```mermaid
+flowchart LR
+    PR["PR / push to main\n(ci.yml e2e job)"] --> C["chromium only\n3 shards"]
+    N["Nightly, 21:00 UTC\n(nightly-e2e.yml)"] --> CH["chromium\n3 shards"]
+    N --> FF["firefox\n3 shards (advisory)"]
+    N --> WK["webkit\n3 shards (advisory)"]
+```
+
+- **PRs and pushes to `main`** run chromium only, split into 3 shards
+  (`ci.yml`'s `e2e` job, matrix `browser × shard`). This is the fast path
+  everyone waits on.
+- **Nightly** (`.github/workflows/nightly-e2e.yml`, `workflow_dispatch`-able)
+  runs all three engines — chromium, firefox, webkit — each split into the
+  same 3 shards, on a schedule instead of blocking PRs. The `firefox` and
+  `webkit` legs are **advisory**: they carry job-level
+  `continue-on-error`, so a red engine shows as a failed job (with its
+  report and traces uploaded as `nightly-playwright-report-<browser>-<shard>`)
+  while the workflow run itself stays green. They're unproven at repo
+  scale — only smoke-tested during #440's planning — and stay advisory
+  until a follow-up issue triages and greens them.
+- To widen the PR/push path itself to all three engines, set the repo
+  Actions variable `E2E_BROWSERS_JSON` to `["chromium","firefox","webkit"]`
+  — no workflow edit needed, this has been the contract since #148.
+- The shard count (`3`) is **not** defined in one place. It is repeated
+  across the job `name:`, the `matrix.shard` list, the "E2E tests" step
+  name and its `--shard=${{ matrix.shard }}/3` flag, and — in `ci.yml`
+  only — three `matrix.shard == 3` pins that keep the PWA/offline suite
+  running exactly once. Changing the count means editing all of them in
+  both workflows; the comment above `matrix.shard` in `ci.yml` lists
+  them. Get it wrong and CI stays green while tests quietly stop
+  running: a `[1, 2]` matrix against `--shard=N/3` just drops the third
+  shard's tests, and a stale `== 3` pin silently disables the whole PWA
+  suite.
+- `yarn e2e` run locally is unsharded and unaffected by any of this.
+
+All specs authenticate via `storageState` fixtures
+(`e2e/fixtures/test.ts`'s `loggedIn()`), never by driving the login form —
+except the login form's own spec, which has to:
+
+```bash
+rg -l "pages/login-page" e2e --glob '*.spec.ts'
+# must print exactly:
+# e2e/journeys/auth.spec.ts
+```
+
+Specs also don't use `waitForTimeout` or serialize on each other — both
+should keep returning nothing:
+
+```bash
+rg -n "waitForTimeout" e2e/
+rg -n "describe\.serial|describe\.configure" e2e/
+```
+
 ### Dead-code detection (`knip`)
 
 `yarn knip` finds unused files, exports and dependencies across `shared`,

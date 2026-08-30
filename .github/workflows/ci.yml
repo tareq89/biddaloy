@@ -324,7 +324,7 @@ jobs:
           if-no-files-found: ignore
 
   e2e:
-    name: E2E (${{ matrix.browser }})
+    name: E2E (${{ matrix.browser }} ${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
     needs: changes
     if: github.event_name == 'push' || needs.changes.outputs.frontend == 'true'
@@ -334,13 +334,31 @@ jobs:
     strategy:
       # Chromium only by default — a product decision (#148). To widen:
       # set the repo Actions variable E2E_BROWSERS_JSON to e.g.
-      # ["chromium","firefox","webkit"] — no workflow edit needed.
+      # ["chromium","firefox","webkit"] — no workflow edit needed (see
+      # nightly-e2e.yml, which already runs all three every night).
       # The cache key, install step, --project flag and artifact names
-      # below are already per-browser. Within-browser sharding stays out
-      # until the suite passes ~5 min (see #307's out-of-scope notes).
+      # below are already per-browser.
+      #
+      # Within-browser sharding (#440): the suite now exceeds the ~5 min
+      # threshold from #307's out-of-scope notes, so each browser entry
+      # is split 3 ways here.
+      #
+      # Changing the shard count means editing SIX places in this job, and
+      # nothing enforces it — if they drift, tests silently vanish (a
+      # --shard=1/3 run against a [1,2,3,4] matrix throws, but a [1,2]
+      # matrix against /3 just drops the third shard's tests and stays
+      # green). The six:
+      #   1. `name:` above                    — "… ${{ matrix.shard }}/3"
+      #   2. this `matrix.shard` list         — [1, 2, 3]
+      #   3. the "E2E tests" step `name:`     — "… ${{ matrix.shard }}/3"
+      #   4. its `--shard=${{ … }}/3` flag
+      #   5-6. the three `matrix.shard == 3` pins on the PWA step and its
+      #        two artifact uploads (the "last shard" pin — see there).
+      # nightly-e2e.yml mirrors 1-4 and must move with them.
       fail-fast: false
       matrix:
         browser: ${{ fromJSON(vars.E2E_BROWSERS_JSON || '["chromium"]') }}
+        shard: [1, 2, 3]
     services:
       postgres:
         image: postgres:16-alpine
@@ -392,16 +410,37 @@ jobs:
         # not src) — same reason the other jobs build this first.
         run: yarn build:shared
 
+      # Playwright's package version, used below so the browser cache key
+      # actually matches its own comment (it previously keyed on
+      # hashFiles('yarn.lock'), so unrelated lockfile bumps invalidated a
+      # perfectly good browser cache — see #440). Must run after "Install
+      # dependencies" so the package is on disk to inspect.
+      - name: Resolve Playwright version
+        id: pw
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
       # Playwright's own browser cache, keyed on the resolved package
       # version so a dependabot bump invalidates it automatically. On a
       # cache hit the browser binary is already there, so only the OS-level
       # shared libraries (apt) need reinstalling — skips the ~1min download.
+      # All 3 shards of a browser share this key; on a cold cache the first
+      # to finish wins and the other two get a benign "already exists" 409
+      # from actions/cache — expected, not a bug to "fix".
+      #
+      # Deliberately no `restore-keys:` (#440's plan proposed one; review
+      # found it net-negative). Playwright installs into version-stamped
+      # directories, so a prefix match would restore the *previous*
+      # version's binaries — not one reusable byte, since the exact-key
+      # miss re-runs `playwright install --with-deps` anyway — and then
+      # re-save both under the new key, growing the entry on every bump
+      # until it evicts other caches. The version key self-invalidates
+      # cleanly on its own.
       - name: Cache Playwright browsers
         id: playwright-cache
         uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ matrix.browser }}-${{ hashFiles('yarn.lock') }}
+          key: playwright-${{ runner.os }}-${{ matrix.browser }}-${{ steps.pw.outputs.version }}
 
       - name: Install Playwright browser (${{ matrix.browser }})
         if: steps.playwright-cache.outputs.cache-hit != 'true'
@@ -417,8 +456,8 @@ jobs:
       - name: Seed database
         run: yarn workspace @biddaloy/server seed
 
-      - name: E2E tests (${{ matrix.browser }})
-        run: yarn e2e --project=${{ matrix.browser }}
+      - name: E2E tests (${{ matrix.browser }} ${{ matrix.shard }}/3)
+        run: yarn e2e --project=${{ matrix.browser }} --shard=${{ matrix.shard }}/3
 
       # [8.12.6]: the PWA/offline suite runs here rather than as its own
       # job so it reuses this job's postgres, redis, migrations, seed and
@@ -429,20 +468,37 @@ jobs:
       # that only ran post-merge would not have caught the class of bug
       # #184 found. Chromium only; offline emulation reaching service
       # workers is verified on Chromium's CDP path.
+      #
+      # Runs once per browser, arbitrarily pinned to the LAST shard. Not
+      # shard 1 by preference: when measured on 2026-08-30 shard 3 was the
+      # lightest leg (~256s of ~939s total work), so stacking the ~55s PWA
+      # suite there kept the three shards finishing close together.
+      #
+      # That is a snapshot, not an invariant. Playwright's filterForShard
+      # slices by TEST COUNT, not duration, so adding or removing a single
+      # test case anywhere shifts the boundaries and shard 3 may stop being
+      # the lightest. The cost of being wrong is bounded and visible (the
+      # critical shard grows by roughly the PWA suite's ~55s, showing up
+      # directly in CI timings) — so re-measure before moving this, rather
+      # than shuffling it on the assumption the old comment still holds.
+      #
+      # If the shard count changes, this `== 3` and the two identical pins
+      # on the PWA artifact uploads below must change with it, or the whole
+      # PWA/offline suite silently stops running while CI stays green.
       - name: PWA and offline E2E tests
-        if: matrix.browser == 'chromium'
+        if: matrix.browser == 'chromium' && matrix.shard == 3
         run: yarn e2e:pwa
 
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-report-${{ matrix.browser }}
+          name: playwright-report-${{ matrix.browser }}-${{ matrix.shard }}
           path: playwright-report/
           if-no-files-found: ignore
 
       - name: Upload PWA Playwright report
-        if: failure() && matrix.browser == 'chromium'
+        if: failure() && matrix.browser == 'chromium' && matrix.shard == 3
         uses: actions/upload-artifact@v7
         with:
           name: playwright-report-pwa
@@ -450,7 +506,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload PWA traces, screenshots and videos
-        if: failure() && matrix.browser == 'chromium'
+        if: failure() && matrix.browser == 'chromium' && matrix.shard == 3
         uses: actions/upload-artifact@v7
         with:
           name: test-results-pwa
@@ -461,7 +517,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: test-results-${{ matrix.browser }}
+          name: test-results-${{ matrix.browser }}-${{ matrix.shard }}
           path: test-results/
           if-no-files-found: ignore
 

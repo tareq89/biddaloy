@@ -54,6 +54,17 @@ export default defineConfig({
     baseURL: 'http://localhost:5174',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    // Deliberately NOT 'on-first-retry' to match `trace` above (#440
+    // considered it and rejected it). Two reasons, neither about speed:
+    // locally `retries` is 0, so 'on-first-retry' would record nothing at
+    // all for a developer debugging a failure; and in CI it keeps the
+    // video of the *retry*, so a test that fails then passes leaves you a
+    // recording of the passing run — useless for the flake hunting this
+    // repo runs a nightly workflow for. 'retain-on-failure' records every
+    // attempt and keeps the ones that failed, which is the artifact you
+    // actually want. Measured at no wall-time cost either way (4 passing
+    // tests x 2 runs: 4.0-4.4s for both settings), so there is no speed
+    // argument on the other side.
     video: 'retain-on-failure',
   },
   // iOS Safari (WebKit) is a real share of Bangladeshi device traffic and
