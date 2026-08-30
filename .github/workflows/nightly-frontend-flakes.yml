@@ -5,10 +5,25 @@ on:
     - cron: "30 22 * * *"
   workflow_dispatch:
 
+# [#437] This is a nightly cron, not a PR check — nothing ever needs to
+# cancel a run of it early, and two overlapping runs would just double
+# the noise in the tracking issue. `cancel-in-progress: false` (not the
+# `github.ref`-conditional shape ci.yml uses) since every run is on the
+# same ref anyway. Same shape as nightly-e2e.yml's own concurrency block.
+concurrency:
+  group: nightly-flakes
+  cancel-in-progress: false
+
 jobs:
   repeat-frontend:
     name: Frontend suite x3
     runs-on: ubuntu-latest
+    # [#437] `issues: write` so the final step can file/update the sticky
+    # `flake-hunt` tracking issue. Neither permission existed on this job
+    # before — the default `GITHUB_TOKEN` scope is read-only content.
+    permissions:
+      contents: read
+      issues: write
     steps:
       - uses: actions/checkout@v7
 
@@ -27,10 +42,68 @@ jobs:
 
       # Three consecutive full passes. vitest has no --repeat flag, and
       # --retry would hide exactly the flakes this job exists to surface,
-      # so a plain loop it is. Any failing pass fails the job.
+      # so a plain loop it is.
+      #
+      # [#437] A failing pass no longer aborts the loop (`|| true`) — a
+      # flake is only identifiable by *comparing* passes, so all three
+      # must run even when one of them is red. This job was never a gate
+      # (nothing downstream depends on it going green); the version of
+      # this file that failed the job on a red pass was actually throwing
+      # away the exact signal the job exists to collect.
+      #
+      # Each pass writes its own JSON report (`--reporter=default` keeps
+      # the human-readable log too) for `flake-report.mjs` below to diff
+      # against the other passes.
       - name: Frontend tests, three consecutive runs
         run: |
+          mkdir -p flake-runs
           for i in 1 2 3; do
             echo "=== pass $i/3 ==="
-            yarn test:frontend --run
+            yarn test:frontend --run --reporter=default --reporter=json --outputFile.json=flake-runs/pass-$i.json || true
           done
+
+      # A stray existing label from a prior manual run must not fail this
+      # with "label not found" — `--force` creates it if absent and
+      # no-ops (does not fail) if it's already there.
+      - name: Ensure the flake-hunt label exists
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh label create flake-hunt --repo "${{ github.repository }}" \
+            --color BFD4F2 \
+            --description "Nightly frontend flake hunt tracking issue (#437)" \
+            --force
+
+      # [#437] One sticky issue, edited in place — not a new issue every
+      # night, which would just be 365 near-duplicate reads nobody wants.
+      # `flake-report.mjs` only produces the markdown body; the
+      # find-or-create logic lives here so the script itself stays a pure,
+      # easily-tested function of "N pass JSONs in, markdown out".
+      #
+      # `if: always()` — a report about which tests failed must still run
+      # when the "three consecutive runs" step above returned non-zero
+      # exit status from its own shell (it shouldn't, since every `yarn`
+      # call is `|| true`, but this is the same defensive `always()` every
+      # other always-run step in this repo's workflows uses).
+      - name: File or update the flake-hunt tracking issue
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Exit 2 means no pass file had any results (runner died, install
+          # failed, or the glob matched nothing) — say so and stop, rather
+          # than overwriting a real flake table with a false "all green".
+          if ! node scripts/flake-report.mjs flake-runs/pass-*.json > flake-report.md; then
+            echo "::warning title=Flake hunt::no usable pass reports; leaving the tracking issue untouched"
+            exit 0
+          fi
+          ISSUE_NUMBER=$(gh issue list --repo "${{ github.repository }}" --label flake-hunt --state open --json number --jq '.[0].number')
+          if [ -z "$ISSUE_NUMBER" ]; then
+            gh issue create --repo "${{ github.repository }}" \
+              --title "Nightly frontend flake hunt" \
+              --label flake-hunt \
+              --body-file flake-report.md
+          else
+            gh issue edit "$ISSUE_NUMBER" --repo "${{ github.repository }}" --body-file flake-report.md
+          fi

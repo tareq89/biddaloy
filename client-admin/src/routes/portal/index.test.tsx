@@ -10,9 +10,34 @@ import {
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../routeTree.gen';
+
+// [#361] Frozen so the suite means the same thing at 00:07 as it does at
+// 14:00. Only `Date` is faked, so MSW, `waitFor`, and `userEvent` keep
+// their real timers.
+//
+// Installed at module scope, not in `beforeEach`, because this file's
+// fixture helpers (`dueDate`, `payment`) are called from inside `it`
+// blocks but also, for some suites, from the `describe` body itself at
+// collection time — a clock frozen later than that would disagree with
+// them. Do not "tidy" this into `beforeEach`: see `fees.test.tsx`'s
+// identical comment for why that shape broke a passing test.
+vi.useFakeTimers({ toFake: ['Date'] });
+
+// Vitest never restores fake timers between files, and nothing in the runner
+// calls FakeTimers.dispose() — so with `isolate: false` (which [15.3]/#438
+// turns on) the frozen clock installed above would leak into every other file
+// that later runs in this same worker, and they would silently see this
+// file's date. Module scope for the install is load-bearing (the fixtures
+// below are evaluated at import time and must see the frozen clock), so the
+// teardown goes in afterAll rather than afterEach.
+afterAll(() => {
+  vi.useRealTimers();
+});
+
+vi.setSystemTime(new Date('2026-03-15T18:30:00.000Z'));
 
 /**
  * [5.2]'s portal landing, exercised through the real route tree (so
@@ -417,6 +442,14 @@ describe('/portal', () => {
     function payment(id: string, status: string, dayOffset: number, amount: number) {
       const date = new Date();
       date.setDate(date.getDate() + dayOffset);
+      // [#361] Serialize the *local* calendar date directly, like
+      // `dueDate()` above — `date.setHours(12, 0, 0, 0).toISOString()`
+      // still shifts a UTC day in zones ahead of UTC+12 (Kiritimati,
+      // Tonga, Samoa), since local noon there is already the next UTC
+      // day. `parseServerDate` only reads this string's first 10 chars,
+      // so the local-fields string round-trips exactly in every zone.
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const serialized = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T00:00:00.000Z`;
       return {
         id,
         student_id: 'student-1',
@@ -425,8 +458,8 @@ describe('/portal', () => {
         payment_status: status,
         transaction_reference: null,
         invoice_id: null,
-        payment_date: date.toISOString(),
-        created_at: date.toISOString(),
+        payment_date: serialized,
+        created_at: serialized,
       };
     }
 

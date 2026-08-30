@@ -11,9 +11,34 @@ import {
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../routeTree.gen';
+
+// [#361] Frozen so the suite means the same thing at 00:07 as it does at
+// 14:00. Only `Date` is faked, so MSW, `waitFor`, and `userEvent` keep
+// their real timers.
+//
+// Installed at module scope, not in `beforeEach`, because the fixtures
+// below (`fatimaFees` et al.) are evaluated when the `describe` body runs
+// — i.e. at collection time, before any `beforeEach` fires. A clock frozen
+// later would disagree with them. Do not "tidy" this into `beforeEach`:
+// that was tried first and it broke a passing test (see #361's plan) by
+// leaving the fixtures built against the real clock instead.
+vi.useFakeTimers({ toFake: ['Date'] });
+
+// Vitest never restores fake timers between files, and nothing in the runner
+// calls FakeTimers.dispose() — so with `isolate: false` (which [15.3]/#438
+// turns on) the frozen clock installed above would leak into every other file
+// that later runs in this same worker, and they would silently see this
+// file's date. Module scope for the install is load-bearing (the fixtures
+// below are evaluated at import time and must see the frozen clock), so the
+// teardown goes in afterAll rather than afterEach.
+afterAll(() => {
+  vi.useRealTimers();
+});
+
+vi.setSystemTime(new Date('2026-03-15T18:30:00.000Z'));
 
 /**
  * [5.3]'s fee breakdown and invoice history, exercised through the real
@@ -46,11 +71,18 @@ describe('/portal/fees', () => {
 
   /** A date `offsetDays` from today, as the server sends it. Relative
    * rather than a fixed calendar date so "overdue" stays overdue next
-   * year. */
+   * year.
+   *
+   * [#361] Built from the *local* calendar date, not `toISOString()`.
+   * `parseServerDate` (`ui/src/utils/date.ts`) takes the UTC calendar date
+   * out of the string and parses it at local midnight, so a `toISOString()`
+   * fixture is off by a day in any zone ahead of UTC — the same shape as
+   * `index.test.tsx`'s already-correct `dueDate()`. */
   function serverDate(offsetDays: number): string {
     const date = new Date();
     date.setDate(date.getDate() + offsetDays);
-    return date.toISOString();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T00:00:00.000Z`;
   }
 
   interface FeeInput {

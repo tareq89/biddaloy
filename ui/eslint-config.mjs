@@ -33,6 +33,10 @@
 //   - `noWindowAlertConfig`: [8.9.8]'s executable guard — no
 //     `window.alert`/`alert`/`confirm`/`prompt`. Applied everywhere, same
 //     reasoning as `financialMutationGuardConfig` above.
+//   - `waitForTextContentConfig`: [#437]'s executable guard — no
+//     `.textContent` read inside a `waitFor(...)` callback. Scoped to
+//     `src/**/*.test.{ts,tsx}` only, unlike the guards above — this is a
+//     test-authoring convention, not a rule about product code.
 import js from '@eslint/js';
 import eslintConfigPrettier from 'eslint-config-prettier';
 import importPlugin from 'eslint-plugin-import';
@@ -46,6 +50,7 @@ import tseslint from 'typescript-eslint';
 import boundaryPlugin from './eslint-rules/component-boundary.mjs';
 import dataFetchingPlugin from './eslint-rules/data-fetching.mjs';
 import financialMutationPlugin from './eslint-rules/financial-mutation.mjs';
+import noWaitForTextContentPlugin from './eslint-rules/no-wait-for-text-content.mjs';
 import noWindowAlertPlugin from './eslint-rules/no-window-alert.mjs';
 
 // Type-checked rules need `parserOptions.projectService` (typescript-eslint's
@@ -128,6 +133,20 @@ export const noWindowAlertConfig = Object.freeze({
   plugins: Object.freeze({ 'no-window-alert': noWindowAlertPlugin }),
   rules: Object.freeze({
     'no-window-alert/no-window-alert': 'error',
+  }),
+});
+
+// [#437] "should be findBy" is a 102-site migration, out of scope here
+// (natural fit for a follow-up ticket) — but the narrower, measured shape
+// of *reading `.textContent` inside `waitFor`* is 13 sites, tractable to
+// fix once and lint forever. Scoped to test files by each consumer (see
+// `ui/eslint.config.mjs` / `client-admin/eslint.config.mjs`), not applied
+// unscoped like the guards above — this rule has nothing to say about
+// non-test code.
+export const waitForTextContentConfig = Object.freeze({
+  plugins: Object.freeze({ 'wait-for-text-content': noWaitForTextContentPlugin }),
+  rules: Object.freeze({
+    'wait-for-text-content/no-wait-for-text-content': 'error',
   }),
 });
 

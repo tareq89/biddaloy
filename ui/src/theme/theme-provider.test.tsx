@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { cleanupTestState, userEvent } from '../test/render-with-providers';
@@ -40,7 +40,7 @@ describe('useTheme', () => {
 
     await user.click(screen.getByText('set dark'));
 
-    await waitFor(() => expect(screen.getByTestId('theme').textContent).toBe('dark'));
+    await within(await screen.findByTestId('theme')).findByText('dark');
     expect(getPersistedTheme()).toBe('dark');
     expect(document.documentElement.dataset.theme).toBe('dark');
   });
@@ -51,10 +51,10 @@ describe('useTheme', () => {
     expect(screen.getByTestId('theme').textContent).toBe('light');
 
     await user.click(screen.getByText('toggle'));
-    await waitFor(() => expect(screen.getByTestId('theme').textContent).toBe('dark'));
+    await within(await screen.findByTestId('theme')).findByText('dark');
 
     await user.click(screen.getByText('toggle'));
-    await waitFor(() => expect(screen.getByTestId('theme').textContent).toBe('light'));
+    await within(await screen.findByTestId('theme')).findByText('light');
   });
 
   it('live-follows an OS preference change while no explicit choice is stored', async () => {
@@ -64,13 +64,13 @@ describe('useTheme', () => {
 
     act(() => mockSystemPrefersDark(true));
 
-    await waitFor(() => expect(screen.getByTestId('theme').textContent).toBe('dark'));
+    await within(await screen.findByTestId('theme')).findByText('dark');
     expect(document.documentElement.dataset.theme).toBe('dark');
     // Still no explicit choice — this was the OS talking, not a user click.
     expect(getPersistedTheme()).toBeNull();
 
     act(() => mockSystemPrefersDark(false));
-    await waitFor(() => expect(screen.getByTestId('theme').textContent).toBe('light'));
+    await within(await screen.findByTestId('theme')).findByText('light');
   });
 
   it('an explicit choice already made is not overridden by a later OS preference change', async () => {
@@ -78,7 +78,7 @@ describe('useTheme', () => {
     render(<ThemeProbe />);
 
     await user.click(screen.getByText('set dark'));
-    await waitFor(() => expect(screen.getByTestId('theme').textContent).toBe('dark'));
+    await within(await screen.findByTestId('theme')).findByText('dark');
 
     // The OS now says light — the explicit 'dark' choice already made
     // should still win, per the acceptance criterion "explicit user choice

@@ -51,7 +51,10 @@ jobs:
               - 'scripts/ci-timings.spec.mjs'
               - 'scripts/ci-timings-trend.mjs'
               - 'scripts/ci-timings-trend.spec.mjs'
+              - 'scripts/flake-report.mjs'
+              - 'scripts/flake-report.spec.mjs'
               - 'ci-budgets.json'
+              - 'quarantine.json'
               - 'package.json'
               - 'yarn.lock'
               - 'vitest.config.ts'
@@ -233,6 +236,31 @@ jobs:
         env:
           CI_TIMINGS_OUT: ci-timings/raw-frontend.json
         run: yarn test:frontend:coverage
+
+      # [#437] Quarantined tests still run, just don't gate the pipeline —
+      # otherwise "quarantine" would mean "deleted" and nobody ever learns
+      # a test healed. `quarantine.spec.ts` (in the blocking step above)
+      # caps the list at 10 and expires entries after 14 days, so this
+      # escape hatch has its own escape hatch. Runs even if the gating
+      # step above failed, since a real failure there shouldn't hide
+      # whether the quarantined tests are still misbehaving too.
+      #
+      # Guarded on the list being non-empty: with `tests: []`, QUARANTINE_MODE=only
+      # skips every test, but Vitest still transforms, imports and sets up all
+      # ~200 files first — a second near-full frontend run, on every PR, for
+      # zero information. On the job [15.1] exists to speed up, that is not a
+      # cost worth paying for an empty list.
+      - name: Quarantined frontend tests (non-blocking)
+        if: always()
+        continue-on-error: true
+        env:
+          QUARANTINE_MODE: only
+        run: |
+          if [ "$(jq '.tests | length' quarantine.json)" -gt 0 ]; then
+            yarn test:frontend --run
+          else
+            echo "quarantine.json is empty — nothing quarantined, nothing to run."
+          fi
 
       # [15.1]: see the "verify" job's "Collect unit test timings" comment —
       # same `if: always()` reasoning applies here.
