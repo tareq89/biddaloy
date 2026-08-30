@@ -47,6 +47,11 @@ for (const [pkg, files] of filesByPackage) {
   const result = spawnSync(eslintBin, ['--fix', ...files], {
     cwd: path.join(repoRoot, pkg),
     stdio: 'inherit',
+    // [15.6] Skips the type-checked rule set — see ui/eslint.config.mjs and
+    // client-admin/eslint.config.mjs's own comments on the ESLINT_FAST
+    // trade-off. `yarn workspace @biddaloy/<pkg> lint` (CI, `ci:local`)
+    // never sets this, so those rules still gate every merge.
+    env: { ...process.env, ESLINT_FAST: '1' },
   });
   if (result.status !== 0) failed = true;
 }
