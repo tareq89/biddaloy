@@ -148,7 +148,9 @@ export function validateQuarantineFile(file: QuarantineFile, now: Date = new Dat
     // An entry that isn't even an object (`null`, a bare string, ...)
     // would throw on `entry.test` below — report it and move on instead.
     if (entry === null || typeof entry !== 'object') {
-      violations.push(`quarantine.json has a malformed entry (${JSON.stringify(entry)}), expected an object.`);
+      violations.push(
+        `quarantine.json has a malformed entry (${JSON.stringify(entry)}), expected an object.`,
+      );
       continue;
     }
     // A missing/blank/non-string "test" installs as `undefined` in
@@ -237,7 +239,7 @@ export function installQuarantine({
     (Array.isArray(rawTests) ? rawTests : [])
       .filter(
         (entry): entry is QuarantineEntry =>
-          entry !== null && typeof entry === 'object' && typeof (entry as QuarantineEntry).test === 'string',
+          entry !== null && typeof entry === 'object' && typeof entry.test === 'string',
       )
       .map((entry) => entry.test),
   );
