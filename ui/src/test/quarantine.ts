@@ -127,6 +127,16 @@ export function validateQuarantineFile(file: QuarantineFile, now: Date = new Dat
     );
   }
 
+  // A hand-edited quarantine.json can have `tests` as anything — a
+  // string, an object, entirely absent past `loadQuarantine`'s `?? []`
+  // fallback (which only catches `undefined`, not other wrong types).
+  // Report it as a violation and stop, rather than let `.length`/the
+  // loop below throw and abort every frontend test file's setup.
+  if (!Array.isArray(file.tests)) {
+    violations.push(`quarantine.json's "tests" field must be an array, got ${typeof file.tests}.`);
+    return violations;
+  }
+
   if (file.tests.length > MAX_QUARANTINE_ENTRIES) {
     violations.push(
       `quarantine.json has ${file.tests.length} entries, over the hard cap of ${MAX_QUARANTINE_ENTRIES} — fix or drop one before adding another.`,
@@ -135,6 +145,12 @@ export function validateQuarantineFile(file: QuarantineFile, now: Date = new Dat
 
   const seen = new Set<string>();
   for (const entry of file.tests) {
+    // An entry that isn't even an object (`null`, a bare string, ...)
+    // would throw on `entry.test` below — report it and move on instead.
+    if (entry === null || typeof entry !== 'object') {
+      violations.push(`quarantine.json has a malformed entry (${JSON.stringify(entry)}), expected an object.`);
+      continue;
+    }
     // A missing/blank/non-string "test" installs as `undefined` in
     // `installQuarantine`'s Set — no entry ever matches it, so the test
     // the author meant to quarantine keeps running in the blocking pass
@@ -211,7 +227,20 @@ export function installQuarantine({
   path = DEFAULT_QUARANTINE_PATH,
   mode = resolveQuarantineMode(process.env.QUARANTINE_MODE),
 }: { path?: string; mode?: QuarantineMode } = {}): void {
-  const listed = new Set(loadQuarantine(path).tests.map((entry) => entry.test));
+  // Tolerant, not validating: a malformed quarantine.json must not crash
+  // every frontend test file's setup. `quarantine.spec.ts`'s blocking
+  // check is what's supposed to catch and report the malformed shape —
+  // this just has to survive it without throwing, treating anything it
+  // can't make sense of as "not quarantined" (the safe default).
+  const rawTests = loadQuarantine(path).tests;
+  const listed = new Set(
+    (Array.isArray(rawTests) ? rawTests : [])
+      .filter(
+        (entry): entry is QuarantineEntry =>
+          entry !== null && typeof entry === 'object' && typeof (entry as QuarantineEntry).test === 'string',
+      )
+      .map((entry) => entry.test),
+  );
 
   beforeEach((ctx: TestContext) => {
     const key = repoRelativeKey(ctx.task.fullName, ctx.task.file?.filepath);
