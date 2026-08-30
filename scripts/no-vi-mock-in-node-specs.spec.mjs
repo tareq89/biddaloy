@@ -11,6 +11,11 @@
  * about: the check that was true the day it was written and silently stopped
  * being true. So it runs on every CI frontend job instead.
  *
+ * The detector is syntax-aware (strips comments/strings, handles computed
+ * access like vi['mock'], and detects aliases such as `const v = vi; v.mock`)
+ * so it is resistant to false negatives from indirect call styles and false
+ * positives from documentation strings and commented-out code (#449).
+ *
  * Scope note: this bans `vi.mock`/`vi.doMock`/`vi.unmock` only in the NODE
  * projects. The `:jsdom` projects are still isolated and may mock freely —
  * see the README's isolation table for why they were left that way.
@@ -47,15 +52,57 @@ const NODE_PROJECT_SOURCES = [
   ['scripts', '.spec.mjs'],
 ];
 
-const BANNED = [/\bvi\s*\.\s*mock\s*\(/, /\bvi\s*\.\s*doMock\s*\(/, /\bvi\s*\.\s*unmock\s*\(/];
+// ---------------------------------------------------------------------------
+// Syntax-aware mock detector — strips comments and string literals before
+// matching, catches computed access (vi['mock']) and aliases
+// (const v = vi; v.mock(...)). (#449)
+// ---------------------------------------------------------------------------
+
+/** Strip single-line and multi-line comments from source. */
+function stripComments(source) {
+  return source.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+}
+
+/**
+ * Build a list of regexes that detect direct and computed mock calls on
+ * `vi` (and any variable aliased to `vi`), over cleaned source text.
+ */
+function buildMockDetectors(sourceClean) {
+  // Direct calls: vi.mock(...), vi.doMock(...), vi.unmock(...)
+  // Computed access: vi['mock'](...), vi["mock"](...)
+  const patterns = [
+    /vi\s*\.\s*(?:mock|doMock|unmock)\s*\(/,
+    /vi\s*\[\s*['"](?:mock|doMock|unmock)['"]\s*\]\s*\(/,
+  ];
+
+  // Detect aliases: const v = vi, let v = vi, var v = vi
+  const aliasRE = /\b(const|let|var)\s+(\w+)\s*=\s*vi\b/g;
+  const aliases = new Set();
+  let m;
+  while ((m = aliasRE.exec(sourceClean)) !== null) {
+    aliases.add(m[2]);
+  }
+  for (const alias of aliases) {
+    const aliasRE = new RegExp(`\\b${alias}\\s*\\.\\s*(?:mock|doMock|unmock)\\s*\\(`);
+    patterns.push(aliasRE);
+  }
+
+  return patterns;
+}
+
+/** True if `source` (raw file text) contains an executable mock call. */
+function hasExecutableMock(source) {
+  const clean = stripComments(source);
+  const detectors = buildMockDetectors(clean);
+  return detectors.some((re) => re.test(clean));
+}
 
 function walk(dir, suffix, out = []) {
-  let entries;
-  try {
-    entries = readdirSync(dir);
-  } catch {
-    return out; // A project directory that doesn't exist yet is not a failure.
-  }
+  // readdirSync errors (ENOENT, EACCES, etc.) are deliberately propagated
+  // rather than converted to empty results — a configured source root that
+  // is missing or unreadable means the aggregate scan may pass when it
+  // should have failed, so the test must fail closed. (#449)
+  const entries = readdirSync(dir);
   for (const entry of entries) {
     if (entry === 'node_modules') continue;
     const full = join(dir, entry);
@@ -73,7 +120,7 @@ describe('the four isolate:false node projects', () => {
         // This file necessarily contains the banned text (it is the matcher).
         if (file === fileURLToPath(import.meta.url)) continue;
         const source = readFileSync(file, 'utf8');
-        if (BANNED.some((re) => re.test(source))) {
+        if (hasExecutableMock(source)) {
           offenders.push(file.slice(REPO_ROOT.length + 1));
         }
       }

@@ -588,7 +588,12 @@ flowchart TD
 
   ```jsonc
   // quarantine.json — note the added "client-admin/" prefix
-  { "test": "client-admin/src/routes/portal/fees.test.tsx > /portal/fees > shows the total" }
+  {
+    "test": "client-admin/src/routes/portal/fees.test.tsx > /portal/fees > shows the total",
+    "issue": 123,
+    "addedAt": "2026-08-30",
+    "reason": "Fails intermittently under CI CPU load"
+  }
   ```
 
   Getting the prefix wrong fails silently — the entry matches nothing and

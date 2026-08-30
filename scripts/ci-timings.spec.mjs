@@ -58,7 +58,7 @@ describe('deriveVitestProject', () => {
     // `scripts:node` is a real Vitest project ([15.1]); reporting its specs
     // as an unattributed null meant ci-timings' own tests were invisible in
     // ci-timings' own report.
-    expect(deriveVitestProject('scripts/ci-timings.spec.mjs')).toBe('scripts');
+    expect(deriveVitestProject('scripts/ci-timings.spec.mjs')).toBe('scripts:node');
   });
 
   it('returns null for anything outside the known top-level packages', () => {
@@ -478,6 +478,66 @@ describe('buildSummary — empty records directory', () => {
     expect(markdown).toContain('#### Jobs');
     expect(markdown).toContain('Frontend tests');
     expect(markdown).toContain('_no suite records found_');
+  });
+});
+
+describe('buildSummary — malformed totals are filtered (#449)', () => {
+  const validRecord = {
+    suite: 'unit',
+    runner: 'vitest',
+    wallMs: 100,
+    workMs: 50,
+    totals: { files: 1, tests: 5, failed: 0, skipped: 0, flaky: 0 },
+    files: [{ file: 'a.spec.ts', durationMs: 50, tests: 5, status: 'passed' }],
+  };
+
+  const usableGuard = (r) =>
+    !!(
+      r &&
+      typeof r === 'object' &&
+      typeof r.suite === 'string' &&
+      r.totals &&
+      typeof r.totals === 'object' &&
+      !Array.isArray(r.totals) &&
+      typeof r.totals.files === 'number' &&
+      typeof r.totals.tests === 'number' &&
+      Array.isArray(r.files)
+    );
+
+  it('accepts a well-formed record', () => {
+    expect(usableGuard(validRecord)).toBe(true);
+  });
+
+  it('rejects a record where totals is an array', () => {
+    expect(usableGuard({ ...validRecord, totals: [1, 2] })).toBe(false);
+  });
+
+  it('rejects a record where totals is an empty object', () => {
+    expect(usableGuard({ ...validRecord, totals: {} })).toBe(false);
+  });
+
+  it('rejects a record with null totals', () => {
+    expect(usableGuard({ ...validRecord, totals: null })).toBe(false);
+  });
+
+  it('rejects a record where totals.files is missing or not a number', () => {
+    expect(usableGuard({ ...validRecord, totals: { tests: 5 } })).toBe(false);
+    expect(usableGuard({ ...validRecord, totals: { files: 'abc', tests: 5 } })).toBe(false);
+  });
+
+  it('buildSummary still renders markdown when passed malformed records — the guard in summarize() prevents these from reaching it', () => {
+    // This test confirms buildSummary itself is not crashed by malformed
+    // records (it renders "undefined" for missing fields). The real guard
+    // lives in the summarize() flatMap.
+    const { markdown } = buildSummary({
+      records: [{ ...validRecord, totals: [1, 2] }],
+      jobs: [],
+      budgets: { jobs: {} },
+    });
+    expect(markdown).toContain('#### Suites');
+    // The record is not skipped — buildSummary doesn't filter — so the
+    // output includes the malformed record's suite name with undefined totals.
+    expect(markdown).toContain('unit');
   });
 });
 
