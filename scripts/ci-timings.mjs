@@ -50,6 +50,10 @@ export function deriveVitestProject(repoRelativeFile) {
   const [first] = segments;
 
   if (first === 'server') return 'server';
+  // Repo-root `scripts/` is a real Vitest project (`scripts:node`, added by
+  // [15.1]) — without this it reports as an unattributed `null`, which is
+  // how ci-timings' own specs would have shown up in ci-timings' own report.
+  if (first === 'scripts') return 'scripts:node';
   if (first !== 'ui' && first !== 'client-admin' && first !== 'shared') return null;
 
   // shared/vitest.config.ts's include is `src/**/*.spec.ts` only — no
@@ -396,7 +400,7 @@ export function buildSummary({ records, jobs, budgets }) {
   };
 }
 
-function summarize(args) {
+export function summarize(args) {
   const recordsDir = readArgFlag(args, 'records');
   const jobsPath = readArgFlag(args, 'jobs');
   const budgetsPath = readArgFlag(args, 'budgets');
@@ -414,7 +418,25 @@ function summarize(args) {
   const records = findJsonFilesRecursively(recordsDir).flatMap((f) => {
     try {
       const parsed = JSON.parse(readFileSync(f, 'utf8'));
-      return parsed && typeof parsed === 'object' && parsed.suite ? [parsed] : [];
+      // Check the whole shape buildSummary dereferences, not just `suite` —
+      // an object carrying `suite` but no `totals`/`files` parses fine and
+      // then throws on `r.totals.files`, reddening the timings job for the
+      // corrupt artifact this guard exists to tolerate.
+      const usable =
+        parsed &&
+        typeof parsed === 'object' &&
+        typeof parsed.suite === 'string' &&
+        parsed.totals &&
+        typeof parsed.totals === 'object' &&
+        !Array.isArray(parsed.totals) &&
+        typeof parsed.totals.files === 'number' &&
+        typeof parsed.totals.tests === 'number' &&
+        Array.isArray(parsed.files);
+      if (!usable) {
+        console.error(`ci-timings summarize: skipping malformed record ${f}`);
+        return [];
+      }
+      return [parsed];
     } catch (e) {
       console.error(`ci-timings summarize: skipping unreadable record ${f}: ${e.message}`);
       return [];
@@ -436,7 +458,12 @@ function summarize(args) {
   }
   for (const w of warnings) console.log(w);
 
-  process.exit(exitCode);
+  // `process.exitCode`, never `process.exit()`. On POSIX, stdout to a pipe
+  // (which is what the Actions runner hands a step) is asynchronous, so
+  // `process.exit()` can drop buffered writes — silently discarding the very
+  // `::warning::` annotations the `--out` flag above exists to keep on the
+  // step log. Same hazard `scripts/flake-report.mjs` documents.
+  process.exitCode = exitCode;
 }
 
 // ---------------------------------------------------------------------------
