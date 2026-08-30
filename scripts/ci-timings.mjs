@@ -400,7 +400,7 @@ export function buildSummary({ records, jobs, budgets }) {
   };
 }
 
-function summarize(args) {
+export function summarize(args) {
   const recordsDir = readArgFlag(args, 'records');
   const jobsPath = readArgFlag(args, 'jobs');
   const budgetsPath = readArgFlag(args, 'budgets');
