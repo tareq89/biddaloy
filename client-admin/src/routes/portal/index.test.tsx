@@ -442,12 +442,14 @@ describe('/portal', () => {
     function payment(id: string, status: string, dayOffset: number, amount: number) {
       const date = new Date();
       date.setDate(date.getDate() + dayOffset);
-      // [#361] Local noon, not whatever time `new Date()` happened to
-      // return. The assertion below rebuilds the expected "Last paid"
-      // stamp from this same instant's local calendar date — pinning to
-      // noon means that round trip can never cross a UTC day boundary,
-      // in any zone within ±12 hours of UTC.
-      date.setHours(12, 0, 0, 0);
+      // [#361] Serialize the *local* calendar date directly, like
+      // `dueDate()` above — `date.setHours(12, 0, 0, 0).toISOString()`
+      // still shifts a UTC day in zones ahead of UTC+12 (Kiritimati,
+      // Tonga, Samoa), since local noon there is already the next UTC
+      // day. `parseServerDate` only reads this string's first 10 chars,
+      // so the local-fields string round-trips exactly in every zone.
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const serialized = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T00:00:00.000Z`;
       return {
         id,
         student_id: 'student-1',
@@ -456,8 +458,8 @@ describe('/portal', () => {
         payment_status: status,
         transaction_reference: null,
         invoice_id: null,
-        payment_date: date.toISOString(),
-        created_at: date.toISOString(),
+        payment_date: serialized,
+        created_at: serialized,
       };
     }
 

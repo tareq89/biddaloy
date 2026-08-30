@@ -135,6 +135,17 @@ export function validateQuarantineFile(file: QuarantineFile, now: Date = new Dat
 
   const seen = new Set<string>();
   for (const entry of file.tests) {
+    // A missing/blank/non-string "test" installs as `undefined` in
+    // `installQuarantine`'s Set — no entry ever matches it, so the test
+    // the author meant to quarantine keeps running in the blocking pass
+    // while the file itself looks valid.
+    if (typeof entry.test !== 'string' || entry.test.trim().length === 0) {
+      violations.push(
+        `quarantine entry has a missing, empty, or non-string "test" field (${JSON.stringify(entry.test)}) — it would never match anything.`,
+      );
+      continue;
+    }
+
     if (seen.has(entry.test)) {
       violations.push(`duplicate quarantine entry for "${entry.test}".`);
     }
@@ -188,6 +199,14 @@ export function repoRelativeKey(
   return i === -1 ? rel : `${rel}${fullName.slice(i)}`;
 }
 
+// `quarantine.spec.ts` IS the cap/expiry enforcement mechanism (see its
+// own header). If its tests could be listed in `quarantine.json` like any
+// other test, a compromised entry there would skip the very check meant
+// to catch a compromised entry, in the blocking pass, silently. Matched
+// by file rather than by exact test name so renaming an `it(...)` block
+// inside it can't quietly disable this exemption.
+const QUARANTINE_SPEC_FILE = 'ui/src/test/quarantine.spec.ts';
+
 export function installQuarantine({
   path = DEFAULT_QUARANTINE_PATH,
   mode = resolveQuarantineMode(process.env.QUARANTINE_MODE),
@@ -195,7 +214,12 @@ export function installQuarantine({
   const listed = new Set(loadQuarantine(path).tests.map((entry) => entry.test));
 
   beforeEach((ctx: TestContext) => {
-    const isListed = listed.has(repoRelativeKey(ctx.task.fullName, ctx.task.file?.filepath));
+    const key = repoRelativeKey(ctx.task.fullName, ctx.task.file?.filepath);
+    // Only exempt from the blocking pass — in the non-blocking `only`
+    // pass, normal filtering is harmless (it just means this file
+    // doesn't run there unless something deliberately lists it).
+    if (mode === 'skip' && key.startsWith(`${QUARANTINE_SPEC_FILE} > `)) return;
+    const isListed = listed.has(key);
     const shouldSkip = mode === 'only' ? !isListed : isListed;
     if (shouldSkip) ctx.skip();
   });

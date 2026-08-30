@@ -38,6 +38,19 @@ function isWaitForCall(node) {
   return false;
 }
 
+// True only for the poll *callback* — `waitFor`'s first argument — not its
+// second `options` argument. `waitFor(cb, { onTimeout })` runs `onTimeout`
+// exactly once, after polling has already given up; a `.textContent` read
+// there isn't the eventual-consistency footgun this rule exists for, so
+// tracking depth off the whole CallExpression (which covers every
+// argument equally) over-reports on it.
+function isWaitForFirstCallback(node) {
+  const { parent } = node;
+  return Boolean(
+    parent && parent.type === 'CallExpression' && isWaitForCall(parent) && parent.arguments[0] === node,
+  );
+}
+
 const noWaitForTextContent = {
   meta: {
     type: 'problem',
@@ -57,11 +70,11 @@ const noWaitForTextContent = {
     // as "inside" until every enclosing `waitFor` call has been exited.
     let waitForDepth = 0;
     return {
-      CallExpression(node) {
-        if (isWaitForCall(node)) waitForDepth += 1;
+      ':function'(node) {
+        if (isWaitForFirstCallback(node)) waitForDepth += 1;
       },
-      'CallExpression:exit'(node) {
-        if (isWaitForCall(node)) waitForDepth -= 1;
+      ':function:exit'(node) {
+        if (isWaitForFirstCallback(node)) waitForDepth -= 1;
       },
       MemberExpression(node) {
         if (waitForDepth === 0) return;
