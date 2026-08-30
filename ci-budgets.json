@@ -1,0 +1,54 @@
+{
+  "$comment": "Per-job CI timing budgets — read by scripts/ci-timings.mjs's `summarize` command. See README.md's CI section for the raise protocol (mirrors client-admin/scripts/check-route-chunks.mjs's bundle-budget rule: every raise happens in a PR that says why, citing the measured number and the ticket). Job names must match ci.yml's rendered `name:` exactly, including matrix-interpolated shard numbers — the Jobs API returns the interpolated name, not the template. A job with no entry here always reports `budget: —` and never fails, so an unlisted job (a new job, or a renamed one) degrades to 'unmeasured', not 'silently blocking'.",
+  "schemaVersion": 1,
+  "burnIn": {
+    "enforce": false,
+    "$comment": "Global default: warn only, never hard-fail. Issue #436's plan (Escalation 3) proposed flipping to true after 20 consecutive green runs with zero false positives, but left the exact graduation date for a human decision — deliberately not invented here. A job may set its own `enforce: true` to graduate ahead of this flag once its budget has proven stable."
+  },
+  "jobs": {
+    "Detect changed areas": {
+      "budgetSeconds": 30,
+      "$comment": "Baseline (60-run window ending 2026-08-29, see #436): p90 17s."
+    },
+    "Build, lint, unit tests": {
+      "budgetSeconds": 220,
+      "$comment": "Baseline: p90 184s."
+    },
+    "Frontend tests": {
+      "budgetSeconds": 450,
+      "$comment": "Baseline: p90 386s."
+    },
+    "Integration & e2e tests": {
+      "budgetSeconds": 500,
+      "$comment": "Baseline: p90 433s."
+    },
+    "E2E (chromium 1/3)": {
+      "budgetSeconds": 450,
+      "$comment": "No per-shard baseline yet — #440's within-browser sharding landed after #436's measurement window, which only has a number for the old unsharded 'E2E (chromium)' job (p90 671s). Inferred from ci.yml's own e2e-job comment ('measured on 2026-08-30, shard 3 was the lightest leg at ~256s of ~939s total work' — so shards 1-2 average ~342s). Re-tighten once three real shard baselines exist."
+    },
+    "E2E (chromium 2/3)": {
+      "budgetSeconds": 450,
+      "$comment": "See 'E2E (chromium 1/3)' — same inferred-shard caveat."
+    },
+    "E2E (chromium 3/3)": {
+      "budgetSeconds": 500,
+      "$comment": "Carries the PWA/offline suite (~55s) on top of the lightest base shard (~256s) — same inferred-shard caveat as shards 1-2."
+    },
+    "Bundle size delta": {
+      "budgetSeconds": 115,
+      "$comment": "Baseline: p90 99s."
+    },
+    "Storybook build": {
+      "budgetSeconds": 120,
+      "$comment": "Baseline: p90 105s."
+    },
+    "Lighthouse (3G budgets)": {
+      "budgetSeconds": 380,
+      "$comment": "Baseline: p90 321s. Note: this job has been red on every main run since 2026-08-24 (Lighthouse assertion failures, unrelated to timing) — see #436's plan corrections."
+    },
+    "Dependency vulnerability scan": {
+      "budgetSeconds": 130,
+      "$comment": "Baseline: p90 93s, generous headroom for registry-lookup variance."
+    }
+  }
+}

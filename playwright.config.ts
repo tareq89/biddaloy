@@ -1,4 +1,4 @@
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig, devices, type ReporterDescription } from '@playwright/test';
 
 /**
  * E2E harness — `e2e/` isn't a yarn workspace (it drives the API and the
@@ -15,6 +15,21 @@ import { defineConfig, devices } from '@playwright/test';
  * and lets Playwright start and tear down both servers itself.
  */
 const CI = !!process.env.CI;
+
+// [15.1] Set only by ci.yml's per-job collect step. Unset (every local run)
+// means zero behaviour change — the array below is unchanged.
+const timingsOut = process.env.CI_TIMINGS_OUT;
+const timingsReporter: ReporterDescription[] = timingsOut
+  ? [['json', { outputFile: timingsOut }]]
+  : [];
+
+// Annotated as ReporterDescription[] rather than spread inline: Playwright
+// types `reporter` as a union of literal tuples, and spreading a ternary
+// into a fresh array literal widens `['list']` to `(string | {...})[]`,
+// which no longer satisfies the required 1-or-2-element tuple shape.
+const baseReporter: ReporterDescription[] = CI
+  ? [['html', { open: 'never' }], ['list']]
+  : [['html', { open: 'on-failure' }]];
 
 // Browsers come from E2E_BROWSERS (comma-separated: "chromium,firefox,webkit").
 // Default is chromium only — a deliberate product decision (#148): widening
@@ -47,7 +62,7 @@ export default defineConfig({
   // A suite needing more than one CI retry is hiding flake — see
   // [8.5.1]'s acceptance criteria.
   retries: CI ? 1 : 0,
-  reporter: CI ? [['html', { open: 'never' }], ['list']] : [['html', { open: 'on-failure' }]],
+  reporter: [...baseReporter, ...timingsReporter],
   use: {
     // Relative page.goto()/request URLs resolve against the client shell —
     // matches e2e/config.ts's single-shell entry ([8.5.2]).

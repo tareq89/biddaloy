@@ -25,6 +25,7 @@
     "test:frontend": "vitest",
     "test:frontend:coverage": "vitest run --coverage",
     "test:frontend:changed": "vitest run --changed origin/main",
+    "test:timings": "rm -rf ci-timings && (CI_TIMINGS_OUT=ci-timings/raw-local.json vitest run; ec=$?; node scripts/ci-timings.mjs collect --runner vitest --suite local --job local --in ci-timings/raw-local.json --out ci-timings/local.json && node scripts/ci-timings.mjs report ci-timings/local.json; exit $ec)",
     "coverage": "yarn test:frontend:coverage && node scripts/open-coverage-report.mjs",
     "test:cov": "yarn workspace @biddaloy/server test:cov",
     "test:unit": "yarn workspace @biddaloy/server test:unit",

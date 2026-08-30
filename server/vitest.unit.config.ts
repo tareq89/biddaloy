@@ -2,6 +2,12 @@ import { defineConfig } from 'vitest/config';
 import { resolve } from 'path';
 import swc from 'unplugin-swc';
 
+// [15.1] Set only by ci.yml's per-job collect step. Unset (every local run)
+// means zero behaviour change. `test:unit` (package.json) has no CLI
+// `--reporter` flag of its own, so unlike vitest.config.ts this one applies
+// cleanly with no CLI-override caveat.
+const timingsOut = process.env.CI_TIMINGS_OUT;
+
 /**
  * Vitest configuration for unit tests.
  * No database setup — these tests use mocked repositories.
@@ -15,6 +21,7 @@ export default defineConfig({
     exclude: ['src/**/*.integration.spec.ts', 'src/**/*.e2e-spec.ts'],
     environment: 'node',
     globals: true,
+    ...(timingsOut ? { reporters: ['default', ['json', { outputFile: timingsOut }]] } : {}),
 
     // class-transformer's `@Type()` calls `Reflect.getMetadata` at module
     // evaluation time, so any spec importing a DTO crashes on collection

@@ -1,4 +1,4 @@
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig, devices, type ReporterDescription } from '@playwright/test';
 
 /**
  * [8.12.6] The PWA/offline suite's own Playwright config — separate from
@@ -41,6 +41,18 @@ import { defineConfig, devices } from '@playwright/test';
  */
 const CI = !!process.env.CI;
 
+// [15.1] Set only by ci.yml's per-job collect step. Unset (every local run)
+// means zero behaviour change — the array below is unchanged.
+const timingsOut = process.env.CI_TIMINGS_OUT;
+const timingsReporter: ReporterDescription[] = timingsOut
+  ? [['json', { outputFile: timingsOut }]]
+  : [];
+
+// Annotated for the same reason as playwright.config.ts's — see there.
+const baseReporter: ReporterDescription[] = CI
+  ? [['html', { open: 'never', outputFolder: 'playwright-report-pwa' }], ['list']]
+  : [['html', { open: 'on-failure', outputFolder: 'playwright-report-pwa' }]];
+
 const PWA_BASE_URL = 'http://localhost:5175';
 
 // `e2e/fixtures/test.ts` builds its login/storage-state against
@@ -59,9 +71,7 @@ export default defineConfig({
   workers: 1,
   forbidOnly: CI,
   retries: CI ? 1 : 0,
-  reporter: CI
-    ? [['html', { open: 'never', outputFolder: 'playwright-report-pwa' }], ['list']]
-    : [['html', { open: 'on-failure', outputFolder: 'playwright-report-pwa' }]],
+  reporter: [...baseReporter, ...timingsReporter],
   outputDir: 'test-results-pwa',
   timeout: 90_000,
   use: {
