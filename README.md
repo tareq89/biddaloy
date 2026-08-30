@@ -162,8 +162,8 @@ Unit tests (`yarn test:unit`) need no infrastructure. Integration and e2e tests
 need a dedicated Postgres and Redis, and read their config from
 `server/.env.test` (gitignored — copy `.env.example`, point `DATABASE_URL` at a
 database whose name contains `test`, e.g. `biddaloy_test`, and set `REDIS_URL`).
-`server/test/setup.ts` runs migrations and seeds baseline data automatically —
-no manual `migration:run`/`seed` step needed.
+`server/test/global-setup.ts` runs migrations and seeds baseline data once per
+`vitest run` invocation — no manual `migration:run`/`seed` step needed.
 
 ## Frontend Testing
 
