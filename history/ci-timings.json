@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-31T12:46:32.381Z",
+  "window": {
+    "requestedRuns": 60,
+    "consideredRuns": 58
+  },
+  "failureRate": 0.5517241379310345,
+  "wall": {
+    "n": 58,
+    "medianMs": 475000,
+    "p90Ms": 644000
+  },
+  "jobs": [
+    {
+      "name": "E2E (chromium)",
+      "n": 36,
+      "medianMs": 506000,
+      "p90Ms": 659000
+    },
+    {
+      "name": "Frontend tests",
+      "n": 58,
+      "medianMs": 339000,
+      "p90Ms": 384000
+    },
+    {
+      "name": "E2E (chromium 1/3)",
+      "n": 15,
+      "medianMs": 310000,
+      "p90Ms": 326000
+    },
+    {
+      "name": "Integration & e2e tests",
+      "n": 58,
+      "medianMs": 252000,
+      "p90Ms": 323000
+    },
+    {
+      "name": "E2E (chromium 3/3)",
+      "n": 15,
+      "medianMs": 292000,
+      "p90Ms": 322000
+    },
+    {
+      "name": "Lighthouse (3G budgets)",
+      "n": 58,
+      "medianMs": 0,
+      "p90Ms": 279000
+    },
+    {
+      "name": "E2E (chromium 2/3)",
+      "n": 15,
+      "medianMs": 259000,
+      "p90Ms": 273000
+    },
+    {
+      "name": "Build, lint, unit tests",
+      "n": 58,
+      "medianMs": 141000,
+      "p90Ms": 175000
+    },
+    {
+      "name": "Storybook build",
+      "n": 58,
+      "medianMs": 68000,
+      "p90Ms": 97000
+    },
+    {
+      "name": "Bundle size delta",
+      "n": 58,
+      "medianMs": 59000,
+      "p90Ms": 91000
+    },
+    {
+      "name": "Dependency vulnerability scan",
+      "n": 58,
+      "medianMs": 57000,
+      "p90Ms": 90000
+    },
+    {
+      "name": "Test timings & budgets",
+      "n": 13,
+      "medianMs": 9000,
+      "p90Ms": 15000
+    },
+    {
+      "name": "Detect changed areas",
+      "n": 58,
+      "medianMs": 8000,
+      "p90Ms": 12000
+    },
+    {
+      "name": "E2E (${{ matrix.browser }})",
+      "n": 7,
+      "medianMs": 0,
+      "p90Ms": 0
+    }
+  ]
+}
