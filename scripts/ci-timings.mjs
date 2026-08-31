@@ -53,7 +53,7 @@ export function deriveVitestProject(repoRelativeFile) {
   // Repo-root `scripts/` is a real Vitest project (`scripts:node`, added by
   // [15.1]) — without this it reports as an unattributed `null`, which is
   // how ci-timings' own specs would have shown up in ci-timings' own report.
-  if (first === 'scripts') return 'scripts';
+  if (first === 'scripts') return 'scripts:node';
   if (first !== 'ui' && first !== 'client-admin' && first !== 'shared') return null;
 
   // shared/vitest.config.ts's include is `src/**/*.spec.ts` only — no
@@ -400,7 +400,7 @@ export function buildSummary({ records, jobs, budgets }) {
   };
 }
 
-function summarize(args) {
+export function summarize(args) {
   const recordsDir = readArgFlag(args, 'records');
   const jobsPath = readArgFlag(args, 'jobs');
   const budgetsPath = readArgFlag(args, 'budgets');
@@ -428,6 +428,9 @@ function summarize(args) {
         typeof parsed.suite === 'string' &&
         parsed.totals &&
         typeof parsed.totals === 'object' &&
+        !Array.isArray(parsed.totals) &&
+        Number.isFinite(parsed.totals.files) &&
+        Number.isFinite(parsed.totals.tests) &&
         Array.isArray(parsed.files);
       if (!usable) {
         console.error(`ci-timings summarize: skipping malformed record ${f}`);

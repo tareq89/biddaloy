@@ -87,6 +87,7 @@ export function classify(passReports, repoRoot = REPO_ROOT) {
 
   const flaky = [];
   const realFailures = [];
+  const inconclusive = [];
   for (const [key, entry] of byKey) {
     // Pad rather than compact. A test can be absent from a pass (its file
     // crashed on import, or it was renamed mid-hunt), leaving a hole in the
@@ -105,14 +106,24 @@ export function classify(passReports, repoRoot = REPO_ROOT) {
     if (failedCount === 0) continue;
     const record = { key, file: entry.file, testName: entry.testName, statuses };
     // "Failed every single pass" is the only shape that is definitely not a
-    // flake; a missing pass means we simply do not know, so it counts as
-    // flaky rather than as a hard failure.
-    if (passedCount > 0 || missingCount > 0) flaky.push(record);
-    else realFailures.push(record);
+    // flake. Any other status mixed in — passed, skipped, pending, todo,
+    // disabled — is evidence the test doesn't reliably fail, so it counts
+    // as flaky rather than a hard failure. The one exception is a test
+    // that never actually passed but was sometimes absent from a pass
+    // (import crash, rename mid-hunt) and never anything else either —
+    // that's not evidence of flakiness, it could be hiding a real,
+    // consistent failure, so it goes to `inconclusive` instead of `flaky`,
+    // which is reserved for tests observed to both fail and do something
+    // other than fail or go missing.
+    const otherCount = statuses.length - failedCount - missingCount;
+    if (failedCount === statuses.length) realFailures.push(record);
+    else if (otherCount > 0) flaky.push(record);
+    else inconclusive.push(record);
   }
   flaky.sort((a, b) => a.key.localeCompare(b.key));
   realFailures.sort((a, b) => a.key.localeCompare(b.key));
-  return { flaky, realFailures, passCount: passReports.length };
+  inconclusive.sort((a, b) => a.key.localeCompare(b.key));
+  return { flaky, realFailures, inconclusive, passCount: passReports.length };
 }
 
 function fmtStatuses(statuses) {
@@ -124,14 +135,14 @@ function fmtStatuses(statuses) {
 /** Sticky-issue body markdown. Kept stable across runs — the workflow
  * step edits the same issue in place rather than filing a new one every
  * night, so the diff between two nights' bodies is the useful signal. */
-export function buildReportMarkdown({ flaky, realFailures, passCount }) {
+export function buildReportMarkdown({ flaky, realFailures, inconclusive = [], passCount }) {
   const lines = [];
   lines.push('### Nightly frontend flake hunt');
   lines.push('');
   lines.push(`Last run: ${new Date().toISOString()} — ${passCount} consecutive passes.`);
   lines.push('');
 
-  if (flaky.length === 0 && realFailures.length === 0) {
+  if (flaky.length === 0 && realFailures.length === 0 && inconclusive.length === 0) {
     lines.push(`All green across ${passCount} passes. No flakes, no failures.`);
     return lines.join('\n') + '\n';
   }
@@ -157,6 +168,24 @@ export function buildReportMarkdown({ flaky, realFailures, passCount }) {
     lines.push('| Passes | Test |');
     lines.push('|---|---|');
     for (const entry of realFailures) {
+      lines.push(`| ${fmtStatuses(entry.statuses)} | \`${entry.key}\` |`);
+    }
+    lines.push('');
+  }
+
+  if (inconclusive.length > 0) {
+    lines.push(
+      '#### Inconclusive (never observed passing, missing from at least one pass — do not quarantine)',
+    );
+    lines.push('');
+    lines.push(
+      'A missing result usually means a crashed import or a rename mid-hunt, not a pass. ' +
+        'This could be masking a real, consistent failure — investigate rather than quarantine.',
+    );
+    lines.push('');
+    lines.push('| Passes | Test |');
+    lines.push('|---|---|');
+    for (const entry of inconclusive) {
       lines.push(`| ${fmtStatuses(entry.statuses)} | \`${entry.key}\` |`);
     }
     lines.push('');
@@ -197,10 +226,10 @@ function main(argv) {
     process.exit(2);
   }
 
-  const { flaky, realFailures, passCount } = classify(passReports);
+  const { flaky, realFailures, inconclusive, passCount } = classify(passReports);
   // No explicit process.exit(0): an exit() here would truncate stdout if the
   // caller ever pipes this instead of redirecting to a file.
-  process.stdout.write(buildReportMarkdown({ flaky, realFailures, passCount }));
+  process.stdout.write(buildReportMarkdown({ flaky, realFailures, inconclusive, passCount }));
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) main(process.argv);

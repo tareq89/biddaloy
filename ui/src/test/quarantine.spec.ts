@@ -5,9 +5,14 @@
 // mechanism, not just coverage of it — a stale or over-full
 // `quarantine.json` fails this test, which runs in the normal, blocking
 // `ui:node` bucket, so the escape hatch has its own escape hatch.
-import { describe, expect, it } from 'vitest';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  installQuarantine,
   isExpired,
   loadQuarantine,
   MAX_QUARANTINE_ENTRIES,
@@ -101,6 +106,51 @@ describe('validateQuarantineFile', () => {
       NOW,
     );
     expect(violations).toEqual([expect.stringContaining('duplicate quarantine entry')]);
+  });
+
+  it('rejects a non-array "tests" field instead of throwing', () => {
+    const violations = validateQuarantineFile(
+      { schemaVersion: 1, tests: 'not-an-array' } as unknown as QuarantineFile,
+      NOW,
+    );
+    expect(violations).toEqual([expect.stringContaining('must be an array')]);
+  });
+
+  it('rejects a null entry instead of throwing', () => {
+    const violations = validateQuarantineFile(
+      file([null as unknown as QuarantineEntry]),
+      NOW,
+    );
+    expect(violations).toEqual([expect.stringContaining('malformed entry')]);
+  });
+});
+
+describe('installQuarantine tolerating a malformed quarantine.json', () => {
+  // Mirrors the two shapes validateQuarantineFile above rejects.
+  // installQuarantine must survive them too — it runs from every frontend
+  // test file's setup, so throwing here would take down the whole suite,
+  // not just fail the one test meant to catch a bad quarantine.json.
+  let dir: string;
+
+  afterEach(() => {
+    if (dir) rmSync(dir, { recursive: true, force: true });
+  });
+
+  function writeQuarantineFile(contents: unknown): string {
+    dir = mkdtempSync(join(tmpdir(), 'quarantine-test-'));
+    const path = join(dir, 'quarantine.json');
+    writeFileSync(path, JSON.stringify(contents));
+    return path;
+  }
+
+  it('does not throw when "tests" is not an array', () => {
+    const path = writeQuarantineFile({ schemaVersion: 1, tests: 'not-an-array' });
+    expect(() => installQuarantine({ path })).not.toThrow();
+  });
+
+  it('does not throw when an entry is null', () => {
+    const path = writeQuarantineFile({ schemaVersion: 1, tests: [null] });
+    expect(() => installQuarantine({ path })).not.toThrow();
   });
 });
 

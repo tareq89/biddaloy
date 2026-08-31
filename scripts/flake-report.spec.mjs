@@ -83,6 +83,23 @@ describe('classify', () => {
     expect(realFailures[0].key).toBe('ui/src/foo.test.ts > suite > always broken');
   });
 
+  it('is inconclusive, not flaky: failed once, missing from the rest, never passed', () => {
+    // A test absent from a pass (crashed import, mid-hunt rename) that
+    // also never actually passed anywhere is not evidence of flakiness —
+    // it could be a real, consistent failure the missing passes are
+    // hiding. Must not be quarantined on this shape alone.
+    const passes = [
+      passReport([{ title: 'maybe broken', status: 'failed' }]),
+      passReport([]),
+      passReport([]),
+    ];
+    const { flaky, realFailures, inconclusive } = classify(passes, REPO);
+    expect(flaky).toHaveLength(0);
+    expect(realFailures).toHaveLength(0);
+    expect(inconclusive).toHaveLength(1);
+    expect(inconclusive[0].key).toBe('ui/src/foo.test.ts > suite > maybe broken');
+  });
+
   it('is neither: passed every pass', () => {
     const passes = [
       passReport([{ title: 'solid', status: 'passed' }]),

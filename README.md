@@ -646,9 +646,10 @@ rg -n "describe\.serial|describe\.configure" e2e/
 
 A red run should mean "your change is broken" — not "run it again."
 
-**Baseline (last 60 `ci.yml` runs, 2026-08-26 → 2026-08-29):** 37 failed,
-20 succeeded, 2 cancelled — **61% of concluded runs red**, well above the
-28% the issue assumed. But the headline number was the wrong instrument.
+**Baseline (last 59 `ci.yml` runs, 2026-08-26 → 2026-08-29):** 37 failed,
+20 succeeded, 2 cancelled — **65% of concluded runs red** (37/57; 63% if
+cancelled runs are counted too), well above the 28% the issue assumed.
+But the headline number was the wrong instrument.
 Classifying all 65 failing *steps* across those 37 runs found exactly one
 true, load-sensitive flake shape (an RTL query timing out under CPU load).
 Everything else was real: chronic Lighthouse budget misses (16), unit-test
@@ -711,7 +712,12 @@ flowchart TD
 
   ```jsonc
   // quarantine.json — note the added "client-admin/" prefix
-  { "test": "client-admin/src/routes/portal/fees.test.tsx > /portal/fees > shows the total" }
+  {
+    "test": "client-admin/src/routes/portal/fees.test.tsx > /portal/fees > shows the total",
+    "issue": 123,
+    "addedAt": "2026-08-30",
+    "reason": "Fails intermittently under CI CPU load"
+  }
   ```
 
   Getting the prefix wrong fails silently — the entry matches nothing and

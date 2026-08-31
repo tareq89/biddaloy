@@ -3,7 +3,7 @@
 // behaviour. The budget-gate tests (#436, AC 3 / #356's lesson) are
 // load-bearing: a gate that always warns and never fails is the same class
 // of bug as a gate that never runs at all.
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -18,6 +18,7 @@ import {
   deriveVitestProject,
   emptyRecord,
   resolveRecord,
+  summarize,
 } from './ci-timings.mjs';
 
 const tempDirs = [];
@@ -58,7 +59,7 @@ describe('deriveVitestProject', () => {
     // `scripts:node` is a real Vitest project ([15.1]); reporting its specs
     // as an unattributed null meant ci-timings' own tests were invisible in
     // ci-timings' own report.
-    expect(deriveVitestProject('scripts/ci-timings.spec.mjs')).toBe('scripts');
+    expect(deriveVitestProject('scripts/ci-timings.spec.mjs')).toBe('scripts:node');
   });
 
   it('returns null for anything outside the known top-level packages', () => {
@@ -478,6 +479,109 @@ describe('buildSummary — empty records directory', () => {
     expect(markdown).toContain('#### Jobs');
     expect(markdown).toContain('Frontend tests');
     expect(markdown).toContain('_no suite records found_');
+  });
+});
+
+describe('summarize — malformed records are filtered at the file level (#449)', () => {
+  const validRecord = {
+    schemaVersion: 1,
+    suite: 'frontend',
+    runner: 'vitest',
+    startedAt: '2026-01-01T00:00:00.000Z',
+    wallMs: 100,
+    workMs: 50,
+    totals: { files: 1, tests: 5, failed: 0, skipped: 0, flaky: 0 },
+    files: [{ file: 'a.spec.ts', durationMs: 50, tests: 5, status: 'passed' }],
+  };
+
+  const jobs = [
+    {
+      name: 'Test',
+      started_at: '2026-01-01T00:00:00.000Z',
+      completed_at: '2026-01-01T00:01:00.000Z',
+    },
+  ];
+  const budgets = { jobs: { Test: { budgetSeconds: 120 } } };
+
+  /** Write a set of record files plus shared jobs/budgets to a temp dir,
+   *  invoke summarize() with --out, and return the markdown string.
+   *  Records go in a `records/` subdirectory so jobs.json and budgets.json
+   *  in the parent are not mistaken for timing records. */
+  function summarizeRecords(records) {
+    const dir = makeTempDir();
+    const recordsDir = join(dir, 'records');
+    mkdirSync(recordsDir, { recursive: true });
+    for (const [name, data] of Object.entries(records)) {
+      writeFileSync(join(recordsDir, name), JSON.stringify(data));
+    }
+    const jobsPath = join(dir, 'jobs.json');
+    writeFileSync(jobsPath, JSON.stringify(jobs));
+    const budgetsPath = join(dir, 'budgets.json');
+    writeFileSync(budgetsPath, JSON.stringify(budgets));
+    const outPath = join(dir, 'out.md');
+    summarize([
+      '--records',
+      recordsDir,
+      '--jobs',
+      jobsPath,
+      '--budgets',
+      budgetsPath,
+      '--out',
+      outPath,
+    ]);
+    return readFileSync(outPath, 'utf8');
+  }
+
+  it('includes a valid record in the Suites table', () => {
+    const md = summarizeRecords({ 'valid.json': validRecord });
+    expect(md).toContain('| frontend | vitest | 1 | 5 | 0.1s | 0.1s |');
+  });
+
+  it('filters out a record where totals is an array, outputting "no suite records found"', () => {
+    const md = summarizeRecords({ 'bad.json': { ...validRecord, totals: [1, 2] } });
+    expect(md).toContain('_no suite records found_');
+  });
+
+  it('filters out a record where totals is an empty object', () => {
+    const md = summarizeRecords({ 'bad.json': { ...validRecord, totals: {} } });
+    expect(md).toContain('_no suite records found_');
+  });
+
+  it('filters out a record where totals is null', () => {
+    const md = summarizeRecords({ 'bad.json': { ...validRecord, totals: null } });
+    expect(md).toContain('_no suite records found_');
+  });
+
+  it('filters out a record where totals.files is a string, not a number', () => {
+    const md = summarizeRecords({
+      'bad.json': { ...validRecord, totals: { files: 'abc', tests: 5 } },
+    });
+    expect(md).toContain('_no suite records found_');
+  });
+
+  it('filters out a record where totals.files is missing entirely', () => {
+    const md = summarizeRecords({
+      'bad.json': { ...validRecord, totals: { tests: 5 } },
+    });
+    expect(md).toContain('_no suite records found_');
+  });
+
+  it('filters out a malformed record while keeping a valid one in the same directory', () => {
+    const md = summarizeRecords({
+      'valid.json': validRecord,
+      'bad.json': { ...validRecord, suite: 'broken', totals: null },
+    });
+    // Valid record present, malformed filtered — only frontend appears.
+    expect(md).toContain('| frontend');
+    expect(md).not.toContain('broken');
+    expect(md).not.toContain('_no suite records found_');
+  });
+
+  it('renders the Jobs table even when all records are malformed', () => {
+    const md = summarizeRecords({ 'bad.json': { ...validRecord, totals: [1, 2] } });
+    expect(md).toContain('#### Jobs');
+    expect(md).toContain('| Test | 60.0s | 120.0s | ✓ |');
+    expect(md).toContain('_no suite records found_');
   });
 });
 

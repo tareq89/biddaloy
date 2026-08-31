@@ -13,9 +13,10 @@
  * because it reports OK.
  *
  * Production runs a *different* major (`Dockerfile`'s `node:26-alpine`) —
- * that's a known, accepted three-way split (see README's Prerequisites
- * section and #441's "Needs human decision" note), not something this
- * script fails on. It's only reported here, as a note, for visibility.
+ * that three-way split is unresolved, not decided (see README's
+ * Prerequisites section and #441's "Needs human decision" note), not
+ * something this script fails on. It's only reported here, as a note,
+ * for visibility.
  *
  * Usage:
  *   node scripts/check-node-version.mjs [--no-runtime-check]

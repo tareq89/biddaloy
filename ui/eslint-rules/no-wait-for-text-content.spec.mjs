@@ -22,6 +22,16 @@ ruleTester.run('no-wait-for-text-content', rule, {
     // A dynamic computed key can't be resolved statically — left
     // unflagged rather than risking a false positive.
     `const key = 'textContent'; await waitFor(() => expect(el[key]).toBe('dark'));`,
+    // .textContent inside the *options* argument's onTimeout — runs once,
+    // after polling has already given up, not the eventual-consistency
+    // footgun this rule targets. Must not be scoped in with the poll
+    // callback (the whole point of #437's review fix).
+    `await waitFor(() => expect(screen.getByText('dark')).toBeTruthy(), { onTimeout: () => el.textContent });`,
+    // .textContent read directly in the options object (not inside a
+    // nested function) — evaluated once when building the options object,
+    // before waitFor ever invokes the callback, so it isn't the polling
+    // footgun this rule targets either.
+    `await waitFor(callback, { interval: Number(el.textContent) });`,
   ],
   invalid: [
     {

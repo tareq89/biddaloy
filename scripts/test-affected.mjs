@@ -195,6 +195,12 @@ function main() {
   const dryRun = args.includes('--dry-run');
   const tightenFiles = args.includes('--files');
   const all = args.includes('--all');
+  if (all && tightenFiles) {
+    console.error(
+      'test-affected: --all runs every test; --files (narrow to changed files) makes no sense with it.',
+    );
+    process.exit(1);
+  }
   const baseFlagIndex = args.indexOf('--base');
   const base =
     baseFlagIndex !== -1 ? args[baseFlagIndex + 1] : process.env.AFFECTED_BASE || 'origin/main';
