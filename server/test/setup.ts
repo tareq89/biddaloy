@@ -18,17 +18,7 @@ import 'ts-node/register/transpile-only';
 import { join } from 'path';
 import { DataSource } from 'typeorm';
 import { config } from 'dotenv';
-import {
-  SEED_TENANT_ID,
-  SEED_ADMIN_USER_ID,
-  SEED_ACADEMIC_YEAR_ID,
-  SEED_CLASS_1_ID,
-  SEED_CLASS_2_ID,
-  SEED_SECTION_1_ID,
-  SEED_SECTION_2_ID,
-  SEED_ADMIN_EMAIL,
-  SEED_ADMIN_PASSWORD_HASH,
-} from './constants';
+import { buildResetSql, buildReferenceResetSql } from './reset-order';
 
 // Must run at module top level, not deferred inside a beforeAll-only function:
 // e2e specs import AppModule (which reads process.env via ConfigModule) at file
@@ -63,7 +53,66 @@ function assertTestDatabaseUrl(url: string): void {
 }
 
 /**
- * Initialize the test database connection, run migrations, and seed data.
+ * Rebuild the schema from migrations if the previous spec file destroyed it.
+ *
+ * 13 of the 15 integration specs stand up their own TypeORM connection with
+ * `{ synchronize: true, dropSchema: true }` (see `test/helpers/module.helper.ts`
+ * and e.g. `src/modules/audit/audit.service.integration.spec.ts`). That drops
+ * the entire `public` schema and rebuilds it from entity metadata, which
+ * silently loses everything migrations create that entities don't describe:
+ *
+ * - `refresh_tokens` — `test/all-entities.ts` has no `RefreshToken`, so the
+ *   table never comes back and every later e2e login dies with
+ *   `relation "refresh_tokens" does not exist`;
+ * - the `trg_audit_logs_write_only` trigger that makes `audit_logs`
+ *   append-only (so `buildResetSql()`'s reason for TRUNCATE-ing that table
+ *   would quietly stop applying);
+ * - the `typeorm_migrations` bookkeeping table itself.
+ *
+ * That damage used to be invisible: every spec file's `afterAll` ran
+ * `dropDatabase()` and the next file's `beforeAll` ran `runMigrations()`, so
+ * each file rebuilt the schema from migrations regardless. `global-setup.ts`
+ * now migrates once per *run*, so nothing repairs it in between — without
+ * this check the first `dropSchema` spec poisons every file after it.
+ *
+ * `typeorm_migrations` is the probe: `dropSchema` always removes it and only
+ * a real migration run recreates it, so its absence is exactly the signal
+ * that someone rebuilt this schema from entity metadata. The healthy path
+ * costs one `to_regclass` lookup; only a file that actually follows a
+ * `dropSchema` spec pays the re-migrate.
+ *
+ * The real fix is dropping `synchronize`/`dropSchema` from those 13 specs so
+ * the schema is never damaged at all. That is a bigger change than this
+ * ticket, and is worth its own issue.
+ */
+async function repairSchemaIfDamaged(): Promise<void> {
+  if (!dataSource) return;
+
+  const rows = await dataSource.query(`SELECT to_regclass('public.typeorm_migrations') AS reg`);
+  if (rows[0]?.reg != null) return;
+
+  await dataSource.dropDatabase();
+  await dataSource.runMigrations({ transaction: 'each' });
+}
+
+/**
+ * Connect to the test database for this spec file, and reset the six
+ * reference tables (schools/users/user_tenants/academic_years/classes/
+ * class_sections) to the baseline seed row set.
+ *
+ * Migrations and the *first* baseline seed no longer run here — they run
+ * once per test run in `test/global-setup.ts`, before any spec file's
+ * `beforeAll` fires. But the reference tables still need a reset once per
+ * spec *file* (not once per run): some spec files insert extra rows into
+ * them directly (e.g. an extra `user_tenants` membership to test a second
+ * role) or wipe and re-seed them for their own local fixtures, and used
+ * to rely on the old per-file `dropDatabase()` to undo that before the
+ * next file ran. See `buildReferenceResetSql()` in `./reset-order` for
+ * the full explanation and the exact tables involved.
+ *
+ * This function only opens this file's own `DataSource` and does that one
+ * file-level reset; `clearTransactionalTables` runs the cheaper per-test
+ * reset through the same connection on every `beforeEach`.
  */
 async function setupTestDatabase(): Promise<void> {
   const testDbUrl = process.env.DATABASE_URL;
@@ -88,78 +137,32 @@ async function setupTestDatabase(): Promise<void> {
   });
 
   await dataSource.initialize();
-  await dataSource.runMigrations({ transaction: 'each' });
-}
+  await repairSchemaIfDamaged();
 
-/**
- * Seed the test database with baseline data.
- */
-async function seedBaselineData(): Promise<void> {
-  if (!dataSource) return;
-
+  // Clear the 15 transactional tables first — a previous spec file's last
+  // test can leave rows in them (e.g. enrollments pointing at a class
+  // section) that would block deleting classes/schools below with a
+  // foreign key violation.
   const queryRunner = dataSource.createQueryRunner();
   await queryRunner.connect();
-
   try {
-    const existing = await queryRunner.query(`SELECT id FROM schools WHERE id = $1`, [
-      SEED_TENANT_ID,
-    ]);
-    if (existing.length > 0) {
-      return;
-    }
-
-    await queryRunner.query(
-      `INSERT INTO schools (id, name, slug, created_at, updated_at)
-       VALUES ($1, $2, $3, NOW(), NOW())`,
-      [SEED_TENANT_ID, 'Test School', 'test-school'],
-    );
-
-    await queryRunner.query(
-      `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, 'ACTIVE', NOW(), NOW())`,
-      [SEED_ADMIN_USER_ID, SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD_HASH, 'Test Admin'],
-    );
-
-    await queryRunner.query(
-      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
-       VALUES ($1, $2, $3, NOW(), NOW())`,
-      [SEED_ADMIN_USER_ID, SEED_TENANT_ID, 'ADMIN'],
-    );
-
-    await queryRunner.query(
-      `INSERT INTO academic_years (id, name, start_date, end_date, is_current, tenant_id, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())`,
-      [SEED_ACADEMIC_YEAR_ID, '2026-2027', '2026-01-01', '2026-12-31', true, SEED_TENANT_ID],
-    );
-
-    await queryRunner.query(
-      `INSERT INTO classes (id, name, academic_year_id, tenant_id, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, NOW(), NOW())`,
-      [SEED_CLASS_1_ID, 'Class 1', SEED_ACADEMIC_YEAR_ID, SEED_TENANT_ID],
-    );
-    await queryRunner.query(
-      `INSERT INTO classes (id, name, academic_year_id, tenant_id, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, NOW(), NOW())`,
-      [SEED_CLASS_2_ID, 'Class 2', SEED_ACADEMIC_YEAR_ID, SEED_TENANT_ID],
-    );
-
-    await queryRunner.query(
-      `INSERT INTO class_sections (id, section_name, class_id, tenant_id, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, NOW(), NOW())`,
-      [SEED_SECTION_1_ID, 'Section A', SEED_CLASS_1_ID, SEED_TENANT_ID],
-    );
-    await queryRunner.query(
-      `INSERT INTO class_sections (id, section_name, class_id, tenant_id, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, NOW(), NOW())`,
-      [SEED_SECTION_2_ID, 'Section B', SEED_CLASS_2_ID, SEED_TENANT_ID],
-    );
+    await queryRunner.query(buildResetSql());
+    await queryRunner.query(buildReferenceResetSql());
   } finally {
     await queryRunner.release();
   }
 }
 
 /**
- * Truncate transactional tables before each test.
+ * Clear transactional tables before each test.
+ *
+ * One multi-statement round trip (`buildResetSql()`, from
+ * `./reset-order`) instead of 15 sequential `TRUNCATE` statements —
+ * ~60x faster per test and implicitly transactional. See
+ * `test/reset-order.ts` for the child-first table order and why
+ * `audit_logs` alone still uses `TRUNCATE`. The reference tables
+ * (`schools`, `users`, `user_tenants`, ...) are reset once per *file* in
+ * `setupTestDatabase()` above, not here — see that function's comment.
  */
 async function clearTransactionalTables(): Promise<void> {
   if (!dataSource) return;
@@ -168,31 +171,7 @@ async function clearTransactionalTables(): Promise<void> {
   await queryRunner.connect();
 
   try {
-    // Note: user_tenants is intentionally excluded — it holds the seeded
-    // admin's tenant membership (like schools/users/academic_years/classes,
-    // which are also excluded), and truncating it here would strip the
-    // seeded admin's authorization on the very first beforeEach.
-    const tables = [
-      'students',
-      'guardians',
-      'student_guardians',
-      'fee_structures',
-      'fee_structure_students',
-      'student_fees',
-      'payments',
-      'payment_allocations',
-      'invoices',
-      'communication_logs',
-      'reminder_batches',
-      'audit_logs',
-      'enrollments',
-      'teacher_class_sections',
-      'teachers',
-    ];
-
-    for (const table of tables) {
-      await queryRunner.query(`TRUNCATE TABLE "${table}" CASCADE`);
-    }
+    await queryRunner.query(buildResetSql());
   } finally {
     await queryRunner.release();
   }
@@ -202,16 +181,10 @@ async function clearTransactionalTables(): Promise<void> {
 
 beforeAll(async () => {
   await setupTestDatabase();
-  await seedBaselineData();
 }, 60000);
 
 afterAll(async () => {
   if (dataSource && dataSource.isInitialized) {
-    try {
-      await dataSource.dropDatabase();
-    } catch (e) {
-      console.warn('[Teardown] Drop failed:', e.message);
-    }
     await dataSource.destroy();
   }
 }, 30000);
