@@ -148,7 +148,7 @@ export function buildReportMarkdown({ flaky, realFailures, inconclusive = [], pa
   }
 
   if (flaky.length > 0) {
-    lines.push('#### Flaky (failed at least once, passed at least once)');
+    lines.push('#### Flaky (failed at least once, observed non-failed result at least once)');
     lines.push('');
     lines.push(
       'Copy the `test` value verbatim into `quarantine.json` (see `ui/src/test/quarantine.ts`).',
