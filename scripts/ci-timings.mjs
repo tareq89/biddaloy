@@ -429,8 +429,8 @@ export function summarize(args) {
         parsed.totals &&
         typeof parsed.totals === 'object' &&
         !Array.isArray(parsed.totals) &&
-        typeof parsed.totals.files === 'number' &&
-        typeof parsed.totals.tests === 'number' &&
+        Number.isFinite(parsed.totals.files) &&
+        Number.isFinite(parsed.totals.tests) &&
         Array.isArray(parsed.files);
       if (!usable) {
         console.error(`ci-timings summarize: skipping malformed record ${f}`);

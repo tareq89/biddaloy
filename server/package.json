@@ -12,6 +12,7 @@
     "test:run": "vitest run",
     "test:cov": "vitest run --coverage",
     "test:watch": "vitest --watch",
+    "test:unit:watch": "vitest --config vitest.unit.config.ts",
     "test:unit": "vitest run --config vitest.unit.config.ts",
     "test:unit:changed": "vitest run --config vitest.unit.config.ts --changed origin/main",
     "test:integration": "vitest run 'integration.spec.ts' --reporter=verbose${CI_TIMINGS_OUT:+ --reporter=json --outputFile.json=$CI_TIMINGS_OUT}",

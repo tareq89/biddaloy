@@ -89,6 +89,14 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
+      # [15.6] Config-consistency check — the runtime half is a tautology
+      # here (setup-node just installed the pinned version above), but the
+      # drift-between-.nvmrc/ci.yml/the-nightly-workflow half is exactly
+      # what CI should be enforcing, so a future edit to any one of them
+      # fails loudly instead of silently drifting.
+      - name: Node version parity
+        run: node scripts/check-node-version.mjs --no-runtime-check
+
       - name: Build shared package
         run: yarn build:shared
 

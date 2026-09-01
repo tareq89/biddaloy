@@ -7,23 +7,39 @@
 # --integration:  adds the integration section (self-provisions db+redis)
 # --e2e:          adds the e2e section (self-provisions db+redis)
 # --lighthouse:   adds the lighthouse section (self-provisions db+redis)
-# --full:         everything
+# --storybook:    adds the storybook section (mirrors ci.yml's "Storybook
+#                 build" job — PR-blocking in CI, opt-in here since it costs
+#                 ~100s and most local runs don't touch Storybook content)
+# --full:         everything, including --storybook
 # --no-coverage:  frontend section runs yarn test:frontend --run instead of
 #                 the coverage variant — faster, but NOT CI-equivalent (CI
 #                 always collects coverage in the frontend job)
+#
+# Deliberately NOT mirrored here — see #441's PR description for why:
+#   - bundle-delta (ci.yml's "bundle-delta" job): PR-comment-only, reads two
+#     already-built reports and diffs them; nothing to reproduce locally
+#     that check:route-chunks below doesn't already cover.
+#   - codeql (.github/workflows/codeql.yml): GitHub-hosted static analysis,
+#     no local equivalent to run.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+
+# [15.6] Fail fast, before any of the ~90s+ work below burns on the wrong
+# Node major — see scripts/check-node-version.mjs's own header comment.
+node scripts/check-node-version.mjs
 
 RUN_INTEGRATION=0
 RUN_E2E=0
 RUN_LIGHTHOUSE=0
+RUN_STORYBOOK=0
 COVERAGE=1
 for arg in "$@"; do
   case "$arg" in
     --integration) RUN_INTEGRATION=1 ;;
     --e2e) RUN_E2E=1 ;;
     --lighthouse) RUN_LIGHTHOUSE=1 ;;
-    --full) RUN_INTEGRATION=1; RUN_E2E=1; RUN_LIGHTHOUSE=1 ;;
+    --storybook) RUN_STORYBOOK=1 ;;
+    --full) RUN_INTEGRATION=1; RUN_E2E=1; RUN_LIGHTHOUSE=1; RUN_STORYBOOK=1 ;;
     --no-coverage) COVERAGE=0 ;;
     *) echo "unknown flag: $arg" >&2; exit 2 ;;
   esac
@@ -63,21 +79,34 @@ yarn build:server
 yarn lint
 yarn test:unit
 yarn workspace @biddaloy/ui lint
+yarn workspace @biddaloy/client-admin lint
 npx tsc -p e2e/tsconfig.json --noEmit
 yarn workspace @biddaloy/client-admin check:route-chunks
 yarn workspace @biddaloy/ui check:exports
 yarn workspace @biddaloy/ui check:contrast
+yarn workspace @biddaloy/ui check:raw-palette
 yarn workspace @biddaloy/ui check:i18n
 yarn knip || echo "knip: non-blocking, exactly as in CI"
 section_done "verify"
 
 section "frontend"
+# [#437] ci.yml also runs the quarantined tests non-blockingly here
+# (`QUARANTINE_MODE=only`, guarded on quarantine.json being non-empty) —
+# deliberately not mirrored locally: on an empty list it would still spend
+# a second near-full frontend run transforming/importing ~200 files for
+# zero information, the same cost ci.yml's own comment on that step flags.
 if [ "$COVERAGE" = 1 ]; then
   yarn test:frontend:coverage
 else
   yarn test:frontend --run
 fi
 section_done "frontend"
+
+if [ "$RUN_STORYBOOK" = 1 ]; then
+  section "storybook"
+  yarn workspace @biddaloy/ui build-storybook
+  section_done "storybook"
+fi
 
 if [ "$RUN_INTEGRATION" = 1 ]; then
   section "integration"

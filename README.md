@@ -9,9 +9,33 @@ getting the app running, developing, testing, and deploying it.
 
 ## Prerequisites
 
-- Node.js 22+
+- Node.js 24 (see `.nvmrc`; `nvm use` picks it up)
 - Yarn 1.x
 - PostgreSQL 16+
+
+Node is pinned in two places that must agree and one that deliberately
+doesn't: local dev and CI both run 24 (`.nvmrc`, plus every workflow under
+`.github/workflows/` — four of them today), while the production image
+(`Dockerfile`) runs 26.
+
+```mermaid
+flowchart LR
+    N[".nvmrc — 24"] --- W["every .github/workflows/*.yml — 24<br/>(ci, nightly-e2e,<br/>nightly-frontend-flakes,<br/>ci-timings-trend)"]
+    N -. "known gap, not enforced" .- D["Dockerfile — node:26-alpine"]
+```
+
+`yarn check:node` (`scripts/check-node-version.mjs`) fails loudly, naming
+the fix, if your running Node or **any** workflow's pin drifts from
+`.nvmrc`; it only *notes*, never fails on, the production gap. It
+enumerates the workflow directory rather than checking a hardcoded list —
+two of the four workflows above were added mid-epic, and a checker with a
+stale list of things to check is worse than none, because it reports OK.
+
+The production 26-vs-24 split is **unresolved, not decided**: nothing has
+been verified to run correctly on both, and choosing one is a deployment
+decision outside the test-infrastructure work that surfaced it. `yarn install` itself
+also enforces this via `package.json`'s `"engines": { "node": ">=24" }` —
+Yarn classic refuses to install below it.
 
 ## Setup
 
@@ -55,6 +79,22 @@ Deliberately **not** run here: `tsc`, tests, `knip`. Those stay in CI. A slow
 hook gets bypassed with `--no-verify` out of habit, and a routinely-bypassed
 hook is worse than no hook at all — it creates false confidence that nothing
 slipped through.
+
+[15.6] For the same reason, ESLint's **type-checked** rule set is also
+skipped at commit time (`scripts/lint-staged-eslint.mjs` sets
+`ESLINT_FAST=1`, which `ui/eslint.config.mjs` and
+`client-admin/eslint.config.mjs` both read — see either file's own comment
+for exactly which blocks that omits, including `client-admin`'s
+`boundary/no-raw-intl`, which is itself type-aware). `@typescript-eslint`
+boots a full TypeScript program per invocation regardless of how many files
+changed — measured, that's the single biggest piece of pre-commit's time:
+a `ui`-file `eslint --fix` went from ~3.4s (full) to ~1.2s (fast); a
+`client-admin`-file run has the same shape. `yarn workspace @biddaloy/<pkg>
+lint` — what CI and `ci:local` both run — never sets `ESLINT_FAST`, so the
+full type-aware rules still gate every merge; only the commit-time hook
+skips them, and any new rule that needs type information must be added to
+both fast-mode omission lists or a commit touching it crashes ESLint
+outright rather than just under-linting.
 
 Escape hatch for a genuine emergency (a hotfix that can't wait, a hook that's
 misbehaving): `git commit --no-verify`. Use sparingly — anything skipped this
@@ -122,8 +162,8 @@ Unit tests (`yarn test:unit`) need no infrastructure. Integration and e2e tests
 need a dedicated Postgres and Redis, and read their config from
 `server/.env.test` (gitignored — copy `.env.example`, point `DATABASE_URL` at a
 database whose name contains `test`, e.g. `biddaloy_test`, and set `REDIS_URL`).
-`server/test/setup.ts` runs migrations and seeds baseline data automatically —
-no manual `migration:run`/`seed` step needed.
+`server/test/global-setup.ts` runs migrations and seeds baseline data once per
+`vitest run` invocation — no manual `migration:run`/`seed` step needed.
 
 ## Frontend Testing
 
@@ -155,6 +195,62 @@ While iterating, use watch mode (`yarn test:frontend`) or the `:changed`
 scripts. Repeated full `--run` passes are the slow path, not a safety net —
 CI runs the full suite anyway.
 
+### Affected-only runs (`yarn test:affected`)
+
+[15.6] `yarn test:affected` maps changed files to the packages that own
+them (`scripts/test-affected.mjs`, `resolveAffected()`), then runs only
+those Vitest `projects` plus, if `server/**` or `shared/**` changed, the
+server's own unit suite — instead of the full frontend suite and the full
+server suite on every change:
+
+```mermaid
+flowchart LR
+    C["changed files\n(git diff vs base,\n+ staged/unstaged/untracked)"] --> M["resolveAffected()\nworkspace-boundary mapping"]
+    M --> P["vitest run --project <p>...\n(only the owning packages)"]
+    M --> S["yarn workspace @biddaloy/server\ntest:unit\n(only if server/ or shared/ changed)"]
+```
+
+```bash
+# Everything touched since origin/main (default base)
+yarn test:affected
+
+# Print the plan without running anything
+yarn test:affected --dry-run
+
+# Compare against a different base
+yarn test:affected --base main
+
+# Also tighten with Vitest's own file-granular --changed on top of the
+# project selection above (won't react to a config-only change the way
+# the project mapping does — use both)
+yarn test:affected --files
+
+# Escape hatch: run everything
+yarn test:affected --all
+```
+
+This is a **workspace-boundary** filter (changed path → owning package),
+not a module-graph one — `ui/**` always re-runs `client-admin` too (`ui`
+fans out into it), and `shared/**` or a top-level config file
+(`vitest.config.ts`, `package.json`, `yarn.lock`, …) always re-runs
+everything. That coarseness means the win is real but shape-dependent —
+measured against the ~68.6s full frontend suite + ~7.7s server suite
+baseline:
+
+| change confined to | today (full suite) | `test:affected` |
+|---|---|---|
+| `server/**` | ~77s | **~8s** |
+| `docs/**`, `*.md`, `nginx/**` | ~77s | **~0s** |
+| `client-admin/**` | ~77s | **~52s** |
+| `ui/**` | ~77s | ~69s (fans out to `client-admin`, little win) |
+| `shared/**` | ~77s | ~77s (no win, correctly — everything depends on it) |
+
+A path this table has never seen (a new top-level directory) defaults to
+running everything, with a note explaining why — silence about skipped
+work is exactly how a filter like this turns into false confidence.
+`e2e/**`/`playwright*.config.ts` changes print a note pointing at `yarn
+e2e` instead, since Playwright isn't part of this Vitest workspace at all.
+
 Each package has two projects, split by environment:
 
 - **`<pkg>:node`** — `src/**/*.spec.ts`, no DOM. Pure logic: formatting,
@@ -169,6 +265,23 @@ Each package has two projects, split by environment:
 `server/vitest.config.ts` is untouched — the two are intentionally separate,
 not because they couldn't technically share a workspace, but because the
 server's coverage thresholds and setup are its own concern.
+
+### Watch mode
+
+[15.6] One command per package/suite for sub-second re-runs while iterating:
+
+| goal | command |
+|---|---|
+| one frontend project, watch | `yarn test:frontend --project client-admin:jsdom` |
+| one file, watch | `yarn test:frontend ui/src/components/button.test.tsx` |
+| server unit tests, watch | `yarn test:unit:watch` (no DB needed) |
+| server integration/e2e, watch | `yarn workspace @biddaloy/server test:watch` (**needs Postgres + Redis**) |
+
+That last distinction is worth stating explicitly: the server's existing
+`test:watch` uses `server/vitest.config.ts`, whose `include` picks up
+`*.integration.spec.ts` and `*.e2e-spec.ts` — the DB-backed suites, not the
+plain-Node `test:unit` ones `test:unit:watch` runs (see "Server Testing"
+above for the infrastructure those need).
 
 ### Runner settings (pool, isolation)
 
@@ -356,24 +469,35 @@ against the latest `main` build.
 
 `yarn ci:local` (`scripts/ci-local.sh`) reproduces the pipeline locally,
 job-for-job with the identical commands, so a CI failure can be replayed
-before pushing. The frontend section collects coverage by default — the
-same command CI runs; `--no-coverage` is a faster, non-CI-equivalent check.
-The service-backed sections self-provision `docker compose up -d db redis`
-against a dedicated `biddaloy_ci_local` database. The script and `ci.yml`
-cross-reference each other — edit both together.
+before pushing. It starts by running `check:node` itself, so a Node-version
+mismatch fails in under a second instead of after minutes of work on the
+wrong runtime (see Prerequisites). The frontend section collects coverage
+by default — the same command CI runs; `--no-coverage` is a faster,
+non-CI-equivalent check. The service-backed sections self-provision `docker
+compose up -d db redis` against a dedicated `biddaloy_ci_local` database.
+The script and `ci.yml` cross-reference each other — edit both together.
+
+Two `ci.yml` jobs are deliberately **not** mirrored: `bundle-delta` is
+PR-comment-only and just diffs two already-built reports (`check:route-chunks`
+above covers the real check), and `codeql` is GitHub-hosted static analysis
+with no local equivalent to run.
 
 ```mermaid
 flowchart LR
-    CI["yarn ci:local"] --> verify --> frontend --> audit
+    CI["yarn ci:local"] --> node["check:node"] --> verify --> frontend --> audit
     CI -- "--integration" --> integration
     CI -- "--e2e" --> e2e
     CI -- "--lighthouse" --> lighthouse
-    CI -- "--full" --> integration & e2e & lighthouse
+    CI -- "--storybook" --> storybook
+    CI -- "--full" --> integration & e2e & lighthouse & storybook
     CI -. "--no-coverage\n(frontend skips coverage,\nnot CI-equivalent)" .-> frontend
 ```
 
 Default (`verify` + `frontend` + `audit`) needs no external services and
-measured ~1.5 min on a warm checkout; `--full` runs everything (~8–10 min).
+measured ~1.5 min on a warm checkout; `--full` runs everything (~8–10 min),
+including the opt-in `--storybook` section (mirrors the PR-blocking
+"Storybook build" job, ~100s, so it's off by default rather than paid on
+every green `ci:local`).
 
 ### Test timings & budgets
 

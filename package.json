@@ -2,6 +2,9 @@
   "name": "biddaloy",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=24"
+  },
   "workspaces": [
     "server",
     "shared",
@@ -28,6 +31,9 @@
     "test:timings": "rm -rf ci-timings && (CI_TIMINGS_OUT=ci-timings/raw-local.json vitest run; ec=$?; node scripts/ci-timings.mjs collect --runner vitest --suite local --job local --in ci-timings/raw-local.json --out ci-timings/local.json && node scripts/ci-timings.mjs report ci-timings/local.json; exit $ec)",
     "coverage": "yarn test:frontend:coverage && node scripts/open-coverage-report.mjs",
     "test:cov": "yarn workspace @biddaloy/server test:cov",
+    "test:affected": "node scripts/test-affected.mjs",
+    "test:unit:watch": "yarn workspace @biddaloy/server test:unit:watch",
+    "check:node": "node scripts/check-node-version.mjs",
     "test:unit": "yarn workspace @biddaloy/server test:unit",
     "test:unit:changed": "yarn workspace @biddaloy/server test:unit:changed",
     "test:integration": "yarn workspace @biddaloy/server test:integration",

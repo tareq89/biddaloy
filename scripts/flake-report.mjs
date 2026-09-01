@@ -106,14 +106,19 @@ export function classify(passReports, repoRoot = REPO_ROOT) {
     if (failedCount === 0) continue;
     const record = { key, file: entry.file, testName: entry.testName, statuses };
     // "Failed every single pass" is the only shape that is definitely not a
-    // flake. A pass it never actually passed but was also absent from
-    // (import crash, rename mid-hunt) is not evidence of flakiness either
-    // — quarantining it on that basis could hide a real, consistent
-    // failure — so it goes to `inconclusive` instead of `flaky`, which is
-    // reserved for tests observed to both pass and fail.
-    if (passedCount > 0) flaky.push(record);
-    else if (missingCount > 0) inconclusive.push(record);
-    else realFailures.push(record);
+    // flake. Any other status mixed in — passed, skipped, pending, todo,
+    // disabled — is evidence the test doesn't reliably fail, so it counts
+    // as flaky rather than a hard failure. The one exception is a test
+    // that never actually passed but was sometimes absent from a pass
+    // (import crash, rename mid-hunt) and never anything else either —
+    // that's not evidence of flakiness, it could be hiding a real,
+    // consistent failure, so it goes to `inconclusive` instead of `flaky`,
+    // which is reserved for tests observed to both fail and do something
+    // other than fail or go missing.
+    const otherCount = statuses.length - failedCount - missingCount;
+    if (failedCount === statuses.length) realFailures.push(record);
+    else if (otherCount > 0) flaky.push(record);
+    else inconclusive.push(record);
   }
   flaky.sort((a, b) => a.key.localeCompare(b.key));
   realFailures.sort((a, b) => a.key.localeCompare(b.key));
@@ -143,7 +148,7 @@ export function buildReportMarkdown({ flaky, realFailures, inconclusive = [], pa
   }
 
   if (flaky.length > 0) {
-    lines.push('#### Flaky (failed at least once, passed at least once)');
+    lines.push('#### Flaky (failed at least once, observed non-failed result at least once)');
     lines.push('');
     lines.push(
       'Copy the `test` value verbatim into `quarantine.json` (see `ui/src/test/quarantine.ts`).',
@@ -169,7 +174,9 @@ export function buildReportMarkdown({ flaky, realFailures, inconclusive = [], pa
   }
 
   if (inconclusive.length > 0) {
-    lines.push('#### Inconclusive (never observed passing, missing from at least one pass — do not quarantine)');
+    lines.push(
+      '#### Inconclusive (never observed passing, missing from at least one pass — do not quarantine)',
+    );
     lines.push('');
     lines.push(
       'A missing result usually means a crashed import or a rename mid-hunt, not a pass. ' +
