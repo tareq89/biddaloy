@@ -248,6 +248,7 @@ export {
   type UseRouteFocusOptions,
 } from './use-route-focus';
 export { useDebouncedValue } from './use-debounce';
+export { useContainerWidth } from './use-container-width';
 export {
   invoiceKeys,
   invoiceQueryOptions,

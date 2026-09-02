@@ -97,6 +97,57 @@ Storybook documents every `components/`/`primitives/` entry with stories;
 Tailwind design tokens live in `tailwind.preset.ts`, checked for
 WCAG contrast compliance by `ui/scripts/check-contrast.mjs` in CI.
 
+## `DataTable`'s two render modes: table and cards
+
+[8.14.7] `DataTable` (`ui/src/components/data-table.tsx`) renders either a
+`<table>` or a `<ul>` of `Card`s from the exact same props — same columns,
+same selection set, same sorting, same pagination. Nothing above it (not
+`ListShell`, not the page) needs to know which mode is active:
+
+```mermaid
+flowchart TD
+    A["DataTable renders"] --> B{"layout prop"}
+    B -- "'table'" --> T["&lt;table&gt; (data-table.tsx)"]
+    B -- "'cards'" --> C["&lt;ul&gt; of Cards (data-table-cards.tsx)"]
+    B -- "'auto' (default)" --> M["measure own container\n(useContainerWidth + ResizeObserver)"]
+    M -- "width &lt; 768px" --> C
+    M -- "width &gt;= 768px" --> T
+```
+
+**Why the table's own container width, not the viewport.** A
+`useMediaQuery`-style check against `window.innerWidth` would get this
+wrong for a table sitting inside a narrow detail pane or a dialog on an
+otherwise wide screen — that table is narrow regardless of what the
+viewport measures. `useContainerWidth` (`ui/src/hooks/
+use-container-width.ts`) instead watches `DataTable`'s own root element
+with a `ResizeObserver`.
+
+**Why one component picks between two trees in JS, instead of `@container`
+CSS hiding one and showing the other.** CSS can only pick between
+pre-rendered markup; it can't stop React from mounting a `<table>` that
+will never be shown. A hidden `<table>` and a hidden `<ul>` rendered
+side-by-side would double the accessible tree (two captions, two sets of
+row checkboxes, two live regions) and break every existing table-mode
+locator that assumes there is exactly one table. So `DataTable` decides in
+JS which single tree to render, not which one to hide.
+
+**Worked example** — a money column that right-aligns in both modes:
+
+```ts
+const columns: DataTableColumn<Student>[] = [
+  { id: 'name', header: 'Name', accessorFn: (row) => row.name, card: 'title' },
+  { id: 'balance', header: 'Balance', accessorFn: (row) => row.balance, align: 'end' },
+];
+```
+
+`card: 'title'` places a column's value as the card's heading instead of a
+`<dl>` field (see `DataTableCardRole` for the other roles — `'subtitle'`,
+`'badge'`, `'actions'`, `'hidden'`); `align: 'end'` right-aligns the
+column and adds `tabular-nums` in **both** the table's `<td>` and the
+card's `<dd>`. Neither prop is required — a column with neither declared
+still renders (as a `dl` field, start-aligned), so a page that hasn't been
+tuned for cards yet still produces a usable one.
+
 ## The financial-mutation guard (enforced, not a convention)
 
 A second custom ESLint rule, `no-optimistic-financial-mutation`
