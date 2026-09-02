@@ -81,7 +81,7 @@ export function NotificationBell({
         <Button
           type="button"
           variant="ghost"
-          size="icon-sm"
+          size="icon"
           iconOnly
           aria-label={unreadCount > 0 ? `${label}, ${unreadCount} unread` : label}
           className="relative"

@@ -1,6 +1,8 @@
 import { Permission, STAFF_ROLES } from '@biddaloy/shared';
 import {
+  AppHeader,
   AppShell,
+  LocaleSwitcher,
   NotificationBell,
   SyncStatusIndicator,
   TenantBar,
@@ -31,6 +33,7 @@ import {
 } from 'lucide-react';
 
 import { GlobalSearchLauncher } from '../components/global-search-launcher';
+import { StaffUserMenu } from '../components/staff-user-menu';
 
 /**
  * [8.9.10]'s staff half of one SPA. A **pathless** layout (`_staff`), so
@@ -248,20 +251,24 @@ function StaffLayout() {
         navGroups={navGroups}
         brand={t('brand')}
         topBar={
-          <div className="flex flex-wrap items-center justify-between gap-x-2">
-            <TenantBar />
-            <div className="flex items-center gap-2">
-              <SyncStatusIndicator />
-              <GlobalSearchLauncher />
-              <ThemeToggle />
-              <NotificationBell
-                label={t('notifications.bellLabel')}
-                panelTitle={t('notifications.panelLabel')}
-                emptyLabel={t('notifications.empty')}
-                markAllReadLabel={t('notifications.markAllRead')}
-              />
-            </div>
-          </div>
+          <AppHeader
+            start={<TenantBar />}
+            end={
+              <>
+                <SyncStatusIndicator />
+                <GlobalSearchLauncher />
+                <NotificationBell
+                  label={t('notifications.bellLabel')}
+                  panelTitle={t('notifications.panelLabel')}
+                  emptyLabel={t('notifications.empty')}
+                  markAllReadLabel={t('notifications.markAllRead')}
+                />
+                <LocaleSwitcher />
+                <ThemeToggle />
+                <StaffUserMenu />
+              </>
+            }
+          />
         }
         openMenuLabel={t('openMenuLabel')}
         closeMenuLabel={t('closeMenuLabel')}

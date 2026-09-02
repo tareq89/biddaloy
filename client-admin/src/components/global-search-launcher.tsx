@@ -26,6 +26,7 @@ import { Button, GlobalSearch, type GlobalSearchGroup } from '@biddaloy/ui/compo
 import { useDebouncedValue, useGlobalSearch } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { useNavigate } from '@tanstack/react-router';
+import { SearchIcon } from 'lucide-react';
 import * as React from 'react';
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -141,8 +142,40 @@ export function GlobalSearchLauncher() {
 
   return (
     <>
-      <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(true)}>
-        {t('globalSearch.buttonLabel')}
+      {/* [8.14.2]: input-shaped launcher — reads like the search box it
+       * opens rather than a plain text button, matching the epic's
+       * desktop-header mockup. Hidden below `md`: the mobile consolidated
+       * header row (#367) gets its own compact icon-only trigger instead;
+       * this one is deliberately desktop-only. Accessible name stays the
+       * short `buttonLabel` ("Search (Ctrl+K)") via `aria-label` — the
+       * longer placeholder text is visual only, so screen reader users
+       * get the concise announcement instead of the full search hint. */}
+      {/* One trigger, two shapes. Below `md` it collapses to an icon-only
+          square; the input shape needs width this viewport does not have.
+          It deliberately does NOT collapse to nothing: Ctrl+K is
+          unreachable on a touch device, so hiding it with no replacement
+          would leave a phone user no way at all into global search. #367
+          folds search into the staff bottom nav; this keeps it reachable
+          until then. Kept as a single element rather than a hidden/shown
+          pair so the accessible name `globalSearch.buttonLabel` resolves to
+          exactly one node — `e2e/pages/app-shell.ts` and
+          `global-search-launcher.test.tsx` both look it up by role+name. */}
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => setOpen(true)}
+        aria-label={t('globalSearch.buttonLabel')}
+        className="inline-flex h-(--control-h) w-(--control-h) items-center justify-center gap-2 rounded-md border-input px-0 font-normal text-muted-foreground md:w-56 md:justify-start md:px-2"
+      >
+        <SearchIcon className="size-4 shrink-0" aria-hidden="true" />
+        {/* `launcherPlaceholder`, not the dialog's own `placeholder`: the
+            full "Search students, guardians, teachers, invoices, receipts…"
+            hint is written for a full-width dialog input and would truncate
+            to a couple of words inside `w-56`. */}
+        <span className="hidden flex-1 truncate text-start md:inline">
+          {t('globalSearch.launcherPlaceholder')}
+        </span>
+        <span className="hidden shrink-0 text-xs md:inline">{t('globalSearch.shortcutHint')}</span>
       </Button>
       <GlobalSearch
         open={open}

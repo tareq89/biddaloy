@@ -13,11 +13,14 @@ import { getPersistedTheme } from './theme-storage';
  * `ThemeToggle` never exercises (nothing ever fires a `matchMedia` `change`
  * event through a click). */
 function ThemeProbe() {
-  const { theme, setTheme, toggleTheme } = useTheme();
+  const { theme, preference, setTheme, setPreference, toggleTheme } = useTheme();
   return (
     <div>
       <span data-testid="theme">{theme}</span>
+      <span data-testid="preference">{preference}</span>
       <button onClick={() => setTheme('dark')}>set dark</button>
+      <button onClick={() => setPreference('dark')}>preference dark</button>
+      <button onClick={() => setPreference('system')}>preference system</button>
       <button onClick={toggleTheme}>toggle</button>
     </div>
   );
@@ -112,5 +115,36 @@ describe('useTheme', () => {
     expect(screen.getByTestId('theme').textContent).toBe('light');
 
     setItemSpy.mockRestore();
+  });
+
+  it('starts with a "system" preference when nothing is stored', () => {
+    render(<ThemeProbe />);
+    expect(screen.getByTestId('preference').textContent).toBe('system');
+  });
+
+  it('setPreference persists an explicit choice and reports it back as the preference', async () => {
+    const user = userEvent.setup();
+    render(<ThemeProbe />);
+
+    await user.click(screen.getByText('preference dark'));
+
+    await within(await screen.findByTestId('preference')).findByText('dark');
+    expect(screen.getByTestId('theme').textContent).toBe('dark');
+    expect(getPersistedTheme()).toBe('dark');
+  });
+
+  it('setPreference("system") clears the explicit choice and hands the vote back to the OS', async () => {
+    const user = userEvent.setup();
+    render(<ThemeProbe />);
+
+    await user.click(screen.getByText('preference dark'));
+    await within(await screen.findByTestId('preference')).findByText('dark');
+
+    await user.click(screen.getByText('preference system'));
+
+    await within(await screen.findByTestId('preference')).findByText('system');
+    expect(getPersistedTheme()).toBeNull();
+    // OS prefers light in this test environment by default.
+    expect(screen.getByTestId('theme').textContent).toBe('light');
   });
 });

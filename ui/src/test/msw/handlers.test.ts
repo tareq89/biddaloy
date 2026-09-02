@@ -232,4 +232,16 @@ describe('every endpoint group is wired into the aggregate handler array', () =>
 
     expect(res.data.id).toBeTypeOf('string');
   });
+
+  // [8.14.2]'s `useCurrentUser` — guards correction 3 (`/users/me` must
+  // resolve under the default handler set, registered *before* the more
+  // general `/users/:id` handler, not after — see `handlers/users.ts`'s
+  // own comment on registration order).
+  it('users/me resolves under the default handler set', async () => {
+    setActiveTenant('tenant-1');
+
+    const res = await apiClient.get('/users/me');
+
+    expect(res.data.full_name).toBeTypeOf('string');
+  });
 });

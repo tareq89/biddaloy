@@ -63,6 +63,31 @@ export function useUser(id: string | undefined) {
   return useQuery({ ...userQueryOptions(id ?? ''), enabled: id !== undefined });
 }
 
+/** [8.14.2]'s `AppHeader` user menu — the signed-in user's own record.
+ * `GET /users/me` (`UserController`) is open to every staff **and**
+ * guardian role (ADMIN, ACCOUNTANT, EXECUTIVE, TEACHER, PARENT, STUDENT —
+ * see `users.controller.ts`'s own `@Roles` list), unlike `/users/{id}`
+ * which is staff-only, so this is the one user-record read a guardian can
+ * make too. Keyed under `userKeys.detail('me')` rather than the caller's
+ * own id — the JWT's `sub` isn't decoded client-side for this (`session.ts`'s
+ * `decodeAccessTokenSubject` returns an id, not a name — that's the whole
+ * reason this hook exists) — so a literal `'me'` segment keeps the cache
+ * key stable across users without needing one. */
+export function currentUserQueryOptions() {
+  return queryOptions({
+    queryKey: userKeys.detail('me'),
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<StaffUser>('/users/me', { signal });
+      return res.data;
+    },
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useCurrentUser() {
+  return useQuery(currentUserQueryOptions());
+}
+
 /** `POST /users`'s 201 body: the created user plus the membership row the
  * server creates in the same transaction (`UserService.create`). */
 export interface CreateUserResult {

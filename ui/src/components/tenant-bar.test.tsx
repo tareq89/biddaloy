@@ -42,7 +42,7 @@ describe('TenantBar', () => {
     expect(screen.queryByText('Greenview School')).toBeNull();
   });
 
-  it('shows the active school name as persistent text, with no role or switcher for a single membership', async () => {
+  it('shows the active school name and role as always-visible text, with no switcher for a single membership', async () => {
     renderWithProviders(<TenantBar />, {
       accessToken: fakeJwt(singleSchool),
       tenantId: 'tenant-1',
@@ -50,7 +50,9 @@ describe('TenantBar', () => {
     });
 
     expect(await screen.findByText('Greenview School')).toBeTruthy();
-    expect(screen.queryByText('Admin')).toBeNull();
+    // [8.14.2]: role is always visible now — not gated on `memberships.length
+    // > 1` — even though there's nothing to switch to here.
+    expect(screen.getByText('Admin')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Switch school' })).toBeNull();
   });
 

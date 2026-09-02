@@ -540,6 +540,46 @@
 }
 
 /**
+ * Sticky header scroll contract ([8.14.2], design contract — see
+ * `AppShell`'s own `APP_HEADER_HEIGHT_VAR` export for the full write-up).
+ *
+ * `--app-header-h` is written live, in pixels, onto this same
+ * `document.documentElement` by `AppShell` whenever its `topBar` prop is
+ * mounted (`/dashboard`, `/portal`, …) and removed on `/login` and
+ * `/select-school`, where no shell renders — the `0px` default below is
+ * what those two chrome-free routes use.
+ *
+ * `scroll-padding-top` only takes effect on the *scroll container* —
+ * `<html>` here, since `AppShell`'s own root is `min-h-screen` and the
+ * page scrolls at the document level, not inside a nested `overflow-y`
+ * box. That's why this is declared once, on `:root`, rather than on
+ * `AppShell`'s wrapper element: writing it there would leave this
+ * `:root` rule reading `0px` forever, and every `scrollIntoView`/fragment
+ * jump would keep landing underneath the sticky header. [8.9.10]'s
+ * `Grouped`/`ScrollingSidebar` stories in `app-shell.stories.tsx` don't
+ * exercise this — it only matters once a route actually scrolls past the
+ * header, which those stories' fixed-viewport canvas doesn't do.
+ */
+:root {
+  --app-header-h: 0px;
+  scroll-padding-top: var(--app-header-h);
+}
+
+@layer base {
+  /* Belt-and-braces: covers browsers/paths that scroll without
+   * consulting the container's `scroll-padding` (e.g. a bare `focus()`
+   * call, not `scrollIntoView`). `h1` covers every route-focus target
+   * `useRouteFocus` (`../hooks/use-route-focus.ts`) lands on; `#main-content`
+   * covers `SkipLink`'s own jump target; `[data-focus-anchor]` covers
+   * restored list rows a future route marks explicitly. */
+  #main-content,
+  h1,
+  [data-focus-anchor] {
+    scroll-margin-top: calc(var(--app-header-h) + 0.5rem);
+  }
+}
+
+/**
  * Dark-mode token values, defined per [8.1.2] and exposed by [8.13.12]'s
  * theme toggle. Selector is `:root[data-theme="dark"]`, not `@media
  * (prefers-color-scheme: dark)` directly — the media query would activate
