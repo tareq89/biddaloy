@@ -196,6 +196,13 @@ export { UserMenu, type UserMenuProps } from './user-menu';
 export { SkipLink, type SkipLinkProps } from './skip-link';
 export { RouteAnnouncer, type RouteAnnouncerProps } from './route-announcer';
 export {
+  ROUTE_PENDING_ATTR,
+  RoutePending,
+  type RoutePendingProps,
+  type RoutePendingVariant,
+} from './route-pending';
+export { RouteProgress, type RouteProgressProps } from './route-progress';
+export {
   GlobalSearch,
   type GlobalSearchProps,
   type GlobalSearchGroup,

@@ -5,9 +5,10 @@ import { useEffect, useState } from 'react';
 import { describe, expect, it } from 'vitest';
 
 import { RouteAnnouncer } from '../components/route-announcer';
+import { ROUTE_PENDING_ATTR } from '../components/route-pending';
 import { renderWithRouter } from '../test/render-with-router';
 
-import { useRouteFocus } from './use-route-focus';
+import { ROUTE_FOCUS_MAX_PENDING_RETRIES, useRouteFocus } from './use-route-focus';
 
 /**
  * Local route tree, same reasoning as `../routes/router-integration.test.tsx`'s
@@ -64,6 +65,19 @@ function OtherListPage() {
   return <h1>List</h1>;
 }
 
+// [8.14.5]: a route whose `pendingComponent` never resolves — reproduces
+// `RoutePending`'s `[data-route-pending]` marker staying mounted well past
+// the old single 100ms deferral window, so the retry-and-cap behaviour in
+// `use-route-focus.ts` actually gets exercised rather than the earlier
+// "force after one 100ms timer" behaviour it replaced.
+function StuckPendingPage() {
+  return (
+    <div {...{ [ROUTE_PENDING_ATTR]: true }}>
+      <p>Stuck loading…</p>
+    </div>
+  );
+}
+
 const rootRoute = createRootRoute({ component: RootLayout });
 const listRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -90,12 +104,18 @@ const slowDetailRoute = createRoute({
   path: '/slow-detail',
   component: SlowDetailPage,
 });
+const stuckPendingRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/stuck-pending',
+  component: StuckPendingPage,
+});
 const routeTree = rootRoute.addChildren([
   listRoute,
   otherListRoute,
   detailRoute,
   blankRoute,
   slowDetailRoute,
+  stuckPendingRoute,
 ]);
 
 describe('useRouteFocus', () => {
@@ -225,4 +245,49 @@ describe('useRouteFocus', () => {
 
     expect(textMutations).toContain('');
   });
+
+  it('keeps deferring focus while a RoutePending marker is still mounted, past the old single 100ms deferral window', async () => {
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/list'],
+      tenantId: 'tenant-1',
+    });
+    await waitFor(() => screen.getByRole('heading', { name: 'List' }));
+
+    act(() => {
+      void router.navigate({ to: '/stuck-pending' });
+    });
+    await waitFor(() => screen.getByText('Stuck loading…'));
+
+    // Before [8.14.5], a single 100ms fallback timer force-processed
+    // regardless of a still-mounted pending marker, landing focus on the
+    // `#main-content` landmark here. The marker check keeps it deferring.
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect((document.activeElement as HTMLElement | null)?.id).not.toBe(MAIN_ID);
+  });
+
+  it(
+    'force-processes once ROUTE_FOCUS_MAX_PENDING_RETRIES is exhausted, landing on the main ' +
+      'landmark rather than deferring forever',
+    async () => {
+      const { router } = renderWithRouter(routeTree, {
+        initialEntries: ['/list'],
+        tenantId: 'tenant-1',
+      });
+      await waitFor(() => screen.getByRole('heading', { name: 'List' }));
+
+      act(() => {
+        void router.navigate({ to: '/stuck-pending' });
+      });
+      await waitFor(() => screen.getByText('Stuck loading…'));
+
+      // ROUTE_FOCUS_MAX_PENDING_RETRIES retries of the 100ms timer, plus
+      // headroom for the MutationObserver callbacks in between.
+      await waitFor(
+        () => {
+          expect((document.activeElement as HTMLElement | null)?.id).toBe(MAIN_ID);
+        },
+        { timeout: ROUTE_FOCUS_MAX_PENDING_RETRIES * 100 + 2000 },
+      );
+    },
+  );
 });

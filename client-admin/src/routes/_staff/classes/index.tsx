@@ -8,6 +8,7 @@ import { Permission } from '@biddaloy/shared';
 import {
   Button,
   CachedDataNotice,
+  RoutePending,
   Select,
   SelectContent,
   SelectItem,
@@ -27,11 +28,21 @@ import { ListShell, useListShellState } from '@biddaloy/ui/shells';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import * as React from 'react';
 
+import { loadRouteNamespaces } from '../../../route-loaders';
+
 import { ClassFormDialog } from './-class-form-dialog';
 import { DeleteClassDialog } from './-delete-class-dialog';
 import { SectionsPanel } from './-sections-panel';
 
 export const Route = createFileRoute('/_staff/classes/')({
+  loader: ({ context: { queryClient } }) =>
+    Promise.all([
+      // [8.14.5]: swallowed — see `academic-years/index.tsx`'s identical
+      // comment for why.
+      queryClient.ensureQueryData(classesQueryOptions({})).catch(() => undefined),
+      loadRouteNamespaces('classes'),
+    ]),
+  pendingComponent: ClassesListPending,
   component: ClassesListPage,
 });
 
@@ -240,4 +251,9 @@ function ClassesListPage() {
       )}
     </>
   );
+}
+
+function ClassesListPending() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="list" label={t('routePending.label', { ns: 'nav' })} />;
 }

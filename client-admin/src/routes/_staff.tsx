@@ -37,6 +37,7 @@ import {
 
 import { GlobalSearchLauncher } from '../components/global-search-launcher';
 import { StaffUserMenu } from '../components/staff-user-menu';
+import { loadRouteNamespaces } from '../route-loaders';
 import { STAFF_ROUTE_PERMISSIONS } from '../route-permissions';
 
 /**
@@ -65,6 +66,12 @@ import { STAFF_ROUTE_PERMISSIONS } from '../route-permissions';
  *      unexplained.
  */
 export const Route = createFileRoute('/_staff')({
+  // [8.14.5]: this pathless layout renders the sidebar/header chrome
+  // every staff route sits inside — its own `nav` namespace strings
+  // (brand, nav groups, sidebar item labels) render on every navigation,
+  // not just the first, so preloading `nav` here means it's warm before
+  // any leaf route's own loader even runs.
+  loader: () => loadRouteNamespaces('nav'),
   component: StaffLayout,
 });
 

@@ -55,17 +55,25 @@ export function useInvoices(filters: InvoiceListFilters = {}) {
   return useQuery(invoicesQueryOptions(filters));
 }
 
+/** [8.14.5]'s route-loader recipe needs a `queryOptions` factory it can
+ * pass straight to `queryClient.ensureQueryData` from `_staff/invoices/
+ * $invoiceId.tsx`'s `loader` — extracted out of `useInvoice` below rather
+ * than inlined there so both call sites share one `queryKey`/`queryFn`,
+ * same reason `invoicesQueryOptions` above already exists. Behaviour-
+ * preserving: `useInvoice` is now a one-line wrapper around this. */
+export function invoiceQueryOptions(id: string) {
+  return queryOptions({
+    queryKey: invoiceKeys.detail(id),
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<Invoice>(`/invoices/${id}`, { signal });
+      return res.data;
+    },
+    retry: shouldRetryQuery,
+  });
+}
+
 export function useInvoice(id: string) {
-  return useQuery(
-    queryOptions({
-      queryKey: invoiceKeys.detail(id),
-      queryFn: async ({ signal }) => {
-        const res = await apiClient.get<Invoice>(`/invoices/${id}`, { signal });
-        return res.data;
-      },
-      retry: shouldRetryQuery,
-    }),
-  );
+  return useQuery(invoiceQueryOptions(id));
 }
 
 /** [8.10.4]'s dues queue "Generate Invoice" bulk action — one call per

@@ -1,6 +1,8 @@
-import { EmptyState } from '@biddaloy/ui/components';
+import { EmptyState, RoutePending } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
+
+import { loadRouteNamespaces } from '../../../route-loaders';
 
 /**
  * `/fees` — placeholder, same reasoning `/` (`index.tsx`): the real
@@ -12,6 +14,9 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
  * this placeholder's own component.
  */
 export const Route = createFileRoute('/_staff/fees/')({
+  // No data query — this placeholder renders no server-backed content.
+  loader: () => loadRouteNamespaces('fees'),
+  pendingComponent: FeesPending,
   component: FeesPage,
 });
 
@@ -26,4 +31,9 @@ function FeesPage() {
       action={{ label: t('action'), onClick: () => void navigate({ to: '/settings' }) }}
     />
   );
+}
+
+function FeesPending() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="list" label={t('routePending.label', { ns: 'nav' })} />;
 }

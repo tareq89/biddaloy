@@ -26,12 +26,14 @@ import {
   DialogHeader,
   DialogTitle,
   DataTable,
+  RoutePending,
   StatusBadge,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
 import {
   collectFailedStudentIds,
   reminderBatchLogsKeyPrefix,
+  reminderBatchQueryOptions,
   useReminderBatch,
   useReminderBatchLogs,
   useSendBulkReminder,
@@ -52,6 +54,7 @@ import * as React from 'react';
 import { z } from 'zod';
 
 import { skipReasonKey } from '../-shared/skip-reason';
+import { loadRouteNamespaces } from '../../../../route-loaders';
 
 /** SendBulkReminderDto caps batch_name at 200 characters. */
 const MAX_BATCH_NAME = 200;
@@ -78,6 +81,14 @@ const batchDetailSearchSchema = z.object({
 
 export const Route = createFileRoute('/_staff/communications/batches/$batchId')({
   validateSearch: batchDetailSearchSchema,
+  loader: ({ context: { queryClient }, params }) =>
+    Promise.all([
+      // [8.14.5]: swallowed — see `academic-years/$academicYearId.tsx`'s
+      // identical comment for why.
+      queryClient.ensureQueryData(reminderBatchQueryOptions(params.batchId)).catch(() => undefined),
+      loadRouteNamespaces('communications'),
+    ]),
+  pendingComponent: BatchDetailPending,
   component: BatchDetailPage,
 });
 
@@ -402,4 +413,9 @@ function BatchDetail() {
       )}
     </div>
   );
+}
+
+function BatchDetailPending() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="detail" label={t('routePending.label', { ns: 'nav' })} />;
 }

@@ -6,7 +6,24 @@ import { invoiceFactory } from '../test/factories';
 import { server } from '../test/msw/server';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
 
-import { useCreateInvoice, useInvoice, useInvoices } from './invoices';
+import {
+  invoiceKeys,
+  invoiceQueryOptions,
+  useCreateInvoice,
+  useInvoice,
+  useInvoices,
+} from './invoices';
+
+describe('invoiceQueryOptions', () => {
+  // [8.14.5]: `useInvoice` is now a one-line wrapper around this factory
+  // — `_staff/invoices/$invoiceId.tsx`'s `loader` calls the factory
+  // directly. This pins the `queryKey` shape both share, so the loader's
+  // `ensureQueryData` call and the component's `useInvoice` hook are
+  // provably reading/writing the same cache entry.
+  it('uses invoiceKeys.detail(id) as its queryKey, same as useInvoice did before extraction', () => {
+    expect(invoiceQueryOptions('invoice-1').queryKey).toEqual(invoiceKeys.detail('invoice-1'));
+  });
+});
 
 describe('useInvoice', () => {
   it('resolves the invoice the handler returns for the given id', async () => {

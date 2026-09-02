@@ -109,5 +109,11 @@
     "loadingName": "Loading…",
     "profile": "Profile",
     "profileComingSoon": "Profile page coming soon"
+  },
+  "routeProgress": {
+    "label": "Loading page…"
+  },
+  "routePending": {
+    "label": "Loading…"
   }
 }

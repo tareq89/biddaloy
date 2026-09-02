@@ -68,6 +68,17 @@ import { type RouterHistory, useRouter } from '@tanstack/react-router';
 import * as React from 'react';
 import { flushSync } from 'react-dom';
 
+import { ROUTE_PENDING_ATTR } from '../components/route-pending';
+import { waitForViewTransition } from '../utils/view-transition';
+
+/** [8.14.5]: cap on how many times the 100ms deferral timer may re-arm
+ * itself while a route's `RoutePending` skeleton (`[data-route-pending]`)
+ * is still in the DOM, before giving up and force-processing whatever's
+ * there — roughly 2 seconds. Without a cap, a route stuck in its pending
+ * state forever (a hung loader) would defer focus forever too, which is
+ * worse than today's behaviour of eventually forcing through. */
+export const ROUTE_FOCUS_MAX_PENDING_RETRIES = 20;
+
 /** Module-level, not component state — this must outlive the component
  * whose route is being *left* (its DOM, and any hook state tied to it,
  * is already gone by the time a `BACK` navigation lands on it again). */
@@ -124,6 +135,11 @@ export function useRouteFocus({ mainId, appName }: UseRouteFocusOptions): string
   // see the fallback-to-landmark branch below). Cleared as soon as a
   // real mutation resolves the navigation on its own.
   const pendingHeadingTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  // [8.14.5]: how many times the timer above has re-armed itself for the
+  // *current* route change while `[data-route-pending]` was still in the
+  // DOM. Reset to 0 the moment a new route change is first observed (see
+  // `isRouteChange` below) — capped by `ROUTE_FOCUS_MAX_PENDING_RETRIES`.
+  const pendingRetriesRef = React.useRef(0);
 
   // `router.history` types as `any` here — `useRouter()`'s generic
   // defaults to `RegisteredRouter`, which only resolves to this app's
@@ -181,6 +197,14 @@ export function useRouteFocus({ mainId, appName }: UseRouteFocusOptions): string
       const isColdLoad = lastPathnameRef.current === undefined;
       lastPathnameRef.current = pathname;
 
+      // [8.14.5]: a *new* route change resets the retry budget below —
+      // this only runs once per navigation, since `lastPathnameRef` is
+      // already updated above, so `isRouteChange` is false on every
+      // later mutation callback for the same navigation.
+      if (isRouteChange) {
+        pendingRetriesRef.current = 0;
+      }
+
       if (isColdLoad) {
         lastHeadingElRef.current = heading;
         return;
@@ -198,16 +222,33 @@ export function useRouteFocus({ mainId, appName }: UseRouteFocusOptions): string
       // deferral path — without it, that transient no-heading paint
       // gets treated as the navigation's final state (see below) and
       // the real heading that mounts moments later never gets
-      // announced or focused. `force` (set only by the fallback timer
-      // below) is the escape hatch for routes with no `<h1>` at all.
+      // announced or focused. `force` (set only once the retry budget
+      // below is exhausted) is the escape hatch for routes with no
+      // `<h1>` at all, or a pending state that never resolves.
+      //
+      // [8.14.5]: `RoutePending`'s `[data-route-pending]` marker
+      // (`../components/route-pending.tsx`) is treated the same as "no
+      // heading yet" — a route's `pendingComponent` mounts a heading-free
+      // skeleton inside `container`, which would otherwise satisfy
+      // `headingUnresolved` as "the old heading is gone" and land focus
+      // on the skeleton container, which then vanishes the instant real
+      // content mounts, stranding focus back on `<body>`. See the plan's
+      // "plan correction 4" for why this half of the ticket is not
+      // optional polish.
       const wasPending = pendingRouteChangeRef.current;
       const headingUnresolved = heading === null || heading === lastHeadingElRef.current;
-      if (!force && (isRouteChange || wasPending) && headingUnresolved) {
+      const pendingMarkerStillMounted = container.querySelector(`[${ROUTE_PENDING_ATTR}]`) !== null;
+      if (
+        !force &&
+        (isRouteChange || wasPending) &&
+        (headingUnresolved || pendingMarkerStillMounted)
+      ) {
         pendingRouteChangeRef.current = true;
         if (pendingHeadingTimeoutRef.current === null) {
           pendingHeadingTimeoutRef.current = setTimeout(() => {
             pendingHeadingTimeoutRef.current = null;
-            processHeading(true);
+            pendingRetriesRef.current += 1;
+            processHeading(pendingRetriesRef.current >= ROUTE_FOCUS_MAX_PENDING_RETRIES);
           }, 100);
         }
         return;
@@ -252,28 +293,51 @@ export function useRouteFocus({ mainId, appName }: UseRouteFocusOptions): string
       flushSync(() => setAnnouncement(null));
       setAnnouncement(headingText);
 
-      const isReturning =
-        lastActionTypeRef.current === 'BACK' || lastActionTypeRef.current === 'FORWARD';
-      const anchorId = isReturning ? focusAnchorMemory.get(pathname) : undefined;
-      const anchor = anchorId
-        ? document.querySelector<HTMLElement>(`[data-focus-anchor="${cssEscape(anchorId)}"]`)
-        : null;
+      // [8.14.5]: anchor → heading → container, in that order, unchanged
+      // from before — extracted to a local function only so it can be
+      // called either synchronously (no view transition in play) or
+      // after `waitForViewTransition()` settles below. Do NOT add
+      // `{ preventScroll: true }` to any `.focus()` call here: the
+      // implicit scroll-into-view a plain `focus()` performs is precisely
+      // what consumes #366's `@layer base { h1 { scroll-margin-top:
+      // calc(var(--app-header-h) + 0.5rem) } }` rule — that rule, plus
+      // this running *after* the transition finishes, is the whole of AC
+      // 4. Suppressing the scroll, or focusing mid-transition while the
+      // layout is still a frozen snapshot, breaks it.
+      function applyFocus(headingEl: HTMLElement | null, containerEl: HTMLElement | Document) {
+        const isReturning =
+          lastActionTypeRef.current === 'BACK' || lastActionTypeRef.current === 'FORWARD';
+        const anchorId = isReturning ? focusAnchorMemory.get(pathname) : undefined;
+        const anchor = anchorId
+          ? document.querySelector<HTMLElement>(`[data-focus-anchor="${cssEscape(anchorId)}"]`)
+          : null;
 
-      if (anchor) {
-        anchor.focus();
-        return;
+        if (anchor) {
+          anchor.focus();
+          return;
+        }
+
+        // Up to `VIEW_TRANSITION_FOCUS_TIMEOUT_MS` (500ms) may have
+        // elapsed since `headingEl` was captured above — re-check it's
+        // still attached before focusing it.
+        if (headingEl !== null && document.contains(headingEl)) {
+          headingEl.setAttribute('tabindex', '-1');
+          headingEl.focus();
+          focusedHeadingRef.current = headingEl;
+          return;
+        }
+
+        if (containerEl instanceof HTMLElement && document.contains(containerEl)) {
+          containerEl.setAttribute('tabindex', '-1');
+          containerEl.focus();
+        }
       }
 
-      if (heading) {
-        heading.setAttribute('tabindex', '-1');
-        heading.focus();
-        focusedHeadingRef.current = heading;
-        return;
-      }
-
-      if (container instanceof HTMLElement) {
-        container.setAttribute('tabindex', '-1');
-        container.focus();
+      const settled = waitForViewTransition();
+      if (settled === null) {
+        applyFocus(heading, container);
+      } else {
+        void settled.then(() => applyFocus(heading, container));
       }
     }
 

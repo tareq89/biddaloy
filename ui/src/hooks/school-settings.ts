@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
@@ -101,8 +101,14 @@ export function useSchools(options: { enabled?: boolean } = {}) {
   });
 }
 
-export function useSchoolSettings(schoolId: string) {
-  return useQuery({
+/** [8.14.5]: extracted for symmetry with `invoiceQueryOptions` — not
+ * actually called from a route `loader`, since `schoolId` here comes from
+ * `useSchools()` client-side (not a route param), so `_staff/settings.tsx`
+ * cannot preload this data ahead of the loader running (see the plan's
+ * "plan correction 5"). Kept as a factory anyway so `useSchoolSettings`
+ * and any future loader-based caller share one `queryKey`/`queryFn`. */
+export function schoolSettingsQueryOptions(schoolId: string) {
+  return queryOptions({
     queryKey: schoolSettingsKeys.detail(schoolId),
     queryFn: async () =>
       (await apiClient.get<MaskedTenantSettings>(`/schools/${schoolId}/settings`)).data,
@@ -113,6 +119,10 @@ export function useSchoolSettings(schoolId: string) {
     enabled: Boolean(schoolId),
     retry: shouldRetryQuery,
   });
+}
+
+export function useSchoolSettings(schoolId: string) {
+  return useQuery(schoolSettingsQueryOptions(schoolId));
 }
 
 /**

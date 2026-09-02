@@ -8,7 +8,7 @@ import {
   updateSentryRouteTag,
   updateSentryTenantTag,
 } from '@biddaloy/ui/api';
-import { RouteErrorFallback, Toaster } from '@biddaloy/ui/components';
+import { RouteErrorFallback, RoutePending, Toaster } from '@biddaloy/ui/components';
 import { I18nProvider, useTranslation } from '@biddaloy/ui/i18n';
 import { enableMocking } from '@biddaloy/ui/mocks';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -36,7 +36,16 @@ function RouteErrorFallbackWithUpdate(props: ErrorComponentProps) {
   // translation-agnostic and defaults its strings to English, which meant
   // this Bangla-default app rendered "You're offline" in English on the
   // one screen a user sees precisely when nothing else is working.
-  const { t } = useTranslation();
+  //
+  // [8.14.5]: `useTranslation('common')`, not the bare `useTranslation()`
+  // this used to be — behaviourally identical (`common` is `i18n.ts`'s own
+  // `defaultNS`), but `check-i18n-keys.mjs` resolves a file's default
+  // namespace from the *first* `useTranslation(...)` call with a quoted
+  // string argument; a bare call doesn't match that pattern at all, so it
+  // was silently skipped in favour of `RoutePendingFallback`'s
+  // `useTranslation('nav')` further down, misattributing every key below
+  // to the wrong namespace.
+  const { t } = useTranslation('common');
   return (
     <RouteErrorFallback
       {...props}
@@ -49,6 +58,21 @@ function RouteErrorFallbackWithUpdate(props: ErrorComponentProps) {
       retryLabel={t('offline.retry')}
     />
   );
+}
+
+// [8.14.5]: router-wide `defaultPendingComponent` — before this, a route
+// with no loader (or a loader still in flight past `defaultPendingMs`)
+// rendered `null` inside `<main>` while pending, which is the "blank
+// content area" flash this ticket exists to kill. A named component, not
+// an inline arrow, for the same stable-identity reason
+// `RouteErrorFallbackWithUpdate` above already documents. `variant="form"`
+// is the generic middle ground: it doesn't visually promise a table
+// (`list`) or a single record's fields (`detail`) when the router doesn't
+// know which route it's covering for — routes with a more specific shape
+// override this with their own `pendingComponent` (see `route-loaders.ts`).
+function RoutePendingFallback() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="form" label={t('routePending.label', { ns: 'nav' })} />;
 }
 
 // `basepath` matches `vite.config.ts`'s `base: '/admin/'` — without it,
@@ -74,6 +98,26 @@ const router = createRouter({
   // header chrome (`__root.tsx`'s `AppShell`) lives above the `<Outlet />`
   // this replaces, so it stays up around the failure.
   defaultErrorComponent: RouteErrorFallbackWithUpdate,
+  // [8.14.5]: router-wide pending fallback — see `RoutePendingFallback`'s
+  // own comment above for why `null` was the problem.
+  defaultPendingComponent: RoutePendingFallback,
+  // Was 1000ms default: a loader resolving just past this shows nothing
+  // at all — no flash on cached/preloaded routes, which
+  // `defaultPreload: 'intent'` above makes the common case. Anything
+  // slower now shows the pending UI within ~200ms (AC 2), not TanStack
+  // Router's original 1s hold.
+  defaultPendingMs: 200,
+  // Was 500ms default: once the pending UI is shown, it now stays up for
+  // at least 200ms rather than 500ms — kills the "500ms dead hold" AC 2
+  // calls out, while still being long enough not to strobe on a loader
+  // that resolves moments after the 200ms `defaultPendingMs` threshold.
+  defaultPendingMinMs: 200,
+  // [8.14.5]: cross-fades `#main-content` between routes — see
+  // `globals.css`'s `view-transition-name` block for the scoping that
+  // keeps this from touching the header/sidebar chrome, and
+  // `useRouteFocus`'s `waitForViewTransition` call for why focus now
+  // waits on this before moving.
+  defaultViewTransition: true,
 });
 
 // [8.9.8]: no-ops without `VITE_SENTRY_DSN` set (local dev, CI, a preview

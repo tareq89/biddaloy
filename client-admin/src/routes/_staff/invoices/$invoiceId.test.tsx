@@ -69,14 +69,21 @@ describe('/invoices/$invoiceId', () => {
 
   it('shows an error state with retry when the invoice fails to load', async () => {
     // 403 (not 5xx) — `shouldRetryQuery` (`ui/src/hooks/retry.ts`) never
-    // retries a 4xx, so this settles into `isError` on the first attempt
-    // instead of TanStack Query silently retrying it into a later
-    // `isSuccess` before this test ever observes the error state.
+    // retries a 4xx *within* one fetch attempt, so this settles into
+    // `isError` after each individual attempt rather than TanStack Query
+    // silently retrying it into a later `isSuccess` on its own.
+    //
+    // [8.14.5]: two attempts must fail here, not one — `$invoiceId.tsx`'s
+    // own `loader` now warms this same query first (attempt 1), and
+    // TanStack Query's `retryOnMount` (default `true`) fires a second,
+    // independent attempt the instant the component observes that
+    // still-errored query (attempt 2). Only the third attempt, triggered
+    // by this test's own "Try again" click, is meant to succeed.
     let attempts = 0;
     server.use(
       http.get('/api/v1/invoices/:id', () => {
         attempts += 1;
-        return attempts === 1
+        return attempts <= 2
           ? HttpResponse.json(
               {
                 statusCode: 403,

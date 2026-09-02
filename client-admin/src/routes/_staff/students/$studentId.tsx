@@ -1,12 +1,14 @@
 import { EnrollmentStatus, Permission } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
-import { ErrorState, Skeleton, StatusBadge } from '@biddaloy/ui/components';
-import { useHasPermission, useStudent } from '@biddaloy/ui/hooks';
+import { ErrorState, RoutePending, Skeleton, StatusBadge } from '@biddaloy/ui/components';
+import { studentQueryOptions, useHasPermission, useStudent } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell, useDetailShellTab } from '@biddaloy/ui/shells';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
 import { z } from 'zod';
+
+import { loadRouteNamespaces } from '../../../route-loaders';
 
 import { ActivityTab } from './-detail/activity-tab';
 import { CommunicationTab } from './-detail/communication-tab';
@@ -38,6 +40,14 @@ const studentDetailSearchSchema = z.object({
  */
 export const Route = createFileRoute('/_staff/students/$studentId')({
   validateSearch: studentDetailSearchSchema,
+  loader: ({ context: { queryClient }, params }) =>
+    Promise.all([
+      // [8.14.5]: swallowed — see `academic-years/$academicYearId.tsx`'s
+      // identical comment for why.
+      queryClient.ensureQueryData(studentQueryOptions(params.studentId)).catch(() => undefined),
+      loadRouteNamespaces('students', 'common'),
+    ]),
+  pendingComponent: StudentDetailPending,
   component: StudentDetailPage,
 });
 
@@ -226,4 +236,9 @@ function StudentDetailPage() {
       </div>
     </RegionConfigProvider>
   );
+}
+
+function StudentDetailPending() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="detail" label={t('routePending.label', { ns: 'nav' })} />;
 }

@@ -1,6 +1,9 @@
+import { RoutePending } from '@biddaloy/ui/components';
 import { useCreateStudent } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
+
+import { loadRouteNamespaces } from '../../../route-loaders';
 
 import { StudentForm } from './-student-form';
 import { buildCreatePayload, defaultStudentFormValues } from './-student-form-schema';
@@ -13,6 +16,8 @@ import { buildCreatePayload, defaultStudentFormValues } from './-student-form-sc
  * with "view student `new`".
  */
 export const Route = createFileRoute('/_staff/students/new')({
+  loader: () => loadRouteNamespaces('students'),
+  pendingComponent: NewStudentPending,
   component: NewStudentPage,
 });
 
@@ -39,4 +44,9 @@ function NewStudentPage() {
       </div>
     </RegionConfigProvider>
   );
+}
+
+function NewStudentPending() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="form" label={t('routePending.label', { ns: 'nav' })} />;
 }

@@ -1,6 +1,9 @@
-import { RegionConfigProvider, useTenantRegionConfig } from '@biddaloy/ui/i18n';
+import { RoutePending } from '@biddaloy/ui/components';
+import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute } from '@tanstack/react-router';
 import { z } from 'zod';
+
+import { loadRouteNamespaces } from '../../../route-loaders';
 
 import { RecordPaymentWizard } from './-record/record-payment-wizard';
 
@@ -19,6 +22,8 @@ const recordPaymentSearchSchema = z.object({
 
 export const Route = createFileRoute('/_staff/payments/record')({
   validateSearch: recordPaymentSearchSchema,
+  loader: () => loadRouteNamespaces('payments', 'common'),
+  pendingComponent: RecordPaymentPending,
   component: RecordPaymentPage,
 });
 
@@ -39,4 +44,9 @@ function RecordPaymentPage() {
       />
     </RegionConfigProvider>
   );
+}
+
+function RecordPaymentPending() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="form" label={t('routePending.label', { ns: 'nav' })} />;
 }

@@ -13,6 +13,8 @@ import { RequireRole } from '@biddaloy/ui/routes';
 import { createFileRoute, Outlet } from '@tanstack/react-router';
 import { CreditCardIcon, HomeIcon, UserRoundIcon } from 'lucide-react';
 
+import { loadRouteNamespaces } from '../route-loaders';
+
 /**
  * [8.9.10]'s guardian half of one SPA — the family-facing audience
  * (PARENT, STUDENT), pathed under `/portal` so its URLs are legible as a
@@ -41,6 +43,10 @@ import { CreditCardIcon, HomeIcon, UserRoundIcon } from 'lucide-react';
  * guardian has somewhere that is theirs instead of a 403.
  */
 export const Route = createFileRoute('/portal')({
+  // [8.14.5]: same reasoning as `_staff.tsx`'s own loader — this
+  // layout's chrome renders `nav` strings on every navigation, and
+  // `portal` covers the guardian-facing leaf routes underneath it.
+  loader: () => loadRouteNamespaces('nav', 'portal'),
   component: PortalLayout,
 });
 

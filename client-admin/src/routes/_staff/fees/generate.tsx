@@ -1,6 +1,9 @@
-import { RegionConfigProvider, useTenantRegionConfig } from '@biddaloy/ui/i18n';
+import { RoutePending } from '@biddaloy/ui/components';
+import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute } from '@tanstack/react-router';
 import { z } from 'zod';
+
+import { loadRouteNamespaces } from '../../../route-loaders';
 
 import { GenerateFeesWizard } from './-generate/generate-fees-wizard';
 
@@ -28,6 +31,8 @@ const generateFeesSearchSchema = z.object({
 
 export const Route = createFileRoute('/_staff/fees/generate')({
   validateSearch: generateFeesSearchSchema,
+  loader: () => loadRouteNamespaces('feeGeneration'),
+  pendingComponent: GenerateFeesPending,
   component: GenerateFeesPage,
 });
 
@@ -43,4 +48,9 @@ function GenerateFeesPage() {
       <GenerateFeesWizard />
     </RegionConfigProvider>
   );
+}
+
+function GenerateFeesPending() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="form" label={t('routePending.label', { ns: 'nav' })} />;
 }

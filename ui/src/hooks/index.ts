@@ -242,10 +242,15 @@ export {
   type BulkUploadResult,
   type BulkUploadStudentsInput,
 } from './bulk-upload';
-export { useRouteFocus, type UseRouteFocusOptions } from './use-route-focus';
+export {
+  ROUTE_FOCUS_MAX_PENDING_RETRIES,
+  useRouteFocus,
+  type UseRouteFocusOptions,
+} from './use-route-focus';
 export { useDebouncedValue } from './use-debounce';
 export {
   invoiceKeys,
+  invoiceQueryOptions,
   invoicesQueryOptions,
   openPrintableInvoice,
   useCreateInvoice,
@@ -278,6 +283,7 @@ export { useNotifications, useUnreadNotificationCount } from './notifications';
 export {
   schoolsKeys,
   schoolSettingsKeys,
+  schoolSettingsQueryOptions,
   useSchools,
   useSchoolSettings,
   useUpdateSchoolSettings,
