@@ -13,6 +13,12 @@
  * of those callbacks. Keeping the shell itself router-agnostic is what
  * lets `list-shell.stories.tsx` render it in Storybook (no router needed
  * there) while a real page wires the URL-backed hook.
+ *
+ * [8.14.6] `isFetching` (dims stale rows in place instead of collapsing to
+ * a loading state during a filter/page/sort refetch) needs no wiring here:
+ * `ListShellProps` already extends `DataTableProps`, so the `...dataTableProps`
+ * spread below forwards it straight through to `DataTable`. Pages just pass
+ * `isFetching={xQuery.isFetching}` alongside their existing `loading` prop.
  */
 import type { RowData } from '@tanstack/react-table';
 import type { ReactNode } from 'react';

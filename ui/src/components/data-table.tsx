@@ -26,9 +26,12 @@ import {
 import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react';
 import * as React from 'react';
 
+import { cn } from '../primitives/lib/utils';
+
 import { Button } from './button';
 import { Checkbox } from './checkbox';
 import { Menu, MenuCheckboxItem, MenuContent, MenuTrigger } from './menu';
+import { Skeleton } from './skeleton';
 
 // Declared once at module scope (not per-render) — the sort/visibility/order
 // features this table actually uses. v9 requires an explicit feature set
@@ -78,6 +81,14 @@ export interface DataTableProps<TData extends RowData> {
   bulkActions?: React.ReactNode;
 
   loading?: boolean;
+  /** True while a *refetch* is in flight and rows from the previous key are
+   * still on screen (TanStack's `query.isFetching`). Distinct from
+   * `loading`, which means "no rows exist yet". `loading` wins when both
+   * are set. */
+  isFetching?: boolean;
+  /** Announced (politely) while `loading`. English default matches
+   * `emptyMessage`; i18n of the whole component is [8.14.15] / #458. */
+  loadingMessage?: string;
   error?: string;
   emptyMessage?: string;
 
@@ -164,6 +175,8 @@ export function DataTable<TData extends RowData>({
   onSelectedIdsChange,
   bulkActions,
   loading = false,
+  isFetching = false,
+  loadingMessage = 'Loading…',
   error,
   emptyMessage = 'No results',
   announceResults = (count, total) => `${count} of ${total} result${total === 1 ? '' : 's'}`,
@@ -275,6 +288,12 @@ export function DataTable<TData extends RowData>({
   // `focusedCell.col` target.
   const dataColCount = table.getVisibleFlatColumns().length;
   const colSpanCount = dataColCount + (selectable ? 1 : 0) + (expandable ? 1 : 0);
+  // [8.14.6] `loading` (no rows exist yet) paints a table-shaped skeleton
+  // instead of collapsing to a single "Loading…" cell. `isFetching` (rows
+  // from the previous key are still mounted, via `placeholderData:
+  // keepPreviousData`) dims those rows instead of unmounting them.
+  const skeletonRowCount = Math.min(Math.max(pageSize, 1), 10);
+  const showStaleRows = !loading && isFetching && rows.length > 0;
   const regionRef = React.useRef<HTMLDivElement>(null);
 
   // Roving tabindex only moves the *tab stop* by re-rendering with a new
@@ -383,6 +402,8 @@ export function DataTable<TData extends RowData>({
         role="region"
         tabIndex={0}
         aria-label={caption}
+        aria-busy={loading || showStaleRows}
+        data-fetching={showStaleRows ? 'true' : undefined}
         className="w-full overflow-x-auto rounded-lg border border-border-subtle focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
       >
         {/* eslint-enable jsx-a11y/no-noninteractive-tabindex */}
@@ -444,14 +465,26 @@ export function DataTable<TData extends RowData>({
               </tr>
             ))}
           </thead>
-          <tbody>
-            {loading && (
-              <tr>
-                <td colSpan={colSpanCount} className="p-4 text-center text-muted-foreground">
-                  Loading…
-                </td>
-              </tr>
+          <tbody
+            className={cn(
+              showStaleRows &&
+                'opacity-60 transition-opacity duration-(--motion-duration-base) ease-(--motion-ease-standard)',
             )}
+          >
+            {loading &&
+              Array.from({ length: skeletonRowCount }, (_, row) => (
+                <tr key={`skeleton-${row}`} aria-hidden="true" data-placeholder="skeleton">
+                  {Array.from({ length: colSpanCount }, (_, col) => (
+                    <td key={col} className="p-2">
+                      {/* `h-5`, matching `SkeletonTable`'s cell recipe — same
+                       * `p-2 text-sm` data cells, so the skeleton's row
+                       * height doesn't jump against the real rows that
+                       * replace it. */}
+                      <Skeleton className="h-5 w-full" />
+                    </td>
+                  ))}
+                </tr>
+              ))}
             {!loading && error && (
               <tr>
                 <td colSpan={colSpanCount} className="p-4 text-center text-destructive">
@@ -576,7 +609,7 @@ export function DataTable<TData extends RowData>({
         </table>
       </div>
       <div aria-live="polite" className="sr-only">
-        {!loading && !error && announceResults(rows.length, totalCount)}
+        {loading ? loadingMessage : !error && announceResults(rows.length, totalCount)}
       </div>
       <div className="mt-2 flex items-center justify-between text-sm">
         <span className="text-muted-foreground">

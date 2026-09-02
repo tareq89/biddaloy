@@ -1,4 +1,4 @@
-import { queryOptions, useMutation, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, queryOptions, useMutation, useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
@@ -132,6 +132,11 @@ export function reminderBatchesQueryOptions(filters: ReminderBatchListFilters = 
       return res.data;
     },
     retry: shouldRetryQuery,
+    // [8.14.6] Filter/page/sort changes keep the previous page's rows on
+    // screen (and `isFetching` true) instead of the whole table collapsing
+    // to one "Loading…" row height. v5 dropped `keepPreviousData: true`;
+    // this is its replacement.
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -211,6 +216,11 @@ export function reminderBatchLogsQueryOptions(
     },
     retry: shouldRetryQuery,
     refetchInterval: poll ? REMINDER_BATCH_POLL_MS : false,
+    // [8.14.6] Filter/page/sort changes keep the previous page's rows on
+    // screen (and `isFetching` true) instead of the whole table collapsing
+    // to one "Loading…" row height. v5 dropped `keepPreviousData: true`;
+    // this is its replacement.
+    placeholderData: keepPreviousData,
   });
 }
 

@@ -140,6 +140,7 @@ function ReminderHistoryList() {
         totalCount={batchesQuery.data?.total ?? 0}
         onPageChange={actions.setPage}
         loading={batchesQuery.isPending}
+        isFetching={batchesQuery.isFetching}
         {...(batchesQuery.isError ? { error: t('batches.error') } : {})}
         emptyMessage={t('batches.empty')}
       />

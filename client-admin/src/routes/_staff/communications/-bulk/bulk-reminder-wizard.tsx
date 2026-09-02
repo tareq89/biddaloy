@@ -355,6 +355,7 @@ export function BulkReminderWizard() {
           selectedIds={selectedIds}
           onSelectedIdsChange={setSelectedIds}
           loading={duesQuery.isPending}
+          isFetching={duesQuery.isFetching}
           {...(duesQuery.isError ? { error: t('bulk.recipients.loadError') } : {})}
           emptyMessage={t('bulk.recipients.empty')}
         />

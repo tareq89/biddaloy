@@ -181,6 +181,7 @@ function AcademicYearsListPage() {
         totalCount={yearsQuery.data?.total ?? 0}
         onPageChange={actions.setPage}
         loading={yearsQuery.isLoading}
+        isFetching={yearsQuery.isFetching}
         {...(yearsQuery.isError ? { error: t('list.errorMessage') } : {})}
         emptyMessage={t('list.emptyMessage')}
         announceResults={(count, total) =>

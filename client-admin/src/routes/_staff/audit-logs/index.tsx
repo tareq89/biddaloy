@@ -389,6 +389,7 @@ function AuditLogsList() {
       totalCount={auditLogsQuery.data?.total ?? 0}
       onPageChange={actions.setPage}
       loading={auditLogsQuery.isLoading}
+      isFetching={auditLogsQuery.isFetching}
       {...(auditLogsQuery.isError ? { error: t('list.errorMessage') } : {})}
       emptyMessage={t('list.emptyMessage')}
       announceResults={(count, total) =>

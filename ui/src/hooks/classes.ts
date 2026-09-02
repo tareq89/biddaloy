@@ -1,5 +1,11 @@
 import type { TeacherDesignation } from '@biddaloy/shared';
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  queryOptions,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
 import { offlineCachedQueryFn } from '../api/offline-cache';
@@ -86,6 +92,11 @@ export function classesQueryOptions(filters: ClassListFilters = {}) {
       fetch: (signal) => apiClient.get<PaginatedClasses>('/classes', { params, signal }),
     }),
     retry: shouldRetryQuery,
+    // [8.14.6] Filter/page/sort changes keep the previous page's rows on
+    // screen (and `isFetching` true) instead of the whole table collapsing
+    // to one "Loading…" row height. v5 dropped `keepPreviousData: true`;
+    // this is its replacement.
+    placeholderData: keepPreviousData,
   });
 }
 
