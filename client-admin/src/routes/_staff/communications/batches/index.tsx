@@ -11,8 +11,12 @@
  * very role that creates its contents. Same UX-gate-not-security-boundary
  * framing as `/communications/reminders`.
  */
-import { Button, StatusBadge, type DataTableColumn } from '@biddaloy/ui/components';
-import { useReminderBatches, type ReminderBatchListItem } from '@biddaloy/ui/hooks';
+import { Button, RoutePending, StatusBadge, type DataTableColumn } from '@biddaloy/ui/components';
+import {
+  reminderBatchesQueryOptions,
+  useReminderBatches,
+  type ReminderBatchListItem,
+} from '@biddaloy/ui/hooks';
 import {
   RegionConfigProvider,
   useRegionConfig,
@@ -24,6 +28,8 @@ import { formatDate } from '@biddaloy/ui/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { z } from 'zod';
 
+import { loadRouteNamespaces } from '../../../../route-loaders';
+
 const batchesSearchSchema = z.object({
   page: z.number().int().positive().optional().catch(undefined),
   limit: z.number().int().positive().optional().catch(undefined),
@@ -33,6 +39,17 @@ const batchesSearchSchema = z.object({
 
 export const Route = createFileRoute('/_staff/communications/batches/')({
   validateSearch: batchesSearchSchema,
+  loaderDeps: ({ search }) => ({ page: search.page ?? 1, limit: search.limit ?? 10 }),
+  loader: ({ context: { queryClient }, deps }) =>
+    Promise.all([
+      // [8.14.5]: swallowed — see `academic-years/index.tsx`'s identical
+      // comment for why.
+      queryClient
+        .ensureQueryData(reminderBatchesQueryOptions({ page: deps.page, limit: deps.limit }))
+        .catch(() => undefined),
+      loadRouteNamespaces('communications'),
+    ]),
+  pendingComponent: ReminderHistoryPending,
   component: ReminderHistoryPage,
 });
 
@@ -128,4 +145,9 @@ function ReminderHistoryList() {
       />
     </div>
   );
+}
+
+function ReminderHistoryPending() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="list" label={t('routePending.label', { ns: 'nav' })} />;
 }

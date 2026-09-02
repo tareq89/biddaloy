@@ -3,6 +3,7 @@ import {
   Button,
   Checkbox,
   Label,
+  RoutePending,
   Select,
   SelectContent,
   SelectItem,
@@ -31,6 +32,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import * as React from 'react';
 import { z } from 'zod';
 
+import { loadRouteNamespaces } from '../../../route-loaders';
 import { SendReminderDialog } from '../students/-send-reminder-dialog';
 
 import { GenerateInvoiceDialog } from './-generate-invoice-dialog';
@@ -110,29 +112,37 @@ export const Route = createFileRoute('/_staff/fees/dues')({
     flagged: search.flagged === 'true',
   }),
   loader: ({ context: { queryClient }, deps }) =>
-    queryClient.ensureQueryData(
-      feeDuesQueryOptions(
-        {
-          page: deps.page,
-          limit: deps.limit,
-          ...toFeeDuesFilters(
+    Promise.all([
+      // [8.14.5]: swallowed — see `academic-years/index.tsx`'s identical
+      // comment for why.
+      queryClient
+        .ensureQueryData(
+          feeDuesQueryOptions(
             {
-              class_id: deps.classId,
-              section_id: deps.sectionId,
-              month: deps.month,
-              year: deps.year,
-              status: deps.status,
+              page: deps.page,
+              limit: deps.limit,
+              ...toFeeDuesFilters(
+                {
+                  class_id: deps.classId,
+                  section_id: deps.sectionId,
+                  month: deps.month,
+                  year: deps.year,
+                  status: deps.status,
+                },
+                deps.sort,
+                deps.flagged,
+              ),
+              ...(deps.order !== undefined && !deps.flagged
+                ? { sort_order: deps.order === 'desc' ? 'DESC' : 'ASC' }
+                : {}),
             },
-            deps.sort,
             deps.flagged,
           ),
-          ...(deps.order !== undefined && !deps.flagged
-            ? { sort_order: deps.order === 'desc' ? 'DESC' : 'ASC' }
-            : {}),
-        },
-        deps.flagged,
-      ),
-    ),
+        )
+        .catch(() => undefined),
+      loadRouteNamespaces('fees'),
+    ]),
+  pendingComponent: DuesQueuePending,
   component: DuesQueuePage,
 });
 
@@ -521,4 +531,9 @@ function DuesQueuePage() {
       />
     </>
   );
+}
+
+function DuesQueuePending() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="list" label={t('routePending.label', { ns: 'nav' })} />;
 }

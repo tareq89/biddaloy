@@ -474,8 +474,96 @@
   --motion-duration-fast: 120ms; /* hover, focus ring, active */
   --motion-duration-base: 180ms; /* dropdown, popover, select, tooltip */
   --motion-duration-slow: 240ms; /* dialog, drawer, toast */
+  /* [8.14.5] One continuously-looping indeterminate animation
+   * (`RouteProgress`'s travel bar) — none of the three durations above
+   * fit, since they're all one-shot transition/exit timings for
+   * components that start and stop. Token, not a literal in the
+   * component, so it stays subject to the same "no hard-coded timing"
+   * rule as everything else here. */
+  --motion-duration-route-progress: 1s;
   --motion-ease-standard: cubic-bezier(0.2, 0, 0, 1); /* enter and move */
   --motion-ease-exit: cubic-bezier(0.4, 0, 1, 1); /* exit */
+}
+
+/**
+ * [8.14.5] Route transitions — only `#main-content` cross-fades. See
+ * #366's plan for `--app-header-h` / `scroll-margin-top` contract this
+ * builds on.
+ *
+ * The document root's UA-default `view-transition-name: root` would
+ * snapshot the *whole page* — header and sidebar included — so a route
+ * navigation would fade the app's chrome too. Setting it to `none` here
+ * removes root capture entirely: anything not explicitly named simply
+ * renders live and stays perfectly still, which is exactly the "header
+ * and sidebar never move" acceptance criterion.
+ */
+:root {
+  view-transition-name: none;
+}
+
+/* `#main-content` is `APP_SHELL_MAIN_ID` (`../components/app-shell.tsx`).
+ * Chrome-free routes (`/login`, `/select-school`) render no such element,
+ * so they get no named capture and therefore no transition at all — which
+ * is correct, since there is no shell chrome to hold still there. */
+#main-content {
+  view-transition-name: app-main-content;
+}
+
+@keyframes biddaloy-route-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes biddaloy-route-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+::view-transition-old(app-main-content) {
+  animation: biddaloy-route-fade-out var(--motion-duration-fast) var(--motion-ease-exit) both;
+}
+::view-transition-new(app-main-content) {
+  animation: biddaloy-route-fade-in var(--motion-duration-base) var(--motion-ease-standard) both;
+}
+
+/**
+ * [8.14.5] `prefers-reduced-motion` — the blanket rule at the bottom of
+ * this file (see its own comment) selects `*, *::before, *::after`, which
+ * does NOT reach view-transition pseudo-elements: they render in their
+ * own tree, outside the document tree those selectors walk. Without this
+ * dedicated block the route cross-fade above would keep animating under
+ * `reduce`.
+ *
+ * `0.01ms`, not `animation: none`, for the same reason the blanket rule
+ * documents, plus one more: `useRouteFocus` (`../hooks/use-route-focus.ts`)
+ * waits on these animations' `finished` promises before moving focus —
+ * `animation: none` would mean they never exist to finish.
+ *
+ * The block itself lives further down, right after the blanket
+ * `*, *::before, *::after` rule it's the view-transition-pseudo-element
+ * sibling of — `check-contrast.mjs`'s own `reducedMotionBody` check finds
+ * that blanket rule by searching for the *first* `@media
+ * (prefers-reduced-motion: reduce)` block containing `animation-duration`,
+ * so this block staying textually after it (rather than up here next to
+ * the other route-transition CSS) is load-bearing, not cosmetic.
+ */
+
+@keyframes biddaloy-route-progress {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* [8.14.5] Plain class, not an inline `style`, so the duration comes from
+ * `--motion-duration-route-progress` above rather than a literal in
+ * `route-progress.tsx` — same "tokens only, no hard-coded timing" rule
+ * every other animation in this file follows. */
+.route-progress-bar-active {
+  animation: biddaloy-route-progress var(--motion-duration-route-progress) linear infinite;
 }
 
 /**
@@ -717,5 +805,26 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/**
+ * [8.14.5] View-transition pseudo-elements render in their own tree,
+ * outside the document tree the blanket rule above walks, so they need
+ * their own `prefers-reduced-motion` rule — see the comment on
+ * `::view-transition-old(app-main-content)` earlier in this file for the
+ * full reasoning. `0.01ms`, not `animation: none`, for the same reason
+ * the blanket rule above uses `0.01ms`, plus one more: `useRouteFocus`
+ * (`../hooks/use-route-focus.ts`) waits on these animations' `finished`
+ * promises before moving focus — `animation: none` would mean they never
+ * exist to finish.
+ */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-image-pair(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }

@@ -22,6 +22,7 @@
 import { AuditAction } from '@biddaloy/shared';
 import {
   DatePicker,
+  RoutePending,
   Select,
   SelectContent,
   SelectItem,
@@ -40,6 +41,8 @@ import { ListShell, useListShellState } from '@biddaloy/ui/shells';
 import { formatDate, formatDateTime, parseDate, toLatinDigits } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
 import { z } from 'zod';
+
+import { loadRouteNamespaces } from '../../../route-loaders';
 
 import { DiffPanel } from './-diff-panel';
 import { changedFieldCount, shortEntityId } from './-humanize';
@@ -161,21 +164,30 @@ export const Route = createFileRoute('/_staff/audit-logs/')({
   // failure for someone who *does* have the permission still surfaces,
   // because `useAuditLogs` refetches and `DataTable` renders its error
   // state.
+  // [8.14.5]: `Promise.all` with `loadRouteNamespaces` — the `.catch`
+  // below is unchanged and still scoped to only the `ensureQueryData`
+  // call, for the reason the comment above it gives; a namespace-load
+  // failure is a genuinely different problem (a broken deploy/CDN, not
+  // "this viewer got a 403") and should still surface normally.
   loader: ({ context: { queryClient }, deps }) =>
-    queryClient
-      .ensureQueryData(
-        auditLogsQueryOptions({
-          page: deps.page,
-          limit: deps.limit,
-          ...toAuditLogListFilters({
-            action: deps.action,
-            entity_type: deps.entityType,
-            from_date: deps.fromDate,
-            to_date: deps.toDate,
+    Promise.all([
+      queryClient
+        .ensureQueryData(
+          auditLogsQueryOptions({
+            page: deps.page,
+            limit: deps.limit,
+            ...toAuditLogListFilters({
+              action: deps.action,
+              entity_type: deps.entityType,
+              from_date: deps.fromDate,
+              to_date: deps.toDate,
+            }),
           }),
-        }),
-      )
-      .catch(() => undefined),
+        )
+        .catch(() => undefined),
+      loadRouteNamespaces('auditLogs'),
+    ]),
+  pendingComponent: AuditLogsPending,
   component: AuditLogsPage,
 });
 
@@ -392,4 +404,9 @@ function AuditLogsList() {
       )}
     />
   );
+}
+
+function AuditLogsPending() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="list" label={t('routePending.label', { ns: 'nav' })} />;
 }

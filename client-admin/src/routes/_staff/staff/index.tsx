@@ -11,6 +11,7 @@ import { Permission, STAFF_ROLES } from '@biddaloy/shared';
 import {
   Button,
   Input,
+  RoutePending,
   Select,
   SelectContent,
   SelectItem,
@@ -33,6 +34,8 @@ import { formatDate } from '@biddaloy/ui/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import * as React from 'react';
 import { z } from 'zod';
+
+import { loadRouteNamespaces } from '../../../route-loaders';
 
 import { AddUserDialog } from './-add-user-dialog';
 import { formatStaffPhone } from './-format-staff-phone';
@@ -73,15 +76,23 @@ export const Route = createFileRoute('/_staff/staff/')({
   }),
   loader: ({ context: { queryClient }, deps }) => {
     const role = toRoleParam(deps.role);
-    return queryClient.ensureQueryData(
-      usersQueryOptions({
-        page: deps.page,
-        limit: deps.limit,
-        ...(deps.search !== undefined ? { search: deps.search } : {}),
-        ...(role !== undefined ? { role } : {}),
-      }),
-    );
+    return Promise.all([
+      // [8.14.5]: swallowed — see `academic-years/index.tsx`'s identical
+      // comment for why.
+      queryClient
+        .ensureQueryData(
+          usersQueryOptions({
+            page: deps.page,
+            limit: deps.limit,
+            ...(deps.search !== undefined ? { search: deps.search } : {}),
+            ...(role !== undefined ? { role } : {}),
+          }),
+        )
+        .catch(() => undefined),
+      loadRouteNamespaces('staff'),
+    ]);
   },
+  pendingComponent: StaffListPending,
   component: StaffListPage,
 });
 
@@ -263,4 +274,9 @@ function StaffListPage() {
       )}
     </RegionConfigProvider>
   );
+}
+
+function StaffListPending() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="list" label={t('routePending.label', { ns: 'nav' })} />;
 }

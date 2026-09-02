@@ -3,6 +3,7 @@ import {
   Button,
   CachedDataNotice,
   Input,
+  RoutePending,
   Select,
   SelectContent,
   SelectItem,
@@ -29,6 +30,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import * as React from 'react';
 import { z } from 'zod';
+
+import { loadRouteNamespaces } from '../../../route-loaders';
 
 import { SendReminderDialog } from './-send-reminder-dialog';
 
@@ -106,22 +109,30 @@ export const Route = createFileRoute('/_staff/students/')({
     enrollmentStatus: search.enrollment_status,
   }),
   loader: ({ context: { queryClient }, deps }) =>
-    queryClient.ensureQueryData(
-      studentsQueryOptions({
-        page: deps.page,
-        limit: deps.limit,
-        ...toStudentListFilters(
-          {
-            search: deps.search,
-            class_id: deps.classId,
-            section_id: deps.sectionId,
-            enrollment_status: deps.enrollmentStatus,
-          },
-          deps.sort,
-        ),
-        ...(deps.order !== undefined ? { order: deps.order } : {}),
-      }),
-    ),
+    Promise.all([
+      // [8.14.5]: swallowed — see `academic-years/index.tsx`'s identical
+      // comment for why.
+      queryClient
+        .ensureQueryData(
+          studentsQueryOptions({
+            page: deps.page,
+            limit: deps.limit,
+            ...toStudentListFilters(
+              {
+                search: deps.search,
+                class_id: deps.classId,
+                section_id: deps.sectionId,
+                enrollment_status: deps.enrollmentStatus,
+              },
+              deps.sort,
+            ),
+            ...(deps.order !== undefined ? { order: deps.order } : {}),
+          }),
+        )
+        .catch(() => undefined),
+      loadRouteNamespaces('students'),
+    ]),
+  pendingComponent: StudentsListPending,
   component: StudentsListPage,
 });
 
@@ -461,4 +472,9 @@ function StudentsListPage() {
 
 function primaryGuardianName(student: Student): string | undefined {
   return (student.guardians.find((g) => g.is_primary_contact) ?? student.guardians[0])?.full_name;
+}
+
+function StudentsListPending() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="list" label={t('routePending.label', { ns: 'nav' })} />;
 }

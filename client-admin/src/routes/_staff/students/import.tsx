@@ -1,8 +1,10 @@
-import { Button, ErrorState, FileUpload } from '@biddaloy/ui/components';
+import { Button, ErrorState, FileUpload, RoutePending } from '@biddaloy/ui/components';
 import { useBulkUploadStudents, type BulkUploadResult } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute } from '@tanstack/react-router';
 import * as React from 'react';
+
+import { loadRouteNamespaces } from '../../../route-loaders';
 
 import { ImportErrorTable } from './-import/error-table';
 import { downloadTemplate, TEMPLATE_HEADERS, type TemplateHeader } from './-import/template';
@@ -22,6 +24,8 @@ const ACCEPTED_EXTENSIONS = ['.csv', '.xlsx'];
  * reasoning `fees/generate.tsx` spells out.
  */
 export const Route = createFileRoute('/_staff/students/import')({
+  loader: () => loadRouteNamespaces('studentImport'),
+  pendingComponent: ImportStudentsPending,
   component: ImportStudentsPage,
 });
 
@@ -243,4 +247,9 @@ function ImportStudentsContent() {
       )}
     </div>
   );
+}
+
+function ImportStudentsPending() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="form" label={t('routePending.label', { ns: 'nav' })} />;
 }

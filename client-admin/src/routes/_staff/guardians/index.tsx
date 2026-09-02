@@ -4,13 +4,15 @@
  * has no class/section of its own the way `Student` does, so this page
  * has no equivalent filter dropdowns — search is the only filter.
  */
-import { Input, StatusBadge, type DataTableColumn } from '@biddaloy/ui/components';
+import { Input, RoutePending, StatusBadge, type DataTableColumn } from '@biddaloy/ui/components';
 import { guardiansQueryOptions, useGuardians, type Guardian } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState } from '@biddaloy/ui/shells';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import * as React from 'react';
 import { z } from 'zod';
+
+import { loadRouteNamespaces } from '../../../route-loaders';
 
 import { formatGuardianPhone } from './-format-guardian-phone';
 
@@ -37,13 +39,21 @@ export const Route = createFileRoute('/_staff/guardians/')({
     search: search.search,
   }),
   loader: ({ context: { queryClient }, deps }) =>
-    queryClient.ensureQueryData(
-      guardiansQueryOptions({
-        page: deps.page,
-        limit: deps.limit,
-        ...(deps.search !== undefined ? { search: deps.search } : {}),
-      }),
-    ),
+    Promise.all([
+      // [8.14.5]: swallowed — see `academic-years/index.tsx`'s identical
+      // comment for why.
+      queryClient
+        .ensureQueryData(
+          guardiansQueryOptions({
+            page: deps.page,
+            limit: deps.limit,
+            ...(deps.search !== undefined ? { search: deps.search } : {}),
+          }),
+        )
+        .catch(() => undefined),
+      loadRouteNamespaces('guardians'),
+    ]),
+  pendingComponent: GuardiansListPending,
   component: GuardiansListPage,
 });
 
@@ -171,4 +181,9 @@ function GuardiansListPage() {
       />
     </RegionConfigProvider>
   );
+}
+
+function GuardiansListPending() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="list" label={t('routePending.label', { ns: 'nav' })} />;
 }

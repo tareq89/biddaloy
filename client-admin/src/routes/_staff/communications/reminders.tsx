@@ -3,6 +3,7 @@ import {
   Button,
   Checkbox,
   Label,
+  RoutePending,
   Select,
   SelectContent,
   SelectItem,
@@ -31,6 +32,8 @@ import { formatDate, formatServerAmount } from '@biddaloy/ui/utils';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
 import { z } from 'zod';
+
+import { loadRouteNamespaces } from '../../../route-loaders';
 
 import { BulkReminderWizard } from './-bulk/bulk-reminder-wizard';
 import { RecipientList } from './-shared/recipient-list';
@@ -72,6 +75,8 @@ const remindersSearchSchema = z.object({
 
 export const Route = createFileRoute('/_staff/communications/reminders')({
   validateSearch: remindersSearchSchema,
+  loader: () => loadRouteNamespaces('communications'),
+  pendingComponent: FeeRemindersPending,
   component: FeeRemindersPage,
 });
 
@@ -583,4 +588,9 @@ function SingleReminderForm() {
       )}
     </div>
   );
+}
+
+function FeeRemindersPending() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="form" label={t('routePending.label', { ns: 'nav' })} />;
 }

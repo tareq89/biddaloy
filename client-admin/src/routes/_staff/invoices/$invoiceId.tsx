@@ -1,9 +1,23 @@
 import { InvoiceStatus, Permission } from '@biddaloy/shared';
-import { Button, ErrorState, Skeleton, StatusBadge, toast } from '@biddaloy/ui/components';
-import { openPrintableInvoice, useHasPermission, useInvoice } from '@biddaloy/ui/hooks';
+import {
+  Button,
+  ErrorState,
+  RoutePending,
+  Skeleton,
+  StatusBadge,
+  toast,
+} from '@biddaloy/ui/components';
+import {
+  invoiceQueryOptions,
+  openPrintableInvoice,
+  useHasPermission,
+  useInvoice,
+} from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatDate, formatServerAmount, parseServerDate } from '@biddaloy/ui/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
+
+import { loadRouteNamespaces } from '../../../route-loaders';
 
 /**
  * `/invoices/$invoiceId` — [8.9.9]'s Cmd/Ctrl+K palette and [8.10.6]'s
@@ -18,6 +32,14 @@ import { createFileRoute, Link } from '@tanstack/react-router';
  * cast for a field the acceptance criteria don't actually ask for.
  */
 export const Route = createFileRoute('/_staff/invoices/$invoiceId')({
+  loader: ({ context: { queryClient }, params }) =>
+    Promise.all([
+      // [8.14.5]: swallowed — see `academic-years/$academicYearId.tsx`'s
+      // identical comment for why.
+      queryClient.ensureQueryData(invoiceQueryOptions(params.invoiceId)).catch(() => undefined),
+      loadRouteNamespaces('fees'),
+    ]),
+  pendingComponent: InvoiceDetailPending,
   component: InvoiceDetailPage,
 });
 
@@ -100,4 +122,9 @@ function InvoiceDetailPage() {
       )}
     </div>
   );
+}
+
+function InvoiceDetailPending() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="detail" label={t('routePending.label', { ns: 'nav' })} />;
 }

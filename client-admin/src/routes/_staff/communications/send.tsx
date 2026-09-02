@@ -17,6 +17,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  RoutePending,
   StatusBadge,
   Textarea,
 } from '@biddaloy/ui/components';
@@ -30,6 +31,8 @@ import {
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute } from '@tanstack/react-router';
 import * as React from 'react';
+
+import { loadRouteNamespaces } from '../../../route-loaders';
 
 import { SmsSegmentCounter } from './-shared/sms-segment-counter';
 import { StudentSearch } from './-shared/student-search';
@@ -57,6 +60,8 @@ import { splitTemplateParams, WhatsappTemplateFields } from './-shared/whatsapp-
  * mounts. Duplicating the check here would be dead code.
  */
 export const Route = createFileRoute('/_staff/communications/send')({
+  loader: () => loadRouteNamespaces('communications'),
+  pendingComponent: SendMessagePending,
   component: SendMessageForm,
 });
 
@@ -414,4 +419,9 @@ function SendMessageForm() {
       </Dialog>
     </div>
   );
+}
+
+function SendMessagePending() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="form" label={t('routePending.label', { ns: 'nav' })} />;
 }

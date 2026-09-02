@@ -1,11 +1,22 @@
 import { isGuardianRole, isStaffRole } from '@biddaloy/shared';
 import { ensureSessionLoaded, getActiveRole, getActiveTenant } from '@biddaloy/ui/api';
-import { APP_SHELL_MAIN_ID, EmptyState, RouteAnnouncer } from '@biddaloy/ui/components';
+import {
+  APP_SHELL_MAIN_ID,
+  EmptyState,
+  RouteAnnouncer,
+  RouteProgress,
+} from '@biddaloy/ui/components';
 import { useRouteFocus } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import type { QueryClient } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { createRootRouteWithContext, Outlet, redirect, useNavigate } from '@tanstack/react-router';
+import {
+  createRootRouteWithContext,
+  Outlet,
+  redirect,
+  useNavigate,
+  useRouterState,
+} from '@tanstack/react-router';
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools';
 
 /**
@@ -35,7 +46,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       // plain sentinel object (not an `Error` instance) that the router's
       // navigation machinery specifically catches — throwing anything else
       // here wouldn't redirect at all.
-      // eslint-disable-next-line @typescript-eslint/only-throw-error
+
       throw redirect({ to: '/login', search: { redirect: location.href } });
     }
     // Tenant *and* a role the audience split actually knows about: a
@@ -63,7 +74,6 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       location.pathname !== '/login' &&
       location.pathname !== '/select-school'
     ) {
-      // eslint-disable-next-line @typescript-eslint/only-throw-error
       throw redirect({ to: '/select-school', search: { redirect: location.href } });
     }
 
@@ -75,7 +85,6 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     // and lets an already-resolved visitor bypass `TenantBar`'s
     // confirm-before-switch flow entirely.
     if (authenticated && hasActiveTenant && location.pathname === '/select-school') {
-      // eslint-disable-next-line @typescript-eslint/only-throw-error
       throw redirect({ to: '/' });
     }
   },
@@ -110,8 +119,18 @@ function RootLayout() {
   // `APP_SHELL_MAIN_ID` isn't in the DOM.
   const announcement = useRouteFocus({ mainId: APP_SHELL_MAIN_ID, appName: t('brand') });
 
+  // [8.14.5]: `state.isLoading`, not `state.status` or `state.isTransitioning`
+  // (see the plan's "plan correction 3") — `isLoading` is the flag that's
+  // true for the whole window a navigation's loader/pending UI is in
+  // flight, which is what a top-of-viewport progress bar should track.
+  // `useRouterState`'s `select` keeps this subscription scoped to that one
+  // boolean, so `RootLayout` doesn't re-render on every unrelated router
+  // state change.
+  const isNavigating = useRouterState({ select: (state) => state.isLoading });
+
   return (
     <>
+      <RouteProgress active={isNavigating} label={t('routeProgress.label')} />
       <RouteAnnouncer message={announcement} />
       <Outlet />
       {import.meta.env.DEV && <TanStackRouterDevtools />}

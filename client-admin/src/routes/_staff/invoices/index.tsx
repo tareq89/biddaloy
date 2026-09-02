@@ -2,6 +2,7 @@ import { InvoiceStatus, Permission } from '@biddaloy/shared';
 import {
   DatePicker,
   Input,
+  RoutePending,
   Select,
   SelectContent,
   SelectItem,
@@ -31,6 +32,8 @@ import {
 import { createFileRoute, Link } from '@tanstack/react-router';
 import * as React from 'react';
 import { z } from 'zod';
+
+import { loadRouteNamespaces } from '../../../route-loaders';
 
 /** Radix `Select.Item` rejects an empty-string `value` — same sentinel
  * convention `students/index.tsx`/`fees/dues.tsx` use for "All statuses". */
@@ -80,21 +83,29 @@ export const Route = createFileRoute('/_staff/invoices/')({
     toDate: search.to_date,
   }),
   loader: ({ context: { queryClient }, deps }) =>
-    queryClient.ensureQueryData(
-      invoicesQueryOptions({
-        page: deps.page,
-        limit: deps.limit,
-        ...toInvoiceListFilters(
-          {
-            search: deps.search,
-            status: deps.status,
-            from_date: deps.fromDate,
-            to_date: deps.toDate,
-          },
-          deps.studentId,
-        ),
-      }),
-    ),
+    Promise.all([
+      // [8.14.5]: swallowed — see `academic-years/index.tsx`'s identical
+      // comment for why.
+      queryClient
+        .ensureQueryData(
+          invoicesQueryOptions({
+            page: deps.page,
+            limit: deps.limit,
+            ...toInvoiceListFilters(
+              {
+                search: deps.search,
+                status: deps.status,
+                from_date: deps.fromDate,
+                to_date: deps.toDate,
+              },
+              deps.studentId,
+            ),
+          }),
+        )
+        .catch(() => undefined),
+      loadRouteNamespaces('fees'),
+    ]),
+  pendingComponent: InvoicesListPending,
   component: InvoicesListPage,
 });
 
@@ -277,4 +288,9 @@ function InvoicesListPage() {
       }
     />
   );
+}
+
+function InvoicesListPending() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="list" label={t('routePending.label', { ns: 'nav' })} />;
 }

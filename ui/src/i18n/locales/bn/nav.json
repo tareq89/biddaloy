@@ -109,5 +109,11 @@
     "loadingName": "লোড হচ্ছে…",
     "profile": "প্রোফাইল",
     "profileComingSoon": "প্রোফাইল পৃষ্ঠা শীঘ্রই আসছে"
+  },
+  "routeProgress": {
+    "label": "পাতা লোড হচ্ছে…"
+  },
+  "routePending": {
+    "label": "লোড হচ্ছে…"
   }
 }

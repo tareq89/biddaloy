@@ -1,6 +1,7 @@
 import { authHandlers, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../routeTree.gen';
@@ -220,5 +221,60 @@ describe('root layout nav: reactive to a tenant switch', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Switch school' }));
 
     await waitFor(() => expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull());
+  });
+});
+
+/**
+ * [8.14.5]: `RootLayout`'s `<RouteProgress>` is wired straight off
+ * `router.state.isLoading` — see the plan's "plan correction 3" for why
+ * `isLoading`, not `state.status`/`state.isTransitioning`. These tests
+ * pin that wiring: active while a route's loader is genuinely still in
+ * flight, inactive once it has settled.
+ */
+describe('RootLayout: RouteProgress wiring', () => {
+  afterEach(async () => {
+    await cleanupTestState();
+  });
+
+  it('is active (aria-hidden="false") while a slow route loader is in flight', async () => {
+    server.use(
+      http.get('/api/v1/students', async () => {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 });
+      }),
+    );
+
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/dashboard'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      accessToken: 'test-token',
+      locale: 'en',
+    });
+    await waitFor(() => expect(router.state.location.pathname).toBe('/dashboard'));
+
+    act(() => {
+      void router.navigate({ to: '/students' });
+    });
+
+    const progressbar = await screen.findByRole('progressbar', { hidden: true });
+    await waitFor(() => expect(progressbar.getAttribute('aria-hidden')).toBe('false'));
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Students' })).toBeTruthy());
+    await waitFor(() => expect(progressbar.getAttribute('aria-hidden')).toBe('true'));
+  });
+
+  it('stays inactive (aria-hidden="true") when nothing is loading', async () => {
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      accessToken: 'test-token',
+      locale: 'en',
+    });
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Students' })).toBeTruthy());
+    const progressbar = screen.getByRole('progressbar', { hidden: true });
+    expect(progressbar.getAttribute('aria-hidden')).toBe('true');
   });
 });

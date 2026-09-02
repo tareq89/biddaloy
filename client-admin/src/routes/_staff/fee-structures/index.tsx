@@ -12,6 +12,7 @@ import { Permission } from '@biddaloy/shared';
 import {
   Button,
   CachedDataNotice,
+  RoutePending,
   Select,
   SelectContent,
   SelectItem,
@@ -34,6 +35,8 @@ import { formatServerAmount } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
 import * as React from 'react';
 import { z } from 'zod';
+
+import { loadRouteNamespaces } from '../../../route-loaders';
 
 import { DeleteStructureDialog } from './-delete-structure-dialog';
 import { StructureFormDialog } from './-structure-form-dialog';
@@ -92,17 +95,25 @@ export const Route = createFileRoute('/_staff/fee-structures/')({
     month: search.month,
   }),
   loader: ({ context: { queryClient }, deps }) =>
-    queryClient.ensureQueryData(
-      feeStructuresQueryOptions({
-        page: deps.page,
-        limit: deps.limit,
-        ...toListFilters({
-          academic_year_id: deps.academicYearId,
-          class_id: deps.classId,
-          month: deps.month,
-        }),
-      }),
-    ),
+    Promise.all([
+      // [8.14.5]: swallowed — see `academic-years/index.tsx`'s identical
+      // comment for why.
+      queryClient
+        .ensureQueryData(
+          feeStructuresQueryOptions({
+            page: deps.page,
+            limit: deps.limit,
+            ...toListFilters({
+              academic_year_id: deps.academicYearId,
+              class_id: deps.classId,
+              month: deps.month,
+            }),
+          }),
+        )
+        .catch(() => undefined),
+      loadRouteNamespaces('feeStructures'),
+    ]),
+  pendingComponent: FeeStructuresListPending,
   component: FeeStructuresListPage,
 });
 
@@ -367,4 +378,9 @@ function FeeStructuresListPage() {
       )}
     </RegionConfigProvider>
   );
+}
+
+function FeeStructuresListPending() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="list" label={t('routePending.label', { ns: 'nav' })} />;
 }

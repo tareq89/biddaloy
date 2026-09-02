@@ -220,3 +220,59 @@ test.describe('overlay open animation obeys the reduced-motion rule', () => {
     expect(await openDialogAndReadAnimationMs()).toBeLessThan(1);
   });
 });
+
+/**
+ * [8.14.5] — the route cross-fade's own reduced-motion pair. Guarded on
+ * `document.startViewTransition` actually existing: `E2E_BROWSERS` can
+ * widen this suite onto engines without the View Transitions API, where
+ * `defaultViewTransition: true` (`client-admin/src/main.tsx`) is simply a
+ * no-op and there is nothing here to measure either way.
+ */
+test.describe('route cross-fade obeys the reduced-motion rule', () => {
+  test.use(loggedIn('admin'));
+
+  test('#main-content cross-fades normally, and settles instantly under reduce', async ({
+    page,
+  }) => {
+    await page.goto('/students');
+    await expect(page.getByRole('heading', { name: 'শিক্ষার্থী' })).toBeVisible();
+
+    const supportsViewTransitions = await page.evaluate(
+      () => typeof document.startViewTransition === 'function',
+    );
+    test.skip(!supportsViewTransitions, 'browser has no View Transitions API to measure');
+
+    async function navigateAndReadTransitionMs(): Promise<number> {
+      await page.goto('/students');
+      await expect(page.getByRole('heading', { name: 'শিক্ষার্থী' })).toBeVisible();
+      await page.getByRole('link', { name: 'অভিভাবক', exact: true }).click();
+      await expect(page.getByRole('heading', { name: 'অভিভাবক' })).toBeVisible();
+      return page.evaluate(() =>
+        Math.max(
+          0,
+          ...document
+            .getAnimations()
+            .filter((animation) => {
+              const effect = animation.effect as KeyframeEffect | null;
+              return effect?.pseudoElement?.startsWith('::view-transition') ?? false;
+            })
+            .map((animation) => {
+              const timing = animation.effect?.getComputedTiming();
+              return typeof timing?.duration === 'number' ? timing.duration : 0;
+            }),
+        ),
+      );
+    }
+
+    // --- Baseline. Without this the reduced assertion below is vacuous.
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    expect(await navigateAndReadTransitionMs()).toBeGreaterThan(0);
+
+    // --- Same navigation, preference on — globals.css's dedicated
+    // `::view-transition-*` reduced-motion block (see that file's own
+    // comment for why the blanket `*, *::before, *::after` rule can't
+    // reach these pseudo-elements) collapses it to near-zero.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    expect(await navigateAndReadTransitionMs()).toBeLessThan(1);
+  });
+});

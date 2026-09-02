@@ -4,10 +4,16 @@ import {
   Card,
   EmptyState,
   ErrorState,
+  RoutePending,
   Skeleton,
   StatusBadge,
 } from '@biddaloy/ui/components';
-import { useFeeDues, useMyStudents, usePaymentsByStudent } from '@biddaloy/ui/hooks';
+import {
+  myStudentsQueryOptions,
+  useFeeDues,
+  useMyStudents,
+  usePaymentsByStudent,
+} from '@biddaloy/ui/hooks';
 import type { FeeDueRow, Student } from '@biddaloy/ui/hooks';
 import {
   RegionConfigProvider,
@@ -18,6 +24,8 @@ import {
 import { formatDate, formatServerAmount, isPastDueDate, parseServerDate } from '@biddaloy/ui/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { ChevronRightIcon } from 'lucide-react';
+
+import { loadRouteNamespaces } from '../../route-loaders';
 
 /**
  * [5.2] — the family portal's landing page, replacing [8.9.10]'s
@@ -77,6 +85,20 @@ import { ChevronRightIcon } from 'lucide-react';
  * which would render Bengali numerals to an English-locale parent.
  */
 export const Route = createFileRoute('/portal/')({
+  // [8.14.5]: `myStudentsQueryOptions()` — every branch below (single
+  // student vs. multi-child) reads through `useMyStudents()` first, so
+  // this is the one query worth warming ahead of the route committing;
+  // the per-student `useFeeDues`/`usePaymentsByStudent` calls stay as
+  // plain hooks, same reasoning `students/$studentId.tsx`'s own
+  // per-tab queries do.
+  loader: ({ context: { queryClient } }) =>
+    Promise.all([
+      // [8.14.5]: swallowed — see `_staff/academic-years/index.tsx`'s
+      // identical comment for why.
+      queryClient.ensureQueryData(myStudentsQueryOptions()).catch(() => undefined),
+      loadRouteNamespaces('portal', 'common'),
+    ]),
+  pendingComponent: PortalOverviewPending,
   component: PortalOverviewRoute,
 });
 
@@ -620,4 +642,9 @@ function RecentPayments({
       )}
     </Card>
   );
+}
+
+function PortalOverviewPending() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="detail" label={t('routePending.label', { ns: 'nav' })} />;
 }
