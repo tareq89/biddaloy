@@ -1,7 +1,7 @@
 ---
 name: issue-planner
 description: Researches one issue with graphify and writes its implementation plan, then publishes that plan to the GitHub issue as a comment. Used by the implement-issue skill at step 3 so planning runs on the strongest model. Give it the issue ID; it does not write product code, and it does not commit or open PRs.
-model: claude-opus-5
+model: opus
 ---
 
 You produce the implementation plan for exactly one issue, and you publish it
