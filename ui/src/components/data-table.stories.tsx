@@ -4,7 +4,12 @@ import { useState } from 'react';
 import { rtlDecorator } from '../../.storybook/rtl-decorator';
 
 import { Button } from './button';
-import { DataTable, type DataTableColumn, type DataTableSort } from './data-table';
+import {
+  DataTable,
+  type DataTableColumn,
+  type DataTableProps,
+  type DataTableSort,
+} from './data-table';
 
 const meta: Meta<typeof DataTable> = {
   title: 'Components/DataTable',
@@ -40,11 +45,13 @@ function Demo(props: {
   isFetching?: boolean;
   error?: string;
   selectable?: boolean;
+  expandable?: boolean;
   tableId?: string;
   caption?: string;
   columns?: DataTableColumn<Student>[];
   columnsMenu?: boolean;
   pageSize?: number;
+  layout?: DataTableProps<Student>['layout'];
 }) {
   const {
     data = STUDENTS,
@@ -53,11 +60,13 @@ function Demo(props: {
     isFetching = false,
     error,
     selectable = false,
+    expandable = false,
     tableId = 'students-demo',
     caption = 'Students',
     columns = COLUMNS,
     columnsMenu = false,
     pageSize = 20,
+    layout,
   } = props;
   const [sorting, setSorting] = useState<DataTableSort | null>(null);
   const [page, setPage] = useState(1);
@@ -80,6 +89,7 @@ function Demo(props: {
       isFetching={isFetching}
       columnsMenu={columnsMenu}
       {...(error !== undefined ? { error } : {})}
+      {...(layout !== undefined ? { layout } : {})}
       {...(selectable
         ? {
             selectedIds,
@@ -88,6 +98,19 @@ function Demo(props: {
               <Button type="button" size="sm" variant="destructive">
                 Delete selected
               </Button>
+            ),
+          }
+        : {})}
+      {...(expandable
+        ? {
+            expandRowLabel: (row: Student) => `Details for ${row.name}`,
+            renderExpandedRow: (row: Student) => (
+              <div className="p-4">
+                <p className="text-sm font-medium">Details for {row.name}</p>
+                <p className="text-sm text-muted-foreground">
+                  Class: {row.className} · Status: {row.status}
+                </p>
+              </div>
             ),
           }
         : {})}
@@ -197,4 +220,90 @@ export const RightToLeft: Story = {
     />
   ),
   decorators: [rtlDecorator],
+};
+
+// [8.14.7] Card mode — forced via `layout="cards"` so every story below
+// renders the same way regardless of the Storybook canvas's own width.
+// `COLUMNS` declares no `card` roles, so these exercise the *default*
+// role assignment (first column -> title, `status` -> a `dl` field, same
+// as any page that hasn't gone through #374's per-page tuning yet).
+
+export const CardMode: Story = {
+  render: () => <Demo tableId="students-card-mode" layout="cards" />,
+};
+
+export const CardModeSelectable: Story = {
+  render: () => <Demo tableId="students-card-selectable" layout="cards" selectable />,
+};
+
+export const CardModeExpandable: Story = {
+  render: () => <Demo tableId="students-card-expandable" layout="cards" expandable />,
+};
+
+export const CardModeLoading: Story = {
+  render: () => <Demo tableId="students-card-loading" layout="cards" loading pageSize={4} />,
+};
+
+export const CardModeEmpty: Story = {
+  render: () => <Demo tableId="students-card-empty" layout="cards" data={[]} totalCount={0} />,
+};
+
+export const CardModeError: Story = {
+  render: () => (
+    <Demo tableId="students-card-error" layout="cards" data={[]} error="Failed to load students" />
+  ),
+};
+
+export const CardModeWithColumnsMenu: Story = {
+  render: () => <Demo tableId="students-card-columns-menu" layout="cards" columnsMenu />,
+};
+
+export const CardModeRightToLeft: Story = {
+  render: () => (
+    <Demo
+      tableId="students-card-rtl"
+      layout="cards"
+      caption="শিক্ষার্থীগণ"
+      columns={[
+        { id: 'name', header: 'নাম', accessorFn: (row) => row.name, sortable: true },
+        { id: 'className', header: 'শ্রেণি', accessorFn: (row) => row.className },
+      ]}
+    />
+  ),
+  decorators: [rtlDecorator],
+};
+
+/** [8.14.7]'s `align: 'end'` API, shown in both render modes side by side —
+ * a numeric column right-aligns with `tabular-nums` in the table's `<td>`
+ * and in the card's `<dd>`. */
+export const NumericAlignment: Story = {
+  render: () => {
+    const balanceColumns: DataTableColumn<Student>[] = [
+      { id: 'name', header: 'Name', accessorFn: (row) => row.name, sortable: true },
+      {
+        id: 'balance',
+        header: 'Balance',
+        accessorFn: (row) => (row.status === 'Active' ? '৳0.00' : '৳1,250.00'),
+        align: 'end',
+      },
+    ];
+    return (
+      <div className="flex flex-col gap-6">
+        <Demo tableId="students-align-table" layout="table" columns={balanceColumns} />
+        <Demo tableId="students-align-cards" layout="cards" columns={balanceColumns} />
+      </div>
+    );
+  },
+};
+
+/** [8.14.7] `layout="auto"` (the default) picks a render mode from this
+ * table's own container width — the `viewport` addon parameter narrows
+ * the Storybook canvas below the `md` breakpoint, the same technique
+ * `app-shell.stories.tsx` uses for its own mobile-nav story, so the
+ * switch to cards is demonstrable here rather than only assertable in
+ * `data-table.test.tsx` (which forces the mode with an explicit prop
+ * since jsdom's `ResizeObserver` never actually fires). */
+export const Responsive: Story = {
+  render: () => <Demo tableId="students-responsive" layout="auto" />,
+  parameters: { viewport: { defaultViewport: 'mobile1' } },
 };

@@ -19,6 +19,16 @@
  * `ListShellProps` already extends `DataTableProps`, so the `...dataTableProps`
  * spread below forwards it straight through to `DataTable`. Pages just pass
  * `isFetching={xQuery.isFetching}` alongside their existing `loading` prop.
+ *
+ * [8.14.7] Card mode is the same story: `layout`, a column's `card` role,
+ * and a column's `align` are all just more `DataTableProps` fields, so
+ * they reach `DataTable` through the same `...dataTableProps` spread with
+ * no change to this file's logic. A page opts into card metadata by
+ * annotating its own `columns` array (e.g. `{ id: 'name', card: 'title' }`)
+ * and, if it wants to force a mode rather than let `DataTable` measure its
+ * container, passing `layout="cards"` alongside its other list props —
+ * see `client-admin/src/routes/_staff/students/index.tsx` for a worked
+ * example.
  */
 import type { RowData } from '@tanstack/react-table';
 import type { ReactNode } from 'react';

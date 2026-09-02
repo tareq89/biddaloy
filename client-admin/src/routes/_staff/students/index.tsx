@@ -252,11 +252,17 @@ function StudentsListPage() {
       header: t('list.columnName'),
       accessorFn: (row) => row.full_name,
       sortable: true,
+      // [8.14.7] The row's own name is the natural card title.
+      card: 'title',
     },
     {
       id: 'class',
       header: t('list.columnClass'),
       accessorFn: (row) => row.class_section.class.name,
+      // [8.14.7] Class alone (not class + section) is the closest thing
+      // this row has to a subtitle — short enough to sit under the name
+      // without repeating what `section` already spells out in the `dl`.
+      card: 'subtitle',
     },
     {
       id: 'section',
@@ -274,6 +280,9 @@ function StudentsListPage() {
       accessorFn: (row) => (
         <StatusBadge domain="enrollment" status={row.enrollment_status as EnrollmentStatus} />
       ),
+      // [8.14.7] Same "value + badge on the end side" grammar as
+      // `portal/fees.tsx`'s invoice rows.
+      card: 'badge',
     },
     {
       id: 'dateOfBirth',
@@ -299,6 +308,11 @@ function StudentsListPage() {
       id: 'actions',
       header: t('list.columnActions'),
       pinned: true,
+      // Already `pinned: true`, which `DataTable`'s default card-role
+      // resolution would assign to `'actions'` on its own — declared
+      // explicitly anyway so this stays correct if a future column also
+      // becomes `pinned`.
+      card: 'actions',
       accessorFn: (row) => (
         <div className="flex justify-end gap-3">
           {canCollectFees && (
@@ -422,6 +436,14 @@ function StudentsListPage() {
         onSelectedIdsChange={actions.setSelectedIds}
         columnsMenu
         columnsMenuLabel={t('list.columnsButton')}
+        sortMenuLabel={t('list.sortMenuLabel')}
+        sortOptionLabel={(header, direction) =>
+          direction === 'asc'
+            ? t('list.sortOptionLabelAscending', { header })
+            : direction === 'desc'
+              ? t('list.sortOptionLabelDescending', { header })
+              : header
+        }
         defaultColumnVisibility={{
           dateOfBirth: false,
           gender: false,

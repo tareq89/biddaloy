@@ -4,7 +4,12 @@ import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { DataTable, type DataTableColumn, type DataTableSort } from './data-table';
+import {
+  DataTable,
+  type DataTableColumn,
+  type DataTableProps,
+  type DataTableSort,
+} from './data-table';
 
 interface Student {
   id: string;
@@ -36,6 +41,9 @@ function Controlled({
   columns = COLUMNS,
   expandable = false,
   pageSize = 20,
+  layout,
+  sortMenuLabel,
+  sortOptionLabel,
 }: {
   data?: Student[];
   totalCount?: number;
@@ -49,6 +57,9 @@ function Controlled({
   columns?: DataTableColumn<Student>[];
   expandable?: boolean;
   pageSize?: number;
+  layout?: DataTableProps<Student>['layout'];
+  sortMenuLabel?: string;
+  sortOptionLabel?: DataTableProps<Student>['sortOptionLabel'];
 }) {
   const [sorting, setSorting] = useState<DataTableSort | null>(null);
   const [page, setPage] = useState(1);
@@ -86,6 +97,9 @@ function Controlled({
             renderExpandedRow: (row: Student) => <p>Expanded details for {row.name}</p>,
           }
         : {})}
+      {...(layout !== undefined ? { layout } : {})}
+      {...(sortMenuLabel !== undefined ? { sortMenuLabel } : {})}
+      {...(sortOptionLabel !== undefined ? { sortOptionLabel } : {})}
     />
   );
 }
@@ -99,7 +113,7 @@ const STUDENTS_PAGE_2: Student[] = [
   { id: '6', name: 'Tania Akter', className: 'Nine' },
 ];
 
-function PagedControlled() {
+function PagedControlled({ layout }: { layout?: DataTableProps<Student>['layout'] } = {}) {
   const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
 
@@ -119,6 +133,7 @@ function PagedControlled() {
       selectedIds={selectedIds}
       onSelectedIdsChange={setSelectedIds}
       bulkActions={<button type="button">Delete selected</button>}
+      {...(layout !== undefined ? { layout } : {})}
     />
   );
 }
@@ -633,5 +648,126 @@ describe('DataTable expandable rows', () => {
 
     await user.keyboard(' ');
     await waitFor(() => expect(toggle.getAttribute('aria-expanded')).toBe('false'));
+  });
+});
+
+// [8.14.7] Card mode is forced via `layout="cards"` throughout — the
+// container-measuring `useContainerWidth` hook never actually fires under
+// jsdom's no-op `ResizeObserver` (see `use-container-width.ts`'s doc
+// comment), which is exactly why `layout` is a real public prop rather
+// than a test-only escape hatch.
+describe('DataTable card mode', () => {
+  afterEach(() => window.localStorage.clear());
+
+  it('renders a <ul>/<li> list with the caption as its accessible name, and no <table>', () => {
+    render(<Controlled layout="cards" />);
+    expect(screen.queryByRole('table')).toBeNull();
+    expect(screen.getByRole('list', { name: 'Students' })).toBeTruthy();
+    expect(screen.getAllByRole('listitem')).toHaveLength(STUDENTS.length);
+  });
+
+  it('renders each row as a title plus dt/dd field pairs — no column declares a card role', () => {
+    render(<Controlled layout="cards" />);
+    // COLUMNS: `name` (first, undeclared) defaults to the card title;
+    // `className` (the only other column) becomes a `dl` field.
+    expect(screen.getByText('Rahim Uddin')).toBeTruthy();
+    // `className: 'Six'` appears on two of the three students, so the
+    // fixture's field label ("Class") is asserted for all rows instead.
+    expect(screen.getAllByText('Class')).toHaveLength(STUDENTS.length);
+    expect(screen.getAllByText('Six').length).toBeGreaterThan(0);
+  });
+
+  it('per-card selection toggles onSelectedIdsChange, same as the table-mode checkbox', async () => {
+    const user = userEvent.setup();
+    render(<Controlled layout="cards" selectable />);
+    const checkbox = screen.getByRole('checkbox', { name: 'Select row 1' });
+    await user.click(checkbox);
+    expect(checkbox.getAttribute('aria-checked')).toBe('true');
+  });
+
+  it("select-all selects the current page and preserves a prior page's selections", async () => {
+    const user = userEvent.setup();
+    render(<PagedControlled layout="cards" />);
+    const selectAll = screen.getByRole('checkbox', { name: 'Select all rows on this page' });
+    await user.click(selectAll);
+    expect(
+      screen.getByRole('checkbox', { name: 'Select row 1' }).getAttribute('aria-checked'),
+    ).toBe('true');
+
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    await waitFor(() => expect(screen.getByText('Nadia Islam')).toBeTruthy());
+    // Page two's select-all starts unchecked — the earlier selection was
+    // page one's rows, which aren't part of page two's own row set.
+    expect(
+      screen
+        .getByRole('checkbox', { name: 'Select all rows on this page' })
+        .getAttribute('aria-checked'),
+    ).toBe('false');
+
+    await user.click(screen.getByRole('button', { name: 'Previous' }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole('checkbox', { name: 'Select row 1' }).getAttribute('aria-checked'),
+      ).toBe('true'),
+    );
+  });
+
+  it("the sort control's trigger states the current sort and calls onSortingChange like a header button would", async () => {
+    const user = userEvent.setup();
+    render(<Controlled layout="cards" />);
+    const trigger = screen.getByRole('button', { name: 'Sort' });
+    await user.click(trigger);
+    await user.click(screen.getByRole('menuitem', { name: 'Name' }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Sort: Name, sorted ascending' })).toBeTruthy(),
+    );
+  });
+
+  it('expansion toggles aria-expanded, and a row expanded in table mode stays expanded after switching to cards', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<Controlled expandable layout="table" />);
+    await user.click(screen.getByRole('button', { name: 'Details for Rahim Uddin' }));
+    expect(screen.getByText('Expanded details for Rahim Uddin')).toBeTruthy();
+
+    rerender(<Controlled expandable layout="cards" />);
+    const cardToggle = screen.getByRole('button', { name: 'Details for Rahim Uddin' });
+    expect(cardToggle.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByText('Expanded details for Rahim Uddin')).toBeTruthy();
+
+    await user.click(cardToggle);
+    expect(cardToggle.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('loading renders skeleton cards, not real row content', () => {
+    render(<Controlled layout="cards" loading pageSize={3} />);
+    expect(screen.queryByText('Rahim Uddin')).toBeNull();
+    const list = screen.getByRole('list', { name: 'Students' });
+    expect(list.querySelectorAll('li[data-placeholder="skeleton"]')).toHaveLength(3);
+  });
+
+  it('error renders role="alert" with the error message', () => {
+    render(<Controlled layout="cards" data={[]} error="Failed to load" />);
+    expect(screen.getByRole('alert').textContent).toBe('Failed to load');
+  });
+
+  it('empty renders emptyMessage', () => {
+    render(<Controlled layout="cards" data={[]} totalCount={0} emptyMessage="No students found" />);
+    expect(screen.getByText('No students found')).toBeTruthy();
+  });
+});
+
+describe('DataTable card mode alignment', () => {
+  afterEach(() => window.localStorage.clear());
+
+  const ALIGNED_COLUMNS: DataTableColumn<Student>[] = [
+    { id: 'name', header: 'Name', accessorFn: (row) => row.name },
+    { id: 'className', header: 'Class', accessorFn: (row) => row.className, align: 'end' },
+  ];
+
+  it("applies text-end and tabular-nums to an end-aligned column's <dd>", () => {
+    render(<Controlled layout="cards" columns={ALIGNED_COLUMNS} />);
+    const dd = screen.getAllByText('Six')[0];
+    expect(dd?.className).toContain('text-end');
+    expect(dd?.className).toContain('tabular-nums');
   });
 });

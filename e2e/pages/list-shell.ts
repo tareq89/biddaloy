@@ -41,16 +41,41 @@ export class ListShellPage {
    * (loading/empty/error) row (a single full-width cell), and
    * [8.14.6]'s initial-load skeleton rows (`data-placeholder="skeleton"`
    * on `DataTable`'s own markup) so a `loading` transition never gets
-   * counted as data. */
+   * counted as data.
+   *
+   * [8.14.7] `DataTable` renders one of two DOM shapes — never both at
+   * once (see `data-table.tsx`'s `layout` prop) — so this is the union
+   * of both selectors' "real row" markup. Every journey/a11y spec runs
+   * at the default 1280px desktop viewport (`playwright.config.ts`),
+   * which stays in table mode, so in practice this only ever matches
+   * `<tr>`s there; the card branch exists for `e2e/responsive/
+   * reflow.spec.ts`, which runs at 320/640px and gets cards instead. */
   dataRows(): Locator {
-    return this.page.locator('table > tbody > tr:not(:has(td[colspan])):not([data-placeholder])');
+    return this.page.locator(
+      [
+        'table > tbody > tr:not(:has(td[colspan])):not([data-placeholder])',
+        'ul[data-slot="data-table-cards"] > li:not([data-placeholder])',
+      ].join(', '),
+    );
   }
 
   /** [8.14.6] The `loading` skeleton rows `DataTable` renders in place
    * of the single "Loading…" cell — real markup, `aria-hidden`, never
-   * counted by `dataRows()`. */
+   * counted by `dataRows()`. [8.14.7]: the same union as `dataRows()`,
+   * but for the placeholder markup instead of the real-row markup. */
   skeletonRows(): Locator {
-    return this.page.locator('table > tbody > tr[data-placeholder]');
+    return this.page.locator(
+      [
+        'table > tbody > tr[data-placeholder]',
+        'ul[data-slot="data-table-cards"] > li[data-placeholder]',
+      ].join(', '),
+    );
+  }
+
+  /** [8.14.7] Card-mode rows only — for specs that specifically want to
+   * assert card markup rather than the mode-agnostic `dataRows()`. */
+  cards(): Locator {
+    return this.page.locator('ul[data-slot="data-table-cards"] > li:not([data-placeholder])');
   }
 
   async expectResultCount(n: number): Promise<void> {
@@ -66,11 +91,17 @@ export class ListShellPage {
    * `getByRole('region')` alone also matches Sonner's unconditional
    * `<section role="region" aria-label="Notifications ...">` toaster
    * (`client-admin/src/main.tsx`), which would make this a strict-mode
-   * violation on every page. */
+   * violation on every page.
+   *
+   * [8.14.7] Card mode has no `role="region"` wrapper — `aria-busy` moves
+   * onto the `<ul data-slot="data-table-cards">` itself (see
+   * `data-table.tsx`'s card-mode branch) — so this checks whichever of
+   * the two elements is actually in the DOM. */
   async expectBusy(busy: boolean): Promise<void> {
-    await expect(
-      this.page.getByRole('region').filter({ has: this.page.locator('table') }),
-    ).toHaveAttribute('aria-busy', String(busy));
+    const tableRegion = this.page.getByRole('region').filter({ has: this.page.locator('table') });
+    const cardList = this.page.locator('ul[data-slot="data-table-cards"]');
+    const target = (await cardList.count()) > 0 ? cardList : tableRegion;
+    await expect(target).toHaveAttribute('aria-busy', String(busy));
   }
 
   async search(query: string): Promise<void> {

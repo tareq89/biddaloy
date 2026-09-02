@@ -49,6 +49,7 @@ export { Combobox, type ComboboxOption, type ComboboxProps } from './combobox';
 export { FileUpload, type FileUploadItem, type FileUploadProps } from './file-upload';
 export {
   DataTable,
+  type DataTableCardRole,
   type DataTableColumn,
   type DataTableProps,
   type DataTableSort,

@@ -44,7 +44,10 @@ const COLUMNS: DataTableColumn<Student>[] = [
   { id: 'className', header: 'Class', accessorFn: (row) => row.className, sortable: true },
 ];
 
-function StudentsListPage({ isFetching = false }: { isFetching?: boolean } = {}) {
+function StudentsListPage({
+  isFetching = false,
+  layout,
+}: { isFetching?: boolean; layout?: 'auto' | 'table' | 'cards' } = {}) {
   const [state, actions] = useListShellState({ limit: 20 });
 
   const filtered = state.filters.q
@@ -84,6 +87,7 @@ function StudentsListPage({ isFetching = false }: { isFetching?: boolean } = {})
         </Button>
       }
       isFetching={isFetching}
+      {...(layout !== undefined ? { layout } : {})}
     />
   );
 }
@@ -110,4 +114,13 @@ export const WithSelection: Story = {
 export const FilteredAndSorted: Story = {
   decorators: [withMemoryRouter(['/students?q=Rahim&sort=name&order=asc'])],
   render: () => <StudentsListPage />,
+};
+
+/** [8.14.7] Proves `layout` reaches `DataTable` through `ListShell`'s
+ * `...dataTableProps` spread with no shell-level change — the title,
+ * primary-action slot, and filter bar are untouched; only the list below
+ * them switches to cards. */
+export const CardMode: Story = {
+  decorators: [withMemoryRouter(['/students'])],
+  render: () => <StudentsListPage layout="cards" />,
 };
