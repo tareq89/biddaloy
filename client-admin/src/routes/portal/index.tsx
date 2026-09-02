@@ -431,7 +431,10 @@ function ChildCard({ child, config }: { child: ChildSummary; config: RegionConfi
       <Link
         to="/portal/fees"
         search={{ student: child.id }}
-        className="flex flex-col gap-1.5 p-3.5 no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+        // [8.14.14]: focus ring aligned to the shared two-tone offset
+        // treatment used across @biddaloy/ui, replacing the old
+        // `outline`/`outline-2`/`outline-ring` combo.
+        className="flex flex-col gap-1.5 p-3.5 no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         <div className="flex items-center justify-between gap-2">
           <span className="text-sm font-semibold">{child.fullName}</span>

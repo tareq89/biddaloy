@@ -83,7 +83,10 @@ export function SecretField({ id, label, masked, value, onChange, onBlur }: Secr
             id={id}
             type="password"
             autoComplete="new-password"
-            className="h-8 flex-1 rounded-md border border-input bg-card px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            // [8.14.14]: focus ring aligned to the shared two-tone offset
+            // treatment used across @biddaloy/ui, replacing the old
+            // brand-on-brand `border-ring`/`ring-3`/`ring-ring/50` combo.
+            className="h-8 flex-1 rounded-md border border-input bg-card px-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             value={value ?? ''}
             onChange={handleChange}
             onBlur={onBlur}
