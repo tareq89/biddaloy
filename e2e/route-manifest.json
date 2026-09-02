@@ -55,7 +55,8 @@
     {
       "path": "/audit-logs",
       "role": "admin",
-      "archetype": "list"
+      "archetype": "list",
+      "visualMask": ["table tbody tr td:nth-child(2)"]
     },
     {
       "path": "/fees",
