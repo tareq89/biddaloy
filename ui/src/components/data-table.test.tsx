@@ -27,6 +27,7 @@ function Controlled({
   data = STUDENTS,
   totalCount = STUDENTS.length,
   loading = false,
+  isFetching = false,
   error,
   selectable = false,
   emptyMessage,
@@ -34,10 +35,12 @@ function Controlled({
   defaultColumnVisibility,
   columns = COLUMNS,
   expandable = false,
+  pageSize = 20,
 }: {
   data?: Student[];
   totalCount?: number;
   loading?: boolean;
+  isFetching?: boolean;
   error?: string;
   selectable?: boolean;
   emptyMessage?: string;
@@ -45,6 +48,7 @@ function Controlled({
   defaultColumnVisibility?: ColumnVisibilityState;
   columns?: DataTableColumn<Student>[];
   expandable?: boolean;
+  pageSize?: number;
 }) {
   const [sorting, setSorting] = useState<DataTableSort | null>(null);
   const [page, setPage] = useState(1);
@@ -60,10 +64,11 @@ function Controlled({
       sorting={sorting}
       onSortingChange={setSorting}
       page={page}
-      pageSize={20}
+      pageSize={pageSize}
       totalCount={totalCount}
       onPageChange={setPage}
       loading={loading}
+      isFetching={isFetching}
       columnsMenu={columnsMenu}
       {...(defaultColumnVisibility !== undefined ? { defaultColumnVisibility } : {})}
       {...(error !== undefined ? { error } : {})}
@@ -163,10 +168,89 @@ describe('DataTable', () => {
     );
   });
 
-  it('shows a loading state as a first-class prop, not real rows', () => {
+  it('shows a table-shaped skeleton while loading, not a one-line "Loading…" cell', () => {
     render(<Controlled loading />);
+    // The literal text moved to the polite live region (still reachable by
+    // assistive tech) — it is no longer a visible table cell.
     expect(screen.getByText('Loading…')).toBeTruthy();
     expect(screen.queryByText('Rahim Uddin')).toBeNull();
+    const skeletonRows = document.querySelectorAll('tr[data-placeholder="skeleton"]');
+    expect(skeletonRows.length).toBeGreaterThan(0);
+  });
+
+  it('skeleton row count is pageSize capped at 10, and each row carries colSpanCount cells', () => {
+    render(<Controlled loading pageSize={15} />);
+    const skeletonRows = document.querySelectorAll('tr[data-placeholder="skeleton"]');
+    // COLUMNS has 2 data columns (Name, Class), no selectable/expandable
+    // extras in this render.
+    expect(skeletonRows.length).toBe(10);
+    for (const row of skeletonRows) {
+      expect(row.querySelectorAll('td').length).toBe(2);
+    }
+  });
+
+  it('skeleton cell count grows with selectable and expandable columns', () => {
+    render(
+      <Controlled
+        loading
+        pageSize={4}
+        selectable
+        expandable
+        columns={COLUMNS}
+        totalCount={STUDENTS.length}
+      />,
+    );
+    const skeletonRows = document.querySelectorAll('tr[data-placeholder="skeleton"]');
+    expect(skeletonRows.length).toBe(4);
+    for (const row of skeletonRows) {
+      // 2 data columns + 1 selection column + 1 expand column.
+      expect(row.querySelectorAll('td').length).toBe(4);
+    }
+  });
+
+  it('while isFetching, previous rows stay mounted and dimmed, with aria-busy on the region', () => {
+    render(<Controlled isFetching />);
+    expect(screen.getByText('Rahim Uddin')).toBeTruthy();
+    const region = screen.getByRole('region', { name: 'Students' });
+    expect(region.getAttribute('aria-busy')).toBe('true');
+    const tbody = document.querySelector('tbody');
+    expect(tbody?.className).toContain('opacity-60');
+  });
+
+  it('loading wins over isFetching — skeleton path only, no dim class, when both are true', () => {
+    render(<Controlled loading isFetching />);
+    expect(screen.queryByText('Rahim Uddin')).toBeNull();
+    const skeletonRows = document.querySelectorAll('tr[data-placeholder="skeleton"]');
+    expect(skeletonRows.length).toBeGreaterThan(0);
+    const tbody = document.querySelector('tbody');
+    expect(tbody?.className).not.toContain('opacity-60');
+  });
+
+  it('isFetching with zero rows falls through to the empty state, not the dim/stale state', () => {
+    render(<Controlled data={[]} totalCount={0} isFetching emptyMessage="No students yet" />);
+    expect(screen.getByText('No students yet')).toBeTruthy();
+    const region = screen.getByRole('region', { name: 'Students' });
+    expect(region.getAttribute('aria-busy')).toBe('false');
+    const tbody = document.querySelector('tbody');
+    expect(tbody?.className).not.toContain('opacity-60');
+  });
+
+  it('focus is not lost when isFetching flips true and dims the stale rows', () => {
+    // Regression this whole ticket exists to prevent: a naive
+    // implementation that keyed the dimmed `<tbody>` differently, or
+    // conditionally unmounted/remounted rows on `isFetching`, would drop
+    // focus here. Render `isFetching={false}` first and flip it via
+    // `rerender`, matching the real "user paged/filtered" sequence —
+    // rendering `isFetching` already-true up front (as the previous
+    // version of this test did) can't catch that class of bug at all.
+    const { rerender } = render(<Controlled isFetching={false} />);
+    const firstCell = screen.getAllByRole('cell')[0] as HTMLElement;
+    firstCell.focus();
+    expect(document.activeElement).toBe(firstCell);
+
+    rerender(<Controlled isFetching />);
+    expect(document.activeElement).toBe(firstCell);
+    expect(document.activeElement).toBeInstanceOf(HTMLElement);
   });
 
   it('shows an empty state with a caller-provided message', () => {

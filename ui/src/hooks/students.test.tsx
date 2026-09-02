@@ -244,6 +244,60 @@ describe('useCreateStudent invalidates the students list (create -> refetch -> n
   });
 });
 
+describe('[8.14.6] useStudents keeps previous rows on screen while a filter change refetches', () => {
+  it('holds filter A rows (marked as a placeholder) until filter B resolves, then swaps to B', async () => {
+    // Each `search` value gets its own distinct fixture row and its own
+    // response delay, so the assertions can tell "still showing A" apart
+    // from "already showing B" instead of both filters coincidentally
+    // returning the same data.
+    server.use(
+      http.get('/api/v1/students', async ({ request }) => {
+        const search = new URL(request.url).searchParams.get('search');
+        if (search === 'b') {
+          await delay(30);
+          return HttpResponse.json({
+            data: [studentFactory({ id: 'student-b', full_name: 'Filter B Student' })],
+            total: 1,
+            page: 1,
+            limit: 10,
+            totalPages: 1,
+          });
+        }
+        return HttpResponse.json({
+          data: [studentFactory({ id: 'student-a', full_name: 'Filter A Student' })],
+          total: 1,
+          page: 1,
+          limit: 10,
+          totalPages: 1,
+        });
+      }),
+    );
+
+    const { result, rerender } = renderHookWithProviders(
+      ({ search }: { search: string }) => useStudents({ search }),
+      { tenantId: 'tenant-1', initialProps: { search: 'a' } },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.data.map((s) => s.full_name)).toEqual(['Filter A Student']);
+    expect(result.current.isPlaceholderData).toBe(false);
+
+    rerender({ search: 'b' });
+
+    // The very next render already reflects the filter change starting —
+    // filter A's rows are still on screen (via `placeholderData:
+    // keepPreviousData`) while filter B's request is in flight, instead
+    // of the list unmounting to a loading state.
+    await waitFor(() => expect(result.current.isFetching).toBe(true));
+    expect(result.current.data?.data.map((s) => s.full_name)).toEqual(['Filter A Student']);
+    expect(result.current.isPlaceholderData).toBe(true);
+
+    await waitFor(() => expect(result.current.isPlaceholderData).toBe(false));
+    expect(result.current.data?.data.map((s) => s.full_name)).toEqual(['Filter B Student']);
+    expect(result.current.isFetching).toBe(false);
+  });
+});
+
 describe('switchActiveTenant clears all cached server state', () => {
   it('leaves nothing behind for the next tenant to accidentally read', () => {
     const queryClient = createTestQueryClient();

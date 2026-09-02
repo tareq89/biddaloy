@@ -341,6 +341,7 @@ function FeeStructuresListPage() {
         totalCount={structuresQuery.data?.total ?? 0}
         onPageChange={actions.setPage}
         loading={structuresQuery.isLoading}
+        isFetching={structuresQuery.isFetching}
         {...(structuresQuery.isError ? { error: t('list.errorMessage') } : {})}
         emptyMessage={t('list.emptyMessage')}
         announceResults={(count, total) =>

@@ -472,6 +472,7 @@ function DuesQueuePage() {
         columnsMenu
         columnsMenuLabel={t('dues.columnsButton')}
         loading={duesQuery.isLoading}
+        isFetching={duesQuery.isFetching}
         {...(duesQuery.isError ? { error: t('dues.errorMessage') } : {})}
         emptyMessage={t('dues.emptyMessage')}
         announceResults={(count, total) =>

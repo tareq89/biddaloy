@@ -16,12 +16,13 @@ function fakeAnimation(pseudoElement: string | null): Animation {
 }
 
 describe('waitForViewTransition', () => {
-  // Saved only to restore in `afterEach` below, never called through this
-  // reference with a rebound `this` — safe to detach from `document`.
+  // Saved only to restore in `afterEach` below. `.bind(document)` (not a
+  // bare property read) keeps `@typescript-eslint/unbound-method` happy —
+  // these are never called through this reference with a rebound `this`,
+  // but the rule can't see that from a plain reassignment.
+  const originalStartViewTransition = document.startViewTransition?.bind(document);
 
-  const originalStartViewTransition = document.startViewTransition;
-
-  const originalGetAnimations = document.getAnimations;
+  const originalGetAnimations = document.getAnimations?.bind(document);
 
   beforeEach(() => {
     // jsdom doesn't implement the View Transitions API — stub just enough

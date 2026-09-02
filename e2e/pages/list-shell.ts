@@ -37,14 +37,40 @@ export class ListShellPage {
     ).toBeVisible();
   }
 
-  /** Data rows only — excludes the header row and any placeholder
-   * (loading/empty/error) row, which renders a single full-width cell. */
+  /** Data rows only — excludes the header row, any placeholder
+   * (loading/empty/error) row (a single full-width cell), and
+   * [8.14.6]'s initial-load skeleton rows (`data-placeholder="skeleton"`
+   * on `DataTable`'s own markup) so a `loading` transition never gets
+   * counted as data. */
   dataRows(): Locator {
-    return this.page.locator('table > tbody > tr:not(:has(td[colspan]))');
+    return this.page.locator('table > tbody > tr:not(:has(td[colspan])):not([data-placeholder])');
+  }
+
+  /** [8.14.6] The `loading` skeleton rows `DataTable` renders in place
+   * of the single "Loading…" cell — real markup, `aria-hidden`, never
+   * counted by `dataRows()`. */
+  skeletonRows(): Locator {
+    return this.page.locator('table > tbody > tr[data-placeholder]');
   }
 
   async expectResultCount(n: number): Promise<void> {
     await expect(this.dataRows()).toHaveCount(n);
+  }
+
+  /** [8.14.6] `DataTable`'s scroll region carries `aria-busy` while
+   * `loading` or refetching (`isFetching`) rows are stale on screen —
+   * asserts that flag directly rather than inferring it from row
+   * count/opacity. The region's accessible name is the route's own
+   * `caption` prop (a namespace `ListShellConfig` doesn't track), so this
+   * scopes by role plus "contains a `<table>`" rather than by name —
+   * `getByRole('region')` alone also matches Sonner's unconditional
+   * `<section role="region" aria-label="Notifications ...">` toaster
+   * (`client-admin/src/main.tsx`), which would make this a strict-mode
+   * violation on every page. */
+  async expectBusy(busy: boolean): Promise<void> {
+    await expect(
+      this.page.getByRole('region').filter({ has: this.page.locator('table') }),
+    ).toHaveAttribute('aria-busy', String(busy));
   }
 
   async search(query: string): Promise<void> {

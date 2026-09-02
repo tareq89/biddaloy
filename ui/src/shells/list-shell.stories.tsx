@@ -44,7 +44,7 @@ const COLUMNS: DataTableColumn<Student>[] = [
   { id: 'className', header: 'Class', accessorFn: (row) => row.className, sortable: true },
 ];
 
-function StudentsListPage() {
+function StudentsListPage({ isFetching = false }: { isFetching?: boolean } = {}) {
   const [state, actions] = useListShellState({ limit: 20 });
 
   const filtered = state.filters.q
@@ -83,6 +83,7 @@ function StudentsListPage() {
           Delete selected
         </Button>
       }
+      isFetching={isFetching}
     />
   );
 }
@@ -90,6 +91,15 @@ function StudentsListPage() {
 export const Default: Story = {
   decorators: [withMemoryRouter(['/students'])],
   render: () => <StudentsListPage />,
+};
+
+/** [8.14.6] A filter/page/sort refetch in flight: only the table body
+ * dims (via `DataTable`'s `isFetching`) — the title, primary action, and
+ * filter bar hold still, since `isFetching` only reaches `DataTable`
+ * through `ListShellProps`' `...dataTableProps` spread. */
+export const Refetching: Story = {
+  decorators: [withMemoryRouter(['/students'])],
+  render: () => <StudentsListPage isFetching />,
 };
 
 export const WithSelection: Story = {

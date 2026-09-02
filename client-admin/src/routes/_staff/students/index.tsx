@@ -429,6 +429,7 @@ function StudentsListPage() {
           preferredCommunication: false,
         }}
         loading={studentsQuery.isLoading}
+        isFetching={studentsQuery.isFetching}
         {...(studentsQuery.isError ? { error: t('list.errorMessage') } : {})}
         emptyMessage={t('list.emptyMessage')}
         announceResults={(count, total) =>

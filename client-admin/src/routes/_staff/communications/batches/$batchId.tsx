@@ -330,6 +330,18 @@ function BatchDetail() {
                 })
               }
               loading={logsQuery.isPending}
+              // [8.14.6] Not plain `logsQuery.isFetching`: this query polls
+              // every `REMINDER_BATCH_POLL_MS` while the batch is
+              // PROCESSING (see `useReminderBatchLogs` above), so raw
+              // `isFetching` flips true/false on every poll tick and would
+              // dim/undim this table every few seconds — the opposite of
+              // the calm, stable table this ticket exists to ship.
+              // `isPlaceholderData` is only true while a *stale key's* rows
+              // are on screen (a real filter/page/sort change), never
+              // during a same-key background poll, so gating on it keeps
+              // the dim reserved for user-initiated transitions. Plan's own
+              // documented escape hatch for this exact interaction.
+              isFetching={logsQuery.isFetching && logsQuery.isPlaceholderData}
               {...(logsQuery.isError ? { error: t('batches.detail.logsError') } : {})}
               emptyMessage={t('batches.detail.logsEmpty')}
             />

@@ -208,6 +208,7 @@ function ClassesListPage() {
         totalCount={classesQuery.data?.total ?? 0}
         onPageChange={actions.setPage}
         loading={classesQuery.isLoading}
+        isFetching={classesQuery.isFetching}
         {...(classesQuery.isError ? { error: t('list.errorMessage') } : {})}
         emptyMessage={t('list.emptyMessage')}
         announceResults={(count, total) =>

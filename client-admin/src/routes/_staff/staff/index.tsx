@@ -255,6 +255,7 @@ function StaffListPage() {
         totalCount={usersQuery.data?.total ?? 0}
         onPageChange={actions.setPage}
         loading={usersQuery.isLoading}
+        isFetching={usersQuery.isFetching}
         {...(usersQuery.isError ? { error: t('list.errorMessage') } : {})}
         emptyMessage={t('list.emptyMessage')}
         announceResults={(count, total) => t('list.announceResults', { count, total })}

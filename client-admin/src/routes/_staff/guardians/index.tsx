@@ -175,6 +175,7 @@ function GuardiansListPage() {
         totalCount={guardiansQuery.data?.total ?? 0}
         onPageChange={actions.setPage}
         loading={guardiansQuery.isLoading}
+        isFetching={guardiansQuery.isFetching}
         {...(guardiansQuery.isError ? { error: t('list.errorMessage') } : {})}
         emptyMessage={t('list.emptyMessage')}
         announceResults={(count, total) => t('list.announceResults', { count, total })}

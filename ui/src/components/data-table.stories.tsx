@@ -37,23 +37,27 @@ function Demo(props: {
   data?: Student[];
   totalCount?: number;
   loading?: boolean;
+  isFetching?: boolean;
   error?: string;
   selectable?: boolean;
   tableId?: string;
   caption?: string;
   columns?: DataTableColumn<Student>[];
   columnsMenu?: boolean;
+  pageSize?: number;
 }) {
   const {
     data = STUDENTS,
     totalCount = STUDENTS.length,
     loading = false,
+    isFetching = false,
     error,
     selectable = false,
     tableId = 'students-demo',
     caption = 'Students',
     columns = COLUMNS,
     columnsMenu = false,
+    pageSize = 20,
   } = props;
   const [sorting, setSorting] = useState<DataTableSort | null>(null);
   const [page, setPage] = useState(1);
@@ -69,10 +73,11 @@ function Demo(props: {
       sorting={sorting}
       onSortingChange={setSorting}
       page={page}
-      pageSize={20}
+      pageSize={pageSize}
       totalCount={totalCount}
       onPageChange={setPage}
       loading={loading}
+      isFetching={isFetching}
       columnsMenu={columnsMenu}
       {...(error !== undefined ? { error } : {})}
       {...(selectable
@@ -94,8 +99,28 @@ export const Default: Story = {
   render: () => <Demo tableId="students-default" />,
 };
 
+/** [8.14.6] First load, no rows exist yet — a table-shaped skeleton
+ * (`pageSize` rows, same cell recipe as `SkeletonTable`) instead of a
+ * single collapsed "Loading…" cell. */
 export const Loading: Story = {
-  render: () => <Demo tableId="students-loading" loading />,
+  render: () => <Demo tableId="students-loading" loading pageSize={6} />,
+};
+
+/** [8.14.6] Loading combined with `selectable` and `columnsMenu` — proves
+ * the skeleton's cell count tracks `colSpanCount` (data columns + the
+ * selection column), not just the plain-table case above. */
+export const LoadingWithSelection: Story = {
+  render: () => (
+    <Demo tableId="students-loading-selection" loading selectable columnsMenu pageSize={6} />
+  ),
+};
+
+/** [8.14.6] A refetch (filter/page/sort change) is in flight: the previous
+ * page's rows stay mounted and dimmed instead of the table collapsing to a
+ * loading state — see `ui/src/hooks/*QueryOptions`' `placeholderData:
+ * keepPreviousData`. */
+export const Refetching: Story = {
+  render: () => <Demo tableId="students-refetching" isFetching />,
 };
 
 export const Empty: Story = {

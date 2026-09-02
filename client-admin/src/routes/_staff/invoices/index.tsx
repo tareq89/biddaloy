@@ -281,6 +281,7 @@ function InvoicesListPage() {
       totalCount={invoicesQuery.data?.total ?? 0}
       onPageChange={actions.setPage}
       loading={invoicesQuery.isLoading}
+      isFetching={invoicesQuery.isFetching}
       {...(invoicesQuery.isError ? { error: t('invoices.errorMessage') } : {})}
       emptyMessage={t('invoices.emptyMessage')}
       announceResults={(count, total) =>
