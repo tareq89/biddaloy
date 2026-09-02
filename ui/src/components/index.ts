@@ -208,3 +208,23 @@ export {
 } from './sign-in-form';
 export { CachedDataNotice, type CachedDataNoticeProps } from './cached-data-notice';
 export { SyncStatus, SyncStatusIndicator, type SyncStatusProps } from './sync-status';
+export {
+  ProfileForm,
+  type ProfileFormProps,
+  type ProfileFormServerError,
+  type ProfileFormSubmitValues,
+  type ProfileFormValues,
+} from './profile-form';
+export {
+  GuardianContactForm,
+  type GuardianContactFormProps,
+  type GuardianContactFormServerError,
+  type GuardianContactFormValues,
+  type GuardianPreferredCommunication,
+} from './guardian-contact-form';
+export {
+  ChangePasswordForm,
+  type ChangePasswordFormProps,
+  type ChangePasswordFormServerError,
+  type ChangePasswordFormValues,
+} from './change-password-form';

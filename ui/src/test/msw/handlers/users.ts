@@ -25,6 +25,46 @@ const listEmpty = http.get('/api/v1/users', ({ request }) =>
  * fine). */
 const getMe = http.get('/api/v1/users/me', () => HttpResponse.json(userResponseFactory()));
 
+/** `PATCH /users/me` — [8.14.4]'s Account page profile card. Registered
+ * **before** `update` (`/api/v1/users/:id`) for the same "`:id` matches
+ * the literal string `me` too" reason `getMe` documents above. */
+const updateMe = http.patch('/api/v1/users/me', async ({ request }) => {
+  const requestBody = (await request.json()) as Partial<
+    UserResponseDto & { current_password: string }
+  >;
+  // `current_password` is a write-only proof of possession, never echoed
+  // back — `UpdateOwnProfileDto`'s other fields overlay onto the base
+  // fixture the same way the real `UserResponseDto` the server returns
+  // would reflect exactly what was accepted. Only the fields actually
+  // present in the request overlay the base fixture — a partial edit
+  // (e.g. `full_name` only) must not blank out `email`/`phone` on the
+  // response the way spreading an object with explicit `undefined` values
+  // would.
+  const body: Partial<UserResponseDto> = {};
+  for (const [key, value] of Object.entries(requestBody)) {
+    if (key !== 'current_password' && value !== undefined) {
+      (body as Record<string, unknown>)[key] = value;
+    }
+  }
+  return HttpResponse.json(userResponseFactory(body));
+});
+
+/** The 403 `UserController.updateMe` throws when `current_password` is
+ * wrong (email/phone was changing) — [8.14.4] plan correction 4. */
+const updateMeWrongPassword = http.patch('/api/v1/users/me', () =>
+  HttpResponse.json(apiErrorBody(403, 'current_password is incorrect', '/api/v1/users/me'), {
+    status: 403,
+  }),
+);
+
+/** The 409 `UserController.updateMe` throws when the new email/phone is
+ * already in use by another account. */
+const updateMeConflict = http.patch('/api/v1/users/me', () =>
+  HttpResponse.json(apiErrorBody(409, 'email is already in use', '/api/v1/users/me'), {
+    status: 409,
+  }),
+);
+
 const getOne = http.get('/api/v1/users/:id', ({ params }) =>
   HttpResponse.json(userResponseFactory({ id: params.id as string })),
 );
@@ -75,6 +115,9 @@ export const userHandlers = {
   list,
   listEmpty,
   getMe,
+  updateMe,
+  updateMeWrongPassword,
+  updateMeConflict,
   getOne,
   create,
   createConflict,
@@ -83,4 +126,4 @@ export const userHandlers = {
   removeSelfBlocked,
 };
 
-export const userDefaultHandlers = [list, getMe, getOne, create, update, remove];
+export const userDefaultHandlers = [list, getMe, updateMe, getOne, create, update, remove];

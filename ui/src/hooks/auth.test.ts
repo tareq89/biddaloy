@@ -13,11 +13,11 @@ import {
 } from '../api/auth-state';
 import { NoMembershipsError } from '../api/errors';
 import { getPersistedTenant, persistTenant } from '../api/tenant-storage';
-import { loginResponseFactory } from '../test/msw/handlers/auth';
+import { authHandlers, loginResponseFactory } from '../test/msw/handlers/auth';
 import { server } from '../test/msw/server';
 import { errorHandler } from '../test/msw/support';
 
-import { login, logout, logoutAll } from './auth';
+import { changePassword, login, logout, logoutAll } from './auth';
 
 afterEach(() => {
   setAccessToken(null);
@@ -259,5 +259,49 @@ describe('logoutAll', () => {
     expect(getActiveTenant()).toBeNull();
     expect(getActiveRole()).toBeNull();
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+  });
+});
+
+describe('changePassword', () => {
+  it('[8.14.4] stores the fresh access token and reschedules refresh, WITHOUT clearing auth state or the query cache', async () => {
+    // The load-bearing case plan correction 3 exists for: unlike
+    // `login`/`endSession`, this device's own session must keep working —
+    // only *other* devices' refresh tokens are revoked server-side.
+    seedSession();
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(['probe'], { ok: true });
+    server.use(
+      http.post('/api/v1/auth/change-password', () =>
+        HttpResponse.json(loginResponseFactory({ access_token: 'post-change-password-token' })),
+      ),
+    );
+
+    const result = await changePassword({
+      current_password: 'old-pass',
+      new_password: 'new-pass',
+    });
+
+    expect(result.access_token).toBe('post-change-password-token');
+    expect(getAccessToken()).toBe('post-change-password-token');
+    // Still this same session's tenant/role — not cleared.
+    expect(getActiveTenant()).toBe('tenant-1');
+    expect(getActiveRole()).toBe('ADMIN');
+    // The query cache is untouched — a password change invalidates no
+    // cached data of its own.
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(1);
+  });
+
+  it('surfaces the 403 wrong-current-password case as an ApiError, without touching local state', async () => {
+    seedSession();
+    server.use(authHandlers.changePassword);
+
+    await expect(
+      changePassword({
+        current_password: authHandlers.CHANGE_PASSWORD_WRONG_CURRENT,
+        new_password: 'new-pass',
+      }),
+    ).rejects.toMatchObject({ statusCode: 403 });
+
+    expect(getAccessToken()).toBe('access-token');
   });
 });

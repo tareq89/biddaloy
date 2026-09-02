@@ -1,7 +1,7 @@
 import { http, HttpResponse } from 'msw';
 
 import { guardianFactory, type Guardian } from '../../factories';
-import { paginate } from '../support';
+import { apiErrorBody, paginate } from '../support';
 
 const fixtures: Guardian[] = [guardianFactory(), guardianFactory(), guardianFactory()];
 
@@ -15,6 +15,28 @@ const listEmpty = http.get('/api/v1/guardians', ({ request }) =>
 
 const create = http.post('/api/v1/guardians', () =>
   HttpResponse.json(guardianFactory(), { status: 201 }),
+);
+
+/** `GET`/`PATCH /guardians/mine` — [8.14.4]'s Account page guardian-contact
+ * card, PARENT-only. Registered **before** `getOne`/`update`
+ * (`/api/v1/guardians/:id`) — MSW matches handlers in registration order,
+ * and `:id` would otherwise swallow the literal path segment `"mine"` too,
+ * mirroring `students.controller.ts`'s own declaration-order constraint
+ * server-side. */
+const getMine = http.get('/api/v1/guardians/mine', () => HttpResponse.json(guardianFactory()));
+
+const updateMine = http.patch('/api/v1/guardians/mine', async ({ request }) => {
+  const body = (await request.json()) as Partial<Guardian>;
+  return HttpResponse.json(guardianFactory(body));
+});
+
+/** [8.14.4] plan correction 2 — the BD-only phone regex rejection, surfaced
+ * as a 400 from `ValidationPipe`. */
+const updateMineInvalidPhone = http.patch('/api/v1/guardians/mine', () =>
+  HttpResponse.json(
+    apiErrorBody(400, 'phone must match /^(?:\\+?880|0)1[3-9]\\d{8}$/', '/api/v1/guardians/mine'),
+    { status: 400 },
+  ),
 );
 
 /** [8.11.4]'s detail page. */
@@ -36,10 +58,13 @@ export const guardianHandlers = {
   list,
   listEmpty,
   create,
+  getMine,
+  updateMine,
+  updateMineInvalidPhone,
   getOne,
   getOneNotFound,
   update,
   remove,
 };
 
-export const guardianDefaultHandlers = [list, create, getOne, update, remove];
+export const guardianDefaultHandlers = [list, create, getMine, updateMine, getOne, update, remove];
