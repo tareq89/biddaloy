@@ -6,10 +6,28 @@
  * adds `Grouped` (domain sections, pinned items) and `MobileDrawer`
  * (the responsive drawer below 768px) per the approved `templates/
  * sidebar` mockup.
+ *
+ * [8.14.1] adds the sidebar hierarchy states: `ActiveVsHover` (the active
+ * item next to a hoverable inactive one — this is the story the "active is
+ * distinguishable from hover" AC is judged against) and `ScrollingSidebar`
+ * (the aside scrolling independently of the page). `Grouped` and
+ * `MobileDrawer` pick up the per-item icons and the pinned micro-label for
+ * free from the shared fixture, and `RightToLeft` now passes `navGroups` so
+ * it actually mirrors the new indent, guide line and label.
  */
 import { Permission } from '@biddaloy/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { CreditCardIcon, HomeIcon } from 'lucide-react';
+import {
+  BanknoteIcon,
+  BriefcaseIcon,
+  CreditCardIcon,
+  HandCoinsIcon,
+  HomeIcon,
+  LayoutDashboardIcon,
+  SettingsIcon,
+  UsersRoundIcon,
+  WalletIcon,
+} from 'lucide-react';
 
 import { withMemoryRouter } from '../../.storybook/router-decorator';
 import { rtlDecorator } from '../../.storybook/rtl-decorator';
@@ -17,7 +35,9 @@ import { rtlDecorator } from '../../.storybook/rtl-decorator';
 import { AppShell, type AppShellNavGroup } from './app-shell';
 import { BottomNav } from './bottom-nav';
 
-const navItems = [{ to: '/', label: 'Dashboard' }];
+const navItems = [
+  { to: '/', label: 'Dashboard', icon: <LayoutDashboardIcon aria-hidden="true" /> },
+];
 
 /** The family portal's two items — the same array feeds `AppShell`'s nav
  * and the bottom bar, which is the point of them sharing a shape. */
@@ -31,30 +51,54 @@ const portalNavItems = [
 ];
 
 const navGroups: AppShellNavGroup[] = [
-  { id: 'people', label: 'People', items: [{ to: '/students', label: 'Students' }] },
+  {
+    id: 'people',
+    label: 'People',
+    items: [
+      { to: '/students', label: 'Students', icon: <UsersRoundIcon aria-hidden="true" /> },
+      { to: '/staff', label: 'Staff', icon: <BriefcaseIcon aria-hidden="true" /> },
+    ],
+  },
   {
     id: 'finance',
     label: 'Finance',
+    pinnedLabel: 'Quick actions',
     pinnedItems: [
       {
         to: '/fees',
         search: { tab: 'dues' },
         label: 'Student Dues',
         permission: Permission.FEE_COLLECT,
+        icon: <HandCoinsIcon aria-hidden="true" />,
       },
       {
         to: '/fees',
         search: { tab: 'payment' },
         label: 'Record Payment',
         permission: Permission.PAYMENT_RECORD,
+        icon: <BanknoteIcon aria-hidden="true" />,
       },
     ],
-    items: [{ to: '/fees', label: 'Fees', permission: Permission.FEE_STRUCTURE_READ }],
+    items: [
+      {
+        to: '/fees',
+        label: 'Fees',
+        permission: Permission.FEE_STRUCTURE_READ,
+        icon: <WalletIcon aria-hidden="true" />,
+      },
+    ],
   },
   {
     id: 'administration',
     label: 'Administration',
-    items: [{ to: '/settings', label: 'Settings', permission: Permission.SETTINGS_MANAGE }],
+    items: [
+      {
+        to: '/settings',
+        label: 'Settings',
+        permission: Permission.SETTINGS_MANAGE,
+        icon: <SettingsIcon aria-hidden="true" />,
+      },
+    ],
   },
 ];
 
@@ -74,7 +118,14 @@ type Story = StoryObj<typeof AppShell>;
 
 export const Default: Story = {};
 
+/** [8.14.1] carries `navGroups` so this story actually exercises the three
+ * things the ticket added — the group heading, the vertical guide line and
+ * the pinned micro-label — all of which are positioned with logical
+ * properties (`ps-6`, `before:start-3`) and so must mirror under `dir="rtl"`.
+ * Without `navGroups` this story renders a flat `navItems` list and proves
+ * none of that. */
 export const RightToLeft: Story = {
+  args: { navGroups },
   decorators: [rtlDecorator],
 };
 
@@ -109,6 +160,44 @@ export const MobileDrawer: Story = {
   args: { navGroups },
   parameters: {
     viewport: { defaultViewport: 'mobile1' },
+  },
+};
+
+/** [8.14.1] — proves the active item (Students, from the decorator's
+ * `/students` route) reads as tinted background + colour + weight + a
+ * left accent bar, never merely `font-medium` the way a hovered inactive
+ * item like Fees or Settings would. Hover Fees/Settings in the addon
+ * panel's canvas to compare against Students at rest. */
+export const ActiveVsHover: Story = {
+  args: { navGroups },
+};
+
+/** [8.14.1] — a nav long enough to overflow the viewport on its own, plus
+ * tall `children`, proving the `<aside>` scrolls independently
+ * (`overflow-y-auto` + `md:sticky md:top-0 md:max-h-svh`) while the rest of
+ * the shell's chrome stays put.
+ *
+ * Six copies of the fixture (~30 links) is deliberate: at three copies the
+ * list still fits a laptop canvas, so the story would document independent
+ * scrolling without ever demonstrating it. */
+export const ScrollingSidebar: Story = {
+  args: {
+    navGroups: Array.from({ length: 6 }, (_, copy) =>
+      navGroups.map((group) => ({
+        ...group,
+        id: copy === 0 ? group.id : `${group.id}-${copy}`,
+        label: copy === 0 ? group.label : `${group.label} ${copy + 1}`,
+      })),
+    ).flat(),
+    children: (
+      <div style={{ height: '200vh' }}>
+        Scroll the page: the sidebar pins to the top and scrolls its own overflow, rather than
+        scrolling away with this content.
+      </div>
+    ),
+  },
+  parameters: {
+    layout: 'fullscreen',
   },
 };
 

@@ -85,6 +85,13 @@ export interface AppShellNavGroup {
    * non-empty. */
   pinnedItems?: readonly AppShellNavItem[];
   items: readonly AppShellNavItem[];
+  /** Visible micro-heading rendered directly above `pinnedItems` — e.g.
+   * "Quick actions". The caller passes an already-translated string (`ui/`
+   * wrappers do not call `t()` themselves; see `ui/CONTRIBUTING.md`'s "i18n
+   * rules"). Omitted → the pinned run is introduced by nothing but the
+   * [8.9.6] hairline that separates it from `items`, so existing callers
+   * render exactly as before. The hairline is drawn either way. */
+  pinnedLabel?: string;
 }
 
 export interface AppShellProps {
@@ -157,10 +164,24 @@ function NavLink({
         to={item.to}
         {...(item.search !== undefined && { search: item.search })}
         onClick={onNavigate}
-        className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-accent"
-        activeProps={{ className: 'bg-accent font-medium', 'aria-current': 'page' }}
+        className="relative flex items-center gap-2 rounded-md py-2 ps-6 pe-3 text-sm transition-colors duration-(--motion-duration-fast) ease-(--motion-ease-standard) focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+        activeProps={{
+          className:
+            'bg-primary/10 font-semibold text-primary before:absolute before:inset-y-1 before:start-3 before:w-0.5 before:rounded-full before:bg-primary',
+          'aria-current': 'page',
+        }}
+        inactiveProps={{ className: 'text-muted-foreground hover:bg-accent hover:text-foreground' }}
       >
-        {item.icon}
+        {/* [8.14.1] The wrapper — not the caller — is what guarantees the epic's
+            "every nav icon is aria-hidden" AC. Call sites also pass
+            `aria-hidden` on the icon itself, but a caller that forgets is
+            still covered here, and the icon is decorative in every case
+            because the link's own text is its accessible name. */}
+        {item.icon !== undefined && (
+          <span aria-hidden="true" className="contents">
+            {item.icon}
+          </span>
+        )}
         {item.label}
       </Link>
     </li>
@@ -212,7 +233,7 @@ function NavGroupSection({
         onClick={() => setCollapsed((value) => !value)}
         aria-expanded={!collapsed}
         aria-controls={panelId}
-        className="flex w-full items-center justify-between rounded-md px-3 py-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase hover:text-foreground"
+        className="flex w-full items-center justify-between rounded-md px-3 pt-4 pb-1 text-sm font-semibold tracking-wide text-foreground hover:bg-accent"
       >
         <span>{group.label}</span>
         {collapsed ? (
@@ -221,7 +242,19 @@ function NavGroupSection({
           <ChevronDownIcon className="size-4" aria-hidden="true" />
         )}
       </button>
-      <ul id={panelId} hidden={collapsed} className="flex flex-col gap-1">
+      <ul
+        id={panelId}
+        hidden={collapsed}
+        className="relative flex flex-col gap-1 before:absolute before:inset-y-0 before:start-3 before:w-px before:bg-border-subtle"
+      >
+        {pinned.length > 0 && group.pinnedLabel !== undefined && (
+          <li
+            aria-hidden="true"
+            className="mb-1 ps-6 text-caption font-medium tracking-wide text-muted-foreground"
+          >
+            {group.pinnedLabel}
+          </li>
+        )}
         {pinned.map((item) => (
           <NavLink key={`${item.to}:${item.label}`} item={item} onNavigate={onNavigate} />
         ))}
@@ -330,7 +363,12 @@ export function AppShell({
           </div>
         )}
 
-        <aside className="hidden w-60 shrink-0 flex-col gap-6 border-r border-border-subtle bg-muted/30 p-4 md:flex">
+        {/* [8.14.1] `md:sticky md:top-0 md:max-h-svh` makes the sidebar scroll
+            on its own instead of scrolling away with the page. [8.14.2]
+            (sticky header) will adjust `md:top-0` to the header's height
+            once that lands — this ticket owns only this `<aside>`, it does
+            not make `topBar` sticky. */}
+        <aside className="hidden w-60 shrink-0 flex-col gap-6 overflow-y-auto border-r border-border-subtle bg-muted/30 p-4 md:sticky md:top-0 md:flex md:max-h-svh">
           {brand !== undefined && <div className="text-sm font-semibold">{brand}</div>}
           <NavContent navItems={navItems} navGroups={navGroups} role={role} navLabel={navLabel} />
         </aside>

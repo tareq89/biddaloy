@@ -2,6 +2,7 @@ import { Permission } from '@biddaloy/shared';
 import { createRootRoute, createRoute } from '@tanstack/react-router';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { HomeIcon, SettingsIcon, UsersRoundIcon, WalletIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -10,19 +11,21 @@ import { renderWithRouter } from '../test/render-with-router';
 
 import { APP_SHELL_MAIN_ID, AppShell, type AppShellNavGroup } from './app-shell';
 
-const navItems = [{ to: '/', label: 'Dashboard' }];
+const navItems = [{ to: '/', label: 'Dashboard', icon: <HomeIcon aria-hidden="true" /> }];
 
 const navGroups: AppShellNavGroup[] = [
   {
     id: 'people',
     label: 'People',
-    items: [{ to: '/students', label: 'Students' }],
+    items: [{ to: '/students', label: 'Students', icon: <UsersRoundIcon aria-hidden="true" /> }],
   },
   {
     id: 'finance',
     label: 'Finance',
     // [8.9.6]'s literal AC: pinned above the rest, gated on a permission
     // only ACCOUNTANT/ADMIN hold, distinct from Fees' broader one.
+    // [8.14.1] — the micro-label above the pinned pair.
+    pinnedLabel: 'Quick actions',
     pinnedItems: [
       {
         to: '/fees',
@@ -37,12 +40,26 @@ const navGroups: AppShellNavGroup[] = [
         permission: Permission.PAYMENT_RECORD,
       },
     ],
-    items: [{ to: '/fees', label: 'Fees', permission: Permission.FEE_STRUCTURE_READ }],
+    items: [
+      {
+        to: '/fees',
+        label: 'Fees',
+        permission: Permission.FEE_STRUCTURE_READ,
+        icon: <WalletIcon aria-hidden="true" />,
+      },
+    ],
   },
   {
     id: 'administration',
     label: 'Administration',
-    items: [{ to: '/settings', label: 'Settings', permission: Permission.SETTINGS_MANAGE }],
+    items: [
+      {
+        to: '/settings',
+        label: 'Settings',
+        permission: Permission.SETTINGS_MANAGE,
+        icon: <SettingsIcon aria-hidden="true" />,
+      },
+    ],
   },
 ];
 
@@ -296,5 +313,134 @@ describe('AppShell', () => {
       expect(screen.getByRole('button', { name: 'Open menu' })).toBeTruthy();
       expect(document.getElementById(APP_SHELL_MAIN_ID)?.className).toBe('min-w-0 flex-1 p-6');
     });
+  });
+
+  describe('[8.14.1] sidebar hierarchy', () => {
+    it('styles the active item distinctly from a merely-hovered inactive item', async () => {
+      renderWithRouter(buildRouteTree(), { initialEntries: ['/students'], role: 'SUPER_ADMIN' });
+
+      const activeLink = await screen.findByRole('link', { name: 'Students' });
+      const inactiveLink = screen.getByRole('link', { name: 'Dashboard' });
+
+      // Mirrors `bottom-nav.test.tsx`'s own assertion shape on the
+      // active/inactive `className` split (`bottom-nav.test.tsx:63`).
+      expect(activeLink.className).toContain('text-primary');
+      expect(activeLink.className).toContain('bg-primary/10');
+      expect(activeLink.className).toContain('font-semibold');
+      expect(activeLink.getAttribute('aria-current')).toBe('page');
+
+      expect(inactiveLink.className).not.toContain('text-primary');
+      expect(inactiveLink.className).not.toContain('bg-primary/10');
+      expect(inactiveLink.className).toContain('hover:bg-accent');
+      expect(inactiveLink.getAttribute('aria-current')).toBeNull();
+
+      // The regression this ticket exists for: before 8.14.1 the active item
+      // was `bg-accent`, i.e. pixel-identical to any hovered inactive one.
+      // The active item must therefore NOT carry the hover treatment.
+      expect(activeLink.className).not.toContain('hover:bg-accent');
+    });
+
+    it('keeps a visible focus-visible outline — no outline-none anywhere on nav links', async () => {
+      renderWithRouter(buildRouteTree(), { initialEntries: ['/students'], role: 'SUPER_ADMIN' });
+
+      const link = await screen.findByRole('link', { name: 'Dashboard' });
+      expect(link.className).toContain('focus-visible:outline');
+      expect(link.className).not.toContain('outline-none');
+    });
+
+    it('renders every nav icon aria-hidden, leaving accessible link names unchanged', async () => {
+      renderWithRouter(buildRouteTree(), { initialEntries: ['/students'], role: 'SUPER_ADMIN' });
+
+      const nav = await screen.findByRole('navigation', { name: 'Main' });
+      const visibleIcons = nav.querySelectorAll('svg:not([aria-hidden="true"])');
+      expect(visibleIcons.length).toBe(0);
+
+      const links = within(nav)
+        .getAllByRole('link')
+        .map((el) => el.textContent);
+      expect(links).toEqual([
+        'Dashboard',
+        'Students',
+        'Student Dues',
+        'Record Payment',
+        'Fees',
+        'Settings',
+      ]);
+    });
+
+    it('shows the optional pinnedLabel micro-heading above the pinned items', async () => {
+      renderWithRouter(buildRouteTree(), { initialEntries: ['/students'], role: 'SUPER_ADMIN' });
+
+      const label = await screen.findByText('Quick actions');
+      expect(label.getAttribute('aria-hidden')).toBe('true');
+
+      // Position is the whole point of the prop, and `findByText` alone
+      // cannot see it: the label must precede the pinned item it names, not
+      // sit between the pinned run and the ordinary one (where it would read
+      // as a heading for the *ordinary* items).
+      const list = label.closest('ul');
+      const items = [...(list?.children ?? [])];
+      const labelIndex = items.indexOf(label);
+      const pinnedIndex = items.findIndex(
+        (node) => node.querySelector('a')?.textContent === 'Student Dues',
+      );
+      expect(labelIndex).toBeGreaterThanOrEqual(0);
+      expect(pinnedIndex).toBeGreaterThan(labelIndex);
+
+      // ...and the hairline still separates the pinned run from the rest.
+      const divider = list?.querySelector('li.border-t.border-border-subtle');
+      expect(divider).not.toBeNull();
+    });
+
+    it('falls back to the plain hairline divider when pinnedLabel is omitted', async () => {
+      const rootRoute = createRootRoute();
+      const noPinnedLabelGroups: AppShellNavGroup[] = [
+        {
+          id: 'finance-no-label',
+          label: 'Finance',
+          pinnedItems: [{ to: '/fees', label: 'Student Dues', permission: Permission.FEE_COLLECT }],
+          items: [{ to: '/fees', label: 'Fees', permission: Permission.FEE_STRUCTURE_READ }],
+        },
+      ];
+      const indexRoute = createRoute({
+        getParentRoute: () => rootRoute,
+        path: '/',
+        component: () => (
+          <AppShell navItems={navItems} navGroups={noPinnedLabelGroups} brand="Biddaloy">
+            <p>Dashboard content</p>
+          </AppShell>
+        ),
+      });
+      renderWithRouter(rootRoute.addChildren([indexRoute]), {
+        initialEntries: ['/'],
+        role: 'SUPER_ADMIN',
+      });
+
+      await screen.findByText('Dashboard content');
+      expect(screen.queryByText('Quick actions')).toBeNull();
+      const divider = document.querySelector('li.border-t.border-border-subtle');
+      expect(divider).not.toBeNull();
+    });
+
+    it('scrolls the sidebar on its own, independent of page scroll', async () => {
+      renderWithRouter(buildRouteTree(), { initialEntries: ['/students'], role: 'SUPER_ADMIN' });
+
+      await screen.findByText('Students content');
+      const aside = document.querySelector('aside');
+      expect(aside?.className).toContain('overflow-y-auto');
+      expect(aside?.className).toContain('md:sticky');
+      // `max-h`, not `h`: a fixed `h-svh` on this flex item would set the
+      // content row's min-height to a full viewport, so every desktop page
+      // would gain a permanent scrollbar the height of the top bar.
+      expect(aside?.className).toContain('md:max-h-svh');
+      expect(aside?.className).not.toContain('md:h-svh');
+    });
+
+    // NOTE: axe-cleanliness and keyboard operability of this markup are
+    // already covered by 'is axe clean' and 'every nav link is reachable and
+    // activatable by keyboard' above — `navGroups` is a module-level fixture
+    // that carries the icons and the pinned label, so those two tests
+    // exercise the 8.14.1 markup as-is. Duplicating them here would add
+    // runtime without adding coverage.
   });
 });

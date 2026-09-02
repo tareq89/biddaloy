@@ -30,7 +30,8 @@
     "people": "ব্যক্তিবর্গ",
     "finance": "অর্থ",
     "administration": "প্রশাসন",
-    "communications": "যোগাযোগ"
+    "communications": "যোগাযোগ",
+    "quickActions": "দ্রুত পদক্ষেপ"
   },
   "dashboard": {
     "title": "ড্যাশবোর্ড",
