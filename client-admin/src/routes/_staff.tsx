@@ -1,5 +1,6 @@
 import { Permission, STAFF_ROLES } from '@biddaloy/shared';
 import {
+  AccessDeniedState,
   AppHeader,
   AppShell,
   BottomNav,
@@ -11,8 +12,8 @@ import {
   type AppShellNavGroup,
 } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import { RequireRole } from '@biddaloy/ui/routes';
-import { createFileRoute, Outlet } from '@tanstack/react-router';
+import { RequirePermission, RequireRole } from '@biddaloy/ui/routes';
+import { createFileRoute, Outlet, useMatches, useNavigate } from '@tanstack/react-router';
 import {
   BanknoteIcon,
   BellRingIcon,
@@ -36,6 +37,7 @@ import {
 
 import { GlobalSearchLauncher } from '../components/global-search-launcher';
 import { StaffUserMenu } from '../components/staff-user-menu';
+import { STAFF_ROUTE_PERMISSIONS } from '../route-permissions';
 
 /**
  * [8.9.10]'s staff half of one SPA. A **pathless** layout (`_staff`), so
@@ -48,11 +50,19 @@ import { StaffUserMenu } from '../components/staff-user-menu';
  * `[STUDENT]` are byte-identical, so a route tree per role would be two
  * copies of the same thing on day one. See `shared/src/enums/audiences.ts`.
  *
- * The guard is `RequireRole` — client-side gating, a UX nicety and not the
- * security boundary (that is `RolesGuard`/`ContextGuard` on the server,
- * which already answers 403 for a PARENT hitting `GET /students`). What it
- * fixes is the dead end: before this, a guardian who typed a staff URL got
- * a page whose every request failed, with nowhere else to go.
+ * Two guards, not one, both client-side UX and neither the security
+ * boundary (that is `RolesGuard`/`ContextGuard` on the server, which
+ * already answers 403 for a PARENT hitting `GET /students`):
+ *
+ *   1. `RequireRole` — wrong app half. A guardian who typed a staff URL
+ *      redirects to `/portal` instead of getting a page whose every
+ *      request fails.
+ *   2. `RequirePermission` ([8.14.17]) — right app half, wrong
+ *      *permission*. A staff role that lacks the leaf route's permission
+ *      (`STAFF_ROUTE_PERMISSIONS`, `../route-permissions.ts`) refuses
+ *      **in place** rather than redirecting — a teacher at `/fees/dues`
+ *      stays on `/fees/dues` and sees why, instead of bouncing somewhere
+ *      unexplained.
  */
 export const Route = createFileRoute('/_staff')({
   component: StaffLayout,
@@ -66,6 +76,32 @@ export const Route = createFileRoute('/_staff')({
  */
 function StaffLayout() {
   const { t } = useTranslation('nav');
+  // `auditLogs` is loaded alongside `nav` here, not lazily on demand like
+  // every other feature namespace, because this component reads a key
+  // from it below (the audit-logs refusal explanation, via an explicit
+  // namespace option on the call) — and when the permission gate refuses
+  // that route, `AuditLogsPage` (whose own `useTranslation` call would
+  // otherwise be what loads that namespace) never mounts at all. Without
+  // this, a role's very first denied visit to `/audit-logs` would render
+  // the untranslated key instead of its copy while the bundle loads.
+  //
+  // A second, separate `useTranslation()` call (return value unused) —
+  // not a single call naming both namespaces at once — because
+  // `ui/scripts/check-i18n-keys.mjs` resolves a file's default namespace
+  // from its *first* `useTranslation()` call and only understands that
+  // call's single-string-literal form; keeping it single-namespace is
+  // what lets the checker attribute this file's plain nav keys correctly.
+  useTranslation('auditLogs');
+  const navigate = useNavigate();
+
+  // [8.14.17]: `useMatches()`'s last entry is the deepest match currently
+  // rendered — the leaf route under `_staff`, e.g. `/_staff/fees/dues`.
+  // `STAFF_ROUTE_PERMISSIONS` is keyed by exactly that route ID.
+  const matches = useMatches();
+  const leafRouteId = matches[matches.length - 1]?.routeId;
+  const requiredPermission = leafRouteId ? STAFF_ROUTE_PERMISSIONS[leafRouteId] : undefined;
+  const onDenied = () => void navigate({ to: '/' });
+  const isAuditLogsRoute = leafRouteId === '/_staff/audit-logs/';
 
   // [8.14.3]: these four are the sidebar's own item objects, hoisted to
   // named consts so `bottomNavItems` below can reference the exact same
@@ -324,7 +360,23 @@ function StaffLayout() {
         navLabel={t('navLabel')}
         skipLinkLabel={t('skipToContent')}
       >
-        <Outlet />
+        {requiredPermission ? (
+          <RequirePermission
+            permission={requiredPermission}
+            onDenied={onDenied}
+            {...(isAuditLogsRoute
+              ? { explanation: t('forbidden.explanation', { ns: 'auditLogs' }) }
+              : {})}
+          >
+            <Outlet />
+          </RequirePermission>
+        ) : (
+          // Fail-closed: no map entry for this route ID means
+          // `route-permissions.test.ts`'s drift guard has a bug to catch
+          // before this ever ships, but until it does, an unmapped route
+          // refuses everyone — including admins — rather than rendering.
+          <AccessDeniedState onAction={onDenied} />
+        )}
       </AppShell>
     </RequireRole>
   );

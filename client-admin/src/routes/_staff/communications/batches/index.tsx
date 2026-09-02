@@ -11,13 +11,8 @@
  * very role that creates its contents. Same UX-gate-not-security-boundary
  * framing as `/communications/reminders`.
  */
-import { Permission } from '@biddaloy/shared';
-import { Button, EmptyState, StatusBadge, type DataTableColumn } from '@biddaloy/ui/components';
-import {
-  useHasPermission,
-  useReminderBatches,
-  type ReminderBatchListItem,
-} from '@biddaloy/ui/hooks';
+import { Button, StatusBadge, type DataTableColumn } from '@biddaloy/ui/components';
+import { useReminderBatches, type ReminderBatchListItem } from '@biddaloy/ui/hooks';
 import {
   RegionConfigProvider,
   useRegionConfig,
@@ -26,7 +21,7 @@ import {
 } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState } from '@biddaloy/ui/shells';
 import { formatDate } from '@biddaloy/ui/utils';
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, Link } from '@tanstack/react-router';
 import { z } from 'zod';
 
 const batchesSearchSchema = z.object({
@@ -41,24 +36,13 @@ export const Route = createFileRoute('/_staff/communications/batches/')({
   component: ReminderHistoryPage,
 });
 
+// [8.14.17]: the permission check that used to live at the top of
+// `ReminderHistoryPage` (an `EmptyState` shown when the viewer lacked
+// `COMMUNICATION_BULK_SEND`) is gone — `_staff.tsx`'s `RequirePermission`
+// now refuses the whole route in place, keyed off the same permission
+// (`route-permissions.ts`), before this component ever mounts.
 function ReminderHistoryPage() {
-  const { t } = useTranslation('communications');
-  const navigate = useNavigate();
-  const canView = useHasPermission(Permission.COMMUNICATION_BULK_SEND);
   const regionConfig = useTenantRegionConfig();
-
-  if (!canView) {
-    return (
-      <EmptyState
-        title={t('batches.forbidden.title')}
-        explanation={t('batches.forbidden.explanation')}
-        action={{
-          label: t('batches.forbidden.action'),
-          onClick: () => void navigate({ to: '/dashboard' }),
-        }}
-      />
-    );
-  }
 
   return (
     <RegionConfigProvider value={regionConfig}>

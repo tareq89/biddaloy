@@ -60,12 +60,7 @@
     "resultDescription": "The message to {{name}} has been queued for delivery.",
     "resultStatusLabel": "Delivery status",
     "sendAnother": "Send another message",
-    "errorMessage": "The message could not be sent.",
-    "forbidden": {
-      "title": "You cannot send messages",
-      "explanation": "Your role at this school does not include sending messages.",
-      "action": "Back to dashboard"
-    }
+    "errorMessage": "The message could not be sent."
   },
   "reminders": {
     "title": "Fee Reminders",
@@ -101,11 +96,6 @@
     "resultSkippedTitle": "Skipped ({{count}})",
     "errorMessage": "The reminder could not be sent.",
     "previewErrorMessage": "The preview could not be loaded.",
-    "forbidden": {
-      "title": "You cannot send fee reminders",
-      "explanation": "Your role at this school does not include sending fee reminders.",
-      "action": "Back to dashboard"
-    },
     "smsEstimateNote": "Estimated from the template — placeholders expand when sent; see the preview for exact counts."
   },
   "whatsapp": {
@@ -184,11 +174,6 @@
     "failedHeader": "Failed",
     "empty": "No reminder batches yet.",
     "error": "Could not load reminder batches.",
-    "forbidden": {
-      "title": "You cannot view reminder history",
-      "explanation": "Your role at this school does not include sending fee reminders.",
-      "action": "Back to dashboard"
-    },
     "detail": {
       "backToList": "All batches",
       "loadError": "Could not load this batch.",

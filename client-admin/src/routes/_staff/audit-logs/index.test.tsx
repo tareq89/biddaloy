@@ -364,20 +364,30 @@ describe('/audit-logs', () => {
   it.each(['ACCOUNTANT', 'EXECUTIVE', 'TEACHER'])(
     'shows the forbidden state to a %s on direct navigation',
     async (role) => {
-      // The server 403s these roles, so the route loader's request fails
-      // before the component's permission check ever runs. Serving a 403
-      // here rather than a 200 is the point of the test: with a
-      // success-returning handler it passed even when an unhandled loader
-      // rejection would have replaced the designed copy with the router's
-      // generic error fallback in production. `errorHandler` (not a
-      // hand-rolled body) because only a full `ApiErrorBody` becomes a
-      // typed `ApiError` — anything else is a generic `Error` that
-      // `shouldRetryQuery` retries twice before giving up.
+      // The server 403s these roles, so the route loader's request fails.
+      // TanStack Router runs a matched route's loader regardless of what
+      // its parent renders — `_staff.tsx`'s `RequirePermission` is what
+      // actually decides this reader never sees the table, one layer up,
+      // and it decides before the loader's request even resolves. Serving
+      // a 403 here rather than a 200 is still the point of the test: with
+      // a success-returning handler it passed even when an unhandled
+      // loader rejection would have replaced the designed copy with the
+      // router's generic error fallback in production. `errorHandler`
+      // (not a hand-rolled body) because only a full `ApiErrorBody`
+      // becomes a typed `ApiError` — anything else is a generic `Error`
+      // that `shouldRetryQuery` retries twice before giving up.
       server.use(errorHandler('get', '/api/v1/audit-logs', 403, 'Forbidden resource'));
 
       renderAuditLogs({ role });
 
-      expect(await screen.findByText("You don't have access to the audit trail")).toBeTruthy();
+      // [8.14.17]: the heading is now `common:accessDenied.title` — every
+      // gated staff route's generic default — but this route keeps its
+      // own, more specific explanation (`auditLogs:forbidden.explanation`),
+      // passed through as `RequirePermission`'s one documented override.
+      expect(await screen.findByText("You don't have access to this page.")).toBeTruthy();
+      expect(
+        screen.getByText("Only an administrator can read this school's audit trail."),
+      ).toBeTruthy();
       expect(screen.queryByRole('region', { name: TABLE_REGION })).toBeNull();
     },
   );

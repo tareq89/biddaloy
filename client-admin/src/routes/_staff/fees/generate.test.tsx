@@ -394,7 +394,11 @@ describe('/fees/generate', () => {
 
     render('TEACHER');
 
-    expect(await screen.findByText("You don't have permission to view this.")).toBeTruthy();
+    // [8.14.17]: `_staff.tsx`'s `RequirePermission` now refuses this
+    // route in place, before `GenerateFeesPage` itself ever mounts — the
+    // generic `common:accessDenied` copy, not this namespace's own
+    // (now-deleted) `feeGeneration:forbidden.*` strings.
+    expect(await screen.findByText("You don't have access to this page.")).toBeTruthy();
     expect(screen.queryByRole('combobox', { name: 'Academic year' })).toBeNull();
   });
 

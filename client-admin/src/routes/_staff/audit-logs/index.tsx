@@ -4,19 +4,24 @@
  * "Read-only" is a real constraint, not a description: this page renders
  * no button, menu item or link that changes anything. The only interactive
  * controls are the filters, the pagination `DataTable` owns, and the
- * per-row expand toggle. `GET /audit-logs` is `@Roles(ADMIN)` server-side,
- * so the page gates on `Permission.AUDIT_LOG_READ` (ADMIN-only in
- * `ROLE_PERMISSIONS`) and shows a forbidden state rather than a screen
- * whose every request would 403.
+ * per-row expand toggle. `GET /audit-logs` is `@Roles(ADMIN)` server-side.
+ *
+ * Its own inline permission gate (`useHasPermission(AUDIT_LOG_READ)`, an
+ * `EmptyState` early-return) is gone as of [8.14.17]: `_staff.tsx`'s
+ * `RequirePermission` now refuses this route in place before this
+ * component ever mounts, using `STAFF_ROUTE_PERMISSIONS
+ * ['/_staff/audit-logs/']` = `AUDIT_LOG_READ` (`route-permissions.ts`).
+ * This route's more specific refusal copy (`auditLogs:forbidden.*`) still
+ * ships — `_staff.tsx` passes it through as `RequirePermission`'s
+ * `explanation` override — it just no longer lives in this file.
  *
  * Ordering is the server's — `created_at DESC`, newest first. Nothing here
  * re-sorts, and no column is sortable: a partial page re-sorted
  * client-side would silently misrepresent the trail's real order.
  */
-import { AuditAction, Permission } from '@biddaloy/shared';
+import { AuditAction } from '@biddaloy/shared';
 import {
   DatePicker,
-  EmptyState,
   Select,
   SelectContent,
   SelectItem,
@@ -24,12 +29,7 @@ import {
   SelectValue,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
-import {
-  auditLogsQueryOptions,
-  useAuditLogs,
-  useHasPermission,
-  type AuditLog,
-} from '@biddaloy/ui/hooks';
+import { auditLogsQueryOptions, useAuditLogs, type AuditLog } from '@biddaloy/ui/hooks';
 import {
   RegionConfigProvider,
   useRegionConfig,
@@ -38,7 +38,7 @@ import {
 } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState } from '@biddaloy/ui/shells';
 import { formatDate, formatDateTime, parseDate, toLatinDigits } from '@biddaloy/ui/utils';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import { z } from 'zod';
 
 import { DiffPanel } from './-diff-panel';
@@ -150,12 +150,14 @@ export const Route = createFileRoute('/_staff/audit-logs/')({
     fromDate: search.from_date,
     toDate: search.to_date,
   }),
-  // The loader warms the cache; it is not the access gate. `GET
-  // /audit-logs` is `@Roles(ADMIN)`, so a non-ADMIN who navigates here
-  // directly gets a 403 — and an unhandled rejection would hand the route
-  // to the router's generic error boundary instead of the component's
-  // "you don't have access to the audit trail" copy. Swallowing it lets
-  // the permission check below decide what this reader sees; a genuine
+  // The loader warms the cache; it is not the access gate — `_staff.tsx`'s
+  // `RequirePermission` is, and it runs one layer up, around this route's
+  // `Outlet`. `GET /audit-logs` is `@Roles(ADMIN)`, so a non-ADMIN whose
+  // loader still fires (TanStack Router runs a matched route's loader
+  // regardless of what its parent renders) gets a 403 here — and an
+  // unhandled rejection would hand the route to the router's generic
+  // error boundary instead of `RequirePermission`'s refusal copy.
+  // Swallowing it leaves that decision to the parent gate; a genuine
   // failure for someone who *does* have the permission still surfaces,
   // because `useAuditLogs` refetches and `DataTable` renders its error
   // state.
@@ -178,23 +180,7 @@ export const Route = createFileRoute('/_staff/audit-logs/')({
 });
 
 function AuditLogsPage() {
-  const { t } = useTranslation('auditLogs');
-  const navigate = useNavigate();
-  const canRead = useHasPermission(Permission.AUDIT_LOG_READ);
   const regionConfig = useTenantRegionConfig();
-
-  if (!canRead) {
-    return (
-      <EmptyState
-        title={t('forbidden.title')}
-        explanation={t('forbidden.explanation')}
-        action={{
-          label: t('forbidden.action'),
-          onClick: () => void navigate({ to: '/dashboard' }),
-        }}
-      />
-    );
-  }
 
   // Timestamps render on the school's clock, not the viewer's — the same
   // reasoning `formatDateTime` documents for [8.11.8]'s login history.

@@ -49,9 +49,9 @@ const studentsRoute = createRoute({
   path: '/students',
   component: StudentsListRoute,
 });
-const forbiddenRoute = createRoute({
+const homeRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/forbidden',
+  path: '/',
   component: () => <p>Forbidden</p>,
 });
 const reportsRoute = createRoute({
@@ -63,7 +63,7 @@ const reportsRoute = createRoute({
     </RequireRole>
   ),
 });
-const routeTree = rootRoute.addChildren([studentsRoute, forbiddenRoute, reportsRoute]);
+const routeTree = rootRoute.addChildren([studentsRoute, homeRoute, reportsRoute]);
 
 describe('mounting at an arbitrary URL with search params', () => {
   it('the route reads its initial state from the URL, not a default', async () => {
@@ -119,7 +119,7 @@ describe('permission-gated routes redirect correctly per role', () => {
       expect(router.state.location.pathname).toBe('/reports');
     } else {
       await waitFor(() => expect(screen.getByText('Forbidden')).toBeTruthy());
-      expect(router.state.location.pathname).toBe('/forbidden');
+      expect(router.state.location.pathname).toBe('/');
     }
   });
 

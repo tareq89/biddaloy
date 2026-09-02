@@ -9,9 +9,14 @@ export interface RequireRoleProps {
    * `X-Role` — must be one of these, or the route redirects instead of
    * rendering `children`. */
   allow: readonly string[];
-  /** Where an unauthorized caller lands. Defaults to `/forbidden` rather
-   * than silently rendering nothing, so a mis-scoped route fails loudly
-   * during development instead of looking like a blank page bug. */
+  /** Where an unauthorized caller lands. Defaults to `/` — the app's
+   * role-aware redirect route (`client-admin/src/routes/index.tsx`
+   * sends a guardian to `/portal` and every staff role to `/dashboard`)
+   * — rather than a `/forbidden` page that no app in this repo actually
+   * defines. Redirecting there rather than rendering nothing means a
+   * mis-scoped route still fails loudly during development instead of
+   * looking like a blank page bug; it just fails into a real page
+   * instead of a 404. */
   redirectTo?: string;
   children: ReactNode;
 }
@@ -36,7 +41,7 @@ export interface RequireRoleProps {
  * Back from the redirect target shouldn't be able to land back on a page
  * that never actually rendered.
  */
-export function RequireRole({ allow, redirectTo = '/forbidden', children }: RequireRoleProps) {
+export function RequireRole({ allow, redirectTo = '/', children }: RequireRoleProps) {
   const role = getActiveRole();
   const authorized = Boolean(role) && allow.includes(role as string);
   const navigate = useNavigate();

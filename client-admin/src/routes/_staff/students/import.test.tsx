@@ -318,10 +318,13 @@ describe('/students/import', () => {
     });
   }
 
+  // [8.14.17]: `_staff.tsx`'s `RequirePermission` now refuses the whole
+  // route in place with the shared `AccessDeniedState` copy, replacing
+  // this route's own hand-rolled "You don't have permission to view
+  // this." text and its "Back to students" action.
   it('shows the forbidden copy to a role without the bulk-upload permission (TEACHER)', async () => {
     renderImportPage('TEACHER');
-    await screen.findByText("You don't have permission to view this.");
-    await screen.findByRole('button', { name: 'Back to students' });
+    await screen.findByText("You don't have access to this page.");
   });
 
   it('is axe clean with the error report shown', async () => {

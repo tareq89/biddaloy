@@ -166,7 +166,13 @@ describe('/staff/$userId', () => {
     expect(params!.get('performed_by_user_id')).toBe('user-1');
   });
 
-  it('Login History tab is absent for a role without AUDIT_LOG_READ (ACCOUNTANT)', async () => {
+  // [8.14.17]: ACCOUNTANT holds neither `USER_READ` nor `AUDIT_LOG_READ`
+  // (`ROLE_PERMISSIONS`). `_staff.tsx`'s `RequirePermission`, gated on
+  // `USER_READ` for this route, now refuses the whole page before this
+  // component ever renders — before this ticket the route rendered for
+  // ACCOUNTANT with only the "Login history" tab hidden, a partial view
+  // [8.14.17] intentionally replaces with a blanket refusal.
+  it('refuses the whole route for a role without USER_READ (ACCOUNTANT)', async () => {
     const user = userResponseFactory({ id: 'user-1', full_name: 'Abdul Karim' });
     server.use(
       http.get('/api/v1/users/:id', () => HttpResponse.json(user)),
@@ -180,8 +186,8 @@ describe('/staff/$userId', () => {
       locale: 'en',
     });
 
-    await screen.findByRole('tab', { name: 'Profile' });
-    expect(screen.queryByRole('tab', { name: 'Login history' })).toBeNull();
+    expect(await screen.findByText("You don't have access to this page.")).toBeTruthy();
+    expect(screen.queryByRole('tab', { name: 'Profile' })).toBeNull();
   });
 
   it('remove-from-school is disabled with an explanation when viewing your own account', async () => {

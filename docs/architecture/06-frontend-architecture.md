@@ -192,6 +192,119 @@ re-fetched by the router's separate preload cache. See [`ui/README.md`'s
 "The app's query client" section](../../ui/README.md) for the full set of
 tuned defaults and why each one is set the way it is.
 
+### Route access: two gates, refuse-in-place
+
+**[8.14.17]:** every staff route now sits behind two client-side gates,
+stacked inside `routes/_staff.tsx`, each answering a different question:
+
+```mermaid
+flowchart TD
+    URL["a staff URL, e.g. /fees/dues"]
+    ROLE{"RequireRole\nallow: STAFF_ROLES"}
+    PERM{"RequirePermission\npermission: STAFF_ROUTE_PERMISSIONS[routeId]"}
+    PORTAL["redirect to /portal\n(wrong app half)"]
+    DENIED["AccessDeniedState\nrenders in place\n(right app half, wrong permission)"]
+    PAGE["the route's own page"]
+
+    URL --> ROLE
+    ROLE -->|"role not in STAFF_ROLES"| PORTAL
+    ROLE -->|"role in STAFF_ROLES"| PERM
+    PERM -->|"role lacks the permission"| DENIED
+    PERM -->|"role holds the permission"| PAGE
+```
+
+1. **`RequireRole`** (`ui/src/routes/require-role.tsx`) answers "is this
+   the right _app half_" — staff chrome vs. `/portal`. A guardian who
+   types `/students` is simply lost, so this one **redirects** (defaults
+   to `/`, the same role-aware redirect `routes/index.tsx` uses).
+2. **`RequirePermission`** (`ui/src/routes/require-permission.tsx`)
+   answers "does this role hold the right _permission_, given it's
+   already in the right app half" — e.g. a `TEACHER` on `/fees/dues`,
+   which needs `FEE_COLLECT`. This one **refuses in place**: no redirect,
+   no `useEffect`, no `navigate` call anywhere in the component. Silently
+   bouncing a teacher who typed a URL somewhere unexplained is its own
+   bug, not a fix — the whole point is that the refusal explains itself
+   on the URL the person actually visited.
+
+`RequirePermission` renders `AccessDeniedState`
+(`ui/src/components/access-denied-state.tsx`) — a sibling of
+`EmptyState`/`RouteStatusState`, same dashed/flat/`bg-muted` treatment,
+`role="status"` because a refusal is not an application fault. It ships
+its own i18n copy (`common.json`'s `accessDenied` block) so 27 route
+files don't each repeat the same three translated strings; a route with
+more specific copy (`/audit-logs`) overrides just the `explanation`.
+
+**The permission-to-route map is one file,** `client-admin/src/
+route-permissions.ts`'s `STAFF_ROUTE_PERMISSIONS`, keyed by TanStack
+Router's own route ID (not URL path — an index route's ID carries a
+trailing slash, e.g. `/_staff/students/`). Its value type is
+non-optional: "no permission required" is not an expressible value, so a
+route added later without an entry **fails closed** — it refuses
+everyone, including admins — rather than rendering to everyone.
+`client-admin/src/route-permissions.test.ts` is the drift guard: it
+diffs the map's key set against the route tree's actual leaves in both
+directions, so a typo'd key (which would otherwise silently mean "no
+gate") fails a test instead of shipping.
+
+The full table, one row per staff route:
+
+| Route ID                                  | Permission                |
+| ----------------------------------------- | ------------------------- |
+| `/_staff/dashboard`                       | `DASHBOARD_VIEW`          |
+| `/_staff/students/`                       | `STUDENT_READ`            |
+| `/_staff/students/new`                    | `STUDENT_CREATE`          |
+| `/_staff/students/import`                 | `STUDENT_BULK_UPLOAD`     |
+| `/_staff/students/$studentId`             | `STUDENT_READ`            |
+| `/_staff/students/$studentId_/edit`       | `STUDENT_UPDATE`          |
+| `/_staff/guardians/`                      | `GUARDIAN_READ`           |
+| `/_staff/guardians/$guardianId`           | `GUARDIAN_READ`           |
+| `/_staff/staff/`                          | `USER_READ`               |
+| `/_staff/staff/$userId`                   | `USER_READ`               |
+| `/_staff/fees/`                           | `FEE_STRUCTURE_READ`      |
+| `/_staff/fees/dues`                       | `FEE_COLLECT`             |
+| `/_staff/fees/generate`                   | `FEE_GENERATE`            |
+| `/_staff/fee-structures/`                 | `FEE_STRUCTURE_READ`      |
+| `/_staff/invoices/`                       | `INVOICE_READ`            |
+| `/_staff/invoices/$invoiceId`             | `INVOICE_READ`            |
+| `/_staff/payments/record`                 | `PAYMENT_RECORD`          |
+| `/_staff/communications/send`             | `COMMUNICATION_SEND`      |
+| `/_staff/communications/reminders`        | `COMMUNICATION_BULK_SEND` |
+| `/_staff/communications/batches/`         | `COMMUNICATION_BULK_SEND` |
+| `/_staff/communications/batches/$batchId` | `COMMUNICATION_BULK_SEND` |
+| `/_staff/academic-years/`                 | `ACADEMIC_YEAR_MANAGE`    |
+| `/_staff/academic-years/$academicYearId`  | `ACADEMIC_YEAR_MANAGE`    |
+| `/_staff/classes/`                        | `CLASS_MANAGE`            |
+| `/_staff/classes/$classId`                | `CLASS_MANAGE`            |
+| `/_staff/audit-logs/`                     | `AUDIT_LOG_READ`          |
+| `/_staff/settings`                        | `SETTINGS_MANAGE`         |
+
+Each permission is the same one `_staff.tsx`'s sidebar already gates that
+route's nav item on — a route and its own nav entry cannot drift apart
+about who's allowed in, because they're checked from the same map.
+
+**No route ships a reduced, still-visible read-only view under this
+gate.** A role either holds the route's permission and sees the whole
+page, or it doesn't and sees `AccessDeniedState` — there is no partial
+middle ground (e.g. `EXECUTIVE` seeing `/invoices` read-only). Adding
+one would mean _granting_ a new permission in `shared/src/enums/
+permissions.ts`'s `ROLE_PERMISSIONS` (e.g. `INVOICE_READ` to
+`EXECUTIVE`), which is a product decision this client-only change does
+not make — flagged in that file's own comments, not resolved here.
+
+**This closes a UI hole, not a security one.** Both gates are
+client-side convenience: the actual security boundary is the server's
+`RolesGuard`/`ContextGuard` stack, which already 403s a role the API
+doesn't trust. Before [8.14.17], a `TEACHER` who typed `/fees/dues`
+directly saw every student's payment balance rendered in the browser —
+the _page_ rendered even though every request it made would eventually
+fail or (worse, for some endpoints) succeed because the server's
+`@Roles` list is broader than `ROLE_PERMISSIONS` for that role. This
+ticket stops the client from _showing_ data a role shouldn't see. It does
+not stop a script from calling the same API directly and getting the
+same over-broad response the server already returns — closing **that**
+gap is [#399](https://github.com/tareq89/biddaloy/issues/399) (Epic
+10.0)'s job, not this one's.
+
 ### How a guardian moves between their children
 
 A guardian linked to several students switches children by **navigating**,
