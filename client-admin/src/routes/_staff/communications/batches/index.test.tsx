@@ -92,10 +92,13 @@ describe('/communications/batches', () => {
     expect(await screen.findByText('Could not load reminder batches.')).toBeTruthy();
   });
 
+  // [8.14.17]: `_staff.tsx`'s `RequirePermission` now refuses the whole
+  // route in place with the shared `AccessDeniedState` copy, replacing
+  // this route's own hand-rolled "You cannot view reminder history" text.
   it('refuses a TEACHER with the forbidden explanation', async () => {
     render('TEACHER');
 
-    expect(await screen.findByText('You cannot view reminder history')).toBeTruthy();
+    expect(await screen.findByText("You don't have access to this page.")).toBeTruthy();
     expect(screen.queryByRole('table')).toBeNull();
   });
 

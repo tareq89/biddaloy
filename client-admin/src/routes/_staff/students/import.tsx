@@ -1,8 +1,7 @@
-import { Permission } from '@biddaloy/shared';
-import { Button, EmptyState, ErrorState, FileUpload } from '@biddaloy/ui/components';
-import { useBulkUploadStudents, useHasPermission, type BulkUploadResult } from '@biddaloy/ui/hooks';
+import { Button, ErrorState, FileUpload } from '@biddaloy/ui/components';
+import { useBulkUploadStudents, type BulkUploadResult } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import * as React from 'react';
 
 import { ImportErrorTable } from './-import/error-table';
@@ -41,24 +40,13 @@ function hasAcceptedExtension(name: string): boolean {
   return ACCEPTED_EXTENSIONS.some((ext) => lower.endsWith(ext));
 }
 
+// [8.14.17]: the permission check that used to live at the top of
+// `ImportStudentsPage` (an `EmptyState` shown when the viewer lacked
+// `STUDENT_BULK_UPLOAD`) is gone — `_staff.tsx`'s `RequirePermission`
+// now refuses the whole route in place, keyed off the same permission
+// (`route-permissions.ts`), before this component ever mounts.
 function ImportStudentsPage() {
-  const { t } = useTranslation('studentImport');
-  const navigate = useNavigate();
-  const canImport = useHasPermission(Permission.STUDENT_BULK_UPLOAD);
   const regionConfig = useTenantRegionConfig();
-
-  if (!canImport) {
-    return (
-      <EmptyState
-        title={t('forbidden.title')}
-        explanation={t('forbidden.explanation')}
-        action={{
-          label: t('forbidden.action'),
-          onClick: () => void navigate({ to: '/students' }),
-        }}
-      />
-    );
-  }
 
   return (
     <RegionConfigProvider value={regionConfig}>

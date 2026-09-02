@@ -520,7 +520,13 @@ describe('/fee-structures', () => {
     expect(screen.getByText('Protected')).toBeTruthy();
   });
 
-  it('hides every write affordance from a TEACHER', async () => {
+  // [8.14.17]: `_staff.tsx`'s `RequirePermission` now refuses the whole
+  // route for a TEACHER, who holds no `FEE_STRUCTURE_READ` (deliberately
+  // — see `ROLE_PERMISSIONS[TEACHER]`'s own comment) — before this
+  // ticket the route still rendered for them with every write button
+  // hidden, a partial view [8.14.17] intentionally replaces with a
+  // blanket refusal.
+  it('refuses the whole route for a TEACHER, who lacks FEE_STRUCTURE_READ', async () => {
     server.use(
       listHandler([feeStructureFactory({ id: 'structure-1', class: KLASS })]),
       ...referenceHandlers(),
@@ -528,10 +534,8 @@ describe('/fee-structures', () => {
 
     render('TEACHER');
 
-    await screen.findByRole('heading', { name: 'Fee Structures' });
-    expect(screen.queryByRole('button', { name: 'Add fee structure' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
+    expect(await screen.findByText("You don't have access to this page.")).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Fee Structures' })).toBeNull();
   });
 
   // The controller lets an ACCOUNTANT create and update but reserves

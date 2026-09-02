@@ -1,9 +1,7 @@
-import { Permission } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
   Checkbox,
-  EmptyState,
   Label,
   Select,
   SelectContent,
@@ -14,7 +12,6 @@ import {
   Textarea,
 } from '@biddaloy/ui/components';
 import {
-  useHasPermission,
   useLastReminders,
   useSendSingleReminder,
   useSingleReminderPreview,
@@ -84,25 +81,14 @@ type OverrideMedium = (typeof OVERRIDE_MEDIUMS)[number];
  * string value, so the default option needs a real one. */
 const PREFERRED = 'PREFERRED';
 
+// [8.14.17]: the permission check that used to live at the top of
+// `FeeRemindersPage` (an `EmptyState` shown when the viewer lacked
+// `COMMUNICATION_BULK_SEND`) is gone — `_staff.tsx`'s `RequirePermission`
+// now refuses the whole route in place, keyed off the same permission
+// (`route-permissions.ts`), before this component ever mounts.
 function FeeRemindersPage() {
-  const { t } = useTranslation('communications');
-  const navigate = useNavigate();
-  const canRemind = useHasPermission(Permission.COMMUNICATION_BULK_SEND);
   const regionConfig = useTenantRegionConfig();
   const { mode } = Route.useSearch();
-
-  if (!canRemind) {
-    return (
-      <EmptyState
-        title={t('reminders.forbidden.title')}
-        explanation={t('reminders.forbidden.explanation')}
-        action={{
-          label: t('reminders.forbidden.action'),
-          onClick: () => void navigate({ to: '/dashboard' }),
-        }}
-      />
-    );
-  }
 
   // Money (the outstanding balance) and dates (last reminder) both render
   // through the tenant's own region settings — same reasoning as

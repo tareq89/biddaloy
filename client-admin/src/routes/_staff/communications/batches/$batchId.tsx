@@ -15,7 +15,6 @@
  * fresh `POST /reminder/bulk` with exactly those students and this
  * batch's own stored template, as a new batch named "Retry of …".
  */
-import { Permission } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
@@ -27,14 +26,12 @@ import {
   DialogHeader,
   DialogTitle,
   DataTable,
-  EmptyState,
   StatusBadge,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
 import {
   collectFailedStudentIds,
   reminderBatchLogsKeyPrefix,
-  useHasPermission,
   useReminderBatch,
   useReminderBatchLogs,
   useSendBulkReminder,
@@ -84,25 +81,13 @@ export const Route = createFileRoute('/_staff/communications/batches/$batchId')(
   component: BatchDetailPage,
 });
 
+// [8.14.17]: the permission check that used to live at the top of
+// `BatchDetailPage` (an `EmptyState` shown when the viewer lacked
+// `COMMUNICATION_BULK_SEND`) is gone — `_staff.tsx`'s `RequirePermission`
+// now refuses the whole route in place, keyed off the same permission
+// (`route-permissions.ts`), before this component ever mounts.
 function BatchDetailPage() {
-  const { t } = useTranslation('communications');
-  const navigate = useNavigate();
-  // Same COMMUNICATION_BULK_SEND gate (and reasoning) as the history list.
-  const canView = useHasPermission(Permission.COMMUNICATION_BULK_SEND);
   const regionConfig = useTenantRegionConfig();
-
-  if (!canView) {
-    return (
-      <EmptyState
-        title={t('batches.forbidden.title')}
-        explanation={t('batches.forbidden.explanation')}
-        action={{
-          label: t('batches.forbidden.action'),
-          onClick: () => void navigate({ to: '/dashboard' }),
-        }}
-      />
-    );
-  }
 
   return (
     <RegionConfigProvider value={regionConfig}>

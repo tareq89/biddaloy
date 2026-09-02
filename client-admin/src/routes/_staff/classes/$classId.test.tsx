@@ -101,14 +101,14 @@ describe('/classes/$classId', () => {
     expect(screen.queryByRole('button', { name: /add teacher/i })).toBeNull();
   });
 
-  it('gates Edit/Delete by permission — ADMIN sees them, TEACHER does not', async () => {
+  it('renders Edit/Delete for ADMIN, who holds CLASS_MANAGE', async () => {
     const klass = classFactory({ id: 'class-1' });
     server.use(
       http.get('/api/v1/classes/:id', () => HttpResponse.json(klass)),
       http.get('/api/v1/classes/:classId/sections', () => HttpResponse.json([])),
     );
 
-    const { unmount } = renderWithRouter(routeTree, {
+    renderWithRouter(routeTree, {
       initialEntries: ['/classes/class-1'],
       tenantId: 'tenant-1',
       role: 'ADMIN',
@@ -118,7 +118,19 @@ describe('/classes/$classId', () => {
     await screen.findByRole('tab', { name: 'Sections' });
     expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Delete' })).toBeTruthy();
-    unmount();
+  });
+
+  // [8.14.17]: `_staff.tsx`'s `RequirePermission` now refuses the whole
+  // route for a TEACHER, who holds no `CLASS_MANAGE` — before this
+  // ticket the route still rendered for them with these buttons hidden,
+  // a partial view [8.14.17] intentionally replaces with a blanket
+  // refusal.
+  it('refuses the whole route for TEACHER, who lacks CLASS_MANAGE', async () => {
+    const klass = classFactory({ id: 'class-1' });
+    server.use(
+      http.get('/api/v1/classes/:id', () => HttpResponse.json(klass)),
+      http.get('/api/v1/classes/:classId/sections', () => HttpResponse.json([])),
+    );
 
     renderWithRouter(routeTree, {
       initialEntries: ['/classes/class-1'],
@@ -127,9 +139,8 @@ describe('/classes/$classId', () => {
       locale: 'en',
     });
 
-    await screen.findByRole('tab', { name: 'Sections' });
-    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
+    expect(await screen.findByText("You don't have access to this page.")).toBeTruthy();
+    expect(screen.queryByRole('tab', { name: 'Sections' })).toBeNull();
   });
 
   it('clearing Grade and saving sends an explicit null, not an omitted key', async () => {

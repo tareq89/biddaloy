@@ -119,7 +119,13 @@ describe('/fees/dues', () => {
     expect(router.state.location.search).toMatchObject({ class_id: 'class-9', flagged: 'true' });
   });
 
-  it('gates Collect by permission — TEACHER does not see it', async () => {
+  // [8.14.17]: `_staff.tsx`'s `RequirePermission` now refuses the whole
+  // route for a TEACHER, who holds no `FEE_COLLECT` — this was
+  // [8.14.17]'s own headline audit finding (a TEACHER's direct visit
+  // used to render every student's payment balance with only the
+  // `Collect` link hidden). `_staff.access.test.tsx` covers this same
+  // case across roles; this one stays local to the route it belongs to.
+  it('refuses the whole route for a TEACHER, who lacks FEE_COLLECT', async () => {
     server.use(
       http.get('/api/v1/fees/dues', () =>
         HttpResponse.json({ data: [duesRow()], total: 1, page: 1, limit: 10, totalPages: 1 }),
@@ -133,8 +139,8 @@ describe('/fees/dues', () => {
       locale: 'en',
     });
 
-    await screen.findByText(/Karim Rahman/);
-    expect(screen.queryByRole('link', { name: 'Collect' })).toBeNull();
+    expect(await screen.findByText("You don't have access to this page.")).toBeTruthy();
+    expect(screen.queryByText(/Karim Rahman/)).toBeNull();
   });
 
   it('Collect reaches Record Payment in one interaction', async () => {

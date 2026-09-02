@@ -1,4 +1,3 @@
-import { Permission } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
@@ -9,7 +8,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  EmptyState,
   Input,
   Label,
   RadioGroup,
@@ -24,14 +22,13 @@ import {
 } from '@biddaloy/ui/components';
 import {
   useCommunicationLog,
-  useHasPermission,
   useSendCommunication,
   type Guardian,
   type SendCommunicationInput,
   type Student,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import * as React from 'react';
 
 import { SmsSegmentCounter } from './-shared/sms-segment-counter';
@@ -53,37 +50,18 @@ import { splitTemplateParams, WhatsappTemplateFields } from './-shared/whatsapp-
  * channel and the full message — the pattern
  * `academic-years/-set-current-dialog.tsx` established.
  *
- * The permission check is a UX gate, not the security boundary
- * (`RolesGuard` server-side already 403s) — same framing as
- * `/fees/generate`'s gate.
+ * [8.14.17]: the permission check that used to live here (an `EmptyState`
+ * shown when the viewer lacked `COMMUNICATION_SEND`) is gone — `_staff.tsx`'s
+ * `RequirePermission` now refuses the whole route in place, keyed off the
+ * same permission (`route-permissions.ts`), before this component ever
+ * mounts. Duplicating the check here would be dead code.
  */
 export const Route = createFileRoute('/_staff/communications/send')({
-  component: SendMessagePage,
+  component: SendMessageForm,
 });
 
 const SENDABLE_MEDIUMS = ['SMS', 'WHATSAPP', 'EMAIL'] as const;
 type SendableMedium = (typeof SENDABLE_MEDIUMS)[number];
-
-function SendMessagePage() {
-  const { t } = useTranslation('communications');
-  const navigate = useNavigate();
-  const canSend = useHasPermission(Permission.COMMUNICATION_SEND);
-
-  if (!canSend) {
-    return (
-      <EmptyState
-        title={t('send.forbidden.title')}
-        explanation={t('send.forbidden.explanation')}
-        action={{
-          label: t('send.forbidden.action'),
-          onClick: () => void navigate({ to: '/dashboard' }),
-        }}
-      />
-    );
-  }
-
-  return <SendMessageForm />;
-}
 
 /** Address a guardian is reachable at for the chosen channel — email for
  * EMAIL, phone otherwise. `null` means "no address on file", which the

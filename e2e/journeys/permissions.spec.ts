@@ -24,6 +24,9 @@ const CASES = [
       'nav.items.invoices',
     ],
     hidden: ['nav.items.academicYears', 'nav.items.classes', 'nav.items.settings'],
+    // ACCOUNTANT holds neither SETTINGS_MANAGE nor AUDIT_LOG_READ — both
+    // ADMIN-only in `ROLE_PERMISSIONS`.
+    deniedRoutes: ['/settings', '/audit-logs'],
   },
   {
     // Dues/record-payment are gated on FEE_COLLECT/PAYMENT_RECORD, not
@@ -41,6 +44,10 @@ const CASES = [
       'nav.items.academicYears',
       'nav.items.classes',
     ],
+    // [8.14.17]'s audit found these three actually *rendering* full data
+    // for a TEACHER on direct navigation — no FEE_COLLECT, no USER_READ,
+    // no INVOICE_READ.
+    deniedRoutes: ['/fees/dues', '/staff', '/invoices'],
   },
   {
     role: 'executive' as const,
@@ -56,10 +63,13 @@ const CASES = [
       'nav.items.academicYears',
       'nav.items.classes',
     ],
+    // No FEE_COLLECT, no INVOICE_READ, and (deliberately) no
+    // GUARDIAN_READ — see `ROLE_PERMISSIONS[EXECUTIVE]`'s own comment.
+    deniedRoutes: ['/fees/dues', '/invoices', '/guardians'],
   },
 ];
 
-for (const { role, visible, hidden } of CASES) {
+for (const { role, visible, hidden, deniedRoutes } of CASES) {
   test.describe(`${role} navigation`, () => {
     test.use(loggedIn(role));
 
@@ -74,10 +84,18 @@ for (const { role, visible, hidden } of CASES) {
       }
     });
 
-    test(`direct visit to /settings is refused`, async ({ page }) => {
-      await page.goto('/settings');
-      await expect(page.getByRole('heading', { name: t('settings.accessDenied') })).toBeVisible();
-    });
+    // [8.14.17]: every refusal — whatever route it's on — renders the
+    // same shared `common.accessDenied.title` heading in place, not a
+    // per-route string and not a redirect elsewhere.
+    for (const route of deniedRoutes) {
+      test(`direct visit to ${route} is refused`, async ({ page }) => {
+        await page.goto(route);
+        await expect(
+          page.getByRole('heading', { name: t('common.accessDenied.title') }),
+        ).toBeVisible();
+        await expect(page).toHaveURL(route);
+      });
+    }
   });
 }
 

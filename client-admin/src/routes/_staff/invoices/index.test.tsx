@@ -175,11 +175,15 @@ describe('/invoices', () => {
     }
   });
 
-  it('hides the Print action for a role without INVOICE_PRINT', async () => {
-    // TEACHER holds neither INVOICE_READ nor INVOICE_PRINT
-    // (`ROLE_PERMISSIONS`) but is still a staff role (`STAFF_ROLES`), so
-    // it reaches this page (unlike PARENT/STUDENT, which `RequireRole`
-    // redirects to `/portal` before this component ever renders).
+  // [8.14.17]: TEACHER holds neither `INVOICE_READ` nor `INVOICE_PRINT`
+  // (`ROLE_PERMISSIONS`), and is still a staff role (`STAFF_ROLES`), so
+  // it clears `_staff.tsx`'s outer `RequireRole` gate — but
+  // `RequirePermission`, gated on `INVOICE_READ` for this route, now
+  // refuses the whole page before this component ever renders. Before
+  // this ticket the route rendered for TEACHER with only the `Print`
+  // button hidden, a partial view [8.14.17] intentionally replaces with
+  // a blanket refusal.
+  it('refuses the whole route for a role without INVOICE_READ', async () => {
     const invoice = invoiceFactory({ id: 'invoice-1' });
     server.use(
       http.get('/api/v1/invoices', () =>
@@ -194,8 +198,8 @@ describe('/invoices', () => {
       locale: 'en',
     });
 
-    await screen.findByRole('link', { name: invoice.invoice_number });
-    expect(screen.queryByRole('button', { name: 'Print' })).toBeNull();
+    expect(await screen.findByText("You don't have access to this page.")).toBeTruthy();
+    expect(screen.queryByRole('link', { name: invoice.invoice_number })).toBeNull();
   });
 
   it('renders the empty state when no invoices match', async () => {

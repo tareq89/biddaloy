@@ -46,7 +46,7 @@ describe('/academic-years', () => {
     expect(within(rows[2] as HTMLElement).getByText('Not current')).toBeTruthy();
   });
 
-  it('gates Add/Edit/Delete/Set current by permission — ADMIN sees them, TEACHER does not', async () => {
+  it('renders Add/Edit/Delete/Set current for ADMIN, who holds ACADEMIC_YEAR_MANAGE', async () => {
     const year = academicYearFactory({ id: 'year-1', is_current: false });
     server.use(
       http.get('/api/v1/academic-years', () =>
@@ -54,7 +54,7 @@ describe('/academic-years', () => {
       ),
     );
 
-    const { unmount } = renderWithRouter(routeTree, {
+    renderWithRouter(routeTree, {
       initialEntries: ['/academic-years'],
       tenantId: 'tenant-1',
       role: 'ADMIN',
@@ -65,7 +65,20 @@ describe('/academic-years', () => {
     expect(screen.getByRole('button', { name: 'Add year' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Set as current' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Delete' })).toBeTruthy();
-    unmount();
+  });
+
+  // [8.14.17]: `_staff.tsx`'s `RequirePermission` now refuses the whole
+  // route for a TEACHER, who holds no `ACADEMIC_YEAR_MANAGE` — before
+  // this ticket the route still rendered for them with the table visible
+  // and only the write buttons hidden, a partial view [8.14.17]
+  // intentionally replaces with a blanket refusal.
+  it('refuses the whole route for TEACHER, who lacks ACADEMIC_YEAR_MANAGE', async () => {
+    const year = academicYearFactory({ id: 'year-1', is_current: false });
+    server.use(
+      http.get('/api/v1/academic-years', () =>
+        HttpResponse.json({ data: [year], total: 1, page: 1, limit: 10, totalPages: 1 }),
+      ),
+    );
 
     renderWithRouter(routeTree, {
       initialEntries: ['/academic-years'],
@@ -74,11 +87,8 @@ describe('/academic-years', () => {
       locale: 'en',
     });
 
-    await screen.findByRole('heading', { name: 'Academic Years' });
-    await waitFor(() => expect(screen.getAllByRole('row')).toHaveLength(2));
-    expect(screen.queryByRole('button', { name: 'Add year' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
+    expect(await screen.findByText("You don't have access to this page.")).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Academic Years' })).toBeNull();
   });
 
   it('creating a year shows up in the list once the dialog is submitted', async () => {
