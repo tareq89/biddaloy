@@ -9,6 +9,11 @@ import { shouldRetryQuery } from './retry';
 export type StaffUser = components['schemas']['UserResponseDto'];
 export type CreateUserInput = components['schemas']['CreateUserDto'];
 export type UpdateUserInput = components['schemas']['UpdateUserDto'];
+// [8.14.4] `PATCH /users/me`'s own DTO — distinct from `UpdateUserInput`
+// (`UpdateUserDto`) because it carries the caller-provided
+// `current_password` proof `UpdateUserDto` has no field for (see
+// `UpdateOwnProfileDto`'s own comment in `schema.d.ts`).
+export type UpdateOwnProfileInput = components['schemas']['UpdateOwnProfileDto'];
 export type UserRoleFilter = NonNullable<CreateUserInput['role']>;
 
 export interface UserListFilters {
@@ -86,6 +91,25 @@ export function currentUserQueryOptions() {
 
 export function useCurrentUser() {
   return useQuery(currentUserQueryOptions());
+}
+
+/** [8.14.4]'s `/portal/account` profile card — `PATCH /users/me`. Only
+ * invalidates the `'me'` detail key, never `userKeys.lists()`: this
+ * caller's own record is not necessarily on any staff list they can even
+ * see (a PARENT/STUDENT 403s on `GET /users`), so refetching a list this
+ * caller may not hold is both wasted work and a request that could fail
+ * for a reason unrelated to the edit that just succeeded. */
+export function useUpdateOwnProfile() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: UpdateOwnProfileInput) => {
+      const res = await apiClient.patch<StaffUser>('/users/me', input);
+      return res.data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: userKeys.detail('me') });
+    },
+  });
 }
 
 /** `POST /users`'s 201 body: the created user plus the membership row the

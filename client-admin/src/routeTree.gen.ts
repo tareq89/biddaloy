@@ -18,6 +18,7 @@ import { Route as StaffDashboardRouteImport } from './routes/_staff/dashboard'
 import { Route as StaffFeesRouteImport } from './routes/_staff/fees'
 import { Route as StaffSettingsRouteImport } from './routes/_staff/settings'
 import { Route as PortalIndexRouteImport } from './routes/portal/index'
+import { Route as PortalAccountRouteImport } from './routes/portal/account'
 import { Route as PortalFeesRouteImport } from './routes/portal/fees'
 import { Route as StaffAcademicYearsIndexRouteImport } from './routes/_staff/academic-years/index'
 import { Route as StaffAcademicYearsAcademicYearIdRouteImport } from './routes/_staff/academic-years/$academicYearId'
@@ -87,6 +88,11 @@ const StaffSettingsRoute = StaffSettingsRouteImport.update({
 const PortalIndexRoute = PortalIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalAccountRoute = PortalAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
   getParentRoute: () => PortalRoute,
 } as any)
 const PortalFeesRoute = PortalFeesRouteImport.update({
@@ -234,6 +240,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof StaffDashboardRoute
   '/fees': typeof StaffFeesRouteWithChildren
   '/settings': typeof StaffSettingsRoute
+  '/portal/account': typeof PortalAccountRoute
   '/portal/fees': typeof PortalFeesRoute
   '/portal/': typeof PortalIndexRoute
   '/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
@@ -268,6 +275,7 @@ export interface FileRoutesByTo {
   '/select-school': typeof SelectSchoolRoute
   '/dashboard': typeof StaffDashboardRoute
   '/settings': typeof StaffSettingsRoute
+  '/portal/account': typeof PortalAccountRoute
   '/portal/fees': typeof PortalFeesRoute
   '/portal': typeof PortalIndexRoute
   '/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
@@ -306,6 +314,7 @@ export interface FileRoutesById {
   '/_staff/dashboard': typeof StaffDashboardRoute
   '/_staff/fees': typeof StaffFeesRouteWithChildren
   '/_staff/settings': typeof StaffSettingsRoute
+  '/portal/account': typeof PortalAccountRoute
   '/portal/fees': typeof PortalFeesRoute
   '/portal/': typeof PortalIndexRoute
   '/_staff/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
@@ -344,6 +353,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/fees'
     | '/settings'
+    | '/portal/account'
     | '/portal/fees'
     | '/portal/'
     | '/academic-years/$academicYearId'
@@ -378,6 +388,7 @@ export interface FileRouteTypes {
     | '/select-school'
     | '/dashboard'
     | '/settings'
+    | '/portal/account'
     | '/portal/fees'
     | '/portal'
     | '/academic-years/$academicYearId'
@@ -415,6 +426,7 @@ export interface FileRouteTypes {
     | '/_staff/dashboard'
     | '/_staff/fees'
     | '/_staff/settings'
+    | '/portal/account'
     | '/portal/fees'
     | '/portal/'
     | '/_staff/academic-years/$academicYearId'
@@ -515,6 +527,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/portal/'
       preLoaderRoute: typeof PortalIndexRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/account': {
+      id: '/portal/account'
+      path: '/account'
+      fullPath: '/portal/account'
+      preLoaderRoute: typeof PortalAccountRouteImport
       parentRoute: typeof PortalRoute
     }
     '/portal/fees': {
@@ -778,11 +797,13 @@ const StaffRouteChildren: StaffRouteChildren = {
 const StaffRouteWithChildren = StaffRoute._addFileChildren(StaffRouteChildren)
 
 interface PortalRouteChildren {
+  PortalAccountRoute: typeof PortalAccountRoute
   PortalFeesRoute: typeof PortalFeesRoute
   PortalIndexRoute: typeof PortalIndexRoute
 }
 
 const PortalRouteChildren: PortalRouteChildren = {
+  PortalAccountRoute: PortalAccountRoute,
   PortalFeesRoute: PortalFeesRoute,
   PortalIndexRoute: PortalIndexRoute,
 }

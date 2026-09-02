@@ -191,6 +191,11 @@
       "path": "/portal/fees",
       "role": "parent",
       "archetype": "list"
+    },
+    {
+      "path": "/portal/account",
+      "role": "parent",
+      "archetype": "form"
     }
   ]
 }

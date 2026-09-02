@@ -9,6 +9,11 @@ import { shouldRetryQuery } from './retry';
 export type Guardian = components['schemas']['Guardian'];
 export type CreateGuardianInput = components['schemas']['CreateGuardianDto'];
 export type UpdateGuardianInput = components['schemas']['UpdateGuardianDto'];
+// [8.14.4] `PATCH /guardians/mine`'s own DTO — narrower than
+// `UpdateGuardianInput`: no `full_name`/`relationship`/`student_ids`, since
+// those are the school's data about a family, not the PARENT's own contact
+// details. See `UpdateOwnGuardianDto` in `schema.d.ts`.
+export type UpdateOwnGuardianInput = components['schemas']['UpdateOwnGuardianDto'];
 
 export interface GuardianListFilters {
   search?: string;
@@ -85,6 +90,45 @@ export function guardianQueryOptions(id: string) {
 
 export function useGuardian(id: string | undefined) {
   return useQuery({ ...guardianQueryOptions(id ?? ''), enabled: id !== undefined });
+}
+
+/** [8.14.4]'s `/portal/account` guardian-contact card — `GET
+ * /guardians/mine`, PARENT-only (`students.controller.ts`'s own `@Roles`).
+ * Ownership comes from the JWT, never a path id — the caller can only ever
+ * read their own guardian record, so this needs no argument the way
+ * `guardianQueryOptions(id)` does. Keyed under a literal `'mine'` segment,
+ * same reasoning as `users.ts`'s `currentUserQueryOptions`. */
+export function myGuardianQueryOptions() {
+  return queryOptions({
+    queryKey: [...guardianKeys.all, 'mine'] as const,
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<Guardian>('/guardians/mine', { signal });
+      return res.data;
+    },
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useMyGuardian() {
+  return useQuery(myGuardianQueryOptions());
+}
+
+/** `PATCH /guardians/mine` — the contact numbers fee reminders actually
+ * dial (`UpdateOwnGuardianDto`). Invalidates only the `'mine'` key: a
+ * PARENT never holds `GET /guardians`/`GET /guardians/:id` (both are
+ * staff-only), so there is no list or detail-by-id cache entry for this
+ * caller's own record to keep in sync. */
+export function useUpdateMyGuardian() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: UpdateOwnGuardianInput) => {
+      const res = await apiClient.patch<Guardian>('/guardians/mine', input);
+      return res.data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: [...guardianKeys.all, 'mine'] });
+    },
+  });
 }
 
 /** The "create one inline" half of [8.10.3]'s guardian linking — a new

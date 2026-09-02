@@ -11,7 +11,7 @@ import { useDensity } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { RequireRole } from '@biddaloy/ui/routes';
 import { createFileRoute, Outlet } from '@tanstack/react-router';
-import { CreditCardIcon, HomeIcon } from 'lucide-react';
+import { CreditCardIcon, HomeIcon, UserRoundIcon } from 'lucide-react';
 
 /**
  * [8.9.10]'s guardian half of one SPA — the family-facing audience
@@ -81,6 +81,14 @@ function PortalLayout() {
       label: t('items.portalFees'),
       icon: <CreditCardIcon className="size-5" aria-hidden="true" />,
       permission: Permission.INVOICE_READ,
+    },
+    {
+      to: '/portal/account',
+      label: t('items.portalAccount'),
+      icon: <UserRoundIcon className="size-5" aria-hidden="true" />,
+      // [8.14.4] No `permission`: every signed-in role in this shell owns
+      // its own account — this is the exact "everyone in the shell sees
+      // it" case `app-shell.tsx`'s `NavItem.permission` documents.
     },
   ];
 

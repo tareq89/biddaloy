@@ -1,6 +1,6 @@
 import { waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { userResponseFactory } from '../test/factories';
 import { server } from '../test/msw/server';
@@ -10,9 +10,11 @@ import {
   useCreateUser,
   useCurrentUser,
   useRemoveMember,
+  useUpdateOwnProfile,
   useUpdateUser,
   useUser,
   useUsers,
+  userKeys,
 } from './users';
 
 describe('useUsers', () => {
@@ -99,6 +101,48 @@ describe('useCurrentUser', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.full_name).toBe('Rahim');
+  });
+});
+
+describe('useUpdateOwnProfile', () => {
+  it('[8.14.4] PATCHes /users/me with the exact body and invalidates only the "me" detail key', async () => {
+    let body: unknown = null;
+    server.use(
+      http.patch('/api/v1/users/me', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json(userResponseFactory({ full_name: 'Rahim Renamed' }));
+      }),
+    );
+
+    const { result, queryClient } = renderHookWithProviders(() => useUpdateOwnProfile(), {
+      tenantId: 'tenant-1',
+    });
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+    result.current.mutate({ full_name: 'Rahim Renamed' });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(body).toEqual({ full_name: 'Rahim Renamed' });
+    expect(result.current.data?.full_name).toBe('Rahim Renamed');
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: userKeys.detail('me') });
+    expect(invalidateSpy).not.toHaveBeenCalledWith({ queryKey: userKeys.lists() });
+  });
+
+  it('surfaces the 403 wrong-current-password case as an error', async () => {
+    server.use(
+      http.patch('/api/v1/users/me', () =>
+        HttpResponse.json(
+          { statusCode: 403, message: 'current_password is incorrect' },
+          { status: 403 },
+        ),
+      ),
+    );
+
+    const { result } = renderHookWithProviders(() => useUpdateOwnProfile(), {
+      tenantId: 'tenant-1',
+    });
+    result.current.mutate({ email: 'new@example.com', current_password: 'wrong' });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
   });
 });
 

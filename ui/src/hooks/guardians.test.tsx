@@ -1,6 +1,6 @@
 import { waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { guardianFactory } from '../test/factories';
 import { server } from '../test/msw/server';
@@ -13,7 +13,9 @@ import {
   useDeleteGuardian,
   useGuardian,
   useGuardians,
+  useMyGuardian,
   useUpdateGuardian,
+  useUpdateMyGuardian,
 } from './guardians';
 
 describe('useGuardians', () => {
@@ -76,6 +78,64 @@ describe('useGuardians', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(requestedLimit).toBe('100');
+  });
+});
+
+describe('useMyGuardian', () => {
+  it('[8.14.4] hits GET /guardians/mine, not /guardians/:id captured as an id', async () => {
+    let requestedPath: string | null = null;
+    server.use(
+      http.get('/api/v1/guardians/mine', ({ request }) => {
+        requestedPath = new URL(request.url).pathname;
+        return HttpResponse.json(guardianFactory({ full_name: 'Karim Rahman' }));
+      }),
+    );
+
+    const { result } = renderHookWithProviders(() => useMyGuardian(), { tenantId: 'tenant-1' });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(requestedPath).toBe('/api/v1/guardians/mine');
+    expect(result.current.data?.full_name).toBe('Karim Rahman');
+  });
+});
+
+describe('useUpdateMyGuardian', () => {
+  it('PATCHes /guardians/mine and invalidates only the "mine" key', async () => {
+    let body: unknown = null;
+    server.use(
+      http.patch('/api/v1/guardians/mine', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json(guardianFactory({ phone: '+8801712345678' }));
+      }),
+    );
+
+    const { result, queryClient } = renderHookWithProviders(() => useUpdateMyGuardian(), {
+      tenantId: 'tenant-1',
+    });
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+    result.current.mutate({ phone: '+8801712345678' });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(body).toEqual({ phone: '+8801712345678' });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: [...guardianKeys.all, 'mine'] });
+  });
+
+  it('surfaces the BD-phone-regex 400 as an error', async () => {
+    server.use(
+      http.patch('/api/v1/guardians/mine', () =>
+        HttpResponse.json(
+          { statusCode: 400, message: 'phone must match /^(?:\\+?880|0)1[3-9]\\d{8}$/' },
+          { status: 400 },
+        ),
+      ),
+    );
+
+    const { result } = renderHookWithProviders(() => useUpdateMyGuardian(), {
+      tenantId: 'tenant-1',
+    });
+    result.current.mutate({ phone: '12345' });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
   });
 });
 

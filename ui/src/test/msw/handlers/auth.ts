@@ -59,6 +59,25 @@ const refreshFailure = http.post('/api/v1/auth/refresh', () =>
   ),
 );
 
+/** `POST /auth/change-password` — [8.14.4]'s Account page password card
+ * (`AuthController.changePassword`). Keyed off a sentinel current-password
+ * value so both the happy path and the 403 "wrong current password" case
+ * are reachable from tests/stories without a second handler shape. */
+const CHANGE_PASSWORD_WRONG_CURRENT = 'wrong-current-password';
+
+const changePassword = http.post('/api/v1/auth/change-password', async ({ request }) => {
+  const body = (await request.json()) as { current_password?: string };
+  if (body.current_password === CHANGE_PASSWORD_WRONG_CURRENT) {
+    return HttpResponse.json(
+      apiErrorBody(403, 'current_password is incorrect', '/api/v1/auth/change-password'),
+      { status: 403 },
+    );
+  }
+  return HttpResponse.json(
+    loginResponseFactory({ access_token: 'mock-post-change-password-access-token' }),
+  );
+});
+
 const logout = http.post('/api/v1/auth/logout', () => new HttpResponse(null, { status: 204 }));
 
 const logoutAll = http.post(
@@ -72,8 +91,10 @@ export const authHandlers = {
   loginRateLimited,
   refresh,
   refreshFailure,
+  changePassword,
+  CHANGE_PASSWORD_WRONG_CURRENT,
   logout,
   logoutAll,
 };
 
-export const authDefaultHandlers = [login, refresh, logout, logoutAll];
+export const authDefaultHandlers = [login, refresh, changePassword, logout, logoutAll];
