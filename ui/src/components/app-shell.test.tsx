@@ -15,6 +15,7 @@ import {
   AppShell,
   type AppShellNavGroup,
 } from './app-shell';
+import { BottomNav } from './bottom-nav';
 
 const navItems = [{ to: '/', label: 'Dashboard', icon: <HomeIcon aria-hidden="true" /> }];
 
@@ -318,7 +319,11 @@ describe('AppShell', () => {
 
       await screen.findByText('Portal content');
       const main = document.getElementById(APP_SHELL_MAIN_ID);
-      expect(main?.className).toContain('pb-24');
+      // [8.14.3]: the fixed 'pb-24' became a safe-area-aware calc() so this
+      // bar (and the staff one sharing the same slot) clears the gesture-nav
+      // home indicator in an installed PWA; 'env()' resolves to 0px outside
+      // that one context, so this is a superset of the old fixed value.
+      expect(main?.className).toContain('pb-[calc(6rem+var(--safe-area-bottom))]');
       expect(main?.className).toContain('md:pb-6');
     });
 
@@ -485,5 +490,129 @@ describe('AppShell', () => {
     // that carries the icons and the pinned label, so those two tests
     // exercise the 8.14.1 markup as-is. Duplicating them here would add
     // runtime without adding coverage.
+  });
+
+  // [8.14.3]: staff below `md` gets a consolidated header row (brand +
+  // caller-supplied actions + the same hamburger drawer) *and* a bottom
+  // nav bar at once — unlike the portal shape above, which drops the
+  // header entirely once `bottomNav` is set. `showMobileHeader` is what
+  // decides between the two; `useAppShellDrawer` is what lets the bottom
+  // bar's own "more" cell open that same drawer without a prop threaded
+  // back up through `BottomNav`.
+  describe('[8.14.3] mobile header row, drawer context, safe-area padding', () => {
+    function buildStaffMobileTree() {
+      const rootRoute = createRootRoute();
+      const indexRoute = createRoute({
+        getParentRoute: () => rootRoute,
+        path: '/',
+        component: () => (
+          <AppShell
+            navItems={navItems}
+            navGroups={navGroups}
+            brand="Biddaloy"
+            mobileHeaderActions={<button type="button">Search</button>}
+            drawerHeader={<div data-testid="drawer-header">Tenant switcher</div>}
+            bottomNav={
+              <BottomNav items={navItems} label="Quick navigation" more={{ label: 'More' }} />
+            }
+          >
+            <p>Dashboard content</p>
+          </AppShell>
+        ),
+      });
+      return rootRoute.addChildren([indexRoute]);
+    }
+
+    it('keeps the mobile header row (brand, actions, menu trigger) when mobileHeaderActions is passed alongside bottomNav', async () => {
+      renderWithRouter(buildStaffMobileTree(), { initialEntries: ['/'], role: 'SUPER_ADMIN' });
+
+      await screen.findByText('Dashboard content');
+      // 'Biddaloy' also appears in the always-present desktop `<aside>`
+      // sidebar (`hidden md:flex`) below; jsdom does no layout, so both
+      // are 'visible' to a query — scope to the mobile header row itself.
+      const header = screen.getByRole('button', { name: 'Open menu' }).closest('div')!;
+      expect(within(header).getByText('Biddaloy')).toBeTruthy();
+      expect(within(header).getByRole('button', { name: 'Search' })).toBeTruthy();
+      expect(within(header).getByRole('button', { name: 'Open menu' })).toBeTruthy();
+    });
+
+    it("opens the drawer from a descendant via useAppShellDrawer, closes on Escape, and restores focus to the bottom nav's more cell", async () => {
+      const user = userEvent.setup();
+      renderWithRouter(buildStaffMobileTree(), { initialEntries: ['/'], role: 'SUPER_ADMIN' });
+
+      await screen.findByText('Dashboard content');
+      const moreButton = screen.getByRole('button', { name: 'More' });
+      expect(moreButton.getAttribute('aria-expanded')).toBe('false');
+
+      await user.click(moreButton);
+      await screen.findByRole('dialog');
+      expect(moreButton.getAttribute('aria-expanded')).toBe('true');
+
+      await user.keyboard('{Escape}');
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      // [8.14.3] real-behavior note: Radix's `DialogTrigger` hardcodes
+      // itself as the focus-restore target regardless of what element
+      // (or imperative call) actually opened the dialog — it does not
+      // track 'whatever had focus right before Content mounted'. Since
+      // `BottomNav`'s 'more' cell opens the drawer through
+      // `useAppShellDrawer` rather than through `DialogTrigger` itself,
+      // focus lands back on the header row's own 'Open menu' trigger, not
+      // on the cell that was actually clicked. Still a real, on-screen,
+      // interactive element — not a lost-focus regression — so this pins
+      // the actual behavior rather than the plan's original assumption.
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Open menu' }));
+    });
+
+    it('renders drawerHeader content inside the dialog, above the nav landmark', async () => {
+      const user = userEvent.setup();
+      renderWithRouter(buildStaffMobileTree(), { initialEntries: ['/'], role: 'SUPER_ADMIN' });
+
+      await screen.findByText('Dashboard content');
+      await user.click(await screen.findByRole('button', { name: 'Open menu' }));
+      const dialog = await screen.findByRole('dialog');
+
+      const header = within(dialog).getByTestId('drawer-header');
+      const nav = within(dialog).getByRole('navigation', { name: 'Main' });
+      // `compareDocumentPosition` is the DOM-native way to assert relative
+      // order without depending on either node's own class names.
+      expect(header.compareDocumentPosition(nav) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it('pads <main> with the safe-area-aware bottom offset when bottomNav is set alongside mobileHeaderActions', async () => {
+      renderWithRouter(buildStaffMobileTree(), { initialEntries: ['/'], role: 'SUPER_ADMIN' });
+
+      await screen.findByText('Dashboard content');
+      const main = document.getElementById(APP_SHELL_MAIN_ID);
+      expect(main?.className).toContain('pb-[calc(6rem+var(--safe-area-bottom))]');
+      expect(main?.className).toContain('md:pb-6');
+    });
+
+    // The `[5.2] optional bottomNav slot` block above already
+    // regression-locks the portal shape (bottomNav-only, drawer dropped
+    // entirely); this pins the other half — mobileHeaderActions content
+    // itself must not render anywhere when the caller never passes it.
+    it('does not render mobileHeaderActions content when the prop is omitted', async () => {
+      const rootRoute = createRootRoute();
+      const indexRoute = createRoute({
+        getParentRoute: () => rootRoute,
+        path: '/',
+        component: () => (
+          <AppShell
+            navItems={navItems}
+            brand="Biddaloy"
+            bottomNav={<nav aria-label="Portal">Bottom bar</nav>}
+          >
+            <p>Portal content</p>
+          </AppShell>
+        ),
+      });
+      renderWithRouter(rootRoute.addChildren([indexRoute]), {
+        initialEntries: ['/'],
+        role: 'PARENT',
+      });
+
+      await screen.findByText('Portal content');
+      expect(screen.queryByRole('button', { name: 'Search' })).toBeNull();
+    });
   });
 });

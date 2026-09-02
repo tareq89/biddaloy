@@ -1,6 +1,7 @@
 import { Permission } from '@biddaloy/shared';
 import { createRootRoute, createRoute } from '@tanstack/react-router';
 import { screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
 import { LINK_KEYS, expectKeyboardOperable } from '../test/a11y';
@@ -125,5 +126,94 @@ describe('BottomNav', () => {
     });
     await screen.findByText('Overview content');
     await expect(container).toHaveNoViolations();
+  });
+
+  // [8.14.3]: `env(safe-area-inset-bottom)` resolves to 0px everywhere but
+  // an installed, `viewport-fit=cover` PWA, so this costs nothing in every
+  // other context — see `ui/src/styles/globals.css`'s own comment on the
+  // `--safe-area-bottom` token this class references.
+  it('pads the nav with the safe-area-aware bottom inset', async () => {
+    renderWithRouter(buildRouteTree(), { initialEntries: ['/portal'], role: 'PARENT' });
+
+    const nav = await screen.findByRole('navigation', { name: 'Portal' });
+    expect(nav.className).toContain('pb-(--safe-area-bottom)');
+  });
+
+  describe('[8.14.3] more cell', () => {
+    function buildMoreTree(items: { to: string; label: string; permission?: Permission }[]) {
+      const rootRoute = createRootRoute();
+      const indexRoute = createRoute({
+        getParentRoute: () => rootRoute,
+        path: '/portal',
+        component: () => <BottomNav items={items} label="Portal" more={{ label: 'More' }} />,
+      });
+      return rootRoute.addChildren([indexRoute]);
+    }
+
+    it('renders a trailing button cell, not a link, carrying no aria-current', async () => {
+      renderWithRouter(buildMoreTree(items), { initialEntries: ['/portal'], role: 'PARENT' });
+
+      const nav = await screen.findByRole('navigation', { name: 'Portal' });
+      const more = within(nav).getByRole('button', { name: 'More' });
+      expect(more.tagName).toBe('BUTTON');
+      expect(more.getAttribute('aria-haspopup')).toBe('dialog');
+      expect(more.getAttribute('aria-current')).toBeNull();
+    });
+
+    it('does nothing when clicked with no AppShell ancestor (default no-op context)', async () => {
+      const user = userEvent.setup();
+      renderWithRouter(buildMoreTree(items), { initialEntries: ['/portal'], role: 'PARENT' });
+
+      const more = await screen.findByRole('button', { name: 'More' });
+      // The default `useAppShellDrawer()` value is an inert no-op — this
+      // must not throw, and nothing resembling a dialog should appear.
+      await user.click(more);
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+
+    it('keeps the bar visible — with only the more cell — even when the active role can see none of the items', async () => {
+      // [8.14.3]: `more` is itself a form of navigation (it opens the
+      // drawer holding every other destination), so its presence alone is
+      // reason enough to keep the bar even when the active role sees zero
+      // of `items` — the old `visible.length === 0` guard alone would
+      // otherwise leave that role with no navigation at all below `md`.
+      renderWithRouter(
+        buildMoreTree([
+          { to: '/portal/admin', label: 'Admin', permission: Permission.SETTINGS_MANAGE },
+        ]),
+        { initialEntries: ['/portal'], role: 'PARENT' },
+      );
+
+      const nav = await screen.findByRole('navigation', { name: 'Portal' });
+      expect(within(nav).queryAllByRole('link')).toEqual([]);
+      expect(within(nav).getByRole('button', { name: 'More' })).toBeTruthy();
+    });
+
+    it('is axe clean with more present', async () => {
+      const { container } = renderWithRouter(buildMoreTree(items), {
+        initialEntries: ['/portal'],
+        role: 'PARENT',
+      });
+      await screen.findByRole('button', { name: 'More' });
+      await expect(container).toHaveNoViolations();
+    });
+
+    it('caps the staff shape at 5 cells — 4 destinations + more, never more', async () => {
+      // [8.14.3]: the cap `bottom-nav.tsx`'s own header comment documents —
+      // staff's 4 permission-gated destinations plus `more`, never
+      // silently truncated by the component itself (that's the caller's
+      // job; this pins the shape the caller is expected to hand in).
+      const staffItems = [
+        { to: '/dashboard', label: 'Dashboard' },
+        { to: '/students', label: 'Students' },
+        { to: '/fees/dues', label: 'Student Dues' },
+        { to: '/payments/record', label: 'Record Payment' },
+      ];
+      renderWithRouter(buildMoreTree(staffItems), { initialEntries: ['/portal'], role: 'PARENT' });
+
+      const nav = await screen.findByRole('navigation', { name: 'Portal' });
+      expect(within(nav).getAllByRole('link')).toHaveLength(4);
+      expect(within(nav).getByRole('button', { name: 'More' })).toBeTruthy();
+    });
   });
 });

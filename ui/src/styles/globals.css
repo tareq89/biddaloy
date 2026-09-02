@@ -479,6 +479,24 @@
 }
 
 /**
+ * [8.14.3] Safe-area insets — the gesture-nav home indicator (iOS) and the
+ * three-button/gesture bar (Android) an installed PWA renders *underneath*.
+ * `env(safe-area-inset-*)` resolves to `0px` in every context that is not a
+ * standalone-display-mode PWA with `viewport-fit=cover` on the viewport meta
+ * (`client-admin/index.html`) — an ordinary browser tab, a desktop window,
+ * even Storybook, all read `0px` here, so wiring this in costs nothing
+ * outside the one context it fixes. Declared once, consumed by any fixed/
+ * sticky element that sits against a physical screen edge (`BottomNav`,
+ * `Toaster`'s `mobileOffset`) rather than each one calling `env()` for
+ * itself, so a future edge-docked element reads the same fallback-safe
+ * value instead of re-deriving it.
+ */
+:root {
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-top: env(safe-area-inset-top, 0px);
+}
+
+/**
  * Density (design contract section 6). Two numeric modes, selected by a
  * `data-density` attribute on a shell element, never by a component prop:
  *

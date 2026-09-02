@@ -214,3 +214,61 @@ export const WithBottomNav: Story = {
   decorators: [withMemoryRouter(['/portal'])],
   parameters: { viewport: { defaultViewport: 'mobile1' } },
 };
+
+/** [8.14.3] — the staff shape, in one story: `topBar` marked `hidden
+ * md:flex` (desktop-only now — this canvas is mobile-width, so it renders
+ * nothing), `mobileHeaderActions` (search + bell stand-ins) in the
+ * consolidated header row, `drawerHeader` (a `TenantBar` stand-in) inside
+ * the hamburger drawer, and a 4-item + `more` `bottomNav` at once — the
+ * combination `WithBottomNav` above deliberately does not show, since the
+ * portal drops the header row entirely once `bottomNav` is set. */
+export const StaffMobile: Story = {
+  args: {
+    navItems,
+    navGroups,
+    topBar: (
+      <div className="hidden border-b border-border-subtle px-4 py-2 text-sm md:flex">
+        Greenview School <span className="text-muted-foreground">Admin</span>
+      </div>
+    ),
+    mobileHeaderActions: (
+      <>
+        <button type="button" aria-label="Search (Ctrl+K)">
+          <CreditCardIcon className="size-4" aria-hidden="true" />
+        </button>
+        <button type="button" aria-label="Notifications">
+          <HomeIcon className="size-4" aria-hidden="true" />
+        </button>
+      </>
+    ),
+    drawerHeader: (
+      <div className="mb-4 flex flex-col gap-2">
+        <div className="text-sm">
+          Greenview School <span className="text-muted-foreground">Admin</span>
+        </div>
+      </div>
+    ),
+    bottomNav: (
+      <BottomNav
+        items={[
+          navItems[0]!,
+          { to: '/students', label: 'Students', icon: <UsersRoundIcon aria-hidden="true" /> },
+          {
+            to: '/fees',
+            label: 'Student Dues',
+            icon: <HandCoinsIcon aria-hidden="true" />,
+          },
+          {
+            to: '/fees',
+            label: 'Record Payment',
+            icon: <BanknoteIcon aria-hidden="true" />,
+          },
+        ]}
+        label="Quick navigation"
+        more={{ label: 'More' }}
+      />
+    ),
+  },
+  decorators: [withMemoryRouter(['/students'])],
+  parameters: { viewport: { defaultViewport: 'mobile1' } },
+};

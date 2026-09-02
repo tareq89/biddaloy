@@ -133,22 +133,53 @@ export interface AppShellProps {
    * pass a translated string gets readable English rather than nothing. */
   skipLinkLabel?: string;
   /** [5.2]'s opt-in mobile bottom bar — pass a `BottomNav`
-   * (`./bottom-nav.tsx`). When provided, the `<md` header-bar + hamburger
-   * drawer above is not rendered (a two-item portal behind a hamburger is
-   * one tap too many, and the approved mockup shows no drawer), the slot
-   * is pinned to the bottom of the viewport below `md`, and `<main>` gets
-   * bottom padding so content can scroll clear of it.
+   * (`./bottom-nav.tsx`). When provided, the slot is pinned to the bottom
+   * of the viewport below `md`, and `<main>` gets bottom padding (inclusive
+   * of the safe-area inset) so content can scroll clear of it.
    *
-   * **When omitted — every staff route — nothing about this component's
-   * rendering changes.** That's deliberate and regression-tested in
-   * `app-shell.test.tsx`: `_staff.tsx` and `portal.tsx` share this
-   * component, and folding bottom-nav behaviour into the shell's own nav
-   * rendering would push the staff shell through a code path it never
-   * uses. */
+   * [8.14.3]: providing `bottomNav` alone no longer removes the `<md`
+   * header-bar + hamburger drawer — the portal (no `mobileHeaderActions`)
+   * still drops it exactly as before, but a caller that also passes
+   * `mobileHeaderActions` (staff) keeps both: the drawer is where the full
+   * destination list still lives, `BottomNav`'s own `more` cell is what
+   * opens it. See `showMobileHeader` below and `app-shell.test.tsx`'s
+   * portal-regression-lock case, which pins the old portal-only behaviour
+   * byte-for-byte. */
   bottomNav?: ReactNode;
+  /** [8.14.3] Rendered between `brand` and the hamburger trigger in the
+   * `<md` header row — e.g. a search launcher and a notification bell.
+   * Passing this (even alongside `bottomNav`) keeps the header row and its
+   * drawer rendering; see `bottomNav`'s own comment. Omitted by every
+   * caller that doesn't need one — the portal today. */
+  mobileHeaderActions?: ReactNode;
+  /** [8.14.3] Rendered inside the drawer `DialogContent`, above the nav
+   * landmark — e.g. the staff `TenantBar` plus its own controls, so
+   * switching school or role stays one tap away even though the `<md`
+   * header row no longer carries `topBar`'s content directly. */
+  drawerHeader?: ReactNode;
   /** The active route's content — a consuming app's root route renders
    * `<AppShell navItems={...}><Outlet /></AppShell>`. */
   children: ReactNode;
+}
+
+/** [8.14.3] Lets a descendant (`BottomNav`'s `more` cell) open the same
+ * drawer the `<md` header's hamburger does, without `AppShell` needing to
+ * accept an imperative ref or `BottomNav` needing to reach back up through
+ * a prop no other caller would ever pass. Default is an inert no-op so
+ * `BottomNav` still renders standalone — in Storybook, in its own unit
+ * tests — without an `AppShell` ancestor. */
+export interface AppShellDrawerValue {
+  open: () => void;
+  isOpen: boolean;
+}
+
+const AppShellDrawerContext = React.createContext<AppShellDrawerValue>({
+  open: () => {},
+  isOpen: false,
+});
+
+export function useAppShellDrawer(): AppShellDrawerValue {
+  return React.useContext(AppShellDrawerContext);
 }
 
 function visibleItems(
@@ -316,6 +347,8 @@ export function AppShell({
   navLabel = 'Main',
   skipLinkLabel = 'Skip to main content',
   bottomNav,
+  mobileHeaderActions,
+  drawerHeader,
   children,
 }: AppShellProps) {
   const role = useActiveRole();
@@ -325,8 +358,20 @@ export function AppShell({
   // otherwise pass the presence check while rendering nothing — hiding the
   // `<md` drawer and leaving that viewport with no navigation at all.
   const hasBottomNav = Boolean(bottomNav);
+  // [8.14.3]: the header row (and its drawer) is dropped only for a
+  // `bottomNav`-only caller (the portal, today) — a caller that also hands
+  // over `mobileHeaderActions` (staff) keeps it, since that's the only
+  // place those actions and the "More" drawer have anywhere to render.
+  // `mobileHeaderActions !== undefined` rather than `Boolean(...)`: an
+  // empty fragment is still "I want the row", unlike `bottomNav`'s
+  // false/null case above where nothing at all would be left to open.
+  const showMobileHeader = !hasBottomNav || mobileHeaderActions !== undefined;
   const headerRef = React.useRef<HTMLDivElement>(null);
   const hasTopBar = topBar !== undefined;
+  const drawerContextValue = React.useMemo<AppShellDrawerValue>(
+    () => ({ open: () => setDrawerOpen(true), isOpen: drawerOpen }),
+    [drawerOpen],
+  );
 
   // Keeps `--app-header-h` (`APP_HEADER_HEIGHT_VAR`) in sync with the
   // sticky header row's actual rendered height, live — a `ResizeObserver`
@@ -370,79 +415,86 @@ export function AppShell({
   }, [hasTopBar]);
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <SkipLink targetId={APP_SHELL_MAIN_ID}>{skipLinkLabel}</SkipLink>
-      {hasTopBar && (
-        <div ref={headerRef} data-app-header className="sticky top-0 z-30">
-          {topBar}
-        </div>
-      )}
-      <div className="flex flex-1 flex-col md:flex-row">
-        {!hasBottomNav && (
-          <div className="flex items-center justify-between border-b border-border-subtle p-2 md:hidden">
-            {brand !== undefined && <div className="text-sm font-semibold">{brand}</div>}
-            <Dialog open={drawerOpen} onOpenChange={setDrawerOpen}>
-              <DialogTrigger asChild>
-                <Button type="button" variant="ghost" size="icon-sm">
-                  <MenuIcon />
-                  <span className="sr-only">{openMenuLabel}</span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent
-                showCloseButton={false}
-                className="start-0 top-0 h-full w-72 max-w-[85vw] translate-x-0 translate-y-0 rounded-none p-4 sm:max-w-[85vw]"
-              >
-                <div className="mb-4 flex items-center justify-between">
-                  {brand !== undefined ? (
-                    <DialogTitle className="text-sm font-semibold">{brand}</DialogTitle>
-                  ) : (
-                    <VisuallyHidden.Root asChild>
-                      <DialogTitle>Navigation</DialogTitle>
-                    </VisuallyHidden.Root>
-                  )}
-                  <DialogClose asChild>
-                    <Button type="button" variant="ghost" size="icon-sm">
-                      <XIcon />
-                      <span className="sr-only">{closeMenuLabel}</span>
-                    </Button>
-                  </DialogClose>
-                </div>
-                <NavContent
-                  navItems={navItems}
-                  navGroups={navGroups}
-                  role={role}
-                  navLabel={navLabel}
-                  onNavigate={() => setDrawerOpen(false)}
-                />
-              </DialogContent>
-            </Dialog>
+    <AppShellDrawerContext.Provider value={drawerContextValue}>
+      <div className="flex min-h-screen flex-col">
+        <SkipLink targetId={APP_SHELL_MAIN_ID}>{skipLinkLabel}</SkipLink>
+        {hasTopBar && (
+          <div ref={headerRef} data-app-header className="sticky top-0 z-30">
+            {topBar}
           </div>
         )}
+        <div className="flex flex-1 flex-col md:flex-row">
+          {showMobileHeader && (
+            <div className="flex items-center justify-between gap-2 border-b border-border-subtle p-2 md:hidden">
+              {brand !== undefined && <div className="truncate text-sm font-semibold">{brand}</div>}
+              {mobileHeaderActions}
+              <Dialog open={drawerOpen} onOpenChange={setDrawerOpen}>
+                <DialogTrigger asChild>
+                  <Button type="button" variant="ghost" size="icon-sm">
+                    <MenuIcon />
+                    <span className="sr-only">{openMenuLabel}</span>
+                  </Button>
+                </DialogTrigger>
+                <DialogContent
+                  showCloseButton={false}
+                  className="start-0 top-0 h-full w-72 max-w-[85vw] translate-x-0 translate-y-0 rounded-none p-4 sm:max-w-[85vw]"
+                >
+                  <div className="mb-4 flex items-center justify-between">
+                    {brand !== undefined ? (
+                      <DialogTitle className="text-sm font-semibold">{brand}</DialogTitle>
+                    ) : (
+                      <VisuallyHidden.Root asChild>
+                        <DialogTitle>Navigation</DialogTitle>
+                      </VisuallyHidden.Root>
+                    )}
+                    <DialogClose asChild>
+                      <Button type="button" variant="ghost" size="icon-sm">
+                        <XIcon />
+                        <span className="sr-only">{closeMenuLabel}</span>
+                      </Button>
+                    </DialogClose>
+                  </div>
+                  {drawerHeader}
+                  <NavContent
+                    navItems={navItems}
+                    navGroups={navGroups}
+                    role={role}
+                    navLabel={navLabel}
+                    onNavigate={() => setDrawerOpen(false)}
+                  />
+                </DialogContent>
+              </Dialog>
+            </div>
+          )}
 
-        {/* [8.14.1] `md:sticky md:top-0 md:max-h-svh` makes the sidebar scroll
-            on its own instead of scrolling away with the page. [8.14.2]
-            (sticky header) will adjust `md:top-0` to the header's height
-            once that lands — this ticket owns only this `<aside>`, it does
-            not make `topBar` sticky. */}
-        <aside className="hidden w-60 shrink-0 flex-col gap-6 overflow-y-auto border-r border-border-subtle bg-muted/30 p-4 md:sticky md:top-0 md:flex md:max-h-svh">
-          {brand !== undefined && <div className="text-sm font-semibold">{brand}</div>}
-          <NavContent navItems={navItems} navGroups={navGroups} role={role} navLabel={navLabel} />
-        </aside>
+          {/* [8.14.1] `md:sticky md:top-0 md:max-h-svh` makes the sidebar scroll
+              on its own instead of scrolling away with the page. [8.14.2]
+              (sticky header) will adjust `md:top-0` to the header's height
+              once that lands — this ticket owns only this `<aside>`, it does
+              not make `topBar` sticky. */}
+          <aside className="hidden w-60 shrink-0 flex-col gap-6 overflow-y-auto border-r border-border-subtle bg-muted/30 p-4 md:sticky md:top-0 md:flex md:max-h-svh">
+            {brand !== undefined && <div className="text-sm font-semibold">{brand}</div>}
+            <NavContent navItems={navItems} navGroups={navGroups} role={role} navLabel={navLabel} />
+          </aside>
 
-        {/* `tabIndex={-1}`: not a Tab stop itself, but focusable via the
-            skip link's `href="#main-content"` jump and via `useRouteFocus`'s
-            no-heading fallback — no `outline-none` here, a jump like this
-            should show the same visible focus ring any other target does
-            (WCAG 2.4.7). */}
-        <main
-          id={APP_SHELL_MAIN_ID}
-          tabIndex={-1}
-          className={cn('min-w-0 flex-1 p-6', hasBottomNav && 'pb-24 md:pb-6')}
-        >
-          {children}
-        </main>
+          {/* `tabIndex={-1}`: not a Tab stop itself, but focusable via the
+              skip link's `href="#main-content"` jump and via `useRouteFocus`'s
+              no-heading fallback — no `outline-none` here, a jump like this
+              should show the same visible focus ring any other target does
+              (WCAG 2.4.7). */}
+          <main
+            id={APP_SHELL_MAIN_ID}
+            tabIndex={-1}
+            className={cn(
+              'min-w-0 flex-1 p-6',
+              hasBottomNav && 'pb-[calc(6rem+var(--safe-area-bottom))] md:pb-6',
+            )}
+          >
+            {children}
+          </main>
+        </div>
+        {hasBottomNav && <div className="sticky bottom-0 z-10 md:hidden">{bottomNav}</div>}
       </div>
-      {hasBottomNav && <div className="sticky bottom-0 z-10 md:hidden">{bottomNav}</div>}
-    </div>
+    </AppShellDrawerContext.Provider>
   );
 }

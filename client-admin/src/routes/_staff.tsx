@@ -2,6 +2,7 @@ import { Permission, STAFF_ROLES } from '@biddaloy/shared';
 import {
   AppHeader,
   AppShell,
+  BottomNav,
   LocaleSwitcher,
   NotificationBell,
   SyncStatusIndicator,
@@ -23,6 +24,7 @@ import {
   HistoryIcon,
   LayoutDashboardIcon,
   ListChecksIcon,
+  MoreHorizontalIcon,
   ReceiptIcon,
   ScrollTextIcon,
   SchoolIcon,
@@ -65,14 +67,38 @@ export const Route = createFileRoute('/_staff')({
 function StaffLayout() {
   const { t } = useTranslation('nav');
 
-  const navItems = [
-    {
-      to: '/dashboard',
-      label: t('items.dashboard'),
-      permission: Permission.DASHBOARD_VIEW,
-      icon: <LayoutDashboardIcon aria-hidden="true" />,
-    },
-  ];
+  // [8.14.3]: these four are the sidebar's own item objects, hoisted to
+  // named consts so `bottomNavItems` below can reference the exact same
+  // objects instead of a second, independently maintained list — one
+  // permission per item, checked once by `BottomNav`'s own `hasPermission`
+  // filter (the same gate the sidebar uses), so the two surfaces cannot
+  // drift out of sync with each other.
+  const dashboardItem = {
+    to: '/dashboard',
+    label: t('items.dashboard'),
+    permission: Permission.DASHBOARD_VIEW,
+    icon: <LayoutDashboardIcon aria-hidden="true" />,
+  };
+  const studentsItem = {
+    to: '/students',
+    label: t('items.students'),
+    permission: Permission.STUDENT_READ,
+    icon: <GraduationCapIcon aria-hidden="true" />,
+  };
+  const duesItem = {
+    to: '/fees/dues',
+    label: t('items.studentDues'),
+    permission: Permission.FEE_COLLECT,
+    icon: <HandCoinsIcon aria-hidden="true" />,
+  };
+  const recordPaymentItem = {
+    to: '/payments/record',
+    label: t('items.recordPayment'),
+    permission: Permission.PAYMENT_RECORD,
+    icon: <BanknoteIcon aria-hidden="true" />,
+  };
+
+  const navItems = [dashboardItem];
 
   // Domain groups per [8.9.6]'s issue text — "so future modules slot in
   // without restructuring". Academics and Communication aren't listed
@@ -85,12 +111,7 @@ function StaffLayout() {
       id: 'people',
       label: t('groups.people'),
       items: [
-        {
-          to: '/students',
-          label: t('items.students'),
-          permission: Permission.STUDENT_READ,
-          icon: <GraduationCapIcon aria-hidden="true" />,
-        },
+        studentsItem,
         // [8.11.4] — gated on GUARDIAN_READ, the same permission
         // `GuardianController`'s `GET /guardians` requires server-side
         // (`students.controller.ts`'s `@Roles(ADMIN, ACCOUNTANT,
@@ -123,20 +144,7 @@ function StaffLayout() {
       // read-only context elsewhere, e.g. a student's own record) don't
       // get a collection queue they can't act on.
       pinnedLabel: t('groups.quickActions'),
-      pinnedItems: [
-        {
-          to: '/fees/dues',
-          label: t('items.studentDues'),
-          permission: Permission.FEE_COLLECT,
-          icon: <HandCoinsIcon aria-hidden="true" />,
-        },
-        {
-          to: '/payments/record',
-          label: t('items.recordPayment'),
-          permission: Permission.PAYMENT_RECORD,
-          icon: <BanknoteIcon aria-hidden="true" />,
-        },
-      ],
+      pinnedItems: [duesItem, recordPaymentItem],
       items: [
         {
           to: '/fees',
@@ -244,30 +252,71 @@ function StaffLayout() {
     },
   ];
 
+  // [8.14.3]: hoisted so the desktop `topBar` and the mobile
+  // `mobileHeaderActions` row share one definition instead of two
+  // independently maintained copies of the same five props.
+  const notificationBell = (
+    <NotificationBell
+      label={t('notifications.bellLabel')}
+      panelTitle={t('notifications.panelLabel')}
+      emptyLabel={t('notifications.empty')}
+      markAllReadLabel={t('notifications.markAllRead')}
+    />
+  );
+
   return (
     <RequireRole allow={STAFF_ROLES} redirectTo="/portal">
       <AppShell
         navItems={navItems}
         navGroups={navGroups}
         brand={t('brand')}
+        // [8.14.3]: desktop-only now — below `md` the consolidated mobile
+        // header row (`mobileHeaderActions`) carries search and the bell,
+        // and `TenantBar` moves into the drawer (`drawerHeader`) instead of
+        // stacking a second chrome row under this one. `topBar` itself
+        // stays wired (not deleted): `AppShell` still measures it into
+        // `--app-header-h` for the desktop sticky-chrome contract [8.14.2]
+        // established.
         topBar={
-          <AppHeader
-            start={<TenantBar />}
-            end={
-              <>
-                <SyncStatusIndicator />
-                <GlobalSearchLauncher />
-                <NotificationBell
-                  label={t('notifications.bellLabel')}
-                  panelTitle={t('notifications.panelLabel')}
-                  emptyLabel={t('notifications.empty')}
-                  markAllReadLabel={t('notifications.markAllRead')}
-                />
-                <LocaleSwitcher />
-                <ThemeToggle />
-                <StaffUserMenu />
-              </>
-            }
+          <div className="hidden md:flex">
+            <AppHeader
+              start={<TenantBar />}
+              end={
+                <>
+                  <SyncStatusIndicator />
+                  <GlobalSearchLauncher />
+                  {notificationBell}
+                  <LocaleSwitcher />
+                  <ThemeToggle />
+                  <StaffUserMenu />
+                </>
+              }
+            />
+          </div>
+        }
+        mobileHeaderActions={
+          <>
+            <GlobalSearchLauncher />
+            {notificationBell}
+          </>
+        }
+        drawerHeader={
+          <div className="mb-4 flex flex-col gap-2">
+            <TenantBar />
+            <div className="flex items-center gap-2">
+              <SyncStatusIndicator />
+              <ThemeToggle />
+            </div>
+          </div>
+        }
+        bottomNav={
+          <BottomNav
+            items={[dashboardItem, studentsItem, duesItem, recordPaymentItem]}
+            label={t('bottomNavStaffLabel')}
+            more={{
+              label: t('items.more'),
+              icon: <MoreHorizontalIcon className="size-5" aria-hidden="true" />,
+            }}
           />
         }
         openMenuLabel={t('openMenuLabel')}

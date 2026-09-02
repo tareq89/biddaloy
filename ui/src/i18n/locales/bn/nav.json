@@ -4,6 +4,7 @@
   "closeMenuLabel": "মেনু বন্ধ করুন",
   "navLabel": "প্রধান",
   "bottomNavLabel": "পোর্টাল",
+  "bottomNavStaffLabel": "দ্রুত নেভিগেশন",
   "skipToContent": "মূল বিষয়বস্তুতে যান",
   "items": {
     "dashboard": "ড্যাশবোর্ড",
@@ -24,7 +25,8 @@
     "auditLogs": "নিরীক্ষা লগ",
     "sendMessage": "বার্তা পাঠান",
     "feeReminders": "ফি রিমাইন্ডার",
-    "reminderHistory": "রিমাইন্ডার ইতিহাস"
+    "reminderHistory": "রিমাইন্ডার ইতিহাস",
+    "more": "আরও"
   },
   "groups": {
     "people": "ব্যক্তিবর্গ",
