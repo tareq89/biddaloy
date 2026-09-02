@@ -1,5 +1,6 @@
 import { GUARDIAN_ROLES, Permission } from '@biddaloy/shared';
 import {
+  AppHeader,
   AppShell,
   BottomNav,
   SyncStatusIndicator,
@@ -89,13 +90,15 @@ function PortalLayout() {
         navItems={navItems}
         brand={t('brand')}
         topBar={
-          <div className="flex flex-wrap items-center justify-between gap-x-2">
-            <TenantBar />
-            <div className="flex items-center gap-2">
-              <SyncStatusIndicator />
-              <ThemeToggle />
-            </div>
-          </div>
+          <AppHeader
+            start={<TenantBar />}
+            end={
+              <>
+                <SyncStatusIndicator />
+                <ThemeToggle />
+              </>
+            }
+          />
         }
         openMenuLabel={t('openMenuLabel')}
         closeMenuLabel={t('closeMenuLabel')}

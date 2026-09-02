@@ -7,8 +7,8 @@ import { getPersistedTheme } from '../theme/theme-storage';
 import { ThemeToggle } from './theme-toggle';
 
 // Mirrors `client-admin/index.html`'s static tag — not present in jsdom's
-// default (empty) document head, so component tests that assert on it have
-// to add their own, same as any other DOM fixture a test provides.
+// default (empty) document head, so a component test that asserts on it
+// has to add its own, same as any other DOM fixture this test provides.
 function addThemeColorMeta(): HTMLMetaElement {
   const meta = document.createElement('meta');
   meta.setAttribute('name', 'theme-color');
@@ -28,68 +28,88 @@ afterEach(async () => {
 });
 
 describe('ThemeToggle', () => {
-  it('starts light (no persisted choice, light OS default) with a "switch to dark" name', async () => {
-    renderWithProviders(<ThemeToggle />);
+  it('opens on trigger click, shows all three choices, and is axe clean', async () => {
+    const { baseElement, user } = renderWithProviders(<ThemeToggle />, { locale: 'en' });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Theme' })).toBeTruthy());
 
-    const button = await screen.findByRole('button', { name: 'Switch to dark theme' });
-    expect(button.getAttribute('aria-pressed')).toBe('false');
+    await user.click(screen.getByRole('button', { name: 'Theme' }));
+
+    expect(await screen.findByRole('menuitemradio', { name: 'Light' })).toBeTruthy();
+    expect(screen.getByRole('menuitemradio', { name: 'Dark' })).toBeTruthy();
+    expect(screen.getByRole('menuitemradio', { name: 'System' })).toBeTruthy();
+    // Menu content is portaled to document.body, outside `container` —
+    // `baseElement` (the portal's actual root) is what needs to be axe
+    // clean.
+    await expect(baseElement).toHaveNoViolations();
+  });
+
+  it('starts with "System" checked (no persisted choice, light OS default)', async () => {
+    const { user } = renderWithProviders(<ThemeToggle />, { locale: 'en' });
+    await user.click(await screen.findByRole('button', { name: 'Theme' }));
+
+    const system = await screen.findByRole('menuitemradio', { name: 'System' });
+    expect(system.getAttribute('aria-checked')).toBe('true');
     expect(document.documentElement.dataset.theme).toBeUndefined();
   });
 
-  it('flips the data-theme attribute, persists the choice, and flips its own name/pressed state', async () => {
-    const { user } = renderWithProviders(<ThemeToggle />);
-
-    const button = await screen.findByRole('button', { name: 'Switch to dark theme' });
-    await user.click(button);
+  it('picking Dark flips data-theme, persists the choice, and checks Dark next open', async () => {
+    const { user } = renderWithProviders(<ThemeToggle />, { locale: 'en' });
+    await user.click(await screen.findByRole('button', { name: 'Theme' }));
+    await user.click(await screen.findByRole('menuitemradio', { name: 'Dark' }));
 
     expect(document.documentElement.dataset.theme).toBe('dark');
     expect(getPersistedTheme()).toBe('dark');
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Switch to light theme' })).toBeTruthy(),
-    );
-    expect(
-      screen.getByRole('button', { name: 'Switch to light theme' }).getAttribute('aria-pressed'),
-    ).toBe('true');
+
+    await user.click(screen.getByRole('button', { name: 'Theme' }));
+    const dark = await screen.findByRole('menuitemradio', { name: 'Dark' });
+    expect(dark.getAttribute('aria-checked')).toBe('true');
   });
 
-  it('toggling back to light removes the attribute rather than setting it to "light"', async () => {
-    const { user } = renderWithProviders(<ThemeToggle />);
+  it('picking System after an explicit choice clears the persisted value', async () => {
+    const { user } = renderWithProviders(<ThemeToggle />, { locale: 'en' });
+    await user.click(await screen.findByRole('button', { name: 'Theme' }));
+    await user.click(await screen.findByRole('menuitemradio', { name: 'Dark' }));
+    expect(getPersistedTheme()).toBe('dark');
 
-    await user.click(await screen.findByRole('button', { name: 'Switch to dark theme' }));
-    await user.click(await screen.findByRole('button', { name: 'Switch to light theme' }));
+    await user.click(screen.getByRole('button', { name: 'Theme' }));
+    await user.click(await screen.findByRole('menuitemradio', { name: 'System' }));
 
+    expect(getPersistedTheme()).toBeNull();
     expect(document.documentElement.dataset.theme).toBeUndefined();
-    expect(getPersistedTheme()).toBe('light');
   });
 
-  it('updates the theme-color meta tag to the dark surface colour, and back', async () => {
-    const { user } = renderWithProviders(<ThemeToggle />);
+  it('updates the theme-color meta tag when the resolved theme changes', async () => {
+    const { user } = renderWithProviders(<ThemeToggle />, { locale: 'en' });
     const meta = document.querySelector('meta[name="theme-color"]');
 
-    await user.click(await screen.findByRole('button', { name: 'Switch to dark theme' }));
+    await user.click(await screen.findByRole('button', { name: 'Theme' }));
+    await user.click(await screen.findByRole('menuitemradio', { name: 'Dark' }));
     expect(meta?.getAttribute('content')).toBe('#1e293b');
 
-    await user.click(await screen.findByRole('button', { name: 'Switch to light theme' }));
+    await user.click(screen.getByRole('button', { name: 'Theme' }));
+    await user.click(await screen.findByRole('menuitemradio', { name: 'Light' }));
     expect(meta?.getAttribute('content')).toBe('#4a3fd4');
   });
 
-  it('is axe clean in both the light and dark rendered states', async () => {
-    const { user, baseElement } = renderWithProviders(<ThemeToggle />);
+  it('announces the switch via the aria-live region', async () => {
+    const { user } = renderWithProviders(<ThemeToggle />, { locale: 'en' });
+    await user.click(await screen.findByRole('button', { name: 'Theme' }));
+    await user.click(await screen.findByRole('menuitemradio', { name: 'Dark' }));
 
-    await expect(baseElement).toHaveNoViolations();
-
-    await user.click(await screen.findByRole('button', { name: 'Switch to dark theme' }));
-    await expect(baseElement).toHaveNoViolations();
+    expect(await screen.findByText('Theme set to Dark')).toBeTruthy();
   });
 
-  it('the choice made through the toggle survives a fresh mount, same as a reload would show', async () => {
-    const first = renderWithProviders(<ThemeToggle />);
-    await first.user.click(await screen.findByRole('button', { name: 'Switch to dark theme' }));
+  it('the choice made through the menu survives a fresh mount, same as a reload would show', async () => {
+    const first = renderWithProviders(<ThemeToggle />, { locale: 'en' });
+    await first.user.click(await screen.findByRole('button', { name: 'Theme' }));
+    await first.user.click(await screen.findByRole('menuitemradio', { name: 'Dark' }));
     first.unmount();
 
-    renderWithProviders(<ThemeToggle />);
+    const { user } = renderWithProviders(<ThemeToggle />, { locale: 'en' });
+    await user.click(await screen.findByRole('button', { name: 'Theme' }));
 
-    expect(await screen.findByRole('button', { name: 'Switch to light theme' })).toBeTruthy();
+    const dark = await screen.findByRole('menuitemradio', { name: 'Dark' });
+    expect(dark.getAttribute('aria-checked')).toBe('true');
     expect(document.documentElement.dataset.theme).toBe('dark');
   });
 });

@@ -74,3 +74,29 @@ export function clearPersistedTheme(): void {
 export function resolveTheme(stored: Theme | null, systemPrefersDark: boolean): Theme {
   return stored ?? (systemPrefersDark ? 'dark' : 'light');
 }
+
+/** The tri-state a user actually picks from in `ThemeToggle`: an explicit
+ * `'light'`/`'dark'`, or `'system'` — "follow `prefers-color-scheme`".
+ * Storage itself stays binary (see file header) — `'system'` is never
+ * written to `localStorage`, it's `getThemePreference()`'s name for "no
+ * explicit choice was stored". */
+export type ThemePreference = Theme | 'system';
+
+/** Reads the tri-state preference for UI purposes (which `MenuRadioItem` is
+ * checked). Thin wrapper over `getPersistedTheme()` — `null` becomes
+ * `'system'` here because a radio group needs a selected value, not an
+ * absence. */
+export function getThemePreference(): ThemePreference {
+  return getPersistedTheme() ?? 'system';
+}
+
+/** Sets the tri-state preference: `'system'` clears the persisted choice
+ * (falls back to `prefers-color-scheme` again), `'light'`/`'dark'` persist
+ * it same as `persistTheme()`. */
+export function setThemePreference(preference: ThemePreference): void {
+  if (preference === 'system') {
+    clearPersistedTheme();
+  } else {
+    persistTheme(preference);
+  }
+}

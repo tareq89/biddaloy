@@ -17,10 +17,12 @@ export { switchActiveTenant } from './tenant';
 export { login, logout, logoutAll } from './auth';
 export { useAccessToken, useActiveRole, useActiveTenant, useCurrentUserId } from './auth-state';
 export {
+  currentUserQueryOptions,
   userKeys,
   userQueryOptions,
   usersQueryOptions,
   useCreateUser,
+  useCurrentUser,
   useRemoveMember,
   useUpdateUser,
   useUser,

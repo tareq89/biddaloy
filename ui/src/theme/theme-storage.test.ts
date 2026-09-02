@@ -2,9 +2,11 @@ import { afterEach, describe, it, expect, vi } from 'vitest';
 
 import {
   getPersistedTheme,
+  getThemePreference,
   persistTheme,
   clearPersistedTheme,
   resolveTheme,
+  setThemePreference,
 } from './theme-storage';
 
 afterEach(() => {
@@ -75,5 +77,29 @@ describe('resolveTheme', () => {
   it('falls back to the OS preference when nothing was stored', () => {
     expect(resolveTheme(null, true)).toBe('dark');
     expect(resolveTheme(null, false)).toBe('light');
+  });
+});
+
+describe('getThemePreference / setThemePreference (tri-state)', () => {
+  it('returns "system" when nothing is stored', () => {
+    expect(getThemePreference()).toBe('system');
+  });
+
+  it('setThemePreference("system") clears whatever was persisted', () => {
+    persistTheme('dark');
+    expect(getThemePreference()).toBe('dark');
+
+    setThemePreference('system');
+
+    expect(getThemePreference()).toBe('system');
+    expect(getPersistedTheme()).toBeNull();
+  });
+
+  it('round-trips an explicit "light"/"dark" preference', () => {
+    setThemePreference('dark');
+    expect(getThemePreference()).toBe('dark');
+
+    setThemePreference('light');
+    expect(getThemePreference()).toBe('light');
   });
 });

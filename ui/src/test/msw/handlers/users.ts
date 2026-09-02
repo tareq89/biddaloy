@@ -18,6 +18,13 @@ const listEmpty = http.get('/api/v1/users', ({ request }) =>
   HttpResponse.json(paginate([], request.url)),
 );
 
+/** `GET /users/me` — [8.14.2]'s `useCurrentUser`. Registered **before**
+ * `getOne` in `userDefaultHandlers` below: MSW matches path handlers in
+ * registration order, and `/api/v1/users/:id` would otherwise swallow
+ * `/api/v1/users/me` too (`:id` matches the literal string `"me"` just
+ * fine). */
+const getMe = http.get('/api/v1/users/me', () => HttpResponse.json(userResponseFactory()));
+
 const getOne = http.get('/api/v1/users/:id', ({ params }) =>
   HttpResponse.json(userResponseFactory({ id: params.id as string })),
 );
@@ -67,6 +74,7 @@ const removeSelfBlocked = http.delete('/api/v1/users/:id', () =>
 export const userHandlers = {
   list,
   listEmpty,
+  getMe,
   getOne,
   create,
   createConflict,
@@ -75,4 +83,4 @@ export const userHandlers = {
   removeSelfBlocked,
 };
 
-export const userDefaultHandlers = [list, getOne, create, update, remove];
+export const userDefaultHandlers = [list, getMe, getOne, create, update, remove];

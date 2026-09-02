@@ -140,47 +140,47 @@ export function TenantBar() {
     setPendingSwitch(null);
   }
 
+  const canSwitch = otherSchools.length > 0 || rolesHere.length > 0;
+
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-border-subtle px-4 py-2 text-sm">
+    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm">
       <span className="truncate font-semibold text-foreground">{activeName}</span>
-      {memberships.length > 1 && (
-        <>
-          <span className="text-muted-foreground">{roleLabel(active.role)}</span>
-          <Menu>
-            <MenuTrigger asChild>
-              <Button variant="ghost" size="sm">
-                {rolesHere.length > 0
-                  ? t('tenantBar.switchSchoolOrRole')
-                  : t('tenantBar.switchSchool')}
-              </Button>
-            </MenuTrigger>
-            <MenuContent align="end">
-              {otherSchools.length > 0 && (
-                <>
-                  <MenuLabel>{t('tenantBar.switchSchool')}</MenuLabel>
-                  {otherSchools.map((school) => (
-                    <MenuItem key={membershipKey(school)} onSelect={() => setPendingSwitch(school)}>
-                      {schoolLabel(school)}
-                    </MenuItem>
-                  ))}
-                </>
-              )}
-              {rolesHere.length > 0 && (
-                <>
-                  <MenuLabel>{t('tenantBar.switchRole')}</MenuLabel>
-                  {rolesHere.map((membership) => (
-                    <MenuItem
-                      key={membershipKey(membership)}
-                      onSelect={() => setPendingSwitch(membership)}
-                    >
-                      {roleLabel(membership.role)}
-                    </MenuItem>
-                  ))}
-                </>
-              )}
-            </MenuContent>
-          </Menu>
-        </>
+      <span className="text-muted-foreground">{roleLabel(active.role)}</span>
+      {canSwitch && (
+        <Menu>
+          <MenuTrigger asChild>
+            <Button variant="ghost" size="sm">
+              {rolesHere.length > 0
+                ? t('tenantBar.switchSchoolOrRole')
+                : t('tenantBar.switchSchool')}
+            </Button>
+          </MenuTrigger>
+          <MenuContent align="end">
+            {otherSchools.length > 0 && (
+              <>
+                <MenuLabel>{t('tenantBar.switchSchool')}</MenuLabel>
+                {otherSchools.map((school) => (
+                  <MenuItem key={membershipKey(school)} onSelect={() => setPendingSwitch(school)}>
+                    {schoolLabel(school)}
+                  </MenuItem>
+                ))}
+              </>
+            )}
+            {rolesHere.length > 0 && (
+              <>
+                <MenuLabel>{t('tenantBar.switchRole')}</MenuLabel>
+                {rolesHere.map((membership) => (
+                  <MenuItem
+                    key={membershipKey(membership)}
+                    onSelect={() => setPendingSwitch(membership)}
+                  >
+                    {roleLabel(membership.role)}
+                  </MenuItem>
+                ))}
+              </>
+            )}
+          </MenuContent>
+        </Menu>
       )}
 
       <Dialog

@@ -1,6 +1,13 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { describe, expect, it } from 'vitest';
 
 import { CONTRAST_PAIRS, dark, light, motion, neutral, shadows } from '../../tailwind.preset';
+
+const stylesDir = dirname(fileURLToPath(import.meta.url));
+const globalsCss = () => readFileSync(join(stylesDir, 'globals.css'), 'utf8');
 
 /** Every `/ 0.NN` alpha in a shadow string, in order. */
 function alphasOf(shadow: string): number[] {
@@ -181,5 +188,34 @@ describe('motion tokens (design contract §7)', () => {
     expect(controlPoints(motion.easeStandard)[2]).toBeLessThan(
       controlPoints(motion.easeExit)[2] as number,
     );
+  });
+});
+
+/**
+ * Sticky header scroll contract ([8.14.2]) — `--app-header-h`,
+ * `scroll-padding-top`, and the `scroll-margin-top` base rule that
+ * `AppShell` (`../components/app-shell.tsx`'s own `APP_HEADER_HEIGHT_VAR`
+ * export) and #369's post-transition focus scroll both depend on.
+ * Read-the-file-and-assert-the-substring, same style `density.spec.ts`
+ * uses for `--control-h` — jsdom doesn't apply a real stylesheet, so a
+ * rendered `getComputedStyle()` assertion would pass regardless of what
+ * the CSS actually says.
+ */
+describe('sticky header scroll contract ([8.14.2])', () => {
+  it('declares --app-header-h at 0px on :root, overwritten live by AppShell', () => {
+    const css = globalsCss();
+    expect(css).toContain('--app-header-h: 0px;');
+  });
+
+  it('sets scroll-padding-top on :root to var(--app-header-h)', () => {
+    const css = globalsCss();
+    expect(css).toContain('scroll-padding-top: var(--app-header-h);');
+  });
+
+  it('sets scroll-margin-top on #main-content, h1, and [data-focus-anchor]', () => {
+    const css = globalsCss();
+    expect(css).toContain('#main-content,');
+    expect(css).toContain('[data-focus-anchor] {');
+    expect(css).toContain('scroll-margin-top: calc(var(--app-header-h) + 0.5rem);');
   });
 });

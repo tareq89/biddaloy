@@ -1,48 +1,82 @@
 /**
- * Dark-mode toggle — [8.13.12]'s user-facing switch for the token pairs
- * `globals.css`'s `:root[data-theme="dark"]` block has carried since
- * [8.1.2]. All the actual state (persistence, `prefers-color-scheme`
- * fallback, live OS sync) lives in `useTheme()` (`ui/src/theme/`); this
- * component is UI only, in the same spirit as `LocaleSwitcher` right next
- * to it.
+ * Tri-state theme control — [8.14.2] rebuilds the old two-state
+ * light/dark toggle button ([8.13.12]) into a `Menu` + `MenuRadioGroup`,
+ * the same shape `LocaleSwitcher` (`./locale-switcher.tsx`) already
+ * established for a shell-level tri/multi-choice control. "Follow the
+ * system" is now a real, selectable third option — not just the absence
+ * of a stored choice — because a header-level control needs to let a user
+ * *return* to system-following after having picked light or dark, which
+ * a two-state toggle has no way to express.
  *
- * A single icon button, not a menu — there are only two rendered states
- * (`light`/`dark`; "follow the system" is the absence of a stored choice,
- * not a third UI option, see `theme-storage.ts`'s own comment). The icon
- * and accessible name both name the theme a click switches *to*, not the
- * one currently active: a moon while light ("Switch to dark theme"), a sun
- * while dark ("Switch to light theme"). `aria-pressed` still reflects
- * whether dark is *currently* active, so assistive tech gets both signals —
- * the name describes the action, the pressed state describes the outcome
- * of the last one.
+ * All the actual state (persistence, `prefers-color-scheme` fallback,
+ * live OS sync) still lives in `useTheme()` (`ui/src/theme/`); this
+ * component is UI only. The trigger icon reflects the **resolved** theme
+ * (`SunIcon`/`MoonIcon`), not the preference — a `'system'` preference on
+ * a dark-OS visitor shows the moon, same as an explicit `'dark'` choice,
+ * because that's what's actually on screen. `MonitorIcon` only appears as
+ * the radio item's own icon for the `'system'` choice itself.
  *
- * String literals below are the same accepted, documented gap every `ui`
- * wrapper carries today — see `ui/CONTRIBUTING.md`'s "i18n rules" section
- * and `LocaleSwitcher`'s own comment: `ui`'s wrapper layer doesn't consume
- * translation keys yet, real i18n enforcement is scoped to `client-admin`
- * only ([8.7.4]).
+ * Following `tenant-bar.tsx`'s precedent (not `LocaleSwitcher`'s
+ * English-fallback-prop pattern — see that file's own comment on why):
+ * this component calls `useTranslation('nav')` directly, so the epic's
+ * i18n acceptance criterion binds to it and `check-i18n-keys.mjs`
+ * resolves its bare keys against the `nav` namespace.
  */
-import { MoonIcon, SunIcon } from 'lucide-react';
+import { MonitorIcon, MoonIcon, SunIcon } from 'lucide-react';
+import * as React from 'react';
 
+import { useTranslation } from '../i18n';
 import { useTheme } from '../theme/theme-provider';
+import type { ThemePreference } from '../theme/theme-storage';
 
 import { Button } from './button';
+import { Menu, MenuContent, MenuLabel, MenuRadioGroup, MenuRadioItem, MenuTrigger } from './menu';
 
 export function ThemeToggle() {
-  const { theme, toggleTheme } = useTheme();
+  const { t } = useTranslation('nav');
+  const { theme, preference, setPreference } = useTheme();
+  const [announcement, setAnnouncement] = React.useState('');
   const isDark = theme === 'dark';
-  const label = isDark ? 'Switch to light theme' : 'Switch to dark theme';
+
+  function handleValueChange(value: string): void {
+    const next = value as ThemePreference;
+    if (next === preference) return;
+    setPreference(next);
+    setAnnouncement(t('theme.announce', { mode: t(`theme.${next}`) }));
+  }
 
   return (
-    <Button
-      variant="ghost"
-      size="icon"
-      iconOnly
-      aria-label={label}
-      aria-pressed={isDark}
-      onClick={toggleTheme}
-    >
-      {isDark ? <SunIcon /> : <MoonIcon />}
-    </Button>
+    <>
+      <Menu>
+        <MenuTrigger asChild>
+          <Button variant="ghost" size="icon" iconOnly aria-label={t('theme.label')}>
+            {isDark ? <SunIcon /> : <MoonIcon />}
+          </Button>
+        </MenuTrigger>
+        <MenuContent align="end">
+          <MenuLabel>{t('theme.groupLabel')}</MenuLabel>
+          <MenuRadioGroup value={preference} onValueChange={handleValueChange}>
+            <MenuRadioItem value="light">
+              <SunIcon aria-hidden="true" />
+              {t('theme.light')}
+            </MenuRadioItem>
+            <MenuRadioItem value="dark">
+              <MoonIcon aria-hidden="true" />
+              {t('theme.dark')}
+            </MenuRadioItem>
+            <MenuRadioItem value="system">
+              <MonitorIcon aria-hidden="true" />
+              {t('theme.system')}
+            </MenuRadioItem>
+          </MenuRadioGroup>
+        </MenuContent>
+      </Menu>
+      {/* Announces the switch itself — same pattern as `LocaleSwitcher`'s
+       * own announcer span, see its comment for why: `role="menuitemradio"`'s
+       * `aria-checked` change is only heard while the menu is open. */}
+      <span className="sr-only" aria-live="polite">
+        {announcement}
+      </span>
+    </>
   );
 }

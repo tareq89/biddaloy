@@ -9,7 +9,12 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { LINK_KEYS, expectKeyboardOperable } from '../test/a11y';
 import { renderWithRouter } from '../test/render-with-router';
 
-import { APP_SHELL_MAIN_ID, AppShell, type AppShellNavGroup } from './app-shell';
+import {
+  APP_HEADER_HEIGHT_VAR,
+  APP_SHELL_MAIN_ID,
+  AppShell,
+  type AppShellNavGroup,
+} from './app-shell';
 
 const navItems = [{ to: '/', label: 'Dashboard', icon: <HomeIcon aria-hidden="true" /> }];
 
@@ -146,6 +151,44 @@ describe('AppShell', () => {
 
     await screen.findByText('Students content');
     expect(screen.queryByText('Greenview School')).toBeNull();
+  });
+
+  describe('[8.14.2] --app-header-h contract', () => {
+    afterEach(() => {
+      document.documentElement.style.removeProperty(APP_HEADER_HEIGHT_VAR);
+    });
+
+    it('writes --app-header-h onto documentElement when topBar is present, and removes it on unmount', async () => {
+      const rootRoute = createRootRoute();
+      const indexRoute = createRoute({
+        getParentRoute: () => rootRoute,
+        path: '/',
+        component: () => (
+          <AppShell navItems={navItems} brand="Biddaloy" topBar={<div>Greenview School</div>}>
+            <p>Dashboard content</p>
+          </AppShell>
+        ),
+      });
+      const { unmount } = renderWithRouter(rootRoute.addChildren([indexRoute]), {
+        initialEntries: ['/'],
+      });
+
+      await screen.findByText('Greenview School');
+      await waitFor(() =>
+        expect(document.documentElement.style.getPropertyValue(APP_HEADER_HEIGHT_VAR)).not.toBe(''),
+      );
+
+      unmount();
+
+      expect(document.documentElement.style.getPropertyValue(APP_HEADER_HEIGHT_VAR)).toBe('');
+    });
+
+    it('does not write --app-header-h when topBar is absent', async () => {
+      renderWithRouter(buildRouteTree(), { initialEntries: ['/students'], role: 'SUPER_ADMIN' });
+
+      await screen.findByText('Students content');
+      expect(document.documentElement.style.getPropertyValue(APP_HEADER_HEIGHT_VAR)).toBe('');
+    });
   });
 
   describe('[8.9.6] domain groups, role-gated', () => {

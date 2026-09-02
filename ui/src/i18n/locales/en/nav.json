@@ -82,6 +82,29 @@
       "teachers": "Teachers",
       "invoices": "Invoices",
       "receipts": "Receipts"
-    }
+    },
+    "shortcutHint": "Ctrl+K",
+    "launcherPlaceholder": "Search…"
+  },
+  "theme": {
+    "label": "Theme",
+    "groupLabel": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "announce": "Theme set to {{mode}}"
+  },
+  "language": {
+    "label": "Change language",
+    "groupLabel": "Language",
+    "announce": "Language switched to {{language}}"
+  },
+  "userMenu": {
+    "label": "Account menu",
+    "signOut": "Sign out",
+    "signingOut": "Signing out…",
+    "loadingName": "Loading…",
+    "profile": "Profile",
+    "profileComingSoon": "Profile page coming soon"
   }
 }

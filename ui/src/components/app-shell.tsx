@@ -55,6 +55,15 @@ import { SkipLink } from './skip-link';
  * copy of the string. */
 export const APP_SHELL_MAIN_ID = 'main-content';
 
+/** CSS custom property carrying the live pixel height of the sticky header
+ * row. Written onto `document.documentElement` by `AppShell`; stays `0px`
+ * when no shell is mounted (`/login`, `/select-school`). Import this
+ * rather than retyping the string — [8.14.5] anchors its post-
+ * `transition.finished` focus scroll on the same value, and
+ * `ui/src/styles/globals.css`'s `scroll-padding-top`/`scroll-margin-top`
+ * rules read it too. */
+export const APP_HEADER_HEIGHT_VAR = '--app-header-h';
+
 export interface AppShellNavItem {
   /** A route path, e.g. `/students`. Untyped against the app's route
    * tree on purpose — `ui/` can't depend on a specific consumer's
@@ -316,11 +325,58 @@ export function AppShell({
   // otherwise pass the presence check while rendering nothing — hiding the
   // `<md` drawer and leaving that viewport with no navigation at all.
   const hasBottomNav = Boolean(bottomNav);
+  const headerRef = React.useRef<HTMLDivElement>(null);
+  const hasTopBar = topBar !== undefined;
+
+  // Keeps `--app-header-h` (`APP_HEADER_HEIGHT_VAR`) in sync with the
+  // sticky header row's actual rendered height, live — a `ResizeObserver`
+  // rather than a one-shot measurement because the row's height is not
+  // fixed: it wraps onto two lines below `md` (`TenantBar`'s
+  // `flex-wrap`), and a locale switch can change `TenantBar`'s text
+  // length enough to wrap or unwrap. Written onto `document.documentElement`,
+  // not this component's own root — `scroll-padding-top` only takes effect
+  // on the *scroll container*, which is `<html>` here (the shell itself is
+  // `min-h-screen`, the page scrolls at the root), so a variable written
+  // anywhere else would leave `:root { scroll-padding-top: … }` reading
+  // `0px` forever. Same precedent `theme-provider.tsx` already sets by
+  // writing theme state onto `documentElement` rather than a local ref.
+  React.useLayoutEffect(() => {
+    if (!hasTopBar) return undefined;
+    const node = headerRef.current;
+    if (!node) return undefined;
+
+    function setHeightVar(height: number): void {
+      document.documentElement.style.setProperty(APP_HEADER_HEIGHT_VAR, `${height}px`);
+    }
+
+    setHeightVar(node.getBoundingClientRect().height);
+
+    // `ui:node`/older test environments may not implement `ResizeObserver`
+    // (`jsdom` did not until relatively recently) — same
+    // `typeof X === 'function'` guard `theme-provider.tsx:135` uses for
+    // `matchMedia`, so a missing API degrades to "static height on mount"
+    // rather than throwing.
+    if (typeof ResizeObserver !== 'function') return undefined;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) setHeightVar(entry.contentRect.height);
+    });
+    observer.observe(node);
+
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.removeProperty(APP_HEADER_HEIGHT_VAR);
+    };
+  }, [hasTopBar]);
 
   return (
     <div className="flex min-h-screen flex-col">
       <SkipLink targetId={APP_SHELL_MAIN_ID}>{skipLinkLabel}</SkipLink>
-      {topBar}
+      {hasTopBar && (
+        <div ref={headerRef} data-app-header className="sticky top-0 z-30">
+          {topBar}
+        </div>
+      )}
       <div className="flex flex-1 flex-col md:flex-row">
         {!hasBottomNav && (
           <div className="flex items-center justify-between border-b border-border-subtle p-2 md:hidden">

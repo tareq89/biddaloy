@@ -182,11 +182,14 @@ export { LocaleSwitcher, type LocaleSwitcherProps } from './locale-switcher';
 export { ThemeToggle } from './theme-toggle';
 export {
   AppShell,
+  APP_HEADER_HEIGHT_VAR,
   APP_SHELL_MAIN_ID,
   type AppShellProps,
   type AppShellNavItem,
   type AppShellNavGroup,
 } from './app-shell';
+export { AppHeader, type AppHeaderProps } from './app-header';
+export { UserMenu, type UserMenuProps } from './user-menu';
 export { SkipLink, type SkipLinkProps } from './skip-link';
 export { RouteAnnouncer, type RouteAnnouncerProps } from './route-announcer';
 export {

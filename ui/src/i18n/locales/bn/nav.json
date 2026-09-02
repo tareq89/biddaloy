@@ -82,6 +82,29 @@
       "teachers": "শিক্ষক",
       "invoices": "চালান",
       "receipts": "রসিদ"
-    }
+    },
+    "shortcutHint": "Ctrl+K",
+    "launcherPlaceholder": "অনুসন্ধান…"
+  },
+  "theme": {
+    "label": "থিম",
+    "groupLabel": "থিম",
+    "light": "হালকা",
+    "dark": "গাঢ়",
+    "system": "সিস্টেম",
+    "announce": "থিম {{mode}} সেট করা হয়েছে"
+  },
+  "language": {
+    "label": "ভাষা পরিবর্তন করুন",
+    "groupLabel": "ভাষা",
+    "announce": "ভাষা {{language}}-এ পরিবর্তন করা হয়েছে"
+  },
+  "userMenu": {
+    "label": "অ্যাকাউন্ট মেনু",
+    "signOut": "সাইন আউট",
+    "signingOut": "সাইন আউট হচ্ছে…",
+    "loadingName": "লোড হচ্ছে…",
+    "profile": "প্রোফাইল",
+    "profileComingSoon": "প্রোফাইল পৃষ্ঠা শীঘ্রই আসছে"
   }
 }

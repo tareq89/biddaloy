@@ -6,7 +6,14 @@ import { userResponseFactory } from '../test/factories';
 import { server } from '../test/msw/server';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
 
-import { useCreateUser, useRemoveMember, useUpdateUser, useUser, useUsers } from './users';
+import {
+  useCreateUser,
+  useCurrentUser,
+  useRemoveMember,
+  useUpdateUser,
+  useUser,
+  useUsers,
+} from './users';
 
 describe('useUsers', () => {
   it('resolves with the paginated staff list', async () => {
@@ -75,6 +82,23 @@ describe('useUser', () => {
       tenantId: 'tenant-1',
     });
     expect(result.current.fetchStatus).toBe('idle');
+  });
+});
+
+describe('useCurrentUser', () => {
+  it('resolves full_name against GET /users/me', async () => {
+    server.use(
+      http.get('/api/v1/users/me', () =>
+        HttpResponse.json(userResponseFactory({ id: 'user-1', full_name: 'Rahim' })),
+      ),
+    );
+
+    const { result } = renderHookWithProviders(() => useCurrentUser(), {
+      tenantId: 'tenant-1',
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.full_name).toBe('Rahim');
   });
 });
 

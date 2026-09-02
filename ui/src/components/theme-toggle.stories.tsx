@@ -1,24 +1,35 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { expect, within } from 'storybook/test';
+import { expect, userEvent, within } from 'storybook/test';
 
 import { darkDecorator, darkDecoratorParameters } from '../../.storybook/dark-decorator';
 
 import { ThemeToggle } from './theme-toggle';
 
 /**
- * Two rendered states — `aria-pressed="false"` (light, showing a moon:
- * "switch to dark") and `aria-pressed="true"` (dark, showing a sun: "switch
- * to light"). No loading/error/disabled state applies here — this is a
- * stateless flip, not a form control or a data-fetching component.
+ * [8.14.2] rebuilt this from a two-state `aria-pressed` flip button into a
+ * tri-state `Menu` + `MenuRadioGroup`, so "follow the system" became a
+ * *selectable* option rather than merely the absence of a stored choice.
+ * These stories were rewritten with it: the old `Light`/`Dark` stories
+ * asserted an accessible name of "Switch to dark theme" and an
+ * `aria-pressed` attribute, neither of which exists any more.
  *
- * Both stories seed `localStorage` explicitly (rather than relying on
- * whatever a previous story left behind) before mount: `ThemeToggle`'s own
- * resolved state comes from `useTheme()` (`getPersistedTheme()` +
- * `prefers-color-scheme`), not from `darkDecorator`'s document-level
- * attribute. Pinning only the tokens without pinning the persisted choice
- * they came from would show a "pressed" dark palette next to an
- * "unpressed" (light) toggle — a combination the real app can never
- * actually reach.
+ * Three preference states are worth showing, and they are not the same axis
+ * as the two *rendered* palettes:
+ *
+ * - `Light` / `Dark` — an explicit stored choice. The trigger icon reflects
+ *   the **resolved** theme, so it is the inverse-looking one (a moon offers
+ *   "go dark" while light is showing).
+ * - `System` — no stored choice; the radio group's checked item is
+ *   `system`, which is the state the old two-state toggle could never
+ *   express and the whole reason this ticket changed the control.
+ *
+ * Every story seeds `localStorage` explicitly rather than relying on
+ * whatever a previous story left behind, because `ThemeToggle`'s state comes
+ * from `useTheme()` (`getPersistedTheme()` + `prefers-color-scheme`), not
+ * from `darkDecorator`'s document-level attribute. Pinning the tokens
+ * without pinning the persisted choice they came from would show a dark
+ * palette next to a control claiming "light" — a combination the real app
+ * can never reach.
  *
  * No `tags: ['autodocs']` here, deliberately, for the same reason
  * `borders.stories.tsx`/`elevation.stories.tsx` omit it: `Dark` uses
@@ -35,22 +46,32 @@ const meta: Meta<typeof ThemeToggle> = {
 export default meta;
 type Story = StoryObj<typeof ThemeToggle>;
 
+/** Opens the menu and asserts which preference is checked. `MenuContent`
+ * portals to `document.body`, outside `canvasElement` — same reasoning as
+ * `locale-switcher.stories.tsx`'s own `Open` play function. */
+async function expectCheckedPreference(canvasElement: HTMLElement, name: string) {
+  const canvas = within(canvasElement);
+  await userEvent.click(canvas.getByRole('button', { name: 'Theme' }));
+
+  const body = within(canvasElement.ownerDocument.body);
+  const item = await body.findByRole('menuitemradio', { name });
+  await expect(item).toHaveAttribute('aria-checked', 'true');
+}
+
 export const Light: Story = {
   loaders: [
     () => {
-      // An explicit choice, not `removeItem` — removing the key would
-      // resolve through `prefers-color-scheme` instead, which renders dark
-      // (and fails this story's own `aria-pressed="false"` assertion) on
-      // any host whose OS preference is dark.
+      // An explicit choice, not `removeItem` — removing the key is now the
+      // `System` story's job, and would otherwise resolve through
+      // `prefers-color-scheme` and render dark on any host whose OS
+      // preference is dark.
       localStorage.setItem('biddaloy:theme', 'light');
       return {};
     },
   ],
   render: () => <ThemeToggle />,
   play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    const button = await canvas.findByRole('button', { name: 'Switch to dark theme' });
-    await expect(button).toHaveAttribute('aria-pressed', 'false');
+    await expectCheckedPreference(canvasElement, 'Light');
   },
 };
 
@@ -70,8 +91,23 @@ export const Dark: Story = {
   ],
   render: () => <ThemeToggle />,
   play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    const button = await canvas.findByRole('button', { name: 'Switch to light theme' });
-    await expect(button).toHaveAttribute('aria-pressed', 'true');
+    await expectCheckedPreference(canvasElement, 'Dark');
+  },
+};
+
+/** The state [8.14.2] exists to make reachable: no stored choice, so the
+ * palette tracks `prefers-color-scheme` live. Which of the two palettes
+ * renders here depends on the host's OS setting — that is the point, and is
+ * why this story asserts the checked *preference* rather than a palette. */
+export const System: Story = {
+  loaders: [
+    () => {
+      localStorage.removeItem('biddaloy:theme');
+      return {};
+    },
+  ],
+  render: () => <ThemeToggle />,
+  play: async ({ canvasElement }) => {
+    await expectCheckedPreference(canvasElement, 'System');
   },
 };
