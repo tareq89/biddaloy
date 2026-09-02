@@ -184,9 +184,11 @@ export {
   AppShell,
   APP_HEADER_HEIGHT_VAR,
   APP_SHELL_MAIN_ID,
+  useAppShellDrawer,
   type AppShellProps,
   type AppShellNavItem,
   type AppShellNavGroup,
+  type AppShellDrawerValue,
 } from './app-shell';
 export { AppHeader, type AppHeaderProps } from './app-header';
 export { UserMenu, type UserMenuProps } from './user-menu';

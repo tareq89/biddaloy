@@ -4,6 +4,7 @@
   "closeMenuLabel": "Close menu",
   "navLabel": "Main",
   "bottomNavLabel": "Portal",
+  "bottomNavStaffLabel": "Quick navigation",
   "skipToContent": "Skip to main content",
   "items": {
     "dashboard": "Dashboard",
@@ -24,7 +25,8 @@
     "auditLogs": "Audit Logs",
     "sendMessage": "Send Message",
     "feeReminders": "Fee Reminders",
-    "reminderHistory": "Reminder History"
+    "reminderHistory": "Reminder History",
+    "more": "More"
   },
   "groups": {
     "people": "People",

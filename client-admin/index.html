@@ -2,7 +2,13 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- [8.14.3]: viewport-fit=cover lets an installed PWA draw under the
+         gesture-nav home indicator / status bar instead of leaving a blank
+         OS-colour band there; ui/src/styles/globals.css's --safe-area-*
+         tokens (env(safe-area-inset-*)) are what then push content clear
+         of that region again. Without this the env() calls below always
+         resolve to 0px, even in standalone mode. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>biddaloy — Admin</title>
     <!-- [8.12.1]: installability. The `<link rel="manifest">` is *not*
          written here — `vite-plugin-pwa` injects it into the built HTML
@@ -32,7 +38,9 @@
       (function () {
         try {
           var stored = localStorage.getItem('biddaloy:theme');
-          var dark = stored === 'dark' || (stored !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+          var dark =
+            stored === 'dark' ||
+            (stored !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
           if (dark) {
             document.documentElement.dataset.theme = 'dark';
             document.querySelector('meta[name="theme-color"]').setAttribute('content', '#1e293b');
