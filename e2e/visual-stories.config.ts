@@ -30,6 +30,10 @@ export default defineConfig({
     {
       command:
         'yarn workspace @biddaloy/ui build-storybook && node scripts/serve-static.mjs ui/storybook-static 6006',
+      // Playwright defaults a webServer's cwd to this config file's own
+      // directory (e2e/), but the command above writes its paths as if
+      // run from the repo root — point it there explicitly.
+      cwd: '..',
       url: 'http://localhost:6006/index.json',
       reuseExistingServer: !process.env.CI,
       timeout: 600_000,
