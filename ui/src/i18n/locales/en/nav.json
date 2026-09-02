@@ -30,7 +30,8 @@
     "people": "People",
     "finance": "Finance",
     "administration": "Administration",
-    "communications": "Communications"
+    "communications": "Communications",
+    "quickActions": "Quick actions"
   },
   "dashboard": {
     "title": "Dashboard",
