@@ -1,0 +1,982 @@
+[
+  {
+    "role": "teacher",
+    "width": "desktop",
+    "type": "landing",
+    "landing": "/dashboard",
+    "navCount": 4,
+    "nav": [
+      "ড্যাশবোর্ড|/dashboard",
+      "শিক্ষার্থী|/students",
+      "অভিভাবক|/guardians",
+      "বার্তা পাঠান|/communications/send"
+    ]
+  },
+  {
+    "role": "teacher",
+    "width": "desktop",
+    "path": "/dashboard",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "ড্যাশবোর্ড ড্যাশবোর্ড এখনও তৈরি হয়নি। সেটিংসে যান"
+  },
+  {
+    "role": "teacher",
+    "width": "desktop",
+    "path": "/students",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "শিক্ষার্থী সকল শ্রেণি সকল শাখা সকল অবস্থা কলাম শিক্ষার্থী রোল রেজিস্ট্রেশন নম্বর নাম শ্রেণি শাখা অভিভাবক অবস্থা কার্যক্রম 1 REG-2026-0793 Reflow St"
+  },
+  {
+    "role": "teacher",
+    "width": "desktop",
+    "path": "/guardians",
+    "outcome": "RENDERED",
+    "http4xx": ["401 /api/v1/schools/be7b2586-f8fd-477c-af81-87af6c0ea35b/settings"],
+    "excerpt": "অভিভাবক অভিভাবক নাম সম্পর্ক ফোন পছন্দের যোগাযোগ মাধ্যম যুক্ত শিক্ষার্থী প্রধান যোগাযোগ কার্যক্রম Reflow Batch 1787976410404 Guardian Father +880 1712-"
+  },
+  {
+    "role": "teacher",
+    "width": "desktop",
+    "path": "/staff",
+    "outcome": "RENDERED",
+    "http4xx": ["401 /api/v1/schools/be7b2586-f8fd-477c-af81-87af6c0ea35b/settings"],
+    "excerpt": "কর্মী সব ভূমিকা এই স্কুলে প্রবেশাধিকার আছে এমন ব্যবহারকারী নাম ইমেইল ফোন ভূমিকা অবস্থা যোগদান কার্যক্রম Reflow Staff 1787976407237 staff-1787976407237"
+  },
+  {
+    "role": "teacher",
+    "width": "desktop",
+    "path": "/fees",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "ফি ফি ব্যবস্থাপনা এখনও তৈরি হয়নি। সেটিংসে যান"
+  },
+  {
+    "role": "teacher",
+    "width": "desktop",
+    "path": "/fees/dues",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "বকেয়া তালিকা সকল শ্রেণি সকল শাখা সকল মাস সকল বছর সকল অবস্থা শুধু চিহ্নিত/মেয়াদোত্তীর্ণ হিসাব দেখান কলাম বকেয়া তালিকা শিক্ষার্থী শ্রেণি শাখা মোট পর"
+  },
+  {
+    "role": "teacher",
+    "width": "desktop",
+    "path": "/fees/generate",
+    "outcome": "RENDERED",
+    "http4xx": ["401 /api/v1/schools/be7b2586-f8fd-477c-af81-87af6c0ea35b/settings"],
+    "excerpt": "এটি দেখার অনুমতি আপনার নেই। মাসের ফি তৈরি করতে পারেন কেবল প্রশাসক ও হিসাবরক্ষক। ফি পাতায় ফিরুন"
+  },
+  {
+    "role": "teacher",
+    "width": "desktop",
+    "path": "/fee-structures",
+    "outcome": "RENDERED",
+    "http4xx": ["401 /api/v1/schools/be7b2586-f8fd-477c-af81-87af6c0ea35b/settings"],
+    "excerpt": "ফি কাঠামো সব শিক্ষাবর্ষ সব শ্রেণি সব মাস ফি কাঠামো নাম ধরন পরিমাণ শ্রেণি / শাখা মাস পুনরাবৃত্তি প্রযোজ্য E2E Tuition 1787976635473 মাসিক বেতন ৳৫০০.০০ "
+  },
+  {
+    "role": "teacher",
+    "width": "desktop",
+    "path": "/invoices",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "চালান সকল অবস্থা ▾ ▾ চালান তালিকা চালান নং শিক্ষার্থী পরিমাণ অবস্থা ইস্যুর তারিখ শেষ তারিখ INV-2026-00125 Reflow Invoicee 1787976407718 ৳১০০.০০ Issue"
+  },
+  {
+    "role": "teacher",
+    "width": "desktop",
+    "path": "/payments/record",
+    "outcome": "LOGGED_OUT",
+    "http4xx": [
+      "401 /api/v1/schools/be7b2586-f8fd-477c-af81-87af6c0ea35b/settings",
+      "429 /api/v1/auth/refresh"
+    ],
+    "excerpt": ""
+  },
+  {
+    "role": "teacher",
+    "width": "desktop",
+    "path": "/communications/send",
+    "outcome": "LOGGED_OUT",
+    "http4xx": [],
+    "excerpt": ""
+  },
+  {
+    "role": "teacher",
+    "width": "desktop",
+    "path": "/communications/reminders",
+    "outcome": "LOGGED_OUT",
+    "http4xx": [],
+    "excerpt": ""
+  },
+  {
+    "role": "teacher",
+    "width": "desktop",
+    "path": "/communications/batches",
+    "outcome": "LOGGED_OUT",
+    "http4xx": [],
+    "excerpt": ""
+  },
+  {
+    "role": "teacher",
+    "width": "desktop",
+    "path": "/academic-years",
+    "outcome": "LOGGED_OUT",
+    "http4xx": [],
+    "excerpt": ""
+  },
+  {
+    "role": "teacher",
+    "width": "desktop",
+    "path": "/classes",
+    "outcome": "LOGGED_OUT",
+    "http4xx": [],
+    "excerpt": ""
+  },
+  {
+    "role": "teacher",
+    "width": "desktop",
+    "path": "/audit-logs",
+    "outcome": "LOGGED_OUT",
+    "http4xx": [],
+    "excerpt": ""
+  },
+  {
+    "role": "teacher",
+    "width": "desktop",
+    "path": "/settings",
+    "outcome": "LOGGED_OUT",
+    "http4xx": [],
+    "excerpt": ""
+  },
+  {
+    "role": "teacher",
+    "width": "mobile",
+    "type": "landing",
+    "landing": "/dashboard",
+    "navCount": 4,
+    "nav": [
+      "ড্যাশবোর্ড|/dashboard",
+      "শিক্ষার্থী|/students",
+      "অভিভাবক|/guardians",
+      "বার্তা পাঠান|/communications/send"
+    ]
+  },
+  {
+    "role": "teacher",
+    "width": "mobile",
+    "path": "/dashboard",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "ড্যাশবোর্ড ড্যাশবোর্ড এখনও তৈরি হয়নি। সেটিংসে যান"
+  },
+  {
+    "role": "teacher",
+    "width": "mobile",
+    "path": "/students",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "শিক্ষার্থী সকল শ্রেণি সকল শাখা সকল অবস্থা কলাম শিক্ষার্থী রোল রেজিস্ট্রেশন নম্বর নাম শ্রেণি শাখা অভিভাবক অবস্থা কার্যক্রম 1 REG-2026-0793 Reflow St"
+  },
+  {
+    "role": "teacher",
+    "width": "mobile",
+    "path": "/guardians",
+    "outcome": "RENDERED",
+    "http4xx": ["401 /api/v1/schools/be7b2586-f8fd-477c-af81-87af6c0ea35b/settings"],
+    "excerpt": "অভিভাবক অভিভাবক নাম সম্পর্ক ফোন পছন্দের যোগাযোগ মাধ্যম যুক্ত শিক্ষার্থী প্রধান যোগাযোগ কার্যক্রম Reflow Batch 1787976410404 Guardian Father +880 1712-"
+  },
+  {
+    "role": "teacher",
+    "width": "mobile",
+    "path": "/staff",
+    "outcome": "RENDERED",
+    "http4xx": ["401 /api/v1/schools/be7b2586-f8fd-477c-af81-87af6c0ea35b/settings"],
+    "excerpt": "কর্মী সব ভূমিকা এই স্কুলে প্রবেশাধিকার আছে এমন ব্যবহারকারী নাম ইমেইল ফোন ভূমিকা অবস্থা যোগদান কার্যক্রম Reflow Staff 1787976407237 staff-1787976407237"
+  },
+  {
+    "role": "teacher",
+    "width": "mobile",
+    "path": "/fees",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "ফি ফি ব্যবস্থাপনা এখনও তৈরি হয়নি। সেটিংসে যান"
+  },
+  {
+    "role": "teacher",
+    "width": "mobile",
+    "path": "/fees/dues",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "বকেয়া তালিকা সকল শ্রেণি সকল শাখা সকল মাস সকল বছর সকল অবস্থা শুধু চিহ্নিত/মেয়াদোত্তীর্ণ হিসাব দেখান কলাম বকেয়া তালিকা শিক্ষার্থী শ্রেণি শাখা মোট পর"
+  },
+  {
+    "role": "teacher",
+    "width": "mobile",
+    "path": "/fees/generate",
+    "outcome": "RENDERED",
+    "http4xx": ["401 /api/v1/schools/be7b2586-f8fd-477c-af81-87af6c0ea35b/settings"],
+    "excerpt": "এটি দেখার অনুমতি আপনার নেই। মাসের ফি তৈরি করতে পারেন কেবল প্রশাসক ও হিসাবরক্ষক। ফি পাতায় ফিরুন"
+  },
+  {
+    "role": "teacher",
+    "width": "mobile",
+    "path": "/fee-structures",
+    "outcome": "RENDERED",
+    "http4xx": ["401 /api/v1/schools/be7b2586-f8fd-477c-af81-87af6c0ea35b/settings"],
+    "excerpt": "ফি কাঠামো সব শিক্ষাবর্ষ সব শ্রেণি সব মাস ফি কাঠামো নাম ধরন পরিমাণ শ্রেণি / শাখা মাস পুনরাবৃত্তি প্রযোজ্য E2E Tuition 1787976635473 মাসিক বেতন ৳৫০০.০০ "
+  },
+  {
+    "role": "teacher",
+    "width": "mobile",
+    "path": "/invoices",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "চালান সকল অবস্থা ▾ ▾ চালান তালিকা চালান নং শিক্ষার্থী পরিমাণ অবস্থা ইস্যুর তারিখ শেষ তারিখ INV-2026-00125 Reflow Invoicee 1787976407718 ৳১০০.০০ Issue"
+  },
+  {
+    "role": "teacher",
+    "width": "mobile",
+    "path": "/payments/record",
+    "outcome": "LOGGED_OUT",
+    "http4xx": [
+      "401 /api/v1/schools/be7b2586-f8fd-477c-af81-87af6c0ea35b/settings",
+      "429 /api/v1/auth/refresh"
+    ],
+    "excerpt": ""
+  },
+  {
+    "role": "teacher",
+    "width": "mobile",
+    "path": "/communications/send",
+    "outcome": "LOGGED_OUT",
+    "http4xx": [],
+    "excerpt": ""
+  },
+  {
+    "role": "teacher",
+    "width": "mobile",
+    "path": "/communications/reminders",
+    "outcome": "LOGGED_OUT",
+    "http4xx": [],
+    "excerpt": ""
+  },
+  {
+    "role": "teacher",
+    "width": "mobile",
+    "path": "/communications/batches",
+    "outcome": "LOGGED_OUT",
+    "http4xx": [],
+    "excerpt": ""
+  },
+  {
+    "role": "teacher",
+    "width": "mobile",
+    "path": "/academic-years",
+    "outcome": "LOGGED_OUT",
+    "http4xx": [],
+    "excerpt": ""
+  },
+  {
+    "role": "teacher",
+    "width": "mobile",
+    "path": "/classes",
+    "outcome": "LOGGED_OUT",
+    "http4xx": [],
+    "excerpt": ""
+  },
+  {
+    "role": "teacher",
+    "width": "mobile",
+    "path": "/audit-logs",
+    "outcome": "LOGGED_OUT",
+    "http4xx": [],
+    "excerpt": ""
+  },
+  {
+    "role": "teacher",
+    "width": "mobile",
+    "path": "/settings",
+    "outcome": "LOGGED_OUT",
+    "http4xx": [],
+    "excerpt": ""
+  },
+  {
+    "role": "executive",
+    "width": "desktop",
+    "type": "landing",
+    "landing": "/dashboard",
+    "navCount": 2,
+    "nav": ["ড্যাশবোর্ড|/dashboard", "শিক্ষার্থী|/students"]
+  },
+  {
+    "role": "executive",
+    "width": "desktop",
+    "path": "/dashboard",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "ড্যাশবোর্ড ড্যাশবোর্ড এখনও তৈরি হয়নি। সেটিংসে যান"
+  },
+  {
+    "role": "executive",
+    "width": "desktop",
+    "path": "/students",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "শিক্ষার্থী শিক্ষার্থী আমদানি সকল শ্রেণি সকল শাখা সকল অবস্থা কলাম শিক্ষার্থী রোল রেজিস্ট্রেশন নম্বর নাম শ্রেণি শাখা অভিভাবক অবস্থা কার্যক্রম 1 REG-2"
+  },
+  {
+    "role": "executive",
+    "width": "desktop",
+    "path": "/guardians",
+    "outcome": "RENDERED",
+    "http4xx": ["401 /api/v1/schools/be7b2586-f8fd-477c-af81-87af6c0ea35b/settings"],
+    "excerpt": "অভিভাবক অভিভাবক নাম সম্পর্ক ফোন পছন্দের যোগাযোগ মাধ্যম যুক্ত শিক্ষার্থী প্রধান যোগাযোগ কার্যক্রম Reflow Batch 1787976410404 Guardian Father +880 1712-"
+  },
+  {
+    "role": "executive",
+    "width": "desktop",
+    "path": "/staff",
+    "outcome": "RENDERED",
+    "http4xx": ["401 /api/v1/schools/be7b2586-f8fd-477c-af81-87af6c0ea35b/settings"],
+    "excerpt": "কর্মী সব ভূমিকা এই স্কুলে প্রবেশাধিকার আছে এমন ব্যবহারকারী নাম ইমেইল ফোন ভূমিকা অবস্থা যোগদান কার্যক্রম Reflow Staff 1787976407237 staff-1787976407237"
+  },
+  {
+    "role": "executive",
+    "width": "desktop",
+    "path": "/fees",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "ফি ফি ব্যবস্থাপনা এখনও তৈরি হয়নি। সেটিংসে যান"
+  },
+  {
+    "role": "executive",
+    "width": "desktop",
+    "path": "/fees/dues",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "বকেয়া তালিকা সকল শ্রেণি সকল শাখা সকল মাস সকল বছর সকল অবস্থা শুধু চিহ্নিত/মেয়াদোত্তীর্ণ হিসাব দেখান কলাম বকেয়া তালিকা শিক্ষার্থী শ্রেণি শাখা মোট পর"
+  },
+  {
+    "role": "executive",
+    "width": "desktop",
+    "path": "/fees/generate",
+    "outcome": "RENDERED",
+    "http4xx": ["401 /api/v1/schools/be7b2586-f8fd-477c-af81-87af6c0ea35b/settings"],
+    "excerpt": "এটি দেখার অনুমতি আপনার নেই। মাসের ফি তৈরি করতে পারেন কেবল প্রশাসক ও হিসাবরক্ষক। ফি পাতায় ফিরুন"
+  },
+  {
+    "role": "executive",
+    "width": "desktop",
+    "path": "/fee-structures",
+    "outcome": "RENDERED",
+    "http4xx": ["401 /api/v1/schools/be7b2586-f8fd-477c-af81-87af6c0ea35b/settings"],
+    "excerpt": "ফি কাঠামো সব শিক্ষাবর্ষ সব শ্রেণি সব মাস ফি কাঠামো নাম ধরন পরিমাণ শ্রেণি / শাখা মাস পুনরাবৃত্তি প্রযোজ্য E2E Tuition 1787976635473 মাসিক বেতন ৳৫০০.০০ "
+  },
+  {
+    "role": "executive",
+    "width": "desktop",
+    "path": "/invoices",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "চালান সকল অবস্থা ▾ ▾ চালান তালিকা চালান নং শিক্ষার্থী পরিমাণ অবস্থা ইস্যুর তারিখ শেষ তারিখ INV-2026-00125 Reflow Invoicee 1787976407718 ৳১০০.০০ Issue"
+  },
+  {
+    "role": "executive",
+    "width": "desktop",
+    "path": "/payments/record",
+    "outcome": "LOGGED_OUT",
+    "http4xx": [
+      "401 /api/v1/schools/be7b2586-f8fd-477c-af81-87af6c0ea35b/settings",
+      "429 /api/v1/auth/refresh"
+    ],
+    "excerpt": ""
+  },
+  {
+    "role": "executive",
+    "width": "desktop",
+    "path": "/communications/send",
+    "outcome": "LOGGED_OUT",
+    "http4xx": [],
+    "excerpt": ""
+  },
+  {
+    "role": "executive",
+    "width": "desktop",
+    "path": "/communications/reminders",
+    "outcome": "LOGGED_OUT",
+    "http4xx": [],
+    "excerpt": ""
+  },
+  {
+    "role": "executive",
+    "width": "desktop",
+    "path": "/communications/batches",
+    "outcome": "LOGGED_OUT",
+    "http4xx": [],
+    "excerpt": ""
+  },
+  {
+    "role": "executive",
+    "width": "desktop",
+    "path": "/academic-years",
+    "outcome": "LOGGED_OUT",
+    "http4xx": [],
+    "excerpt": ""
+  },
+  {
+    "role": "executive",
+    "width": "desktop",
+    "path": "/classes",
+    "outcome": "LOGGED_OUT",
+    "http4xx": [],
+    "excerpt": ""
+  },
+  {
+    "role": "executive",
+    "width": "desktop",
+    "path": "/audit-logs",
+    "outcome": "LOGGED_OUT",
+    "http4xx": [],
+    "excerpt": ""
+  },
+  {
+    "role": "executive",
+    "width": "desktop",
+    "path": "/settings",
+    "outcome": "LOGGED_OUT",
+    "http4xx": [],
+    "excerpt": ""
+  },
+  {
+    "role": "executive",
+    "width": "mobile",
+    "type": "landing",
+    "landing": "/dashboard",
+    "navCount": 2,
+    "nav": ["ড্যাশবোর্ড|/dashboard", "শিক্ষার্থী|/students"]
+  },
+  {
+    "role": "executive",
+    "width": "mobile",
+    "path": "/dashboard",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "ড্যাশবোর্ড ড্যাশবোর্ড এখনও তৈরি হয়নি। সেটিংসে যান"
+  },
+  {
+    "role": "executive",
+    "width": "mobile",
+    "path": "/students",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "শিক্ষার্থী শিক্ষার্থী আমদানি সকল শ্রেণি সকল শাখা সকল অবস্থা কলাম শিক্ষার্থী রোল রেজিস্ট্রেশন নম্বর নাম শ্রেণি শাখা অভিভাবক অবস্থা কার্যক্রম 1 REG-2"
+  },
+  {
+    "role": "executive",
+    "width": "mobile",
+    "path": "/guardians",
+    "outcome": "RENDERED",
+    "http4xx": ["401 /api/v1/schools/be7b2586-f8fd-477c-af81-87af6c0ea35b/settings"],
+    "excerpt": "অভিভাবক অভিভাবক নাম সম্পর্ক ফোন পছন্দের যোগাযোগ মাধ্যম যুক্ত শিক্ষার্থী প্রধান যোগাযোগ কার্যক্রম Reflow Batch 1787976410404 Guardian Father +880 1712-"
+  },
+  {
+    "role": "executive",
+    "width": "mobile",
+    "path": "/staff",
+    "outcome": "RENDERED",
+    "http4xx": ["401 /api/v1/schools/be7b2586-f8fd-477c-af81-87af6c0ea35b/settings"],
+    "excerpt": "কর্মী সব ভূমিকা এই স্কুলে প্রবেশাধিকার আছে এমন ব্যবহারকারী নাম ইমেইল ফোন ভূমিকা অবস্থা যোগদান কার্যক্রম Reflow Staff 1787976407237 staff-1787976407237"
+  },
+  {
+    "role": "executive",
+    "width": "mobile",
+    "path": "/fees",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "ফি ফি ব্যবস্থাপনা এখনও তৈরি হয়নি। সেটিংসে যান"
+  },
+  {
+    "role": "executive",
+    "width": "mobile",
+    "path": "/fees/dues",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "বকেয়া তালিকা সকল শ্রেণি সকল শাখা সকল মাস সকল বছর সকল অবস্থা শুধু চিহ্নিত/মেয়াদোত্তীর্ণ হিসাব দেখান কলাম বকেয়া তালিকা শিক্ষার্থী শ্রেণি শাখা মোট পর"
+  },
+  {
+    "role": "executive",
+    "width": "mobile",
+    "path": "/fees/generate",
+    "outcome": "RENDERED",
+    "http4xx": ["401 /api/v1/schools/be7b2586-f8fd-477c-af81-87af6c0ea35b/settings"],
+    "excerpt": "এটি দেখার অনুমতি আপনার নেই। মাসের ফি তৈরি করতে পারেন কেবল প্রশাসক ও হিসাবরক্ষক। ফি পাতায় ফিরুন"
+  },
+  {
+    "role": "executive",
+    "width": "mobile",
+    "path": "/fee-structures",
+    "outcome": "RENDERED",
+    "http4xx": ["401 /api/v1/schools/be7b2586-f8fd-477c-af81-87af6c0ea35b/settings"],
+    "excerpt": "ফি কাঠামো সব শিক্ষাবর্ষ সব শ্রেণি সব মাস ফি কাঠামো নাম ধরন পরিমাণ শ্রেণি / শাখা মাস পুনরাবৃত্তি প্রযোজ্য E2E Tuition 1787976635473 মাসিক বেতন ৳৫০০.০০ "
+  },
+  {
+    "role": "executive",
+    "width": "mobile",
+    "path": "/invoices",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "চালান সকল অবস্থা ▾ ▾ চালান তালিকা চালান নং শিক্ষার্থী পরিমাণ অবস্থা ইস্যুর তারিখ শেষ তারিখ INV-2026-00125 Reflow Invoicee 1787976407718 ৳১০০.০০ Issue"
+  },
+  {
+    "role": "executive",
+    "width": "mobile",
+    "path": "/payments/record",
+    "outcome": "LOGGED_OUT",
+    "http4xx": [
+      "401 /api/v1/schools/be7b2586-f8fd-477c-af81-87af6c0ea35b/settings",
+      "429 /api/v1/auth/refresh"
+    ],
+    "excerpt": ""
+  },
+  {
+    "role": "executive",
+    "width": "mobile",
+    "path": "/communications/send",
+    "outcome": "LOGGED_OUT",
+    "http4xx": [],
+    "excerpt": ""
+  },
+  {
+    "role": "executive",
+    "width": "mobile",
+    "path": "/communications/reminders",
+    "outcome": "LOGGED_OUT",
+    "http4xx": [],
+    "excerpt": ""
+  },
+  {
+    "role": "executive",
+    "width": "mobile",
+    "path": "/communications/batches",
+    "outcome": "LOGGED_OUT",
+    "http4xx": [],
+    "excerpt": ""
+  },
+  {
+    "role": "executive",
+    "width": "mobile",
+    "path": "/academic-years",
+    "outcome": "LOGGED_OUT",
+    "http4xx": [],
+    "excerpt": ""
+  },
+  {
+    "role": "executive",
+    "width": "mobile",
+    "path": "/classes",
+    "outcome": "LOGGED_OUT",
+    "http4xx": [],
+    "excerpt": ""
+  },
+  {
+    "role": "executive",
+    "width": "mobile",
+    "path": "/audit-logs",
+    "outcome": "LOGGED_OUT",
+    "http4xx": [],
+    "excerpt": ""
+  },
+  {
+    "role": "executive",
+    "width": "mobile",
+    "path": "/settings",
+    "outcome": "LOGGED_OUT",
+    "http4xx": [],
+    "excerpt": ""
+  },
+  {
+    "role": "super_admin",
+    "width": "desktop",
+    "type": "landing",
+    "landing": "/dashboard",
+    "navCount": 17,
+    "nav": [
+      "ড্যাশবোর্ড|/dashboard",
+      "শিক্ষার্থী|/students",
+      "অভিভাবক|/guardians",
+      "কর্মী|/staff",
+      "শিক্ষার্থীর বকেয়া|/fees/dues",
+      "পেমেন্ট রেকর্ড করুন|/payments/record",
+      "ফি|/fees",
+      "ফি কাঠামো|/fee-structures",
+      "ফি তৈরি|/fees/generate",
+      "চালান|/invoices",
+      "বার্তা পাঠান|/communications/send",
+      "ফি রিমাইন্ডার|/communications/reminders",
+      "রিমাইন্ডার ইতিহাস|/communications/batches",
+      "শিক্ষাবর্ষ|/academic-years",
+      "ক্লাস|/classes",
+      "নিরীক্ষা লগ|/audit-logs",
+      "সেটিংস|/settings"
+    ]
+  },
+  {
+    "role": "super_admin",
+    "width": "desktop",
+    "path": "/dashboard",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "ড্যাশবোর্ড ড্যাশবোর্ড এখনও তৈরি হয়নি। সেটিংসে যান"
+  },
+  {
+    "role": "super_admin",
+    "width": "desktop",
+    "path": "/students",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "শিক্ষার্থী শিক্ষার্থী আমদানি শিক্ষার্থী যোগ করুন সকল শ্রেণি সকল শাখা সকল অবস্থা কলাম শিক্ষার্থী রোল রেজিস্ট্রেশন নম্বর নাম শ্রেণি শাখা অভিভাবক অবস্থা"
+  },
+  {
+    "role": "super_admin",
+    "width": "desktop",
+    "path": "/guardians",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "অভিভাবক অভিভাবক নাম সম্পর্ক ফোন পছন্দের যোগাযোগ মাধ্যম যুক্ত শিক্ষার্থী প্রধান যোগাযোগ কার্যক্রম Reflow Batch 1787976410404 Guardian Father +880 1712-"
+  },
+  {
+    "role": "super_admin",
+    "width": "desktop",
+    "path": "/staff",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "কর্মী শিক্ষক হিসেবে উন্নীত করুন ব্যবহারকারী যোগ করুন সব ভূমিকা এই স্কুলে প্রবেশাধিকার আছে এমন ব্যবহারকারী নাম ইমেইল ফোন ভূমিকা অবস্থা যোগদান কার্যক্রম"
+  },
+  {
+    "role": "super_admin",
+    "width": "desktop",
+    "path": "/fees",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "ফি ফি ব্যবস্থাপনা এখনও তৈরি হয়নি। সেটিংসে যান"
+  },
+  {
+    "role": "super_admin",
+    "width": "desktop",
+    "path": "/fees/dues",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "বকেয়া তালিকা সকল শ্রেণি সকল শাখা সকল মাস সকল বছর সকল অবস্থা শুধু চিহ্নিত/মেয়াদোত্তীর্ণ হিসাব দেখান কলাম বকেয়া তালিকা শিক্ষার্থী শ্রেণি শাখা মোট পর"
+  },
+  {
+    "role": "super_admin",
+    "width": "desktop",
+    "path": "/fees/generate",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "মাসের ফি তৈরি করুন শিক্ষাবর্ষ› শ্রেণি ও শাখা› মাস ও বছর› যাচাই Step 1 of 4: শিক্ষাবর্ষ শিক্ষাবর্ষ E2E Year 1787976635335-249996 ২০২৬-০১-০১ থেকে ২০২৬-"
+  },
+  {
+    "role": "super_admin",
+    "width": "desktop",
+    "path": "/fee-structures",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "ফি কাঠামো ফি কাঠামো যোগ করুন সব শিক্ষাবর্ষ সব শ্রেণি সব মাস ফি কাঠামো নাম ধরন পরিমাণ শ্রেণি / শাখা মাস পুনরাবৃত্তি প্রযোজ্য কার্যক্রম E2E Tuition 1787"
+  },
+  {
+    "role": "super_admin",
+    "width": "desktop",
+    "path": "/invoices",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "চালান সকল অবস্থা ▾ ▾ চালান তালিকা চালান নং শিক্ষার্থী পরিমাণ অবস্থা ইস্যুর তারিখ শেষ তারিখ কার্যক্রম INV-2026-00125 Reflow Invoicee 1787976407718 ৳১০০"
+  },
+  {
+    "role": "super_admin",
+    "width": "desktop",
+    "path": "/payments/record",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "পেমেন্ট রেকর্ড করুন শিক্ষার্থী খুঁজুন› বকেয়া ফি› বরাদ্দ করুন› পদ্ধতি ও রেফারেন্স› নিশ্চিত করুন Step 1 of 5: শিক্ষার্থী খুঁজুন Back Next"
+  },
+  {
+    "role": "super_admin",
+    "width": "desktop",
+    "path": "/communications/send",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "বার্তা পাঠান একজন প্রাপকের কাছে একটি বার্তা। আপনি ঠিক কী পাঠানো হবে তা নিশ্চিত না করা পর্যন্ত কিছুই পাঠানো হয় না। মাধ্যম এসএমএস এসএমএস হোয়াটসঅ্যাপ"
+  },
+  {
+    "role": "super_admin",
+    "width": "desktop",
+    "path": "/communications/reminders",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "ফি রিমাইন্ডার একসাথে রিমাইন্ডার একজন শিক্ষার্থীর অভিভাবকদের বকেয়া ফির কথা স্মরণ করিয়ে দিন। কে কে পাবেন তা প্রিভিউ না করা পর্যন্ত কিছুই পাঠানো হয় ন"
+  },
+  {
+    "role": "super_admin",
+    "width": "desktop",
+    "path": "/communications/batches",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "রিমাইন্ডার ইতিহাস একসাথে রিমাইন্ডার রিমাইন্ডার ব্যাচ নাম তৈরি অবস্থা প্রাপক সফল ব্যর্থ Reflow Batch 1787976410404 ২০২৬-০৮-২৯ Failed 1 0 1 Reflow Batc"
+  },
+  {
+    "role": "super_admin",
+    "width": "desktop",
+    "path": "/academic-years",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "শিক্ষাবর্ষ বর্ষ যোগ করুন শিক্ষাবর্ষ বর্ষ শুরুর তারিখ শেষের তারিখ চলমান শ্রেণি শিক্ষার্থী কার্যক্রম ২০২৬ ২০২৬-০১-০১ ২০২৬-১২-৩১ Not current 1 1 সম্পাদ"
+  },
+  {
+    "role": "super_admin",
+    "width": "desktop",
+    "path": "/classes",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "শ্রেণি শ্রেণি যোগ করুন সকল শিক্ষাবর্ষ শ্রেণি Expand শ্রেণি গ্রেড শাখা শিক্ষার্থী কার্যক্রম Class 6 6 2 6 সম্পাদনা মুছুন Class 7 7 2 6 সম্পাদনা"
+  },
+  {
+    "role": "super_admin",
+    "width": "desktop",
+    "path": "/audit-logs",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "নিরীক্ষা লগ এই পৃষ্ঠাটি কী ঘটেছে তার রেকর্ড। এখানে কিছু সম্পাদনা বা মুছে ফেলা যায় না। সব কাজ সব ধরনের রেকর্ড ▾ ▾ নিরীক্ষার ইতিহাস, নতুন থেকে পুরনো "
+  },
+  {
+    "role": "super_admin",
+    "width": "desktop",
+    "path": "/settings",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "স্কুল সেটিংস স্কুল কনফিগার করার জন্য একটি স্কুল নির্বাচন করুন Default School Rose Valley School"
+  },
+  {
+    "role": "super_admin",
+    "width": "mobile",
+    "type": "landing",
+    "landing": "/dashboard",
+    "navCount": 17,
+    "nav": [
+      "ড্যাশবোর্ড|/dashboard",
+      "শিক্ষার্থী|/students",
+      "অভিভাবক|/guardians",
+      "কর্মী|/staff",
+      "শিক্ষার্থীর বকেয়া|/fees/dues",
+      "পেমেন্ট রেকর্ড করুন|/payments/record",
+      "ফি|/fees",
+      "ফি কাঠামো|/fee-structures",
+      "ফি তৈরি|/fees/generate",
+      "চালান|/invoices",
+      "বার্তা পাঠান|/communications/send",
+      "ফি রিমাইন্ডার|/communications/reminders",
+      "রিমাইন্ডার ইতিহাস|/communications/batches",
+      "শিক্ষাবর্ষ|/academic-years",
+      "ক্লাস|/classes",
+      "নিরীক্ষা লগ|/audit-logs",
+      "সেটিংস|/settings"
+    ]
+  },
+  {
+    "role": "super_admin",
+    "width": "mobile",
+    "path": "/dashboard",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "ড্যাশবোর্ড ড্যাশবোর্ড এখনও তৈরি হয়নি। সেটিংসে যান"
+  },
+  {
+    "role": "super_admin",
+    "width": "mobile",
+    "path": "/students",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "শিক্ষার্থী শিক্ষার্থী আমদানি শিক্ষার্থী যোগ করুন সকল শ্রেণি সকল শাখা সকল অবস্থা কলাম শিক্ষার্থী রোল রেজিস্ট্রেশন নম্বর নাম শ্রেণি শাখা অভিভাবক অবস্থা"
+  },
+  {
+    "role": "super_admin",
+    "width": "mobile",
+    "path": "/guardians",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "অভিভাবক অভিভাবক নাম সম্পর্ক ফোন পছন্দের যোগাযোগ মাধ্যম যুক্ত শিক্ষার্থী প্রধান যোগাযোগ কার্যক্রম Reflow Batch 1787976410404 Guardian Father +880 1712-"
+  },
+  {
+    "role": "super_admin",
+    "width": "mobile",
+    "path": "/staff",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "কর্মী শিক্ষক হিসেবে উন্নীত করুন ব্যবহারকারী যোগ করুন সব ভূমিকা এই স্কুলে প্রবেশাধিকার আছে এমন ব্যবহারকারী নাম ইমেইল ফোন ভূমিকা অবস্থা যোগদান কার্যক্রম"
+  },
+  {
+    "role": "super_admin",
+    "width": "mobile",
+    "path": "/fees",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "ফি ফি ব্যবস্থাপনা এখনও তৈরি হয়নি। সেটিংসে যান"
+  },
+  {
+    "role": "super_admin",
+    "width": "mobile",
+    "path": "/fees/dues",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "বকেয়া তালিকা সকল শ্রেণি সকল শাখা সকল মাস সকল বছর সকল অবস্থা শুধু চিহ্নিত/মেয়াদোত্তীর্ণ হিসাব দেখান কলাম বকেয়া তালিকা শিক্ষার্থী শ্রেণি শাখা মোট পর"
+  },
+  {
+    "role": "super_admin",
+    "width": "mobile",
+    "path": "/fees/generate",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "মাসের ফি তৈরি করুন শিক্ষাবর্ষ› শ্রেণি ও শাখা› মাস ও বছর› যাচাই Step 1 of 4: শিক্ষাবর্ষ শিক্ষাবর্ষ E2E Year 1787976635335-249996 ২০২৬-০১-০১ থেকে ২০২৬-"
+  },
+  {
+    "role": "super_admin",
+    "width": "mobile",
+    "path": "/fee-structures",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "ফি কাঠামো ফি কাঠামো যোগ করুন সব শিক্ষাবর্ষ সব শ্রেণি সব মাস ফি কাঠামো নাম ধরন পরিমাণ শ্রেণি / শাখা মাস পুনরাবৃত্তি প্রযোজ্য কার্যক্রম E2E Tuition 1787"
+  },
+  {
+    "role": "super_admin",
+    "width": "mobile",
+    "path": "/invoices",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "চালান সকল অবস্থা ▾ ▾ চালান তালিকা চালান নং শিক্ষার্থী পরিমাণ অবস্থা ইস্যুর তারিখ শেষ তারিখ কার্যক্রম INV-2026-00125 Reflow Invoicee 1787976407718 ৳১০০"
+  },
+  {
+    "role": "super_admin",
+    "width": "mobile",
+    "path": "/payments/record",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "পেমেন্ট রেকর্ড করুন শিক্ষার্থী খুঁজুন› বকেয়া ফি› বরাদ্দ করুন› পদ্ধতি ও রেফারেন্স› নিশ্চিত করুন Step 1 of 5: শিক্ষার্থী খুঁজুন Back Next"
+  },
+  {
+    "role": "super_admin",
+    "width": "mobile",
+    "path": "/communications/send",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "বার্তা পাঠান একজন প্রাপকের কাছে একটি বার্তা। আপনি ঠিক কী পাঠানো হবে তা নিশ্চিত না করা পর্যন্ত কিছুই পাঠানো হয় না। মাধ্যম এসএমএস এসএমএস হোয়াটসঅ্যাপ"
+  },
+  {
+    "role": "super_admin",
+    "width": "mobile",
+    "path": "/communications/reminders",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "ফি রিমাইন্ডার একসাথে রিমাইন্ডার একজন শিক্ষার্থীর অভিভাবকদের বকেয়া ফির কথা স্মরণ করিয়ে দিন। কে কে পাবেন তা প্রিভিউ না করা পর্যন্ত কিছুই পাঠানো হয় ন"
+  },
+  {
+    "role": "super_admin",
+    "width": "mobile",
+    "path": "/communications/batches",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "রিমাইন্ডার ইতিহাস একসাথে রিমাইন্ডার রিমাইন্ডার ব্যাচ নাম তৈরি অবস্থা প্রাপক সফল ব্যর্থ Reflow Batch 1787976410404 ২০২৬-০৮-২৯ Failed 1 0 1 Reflow Batc"
+  },
+  {
+    "role": "super_admin",
+    "width": "mobile",
+    "path": "/academic-years",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "শিক্ষাবর্ষ বর্ষ যোগ করুন শিক্ষাবর্ষ বর্ষ শুরুর তারিখ শেষের তারিখ চলমান শ্রেণি শিক্ষার্থী কার্যক্রম ২০২৬ ২০২৬-০১-০১ ২০২৬-১২-৩১ Not current 1 1 সম্পাদ"
+  },
+  {
+    "role": "super_admin",
+    "width": "mobile",
+    "path": "/classes",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "শ্রেণি শ্রেণি যোগ করুন সকল শিক্ষাবর্ষ শ্রেণি Expand শ্রেণি গ্রেড শাখা শিক্ষার্থী কার্যক্রম Class 6 6 2 6 সম্পাদনা মুছুন Class 7 7 2 6 সম্পাদনা"
+  },
+  {
+    "role": "super_admin",
+    "width": "mobile",
+    "path": "/audit-logs",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "নিরীক্ষা লগ এই পৃষ্ঠাটি কী ঘটেছে তার রেকর্ড। এখানে কিছু সম্পাদনা বা মুছে ফেলা যায় না। সব কাজ সব ধরনের রেকর্ড ▾ ▾ নিরীক্ষার ইতিহাস, নতুন থেকে পুরনো "
+  },
+  {
+    "role": "super_admin",
+    "width": "mobile",
+    "path": "/settings",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "স্কুল সেটিংস স্কুল কনফিগার করার জন্য একটি স্কুল নির্বাচন করুন Default School Rose Valley School"
+  },
+  {
+    "role": "student",
+    "width": "desktop",
+    "type": "landing",
+    "landing": "/portal",
+    "navCount": 4,
+    "nav": [
+      "সারসংক্ষেপ|/portal",
+      "ফি ও চালান|/portal/fees",
+      "সারসংক্ষেপ|/portal",
+      "ফি ও চালান|/portal/fees"
+    ]
+  },
+  {
+    "role": "student",
+    "width": "desktop",
+    "path": "/portal",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "আপনার সঙ্গে এখনও কোনো শিক্ষার্থী যুক্ত নেই এই স্কুলের কোনো শিক্ষার্থীর সঙ্গে আপনার অ্যাকাউন্ট যুক্ত নেই। স্কুল অফিসে আপনার সন্তানদের যুক্ত করতে বলুন,"
+  },
+  {
+    "role": "student",
+    "width": "desktop",
+    "path": "/portal/fees",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "আপনার সঙ্গে এখনও কোনো শিক্ষার্থী যুক্ত নেই এই স্কুলের কোনো শিক্ষার্থীর সঙ্গে আপনার অ্যাকাউন্ট যুক্ত নেই। স্কুল অফিসে আপনার সন্তানদের যুক্ত করতে বলুন,"
+  },
+  {
+    "role": "student",
+    "width": "mobile",
+    "type": "landing",
+    "landing": "/portal",
+    "navCount": 4,
+    "nav": [
+      "সারসংক্ষেপ|/portal",
+      "ফি ও চালান|/portal/fees",
+      "সারসংক্ষেপ|/portal",
+      "ফি ও চালান|/portal/fees"
+    ]
+  },
+  {
+    "role": "student",
+    "width": "mobile",
+    "path": "/portal",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "আপনার সঙ্গে এখনও কোনো শিক্ষার্থী যুক্ত নেই এই স্কুলের কোনো শিক্ষার্থীর সঙ্গে আপনার অ্যাকাউন্ট যুক্ত নেই। স্কুল অফিসে আপনার সন্তানদের যুক্ত করতে বলুন,"
+  },
+  {
+    "role": "student",
+    "width": "mobile",
+    "path": "/portal/fees",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "আপনার সঙ্গে এখনও কোনো শিক্ষার্থী যুক্ত নেই এই স্কুলের কোনো শিক্ষার্থীর সঙ্গে আপনার অ্যাকাউন্ট যুক্ত নেই। স্কুল অফিসে আপনার সন্তানদের যুক্ত করতে বলুন,"
+  }
+]

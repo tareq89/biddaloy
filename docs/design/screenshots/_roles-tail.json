@@ -1,0 +1,114 @@
+[
+  {
+    "role": "teacher",
+    "path": "/payments/record",
+    "outcome": "RENDERED",
+    "http4xx": ["401 /schools/be7b2586-f8fd-477c-af81-87af6c0ea35b/settings"],
+    "excerpt": "পেমেন্ট রেকর্ড করুন শিক্ষার্থী খুঁজুন› বকেয়া ফি› বরাদ্দ করুন› পদ্ধতি ও রেফারেন্স› নিশ্চিত"
+  },
+  {
+    "role": "teacher",
+    "path": "/communications/send",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "বার্তা পাঠান একজন প্রাপকের কাছে একটি বার্তা। আপনি ঠিক কী পাঠানো হবে তা নিশ্চিত না করা পর্"
+  },
+  {
+    "role": "teacher",
+    "path": "/communications/reminders",
+    "outcome": "RENDERED",
+    "http4xx": ["401 /schools/be7b2586-f8fd-477c-af81-87af6c0ea35b/settings"],
+    "excerpt": "আপনি ফি রিমাইন্ডার পাঠাতে পারবেন না এই স্কুলে আপনার ভূমিকায় ফি রিমাইন্ডার পাঠানোর অনুমতি"
+  },
+  {
+    "role": "teacher",
+    "path": "/communications/batches",
+    "outcome": "RENDERED",
+    "http4xx": ["401 /schools/be7b2586-f8fd-477c-af81-87af6c0ea35b/settings"],
+    "excerpt": "আপনি রিমাইন্ডার ইতিহাস দেখতে পারবেন না এই স্কুলে আপনার ভূমিকায় ফি রিমাইন্ডার পাঠানো অন্ত"
+  },
+  {
+    "role": "teacher",
+    "path": "/academic-years",
+    "outcome": "SESSION_DIED",
+    "http4xx": ["401 /schools/be7b2586-f8fd-477c-af81-87af6c0ea35b/settings", "429 /auth/refresh"],
+    "excerpt": ""
+  },
+  {
+    "role": "teacher",
+    "path": "/classes",
+    "outcome": "SESSION_DIED",
+    "http4xx": [],
+    "excerpt": ""
+  },
+  {
+    "role": "teacher",
+    "path": "/audit-logs",
+    "outcome": "SESSION_DIED",
+    "http4xx": [],
+    "excerpt": ""
+  },
+  {
+    "role": "teacher",
+    "path": "/settings",
+    "outcome": "SESSION_DIED",
+    "http4xx": [],
+    "excerpt": ""
+  },
+  {
+    "role": "executive",
+    "path": "/payments/record",
+    "outcome": "RENDERED",
+    "http4xx": ["401 /schools/be7b2586-f8fd-477c-af81-87af6c0ea35b/settings"],
+    "excerpt": "পেমেন্ট রেকর্ড করুন শিক্ষার্থী খুঁজুন› বকেয়া ফি› বরাদ্দ করুন› পদ্ধতি ও রেফারেন্স› নিশ্চিত"
+  },
+  {
+    "role": "executive",
+    "path": "/communications/send",
+    "outcome": "RENDERED",
+    "http4xx": [],
+    "excerpt": "আপনি বার্তা পাঠাতে পারবেন না এই স্কুলে আপনার ভূমিকায় বার্তা পাঠানোর অনুমতি নেই। ড্যাশবো"
+  },
+  {
+    "role": "executive",
+    "path": "/communications/reminders",
+    "outcome": "RENDERED",
+    "http4xx": ["401 /schools/be7b2586-f8fd-477c-af81-87af6c0ea35b/settings"],
+    "excerpt": "আপনি ফি রিমাইন্ডার পাঠাতে পারবেন না এই স্কুলে আপনার ভূমিকায় ফি রিমাইন্ডার পাঠানোর অনুমতি"
+  },
+  {
+    "role": "executive",
+    "path": "/communications/batches",
+    "outcome": "RENDERED",
+    "http4xx": ["401 /schools/be7b2586-f8fd-477c-af81-87af6c0ea35b/settings"],
+    "excerpt": "আপনি রিমাইন্ডার ইতিহাস দেখতে পারবেন না এই স্কুলে আপনার ভূমিকায় ফি রিমাইন্ডার পাঠানো অন্ত"
+  },
+  {
+    "role": "executive",
+    "path": "/academic-years",
+    "outcome": "SESSION_DIED",
+    "http4xx": ["401 /schools/be7b2586-f8fd-477c-af81-87af6c0ea35b/settings", "429 /auth/refresh"],
+    "excerpt": ""
+  },
+  {
+    "role": "executive",
+    "path": "/classes",
+    "outcome": "SESSION_DIED",
+    "http4xx": [],
+    "excerpt": ""
+  },
+  {
+    "role": "executive",
+    "path": "/audit-logs",
+    "outcome": "SESSION_DIED",
+    "http4xx": [],
+    "excerpt": ""
+  },
+  {
+    "role": "executive",
+    "path": "/settings",
+    "outcome": "SESSION_DIED",
+    "http4xx": [],
+    "excerpt": ""
+  }
+]

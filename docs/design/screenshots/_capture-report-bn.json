@@ -1,0 +1,994 @@
+[
+  {
+    "role": "admin",
+    "width": "desktop",
+    "path": "/",
+    "finalUrl": "/dashboard",
+    "status": "OK",
+    "file": "bn-admin-root-desktop.png"
+  },
+  {
+    "role": "admin",
+    "width": "desktop",
+    "path": "/select-school",
+    "finalUrl": "/dashboard",
+    "status": "OK",
+    "file": "bn-admin-select-school-desktop.png"
+  },
+  {
+    "role": "admin",
+    "width": "desktop",
+    "path": "/dashboard",
+    "finalUrl": "/dashboard",
+    "status": "OK",
+    "file": "bn-admin-dashboard-desktop.png"
+  },
+  {
+    "role": "admin",
+    "width": "desktop",
+    "path": "/settings",
+    "finalUrl": "/settings",
+    "status": "OK",
+    "file": "bn-admin-settings-desktop.png"
+  },
+  {
+    "role": "admin",
+    "width": "desktop",
+    "path": "/academic-years",
+    "finalUrl": "/academic-years",
+    "status": "OK",
+    "file": "bn-admin-academic-years-desktop.png"
+  },
+  {
+    "role": "admin",
+    "width": "desktop",
+    "path": "/academic-years/$academicYearId",
+    "finalUrl": "/academic-years/57846042-b526-4cca-bcc6-7b297015ab0a",
+    "status": "OK",
+    "file": "bn-admin-academic-years__academicYearId-desktop.png"
+  },
+  {
+    "role": "admin",
+    "width": "desktop",
+    "path": "/classes",
+    "finalUrl": "/classes",
+    "status": "OK",
+    "file": "bn-admin-classes-desktop.png"
+  },
+  {
+    "role": "admin",
+    "width": "desktop",
+    "path": "/classes/$classId",
+    "finalUrl": "/classes/c6e9aae9-0a9c-4fbb-9182-01b9294bd567",
+    "status": "OK",
+    "file": "bn-admin-classes__classId-desktop.png"
+  },
+  {
+    "role": "admin",
+    "width": "desktop",
+    "path": "/audit-logs",
+    "finalUrl": "/audit-logs",
+    "status": "OK",
+    "file": "bn-admin-audit-logs-desktop.png"
+  },
+  {
+    "role": "admin",
+    "width": "desktop",
+    "path": "/guardians",
+    "finalUrl": "/guardians",
+    "status": "OK",
+    "file": "bn-admin-guardians-desktop.png"
+  },
+  {
+    "role": "admin",
+    "width": "desktop",
+    "path": "/fee-structures",
+    "finalUrl": "/fee-structures",
+    "status": "OK",
+    "file": "bn-admin-fee-structures-desktop.png"
+  },
+  {
+    "role": "admin",
+    "width": "desktop",
+    "path": "/guardians/$guardianId",
+    "finalUrl": "/guardians/5cb76a46-7e42-412a-8f47-2e46666fa8f4",
+    "status": "OK",
+    "file": "bn-admin-guardians__guardianId-desktop.png"
+  },
+  {
+    "role": "admin",
+    "width": "desktop",
+    "path": "/staff",
+    "finalUrl": "/staff",
+    "status": "OK",
+    "file": "bn-admin-staff-desktop.png"
+  },
+  {
+    "role": "admin",
+    "width": "desktop",
+    "path": "/staff/$userId",
+    "finalUrl": "/staff/128b7996-2e3b-4238-b46f-24233a8a4ff1",
+    "status": "OK",
+    "file": "bn-admin-staff__userId-desktop.png"
+  },
+  {
+    "role": "admin",
+    "width": "desktop",
+    "path": "/communications/send",
+    "finalUrl": "/communications/send",
+    "status": "OK",
+    "file": "bn-admin-communications_send-desktop.png"
+  },
+  {
+    "role": "admin",
+    "width": "desktop",
+    "path": "/students",
+    "finalUrl": "/students",
+    "status": "OK",
+    "file": "bn-admin-students-desktop.png"
+  },
+  {
+    "role": "admin",
+    "width": "desktop",
+    "path": "/students/new",
+    "finalUrl": "/students/new",
+    "status": "OK",
+    "file": "bn-admin-students_new-desktop.png"
+  },
+  {
+    "role": "admin",
+    "width": "desktop",
+    "path": "/students/import",
+    "finalUrl": "/students/import",
+    "status": "OK",
+    "file": "bn-admin-students_import-desktop.png"
+  },
+  {
+    "role": "admin",
+    "width": "desktop",
+    "path": "/students/$studentId",
+    "finalUrl": "/students/37c3d8d0-061b-42bb-8a03-cd6a9e2df731",
+    "status": "OK",
+    "file": "bn-admin-students__studentId-desktop.png"
+  },
+  {
+    "role": "admin",
+    "width": "desktop",
+    "path": "/students/$studentId/edit",
+    "finalUrl": "/students/37c3d8d0-061b-42bb-8a03-cd6a9e2df731/edit",
+    "status": "OK",
+    "file": "bn-admin-students__studentId_edit-desktop.png"
+  },
+  {
+    "role": "admin",
+    "width": "tablet",
+    "path": "/",
+    "finalUrl": "/dashboard",
+    "status": "OK",
+    "file": "bn-admin-root-tablet.png"
+  },
+  {
+    "role": "admin",
+    "width": "tablet",
+    "path": "/select-school",
+    "finalUrl": "/dashboard",
+    "status": "OK",
+    "file": "bn-admin-select-school-tablet.png"
+  },
+  {
+    "role": "admin",
+    "width": "tablet",
+    "path": "/dashboard",
+    "finalUrl": "/dashboard",
+    "status": "OK",
+    "file": "bn-admin-dashboard-tablet.png"
+  },
+  {
+    "role": "admin",
+    "width": "tablet",
+    "path": "/settings",
+    "finalUrl": "/settings",
+    "status": "OK",
+    "file": "bn-admin-settings-tablet.png"
+  },
+  {
+    "role": "admin",
+    "width": "tablet",
+    "path": "/academic-years",
+    "finalUrl": "/academic-years",
+    "status": "OK",
+    "file": "bn-admin-academic-years-tablet.png"
+  },
+  {
+    "role": "admin",
+    "width": "tablet",
+    "path": "/academic-years/$academicYearId",
+    "finalUrl": "/academic-years/57846042-b526-4cca-bcc6-7b297015ab0a",
+    "status": "OK",
+    "file": "bn-admin-academic-years__academicYearId-tablet.png"
+  },
+  {
+    "role": "admin",
+    "width": "tablet",
+    "path": "/classes",
+    "finalUrl": "/classes",
+    "status": "OK",
+    "file": "bn-admin-classes-tablet.png"
+  },
+  {
+    "role": "admin",
+    "width": "tablet",
+    "path": "/classes/$classId",
+    "finalUrl": "/classes/c6e9aae9-0a9c-4fbb-9182-01b9294bd567",
+    "status": "OK",
+    "file": "bn-admin-classes__classId-tablet.png"
+  },
+  {
+    "role": "admin",
+    "width": "tablet",
+    "path": "/audit-logs",
+    "finalUrl": "/audit-logs",
+    "status": "OK",
+    "file": "bn-admin-audit-logs-tablet.png"
+  },
+  {
+    "role": "admin",
+    "width": "tablet",
+    "path": "/guardians",
+    "finalUrl": "/guardians",
+    "status": "OK",
+    "file": "bn-admin-guardians-tablet.png"
+  },
+  {
+    "role": "admin",
+    "width": "tablet",
+    "path": "/fee-structures",
+    "finalUrl": "/fee-structures",
+    "status": "OK",
+    "file": "bn-admin-fee-structures-tablet.png"
+  },
+  {
+    "role": "admin",
+    "width": "tablet",
+    "path": "/guardians/$guardianId",
+    "finalUrl": "/guardians/5cb76a46-7e42-412a-8f47-2e46666fa8f4",
+    "status": "OK",
+    "file": "bn-admin-guardians__guardianId-tablet.png"
+  },
+  {
+    "role": "admin",
+    "width": "tablet",
+    "path": "/staff",
+    "finalUrl": "/staff",
+    "status": "OK",
+    "file": "bn-admin-staff-tablet.png"
+  },
+  {
+    "role": "admin",
+    "width": "tablet",
+    "path": "/staff/$userId",
+    "finalUrl": "/staff/128b7996-2e3b-4238-b46f-24233a8a4ff1",
+    "status": "OK",
+    "file": "bn-admin-staff__userId-tablet.png"
+  },
+  {
+    "role": "admin",
+    "width": "tablet",
+    "path": "/communications/send",
+    "finalUrl": "/communications/send",
+    "status": "OK",
+    "file": "bn-admin-communications_send-tablet.png"
+  },
+  {
+    "role": "admin",
+    "width": "tablet",
+    "path": "/students",
+    "finalUrl": "/students",
+    "status": "OK",
+    "file": "bn-admin-students-tablet.png"
+  },
+  {
+    "role": "admin",
+    "width": "tablet",
+    "path": "/students/new",
+    "finalUrl": "/students/new",
+    "status": "OK",
+    "file": "bn-admin-students_new-tablet.png"
+  },
+  {
+    "role": "admin",
+    "width": "tablet",
+    "path": "/students/import",
+    "finalUrl": "/students/import",
+    "status": "OK",
+    "file": "bn-admin-students_import-tablet.png"
+  },
+  {
+    "role": "admin",
+    "width": "tablet",
+    "path": "/students/$studentId",
+    "finalUrl": "/students/37c3d8d0-061b-42bb-8a03-cd6a9e2df731",
+    "status": "OK",
+    "file": "bn-admin-students__studentId-tablet.png"
+  },
+  {
+    "role": "admin",
+    "width": "tablet",
+    "path": "/students/$studentId/edit",
+    "finalUrl": "/students/37c3d8d0-061b-42bb-8a03-cd6a9e2df731/edit",
+    "status": "OK",
+    "file": "bn-admin-students__studentId_edit-tablet.png"
+  },
+  {
+    "role": "admin",
+    "width": "mobile",
+    "path": "/",
+    "finalUrl": "/dashboard",
+    "status": "OK",
+    "file": "bn-admin-root-mobile.png"
+  },
+  {
+    "role": "admin",
+    "width": "mobile",
+    "path": "/select-school",
+    "finalUrl": "/dashboard",
+    "status": "OK",
+    "file": "bn-admin-select-school-mobile.png"
+  },
+  {
+    "role": "admin",
+    "width": "mobile",
+    "path": "/dashboard",
+    "finalUrl": "/dashboard",
+    "status": "OK",
+    "file": "bn-admin-dashboard-mobile.png"
+  },
+  {
+    "role": "admin",
+    "width": "mobile",
+    "path": "/settings",
+    "finalUrl": "/settings",
+    "status": "OK",
+    "file": "bn-admin-settings-mobile.png"
+  },
+  {
+    "role": "admin",
+    "width": "mobile",
+    "path": "/academic-years",
+    "finalUrl": "/academic-years",
+    "status": "OK",
+    "file": "bn-admin-academic-years-mobile.png"
+  },
+  {
+    "role": "admin",
+    "width": "mobile",
+    "path": "/academic-years/$academicYearId",
+    "finalUrl": "/academic-years/57846042-b526-4cca-bcc6-7b297015ab0a",
+    "status": "OK",
+    "file": "bn-admin-academic-years__academicYearId-mobile.png"
+  },
+  {
+    "role": "admin",
+    "width": "mobile",
+    "path": "/classes",
+    "finalUrl": "/classes",
+    "status": "OK",
+    "file": "bn-admin-classes-mobile.png"
+  },
+  {
+    "role": "admin",
+    "width": "mobile",
+    "path": "/classes/$classId",
+    "finalUrl": "/classes/c6e9aae9-0a9c-4fbb-9182-01b9294bd567",
+    "status": "OK",
+    "file": "bn-admin-classes__classId-mobile.png"
+  },
+  {
+    "role": "admin",
+    "width": "mobile",
+    "path": "/audit-logs",
+    "finalUrl": "/audit-logs",
+    "status": "OK",
+    "file": "bn-admin-audit-logs-mobile.png"
+  },
+  {
+    "role": "admin",
+    "width": "mobile",
+    "path": "/guardians",
+    "finalUrl": "/guardians",
+    "status": "OK",
+    "file": "bn-admin-guardians-mobile.png"
+  },
+  {
+    "role": "admin",
+    "width": "mobile",
+    "path": "/fee-structures",
+    "finalUrl": "/fee-structures",
+    "status": "OK",
+    "file": "bn-admin-fee-structures-mobile.png"
+  },
+  {
+    "role": "admin",
+    "width": "mobile",
+    "path": "/guardians/$guardianId",
+    "finalUrl": "/guardians/5cb76a46-7e42-412a-8f47-2e46666fa8f4",
+    "status": "OK",
+    "file": "bn-admin-guardians__guardianId-mobile.png"
+  },
+  {
+    "role": "admin",
+    "width": "mobile",
+    "path": "/staff",
+    "finalUrl": "/staff",
+    "status": "OK",
+    "file": "bn-admin-staff-mobile.png"
+  },
+  {
+    "role": "admin",
+    "width": "mobile",
+    "path": "/staff/$userId",
+    "finalUrl": "/staff/128b7996-2e3b-4238-b46f-24233a8a4ff1",
+    "status": "OK",
+    "file": "bn-admin-staff__userId-mobile.png"
+  },
+  {
+    "role": "admin",
+    "width": "mobile",
+    "path": "/communications/send",
+    "finalUrl": "/communications/send",
+    "status": "OK",
+    "file": "bn-admin-communications_send-mobile.png"
+  },
+  {
+    "role": "admin",
+    "width": "mobile",
+    "path": "/students",
+    "finalUrl": "/students",
+    "status": "OK",
+    "file": "bn-admin-students-mobile.png"
+  },
+  {
+    "role": "admin",
+    "width": "mobile",
+    "path": "/students/new",
+    "finalUrl": "/students/new",
+    "status": "OK",
+    "file": "bn-admin-students_new-mobile.png"
+  },
+  {
+    "role": "admin",
+    "width": "mobile",
+    "path": "/students/import",
+    "finalUrl": "/students/import",
+    "status": "OK",
+    "file": "bn-admin-students_import-mobile.png"
+  },
+  {
+    "role": "admin",
+    "width": "mobile",
+    "path": "/students/$studentId",
+    "finalUrl": "/students/37c3d8d0-061b-42bb-8a03-cd6a9e2df731",
+    "status": "OK",
+    "file": "bn-admin-students__studentId-mobile.png"
+  },
+  {
+    "role": "admin",
+    "width": "mobile",
+    "path": "/students/$studentId/edit",
+    "finalUrl": "/students/37c3d8d0-061b-42bb-8a03-cd6a9e2df731/edit",
+    "status": "OK",
+    "file": "bn-admin-students__studentId_edit-mobile.png"
+  },
+  {
+    "role": "admin",
+    "width": "narrow",
+    "path": "/",
+    "finalUrl": "/dashboard",
+    "status": "OK",
+    "file": "bn-admin-root-narrow.png"
+  },
+  {
+    "role": "admin",
+    "width": "narrow",
+    "path": "/select-school",
+    "finalUrl": "/dashboard",
+    "status": "OK",
+    "file": "bn-admin-select-school-narrow.png"
+  },
+  {
+    "role": "admin",
+    "width": "narrow",
+    "path": "/dashboard",
+    "finalUrl": "/dashboard",
+    "status": "OK",
+    "file": "bn-admin-dashboard-narrow.png"
+  },
+  {
+    "role": "admin",
+    "width": "narrow",
+    "path": "/settings",
+    "finalUrl": "/settings",
+    "status": "OK",
+    "file": "bn-admin-settings-narrow.png"
+  },
+  {
+    "role": "admin",
+    "width": "narrow",
+    "path": "/academic-years",
+    "finalUrl": "/academic-years",
+    "status": "OK",
+    "file": "bn-admin-academic-years-narrow.png"
+  },
+  {
+    "role": "admin",
+    "width": "narrow",
+    "path": "/academic-years/$academicYearId",
+    "finalUrl": "/academic-years/57846042-b526-4cca-bcc6-7b297015ab0a",
+    "status": "OK",
+    "file": "bn-admin-academic-years__academicYearId-narrow.png"
+  },
+  {
+    "role": "admin",
+    "width": "narrow",
+    "path": "/classes",
+    "finalUrl": "/classes",
+    "status": "OK",
+    "file": "bn-admin-classes-narrow.png"
+  },
+  {
+    "role": "admin",
+    "width": "narrow",
+    "path": "/classes/$classId",
+    "finalUrl": "/classes/c6e9aae9-0a9c-4fbb-9182-01b9294bd567",
+    "status": "OK",
+    "file": "bn-admin-classes__classId-narrow.png"
+  },
+  {
+    "role": "admin",
+    "width": "narrow",
+    "path": "/audit-logs",
+    "finalUrl": "/audit-logs",
+    "status": "OK",
+    "file": "bn-admin-audit-logs-narrow.png"
+  },
+  {
+    "role": "admin",
+    "width": "narrow",
+    "path": "/guardians",
+    "finalUrl": "/guardians",
+    "status": "OK",
+    "file": "bn-admin-guardians-narrow.png"
+  },
+  {
+    "role": "admin",
+    "width": "narrow",
+    "path": "/fee-structures",
+    "finalUrl": "/fee-structures",
+    "status": "OK",
+    "file": "bn-admin-fee-structures-narrow.png"
+  },
+  {
+    "role": "admin",
+    "width": "narrow",
+    "path": "/guardians/$guardianId",
+    "finalUrl": "/guardians/5cb76a46-7e42-412a-8f47-2e46666fa8f4",
+    "status": "OK",
+    "file": "bn-admin-guardians__guardianId-narrow.png"
+  },
+  {
+    "role": "admin",
+    "width": "narrow",
+    "path": "/staff",
+    "finalUrl": "/staff",
+    "status": "OK",
+    "file": "bn-admin-staff-narrow.png"
+  },
+  {
+    "role": "admin",
+    "width": "narrow",
+    "path": "/staff/$userId",
+    "finalUrl": "/staff/128b7996-2e3b-4238-b46f-24233a8a4ff1",
+    "status": "OK",
+    "file": "bn-admin-staff__userId-narrow.png"
+  },
+  {
+    "role": "admin",
+    "width": "narrow",
+    "path": "/communications/send",
+    "finalUrl": "/communications/send",
+    "status": "OK",
+    "file": "bn-admin-communications_send-narrow.png"
+  },
+  {
+    "role": "admin",
+    "width": "narrow",
+    "path": "/students",
+    "finalUrl": "/students",
+    "status": "OK",
+    "file": "bn-admin-students-narrow.png"
+  },
+  {
+    "role": "admin",
+    "width": "narrow",
+    "path": "/students/new",
+    "finalUrl": "/students/new",
+    "status": "OK",
+    "file": "bn-admin-students_new-narrow.png"
+  },
+  {
+    "role": "admin",
+    "width": "narrow",
+    "path": "/students/import",
+    "finalUrl": "/students/import",
+    "status": "OK",
+    "file": "bn-admin-students_import-narrow.png"
+  },
+  {
+    "role": "admin",
+    "width": "narrow",
+    "path": "/students/$studentId",
+    "finalUrl": "/students/37c3d8d0-061b-42bb-8a03-cd6a9e2df731",
+    "status": "OK",
+    "file": "bn-admin-students__studentId-narrow.png"
+  },
+  {
+    "role": "admin",
+    "width": "narrow",
+    "path": "/students/$studentId/edit",
+    "finalUrl": "/students/37c3d8d0-061b-42bb-8a03-cd6a9e2df731/edit",
+    "status": "OK",
+    "file": "bn-admin-students__studentId_edit-narrow.png"
+  },
+  {
+    "role": "accountant",
+    "width": "desktop",
+    "path": "/fees",
+    "finalUrl": "/fees",
+    "status": "OK",
+    "file": "bn-accountant-fees-desktop.png"
+  },
+  {
+    "role": "accountant",
+    "width": "desktop",
+    "path": "/fees/dues",
+    "finalUrl": "/fees/dues",
+    "status": "OK",
+    "file": "bn-accountant-fees_dues-desktop.png"
+  },
+  {
+    "role": "accountant",
+    "width": "desktop",
+    "path": "/fees/generate",
+    "finalUrl": "/fees/generate",
+    "status": "OK",
+    "file": "bn-accountant-fees_generate-desktop.png"
+  },
+  {
+    "role": "accountant",
+    "width": "desktop",
+    "path": "/invoices",
+    "finalUrl": "/invoices",
+    "status": "OK",
+    "file": "bn-accountant-invoices-desktop.png"
+  },
+  {
+    "role": "accountant",
+    "width": "desktop",
+    "path": "/invoices/$invoiceId",
+    "finalUrl": "/invoices/07d3578a-039d-498b-b7fc-7a0d897aaf30",
+    "status": "OK",
+    "file": "bn-accountant-invoices__invoiceId-desktop.png"
+  },
+  {
+    "role": "accountant",
+    "width": "desktop",
+    "path": "/payments/record",
+    "finalUrl": "/payments/record",
+    "status": "OK",
+    "file": "bn-accountant-payments_record-desktop.png"
+  },
+  {
+    "role": "accountant",
+    "width": "desktop",
+    "path": "/communications/reminders",
+    "finalUrl": "/communications/reminders",
+    "status": "OK",
+    "file": "bn-accountant-communications_reminders-desktop.png"
+  },
+  {
+    "role": "accountant",
+    "width": "desktop",
+    "path": "/communications/batches",
+    "finalUrl": "/communications/batches",
+    "status": "OK",
+    "file": "bn-accountant-communications_batches-desktop.png"
+  },
+  {
+    "role": "accountant",
+    "width": "desktop",
+    "path": "/communications/batches/$batchId",
+    "status": "SKIP_NO_ID"
+  },
+  {
+    "role": "accountant",
+    "width": "tablet",
+    "path": "/fees",
+    "finalUrl": "/fees",
+    "status": "OK",
+    "file": "bn-accountant-fees-tablet.png"
+  },
+  {
+    "role": "accountant",
+    "width": "tablet",
+    "path": "/fees/dues",
+    "finalUrl": "/fees/dues",
+    "status": "OK",
+    "file": "bn-accountant-fees_dues-tablet.png"
+  },
+  {
+    "role": "accountant",
+    "width": "tablet",
+    "path": "/fees/generate",
+    "finalUrl": "/login",
+    "status": "REDIRECTED_TO_LOGIN",
+    "file": "bn-accountant-fees_generate-tablet.png"
+  },
+  {
+    "role": "accountant",
+    "width": "tablet",
+    "path": "/invoices",
+    "finalUrl": "/login",
+    "status": "REDIRECTED_TO_LOGIN",
+    "file": "bn-accountant-invoices-tablet.png"
+  },
+  {
+    "role": "accountant",
+    "width": "tablet",
+    "path": "/invoices/$invoiceId",
+    "finalUrl": "/login",
+    "status": "REDIRECTED_TO_LOGIN",
+    "file": "bn-accountant-invoices__invoiceId-tablet.png"
+  },
+  {
+    "role": "accountant",
+    "width": "tablet",
+    "path": "/payments/record",
+    "finalUrl": "/login",
+    "status": "REDIRECTED_TO_LOGIN",
+    "file": "bn-accountant-payments_record-tablet.png"
+  },
+  {
+    "role": "accountant",
+    "width": "tablet",
+    "path": "/communications/reminders",
+    "finalUrl": "/login",
+    "status": "REDIRECTED_TO_LOGIN",
+    "file": "bn-accountant-communications_reminders-tablet.png"
+  },
+  {
+    "role": "accountant",
+    "width": "tablet",
+    "path": "/communications/batches",
+    "finalUrl": "/login",
+    "status": "REDIRECTED_TO_LOGIN",
+    "file": "bn-accountant-communications_batches-tablet.png"
+  },
+  {
+    "role": "accountant",
+    "width": "tablet",
+    "path": "/communications/batches/$batchId",
+    "status": "SKIP_NO_ID"
+  },
+  {
+    "role": "accountant",
+    "width": "mobile",
+    "path": "/fees",
+    "finalUrl": "/fees",
+    "status": "OK",
+    "file": "bn-accountant-fees-mobile.png"
+  },
+  {
+    "role": "accountant",
+    "width": "mobile",
+    "path": "/fees/dues",
+    "finalUrl": "/fees/dues",
+    "status": "OK",
+    "file": "bn-accountant-fees_dues-mobile.png"
+  },
+  {
+    "role": "accountant",
+    "width": "mobile",
+    "path": "/fees/generate",
+    "finalUrl": "/login",
+    "status": "REDIRECTED_TO_LOGIN",
+    "file": "bn-accountant-fees_generate-mobile.png"
+  },
+  {
+    "role": "accountant",
+    "width": "mobile",
+    "path": "/invoices",
+    "finalUrl": "/login",
+    "status": "REDIRECTED_TO_LOGIN",
+    "file": "bn-accountant-invoices-mobile.png"
+  },
+  {
+    "role": "accountant",
+    "width": "mobile",
+    "path": "/invoices/$invoiceId",
+    "finalUrl": "/login",
+    "status": "REDIRECTED_TO_LOGIN",
+    "file": "bn-accountant-invoices__invoiceId-mobile.png"
+  },
+  {
+    "role": "accountant",
+    "width": "mobile",
+    "path": "/payments/record",
+    "finalUrl": "/login",
+    "status": "REDIRECTED_TO_LOGIN",
+    "file": "bn-accountant-payments_record-mobile.png"
+  },
+  {
+    "role": "accountant",
+    "width": "mobile",
+    "path": "/communications/reminders",
+    "finalUrl": "/login",
+    "status": "REDIRECTED_TO_LOGIN",
+    "file": "bn-accountant-communications_reminders-mobile.png"
+  },
+  {
+    "role": "accountant",
+    "width": "mobile",
+    "path": "/communications/batches",
+    "finalUrl": "/login",
+    "status": "REDIRECTED_TO_LOGIN",
+    "file": "bn-accountant-communications_batches-mobile.png"
+  },
+  {
+    "role": "accountant",
+    "width": "mobile",
+    "path": "/communications/batches/$batchId",
+    "status": "SKIP_NO_ID"
+  },
+  {
+    "role": "accountant",
+    "width": "narrow",
+    "path": "/fees",
+    "finalUrl": "/fees",
+    "status": "OK",
+    "file": "bn-accountant-fees-narrow.png"
+  },
+  {
+    "role": "accountant",
+    "width": "narrow",
+    "path": "/fees/dues",
+    "finalUrl": "/fees/dues",
+    "status": "OK",
+    "file": "bn-accountant-fees_dues-narrow.png"
+  },
+  {
+    "role": "accountant",
+    "width": "narrow",
+    "path": "/fees/generate",
+    "finalUrl": "/login",
+    "status": "REDIRECTED_TO_LOGIN",
+    "file": "bn-accountant-fees_generate-narrow.png"
+  },
+  {
+    "role": "accountant",
+    "width": "narrow",
+    "path": "/invoices",
+    "finalUrl": "/login",
+    "status": "REDIRECTED_TO_LOGIN",
+    "file": "bn-accountant-invoices-narrow.png"
+  },
+  {
+    "role": "accountant",
+    "width": "narrow",
+    "path": "/invoices/$invoiceId",
+    "finalUrl": "/login",
+    "status": "REDIRECTED_TO_LOGIN",
+    "file": "bn-accountant-invoices__invoiceId-narrow.png"
+  },
+  {
+    "role": "accountant",
+    "width": "narrow",
+    "path": "/payments/record",
+    "finalUrl": "/login",
+    "status": "REDIRECTED_TO_LOGIN",
+    "file": "bn-accountant-payments_record-narrow.png"
+  },
+  {
+    "role": "accountant",
+    "width": "narrow",
+    "path": "/communications/reminders",
+    "finalUrl": "/login",
+    "status": "REDIRECTED_TO_LOGIN",
+    "file": "bn-accountant-communications_reminders-narrow.png"
+  },
+  {
+    "role": "accountant",
+    "width": "narrow",
+    "path": "/communications/batches",
+    "finalUrl": "/login",
+    "status": "REDIRECTED_TO_LOGIN",
+    "file": "bn-accountant-communications_batches-narrow.png"
+  },
+  {
+    "role": "accountant",
+    "width": "narrow",
+    "path": "/communications/batches/$batchId",
+    "status": "SKIP_NO_ID"
+  },
+  {
+    "role": "parent",
+    "width": "desktop",
+    "path": "/portal",
+    "finalUrl": "/portal",
+    "status": "OK",
+    "file": "bn-parent-portal-desktop.png"
+  },
+  {
+    "role": "parent",
+    "width": "desktop",
+    "path": "/portal/fees",
+    "finalUrl": "/portal/fees",
+    "status": "OK",
+    "file": "bn-parent-portal_fees-desktop.png"
+  },
+  {
+    "role": "parent",
+    "width": "tablet",
+    "path": "/portal",
+    "finalUrl": "/portal",
+    "status": "OK",
+    "file": "bn-parent-portal-tablet.png"
+  },
+  {
+    "role": "parent",
+    "width": "tablet",
+    "path": "/portal/fees",
+    "finalUrl": "/portal/fees",
+    "status": "OK",
+    "file": "bn-parent-portal_fees-tablet.png"
+  },
+  {
+    "role": "parent",
+    "width": "mobile",
+    "path": "/portal",
+    "finalUrl": "/portal",
+    "status": "OK",
+    "file": "bn-parent-portal-mobile.png"
+  },
+  {
+    "role": "parent",
+    "width": "mobile",
+    "path": "/portal/fees",
+    "finalUrl": "/portal/fees",
+    "status": "OK",
+    "file": "bn-parent-portal_fees-mobile.png"
+  },
+  {
+    "role": "guest",
+    "width": "desktop",
+    "path": "/login",
+    "status": "OK"
+  },
+  {
+    "role": "guest",
+    "width": "tablet",
+    "path": "/login",
+    "status": "OK"
+  },
+  {
+    "role": "guest",
+    "width": "mobile",
+    "path": "/login",
+    "status": "OK"
+  },
+  {
+    "role": "guest",
+    "width": "narrow",
+    "path": "/login",
+    "status": "OK"
+  }
+]

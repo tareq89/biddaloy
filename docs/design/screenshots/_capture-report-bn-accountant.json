@@ -1,0 +1,212 @@
+[
+  {
+    "role": "accountant",
+    "width": "desktop",
+    "path": "/fees",
+    "finalUrl": "/fees",
+    "status": "OK",
+    "file": "bn-accountant-fees-desktop.png"
+  },
+  {
+    "role": "accountant",
+    "width": "desktop",
+    "path": "/fees/dues",
+    "finalUrl": "/fees/dues",
+    "status": "OK",
+    "file": "bn-accountant-fees_dues-desktop.png"
+  },
+  {
+    "role": "accountant",
+    "width": "desktop",
+    "path": "/fees/generate",
+    "finalUrl": "/fees/generate",
+    "status": "OK",
+    "file": "bn-accountant-fees_generate-desktop.png"
+  },
+  {
+    "role": "accountant",
+    "width": "desktop",
+    "path": "/invoices",
+    "finalUrl": "/invoices",
+    "status": "OK",
+    "file": "bn-accountant-invoices-desktop.png"
+  },
+  {
+    "role": "accountant",
+    "width": "desktop",
+    "path": "/invoices/$invoiceId",
+    "finalUrl": "/invoices/07d3578a-039d-498b-b7fc-7a0d897aaf30",
+    "status": "OK",
+    "file": "bn-accountant-invoices__invoiceId-desktop.png"
+  },
+  {
+    "role": "accountant",
+    "width": "desktop",
+    "path": "/payments/record",
+    "finalUrl": "/payments/record",
+    "status": "OK",
+    "file": "bn-accountant-payments_record-desktop.png"
+  },
+  {
+    "role": "accountant",
+    "width": "desktop",
+    "path": "/communications/reminders",
+    "finalUrl": "/communications/reminders",
+    "status": "OK",
+    "file": "bn-accountant-communications_reminders-desktop.png"
+  },
+  {
+    "role": "accountant",
+    "width": "desktop",
+    "path": "/communications/batches",
+    "finalUrl": "/communications/batches",
+    "status": "OK",
+    "file": "bn-accountant-communications_batches-desktop.png"
+  },
+  {
+    "role": "accountant",
+    "width": "desktop",
+    "path": "/communications/batches/$batchId",
+    "status": "SKIP_NO_ID"
+  },
+  {
+    "role": "accountant",
+    "width": "tablet",
+    "path": "/fees",
+    "finalUrl": "/fees",
+    "status": "OK",
+    "file": "bn-accountant-fees-tablet.png"
+  },
+  {
+    "role": "accountant",
+    "width": "tablet",
+    "path": "/fees/dues",
+    "finalUrl": "/fees/dues",
+    "status": "OK",
+    "file": "bn-accountant-fees_dues-tablet.png"
+  },
+  {
+    "role": "accountant",
+    "width": "tablet",
+    "path": "/fees/generate",
+    "finalUrl": "/login",
+    "status": "REDIRECTED_TO_LOGIN",
+    "file": "bn-accountant-fees_generate-tablet.png"
+  },
+  {
+    "role": "accountant",
+    "width": "tablet",
+    "path": "/invoices",
+    "finalUrl": "/login",
+    "status": "REDIRECTED_TO_LOGIN",
+    "file": "bn-accountant-invoices-tablet.png"
+  },
+  {
+    "role": "accountant",
+    "width": "tablet",
+    "path": "/invoices/$invoiceId",
+    "finalUrl": "/login",
+    "status": "REDIRECTED_TO_LOGIN",
+    "file": "bn-accountant-invoices__invoiceId-tablet.png"
+  },
+  {
+    "role": "accountant",
+    "width": "tablet",
+    "path": "/payments/record",
+    "finalUrl": "/login",
+    "status": "REDIRECTED_TO_LOGIN",
+    "file": "bn-accountant-payments_record-tablet.png"
+  },
+  {
+    "role": "accountant",
+    "width": "tablet",
+    "path": "/communications/reminders",
+    "finalUrl": "/login",
+    "status": "REDIRECTED_TO_LOGIN",
+    "file": "bn-accountant-communications_reminders-tablet.png"
+  },
+  {
+    "role": "accountant",
+    "width": "tablet",
+    "path": "/communications/batches",
+    "finalUrl": "/login",
+    "status": "REDIRECTED_TO_LOGIN",
+    "file": "bn-accountant-communications_batches-tablet.png"
+  },
+  {
+    "role": "accountant",
+    "width": "tablet",
+    "path": "/communications/batches/$batchId",
+    "status": "SKIP_NO_ID"
+  },
+  {
+    "role": "accountant",
+    "width": "mobile",
+    "path": "/fees",
+    "finalUrl": "/fees",
+    "status": "OK",
+    "file": "bn-accountant-fees-mobile.png"
+  },
+  {
+    "role": "accountant",
+    "width": "mobile",
+    "path": "/fees/dues",
+    "finalUrl": "/fees/dues",
+    "status": "OK",
+    "file": "bn-accountant-fees_dues-mobile.png"
+  },
+  {
+    "role": "accountant",
+    "width": "mobile",
+    "path": "/fees/generate",
+    "finalUrl": "/login",
+    "status": "REDIRECTED_TO_LOGIN",
+    "file": "bn-accountant-fees_generate-mobile.png"
+  },
+  {
+    "role": "accountant",
+    "width": "mobile",
+    "path": "/invoices",
+    "finalUrl": "/login",
+    "status": "REDIRECTED_TO_LOGIN",
+    "file": "bn-accountant-invoices-mobile.png"
+  },
+  {
+    "role": "accountant",
+    "width": "mobile",
+    "path": "/invoices/$invoiceId",
+    "finalUrl": "/login",
+    "status": "REDIRECTED_TO_LOGIN",
+    "file": "bn-accountant-invoices__invoiceId-mobile.png"
+  },
+  {
+    "role": "accountant",
+    "width": "mobile",
+    "path": "/payments/record",
+    "finalUrl": "/login",
+    "status": "REDIRECTED_TO_LOGIN",
+    "file": "bn-accountant-payments_record-mobile.png"
+  },
+  {
+    "role": "accountant",
+    "width": "mobile",
+    "path": "/communications/reminders",
+    "finalUrl": "/login",
+    "status": "REDIRECTED_TO_LOGIN",
+    "file": "bn-accountant-communications_reminders-mobile.png"
+  },
+  {
+    "role": "accountant",
+    "width": "mobile",
+    "path": "/communications/batches",
+    "finalUrl": "/login",
+    "status": "REDIRECTED_TO_LOGIN",
+    "file": "bn-accountant-communications_batches-mobile.png"
+  },
+  {
+    "role": "accountant",
+    "width": "mobile",
+    "path": "/communications/batches/$batchId",
+    "status": "SKIP_NO_ID"
+  }
+]
