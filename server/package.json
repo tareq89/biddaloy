@@ -58,7 +58,7 @@
   },
   "devDependencies": {
     "@nestjs/cli": "^11",
-    "@nestjs/testing": "^11",
+    "@nestjs/testing": "^12",
     "@types/bcrypt": "^6.0.0",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5",
