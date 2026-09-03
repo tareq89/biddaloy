@@ -25,24 +25,48 @@ import type { ReactNode } from 'react';
 
 import { DataTable, type DataTableProps } from '../components/data-table';
 
+import { FilterBar, type FilterBarProps } from './filter-bar';
+
 export interface ListShellProps<TData extends RowData> extends DataTableProps<TData> {
   title: string;
   primaryAction?: ReactNode;
+  /** @deprecated Untyped escape hatch, kept only until [8.14.10] migrates
+   * the last page off it — a page hand-rolls its own markup here, with no
+   * shared debounce/normalization/chip/mobile-collapse behavior. Prefer
+   * `filters` (typed `FilterBarProps`) for any new page. Removing this
+   * prop today would break the eight pages still using it
+   * (`students`, `guardians`, `staff`, `invoices`, `classes`,
+   * `fee-structures`, `audit-logs`, `fees/dues`) — [8.14.10]'s job, not
+   * this one's. */
   filterBar?: ReactNode;
+  /** [8.14.8]'s typed replacement for `filterBar` — a `FilterFieldDescriptor[]`
+   * the page declares, rendered by `FilterBar` itself (debounce,
+   * Bengali-digit normalization, active-filter chips including
+   * deep-linked ones, mobile "Filters (n)" disclosure all come free). */
+  filters?: FilterBarProps;
 }
 
 export function ListShell<TData extends RowData>({
   title,
   primaryAction,
   filterBar,
+  filters,
   ...dataTableProps
 }: ListShellProps<TData>) {
+  if (process.env.NODE_ENV !== 'production' && filterBar && filters) {
+    console.warn(
+      '[ListShell] both `filterBar` (deprecated) and `filters` were passed — both render, ' +
+        'one above the other. Pass only `filters` (the typed `FilterBar`) for a new page.',
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-lg font-semibold">{title}</h1>
         {primaryAction}
       </div>
+      {filters && <FilterBar {...filters} />}
       {filterBar && <div className="flex flex-wrap items-center gap-2">{filterBar}</div>}
       <DataTable {...dataTableProps} />
     </div>
