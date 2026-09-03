@@ -282,4 +282,59 @@ describe('/fees/dues', () => {
     await screen.findByText(/Karim Rahman/);
     await expect(container).toHaveNoViolations();
   });
+
+  // [8.14.10]: FilterBar migration — the rows-per-page control changes
+  // `limit` and resets `page` in one URL update.
+  it('changing rows per page writes limit and resets page', async () => {
+    server.use(
+      http.get('/api/v1/fees/dues', () =>
+        HttpResponse.json({ data: [], total: 0, page: 2, limit: 10, totalPages: 1 }),
+      ),
+    );
+
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/fees/dues?page=2'],
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await screen.findByRole('region', { name: 'Dues queue' });
+    await user.click(screen.getByRole('combobox', { name: 'Rows per page' }));
+    // Option labels render in the tenant's own region digits (Bengali
+    // numerals here), independent of the `en` UI locale.
+    await user.click(await screen.findByRole('option', { name: '২০' }));
+
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ limit: 20, page: 1 }));
+  });
+
+  // [8.14.10]: `section_id`'s FilterBar descriptor has no options until a
+  // class is chosen (empty `options`, in place of the old `disabled`
+  // prop `SelectFilterField` has no equivalent for) — a class must still
+  // be pickable regardless.
+  it('offers no section options until a class is chosen', async () => {
+    const klass = classFactory({ id: 'class-9', name: 'Class 9' });
+    server.use(
+      http.get('/api/v1/classes', () =>
+        HttpResponse.json({ data: [klass], total: 1, page: 1, limit: 100, totalPages: 1 }),
+      ),
+      http.get('/api/v1/fees/dues', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 0 }),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/fees/dues'],
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await screen.findByRole('region', { name: 'Dues queue' });
+    await user.click(screen.getByRole('combobox', { name: 'Section' }));
+    // Only the built-in "All sections" option — no real section to pick.
+    expect(screen.queryAllByRole('option')).toHaveLength(1);
+  });
 });
