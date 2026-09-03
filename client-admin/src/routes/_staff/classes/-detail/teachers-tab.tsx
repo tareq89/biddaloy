@@ -5,7 +5,6 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-  humanizeStatus,
 } from '@biddaloy/ui/components';
 import { useClassTeachers } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
@@ -21,6 +20,13 @@ export interface TeachersTabProps {
  * actions here. */
 export function TeachersTab({ classId }: TeachersTabProps) {
   const { t } = useTranslation('classes');
+  // [8.14.15] Separate binding so `staff` is actually loaded before the
+  // designation cell renders. Kept as its own call, not
+  // `useTranslation(['classes', 'staff'])` — `check-i18n-keys.mjs`
+  // resolves this file's namespace from the *first* single-quoted
+  // `useTranslation('...')` call it finds, and an array argument doesn't
+  // match that regex.
+  useTranslation('staff');
   const query = useClassTeachers(classId);
 
   return (
@@ -49,7 +55,9 @@ export function TeachersTab({ classId }: TeachersTabProps) {
                   <TableCell>{teacher.employee_id}</TableCell>
                   <TableCell>
                     {teacher.designations
-                      .map((designation) => humanizeStatus(designation))
+                      .map((designation) =>
+                        t(`teacherForm.designations.${designation}`, { ns: 'staff' }),
+                      )
                       .join(', ')}
                   </TableCell>
                   <TableCell>{teacher.section_names.join(', ')}</TableCell>

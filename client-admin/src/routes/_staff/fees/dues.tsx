@@ -3,7 +3,7 @@ import {
   Button,
   RoutePending,
   StatusBadge,
-  humanizeStatus,
+  statusLabelKey,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
 import {
@@ -263,7 +263,7 @@ function DuesQueuePage() {
         formatServerAmount(totalBilled, regionConfig),
         formatServerAmount(paid, regionConfig),
         formatServerAmount(row.total_due, regionConfig),
-        humanizeStatus(deriveRowStatus(row)),
+        t(statusLabelKey('fee', deriveRowStatus(row)), { ns: 'common' }),
         toReminderLabel(row.student_id),
       ];
     });
@@ -419,8 +419,14 @@ function DuesQueuePage() {
       options: flagged
         ? []
         : [
-            { value: FeeStatus.PENDING, label: humanizeStatus(FeeStatus.PENDING) },
-            { value: FeeStatus.PARTIALLY_PAID, label: humanizeStatus(FeeStatus.PARTIALLY_PAID) },
+            {
+              value: FeeStatus.PENDING,
+              label: t(statusLabelKey('fee', FeeStatus.PENDING), { ns: 'common' }),
+            },
+            {
+              value: FeeStatus.PARTIALLY_PAID,
+              label: t(statusLabelKey('fee', FeeStatus.PARTIALLY_PAID), { ns: 'common' }),
+            },
           ],
     },
     {

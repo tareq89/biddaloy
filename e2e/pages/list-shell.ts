@@ -140,22 +140,20 @@ export class ListShellPage {
     if (messageKey) await expect(alert).toHaveText(this.t(messageKey));
   }
 
-  // DataTable's pagination strings are currently untranslated English
-  // literals (data-table.tsx) — these locators track that markup.
   async nextPage(): Promise<void> {
-    await this.pagerClick('Next');
+    await this.pagerClick('pagination.next');
   }
 
   async previousPage(): Promise<void> {
-    await this.pagerClick('Previous');
+    await this.pagerClick('pagination.previous');
   }
 
   /** The pager sits under the table, whose rows re-render as data
    * settles — Playwright's stability check never converges. Waiting for
    * enabled and dispatching the click on the element is equivalent for a
    * plain button and immune to layout shift above it. */
-  private async pagerClick(name: 'Next' | 'Previous'): Promise<void> {
-    const button = this.page.getByRole('button', { name, exact: true });
+  private async pagerClick(key: 'pagination.next' | 'pagination.previous'): Promise<void> {
+    const button = this.page.getByRole('button', { name: this.t(key), exact: true });
     await expect(button).toBeEnabled();
     await button.evaluate((el) => (el as HTMLButtonElement).click());
   }

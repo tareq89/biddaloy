@@ -6,7 +6,6 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-  humanizeStatus,
 } from '@biddaloy/ui/components';
 import { useFeeStructures } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
@@ -26,6 +25,13 @@ const PAGE_SIZE = 20;
  * `classes-tab.tsx`'s identical reasoning for the sibling tab. */
 export function FeeStructuresTab({ academicYearId }: FeeStructuresTabProps) {
   const { t } = useTranslation('academicYears');
+  // [8.14.15] Separate binding (not `t(..., { ns: 'feeStructures' })`
+  // alone) so `feeStructures` is actually loaded before the fee-type
+  // cell renders. Kept as its own call, not `useTranslation(['academicYears',
+  // 'feeStructures'])` — `check-i18n-keys.mjs` resolves this file's
+  // namespace from the *first* single-quoted `useTranslation('...')` call
+  // it finds, and an array argument doesn't match that regex.
+  useTranslation('feeStructures');
   const regionConfig = useRegionConfig();
   const [page, setPage] = React.useState(1);
   const query = useFeeStructures({ academic_year_id: academicYearId, page, limit: PAGE_SIZE });
@@ -55,7 +61,9 @@ export function FeeStructuresTab({ academicYearId }: FeeStructuresTabProps) {
                 {feeStructures.data.map((structure) => (
                   <TableRow key={structure.id}>
                     <TableCell>{structure.name}</TableCell>
-                    <TableCell>{humanizeStatus(structure.fee_type)}</TableCell>
+                    <TableCell>
+                      {t(`feeTypes.${structure.fee_type}`, { ns: 'feeStructures' })}
+                    </TableCell>
                     <TableCell>{structure.class.name}</TableCell>
                     <TableCell>{formatServerAmount(structure.amount, regionConfig)}</TableCell>
                     <TableCell>

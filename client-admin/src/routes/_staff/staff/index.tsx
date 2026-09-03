@@ -12,7 +12,7 @@ import {
   Button,
   RoutePending,
   StatusBadge,
-  humanizeStatus,
+  statusLabelKey,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
 import {
@@ -173,7 +173,7 @@ function StaffListPage() {
       allLabel: t('list.statusFilterAll'),
       options: Object.values(UserStatus).map((status) => ({
         value: status,
-        label: humanizeStatus(status),
+        label: t(statusLabelKey('user', status), { ns: 'common' }),
       })),
     },
     {

@@ -2,7 +2,7 @@ import { InvoiceStatus, Permission } from '@biddaloy/shared';
 import {
   RoutePending,
   StatusBadge,
-  humanizeStatus,
+  statusLabelKey,
   toast,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
@@ -157,7 +157,7 @@ function InvoicesListPage() {
       allLabel: t('invoices.allStatuses'),
       options: Object.values(InvoiceStatus).map((status) => ({
         value: status,
-        label: humanizeStatus(status),
+        label: t(statusLabelKey('invoice', status), { ns: 'common' }),
       })),
     },
     {

@@ -16,7 +16,7 @@ import {
   Button,
   RoutePending,
   StatusBadge,
-  humanizeStatus,
+  statusLabelKey,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
 import {
@@ -157,7 +157,7 @@ function ReminderHistoryList() {
       allLabel: t('batches.allStatuses'),
       options: Object.values(ReminderBatchStatus).map((status) => ({
         value: status,
-        label: humanizeStatus(status),
+        label: t(statusLabelKey('reminderBatch', status), { ns: 'common' }),
       })),
     },
     {
