@@ -67,10 +67,14 @@ describe('/classes', () => {
     expect(within(row).getByText('6')).toBeTruthy();
     // Sections column reads `section_count` straight off the list
     // payload — no `sections` relation loaded on this endpoint anymore.
-    expect(within(row).getByText('1')).toBeTruthy();
+    // [8.14.10]: rendered through `formatNumber`, so it picks up the
+    // tenant's region numerals (Bengali by default here) — same fix as
+    // `communications/batches/index.tsx`'s recipient counts, not raw
+    // ASCII digits regardless of UI language.
+    expect(within(row).getByText('১')).toBeTruthy();
     // Students column reads `student_count`, same list payload — no
     // per-row request.
-    expect(within(row).getByText('5')).toBeTruthy();
+    expect(within(row).getByText('৫')).toBeTruthy();
   });
 
   // [8.14.17]: `_staff.tsx`'s `RequirePermission` now refuses the whole

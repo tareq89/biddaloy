@@ -180,6 +180,8 @@ function AcademicYearsListPage() {
         pageSize={state.limit}
         totalCount={yearsQuery.data?.total ?? 0}
         onPageChange={actions.setPage}
+        onPageSizeChange={actions.setLimit}
+        pageSizeLabel={t('pagination.rowsPerPage', { ns: 'common' })}
         loading={yearsQuery.isLoading}
         isFetching={yearsQuery.isFetching}
         {...(yearsQuery.isError ? { error: t('list.errorMessage') } : {})}
