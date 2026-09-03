@@ -17,7 +17,7 @@
   "invoices": {
     "title": "চালান",
     "caption": "চালান তালিকা",
-    "searchLabel": "খুঁজুন",
+    "searchLabel": "চালান খুঁজুন",
     "searchPlaceholder": "চালান নম্বর অথবা শিক্ষার্থীর নাম",
     "statusLabel": "অবস্থা",
     "allStatuses": "সকল অবস্থা",
@@ -44,7 +44,7 @@
   "dues": {
     "title": "বকেয়া তালিকা",
     "caption": "বকেয়া তালিকা",
-    "searchLabel": "খুঁজুন",
+    "searchLabel": "বকেয়া খুঁজুন",
     "searchPlaceholder": "শিক্ষার্থীর নাম অথবা রেজিস্ট্রেশন নম্বর",
     "classLabel": "শ্রেণি",
     "allClasses": "সকল শ্রেণি",

@@ -141,18 +141,20 @@ export class ListShellPage {
   }
 
   async nextPage(): Promise<void> {
-    await this.pagerClick('pagination.next');
+    await this.pagerClick('common.pagination.next');
   }
 
   async previousPage(): Promise<void> {
-    await this.pagerClick('pagination.previous');
+    await this.pagerClick('common.pagination.previous');
   }
 
   /** The pager sits under the table, whose rows re-render as data
    * settles — Playwright's stability check never converges. Waiting for
    * enabled and dispatching the click on the element is equivalent for a
    * plain button and immune to layout shift above it. */
-  private async pagerClick(key: 'pagination.next' | 'pagination.previous'): Promise<void> {
+  private async pagerClick(
+    key: 'common.pagination.next' | 'common.pagination.previous',
+  ): Promise<void> {
     const button = this.page.getByRole('button', { name: this.t(key), exact: true });
     await expect(button).toBeEnabled();
     await button.evaluate((el) => (el as HTMLButtonElement).click());

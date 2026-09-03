@@ -17,7 +17,7 @@
   "invoices": {
     "title": "Invoices",
     "caption": "Invoices",
-    "searchLabel": "Search",
+    "searchLabel": "Search invoices",
     "searchPlaceholder": "Invoice number or student name",
     "statusLabel": "Status",
     "allStatuses": "All statuses",
@@ -44,7 +44,7 @@
   "dues": {
     "title": "Dues queue",
     "caption": "Dues queue",
-    "searchLabel": "Search",
+    "searchLabel": "Search dues",
     "searchPlaceholder": "Student name or registration number",
     "classLabel": "Class",
     "allClasses": "All classes",

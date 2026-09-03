@@ -186,12 +186,21 @@ export function DetailShell({
       </div>
 
       <Tabs value={activeTab} onValueChange={onTabChange}>
-        {/* The strip scrolls in its own container at narrow widths —
-            page-level horizontal scroll is a WCAG 1.4.10 failure
-            ([8.5.6]); scrolling the tab strip itself is not. */}
-        <TabsList className="max-w-full overflow-x-auto">
+        {/* [8.14.7] Wraps onto extra rows at narrow widths instead of
+            scrolling in its own container — `expectNoInnerHorizontalScroll`
+            now treats any inner scroll region, not just DataTable's old one,
+            as a phone-usability defect. Each trigger drops the list's
+            equal-width `flex-1` (which would force overflow instead of
+            wrapping) and fixes its own height, since the list's height
+            token no longer bounds a single row once it can wrap to more
+            than one. */}
+        <TabsList className="h-auto max-w-full flex-wrap gap-1">
           {tabs.map((tab) => (
-            <TabsTrigger key={tab.id} value={tab.id}>
+            <TabsTrigger
+              key={tab.id}
+              value={tab.id}
+              className="h-[calc(var(--control-h,2rem)-1px)] flex-none grow-0 basis-auto"
+            >
               {tab.label}
             </TabsTrigger>
           ))}
