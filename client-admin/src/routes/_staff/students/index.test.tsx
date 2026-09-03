@@ -331,4 +331,56 @@ describe('/students', () => {
     await screen.findByRole('link', { name: 'View' });
     await expect(container).toHaveNoViolations();
   });
+
+  // [8.14.10]: FilterBar migration — the rows-per-page control changes
+  // `limit` and resets `page` in one URL update.
+  it('changing rows per page writes limit and resets page', async () => {
+    server.use(
+      http.get('/api/v1/students', () =>
+        HttpResponse.json({ data: [], total: 0, page: 2, limit: 10, totalPages: 1 }),
+      ),
+    );
+
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/students?page=2'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await screen.findByRole('region', { name: 'Students' });
+    await user.click(screen.getByRole('combobox', { name: 'Rows per page' }));
+    // Option labels render in the tenant's own region digits (Bengali
+    // numerals here), independent of the `en` UI locale.
+    await user.click(await screen.findByRole('option', { name: '২০' }));
+
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ limit: 20, page: 1 }));
+  });
+
+  // [8.14.10]: `gender`/`date_of_birth_from`/`date_of_birth_to` are new
+  // filter keys #373 added server-side; this page exposes them via
+  // `FilterBar` descriptors for the first time.
+  it('a gender filter reaches the request', async () => {
+    let lastGender: string | null = null;
+    server.use(
+      http.get('/api/v1/students', ({ request }) => {
+        lastGender = new URL(request.url).searchParams.get('gender');
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 });
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await screen.findByRole('region', { name: 'Students' });
+    await user.type(screen.getByRole('textbox', { name: 'Gender' }), 'Female');
+
+    await waitFor(() => expect(lastGender).toBe('Female'), { timeout: 1000 });
+  });
 });
