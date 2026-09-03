@@ -47,6 +47,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       // navigation machinery specifically catches — throwing anything else
       // here wouldn't redirect at all.
 
+      // eslint-disable-next-line @typescript-eslint/only-throw-error
       throw redirect({ to: '/login', search: { redirect: location.href } });
     }
     // Tenant *and* a role the audience split actually knows about: a
@@ -74,6 +75,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       location.pathname !== '/login' &&
       location.pathname !== '/select-school'
     ) {
+      // eslint-disable-next-line @typescript-eslint/only-throw-error
       throw redirect({ to: '/select-school', search: { redirect: location.href } });
     }
 
@@ -85,6 +87,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     // and lets an already-resolved visitor bypass `TenantBar`'s
     // confirm-before-switch flow entirely.
     if (authenticated && hasActiveTenant && location.pathname === '/select-school') {
+      // eslint-disable-next-line @typescript-eslint/only-throw-error
       throw redirect({ to: '/' });
     }
   },
