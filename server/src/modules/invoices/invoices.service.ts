@@ -10,6 +10,7 @@ import { InvoiceStatus } from '@biddaloy/shared';
 import { CreateInvoiceDto, QueryInvoiceDto } from './dto/invoices.dto';
 import { generateInvoiceNumber } from './invoice-numbering.util';
 import { renderInvoiceHtml } from './invoice-print.template';
+import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
 
 const AMOUNT_EPSILON = 0.01;
 const DEFAULT_DUE_DAYS = 7;
@@ -141,12 +142,12 @@ export class InvoicesService {
       .leftJoinAndSelect('invoice.student', 'student')
       .leftJoinAndSelect('invoice.student_fee', 'student_fee')
       .where('student.tenant_id = :tenantId', { tenantId })
-      .andWhere('invoice.deleted_at IS NULL')
-      .orderBy('invoice.issued_date', 'DESC');
+      .andWhere('invoice.deleted_at IS NULL');
 
-    if (query.search) {
+    const search = normalizeSearchTerm(query.search);
+    if (search) {
       qb.andWhere('(invoice.invoice_number ILIKE :search OR student.full_name ILIKE :search)', {
-        search: `%${query.search}%`,
+        search: `%${search}%`,
       });
     }
     if (restrictToStudentIds !== undefined) {
@@ -167,6 +168,25 @@ export class InvoicesService {
     if (query.to_date) {
       qb.andWhere('invoice.issued_date <= :toDate', { toDate: query.to_date });
     }
+    if (query.min_amount !== undefined) {
+      qb.andWhere('invoice.total_amount >= :minAmount', { minAmount: query.min_amount });
+    }
+    if (query.max_amount !== undefined) {
+      qb.andWhere('invoice.total_amount <= :maxAmount', { maxAmount: query.max_amount });
+    }
+
+    const sortColumn: Record<string, string> = {
+      issued_date: 'invoice.issued_date',
+      due_date: 'invoice.due_date',
+      total_amount: 'invoice.total_amount',
+      invoice_number: 'invoice.invoice_number',
+      status: 'invoice.status',
+    };
+    const orderDirection = query.order === 'asc' ? 'ASC' : 'DESC';
+    qb.orderBy(sortColumn[query.sort ?? 'issued_date'], orderDirection).addOrderBy(
+      'invoice.id',
+      'ASC',
+    );
 
     const [data, total] = await qb.skip(skip).take(limit).getManyAndCount();
 

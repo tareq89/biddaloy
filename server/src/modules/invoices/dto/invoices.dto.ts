@@ -88,6 +88,26 @@ export class QueryInvoiceDto {
 
   @IsOptional()
   @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  min_amount?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  max_amount?: number;
+
+  @IsOptional()
+  @IsEnum(['issued_date', 'due_date', 'total_amount', 'invoice_number', 'status'])
+  sort?: 'issued_date' | 'due_date' | 'total_amount' | 'invoice_number' | 'status';
+
+  @IsOptional()
+  @IsEnum(['asc', 'desc'])
+  order?: 'asc' | 'desc';
+
+  @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   page?: number = 1;
