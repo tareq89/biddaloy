@@ -44,6 +44,8 @@
   "dues": {
     "title": "Dues queue",
     "caption": "Dues queue",
+    "searchLabel": "Search",
+    "searchPlaceholder": "Student name or registration number",
     "classLabel": "Class",
     "allClasses": "All classes",
     "sectionLabel": "Section",

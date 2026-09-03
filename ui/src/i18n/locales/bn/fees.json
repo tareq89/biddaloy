@@ -44,6 +44,8 @@
   "dues": {
     "title": "বকেয়া তালিকা",
     "caption": "বকেয়া তালিকা",
+    "searchLabel": "খুঁজুন",
+    "searchPlaceholder": "শিক্ষার্থীর নাম অথবা রেজিস্ট্রেশন নম্বর",
     "classLabel": "শ্রেণি",
     "allClasses": "সকল শ্রেণি",
     "sectionLabel": "শাখা",

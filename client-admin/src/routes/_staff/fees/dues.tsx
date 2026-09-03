@@ -41,6 +41,7 @@ const SORT_FIELD_BY_COLUMN: Partial<Record<string, FeeDuesSortBy>> = {
 };
 
 interface DuesFilters {
+  search?: string | undefined;
   class_id?: string | undefined;
   section_id?: string | undefined;
   month?: string | undefined;
@@ -54,6 +55,7 @@ const duesSearchSchema = z.object({
   limit: z.number().int().positive().optional().catch(undefined),
   sort: z.string().optional().catch(undefined),
   order: z.enum(['asc', 'desc']).optional().catch(undefined),
+  search: z.string().optional().catch(undefined),
   class_id: z.string().optional().catch(undefined),
   section_id: z.string().optional().catch(undefined),
   month: z.string().optional().catch(undefined),
@@ -75,6 +77,7 @@ function toFeeDuesFilters(
   // note above) — never send sort_by/sort_order alongside flagged=true.
   const sortField = !flagged && sortColumnId ? SORT_FIELD_BY_COLUMN[sortColumnId] : undefined;
   return {
+    ...(filters.search !== undefined ? { search: filters.search } : {}),
     ...(filters.class_id !== undefined ? { class_id: filters.class_id } : {}),
     ...(filters.section_id !== undefined ? { section_id: filters.section_id } : {}),
     ...(filters.month !== undefined ? { month: Number(filters.month) } : {}),
@@ -93,6 +96,7 @@ export const Route = createFileRoute('/_staff/fees/dues')({
     limit: search.limit ?? 10,
     sort: search.sort,
     order: search.order,
+    search: search.search,
     classId: search.class_id,
     sectionId: search.section_id,
     month: search.month,
@@ -112,6 +116,7 @@ export const Route = createFileRoute('/_staff/fees/dues')({
               limit: deps.limit,
               ...toFeeDuesFilters(
                 {
+                  search: deps.search,
                   class_id: deps.classId,
                   section_id: deps.sectionId,
                   month: deps.month,
@@ -360,6 +365,13 @@ function DuesQueuePage() {
   // while `class_id`/`flagged` disagree) without the greyed-out visual —
   // flagged in the PR body as a design-system gap, not fixed here.
   const filterFields: FilterFieldDescriptor[] = [
+    {
+      kind: 'text',
+      key: 'search',
+      label: t('dues.searchLabel'),
+      placeholder: t('dues.searchPlaceholder'),
+      primary: true,
+    },
     {
       kind: 'select',
       key: 'class_id',
