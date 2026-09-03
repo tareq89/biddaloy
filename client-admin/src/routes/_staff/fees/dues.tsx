@@ -1,14 +1,7 @@
 import { FeeStatus, Permission } from '@biddaloy/shared';
 import {
   Button,
-  Checkbox,
-  Label,
   RoutePending,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   StatusBadge,
   humanizeStatus,
   type DataTableColumn,
@@ -25,7 +18,7 @@ import {
   type FeeDuesSortBy,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { ListShell, useListShellState } from '@biddaloy/ui/shells';
+import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
 import { downloadCsv, formatDate, formatServerAmount } from '@biddaloy/ui/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
@@ -36,10 +29,6 @@ import { loadRouteNamespaces } from '../../../route-loaders';
 import { SendReminderDialog } from '../students/-send-reminder-dialog';
 
 import { GenerateInvoiceDialog } from './-generate-invoice-dialog';
-
-/** Radix `Select.Item` rejects an empty-string `value` — same sentinel
- * convention `students/index.tsx` uses for "All classes"/"All sections". */
-const ALL_VALUE = '__all__';
 
 /** `DataTableSort.id` values that map onto a server-sortable field —
  * `QueryFeeDuesDto.sort_by`'s own allowlist, keyed by this page's column
@@ -229,13 +218,16 @@ function DuesQueuePage() {
     [currentYear],
   );
 
-  function setFilter(key: keyof DuesFilters, value: string | undefined) {
-    const next = { ...filters, [key]: value };
-    if (value === undefined) delete next[key];
-    // Changing `class_id` invalidates whatever `section_id` was chosen for
-    // the *previous* class — same reasoning as `students/index.tsx`.
-    if (key === 'class_id') delete next.section_id;
-    actions.setFilters(next as Record<string, string>);
+  // [8.14.10] FilterBar's `onChange` hands back a patch (string sets,
+  // `null` clears) rather than the old hand-rolled `setFilter`'s
+  // rebuild-the-whole-bag shape. `class_id` still needs its
+  // `section_id`-invalidation side effect — same reasoning
+  // `students/index.tsx` documents for its own class/section pair — so
+  // that one key gets special-cased on top of the generic patch.
+  function handleFilterChange(patch: Record<string, string | null>) {
+    const next = { ...patch };
+    if ('class_id' in next) next.section_id = null;
+    actions.setFilters(next);
   }
 
   function toReminderLabel(studentId: string): string {
@@ -279,12 +271,15 @@ function DuesQueuePage() {
       header: t('dues.columnStudent'),
       accessorFn: (row) => `${row.full_name} (${row.registration_number})`,
       sortable: !flagged,
+      // [8.14.10] name is the natural card title.
+      card: 'title',
     },
     {
       id: 'class',
       header: t('dues.columnClass'),
       accessorFn: (row) => row.class_name ?? t('dues.allClasses'),
       sortable: !flagged,
+      card: 'subtitle',
     },
     {
       id: 'section',
@@ -304,6 +299,9 @@ function DuesQueuePage() {
           row.dues.reduce((sum, due) => sum + due.total_amount, 0),
           regionConfig,
         ),
+      // Money column — right-aligns and carries `tabular-nums` via
+      // `align` (design contract §2), per [8.14.7]'s `DataTableColumn.align`.
+      align: 'end',
     },
     {
       id: 'paid',
@@ -313,17 +311,20 @@ function DuesQueuePage() {
           row.dues.reduce((sum, due) => sum + due.paid_amount, 0),
           regionConfig,
         ),
+      align: 'end',
     },
     {
       id: 'due',
       header: t('dues.columnDue'),
       accessorFn: (row) => formatServerAmount(row.total_due, regionConfig),
       sortable: !flagged,
+      align: 'end',
     },
     {
       id: 'status',
       header: t('dues.columnStatus'),
       accessorFn: (row) => <StatusBadge domain="fee" status={deriveRowStatus(row)} />,
+      card: 'badge',
     },
     {
       id: 'lastReminder',
@@ -334,6 +335,7 @@ function DuesQueuePage() {
       id: 'actions',
       header: t('dues.columnActions'),
       pinned: true,
+      card: 'actions',
       accessorFn: (row) =>
         canCollectFees && (
           <Link
@@ -347,115 +349,80 @@ function DuesQueuePage() {
     },
   ];
 
+  // [8.14.10] `section_id`/`month`/`year`/`status` used the `disabled`
+  // prop to grey out while their governing choice (class chosen /
+  // not flagged) made them meaningless — `FilterBar`'s `SelectFilterField`
+  // has no `disabled` prop (`ui/src/shells/filter-bar.tsx`), and this
+  // migration doesn't touch that file. The equivalent here is an empty
+  // `options` array: the control still renders, but there is nothing to
+  // pick beyond "All …", so it can't drive a meaningless filter. This
+  // preserves the *functional* coupling (no stray month/year/status filter
+  // while `class_id`/`flagged` disagree) without the greyed-out visual —
+  // flagged in the PR body as a design-system gap, not fixed here.
+  const filterFields: FilterFieldDescriptor[] = [
+    {
+      kind: 'select',
+      key: 'class_id',
+      label: t('dues.classLabel'),
+      allLabel: t('dues.allClasses'),
+      options: (classesQuery.data?.data ?? []).map((klass) => ({
+        value: klass.id,
+        label: klass.name,
+      })),
+    },
+    {
+      kind: 'select',
+      key: 'section_id',
+      label: t('dues.sectionLabel'),
+      allLabel: t('dues.allSections'),
+      // Empty until a class is chosen — `useClassSections` itself only
+      // fetches once `class_id` is set, so `sectionsQuery.data` is
+      // naturally `undefined` until then.
+      options: (sectionsQuery.data ?? []).map((section) => ({
+        value: section.id,
+        label: section.section_name,
+      })),
+    },
+    {
+      kind: 'select',
+      key: 'month',
+      label: t('dues.monthLabel'),
+      allLabel: t('dues.allMonths'),
+      options: flagged
+        ? []
+        : monthOptions.map((month, index) => ({ value: String(index + 1), label: month })),
+    },
+    {
+      kind: 'select',
+      key: 'year',
+      label: t('dues.yearLabel'),
+      allLabel: t('dues.allYears'),
+      options: flagged ? [] : yearOptions.map((year) => ({ value: year, label: year })),
+    },
+    {
+      kind: 'select',
+      key: 'status',
+      label: t('dues.statusLabel'),
+      allLabel: t('dues.allStatuses'),
+      options: flagged
+        ? []
+        : [
+            { value: FeeStatus.PENDING, label: humanizeStatus(FeeStatus.PENDING) },
+            { value: FeeStatus.PARTIALLY_PAID, label: humanizeStatus(FeeStatus.PARTIALLY_PAID) },
+          ],
+    },
+    {
+      kind: 'checkbox',
+      key: 'flagged',
+      label: t('dues.flaggedToggleLabel'),
+    },
+  ];
+
   return (
     <>
       <ListShell
         title={t('dues.title')}
-        filterBar={
-          <>
-            <Select
-              value={filters.class_id ?? ALL_VALUE}
-              onValueChange={(value) =>
-                setFilter('class_id', value === ALL_VALUE ? undefined : value)
-              }
-            >
-              <SelectTrigger aria-label={t('dues.classLabel')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_VALUE}>{t('dues.allClasses')}</SelectItem>
-                {classesQuery.data?.data.map((klass) => (
-                  <SelectItem key={klass.id} value={klass.id}>
-                    {klass.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={filters.section_id ?? ALL_VALUE}
-              onValueChange={(value) =>
-                setFilter('section_id', value === ALL_VALUE ? undefined : value)
-              }
-              disabled={filters.class_id === undefined}
-            >
-              <SelectTrigger aria-label={t('dues.sectionLabel')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_VALUE}>{t('dues.allSections')}</SelectItem>
-                {sectionsQuery.data?.map((section) => (
-                  <SelectItem key={section.id} value={section.id}>
-                    {section.section_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={filters.month ?? ALL_VALUE}
-              onValueChange={(value) => setFilter('month', value === ALL_VALUE ? undefined : value)}
-              disabled={flagged}
-            >
-              <SelectTrigger aria-label={t('dues.monthLabel')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_VALUE}>{t('dues.allMonths')}</SelectItem>
-                {monthOptions.map((month, index) => (
-                  <SelectItem key={month} value={String(index + 1)}>
-                    {month}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={filters.year ?? ALL_VALUE}
-              onValueChange={(value) => setFilter('year', value === ALL_VALUE ? undefined : value)}
-              disabled={flagged}
-            >
-              <SelectTrigger aria-label={t('dues.yearLabel')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_VALUE}>{t('dues.allYears')}</SelectItem>
-                {yearOptions.map((year) => (
-                  <SelectItem key={year} value={year}>
-                    {year}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={filters.status ?? ALL_VALUE}
-              onValueChange={(value) =>
-                setFilter('status', value === ALL_VALUE ? undefined : value)
-              }
-              disabled={flagged}
-            >
-              <SelectTrigger aria-label={t('dues.statusLabel')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_VALUE}>{t('dues.allStatuses')}</SelectItem>
-                <SelectItem value={FeeStatus.PENDING}>
-                  {humanizeStatus(FeeStatus.PENDING)}
-                </SelectItem>
-                <SelectItem value={FeeStatus.PARTIALLY_PAID}>
-                  {humanizeStatus(FeeStatus.PARTIALLY_PAID)}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="dues-flagged-toggle"
-                checked={flagged}
-                onCheckedChange={(checked) =>
-                  setFilter('flagged', checked === true ? 'true' : undefined)
-                }
-              />
-              <Label htmlFor="dues-flagged-toggle">{t('dues.flaggedToggleLabel')}</Label>
-            </div>
-          </>
-        }
+        filters={{ fields: filterFields, values: state.filters, onChange: handleFilterChange }}
         tableId="fees-dues"
         caption={t('dues.caption')}
         columns={columns}
@@ -467,6 +434,8 @@ function DuesQueuePage() {
         pageSize={state.limit}
         totalCount={duesQuery.data?.total ?? 0}
         onPageChange={actions.setPage}
+        onPageSizeChange={actions.setLimit}
+        pageSizeLabel={t('pagination.rowsPerPage', { ns: 'common' })}
         selectedIds={state.selectedIds}
         onSelectedIdsChange={actions.setSelectedIds}
         columnsMenu
