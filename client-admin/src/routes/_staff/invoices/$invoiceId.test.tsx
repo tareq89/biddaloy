@@ -127,4 +127,43 @@ describe('/invoices/$invoiceId', () => {
     await screen.findByText(invoice.invoice_number);
     await expect(container).toHaveNoViolations();
   });
+
+  // [8.14.13]: same permission + status gate as the list page's own
+  // "Record payment" action.
+  it.each(['ISSUED', 'OVERDUE'] as const)(
+    'shows "Record payment" for a %s invoice, linking to /payments/record with its student_id',
+    async (status) => {
+      const invoice = invoiceFactory({ id: 'invoice-1', student_id: 'student-9', status });
+      server.use(http.get('/api/v1/invoices/:id', () => HttpResponse.json(invoice)));
+
+      renderWithRouter(routeTree, {
+        initialEntries: ['/invoices/invoice-1'],
+        tenantId: 'tenant-1',
+        role: 'ACCOUNTANT',
+        locale: 'en',
+      });
+
+      await screen.findByText(invoice.invoice_number);
+      const link = screen.getByRole('link', { name: 'Record payment' });
+      expect(link.getAttribute('href')).toBe('/payments/record?student_id=student-9');
+    },
+  );
+
+  it.each(['DRAFT', 'PAID', 'CANCELLED'] as const)(
+    'hides "Record payment" for a %s invoice',
+    async (status) => {
+      const invoice = invoiceFactory({ id: 'invoice-1', student_id: 'student-9', status });
+      server.use(http.get('/api/v1/invoices/:id', () => HttpResponse.json(invoice)));
+
+      renderWithRouter(routeTree, {
+        initialEntries: ['/invoices/invoice-1'],
+        tenantId: 'tenant-1',
+        role: 'ACCOUNTANT',
+        locale: 'en',
+      });
+
+      await screen.findByText(invoice.invoice_number);
+      expect(screen.queryByRole('link', { name: 'Record payment' })).toBeNull();
+    },
+  );
 });

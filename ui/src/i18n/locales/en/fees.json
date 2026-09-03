@@ -1,7 +1,27 @@
 {
   "title": "Fees",
-  "explanation": "Fee management has not been built yet.",
-  "action": "Go to settings",
+  "hub": {
+    "title": "Fees",
+    "explanation": "Jump to fee collection, invoice generation, fee structures, or the invoice list.",
+    "cards": {
+      "dues": {
+        "title": "Dues queue",
+        "description": "Collect payments and send reminders for outstanding dues."
+      },
+      "generate": {
+        "title": "Generate invoices",
+        "description": "Create invoices from the current fee structures."
+      },
+      "feeStructures": {
+        "title": "Fee structures",
+        "description": "Manage the fee amounts and schedules classes are billed against."
+      },
+      "invoices": {
+        "title": "Invoices",
+        "description": "Browse every invoice issued so far, and print any of them."
+      }
+    }
+  },
   "invoiceDetail": {
     "back": "Back to invoices",
     "loadError": "Couldn't load this invoice.",
@@ -36,6 +56,7 @@
     "columnActions": "Actions",
     "print": "Print",
     "printError": "Couldn't open the printable invoice. Try again.",
+    "recordPayment": "Record payment",
     "emptyMessage": "No invoices found",
     "errorMessage": "Failed to load invoices",
     "announceResults_one": "{{visible}} of {{total}} invoice",

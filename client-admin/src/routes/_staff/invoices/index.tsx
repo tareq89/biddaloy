@@ -132,6 +132,10 @@ function InvoicesListPage() {
   // emptied the URL while the query still used the stale value.
   const filters = state.filters as InvoiceFilters;
   const canPrint = useHasPermission(Permission.INVOICE_PRINT);
+  // [8.14.13]: "Record payment" is a second, permission-gated action
+  // beside "Print" — offered only for invoices that still have money
+  // owed on them (ISSUED, OVERDUE), not DRAFT/PAID/CANCELLED ones.
+  const canRecordPayment = useHasPermission(Permission.PAYMENT_RECORD);
 
   const sortField = state.sorting ? SORT_FIELD_BY_COLUMN[state.sorting.id] : undefined;
   const invoicesQuery = useInvoices({
@@ -230,7 +234,7 @@ function InvoicesListPage() {
       accessorFn: (row) => formatDate(parseServerDate(row.due_date), regionConfig),
       sortable: true,
     },
-    ...(canPrint
+    ...(canPrint || canRecordPayment
       ? [
           {
             id: 'actions',
@@ -238,15 +242,30 @@ function InvoicesListPage() {
             pinned: true,
             card: 'actions',
             accessorFn: (row: Invoice) => (
-              <button
-                type="button"
-                onClick={() =>
-                  void openPrintableInvoice(row.id, () => toast.error(t('invoices.printError')))
-                }
-                className="text-sm font-medium text-primary underline"
-              >
-                {t('invoices.print')}
-              </button>
+              <div className="flex items-center gap-3">
+                {canPrint && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void openPrintableInvoice(row.id, () => toast.error(t('invoices.printError')))
+                    }
+                    className="text-sm font-medium text-primary underline"
+                  >
+                    {t('invoices.print')}
+                  </button>
+                )}
+                {canRecordPayment &&
+                  ((row.status as InvoiceStatus) === InvoiceStatus.ISSUED ||
+                    (row.status as InvoiceStatus) === InvoiceStatus.OVERDUE) && (
+                    <Link
+                      to="/payments/record"
+                      search={{ student_id: row.student_id }}
+                      className="text-sm font-medium text-primary underline"
+                    >
+                      {t('invoices.recordPayment')}
+                    </Link>
+                  )}
+              </div>
             ),
           } satisfies DataTableColumn<Invoice>,
         ]

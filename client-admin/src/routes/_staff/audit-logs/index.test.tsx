@@ -338,9 +338,15 @@ describe('/audit-logs', () => {
       .map((button) => button.getAttribute('aria-label') ?? button.textContent ?? '');
     expect(buttonNames.filter((name) => MUTATION_VERB.test(name.trim()))).toEqual([]);
 
-    // No row links out to an editable record either — every cell is text.
+    // Row links are read-only deep links to the entity's own detail page —
+    // "no mutation affordance" means none of them read as an edit action,
+    // not that a row can't link anywhere at all (see [8.14.x] entity
+    // deep-link work above).
     const table = within(main!).getByRole('region', { name: TABLE_REGION });
-    expect(within(table).queryAllByRole('link')).toHaveLength(0);
+    const linkNames = within(table)
+      .queryAllByRole('link')
+      .map((link) => link.getAttribute('aria-label') ?? link.textContent ?? '');
+    expect(linkNames.filter((name) => MUTATION_VERB.test(name.trim()))).toEqual([]);
   });
 
   it('renders the empty state when no entries match', async () => {
@@ -470,5 +476,98 @@ describe('/audit-logs', () => {
     await user.click(await screen.findByRole('option', { name: '২০' }));
 
     await waitFor(() => expect(router.state.location.search).toMatchObject({ limit: 20, page: 1 }));
+  });
+
+  // [8.14.13]: the "What" column links out to the record it describes,
+  // for entity types with a detail route client-admin actually has.
+  describe('"What" column links', () => {
+    it('links a Student row to the student detail page', async () => {
+      const entry = auditEntryFactory({
+        entity_type: 'Student',
+        entity_id: '3f2a1b4c-1111-2222-3333-444455556666',
+      });
+      server.use(
+        http.get('/api/v1/audit-logs', () =>
+          HttpResponse.json({ data: [entry], total: 1, page: 1, limit: 10, totalPages: 1 }),
+        ),
+      );
+
+      renderAuditLogs();
+
+      const link = await screen.findByRole('link', { name: 'Open Student 3f2a1b4c' });
+      expect(link.getAttribute('href')).toBe('/students/3f2a1b4c-1111-2222-3333-444455556666');
+    });
+
+    it('links an Invoice row to the invoice detail page', async () => {
+      const entry = auditEntryFactory({
+        entity_type: 'Invoice',
+        entity_id: '3f2a1b4c-1111-2222-3333-444455556666',
+      });
+      server.use(
+        http.get('/api/v1/audit-logs', () =>
+          HttpResponse.json({ data: [entry], total: 1, page: 1, limit: 10, totalPages: 1 }),
+        ),
+      );
+
+      renderAuditLogs();
+
+      const link = await screen.findByRole('link', { name: 'Open Invoice 3f2a1b4c' });
+      expect(link.getAttribute('href')).toBe('/invoices/3f2a1b4c-1111-2222-3333-444455556666');
+    });
+
+    it('links a User row to the staff detail page', async () => {
+      const entry = auditEntryFactory({
+        entity_type: 'User',
+        entity_id: '3f2a1b4c-1111-2222-3333-444455556666',
+      });
+      server.use(
+        http.get('/api/v1/audit-logs', () =>
+          HttpResponse.json({ data: [entry], total: 1, page: 1, limit: 10, totalPages: 1 }),
+        ),
+      );
+
+      renderAuditLogs();
+
+      const link = await screen.findByRole('link', { name: 'Open User 3f2a1b4c' });
+      expect(link.getAttribute('href')).toBe('/staff/3f2a1b4c-1111-2222-3333-444455556666');
+    });
+
+    it('links a ReminderBatch row to the batch detail page', async () => {
+      const entry = auditEntryFactory({
+        entity_type: 'ReminderBatch',
+        entity_id: '3f2a1b4c-1111-2222-3333-444455556666',
+      });
+      server.use(
+        http.get('/api/v1/audit-logs', () =>
+          HttpResponse.json({ data: [entry], total: 1, page: 1, limit: 10, totalPages: 1 }),
+        ),
+      );
+
+      renderAuditLogs();
+
+      const link = await screen.findByRole('link', { name: 'Open Reminder batch 3f2a1b4c' });
+      expect(link.getAttribute('href')).toBe(
+        '/communications/batches/3f2a1b4c-1111-2222-3333-444455556666',
+      );
+    });
+
+    // FeeStructure, Payment, School and ReminderBatchPreview have no
+    // detail route in client-admin — the cell stays plain text.
+    it('renders a FeeStructure row as plain text, not a link', async () => {
+      const entry = auditEntryFactory({
+        entity_type: 'FeeStructure',
+        entity_id: '3f2a1b4c-1111-2222-3333-444455556666',
+      });
+      server.use(
+        http.get('/api/v1/audit-logs', () =>
+          HttpResponse.json({ data: [entry], total: 1, page: 1, limit: 10, totalPages: 1 }),
+        ),
+      );
+
+      renderAuditLogs();
+
+      await screen.findByText('Fee structure 3f2a1b4c');
+      expect(screen.queryByRole('link', { name: /Open Fee structure/ })).toBeNull();
+    });
   });
 });

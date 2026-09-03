@@ -83,4 +83,27 @@ describe('Select', () => {
     await user.click(screen.getByRole('option', { name: 'Seven' }));
     expect(screen.getByRole('combobox', { name: 'Class' }).textContent).toBe('Seven');
   });
+
+  // [8.14.13]: disabled controls were near-invisible (grey text on a
+  // barely-tinted background) — see `select.tsx`'s own disabled classes
+  // for the fix. Asserts the opaque `bg-muted`/`text-muted-foreground`
+  // pair replaced the old halve-everything `opacity-50` treatment, the
+  // same direction [8.13.10] already took on `button.tsx`.
+  it('gives a disabled trigger a deliberately visible treatment, not a halved-opacity one', () => {
+    render(
+      <Select disabled>
+        <SelectTrigger aria-label="Class">
+          <SelectValue placeholder="Select a class" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="six">Six</SelectItem>
+        </SelectContent>
+      </Select>,
+    );
+    const trigger = screen.getByRole('combobox', { name: 'Class' });
+    expect(trigger.className).toContain('disabled:bg-muted');
+    expect(trigger.className).toContain('disabled:text-muted-foreground');
+    expect(trigger.className).toContain('disabled:opacity-100');
+    expect(trigger.className).not.toContain('disabled:opacity-50');
+  });
 });

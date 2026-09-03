@@ -19,9 +19,15 @@
  * re-sorts, and no column is sortable: a partial page re-sorted
  * client-side would silently misrepresent the trail's real order.
  */
-import { AuditAction } from '@biddaloy/shared';
+import { AuditAction, Permission } from '@biddaloy/shared';
 import { RoutePending, type DataTableColumn } from '@biddaloy/ui/components';
-import { auditLogsQueryOptions, useAuditLogs, useUsers, type AuditLog } from '@biddaloy/ui/hooks';
+import {
+  auditLogsQueryOptions,
+  useAuditLogs,
+  useHasPermission,
+  useUsers,
+  type AuditLog,
+} from '@biddaloy/ui/hooks';
 import {
   RegionConfigProvider,
   useRegionConfig,
@@ -30,13 +36,13 @@ import {
 } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
 import { formatDateTime, parseDate } from '@biddaloy/ui/utils';
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, Link } from '@tanstack/react-router';
 import { z } from 'zod';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
 
 import { DiffPanel } from './-diff-panel';
-import { changedFieldCount, shortEntityId } from './-humanize';
+import { auditEntityRoute, changedFieldCount, shortEntityId } from './-humanize';
 
 /**
  * The `entity_type` strings the server actually writes today, read off
@@ -202,6 +208,25 @@ function AuditLogsList() {
     ...toAuditLogListFilters(filters),
   });
 
+  // [8.14.13]: the "What" column links out to the record an audit row
+  // describes, when a detail route exists for its `entity_type` *and*
+  // the active role holds the permission that route needs
+  // (`auditEntityRoute`, `-humanize.ts`). This page itself is
+  // ADMIN-only (`AUDIT_LOG_READ`), and ADMIN holds all four permissions
+  // below, so the gate is always satisfied today — it's here so the
+  // link disappears on its own, rather than 403ing, if `AUDIT_LOG_READ`
+  // is ever granted to a narrower role.
+  const canReadStudents = useHasPermission(Permission.STUDENT_READ);
+  const canReadInvoices = useHasPermission(Permission.INVOICE_READ);
+  const canReadUsers = useHasPermission(Permission.USER_READ);
+  const canSendBulkCommunications = useHasPermission(Permission.COMMUNICATION_BULK_SEND);
+  const permitted: Record<Permission, boolean> = {
+    [Permission.STUDENT_READ]: canReadStudents,
+    [Permission.INVOICE_READ]: canReadInvoices,
+    [Permission.USER_READ]: canReadUsers,
+    [Permission.COMMUNICATION_BULK_SEND]: canSendBulkCommunications,
+  } as Record<Permission, boolean>;
+
   function entityLabel(entityType: string): string {
     // The server writes `entity_type` as a free-form varchar, so a value
     // with no translation is possible — fall back to the raw string
@@ -268,9 +293,29 @@ function AuditLogsList() {
       header: t('list.columnWhat'),
       accessorFn: (row) => {
         const id = shortEntityId(row.entity_id);
-        return id === null
-          ? entityLabel(row.entity_type)
-          : t('list.whatWithId', { entity: entityLabel(row.entity_type), id });
+        const label =
+          id === null
+            ? entityLabel(row.entity_type)
+            : t('list.whatWithId', { entity: entityLabel(row.entity_type), id });
+        const target = row.entity_id === null ? null : auditEntityRoute(row.entity_type);
+        if (target === null || !permitted[target.permission]) return label;
+        return (
+          <Link
+            to={target.to}
+            params={
+              { [target.paramKey]: row.entity_id } as {
+                studentId: string;
+                invoiceId: string;
+                userId: string;
+                batchId: string;
+              }
+            }
+            className="font-medium text-primary underline"
+            aria-label={t('list.whatLinkLabel', { entity: entityLabel(row.entity_type), id })}
+          >
+            {label}
+          </Link>
+        );
       },
     },
     {

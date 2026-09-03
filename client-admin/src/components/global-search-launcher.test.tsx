@@ -1,4 +1,11 @@
-import { cleanupTestState, guardianFactory, renderWithRouter, server } from '@biddaloy/ui/test';
+import {
+  cleanupTestState,
+  guardianFactory,
+  renderWithRouter,
+  server,
+  teacherFactory,
+  userResponseFactory,
+} from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -57,6 +64,40 @@ describe('GlobalSearchLauncher', () => {
     await user.click(option);
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/guardians/guardian-1'));
+  });
+
+  it('selecting a teacher result navigates to the staff detail page via the user id, not the teacher profile id', async () => {
+    const teacher = teacherFactory({
+      id: 'teacher-profile-1',
+      user: userResponseFactory({ id: 'user-1', full_name: 'Nusrat Jahan' }),
+    });
+    server.use(
+      http.get('/api/v1/teachers', () =>
+        HttpResponse.json({ data: [teacher], total: 1, page: 1, limit: 5, totalPages: 1 }),
+      ),
+      http.get('/api/v1/users/:id', ({ params }) =>
+        HttpResponse.json(
+          userResponseFactory({ id: params.id as string, full_name: 'Nusrat Jahan' }),
+        ),
+      ),
+    );
+
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/students'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click((await screen.findAllByRole('button', { name: 'Search (Ctrl+K)' }))[0]!);
+    await user.type(screen.getByRole('combobox', { name: 'Search everything' }), 'Nusrat');
+
+    const option = await screen.findByRole('option', { name: /Nusrat Jahan/ });
+    await user.click(option);
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/staff/user-1'));
+    expect(router.state.location.pathname).not.toBe('/staff/teacher-profile-1');
   });
 
   it('a guardian with no linked students still shows up as a result (no longer filtered out)', async () => {

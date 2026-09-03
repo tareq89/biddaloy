@@ -84,7 +84,7 @@
       "guardians": "Guardians",
       "teachers": "Teachers",
       "invoices": "Invoices",
-      "receipts": "Receipts"
+      "receipts": "Receipts (opens student)"
     },
     "shortcutHint": "Ctrl+K",
     "launcherPlaceholder": "Search…"

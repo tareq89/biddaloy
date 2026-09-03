@@ -10,6 +10,7 @@
  * as a sentence degrades to a compact, still-readable line rather than
  * throwing or dumping `{"a":{"b":[1,2]}}` at an administrator.
  */
+import { Permission } from '@biddaloy/shared';
 import type { RegionConfig } from '@biddaloy/ui/i18n';
 import { formatDate, formatDateTime, formatNumber, parseServerDate } from '@biddaloy/ui/utils';
 
@@ -243,4 +244,48 @@ export function humanizeValue(value: unknown, options: HumanizeOptions): string[
 export function shortEntityId(entityId: string | null): string | null {
   if (!entityId) return null;
   return entityId.split('-')[0] ?? entityId;
+}
+
+export interface AuditEntityRoute {
+  to:
+    | '/students/$studentId'
+    | '/invoices/$invoiceId'
+    | '/staff/$userId'
+    | '/communications/batches/$batchId';
+  paramKey: 'studentId' | 'invoiceId' | 'userId' | 'batchId';
+  permission: Permission;
+}
+
+/** [8.14.13]: maps an audit row's `entity_type` to the detail page it
+ * links to, and the permission the active role needs to open it. `null`
+ * means "no detail route exists for this entity type in client-admin" —
+ * `Payment` (no `/payments/:id` detail route, only `record.tsx`),
+ * `FeeStructure`, `School`, and `ReminderBatchPreview` all stay plain
+ * text for that reason; see [8.14.13]'s plan for why `Payment` in
+ * particular was left out despite the issue asking for it. */
+export function auditEntityRoute(entityType: string): AuditEntityRoute | null {
+  switch (entityType) {
+    case 'Student':
+      return {
+        to: '/students/$studentId',
+        paramKey: 'studentId',
+        permission: Permission.STUDENT_READ,
+      };
+    case 'Invoice':
+      return {
+        to: '/invoices/$invoiceId',
+        paramKey: 'invoiceId',
+        permission: Permission.INVOICE_READ,
+      };
+    case 'User':
+      return { to: '/staff/$userId', paramKey: 'userId', permission: Permission.USER_READ };
+    case 'ReminderBatch':
+      return {
+        to: '/communications/batches/$batchId',
+        paramKey: 'batchId',
+        permission: Permission.COMMUNICATION_BULK_SEND,
+      };
+    default:
+      return null;
+  }
 }

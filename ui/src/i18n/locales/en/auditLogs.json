@@ -14,7 +14,8 @@
     "announceResults": "{{visible}} of {{total}} entries shown",
     "expandLabel": "Show changes: {{summary}}, {{when}}",
     "whatWithId": "{{entity}} {{id}}",
-    "readOnlyNote": "This page is a record of what happened. Nothing here can be edited or deleted."
+    "readOnlyNote": "This page is a record of what happened. Nothing here can be edited or deleted.",
+    "whatLinkLabel": "Open {{entity}} {{id}}"
   },
   "filters": {
     "actionLabel": "Action",

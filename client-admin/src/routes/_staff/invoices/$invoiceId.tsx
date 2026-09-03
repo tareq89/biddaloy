@@ -49,6 +49,9 @@ function InvoiceDetailPage() {
   const regionConfig = useRegionConfig();
   const invoiceQuery = useInvoice(invoiceId);
   const canPrint = useHasPermission(Permission.INVOICE_PRINT);
+  // [8.14.13]: same permission + status gate as the list page's own
+  // "Record payment" action — see `invoices/index.tsx`'s comment.
+  const canRecordPayment = useHasPermission(Permission.PAYMENT_RECORD);
 
   return (
     <div className="flex flex-col gap-4">
@@ -105,18 +108,34 @@ function InvoiceDetailPage() {
             <p className="text-sm text-muted-foreground">{invoiceQuery.data.notes}</p>
           )}
 
-          {canPrint && (
-            <Button
-              type="button"
-              className="self-start"
-              onClick={() =>
-                void openPrintableInvoice(invoiceQuery.data.id, () =>
-                  toast.error(t('invoiceDetail.printError')),
-                )
-              }
-            >
-              {t('invoiceDetail.print')}
-            </Button>
+          {(canPrint || canRecordPayment) && (
+            <div className="flex items-center gap-3">
+              {canPrint && (
+                <Button
+                  type="button"
+                  className="self-start"
+                  onClick={() =>
+                    void openPrintableInvoice(invoiceQuery.data.id, () =>
+                      toast.error(t('invoiceDetail.printError')),
+                    )
+                  }
+                >
+                  {t('invoiceDetail.print')}
+                </Button>
+              )}
+              {canRecordPayment &&
+                ((invoiceQuery.data.status as InvoiceStatus) === InvoiceStatus.ISSUED ||
+                  (invoiceQuery.data.status as InvoiceStatus) === InvoiceStatus.OVERDUE) && (
+                  <Button type="button" variant="secondary" className="self-start" asChild>
+                    <Link
+                      to="/payments/record"
+                      search={{ student_id: invoiceQuery.data.student_id }}
+                    >
+                      {t('invoices.recordPayment')}
+                    </Link>
+                  </Button>
+                )}
+            </div>
           )}
         </>
       )}

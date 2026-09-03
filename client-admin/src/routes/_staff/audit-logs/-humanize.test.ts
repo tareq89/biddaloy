@@ -1,7 +1,9 @@
+import { Permission } from '@biddaloy/shared';
 import { REGION_BD_BN, REGION_BD_EN, type RegionConfig } from '@biddaloy/ui/i18n';
 import { describe, expect, it } from 'vitest';
 
 import {
+  auditEntityRoute,
   changedFieldCount,
   diffFields,
   humanizeFieldName,
@@ -217,4 +219,49 @@ describe('shortEntityId', () => {
   it('is null when the row has no entity id', () => {
     expect(shortEntityId(null)).toBeNull();
   });
+});
+
+describe('auditEntityRoute', () => {
+  it('maps Student to the student detail route, gated on STUDENT_READ', () => {
+    expect(auditEntityRoute('Student')).toEqual({
+      to: '/students/$studentId',
+      paramKey: 'studentId',
+      permission: Permission.STUDENT_READ,
+    });
+  });
+
+  it('maps Invoice to the invoice detail route, gated on INVOICE_READ', () => {
+    expect(auditEntityRoute('Invoice')).toEqual({
+      to: '/invoices/$invoiceId',
+      paramKey: 'invoiceId',
+      permission: Permission.INVOICE_READ,
+    });
+  });
+
+  it('maps User to the staff detail route, gated on USER_READ', () => {
+    expect(auditEntityRoute('User')).toEqual({
+      to: '/staff/$userId',
+      paramKey: 'userId',
+      permission: Permission.USER_READ,
+    });
+  });
+
+  it('maps ReminderBatch to the batch detail route, gated on COMMUNICATION_BULK_SEND', () => {
+    expect(auditEntityRoute('ReminderBatch')).toEqual({
+      to: '/communications/batches/$batchId',
+      paramKey: 'batchId',
+      permission: Permission.COMMUNICATION_BULK_SEND,
+    });
+  });
+
+  // FeeStructure, School, and ReminderBatchPreview have no detail route in
+  // client-admin — see -humanize.ts's own comment on why. Payment is the
+  // same case, even though the issue asked for it: no /payments/:id route
+  // exists to link to.
+  it.each(['Payment', 'FeeStructure', 'School', 'ReminderBatchPreview'])(
+    'has no route for %s',
+    (entityType) => {
+      expect(auditEntityRoute(entityType)).toBeNull();
+    },
+  );
 });

@@ -14,7 +14,8 @@
     "announceResults": "{{total}}টির মধ্যে {{visible}}টি এন্ট্রি দেখানো হচ্ছে",
     "expandLabel": "পরিবর্তন দেখুন: {{summary}}, {{when}}",
     "whatWithId": "{{entity}} {{id}}",
-    "readOnlyNote": "এই পৃষ্ঠাটি কী ঘটেছে তার রেকর্ড। এখানে কিছু সম্পাদনা বা মুছে ফেলা যায় না।"
+    "readOnlyNote": "এই পৃষ্ঠাটি কী ঘটেছে তার রেকর্ড। এখানে কিছু সম্পাদনা বা মুছে ফেলা যায় না।",
+    "whatLinkLabel": "{{entity}} {{id}} খুলুন"
   },
   "filters": {
     "actionLabel": "কাজ",

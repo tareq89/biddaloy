@@ -16,11 +16,9 @@
  * - receipt (payment) -> the paying student's own `/students/$studentId`
  *   page — same "closest existing destination" reasoning as guardian
  *   above; a receipt has no page of its own yet either.
- * - teacher -> nowhere. No `/teachers/:id` page or `GET /teachers/:id`
- *   endpoint exists anywhere in the app yet (see `global-search.ts`'s own
- *   comment on why the group is still shown despite that) — selecting one
- *   just closes the palette rather than linking to a page that can't
- *   exist until that ticket lands.
+ * - teacher -> the staff detail page /staff/$userId, resolved through the
+ *   profile's user.id (the search result's own id is the Teacher profile
+ *   id, not a user id).
  */
 import { Button, GlobalSearch, type GlobalSearchGroup } from '@biddaloy/ui/components';
 import { useDebouncedValue, useGlobalSearch } from '@biddaloy/ui/hooks';
@@ -151,8 +149,13 @@ export function GlobalSearchLauncher() {
       }
       return;
     }
-    // 'teachers' — no destination page exists yet, see this file's own
-    // header comment.
+    if (groupId === 'teachers') {
+      const teacher = results.teachers.data.find((item) => item.id === resultId);
+      if (teacher) {
+        void navigate({ to: '/staff/$userId', params: { userId: teacher.user.id } });
+      }
+      return;
+    }
   }
 
   return (

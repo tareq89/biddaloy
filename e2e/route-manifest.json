@@ -60,7 +60,7 @@
     {
       "path": "/fees",
       "role": "accountant",
-      "archetype": "list"
+      "archetype": "bespoke"
     },
     {
       "path": "/fees/dues",

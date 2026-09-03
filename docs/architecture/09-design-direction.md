@@ -563,6 +563,36 @@ elevation gate (§5) both use — a token that looks declared and reads as
 working code but emits nothing is the specific failure mode this epic kept
 finding.
 
+### 3.5.2 [8.14.13] Status-pair headroom is thin — treat these four as load-bearing
+
+`check-contrast.mjs` reads the _light-mode_ `fg`-on-`bg` pair for all four
+status colours from the compiled stylesheet, same discipline as §3.5.1's
+dark-scope check. Recomputed against `globals.css`'s current hexes:
+
+| Status  | fg        | bg        | Ratio    | Requirement | Headroom  |
+| ------- | --------- | --------- | -------- | ----------- | --------- |
+| due     | `#b45309` | `#fef3c7` | **4.51** | 4.5         | **+0.01** |
+| paid    | `#15803d` | `#dcfce7` | 4.57     | 4.5         | +0.07     |
+| partial | `#0e7490` | `#cffafe` | 4.79     | 4.5         | +0.29     |
+| overdue | `#b91c1c` | `#fee2e2` | 5.30     | 4.5         | +0.80     |
+
+Dark mode (§3.5.1's `bgDark` pairs) is nowhere near this tight — 8.55 and
+8.97 measured against the same 4.5 floor — so this is a light-mode-only
+trap.
+
+`due` clears the WCAG AA floor by **0.01**, not a rounding margin CI can
+absorb. A future hue nudge to either `#b45309` or `#fef3c7` — a brand
+refresh, a "make the amber pop more" design pass, anything that doesn't
+touch `check-contrast.mjs` itself — can drop that pair below 4.5 and fail
+the build. Whoever trips it will see a red CI check on an unrelated PR that
+happened to touch `globals.css`, with no obvious link back to this
+constraint unless they know to look here.
+
+This section exists so that link is written down: **if `check-contrast.mjs`
+fails on the `due` status pair, the fix is almost certainly "the colour
+moved," not "the check is wrong."** Recompute the new ratio before loosening
+or removing the assertion.
+
 ### 3.6 `CONTRAST_PAIRS` — what actually changes in the file
 
 Every line below is pre-computed and passes. But not every line is a new

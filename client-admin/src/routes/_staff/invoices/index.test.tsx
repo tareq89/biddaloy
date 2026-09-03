@@ -175,6 +175,60 @@ describe('/invoices', () => {
     }
   });
 
+  // [8.14.13]: "Record payment" offers a second permission-gated action
+  // beside "Print", but only for invoices that still have money owed —
+  // ISSUED and OVERDUE — and only for a role holding `PAYMENT_RECORD`.
+  it.each(['ISSUED', 'OVERDUE'] as const)(
+    'shows "Record payment" for a %s invoice, linking to /payments/record with its student_id',
+    async (status) => {
+      const invoice = invoiceFactory({ id: 'invoice-1', student_id: 'student-9', status });
+      server.use(
+        http.get('/api/v1/invoices', () =>
+          HttpResponse.json({ data: [invoice], total: 1, page: 1, limit: 10, totalPages: 1 }),
+        ),
+      );
+
+      renderWithRouter(routeTree, {
+        initialEntries: ['/invoices'],
+        tenantId: 'tenant-1',
+        role: 'ACCOUNTANT',
+        locale: 'en',
+      });
+
+      const link = await screen.findByRole('link', { name: 'Record payment' });
+      expect(link.getAttribute('href')).toBe('/payments/record?student_id=student-9');
+    },
+  );
+
+  it.each(['DRAFT', 'PAID', 'CANCELLED'] as const)(
+    'hides "Record payment" for a %s invoice',
+    async (status) => {
+      const invoice = invoiceFactory({ id: 'invoice-1', student_id: 'student-9', status });
+      server.use(
+        http.get('/api/v1/invoices', () =>
+          HttpResponse.json({ data: [invoice], total: 1, page: 1, limit: 10, totalPages: 1 }),
+        ),
+      );
+
+      renderWithRouter(routeTree, {
+        initialEntries: ['/invoices'],
+        tenantId: 'tenant-1',
+        role: 'ACCOUNTANT',
+        locale: 'en',
+      });
+
+      await screen.findByRole('link', { name: invoice.invoice_number });
+      expect(screen.queryByRole('link', { name: 'Record payment' })).toBeNull();
+    },
+  );
+
+  // Every staff role that holds `INVOICE_READ` (ADMIN, ACCOUNTANT) also
+  // holds `PAYMENT_RECORD`, so there's no real role fixture to exercise
+  // "reaches /invoices but lacks PAYMENT_RECORD" at this integration
+  // level — the ISSUED/OVERDUE-vs-DRAFT/PAID/CANCELLED coverage above,
+  // together with the `canPrint || canRecordPayment` column guard, is
+  // what actually protects a future role with that combination.
+
   // [8.14.17]: TEACHER holds neither `INVOICE_READ` nor `INVOICE_PRINT`
   // (`ROLE_PERMISSIONS`), and is still a staff role (`STAFF_ROLES`), so
   // it clears `_staff.tsx`'s outer `RequireRole` gate — but

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="bn">
   <head>
     <meta charset="UTF-8" />
     <!-- [8.14.3]: viewport-fit=cover lets an installed PWA draw under the
@@ -25,6 +25,27 @@
          the inline script below only ever rewrites it at runtime, on an
          already-parsed DOM node, never the source markup. -->
     <meta name="theme-color" content="#4a3fd4" />
+    <!-- [8.14.13]: `<html lang>` must be right before screen readers start
+         speaking, not after React hydrates — otherwise a Bangla-first
+         visitor with no stored preference gets English pronunciation on
+         every element read before hydration. Mirrors
+         `ui/src/i18n/locale-storage.ts`'s `DEFAULT_LOCALE`/`SUPPORTED_LOCALES`/
+         `STORAGE_KEY` by hand — no bundler runs yet at this point, so it
+         cannot import that module — keep the two in sync if either changes.
+         `dir` is hardcoded `'ltr'` because `LOCALE_DIR` maps both supported
+         locales to `'ltr'` today; when an RTL locale ships, mirror
+         `LOCALE_DIR` here too. `ui/src/i18n/locale-provider.tsx` takes over
+         both attributes the moment its module loads. -->
+    <script>
+      (function () {
+        try {
+          var locale = localStorage.getItem('biddaloy:locale');
+          if (locale !== 'bn' && locale !== 'en') locale = 'bn';
+          document.documentElement.lang = locale;
+          document.documentElement.dir = 'ltr';
+        } catch (e) {}
+      })();
+    </script>
     <!-- [8.13.12]: dark-mode "flash of wrong theme" prevention. Runs
          before the module script below (and before any bundle has parsed),
          so a dark-OS or dark-choice visitor never sees a light first paint
