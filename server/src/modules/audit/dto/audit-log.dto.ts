@@ -25,6 +25,11 @@ export class QueryAuditLogDto {
   @IsUUID()
   performed_by_user_id?: string;
 
+  /** Scope to audit rows about one specific entity (exact UUID match). */
+  @IsOptional()
+  @IsUUID()
+  entity_id?: string;
+
   @IsOptional()
   @IsDateString()
   from_date?: string;
