@@ -258,6 +258,53 @@ describe('/fee-structures', () => {
     expect(lastQuery).not.toHaveProperty('month');
   });
 
+  // [8.14.10]: `useFeeStructures`'s `search`/`fee_type`/`section_id`/
+  // `is_recurring` filters were already server-supported ([8.14.9]) but
+  // never surfaced as FilterBar descriptors — this covers all four now
+  // reaching the request/URL, plus the section list staying empty until
+  // a class is chosen (same contract as `fees/dues.tsx`'s own pair).
+  it('surfaces search/fee type/section/recurring-only filters on the request and URL', async () => {
+    let lastQuery: Record<string, string> = {};
+    server.use(
+      http.get('/api/v1/fee-structures', ({ request }) => {
+        lastQuery = Object.fromEntries(new URL(request.url).searchParams);
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 });
+      }),
+      http.get('/api/v1/classes/:classId/sections', () =>
+        HttpResponse.json([{ id: 'section-a', section_name: 'A', enrolled_count: 0 }]),
+      ),
+      ...referenceHandlers(),
+    );
+
+    const { router } = render();
+    const user = userEvent.setup();
+    await screen.findByRole('heading', { name: 'Fee Structures' });
+
+    await user.click(screen.getByRole('combobox', { name: 'Section' }));
+    expect(screen.queryAllByRole('option')).toHaveLength(1);
+    await user.keyboard('{Escape}');
+
+    await user.type(screen.getByRole('textbox', { name: 'Search' }), 'tuition');
+    await user.click(screen.getByRole('combobox', { name: 'Fee type' }));
+    await user.click(await screen.findByRole('option', { name: 'Monthly tuition' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Recurring structures only' }));
+
+    await waitFor(() =>
+      expect(router.state.location.search).toMatchObject({
+        search: 'tuition',
+        fee_type: 'MONTHLY_TUITION',
+        is_recurring: 'true',
+      }),
+    );
+    await waitFor(() =>
+      expect(lastQuery).toMatchObject({
+        search: 'tuition',
+        fee_type: 'MONTHLY_TUITION',
+        is_recurring: 'true',
+      }),
+    );
+  });
+
   it('refuses to submit the create form without a name', async () => {
     server.use(listHandler([]), ...referenceHandlers());
 
