@@ -1,4 +1,4 @@
-import { SkeletonFieldList } from '@biddaloy/ui/components';
+import { Field, FieldGrid, SkeletonFieldList } from '@biddaloy/ui/components';
 import { useStudent } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 
@@ -25,26 +25,20 @@ export function OverviewTab({ studentId }: OverviewTabProps) {
       skeleton={<SkeletonFieldList fields={4} />}
     >
       {(student) => (
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
-          <div>
-            <dt className="text-sm text-muted-foreground">{t('detail.overview.dateOfBirth')}</dt>
-            <dd>{student.date_of_birth ?? t('list.emptyValue')}</dd>
-          </div>
-          <div>
-            <dt className="text-sm text-muted-foreground">{t('detail.overview.gender')}</dt>
-            <dd>{student.gender ?? t('list.emptyValue')}</dd>
-          </div>
-          <div>
-            <dt className="text-sm text-muted-foreground">{t('detail.overview.address')}</dt>
-            <dd>{student.home_address ?? t('list.emptyValue')}</dd>
-          </div>
-          <div>
-            <dt className="text-sm text-muted-foreground">
-              {t('detail.overview.preferredCommunication')}
-            </dt>
-            <dd>{student.preferred_communication}</dd>
-          </div>
-        </dl>
+        <FieldGrid>
+          <Field label={t('detail.overview.dateOfBirth')}>
+            {student.date_of_birth ?? t('list.emptyValue')}
+          </Field>
+          <Field label={t('detail.overview.gender')}>
+            {student.gender ?? t('list.emptyValue')}
+          </Field>
+          <Field label={t('detail.overview.address')}>
+            {student.home_address ?? t('list.emptyValue')}
+          </Field>
+          <Field label={t('detail.overview.preferredCommunication')}>
+            {student.preferred_communication}
+          </Field>
+        </FieldGrid>
       )}
     </TabQueryState>
   );

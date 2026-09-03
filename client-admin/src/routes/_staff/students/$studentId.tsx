@@ -126,6 +126,7 @@ function StudentDetailPage() {
                   id: 'edit',
                   label: t('detail.actions.edit'),
                   allowed: canUpdate,
+                  priority: 'secondary',
                   onClick: () =>
                     void navigate({ to: '/students/$studentId/edit', params: { studentId } }),
                 },
@@ -133,6 +134,7 @@ function StudentDetailPage() {
                   id: 'collect-fees',
                   label: t('detail.actions.collectFees'),
                   allowed: canCollectFees,
+                  priority: 'primary',
                   onClick: () =>
                     void navigate({ to: '/payments/record', search: { student_id: studentId } }),
                 },
@@ -140,19 +142,21 @@ function StudentDetailPage() {
                   id: 'send-reminder',
                   label: t('detail.actions.sendReminder'),
                   allowed: canSendReminder,
+                  priority: 'tertiary',
                   onClick: () => setReminderDialogOpen(true),
                 },
                 {
                   id: 'transfer-status',
                   label: t('detail.actions.transferStatus'),
                   allowed: canUpdate,
+                  priority: 'tertiary',
                   onClick: () => setTransferDialogOpen(true),
                 },
                 {
                   id: 'delete',
                   label: t('detail.actions.delete'),
                   allowed: canDelete,
-                  variant: 'destructive',
+                  priority: 'destructive',
                   onClick: () => setDeleteDialogOpen(true),
                 },
               ]}

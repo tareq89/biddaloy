@@ -2,6 +2,8 @@ import { InvoiceStatus, Permission } from '@biddaloy/shared';
 import {
   Button,
   ErrorState,
+  Field,
+  FieldGrid,
   RoutePending,
   Skeleton,
   StatusBadge,
@@ -76,30 +78,25 @@ function InvoiceDetailPage() {
             <StatusBadge domain="invoice" status={invoiceQuery.data.status as InvoiceStatus} />
           </div>
 
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
-            <div>
-              <dt className="text-muted-foreground">{t('invoiceDetail.issuedDate')}</dt>
-              <dd>{formatDate(parseServerDate(invoiceQuery.data.issued_date), regionConfig)}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">{t('invoiceDetail.dueDate')}</dt>
-              <dd>{formatDate(parseServerDate(invoiceQuery.data.due_date), regionConfig)}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">{t('invoiceDetail.taxAmount')}</dt>
-              <dd>{formatServerAmount(invoiceQuery.data.tax_amount, regionConfig)}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">{t('invoiceDetail.discountAmount')}</dt>
-              <dd>{formatServerAmount(invoiceQuery.data.discount_amount, regionConfig)}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">{t('invoiceDetail.totalAmount')}</dt>
-              <dd className="font-medium">
+          <FieldGrid>
+            <Field label={t('invoiceDetail.issuedDate')}>
+              {formatDate(parseServerDate(invoiceQuery.data.issued_date), regionConfig)}
+            </Field>
+            <Field label={t('invoiceDetail.dueDate')}>
+              {formatDate(parseServerDate(invoiceQuery.data.due_date), regionConfig)}
+            </Field>
+            <Field label={t('invoiceDetail.taxAmount')}>
+              {formatServerAmount(invoiceQuery.data.tax_amount, regionConfig)}
+            </Field>
+            <Field label={t('invoiceDetail.discountAmount')}>
+              {formatServerAmount(invoiceQuery.data.discount_amount, regionConfig)}
+            </Field>
+            <Field label={t('invoiceDetail.totalAmount')}>
+              <span className="font-medium">
                 {formatServerAmount(invoiceQuery.data.total_amount, regionConfig)}
-              </dd>
-            </div>
-          </dl>
+              </span>
+            </Field>
+          </FieldGrid>
 
           {invoiceQuery.data.notes !== null && (
             <p className="text-sm text-muted-foreground">{invoiceQuery.data.notes}</p>
