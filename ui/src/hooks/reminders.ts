@@ -1,3 +1,4 @@
+import type { ReminderBatchStatus } from '@biddaloy/shared';
 import { keepPreviousData, queryOptions, useMutation, useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
@@ -114,7 +115,15 @@ export function useBulkReminderPreview() {
   });
 }
 
+// [8.14.10] Mirrors `QueryReminderBatchesDto`
+// (`server/src/modules/communications/dto/reminders.dto.ts`) exactly.
 export interface ReminderBatchListFilters {
+  search?: string;
+  status?: ReminderBatchStatus;
+  from_date?: string;
+  to_date?: string;
+  sort?: 'created_at' | 'batch_name' | 'total_recipients';
+  order?: 'asc' | 'desc';
   page?: number;
   limit?: number;
 }

@@ -62,6 +62,37 @@ describe('useInvoices', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(requestedStudentId).toBe('student-1');
   });
+
+  // [8.14.10]: `min_amount`/`max_amount`/`sort`/`order` — landed server-side
+  // by #373, wired into `InvoiceListFilters` by this ticket. A regression
+  // here means the number-range/sort descriptors on `invoices/index.tsx`
+  // silently stop reaching the request.
+  it('[8.14.10] requests min_amount, max_amount, sort, and order as query params', async () => {
+    const requested = new URLSearchParams();
+    server.use(
+      http.get('/api/v1/invoices', ({ request }) => {
+        for (const [key, value] of new URL(request.url).searchParams) requested.set(key, value);
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 });
+      }),
+    );
+
+    const { result } = renderHookWithProviders(
+      () =>
+        useInvoices({
+          min_amount: 100,
+          max_amount: 5000,
+          sort: 'due_date',
+          order: 'desc',
+        }),
+      { tenantId: 'tenant-1' },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(requested.get('min_amount')).toBe('100');
+    expect(requested.get('max_amount')).toBe('5000');
+    expect(requested.get('sort')).toBe('due_date');
+    expect(requested.get('order')).toBe('desc');
+  });
 });
 
 describe('useCreateInvoice', () => {

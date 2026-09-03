@@ -33,6 +33,11 @@ export interface StudentListFilters {
   class_id?: string;
   section_id?: string;
   enrollment_status?: string;
+  /** [8.14.10] Mirrors `QueryStudentDto.gender` — free text (`@MaxLength(20)`
+   * server-side), not an enum. */
+  gender?: string;
+  date_of_birth_from?: string;
+  date_of_birth_to?: string;
   sort?: StudentSortField;
   order?: 'asc' | 'desc';
   page?: number;

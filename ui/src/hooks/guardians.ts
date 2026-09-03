@@ -1,3 +1,4 @@
+import type { CommunicationMedium } from '@biddaloy/shared';
 import {
   keepPreviousData,
   queryOptions,
@@ -21,8 +22,15 @@ export type UpdateGuardianInput = components['schemas']['UpdateGuardianDto'];
 // details. See `UpdateOwnGuardianDto` in `schema.d.ts`.
 export type UpdateOwnGuardianInput = components['schemas']['UpdateOwnGuardianDto'];
 
+// [8.14.10] Mirrors `QueryGuardianDto`
+// (`server/src/modules/students/dto/students.dto.ts`) exactly.
 export interface GuardianListFilters {
   search?: string;
+  relationship?: string;
+  preferred_communication?: CommunicationMedium;
+  is_primary_contact?: boolean;
+  sort?: 'full_name' | 'created_at';
+  order?: 'asc' | 'desc';
   page?: number;
   limit?: number;
 }

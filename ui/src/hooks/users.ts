@@ -1,3 +1,4 @@
+import type { UserStatus } from '@biddaloy/shared';
 import {
   keepPreviousData,
   queryOptions,
@@ -22,9 +23,17 @@ export type UpdateUserInput = components['schemas']['UpdateUserDto'];
 export type UpdateOwnProfileInput = components['schemas']['UpdateOwnProfileDto'];
 export type UserRoleFilter = NonNullable<CreateUserInput['role']>;
 
+// [8.14.10] Mirrors `QueryUserDto` (`server/src/modules/users/dto/users.dto.ts`)
+// exactly — see the ticket's "hook filter interfaces" correction for why
+// this file, not #373, owns keeping this in step with the server DTO.
 export interface UserListFilters {
   role?: UserRoleFilter;
   search?: string;
+  status?: UserStatus;
+  joined_from?: string;
+  joined_to?: string;
+  sort?: 'full_name' | 'email' | 'joined_at' | 'status';
+  order?: 'asc' | 'desc';
   page?: number;
   limit?: number;
 }
