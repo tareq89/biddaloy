@@ -17,7 +17,7 @@ import {
   type StudentListFilters,
   type StudentSortField,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
 import { downloadCsv } from '@biddaloy/ui/utils';
 import { useQueryClient } from '@tanstack/react-query';
@@ -358,8 +358,10 @@ function StudentsListPage() {
     },
   ];
 
+  const regionConfig = useTenantRegionConfig();
+
   return (
-    <>
+    <RegionConfigProvider value={regionConfig}>
       <CachedDataNotice queryKey={studentsQueryOptions(studentListFilters).queryKey} />
       <ListShell
         title={t('list.title')}
@@ -448,7 +450,7 @@ function StudentsListPage() {
         studentIds={Array.from(state.selectedIds)}
         onSent={() => actions.setSelectedIds(new Set())}
       />
-    </>
+    </RegionConfigProvider>
   );
 }
 
