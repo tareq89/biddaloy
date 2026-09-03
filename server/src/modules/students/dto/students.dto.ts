@@ -15,7 +15,7 @@ import {
   MaxLength,
   ValidateIf,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { CommunicationMedium, EnrollmentStatus } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 
@@ -136,6 +136,19 @@ export class QueryStudentDto {
   @IsOptional()
   @IsEnum(EnrollmentStatus)
   enrollment_status?: EnrollmentStatus;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  gender?: string;
+
+  @IsOptional()
+  @IsDateString()
+  date_of_birth_from?: string;
+
+  @IsOptional()
+  @IsDateString()
+  date_of_birth_to?: string;
 
   /** Allowlisted, not free-text — a raw column name from the client would
    * let `order: { [query.sort]: ... }` in `StudentService.findAll` sort
@@ -400,9 +413,41 @@ export class BulkUploadResultDto {
 }
 
 export class QueryGuardianDto {
+  /** Matches against full_name, phone, or email (ILIKE, escaped). */
   @IsOptional()
   @IsString()
   search?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  relationship?: string;
+
+  @IsOptional()
+  @IsEnum(CommunicationMedium)
+  preferred_communication?: CommunicationMedium;
+
+  // `@Type(() => Boolean)` is deliberately not used here: class-transformer's
+  // Boolean coercion is `Boolean(value)`, which treats the *string*
+  // `"false"` (what a query param actually is) as truthy — `?is_primary_
+  // contact=false` would silently become `true`. This transform parses the
+  // two literal strings a query param can actually carry.
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return value;
+  })
+  @IsBoolean()
+  is_primary_contact?: boolean;
+
+  @IsOptional()
+  @IsIn(['full_name', 'created_at'])
+  sort?: 'full_name' | 'created_at';
+
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  order?: 'asc' | 'desc';
 
   @IsOptional()
   @Type(() => Number)

@@ -572,6 +572,267 @@ describe('StudentService (integration)', () => {
       expect([...seenIds].sort()).toEqual(expectedIds);
       expect(new Set(seenIds).size).toBe(students.length);
     });
+
+    // [8.14.9] search also matches registration_number now, not just name.
+    it('searches by registration_number', async () => {
+      await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Ahmed Khan',
+          registration_number: 'REG-2026-9999',
+          roll_number: 1,
+          class_section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+          date_of_birth: new Date('2010-01-01'),
+        }),
+      );
+
+      const result = await service.findAll(
+        { search: '2026-9999', page: 1, limit: 10 },
+        TENANT_ID,
+      );
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].full_name).toBe('Ahmed Khan');
+    });
+
+    // [8.14.9] % and _ in a search term must not act as SQL wildcards.
+    it('treats % and _ in search as literal text, not wildcards', async () => {
+      await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Ahmed Khan',
+          registration_number: 'REG-2026-0001',
+          roll_number: 1,
+          class_section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+          date_of_birth: new Date('2010-01-01'),
+        }),
+      );
+      await studentRepo.save(
+        studentRepo.create({
+          full_name: '100% Attendance',
+          registration_number: 'REG-2026-0002',
+          roll_number: 2,
+          class_section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+          date_of_birth: new Date('2010-01-01'),
+        }),
+      );
+
+      // A bare % would match every student's name if unescaped.
+      const percent = await service.findAll({ search: '100%', page: 1, limit: 10 }, TENANT_ID);
+      expect(percent.data).toHaveLength(1);
+      expect(percent.data[0].full_name).toBe('100% Attendance');
+    });
+
+    // [8.14.9] a Bengali-digit roll number search must convert to Latin
+    // before matching the integer roll_number column.
+    it('searches by roll number typed in Bengali digits', async () => {
+      await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Ahmed Khan',
+          registration_number: 'REG-2026-0001',
+          roll_number: 103,
+          class_section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+          date_of_birth: new Date('2010-01-01'),
+        }),
+      );
+
+      // ১০৩ is the Bengali-digit spelling of 103.
+      const result = await service.findAll({ search: '১০৩', page: 1, limit: 10 }, TENANT_ID);
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].full_name).toBe('Ahmed Khan');
+    });
+
+    it('filters by gender', async () => {
+      await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Ahmed Khan',
+          registration_number: 'REG-2026-0001',
+          roll_number: 1,
+          class_section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+          gender: 'MALE',
+        }),
+      );
+      await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Fatima Begum',
+          registration_number: 'REG-2026-0002',
+          roll_number: 2,
+          class_section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+          gender: 'FEMALE',
+        }),
+      );
+
+      const result = await service.findAll({ gender: 'FEMALE', page: 1, limit: 10 }, TENANT_ID);
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].full_name).toBe('Fatima Begum');
+    });
+
+    it('filters by date_of_birth_from/date_of_birth_to', async () => {
+      await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Older Student',
+          registration_number: 'REG-2026-0001',
+          roll_number: 1,
+          class_section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+          date_of_birth: new Date('2005-01-01'),
+        }),
+      );
+      await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Younger Student',
+          registration_number: 'REG-2026-0002',
+          roll_number: 2,
+          class_section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+          date_of_birth: new Date('2015-01-01'),
+        }),
+      );
+
+      const result = await service.findAll(
+        { date_of_birth_from: '2010-01-01', date_of_birth_to: '2020-01-01', page: 1, limit: 10 },
+        TENANT_ID,
+      );
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].full_name).toBe('Younger Student');
+    });
+
+    // [8.14.9] search now also matches via the student's guardian(s).
+    describe('search via guardian', () => {
+      it('finds a student by their guardian full_name or phone', async () => {
+        const student1 = await studentRepo.save(
+          studentRepo.create({
+            full_name: 'Ahmed Khan',
+            registration_number: 'REG-2026-0001',
+            roll_number: 1,
+            class_section_id: SEED_SECTION_1_ID,
+            tenant_id: TENANT_ID,
+          }),
+        );
+        const student2 = await studentRepo.save(
+          studentRepo.create({
+            full_name: 'Fatima Begum',
+            registration_number: 'REG-2026-0002',
+            roll_number: 2,
+            class_section_id: SEED_SECTION_1_ID,
+            tenant_id: TENANT_ID,
+          }),
+        );
+        const guardian = await guardianRepo.save(
+          guardianRepo.create({
+            full_name: 'Karim Uddin',
+            phone: '+8801711112222',
+            relationship: 'Father',
+            tenant_id: TENANT_ID,
+          }),
+        );
+        await dataSource.query(
+          'INSERT INTO student_guardians (student_id, guardian_id) VALUES ($1, $2)',
+          [student1.id, guardian.id],
+        );
+
+        const byGuardianName = await service.findAll(
+          { search: 'Karim Uddin', page: 1, limit: 10 },
+          TENANT_ID,
+        );
+        expect(byGuardianName.data).toHaveLength(1);
+        expect(byGuardianName.data[0].id).toBe(student1.id);
+        // Confirms this branch didn't accidentally match every student.
+        expect(byGuardianName.data.map((s) => s.id)).not.toContain(student2.id);
+
+        const byGuardianPhone = await service.findAll(
+          { search: '01711112222', page: 1, limit: 10 },
+          TENANT_ID,
+        );
+        expect(byGuardianPhone.data).toHaveLength(1);
+        expect(byGuardianPhone.data[0].id).toBe(student1.id);
+      });
+
+      // Cross-tenant: a guardian in tenant B must never surface a tenant A
+      // student search, even if (hypothetically) linked cross-tenant — the
+      // guardian join must carry its own tenant_id, not just rely on the
+      // student_guardians join table.
+      it('does not match a guardian belonging to another tenant', async () => {
+        const student = await studentRepo.save(
+          studentRepo.create({
+            full_name: 'Ahmed Khan',
+            registration_number: 'REG-2026-0001',
+            roll_number: 1,
+            class_section_id: SEED_SECTION_1_ID,
+            tenant_id: TENANT_ID,
+          }),
+        );
+        const otherTenantGuardian = await guardianRepo.save(
+          guardianRepo.create({
+            full_name: 'Karim Uddin',
+            phone: '+8801711112222',
+            relationship: 'Father',
+            tenant_id: OTHER_TENANT,
+          }),
+        );
+        // Deliberately force a cross-tenant join row — proves the query's
+        // own `guardian.tenant_id = :tenantId` guard, not the join table's
+        // absence of such rows, is what keeps this out of the result.
+        await dataSource.query(
+          'INSERT INTO student_guardians (student_id, guardian_id) VALUES ($1, $2)',
+          [student.id, otherTenantGuardian.id],
+        );
+
+        const result = await service.findAll(
+          { search: 'Karim Uddin', page: 1, limit: 10 },
+          TENANT_ID,
+        );
+
+        expect(result.data).toHaveLength(0);
+      });
+
+      // A student with two guardians matching the search must still
+      // appear exactly once, and `total` must reflect distinct students,
+      // not joined rows.
+      it('does not inflate total when a matched student has multiple guardians', async () => {
+        const student = await studentRepo.save(
+          studentRepo.create({
+            full_name: 'Ahmed Khan',
+            registration_number: 'REG-2026-0001',
+            roll_number: 1,
+            class_section_id: SEED_SECTION_1_ID,
+            tenant_id: TENANT_ID,
+          }),
+        );
+        const guardians = await guardianRepo.save([
+          guardianRepo.create({
+            full_name: 'Karim Uddin',
+            phone: '+8801711112222',
+            relationship: 'Father',
+            tenant_id: TENANT_ID,
+          }),
+          guardianRepo.create({
+            full_name: 'Karim Rahman',
+            phone: '+8801711113333',
+            relationship: 'Uncle',
+            tenant_id: TENANT_ID,
+          }),
+        ]);
+        for (const guardian of guardians) {
+          await dataSource.query(
+            'INSERT INTO student_guardians (student_id, guardian_id) VALUES ($1, $2)',
+            [student.id, guardian.id],
+          );
+        }
+
+        const result = await service.findAll({ search: 'Karim', page: 1, limit: 10 }, TENANT_ID);
+
+        expect(result.data).toHaveLength(1);
+        expect(result.total).toBe(1);
+      });
+    });
   });
 
   describe('findOne', () => {
@@ -835,6 +1096,134 @@ describe('GuardianService (integration)', () => {
       expect(result.data[0].students).toHaveLength(1);
       expect(result.data[0].students[0].id).toBe(student.id);
     });
+
+    // [8.14.9] search regression: `rahim` (lowercase) must find `Rahim`
+    // (mixed case) — the original Like-based search was case-sensitive.
+    it('finds a guardian searched in a different case (case-insensitive)', async () => {
+      await guardianRepo.save(
+        guardianRepo.create({
+          full_name: 'Rahim Uddin',
+          relationship: 'FATHER',
+          tenant_id: TENANT_ID,
+        }),
+      );
+
+      const result = await service.findAll({ search: 'rahim', page: 1, limit: 10 }, TENANT_ID);
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].full_name).toBe('Rahim Uddin');
+    });
+
+    it('filters by relationship', async () => {
+      await guardianRepo.save(
+        guardianRepo.create({ full_name: 'Father Guardian', relationship: 'FATHER', tenant_id: TENANT_ID }),
+      );
+      await guardianRepo.save(
+        guardianRepo.create({ full_name: 'Mother Guardian', relationship: 'MOTHER', tenant_id: TENANT_ID }),
+      );
+
+      const result = await service.findAll({ relationship: 'MOTHER', page: 1, limit: 10 }, TENANT_ID);
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].full_name).toBe('Mother Guardian');
+    });
+
+    it('filters by preferred_communication', async () => {
+      await guardianRepo.save(
+        guardianRepo.create({
+          full_name: 'SMS Guardian',
+          relationship: 'FATHER',
+          preferred_communication: CommunicationMedium.SMS,
+          tenant_id: TENANT_ID,
+        }),
+      );
+      await guardianRepo.save(
+        guardianRepo.create({
+          full_name: 'Email Guardian',
+          relationship: 'MOTHER',
+          preferred_communication: CommunicationMedium.EMAIL,
+          tenant_id: TENANT_ID,
+        }),
+      );
+
+      const result = await service.findAll(
+        { preferred_communication: CommunicationMedium.EMAIL, page: 1, limit: 10 },
+        TENANT_ID,
+      );
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].full_name).toBe('Email Guardian');
+    });
+
+    it('filters by is_primary_contact', async () => {
+      await guardianRepo.save(
+        guardianRepo.create({
+          full_name: 'Primary Guardian',
+          relationship: 'FATHER',
+          is_primary_contact: true,
+          tenant_id: TENANT_ID,
+        }),
+      );
+      await guardianRepo.save(
+        guardianRepo.create({
+          full_name: 'Secondary Guardian',
+          relationship: 'MOTHER',
+          is_primary_contact: false,
+          tenant_id: TENANT_ID,
+        }),
+      );
+
+      const result = await service.findAll(
+        { is_primary_contact: false, page: 1, limit: 10 },
+        TENANT_ID,
+      );
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].full_name).toBe('Secondary Guardian');
+    });
+
+    it('sorts by full_name using the Bengali collation', async () => {
+      await guardianRepo.save(
+        guardianRepo.create({ full_name: 'Zebra Guardian', relationship: 'FATHER', tenant_id: TENANT_ID }),
+      );
+      await guardianRepo.save(
+        guardianRepo.create({ full_name: 'Apple Guardian', relationship: 'MOTHER', tenant_id: TENANT_ID }),
+      );
+
+      const result = await service.findAll(
+        { sort: 'full_name', order: 'asc', page: 1, limit: 10 },
+        TENANT_ID,
+      );
+
+      expect(result.data.map((g) => g.full_name)).toEqual(['Apple Guardian', 'Zebra Guardian']);
+    });
+
+    // Cross-tenant isolation for every new filter, per server/CLAUDE.md.
+    it('does not return another tenant’s guardian for any of the new filters', async () => {
+      await guardianRepo.save(
+        guardianRepo.create({
+          full_name: 'Other Tenant Guardian',
+          relationship: 'FATHER',
+          preferred_communication: CommunicationMedium.EMAIL,
+          is_primary_contact: true,
+          tenant_id: OTHER_TENANT,
+        }),
+      );
+
+      const result = await service.findAll(
+        {
+          relationship: 'FATHER',
+          preferred_communication: CommunicationMedium.EMAIL,
+          is_primary_contact: true,
+          page: 1,
+          limit: 10,
+        },
+        TENANT_ID,
+      );
+
+      expect(result.data).toEqual([]);
+      expect(result.total).toBe(0);
+    });
   });
 
   /**
@@ -1011,5 +1400,92 @@ describe('GuardianService (integration)', () => {
       });
       expect(raw?.deleted_at).not.toBeNull();
     });
+  });
+});
+
+/**
+ * [8.14.9] Dedicated regression test for the `bn_icu` collation created by
+ * `1788307200000-AddBengaliCollationAndSearchIndexes`. Two spellings of the
+ * same name that are canonically equivalent — one using the precomposed
+ * Bengali letter ড় (U+09DC, "DDDHA"), one built from ড (U+09A1, "DA") plus a
+ * combining nukta (U+09BC) — must sort adjacently under Bengali dictionary
+ * order. Under Postgres's default `en_US.utf8` (libc) collation they do
+ * not: libc sorts by raw codepoint, so the decomposed spelling (which
+ * starts with a *lower* codepoint than the precomposed letter) can land far
+ * away from it once other names are interleaved.
+ *
+ * Named with explicit `\u` escapes in this comment (not just in the code)
+ * because editors normalize away the visual difference between the two
+ * forms — you cannot tell them apart by eye in a diff.
+ */
+describe('GuardianService (integration) — Bengali collation', () => {
+  let service: GuardianService;
+  let guardianRepo: Repository<Guardian>;
+
+  const TENANT_ID = SEED_TENANT_ID;
+
+  beforeAll(async () => {
+    const module = await createTestModule(ALL_ENTITIES, [GuardianService, StudentService], [], {
+      synchronize: true,
+      dropSchema: true,
+    });
+
+    service = module.get<GuardianService>(GuardianService);
+    guardianRepo = module.get<Repository<Guardian>>(getRepositoryToken(Guardian));
+    const dataSource = module.get(DataSource);
+
+    await seedReferenceData(dataSource);
+  }, 60000);
+
+  it('sorts canonically-equivalent \u09A1\u09BC/\u09DC spellings adjacently, with a Latin name outside the pair', async () => {
+    // "\u09AC\u09DC\u09BE" ("b\u01D0" — big) spelled with the precomposed letter
+    // \u09DC directly: \u09AC (U+09AC) + \u09DC (U+09DC) + \u09BE (U+09BE). Written
+    // with explicit `\\u` JS string escapes, never as a literal pasted
+    // character — an editor or diff tool would otherwise silently
+    // re-normalize a pasted precomposed/decomposed pair to identical
+    // bytes, erasing the very difference this test exists to exercise.
+    const precomposed = '\u09AC\u09DC\u09BE';
+    // The same word, but with \u09DC spelled as its NFD decomposition:
+    // \u09A1 (U+09A1, plain "DA") + a combining nukta \u09BC (U+09BC).
+    // Renders identically to `precomposed` above; the underlying bytes differ.
+    const decomposed = '\u09AC\u09A1\u09BC\u09BE';
+
+    await guardianRepo.save([
+      guardianRepo.create({
+        full_name: 'Zebra Guardian', // Latin, sorts after both Bengali forms.
+        relationship: 'FATHER',
+        tenant_id: TENANT_ID,
+      }),
+      guardianRepo.create({
+        full_name: decomposed,
+        relationship: 'MOTHER',
+        tenant_id: TENANT_ID,
+      }),
+      guardianRepo.create({
+        full_name: precomposed,
+        relationship: 'FATHER',
+        tenant_id: TENANT_ID,
+      }),
+    ]);
+
+    const result = await service.findAll(
+      { sort: 'full_name', order: 'asc', page: 1, limit: 10 },
+      TENANT_ID,
+    );
+
+    const names = result.data.map((g) => g.full_name);
+    const precomposedIndex = names.indexOf(precomposed);
+    const decomposedIndex = names.indexOf(decomposed);
+
+    expect(precomposedIndex).toBeGreaterThanOrEqual(0);
+    expect(decomposedIndex).toBeGreaterThanOrEqual(0);
+    // The two canonically-equivalent spellings must be next to each other —
+    // no other name (Zebra Guardian) sorted between them.
+    expect(Math.abs(precomposedIndex - decomposedIndex)).toBe(1);
+    // Both Bengali-script names sort before the Latin-script one under
+    // Bengali dictionary order.
+    expect(names.indexOf('Zebra Guardian')).toBeGreaterThan(
+      Math.max(precomposedIndex, decomposedIndex),
+    );
   });
 });
