@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, Repository, Brackets } from 'typeorm';
 import { StudentFee } from './entities/student-fee.entity';
 import { Student } from '../students/entities/student.entity';
 import { FeeStatus } from '@biddaloy/shared';
 import { QueryFeeDuesDto, QueryFlaggedDuesDto } from './dto/fees.dto';
+import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
 
 const OPEN_STATUSES = [FeeStatus.PENDING, FeeStatus.PARTIALLY_PAID];
 
@@ -125,6 +126,7 @@ export class FeeDuesService {
       month: query.month,
       year: query.year,
       restrictToStudentIds,
+      search: query.search,
     });
 
     if (studentIds.length === 0) {
@@ -250,6 +252,7 @@ export class FeeDuesService {
       year?: number;
       reminderThresholdBefore?: Date;
       restrictToStudentIds?: string[];
+      search?: string;
     },
   ): Promise<string[]> {
     // Fail closed before building anything: a *defined but empty*
@@ -292,6 +295,29 @@ export class FeeDuesService {
       qb.andWhere('sf.reminder_threshold_date IS NOT NULL').andWhere(
         'sf.reminder_threshold_date < :threshold',
         { threshold: filters.reminderThresholdBefore },
+      );
+    }
+
+    // [8.14.9] Applied here, at the SQL stage that produces the matching
+    // student ID set — never after `aggregateForStudents` sorts/paginates
+    // its in-memory array (see getDues below), which would corrupt
+    // total/totalPages.
+    const search = normalizeSearchTerm(filters.search);
+    if (search) {
+      // `/^\d+$/`, not `Number.isInteger(Number(search))` — the latter also
+      // accepts `1e5`, `0x2a`, and leading/trailing whitespace as
+      // "integers", which would silently roll-number-match a plain-text
+      // search term shaped like one of those.
+      const isPlainInteger = /^\d+$/.test(search);
+      qb.andWhere(
+        new Brackets((sub) => {
+          sub
+            .where('student.full_name ILIKE :search', { search: `%${search}%` })
+            .orWhere('student.registration_number ILIKE :search', { search: `%${search}%` });
+          if (isPlainInteger) {
+            sub.orWhere('student.roll_number = :rollNumber', { rollNumber: Number(search) });
+          }
+        }),
       );
     }
 

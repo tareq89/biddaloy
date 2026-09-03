@@ -313,6 +313,81 @@ describe('FeeDuesService (integration)', () => {
       expect(result.data[0].student_id).toBe(partial.id);
     });
 
+    // [8.14.9] search matches student full_name, registration_number
+    // (ILIKE, escaped), or exact roll_number — applied at the SQL stage
+    // that produces matching student IDs, so total/totalPages are never
+    // corrupted by a post-aggregation filter.
+    it('searches by full_name', async () => {
+      const match = await studentRepo.save(makeStudent({ full_name: 'Karim Rahman' }));
+      const other = await studentRepo.save(makeStudent({ full_name: 'Salma Begum' }));
+      await studentFeeRepo.save(makeFee(match.id));
+      await studentFeeRepo.save(makeFee(other.id));
+
+      const result = await service.getDues({ search: 'karim', page: 1, limit: 10 }, TENANT_ID);
+
+      expect(result.total).toBe(1);
+      expect(result.data[0].student_id).toBe(match.id);
+    });
+
+    it('searches by registration_number', async () => {
+      const match = await studentRepo.save(
+        makeStudent({ registration_number: 'REG-DUES-9999' }),
+      );
+      const other = await studentRepo.save(makeStudent());
+      await studentFeeRepo.save(makeFee(match.id));
+      await studentFeeRepo.save(makeFee(other.id));
+
+      const result = await service.getDues(
+        { search: 'DUES-9999', page: 1, limit: 10 },
+        TENANT_ID,
+      );
+
+      expect(result.total).toBe(1);
+      expect(result.data[0].student_id).toBe(match.id);
+    });
+
+    // A Bengali-digit roll number search must convert to Latin before
+    // matching the integer roll_number column.
+    it('searches by roll number typed in Bengali digits', async () => {
+      const match = await studentRepo.save(makeStudent({ roll_number: 42 }));
+      const other = await studentRepo.save(makeStudent({ roll_number: 7 }));
+      await studentFeeRepo.save(makeFee(match.id));
+      await studentFeeRepo.save(makeFee(other.id));
+
+      // ৪২ is the Bengali-digit spelling of 42.
+      const result = await service.getDues({ search: '৪২', page: 1, limit: 10 }, TENANT_ID);
+
+      expect(result.total).toBe(1);
+      expect(result.data[0].student_id).toBe(match.id);
+    });
+
+    // A bare % would match every student's name if left unescaped.
+    it('treats % in search as literal text, not a wildcard', async () => {
+      const literal = await studentRepo.save(makeStudent({ full_name: '100% Attendance' }));
+      const other = await studentRepo.save(makeStudent({ full_name: 'Regular Student' }));
+      await studentFeeRepo.save(makeFee(literal.id));
+      await studentFeeRepo.save(makeFee(other.id));
+
+      const result = await service.getDues({ search: '100%', page: 1, limit: 10 }, TENANT_ID);
+
+      expect(result.total).toBe(1);
+      expect(result.data[0].student_id).toBe(literal.id);
+    });
+
+    // Cross-tenant: a search term must never surface another tenant's
+    // student, even one with a matching name.
+    it('does not match a student belonging to another tenant', async () => {
+      const otherTenantStudent = await studentRepo.save(
+        makeStudent({ full_name: 'Karim Rahman', tenant_id: OTHER_TENANT_ID }),
+      );
+      await studentFeeRepo.save(makeFee(otherTenantStudent.id));
+
+      const result = await service.getDues({ search: 'karim', page: 1, limit: 10 }, TENANT_ID);
+
+      expect(result.total).toBe(0);
+      expect(result.data).toEqual([]);
+    });
+
     it('sorts by due_amount descending by default', async () => {
       const low = await studentRepo.save(makeStudent({ full_name: 'Aaron' }));
       const high = await studentRepo.save(makeStudent({ full_name: 'Zoe' }));
