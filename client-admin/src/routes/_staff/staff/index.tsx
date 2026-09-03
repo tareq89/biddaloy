@@ -7,8 +7,14 @@
  * documents `POST /teachers` as promotion, never as creating a second
  * kind of person.
  */
-import { Permission, STAFF_ROLES } from '@biddaloy/shared';
-import { Button, RoutePending, StatusBadge, type DataTableColumn } from '@biddaloy/ui/components';
+import { Permission, STAFF_ROLES, UserStatus } from '@biddaloy/shared';
+import {
+  Button,
+  RoutePending,
+  StatusBadge,
+  humanizeStatus,
+  type DataTableColumn,
+} from '@biddaloy/ui/components';
 import {
   useCurrentUserId,
   useHasPermission,
@@ -34,6 +40,9 @@ import { RemoveMemberDialog } from './-remove-member-dialog';
 interface StaffFilters {
   search?: string | undefined;
   role?: string | undefined;
+  status?: string | undefined;
+  joined_from?: string | undefined;
+  joined_to?: string | undefined;
 }
 
 const staffSearchSchema = z.object({
@@ -43,6 +52,9 @@ const staffSearchSchema = z.object({
   order: z.enum(['asc', 'desc']).optional().catch(undefined),
   search: z.string().optional().catch(undefined),
   role: z.string().optional().catch(undefined),
+  status: z.string().optional().catch(undefined),
+  joined_from: z.string().optional().catch(undefined),
+  joined_to: z.string().optional().catch(undefined),
   // Reserved row-selection key — same reasoning as `guardians/index.tsx`.
   selected: z.string().optional().catch(undefined),
 });
@@ -62,6 +74,12 @@ function toRoleParam(role: string | undefined): UserRoleFilter | undefined {
     : undefined;
 }
 
+function toStatusParam(status: string | undefined): UserStatus | undefined {
+  return status !== undefined && (Object.values(UserStatus) as string[]).includes(status)
+    ? (status as UserStatus)
+    : undefined;
+}
+
 export const Route = createFileRoute('/_staff/staff/')({
   validateSearch: staffSearchSchema,
   loaderDeps: ({ search }) => ({
@@ -71,9 +89,13 @@ export const Route = createFileRoute('/_staff/staff/')({
     order: search.order,
     search: search.search,
     role: search.role,
+    status: search.status,
+    joinedFrom: search.joined_from,
+    joinedTo: search.joined_to,
   }),
   loader: ({ context: { queryClient }, deps }) => {
     const role = toRoleParam(deps.role);
+    const status = toStatusParam(deps.status);
     const sortField = deps.sort !== undefined ? SORT_FIELD_BY_COLUMN[deps.sort] : undefined;
     return Promise.all([
       // [8.14.5]: swallowed — see `academic-years/index.tsx`'s identical
@@ -85,6 +107,9 @@ export const Route = createFileRoute('/_staff/staff/')({
             limit: deps.limit,
             ...(deps.search !== undefined ? { search: deps.search } : {}),
             ...(role !== undefined ? { role } : {}),
+            ...(status !== undefined ? { status } : {}),
+            ...(deps.joinedFrom !== undefined ? { joined_from: deps.joinedFrom } : {}),
+            ...(deps.joinedTo !== undefined ? { joined_to: deps.joinedTo } : {}),
             ...(sortField !== undefined ? { sort: sortField } : {}),
             ...(deps.order !== undefined ? { order: deps.order } : {}),
           }),
@@ -112,12 +137,16 @@ function StaffListPage() {
   const [removeTarget, setRemoveTarget] = React.useState<StaffUser | null>(null);
 
   const roleParam = toRoleParam(filters.role);
+  const statusParam = toStatusParam(filters.status);
   const sortField = state.sorting ? SORT_FIELD_BY_COLUMN[state.sorting.id] : undefined;
   const usersQuery = useUsers({
     page: state.page,
     limit: state.limit,
     ...(filters.search !== undefined ? { search: filters.search } : {}),
     ...(roleParam !== undefined ? { role: roleParam } : {}),
+    ...(statusParam !== undefined ? { status: statusParam } : {}),
+    ...(filters.joined_from !== undefined ? { joined_from: filters.joined_from } : {}),
+    ...(filters.joined_to !== undefined ? { joined_to: filters.joined_to } : {}),
     ...(sortField !== undefined ? { sort: sortField } : {}),
     ...(state.sorting ? { order: state.sorting.desc ? 'desc' : 'asc' } : {}),
   });
@@ -136,6 +165,24 @@ function StaffListPage() {
       label: t('list.roleFilterLabel'),
       allLabel: t('list.roleFilterAll'),
       options: STAFF_ROLES.map((role) => ({ value: role, label: t(`roles.${role}`) })),
+    },
+    {
+      kind: 'select',
+      key: 'status',
+      label: t('list.statusFilterLabel'),
+      allLabel: t('list.statusFilterAll'),
+      options: Object.values(UserStatus).map((status) => ({
+        value: status,
+        label: humanizeStatus(status),
+      })),
+    },
+    {
+      kind: 'date-range',
+      fromKey: 'joined_from',
+      toKey: 'joined_to',
+      label: t('list.joinedRangeLabel'),
+      fromLabel: t('list.joinedFromLabel'),
+      toLabel: t('list.joinedToLabel'),
     },
   ];
 
