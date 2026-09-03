@@ -568,7 +568,7 @@ describe('DataTable pagination', () => {
 describe('DataTable page-size control [8.14.10]', () => {
   afterEach(() => window.localStorage.clear());
 
-  it('renders no size control when onPageSizeChange is absent — today\'s default', () => {
+  it("renders no size control when onPageSizeChange is absent — today's default", () => {
     render(<Controlled totalCount={100} />);
     expect(screen.queryByRole('combobox', { name: 'Rows per page' })).toBeNull();
   });
@@ -626,6 +626,34 @@ describe('DataTable page-size control [8.14.10]', () => {
     await user.click(await screen.findByRole('option', { name: '50' }));
     expect(onPageSizeChange).toHaveBeenCalledTimes(1);
     expect(onPageSizeChange).toHaveBeenCalledWith(50);
+  });
+
+  // [8.14.10]: a `pageSize` outside `pageSizeOptions` (e.g. a hand-edited
+  // `?limit=15`, or a locale default drifting off the preset list) must
+  // still render legibly — Radix's `SelectValue` only shows a label when
+  // its value matches a mounted `SelectItem`, and with the default
+  // `[10, 20, 50]` options none of those match 15.
+  it('shows the current pageSize even when it is not one of pageSizeOptions', () => {
+    render(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <DataTable
+          tableId="students-page-size-off-list-test"
+          caption="Students"
+          columns={COLUMNS}
+          data={STUDENTS}
+          getRowId={(row) => row.id}
+          sorting={null}
+          onSortingChange={() => undefined}
+          page={1}
+          pageSize={15}
+          totalCount={100}
+          onPageChange={() => undefined}
+          onPageSizeChange={() => undefined}
+        />
+      </RegionConfigProvider>,
+    );
+    const trigger = screen.getByRole('combobox', { name: 'Rows per page' });
+    expect(trigger.textContent).toContain('15');
   });
 
   it('option labels render in Bengali numerals under the bn RegionConfig', async () => {

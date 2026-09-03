@@ -853,7 +853,16 @@ export function DataTable<TData extends RowData>({
               onValueChange={(value) => onPageSizeChange(Number(value))}
             >
               <SelectTrigger aria-label={pageSizeLabel} className="w-20">
-                <SelectValue />
+                {/* Radix's `SelectValue` only renders a label when its
+                 * displayed value matches a mounted `SelectItem`'s own
+                 * value — if the URL's `limit` (or a stale locale
+                 * default) isn't one of `pageSizeOptions`, nothing
+                 * registers as selected and the trigger renders blank.
+                 * Passing an explicit child bypasses that lookup so the
+                 * current `pageSize` always shows, even off-list —
+                 * this never rewrites `pageSize` itself, so the URL's
+                 * value is left alone. */}
+                <SelectValue>{formatNumber(pageSize, regionConfig)}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {pageSizeOptions.map((size) => (
