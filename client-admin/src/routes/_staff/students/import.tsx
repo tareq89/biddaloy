@@ -156,9 +156,13 @@ function ImportStudentsContent() {
             {t('template.download')}
           </Button>
         </div>
-        {/* Narrow viewports: the reference's min-content width exceeds 320px,
-            so it scrolls inside its own box rather than the document — same
-            treatment DataTable gives its own table. */}
+        {/* [8.14.7]: `break-all` on the header-name cells (below) keeps this
+            table's min-content width under 320px on its own — the longest
+            identifier, `preferred_communication`, was the one unbreakable
+            token wide enough to force this box into scroll. `overflow-x-
+            auto` stays as a defensive fallback, not the fix: no element
+            should need its own inner scroll region per the reflow contract
+            DataTable's card mode established. */}
         <div className="mt-2 w-full overflow-x-auto">
           <table className="w-full text-left text-sm">
             <caption className="mb-1 text-left text-sm font-medium">
@@ -180,7 +184,7 @@ function ImportStudentsContent() {
             <tbody>
               {TEMPLATE_HEADERS.map((header) => (
                 <tr key={header} className="border-b border-border-subtle">
-                  <td className="py-1 pr-4 font-mono text-xs">{header}</td>
+                  <td className="py-1 pr-4 font-mono text-xs break-all">{header}</td>
                   <td className="py-1 pr-4">
                     {REQUIRED_COLUMNS.has(header)
                       ? t('reference.requiredYes')

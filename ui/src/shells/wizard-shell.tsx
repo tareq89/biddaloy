@@ -81,6 +81,24 @@ export function WizardShell({
     setVisitedSteps((prev) => (prev.has(currentStepId) ? prev : new Set(prev).add(currentStepId)));
   }, [currentStepId]);
 
+  // Steps stay mounted (this file's own header comment), so "Next"/"Back"
+  // is the *same* button instance across a step change — a keyboard user
+  // who just pressed it keeps focus there, which now sits at the very
+  // bottom of the new step's DOM. The next Tab has nowhere forward to go
+  // but out of the wizard entirely, wrapping back to the top of the
+  // document instead of into the step they just reached. Moving focus to
+  // the step announcement on every change (not just the first) fixes
+  // that: Tab from here lands on the new step's own first field.
+  const stepAnnouncementRef = React.useRef<HTMLDivElement>(null);
+  const isFirstRender = React.useRef(true);
+  React.useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    stepAnnouncementRef.current?.focus();
+  }, [currentStepId]);
+
   function goNext() {
     if (!isValid || isLastStep) return;
     const nextStep = allSteps[currentIndex + 1];
@@ -139,7 +157,7 @@ export function WizardShell({
           );
         })}
       </ol>
-      <div aria-live="polite" className="sr-only">
+      <div ref={stepAnnouncementRef} tabIndex={-1} aria-live="polite" className="sr-only">
         Step {currentIndex + 1} of {allSteps.length}: {currentStep?.label}
       </div>
 

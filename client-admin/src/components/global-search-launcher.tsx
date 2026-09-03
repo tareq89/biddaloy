@@ -180,7 +180,7 @@ export function GlobalSearchLauncher() {
         variant="outline"
         onClick={() => setOpen(true)}
         aria-label={t('globalSearch.buttonLabel')}
-        className="inline-flex h-(--control-h) w-(--control-h) items-center justify-center gap-2 rounded-md border-input px-0 font-normal text-muted-foreground md:w-56 md:justify-start md:px-2"
+        className="inline-flex h-[var(--control-h,2rem)] w-[var(--control-h,2rem)] items-center justify-center gap-2 rounded-md border-input px-0 font-normal text-muted-foreground md:w-56 md:justify-start md:px-2"
       >
         <SearchIcon className="size-4 shrink-0" aria-hidden="true" />
         {/* `launcherPlaceholder`, not the dialog's own `placeholder`: the
