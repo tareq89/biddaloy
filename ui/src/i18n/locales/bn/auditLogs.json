@@ -21,6 +21,9 @@
     "allActions": "সব কাজ",
     "entityTypeLabel": "রেকর্ডের ধরন",
     "allEntityTypes": "সব ধরনের রেকর্ড",
+    "performedByLabel": "যিনি করেছেন",
+    "allUsers": "সব ব্যবহারকারী",
+    "dateRangeLabel": "তারিখের সীমা",
     "fromDateLabel": "শুরুর তারিখ",
     "toDateLabel": "শেষ তারিখ"
   },

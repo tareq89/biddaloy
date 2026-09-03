@@ -21,6 +21,9 @@
     "allActions": "All actions",
     "entityTypeLabel": "Record type",
     "allEntityTypes": "All record types",
+    "performedByLabel": "Performed by",
+    "allUsers": "All users",
+    "dateRangeLabel": "Date range",
     "fromDateLabel": "From date",
     "toDateLabel": "To date"
   },
