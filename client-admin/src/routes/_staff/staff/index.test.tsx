@@ -320,4 +320,77 @@ describe('/staff', () => {
     await screen.findByText('Abdul Karim');
     await expect(container).toHaveNoViolations();
   });
+
+  // [8.14.10]: FilterBar migration — the rows-per-page control changes
+  // `limit` and resets `page` in one URL update.
+  it('changing rows per page writes limit and resets page', async () => {
+    server.use(http.get('/api/v1/users', () => HttpResponse.json(paginated([]))));
+
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/staff?page=2'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await screen.findByRole('region', { name: 'Users with access to this school' });
+    await user.click(screen.getByRole('combobox', { name: 'Rows per page' }));
+    // Option labels render in the tenant's own region digits (Bengali
+    // numerals here), independent of the `en` UI locale.
+    await user.click(await screen.findByRole('option', { name: '২০' }));
+
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ limit: 20, page: 1 }));
+  });
+
+  // [8.14.10]: `GET /users` now accepts a `sort`/`order` param — clicking
+  // the sortable "Name" column header writes it, replacing the old no-op
+  // `onSortingChange`.
+  it('clicking the Name column header writes sort/order to the URL', async () => {
+    server.use(http.get('/api/v1/users', () => HttpResponse.json(paginated([]))));
+
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/staff'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await screen.findByRole('region', { name: 'Users with access to this school' });
+    await user.click(screen.getByRole('button', { name: 'Name' }));
+
+    await waitFor(() => {
+      const search = router.state.location.search as Record<string, unknown>;
+      expect(search.sort).toBe('name');
+      expect(['asc', 'desc']).toContain(search.order);
+    });
+  });
+
+  // [8.14.10]: the hand-rolled role `Select` is now a `FilterBar` select
+  // descriptor — picking a role still writes `role` to the URL.
+  it('picking a role from the FilterBar filters the request', async () => {
+    let requestedRole: string | null = null;
+    server.use(
+      http.get('/api/v1/users', ({ request }) => {
+        requestedRole = new URL(request.url).searchParams.get('role');
+        return HttpResponse.json(paginated([]));
+      }),
+    );
+
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/staff'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await screen.findByRole('region', { name: 'Users with access to this school' });
+    await user.click(screen.getByRole('combobox', { name: 'Filter by role' }));
+    await user.click(await screen.findByRole('option', { name: 'Teacher' }));
+
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ role: 'TEACHER' }));
+    await waitFor(() => expect(requestedRole).toBe('TEACHER'));
+  });
 });
