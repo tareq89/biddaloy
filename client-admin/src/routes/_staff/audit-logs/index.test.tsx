@@ -423,4 +423,52 @@ describe('/audit-logs', () => {
     await screen.findByText('3 fields were changed on this student.');
     await expect(container).toHaveNoViolations();
   });
+
+  // Correction 2: the server param is `performed_by_user_id`, a UUID
+  // (`QueryAuditLogDto.performed_by_user_id`, `@IsUUID()`) — the filter
+  // must be a picker sourced from `useUsers`, not free text a viewer
+  // could type garbage into and get a 400 back.
+  it('picking a "Performed by" user writes performed_by_user_id to the URL', async () => {
+    const seen = captureParams();
+    server.use(
+      http.get('/api/v1/users', () =>
+        HttpResponse.json({
+          data: [{ id: 'user-42', full_name: 'Fatema Begum' }],
+          total: 1,
+          page: 1,
+          limit: 100,
+          totalPages: 1,
+        }),
+      ),
+    );
+
+    const { router } = renderAuditLogs();
+
+    const user = userEvent.setup();
+    await screen.findByRole('region', { name: TABLE_REGION });
+    await user.click(screen.getByRole('combobox', { name: 'Performed by' }));
+    await user.click(await screen.findByRole('option', { name: 'Fatema Begum' }));
+
+    await waitFor(() =>
+      expect(router.state.location.search).toMatchObject({ performed_by_user_id: 'user-42' }),
+    );
+    await waitFor(() => expect(seen.params!.get('performed_by_user_id')).toBe('user-42'));
+  });
+
+  // [8.14.10]: FilterBar migration — the rows-per-page control changes
+  // `limit` and resets `page` in one URL update.
+  it('changing rows per page writes limit and resets page', async () => {
+    captureParams({ data: [], total: 0, page: 2, limit: 10, totalPages: 1 });
+
+    const { router } = renderAuditLogs({ initialEntries: ['/audit-logs?page=2'] });
+
+    const user = userEvent.setup();
+    await screen.findByRole('region', { name: TABLE_REGION });
+    await user.click(screen.getByRole('combobox', { name: 'Rows per page' }));
+    // Option labels render in the tenant's own region digits (Bengali
+    // numerals here), independent of the `en` UI locale.
+    await user.click(await screen.findByRole('option', { name: '২০' }));
+
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ limit: 20, page: 1 }));
+  });
 });
