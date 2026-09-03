@@ -1,11 +1,12 @@
 import { render, screen } from '@testing-library/react';
 import { useState } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { Button } from '../components/button';
 import type { DataTableColumn, DataTableSort } from '../components/data-table';
 import { Input } from '../components/input';
 
+import type { FilterFieldDescriptor } from './filter-bar';
 import { ListShell } from './list-shell';
 
 interface Student {
@@ -85,5 +86,100 @@ describe('ListShell', () => {
   it('is axe clean', async () => {
     const { container } = render(<Demo />);
     await expect(container).toHaveNoViolations();
+  });
+});
+
+const TYPED_FILTER_FIELDS: FilterFieldDescriptor[] = [
+  { kind: 'text', key: 'q', label: 'Search', primary: true },
+];
+
+function TypedFiltersDemo() {
+  const [values, setValues] = useState<Record<string, string>>({});
+  return (
+    <ListShell
+      title="Students"
+      filters={{
+        fields: TYPED_FILTER_FIELDS,
+        values,
+        onChange: (patch) =>
+          setValues((current) => {
+            const next = { ...current };
+            for (const [key, value] of Object.entries(patch)) {
+              if (value === null) delete next[key];
+              else next[key] = value;
+            }
+            return next;
+          }),
+      }}
+      tableId="students-typed-filters"
+      caption="Students"
+      columns={COLUMNS}
+      data={STUDENTS}
+      getRowId={(row) => row.id}
+      sorting={null}
+      onSortingChange={vi.fn()}
+      page={1}
+      pageSize={20}
+      totalCount={STUDENTS.length}
+      onPageChange={vi.fn()}
+    />
+  );
+}
+
+describe('ListShell — typed `filters` prop', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('renders FilterBar when the typed `filters` prop is passed', () => {
+    render(<TypedFiltersDemo />);
+    expect(screen.getByRole('textbox', { name: 'Search' })).toBeTruthy();
+  });
+
+  it('still renders the legacy `filterBar` node on its own, with no `filters` prop passed', () => {
+    render(
+      <ListShell
+        title="Students"
+        filterBar={<Input aria-label="Legacy search" />}
+        tableId="students-legacy-filter-bar"
+        caption="Students"
+        columns={COLUMNS}
+        data={STUDENTS}
+        getRowId={(row) => row.id}
+        sorting={null}
+        onSortingChange={vi.fn()}
+        page={1}
+        pageSize={20}
+        totalCount={STUDENTS.length}
+        onPageChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('textbox', { name: 'Legacy search' })).toBeTruthy();
+  });
+
+  it('renders both when both `filterBar` and `filters` are passed, and warns in dev', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    render(
+      <ListShell
+        title="Students"
+        filterBar={<Input aria-label="Legacy search" />}
+        filters={{ fields: TYPED_FILTER_FIELDS, values: {}, onChange: vi.fn() }}
+        tableId="students-both-filters"
+        caption="Students"
+        columns={COLUMNS}
+        data={STUDENTS}
+        getRowId={(row) => row.id}
+        sorting={null}
+        onSortingChange={vi.fn()}
+        page={1}
+        pageSize={20}
+        totalCount={STUDENTS.length}
+        onPageChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('textbox', { name: 'Legacy search' })).toBeTruthy();
+    expect(screen.getByRole('textbox', { name: 'Search' })).toBeTruthy();
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('both `filterBar`'));
   });
 });

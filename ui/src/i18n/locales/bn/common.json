@@ -67,5 +67,15 @@
       "attendance": "উপস্থিতি"
     },
     "actionFailed": "আপনার অপেক্ষমাণ পরিবর্তন হালনাগাদ করা যায়নি। আবার চেষ্টা করুন।"
+  },
+  "filters": {
+    "showFilters_one": "ফিল্টার ({{count}})",
+    "showFilters_other": "ফিল্টার ({{count}})",
+    "showFiltersNone": "ফিল্টার",
+    "hideFilters": "ফিল্টার লুকান",
+    "activeFilters": "সক্রিয় ফিল্টার",
+    "clearAll": "সব মুছুন",
+    "removeFilter": "ফিল্টার সরান: {{label}}",
+    "unknownFilter": "{{key}}: {{value}}"
   }
 }
