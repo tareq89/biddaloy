@@ -179,4 +179,88 @@ describe('/guardians', () => {
     await screen.findByText('Abdul Karim');
     await expect(container).toHaveNoViolations();
   });
+
+  // [8.14.10]: FilterBar migration — the rows-per-page control changes
+  // `limit` and resets `page` in one URL update.
+  it('changing rows per page writes limit and resets page', async () => {
+    server.use(
+      http.get('/api/v1/guardians', () =>
+        HttpResponse.json({ data: [], total: 0, page: 2, limit: 10, totalPages: 1 }),
+      ),
+    );
+
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/guardians?page=2'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await screen.findByRole('region', { name: 'Guardians' });
+    await user.click(screen.getByRole('combobox', { name: 'Rows per page' }));
+    // Option labels render in the tenant's own region digits (Bengali
+    // numerals here), independent of the `en` UI locale — see
+    // `data-table.tsx`'s pager `formatNumber` comment.
+    await user.click(await screen.findByRole('option', { name: '২০' }));
+
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ limit: 20, page: 1 }));
+  });
+
+  // [8.14.10]: server now accepts a `sort`/`order` param — clicking the
+  // sortable "Name" column header writes it, replacing the old no-op
+  // `onSortingChange`.
+  it('clicking the Name column header writes sort/order to the URL', async () => {
+    server.use(
+      http.get('/api/v1/guardians', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
+      ),
+    );
+
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/guardians'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await screen.findByRole('region', { name: 'Guardians' });
+    await user.click(screen.getByRole('button', { name: 'Name' }));
+
+    // `sort` carries the column's own id (`ListShellState.sorting.id`) — the
+    // page maps that back onto `full_name` when building the query, not
+    // when writing the URL.
+    await waitFor(() => {
+      const search = router.state.location.search as Record<string, unknown>;
+      expect(search.sort).toBe('name');
+      expect(['asc', 'desc']).toContain(search.order);
+    });
+  });
+
+  // [8.14.10]: a filter with no matching descriptor still renders as a
+  // chip (`FilterBar`'s deep-linked-value guarantee) — here exercised via
+  // `relationship`, and clearing it removes the URL param.
+  it('an active relationship filter renders as a chip whose clear button removes it', async () => {
+    server.use(
+      http.get('/api/v1/guardians', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
+      ),
+    );
+
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/guardians?relationship=Father'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByRole('region', { name: 'Guardians' });
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /Remove filter: Relationship: Father/ }));
+
+    await waitFor(() => {
+      expect(router.state.location.search).not.toHaveProperty('relationship');
+    });
+  });
 });
