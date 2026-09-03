@@ -49,9 +49,23 @@ async function freshLogin(
   }
   const ctx = await request.newContext({ baseURL: shells.app.baseURL });
   try {
-    const response = await ctx.post('/api/v1/auth/login', {
+    // journeys/portal-account.spec.ts's password-change test briefly
+    // rotates the shared `parent` seed account's own password (change →
+    // confirm → restore) — a real, if narrow, window where any other
+    // spec's fresh `parent` login (this function, `fullyParallel: true`
+    // means it can land mid-rotation) gets a legitimate 401 for a
+    // credential that's correct again a moment later. Three attempts
+    // over ~2s comfortably outlasts that window without masking an
+    // actually-wrong seed password, which still fails after every retry.
+    let response = await ctx.post('/api/v1/auth/login', {
       data: { email: SEED_ROLE_EMAILS[role], password },
     });
+    for (let attempt = 0; response.status() === 401 && attempt < 2; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 750));
+      response = await ctx.post('/api/v1/auth/login', {
+        data: { email: SEED_ROLE_EMAILS[role], password },
+      });
+    }
     if (!response.ok()) {
       throw new Error(
         `Login failed for ${SEED_ROLE_EMAILS[role]}: ${response.status()} ${await response.text()}`,
