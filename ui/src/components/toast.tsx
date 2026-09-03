@@ -21,6 +21,17 @@
  * caller-supplied `mobileOffset` still wins. Scope note: this clears the
  * home indicator only; toasts can still overlap the bottom nav bar itself,
  * which is a deliberate non-goal for [8.14.3].
+ *
+ * [8.14.12]: enter/exit re-timing onto `--motion-duration-*`/
+ * `--motion-ease-*` lives in `../styles/globals.css` (search
+ * `[data-sonner-toaster] [data-sonner-toast]`), not here as a
+ * `toastOptions.classNames` utility class. A class handed to sonner via
+ * `classNames` composes at the *same* specificity sonner's own injected
+ * stylesheet uses, so whichever of the two loads last in `<head>` wins —
+ * order this component has no control over. The CSS block instead uses a
+ * 0-3-0 selector to win deterministically regardless of load order. See
+ * that block's own comment for the full reasoning, including why toast
+ * exit is capped at `--motion-duration-base` rather than `-slow`.
  */
 import type { ComponentProps } from 'react';
 import { Toaster as SonnerToaster, toast } from 'sonner';

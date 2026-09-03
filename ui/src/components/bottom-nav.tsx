@@ -54,7 +54,7 @@ import { useAppShellDrawer, type AppShellNavItem } from './app-shell';
  * kept in one place so the trailing cell can never visually drift from the
  * destination cells beside it. */
 const CELL_CLASS =
-  'flex min-h-14 flex-1 flex-col items-center justify-center gap-1 px-2 py-2 text-xs';
+  'flex min-h-14 flex-1 flex-col items-center justify-center gap-1 px-2 py-2 text-xs transition-[color,background-color] duration-(--motion-duration-fast) ease-(--motion-ease-standard)';
 
 export interface BottomNavProps {
   /** Same item shape `AppShell` takes, so one array feeds both the

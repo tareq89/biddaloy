@@ -92,6 +92,17 @@ describe('BottomNav', () => {
     }
   });
 
+  it('[8.14.12] binds the active/inactive colour swap to the fast motion token', async () => {
+    renderWithRouter(buildRouteTree(), { initialEntries: ['/portal'], role: 'PARENT' });
+
+    const nav = await screen.findByRole('navigation', { name: 'Portal' });
+    for (const link of within(nav).getAllByRole('link')) {
+      expect(link.className).toContain('transition-[color,background-color]');
+      expect(link.className).toContain('duration-(--motion-duration-fast)');
+      expect(link.className).toContain('ease-(--motion-ease-standard)');
+    }
+  });
+
   it('renders nothing when the role can see none of the items', () => {
     const rootRoute = createRootRoute();
     const indexRoute = createRoute({

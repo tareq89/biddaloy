@@ -431,7 +431,7 @@ function ChildCard({ child, config }: { child: ChildSummary; config: RegionConfi
       <Link
         to="/portal/fees"
         search={{ student: child.id }}
-        className="flex flex-col gap-1.5 p-3.5 no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+        className="flex flex-col gap-1.5 p-3.5 no-underline hover:shadow-e2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
       >
         <div className="flex items-center justify-between gap-2">
           <span className="text-sm font-semibold">{child.fullName}</span>

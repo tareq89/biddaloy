@@ -4,6 +4,12 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { toast, Toaster } from './toast';
 
+// [8.14.12]: enter/exit re-timing lives entirely in a CSS rule in
+// `../styles/globals.css`, not in any prop this component passes to
+// sonner — jsdom never applies a real cascade (no stylesheet, no
+// specificity resolution against sonner's own injected rules), so there is
+// nothing about that motion this suite can assert. Coverage for it lives
+// in `e2e/reduced-motion.spec.ts`, run in a real browser.
 describe('Toaster/toast', () => {
   // sonner keeps its toast queue in a module-level store outside React, so
   // a toast raised in one test survives into the next test's freshly

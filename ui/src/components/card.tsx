@@ -32,7 +32,14 @@ export function Card({ className, asChild = false, ...props }: CardProps) {
   return (
     <Comp
       data-slot="card"
-      className={cn('rounded-lg border border-border-subtle bg-card shadow-e1', className)}
+      className={cn(
+        // [8.14.12]: property-scoped, not `transition-all` (see
+        // `../primitives/button.tsx`'s own precedent) — only the two
+        // properties a hover-elevation caller (e.g. the portal's
+        // `ChildCard`) actually changes get a bound transition.
+        'rounded-lg border border-border-subtle bg-card shadow-e1 transition-[box-shadow,border-color] duration-(--motion-duration-fast) ease-(--motion-ease-standard)',
+        className,
+      )}
       {...props}
     />
   );

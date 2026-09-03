@@ -1034,6 +1034,53 @@ into `@layer utilities`) would beat it. Nothing in the repo does that today;
 if something ever needs to, the rule has to move into a layer rather than
 gain more `!important`.
 
+### 7.1 [8.14.12] Binding the vocabulary to real components
+
+#347 shipped the tokens; nothing outside six overlay primitives actually
+used them. [8.14.12] wired them into the rest of the product — no new
+durations, no new curves, no new dependency:
+
+| Token                    | Newly bound to                                                                                                                          |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `--motion-duration-fast` | nav links, bottom-nav items, card hover, table rows, tabs, select trigger                                                               |
+| `--motion-duration-base` | skeleton arrival (`transition-opacity` + `@starting-style`, not `animate-in` — see `skeleton.tsx`'s header comment for why), toast exit |
+| `--motion-duration-slow` | toast enter                                                                                                                             |
+
+Two things this ticket deliberately did **not** do:
+
+```mermaid
+flowchart TD
+    A["Toast reduced-motion"] -->|sonner ships its own rule| B["Sonner's rule wins
+    (transition: none, 0-1-0 selector)"]
+    A -->|so this ticket does NOT| C["add a competing !important rule"]
+    D["Sidebar group collapse"] -->|panel hidden via `hidden` attribute| E["display: none —
+    not interpolable"]
+    D -->|so this ticket does NOT| F["fake a --motion-* binding on it"]
+```
+
+- **Toast enter/exit is bound, but the blanket reduced-motion rule in §7
+  above never reaches it.** `sonner` injects its own stylesheet into
+  `<head>` at runtime (after this file loads), including its own
+  `@media (prefers-reduced-motion)` rule that sets
+  `transition: none !important` on `[data-sonner-toast]`. That selector
+  (0-1-0) already beats this ticket's toast rule
+  (`[data-sonner-toaster] [data-sonner-toast][data-styled='true']`, 0-3-0)
+  for the reduced-motion case specifically, and it's _stricter_ than the
+  blanket rule's `0.01ms` — it stops outright. That's fine: toasts don't
+  wait on `transitionend` to advance a state machine, so the hazard the
+  blanket rule's `0.01ms` (rather than `0s`) exists to avoid doesn't apply
+  here. No second `!important` rule was added to fight sonner over this.
+  See `ui/src/styles/globals.css`'s toast block comment for the full
+  reasoning, and `e2e/reduced-motion.spec.ts` for the proof.
+- **"Sidebar group collapse/expand" is not, and cannot be, a
+  `--motion-*`-bound animation as currently built.** The collapsed panel
+  is hidden via the `hidden` attribute (`ui/src/components/app-shell.tsx`),
+  which resolves to `display: none` — a property with nothing to
+  interpolate. A real collapse needs a `grid-template-rows: 0fr → 1fr`
+  wrapper (or `interpolate-size`/`calc-size`, not yet baseline-safe) —
+  out of scope here. Only the chevron (a `transform`, which _is_
+  interpolable) was bound to `--motion-duration-fast`.
+
 ---
 
 ## 8. Brand colour outside the token files

@@ -235,10 +235,38 @@ describe('AppShell', () => {
       expect(header.getAttribute('aria-expanded')).toBe('true');
       expect(screen.getByRole('link', { name: 'Fees' })).toBeTruthy();
 
+      // [8.14.12]: the panel is still hidden via the `hidden` attribute, not
+      // a height-collapse animation — `display: none` isn't interpolable,
+      // so there is nothing here for `--motion-*` to bind (plan correction
+      // #4). Regression guard against re-introducing an un-animatable
+      // "animated" collapse.
+      const panelId = header.getAttribute('aria-controls') ?? '';
+      const panel = document.getElementById(panelId);
+      expect(panel?.hasAttribute('hidden')).toBe(false);
+
+      // [8.14.12]: the chevron is one icon that rotates via `transform`,
+      // not two icons swapped on `collapsed` — a swap has nothing to
+      // transition between.
+      const chevron = header.querySelector('svg');
+      expect(chevron?.getAttribute('class')).toContain('duration-(--motion-duration-fast)');
+      expect(chevron?.getAttribute('class')).not.toContain('-rotate-90');
+
+      // [8.14.12]: the group-header button itself is bound to the fast
+      // token too (`hover:bg-accent` transition), not just its chevron.
+      expect(header.className).toContain('duration-(--motion-duration-fast)');
+
+      // [8.14.12]: nav links inside the panel already carried the fast
+      // token before this ticket — assert it so a future edit can't
+      // silently drop it.
+      const link = screen.getByRole('link', { name: 'Fees' });
+      expect(link.className).toContain('duration-(--motion-duration-fast)');
+
       await user.click(header);
       expect(header.getAttribute('aria-expanded')).toBe('false');
       expect(screen.queryByRole('link', { name: 'Fees' })).toBeNull();
       expect(window.localStorage.getItem('nav-group-collapsed:finance')).toBe('true');
+      expect(panel?.hasAttribute('hidden')).toBe(true);
+      expect(chevron?.getAttribute('class')).toContain('-rotate-90');
     });
   });
 

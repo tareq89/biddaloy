@@ -276,3 +276,69 @@ test.describe('route cross-fade obeys the reduced-motion rule', () => {
     expect(await navigateAndReadTransitionMs()).toBeLessThan(1);
   });
 });
+
+/**
+ * [8.14.12] Toast enter/exit motion is bound in `globals.css` via
+ * `[data-sonner-toaster] [data-sonner-toast][data-styled='true']`, a 0-3-0
+ * selector chosen specifically to beat `sonner`'s own injected stylesheet
+ * regardless of `<head>` insertion order (see that block's own comment).
+ * That selector can't be proven live any other way: jsdom never resolves a
+ * specificity contest between two real stylesheets, and the compiled-CSS
+ * gate (`check-contrast.mjs`) can only prove the rule's text exists, not
+ * that it wins at runtime against sonner's rule.
+ *
+ * `sonner` is mounted app-wide (`client-admin/src/main.tsx`'s `<Toaster />`),
+ * so its stylesheet is already in `<head>` on any page — this suite reuses
+ * the synthetic-probe technique `mountPulseProbe` established above rather
+ * than driving a real toast through the app, because the two attributes
+ * this rule keys off (`data-mounted`, `data-removed`) are a snapshot of a
+ * transient state a real toast only occupies for one animation frame.
+ *
+ * The reduced-motion half proves plan correction #2, not a mistake: this
+ * rule is NOT expected to win under `prefers-reduced-motion`. Sonner ships
+ * its own `@media (prefers-reduced-motion)` rule that sets
+ * `transition: none !important` on `[data-sonner-toast]` — a 0-1-0
+ * selector that already beats this file's 0-3-0 one for the
+ * `transition-duration` longhand specifically because sonner's rule wins
+ * the whole `transition` shorthand outright, stopping it rather than
+ * shrinking it to the global blanket rule's `0.01ms`. That's stricter,
+ * not a bug — see the CSS block's own comment for why toasts don't need
+ * the `transitionend` safety net that rule exists for.
+ */
+test.describe("[8.14.12] toast enter/exit motion, and sonner's own reduced-motion rule", () => {
+  test.use(guest);
+
+  async function opacityTransitionMs(page: import('@playwright/test').Page): Promise<number> {
+    const duration = await page.evaluate(() => {
+      const toaster = document.createElement('div');
+      toaster.setAttribute('data-sonner-toaster', '');
+      const toastEl = document.createElement('div');
+      toastEl.setAttribute('data-sonner-toast', '');
+      toastEl.setAttribute('data-styled', 'true');
+      toastEl.setAttribute('data-mounted', 'true');
+      toaster.append(toastEl);
+      document.body.append(toaster);
+      const value = getComputedStyle(toastEl).transitionDuration;
+      toaster.remove();
+      return value;
+    });
+    return longestMs(duration);
+  }
+
+  test("enter transition binds --motion-duration-slow, and sonner's own rule (not ours) stops it under reduce", async ({
+    page,
+  }) => {
+    await page.goto('/login');
+
+    // --- Baseline. Without this the reduced assertion below is vacuous.
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    expect(await opacityTransitionMs(page)).toBeGreaterThanOrEqual(200);
+
+    // --- Same probe shape, preference on. Sonner's own rule wins outright
+    // (`transition: none`), which computes back as `0s` — unlike the
+    // global blanket rule's deliberate `0.01ms`, because toasts don't rely
+    // on `transitionend` to advance any state machine (see block comment).
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    expect(await opacityTransitionMs(page)).toBe(0);
+  });
+});

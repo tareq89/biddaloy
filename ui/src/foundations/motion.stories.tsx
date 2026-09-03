@@ -22,6 +22,12 @@
  * altogether. jsdom has no paint engine and Storybook has no way to force
  * the OS media query, so nothing here could reprove that; this page is a
  * lookup table and a live demo, not a test.
+ *
+ * [8.14.12] added the "Where the tokens are used" table and the nav-item /
+ * card-hover demos below, using the exact class strings their real
+ * components ship (`app-shell.tsx`'s `NavLink`, `card.tsx`), not
+ * hand-typed lookalikes — so this page can drift out of sync with the
+ * table above (the tokens list) but not with what actually ships.
  */
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
@@ -126,6 +132,94 @@ function EasingDemo() {
   );
 }
 
+/**
+ * [8.14.12]: which real component actually binds each token, so the
+ * durations table above isn't just an aspiration. Kept as data rather than
+ * prose so it stays scannable as the consumer list grows.
+ */
+const TOKEN_CONSUMERS: ReadonlyArray<{ token: string; consumers: string }> = [
+  {
+    token: '--motion-duration-fast',
+    consumers:
+      'button, nav links (app-shell), bottom-nav items, card hover (card + portal ChildCard), table rows, tabs, select trigger',
+  },
+  {
+    token: '--motion-duration-base',
+    consumers: 'popover / tooltip / dropdown / select content, skeleton arrival, toast exit',
+  },
+  {
+    token: '--motion-duration-slow',
+    consumers: 'dialog, mobile drawer, toast enter',
+  },
+];
+
+function TokenConsumersTable() {
+  return (
+    <table className="w-full text-left text-caption">
+      <caption className="mb-2 text-left text-body text-muted-foreground">
+        Where the tokens are used
+      </caption>
+      <thead>
+        <tr className="border-b border-border-subtle">
+          <th className="py-1 pr-4 font-medium text-foreground">Token</th>
+          <th className="py-1 font-medium text-foreground">Real consumers</th>
+        </tr>
+      </thead>
+      <tbody>
+        {TOKEN_CONSUMERS.map((row) => (
+          <tr key={row.token} className="border-b border-border-subtle last:border-0">
+            <td className="py-1.5 pr-4 align-top">
+              <code>{row.token}</code>
+            </td>
+            <td className="py-1.5 align-top text-muted-foreground">{row.consumers}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+/**
+ * [8.14.12]: the exact class string `app-shell.tsx`'s `NavLink` renders for
+ * its inactive state — copied here rather than re-derived so this demo
+ * cannot silently drift from what the sidebar actually ships.
+ */
+function NavItemDemo() {
+  return (
+    <div className="flex flex-col gap-2">
+      <a
+        href="#nav-item-demo"
+        onClick={(event) => event.preventDefault()}
+        className="relative flex w-fit items-center gap-2 rounded-md py-2 ps-6 pe-3 text-sm text-muted-foreground transition-colors duration-(--motion-duration-fast) ease-(--motion-ease-standard) hover:bg-accent hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+      >
+        Student Dues
+      </a>
+      <p className="text-caption text-muted-foreground">
+        Hover — the sidebar nav link&rsquo;s real class string (<code>app-shell.tsx</code>).
+      </p>
+    </div>
+  );
+}
+
+/**
+ * [8.14.12]: `Card`'s own base classes plus the one-token `hover:shadow-e2`
+ * the portal's `ChildCard` adds on top — the same pairing used in
+ * `client-admin/src/routes/portal/index.tsx`.
+ */
+function CardHoverDemo() {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="w-fit rounded-lg border border-border-subtle bg-card p-4 shadow-e1 transition-[box-shadow,border-color] duration-(--motion-duration-fast) ease-(--motion-ease-standard) hover:shadow-e2">
+        Fatima Rahman — Class 8B
+      </div>
+      <p className="text-caption text-muted-foreground">
+        Hover — <code>Card</code>&rsquo;s base transition plus the portal&rsquo;s{' '}
+        <code>hover:shadow-e2</code>.
+      </p>
+    </div>
+  );
+}
+
 export const Motion: Story = {
   render: () => (
     <div className="flex flex-col gap-8">
@@ -139,6 +233,11 @@ export const Motion: Story = {
         ))}
       </div>
       <EasingDemo />
+      <TokenConsumersTable />
+      <div className="flex flex-col gap-6 sm:flex-row sm:gap-12">
+        <NavItemDemo />
+        <CardHoverDemo />
+      </div>
     </div>
   ),
 };

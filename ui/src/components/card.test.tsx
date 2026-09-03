@@ -14,6 +14,12 @@ describe('Card', () => {
     expect(card.className).toContain('border-border-subtle');
     expect(card.className).toContain('bg-card');
     expect(card.className).toContain('shadow-e1');
+    // [8.14.12]: box-shadow/border-color are bound to the fast token so a
+    // hover-elevation caller (e.g. the portal's `ChildCard`) transitions
+    // rather than snaps — property-scoped, not `transition-all`.
+    expect(card.className).toContain('transition-[box-shadow,border-color]');
+    expect(card.className).toContain('duration-(--motion-duration-fast)');
+    expect(card.className).toContain('ease-(--motion-ease-standard)');
   });
 
   it('merges a caller className with the base surface classes rather than replacing them', () => {

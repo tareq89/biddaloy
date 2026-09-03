@@ -1,7 +1,29 @@
 /**
  * `motion-reduce:animate-none` is Tailwind's built-in `@media
  * (prefers-reduced-motion: reduce)` variant — a user who has that OS
- * setting on gets a static placeholder, not a pulsing one.
+ * setting on gets a static placeholder, not a pulsing one. That variant
+ * only targets `animate-pulse` (`../styles/globals.css:652` explicitly
+ * blesses this one component-level backstop rather than a repo-wide
+ * pattern); the mount-fade below is a `transition`, not another
+ * `animation`, so it needs no variant of its own — the blanket
+ * `@media (prefers-reduced-motion: reduce)` rule in `globals.css`
+ * already collapses `transition-duration` too.
+ *
+ * [8.14.12]: the arrival fade is `starting:opacity-0 opacity-100
+ * transition-opacity duration-(--motion-duration-base)
+ * ease-(--motion-ease-standard)`, deliberately NOT `animate-in
+ * fade-in-0`. `.animate-in` and `.animate-pulse` both compile to a
+ * full `animation` shorthand declaration (verified against the
+ * compiled Tailwind output), and Tailwind emits utilities in
+ * alphabetical order, so `.animate-pulse` — which this component
+ * always also carries — sorts after `.animate-in` and silently
+ * overwrites it outright. Combining those two utilities on one
+ * element is a no-op for the fade, regardless of class order in the
+ * string. `transition-opacity` + `@starting-style` (Tailwind's
+ * `starting:` variant) sets a different CSS property (`transition`,
+ * not `animation`), so it composes with `animate-pulse` instead of
+ * fighting it, on the same base token popover/tooltip/dropdown/select
+ * content already use to appear.
  *
  * `bg-muted` is deliberately the only colour here. [8.13.3] (#344) moved
  * `--color-muted` off `--color-surface` and onto `neutral-100`, which is
@@ -36,7 +58,10 @@ export function Skeleton({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="skeleton"
-      className={cn('animate-pulse rounded-md bg-muted motion-reduce:animate-none', className)}
+      className={cn(
+        'animate-pulse rounded-md bg-muted opacity-100 transition-opacity duration-(--motion-duration-base) ease-(--motion-ease-standard) motion-reduce:animate-none starting:opacity-0',
+        className,
+      )}
       {...props}
     />
   );

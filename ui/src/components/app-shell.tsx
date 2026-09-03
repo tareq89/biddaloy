@@ -36,7 +36,7 @@
  */
 import type { Permission } from '@biddaloy/shared';
 import { Link } from '@tanstack/react-router';
-import { ChevronDownIcon, ChevronRightIcon, MenuIcon, XIcon } from 'lucide-react';
+import { ChevronDownIcon, MenuIcon, XIcon } from 'lucide-react';
 import { VisuallyHidden } from 'radix-ui';
 import * as React from 'react';
 import type { ReactNode } from 'react';
@@ -273,14 +273,23 @@ function NavGroupSection({
         onClick={() => setCollapsed((value) => !value)}
         aria-expanded={!collapsed}
         aria-controls={panelId}
-        className="flex w-full items-center justify-between rounded-md px-3 pt-4 pb-1 text-sm font-semibold tracking-wide text-foreground hover:bg-accent"
+        className="flex w-full items-center justify-between rounded-md px-3 pt-4 pb-1 text-sm font-semibold tracking-wide text-foreground transition-colors duration-(--motion-duration-fast) ease-(--motion-ease-standard) hover:bg-accent"
       >
         <span>{group.label}</span>
-        {collapsed ? (
-          <ChevronRightIcon className="size-4" aria-hidden="true" />
-        ) : (
-          <ChevronDownIcon className="size-4" aria-hidden="true" />
-        )}
+        {/* [8.14.12]: one icon that rotates rather than two icons swapped
+            on `collapsed`, so the direction change is an actual transition
+            (`transform`) instead of an instant unmount/remount — a bare
+            `transition-transform` on a component-swap has nothing to
+            interpolate between. Collapsed points right (`-rotate-90` on a
+            down chevron looks identical to `ChevronRightIcon`'s own glyph,
+            so the resting/collapsed appearance is unchanged). */}
+        <ChevronDownIcon
+          className={cn(
+            'size-4 transition-transform duration-(--motion-duration-fast) ease-(--motion-ease-standard)',
+            collapsed && '-rotate-90',
+          )}
+          aria-hidden="true"
+        />
       </button>
       <ul
         id={panelId}

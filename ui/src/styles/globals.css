@@ -768,6 +768,68 @@
 }
 
 /**
+ * [8.14.12] Toast enter/exit choreography (`../components/toast.tsx`).
+ *
+ * `sonner` injects its own stylesheet into `<head>` at import time
+ * (`__insertCSS` in `sonner/dist/index.mjs`), which runs *after* this file
+ * loads. That means an equal-specificity selector here would lose — the
+ * later-inserted rule wins any tie. `[data-sonner-toast]` alone is 0-1-0;
+ * to win deterministically regardless of import order this selector is
+ * bumped to 0-3-0 by chaining three attribute/ancestor selectors rather
+ * than reaching for `!important` (which would also have to beat sonner's
+ * own reduced-motion rule below, not just its base one).
+ *
+ * Only `transition-duration`/`transition-timing-function` are set here —
+ * `transition-property` is deliberately left undeclared so it keeps
+ * cascading from sonner's own base rule (`[data-sonner-toast]{transition:
+ * transform .4s,opacity .4s,height .4s,box-shadow .2s}`), whose `height`
+ * and `box-shadow` entries drive the toast *stack* repositioning as
+ * sibling toasts mount/unmount. Declaring `transition-property` here
+ * (even just `opacity, transform`) would replace that whole longhand
+ * list and drop `height`/`box-shadow` from it entirely, making the stack
+ * jump instead of settle — the duration/timing-function values below
+ * apply uniformly across sonner's full four-property list (CSS repeats a
+ * single value across every entry when the list lengths don't match), so
+ * the stack's height/box-shadow repositioning now runs on this file's
+ * tokens too instead of sonner's hardcoded ms.
+ *
+ * Exit is capped at `--motion-duration-base` (180ms), never `-slow`
+ * (240ms): sonner hard-codes `TIME_BEFORE_UNMOUNT = 200` and rips the
+ * element out of the DOM on a `setTimeout`, not on `transitionend` — a
+ * slower exit would simply be truncated mid-flight, not "gently capped".
+ * Enter isn't gated by that timer, so it uses `--motion-duration-slow`,
+ * matching this file's own "Dialog, drawer, toast" annotation on the
+ * token above — and is still faster than sonner's stock 300ms fade-in.
+ *
+ * Deliberately NOT fought: sonner ships its own
+ * `@media (prefers-reduced-motion)` rule (no `reduce:`, so it also matches
+ * `prefers-reduced-motion: no-preference` browsers reporting a bare
+ * preference — see sonner's `styles.css`) that sets
+ * `transition: none !important; animation: none !important` on
+ * `[data-sonner-toast]`. That selector (0-1-0) already beats this block's
+ * enter/exit rules for the `transition-duration`/`-timing-function`
+ * longhands under reduced motion, and unlike the global blanket rule
+ * below it stops the transition outright rather than shrinking it to
+ * `0.01ms`. That's *stricter* than this file's own reduced-motion
+ * contract, not a violation of it — toasts don't wait on
+ * `transitionend` to advance any state machine, so the "event never
+ * fires, code hangs" hazard the blanket rule's own comment documents
+ * does not apply here. No competing `!important` rule is added to fight
+ * sonner for this one case.
+ */
+[data-sonner-toaster] [data-sonner-toast][data-styled='true'] {
+  &[data-mounted='true'] {
+    transition-duration: var(--motion-duration-slow);
+    transition-timing-function: var(--motion-ease-standard);
+  }
+
+  &[data-removed='true'] {
+    transition-duration: var(--motion-duration-base);
+    transition-timing-function: var(--motion-ease-exit);
+  }
+}
+
+/**
  * Reduced motion — one global rule, not per-component opt-in (design
  * contract §7).
  *

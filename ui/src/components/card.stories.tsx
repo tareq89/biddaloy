@@ -74,3 +74,25 @@ export const OnGround: Story = {
 export const RightToLeft: Story = {
   decorators: [rtlDecorator],
 };
+
+/**
+ * [8.14.12]: `Card` itself only binds `box-shadow`/`border-color` to the
+ * fast motion token (`../styles/globals.css`'s three durations) — it does
+ * not add a hover elevation on its own, since a resting `Card` (e.g. a
+ * static summary tile) shouldn't imply it's clickable. The hover state is
+ * opt-in per caller, the same one-token pairing
+ * `client-admin/src/routes/portal/index.tsx`'s `ChildCard` uses on top of
+ * an `asChild`+`Link` card: `hover:shadow-e2` composed via `cn`
+ * (tailwind-merge) on top of the base `shadow-e1`, so the elevation change
+ * is the only thing that transitions on hover.
+ */
+export const Interactive: Story = {
+  args: {
+    asChild: true,
+    children: (
+      <a href="/portal" className="block p-4 no-underline hover:shadow-e2">
+        Fatima Rahman — Class 8B
+      </a>
+    ),
+  },
+};

@@ -17,6 +17,25 @@ describe('Skeleton', () => {
     expect(el?.className).toContain('motion-reduce:animate-none');
   });
 
+  it('[8.14.12] fades in on arrival, bound to the base motion token', () => {
+    const { container } = render(<Skeleton />);
+    const el = container.querySelector('[data-slot="skeleton"]');
+    // NOT `animate-in`/`fade-in-0`: that utility compiles to a full
+    // `animation` shorthand, same property `animate-pulse` sets, and
+    // Tailwind's alphabetical utility order makes `animate-pulse` always
+    // win — combining the two would silently no-op the fade. A
+    // `transition-opacity` + `@starting-style` pair uses a different CSS
+    // property, so it composes with the pulse instead of losing to it.
+    expect(el?.className).toContain('starting:opacity-0');
+    expect(el?.className).toContain('opacity-100');
+    expect(el?.className).toContain('transition-opacity');
+    expect(el?.className).toContain('duration-(--motion-duration-base)');
+    expect(el?.className).toContain('ease-(--motion-ease-standard)');
+    // the infinite-loop `animate-pulse` backstop must survive alongside it.
+    expect(el?.className).toContain('animate-pulse');
+    expect(el?.className).toContain('motion-reduce:animate-none');
+  });
+
   it('forwards arbitrary props (e.g. aria-label for a labelled placeholder)', () => {
     const { container } = render(<Skeleton aria-label="Loading student list" />);
     expect(container.querySelector('[aria-label="Loading student list"]')).toBeTruthy();
