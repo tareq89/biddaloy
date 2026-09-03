@@ -3,7 +3,8 @@
     "save": "Save",
     "cancel": "Cancel",
     "retry": "Retry",
-    "close": "Close"
+    "close": "Close",
+    "moreActions": "More actions"
   },
   "status": {
     "loading": "Loading…",

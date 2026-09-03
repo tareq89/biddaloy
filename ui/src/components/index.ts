@@ -42,6 +42,7 @@ export {
   FormMessage,
   useFormField,
 } from './form-field';
+export { Field, FieldGrid, type FieldProps, type FieldGridProps } from './field-grid';
 export { MoneyInput, type MoneyInputProps } from './money-input';
 export { PhoneInput, formatValidPhone, type PhoneInputProps } from './phone-input';
 export { DatePicker, Calendar, type DatePickerProps } from './date-picker';

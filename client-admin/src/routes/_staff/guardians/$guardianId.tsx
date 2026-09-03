@@ -102,6 +102,7 @@ function GuardianDetailPage() {
                   id: 'edit',
                   label: t('detail.actions.edit'),
                   allowed: canUpdate,
+                  priority: 'primary',
                   onClick: () => setEditDialogOpen(true),
                 },
               ]}

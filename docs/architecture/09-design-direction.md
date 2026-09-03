@@ -1122,3 +1122,71 @@ answered by measurement or by real screens:
 3. **Anything a mockup reveals.** If a value changes during
    implementation, re-run the contrast formula on it and update this
    document in the same PR. This file, not an issue comment, is the record.
+
+## 11. Action hierarchy
+
+Every page surface (a detail header, a list toolbar, a dialog footer) gets
+**exactly one** primary action. Four tiers, each pinned to one existing
+`Button` variant — the table below is the 1:1 map; adding a variant means
+editing this table first.
+
+| Tier        | `Button` variant                                          | Where it renders                                                                             | How many per surface |
+| ----------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------- | -------------------- |
+| Primary     | `default` (solid fill)                                    | inline, right-most                                                                           | **0 or 1**           |
+| Secondary   | `outline`                                                 | inline                                                                                       | 0–2                  |
+| Tertiary    | — (renders as `MenuItem`)                                 | inside overflow menu                                                                         | any                  |
+| Destructive | `destructive` inline, or `MenuItem variant="destructive"` | inline when it is the only overflow candidate, otherwise in the menu below a `MenuSeparator` | 0–1                  |
+
+### Rules
+
+1. **One primary, at most.** If a surface wants two primaries, one is
+   actually a secondary. If a read-only page wants none, ship none — do not
+   promote a filter or back link just to fill the slot.
+
+2. **Three inline actions, at most.** One primary plus two secondaries. A
+   fourth action goes into the overflow menu, lowest-frequency first.
+
+3. **The overflow menu is `Menu`** from `@biddaloy/ui/components`, opened
+   by an icon-only ghost button:
+
+   ```tsx
+   <Button variant="ghost" size="icon" iconOnly aria-label={t('actions.moreActions')}>
+     <MoreHorizontalIcon />
+   </Button>
+   ```
+
+   Never a hand-rolled `<div>` popover. Radix's menu already gives you
+   arrow-key navigation, typeahead, Escape-to-close, and focus returning to
+   the trigger on close.
+
+4. **Destructive is never primary.** It keeps its tinted fill and coloured
+   label, which reads differently from primary's solid fill and inverted
+   label — two different fill weights, not two hues fighting each other.
+   When it shares the overflow menu with tertiary items, a `MenuSeparator`
+   sits above it.
+
+5. **Permission-gated actions are hidden, not disabled** via
+   `DetailShellAction.allowed`. Hiding one action never re-tiers the
+   others. If the primary is hidden, the surface simply has no primary; a
+   secondary is not promoted to fill the gap.
+
+6. **Field grids have a measure.** A `<dl>` of label/value pairs is capped
+   at `max-w-4xl` and steps 1 → 2 → 3 columns. A label and its value are
+   never more than one column apart. Use `FieldGrid` and `Field` from
+   `@biddaloy/ui/components`; do not hand-roll `<dl>` classes.
+
+### Worked example — `/students/$studentId`
+
+Five actions, one menu:
+
+| Action                   | Tier        | Result                     |
+| ------------------------ | ----------- | -------------------------- |
+| Collect fees             | primary     | solid button, right-most   |
+| Edit                     | secondary   | outline button             |
+| Send reminder            | tertiary    | menu item                  |
+| Transfer / change status | tertiary    | menu item                  |
+| Delete                   | destructive | menu item, below separator |
+
+Collect fees is primary rather than Edit because collecting fees is the
+highest-frequency task on this screen. Consistency across other detail
+routes loses to frequency here, deliberately.

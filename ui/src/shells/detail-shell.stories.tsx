@@ -46,13 +46,20 @@ function StudentDetailPage({ readOnly = false }: { readOnly?: boolean }) {
         </span>
       }
       actions={[
-        { id: 'record-payment', label: 'Record payment', onClick: () => {} },
-        { id: 'edit', label: 'Edit', onClick: () => {}, variant: 'outline' },
+        { id: 'record-payment', label: 'Record payment', onClick: () => {}, priority: 'primary' },
+        { id: 'edit', label: 'Edit', onClick: () => {}, priority: 'secondary' },
+        {
+          id: 'send-reminder',
+          label: 'Send reminder',
+          onClick: () => {},
+          priority: 'tertiary',
+          allowed: !readOnly,
+        },
         {
           id: 'delete',
           label: 'Delete',
           onClick: () => {},
-          variant: 'destructive',
+          priority: 'destructive',
           allowed: !readOnly,
         },
       ]}
@@ -153,6 +160,17 @@ export const RightToLeft: Story = {
     <DetailShell
       name="রহিম উদ্দিন"
       identifiers={<span>আইডি: STU-1029 · ষষ্ঠ শ্রেণি</span>}
+      actions={[
+        { id: 'collect-fees', label: 'ফি সংগ্রহ করুন', onClick: () => {}, priority: 'primary' },
+        { id: 'edit', label: 'সম্পাদনা করুন', onClick: () => {}, priority: 'secondary' },
+        {
+          id: 'send-reminder',
+          label: 'অনুস্মারক পাঠান',
+          onClick: () => {},
+          priority: 'tertiary',
+        },
+        { id: 'delete', label: 'মুছে ফেলুন', onClick: () => {}, priority: 'destructive' },
+      ]}
       tabs={[
         { id: 'overview', label: 'সারসংক্ষেপ', content: <p>ষষ্ঠ শ্রেণিতে ভর্তি।</p> },
         {
@@ -166,4 +184,46 @@ export const RightToLeft: Story = {
     />
   ),
   decorators: [rtlDecorator],
+};
+
+/** All four tiers in one frame: one primary, one secondary, two tertiary
+ * (behind the overflow trigger), one destructive (also behind the
+ * trigger, since a non-lone destructive shares the menu). See §11 of
+ * `docs/architecture/09-design-direction.md`. */
+export const ActionHierarchy: Story = {
+  decorators: withStudentOneRouter,
+  render: () => (
+    <DetailShell
+      name="Rahim Uddin"
+      identifiers={<span>ID: STU-1029 · Class Six, Section A</span>}
+      actions={[
+        { id: 'collect-fees', label: 'Collect fees', onClick: () => {}, priority: 'primary' },
+        { id: 'edit', label: 'Edit', onClick: () => {}, priority: 'secondary' },
+        { id: 'send-reminder', label: 'Send reminder', onClick: () => {}, priority: 'tertiary' },
+        {
+          id: 'transfer-status',
+          label: 'Transfer / change status',
+          onClick: () => {},
+          priority: 'tertiary',
+        },
+        { id: 'delete', label: 'Delete', onClick: () => {}, priority: 'destructive' },
+      ]}
+      tabs={[
+        { id: 'overview', label: 'Overview', content: <p>Enrolled in Class Six, Section A.</p> },
+      ]}
+      activeTab="overview"
+      onTabChange={() => {}}
+    />
+  ),
+};
+
+/** Same actions as `ActionHierarchy`, with the overflow menu already open
+ * so the separator above the destructive item is visible in the
+ * published Storybook build, not just behind a click. */
+export const OverflowOpen: Story = {
+  ...ActionHierarchy,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: /more/i }));
+  },
 };

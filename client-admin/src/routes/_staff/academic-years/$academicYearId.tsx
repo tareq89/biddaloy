@@ -120,6 +120,7 @@ function AcademicYearDetailPage() {
               label: t('list.edit'),
               onClick: () => setEditOpen(true),
               allowed: canManage,
+              priority: 'primary',
             },
             ...(!year.is_current
               ? [
@@ -128,6 +129,7 @@ function AcademicYearDetailPage() {
                     label: t('list.setCurrent'),
                     onClick: () => setSetCurrentOpen(true),
                     allowed: canManage,
+                    priority: 'secondary' as const,
                   },
                 ]
               : []),
@@ -135,7 +137,7 @@ function AcademicYearDetailPage() {
               id: 'delete',
               label: t('list.delete'),
               onClick: () => setDeleteOpen(true),
-              variant: 'destructive',
+              priority: 'destructive',
               allowed: canManage,
             },
           ]}

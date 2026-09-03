@@ -146,6 +146,7 @@ function StaffDetailPage() {
                   id: 'editUser',
                   label: t('detail.actions.editUser'),
                   allowed: canUpdate,
+                  priority: 'primary',
                   onClick: () => setEditUserOpen(true),
                 },
                 ...(teacher !== undefined
@@ -154,6 +155,7 @@ function StaffDetailPage() {
                         id: 'editTeacher',
                         label: t('detail.actions.editTeacher'),
                         allowed: canUpdate,
+                        priority: 'secondary' as const,
                         onClick: () => setEditTeacherOpen(true),
                       },
                     ]
@@ -162,6 +164,7 @@ function StaffDetailPage() {
                   id: 'remove',
                   label: t('detail.actions.remove'),
                   allowed: canRemove,
+                  priority: 'destructive',
                   onClick: () => setRemoveOpen(true),
                 },
               ]}

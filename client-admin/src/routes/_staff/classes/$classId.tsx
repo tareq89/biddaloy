@@ -88,12 +88,13 @@ function ClassDetailPage() {
             label: t('list.edit'),
             onClick: () => setEditOpen(true),
             allowed: canManage,
+            priority: 'primary',
           },
           {
             id: 'delete',
             label: t('list.delete'),
             onClick: () => setDeleteOpen(true),
-            variant: 'destructive',
+            priority: 'destructive',
             allowed: canManage,
           },
         ]}
