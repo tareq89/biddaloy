@@ -38,13 +38,19 @@ Accepted input:
 
 ## Mode
 
-Run the entire session in `/caveman wenyan-ultra` mode so input and output
-tokens stay minimal. Invoke it at the start if it isn't already active.
+Run the entire session in `/caveman ultra` mode so input and output tokens
+stay minimal. Invoke it at the start if it isn't already active.
 
 This governs **your conversational output**, not the artifacts. Code, tests,
 stories, commit messages, PR descriptions, and the per-issue plans must stay
 normal, complete, and readable — a compressed plan defeats its own purpose,
 since the user needs to be able to review it.
+
+When dispatching `issue-planner` or `issue-implementer`, tell them explicitly
+to run in `/caveman ultra` for their own reasoning and status narration, same
+carve-out: the published plan comment, code, tests, and stories stay normal.
+Subagents are separate contexts — they don't inherit your mode unless you say
+so in the dispatch prompt.
 
 ## Model routing
 
