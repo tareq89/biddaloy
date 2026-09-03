@@ -2193,6 +2193,7 @@ export interface operations {
                 action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST";
                 entity_type?: string;
                 performed_by_user_id?: string;
+                entity_id?: string;
                 from_date?: string;
                 to_date?: string;
                 page?: number;
@@ -2232,6 +2233,7 @@ export interface operations {
                 action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST";
                 entity_type?: string;
                 performed_by_user_id?: string;
+                entity_id?: string;
                 from_date?: string;
                 to_date?: string;
                 page?: number;
@@ -3115,6 +3117,11 @@ export interface operations {
             query?: {
                 role?: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE";
                 search?: string;
+                status?: "ACTIVE" | "INACTIVE" | "SUSPENDED";
+                joined_from?: string;
+                joined_to?: string;
+                sort?: "email" | "status" | "full_name" | "joined_at";
+                order?: "asc" | "desc";
                 page?: number;
                 limit?: number;
             };
@@ -3459,6 +3466,9 @@ export interface operations {
                 class_id?: string;
                 section_id?: string;
                 enrollment_status?: "ACTIVE" | "INACTIVE" | "TRANSFERRED" | "GRADUATED";
+                gender?: string;
+                date_of_birth_from?: string;
+                date_of_birth_to?: string;
                 sort?: "full_name" | "registration_number" | "created_at";
                 order?: "asc" | "desc";
                 page?: number;
@@ -3699,6 +3709,11 @@ export interface operations {
         parameters: {
             query?: {
                 search?: string;
+                relationship?: string;
+                preferred_communication?: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER";
+                is_primary_contact?: boolean;
+                sort?: "full_name" | "created_at";
+                order?: "asc" | "desc";
                 page?: number;
                 limit?: number;
             };
@@ -3938,6 +3953,7 @@ export interface operations {
                 month?: number;
                 year?: number;
                 status?: components["schemas"]["Object"];
+                search?: string;
                 sort_by?: "due_amount" | "name" | "class";
                 sort_order?: "ASC" | "DESC";
                 page?: number;
@@ -4057,6 +4073,12 @@ export interface operations {
                 academic_year_id?: string;
                 class_id?: string;
                 month?: number;
+                search?: string;
+                fee_type?: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "OTHER";
+                section_id?: string;
+                is_recurring?: boolean;
+                sort?: "name" | "created_at" | "month" | "amount";
+                order?: "asc" | "desc";
                 page?: number;
                 limit?: number;
             };
@@ -4445,6 +4467,10 @@ export interface operations {
                 status?: "DRAFT" | "ISSUED" | "PAID" | "CANCELLED" | "OVERDUE";
                 from_date?: string;
                 to_date?: string;
+                min_amount?: number;
+                max_amount?: number;
+                sort?: "status" | "total_amount" | "due_date" | "invoice_number" | "issued_date";
+                order?: "asc" | "desc";
                 page?: number;
                 limit?: number;
             };
@@ -4701,6 +4727,12 @@ export interface operations {
     CommunicationsController_findReminderBatches_v1: {
         parameters: {
             query?: {
+                search?: string;
+                status?: "PROCESSING" | "COMPLETED" | "PARTIALLY_FAILED" | "FAILED";
+                from_date?: string;
+                to_date?: string;
+                sort?: "created_at" | "batch_name" | "total_recipients";
+                order?: "asc" | "desc";
                 page?: number;
                 limit?: number;
             };
@@ -4770,6 +4802,12 @@ export interface operations {
     CommunicationsController_findReminderBatchLogs_v1: {
         parameters: {
             query?: {
+                search?: string;
+                status?: "PROCESSING" | "COMPLETED" | "PARTIALLY_FAILED" | "FAILED";
+                from_date?: string;
+                to_date?: string;
+                sort?: "created_at" | "batch_name" | "total_recipients";
+                order?: "asc" | "desc";
                 page?: number;
                 limit?: number;
             };

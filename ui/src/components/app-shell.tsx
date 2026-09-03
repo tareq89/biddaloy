@@ -404,7 +404,16 @@ export function AppShell({
     if (typeof ResizeObserver !== 'function') return undefined;
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];
-      if (entry) setHeightVar(entry.contentRect.height);
+      if (!entry) return;
+      // Border box, to match the `getBoundingClientRect()` measurement
+      // above — `contentRect` is the *content* box, so the two agree only
+      // while this wrapper has no padding or border. Adding either would
+      // otherwise shrink the variable on the first observation and slide
+      // every `scroll-margin-top` consumer back under the header.
+      // `use-container-width.ts` reads the same field for the same reason.
+      setHeightVar(
+        entry.borderBoxSize?.[0]?.blockSize ?? entry.target.getBoundingClientRect().height,
+      );
     });
     observer.observe(node);
 
@@ -467,12 +476,15 @@ export function AppShell({
             </div>
           )}
 
-          {/* [8.14.1] `md:sticky md:top-0 md:max-h-svh` makes the sidebar scroll
-              on its own instead of scrolling away with the page. [8.14.2]
-              (sticky header) will adjust `md:top-0` to the header's height
-              once that lands — this ticket owns only this `<aside>`, it does
-              not make `topBar` sticky. */}
-          <aside className="hidden w-60 shrink-0 flex-col gap-6 overflow-y-auto border-r border-border-subtle bg-muted/30 p-4 md:sticky md:top-0 md:flex md:max-h-svh">
+          {/* [8.14.1] `md:sticky` makes the sidebar scroll on its own instead
+              of scrolling away with the page. [8.14.2] made `topBar` sticky
+              at `top-0 z-30` with an opaque background, so the offset that
+              ticket promised is applied here: parking the sidebar at
+              `top-0` too would slide its brand and first nav items under
+              the header on any scrolled page. Both the offset and the
+              max-height read `--app-header-h`, which the header measures
+              into place at runtime. */}
+          <aside className="hidden w-60 shrink-0 flex-col gap-6 overflow-y-auto border-r border-border-subtle bg-muted/30 p-4 md:sticky md:top-[var(--app-header-h,0px)] md:flex md:max-h-[calc(100svh-var(--app-header-h,0px))]">
             {brand !== undefined && <div className="text-sm font-semibold">{brand}</div>}
             <NavContent navItems={navItems} navGroups={navGroups} role={role} navLabel={navLabel} />
           </aside>

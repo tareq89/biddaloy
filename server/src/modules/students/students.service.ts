@@ -217,7 +217,10 @@ export class StudentService {
         // also accepts `1e5`, `0x2a`, and leading/trailing whitespace as
         // "integers", which would silently roll-number-match a plain-text
         // search term shaped like one of those.
-        const isPlainInteger = /^\d+$/.test(search);
+        // Bounded to int4, the `roll_number` column's real range — see
+        // `fee-dues.service.ts` for the same guard and the two Postgres
+        // errors an unbounded digit string raises.
+        const isPlainInteger = /^\d+$/.test(search) && Number(search) <= 2147483647;
         qb.andWhere(
           new Brackets((sub) => {
             sub

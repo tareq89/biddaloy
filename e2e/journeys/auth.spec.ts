@@ -1,6 +1,8 @@
 import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS } from '../seed-contract';
 import { expect, guest, loggedIn, test } from '../fixtures/test';
+import { t } from '../i18n';
 import { LoginPage } from '../pages/login-page';
+import { escapeRegExp } from '../regex';
 
 /**
  * [8.5.7] Journey 1: login/logout. [8.14.2] adds the staff header's own
@@ -51,8 +53,14 @@ test.describe('sign out from the staff shell', () => {
     await page.goto('/dashboard');
 
     await test.step('open the user menu and sign out', async () => {
-      await page.getByRole('button', { name: /Account menu/ }).click();
-      await page.getByRole('menuitem', { name: /Sign out/ }).click();
+      // The trigger's accessible name is `nav.userMenu.label`, optionally
+      // suffixed with the signed-in name (`user-menu.tsx:66`), and the app
+      // renders Bangla by default — so match the translated label as a
+      // prefix rather than hardcoding English.
+      await page
+        .getByRole('button', { name: new RegExp(escapeRegExp(t('nav.userMenu.label'))) })
+        .click();
+      await page.getByRole('menuitem', { name: t('nav.userMenu.signOut'), exact: true }).click();
     });
 
     await test.step('lands on /login', async () => {

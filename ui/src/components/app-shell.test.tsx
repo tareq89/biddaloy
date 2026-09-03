@@ -477,11 +477,14 @@ describe('AppShell', () => {
       const aside = document.querySelector('aside');
       expect(aside?.className).toContain('overflow-y-auto');
       expect(aside?.className).toContain('md:sticky');
-      // `max-h`, not `h`: a fixed `h-svh` on this flex item would set the
+      // `max-h`, not `h`: a fixed height on this flex item would set the
       // content row's min-height to a full viewport, so every desktop page
-      // would gain a permanent scrollbar the height of the top bar.
-      expect(aside?.className).toContain('md:max-h-svh');
+      // would gain a permanent scrollbar the height of the top bar. It's
+      // offset by `--app-header-h`, not a bare `svh`, so the sidebar starts
+      // below the now-sticky header instead of underneath it.
+      expect(aside?.className).toContain('md:max-h-[calc(100svh-var(--app-header-h,0px))]');
       expect(aside?.className).not.toContain('md:h-svh');
+      expect(aside?.className).toContain('md:top-[var(--app-header-h,0px)]');
     });
 
     // NOTE: axe-cleanliness and keyboard operability of this markup are

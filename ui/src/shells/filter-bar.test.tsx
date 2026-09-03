@@ -311,7 +311,7 @@ describe('FilterBar', () => {
   it('shows a malformed date value as an empty field instead of crashing', async () => {
     await renderInEnglish(<FilterBarDemo initialValues={{ from_date: 'not-a-date' }} />);
 
-    expect((screen.getByRole('textbox', { name: 'From date' }) as HTMLInputElement).value).toBe('');
+    expect(screen.getByRole<HTMLInputElement>('textbox', { name: 'From date' }).value).toBe('');
   });
 
   it('warns in dev when more than one field declares `primary: true`, without crashing', async () => {

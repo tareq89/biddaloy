@@ -308,7 +308,14 @@ export class FeeDuesService {
       // accepts `1e5`, `0x2a`, and leading/trailing whitespace as
       // "integers", which would silently roll-number-match a plain-text
       // search term shaped like one of those.
-      const isPlainInteger = /^\d+$/.test(search);
+      // `roll_number` is `int4`, so the shape check alone is not enough: a
+      // longer digit string parses fine in JS but blows up in Postgres —
+      // `?search=3000000000` raises `integer out of range`, and
+      // `?search=99999999999999999999` reaches it as `1e+20`
+      // (`invalid input syntax for type integer`). Either way an ordinary
+      // search 500s instead of returning no rows, so anything past int4's
+      // range is treated as a name/registration search only.
+      const isPlainInteger = /^\d+$/.test(search) && Number(search) <= 2147483647;
       qb.andWhere(
         new Brackets((sub) => {
           sub
