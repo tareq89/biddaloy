@@ -11,6 +11,7 @@
  * without this component doing anything extra — but only for state that
  * actually lives up here, not state a step would otherwise own locally.
  */
+import { captureNotificationTenant, notifyOutcome } from '@biddaloy/ui/api';
 import {
   useRecordPaymentWithAllocation,
   useStudent,
@@ -136,25 +137,44 @@ export function RecordPaymentWizard({ initialStudentId }: RecordPaymentWizardPro
   function handleSubmit() {
     if (studentId === undefined || totalMinorUnits === undefined) return;
     const touchedLines = lines.filter((line) => line.allocatedMinorUnits > 0);
-    recordPayment.mutate({
-      student_id: studentId,
-      // Built from the exact minor-units integer via `minorUnitsToDecimalString`
-      // (digit manipulation, no division) and only turned into a `number`
-      // at the very last step — never `minorUnits / 100` directly, which
-      // is exactly the float-drift risk this file avoids everywhere else.
-      total_amount: Number(minorUnitsToDecimalString(totalMinorUnits, config)),
-      payment_method: paymentMethod,
-      allocations: touchedLines.map((line) => ({
-        student_fee_id: line.studentFeeId,
-        allocated_amount: Number(minorUnitsToDecimalString(line.allocatedMinorUnits, config)),
-        allocation_type: line.allocationType,
-      })),
-      ...(transactionReference.trim() !== ''
-        ? { transaction_reference: transactionReference.trim() }
-        : {}),
-      ...(remarks.trim() !== '' ? { remarks: remarks.trim() } : {}),
-      generate_invoice: generateInvoice,
-    });
+    // [8.14.11] Captured before the request, not inside the callbacks —
+    // `pushNotification` drops a record whose tenant no longer matches.
+    const notifyTenantId = captureNotificationTenant();
+    recordPayment.mutate(
+      {
+        student_id: studentId,
+        // Built from the exact minor-units integer via `minorUnitsToDecimalString`
+        // (digit manipulation, no division) and only turned into a `number`
+        // at the very last step — never `minorUnits / 100` directly, which
+        // is exactly the float-drift risk this file avoids everywhere else.
+        total_amount: Number(minorUnitsToDecimalString(totalMinorUnits, config)),
+        payment_method: paymentMethod,
+        allocations: touchedLines.map((line) => ({
+          student_fee_id: line.studentFeeId,
+          allocated_amount: Number(minorUnitsToDecimalString(line.allocatedMinorUnits, config)),
+          allocation_type: line.allocationType,
+        })),
+        ...(transactionReference.trim() !== ''
+          ? { transaction_reference: transactionReference.trim() }
+          : {}),
+        ...(remarks.trim() !== '' ? { remarks: remarks.trim() } : {}),
+        generate_invoice: generateInvoice,
+      },
+      {
+        onSuccess: () =>
+          notifyOutcome({
+            tenantId: notifyTenantId,
+            variant: 'success',
+            message: t('notifications.recorded', { student: studentName }),
+          }),
+        onError: () =>
+          notifyOutcome({
+            tenantId: notifyTenantId,
+            variant: 'error',
+            message: t('notifications.failed', { student: studentName }),
+          }),
+      },
+    );
   }
 
   const steps: WizardStep[] = [];

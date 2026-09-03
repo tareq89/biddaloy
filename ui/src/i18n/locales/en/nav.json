@@ -64,9 +64,20 @@
   },
   "notifications": {
     "bellLabel": "Notifications",
+    "bellLabelUnread_one": "Notifications, {{count}} unread",
+    "bellLabelUnread_other": "Notifications, {{count}} unread",
+    "badgeOverflow": "{{count}}+",
     "panelLabel": "Notifications",
+    "pageTitle": "Notifications",
+    "pageDescription": "Everything that finished while you were on another screen, this session.",
     "empty": "You're all caught up.",
-    "markAllRead": "Mark all read"
+    "markAllRead": "Mark all read",
+    "viewAll": "View all notifications",
+    "variant": {
+      "success": "Success",
+      "error": "Failed",
+      "info": "Info"
+    }
   },
   "globalSearch": {
     "buttonLabel": "Search (Ctrl+K)",

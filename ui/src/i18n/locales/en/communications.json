@@ -214,5 +214,11 @@
       "retryNamePrefix": "Retry of {{name}}",
       "retryResendWarning": "Every guardian of these {{count}} students is messaged again, including any whose earlier message was delivered — the send targets students, not individual guardians."
     }
+  },
+  "notifications": {
+    "batchQueued": "Reminder batch queued.",
+    "batchQueueFailed": "Queuing the reminder batch failed.",
+    "batchCompleted": "Reminder batch finished: {{sent}} sent.",
+    "batchFailed": "Reminder batch finished with failures: {{failed}} failed."
   }
 }

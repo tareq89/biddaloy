@@ -22,6 +22,11 @@
       "archetype": "bespoke"
     },
     {
+      "path": "/notifications",
+      "role": "admin",
+      "archetype": "bespoke"
+    },
+    {
       "path": "/settings",
       "role": "admin",
       "archetype": "form"

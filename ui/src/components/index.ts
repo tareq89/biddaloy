@@ -168,6 +168,7 @@ export {
   type PopoverTriggerProps,
 } from './popover';
 export { NotificationBell, type NotificationBellProps } from './notification-bell';
+export { NotificationList, type NotificationListProps } from './notification-list';
 export { RouteErrorFallback, type RouteErrorFallbackProps } from './route-error-boundary';
 export { Toaster, toast } from './toast';
 export {

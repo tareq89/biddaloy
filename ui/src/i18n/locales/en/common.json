@@ -81,5 +81,11 @@
   "pagination": {
     "rowsPerPage": "Rows per page",
     "rowsPerPageOption": "{{count}}"
+  },
+  "notifications": {
+    "syncReplayed_one": "{{count}} offline change saved.",
+    "syncReplayed_other": "{{count}} offline changes saved.",
+    "syncConflict": "An offline change couldn't be saved — the record changed on the server. Check the sync panel.",
+    "syncDead": "An offline change failed repeatedly and won't be retried. Check the sync panel."
   }
 }

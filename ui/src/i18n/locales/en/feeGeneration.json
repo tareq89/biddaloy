@@ -68,5 +68,9 @@
     "10": "October",
     "11": "November",
     "12": "December"
+  },
+  "notifications": {
+    "generated": "{{generated}} fee records generated, {{skipped}} skipped.",
+    "failed": "Generating fees failed."
   }
 }

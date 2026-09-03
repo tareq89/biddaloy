@@ -56,5 +56,10 @@
     "wholeRow": "Whole row",
     "emptyValue": "(empty)",
     "exportCsv": "Export errors as CSV"
+  },
+  "notifications": {
+    "imported": "{{success}} of {{total}} students imported.",
+    "partial": "{{success}} of {{total}} students imported, {{errors}} failed.",
+    "failed": "Import failed."
   }
 }

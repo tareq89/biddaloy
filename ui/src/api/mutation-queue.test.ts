@@ -37,6 +37,7 @@ import {
   stopQueueReplay,
   subscribeQueueChanges,
 } from './mutation-queue';
+import { clearNotifications, getNotifications } from './notification-state';
 import { deleteOfflineDb, getOfflineDb, resetOfflineDbForTests } from './offline-db';
 import { captureQueueFailure } from './sentry';
 
@@ -81,6 +82,7 @@ afterEach(async () => {
   vi.restoreAllMocks();
   resetMutationQueueForTests();
   clearAuthState();
+  clearNotifications();
   await deleteOfflineDb();
 });
 
@@ -334,6 +336,53 @@ describe('replayQueue', () => {
     ).resolves.toMatchObject({
       status: 'conflict',
     });
+  });
+});
+
+describe('[8.14.11] replay emits bell notifications', () => {
+  it('emits exactly one success notification for a pass that replays rows', async () => {
+    vi.spyOn(apiClient, 'request').mockResolvedValue({ data: null });
+    await queue('/attendance/1');
+    await queue('/attendance/2');
+
+    await replayQueue();
+
+    expect(getNotifications()).toHaveLength(1);
+    expect(getNotifications()[0]?.variant).toBe('success');
+  });
+
+  it('emits exactly one error notification when a row hits a 409 conflict', async () => {
+    vi.spyOn(apiClient, 'request').mockRejectedValue(serverError(409, 'moved on'));
+    await queue('/attendance/1');
+
+    await replayQueue();
+
+    expect(getNotifications()).toHaveLength(1);
+    expect(getNotifications()[0]?.variant).toBe('error');
+  });
+
+  it('emits exactly one error notification when a row dead-letters', async () => {
+    vi.spyOn(apiClient, 'request').mockRejectedValue(serverError(500, 'boom'));
+    await queue('/attendance/1');
+
+    for (let attempt = 0; attempt < MAX_REPLAY_ATTEMPTS; attempt += 1) {
+      await replayQueue();
+    }
+
+    expect(getNotifications()).toHaveLength(1);
+    expect(getNotifications()[0]?.variant).toBe('error');
+  });
+
+  it('does not notify under a tenant the user has since switched away from', async () => {
+    vi.spyOn(apiClient, 'request').mockImplementation(() => {
+      setActiveTenant('tenant-b');
+      return Promise.resolve({ data: null });
+    });
+    await queue('/attendance/1');
+
+    await replayQueue();
+
+    expect(getNotifications()).toHaveLength(0);
   });
 });
 

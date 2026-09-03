@@ -65,5 +65,9 @@
       "printAction": "Print receipt",
       "printError": "Couldn't open the print window. Check your browser's popup blocker and try again."
     }
+  },
+  "notifications": {
+    "recorded": "Payment recorded for {{student}}.",
+    "failed": "Recording payment for {{student}} failed."
   }
 }

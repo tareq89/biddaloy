@@ -1,3 +1,4 @@
+import { captureNotificationTenant, notifyOutcome } from '@biddaloy/ui/api';
 import { Button, ErrorState, FileUpload, RoutePending } from '@biddaloy/ui/components';
 import { useBulkUploadStudents, type BulkUploadResult } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
@@ -93,16 +94,39 @@ function ImportStudentsContent() {
     }
     setFileError(null);
     setSelectedFile(file);
+    const notifyTenantId = captureNotificationTenant();
     mutation.mutate(
       { file, onProgress: setProgress },
       {
         onSuccess: (uploadResult) => {
           setProgress(100);
           setResult(uploadResult);
+          notifyOutcome({
+            tenantId: notifyTenantId,
+            variant: uploadResult.error_count > 0 ? 'info' : 'success',
+            message:
+              uploadResult.error_count > 0
+                ? t('notifications.partial', {
+                    success: uploadResult.success_count,
+                    total: uploadResult.total_rows,
+                    errors: uploadResult.error_count,
+                  })
+                : t('notifications.imported', {
+                    success: uploadResult.success_count,
+                    total: uploadResult.total_rows,
+                  }),
+          });
         },
         // Without this the item keeps its 100% "Done" label directly above
         // an error state saying nothing was imported.
-        onError: () => setProgress(undefined),
+        onError: () => {
+          setProgress(undefined);
+          notifyOutcome({
+            tenantId: notifyTenantId,
+            variant: 'error',
+            message: t('notifications.failed'),
+          });
+        },
       },
     );
   }

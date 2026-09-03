@@ -23,6 +23,11 @@ import { Permission } from '@biddaloy/shared';
  */
 export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/_staff/dashboard': Permission.DASHBOARD_VIEW,
+  // [8.14.11]: this is the signed-in user's own session history, not
+  // tenant data — `DASHBOARD_VIEW` is the same "any staff role that
+  // reaches the shell" baseline `/_staff/dashboard` already uses, not a
+  // resource-specific permission this route doesn't need.
+  '/_staff/notifications': Permission.DASHBOARD_VIEW,
   '/_staff/students/': Permission.STUDENT_READ,
   '/_staff/students/new': Permission.STUDENT_CREATE,
   '/_staff/students/import': Permission.STUDENT_BULK_UPLOAD,

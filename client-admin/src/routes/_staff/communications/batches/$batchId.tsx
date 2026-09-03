@@ -15,7 +15,7 @@
  * fresh `POST /reminder/bulk` with exactly those students and this
  * batch's own stored template, as a new batch named "Retry of …".
  */
-import { ApiError } from '@biddaloy/ui/api';
+import { ApiError, getActiveTenant, notifyOutcome } from '@biddaloy/ui/api';
 import {
   Button,
   Dialog,
@@ -131,12 +131,34 @@ function BatchDetail() {
   // can predate the final statuses. Refetch once on the transition out of
   // PROCESSING to reconcile it.
   const previousStatus = React.useRef<typeof batchStatus>(undefined);
+  // [8.14.11] One bell entry per batch, ever. A refocus refetch can re-run
+  // this effect against the same terminal status; without an id set here,
+  // a user leaving the tab open would collect a new notification each time.
+  const notifiedBatchIds = React.useRef(new Set<string>());
   React.useEffect(() => {
     if (previousStatus.current === 'PROCESSING' && batchStatus && batchStatus !== 'PROCESSING') {
       void queryClient.invalidateQueries({ queryKey: reminderBatchLogsKeyPrefix(batchId) });
+
+      if (!notifiedBatchIds.current.has(batchId)) {
+        notifiedBatchIds.current.add(batchId);
+        const successfulCount = batchQuery.data?.successful_count ?? 0;
+        const failedCount = batchQuery.data?.failed_count ?? 0;
+        // `tenantId: null` is deliberate, not a capture-before-request
+        // omission: unlike the other producers, this notification fires
+        // from a poll on an already-mounted route, whose tenant page is
+        // currently mounted, so a tenant switch unmounts this route.
+        notifyOutcome({
+          tenantId: getActiveTenant(),
+          variant: failedCount > 0 ? 'error' : 'success',
+          message:
+            failedCount > 0
+              ? t('notifications.batchFailed', { failed: failedCount })
+              : t('notifications.batchCompleted', { sent: successfulCount }),
+        });
+      }
     }
     previousStatus.current = batchStatus;
-  }, [batchStatus, batchId, queryClient]);
+  }, [batchStatus, batchId, queryClient, batchQuery.data, t]);
 
   const [retryOpen, setRetryOpen] = React.useState(false);
   const [retryPreparing, setRetryPreparing] = React.useState(false);

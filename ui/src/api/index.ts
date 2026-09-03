@@ -81,6 +81,13 @@ export {
   type NotificationVariant,
 } from './notification-state';
 export {
+  captureNotificationTenant,
+  notifyOutcome,
+  notifyOutcomeFromCommon,
+  type NotifyOutcomeInput,
+  type NotifyOutcomeFromCommonInput,
+} from './notify';
+export {
   captureRouteError,
   initSentry,
   updateSentryRouteTag,

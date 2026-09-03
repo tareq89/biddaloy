@@ -19,7 +19,12 @@
  * failed submit followed by "Back" finds every value still in place.
  */
 import { EnrollmentStatus } from '@biddaloy/shared';
-import { ApiError, RateLimitedError } from '@biddaloy/ui/api';
+import {
+  ApiError,
+  captureNotificationTenant,
+  notifyOutcome,
+  RateLimitedError,
+} from '@biddaloy/ui/api';
 import {
   Button,
   Select,
@@ -199,13 +204,33 @@ export function GenerateFeesWizard() {
 
   function handleSubmit() {
     if (!selectedYear || !periodInsideYear) return;
-    generateFees.mutate({
-      academic_year_id: selectedYear.id,
-      month: Number(month),
-      year: Number(calendarYear),
-      ...(classId !== ALL_VALUE ? { class_id: classId } : {}),
-      ...(sectionId !== ALL_VALUE ? { section_id: sectionId } : {}),
-    });
+    const notifyTenantId = captureNotificationTenant();
+    generateFees.mutate(
+      {
+        academic_year_id: selectedYear.id,
+        month: Number(month),
+        year: Number(calendarYear),
+        ...(classId !== ALL_VALUE ? { class_id: classId } : {}),
+        ...(sectionId !== ALL_VALUE ? { section_id: sectionId } : {}),
+      },
+      {
+        onSuccess: (result) =>
+          notifyOutcome({
+            tenantId: notifyTenantId,
+            variant: 'success',
+            message: t('notifications.generated', {
+              generated: result.generated,
+              skipped: result.skipped,
+            }),
+          }),
+        onError: () =>
+          notifyOutcome({
+            tenantId: notifyTenantId,
+            variant: 'error',
+            message: t('notifications.failed'),
+          }),
+      },
+    );
   }
 
   /**

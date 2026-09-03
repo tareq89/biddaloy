@@ -298,14 +298,9 @@ function StaffLayout() {
   // [8.14.3]: hoisted so the desktop `topBar` and the mobile
   // `mobileHeaderActions` row share one definition instead of two
   // independently maintained copies of the same five props.
-  const notificationBell = (
-    <NotificationBell
-      label={t('notifications.bellLabel')}
-      panelTitle={t('notifications.panelLabel')}
-      emptyLabel={t('notifications.empty')}
-      markAllReadLabel={t('notifications.markAllRead')}
-    />
-  );
+  // [8.14.11]: collapses further now that `NotificationBell` resolves its
+  // own strings — see that component's header comment.
+  const notificationBell = <NotificationBell viewAllTo="/notifications" />;
 
   return (
     <RequireRole allow={STAFF_ROLES} redirectTo="/portal">
