@@ -166,6 +166,13 @@
   "batches": {
     "title": "রিমাইন্ডার ইতিহাস",
     "tableCaption": "রিমাইন্ডার ব্যাচ",
+    "searchLabel": "অনুসন্ধান",
+    "searchPlaceholder": "ব্যাচের নাম",
+    "statusFilterLabel": "অবস্থা",
+    "allStatuses": "সব অবস্থা",
+    "dateRangeLabel": "তৈরি",
+    "fromDateLabel": "যে তারিখ থেকে তৈরি",
+    "toDateLabel": "যে তারিখ পর্যন্ত তৈরি",
     "nameHeader": "নাম",
     "createdHeader": "তৈরি",
     "statusHeader": "অবস্থা",

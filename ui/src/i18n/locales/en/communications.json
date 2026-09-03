@@ -166,6 +166,13 @@
   "batches": {
     "title": "Reminder History",
     "tableCaption": "Reminder batches",
+    "searchLabel": "Search",
+    "searchPlaceholder": "Batch name",
+    "statusFilterLabel": "Status",
+    "allStatuses": "All statuses",
+    "dateRangeLabel": "Created",
+    "fromDateLabel": "Created from",
+    "toDateLabel": "Created to",
     "nameHeader": "Name",
     "createdHeader": "Created",
     "statusHeader": "Status",
