@@ -8,6 +8,23 @@ export {
   type ListShellActions,
 } from './use-list-shell-state';
 export {
+  FilterBar,
+  type FilterBarProps,
+  type FilterFieldDescriptor,
+  type TextFilterField,
+  type SelectFilterField,
+  type DateRangeFilterField,
+  type CheckboxFilterField,
+  type NumberRangeFilterField,
+  type FilterOption,
+} from './filter-bar';
+export {
+  useFilterBarState,
+  type UseFilterBarStateOptions,
+  type UseFilterBarStateResult,
+  type ActiveFilterChip,
+} from './use-filter-bar-state';
+export {
   DetailShell,
   type DetailShellProps,
   type DetailShellAction,

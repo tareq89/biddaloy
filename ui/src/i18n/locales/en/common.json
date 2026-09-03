@@ -67,5 +67,15 @@
       "attendance": "Attendance"
     },
     "actionFailed": "Could not update your pending changes. Please try again."
+  },
+  "filters": {
+    "showFilters_one": "Filters ({{count}})",
+    "showFilters_other": "Filters ({{count}})",
+    "showFiltersNone": "Filters",
+    "hideFilters": "Hide filters",
+    "activeFilters": "Active filters",
+    "clearAll": "Clear all",
+    "removeFilter": "Remove filter: {{label}}",
+    "unknownFilter": "{{key}}: {{value}}"
   }
 }
