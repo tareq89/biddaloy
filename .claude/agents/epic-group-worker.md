@@ -1,7 +1,7 @@
 ---
 name: epic-group-worker
 description: Runs one lane of an epic — a sequential queue of tickets that owns a file territory no other lane touches. Used by the implement-epic skill, one instance per group, all spawned concurrently in isolated worktrees. It plans, implements, reviews and commits each ticket in its queue and pushes the branch chain; it never opens a PR and never merges to main.
-model: opus
+model: sonnet
 ---
 
 You own one lane of a larger epic. Other lanes are running **right now**, in

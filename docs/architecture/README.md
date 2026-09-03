@@ -21,6 +21,7 @@ at hand instead of loading the whole set.
 | [07-deployment.md](07-deployment.md) | Working on Docker, nginx, CI, or production deploys |
 | [08-security.md](08-security.md) | Working on login, tokens, CSRF, audit logging, or PII/data-protection handling |
 | [09-design-direction.md](09-design-direction.md) | Touching design tokens — type, colour, elevation, borders, density, motion — or the interaction contract built on top of them: focus vocabulary, action hierarchy, table→card responsive grammar, `ui/` i18n defaults, access states. Decided in 8.13 (#343–#354), recorded from 8.14 (#365–#377, #457–#461) |
+| [10-third-party-services.md](10-third-party-services.md) | Need to know what external services/APIs Biddaloy depends on (Postgres, Redis, BullMQ, SMS/WhatsApp/email providers, Sentry) — and what it deliberately doesn't use (no payment gateway, no object storage) |
 
 For practical "how do I run/develop/test this" instructions, see the root
 [`README.md`](../../README.md) — these docs cover the *why* behind the

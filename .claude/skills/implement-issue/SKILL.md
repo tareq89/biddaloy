@@ -38,13 +38,19 @@ Accepted input:
 
 ## Mode
 
-Run the entire session in `/caveman wenyan-ultra` mode so input and output
-tokens stay minimal. Invoke it at the start if it isn't already active.
+Run the entire session in `/caveman ultra` mode so input and output tokens
+stay minimal. Invoke it at the start if it isn't already active.
 
 This governs **your conversational output**, not the artifacts. Code, tests,
 stories, commit messages, PR descriptions, and the per-issue plans must stay
 normal, complete, and readable — a compressed plan defeats its own purpose,
 since the user needs to be able to review it.
+
+When dispatching `issue-planner` or `issue-implementer`, tell them explicitly
+to run in `/caveman ultra` for their own reasoning and status narration, same
+carve-out: the published plan comment, code, tests, and stories stay normal.
+Subagents are separate contexts — they don't inherit your mode unless you say
+so in the dispatch prompt.
 
 ## Model routing
 
@@ -59,8 +65,8 @@ on whatever the user set before invoking this skill.
 
 | Phase | Runs on | How |
 |---|---|---|
-| Research + plan (steps 2–3) | Opus | `issue-planner` subagent (`.claude/agents/issue-planner.md`, `model: claude-opus-5`) |
-| Implement, tests, stories (steps 4–6) | Opus | `issue-implementer` subagent (`.claude/agents/issue-implementer.md`, `model: claude-opus-5`) |
+| Research + plan (steps 2–3) | Opus | `issue-planner` subagent (`.claude/agents/issue-planner.md`, `model: opus`) |
+| Implement, tests, stories (steps 4–6) | Sonnet | `issue-implementer` subagent (`.claude/agents/issue-implementer.md`, `model: sonnet`) |
 | Code review (step 7) | the session's model | in this session |
 | Commit, push, PR (steps 8–9) | the session's model | in this session |
 
@@ -71,7 +77,7 @@ whose only job is the plan, and published to GitHub before any code exists.
 
 Before starting, check what the session is actually running on and say it out
 loud in one line: *"Session model: <X>. Planning goes to the Opus subagent,
-implementation to the Opus subagent; review, commit and PR run here."*
+implementation to the Sonnet subagent; review, commit and PR run here."*
 
 ### Effort cannot be routed per phase
 
@@ -200,10 +206,10 @@ What the parent still owns here:
 Record the plan comment URL in the state file. The GitHub comment is the durable
 artifact; the state file tracks position and points at it.
 
-### 4–6. Implement, UI, tests and stories — delegated to Opus
+### 4–6. Implement, UI, tests and stories — delegated to Sonnet
 
 The plan is published, so handing this phase off costs nothing. Dispatch the
-`issue-implementer` subagent (Opus) with the issue ID; it reads the plan from
+`issue-implementer` subagent (Sonnet) with the issue ID; it reads the plan from
 the issue's comments itself. Let it do the code, the backend work, the UI, the
 tests, and the stories. Its definition carries the full contract — design
 system, test and story coverage, scope discipline, no committing.

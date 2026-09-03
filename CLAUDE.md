@@ -109,15 +109,71 @@ When summarising or explaining, prefer:
 - One-line summaries for each step.
 - Output as JSON (e.g., `{file, line, message}`) when appropriate.
 
-## Caveman Wenyan Ultra
+## Model & effort routing
 
-**MANDATORY: Use Caveman Wenyan Ultra mode throughout every session in this project.**
+Model choice and effort level set the price of every token, not just their
+count — get these right before reaching for RTK/headroom/caveman to shave
+output size.
+
+- **Default to `/effort low`.** Escalate only for planning/architecture
+  decisions or a task that's actually hard. Effort is session-wide and
+  multiplies cost on every turn, so leaving it high by default taxes routine
+  edits and fixes that never needed it.
+- **Route by phase, not by session.** When a task splits into a
+  cheap-to-get-wrong step (planning, architecture) and an
+  expensive-to-get-wrong step (execution), pin each to its own model via a
+  subagent (see `.claude/agents/`) instead of running the whole thing on
+  whatever the session happens to be on. `implement-issue` /
+  `implement-epic` are the reference implementation of this pattern.
+- **Batch independent tool calls into one message.** This is the dominant
+  cost term — bigger than prompt size. Every round trip re-reads the entire
+  fixed context floor below, so two serial calls cost twice that floor while
+  two batched calls cost it once.
+- **Delegate exploration only when it's genuinely heavy.** A subagent pays
+  the same ~50k floor the parent does, so a one-file lookup costs more
+  delegated than done inline. Delegate when the dig would otherwise leave
+  many intermediate reads in the parent's context for every later turn.
+- **Prefer one warm session over frequent restarts.** Each new session
+  re-writes the ~~53k prefix to cache (~~$0.21 at 1h TTL) before doing any
+  work; a warm cache measured ~60% cheaper for identical context. Start
+  fresh when the topic genuinely changes — not as a routine saving habit.
+
+### Measured context floor (2026-09-03, this repo)
+
+`claude -p "say ok" --output-format json`, total context for a trivial request:
+
+| Config                      | Tokens |
+| --------------------------- | ------ |
+| Project + all 4 MCP servers | 52,949 |
+| Project, MCP servers off    | 50,012 |
+| Empty dir, no MCP           | 43,608 |
+
+~43.6k is irreducible (Claude Code's system prompt, built-in tools, bundled
+skills, user `CLAUDE.md`, memory). ~6.4k is project-level — this file, project
+skills, graphify hook context. All four MCP servers together are only ~2.9k.
+
+**This rules out skill/plugin trimming:** the skill listing is already capped
+near 1% of context, so removing entries just redistributes that budget.
+Disabling a whole plugin measured 52,948 vs 52,949 — no effect. Don't spend
+effort there. Hooks are `command` type and cost latency, not tokens; the
+exception is a hook that injects context (graphify's `hook-guard`), which
+does add tokens to every matching tool call.
+
+## Caveman Ultra
+
+**MANDATORY: Use Caveman Ultra mode throughout every session in this project.**
 
 At session start, activate:
 
 ```text
-/caveman wenyan-ultra
+/caveman ultra
 ```
+
+This governs conversational output only — code, tests, commit messages, PR
+descriptions, and any plan or doc meant to be reviewed stay normal and
+readable. When dispatching a subagent, tell it explicitly to run in
+`/caveman ultra` too — subagents are separate contexts and don't inherit the
+parent's mode unless told in the dispatch prompt.
 
 ## graphify
 

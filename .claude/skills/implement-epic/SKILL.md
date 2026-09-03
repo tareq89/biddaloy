@@ -41,10 +41,16 @@ never be disjoint.
 
 ## Mode
 
-Run in `/caveman wenyan-ultra` so orchestration chatter stays cheap. This
+Run in `/caveman ultra` so orchestration chatter stays cheap. This
 governs **your conversational output only**. Plans, code, commit messages, PR
 descriptions and the state file stay normal and readable — a compressed plan
 defeats its purpose, since the user has to review it.
+
+When dispatching `epic-group-worker` (and it, in turn, dispatching
+`issue-planner` / `issue-implementer` / the review subagent), tell them to run
+in `/caveman ultra` for their own narration, with the same carve-out —
+published plans, code, tests, stories, and commit/PR text stay normal.
+Subagents are separate contexts and don't inherit your mode unless told.
 
 ## Architecture
 
