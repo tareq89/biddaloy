@@ -393,4 +393,40 @@ describe('/staff', () => {
     await waitFor(() => expect(router.state.location.search).toMatchObject({ role: 'TEACHER' }));
     await waitFor(() => expect(requestedRole).toBe('TEACHER'));
   });
+
+  // [8.14.10]: `useUsers`'s `status`/`joined_from`/`joined_to` filters were
+  // already server-supported ([8.14.9]) but never surfaced as FilterBar
+  // descriptors until now.
+  it('picking a status and a joined-date range from the FilterBar filters the request', async () => {
+    let lastQuery: Record<string, string> = {};
+    server.use(
+      http.get('/api/v1/users', ({ request }) => {
+        lastQuery = Object.fromEntries(new URL(request.url).searchParams);
+        return HttpResponse.json(paginated([]));
+      }),
+    );
+
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/staff'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await screen.findByRole('region', { name: 'Users with access to this school' });
+    await user.click(screen.getByRole('combobox', { name: 'Status' }));
+    await user.click(await screen.findByRole('option', { name: 'Active' }));
+    await user.type(screen.getByRole('textbox', { name: 'Joined from' }), '2026-01-01');
+
+    await waitFor(() =>
+      expect(router.state.location.search).toMatchObject({
+        status: 'ACTIVE',
+        joined_from: '2026-01-01',
+      }),
+    );
+    await waitFor(() =>
+      expect(lastQuery).toMatchObject({ status: 'ACTIVE', joined_from: '2026-01-01' }),
+    );
+  });
 });
