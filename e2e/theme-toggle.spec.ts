@@ -1,4 +1,5 @@
 import { expect, guest, test } from './fixtures/test';
+import { t } from './i18n';
 
 /**
  * [8.14.2] rebuilds the old two-state light/dark toggle button
@@ -12,18 +13,22 @@ import { expect, guest, test } from './fixtures/test';
  *
  * `/login` is used because it is reachable signed-out and — per
  * `login.tsx` — renders `<ThemeToggle />` next to `<LocaleSwitcher />`.
+ *
+ * Names resolve through `e2e/i18n.ts`, never as English literals:
+ * `ThemeToggle` labels itself from the `nav` namespace (`theme.label`,
+ * `theme.light`…) and the suite's default locale is `bn`, so a hardcoded
+ * "Theme" matches nothing and only surfaces as a 30s click timeout.
  */
 
+type ThemeChoice = 'light' | 'dark' | 'system';
+
 function themeMenuTrigger(page: import('@playwright/test').Page) {
-  return page.getByRole('button', { name: 'Theme' });
+  return page.getByRole('button', { name: t('nav.theme.label') });
 }
 
-async function chooseTheme(
-  page: import('@playwright/test').Page,
-  choice: 'Light' | 'Dark' | 'System',
-) {
+async function chooseTheme(page: import('@playwright/test').Page, choice: ThemeChoice) {
   await themeMenuTrigger(page).click();
-  await page.getByRole('menuitemradio', { name: choice }).click();
+  await page.getByRole('menuitemradio', { name: t(`nav.theme.${choice}`) }).click();
 }
 
 test.describe('choosing a theme from the menu', () => {
@@ -39,7 +44,7 @@ test.describe('choosing a theme from the menu', () => {
       'dark',
     );
 
-    await chooseTheme(page, 'Light');
+    await chooseTheme(page, 'light');
 
     expect(
       await page.evaluate(() => document.documentElement.getAttribute('data-theme')),
@@ -59,7 +64,7 @@ test.describe('choosing a theme from the menu', () => {
     await page.emulateMedia({ colorScheme: 'light' });
     await page.goto('/login');
 
-    await chooseTheme(page, 'Dark');
+    await chooseTheme(page, 'dark');
 
     expect(await page.evaluate(() => document.documentElement.getAttribute('data-theme'))).toBe(
       'dark',
@@ -81,10 +86,10 @@ test.describe('choosing a theme from the menu', () => {
 
     // Pick an explicit choice first so there is something for "System" to
     // clear — otherwise this test can't tell "cleared" from "never set".
-    await chooseTheme(page, 'Dark');
+    await chooseTheme(page, 'dark');
     expect(await page.evaluate(() => localStorage.getItem('biddaloy:theme'))).toBe('dark');
 
-    await chooseTheme(page, 'System');
+    await chooseTheme(page, 'system');
 
     expect(await page.evaluate(() => localStorage.getItem('biddaloy:theme'))).toBeNull();
     // OS still prefers light here, so "System" resolves back to light.
