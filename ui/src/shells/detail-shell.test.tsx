@@ -187,7 +187,7 @@ describe('DetailShell', () => {
     // didn't remount it — and the typed note survived.
     expect(paymentsMounts).toBe(1);
 
-    expect((screen.getByRole('textbox', { name: 'Payment note' }) as HTMLInputElement).value).toBe(
+    expect(screen.getByRole<HTMLInputElement>('textbox', { name: 'Payment note' }).value).toBe(
       'called about overdue fee',
     );
   });

@@ -78,7 +78,7 @@ function InvoiceDetailPage() {
             <StatusBadge domain="invoice" status={invoiceQuery.data.status as InvoiceStatus} />
           </div>
 
-          <FieldGrid>
+          <FieldGrid className="text-sm">
             <Field label={t('invoiceDetail.issuedDate')}>
               {formatDate(parseServerDate(invoiceQuery.data.issued_date), regionConfig)}
             </Field>
