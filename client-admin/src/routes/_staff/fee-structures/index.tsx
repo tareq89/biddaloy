@@ -13,11 +13,6 @@ import {
   Button,
   CachedDataNotice,
   RoutePending,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   StatusBadge,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
@@ -30,7 +25,7 @@ import {
   type FeeStructure,
 } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { ListShell, useListShellState } from '@biddaloy/ui/shells';
+import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
 import { formatServerAmount } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
 import * as React from 'react';
@@ -40,11 +35,6 @@ import { loadRouteNamespaces } from '../../../route-loaders';
 
 import { DeleteStructureDialog } from './-delete-structure-dialog';
 import { StructureFormDialog } from './-structure-form-dialog';
-
-/** Radix `Select.Item` rejects an empty-string `value` (it reserves it for
- * "clear selection"), so the "All …" options need a real sentinel —
- * same one `students/index.tsx` uses, for the same reason. */
-const ALL_VALUE = '__all__';
 
 const MONTHS = Array.from({ length: 12 }, (_, index) => index + 1);
 
@@ -57,6 +47,8 @@ interface FeeStructureFilters {
 const feeStructuresSearchSchema = z.object({
   page: z.number().int().positive().optional().catch(undefined),
   limit: z.number().int().positive().optional().catch(undefined),
+  sort: z.string().optional().catch(undefined),
+  order: z.enum(['asc', 'desc']).optional().catch(undefined),
   academic_year_id: z.string().optional().catch(undefined),
   class_id: z.string().optional().catch(undefined),
   // Validated as a real 1–12 month rather than a free string: `toListFilters`
@@ -85,17 +77,32 @@ function toListFilters(filters: FeeStructureFilters) {
   };
 }
 
+/** `DataTableSort.id` values that map onto a server-sortable field —
+ * `useFeeStructures`'s filter type now accepts `sort`/`order`
+ * ([8.14.9]'s server work), keyed by this page's column ids. [8.14.10]:
+ * `sorting={null}`/no-op `onSortingChange` used to be a deliberate stub
+ * because no such param existed — correction 9 flags it as one of four
+ * pages where that's now stale and needs wiring up for real. */
+const SORT_FIELD_BY_COLUMN: Partial<Record<string, 'name' | 'amount' | 'month' | 'created_at'>> = {
+  name: 'name',
+  amount: 'amount',
+  month: 'month',
+};
+
 export const Route = createFileRoute('/_staff/fee-structures/')({
   validateSearch: feeStructuresSearchSchema,
   loaderDeps: ({ search }) => ({
     page: search.page ?? 1,
     limit: search.limit ?? 10,
+    sort: search.sort,
+    order: search.order,
     academicYearId: search.academic_year_id,
     classId: search.class_id,
     month: search.month,
   }),
-  loader: ({ context: { queryClient }, deps }) =>
-    Promise.all([
+  loader: ({ context: { queryClient }, deps }) => {
+    const sortField = deps.sort !== undefined ? SORT_FIELD_BY_COLUMN[deps.sort] : undefined;
+    return Promise.all([
       // [8.14.5]: swallowed — see `academic-years/index.tsx`'s identical
       // comment for why.
       queryClient
@@ -108,11 +115,14 @@ export const Route = createFileRoute('/_staff/fee-structures/')({
               class_id: deps.classId,
               month: deps.month,
             }),
+            ...(sortField !== undefined ? { sort: sortField } : {}),
+            ...(deps.order !== undefined ? { order: deps.order } : {}),
           }),
         )
         .catch(() => undefined),
       loadRouteNamespaces('feeStructures'),
-    ]),
+    ]);
+  },
   pendingComponent: FeeStructuresListPending,
   component: FeeStructuresListPage,
 });
@@ -127,12 +137,16 @@ function FeeStructuresListPage() {
   const canUpdate = useHasPermission(Permission.FEE_STRUCTURE_UPDATE);
   const canDelete = useHasPermission(Permission.FEE_STRUCTURE_DELETE);
 
+  const sortField = state.sorting !== null ? SORT_FIELD_BY_COLUMN[state.sorting.id] : undefined;
+
   // [8.12.3]: shared between the query and `CachedDataNotice`'s key —
   // see `students/index.tsx` for why the object is lifted.
   const structureListFilters = {
     page: state.page,
     limit: state.limit,
     ...toListFilters(filters),
+    ...(sortField !== undefined ? { sort: sortField } : {}),
+    ...(state.sorting ? { order: state.sorting.desc ? ('desc' as const) : ('asc' as const) } : {}),
   };
   const structuresQuery = useFeeStructures(structureListFilters);
   const yearsQuery = useAcademicYears();
@@ -144,20 +158,14 @@ function FeeStructuresListPage() {
   const [editing, setEditing] = React.useState<FeeStructure | null>(null);
   const [deleting, setDeleting] = React.useState<FeeStructure | null>(null);
 
-  function setFilter(key: keyof FeeStructureFilters, value: string | undefined) {
-    // `null`, not a deleted key, is what clears a param — an absent key
-    // leaves the old value in the URL (see `ListUrlStatePatch`), which is
-    // what made "All years/classes/months" a no-op.
-    const next: Record<string, string | null> = {
-      academic_year_id: filters.academic_year_id ?? null,
-      class_id: filters.class_id ?? null,
-      month: filters.month ?? null,
-      [key]: value ?? null,
-    };
-    // A class belongs to exactly one academic year, so whichever class was
-    // picked under the *previous* year can't survive the switch — same
-    // reasoning `students/index.tsx` applies to class → section.
-    if (key === 'academic_year_id') next.class_id = null;
+  // [8.14.10] FilterBar's `onChange` hands back a patch (string sets,
+  // `null` clears) rather than the old hand-rolled `setFilter`'s
+  // rebuild-the-whole-bag shape. `academic_year_id` still needs its
+  // `class_id`-invalidation side effect — same reasoning
+  // `students/index.tsx` applies to class → section.
+  function handleFilterChange(patch: Record<string, string | null>) {
+    const next = { ...patch };
+    if ('academic_year_id' in next) next.class_id = null;
     actions.setFilters(next);
   }
 
@@ -165,11 +173,41 @@ function FeeStructuresListPage() {
     return t(`months.${month}`);
   }
 
+  const filterFields: FilterFieldDescriptor[] = [
+    {
+      kind: 'select',
+      key: 'academic_year_id',
+      label: t('list.academicYearLabel'),
+      allLabel: t('list.allAcademicYears'),
+      options: (yearsQuery.data?.data ?? []).map((year) => ({ value: year.id, label: year.name })),
+    },
+    {
+      kind: 'select',
+      key: 'class_id',
+      label: t('list.classLabel'),
+      allLabel: t('list.allClasses'),
+      options: (classesQuery.data?.data ?? []).map((klass) => ({
+        value: klass.id,
+        label: klass.name,
+      })),
+    },
+    {
+      kind: 'select',
+      key: 'month',
+      label: t('list.monthLabel'),
+      allLabel: t('list.allMonths'),
+      options: MONTHS.map((month) => ({ value: String(month), label: monthLabel(month) })),
+    },
+  ];
+
   const columns: DataTableColumn<FeeStructure>[] = [
     {
       id: 'name',
       header: t('list.columnName'),
       accessorFn: (row) => row.name,
+      sortable: true,
+      // [8.14.10] structure name is the natural card title.
+      card: 'title',
     },
     {
       id: 'feeType',
@@ -182,12 +220,17 @@ function FeeStructuresListPage() {
       // `amount` arrives as a `decimal(10,2)` **string**, which is exactly
       // what `formatServerAmount` exists to take — never `parseFloat`.
       accessorFn: (row) => formatServerAmount(row.amount, regionConfig),
+      sortable: true,
+      // Money column — right-aligns and carries `tabular-nums` via `align`
+      // (design contract §2), per [8.14.7]'s `DataTableColumn.align`.
+      align: 'end',
     },
     {
       id: 'class',
       header: t('list.columnClass'),
       accessorFn: (row) =>
         row.section ? `${row.class.name} · ${row.section.section_name}` : row.class.name,
+      card: 'subtitle',
     },
     {
       id: 'month',
@@ -199,6 +242,7 @@ function FeeStructuresListPage() {
         row.is_recurring
           ? t('list.fromMonth', { month: monthLabel(row.month) })
           : monthLabel(row.month),
+      sortable: true,
     },
     {
       id: 'recurrence',
@@ -206,6 +250,7 @@ function FeeStructuresListPage() {
       accessorFn: (row) => (
         <StatusBadge domain="feeStructure" status={row.is_recurring ? 'RECURRING' : 'ONE_TIME'} />
       ),
+      card: 'badge',
     },
     {
       id: 'applicability',
@@ -231,6 +276,7 @@ function FeeStructuresListPage() {
             id: 'actions',
             header: t('list.columnActions'),
             pinned: true,
+            card: 'actions',
             accessorFn: (row: FeeStructure) => (
               <div className="flex gap-3">
                 {canUpdate && (
@@ -270,76 +316,20 @@ function FeeStructuresListPage() {
             </Button>
           )
         }
-        filterBar={
-          <>
-            <Select
-              value={filters.academic_year_id ?? ALL_VALUE}
-              onValueChange={(value) =>
-                setFilter('academic_year_id', value === ALL_VALUE ? undefined : value)
-              }
-            >
-              <SelectTrigger aria-label={t('list.academicYearLabel')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_VALUE}>{t('list.allAcademicYears')}</SelectItem>
-                {yearsQuery.data?.data.map((year) => (
-                  <SelectItem key={year.id} value={year.id}>
-                    {year.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={filters.class_id ?? ALL_VALUE}
-              onValueChange={(value) =>
-                setFilter('class_id', value === ALL_VALUE ? undefined : value)
-              }
-            >
-              <SelectTrigger aria-label={t('list.classLabel')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_VALUE}>{t('list.allClasses')}</SelectItem>
-                {classesQuery.data?.data.map((klass) => (
-                  <SelectItem key={klass.id} value={klass.id}>
-                    {klass.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={filters.month ?? ALL_VALUE}
-              onValueChange={(value) => setFilter('month', value === ALL_VALUE ? undefined : value)}
-            >
-              <SelectTrigger aria-label={t('list.monthLabel')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_VALUE}>{t('list.allMonths')}</SelectItem>
-                {MONTHS.map((month) => (
-                  <SelectItem key={month} value={String(month)}>
-                    {monthLabel(month)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </>
-        }
+        filters={{ fields: filterFields, values: state.filters, onChange: handleFilterChange }}
         tableId="fee-structures-list"
         caption={t('list.caption')}
         columns={columns}
         data={structuresQuery.data?.data ?? []}
         getRowId={(row) => row.id}
-        sorting={null}
-        onSortingChange={() => {
-          // No sortable columns — `QueryFeeStructureDto` accepts no
-          // `sort`/`order` param, so there's nothing to sort server-side.
-        }}
+        sorting={state.sorting}
+        onSortingChange={actions.setSorting}
         page={state.page}
         pageSize={state.limit}
         totalCount={structuresQuery.data?.total ?? 0}
         onPageChange={actions.setPage}
+        onPageSizeChange={actions.setLimit}
+        pageSizeLabel={t('pagination.rowsPerPage', { ns: 'common' })}
         loading={structuresQuery.isLoading}
         isFetching={structuresQuery.isFetching}
         {...(structuresQuery.isError ? { error: t('list.errorMessage') } : {})}

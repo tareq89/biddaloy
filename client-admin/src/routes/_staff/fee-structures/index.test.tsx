@@ -577,4 +577,44 @@ describe('/fee-structures', () => {
     await screen.findByText('Tuition');
     await expect(container).toHaveNoViolations();
   });
+
+  // [8.14.10]: FilterBar migration — the rows-per-page control changes
+  // `limit` and resets `page` in one URL update.
+  it('changing rows per page writes limit and resets page', async () => {
+    server.use(
+      http.get('/api/v1/fee-structures', () =>
+        HttpResponse.json({ data: [], total: 0, page: 2, limit: 10, totalPages: 1 }),
+      ),
+      ...referenceHandlers(),
+    );
+
+    const { router } = render('ADMIN', '/fee-structures?page=2');
+    const user = userEvent.setup();
+    await screen.findByRole('heading', { name: 'Fee Structures' });
+    await user.click(screen.getByRole('combobox', { name: 'Rows per page' }));
+    await user.click(await screen.findByRole('option', { name: '20' }));
+
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ limit: 20, page: 1 }));
+  });
+
+  // [8.14.10]: `sorting={null}`/no-op `onSortingChange` used to be a
+  // deliberate stub — `sort`/`order` now exist server-side, so clicking a
+  // sortable header threads them through to the request.
+  it('clicking the Name column header writes sort/order to the URL', async () => {
+    server.use(
+      http.get('/api/v1/fee-structures', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
+      ),
+      ...referenceHandlers(),
+    );
+
+    const { router } = render();
+    const user = userEvent.setup();
+    await screen.findByRole('heading', { name: 'Fee Structures' });
+    await user.click(screen.getByRole('button', { name: 'Name' }));
+
+    await waitFor(() =>
+      expect(router.state.location.search).toMatchObject({ sort: 'name', order: 'desc' }),
+    );
+  });
 });
