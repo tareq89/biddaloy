@@ -284,7 +284,7 @@ describe('/fee-structures', () => {
     expect(screen.queryAllByRole('option')).toHaveLength(1);
     await user.keyboard('{Escape}');
 
-    await user.type(screen.getByRole('textbox', { name: 'Search' }), 'tuition');
+    await user.type(screen.getByRole('textbox', { name: 'Search fee structures' }), 'tuition');
     await user.click(screen.getByRole('combobox', { name: 'Fee type' }));
     await user.click(await screen.findByRole('option', { name: 'Monthly tuition' }));
     await user.click(screen.getByRole('checkbox', { name: 'Recurring structures only' }));

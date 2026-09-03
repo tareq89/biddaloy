@@ -359,7 +359,7 @@ describe('/fees/dues', () => {
 
     const user = userEvent.setup();
     await screen.findByRole('region', { name: 'Dues queue' });
-    await user.type(screen.getByRole('textbox', { name: 'Search' }), 'Karim');
+    await user.type(screen.getByRole('textbox', { name: 'Search dues' }), 'Karim');
 
     await waitFor(() => expect(router.state.location.search).toMatchObject({ search: 'Karim' }));
     await waitFor(() => expect(lastSearch).toBe('Karim'));
