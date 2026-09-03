@@ -1055,28 +1055,42 @@ describe('BulkReminderService', () => {
       created_at: new Date('2026-03-01T00:00:00Z'),
     };
 
+    function makeQb(rows: unknown[], total: number) {
+      const qb: any = {
+        where: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        addOrderBy: vi.fn().mockReturnThis(),
+        skip: vi.fn().mockReturnThis(),
+        take: vi.fn().mockReturnThis(),
+        getManyAndCount: vi.fn().mockResolvedValue([rows, total]),
+      };
+      batchRepo.createQueryBuilder = vi.fn(() => qb);
+      return qb;
+    }
+
     it('scopes the list to the caller tenant, newest first, paginated', async () => {
-      batchRepo.findAndCount.mockResolvedValue([[batchRow], 41]);
+      const qb = makeQb([batchRow], 41);
 
       const result = await service.findBatches({ page: 3, limit: 20 }, TENANT);
 
-      expect(batchRepo.findAndCount).toHaveBeenCalledWith({
-        where: { tenant_id: TENANT },
-        // Only the columns the list item maps: the heavy message_template and
-        // filters_applied jsonb stay in the database.
-        select: {
-          id: true,
-          batch_name: true,
-          status: true,
-          total_recipients: true,
-          successful_count: true,
-          failed_count: true,
-          created_at: true,
-        },
-        order: { created_at: 'DESC', id: 'DESC' },
-        skip: 40,
-        take: 20,
-      });
+      expect(batchRepo.createQueryBuilder).toHaveBeenCalledWith('batch');
+      expect(qb.where).toHaveBeenCalledWith('batch.tenant_id = :tenantId', { tenantId: TENANT });
+      // Only the columns the list item maps: the heavy message_template and
+      // filters_applied jsonb stay in the database.
+      expect(qb.select).toHaveBeenCalledWith([
+        'batch.id',
+        'batch.batch_name',
+        'batch.status',
+        'batch.total_recipients',
+        'batch.successful_count',
+        'batch.failed_count',
+        'batch.created_at',
+      ]);
+      expect(qb.orderBy).toHaveBeenCalledWith('batch.created_at', 'DESC');
+      expect(qb.skip).toHaveBeenCalledWith(40);
+      expect(qb.take).toHaveBeenCalledWith(20);
       expect(result).toEqual({
         data: [
           {
@@ -1097,20 +1111,62 @@ describe('BulkReminderService', () => {
     });
 
     it('defaults to page 1 with 20 rows', async () => {
+      const qb = makeQb([], 0);
+
       await service.findBatches({}, TENANT);
 
-      expect(batchRepo.findAndCount).toHaveBeenCalledWith(
-        expect.objectContaining({ skip: 0, take: 20 }),
-      );
+      expect(qb.skip).toHaveBeenCalledWith(0);
+      expect(qb.take).toHaveBeenCalledWith(20);
     });
 
     it('does not leak each batch skip list into the list rows', async () => {
-      batchRepo.findAndCount.mockResolvedValue([[batchRow], 1]);
+      makeQb([batchRow], 1);
 
       const result = await service.findBatches({}, TENANT);
 
       expect(result.data[0]).not.toHaveProperty('skipped');
       expect(result.data[0]).not.toHaveProperty('filters_applied');
+    });
+
+    // [8.14.9] search matches batch_name, escaped so % / _ can't act as
+    // wildcards.
+    it('filters by search over batch_name, LIKE-escaped', async () => {
+      const qb = makeQb([batchRow], 1);
+
+      await service.findBatches({ search: '100%' }, TENANT);
+
+      expect(qb.andWhere).toHaveBeenCalledWith('batch.batch_name ILIKE :search', {
+        search: '%100\\%%',
+      });
+    });
+
+    it('filters by status', async () => {
+      const qb = makeQb([], 0);
+
+      await service.findBatches({ status: ReminderBatchStatus.FAILED }, TENANT);
+
+      expect(qb.andWhere).toHaveBeenCalledWith('batch.status = :status', {
+        status: ReminderBatchStatus.FAILED,
+      });
+    });
+
+    // [8.14.9] sort=batch_name needs Bengali-collated ordering, which
+    // FindOptionsOrder cannot express — this is why findBatches is a query
+    // builder now instead of findAndCount.
+    it('sorts by batch_name using the Bengali collation', async () => {
+      const qb = makeQb([], 0);
+
+      await service.findBatches({ sort: 'batch_name', order: 'asc' }, TENANT);
+
+      expect(qb.orderBy).toHaveBeenCalledWith('batch.batch_name COLLATE "bn_icu"', 'ASC');
+    });
+
+    it('sorts by total_recipients', async () => {
+      const qb = makeQb([], 0);
+
+      await service.findBatches({ sort: 'total_recipients', order: 'desc' }, TENANT);
+
+      expect(qb.orderBy).toHaveBeenCalledWith('batch.total_recipients', 'DESC');
     });
   });
 
