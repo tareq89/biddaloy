@@ -1,3 +1,4 @@
+import { UserStatus } from '@biddaloy/shared';
 import { waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
@@ -59,6 +60,38 @@ describe('useUsers', () => {
     expect(params!.get('search')).toBe('Karim');
     expect(params!.get('page')).toBe('2');
     expect(params!.get('limit')).toBe('25');
+  });
+
+  // [8.14.10]: `status`/`joined_from`/`joined_to`/`sort`/`order` mirror
+  // `QueryUserDto`, landed server-side by #373 but never threaded through
+  // `UserListFilters` until now.
+  it('[8.14.10] sends status, joined_from, joined_to, sort, and order as query params', async () => {
+    let params: URLSearchParams | null = null;
+    server.use(
+      http.get('/api/v1/users', ({ request }) => {
+        params = new URL(request.url).searchParams;
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 0 });
+      }),
+    );
+
+    const { result } = renderHookWithProviders(
+      () =>
+        useUsers({
+          status: UserStatus.ACTIVE,
+          joined_from: '2025-01-01',
+          joined_to: '2025-12-31',
+          sort: 'full_name',
+          order: 'asc',
+        }),
+      { tenantId: 'tenant-1' },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(params!.get('status')).toBe('ACTIVE');
+    expect(params!.get('joined_from')).toBe('2025-01-01');
+    expect(params!.get('joined_to')).toBe('2025-12-31');
+    expect(params!.get('sort')).toBe('full_name');
+    expect(params!.get('order')).toBe('asc');
   });
 });
 

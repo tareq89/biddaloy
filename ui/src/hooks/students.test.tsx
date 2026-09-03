@@ -298,6 +298,36 @@ describe('[8.14.6] useStudents keeps previous rows on screen while a filter chan
   });
 });
 
+// [8.14.10]: `gender`/`date_of_birth_from`/`date_of_birth_to` mirror
+// `QueryStudentDto`, landed server-side by #373 but never threaded through
+// `StudentListFilters` until now.
+describe('useStudents requests gender/date-of-birth-range filters', () => {
+  it('sends gender, date_of_birth_from, and date_of_birth_to as query params', async () => {
+    const requested = new URLSearchParams();
+    server.use(
+      http.get('/api/v1/students', ({ request }) => {
+        for (const [key, value] of new URL(request.url).searchParams) requested.set(key, value);
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 });
+      }),
+    );
+
+    const { result } = renderHookWithProviders(
+      () =>
+        useStudents({
+          gender: 'Female',
+          date_of_birth_from: '2010-01-01',
+          date_of_birth_to: '2015-12-31',
+        }),
+      { tenantId: 'tenant-1' },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(requested.get('gender')).toBe('Female');
+    expect(requested.get('date_of_birth_from')).toBe('2010-01-01');
+    expect(requested.get('date_of_birth_to')).toBe('2015-12-31');
+  });
+});
+
 describe('switchActiveTenant clears all cached server state', () => {
   it('leaves nothing behind for the next tenant to accidentally read', () => {
     const queryClient = createTestQueryClient();

@@ -1,3 +1,4 @@
+import { CommunicationMedium } from '@biddaloy/shared';
 import { waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
@@ -60,6 +61,38 @@ describe('useGuardians', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(requestedSearch).toBe('Karim');
     expect(requestedLimit).toBe('10');
+  });
+
+  // [8.14.10]: `relationship`/`preferred_communication`/`is_primary_contact`/
+  // `sort`/`order` mirror `QueryGuardianDto`, landed server-side by #373 but
+  // never threaded through `GuardianListFilters` until now.
+  it('[8.14.10] requests relationship, preferred_communication, is_primary_contact, sort, and order as query params', async () => {
+    const requested = new URLSearchParams();
+    server.use(
+      http.get('/api/v1/guardians', ({ request }) => {
+        for (const [key, value] of new URL(request.url).searchParams) requested.set(key, value);
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 });
+      }),
+    );
+
+    const { result } = renderHookWithProviders(
+      () =>
+        useGuardians({
+          relationship: 'Father',
+          preferred_communication: CommunicationMedium.SMS,
+          is_primary_contact: true,
+          sort: 'full_name',
+          order: 'asc',
+        }),
+      { tenantId: 'tenant-1' },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(requested.get('relationship')).toBe('Father');
+    expect(requested.get('preferred_communication')).toBe('SMS');
+    expect(requested.get('is_primary_contact')).toBe('true');
+    expect(requested.get('sort')).toBe('full_name');
+    expect(requested.get('order')).toBe('asc');
   });
 
   it('honors a caller-supplied limit, for the paginated Guardians list page', async () => {

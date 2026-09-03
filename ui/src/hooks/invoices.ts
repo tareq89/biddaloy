@@ -22,12 +22,19 @@ export type InvoiceStatus = Invoice['status'];
  * `status`/`from_date`/`to_date` are [8.10.6]'s own additions — `findAll`
  * (`invoices.controller.ts`) already accepted them, this type just hadn't
  * caught up since no caller needed them until now. */
+// [8.14.10] `min_amount`/`max_amount`/`sort`/`order` mirror `QueryInvoiceDto`
+// (`server/src/modules/invoices/dto/invoices.dto.ts`), landed by #373 but
+// never threaded through this hand-written filter type until now.
 export interface InvoiceListFilters {
   search?: string;
   student_id?: string;
   status?: InvoiceStatus;
   from_date?: string;
   to_date?: string;
+  min_amount?: number;
+  max_amount?: number;
+  sort?: 'issued_date' | 'due_date' | 'total_amount' | 'invoice_number' | 'status';
+  order?: 'asc' | 'desc';
   page?: number;
   limit?: number;
 }

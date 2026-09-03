@@ -1,3 +1,4 @@
+import type { FeeType } from '@biddaloy/shared';
 import {
   keepPreviousData,
   queryOptions,
@@ -28,10 +29,18 @@ export interface PaginatedFeeStructures {
   totalPages: number;
 }
 
+// [8.14.10] Mirrors `QueryFeeStructureDto`
+// (`server/src/modules/fees/dto/fees.dto.ts`) exactly.
 export interface FeeStructureListFilters {
   academic_year_id?: string;
   class_id?: string;
   month?: number;
+  search?: string;
+  fee_type?: FeeType;
+  section_id?: string;
+  is_recurring?: boolean;
+  sort?: 'name' | 'amount' | 'month' | 'created_at';
+  order?: 'asc' | 'desc';
   page?: number;
   limit?: number;
 }

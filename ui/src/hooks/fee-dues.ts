@@ -68,6 +68,11 @@ export interface FeeDuesFilters {
   month?: number;
   year?: number;
   status?: FeeStatus.PENDING | FeeStatus.PARTIALLY_PAID;
+  /** Matches student full_name, registration_number, or roll_number — see
+   * `QueryFeeDuesDto.search`'s own comment. Not accepted by `GET
+   * /fees/dues/flagged`, same as every field below `class_id`/`section_id`
+   * — `FLAGGED_FIELDS` below strips it before that request goes out. */
+  search?: string;
   sort_by?: FeeDuesSortBy;
   sort_order?: SortOrder;
   page?: number;
