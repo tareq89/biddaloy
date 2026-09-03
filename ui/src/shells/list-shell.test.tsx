@@ -1,13 +1,26 @@
-import { render, screen } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
+import type * as React from 'react';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { Button } from '../components/button';
 import type { DataTableColumn, DataTableSort } from '../components/data-table';
 import { Input } from '../components/input';
+import { renderWithProviders } from '../test';
 
 import type { FilterFieldDescriptor } from './filter-bar';
 import { ListShell } from './list-shell';
+
+/** `DEFAULT_LOCALE` (`locale-storage.ts`) is Bengali, not English — same
+ * reason `cached-data-notice.test.tsx` forces `locale: 'en'` and awaits
+ * `localeReady` before any synchronous assertion. */
+async function renderInEnglish(ui: React.ReactElement) {
+  const view = renderWithProviders(ui, { locale: 'en' });
+  await act(async () => {
+    await view.localeReady;
+  });
+  return view;
+}
 
 interface Student {
   id: string;
@@ -54,8 +67,8 @@ function Demo() {
 }
 
 describe('ListShell', () => {
-  it('renders the title, primary action and filter bar alongside the table — no bespoke table code', () => {
-    render(<Demo />);
+  it('renders the title, primary action and filter bar alongside the table — no bespoke table code', async () => {
+    await renderInEnglish(<Demo />);
     expect(screen.getByRole('heading', { name: 'Students' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Add student' })).toBeTruthy();
     expect(screen.getByRole('textbox', { name: 'Search' })).toBeTruthy();
@@ -63,8 +76,8 @@ describe('ListShell', () => {
     expect(screen.getByText('Rahim Uddin')).toBeTruthy();
   });
 
-  it('omits the filter bar entirely when none is given, rather than an empty wrapper', () => {
-    render(
+  it('omits the filter bar entirely when none is given, rather than an empty wrapper', async () => {
+    await renderInEnglish(
       <ListShell
         title="Students"
         tableId="students-shell-no-filter"
@@ -84,7 +97,7 @@ describe('ListShell', () => {
   });
 
   it('is axe clean', async () => {
-    const { container } = render(<Demo />);
+    const { container } = await renderInEnglish(<Demo />);
     await expect(container).toHaveNoViolations();
   });
 });
@@ -131,13 +144,13 @@ describe('ListShell — typed `filters` prop', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders FilterBar when the typed `filters` prop is passed', () => {
-    render(<TypedFiltersDemo />);
+  it('renders FilterBar when the typed `filters` prop is passed', async () => {
+    await renderInEnglish(<TypedFiltersDemo />);
     expect(screen.getByRole('textbox', { name: 'Search' })).toBeTruthy();
   });
 
-  it('still renders the legacy `filterBar` node on its own, with no `filters` prop passed', () => {
-    render(
+  it('still renders the legacy `filterBar` node on its own, with no `filters` prop passed', async () => {
+    await renderInEnglish(
       <ListShell
         title="Students"
         filterBar={<Input aria-label="Legacy search" />}
@@ -157,9 +170,9 @@ describe('ListShell — typed `filters` prop', () => {
     expect(screen.getByRole('textbox', { name: 'Legacy search' })).toBeTruthy();
   });
 
-  it('renders both when both `filterBar` and `filters` are passed, and warns in dev', () => {
+  it('renders both when both `filterBar` and `filters` are passed, and warns in dev', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    render(
+    await renderInEnglish(
       <ListShell
         title="Students"
         filterBar={<Input aria-label="Legacy search" />}

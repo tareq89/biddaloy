@@ -27,7 +27,7 @@ import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { useContainerWidth } from '../hooks/use-container-width';
-import { useRegionConfig } from '../i18n';
+import { useRegionConfig, useTranslation } from '../i18n';
 import { cn } from '../primitives/lib/utils';
 import { formatNumber } from '../utils';
 
@@ -37,15 +37,6 @@ import { DataTableCards, type DataTableCardRow } from './data-table-cards';
 import { Menu, MenuCheckboxItem, MenuContent, MenuItem, MenuTrigger } from './menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
 import { Skeleton } from './skeleton';
-
-// Shared across table mode's `<th>`/`<td>` checkboxes and card mode's
-// toolbar/per-card checkboxes — [8.14.7]'s card mode reuses these
-// literals rather than writing second copies, so #458 (i18n retrofit)
-// only ever has to translate one occurrence of each.
-const SELECT_ALL_LABEL = 'Select all rows on this page';
-function selectRowLabel(rowIndex: number): string {
-  return `Select row ${rowIndex + 1}`;
-}
 
 // [8.14.7] `DataTable` measures its own root element to pick a render
 // mode — see `use-container-width.ts`'s doc comment for why a *container*
@@ -119,8 +110,8 @@ export interface DataTableProps<TData extends RowData> {
   onPageSizeChange?: (size: number) => void;
   /** @default [10, 20, 50] */
   pageSizeOptions?: readonly number[];
-  /** Accessible name for the rows-per-page control. English default,
-   * same "not yet retrofitted onto i18next" convention as `emptyMessage`. */
+  /** Accessible name for the rows-per-page control. Defaults to
+   * `t('pagination.rowsPerPage')` when omitted — see [8.14.15] / #458. */
   pageSizeLabel?: string;
 
   selectedIds?: ReadonlySet<string>;
@@ -133,15 +124,15 @@ export interface DataTableProps<TData extends RowData> {
    * `loading`, which means "no rows exist yet". `loading` wins when both
    * are set. */
   isFetching?: boolean;
-  /** Announced (politely) while `loading`. English default matches
-   * `emptyMessage`; i18n of the whole component is [8.14.15] / #458. */
+  /** Announced (politely) while `loading`. Defaults to `t('status.loading')`
+   * when omitted — see [8.14.15] / #458. */
   loadingMessage?: string;
   error?: string;
   emptyMessage?: string;
 
   /** Announced (politely) whenever the visible result count changes —
-   * defaults to English; pass a Bangla template for a Bangla-locale story
-   * until FormField/i18next wiring exists, same as `Combobox`. */
+   * defaults to a translated `table.announceResults_one`/`_other` when omitted, see
+   * [8.14.15] / #458. */
   announceResults?: (count: number, total: number) => string;
 
   /** Columns hidden until a caller opts them into `columnsMenu`, or until
@@ -159,8 +150,7 @@ export interface DataTableProps<TData extends RowData> {
    * default: a table with a fixed, small column set (most of today's
    * callers) has nothing worth hiding. */
   columnsMenu?: boolean;
-  /** English default, same "not yet retrofitted onto i18next" convention
-   * as `emptyMessage`/`announceResults` above. */
+  /** Defaults to `t('table.columns')` when omitted — see [8.14.15] / #458. */
   columnsMenuLabel?: string;
 
   /** Renders an inline expansion panel below a row (e.g. classes/index.tsx's
@@ -183,13 +173,16 @@ export interface DataTableProps<TData extends RowData> {
    * regardless of measured width — used by Storybook stories, tests, and
    * any caller that already knows which layout it wants. */
   layout?: 'auto' | 'table' | 'cards';
-  /** English default. Trigger label for card mode's sort control (a
-   * `Menu` standing in for the `<th>` sort buttons that have no home once
-   * there's no `<th>` row) when no column is currently sorted. */
+  /** Trigger label for card mode's sort control (a `Menu` standing in for
+   * the `<th>` sort buttons that have no home once there's no `<th>` row)
+   * when no column is currently sorted. Defaults to `t('table.sort')`
+   * when omitted — see [8.14.15] / #458. */
   sortMenuLabel?: string;
-  /** English default. Formats a sortable column's label plus its current
-   * direction for card mode's sort control — both the menu trigger (when
-   * that column is the active sort) and each menu item. */
+  /** Formats a sortable column's label plus its current direction for
+   * card mode's sort control — both the menu trigger (when that column is
+   * the active sort) and each menu item. Defaults to a translated
+   * `t('table.sortedAscending'/'sortedDescending', ...)` when omitted —
+   * see [8.14.15] / #458. */
   sortOptionLabel?: (header: string, direction: 'asc' | 'desc' | null) => string;
 }
 
@@ -235,31 +228,50 @@ export function DataTable<TData extends RowData>({
   onPageChange,
   onPageSizeChange,
   pageSizeOptions = [10, 20, 50],
-  pageSizeLabel = 'Rows per page',
+  pageSizeLabel,
   selectedIds,
   onSelectedIdsChange,
   bulkActions,
   loading = false,
   isFetching = false,
-  loadingMessage = 'Loading…',
+  loadingMessage,
   error,
-  emptyMessage = 'No results',
-  announceResults = (count, total) => `${count} of ${total} result${total === 1 ? '' : 's'}`,
+  emptyMessage,
+  announceResults,
   defaultColumnVisibility,
   columnsMenu = false,
-  columnsMenuLabel = 'Columns',
+  columnsMenuLabel,
   renderExpandedRow,
-  expandRowLabel = () => 'Expand row',
+  expandRowLabel,
   layout = 'auto',
-  sortMenuLabel = 'Sort',
-  sortOptionLabel = (header, direction) =>
-    direction === 'asc'
-      ? `${header}, sorted ascending`
-      : direction === 'desc'
-        ? `${header}, sorted descending`
-        : header,
+  sortMenuLabel,
+  sortOptionLabel,
 }: DataTableProps<TData>) {
+  const { t } = useTranslation();
   const regionConfig = useRegionConfig();
+  // [8.14.15] Props are overrides now, not English defaults — the lint
+  // guard can't see a destructuring default, so the resolved fallback
+  // lives here instead.
+  const selectAllLabel = t('table.selectAllOnPage');
+  const resolvedSelectRowLabel = (rowIndex: number) =>
+    t('table.selectRow', { index: rowIndex + 1 });
+  const resolvedEmptyMessage = emptyMessage ?? t('table.empty');
+  const resolvedLoadingMessage = loadingMessage ?? t('status.loading');
+  const resolvedPageSizeLabel = pageSizeLabel ?? t('pagination.rowsPerPage');
+  const resolvedColumnsMenuLabel = columnsMenuLabel ?? t('table.columns');
+  const resolvedExpandRowLabel = expandRowLabel ?? (() => t('table.expandRow'));
+  const resolvedSortMenuLabel = sortMenuLabel ?? t('table.sort');
+  const resolvedSortOptionLabel =
+    sortOptionLabel ??
+    ((header: string, direction: 'asc' | 'desc' | null) =>
+      direction === 'asc'
+        ? t('table.sortedAscending', { header })
+        : direction === 'desc'
+          ? t('table.sortedDescending', { header })
+          : header);
+  const resolvedAnnounceResults =
+    announceResults ??
+    ((count: number, total: number) => t('table.announceResults', { count: count, total }));
   const [expandedRowIds, setExpandedRowIds] = React.useState<ReadonlySet<string>>(new Set());
   const expandable = renderExpandedRow !== undefined;
   function toggleExpanded(id: string) {
@@ -512,11 +524,11 @@ export function DataTable<TData extends RowData>({
     : [];
   const currentSortedHeader = sortableHeaders.find((header) => header.column.getIsSorted());
   const sortMenuTriggerLabel = currentSortedHeader
-    ? `${sortMenuLabel}: ${sortOptionLabel(
+    ? `${resolvedSortMenuLabel}: ${resolvedSortOptionLabel(
         String(currentSortedHeader.column.columnDef.header),
         currentSortedHeader.column.getIsSorted() === 'desc' ? 'desc' : 'asc',
       )}`
-    : sortMenuLabel;
+    : resolvedSortMenuLabel;
 
   return (
     <div ref={containerRef}>
@@ -540,7 +552,7 @@ export function DataTable<TData extends RowData>({
                         key={header.column.id}
                         onSelect={() => header.column.toggleSorting()}
                       >
-                        {sortOptionLabel(label, direction)}
+                        {resolvedSortOptionLabel(label, direction)}
                       </MenuItem>
                     );
                   })}
@@ -552,7 +564,7 @@ export function DataTable<TData extends RowData>({
             <Menu>
               <MenuTrigger asChild>
                 <Button variant="outline" size="sm">
-                  {columnsMenuLabel}
+                  {resolvedColumnsMenuLabel}
                 </Button>
               </MenuTrigger>
               <MenuContent align="end">
@@ -579,7 +591,7 @@ export function DataTable<TData extends RowData>({
       )}
       {selectable && selectedIds && selectedIds.size > 0 && bulkActions && (
         <div className="mb-2 flex items-center gap-2 rounded-md bg-muted p-2">
-          <span className="text-sm">{selectedIds.size} selected</span>
+          <span className="text-sm">{t('table.selectedCount', { count: selectedIds.size })}</span>
           {bulkActions}
         </div>
       )}
@@ -605,20 +617,20 @@ export function DataTable<TData extends RowData>({
           showStaleRows={showStaleRows}
           skeletonRowCount={skeletonRowCount}
           {...(error !== undefined ? { error } : {})}
-          emptyMessage={emptyMessage}
+          emptyMessage={resolvedEmptyMessage}
           selectable={selectable}
           {...(selectedIds !== undefined ? { selectedIds } : {})}
           toggleRow={toggleRow}
           allSelected={allSelected}
           someSelected={someSelected}
           setPageSelection={setPageSelection}
-          selectAllLabel={SELECT_ALL_LABEL}
-          selectRowLabel={selectRowLabel}
+          selectAllLabel={selectAllLabel}
+          selectRowLabel={resolvedSelectRowLabel}
           expandable={expandable}
           expandedRowIds={expandedRowIds}
           toggleExpanded={toggleExpanded}
           {...(renderExpandedRow !== undefined ? { renderExpandedRow } : {})}
-          expandRowLabel={expandRowLabel}
+          expandRowLabel={resolvedExpandRowLabel}
         />
       ) : (
         <div
@@ -641,13 +653,13 @@ export function DataTable<TData extends RowData>({
                 <tr key={headerGroup.id}>
                   {expandable && (
                     <th scope="col" className="w-8 p-2 text-start">
-                      <span className="sr-only">Expand</span>
+                      <span className="sr-only">{t('table.expand')}</span>
                     </th>
                   )}
                   {selectable && (
                     <th scope="col" className="p-2 text-start">
                       <Checkbox
-                        aria-label={SELECT_ALL_LABEL}
+                        aria-label={selectAllLabel}
                         checked={allSelected ? true : someSelected ? 'indeterminate' : false}
                         onCheckedChange={(checked) => setPageSelection(checked === true)}
                       />
@@ -722,7 +734,7 @@ export function DataTable<TData extends RowData>({
               {!loading && !error && rows.length === 0 && (
                 <tr>
                   <td colSpan={colSpanCount} className="p-4 text-center text-muted-foreground">
-                    {emptyMessage}
+                    {resolvedEmptyMessage}
                   </td>
                 </tr>
               )}
@@ -754,7 +766,7 @@ export function DataTable<TData extends RowData>({
                               // at it unconditionally would name an
                               // element assistive tech can never find.
                               aria-controls={isExpanded ? expandedPanelId : undefined}
-                              aria-label={expandRowLabel(row.original)}
+                              aria-label={resolvedExpandRowLabel(row.original)}
                               className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                               onClick={() => toggleExpanded(row.id)}
                             >
@@ -769,7 +781,7 @@ export function DataTable<TData extends RowData>({
                         {selectable && (
                           <td className="p-2">
                             <Checkbox
-                              aria-label={selectRowLabel(rowIndex)}
+                              aria-label={resolvedSelectRowLabel(rowIndex)}
                               checked={selectedIds?.has(row.id) ?? false}
                               onCheckedChange={() => toggleRow(row.id)}
                             />
@@ -840,19 +852,24 @@ export function DataTable<TData extends RowData>({
         </div>
       )}
       <div aria-live="polite" className="sr-only">
-        {loading ? loadingMessage : !error && announceResults(rows.length, totalCount)}
+        {loading
+          ? resolvedLoadingMessage
+          : !error && resolvedAnnounceResults(rows.length, totalCount)}
       </div>
       <div className="mt-2 flex items-center justify-between text-sm">
         <div className="flex items-center gap-3">
           <span className="text-muted-foreground">
-            Page {page} of {totalPages}
+            {t('table.pageOf', {
+              page: formatNumber(page, regionConfig),
+              total: formatNumber(totalPages, regionConfig),
+            })}
           </span>
           {onPageSizeChange && (
             <Select
               value={String(pageSize)}
               onValueChange={(value) => onPageSizeChange(Number(value))}
             >
-              <SelectTrigger aria-label={pageSizeLabel} className="w-20">
+              <SelectTrigger aria-label={resolvedPageSizeLabel} className="w-20">
                 {/* Radix's `SelectValue` only renders a label when its
                  * displayed value matches a mounted `SelectItem`'s own
                  * value — if the URL's `limit` (or a stale locale
@@ -881,7 +898,7 @@ export function DataTable<TData extends RowData>({
             disabled={page <= 1}
             onClick={() => onPageChange(page - 1)}
           >
-            Previous
+            {t('pagination.previous')}
           </button>
           <button
             type="button"
@@ -889,7 +906,7 @@ export function DataTable<TData extends RowData>({
             disabled={page >= totalPages}
             onClick={() => onPageChange(page + 1)}
           >
-            Next
+            {t('pagination.next')}
           </button>
         </div>
       </div>

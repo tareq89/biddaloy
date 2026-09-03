@@ -1,10 +1,12 @@
 import type { ColumnVisibilityState } from '@tanstack/react-table';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type * as React from 'react';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { REGION_BD_BN, REGION_BD_EN, RegionConfigProvider } from '../i18n';
+import { renderWithProviders } from '../test';
 
 import {
   DataTable,
@@ -12,6 +14,25 @@ import {
   type DataTableProps,
   type DataTableSort,
 } from './data-table';
+
+/** `DEFAULT_LOCALE` (`locale-storage.ts`) is Bengali, not English — same
+ * reason `cached-data-notice.test.tsx` forces `locale: 'en'` and awaits
+ * `localeReady` before any synchronous assertion. Also wraps in
+ * `RegionConfigProvider(REGION_BD_EN)` — `useRegionConfig()` defaults to
+ * Bengali numerals regardless of i18next locale, and several of these
+ * assertions are plain Latin-digit text (page counts, selection counts). A
+ * case that supplies its own `RegionConfigProvider` further down the tree
+ * (the `bn`-numeral tests below) simply overrides this default one. */
+async function renderInEnglish(ui: React.ReactElement) {
+  const view = renderWithProviders(
+    <RegionConfigProvider value={REGION_BD_EN}>{ui}</RegionConfigProvider>,
+    { locale: 'en' },
+  );
+  await act(async () => {
+    await view.localeReady;
+  });
+  return view;
+}
 
 interface Student {
   id: string;
@@ -145,8 +166,8 @@ describe('DataTable', () => {
     window.localStorage.clear();
   });
 
-  it('renders a real <table> with a <caption> and <th scope="col">', () => {
-    render(<Controlled />);
+  it('renders a real <table> with a <caption> and <th scope="col">', async () => {
+    await renderInEnglish(<Controlled />);
     const table = screen.getByRole('table');
     expect(table.tagName).toBe('TABLE');
     // The caption is visually hidden but present for the accessible name.
@@ -158,8 +179,8 @@ describe('DataTable', () => {
     }
   });
 
-  it('renders every row and cell from data', () => {
-    render(<Controlled />);
+  it('renders every row and cell from data', async () => {
+    await renderInEnglish(<Controlled />);
     expect(screen.getByText('Rahim Uddin')).toBeTruthy();
     expect(screen.getByText('Karim Ahmed')).toBeTruthy();
     expect(screen.getByText('Fatema Begum')).toBeTruthy();
@@ -167,7 +188,7 @@ describe('DataTable', () => {
 
   it('sets aria-sort on a sortable column header, cycling on click, and reports it via onSortingChange', async () => {
     const user = userEvent.setup();
-    render(<Controlled />);
+    await renderInEnglish(<Controlled />);
     const nameHeader = screen.getByRole('columnheader', { name: /Name/ });
     expect(nameHeader.getAttribute('aria-sort')).toBe('none');
 
@@ -178,15 +199,15 @@ describe('DataTable', () => {
     await waitFor(() => expect(nameHeader.getAttribute('aria-sort')).toBe('descending'));
   });
 
-  it('a non-sortable column header carries no aria-sort at all', () => {
-    render(<Controlled />);
+  it('a non-sortable column header carries no aria-sort at all', async () => {
+    await renderInEnglish(<Controlled />);
     expect(screen.getByRole('columnheader', { name: 'Class' }).hasAttribute('aria-sort')).toBe(
       false,
     );
   });
 
-  it('shows a table-shaped skeleton while loading, not a one-line "Loading…" cell', () => {
-    render(<Controlled loading />);
+  it('shows a table-shaped skeleton while loading, not a one-line "Loading…" cell', async () => {
+    await renderInEnglish(<Controlled loading />);
     // The literal text moved to the polite live region (still reachable by
     // assistive tech) — it is no longer a visible table cell.
     expect(screen.getByText('Loading…')).toBeTruthy();
@@ -195,8 +216,8 @@ describe('DataTable', () => {
     expect(skeletonRows.length).toBeGreaterThan(0);
   });
 
-  it('skeleton row count is pageSize capped at 10, and each row carries colSpanCount cells', () => {
-    render(<Controlled loading pageSize={15} />);
+  it('skeleton row count is pageSize capped at 10, and each row carries colSpanCount cells', async () => {
+    await renderInEnglish(<Controlled loading pageSize={15} />);
     const skeletonRows = document.querySelectorAll('tr[data-placeholder="skeleton"]');
     // COLUMNS has 2 data columns (Name, Class), no selectable/expandable
     // extras in this render.
@@ -206,8 +227,8 @@ describe('DataTable', () => {
     }
   });
 
-  it('skeleton cell count grows with selectable and expandable columns', () => {
-    render(
+  it('skeleton cell count grows with selectable and expandable columns', async () => {
+    await renderInEnglish(
       <Controlled
         loading
         pageSize={4}
@@ -225,8 +246,8 @@ describe('DataTable', () => {
     }
   });
 
-  it('while isFetching, previous rows stay mounted and dimmed, with aria-busy on the region', () => {
-    render(<Controlled isFetching />);
+  it('while isFetching, previous rows stay mounted and dimmed, with aria-busy on the region', async () => {
+    await renderInEnglish(<Controlled isFetching />);
     expect(screen.getByText('Rahim Uddin')).toBeTruthy();
     const region = screen.getByRole('region', { name: 'Students' });
     expect(region.getAttribute('aria-busy')).toBe('true');
@@ -234,8 +255,8 @@ describe('DataTable', () => {
     expect(tbody?.className).toContain('opacity-60');
   });
 
-  it('loading wins over isFetching — skeleton path only, no dim class, when both are true', () => {
-    render(<Controlled loading isFetching />);
+  it('loading wins over isFetching — skeleton path only, no dim class, when both are true', async () => {
+    await renderInEnglish(<Controlled loading isFetching />);
     expect(screen.queryByText('Rahim Uddin')).toBeNull();
     const skeletonRows = document.querySelectorAll('tr[data-placeholder="skeleton"]');
     expect(skeletonRows.length).toBeGreaterThan(0);
@@ -243,8 +264,10 @@ describe('DataTable', () => {
     expect(tbody?.className).not.toContain('opacity-60');
   });
 
-  it('isFetching with zero rows falls through to the empty state, not the dim/stale state', () => {
-    render(<Controlled data={[]} totalCount={0} isFetching emptyMessage="No students yet" />);
+  it('isFetching with zero rows falls through to the empty state, not the dim/stale state', async () => {
+    await renderInEnglish(
+      <Controlled data={[]} totalCount={0} isFetching emptyMessage="No students yet" />,
+    );
     expect(screen.getByText('No students yet')).toBeTruthy();
     const region = screen.getByRole('region', { name: 'Students' });
     expect(region.getAttribute('aria-busy')).toBe('false');
@@ -252,7 +275,7 @@ describe('DataTable', () => {
     expect(tbody?.className).not.toContain('opacity-60');
   });
 
-  it('focus is not lost when isFetching flips true and dims the stale rows', () => {
+  it('focus is not lost when isFetching flips true and dims the stale rows', async () => {
     // Regression this whole ticket exists to prevent: a naive
     // implementation that keyed the dimmed `<tbody>` differently, or
     // conditionally unmounted/remounted rows on `isFetching`, would drop
@@ -260,40 +283,44 @@ describe('DataTable', () => {
     // `rerender`, matching the real "user paged/filtered" sequence —
     // rendering `isFetching` already-true up front (as the previous
     // version of this test did) can't catch that class of bug at all.
-    const { rerender } = render(<Controlled isFetching={false} />);
+    const { rerender } = await renderInEnglish(<Controlled isFetching={false} />);
     const firstCell = screen.getAllByRole('cell')[0] as HTMLElement;
     firstCell.focus();
     expect(document.activeElement).toBe(firstCell);
 
-    rerender(<Controlled isFetching />);
+    rerender(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <Controlled isFetching />
+      </RegionConfigProvider>,
+    );
     expect(document.activeElement).toBe(firstCell);
     expect(document.activeElement).toBeInstanceOf(HTMLElement);
   });
 
-  it('shows an empty state with a caller-provided message', () => {
-    render(<Controlled data={[]} totalCount={0} emptyMessage="No students yet" />);
+  it('shows an empty state with a caller-provided message', async () => {
+    await renderInEnglish(<Controlled data={[]} totalCount={0} emptyMessage="No students yet" />);
     expect(screen.getByText('No students yet')).toBeTruthy();
   });
 
-  it('shows an error state via role=alert rather than rendering stale rows', () => {
-    render(<Controlled data={[]} error="Failed to load students" />);
+  it('shows an error state via role=alert rather than rendering stale rows', async () => {
+    await renderInEnglish(<Controlled data={[]} error="Failed to load students" />);
     expect(screen.getByRole('alert').textContent).toBe('Failed to load students');
   });
 
-  it('announces the result count politely on render', () => {
-    render(<Controlled totalCount={30} />);
+  it('announces the result count politely on render', async () => {
+    await renderInEnglish(<Controlled totalCount={30} />);
     expect(screen.getByText('3 of 30 results')).toBeTruthy();
   });
 
-  it('the scroll container is a focusable, labelled region — the 320px responsive strategy', () => {
-    render(<Controlled />);
+  it('the scroll container is a focusable, labelled region — the 320px responsive strategy', async () => {
+    await renderInEnglish(<Controlled />);
     const region = screen.getByRole('region', { name: 'Students' });
     expect(region.getAttribute('tabindex')).toBe('0');
   });
 
   it('arrow keys move cell focus via roving tabindex', async () => {
     const user = userEvent.setup();
-    render(<Controlled />);
+    await renderInEnglish(<Controlled />);
     const cells = screen.getAllByRole('cell');
     // Only one cell (the first) is a tab stop initially.
     expect(cells[0]?.getAttribute('tabindex')).toBe('0');
@@ -316,7 +343,7 @@ describe('DataTable', () => {
 
   it('Home/End move focus to the first/last cell in the current row', async () => {
     const user = userEvent.setup();
-    render(<Controlled />);
+    await renderInEnglish(<Controlled />);
     const cells = screen.getAllByRole('cell');
     cells[0]?.focus();
 
@@ -329,7 +356,7 @@ describe('DataTable', () => {
 
   it('arrow keys cannot move focus past the edges of the grid', async () => {
     const user = userEvent.setup();
-    render(<Controlled />);
+    await renderInEnglish(<Controlled />);
     const cells = screen.getAllByRole('cell');
     cells[0]?.focus();
     await user.keyboard('{ArrowUp}{ArrowLeft}');
@@ -338,7 +365,7 @@ describe('DataTable', () => {
 
   it('Space toggles row selection when a cell in that row is focused, and toggles it back off', async () => {
     const user = userEvent.setup();
-    render(<Controlled selectable />);
+    await renderInEnglish(<Controlled selectable />);
     // The checkbox column's <td> isn't part of the roving-tabindex grid
     // (the checkbox itself is its own native tab stop) — the first *data*
     // cell (index 1, after the checkbox cell at index 0) is the roving stop.
@@ -354,7 +381,7 @@ describe('DataTable', () => {
 
   it('Space on a cell does nothing when the table is not selectable', async () => {
     const user = userEvent.setup();
-    render(<Controlled />);
+    await renderInEnglish(<Controlled />);
     const cells = screen.getAllByRole('cell');
     cells[0]?.focus();
     await user.keyboard(' ');
@@ -363,7 +390,7 @@ describe('DataTable', () => {
 
   it('exposes selection state and bulk actions to the shell only once something is selected', async () => {
     const user = userEvent.setup();
-    render(<Controlled selectable />);
+    await renderInEnglish(<Controlled selectable />);
     expect(screen.queryByRole('button', { name: 'Delete selected' })).toBeNull();
 
     await user.click(screen.getAllByRole('checkbox', { name: /Select row/ })[0]!);
@@ -373,8 +400,8 @@ describe('DataTable', () => {
 
   it('selecting all rows via the header checkbox selects every row on the page', async () => {
     const user = userEvent.setup();
-    render(<Controlled selectable />);
-    await user.click(screen.getByRole('checkbox', { name: 'Select all rows on this page' }));
+    await renderInEnglish(<Controlled selectable />);
+    await user.click(screen.getByRole('checkbox', { name: 'Select all rows on page' }));
     for (const checkbox of screen.getAllByRole('checkbox', { name: /Select row/ })) {
       expect(checkbox.getAttribute('aria-checked')).toBe('true');
     }
@@ -386,7 +413,7 @@ describe('DataTable', () => {
   // everyone picked on an earlier page.
   it('select-all on page two keeps rows already selected on page one', async () => {
     const user = userEvent.setup();
-    render(<PagedControlled />);
+    await renderInEnglish(<PagedControlled />);
 
     await user.click(screen.getByRole('checkbox', { name: 'Select row 1' }));
     expect(screen.getByText('1 selected')).toBeTruthy();
@@ -395,7 +422,7 @@ describe('DataTable', () => {
     await screen.findByText('Nadia Islam');
     // Page two starts unselected, so the header checkbox reads unchecked
     // even though the overall selection is non-empty.
-    const selectAll = screen.getByRole('checkbox', { name: 'Select all rows on this page' });
+    const selectAll = screen.getByRole('checkbox', { name: 'Select all rows on page' });
     expect(selectAll.getAttribute('aria-checked')).toBe('false');
 
     await user.click(selectAll);
@@ -405,40 +432,40 @@ describe('DataTable', () => {
 
   it('clearing select-all on page two leaves page one selections alone', async () => {
     const user = userEvent.setup();
-    render(<PagedControlled />);
+    await renderInEnglish(<PagedControlled />);
 
-    await user.click(screen.getByRole('checkbox', { name: 'Select all rows on this page' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Select all rows on page' }));
     await user.click(screen.getByRole('button', { name: 'Next' }));
     await screen.findByText('Nadia Islam');
-    await user.click(screen.getByRole('checkbox', { name: 'Select all rows on this page' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Select all rows on page' }));
     expect(screen.getByText('6 selected')).toBeTruthy();
 
-    await user.click(screen.getByRole('checkbox', { name: 'Select all rows on this page' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Select all rows on page' }));
     // Only page two was cleared.
     expect(screen.getByText('3 selected')).toBeTruthy();
   });
 
   it('shows the header checkbox as indeterminate when only some page rows are selected', async () => {
     const user = userEvent.setup();
-    render(<Controlled selectable />);
+    await renderInEnglish(<Controlled selectable />);
     await user.click(screen.getAllByRole('checkbox', { name: /Select row/ })[0]!);
     expect(
       screen
-        .getByRole('checkbox', { name: 'Select all rows on this page' })
+        .getByRole('checkbox', { name: 'Select all rows on page' })
         .getAttribute('aria-checked'),
     ).toBe('mixed');
   });
 
-  it('persists column visibility to localStorage per tableId', () => {
+  it('persists column visibility to localStorage per tableId', async () => {
     const setItem = vi.spyOn(window.localStorage.__proto__, 'setItem');
-    render(<Controlled />);
+    await renderInEnglish(<Controlled />);
     expect(setItem).toHaveBeenCalledWith('data-table:students-test', expect.any(String));
     setItem.mockRestore();
   });
 
-  it('does not crash on a corrupt localStorage value for this tableId', () => {
+  it('does not crash on a corrupt localStorage value for this tableId', async () => {
     window.localStorage.setItem('data-table:students-test', 'not json');
-    expect(() => render(<Controlled />)).not.toThrow();
+    await expect(renderInEnglish(<Controlled />)).resolves.not.toThrow();
   });
 });
 
@@ -446,14 +473,14 @@ describe('DataTable columns menu', () => {
   beforeEach(() => window.localStorage.clear());
   afterEach(() => window.localStorage.clear());
 
-  it('renders no Columns trigger when columnsMenu is off — the default', () => {
-    render(<Controlled />);
+  it('renders no Columns trigger when columnsMenu is off — the default', async () => {
+    await renderInEnglish(<Controlled />);
     expect(screen.queryByRole('button', { name: 'Columns' })).toBeNull();
   });
 
   it('lists every column as a checked item, all columns visible by default', async () => {
     const user = userEvent.setup();
-    render(<Controlled columnsMenu />);
+    await renderInEnglish(<Controlled columnsMenu />);
 
     await user.click(screen.getByRole('button', { name: 'Columns' }));
 
@@ -467,7 +494,7 @@ describe('DataTable columns menu', () => {
 
   it('unchecking a column hides it from the table header and its cells', async () => {
     const user = userEvent.setup();
-    render(<Controlled columnsMenu />);
+    await renderInEnglish(<Controlled columnsMenu />);
 
     expect(screen.getByRole('columnheader', { name: 'Class' })).toBeTruthy();
 
@@ -478,17 +505,21 @@ describe('DataTable columns menu', () => {
     expect(screen.queryByText('Six')).toBeNull();
   });
 
-  it('respects defaultColumnVisibility on first mount, before any localStorage value exists', () => {
-    render(<Controlled columnsMenu defaultColumnVisibility={{ className: false }} />);
+  it('respects defaultColumnVisibility on first mount, before any localStorage value exists', async () => {
+    await renderInEnglish(
+      <Controlled columnsMenu defaultColumnVisibility={{ className: false }} />,
+    );
     expect(screen.queryByRole('columnheader', { name: 'Class' })).toBeNull();
   });
 
-  it('a persisted localStorage choice wins over defaultColumnVisibility on remount', () => {
+  it('a persisted localStorage choice wins over defaultColumnVisibility on remount', async () => {
     window.localStorage.setItem(
       'data-table:students-test',
       JSON.stringify({ columnVisibility: { className: true }, columnOrder: [] }),
     );
-    render(<Controlled columnsMenu defaultColumnVisibility={{ className: false }} />);
+    await renderInEnglish(
+      <Controlled columnsMenu defaultColumnVisibility={{ className: false }} />,
+    );
     expect(screen.getByRole('columnheader', { name: 'Class' })).toBeTruthy();
   });
 });
@@ -502,23 +533,25 @@ describe('DataTable pinned columns', () => {
   beforeEach(() => window.localStorage.clear());
   afterEach(() => window.localStorage.clear());
 
-  it('stays visible even when defaultColumnVisibility names it hidden', () => {
-    render(<Controlled columns={PINNED_COLUMNS} defaultColumnVisibility={{ className: false }} />);
+  it('stays visible even when defaultColumnVisibility names it hidden', async () => {
+    await renderInEnglish(
+      <Controlled columns={PINNED_COLUMNS} defaultColumnVisibility={{ className: false }} />,
+    );
     expect(screen.getByRole('columnheader', { name: 'Class' })).toBeTruthy();
   });
 
-  it('stays visible even when a stale localStorage value names it hidden', () => {
+  it('stays visible even when a stale localStorage value names it hidden', async () => {
     window.localStorage.setItem(
       'data-table:students-test',
       JSON.stringify({ columnVisibility: { className: false }, columnOrder: [] }),
     );
-    render(<Controlled columns={PINNED_COLUMNS} />);
+    await renderInEnglish(<Controlled columns={PINNED_COLUMNS} />);
     expect(screen.getByRole('columnheader', { name: 'Class' })).toBeTruthy();
   });
 
   it('is omitted from the columns menu, so it cannot be toggled off', async () => {
     const user = userEvent.setup();
-    render(<Controlled columns={PINNED_COLUMNS} columnsMenu />);
+    await renderInEnglish(<Controlled columns={PINNED_COLUMNS} columnsMenu />);
 
     expect(screen.getByRole('columnheader', { name: 'Class' })).toBeTruthy();
 
@@ -532,8 +565,8 @@ describe('DataTable pinned columns', () => {
 describe('DataTable pagination', () => {
   afterEach(() => window.localStorage.clear());
 
-  it('Previous is disabled on the first page, Next is not', () => {
-    render(<Controlled totalCount={100} />);
+  it('Previous is disabled on the first page, Next is not', async () => {
+    await renderInEnglish(<Controlled totalCount={100} />);
     expect(screen.getByRole('button', { name: 'Previous' }).hasAttribute('disabled')).toBe(true);
     expect(screen.getByRole('button', { name: 'Next' }).hasAttribute('disabled')).toBe(false);
   });
@@ -559,7 +592,7 @@ describe('DataTable pagination', () => {
         />
       );
     }
-    render(<PageProbe />);
+    await renderInEnglish(<PageProbe />);
     await user.click(screen.getByRole('button', { name: 'Next' }));
     await waitFor(() => expect(screen.getByText('Page 2 of 5')).toBeTruthy());
   });
@@ -568,14 +601,14 @@ describe('DataTable pagination', () => {
 describe('DataTable page-size control [8.14.10]', () => {
   afterEach(() => window.localStorage.clear());
 
-  it("renders no size control when onPageSizeChange is absent — today's default", () => {
-    render(<Controlled totalCount={100} />);
+  it("renders no size control when onPageSizeChange is absent — today's default", async () => {
+    await renderInEnglish(<Controlled totalCount={100} />);
     expect(screen.queryByRole('combobox', { name: 'Rows per page' })).toBeNull();
   });
 
   it('renders a labelled combobox with 10/20/50 present, in Latin numerals under the en RegionConfig', async () => {
     const user = userEvent.setup();
-    render(
+    await renderInEnglish(
       <RegionConfigProvider value={REGION_BD_EN}>
         <DataTable
           tableId="students-page-size-test"
@@ -604,7 +637,7 @@ describe('DataTable page-size control [8.14.10]', () => {
   it('choosing 50 calls onPageSizeChange(50) exactly once', async () => {
     const user = userEvent.setup();
     const onPageSizeChange = vi.fn();
-    render(
+    await renderInEnglish(
       <RegionConfigProvider value={REGION_BD_EN}>
         <DataTable
           tableId="students-page-size-choose-test"
@@ -633,8 +666,8 @@ describe('DataTable page-size control [8.14.10]', () => {
   // still render legibly — Radix's `SelectValue` only shows a label when
   // its value matches a mounted `SelectItem`, and with the default
   // `[10, 20, 50]` options none of those match 15.
-  it('shows the current pageSize even when it is not one of pageSizeOptions', () => {
-    render(
+  it('shows the current pageSize even when it is not one of pageSizeOptions', async () => {
+    await renderInEnglish(
       <RegionConfigProvider value={REGION_BD_EN}>
         <DataTable
           tableId="students-page-size-off-list-test"
@@ -658,7 +691,7 @@ describe('DataTable page-size control [8.14.10]', () => {
 
   it('option labels render in Bengali numerals under the bn RegionConfig', async () => {
     const user = userEvent.setup();
-    render(
+    await renderInEnglish(
       <RegionConfigProvider value={REGION_BD_BN}>
         <DataTable
           tableId="students-page-size-bn-test"
@@ -683,7 +716,7 @@ describe('DataTable page-size control [8.14.10]', () => {
   });
 
   it('is axe clean with the page-size control present', async () => {
-    const { container } = render(
+    const { container } = await renderInEnglish(
       <DataTable
         tableId="students-page-size-axe-test"
         caption="Students"
@@ -703,7 +736,7 @@ describe('DataTable page-size control [8.14.10]', () => {
   });
 
   it('is reachable by keyboard', async () => {
-    render(
+    await renderInEnglish(
       <DataTable
         tableId="students-page-size-kbd-test"
         caption="Students"
@@ -731,8 +764,8 @@ describe('DataTable page-size control [8.14.10]', () => {
     expect(await screen.findByRole('listbox')).toBeTruthy();
   });
 
-  it('card mode shows the same page-size control as table mode', () => {
-    render(
+  it('card mode shows the same page-size control as table mode', async () => {
+    await renderInEnglish(
       <DataTable
         tableId="students-page-size-card-test"
         caption="Students"
@@ -756,14 +789,14 @@ describe('DataTable page-size control [8.14.10]', () => {
 describe('DataTable expandable rows', () => {
   afterEach(() => window.localStorage.clear());
 
-  it('is absent when renderExpandedRow is not supplied', () => {
-    render(<Controlled />);
+  it('is absent when renderExpandedRow is not supplied', async () => {
+    await renderInEnglish(<Controlled />);
     expect(screen.queryAllByRole('button', { name: /Details for/ })).toHaveLength(0);
   });
 
   it('renders a per-row toggle, collapsed by default, that expands and collapses on click', async () => {
     const user = userEvent.setup();
-    render(<Controlled expandable />);
+    await renderInEnglish(<Controlled expandable />);
 
     const toggle = screen.getByRole('button', { name: 'Details for Rahim Uddin' });
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
@@ -792,7 +825,7 @@ describe('DataTable expandable rows', () => {
 
   it("expanding one row does not affect another row's expanded state", async () => {
     const user = userEvent.setup();
-    render(<Controlled expandable />);
+    await renderInEnglish(<Controlled expandable />);
 
     await user.click(screen.getByRole('button', { name: 'Details for Rahim Uddin' }));
     expect(screen.getByText('Expanded details for Rahim Uddin')).toBeTruthy();
@@ -807,7 +840,7 @@ describe('DataTable expandable rows', () => {
 
   it('the toggle button is a native tab stop, not part of the roving-tabindex data-cell grid', async () => {
     const user = userEvent.setup();
-    render(<Controlled expandable />);
+    await renderInEnglish(<Controlled expandable />);
     const cells = screen.getAllByRole('cell');
     // Same reasoning as the checkbox column: the first *data* cell is the
     // roving stop, at index 1 (index 0 is the expand-toggle cell).
@@ -818,7 +851,7 @@ describe('DataTable expandable rows', () => {
 
   it('the toggle is keyboard-operable — Enter and Space both activate it, same as any native button', async () => {
     const user = userEvent.setup();
-    render(<Controlled expandable />);
+    await renderInEnglish(<Controlled expandable />);
     const toggle = screen.getByRole('button', { name: 'Details for Rahim Uddin' });
 
     // Three tab stops precede the first row's toggle: the scrollable
@@ -849,15 +882,15 @@ describe('DataTable expandable rows', () => {
 describe('DataTable card mode', () => {
   afterEach(() => window.localStorage.clear());
 
-  it('renders a <ul>/<li> list with the caption as its accessible name, and no <table>', () => {
-    render(<Controlled layout="cards" />);
+  it('renders a <ul>/<li> list with the caption as its accessible name, and no <table>', async () => {
+    await renderInEnglish(<Controlled layout="cards" />);
     expect(screen.queryByRole('table')).toBeNull();
     expect(screen.getByRole('list', { name: 'Students' })).toBeTruthy();
     expect(screen.getAllByRole('listitem')).toHaveLength(STUDENTS.length);
   });
 
-  it('renders each row as a title plus dt/dd field pairs — no column declares a card role', () => {
-    render(<Controlled layout="cards" />);
+  it('renders each row as a title plus dt/dd field pairs — no column declares a card role', async () => {
+    await renderInEnglish(<Controlled layout="cards" />);
     // COLUMNS: `name` (first, undeclared) defaults to the card title;
     // `className` (the only other column) becomes a `dl` field.
     expect(screen.getByText('Rahim Uddin')).toBeTruthy();
@@ -869,7 +902,7 @@ describe('DataTable card mode', () => {
 
   it('per-card selection toggles onSelectedIdsChange, same as the table-mode checkbox', async () => {
     const user = userEvent.setup();
-    render(<Controlled layout="cards" selectable />);
+    await renderInEnglish(<Controlled layout="cards" selectable />);
     const checkbox = screen.getByRole('checkbox', { name: 'Select row 1' });
     await user.click(checkbox);
     expect(checkbox.getAttribute('aria-checked')).toBe('true');
@@ -877,8 +910,8 @@ describe('DataTable card mode', () => {
 
   it("select-all selects the current page and preserves a prior page's selections", async () => {
     const user = userEvent.setup();
-    render(<PagedControlled layout="cards" />);
-    const selectAll = screen.getByRole('checkbox', { name: 'Select all rows on this page' });
+    await renderInEnglish(<PagedControlled layout="cards" />);
+    const selectAll = screen.getByRole('checkbox', { name: 'Select all rows on page' });
     await user.click(selectAll);
     expect(
       screen.getByRole('checkbox', { name: 'Select row 1' }).getAttribute('aria-checked'),
@@ -890,7 +923,7 @@ describe('DataTable card mode', () => {
     // page one's rows, which aren't part of page two's own row set.
     expect(
       screen
-        .getByRole('checkbox', { name: 'Select all rows on this page' })
+        .getByRole('checkbox', { name: 'Select all rows on page' })
         .getAttribute('aria-checked'),
     ).toBe('false');
 
@@ -904,7 +937,7 @@ describe('DataTable card mode', () => {
 
   it("the sort control's trigger states the current sort and calls onSortingChange like a header button would", async () => {
     const user = userEvent.setup();
-    render(<Controlled layout="cards" />);
+    await renderInEnglish(<Controlled layout="cards" />);
     const trigger = screen.getByRole('button', { name: 'Sort' });
     await user.click(trigger);
     await user.click(screen.getByRole('menuitem', { name: 'Name' }));
@@ -915,11 +948,15 @@ describe('DataTable card mode', () => {
 
   it('expansion toggles aria-expanded, and a row expanded in table mode stays expanded after switching to cards', async () => {
     const user = userEvent.setup();
-    const { rerender } = render(<Controlled expandable layout="table" />);
+    const { rerender } = await renderInEnglish(<Controlled expandable layout="table" />);
     await user.click(screen.getByRole('button', { name: 'Details for Rahim Uddin' }));
     expect(screen.getByText('Expanded details for Rahim Uddin')).toBeTruthy();
 
-    rerender(<Controlled expandable layout="cards" />);
+    rerender(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <Controlled expandable layout="cards" />
+      </RegionConfigProvider>,
+    );
     const cardToggle = screen.getByRole('button', { name: 'Details for Rahim Uddin' });
     expect(cardToggle.getAttribute('aria-expanded')).toBe('true');
     expect(screen.getByText('Expanded details for Rahim Uddin')).toBeTruthy();
@@ -928,20 +965,22 @@ describe('DataTable card mode', () => {
     expect(cardToggle.getAttribute('aria-expanded')).toBe('false');
   });
 
-  it('loading renders skeleton cards, not real row content', () => {
-    render(<Controlled layout="cards" loading pageSize={3} />);
+  it('loading renders skeleton cards, not real row content', async () => {
+    await renderInEnglish(<Controlled layout="cards" loading pageSize={3} />);
     expect(screen.queryByText('Rahim Uddin')).toBeNull();
     const list = screen.getByRole('list', { name: 'Students' });
     expect(list.querySelectorAll('li[data-placeholder="skeleton"]')).toHaveLength(3);
   });
 
-  it('error renders role="alert" with the error message', () => {
-    render(<Controlled layout="cards" data={[]} error="Failed to load" />);
+  it('error renders role="alert" with the error message', async () => {
+    await renderInEnglish(<Controlled layout="cards" data={[]} error="Failed to load" />);
     expect(screen.getByRole('alert').textContent).toBe('Failed to load');
   });
 
-  it('empty renders emptyMessage', () => {
-    render(<Controlled layout="cards" data={[]} totalCount={0} emptyMessage="No students found" />);
+  it('empty renders emptyMessage', async () => {
+    await renderInEnglish(
+      <Controlled layout="cards" data={[]} totalCount={0} emptyMessage="No students found" />,
+    );
     expect(screen.getByText('No students found')).toBeTruthy();
   });
 });
@@ -954,8 +993,8 @@ describe('DataTable card mode alignment', () => {
     { id: 'className', header: 'Class', accessorFn: (row) => row.className, align: 'end' },
   ];
 
-  it("applies text-end and tabular-nums to an end-aligned column's <dd>", () => {
-    render(<Controlled layout="cards" columns={ALIGNED_COLUMNS} />);
+  it("applies text-end and tabular-nums to an end-aligned column's <dd>", async () => {
+    await renderInEnglish(<Controlled layout="cards" columns={ALIGNED_COLUMNS} />);
     const dd = screen.getAllByText('Six')[0];
     expect(dd?.className).toContain('text-end');
     expect(dd?.className).toContain('tabular-nums');

@@ -7,7 +7,64 @@
   },
   "status": {
     "loading": "Loading…",
-    "error": "Something went wrong"
+    "error": "Something went wrong",
+    "fee": {
+      "PENDING": "Pending",
+      "PARTIALLY_PAID": "Partially paid",
+      "PAID": "Paid",
+      "OVERDUE": "Overdue",
+      "WAIVED": "Waived",
+      "ADVANCE": "Advance"
+    },
+    "payment": {
+      "SUCCESS": "Success",
+      "PENDING": "Pending",
+      "FAILED": "Failed",
+      "REFUNDED": "Refunded"
+    },
+    "invoice": {
+      "DRAFT": "Draft",
+      "ISSUED": "Issued",
+      "PAID": "Paid",
+      "CANCELLED": "Cancelled",
+      "OVERDUE": "Overdue"
+    },
+    "communication": {
+      "QUEUED": "Queued",
+      "SENT": "Sent",
+      "DELIVERED": "Delivered",
+      "FAILED": "Failed",
+      "READ": "Read"
+    },
+    "reminderBatch": {
+      "PROCESSING": "Processing",
+      "COMPLETED": "Completed",
+      "PARTIALLY_FAILED": "Partially failed",
+      "FAILED": "Failed"
+    },
+    "enrollment": {
+      "ACTIVE": "Active",
+      "INACTIVE": "Inactive",
+      "TRANSFERRED": "Transferred",
+      "GRADUATED": "Graduated"
+    },
+    "academicYear": {
+      "CURRENT": "Current",
+      "NOT_CURRENT": "Not current"
+    },
+    "guardian": {
+      "PRIMARY": "Primary",
+      "SECONDARY": "Secondary"
+    },
+    "feeStructure": {
+      "RECURRING": "Recurring",
+      "ONE_TIME": "One time"
+    },
+    "user": {
+      "ACTIVE": "Active",
+      "INACTIVE": "Inactive",
+      "SUSPENDED": "Suspended"
+    }
   },
   "errors": {
     "permissionDenied": "You don't have permission to do that."
@@ -78,9 +135,29 @@
     "removeFilter": "Remove filter: {{label}}",
     "unknownFilter": "{{key}}: {{value}}"
   },
+  "table": {
+    "empty": "No results",
+    "columns": "Columns",
+    "sort": "Sort",
+    "sortedAscending": "{{header}}, sorted ascending",
+    "sortedDescending": "{{header}}, sorted descending",
+    "expandRow": "Expand row",
+    "expand": "Expand",
+    "selectAllOnPage": "Select all rows on page",
+    "selectRow": "Select row {{index}}",
+    "selectedCount_one": "{{count}} selected",
+    "selectedCount_other": "{{count}} selected",
+    "announceResults_one": "{{count}} of {{total}} result",
+    "announceResults_other": "{{count}} of {{total}} results",
+    "pageOf": "Page {{page}} of {{total}}"
+  },
   "pagination": {
     "rowsPerPage": "Rows per page",
-    "rowsPerPageOption": "{{count}}"
+    "rowsPerPageOption": "{{count}}",
+    "label": "Pagination",
+    "previous": "Previous",
+    "next": "Next",
+    "range": "Showing {{start}}–{{end}} of {{total}}"
   },
   "notifications": {
     "syncReplayed_one": "{{count}} offline change saved.",

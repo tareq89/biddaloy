@@ -125,3 +125,24 @@ export const RightToLeft: Story = {
   render: () => <StatusBadge domain="fee" status={FeeStatus.OVERDUE} />,
   decorators: [rtlDecorator],
 };
+
+/** [8.14.15] `globals: { locale: 'bn' }` switches every domain's labels to
+ * their translated `status.<domain>.<member>` value — one badge per
+ * domain, so all ~37 new Bangla strings are reviewable in one place. */
+export const Bangla: Story = {
+  render: () => (
+    <div className="flex flex-wrap gap-2">
+      <StatusBadge domain="fee" status={FeeStatus.PARTIALLY_PAID} />
+      <StatusBadge domain="payment" status={PaymentStatus.SUCCESS} />
+      <StatusBadge domain="invoice" status={InvoiceStatus.ISSUED} />
+      <StatusBadge domain="communication" status={CommunicationStatus.DELIVERED} />
+      <StatusBadge domain="reminderBatch" status={ReminderBatchStatus.COMPLETED} />
+      <StatusBadge domain="enrollment" status={EnrollmentStatus.ACTIVE} />
+      <StatusBadge domain="academicYear" status="CURRENT" />
+      <StatusBadge domain="guardian" status="PRIMARY" />
+      <StatusBadge domain="feeStructure" status="RECURRING" />
+      <StatusBadge domain="user" status={UserStatus.ACTIVE} />
+    </div>
+  ),
+  globals: { locale: 'bn' },
+};

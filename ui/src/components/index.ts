@@ -141,6 +141,7 @@ export {
 export {
   StatusBadge,
   humanizeStatus,
+  statusLabelKey,
   type StatusBadgeProps,
   type StatusTone,
 } from './status-badge';

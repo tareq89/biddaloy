@@ -31,6 +31,7 @@ import {
 import { AlertTriangle, CheckCircle2, CircleDashed, Clock, MinusCircle } from 'lucide-react';
 import * as React from 'react';
 
+import { useTranslation } from '../i18n';
 import { cn } from '../primitives/lib/utils';
 
 export type StatusTone = 'success' | 'info' | 'warning' | 'danger' | 'neutral';
@@ -46,19 +47,23 @@ const TONE_STYLES: Record<
   neutral: { fg: 'text-muted-foreground', bg: 'bg-muted', icon: MinusCircle },
 };
 
-/** Title-cases an enum key ("PARTIALLY_PAID" -> "Partially paid") — not
- * real i18n, just a readable fallback until a translated-label lookup
- * replaces it (see `ui/CONTRIBUTING.md`'s "i18n rules" section for why
- * i18next landing in [8.7.1] didn't close this on its own). There's no
- * prop to override the derived label today — nothing should come to
- * depend on these English strings as if they were stable.
- *
- * Exported as `humanizeStatus` so callers rendering a status outside a
- * `StatusBadge` (a `<SelectItem>` filter option, a CSV cell, ...) show
- * the same label this component does instead of the raw enum value. */
+/** Title-cases an enum key ("PARTIALLY_PAID" -> "Partially paid"). Since
+ * [8.14.15], `StatusBadge` no longer renders this — it's a last-resort
+ * `defaultValue` for `t()` when a `status.<domain>.<member>` key is
+ * missing from `common.json`, not the display path. Kept exported so
+ * callers rendering a status outside a `StatusBadge` (a `<SelectItem>`
+ * filter option, a CSV cell, ...) still have a synchronous fallback —
+ * prefer `statusLabelKey` + `t()` for those call sites instead. */
 export function humanizeStatus(key: string): string {
   const lower = key.toLowerCase().replace(/_/g, ' ');
   return lower.charAt(0).toUpperCase() + lower.slice(1);
+}
+
+/** [8.14.15] i18next key for a status label. Exported so callers that
+ * render a status *outside* `StatusBadge` (a filter `<SelectItem>`, a CSV
+ * cell) show exactly the label the badge shows. Namespace is `common`. */
+export function statusLabelKey(domain: StatusBadgeProps['domain'], status: string): string {
+  return `status.${domain}.${status}`;
 }
 
 const FEE_STATUS_TONE: Record<FeeStatus, StatusTone> = {
@@ -209,9 +214,12 @@ function resolveTone(props: StatusBadgeProps): StatusTone {
 }
 
 export function StatusBadge(props: StatusBadgeProps) {
+  const { t } = useTranslation();
   const tone = resolveTone(props);
   const { fg, bg, icon: Icon } = TONE_STYLES[tone];
-  const label = humanizeStatus(props.status);
+  const label = t(statusLabelKey(props.domain, props.status), {
+    defaultValue: humanizeStatus(props.status),
+  });
 
   return (
     <span

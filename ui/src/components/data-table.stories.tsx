@@ -341,13 +341,47 @@ export const CardModeWithPageSize: Story = {
   ),
 };
 
-/** [8.14.10] `১০ / ২০ / ৫০` — the rows-per-page options render through
- * `formatNumber`, so they pick up Bengali numerals under a `bn`
- * `RegionConfig` the same way any other count on the page does. */
+/** [8.14.10] / [8.14.15] `১০ / ২০ / ৫০` — the rows-per-page options render
+ * through `formatNumber`, so they pick up Bengali numerals under a `bn`
+ * `RegionConfig` the same way any other count on the page does.
+ * `globals: { locale: 'bn' }` also switches every `t()`-backed string
+ * (`Rows per page`, `Page X of Y`, `Previous`/`Next`) to Bangla, and
+ * selection is pre-populated so `{n} selected` is on screen too — all of
+ * [8.14.15]'s ~13 `DataTable` strings visible in one story. */
 export const Bangla: Story = {
   render: () => (
     <RegionConfigProvider value={REGION_BD_BN}>
-      <Demo tableId="students-with-page-size-bn" layout="table" totalCount={100} withPageSize />
+      <Demo
+        tableId="students-with-page-size-bn"
+        layout="table"
+        totalCount={100}
+        withPageSize
+        selectable
+      />
     </RegionConfigProvider>
   ),
+  globals: { locale: 'bn' },
+  play: async ({ canvasElement }) => {
+    const { within, userEvent } = await import('storybook/test');
+    const canvas = within(canvasElement);
+    const checkboxes = canvas.getAllByRole('checkbox');
+    await userEvent.click(checkboxes[1] as HTMLElement);
+  },
+};
+
+/** Same story, card mode — proves `DataTableCards` (fed from the same
+ * resolved labels) inherits the Bangla strings too, not just table mode. */
+export const BanglaCardMode: Story = {
+  render: () => (
+    <RegionConfigProvider value={REGION_BD_BN}>
+      <Demo
+        tableId="students-with-page-size-bn-cards"
+        layout="cards"
+        totalCount={100}
+        withPageSize
+        selectable
+      />
+    </RegionConfigProvider>
+  ),
+  globals: { locale: 'bn' },
 };
