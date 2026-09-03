@@ -337,4 +337,31 @@ describe('/fees/dues', () => {
     // Only the built-in "All sections" option — no real section to pick.
     expect(screen.queryAllByRole('option')).toHaveLength(1);
   });
+
+  // [8.14.10]: the dues queue is searchable by student name/registration
+  // number — `useFeeDues`'s `search` param was already wired but never
+  // surfaced as a FilterBar field until now.
+  it('searching by student name/registration number writes search and calls the API', async () => {
+    let lastSearch: string | null = null;
+    server.use(
+      http.get('/api/v1/fees/dues', ({ request }) => {
+        lastSearch = new URL(request.url).searchParams.get('search');
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 0 });
+      }),
+    );
+
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/fees/dues'],
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await screen.findByRole('region', { name: 'Dues queue' });
+    await user.type(screen.getByRole('textbox', { name: 'Search' }), 'Karim');
+
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ search: 'Karim' }));
+    await waitFor(() => expect(lastSearch).toBe('Karim'));
+  });
 });
