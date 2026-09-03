@@ -33,6 +33,9 @@ export interface ListShellActions {
   /** A string sets a filter, `null` clears it — see `ListUrlStatePatch`. */
   setFilters: (filters: Record<string, string | null>) => void;
   setSelectedIds: (ids: ReadonlySet<string>) => void;
+  /** Rows-per-page control ([8.14.10]) — always resets to page 1, same
+   * reasoning as `setFilters`: a caller has no chance to forget. */
+  setLimit: (limit: number) => void;
 }
 
 export function useListShellState(
@@ -54,6 +57,7 @@ export function useListShellState(
     { page: urlState.page, limit: urlState.limit, sorting, filters, selectedIds },
     {
       setPage: (page) => updateUrl({ page }),
+      setLimit: (limit) => updateUrl({ limit, page: 1 }),
       setSorting: (next) => {
         if (next) {
           updateUrl({ sort: next.id, order: next.desc ? 'desc' : 'asc', page: 1 });

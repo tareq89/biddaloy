@@ -180,12 +180,17 @@ function StudentsListPageWithFilterBar() {
       pageSize={state.limit}
       totalCount={filtered.length}
       onPageChange={actions.setPage}
+      onPageSizeChange={actions.setLimit}
+      pageSizeLabel="Rows per page"
       selectedIds={state.selectedIds}
       onSelectedIdsChange={actions.setSelectedIds}
     />
   );
 }
 
+// [8.14.10]: FilterBar and the rows-per-page control together — the two
+// affordances this ticket's rollout adds to every list page, shown in one
+// shell rather than two separate stories.
 export const WithFilterBar: Story = {
   decorators: [withMemoryRouter(['/students'])],
   render: () => <StudentsListPageWithFilterBar />,

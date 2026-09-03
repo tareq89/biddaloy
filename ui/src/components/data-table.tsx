@@ -27,12 +27,15 @@ import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { useContainerWidth } from '../hooks/use-container-width';
+import { useRegionConfig } from '../i18n';
 import { cn } from '../primitives/lib/utils';
+import { formatNumber } from '../utils';
 
 import { Button } from './button';
 import { Checkbox } from './checkbox';
 import { DataTableCards, type DataTableCardRow } from './data-table-cards';
 import { Menu, MenuCheckboxItem, MenuContent, MenuItem, MenuTrigger } from './menu';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
 import { Skeleton } from './skeleton';
 
 // Shared across table mode's `<th>`/`<td>` checkboxes and card mode's
@@ -109,6 +112,16 @@ export interface DataTableProps<TData extends RowData> {
   pageSize: number;
   totalCount: number;
   onPageChange: (page: number) => void;
+  /** [8.14.10] Renders a rows-per-page `Select` in the pager (start side,
+   * next to "Page N of M") when supplied. Omitted entirely (no control)
+   * when this prop is absent — pages that haven't migrated yet, and
+   * every existing story/test, keep today's two-button pager. */
+  onPageSizeChange?: (size: number) => void;
+  /** @default [10, 20, 50] */
+  pageSizeOptions?: readonly number[];
+  /** Accessible name for the rows-per-page control. English default,
+   * same "not yet retrofitted onto i18next" convention as `emptyMessage`. */
+  pageSizeLabel?: string;
 
   selectedIds?: ReadonlySet<string>;
   onSelectedIdsChange?: (ids: ReadonlySet<string>) => void;
@@ -220,6 +233,9 @@ export function DataTable<TData extends RowData>({
   pageSize,
   totalCount,
   onPageChange,
+  onPageSizeChange,
+  pageSizeOptions = [10, 20, 50],
+  pageSizeLabel = 'Rows per page',
   selectedIds,
   onSelectedIdsChange,
   bulkActions,
@@ -243,6 +259,7 @@ export function DataTable<TData extends RowData>({
         ? `${header}, sorted descending`
         : header,
 }: DataTableProps<TData>) {
+  const regionConfig = useRegionConfig();
   const [expandedRowIds, setExpandedRowIds] = React.useState<ReadonlySet<string>>(new Set());
   const expandable = renderExpandedRow !== undefined;
   function toggleExpanded(id: string) {
@@ -826,9 +843,28 @@ export function DataTable<TData extends RowData>({
         {loading ? loadingMessage : !error && announceResults(rows.length, totalCount)}
       </div>
       <div className="mt-2 flex items-center justify-between text-sm">
-        <span className="text-muted-foreground">
-          Page {page} of {totalPages}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-muted-foreground">
+            Page {page} of {totalPages}
+          </span>
+          {onPageSizeChange && (
+            <Select
+              value={String(pageSize)}
+              onValueChange={(value) => onPageSizeChange(Number(value))}
+            >
+              <SelectTrigger aria-label={pageSizeLabel} className="w-20">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {pageSizeOptions.map((size) => (
+                  <SelectItem key={size} value={String(size)}>
+                    {formatNumber(size, regionConfig)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
         <div className="flex gap-1.5">
           <button
             type="button"

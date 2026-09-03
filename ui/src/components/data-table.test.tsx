@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { REGION_BD_BN, REGION_BD_EN, RegionConfigProvider } from '../i18n';
+
 import {
   DataTable,
   type DataTableColumn,
@@ -560,6 +562,166 @@ describe('DataTable pagination', () => {
     render(<PageProbe />);
     await user.click(screen.getByRole('button', { name: 'Next' }));
     await waitFor(() => expect(screen.getByText('Page 2 of 5')).toBeTruthy());
+  });
+});
+
+describe('DataTable page-size control [8.14.10]', () => {
+  afterEach(() => window.localStorage.clear());
+
+  it('renders no size control when onPageSizeChange is absent — today\'s default', () => {
+    render(<Controlled totalCount={100} />);
+    expect(screen.queryByRole('combobox', { name: 'Rows per page' })).toBeNull();
+  });
+
+  it('renders a labelled combobox with 10/20/50 present, in Latin numerals under the en RegionConfig', async () => {
+    const user = userEvent.setup();
+    render(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <DataTable
+          tableId="students-page-size-test"
+          caption="Students"
+          columns={COLUMNS}
+          data={STUDENTS}
+          getRowId={(row) => row.id}
+          sorting={null}
+          onSortingChange={() => undefined}
+          page={1}
+          pageSize={10}
+          totalCount={100}
+          onPageChange={() => undefined}
+          onPageSizeChange={() => undefined}
+        />
+      </RegionConfigProvider>,
+    );
+    const trigger = screen.getByRole('combobox', { name: 'Rows per page' });
+    expect(trigger).toBeTruthy();
+    await user.click(trigger);
+    expect(await screen.findByRole('option', { name: '10' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: '20' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: '50' })).toBeTruthy();
+  });
+
+  it('choosing 50 calls onPageSizeChange(50) exactly once', async () => {
+    const user = userEvent.setup();
+    const onPageSizeChange = vi.fn();
+    render(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <DataTable
+          tableId="students-page-size-choose-test"
+          caption="Students"
+          columns={COLUMNS}
+          data={STUDENTS}
+          getRowId={(row) => row.id}
+          sorting={null}
+          onSortingChange={() => undefined}
+          page={1}
+          pageSize={10}
+          totalCount={100}
+          onPageChange={() => undefined}
+          onPageSizeChange={onPageSizeChange}
+        />
+      </RegionConfigProvider>,
+    );
+    await user.click(screen.getByRole('combobox', { name: 'Rows per page' }));
+    await user.click(await screen.findByRole('option', { name: '50' }));
+    expect(onPageSizeChange).toHaveBeenCalledTimes(1);
+    expect(onPageSizeChange).toHaveBeenCalledWith(50);
+  });
+
+  it('option labels render in Bengali numerals under the bn RegionConfig', async () => {
+    const user = userEvent.setup();
+    render(
+      <RegionConfigProvider value={REGION_BD_BN}>
+        <DataTable
+          tableId="students-page-size-bn-test"
+          caption="Students"
+          columns={COLUMNS}
+          data={STUDENTS}
+          getRowId={(row) => row.id}
+          sorting={null}
+          onSortingChange={() => undefined}
+          page={1}
+          pageSize={10}
+          totalCount={100}
+          onPageChange={() => undefined}
+          onPageSizeChange={() => undefined}
+        />
+      </RegionConfigProvider>,
+    );
+    await user.click(screen.getByRole('combobox', { name: 'Rows per page' }));
+    expect(await screen.findByRole('option', { name: '১০' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: '২০' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: '৫০' })).toBeTruthy();
+  });
+
+  it('is axe clean with the page-size control present', async () => {
+    const { container } = render(
+      <DataTable
+        tableId="students-page-size-axe-test"
+        caption="Students"
+        columns={COLUMNS}
+        data={STUDENTS}
+        getRowId={(row) => row.id}
+        sorting={null}
+        onSortingChange={() => undefined}
+        page={1}
+        pageSize={10}
+        totalCount={100}
+        onPageChange={() => undefined}
+        onPageSizeChange={() => undefined}
+      />,
+    );
+    await expect(container).toHaveNoViolations();
+  });
+
+  it('is reachable by keyboard', async () => {
+    render(
+      <DataTable
+        tableId="students-page-size-kbd-test"
+        caption="Students"
+        columns={COLUMNS}
+        data={STUDENTS}
+        getRowId={(row) => row.id}
+        sorting={null}
+        onSortingChange={() => undefined}
+        page={1}
+        pageSize={10}
+        totalCount={100}
+        onPageChange={() => undefined}
+        onPageSizeChange={() => undefined}
+      />,
+    );
+    // Radix's `Select` trigger intercepts Enter/Space at keydown to open its
+    // own listbox rather than dispatching a native `click` event, so the
+    // generic `expectKeyboardOperable` (which listens for `click`) doesn't
+    // apply here — same reasoning `select.test.tsx`'s own keyboard test uses
+    // `findByRole('listbox')` instead of a click spy.
+    const trigger = screen.getByRole('combobox', { name: 'Rows per page' });
+    trigger.focus();
+    expect(document.activeElement).toBe(trigger);
+    await userEvent.setup().keyboard('{Enter}');
+    expect(await screen.findByRole('listbox')).toBeTruthy();
+  });
+
+  it('card mode shows the same page-size control as table mode', () => {
+    render(
+      <DataTable
+        tableId="students-page-size-card-test"
+        caption="Students"
+        columns={COLUMNS}
+        data={STUDENTS}
+        getRowId={(row) => row.id}
+        sorting={null}
+        onSortingChange={() => undefined}
+        page={1}
+        pageSize={10}
+        totalCount={100}
+        onPageChange={() => undefined}
+        onPageSizeChange={() => undefined}
+        layout="cards"
+      />,
+    );
+    expect(screen.getByRole('combobox', { name: 'Rows per page' })).toBeTruthy();
   });
 });
 

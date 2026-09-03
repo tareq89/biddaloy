@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
 
 import { rtlDecorator } from '../../.storybook/rtl-decorator';
+import { REGION_BD_BN, RegionConfigProvider } from '../i18n';
 
 import { Button } from './button';
 import {
@@ -52,6 +53,10 @@ function Demo(props: {
   columnsMenu?: boolean;
   pageSize?: number;
   layout?: DataTableProps<Student>['layout'];
+  /** [8.14.10] Wires the pager's rows-per-page `Select` to real state, so
+   * the story is interactive rather than a static screenshot of the
+   * control. */
+  withPageSize?: boolean;
 }) {
   const {
     data = STUDENTS,
@@ -65,11 +70,13 @@ function Demo(props: {
     caption = 'Students',
     columns = COLUMNS,
     columnsMenu = false,
-    pageSize = 20,
+    pageSize: initialPageSize = 20,
     layout,
+    withPageSize = false,
   } = props;
   const [sorting, setSorting] = useState<DataTableSort | null>(null);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(initialPageSize);
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
 
   return (
@@ -90,6 +97,14 @@ function Demo(props: {
       columnsMenu={columnsMenu}
       {...(error !== undefined ? { error } : {})}
       {...(layout !== undefined ? { layout } : {})}
+      {...(withPageSize
+        ? {
+            onPageSizeChange: (size: number) => {
+              setPageSize(size);
+              setPage(1);
+            },
+          }
+        : {})}
       {...(selectable
         ? {
             selectedIds,
@@ -306,4 +321,33 @@ export const NumericAlignment: Story = {
 export const Responsive: Story = {
   render: () => <Demo tableId="students-responsive" layout="auto" />,
   parameters: { viewport: { defaultViewport: 'mobile1' } },
+};
+
+/** [8.14.10] The pager's rows-per-page control, table mode. Changing it
+ * resets to page 1 (see `Demo`'s `onPageSizeChange`), same contract
+ * `ListShell`'s `setLimit` action gives every migrated page. */
+export const WithPageSize: Story = {
+  render: () => (
+    <Demo tableId="students-with-page-size" layout="table" totalCount={100} withPageSize />
+  ),
+};
+
+/** Same control, card mode — `DataTable` renders one shared pager for
+ * both layouts, so this exercises that it survives the card-mode
+ * render path too, not just table mode. */
+export const CardModeWithPageSize: Story = {
+  render: () => (
+    <Demo tableId="students-card-with-page-size" layout="cards" totalCount={100} withPageSize />
+  ),
+};
+
+/** [8.14.10] `১০ / ২০ / ৫০` — the rows-per-page options render through
+ * `formatNumber`, so they pick up Bengali numerals under a `bn`
+ * `RegionConfig` the same way any other count on the page does. */
+export const Bangla: Story = {
+  render: () => (
+    <RegionConfigProvider value={REGION_BD_BN}>
+      <Demo tableId="students-with-page-size-bn" layout="table" totalCount={100} withPageSize />
+    </RegionConfigProvider>
+  ),
 };
