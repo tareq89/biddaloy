@@ -14,6 +14,8 @@ import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
 import { PaymentStatus, AuditAction } from '@biddaloy/shared';
+import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
+import { BN_COLLATION } from '../../common/constants/collation';
 import {
   CreateFeeStructureDto,
   UpdateFeeStructureDto,
@@ -126,18 +128,87 @@ export class FeeStructureService {
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
-    const where: any = { tenant_id: tenantId, deleted_at: IsNull() };
-    if (query.academic_year_id) where.academic_year_id = query.academic_year_id;
-    if (query.class_id) where.class_id = query.class_id;
-    if (query.month) where.month = query.month;
+    // Two-phase (IDs, then hydrate) rather than one query with
+    // `leftJoinAndSelect` + `skip`/`take`: TypeORM's own pagination-with-
+    // joins path can't resolve a `COLLATE`-suffixed `orderBy` expression
+    // against its select-alias map (it throws trying to read
+    // `column.databaseName` for a "column" that doesn't exist, since the
+    // expression isn't a plain `alias.property`), and even without that
+    // bug, `LIMIT` on the joined+flattened rows would apply before
+    // collapsing, breaking pagination arithmetic once a fee structure has
+    // more than one joined row anywhere in this query.
+    const buildIdQuery = () => {
+      const qb = this.repo
+        .createQueryBuilder('fee_structure')
+        .select('fee_structure.id', 'id')
+        .where('fee_structure.tenant_id = :tenantId', { tenantId })
+        .andWhere('fee_structure.deleted_at IS NULL');
 
-    const [data, total] = await this.repo.findAndCount({
-      where,
+      if (query.academic_year_id) {
+        qb.andWhere('fee_structure.academic_year_id = :academicYearId', {
+          academicYearId: query.academic_year_id,
+        });
+      }
+      if (query.class_id) {
+        qb.andWhere('fee_structure.class_id = :classId', { classId: query.class_id });
+      }
+      if (query.month) {
+        qb.andWhere('fee_structure.month = :month', { month: query.month });
+      }
+      if (query.fee_type) {
+        qb.andWhere('fee_structure.fee_type = :feeType', { feeType: query.fee_type });
+      }
+      if (query.section_id) {
+        qb.andWhere('fee_structure.section_id = :sectionId', { sectionId: query.section_id });
+      }
+      if (query.is_recurring !== undefined) {
+        qb.andWhere('fee_structure.is_recurring = :isRecurring', {
+          isRecurring: query.is_recurring,
+        });
+      }
+
+      const search = normalizeSearchTerm(query.search);
+      if (search) {
+        qb.andWhere('fee_structure.name ILIKE :search', { search: `%${search}%` });
+      }
+
+      return qb;
+    };
+
+    const total = await buildIdQuery().getCount();
+
+    const idQb = buildIdQuery();
+    if (query.sort === 'name') {
+      idQb.orderBy(
+        `fee_structure.name COLLATE "${BN_COLLATION}"`,
+        query.order === 'desc' ? 'DESC' : 'ASC',
+      );
+    } else if (query.sort === 'amount') {
+      idQb.orderBy('fee_structure.amount', query.order === 'asc' ? 'ASC' : 'DESC');
+    } else if (query.sort === 'month') {
+      idQb.orderBy('fee_structure.month', query.order === 'asc' ? 'ASC' : 'DESC');
+    } else {
+      idQb.orderBy('fee_structure.created_at', query.order === 'asc' ? 'ASC' : 'DESC');
+    }
+    idQb.addOrderBy('fee_structure.id', 'ASC').offset(skip).limit(limit);
+
+    const idRows = await idQb.getRawMany<{ id: string }>();
+    const ids = idRows.map((row) => row.id);
+
+    if (ids.length === 0) {
+      return { data: [], total, page, limit, totalPages: Math.ceil(total / limit) };
+    }
+
+    const rows = await this.repo.find({
+      // `tenant_id` is redundant here — `ids` already came from the
+      // tenant-scoped ID query above — but it costs nothing and keeps this
+      // query tenant-scoped on its own terms rather than only by
+      // construction, per the multi-tenancy skill's "new query" checklist.
+      where: { id: In(ids), tenant_id: tenantId },
       relations: ['class', 'academic_year', 'section'],
-      order: { created_at: 'DESC' },
-      skip,
-      take: limit,
     });
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    const data = ids.map((id) => byId.get(id)).filter((row): row is FeeStructure => row != null);
 
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }

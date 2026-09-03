@@ -15,7 +15,7 @@ import {
   ValidateNested,
   MaxLength,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import {
   FeeType,
   FeeApplicability,
@@ -134,6 +134,42 @@ export class QueryFeeStructureDto {
   @Min(1)
   @Max(12)
   month?: number;
+
+  /** Matches against name (ILIKE, escaped). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  search?: string;
+
+  @IsOptional()
+  @IsEnum(FeeType)
+  fee_type?: FeeType;
+
+  @IsOptional()
+  @IsUUID()
+  section_id?: string;
+
+  // `@Type(() => Boolean)` is deliberately not used here: class-transformer's
+  // Boolean coercion is `Boolean(value)`, which treats the *string*
+  // `"false"` (what a query param actually is) as truthy — `?is_recurring=
+  // false` would silently become `true`. This transform parses the two
+  // literal strings a query param can actually carry.
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return value;
+  })
+  @IsBoolean()
+  is_recurring?: boolean;
+
+  @IsOptional()
+  @IsEnum(['name', 'amount', 'month', 'created_at'])
+  sort?: 'name' | 'amount' | 'month' | 'created_at';
+
+  @IsOptional()
+  @IsEnum(['asc', 'desc'])
+  order?: 'asc' | 'desc';
 
   @IsOptional()
   @Type(() => Number)
@@ -295,6 +331,15 @@ export class QueryFeeDuesDto {
   @IsOptional()
   @IsIn([FeeStatus.PENDING, FeeStatus.PARTIALLY_PAID])
   status?: FeeStatus.PENDING | FeeStatus.PARTIALLY_PAID;
+
+  /** Matches against student full_name, registration_number (ILIKE, escaped),
+   * or roll_number (exact, Bengali-digit-aware). Applied at the SQL stage
+   * that produces matching student IDs — never as a post-aggregation
+   * filter, which would corrupt total/totalPages. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  search?: string;
 
   @IsOptional()
   @IsIn(['due_amount', 'name', 'class'])
