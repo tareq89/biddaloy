@@ -83,7 +83,8 @@
   },
   "resolutions": {
     "js-yaml": "^5.2.2",
-    "typescript": "^6"
+    "typescript": "^6",
+    "browserslist": "^4.28.8"
   },
   "msw": {
     "workerDirectory": [
