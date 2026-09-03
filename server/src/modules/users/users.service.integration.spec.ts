@@ -20,7 +20,7 @@ import {
   SEED_SECTION_1_ID,
   SEED_ACADEMIC_YEAR_ID,
 } from '@test/constants';
-import { UserRole, TeacherDesignation } from '@biddaloy/shared';
+import { UserRole, TeacherDesignation, UserStatus } from '@biddaloy/shared';
 
 /**
  * Integration tests for UserService and TeacherService.
@@ -365,6 +365,133 @@ describe('UserService (integration)', () => {
 
       expect(result.data).toEqual([]);
       expect(result.total).toBe(0);
+    });
+
+    // [8.14.9] search now also matches phone, alongside full_name/email.
+    it('should search by phone', async () => {
+      await service.create(
+        { full_name: 'Rahim Uddin', phone: '+8801712345678', role: UserRole.TEACHER },
+        TENANT_ID,
+      );
+      await service.create(
+        { full_name: 'Karim Mia', phone: '+8801812345678', role: UserRole.TEACHER },
+        TENANT_ID,
+      );
+
+      const result = await service.findAll(
+        { search: '01712345678', page: 1, limit: 10 },
+        TENANT_ID,
+      );
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].full_name).toBe('Rahim Uddin');
+    });
+
+    // [8.14.9] status filter.
+    it('should filter by status', async () => {
+      const { user: active } = await service.create(
+        { full_name: 'Active User', role: UserRole.TEACHER },
+        TENANT_ID,
+      );
+      const { user: inactive } = await service.create(
+        { full_name: 'Inactive User', role: UserRole.TEACHER },
+        TENANT_ID,
+      );
+      await userRepo.update(inactive.id, { status: UserStatus.INACTIVE });
+
+      const result = await service.findAll(
+        { status: UserStatus.ACTIVE, page: 1, limit: 10 },
+        TENANT_ID,
+      );
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].id).toBe(active.id);
+    });
+
+    // [8.14.9] joined_from/joined_to filter over UserTenant.created_at, per
+    // the "tenant-scoped staff directory" correction — not User.created_at.
+    it('should filter by joined_from/joined_to over UserTenant.created_at', async () => {
+      const { user: earlyJoiner } = await service.create(
+        { full_name: 'Early Joiner', role: UserRole.TEACHER },
+        TENANT_ID,
+      );
+      const { user: lateJoiner } = await service.create(
+        { full_name: 'Late Joiner', role: UserRole.TEACHER },
+        TENANT_ID,
+      );
+      await userTenantRepo.update(
+        { user_id: earlyJoiner.id, tenant_id: TENANT_ID },
+        { created_at: new Date('2020-01-01T00:00:00Z') },
+      );
+      await userTenantRepo.update(
+        { user_id: lateJoiner.id, tenant_id: TENANT_ID },
+        { created_at: new Date('2026-01-01T00:00:00Z') },
+      );
+
+      const result = await service.findAll(
+        { joined_from: '2025-01-01', page: 1, limit: 10 },
+        TENANT_ID,
+      );
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].id).toBe(lateJoiner.id);
+    });
+
+    // [8.14.9] A date-only joined_to must include the whole day. Without
+    // the end-of-day fix, `joined_to: '2026-01-01'` truncates to midnight
+    // on this timestamptz column and wrongly excludes a user who joined
+    // later that same day.
+    it('includes a user who joined earlier on the joined_to date, not just before midnight', async () => {
+      const { user: sameDayJoiner } = await service.create(
+        { full_name: 'Same Day Joiner', role: UserRole.TEACHER },
+        TENANT_ID,
+      );
+      await userTenantRepo.update(
+        { user_id: sameDayJoiner.id, tenant_id: TENANT_ID },
+        { created_at: new Date('2026-01-01T18:00:00Z') },
+      );
+
+      const result = await service.findAll(
+        { joined_to: '2026-01-01', page: 1, limit: 10 },
+        TENANT_ID,
+      );
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].id).toBe(sameDayJoiner.id);
+    });
+
+    // Cross-tenant: a user who joined tenant B must never leak into tenant
+    // A's joined_from/joined_to results, even though User.created_at is
+    // global (not tenant-scoped).
+    it('should not leak a user who joined another tenant via joined_from/joined_to', async () => {
+      const { user: otherTenantUser } = await service.create(
+        { full_name: 'Other Tenant User', role: UserRole.TEACHER },
+        OTHER_TENANT,
+      );
+      await userTenantRepo.update(
+        { user_id: otherTenantUser.id, tenant_id: OTHER_TENANT },
+        { created_at: new Date('2026-01-01T00:00:00Z') },
+      );
+
+      const result = await service.findAll(
+        { joined_from: '2020-01-01', page: 1, limit: 10 },
+        TENANT_ID,
+      );
+
+      expect(result.data).toEqual([]);
+      expect(result.total).toBe(0);
+    });
+
+    it('should sort by full_name using the Bengali collation', async () => {
+      await service.create({ full_name: 'Zebra User', role: UserRole.TEACHER }, TENANT_ID);
+      await service.create({ full_name: 'Apple User', role: UserRole.TEACHER }, TENANT_ID);
+
+      const result = await service.findAll(
+        { sort: 'full_name', order: 'asc', page: 1, limit: 10 },
+        TENANT_ID,
+      );
+
+      expect(result.data.map((u) => u.full_name)).toEqual(['Apple User', 'Zebra User']);
     });
   });
 

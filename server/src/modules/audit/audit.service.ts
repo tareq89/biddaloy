@@ -111,6 +111,9 @@ export class AuditService {
         performedBy: query.performed_by_user_id,
       });
     }
+    if (query.entity_id) {
+      qb.andWhere('audit_log.entity_id = :entityId', { entityId: query.entity_id });
+    }
     if (query.from_date) {
       qb.andWhere('audit_log.created_at >= :fromDate', { fromDate: query.from_date });
     }
