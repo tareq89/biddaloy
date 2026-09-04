@@ -25,7 +25,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import * as React from 'react';
 import { z } from 'zod';
 
-import { loadRouteNamespaces } from '../../../route-loaders';
+import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 import { SendReminderDialog } from '../students/-send-reminder-dialog';
 
 import { GenerateInvoiceDialog } from './-generate-invoice-dialog';
@@ -133,7 +133,7 @@ export const Route = createFileRoute('/_staff/fees/dues')({
             deps.flagged,
           ),
         )
-        .catch(() => undefined),
+        .catch(swallowUnlessOffline),
       loadRouteNamespaces('fees'),
     ]),
   pendingComponent: DuesQueuePending,

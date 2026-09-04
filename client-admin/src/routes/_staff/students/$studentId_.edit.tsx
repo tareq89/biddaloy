@@ -4,7 +4,7 @@ import { studentQueryOptions, useStudent, useUpdateStudent } from '@biddaloy/ui/
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 
-import { loadRouteNamespaces } from '../../../route-loaders';
+import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { StudentForm } from './-student-form';
 import { buildUpdatePayload, studentToFormValues } from './-student-form-schema';
@@ -24,7 +24,9 @@ export const Route = createFileRoute('/_staff/students/$studentId_/edit')({
     Promise.all([
       // [8.14.5]: swallowed — see `academic-years/$academicYearId.tsx`'s
       // identical comment for why.
-      queryClient.ensureQueryData(studentQueryOptions(params.studentId)).catch(() => undefined),
+      queryClient
+        .ensureQueryData(studentQueryOptions(params.studentId))
+        .catch(swallowUnlessOffline),
       loadRouteNamespaces('students'),
     ]),
   pendingComponent: EditStudentPending,

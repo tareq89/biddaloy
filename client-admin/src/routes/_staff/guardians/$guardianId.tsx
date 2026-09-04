@@ -8,7 +8,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import * as React from 'react';
 import { z } from 'zod';
 
-import { loadRouteNamespaces } from '../../../route-loaders';
+import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { CommunicationTab } from './-detail/communication-tab';
 import { InformationTab } from './-detail/information-tab';
@@ -38,7 +38,9 @@ export const Route = createFileRoute('/_staff/guardians/$guardianId')({
     Promise.all([
       // [8.14.5]: swallowed — see `academic-years/$academicYearId.tsx`'s
       // identical comment for why.
-      queryClient.ensureQueryData(guardianQueryOptions(params.guardianId)).catch(() => undefined),
+      queryClient
+        .ensureQueryData(guardianQueryOptions(params.guardianId))
+        .catch(swallowUnlessOffline),
       loadRouteNamespaces('guardians', 'common'),
     ]),
   pendingComponent: GuardianDetailPending,

@@ -12,7 +12,7 @@ import { ListShell, useListShellState, type FilterFieldDescriptor } from '@bidda
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { z } from 'zod';
 
-import { loadRouteNamespaces } from '../../../route-loaders';
+import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { formatGuardianPhone } from './-format-guardian-phone';
 
@@ -77,7 +77,7 @@ export const Route = createFileRoute('/_staff/guardians/')({
             ...(deps.order !== undefined ? { order: deps.order } : {}),
           }),
         )
-        .catch(() => undefined),
+        .catch(swallowUnlessOffline),
       loadRouteNamespaces('guardians'),
     ]);
   },

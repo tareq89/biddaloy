@@ -7,7 +7,7 @@ import { DetailShell, useDetailShellTab } from '@biddaloy/ui/shells';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
 
-import { loadRouteNamespaces } from '../../../route-loaders';
+import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { ClassFormDialog } from './-class-form-dialog';
 import { DeleteClassDialog } from './-delete-class-dialog';
@@ -21,7 +21,7 @@ export const Route = createFileRoute('/_staff/classes/$classId')({
     Promise.all([
       // [8.14.5]: swallowed — see `academic-years/$academicYearId.tsx`'s
       // identical comment for why.
-      queryClient.ensureQueryData(classQueryOptions(params.classId)).catch(() => undefined),
+      queryClient.ensureQueryData(classQueryOptions(params.classId)).catch(swallowUnlessOffline),
       loadRouteNamespaces('classes', 'common'),
     ]),
   pendingComponent: ClassDetailPending,

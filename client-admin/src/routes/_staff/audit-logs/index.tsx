@@ -33,7 +33,7 @@ import { formatDateTime, parseDate } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
 import { z } from 'zod';
 
-import { loadRouteNamespaces } from '../../../route-loaders';
+import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { DiffPanel } from './-diff-panel';
 import { changedFieldCount, shortEntityId } from './-humanize';
@@ -151,10 +151,17 @@ export const Route = createFileRoute('/_staff/audit-logs/')({
   // because `useAuditLogs` refetches and `DataTable` renders its error
   // state.
   // [8.14.5]: `Promise.all` with `loadRouteNamespaces` — the `.catch`
-  // below is unchanged and still scoped to only the `ensureQueryData`
-  // call, for the reason the comment above it gives; a namespace-load
-  // failure is a genuinely different problem (a broken deploy/CDN, not
-  // "this viewer got a 403") and should still surface normally.
+  // below is still scoped to only the `ensureQueryData` call, for the
+  // reason the comment above it gives; a namespace-load failure is a
+  // genuinely different problem (a broken deploy/CDN, not "this viewer
+  // got a 403") and should still surface normally.
+  //
+  // [8.12.6]: the handler is `swallowUnlessOffline`, not a bare
+  // `() => undefined`, and the exception in its name is the point — an
+  // offline failure is rethrown so the boundary's offline screen renders
+  // instead of a generic in-table error that never mentions the network.
+  // See `route-loaders.ts` for the full reasoning; every loader in this
+  // app that swallows uses that same handler.
   loader: ({ context: { queryClient }, deps }) =>
     Promise.all([
       queryClient
@@ -171,7 +178,7 @@ export const Route = createFileRoute('/_staff/audit-logs/')({
             }),
           }),
         )
-        .catch(() => undefined),
+        .catch(swallowUnlessOffline),
       loadRouteNamespaces('auditLogs'),
     ]),
   pendingComponent: AuditLogsPending,

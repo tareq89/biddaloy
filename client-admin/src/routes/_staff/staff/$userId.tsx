@@ -29,7 +29,7 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
 import { z } from 'zod';
 
-import { loadRouteNamespaces } from '../../../route-loaders';
+import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { LoginHistoryTab } from './-detail/login-history-tab';
 import { MembershipsTab } from './-detail/memberships-tab';
@@ -51,7 +51,7 @@ export const Route = createFileRoute('/_staff/staff/$userId')({
     Promise.all([
       // [8.14.5]: swallowed — see `academic-years/$academicYearId.tsx`'s
       // identical comment for why.
-      queryClient.ensureQueryData(userQueryOptions(params.userId)).catch(() => undefined),
+      queryClient.ensureQueryData(userQueryOptions(params.userId)).catch(swallowUnlessOffline),
       loadRouteNamespaces('staff', 'common'),
     ]),
   pendingComponent: StaffDetailPending,

@@ -8,7 +8,7 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
 import { z } from 'zod';
 
-import { loadRouteNamespaces } from '../../../route-loaders';
+import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { ActivityTab } from './-detail/activity-tab';
 import { CommunicationTab } from './-detail/communication-tab';
@@ -44,7 +44,9 @@ export const Route = createFileRoute('/_staff/students/$studentId')({
     Promise.all([
       // [8.14.5]: swallowed — see `academic-years/$academicYearId.tsx`'s
       // identical comment for why.
-      queryClient.ensureQueryData(studentQueryOptions(params.studentId)).catch(() => undefined),
+      queryClient
+        .ensureQueryData(studentQueryOptions(params.studentId))
+        .catch(swallowUnlessOffline),
       loadRouteNamespaces('students', 'common'),
     ]),
   pendingComponent: StudentDetailPending,

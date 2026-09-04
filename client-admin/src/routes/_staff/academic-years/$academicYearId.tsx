@@ -13,7 +13,7 @@ import { formatAcademicYear, formatDate, parseServerDate } from '@biddaloy/ui/ut
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
 
-import { loadRouteNamespaces } from '../../../route-loaders';
+import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { DeleteYearDialog } from './-delete-year-dialog';
 import { ClassesTab } from './-detail/classes-tab';
@@ -25,7 +25,7 @@ import { YearFormDialog, type YearFormPayload } from './-year-form-dialog';
 export const Route = createFileRoute('/_staff/academic-years/$academicYearId')({
   loader: ({ context: { queryClient }, params }) =>
     Promise.all([
-      // [8.14.5]: `.catch(() => undefined)` — a loader rejection would
+      // [8.14.5]: `.catch(swallowUnlessOffline)` — a loader rejection would
       // otherwise hand this route to the router's generic error boundary
       // before the component (and its own `ErrorState`/403 handling)
       // ever mounts. Swallowing here just means "the loader didn't warm
@@ -34,7 +34,7 @@ export const Route = createFileRoute('/_staff/academic-years/$academicYearId')({
       // as it did before this route had a loader at all.
       queryClient
         .ensureQueryData(academicYearQueryOptions(params.academicYearId))
-        .catch(() => undefined),
+        .catch(swallowUnlessOffline),
       loadRouteNamespaces('academicYears', 'common'),
     ]),
   pendingComponent: AcademicYearDetailPending,

@@ -101,6 +101,16 @@ const CHUNK_LOAD_FAILURE =
 
 type RouteErrorKind = 'offline' | 'update' | 'error';
 
+/** True for exactly the errors this boundary would render as its offline
+ * fork. Exported so a route `loader` deciding whether to swallow a
+ * rejection ([8.14.5]) can ask the same question the boundary will ask if
+ * it rethrows — two separate rules would let a loader rethrow an error the
+ * boundary then classifies as a generic failure, which is the worst of
+ * both screens. See `client-admin`'s `swallowUnlessOffline`. */
+export function isOfflineRouteError(error: unknown): boolean {
+  return classifyRouteError(error) === 'offline';
+}
+
 function classifyRouteError(error: unknown): RouteErrorKind {
   if ((error as { code?: unknown } | null)?.code === 'ERR_NETWORK') {
     return 'offline';

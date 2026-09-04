@@ -19,7 +19,7 @@ import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatDate, formatServerAmount, parseServerDate } from '@biddaloy/ui/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 
-import { loadRouteNamespaces } from '../../../route-loaders';
+import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 /**
  * `/invoices/$invoiceId` — [8.9.9]'s Cmd/Ctrl+K palette and [8.10.6]'s
@@ -38,7 +38,9 @@ export const Route = createFileRoute('/_staff/invoices/$invoiceId')({
     Promise.all([
       // [8.14.5]: swallowed — see `academic-years/$academicYearId.tsx`'s
       // identical comment for why.
-      queryClient.ensureQueryData(invoiceQueryOptions(params.invoiceId)).catch(() => undefined),
+      queryClient
+        .ensureQueryData(invoiceQueryOptions(params.invoiceId))
+        .catch(swallowUnlessOffline),
       loadRouteNamespaces('fees'),
     ]),
   pendingComponent: InvoiceDetailPending,

@@ -36,7 +36,7 @@ import { formatDate, formatNumber } from '@biddaloy/ui/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { z } from 'zod';
 
-import { loadRouteNamespaces } from '../../../../route-loaders';
+import { loadRouteNamespaces, swallowUnlessOffline } from '../../../../route-loaders';
 
 const batchesSearchSchema = z.object({
   page: z.number().int().positive().optional().catch(undefined),
@@ -83,7 +83,7 @@ export const Route = createFileRoute('/_staff/communications/batches/')({
             ...(deps.order !== undefined ? { order: deps.order } : {}),
           }),
         )
-        .catch(() => undefined),
+        .catch(swallowUnlessOffline),
       loadRouteNamespaces('communications'),
     ]);
   },

@@ -32,7 +32,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import * as React from 'react';
 import { z } from 'zod';
 
-import { loadRouteNamespaces } from '../../../route-loaders';
+import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { DeleteStructureDialog } from './-delete-structure-dialog';
 import { StructureFormDialog } from './-structure-form-dialog';
@@ -142,7 +142,7 @@ export const Route = createFileRoute('/_staff/fee-structures/')({
             ...(deps.order !== undefined ? { order: deps.order } : {}),
           }),
         )
-        .catch(() => undefined),
+        .catch(swallowUnlessOffline),
       loadRouteNamespaces('feeStructures'),
     ]);
   },

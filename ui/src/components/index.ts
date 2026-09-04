@@ -171,7 +171,11 @@ export {
 } from './popover';
 export { NotificationBell, type NotificationBellProps } from './notification-bell';
 export { NotificationList, type NotificationListProps } from './notification-list';
-export { RouteErrorFallback, type RouteErrorFallbackProps } from './route-error-boundary';
+export {
+  isOfflineRouteError,
+  RouteErrorFallback,
+  type RouteErrorFallbackProps,
+} from './route-error-boundary';
 export { Toaster, toast } from './toast';
 export {
   Skeleton,

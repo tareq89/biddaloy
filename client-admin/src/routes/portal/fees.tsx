@@ -37,7 +37,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { PrinterIcon } from 'lucide-react';
 import { z } from 'zod';
 
-import { loadRouteNamespaces } from '../../route-loaders';
+import { loadRouteNamespaces, swallowUnlessOffline } from '../../route-loaders';
 
 /**
  * [5.3] — the fee breakdown and invoice history behind [5.2]'s landing.
@@ -118,7 +118,7 @@ export const Route = createFileRoute('/portal/fees')({
     Promise.all([
       // [8.14.5]: swallowed — see `_staff/academic-years/index.tsx`'s
       // identical comment for why.
-      queryClient.ensureQueryData(myStudentsQueryOptions()).catch(() => undefined),
+      queryClient.ensureQueryData(myStudentsQueryOptions()).catch(swallowUnlessOffline),
       loadRouteNamespaces('portal', 'common'),
     ]),
   pendingComponent: PortalFeesPending,

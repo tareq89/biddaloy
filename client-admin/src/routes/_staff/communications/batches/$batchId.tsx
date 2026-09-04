@@ -54,7 +54,7 @@ import * as React from 'react';
 import { z } from 'zod';
 
 import { skipReasonKey } from '../-shared/skip-reason';
-import { loadRouteNamespaces } from '../../../../route-loaders';
+import { loadRouteNamespaces, swallowUnlessOffline } from '../../../../route-loaders';
 
 /** SendBulkReminderDto caps batch_name at 200 characters. */
 const MAX_BATCH_NAME = 200;
@@ -85,7 +85,9 @@ export const Route = createFileRoute('/_staff/communications/batches/$batchId')(
     Promise.all([
       // [8.14.5]: swallowed — see `academic-years/$academicYearId.tsx`'s
       // identical comment for why.
-      queryClient.ensureQueryData(reminderBatchQueryOptions(params.batchId)).catch(() => undefined),
+      queryClient
+        .ensureQueryData(reminderBatchQueryOptions(params.batchId))
+        .catch(swallowUnlessOffline),
       loadRouteNamespaces('communications'),
     ]),
   pendingComponent: BatchDetailPending,

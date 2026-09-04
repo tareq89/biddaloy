@@ -25,7 +25,7 @@ import { formatDate, formatServerAmount, isPastDueDate, parseServerDate } from '
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { ChevronRightIcon } from 'lucide-react';
 
-import { loadRouteNamespaces } from '../../route-loaders';
+import { loadRouteNamespaces, swallowUnlessOffline } from '../../route-loaders';
 
 /**
  * [5.2] — the family portal's landing page, replacing [8.9.10]'s
@@ -95,7 +95,7 @@ export const Route = createFileRoute('/portal/')({
     Promise.all([
       // [8.14.5]: swallowed — see `_staff/academic-years/index.tsx`'s
       // identical comment for why.
-      queryClient.ensureQueryData(myStudentsQueryOptions()).catch(() => undefined),
+      queryClient.ensureQueryData(myStudentsQueryOptions()).catch(swallowUnlessOffline),
       loadRouteNamespaces('portal', 'common'),
     ]),
   pendingComponent: PortalOverviewPending,

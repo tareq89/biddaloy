@@ -15,7 +15,7 @@ import { formatAcademicYear, formatDate, parseServerDate } from '@biddaloy/ui/ut
 import { createFileRoute, Link } from '@tanstack/react-router';
 import * as React from 'react';
 
-import { loadRouteNamespaces } from '../../../route-loaders';
+import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { DeleteYearDialog } from './-delete-year-dialog';
 import { SetCurrentDialog } from './-set-current-dialog';
@@ -31,7 +31,7 @@ export const Route = createFileRoute('/_staff/academic-years/')({
       // loader does — a rejection here would hand the route to the
       // router's generic error boundary before `useAcademicYears` gets a
       // chance to run the same query and surface its own error UI.
-      queryClient.ensureQueryData(academicYearsQueryOptions()).catch(() => undefined),
+      queryClient.ensureQueryData(academicYearsQueryOptions()).catch(swallowUnlessOffline),
       loadRouteNamespaces('academicYears'),
     ]),
   pendingComponent: AcademicYearsListPending,

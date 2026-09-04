@@ -20,7 +20,7 @@ import { formatDate, formatServerAmount, parseServerDate } from '@biddaloy/ui/ut
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { z } from 'zod';
 
-import { loadRouteNamespaces } from '../../../route-loaders';
+import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 interface InvoiceFilters {
   search?: string | undefined;
@@ -112,7 +112,7 @@ export const Route = createFileRoute('/_staff/invoices/')({
             ...(deps.order !== undefined ? { order: deps.order } : {}),
           }),
         )
-        .catch(() => undefined),
+        .catch(swallowUnlessOffline),
       loadRouteNamespaces('fees'),
     ]);
   },
