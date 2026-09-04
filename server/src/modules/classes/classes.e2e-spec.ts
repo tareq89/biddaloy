@@ -425,7 +425,13 @@ describe('Classes & Sections E2E', () => {
         designations: [TeacherDesignation.CLASS_TEACHER],
         tenant_id: TENANT_ID,
       });
-      await tcsRepo.save({ teacher_id: teacher.id, section_id: sectionRes.body.id });
+      // [9.1] `teacher_class_sections` gained a required `tenant_id` column
+      // — must be set on any direct-repository insert like this one.
+      await tcsRepo.save({
+        teacher_id: teacher.id,
+        section_id: sectionRes.body.id,
+        tenant_id: TENANT_ID,
+      });
 
       const res = await supertest(app.getHttpServer())
         .get(`/api/v1/classes/${classRes.body.id}/teachers`)

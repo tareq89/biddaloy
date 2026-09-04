@@ -133,7 +133,7 @@ describe('ClassService / SectionService (integration)', () => {
       designations: [TeacherDesignation.CLASS_TEACHER],
       tenant_id: tenantId,
     });
-    await tcsRepo.save({ teacher_id: teacher.id, section_id: section.id });
+    await tcsRepo.save({ teacher_id: teacher.id, section_id: section.id, tenant_id: tenantId });
     return teacher;
   }
 
@@ -416,7 +416,11 @@ describe('ClassService / SectionService (integration)', () => {
       });
       const teacher = await createTeacherOnSection(sectionA);
       const tcsRepo = dataSource.getRepository(TeacherClassSection);
-      await tcsRepo.save({ teacher_id: teacher.id, section_id: sectionB.id });
+      await tcsRepo.save({
+        teacher_id: teacher.id,
+        section_id: sectionB.id,
+        tenant_id: TENANT_ID,
+      });
 
       const teachers = await sectionService.findTeachers(klass.id, TENANT_ID);
 

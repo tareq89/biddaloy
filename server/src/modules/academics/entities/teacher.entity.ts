@@ -45,6 +45,11 @@ export class Teacher {
   @Column({ type: 'enum', enum: TeacherDesignation, array: true, default: [] })
   designations: TeacherDesignation[];
 
+  /**
+   * @deprecated since [9.1] — free text with no relation. The real mapping
+   * is `teacher_class_sections.subject_id`. Kept because the existing
+   * values cannot be mapped reliably; do not add new reads of this field.
+   */
   @Column({ type: 'varchar', length: 100, nullable: true })
   subject_specialization: string | null;
 

@@ -34,8 +34,10 @@ export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
   'student_guardians',
   'guardians',
   'enrollments',
+  'class_subjects',
   'teacher_class_sections',
   'teachers',
+  'subjects',
   'audit_logs',
   'students',
 ] as const;

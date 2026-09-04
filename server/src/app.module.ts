@@ -48,6 +48,8 @@ import { ReminderBatch } from './modules/communications/entities/reminder-batch.
 import { AuditLog } from './modules/audit/entities/audit-log.entity';
 import { Enrollment } from './modules/students/entities/enrollment.entity';
 import { TeacherClassSection } from './modules/academics/entities/teacher-class-section.entity';
+import { Subject } from './modules/academics/entities/subject.entity';
+import { ClassSubject } from './modules/academics/entities/class-subject.entity';
 import { RefreshToken } from './modules/auth/entities/refresh-token.entity';
 
 @Module({
@@ -100,6 +102,8 @@ import { RefreshToken } from './modules/auth/entities/refresh-token.entity';
             AuditLog,
             Enrollment,
             TeacherClassSection,
+            Subject,
+            ClassSubject,
             RefreshToken,
           ],
           synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
