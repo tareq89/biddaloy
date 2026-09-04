@@ -11,7 +11,7 @@ import { useDensity } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { RequireRole } from '@biddaloy/ui/routes';
 import { createFileRoute, Outlet } from '@tanstack/react-router';
-import { CreditCardIcon, HomeIcon, UserRoundIcon } from 'lucide-react';
+import { CalendarDaysIcon, CreditCardIcon, HomeIcon, UserRoundIcon } from 'lucide-react';
 
 import { loadRouteNamespaces } from '../route-loaders';
 
@@ -87,6 +87,17 @@ function PortalLayout() {
       label: t('items.portalFees'),
       icon: <CreditCardIcon className="size-5" aria-hidden="true" />,
       permission: Permission.INVOICE_READ,
+    },
+    {
+      to: '/portal/attendance',
+      label: t('items.portalAttendance'),
+      icon: <CalendarDaysIcon className="size-5" aria-hidden="true" />,
+      // [9.9] No `permission`: attendance's family-facing reads
+      // (`AttendanceSummaryController`) are gated with `@Roles(...,
+      // PARENT, STUDENT)` directly, not a `Permission` — there is no
+      // `ATTENDANCE_READ` in `ROLE_PERMISSIONS` to key off, same "every
+      // signed-in role in this shell owns it" case `/portal/account`
+      // documents above.
     },
     {
       to: '/portal/account',

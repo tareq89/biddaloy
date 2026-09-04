@@ -155,6 +155,7 @@ const COMFORTABLE_ROUTES = [
   { path: '/select-school', auth: loggedIn('admin', { tenant: 'none' }) },
   { path: '/portal', auth: loggedIn('parent') },
   { path: '/portal/fees', auth: loggedIn('parent') },
+  { path: '/portal/attendance', auth: loggedIn('parent') },
 ] as const;
 
 for (const route of COMFORTABLE_ROUTES) {

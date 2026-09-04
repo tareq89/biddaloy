@@ -8,7 +8,14 @@
  * built and tested against a mock until this landed. See its own
  * docstring below for the online/offline/conflict contract.
  */
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { AttendanceStatus } from '@biddaloy/shared';
+import {
+  keepPreviousData,
+  queryOptions,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
 import { enqueueMutation } from '../api/mutation-queue';
@@ -248,4 +255,81 @@ export function useCorrectRecord(sectionId: string, date: string, periodNo?: num
       void queryClient.invalidateQueries({ queryKey: recordHistoryKey(variables.recordId) });
     },
   });
+}
+
+// ---------------------------------------------------------------------
+// [9.9] GET /attendance/students/:studentId/days, .../summary — the two
+// exam-facing read endpoints [9.4] shipped, first consumed here by the
+// guardian portal's per-child month view.
+// ---------------------------------------------------------------------
+
+/** One calendar day of `GET /attendance/students/:studentId/days`. Not a
+ * generated `schema.d.ts` type — that endpoint ships without
+ * `@ApiOkResponse` (`attendance-summary.controller.ts`'s own comment: it's
+ * a thin passthrough of `AttendanceDayDto[]`), so the shape is declared by
+ * hand here, matching the server DTO field for field. */
+export interface StudentAttendanceDay {
+  date: string;
+  status: AttendanceStatus | null;
+  minutes_late: number | null;
+  remarks: string | null;
+  is_working_day: boolean;
+  holiday_name: string | null;
+}
+
+/** `GET /attendance/students/:studentId/summary`'s frozen contract shape
+ * — `schema.d.ts` types this one (it does carry `@ApiOkResponse`). */
+export type AttendanceSummary = components['schemas']['AttendanceSummaryDto'];
+
+/** Own key branch, not `attendanceKeys.detail(studentId)` — this is scoped
+ * by student *and* month, which doesn't fit the single-id `detail()`
+ * shape, same reasoning `sectionRegisterKey` documents for the register. */
+export function studentAttendanceDaysKey(studentId: string | undefined, month: string) {
+  return [...attendanceKeys.all, 'student', studentId, 'days', month] as const;
+}
+
+export function studentAttendanceDaysQueryOptions(studentId: string | undefined, month: string) {
+  return queryOptions({
+    queryKey: studentAttendanceDaysKey(studentId, month),
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<StudentAttendanceDay[]>(
+        `/attendance/students/${studentId}/days`,
+        { params: { month }, signal },
+      );
+      return res.data;
+    },
+    enabled: studentId !== undefined,
+    retry: shouldRetryQuery,
+    // A guardian paging month to month keeps the previous month's grid on
+    // screen instead of it collapsing to a loading skeleton every click.
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useStudentAttendanceDays(studentId: string | undefined, month: string) {
+  return useQuery(studentAttendanceDaysQueryOptions(studentId, month));
+}
+
+export function studentAttendanceSummaryKey(studentId: string | undefined, month: string) {
+  return [...attendanceKeys.all, 'student', studentId, 'summary', month] as const;
+}
+
+export function studentAttendanceSummaryQueryOptions(studentId: string | undefined, month: string) {
+  return queryOptions({
+    queryKey: studentAttendanceSummaryKey(studentId, month),
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<AttendanceSummary>(
+        `/attendance/students/${studentId}/summary`,
+        { params: { month }, signal },
+      );
+      return res.data;
+    },
+    enabled: studentId !== undefined,
+    retry: shouldRetryQuery,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useStudentAttendanceSummary(studentId: string | undefined, month: string) {
+  return useQuery(studentAttendanceSummaryQueryOptions(studentId, month));
 }

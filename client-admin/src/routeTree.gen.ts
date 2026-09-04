@@ -20,6 +20,7 @@ import { Route as StaffNotificationsRouteImport } from './routes/_staff/notifica
 import { Route as StaffSettingsRouteImport } from './routes/_staff/settings'
 import { Route as PortalIndexRouteImport } from './routes/portal/index'
 import { Route as PortalAccountRouteImport } from './routes/portal/account'
+import { Route as PortalAttendanceRouteImport } from './routes/portal/attendance'
 import { Route as PortalFeesRouteImport } from './routes/portal/fees'
 import { Route as StaffAcademicYearsIndexRouteImport } from './routes/_staff/academic-years/index'
 import { Route as StaffAcademicYearsAcademicYearIdRouteImport } from './routes/_staff/academic-years/$academicYearId'
@@ -101,6 +102,11 @@ const PortalIndexRoute = PortalIndexRouteImport.update({
 const PortalAccountRoute = PortalAccountRouteImport.update({
   id: '/account',
   path: '/account',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalAttendanceRoute = PortalAttendanceRouteImport.update({
+  id: '/attendance',
+  path: '/attendance',
   getParentRoute: () => PortalRoute,
 } as any)
 const PortalFeesRoute = PortalFeesRouteImport.update({
@@ -261,6 +267,7 @@ export interface FileRoutesByFullPath {
   '/notifications': typeof StaffNotificationsRoute
   '/settings': typeof StaffSettingsRoute
   '/portal/account': typeof PortalAccountRoute
+  '/portal/attendance': typeof PortalAttendanceRoute
   '/portal/fees': typeof PortalFeesRoute
   '/portal/': typeof PortalIndexRoute
   '/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
@@ -299,6 +306,7 @@ export interface FileRoutesByTo {
   '/notifications': typeof StaffNotificationsRoute
   '/settings': typeof StaffSettingsRoute
   '/portal/account': typeof PortalAccountRoute
+  '/portal/attendance': typeof PortalAttendanceRoute
   '/portal/fees': typeof PortalFeesRoute
   '/portal': typeof PortalIndexRoute
   '/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
@@ -341,6 +349,7 @@ export interface FileRoutesById {
   '/_staff/notifications': typeof StaffNotificationsRoute
   '/_staff/settings': typeof StaffSettingsRoute
   '/portal/account': typeof PortalAccountRoute
+  '/portal/attendance': typeof PortalAttendanceRoute
   '/portal/fees': typeof PortalFeesRoute
   '/portal/': typeof PortalIndexRoute
   '/_staff/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
@@ -383,6 +392,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/settings'
     | '/portal/account'
+    | '/portal/attendance'
     | '/portal/fees'
     | '/portal/'
     | '/academic-years/$academicYearId'
@@ -421,6 +431,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/settings'
     | '/portal/account'
+    | '/portal/attendance'
     | '/portal/fees'
     | '/portal'
     | '/academic-years/$academicYearId'
@@ -462,6 +473,7 @@ export interface FileRouteTypes {
     | '/_staff/notifications'
     | '/_staff/settings'
     | '/portal/account'
+    | '/portal/attendance'
     | '/portal/fees'
     | '/portal/'
     | '/_staff/academic-years/$academicYearId'
@@ -578,6 +590,13 @@ declare module '@tanstack/react-router' {
       path: '/account'
       fullPath: '/portal/account'
       preLoaderRoute: typeof PortalAccountRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/attendance': {
+      id: '/portal/attendance'
+      path: '/attendance'
+      fullPath: '/portal/attendance'
+      preLoaderRoute: typeof PortalAttendanceRouteImport
       parentRoute: typeof PortalRoute
     }
     '/portal/fees': {
@@ -862,12 +881,14 @@ const StaffRouteWithChildren = StaffRoute._addFileChildren(StaffRouteChildren)
 
 interface PortalRouteChildren {
   PortalAccountRoute: typeof PortalAccountRoute
+  PortalAttendanceRoute: typeof PortalAttendanceRoute
   PortalFeesRoute: typeof PortalFeesRoute
   PortalIndexRoute: typeof PortalIndexRoute
 }
 
 const PortalRouteChildren: PortalRouteChildren = {
   PortalAccountRoute: PortalAccountRoute,
+  PortalAttendanceRoute: PortalAttendanceRoute,
   PortalFeesRoute: PortalFeesRoute,
   PortalIndexRoute: PortalIndexRoute,
 }

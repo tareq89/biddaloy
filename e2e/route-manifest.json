@@ -196,6 +196,11 @@
       "archetype": "list"
     },
     {
+      "path": "/portal/attendance",
+      "role": "parent",
+      "archetype": "list"
+    },
+    {
       "path": "/portal/account",
       "role": "parent",
       "archetype": "form"
