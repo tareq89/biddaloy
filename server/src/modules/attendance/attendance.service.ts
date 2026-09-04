@@ -7,7 +7,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, In, IsNull, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, IsNull, QueryFailedError, Repository } from 'typeorm';
 import {
   AttendanceSessionState,
   AttendanceSource,
@@ -253,257 +253,304 @@ export class AttendanceService {
       throw new BadRequestException('entries contains a duplicate student_id');
     }
 
-    return this.dataSource.transaction(async (manager) => {
-      const sessionRepo = manager.getRepository(AttendanceSession);
-      const recordRepo = manager.getRepository(AttendanceRecord);
-      const studentRepo = manager.getRepository(Student);
+    // Wrapped rather than left to propagate as a 500: when no session exists
+    // yet, two concurrent PUTs both pass the pessimistic-lock lookup with a
+    // null result, then race to insert — the loser hits `UQ_att_session`.
+    // That's a version conflict in spirit, not a server error, so it's
+    // mapped to the same 409 the version check above already returns.
+    try {
+      return await this.dataSource.transaction(async (manager) => {
+        const sessionRepo = manager.getRepository(AttendanceSession);
+        const recordRepo = manager.getRepository(AttendanceRecord);
+        const studentRepo = manager.getRepository(Student);
 
-      const settings = await this.schoolsService.getResolvedSettings(tenantId);
-      const policy = resolveAttendancePolicy(settings);
-      const timezone = settings.region?.timezone ?? 'UTC';
-      const today = localToday(timezone);
+        const settings = await this.schoolsService.getResolvedSettings(tenantId);
+        const policy = resolveAttendancePolicy(settings);
+        const timezone = settings.region?.timezone ?? 'UTC';
+        const today = localToday(timezone);
 
-      // Pessimistic lock: two concurrent PUTs for the same session must serialize,
-      // not both read the same version and race to overwrite each other.
-      let session = await sessionRepo.findOne({
-        where: {
-          tenant_id: tenantId,
-          section_id: sectionId,
-          date: dto.date,
-          period_no: periodNo === null ? IsNull() : periodNo,
-        },
-        lock: { mode: 'pessimistic_write' },
-      });
-
-      // 2. Idempotency — checked before the version check, so a replay of an
-      // already-accepted write reads as a 200, never as a conflict.
-      if (session && session.last_client_request_id === dto.client_request_id) {
-        return this.loadRegister(manager, { sectionId, date: dto.date, periodNo, tenantId, role });
-      }
-
-      // 4. Future date.
-      if (dto.date > today) {
-        if (!policy.allowFutureDates) {
-          throw new UnprocessableEntityException({
-            message: 'Cannot mark attendance for a future date',
-            details: { code: 'ATTENDANCE_FUTURE_DATE' },
-          });
-        }
-        const hasNonLeaveEntry = dto.entries.some((e) => e.status !== AttendanceStatus.LEAVE);
-        if (hasNonLeaveEntry) {
-          throw new UnprocessableEntityException({
-            message: 'Only LEAVE may be marked for a future date',
-            details: { code: 'ATTENDANCE_FUTURE_NOT_LEAVE' },
-          });
-        }
-      }
-
-      // 5. Non-working day. The holiday lookup here is a stand-in for
-      // [9.4]'s SchoolCalendarService, which doesn't exist yet — do not
-      // block this ticket on it.
-      const hasCorrect = roleHasPermission(role, Permission.ATTENDANCE_CORRECT);
-      const nonWorkingDay =
-        isWeeklyOff(dto.date, policy) || (await this.isHoliday(manager, tenantId, dto.date));
-      if (nonWorkingDay && !(dto.force_non_working_day === true && hasCorrect)) {
-        throw new UnprocessableEntityException({
-          message: 'Cannot mark attendance on a non-working day',
-          details: { code: 'ATTENDANCE_NON_WORKING_DAY' },
-        });
-      }
-
-      // 6. Correction window — only applies when correcting an *existing*
-      // register; the first-ever submission for a day is never "outside
-      // the window".
-      const age = daysBetween(dto.date, today);
-      if (session && age > policy.correctionWindowDays) {
-        if (!hasCorrect) {
-          throw new ForbiddenException({
-            message: 'This register is outside the correction window',
-            details: { code: 'ATTENDANCE_WINDOW_CLOSED' },
-          });
-        }
-        if (isReasonTooShort(dto.reason)) {
-          throw new UnprocessableEntityException({
-            message: `A reason of at least ${MIN_REASON_LENGTH} characters is required to correct this register`,
-            details: { code: 'ATTENDANCE_REASON_REQUIRED' },
-          });
-        }
-      }
-
-      // 7. Version — a mismatch carries the full current register, which is
-      // the payload [8.12.5]'s conflict dialog renders.
-      const currentVersion = session?.version ?? 0;
-      if (dto.base_version !== currentVersion) {
-        const currentRegister = await this.loadRegister(manager, {
-          sectionId,
-          date: dto.date,
-          periodNo,
-          tenantId,
-          role,
-        });
-        throw new ConflictException({
-          message: 'This register has changed since you last loaded it',
-          details: {
-            code: 'ATTENDANCE_VERSION_CONFLICT',
-            current_version: currentVersion,
-            register: currentRegister,
+        // Pessimistic lock: two concurrent PUTs for the same session must serialize,
+        // not both read the same version and race to overwrite each other.
+        let session = await sessionRepo.findOne({
+          where: {
+            tenant_id: tenantId,
+            section_id: sectionId,
+            date: dto.date,
+            period_no: periodNo === null ? IsNull() : periodNo,
           },
+          lock: { mode: 'pessimistic_write' },
         });
-      }
 
-      // 8. Roster membership.
-      const uniqueStudentIds = [...new Set(studentIds)];
-      const roster =
-        uniqueStudentIds.length > 0
-          ? await studentRepo.find({
-              where: { id: In(uniqueStudentIds), class_section_id: sectionId, tenant_id: tenantId },
-            })
-          : [];
-      const rosterIds = new Set(roster.map((s) => s.id));
-      const unknownStudentIds = uniqueStudentIds.filter((id) => !rosterIds.has(id));
-      if (unknownStudentIds.length > 0) {
-        throw new UnprocessableEntityException({
-          message: 'One or more students are not enrolled in this section',
-          details: { code: 'ATTENDANCE_UNKNOWN_STUDENTS', student_ids: unknownStudentIds },
+        // 2. Idempotency — checked before the version check, so a replay of an
+        // already-accepted write reads as a 200, never as a conflict.
+        if (session && session.last_client_request_id === dto.client_request_id) {
+          return this.loadRegister(manager, {
+            sectionId,
+            date: dto.date,
+            periodNo,
+            tenantId,
+            role,
+          });
+        }
+
+        // 4. Future date.
+        if (dto.date > today) {
+          if (!policy.allowFutureDates) {
+            throw new UnprocessableEntityException({
+              message: 'Cannot mark attendance for a future date',
+              details: { code: 'ATTENDANCE_FUTURE_DATE' },
+            });
+          }
+          const hasNonLeaveEntry = dto.entries.some((e) => e.status !== AttendanceStatus.LEAVE);
+          if (hasNonLeaveEntry) {
+            throw new UnprocessableEntityException({
+              message: 'Only LEAVE may be marked for a future date',
+              details: { code: 'ATTENDANCE_FUTURE_NOT_LEAVE' },
+            });
+          }
+        }
+
+        // 5. Non-working day. The holiday lookup here is a stand-in for
+        // [9.4]'s SchoolCalendarService, which doesn't exist yet — do not
+        // block this ticket on it.
+        const hasCorrect = roleHasPermission(role, Permission.ATTENDANCE_CORRECT);
+        const nonWorkingDay =
+          isWeeklyOff(dto.date, policy) || (await this.isHoliday(manager, tenantId, dto.date));
+        if (nonWorkingDay && !(dto.force_non_working_day === true && hasCorrect)) {
+          throw new UnprocessableEntityException({
+            message: 'Cannot mark attendance on a non-working day',
+            details: { code: 'ATTENDANCE_NON_WORKING_DAY' },
+          });
+        }
+
+        // 6. Correction window — only applies when correcting an *existing*
+        // register; the first-ever submission for a day is never "outside
+        // the window".
+        const age = daysBetween(dto.date, today);
+        if (session && age > policy.correctionWindowDays) {
+          if (!hasCorrect) {
+            throw new ForbiddenException({
+              message: 'This register is outside the correction window',
+              details: { code: 'ATTENDANCE_WINDOW_CLOSED' },
+            });
+          }
+          if (isReasonTooShort(dto.reason)) {
+            throw new UnprocessableEntityException({
+              message: `A reason of at least ${MIN_REASON_LENGTH} characters is required to correct this register`,
+              details: { code: 'ATTENDANCE_REASON_REQUIRED' },
+            });
+          }
+        }
+
+        // 6a. Finalized registers are locked against routine edits. Only a
+        // caller holding ATTENDANCE_CORRECT may reopen one, and only with a
+        // reason — otherwise a same-section caller could silently overwrite a
+        // finalized register just by matching its base_version.
+        if (session && session.state === AttendanceSessionState.FINALIZED) {
+          if (!hasCorrect) {
+            throw new ForbiddenException({
+              message: 'This register has been finalized',
+              details: { code: 'ATTENDANCE_FINALIZED' },
+            });
+          }
+          if (isReasonTooShort(dto.reason)) {
+            throw new UnprocessableEntityException({
+              message: `A reason of at least ${MIN_REASON_LENGTH} characters is required to edit a finalized register`,
+              details: { code: 'ATTENDANCE_REASON_REQUIRED' },
+            });
+          }
+        }
+
+        // 7. Version — a mismatch carries the full current register, which is
+        // the payload [8.12.5]'s conflict dialog renders.
+        const currentVersion = session?.version ?? 0;
+        if (dto.base_version !== currentVersion) {
+          const currentRegister = await this.loadRegister(manager, {
+            sectionId,
+            date: dto.date,
+            periodNo,
+            tenantId,
+            role,
+          });
+          throw new ConflictException({
+            message: 'This register has changed since you last loaded it',
+            details: {
+              code: 'ATTENDANCE_VERSION_CONFLICT',
+              current_version: currentVersion,
+              register: currentRegister,
+            },
+          });
+        }
+
+        // 8. Roster membership.
+        const uniqueStudentIds = [...new Set(studentIds)];
+        const roster =
+          uniqueStudentIds.length > 0
+            ? await studentRepo.find({
+                where: {
+                  id: In(uniqueStudentIds),
+                  class_section_id: sectionId,
+                  tenant_id: tenantId,
+                },
+              })
+            : [];
+        const rosterIds = new Set(roster.map((s) => s.id));
+        const unknownStudentIds = uniqueStudentIds.filter((id) => !rosterIds.has(id));
+        if (unknownStudentIds.length > 0) {
+          throw new UnprocessableEntityException({
+            message: 'One or more students are not enrolled in this section',
+            details: { code: 'ATTENDANCE_UNKNOWN_STUDENTS', student_ids: unknownStudentIds },
+          });
+        }
+
+        // --- Write ---------------------------------------------------------
+        const isNewSession = !session;
+        if (!session) {
+          // `state`'s DB default only applies when the column is omitted from
+          // the INSERT — set it explicitly so the in-memory entity (and this
+          // request's audit/response payload) isn't left with `undefined`
+          // rather than the row's real value.
+          session = sessionRepo.create({
+            tenant_id: tenantId,
+            section_id: sectionId,
+            date: dto.date,
+            period_no: periodNo,
+            source: AttendanceSource.TEACHER,
+            state: AttendanceSessionState.DRAFT,
+          });
+        }
+        session.state = dto.finalize ? AttendanceSessionState.FINALIZED : session.state;
+        session.marked_by_user_id = userId;
+        session.marked_at = new Date();
+        session.last_client_request_id = dto.client_request_id;
+        if (dto.finalize) {
+          session.finalized_at = new Date();
+        }
+        session = await sessionRepo.save(session);
+
+        const existingRecords = await recordRepo.find({
+          where: { session_id: session.id, tenant_id: tenantId },
         });
-      }
+        const existingByStudentId = new Map(existingRecords.map((r) => [r.student_id, r]));
 
-      // --- Write ---------------------------------------------------------
-      const isNewSession = !session;
-      if (!session) {
-        // `state`'s DB default only applies when the column is omitted from
-        // the INSERT — set it explicitly so the in-memory entity (and this
-        // request's audit/response payload) isn't left with `undefined`
-        // rather than the row's real value.
-        session = sessionRepo.create({
-          tenant_id: tenantId,
-          section_id: sectionId,
-          date: dto.date,
-          period_no: periodNo,
-          source: AttendanceSource.TEACHER,
-          state: AttendanceSessionState.DRAFT,
-        });
-      }
-      session.state = dto.finalize ? AttendanceSessionState.FINALIZED : session.state;
-      session.marked_by_user_id = userId;
-      session.marked_at = new Date();
-      session.last_client_request_id = dto.client_request_id;
-      if (dto.finalize) {
-        session.finalized_at = new Date();
-      }
-      session = await sessionRepo.save(session);
+        const recordAudits: RecordAuditEntryInput[] = [];
+        const counts = emptyCounts();
 
-      const existingRecords = await recordRepo.find({
-        where: { session_id: session.id, tenant_id: tenantId },
-      });
-      const existingByStudentId = new Map(existingRecords.map((r) => [r.student_id, r]));
+        for (const entry of dto.entries) {
+          tallyStatus(counts, entry.status);
+          const minutesLate =
+            entry.status === AttendanceStatus.LATE ? (entry.minutes_late ?? null) : null;
+          const remarks = entry.remarks ?? null;
+          const existing = existingByStudentId.get(entry.student_id);
 
-      const recordAudits: RecordAuditEntryInput[] = [];
-      const counts = emptyCounts();
-
-      for (const entry of dto.entries) {
-        tallyStatus(counts, entry.status);
-        const minutesLate =
-          entry.status === AttendanceStatus.LATE ? (entry.minutes_late ?? null) : null;
-        const remarks = entry.remarks ?? null;
-        const existing = existingByStudentId.get(entry.student_id);
-
-        if (!existing) {
-          const created = await recordRepo.save(
-            recordRepo.create({
+          if (!existing) {
+            const created = await recordRepo.save(
+              recordRepo.create({
+                tenant_id: tenantId,
+                session_id: session.id,
+                student_id: entry.student_id,
+                date: session.date,
+                status: entry.status,
+                minutes_late: minutesLate,
+                remarks,
+                source: AttendanceSource.TEACHER,
+                recorded_by_user_id: userId,
+              }),
+            );
+            recordAudits.push({
+              action: AuditAction.CREATE,
+              entity_type: 'AttendanceRecord',
+              entity_id: created.id,
               tenant_id: tenantId,
-              session_id: session.id,
-              student_id: entry.student_id,
-              date: session.date,
-              status: entry.status,
-              minutes_late: minutesLate,
-              remarks,
-              source: AttendanceSource.TEACHER,
-              recorded_by_user_id: userId,
-            }),
-          );
+              performed_by_user_id: userId,
+              ip_address: ip,
+              user_agent: userAgent,
+              old_values: null,
+              new_values: {
+                status: created.status,
+                minutes_late: created.minutes_late,
+                remarks: created.remarks,
+              },
+            });
+            continue;
+          }
+
+          const changed =
+            existing.status !== entry.status ||
+            existing.minutes_late !== minutesLate ||
+            existing.remarks !== remarks;
+          // Unchanged records get no audit row — a register submitted twice
+          // with the same marks must not produce a wall of audit noise.
+          if (!changed) continue;
+
+          const oldValues = {
+            status: existing.status,
+            minutes_late: existing.minutes_late,
+            remarks: existing.remarks,
+          };
+          existing.status = entry.status;
+          existing.minutes_late = minutesLate;
+          existing.remarks = remarks;
+          existing.recorded_by_user_id = userId;
+          await recordRepo.save(existing);
+
           recordAudits.push({
-            action: AuditAction.CREATE,
+            action: AuditAction.UPDATE,
             entity_type: 'AttendanceRecord',
-            entity_id: created.id,
+            entity_id: existing.id,
+            tenant_id: tenantId,
+            performed_by_user_id: userId,
+            ip_address: ip,
+            user_agent: userAgent,
+            old_values: oldValues,
+            new_values: {
+              status: existing.status,
+              minutes_late: existing.minutes_late,
+              remarks: existing.remarks,
+              reason: dto.reason ?? null,
+            },
+          });
+        }
+
+        await this.auditService.record(
+          {
+            action: isNewSession ? AuditAction.CREATE : AuditAction.UPDATE,
+            entity_type: 'AttendanceSession',
+            entity_id: session.id,
             tenant_id: tenantId,
             performed_by_user_id: userId,
             ip_address: ip,
             user_agent: userAgent,
             old_values: null,
             new_values: {
-              status: created.status,
-              minutes_late: created.minutes_late,
-              remarks: created.remarks,
+              date: session.date,
+              period_no: session.period_no,
+              state: session.state,
+              version: session.version,
+              counts,
             },
-          });
-          continue;
+          },
+          manager,
+        );
+
+        for (const entry of recordAudits) {
+          await this.auditService.record(entry, manager);
         }
 
-        const changed =
-          existing.status !== entry.status ||
-          existing.minutes_late !== minutesLate ||
-          existing.remarks !== remarks;
-        // Unchanged records get no audit row — a register submitted twice
-        // with the same marks must not produce a wall of audit noise.
-        if (!changed) continue;
-
-        const oldValues = {
-          status: existing.status,
-          minutes_late: existing.minutes_late,
-          remarks: existing.remarks,
-        };
-        existing.status = entry.status;
-        existing.minutes_late = minutesLate;
-        existing.remarks = remarks;
-        existing.recorded_by_user_id = userId;
-        await recordRepo.save(existing);
-
-        recordAudits.push({
-          action: AuditAction.UPDATE,
-          entity_type: 'AttendanceRecord',
-          entity_id: existing.id,
-          tenant_id: tenantId,
-          performed_by_user_id: userId,
-          ip_address: ip,
-          user_agent: userAgent,
-          old_values: oldValues,
-          new_values: {
-            status: existing.status,
-            minutes_late: existing.minutes_late,
-            remarks: existing.remarks,
-            reason: dto.reason ?? null,
-          },
+        return this.loadRegister(manager, { sectionId, date: dto.date, periodNo, tenantId, role });
+      });
+    } catch (err) {
+      if (
+        err instanceof QueryFailedError &&
+        (err as unknown as { code?: string }).code === '23505'
+      ) {
+        throw new ConflictException({
+          message: 'This register was just created by another request',
+          details: { code: 'ATTENDANCE_SESSION_RACE' },
         });
       }
-
-      await this.auditService.record(
-        {
-          action: isNewSession ? AuditAction.CREATE : AuditAction.UPDATE,
-          entity_type: 'AttendanceSession',
-          entity_id: session.id,
-          tenant_id: tenantId,
-          performed_by_user_id: userId,
-          ip_address: ip,
-          user_agent: userAgent,
-          old_values: null,
-          new_values: {
-            date: session.date,
-            period_no: session.period_no,
-            state: session.state,
-            version: session.version,
-            counts,
-          },
-        },
-        manager,
-      );
-
-      for (const entry of recordAudits) {
-        await this.auditService.record(entry, manager);
-      }
-
-      return this.loadRegister(manager, { sectionId, date: dto.date, periodNo, tenantId, role });
-    });
+      throw err;
+    }
   }
 
   // ---------------------------------------------------------------------
@@ -833,7 +880,11 @@ export class AttendanceService {
       isWeeklyOff(date, policy) || (await this.isHoliday(manager, tenantId, date));
     const today = localToday(timezone);
     const reasonRequired = !!session && daysBetween(date, today) > policy.correctionWindowDays;
-    const editable = (!nonWorkingDay || hasCorrect) && (!reasonRequired || hasCorrect);
+    const finalized = session?.state === AttendanceSessionState.FINALIZED;
+    const editable =
+      (!nonWorkingDay || hasCorrect) &&
+      (!reasonRequired || hasCorrect) &&
+      (!finalized || hasCorrect);
 
     return {
       section: {
