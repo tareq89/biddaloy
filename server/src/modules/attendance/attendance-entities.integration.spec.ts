@@ -156,6 +156,27 @@ describe('attendance entities (integration)', () => {
       const found = await repo.findOne({ where: { id: holiday.id, tenant_id: TENANT_ID } });
       expect(found).toBeNull();
     });
+
+    it('soft-deletes a holiday and excludes it from a standard findOne', async () => {
+      const holiday = await repo.save({
+        tenant_id: TENANT_ID,
+        academic_year_id: academicYearId,
+        start_date: '2026-12-16',
+        end_date: '2026-12-16',
+        name: 'Victory Day',
+      });
+
+      await repo.softDelete(holiday.id);
+
+      const withDeleted = await repo.findOne({
+        where: { id: holiday.id },
+        withDeleted: true,
+      });
+      expect(withDeleted?.deleted_at).not.toBeNull();
+
+      const found = await repo.findOne({ where: { id: holiday.id } });
+      expect(found).toBeNull();
+    });
   });
 
   describe('AttendanceDevice', () => {
@@ -387,6 +408,28 @@ describe('attendance entities (integration)', () => {
           outcome: 'duplicate',
         }),
       ).rejects.toThrow(QueryFailedError);
+    });
+
+    it('does not let tenant A read tenant B event through a tenant-scoped query', async () => {
+      const otherDevice = await deviceRepo.save({
+        tenant_id: OTHER_TENANT,
+        name: 'Other gate scanner',
+        kind: AttendanceDeviceKind.RFID,
+        token_hash: 'd'.repeat(64),
+        token_last4: '4321',
+      });
+
+      const event = await repo.save({
+        tenant_id: OTHER_TENANT,
+        device_id: otherDevice.id,
+        device_event_id: 'scan-1',
+        occurred_at: new Date('2026-09-04T08:00:00Z'),
+        direction: AttendanceEventDirection.IN,
+        outcome: 'accepted',
+      });
+
+      const found = await repo.findOne({ where: { id: event.id, tenant_id: TENANT_ID } });
+      expect(found).toBeNull();
     });
   });
 });
