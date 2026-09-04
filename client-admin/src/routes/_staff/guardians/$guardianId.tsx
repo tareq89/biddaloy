@@ -1,12 +1,14 @@
 import { Permission } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
-import { ErrorState, Skeleton, StatusBadge } from '@biddaloy/ui/components';
-import { useGuardian, useHasPermission } from '@biddaloy/ui/hooks';
+import { ErrorState, RoutePending, Skeleton, StatusBadge } from '@biddaloy/ui/components';
+import { guardianQueryOptions, useGuardian, useHasPermission } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell, useDetailShellTab } from '@biddaloy/ui/shells';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import * as React from 'react';
 import { z } from 'zod';
+
+import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { CommunicationTab } from './-detail/communication-tab';
 import { InformationTab } from './-detail/information-tab';
@@ -32,6 +34,16 @@ const TAB_IDS = ['information', 'linkedStudents', 'communication', 'payments'] a
  */
 export const Route = createFileRoute('/_staff/guardians/$guardianId')({
   validateSearch: guardianDetailSearchSchema,
+  loader: ({ context: { queryClient }, params }) =>
+    Promise.all([
+      // [8.14.5]: swallowed — see `academic-years/$academicYearId.tsx`'s
+      // identical comment for why.
+      queryClient
+        .ensureQueryData(guardianQueryOptions(params.guardianId))
+        .catch(swallowUnlessOffline),
+      loadRouteNamespaces('guardians', 'common'),
+    ]),
+  pendingComponent: GuardianDetailPending,
   component: GuardianDetailPage,
 });
 
@@ -92,6 +104,7 @@ function GuardianDetailPage() {
                   id: 'edit',
                   label: t('detail.actions.edit'),
                   allowed: canUpdate,
+                  priority: 'primary',
                   onClick: () => setEditDialogOpen(true),
                 },
               ]}
@@ -132,4 +145,9 @@ function GuardianDetailPage() {
       </div>
     </RegionConfigProvider>
   );
+}
+
+function GuardianDetailPending() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="detail" label={t('routePending.label', { ns: 'nav' })} />;
 }

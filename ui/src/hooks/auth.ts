@@ -2,7 +2,7 @@ import type { LoginResponse } from '@biddaloy/shared';
 import type { QueryClient } from '@tanstack/react-query';
 
 import { clearAuthState, setAccessToken } from '../api/auth-state';
-import { postAuthLogin, postAuthLogout } from '../api/client';
+import { apiClient, postAuthLogin, postAuthLogout } from '../api/client';
 import { NoMembershipsError } from '../api/errors';
 import { resetSessionBootstrap, scheduleTokenRefresh } from '../api/session';
 
@@ -95,6 +95,32 @@ export async function login(
   }
 
   return result;
+}
+
+/**
+ * [8.14.4]'s `/portal/account` password card — `POST /auth/change-password`
+ * (`AuthController.changePassword`). The server revokes every refresh
+ * token for this account and re-issues one for *this* device in the same
+ * response (`LoginResponseDto`), so — unlike `login`/`endSession` — this
+ * deliberately does **not** call `clearAuthState()` or `queryClient.clear()`.
+ * This device's session keeps working uninterrupted (that's the whole
+ * point of "change your password without being logged out"); every *other*
+ * device simply finds its old refresh token rejected the next time it
+ * tries to refresh, which is the "revokes other sessions" AC without this
+ * tab ever treating its own, still-valid session as expired.
+ *
+ * No `switchActiveTenant`/membership handling either: unlike `login`, the
+ * caller never leaves the tenant/role they were already acting as — a
+ * password change carries no membership list to pick from.
+ */
+export async function changePassword(input: {
+  current_password: string;
+  new_password: string;
+}): Promise<LoginResponse> {
+  const result = await apiClient.post<LoginResponse>('/auth/change-password', input);
+  setAccessToken(result.data.access_token);
+  scheduleTokenRefresh(result.data.access_token);
+  return result.data;
 }
 
 async function endSession(

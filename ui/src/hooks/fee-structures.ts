@@ -1,4 +1,11 @@
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { FeeType } from '@biddaloy/shared';
+import {
+  keepPreviousData,
+  queryOptions,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
 import { offlineCachedQueryFn } from '../api/offline-cache';
@@ -22,10 +29,18 @@ export interface PaginatedFeeStructures {
   totalPages: number;
 }
 
+// [8.14.10] Mirrors `QueryFeeStructureDto`
+// (`server/src/modules/fees/dto/fees.dto.ts`) exactly.
 export interface FeeStructureListFilters {
   academic_year_id?: string;
   class_id?: string;
   month?: number;
+  search?: string;
+  fee_type?: FeeType;
+  section_id?: string;
+  is_recurring?: boolean;
+  sort?: 'name' | 'amount' | 'month' | 'created_at';
+  order?: 'asc' | 'desc';
   page?: number;
   limit?: number;
 }
@@ -49,6 +64,11 @@ export function feeStructuresQueryOptions(filters: FeeStructureListFilters = {})
         apiClient.get<PaginatedFeeStructures>('/fee-structures', { params: filters, signal }),
     }),
     retry: shouldRetryQuery,
+    // [8.14.6] Filter/page/sort changes keep the previous page's rows on
+    // screen (and `isFetching` true) instead of the whole table collapsing
+    // to one "Loading…" row height. v5 dropped `keepPreviousData: true`;
+    // this is its replacement.
+    placeholderData: keepPreviousData,
   });
 }
 

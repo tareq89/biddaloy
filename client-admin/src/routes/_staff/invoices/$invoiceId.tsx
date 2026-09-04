@@ -1,9 +1,25 @@
 import { InvoiceStatus, Permission } from '@biddaloy/shared';
-import { Button, ErrorState, Skeleton, StatusBadge, toast } from '@biddaloy/ui/components';
-import { openPrintableInvoice, useHasPermission, useInvoice } from '@biddaloy/ui/hooks';
+import {
+  Button,
+  ErrorState,
+  Field,
+  FieldGrid,
+  RoutePending,
+  Skeleton,
+  StatusBadge,
+  toast,
+} from '@biddaloy/ui/components';
+import {
+  invoiceQueryOptions,
+  openPrintableInvoice,
+  useHasPermission,
+  useInvoice,
+} from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatDate, formatServerAmount, parseServerDate } from '@biddaloy/ui/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
+
+import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 /**
  * `/invoices/$invoiceId` — [8.9.9]'s Cmd/Ctrl+K palette and [8.10.6]'s
@@ -18,6 +34,16 @@ import { createFileRoute, Link } from '@tanstack/react-router';
  * cast for a field the acceptance criteria don't actually ask for.
  */
 export const Route = createFileRoute('/_staff/invoices/$invoiceId')({
+  loader: ({ context: { queryClient }, params }) =>
+    Promise.all([
+      // [8.14.5]: swallowed — see `academic-years/$academicYearId.tsx`'s
+      // identical comment for why.
+      queryClient
+        .ensureQueryData(invoiceQueryOptions(params.invoiceId))
+        .catch(swallowUnlessOffline),
+      loadRouteNamespaces('fees'),
+    ]),
+  pendingComponent: InvoiceDetailPending,
   component: InvoiceDetailPage,
 });
 
@@ -54,30 +80,25 @@ function InvoiceDetailPage() {
             <StatusBadge domain="invoice" status={invoiceQuery.data.status as InvoiceStatus} />
           </div>
 
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
-            <div>
-              <dt className="text-muted-foreground">{t('invoiceDetail.issuedDate')}</dt>
-              <dd>{formatDate(parseServerDate(invoiceQuery.data.issued_date), regionConfig)}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">{t('invoiceDetail.dueDate')}</dt>
-              <dd>{formatDate(parseServerDate(invoiceQuery.data.due_date), regionConfig)}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">{t('invoiceDetail.taxAmount')}</dt>
-              <dd>{formatServerAmount(invoiceQuery.data.tax_amount, regionConfig)}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">{t('invoiceDetail.discountAmount')}</dt>
-              <dd>{formatServerAmount(invoiceQuery.data.discount_amount, regionConfig)}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">{t('invoiceDetail.totalAmount')}</dt>
-              <dd className="font-medium">
+          <FieldGrid className="text-sm">
+            <Field label={t('invoiceDetail.issuedDate')}>
+              {formatDate(parseServerDate(invoiceQuery.data.issued_date), regionConfig)}
+            </Field>
+            <Field label={t('invoiceDetail.dueDate')}>
+              {formatDate(parseServerDate(invoiceQuery.data.due_date), regionConfig)}
+            </Field>
+            <Field label={t('invoiceDetail.taxAmount')}>
+              {formatServerAmount(invoiceQuery.data.tax_amount, regionConfig)}
+            </Field>
+            <Field label={t('invoiceDetail.discountAmount')}>
+              {formatServerAmount(invoiceQuery.data.discount_amount, regionConfig)}
+            </Field>
+            <Field label={t('invoiceDetail.totalAmount')}>
+              <span className="font-medium">
                 {formatServerAmount(invoiceQuery.data.total_amount, regionConfig)}
-              </dd>
-            </div>
-          </dl>
+              </span>
+            </Field>
+          </FieldGrid>
 
           {invoiceQuery.data.notes !== null && (
             <p className="text-sm text-muted-foreground">{invoiceQuery.data.notes}</p>
@@ -100,4 +121,9 @@ function InvoiceDetailPage() {
       )}
     </div>
   );
+}
+
+function InvoiceDetailPending() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="detail" label={t('routePending.label', { ns: 'nav' })} />;
 }

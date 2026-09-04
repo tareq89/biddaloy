@@ -21,13 +21,14 @@
     "allActions": "All actions",
     "entityTypeLabel": "Record type",
     "allEntityTypes": "All record types",
+    "performedByLabel": "Performed by",
+    "allUsers": "All users",
+    "dateRangeLabel": "Date range",
     "fromDateLabel": "From date",
     "toDateLabel": "To date"
   },
   "forbidden": {
-    "title": "You don't have access to the audit trail",
-    "explanation": "Only an administrator can read this school's audit trail.",
-    "action": "Back to dashboard"
+    "explanation": "Only an administrator can read this school's audit trail."
   },
   "actions": {
     "CREATE": "Created",

@@ -22,6 +22,16 @@ const FAST = process.env.ESLINT_FAST === '1';
 
 export default tseslint.config(
   ...biddaloyReactConfig,
+  // Fast mode turns off the type-checked rule set above, so an
+  // `eslint-disable` comment written for one of those rules (e.g.
+  // `@typescript-eslint/only-throw-error` on a `throw redirect(...)` —
+  // `redirect()` isn't an `Error`, but the rule needs type info to know
+  // that) looks unused to this pass and `--fix` deletes it, silently
+  // reintroducing the very error `yarn lint` (CI, full type-checked pass)
+  // then catches. Disabling the "unused directive" check only in fast
+  // mode keeps pre-commit from destroying comments it can't evaluate,
+  // without weakening the real check anywhere it runs with full type info.
+  ...(FAST ? [{ linterOptions: { reportUnusedDisableDirectives: false } }] : []),
   ...(FAST
     ? []
     : [

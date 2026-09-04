@@ -17,11 +17,12 @@ describe('/settings', () => {
   });
 
   // TEACHER rather than STUDENT since [8.9.10]: a STUDENT never reaches
-  // this route at all any more — `_staff.tsx`'s guard redirects the whole
-  // guardian audience to `/portal` before the page's own permission check
-  // runs (see `role-routing.test.tsx`). TEACHER is the case this test was
-  // always about: a staff role that is inside the shell but still lacks
-  // `SETTINGS_MANAGE`.
+  // this route at all any more — `_staff.tsx`'s `RequireRole` redirects the
+  // whole guardian audience to `/portal` before `RequirePermission` ([8.14.17])
+  // ever runs (see `role-routing.test.tsx`). TEACHER is the case this test
+  // was always about: a staff role that is inside the shell but still lacks
+  // `SETTINGS_MANAGE`, so `RequirePermission` refuses it in place — the page
+  // itself no longer carries its own inline permission check.
   it('hides the settings screen entirely from a staff role without SETTINGS_MANAGE', async () => {
     renderWithRouter(routeTree, {
       initialEntries: ['/settings'],

@@ -18,7 +18,7 @@
  *    is `POST /reminder/bulk/preview`, not a local computation.
  */
 import { FeeStatus } from '@biddaloy/shared';
-import { ApiError } from '@biddaloy/ui/api';
+import { ApiError, captureNotificationTenant, notifyOutcome } from '@biddaloy/ui/api';
 import {
   Button,
   Checkbox,
@@ -183,7 +183,24 @@ export function BulkReminderWizard() {
 
   function handleSubmit() {
     if (!previewMatchesInputs) return;
-    send.mutate(buildInput());
+    const notifyTenantId = captureNotificationTenant();
+    // Queued, not sent: `POST /communications/reminder/bulk` only enqueues
+    // (`ui/src/hooks/reminders.ts:22-30`). The terminal outcome is produced
+    // by the batch detail route, the only place that polls for it.
+    send.mutate(buildInput(), {
+      onSuccess: () =>
+        notifyOutcome({
+          tenantId: notifyTenantId,
+          variant: 'info',
+          message: t('notifications.batchQueued'),
+        }),
+      onError: () =>
+        notifyOutcome({
+          tenantId: notifyTenantId,
+          variant: 'error',
+          message: t('notifications.batchQueueFailed'),
+        }),
+    });
   }
 
   /** 400s verbatim (specific and actionable), 429 as the rate-limit note
@@ -355,6 +372,7 @@ export function BulkReminderWizard() {
           selectedIds={selectedIds}
           onSelectedIdsChange={setSelectedIds}
           loading={duesQuery.isPending}
+          isFetching={duesQuery.isFetching}
           {...(duesQuery.isError ? { error: t('bulk.recipients.loadError') } : {})}
           emptyMessage={t('bulk.recipients.empty')}
         />

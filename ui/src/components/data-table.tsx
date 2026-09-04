@@ -26,9 +26,23 @@ import {
 import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react';
 import * as React from 'react';
 
+import { useContainerWidth } from '../hooks/use-container-width';
+import { useRegionConfig, useTranslation } from '../i18n';
+import { cn } from '../primitives/lib/utils';
+import { formatNumber } from '../utils';
+
 import { Button } from './button';
 import { Checkbox } from './checkbox';
-import { Menu, MenuCheckboxItem, MenuContent, MenuTrigger } from './menu';
+import { DataTableCards, type DataTableCardRow } from './data-table-cards';
+import { Menu, MenuCheckboxItem, MenuContent, MenuItem, MenuTrigger } from './menu';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
+import { Skeleton } from './skeleton';
+
+// [8.14.7] `DataTable` measures its own root element to pick a render
+// mode — see `use-container-width.ts`'s doc comment for why a *container*
+// check (not a CSS/viewport breakpoint) is required here. 768px matches
+// the `md` design token.
+const CARD_MODE_MAX_WIDTH = 768;
 
 // Declared once at module scope (not per-render) — the sort/visibility/order
 // features this table actually uses. v9 requires an explicit feature set
@@ -44,6 +58,13 @@ export interface DataTableSort {
   desc: boolean;
 }
 
+/** [8.14.7] How a column renders in card mode. Defaults, when nothing is
+ * declared on any column: the first visible column becomes `'title'`, a
+ * `pinned` column becomes `'actions'`, everything else becomes a `dl`
+ * field. Per-page tuning is #374's job — these defaults exist so a page
+ * that hasn't been through that pass still produces a usable card. */
+export type DataTableCardRole = 'title' | 'subtitle' | 'badge' | 'field' | 'actions' | 'hidden';
+
 export interface DataTableColumn<TData extends RowData> {
   id: string;
   header: string;
@@ -54,6 +75,16 @@ export interface DataTableColumn<TData extends RowData> {
    * to hide, and a table with no visible way back to it would be a trap
    * once hidden. */
   pinned?: boolean;
+  /** `'end'` right-aligns the column *and* applies `tabular-nums`, so
+   * money and count columns align on the decimal (design contract §2).
+   * Applies in table mode (header + cell) and in card mode (the `<dd>`).
+   * Default `'start'`. Logical, not physical — correct under RTL for
+   * free. */
+  align?: 'start' | 'end';
+  /** [8.14.7] Where this column's value lands in card mode. See
+   * `DataTableCardRole`'s doc comment for the defaults that apply when
+   * this is left unset. */
+  card?: DataTableCardRole;
 }
 
 export interface DataTableProps<TData extends RowData> {
@@ -72,18 +103,36 @@ export interface DataTableProps<TData extends RowData> {
   pageSize: number;
   totalCount: number;
   onPageChange: (page: number) => void;
+  /** [8.14.10] Renders a rows-per-page `Select` in the pager (start side,
+   * next to "Page N of M") when supplied. Omitted entirely (no control)
+   * when this prop is absent — pages that haven't migrated yet, and
+   * every existing story/test, keep today's two-button pager. */
+  onPageSizeChange?: (size: number) => void;
+  /** @default [10, 20, 50] */
+  pageSizeOptions?: readonly number[];
+  /** Accessible name for the rows-per-page control. Defaults to
+   * `t('pagination.rowsPerPage')` when omitted — see [8.14.15] / #458. */
+  pageSizeLabel?: string;
 
   selectedIds?: ReadonlySet<string>;
   onSelectedIdsChange?: (ids: ReadonlySet<string>) => void;
   bulkActions?: React.ReactNode;
 
   loading?: boolean;
+  /** True while a *refetch* is in flight and rows from the previous key are
+   * still on screen (TanStack's `query.isFetching`). Distinct from
+   * `loading`, which means "no rows exist yet". `loading` wins when both
+   * are set. */
+  isFetching?: boolean;
+  /** Announced (politely) while `loading`. Defaults to `t('status.loading')`
+   * when omitted — see [8.14.15] / #458. */
+  loadingMessage?: string;
   error?: string;
   emptyMessage?: string;
 
   /** Announced (politely) whenever the visible result count changes —
-   * defaults to English; pass a Bangla template for a Bangla-locale story
-   * until FormField/i18next wiring exists, same as `Combobox`. */
+   * defaults to a translated `table.announceResults_one`/`_other` when omitted, see
+   * [8.14.15] / #458. */
   announceResults?: (count: number, total: number) => string;
 
   /** Columns hidden until a caller opts them into `columnsMenu`, or until
@@ -101,8 +150,7 @@ export interface DataTableProps<TData extends RowData> {
    * default: a table with a fixed, small column set (most of today's
    * callers) has nothing worth hiding. */
   columnsMenu?: boolean;
-  /** English default, same "not yet retrofitted onto i18next" convention
-   * as `emptyMessage`/`announceResults` above. */
+  /** Defaults to `t('table.columns')` when omitted — see [8.14.15] / #458. */
   columnsMenuLabel?: string;
 
   /** Renders an inline expansion panel below a row (e.g. classes/index.tsx's
@@ -118,6 +166,24 @@ export interface DataTableProps<TData extends RowData> {
    * `(row) => \`Sections for ${row.name}\`` — since "Expand row" alone
    * wouldn't distinguish rows for screen-reader users. */
   expandRowLabel?: (row: TData) => string;
+
+  /** [8.14.7] `'auto'` (default) measures this table's own root element
+   * (not the viewport — see `use-container-width.ts`) and renders cards
+   * below 768px of *container* width. `'table'`/`'cards'` force one mode
+   * regardless of measured width — used by Storybook stories, tests, and
+   * any caller that already knows which layout it wants. */
+  layout?: 'auto' | 'table' | 'cards';
+  /** Trigger label for card mode's sort control (a `Menu` standing in for
+   * the `<th>` sort buttons that have no home once there's no `<th>` row)
+   * when no column is currently sorted. Defaults to `t('table.sort')`
+   * when omitted — see [8.14.15] / #458. */
+  sortMenuLabel?: string;
+  /** Formats a sortable column's label plus its current direction for
+   * card mode's sort control — both the menu trigger (when that column is
+   * the active sort) and each menu item. Defaults to a translated
+   * `t('table.sortedAscending'/'sortedDescending', ...)` when omitted —
+   * see [8.14.15] / #458. */
+  sortOptionLabel?: (header: string, direction: 'asc' | 'desc' | null) => string;
 }
 
 function readPersistedState(
@@ -160,19 +226,52 @@ export function DataTable<TData extends RowData>({
   pageSize,
   totalCount,
   onPageChange,
+  onPageSizeChange,
+  pageSizeOptions = [10, 20, 50],
+  pageSizeLabel,
   selectedIds,
   onSelectedIdsChange,
   bulkActions,
   loading = false,
+  isFetching = false,
+  loadingMessage,
   error,
-  emptyMessage = 'No results',
-  announceResults = (count, total) => `${count} of ${total} result${total === 1 ? '' : 's'}`,
+  emptyMessage,
+  announceResults,
   defaultColumnVisibility,
   columnsMenu = false,
-  columnsMenuLabel = 'Columns',
+  columnsMenuLabel,
   renderExpandedRow,
-  expandRowLabel = () => 'Expand row',
+  expandRowLabel,
+  layout = 'auto',
+  sortMenuLabel,
+  sortOptionLabel,
 }: DataTableProps<TData>) {
+  const { t } = useTranslation();
+  const regionConfig = useRegionConfig();
+  // [8.14.15] Props are overrides now, not English defaults — the lint
+  // guard can't see a destructuring default, so the resolved fallback
+  // lives here instead.
+  const selectAllLabel = t('table.selectAllOnPage');
+  const resolvedSelectRowLabel = (rowIndex: number) =>
+    t('table.selectRow', { index: rowIndex + 1 });
+  const resolvedEmptyMessage = emptyMessage ?? t('table.empty');
+  const resolvedLoadingMessage = loadingMessage ?? t('status.loading');
+  const resolvedPageSizeLabel = pageSizeLabel ?? t('pagination.rowsPerPage');
+  const resolvedColumnsMenuLabel = columnsMenuLabel ?? t('table.columns');
+  const resolvedExpandRowLabel = expandRowLabel ?? (() => t('table.expandRow'));
+  const resolvedSortMenuLabel = sortMenuLabel ?? t('table.sort');
+  const resolvedSortOptionLabel =
+    sortOptionLabel ??
+    ((header: string, direction: 'asc' | 'desc' | null) =>
+      direction === 'asc'
+        ? t('table.sortedAscending', { header })
+        : direction === 'desc'
+          ? t('table.sortedDescending', { header })
+          : header);
+  const resolvedAnnounceResults =
+    announceResults ??
+    ((count: number, total: number) => t('table.announceResults', { count: count, total }));
   const [expandedRowIds, setExpandedRowIds] = React.useState<ReadonlySet<string>>(new Set());
   const expandable = renderExpandedRow !== undefined;
   function toggleExpanded(id: string) {
@@ -275,7 +374,74 @@ export function DataTable<TData extends RowData>({
   // `focusedCell.col` target.
   const dataColCount = table.getVisibleFlatColumns().length;
   const colSpanCount = dataColCount + (selectable ? 1 : 0) + (expandable ? 1 : 0);
+  // [8.14.6] `loading` (no rows exist yet) paints a table-shaped skeleton
+  // instead of collapsing to a single "Loading…" cell. `isFetching` (rows
+  // from the previous key are still mounted, via `placeholderData:
+  // keepPreviousData`) dims those rows instead of unmounting them.
+  const skeletonRowCount = Math.min(Math.max(pageSize, 1), 10);
+  const showStaleRows = !loading && isFetching && rows.length > 0;
   const regionRef = React.useRef<HTMLDivElement>(null);
+
+  // [8.14.7] Card-mode measurement. `containerRef` sits on this
+  // component's own root element (below), not the table region, so a
+  // `<table>`/`<ul>` swap never changes what's being measured.
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const measuredWidth = useContainerWidth(containerRef);
+  // Seeds the very first paint from a viewport media query so a phone
+  // doesn't render the wide table for one frame before `ResizeObserver`'s
+  // first callback swaps it to cards — `theme-provider.tsx`'s
+  // `typeof matchMedia === 'function'` guard is the same convention,
+  // needed for the same reason (SSR/jsdom have no `matchMedia`).
+  // Container measurement refines this on the next commit and wins once
+  // it arrives.
+  const [initialNarrowGuess] = React.useState(
+    () =>
+      typeof matchMedia === 'function' &&
+      matchMedia(`(max-width: ${CARD_MODE_MAX_WIDTH - 1}px)`).matches,
+  );
+  const cardMode =
+    layout === 'cards'
+      ? true
+      : layout === 'table'
+        ? false
+        : measuredWidth !== null
+          ? measuredWidth < CARD_MODE_MAX_WIDTH
+          : initialNarrowGuess;
+
+  // [8.14.7] Card mode has no roving-tabindex grid (every control in a
+  // card is already a real, individually tabbable element — see
+  // `data-table-cards.tsx`'s doc comment), so a stale `focusedCell` from
+  // table mode must not survive a mode flip back to table.
+  React.useEffect(() => {
+    setFocusedCell({ row: 0, col: 0 });
+  }, [cardMode]);
+
+  const alignMap = React.useMemo(() => {
+    const map = new Map<string, 'start' | 'end'>();
+    for (const column of columns) if (column.align) map.set(column.id, column.align);
+    return map;
+  }, [columns]);
+
+  // [8.14.7] Resolves each column's card-mode role, applying
+  // `DataTableCardRole`'s documented defaults only for roles nothing
+  // declared: first undeclared column -> `'title'`, first undeclared
+  // `pinned` column -> `'actions'`. Explicit `card` values on any column
+  // always win.
+  const cardRoles = React.useMemo(() => {
+    const roles = new Map<string, DataTableCardRole>();
+    for (const column of columns) {
+      if (column.card) roles.set(column.id, column.card);
+    }
+    if (!columns.some((column) => roles.get(column.id) === 'title')) {
+      const first = columns.find((column) => !roles.has(column.id));
+      if (first) roles.set(first.id, 'title');
+    }
+    if (!columns.some((column) => roles.get(column.id) === 'actions')) {
+      const pinnedColumn = columns.find((column) => column.pinned && !roles.has(column.id));
+      if (pinnedColumn) roles.set(pinnedColumn.id, 'actions');
+    }
+    return roles;
+  }, [columns]);
 
   // Roving tabindex only moves the *tab stop* by re-rendering with a new
   // `tabIndex`/`data-focused` — a DOM element doesn't lose actual focus
@@ -331,40 +497,101 @@ export function DataTable<TData extends RowData>({
     onSelectedIdsChange?.(next);
   }
 
+  // [8.14.7] Card mode's plain row shape — built from the *same* TanStack
+  // row model table mode reads (`row.getVisibleCells()`), so column
+  // visibility, column order, and sorting drive both render modes
+  // identically. See `data-table-cards.tsx`'s doc comment for why this is
+  // plain data rather than TanStack's own `Row<TData>` type.
+  const cardRows: DataTableCardRow<TData>[] = cardMode
+    ? rows.map((row) => ({
+        id: row.id,
+        original: row.original,
+        cells: row.getVisibleCells().map((cell) => ({
+          id: cell.id,
+          columnId: cell.column.id,
+          value: cell.getValue() as React.ReactNode,
+        })),
+      }))
+    : [];
+
+  // [8.14.7] Card mode's stand-in for the `<th>` sort buttons that have
+  // no home once there's no `<th>` row — see Approach step 5. Built from
+  // the same TanStack header group table mode's `<th>`s read, so
+  // activating one calls the identical `header.column.toggleSorting()`
+  // path.
+  const sortableHeaders = cardMode
+    ? (table.getHeaderGroups()[0]?.headers ?? []).filter((header) => header.column.getCanSort())
+    : [];
+  const currentSortedHeader = sortableHeaders.find((header) => header.column.getIsSorted());
+  const sortMenuTriggerLabel = currentSortedHeader
+    ? `${resolvedSortMenuLabel}: ${resolvedSortOptionLabel(
+        String(currentSortedHeader.column.columnDef.header),
+        currentSortedHeader.column.getIsSorted() === 'desc' ? 'desc' : 'asc',
+      )}`
+    : resolvedSortMenuLabel;
+
   return (
-    <div>
-      {columnsMenu && (
-        <div className="mb-2 flex justify-end">
-          <Menu>
-            <MenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                {columnsMenuLabel}
-              </Button>
-            </MenuTrigger>
-            <MenuContent align="end">
-              {table
-                .getAllLeafColumns()
-                .filter((column) => column.getCanHide())
-                .map((column) => (
-                  <MenuCheckboxItem
-                    key={column.id}
-                    checked={column.getIsVisible()}
-                    onCheckedChange={(checked) => column.toggleVisibility(checked)}
-                    // Closing on every toggle would force a re-open per
-                    // column — this menu's whole point is checking/
-                    // unchecking several at once.
-                    onSelect={(event) => event.preventDefault()}
-                  >
-                    {column.columnDef.header as string}
-                  </MenuCheckboxItem>
-                ))}
-            </MenuContent>
-          </Menu>
+    <div ref={containerRef}>
+      {(columnsMenu || sortableHeaders.length > 0) && (
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <div>
+            {sortableHeaders.length > 0 && (
+              <Menu>
+                <MenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    {sortMenuTriggerLabel}
+                  </Button>
+                </MenuTrigger>
+                <MenuContent align="start">
+                  {sortableHeaders.map((header) => {
+                    const label = String(header.column.columnDef.header);
+                    const sorted = header.column.getIsSorted();
+                    const direction = sorted === 'desc' ? 'desc' : sorted === 'asc' ? 'asc' : null;
+                    return (
+                      <MenuItem
+                        key={header.column.id}
+                        onSelect={() => header.column.toggleSorting()}
+                      >
+                        {resolvedSortOptionLabel(label, direction)}
+                      </MenuItem>
+                    );
+                  })}
+                </MenuContent>
+              </Menu>
+            )}
+          </div>
+          {columnsMenu && (
+            <Menu>
+              <MenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  {resolvedColumnsMenuLabel}
+                </Button>
+              </MenuTrigger>
+              <MenuContent align="end">
+                {table
+                  .getAllLeafColumns()
+                  .filter((column) => column.getCanHide())
+                  .map((column) => (
+                    <MenuCheckboxItem
+                      key={column.id}
+                      checked={column.getIsVisible()}
+                      onCheckedChange={(checked) => column.toggleVisibility(checked)}
+                      // Closing on every toggle would force a re-open per
+                      // column — this menu's whole point is checking/
+                      // unchecking several at once.
+                      onSelect={(event) => event.preventDefault()}
+                    >
+                      {column.columnDef.header as string}
+                    </MenuCheckboxItem>
+                  ))}
+              </MenuContent>
+            </Menu>
+          )}
         </div>
       )}
       {selectable && selectedIds && selectedIds.size > 0 && bulkActions && (
         <div className="mb-2 flex items-center gap-2 rounded-md bg-muted p-2">
-          <span className="text-sm">{selectedIds.size} selected</span>
+          <span className="text-sm">{t('table.selectedCount', { count: selectedIds.size })}</span>
           {bulkActions}
         </div>
       )}
@@ -378,210 +605,292 @@ export function DataTable<TData extends RowData>({
           technique asks for, not a misuse of `tabIndex`. Re-enabled right
           after this element so the exemption doesn't leak to anything
           else in the file. */}
-      <div
-        ref={regionRef}
-        role="region"
-        tabIndex={0}
-        aria-label={caption}
-        className="w-full overflow-x-auto rounded-lg border border-border-subtle focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
-      >
-        {/* eslint-enable jsx-a11y/no-noninteractive-tabindex */}
-        {/* [8.5.6] `[&_td_a]:min-h-6` etc.: links inside cells (view/detail
+      {cardMode ? (
+        <DataTableCards
+          tableId={tableId}
+          caption={caption}
+          rows={cardRows}
+          columns={columns}
+          cardRoles={cardRoles}
+          alignMap={alignMap}
+          loading={loading}
+          showStaleRows={showStaleRows}
+          skeletonRowCount={skeletonRowCount}
+          {...(error !== undefined ? { error } : {})}
+          emptyMessage={resolvedEmptyMessage}
+          selectable={selectable}
+          {...(selectedIds !== undefined ? { selectedIds } : {})}
+          toggleRow={toggleRow}
+          allSelected={allSelected}
+          someSelected={someSelected}
+          setPageSelection={setPageSelection}
+          selectAllLabel={selectAllLabel}
+          selectRowLabel={resolvedSelectRowLabel}
+          expandable={expandable}
+          expandedRowIds={expandedRowIds}
+          toggleExpanded={toggleExpanded}
+          {...(renderExpandedRow !== undefined ? { renderExpandedRow } : {})}
+          expandRowLabel={resolvedExpandRowLabel}
+        />
+      ) : (
+        <div
+          ref={regionRef}
+          role="region"
+          tabIndex={0}
+          aria-label={caption}
+          aria-busy={loading || showStaleRows}
+          data-fetching={showStaleRows ? 'true' : undefined}
+          className="w-full overflow-x-auto rounded-lg border border-border-subtle focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        >
+          {/* eslint-enable jsx-a11y/no-noninteractive-tabindex */}
+          {/* [8.5.6] `[&_td_a]:min-h-6` etc.: links inside cells (view/detail
             links, invoice numbers) get a 24px minimum hit area — WCAG
             2.2 SC 2.5.8 — without each column having to remember it. */}
-        <table className="w-full border-collapse text-sm [&_td_a]:inline-flex [&_td_a]:min-h-6 [&_td_a]:min-w-6 [&_td_a]:items-center [&_td_a]:justify-center [&_td_button]:min-h-6 [&_td_button]:min-w-6 [&_th_button]:min-h-6 [&_th_button]:min-w-6">
-          <caption className="sr-only">{caption}</caption>
-          <thead>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id}>
-                {expandable && (
-                  <th scope="col" className="w-8 p-2 text-start">
-                    <span className="sr-only">Expand</span>
-                  </th>
-                )}
-                {selectable && (
-                  <th scope="col" className="p-2 text-start">
-                    <Checkbox
-                      aria-label="Select all rows on this page"
-                      checked={allSelected ? true : someSelected ? 'indeterminate' : false}
-                      onCheckedChange={(checked) => setPageSelection(checked === true)}
-                    />
-                  </th>
-                )}
-                {headerGroup.headers.map((header) => {
-                  const canSort = header.column.getCanSort();
-                  const sortDirection = header.column.getIsSorted();
-                  const ariaSort = !canSort
-                    ? undefined
-                    : sortDirection === 'asc'
-                      ? 'ascending'
-                      : sortDirection === 'desc'
-                        ? 'descending'
-                        : 'none';
-                  return (
-                    <th
-                      key={header.id}
-                      scope="col"
-                      aria-sort={ariaSort}
-                      className="p-2 text-start font-medium"
-                    >
-                      {canSort ? (
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-1 hover:underline"
-                          onClick={() => header.column.toggleSorting()}
-                        >
-                          {flexRender(header.column.columnDef.header, header.getContext())}
-                          {sortDirection === 'asc' && <span aria-hidden="true">▲</span>}
-                          {sortDirection === 'desc' && <span aria-hidden="true">▼</span>}
-                        </button>
-                      ) : (
-                        flexRender(header.column.columnDef.header, header.getContext())
-                      )}
+          <table className="w-full border-collapse text-sm [&_td_a]:inline-flex [&_td_a]:min-h-6 [&_td_a]:min-w-6 [&_td_a]:items-center [&_td_a]:justify-center [&_td_button]:min-h-6 [&_td_button]:min-w-6 [&_th_button]:min-h-6 [&_th_button]:min-w-6">
+            <caption className="sr-only">{caption}</caption>
+            <thead>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <tr key={headerGroup.id}>
+                  {expandable && (
+                    <th scope="col" className="w-8 p-2 text-start">
+                      <span className="sr-only">{t('table.expand')}</span>
                     </th>
-                  );
-                })}
-              </tr>
-            ))}
-          </thead>
-          <tbody>
-            {loading && (
-              <tr>
-                <td colSpan={colSpanCount} className="p-4 text-center text-muted-foreground">
-                  Loading…
-                </td>
-              </tr>
-            )}
-            {!loading && error && (
-              <tr>
-                <td colSpan={colSpanCount} className="p-4 text-center text-destructive">
-                  <span role="alert">{error}</span>
-                </td>
-              </tr>
-            )}
-            {!loading && !error && rows.length === 0 && (
-              <tr>
-                <td colSpan={colSpanCount} className="p-4 text-center text-muted-foreground">
-                  {emptyMessage}
-                </td>
-              </tr>
-            )}
-            {!loading &&
-              !error &&
-              rows.map((row, rowIndex) => {
-                const isExpanded = expandable && expandedRowIds.has(row.id);
-                // Stable, DOM-unique id for the toggle's `aria-controls` /
-                // the expansion panel's own id — scoped by `tableId` so two
-                // `DataTable`s on the same page (unlikely, but cheap to
-                // guard against) never collide.
-                const expandedPanelId = `${tableId}-expanded-${row.id}`;
-                return (
-                  <React.Fragment key={row.id}>
-                    <tr
-                      className="border-t border-border-subtle"
-                      data-selected={selectedIds?.has(row.id) || undefined}
-                    >
-                      {expandable && (
-                        <td className="p-2">
+                  )}
+                  {selectable && (
+                    <th scope="col" className="p-2 text-start">
+                      <Checkbox
+                        aria-label={selectAllLabel}
+                        checked={allSelected ? true : someSelected ? 'indeterminate' : false}
+                        onCheckedChange={(checked) => setPageSelection(checked === true)}
+                      />
+                    </th>
+                  )}
+                  {headerGroup.headers.map((header) => {
+                    const canSort = header.column.getCanSort();
+                    const sortDirection = header.column.getIsSorted();
+                    const ariaSort = !canSort
+                      ? undefined
+                      : sortDirection === 'asc'
+                        ? 'ascending'
+                        : sortDirection === 'desc'
+                          ? 'descending'
+                          : 'none';
+                    return (
+                      <th
+                        key={header.id}
+                        scope="col"
+                        aria-sort={ariaSort}
+                        className={cn(
+                          'p-2 text-start font-medium',
+                          alignMap.get(header.column.id) === 'end' && 'text-end tabular-nums',
+                        )}
+                      >
+                        {canSort ? (
                           <button
                             type="button"
-                            aria-expanded={isExpanded}
-                            // Only set while expanded — the `<tr id=
-                            // {expandedPanelId}>` it names doesn't exist
-                            // in the DOM at all when collapsed (see
-                            // `renderExpandedRow`'s own conditional
-                            // render below), so pointing `aria-controls`
-                            // at it unconditionally would name an
-                            // element assistive tech can never find.
-                            aria-controls={isExpanded ? expandedPanelId : undefined}
-                            aria-label={expandRowLabel(row.original)}
-                            className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
-                            onClick={() => toggleExpanded(row.id)}
+                            className="inline-flex items-center gap-1 hover:underline"
+                            onClick={() => header.column.toggleSorting()}
                           >
-                            {isExpanded ? (
-                              <ChevronDownIcon className="h-4 w-4" aria-hidden="true" />
-                            ) : (
-                              <ChevronRightIcon className="h-4 w-4" aria-hidden="true" />
-                            )}
+                            {flexRender(header.column.columnDef.header, header.getContext())}
+                            {sortDirection === 'asc' && <span aria-hidden="true">▲</span>}
+                            {sortDirection === 'desc' && <span aria-hidden="true">▼</span>}
                           </button>
-                        </td>
-                      )}
-                      {selectable && (
-                        <td className="p-2">
-                          <Checkbox
-                            aria-label={`Select row ${rowIndex + 1}`}
-                            checked={selectedIds?.has(row.id) ?? false}
-                            onCheckedChange={() => toggleRow(row.id)}
-                          />
-                        </td>
-                      )}
-                      {row.getVisibleCells().map((cell, colIndex) => {
-                        const isFocused =
-                          focusedCell.row === rowIndex && focusedCell.col === colIndex;
-                        return (
-                          <td
-                            key={cell.id}
-                            tabIndex={isFocused ? 0 : -1}
-                            data-focused={isFocused || undefined}
-                            className="p-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
-                            onFocus={() => setFocusedCell({ row: rowIndex, col: colIndex })}
-                            onKeyDown={(event) => {
-                              if (event.key === 'ArrowRight') {
-                                event.preventDefault();
-                                moveFocus(0, 1);
-                              } else if (event.key === 'ArrowLeft') {
-                                event.preventDefault();
-                                moveFocus(0, -1);
-                              } else if (event.key === 'ArrowDown') {
-                                event.preventDefault();
-                                moveFocus(1, 0);
-                              } else if (event.key === 'ArrowUp') {
-                                event.preventDefault();
-                                moveFocus(-1, 0);
-                              } else if (event.key === 'Home') {
-                                event.preventDefault();
-                                setFocusedCell({ row: rowIndex, col: 0 });
-                              } else if (event.key === 'End') {
-                                event.preventDefault();
-                                setFocusedCell({ row: rowIndex, col: dataColCount - 1 });
-                              } else if (event.key === ' ') {
-                                event.preventDefault();
-                                toggleRow(row.id);
-                              }
-                            }}
-                          >
-                            {cell.getValue() as React.ReactNode}
+                        ) : (
+                          flexRender(header.column.columnDef.header, header.getContext())
+                        )}
+                      </th>
+                    );
+                  })}
+                </tr>
+              ))}
+            </thead>
+            <tbody
+              className={cn(
+                showStaleRows &&
+                  'opacity-60 transition-opacity duration-(--motion-duration-base) ease-(--motion-ease-standard)',
+              )}
+            >
+              {loading &&
+                Array.from({ length: skeletonRowCount }, (_, row) => (
+                  <tr key={`skeleton-${row}`} aria-hidden="true" data-placeholder="skeleton">
+                    {Array.from({ length: colSpanCount }, (_, col) => (
+                      <td key={col} className="p-2">
+                        {/* `h-5`, matching `SkeletonTable`'s cell recipe — same
+                         * `p-2 text-sm` data cells, so the skeleton's row
+                         * height doesn't jump against the real rows that
+                         * replace it. */}
+                        <Skeleton className="h-5 w-full" />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              {!loading && error && (
+                <tr>
+                  <td colSpan={colSpanCount} className="p-4 text-center text-destructive">
+                    <span role="alert">{error}</span>
+                  </td>
+                </tr>
+              )}
+              {!loading && !error && rows.length === 0 && (
+                <tr>
+                  <td colSpan={colSpanCount} className="p-4 text-center text-muted-foreground">
+                    {resolvedEmptyMessage}
+                  </td>
+                </tr>
+              )}
+              {!loading &&
+                !error &&
+                rows.map((row, rowIndex) => {
+                  const isExpanded = expandable && expandedRowIds.has(row.id);
+                  // Stable, DOM-unique id for the toggle's `aria-controls` /
+                  // the expansion panel's own id — scoped by `tableId` so two
+                  // `DataTable`s on the same page (unlikely, but cheap to
+                  // guard against) never collide.
+                  const expandedPanelId = `${tableId}-expanded-${row.id}`;
+                  return (
+                    <React.Fragment key={row.id}>
+                      <tr
+                        className="border-t border-border-subtle"
+                        data-selected={selectedIds?.has(row.id) || undefined}
+                      >
+                        {expandable && (
+                          <td className="p-2">
+                            <button
+                              type="button"
+                              aria-expanded={isExpanded}
+                              // Only set while expanded — the `<tr id=
+                              // {expandedPanelId}>` it names doesn't exist
+                              // in the DOM at all when collapsed (see
+                              // `renderExpandedRow`'s own conditional
+                              // render below), so pointing `aria-controls`
+                              // at it unconditionally would name an
+                              // element assistive tech can never find.
+                              aria-controls={isExpanded ? expandedPanelId : undefined}
+                              aria-label={resolvedExpandRowLabel(row.original)}
+                              className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                              onClick={() => toggleExpanded(row.id)}
+                            >
+                              {isExpanded ? (
+                                <ChevronDownIcon className="h-4 w-4" aria-hidden="true" />
+                              ) : (
+                                <ChevronRightIcon className="h-4 w-4" aria-hidden="true" />
+                              )}
+                            </button>
                           </td>
-                        );
-                      })}
-                    </tr>
-                    {isExpanded && (
-                      // Own `<tr>`/`<td colSpan>`, not inside the row above —
-                      // keeps every data `<td>`'s `colIndex` (and therefore
-                      // `focusedCell.col`) meaning exactly what it always
-                      // has. `rows[]`/`rowIndex` (TanStack's row model) is
-                      // what Up/Down arrow navigation walks, not DOM
-                      // position, so this extra sibling `<tr>` never shifts
-                      // it either.
-                      <tr id={expandedPanelId} className="bg-muted/30">
-                        <td colSpan={colSpanCount} className="p-0">
-                          {renderExpandedRow?.(row.original)}
-                        </td>
+                        )}
+                        {selectable && (
+                          <td className="p-2">
+                            <Checkbox
+                              aria-label={resolvedSelectRowLabel(rowIndex)}
+                              checked={selectedIds?.has(row.id) ?? false}
+                              onCheckedChange={() => toggleRow(row.id)}
+                            />
+                          </td>
+                        )}
+                        {row.getVisibleCells().map((cell, colIndex) => {
+                          const isFocused =
+                            focusedCell.row === rowIndex && focusedCell.col === colIndex;
+                          return (
+                            <td
+                              key={cell.id}
+                              tabIndex={isFocused ? 0 : -1}
+                              data-focused={isFocused || undefined}
+                              className={cn(
+                                'p-2 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                                alignMap.get(cell.column.id) === 'end' && 'text-end tabular-nums',
+                              )}
+                              onFocus={() => setFocusedCell({ row: rowIndex, col: colIndex })}
+                              onKeyDown={(event) => {
+                                if (event.key === 'ArrowRight') {
+                                  event.preventDefault();
+                                  moveFocus(0, 1);
+                                } else if (event.key === 'ArrowLeft') {
+                                  event.preventDefault();
+                                  moveFocus(0, -1);
+                                } else if (event.key === 'ArrowDown') {
+                                  event.preventDefault();
+                                  moveFocus(1, 0);
+                                } else if (event.key === 'ArrowUp') {
+                                  event.preventDefault();
+                                  moveFocus(-1, 0);
+                                } else if (event.key === 'Home') {
+                                  event.preventDefault();
+                                  setFocusedCell({ row: rowIndex, col: 0 });
+                                } else if (event.key === 'End') {
+                                  event.preventDefault();
+                                  setFocusedCell({ row: rowIndex, col: dataColCount - 1 });
+                                } else if (event.key === ' ') {
+                                  event.preventDefault();
+                                  toggleRow(row.id);
+                                }
+                              }}
+                            >
+                              {cell.getValue() as React.ReactNode}
+                            </td>
+                          );
+                        })}
                       </tr>
-                    )}
-                  </React.Fragment>
-                );
-              })}
-          </tbody>
-        </table>
-      </div>
+                      {isExpanded && (
+                        // Own `<tr>`/`<td colSpan>`, not inside the row above —
+                        // keeps every data `<td>`'s `colIndex` (and therefore
+                        // `focusedCell.col`) meaning exactly what it always
+                        // has. `rows[]`/`rowIndex` (TanStack's row model) is
+                        // what Up/Down arrow navigation walks, not DOM
+                        // position, so this extra sibling `<tr>` never shifts
+                        // it either.
+                        <tr id={expandedPanelId} className="bg-muted/30">
+                          <td colSpan={colSpanCount} className="p-0">
+                            {renderExpandedRow?.(row.original)}
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+            </tbody>
+          </table>
+        </div>
+      )}
       <div aria-live="polite" className="sr-only">
-        {!loading && !error && announceResults(rows.length, totalCount)}
+        {loading
+          ? resolvedLoadingMessage
+          : !error && resolvedAnnounceResults(rows.length, totalCount)}
       </div>
       <div className="mt-2 flex items-center justify-between text-sm">
-        <span className="text-muted-foreground">
-          Page {page} of {totalPages}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-muted-foreground">
+            {t('table.pageOf', {
+              page: formatNumber(page, regionConfig),
+              total: formatNumber(totalPages, regionConfig),
+            })}
+          </span>
+          {onPageSizeChange && (
+            <Select
+              value={String(pageSize)}
+              onValueChange={(value) => onPageSizeChange(Number(value))}
+            >
+              <SelectTrigger aria-label={resolvedPageSizeLabel} className="w-20">
+                {/* Radix's `SelectValue` only renders a label when its
+                 * displayed value matches a mounted `SelectItem`'s own
+                 * value — if the URL's `limit` (or a stale locale
+                 * default) isn't one of `pageSizeOptions`, nothing
+                 * registers as selected and the trigger renders blank.
+                 * Passing an explicit child bypasses that lookup so the
+                 * current `pageSize` always shows, even off-list —
+                 * this never rewrites `pageSize` itself, so the URL's
+                 * value is left alone. */}
+                <SelectValue>{formatNumber(pageSize, regionConfig)}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {pageSizeOptions.map((size) => (
+                  <SelectItem key={size} value={String(size)}>
+                    {formatNumber(size, regionConfig)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
         <div className="flex gap-1.5">
           <button
             type="button"
@@ -589,7 +898,7 @@ export function DataTable<TData extends RowData>({
             disabled={page <= 1}
             onClick={() => onPageChange(page - 1)}
           >
-            Previous
+            {t('pagination.previous')}
           </button>
           <button
             type="button"
@@ -597,7 +906,7 @@ export function DataTable<TData extends RowData>({
             disabled={page >= totalPages}
             onClick={() => onPageChange(page + 1)}
           >
-            Next
+            {t('pagination.next')}
           </button>
         </div>
       </div>

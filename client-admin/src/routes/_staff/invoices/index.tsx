@@ -1,14 +1,8 @@
 import { InvoiceStatus, Permission } from '@biddaloy/shared';
 import {
-  DatePicker,
-  Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  RoutePending,
   StatusBadge,
-  humanizeStatus,
+  statusLabelKey,
   toast,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
@@ -18,53 +12,65 @@ import {
   useHasPermission,
   useInvoices,
   type Invoice,
+  type InvoiceListFilters,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { ListShell, useListShellState } from '@biddaloy/ui/shells';
-import {
-  formatDate,
-  formatServerAmount,
-  parseDate,
-  parseServerDate,
-  toLatinDigits,
-} from '@biddaloy/ui/utils';
+import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
+import { formatDate, formatServerAmount, parseServerDate } from '@biddaloy/ui/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import * as React from 'react';
 import { z } from 'zod';
 
-/** Radix `Select.Item` rejects an empty-string `value` — same sentinel
- * convention `students/index.tsx`/`fees/dues.tsx` use for "All statuses". */
-const ALL_VALUE = '__all__';
+import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 interface InvoiceFilters {
   search?: string | undefined;
+  student_id?: string | undefined;
   status?: string | undefined;
   from_date?: string | undefined;
   to_date?: string | undefined;
+  min_amount?: string | undefined;
+  max_amount?: string | undefined;
 }
 
 const invoicesSearchSchema = z.object({
   page: z.number().int().positive().optional().catch(undefined),
   limit: z.number().int().positive().optional().catch(undefined),
+  sort: z.string().optional().catch(undefined),
+  order: z.enum(['asc', 'desc']).optional().catch(undefined),
   search: z.string().optional().catch(undefined),
   student_id: z.string().optional().catch(undefined),
   status: z.string().optional().catch(undefined),
   from_date: z.string().optional().catch(undefined),
   to_date: z.string().optional().catch(undefined),
-  // Reserved key `use-list-shell-state.ts` stores the row selection under
-  // — must be declared here or TanStack Router's `validateSearch` strips
-  // it from the URL on every navigation. This list has no bulk actions
-  // today, but the key still round-trips through `useListShellState`.
+  min_amount: z.string().optional().catch(undefined),
+  max_amount: z.string().optional().catch(undefined),
+  // Reserved key `use-list-shell-state.ts` stores row selection under —
+  // must be declared here or TanStack Router's `validateSearch` strips it
+  // from the URL, same reasoning as every other list route's search schema.
   selected: z.string().optional().catch(undefined),
 });
 
-function toInvoiceListFilters(filters: InvoiceFilters, studentId: string | undefined) {
+/** `DataTableSort.id` values that map onto a server-sortable field — see
+ * `students/index.tsx`'s identical `SORT_FIELD_BY_COLUMN` comment. */
+const SORT_FIELD_BY_COLUMN: Partial<Record<string, NonNullable<InvoiceListFilters['sort']>>> = {
+  number: 'invoice_number',
+  amount: 'total_amount',
+  status: 'status',
+  issuedDate: 'issued_date',
+  dueDate: 'due_date',
+};
+
+function toInvoiceListFilters(filters: InvoiceFilters) {
+  const minAmount = filters.min_amount !== undefined ? Number(filters.min_amount) : undefined;
+  const maxAmount = filters.max_amount !== undefined ? Number(filters.max_amount) : undefined;
   return {
     ...(filters.search !== undefined ? { search: filters.search } : {}),
-    ...(studentId !== undefined ? { student_id: studentId } : {}),
+    ...(filters.student_id !== undefined ? { student_id: filters.student_id } : {}),
     ...(filters.status !== undefined ? { status: filters.status as InvoiceStatus } : {}),
     ...(filters.from_date !== undefined ? { from_date: filters.from_date } : {}),
     ...(filters.to_date !== undefined ? { to_date: filters.to_date } : {}),
+    ...(minAmount !== undefined && Number.isFinite(minAmount) ? { min_amount: minAmount } : {}),
+    ...(maxAmount !== undefined && Number.isFinite(maxAmount) ? { max_amount: maxAmount } : {}),
   };
 }
 
@@ -73,76 +79,104 @@ export const Route = createFileRoute('/_staff/invoices/')({
   loaderDeps: ({ search }) => ({
     page: search.page ?? 1,
     limit: search.limit ?? 10,
+    sort: search.sort,
+    order: search.order,
     search: search.search,
     studentId: search.student_id,
     status: search.status,
     fromDate: search.from_date,
     toDate: search.to_date,
+    minAmount: search.min_amount,
+    maxAmount: search.max_amount,
   }),
-  loader: ({ context: { queryClient }, deps }) =>
-    queryClient.ensureQueryData(
-      invoicesQueryOptions({
-        page: deps.page,
-        limit: deps.limit,
-        ...toInvoiceListFilters(
-          {
-            search: deps.search,
-            status: deps.status,
-            from_date: deps.fromDate,
-            to_date: deps.toDate,
-          },
-          deps.studentId,
-        ),
-      }),
-    ),
+  loader: ({ context: { queryClient }, deps }) => {
+    const sortField = deps.sort !== undefined ? SORT_FIELD_BY_COLUMN[deps.sort] : undefined;
+    return Promise.all([
+      // [8.14.5]: swallowed — see `academic-years/index.tsx`'s identical
+      // comment for why.
+      queryClient
+        .ensureQueryData(
+          invoicesQueryOptions({
+            page: deps.page,
+            limit: deps.limit,
+            ...toInvoiceListFilters({
+              search: deps.search,
+              student_id: deps.studentId,
+              status: deps.status,
+              from_date: deps.fromDate,
+              to_date: deps.toDate,
+              min_amount: deps.minAmount,
+              max_amount: deps.maxAmount,
+            }),
+            ...(sortField !== undefined ? { sort: sortField } : {}),
+            ...(deps.order !== undefined ? { order: deps.order } : {}),
+          }),
+        )
+        .catch(swallowUnlessOffline),
+      loadRouteNamespaces('fees'),
+    ]);
+  },
+  pendingComponent: InvoicesListPending,
   component: InvoicesListPage,
 });
 
 function InvoicesListPage() {
   const { t } = useTranslation('fees');
   const regionConfig = useRegionConfig();
-  const search = Route.useSearch();
   const [state, actions] = useListShellState({ limit: 10 });
+  // `student_id` round-trips through this generic `filters` bag same as
+  // every other key — reading it from here (not a separate
+  // `Route.useSearch()` call) is what keeps the FilterBar chip's "clear"
+  // button and the outgoing query in agreement; previously this page read
+  // `student_id` via `Route.useSearch()` directly, so clearing the chip
+  // emptied the URL while the query still used the stale value.
   const filters = state.filters as InvoiceFilters;
   const canPrint = useHasPermission(Permission.INVOICE_PRINT);
 
-  // Un-debounced local echo of the URL's `search`, same reasoning
-  // `students/index.tsx` documents: typing shouldn't push a URL/query
-  // update on every keystroke, but a `<Link>` elsewhere rewriting the URL
-  // directly should still show up here.
-  const [searchInput, setSearchInput] = React.useState(filters.search ?? '');
-  React.useEffect(() => {
-    setSearchInput(filters.search ?? '');
-  }, [filters.search]);
-
-  const filtersRef = React.useRef(filters);
-  filtersRef.current = filters;
-  const actionsRef = React.useRef(actions);
-  actionsRef.current = actions;
-
-  React.useEffect(() => {
-    const timeout = setTimeout(() => {
-      const currentFilters = filtersRef.current;
-      if (searchInput === (currentFilters.search ?? '')) return;
-      actionsRef.current.setFilters({
-        ...currentFilters,
-        search: searchInput || undefined,
-      } as Record<string, string>);
-    }, 300);
-    return () => clearTimeout(timeout);
-  }, [searchInput]);
-
+  const sortField = state.sorting ? SORT_FIELD_BY_COLUMN[state.sorting.id] : undefined;
   const invoicesQuery = useInvoices({
     page: state.page,
     limit: state.limit,
-    ...toInvoiceListFilters(filters, search.student_id),
+    ...toInvoiceListFilters(filters),
+    ...(sortField !== undefined ? { sort: sortField } : {}),
+    ...(state.sorting ? { order: state.sorting.desc ? 'desc' : 'asc' } : {}),
   });
 
-  function setFilter(key: keyof InvoiceFilters, value: string | undefined) {
-    const next = { ...filters, [key]: value };
-    if (value === undefined) delete next[key];
-    actions.setFilters(next as Record<string, string>);
-  }
+  const filterFields: FilterFieldDescriptor[] = [
+    {
+      kind: 'text',
+      key: 'search',
+      label: t('invoices.searchLabel'),
+      placeholder: t('invoices.searchPlaceholder'),
+      primary: true,
+    },
+    {
+      kind: 'select',
+      key: 'status',
+      label: t('invoices.statusLabel'),
+      allLabel: t('invoices.allStatuses'),
+      options: Object.values(InvoiceStatus).map((status) => ({
+        value: status,
+        label: t(statusLabelKey('invoice', status), { ns: 'common' }),
+      })),
+    },
+    {
+      kind: 'date-range',
+      fromKey: 'from_date',
+      toKey: 'to_date',
+      label: t('invoices.dateRangeLabel'),
+      fromLabel: t('invoices.fromDateLabel'),
+      toLabel: t('invoices.toDateLabel'),
+    },
+    {
+      kind: 'number-range',
+      minKey: 'min_amount',
+      maxKey: 'max_amount',
+      label: t('invoices.amountRangeLabel'),
+      minLabel: t('invoices.minAmountLabel'),
+      maxLabel: t('invoices.maxAmountLabel'),
+    },
+  ];
 
   const columns: DataTableColumn<Invoice>[] = [
     {
@@ -157,36 +191,44 @@ function InvoicesListPage() {
           {row.invoice_number}
         </Link>
       ),
+      sortable: true,
+      // [8.14.10] The invoice number is the natural card title.
+      card: 'title',
     },
     {
       id: 'student',
       header: t('invoices.columnStudent'),
       accessorFn: (row) => row.student.full_name,
+      card: 'subtitle',
     },
     {
       id: 'amount',
       header: t('invoices.columnAmount'),
-      // tabular-nums: money columns align on the decimal (design contract §2).
-      // Effective for Latin digits (`en`); a no-op on Bengali numerals, whose
-      // face ships no `tnum` — see §2's note.
-      accessorFn: (row) => (
-        <span className="tabular-nums">{formatServerAmount(row.total_amount, regionConfig)}</span>
-      ),
+      accessorFn: (row) => formatServerAmount(row.total_amount, regionConfig),
+      // Money column right-aligns and carries `tabular-nums` via `align`
+      // (design contract §2) — no manual `<span className="tabular-nums">`
+      // needed any more, per [8.14.7]'s `DataTableColumn.align`.
+      align: 'end',
+      sortable: true,
     },
     {
       id: 'status',
       header: t('invoices.columnStatus'),
       accessorFn: (row) => <StatusBadge domain="invoice" status={row.status as InvoiceStatus} />,
+      sortable: true,
+      card: 'badge',
     },
     {
       id: 'issuedDate',
       header: t('invoices.columnIssueDate'),
       accessorFn: (row) => formatDate(parseServerDate(row.issued_date), regionConfig),
+      sortable: true,
     },
     {
       id: 'dueDate',
       header: t('invoices.columnDueDate'),
       accessorFn: (row) => formatDate(parseServerDate(row.due_date), regionConfig),
+      sortable: true,
     },
     ...(canPrint
       ? [
@@ -194,6 +236,7 @@ function InvoicesListPage() {
             id: 'actions',
             header: t('invoices.columnActions'),
             pinned: true,
+            card: 'actions',
             accessorFn: (row: Invoice) => (
               <button
                 type="button"
@@ -213,63 +256,22 @@ function InvoicesListPage() {
   return (
     <ListShell
       title={t('invoices.title')}
-      filterBar={
-        <>
-          <Input
-            aria-label={t('invoices.searchLabel')}
-            placeholder={t('invoices.searchPlaceholder')}
-            value={searchInput}
-            onChange={(event) => setSearchInput(event.target.value)}
-          />
-          <Select
-            value={filters.status ?? ALL_VALUE}
-            onValueChange={(value) => setFilter('status', value === ALL_VALUE ? undefined : value)}
-          >
-            <SelectTrigger aria-label={t('invoices.statusLabel')}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL_VALUE}>{t('invoices.allStatuses')}</SelectItem>
-              {Object.values(InvoiceStatus).map((status) => (
-                <SelectItem key={status} value={status}>
-                  {humanizeStatus(status)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <DatePicker
-            aria-label={t('invoices.fromDateLabel')}
-            config={regionConfig}
-            value={filters.from_date ? parseDate(filters.from_date) : undefined}
-            onValueChange={(date) =>
-              setFilter(
-                'from_date',
-                date ? toLatinDigits(formatDate(date, regionConfig)) : undefined,
-              )
-            }
-          />
-          <DatePicker
-            aria-label={t('invoices.toDateLabel')}
-            config={regionConfig}
-            value={filters.to_date ? parseDate(filters.to_date) : undefined}
-            onValueChange={(date) =>
-              setFilter('to_date', date ? toLatinDigits(formatDate(date, regionConfig)) : undefined)
-            }
-          />
-        </>
-      }
+      filters={{ fields: filterFields, values: state.filters, onChange: actions.setFilters }}
       tableId="invoices-list"
       caption={t('invoices.caption')}
       columns={columns}
       data={invoicesQuery.data?.data ?? []}
       getRowId={(row) => row.id}
-      sorting={null}
-      onSortingChange={() => {}}
+      sorting={state.sorting}
+      onSortingChange={actions.setSorting}
       page={state.page}
       pageSize={state.limit}
       totalCount={invoicesQuery.data?.total ?? 0}
       onPageChange={actions.setPage}
+      onPageSizeChange={actions.setLimit}
+      pageSizeLabel={t('pagination.rowsPerPage', { ns: 'common' })}
       loading={invoicesQuery.isLoading}
+      isFetching={invoicesQuery.isFetching}
       {...(invoicesQuery.isError ? { error: t('invoices.errorMessage') } : {})}
       emptyMessage={t('invoices.emptyMessage')}
       announceResults={(count, total) =>
@@ -277,4 +279,9 @@ function InvoicesListPage() {
       }
     />
   );
+}
+
+function InvoicesListPending() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="list" label={t('routePending.label', { ns: 'nav' })} />;
 }

@@ -62,6 +62,7 @@ import axios from 'axios';
 import { currentSessionGeneration, getActiveTenant, subscribeAuthState } from './auth-state';
 import { apiClient } from './client';
 import { ApiError } from './errors';
+import { notifyOutcomeFromCommon } from './notify';
 import { isNoResponseNetworkError } from './offline-cache';
 import {
   getOfflineDb,
@@ -376,6 +377,9 @@ async function runReplay(): Promise<void> {
   // successful no-op replay while the user's writes sat unread.
   if (readFailed) return;
   let changed = false;
+  let sentCount = 0;
+  let hitConflict = false;
+  let hitDead = false;
 
   try {
     for (const row of rows) {
@@ -432,12 +436,14 @@ async function runReplay(): Promise<void> {
           // silent data loss the acceptance criteria forbid, so a human
           // decides via 8.12.5's UI (`retryMutation`/`discardMutation`).
           await db.mutationQueue.update(row.seq, { status: 'conflict', lastError });
+          hitConflict = true;
           break;
         }
 
         const attempts = row.attempts + 1;
         if (attempts >= MAX_REPLAY_ATTEMPTS) {
           await db.mutationQueue.update(row.seq, { status: 'dead', attempts, lastError });
+          hitDead = true;
           break;
         }
 
@@ -465,6 +471,7 @@ async function runReplay(): Promise<void> {
       // needs a server contract that does not exist yet.
       await db.mutationQueue.delete(row.seq);
       changed = true;
+      sentCount += 1;
     }
   } catch (error) {
     // A Dexie write inside the loop (the delete on success, the status
@@ -483,6 +490,32 @@ async function runReplay(): Promise<void> {
     captureQueueFailure(error);
   } finally {
     if (changed) await refreshQueueSnapshot();
+    // `tenantId` captured at the top of this pass, not re-read: this
+    // function deliberately re-checks tenant drift mid-pass (the
+    // `getActiveTenant() !== tenantId` guard above), so the notification
+    // belongs to the tenant whose rows actually went out.
+    if (sentCount > 0) {
+      notifyOutcomeFromCommon({
+        tenantId,
+        variant: 'success',
+        key: 'notifications.syncReplayed',
+        options: { count: sentCount },
+      });
+    }
+    if (hitConflict) {
+      notifyOutcomeFromCommon({
+        tenantId,
+        variant: 'error',
+        key: 'notifications.syncConflict',
+      });
+    }
+    if (hitDead) {
+      notifyOutcomeFromCommon({
+        tenantId,
+        variant: 'error',
+        key: 'notifications.syncDead',
+      });
+    }
   }
 }
 

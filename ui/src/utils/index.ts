@@ -28,3 +28,4 @@ export { formatPhone, parsePhone, type PhoneParseResult } from './phone';
 export { parseValidationFieldErrors } from './server-validation-errors';
 export { countSmsSegments, type SmsEncoding, type SmsSegmentInfo } from './sms';
 export { boundedNumericString } from './zod-helpers';
+export { VIEW_TRANSITION_FOCUS_TIMEOUT_MS, waitForViewTransition } from './view-transition';

@@ -1,3 +1,4 @@
+import { FeeType } from '@biddaloy/shared';
 import { waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
@@ -155,5 +156,41 @@ describe('useDeleteFeeStructure', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(deleteCalledWith).toBe('structure-1');
     expect(queryClient.getQueryData(feeStructureKeys.detail('structure-1'))).toBeUndefined();
+  });
+});
+
+// [8.14.10]: `search`/`fee_type`/`section_id`/`is_recurring`/`sort`/`order`
+// mirror `QueryFeeStructureDto`, landed server-side by #373 but never
+// threaded through `FeeStructureListFilters` until now.
+describe('useFeeStructures requests every QueryFeeStructureDto field', () => {
+  it('sends search, fee_type, section_id, is_recurring, sort, and order as query params', async () => {
+    const requested = new URLSearchParams();
+    server.use(
+      http.get('/api/v1/fee-structures', ({ request }) => {
+        for (const [key, value] of new URL(request.url).searchParams) requested.set(key, value);
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 0 });
+      }),
+    );
+
+    const { result } = renderHookWithProviders(
+      () =>
+        useFeeStructures({
+          search: 'Tuition',
+          fee_type: FeeType.MONTHLY_TUITION,
+          section_id: 'section-1',
+          is_recurring: true,
+          sort: 'amount',
+          order: 'desc',
+        }),
+      { tenantId: 'tenant-1' },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(requested.get('search')).toBe('Tuition');
+    expect(requested.get('fee_type')).toBe('MONTHLY_TUITION');
+    expect(requested.get('section_id')).toBe('section-1');
+    expect(requested.get('is_recurring')).toBe('true');
+    expect(requested.get('sort')).toBe('amount');
+    expect(requested.get('order')).toBe('desc');
   });
 });

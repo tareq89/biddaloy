@@ -13,77 +13,86 @@
  * pattern. Radix's own focus-trap-on-open/focus-return-on-close covers
  * keyboard operability, same as `Dialog` (`dialog.test.tsx` already
  * exercises that behaviour end to end for the primitive family).
+ *
+ * [8.14.11]: this component now resolves its own strings via
+ * `useTranslation('nav')` instead of taking four label props, matching
+ * `tenant-bar.tsx:65` and `sync-status.tsx:114`. The props are kept as
+ * optional overrides so Storybook can pin copy.
+ *
+ * The badge count goes through `Intl.NumberFormat(locale)`, **not**
+ * `useRegionConfig()`. This component renders in `_staff.tsx`'s app
+ * chrome, outside every `RegionConfigProvider` in the app, so
+ * `useRegionConfig()` would fall back to that context's default value
+ * `REGION_BD_BN` and print Bengali digits to an English user. Locale is
+ * the honest input here, same as `formatRelativeAge` already takes.
  */
+import { Link } from '@tanstack/react-router';
 import { BellIcon } from 'lucide-react';
+import * as React from 'react';
 
-import {
-  markAllNotificationsRead,
-  markNotificationRead,
-  type NotificationRecord,
-} from '../api/notification-state';
+import { markAllNotificationsRead, markNotificationRead } from '../api/notification-state';
 import { useNotifications, useUnreadNotificationCount } from '../hooks/notifications';
+import { useLocale, useTranslation } from '../i18n';
 
 import { Button } from './button';
+import { NotificationList } from './notification-list';
 import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from './popover';
 
 export interface NotificationBellProps {
-  /** Accessible name for the trigger button, before the unread count is
-   * appended — a caller passes a translated string. `ui`'s own components
-   * don't call the translation hook themselves (see `ui/CONTRIBUTING.md`'s
-   * i18n rules), so this stays a plain English default like `AppShell`'s
-   * own `openMenuLabel`. */
+  /** Overrides the translated trigger label. */
   label?: string;
-  /** Visible panel title. */
+  /** Overrides the translated panel title. */
   panelTitle?: string;
-  /** Shown when there are no notifications yet. */
+  /** Overrides the translated empty-state copy. */
   emptyLabel?: string;
-  /** Label for the "mark all read" action. */
+  /** Overrides the translated "mark all read" label. */
   markAllReadLabel?: string;
-}
-
-function NotificationRow({ notification }: { notification: NotificationRecord }) {
-  return (
-    <li>
-      <button
-        type="button"
-        onClick={() => markNotificationRead(notification.id)}
-        disabled={notification.read}
-        className="flex w-full flex-col gap-0.5 rounded-md p-2 text-start text-sm hover:bg-accent disabled:hover:bg-transparent"
-      >
-        <span className="flex items-center gap-2">
-          {!notification.read && (
-            <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-primary" />
-          )}
-          <span className={notification.read ? 'text-muted-foreground' : undefined}>
-            {notification.message}
-          </span>
-        </span>
-        <time dateTime={notification.createdAt} className="text-xs text-muted-foreground">
-          {new Date(notification.createdAt).toLocaleString()}
-        </time>
-      </button>
-    </li>
-  );
+  /** When set, the panel grows a footer link to the full history page.
+   * A plain route path, untyped against any consumer's generated route
+   * tree, for the same reason `AppShellNavItem['to']` (`./app-shell.tsx`)
+   * is. */
+  viewAllTo?: string;
 }
 
 export function NotificationBell({
-  label = 'Notifications',
-  panelTitle = 'Notifications',
-  emptyLabel = "You're all caught up.",
-  markAllReadLabel = 'Mark all read',
+  label,
+  panelTitle,
+  emptyLabel,
+  markAllReadLabel,
+  viewAllTo,
 }: NotificationBellProps) {
+  const { t } = useTranslation('nav');
+  const { locale } = useLocale();
   const notifications = useNotifications();
   const unreadCount = useUnreadNotificationCount();
+  // Controlled only so the view-all link can close the panel on click, and
+  // return focus to the trigger, the same as any other in-panel navigation
+  // away from this popover.
+  const [open, setOpen] = React.useState(false);
+
+  const resolvedLabel = label ?? t('notifications.bellLabel');
+  const resolvedPanelTitle = panelTitle ?? t('notifications.panelLabel');
+  const resolvedEmptyLabel = emptyLabel ?? t('notifications.empty');
+  const resolvedMarkAllReadLabel = markAllReadLabel ?? t('notifications.markAllRead');
+
+  const badgeText =
+    unreadCount > 9
+      ? t('notifications.badgeOverflow', { count: 9 })
+      : new Intl.NumberFormat(locale).format(unreadCount);
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           type="button"
           variant="ghost"
-          size="icon-sm"
+          size="icon"
           iconOnly
-          aria-label={unreadCount > 0 ? `${label}, ${unreadCount} unread` : label}
+          aria-label={
+            unreadCount > 0
+              ? t('notifications.bellLabelUnread', { count: unreadCount })
+              : resolvedLabel
+          }
           className="relative"
         >
           <BellIcon />
@@ -92,14 +101,14 @@ export function NotificationBell({
               aria-hidden="true"
               className="text-destructive-foreground absolute end-0.5 top-0.5 flex size-4 items-center justify-center rounded-full bg-destructive text-[10px] font-medium"
             >
-              {unreadCount > 9 ? '9+' : unreadCount}
+              {badgeText}
             </span>
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" aria-label={panelTitle} className="w-80">
+      <PopoverContent align="end" aria-label={resolvedPanelTitle} className="w-80">
         <PopoverHeader className="flex-row items-center justify-between">
-          <PopoverTitle>{panelTitle}</PopoverTitle>
+          <PopoverTitle>{resolvedPanelTitle}</PopoverTitle>
           <Button
             type="button"
             variant="ghost"
@@ -107,17 +116,23 @@ export function NotificationBell({
             disabled={unreadCount === 0}
             onClick={() => markAllNotificationsRead()}
           >
-            {markAllReadLabel}
+            {resolvedMarkAllReadLabel}
           </Button>
         </PopoverHeader>
-        {notifications.length === 0 ? (
-          <p className="p-2 text-sm text-muted-foreground">{emptyLabel}</p>
-        ) : (
-          <ul className="flex max-h-80 flex-col gap-1 overflow-y-auto">
-            {notifications.map((notification) => (
-              <NotificationRow key={notification.id} notification={notification} />
-            ))}
-          </ul>
+        <NotificationList
+          notifications={notifications}
+          onMarkRead={markNotificationRead}
+          emptyLabel={resolvedEmptyLabel}
+          className="max-h-80"
+        />
+        {viewAllTo !== undefined && (
+          <Link
+            to={viewAllTo}
+            onClick={() => setOpen(false)}
+            className="mt-1 block rounded-md p-2 text-sm text-primary hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+          >
+            {t('notifications.viewAll')}
+          </Link>
         )}
       </PopoverContent>
     </Popover>

@@ -258,6 +258,53 @@ describe('/fee-structures', () => {
     expect(lastQuery).not.toHaveProperty('month');
   });
 
+  // [8.14.10]: `useFeeStructures`'s `search`/`fee_type`/`section_id`/
+  // `is_recurring` filters were already server-supported ([8.14.9]) but
+  // never surfaced as FilterBar descriptors — this covers all four now
+  // reaching the request/URL, plus the section list staying empty until
+  // a class is chosen (same contract as `fees/dues.tsx`'s own pair).
+  it('surfaces search/fee type/section/recurring-only filters on the request and URL', async () => {
+    let lastQuery: Record<string, string> = {};
+    server.use(
+      http.get('/api/v1/fee-structures', ({ request }) => {
+        lastQuery = Object.fromEntries(new URL(request.url).searchParams);
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 });
+      }),
+      http.get('/api/v1/classes/:classId/sections', () =>
+        HttpResponse.json([{ id: 'section-a', section_name: 'A', enrolled_count: 0 }]),
+      ),
+      ...referenceHandlers(),
+    );
+
+    const { router } = render();
+    const user = userEvent.setup();
+    await screen.findByRole('heading', { name: 'Fee Structures' });
+
+    await user.click(screen.getByRole('combobox', { name: 'Section' }));
+    expect(screen.queryAllByRole('option')).toHaveLength(1);
+    await user.keyboard('{Escape}');
+
+    await user.type(screen.getByRole('textbox', { name: 'Search fee structures' }), 'tuition');
+    await user.click(screen.getByRole('combobox', { name: 'Fee type' }));
+    await user.click(await screen.findByRole('option', { name: 'Monthly tuition' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Recurring structures only' }));
+
+    await waitFor(() =>
+      expect(router.state.location.search).toMatchObject({
+        search: 'tuition',
+        fee_type: 'MONTHLY_TUITION',
+        is_recurring: 'true',
+      }),
+    );
+    await waitFor(() =>
+      expect(lastQuery).toMatchObject({
+        search: 'tuition',
+        fee_type: 'MONTHLY_TUITION',
+        is_recurring: 'true',
+      }),
+    );
+  });
+
   it('refuses to submit the create form without a name', async () => {
     server.use(listHandler([]), ...referenceHandlers());
 
@@ -520,7 +567,13 @@ describe('/fee-structures', () => {
     expect(screen.getByText('Protected')).toBeTruthy();
   });
 
-  it('hides every write affordance from a TEACHER', async () => {
+  // [8.14.17]: `_staff.tsx`'s `RequirePermission` now refuses the whole
+  // route for a TEACHER, who holds no `FEE_STRUCTURE_READ` (deliberately
+  // — see `ROLE_PERMISSIONS[TEACHER]`'s own comment) — before this
+  // ticket the route still rendered for them with every write button
+  // hidden, a partial view [8.14.17] intentionally replaces with a
+  // blanket refusal.
+  it('refuses the whole route for a TEACHER, who lacks FEE_STRUCTURE_READ', async () => {
     server.use(
       listHandler([feeStructureFactory({ id: 'structure-1', class: KLASS })]),
       ...referenceHandlers(),
@@ -528,10 +581,8 @@ describe('/fee-structures', () => {
 
     render('TEACHER');
 
-    await screen.findByRole('heading', { name: 'Fee Structures' });
-    expect(screen.queryByRole('button', { name: 'Add fee structure' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
+    expect(await screen.findByText("You don't have access to this page.")).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Fee Structures' })).toBeNull();
   });
 
   // The controller lets an ACCOUNTANT create and update but reserves
@@ -572,5 +623,45 @@ describe('/fee-structures', () => {
     // pass trivially.
     await screen.findByText('Tuition');
     await expect(container).toHaveNoViolations();
+  });
+
+  // [8.14.10]: FilterBar migration — the rows-per-page control changes
+  // `limit` and resets `page` in one URL update.
+  it('changing rows per page writes limit and resets page', async () => {
+    server.use(
+      http.get('/api/v1/fee-structures', () =>
+        HttpResponse.json({ data: [], total: 0, page: 2, limit: 10, totalPages: 1 }),
+      ),
+      ...referenceHandlers(),
+    );
+
+    const { router } = render('ADMIN', '/fee-structures?page=2');
+    const user = userEvent.setup();
+    await screen.findByRole('heading', { name: 'Fee Structures' });
+    await user.click(screen.getByRole('combobox', { name: 'Rows per page' }));
+    await user.click(await screen.findByRole('option', { name: '20' }));
+
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ limit: 20, page: 1 }));
+  });
+
+  // [8.14.10]: `sorting={null}`/no-op `onSortingChange` used to be a
+  // deliberate stub — `sort`/`order` now exist server-side, so clicking a
+  // sortable header threads them through to the request.
+  it('clicking the Name column header writes sort/order to the URL', async () => {
+    server.use(
+      http.get('/api/v1/fee-structures', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
+      ),
+      ...referenceHandlers(),
+    );
+
+    const { router } = render();
+    const user = userEvent.setup();
+    await screen.findByRole('heading', { name: 'Fee Structures' });
+    await user.click(screen.getByRole('button', { name: 'Name' }));
+
+    await waitFor(() =>
+      expect(router.state.location.search).toMatchObject({ sort: 'name', order: 'desc' }),
+    );
   });
 });

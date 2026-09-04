@@ -63,4 +63,29 @@ test.describe('focus management, skip link, route announcements', () => {
       'শিক্ষার্থী',
     );
   });
+
+  // [8.14.5]: the deferral half of `useRouteFocus`'s contract — while a
+  // route's `RoutePending` skeleton (`[data-route-pending]`) is up, focus
+  // must not jump to it (it has no heading and is about to be replaced),
+  // and once the real page mounts, focus must land on *its* `<h1>`, not
+  // get stranded on `<body>` or the skeleton's container.
+  test('does not focus the pending skeleton mid-navigation, and lands on the real heading once loaded', async ({
+    page,
+  }) => {
+    await page.route('**/api/v1/guardians**', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await route.continue();
+    });
+
+    await page.getByRole('link', { name: 'অভিভাবক', exact: true }).click();
+
+    await expect(page.locator('[data-route-pending]')).toBeVisible();
+    // Not on `#main-content` (or anywhere inside the skeleton) while the
+    // skeleton is still up — `useRouteFocus` must still be deferring.
+    await expect(page.locator('#main-content')).not.toBeFocused();
+
+    const heading = page.getByRole('heading', { name: 'অভিভাবক' });
+    await expect(heading).toBeVisible();
+    await expect(heading).toBeFocused();
+  });
 });

@@ -501,6 +501,194 @@ describe('FeeStructureService (integration)', () => {
       expect(result.total).toBe(15);
       expect(result.totalPages).toBe(2);
     });
+
+    // [8.14.9] search over name, case-insensitive, LIKE-escaped.
+    it('filters by search over name, case-insensitively', async () => {
+      await feeRepo.save(
+        feeRepo.create({
+          fee_type: 'MONTHLY_TUITION' as any,
+          name: 'Admission Fee',
+          amount: 1000,
+          class_id: SEED_CLASS_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          month: 1,
+          tenant_id: TENANT_ID,
+        }),
+      );
+      await feeRepo.save(
+        feeRepo.create({
+          fee_type: 'EXAM_FEE' as any,
+          name: 'Exam Fee',
+          amount: 500,
+          class_id: SEED_CLASS_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          month: 2,
+          tenant_id: TENANT_ID,
+        }),
+      );
+
+      const result = await service.findAll({ search: 'admission', page: 1, limit: 10 }, TENANT_ID);
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].name).toBe('Admission Fee');
+    });
+
+    it('filters by fee_type', async () => {
+      await feeRepo.save(
+        feeRepo.create({
+          fee_type: 'MONTHLY_TUITION' as any,
+          name: 'Tuition',
+          amount: 1000,
+          class_id: SEED_CLASS_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          month: 1,
+          tenant_id: TENANT_ID,
+        }),
+      );
+      await feeRepo.save(
+        feeRepo.create({
+          fee_type: 'EXAM_FEE' as any,
+          name: 'Exam',
+          amount: 500,
+          class_id: SEED_CLASS_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          month: 2,
+          tenant_id: TENANT_ID,
+        }),
+      );
+
+      const result = await service.findAll(
+        { fee_type: 'EXAM_FEE' as any, page: 1, limit: 10 },
+        TENANT_ID,
+      );
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].name).toBe('Exam');
+    });
+
+    it('filters by is_recurring', async () => {
+      await feeRepo.save(
+        feeRepo.create({
+          fee_type: 'MONTHLY_TUITION' as any,
+          name: 'Recurring Fee',
+          amount: 1000,
+          class_id: SEED_CLASS_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          month: 1,
+          is_recurring: true,
+          tenant_id: TENANT_ID,
+        }),
+      );
+      await feeRepo.save(
+        feeRepo.create({
+          fee_type: 'EXAM_FEE' as any,
+          name: 'One-off Fee',
+          amount: 500,
+          class_id: SEED_CLASS_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          month: 2,
+          is_recurring: false,
+          tenant_id: TENANT_ID,
+        }),
+      );
+
+      const result = await service.findAll({ is_recurring: false, page: 1, limit: 10 }, TENANT_ID);
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].name).toBe('One-off Fee');
+    });
+
+    it('filters by section_id', async () => {
+      await feeRepo.save(
+        feeRepo.create({
+          fee_type: 'MONTHLY_TUITION' as any,
+          name: 'Section Fee',
+          amount: 1000,
+          class_id: SEED_CLASS_1_ID,
+          section_id: SEED_SECTION_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          month: 1,
+          tenant_id: TENANT_ID,
+        }),
+      );
+      await feeRepo.save(
+        feeRepo.create({
+          fee_type: 'EXAM_FEE' as any,
+          name: 'Class-wide Fee',
+          amount: 500,
+          class_id: SEED_CLASS_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          month: 2,
+          tenant_id: TENANT_ID,
+        }),
+      );
+
+      const result = await service.findAll(
+        { section_id: SEED_SECTION_1_ID, page: 1, limit: 10 },
+        TENANT_ID,
+      );
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].name).toBe('Section Fee');
+    });
+
+    it('sorts by name using the Bengali collation', async () => {
+      await feeRepo.save(
+        feeRepo.create({
+          fee_type: 'MONTHLY_TUITION' as any,
+          name: 'Zebra Fee',
+          amount: 1000,
+          class_id: SEED_CLASS_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          month: 1,
+          tenant_id: TENANT_ID,
+        }),
+      );
+      await feeRepo.save(
+        feeRepo.create({
+          fee_type: 'EXAM_FEE' as any,
+          name: 'Apple Fee',
+          amount: 500,
+          class_id: SEED_CLASS_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          month: 2,
+          tenant_id: TENANT_ID,
+        }),
+      );
+
+      const result = await service.findAll(
+        { sort: 'name', order: 'asc', page: 1, limit: 10 },
+        TENANT_ID,
+      );
+
+      expect(result.data.map((fee) => fee.name)).toEqual(['Apple Fee', 'Zebra Fee']);
+    });
+
+    // Cross-tenant: search must not surface another tenant's fee structures.
+    it('does not return another tenant’s fee structures when searching', async () => {
+      // Fixed UUIDs seeded for the "other" tenant/class in this file's seedBase().
+      const otherTenantId = '00000000-0000-4000-8000-000000000099';
+      const otherTenantClassId = '00000000-0000-4000-8000-000000000098';
+      await feeRepo.save(
+        feeRepo.create({
+          fee_type: 'MONTHLY_TUITION' as any,
+          name: 'Other Tenant Fee',
+          amount: 1000,
+          class_id: otherTenantClassId,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          month: 1,
+          tenant_id: otherTenantId,
+        }),
+      );
+
+      const result = await service.findAll(
+        { search: 'Other Tenant', page: 1, limit: 10 },
+        TENANT_ID,
+      );
+
+      expect(result.data).toEqual([]);
+      expect(result.total).toBe(0);
+    });
   });
 
   // ────────────────────────

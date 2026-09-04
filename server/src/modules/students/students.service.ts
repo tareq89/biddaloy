@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, In, Like, ILike, EntityManager, type FindOptionsOrder } from 'typeorm';
+import { Repository, IsNull, In, Brackets, EntityManager } from 'typeorm';
 import { Student } from './entities/student.entity';
 import { Guardian } from './entities/guardian.entity';
 import { Enrollment } from './entities/enrollment.entity';
@@ -15,6 +15,8 @@ import {
 } from './dto/students.dto';
 import { CommunicationMedium } from '@biddaloy/shared';
 import { nextRollNumber } from './roll-number.util';
+import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
+import { BN_COLLATION } from '../../common/constants/collation';
 
 @Injectable()
 export class StudentService {
@@ -164,50 +166,133 @@ export class StudentService {
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
-    const where: any = { tenant_id: tenantId, deleted_at: IsNull() };
+    // Builds the tenant-scoped, filtered, *unpaginated* query for student
+    // IDs only — deliberately not `leftJoinAndSelect`ing `guardians` here.
+    // A many-to-many join used for filtering (the search's guardian
+    // branch) combined with `skip`/`take` would apply `LIMIT` to the
+    // flattened joined rows, not to distinct students — inflating `total`
+    // and corrupting pagination whenever a matched student has more than
+    // one guardian. The guardian search branch below uses an `EXISTS`
+    // subquery instead, which cannot multiply rows.
+    const buildIdQuery = () => {
+      const qb = this.repo
+        .createQueryBuilder('student')
+        .select('student.id', 'id')
+        .leftJoin('student.class_section', 'class_section')
+        .where('student.tenant_id = :tenantId', { tenantId })
+        .andWhere('student.deleted_at IS NULL');
 
-    if (query.class_id) where.class_section = { class_id: query.class_id };
-    if (query.section_id) where.class_section_id = query.section_id;
-    if (query.enrollment_status) where.enrollment_status = query.enrollment_status;
+      if (query.class_id) {
+        qb.andWhere('class_section.class_id = :classId', { classId: query.class_id });
+      }
+      if (query.section_id) {
+        qb.andWhere('student.class_section_id = :sectionId', { sectionId: query.section_id });
+      }
+      if (query.enrollment_status) {
+        qb.andWhere('student.enrollment_status = :enrollmentStatus', {
+          enrollmentStatus: query.enrollment_status,
+        });
+      }
+      if (query.gender) {
+        qb.andWhere('student.gender = :gender', { gender: query.gender });
+      }
+      if (query.date_of_birth_from) {
+        qb.andWhere('student.date_of_birth >= :dobFrom', { dobFrom: query.date_of_birth_from });
+      }
+      if (query.date_of_birth_to) {
+        qb.andWhere('student.date_of_birth <= :dobTo', { dobTo: query.date_of_birth_to });
+      }
 
-    // Matches GuardianService.findAll's OR-array pattern below: each branch
-    // carries the same base filters, so a search never bypasses class/
-    // section/enrollment scoping already applied above. Student has no
-    // `phone` column of its own (that lives on Guardian) — name and roll
-    // number are the only student-owned fields a free-text search can hit.
-    let whereClause: typeof where | (typeof where)[] = where;
-    if (query.search) {
-      const search = `%${query.search}%`;
-      const rollNumber = Number(query.search);
-      whereClause = [
-        { ...where, full_name: ILike(search) },
-        ...(Number.isInteger(rollNumber) ? [{ ...where, roll_number: rollNumber }] : []),
-      ];
-    }
+      // Matches GuardianService.findAll's own ILIKE/escape fix. Student has
+      // no `phone` column of its own (that lives on Guardian) — name and
+      // registration number are the student-owned free-text fields; roll
+      // number is matched exactly (it's an int, not text) and guardians are
+      // matched via the tenant-scoped EXISTS subquery below.
+      const search = normalizeSearchTerm(query.search);
+      if (search) {
+        // `search` is already Bengali-digit-converted by
+        // `normalizeSearchTerm`, so a Bengali roll number (e.g. `১০৩`)
+        // matches the Latin-stored `roll_number` column.
+        // `/^\d+$/`, not `Number.isInteger(Number(search))` — the latter
+        // also accepts `1e5`, `0x2a`, and leading/trailing whitespace as
+        // "integers", which would silently roll-number-match a plain-text
+        // search term shaped like one of those.
+        // Bounded to int4, the `roll_number` column's real range — see
+        // `fee-dues.service.ts` for the same guard and the two Postgres
+        // errors an unbounded digit string raises.
+        const isPlainInteger = /^\d+$/.test(search) && Number(search) <= 2147483647;
+        qb.andWhere(
+          new Brackets((sub) => {
+            sub
+              .where('student.full_name ILIKE :search', { search: `%${search}%` })
+              .orWhere('student.registration_number ILIKE :search', { search: `%${search}%` });
+            if (isPlainInteger) {
+              sub.orWhere('student.roll_number = :rollNumber', { rollNumber: Number(search) });
+            }
+            // Guardian join must also carry its own tenant_id — the
+            // `student_guardians` join table does not imply same-tenant.
+            sub.orWhere(
+              `EXISTS (
+                SELECT 1 FROM student_guardians sg
+                INNER JOIN guardians g ON g.id = sg.guardian_id
+                WHERE sg.student_id = student.id
+                  AND g.tenant_id = :tenantId
+                  AND (g.full_name ILIKE :search OR g.phone ILIKE :search)
+              )`,
+              { search: `%${search}%` },
+            );
+          }),
+        );
+      }
+
+      return qb;
+    };
+
+    const total = await buildIdQuery().getCount();
 
     // `query.sort` is already allowlisted to real columns by
-    // `QueryStudentDto`'s `@IsIn` — safe to use directly as a TypeORM
-    // `order` key. Falls back to the original `created_at DESC` when the
-    // caller doesn't ask for a sort, so an unsorted list page's row order
-    // doesn't change under it. `id: 'ASC'` is always appended as a
-    // tiebreaker — the primary sort column alone isn't unique (e.g. two
-    // students named the same, or created in the same instant), and
-    // without a unique secondary key, `LIMIT`/`OFFSET` pagination can
-    // return a row twice or skip one across pages when ties reorder.
-    const order: FindOptionsOrder<Student> = query.sort
-      ? ({
-          [query.sort]: query.order === 'desc' ? 'DESC' : 'ASC',
-          id: 'ASC',
-        } as FindOptionsOrder<Student>)
-      : { created_at: 'DESC', id: 'ASC' };
+    // `QueryStudentDto`'s `@IsIn` — safe to use directly. Falls back to the
+    // original `created_at DESC` when the caller doesn't ask for a sort, so
+    // an unsorted list page's row order doesn't change under it. `id ASC`
+    // is always appended as a tiebreaker — the primary sort column alone
+    // isn't unique (e.g. two students named the same, or created in the
+    // same instant), and without a unique secondary key, `LIMIT`/`OFFSET`
+    // pagination can return a row twice or skip one across pages when ties
+    // reorder. `full_name` sorts in Bengali dictionary order via
+    // `BN_COLLATION` rather than libc byte order.
+    const idQb = buildIdQuery();
+    if (query.sort === 'full_name') {
+      idQb.orderBy(
+        `student.full_name COLLATE "${BN_COLLATION}"`,
+        query.order === 'desc' ? 'DESC' : 'ASC',
+      );
+    } else if (query.sort === 'registration_number') {
+      idQb.orderBy('student.registration_number', query.order === 'desc' ? 'DESC' : 'ASC');
+    } else {
+      idQb.orderBy('student.created_at', query.order === 'asc' ? 'ASC' : 'DESC');
+    }
+    idQb.addOrderBy('student.id', 'ASC').offset(skip).limit(limit);
 
-    const [data, total] = await this.repo.findAndCount({
-      where: whereClause,
+    const idRows = await idQb.getRawMany<{ id: string }>();
+    const ids = idRows.map((row) => row.id);
+
+    if (ids.length === 0) {
+      return { data: [], total, page, limit, totalPages: Math.ceil(total / limit) };
+    }
+
+    // Second query hydrates full entities (with relations) for exactly
+    // this page's IDs — this join *can* multiply rows across guardians,
+    // but there's no pagination applied here for it to corrupt.
+    const rows = await this.repo.find({
+      // `tenant_id` is redundant here — `ids` already came from the
+      // tenant-scoped ID query above — but it costs nothing and keeps this
+      // query tenant-scoped on its own terms rather than only by
+      // construction, per the multi-tenancy skill's "new query" checklist.
+      where: { id: In(ids), tenant_id: tenantId },
       relations: ['class_section', 'class_section.class', 'guardians'],
-      order,
-      skip,
-      take: limit,
     });
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    const data = ids.map((id) => byId.get(id)).filter((row): row is Student => row != null);
 
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
@@ -345,38 +430,75 @@ export class GuardianService {
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
-    const where: any = { tenant_id: tenantId, deleted_at: IsNull() };
+    // Two-phase (IDs, then hydrate) — see the identical comment on
+    // StudentService.findAll / FeeStructureService.findAll. TypeORM's
+    // pagination-with-joins path can't resolve a `COLLATE`-suffixed
+    // `orderBy` expression, and `guardian.students` is many-to-many, so a
+    // single joined query would also inflate `total` under `skip`/`take`.
+    const buildIdQuery = () => {
+      const qb = this.repo
+        .createQueryBuilder('guardian')
+        .select('guardian.id', 'id')
+        .where('guardian.tenant_id = :tenantId', { tenantId })
+        .andWhere('guardian.deleted_at IS NULL');
 
-    if (query.search) {
-      const search = `%${query.search}%`;
-      return this.repo
-        .findAndCount({
-          where: [
-            { ...where, full_name: Like(search) },
-            { ...where, phone: Like(search) },
-            { ...where, email: Like(search) },
-          ],
-          relations: ['students'],
-          order: { created_at: 'DESC' },
-          skip,
-          take: limit,
-        })
-        .then(([data, total]) => ({
-          data,
-          total,
-          page,
-          limit,
-          totalPages: Math.ceil(total / limit),
-        }));
+      const search = normalizeSearchTerm(query.search);
+      if (search) {
+        // Fixed to ILIKE (was Like — case-sensitive, so "rahim" missed "Rahim").
+        qb.andWhere(
+          '(guardian.full_name ILIKE :search OR guardian.phone ILIKE :search OR guardian.email ILIKE :search)',
+          { search: `%${search}%` },
+        );
+      }
+      if (query.relationship) {
+        qb.andWhere('guardian.relationship = :relationship', {
+          relationship: query.relationship,
+        });
+      }
+      if (query.preferred_communication) {
+        qb.andWhere('guardian.preferred_communication = :preferredCommunication', {
+          preferredCommunication: query.preferred_communication,
+        });
+      }
+      if (query.is_primary_contact !== undefined) {
+        qb.andWhere('guardian.is_primary_contact = :isPrimaryContact', {
+          isPrimaryContact: query.is_primary_contact,
+        });
+      }
+
+      return qb;
+    };
+
+    const total = await buildIdQuery().getCount();
+
+    const idQb = buildIdQuery();
+    if (query.sort === 'full_name') {
+      idQb.orderBy(
+        `guardian.full_name COLLATE "${BN_COLLATION}"`,
+        query.order === 'desc' ? 'DESC' : 'ASC',
+      );
+    } else {
+      idQb.orderBy('guardian.created_at', query.order === 'asc' ? 'ASC' : 'DESC');
+    }
+    idQb.addOrderBy('guardian.id', 'ASC').offset(skip).limit(limit);
+
+    const idRows = await idQb.getRawMany<{ id: string }>();
+    const ids = idRows.map((row) => row.id);
+
+    if (ids.length === 0) {
+      return { data: [], total, page, limit, totalPages: Math.ceil(total / limit) };
     }
 
-    const [data, total] = await this.repo.findAndCount({
-      where,
+    const rows = await this.repo.find({
+      // `tenant_id` is redundant here — `ids` already came from the
+      // tenant-scoped ID query above — but it costs nothing and keeps this
+      // query tenant-scoped on its own terms rather than only by
+      // construction, per the multi-tenancy skill's "new query" checklist.
+      where: { id: In(ids), tenant_id: tenantId },
       relations: ['students'],
-      order: { created_at: 'DESC' },
-      skip,
-      take: limit,
     });
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    const data = ids.map((id) => byId.get(id)).filter((row): row is Guardian => row != null);
 
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }

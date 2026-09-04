@@ -1,4 +1,10 @@
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  queryOptions,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
 import { offlineCachedQueryFn } from '../api/offline-cache';
@@ -27,6 +33,11 @@ export interface StudentListFilters {
   class_id?: string;
   section_id?: string;
   enrollment_status?: string;
+  /** [8.14.10] Mirrors `QueryStudentDto.gender` — free text (`@MaxLength(20)`
+   * server-side), not an enum. */
+  gender?: string;
+  date_of_birth_from?: string;
+  date_of_birth_to?: string;
   sort?: StudentSortField;
   order?: 'asc' | 'desc';
   page?: number;
@@ -73,6 +84,11 @@ export function studentsQueryOptions(filters: StudentListFilters = {}) {
       fetch: (signal) => apiClient.get<PaginatedStudents>('/students', { params: filters, signal }),
     }),
     retry: shouldRetryQuery,
+    // [8.14.6] Filter/page/sort changes keep the previous page's rows on
+    // screen (and `isFetching` true) instead of the whole table collapsing
+    // to one "Loading…" row height. v5 dropped `keepPreviousData: true`;
+    // this is its replacement.
+    placeholderData: keepPreviousData,
   });
 }
 

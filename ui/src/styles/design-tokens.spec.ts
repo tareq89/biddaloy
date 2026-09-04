@@ -1,6 +1,13 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { describe, expect, it } from 'vitest';
 
 import { CONTRAST_PAIRS, dark, light, motion, neutral, shadows } from '../../tailwind.preset';
+
+const stylesDir = dirname(fileURLToPath(import.meta.url));
+const globalsCss = () => readFileSync(join(stylesDir, 'globals.css'), 'utf8');
 
 /** Every `/ 0.NN` alpha in a shadow string, in order. */
 function alphasOf(shadow: string): number[] {
@@ -181,5 +188,99 @@ describe('motion tokens (design contract §7)', () => {
     expect(controlPoints(motion.easeStandard)[2]).toBeLessThan(
       controlPoints(motion.easeExit)[2] as number,
     );
+  });
+});
+
+/**
+ * Sticky header scroll contract ([8.14.2]) — `--app-header-h`,
+ * `scroll-padding-top`, and the `scroll-margin-top` base rule that
+ * `AppShell` (`../components/app-shell.tsx`'s own `APP_HEADER_HEIGHT_VAR`
+ * export) and #369's post-transition focus scroll both depend on.
+ * Read-the-file-and-assert-the-substring, same style `density.spec.ts`
+ * uses for `--control-h` — jsdom doesn't apply a real stylesheet, so a
+ * rendered `getComputedStyle()` assertion would pass regardless of what
+ * the CSS actually says.
+ */
+describe('sticky header scroll contract ([8.14.2])', () => {
+  it('declares --app-header-h at 0px on :root, overwritten live by AppShell', () => {
+    const css = globalsCss();
+    expect(css).toContain('--app-header-h: 0px;');
+  });
+
+  it('sets scroll-padding-top on :root to var(--app-header-h)', () => {
+    const css = globalsCss();
+    expect(css).toContain('scroll-padding-top: var(--app-header-h);');
+  });
+
+  it('sets scroll-margin-top on #main-content, h1, and [data-focus-anchor]', () => {
+    const css = globalsCss();
+    expect(css).toContain('#main-content,');
+    expect(css).toContain('[data-focus-anchor] {');
+    expect(css).toContain('scroll-margin-top: calc(var(--app-header-h) + 0.5rem);');
+  });
+});
+
+/**
+ * Route transition scoping ([8.14.5]) — the document root must opt out of
+ * the UA-default `view-transition-name: root` capture so header/sidebar
+ * chrome never cross-fades, `#main-content` must be the only element
+ * that opts in, and both directions of that fade must reference the
+ * shared `--motion-*` tokens rather than a hard-coded duration.
+ */
+describe('route transition scoping ([8.14.5])', () => {
+  it('opts the document root out of view-transition capture', () => {
+    const css = globalsCss();
+    // `:root` appears several times in this file (motion tokens, theme
+    // vars, ...) — block-body match against every `:root { ... }` rule,
+    // not a bare substring, so this proves `view-transition-name: none`
+    // sits *inside* one of those rules rather than merely somewhere in
+    // the file.
+    const rootBlocks = [...css.matchAll(/:root\s*{([^}]*)}/g)].map((m) => m[1] ?? '');
+    expect(rootBlocks.some((body) => body.includes('view-transition-name: none;'))).toBe(true);
+  });
+
+  it('names only #main-content for the route cross-fade', () => {
+    const css = globalsCss();
+    const mainContentMatch = css.match(/#main-content\s*{([^}]*)}/);
+    expect(mainContentMatch).not.toBeNull();
+    expect(mainContentMatch![1]).toContain('view-transition-name: app-main-content;');
+  });
+
+  it('drives both view-transition pseudo-elements off --motion-* tokens, never a literal ms duration', () => {
+    const css = globalsCss();
+    const oldMatch = css.match(/::view-transition-old\(app-main-content\)\s*{([^}]*)}/);
+    const newMatch = css.match(/::view-transition-new\(app-main-content\)\s*{([^}]*)}/);
+    expect(oldMatch).not.toBeNull();
+    expect(newMatch).not.toBeNull();
+
+    for (const rule of [oldMatch![1], newMatch![1]]) {
+      expect(rule).toContain('var(--motion-duration-');
+      expect(rule).toContain('var(--motion-ease-');
+      expect(rule).not.toMatch(/\d+ms/);
+    }
+  });
+
+  it("drives RouteProgress's indeterminate travel bar off a --motion-* token, never a literal duration", () => {
+    const css = globalsCss();
+    const classMatch = css.match(/\.route-progress-bar-active\s*{([^}]*)}/);
+    expect(classMatch).not.toBeNull();
+    expect(classMatch![1]).toContain('var(--motion-duration-route-progress)');
+    expect(classMatch![1]).not.toMatch(/\d+m?s\b/);
+
+    const rootBlocks = [...css.matchAll(/:root\s*{([^}]*)}/g)].map((m) => m[1] ?? '');
+    expect(rootBlocks.some((body) => body.includes('--motion-duration-route-progress:'))).toBe(
+      true,
+    );
+  });
+
+  it('collapses view-transition pseudo-elements under prefers-reduced-motion', () => {
+    const css = globalsCss();
+    const reducedMotionBlock = css
+      .split('@media (prefers-reduced-motion: reduce)')
+      .find((chunk) => chunk.includes('::view-transition-group'));
+    expect(reducedMotionBlock).toBeDefined();
+    expect(reducedMotionBlock).toContain('::view-transition-old(*)');
+    expect(reducedMotionBlock).toContain('::view-transition-new(*)');
+    expect(reducedMotionBlock).toContain('animation-duration: 0.01ms !important;');
   });
 });

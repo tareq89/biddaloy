@@ -55,6 +55,15 @@ import { SkipLink } from './skip-link';
  * copy of the string. */
 export const APP_SHELL_MAIN_ID = 'main-content';
 
+/** CSS custom property carrying the live pixel height of the sticky header
+ * row. Written onto `document.documentElement` by `AppShell`; stays `0px`
+ * when no shell is mounted (`/login`, `/select-school`). Import this
+ * rather than retyping the string — [8.14.5] anchors its post-
+ * `transition.finished` focus scroll on the same value, and
+ * `ui/src/styles/globals.css`'s `scroll-padding-top`/`scroll-margin-top`
+ * rules read it too. */
+export const APP_HEADER_HEIGHT_VAR = '--app-header-h';
+
 export interface AppShellNavItem {
   /** A route path, e.g. `/students`. Untyped against the app's route
    * tree on purpose — `ui/` can't depend on a specific consumer's
@@ -85,6 +94,13 @@ export interface AppShellNavGroup {
    * non-empty. */
   pinnedItems?: readonly AppShellNavItem[];
   items: readonly AppShellNavItem[];
+  /** Visible micro-heading rendered directly above `pinnedItems` — e.g.
+   * "Quick actions". The caller passes an already-translated string (`ui/`
+   * wrappers do not call `t()` themselves; see `ui/CONTRIBUTING.md`'s "i18n
+   * rules"). Omitted → the pinned run is introduced by nothing but the
+   * [8.9.6] hairline that separates it from `items`, so existing callers
+   * render exactly as before. The hairline is drawn either way. */
+  pinnedLabel?: string;
 }
 
 export interface AppShellProps {
@@ -117,22 +133,53 @@ export interface AppShellProps {
    * pass a translated string gets readable English rather than nothing. */
   skipLinkLabel?: string;
   /** [5.2]'s opt-in mobile bottom bar — pass a `BottomNav`
-   * (`./bottom-nav.tsx`). When provided, the `<md` header-bar + hamburger
-   * drawer above is not rendered (a two-item portal behind a hamburger is
-   * one tap too many, and the approved mockup shows no drawer), the slot
-   * is pinned to the bottom of the viewport below `md`, and `<main>` gets
-   * bottom padding so content can scroll clear of it.
+   * (`./bottom-nav.tsx`). When provided, the slot is pinned to the bottom
+   * of the viewport below `md`, and `<main>` gets bottom padding (inclusive
+   * of the safe-area inset) so content can scroll clear of it.
    *
-   * **When omitted — every staff route — nothing about this component's
-   * rendering changes.** That's deliberate and regression-tested in
-   * `app-shell.test.tsx`: `_staff.tsx` and `portal.tsx` share this
-   * component, and folding bottom-nav behaviour into the shell's own nav
-   * rendering would push the staff shell through a code path it never
-   * uses. */
+   * [8.14.3]: providing `bottomNav` alone no longer removes the `<md`
+   * header-bar + hamburger drawer — the portal (no `mobileHeaderActions`)
+   * still drops it exactly as before, but a caller that also passes
+   * `mobileHeaderActions` (staff) keeps both: the drawer is where the full
+   * destination list still lives, `BottomNav`'s own `more` cell is what
+   * opens it. See `showMobileHeader` below and `app-shell.test.tsx`'s
+   * portal-regression-lock case, which pins the old portal-only behaviour
+   * byte-for-byte. */
   bottomNav?: ReactNode;
+  /** [8.14.3] Rendered between `brand` and the hamburger trigger in the
+   * `<md` header row — e.g. a search launcher and a notification bell.
+   * Passing this (even alongside `bottomNav`) keeps the header row and its
+   * drawer rendering; see `bottomNav`'s own comment. Omitted by every
+   * caller that doesn't need one — the portal today. */
+  mobileHeaderActions?: ReactNode;
+  /** [8.14.3] Rendered inside the drawer `DialogContent`, above the nav
+   * landmark — e.g. the staff `TenantBar` plus its own controls, so
+   * switching school or role stays one tap away even though the `<md`
+   * header row no longer carries `topBar`'s content directly. */
+  drawerHeader?: ReactNode;
   /** The active route's content — a consuming app's root route renders
    * `<AppShell navItems={...}><Outlet /></AppShell>`. */
   children: ReactNode;
+}
+
+/** [8.14.3] Lets a descendant (`BottomNav`'s `more` cell) open the same
+ * drawer the `<md` header's hamburger does, without `AppShell` needing to
+ * accept an imperative ref or `BottomNav` needing to reach back up through
+ * a prop no other caller would ever pass. Default is an inert no-op so
+ * `BottomNav` still renders standalone — in Storybook, in its own unit
+ * tests — without an `AppShell` ancestor. */
+export interface AppShellDrawerValue {
+  open: () => void;
+  isOpen: boolean;
+}
+
+const AppShellDrawerContext = React.createContext<AppShellDrawerValue>({
+  open: () => {},
+  isOpen: false,
+});
+
+export function useAppShellDrawer(): AppShellDrawerValue {
+  return React.useContext(AppShellDrawerContext);
 }
 
 function visibleItems(
@@ -157,10 +204,24 @@ function NavLink({
         to={item.to}
         {...(item.search !== undefined && { search: item.search })}
         onClick={onNavigate}
-        className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-accent"
-        activeProps={{ className: 'bg-accent font-medium', 'aria-current': 'page' }}
+        className="relative flex items-center gap-2 rounded-md py-2 ps-6 pe-3 text-sm transition-colors duration-(--motion-duration-fast) ease-(--motion-ease-standard) focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+        activeProps={{
+          className:
+            'bg-primary/10 font-semibold text-primary before:absolute before:inset-y-1 before:start-3 before:w-0.5 before:rounded-full before:bg-primary',
+          'aria-current': 'page',
+        }}
+        inactiveProps={{ className: 'text-muted-foreground hover:bg-accent hover:text-foreground' }}
       >
-        {item.icon}
+        {/* [8.14.1] The wrapper — not the caller — is what guarantees the epic's
+            "every nav icon is aria-hidden" AC. Call sites also pass
+            `aria-hidden` on the icon itself, but a caller that forgets is
+            still covered here, and the icon is decorative in every case
+            because the link's own text is its accessible name. */}
+        {item.icon !== undefined && (
+          <span aria-hidden="true" className="contents">
+            {item.icon}
+          </span>
+        )}
         {item.label}
       </Link>
     </li>
@@ -212,7 +273,7 @@ function NavGroupSection({
         onClick={() => setCollapsed((value) => !value)}
         aria-expanded={!collapsed}
         aria-controls={panelId}
-        className="flex w-full items-center justify-between rounded-md px-3 py-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase hover:text-foreground"
+        className="flex w-full items-center justify-between rounded-md px-3 pt-4 pb-1 text-sm font-semibold tracking-wide text-foreground hover:bg-accent"
       >
         <span>{group.label}</span>
         {collapsed ? (
@@ -221,7 +282,19 @@ function NavGroupSection({
           <ChevronDownIcon className="size-4" aria-hidden="true" />
         )}
       </button>
-      <ul id={panelId} hidden={collapsed} className="flex flex-col gap-1">
+      <ul
+        id={panelId}
+        hidden={collapsed}
+        className="relative flex flex-col gap-1 before:absolute before:inset-y-0 before:start-3 before:w-px before:bg-border-subtle"
+      >
+        {pinned.length > 0 && group.pinnedLabel !== undefined && (
+          <li
+            aria-hidden="true"
+            className="mb-1 ps-6 text-caption font-medium tracking-wide text-muted-foreground"
+          >
+            {group.pinnedLabel}
+          </li>
+        )}
         {pinned.map((item) => (
           <NavLink key={`${item.to}:${item.label}`} item={item} onNavigate={onNavigate} />
         ))}
@@ -274,6 +347,8 @@ export function AppShell({
   navLabel = 'Main',
   skipLinkLabel = 'Skip to main content',
   bottomNav,
+  mobileHeaderActions,
+  drawerHeader,
   children,
 }: AppShellProps) {
   const role = useActiveRole();
@@ -283,72 +358,155 @@ export function AppShell({
   // otherwise pass the presence check while rendering nothing — hiding the
   // `<md` drawer and leaving that viewport with no navigation at all.
   const hasBottomNav = Boolean(bottomNav);
+  // [8.14.3]: the header row (and its drawer) is dropped only for a
+  // `bottomNav`-only caller (the portal, today) — a caller that also hands
+  // over `mobileHeaderActions` (staff) keeps it, since that's the only
+  // place those actions and the "More" drawer have anywhere to render.
+  // `mobileHeaderActions !== undefined` rather than `Boolean(...)`: an
+  // empty fragment is still "I want the row", unlike `bottomNav`'s
+  // false/null case above where nothing at all would be left to open.
+  const showMobileHeader = !hasBottomNav || mobileHeaderActions !== undefined;
+  const headerRef = React.useRef<HTMLDivElement>(null);
+  const hasTopBar = topBar !== undefined;
+  const drawerContextValue = React.useMemo<AppShellDrawerValue>(
+    () => ({ open: () => setDrawerOpen(true), isOpen: drawerOpen }),
+    [drawerOpen],
+  );
+
+  // Keeps `--app-header-h` (`APP_HEADER_HEIGHT_VAR`) in sync with the
+  // sticky header row's actual rendered height, live — a `ResizeObserver`
+  // rather than a one-shot measurement because the row's height is not
+  // fixed: it wraps onto two lines below `md` (`TenantBar`'s
+  // `flex-wrap`), and a locale switch can change `TenantBar`'s text
+  // length enough to wrap or unwrap. Written onto `document.documentElement`,
+  // not this component's own root — `scroll-padding-top` only takes effect
+  // on the *scroll container*, which is `<html>` here (the shell itself is
+  // `min-h-screen`, the page scrolls at the root), so a variable written
+  // anywhere else would leave `:root { scroll-padding-top: … }` reading
+  // `0px` forever. Same precedent `theme-provider.tsx` already sets by
+  // writing theme state onto `documentElement` rather than a local ref.
+  React.useLayoutEffect(() => {
+    if (!hasTopBar) return undefined;
+    const node = headerRef.current;
+    if (!node) return undefined;
+
+    function setHeightVar(height: number): void {
+      document.documentElement.style.setProperty(APP_HEADER_HEIGHT_VAR, `${height}px`);
+    }
+
+    setHeightVar(node.getBoundingClientRect().height);
+
+    // `ui:node`/older test environments may not implement `ResizeObserver`
+    // (`jsdom` did not until relatively recently) — same
+    // `typeof X === 'function'` guard `theme-provider.tsx:135` uses for
+    // `matchMedia`, so a missing API degrades to "static height on mount"
+    // rather than throwing.
+    if (typeof ResizeObserver !== 'function') return undefined;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      // Border box, to match the `getBoundingClientRect()` measurement
+      // above — `contentRect` is the *content* box, so the two agree only
+      // while this wrapper has no padding or border. Adding either would
+      // otherwise shrink the variable on the first observation and slide
+      // every `scroll-margin-top` consumer back under the header.
+      // `use-container-width.ts` reads the same field for the same reason.
+      setHeightVar(
+        entry.borderBoxSize?.[0]?.blockSize ?? entry.target.getBoundingClientRect().height,
+      );
+    });
+    observer.observe(node);
+
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.removeProperty(APP_HEADER_HEIGHT_VAR);
+    };
+  }, [hasTopBar]);
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <SkipLink targetId={APP_SHELL_MAIN_ID}>{skipLinkLabel}</SkipLink>
-      {topBar}
-      <div className="flex flex-1 flex-col md:flex-row">
-        {!hasBottomNav && (
-          <div className="flex items-center justify-between border-b border-border-subtle p-2 md:hidden">
-            {brand !== undefined && <div className="text-sm font-semibold">{brand}</div>}
-            <Dialog open={drawerOpen} onOpenChange={setDrawerOpen}>
-              <DialogTrigger asChild>
-                <Button type="button" variant="ghost" size="icon-sm">
-                  <MenuIcon />
-                  <span className="sr-only">{openMenuLabel}</span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent
-                showCloseButton={false}
-                className="start-0 top-0 h-full w-72 max-w-[85vw] translate-x-0 translate-y-0 rounded-none p-4 sm:max-w-[85vw]"
-              >
-                <div className="mb-4 flex items-center justify-between">
-                  {brand !== undefined ? (
-                    <DialogTitle className="text-sm font-semibold">{brand}</DialogTitle>
-                  ) : (
-                    <VisuallyHidden.Root asChild>
-                      <DialogTitle>Navigation</DialogTitle>
-                    </VisuallyHidden.Root>
-                  )}
-                  <DialogClose asChild>
-                    <Button type="button" variant="ghost" size="icon-sm">
-                      <XIcon />
-                      <span className="sr-only">{closeMenuLabel}</span>
-                    </Button>
-                  </DialogClose>
-                </div>
-                <NavContent
-                  navItems={navItems}
-                  navGroups={navGroups}
-                  role={role}
-                  navLabel={navLabel}
-                  onNavigate={() => setDrawerOpen(false)}
-                />
-              </DialogContent>
-            </Dialog>
+    <AppShellDrawerContext.Provider value={drawerContextValue}>
+      <div className="flex min-h-screen flex-col">
+        <SkipLink targetId={APP_SHELL_MAIN_ID}>{skipLinkLabel}</SkipLink>
+        {hasTopBar && (
+          <div ref={headerRef} data-app-header className="sticky top-0 z-30">
+            {topBar}
           </div>
         )}
+        <div className="flex flex-1 flex-col md:flex-row">
+          {showMobileHeader && (
+            <div className="flex items-center justify-between gap-2 border-b border-border-subtle p-2 md:hidden">
+              {brand !== undefined && <div className="truncate text-sm font-semibold">{brand}</div>}
+              {mobileHeaderActions}
+              <Dialog open={drawerOpen} onOpenChange={setDrawerOpen}>
+                <DialogTrigger asChild>
+                  <Button type="button" variant="ghost" size="icon-sm">
+                    <MenuIcon />
+                    <span className="sr-only">{openMenuLabel}</span>
+                  </Button>
+                </DialogTrigger>
+                <DialogContent
+                  showCloseButton={false}
+                  className="start-0 top-0 h-full w-72 max-w-[85vw] translate-x-0 translate-y-0 rounded-none p-4 sm:max-w-[85vw]"
+                >
+                  <div className="mb-4 flex items-center justify-between">
+                    {brand !== undefined ? (
+                      <DialogTitle className="text-sm font-semibold">{brand}</DialogTitle>
+                    ) : (
+                      <VisuallyHidden.Root asChild>
+                        <DialogTitle>Navigation</DialogTitle>
+                      </VisuallyHidden.Root>
+                    )}
+                    <DialogClose asChild>
+                      <Button type="button" variant="ghost" size="icon-sm">
+                        <XIcon />
+                        <span className="sr-only">{closeMenuLabel}</span>
+                      </Button>
+                    </DialogClose>
+                  </div>
+                  {drawerHeader}
+                  <NavContent
+                    navItems={navItems}
+                    navGroups={navGroups}
+                    role={role}
+                    navLabel={navLabel}
+                    onNavigate={() => setDrawerOpen(false)}
+                  />
+                </DialogContent>
+              </Dialog>
+            </div>
+          )}
 
-        <aside className="hidden w-60 shrink-0 flex-col gap-6 border-r border-border-subtle bg-muted/30 p-4 md:flex">
-          {brand !== undefined && <div className="text-sm font-semibold">{brand}</div>}
-          <NavContent navItems={navItems} navGroups={navGroups} role={role} navLabel={navLabel} />
-        </aside>
+          {/* [8.14.1] `md:sticky` makes the sidebar scroll on its own instead
+              of scrolling away with the page. [8.14.2] made `topBar` sticky
+              at `top-0 z-30` with an opaque background, so the offset that
+              ticket promised is applied here: parking the sidebar at
+              `top-0` too would slide its brand and first nav items under
+              the header on any scrolled page. Both the offset and the
+              max-height read `--app-header-h`, which the header measures
+              into place at runtime. */}
+          <aside className="hidden w-60 shrink-0 flex-col gap-6 overflow-y-auto border-r border-border-subtle bg-muted/30 p-4 md:sticky md:top-[var(--app-header-h,0px)] md:flex md:max-h-[calc(100svh-var(--app-header-h,0px))]">
+            {brand !== undefined && <div className="text-sm font-semibold">{brand}</div>}
+            <NavContent navItems={navItems} navGroups={navGroups} role={role} navLabel={navLabel} />
+          </aside>
 
-        {/* `tabIndex={-1}`: not a Tab stop itself, but focusable via the
-            skip link's `href="#main-content"` jump and via `useRouteFocus`'s
-            no-heading fallback — no `outline-none` here, a jump like this
-            should show the same visible focus ring any other target does
-            (WCAG 2.4.7). */}
-        <main
-          id={APP_SHELL_MAIN_ID}
-          tabIndex={-1}
-          className={cn('min-w-0 flex-1 p-6', hasBottomNav && 'pb-24 md:pb-6')}
-        >
-          {children}
-        </main>
+          {/* `tabIndex={-1}`: not a Tab stop itself, but focusable via the
+              skip link's `href="#main-content"` jump and via `useRouteFocus`'s
+              no-heading fallback — no `outline-none` here, a jump like this
+              should show the same visible focus ring any other target does
+              (WCAG 2.4.7). */}
+          <main
+            id={APP_SHELL_MAIN_ID}
+            tabIndex={-1}
+            className={cn(
+              'min-w-0 flex-1 p-6',
+              hasBottomNav && 'pb-[calc(6rem+var(--safe-area-bottom))] md:pb-6',
+            )}
+          >
+            {children}
+          </main>
+        </div>
+        {hasBottomNav && <div className="sticky bottom-0 z-10 md:hidden">{bottomNav}</div>}
       </div>
-      {hasBottomNav && <div className="sticky bottom-0 z-10 md:hidden">{bottomNav}</div>}
-    </div>
+    </AppShellDrawerContext.Provider>
   );
 }

@@ -29,7 +29,15 @@
  */
 import { useCallback, useSyncExternalStore } from 'react';
 
-import { getPersistedTheme, persistTheme, resolveTheme, type Theme } from './theme-storage';
+import {
+  getPersistedTheme,
+  getThemePreference,
+  persistTheme,
+  resolveTheme,
+  setThemePreference,
+  type Theme,
+  type ThemePreference,
+} from './theme-storage';
 
 const DARK_MEDIA_QUERY = '(prefers-color-scheme: dark)';
 
@@ -89,8 +97,18 @@ function subscribe(listener: Listener): () => void {
   return () => listeners.delete(listener);
 }
 
-function getSnapshot(): Theme {
-  return computeTheme();
+/** `useSyncExternalStore` requires a referentially stable snapshot — a
+ * freshly-built object here would fail React's `Object.is` check on every
+ * render and loop. Returning a plain string key (rather than `Theme`
+ * alone) lets `useTheme()` below derive both the resolved theme *and* the
+ * tri-state preference from one subscription without a second store. */
+function getSnapshotKey(): string {
+  return `${getThemePreference()}|${computeTheme()}`;
+}
+
+function splitSnapshotKey(key: string): { preference: ThemePreference; theme: Theme } {
+  const [preference, theme] = key.split('|') as [ThemePreference, Theme];
+  return { preference, theme };
 }
 
 // Applied once at module load, mirroring the boot script's own read, so any
@@ -125,6 +143,19 @@ function toggleTheme(): void {
   setExplicitTheme(computeTheme() === 'dark' ? 'light' : 'dark');
 }
 
+/** Sets the tri-state preference — `'system'` clears the persisted choice
+ * (handing the vote back to `prefers-color-scheme`), `'light'`/`'dark'`
+ * persist same as `setExplicitTheme()`. Kept separate from
+ * `setExplicitTheme()` rather than teaching it to accept `'system'`: that
+ * function's whole contract is "persists a `Theme`", and folding a
+ * clear-storage branch into it would make every existing call site re-read
+ * as "sets an explicit choice, except when it doesn't". */
+function setPreference(preference: ThemePreference): void {
+  setThemePreference(preference);
+  applyTheme(computeTheme());
+  notify();
+}
+
 // Runtime sync (acceptance criterion: "respects prefers-color-scheme ...
 // explicit user choice always winning"). Fires on every OS-level flip
 // (a scheduled dark-mode switch, a manual OS settings change) for as long
@@ -141,14 +172,28 @@ if (typeof matchMedia === 'function') {
 }
 
 export interface UseThemeResult {
+  /** The resolved theme actually applied to the DOM right now — `'system'`
+   * preference already folded against `prefers-color-scheme`. What
+   * `dark:` utilities and the moon/sun icon should key off. */
   theme: Theme;
+  /** The tri-state preference a `MenuRadioGroup` should show as checked —
+   * `'system'` when nothing explicit is stored, otherwise the stored
+   * `Theme`. Distinct from `theme`: a `'system'` preference on a
+   * dark-OS visitor resolves to `theme === 'dark'` while `preference`
+   * stays `'system'`. */
+  preference: ThemePreference;
   /** Sets an explicit choice. Persists across reloads; from this point the
    * OS preference no longer has a vote until `clearPersistedTheme()` is
    * called (there is no UI for that today — clearing is a test-only
    * escape hatch, see `theme-storage.ts`). */
   setTheme: (theme: Theme) => void;
+  /** Sets the tri-state preference — `ThemeToggle`'s `MenuRadioGroup`
+   * calls this. `'system'` clears the persisted choice and hands the vote
+   * back to `prefers-color-scheme`. */
+  setPreference: (preference: ThemePreference) => void;
   /** Flips the current resolved theme and treats the result as an explicit
-   * choice — what `ThemeToggle` calls on click. */
+   * choice. Kept for existing consumers/tests — `ThemeToggle` itself now
+   * calls `setPreference` from its radio group instead. */
   toggleTheme: () => void;
 }
 
@@ -157,10 +202,13 @@ export interface UseThemeResult {
  * guarantee `useSyncExternalStore` gives any other external store in this
  * codebase (compare `auth-state.ts`'s consumers). */
 export function useTheme(): UseThemeResult {
-  const theme = useSyncExternalStore(subscribe, getSnapshot);
+  const snapshotKey = useSyncExternalStore(subscribe, getSnapshotKey);
+  const { preference, theme } = splitSnapshotKey(snapshotKey);
   return {
     theme,
+    preference,
     setTheme: useCallback((next: Theme) => setExplicitTheme(next), []),
+    setPreference: useCallback((next: ThemePreference) => setPreference(next), []),
     toggleTheme: useCallback(() => toggleTheme(), []),
   };
 }

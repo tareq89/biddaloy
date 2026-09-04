@@ -4,6 +4,7 @@
   "closeMenuLabel": "Close menu",
   "navLabel": "Main",
   "bottomNavLabel": "Portal",
+  "bottomNavStaffLabel": "Quick navigation",
   "skipToContent": "Skip to main content",
   "items": {
     "dashboard": "Dashboard",
@@ -19,18 +20,21 @@
     "recordPayment": "Record Payment",
     "portalOverview": "Overview",
     "portalFees": "Fees and invoices",
+    "portalAccount": "Account",
     "academicYears": "Academic Years",
     "classes": "Classes",
     "auditLogs": "Audit Logs",
     "sendMessage": "Send Message",
     "feeReminders": "Fee Reminders",
-    "reminderHistory": "Reminder History"
+    "reminderHistory": "Reminder History",
+    "more": "More"
   },
   "groups": {
     "people": "People",
     "finance": "Finance",
     "administration": "Administration",
-    "communications": "Communications"
+    "communications": "Communications",
+    "quickActions": "Quick actions"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -60,9 +64,20 @@
   },
   "notifications": {
     "bellLabel": "Notifications",
+    "bellLabelUnread_one": "Notifications, {{count}} unread",
+    "bellLabelUnread_other": "Notifications, {{count}} unread",
+    "badgeOverflow": "{{count}}+",
     "panelLabel": "Notifications",
+    "pageTitle": "Notifications",
+    "pageDescription": "Everything that finished while you were on another screen, this session.",
     "empty": "You're all caught up.",
-    "markAllRead": "Mark all read"
+    "markAllRead": "Mark all read",
+    "viewAll": "View all notifications",
+    "variant": {
+      "success": "Success",
+      "error": "Failed",
+      "info": "Info"
+    }
   },
   "globalSearch": {
     "buttonLabel": "Search (Ctrl+K)",
@@ -81,6 +96,35 @@
       "teachers": "Teachers",
       "invoices": "Invoices",
       "receipts": "Receipts"
-    }
+    },
+    "shortcutHint": "Ctrl+K",
+    "launcherPlaceholder": "Search…"
+  },
+  "theme": {
+    "label": "Theme",
+    "groupLabel": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "announce": "Theme set to {{mode}}"
+  },
+  "language": {
+    "label": "Change language",
+    "groupLabel": "Language",
+    "announce": "Language switched to {{language}}"
+  },
+  "userMenu": {
+    "label": "Account menu",
+    "signOut": "Sign out",
+    "signingOut": "Signing out…",
+    "loadingName": "Loading…",
+    "profile": "Profile",
+    "profileComingSoon": "Profile page coming soon"
+  },
+  "routeProgress": {
+    "label": "Loading page…"
+  },
+  "routePending": {
+    "label": "Loading…"
   }
 }

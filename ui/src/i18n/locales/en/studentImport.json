@@ -1,10 +1,5 @@
 {
   "title": "Import students",
-  "forbidden": {
-    "title": "You don't have permission to view this.",
-    "explanation": "Importing students in bulk is limited to administrators.",
-    "action": "Back to students"
-  },
   "template": {
     "title": "1. Download the template",
     "explanation": "Fill in the template with one student per row, then upload it below. Keep the first row of headers exactly as it is. Row 2 is a filled-in example — delete it before you upload, or that student will be imported too.",
@@ -61,5 +56,10 @@
     "wholeRow": "Whole row",
     "emptyValue": "(empty)",
     "exportCsv": "Export errors as CSV"
+  },
+  "notifications": {
+    "imported": "{{success}} of {{total}} students imported.",
+    "partial": "{{success}} of {{total}} students imported, {{errors}} failed.",
+    "failed": "Import failed."
   }
 }

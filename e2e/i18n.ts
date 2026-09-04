@@ -18,6 +18,7 @@ import bnFeeStructures from '../ui/src/i18n/locales/bn/feeStructures.json';
 import bnGuardians from '../ui/src/i18n/locales/bn/guardians.json';
 import bnNav from '../ui/src/i18n/locales/bn/nav.json';
 import bnPayments from '../ui/src/i18n/locales/bn/payments.json';
+import bnPortal from '../ui/src/i18n/locales/bn/portal.json';
 import bnSettings from '../ui/src/i18n/locales/bn/settings.json';
 import bnStudents from '../ui/src/i18n/locales/bn/students.json';
 import enAcademicYears from '../ui/src/i18n/locales/en/academicYears.json';
@@ -31,6 +32,7 @@ import enFeeStructures from '../ui/src/i18n/locales/en/feeStructures.json';
 import enGuardians from '../ui/src/i18n/locales/en/guardians.json';
 import enNav from '../ui/src/i18n/locales/en/nav.json';
 import enPayments from '../ui/src/i18n/locales/en/payments.json';
+import enPortal from '../ui/src/i18n/locales/en/portal.json';
 import enSettings from '../ui/src/i18n/locales/en/settings.json';
 import enStudents from '../ui/src/i18n/locales/en/students.json';
 
@@ -47,6 +49,7 @@ const catalogs = {
     guardians: bnGuardians,
     nav: bnNav,
     payments: bnPayments,
+    portal: bnPortal,
     settings: bnSettings,
     students: bnStudents,
   },
@@ -62,6 +65,7 @@ const catalogs = {
     guardians: enGuardians,
     nav: enNav,
     payments: enPayments,
+    portal: enPortal,
     settings: enSettings,
     students: enStudents,
   },

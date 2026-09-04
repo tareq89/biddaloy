@@ -1,4 +1,11 @@
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { UserStatus } from '@biddaloy/shared';
+import {
+  keepPreviousData,
+  queryOptions,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
@@ -9,11 +16,24 @@ import { shouldRetryQuery } from './retry';
 export type StaffUser = components['schemas']['UserResponseDto'];
 export type CreateUserInput = components['schemas']['CreateUserDto'];
 export type UpdateUserInput = components['schemas']['UpdateUserDto'];
+// [8.14.4] `PATCH /users/me`'s own DTO — distinct from `UpdateUserInput`
+// (`UpdateUserDto`) because it carries the caller-provided
+// `current_password` proof `UpdateUserDto` has no field for (see
+// `UpdateOwnProfileDto`'s own comment in `schema.d.ts`).
+export type UpdateOwnProfileInput = components['schemas']['UpdateOwnProfileDto'];
 export type UserRoleFilter = NonNullable<CreateUserInput['role']>;
 
+// [8.14.10] Mirrors `QueryUserDto` (`server/src/modules/users/dto/users.dto.ts`)
+// exactly — see the ticket's "hook filter interfaces" correction for why
+// this file, not #373, owns keeping this in step with the server DTO.
 export interface UserListFilters {
   role?: UserRoleFilter;
   search?: string;
+  status?: UserStatus;
+  joined_from?: string;
+  joined_to?: string;
+  sort?: 'full_name' | 'email' | 'joined_at' | 'status';
+  order?: 'asc' | 'desc';
   page?: number;
   limit?: number;
 }
@@ -41,6 +61,11 @@ export function usersQueryOptions(filters: UserListFilters) {
       return res.data;
     },
     retry: shouldRetryQuery,
+    // [8.14.6] Filter/page/sort changes keep the previous page's rows on
+    // screen (and `isFetching` true) instead of the whole table collapsing
+    // to one "Loading…" row height. v5 dropped `keepPreviousData: true`;
+    // this is its replacement.
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -61,6 +86,50 @@ export function userQueryOptions(id: string) {
 
 export function useUser(id: string | undefined) {
   return useQuery({ ...userQueryOptions(id ?? ''), enabled: id !== undefined });
+}
+
+/** [8.14.2]'s `AppHeader` user menu — the signed-in user's own record.
+ * `GET /users/me` (`UserController`) is open to every staff **and**
+ * guardian role (ADMIN, ACCOUNTANT, EXECUTIVE, TEACHER, PARENT, STUDENT —
+ * see `users.controller.ts`'s own `@Roles` list), unlike `/users/{id}`
+ * which is staff-only, so this is the one user-record read a guardian can
+ * make too. Keyed under `userKeys.detail('me')` rather than the caller's
+ * own id — the JWT's `sub` isn't decoded client-side for this (`session.ts`'s
+ * `decodeAccessTokenSubject` returns an id, not a name — that's the whole
+ * reason this hook exists) — so a literal `'me'` segment keeps the cache
+ * key stable across users without needing one. */
+export function currentUserQueryOptions() {
+  return queryOptions({
+    queryKey: userKeys.detail('me'),
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<StaffUser>('/users/me', { signal });
+      return res.data;
+    },
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useCurrentUser() {
+  return useQuery(currentUserQueryOptions());
+}
+
+/** [8.14.4]'s `/portal/account` profile card — `PATCH /users/me`. Only
+ * invalidates the `'me'` detail key, never `userKeys.lists()`: this
+ * caller's own record is not necessarily on any staff list they can even
+ * see (a PARENT/STUDENT 403s on `GET /users`), so refetching a list this
+ * caller may not hold is both wasted work and a request that could fail
+ * for a reason unrelated to the edit that just succeeded. */
+export function useUpdateOwnProfile() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: UpdateOwnProfileInput) => {
+      const res = await apiClient.patch<StaffUser>('/users/me', input);
+      return res.data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: userKeys.detail('me') });
+    },
+  });
 }
 
 /** `POST /users`'s 201 body: the created user plus the membership row the

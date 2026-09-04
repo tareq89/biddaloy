@@ -14,14 +14,17 @@ export { useOnline } from './use-online';
 export { useQueryFreshness } from './use-query-freshness';
 export { useSyncQueue } from './use-sync-queue';
 export { switchActiveTenant } from './tenant';
-export { login, logout, logoutAll } from './auth';
+export { changePassword, login, logout, logoutAll } from './auth';
 export { useAccessToken, useActiveRole, useActiveTenant, useCurrentUserId } from './auth-state';
 export {
+  currentUserQueryOptions,
   userKeys,
   userQueryOptions,
   usersQueryOptions,
   useCreateUser,
+  useCurrentUser,
   useRemoveMember,
+  useUpdateOwnProfile,
   useUpdateUser,
   useUser,
   useUsers,
@@ -29,6 +32,7 @@ export {
   type CreateUserResult,
   type PaginatedUsers,
   type StaffUser,
+  type UpdateOwnProfileInput,
   type UpdateUserInput,
   type UserListFilters,
   type UserRoleFilter,
@@ -71,16 +75,20 @@ export {
   guardianKeys,
   guardianQueryOptions,
   guardiansQueryOptions,
+  myGuardianQueryOptions,
   useCreateGuardian,
   useDeleteGuardian,
   useGuardian,
   useGuardians,
+  useMyGuardian,
   useUpdateGuardian,
+  useUpdateMyGuardian,
   type CreateGuardianInput,
   type Guardian,
   type GuardianListFilters,
   type PaginatedGuardians,
   type UpdateGuardianInput,
+  type UpdateOwnGuardianInput,
 } from './guardians';
 export {
   paymentKeys,
@@ -234,10 +242,16 @@ export {
   type BulkUploadResult,
   type BulkUploadStudentsInput,
 } from './bulk-upload';
-export { useRouteFocus, type UseRouteFocusOptions } from './use-route-focus';
+export {
+  ROUTE_FOCUS_MAX_PENDING_RETRIES,
+  useRouteFocus,
+  type UseRouteFocusOptions,
+} from './use-route-focus';
 export { useDebouncedValue } from './use-debounce';
+export { useContainerWidth } from './use-container-width';
 export {
   invoiceKeys,
+  invoiceQueryOptions,
   invoicesQueryOptions,
   openPrintableInvoice,
   useCreateInvoice,
@@ -270,6 +284,7 @@ export { useNotifications, useUnreadNotificationCount } from './notifications';
 export {
   schoolsKeys,
   schoolSettingsKeys,
+  schoolSettingsQueryOptions,
   useSchools,
   useSchoolSettings,
   useUpdateSchoolSettings,

@@ -42,6 +42,7 @@ export {
   FormMessage,
   useFormField,
 } from './form-field';
+export { Field, FieldGrid, type FieldProps, type FieldGridProps } from './field-grid';
 export { MoneyInput, type MoneyInputProps } from './money-input';
 export { PhoneInput, formatValidPhone, type PhoneInputProps } from './phone-input';
 export { DatePicker, Calendar, type DatePickerProps } from './date-picker';
@@ -49,6 +50,7 @@ export { Combobox, type ComboboxOption, type ComboboxProps } from './combobox';
 export { FileUpload, type FileUploadItem, type FileUploadProps } from './file-upload';
 export {
   DataTable,
+  type DataTableCardRole,
   type DataTableColumn,
   type DataTableProps,
   type DataTableSort,
@@ -140,6 +142,7 @@ export {
 export {
   StatusBadge,
   humanizeStatus,
+  statusLabelKey,
   type StatusBadgeProps,
   type StatusTone,
 } from './status-badge';
@@ -149,6 +152,7 @@ export { EmptyState, type EmptyStateKind, type EmptyStateProps } from './empty-s
 export { StudentPicker, type StudentPickerProps, type StudentPickerItem } from './student-picker';
 export { ErrorState, type ErrorStateProps } from './error-state';
 export { RouteStatusState, type RouteStatusStateProps } from './route-status-state';
+export { AccessDeniedState, type AccessDeniedStateProps } from './access-denied-state';
 export {
   Popover,
   PopoverAnchor,
@@ -166,7 +170,12 @@ export {
   type PopoverTriggerProps,
 } from './popover';
 export { NotificationBell, type NotificationBellProps } from './notification-bell';
-export { RouteErrorFallback, type RouteErrorFallbackProps } from './route-error-boundary';
+export { NotificationList, type NotificationListProps } from './notification-list';
+export {
+  isOfflineRouteError,
+  RouteErrorFallback,
+  type RouteErrorFallbackProps,
+} from './route-error-boundary';
 export { Toaster, toast } from './toast';
 export {
   Skeleton,
@@ -182,13 +191,25 @@ export { LocaleSwitcher, type LocaleSwitcherProps } from './locale-switcher';
 export { ThemeToggle } from './theme-toggle';
 export {
   AppShell,
+  APP_HEADER_HEIGHT_VAR,
   APP_SHELL_MAIN_ID,
+  useAppShellDrawer,
   type AppShellProps,
   type AppShellNavItem,
   type AppShellNavGroup,
+  type AppShellDrawerValue,
 } from './app-shell';
+export { AppHeader, type AppHeaderProps } from './app-header';
+export { UserMenu, type UserMenuProps } from './user-menu';
 export { SkipLink, type SkipLinkProps } from './skip-link';
 export { RouteAnnouncer, type RouteAnnouncerProps } from './route-announcer';
+export {
+  ROUTE_PENDING_ATTR,
+  RoutePending,
+  type RoutePendingProps,
+  type RoutePendingVariant,
+} from './route-pending';
+export { RouteProgress, type RouteProgressProps } from './route-progress';
 export {
   GlobalSearch,
   type GlobalSearchProps,
@@ -203,3 +224,23 @@ export {
 } from './sign-in-form';
 export { CachedDataNotice, type CachedDataNoticeProps } from './cached-data-notice';
 export { SyncStatus, SyncStatusIndicator, type SyncStatusProps } from './sync-status';
+export {
+  ProfileForm,
+  type ProfileFormProps,
+  type ProfileFormServerError,
+  type ProfileFormSubmitValues,
+  type ProfileFormValues,
+} from './profile-form';
+export {
+  GuardianContactForm,
+  type GuardianContactFormProps,
+  type GuardianContactFormServerError,
+  type GuardianContactFormValues,
+  type GuardianPreferredCommunication,
+} from './guardian-contact-form';
+export {
+  ChangePasswordForm,
+  type ChangePasswordFormProps,
+  type ChangePasswordFormServerError,
+  type ChangePasswordFormValues,
+} from './change-password-form';

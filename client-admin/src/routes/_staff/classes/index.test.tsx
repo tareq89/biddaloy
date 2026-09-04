@@ -67,13 +67,22 @@ describe('/classes', () => {
     expect(within(row).getByText('6')).toBeTruthy();
     // Sections column reads `section_count` straight off the list
     // payload — no `sections` relation loaded on this endpoint anymore.
-    expect(within(row).getByText('1')).toBeTruthy();
+    // [8.14.10]: rendered through `formatNumber`, so it picks up the
+    // tenant's region numerals (Bengali by default here) — same fix as
+    // `communications/batches/index.tsx`'s recipient counts, not raw
+    // ASCII digits regardless of UI language.
+    expect(within(row).getByText('১')).toBeTruthy();
     // Students column reads `student_count`, same list payload — no
     // per-row request.
-    expect(within(row).getByText('5')).toBeTruthy();
+    expect(within(row).getByText('৫')).toBeTruthy();
   });
 
-  it('Add class / Edit / Delete are hidden for a role without CLASS_MANAGE', async () => {
+  // [8.14.17]: `_staff.tsx`'s `RequirePermission` now refuses the whole
+  // route for a role without `CLASS_MANAGE` — before this ticket the
+  // route still rendered for them with the table visible and only the
+  // write buttons hidden, a partial view [8.14.17] intentionally
+  // replaces with a blanket refusal.
+  it('refuses the whole route for a role without CLASS_MANAGE', async () => {
     const klass = classFactory({ id: 'class-1', name: 'Class 6' });
     server.use(
       http.get('/api/v1/classes', () =>
@@ -88,11 +97,8 @@ describe('/classes', () => {
       locale: 'en',
     });
 
-    await screen.findByRole('heading', { name: 'Classes' });
-    await screen.findByText('Class 6');
-    expect(screen.queryByRole('button', { name: 'Add class' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
+    expect(await screen.findByText("You don't have access to this page.")).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Classes' })).toBeNull();
   });
 
   it('expanding a row reveals its sections inline, keyboard-operable with correct aria-expanded', async () => {

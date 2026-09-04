@@ -95,4 +95,36 @@ describe('useFeeDues', () => {
     expect(result.current.data?.data).toHaveLength(1);
     expect(result.current.data?.data[0]?.full_name).toBe('Karim Rahman');
   });
+
+  // [8.14.10]: `search` mirrors `QueryFeeDuesDto.search`, landed
+  // server-side by #373 but never threaded through `FeeDuesFilters` until
+  // now. Not accepted by `GET /fees/dues/flagged` — see `FLAGGED_FIELDS`'s
+  // own comment in `fee-dues.ts`.
+  it('sends search as a query param when flagged is false, and strips it when flagged is true', async () => {
+    const seen: Record<string, string | null | boolean> = {};
+    server.use(
+      http.get('/api/v1/fees/dues', ({ request }) => {
+        seen.search = new URL(request.url).searchParams.get('search');
+        return HttpResponse.json(EMPTY_PAGE);
+      }),
+      http.get('/api/v1/fees/dues/flagged', ({ request }) => {
+        seen.hasSearch = new URL(request.url).searchParams.has('search');
+        return HttpResponse.json(EMPTY_PAGE);
+      }),
+    );
+
+    const { result: unflagged } = renderHookWithProviders(
+      () => useFeeDues({ search: 'Karim' }, false),
+      { tenantId: 'tenant-1' },
+    );
+    await waitFor(() => expect(unflagged.current.isSuccess).toBe(true));
+    expect(seen.search).toBe('Karim');
+
+    const { result: flagged } = renderHookWithProviders(
+      () => useFeeDues({ search: 'Karim' }, true),
+      { tenantId: 'tenant-1' },
+    );
+    await waitFor(() => expect(flagged.current.isSuccess).toBe(true));
+    expect(seen.hasSearch).toBe(false);
+  });
 });

@@ -4,6 +4,7 @@
   "closeMenuLabel": "মেনু বন্ধ করুন",
   "navLabel": "প্রধান",
   "bottomNavLabel": "পোর্টাল",
+  "bottomNavStaffLabel": "দ্রুত নেভিগেশন",
   "skipToContent": "মূল বিষয়বস্তুতে যান",
   "items": {
     "dashboard": "ড্যাশবোর্ড",
@@ -19,18 +20,21 @@
     "recordPayment": "পেমেন্ট রেকর্ড করুন",
     "portalOverview": "সারসংক্ষেপ",
     "portalFees": "ফি ও চালান",
+    "portalAccount": "অ্যাকাউন্ট",
     "academicYears": "শিক্ষাবর্ষ",
     "classes": "ক্লাস",
     "auditLogs": "নিরীক্ষা লগ",
     "sendMessage": "বার্তা পাঠান",
     "feeReminders": "ফি রিমাইন্ডার",
-    "reminderHistory": "রিমাইন্ডার ইতিহাস"
+    "reminderHistory": "রিমাইন্ডার ইতিহাস",
+    "more": "আরও"
   },
   "groups": {
     "people": "ব্যক্তিবর্গ",
     "finance": "অর্থ",
     "administration": "প্রশাসন",
-    "communications": "যোগাযোগ"
+    "communications": "যোগাযোগ",
+    "quickActions": "দ্রুত পদক্ষেপ"
   },
   "dashboard": {
     "title": "ড্যাশবোর্ড",
@@ -60,9 +64,20 @@
   },
   "notifications": {
     "bellLabel": "বিজ্ঞপ্তি",
+    "bellLabelUnread_one": "বিজ্ঞপ্তি, {{count}}টি অপঠিত",
+    "bellLabelUnread_other": "বিজ্ঞপ্তি, {{count}}টি অপঠিত",
+    "badgeOverflow": "{{count}}+",
     "panelLabel": "বিজ্ঞপ্তি",
+    "pageTitle": "বিজ্ঞপ্তি",
+    "pageDescription": "এই সেশনে আপনি অন্য স্ক্রিনে থাকাকালীন যা কিছু সম্পন্ন হয়েছে।",
     "empty": "আপনি সব দেখে ফেলেছেন।",
-    "markAllRead": "সব পঠিত হিসেবে চিহ্নিত করুন"
+    "markAllRead": "সব পঠিত হিসেবে চিহ্নিত করুন",
+    "viewAll": "সব বিজ্ঞপ্তি দেখুন",
+    "variant": {
+      "success": "সফল",
+      "error": "ব্যর্থ",
+      "info": "তথ্য"
+    }
   },
   "globalSearch": {
     "buttonLabel": "খুঁজুন (Ctrl+K)",
@@ -81,6 +96,35 @@
       "teachers": "শিক্ষক",
       "invoices": "চালান",
       "receipts": "রসিদ"
-    }
+    },
+    "shortcutHint": "Ctrl+K",
+    "launcherPlaceholder": "অনুসন্ধান…"
+  },
+  "theme": {
+    "label": "থিম",
+    "groupLabel": "থিম",
+    "light": "হালকা",
+    "dark": "গাঢ়",
+    "system": "সিস্টেম",
+    "announce": "থিম {{mode}} সেট করা হয়েছে"
+  },
+  "language": {
+    "label": "ভাষা পরিবর্তন করুন",
+    "groupLabel": "ভাষা",
+    "announce": "ভাষা {{language}}-এ পরিবর্তন করা হয়েছে"
+  },
+  "userMenu": {
+    "label": "অ্যাকাউন্ট মেনু",
+    "signOut": "সাইন আউট",
+    "signingOut": "সাইন আউট হচ্ছে…",
+    "loadingName": "লোড হচ্ছে…",
+    "profile": "প্রোফাইল",
+    "profileComingSoon": "প্রোফাইল পৃষ্ঠা শীঘ্রই আসছে"
+  },
+  "routeProgress": {
+    "label": "পাতা লোড হচ্ছে…"
+  },
+  "routePending": {
+    "label": "লোড হচ্ছে…"
   }
 }

@@ -22,6 +22,11 @@
       "archetype": "bespoke"
     },
     {
+      "path": "/notifications",
+      "role": "admin",
+      "archetype": "bespoke"
+    },
+    {
       "path": "/settings",
       "role": "admin",
       "archetype": "form"
@@ -191,6 +196,11 @@
       "path": "/portal/fees",
       "role": "parent",
       "archetype": "list"
+    },
+    {
+      "path": "/portal/account",
+      "role": "parent",
+      "archetype": "form"
     }
   ]
 }

@@ -33,6 +33,8 @@ import {
 } from './reminder-template.util';
 import { recordBatchOutcome } from './reminder-batch-counters';
 import { COMMUNICATIONS_QUEUE } from './communications.constants';
+import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
+import { BN_COLLATION } from '../../common/constants/collation';
 import {
   selectReminderGuardians,
   partitionByOptOut,
@@ -179,26 +181,59 @@ export class BulkReminderService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
 
-    const [batches, total] = await this.batchRepo.findAndCount({
-      where: { tenant_id: tenantId },
+    const qb = this.batchRepo
+      .createQueryBuilder('batch')
+      .where('batch.tenant_id = :tenantId', { tenantId })
       // Exactly the columns toListItemDto maps. Without this, every row on
       // the page also drags back `message_template` (up to 2000 chars) and
       // the `filters_applied` jsonb — which holds the batch's whole
       // student_ids list *and* its skip list, potentially hundreds of
       // entries — only for them to be discarded here.
-      select: {
-        id: true,
-        batch_name: true,
-        status: true,
-        total_recipients: true,
-        successful_count: true,
-        failed_count: true,
-        created_at: true,
-      },
-      order: { created_at: 'DESC', id: 'DESC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+      .select([
+        'batch.id',
+        'batch.batch_name',
+        'batch.status',
+        'batch.total_recipients',
+        'batch.successful_count',
+        'batch.failed_count',
+        'batch.created_at',
+      ]);
+
+    const search = normalizeSearchTerm(query.search);
+    if (search) {
+      qb.andWhere('batch.batch_name ILIKE :search', { search: `%${search}%` });
+    }
+    if (query.status) {
+      qb.andWhere('batch.status = :status', { status: query.status });
+    }
+    if (query.from_date) {
+      qb.andWhere('batch.created_at >= :fromDate', { fromDate: query.from_date });
+    }
+    if (query.to_date) {
+      // A date-only value must include the whole day, matching the
+      // pattern used elsewhere in this codebase for to_date filters
+      // (e.g. AuditService.findAll).
+      const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(query.to_date);
+      const toDate = new Date(query.to_date);
+      if (isDateOnly) {
+        toDate.setUTCHours(23, 59, 59, 999);
+      }
+      qb.andWhere('batch.created_at <= :toDate', { toDate });
+    }
+
+    if (query.sort === 'batch_name') {
+      qb.orderBy(`batch.batch_name COLLATE "${BN_COLLATION}"`, query.order === 'desc' ? 'DESC' : 'ASC');
+    } else if (query.sort === 'total_recipients') {
+      qb.orderBy('batch.total_recipients', query.order === 'asc' ? 'ASC' : 'DESC');
+    } else {
+      qb.orderBy('batch.created_at', query.order === 'asc' ? 'ASC' : 'DESC');
+    }
+    qb.addOrderBy('batch.id', 'DESC');
+
+    const [batches, total] = await qb
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
 
     return {
       data: batches.map((batch) => this.toListItemDto(batch)),

@@ -1,12 +1,15 @@
 import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS } from '../seed-contract';
 import { expect, guest, loggedIn, test } from '../fixtures/test';
+import { t } from '../i18n';
 import { LoginPage } from '../pages/login-page';
+import { escapeRegExp } from '../regex';
 
 /**
- * [8.5.7] Journey 1: login/logout. The app has no logout UI yet (no user
- * menu exists) — server-side logout + redirect is covered by
- * `e2e/fixtures/session.spec.ts`'s revoked-session spec; this file owns
- * the form-level journeys.
+ * [8.5.7] Journey 1: login/logout. [8.14.2] adds the staff header's own
+ * user menu — this file's "sign out from the staff shell" test drives
+ * *that* button, while `e2e/fixtures/session.spec.ts`'s revoked-session
+ * spec still covers the server-forced case (session revoked out from
+ * under a still-open tab).
  */
 
 const password = () => {
@@ -41,6 +44,34 @@ test('guardian login lands in the portal', async ({ page }) => {
   await login.goto();
   await login.login(SEED_ROLE_EMAILS.parent, password());
   await expect(page).toHaveURL(/\/portal/);
+});
+
+test.describe('sign out from the staff shell', () => {
+  test.use(loggedIn('teacher'));
+
+  test('signing out lands on /login, and Back does not restore the session', async ({ page }) => {
+    await page.goto('/dashboard');
+
+    await test.step('open the user menu and sign out', async () => {
+      // The trigger's accessible name is `nav.userMenu.label`, optionally
+      // suffixed with the signed-in name (`user-menu.tsx:66`), and the app
+      // renders Bangla by default — so match the translated label as a
+      // prefix rather than hardcoding English.
+      await page
+        .getByRole('button', { name: new RegExp(escapeRegExp(t('nav.userMenu.label'))) })
+        .click();
+      await page.getByRole('menuitem', { name: t('nav.userMenu.signOut'), exact: true }).click();
+    });
+
+    await test.step('lands on /login', async () => {
+      await expect(page).toHaveURL(/\/login/);
+    });
+
+    await test.step('Back does not restore the session', async () => {
+      await page.goBack();
+      await expect(page).toHaveURL(/\/login/);
+    });
+  });
 });
 
 test.describe('protected visit after logout', () => {

@@ -574,10 +574,19 @@ describe('/portal', () => {
 
     it('retries both queries from the error frame', async () => {
       let studentCalls = 0;
+      // [8.14.5]: `/portal/`'s own `loader` now warms this same query
+      // ahead of mount (`myStudentsQueryOptions()`), so its own up-to-3
+      // attempts (1 initial + `shouldRetryQuery`'s 2 retries) happen
+      // *before* the component ever renders, and then TanStack Query's
+      // `retryOnMount` (default `true`) fires a second up-to-3-attempt
+      // round the instant the component observes the still-errored
+      // query. Both rounds must still fail here so the page actually
+      // reaches its error frame — only the third round, triggered by
+      // this test's own "Try again" click, is meant to succeed.
       server.use(
         http.get('/api/v1/students/mine', () => {
           studentCalls += 1;
-          return studentCalls > 3
+          return studentCalls > 6
             ? HttpResponse.json([child('Fatima Rahman', 'student-1', 'Class 8', 'B', 14)])
             : HttpResponse.json(apiErrorBody(500, 'boom', '/api/v1/students/mine'), {
                 status: 500,
@@ -598,18 +607,34 @@ describe('/portal', () => {
       expect(await screen.findByRole('heading', { level: 1, name: 'Fatima Rahman' })).toBeTruthy();
     });
 
-    it('shows skeletons — never a blank frame or a bare id — while loading, with no h1', async () => {
-      server.use(
-        http.get('/api/v1/students/mine', () => new Promise(() => {})),
-        http.get('/api/v1/fees/dues', () => new Promise(() => {})),
-      );
-      const { container } = renderPortal();
+    it('shows the route-level pending skeleton — never a blank frame or a bare id — while loading, with no h1', async () => {
+      // [8.14.5]: `/portal/`'s own `loader` now warms `myStudentsQueryOptions()`
+      // ahead of mount, so a request that never resolves at all means the
+      // *route* never leaves TanStack Router's "pending" status — the
+      // page's own `PortalSkeleton` (which used to render here, from
+      // `studentsQuery.isLoading`) never gets a chance to mount at all;
+      // `PortalOverviewPending` (the route's `pendingComponent`) is what
+      // renders instead. TanStack Router's pending-presentation timer
+      // reads real `Date.now()`, which this file's module-scoped
+      // `vi.useFakeTimers({ toFake: ['Date'] })` freezes — real timers
+      // for just this test avoid that timer never elapsing.
+      vi.useRealTimers();
+      try {
+        server.use(
+          http.get('/api/v1/students/mine', () => new Promise(() => undefined)),
+          http.get('/api/v1/fees/dues', () => new Promise(() => undefined)),
+        );
+        const { container } = renderPortal();
 
-      await waitFor(() =>
-        expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(0),
-      );
-      expect(screen.queryAllByRole('heading', { level: 1 })).toHaveLength(0);
-      expect(screen.getByText('Loading your portal')).toBeTruthy();
+        await waitFor(() =>
+          expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(0),
+        );
+        expect(screen.queryAllByRole('heading', { level: 1 })).toHaveLength(0);
+        expect(screen.getByRole('status').textContent).toContain('Loading');
+      } finally {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(new Date('2026-03-15T18:30:00.000Z'));
+      }
     });
 
     it('switches to the single-student skeleton shape once the student count is known, even while dues is still pending', async () => {

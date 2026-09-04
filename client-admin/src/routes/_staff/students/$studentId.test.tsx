@@ -140,11 +140,13 @@ describe('/students/$studentId', () => {
     });
 
     await screen.findByRole('heading', { name: student.full_name });
-    expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
+    const adminUser = userEvent.setup();
     expect(screen.getByRole('button', { name: 'Collect fees' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Send reminder' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Transfer / change status' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Delete' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
+    await adminUser.click(screen.getByRole('button', { name: 'More actions' }));
+    expect(await screen.findByRole('menuitem', { name: 'Send reminder' })).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: 'Transfer / change status' })).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeTruthy();
     unmount();
 
     renderWithRouter(routeTree, {
@@ -155,10 +157,14 @@ describe('/students/$studentId', () => {
     });
 
     await screen.findByRole('heading', { name: student.full_name });
+    const accountantUser = userEvent.setup();
     expect(screen.getByRole('button', { name: 'Collect fees' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Send reminder' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+    await accountantUser.click(screen.getByRole('button', { name: 'More actions' }));
+    expect(await screen.findByRole('menuitem', { name: 'Send reminder' })).toBeTruthy();
+    expect(screen.queryByRole('menuitem', { name: 'Transfer / change status' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Transfer / change status' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Delete' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
   });
 
@@ -227,7 +233,8 @@ describe('/students/$studentId', () => {
     });
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    await user.click(await screen.findByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
     const dialog = within(await screen.findByRole('dialog'));
     await user.click(dialog.getByRole('button', { name: 'Delete' }));
 
@@ -261,7 +268,8 @@ describe('/students/$studentId', () => {
     });
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Transfer / change status' }));
+    await user.click(await screen.findByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Transfer / change status' }));
     const dialog = within(await screen.findByRole('dialog'));
     await user.click(dialog.getByRole('combobox'));
     await user.click(await screen.findByRole('option', { name: 'Transferred' }));

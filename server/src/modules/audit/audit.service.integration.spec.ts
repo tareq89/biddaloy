@@ -151,6 +151,36 @@ describe('AuditService (integration)', () => {
     expect(row).not.toHaveProperty('performed_by');
   });
 
+  // [8.14.9] entity_id filter — exact UUID match, must combine with the
+  // existing withDeleted()+leftJoin without breaking either.
+  it('filters to rows about one entity_id and still resolves the acting user’s name', async () => {
+    const targetEntityId = '00000000-0000-4000-8000-0000000003b1';
+    await service.record({
+      tenant_id: TENANT_ID,
+      action: AuditAction.UPDATE,
+      entity_type: 'Student',
+      entity_id: targetEntityId,
+      performed_by_user_id: ACTIVE_USER_ID,
+      old_values: null,
+      new_values: null,
+      ip_address: null,
+      user_agent: null,
+    });
+    // A second row for a different entity must not show up.
+    await recordUpdateBy(ACTIVE_USER_ID);
+
+    const result = await service.findAll(
+      { entity_id: targetEntityId } as QueryAuditLogDto,
+      TENANT_ID,
+    );
+
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0]?.entity_id).toBe(targetEntityId);
+    expect(AuditLogResponseDto.fromEntity(result.data[0]!).performed_by_name).toBe(
+      'Fatema Begum',
+    );
+  });
+
   // Tenant isolation: the join must not become a way around the tenant
   // filter every other audit query depends on.
   it('never returns another tenant’s rows', async () => {

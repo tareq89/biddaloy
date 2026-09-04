@@ -16,8 +16,10 @@ import { Route as PortalRouteImport } from './routes/portal'
 import { Route as SelectSchoolRouteImport } from './routes/select-school'
 import { Route as StaffDashboardRouteImport } from './routes/_staff/dashboard'
 import { Route as StaffFeesRouteImport } from './routes/_staff/fees'
+import { Route as StaffNotificationsRouteImport } from './routes/_staff/notifications'
 import { Route as StaffSettingsRouteImport } from './routes/_staff/settings'
 import { Route as PortalIndexRouteImport } from './routes/portal/index'
+import { Route as PortalAccountRouteImport } from './routes/portal/account'
 import { Route as PortalFeesRouteImport } from './routes/portal/fees'
 import { Route as StaffAcademicYearsIndexRouteImport } from './routes/_staff/academic-years/index'
 import { Route as StaffAcademicYearsAcademicYearIdRouteImport } from './routes/_staff/academic-years/$academicYearId'
@@ -79,6 +81,11 @@ const StaffFeesRoute = StaffFeesRouteImport.update({
   path: '/fees',
   getParentRoute: () => StaffRoute,
 } as any)
+const StaffNotificationsRoute = StaffNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => StaffRoute,
+} as any)
 const StaffSettingsRoute = StaffSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -87,6 +94,11 @@ const StaffSettingsRoute = StaffSettingsRouteImport.update({
 const PortalIndexRoute = PortalIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalAccountRoute = PortalAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
   getParentRoute: () => PortalRoute,
 } as any)
 const PortalFeesRoute = PortalFeesRouteImport.update({
@@ -233,7 +245,9 @@ export interface FileRoutesByFullPath {
   '/select-school': typeof SelectSchoolRoute
   '/dashboard': typeof StaffDashboardRoute
   '/fees': typeof StaffFeesRouteWithChildren
+  '/notifications': typeof StaffNotificationsRoute
   '/settings': typeof StaffSettingsRoute
+  '/portal/account': typeof PortalAccountRoute
   '/portal/fees': typeof PortalFeesRoute
   '/portal/': typeof PortalIndexRoute
   '/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
@@ -267,7 +281,9 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/select-school': typeof SelectSchoolRoute
   '/dashboard': typeof StaffDashboardRoute
+  '/notifications': typeof StaffNotificationsRoute
   '/settings': typeof StaffSettingsRoute
+  '/portal/account': typeof PortalAccountRoute
   '/portal/fees': typeof PortalFeesRoute
   '/portal': typeof PortalIndexRoute
   '/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
@@ -305,7 +321,9 @@ export interface FileRoutesById {
   '/select-school': typeof SelectSchoolRoute
   '/_staff/dashboard': typeof StaffDashboardRoute
   '/_staff/fees': typeof StaffFeesRouteWithChildren
+  '/_staff/notifications': typeof StaffNotificationsRoute
   '/_staff/settings': typeof StaffSettingsRoute
+  '/portal/account': typeof PortalAccountRoute
   '/portal/fees': typeof PortalFeesRoute
   '/portal/': typeof PortalIndexRoute
   '/_staff/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
@@ -343,7 +361,9 @@ export interface FileRouteTypes {
     | '/select-school'
     | '/dashboard'
     | '/fees'
+    | '/notifications'
     | '/settings'
+    | '/portal/account'
     | '/portal/fees'
     | '/portal/'
     | '/academic-years/$academicYearId'
@@ -377,7 +397,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/select-school'
     | '/dashboard'
+    | '/notifications'
     | '/settings'
+    | '/portal/account'
     | '/portal/fees'
     | '/portal'
     | '/academic-years/$academicYearId'
@@ -414,7 +436,9 @@ export interface FileRouteTypes {
     | '/select-school'
     | '/_staff/dashboard'
     | '/_staff/fees'
+    | '/_staff/notifications'
     | '/_staff/settings'
+    | '/portal/account'
     | '/portal/fees'
     | '/portal/'
     | '/_staff/academic-years/$academicYearId'
@@ -503,6 +527,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffFeesRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/notifications': {
+      id: '/_staff/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof StaffNotificationsRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/settings': {
       id: '/_staff/settings'
       path: '/settings'
@@ -515,6 +546,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/portal/'
       preLoaderRoute: typeof PortalIndexRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/account': {
+      id: '/portal/account'
+      path: '/account'
+      fullPath: '/portal/account'
+      preLoaderRoute: typeof PortalAccountRouteImport
       parentRoute: typeof PortalRoute
     }
     '/portal/fees': {
@@ -721,6 +759,7 @@ const StaffFeesRouteWithChildren = StaffFeesRoute._addFileChildren(
 interface StaffRouteChildren {
   StaffDashboardRoute: typeof StaffDashboardRoute
   StaffFeesRoute: typeof StaffFeesRouteWithChildren
+  StaffNotificationsRoute: typeof StaffNotificationsRoute
   StaffSettingsRoute: typeof StaffSettingsRoute
   StaffAcademicYearsAcademicYearIdRoute: typeof StaffAcademicYearsAcademicYearIdRoute
   StaffClassesClassIdRoute: typeof StaffClassesClassIdRoute
@@ -749,6 +788,7 @@ interface StaffRouteChildren {
 const StaffRouteChildren: StaffRouteChildren = {
   StaffDashboardRoute: StaffDashboardRoute,
   StaffFeesRoute: StaffFeesRouteWithChildren,
+  StaffNotificationsRoute: StaffNotificationsRoute,
   StaffSettingsRoute: StaffSettingsRoute,
   StaffAcademicYearsAcademicYearIdRoute: StaffAcademicYearsAcademicYearIdRoute,
   StaffClassesClassIdRoute: StaffClassesClassIdRoute,
@@ -778,11 +818,13 @@ const StaffRouteChildren: StaffRouteChildren = {
 const StaffRouteWithChildren = StaffRoute._addFileChildren(StaffRouteChildren)
 
 interface PortalRouteChildren {
+  PortalAccountRoute: typeof PortalAccountRoute
   PortalFeesRoute: typeof PortalFeesRoute
   PortalIndexRoute: typeof PortalIndexRoute
 }
 
 const PortalRouteChildren: PortalRouteChildren = {
+  PortalAccountRoute: PortalAccountRoute,
   PortalFeesRoute: PortalFeesRoute,
   PortalIndexRoute: PortalIndexRoute,
 }

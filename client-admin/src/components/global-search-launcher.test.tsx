@@ -13,6 +13,14 @@ import { routeTree } from '../routeTree.gen';
  * Rendered through the real staff layout (`_staff.tsx` mounts
  * `GlobalSearchLauncher` in the top bar on every staff route), same
  * reasoning as every other route test in this app.
+ *
+ * [8.14.3]: `_staff.tsx` now mounts this component twice — once in the
+ * desktop `topBar` (`hidden md:flex`), once in the mobile header row
+ * (`md:hidden`) — so `findByRole` below matches two identically-named
+ * buttons. jsdom does no layout, so there is no CSS-visibility signal to
+ * query by; `getAllByRole(...)[0]` picks the desktop instance
+ * deterministically. Which instance is picked does not matter for these
+ * assertions — both call the same `onClick={() => setOpen(true)}` handler.
  */
 describe('GlobalSearchLauncher', () => {
   afterEach(async () => {
@@ -42,7 +50,7 @@ describe('GlobalSearchLauncher', () => {
     });
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Search (Ctrl+K)' }));
+    await user.click((await screen.findAllByRole('button', { name: 'Search (Ctrl+K)' }))[0]!);
     await user.type(screen.getByRole('combobox', { name: 'Search everything' }), 'Karim');
 
     const option = await screen.findByRole('option', { name: /Karim Rahman/ });
@@ -71,7 +79,7 @@ describe('GlobalSearchLauncher', () => {
     });
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Search (Ctrl+K)' }));
+    await user.click((await screen.findAllByRole('button', { name: 'Search (Ctrl+K)' }))[0]!);
     await user.type(screen.getByRole('combobox', { name: 'Search everything' }), 'Childless');
 
     expect(await screen.findByRole('option', { name: /Childless Guardian/ })).toBeTruthy();

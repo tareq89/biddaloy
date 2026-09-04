@@ -15,13 +15,21 @@
  */
 import { Permission } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
-import { ErrorState, Skeleton, StatusBadge } from '@biddaloy/ui/components';
-import { useCurrentUserId, useHasPermission, useTeachers, useUser } from '@biddaloy/ui/hooks';
+import { ErrorState, RoutePending, Skeleton, StatusBadge } from '@biddaloy/ui/components';
+import {
+  useCurrentUserId,
+  useHasPermission,
+  useTeachers,
+  useUser,
+  userQueryOptions,
+} from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell, useDetailShellTab } from '@biddaloy/ui/shells';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
 import { z } from 'zod';
+
+import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { LoginHistoryTab } from './-detail/login-history-tab';
 import { MembershipsTab } from './-detail/memberships-tab';
@@ -39,6 +47,14 @@ const staffDetailSearchSchema = z.object({
 
 export const Route = createFileRoute('/_staff/staff/$userId')({
   validateSearch: staffDetailSearchSchema,
+  loader: ({ context: { queryClient }, params }) =>
+    Promise.all([
+      // [8.14.5]: swallowed — see `academic-years/$academicYearId.tsx`'s
+      // identical comment for why.
+      queryClient.ensureQueryData(userQueryOptions(params.userId)).catch(swallowUnlessOffline),
+      loadRouteNamespaces('staff', 'common'),
+    ]),
+  pendingComponent: StaffDetailPending,
   component: StaffDetailPage,
 });
 
@@ -130,6 +146,7 @@ function StaffDetailPage() {
                   id: 'editUser',
                   label: t('detail.actions.editUser'),
                   allowed: canUpdate,
+                  priority: 'primary',
                   onClick: () => setEditUserOpen(true),
                 },
                 ...(teacher !== undefined
@@ -138,6 +155,7 @@ function StaffDetailPage() {
                         id: 'editTeacher',
                         label: t('detail.actions.editTeacher'),
                         allowed: canUpdate,
+                        priority: 'secondary' as const,
                         onClick: () => setEditTeacherOpen(true),
                       },
                     ]
@@ -146,6 +164,7 @@ function StaffDetailPage() {
                   id: 'remove',
                   label: t('detail.actions.remove'),
                   allowed: canRemove,
+                  priority: 'destructive',
                   onClick: () => setRemoveOpen(true),
                 },
               ]}
@@ -178,4 +197,9 @@ function StaffDetailPage() {
       </div>
     </RegionConfigProvider>
   );
+}
+
+function StaffDetailPending() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="detail" label={t('routePending.label', { ns: 'nav' })} />;
 }

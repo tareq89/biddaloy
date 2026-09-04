@@ -175,11 +175,15 @@ describe('/invoices', () => {
     }
   });
 
-  it('hides the Print action for a role without INVOICE_PRINT', async () => {
-    // TEACHER holds neither INVOICE_READ nor INVOICE_PRINT
-    // (`ROLE_PERMISSIONS`) but is still a staff role (`STAFF_ROLES`), so
-    // it reaches this page (unlike PARENT/STUDENT, which `RequireRole`
-    // redirects to `/portal` before this component ever renders).
+  // [8.14.17]: TEACHER holds neither `INVOICE_READ` nor `INVOICE_PRINT`
+  // (`ROLE_PERMISSIONS`), and is still a staff role (`STAFF_ROLES`), so
+  // it clears `_staff.tsx`'s outer `RequireRole` gate — but
+  // `RequirePermission`, gated on `INVOICE_READ` for this route, now
+  // refuses the whole page before this component ever renders. Before
+  // this ticket the route rendered for TEACHER with only the `Print`
+  // button hidden, a partial view [8.14.17] intentionally replaces with
+  // a blanket refusal.
+  it('refuses the whole route for a role without INVOICE_READ', async () => {
     const invoice = invoiceFactory({ id: 'invoice-1' });
     server.use(
       http.get('/api/v1/invoices', () =>
@@ -194,8 +198,8 @@ describe('/invoices', () => {
       locale: 'en',
     });
 
-    await screen.findByRole('link', { name: invoice.invoice_number });
-    expect(screen.queryByRole('button', { name: 'Print' })).toBeNull();
+    expect(await screen.findByText("You don't have access to this page.")).toBeTruthy();
+    expect(screen.queryByRole('link', { name: invoice.invoice_number })).toBeNull();
   });
 
   it('renders the empty state when no invoices match', async () => {
@@ -232,5 +236,120 @@ describe('/invoices', () => {
 
     await screen.findByRole('link', { name: invoice.invoice_number });
     await expect(container).toHaveNoViolations();
+  });
+
+  // [8.14.10]: `student_id` has no `FilterBar` descriptor, so it renders
+  // via `FilterBar`'s "chip for every value key, even undeclared ones"
+  // fallback. This is the regression test for the bug where the page read
+  // `student_id` from `Route.useSearch()` instead of `state.filters` —
+  // clearing the chip cleared the URL but the query kept using the stale
+  // value.
+  it('deep-linked student_id renders a chip, and clearing it drops the filter from the query', async () => {
+    let lastStudentId: string | null | undefined;
+    server.use(
+      http.get('/api/v1/invoices', ({ request }) => {
+        lastStudentId = new URL(request.url).searchParams.get('student_id');
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 });
+      }),
+    );
+
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/invoices?student_id=student-1'],
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+
+    await screen.findByRole('region', { name: 'Invoices' });
+    await waitFor(() => expect(lastStudentId).toBe('student-1'));
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Remove filter: student_id: student-1' }));
+
+    await waitFor(() => {
+      expect(router.state.location.search).not.toHaveProperty('student_id');
+    });
+    await waitFor(() => expect(lastStudentId).toBeNull());
+  });
+
+  it('an amount range filter reaches the request as min_amount/max_amount', async () => {
+    let lastMin: string | null = null;
+    let lastMax: string | null = null;
+    server.use(
+      http.get('/api/v1/invoices', ({ request }) => {
+        const url = new URL(request.url);
+        lastMin = url.searchParams.get('min_amount');
+        lastMax = url.searchParams.get('max_amount');
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 });
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/invoices'],
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await screen.findByRole('region', { name: 'Invoices' });
+    await user.type(screen.getByRole('textbox', { name: 'Minimum amount' }), '500');
+
+    await waitFor(() => expect(lastMin).toBe('500'), { timeout: 1000 });
+    expect(lastMax).toBeNull();
+  });
+
+  // [8.14.10]: FilterBar migration — the rows-per-page control changes
+  // `limit` and resets `page` in one URL update.
+  it('changing rows per page writes limit and resets page', async () => {
+    server.use(
+      http.get('/api/v1/invoices', () =>
+        HttpResponse.json({ data: [], total: 0, page: 2, limit: 10, totalPages: 1 }),
+      ),
+    );
+
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/invoices?page=2'],
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await screen.findByRole('region', { name: 'Invoices' });
+    await user.click(screen.getByRole('combobox', { name: 'Rows per page' }));
+    // Option labels render in the tenant's own region digits (Bengali
+    // numerals here), independent of the `en` UI locale.
+    await user.click(await screen.findByRole('option', { name: '২০' }));
+
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ limit: 20, page: 1 }));
+  });
+
+  // [8.14.10]: `GET /invoices` now accepts a `sort`/`order` param — the
+  // money column is sortable and end-aligned via `align`, not a manual
+  // `tabular-nums` span.
+  it('clicking the Amount column header writes sort/order to the URL', async () => {
+    server.use(
+      http.get('/api/v1/invoices', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
+      ),
+    );
+
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/invoices'],
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await screen.findByRole('region', { name: 'Invoices' });
+    await user.click(screen.getByRole('button', { name: 'Amount' }));
+
+    await waitFor(() => {
+      const search = router.state.location.search as Record<string, unknown>;
+      expect(search.sort).toBe('amount');
+      expect(['asc', 'desc']).toContain(search.order);
+    });
   });
 });

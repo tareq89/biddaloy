@@ -14,7 +14,7 @@ import {
   IsDateString,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { UserRole, TeacherDesignation } from '@biddaloy/shared';
+import { UserRole, TeacherDesignation, UserStatus } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 
 /**
@@ -145,10 +145,32 @@ export class QueryUserDto {
   @IsEnum(UserRole)
   role?: UserRole;
 
-  /** Case-insensitive match against full_name or email. */
+  /** Case-insensitive match against full_name, email, or phone. */
   @IsOptional()
   @IsString()
   search?: string;
+
+  @IsOptional()
+  @IsEnum(UserStatus)
+  status?: UserStatus;
+
+  /** Lower bound on when this user joined *this* tenant (`UserTenant.created_at`),
+   * not when their account was created globally (`User.created_at`). */
+  @IsOptional()
+  @IsDateString()
+  joined_from?: string;
+
+  @IsOptional()
+  @IsDateString()
+  joined_to?: string;
+
+  @IsOptional()
+  @IsEnum(['full_name', 'email', 'joined_at', 'status'])
+  sort?: 'full_name' | 'email' | 'joined_at' | 'status';
+
+  @IsOptional()
+  @IsEnum(['asc', 'desc'])
+  order?: 'asc' | 'desc';
 
   @IsOptional()
   @Type(() => Number)

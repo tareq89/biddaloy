@@ -3,6 +3,9 @@
  * of 145", not just a bare page number, so a screen-reader user gets the
  * same "where am I" signal a sighted user reads off the page instantly.
  */
+import { useRegionConfig, useTranslation } from '../i18n';
+import { formatNumber } from '../utils';
+
 import { Button } from './button';
 
 export interface PaginationProps {
@@ -19,9 +22,11 @@ export function Pagination({
   pageSize,
   totalCount,
   onPageChange,
-  previousLabel = 'Previous',
-  nextLabel = 'Next',
+  previousLabel,
+  nextLabel,
 }: PaginationProps) {
+  const { t } = useTranslation();
+  const regionConfig = useRegionConfig();
   // `page` routinely comes straight from a URL query param, and `pageSize`
   // from wherever a caller's page-size selector defaults to before it's
   // loaded — neither is guaranteed in-range. Clamping here means a stale
@@ -35,9 +40,15 @@ export function Pagination({
   const rangeEnd = Math.min(currentPage * safePageSize, totalCount);
 
   return (
-    <nav aria-label="Pagination" className="flex items-center justify-between text-sm">
+    <nav aria-label={t('pagination.label')} className="flex items-center justify-between text-sm">
       <span aria-live="polite" className="text-muted-foreground">
-        {totalCount === 0 ? 'No results' : `Showing ${rangeStart}–${rangeEnd} of ${totalCount}`}
+        {totalCount === 0
+          ? t('table.empty')
+          : t('pagination.range', {
+              start: formatNumber(rangeStart, regionConfig),
+              end: formatNumber(rangeEnd, regionConfig),
+              total: formatNumber(totalCount, regionConfig),
+            })}
       </span>
       <div className="flex gap-1.5">
         <Button
@@ -47,7 +58,7 @@ export function Pagination({
           disabled={currentPage <= 1}
           onClick={() => onPageChange(currentPage - 1)}
         >
-          {previousLabel}
+          {previousLabel ?? t('pagination.previous')}
         </Button>
         <Button
           type="button"
@@ -56,7 +67,7 @@ export function Pagination({
           disabled={currentPage >= totalPages}
           onClick={() => onPageChange(currentPage + 1)}
         >
-          {nextLabel}
+          {nextLabel ?? t('pagination.next')}
         </Button>
       </div>
     </nav>

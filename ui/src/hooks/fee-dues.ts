@@ -1,5 +1,5 @@
 import type { FeeStatus } from '@biddaloy/shared';
-import { queryOptions, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, queryOptions, useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
 
@@ -68,6 +68,11 @@ export interface FeeDuesFilters {
   month?: number;
   year?: number;
   status?: FeeStatus.PENDING | FeeStatus.PARTIALLY_PAID;
+  /** Matches student full_name, registration_number, or roll_number — see
+   * `QueryFeeDuesDto.search`'s own comment. Not accepted by `GET
+   * /fees/dues/flagged`, same as every field below `class_id`/`section_id`
+   * — `FLAGGED_FIELDS` below strips it before that request goes out. */
+  search?: string;
   sort_by?: FeeDuesSortBy;
   sort_order?: SortOrder;
   page?: number;
@@ -103,6 +108,11 @@ export function feeDuesQueryOptions(filters: FeeDuesFilters = {}, flagged = fals
       return res.data;
     },
     retry: shouldRetryQuery,
+    // [8.14.6] Filter/page/sort changes keep the previous page's rows on
+    // screen (and `isFetching` true) instead of the whole table collapsing
+    // to one "Loading…" row height. v5 dropped `keepPreviousData: true`;
+    // this is its replacement.
+    placeholderData: keepPreviousData,
   });
 }
 

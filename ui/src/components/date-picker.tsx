@@ -257,7 +257,20 @@ export function Calendar({
                   data-focused={isFocused}
                   tabIndex={isFocused ? 0 : -1}
                   aria-selected={isSelected}
-                  className="rounded-md p-1.5 text-sm hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring aria-selected:bg-primary aria-selected:text-primary-foreground"
+                  // [8.14.14]: focus ring aligned to the shared two-tone
+                  // offset treatment, with two deliberate deviations from
+                  // the canonical string (both required, both here):
+                  // - `ring-offset-popover` instead of `ring-offset-
+                  //   background`: this grid renders inside
+                  //   `PopoverContent` (see line ~79/228), so a page-ground
+                  //   offset would paint a visibly mismatched gutter on the
+                  //   popover surface, especially in dark mode.
+                  // - `relative z-10`: the grid uses `grid-cols-7 gap-1`
+                  //   (4px gutter), exactly the ring's width — without
+                  //   stacking above neighbours, adjacent cells'
+                  //   `hover:bg-muted`/`aria-selected:bg-primary`
+                  //   backgrounds would paint over the ring.
+                  className="rounded-md p-1.5 text-sm outline-none hover:bg-muted focus-visible:relative focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover aria-selected:bg-primary aria-selected:text-primary-foreground"
                   onClick={() => onSelect(date)}
                   onKeyDown={(event) => {
                     if (event.key === 'ArrowRight') {

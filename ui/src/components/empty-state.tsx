@@ -48,14 +48,16 @@
  * ---
  *
  * This file's border/elevation/colour choices are the canonical reference
- * for the whole empty/loading/error family — `ErrorState` and
- * `RouteStatusState` point back here rather than re-deriving the same
- * comparison, so a fourth state only needs one table updated, not three:
+ * for the whole empty/loading/error family — `ErrorState`,
+ * `RouteStatusState`, and `AccessDeniedState` point back here rather than
+ * re-deriving the same comparison, so a new member only needs one table
+ * updated, not every file:
  *
  *   component                border    elevation    icon well
  *   EmptyState (empty)       dashed    none         bg-muted (neutral)
  *   EmptyState (no-results)  solid     none         bg-secondary (brand)
  *   RouteStatusState         dashed    none         bg-muted (neutral)
+ *   AccessDeniedState        dashed    none         bg-muted (neutral)
  *   ErrorState                solid    shadow-e1    bg-destructive/10
  *
  * Solid + elevated is reserved for `ErrorState`, the one member that

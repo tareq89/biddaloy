@@ -1,3 +1,4 @@
+import { ReminderBatchStatus } from '@biddaloy/shared';
 import { waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
@@ -6,7 +7,12 @@ import { server } from '../test/msw/server';
 import { apiErrorBody } from '../test/msw/support';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
 
-import { useSendBulkReminder, useSendSingleReminder, useSingleReminderPreview } from './reminders';
+import {
+  useReminderBatches,
+  useSendBulkReminder,
+  useSendSingleReminder,
+  useSingleReminderPreview,
+} from './reminders';
 
 describe('useSendBulkReminder posts the batch and surfaces the server response', () => {
   it('resolves with the batch summary on success', async () => {
@@ -170,5 +176,41 @@ describe('useSendSingleReminder posts to the send route', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.sent[0]?.status).toBe('QUEUED');
+  });
+});
+
+// [8.14.10]: `search`/`status`/`from_date`/`to_date`/`sort`/`order` mirror
+// `QueryReminderBatchesDto`, landed server-side by #373 but never threaded
+// through `ReminderBatchListFilters` until now.
+describe('useReminderBatches requests every QueryReminderBatchesDto field', () => {
+  it('sends search, status, from_date, to_date, sort, and order as query params', async () => {
+    const requested = new URLSearchParams();
+    server.use(
+      http.get('/api/v1/communications/reminder/bulk', ({ request }) => {
+        for (const [key, value] of new URL(request.url).searchParams) requested.set(key, value);
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 20, totalPages: 0 });
+      }),
+    );
+
+    const { result } = renderHookWithProviders(
+      () =>
+        useReminderBatches({
+          search: 'Winter fee',
+          status: ReminderBatchStatus.COMPLETED,
+          from_date: '2026-01-01',
+          to_date: '2026-01-31',
+          sort: 'batch_name',
+          order: 'asc',
+        }),
+      { tenantId: 'tenant-1' },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(requested.get('search')).toBe('Winter fee');
+    expect(requested.get('status')).toBe('COMPLETED');
+    expect(requested.get('from_date')).toBe('2026-01-01');
+    expect(requested.get('to_date')).toBe('2026-01-31');
+    expect(requested.get('sort')).toBe('batch_name');
+    expect(requested.get('order')).toBe('asc');
   });
 });

@@ -15,8 +15,7 @@
  * fresh `POST /reminder/bulk` with exactly those students and this
  * batch's own stored template, as a new batch named "Retry of …".
  */
-import { Permission } from '@biddaloy/shared';
-import { ApiError } from '@biddaloy/ui/api';
+import { ApiError, getActiveTenant, notifyOutcome } from '@biddaloy/ui/api';
 import {
   Button,
   Dialog,
@@ -27,14 +26,14 @@ import {
   DialogHeader,
   DialogTitle,
   DataTable,
-  EmptyState,
+  RoutePending,
   StatusBadge,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
 import {
   collectFailedStudentIds,
   reminderBatchLogsKeyPrefix,
-  useHasPermission,
+  reminderBatchQueryOptions,
   useReminderBatch,
   useReminderBatchLogs,
   useSendBulkReminder,
@@ -55,6 +54,7 @@ import * as React from 'react';
 import { z } from 'zod';
 
 import { skipReasonKey } from '../-shared/skip-reason';
+import { loadRouteNamespaces, swallowUnlessOffline } from '../../../../route-loaders';
 
 /** SendBulkReminderDto caps batch_name at 200 characters. */
 const MAX_BATCH_NAME = 200;
@@ -81,28 +81,26 @@ const batchDetailSearchSchema = z.object({
 
 export const Route = createFileRoute('/_staff/communications/batches/$batchId')({
   validateSearch: batchDetailSearchSchema,
+  loader: ({ context: { queryClient }, params }) =>
+    Promise.all([
+      // [8.14.5]: swallowed — see `academic-years/$academicYearId.tsx`'s
+      // identical comment for why.
+      queryClient
+        .ensureQueryData(reminderBatchQueryOptions(params.batchId))
+        .catch(swallowUnlessOffline),
+      loadRouteNamespaces('communications'),
+    ]),
+  pendingComponent: BatchDetailPending,
   component: BatchDetailPage,
 });
 
+// [8.14.17]: the permission check that used to live at the top of
+// `BatchDetailPage` (an `EmptyState` shown when the viewer lacked
+// `COMMUNICATION_BULK_SEND`) is gone — `_staff.tsx`'s `RequirePermission`
+// now refuses the whole route in place, keyed off the same permission
+// (`route-permissions.ts`), before this component ever mounts.
 function BatchDetailPage() {
-  const { t } = useTranslation('communications');
-  const navigate = useNavigate();
-  // Same COMMUNICATION_BULK_SEND gate (and reasoning) as the history list.
-  const canView = useHasPermission(Permission.COMMUNICATION_BULK_SEND);
   const regionConfig = useTenantRegionConfig();
-
-  if (!canView) {
-    return (
-      <EmptyState
-        title={t('batches.forbidden.title')}
-        explanation={t('batches.forbidden.explanation')}
-        action={{
-          label: t('batches.forbidden.action'),
-          onClick: () => void navigate({ to: '/dashboard' }),
-        }}
-      />
-    );
-  }
 
   return (
     <RegionConfigProvider value={regionConfig}>
@@ -135,12 +133,34 @@ function BatchDetail() {
   // can predate the final statuses. Refetch once on the transition out of
   // PROCESSING to reconcile it.
   const previousStatus = React.useRef<typeof batchStatus>(undefined);
+  // [8.14.11] One bell entry per batch, ever. A refocus refetch can re-run
+  // this effect against the same terminal status; without an id set here,
+  // a user leaving the tab open would collect a new notification each time.
+  const notifiedBatchIds = React.useRef(new Set<string>());
   React.useEffect(() => {
     if (previousStatus.current === 'PROCESSING' && batchStatus && batchStatus !== 'PROCESSING') {
       void queryClient.invalidateQueries({ queryKey: reminderBatchLogsKeyPrefix(batchId) });
+
+      if (!notifiedBatchIds.current.has(batchId)) {
+        notifiedBatchIds.current.add(batchId);
+        const successfulCount = batchQuery.data?.successful_count ?? 0;
+        const failedCount = batchQuery.data?.failed_count ?? 0;
+        // `tenantId: null` is deliberate, not a capture-before-request
+        // omission: unlike the other producers, this notification fires
+        // from a poll on an already-mounted route, whose tenant page is
+        // currently mounted, so a tenant switch unmounts this route.
+        notifyOutcome({
+          tenantId: getActiveTenant(),
+          variant: failedCount > 0 ? 'error' : 'success',
+          message:
+            failedCount > 0
+              ? t('notifications.batchFailed', { failed: failedCount })
+              : t('notifications.batchCompleted', { sent: successfulCount }),
+        });
+      }
     }
     previousStatus.current = batchStatus;
-  }, [batchStatus, batchId, queryClient]);
+  }, [batchStatus, batchId, queryClient, batchQuery.data, t]);
 
   const [retryOpen, setRetryOpen] = React.useState(false);
   const [retryPreparing, setRetryPreparing] = React.useState(false);
@@ -334,6 +354,18 @@ function BatchDetail() {
                 })
               }
               loading={logsQuery.isPending}
+              // [8.14.6] Not plain `logsQuery.isFetching`: this query polls
+              // every `REMINDER_BATCH_POLL_MS` while the batch is
+              // PROCESSING (see `useReminderBatchLogs` above), so raw
+              // `isFetching` flips true/false on every poll tick and would
+              // dim/undim this table every few seconds — the opposite of
+              // the calm, stable table this ticket exists to ship.
+              // `isPlaceholderData` is only true while a *stale key's* rows
+              // are on screen (a real filter/page/sort change), never
+              // during a same-key background poll, so gating on it keeps
+              // the dim reserved for user-initiated transitions. Plan's own
+              // documented escape hatch for this exact interaction.
+              isFetching={logsQuery.isFetching && logsQuery.isPlaceholderData}
               {...(logsQuery.isError ? { error: t('batches.detail.logsError') } : {})}
               emptyMessage={t('batches.detail.logsEmpty')}
             />
@@ -417,4 +449,9 @@ function BatchDetail() {
       )}
     </div>
   );
+}
+
+function BatchDetailPending() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="detail" label={t('routePending.label', { ns: 'nav' })} />;
 }

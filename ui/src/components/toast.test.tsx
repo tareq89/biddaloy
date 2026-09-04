@@ -39,4 +39,33 @@ describe('Toaster/toast', () => {
     await screen.findByText('Saved');
     await screen.findByText('Failed to save');
   });
+
+  // [8.14.3]: the safe-area-aware default clears the gesture-nav home
+  // indicator; a caller-supplied value must still win over it.
+  describe('[8.14.3] mobileOffset default', () => {
+    it('defaults mobileOffset to the safe-area-aware bottom offset', async () => {
+      render(<Toaster />);
+      // sonner's `<ol data-sonner-toaster>` only renders once a toast
+      // exists for that position — an empty `<Toaster />` renders no such
+      // node at all, so a toast must be raised before it can be queried.
+      toast('Fee structure created');
+      await screen.findByText('Fee structure created');
+      // sonner portals the toaster to `document.body`, not the RTL
+      // container, so it must be looked up globally rather than scoped to
+      // the render's own subtree.
+      const toaster = document.querySelector('[data-sonner-toaster]');
+      expect(toaster?.getAttribute('style')).toContain(
+        '--mobile-offset-bottom: calc(1rem + var(--safe-area-bottom, 0px))',
+      );
+    });
+
+    it('lets a caller override the default mobileOffset', async () => {
+      render(<Toaster mobileOffset={{ bottom: '2rem' }} />);
+      toast('Fee structure created');
+      await screen.findByText('Fee structure created');
+      const toaster = document.querySelector('[data-sonner-toaster]');
+      expect(toaster?.getAttribute('style')).toContain('--mobile-offset-bottom: 2rem');
+      expect(toaster?.getAttribute('style')).not.toContain('--safe-area-bottom');
+    });
+  });
 });

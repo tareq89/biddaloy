@@ -11,6 +11,7 @@ import {
   ArrayNotEmpty,
   ArrayMaxSize,
   MaxLength,
+  IsDateString,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { CommunicationMedium, CommunicationStatus, ReminderBatchStatus } from '@biddaloy/shared';
@@ -123,6 +124,32 @@ export class ReminderBatchResponseDto {
 }
 
 export class QueryReminderBatchesDto {
+  /** Matches against batch_name (ILIKE, escaped). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  search?: string;
+
+  @IsOptional()
+  @IsEnum(ReminderBatchStatus)
+  status?: ReminderBatchStatus;
+
+  @IsOptional()
+  @IsDateString()
+  from_date?: string;
+
+  @IsOptional()
+  @IsDateString()
+  to_date?: string;
+
+  @IsOptional()
+  @IsEnum(['created_at', 'batch_name', 'total_recipients'])
+  sort?: 'created_at' | 'batch_name' | 'total_recipients';
+
+  @IsOptional()
+  @IsEnum(['asc', 'desc'])
+  order?: 'asc' | 'desc';
+
   @IsOptional()
   @Type(() => Number)
   @IsInt()

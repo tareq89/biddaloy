@@ -10,5 +10,6 @@
  * `ui/README.md`'s Routing section for the current API and why.
  */
 export { RequireRole, type RequireRoleProps } from './require-role';
+export { RequirePermission, type RequirePermissionProps } from './require-permission';
 export { useListUrlState, type ListUrlState, type ListUrlStatePatch } from './use-list-url-state';
 export { useSearchNavigate } from './navigate-search';

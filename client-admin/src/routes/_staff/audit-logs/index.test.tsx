@@ -364,20 +364,30 @@ describe('/audit-logs', () => {
   it.each(['ACCOUNTANT', 'EXECUTIVE', 'TEACHER'])(
     'shows the forbidden state to a %s on direct navigation',
     async (role) => {
-      // The server 403s these roles, so the route loader's request fails
-      // before the component's permission check ever runs. Serving a 403
-      // here rather than a 200 is the point of the test: with a
-      // success-returning handler it passed even when an unhandled loader
-      // rejection would have replaced the designed copy with the router's
-      // generic error fallback in production. `errorHandler` (not a
-      // hand-rolled body) because only a full `ApiErrorBody` becomes a
-      // typed `ApiError` — anything else is a generic `Error` that
-      // `shouldRetryQuery` retries twice before giving up.
+      // The server 403s these roles, so the route loader's request fails.
+      // TanStack Router runs a matched route's loader regardless of what
+      // its parent renders — `_staff.tsx`'s `RequirePermission` is what
+      // actually decides this reader never sees the table, one layer up,
+      // and it decides before the loader's request even resolves. Serving
+      // a 403 here rather than a 200 is still the point of the test: with
+      // a success-returning handler it passed even when an unhandled
+      // loader rejection would have replaced the designed copy with the
+      // router's generic error fallback in production. `errorHandler`
+      // (not a hand-rolled body) because only a full `ApiErrorBody`
+      // becomes a typed `ApiError` — anything else is a generic `Error`
+      // that `shouldRetryQuery` retries twice before giving up.
       server.use(errorHandler('get', '/api/v1/audit-logs', 403, 'Forbidden resource'));
 
       renderAuditLogs({ role });
 
-      expect(await screen.findByText("You don't have access to the audit trail")).toBeTruthy();
+      // [8.14.17]: the heading is now `common:accessDenied.title` — every
+      // gated staff route's generic default — but this route keeps its
+      // own, more specific explanation (`auditLogs:forbidden.explanation`),
+      // passed through as `RequirePermission`'s one documented override.
+      expect(await screen.findByText("You don't have access to this page.")).toBeTruthy();
+      expect(
+        screen.getByText("Only an administrator can read this school's audit trail."),
+      ).toBeTruthy();
       expect(screen.queryByRole('region', { name: TABLE_REGION })).toBeNull();
     },
   );
@@ -412,5 +422,53 @@ describe('/audit-logs', () => {
 
     await screen.findByText('3 fields were changed on this student.');
     await expect(container).toHaveNoViolations();
+  });
+
+  // Correction 2: the server param is `performed_by_user_id`, a UUID
+  // (`QueryAuditLogDto.performed_by_user_id`, `@IsUUID()`) — the filter
+  // must be a picker sourced from `useUsers`, not free text a viewer
+  // could type garbage into and get a 400 back.
+  it('picking a "Performed by" user writes performed_by_user_id to the URL', async () => {
+    const seen = captureParams();
+    server.use(
+      http.get('/api/v1/users', () =>
+        HttpResponse.json({
+          data: [{ id: 'user-42', full_name: 'Fatema Begum' }],
+          total: 1,
+          page: 1,
+          limit: 100,
+          totalPages: 1,
+        }),
+      ),
+    );
+
+    const { router } = renderAuditLogs();
+
+    const user = userEvent.setup();
+    await screen.findByRole('region', { name: TABLE_REGION });
+    await user.click(screen.getByRole('combobox', { name: 'Performed by' }));
+    await user.click(await screen.findByRole('option', { name: 'Fatema Begum' }));
+
+    await waitFor(() =>
+      expect(router.state.location.search).toMatchObject({ performed_by_user_id: 'user-42' }),
+    );
+    await waitFor(() => expect(seen.params!.get('performed_by_user_id')).toBe('user-42'));
+  });
+
+  // [8.14.10]: FilterBar migration — the rows-per-page control changes
+  // `limit` and resets `page` in one URL update.
+  it('changing rows per page writes limit and resets page', async () => {
+    captureParams({ data: [], total: 0, page: 2, limit: 10, totalPages: 1 });
+
+    const { router } = renderAuditLogs({ initialEntries: ['/audit-logs?page=2'] });
+
+    const user = userEvent.setup();
+    await screen.findByRole('region', { name: TABLE_REGION });
+    await user.click(screen.getByRole('combobox', { name: 'Rows per page' }));
+    // Option labels render in the tenant's own region digits (Bengali
+    // numerals here), independent of the `en` UI locale.
+    await user.click(await screen.findByRole('option', { name: '২০' }));
+
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ limit: 20, page: 1 }));
   });
 });

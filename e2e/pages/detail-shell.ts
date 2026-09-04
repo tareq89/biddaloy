@@ -30,9 +30,23 @@ export class DetailShellPage {
     await expectUrlParam(this.page, 'tab', tabId);
   }
 
-  /** A primary action by its translation key, e.g.
-   * `action('students.detail.actions.edit')`. */
+  /** An action by its translation key, e.g.
+   * `clickAction('students.detail.actions.edit')`. Inline (primary,
+   * secondary, lone destructive) actions render as buttons; per §11 of
+   * `docs/architecture/09-design-direction.md`, tertiary and non-lone
+   * destructive actions collapse into an overflow menu opened by a "More
+   * actions" button and render as `menuitem`s instead. This checks for
+   * the inline button first and only opens the overflow menu if it isn't
+   * there, so it works for either case without callers needing to know
+   * which tier an action landed in. */
   async clickAction(labelKey: string): Promise<void> {
-    await this.page.getByRole('button', { name: this.t(labelKey) }).click();
+    const label = this.t(labelKey);
+    const inline = this.page.getByRole('button', { name: label });
+    if ((await inline.count()) > 0) {
+      await inline.first().click();
+      return;
+    }
+    await this.page.getByRole('button', { name: this.t('common.actions.moreActions') }).click();
+    await this.page.getByRole('menuitem', { name: label }).click();
   }
 }

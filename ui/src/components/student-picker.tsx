@@ -52,7 +52,14 @@ export function StudentPicker({ label, items, selectedId, to, className }: Stude
     <nav
       aria-label={label}
       data-slot="student-picker"
-      className={cn('-mx-1 flex gap-2 overflow-x-auto px-1 pb-1', className)}
+      // [8.14.7]: `flex-wrap`, not `overflow-x-auto` — a guardian with
+      // enough children pushes this row past 320px, and the reflow
+      // contract DataTable's card mode established (see
+      // `e2e/pages/assertions.ts`'s `expectNoInnerHorizontalScroll`) means
+      // no element gets its own inner scroll region. Wrapping to a second
+      // line costs nothing here: chips have no inherent order that
+      // wrapping would break.
+      className={cn('flex flex-wrap gap-2 pb-1', className)}
     >
       {items.map((item) => {
         const active = item.id === selectedId;

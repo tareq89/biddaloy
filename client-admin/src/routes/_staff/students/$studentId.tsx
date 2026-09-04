@@ -1,12 +1,14 @@
 import { EnrollmentStatus, Permission } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
-import { ErrorState, Skeleton, StatusBadge } from '@biddaloy/ui/components';
-import { useHasPermission, useStudent } from '@biddaloy/ui/hooks';
+import { ErrorState, RoutePending, Skeleton, StatusBadge } from '@biddaloy/ui/components';
+import { studentQueryOptions, useHasPermission, useStudent } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell, useDetailShellTab } from '@biddaloy/ui/shells';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
 import { z } from 'zod';
+
+import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { ActivityTab } from './-detail/activity-tab';
 import { CommunicationTab } from './-detail/communication-tab';
@@ -38,6 +40,16 @@ const studentDetailSearchSchema = z.object({
  */
 export const Route = createFileRoute('/_staff/students/$studentId')({
   validateSearch: studentDetailSearchSchema,
+  loader: ({ context: { queryClient }, params }) =>
+    Promise.all([
+      // [8.14.5]: swallowed — see `academic-years/$academicYearId.tsx`'s
+      // identical comment for why.
+      queryClient
+        .ensureQueryData(studentQueryOptions(params.studentId))
+        .catch(swallowUnlessOffline),
+      loadRouteNamespaces('students', 'common'),
+    ]),
+  pendingComponent: StudentDetailPending,
   component: StudentDetailPage,
 });
 
@@ -116,6 +128,7 @@ function StudentDetailPage() {
                   id: 'edit',
                   label: t('detail.actions.edit'),
                   allowed: canUpdate,
+                  priority: 'secondary',
                   onClick: () =>
                     void navigate({ to: '/students/$studentId/edit', params: { studentId } }),
                 },
@@ -123,6 +136,7 @@ function StudentDetailPage() {
                   id: 'collect-fees',
                   label: t('detail.actions.collectFees'),
                   allowed: canCollectFees,
+                  priority: 'primary',
                   onClick: () =>
                     void navigate({ to: '/payments/record', search: { student_id: studentId } }),
                 },
@@ -130,19 +144,21 @@ function StudentDetailPage() {
                   id: 'send-reminder',
                   label: t('detail.actions.sendReminder'),
                   allowed: canSendReminder,
+                  priority: 'tertiary',
                   onClick: () => setReminderDialogOpen(true),
                 },
                 {
                   id: 'transfer-status',
                   label: t('detail.actions.transferStatus'),
                   allowed: canUpdate,
+                  priority: 'tertiary',
                   onClick: () => setTransferDialogOpen(true),
                 },
                 {
                   id: 'delete',
                   label: t('detail.actions.delete'),
                   allowed: canDelete,
-                  variant: 'destructive',
+                  priority: 'destructive',
                   onClick: () => setDeleteDialogOpen(true),
                 },
               ]}
@@ -226,4 +242,9 @@ function StudentDetailPage() {
       </div>
     </RegionConfigProvider>
   );
+}
+
+function StudentDetailPending() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="detail" label={t('routePending.label', { ns: 'nav' })} />;
 }

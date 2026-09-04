@@ -474,8 +474,114 @@
   --motion-duration-fast: 120ms; /* hover, focus ring, active */
   --motion-duration-base: 180ms; /* dropdown, popover, select, tooltip */
   --motion-duration-slow: 240ms; /* dialog, drawer, toast */
+  /* [8.14.5] One continuously-looping indeterminate animation
+   * (`RouteProgress`'s travel bar) — none of the three durations above
+   * fit, since they're all one-shot transition/exit timings for
+   * components that start and stop. Token, not a literal in the
+   * component, so it stays subject to the same "no hard-coded timing"
+   * rule as everything else here. */
+  --motion-duration-route-progress: 1s;
   --motion-ease-standard: cubic-bezier(0.2, 0, 0, 1); /* enter and move */
   --motion-ease-exit: cubic-bezier(0.4, 0, 1, 1); /* exit */
+}
+
+/**
+ * [8.14.5] Route transitions — only `#main-content` cross-fades. See
+ * #366's plan for `--app-header-h` / `scroll-margin-top` contract this
+ * builds on.
+ *
+ * The document root's UA-default `view-transition-name: root` would
+ * snapshot the *whole page* — header and sidebar included — so a route
+ * navigation would fade the app's chrome too. Setting it to `none` here
+ * removes root capture entirely: anything not explicitly named simply
+ * renders live and stays perfectly still, which is exactly the "header
+ * and sidebar never move" acceptance criterion.
+ */
+:root {
+  view-transition-name: none;
+}
+
+/* `#main-content` is `APP_SHELL_MAIN_ID` (`../components/app-shell.tsx`).
+ * Chrome-free routes (`/login`, `/select-school`) render no such element,
+ * so they get no named capture and therefore no transition at all — which
+ * is correct, since there is no shell chrome to hold still there. */
+#main-content {
+  view-transition-name: app-main-content;
+}
+
+@keyframes biddaloy-route-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes biddaloy-route-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+::view-transition-old(app-main-content) {
+  animation: biddaloy-route-fade-out var(--motion-duration-fast) var(--motion-ease-exit) both;
+}
+::view-transition-new(app-main-content) {
+  animation: biddaloy-route-fade-in var(--motion-duration-base) var(--motion-ease-standard) both;
+}
+
+/**
+ * [8.14.5] `prefers-reduced-motion` — the blanket rule at the bottom of
+ * this file (see its own comment) selects `*, *::before, *::after`, which
+ * does NOT reach view-transition pseudo-elements: they render in their
+ * own tree, outside the document tree those selectors walk. Without this
+ * dedicated block the route cross-fade above would keep animating under
+ * `reduce`.
+ *
+ * `0.01ms`, not `animation: none`, for the same reason the blanket rule
+ * documents, plus one more: `useRouteFocus` (`../hooks/use-route-focus.ts`)
+ * waits on these animations' `finished` promises before moving focus —
+ * `animation: none` would mean they never exist to finish.
+ *
+ * The block itself lives further down, right after the blanket
+ * `*, *::before, *::after` rule it's the view-transition-pseudo-element
+ * sibling of — `check-contrast.mjs`'s own `reducedMotionBody` check finds
+ * that blanket rule by searching for the *first* `@media
+ * (prefers-reduced-motion: reduce)` block containing `animation-duration`,
+ * so this block staying textually after it (rather than up here next to
+ * the other route-transition CSS) is load-bearing, not cosmetic.
+ */
+
+@keyframes biddaloy-route-progress {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* [8.14.5] Plain class, not an inline `style`, so the duration comes from
+ * `--motion-duration-route-progress` above rather than a literal in
+ * `route-progress.tsx` — same "tokens only, no hard-coded timing" rule
+ * every other animation in this file follows. */
+.route-progress-bar-active {
+  animation: biddaloy-route-progress var(--motion-duration-route-progress) linear infinite;
+}
+
+/**
+ * [8.14.3] Safe-area insets — the gesture-nav home indicator (iOS) and the
+ * three-button/gesture bar (Android) an installed PWA renders *underneath*.
+ * `env(safe-area-inset-*)` resolves to `0px` in every context that is not a
+ * standalone-display-mode PWA with `viewport-fit=cover` on the viewport meta
+ * (`client-admin/index.html`) — an ordinary browser tab, a desktop window,
+ * even Storybook, all read `0px` here, so wiring this in costs nothing
+ * outside the one context it fixes. Declared once, consumed by any fixed/
+ * sticky element that sits against a physical screen edge (`BottomNav`,
+ * `Toaster`'s `mobileOffset`) rather than each one calling `env()` for
+ * itself, so a future edge-docked element reads the same fallback-safe
+ * value instead of re-deriving it.
+ */
+:root {
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-top: env(safe-area-inset-top, 0px);
 }
 
 /**
@@ -537,6 +643,46 @@
 [data-density='comfortable'] {
   --control-h: 2.75rem; /* 44px — WCAG 2.2 SC 2.5.5 target size (minimum) */
   --target-inset: 0.875rem; /* 14px — lifts a 16px checkbox/radio target to 44px */
+}
+
+/**
+ * Sticky header scroll contract ([8.14.2], design contract — see
+ * `AppShell`'s own `APP_HEADER_HEIGHT_VAR` export for the full write-up).
+ *
+ * `--app-header-h` is written live, in pixels, onto this same
+ * `document.documentElement` by `AppShell` whenever its `topBar` prop is
+ * mounted (`/dashboard`, `/portal`, …) and removed on `/login` and
+ * `/select-school`, where no shell renders — the `0px` default below is
+ * what those two chrome-free routes use.
+ *
+ * `scroll-padding-top` only takes effect on the *scroll container* —
+ * `<html>` here, since `AppShell`'s own root is `min-h-screen` and the
+ * page scrolls at the document level, not inside a nested `overflow-y`
+ * box. That's why this is declared once, on `:root`, rather than on
+ * `AppShell`'s wrapper element: writing it there would leave this
+ * `:root` rule reading `0px` forever, and every `scrollIntoView`/fragment
+ * jump would keep landing underneath the sticky header. [8.9.10]'s
+ * `Grouped`/`ScrollingSidebar` stories in `app-shell.stories.tsx` don't
+ * exercise this — it only matters once a route actually scrolls past the
+ * header, which those stories' fixed-viewport canvas doesn't do.
+ */
+:root {
+  --app-header-h: 0px;
+  scroll-padding-top: var(--app-header-h);
+}
+
+@layer base {
+  /* Belt-and-braces: covers browsers/paths that scroll without
+   * consulting the container's `scroll-padding` (e.g. a bare `focus()`
+   * call, not `scrollIntoView`). `h1` covers every route-focus target
+   * `useRouteFocus` (`../hooks/use-route-focus.ts`) lands on; `#main-content`
+   * covers `SkipLink`'s own jump target; `[data-focus-anchor]` covers
+   * restored list rows a future route marks explicitly. */
+  #main-content,
+  h1,
+  [data-focus-anchor] {
+    scroll-margin-top: calc(var(--app-header-h) + 0.5rem);
+  }
 }
 
 /**
@@ -659,5 +805,26 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/**
+ * [8.14.5] View-transition pseudo-elements render in their own tree,
+ * outside the document tree the blanket rule above walks, so they need
+ * their own `prefers-reduced-motion` rule — see the comment on
+ * `::view-transition-old(app-main-content)` earlier in this file for the
+ * full reasoning. `0.01ms`, not `animation: none`, for the same reason
+ * the blanket rule above uses `0.01ms`, plus one more: `useRouteFocus`
+ * (`../hooks/use-route-focus.ts`) waits on these animations' `finished`
+ * promises before moving focus — `animation: none` would mean they never
+ * exist to finish.
+ */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-image-pair(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }

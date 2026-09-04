@@ -1,4 +1,5 @@
-import { queryOptions, useMutation, useQuery } from '@tanstack/react-query';
+import type { ReminderBatchStatus } from '@biddaloy/shared';
+import { keepPreviousData, queryOptions, useMutation, useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
@@ -114,7 +115,15 @@ export function useBulkReminderPreview() {
   });
 }
 
+// [8.14.10] Mirrors `QueryReminderBatchesDto`
+// (`server/src/modules/communications/dto/reminders.dto.ts`) exactly.
 export interface ReminderBatchListFilters {
+  search?: string;
+  status?: ReminderBatchStatus;
+  from_date?: string;
+  to_date?: string;
+  sort?: 'created_at' | 'batch_name' | 'total_recipients';
+  order?: 'asc' | 'desc';
   page?: number;
   limit?: number;
 }
@@ -132,6 +141,11 @@ export function reminderBatchesQueryOptions(filters: ReminderBatchListFilters = 
       return res.data;
     },
     retry: shouldRetryQuery,
+    // [8.14.6] Filter/page/sort changes keep the previous page's rows on
+    // screen (and `isFetching` true) instead of the whole table collapsing
+    // to one "Loading…" row height. v5 dropped `keepPreviousData: true`;
+    // this is its replacement.
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -211,6 +225,11 @@ export function reminderBatchLogsQueryOptions(
     },
     retry: shouldRetryQuery,
     refetchInterval: poll ? REMINDER_BATCH_POLL_MS : false,
+    // [8.14.6] Filter/page/sort changes keep the previous page's rows on
+    // screen (and `isFetching` true) instead of the whole table collapsing
+    // to one "Loading…" row height. v5 dropped `keepPreviousData: true`;
+    // this is its replacement.
+    placeholderData: keepPreviousData,
   });
 }
 

@@ -2,12 +2,7 @@ import { EnrollmentStatus, Permission } from '@biddaloy/shared';
 import {
   Button,
   CachedDataNotice,
-  Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  RoutePending,
   StatusBadge,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
@@ -22,21 +17,17 @@ import {
   type StudentListFilters,
   type StudentSortField,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
-import { ListShell, useListShellState } from '@biddaloy/ui/shells';
+import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
 import { downloadCsv } from '@biddaloy/ui/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import * as React from 'react';
 import { z } from 'zod';
 
-import { SendReminderDialog } from './-send-reminder-dialog';
+import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
-/** Radix `Select.Item` rejects an empty-string `value` (it's reserved to
- * mean "clear the selection" internally), so "All classes"/"All
- * sections"/"All statuses" need a real sentinel value instead — chosen on
- * `class_id`/`section_id`/`enrollment_status` never being this string. */
-const ALL_VALUE = '__all__';
+import { SendReminderDialog } from './-send-reminder-dialog';
 
 /** `DataTableSort.id` values that map onto a server-sortable field —
  * `StudentSortField`'s own allowlist, keyed by this page's column ids
@@ -58,6 +49,9 @@ interface StudentFilters {
   class_id?: string | undefined;
   section_id?: string | undefined;
   enrollment_status?: string | undefined;
+  gender?: string | undefined;
+  date_of_birth_from?: string | undefined;
+  date_of_birth_to?: string | undefined;
 }
 
 const studentsSearchSchema = z.object({
@@ -69,6 +63,9 @@ const studentsSearchSchema = z.object({
   class_id: z.string().optional().catch(undefined),
   section_id: z.string().optional().catch(undefined),
   enrollment_status: z.string().optional().catch(undefined),
+  gender: z.string().optional().catch(undefined),
+  date_of_birth_from: z.string().optional().catch(undefined),
+  date_of_birth_to: z.string().optional().catch(undefined),
   // Reserved key `use-list-shell-state.ts` stores the row selection
   // under (comma-joined ids) — must be declared here or TanStack
   // Router's `validateSearch` strips it from the URL on every navigation,
@@ -84,6 +81,13 @@ function toStudentListFilters(filters: StudentFilters, sortColumnId: string | un
     ...(filters.section_id !== undefined ? { section_id: filters.section_id } : {}),
     ...(filters.enrollment_status !== undefined
       ? { enrollment_status: filters.enrollment_status }
+      : {}),
+    ...(filters.gender !== undefined ? { gender: filters.gender } : {}),
+    ...(filters.date_of_birth_from !== undefined
+      ? { date_of_birth_from: filters.date_of_birth_from }
+      : {}),
+    ...(filters.date_of_birth_to !== undefined
+      ? { date_of_birth_to: filters.date_of_birth_to }
       : {}),
     ...(sortField !== undefined ? { sort: sortField } : {}),
   };
@@ -104,24 +108,38 @@ export const Route = createFileRoute('/_staff/students/')({
     classId: search.class_id,
     sectionId: search.section_id,
     enrollmentStatus: search.enrollment_status,
+    gender: search.gender,
+    dateOfBirthFrom: search.date_of_birth_from,
+    dateOfBirthTo: search.date_of_birth_to,
   }),
   loader: ({ context: { queryClient }, deps }) =>
-    queryClient.ensureQueryData(
-      studentsQueryOptions({
-        page: deps.page,
-        limit: deps.limit,
-        ...toStudentListFilters(
-          {
-            search: deps.search,
-            class_id: deps.classId,
-            section_id: deps.sectionId,
-            enrollment_status: deps.enrollmentStatus,
-          },
-          deps.sort,
-        ),
-        ...(deps.order !== undefined ? { order: deps.order } : {}),
-      }),
-    ),
+    Promise.all([
+      // [8.14.5]: swallowed — see `academic-years/index.tsx`'s identical
+      // comment for why.
+      queryClient
+        .ensureQueryData(
+          studentsQueryOptions({
+            page: deps.page,
+            limit: deps.limit,
+            ...toStudentListFilters(
+              {
+                search: deps.search,
+                class_id: deps.classId,
+                section_id: deps.sectionId,
+                enrollment_status: deps.enrollmentStatus,
+                gender: deps.gender,
+                date_of_birth_from: deps.dateOfBirthFrom,
+                date_of_birth_to: deps.dateOfBirthTo,
+              },
+              deps.sort,
+            ),
+            ...(deps.order !== undefined ? { order: deps.order } : {}),
+          }),
+        )
+        .catch(swallowUnlessOffline),
+      loadRouteNamespaces('students'),
+    ]),
+  pendingComponent: StudentsListPending,
   component: StudentsListPage,
 });
 
@@ -130,40 +148,6 @@ function StudentsListPage() {
   const queryClient = useQueryClient();
   const [state, actions] = useListShellState({ limit: 10 });
   const filters = state.filters as StudentFilters;
-
-  // Local, un-debounced echo of the search box — typing updates this on
-  // every keystroke so the input never feels laggy, while the URL (and
-  // thus the outgoing request) only follows 300ms after the last
-  // keystroke. Reset whenever the URL's own value changes from outside
-  // this input (the "Clear filter"-style case: a `<Link>` elsewhere
-  // rewriting `search` directly), so the two never drift apart.
-  const [searchInput, setSearchInput] = React.useState(filters.search ?? '');
-  React.useEffect(() => {
-    setSearchInput(filters.search ?? '');
-  }, [filters.search]);
-
-  // The timeout below only keys off `searchInput`, so its closure would
-  // otherwise capture whichever `filters`/`actions` existed at the render
-  // that scheduled it — stale if another filter (e.g. class_id) changes
-  // during the 300ms window, silently reverting that change when the
-  // timeout fires. Refs updated every render keep the callback reading
-  // current values instead.
-  const filtersRef = React.useRef(filters);
-  filtersRef.current = filters;
-  const actionsRef = React.useRef(actions);
-  actionsRef.current = actions;
-
-  React.useEffect(() => {
-    const timeout = setTimeout(() => {
-      const currentFilters = filtersRef.current;
-      if (searchInput === (currentFilters.search ?? '')) return;
-      actionsRef.current.setFilters({
-        ...currentFilters,
-        search: searchInput || undefined,
-      } as Record<string, string>);
-    }, 300);
-    return () => clearTimeout(timeout);
-  }, [searchInput]);
 
   // [8.12.3]: the filter bag is lifted into a variable so the exact same
   // object feeds the query *and* `CachedDataNotice`'s key. Rebuilding the
@@ -189,16 +173,64 @@ function StudentsListPage() {
 
   const [reminderDialogOpen, setReminderDialogOpen] = React.useState(false);
 
-  function setFilter(key: keyof StudentFilters, value: string | undefined) {
-    const next = { ...filters, [key]: value };
-    if (value === undefined) delete next[key];
-    // Changing `class_id` invalidates whatever `section_id` was chosen
-    // for the *previous* class — a stale section filter would silently
-    // scope results to a section that doesn't belong to the newly
-    // selected class.
-    if (key === 'class_id') delete next.section_id;
-    actions.setFilters(next as Record<string, string>);
+  // FilterBar's `onChange` patches one key at a time — intercept `class_id`
+  // changes to also clear `section_id`, since a section chosen under the
+  // *previous* class would otherwise silently over-scope results to a
+  // section that doesn't belong to the newly selected class.
+  function handleFiltersChange(patch: Record<string, string | null>) {
+    actions.setFilters('class_id' in patch ? { ...patch, section_id: null } : patch);
   }
+
+  const filterFields: FilterFieldDescriptor[] = [
+    {
+      kind: 'text',
+      key: 'search',
+      label: t('list.searchLabel'),
+      placeholder: t('list.searchLabel'),
+      primary: true,
+    },
+    {
+      kind: 'select',
+      key: 'class_id',
+      label: t('list.classLabel'),
+      allLabel: t('list.allClasses'),
+      options: (classesQuery.data?.data ?? []).map((klass) => ({
+        value: klass.id,
+        label: klass.name,
+      })),
+    },
+    {
+      kind: 'select',
+      key: 'section_id',
+      label: t('list.sectionLabel'),
+      allLabel: t('list.allSections'),
+      options: (sectionsQuery.data ?? []).map((section) => ({
+        value: section.id,
+        label: section.section_name,
+      })),
+    },
+    {
+      kind: 'select',
+      key: 'enrollment_status',
+      label: t('list.statusLabel'),
+      allLabel: t('list.allStatuses'),
+      options: Object.values(EnrollmentStatus).map((status) => ({ value: status, label: status })),
+    },
+    {
+      kind: 'text',
+      key: 'gender',
+      label: t('list.genderFilterLabel'),
+      placeholder: t('list.genderFilterLabel'),
+    },
+    {
+      kind: 'date-range',
+      fromKey: 'date_of_birth_from',
+      toKey: 'date_of_birth_to',
+      label: t('list.dateOfBirthRangeLabel'),
+      fromLabel: t('list.dateOfBirthFromLabel'),
+      toLabel: t('list.dateOfBirthToLabel'),
+    },
+  ];
 
   async function exportSelectedToCsv() {
     // `selectedIds` persists across pages, but `studentsQuery.data` only
@@ -241,11 +273,17 @@ function StudentsListPage() {
       header: t('list.columnName'),
       accessorFn: (row) => row.full_name,
       sortable: true,
+      // [8.14.7] The row's own name is the natural card title.
+      card: 'title',
     },
     {
       id: 'class',
       header: t('list.columnClass'),
       accessorFn: (row) => row.class_section.class.name,
+      // [8.14.7] Class alone (not class + section) is the closest thing
+      // this row has to a subtitle — short enough to sit under the name
+      // without repeating what `section` already spells out in the `dl`.
+      card: 'subtitle',
     },
     {
       id: 'section',
@@ -263,6 +301,9 @@ function StudentsListPage() {
       accessorFn: (row) => (
         <StatusBadge domain="enrollment" status={row.enrollment_status as EnrollmentStatus} />
       ),
+      // [8.14.7] Same "value + badge on the end side" grammar as
+      // `portal/fees.tsx`'s invoice rows.
+      card: 'badge',
     },
     {
       id: 'dateOfBirth',
@@ -288,6 +329,11 @@ function StudentsListPage() {
       id: 'actions',
       header: t('list.columnActions'),
       pinned: true,
+      // Already `pinned: true`, which `DataTable`'s default card-role
+      // resolution would assign to `'actions'` on its own — declared
+      // explicitly anyway so this stays correct if a future column also
+      // becomes `pinned`.
+      card: 'actions',
       accessorFn: (row) => (
         <div className="flex justify-end gap-3">
           {canCollectFees && (
@@ -312,8 +358,10 @@ function StudentsListPage() {
     },
   ];
 
+  const regionConfig = useTenantRegionConfig();
+
   return (
-    <>
+    <RegionConfigProvider value={regionConfig}>
       <CachedDataNotice queryKey={studentsQueryOptions(studentListFilters).queryKey} />
       <ListShell
         title={t('list.title')}
@@ -331,71 +379,7 @@ function StudentsListPage() {
             )}
           </div>
         }
-        filterBar={
-          <>
-            <Input
-              aria-label={t('list.searchLabel')}
-              placeholder={t('list.searchLabel')}
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-            />
-            <Select
-              value={filters.class_id ?? ALL_VALUE}
-              onValueChange={(value) =>
-                setFilter('class_id', value === ALL_VALUE ? undefined : value)
-              }
-            >
-              <SelectTrigger aria-label={t('list.classLabel')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_VALUE}>{t('list.allClasses')}</SelectItem>
-                {classesQuery.data?.data.map((klass) => (
-                  <SelectItem key={klass.id} value={klass.id}>
-                    {klass.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={filters.section_id ?? ALL_VALUE}
-              onValueChange={(value) =>
-                setFilter('section_id', value === ALL_VALUE ? undefined : value)
-              }
-              disabled={filters.class_id === undefined}
-            >
-              <SelectTrigger aria-label={t('list.sectionLabel')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_VALUE}>{t('list.allSections')}</SelectItem>
-                {sectionsQuery.data?.map((section) => (
-                  <SelectItem key={section.id} value={section.id}>
-                    {section.section_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={filters.enrollment_status ?? ALL_VALUE}
-              onValueChange={(value) =>
-                setFilter('enrollment_status', value === ALL_VALUE ? undefined : value)
-              }
-            >
-              <SelectTrigger aria-label={t('list.statusLabel')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_VALUE}>{t('list.allStatuses')}</SelectItem>
-                {Object.values(EnrollmentStatus).map((status) => (
-                  <SelectItem key={status} value={status}>
-                    {status}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </>
-        }
+        filters={{ fields: filterFields, values: state.filters, onChange: handleFiltersChange }}
         tableId="students-list"
         caption={t('list.caption')}
         columns={columns}
@@ -407,10 +391,20 @@ function StudentsListPage() {
         pageSize={state.limit}
         totalCount={studentsQuery.data?.total ?? 0}
         onPageChange={actions.setPage}
+        onPageSizeChange={actions.setLimit}
+        pageSizeLabel={t('pagination.rowsPerPage', { ns: 'common' })}
         selectedIds={state.selectedIds}
         onSelectedIdsChange={actions.setSelectedIds}
         columnsMenu
         columnsMenuLabel={t('list.columnsButton')}
+        sortMenuLabel={t('list.sortMenuLabel')}
+        sortOptionLabel={(header, direction) =>
+          direction === 'asc'
+            ? t('list.sortOptionLabelAscending', { header })
+            : direction === 'desc'
+              ? t('list.sortOptionLabelDescending', { header })
+              : header
+        }
         defaultColumnVisibility={{
           dateOfBirth: false,
           gender: false,
@@ -418,6 +412,7 @@ function StudentsListPage() {
           preferredCommunication: false,
         }}
         loading={studentsQuery.isLoading}
+        isFetching={studentsQuery.isFetching}
         {...(studentsQuery.isError ? { error: t('list.errorMessage') } : {})}
         emptyMessage={t('list.emptyMessage')}
         announceResults={(count, total) =>
@@ -455,10 +450,15 @@ function StudentsListPage() {
         studentIds={Array.from(state.selectedIds)}
         onSent={() => actions.setSelectedIds(new Set())}
       />
-    </>
+    </RegionConfigProvider>
   );
 }
 
 function primaryGuardianName(student: Student): string | undefined {
   return (student.guardians.find((g) => g.is_primary_contact) ?? student.guardians[0])?.full_name;
+}
+
+function StudentsListPending() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="list" label={t('routePending.label', { ns: 'nav' })} />;
 }

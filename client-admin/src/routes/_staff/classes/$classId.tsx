@@ -1,11 +1,13 @@
 import { Permission } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
-import { ErrorState, Skeleton } from '@biddaloy/ui/components';
-import { useClass, useHasPermission } from '@biddaloy/ui/hooks';
+import { ErrorState, RoutePending, Skeleton } from '@biddaloy/ui/components';
+import { classQueryOptions, useClass, useHasPermission } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell, useDetailShellTab } from '@biddaloy/ui/shells';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
+
+import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { ClassFormDialog } from './-class-form-dialog';
 import { DeleteClassDialog } from './-delete-class-dialog';
@@ -15,6 +17,14 @@ import { StudentsTab } from './-detail/students-tab';
 import { TeachersTab } from './-detail/teachers-tab';
 
 export const Route = createFileRoute('/_staff/classes/$classId')({
+  loader: ({ context: { queryClient }, params }) =>
+    Promise.all([
+      // [8.14.5]: swallowed — see `academic-years/$academicYearId.tsx`'s
+      // identical comment for why.
+      queryClient.ensureQueryData(classQueryOptions(params.classId)).catch(swallowUnlessOffline),
+      loadRouteNamespaces('classes', 'common'),
+    ]),
+  pendingComponent: ClassDetailPending,
   component: ClassDetailPage,
 });
 
@@ -78,12 +88,13 @@ function ClassDetailPage() {
             label: t('list.edit'),
             onClick: () => setEditOpen(true),
             allowed: canManage,
+            priority: 'primary',
           },
           {
             id: 'delete',
             label: t('list.delete'),
             onClick: () => setDeleteOpen(true),
-            variant: 'destructive',
+            priority: 'destructive',
             allowed: canManage,
           },
         ]}
@@ -135,4 +146,9 @@ function ClassDetailPage() {
       )}
     </div>
   );
+}
+
+function ClassDetailPending() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="detail" label={t('routePending.label', { ns: 'nav' })} />;
 }

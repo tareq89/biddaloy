@@ -66,11 +66,11 @@ describe('/academic-years/$academicYearId', () => {
     expect(screen.getByText('6')).toBeTruthy();
   });
 
-  it('gates Edit/Set current/Delete by permission — ADMIN sees them, TEACHER does not', async () => {
+  it('renders Edit/Set current/Delete for ADMIN, who holds ACADEMIC_YEAR_MANAGE', async () => {
     const year = academicYearFactory({ id: 'year-1', is_current: false });
     server.use(http.get('/api/v1/academic-years/:id', () => HttpResponse.json(year)));
 
-    const { unmount } = renderWithRouter(routeTree, {
+    renderWithRouter(routeTree, {
       initialEntries: ['/academic-years/year-1'],
       tenantId: 'tenant-1',
       role: 'ADMIN',
@@ -81,7 +81,16 @@ describe('/academic-years/$academicYearId', () => {
     expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Set as current' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Delete' })).toBeTruthy();
-    unmount();
+  });
+
+  // [8.14.17]: `_staff.tsx`'s `RequirePermission` now refuses the whole
+  // route for a TEACHER, who holds no `ACADEMIC_YEAR_MANAGE` — before
+  // this ticket the route still rendered for them with these three
+  // buttons hidden, a partial view [8.14.17] intentionally replaces with
+  // a blanket refusal (see route-permissions.ts's own comment).
+  it('refuses the whole route for TEACHER, who lacks ACADEMIC_YEAR_MANAGE', async () => {
+    const year = academicYearFactory({ id: 'year-1', is_current: false });
+    server.use(http.get('/api/v1/academic-years/:id', () => HttpResponse.json(year)));
 
     renderWithRouter(routeTree, {
       initialEntries: ['/academic-years/year-1'],
@@ -90,10 +99,8 @@ describe('/academic-years/$academicYearId', () => {
       locale: 'en',
     });
 
-    await screen.findByRole('tab', { name: 'Classes' });
-    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Set as current' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
+    expect(await screen.findByText("You don't have access to this page.")).toBeTruthy();
+    expect(screen.queryByRole('tab', { name: 'Classes' })).toBeNull();
   });
 
   it('does not show Set as current for the year already marked current', async () => {

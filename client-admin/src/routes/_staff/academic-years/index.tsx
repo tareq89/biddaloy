@@ -1,6 +1,7 @@
 import { Permission } from '@biddaloy/shared';
-import { Button, StatusBadge, type DataTableColumn } from '@biddaloy/ui/components';
+import { Button, RoutePending, StatusBadge, type DataTableColumn } from '@biddaloy/ui/components';
 import {
+  academicYearsQueryOptions,
   useAcademicYearStats,
   useAcademicYears,
   useCreateAcademicYear,
@@ -14,11 +15,26 @@ import { formatAcademicYear, formatDate, parseServerDate } from '@biddaloy/ui/ut
 import { createFileRoute, Link } from '@tanstack/react-router';
 import * as React from 'react';
 
+import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
+
 import { DeleteYearDialog } from './-delete-year-dialog';
 import { SetCurrentDialog } from './-set-current-dialog';
 import { YearFormDialog, type YearFormPayload } from './-year-form-dialog';
 
 export const Route = createFileRoute('/_staff/academic-years/')({
+  // [8.14.5]: no search-string filters here (unlike `students/index.tsx`),
+  // so no `loaderDeps` — the list's full first page is the same query on
+  // every visit.
+  loader: ({ context: { queryClient } }) =>
+    Promise.all([
+      // [8.14.5]: swallowed for the same reason `audit-logs/index.tsx`'s
+      // loader does — a rejection here would hand the route to the
+      // router's generic error boundary before `useAcademicYears` gets a
+      // chance to run the same query and surface its own error UI.
+      queryClient.ensureQueryData(academicYearsQueryOptions()).catch(swallowUnlessOffline),
+      loadRouteNamespaces('academicYears'),
+    ]),
+  pendingComponent: AcademicYearsListPending,
   component: AcademicYearsListPage,
 });
 
@@ -164,7 +180,10 @@ function AcademicYearsListPage() {
         pageSize={state.limit}
         totalCount={yearsQuery.data?.total ?? 0}
         onPageChange={actions.setPage}
+        onPageSizeChange={actions.setLimit}
+        pageSizeLabel={t('pagination.rowsPerPage', { ns: 'common' })}
         loading={yearsQuery.isLoading}
+        isFetching={yearsQuery.isFetching}
         {...(yearsQuery.isError ? { error: t('list.errorMessage') } : {})}
         emptyMessage={t('list.emptyMessage')}
         announceResults={(count, total) =>
@@ -221,4 +240,9 @@ function AcademicYearsListPage() {
       )}
     </RegionConfigProvider>
   );
+}
+
+function AcademicYearsListPending() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="list" label={t('routePending.label', { ns: 'nav' })} />;
 }

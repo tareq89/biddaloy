@@ -1,9 +1,11 @@
-import { Permission } from '@biddaloy/shared';
-import { Button, EmptyState, ErrorState, FileUpload } from '@biddaloy/ui/components';
-import { useBulkUploadStudents, useHasPermission, type BulkUploadResult } from '@biddaloy/ui/hooks';
+import { captureNotificationTenant, notifyOutcome } from '@biddaloy/ui/api';
+import { Button, ErrorState, FileUpload, RoutePending } from '@biddaloy/ui/components';
+import { useBulkUploadStudents, type BulkUploadResult } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import * as React from 'react';
+
+import { loadRouteNamespaces } from '../../../route-loaders';
 
 import { ImportErrorTable } from './-import/error-table';
 import { downloadTemplate, TEMPLATE_HEADERS, type TemplateHeader } from './-import/template';
@@ -23,6 +25,8 @@ const ACCEPTED_EXTENSIONS = ['.csv', '.xlsx'];
  * reasoning `fees/generate.tsx` spells out.
  */
 export const Route = createFileRoute('/_staff/students/import')({
+  loader: () => loadRouteNamespaces('studentImport'),
+  pendingComponent: ImportStudentsPending,
   component: ImportStudentsPage,
 });
 
@@ -41,24 +45,13 @@ function hasAcceptedExtension(name: string): boolean {
   return ACCEPTED_EXTENSIONS.some((ext) => lower.endsWith(ext));
 }
 
+// [8.14.17]: the permission check that used to live at the top of
+// `ImportStudentsPage` (an `EmptyState` shown when the viewer lacked
+// `STUDENT_BULK_UPLOAD`) is gone — `_staff.tsx`'s `RequirePermission`
+// now refuses the whole route in place, keyed off the same permission
+// (`route-permissions.ts`), before this component ever mounts.
 function ImportStudentsPage() {
-  const { t } = useTranslation('studentImport');
-  const navigate = useNavigate();
-  const canImport = useHasPermission(Permission.STUDENT_BULK_UPLOAD);
   const regionConfig = useTenantRegionConfig();
-
-  if (!canImport) {
-    return (
-      <EmptyState
-        title={t('forbidden.title')}
-        explanation={t('forbidden.explanation')}
-        action={{
-          label: t('forbidden.action'),
-          onClick: () => void navigate({ to: '/students' }),
-        }}
-      />
-    );
-  }
 
   return (
     <RegionConfigProvider value={regionConfig}>
@@ -101,16 +94,39 @@ function ImportStudentsContent() {
     }
     setFileError(null);
     setSelectedFile(file);
+    const notifyTenantId = captureNotificationTenant();
     mutation.mutate(
       { file, onProgress: setProgress },
       {
         onSuccess: (uploadResult) => {
           setProgress(100);
           setResult(uploadResult);
+          notifyOutcome({
+            tenantId: notifyTenantId,
+            variant: uploadResult.error_count > 0 ? 'info' : 'success',
+            message:
+              uploadResult.error_count > 0
+                ? t('notifications.partial', {
+                    success: uploadResult.success_count,
+                    total: uploadResult.total_rows,
+                    errors: uploadResult.error_count,
+                  })
+                : t('notifications.imported', {
+                    success: uploadResult.success_count,
+                    total: uploadResult.total_rows,
+                  }),
+          });
         },
         // Without this the item keeps its 100% "Done" label directly above
         // an error state saying nothing was imported.
-        onError: () => setProgress(undefined),
+        onError: () => {
+          setProgress(undefined);
+          notifyOutcome({
+            tenantId: notifyTenantId,
+            variant: 'error',
+            message: t('notifications.failed'),
+          });
+        },
       },
     );
   }
@@ -140,9 +156,13 @@ function ImportStudentsContent() {
             {t('template.download')}
           </Button>
         </div>
-        {/* Narrow viewports: the reference's min-content width exceeds 320px,
-            so it scrolls inside its own box rather than the document — same
-            treatment DataTable gives its own table. */}
+        {/* [8.14.7]: `break-all` on the header-name cells (below) keeps this
+            table's min-content width under 320px on its own — the longest
+            identifier, `preferred_communication`, was the one unbreakable
+            token wide enough to force this box into scroll. `overflow-x-
+            auto` stays as a defensive fallback, not the fix: no element
+            should need its own inner scroll region per the reflow contract
+            DataTable's card mode established. */}
         <div className="mt-2 w-full overflow-x-auto">
           <table className="w-full text-left text-sm">
             <caption className="mb-1 text-left text-sm font-medium">
@@ -164,7 +184,7 @@ function ImportStudentsContent() {
             <tbody>
               {TEMPLATE_HEADERS.map((header) => (
                 <tr key={header} className="border-b border-border-subtle">
-                  <td className="py-1 pr-4 font-mono text-xs">{header}</td>
+                  <td className="py-1 pr-4 font-mono text-xs break-all">{header}</td>
                   <td className="py-1 pr-4">
                     {REQUIRED_COLUMNS.has(header)
                       ? t('reference.requiredYes')
@@ -255,4 +275,9 @@ function ImportStudentsContent() {
       )}
     </div>
   );
+}
+
+function ImportStudentsPending() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="form" label={t('routePending.label', { ns: 'nav' })} />;
 }

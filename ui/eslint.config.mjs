@@ -43,6 +43,14 @@ export default tseslint.config(
           },
         },
       ]),
+  // Fast mode turns off the type-checked rules above, so an
+  // `eslint-disable` comment written for one of them looks unused to this
+  // pass — it can't evaluate the rule it's suppressing — and `--fix`
+  // deletes it, silently reintroducing the very error the full
+  // type-checked pass (`yarn workspace @biddaloy/ui lint`, CI) then
+  // catches. Disabling the "unused directive" check only in fast mode
+  // stops pre-commit from destroying comments it can't evaluate.
+  ...(FAST ? [{ linterOptions: { reportUnusedDisableDirectives: false } }] : []),
   {
     files: ['src/**/*.{ts,tsx}'],
     ...financialMutationGuardConfig,

@@ -2,27 +2,36 @@ import { Permission } from '@biddaloy/shared';
 import { createRootRoute, createRoute } from '@tanstack/react-router';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { HomeIcon, SettingsIcon, UsersRoundIcon, WalletIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { LINK_KEYS, expectKeyboardOperable } from '../test/a11y';
 import { renderWithRouter } from '../test/render-with-router';
 
-import { APP_SHELL_MAIN_ID, AppShell, type AppShellNavGroup } from './app-shell';
+import {
+  APP_HEADER_HEIGHT_VAR,
+  APP_SHELL_MAIN_ID,
+  AppShell,
+  type AppShellNavGroup,
+} from './app-shell';
+import { BottomNav } from './bottom-nav';
 
-const navItems = [{ to: '/', label: 'Dashboard' }];
+const navItems = [{ to: '/', label: 'Dashboard', icon: <HomeIcon aria-hidden="true" /> }];
 
 const navGroups: AppShellNavGroup[] = [
   {
     id: 'people',
     label: 'People',
-    items: [{ to: '/students', label: 'Students' }],
+    items: [{ to: '/students', label: 'Students', icon: <UsersRoundIcon aria-hidden="true" /> }],
   },
   {
     id: 'finance',
     label: 'Finance',
     // [8.9.6]'s literal AC: pinned above the rest, gated on a permission
     // only ACCOUNTANT/ADMIN hold, distinct from Fees' broader one.
+    // [8.14.1] — the micro-label above the pinned pair.
+    pinnedLabel: 'Quick actions',
     pinnedItems: [
       {
         to: '/fees',
@@ -37,12 +46,26 @@ const navGroups: AppShellNavGroup[] = [
         permission: Permission.PAYMENT_RECORD,
       },
     ],
-    items: [{ to: '/fees', label: 'Fees', permission: Permission.FEE_STRUCTURE_READ }],
+    items: [
+      {
+        to: '/fees',
+        label: 'Fees',
+        permission: Permission.FEE_STRUCTURE_READ,
+        icon: <WalletIcon aria-hidden="true" />,
+      },
+    ],
   },
   {
     id: 'administration',
     label: 'Administration',
-    items: [{ to: '/settings', label: 'Settings', permission: Permission.SETTINGS_MANAGE }],
+    items: [
+      {
+        to: '/settings',
+        label: 'Settings',
+        permission: Permission.SETTINGS_MANAGE,
+        icon: <SettingsIcon aria-hidden="true" />,
+      },
+    ],
   },
 ];
 
@@ -129,6 +152,44 @@ describe('AppShell', () => {
 
     await screen.findByText('Students content');
     expect(screen.queryByText('Greenview School')).toBeNull();
+  });
+
+  describe('[8.14.2] --app-header-h contract', () => {
+    afterEach(() => {
+      document.documentElement.style.removeProperty(APP_HEADER_HEIGHT_VAR);
+    });
+
+    it('writes --app-header-h onto documentElement when topBar is present, and removes it on unmount', async () => {
+      const rootRoute = createRootRoute();
+      const indexRoute = createRoute({
+        getParentRoute: () => rootRoute,
+        path: '/',
+        component: () => (
+          <AppShell navItems={navItems} brand="Biddaloy" topBar={<div>Greenview School</div>}>
+            <p>Dashboard content</p>
+          </AppShell>
+        ),
+      });
+      const { unmount } = renderWithRouter(rootRoute.addChildren([indexRoute]), {
+        initialEntries: ['/'],
+      });
+
+      await screen.findByText('Greenview School');
+      await waitFor(() =>
+        expect(document.documentElement.style.getPropertyValue(APP_HEADER_HEIGHT_VAR)).not.toBe(''),
+      );
+
+      unmount();
+
+      expect(document.documentElement.style.getPropertyValue(APP_HEADER_HEIGHT_VAR)).toBe('');
+    });
+
+    it('does not write --app-header-h when topBar is absent', async () => {
+      renderWithRouter(buildRouteTree(), { initialEntries: ['/students'], role: 'SUPER_ADMIN' });
+
+      await screen.findByText('Students content');
+      expect(document.documentElement.style.getPropertyValue(APP_HEADER_HEIGHT_VAR)).toBe('');
+    });
   });
 
   describe('[8.9.6] domain groups, role-gated', () => {
@@ -258,7 +319,11 @@ describe('AppShell', () => {
 
       await screen.findByText('Portal content');
       const main = document.getElementById(APP_SHELL_MAIN_ID);
-      expect(main?.className).toContain('pb-24');
+      // [8.14.3]: the fixed 'pb-24' became a safe-area-aware calc() so this
+      // bar (and the staff one sharing the same slot) clears the gesture-nav
+      // home indicator in an installed PWA; 'env()' resolves to 0px outside
+      // that one context, so this is a superset of the old fixed value.
+      expect(main?.className).toContain('pb-[calc(6rem+var(--safe-area-bottom))]');
       expect(main?.className).toContain('md:pb-6');
     });
 
@@ -295,6 +360,262 @@ describe('AppShell', () => {
       await screen.findByText('Portal content');
       expect(screen.getByRole('button', { name: 'Open menu' })).toBeTruthy();
       expect(document.getElementById(APP_SHELL_MAIN_ID)?.className).toBe('min-w-0 flex-1 p-6');
+    });
+  });
+
+  describe('[8.14.1] sidebar hierarchy', () => {
+    it('styles the active item distinctly from a merely-hovered inactive item', async () => {
+      renderWithRouter(buildRouteTree(), { initialEntries: ['/students'], role: 'SUPER_ADMIN' });
+
+      const activeLink = await screen.findByRole('link', { name: 'Students' });
+      const inactiveLink = screen.getByRole('link', { name: 'Dashboard' });
+
+      // Mirrors `bottom-nav.test.tsx`'s own assertion shape on the
+      // active/inactive `className` split (`bottom-nav.test.tsx:63`).
+      expect(activeLink.className).toContain('text-primary');
+      expect(activeLink.className).toContain('bg-primary/10');
+      expect(activeLink.className).toContain('font-semibold');
+      expect(activeLink.getAttribute('aria-current')).toBe('page');
+
+      expect(inactiveLink.className).not.toContain('text-primary');
+      expect(inactiveLink.className).not.toContain('bg-primary/10');
+      expect(inactiveLink.className).toContain('hover:bg-accent');
+      expect(inactiveLink.getAttribute('aria-current')).toBeNull();
+
+      // The regression this ticket exists for: before 8.14.1 the active item
+      // was `bg-accent`, i.e. pixel-identical to any hovered inactive one.
+      // The active item must therefore NOT carry the hover treatment.
+      expect(activeLink.className).not.toContain('hover:bg-accent');
+    });
+
+    it('keeps a visible focus-visible outline — no outline-none anywhere on nav links', async () => {
+      renderWithRouter(buildRouteTree(), { initialEntries: ['/students'], role: 'SUPER_ADMIN' });
+
+      const link = await screen.findByRole('link', { name: 'Dashboard' });
+      expect(link.className).toContain('focus-visible:outline');
+      expect(link.className).not.toContain('outline-none');
+    });
+
+    it('renders every nav icon aria-hidden, leaving accessible link names unchanged', async () => {
+      renderWithRouter(buildRouteTree(), { initialEntries: ['/students'], role: 'SUPER_ADMIN' });
+
+      const nav = await screen.findByRole('navigation', { name: 'Main' });
+      const visibleIcons = nav.querySelectorAll('svg:not([aria-hidden="true"])');
+      expect(visibleIcons.length).toBe(0);
+
+      const links = within(nav)
+        .getAllByRole('link')
+        .map((el) => el.textContent);
+      expect(links).toEqual([
+        'Dashboard',
+        'Students',
+        'Student Dues',
+        'Record Payment',
+        'Fees',
+        'Settings',
+      ]);
+    });
+
+    it('shows the optional pinnedLabel micro-heading above the pinned items', async () => {
+      renderWithRouter(buildRouteTree(), { initialEntries: ['/students'], role: 'SUPER_ADMIN' });
+
+      const label = await screen.findByText('Quick actions');
+      expect(label.getAttribute('aria-hidden')).toBe('true');
+
+      // Position is the whole point of the prop, and `findByText` alone
+      // cannot see it: the label must precede the pinned item it names, not
+      // sit between the pinned run and the ordinary one (where it would read
+      // as a heading for the *ordinary* items).
+      const list = label.closest('ul');
+      const items = [...(list?.children ?? [])];
+      const labelIndex = items.indexOf(label);
+      const pinnedIndex = items.findIndex(
+        (node) => node.querySelector('a')?.textContent === 'Student Dues',
+      );
+      expect(labelIndex).toBeGreaterThanOrEqual(0);
+      expect(pinnedIndex).toBeGreaterThan(labelIndex);
+
+      // ...and the hairline still separates the pinned run from the rest.
+      const divider = list?.querySelector('li.border-t.border-border-subtle');
+      expect(divider).not.toBeNull();
+    });
+
+    it('falls back to the plain hairline divider when pinnedLabel is omitted', async () => {
+      const rootRoute = createRootRoute();
+      const noPinnedLabelGroups: AppShellNavGroup[] = [
+        {
+          id: 'finance-no-label',
+          label: 'Finance',
+          pinnedItems: [{ to: '/fees', label: 'Student Dues', permission: Permission.FEE_COLLECT }],
+          items: [{ to: '/fees', label: 'Fees', permission: Permission.FEE_STRUCTURE_READ }],
+        },
+      ];
+      const indexRoute = createRoute({
+        getParentRoute: () => rootRoute,
+        path: '/',
+        component: () => (
+          <AppShell navItems={navItems} navGroups={noPinnedLabelGroups} brand="Biddaloy">
+            <p>Dashboard content</p>
+          </AppShell>
+        ),
+      });
+      renderWithRouter(rootRoute.addChildren([indexRoute]), {
+        initialEntries: ['/'],
+        role: 'SUPER_ADMIN',
+      });
+
+      await screen.findByText('Dashboard content');
+      expect(screen.queryByText('Quick actions')).toBeNull();
+      const divider = document.querySelector('li.border-t.border-border-subtle');
+      expect(divider).not.toBeNull();
+    });
+
+    it('scrolls the sidebar on its own, independent of page scroll', async () => {
+      renderWithRouter(buildRouteTree(), { initialEntries: ['/students'], role: 'SUPER_ADMIN' });
+
+      await screen.findByText('Students content');
+      const aside = document.querySelector('aside');
+      expect(aside?.className).toContain('overflow-y-auto');
+      expect(aside?.className).toContain('md:sticky');
+      // `max-h`, not `h`: a fixed height on this flex item would set the
+      // content row's min-height to a full viewport, so every desktop page
+      // would gain a permanent scrollbar the height of the top bar. It's
+      // offset by `--app-header-h`, not a bare `svh`, so the sidebar starts
+      // below the now-sticky header instead of underneath it.
+      expect(aside?.className).toContain('md:max-h-[calc(100svh-var(--app-header-h,0px))]');
+      expect(aside?.className).not.toContain('md:h-svh');
+      expect(aside?.className).toContain('md:top-[var(--app-header-h,0px)]');
+    });
+
+    // NOTE: axe-cleanliness and keyboard operability of this markup are
+    // already covered by 'is axe clean' and 'every nav link is reachable and
+    // activatable by keyboard' above — `navGroups` is a module-level fixture
+    // that carries the icons and the pinned label, so those two tests
+    // exercise the 8.14.1 markup as-is. Duplicating them here would add
+    // runtime without adding coverage.
+  });
+
+  // [8.14.3]: staff below `md` gets a consolidated header row (brand +
+  // caller-supplied actions + the same hamburger drawer) *and* a bottom
+  // nav bar at once — unlike the portal shape above, which drops the
+  // header entirely once `bottomNav` is set. `showMobileHeader` is what
+  // decides between the two; `useAppShellDrawer` is what lets the bottom
+  // bar's own "more" cell open that same drawer without a prop threaded
+  // back up through `BottomNav`.
+  describe('[8.14.3] mobile header row, drawer context, safe-area padding', () => {
+    function buildStaffMobileTree() {
+      const rootRoute = createRootRoute();
+      const indexRoute = createRoute({
+        getParentRoute: () => rootRoute,
+        path: '/',
+        component: () => (
+          <AppShell
+            navItems={navItems}
+            navGroups={navGroups}
+            brand="Biddaloy"
+            mobileHeaderActions={<button type="button">Search</button>}
+            drawerHeader={<div data-testid="drawer-header">Tenant switcher</div>}
+            bottomNav={
+              <BottomNav items={navItems} label="Quick navigation" more={{ label: 'More' }} />
+            }
+          >
+            <p>Dashboard content</p>
+          </AppShell>
+        ),
+      });
+      return rootRoute.addChildren([indexRoute]);
+    }
+
+    it('keeps the mobile header row (brand, actions, menu trigger) when mobileHeaderActions is passed alongside bottomNav', async () => {
+      renderWithRouter(buildStaffMobileTree(), { initialEntries: ['/'], role: 'SUPER_ADMIN' });
+
+      await screen.findByText('Dashboard content');
+      // 'Biddaloy' also appears in the always-present desktop `<aside>`
+      // sidebar (`hidden md:flex`) below; jsdom does no layout, so both
+      // are 'visible' to a query — scope to the mobile header row itself.
+      const header = screen.getByRole('button', { name: 'Open menu' }).closest('div')!;
+      expect(within(header).getByText('Biddaloy')).toBeTruthy();
+      expect(within(header).getByRole('button', { name: 'Search' })).toBeTruthy();
+      expect(within(header).getByRole('button', { name: 'Open menu' })).toBeTruthy();
+    });
+
+    it("opens the drawer from a descendant via useAppShellDrawer, closes on Escape, and restores focus to the bottom nav's more cell", async () => {
+      const user = userEvent.setup();
+      renderWithRouter(buildStaffMobileTree(), { initialEntries: ['/'], role: 'SUPER_ADMIN' });
+
+      await screen.findByText('Dashboard content');
+      const moreButton = screen.getByRole('button', { name: 'More' });
+      expect(moreButton.getAttribute('aria-expanded')).toBe('false');
+
+      await user.click(moreButton);
+      await screen.findByRole('dialog');
+      expect(moreButton.getAttribute('aria-expanded')).toBe('true');
+
+      await user.keyboard('{Escape}');
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      // [8.14.3] real-behavior note: Radix's `DialogTrigger` hardcodes
+      // itself as the focus-restore target regardless of what element
+      // (or imperative call) actually opened the dialog — it does not
+      // track 'whatever had focus right before Content mounted'. Since
+      // `BottomNav`'s 'more' cell opens the drawer through
+      // `useAppShellDrawer` rather than through `DialogTrigger` itself,
+      // focus lands back on the header row's own 'Open menu' trigger, not
+      // on the cell that was actually clicked. Still a real, on-screen,
+      // interactive element — not a lost-focus regression — so this pins
+      // the actual behavior rather than the plan's original assumption.
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Open menu' }));
+    });
+
+    it('renders drawerHeader content inside the dialog, above the nav landmark', async () => {
+      const user = userEvent.setup();
+      renderWithRouter(buildStaffMobileTree(), { initialEntries: ['/'], role: 'SUPER_ADMIN' });
+
+      await screen.findByText('Dashboard content');
+      await user.click(await screen.findByRole('button', { name: 'Open menu' }));
+      const dialog = await screen.findByRole('dialog');
+
+      const header = within(dialog).getByTestId('drawer-header');
+      const nav = within(dialog).getByRole('navigation', { name: 'Main' });
+      // `compareDocumentPosition` is the DOM-native way to assert relative
+      // order without depending on either node's own class names.
+      expect(header.compareDocumentPosition(nav) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it('pads <main> with the safe-area-aware bottom offset when bottomNav is set alongside mobileHeaderActions', async () => {
+      renderWithRouter(buildStaffMobileTree(), { initialEntries: ['/'], role: 'SUPER_ADMIN' });
+
+      await screen.findByText('Dashboard content');
+      const main = document.getElementById(APP_SHELL_MAIN_ID);
+      expect(main?.className).toContain('pb-[calc(6rem+var(--safe-area-bottom))]');
+      expect(main?.className).toContain('md:pb-6');
+    });
+
+    // The `[5.2] optional bottomNav slot` block above already
+    // regression-locks the portal shape (bottomNav-only, drawer dropped
+    // entirely); this pins the other half — mobileHeaderActions content
+    // itself must not render anywhere when the caller never passes it.
+    it('does not render mobileHeaderActions content when the prop is omitted', async () => {
+      const rootRoute = createRootRoute();
+      const indexRoute = createRoute({
+        getParentRoute: () => rootRoute,
+        path: '/',
+        component: () => (
+          <AppShell
+            navItems={navItems}
+            brand="Biddaloy"
+            bottomNav={<nav aria-label="Portal">Bottom bar</nav>}
+          >
+            <p>Portal content</p>
+          </AppShell>
+        ),
+      });
+      renderWithRouter(rootRoute.addChildren([indexRoute]), {
+        initialEntries: ['/'],
+        role: 'PARENT',
+      });
+
+      await screen.findByText('Portal content');
+      expect(screen.queryByRole('button', { name: 'Search' })).toBeNull();
     });
   });
 });

@@ -33,3 +33,18 @@ export const RightToLeft: Story = {
   args: { previousLabel: 'পূর্ববর্তী', nextLabel: 'পরবর্তী' },
   decorators: [rtlDecorator],
 };
+
+/** [8.14.15] `globals: { locale: 'bn' }` — labels and the range's numerals
+ * both come from `t()`/`formatNumber` now, no `previousLabel`/`nextLabel`
+ * override needed (unlike the `RightToLeft` story above, written before
+ * this ticket). */
+export const Bangla: Story = {
+  globals: { locale: 'bn' },
+};
+
+/** The `totalCount === 0` line uses a different i18next key
+ * (`table.empty`) than the populated range — this covers it under `bn`. */
+export const BanglaEmpty: Story = {
+  args: { page: 1, totalCount: 0 },
+  globals: { locale: 'bn' },
+};

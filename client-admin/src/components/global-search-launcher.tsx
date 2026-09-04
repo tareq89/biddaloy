@@ -26,6 +26,7 @@ import { Button, GlobalSearch, type GlobalSearchGroup } from '@biddaloy/ui/compo
 import { useDebouncedValue, useGlobalSearch } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { useNavigate } from '@tanstack/react-router';
+import { SearchIcon } from 'lucide-react';
 import * as React from 'react';
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -37,14 +38,29 @@ export function GlobalSearchLauncher() {
   const [query, setQuery] = React.useState('');
   const debouncedQuery = useDebouncedValue(query, SEARCH_DEBOUNCE_MS);
   const results = useGlobalSearch(debouncedQuery);
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
 
   // Global Ctrl/Cmd+K — [8.9.9]'s "opens from anywhere" AC. Not scoped to
   // any particular element, so it fires regardless of what currently has
   // focus; `preventDefault` stops the browser's own bookmark/location-bar
   // binding on that key combo from also firing.
+  //
+  // [8.14.3]: `_staff.tsx` now mounts this component twice — once in the
+  // desktop `topBar` (`hidden md:flex`), once in the mobile header row
+  // (`md:hidden`) — so exactly one instance is ever visible at a given
+  // width, but *both* stay mounted (a CSS `display:none` ancestor doesn't
+  // unmount its children). Without the `offsetParent` guard below, both
+  // instances' listeners would fire on every Ctrl/Cmd+K, flipping both
+  // `open` states and rendering two stacked `GlobalSearch` dialogs. The
+  // guard makes only the currently-visible trigger's instance respond —
+  // `offsetParent` is `null` exactly when the element or an ancestor has
+  // `display: none` (unlike `visibility: hidden`, which this app doesn't
+  // use for layout toggles), so this is a correct, dependency-free way to
+  // ask "is my trigger the one actually on screen right now".
   React.useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        if (triggerRef.current?.offsetParent === null) return;
         event.preventDefault();
         setOpen((isOpen) => !isOpen);
       }
@@ -141,8 +157,40 @@ export function GlobalSearchLauncher() {
 
   return (
     <>
-      <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(true)}>
-        {t('globalSearch.buttonLabel')}
+      {/* [8.14.2]: input-shaped launcher — reads like the search box it
+       * opens rather than a plain text button, matching the epic's
+       * desktop-header mockup. One trigger, two shapes: below `md` it
+       * collapses to an icon-only square (the input shape needs width this
+       * viewport does not have) rather than hiding — Ctrl+K is unreachable
+       * on a touch device, so hiding it with no replacement would leave a
+       * phone user no way at all into global search. [8.14.3] reuses this
+       * same collapsed trigger inside the staff mobile header row
+       * (`_staff.tsx`'s `mobileHeaderActions`) rather than building a
+       * second, separate icon button — one component, two mounting points.
+       * Accessible name stays the short `buttonLabel` ("Search (Ctrl+K)")
+       * via `aria-label` regardless of width — the longer placeholder text
+       * is visual only, so screen reader users get the concise
+       * announcement instead of the full search hint. Kept as a single
+       * element rather than a hidden/shown pair so that accessible name
+       * resolves to exactly one node — `e2e/pages/app-shell.ts` and
+       * `global-search-launcher.test.tsx` both look it up by role+name. */}
+      <Button
+        ref={triggerRef}
+        type="button"
+        variant="outline"
+        onClick={() => setOpen(true)}
+        aria-label={t('globalSearch.buttonLabel')}
+        className="inline-flex h-[var(--control-h,2rem)] w-[var(--control-h,2rem)] items-center justify-center gap-2 rounded-md border-input px-0 font-normal text-muted-foreground md:w-56 md:justify-start md:px-2"
+      >
+        <SearchIcon className="size-4 shrink-0" aria-hidden="true" />
+        {/* `launcherPlaceholder`, not the dialog's own `placeholder`: the
+            full "Search students, guardians, teachers, invoices, receipts…"
+            hint is written for a full-width dialog input and would truncate
+            to a couple of words inside `w-56`. */}
+        <span className="hidden flex-1 truncate text-start md:inline">
+          {t('globalSearch.launcherPlaceholder')}
+        </span>
+        <span className="hidden shrink-0 text-xs md:inline">{t('globalSearch.shortcutHint')}</span>
       </Button>
       <GlobalSearch
         open={open}

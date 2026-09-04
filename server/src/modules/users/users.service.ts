@@ -14,6 +14,8 @@ import { Teacher } from '../academics/entities/teacher.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { escapeLikePattern } from '../../common/utils/escape-like.util';
+import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
+import { BN_COLLATION } from '../../common/constants/collation';
 import { normalizeEmail } from '../auth/normalize-identifier';
 import {
   CreateUserDto,
@@ -108,25 +110,97 @@ export class UserService {
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
-    const qb = this.userRepo
+    // Two-phase (IDs, then hydrate) — see the identical comment on
+    // StudentService.findAll. TypeORM's pagination-with-joins path can't
+    // resolve a `COLLATE`-suffixed `orderBy` expression against its
+    // select-alias map, regardless of the join's cardinality — it throws
+    // trying to read `column.databaseName` for a "column" that isn't a
+    // plain `alias.property`. `u.user_tenants` is one-to-many even though
+    // this query's `ut.tenant_id` filter narrows it to one row per user.
+    const buildIdQuery = () => {
+      const qb = this.userRepo
+        .createQueryBuilder('u')
+        .select('u.id', 'id')
+        .innerJoin('u.user_tenants', 'ut')
+        .where('u.deleted_at IS NULL')
+        .andWhere('ut.tenant_id = :tenantId', { tenantId });
+
+      if (query.role) {
+        qb.andWhere('ut.role = :role', { role: query.role });
+      }
+
+      if (query.status) {
+        qb.andWhere('u.status = :status', { status: query.status });
+      }
+
+      // "Joined date" for a tenant-scoped staff directory means when this
+      // user joined *this* school (UserTenant.created_at), not when their
+      // account was created globally (User.created_at).
+      if (query.joined_from) {
+        qb.andWhere('ut.created_at >= :joinedFrom', { joinedFrom: query.joined_from });
+      }
+      if (query.joined_to) {
+        // A date-only value must include the whole day, matching the
+        // pattern used elsewhere for to_date filters (e.g.
+        // AuditService.findAll, BulkReminderService.findBatches) — without
+        // this, `joined_to: '2026-01-01'` truncates to midnight on this
+        // `timestamptz` column and excludes everyone who joined later that
+        // same day.
+        const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(query.joined_to);
+        const joinedTo = new Date(query.joined_to);
+        if (isDateOnly) {
+          joinedTo.setUTCHours(23, 59, 59, 999);
+        }
+        qb.andWhere('ut.created_at <= :joinedTo', { joinedTo });
+      }
+
+      const search = normalizeSearchTerm(query.search);
+      if (search) {
+        qb.andWhere(
+          '(u.full_name ILIKE :search OR u.email ILIKE :search OR u.phone ILIKE :search)',
+          { search: `%${search}%` },
+        );
+      }
+
+      return qb;
+    };
+
+    const total = await buildIdQuery().getCount();
+
+    const idQb = buildIdQuery();
+    if (query.sort === 'full_name') {
+      idQb.orderBy(`u.full_name COLLATE "${BN_COLLATION}"`, query.order === 'desc' ? 'DESC' : 'ASC');
+    } else if (query.sort === 'email') {
+      idQb.orderBy('u.email', query.order === 'desc' ? 'DESC' : 'ASC');
+    } else if (query.sort === 'joined_at') {
+      idQb.orderBy('ut.created_at', query.order === 'desc' ? 'DESC' : 'ASC');
+    } else if (query.sort === 'status') {
+      idQb.orderBy('u.status', query.order === 'desc' ? 'DESC' : 'ASC');
+    } else {
+      // Default order kept as-is so existing pages do not reshuffle.
+      idQb.orderBy('u.created_at', 'DESC');
+    }
+    idQb.addOrderBy('u.id', 'ASC').offset(skip).limit(limit);
+
+    const idRows = await idQb.getRawMany<{ id: string }>();
+    const ids = idRows.map((row) => row.id);
+
+    if (ids.length === 0) {
+      return { data: [], total, page, limit, totalPages: Math.ceil(total / limit) };
+    }
+
+    // `innerJoinAndSelect` + a tenant filter here, not `relations:
+    // ['user_tenants']` on a plain `find()` — a user who belongs to more
+    // than one tenant must only have *this* tenant's membership row
+    // hydrated onto the response, matching the original single-query
+    // behavior and not leaking another tenant's membership metadata.
+    const rows = await this.userRepo
       .createQueryBuilder('u')
-      .innerJoinAndSelect('u.user_tenants', 'ut')
-      .where('u.deleted_at IS NULL')
-      .andWhere('ut.tenant_id = :tenantId', { tenantId });
-
-    if (query.role) {
-      qb.andWhere('ut.role = :role', { role: query.role });
-    }
-
-    if (query.search) {
-      qb.andWhere('(u.full_name ILIKE :search OR u.email ILIKE :search)', {
-        search: `%${escapeLikePattern(query.search)}%`,
-      });
-    }
-
-    const total = await qb.getCount();
-    qb.orderBy('u.created_at', 'DESC').skip(skip).take(limit);
-    const data = await qb.getMany();
+      .innerJoinAndSelect('u.user_tenants', 'ut', 'ut.tenant_id = :tenantId', { tenantId })
+      .where('u.id IN (:...ids)', { ids })
+      .getMany();
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    const data = ids.map((id) => byId.get(id)).filter((row): row is User => row != null);
 
     return {
       data,

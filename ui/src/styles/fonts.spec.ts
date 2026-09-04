@@ -14,6 +14,10 @@ import { typography } from '../../tailwind.preset';
  * The byte budgets come from the design contract §2 and are the same numbers
  * the LCP budget in `lighthouserc.cjs` was reasoned against. Raising one is a
  * deliberate decision that belongs in the contract first, not here.
+ *
+ * The measured Bangla subset (135,952 B) sits 2.2 KB under its 135 KB
+ * budget — the contract's §10 item 1 closed on that basis (design
+ * contract §10).
  */
 const stylesDir = dirname(fileURLToPath(import.meta.url));
 const css = readFileSync(join(stylesDir, 'globals.css'), 'utf8');

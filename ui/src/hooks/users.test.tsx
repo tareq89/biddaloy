@@ -1,12 +1,22 @@
+import { UserStatus } from '@biddaloy/shared';
 import { waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { userResponseFactory } from '../test/factories';
 import { server } from '../test/msw/server';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
 
-import { useCreateUser, useRemoveMember, useUpdateUser, useUser, useUsers } from './users';
+import {
+  useCreateUser,
+  useCurrentUser,
+  useRemoveMember,
+  useUpdateOwnProfile,
+  useUpdateUser,
+  useUser,
+  useUsers,
+  userKeys,
+} from './users';
 
 describe('useUsers', () => {
   it('resolves with the paginated staff list', async () => {
@@ -51,6 +61,38 @@ describe('useUsers', () => {
     expect(params!.get('page')).toBe('2');
     expect(params!.get('limit')).toBe('25');
   });
+
+  // [8.14.10]: `status`/`joined_from`/`joined_to`/`sort`/`order` mirror
+  // `QueryUserDto`, landed server-side by #373 but never threaded through
+  // `UserListFilters` until now.
+  it('[8.14.10] sends status, joined_from, joined_to, sort, and order as query params', async () => {
+    let params: URLSearchParams | null = null;
+    server.use(
+      http.get('/api/v1/users', ({ request }) => {
+        params = new URL(request.url).searchParams;
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 0 });
+      }),
+    );
+
+    const { result } = renderHookWithProviders(
+      () =>
+        useUsers({
+          status: UserStatus.ACTIVE,
+          joined_from: '2025-01-01',
+          joined_to: '2025-12-31',
+          sort: 'full_name',
+          order: 'asc',
+        }),
+      { tenantId: 'tenant-1' },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(params!.get('status')).toBe('ACTIVE');
+    expect(params!.get('joined_from')).toBe('2025-01-01');
+    expect(params!.get('joined_to')).toBe('2025-12-31');
+    expect(params!.get('sort')).toBe('full_name');
+    expect(params!.get('order')).toBe('asc');
+  });
 });
 
 describe('useUser', () => {
@@ -75,6 +117,65 @@ describe('useUser', () => {
       tenantId: 'tenant-1',
     });
     expect(result.current.fetchStatus).toBe('idle');
+  });
+});
+
+describe('useCurrentUser', () => {
+  it('resolves full_name against GET /users/me', async () => {
+    server.use(
+      http.get('/api/v1/users/me', () =>
+        HttpResponse.json(userResponseFactory({ id: 'user-1', full_name: 'Rahim' })),
+      ),
+    );
+
+    const { result } = renderHookWithProviders(() => useCurrentUser(), {
+      tenantId: 'tenant-1',
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.full_name).toBe('Rahim');
+  });
+});
+
+describe('useUpdateOwnProfile', () => {
+  it('[8.14.4] PATCHes /users/me with the exact body and invalidates only the "me" detail key', async () => {
+    let body: unknown = null;
+    server.use(
+      http.patch('/api/v1/users/me', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json(userResponseFactory({ full_name: 'Rahim Renamed' }));
+      }),
+    );
+
+    const { result, queryClient } = renderHookWithProviders(() => useUpdateOwnProfile(), {
+      tenantId: 'tenant-1',
+    });
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+    result.current.mutate({ full_name: 'Rahim Renamed' });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(body).toEqual({ full_name: 'Rahim Renamed' });
+    expect(result.current.data?.full_name).toBe('Rahim Renamed');
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: userKeys.detail('me') });
+    expect(invalidateSpy).not.toHaveBeenCalledWith({ queryKey: userKeys.lists() });
+  });
+
+  it('surfaces the 403 wrong-current-password case as an error', async () => {
+    server.use(
+      http.patch('/api/v1/users/me', () =>
+        HttpResponse.json(
+          { statusCode: 403, message: 'current_password is incorrect' },
+          { status: 403 },
+        ),
+      ),
+    );
+
+    const { result } = renderHookWithProviders(() => useUpdateOwnProfile(), {
+      tenantId: 'tenant-1',
+    });
+    result.current.mutate({ email: 'new@example.com', current_password: 'wrong' });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
   });
 });
 

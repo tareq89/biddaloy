@@ -1,4 +1,10 @@
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  queryOptions,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
@@ -16,12 +22,19 @@ export type InvoiceStatus = Invoice['status'];
  * `status`/`from_date`/`to_date` are [8.10.6]'s own additions — `findAll`
  * (`invoices.controller.ts`) already accepted them, this type just hadn't
  * caught up since no caller needed them until now. */
+// [8.14.10] `min_amount`/`max_amount`/`sort`/`order` mirror `QueryInvoiceDto`
+// (`server/src/modules/invoices/dto/invoices.dto.ts`), landed by #373 but
+// never threaded through this hand-written filter type until now.
 export interface InvoiceListFilters {
   search?: string;
   student_id?: string;
   status?: InvoiceStatus;
   from_date?: string;
   to_date?: string;
+  min_amount?: number;
+  max_amount?: number;
+  sort?: 'issued_date' | 'due_date' | 'total_amount' | 'invoice_number' | 'status';
+  order?: 'asc' | 'desc';
   page?: number;
   limit?: number;
 }
@@ -48,6 +61,11 @@ export function invoicesQueryOptions(filters: InvoiceListFilters = {}) {
       return res.data;
     },
     retry: shouldRetryQuery,
+    // [8.14.6] Filter/page/sort changes keep the previous page's rows on
+    // screen (and `isFetching` true) instead of the whole table collapsing
+    // to one "Loading…" row height. v5 dropped `keepPreviousData: true`;
+    // this is its replacement.
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -55,17 +73,25 @@ export function useInvoices(filters: InvoiceListFilters = {}) {
   return useQuery(invoicesQueryOptions(filters));
 }
 
+/** [8.14.5]'s route-loader recipe needs a `queryOptions` factory it can
+ * pass straight to `queryClient.ensureQueryData` from `_staff/invoices/
+ * $invoiceId.tsx`'s `loader` — extracted out of `useInvoice` below rather
+ * than inlined there so both call sites share one `queryKey`/`queryFn`,
+ * same reason `invoicesQueryOptions` above already exists. Behaviour-
+ * preserving: `useInvoice` is now a one-line wrapper around this. */
+export function invoiceQueryOptions(id: string) {
+  return queryOptions({
+    queryKey: invoiceKeys.detail(id),
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<Invoice>(`/invoices/${id}`, { signal });
+      return res.data;
+    },
+    retry: shouldRetryQuery,
+  });
+}
+
 export function useInvoice(id: string) {
-  return useQuery(
-    queryOptions({
-      queryKey: invoiceKeys.detail(id),
-      queryFn: async ({ signal }) => {
-        const res = await apiClient.get<Invoice>(`/invoices/${id}`, { signal });
-        return res.data;
-      },
-      retry: shouldRetryQuery,
-    }),
-  );
+  return useQuery(invoiceQueryOptions(id));
 }
 
 /** [8.10.4]'s dues queue "Generate Invoice" bulk action — one call per

@@ -1,12 +1,19 @@
 import { Permission } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
-import { ErrorState, Skeleton, StatusBadge } from '@biddaloy/ui/components';
-import { useAcademicYear, useHasPermission, useUpdateAcademicYear } from '@biddaloy/ui/hooks';
+import { ErrorState, RoutePending, Skeleton, StatusBadge } from '@biddaloy/ui/components';
+import {
+  academicYearQueryOptions,
+  useAcademicYear,
+  useHasPermission,
+  useUpdateAcademicYear,
+} from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell, useDetailShellTab } from '@biddaloy/ui/shells';
 import { formatAcademicYear, formatDate, parseServerDate } from '@biddaloy/ui/utils';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
+
+import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { DeleteYearDialog } from './-delete-year-dialog';
 import { ClassesTab } from './-detail/classes-tab';
@@ -16,6 +23,21 @@ import { SetCurrentDialog } from './-set-current-dialog';
 import { YearFormDialog, type YearFormPayload } from './-year-form-dialog';
 
 export const Route = createFileRoute('/_staff/academic-years/$academicYearId')({
+  loader: ({ context: { queryClient }, params }) =>
+    Promise.all([
+      // [8.14.5]: `.catch(swallowUnlessOffline)` — a loader rejection would
+      // otherwise hand this route to the router's generic error boundary
+      // before the component (and its own `ErrorState`/403 handling)
+      // ever mounts. Swallowing here just means "the loader didn't warm
+      // the cache"; `useAcademicYear` runs the same query again and
+      // surfaces the failure through the page's own error UI, exactly
+      // as it did before this route had a loader at all.
+      queryClient
+        .ensureQueryData(academicYearQueryOptions(params.academicYearId))
+        .catch(swallowUnlessOffline),
+      loadRouteNamespaces('academicYears', 'common'),
+    ]),
+  pendingComponent: AcademicYearDetailPending,
   component: AcademicYearDetailPage,
 });
 
@@ -98,6 +120,7 @@ function AcademicYearDetailPage() {
               label: t('list.edit'),
               onClick: () => setEditOpen(true),
               allowed: canManage,
+              priority: 'primary',
             },
             ...(!year.is_current
               ? [
@@ -106,6 +129,7 @@ function AcademicYearDetailPage() {
                     label: t('list.setCurrent'),
                     onClick: () => setSetCurrentOpen(true),
                     allowed: canManage,
+                    priority: 'secondary' as const,
                   },
                 ]
               : []),
@@ -113,7 +137,7 @@ function AcademicYearDetailPage() {
               id: 'delete',
               label: t('list.delete'),
               onClick: () => setDeleteOpen(true),
-              variant: 'destructive',
+              priority: 'destructive',
               allowed: canManage,
             },
           ]}
@@ -177,4 +201,9 @@ function AcademicYearDetailPage() {
       </div>
     </RegionConfigProvider>
   );
+}
+
+function AcademicYearDetailPending() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="detail" label={t('routePending.label', { ns: 'nav' })} />;
 }

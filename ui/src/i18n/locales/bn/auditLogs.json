@@ -21,13 +21,14 @@
     "allActions": "সব কাজ",
     "entityTypeLabel": "রেকর্ডের ধরন",
     "allEntityTypes": "সব ধরনের রেকর্ড",
+    "performedByLabel": "যিনি করেছেন",
+    "allUsers": "সব ব্যবহারকারী",
+    "dateRangeLabel": "তারিখের সীমা",
     "fromDateLabel": "শুরুর তারিখ",
     "toDateLabel": "শেষ তারিখ"
   },
   "forbidden": {
-    "title": "নিরীক্ষা লগ দেখার অনুমতি আপনার নেই",
-    "explanation": "শুধু প্রশাসক এই স্কুলের নিরীক্ষার ইতিহাস দেখতে পারেন।",
-    "action": "ড্যাশবোর্ডে ফিরে যান"
+    "explanation": "শুধু প্রশাসক এই স্কুলের নিরীক্ষার ইতিহাস দেখতে পারেন।"
   },
   "actions": {
     "CREATE": "তৈরি হয়েছে",

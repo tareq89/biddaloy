@@ -293,10 +293,13 @@ describe('/communications/send', () => {
     expect(screen.getByRole('dialog')).toBeTruthy();
   });
 
+  // [8.14.17]: `_staff.tsx`'s `RequirePermission` now refuses the whole
+  // route in place with the shared `AccessDeniedState` copy, replacing
+  // this route's own hand-rolled "You cannot send messages" text.
   it('shows the forbidden message to a role without COMMUNICATION_SEND', async () => {
     render('EXECUTIVE');
 
-    expect(await screen.findByText('You cannot send messages')).toBeTruthy();
+    expect(await screen.findByText("You don't have access to this page.")).toBeTruthy();
     expect(screen.queryByRole('textbox', { name: 'Recipient name' })).toBeNull();
   });
 

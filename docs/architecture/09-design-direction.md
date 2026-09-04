@@ -1,19 +1,33 @@
-# Design Direction — Epic 8.13 Visual Design Layer
+# Design Direction — Visual Interaction Layer
 
-**Status:** approved 2026-08-28 · **Decided in:** [#342](https://github.com/tareq89/biddaloy/issues/342) · **Implemented by:** #343–#354
+**§1–§10:** Epic 8.13, approved 2026-08-28, decided in [#342](https://github.com/tareq89/biddaloy/issues/342), implemented by #343–#354 · **§12–§17:** Epic 8.14, recorded in [#461](https://github.com/tareq89/biddaloy/issues/461) from #365–#460 as shipped
 
-This is the agreed _look_ of Biddaloy: the exact type, colour, elevation,
-border, density and motion values that epic 8.13 puts into the code.
+This is the agreed _look_ of Biddaloy (§1–§10: the exact type, colour,
+elevation, border, density and motion values that epic 8.13 put into the
+code) plus the agreed _interaction contract_ built on top of that look
+(§12–§17: focus, responsive/table grammar, i18n defaults, access states and
+shell composition, as epic 8.14 actually shipped it).
 
 **Approved mockups:** [six artboards](https://claude.ai/code/artifact/7d5dc600-404b-42b4-8067-e6997434fb7a)
 — guardian portal landing (360 px, Bangla), admin invoice list (1280 px,
 English) and the record-payment form, each in light and dark, rendered with
-every value below.
+every value below. These cover §1–§10 only; §12–§17 record interaction
+decisions made and reviewed during implementation rather than mocked up in
+advance — see §10 item 3's disposition below for why.
 
 Read this before touching `ui/tailwind.preset.ts` or
-`ui/src/styles/globals.css`. It exists so that no implementation ticket has
-to invent a value. Every hex, every pixel and every millisecond below was
-decided here and verified here.
+`ui/src/styles/globals.css` (§1–§10), or before adding a new interactive
+component, route, or filter surface (§12–§17). It exists so that no
+implementation ticket has to invent a value or a vocabulary. Every hex,
+every pixel, every millisecond and every interaction rule below was decided
+here and verified here.
+
+**Note on §11:** the section numbered §11 below ("Action hierarchy") is
+epic 8.14 material, sourced from #459. It was appended to this document
+before this ticket (#461) landed, so epic 8.14's remaining decisions are
+recorded starting at §12 rather than §11 — there is no numbering gap, but
+§12 onward is not itself sequential-with-§11 by ticket order, only by
+section number.
 
 ---
 
@@ -1101,24 +1115,429 @@ inventing one.
 | **#353** Expose dark mode                       | §3.4 dark role values, §5 dark shadows plus the border rule, §4 dark border values. Prerequisite: #348's `@custom-variant dark` (§3.4.1) must already be on the branch, or the toggle produces a half-dark UI. Also decide the fate of the dead `--color-sidebar-*` group (§3.3 item 4): wire it up or delete it — nothing renders it today                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | **#354** Storybook Foundations page             | Every table in this document is the page's content. **No visual-baseline re-pin exists to do**: the repo has no visual-regression harness — no `toHaveScreenshot`, no snapshot directories; that harness is #128 ([8.5.4], still open). If #128 lands before this ticket, re-pin there; otherwise #354's PR carries manual before/after screenshots of the three mockup screens in light and dark                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 
+This table is a receipt for epic 8.13's tickets: the contract came first,
+each ticket received its slice of it. Epic 8.14 ran the opposite direction
+— the code shipped first, ticket by ticket, and this document's §12–§17
+were written afterward to record what actually landed. There is no epic
+8.14 row to add here; its receipts are §12–§17 themselves.
+
 ---
 
 ## 10. What was left open
 
-Three things are deliberately _not_ decided here, because they can only be
-answered by measurement or by real screens:
+Three things were deliberately _not_ decided in epic 8.13, because they
+could only be answered by measurement or by real screens. This is epic
+8.13's own list — epic 8.14's open items are tracked separately, in §17.
 
-1. **The measured font subset size.** 45 KB / 135 KB are engineering
-   estimates. #343 measures the real `woff2` output and records it. If
-   Bangla exceeds 135 KB, narrow `wght` to 400–700 — do not exceed the
-   180 KB total silently.
-2. **Anek at 13–14 px.** Bengali conjuncts are dense at small sizes. If
-   Anek Bangla reads poorly at the `label` and `caption` steps, the
+1. **The measured font subset size — closed by #343.** The 45 KB / 135 KB
+   figures above were engineering estimates; #343 measured the real
+   `woff2` output and recorded it in §2's webfont-budget table: Anek Latin
+   38,720 B (37.8 KB), Anek Bangla 135,952 B (132.8 KB), total 174,672 B
+   (170.6 KB) — all under budget (§2, `09-design-direction.md:139-141`).
+   Bangla's original `wght` 400–800 subset measured 141,116 B (137.8 KB),
+   over the 135 KB budget, so #343 applied the sanctioned 400–700 relief
+   valve described above (§2, `:143-145`), which is where the 135,952 B
+   figure comes from. That leaves **2.2 KB of headroom** on the 135 KB
+   Bangla budget, guarded going forward by `ui/src/styles/fonts.spec.ts`'s
+   per-file and 180 KB total assertions. Closed.
+2. **Anek at 13–14 px — still open.** No epic 8.14 ticket evaluated
+   Bengali legibility at the `label`/`caption` steps specifically. The
+   Noto Sans + Noto Sans Bengali fallback pairing noted below is still the
+   agreed answer if a switch is ever needed, but the cost of switching has
+   only gone up since this was written: #371 (table→card responsive
+   grammar) and #374 (page-size and filter defaults) added more hand-
+   verified screens against the shipped Anek face, on top of #344–#353's
+   original pass. If Anek Bangla reads poorly at small sizes, the
    pre-agreed fallback pairing is **Noto Sans + Noto Sans Bengali**, which
-   is the same wiring with different files. Switching costs nothing at
-   #343; it costs a lot once #344–#353 have hand-verified every screen
-   against the shipped face — and more still once #128's visual-regression
-   harness (a separate, still-open epic-8.5 ticket) pins baselines over it.
-3. **Anything a mockup reveals.** If a value changes during
-   implementation, re-run the contrast formula on it and update this
-   document in the same PR. This file, not an issue comment, is the record.
+   is the same wiring with different files.
+3. **Anything a mockup reveals — reaffirmed, and extended.** The original
+   rule stands: if a value changes during implementation, re-run the
+   contrast formula on it and update this document in the same PR. Epic
+   8.14 extended that rule's premise rather than following it as written:
+   the "design before you build" mockup gate in `ui/CONTRIBUTING.md` was
+   deliberately skipped for the whole epic — #372's FilterBar, for
+   example, shipped with no approved mockup, and internal consistency was
+   checked in code review instead. That is a dated, accepted process
+   deviation, not an oversight; it is recorded here because this item's
+   own obligation is what this ticket (#461) is discharging by writing
+   §12–§17 from the shipped code rather than from a mockup. Reaffirmed,
+   with that deviation now on the record.
+
+Epic 8.14's own open items are in §17, not folded into this list.
+
+## 11. Action hierarchy
+
+Every page surface (a detail header, a list toolbar, a dialog footer) gets
+**exactly one** primary action. Four tiers, each pinned to one existing
+`Button` variant — the table below is the 1:1 map; adding a variant means
+editing this table first.
+
+| Tier        | `Button` variant                                          | Where it renders                                                                             | How many per surface |
+| ----------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------- | -------------------- |
+| Primary     | `default` (solid fill)                                    | inline, right-most                                                                           | **0 or 1**           |
+| Secondary   | `outline`                                                 | inline                                                                                       | 0–2                  |
+| Tertiary    | — (renders as `MenuItem`)                                 | inside overflow menu                                                                         | any                  |
+| Destructive | `destructive` inline, or `MenuItem variant="destructive"` | inline when it is the only overflow candidate, otherwise in the menu below a `MenuSeparator` | 0–1                  |
+
+### Rules
+
+1. **One primary, at most.** If a surface wants two primaries, one is
+   actually a secondary. If a read-only page wants none, ship none — do not
+   promote a filter or back link just to fill the slot.
+
+2. **Three inline actions, at most.** One primary plus two secondaries. A
+   fourth action goes into the overflow menu, lowest-frequency first.
+
+3. **The overflow menu is `Menu`** from `@biddaloy/ui/components`, opened
+   by an icon-only ghost button:
+
+   ```tsx
+   <Button variant="ghost" size="icon" iconOnly aria-label={t('actions.moreActions')}>
+     <MoreHorizontalIcon />
+   </Button>
+   ```
+
+   Never a hand-rolled `<div>` popover. Radix's menu already gives you
+   arrow-key navigation, typeahead, Escape-to-close, and focus returning to
+   the trigger on close.
+
+4. **Destructive is never primary.** It keeps its tinted fill and coloured
+   label, which reads differently from primary's solid fill and inverted
+   label — two different fill weights, not two hues fighting each other.
+   When it shares the overflow menu with tertiary items, a `MenuSeparator`
+   sits above it.
+
+5. **Permission-gated actions are hidden, not disabled** via
+   `DetailShellAction.allowed`. Hiding one action never re-tiers the
+   others. If the primary is hidden, the surface simply has no primary; a
+   secondary is not promoted to fill the gap.
+
+6. **Field grids have a measure.** A `<dl>` of label/value pairs is capped
+   at `max-w-4xl` and steps 1 → 2 → 3 columns. A label and its value are
+   never more than one column apart. Use `FieldGrid` and `Field` from
+   `@biddaloy/ui/components`; do not hand-roll `<dl>` classes.
+
+### Worked example — `/students/$studentId`
+
+Five actions, one menu:
+
+| Action                   | Tier        | Result                     |
+| ------------------------ | ----------- | -------------------------- |
+| Collect fees             | primary     | solid button, right-most   |
+| Edit                     | secondary   | outline button             |
+| Send reminder            | tertiary    | menu item                  |
+| Transfer / change status | tertiary    | menu item                  |
+| Delete                   | destructive | menu item, below separator |
+
+Collect fees is primary rather than Edit because collecting fees is the
+highest-frequency task on this screen. Consistency across other detail
+routes loses to frequency here, deliberately.
+
+---
+
+## 12. Focus — one vocabulary
+
+**Source: #457, `epic/8.14/w1-g2-01-focus-ring`, merged into this branch at
+commit `93a5c92`.**
+
+Before this ticket, three focus vocabularies had shipped in different
+places because no rule was ever written down. That was a mechanism-level
+failure, not a one-off mistake — each new component author was guessing.
+The rule now:
+
+**The one string.** Any element that receives keyboard focus and has no
+documented exception (table below) uses exactly:
+
+```
+outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background
+```
+
+Canonical instance: `ui/src/primitives/button.tsx:54`.
+
+### Documented exceptions
+
+| Component                                                                                         | Deviation                                                              | Why allowed                                                                                                                                                                                                                                                    |
+| ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ui/src/components/skip-link.tsx:24`                                                              | No `ring-offset-*`                                                     | The link renders `focus-visible:fixed` at the page's own top-left corner — there is no surrounding surface to offset against.                                                                                                                                  |
+| `ui/src/components/global-search.tsx:193`                                                         | `focus-visible:ring-0`                                                 | The ring would draw inside the combobox's own chrome, doubling up with the input's existing border.                                                                                                                                                            |
+| Date-picker popover day cells, `ui/src/components/date-picker.tsx` (`PopoverContent`, grid cells) | `ring-offset-popover` plus `focus-visible:relative focus-visible:z-10` | The offset must match the surface the cell sits on (the popover, not the page), and neighbouring day cells in the same grid would clip an un-elevated ring.                                                                                                    |
+| Tabs trigger, `ui/src/primitives/tabs.tsx:72`                                                     | Adds `focus-visible:z-10` on top of the canonical string               | See "the `z-10` decision" below.                                                                                                                                                                                                                               |
+| Menu items                                                                                        | `focus:bg-accent` instead of a ring                                    | Roving focus inside a floating menu reads as a filled row, not a ring around one — a ring on every item in a tight list is visually noisier than a fill, and collides with §3.3's white-on-white hazard (`:393`) if the fill and the ring ever share a colour. |
+| `aria-invalid` fields                                                                             | Destructive ring, not the brand ring                                   | Error state outranks focus state on colour — a field that is both invalid and focused should read as invalid first.                                                                                                                                            |
+| Elevated surfaces (popovers, dialogs)                                                             | Hairline border sits under the ring                                    | Per §5's dark-mode border-plus-shadow rule — the ring alone doesn't read as elevated in dark mode without it.                                                                                                                                                  |
+
+**A newly found, undocumented deviation:** `ui/src/components/app-shell.tsx:207`,
+the sidebar nav-item link, uses `focus-visible:outline focus-visible:outline-2
+focus-visible:outline-ring` — a third vocabulary (`outline`, not `ring`),
+not on #457's exception list and not matching the canonical string. This
+ticket records it as shipped rather than fixing it; see §17.7's trade-off
+list.
+
+**The `z-10` decision.** `ui/src/primitives/tabs.tsx:65-71` carries a
+comment explaining why its trigger adds `focus-visible:z-10` on top of the
+canonical ring string: tab triggers are `flex-1` siblings inside a flex
+row, each rendering `relative`. Without a raised z-index, the _next_
+trigger's own background (`data-[state=active]:bg-card`) can paint over
+part of a focused trigger's ring where the two triggers' edges meet. This
+mirrors the same stacking fix the date-picker popover needed for its own
+neighbouring day cells.
+
+**The one accepted trade-off.** The canonical string's
+`focus-visible:ring-offset-background` assumes the element sits directly
+on the page ground. Inside a `TabsList`, the surrounding surface is the
+`TabsList` chrome, not the page — so a focused tab's offset ring reads as
+a small halo in a colour that doesn't quite match its immediate
+surroundings. #457 accepted this deliberately rather than invent a
+per-container offset-colour variant: multiplying the vocabulary (one
+offset colour per container type) is exactly the problem this section
+exists to prevent, and no visual regression harness exists yet (§9's
+#354 note) to catch the halo if it became a real complaint. Named,
+tracked, not fixed — see §17.7.
+
+**The guard, and its unwired state.** `ui/scripts/check-focus-ring.mjs`
+exists (on `epic/8.14/w1-g2-01-focus-ring`, carried into this branch) and
+can grep for the canonical string plus the documented exceptions. It is
+not wired into `ui/package.json`'s `scripts`, `scripts/ci-local.sh`, or
+`.github/workflows/ci.yml` — the vocabulary above is enforced by review,
+not by CI, today. See §17.1.
+
+## 13. Responsive grammar for list surfaces
+
+**Sources: #371 (`5803bdf`), #372, #373, #374 (`8209f6f`).**
+
+### 13.1 — table → card contract
+
+The switch between a `<table>` and a stacked-card list is driven by
+**measured container width**, not a CSS breakpoint:
+
+```mermaid
+flowchart LR
+  A["DataTable renders"] -->|"use-container-width.ts measures\nthe table's own wrapper, not the viewport"| B{"container width\n< 768px ?"}
+  B -->|"yes"| C["renders data-table-cards.tsx\n(one card per row)"]
+  B -->|"no"| D["renders the <table> element"]
+```
+
+Concretely: a `DataTable` embedded in a narrow side panel switches to
+cards even on a wide desktop viewport, because its _own container_ is
+narrow — a plain `md:hidden` Tailwind breakpoint could not do this, since
+it only knows the viewport width, not the width of whatever panel the
+table happens to be inside. See `ui/src/hooks/use-container-width.ts`,
+`ui/src/components/data-table.tsx` (card-mode branch), and
+`ui/src/components/data-table-cards.tsx`, all from #371.
+
+### 13.2 — numeric alignment is a column descriptor, not a class name
+
+Any right-aligned numeric column (money, counts) carries `tabular-nums` so
+digits don't reflow between loading and loaded states. This used to be a
+manually-applied `<span className="tabular-nums">` at one call site; #371
+promoted it to a per-column `align` descriptor on `DataTable`, which emits
+`text-end tabular-nums` in **both** table and card mode from one place.
+Example, `client-admin/src/routes/_staff/invoices/index.tsx:208-209`: the
+amount column's comment reads `// Money column right-aligns and carries
+tabular-nums via align (design contract §2) — no manual
+<span className="tabular-nums"> needed`. For the underlying rule and its
+one honest limitation — `tabular-nums` is a no-op on Bengali numerals,
+because Anek Bangla's subset ships no `tnum` GSUB feature, and `bn` is the
+product's default locale — see §2, `:199-211`. That limitation is not
+restated here; this section only records that the rule is now expressed
+as a column descriptor, not an inline class.
+
+### 13.3 — Bengali collation and search parity (deferred by #373, written here)
+
+#373's own published plan deferred one note to this document: the
+decision to collate and search Bengali text using ICU collation, not the
+Postgres default `C`/`en_US.UTF-8` byte-order collation. Migration:
+`server/src/migrations/1788307200000-AddBengaliCollationAndSearchIndexes.ts`,
+which creates the `bn_icu` (ICU, `und-x-icu`) collation and five
+supporting search indexes.
+
+**Why byte order is not enough — a worked example.** Bengali text can be
+encoded two ways for the same visible glyph: **precomposed** (one Unicode
+code point stands for a vowel-and-consonant combination) or **decomposed**
+(the base consonant and its vowel sign are separate code points that a
+font shapes together at render time). Two database rows can hold visually
+identical text — the same name, the same word — with different underlying
+byte sequences. A plain byte-order `ORDER BY` or `ILIKE` sees those as
+different strings and can silently split what a user would read as
+duplicates into two search results, or sort them apart. ICU collation
+compares by linguistic value instead of by raw bytes, so both encodings
+sort and match together. This was verified on `postgres:16-alpine`
+(dev/CI/nightly) — see §17.2 for the one thing not yet confirmed
+(production and staging collation availability).
+
+### 13.4 — Page-size and filter defaults (#374)
+
+`client-admin/src/routes/_staff/classes/index.tsx` uses a `__all__` sentinel
+value (`:53`) so a `SelectFilterField` can represent "no filter applied"
+without needing a separate `disabled` prop on the field itself — the field
+doesn't natively support one, so #374 approximated a conditionally-enabled
+filter with an empty options array instead, because changing
+`filter-bar.tsx`'s own internals was out of #374's scope. Named follow-up
+candidate, not a bug — see §17.7.
+
+## 14. i18n defaults in `ui/`
+
+**Source: #458.**
+
+The product's default locale is `bn` (Bengali). The rule: **components in
+`ui/` must not carry English literal string defaults.** A hardcoded
+English fallback inside a shared primitive is a silent regression — it
+only shows up in front of the users least able to report it, because it
+renders correctly for anyone testing in English.
+
+How a status label resolves, concretely:
+
+| Step | What happens                                                                                                                                                                                                                                                  |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | `status-badge.tsx` is given a status **key** (e.g. `overdue`), never a display string.                                                                                                                                                                        |
+| 2    | It resolves that key through the `common` i18n namespace.                                                                                                                                                                                                     |
+| 3    | If the translation is missing, it falls back to rendering the **key itself**, never an English prose string — a visibly-wrong key in the UI is a bug someone will file; a plausible-looking English sentence in a Bengali-locale app is a bug nobody notices. |
+
+**Guard, and its known gap.** #458's own phase 15b added a
+`no-hardcoded-jsx-text` ESLint rule that catches literal JSX text, but it
+does not catch every remaining site — see §17.5, `#467`.
+
+## 15. Route and action access states
+
+**Sources: #460 (route-level, `bb8cbd6`) and §11 above (action-level, #459).**
+
+Two different mechanisms answer two different questions, and both are
+client-side only:
+
+```mermaid
+flowchart TD
+  URL["a staff URL"] --> ROLE{"RequireRole:\nright app half?"}
+  ROLE -->|"no"| PORTAL["redirect to /portal"]
+  ROLE -->|"yes"| PERM{"RequirePermission:\nSTAFF_ROUTE_PERMISSIONS[routeId]"}
+  PERM -->|"lacks permission"| DENIED["AccessDeniedState\nrenders in place"]
+  PERM -->|"holds permission"| PAGE["the route's page renders"]
+  PAGE --> ACTION{"a gated action\non that page"}
+  ACTION -->|"lacks permission"| HIDDEN["action is hidden,\nnot disabled (see §11 rule 5)"]
+  ACTION -->|"holds permission"| SHOWN["action renders normally"]
+```
+
+- **Route-level (render / refuse):** `ui/src/routes/require-role.tsx` and
+  `ui/src/routes/require-permission.tsx`, gated against
+  `client-admin/src/route-permissions.ts`. A role in the wrong app half is
+  **redirected** (it is simply lost, not looking at gated data); a role in
+  the right app half but missing the page's permission gets
+  `ui/src/components/access-denied-state.tsx` rendered in place. Full
+  route→permission mapping already lives in
+  `docs/architecture/06-frontend-architecture.md`'s "Route access: two
+  gates, refuse-in-place" section — not duplicated here.
+- **Action-level (render / reduced):** individual actions inside an
+  already-permitted page are hidden via `DetailShellAction.allowed`
+  (§11 rule 5) rather than disabled, so a role with fewer permissions sees
+  a smaller but still fully-usable page, not a page full of greyed-out
+  buttons.
+
+**The boundary, stated plainly because getting it wrong is a real data
+exposure risk:** everything above is **client-side only**. It shapes what
+the UI _offers_; it does not by itself stop a request. A teacher whose UI
+never shows a "Fees" link can still call `/fees/dues` directly if the
+server does not check permissions on that endpoint too. Server-side
+enforcement is tracked separately as **#399** (Epic 10.0, tracked from
+#380) and is **not** shipped by #460. Anyone reading this section as an
+authorisation contract on its own has read it wrong — see §17.4.
+
+## 16. Shell composition
+
+**Sources: #365, #366, #367, #368, #369, #370.**
+
+- **Sidebar active state (#365).** `ui/src/components/app-shell.tsx:208-213`
+  uses TanStack Router's `activeProps` to add `aria-current="page"` plus a
+  filled background on the current route's own link; inactive links get
+  `text-muted-foreground hover:bg-accent hover:text-foreground` (`:213`).
+- **Desktop header — identity, controls, sticky chrome (#366).** Header
+  height is exposed as the `--app-header-h` CSS variable
+  (`ui/src/components/app-shell.tsx:65`), which #369's view-transition and
+  focus-restore logic depends on for scroll-offset math.
+- **Staff bottom-nav (#367).** `ui/src/components/bottom-nav.tsx` handles
+  safe-area insets for devices with a home indicator.
+- **The profile-menu decision.** No staff `/account` route exists yet —
+  only the guardian-facing `/portal/account` (#368). The header comment at
+  `client-admin/src/components/staff-user-menu.tsx:8-16` records this as a
+  **user-approved deviation from the published plan**: the plan's own
+  "needs decision" section had picked "ship name/role/Sign out and leave
+  the profile row unset"; the user overrode that in favour of a
+  **placeholder, not an omission** — a disabled `MenuItem` renders in the
+  profile slot so the menu's shape doesn't change once a real staff
+  account page lands, and so the row doesn't silently disappear against
+  the epic's own header mockup, which shows one. Follow-up ticket to build
+  the actual page — see §17.6.
+- **Portal account surface (#368).** `client-admin/src/routes/portal/account.tsx`.
+- **No-flash route transitions (#369, #370).** Route change plays a view
+  transition (`ui/src/utils/view-transition.ts`) and restores focus to the
+  new page's heading (`ui/src/hooks/use-route-focus.ts`); in-place data
+  refreshes (e.g. a batch's log table) use TanStack Query's
+  `isPlaceholderData` flag so a loading spinner does not flash during a
+  filter change —
+  `client-admin/src/routes/_staff/communications/batches/$batchId.tsx:361-366`:
+  `isFetching={logsQuery.isFetching && logsQuery.isPlaceholderData}`.
+
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant R as Router
+  participant VT as view-transition.ts
+  participant Q as Query cache
+  U->>R: clicks a nav link
+  R->>VT: starts a view transition
+  VT->>R: new route mounts
+  R->>Q: re-runs the route's query (keepPreviousData)
+  Q-->>R: stale data shown immediately, isPlaceholderData=true
+  Q->>R: fresh data arrives
+  R->>U: swaps in fresh data, no spinner flash
+```
+
+## 17. What Epic 8.14 left open
+
+Parallel to §10 (which is epic 8.13's list, unchanged). Nothing below may
+be treated as closed by this ticket — this ticket records these gaps, it
+does not close them.
+
+1. **Focus-ring guard not wired into CI.** `ui/scripts/check-focus-ring.mjs`
+   exists but has no `check:focus-ring` entry in `ui/package.json`'s
+   `scripts`, no invocation in `scripts/ci-local.sh` (alongside its other
+   `check:*` calls), and no step in `.github/workflows/ci.yml` (alongside
+   its `check:contrast` step). §12's vocabulary is enforced by review
+   today, not by a machine gate. **Follow-up: #469.**
+2. **ICU collation unconfirmed on production and staging.** §13.3's
+   `bn_icu` collation is verified on `postgres:16-alpine` (dev/CI/nightly)
+   only. Someone needs to run
+   `SELECT count(*) FROM pg_collation WHERE collname = 'und-x-icu';`
+   against production and staging and confirm it returns ≥ 1. **Human-owned,
+   not a coding task.**
+3. **`guardians.relationship` and `students.gender` filters are
+   case-sensitive server-side.** `server/src/modules/students/students.service.ts:196-197`
+   (`qb.andWhere('student.gender = :gender', ...)`) and `:450-453`
+   (`qb.andWhere('guardian.relationship = :relationship', ...)`) use exact
+   SQL equality. The FilterBar's client-side options are case-normalised,
+   which masks this in the common case, but a value that reaches the API
+   with different casing (a saved link, a script, a future caller) will
+   silently under-match. **Follow-up: #470.**
+4. **Server-side permission enforcement.** §15's route and action gates
+   are client-side only. Server-side enforcement of the same permission
+   model is tracked as **#399** (Epic 10.0). Until #399 ships, §15 is a UI
+   affordance, not an authorisation boundary.
+5. **#458's remaining hardcoded-string sites.** §14's `no-hardcoded-jsx-text`
+   guard does not cover every site from the phase-15b sweep — roughly 35
+   remaining sites (`status-badge.stories.tsx`, `pagination.tsx`, `FeeType`
+   and `TeacherDesignation` label sources, among others). Follow-up
+   already filed as **#467**.
+6. **Staff account page does not exist.** §16's profile-menu placeholder
+   is deliberate, but it is a placeholder for a page that still needs to
+   be built. **Follow-up: #471.**
+7. **Smaller accepted trade-offs**, one line each, "accepted, not
+   scheduled":
+   - `ring-offset-background`'s halo inside `TabsList` (§12).
+   - `app-shell.tsx:207`'s sidebar nav item uses `outline`, not `ring` —
+     a third undocumented focus vocabulary (§12).
+   - `SelectFilterField` has no `disabled` prop, approximated with empty
+     options arrays (§13.4).
+   - Sonner's own reduced-motion handling wins for toasts; the sidebar's
+     collapse/expand instead uses a plain `hidden` attribute, so only the
+     chevron's rotation is token-bound to `--motion-duration-fast` (#376).
+   - `students.service.ts` and `guardians` list endpoints default
+     `order=asc` when no sort param is given, which is inconsistent with
+     `users.service.ts`'s own pinned default sort (#373).

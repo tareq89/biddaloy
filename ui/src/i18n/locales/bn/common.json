@@ -3,14 +3,77 @@
     "save": "সংরক্ষণ করুন",
     "cancel": "বাতিল করুন",
     "retry": "আবার চেষ্টা করুন",
-    "close": "বন্ধ করুন"
+    "close": "বন্ধ করুন",
+    "moreActions": "আরও অ্যাকশন"
   },
   "status": {
     "loading": "লোড হচ্ছে…",
-    "error": "কিছু একটা সমস্যা হয়েছে"
+    "error": "কিছু একটা সমস্যা হয়েছে",
+    "fee": {
+      "PENDING": "অপেক্ষমাণ",
+      "PARTIALLY_PAID": "আংশিক পরিশোধিত",
+      "PAID": "পরিশোধিত",
+      "OVERDUE": "মেয়াদোত্তীর্ণ",
+      "WAIVED": "মওকুফ",
+      "ADVANCE": "অগ্রিম"
+    },
+    "payment": {
+      "SUCCESS": "সফল",
+      "PENDING": "অপেক্ষমাণ",
+      "FAILED": "ব্যর্থ",
+      "REFUNDED": "ফেরত দেওয়া হয়েছে"
+    },
+    "invoice": {
+      "DRAFT": "খসড়া",
+      "ISSUED": "ইস্যু করা হয়েছে",
+      "PAID": "পরিশোধিত",
+      "CANCELLED": "বাতিল",
+      "OVERDUE": "মেয়াদোত্তীর্ণ"
+    },
+    "communication": {
+      "QUEUED": "সারিতে আছে",
+      "SENT": "পাঠানো হয়েছে",
+      "DELIVERED": "পৌঁছেছে",
+      "FAILED": "ব্যর্থ",
+      "READ": "পঠিত"
+    },
+    "reminderBatch": {
+      "PROCESSING": "প্রক্রিয়াধীন",
+      "COMPLETED": "সম্পন্ন",
+      "PARTIALLY_FAILED": "আংশিক ব্যর্থ",
+      "FAILED": "ব্যর্থ"
+    },
+    "enrollment": {
+      "ACTIVE": "সক্রিয়",
+      "INACTIVE": "নিষ্ক্রিয়",
+      "TRANSFERRED": "স্থানান্তরিত",
+      "GRADUATED": "উত্তীর্ণ"
+    },
+    "academicYear": {
+      "CURRENT": "চলমান",
+      "NOT_CURRENT": "চলমান নয়"
+    },
+    "guardian": {
+      "PRIMARY": "প্রধান",
+      "SECONDARY": "দ্বিতীয়"
+    },
+    "feeStructure": {
+      "RECURRING": "পুনরাবৃত্ত",
+      "ONE_TIME": "একবার"
+    },
+    "user": {
+      "ACTIVE": "সক্রিয়",
+      "INACTIVE": "নিষ্ক্রিয়",
+      "SUSPENDED": "স্থগিত"
+    }
   },
   "errors": {
     "permissionDenied": "এই কাজটি করার অনুমতি আপনার নেই।"
+  },
+  "accessDenied": {
+    "title": "এই পাতাটি দেখার অনুমতি আপনার নেই।",
+    "explanation": "এই অনুমতিটি আপনার ভূমিকায় নেই। প্রয়োজন হলে একজন প্রশাসকের সাথে যোগাযোগ করুন।",
+    "action": "ড্যাশবোর্ডে ফিরে যান"
   },
   "update": {
     "available": "অ্যাপের নতুন সংস্করণ পাওয়া গেছে।",
@@ -62,5 +125,45 @@
       "attendance": "উপস্থিতি"
     },
     "actionFailed": "আপনার অপেক্ষমাণ পরিবর্তন হালনাগাদ করা যায়নি। আবার চেষ্টা করুন।"
+  },
+  "filters": {
+    "showFilters_one": "ফিল্টার ({{count}})",
+    "showFilters_other": "ফিল্টার ({{count}})",
+    "showFiltersNone": "ফিল্টার",
+    "hideFilters": "ফিল্টার লুকান",
+    "activeFilters": "সক্রিয় ফিল্টার",
+    "clearAll": "সব মুছুন",
+    "removeFilter": "ফিল্টার সরান: {{label}}",
+    "unknownFilter": "{{key}}: {{value}}"
+  },
+  "table": {
+    "empty": "কোনো ফলাফল নেই",
+    "columns": "কলাম",
+    "sort": "সাজান",
+    "sortedAscending": "{{header}}, ঊর্ধ্বক্রমে সাজানো",
+    "sortedDescending": "{{header}}, অধঃক্রমে সাজানো",
+    "expandRow": "সারি খুলুন",
+    "expand": "খুলুন",
+    "selectAllOnPage": "এই পাতার সব সারি নির্বাচন করুন",
+    "selectRow": "সারি {{index}} নির্বাচন করুন",
+    "selectedCount_one": "{{count}}টি নির্বাচিত",
+    "selectedCount_other": "{{count}}টি নির্বাচিত",
+    "announceResults_one": "{{total}}টির মধ্যে {{count}}টি ফলাফল",
+    "announceResults_other": "{{total}}টির মধ্যে {{count}}টি ফলাফল",
+    "pageOf": "{{total}} পাতার মধ্যে {{page}} নম্বর পাতা"
+  },
+  "pagination": {
+    "rowsPerPage": "প্রতি পাতায় সারি",
+    "rowsPerPageOption": "{{count}}",
+    "label": "পাতা নেভিগেশন",
+    "previous": "পূর্ববর্তী",
+    "next": "পরবর্তী",
+    "range": "{{total}}টির মধ্যে {{start}}–{{end}} দেখানো হচ্ছে"
+  },
+  "notifications": {
+    "syncReplayed_one": "{{count}}টি অফলাইন পরিবর্তন সংরক্ষিত হয়েছে।",
+    "syncReplayed_other": "{{count}}টি অফলাইন পরিবর্তন সংরক্ষিত হয়েছে।",
+    "syncConflict": "একটি অফলাইন পরিবর্তন সংরক্ষণ করা যায়নি — সার্ভারে রেকর্ডটি বদলে গেছে। সিঙ্ক প্যানেলে দেখুন।",
+    "syncDead": "একটি অফলাইন পরিবর্তন বারবার ব্যর্থ হয়েছে এবং আর চেষ্টা করা হবে না। সিঙ্ক প্যানেলে দেখুন।"
   }
 }

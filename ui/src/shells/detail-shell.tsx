@@ -20,11 +20,20 @@
  * directory), not here — this component takes `activeTab`/`onTabChange`
  * as plain props, same router-agnostic split as `ListShell`/
  * `useListShellState`.
+ *
+ * Header actions are tiered per §11 of
+ * `docs/architecture/09-design-direction.md`: at most one primary, at
+ * most three inline, everything else collapses into an overflow menu.
  */
+import { MoreHorizontalIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { Button } from '../components/button';
+import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../components/menu';
+import { useTranslation } from '../i18n';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../primitives/tabs';
+
+export type DetailShellActionPriority = 'primary' | 'secondary' | 'tertiary' | 'destructive';
 
 export interface DetailShellAction {
   id: string;
@@ -35,7 +44,11 @@ export interface DetailShellAction {
    * than trusting every call site to have already filtered its own
    * action list. */
   allowed?: boolean;
-  variant?: React.ComponentProps<typeof Button>['variant'];
+  /** Which tier of §11's action hierarchy this action occupies. Drives
+   * both the `Button` variant and whether it renders inline or inside the
+   * overflow menu. Defaults to `'secondary'`, so a call site that has not
+   * been migrated can never silently produce a second primary. */
+  priority?: DetailShellActionPriority;
 }
 
 export interface DetailShellTab {
@@ -81,6 +94,43 @@ export function DetailShell({
 
   const visibleActions = actions.filter((action) => action.allowed !== false);
 
+  const { t } = useTranslation();
+
+  const tierOf = (action: DetailShellAction): DetailShellActionPriority =>
+    action.priority ?? 'secondary';
+
+  const primary = visibleActions.filter((a) => tierOf(a) === 'primary');
+  const secondary = visibleActions.filter((a) => tierOf(a) === 'secondary');
+  const tertiary = visibleActions.filter((a) => tierOf(a) === 'tertiary');
+  const destructive = visibleActions.filter((a) => tierOf(a) === 'destructive');
+
+  // Rule 4: a lone destructive action with nothing else to share a menu
+  // with stays inline. Burying a single "Delete" behind a menu costs a
+  // click and buys nothing.
+  const destructiveInline = tertiary.length === 0 ? destructive : [];
+  const destructiveInMenu = tertiary.length === 0 ? [] : destructive;
+  const menuActions = [...tertiary, ...destructiveInMenu];
+
+  // Secondaries first, primary right-most. `flex` follows the logical
+  // direction, so this mirrors correctly under RTL without extra work.
+  const inlineActions = [...secondary, ...destructiveInline, ...primary];
+
+  if (process.env.NODE_ENV !== 'production' && primary.length > 1) {
+    // Not a thrown error: permission gating must never crash a page.
+    console.warn(
+      `DetailShell: ${primary.length} actions declared priority "primary" (${primary
+        .map((a) => a.id)
+        .join(', ')}). Design contract §11 allows at most one.`,
+    );
+  }
+
+  const variantFor = (action: DetailShellAction) =>
+    tierOf(action) === 'primary'
+      ? ('default' as const)
+      : tierOf(action) === 'destructive'
+        ? ('destructive' as const)
+        : ('outline' as const);
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -91,29 +141,66 @@ export function DetailShell({
           </div>
           {identifiers && <div className="text-sm text-muted-foreground">{identifiers}</div>}
         </div>
-        {visibleActions.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {visibleActions.map((action) => (
+        {(inlineActions.length > 0 || menuActions.length > 0) && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {inlineActions.map((action) => (
               <Button
                 key={action.id}
                 type="button"
-                variant={action.variant}
+                variant={variantFor(action)}
                 onClick={action.onClick}
               >
                 {action.label}
               </Button>
             ))}
+            {menuActions.length > 0 && (
+              <Menu>
+                <MenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    iconOnly
+                    aria-label={t('actions.moreActions')}
+                  >
+                    <MoreHorizontalIcon />
+                  </Button>
+                </MenuTrigger>
+                <MenuContent align="end">
+                  {tertiary.map((action) => (
+                    <MenuItem key={action.id} onSelect={action.onClick}>
+                      {action.label}
+                    </MenuItem>
+                  ))}
+                  {destructiveInMenu.length > 0 && tertiary.length > 0 && <MenuSeparator />}
+                  {destructiveInMenu.map((action) => (
+                    <MenuItem key={action.id} variant="destructive" onSelect={action.onClick}>
+                      {action.label}
+                    </MenuItem>
+                  ))}
+                </MenuContent>
+              </Menu>
+            )}
           </div>
         )}
       </div>
 
       <Tabs value={activeTab} onValueChange={onTabChange}>
-        {/* The strip scrolls in its own container at narrow widths —
-            page-level horizontal scroll is a WCAG 1.4.10 failure
-            ([8.5.6]); scrolling the tab strip itself is not. */}
-        <TabsList className="max-w-full overflow-x-auto">
+        {/* [8.14.7] Wraps onto extra rows at narrow widths instead of
+            scrolling in its own container — `expectNoInnerHorizontalScroll`
+            now treats any inner scroll region, not just DataTable's old one,
+            as a phone-usability defect. Each trigger drops the list's
+            equal-width `flex-1` (which would force overflow instead of
+            wrapping) and fixes its own height, since the list's height
+            token no longer bounds a single row once it can wrap to more
+            than one. */}
+        <TabsList className="h-auto max-w-full flex-wrap gap-1">
           {tabs.map((tab) => (
-            <TabsTrigger key={tab.id} value={tab.id}>
+            <TabsTrigger
+              key={tab.id}
+              value={tab.id}
+              className="h-[calc(var(--control-h,2rem)-1px)] flex-none grow-0 basis-auto"
+            >
               {tab.label}
             </TabsTrigger>
           ))}

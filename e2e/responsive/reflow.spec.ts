@@ -1,5 +1,5 @@
 import { expect, guest, loggedIn, test } from '../fixtures/test';
-import { expectNoHorizontalScroll } from '../pages/assertions';
+import { expectNoHorizontalScroll, expectNoInnerHorizontalScroll } from '../pages/assertions';
 import type { SeedRole } from '../seed-contract';
 import { resolvePath, routes } from './routes';
 
@@ -29,6 +29,10 @@ for (const route of routes) {
         await page.goto(path);
         await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
         await expectNoHorizontalScroll(page);
+        // [8.14.7] `DataTable`'s card mode ([8.14.7]) exists precisely so a
+        // 320/640px page no longer needs its own inner scroll region —
+        // this is the acceptance proof for that.
+        await expectNoInnerHorizontalScroll(page);
       });
     }
 

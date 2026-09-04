@@ -8,6 +8,7 @@ import { Permission } from '@biddaloy/shared';
 import {
   Button,
   CachedDataNotice,
+  RoutePending,
   Select,
   SelectContent,
   SelectItem,
@@ -22,16 +23,27 @@ import {
   useHasPermission,
   type ClassWithCounts,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState } from '@biddaloy/ui/shells';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import * as React from 'react';
+
+import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { ClassFormDialog } from './-class-form-dialog';
 import { DeleteClassDialog } from './-delete-class-dialog';
 import { SectionsPanel } from './-sections-panel';
 
 export const Route = createFileRoute('/_staff/classes/')({
+  loader: ({ context: { queryClient } }) =>
+    Promise.all([
+      // [8.14.5]: swallowed — see `academic-years/index.tsx`'s identical
+      // comment for why.
+      queryClient.ensureQueryData(classesQueryOptions({})).catch(swallowUnlessOffline),
+      loadRouteNamespaces('classes'),
+    ]),
+  pendingComponent: ClassesListPending,
   component: ClassesListPage,
 });
 
@@ -46,6 +58,7 @@ interface ClassFilters {
 
 function ClassesListPage() {
   const { t } = useTranslation('classes');
+  const regionConfig = useTenantRegionConfig();
   const [state, actions] = useListShellState({ limit: 10 });
   const filters = state.filters as ClassFilters;
   const canManage = useHasPermission(Permission.CLASS_MANAGE);
@@ -109,7 +122,8 @@ function ClassesListPage() {
       // Server-computed (`ClassService.findAll`'s `section_count`), not
       // `row.sections.length` — this endpoint no longer loads the
       // `sections` relation at all.
-      accessorFn: (row) => row.section_count,
+      accessorFn: (row) => formatNumber(row.section_count, regionConfig),
+      align: 'end',
     },
     {
       id: 'students',
@@ -118,7 +132,8 @@ function ClassesListPage() {
       // per-row `useClassSections(classId)` mount summing
       // `enrolled_count` client-side — that was 10 concurrent
       // `GET /classes/:id/sections` requests on a full page.
-      accessorFn: (row) => row.student_count,
+      accessorFn: (row) => formatNumber(row.student_count, regionConfig),
+      align: 'end',
     },
     ...(canManage
       ? [
@@ -150,7 +165,7 @@ function ClassesListPage() {
   ];
 
   return (
-    <>
+    <RegionConfigProvider value={regionConfig}>
       <CachedDataNotice queryKey={classesQueryOptions(classListFilters).queryKey} />
       <ListShell
         title={t('list.title')}
@@ -196,7 +211,10 @@ function ClassesListPage() {
         pageSize={state.limit}
         totalCount={classesQuery.data?.total ?? 0}
         onPageChange={actions.setPage}
+        onPageSizeChange={actions.setLimit}
+        pageSizeLabel={t('pagination.rowsPerPage', { ns: 'common' })}
         loading={classesQuery.isLoading}
+        isFetching={classesQuery.isFetching}
         {...(classesQuery.isError ? { error: t('list.errorMessage') } : {})}
         emptyMessage={t('list.emptyMessage')}
         announceResults={(count, total) =>
@@ -238,6 +256,11 @@ function ClassesListPage() {
           onDeleted={() => setDeleting(null)}
         />
       )}
-    </>
+    </RegionConfigProvider>
   );
+}
+
+function ClassesListPending() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="list" label={t('routePending.label', { ns: 'nav' })} />;
 }

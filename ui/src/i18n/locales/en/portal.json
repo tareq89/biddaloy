@@ -80,5 +80,93 @@
   "error": {
     "message": "Could not load your portal. Something went wrong reaching the school's records — check your connection and try again.",
     "retry": "Try again"
+  },
+  "account": {
+    "title": "Account",
+    "loading": "Loading your account",
+    "error": {
+      "message": "Could not load your account. Something went wrong reaching the school's records — check your connection and try again.",
+      "retry": "Try again"
+    },
+    "profile": {
+      "title": "Profile",
+      "save": "Save changes",
+      "saving": "Saving…",
+      "saved": "Profile updated",
+      "currentPasswordHint": "Changing your email or phone number requires your current password.",
+      "fields": {
+        "fullName": "Full name",
+        "email": "Email",
+        "phone": "Phone",
+        "currentPassword": "Current password"
+      },
+      "errors": {
+        "fullNameRequired": "Full name is required",
+        "fullNameTooLong": "Full name must be 100 characters or fewer",
+        "emailTooLong": "Email must be 100 characters or fewer",
+        "emailInvalid": "Enter a valid email address",
+        "phoneTooLong": "Phone must be 20 characters or fewer",
+        "phoneInvalid": "Enter a valid phone number",
+        "bothCleared": "You must keep at least an email or a phone number on file",
+        "currentPasswordRequired": "Enter your current password to change your email or phone number",
+        "wrongPassword": "That password is not correct",
+        "conflict": "That email or phone number is already in use"
+      }
+    },
+    "guardian": {
+      "title": "Contact numbers",
+      "explanation": "These are the numbers the school's fee reminders call and text.",
+      "save": "Save changes",
+      "saving": "Saving…",
+      "saved": "Contact details updated",
+      "fields": {
+        "phone": "Phone",
+        "alternatePhone": "Alternate phone",
+        "email": "Email",
+        "preferredCommunication": "Preferred contact method",
+        "notificationsEnabled": "Receive fee reminders and notifications"
+      },
+      "preferredCommunicationOptions": {
+        "SMS": "SMS",
+        "WHATSAPP": "WhatsApp",
+        "EMAIL": "Email",
+        "PHONE_CALL": "Phone call",
+        "MESSENGER": "Messenger"
+      },
+      "errors": {
+        "phoneInvalid": "Enter a valid Bangladeshi mobile number",
+        "emailInvalid": "Enter a valid email address"
+      }
+    },
+    "password": {
+      "title": "Change password",
+      "save": "Change password",
+      "saving": "Changing…",
+      "saved": "Password changed",
+      "show": "Show passwords",
+      "hide": "Hide passwords",
+      "consequenceNotice": "Changing your password will sign you out of every other device. This device stays signed in.",
+      "fields": {
+        "current": "Current password",
+        "new": "New password",
+        "confirm": "Confirm new password"
+      },
+      "errors": {
+        "currentRequired": "Enter your current password",
+        "newRequired": "Enter a new password",
+        "confirmRequired": "Confirm your new password",
+        "mismatch": "Passwords do not match",
+        "wrongPassword": "That password is not correct"
+      }
+    },
+    "preferences": {
+      "title": "Preferences",
+      "language": "Language",
+      "theme": "Theme"
+    },
+    "signOut": {
+      "action": "Sign out",
+      "signingOut": "Signing out…"
+    }
   }
 }

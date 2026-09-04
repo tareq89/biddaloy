@@ -12,6 +12,7 @@ function Probe() {
   return (
     <div>
       <p>page: {state.page}</p>
+      <p>limit: {state.limit}</p>
       <p>
         sort:{' '}
         {state.sorting ? `${state.sorting.id}:${state.sorting.desc ? 'desc' : 'asc'}` : 'none'}
@@ -30,6 +31,7 @@ function Probe() {
         Select two students
       </button>
       <button onClick={() => actions.setSelectedIds(new Set())}>Clear selection</button>
+      <button onClick={() => actions.setLimit(20)}>Set limit 20</button>
     </div>
   );
 }
@@ -129,5 +131,40 @@ describe('useListShellState', () => {
     expect(router.state.location.searchStr).toContain('page=5');
     expect(router.state.location.searchStr).toContain('class_id=class-9');
     expect(router.state.location.searchStr).toContain('sort=due_date');
+  });
+
+  it('setLimit writes limit and resets page to 1', async () => {
+    const user = userEvent.setup();
+    const { router } = renderWithRouter(buildRouteTree(), {
+      initialEntries: ['/students?page=3'],
+    });
+    await screen.findByText('page: 3');
+
+    await user.click(screen.getByRole('button', { name: 'Set limit 20' }));
+
+    await screen.findByText('limit: 20');
+    expect(router.state.location.searchStr).toContain('limit=20');
+    expect(router.state.location.searchStr).toContain('page=1');
+  });
+
+  it('setLimit does not disturb existing filters', async () => {
+    const user = userEvent.setup();
+    const { router } = renderWithRouter(buildRouteTree(), {
+      initialEntries: ['/students?class_id=class-9'],
+    });
+    await user.click(await screen.findByRole('button', { name: 'Set limit 20' }));
+
+    await screen.findByText('limit: 20');
+    expect(router.state.location.searchStr).toContain('class_id=class-9');
+  });
+
+  it('setLimit while on page 5 lands the user back on page 1', async () => {
+    const user = userEvent.setup();
+    renderWithRouter(buildRouteTree(), { initialEntries: ['/students?page=5'] });
+    await screen.findByText('page: 5');
+
+    await user.click(screen.getByRole('button', { name: 'Set limit 20' }));
+
+    await screen.findByText('page: 1');
   });
 });

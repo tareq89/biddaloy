@@ -1,5 +1,6 @@
 import { GUARDIAN_ROLES, Permission } from '@biddaloy/shared';
 import {
+  AppHeader,
   AppShell,
   BottomNav,
   SyncStatusIndicator,
@@ -10,7 +11,9 @@ import { useDensity } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { RequireRole } from '@biddaloy/ui/routes';
 import { createFileRoute, Outlet } from '@tanstack/react-router';
-import { CreditCardIcon, HomeIcon } from 'lucide-react';
+import { CreditCardIcon, HomeIcon, UserRoundIcon } from 'lucide-react';
+
+import { loadRouteNamespaces } from '../route-loaders';
 
 /**
  * [8.9.10]'s guardian half of one SPA — the family-facing audience
@@ -40,6 +43,10 @@ import { CreditCardIcon, HomeIcon } from 'lucide-react';
  * guardian has somewhere that is theirs instead of a 403.
  */
 export const Route = createFileRoute('/portal')({
+  // [8.14.5]: same reasoning as `_staff.tsx`'s own loader — this
+  // layout's chrome renders `nav` strings on every navigation, and
+  // `portal` covers the guardian-facing leaf routes underneath it.
+  loader: () => loadRouteNamespaces('nav', 'portal'),
   component: PortalLayout,
 });
 
@@ -81,6 +88,14 @@ function PortalLayout() {
       icon: <CreditCardIcon className="size-5" aria-hidden="true" />,
       permission: Permission.INVOICE_READ,
     },
+    {
+      to: '/portal/account',
+      label: t('items.portalAccount'),
+      icon: <UserRoundIcon className="size-5" aria-hidden="true" />,
+      // [8.14.4] No `permission`: every signed-in role in this shell owns
+      // its own account — this is the exact "everyone in the shell sees
+      // it" case `app-shell.tsx`'s `NavItem.permission` documents.
+    },
   ];
 
   return (
@@ -89,13 +104,15 @@ function PortalLayout() {
         navItems={navItems}
         brand={t('brand')}
         topBar={
-          <div className="flex flex-wrap items-center justify-between gap-x-2">
-            <TenantBar />
-            <div className="flex items-center gap-2">
-              <SyncStatusIndicator />
-              <ThemeToggle />
-            </div>
-          </div>
+          <AppHeader
+            start={<TenantBar />}
+            end={
+              <>
+                <SyncStatusIndicator />
+                <ThemeToggle />
+              </>
+            }
+          />
         }
         openMenuLabel={t('openMenuLabel')}
         closeMenuLabel={t('closeMenuLabel')}
