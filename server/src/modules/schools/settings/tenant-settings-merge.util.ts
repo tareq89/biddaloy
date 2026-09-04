@@ -46,9 +46,10 @@ function deepMergeOmittingUnset(existing: unknown, patch: unknown): unknown {
  * Merges an already-plain settings patch (see `toPlainSettingsPatch`) into
  * the existing stored jsonb blob.
  *
- * `region` is one dashboard section and is replaced wholesale when
- * present — the form that produces it always submits every field, so
- * there's no "omit to leave unchanged" case to support there.
+ * `region` and `attendance` are each one dashboard section and are
+ * replaced wholesale when present — the form that produces either
+ * always submits every field, so there's no "omit to leave unchanged"
+ * case to support there.
  *
  * `communications` merges recursively (`deepMergeOmittingUnset`): saving
  * the WhatsApp section doesn't clobber an already-configured SMS section
@@ -78,6 +79,10 @@ export function mergeTenantSettings(
 
   if (patch.region !== undefined) {
     merged.region = patch.region;
+  }
+
+  if (patch.attendance !== undefined) {
+    merged.attendance = patch.attendance;
   }
 
   if (patch.communications !== undefined) {

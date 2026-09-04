@@ -25,6 +25,7 @@ import { InvoicesModule } from './modules/invoices/invoices.module';
 import { CommunicationsModule } from './modules/communications/communications.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { SchoolsModule } from './modules/schools/schools.module';
+import { AttendanceModule } from './modules/attendance/attendance.module';
 import { validate } from './config/env.validation';
 
 // Entities for auto-loading
@@ -50,7 +51,12 @@ import { Enrollment } from './modules/students/entities/enrollment.entity';
 import { TeacherClassSection } from './modules/academics/entities/teacher-class-section.entity';
 import { Subject } from './modules/academics/entities/subject.entity';
 import { ClassSubject } from './modules/academics/entities/class-subject.entity';
+import { SchoolHoliday } from './modules/academics/entities/school-holiday.entity';
 import { RefreshToken } from './modules/auth/entities/refresh-token.entity';
+import { AttendanceSession } from './modules/attendance/entities/attendance-session.entity';
+import { AttendanceRecord } from './modules/attendance/entities/attendance-record.entity';
+import { AttendanceDevice } from './modules/attendance/entities/attendance-device.entity';
+import { AttendanceDeviceEvent } from './modules/attendance/entities/attendance-device-event.entity';
 
 @Module({
   imports: [
@@ -104,7 +110,12 @@ import { RefreshToken } from './modules/auth/entities/refresh-token.entity';
             TeacherClassSection,
             Subject,
             ClassSubject,
+            SchoolHoliday,
             RefreshToken,
+            AttendanceSession,
+            AttendanceRecord,
+            AttendanceDevice,
+            AttendanceDeviceEvent,
           ],
           synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
           migrations: ['dist/migrations/*.js'],
@@ -167,6 +178,7 @@ import { RefreshToken } from './modules/auth/entities/refresh-token.entity';
     InvoicesModule,
     CommunicationsModule,
     SchoolsModule,
+    AttendanceModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

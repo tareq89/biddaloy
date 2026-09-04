@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { resolveTenantSettings } from './tenant-settings-resolver';
-import { DEFAULT_REGION_SETTINGS } from './tenant-settings-defaults';
+import { DEFAULT_ATTENDANCE_SETTINGS, DEFAULT_REGION_SETTINGS } from './tenant-settings-defaults';
 
 describe('resolveTenantSettings', () => {
   it('resolves to full defaults for a null settings blob', () => {
@@ -8,6 +8,7 @@ describe('resolveTenantSettings', () => {
 
     expect(resolved.version).toBe(1);
     expect(resolved.region).toEqual(DEFAULT_REGION_SETTINGS);
+    expect(resolved.attendance).toEqual(DEFAULT_ATTENDANCE_SETTINGS);
     expect(resolved.communications).toBeUndefined();
   });
 
@@ -15,6 +16,13 @@ describe('resolveTenantSettings', () => {
     const resolved = resolveTenantSettings({});
 
     expect(resolved.region).toEqual(DEFAULT_REGION_SETTINGS);
+    expect(resolved.attendance).toEqual(DEFAULT_ATTENDANCE_SETTINGS);
+  });
+
+  it('merges a partial attendance patch over defaults, keeping the rest', () => {
+    const resolved = resolveTenantSettings({ attendance: { lateAfter: '09:00' } });
+
+    expect(resolved.attendance).toEqual({ ...DEFAULT_ATTENDANCE_SETTINGS, lateAfter: '09:00' });
   });
 
   it('falls back to default region when only communications is configured', () => {

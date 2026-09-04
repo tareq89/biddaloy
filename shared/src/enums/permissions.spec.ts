@@ -103,10 +103,11 @@ describe('family read grants [5.1]', () => {
     Permission.STUDENT_READ,
     Permission.FEE_READ,
     Permission.INVOICE_READ,
+    Permission.ATTENDANCE_READ,
   ] as const;
 
   for (const role of FAMILY_ROLES) {
-    it(`grants ${role} exactly STUDENT_READ, FEE_READ and INVOICE_READ`, () => {
+    it(`grants ${role} exactly STUDENT_READ, FEE_READ, INVOICE_READ and ATTENDANCE_READ`, () => {
       expect([...ROLE_PERMISSIONS[role]].sort()).toEqual([...FAMILY_PERMISSIONS].sort());
     });
   }
@@ -180,6 +181,9 @@ describe('family read grants [5.1]', () => {
       Permission.PAYMENT_REFUND,
       Permission.COMMUNICATION_SEND,
       Permission.REPORTS_VIEW,
+      Permission.ATTENDANCE_MARK,
+      Permission.ATTENDANCE_CORRECT,
+      Permission.ATTENDANCE_DEVICE_MANAGE,
     ] as const;
 
     for (const role of FAMILY_ROLES) {
@@ -189,5 +193,33 @@ describe('family read grants [5.1]', () => {
         );
       }
     }
+  });
+});
+
+describe('attendance role grants [9.2]', () => {
+  it('grants ATTENDANCE_MARK to TEACHER', () => {
+    expect(ROLE_PERMISSIONS[UserRole.TEACHER]).toContain(Permission.ATTENDANCE_MARK);
+  });
+
+  it('withholds ATTENDANCE_MARK from ACCOUNTANT', () => {
+    expect(ROLE_PERMISSIONS[UserRole.ACCOUNTANT]).not.toContain(Permission.ATTENDANCE_MARK);
+  });
+
+  it('grants ATTENDANCE_READ to PARENT and STUDENT', () => {
+    expect(ROLE_PERMISSIONS[UserRole.PARENT]).toContain(Permission.ATTENDANCE_READ);
+    expect(ROLE_PERMISSIONS[UserRole.STUDENT]).toContain(Permission.ATTENDANCE_READ);
+  });
+
+  it('withholds ATTENDANCE_CORRECT from every role except ADMIN and SUPER_ADMIN', () => {
+    for (const role of [
+      UserRole.ACCOUNTANT,
+      UserRole.EXECUTIVE,
+      UserRole.TEACHER,
+      UserRole.PARENT,
+      UserRole.STUDENT,
+    ]) {
+      expect(ROLE_PERMISSIONS[role]).not.toContain(Permission.ATTENDANCE_CORRECT);
+    }
+    expect(ROLE_PERMISSIONS[UserRole.ADMIN]).toContain(Permission.ATTENDANCE_CORRECT);
   });
 });

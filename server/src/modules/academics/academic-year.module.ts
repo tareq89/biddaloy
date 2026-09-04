@@ -4,6 +4,7 @@ import { AcademicYear } from './entities/academic-year.entity';
 import { Class } from './entities/class.entity';
 import { Subject } from './entities/subject.entity';
 import { ClassSubject } from './entities/class-subject.entity';
+import { SchoolHoliday } from './entities/school-holiday.entity';
 import { Enrollment } from '../students/entities/enrollment.entity';
 import { FeeStructure } from '../fees/entities/fee-structure.entity';
 import { AcademicYearService } from './academic-year.service';
@@ -15,12 +16,15 @@ import { SubjectController, ClassSubjectController } from './subjects.controller
   // Class/Enrollment/FeeStructure are registered entity-only (no
   // StudentsModule/FeesModule import) so AcademicYearService can count
   // against them for `getStats` without a cross-module DI cycle.
+  // SchoolHoliday is entity-only too, same as Subject/ClassSubject were
+  // before their own controllers landed — [9.4] owns its CRUD.
   imports: [
     TypeOrmModule.forFeature([
       AcademicYear,
       Class,
       Subject,
       ClassSubject,
+      SchoolHoliday,
       Enrollment,
       FeeStructure,
     ]),

@@ -2,7 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { TenantSettingsDto, TENANT_SETTINGS_SCHEMA_VERSION } from './tenant-settings.dto';
-import { DEFAULT_REGION_SETTINGS } from '../settings/tenant-settings-defaults';
+import {
+  DEFAULT_ATTENDANCE_SETTINGS,
+  DEFAULT_REGION_SETTINGS,
+} from '../settings/tenant-settings-defaults';
 
 // Matches the global pipe in server/src/validation-pipe.ts (buildValidationPipeOptions()),
 // which SchoolsController's @Body() dto: TenantSettingsDto actually runs
@@ -300,6 +303,57 @@ describe('TenantSettingsDto', () => {
         .find((e) => e.property === 'communications')
         ?.children?.find((e) => e.property === 'whatsapp');
       expect(whatsappError?.children?.some((e) => e.property === 'phoneNumberId')).toBe(true);
+    });
+  });
+
+  describe('attendance', () => {
+    it('accepts a full valid attendance section', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        attendance: DEFAULT_ATTENDANCE_SETTINGS,
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      expect(errors.find((e) => e.property === 'attendance')).toBeUndefined();
+    });
+
+    it('rejects a weeklyOffDays entry outside 0-6', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        attendance: { ...DEFAULT_ATTENDANCE_SETTINGS, weeklyOffDays: [7] },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      const attendanceError = errors.find((e) => e.property === 'attendance');
+      expect(attendanceError?.children?.some((e) => e.property === 'weeklyOffDays')).toBe(true);
+    });
+
+    it('rejects a lateAfter value outside HH:mm', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        attendance: { ...DEFAULT_ATTENDANCE_SETTINGS, lateAfter: '25:00' },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      const attendanceError = errors.find((e) => e.property === 'attendance');
+      expect(attendanceError?.children?.some((e) => e.property === 'lateAfter')).toBe(true);
+    });
+
+    it('rejects a lowAttendanceThresholdPercent above 100', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        attendance: { ...DEFAULT_ATTENDANCE_SETTINGS, lowAttendanceThresholdPercent: 101 },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      const attendanceError = errors.find((e) => e.property === 'attendance');
+      expect(
+        attendanceError?.children?.some((e) => e.property === 'lowAttendanceThresholdPercent'),
+      ).toBe(true);
     });
   });
 });

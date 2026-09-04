@@ -1,5 +1,5 @@
 import { TENANT_SETTINGS_SCHEMA_VERSION } from '../dto/tenant-settings.dto';
-import type { RegionSettings, TenantSettings } from '@biddaloy/shared';
+import type { AttendancePolicySettings, RegionSettings, TenantSettings } from '@biddaloy/shared';
 
 /**
  * bn-BD region defaults. #8.7.2 owns the canonical `RegionConfig` used by
@@ -41,7 +41,26 @@ export const DEFAULT_REGION_SETTINGS: RegionSettings = {
   timezone: 'Asia/Dhaka',
 };
 
+/**
+ * bn-BD attendance defaults. `autoAbsentNotification.enabled` is off by
+ * default: a school upgrading into this epic must not start texting
+ * parents without asking first ([9.8] owns turning it on).
+ */
+export const DEFAULT_ATTENDANCE_SETTINGS: AttendancePolicySettings = {
+  weeklyOffDays: [5],
+  lateAfter: '08:15',
+  absentAfter: '10:00',
+  correctionWindowDays: 2,
+  lowAttendanceThresholdPercent: 75,
+  lateCountsAsPresent: true,
+  leaveCountsAsWorkingDay: false,
+  percentageDenominator: 'WORKING_DAYS',
+  allowFutureDates: false,
+  autoAbsentNotification: { enabled: false, cutoffTime: '11:00' },
+};
+
 export const DEFAULT_TENANT_SETTINGS: TenantSettings = {
   version: TENANT_SETTINGS_SCHEMA_VERSION,
   region: DEFAULT_REGION_SETTINGS,
+  attendance: DEFAULT_ATTENDANCE_SETTINGS,
 };
