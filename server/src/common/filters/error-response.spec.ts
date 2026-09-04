@@ -102,6 +102,17 @@ describe('resolveDetails', () => {
   it('returns undefined for a non-HttpException', () => {
     expect(resolveDetails(new Error('boom'))).toBeUndefined();
   });
+
+  // typeof [] === 'object', so an array would otherwise pass the plain
+  // object check and reach clients expecting a key-value details map.
+  it('returns undefined when details is an array', () => {
+    const exception = new HttpException(
+      { message: 'bad', details: ['not', 'a', 'record'] },
+      HttpStatus.BAD_REQUEST,
+    );
+
+    expect(resolveDetails(exception)).toBeUndefined();
+  });
 });
 
 describe('buildErrorResponseBody', () => {
@@ -250,6 +261,16 @@ describe('buildErrorResponseBody', () => {
     );
 
     const body = buildErrorResponseBody(exception, opts('development'));
+
+    expect(body.details).toBeUndefined();
+  });
+
+  // A non-HttpException resolves to status 500 (see resolveStatus), so it
+  // must never carry details even though it never passed a 5xx code explicitly.
+  it('never attaches details from a raw Error (non-HttpException)', () => {
+    const error = Object.assign(new Error('boom'), { details: { secret: 'internal' } });
+
+    const body = buildErrorResponseBody(error, opts('development'));
 
     expect(body.details).toBeUndefined();
   });

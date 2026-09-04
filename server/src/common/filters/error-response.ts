@@ -63,7 +63,7 @@ export function resolveDetails(exception: unknown): Record<string, unknown> | un
     return undefined;
   }
   const details = (response as { details: unknown }).details;
-  return typeof details === 'object' && details !== null
+  return typeof details === 'object' && details !== null && !Array.isArray(details)
     ? (details as Record<string, unknown>)
     : undefined;
 }
@@ -97,9 +97,10 @@ export function buildErrorResponseBody(
     body.stack = exception.stack;
   }
 
-  // Suppressed on a 5xx for the same reason `message` is above — a 5xx's
-  // `details` (if any) is server-internal, not a client-facing contract.
-  if (!isServerError) {
+  // Restricted to 4xx for the same reason `message` is above — a 5xx's or
+  // non-HTTP-exception's `details` (if any) is server-internal, not a
+  // client-facing contract.
+  if (status >= HttpStatus.BAD_REQUEST && status < HttpStatus.INTERNAL_SERVER_ERROR) {
     const details = resolveDetails(exception);
     if (details) {
       body.details = details;
