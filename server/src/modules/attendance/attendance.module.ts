@@ -7,13 +7,23 @@ import { AttendanceDeviceEvent } from './entities/attendance-device-event.entity
 import { Student } from '../students/entities/student.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
+import { SchoolHoliday } from '../academics/entities/school-holiday.entity';
+import { AuditModule } from '../audit/audit.module';
+import { SchoolsModule } from '../schools/schools.module';
+import { AttendanceController } from './attendance.controller';
+import { AttendanceService } from './attendance.service';
+import { AttendanceAccessService } from './attendance-access.service';
 
 /**
- * Entity-only ticket ([9.2]) — no controllers or services yet. [9.3] fills
- * `providers`/`controllers` in; `Student`/`ClassSection`/`TeacherClassSection`
- * are registered here (rather than importing StudentModule/ClassModule) so
- * [9.3]'s marking service can query against them without a cross-module DI
+ * [9.2] was entity-only. [9.3] fills `providers`/`controllers` in.
+ * `Student`/`ClassSection`/`TeacherClassSection`/`SchoolHoliday` are
+ * registered here (rather than importing StudentModule/AcademicsModule) so
+ * this module's services can query against them without a cross-module DI
  * cycle, same reasoning as `classes.module.ts`'s own comment.
+ *
+ * `AttendanceService`/`AttendanceAccessService` are exported — [9.4], [9.5]
+ * and [9.8] inject them directly rather than re-deriving the same
+ * section-access join or register-assembly logic.
  */
 @Module({
   imports: [
@@ -25,10 +35,13 @@ import { TeacherClassSection } from '../academics/entities/teacher-class-section
       Student,
       ClassSection,
       TeacherClassSection,
+      SchoolHoliday,
     ]),
+    AuditModule,
+    SchoolsModule,
   ],
-  providers: [],
-  controllers: [],
-  exports: [TypeOrmModule],
+  providers: [AttendanceService, AttendanceAccessService],
+  controllers: [AttendanceController],
+  exports: [TypeOrmModule, AttendanceService, AttendanceAccessService],
 })
 export class AttendanceModule {}
