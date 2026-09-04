@@ -1,12 +1,18 @@
 import { describe, it, expect } from 'vitest';
 import {
   BadRequestException,
+  ConflictException,
   HttpException,
   HttpStatus,
   InternalServerErrorException,
 } from '@nestjs/common';
 import { ThrottlerException } from '@nestjs/throttler';
-import { buildErrorResponseBody, resolveDetailMessage, resolveStatus } from './error-response';
+import {
+  buildErrorResponseBody,
+  resolveDetailMessage,
+  resolveDetails,
+  resolveStatus,
+} from './error-response';
 
 describe('resolveStatus', () => {
   it('returns the HttpException status', () => {
@@ -58,6 +64,54 @@ describe('resolveDetailMessage', () => {
     expect(resolveDetailMessage('a string')).toBe('Internal server error');
     expect(resolveDetailMessage(null)).toBe('Internal server error');
     expect(resolveDetailMessage(undefined)).toBe('Internal server error');
+  });
+});
+
+describe('resolveDetails', () => {
+  // [9.3]'s `PUT .../register` 409 needs the current register in the body
+  // for 8.12.5's conflict dialog — this is the mechanism that carries it.
+  it('returns the details object from an HttpException thrown with one', () => {
+    const exception = new ConflictException({
+      message: 'Version conflict',
+      details: { current_version: 3, register: { id: 'session-1' } },
+    });
+
+    expect(resolveDetails(exception)).toEqual({
+      current_version: 3,
+      register: { id: 'session-1' },
+    });
+  });
+
+  it('returns undefined for a plain string-message exception', () => {
+    expect(resolveDetails(new ConflictException('Version conflict'))).toBeUndefined();
+  });
+
+  it('returns undefined when the response object has no details key', () => {
+    expect(resolveDetails(new BadRequestException({ message: 'bad' }))).toBeUndefined();
+  });
+
+  it('returns undefined when details is not an object', () => {
+    const exception = new HttpException(
+      { message: 'bad', details: 'not-an-object' },
+      HttpStatus.BAD_REQUEST,
+    );
+
+    expect(resolveDetails(exception)).toBeUndefined();
+  });
+
+  it('returns undefined for a non-HttpException', () => {
+    expect(resolveDetails(new Error('boom'))).toBeUndefined();
+  });
+
+  // typeof [] === 'object', so an array would otherwise pass the plain
+  // object check and reach clients expecting a key-value details map.
+  it('returns undefined when details is an array', () => {
+    const exception = new HttpException(
+      { message: 'bad', details: ['not', 'a', 'record'] },
+      HttpStatus.BAD_REQUEST,
+    );
+
+    expect(resolveDetails(exception)).toBeUndefined();
   });
 });
 
@@ -180,5 +234,44 @@ describe('buildErrorResponseBody', () => {
     const body = buildErrorResponseBody(exception, opts(undefined));
 
     expect(body.message).toBe('leaky detail');
+  });
+
+  it('attaches details from a 4xx that carries them', () => {
+    const exception = new ConflictException({
+      message: 'Version conflict',
+      details: { current_version: 3 },
+    });
+
+    const body = buildErrorResponseBody(exception, opts('production'));
+
+    expect(body.details).toEqual({ current_version: 3 });
+  });
+
+  it('omits details entirely for a plain string-message exception', () => {
+    const body = buildErrorResponseBody(new BadRequestException('bad'), opts('production'));
+
+    expect(body.details).toBeUndefined();
+  });
+
+  // 5xx details are server-internal, same reasoning as message suppression above.
+  it('never attaches details from a 5xx, even outside production', () => {
+    const exception = new HttpException(
+      { message: 'boom', details: { secret: 'internal' } },
+      HttpStatus.INTERNAL_SERVER_ERROR,
+    );
+
+    const body = buildErrorResponseBody(exception, opts('development'));
+
+    expect(body.details).toBeUndefined();
+  });
+
+  // A non-HttpException resolves to status 500 (see resolveStatus), so it
+  // must never carry details even though it never passed a 5xx code explicitly.
+  it('never attaches details from a raw Error (non-HttpException)', () => {
+    const error = Object.assign(new Error('boom'), { details: { secret: 'internal' } });
+
+    const body = buildErrorResponseBody(error, opts('development'));
+
+    expect(body.details).toBeUndefined();
   });
 });

@@ -1090,6 +1090,92 @@ export interface paths {
         patch: operations["SchoolsController_updateSettings_v1"];
         trace?: never;
     };
+    "/api/v1/attendance/my-sections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's landing screen — every section they may mark, with today's marking progress. */
+        get: operations["AttendanceController_listMySections_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attendance/sections/{sectionId}/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A section's register for one day (and optionally one period). */
+        get: operations["AttendanceController_getRegister_v1"];
+        /** Submits the whole register for one section, one day. Idempotent on `client_request_id` and conflict-checked on `base_version` — a replayed request returns 200 and writes nothing, and a stale `base_version` returns 409 with the current register. */
+        put: operations["AttendanceController_putRegister_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attendance/sections/{sectionId}/register/finalize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Finalizes an already-submitted register without resubmitting marks. Idempotent — finalizing an already-finalized register is a 200 no-op. */
+        post: operations["AttendanceController_finalize_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attendance/records/{recordId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Corrects one existing mark. `reason` is always required — this route only ever edits something that already exists. Outside the tenant's correction window this additionally requires ATTENDANCE_CORRECT. */
+        patch: operations["AttendanceController_correctRecord_v1"];
+        trace?: never;
+    };
+    "/api/v1/attendance/records/{recordId}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One mark's correction history. Gated on ATTENDANCE_READ plus section access — not AUDIT_LOG_READ — so a TEACHER can see who changed a mark in their own register without being handed the tenant-wide audit log to get it. */
+        get: operations["AttendanceController_getRecordHistory_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2302,6 +2388,103 @@ export interface components {
             region?: components["schemas"]["RegionSettingsDto"];
             communications?: components["schemas"]["CommunicationsSettingsDto"];
             attendance?: components["schemas"]["AttendancePolicyDto"];
+        };
+        MySectionTodayDto: {
+            /** @enum {string} */
+            state: "DRAFT" | "FINALIZED";
+            present: number;
+            absent: number;
+            late: number;
+            leave: number;
+            unmarked: number;
+            marked_at: string | null;
+        };
+        MySectionDto: {
+            section_id: string;
+            section_name: string;
+            class_name: string;
+            student_count: number;
+            today: components["schemas"]["MySectionTodayDto"] | null;
+        };
+        RegisterSectionDto: {
+            id: string;
+            section_name: string;
+            class_name: string;
+        };
+        SessionSummaryDto: {
+            id: string | null;
+            date: string;
+            period_no: number | null;
+            /** @enum {string} */
+            state: "DRAFT" | "FINALIZED";
+            version: number;
+            marked_by_user_id: string | null;
+            marked_at: string | null;
+            finalized_at: string | null;
+        };
+        RegisterPolicyDto: {
+            late_after: string;
+            correction_window_days: number;
+            allow_future_dates: boolean;
+        };
+        RegisterStudentDto: {
+            student_id: string;
+            roll_number: number;
+            full_name: string;
+            record_id: string | null;
+            /** @enum {string|null} */
+            status: "PRESENT" | "ABSENT" | "LATE" | "LEAVE" | null;
+            minutes_late: number | null;
+            remarks: string | null;
+            /** @enum {string|null} */
+            source: "TEACHER" | "DEVICE" | "IMPORT" | "SYSTEM" | null;
+            correction_count: number;
+        };
+        RegisterResponseDto: {
+            section: components["schemas"]["RegisterSectionDto"];
+            session: components["schemas"]["SessionSummaryDto"];
+            editable: boolean;
+            reason_required: boolean;
+            non_working_day: boolean;
+            policy: components["schemas"]["RegisterPolicyDto"];
+            students: components["schemas"]["RegisterStudentDto"][];
+        };
+        RegisterEntryDto: {
+            /** Format: uuid */
+            student_id: string;
+            /** @enum {string} */
+            status: "PRESENT" | "ABSENT" | "LATE" | "LEAVE";
+            minutes_late?: number;
+            remarks?: string;
+        };
+        PutRegisterDto: {
+            date: string;
+            period_no?: number | null;
+            base_version: number;
+            /** Format: uuid */
+            client_request_id: string;
+            finalize?: boolean;
+            reason?: string;
+            force_non_working_day?: boolean;
+            entries: components["schemas"]["RegisterEntryDto"][];
+        };
+        FinalizeRegisterDto: {
+            date: string;
+            period_no?: number | null;
+        };
+        CorrectRecordDto: {
+            /** @enum {string} */
+            status: "PRESENT" | "ABSENT" | "LATE" | "LEAVE";
+            minutes_late?: number;
+            remarks?: string;
+            reason: string;
+        };
+        RecordHistoryResponseDto: {
+            data: components["schemas"]["AuditLogResponseDto"][];
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
         };
     };
     responses: never;
@@ -5612,6 +5795,237 @@ export interface operations {
             };
             /** @description An ADMIN attempted to manage a school other than their own; only a SUPER_ADMIN can manage any school. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AttendanceController_listMySections_v1: {
+        parameters: {
+            query?: {
+                date?: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MySectionDto"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AttendanceController_getRegister_v1: {
+        parameters: {
+            query: {
+                date: string;
+                period_no?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                sectionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegisterResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AttendanceController_putRegister_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                sectionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PutRegisterDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegisterResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description base_version does not match the session's current version. `details.current_version` and `details.register` (the same shape as GET .../register) let the client refresh and retry without a second round trip. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    AttendanceController_finalize_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                sectionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinalizeRegisterDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegisterResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AttendanceController_correctRecord_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                recordId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CorrectRecordDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegisterResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AttendanceController_getRecordHistory_v1: {
+        parameters: {
+            query?: {
+                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST";
+                entity_type?: string;
+                performed_by_user_id?: string;
+                entity_id?: string;
+                from_date?: string;
+                to_date?: string;
+                page?: number;
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                recordId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordHistoryResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
