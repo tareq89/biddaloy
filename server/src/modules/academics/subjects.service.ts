@@ -100,6 +100,19 @@ export class SubjectService {
   async remove(id: string, tenantId: string): Promise<void> {
     await this.findOne(id, tenantId);
     await this.repo.manager.transaction(async (manager) => {
+      // Lock the subject row first — without this, a concurrent
+      // attachToClass() could read the subject as active between this
+      // transaction's two soft deletes and insert a ClassSubject pointing
+      // at a subject we're in the middle of removing. Locking here
+      // serializes with attachToClass()'s own lock on the same row.
+      const locked = await manager
+        .createQueryBuilder(Subject, 'subject')
+        .setLock('pessimistic_write')
+        .where('subject.id = :id AND subject.tenant_id = :tenantId', { id, tenantId })
+        .getOne();
+      if (!locked) {
+        throw new NotFoundException(`Subject with ID "${id}" not found`);
+      }
       await manager.softDelete(ClassSubject, { subject_id: id, tenant_id: tenantId });
       await manager.softDelete(Subject, { id, tenant_id: tenantId });
     });
@@ -144,14 +157,6 @@ export class SubjectService {
       throw new NotFoundException(`Class with ID "${classId}" not found`);
     }
 
-    // Verify subject belongs to tenant.
-    const subject = await this.repo.findOne({
-      where: { id: dto.subject_id, tenant_id: tenantId, deleted_at: IsNull() },
-    });
-    if (!subject) {
-      throw new NotFoundException(`Subject with ID "${dto.subject_id}" not found`);
-    }
-
     // Verify academic year belongs to tenant.
     const academicYear = await this.academicYearRepo.findOne({
       where: { id: dto.academic_year_id, tenant_id: tenantId, deleted_at: IsNull() },
@@ -168,30 +173,54 @@ export class SubjectService {
       );
     }
 
-    const existing = await this.classSubjectRepo.findOne({
-      where: {
+    const savedId = await this.repo.manager.transaction(async (manager) => {
+      // Lock the subject row before trusting it as active — serializes
+      // with SubjectService.remove()'s own lock on the same row, so a
+      // concurrent removal can't finish between this check and the insert
+      // below and leave an active ClassSubject pointing at a deleted
+      // subject.
+      const subject = await manager
+        .createQueryBuilder(Subject, 'subject')
+        .setLock('pessimistic_write')
+        .where(
+          'subject.id = :id AND subject.tenant_id = :tenantId AND subject.deleted_at IS NULL',
+          {
+            id: dto.subject_id,
+            tenantId,
+          },
+        )
+        .getOne();
+      if (!subject) {
+        throw new NotFoundException(`Subject with ID "${dto.subject_id}" not found`);
+      }
+
+      const existing = await manager.findOne(ClassSubject, {
+        where: {
+          class_id: classId,
+          subject_id: dto.subject_id,
+          academic_year_id: dto.academic_year_id,
+          deleted_at: IsNull(),
+        },
+      });
+      if (existing) {
+        throw new ConflictException(
+          `Subject "${dto.subject_id}" is already offered by class "${classId}" in that academic year`,
+        );
+      }
+
+      const entity = manager.create(ClassSubject, {
         class_id: classId,
         subject_id: dto.subject_id,
         academic_year_id: dto.academic_year_id,
-        deleted_at: IsNull(),
-      },
+        is_optional: dto.is_optional ?? false,
+        tenant_id: tenantId,
+      });
+      const saved = await manager.save(ClassSubject, entity);
+      return saved.id;
     });
-    if (existing) {
-      throw new ConflictException(
-        `Subject "${dto.subject_id}" is already offered by class "${classId}" in that academic year`,
-      );
-    }
 
-    const entity = this.classSubjectRepo.create({
-      class_id: classId,
-      subject_id: dto.subject_id,
-      academic_year_id: dto.academic_year_id,
-      is_optional: dto.is_optional ?? false,
-      tenant_id: tenantId,
-    });
-    const saved = await this.classSubjectRepo.save(entity);
     return (await this.classSubjectRepo.findOne({
-      where: { id: saved.id },
+      where: { id: savedId },
       relations: ['subject'],
     })) as ClassSubject;
   }

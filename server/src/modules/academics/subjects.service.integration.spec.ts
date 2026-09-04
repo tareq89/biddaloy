@@ -183,6 +183,35 @@ describe('SubjectService (integration)', () => {
       );
       expect(raw.deleted_at).not.toBeNull();
     });
+
+    it('does not leave a dangling active ClassSubject when racing attachToClass()', async () => {
+      const subject = await service.create({ name_en: 'Mathematics', code: 'MATH' }, TENANT_ID);
+
+      // Both operations lock the same subject row, so whichever call's
+      // transaction starts first wins and the other observes its
+      // post-commit state — either the attach happened before the remove
+      // (and the remove's cascade cleans it up), or the remove happened
+      // first (and the attach sees the subject as already deleted).
+      await Promise.allSettled([
+        service.remove(subject.id, TENANT_ID),
+        service.attachToClass(
+          classId,
+          { subject_id: subject.id, academic_year_id: academicYearId },
+          TENANT_ID,
+        ),
+      ]);
+
+      const [rawSubject] = await dataSource.query('SELECT deleted_at FROM subjects WHERE id = $1', [
+        subject.id,
+      ]);
+      if (rawSubject.deleted_at !== null) {
+        const [{ count: activeAttachments }] = await dataSource.query(
+          'SELECT count(*)::int AS count FROM class_subjects WHERE subject_id = $1 AND deleted_at IS NULL',
+          [subject.id],
+        );
+        expect(activeAttachments).toBe(0);
+      }
+    });
   });
 
   describe('attachToClass / findByClass / detachFromClass', () => {
