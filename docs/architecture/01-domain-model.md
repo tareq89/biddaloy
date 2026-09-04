@@ -20,6 +20,9 @@ erDiagram
     School ||--o{ Payment : scopes
     School ||--o{ CommunicationLog : scopes
     School ||--o{ ReminderBatch : scopes
+    School ||--o{ AttendanceSession : scopes
+    School ||--o{ AttendanceDevice : scopes
+    School ||--o{ SchoolHoliday : scopes
 
     AcademicYear ||--o{ Class : contains
     AcademicYear ||--o{ FeeStructure : "fees for"
@@ -51,6 +54,12 @@ erDiagram
 
     User ||--o{ AuditLog : "performed by"
     User ||--o{ RefreshToken : owns
+    ClassSection ||--o{ AttendanceSession : "registers for"
+    AttendanceSession ||--o{ AttendanceRecord : "marks students in"
+    Student ||--o{ AttendanceRecord : "marked in"
+    AttendanceDevice ||--o{ AttendanceRecord : "produced"
+    AttendanceDevice ||--o{ AttendanceDeviceEvent : "sent"
+    AcademicYear ||--o{ SchoolHoliday : "calendar for"
 ```
 
 _(This shows the shape of the graph, not every column — see each entity file
@@ -121,6 +130,14 @@ for full field lists.)_
 - **`ReminderBatch`** — tracks a bulk reminder campaign (progress, success
   rate, filters used); each message it produces gets its own
   `CommunicationLog` row.
+
+### Attendance (`modules/attendance`)
+
+- **`AttendanceSession`** — one register: a section, on one school day, for one period (or the whole day if `period_no` is null). Holds no marks itself.
+- **`AttendanceRecord`** — one student's mark within one `AttendanceSession`. `date` is denormalised from the session for fast per-student range queries.
+- **`AttendanceDevice`** — a biometric/face/RFID reader that can post attendance events for a tenant.
+- **`AttendanceDeviceEvent`** — one raw scan a device sent, the forensic trail behind an `AttendanceRecord`.
+- **`SchoolHoliday`** (`modules/academics`) — a calendar entry (holiday, exam day, event) attendance reads to compute working-day math; an academics concern, not an attendance one.
 
 ### Audit & auth internals (`modules/audit`, `modules/auth`)
 

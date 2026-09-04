@@ -2279,11 +2279,29 @@ export interface components {
             email?: components["schemas"]["EmailSettingsDto"];
             messenger?: components["schemas"]["MessengerSettingsDto"];
         };
+        AutoAbsentNotificationDto: {
+            enabled: boolean;
+            cutoffTime: string;
+        };
+        AttendancePolicyDto: {
+            weeklyOffDays: number[];
+            lateAfter: string;
+            absentAfter: string;
+            correctionWindowDays: number;
+            lowAttendanceThresholdPercent: number;
+            lateCountsAsPresent: boolean;
+            leaveCountsAsWorkingDay: boolean;
+            /** @enum {string} */
+            percentageDenominator: "WORKING_DAYS" | "MARKED_DAYS";
+            allowFutureDates: boolean;
+            autoAbsentNotification: components["schemas"]["AutoAbsentNotificationDto"];
+        };
         TenantSettingsDto: {
             /** @enum {number} */
             version: 1;
             region?: components["schemas"]["RegionSettingsDto"];
             communications?: components["schemas"]["CommunicationsSettingsDto"];
+            attendance?: components["schemas"]["AttendancePolicyDto"];
         };
     };
     responses: never;

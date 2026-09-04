@@ -83,6 +83,15 @@ export enum Permission {
 
   // Settings
   SETTINGS_MANAGE = 'SETTINGS_MANAGE',
+
+  // Attendance
+  ATTENDANCE_READ = 'ATTENDANCE_READ',
+  ATTENDANCE_MARK = 'ATTENDANCE_MARK',
+  // Edit a mark outside the tenant's correction window, or on a
+  // non-working day. Object scope (which sections) is still enforced
+  // server-side.
+  ATTENDANCE_CORRECT = 'ATTENDANCE_CORRECT',
+  ATTENDANCE_DEVICE_MANAGE = 'ATTENDANCE_DEVICE_MANAGE',
 }
 
 import { UserRole } from './index';
@@ -126,6 +135,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.CLASS_MANAGE,
     Permission.AUDIT_LOG_READ,
     Permission.SETTINGS_MANAGE,
+    Permission.ATTENDANCE_READ,
+    Permission.ATTENDANCE_MARK,
+    Permission.ATTENDANCE_CORRECT,
+    Permission.ATTENDANCE_DEVICE_MANAGE,
   ],
 
   [UserRole.ACCOUNTANT]: [
@@ -159,6 +172,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.REPORTS_VIEW,
     Permission.REPORTS_EXPORT,
     Permission.DASHBOARD_VIEW,
+    Permission.ATTENDANCE_READ,
   ],
 
   [UserRole.TEACHER]: [
@@ -171,6 +185,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.FEE_READ,
     Permission.COMMUNICATION_SEND,
     Permission.DASHBOARD_VIEW,
+    Permission.ATTENDANCE_READ,
+    Permission.ATTENDANCE_MARK,
   ],
 
   // [5.1] added no permissions to either family role. The widened server
@@ -179,9 +195,23 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   // `/invoices/:id`, `/invoices/:id/print`) are all covered by the three
   // reads below — object-scoped, per the STUDENT_READ note above.
   // Deliberately no PAYMENT_READ: that is the tenant-wide ledger.
-  [UserRole.PARENT]: [Permission.STUDENT_READ, Permission.FEE_READ, Permission.INVOICE_READ],
+  //
+  // ATTENDANCE_READ is scoped the same way: server decides which student's
+  // register a PARENT/STUDENT can see, via FamilyAccessService — same
+  // reasoning as STUDENT_READ above.
+  [UserRole.PARENT]: [
+    Permission.STUDENT_READ,
+    Permission.FEE_READ,
+    Permission.INVOICE_READ,
+    Permission.ATTENDANCE_READ,
+  ],
 
-  [UserRole.STUDENT]: [Permission.STUDENT_READ, Permission.FEE_READ, Permission.INVOICE_READ],
+  [UserRole.STUDENT]: [
+    Permission.STUDENT_READ,
+    Permission.FEE_READ,
+    Permission.INVOICE_READ,
+    Permission.ATTENDANCE_READ,
+  ],
 
   [UserRole.EXECUTIVE]: [
     Permission.STUDENT_READ,
@@ -205,5 +235,6 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.FEE_READ,
     Permission.REPORTS_VIEW,
     Permission.DASHBOARD_VIEW,
+    Permission.ATTENDANCE_READ,
   ],
 };

@@ -63,6 +63,37 @@ export interface RegionSettings {
   timezone: string;
 }
 
+/**
+ * How a school counts attendance. Every attendance percentage and
+ * low-attendance flag downstream depends on this, so it lives here and
+ * every consumer (marking UI, summaries, exam module in a later epic)
+ * reads one policy instead of re-deriving school rules.
+ */
+export interface AttendancePolicySettings {
+  /** 0 = Sunday … 6 = Saturday. Bangladesh default: Friday only. */
+  weeklyOffDays: number[];
+  /** Local 'HH:mm'. A check-in after this is LATE. */
+  lateAfter: string;
+  /** Local 'HH:mm'. A check-in after this is ABSENT, not LATE. */
+  absentAfter: string;
+  /** Days a teacher may edit their own marks without ATTENDANCE_CORRECT. */
+  correctionWindowDays: number;
+  /** Below this a student is flagged low-attendance. BD board eligibility
+   * is commonly 75. */
+  lowAttendanceThresholdPercent: number;
+  /** Does a LATE day count toward the numerator? */
+  lateCountsAsPresent: boolean;
+  /** Does an approved LEAVE day stay in the denominator? */
+  leaveCountsAsWorkingDay: boolean;
+  /** WORKING_DAYS = full calendar. MARKED_DAYS = only days the register
+   * was finalized. A school that marks unreliably wants MARKED_DAYS. */
+  percentageDenominator: 'WORKING_DAYS' | 'MARKED_DAYS';
+  /** Is marking a future date allowed at all, and if so only LEAVE (9.3
+   * enforces this). */
+  allowFutureDates: boolean;
+  autoAbsentNotification: { enabled: boolean; cutoffTime: string };
+}
+
 export type SmsGatewayName = 'greenweb' | 'mimsms';
 
 export interface GreenwebSmsSettings {
@@ -112,4 +143,5 @@ export interface TenantSettings {
   version: typeof TENANT_SETTINGS_SCHEMA_VERSION;
   region?: RegionSettings;
   communications?: CommunicationsSettings;
+  attendance?: AttendancePolicySettings;
 }

@@ -1,5 +1,5 @@
 import { TENANT_SETTINGS_SCHEMA_VERSION } from '../dto/tenant-settings.dto';
-import { DEFAULT_REGION_SETTINGS } from './tenant-settings-defaults';
+import { DEFAULT_ATTENDANCE_SETTINGS, DEFAULT_REGION_SETTINGS } from './tenant-settings-defaults';
 import type { TenantSettings } from '@biddaloy/shared';
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -65,6 +65,7 @@ function overlayOnDefaults<T>(defaults: T, stored: unknown): T {
  */
 export function resolveTenantSettings(stored: Record<string, unknown> | null): TenantSettings {
   const region = overlayOnDefaults(DEFAULT_REGION_SETTINGS, stored?.region);
+  const attendance = overlayOnDefaults(DEFAULT_ATTENDANCE_SETTINGS, stored?.attendance);
   const communications = isPlainObject(stored?.communications)
     ? (stored.communications as TenantSettings['communications'])
     : undefined;
@@ -72,6 +73,7 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
   return {
     version: TENANT_SETTINGS_SCHEMA_VERSION,
     region,
+    attendance,
     ...(communications ? { communications } : {}),
   };
 }

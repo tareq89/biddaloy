@@ -3,9 +3,11 @@ import {
   IsInt,
   IsString,
   IsArray,
+  IsBoolean,
   ArrayNotEmpty,
   IsNotEmpty,
   IsOptional,
+  Matches,
   Min,
   Max,
   Validate,
@@ -256,6 +258,58 @@ export class CommunicationsSettingsDto {
   messenger?: MessengerSettingsDto;
 }
 
+const HH_MM_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+export class AutoAbsentNotificationDto {
+  @IsBoolean()
+  enabled: boolean;
+
+  @IsString()
+  @Matches(HH_MM_PATTERN)
+  cutoffTime: string;
+}
+
+export class AttendancePolicyDto {
+  @IsArray()
+  @IsInt({ each: true })
+  @Min(0, { each: true })
+  @Max(6, { each: true })
+  weeklyOffDays: number[];
+
+  @IsString()
+  @Matches(HH_MM_PATTERN)
+  lateAfter: string;
+
+  @IsString()
+  @Matches(HH_MM_PATTERN)
+  absentAfter: string;
+
+  @IsInt()
+  @Min(0)
+  @Max(365)
+  correctionWindowDays: number;
+
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  lowAttendanceThresholdPercent: number;
+
+  @IsBoolean()
+  lateCountsAsPresent: boolean;
+
+  @IsBoolean()
+  leaveCountsAsWorkingDay: boolean;
+
+  @IsIn(['WORKING_DAYS', 'MARKED_DAYS'])
+  percentageDenominator: 'WORKING_DAYS' | 'MARKED_DAYS';
+
+  @IsBoolean()
+  allowFutureDates: boolean;
+
+  @NestedSettings(() => AutoAbsentNotificationDto)
+  autoAbsentNotification: AutoAbsentNotificationDto;
+}
+
 export class TenantSettingsDto {
   @IsIn([TENANT_SETTINGS_SCHEMA_VERSION])
   version: typeof TENANT_SETTINGS_SCHEMA_VERSION;
@@ -267,4 +321,8 @@ export class TenantSettingsDto {
   @OptionalSetting()
   @NestedSettings(() => CommunicationsSettingsDto)
   communications?: CommunicationsSettingsDto;
+
+  @OptionalSetting()
+  @NestedSettings(() => AttendancePolicyDto)
+  attendance?: AttendancePolicyDto;
 }

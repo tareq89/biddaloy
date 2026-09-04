@@ -142,3 +142,43 @@ export enum EnrollmentStatus {
   TRANSFERRED = 'TRANSFERRED',
   GRADUATED = 'GRADUATED',
 }
+
+export enum AttendanceStatus {
+  PRESENT = 'PRESENT',
+  ABSENT = 'ABSENT',
+  LATE = 'LATE',
+  LEAVE = 'LEAVE',
+}
+
+/**
+ * Who produced an attendance mark. Teacher authority beats device
+ * authority — see `AttendanceRecord`'s docstring.
+ */
+export enum AttendanceSource {
+  TEACHER = 'TEACHER',
+  DEVICE = 'DEVICE',
+  IMPORT = 'IMPORT',
+  SYSTEM = 'SYSTEM',
+}
+
+export enum AttendanceSessionState {
+  DRAFT = 'DRAFT',
+  FINALIZED = 'FINALIZED',
+}
+
+export enum AttendanceDeviceKind {
+  BIOMETRIC = 'BIOMETRIC',
+  FACE = 'FACE',
+  RFID = 'RFID',
+  OTHER = 'OTHER',
+}
+
+export enum AttendanceDeviceStatus {
+  ACTIVE = 'ACTIVE',
+  REVOKED = 'REVOKED',
+}
+
+export enum AttendanceEventDirection {
+  IN = 'IN',
+  OUT = 'OUT',
+}
