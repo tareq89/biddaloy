@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  VersionColumn,
   ManyToOne,
   JoinColumn,
   Index,
@@ -25,9 +26,11 @@ import { AttendanceSessionState, AttendanceSource } from '@biddaloy/shared';
  * `string` here; treating it as a `Date` silently drifts by timezone.
  *
  * No `deleted_at`: a register is corrected, never deleted — [9.3] owns the
- * correction/audit-trail flow. `version` is bumped on every write for
- * optimistic concurrency: [9.3] rejects a write whose `base_version`
- * doesn't match and fires [8.12.5]'s conflict dialog.
+ * correction/audit-trail flow. `version` is a TypeORM `@VersionColumn`,
+ * auto-incremented on every `save()`: [9.3] does the atomic conditional
+ * update (matching `base_version` in the `WHERE` clause) and rejects a
+ * write whose `base_version` doesn't match, firing [8.12.5]'s conflict
+ * dialog.
  * `last_client_request_id` gives the same write replay idempotency — a
  * re-sent offline mutation carrying an id already stored against this
  * register writes nothing. This is the fix for the duplicate-write hole
@@ -85,7 +88,7 @@ export class AttendanceSession {
   @Column({ type: 'enum', enum: AttendanceSessionState, default: AttendanceSessionState.DRAFT })
   state: AttendanceSessionState;
 
-  @Column({ type: 'int', default: 1 })
+  @VersionColumn({ type: 'int', default: 1 })
   version: number;
 
   @Column({ type: 'enum', enum: AttendanceSource, default: AttendanceSource.TEACHER })
