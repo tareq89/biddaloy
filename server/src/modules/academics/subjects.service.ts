@@ -99,7 +99,10 @@ export class SubjectService {
 
   async remove(id: string, tenantId: string): Promise<void> {
     await this.findOne(id, tenantId);
-    await this.repo.softDelete({ id, tenant_id: tenantId });
+    await this.repo.manager.transaction(async (manager) => {
+      await manager.softDelete(ClassSubject, { subject_id: id, tenant_id: tenantId });
+      await manager.softDelete(Subject, { id, tenant_id: tenantId });
+    });
   }
 
   /** Class detail page's Subjects tab — every subject offered by a class
@@ -155,6 +158,14 @@ export class SubjectService {
     });
     if (!academicYear) {
       throw new NotFoundException(`Academic year with ID "${dto.academic_year_id}" not found`);
+    }
+
+    // The academic year must match the class's own — a class can't offer a
+    // subject under a different year than the one it belongs to.
+    if (cls.academic_year_id !== dto.academic_year_id) {
+      throw new ConflictException(
+        `Class "${classId}" belongs to a different academic year than "${dto.academic_year_id}"`,
+      );
     }
 
     const existing = await this.classSubjectRepo.findOne({
