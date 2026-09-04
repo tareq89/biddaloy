@@ -430,7 +430,7 @@ function SectionRegisterPage() {
                 })}
           </p>
         )}
-        {!register.policy.allow_future_dates && date > todayIso() && (
+        {futureDateLeaveOnly && (
           <p className="rounded-md border border-border-subtle bg-muted p-2 text-sm text-muted-foreground">
             {t('mark.futureDateBanner')}
           </p>
