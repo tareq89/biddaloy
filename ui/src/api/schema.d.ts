@@ -208,6 +208,78 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/subjects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List subjects for the current tenant. */
+        get: operations["SubjectController_findAll_v1"];
+        put?: never;
+        /** Create a subject. */
+        post: operations["SubjectController_create_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/subjects/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a single subject by ID. */
+        get: operations["SubjectController_findOne_v1"];
+        put?: never;
+        post?: never;
+        /** Delete a subject. */
+        delete: operations["SubjectController_remove_v1"];
+        options?: never;
+        head?: never;
+        /** Update a subject. */
+        patch: operations["SubjectController_update_v1"];
+        trace?: never;
+    };
+    "/api/v1/classes/{classId}/subjects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a class's subjects for an academic year. */
+        get: operations["ClassSubjectController_findByClass_v1"];
+        put?: never;
+        /** Attach a subject to a class's academic-year offering. */
+        post: operations["ClassSubjectController_attach_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/classes/{classId}/subjects/{subjectId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Detach a subject from a class's academic-year offering. */
+        delete: operations["ClassSubjectController_detach_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/classes": {
         parameters: {
             query?: never;
@@ -1128,11 +1200,47 @@ export interface components {
             end_date?: string;
             is_current?: boolean;
         };
-        CreateClassDto: {
-            name: string;
-            numeric_grade?: number;
-            /** Format: uuid */
-            academic_year_id: string;
+        CreateSubjectDto: {
+            name_en: string;
+            name_bn?: string;
+            code: string;
+            is_active?: boolean;
+        };
+        Subject: {
+            id: string;
+            tenant: components["schemas"]["School"];
+            tenant_id: string;
+            name_en: string;
+            name_bn: string | null;
+            code: string;
+            is_active: boolean;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            deleted_at: string | null;
+        };
+        UpdateSubjectDto: {
+            name_en?: string;
+            name_bn?: string;
+            code?: string;
+            is_active?: boolean;
+        };
+        ClassSection: {
+            id: string;
+            class: components["schemas"]["Class"];
+            class_id: string;
+            section_name: string;
+            capacity: number | null;
+            tenant: components["schemas"]["School"];
+            tenant_id: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            deleted_at: string | null;
         };
         Class: {
             id: string;
@@ -1150,20 +1258,36 @@ export interface components {
             /** Format: date-time */
             deleted_at: string | null;
         };
-        ClassSection: {
+        ClassSubject: {
             id: string;
-            class: components["schemas"]["Class"];
-            class_id: string;
-            section_name: string;
-            capacity: number | null;
             tenant: components["schemas"]["School"];
             tenant_id: string;
+            class: components["schemas"]["Class"];
+            class_id: string;
+            subject: components["schemas"]["Subject"];
+            subject_id: string;
+            academic_year: components["schemas"]["AcademicYear"];
+            academic_year_id: string;
+            is_optional: boolean;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
             updated_at: string;
             /** Format: date-time */
             deleted_at: string | null;
+        };
+        AttachClassSubjectDto: {
+            /** Format: uuid */
+            subject_id: string;
+            /** Format: uuid */
+            academic_year_id: string;
+            is_optional?: boolean;
+        };
+        CreateClassDto: {
+            name: string;
+            numeric_grade?: number;
+            /** Format: uuid */
+            academic_year_id: string;
         };
         UpdateClassDto: {
             name?: string;
@@ -2621,6 +2745,283 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AcademicYear"];
                 };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SubjectController_findAll_v1: {
+        parameters: {
+            query?: {
+                is_active?: boolean;
+                page?: number;
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SubjectController_create_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSubjectDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Subject"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SubjectController_findOne_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Subject"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SubjectController_remove_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SubjectController_update_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSubjectDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Subject"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ClassSubjectController_findByClass_v1: {
+        parameters: {
+            query: {
+                academic_year_id: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                classId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassSubject"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ClassSubjectController_attach_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                classId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttachClassSubjectDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassSubject"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ClassSubjectController_detach_v1: {
+        parameters: {
+            query: {
+                academic_year_id: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                classId: string;
+                subjectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {

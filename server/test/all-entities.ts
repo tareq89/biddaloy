@@ -3,6 +3,8 @@ import { Class } from '../src/modules/academics/entities/class.entity';
 import { ClassSection } from '../src/modules/academics/entities/class-section.entity';
 import { Teacher } from '../src/modules/academics/entities/teacher.entity';
 import { TeacherClassSection } from '../src/modules/academics/entities/teacher-class-section.entity';
+import { Subject } from '../src/modules/academics/entities/subject.entity';
+import { ClassSubject } from '../src/modules/academics/entities/class-subject.entity';
 import { AuditLog } from '../src/modules/audit/entities/audit-log.entity';
 import { UserTenant } from '../src/modules/auth/entities/user-tenant.entity';
 import { CommunicationLog } from '../src/modules/communications/entities/communication-log.entity';
@@ -25,6 +27,8 @@ export const ALL_ENTITIES = [
   ClassSection,
   Teacher,
   TeacherClassSection,
+  Subject,
+  ClassSubject,
   AuditLog,
   UserTenant,
   CommunicationLog,

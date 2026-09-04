@@ -138,6 +138,26 @@ export {
 } from './audit-logs';
 export { hasPermission, useHasPermission } from './permissions';
 export {
+  classSubjectsKey,
+  classSubjectsQueryOptions,
+  subjectKeys,
+  subjectsQueryOptions,
+  useAttachClassSubject,
+  useClassSubjects,
+  useCreateSubject,
+  useDeleteSubject,
+  useDetachClassSubject,
+  useSubjects,
+  useUpdateSubject,
+  type AttachClassSubjectInput,
+  type ClassSubject,
+  type CreateSubjectInput,
+  type PaginatedSubjects,
+  type Subject,
+  type SubjectListFilters,
+  type UpdateSubjectInput,
+} from './subjects';
+export {
   classKeys,
   classesQueryOptions,
   classQueryOptions,

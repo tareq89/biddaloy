@@ -169,7 +169,10 @@ export class UserService {
 
     const idQb = buildIdQuery();
     if (query.sort === 'full_name') {
-      idQb.orderBy(`u.full_name COLLATE "${BN_COLLATION}"`, query.order === 'desc' ? 'DESC' : 'ASC');
+      idQb.orderBy(
+        `u.full_name COLLATE "${BN_COLLATION}"`,
+        query.order === 'desc' ? 'DESC' : 'ASC',
+      );
     } else if (query.sort === 'email') {
       idQb.orderBy('u.email', query.order === 'desc' ? 'DESC' : 'ASC');
     } else if (query.sort === 'joined_at') {
@@ -484,6 +487,7 @@ export class TeacherService {
         this.tcsRepo.create({
           teacher_id: savedTeacher.id,
           section_id: sectionId,
+          tenant_id: tenantId,
         }),
       );
       await this.tcsRepo.save(tcsEntries);
@@ -568,6 +572,7 @@ export class TeacherService {
           this.tcsRepo.create({
             teacher_id: id,
             section_id: sectionId,
+            tenant_id: tenantId,
           }),
         );
         await this.tcsRepo.save(tcsEntries);

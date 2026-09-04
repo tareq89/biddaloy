@@ -111,6 +111,38 @@
       "columnSections": "শাখা",
       "emptyMessage": "এই শ্রেণিতে কোনো শিক্ষক নিয়োজিত নেই",
       "errorMessage": "শিক্ষক লোড করতে ব্যর্থ হয়েছে"
-    }
+    },
+    "tabSubjects": "বিষয়"
+  },
+  "subjects": {
+    "heading": "বিষয়সমূহ",
+    "addSubject": "+ বিষয়",
+    "columnName": "বিষয়",
+    "columnCode": "কোড",
+    "columnOptional": "ঐচ্ছিক",
+    "columnActions": "কার্যক্রম",
+    "yes": "হ্যাঁ",
+    "no": "না",
+    "remove": "অপসারণ",
+    "emptyMessage": "এখনও কোনো বিষয় যুক্ত করা হয়নি",
+    "errorMessage": "বিষয় লোড করতে ব্যর্থ হয়েছে"
+  },
+  "subjectAttachForm": {
+    "title": "বিষয় যোগ করুন",
+    "description": "এই শ্রেণি তার শিক্ষাবর্ষে যে বিষয় অফার করে তা যুক্ত করুন।",
+    "subjectLabel": "বিষয়",
+    "subjectPlaceholder": "একটি বিষয় নির্বাচন করুন",
+    "optionalLabel": "ঐচ্ছিক বিষয়",
+    "errorSubjectRequired": "বিষয় আবশ্যক",
+    "errorMessage": "বিষয় যুক্ত করতে ব্যর্থ হয়েছে",
+    "save": "যোগ করুন",
+    "saving": "যোগ করা হচ্ছে…"
+  },
+  "removeSubjectDialog": {
+    "title": "বিষয় অপসারণ করুন",
+    "description": "\"{{name}}\" এই শ্রেণির বিষয় তালিকা থেকে অপসারণ করবেন? এটি ফিরিয়ে আনা যাবে না।",
+    "confirm": "অপসারণ",
+    "removing": "অপসারণ করা হচ্ছে…",
+    "errorMessage": "বিষয় অপসারণ করতে ব্যর্থ হয়েছে"
   }
 }

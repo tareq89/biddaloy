@@ -79,11 +79,43 @@
     "emptyMessage": "No sections yet",
     "errorMessage": "Failed to load sections"
   },
+  "subjects": {
+    "heading": "Subjects",
+    "addSubject": "+ Subject",
+    "columnName": "Subject",
+    "columnCode": "Code",
+    "columnOptional": "Optional",
+    "columnActions": "Actions",
+    "yes": "Yes",
+    "no": "No",
+    "remove": "Remove",
+    "emptyMessage": "No subjects offered yet",
+    "errorMessage": "Failed to load subjects"
+  },
+  "subjectAttachForm": {
+    "title": "Add subject",
+    "description": "Attach a subject this class offers in its academic year.",
+    "subjectLabel": "Subject",
+    "subjectPlaceholder": "Select a subject",
+    "optionalLabel": "Optional subject",
+    "errorSubjectRequired": "Subject is required",
+    "errorMessage": "Failed to attach subject",
+    "save": "Add",
+    "saving": "Adding…"
+  },
+  "removeSubjectDialog": {
+    "title": "Remove subject",
+    "description": "Remove \"{{name}}\" from this class's subjects? This cannot be undone.",
+    "confirm": "Remove",
+    "removing": "Removing…",
+    "errorMessage": "Failed to remove subject"
+  },
   "detail": {
     "tabSections": "Sections",
     "tabStudents": "Students",
     "tabFeeStructures": "Fee Structures",
     "tabTeachers": "Teachers",
+    "tabSubjects": "Subjects",
     "forbidden": "You don't have permission to view this.",
     "grade": "Grade {{grade}}",
     "students": {
