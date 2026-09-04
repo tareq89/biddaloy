@@ -87,6 +87,19 @@ describe('Subjects E2E', () => {
     return loginRes.body.access_token;
   }
 
+  async function teacherToken(): Promise<string> {
+    await dataSource.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+       VALUES ('${SEED_ADMIN_USER_ID}', '${SEED_TENANT_ID}', '${UserRole.TEACHER}', NOW(), NOW())
+       ON CONFLICT DO NOTHING`,
+    );
+    const loginRes = await supertest(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+      .expect(200);
+    return loginRes.body.access_token;
+  }
+
   describe('POST /subjects', () => {
     it('creates a subject as ADMIN', async () => {
       const res = await supertest(app.getHttpServer())
@@ -109,6 +122,24 @@ describe('Subjects E2E', () => {
         .expect(401);
 
       expect(res.body.message).toBe('X-Tenant-ID header is required');
+    });
+
+    it('returns 401 for a tenant the caller has no membership in', async () => {
+      const NO_MEMBERSHIP_TENANT_ID = '00000000-0000-4000-8000-000000000098';
+      await dataSource.query(
+        `INSERT INTO schools (id, name, slug, created_at, updated_at)
+         VALUES ('${NO_MEMBERSHIP_TENANT_ID}', 'No Membership School', 'no-membership-school', NOW(), NOW())
+         ON CONFLICT DO NOTHING`,
+      );
+
+      const res = await supertest(app.getHttpServer())
+        .post('/api/v1/subjects')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', NO_MEMBERSHIP_TENANT_ID)
+        .send({ name_en: 'Mathematics', code: 'MATH2B' })
+        .expect(401);
+
+      expect(res.body.message).toContain('not a member');
     });
 
     it('returns 401 for STUDENT role', async () => {
@@ -141,10 +172,12 @@ describe('Subjects E2E', () => {
         .send({ name_en: 'Bangla', code: 'BAN' })
         .expect(201);
 
+      const token = await teacherToken();
       const res = await supertest(app.getHttpServer())
         .get('/api/v1/subjects')
-        .set('Authorization', `Bearer ${adminToken}`)
+        .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.TEACHER)
         .expect(200);
 
       expect(Array.isArray(res.body.data)).toBe(true);
@@ -287,6 +320,13 @@ describe('Subjects E2E', () => {
         .expect(200);
 
       expect(listAfterRes.body).toHaveLength(0);
+
+      const [detachedRow] = await dataSource.query(
+        `SELECT deleted_at FROM class_subjects
+         WHERE class_id = $1 AND subject_id = $2 AND academic_year_id = $3`,
+        [SEED_CLASS_1_ID, subjectRes.body.id, SEED_ACADEMIC_YEAR_ID],
+      );
+      expect(detachedRow.deleted_at).not.toBeNull();
     });
 
     it('returns 401 attaching a subject as STUDENT', async () => {

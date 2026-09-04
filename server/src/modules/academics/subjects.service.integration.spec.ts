@@ -163,6 +163,26 @@ describe('SubjectService (integration)', () => {
 
       await expect(service.remove(created.id, TENANT_ID)).rejects.toThrow(NotFoundException);
     });
+
+    it('also soft-deletes ClassSubject rows attached to the removed subject', async () => {
+      const subject = await service.create({ name_en: 'Mathematics', code: 'MATH' }, TENANT_ID);
+      await service.attachToClass(
+        classId,
+        { subject_id: subject.id, academic_year_id: academicYearId },
+        TENANT_ID,
+      );
+
+      await service.remove(subject.id, TENANT_ID);
+
+      const result = await service.findByClass(classId, academicYearId, TENANT_ID);
+      expect(result).toHaveLength(0);
+
+      const [raw] = await dataSource.query(
+        'SELECT deleted_at FROM class_subjects WHERE class_id = $1 AND subject_id = $2 AND academic_year_id = $3',
+        [classId, subject.id, academicYearId],
+      );
+      expect(raw.deleted_at).not.toBeNull();
+    });
   });
 
   describe('attachToClass / findByClass / detachFromClass', () => {
@@ -208,6 +228,25 @@ describe('SubjectService (integration)', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
+    it("rejects attaching with an academic year that isn't the class's own", async () => {
+      const subject = await service.create({ name_en: 'Mathematics', code: 'MATH' }, TENANT_ID);
+      const academicYearRepo = dataSource.getRepository(AcademicYear);
+      const otherYear = await academicYearRepo.save({
+        name: '2027-2028',
+        start_date: new Date('2027-01-01'),
+        end_date: new Date('2027-12-31'),
+        tenant_id: TENANT_ID,
+      });
+
+      await expect(
+        service.attachToClass(
+          classId,
+          { subject_id: subject.id, academic_year_id: otherYear.id },
+          TENANT_ID,
+        ),
+      ).rejects.toThrow(ConflictException);
+    });
+
     it('rejects a duplicate (class, subject, academic year) attachment', async () => {
       const subject = await service.create({ name_en: 'Mathematics', code: 'MATH' }, TENANT_ID);
       await service.attachToClass(
@@ -237,6 +276,12 @@ describe('SubjectService (integration)', () => {
 
       const result = await service.findByClass(classId, academicYearId, TENANT_ID);
       expect(result).toHaveLength(0);
+
+      const [raw] = await dataSource.query(
+        'SELECT deleted_at FROM class_subjects WHERE class_id = $1 AND subject_id = $2 AND academic_year_id = $3',
+        [classId, subject.id, academicYearId],
+      );
+      expect(raw.deleted_at).not.toBeNull();
     });
 
     it('throws NotFoundException detaching a subject not attached to the class', async () => {
