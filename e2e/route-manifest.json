@@ -128,14 +128,12 @@
       "role": "accountant",
       "archetype": "wizard"
     },
-
     {
       "path": "/communications/send",
       "role": "admin",
       "archetype": "form",
       "overlays": ["confirm-send"]
     },
-
     {
       "path": "/communications/reminders",
       "role": "accountant",
@@ -201,6 +199,19 @@
       "path": "/portal/account",
       "role": "parent",
       "archetype": "form"
+    },
+    {
+      "path": "/attendance",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/attendance/$sectionId",
+      "params": {
+        "sectionId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail"
     }
   ]
 }

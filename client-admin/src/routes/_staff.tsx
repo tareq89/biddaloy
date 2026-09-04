@@ -18,6 +18,7 @@ import {
   BanknoteIcon,
   BellRingIcon,
   BriefcaseIcon,
+  CalendarCheck2Icon,
   CalendarDaysIcon,
   FilePlus2Icon,
   GraduationCapIcon,
@@ -140,6 +141,16 @@ function StaffLayout() {
     permission: Permission.PAYMENT_RECORD,
     icon: <BanknoteIcon aria-hidden="true" />,
   };
+  // [9.6] Gated on ATTENDANCE_READ — same "may you see it" reasoning as
+  // `STAFF_ROUTE_PERMISSIONS`'s own comment on this route. Hoisted next to
+  // `recordPaymentItem` rather than only inside a group: this is a daily,
+  // teacher-facing task, so it also rides in the mobile bottom bar below.
+  const attendanceItem = {
+    to: '/attendance',
+    label: t('items.attendance'),
+    permission: Permission.ATTENDANCE_READ,
+    icon: <CalendarCheck2Icon aria-hidden="true" />,
+  };
 
   const navItems = [dashboardItem];
 
@@ -155,6 +166,7 @@ function StaffLayout() {
       label: t('groups.people'),
       items: [
         studentsItem,
+        attendanceItem,
         // [8.11.4] — gated on GUARDIAN_READ, the same permission
         // `GuardianController`'s `GET /guardians` requires server-side
         // (`students.controller.ts`'s `@Roles(ADMIN, ACCOUNTANT,
@@ -349,7 +361,7 @@ function StaffLayout() {
         }
         bottomNav={
           <BottomNav
-            items={[dashboardItem, studentsItem, duesItem, recordPaymentItem]}
+            items={[dashboardItem, studentsItem, attendanceItem, duesItem, recordPaymentItem]}
             label={t('bottomNavStaffLabel')}
             more={{
               label: t('items.more'),

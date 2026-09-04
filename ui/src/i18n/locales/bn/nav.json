@@ -9,6 +9,7 @@
   "items": {
     "dashboard": "ড্যাশবোর্ড",
     "students": "শিক্ষার্থী",
+    "attendance": "উপস্থিতি",
     "guardians": "অভিভাবক",
     "staff": "কর্মী",
     "fees": "ফি",

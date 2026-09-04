@@ -146,6 +146,11 @@ export {
   type StatusBadgeProps,
   type StatusTone,
 } from './status-badge';
+export {
+  AttendanceStatusControl,
+  type AttendanceStatusControlProps,
+  type AttendanceStatusControlVariant,
+} from './attendance-status-control';
 export { Card, type CardProps } from './card';
 export { BottomNav, type BottomNavProps } from './bottom-nav';
 export { EmptyState, type EmptyStateKind, type EmptyStateProps } from './empty-state';

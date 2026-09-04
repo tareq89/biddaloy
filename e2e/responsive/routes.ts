@@ -70,5 +70,13 @@ export async function resolvePath(
       .replace('$academicYearId', chain.academicYearId)
       .replace('$classId', chain.classId);
   }
+  if (route.path.includes('$sectionId')) {
+    // [9.6] No mapped teacher for this section — the admin session used
+    // throughout this file has `ATTENDANCE_READ`, so the register still
+    // renders (just with an empty/unmarked roster), which is all the
+    // responsive-layout check below needs.
+    const chain = await createClassSection(request, session);
+    return route.path.replace('$sectionId', chain.sectionId);
+  }
   throw new Error(`no resolver for ${route.path}`);
 }

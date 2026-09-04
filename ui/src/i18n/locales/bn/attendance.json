@@ -1,0 +1,72 @@
+{
+  "statusControl": {
+    "status": {
+      "PRESENT": "উপস্থিত",
+      "ABSENT": "অনুপস্থিত",
+      "LATE": "বিলম্বে",
+      "LEAVE": "ছুটি"
+    },
+    "unmarked": "চিহ্নিত হয়নি",
+    "minutesLateLabel": "বিলম্বের মিনিট",
+    "groupLabel": "{{name}} এর উপস্থিতি অবস্থা",
+    "popoverLabel": "{{name}} এর উপস্থিতি অবস্থা পরিবর্তন করুন",
+    "triggerAccessibleLabel": "{{name}}, বর্তমানে {{status}}। অবস্থা পরিবর্তন করুন",
+    "optionAccessibleLabel": "{{name}} কে {{status}} হিসেবে চিহ্নিত করুন"
+  },
+  "list": {
+    "title": "উপস্থিতি",
+    "caption": "আপনি যে শাখাগুলোর উপস্থিতি নেন",
+    "columnSection": "শাখা",
+    "columnStudents": "শিক্ষার্থী",
+    "columnToday": "আজ",
+    "notMarked": "চিহ্নিত হয়নি",
+    "draft": "খসড়া",
+    "marked": "চিহ্নিত {{present}}/{{total}}",
+    "emptyTitle": "এখনো কোনো শাখা বরাদ্দ হয়নি",
+    "emptyExplanation": "আপনি এখনো কোনো শ্রেণি শাখার সাথে যুক্ত নন। একজন প্রশাসকের কাছে শাখা বরাদ্দের অনুরোধ করুন।",
+    "emptyAction": "ড্যাশবোর্ডে যান",
+    "loadingLabel": "আপনার শাখাগুলো লোড হচ্ছে",
+    "forbidden": "উপস্থিতি দেখার অনুমতি আপনার নেই।",
+    "errorMessage": "আপনার শাখাগুলো লোড করা যায়নি।",
+    "retry": "আবার চেষ্টা করুন"
+  },
+  "mark": {
+    "title": "{{className}} {{sectionName}}",
+    "presentCount": "উপস্থিত {{n}}",
+    "absentCount": "অনুপস্থিত {{n}}",
+    "lateCount": "বিলম্বে {{n}}",
+    "unmarkedCount": "অচিহ্নিত {{n}}",
+    "allPresent": "সবাই উপস্থিত",
+    "reset": "রিসেট",
+    "undo": "পূর্বাবস্থায় ফেরান",
+    "undoToast": "উপস্থিতি রিসেট হয়েছে",
+    "shortcutHint": "শর্টকাট: P উপস্থিত · A অনুপস্থিত · L বিলম্বে · V ছুটি · Space টগল · Shift+P সবাই উপস্থিত · Ctrl/Cmd+Enter জমা দিন",
+    "submitOnline": "রেজিস্টার জমা দিন",
+    "submitOffline": "ডিভাইসে সংরক্ষণ করুন",
+    "submitting": "জমা হচ্ছে…",
+    "unmarkedRemaining": "{{n}} জন অচিহ্নিত",
+    "confirmUnmarkedTitle": "{{n}} জন শিক্ষার্থী অচিহ্নিত",
+    "confirmUnmarkedBody": "আপনি প্রতিটি শিক্ষার্থীকে চিহ্নিত করেননি। যেভাবে আছে জমা দিন, অথবা বাকিদের উপস্থিত হিসেবে চিহ্নিত করুন।",
+    "confirmUnmarkedSubmit": "যেভাবে আছে জমা দিন",
+    "confirmUnmarkedMarkRestPresent": "বাকিদের উপস্থিত চিহ্নিত করুন",
+    "confirmUnmarkedCancel": "বাতিল",
+    "queuedToast": "ডিভাইসে সংরক্ষিত হয়েছে — অনলাইনে ফিরলে সিঙ্ক হবে",
+    "savedToast": "উপস্থিতি সংরক্ষিত হয়েছে",
+    "errorToast": "উপস্থিতি সংরক্ষণ করা যায়নি",
+    "queueUnavailableToast": "সংরক্ষণ করা যায়নি — এই ডিভাইসে অফলাইন সংরক্ষণাগার অনুপলব্ধ",
+    "announceStatusChanged": "{{name}} কে {{status}} হিসেবে চিহ্নিত করা হয়েছে",
+    "readOnlyExplanation": "এই রেজিস্টারটি সংশোধনের সময়সীমার বাইরে এবং এখানে আর সম্পাদনা করা যাবে না।",
+    "requestCorrection": "সংশোধনের অনুরোধ করুন",
+    "futureDateBanner": "ভবিষ্যতের তারিখ — আগে থেকে শুধু ছুটি চিহ্নিত করা যাবে।",
+    "rollNumber": "রোল {{roll}}"
+  },
+  "conflict": {
+    "title": "আপনি লোড করার পর থেকে এই রেজিস্টার পরিবর্তিত হয়েছে",
+    "explanation": "অন্য কেউ এই রেজিস্টারের নতুন সংস্করণ সংরক্ষণ করেছেন। কোন সংস্করণ রাখবেন তা বেছে নিন।",
+    "keepMine": "আমারটা রাখুন",
+    "takeTheirs": "তাদেরটা নিন",
+    "columnStudent": "শিক্ষার্থী",
+    "columnYours": "আপনার চিহ্ন",
+    "columnTheirs": "বর্তমান চিহ্ন"
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "statusControl": {
+    "status": {
+      "PRESENT": "Present",
+      "ABSENT": "Absent",
+      "LATE": "Late",
+      "LEAVE": "Leave"
+    },
+    "unmarked": "Unmarked",
+    "minutesLateLabel": "Minutes late",
+    "groupLabel": "Attendance status for {{name}}",
+    "popoverLabel": "Change attendance status for {{name}}",
+    "triggerAccessibleLabel": "{{name}}, currently {{status}}. Change status",
+    "optionAccessibleLabel": "Mark {{name}} {{status}}"
+  },
+  "list": {
+    "title": "Attendance",
+    "caption": "Sections you mark attendance for",
+    "columnSection": "Section",
+    "columnStudents": "Students",
+    "columnToday": "Today",
+    "notMarked": "Not marked",
+    "draft": "Draft",
+    "marked": "Marked {{present}}/{{total}}",
+    "emptyTitle": "No sections assigned yet",
+    "emptyExplanation": "You are not mapped to any section yet. Ask an administrator to assign you to a class section.",
+    "emptyAction": "Go to dashboard",
+    "loadingLabel": "Loading your sections",
+    "forbidden": "You do not have permission to view attendance.",
+    "errorMessage": "Could not load your sections.",
+    "retry": "Retry"
+  },
+  "mark": {
+    "title": "{{className}} {{sectionName}}",
+    "presentCount": "Present {{n}}",
+    "absentCount": "Absent {{n}}",
+    "lateCount": "Late {{n}}",
+    "unmarkedCount": "Unmarked {{n}}",
+    "allPresent": "All present",
+    "reset": "Reset",
+    "undo": "Undo",
+    "undoToast": "Attendance reset",
+    "shortcutHint": "Shortcuts: P present · A absent · L late · V leave · Space toggle · Shift+P all present · Ctrl/Cmd+Enter submit",
+    "submitOnline": "Submit register",
+    "submitOffline": "Save on device",
+    "submitting": "Submitting…",
+    "unmarkedRemaining": "{{n}} unmarked",
+    "confirmUnmarkedTitle": "{{n}} students unmarked",
+    "confirmUnmarkedBody": "You have not marked every student. Submit anyway, or mark the rest present first.",
+    "confirmUnmarkedSubmit": "Submit anyway",
+    "confirmUnmarkedMarkRestPresent": "Mark rest present",
+    "confirmUnmarkedCancel": "Cancel",
+    "queuedToast": "Saved on device — will sync when you're back online",
+    "savedToast": "Attendance saved",
+    "errorToast": "Could not save attendance",
+    "queueUnavailableToast": "Could not save — offline storage is unavailable on this device",
+    "announceStatusChanged": "{{name}} marked {{status}}",
+    "readOnlyExplanation": "This register is outside the correction window and can no longer be edited here.",
+    "requestCorrection": "Request correction",
+    "futureDateBanner": "Future date — only Leave can be marked ahead of time.",
+    "rollNumber": "Roll {{roll}}"
+  },
+  "conflict": {
+    "title": "This register changed since you loaded it",
+    "explanation": "Someone else saved a newer version of this register. Choose which version to keep.",
+    "keepMine": "Keep mine",
+    "takeTheirs": "Take theirs",
+    "columnStudent": "Student",
+    "columnYours": "Your mark",
+    "columnTheirs": "Current mark"
+  }
+}

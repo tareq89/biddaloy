@@ -78,6 +78,7 @@ describe('STAFF_ROUTE_PERMISSIONS', () => {
 const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/dashboard': '/_staff/dashboard',
   '/students': '/_staff/students/',
+  '/attendance': '/_staff/attendance/',
   '/fees/dues': '/_staff/fees/dues',
   '/payments/record': '/_staff/payments/record',
   '/guardians': '/_staff/guardians/',

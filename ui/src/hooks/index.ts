@@ -187,6 +187,22 @@ export {
   type UpdateSectionInput,
 } from './classes';
 export {
+  attendanceKeys,
+  mySectionsQueryOptions,
+  sectionRegisterKey,
+  sectionRegisterQueryOptions,
+  useMySections,
+  useSectionRegister,
+  useSubmitRegister,
+  type AttendanceListFilters,
+  type MySection,
+  type PutRegisterInput,
+  type Register,
+  type RegisterEntry,
+  type RegisterStudent,
+  type SubmitRegisterResult,
+} from './attendance';
+export {
   collectFailedStudentIds,
   REMINDER_BATCH_POLL_MS,
   reminderBatchKeys,

@@ -54,4 +54,15 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/_staff/classes/$classId': Permission.CLASS_MANAGE,
   '/_staff/audit-logs/': Permission.AUDIT_LOG_READ,
   '/_staff/settings': Permission.SETTINGS_MANAGE,
+  // [9.6] Both gated on ATTENDANCE_READ, not ATTENDANCE_MARK — this table
+  // (like the nav item it mirrors) answers "may you see this route", and
+  // seeing a register is a strictly weaker ask than changing it. Whether
+  // a signed-in teacher may *submit* marks is decided twice, further in:
+  // the server's per-register `editable` flag (a finalized/past-window
+  // register refuses writes for everyone), and `$sectionId.tsx` hiding
+  // its own submit bar when the caller lacks ATTENDANCE_MARK. A route
+  // gated on ATTENDANCE_MARK here would also block ATTENDANCE_READ-only
+  // roles (a co-ordinator reviewing marks, say) from viewing at all.
+  '/_staff/attendance/': Permission.ATTENDANCE_READ,
+  '/_staff/attendance/$sectionId': Permission.ATTENDANCE_READ,
 };

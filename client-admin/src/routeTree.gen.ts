@@ -23,6 +23,8 @@ import { Route as PortalAccountRouteImport } from './routes/portal/account'
 import { Route as PortalFeesRouteImport } from './routes/portal/fees'
 import { Route as StaffAcademicYearsIndexRouteImport } from './routes/_staff/academic-years/index'
 import { Route as StaffAcademicYearsAcademicYearIdRouteImport } from './routes/_staff/academic-years/$academicYearId'
+import { Route as StaffAttendanceIndexRouteImport } from './routes/_staff/attendance/index'
+import { Route as StaffAttendanceSectionIdRouteImport } from './routes/_staff/attendance/$sectionId'
 import { Route as StaffAuditLogsIndexRouteImport } from './routes/_staff/audit-logs/index'
 import { Route as StaffClassesIndexRouteImport } from './routes/_staff/classes/index'
 import { Route as StaffClassesClassIdRouteImport } from './routes/_staff/classes/$classId'
@@ -115,6 +117,17 @@ const StaffAcademicYearsAcademicYearIdRoute =
   StaffAcademicYearsAcademicYearIdRouteImport.update({
     id: '/academic-years/$academicYearId',
     path: '/academic-years/$academicYearId',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffAttendanceIndexRoute = StaffAttendanceIndexRouteImport.update({
+  id: '/attendance/',
+  path: '/attendance/',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffAttendanceSectionIdRoute =
+  StaffAttendanceSectionIdRouteImport.update({
+    id: '/attendance/$sectionId',
+    path: '/attendance/$sectionId',
     getParentRoute: () => StaffRoute,
   } as any)
 const StaffAuditLogsIndexRoute = StaffAuditLogsIndexRouteImport.update({
@@ -251,6 +264,7 @@ export interface FileRoutesByFullPath {
   '/portal/fees': typeof PortalFeesRoute
   '/portal/': typeof PortalIndexRoute
   '/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
+  '/attendance/$sectionId': typeof StaffAttendanceSectionIdRoute
   '/classes/$classId': typeof StaffClassesClassIdRoute
   '/communications/reminders': typeof StaffCommunicationsRemindersRoute
   '/communications/send': typeof StaffCommunicationsSendRoute
@@ -264,6 +278,7 @@ export interface FileRoutesByFullPath {
   '/students/import': typeof StaffStudentsImportRoute
   '/students/new': typeof StaffStudentsNewRoute
   '/academic-years/': typeof StaffAcademicYearsIndexRoute
+  '/attendance/': typeof StaffAttendanceIndexRoute
   '/audit-logs/': typeof StaffAuditLogsIndexRoute
   '/classes/': typeof StaffClassesIndexRoute
   '/fee-structures/': typeof StaffFeeStructuresIndexRoute
@@ -287,6 +302,7 @@ export interface FileRoutesByTo {
   '/portal/fees': typeof PortalFeesRoute
   '/portal': typeof PortalIndexRoute
   '/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
+  '/attendance/$sectionId': typeof StaffAttendanceSectionIdRoute
   '/classes/$classId': typeof StaffClassesClassIdRoute
   '/communications/reminders': typeof StaffCommunicationsRemindersRoute
   '/communications/send': typeof StaffCommunicationsSendRoute
@@ -300,6 +316,7 @@ export interface FileRoutesByTo {
   '/students/import': typeof StaffStudentsImportRoute
   '/students/new': typeof StaffStudentsNewRoute
   '/academic-years': typeof StaffAcademicYearsIndexRoute
+  '/attendance': typeof StaffAttendanceIndexRoute
   '/audit-logs': typeof StaffAuditLogsIndexRoute
   '/classes': typeof StaffClassesIndexRoute
   '/fee-structures': typeof StaffFeeStructuresIndexRoute
@@ -327,6 +344,7 @@ export interface FileRoutesById {
   '/portal/fees': typeof PortalFeesRoute
   '/portal/': typeof PortalIndexRoute
   '/_staff/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
+  '/_staff/attendance/$sectionId': typeof StaffAttendanceSectionIdRoute
   '/_staff/classes/$classId': typeof StaffClassesClassIdRoute
   '/_staff/communications/reminders': typeof StaffCommunicationsRemindersRoute
   '/_staff/communications/send': typeof StaffCommunicationsSendRoute
@@ -340,6 +358,7 @@ export interface FileRoutesById {
   '/_staff/students/import': typeof StaffStudentsImportRoute
   '/_staff/students/new': typeof StaffStudentsNewRoute
   '/_staff/academic-years/': typeof StaffAcademicYearsIndexRoute
+  '/_staff/attendance/': typeof StaffAttendanceIndexRoute
   '/_staff/audit-logs/': typeof StaffAuditLogsIndexRoute
   '/_staff/classes/': typeof StaffClassesIndexRoute
   '/_staff/fee-structures/': typeof StaffFeeStructuresIndexRoute
@@ -367,6 +386,7 @@ export interface FileRouteTypes {
     | '/portal/fees'
     | '/portal/'
     | '/academic-years/$academicYearId'
+    | '/attendance/$sectionId'
     | '/classes/$classId'
     | '/communications/reminders'
     | '/communications/send'
@@ -380,6 +400,7 @@ export interface FileRouteTypes {
     | '/students/import'
     | '/students/new'
     | '/academic-years/'
+    | '/attendance/'
     | '/audit-logs/'
     | '/classes/'
     | '/fee-structures/'
@@ -403,6 +424,7 @@ export interface FileRouteTypes {
     | '/portal/fees'
     | '/portal'
     | '/academic-years/$academicYearId'
+    | '/attendance/$sectionId'
     | '/classes/$classId'
     | '/communications/reminders'
     | '/communications/send'
@@ -416,6 +438,7 @@ export interface FileRouteTypes {
     | '/students/import'
     | '/students/new'
     | '/academic-years'
+    | '/attendance'
     | '/audit-logs'
     | '/classes'
     | '/fee-structures'
@@ -442,6 +465,7 @@ export interface FileRouteTypes {
     | '/portal/fees'
     | '/portal/'
     | '/_staff/academic-years/$academicYearId'
+    | '/_staff/attendance/$sectionId'
     | '/_staff/classes/$classId'
     | '/_staff/communications/reminders'
     | '/_staff/communications/send'
@@ -455,6 +479,7 @@ export interface FileRouteTypes {
     | '/_staff/students/import'
     | '/_staff/students/new'
     | '/_staff/academic-years/'
+    | '/_staff/attendance/'
     | '/_staff/audit-logs/'
     | '/_staff/classes/'
     | '/_staff/fee-structures/'
@@ -574,6 +599,20 @@ declare module '@tanstack/react-router' {
       path: '/academic-years/$academicYearId'
       fullPath: '/academic-years/$academicYearId'
       preLoaderRoute: typeof StaffAcademicYearsAcademicYearIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/attendance/': {
+      id: '/_staff/attendance/'
+      path: '/attendance'
+      fullPath: '/attendance/'
+      preLoaderRoute: typeof StaffAttendanceIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/attendance/$sectionId': {
+      id: '/_staff/attendance/$sectionId'
+      path: '/attendance/$sectionId'
+      fullPath: '/attendance/$sectionId'
+      preLoaderRoute: typeof StaffAttendanceSectionIdRouteImport
       parentRoute: typeof StaffRoute
     }
     '/_staff/audit-logs/': {
@@ -762,6 +801,7 @@ interface StaffRouteChildren {
   StaffNotificationsRoute: typeof StaffNotificationsRoute
   StaffSettingsRoute: typeof StaffSettingsRoute
   StaffAcademicYearsAcademicYearIdRoute: typeof StaffAcademicYearsAcademicYearIdRoute
+  StaffAttendanceSectionIdRoute: typeof StaffAttendanceSectionIdRoute
   StaffClassesClassIdRoute: typeof StaffClassesClassIdRoute
   StaffCommunicationsRemindersRoute: typeof StaffCommunicationsRemindersRoute
   StaffCommunicationsSendRoute: typeof StaffCommunicationsSendRoute
@@ -773,6 +813,7 @@ interface StaffRouteChildren {
   StaffStudentsImportRoute: typeof StaffStudentsImportRoute
   StaffStudentsNewRoute: typeof StaffStudentsNewRoute
   StaffAcademicYearsIndexRoute: typeof StaffAcademicYearsIndexRoute
+  StaffAttendanceIndexRoute: typeof StaffAttendanceIndexRoute
   StaffAuditLogsIndexRoute: typeof StaffAuditLogsIndexRoute
   StaffClassesIndexRoute: typeof StaffClassesIndexRoute
   StaffFeeStructuresIndexRoute: typeof StaffFeeStructuresIndexRoute
@@ -791,6 +832,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffNotificationsRoute: StaffNotificationsRoute,
   StaffSettingsRoute: StaffSettingsRoute,
   StaffAcademicYearsAcademicYearIdRoute: StaffAcademicYearsAcademicYearIdRoute,
+  StaffAttendanceSectionIdRoute: StaffAttendanceSectionIdRoute,
   StaffClassesClassIdRoute: StaffClassesClassIdRoute,
   StaffCommunicationsRemindersRoute: StaffCommunicationsRemindersRoute,
   StaffCommunicationsSendRoute: StaffCommunicationsSendRoute,
@@ -802,6 +844,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffStudentsImportRoute: StaffStudentsImportRoute,
   StaffStudentsNewRoute: StaffStudentsNewRoute,
   StaffAcademicYearsIndexRoute: StaffAcademicYearsIndexRoute,
+  StaffAttendanceIndexRoute: StaffAttendanceIndexRoute,
   StaffAuditLogsIndexRoute: StaffAuditLogsIndexRoute,
   StaffClassesIndexRoute: StaffClassesIndexRoute,
   StaffFeeStructuresIndexRoute: StaffFeeStructuresIndexRoute,

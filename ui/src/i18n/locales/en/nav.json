@@ -9,6 +9,7 @@
   "items": {
     "dashboard": "Dashboard",
     "students": "Students",
+    "attendance": "Attendance",
     "guardians": "Guardians",
     "staff": "Staff",
     "fees": "Fees",
