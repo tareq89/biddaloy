@@ -10,9 +10,9 @@ export type ClassSubject = components['schemas']['ClassSubject'];
 
 export function classSubjectFactory(overrides: Partial<ClassSubject> = {}): ClassSubject {
   const klass = overrides.class ?? classFactory();
-  const subject = overrides.subject ?? subjectFactory();
   const academicYear = overrides.academic_year ?? klass.academic_year ?? academicYearFactory();
   const tenant = overrides.tenant ?? klass.tenant ?? schoolFactory();
+  const subject = overrides.subject ?? subjectFactory({ tenant, tenant_id: tenant.id });
   return {
     id: faker.string.uuid(),
     tenant,
