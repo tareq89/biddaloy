@@ -9,7 +9,7 @@ import {
   MaxLength,
   IsNotEmpty,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 
 export class CreateSubjectDto {
@@ -38,6 +38,7 @@ export class CreateSubjectDto {
 
 export class UpdateSubjectDto {
   @IsOptional()
+  @IsNotEmpty()
   @IsString()
   @MaxLength(100)
   @SanitizeText()
@@ -62,7 +63,7 @@ export class UpdateSubjectDto {
 
 export class QuerySubjectDto {
   @IsOptional()
-  @Type(() => Boolean)
+  @Transform(({ value }) => (value === 'false' ? false : value === 'true' ? true : value))
   @IsBoolean()
   is_active?: boolean;
 
