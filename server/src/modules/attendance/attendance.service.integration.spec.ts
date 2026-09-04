@@ -595,7 +595,7 @@ describe('AttendanceService (integration)', () => {
       expect(history.data[0].entity_type).toBe('AttendanceRecord');
     });
 
-    it("403s a TEACHER reading another section's record history", async () => {
+    it("succeeds for a TEACHER mapped to the record's section", async () => {
       const dto = basePutDto();
       const created = await service.putRegister(putParams({ dto })); // as ADMIN
       const recordId = created.students.find((s) => s.student_id === studentId1)
@@ -606,10 +606,40 @@ describe('AttendanceService (integration)', () => {
           recordId,
           tenantId: TENANT_ID,
           role: UserRole.TEACHER,
-          userId: teacherUserId, // mapped to `sectionId`, so this should actually succeed
+          userId: teacherUserId, // mapped to `sectionId`, so this should succeed
           query: {} as any,
         }),
       ).resolves.toBeDefined();
+    });
+
+    it("403s a TEACHER reading a record from a section they aren't mapped to", async () => {
+      const dto = basePutDto();
+      const created = await service.putRegister(putParams({ dto })); // as ADMIN
+      const recordId = created.students.find((s) => s.student_id === studentId1)
+        ?.record_id as string;
+
+      const unmappedTeacherUser = await dataSource.getRepository(User).save({
+        email: `attendance-unmapped-teacher-${Date.now()}-${Math.random()}@test.com`,
+        full_name: 'Unmapped Teacher',
+      });
+      await dataSource.getRepository(Teacher).save({
+        user_id: unmappedTeacherUser.id,
+        employee_id: `ATT-EMP-UNMAPPED-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
+        tenant_id: TENANT_ID,
+        designations: [],
+      });
+      // No TeacherClassSection row is created for this teacher, so they are
+      // not mapped to `sectionId` at all.
+
+      await expect(
+        service.getRecordHistory({
+          recordId,
+          tenantId: TENANT_ID,
+          role: UserRole.TEACHER,
+          userId: unmappedTeacherUser.id,
+          query: {} as any,
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
     });
   });
 
