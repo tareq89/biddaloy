@@ -49,26 +49,17 @@ async function freshLogin(
   }
   const ctx = await request.newContext({ baseURL: shells.app.baseURL });
   try {
-    // journeys/portal-account.spec.ts's password-change test rotates the
-    // shared `parent` seed account's own password for its full duration —
-    // change, sign out, sign back in with the new password, then restore
-    // — several real page navigations and server round trips, not a
-    // sub-second blip. Any other spec's fresh `parent` login
-    // (`fullyParallel: true` means it can land anywhere in that window)
-    // gets a legitimate 401 for a credential that's correct again once
-    // that test's `finally` block restores it. Eight attempts over ~6s
-    // comfortably outlasts the slowest observed rotation without masking
-    // an actually-wrong seed password, which still fails after every
-    // retry.
-    let response = await ctx.post('/api/v1/auth/login', {
+    // Deliberately a single attempt, no 401 retry. An earlier version
+    // retried to ride out `journeys/portal-account.spec.ts`'s password
+    // rotation, which used to move the SHARED `parent` credential; that
+    // test now rotates `student` instead — a role no other spec signs in
+    // as — so a 401 here means the seed password is genuinely wrong and
+    // is worth failing on immediately. Retrying only bought a slower,
+    // noisier failure (nine 401s per fixture in the CI log) and hid which
+    // test had stranded the account.
+    const response = await ctx.post('/api/v1/auth/login', {
       data: { email: SEED_ROLE_EMAILS[role], password },
     });
-    for (let attempt = 0; response.status() === 401 && attempt < 8; attempt++) {
-      await new Promise((resolve) => setTimeout(resolve, 750));
-      response = await ctx.post('/api/v1/auth/login', {
-        data: { email: SEED_ROLE_EMAILS[role], password },
-      });
-    }
     if (!response.ok()) {
       throw new Error(
         `Login failed for ${SEED_ROLE_EMAILS[role]}: ${response.status()} ${await response.text()}`,

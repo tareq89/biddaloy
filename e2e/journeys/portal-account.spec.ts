@@ -112,84 +112,121 @@ test('the phone AC end to end: a guardian-contact edit changes what the reminder
   });
 });
 
-test('password change: this device stays signed in, and the new password works on the next login', async ({
-  page,
-  request,
-}) => {
-  const password = process.env[SEED_PASSWORD_ENV];
-  if (!password) throw new Error(`${SEED_PASSWORD_ENV} is not set`);
-  const newPassword = `${password}-tmp-${Date.now()}`;
+/**
+ * Runs as STUDENT, not PARENT, and that is the whole point.
+ *
+ * This test has to rotate a seeded account's password, and `fullyParallel:
+ * true` means any spec that logs in as the same role can land mid-rotation
+ * and get a legitimate 401 for a credential that is correct again moments
+ * later. `parent` is the busiest portal account in the suite
+ * (`permissions`, `staff-mobile-nav`, `target-size`, and the phone AC test
+ * above all sign in as it), so rotating *that* password poisons them all —
+ * and if this test fails before its restore runs, it poisons them for the
+ * rest of the shard.
+ *
+ * `student` is the one seeded role no other spec authenticates as (the
+ * `setup` project captures its storageState once, before any test runs),
+ * so its password is this test's to move. `/portal/account` serves STUDENT
+ * fully: `account.tsx` gates only the guardian card behind `isParent`, and
+ * the profile and password cards this test drives are role-agnostic.
+ */
+test.describe('password change', () => {
+  test.use(loggedIn('student'));
 
-  /**
-   * Everything after the UI step below runs over the API, and that is the
-   * point: between the change and the restore, the SHARED `parent` seed
-   * credential is wrong, and `fullyParallel: true` means any other spec's
-   * `loggedIn('parent')` fixture can try to log in during that window and
-   * get a legitimate 401 (`fixtures/test.ts`'s `freshLogin` retries to
-   * ride this out, but only for a few seconds). Two API calls prove the
-   * server rotated the password just as well as two more full UI sign-ins
-   * — SPA boot, form fill, route transition — and shrink that window from
-   * tens of seconds to roughly one.
-   *
-   * Returns `null` when the credential is not (or no longer) valid, so the
-   * restore below can tell "nothing to restore" from "restore failed".
-   */
-  async function apiLogin(withPassword: string) {
-    const response = await request.post('/api/v1/auth/login', {
-      data: { email: SEED_ROLE_EMAILS.parent, password: withPassword },
-    });
-    if (!response.ok()) return null;
-    const body = (await response.json()) as {
-      access_token: string;
-      memberships: { tenantId: string; role: string }[];
-    };
-    const membership = body.memberships.find((m) => m.role === 'PARENT');
-    return membership ? { token: body.access_token, tenantId: membership.tenantId } : null;
-  }
+  test('this device stays signed in, and the new password works on the next login', async ({
+    page,
+    request,
+  }) => {
+    const password = process.env[SEED_PASSWORD_ENV];
+    if (!password) throw new Error(`${SEED_PASSWORD_ENV} is not set`);
+    const newPassword = `${password}-tmp-${Date.now()}`;
 
-  try {
-    await test.step('change the password from /portal/account', async () => {
-      await page.goto('/portal/account');
-      await page.locator('#account-change-current-password').fill(password);
-      await page.locator('#account-change-new-password').fill(newPassword);
-      await page.locator('#account-change-confirm-password').fill(newPassword);
-      await page
-        .locator('form', { has: page.locator('#account-change-current-password') })
-        .getByRole('button', { name: /./ })
-        .last()
-        .click();
-
-      // This device's own session must keep working — no redirect to
-      // /login, and the page's own data still loads afterward (a still-
-      // authenticated request succeeding).
-      await expect(page).toHaveURL(/\/portal\/account$/);
-      await expect(page.locator('#account-full-name')).toBeEnabled();
-    });
-
-    await test.step('a fresh login with the new password confirms the server rotated it', async () => {
-      expect(await apiLogin(newPassword), 'the new password was rejected').not.toBeNull();
-      expect(await apiLogin(password), 'the old password still works').toBeNull();
-    });
-  } finally {
-    // Restore the shared seed password — this account is reused by every
-    // other spec that logs in as `parent`, so leaving it rotated would
-    // break the rest of the suite.
-    await test.step('restore the seed password', async () => {
-      const session = await apiLogin(newPassword);
-      // The change step never landed, so there is nothing to put back —
-      // and throwing from here would mask that step's own failure.
-      if (!session) return;
-      const response = await request.post('/api/v1/auth/change-password', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-          'X-Tenant-ID': session.tenantId,
-        },
-        data: { current_password: newPassword, new_password: password },
+    /**
+     * Verification and restore both go over the API rather than through two
+     * more full UI sign-ins (SPA boot, form fill, route transition): the
+     * same `POST /auth/login` the form posts to proves the server rotated
+     * the credential, and keeps the window in which the seeded password is
+     * wrong down to about a second.
+     *
+     * Returns `null` when the credential is not (or no longer) valid, so
+     * the restore below can tell "nothing to restore" from "restore
+     * failed".
+     */
+    async function apiLogin(withPassword: string) {
+      const response = await request.post('/api/v1/auth/login', {
+        data: { email: SEED_ROLE_EMAILS.student, password: withPassword },
       });
-      expect(
-        response.ok(),
-        `restoring the seed password failed (${response.status()}), every later parent login in this shard will now fail: ${await response.text()}`,
-      ).toBe(true);
-    });
-  }
+      if (!response.ok()) return null;
+      const body = (await response.json()) as {
+        access_token: string;
+        memberships: { tenantId: string; role: string }[];
+      };
+      const membership = body.memberships.find((m) => m.role === 'STUDENT');
+      return membership ? { token: body.access_token, tenantId: membership.tenantId } : null;
+    }
+
+    try {
+      await test.step('change the password from /portal/account', async () => {
+        await page.goto('/portal/account');
+        await page.locator('#account-change-current-password').fill(password);
+        await page.locator('#account-change-new-password').fill(newPassword);
+        await page.locator('#account-change-confirm-password').fill(newPassword);
+        await page
+          .locator('form', { has: page.locator('#account-change-current-password') })
+          .getByRole('button', { name: /./ })
+          .last()
+          .click();
+
+        // The success toast, asserted FIRST and by its own text. Without
+        // it this step passes whenever the server rejects the change — a
+        // 403 "that password is not correct" only paints an inline field
+        // error, leaving the URL and the profile card exactly as the two
+        // assertions below find them. The failure then surfaced a step
+        // later as "the new password was rejected", which reads like a
+        // server bug rather than "the form never saved".
+        await expect(page.getByText(t('portal.account.password.saved'))).toBeVisible();
+
+        // This device's own session must keep working — no redirect to
+        // /login, and the page's own data still loads afterward (a still-
+        // authenticated request succeeding).
+        await expect(page).toHaveURL(/\/portal\/account$/);
+        await expect(page.locator('#account-full-name')).toBeEnabled();
+      });
+
+      await test.step('a fresh login with the new password confirms the server rotated it', async () => {
+        expect(await apiLogin(newPassword), 'the new password was rejected').not.toBeNull();
+        expect(await apiLogin(password), 'the old password still works').toBeNull();
+      });
+    } finally {
+      // Put the seed password back. Nothing else in the suite signs in as
+      // `student`, so this is hygiene rather than a race to win — but a
+      // silent failure here would still strand the account for the rest of
+      // the shard, so every outcome is either restored or reported.
+      await test.step('restore the seed password', async () => {
+        const session = await apiLogin(newPassword);
+        if (!session) {
+          // Nothing to put back only if the seed password still works,
+          // i.e. the change step never landed. Any other state means the
+          // account is stranded on a password nobody knows, which must not
+          // pass quietly even though the step above already failed.
+          expect(
+            await apiLogin(password),
+            'the student seed account is stranded: neither the seed nor the new password works',
+          ).not.toBeNull();
+          return;
+        }
+        const response = await request.post('/api/v1/auth/change-password', {
+          headers: {
+            Authorization: `Bearer ${session.token}`,
+            'X-Tenant-ID': session.tenantId,
+          },
+          data: { current_password: newPassword, new_password: password },
+        });
+        expect(
+          response.ok(),
+          `restoring the seed password failed (${response.status()}): ${await response.text()}`,
+        ).toBe(true);
+      });
+    }
+  });
 });
