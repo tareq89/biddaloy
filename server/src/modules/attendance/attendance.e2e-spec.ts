@@ -143,6 +143,36 @@ describe('Attendance E2E', () => {
 
       expect(res.body.message).toBe('X-Tenant-ID header is required');
     });
+
+    it("returns 401 when X-Tenant-ID is not one of the caller's memberships", async () => {
+      const foreignTenantId = randomUUID();
+      const res = await supertest(app.getHttpServer())
+        .get('/api/v1/attendance/my-sections')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', foreignTenantId)
+        .expect(401);
+
+      expect(res.body.message).toBe(`User is not a member of tenant ${foreignTenantId}`);
+    });
+
+    it("returns 401 for a role not in this route's @Roles list (STUDENT)", async () => {
+      await dataSource.query(
+        `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+         VALUES ('${SEED_ADMIN_USER_ID}', '${TENANT_ID}', '${UserRole.STUDENT}', NOW(), NOW())
+         ON CONFLICT DO NOTHING`,
+      );
+      const loginRes = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+        .expect(200);
+
+      await supertest(app.getHttpServer())
+        .get('/api/v1/attendance/my-sections')
+        .set('Authorization', `Bearer ${loginRes.body.access_token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.STUDENT)
+        .expect(401);
+    });
   });
 
   describe('GET /attendance/sections/:sectionId/register', () => {
@@ -168,6 +198,26 @@ describe('Attendance E2E', () => {
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.TEACHER)
         .expect(403);
+    });
+
+    it("returns 401 for a role not in this route's @Roles list (STUDENT)", async () => {
+      await dataSource.query(
+        `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+         VALUES ('${SEED_ADMIN_USER_ID}', '${TENANT_ID}', '${UserRole.STUDENT}', NOW(), NOW())
+         ON CONFLICT DO NOTHING`,
+      );
+      const loginRes = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+        .expect(200);
+
+      await supertest(app.getHttpServer())
+        .get(`/api/v1/attendance/sections/${MAPPED_SECTION_ID}/register`)
+        .query({ date: todayIso() })
+        .set('Authorization', `Bearer ${loginRes.body.access_token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.STUDENT)
+        .expect(401);
     });
   });
 
@@ -257,6 +307,41 @@ describe('Attendance E2E', () => {
   });
 
   describe('PATCH /attendance/records/:recordId', () => {
+    it("returns 401 for a role not in this route's @Roles list (ACCOUNTANT)", async () => {
+      const putRes = await supertest(app.getHttpServer())
+        .put(`/api/v1/attendance/sections/${MAPPED_SECTION_ID}/register`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({
+          date: todayIso(),
+          base_version: 0,
+          client_request_id: randomUUID(),
+          entries: [{ student_id: studentId, status: 'PRESENT' }],
+        })
+        .expect(200);
+      const recordId = putRes.body.students.find(
+        (s: { student_id: string; record_id: string }) => s.student_id === studentId,
+      ).record_id;
+
+      await dataSource.query(
+        `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+         VALUES ('${SEED_ADMIN_USER_ID}', '${TENANT_ID}', '${UserRole.ACCOUNTANT}', NOW(), NOW())
+         ON CONFLICT DO NOTHING`,
+      );
+      const loginRes = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+        .expect(200);
+
+      await supertest(app.getHttpServer())
+        .patch(`/api/v1/attendance/records/${recordId}`)
+        .set('Authorization', `Bearer ${loginRes.body.access_token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ACCOUNTANT)
+        .send({ status: 'LATE', minutes_late: 10, reason: 'Arrived late today' })
+        .expect(401);
+    });
+
     it('requires a reason (400 when missing)', async () => {
       const putRes = await supertest(app.getHttpServer())
         .put(`/api/v1/attendance/sections/${MAPPED_SECTION_ID}/register`)
