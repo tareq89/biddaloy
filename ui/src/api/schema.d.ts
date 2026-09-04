@@ -5906,6 +5906,15 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description base_version does not match the session's current version. `details.current_version` and `details.register` (the same shape as GET .../register) let the client refresh and retry without a second round trip. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
         };
     };
     AttendanceController_finalize_v1: {
