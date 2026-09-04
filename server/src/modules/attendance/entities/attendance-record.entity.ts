@@ -3,6 +3,7 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  UpdateDateColumn,
   ManyToOne,
   JoinColumn,
   Index,
@@ -97,4 +98,7 @@ export class AttendanceRecord {
 
   @CreateDateColumn({ type: 'timestamptz' })
   recorded_at: Date;
+
+  @UpdateDateColumn({ type: 'timestamptz' })
+  updated_at: Date;
 }

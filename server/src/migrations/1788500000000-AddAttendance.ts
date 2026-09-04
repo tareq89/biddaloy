@@ -149,6 +149,7 @@ export class AddAttendance1788500000000 implements MigrationInterface {
         "device_id" uuid,
         "recorded_by_user_id" uuid,
         "recorded_at" timestamptz NOT NULL DEFAULT now(),
+        "updated_at" timestamptz NOT NULL DEFAULT now(),
         CONSTRAINT "PK_attendance_records" PRIMARY KEY ("id"),
         CONSTRAINT "FK_attendance_records_tenant" FOREIGN KEY ("tenant_id") REFERENCES "schools"("id") ON DELETE CASCADE,
         CONSTRAINT "FK_attendance_records_session" FOREIGN KEY ("session_id") REFERENCES "attendance_sessions"("id") ON DELETE CASCADE,
