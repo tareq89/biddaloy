@@ -144,6 +144,29 @@ export class AddSubjectsAndClassSubjects1788400000000 implements MigrationInterf
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP INDEX "UQ_tcs_teacher_section_no_subject"`);
     await queryRunner.query(`DROP INDEX "IDX_tcs_teacher_section_subject"`);
+
+    // The old (teacher_id, section_id) uniqueness cannot come back if a
+    // teacher now has two rows for the same section under different
+    // subjects — recreating the index would otherwise fail with an opaque
+    // Postgres constraint-violation error. Fail loudly with the actual
+    // rows at fault instead, so an operator can decide how to resolve them
+    // (merge, delete, or keep the subject-aware schema) before retrying.
+    const duplicates = await queryRunner.query(`
+      SELECT "teacher_id", "section_id", count(*)::int AS count
+      FROM "teacher_class_sections"
+      GROUP BY "teacher_id", "section_id"
+      HAVING count(*) > 1
+    `);
+    if (duplicates.length > 0) {
+      throw new Error(
+        `AddSubjectsAndClassSubjects: cannot revert — ${duplicates.length} ` +
+          `(teacher_id, section_id) pair(s) have more than one row (distinct ` +
+          `subject_id values), which the old (teacher_id, section_id) unique ` +
+          `index cannot represent. Resolve these rows (merge or delete the ` +
+          `extras) before reverting this migration.`,
+      );
+    }
+
     await queryRunner.query(
       `CREATE UNIQUE INDEX "IDX_tcs_teacher_section" ON "teacher_class_sections" ("teacher_id", "section_id")`,
     );
