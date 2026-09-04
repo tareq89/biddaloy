@@ -13,7 +13,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
@@ -98,6 +98,27 @@ export class AttendanceController {
       'nothing, and a stale `base_version` returns 409 with the current register.',
   })
   @ApiOkResponse({ type: RegisterResponseDto })
+  @ApiResponse({
+    status: HttpStatus.CONFLICT,
+    description:
+      "base_version does not match the session's current version. `details.current_version` " +
+      'and `details.register` (the same shape as GET .../register) let the client refresh and ' +
+      'retry without a second round trip.',
+    schema: {
+      example: {
+        statusCode: 409,
+        message: 'This register has changed since you last loaded it',
+        timestamp: '2026-01-01T00:00:00.000Z',
+        path: '/attendance/sections/:sectionId/register',
+        requestId: 'req-id',
+        details: {
+          code: 'ATTENDANCE_VERSION_CONFLICT',
+          current_version: 3,
+          register: {},
+        },
+      },
+    },
+  })
   async putRegister(
     @Param('sectionId') sectionId: string,
     @Body() dto: PutRegisterDto,
