@@ -145,6 +145,7 @@ export {
   statusLabelKey,
   type StatusBadgeProps,
   type StatusTone,
+  type AttendanceLowStatus,
 } from './status-badge';
 export {
   AttendanceStatusControl,

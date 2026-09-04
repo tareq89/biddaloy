@@ -88,5 +88,34 @@
     "mimsmsApiKey": "মিমএসএমএস এপিআই কী",
     "mimsmsSenderId": "মিমএসএমএস প্রেরক আইডি",
     "mimsmsApiUrl": "মিমএসএমএস এপিআই ইউআরএল (ঐচ্ছিক)"
+  },
+  "attendance": {
+    "legend": "উপস্থিতি নীতি",
+    "weeklyOffLegend": "সাপ্তাহিক ছুটির দিন",
+    "weekday": {
+      "0": "রবি",
+      "1": "সোম",
+      "2": "মঙ্গল",
+      "3": "বুধ",
+      "4": "বৃহস্পতি",
+      "5": "শুক্র",
+      "6": "শনি"
+    },
+    "lateAfter": "দেরি ধরা হবে",
+    "absentAfter": "অনুপস্থিত ধরা হবে",
+    "correctionWindowDays": "সংশোধনের সময়সীমা (দিন)",
+    "lowAttendanceThresholdPercent": "কম উপস্থিতির সীমা (%)",
+    "percentageDenominator": "শতাংশ হিসাব করা হবে",
+    "percentageDenominatorWorkingDays": "কর্মদিবসের ভিত্তিতে",
+    "percentageDenominatorMarkedDays": "চিহ্নিত দিনের ভিত্তিতে",
+    "lateCountsAsPresent": "দেরিকে উপস্থিত হিসেবে গণনা করুন",
+    "leaveCountsAsWorkingDay": "ছুটিকে কর্মদিবস হিসেবে গণনা করুন",
+    "allowFutureDates": "ভবিষ্যতের তারিখ চিহ্নিত করার অনুমতি দিন",
+    "autoAbsentLegend": "স্বয়ংক্রিয়-অনুপস্থিতি অভিভাবক বিজ্ঞপ্তি",
+    "autoAbsentEnabled": "কোনো শিক্ষার্থীকে অনুপস্থিত চিহ্নিত করা হলে স্বয়ংক্রিয়ভাবে অভিভাবককে জানান",
+    "autoAbsentCutoffTime": "পাঠানোর সময়সীমা",
+    "confirmEnableNotificationDescription": "এটি চালু করলে প্রতিদিন প্রতিটি অনুপস্থিত শিক্ষার্থীর অভিভাবককে স্বয়ংক্রিয়ভাবে একটি বিজ্ঞপ্তি পাঠানো হবে। আপনি কি নিশ্চিত?",
+    "confirmEnableNotificationConfirm": "হ্যাঁ, চালু করুন",
+    "confirmEnableNotificationCancel": "বাতিল"
   }
 }

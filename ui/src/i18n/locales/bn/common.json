@@ -65,6 +65,10 @@
       "ACTIVE": "সক্রিয়",
       "INACTIVE": "নিষ্ক্রিয়",
       "SUSPENDED": "স্থগিত"
+    },
+    "attendance": {
+      "LOW": "কম",
+      "OK": "ঠিক আছে"
     }
   },
   "errors": {

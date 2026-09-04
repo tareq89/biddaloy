@@ -1,0 +1,57 @@
+/**
+ * [9.10] Printable register — client-only (see `register.tsx`'s own file
+ * comment). Scoped by `#attendance-register-print-area`: everything
+ * outside it (`AppShell`'s sidebar/top bar, the class/section/month
+ * pickers, the Print button itself) is hidden via `visibility: hidden`
+ * rather than `display: none` — `visibility` doesn't collapse layout, so
+ * this can't accidentally reflow the *screen* rendering (only `@media
+ * print` rules apply here, so it never runs outside a print/print-preview
+ * context anyway, but `visibility` is the safer of the two regardless).
+ *
+ * NOTE for reviewers: print CSS is easy to get subtly wrong in ways no
+ * unit test catches (page breaks, `@page` margins, browser print-preview
+ * quirks differ Chromium/Firefox/Safari) — this needs a manual
+ * print-preview check before this ships, not just `yarn test` green.
+ */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #attendance-register-print-area,
+  #attendance-register-print-area * {
+    visibility: visible;
+  }
+
+  #attendance-register-print-area {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+  }
+
+  #attendance-register-print-area table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  #attendance-register-print-area th,
+  #attendance-register-print-area td {
+    border: 1px solid #000;
+    color: #000;
+    background: #fff;
+    padding: 2px 4px;
+    font-size: 10px;
+  }
+
+  /* Repeats the header row on every printed page — the one thing a plain
+   * `<table>` gets for free that `DataTable`'s virtualized-friendly markup
+   * doesn't need to think about. */
+  #attendance-register-print-area thead {
+    display: table-header-group;
+  }
+
+  @page {
+    size: landscape;
+    margin: 10mm;
+  }
+}

@@ -20,6 +20,7 @@ import {
   BriefcaseIcon,
   CalendarCheck2Icon,
   CalendarDaysIcon,
+  ClipboardListIcon,
   FilePlus2Icon,
   GraduationCapIcon,
   HandCoinsIcon,
@@ -27,6 +28,7 @@ import {
   LayoutDashboardIcon,
   ListChecksIcon,
   MoreHorizontalIcon,
+  PrinterIcon,
   ReceiptIcon,
   ScrollTextIcon,
   SchoolIcon,
@@ -151,6 +153,22 @@ function StaffLayout() {
     permission: Permission.ATTENDANCE_READ,
     icon: <CalendarCheck2Icon aria-hidden="true" />,
   };
+  // [9.10] Same ATTENDANCE_READ gate as `attendanceItem` above — these are
+  // read-only report/printable surfaces over [9.4]'s summary endpoints,
+  // not a daily marking task, so unlike `attendanceItem` they live only in
+  // the `people` group below, not the mobile bottom bar.
+  const attendanceReportsItem = {
+    to: '/attendance/reports',
+    label: t('items.attendanceReports'),
+    permission: Permission.ATTENDANCE_READ,
+    icon: <ClipboardListIcon aria-hidden="true" />,
+  };
+  const attendanceRegisterItem = {
+    to: '/attendance/register',
+    label: t('items.attendanceRegister'),
+    permission: Permission.ATTENDANCE_READ,
+    icon: <PrinterIcon aria-hidden="true" />,
+  };
 
   const navItems = [dashboardItem];
 
@@ -167,6 +185,8 @@ function StaffLayout() {
       items: [
         studentsItem,
         attendanceItem,
+        attendanceReportsItem,
+        attendanceRegisterItem,
         // [8.11.4] — gated on GUARDIAN_READ, the same permission
         // `GuardianController`'s `GET /guardians` requires server-side
         // (`students.controller.ts`'s `@Roles(ADMIN, ACCOUNTANT,

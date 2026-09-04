@@ -65,6 +65,10 @@
       "ACTIVE": "Active",
       "INACTIVE": "Inactive",
       "SUSPENDED": "Suspended"
+    },
+    "attendance": {
+      "LOW": "Low",
+      "OK": "OK"
     }
   },
   "errors": {

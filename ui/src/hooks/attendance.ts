@@ -333,3 +333,106 @@ export function studentAttendanceSummaryQueryOptions(studentId: string | undefin
 export function useStudentAttendanceSummary(studentId: string | undefined, month: string) {
   return useQuery(studentAttendanceSummaryQueryOptions(studentId, month));
 }
+
+// ---------------------------------------------------------------------
+// [9.10] GET /attendance/sections/:sectionId/summary,
+// .../register-matrix, GET /attendance/flags/low — the three remaining
+// [9.4] read endpoints, consumed here by the staff-facing reports,
+// printable register, and low-attendance flag list. No offline caching —
+// these are report/admin surfaces, not the daily marking flow 8.12's
+// mutation queue exists for, so they deliberately skip
+// `offlineCachedQueryFn` (`CacheableEntity` stays exactly what [9.6]/[9.9]
+// left it).
+// ---------------------------------------------------------------------
+
+export type SectionSummary = components['schemas']['SectionSummaryDto'];
+export type StudentSummaryRow = components['schemas']['AttendanceSummaryDto'];
+export type RegisterMatrix = components['schemas']['RegisterMatrixDto'];
+export type RegisterMatrixRow = components['schemas']['RegisterMatrixRowDto'];
+export type LowAttendanceFlag = components['schemas']['LowAttendanceFlagDto'];
+export type LowAttendanceListResponse = components['schemas']['LowAttendanceListResponseDto'];
+
+export function sectionSummaryKey(sectionId: string | undefined, from: string, to: string) {
+  return [...attendanceKeys.all, 'section-summary', sectionId, from, to] as const;
+}
+
+export function sectionSummaryQueryOptions(
+  sectionId: string | undefined,
+  from: string,
+  to: string,
+) {
+  return queryOptions({
+    queryKey: sectionSummaryKey(sectionId, from, to),
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<SectionSummary>(`/attendance/sections/${sectionId}/summary`, {
+        params: { from, to },
+        signal,
+      });
+      return res.data;
+    },
+    enabled: sectionId !== undefined,
+    retry: shouldRetryQuery,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useSectionSummary(sectionId: string | undefined, from: string, to: string) {
+  return useQuery(sectionSummaryQueryOptions(sectionId, from, to));
+}
+
+export function registerMatrixKey(sectionId: string | undefined, month: string) {
+  return [...attendanceKeys.all, 'register-matrix', sectionId, month] as const;
+}
+
+export function registerMatrixQueryOptions(sectionId: string | undefined, month: string) {
+  return queryOptions({
+    queryKey: registerMatrixKey(sectionId, month),
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<RegisterMatrix>(
+        `/attendance/sections/${sectionId}/register-matrix`,
+        { params: { month }, signal },
+      );
+      return res.data;
+    },
+    enabled: sectionId !== undefined,
+    retry: shouldRetryQuery,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useRegisterMatrix(sectionId: string | undefined, month: string) {
+  return useQuery(registerMatrixQueryOptions(sectionId, month));
+}
+
+export interface LowAttendanceFilters {
+  from: string;
+  to: string;
+  threshold?: number;
+  class_id?: string;
+  section_id?: string;
+  page?: number;
+  limit?: number;
+}
+
+export function lowAttendanceKey(filters: LowAttendanceFilters) {
+  return [...attendanceKeys.all, 'low', filters] as const;
+}
+
+export function lowAttendanceQueryOptions(filters: LowAttendanceFilters) {
+  return queryOptions({
+    queryKey: lowAttendanceKey(filters),
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<LowAttendanceListResponse>('/attendance/flags/low', {
+        params: filters,
+        signal,
+      });
+      return res.data;
+    },
+    retry: shouldRetryQuery,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useLowAttendance(filters: LowAttendanceFilters) {
+  return useQuery(lowAttendanceQueryOptions(filters));
+}

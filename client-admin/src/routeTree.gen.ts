@@ -26,6 +26,8 @@ import { Route as StaffAcademicYearsIndexRouteImport } from './routes/_staff/aca
 import { Route as StaffAcademicYearsAcademicYearIdRouteImport } from './routes/_staff/academic-years/$academicYearId'
 import { Route as StaffAttendanceIndexRouteImport } from './routes/_staff/attendance/index'
 import { Route as StaffAttendanceSectionIdRouteImport } from './routes/_staff/attendance/$sectionId'
+import { Route as StaffAttendanceRegisterRouteImport } from './routes/_staff/attendance/register'
+import { Route as StaffAttendanceReportsRouteImport } from './routes/_staff/attendance/reports'
 import { Route as StaffAuditLogsIndexRouteImport } from './routes/_staff/audit-logs/index'
 import { Route as StaffClassesIndexRouteImport } from './routes/_staff/classes/index'
 import { Route as StaffClassesClassIdRouteImport } from './routes/_staff/classes/$classId'
@@ -136,6 +138,16 @@ const StaffAttendanceSectionIdRoute =
     path: '/attendance/$sectionId',
     getParentRoute: () => StaffRoute,
   } as any)
+const StaffAttendanceRegisterRoute = StaffAttendanceRegisterRouteImport.update({
+  id: '/attendance/register',
+  path: '/attendance/register',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffAttendanceReportsRoute = StaffAttendanceReportsRouteImport.update({
+  id: '/attendance/reports',
+  path: '/attendance/reports',
+  getParentRoute: () => StaffRoute,
+} as any)
 const StaffAuditLogsIndexRoute = StaffAuditLogsIndexRouteImport.update({
   id: '/audit-logs/',
   path: '/audit-logs/',
@@ -272,6 +284,8 @@ export interface FileRoutesByFullPath {
   '/portal/': typeof PortalIndexRoute
   '/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
   '/attendance/$sectionId': typeof StaffAttendanceSectionIdRoute
+  '/attendance/register': typeof StaffAttendanceRegisterRoute
+  '/attendance/reports': typeof StaffAttendanceReportsRoute
   '/classes/$classId': typeof StaffClassesClassIdRoute
   '/communications/reminders': typeof StaffCommunicationsRemindersRoute
   '/communications/send': typeof StaffCommunicationsSendRoute
@@ -311,6 +325,8 @@ export interface FileRoutesByTo {
   '/portal': typeof PortalIndexRoute
   '/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
   '/attendance/$sectionId': typeof StaffAttendanceSectionIdRoute
+  '/attendance/register': typeof StaffAttendanceRegisterRoute
+  '/attendance/reports': typeof StaffAttendanceReportsRoute
   '/classes/$classId': typeof StaffClassesClassIdRoute
   '/communications/reminders': typeof StaffCommunicationsRemindersRoute
   '/communications/send': typeof StaffCommunicationsSendRoute
@@ -354,6 +370,8 @@ export interface FileRoutesById {
   '/portal/': typeof PortalIndexRoute
   '/_staff/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
   '/_staff/attendance/$sectionId': typeof StaffAttendanceSectionIdRoute
+  '/_staff/attendance/register': typeof StaffAttendanceRegisterRoute
+  '/_staff/attendance/reports': typeof StaffAttendanceReportsRoute
   '/_staff/classes/$classId': typeof StaffClassesClassIdRoute
   '/_staff/communications/reminders': typeof StaffCommunicationsRemindersRoute
   '/_staff/communications/send': typeof StaffCommunicationsSendRoute
@@ -397,6 +415,8 @@ export interface FileRouteTypes {
     | '/portal/'
     | '/academic-years/$academicYearId'
     | '/attendance/$sectionId'
+    | '/attendance/register'
+    | '/attendance/reports'
     | '/classes/$classId'
     | '/communications/reminders'
     | '/communications/send'
@@ -436,6 +456,8 @@ export interface FileRouteTypes {
     | '/portal'
     | '/academic-years/$academicYearId'
     | '/attendance/$sectionId'
+    | '/attendance/register'
+    | '/attendance/reports'
     | '/classes/$classId'
     | '/communications/reminders'
     | '/communications/send'
@@ -478,6 +500,8 @@ export interface FileRouteTypes {
     | '/portal/'
     | '/_staff/academic-years/$academicYearId'
     | '/_staff/attendance/$sectionId'
+    | '/_staff/attendance/register'
+    | '/_staff/attendance/reports'
     | '/_staff/classes/$classId'
     | '/_staff/communications/reminders'
     | '/_staff/communications/send'
@@ -632,6 +656,20 @@ declare module '@tanstack/react-router' {
       path: '/attendance/$sectionId'
       fullPath: '/attendance/$sectionId'
       preLoaderRoute: typeof StaffAttendanceSectionIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/attendance/register': {
+      id: '/_staff/attendance/register'
+      path: '/attendance/register'
+      fullPath: '/attendance/register'
+      preLoaderRoute: typeof StaffAttendanceRegisterRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/attendance/reports': {
+      id: '/_staff/attendance/reports'
+      path: '/attendance/reports'
+      fullPath: '/attendance/reports'
+      preLoaderRoute: typeof StaffAttendanceReportsRouteImport
       parentRoute: typeof StaffRoute
     }
     '/_staff/audit-logs/': {
@@ -821,6 +859,8 @@ interface StaffRouteChildren {
   StaffSettingsRoute: typeof StaffSettingsRoute
   StaffAcademicYearsAcademicYearIdRoute: typeof StaffAcademicYearsAcademicYearIdRoute
   StaffAttendanceSectionIdRoute: typeof StaffAttendanceSectionIdRoute
+  StaffAttendanceRegisterRoute: typeof StaffAttendanceRegisterRoute
+  StaffAttendanceReportsRoute: typeof StaffAttendanceReportsRoute
   StaffClassesClassIdRoute: typeof StaffClassesClassIdRoute
   StaffCommunicationsRemindersRoute: typeof StaffCommunicationsRemindersRoute
   StaffCommunicationsSendRoute: typeof StaffCommunicationsSendRoute
@@ -852,6 +892,8 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffSettingsRoute: StaffSettingsRoute,
   StaffAcademicYearsAcademicYearIdRoute: StaffAcademicYearsAcademicYearIdRoute,
   StaffAttendanceSectionIdRoute: StaffAttendanceSectionIdRoute,
+  StaffAttendanceRegisterRoute: StaffAttendanceRegisterRoute,
+  StaffAttendanceReportsRoute: StaffAttendanceReportsRoute,
   StaffClassesClassIdRoute: StaffClassesClassIdRoute,
   StaffCommunicationsRemindersRoute: StaffCommunicationsRemindersRoute,
   StaffCommunicationsSendRoute: StaffCommunicationsSendRoute,

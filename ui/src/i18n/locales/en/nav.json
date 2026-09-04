@@ -10,6 +10,8 @@
     "dashboard": "Dashboard",
     "students": "Students",
     "attendance": "Attendance",
+    "attendanceReports": "Attendance reports",
+    "attendanceRegister": "Printable register",
     "guardians": "Guardians",
     "staff": "Staff",
     "fees": "Fees",

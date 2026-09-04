@@ -217,6 +217,16 @@
       },
       "role": "admin",
       "archetype": "detail"
+    },
+    {
+      "path": "/attendance/reports",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/attendance/register",
+      "role": "admin",
+      "archetype": "list"
     }
   ]
 }

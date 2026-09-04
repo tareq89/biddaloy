@@ -65,4 +65,9 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   // roles (a co-ordinator reviewing marks, say) from viewing at all.
   '/_staff/attendance/': Permission.ATTENDANCE_READ,
   '/_staff/attendance/$sectionId': Permission.ATTENDANCE_READ,
+  // [9.10] Same ATTENDANCE_READ gate — the reports/register/flags surfaces
+  // are read-only over [9.4]'s summary endpoints, same "may you see it"
+  // reasoning as the two entries above, not a new permission.
+  '/_staff/attendance/reports': Permission.ATTENDANCE_READ,
+  '/_staff/attendance/register': Permission.ATTENDANCE_READ,
 };

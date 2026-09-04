@@ -79,6 +79,10 @@ export const AllDomains: Story = {
           <StatusBadge key={status} domain="user" status={status} />
         ))}
       </div>
+      <div className="flex flex-wrap gap-2">
+        <StatusBadge domain="attendance" status="LOW" />
+        <StatusBadge domain="attendance" status="OK" />
+      </div>
     </div>
   ),
 };
@@ -142,6 +146,7 @@ export const Bangla: Story = {
       <StatusBadge domain="guardian" status="PRIMARY" />
       <StatusBadge domain="feeStructure" status="RECURRING" />
       <StatusBadge domain="user" status={UserStatus.ACTIVE} />
+      <StatusBadge domain="attendance" status="LOW" />
     </div>
   ),
   globals: { locale: 'bn' },

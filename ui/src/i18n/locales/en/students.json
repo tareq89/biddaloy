@@ -78,7 +78,8 @@
       "invoices": "Invoices",
       "guardians": "Guardians",
       "communication": "Communication",
-      "activity": "Activity"
+      "activity": "Activity",
+      "attendance": "Attendance"
     },
     "overview": {
       "dateOfBirth": "Date of birth",
@@ -147,6 +148,23 @@
       "columnAction": "Action",
       "emptyMessage": "No activity recorded yet.",
       "errorMessage": "Couldn't load activity."
+    },
+    "attendanceTab": {
+      "monthStepper": {
+        "previousLabel": "Previous month",
+        "nextLabel": "Next month"
+      },
+      "summary": {
+        "percentage": "Attendance",
+        "notEnoughData": "Not enough data yet",
+        "present": "Present",
+        "absent": "Absent",
+        "late": "Late",
+        "leave": "Leave"
+      },
+      "loading": "Loading attendance",
+      "errorMessage": "Couldn't load attendance.",
+      "noRecordsThisMonth": "No attendance records for this month."
     },
     "transferDialog": {
       "title": "Transfer / change status",
