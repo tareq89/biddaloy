@@ -446,7 +446,7 @@ export function AppShell({
                 </DialogTrigger>
                 <DialogContent
                   showCloseButton={false}
-                  className="start-0 top-0 h-full w-72 max-w-[85vw] translate-x-0 translate-y-0 rounded-none p-4 sm:max-w-[85vw]"
+                  className="inset-0 h-full w-full max-w-none translate-x-0 translate-y-0 overflow-y-auto rounded-none p-4"
                 >
                   <div className="mb-4 flex items-center justify-between">
                     {brand !== undefined ? (
@@ -457,8 +457,8 @@ export function AppShell({
                       </VisuallyHidden.Root>
                     )}
                     <DialogClose asChild>
-                      <Button type="button" variant="ghost" size="icon-sm">
-                        <XIcon />
+                      <Button type="button" variant="ghost" size="icon-lg">
+                        <XIcon className="size-5" />
                         <span className="sr-only">{closeMenuLabel}</span>
                       </Button>
                     </DialogClose>

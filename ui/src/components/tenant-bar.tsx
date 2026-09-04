@@ -149,7 +149,7 @@ export function TenantBar() {
       {canSwitch && (
         <Menu>
           <MenuTrigger asChild>
-            <Button variant="ghost" size="sm">
+            <Button variant="outline" size="sm">
               {rolesHere.length > 0
                 ? t('tenantBar.switchSchoolOrRole')
                 : t('tenantBar.switchSchool')}
