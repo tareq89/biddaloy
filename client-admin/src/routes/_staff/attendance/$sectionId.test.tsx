@@ -1,5 +1,5 @@
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -208,5 +208,148 @@ describe('/attendance/$sectionId', () => {
     ).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Keep mine' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Take theirs' })).toBeTruthy();
+  });
+
+  // [9.7]
+  function outsideWindowBody() {
+    return registerBody({
+      editable: false,
+      reason_required: true,
+      policy: { late_after: '09:00', correction_window_days: 3, allow_future_dates: false },
+      students: [
+        {
+          student_id: 'student-1',
+          roll_number: 1,
+          full_name: 'Rafi Ahmed',
+          record_id: 'record-1',
+          status: 'ABSENT',
+          minutes_late: null,
+          remarks: null,
+          source: 'TEACHER',
+          correction_count: 2,
+        },
+        {
+          student_id: 'student-2',
+          roll_number: 2,
+          full_name: 'Nusrat Jahan',
+          record_id: 'record-2',
+          status: 'PRESENT',
+          minutes_late: null,
+          remarks: null,
+          source: 'TEACHER',
+          correction_count: 0,
+        },
+      ],
+    });
+  }
+
+  it('[9.7] a TEACHER (no ATTENDANCE_CORRECT) gets History-only rows and the "ask an administrator" line', async () => {
+    server.use(
+      http.get('/api/v1/attendance/sections/section-1/register', () =>
+        HttpResponse.json(outsideWindowBody()),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/attendance/section-1?date=2026-09-04'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+
+    await screen.findByText('Rafi Ahmed');
+    expect(
+      screen.getByText('This register is older than 3 days. Ask an administrator to correct it.'),
+    ).toBeTruthy();
+
+    const user = userEvent.setup();
+    await user.click(screen.getAllByRole('button', { name: /More actions for/ })[0]!);
+    expect(screen.queryByRole('menuitem', { name: 'Correct' })).toBeNull();
+    expect(screen.getByRole('menuitem', { name: 'History' })).toBeTruthy();
+  });
+
+  it('[9.7] an ADMIN (holds ATTENDANCE_CORRECT) gets a Correct option on an outside-window row', async () => {
+    server.use(
+      http.get('/api/v1/attendance/sections/section-1/register', () =>
+        HttpResponse.json(outsideWindowBody()),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/attendance/section-1?date=2026-09-04'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText('Rafi Ahmed');
+    const user = userEvent.setup();
+    await user.click(screen.getAllByRole('button', { name: /More actions for/ })[0]!);
+    expect(screen.getByRole('menuitem', { name: 'Correct' })).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: 'History' })).toBeTruthy();
+
+    await user.click(screen.getByRole('menuitem', { name: 'Correct' }));
+    expect(await screen.findByRole('heading', { name: 'Correct attendance' })).toBeTruthy();
+  });
+
+  it('[9.7] a row with correction_count > 0 gets an "Edited" badge', async () => {
+    server.use(
+      http.get('/api/v1/attendance/sections/section-1/register', () =>
+        HttpResponse.json(outsideWindowBody()),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/attendance/section-1?date=2026-09-04'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText('Rafi Ahmed');
+    // Only Rafi Ahmed's row (correction_count: 2) carries the badge.
+    expect(screen.getAllByText('Edited')).toHaveLength(1);
+  });
+
+  it('[9.7] a future date under allow_future_dates only offers LEAVE', async () => {
+    server.use(
+      http.get('/api/v1/attendance/sections/section-1/register', () =>
+        HttpResponse.json(
+          registerBody({
+            session: {
+              id: null,
+              date: '2026-09-10',
+              period_no: null,
+              state: 'DRAFT',
+              version: 0,
+              marked_by_user_id: null,
+              marked_at: null,
+              finalized_at: null,
+            },
+            policy: { late_after: '09:00', correction_window_days: 3, allow_future_dates: true },
+          }),
+        ),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/attendance/section-1?date=2026-09-10'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+
+    await screen.findByText('Rafi Ahmed');
+    const user = userEvent.setup();
+    // The compact row tap only ever sets PRESENT/ABSENT directly — the
+    // popover is what exposes the full allowed-status list to assert on.
+    await user.click(screen.getByLabelText(/Rafi Ahmed, currently/));
+    const popover = screen.getByRole('dialog', {
+      name: 'Change attendance status for Rafi Ahmed',
+    });
+    expect(within(popover).getByRole('button', { name: 'Leave' })).toBeTruthy();
+    expect(within(popover).queryByRole('button', { name: 'Present' })).toBeNull();
+    expect(within(popover).queryByRole('button', { name: 'Absent' })).toBeNull();
+    expect(within(popover).queryByRole('button', { name: 'Late' })).toBeNull();
   });
 });

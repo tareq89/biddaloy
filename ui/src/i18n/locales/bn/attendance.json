@@ -56,9 +56,16 @@
     "queueUnavailableToast": "সংরক্ষণ করা যায়নি — এই ডিভাইসে অফলাইন সংরক্ষণাগার অনুপলব্ধ",
     "announceStatusChanged": "{{name}} কে {{status}} হিসেবে চিহ্নিত করা হয়েছে",
     "readOnlyExplanation": "এই রেজিস্টারটি সংশোধনের সময়সীমার বাইরে এবং এখানে আর সম্পাদনা করা যাবে না।",
+    "readOnlyNoPermission": "এই রেজিস্টারটি {{days}} দিনের বেশি পুরনো। সংশোধনের জন্য একজন প্রশাসককে বলুন।",
     "requestCorrection": "সংশোধনের অনুরোধ করুন",
     "futureDateBanner": "ভবিষ্যতের তারিখ — আগে থেকে শুধু ছুটি চিহ্নিত করা যাবে।",
-    "rollNumber": "রোল {{roll}}"
+    "rollNumber": "রোল {{roll}}",
+    "rowMenuLabel": "{{name}} এর জন্য আরও কার্যক্রম",
+    "correctAction": "সংশোধন করুন",
+    "historyAction": "ইতিহাস",
+    "editedBadge": "সম্পাদিত",
+    "editedBadgeTooltip_one": "{{count}} বার সংশোধিত",
+    "editedBadgeTooltip_other": "{{count}} বার সংশোধিত"
   },
   "conflict": {
     "title": "আপনি লোড করার পর থেকে এই রেজিস্টার পরিবর্তিত হয়েছে",
@@ -68,5 +75,34 @@
     "columnStudent": "শিক্ষার্থী",
     "columnYours": "আপনার চিহ্ন",
     "columnTheirs": "বর্তমান চিহ্ন"
+  },
+  "correction": {
+    "title": "উপস্থিতি সংশোধন করুন",
+    "currentStatus": "বর্তমান অবস্থা",
+    "newStatusLabel": "নতুন অবস্থা",
+    "reasonLabel": "কেন পরিবর্তন করা হচ্ছে?",
+    "reasonHelper": "অন্যান্য স্টাফরা এটি দেখতে পাবেন — এটি ব্যক্তিগত নোট নয়।",
+    "reasonPlaceholder": "যেমন: শিক্ষার্থী আন্তঃবিদ্যালয় সভায় ছিল; স্লিপ দেরিতে জমা দেওয়া হয়েছে।",
+    "reasonTooShort": "কারণ কমপক্ষে ৩ অক্ষরের হতে হবে।",
+    "reasonCharacterCount": "{{count}}/280",
+    "cancel": "বাতিল",
+    "save": "সংশোধন সংরক্ষণ করুন",
+    "saving": "সংরক্ষণ হচ্ছে…",
+    "savedToast": "সংশোধন সংরক্ষিত হয়েছে",
+    "errorToast": "সংশোধন সংরক্ষণ করা যায়নি",
+    "historyDisclosure": "ইতিহাস",
+    "unchangedStatusHint": "সংশোধন সংরক্ষণ করতে একটি ভিন্ন অবস্থা বেছে নিন।"
+  },
+  "history": {
+    "title": "{{name}} এর পরিবর্তনের ইতিহাস",
+    "loadingLabel": "ইতিহাস লোড হচ্ছে",
+    "emptyTitle": "কোনো পরিবর্তন নেই",
+    "emptyExplanation": "এই চিহ্নটি এখনো সম্পাদনা করা হয়নি।",
+    "errorMessage": "পরিবর্তনের ইতিহাস লোড করা যায়নি।",
+    "retry": "আবার চেষ্টা করুন",
+    "entryChange": "{{from}} → {{to}}",
+    "entryActor": "সংশোধন করেছেন {{actor}}",
+    "entryActorUnknownName": "ব্যবহারকারী {{actorId}} সংশোধন করেছেন",
+    "close": "বন্ধ করুন"
   }
 }

@@ -15,6 +15,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Menu,
+  MenuContent,
+  MenuItem,
+  MenuTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
   toast,
 } from '@biddaloy/ui/components';
 import {
@@ -27,17 +35,21 @@ import {
   useSubmitRegister,
   type PutRegisterInput,
   type Register,
+  type RegisterStudent,
 } from '@biddaloy/ui/hooks';
 import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatDate, parseDate } from '@biddaloy/ui/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
+import { History, MoreVertical } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { ConflictDialog } from './-conflict-dialog';
+import { CorrectionDialog } from './-correction-dialog';
+import { RecordHistoryPanel } from './-record-history-panel';
 import { RosterMarker, type Draft } from './-roster-marker';
 
 function todayIso(): string {
@@ -119,10 +131,21 @@ function SectionRegisterPage() {
   const tenantId = useActiveTenant();
   const online = useOnline();
   const canMark = useHasPermission(Permission.ATTENDANCE_MARK);
+  // [9.7] `register.editable === false` already implies the caller lacks
+  // ATTENDANCE_CORRECT server-side — `attendance.service.ts`'s own
+  // `editable` formula ORs every one of its window/finalized/non-working
+  // checks with `hasCorrect`, so a caller who *does* hold it always gets
+  // `editable: true` and edits inline via the normal marking flow. This
+  // flag only ever matters for a future role/permission mapping that
+  // grants ATTENDANCE_CORRECT without full marking rights.
+  const canCorrect = useHasPermission(Permission.ATTENDANCE_CORRECT);
   const regionConfig = useTenantRegionConfig();
 
   const registerQuery = useSectionRegister(sectionId, date, period);
   const submitRegister = useSubmitRegister(sectionId);
+
+  const [correctionStudentId, setCorrectionStudentId] = React.useState<string | null>(null);
+  const [historyStudentId, setHistoryStudentId] = React.useState<string | null>(null);
 
   const storageKey = draftKey(tenantId, sectionId, date);
   const [draft, setDraft] = React.useState<Draft>({});
@@ -296,6 +319,68 @@ function SectionRegisterPage() {
 
   const register = registerQuery.data;
   const editable = register.editable && canMark;
+  // [9.7] Whether the correction dialog (PATCH, reason-captured) is on
+  // offer for this register, as distinct from `editable` (the normal
+  // inline PUT flow). See `canCorrect`'s own comment above for why this
+  // can only ever be true for a caller who holds ATTENDANCE_CORRECT but
+  // whose `register.editable` still came back `false`.
+  const canCorrectOutsideWindow = !register.editable && canCorrect;
+  const futureDateLeaveOnly = date > todayIso() && register.policy.allow_future_dates;
+  const allowedStatuses = futureDateLeaveOnly ? [AttendanceStatus.LEAVE] : undefined;
+  const correctionStudent = students.find((s) => s.student_id === correctionStudentId) ?? null;
+  const historyStudent = students.find((s) => s.student_id === historyStudentId) ?? null;
+
+  // [9.7] Trailing per-row slot: an "Edited" badge for a corrected mark,
+  // plus a Correct/History overflow menu once the register is outside
+  // its editable window. Renders nothing while `register.editable` is
+  // true — the normal inline marking flow already covers that case.
+  function renderRowActions(student: RegisterStudent) {
+    if (register.editable) return null;
+    if (!student.record_id) return null; // never marked — nothing to correct or view
+
+    return (
+      <div className="flex items-center gap-1">
+        {student.correction_count > 0 && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                  <History aria-hidden="true" className="size-3" />
+                  {t('mark.editedBadge')}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                {t('mark.editedBadgeTooltip', { count: student.correction_count })}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+        <Menu>
+          <MenuTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              iconOnly
+              aria-label={t('mark.rowMenuLabel', { name: student.full_name })}
+            >
+              <MoreVertical aria-hidden="true" />
+            </Button>
+          </MenuTrigger>
+          <MenuContent align="end">
+            {canCorrectOutsideWindow && (
+              <MenuItem onSelect={() => setCorrectionStudentId(student.student_id)}>
+                {t('mark.correctAction')}
+              </MenuItem>
+            )}
+            <MenuItem onSelect={() => setHistoryStudentId(student.student_id)}>
+              {t('mark.historyAction')}
+            </MenuItem>
+          </MenuContent>
+        </Menu>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-3 pb-24">
@@ -338,9 +423,11 @@ function SectionRegisterPage() {
         )}
         {!register.editable && (
           <p className="rounded-md border border-border-subtle bg-muted p-2 text-sm text-muted-foreground">
-            {t('mark.readOnlyExplanation')}
-            {/* TODO(9.7): wire up the "Request correction" affordance once
-                the correction-request flow lands. */}
+            {canCorrectOutsideWindow
+              ? t('mark.readOnlyExplanation')
+              : t('mark.readOnlyNoPermission', {
+                  days: register.policy.correction_window_days,
+                })}
           </p>
         )}
         {!register.policy.allow_future_dates && date > todayIso() && (
@@ -359,6 +446,8 @@ function SectionRegisterPage() {
           onAllPresent={handleAllPresent}
           onSubmit={handleSubmit}
           disabled={!editable}
+          allowedStatuses={allowedStatuses}
+          renderRowActions={renderRowActions}
         />
       </div>
 
@@ -425,6 +514,38 @@ function SectionRegisterPage() {
         onKeepMine={handleKeepMine}
         onTakeTheirs={handleTakeTheirs}
       />
+
+      {correctionStudent && (
+        <CorrectionDialog
+          open={correctionStudentId !== null}
+          onOpenChange={(open) => !open && setCorrectionStudentId(null)}
+          sectionId={sectionId}
+          date={date}
+          periodNo={period}
+          student={correctionStudent}
+        />
+      )}
+
+      <Dialog
+        open={historyStudentId !== null}
+        onOpenChange={(open) => !open && setHistoryStudentId(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {historyStudent
+                ? t('history.title', { name: historyStudent.full_name })
+                : t('mark.historyAction')}
+            </DialogTitle>
+          </DialogHeader>
+          {historyStudent && (
+            <RecordHistoryPanel
+              recordId={historyStudent.record_id ?? undefined}
+              studentName={historyStudent.full_name}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -45,6 +45,11 @@ export interface AttendanceStatusControlProps {
   variant?: AttendanceStatusControlVariant;
   minutesLate?: number | null;
   onMinutesLateChange?: (minutes: number | null) => void;
+  /** [9.7] Restricts which statuses this control offers, e.g. a future
+   * date under `policy.allow_future_dates` only ever accepts `LEAVE`.
+   * Defaults to all four — every pre-9.7 call site keeps offering the
+   * full set unchanged. */
+  allowedStatuses?: AttendanceStatus[] | undefined;
   /** For the accessible name and the live-region-friendly label — every
    * option's accessible name includes the student's name, not just the
    * status word, so a screen-reader user tabbing through a roster of 40
@@ -91,6 +96,7 @@ export function AttendanceStatusControl({
   onMinutesLateChange,
   studentName,
   className,
+  allowedStatuses = STATUS_ORDER,
 }: AttendanceStatusControlProps) {
   const { t } = useTranslation('attendance');
   const [open, setOpen] = React.useState(false);
@@ -135,7 +141,7 @@ export function AttendanceStatusControl({
         className={cn('flex flex-col gap-2', className)}
       >
         <div className="flex flex-wrap gap-1.5">
-          {STATUS_ORDER.map((status) => {
+          {allowedStatuses.map((status) => {
             const Icon = STATUS_ICON[status];
             const selected = value === status;
             return (
@@ -200,7 +206,7 @@ export function AttendanceStatusControl({
           <PopoverTitle>{studentName}</PopoverTitle>
         </PopoverHeader>
         <div className="flex flex-col gap-1">
-          {STATUS_ORDER.map((status) => {
+          {allowedStatuses.map((status) => {
             const OptionIcon = STATUS_ICON[status];
             const selected = value === status;
             return (

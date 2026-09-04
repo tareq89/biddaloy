@@ -76,3 +76,18 @@ export const RightToLeft: Story = {
   render: () => <Controlled initialValue={AttendanceStatus.LATE} initialMinutesLate={3} />,
   decorators: [rtlDecorator],
 };
+
+/** [9.7] A future date under `policy.allow_future_dates` — the control
+ * only ever offers `LEAVE`, so marking anything else ahead of time is
+ * impossible rather than merely discouraged. */
+export const FutureDateLeaveOnly: Story = {
+  render: () => (
+    <AttendanceStatusControl
+      value={null}
+      onChange={() => {}}
+      variant="expanded"
+      studentName="Rafi Ahmed"
+      allowedStatuses={[AttendanceStatus.LEAVE]}
+    />
+  ),
+};

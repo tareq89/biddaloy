@@ -23,6 +23,9 @@ export type Register = components['schemas']['RegisterResponseDto'];
 export type PutRegisterInput = components['schemas']['PutRegisterDto'];
 export type RegisterEntry = components['schemas']['RegisterEntryDto'];
 export type RegisterStudent = components['schemas']['RegisterStudentDto'];
+export type CorrectRecordInput = components['schemas']['CorrectRecordDto'];
+export type RecordHistoryEntry = components['schemas']['AuditLogResponseDto'];
+export type RecordHistoryResponse = components['schemas']['RecordHistoryResponseDto'];
 
 export interface AttendanceListFilters {
   date?: string;
@@ -169,6 +172,80 @@ export function useSubmitRegister(sectionId: string) {
         queryKey: sectionRegisterKey(sectionId, input.date, input.period_no ?? undefined),
       });
       void queryClient.invalidateQueries({ queryKey: attendanceKeys.lists() });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------
+// [9.7] PATCH /attendance/records/:recordId, GET .../history
+// ---------------------------------------------------------------------
+
+/** One mark's correction/audit trail, paginated. `recordId === undefined`
+ * (a row not yet marked has no `record_id`) disables the query rather
+ * than firing a request against `/records/undefined/history`. */
+export function recordHistoryKey(recordId: string | undefined, page = 1) {
+  return [...attendanceKeys.all, 'record-history', recordId, page] as const;
+}
+
+export function recordHistoryQueryOptions(recordId: string | undefined, page = 1) {
+  return queryOptions({
+    queryKey: recordHistoryKey(recordId, page),
+    queryFn: async ({ signal }) =>
+      (
+        await apiClient.get<RecordHistoryResponse>(`/attendance/records/${recordId}/history`, {
+          params: { page },
+          signal,
+        })
+      ).data,
+    enabled: recordId !== undefined,
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useRecordHistory(recordId: string | undefined, page = 1) {
+  return useQuery(recordHistoryQueryOptions(recordId, page));
+}
+
+export interface CorrectRecordVariables extends Omit<
+  CorrectRecordInput,
+  'minutes_late' | 'remarks'
+> {
+  recordId: string;
+  // Re-declared with an explicit `| undefined` (rather than the schema's
+  // plain optional `?:`) — under `exactOptionalPropertyTypes`, a caller
+  // that conditionally includes one of these (e.g. `minutes_late` only
+  // for `LATE`) via `{ ...(cond ? { minutes_late: x } : {}) }` still
+  // needs to assign an explicit `undefined` in the non-`LATE` branch.
+  minutes_late?: number | undefined;
+  remarks?: string | undefined;
+}
+
+/**
+ * `PATCH /attendance/records/:recordId` — a deliberate, low-frequency,
+ * reason-typed correction a staff member types at their desk, **not** a
+ * queueable mark like `useSubmitRegister`. This plain `apiClient.patch`
+ * call is on purpose: it never calls `enqueueMutation`. A correction's
+ * `reason` is tied to this record's state *right now*; queueing it would
+ * let a reason-carrying edit replay later against a record that has
+ * since changed again, or after the tenant's correction window has
+ * closed by the time the queue drains. Marking is safe to queue because
+ * it's idempotent and window-agnostic; correcting is neither, so it must
+ * either succeed now or fail now, not "eventually".
+ *
+ * No optimistic cache update — `correctRecord` bumps the session's
+ * `version` server-side (same as `putRegister`), so the client must
+ * re-read the register before its next submit can avoid a 409.
+ */
+export function useCorrectRecord(sectionId: string, date: string, periodNo?: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ recordId, ...body }: CorrectRecordVariables): Promise<Register> =>
+      (await apiClient.patch<Register>(`/attendance/records/${recordId}`, body)).data,
+    onSuccess: (_register, variables) => {
+      void queryClient.invalidateQueries({
+        queryKey: sectionRegisterKey(sectionId, date, periodNo),
+      });
+      void queryClient.invalidateQueries({ queryKey: recordHistoryKey(variables.recordId) });
     },
   });
 }

@@ -164,4 +164,20 @@ describe('AttendanceStatusControl — expanded variant', () => {
     );
     await expect(container).toHaveNoViolations();
   });
+
+  it('[9.7] allowedStatuses restricts the offered options, e.g. LEAVE-only for a future date', async () => {
+    await renderInEnglish(
+      <AttendanceStatusControl
+        value={null}
+        onChange={vi.fn()}
+        variant="expanded"
+        studentName="Rafi Ahmed"
+        allowedStatuses={[AttendanceStatus.LEAVE]}
+      />,
+    );
+    expect(screen.getByRole('button', { name: /Mark Rafi Ahmed Leave/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Mark Rafi Ahmed Present/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Mark Rafi Ahmed Absent/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Mark Rafi Ahmed Late/ })).toBeNull();
+  });
 });

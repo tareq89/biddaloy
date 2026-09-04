@@ -35,6 +35,15 @@ export interface RosterMarkerProps {
   onAllPresent: () => void;
   onSubmit: () => void;
   disabled?: boolean;
+  /** [9.7] Passed straight through to `AttendanceStatusControl` — a future
+   * date under `policy.allow_future_dates` restricts every row to `LEAVE`
+   * only. `undefined` keeps the pre-9.7 default (all four statuses). */
+  allowedStatuses?: AttendanceStatus[] | undefined;
+  /** [9.7] Optional per-row trailing slot — `$sectionId.tsx` uses it for
+   * the Correct/History overflow menu plus the "Edited" badge, once the
+   * register is outside its editable window. `undefined` renders nothing
+   * extra, same as every pre-9.7 caller. */
+  renderRowActions?: (student: RegisterStudent) => React.ReactNode;
 }
 
 const STATUS_SHORTCUT: Record<string, AttendanceStatus> = {
@@ -57,6 +66,8 @@ export function RosterMarker({
   onAllPresent,
   onSubmit,
   disabled = false,
+  allowedStatuses,
+  renderRowActions,
 }: RosterMarkerProps) {
   const { t } = useTranslation('attendance');
   const [focusedIndex, setFocusedIndex] = React.useState(0);
@@ -189,7 +200,9 @@ export function RosterMarker({
                     onMinutesLateChange(student.student_id, minutes)
                   }
                   studentName={student.full_name}
+                  allowedStatuses={allowedStatuses}
                 />
+                {renderRowActions?.(student)}
               </div>
             </li>
           );

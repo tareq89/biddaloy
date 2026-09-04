@@ -56,9 +56,16 @@
     "queueUnavailableToast": "Could not save — offline storage is unavailable on this device",
     "announceStatusChanged": "{{name}} marked {{status}}",
     "readOnlyExplanation": "This register is outside the correction window and can no longer be edited here.",
+    "readOnlyNoPermission": "This register is older than {{days}} days. Ask an administrator to correct it.",
     "requestCorrection": "Request correction",
     "futureDateBanner": "Future date — only Leave can be marked ahead of time.",
-    "rollNumber": "Roll {{roll}}"
+    "rollNumber": "Roll {{roll}}",
+    "rowMenuLabel": "More actions for {{name}}",
+    "correctAction": "Correct",
+    "historyAction": "History",
+    "editedBadge": "Edited",
+    "editedBadgeTooltip_one": "Corrected {{count}} time",
+    "editedBadgeTooltip_other": "Corrected {{count}} times"
   },
   "conflict": {
     "title": "This register changed since you loaded it",
@@ -68,5 +75,34 @@
     "columnStudent": "Student",
     "columnYours": "Your mark",
     "columnTheirs": "Current mark"
+  },
+  "correction": {
+    "title": "Correct attendance",
+    "currentStatus": "Current status",
+    "newStatusLabel": "New status",
+    "reasonLabel": "Why did this change?",
+    "reasonHelper": "Visible to other staff — this is not a private note.",
+    "reasonPlaceholder": "e.g. Student was at an inter-school meet; slip submitted late.",
+    "reasonTooShort": "Reason must be at least 3 characters.",
+    "reasonCharacterCount": "{{count}}/280",
+    "cancel": "Cancel",
+    "save": "Save correction",
+    "saving": "Saving…",
+    "savedToast": "Correction saved",
+    "errorToast": "Could not save correction",
+    "historyDisclosure": "History",
+    "unchangedStatusHint": "Choose a different status to save a correction."
+  },
+  "history": {
+    "title": "Change history for {{name}}",
+    "loadingLabel": "Loading history",
+    "emptyTitle": "No changes",
+    "emptyExplanation": "This mark hasn't been edited.",
+    "errorMessage": "Could not load change history.",
+    "retry": "Retry",
+    "entryChange": "{{from}} → {{to}}",
+    "entryActor": "Corrected by {{actor}}",
+    "entryActorUnknownName": "Corrected by user {{actorId}}",
+    "close": "Close"
   }
 }
