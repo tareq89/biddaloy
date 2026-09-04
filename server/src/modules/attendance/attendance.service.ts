@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -34,6 +35,7 @@ import {
   resolveAttendancePolicy,
 } from './attendance-policy.util';
 import { CorrectRecordDto, PutRegisterDto, RegisterResponseDto } from './dto/attendance.dto';
+import { AbsenceNoticeService } from './absence-notice.service';
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 const MIN_REASON_LENGTH = 3;
@@ -85,6 +87,8 @@ function tallyStatus(counts: RegisterCounts, status: AttendanceStatus): void {
  */
 @Injectable()
 export class AttendanceService {
+  private readonly logger = new Logger(AttendanceService.name);
+
   constructor(
     @InjectRepository(AttendanceSession)
     private readonly sessionRepo: Repository<AttendanceSession>,
@@ -100,6 +104,7 @@ export class AttendanceService {
     private readonly auditService: AuditService,
     private readonly schoolsService: SchoolsService,
     private readonly schoolCalendarService: SchoolCalendarService,
+    private readonly absenceNoticeService: AbsenceNoticeService,
   ) {}
 
   // ---------------------------------------------------------------------
@@ -259,8 +264,9 @@ export class AttendanceService {
     // null result, then race to insert — the loser hits `UQ_att_session`.
     // That's a version conflict in spirit, not a server error, so it's
     // mapped to the same 409 the version check above already returns.
+    let result: RegisterResponseDto;
     try {
-      return await this.dataSource.transaction(async (manager) => {
+      result = await this.dataSource.transaction(async (manager) => {
         const sessionRepo = manager.getRepository(AttendanceSession);
         const recordRepo = manager.getRepository(AttendanceRecord);
         const studentRepo = manager.getRepository(Student);
@@ -552,6 +558,38 @@ export class AttendanceService {
       }
       throw err;
     }
+
+    // [9.8] Auto-absent guardian notification: only for a teacher-initiated
+    // `finalize: true` on a whole-day (period_no null) register, and only
+    // when the tenant has opted in. Runs after the write transaction has
+    // committed — a notification failure must never roll back the
+    // register submission that triggered it, so it is awaited (for a
+    // deterministic response/test story) but its own failure is swallowed,
+    // not surfaced to the caller.
+    if (
+      dto.finalize &&
+      periodNo === null &&
+      result.session.state === AttendanceSessionState.FINALIZED
+    ) {
+      try {
+        const settings = await this.schoolsService.getResolvedSettings(tenantId);
+        const policy = resolveAttendancePolicy(settings);
+        if (policy.autoAbsentNotification.enabled) {
+          await this.absenceNoticeService.sendAbsenceNotices({
+            tenantId,
+            sectionId,
+            date: dto.date,
+            initiatedByUserId: userId,
+          });
+        }
+      } catch (err) {
+        this.logger.warn(
+          `Auto-absent notification failed for section ${sectionId} on ${dto.date}: ${String(err)}`,
+        );
+      }
+    }
+
+    return result;
   }
 
   // ---------------------------------------------------------------------

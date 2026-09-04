@@ -1314,6 +1314,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/attendance/sections/{sectionId}/absence-notice/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolves who an absence-notice send would message and who it would skip, without sending anything. */
+        post: operations["AbsenceNoticeController_preview_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attendance/sections/{sectionId}/absence-notice/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Manual escape hatch for a school that leaves the scheduled sweep off, or wants a finalized register's notice sent immediately. Idempotent on the session's `notified_at` — a second call the same day sends nothing. */
+        post: operations["AbsenceNoticeController_send_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2727,6 +2761,40 @@ export interface components {
             page: number;
             limit: number;
             totalPages: number;
+        };
+        AbsenceNoticeDateDto: {
+            date: string;
+        };
+        AbsenceNoticePreviewRecipientDto: {
+            guardian_id: string;
+            guardian_name: string;
+            /** @enum {string} */
+            medium: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER";
+            address: string;
+            student_ids: string[];
+            student_names: string[];
+            message_body: string;
+        };
+        AbsenceNoticePreviewSkippedDto: {
+            student_id: string;
+            guardian_id: string | null;
+            reason: string;
+        };
+        AbsenceNoticePreviewResponseDto: {
+            session_found: boolean;
+            finalized: boolean;
+            already_notified: boolean;
+            recipients: components["schemas"]["AbsenceNoticePreviewRecipientDto"][];
+            skipped: components["schemas"]["AbsenceNoticePreviewSkippedDto"][];
+            message_preview: string;
+        };
+        AbsenceNoticeSendResponseDto: {
+            batch_id: string | null;
+            /** @enum {string|null} */
+            status: "PROCESSING" | "COMPLETED" | "PARTIALLY_FAILED" | "FAILED" | null;
+            total_recipients: number;
+            /** @enum {string|null} */
+            skipped_reason: "no_session" | "not_finalized" | "already_notified" | null;
         };
     };
     responses: never;
@@ -6617,6 +6685,80 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LowAttendanceListResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AbsenceNoticeController_preview_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                sectionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AbsenceNoticeDateDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AbsenceNoticePreviewResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AbsenceNoticeController_send_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                sectionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AbsenceNoticeDateDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AbsenceNoticeSendResponseDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
