@@ -7,19 +7,30 @@ import { AttendanceDeviceEvent } from './entities/attendance-device-event.entity
 import { Student } from '../students/entities/student.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
-import { SchoolHoliday } from '../academics/entities/school-holiday.entity';
 import { AuditModule } from '../audit/audit.module';
 import { SchoolsModule } from '../schools/schools.module';
+import { AcademicYearModule } from '../academics/academic-year.module';
+import { StudentModule } from '../students/students.module';
 import { AttendanceController } from './attendance.controller';
 import { AttendanceService } from './attendance.service';
 import { AttendanceAccessService } from './attendance-access.service';
+import { AttendanceSummaryService } from './attendance-summary.service';
+import { AttendanceSummaryController } from './attendance-summary.controller';
 
 /**
- * [9.2] was entity-only. [9.3] fills `providers`/`controllers` in.
- * `Student`/`ClassSection`/`TeacherClassSection`/`SchoolHoliday` are
- * registered here (rather than importing StudentModule/AcademicsModule) so
- * this module's services can query against them without a cross-module DI
- * cycle, same reasoning as `classes.module.ts`'s own comment.
+ * [9.2] was entity-only. [9.3] fills `providers`/`controllers` in. [9.4]
+ * adds `AttendanceSummaryService`/`AttendanceSummaryController` and imports
+ * `AcademicYearModule` for `SchoolCalendarService` (working-day math) and
+ * `StudentModule` for `FamilyAccessService` (PARENT/STUDENT scoping on the
+ * summary routes).
+ *
+ * `Student`/`ClassSection`/`TeacherClassSection` are registered here
+ * (rather than importing StudentModule for entities too) so this module's
+ * services can query against them without a cross-module DI cycle, same
+ * reasoning as `classes.module.ts`'s own comment. `SchoolHoliday` moved to
+ * `AcademicYearModule` in [9.4] — this module no longer queries it
+ * directly, going through `SchoolCalendarService` instead (see
+ * `attendance.service.ts`'s old `isHoliday` docstring, now removed).
  *
  * `AttendanceService`/`AttendanceAccessService` are exported — [9.4], [9.5]
  * and [9.8] inject them directly rather than re-deriving the same
@@ -35,13 +46,14 @@ import { AttendanceAccessService } from './attendance-access.service';
       Student,
       ClassSection,
       TeacherClassSection,
-      SchoolHoliday,
     ]),
     AuditModule,
     SchoolsModule,
+    AcademicYearModule,
+    StudentModule,
   ],
-  providers: [AttendanceService, AttendanceAccessService],
-  controllers: [AttendanceController],
-  exports: [TypeOrmModule, AttendanceService, AttendanceAccessService],
+  providers: [AttendanceService, AttendanceAccessService, AttendanceSummaryService],
+  controllers: [AttendanceController, AttendanceSummaryController],
+  exports: [TypeOrmModule, AttendanceService, AttendanceAccessService, AttendanceSummaryService],
 })
 export class AttendanceModule {}

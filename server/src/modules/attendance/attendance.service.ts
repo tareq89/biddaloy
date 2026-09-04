@@ -21,7 +21,7 @@ import { AttendanceSession } from './entities/attendance-session.entity';
 import { AttendanceRecord } from './entities/attendance-record.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Student } from '../students/entities/student.entity';
-import { SchoolHoliday } from '../academics/entities/school-holiday.entity';
+import { SchoolCalendarService } from '../academics/school-calendar.service';
 import { AttendanceAccessService } from './attendance-access.service';
 import { AuditService, RecordAuditEntryInput } from '../audit/audit.service';
 import { QueryAuditLogDto } from '../audit/dto/audit-log.dto';
@@ -99,6 +99,7 @@ export class AttendanceService {
     private readonly attendanceAccessService: AttendanceAccessService,
     private readonly auditService: AuditService,
     private readonly schoolsService: SchoolsService,
+    private readonly schoolCalendarService: SchoolCalendarService,
   ) {}
 
   // ---------------------------------------------------------------------
@@ -310,12 +311,12 @@ export class AttendanceService {
           }
         }
 
-        // 5. Non-working day. The holiday lookup here is a stand-in for
-        // [9.4]'s SchoolCalendarService, which doesn't exist yet — do not
-        // block this ticket on it.
+        // 5. Non-working day, per the shared calendar service.
         const hasCorrect = roleHasPermission(role, Permission.ATTENDANCE_CORRECT);
-        const nonWorkingDay =
-          isWeeklyOff(dto.date, policy) || (await this.isHoliday(manager, tenantId, dto.date));
+        const nonWorkingDay = await this.schoolCalendarService.isNonWorkingDay({
+          tenantId,
+          date: dto.date,
+        });
         if (nonWorkingDay && !(dto.force_non_working_day === true && hasCorrect)) {
           throw new UnprocessableEntityException({
             message: 'Cannot mark attendance on a non-working day',
@@ -771,25 +772,6 @@ export class AttendanceService {
   // Internals
   // ---------------------------------------------------------------------
 
-  private async isHoliday(
-    manager: EntityManager,
-    tenantId: string,
-    dateIso: string,
-  ): Promise<boolean> {
-    // TODO(9.4): replace with the shared SchoolCalendarService once it
-    // exists. It doesn't exist in this ticket, so this queries
-    // `school_holidays` directly rather than block on 9.4.
-    const count = await manager
-      .getRepository(SchoolHoliday)
-      .createQueryBuilder('h')
-      .where('h.tenant_id = :tenantId', { tenantId })
-      .andWhere('h.deleted_at IS NULL')
-      .andWhere(':date BETWEEN h.start_date AND h.end_date', { date: dateIso })
-      .andWhere('h.counts_as_working_day = false')
-      .getCount();
-    return count > 0;
-  }
-
   /** See the class docstring for why this is derived rather than a column. */
   private async getCorrectionCounts(
     manager: EntityManager,
@@ -876,8 +858,7 @@ export class AttendanceService {
     );
 
     const hasCorrect = roleHasPermission(role, Permission.ATTENDANCE_CORRECT);
-    const nonWorkingDay =
-      isWeeklyOff(date, policy) || (await this.isHoliday(manager, tenantId, date));
+    const nonWorkingDay = await this.schoolCalendarService.isNonWorkingDay({ tenantId, date });
     const today = localToday(timezone);
     const reasonRequired = !!session && daysBetween(date, today) > policy.correctionWindowDays;
     const finalized = session?.state === AttendanceSessionState.FINALIZED;
