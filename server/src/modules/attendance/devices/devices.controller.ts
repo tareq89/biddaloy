@@ -11,7 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
@@ -40,7 +40,7 @@ export class DevicesController {
   @ApiOperation({
     summary: 'Registers a new device. The raw key is returned exactly once, in this response.',
   })
-  @ApiOkResponse({ type: DeviceWithKeyResponseDto })
+  @ApiCreatedResponse({ type: DeviceWithKeyResponseDto })
   async create(
     @Body() dto: CreateDeviceDto,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -67,7 +67,7 @@ export class DevicesController {
   @ApiOperation({
     summary: 'Issues a new key for this device. The old key stops working immediately.',
   })
-  @ApiOkResponse({ type: DeviceWithKeyResponseDto })
+  @ApiCreatedResponse({ type: DeviceWithKeyResponseDto })
   async rotate(
     @Param('id') id: string,
     @CurrentTenant() tenant: { id: string; role: string },
