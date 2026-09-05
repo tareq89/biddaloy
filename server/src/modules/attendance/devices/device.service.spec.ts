@@ -17,6 +17,13 @@ function fakeDeviceRepo(overrides: Partial<Record<string, any>> = {}) {
   } as any;
 }
 
+function fakeSectionRepo(overrides: Partial<Record<string, any>> = {}) {
+  return {
+    findOne: vi.fn().mockResolvedValue({ id: 'section-1', tenant_id: 'tenant-1' }),
+    ...overrides,
+  } as any;
+}
+
 describe('hashDeviceKey', () => {
   it('is the SHA-256 hex digest of the exact string passed in', () => {
     const raw = 'bd_dev_abc123';
@@ -27,7 +34,7 @@ describe('hashDeviceKey', () => {
 describe('DeviceService.create', () => {
   it('generates a key that is prefixed and at least 40 characters', async () => {
     const deviceRepo = fakeDeviceRepo();
-    const service = new DeviceService(deviceRepo, fakeAuditService());
+    const service = new DeviceService(deviceRepo, fakeSectionRepo(), fakeAuditService());
 
     const result = await service.create({
       tenantId: 'tenant-1',
@@ -43,7 +50,7 @@ describe('DeviceService.create', () => {
 
   it('stores the SHA-256 hash of the prefixed key, not the raw key', async () => {
     const deviceRepo = fakeDeviceRepo();
-    const service = new DeviceService(deviceRepo, fakeAuditService());
+    const service = new DeviceService(deviceRepo, fakeSectionRepo(), fakeAuditService());
 
     const result = await service.create({
       tenantId: 'tenant-1',
@@ -59,7 +66,7 @@ describe('DeviceService.create', () => {
 
   it('never returns the raw key or its hash on the response entity', async () => {
     const deviceRepo = fakeDeviceRepo();
-    const service = new DeviceService(deviceRepo, fakeAuditService());
+    const service = new DeviceService(deviceRepo, fakeSectionRepo(), fakeAuditService());
 
     const result = await service.create({
       tenantId: 'tenant-1',
@@ -76,7 +83,7 @@ describe('DeviceService.create', () => {
   it('audits creation without ever including the key or its hash', async () => {
     const deviceRepo = fakeDeviceRepo();
     const auditService = fakeAuditService();
-    const service = new DeviceService(deviceRepo, auditService);
+    const service = new DeviceService(deviceRepo, fakeSectionRepo(), auditService);
 
     await service.create({
       tenantId: 'tenant-1',
@@ -91,6 +98,51 @@ describe('DeviceService.create', () => {
     );
     const [entry] = auditService.record.mock.calls[0];
     expect(JSON.stringify(entry)).not.toMatch(/bd_dev_/);
+  });
+
+  it('rejects a section_id that does not belong to the caller tenant', async () => {
+    const deviceRepo = fakeDeviceRepo();
+    // Tenant A caller, but the section lookup (correctly scoped to
+    // tenant_id) finds nothing — section belongs to a different tenant.
+    const sectionRepo = fakeSectionRepo({ findOne: vi.fn().mockResolvedValue(null) });
+    const service = new DeviceService(deviceRepo, sectionRepo, fakeAuditService());
+
+    await expect(
+      service.create({
+        tenantId: 'tenant-a',
+        userId: 'user-1',
+        dto: {
+          name: 'Cross-Tenant Device',
+          kind: AttendanceDeviceKind.RFID,
+          section_id: 'section-in-tenant-b',
+        },
+        ip: null,
+        userAgent: null,
+      }),
+    ).rejects.toThrow('section_id does not belong to this tenant');
+
+    expect(sectionRepo.findOne).toHaveBeenCalledWith({
+      where: { id: 'section-in-tenant-b', tenant_id: 'tenant-a' },
+    });
+    expect(deviceRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('accepts a section_id that does belong to the caller tenant', async () => {
+    const deviceRepo = fakeDeviceRepo();
+    const sectionRepo = fakeSectionRepo({
+      findOne: vi.fn().mockResolvedValue({ id: 'section-1', tenant_id: 'tenant-1' }),
+    });
+    const service = new DeviceService(deviceRepo, sectionRepo, fakeAuditService());
+
+    const result = await service.create({
+      tenantId: 'tenant-1',
+      userId: 'user-1',
+      dto: { name: 'Gate Scanner', kind: AttendanceDeviceKind.RFID, section_id: 'section-1' },
+      ip: null,
+      userAgent: null,
+    });
+
+    expect(result.device.section_id).toBe('section-1');
   });
 });
 
@@ -107,7 +159,7 @@ describe('DeviceService.rotate', () => {
       findOne: vi.fn().mockResolvedValue(existingDevice),
       save: vi.fn(async (v) => v),
     });
-    const service = new DeviceService(deviceRepo, fakeAuditService());
+    const service = new DeviceService(deviceRepo, fakeSectionRepo(), fakeAuditService());
 
     const result = await service.rotate({
       tenantId: 'tenant-1',
@@ -121,9 +173,31 @@ describe('DeviceService.rotate', () => {
     expect(existingDevice.token_hash).toBe(hashDeviceKey(result.key));
   });
 
+  it('scopes the lookup to the caller tenant, not device id alone', async () => {
+    // Proves the query itself is tenant-scoped — returning null for a
+    // missing device also passes if a future findOwned() drops
+    // tenant_id, which would let Tenant A rotate a Tenant B device.
+    const deviceRepo = fakeDeviceRepo({ findOne: vi.fn().mockResolvedValue(null) });
+    const service = new DeviceService(deviceRepo, fakeSectionRepo(), fakeAuditService());
+
+    await expect(
+      service.rotate({
+        tenantId: 'tenant-a',
+        deviceId: 'device-in-tenant-b',
+        userId: 'u',
+        ip: null,
+        userAgent: null,
+      }),
+    ).rejects.toThrow('Device not found');
+
+    expect(deviceRepo.findOne).toHaveBeenCalledWith({
+      where: { id: 'device-in-tenant-b', tenant_id: 'tenant-a' },
+    });
+  });
+
   it("throws NotFoundException for a device outside the caller's tenant", async () => {
     const deviceRepo = fakeDeviceRepo({ findOne: vi.fn().mockResolvedValue(null) });
-    const service = new DeviceService(deviceRepo, fakeAuditService());
+    const service = new DeviceService(deviceRepo, fakeSectionRepo(), fakeAuditService());
 
     await expect(
       service.rotate({
@@ -149,7 +223,7 @@ describe('DeviceService.revoke', () => {
       findOne: vi.fn().mockResolvedValue(existingDevice),
       save: vi.fn(async (v) => v),
     });
-    const service = new DeviceService(deviceRepo, fakeAuditService());
+    const service = new DeviceService(deviceRepo, fakeSectionRepo(), fakeAuditService());
 
     await service.revoke({
       tenantId: 'tenant-1',
@@ -181,7 +255,7 @@ describe('DeviceService.list', () => {
         },
       ]),
     });
-    const service = new DeviceService(deviceRepo, fakeAuditService());
+    const service = new DeviceService(deviceRepo, fakeSectionRepo(), fakeAuditService());
 
     const result = await service.list('tenant-1');
 

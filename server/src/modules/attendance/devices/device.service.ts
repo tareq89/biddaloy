@@ -1,9 +1,10 @@
 import { randomBytes, createHash } from 'node:crypto';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AttendanceDeviceStatus, AuditAction } from '@biddaloy/shared';
 import { AttendanceDevice } from '../entities/attendance-device.entity';
+import { ClassSection } from '../../academics/entities/class-section.entity';
 import { AuditService } from '../../audit/audit.service';
 import { CreateDeviceDto, DeviceResponseDto, DeviceWithKeyResponseDto } from '../dto/device.dto';
 
@@ -59,6 +60,8 @@ export class DeviceService {
   constructor(
     @InjectRepository(AttendanceDevice)
     private readonly deviceRepo: Repository<AttendanceDevice>,
+    @InjectRepository(ClassSection)
+    private readonly sectionRepo: Repository<ClassSection>,
     private readonly auditService: AuditService,
   ) {}
 
@@ -70,6 +73,19 @@ export class DeviceService {
     userAgent: string | null;
   }): Promise<DeviceWithKeyResponseDto> {
     const { tenantId, userId, dto, ip, userAgent } = params;
+
+    // `dto.section_id` is caller-supplied — without this check an admin
+    // from tenant A could bind a device to a section belonging to
+    // tenant B (IDOR).
+    if (dto.section_id) {
+      const section = await this.sectionRepo.findOne({
+        where: { id: dto.section_id, tenant_id: tenantId },
+      });
+      if (!section) {
+        throw new BadRequestException('section_id does not belong to this tenant');
+      }
+    }
+
     const { raw, hash, last4 } = generateDeviceKey();
 
     const device = await this.deviceRepo.save(
