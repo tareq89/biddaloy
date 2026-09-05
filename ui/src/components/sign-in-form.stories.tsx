@@ -55,6 +55,20 @@ export const RightToLeft: Story = {
   decorators: [rtlDecorator],
 };
 
+/** `client-admin/src/routes/login.tsx`'s real usage — a "Forgot password?"
+ * link rendered under the submit button. `ui/` can't know the route tree
+ * (same reasoning as `UserMenu.profileItem`), so the story stands in with
+ * a plain anchor. */
+export const WithSecondaryAction: Story = {
+  args: {
+    secondaryAction: (
+      <a href="#forgot-password" className="text-primary underline">
+        Forgot password?
+      </a>
+    ),
+  },
+};
+
 /**
  * [8.13.8] The form under comfortable density (`/login` is comfortable in
  * the real app — see `client-admin/src/routes/login.tsx`).

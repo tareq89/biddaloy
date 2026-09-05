@@ -2,11 +2,52 @@ import type { LoginResponse } from '@biddaloy/shared';
 import type { QueryClient } from '@tanstack/react-query';
 
 import { clearAuthState, setAccessToken } from '../api/auth-state';
-import { apiClient, postAuthLogin, postAuthLogout } from '../api/client';
+import {
+  apiClient,
+  postAuthActivate,
+  postAuthForgotPassword,
+  postAuthLogin,
+  postAuthLogout,
+  postAuthResetPassword,
+  type ForgotPasswordResponse,
+} from '../api/client';
 import { NoMembershipsError } from '../api/errors';
 import { resetSessionBootstrap, scheduleTokenRefresh } from '../api/session';
 
 import { switchActiveTenant } from './tenant';
+
+/**
+ * Everything a successful `LoginResponse` needs applied to leave the app in
+ * a working state, factored out of `login()` (12.2) so `activate()` below
+ * can share it exactly rather than re-deriving it: store the access token,
+ * arm [8.9.3]'s proactive pre-expiry refresh timer, and — for a single
+ * membership only — pick it as the active tenant. See `login()`'s own
+ * comment for the reasoning behind the single-vs-multi-membership split and
+ * the zero-membership rejection; both callers share it unchanged.
+ */
+async function adoptSession(
+  queryClient: QueryClient,
+  result: LoginResponse,
+): Promise<LoginResponse> {
+  const [primary] = result.memberships;
+  if (!primary) {
+    await postAuthLogout('/auth/logout').catch(() => {
+      // Best-effort, see login()'s own comment on this same call.
+    });
+    throw new NoMembershipsError();
+  }
+
+  clearAuthState();
+  queryClient.clear();
+
+  setAccessToken(result.access_token);
+  scheduleTokenRefresh(result.access_token);
+  if (result.memberships.length === 1) {
+    switchActiveTenant(queryClient, primary.tenantId, primary.role);
+  }
+
+  return result;
+}
 
 /**
  * `logout`/`logoutAll` mirror `tenant.ts`'s `switchActiveTenant(queryClient,
@@ -65,36 +106,50 @@ export async function login(
   credentials: ({ email: string } | { phone: string }) & { password: string },
 ): Promise<LoginResponse> {
   const result = await postAuthLogin(credentials);
+  return adoptSession(queryClient, result);
+}
 
-  const [primary] = result.memberships;
-  if (!primary) {
-    await postAuthLogout('/auth/logout').catch(() => {
-      // Best-effort: the refresh cookie's own expiry is the fallback if
-      // this revoke call fails (offline, transient 5xx) — the important
-      // guarantee is that *local* state below never got set in this
-      // branch, so this browser tab isn't left looking authenticated
-      // either way.
-    });
-    throw new NoMembershipsError();
-  }
+/**
+ * 12.2's `/activate` route: consumes the invite token, sets the password,
+ * and — like `login()` — leaves the app in a signed-in state via
+ * `adoptSession`. Same membership-count contract as `login()`: a single
+ * membership picks itself, 2+ leaves the choice to `/select-school`, and
+ * zero memberships throws `NoMembershipsError` after best-effort revoking
+ * the session the server just issued.
+ */
+export async function activate(
+  queryClient: QueryClient,
+  input: { token: string; password: string },
+): Promise<LoginResponse> {
+  const result = await postAuthActivate(input);
+  return adoptSession(queryClient, result);
+}
 
-  // A second account logging into the same browser tab must not inherit
-  // the previous session's active tenant/role, its persisted-tenant hint
-  // (`clearAuthState()` already clears that — see its own comment), or its
-  // React Query cache — every cached query is tenant-scoped (`tenant.ts`'s
-  // own reasoning). Left uncleared for a 2+ membership login below, a
-  // stale active tenant here would also silently suppress `__root.tsx`'s
-  // redirect to `/select-school`, skipping the picker entirely.
-  clearAuthState();
-  queryClient.clear();
+/**
+ * 12.3's `/forgot-password` step: dispatches an OTP (phone) or reset link
+ * (email) by identifier. Always resolves — enumeration-safe, per
+ * `RecoveryService.forgot`'s own contract — never a `NoMembershipsError` or
+ * any other rejection for "no such account"; only a genuine network/429
+ * failure throws (`postAuthForgotPassword` already turns 429 into
+ * `RateLimitedError`).
+ */
+export async function forgotPassword(identifier: string): Promise<ForgotPasswordResponse> {
+  return postAuthForgotPassword(identifier);
+}
 
-  setAccessToken(result.access_token);
-  scheduleTokenRefresh(result.access_token);
-  if (result.memberships.length === 1) {
-    switchActiveTenant(queryClient, primary.tenantId, primary.role);
-  }
-
-  return result;
+/**
+ * 12.3's `/reset-password` step: exactly one of `{ phone, otp }` (SMS OTP)
+ * or `{ token }` (emailed link), matching `ResetPasswordDto`. Like
+ * `activate()`, a successful reset leaves the app signed in via
+ * `adoptSession` — the whole point of this flow is that the caller ends up
+ * logged back into their own account, not just holding a changed password.
+ */
+export async function resetPassword(
+  queryClient: QueryClient,
+  input: { new_password: string } & ({ phone: string; otp: string } | { token: string }),
+): Promise<LoginResponse> {
+  const result = await postAuthResetPassword(input);
+  return adoptSession(queryClient, result);
 }
 
 /**

@@ -14,13 +14,22 @@ export { useOnline } from './use-online';
 export { useQueryFreshness } from './use-query-freshness';
 export { useSyncQueue } from './use-sync-queue';
 export { switchActiveTenant } from './tenant';
-export { changePassword, login, logout, logoutAll } from './auth';
+export {
+  activate,
+  changePassword,
+  forgotPassword,
+  login,
+  logout,
+  logoutAll,
+  resetPassword,
+} from './auth';
 export { useAccessToken, useActiveRole, useActiveTenant, useCurrentUserId } from './auth-state';
 export {
   currentUserQueryOptions,
   userKeys,
   userQueryOptions,
   usersQueryOptions,
+  useAdminResetPassword,
   useCreateUser,
   useCurrentUser,
   useRemoveMember,
@@ -28,6 +37,7 @@ export {
   useUpdateUser,
   useUser,
   useUsers,
+  type AdminResetPasswordResult,
   type CreateUserInput,
   type CreateUserResult,
   type PaginatedUsers,

@@ -18,6 +18,7 @@
  */
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as React from 'react';
+import type { ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
@@ -44,6 +45,11 @@ export interface SignInFormProps {
   onSubmit: (credentials: SignInCredentials) => void;
   loading?: boolean;
   error?: SignInFormError | null;
+  /** Consumer-owned destination — `ui/` cannot know the route tree, same
+   * reasoning as `UserMenu.profileItem` (`user-menu.tsx`). Rendered under
+   * the submit button, right-aligned; `client-admin/src/routes/login.tsx`
+   * passes a `<Link to="/forgot-password">`. */
+  secondaryAction?: ReactNode;
 }
 
 interface SignInFormValues {
@@ -88,7 +94,12 @@ function ClockIcon() {
   );
 }
 
-export function SignInForm({ onSubmit, loading = false, error = null }: SignInFormProps) {
+export function SignInForm({
+  onSubmit,
+  loading = false,
+  error = null,
+  secondaryAction,
+}: SignInFormProps) {
   const { t } = useTranslation('auth');
   const regionConfig = useRegionConfig();
   const [showPassword, setShowPassword] = React.useState(false);
@@ -259,6 +270,8 @@ export function SignInForm({ onSubmit, loading = false, error = null }: SignInFo
           <Button type="submit" loading={loading} className="w-full">
             {loading ? t('submit.loading') : t('submit.action')}
           </Button>
+
+          {secondaryAction && <div className="text-end text-sm">{secondaryAction}</div>}
         </form>
       </Form>
     </div>

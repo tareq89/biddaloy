@@ -111,6 +111,42 @@ const removeSelfBlocked = http.delete('/api/v1/users/:id', () =>
   ),
 );
 
+/** [12.1] `POST /users/:id/invitation/resend` — re-issues an invitation link. */
+const resendInvitation = http.post('/api/v1/users/:id/invitation/resend', () =>
+  HttpResponse.json({
+    status: 'SENT',
+    medium: 'EMAIL',
+    expires_at: new Date(Date.now() + 7 * 24 * 3_600_000).toISOString(),
+  }),
+);
+
+/** [12.1] `DELETE /users/:id/invitation` — revokes any live invitation. */
+const revokeInvitation = http.delete(
+  '/api/v1/users/:id/invitation',
+  () => new HttpResponse(null, { status: 204 }),
+);
+
+/** [12.3/#396] `POST /users/:id/reset-password` — admin-initiated reset. */
+const adminResetPassword = http.post('/api/v1/users/:id/reset-password', () =>
+  HttpResponse.json({
+    channel: 'SMS',
+    expires_at: new Date(Date.now() + 5 * 60_000).toISOString(),
+  }),
+);
+
+/** [12.4] `RecoveryService.adminReset`'s 400 for a target with neither a
+ * phone nor an email on file — the one 400 this route can return. */
+const adminResetPasswordNoContact = http.post('/api/v1/users/:id/reset-password', () =>
+  HttpResponse.json(
+    apiErrorBody(
+      400,
+      'This user has no phone or email on file',
+      '/api/v1/users/:id/reset-password',
+    ),
+    { status: 400 },
+  ),
+);
+
 export const userHandlers = {
   list,
   listEmpty,
@@ -124,6 +160,21 @@ export const userHandlers = {
   update,
   remove,
   removeSelfBlocked,
+  resendInvitation,
+  revokeInvitation,
+  adminResetPassword,
+  adminResetPasswordNoContact,
 };
 
-export const userDefaultHandlers = [list, getMe, updateMe, getOne, create, update, remove];
+export const userDefaultHandlers = [
+  list,
+  getMe,
+  updateMe,
+  getOne,
+  create,
+  update,
+  remove,
+  resendInvitation,
+  revokeInvitation,
+  adminResetPassword,
+];

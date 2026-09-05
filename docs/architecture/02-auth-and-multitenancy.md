@@ -149,6 +149,64 @@ school roles map cleanly onto real staff titles, and finer-grained rules
 (e.g. "a class teacher can only see their own section") can be layered on
 top of roles later if needed, without redesigning the model now.
 
+## Invitations & account access
+
+When an admin creates a user without a password (`POST /users`, no
+`password` field), the account is created with `password_hash = null` and
+cannot log in on its own — it needs an activation link. "Invited" is not a
+stored status: it's derived from `password_hash` plus the newest
+`auth_tokens` row for that user, so no `UserStatus` enum churn was needed.
+
+```mermaid
+sequenceDiagram
+    participant Admin
+    participant UserController
+    participant InvitationService
+    participant AuthTokenService
+    participant Delivery as AccountAccessDeliveryService
+    participant SMS/Email
+
+    Admin->>UserController: POST /users (no password)
+    UserController->>InvitationService: issueAndSend(userId, tenantId)
+    InvitationService->>AuthTokenService: issue(INVITE, ttl=7d)
+    AuthTokenService-->>InvitationService: raw token (never logged)
+    InvitationService->>Delivery: deliver(link with raw token)
+    Delivery->>SMS/Email: send(real body)
+    Delivery-->>InvitationService: logId, status
+    InvitationService-->>UserController: { status, medium, expires_at }
+```
+
+Key points:
+
+- **One shared `auth_tokens` table** (`AuthToken` entity) backs invitations
+  today and password resets / email verification in later sub-issues
+  (12.3, 12.7) — same hashed-token pattern as `refresh_tokens`: only a
+  SHA-256 hash of the random secret is ever stored.
+
+  | id      | user_id | purpose  | token_hash (64 hex) | expires_at | consumed_at                                  |
+  | ------- | ------- | -------- | ------------------- | ---------- | -------------------------------------------- |
+  | `a1b2…` | `u-42`  | `INVITE` | `9f86d0…`           | in 7 days  | `null`                                       |
+  | `c3d4…` | `u-42`  | `INVITE` | `e3b0c4…`           | (expired)  | `2026-08-01` (consumed, from a prior resend) |
+
+- **Delivery never leaks the secret into the communication log.**
+  `AccountAccessDeliveryService` writes a `CommunicationLog` row (so the
+  send is visible in the same audit trail as any other message) but with
+  `message_body` redacted (`••••••` in place of the link/code) — the real
+  body is a local variable, sent straight to the provider, and never
+  persisted or logged. `trigger = ACCOUNT_ACCESS` marks these rows apart
+  from ordinary reminders.
+- **One shared `OtpService`** (Redis, 6-digit codes, 5-minute TTL, 5
+  attempts then a 15-minute lock) is reused as-is by password recovery
+  (12.3) and OTP login (12.5) — nothing in this ticket calls it yet, but
+  it lives in the same `account-access` module.
+- **Resend revokes prior links.** `POST /users/:id/invitation/resend`
+  calls the same `issueAndSend` path, which revokes every still-live
+  invite for that user before issuing a new one — a stale link in an old
+  email can never be used once a resend happens.
+- A delivery failure (bad phone number, provider outage) never rolls back
+  the user that was just created — user creation and invitation dispatch
+  are independent outcomes.
+
 ## Why this deviated from the original plan
 
 The original plan assumed one school and a single `role` column directly on

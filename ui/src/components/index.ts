@@ -233,6 +233,8 @@ export {
   type SignInFormError,
   type SignInFormProps,
 } from './sign-in-form';
+export { SetPasswordForm, type SetPasswordFormProps } from './set-password-form';
+export { OtpInput, type OtpInputProps } from './otp-input';
 export { CachedDataNotice, type CachedDataNoticeProps } from './cached-data-notice';
 export { SyncStatus, SyncStatusIndicator, type SyncStatusProps } from './sync-status';
 export {

@@ -55,6 +55,63 @@ Both lockout and the strict rate-limit tier are disabled under
 `NODE_ENV=test` — the e2e suite logs in repeatedly against the same seeded
 account and would otherwise lock itself out.
 
+## Password recovery
+
+`POST /auth/forgot-password` and `POST /auth/reset-password`
+(`server/src/modules/account-access/recovery.service.ts`) let a locked-out
+user recover on their own, without an admin's help. The channel is picked
+by **which field on the account the typed identifier matched** — not by
+preference:
+
+```mermaid
+flowchart TD
+    A["POST /auth/forgot-password<br/>{ identifier }"] --> B{Matches a user's<br/>email or phone?}
+    B -- "no match, or not ACTIVE" --> Z["202 Accepted<br/>(nothing sent — enumeration-safe)"]
+    B -- "matched phone" --> C["SMS: 6-digit OTP<br/>(OtpService, Redis, 5 min TTL)"]
+    B -- "matched email" --> D["Email: reset link<br/>(AuthTokenService, 1 hour TTL)"]
+    C --> E["POST /auth/reset-password<br/>{ phone, otp, new_password }"]
+    D --> F["POST /auth/reset-password<br/>{ token, new_password }"]
+    E --> G["Password changed"]
+    F --> G
+    G --> H["All refresh tokens revoked<br/>+ PASSWORD_RESET audit row"]
+    H --> I["Caller signed in<br/>(fresh session, same response as login)"]
+```
+
+Both endpoints are public and `strict`-rate-limited, same as `/auth/login`.
+
+- **Enumeration safety.** An unknown identifier, a suspended account, or an
+  account with no matching contact all return the exact same `202` as a
+  real request that dispatched something — `RecoveryService.forgot()`
+  never lets the caller distinguish "sent" from "nothing to send".
+- **OTP lockout** is `OtpService`'s own counter (D3, epic #409), separate
+  from `login-attempt.service.ts`'s: **6 digits, 5-minute code TTL, 5 wrong
+  guesses locks the identifier for 15 minutes, with a 60-second cooldown**
+  between two OTP requests for the same identifier. A reset link instead
+  expires outright after **1 hour** and is single-use (`AuthTokenService
+.consume`) — there's no "wrong guess" to lock out.
+- **Multi-tenant wrinkle (D5).** A user's login identifier lives on the
+  `users` row, not on any one tenant — but _sending_ the SMS/email still
+  needs one school's provider configuration (its SMS gateway credentials,
+  its sender email). `forgot-password` is a user-level action with no
+  acting tenant in the request (unlike an admin sending an invite, which
+  has `X-Tenant-ID`), so it resolves the tenant via
+  `AuthService.primaryTenantId()` — the user's **earliest membership**,
+  the same "which school is this session's default" rule `login()` already
+  uses for its own audit rows. A school with no provider configured yet
+  falls back to the platform's env-level SMS/email config, same as every
+  other `account-access` send.
+- **Sessions.** On success, every refresh token for the account is revoked
+  (`RefreshTokenService.revokeAllForUser`) before the caller is signed back
+  in with a fresh session — mirrors `AuthService.changePassword`'s "kill
+  every other session" behavior, since a password reset is exactly the
+  moment an attacker who guessed or leaked the old password must be cut
+  off.
+- **Admin-initiated reset** (`POST /users/:id/reset-password`, ADMIN only)
+  is the same machinery with one difference: the target's sessions are
+  revoked **immediately**, before the OTP/link is even sent — an admin
+  resetting a compromised account must not leave a live session running
+  while the reset is in flight.
+
 ## Session & token lifecycle
 
 `POST /auth/login` returns two things: a short-lived (**15 minutes** by

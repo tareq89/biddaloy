@@ -147,6 +147,70 @@ export async function createStaffUser(
   return { id: created.user.id };
 }
 
+/** A staff member created passwordless, for `journeys/activation.spec.ts`
+ * (12.2) — `POST /users` with no `password` issues an invite, and
+ * `ACCOUNT_ACCESS_ECHO_SECRETS=true` (see `server/.env.example`, required
+ * for this spec to run at all) puts the raw token in
+ * `invitation.debug.token` so the spec can build the `/activate?token=…`
+ * link without scraping the delivery provider's logs. */
+export async function createInvitedStaffUser(
+  request: APIRequestContext,
+  session: ApiSession,
+  fullName: string,
+): Promise<{ id: string; token: string }> {
+  const created = await post<{ user: { id: string }; invitation: { debug?: { token: string } } }>(
+    request,
+    session,
+    '/users',
+    {
+      full_name: fullName,
+      email: `activate-${Date.now()}-${Math.floor(Math.random() * 1e6)}@e2e.example.com`,
+      role: 'TEACHER',
+      tenantId: session.tenantId,
+    },
+  );
+  const token = created.invitation.debug?.token;
+  if (!token) {
+    throw new Error(
+      'No invitation.debug.token in the response — is ACCOUNT_ACCESS_ECHO_SECRETS=true set?',
+    );
+  }
+  return { id: created.user.id, token };
+}
+
+/** A guardian user created passwordless with a unique phone, for
+ * `journeys/password-recovery.spec.ts` (12.4) — same `POST /users` +
+ * `ACCOUNT_ACCESS_ECHO_SECRETS` trick as `createInvitedStaffUser`, but
+ * with `phone` instead of `email` (recovery via phone OTP needs a real
+ * phone-identified account) and consumed straight through 12.2's
+ * `/activate` flow so the account ends up with a real password before the
+ * recovery spec ever touches it. */
+export async function createInvitedParentUser(
+  request: APIRequestContext,
+  session: ApiSession,
+  fullName: string,
+): Promise<{ id: string; phone: string; token: string }> {
+  const phone = `017${Math.floor(10_000_000 + Math.random() * 89_999_999)}`;
+  const created = await post<{ user: { id: string }; invitation: { debug?: { token: string } } }>(
+    request,
+    session,
+    '/users',
+    {
+      full_name: fullName,
+      phone,
+      role: 'PARENT',
+      tenantId: session.tenantId,
+    },
+  );
+  const token = created.invitation.debug?.token;
+  if (!token) {
+    throw new Error(
+      'No invitation.debug.token in the response — is ACCOUNT_ACCESS_ECHO_SECRETS=true set?',
+    );
+  }
+  return { id: created.user.id, phone, token };
+}
+
 /** N students in one shared, freshly-created section — for pagination
  * specs that need more than a page's worth of rows without paying for a
  * class chain per student. */

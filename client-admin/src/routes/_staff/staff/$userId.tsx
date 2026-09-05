@@ -35,6 +35,7 @@ import { LoginHistoryTab } from './-detail/login-history-tab';
 import { MembershipsTab } from './-detail/memberships-tab';
 import { PermissionsTab } from './-detail/permissions-tab';
 import { ProfileTab } from './-detail/profile-tab';
+import { ResetPasswordDialog } from './-detail/reset-password-dialog';
 import { EditTeacherDialog } from './-edit-teacher-dialog';
 import { EditUserDialog } from './-edit-user-dialog';
 import { RemoveMemberDialog } from './-remove-member-dialog';
@@ -79,6 +80,7 @@ function StaffDetailPage() {
   const [editUserOpen, setEditUserOpen] = React.useState(false);
   const [editTeacherOpen, setEditTeacherOpen] = React.useState(false);
   const [removeOpen, setRemoveOpen] = React.useState(false);
+  const [resetPasswordOpen, setResetPasswordOpen] = React.useState(false);
 
   const regionConfig = useTenantRegionConfig();
 
@@ -160,6 +162,17 @@ function StaffDetailPage() {
                       },
                     ]
                   : []),
+                ...(userQuery.data.id !== currentUserId
+                  ? [
+                      {
+                        id: 'resetPassword',
+                        label: t('detail.actions.resetPassword'),
+                        allowed: canUpdate,
+                        priority: 'secondary' as const,
+                        onClick: () => setResetPasswordOpen(true),
+                      },
+                    ]
+                  : []),
                 {
                   id: 'remove',
                   label: t('detail.actions.remove'),
@@ -192,6 +205,13 @@ function StaffDetailPage() {
               isSelf={userQuery.data.id === currentUserId}
               onRemoved={() => void navigate({ to: '/staff' })}
             />
+            {userQuery.data.id !== currentUserId && (
+              <ResetPasswordDialog
+                open={resetPasswordOpen}
+                onOpenChange={setResetPasswordOpen}
+                user={userQuery.data}
+              />
+            )}
           </>
         )}
       </div>

@@ -78,6 +78,82 @@ const changePassword = http.post('/api/v1/auth/change-password', async ({ reques
   );
 });
 
+/** `POST /auth/activate/verify` — 12.2. Keyed off the raw token value so
+ * tests/stories reach either outcome without a second handler shape: any
+ * token containing "expired" resolves to the expired state, everything
+ * else to a valid one. */
+const activateVerify = http.post('/api/v1/auth/activate/verify', async ({ request }) => {
+  const body = (await request.json()) as { token?: string };
+  if (body.token?.includes('expired')) {
+    return HttpResponse.json({ status: 'expired' });
+  }
+  return HttpResponse.json({
+    status: 'valid',
+    full_name: 'Rahima',
+    school_name: 'Dhanmondi High School',
+  });
+});
+
+const activateVerifyExpired = http.post('/api/v1/auth/activate/verify', () =>
+  HttpResponse.json({ status: 'expired' }),
+);
+
+const activate = http.post('/api/v1/auth/activate', () =>
+  HttpResponse.json(loginResponseFactory()),
+);
+
+/** `POST /auth/activate` — the `suspended` terminal case (a user account
+ * suspended after the invite's own `verify` check passed). */
+const activateSuspended = http.post('/api/v1/auth/activate', () =>
+  HttpResponse.json(apiErrorBody(400, 'suspended', '/api/v1/auth/activate'), { status: 400 }),
+);
+
+const activateResend = http.post(
+  '/api/v1/auth/activate/resend',
+  () => new HttpResponse(null, { status: 202 }),
+);
+
+/** `POST /auth/forgot-password` — 12.3. Always 202, enumeration-safe;
+ * `debug.otp`/`debug.token` mirrors D6's echo flag, present here so
+ * stories/tests can exercise the reset step without a second handler. */
+const forgotPassword = http.post('/api/v1/auth/forgot-password', () =>
+  HttpResponse.json({ debug: { otp: '123456' } }, { status: 202 }),
+);
+
+/** `POST /auth/forgot-password` rate-limited — 12.4's route test/story for
+ * the 429 banner. Same `Retry-After` shape as `loginRateLimited`. */
+const forgotPasswordRateLimited = http.post('/api/v1/auth/forgot-password', () =>
+  HttpResponse.json(
+    apiErrorBody(429, 'ThrottlerException: Too Many Requests', '/api/v1/auth/forgot-password'),
+    { status: 429, headers: { 'Retry-After': '60' } },
+  ),
+);
+
+/** `POST /auth/reset-password` — 12.3. Keyed off `otp`/`token` so both the
+ * happy path and the 401 "invalid or expired" case are reachable from
+ * tests/stories without a second handler shape. */
+const RESET_PASSWORD_INVALID_OTP = '000000';
+const RESET_PASSWORD_INVALID_TOKEN = 'invalid-token';
+
+const resetPassword = http.post('/api/v1/auth/reset-password', async ({ request }) => {
+  const body = (await request.json()) as { otp?: string; token?: string };
+  if (body.otp === RESET_PASSWORD_INVALID_OTP || body.token === RESET_PASSWORD_INVALID_TOKEN) {
+    return HttpResponse.json(
+      apiErrorBody(401, 'Invalid or expired code', '/api/v1/auth/reset-password'),
+      { status: 401 },
+    );
+  }
+  return HttpResponse.json(
+    loginResponseFactory({ access_token: 'mock-post-reset-password-access-token' }),
+  );
+});
+
+const resetPasswordInvalid = http.post('/api/v1/auth/reset-password', () =>
+  HttpResponse.json(apiErrorBody(401, 'Invalid or expired code', '/api/v1/auth/reset-password'), {
+    status: 401,
+  }),
+);
+
 const logout = http.post('/api/v1/auth/logout', () => new HttpResponse(null, { status: 204 }));
 
 const logoutAll = http.post(
@@ -93,8 +169,30 @@ export const authHandlers = {
   refreshFailure,
   changePassword,
   CHANGE_PASSWORD_WRONG_CURRENT,
+  activateVerify,
+  activateVerifyExpired,
+  activate,
+  activateSuspended,
+  activateResend,
+  forgotPassword,
+  forgotPasswordRateLimited,
+  resetPassword,
+  resetPasswordInvalid,
+  RESET_PASSWORD_INVALID_OTP,
+  RESET_PASSWORD_INVALID_TOKEN,
   logout,
   logoutAll,
 };
 
-export const authDefaultHandlers = [login, refresh, changePassword, logout, logoutAll];
+export const authDefaultHandlers = [
+  login,
+  refresh,
+  changePassword,
+  activateVerify,
+  activate,
+  activateResend,
+  forgotPassword,
+  resetPassword,
+  logout,
+  logoutAll,
+];

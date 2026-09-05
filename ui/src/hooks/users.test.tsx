@@ -8,6 +8,7 @@ import { server } from '../test/msw/server';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
 
 import {
+  useAdminResetPassword,
   useCreateUser,
   useCurrentUser,
   useRemoveMember,
@@ -279,6 +280,45 @@ describe('useRemoveMember', () => {
 
     const { result } = renderHookWithProviders(() => useRemoveMember(), { tenantId: 'tenant-1' });
     result.current.mutate('me');
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+  });
+});
+
+describe('useAdminResetPassword', () => {
+  it('resolves with the channel and expiry the server picked', async () => {
+    server.use(
+      http.post('/api/v1/users/:id/reset-password', () =>
+        HttpResponse.json({ channel: 'EMAIL', expires_at: '2026-01-01T00:00:00.000Z' }),
+      ),
+    );
+
+    const { result } = renderHookWithProviders(() => useAdminResetPassword('user-1'), {
+      tenantId: 'tenant-1',
+    });
+    result.current.mutate();
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual({
+      channel: 'EMAIL',
+      expires_at: '2026-01-01T00:00:00.000Z',
+    });
+  });
+
+  it('surfaces a cross-tenant 404 as an error', async () => {
+    server.use(
+      http.post('/api/v1/users/:id/reset-password', () =>
+        HttpResponse.json(
+          { statusCode: 404, message: 'User with ID "user-1" not found' },
+          { status: 404 },
+        ),
+      ),
+    );
+
+    const { result } = renderHookWithProviders(() => useAdminResetPassword('user-1'), {
+      tenantId: 'tenant-1',
+    });
+    result.current.mutate();
 
     await waitFor(() => expect(result.current.isError).toBe(true));
   });

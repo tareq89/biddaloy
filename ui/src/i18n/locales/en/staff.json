@@ -100,6 +100,17 @@
     "removing": "Removing…",
     "errorMessage": "Could not remove this member. Please try again."
   },
+  "resetDialog": {
+    "title": "Reset password?",
+    "description": "{{name}} will get a new sign-in code, and every device they're currently signed in on will be signed out.",
+    "viaSms": "A code will be sent by SMS to their phone.",
+    "viaEmail": "A reset link will be sent to their email.",
+    "confirm": "Reset password",
+    "resetting": "Resetting…",
+    "noContact": "This user has no phone or email on file — a reset can't be sent.",
+    "errorMessage": "Could not reset this password. Please try again.",
+    "success": "Password reset sent to {{name}}."
+  },
   "detail": {
     "back": "Back to staff",
     "forbidden": "You do not have permission to view this user.",
@@ -107,6 +118,7 @@
     "actions": {
       "editUser": "Edit user",
       "editTeacher": "Edit teacher profile",
+      "resetPassword": "Reset password",
       "remove": "Remove from school"
     },
     "tabs": {
