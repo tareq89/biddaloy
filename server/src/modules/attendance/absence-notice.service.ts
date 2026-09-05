@@ -468,23 +468,37 @@ export class AbsenceNoticeService {
     userId: string,
   ): Promise<void> {
     for (const recipient of recipients) {
-      const log = await this.logRepo.save(
-        this.logRepo.create({
-          tenant_id: tenantId,
-          reminder_batch_id: batch.id,
-          medium: recipient.medium,
-          recipient_address: recipient.address,
-          recipient_name: recipient.guardian.full_name,
-          message_body: renderReminderTemplate(DEFAULT_ABSENCE_NOTICE_TEMPLATE, recipient.vars),
-          subject: recipient.medium === CommunicationMedium.EMAIL ? 'Absence Notice' : null,
-          student_id: recipient.students[0]?.id ?? null,
-          guardian_id: recipient.guardian.id,
-          sent_by_user_id: userId,
-          status: CommunicationStatus.QUEUED,
-          trigger: CommunicationTrigger.AUTOMATED,
-          metadata: { student_ids: recipient.students.map((s) => s.id) },
-        }),
-      );
+      let log: CommunicationLog;
+      try {
+        log = await this.logRepo.save(
+          this.logRepo.create({
+            tenant_id: tenantId,
+            reminder_batch_id: batch.id,
+            medium: recipient.medium,
+            recipient_address: recipient.address,
+            recipient_name: recipient.guardian.full_name,
+            message_body: renderReminderTemplate(DEFAULT_ABSENCE_NOTICE_TEMPLATE, recipient.vars),
+            subject: recipient.medium === CommunicationMedium.EMAIL ? 'Absence Notice' : null,
+            student_id: recipient.students[0]?.id ?? null,
+            guardian_id: recipient.guardian.id,
+            sent_by_user_id: userId,
+            status: CommunicationStatus.QUEUED,
+            trigger: CommunicationTrigger.AUTOMATED,
+            metadata: { student_ids: recipient.students.map((s) => s.id) },
+          }),
+        );
+      } catch (error) {
+        // Unlike the `queue.add` failure below, there is no log row to
+        // mark FAILED — it never got created. A transient insert error
+        // (connection drop, deadlock, a constraint violation) must not
+        // abort every *remaining* recipient in this batch, so record the
+        // outcome and move on rather than letting the exception propagate.
+        this.logger.warn(
+          `Failed to create CommunicationLog for batch ${batch.id}, guardian ${recipient.guardian.id}: ${String(error)}`,
+        );
+        await recordBatchOutcome(this.logRepo.manager, batch.id, 'failure');
+        continue;
+      }
 
       try {
         await this.queue.add('send', { logId: log.id });
