@@ -84,7 +84,7 @@ Both endpoints are public and `strict`-rate-limited, same as `/auth/login`.
   real request that dispatched something — `RecoveryService.forgot()`
   never lets the caller distinguish "sent" from "nothing to send".
 - **OTP lockout** is `OtpService`'s own counter (D3, epic #409), separate
-  from `login-attempt.service.ts`'s: **5 digits, 5-minute code TTL, 5 wrong
+  from `login-attempt.service.ts`'s: **6 digits, 5-minute code TTL, 5 wrong
   guesses locks the identifier for 15 minutes, with a 60-second cooldown**
   between two OTP requests for the same identifier. A reset link instead
   expires outright after **1 hour** and is single-use (`AuthTokenService
