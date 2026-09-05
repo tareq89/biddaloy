@@ -22,10 +22,36 @@ export function resolveAppBaseUrl(config: ConfigService): string {
     return DEFAULT_APP_BASE_URL;
   }
 
-  if (isProduction && !configured.startsWith('https://')) {
+  if (!isProduction) {
+    return configured;
+  }
+
+  // `new URL()` rejects malformed input outright — a value like
+  // `https://` (no host) would otherwise pass a plain `startsWith('https://')`
+  // check and produce `https:///reset-password?token=...`, which the URL
+  // spec resolves to hostname "reset-password", sending the token to the
+  // wrong host. Credentials/query/fragment are rejected too: none of them
+  // belong in a base URL, and a query string here would collide with the
+  // `?token=` this gets appended with.
+  let parsed: URL;
+  try {
+    parsed = new URL(configured);
+  } catch {
+    throw new Error('APP_BASE_URL must be a valid absolute URL in production.');
+  }
+
+  if (
+    parsed.protocol !== 'https:' ||
+    !parsed.hostname ||
+    parsed.username ||
+    parsed.password ||
+    parsed.search ||
+    parsed.hash
+  ) {
     throw new Error(
-      'APP_BASE_URL must be an HTTPS URL in production — invitation/reset links carry a secret ' +
-        'token and must not be sent over plain HTTP.',
+      'APP_BASE_URL must be an HTTPS URL with a hostname and no credentials, query, or ' +
+        'fragment in production — invitation/reset links carry a secret token and must not ' +
+        'be sent over plain HTTP or to an unintended host.',
     );
   }
 

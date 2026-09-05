@@ -28,7 +28,37 @@ describe('resolveAppBaseUrl', () => {
       resolveAppBaseUrl(
         fakeConfig({ NODE_ENV: 'production', APP_BASE_URL: 'http://app.example.com' }),
       ),
-    ).toThrow(/must be an HTTPS URL in production/);
+    ).toThrow(/must be an HTTPS URL with a hostname/);
+  });
+
+  it('throws in production when the value has no hostname', () => {
+    // `https://` alone is what a naive `startsWith('https://')` check would
+    // accept, appending `/reset-password?token=...` would then resolve to
+    // hostname "reset-password" — the exact host-confusion bug this
+    // parse-and-validate step exists to catch. `new URL()` itself rejects
+    // this shape outright (no authority), so it surfaces as "not a valid
+    // absolute URL" rather than the hostname-specific message.
+    expect(() =>
+      resolveAppBaseUrl(fakeConfig({ NODE_ENV: 'production', APP_BASE_URL: 'https://' })),
+    ).toThrow(/must be a valid absolute URL/);
+  });
+
+  it('throws in production when set to a malformed URL', () => {
+    expect(() =>
+      resolveAppBaseUrl(fakeConfig({ NODE_ENV: 'production', APP_BASE_URL: 'not-a-url' })),
+    ).toThrow(/must be a valid absolute URL/);
+  });
+
+  it('throws in production when the URL carries credentials, a query, or a fragment', () => {
+    for (const value of [
+      'https://user:pass@app.example.com',
+      'https://app.example.com?x=1',
+      'https://app.example.com#frag',
+    ]) {
+      expect(() =>
+        resolveAppBaseUrl(fakeConfig({ NODE_ENV: 'production', APP_BASE_URL: value })),
+      ).toThrow(/must be an HTTPS URL with a hostname/);
+    }
   });
 
   it('returns a configured HTTPS URL in production', () => {
