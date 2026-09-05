@@ -53,6 +53,11 @@ describe('UserController', () => {
       issueAndSend: vi.fn().mockResolvedValue(null),
       revoke: vi.fn(),
       statusFor: vi.fn().mockResolvedValue('NONE'),
+      statusForMany: vi
+        .fn()
+        .mockImplementation((users: { id: string }[]) =>
+          Promise.resolve(new Map(users.map((u) => [u.id, 'NONE']))),
+        ),
     };
     recoveryService = {
       adminReset: vi.fn(),
@@ -188,7 +193,12 @@ describe('UserController', () => {
       const result = await controller.updateUser('u1', dto as any, TENANT);
 
       expect(userService.update).toHaveBeenCalledWith('u1', dto, TENANT.id);
-      expect(result).toEqual({ ...expected, role: null, member_since: null });
+      expect(result).toEqual({
+        ...expected,
+        role: null,
+        member_since: null,
+        invitation_status: 'NONE',
+      });
     });
   });
 

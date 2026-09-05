@@ -82,7 +82,7 @@ export class UserController {
         invitation = null;
       }
     }
-    userDto.invitation_status = await this.invitationService.statusFor(user);
+    userDto.invitation_status = await this.invitationService.statusFor(user, tenant.id);
 
     return { user: userDto, membership, invitation };
   }
@@ -150,7 +150,15 @@ export class UserController {
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     const result = await this.userService.findAll(query, tenant.id);
-    return { ...result, data: result.data.map((u) => UserResponseDto.fromEntity(u, tenant.id)) };
+    const statusByUserId = await this.invitationService.statusForMany(result.data, tenant.id);
+    return {
+      ...result,
+      data: result.data.map((u) => {
+        const dto = UserResponseDto.fromEntity(u, tenant.id);
+        dto.invitation_status = statusByUserId.get(u.id) ?? 'NONE';
+        return dto;
+      }),
+    };
   }
 
   /**
@@ -178,7 +186,7 @@ export class UserController {
   ) {
     const user = await this.userService.findOne(jwt.sub, tenant.id);
     const dto = UserResponseDto.fromEntity(user, tenant.id);
-    dto.invitation_status = await this.invitationService.statusFor(user);
+    dto.invitation_status = await this.invitationService.statusFor(user, tenant.id);
     return dto;
   }
 
@@ -220,7 +228,9 @@ export class UserController {
     @CurrentUser() jwt: JwtPayload,
   ) {
     const user = await this.userService.updateOwnProfile(jwt.sub, dto, tenant.id);
-    return UserResponseDto.fromEntity(user, tenant.id);
+    const responseDto = UserResponseDto.fromEntity(user, tenant.id);
+    responseDto.invitation_status = await this.invitationService.statusFor(user, tenant.id);
+    return responseDto;
   }
 
   @Get('users/:id')
@@ -232,7 +242,7 @@ export class UserController {
   ) {
     const user = await this.userService.findOne(id, tenant.id);
     const dto = UserResponseDto.fromEntity(user, tenant.id);
-    dto.invitation_status = await this.invitationService.statusFor(user);
+    dto.invitation_status = await this.invitationService.statusFor(user, tenant.id);
     return dto;
   }
 
@@ -244,7 +254,9 @@ export class UserController {
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     const user = await this.userService.update(id, dto, tenant.id);
-    return UserResponseDto.fromEntity(user, tenant.id);
+    const responseDto = UserResponseDto.fromEntity(user, tenant.id);
+    responseDto.invitation_status = await this.invitationService.statusFor(user, tenant.id);
+    return responseDto;
   }
 
   @Delete('users/:id')
