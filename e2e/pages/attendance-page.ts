@@ -34,13 +34,12 @@ export class AttendancePage {
     ).toBeVisible();
   }
 
-  /** The `<li>` row for one roll number — the roll span's text
-   * (`t('mark.rollNumber', { roll })`) is unique per row in a section's
-   * roster. */
+  /** The `<li>` row for one roll number. `hasText` alone would substring
+   * match — roll 1 would also match roll 10 — so the roll label is
+   * matched exactly via `getByText`, not the row's whole text content. */
   private rowFor(rollNumber: number): Locator {
-    return this.page
-      .locator('li')
-      .filter({ hasText: this.t('attendance.mark.rollNumber', { roll: rollNumber }) });
+    const rollLabel = this.t('attendance.mark.rollNumber', { roll: rollNumber });
+    return this.page.locator('li').filter({ has: this.page.getByText(rollLabel, { exact: true }) });
   }
 
   private async fullNameFor(rollNumber: number): Promise<string> {
@@ -83,9 +82,10 @@ export class AttendancePage {
    * summary line into numbers, by matching each translated label
    * (placeholder removed) against the digits that follow it. */
   async counters(): Promise<{ present: number; absent: number; late: number; unmarked: number }> {
+    const presentLabel = this.t('attendance.mark.presentCount', { n: '' });
     const summary = await this.page
       .locator('p')
-      .filter({ hasText: this.t('attendance.mark.presentCount', { n: 0 }) })
+      .filter({ hasText: new RegExp(`${escapeRegExp(presentLabel)}\\d+`) })
       .first()
       .textContent();
     if (!summary) throw new Error('Attendance summary line not found');
