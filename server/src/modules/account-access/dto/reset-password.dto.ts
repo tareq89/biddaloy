@@ -21,8 +21,9 @@ import { PASSWORD_MIN_LENGTH } from '../../auth/password-policy';
 export class HasOtpOrTokenConstraint implements ValidatorConstraintInterface {
   validate(_: unknown, args: ValidationArguments) {
     const dto = args.object as ResetPasswordDto;
-    const hasOtpPair = !!(dto.phone?.trim() && dto.otp?.trim());
-    const hasToken = !!dto.token?.trim();
+    const hasText = (value: unknown) => typeof value === 'string' && value.trim().length > 0;
+    const hasOtpPair = hasText(dto.phone) && hasText(dto.otp);
+    const hasToken = hasText(dto.token);
     // Exactly one of the two credential shapes — never both, never neither.
     return hasOtpPair !== hasToken;
   }
