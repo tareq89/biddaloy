@@ -148,7 +148,14 @@ export function AttendanceSection({ schoolId, attendance }: AttendanceSectionPro
   });
   const [confirmingAutoAbsent, setConfirmingAutoAbsent] = React.useState(false);
 
-  useWarnUnsavedChanges(form.formState.isDirty && !form.formState.isSubmitSuccessful);
+  // Not `isDirty && !isSubmitSuccessful` (the pattern most sibling
+  // settings sections use): `handleSave` below calls `.mutate()` without
+  // awaiting it, so React Hook Form marks the submit "successful" as soon
+  // as that synchronous call returns — before the PATCH has actually
+  // resolved. A failed save would then leave the form dirty with the
+  // warning already suppressed. `isDirty` alone still clears correctly on
+  // success, since the `onSuccess` callback calls `form.reset(values)`.
+  useWarnUnsavedChanges(form.formState.isDirty);
 
   const updateSettings = useUpdateSchoolSettings(schoolId);
 
