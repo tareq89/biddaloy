@@ -19,6 +19,16 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
+// `.toISOString()` is UTC — a teacher in Asia/Dhaka (UTC+6) opening this
+// list between 00:00 and 06:00 local time would get UTC's *previous*
+// calendar day, linking to yesterday's register while `TodayPill` still
+// shows the server-computed state for today. Local getters, matching
+// `register.tsx`/`reports.tsx`'s own `currentMonthIso()`.
+function todayIso(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
 export const Route = createFileRoute('/_staff/attendance/')({
   loader: ({ context: { queryClient } }) =>
     Promise.all([
@@ -115,7 +125,7 @@ function AttendanceListPage() {
             <Link
               to="/attendance/$sectionId"
               params={{ sectionId: section.section_id }}
-              search={{ date: new Date().toISOString().slice(0, 10) }}
+              search={{ date: todayIso() }}
               className="flex min-h-14 items-center justify-between gap-3 rounded-lg border border-border-subtle bg-card px-4 py-2 no-underline hover:bg-muted"
             >
               <span className="flex flex-col">

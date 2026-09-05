@@ -52,8 +52,13 @@ import { CorrectionDialog } from './-correction-dialog';
 import { RecordHistoryPanel } from './-record-history-panel';
 import { RosterMarker, type Draft } from './-roster-marker';
 
+// `.toISOString()` is UTC — see `index.tsx`'s identical fix. This
+// function is what decides the search-schema default AND the future-date
+// gate (`date > todayIso()`), so a UTC skew here doesn't just link to the
+// wrong day, it can wrongly deny or allow the LEAVE-only future-date path.
 function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
 const searchSchema = z.object({
