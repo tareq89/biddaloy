@@ -317,6 +317,15 @@ export function AttendanceMonthGrid({
                     </div>
                   );
 
+                  // [8.13.8 fix] 7 columns inside the portal's existing
+                  // `main`/`Card` padding leaves ~32-35px per day at the
+                  // 360px comfortable-density viewport — not enough to make
+                  // the cell itself 44px without redesigning the page
+                  // chrome. `after:-inset-2` is this repo's own established
+                  // hit-area-extension pattern (see `target-size.spec.ts`'s
+                  // `pseudoGrowth` comment): the visual cell stays small,
+                  // the invisible pseudo-element grows the actual tappable
+                  // area to comfortably clear 44x44.
                   const wrapped =
                     state === 'notSchoolDay' && gridDay.cell.holidayName ? (
                       <Tooltip>
@@ -326,12 +335,15 @@ export function AttendanceMonthGrid({
                               type="button"
                               aria-label={`${accessibleLabel} — ${gridDay.cell.holidayName}`}
                               onClick={() => onSelectDay(gridDay.cell)}
-                              className="rounded-md"
+                              className="relative w-full rounded-md after:absolute after:-inset-2 after:content-['']"
                             >
                               {content}
                             </button>
                           ) : (
-                            <div aria-label={`${accessibleLabel} — ${gridDay.cell.holidayName}`}>
+                            <div
+                              aria-label={`${accessibleLabel} — ${gridDay.cell.holidayName}`}
+                              className="w-full"
+                            >
                               {content}
                             </div>
                           )}
@@ -343,12 +355,14 @@ export function AttendanceMonthGrid({
                         type="button"
                         aria-label={accessibleLabel}
                         onClick={() => onSelectDay(gridDay.cell)}
-                        className="rounded-md"
+                        className="relative w-full rounded-md after:absolute after:-inset-2 after:content-['']"
                       >
                         {content}
                       </button>
                     ) : (
-                      <div aria-label={accessibleLabel}>{content}</div>
+                      <div aria-label={accessibleLabel} className="w-full">
+                        {content}
+                      </div>
                     );
 
                   return (
