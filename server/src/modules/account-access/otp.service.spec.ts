@@ -5,7 +5,15 @@ import { OtpService, TooManyRequestsException } from './otp.service';
 /** Map-backed fake with just enough ioredis surface for OtpService — same
  * style as login-attempt.service.spec.ts's `fakeRedis`, but stateful since
  * OtpService's own logic (attempt counting, cooldown) needs real
- * get/set/del semantics rather than pre-programmed return values. */
+ * get/set/del semantics rather than pre-programmed return values.
+ *
+ * `eval` re-implements the two Lua scripts in JS against the same `store`
+ * Map — OtpService now does its atomic request/verify sequences as a
+ * single `EVAL` rather than separate get/set/del calls, so a fake that
+ * only stubbed those individually could no longer exercise the real
+ * request()/verify() code path. Dispatches on `numkeys` (2 = the request
+ * script, 3 = the verify script) since both are passed as raw strings.
+ */
 function fakeRedis() {
   const store = new Map<string, string>();
   return {
@@ -21,6 +29,40 @@ function fakeRedis() {
       return existed ? 1 : 0;
     }),
     pttl: vi.fn(async (key: string) => (store.has(key) ? 60_000 : -2)),
+    eval: vi.fn(async (_script: string, numkeys: number, ...rest: (string | number)[]) => {
+      const keys = rest.slice(0, numkeys) as string[];
+      const args = rest.slice(numkeys);
+
+      if (numkeys === 2) {
+        const [otpKey, cooldownKey] = keys;
+        const [record, codeTtl] = args;
+        if (store.has(cooldownKey)) return 0;
+        store.set(cooldownKey, '1');
+        store.set(otpKey, record as string);
+        void codeTtl;
+        return 1;
+      }
+
+      const [otpKey, cooldownKey, lockKey] = keys;
+      const [hash, maxAttempts] = args;
+      if (store.has(lockKey)) return 'locked';
+      const raw = store.get(otpKey);
+      if (!raw) return 'expired';
+      const record = JSON.parse(raw) as { hash: string; attempts: number };
+      if (record.hash === hash) {
+        store.delete(otpKey);
+        store.delete(cooldownKey);
+        return 'ok';
+      }
+      const attempts = record.attempts + 1;
+      if (attempts >= Number(maxAttempts)) {
+        store.set(lockKey, '1');
+        store.delete(otpKey);
+        return 'locked';
+      }
+      store.set(otpKey, JSON.stringify({ hash: record.hash, attempts }));
+      return 'invalid';
+    }),
   };
 }
 
@@ -84,13 +126,26 @@ describe('OtpService', () => {
   });
 
   it('maps a Redis failure to a 503, on both request and verify', async () => {
-    redis.get.mockRejectedValueOnce(new Error('ECONNREFUSED'));
+    redis.eval.mockRejectedValueOnce(new Error('ECONNREFUSED'));
     await expect(service.verify('LOGIN', 'user@test.com', '123456')).rejects.toMatchObject({
       status: 503,
     });
 
-    redis.set.mockRejectedValueOnce(new Error('ECONNREFUSED'));
+    redis.eval.mockRejectedValueOnce(new Error('ECONNREFUSED'));
     await expect(service.request('LOGIN', 'user2@test.com')).rejects.toMatchObject({ status: 503 });
+  });
+
+  it('only one of two concurrent requests wins the cooldown race', async () => {
+    const results = await Promise.allSettled([
+      service.request('LOGIN', 'racer@test.com'),
+      service.request('LOGIN', 'racer@test.com'),
+    ]);
+    const succeeded = results.filter((r) => r.status === 'fulfilled').length;
+    const rejected = results.filter(
+      (r) => r.status === 'rejected' && r.reason instanceof TooManyRequestsException,
+    ).length;
+    expect(succeeded).toBe(1);
+    expect(rejected).toBe(1);
   });
 
   it('never logs the plain code', async () => {
