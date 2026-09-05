@@ -10,7 +10,17 @@ import {
   setActiveRole,
   setActiveTenant,
 } from './auth-state';
-import { apiClient, postAuthLogin, postAuthRefresh, toApiError } from './client';
+import {
+  apiClient,
+  postAuthActivate,
+  postAuthActivateResend,
+  postAuthActivateVerify,
+  postAuthForgotPassword,
+  postAuthLogin,
+  postAuthRefresh,
+  postAuthResetPassword,
+  toApiError,
+} from './client';
 import { ApiError, NoActiveTenantError, RateLimitedError } from './errors';
 
 // Two separate mock surfaces: `apiClient` is its own axios.create() instance;
@@ -411,6 +421,245 @@ describe('postAuthLogin', () => {
     const error = await postAuthLogin({
       email: 'rahim@greenview.edu.bd',
       password: 'hunter2fake',
+    }).catch((err: unknown) => err);
+
+    expect(error).toBeInstanceOf(RateLimitedError);
+    expect((error as RateLimitedError).retryAfterSeconds).toBeNull();
+  });
+});
+
+describe('postAuthActivateVerify', () => {
+  it('resolves with the verify response on success', async () => {
+    globalMock
+      .onPost('/api/v1/auth/activate/verify')
+      .reply(200, { status: 'valid', full_name: 'Rahim', school_name: 'Greenview' });
+
+    await expect(postAuthActivateVerify('tok')).resolves.toEqual({
+      status: 'valid',
+      full_name: 'Rahim',
+      school_name: 'Greenview',
+    });
+  });
+
+  it('turns a 429 into RateLimitedError with the Retry-After header parsed', async () => {
+    globalMock
+      .onPost('/api/v1/auth/activate/verify')
+      .reply(429, { statusCode: 429, message: 'Too Many Requests' }, { 'retry-after': '30' });
+
+    const error = await postAuthActivateVerify('tok').catch((err: unknown) => err);
+
+    expect(error).toBeInstanceOf(RateLimitedError);
+    expect((error as RateLimitedError).retryAfterSeconds).toBe(30);
+  });
+
+  it('turns a 429 with no Retry-After header into RateLimitedError with a null wait', async () => {
+    globalMock
+      .onPost('/api/v1/auth/activate/verify')
+      .reply(429, { statusCode: 429, message: 'Too Many Requests' });
+
+    const error = await postAuthActivateVerify('tok').catch((err: unknown) => err);
+
+    expect(error).toBeInstanceOf(RateLimitedError);
+    expect((error as RateLimitedError).retryAfterSeconds).toBeNull();
+  });
+
+  it('wraps a non-429 failure in ApiError', async () => {
+    globalMock.onPost('/api/v1/auth/activate/verify').reply(500, {
+      statusCode: 500,
+      message: 'Internal error',
+      timestamp: 't',
+      path: '/api/v1/auth/activate/verify',
+      requestId: 'r',
+    });
+
+    await expect(postAuthActivateVerify('tok')).rejects.toBeInstanceOf(ApiError);
+  });
+});
+
+describe('postAuthActivate', () => {
+  it('resolves with the real LoginResponse on success', async () => {
+    globalMock.onPost('/api/v1/auth/activate').reply(200, {
+      access_token: 'tok',
+      memberships: [{ tenantId: 'tenant-1', role: 'ADMIN' }],
+    });
+
+    await expect(postAuthActivate({ token: 'tok', password: 'hunter2fake' })).resolves.toEqual({
+      access_token: 'tok',
+      memberships: [{ tenantId: 'tenant-1', role: 'ADMIN' }],
+    });
+  });
+
+  it('turns a 429 into RateLimitedError with the Retry-After header parsed', async () => {
+    globalMock
+      .onPost('/api/v1/auth/activate')
+      .reply(429, { statusCode: 429, message: 'Too Many Requests' }, { 'retry-after': '12' });
+
+    const error = await postAuthActivate({ token: 'tok', password: 'hunter2fake' }).catch(
+      (err: unknown) => err,
+    );
+
+    expect(error).toBeInstanceOf(RateLimitedError);
+    expect((error as RateLimitedError).retryAfterSeconds).toBe(12);
+  });
+
+  it('turns a 429 with no Retry-After header into RateLimitedError with a null wait', async () => {
+    globalMock.onPost('/api/v1/auth/activate').reply(429, {
+      statusCode: 429,
+      message: 'Too Many Requests',
+    });
+
+    const error = await postAuthActivate({ token: 'tok', password: 'hunter2fake' }).catch(
+      (err: unknown) => err,
+    );
+
+    expect(error).toBeInstanceOf(RateLimitedError);
+    expect((error as RateLimitedError).retryAfterSeconds).toBeNull();
+  });
+
+  it('wraps a non-429 failure (e.g. expired token) in ApiError', async () => {
+    globalMock.onPost('/api/v1/auth/activate').reply(400, {
+      statusCode: 400,
+      message: 'expired',
+      timestamp: 't',
+      path: '/api/v1/auth/activate',
+      requestId: 'r',
+    });
+
+    await expect(
+      postAuthActivate({ token: 'tok', password: 'hunter2fake' }),
+    ).rejects.toBeInstanceOf(ApiError);
+  });
+});
+
+describe('postAuthActivateResend', () => {
+  it('resolves to void on success', async () => {
+    globalMock.onPost('/api/v1/auth/activate/resend').reply(201);
+
+    await expect(postAuthActivateResend('rahim@greenview.edu.bd')).resolves.toBeUndefined();
+  });
+
+  it('turns a 429 into RateLimitedError with the Retry-After header parsed', async () => {
+    globalMock
+      .onPost('/api/v1/auth/activate/resend')
+      .reply(429, { statusCode: 429, message: 'Too Many Requests' }, { 'retry-after': '20' });
+
+    const error = await postAuthActivateResend('rahim@greenview.edu.bd').catch(
+      (err: unknown) => err,
+    );
+
+    expect(error).toBeInstanceOf(RateLimitedError);
+    expect((error as RateLimitedError).retryAfterSeconds).toBe(20);
+  });
+
+  it('turns a 429 with no Retry-After header into RateLimitedError with a null wait', async () => {
+    globalMock.onPost('/api/v1/auth/activate/resend').reply(429, {
+      statusCode: 429,
+      message: 'Too Many Requests',
+    });
+
+    const error = await postAuthActivateResend('rahim@greenview.edu.bd').catch(
+      (err: unknown) => err,
+    );
+
+    expect(error).toBeInstanceOf(RateLimitedError);
+    expect((error as RateLimitedError).retryAfterSeconds).toBeNull();
+  });
+});
+
+describe('postAuthForgotPassword', () => {
+  it('resolves with the response, including debug when the server echoes it', async () => {
+    globalMock.onPost('/api/v1/auth/forgot-password').reply(201, { debug: { otp: '123456' } });
+
+    await expect(postAuthForgotPassword('rahim@greenview.edu.bd')).resolves.toEqual({
+      debug: { otp: '123456' },
+    });
+  });
+
+  it('turns a 429 into RateLimitedError with the Retry-After header parsed', async () => {
+    globalMock
+      .onPost('/api/v1/auth/forgot-password')
+      .reply(429, { statusCode: 429, message: 'Too Many Requests' }, { 'retry-after': '15' });
+
+    const error = await postAuthForgotPassword('rahim@greenview.edu.bd').catch(
+      (err: unknown) => err,
+    );
+
+    expect(error).toBeInstanceOf(RateLimitedError);
+    expect((error as RateLimitedError).retryAfterSeconds).toBe(15);
+  });
+
+  it('turns a 429 with no Retry-After header into RateLimitedError with a null wait', async () => {
+    globalMock.onPost('/api/v1/auth/forgot-password').reply(429, {
+      statusCode: 429,
+      message: 'Too Many Requests',
+    });
+
+    const error = await postAuthForgotPassword('rahim@greenview.edu.bd').catch(
+      (err: unknown) => err,
+    );
+
+    expect(error).toBeInstanceOf(RateLimitedError);
+    expect((error as RateLimitedError).retryAfterSeconds).toBeNull();
+  });
+});
+
+describe('postAuthResetPassword', () => {
+  it('resolves with the real LoginResponse on success (token variant)', async () => {
+    globalMock.onPost('/api/v1/auth/reset-password').reply(200, {
+      access_token: 'tok',
+      memberships: [{ tenantId: 'tenant-1', role: 'ADMIN' }],
+    });
+
+    await expect(
+      postAuthResetPassword({ token: 'tok', new_password: 'hunter2fake' }),
+    ).resolves.toEqual({
+      access_token: 'tok',
+      memberships: [{ tenantId: 'tenant-1', role: 'ADMIN' }],
+    });
+  });
+
+  it('sends the phone/otp variant as-is', async () => {
+    globalMock.onPost('/api/v1/auth/reset-password').reply((config) => {
+      const body: unknown = JSON.parse(config.data as string);
+      return [200, { access_token: 'tok', memberships: [], receivedBody: body }];
+    });
+
+    const result = (await postAuthResetPassword({
+      phone: '01712345678',
+      otp: '123456',
+      new_password: 'hunter2fake',
+    })) as unknown as { receivedBody: unknown };
+
+    expect(result.receivedBody).toEqual({
+      phone: '01712345678',
+      otp: '123456',
+      new_password: 'hunter2fake',
+    });
+  });
+
+  it('turns a 429 into RateLimitedError with the Retry-After header parsed', async () => {
+    globalMock
+      .onPost('/api/v1/auth/reset-password')
+      .reply(429, { statusCode: 429, message: 'Too Many Requests' }, { 'retry-after': '8' });
+
+    const error = await postAuthResetPassword({
+      token: 'tok',
+      new_password: 'hunter2fake',
+    }).catch((err: unknown) => err);
+
+    expect(error).toBeInstanceOf(RateLimitedError);
+    expect((error as RateLimitedError).retryAfterSeconds).toBe(8);
+  });
+
+  it('turns a 429 with no Retry-After header into RateLimitedError with a null wait', async () => {
+    globalMock.onPost('/api/v1/auth/reset-password').reply(429, {
+      statusCode: 429,
+      message: 'Too Many Requests',
+    });
+
+    const error = await postAuthResetPassword({
+      token: 'tok',
+      new_password: 'hunter2fake',
     }).catch((err: unknown) => err);
 
     expect(error).toBeInstanceOf(RateLimitedError);
