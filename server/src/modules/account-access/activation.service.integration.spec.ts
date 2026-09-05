@@ -19,6 +19,7 @@ import { AuditService } from '../audit/audit.service';
 import { AuthService } from '../auth/auth.service';
 import { SchoolsService } from '../schools/schools.service';
 import { CommunicationProviderRegistryService } from '../communications/providers/communication-provider.registry';
+import { AuthToken } from './entities/auth-token.entity';
 
 describe('ActivationService (integration)', () => {
   let module: TestingModule;
@@ -204,6 +205,40 @@ describe('ActivationService (integration)', () => {
       await issueInvite(user.id);
 
       await expect(service.resend(user.email!)).resolves.toBeUndefined();
+    });
+
+    it('does not reissue a revoked invitation', async () => {
+      const user = await createInvitee();
+      await issueInvite(user.id);
+      await authTokens.revokeLive(user.id, AuthTokenPurpose.INVITE);
+
+      await service.resend(user.email!);
+
+      const tokenCount = await dataSource
+        .getRepository(AuthToken)
+        .createQueryBuilder('t')
+        .where('t.user_id = :userId', { userId: user.id })
+        .andWhere('t.revoked_at IS NULL')
+        .andWhere('t.consumed_at IS NULL')
+        .getCount();
+      expect(tokenCount).toBe(0);
+    });
+
+    it('does not reissue an already-consumed invitation', async () => {
+      const user = await createInvitee();
+      const { row } = await issueInvite(user.id);
+      await authTokens.consume(row.id);
+
+      await service.resend(user.email!);
+
+      const tokenCount = await dataSource
+        .getRepository(AuthToken)
+        .createQueryBuilder('t')
+        .where('t.user_id = :userId', { userId: user.id })
+        .andWhere('t.revoked_at IS NULL')
+        .andWhere('t.consumed_at IS NULL')
+        .getCount();
+      expect(tokenCount).toBe(0);
     });
   });
 });

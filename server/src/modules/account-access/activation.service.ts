@@ -145,6 +145,11 @@ export class ActivationService {
     if (!latest || !latest.tenant_id) {
       return;
     }
+    // A revoked or already-consumed invite must not be reissued — only "no
+    // invite yet" and "expired" are eligible for a fresh one.
+    if (latest.revoked_at || latest.consumed_at) {
+      return;
+    }
 
     try {
       await this.invitations.issueAndSend({
