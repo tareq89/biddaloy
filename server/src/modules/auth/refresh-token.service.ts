@@ -27,6 +27,7 @@ export interface IssuedRefreshToken {
 
 export interface RotateResult {
   userId: string;
+  credentialVersion: number;
   refreshToken: IssuedRefreshToken;
 }
 
@@ -98,8 +99,9 @@ export class RefreshTokenService {
     userId: string,
     familyId: string,
     context: RequestContext,
+    credentialVersion: number,
   ): Promise<IssuedRefreshToken> {
-    return this.issueWithId(randomUUID(), userId, familyId, context);
+    return this.issueWithId(randomUUID(), userId, familyId, context, credentialVersion);
   }
 
   // Split out so rotateRow can generate the successor's id itself, before
@@ -110,6 +112,7 @@ export class RefreshTokenService {
     userId: string,
     familyId: string,
     context: RequestContext,
+    credentialVersion: number,
   ): Promise<IssuedRefreshToken> {
     const secret = randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + this.ttlMs);
@@ -124,6 +127,7 @@ export class RefreshTokenService {
       replaced_by_id: null,
       ip_address: context.ip,
       user_agent: context.userAgent,
+      credential_version: credentialVersion,
     });
 
     return { cookieValue: this.buildCookieValue(id, secret), expiresAt };
@@ -205,8 +209,8 @@ export class RefreshTokenService {
       return this.rotateRow(reread, context, hops + 1);
     }
 
-    const issued = await this.issueWithId(successorId, row.user_id, row.family_id, context);
-    return { userId: row.user_id, refreshToken: issued };
+    const issued = await this.issueWithId(successorId, row.user_id, row.family_id, context, row.credential_version);
+    return { userId: row.user_id, credentialVersion: row.credential_version, refreshToken: issued };
   }
 
   /** Revokes the presented token and reports whose it was, or null if it wasn't a valid, live token. */
@@ -232,8 +236,9 @@ export class RefreshTokenService {
       .execute();
   }
 
-  async revokeAllForUser(userId: string): Promise<void> {
-    await this.repo
+  async revokeAllForUser(userId: string, manager?: import('typeorm').EntityManager): Promise<void> {
+    const repo = manager?.getRepository(RefreshToken) ?? this.repo;
+    await repo
       .createQueryBuilder()
       .update(RefreshToken)
       .set({ revoked_at: new Date() })

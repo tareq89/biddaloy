@@ -59,6 +59,24 @@ export class User {
   @Column({ type: 'varchar', length: 255, nullable: true })
   password_hash: string | null;
 
+  @ApiHideProperty()
+  @Column({ type: 'integer', default: 0 })
+  credential_version: number;
+
+  @ApiHideProperty()
+  @Column({ type: 'boolean', default: false })
+  password_change_required: boolean;
+
+  @ApiHideProperty()
+  @Column({ type: 'timestamptz', nullable: true })
+  temporary_password_expires_at: Date | null;
+
+  // Credential provenance: a temporary password must never follow a membership
+  // moved to a different school after the issuing administrator's transaction.
+  @ApiHideProperty()
+  @Column({ type: 'uuid', nullable: true })
+  temporary_password_tenant_id: string | null;
+
   @Column({ type: 'enum', enum: UserStatus, default: UserStatus.ACTIVE })
   status: UserStatus;
 

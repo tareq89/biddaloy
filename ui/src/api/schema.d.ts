@@ -71,6 +71,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/complete-password-reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Replace a temporary password using a valid completion challenge; sign in afterward. */
+        post: operations["AuthController_completePasswordReset_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/refresh": {
         parameters: {
             query?: never;
@@ -566,6 +583,23 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["UserController_updateUser_v1"];
+        trace?: never;
+    };
+    "/api/v1/users/{id}/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate a 24-hour temporary password for an exclusive-school member and immediately revoke their sessions. */
+        post: operations["UserController_resetPassword_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/teachers": {
@@ -1379,12 +1413,6 @@ export interface components {
             limit: number;
             totalPages: number;
         };
-        LoginDto: {
-            /** Format: email */
-            email?: string;
-            phone?: string;
-            password: string;
-        };
         MembershipResponseDto: {
             /**
              * Format: uuid
@@ -1404,6 +1432,24 @@ export interface components {
             access_token: string;
             /** @description Every school/role pair the caller holds, for the tenant picker. */
             memberships: components["schemas"]["MembershipResponseDto"][];
+        };
+        PasswordChangeRequiredResponseDto: {
+            /** @enum {boolean} */
+            password_change_required: true;
+            /** @description Short-lived password completion challenge; never an access token. */
+            reset_token: string;
+            /** Format: date-time */
+            expires_at: string;
+        };
+        LoginDto: {
+            /** Format: email */
+            email?: string;
+            phone?: string;
+            password: string;
+        };
+        CompletePasswordResetDto: {
+            reset_token: string;
+            new_password: string;
         };
         ChangePasswordDto: {
             /** @description The caller's current password, re-entered to prove possession. */
@@ -1920,6 +1966,12 @@ export interface components {
             phone?: string | null;
             full_name?: string;
             profile_picture_url?: string;
+        };
+        AdminResetPasswordDto: Record<string, never>;
+        AdminResetPasswordResponseDto: {
+            temporary_password: string;
+            /** Format: date-time */
+            expires_at: string;
         };
         CreateTeacherDto: {
             /** Format: uuid */
@@ -2923,11 +2975,32 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LoginResponseDto"];
+                    "application/json": components["schemas"]["LoginResponseDto"] | components["schemas"]["PasswordChangeRequiredResponseDto"];
                 };
             };
             /** @description Invalid credentials — identical response for an unknown identifier, a wrong password, and a locked-out account (see the README's "Login brute-force protection" section). */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AuthController_completePasswordReset_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompletePasswordResetDto"];
+            };
+        };
+        responses: {
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4540,6 +4613,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UserController_resetPassword_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminResetPasswordDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminResetPasswordResponseDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

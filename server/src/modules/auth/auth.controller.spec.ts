@@ -22,6 +22,7 @@ function fakeRequest(
 function fakeResponse() {
   return {
     cookie: vi.fn(),
+    setHeader: vi.fn(),
     clearCookie: vi.fn(),
   };
 }
@@ -47,6 +48,7 @@ describe('AuthController', () => {
         memberships: [],
         refreshToken: mockIssuedRefreshToken,
       }),
+      completePasswordReset: vi.fn().mockResolvedValue(undefined),
       logout: vi.fn().mockResolvedValue(undefined),
       logoutAll: vi.fn().mockResolvedValue(undefined),
       changePassword: vi.fn().mockResolvedValue({
@@ -115,6 +117,25 @@ describe('AuthController', () => {
     // HasEmailOrPhoneConstraint before this handler ever runs — see
     // login.dto.spec.ts. A directly-constructed controller bypasses the
     // global ValidationPipe, so that rejection can't be exercised here.
+  });
+
+  it('returns only a challenge and clears stale refresh cookies for temporary login', async () => {
+    const challenge = { password_change_required: true, reset_token: 'challenge', expires_at: '2026-09-06T00:00:00Z' };
+    mockAuthService.login.mockResolvedValue(challenge);
+    const response = fakeResponse();
+    expect(await controller.login({ email: 'a@test.com', password: 'temporary' }, fakeRequest(), response as any)).toEqual(challenge);
+    expect(response.cookie).not.toHaveBeenCalled();
+    expect(response.clearCookie).toHaveBeenCalled();
+    expect(response.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
+  });
+
+  it('completes the challenge without issuing a session', async () => {
+    const response = fakeResponse();
+    const dto = { reset_token: 'challenge', new_password: 'replacement' };
+    expect(await controller.completePasswordReset(dto, fakeRequest(), response as any)).toBeUndefined();
+    expect(mockAuthService.completePasswordReset).toHaveBeenCalledWith(dto, { ip: '127.0.0.1', userAgent: 'test-agent' });
+    expect(response.cookie).not.toHaveBeenCalled();
+    expect(response.clearCookie).toHaveBeenCalled();
   });
 
   describe('refresh', () => {

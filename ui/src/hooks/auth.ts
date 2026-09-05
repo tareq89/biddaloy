@@ -1,4 +1,4 @@
-import type { LoginResponse } from '@biddaloy/shared';
+import type { LoginResponse, LoginResult } from '@biddaloy/shared';
 import type { QueryClient } from '@tanstack/react-query';
 
 import { clearAuthState, setAccessToken } from '../api/auth-state';
@@ -63,8 +63,15 @@ import { switchActiveTenant } from './tenant';
 export async function login(
   queryClient: QueryClient,
   credentials: ({ email: string } | { phone: string }) & { password: string },
-): Promise<LoginResponse> {
+): Promise<LoginResult> {
   const result = await postAuthLogin(credentials);
+
+  if ('password_change_required' in result) {
+    resetSessionBootstrap();
+    clearAuthState();
+    queryClient.clear();
+    return result;
+  }
 
   const [primary] = result.memberships;
   if (!primary) {
@@ -143,3 +150,5 @@ export function logout(queryClient: QueryClient): Promise<void> {
 export function logoutAll(queryClient: QueryClient): Promise<void> {
   return endSession(queryClient, '/auth/logout-all');
 }
+
+export { postCompletePasswordReset as completePasswordReset } from '../api/client';

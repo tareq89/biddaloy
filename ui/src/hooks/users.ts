@@ -6,10 +6,14 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
+import type { AxiosRequestConfig } from 'axios';
+import * as React from 'react';
 
+import { getActiveTenant, subscribeAuthState } from '../api/auth-state';
 import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
 
+import { useActiveTenant } from './auth-state';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
@@ -184,4 +188,41 @@ export function useRemoveMember() {
       queryClient.removeQueries({ queryKey: userKeys.detail(id) });
     },
   });
+}
+
+export interface AdminPasswordResetResult {
+  temporary_password: string;
+  expires_at: string;
+}
+
+/** Secret responses belong only to mounted dialog memory, never Query's cache. */
+export function useResetPassword() {
+  const tenant = useActiveTenant();
+  return React.useCallback(
+    async (id: string): Promise<AdminPasswordResetResult | undefined> => {
+      if (!tenant || getActiveTenant() !== tenant) return undefined;
+      // Abort on any context transition, including a switch away and back
+      // before React renders. This also prevents dispatch under a new tenant.
+      const controller = new AbortController();
+      const unsubscribe = subscribeAuthState(() => {
+        if (getActiveTenant() !== tenant) controller.abort();
+      });
+      try {
+        // This non-idempotent action must never be replayed by the 401 interceptor.
+        const config: AxiosRequestConfig & { _retry: boolean } = {
+          _retry: true,
+          signal: controller.signal,
+        };
+        const result = await apiClient.post<AdminPasswordResetResult>(
+          `/users/${id}/reset-password`,
+          {},
+          config,
+        );
+        return !controller.signal.aborted && getActiveTenant() === tenant ? result.data : undefined;
+      } finally {
+        unsubscribe();
+      }
+    },
+    [tenant],
+  );
 }

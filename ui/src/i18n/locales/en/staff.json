@@ -146,5 +146,22 @@
       "emptyValue": "—",
       "errorMessage": "Could not load the login history. Please try again."
     }
+  },
+  "resetPassword": {
+    "title": "Reset password",
+    "description": "Reset the password for {{name}}? Their old password and all sessions will stop working immediately. The temporary password lasts 24 hours. They must choose a new password before accessing their account.",
+    "selfBlocked": "You cannot reset your own password here. Use Change password in your account settings.",
+    "confirm": "Reset password",
+    "resetting": "Resetting password",
+    "success": "Password reset for {{name}}. Save the temporary password now; it is shown only here.",
+    "temporaryPassword": "Temporary password",
+    "expires": "Expires: {{date}}",
+    "handoff": "Share this password privately with the member after verifying their identity. Closing this dialog removes it. No message has been sent.",
+    "copy": "Copy temporary password",
+    "copied": "Temporary password copied.",
+    "close": "Close",
+    "copyError": "Could not copy. Select the password and copy it manually.",
+    "ineligible": "This account is not eligible for a school-admin reset. Shared accounts, inactive accounts and accounts without a login identifier cannot be reset here.",
+    "error": "Could not reset the password. Please try again. If a reset completed but its response was lost, resetting again replaces that temporary password."
   }
 }

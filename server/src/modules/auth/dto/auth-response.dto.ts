@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { UserRole } from '@biddaloy/shared';
-import type { JwtMembership, LoginResponse } from '@biddaloy/shared';
+import type { JwtMembership, LoginResponse, PasswordChangeRequiredResponse } from '@biddaloy/shared';
 
 /**
  * Swagger cannot reflect a TypeScript `interface` — it erases at compile
@@ -38,4 +38,15 @@ export class LoginResponseDto implements LoginResponse {
     description: 'Every school/role pair the caller holds, for the tenant picker.',
   })
   memberships: MembershipResponseDto[];
+}
+
+export class PasswordChangeRequiredResponseDto implements PasswordChangeRequiredResponse {
+  @ApiProperty({ enum: [true] })
+  password_change_required: true;
+
+  @ApiProperty({ description: 'Short-lived password completion challenge; never an access token.' })
+  reset_token: string;
+
+  @ApiProperty({ format: 'date-time' })
+  expires_at: string;
 }

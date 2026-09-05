@@ -1,6 +1,8 @@
+import { getAccessToken, getActiveTenant } from '@biddaloy/ui/api';
 import { authHandlers, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../routeTree.gen';
@@ -16,6 +18,73 @@ async function signIn(): Promise<void> {
 }
 
 describe('/login', () => {
+  it('completes a challenge without session or navigation, then requires a fresh sign-in', async () => {
+    let completionBody: unknown;
+    let loginCalls = 0;
+    server.use(
+      authHandlers.refreshFailure,
+      http.post('/api/v1/auth/login', () => {
+        loginCalls += 1;
+        return HttpResponse.json({
+          password_change_required: true,
+          reset_token: 'test-challenge',
+          expires_at: '2030-01-01T00:00:00Z',
+        });
+      }),
+      http.post('/api/v1/auth/complete-password-reset', async ({ request }) => {
+        completionBody = await request.json();
+        expect(request.headers.get('X-Tenant-ID')).toBeNull();
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const { router, queryClient } = renderWithRouter(routeTree, {
+      initialEntries: ['/login'],
+      locale: 'en',
+    });
+    await signIn();
+    await screen.findByRole('heading', { name: 'Choose a new password' });
+    expect(getAccessToken()).toBeNull();
+    expect(getActiveTenant()).toBeNull();
+    expect(router.state.location.pathname).toBe('/login');
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText('New password'), 'replacement');
+    await user.type(screen.getByLabelText('Confirm new password'), 'replacement');
+    await user.click(screen.getByRole('button', { name: 'Save new password' }));
+    expect((await screen.findByRole('status')).textContent).toContain(
+      'Your password has been changed',
+    );
+    expect(completionBody).toEqual({ reset_token: 'test-challenge', new_password: 'replacement' });
+    expect(screen.getByLabelText<HTMLInputElement>('Password').value).toBe('');
+    expect(getAccessToken()).toBeNull();
+    expect(loginCalls).toBe(1);
+    await waitFor(() => expect(queryClient.getMutationCache().getAll()).toHaveLength(0));
+  });
+  it('shows invalid/expired challenge error and cancel forgets the form', async () => {
+    server.use(
+      authHandlers.refreshFailure,
+      http.post('/api/v1/auth/login', () =>
+        HttpResponse.json({
+          password_change_required: true,
+          reset_token: 'test-challenge',
+          expires_at: '2030-01-01T00:00:00Z',
+        }),
+      ),
+      http.post(
+        '/api/v1/auth/complete-password-reset',
+        () => new HttpResponse(null, { status: 400 }),
+      ),
+    );
+    renderWithRouter(routeTree, { initialEntries: ['/login'], locale: 'en' });
+    await signIn();
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText('New password'), 'replacement');
+    await user.type(screen.getByLabelText('Confirm new password'), 'replacement');
+    await user.click(screen.getByRole('button', { name: 'Save new password' }));
+    expect((await screen.findByRole('alert')).textContent).toContain('invalid or expired');
+    await user.click(screen.getByRole('button', { name: 'Back to sign in' }));
+    expect((await screen.findByLabelText<HTMLInputElement>('Password')).value).toBe('');
+    expect(screen.queryByLabelText('New password')).toBeNull();
+  });
   afterEach(async () => {
     await cleanupTestState();
   });

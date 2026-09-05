@@ -29,6 +29,23 @@ function paginated<T>(data: T[]) {
  * route tree, same reasoning as `guardians/$guardianId.test.tsx`.
  */
 describe('/staff/$userId', () => {
+  it.each(['ADMIN', 'EXECUTIVE'])('shows reset only for exact ADMIN (%s)', async (role) => {
+    server.use(
+      http.get('/api/v1/users/:id', () => HttpResponse.json(userResponseFactory({ id: 'user-1' }))),
+      http.get('/api/v1/teachers', () => HttpResponse.json(paginated([]))),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/staff/user-1'],
+      tenantId: 'tenant-1',
+      role,
+      locale: 'en',
+    });
+    if (role === 'ADMIN') await screen.findByRole('tab', { name: 'Profile' });
+    else await screen.findByText("You don't have access to this page.");
+    if (role === 'ADMIN')
+      expect(screen.getByRole('button', { name: 'Reset password' })).toBeTruthy();
+    else expect(screen.queryByRole('button', { name: 'Reset password' })).toBeNull();
+  });
   afterEach(async () => {
     await cleanupTestState();
   });

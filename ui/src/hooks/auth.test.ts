@@ -32,6 +32,25 @@ function seedSession(): void {
 }
 
 describe('login', () => {
+  it('clears prior session and cache for a password challenge without installing a session', async () => {
+    seedSession();
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(['private'], 'old-school-data');
+    const challenge = {
+      password_change_required: true,
+      reset_token: 'test-only-challenge',
+      expires_at: '2030-01-01T00:00:00Z',
+    };
+    server.use(http.post('/api/v1/auth/login', () => HttpResponse.json(challenge)));
+    expect(await login(queryClient, { email: 'test@example.com', password: 'temporary' })).toEqual(
+      challenge,
+    );
+    expect(getAccessToken()).toBeNull();
+    expect(getActiveTenant()).toBeNull();
+    expect(getActiveRole()).toBeNull();
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+    expect(queryClient.getMutationCache().getAll()).toHaveLength(0);
+  });
   it('stores the access token and activates the single membership returned', async () => {
     server.use(
       http.post('/api/v1/auth/login', () =>
@@ -76,7 +95,7 @@ describe('login', () => {
     expect(getAccessToken()).toBe('fresh-token');
     expect(getActiveTenant()).toBeNull();
     expect(getActiveRole()).toBeNull();
-    expect(result.memberships).toHaveLength(2);
+    expect('memberships' in result && result.memberships).toHaveLength(2);
   });
 
   it('[8.9.5] clears a prior session (tenant, role, persisted tenant, cache) before a multi-membership login, keeping only the new token', async () => {

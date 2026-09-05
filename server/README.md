@@ -130,3 +130,86 @@ server/
 - **CORS**: enabled for `localhost:5173` in development only
 - **Migrations**: stored in `src/migrations/` as TypeScript files, compiled to `dist/migrations/` on build
 - **Data source**: `src/data-source.ts` is for the TypeORM CLI only; the app uses `TypeOrmModule.forRootAsync` in `app.module.ts`
+
+## Administrator password reset
+
+An active `ADMIN` can reset another active account only when that account belongs
+exclusively to the selected school and has an email or phone login identifier.
+Multiple roles within that school are eligible; memberships in different schools
+are not. Accounts with no existing password are eligible. Reset never activates an
+account or changes its identifiers. Self-reset is refused: use the existing
+`POST /api/v1/auth/change-password` flow instead.
+
+1. Call `POST /api/v1/users/:id/reset-password` with the usual bearer token,
+   selected-school context headers, and an empty JSON object (`{}`). Caller-chosen
+   passwords, identifiers, roles, and tenant fields are rejected. The `200` response
+   contains `temporary_password` and an ISO `expires_at` timestamp, with
+   `Cache-Control: no-store`. The acting administrator's cookies are unchanged.
+2. Hand the displayed temporary password to the member through an appropriate
+   private channel. It expires after **24 hours**. The server stores only its bcrypt
+   hash and does not send it through school email or SMS providers. The interface
+   shows it only while the result dialog remains open. If the response is lost or
+   the password is no longer available, repeat reset; plaintext cannot be recovered.
+3. The member signs in at `POST /api/v1/auth/login` with their email or phone and
+   temporary password. This returns `{ password_change_required: true,
+   reset_token: string, expires_at: string }`, rather than the ordinary
+   `{ access_token: string, memberships: [...] }` response. The challenge lasts
+   at most **five minutes**, bounded by the remaining temporary-password lifetime.
+   It grants no normal access or refresh session, and clears any stale refresh
+   cookie. Temporary login and completion both require membership exclusively in
+   the school that initiated the reset, even if memberships change afterward.
+4. Call public `POST /api/v1/auth/complete-password-reset` with only
+   `{ reset_token: string, new_password: string }`. The token is limited to 4096
+   characters; the new password must be nonempty and different from the temporary
+   password, including inputs bcrypt considers equivalent. Success is `204`, with
+   `Cache-Control: no-store`; stale refresh cookies are cleared. The member then
+   signs in normally with the replacement password. Completion does not issue a
+   session automatically.
+
+Reset immediately invalidates the old password, existing access tokens, and
+refresh credentials by advancing the user's persisted credential version. Every
+protected request checks current credential state in PostgreSQL, failing closed
+when it cannot be read. Requests that already passed authentication before reset
+committed are not cancelled. Login and refresh operations that straddle reset
+cannot upgrade old credentials to the new version. Ordinary self-service password
+change retains its existing access-token lifetime behavior.
+
+Reset and completion each write an audit record in the same database transaction
+as the credential change and refresh revocation; audit failure rolls back those
+changes. Audit records contain the actor, school, request metadata, and operation
+scope, never passwords or challenge tokens. Completion advances the version again,
+so replay fails and only one concurrent completion succeeds. Repeating an admin
+reset invalidates every earlier temporary password and challenge. Clearing login
+lockouts is best effort after commit, so a Redis outage cannot discard a committed
+reset's credential response.
+
+The administrator endpoint returns `403` for insufficient access, `400` for self
+reset or unsupported fields, and the same `404` for unknown and out-of-school
+accounts. Shared accounts receive a generic `409` without other-school details;
+inactive accounts or accounts without a login identifier also receive `409`.
+Invalid, expired, replayed, or stale completion challenges and changed membership
+eligibility receive the same generic `400`. Expired or ineligible temporary login
+returns generic invalid credentials. Both reset endpoints use the strict rate
+limit (`429` when exceeded).
+
+`UpdateUserDto` already excludes `password`; this feature preserves strict PATCH
+rejection and does not introduce a new field removal. `CreateUserDto.password`
+remains supported. Ordinary login, refresh, and self-change session responses
+retain their existing shape; only login additionally supports the challenge union.
+
+### Deployment and rollback
+
+Apply the credential-state migration first, replace **all** authentication-serving
+instances with code that enforces credential versions and forced password change,
+then expose the reset interface. Old and new authentication code must not serve
+concurrently once resets are enabled. Existing users, refresh tokens, and legacy
+access tokens start at credential version zero; new tokens include the version
+explicitly. Version checks intentionally add a primary-key database read to each
+protected request and must not be cached with stale values.
+
+Migration rollback refuses to remove enforcement columns while any account has
+`password_change_required = true`, including expired temporary passwords. Keep the
+enforcing code deployed while those members complete their resets; repeat an
+expired reset as needed and have the member complete it before downgrade. Do not
+clear the pending flag merely to bypass the safeguard, as that would make a
+temporary password usable as a permanent credential.

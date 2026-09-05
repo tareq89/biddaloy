@@ -1,4 +1,4 @@
-import type { LoginResponse } from '@biddaloy/shared';
+import type { LoginResponse, LoginResult } from '@biddaloy/shared';
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 
 import {
@@ -125,9 +125,9 @@ export async function postAuthLogout(endpoint: '/auth/logout' | '/auth/logout-al
  * `detectLoginIdentifier` is what decides which one a caller sends. */
 export async function postAuthLogin(
   credentials: ({ email: string } | { phone: string }) & { password: string },
-): Promise<LoginResponse> {
+): Promise<LoginResult> {
   try {
-    const response = await axios.post<LoginResponse>(`${API_BASE_URL}/auth/login`, credentials, {
+    const response = await axios.post<LoginResult>(`${API_BASE_URL}/auth/login`, credentials, {
       withCredentials: true,
     });
     return response.data;
@@ -137,6 +137,22 @@ export async function postAuthLogin(
       const parsed = typeof header === 'string' ? Number.parseInt(header, 10) : NaN;
       throw new RateLimitedError(Number.isFinite(parsed) ? parsed : null);
     }
+    throw toApiError(error);
+  }
+}
+
+/** Public pre-authentication transport: never installs a session or retries. */
+export async function postCompletePasswordReset(input: {
+  reset_token: string;
+  new_password: string;
+}): Promise<void> {
+  try {
+    await axios.post(`${API_BASE_URL}/auth/complete-password-reset`, input, {
+      withCredentials: true,
+    });
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 429)
+      throw new RateLimitedError(null);
     throw toApiError(error);
   }
 }

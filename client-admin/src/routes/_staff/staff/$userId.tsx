@@ -13,11 +13,12 @@
  * disabled with an explanation — self-removal is prevented client-side
  * and again by the server's own 400.
  */
-import { Permission } from '@biddaloy/shared';
+import { Permission, UserRole } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
 import { ErrorState, RoutePending, Skeleton, StatusBadge } from '@biddaloy/ui/components';
 import {
   useCurrentUserId,
+  useActiveRole,
   useHasPermission,
   useTeachers,
   useUser,
@@ -38,6 +39,7 @@ import { ProfileTab } from './-detail/profile-tab';
 import { EditTeacherDialog } from './-edit-teacher-dialog';
 import { EditUserDialog } from './-edit-user-dialog';
 import { RemoveMemberDialog } from './-remove-member-dialog';
+import { ResetPasswordDialog } from './-reset-password-dialog';
 
 const staffDetailSearchSchema = z.object({
   // Invalid values fall back to the first tab inside `useDetailShellTab`,
@@ -66,6 +68,8 @@ function StaffDetailPage() {
   const teacherQuery = useTeachers({ user_id: userId, limit: 1 });
   const teacher = teacherQuery.data?.data[0];
 
+  const canResetPassword = useActiveRole() === UserRole.ADMIN;
+  const [resetOpen, setResetOpen] = React.useState(false);
   const canUpdate = useHasPermission(Permission.USER_UPDATE);
   const canRemove = useHasPermission(Permission.MEMBER_REMOVE);
   const canReadAuditLogs = useHasPermission(Permission.AUDIT_LOG_READ);
@@ -161,6 +165,13 @@ function StaffDetailPage() {
                     ]
                   : []),
                 {
+                  id: 'resetPassword',
+                  label: t('resetPassword.title'),
+                  allowed: canResetPassword,
+                  priority: 'secondary',
+                  onClick: () => setResetOpen(true),
+                },
+                {
                   id: 'remove',
                   label: t('detail.actions.remove'),
                   allowed: canRemove,
@@ -183,6 +194,14 @@ function StaffDetailPage() {
                 open={editTeacherOpen}
                 onOpenChange={setEditTeacherOpen}
                 teacher={teacher}
+              />
+            )}
+            {canResetPassword && (
+              <ResetPasswordDialog
+                open={resetOpen}
+                onOpenChange={setResetOpen}
+                user={userQuery.data}
+                isSelf={userQuery.data.id.toLowerCase() === currentUserId?.toLowerCase()}
               />
             )}
             <RemoveMemberDialog
