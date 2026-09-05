@@ -123,6 +123,47 @@ describe('AuthTokenService (integration)', () => {
     await expect(service.consume(row.id)).rejects.toBeInstanceOf(ConflictException);
   });
 
+  it('only one token stays live when two issue() calls race for the same (user, purpose)', async () => {
+    const [first, second] = await Promise.all([
+      service.issue({
+        userId,
+        tenantId: SEED_TENANT_ID,
+        purpose: AuthTokenPurpose.INVITE,
+        ttlMs: 60_000,
+      }),
+      service.issue({
+        userId,
+        tenantId: SEED_TENANT_ID,
+        purpose: AuthTokenPurpose.INVITE,
+        ttlMs: 60_000,
+      }),
+    ]);
+
+    const results = await Promise.all([
+      service.verify(first.raw, AuthTokenPurpose.INVITE),
+      service.verify(second.raw, AuthTokenPurpose.INVITE),
+    ]);
+    const liveCount = results.filter((r) => r.status === 'valid').length;
+    expect(liveCount).toBe(1);
+  });
+
+  it('only one of two concurrent consume() calls on the same row succeeds', async () => {
+    const { row } = await service.issue({
+      userId,
+      tenantId: SEED_TENANT_ID,
+      purpose: AuthTokenPurpose.INVITE,
+      ttlMs: 60_000,
+    });
+
+    const results = await Promise.allSettled([service.consume(row.id), service.consume(row.id)]);
+    const succeeded = results.filter((r) => r.status === 'fulfilled').length;
+    const failed = results.filter(
+      (r) => r.status === 'rejected' && r.reason instanceof ConflictException,
+    ).length;
+    expect(succeeded).toBe(1);
+    expect(failed).toBe(1);
+  });
+
   it('latest returns the newest row for a (user, purpose)', async () => {
     await service.issue({
       userId,
