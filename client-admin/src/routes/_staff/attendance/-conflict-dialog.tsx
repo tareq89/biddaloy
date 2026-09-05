@@ -42,6 +42,22 @@ function statusOf(draft: Draft, studentId: string): AttendanceStatus | null {
   return draft[studentId]?.status ?? null;
 }
 
+function minutesLateOf(draft: Draft, studentId: string): number | null {
+  return draft[studentId]?.minutes_late ?? null;
+}
+
+function describeMark(
+  t: ReturnType<typeof useTranslation>['t'],
+  status: AttendanceStatus | RegisterStudent['status'],
+  minutesLate: number | null,
+): string {
+  if (!status) return t('statusControl.unmarked');
+  if (status === AttendanceStatus.LATE && minutesLate != null) {
+    return t('conflict.lateMinutes', { minutes: minutesLate });
+  }
+  return t(`statusControl.status.${status}`);
+}
+
 export function ConflictDialog({
   open,
   onOpenChange,
@@ -54,20 +70,34 @@ export function ConflictDialog({
 }: ConflictDialogProps) {
   const { t } = useTranslation('attendance');
 
-  const theirStatusByStudent = new Map(
-    (currentRegister?.students ?? []).map((student) => [student.student_id, student.status]),
+  const theirRecordByStudent = new Map(
+    (currentRegister?.students ?? []).map((student) => [student.student_id, student]),
   );
 
   // Only the students whose local mark disagrees with the server's
   // current one — the plan's own AC ("showing only students whose status
   // differs"), so a 40-student conflict doesn't dump the whole roster.
+  // Two LATE marks with different minutes_late still count as a
+  // disagreement — otherwise "Keep mine" silently overwrites the
+  // server's minutes without ever showing the row as a conflict.
   const diffs = students
-    .map((student) => ({
-      student,
-      mine: statusOf(draft, student.student_id),
-      theirs: theirStatusByStudent.get(student.student_id) ?? null,
-    }))
-    .filter(({ mine, theirs }) => mine !== theirs);
+    .map((student) => {
+      const theirRecord = theirRecordByStudent.get(student.student_id);
+      return {
+        student,
+        mine: statusOf(draft, student.student_id),
+        mineMinutes: minutesLateOf(draft, student.student_id),
+        theirs: theirRecord?.status ?? null,
+        theirsMinutes: theirRecord?.minutes_late ?? null,
+      };
+    })
+    .filter(
+      ({ mine, mineMinutes, theirs, theirsMinutes }) =>
+        mine !== theirs ||
+        (mine === AttendanceStatus.LATE && theirs === AttendanceStatus.LATE
+          ? mineMinutes !== theirsMinutes
+          : false),
+    );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -87,13 +117,11 @@ export function ConflictDialog({
               </tr>
             </thead>
             <tbody>
-              {diffs.map(({ student, mine, theirs }) => (
+              {diffs.map(({ student, mine, mineMinutes, theirs, theirsMinutes }) => (
                 <tr key={student.student_id}>
                   <td>{student.full_name}</td>
-                  <td>{mine ? t(`statusControl.status.${mine}`) : t('statusControl.unmarked')}</td>
-                  <td>
-                    {theirs ? t(`statusControl.status.${theirs}`) : t('statusControl.unmarked')}
-                  </td>
+                  <td>{describeMark(t, mine, mineMinutes)}</td>
+                  <td>{describeMark(t, theirs, theirsMinutes)}</td>
                 </tr>
               ))}
             </tbody>

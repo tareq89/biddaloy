@@ -74,7 +74,8 @@
     "takeTheirs": "তাদেরটা নিন",
     "columnStudent": "শিক্ষার্থী",
     "columnYours": "আপনার চিহ্ন",
-    "columnTheirs": "বর্তমান চিহ্ন"
+    "columnTheirs": "বর্তমান চিহ্ন",
+    "lateMinutes": "বিলম্বে ({{minutes}} মিনিট)"
   },
   "correction": {
     "title": "উপস্থিতি সংশোধন করুন",

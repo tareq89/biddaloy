@@ -74,7 +74,8 @@
     "takeTheirs": "Take theirs",
     "columnStudent": "Student",
     "columnYours": "Your mark",
-    "columnTheirs": "Current mark"
+    "columnTheirs": "Current mark",
+    "lateMinutes": "Late ({{minutes}} min)"
   },
   "correction": {
     "title": "Correct attendance",
