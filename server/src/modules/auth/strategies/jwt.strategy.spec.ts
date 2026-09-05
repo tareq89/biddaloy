@@ -13,11 +13,15 @@ describe('JwtStrategy', () => {
   let strategy: JwtStrategy;
   let mockDenylist: { isRevoked: ReturnType<typeof vi.fn> };
 
+  const users = { findOne: vi.fn() };
+
   beforeEach(() => {
+    users.findOne.mockResolvedValue({ status: 'ACTIVE', credential_version: 0, password_change_required: false });
     mockDenylist = { isRevoked: vi.fn().mockResolvedValue(false) };
     strategy = new JwtStrategy(
       configServiceWithSecret('test-jwt-secret-do-not-use-in-production'),
       mockDenylist as unknown as AccessTokenDenylistService,
+      users as any,
     );
   });
 
@@ -75,12 +79,31 @@ describe('JwtStrategy', () => {
     expect(mockDenylist.isRevoked).toHaveBeenCalledWith('revoked-token');
   });
 
+  it.each([null, -1, 0.5, '0', 1])('rejects invalid or stale credential version %s', async (version) => {
+    await expect(strategy.validate({ sub: 'user-1', memberships: [], jti: 'jti', credential_version: version } as any)).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('rejects reset-purpose tokens even with normal access claims', async () => {
+    await expect(strategy.validate({ sub: 'user-1', memberships: [], jti: 'jti', purpose: 'complete_password_reset' } as any)).rejects.toThrow(UnauthorizedException);
+  });
+
+  it.each([null, { status: 'INACTIVE', credential_version: 0 }, { status: 'ACTIVE', credential_version: 0, password_change_required: true }])('rejects unusable current account', async (user) => {
+    users.findOne.mockResolvedValue(user);
+    await expect(strategy.validate({ sub: 'user-1', memberships: [], jti: 'jti' } as any)).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('fails closed when the database cannot verify credentials', async () => {
+    users.findOne.mockRejectedValueOnce(new Error('database unavailable'));
+    await expect(strategy.validate({ sub: 'user-1', memberships: [], jti: 'jti' } as any)).rejects.toThrow('database unavailable');
+  });
+
   it('throws instead of falling back to a default secret when JWT_SECRET is missing', () => {
     expect(
       () =>
         new JwtStrategy(
           configServiceWithSecret(undefined),
           mockDenylist as unknown as AccessTokenDenylistService,
+      users as any,
         ),
     ).toThrow('JWT_SECRET is not configured');
   });

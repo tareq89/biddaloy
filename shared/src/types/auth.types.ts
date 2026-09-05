@@ -32,6 +32,9 @@ export interface JwtPayload {
   // AccessTokenDenylistService) without needing a blacklist of every
   // issued token, since the token's own lifetime is now short.
   jti: string;
+  credential_version?: number;
+  purpose?: 'complete_password_reset';
+  tenant_id?: string;
 }
 
 /**
@@ -41,3 +44,11 @@ export interface LoginResponse {
   access_token: string;
   memberships: JwtMembership[];
 }
+
+export interface PasswordChangeRequiredResponse {
+  password_change_required: true;
+  reset_token: string;
+  expires_at: string;
+}
+
+export type LoginResult = LoginResponse | PasswordChangeRequiredResponse;

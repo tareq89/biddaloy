@@ -14,7 +14,7 @@ export { useOnline } from './use-online';
 export { useQueryFreshness } from './use-query-freshness';
 export { useSyncQueue } from './use-sync-queue';
 export { switchActiveTenant } from './tenant';
-export { changePassword, login, logout, logoutAll } from './auth';
+export { completePasswordReset, changePassword, login, logout, logoutAll } from './auth';
 export { useAccessToken, useActiveRole, useActiveTenant, useCurrentUserId } from './auth-state';
 export {
   currentUserQueryOptions,
@@ -375,3 +375,5 @@ export {
   type TestableMedium,
 } from './school-settings';
 export { useDensity, type DensityMode } from './use-density';
+
+export { useResetPassword, type AdminPasswordResetResult } from './users';

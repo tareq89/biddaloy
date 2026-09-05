@@ -1,16 +1,19 @@
+import type { PasswordChangeRequiredResponse } from '@biddaloy/shared';
 import { ApiError, NoMembershipsError, RateLimitedError } from '@biddaloy/ui/api';
 import {
+  CompletePasswordResetForm,
   LocaleSwitcher,
   SignInForm,
   ThemeToggle,
   type SignInCredentials,
   type SignInFormError,
 } from '@biddaloy/ui/components';
-import { login, useDensity } from '@biddaloy/ui/hooks';
+import { completePasswordReset, login, useDensity } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTranslation } from '@biddaloy/ui/i18n';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import type { TFunction } from 'i18next';
+import * as React from 'react';
 import { z } from 'zod';
 
 /**
@@ -95,9 +98,34 @@ function LoginPage() {
   // portalled `LocaleSwitcher` menu inherits it too — see `useDensity`.
   useDensity('comfortable');
 
+  const [challenge, setChallenge] = React.useState<PasswordChangeRequiredResponse>();
+  const [completed, setCompleted] = React.useState(false);
+  const live = React.useRef(true);
+  React.useEffect(() => {
+    live.current = true;
+    return () => {
+      live.current = false;
+    };
+  }, []);
+  const completionGeneration = React.useRef(0);
+  const completion = useMutation({
+    gcTime: 0,
+    retry: false,
+    mutationFn: completePasswordReset,
+  });
+
   const mutation = useMutation({
+    gcTime: 0,
+    retry: false,
     mutationFn: (credentials: SignInCredentials) => login(queryClient, credentials),
     onSuccess: (result) => {
+      if (!live.current) return;
+      if ('password_change_required' in result) {
+        setChallenge(result);
+        setCompleted(false);
+        mutation.reset();
+        return;
+      }
       // [8.9.5]: `login()` deliberately leaves the active tenant unset for
       // 2+ memberships (no silent pick) — send that visitor to the picker
       // instead, carrying the same `redirect` through so it can hand off
@@ -109,6 +137,17 @@ function LoginPage() {
       }
     },
   });
+
+  const resetLogin = mutation.reset;
+  const resetCompletion = completion.reset;
+  React.useEffect(
+    () => () => {
+      completionGeneration.current += 1;
+      resetLogin();
+      resetCompletion();
+    },
+    [resetLogin, resetCompletion],
+  );
 
   return (
     // No `value` override: `useTenantRegionConfig()` needs an active
@@ -124,11 +163,58 @@ function LoginPage() {
         </div>
         <div className="flex flex-1 items-center justify-center p-8">
           <div className="w-full max-w-sm">
-            <SignInForm
-              onSubmit={(credentials) => mutation.mutate(credentials)}
-              loading={mutation.isPending}
-              error={buildLoginError(mutation.error, t)}
-            />
+            {challenge ? (
+              <CompletePasswordResetForm
+                onSubmit={({ new_password }) => {
+                  const generation = completionGeneration.current;
+                  completion.mutate(
+                    { reset_token: challenge.reset_token, new_password },
+                    {
+                      onSuccess: () => {
+                        if (!live.current || generation !== completionGeneration.current) return;
+                        setChallenge(undefined);
+                        setCompleted(true);
+                        completion.reset();
+                        mutation.reset();
+                      },
+                    },
+                  );
+                }}
+                onCancel={() => {
+                  completionGeneration.current += 1;
+                  setChallenge(undefined);
+                  completion.reset();
+                  mutation.reset();
+                }}
+                submitting={completion.isPending}
+                serverError={
+                  completion.error
+                    ? {
+                        message:
+                          completion.error instanceof RateLimitedError
+                            ? t('errors.rateLimitedGeneric')
+                            : t('reset.errors.invalid'),
+                      }
+                    : null
+                }
+              />
+            ) : (
+              <>
+                {completed && (
+                  <p role="status" className="mb-4 text-sm">
+                    {t('reset.success')}
+                  </p>
+                )}
+                <SignInForm
+                  onSubmit={(credentials) => {
+                    setCompleted(false);
+                    mutation.mutate(credentials);
+                  }}
+                  loading={mutation.isPending}
+                  error={buildLoginError(mutation.error, t)}
+                />
+              </>
+            )}
           </div>
         </div>
       </div>

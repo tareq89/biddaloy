@@ -4,12 +4,15 @@ import {
   ForbiddenException,
   Inject,
   Optional,
+  BadRequestException,
+  NotFoundException,
+  ConflictException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindOptionsOrder, Repository } from 'typeorm';
+import { EntityManager, FindOptionsOrder, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { randomUUID } from 'crypto';
+import { randomBytes, randomUUID } from 'crypto';
 import { User } from '../users/entities/user.entity';
 import { UserTenant } from './entities/user-tenant.entity';
 import { AuditService } from '../audit/audit.service';
@@ -19,6 +22,8 @@ import {
   LoginResponse,
   AuditAction,
   UserStatus,
+  UserRole,
+  PasswordChangeRequiredResponse,
 } from '@biddaloy/shared';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { LoginAttemptService } from './login-attempt.service';
@@ -31,6 +36,8 @@ import {
   RequestContext,
 } from './refresh-token.service';
 import { AccessTokenDenylistService } from './access-token-denylist.service';
+import { isUUID } from 'class-validator';
+import { CompletePasswordResetDto } from './dto/complete-password-reset.dto';
 import { ACCESS_TOKEN_TTL_MS } from './auth-tokens';
 
 export interface AuthResult extends LoginResponse {
@@ -106,7 +113,7 @@ export class AuthService {
     emailOrPhone: string,
     password: string,
     context: RequestContext = { ip: null, userAgent: null },
-  ): Promise<AuthResult> {
+  ): Promise<AuthResult | PasswordChangeRequiredResponse> {
     const identifier = normalizeLoginIdentifier(emailOrPhone);
     const alreadyLocked = await this.loginAttempts.isLocked(identifier);
 
@@ -140,13 +147,32 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    if (user.password_change_required) {
+      const memberships = await this.userTenantRepository.find({ where: { user_id: user.id } });
+      const remaining = (user.temporary_password_expires_at?.getTime() ?? 0) - Date.now();
+      const ttlSeconds = Math.min(300, Math.floor(remaining / 1000));
+      if (!user.temporary_password_tenant_id || memberships.length === 0 ||
+        memberships.some((membership) => membership.tenant_id !== user.temporary_password_tenant_id) || ttlSeconds < 1) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+      const expiresAt = new Date((Math.floor(Date.now() / 1000) + ttlSeconds) * 1000);
+      return {
+        password_change_required: true,
+        reset_token: this.jwtService.sign({
+          purpose: 'complete_password_reset', sub: user.id,
+          credential_version: user.credential_version,
+          tenant_id: user.temporary_password_tenant_id, jti: randomUUID(),
+        }, { expiresIn: ttlSeconds }),
+        expires_at: expiresAt.toISOString(),
+      };
+    }
+
     await this.loginAttempts.reset(identifier);
 
     const membershipPayload = await this.fetchMembershipPayload(user.id);
 
     // Update last login timestamp
-    user.last_login_at = new Date();
-    await this.userRepository.save(user);
+    await this.userRepository.update({ id: user.id }, { last_login_at: new Date() });
 
     await this.auditService.record({
       action: AuditAction.LOGIN,
@@ -161,7 +187,7 @@ export class AuthService {
     // Every login starts a brand new rotation family — refresh tokens from
     // a previous login are never chained onto this one.
     const familyId = randomUUID();
-    const refreshToken = await this.refreshTokens.issueForUser(user.id, familyId, context);
+    const refreshToken = await this.refreshTokens.issueForUser(user.id, familyId, context, user.credential_version);
 
     return {
       access_token: this.signAccessToken(user, membershipPayload),
@@ -207,7 +233,8 @@ export class AuthService {
     // otherwise status changes would only ever take effect on access-token
     // expiry (~15 min), not immediately, defeating the point of checking
     // current state on every refresh (see this method's own doc comment).
-    if (!user || user.status !== UserStatus.ACTIVE) {
+    if (!user || user.status !== UserStatus.ACTIVE || user.password_change_required ||
+      user.credential_version !== rotated.credentialVersion) {
       throw new UnauthorizedException('User no longer exists');
     }
 
@@ -304,7 +331,7 @@ export class AuthService {
     // Same rule as `refresh`: a suspended user holding a still-valid access
     // token must not be able to act, and must not learn anything from the
     // difference between "no such user" and "not active".
-    if (!user || user.status !== UserStatus.ACTIVE) {
+    if (!user || user.status !== UserStatus.ACTIVE || user.password_change_required) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -336,9 +363,17 @@ export class AuthService {
     // update also avoids `save()` writing back every column that was read at
     // the top of this method.
     const password_hash = await bcrypt.hash(dto.new_password, BCRYPT_COST);
-    await this.userRepository.update({ id: user.id }, { password_hash });
-
-    await this.refreshTokens.revokeAllForUser(userId);
+    await this.userRepository.manager.transaction(async (manager) => {
+      const current = await manager.getRepository(User).findOne({
+        where: { id: user.id }, lock: { mode: 'pessimistic_write' },
+      });
+      if (!current || current.status !== UserStatus.ACTIVE || current.password_change_required ||
+        current.password_hash !== user.password_hash || current.credential_version !== user.credential_version) {
+        throw new ForbiddenException('Credentials changed; sign in again');
+      }
+      await manager.update(User, { id: user.id }, { password_hash });
+      await this.refreshTokens.revokeAllForUser(userId, manager);
+    });
     // Intentionally NO this.accessTokenDenylist.revoke(...) here — see the
     // session semantics in this method's doc comment.
 
@@ -374,13 +409,130 @@ export class AuthService {
 
     // A brand new rotation family, never chained onto the one just revoked.
     const familyId = randomUUID();
-    const refreshToken = await this.refreshTokens.issueForUser(userId, familyId, context);
+    const refreshToken = await this.refreshTokens.issueForUser(userId, familyId, context, user.credential_version);
 
     return {
       access_token: this.signAccessToken(user, membershipPayload),
       memberships: membershipPayload,
       refreshToken,
     };
+  }
+
+  async adminResetPassword(
+    targetId: string, tenantId: string, actorId: string, context: RequestContext,
+  ): Promise<{ temporary_password: string; expires_at: string }> {
+    targetId = targetId.toLowerCase();
+    actorId = actorId.toLowerCase();
+    if (targetId === actorId) {
+      throw new BadRequestException('Use change password to change your own password');
+    }
+    const result = await this.userRepository.manager.transaction('READ COMMITTED', async (manager) => {
+      // Stable user ordering avoids reciprocal administrator-reset deadlocks.
+      const users = new Map<string, User>();
+      for (const id of [actorId, targetId].sort()) {
+        const user = await manager.getRepository(User).findOne({
+          where: { id }, lock: { mode: 'pessimistic_write' },
+        });
+        if (user) users.set(id, user);
+      }
+      const actor = users.get(actorId);
+      const actorMembership = await manager.getRepository(UserTenant).findOne({
+        where: { user_id: actorId, tenant_id: tenantId, role: UserRole.ADMIN },
+        lock: { mode: 'pessimistic_read' },
+      });
+      if (!actor || actor.status !== UserStatus.ACTIVE || actor.password_change_required || !actorMembership) {
+        throw new ForbiddenException('Administrator access required');
+      }
+      const memberships = await this.lockMemberships(manager, targetId);
+      const target = users.get(targetId);
+      if (!target || !memberships.some((membership) => membership.tenant_id === tenantId)) {
+        throw new NotFoundException('User not found');
+      }
+      if (memberships.some((membership) => membership.tenant_id !== tenantId)) {
+        throw new ConflictException('This account is not eligible for a school password reset');
+      }
+      if (target.status !== UserStatus.ACTIVE || !(target.email?.trim() || target.phone?.trim())) {
+        throw new ConflictException('The account must be active and have a login identifier');
+      }
+      const temporaryPassword = randomBytes(24).toString('base64url');
+      const passwordHash = await bcrypt.hash(temporaryPassword, BCRYPT_COST);
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60_000);
+      await manager.update(User, { id: targetId }, {
+        password_hash: passwordHash, password_change_required: true,
+        temporary_password_expires_at: expiresAt, temporary_password_tenant_id: tenantId,
+        credential_version: target.credential_version + 1,
+      });
+      await this.refreshTokens.revokeAllForUser(targetId, manager);
+      await this.auditService.record({
+        action: AuditAction.UPDATE, entity_type: 'User', entity_id: targetId,
+        tenant_id: tenantId, performed_by_user_id: actorId,
+        ip_address: context.ip, user_agent: context.userAgent,
+        new_values: { scope: 'admin_password_reset' },
+      }, manager);
+      return { user: target, temporary_password: temporaryPassword, expires_at: expiresAt.toISOString() };
+    });
+    await this.resetLoginLockouts(result.user).catch(() => undefined);
+    return { temporary_password: result.temporary_password, expires_at: result.expires_at };
+  }
+
+  async completePasswordReset(dto: CompletePasswordResetDto, context: RequestContext): Promise<void> {
+    const invalid = () => new BadRequestException('Password reset is invalid or expired');
+    let token: { purpose?: unknown; sub?: unknown; tenant_id?: unknown; credential_version?: unknown; exp?: unknown };
+    try {
+      token = this.jwtService.verify(dto.reset_token);
+    } catch {
+      throw invalid();
+    }
+    if (!token || token.purpose !== 'complete_password_reset' ||
+      typeof token.sub !== 'string' || !isUUID(token.sub) ||
+      typeof token.tenant_id !== 'string' || !isUUID(token.tenant_id) ||
+      typeof token.credential_version !== 'number' || !Number.isInteger(token.credential_version) ||
+      token.credential_version < 0 || typeof token.exp !== 'number' || token.exp * 1000 <= Date.now()) {
+      throw invalid();
+    }
+    const userId = token.sub.toLowerCase();
+    const tenantId = token.tenant_id.toLowerCase();
+    const version = token.credential_version;
+    const challengeExpiresAt = token.exp * 1000;
+    const user = await this.userRepository.manager.transaction('READ COMMITTED', async (manager) => {
+      const current = await manager.getRepository(User).findOne({
+        where: { id: userId }, lock: { mode: 'pessimistic_write' },
+      });
+      const memberships = await this.lockMemberships(manager, userId);
+      if (!current || current.status !== UserStatus.ACTIVE || !current.password_change_required ||
+        !current.password_hash || current.credential_version !== version ||
+        current.temporary_password_tenant_id !== tenantId || challengeExpiresAt <= Date.now() ||
+        !current.temporary_password_expires_at || current.temporary_password_expires_at.getTime() <= Date.now() ||
+        memberships.length === 0 || memberships.some((membership) => membership.tenant_id !== tenantId)) {
+        throw invalid();
+      }
+      if (await bcrypt.compare(dto.new_password, current.password_hash)) {
+        throw new BadRequestException('Choose a password different from the temporary password');
+      }
+      const passwordHash = await bcrypt.hash(dto.new_password, BCRYPT_COST);
+      await manager.update(User, { id: userId }, {
+        password_hash: passwordHash, password_change_required: false,
+        temporary_password_expires_at: null, temporary_password_tenant_id: null,
+        credential_version: version + 1,
+      });
+      await this.refreshTokens.revokeAllForUser(userId, manager);
+      await this.auditService.record({
+        action: AuditAction.UPDATE, entity_type: 'User', entity_id: userId,
+        tenant_id: tenantId, performed_by_user_id: userId,
+        ip_address: context.ip, user_agent: context.userAgent,
+        new_values: { scope: 'admin_password_reset_completed' },
+      }, manager);
+      return current;
+    });
+    await this.resetLoginLockouts(user).catch(() => undefined);
+  }
+
+  private lockMemberships(manager: EntityManager, userId: string): Promise<UserTenant[]> {
+    // User FOR UPDATE excludes FK inserts; FOR SHARE excludes membership edits/removal.
+    // All memberships are intentionally inspected: credentials belong to the global identity.
+    return manager.getRepository(UserTenant).find({
+      where: { user_id: userId }, order: { id: 'ASC' }, lock: { mode: 'pessimistic_read' },
+    });
   }
 
   private async resetLoginLockouts(user: User): Promise<void> {
@@ -437,6 +589,7 @@ export class AuthService {
       phone: user.phone,
       memberships,
       jti: randomUUID(),
+      credential_version: user.credential_version,
     };
     return this.jwtService.sign(payload);
   }

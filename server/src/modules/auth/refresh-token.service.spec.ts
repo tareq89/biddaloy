@@ -99,7 +99,7 @@ describe('RefreshTokenService', () => {
       const issued = await service.issueForUser(userId, familyId, {
         ip: '1.2.3.4',
         userAgent: 'ua',
-      });
+      }, 0);
 
       expect(issued.cookieValue).toMatch(/^[0-9a-f-]{36}\.[0-9a-f]{64}$/);
       const { id } = parseCookie(issued.cookieValue);
@@ -114,7 +114,7 @@ describe('RefreshTokenService', () => {
   describe('rotate', () => {
     async function issue() {
       const familyId = randomUUID();
-      return service.issueForUser(userId, familyId, { ip: null, userAgent: null });
+      return service.issueForUser(userId, familyId, { ip: null, userAgent: null }, 0);
     }
 
     it('rejects a malformed cookie value with no separator', async () => {
@@ -282,10 +282,28 @@ describe('RefreshTokenService', () => {
     });
   });
 
+  it('preserves credential version through normal rotation and grace successors', async () => {
+    const issued = await service.issueForUser(userId, randomUUID(), { ip: null, userAgent: null }, 7);
+    const first = await service.rotate(issued.cookieValue, { ip: null, userAgent: null });
+    const grace = await service.rotate(issued.cookieValue, { ip: null, userAgent: null });
+    expect(first.credentialVersion).toBe(7);
+    expect(grace.credentialVersion).toBe(7);
+    for (const row of repo.rows.values()) expect(row.credential_version).toBe(7);
+  });
+
+  it('uses the transaction repository when revoking during reset', async () => {
+    const transactionRepo = fakeRepo();
+    const transactionService = new RefreshTokenService(transactionRepo as any, TTL_MS);
+    const issued = await transactionService.issueForUser(userId, randomUUID(), { ip: null, userAgent: null }, 0);
+    await service.revokeAllForUser(userId, { getRepository: () => transactionRepo } as any);
+    expect(transactionRepo.rows.get(parseCookie(issued.cookieValue).id).revoked_at).not.toBeNull();
+    expect(repo.createQueryBuilder).not.toHaveBeenCalled();
+  });
+
   describe('revokeByCookieValue', () => {
     it('revokes a live token and returns its user id', async () => {
       const familyId = randomUUID();
-      const issued = await service.issueForUser(userId, familyId, { ip: null, userAgent: null });
+      const issued = await service.issueForUser(userId, familyId, { ip: null, userAgent: null }, 0);
 
       const result = await service.revokeByCookieValue(issued.cookieValue);
 
@@ -304,7 +322,7 @@ describe('RefreshTokenService', () => {
 
     it('returns null for an already-revoked token', async () => {
       const familyId = randomUUID();
-      const issued = await service.issueForUser(userId, familyId, { ip: null, userAgent: null });
+      const issued = await service.issueForUser(userId, familyId, { ip: null, userAgent: null }, 0);
       await service.revokeByCookieValue(issued.cookieValue);
 
       expect(await service.revokeByCookieValue(issued.cookieValue)).toBeNull();
@@ -314,11 +332,11 @@ describe('RefreshTokenService', () => {
   describe('revokeAllForUser', () => {
     it('revokes every live token for the user, leaving other users untouched', async () => {
       const otherUserId = 'user-2';
-      const mine = await service.issueForUser(userId, randomUUID(), { ip: null, userAgent: null });
+      const mine = await service.issueForUser(userId, randomUUID(), { ip: null, userAgent: null }, 0);
       const theirs = await service.issueForUser(otherUserId, randomUUID(), {
         ip: null,
         userAgent: null,
-      });
+      }, 0);
 
       await service.revokeAllForUser(userId);
 
@@ -329,15 +347,15 @@ describe('RefreshTokenService', () => {
 
   describe('cleanupExpired', () => {
     it('deletes only rows past their expiry, revoked or not', async () => {
-      const live = await service.issueForUser(userId, randomUUID(), { ip: null, userAgent: null });
+      const live = await service.issueForUser(userId, randomUUID(), { ip: null, userAgent: null }, 0);
       const expiredButLive = await service.issueForUser(userId, randomUUID(), {
         ip: null,
         userAgent: null,
-      });
+      }, 0);
       const expiredAndRevoked = await service.issueForUser(userId, randomUUID(), {
         ip: null,
         userAgent: null,
-      });
+      }, 0);
 
       repo.rows.get(parseCookie(expiredButLive.cookieValue).id).expires_at = new Date(
         Date.now() - 1000,

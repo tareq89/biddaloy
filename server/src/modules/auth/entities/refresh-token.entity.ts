@@ -37,6 +37,9 @@ export class RefreshToken {
   @Column({ type: 'uuid' })
   user_id: string;
 
+  @Column({ type: 'integer', default: 0 })
+  credential_version: number;
+
   @Column({ type: 'uuid' })
   family_id: string;
 

@@ -63,6 +63,13 @@ const ALLOWLIST: AllowlistEntry[] = [
   {
     controller: 'AuthController',
     method: 'POST',
+    path: '/auth/complete-password-reset',
+    reason:
+      'Pre-authentication password replacement uses a short-lived reset-purpose JWT; a temporary password never receives a normal session.',
+  },
+  {
+    controller: 'AuthController',
+    method: 'POST',
     path: '/auth/refresh',
     reason:
       'Cookie-authenticated, pre-tenant-selection (SameOriginGuard only) — see the README\'s "CSRF posture" section.',

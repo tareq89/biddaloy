@@ -255,3 +255,8 @@ export {
   type ChangePasswordFormServerError,
   type ChangePasswordFormValues,
 } from './change-password-form';
+
+export {
+  CompletePasswordResetForm,
+  type CompletePasswordResetFormProps,
+} from './complete-password-reset-form';

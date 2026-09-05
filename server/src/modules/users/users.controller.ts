@@ -8,6 +8,10 @@ import {
   Param,
   Query,
   UseGuards,
+  Req,
+  Header,
+  HttpCode,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
@@ -30,7 +34,11 @@ import {
 import { UserResponseDto } from './dto/user-response.dto';
 import { TeacherListResponseDto, TeacherResponseDto } from './dto/teacher-response.dto';
 import { UserRole, JwtPayload } from '@biddaloy/shared';
-import { SETTINGS_RATE_LIMIT } from '../../rate-limit';
+import { Request } from 'express';
+import { AuthService } from '../auth/auth.service';
+import { requestContext } from '../../common/request-context.util';
+import { AdminResetPasswordDto, AdminResetPasswordResponseDto } from './dto/admin-reset-password.dto';
+import { STRICT_RATE_LIMIT, SETTINGS_RATE_LIMIT } from '../../rate-limit';
 
 @ApiTags('users')
 @ApiTenantAuth()
@@ -40,6 +48,7 @@ export class UserController {
   constructor(
     private readonly userService: UserService,
     private readonly teacherService: TeacherService,
+    private readonly authService: AuthService,
   ) {}
 
   // --- User endpoints ---
@@ -158,6 +167,23 @@ export class UserController {
   ) {
     const user = await this.userService.update(id, dto, tenant.id);
     return UserResponseDto.fromEntity(user, tenant.id);
+  }
+
+  @Post('users/:id/reset-password')
+  @Roles(UserRole.ADMIN)
+  @Throttle({ default: STRICT_RATE_LIMIT })
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'Generate a 24-hour temporary password for an exclusive-school member and immediately revoke their sessions.' })
+  @ApiResponse({ status: 200, type: AdminResetPasswordResponseDto })
+  resetPassword(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() _dto: AdminResetPasswordDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() actor: JwtPayload,
+    @Req() request: Request,
+  ): Promise<AdminResetPasswordResponseDto> {
+    return this.authService.adminResetPassword(id, tenant.id, actor.sub, requestContext(request));
   }
 
   @Delete('users/:id')

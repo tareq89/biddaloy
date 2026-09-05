@@ -44,6 +44,10 @@ describe('AuthService', () => {
 
   const mockUser: User = {
     id: 'user-1',
+    credential_version: 0,
+    password_change_required: false,
+    temporary_password_expires_at: null,
+    temporary_password_tenant_id: 'tenant-1',
     email: 'admin@test.com',
     phone: null,
     password_hash: '$2b$10$hashedpassword123',
@@ -81,6 +85,11 @@ describe('AuthService', () => {
       save: vi.fn(),
       update: vi.fn(),
     };
+    const manager = {
+      getRepository: () => mockUserRepo,
+      update: (_entity: unknown, criteria: unknown, patch: unknown) => mockUserRepo.update(criteria, patch),
+    };
+    mockUserRepo.manager = { transaction: vi.fn(async (callback) => callback(manager)) };
     mockUserTenantRepo = {
       find: vi.fn(),
       // Backs primaryTenantId()'s "earliest membership" lookup used to
@@ -227,6 +236,7 @@ describe('AuthService', () => {
         phone: null,
         memberships: [{ tenantId: 'tenant-1', role: UserRole.ADMIN, name: 'Greenview School' }],
         jti: expect.any(String),
+        credential_version: 0,
       });
     });
 
@@ -304,6 +314,7 @@ describe('AuthService', () => {
         'user-1',
         expect.any(String),
         expect.objectContaining({ ip: null, userAgent: null }),
+        0,
       );
     });
 
@@ -339,9 +350,8 @@ describe('AuthService', () => {
 
       await service.login('admin@test.com', 'password123');
 
-      expect(mockUserRepo.save).toHaveBeenCalled();
-      const savedUser = mockUserRepo.save.mock.calls[0][0];
-      expect(savedUser.last_login_at).toBeInstanceOf(Date);
+      expect(mockUserRepo.save).not.toHaveBeenCalled();
+      expect(mockUserRepo.update).toHaveBeenCalledWith({ id: 'user-1' }, { last_login_at: expect.any(Date) });
     });
 
     it('resets the attempt counter on a successful login', async () => {
@@ -513,6 +523,7 @@ describe('AuthService', () => {
     it('issues a fresh access token reflecting current memberships, not stale ones', async () => {
       mockRefreshTokens.rotate.mockResolvedValue({
         userId: 'user-1',
+        credentialVersion: 0,
         refreshToken: mockIssuedRefreshToken,
       });
       mockUserRepo.findOne.mockResolvedValue(mockUser);
@@ -545,6 +556,7 @@ describe('AuthService', () => {
     it('rejects a rotated token belonging to a non-ACTIVE user, the same as a missing one', async () => {
       mockRefreshTokens.rotate.mockResolvedValue({
         userId: 'user-1',
+        credentialVersion: 0,
         refreshToken: mockIssuedRefreshToken,
       });
       mockUserRepo.findOne.mockResolvedValue({ ...mockUser, status: UserStatus.INACTIVE });
@@ -586,6 +598,60 @@ describe('AuthService', () => {
         service.refresh('token-id.secret', { ip: null, userAgent: null }),
       ).rejects.toThrow('Refresh token expired');
       expect(mockAuditService.record).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('credential reset boundaries', () => {
+    const context = { ip: null, userAgent: null };
+
+    it('issues only a bounded challenge for an eligible temporary password', async () => {
+      mockUserRepo.findOne.mockResolvedValue({ ...mockUser, credential_version: 4,
+        password_change_required: true, temporary_password_expires_at: new Date(Date.now() + 24 * 60 * 60_000) });
+      mockUserTenantRepo.find.mockResolvedValue(mockMemberships);
+      vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
+      const result = await service.login('admin@test.com', 'temporary');
+      expect(result).toEqual({ password_change_required: true, reset_token: 'test-jwt-token', expires_at: expect.any(String) });
+      expect(mockJwtService.sign).toHaveBeenCalledWith(expect.objectContaining({ purpose: 'complete_password_reset', credential_version: 4, tenant_id: 'tenant-1' }), { expiresIn: 300 });
+      expect(mockRefreshTokens.issueForUser).not.toHaveBeenCalled();
+      expect(mockUserRepo.update).not.toHaveBeenCalled();
+      expect(mockAuditService.record).not.toHaveBeenCalled();
+    });
+
+    it.each(['expired', 'shared', 'removed'])('rejects %s temporary credentials without a normal session', async (state) => {
+      mockUserRepo.findOne.mockResolvedValue({ ...mockUser, password_change_required: true,
+        temporary_password_expires_at: new Date(Date.now() + (state === 'expired' ? -1000 : 60_000)) });
+      mockUserTenantRepo.find.mockResolvedValue(state === 'removed' ? [] : state === 'shared' ? [...mockMemberships, { tenant_id: 'other' }] : mockMemberships);
+      vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
+      await expect(service.login('admin@test.com', 'temporary')).rejects.toThrow(UnauthorizedException);
+      expect(mockJwtService.sign).not.toHaveBeenCalled();
+      expect(mockRefreshTokens.issueForUser).not.toHaveBeenCalled();
+    });
+
+    it('does not upgrade a refresh successor issued before reset', async () => {
+      mockRefreshTokens.rotate.mockResolvedValue({ userId: mockUser.id, credentialVersion: 3, refreshToken: mockIssuedRefreshToken });
+      mockUserRepo.findOne.mockResolvedValue({ ...mockUser, credential_version: 4 });
+      await expect(service.refresh('old.secret', context)).rejects.toThrow(UnauthorizedException);
+      expect(mockJwtService.sign).not.toHaveBeenCalled();
+    });
+
+    it('cannot overwrite temporary credentials when reset wins the self-change lock', async () => {
+      mockUserRepo.findOne.mockResolvedValueOnce({ ...mockUser }).mockResolvedValueOnce({ ...mockUser, credential_version: 1, password_change_required: true, password_hash: 'temporary-hash' });
+      vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
+      vi.mocked(bcrypt.hash).mockResolvedValue('replacement-hash' as never);
+      await expect(service.changePassword(mockUser.id, { current_password: 'old', new_password: 'replacement' }, context)).rejects.toThrow(ForbiddenException);
+      expect(mockUserRepo.update).not.toHaveBeenCalled();
+      expect(mockRefreshTokens.revokeAllForUser).not.toHaveBeenCalled();
+      expect(mockJwtService.sign).not.toHaveBeenCalled();
+    });
+
+    it('retains the password-validated version when login issuance straddles reset', async () => {
+      mockUserRepo.findOne.mockResolvedValue({ ...mockUser, credential_version: 3 });
+      mockUserTenantRepo.find.mockResolvedValue(mockMemberships);
+      vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
+      await service.login('admin@test.com', 'old');
+      expect(mockRefreshTokens.issueForUser).toHaveBeenCalledWith(mockUser.id, expect.any(String), context, 3);
+      expect(mockJwtService.sign).toHaveBeenCalledWith(expect.objectContaining({ credential_version: 3 }));
+      expect(mockUserRepo.save).not.toHaveBeenCalled();
     });
   });
 
@@ -663,7 +729,7 @@ describe('AuthService', () => {
         expect.objectContaining({ password_hash: '$2b$10$brand-new-hash' }),
       );
       // Every OTHER session dies...
-      expect(mockRefreshTokens.revokeAllForUser).toHaveBeenCalledWith('user-1');
+      expect(mockRefreshTokens.revokeAllForUser).toHaveBeenCalledWith('user-1', expect.anything());
       // ...but the caller's own session survives: its jti is never denylisted,
       // and it gets a brand new refresh-token family back.
       expect(mockAccessTokenDenylist.revoke).not.toHaveBeenCalled();
@@ -671,6 +737,7 @@ describe('AuthService', () => {
         'user-1',
         expect.any(String),
         context,
+        0,
       );
       expect(result.refreshToken).toEqual(mockIssuedRefreshToken);
       expect(result.access_token).toBe('test-jwt-token');

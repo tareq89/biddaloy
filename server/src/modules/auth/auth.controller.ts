@@ -8,6 +8,7 @@ import {
   HttpStatus,
   Inject,
   UseGuards,
+  Header,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
@@ -18,13 +19,17 @@ import {
   ApiUnauthorizedResponse,
   ApiForbiddenResponse,
   ApiBearerAuth,
+  ApiExtraModels,
+  getSchemaPath,
+  ApiNoContentResponse,
 } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
-import { LoginResponse, JwtPayload } from '@biddaloy/shared';
-import { LoginResponseDto } from './dto/auth-response.dto';
+import { LoginResponse, LoginResult, JwtPayload } from '@biddaloy/shared';
+import { CompletePasswordResetDto } from './dto/complete-password-reset.dto';
+import { LoginResponseDto, PasswordChangeRequiredResponseDto } from './dto/auth-response.dto';
 import { STRICT_RATE_LIMIT } from '../../rate-limit';
 import {
   REFRESH_TOKEN_COOKIE,
@@ -34,6 +39,7 @@ import {
 import { SameOriginGuard } from './guards/same-origin.guard';
 import { requestContext } from '../../common/request-context.util';
 
+@ApiExtraModels(LoginResponseDto, PasswordChangeRequiredResponseDto)
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
@@ -46,7 +52,10 @@ export class AuthController {
     summary:
       "Log in with email or phone + password, returning a bearer token and the caller's tenant memberships.",
   })
-  @ApiOkResponse({ type: LoginResponseDto })
+  @ApiOkResponse({ schema: { oneOf: [
+    { $ref: getSchemaPath(LoginResponseDto) },
+    { $ref: getSchemaPath(PasswordChangeRequiredResponseDto) },
+  ] } })
   @ApiUnauthorizedResponse({
     description:
       'Invalid credentials — identical response for an unknown identifier, a wrong password, and a locked-out account (see the README\'s "Login brute-force protection" section).',
@@ -55,13 +64,33 @@ export class AuthController {
     @Body() dto: LoginDto,
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
-  ): Promise<LoginResponse> {
+  ): Promise<LoginResult> {
     // LoginDto's HasEmailOrPhoneConstraint guarantees one of these is set.
     const identifier = (dto.email ?? dto.phone) as string;
     const result = await this.authService.login(identifier, dto.password, requestContext(request));
 
+    if ('password_change_required' in result) {
+      response.setHeader('Cache-Control', 'no-store');
+      response.clearCookie(REFRESH_TOKEN_COOKIE, buildRefreshTokenClearCookieOptions());
+      return result;
+    }
     this.setRefreshCookie(response, result.refreshToken);
     return { access_token: result.access_token, memberships: result.memberships };
+  }
+
+  @Post('complete-password-reset')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Header('Cache-Control', 'no-store')
+  @Throttle({ default: STRICT_RATE_LIMIT })
+  @ApiOperation({ summary: 'Replace a temporary password using a valid completion challenge; sign in afterward.' })
+  @ApiNoContentResponse()
+  async completePasswordReset(
+    @Body() dto: CompletePasswordResetDto,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
+    await this.authService.completePasswordReset(dto, requestContext(request));
+    response.clearCookie(REFRESH_TOKEN_COOKIE, buildRefreshTokenClearCookieOptions());
   }
 
   @Post('refresh')

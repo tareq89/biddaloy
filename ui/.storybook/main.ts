@@ -22,7 +22,7 @@ import { mergeConfig } from 'vite';
 const configDir = dirname(fileURLToPath(import.meta.url));
 
 const config: StorybookConfig = {
-  stories: ['../src/**/*.stories.@(ts|tsx)'],
+  stories: ['../src/**/*.stories.@(ts|tsx)', '../../client-admin/src/**/*.stories.@(ts|tsx)'],
   addons: ['@storybook/addon-a11y', '@storybook/addon-docs', 'msw-storybook-addon'],
   framework: {
     name: '@storybook/react-vite',

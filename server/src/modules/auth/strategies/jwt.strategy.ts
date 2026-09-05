@@ -2,8 +2,11 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { JwtPayload } from '@biddaloy/shared';
+import { JwtPayload, UserStatus } from '@biddaloy/shared';
 import { AccessTokenDenylistService } from '../access-token-denylist.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User } from '../../users/entities/user.entity';
 
 /**
  * Validates the JWT on every authenticated request.
@@ -17,6 +20,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     configService: ConfigService,
     private readonly denylist: AccessTokenDenylistService,
+    @InjectRepository(User) private readonly users: Repository<User>,
   ) {
     const secret = configService.get<string>('JWT_SECRET');
     if (!secret) {
@@ -35,7 +39,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: JwtPayload): Promise<JwtPayload> {
     // Ensure the payload has the expected structure
-    if (!payload.sub || !payload.memberships || !payload.jti) {
+    if (!payload.sub || !payload.memberships || !payload.jti || payload.purpose) {
       throw new UnauthorizedException('Invalid token payload');
     }
 
@@ -43,6 +47,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // immediately instead of waiting out the token's own short lifetime —
     // see access-token-denylist.service.ts.
     if (await this.denylist.isRevoked(payload.jti)) {
+      throw new UnauthorizedException('Token has been revoked');
+    }
+
+    const user = await this.users.findOne({ where: { id: payload.sub } });
+    const version = payload.credential_version === undefined ? 0 : payload.credential_version;
+    if (!user || user.status !== UserStatus.ACTIVE || user.password_change_required ||
+      !Number.isInteger(version) || version < 0 || version !== user.credential_version) {
       throw new UnauthorizedException('Token has been revoked');
     }
 
