@@ -208,7 +208,10 @@ function IdentifierStep({
           {t('forgot.continue')}
         </Button>
 
-        <Link to="/login" className="text-center text-sm text-primary underline">
+        <Link
+          to="/login"
+          className="relative text-center text-sm text-primary underline after:absolute after:-inset-2 after:content-['']"
+        >
           {t('forgot.backToLogin')}
         </Link>
       </form>

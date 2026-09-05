@@ -103,7 +103,10 @@ function LoginPage() {
         loading={mutation.isPending}
         error={buildLoginError(mutation.error, t)}
         secondaryAction={
-          <Link to="/forgot-password" className="text-primary underline">
+          <Link
+            to="/forgot-password"
+            className="relative inline-block text-primary underline after:absolute after:-inset-3.5 after:content-['']"
+          >
             {t('forgot.link')}
           </Link>
         }
