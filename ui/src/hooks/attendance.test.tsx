@@ -15,7 +15,7 @@ import { apiErrorBody } from '../test/msw/support';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
 
 import {
-  recordHistoryKey,
+  attendanceKeys,
   sectionRegisterKey,
   useCorrectRecord,
   useMySections,
@@ -307,9 +307,11 @@ describe('useCorrectRecord', () => {
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: sectionRegisterKey('section-1', '2026-09-04', undefined),
     });
-    expect(invalidateSpy).toHaveBeenCalledWith({
-      queryKey: recordHistoryKey('record-1'),
-    });
+    // The whole branch, not just this record's own history page — a
+    // correction also changes student days/summaries, section summaries,
+    // register matrices and low-attendance flags, and (since
+    // `recordHistoryKey` defaults to page 1) any *later* history page too.
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: attendanceKeys.all });
   });
 
   it('surfaces a 422 (reason too short) as a thrown ApiError, never queued', async () => {

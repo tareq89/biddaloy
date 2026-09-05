@@ -178,7 +178,11 @@ export function useSubmitRegister(sectionId: string) {
       void queryClient.invalidateQueries({
         queryKey: sectionRegisterKey(sectionId, input.date, input.period_no ?? undefined),
       });
-      void queryClient.invalidateQueries({ queryKey: attendanceKeys.lists() });
+      // The whole branch, not just `.lists()` — student days/summaries,
+      // section summaries, register matrices, low-attendance flags, and
+      // record history all live under `attendanceKeys.all` too, and a
+      // submitted register can change every one of them.
+      void queryClient.invalidateQueries({ queryKey: attendanceKeys.all });
     },
   });
 }
@@ -248,11 +252,16 @@ export function useCorrectRecord(sectionId: string, date: string, periodNo?: num
   return useMutation({
     mutationFn: async ({ recordId, ...body }: CorrectRecordVariables): Promise<Register> =>
       (await apiClient.patch<Register>(`/attendance/records/${recordId}`, body)).data,
-    onSuccess: (_register, variables) => {
+    onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: sectionRegisterKey(sectionId, date, periodNo),
       });
-      void queryClient.invalidateQueries({ queryKey: recordHistoryKey(variables.recordId) });
+      // The whole branch — not just `recordHistoryKey(recordId)`, whose
+      // default page-1 key would miss a later page anyway, and not just
+      // history: a correction changes the same derived reads (student
+      // days/summaries, section summaries, register matrices,
+      // low-attendance flags) a register submit does.
+      void queryClient.invalidateQueries({ queryKey: attendanceKeys.all });
     },
   });
 }
