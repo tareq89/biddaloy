@@ -11,11 +11,25 @@ export const SUPPORTED_PLACEHOLDERS = [
   'guardian_name',
   'due_amount',
   'due_month',
+  // [9.8] absence-notice placeholders.
+  'student_names',
+  'date',
+  'section_name',
+  'school_name',
 ] as const;
 
 export type SupportedPlaceholder = (typeof SUPPORTED_PLACEHOLDERS)[number];
 
-export type ReminderTemplateVars = Record<SupportedPlaceholder, string>;
+/**
+ * Partial, not a full `Record`: no single caller fills every placeholder in
+ * `SUPPORTED_PLACEHOLDERS` at once — the fee path supplies
+ * `due_amount`/`due_month`, [9.8]'s absence notice supplies
+ * `student_names`/`date`/`section_name`/`school_name`, and both share
+ * `student_name`/`guardian_name`. `renderReminderTemplate` already leaves an
+ * unresolved placeholder verbatim (see below), so a caller-specific subset
+ * of vars is exactly what the render path tolerates.
+ */
+export type ReminderTemplateVars = Partial<Record<SupportedPlaceholder, string>>;
 
 export function isSupportedPlaceholder(name: string): name is SupportedPlaceholder {
   return (SUPPORTED_PLACEHOLDERS as readonly string[]).includes(name);
@@ -89,4 +103,19 @@ export function formatDueAmount(amount: number): string {
 export function formatDueMonth(month: number, year: number): string {
   const name = MONTH_NAMES[month - 1];
   return name ? `${name} ${year}` : String(year);
+}
+
+/**
+ * Joins one guardian's absent children into a single, locale-appropriate
+ * list for the `{{student_names}}` placeholder — "Rahim, Karim and Ayesha"
+ * in English, "Rahim, Karim ও Ayesha" in Bengali. Kept here, next to the
+ * other template helpers, rather than a separate i18n module: this file is
+ * already the one place both the fee and absence-notice paths import
+ * formatting helpers from, and there is no other locale-aware joiner in the
+ * codebase yet to share this with.
+ */
+export function joinStudentNames(names: string[], locale: string): string {
+  if (names.length <= 1) return names[0] ?? '';
+  const joiner = locale.startsWith('bn') ? ' ও ' : ' and ';
+  return `${names.slice(0, -1).join(', ')}${joiner}${names[names.length - 1]}`;
 }

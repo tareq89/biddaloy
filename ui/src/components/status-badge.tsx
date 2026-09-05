@@ -155,6 +155,21 @@ const GUARDIAN_STATUS_TONE: Record<GuardianPrimaryContactStatus, StatusTone> = {
  * ("Recurring" vs "One time") carries the meaning, tone only decorates. */
 export type FeeStructureRecurrenceStatus = 'RECURRING' | 'ONE_TIME';
 
+/** [9.10] Not a `shared/src/enums` domain either — a student's
+ * `attendance_percentage` crossing the tenant's `lowAttendanceThresholdPercent`
+ * is a plain boolean fact computed client-side, same shape as the two
+ * booleans above. `warning`, not `danger` — a low-attendance flag is a
+ * thing staff should look into, not a failure state, matching
+ * `attendance-month-grid.tsx`'s own `late`/`due` tone for the same reason.
+ * Reports/register pages must show this label text (never a bare coloured
+ * cell) per [9.10]'s own "never red cell alone" acceptance criterion. */
+export type AttendanceLowStatus = 'LOW' | 'OK';
+
+const ATTENDANCE_STATUS_TONE: Record<AttendanceLowStatus, StatusTone> = {
+  LOW: 'warning',
+  OK: 'neutral',
+};
+
 const FEE_STRUCTURE_STATUS_TONE: Record<FeeStructureRecurrenceStatus, StatusTone> = {
   RECURRING: 'info',
   ONE_TIME: 'neutral',
@@ -186,7 +201,8 @@ export type StatusBadgeProps =
   | { domain: 'academicYear'; status: AcademicYearCurrentStatus }
   | { domain: 'guardian'; status: GuardianPrimaryContactStatus }
   | { domain: 'feeStructure'; status: FeeStructureRecurrenceStatus }
-  | { domain: 'user'; status: UserStatusValue };
+  | { domain: 'user'; status: UserStatusValue }
+  | { domain: 'attendance'; status: AttendanceLowStatus };
 
 function resolveTone(props: StatusBadgeProps): StatusTone {
   switch (props.domain) {
@@ -210,6 +226,8 @@ function resolveTone(props: StatusBadgeProps): StatusTone {
       return FEE_STRUCTURE_STATUS_TONE[props.status];
     case 'user':
       return USER_STATUS_TONE[props.status];
+    case 'attendance':
+      return ATTENDANCE_STATUS_TONE[props.status];
   }
 }
 

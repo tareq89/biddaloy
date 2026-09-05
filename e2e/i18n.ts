@@ -8,6 +8,7 @@
 // `{{var}}` interpolation, nothing more.
 
 import bnAcademicYears from '../ui/src/i18n/locales/bn/academicYears.json';
+import bnAttendance from '../ui/src/i18n/locales/bn/attendance.json';
 import bnAuth from '../ui/src/i18n/locales/bn/auth.json';
 import bnClasses from '../ui/src/i18n/locales/bn/classes.json';
 import bnCommon from '../ui/src/i18n/locales/bn/common.json';
@@ -22,6 +23,7 @@ import bnPortal from '../ui/src/i18n/locales/bn/portal.json';
 import bnSettings from '../ui/src/i18n/locales/bn/settings.json';
 import bnStudents from '../ui/src/i18n/locales/bn/students.json';
 import enAcademicYears from '../ui/src/i18n/locales/en/academicYears.json';
+import enAttendance from '../ui/src/i18n/locales/en/attendance.json';
 import enAuth from '../ui/src/i18n/locales/en/auth.json';
 import enClasses from '../ui/src/i18n/locales/en/classes.json';
 import enCommon from '../ui/src/i18n/locales/en/common.json';
@@ -39,6 +41,7 @@ import enStudents from '../ui/src/i18n/locales/en/students.json';
 const catalogs = {
   bn: {
     academicYears: bnAcademicYears,
+    attendance: bnAttendance,
     auth: bnAuth,
     classes: bnClasses,
     common: bnCommon,
@@ -55,6 +58,7 @@ const catalogs = {
   },
   en: {
     academicYears: enAcademicYears,
+    attendance: enAttendance,
     auth: enAuth,
     classes: enClasses,
     common: enCommon,

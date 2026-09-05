@@ -219,3 +219,84 @@ export async function createStudent(
     class_section_id: chain.sectionId,
   });
 }
+
+/** A brand-new tenant user with role TEACHER, its own Teacher profile,
+ * and an explicit password (bypassing the invite-email flow, which
+ * nothing in this environment can deliver) so a spec can log in as
+ * this exact teacher — as opposed to `loggedIn('teacher')`, which is
+ * the one shared seeded account and must never have its section
+ * mappings mutated by an individual spec (other specs use it purely
+ * for role/permission checks and could run in a parallel worker). */
+export interface FreshTeacher {
+  email: string;
+  password: string;
+  userId: string;
+  teacherId: string;
+}
+
+export async function createTeacherForSection(
+  request: APIRequestContext,
+  session: ApiSession,
+  fullName: string,
+  sectionId: string,
+): Promise<FreshTeacher> {
+  // `crypto.randomUUID()`, not `Math.random()` — CodeQL flags `Math.random()`
+  // as insecure randomness wherever the value it seeds ends up in a field
+  // named like a credential (`password` here), even in test-only code.
+  const suffix = crypto.randomUUID();
+  const email = `teacher-${suffix}@e2e.example.com`;
+  const password = `E2e-Teacher-${suffix}`;
+  const created = await post<{ user: { id: string } }>(request, session, '/users', {
+    full_name: fullName,
+    email,
+    password,
+    role: 'TEACHER',
+    tenantId: session.tenantId,
+  });
+  const teacher = await post<{ id: string }>(request, session, '/teachers', {
+    user_id: created.user.id,
+    employee_id: `E2E-${suffix}`,
+    assigned_section_ids: [sectionId],
+  });
+  return { email, password, userId: created.user.id, teacherId: teacher.id };
+}
+
+/** Logs in as an arbitrary email/password (not a seed-contract role) and
+ * returns Playwright storage state for a fresh browser context — the
+ * same shape `e2e/fixtures/test.ts`'s `freshLogin` builds for seeded
+ * accounts, generalised for a teacher created on the fly by
+ * `createTeacherForSection`. */
+export async function loginAsFreshUser(
+  request: APIRequestContext,
+  baseURL: string,
+  email: string,
+  password: string,
+): Promise<{
+  cookies: Awaited<ReturnType<APIRequestContext['storageState']>>['cookies'];
+  origins: { origin: string; localStorage: { name: string; value: string }[] }[];
+}> {
+  const response = await request.post('/api/v1/auth/login', { data: { email, password } });
+  if (!response.ok()) {
+    throw new Error(`login failed for ${email}: ${response.status()} ${await response.text()}`);
+  }
+  const body = (await response.json()) as {
+    memberships: { tenantId: string; role: string }[];
+  };
+  const membership = body.memberships[0];
+  if (!membership) throw new Error(`no membership in login response for ${email}`);
+  const state = await request.storageState();
+  return {
+    cookies: state.cookies,
+    origins: [
+      {
+        origin: baseURL.replace(/\/$/, ''),
+        localStorage: [
+          {
+            name: 'biddaloy:activeTenant',
+            value: JSON.stringify({ tenantId: membership.tenantId, role: membership.role }),
+          },
+        ],
+      },
+    ],
+  };
+}

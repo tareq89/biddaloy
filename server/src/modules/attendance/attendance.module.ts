@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { BullModule } from '@nestjs/bullmq';
 import { AttendanceSession } from './entities/attendance-session.entity';
 import { AttendanceRecord } from './entities/attendance-record.entity';
 import { AttendanceDevice } from './entities/attendance-device.entity';
@@ -7,6 +8,10 @@ import { AttendanceDeviceEvent } from './entities/attendance-device-event.entity
 import { Student } from '../students/entities/student.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
+import { UserTenant } from '../auth/entities/user-tenant.entity';
+import { ReminderBatch } from '../communications/entities/reminder-batch.entity';
+import { CommunicationLog } from '../communications/entities/communication-log.entity';
+import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants';
 import { AuditModule } from '../audit/audit.module';
 import { SchoolsModule } from '../schools/schools.module';
 import { AcademicYearModule } from '../academics/academic-year.module';
@@ -16,6 +21,9 @@ import { AttendanceService } from './attendance.service';
 import { AttendanceAccessService } from './attendance-access.service';
 import { AttendanceSummaryService } from './attendance-summary.service';
 import { AttendanceSummaryController } from './attendance-summary.controller';
+import { AbsenceNoticeService } from './absence-notice.service';
+import { AbsenceNoticeController } from './absence-notice.controller';
+import { AbsenceNoticeScheduler, ABSENCE_NOTICE_SWEEP_QUEUE } from './absence-notice.scheduler';
 
 /**
  * [9.2] was entity-only. [9.3] fills `providers`/`controllers` in. [9.4]
@@ -46,14 +54,40 @@ import { AttendanceSummaryController } from './attendance-summary.controller';
       Student,
       ClassSection,
       TeacherClassSection,
+      UserTenant,
+      // ReminderBatch/CommunicationLog: [9.8]'s AbsenceNoticeService writes
+      // ordinary ReminderBatch/CommunicationLog rows through the same
+      // tables the fee-reminder path uses, rather than importing
+      // CommunicationsModule and its whole provider graph — those two
+      // repositories are all it actually needs.
+      ReminderBatch,
+      CommunicationLog,
     ]),
     AuditModule,
     SchoolsModule,
     AcademicYearModule,
     StudentModule,
+    // Registered here (not exported from CommunicationsModule) so
+    // AbsenceNoticeService can enqueue onto the exact same Redis-backed
+    // queue the communications worker already consumes — same queue name,
+    // separate producer registration, standard BullMQ multi-module usage.
+    BullModule.registerQueue({
+      name: COMMUNICATIONS_QUEUE,
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5000 },
+      },
+    }),
+    BullModule.registerQueue({ name: ABSENCE_NOTICE_SWEEP_QUEUE }),
   ],
-  providers: [AttendanceService, AttendanceAccessService, AttendanceSummaryService],
-  controllers: [AttendanceController, AttendanceSummaryController],
+  providers: [
+    AttendanceService,
+    AttendanceAccessService,
+    AttendanceSummaryService,
+    AbsenceNoticeService,
+    AbsenceNoticeScheduler,
+  ],
+  controllers: [AttendanceController, AttendanceSummaryController, AbsenceNoticeController],
   exports: [TypeOrmModule, AttendanceService, AttendanceAccessService, AttendanceSummaryService],
 })
 export class AttendanceModule {}

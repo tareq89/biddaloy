@@ -67,7 +67,18 @@ import type { Table } from 'dexie';
  * If a later issue genuinely needs one, it must first build the "this
  * figure is N hours old, do not act on it" affordance the epic asks for.
  */
-export type CacheableEntity = 'students' | 'classes' | 'class-sections' | 'fee-structures';
+export type CacheableEntity =
+  | 'students'
+  | 'classes'
+  | 'class-sections'
+  | 'fee-structures'
+  // [9.6] A section's register (`GET /attendance/sections/:id/register`)
+  // read cached for offline viewing — reads are reproducible, so this is
+  // just one more reference-data entity, same as the four above. It is
+  // NOT a `QueueableEntity`: the *write* path (`PUT .../register`) goes
+  // through `enqueueMutation` with `entity: 'attendance'` instead, per
+  // `offline-db.ts`'s own header on why the two unions are separate.
+  | 'attendance-register';
 
 /** One cached list response. */
 export interface RefCacheRow {

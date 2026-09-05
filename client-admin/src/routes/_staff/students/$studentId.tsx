@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { ActivityTab } from './-detail/activity-tab';
+import { AttendanceTab } from './-detail/attendance-tab';
 import { CommunicationTab } from './-detail/communication-tab';
 import { DeleteStudentDialog } from './-detail/delete-student-dialog';
 import { EnrollmentTab } from './-detail/enrollment-tab';
@@ -47,7 +48,15 @@ export const Route = createFileRoute('/_staff/students/$studentId')({
       queryClient
         .ensureQueryData(studentQueryOptions(params.studentId))
         .catch(swallowUnlessOffline),
-      loadRouteNamespaces('students', 'common'),
+      // 'portal' namespace — `-detail/attendance-tab.tsx` renders
+      // AttendanceMonthGrid, which reads its copy from that namespace;
+      // without this, a first visit before it's cached elsewhere suspends
+      // to the top-level blank fallback instead of the tab's own skeleton.
+      // (Deliberately not spelled as a literal useTranslation(...) call in
+      // this comment — check-i18n-keys.mjs's namespace-resolution regex
+      // isn't a real parser and would match that text as this file's own
+      // useTranslation call, misrouting every t() call below.)
+      loadRouteNamespaces('students', 'common', 'portal'),
     ]),
   pendingComponent: StudentDetailPending,
   component: StudentDetailPage,
@@ -62,6 +71,7 @@ const TAB_IDS = [
   'guardians',
   'communication',
   'activity',
+  'attendance',
 ] as const;
 
 function StudentDetailPage() {
@@ -209,6 +219,11 @@ function StudentDetailPage() {
                   id: 'activity',
                   label: t('detail.tabs.activity'),
                   content: <ActivityTab studentId={studentId} />,
+                },
+                {
+                  id: 'attendance',
+                  label: t('detail.tabs.attendance'),
+                  content: <AttendanceTab studentId={studentId} />,
                 },
               ]}
             />

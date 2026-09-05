@@ -74,10 +74,17 @@ export interface MaskedCommunicationsSettings {
   messenger?: MaskedMessengerSettings;
 }
 
+/** [9.10] Not secret data, unlike `communications` above — the attendance
+ * policy has no `Secret()`-decorated fields (`tenant-settings.dto.ts`'s
+ * `AttendancePolicyDto`), so the GET response mirrors `TenantSettingsInput
+ * ['attendance']` exactly rather than needing its own `Masked*` shape. */
+export type AttendancePolicySettings = NonNullable<TenantSettingsInput['attendance']>;
+
 export interface MaskedTenantSettings {
   version: 1;
   region: MaskedRegionSettings;
   communications?: MaskedCommunicationsSettings;
+  attendance?: AttendancePolicySettings;
 }
 
 export interface ConnectionTestResult {

@@ -9,6 +9,9 @@
   "items": {
     "dashboard": "Dashboard",
     "students": "Students",
+    "attendance": "Attendance",
+    "attendanceReports": "Attendance reports",
+    "attendanceRegister": "Printable register",
     "guardians": "Guardians",
     "staff": "Staff",
     "fees": "Fees",
@@ -20,6 +23,7 @@
     "recordPayment": "Record Payment",
     "portalOverview": "Overview",
     "portalFees": "Fees and invoices",
+    "portalAttendance": "Attendance",
     "portalAccount": "Account",
     "academicYears": "Academic Years",
     "classes": "Classes",

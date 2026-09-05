@@ -145,7 +145,18 @@ export {
   statusLabelKey,
   type StatusBadgeProps,
   type StatusTone,
+  type AttendanceLowStatus,
 } from './status-badge';
+export {
+  AttendanceStatusControl,
+  type AttendanceStatusControlProps,
+  type AttendanceStatusControlVariant,
+} from './attendance-status-control';
+export {
+  AttendanceMonthGrid,
+  type AttendanceDayCell,
+  type AttendanceMonthGridProps,
+} from './attendance-month-grid';
 export { Card, type CardProps } from './card';
 export { BottomNav, type BottomNavProps } from './bottom-nav';
 export { EmptyState, type EmptyStateKind, type EmptyStateProps } from './empty-state';

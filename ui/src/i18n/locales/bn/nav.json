@@ -9,6 +9,9 @@
   "items": {
     "dashboard": "ড্যাশবোর্ড",
     "students": "শিক্ষার্থী",
+    "attendance": "উপস্থিতি",
+    "attendanceReports": "উপস্থিতি প্রতিবেদন",
+    "attendanceRegister": "প্রিন্টযোগ্য রেজিস্টার",
     "guardians": "অভিভাবক",
     "staff": "কর্মী",
     "fees": "ফি",
@@ -20,6 +23,7 @@
     "recordPayment": "পেমেন্ট রেকর্ড করুন",
     "portalOverview": "সারসংক্ষেপ",
     "portalFees": "ফি ও চালান",
+    "portalAttendance": "উপস্থিতি",
     "portalAccount": "অ্যাকাউন্ট",
     "academicYears": "শিক্ষাবর্ষ",
     "classes": "ক্লাস",

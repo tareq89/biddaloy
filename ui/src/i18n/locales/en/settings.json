@@ -88,5 +88,34 @@
     "mimsmsApiKey": "MimSMS API key",
     "mimsmsSenderId": "MimSMS sender ID",
     "mimsmsApiUrl": "MimSMS API URL (optional)"
+  },
+  "attendance": {
+    "legend": "Attendance policy",
+    "weeklyOffLegend": "Weekly off days",
+    "weekday": {
+      "0": "Sun",
+      "1": "Mon",
+      "2": "Tue",
+      "3": "Wed",
+      "4": "Thu",
+      "5": "Fri",
+      "6": "Sat"
+    },
+    "lateAfter": "Late after",
+    "absentAfter": "Absent after",
+    "correctionWindowDays": "Correction window (days)",
+    "lowAttendanceThresholdPercent": "Low attendance threshold (%)",
+    "percentageDenominator": "Percentage calculated over",
+    "percentageDenominatorWorkingDays": "Working days",
+    "percentageDenominatorMarkedDays": "Marked days",
+    "lateCountsAsPresent": "Count late as present",
+    "leaveCountsAsWorkingDay": "Count leave as a working day",
+    "allowFutureDates": "Allow marking future dates",
+    "autoAbsentLegend": "Auto-absent guardian notification",
+    "autoAbsentEnabled": "Notify guardians automatically when a student is marked absent",
+    "autoAbsentCutoffTime": "Send by",
+    "confirmEnableNotificationDescription": "Enabling this sends every absent student's guardian a notification automatically, every school day. Are you sure?",
+    "confirmEnableNotificationConfirm": "Yes, enable it",
+    "confirmEnableNotificationCancel": "Cancel"
   }
 }

@@ -54,6 +54,71 @@
       "12": "December"
     }
   },
+  "attendance": {
+    "title": "Attendance",
+    "loading": "Loading attendance",
+    "pickerLabel": "Choose a student",
+    "monthStepper": {
+      "previousLabel": "Previous month, {{month}}",
+      "nextLabel": "Next month, {{month}}"
+    },
+    "summary": {
+      "present": "Present",
+      "absent": "Absent",
+      "late": "Late",
+      "leave": "Leave",
+      "percentage": "Attendance",
+      "notEnoughData": "Not enough marked days this month"
+    },
+    "dialog": {
+      "statusLabel": "Status",
+      "minutesLateLabel": "Minutes late",
+      "remarksLabel": "Remarks",
+      "close": "Close"
+    },
+    "noRecordsThisMonth": "No attendance records for this month yet.",
+    "error": {
+      "message": "Could not load this student's attendance. Something went wrong reaching the school's records — check your connection and try again.",
+      "retry": "Try again"
+    }
+  },
+  "attendanceGrid": {
+    "caption": "{{month}} {{year}}",
+    "legendTitle": "Legend",
+    "loading": "Loading attendance calendar",
+    "lateWithMinutes": "Late by {{minutes}} minutes",
+    "status": {
+      "present": "Present",
+      "late": "Late",
+      "absent": "Absent",
+      "leave": "Leave",
+      "notSchoolDay": "Not a school day",
+      "notMarked": "Not marked"
+    },
+    "months": {
+      "1": "January",
+      "2": "February",
+      "3": "March",
+      "4": "April",
+      "5": "May",
+      "6": "June",
+      "7": "July",
+      "8": "August",
+      "9": "September",
+      "10": "October",
+      "11": "November",
+      "12": "December"
+    },
+    "weekdays": {
+      "0": "Sun",
+      "1": "Mon",
+      "2": "Tue",
+      "3": "Wed",
+      "4": "Thu",
+      "5": "Fri",
+      "6": "Sat"
+    }
+  },
   "payments": {
     "title": "Recent payments",
     "seeAll": "See all payments",

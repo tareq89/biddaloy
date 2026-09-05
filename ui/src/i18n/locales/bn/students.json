@@ -78,7 +78,8 @@
       "invoices": "চালান",
       "guardians": "অভিভাবক",
       "communication": "যোগাযোগ",
-      "activity": "কার্যক্রম"
+      "activity": "কার্যক্রম",
+      "attendance": "উপস্থিতি"
     },
     "overview": {
       "dateOfBirth": "জন্ম তারিখ",
@@ -147,6 +148,23 @@
       "columnAction": "কার্যক্রম",
       "emptyMessage": "এখনো কোনো কার্যক্রম নথিভুক্ত নেই।",
       "errorMessage": "কার্যক্রম লোড করা যায়নি।"
+    },
+    "attendanceTab": {
+      "monthStepper": {
+        "previousLabel": "আগের মাস",
+        "nextLabel": "পরের মাস"
+      },
+      "summary": {
+        "percentage": "উপস্থিতি",
+        "notEnoughData": "এখনো পর্যাপ্ত তথ্য নেই",
+        "present": "উপস্থিত",
+        "absent": "অনুপস্থিত",
+        "late": "দেরি",
+        "leave": "ছুটি"
+      },
+      "loading": "উপস্থিতি লোড হচ্ছে",
+      "errorMessage": "উপস্থিতি লোড করা যায়নি।",
+      "noRecordsThisMonth": "এই মাসে কোনো উপস্থিতি রেকর্ড নেই।"
     },
     "transferDialog": {
       "title": "স্থানান্তর / অবস্থা পরিবর্তন",

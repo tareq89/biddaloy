@@ -6,6 +6,7 @@ import {
   templateVarValue,
   formatDueAmount,
   formatDueMonth,
+  joinStudentNames,
   ReminderTemplateVars,
 } from './reminder-template.util';
 
@@ -188,5 +189,54 @@ describe('renderReminderTemplate with a sanitized name (issue #33)', () => {
     expect(renderReminderTemplate('{{student_name}} / {{guardian_name}}', vars)).toBe(
       "O'Brien / Tom & Jerry",
     );
+  });
+
+  // [9.8] absence-notice placeholders.
+  it('substitutes the absence-notice placeholders without requiring the fee-path ones', () => {
+    const vars: ReminderTemplateVars = {
+      student_names: 'Rahim and Karim',
+      date: '2026-09-04',
+      section_name: 'Class 6 - A',
+      school_name: 'Green Valley School',
+    };
+
+    expect(
+      renderReminderTemplate(
+        '{{student_names}} was absent on {{date}} in {{section_name}}, {{school_name}}.',
+        vars,
+      ),
+    ).toBe('Rahim and Karim was absent on 2026-09-04 in Class 6 - A, Green Valley School.');
+  });
+
+  it('does not flag the absence-notice placeholders as unsupported', () => {
+    expect(
+      findUnsupportedPlaceholders(
+        '{{student_names}} / {{date}} / {{section_name}} / {{school_name}}',
+      ),
+    ).toEqual([]);
+  });
+
+  describe('joinStudentNames', () => {
+    it('returns the single name unchanged', () => {
+      expect(joinStudentNames(['Rahim'], 'en-US')).toBe('Rahim');
+    });
+
+    it('returns empty string for an empty list', () => {
+      expect(joinStudentNames([], 'en-US')).toBe('');
+    });
+
+    it('joins with "and" for an English locale', () => {
+      expect(joinStudentNames(['Rahim', 'Karim', 'Ayesha'], 'en-US')).toBe(
+        'Rahim, Karim and Ayesha',
+      );
+    });
+
+    it('joins two names with "and" for an English locale', () => {
+      expect(joinStudentNames(['Rahim', 'Karim'], 'en-US')).toBe('Rahim and Karim');
+    });
+
+    it('joins with "ও" for a Bengali locale', () => {
+      expect(joinStudentNames(['Rahim', 'Karim', 'Ayesha'], 'bn-BD')).toBe('Rahim, Karim ও Ayesha');
+    });
   });
 });

@@ -3,6 +3,7 @@ import { useAccessToken, useSchoolSettings, useSchools } from '@biddaloy/ui/hook
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
 
+import { AttendanceSection } from './settings/AttendanceSection';
 import { EmailSection } from './settings/EmailSection';
 import { MessengerSection } from './settings/MessengerSection';
 import { RegionalSection } from './settings/RegionalSection';
@@ -109,6 +110,7 @@ export function SchoolSettingsPage() {
       {schoolId && settingsQuery.data && (
         <div className="flex flex-col gap-8">
           <RegionalSection schoolId={schoolId} region={settingsQuery.data.region} />
+          <AttendanceSection schoolId={schoolId} attendance={settingsQuery.data.attendance} />
           <WhatsAppSection
             schoolId={schoolId}
             whatsapp={settingsQuery.data.communications?.whatsapp}

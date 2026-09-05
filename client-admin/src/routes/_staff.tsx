@@ -18,7 +18,9 @@ import {
   BanknoteIcon,
   BellRingIcon,
   BriefcaseIcon,
+  CalendarCheck2Icon,
   CalendarDaysIcon,
+  ClipboardListIcon,
   FilePlus2Icon,
   GraduationCapIcon,
   HandCoinsIcon,
@@ -26,6 +28,7 @@ import {
   LayoutDashboardIcon,
   ListChecksIcon,
   MoreHorizontalIcon,
+  PrinterIcon,
   ReceiptIcon,
   ScrollTextIcon,
   SchoolIcon,
@@ -140,6 +143,32 @@ function StaffLayout() {
     permission: Permission.PAYMENT_RECORD,
     icon: <BanknoteIcon aria-hidden="true" />,
   };
+  // [9.6] Gated on ATTENDANCE_READ — same "may you see it" reasoning as
+  // `STAFF_ROUTE_PERMISSIONS`'s own comment on this route. Hoisted next to
+  // `recordPaymentItem` rather than only inside a group: this is a daily,
+  // teacher-facing task, so it also rides in the mobile bottom bar below.
+  const attendanceItem = {
+    to: '/attendance',
+    label: t('items.attendance'),
+    permission: Permission.ATTENDANCE_READ,
+    icon: <CalendarCheck2Icon aria-hidden="true" />,
+  };
+  // [9.10] Same ATTENDANCE_READ gate as `attendanceItem` above — these are
+  // read-only report/printable surfaces over [9.4]'s summary endpoints,
+  // not a daily marking task, so unlike `attendanceItem` they live only in
+  // the `people` group below, not the mobile bottom bar.
+  const attendanceReportsItem = {
+    to: '/attendance/reports',
+    label: t('items.attendanceReports'),
+    permission: Permission.ATTENDANCE_READ,
+    icon: <ClipboardListIcon aria-hidden="true" />,
+  };
+  const attendanceRegisterItem = {
+    to: '/attendance/register',
+    label: t('items.attendanceRegister'),
+    permission: Permission.ATTENDANCE_READ,
+    icon: <PrinterIcon aria-hidden="true" />,
+  };
 
   const navItems = [dashboardItem];
 
@@ -155,6 +184,9 @@ function StaffLayout() {
       label: t('groups.people'),
       items: [
         studentsItem,
+        attendanceItem,
+        attendanceReportsItem,
+        attendanceRegisterItem,
         // [8.11.4] — gated on GUARDIAN_READ, the same permission
         // `GuardianController`'s `GET /guardians` requires server-side
         // (`students.controller.ts`'s `@Roles(ADMIN, ACCOUNTANT,
@@ -349,6 +381,13 @@ function StaffLayout() {
         }
         bottomNav={
           <BottomNav
+            // [9.6 fix] `BottomNav`'s own contract caps `items` at 4 when
+            // `more` is present (`bottom-nav.tsx`) — a 5th cell isn't
+            // truncated for you, it just overflows the bar past 320/640px
+            // (WCAG 1.4.10 reflow) for any role that can see all of them.
+            // `attendanceItem` stays reachable through the drawer nav group
+            // below instead, same as `attendanceReportsItem`/
+            // `attendanceRegisterItem` already are.
             items={[dashboardItem, studentsItem, duesItem, recordPaymentItem]}
             label={t('bottomNavStaffLabel')}
             more={{

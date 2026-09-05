@@ -40,8 +40,16 @@ export async function expectNoInnerHorizontalScroll(page: Page): Promise<void> {
       return classes ? `${tag}.${classes}` : tag;
     }
 
+    // Dev-only debugging chrome (`__root.tsx`'s `import.meta.env.DEV &&
+    // <TanStackRouterDevtools />` / `<ReactQueryDevtools />`) is never
+    // shipped to a real user, but this walk is otherwise indiscriminate —
+    // exclude it by its stable, library-owned class names rather than
+    // scoping the whole check to app content some other way.
+    const DEVTOOLS_SELECTOR = '.TanStackRouterDevtools, .tsqd-parent-container';
+
     const found: string[] = [];
     for (const element of document.querySelectorAll('*')) {
+      if (element.closest(DEVTOOLS_SELECTOR)) continue;
       const overflowX = window.getComputedStyle(element).overflowX;
       if (overflowX !== 'auto' && overflowX !== 'scroll') continue;
       // +1 absorbs subpixel rounding, same tolerance as the document-level check.

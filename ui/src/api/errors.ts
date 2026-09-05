@@ -16,6 +16,15 @@ export interface ApiErrorBody {
   timestamp: string;
   path: string;
   requestId: string;
+  /** [9.6] The server's optional per-error extra payload
+   * (`server/src/common/filters/error-response.ts`'s `ErrorResponseBody
+   * .details`) — e.g. attendance's 409 register-conflict response carries
+   * `{ code: 'ATTENDANCE_VERSION_CONFLICT', current_version, register }`
+   * here. Typed `unknown` (not a specific shape) because this is a
+   * generic envelope field shared by every endpoint that opts into it;
+   * a caller narrows it for its own known shape, same as `ApiError
+   * .messages` is generic until a caller interprets it. */
+  details?: Record<string, unknown>;
 }
 
 /** Wraps a failed request in the server's own error shape, so callers get
@@ -36,6 +45,11 @@ export class ApiError extends Error {
   readonly path: string;
   readonly timestamp: string;
   readonly messages: string[];
+  /** [9.6] See `ApiErrorBody.details`'s own comment. `undefined`, not an
+   * empty object, when the server sent none — `exactOptionalPropertyTypes`
+   * distinguishes "no details field" from "details: {}" and a caller
+   * checking `error.details?.current_version` needs the former. */
+  readonly details: Record<string, unknown> | undefined;
 
   constructor(body: ApiErrorBody) {
     super(Array.isArray(body.message) ? body.message.join(' ') : body.message);
@@ -45,6 +59,7 @@ export class ApiError extends Error {
     this.path = body.path;
     this.timestamp = body.timestamp;
     this.messages = Array.isArray(body.message) ? body.message : [body.message];
+    this.details = body.details;
   }
 }
 

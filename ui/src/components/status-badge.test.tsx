@@ -131,6 +131,24 @@ describe('StatusBadge', () => {
     expect(screen.getByText('Secondary')).toBeTruthy();
   });
 
+  // [9.10] Low-attendance flag — plain-boolean domain, same shape as
+  // academicYear/guardian above. `warning`, not `danger` — see
+  // `status-badge.tsx`'s own comment on `AttendanceLowStatus`.
+  it('[9.10] maps attendance LOW to the warning tone', async () => {
+    await renderInEnglish(<StatusBadge domain="attendance" status="LOW" />);
+    expect(screen.getByText(/./).getAttribute('data-tone')).toBe('warning');
+  });
+
+  it('[9.10] maps attendance OK to the neutral tone', async () => {
+    await renderInEnglish(<StatusBadge domain="attendance" status="OK" />);
+    expect(screen.getByText(/./).getAttribute('data-tone')).toBe('neutral');
+  });
+
+  it('[9.10] renders a humanized label for the attendance domain', async () => {
+    await renderInEnglish(<StatusBadge domain="attendance" status="LOW" />);
+    expect(screen.getByText('Low')).toBeTruthy();
+  });
+
   it.each([
     ['RECURRING', 'info'],
     ['ONE_TIME', 'neutral'],
