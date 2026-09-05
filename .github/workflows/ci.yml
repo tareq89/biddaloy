@@ -523,6 +523,10 @@ jobs:
       JWT_SECRET: ci-e2e-jwt-secret-do-not-use-in-production-1234567890
       NODE_ENV: test
       SEED_ADMIN_PASSWORD: ci-e2e-seed-password-123
+      # D6's test-observability flag — lets activation/recovery e2e specs
+      # read the invitation/reset token straight off the API response
+      # instead of an inbox they don't have access to.
+      ACCOUNT_ACCESS_ECHO_SECRETS: 'true'
       # Keeps playwright.config.ts's projects list consistent with the
       # --project flag this matrix entry passes.
       E2E_BROWSERS: ${{ matrix.browser }}
