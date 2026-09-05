@@ -297,4 +297,47 @@ describe('DeviceEventsService (integration)', () => {
     expect(result.results[0].outcome).toBe('rejected');
     expect(result.results[0].reason).toBe('section_mismatch');
   });
+
+  it('reports unknown_student when neither student_id nor external_ref is given', async () => {
+    const device = await createActiveDevice();
+
+    const result = await service.ingest(device, [inEvent()]);
+
+    expect(result.results[0].outcome).toBe('unknown_student');
+  });
+
+  it('reports unknown_student when both student_id and external_ref are given, rather than silently preferring one', async () => {
+    const device = await createActiveDevice();
+
+    const result = await service.ingest(device, [
+      inEvent({ student_id: studentId, external_ref: 'REG-DOES-NOT-MATTER' }),
+    ]);
+
+    expect(result.results[0].outcome).toBe('unknown_student');
+    // Confirms it never created a mark for `studentId` from the ambiguous event.
+    const records = await dataSource
+      .getRepository(AttendanceRecord)
+      .find({ where: { student_id: studentId } });
+    expect(records).toHaveLength(0);
+  });
+
+  it('reports unknown_student for a soft-deleted student, and creates no record', async () => {
+    const device = await createActiveDevice();
+    const deletedStudent = await dataSource.getRepository(Student).save({
+      full_name: 'Soft Deleted Student',
+      registration_number: `DEV-REG-DELETED-${Date.now()}`,
+      roll_number: 9,
+      class_section_id: sectionId,
+      tenant_id: TENANT_ID,
+    });
+    await dataSource.getRepository(Student).softDelete(deletedStudent.id);
+
+    const result = await service.ingest(device, [inEvent({ student_id: deletedStudent.id })]);
+
+    expect(result.results[0].outcome).toBe('unknown_student');
+    const records = await dataSource
+      .getRepository(AttendanceRecord)
+      .find({ where: { student_id: deletedStudent.id } });
+    expect(records).toHaveLength(0);
+  });
 });

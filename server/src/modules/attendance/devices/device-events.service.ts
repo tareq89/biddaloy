@@ -210,7 +210,17 @@ export class DeviceEventsService {
         throw err;
       }
 
-      // 2. Resolve the student.
+      // 2. Resolve the student. Exactly one of student_id/external_ref must
+      // be given — the DTO documents this as an either/or, but nothing
+      // enforces it there, so a malformed event with both set must not
+      // silently resolve by student_id and ignore external_ref.
+      const hasStudentId = event.student_id !== undefined && event.student_id !== null;
+      const hasExternalRef = event.external_ref !== undefined && event.external_ref !== null;
+      if (hasStudentId === hasExternalRef) {
+        await eventRepo.update(eventRow.id, { outcome: 'unknown_student' });
+        return { device_event_id: event.device_event_id, outcome: 'unknown_student' };
+      }
+
       const student = await this.resolveStudent(manager, device.tenant_id, event);
       if (!student) {
         await eventRepo.update(eventRow.id, { outcome: 'unknown_student' });
