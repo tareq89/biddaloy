@@ -220,7 +220,12 @@ export function AttendanceMonthGrid({
   if (isLoading) {
     return (
       <div className={cn('flex flex-col gap-3', className)}>
-        <table className="w-full border-collapse" aria-hidden="true">
+        {/* `table-fixed` forces all 7 columns to share the table's own
+         * `w-full` width equally, regardless of content — without it, a
+         * fixed-size day cell keeps its intrinsic width and the table (and
+         * the whole page) overflows a 320px viewport instead of shrinking
+         * the cells (WCAG 1.4.10 reflow, [9.9 fix]). */}
+        <table className="w-full table-fixed border-collapse" aria-hidden="true">
           <caption className="sr-only">{caption}</caption>
           <thead>
             <tr>
@@ -236,7 +241,7 @@ export function AttendanceMonthGrid({
               <tr key={row}>
                 {Array.from({ length: 7 }, (_, col) => (
                   <td key={col} className="p-1">
-                    <Skeleton className="mx-auto h-10 w-10 rounded-md" />
+                    <Skeleton className="mx-auto aspect-square w-full max-w-10 rounded-md" />
                   </td>
                 ))}
               </tr>
@@ -265,7 +270,9 @@ export function AttendanceMonthGrid({
   return (
     <TooltipProvider>
       <div className={cn('flex flex-col gap-3', className)}>
-        <table className="w-full border-collapse">
+        {/* `table-fixed` — see the loading table's comment above; same
+         * reflow constraint applies here. */}
+        <table className="w-full table-fixed border-collapse">
           <caption className="pb-2 text-start text-sm font-semibold">{caption}</caption>
           <thead>
             <tr>
@@ -298,7 +305,7 @@ export function AttendanceMonthGrid({
                   const content = (
                     <div
                       className={cn(
-                        'flex size-10 flex-col items-center justify-center gap-0.5 rounded-md text-xs',
+                        'mx-auto flex aspect-square w-full max-w-10 flex-col items-center justify-center gap-0.5 rounded-md text-xs',
                         toneClasses,
                       )}
                     >
