@@ -29,6 +29,16 @@ export interface RouterContext {
   queryClient: QueryClient;
 }
 
+/**
+ * D8 (epic #409): every route the guard below must let an unauthenticated
+ * visitor reach, whether or not they end up signed in by the time it's
+ * done — `/login` (already here), since 12.2 `/activate?token=…`, and
+ * since 12.4 `/forgot-password` and `/reset-password?token=…`. A `Set`,
+ * not a couple of `!==` checks, so a future public route is one line to
+ * add rather than three call sites to remember.
+ */
+const PUBLIC_PATHS = new Set(['/login', '/activate', '/forgot-password', '/reset-password']);
+
 export const Route = createRootRouteWithContext<RouterContext>()({
   // Protected-route guard, runs before every route in the tree including
   // `/login` itself — `pathname !== '/login'` below stops that case from
@@ -41,7 +51,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   // surface.
   beforeLoad: async ({ location }) => {
     const authenticated = await ensureSessionLoaded();
-    if (!authenticated && location.pathname !== '/login') {
+    if (!authenticated && !PUBLIC_PATHS.has(location.pathname)) {
       // TanStack Router's own documented pattern: `redirect()` returns a
       // plain sentinel object (not an `Error` instance) that the router's
       // navigation machinery specifically catches — throwing anything else
@@ -72,7 +82,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     if (
       authenticated &&
       !hasActiveTenant &&
-      location.pathname !== '/login' &&
+      !PUBLIC_PATHS.has(location.pathname) &&
       location.pathname !== '/select-school'
     ) {
       // eslint-disable-next-line @typescript-eslint/only-throw-error

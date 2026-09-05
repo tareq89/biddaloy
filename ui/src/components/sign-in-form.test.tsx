@@ -143,6 +143,27 @@ describe('SignInForm', () => {
     );
   });
 
+  it('renders a secondaryAction slot after the submit button, in tab order', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <SignInForm
+        onSubmit={vi.fn()}
+        secondaryAction={<a href="/forgot-password">Forgot password?</a>}
+      />,
+      { locale: 'en' },
+    );
+
+    const link = await screen.findByRole('link', { name: 'Forgot password?' });
+    expect(link).toBeTruthy();
+
+    await user.tab(); // identifier
+    await user.tab(); // password
+    await user.tab(); // show/hide toggle
+    await user.tab(); // submit
+    await user.tab(); // secondaryAction
+    expect(document.activeElement).toBe(link);
+  });
+
   it('has no accessibility violations', async () => {
     const { container } = renderWithProviders(<SignInForm onSubmit={vi.fn()} />, { locale: 'en' });
     await screen.findByRole('textbox', { name: 'Email or phone number' });

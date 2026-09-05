@@ -1,17 +1,13 @@
 import { ApiError, NoMembershipsError, RateLimitedError } from '@biddaloy/ui/api';
-import {
-  LocaleSwitcher,
-  SignInForm,
-  ThemeToggle,
-  type SignInCredentials,
-  type SignInFormError,
-} from '@biddaloy/ui/components';
-import { login, useDensity } from '@biddaloy/ui/hooks';
-import { RegionConfigProvider, useTranslation } from '@biddaloy/ui/i18n';
+import { SignInForm, type SignInCredentials, type SignInFormError } from '@biddaloy/ui/components';
+import { login } from '@biddaloy/ui/hooks';
+import { useTranslation } from '@biddaloy/ui/i18n';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import type { TFunction } from 'i18next';
 import { z } from 'zod';
+
+import { AuthScreen } from './-auth-screen';
 
 /**
  * The protected-route guard (`__root.tsx`'s `beforeLoad`) redirects every
@@ -85,16 +81,6 @@ function LoginPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // [8.13.8] Comfortable density (contract section 6). Auth screens sit with
-  // `/portal` rather than with the staff routes because they are
-  // PRE-authentication: at this point nobody knows whether the visitor is a
-  // guardian on a 360 px phone or an administrator on a desktop, so the
-  // accessible 44 px target is the safe default for the unknown user.
-  //
-  // Set on `document.documentElement`, not on the wrapper below, so the
-  // portalled `LocaleSwitcher` menu inherits it too — see `useDensity`.
-  useDensity('comfortable');
-
   const mutation = useMutation({
     mutationFn: (credentials: SignInCredentials) => login(queryClient, credentials),
     onSuccess: (result) => {
@@ -111,27 +97,17 @@ function LoginPage() {
   });
 
   return (
-    // No `value` override: `useTenantRegionConfig()` needs an active
-    // tenant, which doesn't exist yet at the point a visitor is signing
-    // in — `RegionConfigProvider` already falls back to
-    // `LOCALE_REGION_DEFAULTS[locale]` with no `value` passed, which is
-    // exactly the right default here.
-    <RegionConfigProvider>
-      <div className="flex min-h-screen flex-col bg-muted/20">
-        <div className="flex justify-end gap-2 p-4">
-          <ThemeToggle />
-          <LocaleSwitcher />
-        </div>
-        <div className="flex flex-1 items-center justify-center p-8">
-          <div className="w-full max-w-sm">
-            <SignInForm
-              onSubmit={(credentials) => mutation.mutate(credentials)}
-              loading={mutation.isPending}
-              error={buildLoginError(mutation.error, t)}
-            />
-          </div>
-        </div>
-      </div>
-    </RegionConfigProvider>
+    <AuthScreen>
+      <SignInForm
+        onSubmit={(credentials) => mutation.mutate(credentials)}
+        loading={mutation.isPending}
+        error={buildLoginError(mutation.error, t)}
+        secondaryAction={
+          <Link to="/forgot-password" className="text-primary underline">
+            {t('forgot.link')}
+          </Link>
+        }
+      />
+    </AuthScreen>
   );
 }

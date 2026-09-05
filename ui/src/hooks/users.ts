@@ -169,6 +169,68 @@ export function useUpdateUser(id: string) {
   });
 }
 
+/** `POST /users`'s echoed invitation result (null when the user was created
+ * with a password). Shape matches `InvitationService.issueAndSend`'s
+ * return value on the server. */
+export interface InvitationResult {
+  status: string;
+  medium: string;
+  expires_at: string;
+  debug?: { token: string };
+}
+
+/** [12.1] Re-issues an invitation link, revoking any prior link for this
+ * user — used by the resend action on a PENDING/EXPIRED/REVOKED staff row
+ * ([12.6] wires the actual button). */
+export function useResendInvitation(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const res = await apiClient.post<InvitationResult>(`/users/${id}/invitation/resend`);
+      return res.data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: userKeys.detail(id) });
+    },
+  });
+}
+
+/** [12.1] Revokes any live invitation link for this user, without issuing
+ * a new one. */
+export function useRevokeInvitation(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      await apiClient.delete(`/users/${id}/invitation`);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: userKeys.detail(id) });
+    },
+  });
+}
+
+/** `POST /users/{id}/reset-password`'s result — `RecoveryService.adminReset`'s
+ * return shape. `channel` says which of the target's own contacts got the
+ * OTP/link; there is no `debug` field here (D6's echo only covers the
+ * self-service `/auth/forgot-password`, never an admin-facing route). */
+export interface AdminResetPasswordResult {
+  channel: 'SMS' | 'EMAIL';
+  expires_at: string;
+}
+
+/** [12.3/#396] Admin-initiated password reset: sends an OTP/link to the
+ * target's own contact info and revokes their sessions immediately. ADMIN
+ * only, same tenant-membership check every other `users/:id` route relies
+ * on (404 for a cross-tenant target). */
+export function useAdminResetPassword(id: string) {
+  return useMutation({
+    mutationFn: async () => {
+      const res = await apiClient.post<AdminResetPasswordResult>(`/users/${id}/reset-password`);
+      return res.data;
+    },
+  });
+}
+
 /** `DELETE /users/{id}` removes only the active school's membership row —
  * "remove from school", not account deletion (`UserService.remove`). The
  * server 400s on self-removal; the UI additionally disables the action

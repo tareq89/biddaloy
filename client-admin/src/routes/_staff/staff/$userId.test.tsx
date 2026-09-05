@@ -1,4 +1,5 @@
 import { ROLE_PERMISSIONS, UserRole } from '@biddaloy/shared';
+import { toast } from '@biddaloy/ui/components';
 import {
   auditEntryFactory,
   cleanupTestState,
@@ -10,7 +11,7 @@ import {
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
@@ -239,6 +240,66 @@ describe('/staff/$userId', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Remove access' }));
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/staff'));
+  });
+
+  it('hides the Reset password action when viewing your own account', async () => {
+    const self = userResponseFactory({ id: 'me', full_name: 'Own Account' });
+    server.use(
+      http.get('/api/v1/users/:id', () => HttpResponse.json(self)),
+      http.get('/api/v1/teachers', () => HttpResponse.json(paginated([]))),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/staff/me'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+      accessToken: fakeToken('me'),
+    });
+
+    await screen.findByText('Own Account');
+    expect(screen.queryByRole('button', { name: 'Reset password' })).toBeNull();
+  });
+
+  it('resetting another member’s password shows a success toast', async () => {
+    // No `<Toaster />` is mounted in this test harness (`main.tsx`'s job in
+    // the real app) — see `invoices/index.test.tsx`'s identical comment —
+    // so this asserts the `toast.success` call itself.
+    const toastSpy = vi.spyOn(toast, 'success').mockImplementation(() => '');
+    const other = userResponseFactory({
+      id: 'user-2',
+      full_name: 'Other Person',
+      phone: '01712345678',
+    });
+    server.use(
+      http.get('/api/v1/users/:id', () => HttpResponse.json(other)),
+      http.get('/api/v1/teachers', () => HttpResponse.json(paginated([]))),
+      http.post('/api/v1/users/:id/reset-password', () =>
+        HttpResponse.json({ channel: 'SMS', expires_at: new Date().toISOString() }),
+      ),
+    );
+
+    try {
+      renderWithRouter(routeTree, {
+        initialEntries: ['/staff/user-2'],
+        tenantId: 'tenant-1',
+        role: 'ADMIN',
+        locale: 'en',
+        accessToken: fakeToken('me'),
+      });
+
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole('button', { name: 'Reset password' }));
+      const dialog = await screen.findByRole('dialog');
+      expect(within(dialog).getByText('A code will be sent by SMS to their phone.')).toBeTruthy();
+      await user.click(within(dialog).getByRole('button', { name: 'Reset password' }));
+
+      await waitFor(() =>
+        expect(toastSpy).toHaveBeenCalledWith('Password reset sent to Other Person.'),
+      );
+    } finally {
+      toastSpy.mockRestore();
+    }
   });
 
   it('is axe clean', async () => {

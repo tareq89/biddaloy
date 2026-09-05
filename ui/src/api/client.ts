@@ -141,6 +141,126 @@ export async function postAuthLogin(
   }
 }
 
+export interface ActivateVerifyResponse {
+  status: 'valid' | 'expired' | 'consumed' | 'revoked' | 'unknown';
+  full_name?: string;
+  school_name?: string;
+}
+
+/** `POST /auth/activate/verify` — read-only, no cookie involved yet: this
+ * is the check `activate.tsx` makes on load before showing the set-password
+ * form. Bare `axios`, same reason `postAuthLogin` bypasses `apiClient` —
+ * there is no tenant, and no session, at this point. Never throws for an
+ * expired/consumed/revoked/unknown token — those are 200 responses with a
+ * different `status`, per `ActivationService.verify`'s own contract; only a
+ * genuine network/429 failure reaches the catch below. */
+export async function postAuthActivateVerify(token: string): Promise<ActivateVerifyResponse> {
+  try {
+    const response = await axios.post<ActivateVerifyResponse>(
+      `${API_BASE_URL}/auth/activate/verify`,
+      { token },
+    );
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 429) {
+      const header: unknown = error.response.headers['retry-after'];
+      const parsed = typeof header === 'string' ? Number.parseInt(header, 10) : NaN;
+      throw new RateLimitedError(Number.isFinite(parsed) ? parsed : null);
+    }
+    throw toApiError(error);
+  }
+}
+
+/** `POST /auth/activate` — consumes the invite token, sets the password,
+ * and (like `postAuthLogin`) stores the refresh-token cookie via
+ * `withCredentials`. A non-`valid` token surfaces as an `ApiError` whose
+ * `.message` is the status string (`expired`/`consumed`/`revoked`/
+ * `unknown`) — see `ActivationService.activate`'s own comment — which
+ * `activate.tsx`'s error mapping matches directly. */
+export async function postAuthActivate(input: {
+  token: string;
+  password: string;
+}): Promise<LoginResponse> {
+  try {
+    const response = await axios.post<LoginResponse>(`${API_BASE_URL}/auth/activate`, input, {
+      withCredentials: true,
+    });
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 429) {
+      const header: unknown = error.response.headers['retry-after'];
+      const parsed = typeof header === 'string' ? Number.parseInt(header, 10) : NaN;
+      throw new RateLimitedError(Number.isFinite(parsed) ? parsed : null);
+    }
+    throw toApiError(error);
+  }
+}
+
+/** `POST /auth/activate/resend` — always resolves to `void`, even for an
+ * unknown identifier (enumeration-safe, see `ActivationService.resend`'s
+ * own comment). The one exception is a genuine 429: the caller still needs
+ * to know a resend attempt was throttled rather than silently accepted. */
+export async function postAuthActivateResend(identifier: string): Promise<void> {
+  try {
+    await axios.post(`${API_BASE_URL}/auth/activate/resend`, { identifier });
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 429) {
+      const header: unknown = error.response.headers['retry-after'];
+      const parsed = typeof header === 'string' ? Number.parseInt(header, 10) : NaN;
+      throw new RateLimitedError(Number.isFinite(parsed) ? parsed : null);
+    }
+    throw toApiError(error);
+  }
+}
+
+export interface ForgotPasswordResponse {
+  debug?: { otp?: string; token?: string };
+}
+
+/** `POST /auth/forgot-password` — always resolves, even for an unknown
+ * identifier (enumeration-safe, see `RecoveryService.forgot`'s own
+ * comment). `debug` is only ever populated when the server has D6's
+ * `ACCOUNT_ACCESS_ECHO_SECRETS` flag on (never in production) — it exists
+ * for e2e/Playwright, not for any real UI to read. */
+export async function postAuthForgotPassword(identifier: string): Promise<ForgotPasswordResponse> {
+  try {
+    const response = await axios.post<ForgotPasswordResponse>(
+      `${API_BASE_URL}/auth/forgot-password`,
+      { identifier },
+    );
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 429) {
+      const header: unknown = error.response.headers['retry-after'];
+      const parsed = typeof header === 'string' ? Number.parseInt(header, 10) : NaN;
+      throw new RateLimitedError(Number.isFinite(parsed) ? parsed : null);
+    }
+    throw toApiError(error);
+  }
+}
+
+/** `POST /auth/reset-password` — exactly one of `{ phone, otp }` or
+ * `{ token }`, mirroring `ResetPasswordDto`'s own either/or shape. Sets the
+ * refresh cookie via `withCredentials` and returns a `LoginResponse`, same
+ * as `postAuthActivate` — a successful reset signs the caller straight in. */
+export async function postAuthResetPassword(
+  input: { new_password: string } & ({ phone: string; otp: string } | { token: string }),
+): Promise<LoginResponse> {
+  try {
+    const response = await axios.post<LoginResponse>(`${API_BASE_URL}/auth/reset-password`, input, {
+      withCredentials: true,
+    });
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 429) {
+      const header: unknown = error.response.headers['retry-after'];
+      const parsed = typeof header === 'string' ? Number.parseInt(header, 10) : NaN;
+      throw new RateLimitedError(Number.isFinite(parsed) ? parsed : null);
+    }
+    throw toApiError(error);
+  }
+}
+
 /** Single-flight refresh: the first 401 creates this promise; every
  * concurrent 401 that arrives before it settles awaits the same one instead
  * of issuing its own POST /auth/refresh. The server treats a second refresh

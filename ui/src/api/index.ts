@@ -3,6 +3,15 @@
  */
 export { apiClient } from './client';
 export {
+  postAuthActivate,
+  postAuthActivateResend,
+  postAuthActivateVerify,
+  postAuthForgotPassword,
+  postAuthResetPassword,
+  type ActivateVerifyResponse,
+  type ForgotPasswordResponse,
+} from './client';
+export {
   ApiError,
   NoActiveTenantError,
   NoMembershipsError,

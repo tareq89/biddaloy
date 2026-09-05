@@ -12,6 +12,21 @@
       "archetype": "bespoke"
     },
     {
+      "path": "/activate",
+      "role": "guest",
+      "archetype": "bespoke"
+    },
+    {
+      "path": "/forgot-password",
+      "role": "guest",
+      "archetype": "bespoke"
+    },
+    {
+      "path": "/reset-password",
+      "role": "guest",
+      "archetype": "bespoke"
+    },
+    {
       "path": "/select-school",
       "role": "admin",
       "archetype": "bespoke"

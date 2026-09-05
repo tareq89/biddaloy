@@ -17,7 +17,7 @@ import { authHandlers, loginResponseFactory } from '../test/msw/handlers/auth';
 import { server } from '../test/msw/server';
 import { errorHandler } from '../test/msw/support';
 
-import { changePassword, login, logout, logoutAll } from './auth';
+import { changePassword, forgotPassword, login, logout, logoutAll, resetPassword } from './auth';
 
 afterEach(() => {
   setAccessToken(null);
@@ -303,5 +303,65 @@ describe('changePassword', () => {
     ).rejects.toMatchObject({ statusCode: 403 });
 
     expect(getAccessToken()).toBe('access-token');
+  });
+});
+
+describe('forgotPassword', () => {
+  it('resolves with the echoed debug payload for a known identifier', async () => {
+    server.use(authHandlers.forgotPassword);
+
+    const result = await forgotPassword('01712345678');
+
+    expect(result.debug?.otp).toBe('123456');
+  });
+
+  it('resolves the same way for an unknown identifier — enumeration-safe, nothing throws', async () => {
+    server.use(authHandlers.forgotPassword);
+
+    await expect(forgotPassword('nobody@example.com')).resolves.toBeDefined();
+  });
+});
+
+describe('resetPassword', () => {
+  it('sets a fresh access token and activates the single membership, given a valid OTP', async () => {
+    server.use(authHandlers.resetPassword);
+    const queryClient = new QueryClient();
+
+    const result = await resetPassword(queryClient, {
+      new_password: 'a-brand-new-password',
+      phone: '01712345678',
+      otp: '654321',
+    });
+
+    expect(result.access_token).toBe('mock-post-reset-password-access-token');
+    expect(getAccessToken()).toBe('mock-post-reset-password-access-token');
+    expect(getActiveTenant()).toBe('mock-tenant-id');
+  });
+
+  it('surfaces an invalid OTP as an ApiError, without adopting any session', async () => {
+    server.use(authHandlers.resetPassword);
+    const queryClient = new QueryClient();
+
+    await expect(
+      resetPassword(queryClient, {
+        new_password: 'a-brand-new-password',
+        phone: '01712345678',
+        otp: authHandlers.RESET_PASSWORD_INVALID_OTP,
+      }),
+    ).rejects.toMatchObject({ statusCode: 401 });
+
+    expect(getAccessToken()).toBeNull();
+  });
+
+  it('accepts the link ({ token }) branch the same way', async () => {
+    server.use(authHandlers.resetPassword);
+    const queryClient = new QueryClient();
+
+    const result = await resetPassword(queryClient, {
+      new_password: 'a-brand-new-password',
+      token: 'a-real-reset-token',
+    });
+
+    expect(result.access_token).toBe('mock-post-reset-password-access-token');
   });
 });
