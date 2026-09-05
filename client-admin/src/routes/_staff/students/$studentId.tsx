@@ -48,7 +48,11 @@ export const Route = createFileRoute('/_staff/students/$studentId')({
       queryClient
         .ensureQueryData(studentQueryOptions(params.studentId))
         .catch(swallowUnlessOffline),
-      loadRouteNamespaces('students', 'common'),
+      // 'portal' — `-detail/attendance-tab.tsx` renders `AttendanceMonthGrid`,
+      // which calls `useTranslation('portal')`; without this, a first
+      // visit before that namespace is cached elsewhere suspends to the
+      // top-level blank fallback instead of the tab's own skeleton.
+      loadRouteNamespaces('students', 'common', 'portal'),
     ]),
   pendingComponent: StudentDetailPending,
   component: StudentDetailPage,
