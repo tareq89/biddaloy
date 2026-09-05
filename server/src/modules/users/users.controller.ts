@@ -68,19 +68,19 @@ export class UserController {
     userDto.member_since = membership.created_at;
 
     // A passwordless account gets its activation link dispatched right
-    // here — a delivery failure must never roll back the user that was
-    // just created, so it's caught rather than allowed to propagate.
+    // here. A provider/delivery failure never throws — `deliver()` (called
+    // inside `issueAndSend`) catches that itself and returns a FAILED
+    // status instead — so nothing left here is safe to swallow: an
+    // exception at this point means the membership lookup, token
+    // persistence, or audit write failed, and hiding that would report a
+    // successful invitation dispatch for a user who has no way to log in.
     let invitation: Awaited<ReturnType<InvitationService['issueAndSend']>> | null = null;
     if (!dto.password) {
-      try {
-        invitation = await this.invitationService.issueAndSend({
-          userId: user.id,
-          tenantId: tenant.id,
-          actorUserId: jwt.sub,
-        });
-      } catch {
-        invitation = null;
-      }
+      invitation = await this.invitationService.issueAndSend({
+        userId: user.id,
+        tenantId: tenant.id,
+        actorUserId: jwt.sub,
+      });
     }
     userDto.invitation_status = await this.invitationService.statusFor(user, tenant.id);
 

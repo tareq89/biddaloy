@@ -130,18 +130,34 @@ describe('UserController', () => {
       expect(result.invitation).toBeNull();
     });
 
-    it('never fails user creation when invitation dispatch throws', async () => {
+    it('never rejects the response shape when the provider itself fails to deliver', async () => {
+      // issueAndSend's own delivery step never throws — a provider/gateway
+      // failure inside it becomes a FAILED status on the resolved value,
+      // never a rejection.
       userService.create.mockResolvedValue({
         user: { id: 'u1' },
         membership: { id: 'm1', role: UserRole.TEACHER },
       });
-      invitationService.issueAndSend.mockRejectedValue(new Error('delivery down'));
+      invitationService.issueAndSend.mockResolvedValue({ status: 'FAILED', medium: 'EMAIL' });
 
       const dto = { full_name: 'John', email: 'john@test.com', role: UserRole.TEACHER };
       const result = await controller.createUser(dto as any, TENANT, JWT as any);
 
-      expect(result.invitation).toBeNull();
+      expect(result.invitation).toEqual({ status: 'FAILED', medium: 'EMAIL' });
       expect(result.user.id).toBe('u1');
+    });
+
+    it('propagates a non-delivery failure (e.g. token persistence or audit) from issueAndSend', async () => {
+      userService.create.mockResolvedValue({
+        user: { id: 'u1' },
+        membership: { id: 'm1', role: UserRole.TEACHER },
+      });
+      invitationService.issueAndSend.mockRejectedValue(new Error('db unavailable'));
+
+      const dto = { full_name: 'John', email: 'john@test.com', role: UserRole.TEACHER };
+      await expect(controller.createUser(dto as any, TENANT, JWT as any)).rejects.toThrow(
+        'db unavailable',
+      );
     });
   });
 
