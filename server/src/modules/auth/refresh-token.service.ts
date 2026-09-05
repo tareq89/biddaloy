@@ -1,8 +1,9 @@
 import { Injectable, Inject, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { randomBytes, randomUUID, createHash, timingSafeEqual } from 'crypto';
+import { randomBytes, randomUUID } from 'crypto';
 import { RefreshToken } from './entities/refresh-token.entity';
+import { hashSecret, safeEqualHex } from './token-hash.util';
 
 export const REFRESH_TOKEN_TTL_MS = 'REFRESH_TOKEN_TTL_MS';
 
@@ -45,19 +46,6 @@ export class RefreshTokenReuseDetectedException extends UnauthorizedException {
   ) {
     super('Refresh token reuse detected');
   }
-}
-
-function hashSecret(secret: string): string {
-  return createHash('sha256').update(secret, 'utf8').digest('hex');
-}
-
-// Both sides are always 64-char sha256 hex digests once decoded, so the
-// length check never rejects a well-formed comparison before
-// timingSafeEqual runs — it only guards the (attacker-controlled) input
-// from ever reaching timingSafeEqual with a mismatched length, which would
-// throw rather than leak timing.
-function safeEqualHex(a: string, b: string): boolean {
-  return a.length === b.length && timingSafeEqual(Buffer.from(a, 'utf8'), Buffer.from(b, 'utf8'));
 }
 
 /**

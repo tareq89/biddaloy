@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import supertest = require('supertest');
+import { createHash } from 'crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { AppModule } from '../../app.module';
@@ -41,6 +42,11 @@ describe('Users & Teachers E2E [8.11.8]', () => {
   beforeAll(async () => {
     process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-do-not-use-in-production';
     process.env.NODE_ENV = 'test';
+    // [12.1] D6 — echoes the raw invitation token in the response so this
+    // suite can assert on it without scraping a delivery provider. Must be
+    // set before AppModule compiles: ConfigService's cache is built once
+    // at bootstrap.
+    process.env.ACCOUNT_ACCESS_ECHO_SECRETS = 'true';
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -404,6 +410,63 @@ describe('Users & Teachers E2E [8.11.8]', () => {
         .set('Authorization', `Bearer ${teacherToken}`)
         .set('X-Tenant-ID', TENANT_B)
         .expect(401);
+    });
+  });
+
+  describe('invitations [12.1]', () => {
+    it('POST /users without a password returns invitation.status and, with the echo flag, a debug.token that hashes to the stored auth_tokens row', async () => {
+      const res = await request()
+        .post('/api/v1/users')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .send({
+          full_name: 'Passwordless Invitee',
+          email: 'invitee-e2e@example.com',
+          role: UserRole.TEACHER,
+          tenantId: TENANT_A,
+        })
+        .expect(201);
+
+      expect(res.body.user.invitation_status).toBe('PENDING');
+      expect(res.body.invitation).not.toBeNull();
+      expect(res.body.invitation.debug).toBeDefined();
+
+      const rawToken = res.body.invitation.debug.token as string;
+      const expectedHash = createHash('sha256').update(rawToken, 'utf8').digest('hex');
+      const [row] = await dataSource.query(
+        `SELECT token_hash FROM auth_tokens WHERE user_id = $1 AND purpose = 'INVITE' ORDER BY created_at DESC LIMIT 1`,
+        [res.body.user.id],
+      );
+      expect(row.token_hash).toBe(expectedHash);
+
+      await dataSource.query('DELETE FROM auth_tokens WHERE user_id = $1', [res.body.user.id]);
+      await dataSource.query('DELETE FROM communication_logs WHERE recipient_address = $1', [
+        'invitee-e2e@example.com',
+      ]);
+      await dataSource.query('DELETE FROM user_tenants WHERE user_id = $1', [res.body.user.id]);
+      await dataSource.query('DELETE FROM users WHERE id = $1', [res.body.user.id]);
+    });
+
+    it('a TEACHER cannot resend an invitation (403)', async () => {
+      // Reuse the teacher token minted in the boundaries suite above.
+      const loginRes = await request()
+        .post('/api/v1/auth/login')
+        .send({ email: 'staff-a@example.com', password: SEED_ADMIN_PASSWORD })
+        .expect(200);
+
+      await request()
+        .post(`/api/v1/users/${MEMBER_A_ID}/invitation/resend`)
+        .set('Authorization', `Bearer ${loginRes.body.access_token}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .expect(401);
+    });
+
+    it('resending an invitation for a tenant-B user from tenant A returns 404', async () => {
+      await request()
+        .post(`/api/v1/users/${MEMBER_B_ID}/invitation/resend`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .expect(404);
     });
   });
 });

@@ -102,6 +102,20 @@ export enum CommunicationTrigger {
   AUTOMATED = 'AUTOMATED',
   BULK_REMINDER = 'BULK_REMINDER',
   SINGLE_REMINDER = 'SINGLE_REMINDER',
+  /**
+   * An account-access send (invitation, password reset, OTP, email/phone
+   * verification) — 12.1. These logs exist so a send still shows up in the
+   * communication trail, but `message_body` is redacted (secret replaced
+   * with `••••••`); see `AccountAccessDeliveryService`.
+   */
+  ACCOUNT_ACCESS = 'ACCOUNT_ACCESS',
+}
+
+/** Purpose of a row in `auth_tokens` (12.1's D2). */
+export enum AuthTokenPurpose {
+  INVITE = 'INVITE',
+  PASSWORD_RESET = 'PASSWORD_RESET',
+  EMAIL_VERIFY = 'EMAIL_VERIFY',
 }
 
 export enum ReminderBatchStatus {
@@ -134,6 +148,16 @@ export enum AuditAction {
   FEE_STRUCTURE_CHANGE = 'FEE_STRUCTURE_CHANGE',
   SETTINGS_CHANGE = 'SETTINGS_CHANGE',
   SETTINGS_TEST = 'SETTINGS_TEST',
+  /** An invitation link was issued (create-without-password, or resend). */
+  INVITATION_SENT = 'INVITATION_SENT',
+  /** An invitation was revoked, either explicitly or superseded by a resend. */
+  INVITATION_REVOKED = 'INVITATION_REVOKED',
+  /** The invited user consumed their invite token and set a password. */
+  ACCOUNT_ACTIVATED = 'ACCOUNT_ACTIVATED',
+  /** A forgot-password request was accepted and an OTP/link was dispatched (or an admin-initiated reset was started). */
+  PASSWORD_RESET_REQUESTED = 'PASSWORD_RESET_REQUESTED',
+  /** A password was actually changed via the OTP/link recovery flow (self-service or admin-initiated). */
+  PASSWORD_RESET = 'PASSWORD_RESET',
 }
 
 export enum EnrollmentStatus {

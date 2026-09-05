@@ -163,6 +163,19 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   SETTINGS_ENCRYPTION_KEY_PREVIOUS?: string;
+
+  // Base URL of the staff SPA — invitation/reset links target
+  // `${APP_BASE_URL}/activate?token=...` etc. Defaults to
+  // http://localhost:5174 outside production; required (checked at
+  // runtime, like DB_SSL) in production.
+  @IsOptional()
+  @IsString()
+  APP_BASE_URL?: string;
+
+  // See account-access-echo.ts — must never be "true" in production.
+  @IsOptional()
+  @IsString()
+  ACCOUNT_ACCESS_ECHO_SECRETS?: string;
 }
 
 export function validate(config: Record<string, unknown>) {

@@ -1,4 +1,4 @@
-import { CookieOptions } from 'express';
+import { CookieOptions, Response } from 'express';
 
 /**
  * The `__Host-` prefix is a browser-enforced guarantee, not just a naming
@@ -48,4 +48,34 @@ export function buildRefreshTokenClearCookieOptions(): CookieOptions {
     sameSite: 'strict',
     path: '/',
   };
+}
+
+/**
+ * Sets the refresh-token cookie on `response`. Moved here (12.2) from
+ * `AuthController`'s own private method so `account-access.controller.ts`'s
+ * `POST /auth/activate` can set the exact same cookie without duplicating
+ * this logic or reaching into `AuthController`.
+ */
+export function setRefreshCookie(
+  response: Response,
+  issued: { cookieValue: string; expiresAt: Date },
+  ttlMs?: number,
+): void {
+  const maxAgeMs = ttlMs ?? issued.expiresAt.getTime() - Date.now();
+  // CodeQL's `SensitiveCall` heuristic (SensitiveActions.qll) marks the
+  // return value of any call whose NAME matches a password-like regex, with
+  // no dataflow involved — so a caller reached from `changePassword()`/
+  // `activate()` is treated as returning sensitive data purely because of
+  // what it is called, and every field reached from it, including this one,
+  // inherits that. `login()` and `refresh()` reach this same line with the
+  // same shape and are not flagged, which is the tell.
+  //
+  // What is actually written here is a freshly issued refresh token
+  // (`id.secret`, see RefreshTokenService.buildCookieValue) — never password
+  // material, hashed or plain — under httpOnly + secure + sameSite=strict.
+  response.cookie(
+    REFRESH_TOKEN_COOKIE,
+    issued.cookieValue, // codeql[js/clear-text-storage-of-sensitive-data]
+    buildRefreshTokenCookieOptions(maxAgeMs),
+  );
 }

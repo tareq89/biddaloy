@@ -28,8 +28,8 @@ import { LoginResponseDto } from './dto/auth-response.dto';
 import { STRICT_RATE_LIMIT } from '../../rate-limit';
 import {
   REFRESH_TOKEN_COOKIE,
-  buildRefreshTokenCookieOptions,
   buildRefreshTokenClearCookieOptions,
+  setRefreshCookie,
 } from './token-cookie';
 import { SameOriginGuard } from './guards/same-origin.guard';
 import { requestContext } from '../../common/request-context.util';
@@ -60,7 +60,7 @@ export class AuthController {
     const identifier = (dto.email ?? dto.phone) as string;
     const result = await this.authService.login(identifier, dto.password, requestContext(request));
 
-    this.setRefreshCookie(response, result.refreshToken);
+    setRefreshCookie(response, result.refreshToken);
     return { access_token: result.access_token, memberships: result.memberships };
   }
 
@@ -83,7 +83,7 @@ export class AuthController {
     const cookieValue = request.cookies?.[REFRESH_TOKEN_COOKIE];
     const result = await this.authService.refresh(cookieValue, requestContext(request));
 
-    this.setRefreshCookie(response, result.refreshToken);
+    setRefreshCookie(response, result.refreshToken);
     return { access_token: result.access_token, memberships: result.memberships };
   }
 
@@ -171,30 +171,7 @@ export class AuthController {
     const user = request.user as JwtPayload;
     const result = await this.authService.changePassword(user.sub, dto, requestContext(request));
 
-    this.setRefreshCookie(response, result.refreshToken);
+    setRefreshCookie(response, result.refreshToken);
     return { access_token: result.access_token, memberships: result.memberships };
-  }
-
-  private setRefreshCookie(
-    response: Response,
-    refreshToken: { cookieValue: string; expiresAt: Date },
-  ): void {
-    const maxAgeMs = refreshToken.expiresAt.getTime() - Date.now();
-    // CodeQL's `SensitiveCall` heuristic (SensitiveActions.qll) marks the
-    // return value of any call whose NAME matches a password-like regex, with
-    // no dataflow involved — so `authService.changePassword()` is treated as
-    // returning sensitive data purely because of what it is called, and every
-    // field reached from it, including this one, inherits that. `login()` and
-    // `refresh()` reach this same line with the same shape and are not
-    // flagged, which is the tell.
-    //
-    // What is actually written here is a freshly issued refresh token
-    // (`id.secret`, see RefreshTokenService.buildCookieValue) — never password
-    // material, hashed or plain — under httpOnly + secure + sameSite=strict.
-    response.cookie(
-      REFRESH_TOKEN_COOKIE,
-      refreshToken.cookieValue, // codeql[js/clear-text-storage-of-sensitive-data]
-      buildRefreshTokenCookieOptions(maxAgeMs),
-    );
   }
 }

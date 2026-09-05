@@ -28,8 +28,11 @@ describe('UserController', () => {
   let controller: UserController;
   let userService: Record<string, ReturnType<typeof vi.fn>>;
   let teacherService: Record<string, ReturnType<typeof vi.fn>>;
+  let invitationService: Record<string, ReturnType<typeof vi.fn>>;
+  let recoveryService: Record<string, ReturnType<typeof vi.fn>>;
 
   const TENANT = { id: 'tenant-1', role: UserRole.ADMIN };
+  const JWT = { sub: 'admin-1', email: null, phone: null, memberships: [], jti: 'jti-1' };
 
   beforeEach(() => {
     userService = {
@@ -46,9 +49,19 @@ describe('UserController', () => {
       findOne: vi.fn(),
       update: vi.fn(),
     };
+    invitationService = {
+      issueAndSend: vi.fn().mockResolvedValue(null),
+      revoke: vi.fn(),
+      statusFor: vi.fn().mockResolvedValue('NONE'),
+    };
+    recoveryService = {
+      adminReset: vi.fn(),
+    };
     controller = new UserController(
       userService as unknown as UserService,
       teacherService as unknown as TeacherService,
+      invitationService as any,
+      recoveryService as any,
     );
   });
 
@@ -64,15 +77,66 @@ describe('UserController', () => {
       };
       userService.create.mockResolvedValue(expected);
 
-      const result = await controller.createUser(dto as any, TENANT);
+      const result = await controller.createUser(dto as any, TENANT, JWT as any);
 
       expect(userService.create).toHaveBeenCalledWith(dto, TENANT.id);
       // The created entity has no user_tenants relation loaded, so the
       // controller copies the role from the membership it just created.
       expect(result).toEqual({
-        user: { id: 'u1', role: UserRole.TEACHER },
+        user: { id: 'u1', role: UserRole.TEACHER, invitation_status: 'NONE' },
+        membership: { id: 'm1', role: UserRole.TEACHER },
+        invitation: null,
+      });
+    });
+
+    it('issues an invitation when the user is created without a password', async () => {
+      userService.create.mockResolvedValue({
+        user: { id: 'u1' },
         membership: { id: 'm1', role: UserRole.TEACHER },
       });
+      invitationService.issueAndSend.mockResolvedValue({ status: 'SENT', medium: 'EMAIL' });
+
+      const dto = { full_name: 'John', email: 'john@test.com', role: UserRole.TEACHER };
+      const result = await controller.createUser(dto as any, TENANT, JWT as any);
+
+      expect(invitationService.issueAndSend).toHaveBeenCalledWith({
+        userId: 'u1',
+        tenantId: TENANT.id,
+        actorUserId: JWT.sub,
+      });
+      expect(result.invitation).toEqual({ status: 'SENT', medium: 'EMAIL' });
+    });
+
+    it('does not issue an invitation when a password was supplied', async () => {
+      userService.create.mockResolvedValue({
+        user: { id: 'u1' },
+        membership: { id: 'm1', role: UserRole.TEACHER },
+      });
+
+      const dto = {
+        full_name: 'John',
+        email: 'john@test.com',
+        role: UserRole.TEACHER,
+        password: 'hunter2hunter2',
+      };
+      const result = await controller.createUser(dto as any, TENANT, JWT as any);
+
+      expect(invitationService.issueAndSend).not.toHaveBeenCalled();
+      expect(result.invitation).toBeNull();
+    });
+
+    it('never fails user creation when invitation dispatch throws', async () => {
+      userService.create.mockResolvedValue({
+        user: { id: 'u1' },
+        membership: { id: 'm1', role: UserRole.TEACHER },
+      });
+      invitationService.issueAndSend.mockRejectedValue(new Error('delivery down'));
+
+      const dto = { full_name: 'John', email: 'john@test.com', role: UserRole.TEACHER };
+      const result = await controller.createUser(dto as any, TENANT, JWT as any);
+
+      expect(result.invitation).toBeNull();
+      expect(result.user.id).toBe('u1');
     });
   });
 
@@ -103,7 +167,12 @@ describe('UserController', () => {
       const result = await controller.findOneUser('u1', TENANT);
 
       expect(userService.findOne).toHaveBeenCalledWith('u1', TENANT.id);
-      expect(result).toEqual({ ...expected, role: null, member_since: null });
+      expect(result).toEqual({
+        ...expected,
+        role: null,
+        member_since: null,
+        invitation_status: 'NONE',
+      });
     });
   });
 
@@ -120,6 +189,41 @@ describe('UserController', () => {
 
       expect(userService.update).toHaveBeenCalledWith('u1', dto, TENANT.id);
       expect(result).toEqual({ ...expected, role: null, member_since: null });
+    });
+  });
+
+  // ────────────────────────
+  //  resetPassword (admin-initiated, #395/#396)
+  // ────────────────────────
+  describe('resetPassword', () => {
+    const JWT = { sub: 'admin-1', email: null, phone: null, memberships: [] };
+    const request = { headers: {}, ip: '127.0.0.1' } as any;
+
+    it('resolves the target via userService.findOne (404s cross-tenant) then delegates to recoveryService.adminReset', async () => {
+      const targetUser = { id: 'u1', email: null, phone: '01712345678' };
+      userService.findOne.mockResolvedValue(targetUser);
+      recoveryService.adminReset.mockResolvedValue({
+        channel: 'SMS',
+        expires_at: new Date('2026-01-01T00:00:00Z'),
+      });
+
+      const result = await controller.resetPassword('u1', TENANT, JWT as any, request);
+
+      expect(userService.findOne).toHaveBeenCalledWith('u1', TENANT.id);
+      expect(recoveryService.adminReset).toHaveBeenCalledWith(
+        expect.objectContaining({ user: targetUser, tenantId: TENANT.id, actorUserId: JWT.sub }),
+      );
+      expect(result).toEqual({ channel: 'SMS', expires_at: new Date('2026-01-01T00:00:00Z') });
+    });
+
+    it('propagates a 404 from userService.findOne without calling adminReset', async () => {
+      const notFound = Object.assign(new Error('not found'), { status: 404 });
+      userService.findOne.mockRejectedValue(notFound);
+
+      await expect(controller.resetPassword('u1', TENANT, JWT as any, request)).rejects.toBe(
+        notFound,
+      );
+      expect(recoveryService.adminReset).not.toHaveBeenCalled();
     });
   });
 
@@ -217,7 +321,7 @@ describe('UserController', () => {
         membership: { id: 'm1' },
       });
 
-      const result = await controller.createUser({ full_name: 'John' } as any, TENANT);
+      const result = await controller.createUser({ full_name: 'John' } as any, TENANT, JWT as any);
 
       expect(result.user).not.toHaveProperty('password_hash');
     });
@@ -318,6 +422,7 @@ describe('UserController', () => {
         controller.createUser(
           { full_name: 'John', email: 'dup@test.com', role: UserRole.TEACHER } as any,
           TENANT,
+          JWT as any,
         ),
       ).rejects.toThrow(ConflictException);
     });

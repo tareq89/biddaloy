@@ -8,6 +8,8 @@ import {
   Param,
   Query,
   UseGuards,
+  HttpCode,
+  Req,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
@@ -17,7 +19,10 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
+import type { Request } from 'express';
 import { UserService, TeacherService } from './users.service';
+import { RecoveryService } from '../account-access/recovery.service';
+import { requestContext } from '../../common/request-context.util';
 import {
   CreateUserDto,
   UpdateUserDto,
@@ -30,7 +35,8 @@ import {
 import { UserResponseDto } from './dto/user-response.dto';
 import { TeacherListResponseDto, TeacherResponseDto } from './dto/teacher-response.dto';
 import { UserRole, JwtPayload } from '@biddaloy/shared';
-import { SETTINGS_RATE_LIMIT } from '../../rate-limit';
+import { SETTINGS_RATE_LIMIT, STRICT_RATE_LIMIT } from '../../rate-limit';
+import { InvitationService } from '../account-access/invitation.service';
 
 @ApiTags('users')
 @ApiTenantAuth()
@@ -40,6 +46,8 @@ export class UserController {
   constructor(
     private readonly userService: UserService,
     private readonly teacherService: TeacherService,
+    private readonly invitationService: InvitationService,
+    private readonly recoveryService: RecoveryService,
   ) {}
 
   // --- User endpoints ---
@@ -49,6 +57,7 @@ export class UserController {
   async createUser(
     @Body() dto: CreateUserDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() jwt: JwtPayload,
   ) {
     const { user, membership } = await this.userService.create(dto, tenant.id);
     // The freshly created entity has no user_tenants relation loaded, so
@@ -57,7 +66,81 @@ export class UserController {
     const userDto = UserResponseDto.fromEntity(user, tenant.id);
     userDto.role = membership.role;
     userDto.member_since = membership.created_at;
-    return { user: userDto, membership };
+
+    // A passwordless account gets its activation link dispatched right
+    // here — a delivery failure must never roll back the user that was
+    // just created, so it's caught rather than allowed to propagate.
+    let invitation: Awaited<ReturnType<InvitationService['issueAndSend']>> | null = null;
+    if (!dto.password) {
+      try {
+        invitation = await this.invitationService.issueAndSend({
+          userId: user.id,
+          tenantId: tenant.id,
+          actorUserId: jwt.sub,
+        });
+      } catch {
+        invitation = null;
+      }
+    }
+    userDto.invitation_status = await this.invitationService.statusFor(user);
+
+    return { user: userDto, membership, invitation };
+  }
+
+  @Post('users/:id/invitation/resend')
+  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
+  @HttpCode(200)
+  @Throttle({ default: STRICT_RATE_LIMIT })
+  @ApiOperation({
+    summary: 'Re-issue an invitation link, revoking any prior link for this user.',
+  })
+  async resendInvitation(
+    @Param('id') id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() jwt: JwtPayload,
+  ) {
+    return this.invitationService.issueAndSend({
+      userId: id,
+      tenantId: tenant.id,
+      actorUserId: jwt.sub,
+    });
+  }
+
+  @Post('users/:id/reset-password')
+  @Roles(UserRole.ADMIN)
+  @HttpCode(200)
+  @Throttle({ default: STRICT_RATE_LIMIT })
+  @ApiOperation({
+    summary:
+      "Admin-initiated password reset (#396's server half). Sends an OTP/link to the target's " +
+      'own contact and revokes their sessions immediately.',
+  })
+  async resetPassword(
+    @Param('id') id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() jwt: JwtPayload,
+    @Req() request: Request,
+  ) {
+    // Asserts the target actually belongs to this tenant (404 otherwise) —
+    // the same check every other `users/:id` route relies on.
+    const user = await this.userService.findOne(id, tenant.id);
+    return this.recoveryService.adminReset({
+      user,
+      tenantId: tenant.id,
+      actorUserId: jwt.sub,
+      context: requestContext(request),
+    });
+  }
+
+  @Delete('users/:id/invitation')
+  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
+  @ApiOperation({ summary: 'Revoke any live invitation link for this user.' })
+  async revokeInvitation(
+    @Param('id') id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() jwt: JwtPayload,
+  ) {
+    return this.invitationService.revoke({ userId: id, tenantId: tenant.id, actorUserId: jwt.sub });
   }
 
   @Get('users')
@@ -94,7 +177,9 @@ export class UserController {
     @CurrentUser() jwt: JwtPayload,
   ) {
     const user = await this.userService.findOne(jwt.sub, tenant.id);
-    return UserResponseDto.fromEntity(user, tenant.id);
+    const dto = UserResponseDto.fromEntity(user, tenant.id);
+    dto.invitation_status = await this.invitationService.statusFor(user);
+    return dto;
   }
 
   /**
@@ -146,7 +231,9 @@ export class UserController {
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     const user = await this.userService.findOne(id, tenant.id);
-    return UserResponseDto.fromEntity(user, tenant.id);
+    const dto = UserResponseDto.fromEntity(user, tenant.id);
+    dto.invitation_status = await this.invitationService.statusFor(user);
+    return dto;
   }
 
   @Patch('users/:id')

@@ -12,6 +12,7 @@ import { AttendanceDevice } from '../src/modules/attendance/entities/attendance-
 import { AttendanceDeviceEvent } from '../src/modules/attendance/entities/attendance-device-event.entity';
 import { AuditLog } from '../src/modules/audit/entities/audit-log.entity';
 import { UserTenant } from '../src/modules/auth/entities/user-tenant.entity';
+import { AuthToken } from '../src/modules/account-access/entities/auth-token.entity';
 import { CommunicationLog } from '../src/modules/communications/entities/communication-log.entity';
 import { ReminderBatch } from '../src/modules/communications/entities/reminder-batch.entity';
 import { FeeStructure } from '../src/modules/fees/entities/fee-structure.entity';
@@ -41,6 +42,7 @@ export const ALL_ENTITIES = [
   AttendanceDeviceEvent,
   AuditLog,
   UserTenant,
+  AuthToken,
   CommunicationLog,
   ReminderBatch,
   FeeStructure,

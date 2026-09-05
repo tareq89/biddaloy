@@ -1,6 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { UserRole, UserStatus } from '@biddaloy/shared';
+import { UserRole, UserStatus, InvitationStatus } from '@biddaloy/shared';
 import { User } from '../entities/user.entity';
+
+const INVITATION_STATUS_VALUES: InvitationStatus[] = [
+  'NONE',
+  'PENDING',
+  'EXPIRED',
+  'REVOKED',
+  'ACTIVATED',
+];
 
 /**
  * The public shape of a User — everything except `password_hash`.
@@ -55,6 +63,13 @@ export class UserResponseDto {
 
   @ApiProperty()
   updated_at: Date;
+
+  /** Derived account-access lifecycle (12.1's D1) — see `deriveInvitationStatus`.
+   * Not set by `fromEntity` itself (it needs an async lookup of the user's
+   * latest invite token); callers populate it separately via
+   * `InvitationService.statusFor`. */
+  @ApiProperty({ enum: INVITATION_STATUS_VALUES })
+  invitation_status: InvitationStatus;
 
   static fromEntity(user: User, tenantId?: string): UserResponseDto {
     const dto = new UserResponseDto();

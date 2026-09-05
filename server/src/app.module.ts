@@ -26,6 +26,7 @@ import { CommunicationsModule } from './modules/communications/communications.mo
 import { AuditModule } from './modules/audit/audit.module';
 import { SchoolsModule } from './modules/schools/schools.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
+import { AccountAccessModule } from './modules/account-access/account-access.module';
 import { validate } from './config/env.validation';
 
 // Entities for auto-loading
@@ -57,6 +58,7 @@ import { AttendanceSession } from './modules/attendance/entities/attendance-sess
 import { AttendanceRecord } from './modules/attendance/entities/attendance-record.entity';
 import { AttendanceDevice } from './modules/attendance/entities/attendance-device.entity';
 import { AttendanceDeviceEvent } from './modules/attendance/entities/attendance-device-event.entity';
+import { AuthToken } from './modules/account-access/entities/auth-token.entity';
 
 @Module({
   imports: [
@@ -116,6 +118,7 @@ import { AttendanceDeviceEvent } from './modules/attendance/entities/attendance-
             AttendanceRecord,
             AttendanceDevice,
             AttendanceDeviceEvent,
+            AuthToken,
           ],
           synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
           migrations: ['dist/migrations/*.js'],
@@ -179,6 +182,7 @@ import { AttendanceDeviceEvent } from './modules/attendance/entities/attendance-
     CommunicationsModule,
     SchoolsModule,
     AttendanceModule,
+    AccountAccessModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

@@ -115,6 +115,41 @@ const ALLOWLIST: AllowlistEntry[] = [
       'resolved from the device row by DeviceAuthGuard; RolesGuard is deliberately absent ' +
       'because a device holds no UserRole. See [9.5].',
   },
+  {
+    controller: 'AccountAccessController',
+    method: 'POST',
+    path: '/auth/activate/verify',
+    reason:
+      '12.2 — checks an invite token before the caller has any credentials at all, same rationale as /auth/login.',
+  },
+  {
+    controller: 'AccountAccessController',
+    method: 'POST',
+    path: '/auth/activate',
+    reason:
+      '12.2 — consumes an invite token and issues credentials in the same request; nothing to authenticate yet, same rationale as /auth/login.',
+  },
+  {
+    controller: 'AccountAccessController',
+    method: 'POST',
+    path: '/auth/activate/resend',
+    reason:
+      '12.2 — self-service, enumeration-safe resend by identifier; the caller has no account session to authenticate with.',
+  },
+  {
+    controller: 'AccountAccessController',
+    method: 'POST',
+    path: '/auth/forgot-password',
+    reason:
+      '12.3 — a locked-out user has no credentials at all yet; enumeration-safe, same rationale as /auth/login.',
+  },
+  {
+    controller: 'AccountAccessController',
+    method: 'POST',
+    path: '/auth/reset-password',
+    reason:
+      '12.3 — consumes an OTP or reset token and issues credentials in the same request; nothing to authenticate yet, same rationale as /auth/activate.',
+  },
 ];
 
 function findAllowlistEntry(

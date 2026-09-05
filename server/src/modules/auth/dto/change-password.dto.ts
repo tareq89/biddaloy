@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, MinLength } from 'class-validator';
+import { PASSWORD_MIN_LENGTH } from '../password-policy';
 
 /**
  * Body of `POST /auth/change-password`.
@@ -10,12 +11,11 @@ import { IsString, MinLength } from 'class-validator';
  * `forbidNonWhitelisted: true`, so a smuggled `user_id` is a 400, not a
  * silently-ignored extra.
  *
- * `@MinLength(1)` matches `LoginDto.password` — the strictest password rule
- * that currently exists in this codebase. There is no password-strength
- * policy anywhere yet (registration's password is merely
- * `@IsOptional() @IsString()`); introducing one is a product decision that
- * belongs in its own issue, applied to registration and this endpoint at
- * the same time so the two can't disagree.
+ * `new_password` enforces the shared password policy (D7, epic #409) —
+ * `PASSWORD_MIN_LENGTH`, the same minimum `account-access`'s `ActivateDto`
+ * uses, so the two endpoints that ever set a password agree.
+ * `current_password` stays `@MinLength(1)`: it only proves possession of
+ * whatever password already exists, which may predate this policy.
  */
 export class ChangePasswordDto {
   @ApiProperty({ description: "The caller's current password, re-entered to prove possession." })
@@ -23,8 +23,8 @@ export class ChangePasswordDto {
   @MinLength(1)
   current_password: string;
 
-  @ApiProperty({ description: 'The new password to store.' })
+  @ApiProperty({ description: 'The new password to store.', minLength: PASSWORD_MIN_LENGTH })
   @IsString()
-  @MinLength(1)
+  @MinLength(PASSWORD_MIN_LENGTH)
   new_password: string;
 }
