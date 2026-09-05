@@ -17,6 +17,8 @@ import {
 
 const API = '/api/v1';
 
+const OTHER_TENANT_ID = '00000000-0000-4000-8000-0000009d0001';
+
 /**
  * E2E tests for [9.5]'s device-authenticated surface: admin device
  * management (JWT-guarded) and the credential-authenticated ingest/roster
@@ -47,6 +49,25 @@ describe('Attendance Devices E2E', () => {
     await app.listen(0);
 
     dataSource = app.get(DataSource);
+
+    // A second tenant, with the same seeded admin also a member there —
+    // lets the cross-tenant tests reuse one login and just switch
+    // X-Tenant-ID, rather than provisioning a second user. Inserted
+    // *before* the admin login below — `ContextGuard` validates
+    // `X-Tenant-ID` against the memberships embedded in the JWT at issue
+    // time, not a fresh DB read, so a membership added after login would
+    // never be visible to that token.
+    await dataSource.query(
+      `INSERT INTO schools (id, name, slug, created_at, updated_at)
+       VALUES ($1, 'Other Devices School', 'other-devices-school', NOW(), NOW())
+       ON CONFLICT DO NOTHING`,
+      [OTHER_TENANT_ID],
+    );
+    await dataSource.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+       VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+      [SEED_ADMIN_USER_ID, OTHER_TENANT_ID, UserRole.ADMIN],
+    );
 
     const adminLoginRes = await supertest(app.getHttpServer())
       .post(`${API}/auth/login`)
@@ -147,7 +168,7 @@ describe('Attendance Devices E2E', () => {
       .expect(200);
   });
 
-  it('401s a revoked device key', async () => {
+  it('revoking a device sets its status to REVOKED (never a hard delete) and 401s its key', async () => {
     const createRes = await supertest(app.getHttpServer())
       .post(`${API}/attendance/devices`)
       .set(adminHeaders())
@@ -160,6 +181,18 @@ describe('Attendance Devices E2E', () => {
       .delete(`${API}/attendance/devices/${deviceId}`)
       .set(adminHeaders())
       .expect(204);
+
+    // Never a hard delete — the row still shows up in the ordinary list,
+    // now with status REVOKED and a recorded revocation time, so past
+    // events keep resolving to a named device.
+    const listRes = await supertest(app.getHttpServer())
+      .get(`${API}/attendance/devices`)
+      .set(adminHeaders())
+      .expect(200);
+    const revoked = (
+      listRes.body as Array<{ id: string; status: string; last_seen_at: unknown }>
+    ).find((d) => d.id === deviceId);
+    expect(revoked?.status).toBe('REVOKED');
 
     await supertest(app.getHttpServer())
       .post(`${API}/attendance/device-events`)
@@ -174,6 +207,59 @@ describe('Attendance Devices E2E', () => {
       .set(teacherHeaders())
       .send({ name: 'Teacher Attempt', kind: AttendanceDeviceKind.RFID })
       .expect(401);
+  });
+
+  it('401s a management route with a missing X-Tenant-ID header', async () => {
+    await supertest(app.getHttpServer())
+      .post(`${API}/attendance/devices`)
+      .set({ Authorization: `Bearer ${adminToken}` })
+      .send({ name: 'No Tenant Header Device', kind: AttendanceDeviceKind.RFID })
+      .expect(401);
+  });
+
+  it('401s a management route naming a tenant the caller is not a member of', async () => {
+    await supertest(app.getHttpServer())
+      .post(`${API}/attendance/devices`)
+      .set({
+        Authorization: `Bearer ${adminToken}`,
+        'X-Tenant-ID': '00000000-0000-4000-8000-000000099999',
+        'X-Role': UserRole.ADMIN,
+      })
+      .send({ name: 'Invalid Tenant Device', kind: AttendanceDeviceKind.RFID })
+      .expect(401);
+  });
+
+  it('does not let a caller in one tenant list, rotate, or delete a device in another tenant', async () => {
+    const otherTenantHeaders = {
+      Authorization: `Bearer ${adminToken}`,
+      'X-Tenant-ID': OTHER_TENANT_ID,
+      'X-Role': UserRole.ADMIN,
+    };
+
+    const createRes = await supertest(app.getHttpServer())
+      .post(`${API}/attendance/devices`)
+      .set(otherTenantHeaders)
+      .send({ name: 'Tenant B Device', kind: AttendanceDeviceKind.RFID })
+      .expect(201);
+    const otherTenantDeviceId = createRes.body.device.id;
+
+    const listRes = await supertest(app.getHttpServer())
+      .get(`${API}/attendance/devices`)
+      .set(adminHeaders())
+      .expect(200);
+    expect((listRes.body as Array<{ id: string }>).some((d) => d.id === otherTenantDeviceId)).toBe(
+      false,
+    );
+
+    await supertest(app.getHttpServer())
+      .post(`${API}/attendance/devices/${otherTenantDeviceId}/rotate`)
+      .set(adminHeaders())
+      .expect(404);
+
+    await supertest(app.getHttpServer())
+      .delete(`${API}/attendance/devices/${otherTenantDeviceId}`)
+      .set(adminHeaders())
+      .expect(404);
   });
 
   it('returns exactly the five allowed roster fields', async () => {

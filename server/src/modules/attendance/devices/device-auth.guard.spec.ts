@@ -78,4 +78,22 @@ describe('DeviceAuthGuard', () => {
     expect(request.currentDevice).toBe(device);
     expect(request.currentTenant).toEqual({ id: 'tenant-1', role: 'DEVICE' });
   });
+
+  it('succeeds on a valid key with no X-Tenant-ID header at all — tenant comes from the device row, not the header', async () => {
+    const device = {
+      id: 'device-1',
+      tenant_id: 'tenant-1',
+      status: AttendanceDeviceStatus.ACTIVE,
+    };
+    const repo = fakeRepo(device);
+    const guard = new DeviceAuthGuard(repo);
+    const request: any = { headers: { 'x-device-key': 'bd_dev_valid_key_000000000000000' } };
+    const context = { switchToHttp: () => ({ getRequest: () => request }) } as any;
+
+    const result = await guard.canActivate(context);
+
+    expect(result).toBe(true);
+    expect(request.currentDevice).toBe(device);
+    expect(request.currentTenant).toEqual({ id: 'tenant-1', role: 'DEVICE' });
+  });
 });
