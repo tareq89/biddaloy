@@ -240,7 +240,10 @@ export async function createTeacherForSection(
   fullName: string,
   sectionId: string,
 ): Promise<FreshTeacher> {
-  const suffix = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
+  // `crypto.randomUUID()`, not `Math.random()` — CodeQL flags `Math.random()`
+  // as insecure randomness wherever the value it seeds ends up in a field
+  // named like a credential (`password` here), even in test-only code.
+  const suffix = crypto.randomUUID();
   const email = `teacher-${suffix}@e2e.example.com`;
   const password = `E2e-Teacher-${suffix}`;
   const created = await post<{ user: { id: string } }>(request, session, '/users', {
