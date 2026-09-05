@@ -26,7 +26,6 @@ import {
   toast,
 } from '@biddaloy/ui/components';
 import {
-  sectionRegisterKey,
   sectionRegisterQueryOptions,
   useActiveTenant,
   useHasPermission,
@@ -39,7 +38,6 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatDate, parseDate } from '@biddaloy/ui/utils';
-import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { History, MoreVertical } from 'lucide-react';
 import * as React from 'react';
@@ -132,7 +130,6 @@ function SectionRegisterPage() {
   const { sectionId } = Route.useParams();
   const { date, period } = Route.useSearch();
   const navigate = Route.useNavigate();
-  const queryClient = useQueryClient();
   const tenantId = useActiveTenant();
   const online = useOnline();
   const canMark = useHasPermission(Permission.ATTENDANCE_MARK);
@@ -319,8 +316,14 @@ function SectionRegisterPage() {
 
   function handleTakeTheirs() {
     setConflict(null);
-    void queryClient.invalidateQueries({ queryKey: sectionRegisterKey(sectionId, date, period) });
-    if (registerQuery.data) setDraft(seedDraft(registerQuery.data));
+    // Clear the persisted draft *before* refetching — the seed effect
+    // above reads localStorage before the server response, so a stale
+    // write still sitting there would win over the fresh register once
+    // this refetch resolves and that effect re-runs.
+    clearDraft(storageKey);
+    void registerQuery.refetch().then((result) => {
+      if (result.data) setDraft(seedDraft(result.data));
+    });
   }
 
   if (registerQuery.isPending) return null;

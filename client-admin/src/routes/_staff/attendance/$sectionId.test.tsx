@@ -219,6 +219,94 @@ describe('/attendance/$sectionId', () => {
     expect(screen.getByRole('button', { name: 'Take theirs' })).toBeTruthy();
   });
 
+  it('"Take theirs" replaces the draft with the freshly-refetched register, not the stale one', async () => {
+    const serverRegister = registerBody({
+      session: {
+        id: 'session-1',
+        date: '2026-09-04',
+        period_no: null,
+        state: 'DRAFT',
+        version: 1,
+        marked_by_user_id: 'user-2',
+        marked_at: '2026-09-04T00:00:00.000Z',
+        finalized_at: null,
+      },
+      students: [
+        {
+          student_id: 'student-1',
+          roll_number: 1,
+          full_name: 'Rafi Ahmed',
+          record_id: 'record-1',
+          status: 'ABSENT',
+          minutes_late: null,
+          remarks: null,
+          source: 'TEACHER',
+          correction_count: 0,
+        },
+        {
+          student_id: 'student-2',
+          roll_number: 2,
+          full_name: 'Nusrat Jahan',
+          record_id: null,
+          status: null,
+          minutes_late: null,
+          remarks: null,
+          source: null,
+          correction_count: 0,
+        },
+      ],
+    });
+    server.use(
+      // The initial load — still the old (stale) version, deliberately
+      // disagreeing with `serverRegister` below.
+      http.get(
+        '/api/v1/attendance/sections/section-1/register',
+        () => HttpResponse.json(registerBody()),
+        { once: true },
+      ),
+      http.put('/api/v1/attendance/sections/section-1/register', () =>
+        HttpResponse.json(
+          {
+            statusCode: 409,
+            message: 'This register changed since you last loaded it',
+            timestamp: new Date().toISOString(),
+            path: '/attendance/sections/section-1/register',
+            requestId: 'req-1',
+            details: { code: 'ATTENDANCE_VERSION_CONFLICT', current_version: 1 },
+          },
+          { status: 409 },
+        ),
+      ),
+      // What "Take theirs" refetches — the real current server state.
+      http.get('/api/v1/attendance/sections/section-1/register', () =>
+        HttpResponse.json(serverRegister),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/attendance/section-1?date=2026-09-04'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+
+    const row = await screen.findByText('Rafi Ahmed');
+    const user = userEvent.setup();
+    await user.click(row); // marks student-1 PRESENT locally
+    await user.click(screen.getByText('Nusrat Jahan')); // marks student-2 PRESENT locally
+    expect(await screen.findByText(/Present 2 ·/)).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Submit register' }));
+    await screen.findByRole('heading', { name: 'This register changed since you loaded it' });
+    await user.click(screen.getByRole('button', { name: 'Take theirs' }));
+
+    // The draft now reflects `serverRegister` (Rafi Absent, Nusrat
+    // unmarked) — not the two locally-clicked PRESENT marks, and not
+    // the stale first-load register either.
+    await waitFor(() => expect(screen.getByText(/Absent 1 ·/)).toBeTruthy());
+    expect(screen.queryByText(/Present 2 ·/)).toBeNull();
+  });
+
   // [9.7]
   function outsideWindowBody() {
     return registerBody({
