@@ -78,13 +78,21 @@ describe('AbsenceNoticeScheduler', () => {
   });
 
   it('does nothing before the tenant-configured cut-off time', async () => {
+    // A literal '23:59' cutoff is "always in the future" for all but one
+    // minute of the real day — at 23:59 Asia/Dhaka, `localTimeHHmm()`
+    // equals the cutoff exactly, the scheduler's `<` comparison is no
+    // longer true, and the sweep proceeds. Pinning the clock removes the
+    // dependency on when the suite happens to run entirely.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-01T09:00:00.000Z')); // 15:00 in Asia/Dhaka
     schoolsService.getResolvedSettings = vi.fn(async () =>
       tenantSettings({
-        attendance: { autoAbsentNotification: { enabled: true, cutoffTime: '23:59' } },
+        attendance: { autoAbsentNotification: { enabled: true, cutoffTime: '18:00' } },
       }),
     );
 
     await scheduler.process();
+    vi.useRealTimers();
 
     expect(sessionRepo.find).not.toHaveBeenCalled();
     expect(absenceNoticeService.sendAbsenceNotices).not.toHaveBeenCalled();
@@ -124,6 +132,15 @@ describe('AbsenceNoticeScheduler', () => {
     await scheduler.process();
 
     expect(absenceNoticeService.sendAbsenceNotices).toHaveBeenCalledTimes(2);
+    // Both sessions, not just "called twice plus one matcher" — that
+    // would still pass if sec-1 were dispatched twice and sec-2 never was.
+    expect(absenceNoticeService.sendAbsenceNotices).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: TENANT,
+        sectionId: 'sec-2',
+        initiatedByUserId: 'admin-1',
+      }),
+    );
     expect(absenceNoticeService.sendAbsenceNotices).toHaveBeenCalledWith(
       expect.objectContaining({
         tenantId: TENANT,
