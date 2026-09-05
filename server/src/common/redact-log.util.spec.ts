@@ -37,6 +37,15 @@ describe('redactPii', () => {
     expect(redactPii('/api/v1/login?password=hunter2')).toBe('/api/v1/login?password=[REDACTED]');
   });
 
+  // 12.1's invitation/reset links carry the raw secret as a `token` query
+  // param (`/activate?token=...`) — the exact shape a request-URL log line
+  // would carry if a delivery failure or an access log ever printed it.
+  it('redacts an activation link token in a URL', () => {
+    expect(redactPii('GET /activate?token=abcDEF123_-xyz → 200')).toBe(
+      'GET /activate?token=[REDACTED] → 200',
+    );
+  });
+
   it('leaves text with no PII untouched', () => {
     expect(redactPii('GET /api/v1/health → 200 [requestId=abc]')).toBe(
       'GET /api/v1/health → 200 [requestId=abc]',
@@ -81,6 +90,15 @@ describe('redactPii', () => {
     expect(redactPii('{"api_key":"abc"}')).toBe('{"api_key":"[REDACTED]"}');
     expect(redactPii('{"PASSWORD":"abc"}')).toBe('{"PASSWORD":"[REDACTED]"}');
     expect(redactPii('{"refresh_token":"abc"}')).toBe('{"refresh_token":"[REDACTED]"}');
+  });
+
+  it('redacts a JSON secret value containing an escaped quote', () => {
+    const errorLine = 'DETAIL: Key (settings)=({"token":"abc\\"def"}) already exists.';
+
+    const redacted = redactPii(errorLine);
+
+    expect(redacted).not.toContain('abc\\"def');
+    expect(redacted).toContain('"token":"[REDACTED]"');
   });
 
   it('leaves non-secret JSON keys untouched', () => {

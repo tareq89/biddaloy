@@ -7,10 +7,12 @@ import { TeacherClassSection } from '../academics/entities/teacher-class-section
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { UserService, TeacherService } from './users.service';
 import { UserController } from './users.controller';
+import { AccountAccessModule } from '../account-access/account-access.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, UserTenant, Teacher, TeacherClassSection, ClassSection]),
+    AccountAccessModule,
   ],
   providers: [UserService, TeacherService],
   controllers: [UserController],

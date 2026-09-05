@@ -142,8 +142,6 @@ export class AuthService {
 
     await this.loginAttempts.reset(identifier);
 
-    const membershipPayload = await this.fetchMembershipPayload(user.id);
-
     // Update last login timestamp
     user.last_login_at = new Date();
     await this.userRepository.save(user);
@@ -158,8 +156,25 @@ export class AuthService {
       user_agent: context.userAgent,
     });
 
-    // Every login starts a brand new rotation family — refresh tokens from
-    // a previous login are never chained onto this one.
+    return this.startSession(user, context);
+  }
+
+  /**
+   * Issues a bearer access token + refresh-token family for `user`, with no
+   * credential check of its own — the caller has already established who
+   * this is (a verified activation token, an already-authenticated flow,
+   * etc). This is `login()`'s session-issuance tail (lines that used to
+   * live only there), pulled out so `ActivationService.activate()` (12.2)
+   * can "auto sign in" a just-activated user without duplicating it or
+   * routing through a password check that makes no sense post-activation.
+   *
+   * Deliberately does **not** touch `last_login_at`, `LoginAttemptService`,
+   * or write a `LOGIN` audit row — those are `login()`'s own concerns, tied
+   * to a credentialed sign-in. Every rotation family starts fresh
+   * (`randomUUID()`), same as `login()`.
+   */
+  async startSession(user: User, context: RequestContext): Promise<AuthResult> {
+    const membershipPayload = await this.fetchMembershipPayload(user.id);
     const familyId = randomUUID();
     const refreshToken = await this.refreshTokens.issueForUser(user.id, familyId, context);
 
@@ -354,8 +369,6 @@ export class AuthService {
     // on, so every identifier this user actually has gets reset — not just one.
     await this.resetLoginLockouts(user);
 
-    const membershipPayload = await this.fetchMembershipPayload(userId);
-
     // `PASSWORD_CHANGED` would need a Postgres enum migration (audit_logs.action
     // is an enum column), and this issue ships none — so the row reuses UPDATE
     // with a `{ scope: 'password' }` marker, mirroring logoutAll's
@@ -372,18 +385,19 @@ export class AuthService {
       new_values: { scope: 'password' },
     });
 
-    // A brand new rotation family, never chained onto the one just revoked.
-    const familyId = randomUUID();
-    const refreshToken = await this.refreshTokens.issueForUser(userId, familyId, context);
-
-    return {
-      access_token: this.signAccessToken(user, membershipPayload),
-      memberships: membershipPayload,
-      refreshToken,
-    };
+    // A brand new rotation family, never chained onto the one just revoked
+    // above — startSession() re-derives memberships and signs a fresh token.
+    return this.startSession(user, context);
   }
 
-  private async resetLoginLockouts(user: User): Promise<void> {
+  /**
+   * Resets every login-lockout counter this user could be sitting under
+   * (one per identifier they hold). Public since 12.2 — `ActivationService
+   * .activate()` calls this too: a freshly activated account must not
+   * inherit lockout state from failed login attempts against its
+   * not-yet-set password.
+   */
+  async resetLoginLockouts(user: User): Promise<void> {
     const identifiers = [user.email, user.phone]
       .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
       .map(normalizeLoginIdentifier);
@@ -413,7 +427,7 @@ export class AuthService {
   // stay byte-for-byte the same ordering `getUserMemberships` uses, hence
   // the shared `EARLIEST_MEMBERSHIP_ORDER`: if the two diverged, the audit
   // tenant and `memberships[0]` could name different schools.
-  private async primaryTenantId(userId: string): Promise<string | null> {
+  async primaryTenantId(userId: string): Promise<string | null> {
     // This lookup only feeds an audit record, but it runs before
     // AuditService.record() ever gets a chance to fail open — left
     // unguarded, a transient DB error here would reject login after

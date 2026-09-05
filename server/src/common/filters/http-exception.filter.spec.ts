@@ -209,6 +209,25 @@ describe('AllExceptionsFilter', () => {
     ).toBe(false);
   });
 
+  // 12.3's forgot-password/reset-password flow: a 6-digit code preceded by
+  // `otp=` (e.g. a query-string echo in an error message) must never reach
+  // the logs in the clear — same shape as password/token above, extended
+  // to the otp/code keys.
+  it("redacts a 6-digit OTP embedded in the exception's detail message", () => {
+    const filter = new AllExceptionsFilter('development');
+    const exception = new InternalServerErrorException('reset failed for ?otp=123456&phone=x');
+
+    filter.catch(exception, mockHost);
+
+    const loggedArgs = (Logger.prototype.error as any).mock.calls.flat();
+    expect(
+      loggedArgs.some((arg: unknown) => typeof arg === 'string' && arg.includes('[REDACTED]')),
+    ).toBe(true);
+    expect(
+      loggedArgs.some((arg: unknown) => typeof arg === 'string' && arg.includes('123456')),
+    ).toBe(false);
+  });
+
   // Logger.error's stack argument is a separate parameter from the message
   // redactPii() is applied to — and Error.stack's own first line repeats
   // the exception's message, so it carries the same PII if left unredacted.

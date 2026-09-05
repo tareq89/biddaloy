@@ -1,8 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import type { Response } from 'express';
 import {
   REFRESH_TOKEN_COOKIE,
   buildRefreshTokenCookieOptions,
   buildRefreshTokenClearCookieOptions,
+  setRefreshCookie,
 } from './token-cookie';
 
 describe('REFRESH_TOKEN_COOKIE', () => {
@@ -41,5 +43,37 @@ describe('buildRefreshTokenClearCookieOptions', () => {
 
   it('omits maxAge — clearing a cookie is about deletion, not expiry', () => {
     expect(buildRefreshTokenClearCookieOptions()).not.toHaveProperty('maxAge');
+  });
+});
+
+describe('setRefreshCookie', () => {
+  it('sets the refresh cookie on the response with the __Host- flags', () => {
+    const cookie = vi.fn();
+    const response = { cookie } as unknown as Response;
+    const expiresAt = new Date(Date.now() + 60_000);
+
+    setRefreshCookie(response, { cookieValue: 'id.secret', expiresAt });
+
+    expect(cookie).toHaveBeenCalledTimes(1);
+    const [name, value, options] = cookie.mock.calls[0] as [
+      string,
+      string,
+      ReturnType<typeof buildRefreshTokenCookieOptions>,
+    ];
+    expect(name).toBe(REFRESH_TOKEN_COOKIE);
+    expect(value).toBe('id.secret');
+    expect(options.httpOnly).toBe(true);
+    expect(options.secure).toBe(true);
+    expect(options.sameSite).toBe('strict');
+  });
+
+  it('accepts an explicit ttlMs override instead of deriving maxAge from expiresAt', () => {
+    const cookie = vi.fn();
+    const response = { cookie } as unknown as Response;
+
+    setRefreshCookie(response, { cookieValue: 'id.secret', expiresAt: new Date(0) }, 5000);
+
+    const [, , options] = cookie.mock.calls[0] as [string, string, { maxAge: number }];
+    expect(options.maxAge).toBe(5000);
   });
 });

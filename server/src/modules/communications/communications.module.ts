@@ -55,6 +55,11 @@ import { COMMUNICATIONS_QUEUE } from './communications.constants';
     ConnectionTestService,
   ],
   controllers: [CommunicationsController, ProviderConnectionTestController],
-  exports: [CommunicationsService, BulkReminderService, SingleReminderService],
+  exports: [
+    CommunicationsService,
+    BulkReminderService,
+    SingleReminderService,
+    CommunicationProviderRegistryService,
+  ],
 })
 export class CommunicationsModule {}

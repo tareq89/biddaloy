@@ -56,6 +56,7 @@ export function userResponseFactory(
     // Membership date — distinct from the account's created_at so tests
     // catch code rendering the wrong one as "member since".
     member_since: '2025-03-15T00:00:00.000Z',
+    invitation_status: 'NONE',
     ...overrides,
   };
 }

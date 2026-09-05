@@ -83,6 +83,7 @@ export const REFERENCE_TABLES_CHILD_FIRST = [
   'class_sections',
   'classes',
   'academic_years',
+  'auth_tokens',
   'user_tenants',
   'users',
   'schools',

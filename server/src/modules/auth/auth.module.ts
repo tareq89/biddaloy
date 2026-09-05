@@ -127,6 +127,8 @@ const DEFAULT_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60_000; // 30 days
     RolesGuard,
     JwtStrategy,
     ACCESS_TOKEN_TTL_MS,
+    RefreshTokenService,
+    AccessTokenDenylistService,
   ],
 })
 export class AuthModule {}

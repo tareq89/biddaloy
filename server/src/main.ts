@@ -15,8 +15,11 @@ import { buildVersioningOptions } from './api-versioning';
 import { buildSwaggerDocumentConfig, shouldMountDocs, DOCS_PATH } from './swagger';
 import { buildDocsBasicAuthMiddleware, buildDocsCspOverrideMiddleware } from './docs-auth';
 import { buildSpaFallback } from './spa-fallback';
+import { assertSecretEchoAllowed } from './modules/account-access/account-access-echo';
 
 async function bootstrap() {
+  assertSecretEchoAllowed(process.env.NODE_ENV, process.env.ACCOUNT_ACCESS_ECHO_SECRETS);
+
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const logger = new Logger('Bootstrap');
 

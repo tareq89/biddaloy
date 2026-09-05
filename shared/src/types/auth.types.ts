@@ -41,3 +41,16 @@ export interface LoginResponse {
   access_token: string;
   memberships: JwtMembership[];
 }
+
+/**
+ * A user's account-access lifecycle state (12.1's D1), derived — never
+ * stored — from `users.password_hash` plus the newest `auth_tokens` row
+ * with `purpose = 'INVITE'`:
+ * - `NONE` — no password, no invite was ever issued.
+ * - `PENDING` — the newest invite is still live (not expired/consumed/revoked).
+ * - `EXPIRED` — the newest invite is past its `expires_at`, never consumed.
+ * - `REVOKED` — the newest invite was explicitly revoked.
+ * - `ACTIVATED` — the user has a password (set directly, or via consuming
+ *   an invite).
+ */
+export type InvitationStatus = 'NONE' | 'PENDING' | 'EXPIRED' | 'REVOKED' | 'ACTIVATED';
