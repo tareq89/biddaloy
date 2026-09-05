@@ -100,6 +100,10 @@ export function AttendanceStatusControl({
 }: AttendanceStatusControlProps) {
   const { t } = useTranslation('attendance');
   const [open, setOpen] = React.useState(false);
+  // Not `minutes-late-${studentName}` — two rows for students who share a
+  // name would render the same id, and a click on either label would
+  // then focus whichever input happened to be first in the DOM.
+  const minutesLateId = React.useId();
 
   function handleSelect(status: AttendanceStatus) {
     onChange(status);
@@ -110,14 +114,11 @@ export function AttendanceStatusControl({
     if (!onMinutesLateChange) return null;
     return (
       <div className="flex flex-col gap-1">
-        <label
-          htmlFor={`minutes-late-${studentName}`}
-          className="text-xs font-medium text-muted-foreground"
-        >
+        <label htmlFor={minutesLateId} className="text-xs font-medium text-muted-foreground">
           {t('statusControl.minutesLateLabel')}
         </label>
         <Input
-          id={`minutes-late-${studentName}`}
+          id={minutesLateId}
           type="number"
           min={0}
           max={1440}

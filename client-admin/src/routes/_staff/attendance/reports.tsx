@@ -123,10 +123,16 @@ function ReportsPageContent() {
   const view = filters.view === 'flags' ? 'flags' : 'summary';
   const month = filters.month ?? currentMonthIso();
   const { from, to } = monthToRange(month);
-  const threshold =
+  // A free-text filter — reject anything that doesn't parse to a real
+  // number rather than forwarding NaN, which would both request
+  // `threshold: NaN` server-side and make `isLow`'s `percentage < NaN`
+  // silently false (never flagging a row) for the rest of the session.
+  const parsedThreshold =
     filters.threshold !== undefined && filters.threshold !== ''
       ? Number(filters.threshold)
       : undefined;
+  const threshold =
+    parsedThreshold !== undefined && Number.isFinite(parsedThreshold) ? parsedThreshold : undefined;
 
   const classesQuery = useClasses();
   const sectionsQuery = useClassSections(filters.class_id);

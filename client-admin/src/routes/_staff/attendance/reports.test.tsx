@@ -168,6 +168,32 @@ describe('/attendance/reports', () => {
     expect(screen.getByText('Low')).toBeTruthy();
   });
 
+  it('drops a non-numeric threshold instead of sending NaN to the server', async () => {
+    let capturedThreshold: string | null | undefined;
+    server.use(
+      http.get('/api/v1/attendance/flags/low', ({ request }) => {
+        capturedThreshold = new URL(request.url).searchParams.get('threshold');
+        return HttpResponse.json({
+          data: [flagRow()],
+          total: 1,
+          page: 1,
+          limit: 20,
+          totalPages: 1,
+        });
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/attendance/reports?view=flags&threshold=abc'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText('Nadia Islam');
+    expect(capturedThreshold).toBeNull();
+  });
+
   it('never renders 0% for a student with a null attendance_percentage', async () => {
     server.use(
       http.get('/api/v1/attendance/sections/:sectionId/register-matrix', () =>

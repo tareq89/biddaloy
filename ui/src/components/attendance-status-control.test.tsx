@@ -121,6 +121,41 @@ describe('AttendanceStatusControl — compact variant', () => {
     fireEvent.change(input, { target: { value: '9' } });
     expect(onMinutesLateChange).toHaveBeenLastCalledWith(9);
   });
+
+  it('gives each instance its own minutes-late input id when studentName repeats', async () => {
+    const user = userEvent.setup();
+    await renderInEnglish(
+      <>
+        <AttendanceStatusControl
+          value={AttendanceStatus.LATE}
+          onChange={vi.fn()}
+          minutesLate={5}
+          onMinutesLateChange={vi.fn()}
+          studentName="Rahim Uddin"
+        />
+        <AttendanceStatusControl
+          value={AttendanceStatus.LATE}
+          onChange={vi.fn()}
+          minutesLate={10}
+          onMinutesLateChange={vi.fn()}
+          studentName="Rahim Uddin"
+        />
+      </>,
+    );
+    const triggers = screen.getAllByRole('button', { name: /Rahim Uddin, currently Late/ });
+    // Opening the second popover closes the first (Radix's outside-click
+    // behavior) — check each id individually rather than expecting both
+    // rendered at once; `useId()` guarantees uniqueness either way.
+    await user.click(triggers[0] as HTMLElement);
+    const firstInput = await screen.findByLabelText('Minutes late');
+    const firstId = firstInput.id;
+    expect((firstInput as HTMLInputElement).value).toBe('5');
+
+    await user.click(triggers[1] as HTMLElement);
+    const secondInput = await screen.findByLabelText('Minutes late');
+    expect((secondInput as HTMLInputElement).value).toBe('10');
+    expect(secondInput.id).not.toBe(firstId);
+  });
 });
 
 describe('AttendanceStatusControl — expanded variant', () => {
