@@ -64,6 +64,26 @@ async function post<T>(
   return (await response.json()) as T;
 }
 
+/** [9.11] `journeys/attendance.spec.ts`'s "server state" leg — asserts
+ * through the API rather than re-reading the UI it just wrote, since a UI
+ * that lies to itself would pass a UI-only assertion. */
+export async function get<T>(
+  request: APIRequestContext,
+  session: ApiSession,
+  path: string,
+): Promise<T> {
+  const response = await request.get(`/api/v1${path}`, {
+    headers: {
+      Authorization: `Bearer ${session.token}`,
+      'X-Tenant-ID': session.tenantId,
+    },
+  });
+  if (!response.ok()) {
+    throw new Error(`GET ${path} failed: ${response.status()} ${await response.text()}`);
+  }
+  return (await response.json()) as T;
+}
+
 /** Students require a real class section (`class_section_id` is a
  * mandatory UUID) — build the academic-year → class → section chain
  * once per call. Unique names keep this idempotent-enough for a shared

@@ -144,6 +144,26 @@ describe('computeAttendancePercentage', () => {
     expect(percentage).toBeNull();
   });
 
+  // [9.11] Pins `11-attendance.md`'s worked example — "September 2026 has
+  // 23 working days; Rahim was present 19, late 2, absent 1, on leave 1;
+  // denominator = 23 − 1 = 22, numerator = 19 + 2 = 21, percentage =
+  // 95.45" — as a real assertion, so the doc's arithmetic can't drift from
+  // this function's actual behavior.
+  it('matches the worked example in docs/architecture/11-attendance.md (23 working days -> 95.45%)', () => {
+    const percentage = computeAttendancePercentage(
+      {
+        working_days: 23,
+        marked_days: 23,
+        present_days: 19,
+        late_days: 2,
+        absent_days: 1,
+        leave_days: 1,
+      },
+      basePolicy, // lateCountsAsPresent: true, leaveCountsAsWorkingDay: false
+    );
+    expect(percentage).toBe(95.45);
+  });
+
   it('rounds to 2 decimal places', () => {
     const percentage = computeAttendancePercentage(
       {

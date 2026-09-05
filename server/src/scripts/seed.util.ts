@@ -1,5 +1,14 @@
-import { UserRole, UserStatus } from '@biddaloy/shared';
-import { FindOptionsWhere, ObjectLiteral, Repository } from 'typeorm';
+import {
+  AttendanceDeviceKind,
+  AttendanceDeviceStatus,
+  AttendanceSessionState,
+  AttendanceSource,
+  AttendanceStatus,
+  TeacherDesignation,
+  UserRole,
+  UserStatus,
+} from '@biddaloy/shared';
+import { FindOptionsWhere, IsNull, ObjectLiteral, Repository } from 'typeorm';
 import { School } from '../modules/schools/entities/school.entity';
 import { User } from '../modules/users/entities/user.entity';
 import { UserTenant } from '../modules/auth/entities/user-tenant.entity';
@@ -8,6 +17,14 @@ import { Class } from '../modules/academics/entities/class.entity';
 import { ClassSection } from '../modules/academics/entities/class-section.entity';
 import { Student } from '../modules/students/entities/student.entity';
 import { Guardian } from '../modules/students/entities/guardian.entity';
+import { Subject } from '../modules/academics/entities/subject.entity';
+import { SchoolHoliday } from '../modules/academics/entities/school-holiday.entity';
+import { Teacher } from '../modules/academics/entities/teacher.entity';
+import { TeacherClassSection } from '../modules/academics/entities/teacher-class-section.entity';
+import { AttendanceSession } from '../modules/attendance/entities/attendance-session.entity';
+import { AttendanceRecord } from '../modules/attendance/entities/attendance-record.entity';
+import { AttendanceDevice } from '../modules/attendance/entities/attendance-device.entity';
+import { hashDeviceKey } from '../modules/attendance/devices/device.service';
 
 /** [8.9.5] manual-testing aid: gives the seed admin a *second* school
  * membership so `/select-school`'s picker actually has something to show
@@ -455,6 +472,386 @@ export async function ensureDemoStudents(
     console.log(
       `  Demo roster: +${result.classes} classes, +${result.sections} sections, ` +
         `+${result.students} students, +${result.guardians} guardians`,
+    );
+  }
+  return result;
+}
+
+/** [9.11] Deterministic attendance ground truth, seeded on top of
+ * `ensureDemoStudents`'s "Class 6" / section "A" roster (exactly
+ * {@link DEMO_STUDENTS_PER_SECTION} students — the low-attendance-flag
+ * assertion below depends on there being exactly one below threshold).
+ *
+ * Every date is derived from {@link ATTENDANCE_SEED_MONTH}, never
+ * `new Date()` — the same command run twice must produce byte-identical
+ * rows. Every *working day of the whole month* is marked, not an
+ * arbitrary sub-range — `GET /attendance/flags/low` (and the reports
+ * page built on it) computes a percentage over the whole calendar month
+ * it's asked about, so a partially-marked month would dilute every
+ * student's percentage with unmarked days that read as absent under the
+ * default `WORKING_DAYS` denominator, flagging students this seed never
+ * intended to flag. */
+export const ATTENDANCE_SEED_MONTH = '2026-03';
+
+/** SHA-256-hashed and stored on the seeded ACTIVE device — kept obviously
+ * fake and duplicated (not imported) from `e2e/seed-contract.ts`;
+ * `seed.util.spec.ts` asserts the two stay equal. */
+export const SEED_DEVICE_KEY = 'bd_dev_seed_0000000000000000000000000000';
+
+const ATTENDANCE_SEED_SUBJECTS: readonly { code: string; nameEn: string; nameBn: string }[] = [
+  { code: 'BAN', nameEn: 'Bangla', nameBn: 'বাংলা' },
+  { code: 'ENG', nameEn: 'English', nameBn: 'ইংরেজি' },
+  { code: 'MATH', nameEn: 'Mathematics', nameBn: 'গণিত' },
+  { code: 'SCI', nameEn: 'Science', nameBn: 'বিজ্ঞান' },
+  { code: 'REL', nameEn: 'Religion', nameBn: 'ধর্ম' },
+];
+
+/** Two holidays, deliberately outside the attendance window below: one
+ * single day, one multi-day, and one (`counts_as_working_day: true`) that
+ * exercises the working-day calculator's own exception with real seeded
+ * data rather than only a unit-test fixture. */
+const ATTENDANCE_SEED_HOLIDAYS: readonly {
+  name: string;
+  startDate: string;
+  endDate: string;
+  countsAsWorkingDay: boolean;
+}[] = [
+  {
+    name: 'Independence Day',
+    startDate: '2026-03-26',
+    endDate: '2026-03-26',
+    countsAsWorkingDay: false,
+  },
+  {
+    name: 'Eid Break',
+    startDate: '2026-05-18',
+    endDate: '2026-05-20',
+    countsAsWorkingDay: false,
+  },
+  {
+    name: 'Half-Yearly Exam Day',
+    startDate: '2026-06-10',
+    endDate: '2026-06-10',
+    countsAsWorkingDay: true,
+  },
+];
+
+/** Epoch-day arithmetic identical to `attendance-policy.util.ts`'s
+ * private `toEpochDay` — duplicated rather than imported, since this
+ * script has no dependency on the attendance module's internal utility
+ * and a one-line date computation isn't worth adding one. */
+function epochDay(dateIso: string): number {
+  const [year, month, day] = dateIso.split('-').map(Number);
+  return Date.UTC(year, month - 1, day) / (24 * 60 * 60 * 1000);
+}
+
+/** `0` = Sunday .. `6` = Saturday, matching `epochDay(0)` (1970-01-01)
+ * being a Thursday (weekday 4). */
+function weekdayOf(dateIso: string): number {
+  return (((epochDay(dateIso) + 4) % 7) + 7) % 7;
+}
+
+const WEEKLY_OFF_WEEKDAY = 5; // Friday — Bangladesh's default weekly off.
+
+function isHoliday(
+  dateIso: string,
+  holidays: readonly { startDate: string; endDate: string; countsAsWorkingDay: boolean }[],
+): boolean {
+  return holidays.some(
+    (h) => !h.countsAsWorkingDay && dateIso >= h.startDate && dateIso <= h.endDate,
+  );
+}
+
+/** Every working day (not Friday, not a non-working holiday) in
+ * `monthIso` (`'YYYY-MM'`), ascending. */
+function workingDaysInMonth(
+  monthIso: string,
+  holidays: readonly { startDate: string; endDate: string; countsAsWorkingDay: boolean }[],
+): string[] {
+  const [year, month] = monthIso.split('-').map(Number);
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const days: string[] = [];
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const iso = `${monthIso}-${String(day).padStart(2, '0')}`;
+    if (weekdayOf(iso) !== WEEKLY_OFF_WEEKDAY && !isHoliday(iso, holidays)) {
+      days.push(iso);
+    }
+  }
+  return days;
+}
+
+/** Every working day of {@link ATTENDANCE_SEED_MONTH} — computed once so
+ * {@link ATTENDANCE_SEED_ABSENT_DATE} below and `ensureAttendanceSeed`'s
+ * own loop can never disagree about which date a given index actually is.
+ * `ATTENDANCE_SEED_HOLIDAYS` is defined above this, so its one March
+ * holiday is already excluded here. */
+const ATTENDANCE_SEED_WORKING_DAYS = workingDaysInMonth(
+  ATTENDANCE_SEED_MONTH,
+  ATTENDANCE_SEED_HOLIDAYS,
+);
+
+/** Roll 1's one seeded ABSENT day — `e2e/seed-contract.ts` duplicates this
+ * literal (not imported — production code never imports from `e2e/`) and
+ * `seed.util.spec.ts` asserts the two stay equal, the same drift-guard
+ * shape as {@link SEED_DEVICE_KEY}. */
+export const ATTENDANCE_SEED_ABSENT_DATE = ATTENDANCE_SEED_WORKING_DAYS[7];
+
+/** One entry per seeded day, ascending, one row per working day of
+ * {@link ATTENDANCE_SEED_MONTH} (26 of them, once the one March holiday
+ * is excluded).
+ *
+ * Distribution, against exactly 3 students (`DEMO_STUDENTS_PER_SECTION`):
+ * - student 0 (roll 1, `parent@biddaloy.test`'s linked child): PRESENT
+ *   except one ABSENT day — a real absence on the one child this seed's
+ *   guardian account can actually see in the portal.
+ * - student 1 (roll 2): PRESENT except two LATE days and one LEAVE day —
+ *   exercises every status in one roster.
+ * - student 2 (roll 3): mostly ABSENT — the single student below the
+ *   `lowAttendanceThresholdPercent` default (75%), so the flags-list
+ *   assertion can expect a count of exactly 1 rather than "at least one".
+ *   Marking every working day of the month (not a sub-range) matters
+ *   here: `GET /attendance/flags/low` computes over the whole month it's
+ *   asked about, so any unmarked working day would otherwise read as an
+ *   absence under the default `WORKING_DAYS` denominator and drag every
+ *   student's percentage down, flagging students this seed never
+ *   intended to flag.
+ */
+function statusForDay(studentIndex: number, dayIndex: number): AttendanceStatus {
+  if (studentIndex === 0) {
+    // Roll 1 — `ensureDemoStudents` links the tenant's *first* roster slot
+    // to `guardians[0]`, which is in turn linked to `parent@biddaloy.test`
+    // (see that function's own comment). One ABSENT day gives the portal
+    // journey ([9.11]) a real absence to find on this exact child, rather
+    // than a roster where the only linked child is always PRESENT.
+    return dayIndex === 7 ? AttendanceStatus.ABSENT : AttendanceStatus.PRESENT;
+  }
+  if (studentIndex === 1) {
+    if (dayIndex === 3 || dayIndex === 9) return AttendanceStatus.LATE;
+    if (dayIndex === 12) return AttendanceStatus.LEAVE;
+    return AttendanceStatus.PRESENT;
+  }
+  // studentIndex === 2: present roughly one day in three — comfortably
+  // below the 75% threshold regardless of exactly how many working days
+  // the month turns out to have.
+  return dayIndex % 3 === 0 ? AttendanceStatus.PRESENT : AttendanceStatus.ABSENT;
+}
+
+export interface AttendanceSeedRepositories {
+  subjectRepository: Repository<Subject>;
+  schoolHolidayRepository: Repository<SchoolHoliday>;
+  teacherRepository: Repository<Teacher>;
+  teacherClassSectionRepository: Repository<TeacherClassSection>;
+  attendanceSessionRepository: Repository<AttendanceSession>;
+  attendanceRecordRepository: Repository<AttendanceRecord>;
+  attendanceDeviceRepository: Repository<AttendanceDevice>;
+}
+
+export interface AttendanceSeedParams {
+  schoolId: string;
+  academicYearId: string;
+  /** "Class 6" / section "A" — see this function's own docstring. */
+  sectionId: string;
+  /** Exactly `DEMO_STUDENTS_PER_SECTION` ids, in roll-number order —
+   * index 0 is roll 1, and so on. */
+  studentIds: readonly string[];
+  teacherUserId: string;
+}
+
+export interface AttendanceSeedResult {
+  subjects: number;
+  holidays: number;
+  sessions: number;
+  records: number;
+  devices: number;
+}
+
+/** Idempotent, same find-or-create shape as every other `ensure*` in this
+ * file. Everything is scoped to `params.schoolId`. */
+export async function ensureAttendanceSeed(
+  repos: AttendanceSeedRepositories,
+  params: AttendanceSeedParams,
+): Promise<AttendanceSeedResult> {
+  const { schoolId, academicYearId, sectionId, studentIds, teacherUserId } = params;
+  const result: AttendanceSeedResult = {
+    subjects: 0,
+    holidays: 0,
+    sessions: 0,
+    records: 0,
+    devices: 0,
+  };
+
+  // --- subjects --------------------------------------------------------
+  for (const { code, nameEn, nameBn } of ATTENDANCE_SEED_SUBJECTS) {
+    const existing = await repos.subjectRepository.findOne({
+      where: { tenant_id: schoolId, code },
+      withDeleted: true,
+    });
+    if (!existing) {
+      await repos.subjectRepository.save(
+        repos.subjectRepository.create({
+          tenant_id: schoolId,
+          code,
+          name_en: nameEn,
+          name_bn: nameBn,
+        }),
+      );
+      result.subjects += 1;
+    } else if (existing.deleted_at) {
+      await repos.subjectRepository.save(undelete(existing));
+    }
+  }
+
+  // --- holidays ----------------------------------------------------------
+  for (const holiday of ATTENDANCE_SEED_HOLIDAYS) {
+    const existing = await repos.schoolHolidayRepository.findOne({
+      where: { tenant_id: schoolId, name: holiday.name },
+      withDeleted: true,
+    });
+    if (!existing) {
+      await repos.schoolHolidayRepository.save(
+        repos.schoolHolidayRepository.create({
+          tenant_id: schoolId,
+          academic_year_id: academicYearId,
+          name: holiday.name,
+          start_date: holiday.startDate,
+          end_date: holiday.endDate,
+          counts_as_working_day: holiday.countsAsWorkingDay,
+        }),
+      );
+      result.holidays += 1;
+    } else if (existing.deleted_at) {
+      await repos.schoolHolidayRepository.save(undelete(existing));
+    }
+  }
+
+  // --- teacher profile + section mapping ---------------------------------
+  // Without this, every teacher-scoped attendance route 403s for the
+  // seeded `teacher@biddaloy.test` account — `AttendanceAccessService`
+  // resolves markable sections through `teacher_class_sections`, not the
+  // JWT role alone.
+  let teacher = await repos.teacherRepository.findOne({
+    where: { user_id: teacherUserId },
+    withDeleted: true,
+  });
+  if (!teacher) {
+    teacher = repos.teacherRepository.create({
+      user_id: teacherUserId,
+      employee_id: 'SEED-TEACHER-0001',
+      designations: [TeacherDesignation.CLASS_TEACHER],
+      tenant_id: schoolId,
+    });
+    await repos.teacherRepository.save(teacher);
+  } else if (teacher.deleted_at) {
+    await repos.teacherRepository.save(undelete(teacher));
+  }
+
+  const existingMapping = await repos.teacherClassSectionRepository.findOne({
+    where: { teacher_id: teacher.id, section_id: sectionId, subject_id: IsNull() },
+  });
+  if (!existingMapping) {
+    await repos.teacherClassSectionRepository.save(
+      repos.teacherClassSectionRepository.create({
+        teacher_id: teacher.id,
+        section_id: sectionId,
+        tenant_id: schoolId,
+        subject_id: null,
+      }),
+    );
+  }
+
+  // --- attendance sessions + records --------------------------------
+  const workingDays = ATTENDANCE_SEED_WORKING_DAYS;
+  for (const [dayIndex, dateIso] of workingDays.entries()) {
+    let session = await repos.attendanceSessionRepository.findOne({
+      where: { tenant_id: schoolId, section_id: sectionId, date: dateIso, period_no: IsNull() },
+    });
+    if (!session) {
+      session = repos.attendanceSessionRepository.create({
+        tenant_id: schoolId,
+        section_id: sectionId,
+        date: dateIso,
+        period_no: null,
+        source: AttendanceSource.TEACHER,
+        state: AttendanceSessionState.FINALIZED,
+        marked_by_user_id: teacherUserId,
+        // Derived from the session's own date, not `new Date()` — two
+        // seed runs must write the identical timestamp.
+        marked_at: new Date(`${dateIso}T12:00:00Z`),
+        finalized_at: new Date(`${dateIso}T12:00:00Z`),
+      });
+      await repos.attendanceSessionRepository.save(session);
+      result.sessions += 1;
+    }
+
+    for (const [studentIndex, studentId] of studentIds.entries()) {
+      const existingRecord = await repos.attendanceRecordRepository.findOne({
+        where: { session_id: session.id, student_id: studentId },
+      });
+      if (existingRecord) continue;
+
+      const status = statusForDay(studentIndex, dayIndex);
+      await repos.attendanceRecordRepository.save(
+        repos.attendanceRecordRepository.create({
+          tenant_id: schoolId,
+          session_id: session.id,
+          student_id: studentId,
+          date: dateIso,
+          status,
+          minutes_late: status === AttendanceStatus.LATE ? 10 : null,
+          source: AttendanceSource.TEACHER,
+          recorded_by_user_id: teacherUserId,
+        }),
+      );
+      result.records += 1;
+    }
+  }
+
+  // --- devices ---------------------------------------------------------
+  const activeDeviceName = 'Seed Front-Gate Scanner';
+  const existingActiveDevice = await repos.attendanceDeviceRepository.findOne({
+    where: { tenant_id: schoolId, name: activeDeviceName },
+  });
+  if (!existingActiveDevice) {
+    await repos.attendanceDeviceRepository.save(
+      repos.attendanceDeviceRepository.create({
+        tenant_id: schoolId,
+        name: activeDeviceName,
+        kind: AttendanceDeviceKind.RFID,
+        token_hash: hashDeviceKey(SEED_DEVICE_KEY),
+        token_last4: SEED_DEVICE_KEY.slice(-4),
+        section_id: sectionId,
+        roster_access: true,
+        status: AttendanceDeviceStatus.ACTIVE,
+      }),
+    );
+    result.devices += 1;
+  }
+
+  const revokedDeviceKey = 'bd_dev_seed_revoked_0000000000000000000';
+  const revokedDeviceName = 'Seed Retired Scanner';
+  const existingRevokedDevice = await repos.attendanceDeviceRepository.findOne({
+    where: { tenant_id: schoolId, name: revokedDeviceName },
+  });
+  if (!existingRevokedDevice) {
+    await repos.attendanceDeviceRepository.save(
+      repos.attendanceDeviceRepository.create({
+        tenant_id: schoolId,
+        name: revokedDeviceName,
+        kind: AttendanceDeviceKind.BIOMETRIC,
+        token_hash: hashDeviceKey(revokedDeviceKey),
+        token_last4: revokedDeviceKey.slice(-4),
+        roster_access: false,
+        status: AttendanceDeviceStatus.REVOKED,
+        revoked_at: new Date('2026-01-01T00:00:00Z'),
+      }),
+    );
+    result.devices += 1;
+  }
+
+  if (result.sessions > 0 || result.subjects > 0 || result.devices > 0) {
+    console.log(
+      `  Attendance seed: +${result.subjects} subjects, +${result.holidays} holidays, ` +
+        `+${result.sessions} sessions, +${result.records} records, +${result.devices} devices`,
     );
   }
   return result;

@@ -58,12 +58,19 @@ export function isWeeklyOff(dateIso: string, policy: AttendancePolicySettings): 
 }
 
 /**
- * The tenant's current local calendar date, as `'YYYY-MM-DD'`. `en-CA`
- * formats dates as `YYYY-MM-DD` directly, so no manual part-assembly is
- * needed.
+ * The calendar date `instant` falls on in `timezone`, as `'YYYY-MM-DD'`.
+ * `en-CA` formats dates as `YYYY-MM-DD` directly, so no manual
+ * part-assembly is needed. Used by [9.5]'s device check-in path to decide
+ * which day's register a device event belongs to — a scan at
+ * `2026-09-04T19:00Z` is already the 5th in Asia/Dhaka (UTC+6).
  */
+export function localDate(instant: Date, timezone: string): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(instant);
+}
+
+/** The tenant's current local calendar date, as `'YYYY-MM-DD'`. */
 export function localToday(timezone: string): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date());
+  return localDate(new Date(), timezone);
 }
 
 /** Whole calendar days from `aIso` to `bIso` (`bIso - aIso`). Positive when

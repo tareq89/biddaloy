@@ -23,6 +23,9 @@ const SENSITIVE_KEYS = new Set([
   'clientsecret',
   'jti',
   'authorization',
+  'x-device-key',
+  'devicekey',
+  'device_key',
 ]);
 
 const REDACTED = '[REDACTED]';

@@ -9,7 +9,20 @@ import { Class } from '../modules/academics/entities/class.entity';
 import { ClassSection } from '../modules/academics/entities/class-section.entity';
 import { Student } from '../modules/students/entities/student.entity';
 import { Guardian } from '../modules/students/entities/guardian.entity';
-import { ensureDemoStudents, ensureRoleTestUsers, ensureSecondSchoolMembership } from './seed.util';
+import { Subject } from '../modules/academics/entities/subject.entity';
+import { SchoolHoliday } from '../modules/academics/entities/school-holiday.entity';
+import { Teacher } from '../modules/academics/entities/teacher.entity';
+import { TeacherClassSection } from '../modules/academics/entities/teacher-class-section.entity';
+import { AttendanceSession } from '../modules/attendance/entities/attendance-session.entity';
+import { AttendanceRecord } from '../modules/attendance/entities/attendance-record.entity';
+import { AttendanceDevice } from '../modules/attendance/entities/attendance-device.entity';
+import {
+  DEMO_ACADEMIC_YEAR,
+  ensureAttendanceSeed,
+  ensureDemoStudents,
+  ensureRoleTestUsers,
+  ensureSecondSchoolMembership,
+} from './seed.util';
 
 /**
  * The account/membership/roster half of the seed, deliberately kept in its
@@ -39,6 +52,13 @@ export interface SeedAccountRepositories {
   classSectionRepository: Repository<ClassSection>;
   studentRepository: Repository<Student>;
   guardianRepository: Repository<Guardian>;
+  subjectRepository: Repository<Subject>;
+  schoolHolidayRepository: Repository<SchoolHoliday>;
+  teacherRepository: Repository<Teacher>;
+  teacherClassSectionRepository: Repository<TeacherClassSection>;
+  attendanceSessionRepository: Repository<AttendanceSession>;
+  attendanceRecordRepository: Repository<AttendanceRecord>;
+  attendanceDeviceRepository: Repository<AttendanceDevice>;
 }
 
 /** Creates/repairs the seed accounts, their memberships and the demo
@@ -159,4 +179,53 @@ export async function seedAccounts(
     school.id,
     parentTestUser?.id ?? null,
   );
+
+  // [9.11]: deterministic attendance ground truth — subjects, holidays, a
+  // teacher/section mapping, 15 days of marks, and two devices — on top of
+  // the just-seeded "Class 6" / section "A" roster. Deliberately after
+  // `ensureDemoStudents`: the section and its exactly-3-student roster
+  // must already exist to attach attendance to them.
+  const teacherTestUser = await repos.userRepository.findOne({
+    where: { email: 'teacher@biddaloy.test' },
+  });
+  if (teacherTestUser) {
+    const academicYear = await repos.academicYearRepository.findOne({
+      where: { name: DEMO_ACADEMIC_YEAR.name, tenant_id: school.id },
+    });
+    const attendanceClass = await repos.classRepository.findOne({
+      where: { name: 'Class 6', tenant_id: school.id, academic_year_id: academicYear?.id },
+    });
+    const attendanceSection = attendanceClass
+      ? await repos.classSectionRepository.findOne({
+          where: { class_id: attendanceClass.id, section_name: 'A', tenant_id: school.id },
+        })
+      : null;
+    const attendanceStudents = attendanceSection
+      ? await repos.studentRepository.find({
+          where: { class_section_id: attendanceSection.id, tenant_id: school.id },
+          order: { roll_number: 'ASC' },
+        })
+      : [];
+
+    if (academicYear && attendanceSection && attendanceStudents.length > 0) {
+      await ensureAttendanceSeed(
+        {
+          subjectRepository: repos.subjectRepository,
+          schoolHolidayRepository: repos.schoolHolidayRepository,
+          teacherRepository: repos.teacherRepository,
+          teacherClassSectionRepository: repos.teacherClassSectionRepository,
+          attendanceSessionRepository: repos.attendanceSessionRepository,
+          attendanceRecordRepository: repos.attendanceRecordRepository,
+          attendanceDeviceRepository: repos.attendanceDeviceRepository,
+        },
+        {
+          schoolId: school.id,
+          academicYearId: academicYear.id,
+          sectionId: attendanceSection.id,
+          studentIds: attendanceStudents.map((s) => s.id),
+          teacherUserId: teacherTestUser.id,
+        },
+      );
+    }
+  }
 }

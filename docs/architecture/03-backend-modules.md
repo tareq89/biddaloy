@@ -16,6 +16,7 @@ flowchart LR
         classes["classes\nClass + ClassSection"]
         students["students\nStudent + Guardian + bulk upload"]
         enrollments["enrollments"]
+        attendance["attendance\nregisters, corrections,\ndevice ingest"]
     end
     subgraph Money
         fees["fees\nFeeStructure, generation,\ndues, payments"]
@@ -32,24 +33,27 @@ flowchart LR
     students --> fees
     fees --> invoices
     fees --> communications
+    attendance --> classes
+    attendance --> communications
 ```
 
 ## Module reference
 
-| Module           | Owns                                                                                   | Key routes (all under `/api/v1/`)                                                                                                                               |
-| ---------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `auth`           | Login, refresh-token rotation, logout, access-token denylist, login lockout            | `POST auth/login`, `POST auth/refresh`, `POST auth/logout`, `POST auth/logout-all`                                                                              |
-| `users`          | `User` + `Teacher` CRUD                                                                | `POST/GET/PATCH/DELETE users`, `POST/GET/PATCH teachers`                                                                                                        |
-| `schools`        | `School` (tenant) entity + per-tenant settings (comms provider config, currency, etc.) | Internal service only today — no public controller yet                                                                                                          |
-| `academics`      | `AcademicYear`                                                                         | `POST/GET/PATCH/DELETE academic-years`, `POST academic-years/:id/set-current`                                                                                   |
-| `classes`        | `Class` + `ClassSection`                                                               | `POST/GET/PATCH/DELETE classes`, nested `.../sections` routes                                                                                                   |
-| `students`       | `Student`, `Guardian`, Excel bulk upload                                               | `POST/GET/PATCH/DELETE students`, `POST students/bulk-upload`, `POST/GET/PATCH/DELETE guardians`                                                                |
-| `enrollments`    | `Enrollment` history                                                                   | `POST enrollments`, `GET enrollments/student/:studentId`, `PATCH enrollments/:id`                                                                               |
-| `fees`           | `FeeStructure`, fee generation engine, dues/flagging, `Payment` + allocations          | `POST/GET/PATCH/DELETE fee-structures`, `POST fees/generate`, `GET fees/dues`, `GET fees/dues/flagged`, `POST payments`, `POST payments/record-with-allocation` |
-| `invoices`       | `Invoice`                                                                              | `POST/GET invoices`, `GET invoices/:id/print`                                                                                                                   |
-| `communications` | `CommunicationLog`, `ReminderBatch`, provider adapters                                 | `POST communications/send`, `POST communications/reminder/single/:studentId`, `POST communications/reminder/bulk`                                               |
-| `audit`          | Read access to `AuditLog`                                                              | `GET audit`                                                                                                                                                     |
-| `health`         | Liveness check, version-neutral                                                        | `GET /api/health`                                                                                                                                               |
+| Module           | Owns                                                                                     | Key routes (all under `/api/v1/`)                                                                                                                                                                            |
+| ---------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `auth`           | Login, refresh-token rotation, logout, access-token denylist, login lockout              | `POST auth/login`, `POST auth/refresh`, `POST auth/logout`, `POST auth/logout-all`                                                                                                                           |
+| `users`          | `User` + `Teacher` CRUD                                                                  | `POST/GET/PATCH/DELETE users`, `POST/GET/PATCH teachers`                                                                                                                                                     |
+| `schools`        | `School` (tenant) entity + per-tenant settings (comms provider config, currency, etc.)   | Internal service only today — no public controller yet                                                                                                                                                       |
+| `academics`      | `AcademicYear`                                                                           | `POST/GET/PATCH/DELETE academic-years`, `POST academic-years/:id/set-current`                                                                                                                                |
+| `classes`        | `Class` + `ClassSection`                                                                 | `POST/GET/PATCH/DELETE classes`, nested `.../sections` routes                                                                                                                                                |
+| `students`       | `Student`, `Guardian`, Excel bulk upload                                                 | `POST/GET/PATCH/DELETE students`, `POST students/bulk-upload`, `POST/GET/PATCH/DELETE guardians`                                                                                                             |
+| `enrollments`    | `Enrollment` history                                                                     | `POST enrollments`, `GET enrollments/student/:studentId`, `PATCH enrollments/:id`                                                                                                                            |
+| `attendance`     | `AttendanceSession`/`Record`, corrections, summaries, auto-absent notices, device ingest | `GET attendance/my-sections`, `PUT attendance/sections/:id/register`, `PATCH attendance/records/:id`, `GET attendance/flags/low`, `POST attendance/device-events` — see [11-attendance.md](11-attendance.md) |
+| `fees`           | `FeeStructure`, fee generation engine, dues/flagging, `Payment` + allocations            | `POST/GET/PATCH/DELETE fee-structures`, `POST fees/generate`, `GET fees/dues`, `GET fees/dues/flagged`, `POST payments`, `POST payments/record-with-allocation`                                              |
+| `invoices`       | `Invoice`                                                                                | `POST/GET invoices`, `GET invoices/:id/print`                                                                                                                                                                |
+| `communications` | `CommunicationLog`, `ReminderBatch`, provider adapters                                   | `POST communications/send`, `POST communications/reminder/single/:studentId`, `POST communications/reminder/bulk`                                                                                            |
+| `audit`          | Read access to `AuditLog`                                                                | `GET audit`                                                                                                                                                                                                  |
+| `health`         | Liveness check, version-neutral                                                          | `GET /api/health`                                                                                                                                                                                            |
 
 ## Cross-cutting `common/`
 

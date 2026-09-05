@@ -1,4 +1,5 @@
 export { AppShellPage } from './app-shell';
+export { AttendancePage } from './attendance-page';
 export { ListShellPage, type ListShellConfig } from './list-shell';
 export { DetailShellPage } from './detail-shell';
 export { FormShellPage } from './form-shell';

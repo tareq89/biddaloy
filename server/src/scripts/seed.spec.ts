@@ -9,6 +9,13 @@ import type { Class } from '../modules/academics/entities/class.entity';
 import type { ClassSection } from '../modules/academics/entities/class-section.entity';
 import type { Student } from '../modules/students/entities/student.entity';
 import type { Guardian } from '../modules/students/entities/guardian.entity';
+import type { Subject } from '../modules/academics/entities/subject.entity';
+import type { SchoolHoliday } from '../modules/academics/entities/school-holiday.entity';
+import type { Teacher } from '../modules/academics/entities/teacher.entity';
+import type { TeacherClassSection } from '../modules/academics/entities/teacher-class-section.entity';
+import type { AttendanceSession } from '../modules/attendance/entities/attendance-session.entity';
+import type { AttendanceRecord } from '../modules/attendance/entities/attendance-record.entity';
+import type { AttendanceDevice } from '../modules/attendance/entities/attendance-device.entity';
 import { seedAccounts, type SeedAccountRepositories } from './seed.accounts';
 
 /**
@@ -36,6 +43,30 @@ class FakeRepo<T extends Record<string, unknown>> {
         (options.withDeleted === true || row.deleted_at == null),
     );
     return Promise.resolve(found ?? null);
+  }
+
+  /** Only what `seedAccounts`' [9.11] attendance lookup needs: a `where`
+   * match plus an optional single-key ascending `order`, mirroring
+   * `findOne` above rather than TypeORM's full `find` surface. */
+  find(options: {
+    where: Record<string, unknown>;
+    order?: Record<string, 'ASC' | 'DESC'>;
+  }): Promise<T[]> {
+    const matches = this.rows.filter(
+      (row) =>
+        Object.entries(options.where).every(([key, value]) => row[key] === value) &&
+        row.deleted_at == null,
+    );
+    const orderKey = options.order ? Object.keys(options.order)[0] : undefined;
+    if (orderKey) {
+      matches.sort((a, b) => {
+        const direction = options.order?.[orderKey] === 'DESC' ? -1 : 1;
+        const av = a[orderKey];
+        const bv = b[orderKey];
+        return av === bv ? 0 : av! < bv! ? -direction : direction;
+      });
+    }
+    return Promise.resolve(matches);
   }
 
   create(data: Partial<T>): T {
@@ -87,6 +118,34 @@ function makeRepos() {
       clock,
       'guardian',
     ).asRepository() as unknown as Repository<Guardian>,
+    subjectRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'subject',
+    ).asRepository() as unknown as Repository<Subject>,
+    schoolHolidayRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'holiday',
+    ).asRepository() as unknown as Repository<SchoolHoliday>,
+    teacherRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'teacher',
+    ).asRepository() as unknown as Repository<Teacher>,
+    teacherClassSectionRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'tcs',
+    ).asRepository() as unknown as Repository<TeacherClassSection>,
+    attendanceSessionRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'attendance-session',
+    ).asRepository() as unknown as Repository<AttendanceSession>,
+    attendanceRecordRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'attendance-record',
+    ).asRepository() as unknown as Repository<AttendanceRecord>,
+    attendanceDeviceRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'attendance-device',
+    ).asRepository() as unknown as Repository<AttendanceDevice>,
   } satisfies SeedAccountRepositories;
   return { repos, users, schools, userTenants, students };
 }

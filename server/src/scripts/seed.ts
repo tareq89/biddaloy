@@ -10,6 +10,13 @@ import { Class } from '../modules/academics/entities/class.entity';
 import { ClassSection } from '../modules/academics/entities/class-section.entity';
 import { Student } from '../modules/students/entities/student.entity';
 import { Guardian } from '../modules/students/entities/guardian.entity';
+import { Subject } from '../modules/academics/entities/subject.entity';
+import { SchoolHoliday } from '../modules/academics/entities/school-holiday.entity';
+import { Teacher } from '../modules/academics/entities/teacher.entity';
+import { TeacherClassSection } from '../modules/academics/entities/teacher-class-section.entity';
+import { AttendanceSession } from '../modules/attendance/entities/attendance-session.entity';
+import { AttendanceRecord } from '../modules/attendance/entities/attendance-record.entity';
+import { AttendanceDevice } from '../modules/attendance/entities/attendance-device.entity';
 import { seedAccounts } from './seed.accounts';
 
 export { seedAccounts, type SeedAccountRepositories } from './seed.accounts';
@@ -55,6 +62,13 @@ export async function seed() {
       classSectionRepository: dataSource.getRepository(ClassSection),
       studentRepository: dataSource.getRepository(Student),
       guardianRepository: dataSource.getRepository(Guardian),
+      subjectRepository: dataSource.getRepository(Subject),
+      schoolHolidayRepository: dataSource.getRepository(SchoolHoliday),
+      teacherRepository: dataSource.getRepository(Teacher),
+      teacherClassSectionRepository: dataSource.getRepository(TeacherClassSection),
+      attendanceSessionRepository: dataSource.getRepository(AttendanceSession),
+      attendanceRecordRepository: dataSource.getRepository(AttendanceRecord),
+      attendanceDeviceRepository: dataSource.getRepository(AttendanceDevice),
     },
     school,
     adminEmail,

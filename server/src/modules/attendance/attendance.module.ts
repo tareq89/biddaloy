@@ -24,6 +24,11 @@ import { AttendanceSummaryController } from './attendance-summary.controller';
 import { AbsenceNoticeService } from './absence-notice.service';
 import { AbsenceNoticeController } from './absence-notice.controller';
 import { AbsenceNoticeScheduler, ABSENCE_NOTICE_SWEEP_QUEUE } from './absence-notice.scheduler';
+import { DeviceService } from './devices/device.service';
+import { DeviceEventsService } from './devices/device-events.service';
+import { DeviceAuthGuard } from './devices/device-auth.guard';
+import { DevicesController } from './devices/devices.controller';
+import { DeviceIngestController } from './devices/device-ingest.controller';
 
 /**
  * [9.2] was entity-only. [9.3] fills `providers`/`controllers` in. [9.4]
@@ -86,8 +91,17 @@ import { AbsenceNoticeScheduler, ABSENCE_NOTICE_SWEEP_QUEUE } from './absence-no
     AttendanceSummaryService,
     AbsenceNoticeService,
     AbsenceNoticeScheduler,
+    DeviceService,
+    DeviceEventsService,
+    DeviceAuthGuard,
   ],
-  controllers: [AttendanceController, AttendanceSummaryController, AbsenceNoticeController],
+  controllers: [
+    AttendanceController,
+    AttendanceSummaryController,
+    AbsenceNoticeController,
+    DevicesController,
+    DeviceIngestController,
+  ],
   exports: [TypeOrmModule, AttendanceService, AttendanceAccessService, AttendanceSummaryService],
 })
 export class AttendanceModule {}

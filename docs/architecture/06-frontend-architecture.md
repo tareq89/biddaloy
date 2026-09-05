@@ -35,8 +35,8 @@ flowchart TD
     LOGIN["/login, /select-school\n(chrome-free)"]
     STAFF["_staff.tsx (pathless)\nSTAFF_ROLES guard + AppShell + staff nav"]
     PORTAL["portal.tsx\nGUARDIAN_ROLES guard + lighter shell"]
-    SROUTES["/dashboard, /students, /students/:id,\n/fees, /settings, /invoices/:id"]
-    PROUTES["/portal, /portal/fees"]
+    SROUTES["/dashboard, /students, /students/:id,\n/fees, /settings, /invoices/:id,\n/attendance, /attendance/:sectionId"]
+    PROUTES["/portal, /portal/fees, /portal/attendance"]
 
     ROOT --> SLASH
     ROOT --> LOGIN
@@ -328,6 +328,10 @@ The full table, one row per staff route:
 | `/_staff/classes/$classId`                | `CLASS_MANAGE`            |
 | `/_staff/audit-logs/`                     | `AUDIT_LOG_READ`          |
 | `/_staff/settings`                        | `SETTINGS_MANAGE`         |
+| `/_staff/attendance/`                     | `ATTENDANCE_READ`         |
+| `/_staff/attendance/$sectionId`           | `ATTENDANCE_READ`         |
+| `/_staff/attendance/reports`              | `ATTENDANCE_READ`         |
+| `/_staff/attendance/register`             | `ATTENDANCE_READ`         |
 
 Each permission is the same one `_staff.tsx`'s sidebar already gates that
 route's nav item on — a route and its own nav entry cannot drift apart
@@ -511,12 +515,15 @@ That last row is the one worth guarding: "you have nothing unsynced" and
 "I cannot tell whether you have anything unsynced" must never look the same
 to someone deciding whether it is safe to close the tab.
 
-**Nothing produces queued mutations yet.** [8.12.4] shipped the engine and
-[8.12.5] the indicator, but the anticipated first consumer — a teacher
-marking attendance — needs attendance endpoints that are not in
-`openapi.json`, and a `client-teacher` app that does not exist. The engine
-is wired (`startQueueReplay()` runs at boot in `client-admin/src/main.tsx`)
-and tested against mocks; it is not yet exercised by a real feature.
+**`enqueueMutation` now has a real consumer.** [8.12.4] shipped the engine
+and [8.12.5] the indicator queue-less; [9.6] is the first feature to
+actually call `enqueueMutation` — the teacher marking screen
+(`/attendance/$sectionId`) queues a `PUT .../register` write when
+`useOnline()` reports offline, instead of the client-admin app that was
+speculated here before attendance shipped. `startQueueReplay()`'s wiring
+in `client-admin/src/main.tsx` predates this by two tickets and needed no
+change — it was already generic over `QueueableEntity`, attendance's
+`'attendance'` member included.
 
 ### Tenant isolation
 
