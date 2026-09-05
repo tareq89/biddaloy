@@ -75,6 +75,23 @@ describe('/activate', () => {
     );
   });
 
+  it('shows the suspended state when the account is suspended after verification', async () => {
+    server.use(
+      authHandlers.refreshFailure,
+      authHandlers.activateVerify,
+      authHandlers.activateSuspended,
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/activate?token=a-valid-invite-token-value'],
+      locale: 'en',
+    });
+
+    await setPassword();
+
+    await waitFor(() => expect(screen.getByText('This account has been suspended.')).toBeTruthy());
+  });
+
   it('a successful activation navigates to the dashboard, same as a single-membership login', async () => {
     server.use(authHandlers.refreshFailure, authHandlers.activateVerify, authHandlers.activate);
 

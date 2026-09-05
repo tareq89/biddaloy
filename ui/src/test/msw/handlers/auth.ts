@@ -102,6 +102,12 @@ const activate = http.post('/api/v1/auth/activate', () =>
   HttpResponse.json(loginResponseFactory()),
 );
 
+/** `POST /auth/activate` — the `suspended` terminal case (a user account
+ * suspended after the invite's own `verify` check passed). */
+const activateSuspended = http.post('/api/v1/auth/activate', () =>
+  HttpResponse.json(apiErrorBody(400, 'suspended', '/api/v1/auth/activate'), { status: 400 }),
+);
+
 const activateResend = http.post(
   '/api/v1/auth/activate/resend',
   () => new HttpResponse(null, { status: 202 }),
@@ -166,6 +172,7 @@ export const authHandlers = {
   activateVerify,
   activateVerifyExpired,
   activate,
+  activateSuspended,
   activateResend,
   forgotPassword,
   forgotPasswordRateLimited,

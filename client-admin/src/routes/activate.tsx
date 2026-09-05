@@ -13,7 +13,8 @@ import {
 } from '@biddaloy/ui/components';
 import type { SignInFormError } from '@biddaloy/ui/components';
 import { activate } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { detectLoginIdentifier } from '@biddaloy/ui/utils';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import type { TFunction } from 'i18next';
@@ -35,9 +36,15 @@ export const Route = createFileRoute('/activate')({
   component: ActivatePage,
 });
 
-type TerminalStatus = 'expired' | 'consumed' | 'revoked' | 'unknown';
+type TerminalStatus = 'expired' | 'consumed' | 'revoked' | 'unknown' | 'suspended';
 
-const TERMINAL_STATUSES: readonly TerminalStatus[] = ['expired', 'consumed', 'revoked', 'unknown'];
+const TERMINAL_STATUSES: readonly TerminalStatus[] = [
+  'expired',
+  'consumed',
+  'revoked',
+  'unknown',
+  'suspended',
+];
 
 function isTerminalStatus(value: string): value is TerminalStatus {
   return (TERMINAL_STATUSES as readonly string[]).includes(value);
@@ -89,9 +96,26 @@ function LinkIcon() {
  * copy regardless of what actually happened server-side. */
 function ResendForm() {
   const { t } = useTranslation('auth');
+  const regionConfig = useRegionConfig();
   const [identifier, setIdentifier] = React.useState('');
   const mutation = useMutation({
-    mutationFn: () => postAuthActivateResend(identifier),
+    mutationFn: () => {
+      // Canonicalized (same as SignInForm/forgot-password's identifier
+      // step) — ActivationService.resend only trims/lowercases and does
+      // an exact match, so an uncanonicalized phone (+880, Bengali
+      // digits) would silently no-op instead of resending. Falls back to
+      // the raw trimmed value when it doesn't parse as either shape —
+      // resend is enumeration-safe either way, so there's no valid input
+      // this could wrongly reject.
+      const detected = detectLoginIdentifier(identifier, regionConfig);
+      const canonical =
+        detected.kind === 'email'
+          ? detected.email
+          : detected.kind === 'phone'
+            ? detected.phone
+            : identifier.trim();
+      return postAuthActivateResend(canonical);
+    },
   });
 
   if (mutation.isSuccess) {
