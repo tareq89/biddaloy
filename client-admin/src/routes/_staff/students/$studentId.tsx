@@ -48,10 +48,14 @@ export const Route = createFileRoute('/_staff/students/$studentId')({
       queryClient
         .ensureQueryData(studentQueryOptions(params.studentId))
         .catch(swallowUnlessOffline),
-      // 'portal' — `-detail/attendance-tab.tsx` renders `AttendanceMonthGrid`,
-      // which calls `useTranslation('portal')`; without this, a first
-      // visit before that namespace is cached elsewhere suspends to the
-      // top-level blank fallback instead of the tab's own skeleton.
+      // 'portal' namespace — `-detail/attendance-tab.tsx` renders
+      // AttendanceMonthGrid, which reads its copy from that namespace;
+      // without this, a first visit before it's cached elsewhere suspends
+      // to the top-level blank fallback instead of the tab's own skeleton.
+      // (Deliberately not spelled as a literal useTranslation(...) call in
+      // this comment — check-i18n-keys.mjs's namespace-resolution regex
+      // isn't a real parser and would match that text as this file's own
+      // useTranslation call, misrouting every t() call below.)
       loadRouteNamespaces('students', 'common', 'portal'),
     ]),
   pendingComponent: StudentDetailPending,
