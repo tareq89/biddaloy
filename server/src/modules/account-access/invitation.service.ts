@@ -15,6 +15,7 @@ import { AuthTokenService, INVITE_TTL_MS } from './auth-token.service';
 import { AccountAccessDeliveryService, pickChannel } from './account-access-delivery.service';
 import { deriveInvitationStatus } from './invitation-status.util';
 import { isSecretEchoEnabled } from './account-access-echo';
+import { resolveAppBaseUrl } from './app-base-url.util';
 
 export interface IssueAndSendInput {
   userId: string;
@@ -30,8 +31,6 @@ export interface IssueAndSendResult {
   expires_at: Date;
   debug?: { token: string };
 }
-
-const DEFAULT_APP_BASE_URL = 'http://localhost:5174';
 
 @Injectable()
 export class InvitationService {
@@ -61,12 +60,7 @@ export class InvitationService {
   }
 
   private appBaseUrl(): string {
-    const configured = this.config.get<string>('APP_BASE_URL');
-    if (configured) return configured;
-    if (this.config.get<string>('NODE_ENV') === 'production') {
-      throw new Error('APP_BASE_URL must be set in production to build invitation/reset links.');
-    }
-    return DEFAULT_APP_BASE_URL;
+    return resolveAppBaseUrl(this.config);
   }
 
   async issueAndSend(input: IssueAndSendInput): Promise<IssueAndSendResult> {
@@ -118,7 +112,7 @@ export class InvitationService {
 
   async revoke(input: { userId: string; tenantId: string; actorUserId: string }): Promise<void> {
     await this.loadMember(input.userId, input.tenantId);
-    await this.authTokens.revokeLive(input.userId, AuthTokenPurpose.INVITE);
+    await this.authTokens.revokeLive(input.userId, AuthTokenPurpose.INVITE, input.tenantId);
     await this.audit.record({
       action: AuditAction.INVITATION_REVOKED,
       entity_type: 'User',
@@ -128,8 +122,29 @@ export class InvitationService {
     });
   }
 
-  async statusFor(user: Pick<User, 'id' | 'password_hash'>): Promise<InvitationStatus> {
-    const latest = await this.authTokens.latest(user.id, AuthTokenPurpose.INVITE);
+  async statusFor(
+    user: Pick<User, 'id' | 'password_hash'>,
+    tenantId: string,
+  ): Promise<InvitationStatus> {
+    const latest = await this.authTokens.latest(user.id, AuthTokenPurpose.INVITE, tenantId);
     return deriveInvitationStatus(user, latest);
+  }
+
+  /** Bulk form of `statusFor` for list responses — one query for the whole page instead of one per row. */
+  async statusForMany(
+    users: Pick<User, 'id' | 'password_hash'>[],
+    tenantId: string,
+  ): Promise<Map<string, InvitationStatus>> {
+    const latestByUserId = await this.authTokens.latestMany(
+      users.map((u) => u.id),
+      AuthTokenPurpose.INVITE,
+      tenantId,
+    );
+    return new Map(
+      users.map((user) => [
+        user.id,
+        deriveInvitationStatus(user, latestByUserId.get(user.id) ?? null),
+      ]),
+    );
   }
 }

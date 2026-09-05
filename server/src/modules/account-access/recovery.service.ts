@@ -21,6 +21,7 @@ import { OtpService } from './otp.service';
 import { AuthTokenService, PASSWORD_RESET_TTL_MS } from './auth-token.service';
 import { AccountAccessDeliveryService, pickChannel } from './account-access-delivery.service';
 import { isSecretEchoEnabled } from './account-access-echo';
+import { resolveAppBaseUrl } from './app-base-url.util';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 
 const BCRYPT_COST = 10;
@@ -324,7 +325,7 @@ export class RecoveryService {
   }
 
   private buildResetLink(rawToken: string): string {
-    const base = this.config.get<string>('APP_BASE_URL') ?? 'http://localhost:5174';
+    const base = resolveAppBaseUrl(this.config);
     return `${base}/reset-password?token=${encodeURIComponent(rawToken)}`;
   }
 
