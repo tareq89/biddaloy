@@ -181,7 +181,7 @@ export async function seedAccounts(
   );
 
   // [9.11]: deterministic attendance ground truth — subjects, holidays, a
-  // teacher/section mapping, 15 days of marks, and two devices — on top of
+  // teacher/section mapping, marks for every working day, and two devices — on top of
   // the just-seeded "Class 6" / section "A" roster. Deliberately after
   // `ensureDemoStudents`: the section and its exactly-3-student roster
   // must already exist to attach attendance to them.

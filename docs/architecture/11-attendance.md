@@ -47,8 +47,11 @@ each entity's own docstring for column-level detail.
 
 ## 3. How a mark gets recorded
 
-Three paths write the same tables, and all three respect the same
-version/conflict contract:
+Three paths write the same tables, but not the same contract: teacher
+writes (online or replayed from the offline queue) share the
+`base_version`/`client_request_id` conflict contract; device ingest has
+no `base_version` — it uses `device_event_id` idempotency, a per-event
+outcome, and teacher precedence instead (see [§7](#7-integrating-a-device)).
 
 ```mermaid
 sequenceDiagram
@@ -108,7 +111,7 @@ correct.
 The formula, from `attendance-summary.service.ts`'s
 `computeAttendancePercentage`:
 
-```
+```text
 denominator = (percentageDenominator === 'MARKED_DAYS' ? marked_days : working_days)
               − (leaveCountsAsWorkingDay ? 0 : leave_days)
 numerator   = present_days + (lateCountsAsPresent ? late_days : 0)

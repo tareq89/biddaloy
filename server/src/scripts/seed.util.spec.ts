@@ -757,8 +757,15 @@ describe('ensureAttendanceSeed', () => {
 
     await ensureAttendanceSeed(repos, BASE_PARAMS);
 
+    // The exact id `save()` assigned the newly-created teacher — asserted
+    // by identity, not a hardcoded literal, so this test would fail if a
+    // future change mapped the section to some *other* teacher's id.
+    const createdTeacher = vi.mocked(repos.teacherRepository.create).mock.calls[0]?.[0] as {
+      id?: string;
+    };
     expect(repos.teacherClassSectionRepository.create).toHaveBeenCalledTimes(1);
     expect(vi.mocked(repos.teacherClassSectionRepository.create).mock.calls[0]?.[0]).toMatchObject({
+      teacher_id: createdTeacher.id,
       section_id: 'section-1',
       subject_id: null,
     });
