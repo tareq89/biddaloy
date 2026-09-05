@@ -1,4 +1,4 @@
-import { IsString, Matches } from 'class-validator';
+import { IsISO8601, IsString, Matches } from 'class-validator';
 import { CommunicationMedium, ReminderBatchStatus } from '@biddaloy/shared';
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
@@ -7,6 +7,9 @@ const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 export class AbsenceNoticeDateDto {
   @IsString()
   @Matches(DATE_ONLY, { message: 'date must be YYYY-MM-DD' })
+  // `@Matches` only checks the shape — '2026-13-45' passes it and would
+  // otherwise reach the Postgres date query as a 500 instead of a 400.
+  @IsISO8601({ strict: true }, { message: 'date must be a real calendar date' })
   date: string;
 }
 

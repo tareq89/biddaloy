@@ -31,6 +31,11 @@ describe('Absence Notice E2E', () => {
 
   const TENANT_ID = SEED_TENANT_ID;
   const SECTION_ID = SEED_SECTION_1_ID;
+  // Valid UUID shape, but no `user_tenants` row for the admin — same
+  // convention `fee-structures.e2e-spec.ts` uses for "invalid/non-member
+  // X-Tenant-ID", which also doubles as the tenant-isolation case: the
+  // admin's token proves nothing about a tenant they aren't a member of.
+  const NON_MEMBER_TENANT_ID = '00000000-0000-4000-8000-000000000098';
 
   function todayIso(): string {
     return new Date().toISOString().slice(0, 10);
@@ -114,6 +119,18 @@ describe('Absence Notice E2E', () => {
         .expect(401);
     });
 
+    it('returns 401 for an invalid/non-member X-Tenant-ID', async () => {
+      const res = await supertest(app.getHttpServer())
+        .post(`/api/v1/attendance/sections/${SECTION_ID}/absence-notice/preview`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', NON_MEMBER_TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .send({ date: todayIso() })
+        .expect(401);
+
+      expect(res.body.message).toContain('not a member of tenant');
+    });
+
     it('writes a REMINDER_PREVIEWED audit row', async () => {
       await supertest(app.getHttpServer())
         .post(`/api/v1/attendance/sections/${SECTION_ID}/absence-notice/preview`)
@@ -163,6 +180,18 @@ describe('Absence Notice E2E', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ date: todayIso() })
         .expect(401);
+    });
+
+    it('returns 401 for an invalid/non-member X-Tenant-ID', async () => {
+      const res = await supertest(app.getHttpServer())
+        .post(`/api/v1/attendance/sections/${SECTION_ID}/absence-notice/send`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', NON_MEMBER_TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .send({ date: todayIso() })
+        .expect(401);
+
+      expect(res.body.message).toContain('not a member of tenant');
     });
   });
 });
