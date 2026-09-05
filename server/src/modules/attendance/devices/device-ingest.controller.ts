@@ -32,6 +32,17 @@ const DEVICE_INGEST_RATE_LIMIT = { limit: 120, ttl: 60_000 };
  * row by `DeviceAuthGuard`; `RolesGuard` is deliberately absent because a
  * device holds no `UserRole`. See [9.5] and the `route-guard-coverage`
  * allowlist entries for these three routes.
+ *
+ * Throttled by the same global tracker every other route uses
+ * (`rate-limit-tracker.ts`), which — since a device carries no JWT —
+ * buckets these requests by IP. That shares one bucket across every
+ * device behind one school's NAT, the same limitation `/auth/login` and
+ * every other unauthenticated route already has; a `DeviceAuthGuard`-only
+ * tracker keyed on `request.currentDevice` would need its own
+ * `ThrottlerGuard` subclass wired into the DI graph, which several
+ * existing integration specs compile `AttendanceModule` standalone
+ * (without `ThrottlerModule`) and would break on. Not worth the
+ * complexity for a rate-limit tier, not an authorization boundary.
  */
 @ApiTags('attendance-devices')
 @ApiHeader({ name: 'X-Device-Key', required: true, description: "The device's credential." })
