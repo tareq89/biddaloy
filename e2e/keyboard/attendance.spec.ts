@@ -73,7 +73,7 @@ test('teacher marks and submits a whole section without touching the mouse', asy
     await expect(page.getByRole('link', { name: t('nav.skipToContent') })).toBeFocused();
     await tabUntilFocused(page, t('nav.items.attendance'));
     await page.keyboard.press('Enter');
-    await expect(page.getByRole('heading', { name: t('list.title') })).toBeVisible();
+    await expect(page.getByRole('heading', { name: t('attendance.list.title') })).toBeVisible();
   });
 
   await test.step('open the only mapped section', async () => {
@@ -87,9 +87,9 @@ test('teacher marks and submits a whole section without touching the mouse', asy
   await test.step('reach the roster, mark everyone present, submit', async () => {
     await tabUntilFocused(page, 'Keyboard Student 01', 40, { tag: 'BUTTON' });
     await page.keyboard.press('Shift+P');
-    await expect(page.getByText(t('mark.presentCount', { n: 5 }))).toBeVisible();
+    await expect(page.getByText(t('attendance.mark.presentCount', { n: 5 }))).toBeVisible();
     await page.keyboard.press('ControlOrMeta+Enter');
-    await expect(page.getByRole('heading', { name: t('list.title') })).toBeVisible();
+    await expect(page.getByRole('heading', { name: t('attendance.list.title') })).toBeVisible();
   });
 
   await test.step('the server actually recorded it', async () => {

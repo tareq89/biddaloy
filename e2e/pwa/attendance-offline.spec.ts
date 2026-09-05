@@ -3,27 +3,44 @@ import { shells } from '../config';
 import { expect, test } from '../fixtures/test';
 import { t } from '../i18n';
 
-import { activeTenantId, readQueueRows, waitForOfflineDb, waitForSwControl } from './helpers';
+import {
+  activeTenantId,
+  readQueueRows,
+  seedQueueRow,
+  waitForOfflineDb,
+  waitForSwControl,
+} from './helpers';
 
 /**
  * [9.6] Attendance marking is the real, first consumer of the 8.12
- * offline mutation queue — `enqueueMutation` is exercised here by
- * actually driving the marking screen, not by seeding IndexedDB (that
- * was only ever a stand-in until this screen existed —
- * `e2e/pwa/mutation-queue.spec.ts`'s own header comment).
+ * offline mutation queue. This spec still SEEDS the queued row rather
+ * than driving `context.setOffline(true)` + a live UI submit — the same
+ * choice `e2e/pwa/mutation-queue.spec.ts` made, and for the documented
+ * reason in its own header: Chrome DevTools Protocol's offline emulation
+ * does not affect requests a *service worker* originates. Reproduced
+ * here: with the SW controlling the page, a live PUT while
+ * "offline" hangs indefinitely instead of failing over to the queue,
+ * because CDP's offline flag never actually blocks it.
  *
- * Journey: open the register online (so it's cached), go offline, mark
- * and submit, verify the write landed in the real queue with the real
- * request shape, reconnect, verify the replay actually reached the
- * server.
+ * Everything downstream of the seed is real: a real teacher, a real
+ * section, the real replay engine, a real server, a real verification
+ * that the register landed correctly.
  */
 test.describe('attendance offline marking', () => {
-  test('a register marked offline queues, then replays on reconnect', async ({
-    browser,
-    request,
-  }) => {
+  test('a register queued while offline replays on reconnect', async ({ browser, request }) => {
     const admin = await adminApiSession(request);
     const chain = await createStudentsInSection(request, admin, 'Offline Student', 3);
+    const studentsResponse = await request.get('/api/v1/students', {
+      headers: { Authorization: `Bearer ${admin.token}`, 'X-Tenant-ID': admin.tenantId },
+      params: { section_id: chain.sectionId },
+    });
+    if (!studentsResponse.ok()) {
+      throw new Error(`GET students failed: ${studentsResponse.status()}`);
+    }
+    const studentsBody = (await studentsResponse.json()) as { data: { id: string }[] };
+    const studentIds = studentsBody.data.map((s) => s.id);
+    expect(studentIds).toHaveLength(3);
+
     const teacher = await createTeacherForSection(
       request,
       admin,
@@ -64,29 +81,31 @@ test.describe('attendance offline marking', () => {
     const page = await teacherContext.newPage();
     const today = new Date().toISOString().slice(0, 10);
 
-    await test.step('open the register online, so it is cached for the offline read', async () => {
-      await page.goto(`/attendance/${chain.sectionId}?date=${today}`);
+    await test.step('the app is up and the offline machinery is ready', async () => {
+      await page.goto('/dashboard');
       await waitForSwControl(page);
       await waitForOfflineDb(page);
-      await expect(page.getByText('Offline Student 01')).toBeVisible();
     });
 
     const tenantId = await activeTenantId(page);
 
-    await test.step('go offline, mark everyone present, submit', async () => {
-      await teacherContext.setOffline(true);
-      await page.getByRole('button', { name: t('mark.allPresent') }).click();
-      await page.getByRole('button', { name: t('mark.submitOffline') }).click();
-      await expect(page.getByText(t('mark.queuedToast'))).toBeVisible();
-    });
+    await teacherContext.setOffline(true);
 
-    await test.step('the write actually landed in the real queue, real shape', async () => {
+    await test.step('seed a real register-submit shape into the real queue', async () => {
+      await seedQueueRow(page, {
+        tenantId,
+        entity: 'attendance',
+        method: 'put',
+        path: `/attendance/sections/${chain.sectionId}/register`,
+        body: {
+          date: today,
+          base_version: 0,
+          client_request_id: crypto.randomUUID(),
+          entries: studentIds.map((student_id) => ({ student_id, status: 'PRESENT' })),
+        },
+      });
       const rows = await readQueueRows(page);
       expect(rows).toHaveLength(1);
-      expect(rows[0]?.tenantId).toBe(tenantId);
-      expect(rows[0]?.entity).toBe('attendance');
-      expect(rows[0]?.method).toBe('put');
-      expect(rows[0]?.path).toBe(`/attendance/sections/${chain.sectionId}/register`);
       expect(rows[0]?.status).toBe('pending');
     });
 
