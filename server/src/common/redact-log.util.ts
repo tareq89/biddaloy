@@ -13,7 +13,7 @@ const PHONE_PATTERN = /(?:\+?880|0)1[3-9]\d{8}/g;
 // pattern static analysis tools flag as a potential ReDoS vector even
 // though these keys are a fixed internal list, never user input.
 const SENSITIVE_QUERY_PATTERN =
-  /([?&](?:password|token|access_token|refresh_token|secret|api_key|apikey)=)[^&\s]+/gi;
+  /([?&](?:password|token|access_token|refresh_token|secret|api_key|apikey|device_key|devicekey)=)[^&\s]+/gi;
 
 // Same key list, shaped for a JSON `"key":"value"` pair instead of a query
 // param — a Postgres constraint-violation DETAIL can echo the offending
@@ -21,7 +21,7 @@ const SENSITIVE_QUERY_PATTERN =
 // credentials), and that lands in `logQueryError`'s raw driver-error text,
 // not a URL, so SENSITIVE_QUERY_PATTERN above doesn't reach it.
 const SENSITIVE_JSON_VALUE_PATTERN =
-  /("(?:password|token|accessToken|access_token|refreshToken|refresh_token|secret|apiKey|api_key)"\s*:\s*)"[^"]*"/gi;
+  /("(?:password|token|accessToken|access_token|refreshToken|refresh_token|secret|apiKey|api_key|deviceKey|device_key)"\s*:\s*)"[^"]*"/gi;
 
 /**
  * Scrubs email/phone-shaped substrings and known-sensitive query-param

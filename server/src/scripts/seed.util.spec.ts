@@ -1,4 +1,4 @@
-import { UserRole, UserStatus } from '@biddaloy/shared';
+import { AttendanceStatus, UserRole, UserStatus } from '@biddaloy/shared';
 import { describe, expect, it, vi } from 'vitest';
 import type { Repository } from 'typeorm';
 import type { School } from '../modules/schools/entities/school.entity';
@@ -9,15 +9,31 @@ import type { Class } from '../modules/academics/entities/class.entity';
 import type { ClassSection } from '../modules/academics/entities/class-section.entity';
 import type { Student } from '../modules/students/entities/student.entity';
 import type { Guardian } from '../modules/students/entities/guardian.entity';
+import type { Subject } from '../modules/academics/entities/subject.entity';
+import type { SchoolHoliday } from '../modules/academics/entities/school-holiday.entity';
+import type { Teacher } from '../modules/academics/entities/teacher.entity';
+import type { TeacherClassSection } from '../modules/academics/entities/teacher-class-section.entity';
+import type { AttendanceSession } from '../modules/attendance/entities/attendance-session.entity';
+import type { AttendanceRecord } from '../modules/attendance/entities/attendance-record.entity';
+import type { AttendanceDevice } from '../modules/attendance/entities/attendance-device.entity';
+import { hashDeviceKey } from '../modules/attendance/devices/device.service';
 import {
+  ATTENDANCE_SEED_ABSENT_DATE,
   DEMO_CLASSES,
   DEMO_STUDENTS_PER_SECTION,
+  ensureAttendanceSeed,
   ensureDemoStudents,
   ensureRoleTestUsers,
   ensureSecondSchoolMembership,
   ROLE_TEST_USERS,
+  SEED_DEVICE_KEY,
 } from './seed.util';
-import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS } from '../../../e2e/seed-contract';
+import {
+  ATTENDANCE_SEED_ABSENT_DATE as E2E_ATTENDANCE_SEED_ABSENT_DATE,
+  SEED_DEVICE_KEY as E2E_SEED_DEVICE_KEY,
+  SEED_PASSWORD_ENV,
+  SEED_ROLE_EMAILS,
+} from '../../../e2e/seed-contract';
 
 let nextId = 0;
 
@@ -265,6 +281,14 @@ describe('e2e seed contract', () => {
     // seed.ts reads process.env.SEED_ADMIN_PASSWORD; the contract must
     // point E2E fixtures at the same variable.
     expect(SEED_PASSWORD_ENV).toBe('SEED_ADMIN_PASSWORD');
+  });
+
+  it('[9.11] matches the literal device key seed.util.ts hashes and stores', () => {
+    expect(E2E_SEED_DEVICE_KEY).toBe(SEED_DEVICE_KEY);
+  });
+
+  it('[9.11] matches the literal absent date seed.util.ts actually seeds for roll 1', () => {
+    expect(E2E_ATTENDANCE_SEED_ABSENT_DATE).toBe(ATTENDANCE_SEED_ABSENT_DATE);
   });
 });
 
@@ -608,5 +632,183 @@ describe('ensureDemoStudents', () => {
 
     expect(existing.user_id).toBe('parent-user-1');
     expect(repos.guardianRepository.save).toHaveBeenCalledWith(existing);
+  });
+});
+
+describe('ensureAttendanceSeed', () => {
+  function attendanceRepos() {
+    return {
+      subjectRepository: mockRepo<Subject>(),
+      schoolHolidayRepository: mockRepo<SchoolHoliday>(),
+      teacherRepository: mockRepo<Teacher>(),
+      teacherClassSectionRepository: mockRepo<TeacherClassSection>(),
+      attendanceSessionRepository: mockRepo<AttendanceSession>(),
+      attendanceRecordRepository: mockRepo<AttendanceRecord>(),
+      attendanceDeviceRepository: mockRepo<AttendanceDevice>(),
+    };
+  }
+
+  function emptyDatabase(repos: ReturnType<typeof attendanceRepos>) {
+    for (const repo of Object.values(repos)) {
+      vi.mocked(repo.findOne).mockResolvedValue(null);
+    }
+  }
+
+  const STUDENT_IDS = ['student-1', 'student-2', 'student-3'];
+  const BASE_PARAMS = {
+    schoolId: 'school-1',
+    academicYearId: 'year-1',
+    sectionId: 'section-1',
+    studentIds: STUDENT_IDS,
+    teacherUserId: 'teacher-user-1',
+  };
+
+  it('creates 5 subjects, 3 holidays, the teacher mapping, one session/record set per working day of the seeded month, and 2 devices', async () => {
+    const repos = attendanceRepos();
+    emptyDatabase(repos);
+
+    const result = await ensureAttendanceSeed(repos, BASE_PARAMS);
+
+    // 26 working days in ATTENDANCE_SEED_MONTH (31 days − 4 Fridays − 1
+    // non-working holiday) × 3 students.
+    expect(result).toEqual({ subjects: 5, holidays: 3, sessions: 26, records: 78, devices: 2 });
+  });
+
+  it('is idempotent: a second run against an already-seeded database creates nothing further', async () => {
+    const repos = attendanceRepos();
+    emptyDatabase(repos);
+    await ensureAttendanceSeed(repos, BASE_PARAMS);
+
+    // Re-run against a "already exists" world: every findOne now resolves
+    // to a stored row rather than null.
+    vi.mocked(repos.subjectRepository.findOne).mockResolvedValue({ deleted_at: null } as Subject);
+    vi.mocked(repos.schoolHolidayRepository.findOne).mockResolvedValue({
+      deleted_at: null,
+    } as SchoolHoliday);
+    vi.mocked(repos.teacherRepository.findOne).mockResolvedValue({
+      id: 'teacher-1',
+      deleted_at: null,
+    } as Teacher);
+    vi.mocked(repos.teacherClassSectionRepository.findOne).mockResolvedValue(
+      {} as TeacherClassSection,
+    );
+    vi.mocked(repos.attendanceSessionRepository.findOne).mockResolvedValue({
+      id: 'session-1',
+    } as AttendanceSession);
+    vi.mocked(repos.attendanceRecordRepository.findOne).mockResolvedValue({} as AttendanceRecord);
+    vi.mocked(repos.attendanceDeviceRepository.findOne).mockResolvedValue({} as AttendanceDevice);
+
+    const second = await ensureAttendanceSeed(repos, BASE_PARAMS);
+
+    expect(second).toEqual({ subjects: 0, holidays: 0, sessions: 0, records: 0, devices: 0 });
+  });
+
+  it('gives exactly one of the three seeded students a record set that would compute below 75%', async () => {
+    const repos = attendanceRepos();
+    emptyDatabase(repos);
+
+    await ensureAttendanceSeed(repos, BASE_PARAMS);
+
+    const records = vi
+      .mocked(repos.attendanceRecordRepository.create)
+      .mock.calls.map(([payload]) => payload as Partial<AttendanceRecord>);
+    const byStudent = new Map<string, Partial<AttendanceRecord>[]>();
+    for (const record of records) {
+      const key = record.student_id as string;
+      byStudent.set(key, [...(byStudent.get(key) ?? []), record]);
+    }
+
+    // student-3's ~9 PRESENT / 26 working days is the only one under the
+    // default 75% threshold — present-day count alone is enough to prove
+    // this without re-implementing the percentage formula.
+    const WORKING_DAYS = 26;
+    const presentCounts = STUDENT_IDS.map(
+      (id) => (byStudent.get(id) ?? []).filter((r) => r.status === AttendanceStatus.PRESENT).length,
+    );
+    const belowThreshold = presentCounts.filter((present) => present / WORKING_DAYS < 0.75);
+    expect(belowThreshold).toHaveLength(1);
+    expect(presentCounts[2]).toBe(9);
+  });
+
+  it('gives every status to at least one student across the roster', async () => {
+    const repos = attendanceRepos();
+    emptyDatabase(repos);
+
+    await ensureAttendanceSeed(repos, BASE_PARAMS);
+
+    const statuses = new Set(
+      vi
+        .mocked(repos.attendanceRecordRepository.create)
+        .mock.calls.map(([payload]) => (payload as Partial<AttendanceRecord>).status),
+    );
+    expect(statuses).toEqual(
+      new Set([
+        AttendanceStatus.PRESENT,
+        AttendanceStatus.ABSENT,
+        AttendanceStatus.LATE,
+        AttendanceStatus.LEAVE,
+      ]),
+    );
+  });
+
+  it('maps teacher@biddaloy.test to the seeded section via teacher_class_sections', async () => {
+    const repos = attendanceRepos();
+    emptyDatabase(repos);
+
+    await ensureAttendanceSeed(repos, BASE_PARAMS);
+
+    // The exact id `save()` assigned the newly-created teacher — asserted
+    // by identity, not a hardcoded literal, so this test would fail if a
+    // future change mapped the section to some *other* teacher's id.
+    const createdTeacher = vi.mocked(repos.teacherRepository.create).mock.calls[0]?.[0] as {
+      id?: string;
+    };
+    expect(repos.teacherClassSectionRepository.create).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(repos.teacherClassSectionRepository.create).mock.calls[0]?.[0]).toMatchObject({
+      teacher_id: createdTeacher.id,
+      section_id: 'section-1',
+      subject_id: null,
+    });
+  });
+
+  it("stores the ACTIVE device's key as the SHA-256 hash of SEED_DEVICE_KEY, matching the e2e contract", async () => {
+    const repos = attendanceRepos();
+    emptyDatabase(repos);
+
+    await ensureAttendanceSeed(repos, BASE_PARAMS);
+
+    const devices = vi
+      .mocked(repos.attendanceDeviceRepository.create)
+      .mock.calls.map(([payload]) => payload as Partial<AttendanceDevice>);
+    const active = devices.find((d) => d.status === 'ACTIVE');
+    expect(active?.token_hash).toBe(hashDeviceKey(SEED_DEVICE_KEY));
+    expect(SEED_DEVICE_KEY).toBe(E2E_SEED_DEVICE_KEY);
+  });
+
+  it('produces the same (date, student, status) rows across two runs on an empty database (determinism)', async () => {
+    // Compares the deterministic fields only — `id`/`session_id` come from
+    // this mock's own shared, ever-incrementing counter (`mockRepo`'s
+    // `nextId`), not from `ensureAttendanceSeed`, so they legitimately
+    // differ between two separate calls in this test even though a real
+    // Postgres run (verified manually against a real database, twice)
+    // writes the identical set of rows both times.
+    const runOnce = async () => {
+      const repos = attendanceRepos();
+      emptyDatabase(repos);
+      await ensureAttendanceSeed(repos, BASE_PARAMS);
+      return vi.mocked(repos.attendanceRecordRepository.create).mock.calls.map(([payload]) => {
+        const record = payload as Partial<AttendanceRecord>;
+        return {
+          date: record.date,
+          student_id: record.student_id,
+          status: record.status,
+          minutes_late: record.minutes_late,
+        };
+      });
+    };
+
+    const first = await runOnce();
+    const second = await runOnce();
+    expect(second).toEqual(first);
   });
 });

@@ -8,6 +8,7 @@ import {
   JoinColumn,
   Index,
 } from 'typeorm';
+import { ApiHideProperty } from '@nestjs/swagger';
 import { School } from '../../schools/entities/school.entity';
 import { ClassSection } from '../../academics/entities/class-section.entity';
 import { AttendanceDeviceKind, AttendanceDeviceStatus } from '@biddaloy/shared';
@@ -49,6 +50,7 @@ export class AttendanceDevice {
   @Column({ type: 'enum', enum: AttendanceDeviceKind })
   kind: AttendanceDeviceKind;
 
+  @ApiHideProperty()
   @Column({ type: 'varchar', length: 64, unique: true })
   token_hash: string;
 

@@ -49,6 +49,18 @@ describe('buildRateLimitTracker', () => {
     expect(key).toBe('ip:5.6.7.8');
   });
 
+  it('ignores an X-Device-Key header entirely — bucketing on it would let a caller mint a fresh bucket per request', async () => {
+    const jwtService = fakeJwtService({ verifyAsync: async () => ({}) });
+    const tracker = buildRateLimitTracker(jwtService);
+
+    const key = await tracker({
+      headers: { 'x-device-key': 'bd_dev_a-fresh-value-every-request' },
+      ip: '1.2.3.4',
+    });
+
+    expect(key).toBe('ip:1.2.3.4');
+  });
+
   it('falls back to IP when the verified payload has no sub', async () => {
     const jwtService = fakeJwtService({ verifyAsync: async () => ({}) });
     const tracker = buildRateLimitTracker(jwtService);

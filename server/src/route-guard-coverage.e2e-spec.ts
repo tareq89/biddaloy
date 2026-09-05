@@ -88,6 +88,33 @@ const ALLOWLIST: AllowlistEntry[] = [
     reason:
       "Bearer-authenticated but tenant-agnostic — rotates the caller's own password, identified solely by user.sub, and takes no user id from the body (AuthGuard(jwt) only, same rationale as /auth/logout-all).",
   },
+  {
+    controller: 'DeviceIngestController',
+    method: 'POST',
+    path: '/attendance/device-events',
+    reason:
+      'Device-authenticated (X-Device-Key) — no JWT, no user, no tenant header. Tenant is ' +
+      'resolved from the device row by DeviceAuthGuard; RolesGuard is deliberately absent ' +
+      'because a device holds no UserRole. See [9.5].',
+  },
+  {
+    controller: 'DeviceIngestController',
+    method: 'GET',
+    path: '/attendance/devices/me/roster',
+    reason:
+      'Device-authenticated (X-Device-Key) — no JWT, no user, no tenant header. Tenant is ' +
+      'resolved from the device row by DeviceAuthGuard; RolesGuard is deliberately absent ' +
+      'because a device holds no UserRole. See [9.5].',
+  },
+  {
+    controller: 'DeviceIngestController',
+    method: 'POST',
+    path: '/attendance/devices/me/heartbeat',
+    reason:
+      'Device-authenticated (X-Device-Key) — no JWT, no user, no tenant header. Tenant is ' +
+      'resolved from the device row by DeviceAuthGuard; RolesGuard is deliberately absent ' +
+      'because a device holds no UserRole. See [9.5].',
+  },
 ];
 
 function findAllowlistEntry(

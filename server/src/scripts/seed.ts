@@ -10,11 +10,34 @@ import { Class } from '../modules/academics/entities/class.entity';
 import { ClassSection } from '../modules/academics/entities/class-section.entity';
 import { Student } from '../modules/students/entities/student.entity';
 import { Guardian } from '../modules/students/entities/guardian.entity';
+import { Subject } from '../modules/academics/entities/subject.entity';
+import { SchoolHoliday } from '../modules/academics/entities/school-holiday.entity';
+import { Teacher } from '../modules/academics/entities/teacher.entity';
+import { TeacherClassSection } from '../modules/academics/entities/teacher-class-section.entity';
+import { AttendanceSession } from '../modules/attendance/entities/attendance-session.entity';
+import { AttendanceRecord } from '../modules/attendance/entities/attendance-record.entity';
+import { AttendanceDevice } from '../modules/attendance/entities/attendance-device.entity';
 import { seedAccounts } from './seed.accounts';
 
 export { seedAccounts, type SeedAccountRepositories } from './seed.accounts';
 
 export async function seed() {
+  // [9.11] `ensureAttendanceSeed` writes a fixed, repository-known
+  // `SEED_DEVICE_KEY` onto an ACTIVE, roster-enabled attendance device —
+  // and every other seed account in this file uses one shared password
+  // from `SEED_ADMIN_PASSWORD`. None of that is safe against a real
+  // database. Checked before booting `AppModule` at all, so a mistaken
+  // invocation against production fails immediately rather than after
+  // paying for a full Nest bootstrap.
+  if (process.env.NODE_ENV === 'production') {
+    console.error(
+      'Refusing to run the seed script with NODE_ENV=production — it writes ' +
+        'known, repository-visible credentials (SEED_ADMIN_PASSWORD, the fixed ' +
+        'attendance device key) into the database.',
+    );
+    process.exit(1);
+  }
+
   const app = await NestFactory.createApplicationContext(AppModule);
   const dataSource = app.get(DataSource);
 
@@ -55,6 +78,13 @@ export async function seed() {
       classSectionRepository: dataSource.getRepository(ClassSection),
       studentRepository: dataSource.getRepository(Student),
       guardianRepository: dataSource.getRepository(Guardian),
+      subjectRepository: dataSource.getRepository(Subject),
+      schoolHolidayRepository: dataSource.getRepository(SchoolHoliday),
+      teacherRepository: dataSource.getRepository(Teacher),
+      teacherClassSectionRepository: dataSource.getRepository(TeacherClassSection),
+      attendanceSessionRepository: dataSource.getRepository(AttendanceSession),
+      attendanceRecordRepository: dataSource.getRepository(AttendanceRecord),
+      attendanceDeviceRepository: dataSource.getRepository(AttendanceDevice),
     },
     school,
     adminEmail,

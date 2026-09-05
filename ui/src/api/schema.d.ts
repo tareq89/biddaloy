@@ -1348,6 +1348,109 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/attendance/devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The tenant's registered devices. Never includes a key or its hash. */
+        get: operations["DevicesController_list_v1"];
+        put?: never;
+        /** Registers a new device. The raw key is returned exactly once, in this response. */
+        post: operations["DevicesController_create_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attendance/devices/{id}/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Issues a new key for this device. The old key stops working immediately. */
+        post: operations["DevicesController_rotate_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attendance/devices/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revokes a device. Sets status to REVOKED — never a hard delete. */
+        delete: operations["DevicesController_revoke_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attendance/device-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Batch-ingests raw scans from a device. Not atomic — one bad event never fails the rest. */
+        post: operations["DeviceIngestController_ingest_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attendance/devices/me/roster": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The device's own section roster — exactly five fields, never the whole Student record. */
+        get: operations["DeviceIngestController_roster_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attendance/devices/me/heartbeat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Lets a device align its own clock and screen against the tenant's policy. */
+        post: operations["DeviceIngestController_heartbeat_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2795,6 +2898,72 @@ export interface components {
             total_recipients: number;
             /** @enum {string|null} */
             skipped_reason: "no_session" | "not_finalized" | "already_notified" | null;
+        };
+        CreateDeviceDto: {
+            name: string;
+            /** @enum {string} */
+            kind: "BIOMETRIC" | "FACE" | "RFID" | "OTHER";
+            /** Format: uuid */
+            section_id?: string;
+            roster_access?: boolean;
+        };
+        DeviceResponseDto: {
+            id: string;
+            name: string;
+            /** @enum {string} */
+            kind: "BIOMETRIC" | "FACE" | "RFID" | "OTHER";
+            token_last4: string;
+            section_id: string | null;
+            roster_access: boolean;
+            /** @enum {string} */
+            status: "ACTIVE" | "REVOKED";
+            last_seen_at: string | null;
+        };
+        DeviceWithKeyResponseDto: {
+            device: components["schemas"]["DeviceResponseDto"];
+            key: string;
+        };
+        DeviceEventDto: {
+            device_event_id: string;
+            occurred_at: string;
+            /** @enum {string} */
+            direction: "IN" | "OUT";
+            /** Format: uuid */
+            student_id?: string;
+            external_ref?: string;
+        };
+        DeviceEventBatchDto: {
+            events: components["schemas"]["DeviceEventDto"][];
+        };
+        DeviceEventResultDto: {
+            device_event_id: string;
+            /** @enum {string} */
+            outcome: "accepted" | "duplicate" | "unknown_student" | "skipped_teacher_marked" | "out_of_window" | "rejected";
+            student_id?: string | null;
+            status?: string | null;
+            minutes_late?: number | null;
+            reason?: string;
+        };
+        DeviceEventBatchResponseDto: {
+            results: components["schemas"]["DeviceEventResultDto"][];
+            accepted: number;
+            duplicate: number;
+            failed: number;
+        };
+        DeviceRosterEntryDto: {
+            student_id: string;
+            registration_number: string;
+            roll_number: number;
+            full_name: string;
+            section_id: string;
+        };
+        DeviceHeartbeatResponseDto: {
+            server_time: string;
+            tenant_timezone: string;
+            policy: {
+                late_after: string;
+                absent_after: string;
+            };
         };
     };
     responses: never;
@@ -6767,6 +6936,208 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    DevicesController_list_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceResponseDto"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DevicesController_create_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDeviceDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceWithKeyResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DevicesController_rotate_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceWithKeyResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DevicesController_revoke_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DeviceIngestController_ingest_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The device's credential. */
+                "X-Device-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceEventBatchDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceEventBatchResponseDto"];
+                };
+            };
+        };
+    };
+    DeviceIngestController_roster_v1: {
+        parameters: {
+            query?: {
+                section_id?: unknown;
+            };
+            header: {
+                /** @description The device's credential. */
+                "X-Device-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceRosterEntryDto"][];
+                };
+            };
+        };
+    };
+    DeviceIngestController_heartbeat_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The device's credential. */
+                "X-Device-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceHeartbeatResponseDto"];
+                };
             };
         };
     };

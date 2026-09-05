@@ -5,6 +5,7 @@ import {
   classifyCheckIn,
   daysBetween,
   isWeeklyOff,
+  localDate,
   localToday,
   resolveAttendancePolicy,
 } from './attendance-policy.util';
@@ -74,6 +75,14 @@ describe('localToday', () => {
 
     expect(localToday('Asia/Dhaka')).toBe('2026-09-05');
     expect(localToday('UTC')).toBe('2026-09-04');
+  });
+});
+
+describe('localDate', () => {
+  it('resolves an arbitrary instant to its tenant-local calendar date', () => {
+    const instant = new Date('2026-09-04T19:00:00Z');
+    expect(localDate(instant, 'Asia/Dhaka')).toBe('2026-09-05');
+    expect(localDate(instant, 'UTC')).toBe('2026-09-04');
   });
 });
 
