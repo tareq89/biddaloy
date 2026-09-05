@@ -87,16 +87,17 @@ export class AccountAccessDeliveryService {
         await this.logRepo.save(log);
         return { logId: log.id, status: CommunicationStatus.SENT };
       }
+      // Never persist `result.error`/`error.message` verbatim — a provider
+      // or gateway can echo the request body (including this message's
+      // secret-bearing `real.body`, e.g. an activation link or OTP) back in
+      // its error text, which would land in communication_logs.metadata.
       log.status = CommunicationStatus.FAILED;
-      log.metadata = { kind: input.kind, error: result.error ?? 'Delivery failed' };
+      log.metadata = { kind: input.kind, error: 'Delivery failed' };
       await this.logRepo.save(log);
       return { logId: log.id, status: CommunicationStatus.FAILED };
-    } catch (error) {
+    } catch {
       log.status = CommunicationStatus.FAILED;
-      log.metadata = {
-        kind: input.kind,
-        error: error instanceof Error ? error.message : 'Delivery failed',
-      };
+      log.metadata = { kind: input.kind, error: 'Delivery failed' };
       await this.logRepo.save(log);
       return { logId: log.id, status: CommunicationStatus.FAILED };
     }

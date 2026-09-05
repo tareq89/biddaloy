@@ -81,8 +81,18 @@ describe('AccountAccessDeliveryService', () => {
     expect(logRepo.saved.status).toBe(CommunicationStatus.SENT);
   });
 
-  it('marks the log FAILED when the provider reports failure, without throwing', async () => {
-    const provider = { send: vi.fn().mockResolvedValue({ success: false, error: 'boom' }) };
+  it('marks the log FAILED when the provider reports failure, without persisting the raw provider error text', async () => {
+    // A gateway can echo the request body — including this message's
+    // secret-bearing link/OTP — back in its error text, so the stored
+    // reason must be a fixed string, never `result.error` verbatim.
+    const provider = {
+      send: vi
+        .fn()
+        .mockResolvedValue({
+          success: false,
+          error: 'boom: link was https://x/activate?token=SECRET',
+        }),
+    };
     registry.resolve.mockReturnValue(provider);
 
     const result = await service.deliver({
@@ -95,7 +105,26 @@ describe('AccountAccessDeliveryService', () => {
     });
 
     expect(result.status).toBe(CommunicationStatus.FAILED);
-    expect(logRepo.saved.metadata.error).toBe('boom');
+    expect(logRepo.saved.metadata.error).toBe('Delivery failed');
+  });
+
+  it('marks the log FAILED without persisting the raw error text when the provider throws', async () => {
+    const provider = {
+      send: vi.fn().mockRejectedValue(new Error('boom: link was https://x/activate?token=SECRET')),
+    };
+    registry.resolve.mockReturnValue(provider);
+
+    const result = await service.deliver({
+      tenantId: 'tenant-1',
+      medium: CommunicationMedium.SMS,
+      to: '+8801700000000',
+      recipientName: 'Jane Doe',
+      kind: 'OTP',
+      vars: { code: '123456' },
+    });
+
+    expect(result.status).toBe(CommunicationStatus.FAILED);
+    expect(logRepo.saved.metadata.error).toBe('Delivery failed');
   });
 
   it('marks the log FAILED without throwing when no provider is configured for the medium', async () => {
