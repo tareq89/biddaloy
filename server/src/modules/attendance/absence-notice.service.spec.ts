@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   AbsenceNoticeService,
@@ -163,6 +164,24 @@ describe('AbsenceNoticeService', () => {
     expect(session).toBeNull();
     expect(recipients).toEqual([]);
     expect(skipped).toEqual([]);
+  });
+
+  it('throws NotFoundException instead of naming a blank section when the section is gone', async () => {
+    // Soft-deleted after the session that references it was finalized —
+    // `sectionRepo.findOne` excludes soft-deleted rows by default, so this
+    // is the same shape as any other "section vanished" case.
+    sectionRepo.findOne = vi.fn(async () => null);
+
+    await expect(
+      service.previewAbsenceNotice({
+        tenantId: TENANT,
+        sectionId: SECTION,
+        date: DATE,
+        userId: 'user-1',
+        ip: null,
+        userAgent: null,
+      }),
+    ).rejects.toThrow(NotFoundException);
   });
 
   it('returns nothing for a DRAFT (not yet finalized) session', async () => {

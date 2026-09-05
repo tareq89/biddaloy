@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -281,10 +281,18 @@ export class AbsenceNoticeService {
       where: { id: sectionId, tenant_id: tenantId },
       relations: ['class', 'tenant'],
     });
+    // `findOne` excludes soft-deleted sections by default, but the
+    // scheduler's own session query does not check the section's
+    // deleted_at — a finalized session can still reference one that was
+    // since removed. Silently falling back to empty names would let a
+    // batch and SMS go out naming no section at all; fail loudly instead.
+    if (!section) {
+      throw new NotFoundException(`Section "${sectionId}" not found`);
+    }
     return {
-      className: section?.class?.name ?? '',
-      sectionName: section?.section_name ?? '',
-      schoolName: section?.tenant?.name ?? '',
+      className: section.class?.name ?? '',
+      sectionName: section.section_name,
+      schoolName: section.tenant?.name ?? '',
     };
   }
 
