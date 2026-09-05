@@ -76,6 +76,12 @@ function statusLabel(t: ReturnType<typeof useTranslation>['t'], status: Attendan
       return t('statusControl.status.LATE');
     case AttendanceStatus.LEAVE:
       return t('statusControl.status.LEAVE');
+    default:
+      // `row.marks` is cast (not validated) from server JSON — a status
+      // member this client doesn't know about yet (e.g. a future
+      // `HALF_DAY`) must not render as an empty cell. Show it raw rather
+      // than silently dropping the mark.
+      return status;
   }
 }
 
@@ -270,7 +276,7 @@ function RegisterPageContent() {
                     const abbrev = !date.is_working_day
                       ? '—'
                       : status
-                        ? STATUS_ABBREV[status]
+                        ? (STATUS_ABBREV[status] ?? '?')
                         : '·';
                     return (
                       <td key={date.date} className="p-1 text-center">

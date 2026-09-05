@@ -95,6 +95,33 @@ describe('/attendance/register', () => {
     expect(within(table).getAllByText('Absent').length).toBeGreaterThan(1);
   });
 
+  it('shows an unrecognized status raw instead of a blank cell', async () => {
+    server.use(
+      http.get('/api/v1/attendance/sections/:sectionId/register-matrix', () =>
+        HttpResponse.json({
+          dates: [{ date: '2026-01-01', is_working_day: true }],
+          // A status this client doesn't know about yet — the DTO cast
+          // in register.tsx is a type assertion, not a validation, so the
+          // server can send anything.
+          rows: [registerRow({ marks: { '2026-01-01': 'HALF_DAY' } })],
+        }),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: [
+        `/attendance/register?class_id=${CLASS_ID}&section_id=${SECTION_ID}&month=2026-01`,
+      ],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByRole('table');
+    expect(screen.getByText('?')).toBeTruthy();
+    expect(screen.getByText('HALF_DAY')).toBeTruthy();
+  });
+
   it('names class, section and month in the table caption', async () => {
     server.use(
       http.get('/api/v1/classes', () =>
