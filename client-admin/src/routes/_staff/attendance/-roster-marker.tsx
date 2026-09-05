@@ -85,7 +85,18 @@ export function RosterMarker({
     );
   }
 
+  // A future date under `policy.allow_future_dates` restricts every row to
+  // LEAVE via `allowedStatuses` — but that prop only limits the *options*
+  // `AttendanceStatusControl` itself renders. Every other way to set a
+  // status (this row button's PRESENT/ABSENT toggle, `Space`, and the
+  // `p`/`a`/`l`/`v` shortcuts) funnels through `setStatus`, so the guard
+  // belongs here once rather than at each call site.
+  function isStatusAllowed(status: AttendanceStatus): boolean {
+    return !allowedStatuses || allowedStatuses.includes(status);
+  }
+
   function setStatus(studentId: string, status: AttendanceStatus) {
+    if (!isStatusAllowed(status)) return;
     onStatusChange(studentId, status);
     announce(studentId, status);
   }
@@ -106,7 +117,7 @@ export function RosterMarker({
     }
     if (event.shiftKey && event.key.toLowerCase() === 'p') {
       event.preventDefault();
-      onAllPresent();
+      if (isStatusAllowed(AttendanceStatus.PRESENT)) onAllPresent();
       return;
     }
 

@@ -189,6 +189,12 @@ function SectionRegisterPage() {
   }
 
   function handleAllPresent() {
+    // Mirrors `RosterMarker`'s own `isStatusAllowed` guard — a future date
+    // under `policy.allow_future_dates` restricts every row to LEAVE, and
+    // this bulk action (reachable from the toolbar button, `Shift+P`, and
+    // the unmarked-students confirm dialog) must not fill them with a
+    // status the policy forbids.
+    if (allowedStatuses && !allowedStatuses.includes(AttendanceStatus.PRESENT)) return;
     const previous = draft;
     setDraft((current) => {
       const next: Draft = { ...current };
@@ -410,7 +416,15 @@ function SectionRegisterPage() {
         </p>
         {editable && (
           <div className="flex flex-wrap items-center gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={handleAllPresent}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleAllPresent}
+              disabled={Boolean(
+                allowedStatuses && !allowedStatuses.includes(AttendanceStatus.PRESENT),
+              )}
+            >
               {t('mark.allPresent')}
             </Button>
             <Button type="button" variant="ghost" size="sm" onClick={handleReset}>

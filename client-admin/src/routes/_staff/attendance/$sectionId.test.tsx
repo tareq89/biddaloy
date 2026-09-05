@@ -6,6 +6,15 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
+// A fixed calendar date (e.g. '2026-09-10') would stop being "in the
+// future" the day the test suite outlives it. 30 days out is always
+// safely ahead of whenever this actually runs.
+function futureDateIso(): string {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() + 30);
+  return date.toISOString().slice(0, 10);
+}
+
 function registerBody(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     section: { id: 'section-1', section_name: 'A', class_name: 'Class 5' },
@@ -312,13 +321,14 @@ describe('/attendance/$sectionId', () => {
   });
 
   it('[9.7] a future date under allow_future_dates only offers LEAVE', async () => {
+    const date = futureDateIso();
     server.use(
       http.get('/api/v1/attendance/sections/section-1/register', () =>
         HttpResponse.json(
           registerBody({
             session: {
               id: null,
-              date: '2026-09-10',
+              date,
               period_no: null,
               state: 'DRAFT',
               version: 0,
@@ -333,7 +343,7 @@ describe('/attendance/$sectionId', () => {
     );
 
     renderWithRouter(routeTree, {
-      initialEntries: ['/attendance/section-1?date=2026-09-10'],
+      initialEntries: [`/attendance/section-1?date=${date}`],
       tenantId: 'tenant-1',
       role: 'TEACHER',
       locale: 'en',
@@ -351,5 +361,26 @@ describe('/attendance/$sectionId', () => {
     expect(within(popover).queryByRole('button', { name: 'Present' })).toBeNull();
     expect(within(popover).queryByRole('button', { name: 'Absent' })).toBeNull();
     expect(within(popover).queryByRole('button', { name: 'Late' })).toBeNull();
+
+    // [review] The popover only limits its own options — row-click and
+    // the keyboard shortcuts are a second path to the same mutation and
+    // must be rejected independently, not just hidden from the UI.
+    await user.keyboard('{Escape}');
+    // The row button (rendered before `AttendanceStatusControl`'s own
+    // trigger, which also has "Rafi Ahmed" in its accessible name).
+    const rowButtons = screen.getAllByRole('button', { name: /Rafi Ahmed/ });
+    const rowButton = rowButtons[0];
+    if (!rowButton) throw new Error('expected the row button to be present');
+    const stillUnmarked = () =>
+      screen.getByLabelText('Rafi Ahmed, currently Unmarked. Change status');
+
+    await user.click(rowButton);
+    expect(stillUnmarked()).toBeTruthy();
+
+    await user.keyboard('p');
+    expect(stillUnmarked()).toBeTruthy();
+
+    await user.keyboard('{Shift>}p{/Shift}');
+    expect(stillUnmarked()).toBeTruthy();
   });
 });
