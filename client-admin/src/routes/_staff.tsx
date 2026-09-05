@@ -381,7 +381,14 @@ function StaffLayout() {
         }
         bottomNav={
           <BottomNav
-            items={[dashboardItem, studentsItem, attendanceItem, duesItem, recordPaymentItem]}
+            // [9.6 fix] `BottomNav`'s own contract caps `items` at 4 when
+            // `more` is present (`bottom-nav.tsx`) — a 5th cell isn't
+            // truncated for you, it just overflows the bar past 320/640px
+            // (WCAG 1.4.10 reflow) for any role that can see all of them.
+            // `attendanceItem` stays reachable through the drawer nav group
+            // below instead, same as `attendanceReportsItem`/
+            // `attendanceRegisterItem` already are.
+            items={[dashboardItem, studentsItem, duesItem, recordPaymentItem]}
             label={t('bottomNavStaffLabel')}
             more={{
               label: t('items.more'),
