@@ -45,11 +45,14 @@ export function ResetPasswordDialog({ open, onOpenChange, user }: ResetPasswordD
   // `RecoveryService.adminReset`'s own 400 for "no phone or email on file" —
   // distinguished by status rather than message text, since (unlike
   // `RemoveMemberDialog`'s self-removal case) there is no other 400 this
-  // route can return.
+  // route can return. Also derived from the loaded `user` directly, so a
+  // contactless row is caught before the admin even submits, not just after
+  // the server rejects it.
   const noContact =
-    resetPassword.isError &&
-    resetPassword.error instanceof ApiError &&
-    resetPassword.error.statusCode === 400;
+    (!user.phone && !user.email) ||
+    (resetPassword.isError &&
+      resetPassword.error instanceof ApiError &&
+      resetPassword.error.statusCode === 400);
 
   function handleConfirm() {
     resetPassword.mutate(undefined, {
@@ -70,9 +73,11 @@ export function ResetPasswordDialog({ open, onOpenChange, user }: ResetPasswordD
           </DialogDescription>
         </DialogHeader>
 
-        <p className="text-sm text-muted-foreground">
-          {user.phone ? t('resetDialog.viaSms') : t('resetDialog.viaEmail')}
-        </p>
+        {(user.phone || user.email) && (
+          <p className="text-sm text-muted-foreground">
+            {user.phone ? t('resetDialog.viaSms') : t('resetDialog.viaEmail')}
+          </p>
+        )}
 
         {noContact && (
           <p role="alert" className="text-sm text-destructive">

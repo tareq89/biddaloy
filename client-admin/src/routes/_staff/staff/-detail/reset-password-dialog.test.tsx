@@ -79,4 +79,26 @@ describe('ResetPasswordDialog', () => {
       true,
     );
   });
+
+  it('shows the no-contact copy up front, with Confirm already disabled, when the user has neither phone nor email', async () => {
+    const staffUser = userResponseFactory({
+      id: 'user-4',
+      full_name: 'Jamal',
+      phone: null,
+      email: null,
+    });
+
+    const { localeReady } = renderWithProviders(
+      <ResetPasswordDialog open onOpenChange={vi.fn()} user={staffUser} />,
+      { locale: 'en', tenantId: 'tenant-1' },
+    );
+    await localeReady;
+
+    expect(
+      await screen.findByText("This user has no phone or email on file — a reset can't be sent."),
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Reset password' }).hasAttribute('disabled')).toBe(
+      true,
+    );
+  });
 });
