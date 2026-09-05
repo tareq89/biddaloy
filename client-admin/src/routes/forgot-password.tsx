@@ -145,9 +145,15 @@ function IdentifierStep({
 
   function handleValidSubmit(values: IdentifierFormValues): void {
     const identifier = detectLoginIdentifier(values.identifier, regionConfig);
+    // Unreachable once the schema's own refine has passed — narrows the
+    // union for the compiler rather than adding a real branch.
     if (identifier.kind === 'invalid') return;
 
-    mutation.mutate(values.identifier, {
+    // Sends the canonical value (same as SignInForm), not the raw input —
+    // RecoveryService.forgot only trims/lowercases and does an exact
+    // match, so an uncanonicalized phone (e.g. +880 or Bengali digits)
+    // would silently miss the account and never issue an OTP.
+    mutation.mutate(identifier.kind === 'email' ? identifier.email : identifier.phone, {
       onSuccess: (response) => onResult(identifier, response),
     });
   }
@@ -277,6 +283,21 @@ function CodeStep({ phone, onContinue }: { phone: string; onContinue: (otp: stri
       >
         {secondsLeft > 0 ? t('forgot.resendIn', { count: secondsLeft }) : t('forgot.resend')}
       </Button>
+
+      {resendMutation.isError && (
+        <div
+          role={resendMutation.error instanceof RateLimitedError ? 'status' : 'alert'}
+          className="flex items-start gap-2.5 rounded-md bg-status-overdue-bg p-3 text-sm text-status-overdue-fg"
+        >
+          <span>
+            {resendMutation.error instanceof RateLimitedError
+              ? resendMutation.error.retryAfterSeconds !== null
+                ? t('errors.rateLimited', { count: resendMutation.error.retryAfterSeconds })
+                : t('errors.rateLimitedGeneric')
+              : t('errors.generic')}
+          </span>
+        </div>
+      )}
 
       <Button type="button" disabled={otp.length !== 6} onClick={() => onContinue(otp)}>
         {t('forgot.continue')}
