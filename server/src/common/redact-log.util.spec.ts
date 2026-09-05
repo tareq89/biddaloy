@@ -92,6 +92,15 @@ describe('redactPii', () => {
     expect(redactPii('{"refresh_token":"abc"}')).toBe('{"refresh_token":"[REDACTED]"}');
   });
 
+  it('redacts a JSON secret value containing an escaped quote', () => {
+    const errorLine = 'DETAIL: Key (settings)=({"token":"abc\\"def"}) already exists.';
+
+    const redacted = redactPii(errorLine);
+
+    expect(redacted).not.toContain('abc\\"def');
+    expect(redacted).toContain('"token":"[REDACTED]"');
+  });
+
   it('leaves non-secret JSON keys untouched', () => {
     expect(redactPii('{"phoneNumberId":"123","pageId":"456"}')).toBe(
       '{"phoneNumberId":"123","pageId":"456"}',

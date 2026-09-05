@@ -21,7 +21,7 @@ const SENSITIVE_QUERY_PATTERN =
 // credentials), and that lands in `logQueryError`'s raw driver-error text,
 // not a URL, so SENSITIVE_QUERY_PATTERN above doesn't reach it.
 const SENSITIVE_JSON_VALUE_PATTERN =
-  /("(?:password|token|accessToken|access_token|refreshToken|refresh_token|secret|apiKey|api_key|deviceKey|device_key|otp|code)"\s*:\s*)"[^"]*"/gi;
+  /("(?:password|token|accessToken|access_token|refreshToken|refresh_token|secret|apiKey|api_key|deviceKey|device_key|otp|code)"\s*:\s*)"(?:\\.|[^"\\])*"/gi;
 
 /**
  * Scrubs email/phone-shaped substrings and known-sensitive query-param
