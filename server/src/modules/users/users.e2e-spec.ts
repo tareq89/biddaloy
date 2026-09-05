@@ -447,7 +447,10 @@ describe('Users & Teachers E2E [8.11.8]', () => {
       await dataSource.query('DELETE FROM users WHERE id = $1', [res.body.user.id]);
     });
 
-    it('a TEACHER cannot resend an invitation (403)', async () => {
+    // 401, not 403 — RolesGuard (context.guard.ts) throws UnauthorizedException
+    // for every role mismatch app-wide, not just here; that's an existing,
+    // systemic convention this test isn't the place to change.
+    it('a TEACHER cannot resend an invitation (401)', async () => {
       // Reuse the teacher token minted in the boundaries suite above.
       const loginRes = await request()
         .post('/api/v1/auth/login')
