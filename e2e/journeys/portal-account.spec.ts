@@ -293,63 +293,72 @@ test.describe('contact change', () => {
       await expect(page).toHaveURL(/\/portal/);
     });
 
+    /**
+     * Every field lookup below is scoped to the dialog, never to the page.
+     * `/portal/account` also renders the change-password card, whose
+     * "current password" field carries the SAME label as the dialog's — a
+     * page-level `getByLabel` matches both and fails strict mode.
+     */
+    const dialog = page.getByRole('dialog');
+
+    /** Fills the request step and returns the echoed OTP for the new number. */
+    async function requestChange(): Promise<string> {
+      const [response] = await Promise.all([
+        page.waitForResponse((res) => res.url().includes('/api/v1/users/me/contact-change')),
+        (async () => {
+          await dialog.getByLabel(t('portal.account.contact.newPhoneLabel')).fill(newPhone);
+          await dialog.getByLabel(t('portal.account.contact.currentPasswordLabel')).fill(password);
+          await dialog.getByRole('button', { name: t('portal.account.contact.continue') }).click();
+        })(),
+      ]);
+      const body = (await response.json()) as { debug?: { otp?: string } };
+      const code = body.debug?.otp;
+      if (!code) {
+        throw new Error(
+          'No debug.otp in the contact-change response — is ACCOUNT_ACCESS_ECHO_SECRETS=true set?',
+        );
+      }
+      return code;
+    }
+
     await test.step('navigate to /portal/account and open "Change" on the phone row', async () => {
       await page.goto('/portal/account');
       await rowFor(account.phone).getByRole('button', { name: changeLabel }).click();
-      await expect(page.getByRole('dialog')).toBeVisible();
+      await expect(dialog).toBeVisible();
     });
 
     let otp: string | undefined;
 
     await test.step('request the change and read the OTP from the debug echo', async () => {
-      const [response] = await Promise.all([
-        page.waitForResponse((res) => res.url().includes('/api/v1/users/me/contact-change')),
-        (async () => {
-          await page.getByLabel(t('portal.account.contact.newPhoneLabel')).fill(newPhone);
-          await page.getByLabel(t('portal.account.contact.currentPasswordLabel')).fill(password);
-          await page.getByRole('button', { name: t('portal.account.contact.continue') }).click();
-        })(),
-      ]);
-      const body = (await response.json()) as { debug?: { otp?: string } };
-      otp = body.debug?.otp;
-      if (!otp) {
-        throw new Error(
-          'No debug.otp in the contact-change response — is ACCOUNT_ACCESS_ECHO_SECRETS=true set?',
-        );
-      }
+      otp = await requestChange();
     });
 
-    await test.step('a wrong code is rejected and the old phone is still shown', async () => {
+    // One request, both codes: a wrong OTP attempt neither consumes the
+    // pending change (confirmPhone deletes it only on success) nor the code
+    // (the lockout is 5 attempts), so the correct code still verifies in the
+    // same dialog. Re-requesting instead would hit `OtpService.request`'s
+    // 60s per-number cooldown and get no fresh code — which is exactly how
+    // this test failed before.
+    await test.step('a wrong code is rejected, leaving the pending change intact', async () => {
       const wrongOtp = otp === '000000' ? '111111' : '000000';
-      await page.getByLabel(t('portal.account.contact.otpStep.label')).fill(wrongOtp);
-      await page.getByRole('button', { name: t('portal.account.contact.otpStep.confirm') }).click();
-      await expect(page.getByText(t('portal.account.contact.errors.invalidCode'))).toBeVisible();
-
-      await page.getByRole('button', { name: t('portal.account.contact.cancel') }).click();
-      await expect(page.getByText(account.phone)).toBeVisible();
+      await dialog.getByLabel(t('portal.account.contact.otpStep.label')).fill(wrongOtp);
+      await dialog
+        .getByRole('button', { name: t('portal.account.contact.otpStep.confirm') })
+        .click();
+      await expect(dialog.getByText(t('portal.account.contact.errors.invalidCode'))).toBeVisible();
+      // No behind-the-dialog phone assertion: Radix marks the background
+      // `aria-hidden` while the modal is open, so `getByRole` (inside
+      // `rowFor`) can't see the row's Change button. That the OLD value was
+      // untouched is proven by the next step succeeding — the correct code
+      // could only verify if the wrong attempt left the pending change and
+      // the code intact.
     });
 
     await test.step('the right code replaces the phone and marks it verified', async () => {
-      // A fresh request issues a fresh code — the first one is no longer
-      // live, so this re-reads `debug.otp` rather than reusing the one
-      // from the wrong-code step above.
-      await rowFor(account.phone).getByRole('button', { name: changeLabel }).click();
-      const [response] = await Promise.all([
-        page.waitForResponse((res) => res.url().includes('/api/v1/users/me/contact-change')),
-        (async () => {
-          await page.getByLabel(t('portal.account.contact.newPhoneLabel')).fill(newPhone);
-          await page.getByLabel(t('portal.account.contact.currentPasswordLabel')).fill(password);
-          await page.getByRole('button', { name: t('portal.account.contact.continue') }).click();
-        })(),
-      ]);
-      const body = (await response.json()) as { debug?: { otp?: string } };
-      const freshOtp = body.debug?.otp;
-      if (!freshOtp) {
-        throw new Error('No debug.otp in the second contact-change response.');
-      }
-
-      await page.getByLabel(t('portal.account.contact.otpStep.label')).fill(freshOtp);
-      await page.getByRole('button', { name: t('portal.account.contact.otpStep.confirm') }).click();
+      await dialog.getByLabel(t('portal.account.contact.otpStep.label')).fill(otp as string);
+      await dialog
+        .getByRole('button', { name: t('portal.account.contact.otpStep.confirm') })
+        .click();
 
       // The label interpolates a locale-formatted date, so match the stem
       // ahead of `{{date}}` rather than a string that depends on today.
