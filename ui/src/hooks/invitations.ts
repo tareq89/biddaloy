@@ -1,4 +1,5 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import * as React from 'react';
 
 import { apiClient } from '../api/client';
 
@@ -84,19 +85,12 @@ export function useInvitationPreview() {
  * dropped response would provision/queue a second batch for the same
  * guardians. */
 export function useDispatchInvitations() {
-  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (selection: BatchInviteSelection) => {
       const res = await apiClient.post<InviteDispatchResult>('/users/invitations/batch', selection);
       return res.data;
     },
     retry: false,
-    onSuccess: () => {
-      // The batch will provision new PARENT accounts and eventually flip
-      // their invitation_status — the staff list's filter should reflect
-      // that once the queue drains.
-      void queryClient.invalidateQueries({ queryKey: userKeys.lists() });
-    },
   });
 }
 
@@ -121,5 +115,19 @@ export function invitationBatchQueryOptions(id: string) {
 }
 
 export function useInvitationBatch(id: string | undefined) {
-  return useQuery({ ...invitationBatchQueryOptions(id ?? ''), enabled: id !== undefined });
+  const queryClient = useQueryClient();
+  const query = useQuery({ ...invitationBatchQueryOptions(id ?? ''), enabled: id !== undefined });
+
+  // The batch provisions new PARENT accounts and flips their
+  // invitation_status as jobs drain — the staff list's filter should only
+  // refetch once there is nothing left to provision (`queued` hits 0), not
+  // on batch acceptance, when queued jobs haven't necessarily created the
+  // accounts yet.
+  React.useEffect(() => {
+    if (query.data?.queued === 0) {
+      void queryClient.invalidateQueries({ queryKey: userKeys.lists() });
+    }
+  }, [query.data?.queued, queryClient]);
+
+  return query;
 }
