@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
-import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { TestingModule } from '@nestjs/testing';
@@ -213,6 +218,47 @@ describe('ContactChangeService (integration)', () => {
 
   it('confirmPhone with no pending change: 404', async () => {
     const user = await createMember();
-    await expect(service.confirmPhone(user.id, '123456', context)).rejects.toThrow();
+    // The exact type, not a bare `toThrow()` — the 404 contract is what the
+    // client distinguishes "your pending change expired, start again" from
+    // a 400 "that code is wrong".
+    await expect(service.confirmPhone(user.id, '123456', context)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+
+  // The DTO accepts surrounding whitespace and mixed case, but
+  // `OtpLoginService.verify` looks users up by
+  // `normalizeLoginIdentifier(phone)` — so a raw value written to
+  // `users.phone` would be a number the owner could never sign in with.
+  // Everything the request stores must already be normalized.
+  it('stores the NORMALIZED phone, so OTP login can still find the row', async () => {
+    const user = await createMember();
+
+    const result = await service.request(
+      user.id,
+      { phone: '  +8801722222222  ', current_password: 'correct-password' },
+      context,
+    );
+    const otp = (result as { debug?: { otp?: string } }).debug?.otp as string;
+    await service.confirmPhone(user.id, otp, context);
+
+    const reloaded = await dataSource.getRepository(User).findOneOrFail({ where: { id: user.id } });
+    expect(reloaded.phone).toBe('+8801722222222');
+  });
+
+  // Same normalization, one step earlier: a padded duplicate must be caught
+  // by the uniqueness pre-check (409) rather than slipping through to the
+  // unique index at confirm time.
+  it('catches a whitespace-padded duplicate at request time: 409', async () => {
+    await createMember({ phone: '+8801733333333', email: 'other@example.com' });
+    const user = await createMember();
+
+    await expect(
+      service.request(
+        user.id,
+        { phone: ' +8801733333333 ', current_password: 'correct-password' },
+        context,
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 });

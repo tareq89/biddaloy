@@ -84,9 +84,16 @@ export class ContactChangeService {
     const tenantId = await this.authService.primaryTenantId(userId);
 
     if (dto.phone) {
+      // Everything downstream — the uniqueness pre-check, the pending value
+      // `confirmPhone` eventually writes to `users.phone`, and the OTP key —
+      // uses the NORMALIZED form, never the raw submitted string. The DTO
+      // accepts surrounding whitespace, and `OtpLoginService.verify` looks
+      // users up by `normalizeLoginIdentifier(phone)`: storing the raw value
+      // would create a row that sign-in can never match, and would let a
+      // padded duplicate slip past the pre-check into the unique index.
       const normalized = normalizeLoginIdentifier(dto.phone);
       const existing = await this.userRepo.findOne({
-        where: { phone: dto.phone },
+        where: { phone: normalized },
         withDeleted: true,
       });
       if (existing && existing.id !== userId) {
@@ -94,7 +101,7 @@ export class ContactChangeService {
       }
 
       const { code } = await this.otpService.request(OTP_PURPOSE, normalized);
-      const pending: PendingPhoneChange = { field: 'phone', value: dto.phone };
+      const pending: PendingPhoneChange = { field: 'phone', value: normalized };
       await this.redis.set(
         this.redisKey(userId),
         JSON.stringify(pending),
@@ -106,7 +113,7 @@ export class ContactChangeService {
         await this.delivery.deliver({
           tenantId,
           medium: CommunicationMedium.SMS,
-          to: dto.phone,
+          to: normalized,
           recipientName: user.full_name,
           kind: 'OTP',
           vars: { code },
