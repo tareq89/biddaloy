@@ -239,11 +239,13 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ],
 };
 
-/** True when `role` holds `permission` in ROLE_PERMISSIONS. Unknown or null roles hold nothing. */
+/** True when `role` holds `permission` in ROLE_PERMISSIONS. Unknown or null roles hold nothing.
+ * The own-property check keeps a role string like `'constructor'` or `'toString'` from
+ * resolving to an inherited `Object.prototype` value instead of `undefined`. */
 export function roleHasPermission(
   role: string | null | undefined,
   permission: Permission,
 ): boolean {
-  if (!role) return false;
-  return ROLE_PERMISSIONS[role as UserRole]?.includes(permission) ?? false;
+  if (!role || !Object.prototype.hasOwnProperty.call(ROLE_PERMISSIONS, role)) return false;
+  return ROLE_PERMISSIONS[role as UserRole].includes(permission);
 }

@@ -240,4 +240,15 @@ describe('roleHasPermission', () => {
   it('returns false for an unrecognized role string', () => {
     expect(roleHasPermission('NOT_A_ROLE', Permission.USER_CREATE)).toBe(false);
   });
+
+  // A role string matching an inherited Object.prototype member (not an own
+  // property of ROLE_PERMISSIONS) must resolve to "holds nothing", not throw
+  // or fall through to that inherited value.
+  it.each(['constructor', 'toString', 'hasOwnProperty', '__proto__'])(
+    'returns false for the inherited property name %s, not the prototype value',
+    (role) => {
+      expect(() => roleHasPermission(role, Permission.USER_CREATE)).not.toThrow();
+      expect(roleHasPermission(role, Permission.USER_CREATE)).toBe(false);
+    },
+  );
 });
