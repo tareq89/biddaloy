@@ -88,8 +88,13 @@ export class GuardianProvisioningService {
     // `all` needs no extra predicate — tenant scope above already narrows it.
 
     // Cross-tenant ids in the selection are simply excluded by the
-    // tenant_id predicate above, never a 500.
-    const guardians = await qb.distinct(true).getMany();
+    // tenant_id predicate above, never a 500. `take` caps the row count the
+    // query itself returns so an oversized `all` selection can't force a
+    // full-table materialization before the size check below rejects it.
+    const guardians = await qb
+      .distinct(true)
+      .take(MAX_BATCH_INVITE_SELECTION + 1)
+      .getMany();
     if (guardians.length > MAX_BATCH_INVITE_SELECTION) {
       throw new BadRequestException(
         `A batch cannot exceed ${MAX_BATCH_INVITE_SELECTION} guardians`,
@@ -101,6 +106,7 @@ export class GuardianProvisioningService {
   /** Resolves whether a guardian is linked to an existing account and its lifecycle state. */
   private async classify(
     guardian: Guardian,
+    tenantId: string,
   ): Promise<
     | { kind: 'skip'; reason: InviteSkipReason }
     | { kind: 'invite'; user: User | null; channel: 'SMS' | 'EMAIL' }
@@ -133,7 +139,7 @@ export class GuardianProvisioningService {
     }
 
     if (user) {
-      const latest = await this.authTokens.latest(user.id, AuthTokenPurpose.INVITE);
+      const latest = await this.authTokens.latest(user.id, AuthTokenPurpose.INVITE, tenantId);
       if (latest && !latest.consumed_at && !latest.revoked_at && latest.expires_at > new Date()) {
         return { kind: 'skip', reason: 'already_pending' };
       }
@@ -152,7 +158,7 @@ export class GuardianProvisioningService {
     const skipped: InviteSkippedEntryDto[] = [];
 
     for (const guardian of guardians) {
-      const result = await this.classify(guardian);
+      const result = await this.classify(guardian, tenantId);
       if (result.kind === 'skip') {
         skipped.push({
           guardian_id: guardian.id,

@@ -11,6 +11,7 @@ function fakeQueryBuilder(result: { many?: unknown[]; one?: unknown | null; raw?
     andWhere: vi.fn().mockReturnThis(),
     innerJoin: vi.fn().mockReturnThis(),
     distinct: vi.fn().mockReturnThis(),
+    take: vi.fn().mockReturnThis(),
     select: vi.fn().mockReturnThis(),
     addSelect: vi.fn().mockReturnThis(),
     groupBy: vi.fn().mockReturnThis(),
@@ -141,6 +142,17 @@ describe('GuardianProvisioningService', () => {
       expect(result.skipped).toEqual([
         { guardian_id: 'g1', full_name: 'Guardian One', reason: 'already_pending' },
       ]);
+    });
+
+    it('scopes the pending-invitation lookup to the active tenant, not any tenant', async () => {
+      const guardian = makeGuardian({ user_id: 'u1' });
+      guardianRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ many: [guardian] }));
+      userRepo.findOne.mockResolvedValue({ id: 'u1', password_hash: null });
+      authTokens.latest.mockResolvedValue(null);
+
+      await service.preview(TENANT, { all: true });
+
+      expect(authTokens.latest).toHaveBeenCalledWith('u1', 'INVITE', TENANT);
     });
 
     it('links (does not skip) a guardian without user_id whose phone matches an existing user', async () => {
