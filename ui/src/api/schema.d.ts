@@ -2345,6 +2345,13 @@ export interface components {
             /** @description The caller's current password, proving they own this account. */
             current_password: string;
         };
+        ContactChangeRequestResponseDto: {
+            /**
+             * @description 'otp' for a phone change (confirm at POST /users/me/contact-change/confirm-phone); 'link' for an email change (confirmed by clicking the emailed link, which posts to /auth/verify-email).
+             * @enum {string}
+             */
+            channel: "otp" | "link";
+        };
         ContactChangeConfirmPhoneDto: {
             /** @description The 6-digit OTP sent to the new phone number. */
             otp: string;
@@ -2436,6 +2443,13 @@ export interface components {
         VerifyEmailDto: {
             /** @description The raw email-verify token from the ?token= query param. */
             token: string;
+        };
+        VerifyEmailResponseDto: {
+            /**
+             * @description 'valid' means the email was changed; anything else means it was not.
+             * @enum {string}
+             */
+            status: "valid" | "expired" | "consumed" | "revoked" | "unknown";
         };
         SendSingleReminderDto: {
             message_template: string;
@@ -5217,7 +5231,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["ContactChangeRequestResponseDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -5647,7 +5661,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["VerifyEmailResponseDto"];
+                };
             };
         };
     };

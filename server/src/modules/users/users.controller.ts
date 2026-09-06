@@ -38,7 +38,11 @@ import {
   UpdateTeacherDto,
   QueryTeacherDto,
 } from './dto/users.dto';
-import { ContactChangeRequestDto, ContactChangeConfirmPhoneDto } from './dto/contact-change.dto';
+import {
+  ContactChangeRequestDto,
+  ContactChangeConfirmPhoneDto,
+  ContactChangeRequestResponseDto,
+} from './dto/contact-change.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import {
   InviteBatchStatusResponseDto,
@@ -337,6 +341,7 @@ export class UserController {
     summary:
       'Requests a change to the caller own email or phone. Sends an OTP (phone) or a confirm link (email) to the NEW value; nothing is written to the account until confirmed.',
   })
+  @ApiResponse({ status: 202, type: ContactChangeRequestResponseDto })
   async requestContactChange(
     @Body() dto: ContactChangeRequestDto,
     @CurrentUser() jwt: JwtPayload,

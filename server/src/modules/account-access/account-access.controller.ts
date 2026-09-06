@@ -19,7 +19,7 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { OtpRequestDto } from './dto/otp-request.dto';
 import { OtpVerifyDto } from './dto/otp-verify.dto';
-import { VerifyEmailDto } from '../users/dto/contact-change.dto';
+import { VerifyEmailDto, VerifyEmailResponseDto } from '../users/dto/contact-change.dto';
 
 /**
  * 12.2's public activation surface, plus 12.3's public recovery surface.
@@ -146,6 +146,7 @@ export class AccountAccessController {
     summary:
       '[12.7] Confirms an emailed contact-change link — clicked from the inbox, possibly logged out.',
   })
+  @ApiOkResponse({ type: VerifyEmailResponseDto })
   async verifyEmail(
     @Body() dto: VerifyEmailDto,
     @Req() request: Request,

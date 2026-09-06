@@ -51,6 +51,36 @@ export class ContactChangeRequestDto {
   current_password: string;
 }
 
+/**
+ * 202 body of `POST /users/me/contact-change` — tells the caller which
+ * confirm step follows, so the dialog knows whether to show an OTP field or
+ * a "check your inbox" card.
+ *
+ * The echo-only `debug` field (`ACCOUNT_ACCESS_ECHO_SECRETS`, D6) is
+ * deliberately NOT documented here: it exists for the e2e suite, and the
+ * published contract should not advertise a way to read a secret back.
+ */
+export class ContactChangeRequestResponseDto {
+  @ApiProperty({
+    enum: ['otp', 'link'],
+    description:
+      "'otp' for a phone change (confirm at POST /users/me/contact-change/confirm-phone); 'link' for an email change (confirmed by clicking the emailed link, which posts to /auth/verify-email).",
+  })
+  channel: 'otp' | 'link';
+}
+
+/**
+ * 200 body of `POST /auth/verify-email`. A bad token is NOT an error status:
+ * the page renders a different card per `status`, so every outcome is a 200.
+ */
+export class VerifyEmailResponseDto {
+  @ApiProperty({
+    enum: ['valid', 'expired', 'consumed', 'revoked', 'unknown'],
+    description: "'valid' means the email was changed; anything else means it was not.",
+  })
+  status: string;
+}
+
 /** Body of `POST /users/me/contact-change/confirm-phone`. */
 export class ContactChangeConfirmPhoneDto {
   @ApiProperty({ description: 'The 6-digit OTP sent to the new phone number.' })
