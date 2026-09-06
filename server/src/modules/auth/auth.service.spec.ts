@@ -81,6 +81,17 @@ describe('AuthService', () => {
       save: vi.fn(),
       update: vi.fn(),
     };
+    // changePassword() re-reads the user under a lock inside a transaction —
+    // route the transactional read/write through the same mocks so existing
+    // findOne/update setup and assertions keep working unchanged.
+    mockUserRepo.manager = {
+      transaction: vi.fn(async (cb: any) =>
+        cb({
+          getRepository: () => ({ findOne: (...args: any[]) => mockUserRepo.findOne(...args) }),
+          update: (_entity: any, where: any, partial: any) => mockUserRepo.update(where, partial),
+        }),
+      ),
+    };
     mockUserTenantRepo = {
       find: vi.fn(),
       // Backs primaryTenantId()'s "earliest membership" lookup used to
@@ -335,13 +346,14 @@ describe('AuthService', () => {
       mockUserRepo.findOne.mockResolvedValue(mockUser);
       (bcrypt.compare as any).mockResolvedValue(true);
       mockUserTenantRepo.find.mockResolvedValue(mockMemberships);
-      mockUserRepo.save.mockResolvedValue({ ...mockUser, last_login_at: new Date() });
+      mockUserRepo.update.mockResolvedValue(undefined);
 
       await service.login('admin@test.com', 'password123');
 
-      expect(mockUserRepo.save).toHaveBeenCalled();
-      const savedUser = mockUserRepo.save.mock.calls[0][0];
-      expect(savedUser.last_login_at).toBeInstanceOf(Date);
+      expect(mockUserRepo.update).toHaveBeenCalledWith(
+        { id: mockUser.id },
+        expect.objectContaining({ last_login_at: expect.any(Date) }),
+      );
     });
 
     it('resets the attempt counter on a successful login', async () => {
@@ -663,7 +675,7 @@ describe('AuthService', () => {
         expect.objectContaining({ password_hash: '$2b$10$brand-new-hash' }),
       );
       // Every OTHER session dies...
-      expect(mockRefreshTokens.revokeAllForUser).toHaveBeenCalledWith('user-1');
+      expect(mockRefreshTokens.revokeAllForUser).toHaveBeenCalledWith('user-1', expect.anything());
       // ...but the caller's own session survives: its jti is never denylisted,
       // and it gets a brand new refresh-token family back.
       expect(mockAccessTokenDenylist.revoke).not.toHaveBeenCalled();

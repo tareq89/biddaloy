@@ -1,6 +1,6 @@
 import { Injectable, Inject, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { randomBytes, randomUUID } from 'crypto';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { hashSecret, safeEqualHex } from './token-hash.util';
@@ -220,8 +220,9 @@ export class RefreshTokenService {
       .execute();
   }
 
-  async revokeAllForUser(userId: string): Promise<void> {
-    await this.repo
+  async revokeAllForUser(userId: string, manager?: EntityManager): Promise<void> {
+    const repo = manager ? manager.getRepository(RefreshToken) : this.repo;
+    await repo
       .createQueryBuilder()
       .update(RefreshToken)
       .set({ revoked_at: new Date() })
