@@ -23,6 +23,7 @@ import {
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
@@ -36,7 +37,7 @@ import {
 } from './dto/invoices.dto';
 import { Invoice } from './entities/invoice.entity';
 import { paginatedSchema } from '../../common/swagger/paginated-schema.util';
-import { UserRole, AuditAction, isGuardianRole } from '@biddaloy/shared';
+import { UserRole, AuditAction, isGuardianRole, Permission } from '@biddaloy/shared';
 import { JwtPayload } from '@biddaloy/shared';
 import { STRICT_RATE_LIMIT } from '../../rate-limit';
 import { User } from '../users/entities/user.entity';
@@ -79,7 +80,9 @@ export class InvoicesController {
   ) {}
 
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  // [10.4] G1 — E tightened off: lacks INVOICE_CREATE.
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.INVOICE_CREATE)
   @Throttle({ default: STRICT_RATE_LIMIT })
   @UseInterceptors(AuditInterceptor)
   @Audited(AuditAction.INVOICE_GENERATED, 'Invoice')
@@ -93,14 +96,10 @@ export class InvoicesController {
   }
 
   @Get()
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.ACCOUNTANT,
-    UserRole.EXECUTIVE,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-  )
+  // [10.4] G9 — E, T tightened off: `/invoices` nav is hidden from them,
+  // and student-detail uses `payments/invoices/student/:id` instead.
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.PARENT, UserRole.STUDENT)
+  @RequirePermissions(Permission.INVOICE_READ)
   @ApiOperation({
     summary:
       "List invoices. Staff see the tenant's invoices; a PARENT or STUDENT sees only their linked students', even if `student_id` names someone else.",
@@ -131,14 +130,9 @@ export class InvoicesController {
   }
 
   @Get(':id')
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.ACCOUNTANT,
-    UserRole.EXECUTIVE,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-  )
+  // [10.4] G9 — E, T tightened off; see findAll() above.
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.PARENT, UserRole.STUDENT)
+  @RequirePermissions(Permission.INVOICE_READ)
   @ApiOperation({
     summary:
       "Get one invoice. A PARENT or STUDENT must additionally be linked to the invoice's student.",
@@ -161,14 +155,11 @@ export class InvoicesController {
   }
 
   @Get(':id/print')
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.ACCOUNTANT,
-    UserRole.EXECUTIVE,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-  )
+  // [10.4] G11 — E, T removed (no INVOICE_READ); printing an invoice you may
+  // read is a read, so this requires INVOICE_READ, not INVOICE_PRINT.
+  // INVOICE_PRINT stays the UI's staff print-button gate.
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.PARENT, UserRole.STUDENT)
+  @RequirePermissions(Permission.INVOICE_READ)
   @Header('Content-Type', 'text/html; charset=utf-8')
   @ApiOperation({
     summary:

@@ -3,6 +3,10 @@ export enum Permission {
   USER_CREATE = 'USER_CREATE',
   USER_READ = 'USER_READ',
   USER_UPDATE = 'USER_UPDATE',
+  // [10.4] G17 — no route deletes a user account; account deletion isn't a
+  // staff-facing feature yet. Left SUPER_ADMIN-only (via
+  // `ROLE_PERMISSIONS[SUPER_ADMIN] = Object.values(Permission)`) rather than
+  // granted to ADMIN.
   USER_DELETE = 'USER_DELETE',
   // Removing a member's access to one school (deletes the user_tenants row,
   // not the account) — distinct from USER_DELETE, which no staff role holds.
@@ -32,6 +36,8 @@ export enum Permission {
   GUARDIAN_CREATE = 'GUARDIAN_CREATE',
   GUARDIAN_READ = 'GUARDIAN_READ',
   GUARDIAN_UPDATE = 'GUARDIAN_UPDATE',
+  // [10.4] G15 — mirrors STUDENT_DELETE. ADMIN only.
+  GUARDIAN_DELETE = 'GUARDIAN_DELETE',
 
   // Fee Management
   FEE_STRUCTURE_CREATE = 'FEE_STRUCTURE_CREATE',
@@ -77,9 +83,19 @@ export enum Permission {
   // Academic Structure
   ACADEMIC_YEAR_MANAGE = 'ACADEMIC_YEAR_MANAGE',
   CLASS_MANAGE = 'CLASS_MANAGE',
+  // [10.4] G4 — reference-data read (years/classes/sections/subjects/
+  // calendar) every staff screen needs: student form, attendance register,
+  // fee wizards, dues filter. ACADEMIC_YEAR_MANAGE/CLASS_MANAGE stay the
+  // write gates and the nav gates; this is read-only, granted to all staff.
+  ACADEMIC_STRUCTURE_READ = 'ACADEMIC_STRUCTURE_READ',
 
   // Audit
   AUDIT_LOG_READ = 'AUDIT_LOG_READ',
+  // [10.4] G6 — the per-entity Activity tab on detail pages (object-scoped).
+  // AUDIT_LOG_READ stays the tenant-wide ledger and the Audit nav gate
+  // (ADMIN only, [8.11.10]). Same split as PAYMENT_READ vs per-student
+  // payment history.
+  AUDIT_ENTITY_HISTORY_READ = 'AUDIT_ENTITY_HISTORY_READ',
 
   // Settings
   SETTINGS_MANAGE = 'SETTINGS_MANAGE',
@@ -112,6 +128,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.GUARDIAN_CREATE,
     Permission.GUARDIAN_READ,
     Permission.GUARDIAN_UPDATE,
+    // [10.4] G15 — mirrors STUDENT_DELETE.
+    Permission.GUARDIAN_DELETE,
     Permission.FEE_STRUCTURE_CREATE,
     Permission.FEE_STRUCTURE_READ,
     Permission.FEE_STRUCTURE_UPDATE,
@@ -122,8 +140,14 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.INVOICE_CREATE,
     Permission.INVOICE_READ,
     Permission.INVOICE_PRINT,
+    // [10.4] G17 — reserved for the refunds/void endpoint (#291); no route
+    // consumes it yet.
+    Permission.INVOICE_DELETE,
     Permission.PAYMENT_RECORD,
     Permission.PAYMENT_READ,
+    // [10.4] G17 — reserved for the refunds endpoint (#291); no route
+    // consumes it yet.
+    Permission.PAYMENT_REFUND,
     Permission.COMMUNICATION_SEND,
     Permission.COMMUNICATION_BULK_SEND,
     Permission.COMMUNICATION_LOG_READ,
@@ -133,7 +157,11 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.DASHBOARD_ADMIN,
     Permission.ACADEMIC_YEAR_MANAGE,
     Permission.CLASS_MANAGE,
+    // [10.4] G4 — reference-data read; see enum comment.
+    Permission.ACADEMIC_STRUCTURE_READ,
     Permission.AUDIT_LOG_READ,
+    // [10.4] G6 — per-entity Activity tab; see enum comment.
+    Permission.AUDIT_ENTITY_HISTORY_READ,
     Permission.SETTINGS_MANAGE,
     Permission.ATTENDANCE_READ,
     Permission.ATTENDANCE_MARK,
@@ -147,15 +175,18 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // `POST /students/bulk-upload`. Without it the endpoint is callable but
     // the "Import students" button is hidden, which reads as a broken
     // feature rather than a deliberate restriction.
-    //
-    // Deliberately NOT paired with STUDENT_CREATE/GUARDIAN_CREATE, even
-    // though `POST /students` and `POST /guardians` carry the identical
-    // `@Roles`. The consequence is odd on its face — this role can import
-    // 500 students from a spreadsheet but cannot add one by hand — and it is
-    // flagged rather than fixed here: [8.11.8] was scoped to unhiding the
-    // import feature, and granting create rights is a separate product call.
     Permission.STUDENT_BULK_UPLOAD,
+    // [10.4] G3 — resolves the "can import 500 but cannot add one by hand"
+    // contradiction the map used to flag. ACCOUNTANT is the front-office
+    // clerk who does intake; the server has admitted this role on these
+    // routes since day one. Visible effect: ACCOUNTANT gains
+    // `/students/new`, `/students/:id/edit`, the enrollment tab's edit
+    // controls, and guardian edit.
+    Permission.STUDENT_CREATE,
+    Permission.STUDENT_UPDATE,
+    Permission.GUARDIAN_CREATE,
     Permission.GUARDIAN_READ,
+    Permission.GUARDIAN_UPDATE,
     Permission.FEE_STRUCTURE_CREATE,
     Permission.FEE_STRUCTURE_READ,
     Permission.FEE_STRUCTURE_UPDATE,
@@ -169,9 +200,16 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.PAYMENT_READ,
     Permission.COMMUNICATION_SEND,
     Permission.COMMUNICATION_BULK_SEND,
+    // [10.4] G5 — the student-detail Communications tab (visible via
+    // STUDENT_READ) calls these; no nav item gates on this permission.
+    Permission.COMMUNICATION_LOG_READ,
     Permission.REPORTS_VIEW,
     Permission.REPORTS_EXPORT,
     Permission.DASHBOARD_VIEW,
+    // [10.4] G4 — reference-data read; see enum comment.
+    Permission.ACADEMIC_STRUCTURE_READ,
+    // [10.4] G6 — per-entity Activity tab; see enum comment.
+    Permission.AUDIT_ENTITY_HISTORY_READ,
     Permission.ATTENDANCE_READ,
   ],
 
@@ -184,7 +222,13 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // product decision well outside [8.11.5]. Flagged rather than fixed.
     Permission.FEE_READ,
     Permission.COMMUNICATION_SEND,
+    // [10.4] G5 — per-student Communications tab; see ACCOUNTANT comment.
+    Permission.COMMUNICATION_LOG_READ,
     Permission.DASHBOARD_VIEW,
+    // [10.4] G4 — reference-data read; see enum comment.
+    Permission.ACADEMIC_STRUCTURE_READ,
+    // [10.4] G6 — per-entity Activity tab; see enum comment.
+    Permission.AUDIT_ENTITY_HISTORY_READ,
     Permission.ATTENDANCE_READ,
     Permission.ATTENDANCE_MARK,
   ],
@@ -216,14 +260,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   [UserRole.EXECUTIVE]: [
     Permission.STUDENT_READ,
     // Same reasoning as ACCOUNTANT above — the server route already admits
-    // EXECUTIVE, so the UI gate matches it rather than being stricter. The
-    // same STUDENT_CREATE caveat noted there applies here too.
+    // EXECUTIVE, so the UI gate matches it rather than being stricter.
     //
-    // Also deliberately no GUARDIAN_READ: a bulk import creates guardian
-    // rows as a side effect, and this role has no surface for viewing them
-    // (`/guardians` is hidden and guardians are excluded from global
-    // search). Granting a read that the nav does not expose is a wider
-    // change than [8.11.8]; flagged rather than fixed.
+    // [10.4] G12 — still deliberately no GUARDIAN_READ: this role has no
+    // surface for viewing guardians (`/guardians` is hidden, guardians are
+    // excluded from global search). The corresponding routes are TIGHTENed
+    // (EXECUTIVE removed from `@Roles`) rather than granting an unused read.
     Permission.STUDENT_BULK_UPLOAD,
     // Deliberately no FEE_STRUCTURE_* — same call as TEACHER above. The
     // controller's `@Roles` does let an EXECUTIVE hit these endpoints, but
@@ -235,6 +277,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.FEE_READ,
     Permission.REPORTS_VIEW,
     Permission.DASHBOARD_VIEW,
+    // [10.4] G4 — reference-data read; see enum comment.
+    Permission.ACADEMIC_STRUCTURE_READ,
+    // [10.4] G5 — per-student Communications tab; see ACCOUNTANT comment.
+    Permission.COMMUNICATION_LOG_READ,
+    // [10.4] G6 — per-entity Activity tab; see enum comment.
+    Permission.AUDIT_ENTITY_HISTORY_READ,
     Permission.ATTENDANCE_READ,
   ],
 };

@@ -56,7 +56,10 @@ export class StudentController {
   // --- Student endpoints ---
 
   @Post('students')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  // [10.4] G3 grants AC STUDENT_CREATE (front-office intake); G1 tightens E
+  // off (no write surface).
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.STUDENT_CREATE)
   createStudent(
     @Body() dto: CreateStudentDto,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -141,7 +144,9 @@ export class StudentController {
   }
 
   @Patch('students/:id')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  // [10.4] G3, G1 — same reasoning as createStudent() above.
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.STUDENT_UPDATE)
   updateStudent(
     @Param('id') id: string,
     @Body() dto: UpdateStudentDto,
@@ -160,7 +165,9 @@ export class StudentController {
   // --- Guardian endpoints ---
 
   @Post('guardians')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  // [10.4] G3 grants AC GUARDIAN_CREATE; G1 tightens E off.
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.GUARDIAN_CREATE)
   createGuardian(
     @Body() dto: CreateGuardianDto,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -169,7 +176,10 @@ export class StudentController {
   }
 
   @Get('guardians')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  // [10.4] G12 — E tightened off: no surface for viewing guardians (`/guardians`
+  // hidden, guardians excluded from global search).
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.TEACHER)
+  @RequirePermissions(Permission.GUARDIAN_READ)
   findAllGuardians(
     @Query() query: QueryGuardianDto,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -213,7 +223,9 @@ export class StudentController {
   }
 
   @Get('guardians/:id')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  // [10.4] G12 — E tightened off; see findAllGuardians() above.
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.TEACHER)
+  @RequirePermissions(Permission.GUARDIAN_READ)
   findOneGuardian(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -222,7 +234,9 @@ export class StudentController {
   }
 
   @Patch('guardians/:id')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  // [10.4] G3 grants AC GUARDIAN_UPDATE; G1 tightens E off.
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.GUARDIAN_UPDATE)
   updateGuardian(
     @Param('id') id: string,
     @Body() dto: UpdateGuardianDto,
@@ -232,7 +246,9 @@ export class StudentController {
   }
 
   @Delete('guardians/:id')
+  // [10.4] G15 — new GUARDIAN_DELETE, mirrors STUDENT_DELETE.
   @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.GUARDIAN_DELETE)
   removeGuardian(@Param('id') id: string, @CurrentTenant() tenant: { id: string; role: string }) {
     return this.guardianService.remove(id, tenant.id);
   }

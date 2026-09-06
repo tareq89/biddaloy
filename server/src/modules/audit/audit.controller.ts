@@ -39,7 +39,10 @@ export class AuditController {
   // ordering doesn't matter for routing — kept below it just to read as
   // "the tenant-wide view, then the narrower one" top to bottom.
   @Get('entity/:entityType/:entityId')
+  // [10.4] G6 — per-entity Activity tab; object-scoped, distinct from the
+  // tenant-wide AUDIT_LOG_READ above.
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @RequirePermissions(Permission.AUDIT_ENTITY_HISTORY_READ)
   @ApiOperation({
     summary: "List one entity's audit trail (e.g. a single student's activity tab), newest first.",
   })

@@ -224,6 +224,93 @@ describe('attendance role grants [9.2]', () => {
   });
 });
 
+describe('[10.4] drift decisions', () => {
+  // G3 — resolves the "can import 500 but cannot add one by hand"
+  // contradiction: ACCOUNTANT gains create/update on students and guardians.
+  it('grants STUDENT_CREATE, STUDENT_UPDATE, GUARDIAN_CREATE and GUARDIAN_UPDATE to ACCOUNTANT', () => {
+    for (const permission of [
+      Permission.STUDENT_CREATE,
+      Permission.STUDENT_UPDATE,
+      Permission.GUARDIAN_CREATE,
+      Permission.GUARDIAN_UPDATE,
+    ]) {
+      expect(ROLE_PERMISSIONS[UserRole.ACCOUNTANT]).toContain(permission);
+    }
+  });
+
+  // G4 — reference-data read every staff screen needs.
+  it('grants ACADEMIC_STRUCTURE_READ to every staff role', () => {
+    for (const role of [
+      UserRole.ADMIN,
+      UserRole.ACCOUNTANT,
+      UserRole.EXECUTIVE,
+      UserRole.TEACHER,
+    ]) {
+      expect(ROLE_PERMISSIONS[role]).toContain(Permission.ACADEMIC_STRUCTURE_READ);
+    }
+  });
+
+  // G5 — the per-student Communications tab, visible via STUDENT_READ.
+  it('grants COMMUNICATION_LOG_READ to ACCOUNTANT, EXECUTIVE and TEACHER', () => {
+    for (const role of [UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER]) {
+      expect(ROLE_PERMISSIONS[role]).toContain(Permission.COMMUNICATION_LOG_READ);
+    }
+  });
+
+  // G6 — the per-entity Activity tab, distinct from the tenant-wide
+  // AUDIT_LOG_READ ledger (ADMIN only).
+  it('grants AUDIT_ENTITY_HISTORY_READ to every staff role, but AUDIT_LOG_READ to ADMIN only', () => {
+    for (const role of [
+      UserRole.ADMIN,
+      UserRole.ACCOUNTANT,
+      UserRole.EXECUTIVE,
+      UserRole.TEACHER,
+    ]) {
+      expect(ROLE_PERMISSIONS[role]).toContain(Permission.AUDIT_ENTITY_HISTORY_READ);
+    }
+    for (const role of [UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER]) {
+      expect(ROLE_PERMISSIONS[role]).not.toContain(Permission.AUDIT_LOG_READ);
+    }
+  });
+
+  // G12 — EXECUTIVE still has no surface for guardians.
+  it('withholds GUARDIAN_READ from EXECUTIVE', () => {
+    expect(ROLE_PERMISSIONS[UserRole.EXECUTIVE]).not.toContain(Permission.GUARDIAN_READ);
+  });
+
+  // G15 — new value mirroring STUDENT_DELETE.
+  it('grants GUARDIAN_DELETE to ADMIN only', () => {
+    expect(ROLE_PERMISSIONS[UserRole.ADMIN]).toContain(Permission.GUARDIAN_DELETE);
+    for (const role of [
+      UserRole.ACCOUNTANT,
+      UserRole.EXECUTIVE,
+      UserRole.TEACHER,
+      UserRole.PARENT,
+      UserRole.STUDENT,
+    ]) {
+      expect(ROLE_PERMISSIONS[role]).not.toContain(Permission.GUARDIAN_DELETE);
+    }
+  });
+
+  // G17 — reserved for endpoints that don't exist yet; granted to ADMIN so
+  // the value isn't dead weight, but no route consumes it today (see
+  // permission-matrix.e2e-spec.ts's UI_ONLY_PERMISSIONS).
+  it('grants INVOICE_DELETE and PAYMENT_REFUND to ADMIN only, and USER_DELETE to no staff role', () => {
+    expect(ROLE_PERMISSIONS[UserRole.ADMIN]).toContain(Permission.INVOICE_DELETE);
+    expect(ROLE_PERMISSIONS[UserRole.ADMIN]).toContain(Permission.PAYMENT_REFUND);
+    for (const role of [
+      UserRole.ADMIN,
+      UserRole.ACCOUNTANT,
+      UserRole.EXECUTIVE,
+      UserRole.TEACHER,
+      UserRole.PARENT,
+      UserRole.STUDENT,
+    ]) {
+      expect(ROLE_PERMISSIONS[role]).not.toContain(Permission.USER_DELETE);
+    }
+  });
+});
+
 describe('roleHasPermission', () => {
   it('returns true when ADMIN holds USER_CREATE', () => {
     expect(roleHasPermission(UserRole.ADMIN, Permission.USER_CREATE)).toBe(true);
