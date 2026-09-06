@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindOptionsOrder, Repository } from 'typeorm';
+import { EntityManager, FindOptionsOrder, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
 import { User } from '../users/entities/user.entity';
@@ -142,9 +142,9 @@ export class AuthService {
 
     await this.loginAttempts.reset(identifier);
 
-    // Update last login timestamp
-    user.last_login_at = new Date();
-    await this.userRepository.save(user);
+    // Update last login timestamp. A targeted update (not save(user)) avoids
+    // clobbering a password hash changed concurrently by another request.
+    await this.userRepository.update({ id: user.id }, { last_login_at: new Date() });
 
     await this.auditService.record({
       action: AuditAction.LOGIN,
@@ -351,9 +351,22 @@ export class AuthService {
     // update also avoids `save()` writing back every column that was read at
     // the top of this method.
     const password_hash = await bcrypt.hash(dto.new_password, BCRYPT_COST);
-    await this.userRepository.update({ id: user.id }, { password_hash });
-
-    await this.refreshTokens.revokeAllForUser(userId);
+    // Re-read under a row lock inside the same transaction that revokes
+    // refresh tokens: without this, a password change racing a concurrent
+    // change on the same account could update the hash after the other
+    // request already revoked sessions, leaving a live session on a
+    // password nobody knows was applied last.
+    await this.userRepository.manager.transaction(async (manager) => {
+      const current = await manager.getRepository(User).findOne({
+        where: { id: user.id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!current || current.status !== UserStatus.ACTIVE || current.password_hash !== user.password_hash) {
+        throw new ForbiddenException('Credentials changed; sign in again');
+      }
+      await manager.update(User, { id: user.id }, { password_hash });
+      await this.refreshTokens.revokeAllForUser(userId, manager);
+    });
     // Intentionally NO this.accessTokenDenylist.revoke(...) here — see the
     // session semantics in this method's doc comment.
 

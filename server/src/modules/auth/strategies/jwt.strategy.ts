@@ -39,6 +39,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Invalid token payload');
     }
 
+    // Single-purpose tokens (e.g. a password-reset challenge) must never be
+    // accepted as a general access token, even if they otherwise satisfy the
+    // shape checks above.
+    if ('purpose' in payload) {
+      throw new UnauthorizedException('Invalid token payload');
+    }
+
     // Lets logout-all and reuse-detected revocation take effect
     // immediately instead of waiting out the token's own short lifetime —
     // see access-token-denylist.service.ts.

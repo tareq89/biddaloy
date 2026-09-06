@@ -75,6 +75,21 @@ describe('JwtStrategy', () => {
     expect(mockDenylist.isRevoked).toHaveBeenCalledWith('revoked-token');
   });
 
+  it('throws UnauthorizedException when the payload carries a single-purpose claim', async () => {
+    const payload = {
+      sub: 'user-1',
+      memberships: [],
+      jti: 'token-1',
+      purpose: 'complete_password_reset',
+    } as unknown as JwtPayload;
+
+    // A challenge token minted for one specific operation must never be
+    // accepted as a general-purpose access token, even if it otherwise has
+    // a valid sub/memberships/jti shape.
+    await expect(strategy.validate(payload)).rejects.toThrow(UnauthorizedException);
+    await expect(strategy.validate(payload)).rejects.toThrow('Invalid token payload');
+  });
+
   it('throws instead of falling back to a default secret when JWT_SECRET is missing', () => {
     expect(
       () =>
