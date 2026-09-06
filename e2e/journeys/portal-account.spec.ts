@@ -243,9 +243,9 @@ test.describe('password change', () => {
 /**
  * [12.7] The commit-on-verify contact-change flow, driven from
  * `/portal/account`'s new "Change" button next to the phone row. Uses a
- * freshly created + activated parent (like `password-recovery.spec.ts`'s
- * guardian-recovery journey) rather than a seeded account — no shared
- * fixture to restore, so no `try/finally` dance is needed here.
+ * freshly created + activated account (like `password-recovery.spec.ts`'s
+ * guardian-recovery journey) rather than a seeded one — no shared fixture
+ * to restore, so no `try/finally` dance is needed here.
  *
  * The OTP comes from the `/users/me/contact-change` response's
  * `debug.otp` (`ACCOUNT_ACCESS_ECHO_SECRETS=true` in this environment),
@@ -259,22 +259,43 @@ test.describe('contact change', () => {
     request,
   }) => {
     const admin = await adminApiSession(request);
-    const guardian = await createInvitedParentUser(request, admin, 'Contact Change E2E');
+    // STUDENT, not PARENT: a freshly minted account has no `guardians` row,
+    // and `/portal/account` renders a page-level error for a PARENT whose
+    // `GET /guardians/mine` 404s (`account.tsx` folds that query's error
+    // into the page's own). A STUDENT never issues that request, so the
+    // page loads on `GET /users/me` alone — the same reason the
+    // password-change journey above runs as `student`. The contact-change
+    // card itself is role-agnostic.
+    const account = await createInvitedParentUser(request, admin, 'Contact Change E2E', 'STUDENT');
     const password = 'an-original-password';
     const newPhone = `017${Math.floor(10_000_000 + Math.random() * 89_999_999)}`;
+    const changeLabel = t('portal.account.contact.change');
+
+    /**
+     * The contact card has one "Change" button per row (email and phone),
+     * and neither row carries a stable id — so a row is identified as the
+     * innermost `div` holding BOTH the number and a Change button.
+     * `hasText` alone would match every ancestor up to `<body>`, and the
+     * button lookup inside those would then resolve to both rows' buttons.
+     */
+    const rowFor = (contact: string) =>
+      page
+        .locator('div')
+        .filter({ hasText: contact })
+        .filter({ has: page.getByRole('button', { name: changeLabel }) })
+        .last();
 
     const activate = new ActivatePage(page);
 
     await test.step('activate the account, landing signed in on the portal', async () => {
-      await activate.goto(guardian.token);
+      await activate.goto(account.token);
       await activate.setPassword(password);
       await expect(page).toHaveURL(/\/portal/);
     });
 
     await test.step('navigate to /portal/account and open "Change" on the phone row', async () => {
       await page.goto('/portal/account');
-      const phoneRow = page.locator('div', { hasText: guardian.phone });
-      await phoneRow.getByRole('button', { name: t('portal.account.contact.change') }).click();
+      await rowFor(account.phone).getByRole('button', { name: changeLabel }).click();
       await expect(page.getByRole('dialog')).toBeVisible();
     });
 
@@ -305,15 +326,14 @@ test.describe('contact change', () => {
       await expect(page.getByText(t('portal.account.contact.errors.invalidCode'))).toBeVisible();
 
       await page.getByRole('button', { name: t('portal.account.contact.cancel') }).click();
-      await expect(page.getByText(guardian.phone)).toBeVisible();
+      await expect(page.getByText(account.phone)).toBeVisible();
     });
 
     await test.step('the right code replaces the phone and marks it verified', async () => {
       // A fresh request issues a fresh code — the first one is no longer
       // live, so this re-reads `debug.otp` rather than reusing the one
       // from the wrong-code step above.
-      const phoneRow = page.locator('div', { hasText: guardian.phone });
-      await phoneRow.getByRole('button', { name: t('portal.account.contact.change') }).click();
+      await rowFor(account.phone).getByRole('button', { name: changeLabel }).click();
       const [response] = await Promise.all([
         page.waitForResponse((res) => res.url().includes('/api/v1/users/me/contact-change')),
         (async () => {
@@ -331,12 +351,11 @@ test.describe('contact change', () => {
       await page.getByLabel(t('portal.account.contact.otpStep.label')).fill(freshOtp);
       await page.getByRole('button', { name: t('portal.account.contact.otpStep.confirm') }).click();
 
-      const newPhoneRow = page.locator('div', { hasText: newPhone });
       // The label interpolates a locale-formatted date, so match the stem
       // ahead of `{{date}}` rather than a string that depends on today.
       const verifiedStem = t('portal.account.contact.verified').replace('{{date}}', '').trim();
-      await expect(newPhoneRow.getByText(verifiedStem, { exact: false })).toBeVisible();
-      await expect(page.getByText(guardian.phone)).not.toBeVisible();
+      await expect(rowFor(newPhone).getByText(verifiedStem, { exact: false })).toBeVisible();
+      await expect(page.getByText(account.phone)).not.toBeVisible();
     });
   });
 });
