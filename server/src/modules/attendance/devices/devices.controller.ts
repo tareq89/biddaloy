@@ -15,6 +15,7 @@ import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestj
 import type { Request } from 'express';
 import { UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
+import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
@@ -31,7 +32,7 @@ import { CreateDeviceDto, DeviceResponseDto, DeviceWithKeyResponseDto } from '..
 @ApiTags('attendance-devices')
 @ApiTenantAuth()
 @Controller('attendance/devices')
-@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard)
+@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
 export class DevicesController {
   constructor(private readonly deviceService: DeviceService) {}

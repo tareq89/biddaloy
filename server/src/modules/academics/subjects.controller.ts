@@ -14,6 +14,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
@@ -29,7 +30,7 @@ import { UserRole } from '@biddaloy/shared';
 @ApiTags('subjects')
 @ApiTenantAuth()
 @Controller('subjects')
-@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard)
+@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class SubjectController {
   constructor(@Inject(SubjectService) private readonly service: SubjectService) {}
 
@@ -88,7 +89,7 @@ export class SubjectController {
 @ApiTags('subjects')
 @ApiTenantAuth()
 @Controller('classes')
-@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard)
+@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class ClassSubjectController {
   constructor(@Inject(SubjectService) private readonly service: SubjectService) {}
 

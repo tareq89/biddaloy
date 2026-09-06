@@ -6,6 +6,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 import Redis from 'ioredis';
 import { ContextGuard, RolesGuard } from './guards/context.guard';
+import { PermissionsGuard } from './guards/permissions.guard';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
@@ -59,6 +60,7 @@ const DEFAULT_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60_000; // 30 days
     JwtStrategy,
     ContextGuard,
     RolesGuard,
+    PermissionsGuard,
     RefreshTokenService,
     AccessTokenDenylistService,
     RefreshTokenCleanupProcessor,
@@ -125,6 +127,7 @@ const DEFAULT_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60_000; // 30 days
     PassportModule,
     ContextGuard,
     RolesGuard,
+    PermissionsGuard,
     JwtStrategy,
     ACCESS_TOKEN_TTL_MS,
     RefreshTokenService,

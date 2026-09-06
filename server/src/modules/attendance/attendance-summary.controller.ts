@@ -1,9 +1,11 @@
 import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { UserRole } from '@biddaloy/shared';
+import { Permission, UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
@@ -35,7 +37,7 @@ import {
 @ApiTags('attendance')
 @ApiTenantAuth()
 @Controller('attendance')
-@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard)
+@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class AttendanceSummaryController {
   constructor(
     private readonly summaryService: AttendanceSummaryService,
@@ -52,6 +54,7 @@ export class AttendanceSummaryController {
     UserRole.PARENT,
     UserRole.STUDENT,
   )
+  @RequirePermissions(Permission.ATTENDANCE_READ)
   @ApiOperation({
     summary:
       "One student's attendance percentage and counts over a range — the single source every " +
@@ -78,6 +81,7 @@ export class AttendanceSummaryController {
     UserRole.PARENT,
     UserRole.STUDENT,
   )
+  @RequirePermissions(Permission.ATTENDANCE_READ)
   @ApiOperation({
     summary: "One student's day-by-day marks for one month — drives the portal month grid.",
   })
@@ -94,6 +98,7 @@ export class AttendanceSummaryController {
 
   @Get('sections/:sectionId/summary')
   @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.ACCOUNTANT, UserRole.TEACHER)
+  @RequirePermissions(Permission.ATTENDANCE_READ)
   @ApiOperation({
     summary: "A whole section's roster attendance over a range, one row per student.",
   })
@@ -120,6 +125,7 @@ export class AttendanceSummaryController {
 
   @Get('sections/:sectionId/register-matrix')
   @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.ACCOUNTANT, UserRole.TEACHER)
+  @RequirePermissions(Permission.ATTENDANCE_READ)
   @ApiOperation({
     summary:
       "One month's whole register for a section, as a date x student matrix — the printable " +
@@ -149,6 +155,7 @@ export class AttendanceSummaryController {
 
   @Get('flags/low')
   @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.ATTENDANCE_READ)
   @ApiOperation({
     summary:
       'Students below the low-attendance threshold over a range. Students with no data ' +

@@ -3,9 +3,11 @@ import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { ApiForbiddenResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
-import { JwtPayload, UserRole } from '@biddaloy/shared';
+import { JwtPayload, Permission, UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
@@ -20,7 +22,7 @@ import { TenantSettingsResponseDto } from './dto/school-settings-response.dto';
 @ApiTags('schools')
 @ApiTenantAuth()
 @Controller('schools')
-@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard)
+@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class SchoolsController {
   constructor(private readonly schools: SchoolsService) {}
 
@@ -37,6 +39,7 @@ export class SchoolsController {
 
   @Get(':id/settings')
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  @RequirePermissions(Permission.SETTINGS_MANAGE)
   // Credential-bearing read: every secret's masked hint is still
   // information about that school's provider accounts, worth a stricter
   // tier than the global default — see SETTINGS_RATE_LIMIT's own comment
@@ -61,6 +64,7 @@ export class SchoolsController {
 
   @Patch(':id/settings')
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  @RequirePermissions(Permission.SETTINGS_MANAGE)
   @Throttle({ default: SETTINGS_RATE_LIMIT })
   @ApiOperation({
     summary:

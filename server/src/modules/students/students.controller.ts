@@ -18,8 +18,10 @@ import { Throttle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { STRICT_RATE_LIMIT } from '../../rate-limit';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
@@ -35,14 +37,14 @@ import {
   UpdateOwnGuardianDto,
   QueryGuardianDto,
 } from './dto/students.dto';
-import { UserRole, JwtPayload } from '@biddaloy/shared';
+import { UserRole, JwtPayload, Permission } from '@biddaloy/shared';
 
 const BULK_UPLOAD_MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 @ApiTags('students')
 @ApiTenantAuth()
 @Controller()
-@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard)
+@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class StudentController {
   constructor(
     @Inject(StudentService) private readonly studentService: StudentService,
@@ -64,6 +66,7 @@ export class StudentController {
 
   @Post('students/bulk-upload')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  @RequirePermissions(Permission.STUDENT_BULK_UPLOAD)
   @Throttle({ default: STRICT_RATE_LIMIT })
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: BULK_UPLOAD_MAX_FILE_SIZE } }))
   @ApiOperation({
@@ -83,6 +86,7 @@ export class StudentController {
 
   @Get('students')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @RequirePermissions(Permission.STUDENT_READ)
   findAllStudents(
     @Query() query: QueryStudentDto,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -97,6 +101,7 @@ export class StudentController {
    */
   @Get('students/mine')
   @Roles(UserRole.PARENT, UserRole.STUDENT)
+  @RequirePermissions(Permission.STUDENT_READ)
   @ApiOperation({
     summary:
       "List the students the calling PARENT or STUDENT is linked to. The discovery route for the family portal: without it a parent has no way to learn their own children's IDs.",
@@ -117,6 +122,7 @@ export class StudentController {
     UserRole.PARENT,
     UserRole.STUDENT,
   )
+  @RequirePermissions(Permission.STUDENT_READ)
   @ApiOperation({
     summary:
       "Get a single student. A PARENT or STUDENT caller additionally must be linked to this specific student — role alone isn't enough.",
@@ -146,6 +152,7 @@ export class StudentController {
 
   @Delete('students/:id')
   @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.STUDENT_DELETE)
   removeStudent(@Param('id') id: string, @CurrentTenant() tenant: { id: string; role: string }) {
     return this.studentService.remove(id, tenant.id);
   }

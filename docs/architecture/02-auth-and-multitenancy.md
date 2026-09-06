@@ -48,6 +48,7 @@ sequenceDiagram
     S->>S: JwtStrategy verifies signature + checks Redis denylist
     S->>S: ContextGuard resolves active tenant + role from memberships
     S->>S: RolesGuard checks @Roles(...) on the route
+    S->>S: PermissionsGuard checks @RequirePermissions(...) on the route
     S-->>C: 200 (scoped to that tenant only)
 
     Note over C,S: When the access token expires
@@ -58,15 +59,16 @@ sequenceDiagram
 
 Key pieces, each in its own file under `server/src/modules/auth/`:
 
-| Concern                                              | File                                                                        |
-| ---------------------------------------------------- | --------------------------------------------------------------------------- |
-| Verifying the JWT on every request                   | `strategies/jwt.strategy.ts`                                                |
-| Resolving active tenant + role, enforcing `@Roles()` | `guards/context.guard.ts`                                                   |
-| Issuing/rotating/revoking refresh tokens             | `refresh-token.service.ts`                                                  |
-| Detecting stolen/replayed refresh tokens             | `refresh-token.service.ts` (reuse detection revokes the whole token family) |
-| Instant access-token revocation (logout-all)         | `access-token-denylist.service.ts` (Redis, keyed by `jti`)                  |
-| Brute-force protection on login                      | `login-attempt.service.ts`                                                  |
-| CSRF defense on the two cookie-authenticated routes  | `guards/same-origin.guard.ts`                                               |
+| Concern                                                      | File                                                                        |
+| ------------------------------------------------------------ | --------------------------------------------------------------------------- |
+| Verifying the JWT on every request                           | `strategies/jwt.strategy.ts`                                                |
+| Resolving active tenant + role, enforcing `@Roles()`         | `guards/context.guard.ts`                                                   |
+| Enforcing `@RequirePermissions()` against `ROLE_PERMISSIONS` | `guards/permissions.guard.ts`                                               |
+| Issuing/rotating/revoking refresh tokens                     | `refresh-token.service.ts`                                                  |
+| Detecting stolen/replayed refresh tokens                     | `refresh-token.service.ts` (reuse detection revokes the whole token family) |
+| Instant access-token revocation (logout-all)                 | `access-token-denylist.service.ts` (Redis, keyed by `jti`)                  |
+| Brute-force protection on login                              | `login-attempt.service.ts`                                                  |
+| CSRF defense on the two cookie-authenticated routes          | `guards/same-origin.guard.ts`                                               |
 
 ## Client session lifecycle
 
@@ -148,6 +150,26 @@ This was a deliberate choice over attribute-based access control (ABAC):
 school roles map cleanly onto real staff titles, and finer-grained rules
 (e.g. "a class teacher can only see their own section") can be layered on
 top of roles later if needed, without redesigning the model now.
+
+### Roles and permissions, both
+
+```mermaid
+flowchart LR
+  REQ[HTTP request] --> JWT["AuthGuard('jwt')\n(who are you)"]
+  JWT --> CTX["ContextGuard\n(which tenant + role)"]
+  CTX --> ROLES["RolesGuard\n@Roles(...)\nrole allow-list"]
+  ROLES --> PERMS["PermissionsGuard\n@RequirePermissions(...)\nROLE_PERMISSIONS[role] ⊇ required?"]
+  PERMS --> HANDLER[controller method]
+```
+
+`@Roles` says which roles may reach a route; `@RequirePermissions` says
+which capability from `ROLE_PERMISSIONS` (`shared/src/enums/permissions.ts`)
+the route exercises. Both run today. `@Roles` can retire on a route only
+once its role list equals the set of roles holding the permission —
+object-scoped reads (e.g. the roster `GET /students` is staff-only although
+every role holds `STUDENT_READ`) keep `@Roles` as a narrowing until a
+dedicated permission exists. See [#399](https://github.com/tareq89/biddaloy/issues/399)
+([10.4]) for the routes where the two still disagree.
 
 ## Invitations & account access
 

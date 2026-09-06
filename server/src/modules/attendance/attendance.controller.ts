@@ -15,9 +15,11 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { UserRole } from '@biddaloy/shared';
+import { Permission, UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
@@ -45,12 +47,13 @@ import {
 @ApiTags('attendance')
 @ApiTenantAuth()
 @Controller('attendance')
-@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard)
+@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class AttendanceController {
   constructor(private readonly attendanceService: AttendanceService) {}
 
   @Get('my-sections')
   @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.ACCOUNTANT, UserRole.TEACHER)
+  @RequirePermissions(Permission.ATTENDANCE_READ)
   @ApiOperation({
     summary:
       "The caller's landing screen — every section they may mark, with today's marking progress.",
@@ -71,6 +74,7 @@ export class AttendanceController {
 
   @Get('sections/:sectionId/register')
   @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.ACCOUNTANT, UserRole.TEACHER)
+  @RequirePermissions(Permission.ATTENDANCE_READ)
   @ApiOperation({ summary: "A section's register for one day (and optionally one period)." })
   @ApiOkResponse({ type: RegisterResponseDto })
   async getRegister(
@@ -194,6 +198,7 @@ export class AttendanceController {
 
   @Get('records/:recordId/history')
   @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.ACCOUNTANT, UserRole.TEACHER)
+  @RequirePermissions(Permission.ATTENDANCE_READ)
   @ApiOperation({
     summary:
       "One mark's correction history. Gated on ATTENDANCE_READ plus section access — not " +

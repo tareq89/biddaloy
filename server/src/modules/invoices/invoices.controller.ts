@@ -21,6 +21,7 @@ import {
   getSchemaPath,
 } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -70,7 +71,7 @@ function toSafeInvoice<T extends { issued_by: User | null }>(
 // whose narrowed `issued_by` is modelled by `StaffInvoiceDto`.
 @ApiExtraModels(Invoice, StaffInvoiceDto, FamilyInvoiceDto)
 @Controller('invoices')
-@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard)
+@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class InvoicesController {
   constructor(
     @Inject(InvoicesService) private readonly invoicesService: InvoicesService,

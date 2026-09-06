@@ -5,6 +5,7 @@ import { DiscoveryModule, DiscoveryService, MetadataScanner } from '@nestjs/core
 import { AuthGuard } from '@nestjs/passport';
 import { AppModule } from './app.module';
 import { ContextGuard, RolesGuard } from './modules/auth/guards/context.guard';
+import { PermissionsGuard } from './modules/auth/guards/permissions.guard';
 
 /**
  * Regression coverage for the guard stack itself (#31): turns "remember to
@@ -180,7 +181,7 @@ describe('Route guard coverage (regression)', () => {
     await moduleRef.close();
   });
 
-  it('requires AuthGuard(jwt) + ContextGuard + RolesGuard on every route not on the reviewed allowlist', () => {
+  it('requires AuthGuard(jwt) + ContextGuard + RolesGuard + PermissionsGuard on every route not on the reviewed allowlist', () => {
     const controllers = discoveryService.getControllers();
     const checked: string[] = [];
     const violations: string[] = [];
@@ -218,7 +219,8 @@ describe('Route guard coverage (regression)', () => {
         const hasFullStack =
           allGuards.includes(JWT_AUTH_GUARD) &&
           allGuards.includes(ContextGuard) &&
-          allGuards.includes(RolesGuard);
+          allGuards.includes(RolesGuard) &&
+          allGuards.includes(PermissionsGuard);
 
         if (hasFullStack) continue;
 
@@ -235,6 +237,48 @@ describe('Route guard coverage (regression)', () => {
     // A sanity floor so a DiscoveryService/metadata regression that silently
     // returns zero controllers can't make this test pass vacuously.
     expect(checked.length).toBeGreaterThan(30);
+    expect(violations).toEqual([]);
+  });
+
+  it('runs guards in order ContextGuard, RolesGuard, PermissionsGuard on every route', () => {
+    const controllers = discoveryService.getControllers();
+    const violations: string[] = [];
+
+    for (const wrapper of controllers) {
+      const { metatype } = wrapper;
+      if (!metatype) continue;
+
+      const controllerName = metatype.name;
+      const controllerPrefix: string = Reflect.getMetadata(PATH_METADATA, metatype) ?? '';
+      const classGuards: unknown[] = Reflect.getMetadata(GUARDS_METADATA, metatype) ?? [];
+      const prototype = metatype.prototype;
+
+      for (const methodName of metadataScanner.getAllMethodNames(prototype)) {
+        const handler = prototype[methodName];
+        const httpMethod: number | undefined = Reflect.getMetadata(METHOD_METADATA, handler);
+        if (httpMethod === undefined) continue;
+
+        const routePath: string = Reflect.getMetadata(PATH_METADATA, handler) ?? '';
+        const methodGuards: unknown[] = Reflect.getMetadata(GUARDS_METADATA, handler) ?? [];
+        const allGuards = [...classGuards, ...methodGuards];
+
+        if (!allGuards.includes(PermissionsGuard)) continue;
+
+        const fullPath = buildFullPath(controllerPrefix, routePath);
+        const methodLabel = RequestMethodName(httpMethod);
+        const contextIndex = allGuards.indexOf(ContextGuard);
+        const rolesIndex = allGuards.indexOf(RolesGuard);
+        const permissionsIndex = allGuards.indexOf(PermissionsGuard);
+
+        if (!(contextIndex < rolesIndex && rolesIndex < permissionsIndex)) {
+          violations.push(
+            `${methodLabel} ${fullPath} (${controllerName}.${methodName}) — guards must run in ` +
+              `order ContextGuard, RolesGuard, PermissionsGuard (has: ${describeGuards(allGuards)})`,
+          );
+        }
+      }
+    }
+
     expect(violations).toEqual([]);
   });
 
@@ -274,7 +318,7 @@ describe('Route guard coverage (regression)', () => {
 // match a human writing `/students` into the allowlist by hand. Stripped
 // here, once, so every path this file produces is the same shape a person
 // would naturally write.
-function buildFullPath(controllerPrefix: string, routePath: string): string {
+export function buildFullPath(controllerPrefix: string, routePath: string): string {
   return `/${[controllerPrefix, routePath].filter(Boolean).join('/')}`
     .replace(/\/+/g, '/')
     .replace(/(.)\/$/, '$1');
@@ -283,7 +327,7 @@ function buildFullPath(controllerPrefix: string, routePath: string): string {
 // Nest's RequestMethod enum (from @nestjs/common) — duplicated as a small
 // literal map rather than imported, since only the numeric value stored in
 // route metadata is available here and this keeps the mapping self-evident.
-function RequestMethodName(method: number): string {
+export function RequestMethodName(method: number): string {
   const names: Record<number, string> = {
     0: 'GET',
     1: 'POST',
