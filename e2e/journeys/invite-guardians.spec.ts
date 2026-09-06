@@ -22,7 +22,11 @@ import { ListShellPage } from '../pages/list-shell';
  * The delivery provider is unconfigured in this environment
  * (`ACCOUNT_ACCESS_ECHO_SECRETS`/no real SMS/email provider), so rows can
  * legitimately end up FAILED rather than SENT — the assertion is on the
- * total row count (`sent + failed === 2`), never on the SENT count alone.
+ * total row count (`sent + failed === queued`), never on the SENT count
+ * alone. The selection is "every guardian in this school" (`all: true`,
+ * no row-selection UI yet), so other specs' guardians sharing this tenant
+ * can inflate the preview/dispatch totals — assertions target this test's
+ * own two guardians by name, never a hardcoded global count.
  */
 
 test.use(loggedIn('admin'));
@@ -100,9 +104,13 @@ test('invite guardians in bulk from the guardians list', async ({ page, request 
     // confirm button lives only there.
     await dialog.getByRole('button', { name: 'Next' }).click();
 
-    await expect(
-      dialog.getByText(t('guardians.invite.preview.summary', { count: 2, skipped: 0 })),
-    ).toBeVisible();
+    // The selection is "every guardian in this school" (`all: true`) — the
+    // dialog has no row-selection UI yet — so other specs' guardians can
+    // legitimately share this tenant and inflate the preview's total.
+    // Assert this test's own two guardians are in the to-invite list rather
+    // than asserting an exact global count.
+    await expect(dialog.getByText(`Shared Guardian ${suffix} — SMS`)).toBeVisible();
+    await expect(dialog.getByText(`Solo Guardian ${suffix} — SMS`)).toBeVisible();
   });
 
   await test.step('confirm dispatch and poll the batch until it drains', async () => {
@@ -112,11 +120,14 @@ test('invite guardians in bulk from the guardians list', async ({ page, request 
     );
     await dialog.getByRole('button', { name: t('guardians.invite.confirm') }).click();
     const response = await dispatchResponse;
-    const body = (await response.json()) as { batch_id: string };
+    const body = (await response.json()) as { batch_id: string; queued: number };
     batchId = body.batch_id;
 
+    // `queued` reflects however many guardians this tenant's shared state
+    // actually produced — asserted against itself, not a hardcoded count,
+    // for the same shared-tenant reason as the preview assertion above.
     const finalStatus = await pollBatchUntilDrained(request, session, batchId);
-    expect(finalStatus.sent + finalStatus.failed).toBe(2);
+    expect(finalStatus.sent + finalStatus.failed).toBe(body.queued);
   });
 
   await test.step('the pending guardians show up on the staff invitation filter', async () => {
