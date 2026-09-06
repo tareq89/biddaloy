@@ -55,7 +55,9 @@ export class UserController {
   // --- User endpoints ---
 
   @Post('users')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
+  // [10.4] G1 — E tightened off: lacks USER_CREATE.
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.USER_CREATE)
   async createUser(
     @Body() dto: CreateUserDto,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -90,7 +92,10 @@ export class UserController {
   }
 
   @Post('users/:id/invitation/resend')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
+  // [10.4] G16 — resending an invite is part of creating a member; G1
+  // tightens E off.
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.USER_CREATE)
   @HttpCode(200)
   @Throttle({ default: STRICT_RATE_LIMIT })
   @ApiOperation({
@@ -136,7 +141,10 @@ export class UserController {
   }
 
   @Delete('users/:id/invitation')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
+  // [10.4] G16 — revoking an invite is part of creating a member; G1
+  // tightens E off.
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.USER_CREATE)
   @ApiOperation({ summary: 'Revoke any live invitation link for this user.' })
   async revokeInvitation(
     @Param('id') id: string,
@@ -147,7 +155,10 @@ export class UserController {
   }
 
   @Get('users')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  // [10.4] G7 — AC, E, T tightened off: `/staff` is hidden from them, and no
+  // other page calls this route for those roles.
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.USER_READ)
   async findAllUsers(
     @Query() query: QueryUserDto,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -237,7 +248,9 @@ export class UserController {
   }
 
   @Get('users/:id')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  // [10.4] G7 — AC, E, T tightened off; see findAllUsers() above.
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.USER_READ)
   @ApiResponse({ status: 200, type: UserResponseDto })
   async findOneUser(
     @Param('id') id: string,
@@ -250,7 +263,9 @@ export class UserController {
   }
 
   @Patch('users/:id')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
+  // [10.4] G1 — E tightened off: lacks USER_UPDATE.
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.USER_UPDATE)
   async updateUser(
     @Param('id') id: string,
     @Body() dto: UpdateUserDto,
@@ -279,7 +294,9 @@ export class UserController {
   // --- Teacher endpoints ---
 
   @Post('teachers')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
+  // [10.4] G1 — E tightened off: lacks USER_CREATE.
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.USER_CREATE)
   @ApiOperation({ summary: 'Promote an existing tenant member to a teacher profile.' })
   @ApiResponse({ status: 201, type: TeacherResponseDto })
   async createTeacher(
@@ -291,7 +308,10 @@ export class UserController {
   }
 
   @Get('teachers')
+  // [10.4] G7 — reference data (class form, section teacher assignment,
+  // global search), same bucket as G4's academic-structure reads.
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @RequirePermissions(Permission.ACADEMIC_STRUCTURE_READ)
   @ApiResponse({ status: 200, type: TeacherListResponseDto })
   async findAllTeachers(
     @Query() query: QueryTeacherDto,
@@ -302,7 +322,9 @@ export class UserController {
   }
 
   @Patch('teachers/:id')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
+  // [10.4] G1 — E tightened off: lacks USER_UPDATE.
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.USER_UPDATE)
   @ApiResponse({ status: 200, type: TeacherResponseDto })
   async updateTeacher(
     @Param('id') id: string,

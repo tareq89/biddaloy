@@ -16,6 +16,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { ClassService, SectionService } from './classes.service';
@@ -26,7 +27,7 @@ import {
   CreateSectionDto,
   UpdateSectionDto,
 } from './dto/classes.dto';
-import { UserRole } from '@biddaloy/shared';
+import { Permission, UserRole } from '@biddaloy/shared';
 
 @ApiTags('classes')
 @ApiTenantAuth()
@@ -41,14 +42,18 @@ export class ClassController {
   // --- Class endpoints ---
 
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  // [10.4] G1, G2 — AC, E tightened off: neither holds CLASS_MANAGE.
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.CLASS_MANAGE)
   @ApiOperation({ summary: 'Create a class under an academic year.' })
   createClass(@Body() dto: CreateClassDto, @CurrentTenant() tenant: { id: string; role: string }) {
     return this.classService.create(dto, tenant.id);
   }
 
   @Get()
+  // [10.4] G4 — reference-data read.
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @RequirePermissions(Permission.ACADEMIC_STRUCTURE_READ)
   @ApiOperation({ summary: 'List classes for the current tenant.' })
   findAllClasses(
     @Query() query: QueryClassDto,
@@ -58,7 +63,9 @@ export class ClassController {
   }
 
   @Get(':id')
+  // [10.4] G4 — reference-data read.
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @RequirePermissions(Permission.ACADEMIC_STRUCTURE_READ)
   @ApiOperation({ summary: 'Get a single class by ID.' })
   findOneClass(
     @Param('id', ParseUUIDPipe) id: string,
@@ -68,7 +75,9 @@ export class ClassController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  // [10.4] G1, G2 — AC, E tightened off.
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.CLASS_MANAGE)
   @ApiOperation({ summary: 'Update a class.' })
   updateClass(
     @Param('id', ParseUUIDPipe) id: string,
@@ -79,7 +88,9 @@ export class ClassController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  // [10.4] G1, G2 — AC, E tightened off.
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.CLASS_MANAGE)
   removeClass(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -90,7 +101,9 @@ export class ClassController {
   // --- Section endpoints (nested under class) ---
 
   @Post(':classId/sections')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  // [10.4] G1, G2 — AC, E tightened off.
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.CLASS_MANAGE)
   createSection(
     @Param('classId', ParseUUIDPipe) classId: string,
     @Body() dto: CreateSectionDto,
@@ -100,7 +113,9 @@ export class ClassController {
   }
 
   @Get(':classId/sections')
+  // [10.4] G4 — reference-data read.
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @RequirePermissions(Permission.ACADEMIC_STRUCTURE_READ)
   findAllSections(
     @Param('classId', ParseUUIDPipe) classId: string,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -109,7 +124,9 @@ export class ClassController {
   }
 
   @Patch(':classId/sections/:sectionId')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  // [10.4] G1, G2 — AC, E tightened off.
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.CLASS_MANAGE)
   updateSection(
     @Param('classId', ParseUUIDPipe) classId: string,
     @Param('sectionId', ParseUUIDPipe) sectionId: string,
@@ -120,7 +137,9 @@ export class ClassController {
   }
 
   @Delete(':classId/sections/:sectionId')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  // [10.4] G1, G2 — AC, E tightened off.
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.CLASS_MANAGE)
   removeSection(
     @Param('classId', ParseUUIDPipe) classId: string,
     @Param('sectionId', ParseUUIDPipe) sectionId: string,
@@ -132,7 +151,9 @@ export class ClassController {
   // --- Teachers (read-only; teacher CRUD is #177) ---
 
   @Get(':classId/teachers')
+  // [10.4] G4 — reference-data read.
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @RequirePermissions(Permission.ACADEMIC_STRUCTURE_READ)
   @ApiOperation({ summary: 'List distinct teachers assigned to any section of this class.' })
   findClassTeachers(
     @Param('classId', ParseUUIDPipe) classId: string,

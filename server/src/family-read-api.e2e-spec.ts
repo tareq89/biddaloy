@@ -684,13 +684,24 @@ describe('[5.1] Family-facing read API', () => {
     it('still returns the whole tenant to staff', async () => {
       const res = await http()
         .get(`${API}/invoices`)
-        .set('Authorization', `Bearer ${teacherToken}`)
+        .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
         .expect(200);
 
       const studentIds = res.body.data.map((i: { student_id: string }) => i.student_id);
       expect(studentIds).toContain(childOneId);
       expect(studentIds).toContain(unlinkedChildId);
+    });
+
+    // [10.4] G9 — TEACHER removed from `/invoices`'s @Roles: the nav item is
+    // hidden from TEACHER, and student-detail uses
+    // `payments/invoices/student/:id` (still admitted) instead.
+    it('no longer admits TEACHER — G9 tightened the route', async () => {
+      await http()
+        .get(`${API}/invoices`)
+        .set('Authorization', `Bearer ${teacherToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .expect(401);
     });
   });
 
@@ -1245,13 +1256,29 @@ describe('[5.1] Family-facing read API', () => {
       { name: 'GET /invoices/:id/print', path: `${API}/invoices/${childOneInvoiceId}/print` },
     ];
 
-    it('still admits TEACHER everywhere it did before', async () => {
-      for (const route of WIDENED_ROUTES()) {
+    // [10.4] G9, G11 tightened TEACHER off the three `/invoices*` routes:
+    // `/invoices` nav is hidden from TEACHER, and student-detail rides on
+    // `payments/invoices/student/:id` (still admitted) instead.
+    const TEACHER_WIDENED_ROUTES = () =>
+      WIDENED_ROUTES().filter((route) => !route.name.startsWith('GET /invoices'));
+
+    it('still admits TEACHER everywhere it did before, except the [10.4]-tightened invoice routes', async () => {
+      for (const route of TEACHER_WIDENED_ROUTES()) {
         await http()
           .get(route.path)
           .set('Authorization', `Bearer ${teacherToken}`)
           .set('X-Tenant-ID', SEED_TENANT_ID)
           .expect(200);
+      }
+    });
+
+    it('[10.4] no longer admits TEACHER on the tightened invoice routes', async () => {
+      for (const route of WIDENED_ROUTES().filter((r) => r.name.startsWith('GET /invoices'))) {
+        await http()
+          .get(route.path)
+          .set('Authorization', `Bearer ${teacherToken}`)
+          .set('X-Tenant-ID', SEED_TENANT_ID)
+          .expect(401);
       }
     });
 

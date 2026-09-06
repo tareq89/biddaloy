@@ -164,12 +164,15 @@ flowchart LR
 
 `@Roles` says which roles may reach a route; `@RequirePermissions` says
 which capability from `ROLE_PERMISSIONS` (`shared/src/enums/permissions.ts`)
-the route exercises. Both run today. `@Roles` can retire on a route only
-once its role list equals the set of roles holding the permission —
-object-scoped reads (e.g. the roster `GET /students` is staff-only although
-every role holds `STUDENT_READ`) keep `@Roles` as a narrowing until a
-dedicated permission exists. See [#399](https://github.com/tareq89/biddaloy/issues/399)
-([10.4]) for the routes where the two still disagree.
+the route exercises. Both run today.
+
+After [10.4] every tenant route declares `@RequirePermissions` and
+`ROLE_PERMISSIONS` agrees with every `@Roles` list. `@Roles` now carries only
+the narrowings listed in `ROLE_NARROWINGS` (`permission-matrix.e2e-spec.ts`).
+It can retire route-by-route: give a narrowed route its own permission (e.g.
+`STUDENT_LIST` for the roster), grant that to the roles in `@Roles`, delete
+the `@Roles` line, delete the `ROLE_NARROWINGS` entry. When the list is
+empty, delete `RolesGuard`. Tracked as a follow-up, not part of Epic 10.0.
 
 ## Invitations & account access
 

@@ -22,7 +22,10 @@ export class EnrollmentController {
   constructor(private readonly service: EnrollmentService) {}
 
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  // [10.4] G3 grants AC STUDENT_UPDATE (front-office intake); G1 tightens E
+  // off (no STUDENT_UPDATE, no write surface).
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.STUDENT_UPDATE)
   create(@Body() dto: CreateEnrollmentDto, @CurrentTenant() tenant: { id: string; role: string }) {
     return this.service.create(dto, tenant.id);
   }
@@ -66,7 +69,9 @@ export class EnrollmentController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  // [10.4] G3, G1 — same reasoning as create() above.
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.STUDENT_UPDATE)
   update(
     @Param('id') id: string,
     @Body() dto: UpdateEnrollmentDto,

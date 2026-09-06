@@ -128,7 +128,7 @@ describe('/students/$studentId', () => {
     expect(screen.getByText('৳2,000.00')).toBeTruthy();
   });
 
-  it('gates page actions by permission — ADMIN sees all five, ACCOUNTANT only Collect fees and Send reminder', async () => {
+  it('gates page actions by permission — ADMIN sees all five, ACCOUNTANT sees Collect fees, Edit and Send reminder', async () => {
     const student = studentFactory({ id: 'student-1' });
     server.use(http.get('/api/v1/students/:id', () => HttpResponse.json(student)));
 
@@ -159,11 +159,14 @@ describe('/students/$studentId', () => {
     await screen.findByRole('heading', { name: student.full_name });
     const accountantUser = userEvent.setup();
     expect(screen.getByRole('button', { name: 'Collect fees' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+    // [10.4] G3 — ACCOUNTANT gained STUDENT_UPDATE (front-office intake), so
+    // Edit is now visible where it used to be hidden.
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
     await accountantUser.click(screen.getByRole('button', { name: 'More actions' }));
     expect(await screen.findByRole('menuitem', { name: 'Send reminder' })).toBeTruthy();
-    expect(screen.queryByRole('menuitem', { name: 'Transfer / change status' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Transfer / change status' })).toBeNull();
+    // [10.4] G3 — "Transfer / change status" (enrollment update) is gated on
+    // STUDENT_UPDATE, which ACCOUNTANT now also holds.
+    expect(screen.getByRole('menuitem', { name: 'Transfer / change status' })).toBeTruthy();
     expect(screen.queryByRole('menuitem', { name: 'Delete' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
   });

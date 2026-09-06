@@ -171,7 +171,9 @@ export class FeeController {
   // --- Fee Structure endpoints ---
 
   @Post('fee-structures')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  // [10.4] G1 — E tightened off: lacks FEE_STRUCTURE_CREATE.
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.FEE_STRUCTURE_CREATE)
   createFeeStructure(
     @Body() dto: CreateFeeStructureDto,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -188,6 +190,9 @@ export class FeeController {
     UserRole.PARENT,
     UserRole.STUDENT,
   )
+  // [10.4] G8, FEE_READ, not FEE_STRUCTURE_READ — object-scoped read, see
+  // permissions.ts. FEE_STRUCTURE_READ stays the management-page gate.
+  @RequirePermissions(Permission.FEE_READ)
   @ApiOperation({
     summary:
       "The school's fee catalog. Tenant-scoped but not student-scoped — it is the published price list, so no object-level check applies. [5.1] opened it to PARENT/STUDENT so the portal can explain what a due is for.",
@@ -220,6 +225,9 @@ export class FeeController {
     UserRole.PARENT,
     UserRole.STUDENT,
   )
+  // [10.4] G8, FEE_READ, not FEE_STRUCTURE_READ — object-scoped read, see
+  // permissions.ts.
+  @RequirePermissions(Permission.FEE_READ)
   @ApiOperation({
     summary:
       "Get one fee structure. Family callers get a reduced shape without the `selected_students` roster — that relation carries other families' children in full.",
@@ -247,7 +255,9 @@ export class FeeController {
   }
 
   @Patch('fee-structures/:id')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  // [10.4] G1 — E tightened off: lacks FEE_STRUCTURE_UPDATE.
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.FEE_STRUCTURE_UPDATE)
   updateFeeStructure(
     @Param('id') id: string,
     @Body() dto: UpdateFeeStructureDto,
@@ -271,7 +281,9 @@ export class FeeController {
   // --- Payment endpoints ---
 
   @Post('payments')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  // [10.4] G1 — E tightened off: lacks PAYMENT_RECORD.
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.PAYMENT_RECORD)
   createPayment(
     @Body() dto: CreatePaymentDto,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -281,7 +293,9 @@ export class FeeController {
   }
 
   @Post('payments/record-with-allocation')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  // [10.4] G1 — E tightened off.
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.PAYMENT_RECORD)
   @ApiOperation({
     summary:
       "Record a payment and allocate it across the student's outstanding fees in FIFO order, generating an invoice when a fee is paid in full.",
@@ -356,6 +370,9 @@ export class FeeController {
     UserRole.PARENT,
     UserRole.STUDENT,
   )
+  // [10.4] G10, FEE_READ — same reasoning as `payments/student/:studentId`:
+  // per-student history rides on the relationship, not the ledger permission.
+  @RequirePermissions(Permission.FEE_READ)
   @ApiOperation({
     summary:
       "Get a student's fee/payment/balance summary. A PARENT or STUDENT must additionally be linked to this student.",
