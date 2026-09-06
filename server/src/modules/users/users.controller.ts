@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -35,10 +35,17 @@ import {
   QueryTeacherDto,
 } from './dto/users.dto';
 import { UserResponseDto } from './dto/user-response.dto';
+import {
+  InviteBatchStatusResponseDto,
+  InviteDispatchResponseDto,
+  InvitePreviewResponseDto,
+} from '../account-access/dto/batch-invite.dto';
 import { TeacherListResponseDto, TeacherResponseDto } from './dto/teacher-response.dto';
 import { UserRole, JwtPayload, Permission } from '@biddaloy/shared';
 import { SETTINGS_RATE_LIMIT, STRICT_RATE_LIMIT } from '../../rate-limit';
 import { InvitationService } from '../account-access/invitation.service';
+import { GuardianProvisioningService } from '../account-access/guardian-provisioning.service';
+import { BatchInviteDto } from '../account-access/dto/batch-invite.dto';
 
 @ApiTags('users')
 @ApiTenantAuth()
@@ -50,6 +57,7 @@ export class UserController {
     private readonly teacherService: TeacherService,
     private readonly invitationService: InvitationService,
     private readonly recoveryService: RecoveryService,
+    private readonly guardianProvisioningService: GuardianProvisioningService,
   ) {}
 
   // --- User endpoints ---
@@ -173,6 +181,61 @@ export class UserController {
         return dto;
       }),
     };
+  }
+
+  /**
+   * MUST stay declared above `users/:id` — Nest matches routes in
+   * declaration order and `users/:id` has no `ParseUUIDPipe`, so it would
+   * otherwise capture `invitations` as an id. Same reasoning as
+   * `GET users/me` below. [12.6]
+   */
+  @Post('users/invitations/preview')
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.USER_CREATE)
+  @ApiOperation({
+    summary:
+      'Preview a batch of guardian invitations — mandatory before dispatch. Returns to_invite/skipped with reasons.',
+  })
+  @ApiOkResponse({ type: InvitePreviewResponseDto })
+  async previewInvitations(
+    @Body() dto: BatchInviteDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.guardianProvisioningService.preview(tenant.id, dto);
+  }
+
+  @Post('users/invitations/batch')
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.USER_CREATE)
+  @HttpCode(202)
+  @Throttle({ default: STRICT_RATE_LIMIT })
+  @ApiOperation({
+    summary:
+      'Dispatch a batch of guardian invitations — provisions a passwordless PARENT account per guardian and queues an invitation for each.',
+  })
+  @ApiOkResponse({ type: InviteDispatchResponseDto })
+  async dispatchInvitations(
+    @Body() dto: BatchInviteDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() jwt: JwtPayload,
+  ) {
+    return this.guardianProvisioningService.dispatch({
+      tenantId: tenant.id,
+      actorUserId: jwt.sub,
+      selection: dto,
+    });
+  }
+
+  @Get('users/invitations/batch/:batchId')
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.USER_CREATE)
+  @ApiOperation({ summary: 'Progress of a previously dispatched invitation batch.' })
+  @ApiOkResponse({ type: InviteBatchStatusResponseDto })
+  async getInvitationBatchStatus(
+    @Param('batchId') batchId: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.guardianProvisioningService.batchStatus(tenant.id, batchId);
   }
 
   /**

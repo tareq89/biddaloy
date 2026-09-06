@@ -162,6 +162,38 @@ export class UserService {
         );
       }
 
+      // Filter on the derived invitation lifecycle (12.6) — a lateral join
+      // to the newest INVITE `auth_tokens` row for this user, then a CASE
+      // expression that mirrors `deriveInvitationStatus` exactly (see the
+      // paired unit test asserting the two never drift).
+      if (query.invitation_status) {
+        qb.leftJoin(
+          (subQb) =>
+            subQb
+              .select('t.user_id', 'user_id')
+              .addSelect('t.consumed_at', 'consumed_at')
+              .addSelect('t.revoked_at', 'revoked_at')
+              .addSelect('t.expires_at', 'expires_at')
+              .distinctOn(['t.user_id'])
+              .from('auth_tokens', 't')
+              .where("t.purpose = 'INVITE' AND t.tenant_id = :tenantId", { tenantId })
+              .orderBy('t.user_id')
+              .addOrderBy('t.created_at', 'DESC'),
+          'inv',
+          'inv.user_id = u.id',
+        );
+        qb.andWhere(
+          `(CASE
+            WHEN u.password_hash IS NOT NULL OR inv.consumed_at IS NOT NULL THEN 'ACTIVATED'
+            WHEN inv.user_id IS NULL THEN 'NONE'
+            WHEN inv.revoked_at IS NOT NULL THEN 'REVOKED'
+            WHEN inv.expires_at < NOW() THEN 'EXPIRED'
+            ELSE 'PENDING'
+          END) = :invitationStatus`,
+          { invitationStatus: query.invitation_status },
+        );
+      }
+
       return qb;
     };
 

@@ -83,6 +83,28 @@ export const AllDomains: Story = {
         <StatusBadge domain="attendance" status="LOW" />
         <StatusBadge domain="attendance" status="OK" />
       </div>
+      <div className="flex flex-wrap gap-2">
+        <StatusBadge domain="invitation" status="NONE" />
+        <StatusBadge domain="invitation" status="PENDING" />
+        <StatusBadge domain="invitation" status="EXPIRED" />
+        <StatusBadge domain="invitation" status="REVOKED" />
+        <StatusBadge domain="invitation" status="ACTIVATED" />
+      </div>
+    </div>
+  ),
+};
+
+/** [12.6] The derived invitation lifecycle (staff list filter/column +
+ * the staff-detail invitation card) — every value `deriveInvitationStatus`
+ * can produce. */
+export const InvitationLifecycle: Story = {
+  render: () => (
+    <div className="flex flex-wrap gap-2">
+      <StatusBadge domain="invitation" status="NONE" />
+      <StatusBadge domain="invitation" status="PENDING" />
+      <StatusBadge domain="invitation" status="EXPIRED" />
+      <StatusBadge domain="invitation" status="REVOKED" />
+      <StatusBadge domain="invitation" status="ACTIVATED" />
     </div>
   ),
 };
@@ -147,6 +169,7 @@ export const Bangla: Story = {
       <StatusBadge domain="feeStructure" status="RECURRING" />
       <StatusBadge domain="user" status={UserStatus.ACTIVE} />
       <StatusBadge domain="attendance" status="LOW" />
+      <StatusBadge domain="invitation" status="PENDING" />
     </div>
   ),
   globals: { locale: 'bn' },

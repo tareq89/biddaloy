@@ -4,17 +4,24 @@
  * has no class/section of its own the way `Student` does, so this page
  * has no equivalent filter dropdowns — search is the only filter.
  */
-import { CommunicationMedium } from '@biddaloy/shared';
-import { RoutePending, StatusBadge, type DataTableColumn } from '@biddaloy/ui/components';
-import { guardiansQueryOptions, useGuardians, type Guardian } from '@biddaloy/ui/hooks';
+import { CommunicationMedium, Permission } from '@biddaloy/shared';
+import { Button, RoutePending, StatusBadge, type DataTableColumn } from '@biddaloy/ui/components';
+import {
+  guardiansQueryOptions,
+  useGuardians,
+  useHasPermission,
+  type Guardian,
+} from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
 import { createFileRoute, Link } from '@tanstack/react-router';
+import * as React from 'react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { formatGuardianPhone } from './-format-guardian-phone';
+import { InviteGuardiansDialog } from './-invite-guardians-dialog';
 
 interface GuardianFilters {
   search?: string | undefined;
@@ -90,6 +97,8 @@ function GuardiansListPage() {
   const regionConfig = useTenantRegionConfig();
   const [state, actions] = useListShellState({ limit: 10 });
   const filters = state.filters as GuardianFilters;
+  const canInvite = useHasPermission(Permission.USER_CREATE);
+  const [inviteOpen, setInviteOpen] = React.useState(false);
 
   const sortField = state.sorting ? SORT_FIELD_BY_COLUMN[state.sorting.id] : undefined;
   const guardiansQuery = useGuardians({
@@ -203,6 +212,13 @@ function GuardiansListPage() {
     <RegionConfigProvider value={regionConfig}>
       <ListShell
         title={t('list.title')}
+        primaryAction={
+          canInvite ? (
+            <Button variant="outline" onClick={() => setInviteOpen(true)}>
+              {t('invite.trigger')}
+            </Button>
+          ) : undefined
+        }
         filters={{ fields: filterFields, values: state.filters, onChange: actions.setFilters }}
         tableId="guardians-list"
         caption={t('list.caption')}
@@ -223,6 +239,7 @@ function GuardiansListPage() {
         emptyMessage={t('list.emptyMessage')}
         announceResults={(count, total) => t('list.announceResults', { count, total })}
       />
+      <InviteGuardiansDialog open={inviteOpen} onOpenChange={setInviteOpen} />
     </RegionConfigProvider>
   );
 }

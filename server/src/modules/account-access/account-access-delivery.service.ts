@@ -23,6 +23,14 @@ export interface DeliverInput {
   recipientName: string;
   kind: TemplateKind;
   vars: Omit<TemplateVars, 'school' | 'name'>;
+  /**
+   * Extra, non-secret fields merged into `communication_logs.metadata`
+   * alongside `kind` — e.g. `{ batch_id }` for a batch-dispatched
+   * invitation (12.6), so `GuardianProvisioningService.batchStatus` can
+   * count rows by `metadata->>'batch_id'` without a new `ReminderBatch`-like
+   * entity.
+   */
+  metadata?: Record<string, unknown>;
 }
 
 export interface DeliverResult {
@@ -64,14 +72,18 @@ export class AccountAccessDeliveryService {
         subject: redacted.subject ?? null,
         status: CommunicationStatus.QUEUED,
         trigger: CommunicationTrigger.ACCOUNT_ACCESS,
-        metadata: { kind: input.kind },
+        metadata: { ...input.metadata, kind: input.kind },
       }),
     );
 
     const provider = this.registry.resolve(input.medium);
     if (!provider) {
       log.status = CommunicationStatus.FAILED;
-      log.metadata = { kind: input.kind, error: `No provider configured for ${input.medium}` };
+      log.metadata = {
+        kind: input.kind,
+        ...input.metadata,
+        error: `No provider configured for ${input.medium}`,
+      };
       await this.logRepo.save(log);
       return { logId: log.id, status: CommunicationStatus.FAILED };
     }
@@ -92,12 +104,12 @@ export class AccountAccessDeliveryService {
       // secret-bearing `real.body`, e.g. an activation link or OTP) back in
       // its error text, which would land in communication_logs.metadata.
       log.status = CommunicationStatus.FAILED;
-      log.metadata = { kind: input.kind, error: 'Delivery failed' };
+      log.metadata = { ...input.metadata, kind: input.kind, error: 'Delivery failed' };
       await this.logRepo.save(log);
       return { logId: log.id, status: CommunicationStatus.FAILED };
     } catch {
       log.status = CommunicationStatus.FAILED;
-      log.metadata = { kind: input.kind, error: 'Delivery failed' };
+      log.metadata = { ...input.metadata, kind: input.kind, error: 'Delivery failed' };
       await this.logRepo.save(log);
       return { logId: log.id, status: CommunicationStatus.FAILED };
     }

@@ -1,11 +1,12 @@
 import { captureNotificationTenant, notifyOutcome } from '@biddaloy/ui/api';
-import { Button, ErrorState, FileUpload, RoutePending } from '@biddaloy/ui/components';
+import { Button, Checkbox, ErrorState, FileUpload, RoutePending } from '@biddaloy/ui/components';
 import { useBulkUploadStudents, type BulkUploadResult } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute } from '@tanstack/react-router';
 import * as React from 'react';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
+import { InviteGuardiansDialog } from '../guardians/-invite-guardians-dialog';
 
 import { ImportErrorTable } from './-import/error-table';
 import { downloadTemplate, TEMPLATE_HEADERS, type TemplateHeader } from './-import/template';
@@ -25,7 +26,7 @@ const ACCEPTED_EXTENSIONS = ['.csv', '.xlsx'];
  * reasoning `fees/generate.tsx` spells out.
  */
 export const Route = createFileRoute('/_staff/students/import')({
-  loader: () => loadRouteNamespaces('studentImport'),
+  loader: () => loadRouteNamespaces('studentImport', 'guardians'),
   pendingComponent: ImportStudentsPending,
   component: ImportStudentsPage,
 });
@@ -68,6 +69,8 @@ function ImportStudentsContent() {
   const [fileError, setFileError] = React.useState<string | null>(null);
   const [progress, setProgress] = React.useState<number | undefined>(undefined);
   const [result, setResult] = React.useState<BulkUploadResult | null>(null);
+  const [inviteGuardians, setInviteGuardians] = React.useState(false);
+  const [inviteDialogOpen, setInviteDialogOpen] = React.useState(false);
 
   function handleFilesSelected(files: File[]) {
     const file = files[0];
@@ -79,6 +82,8 @@ function ImportStudentsContent() {
     setResult(null);
     mutation.reset();
     setProgress(undefined);
+    setInviteGuardians(false);
+    setInviteDialogOpen(false);
     // Client-side gate mirrors the server's own extension/size checks
     // (trust boundary stays server-side; this just fails fast, before a
     // 5 MB upload burns one of the endpoint's 5/min throttle slots).
@@ -138,6 +143,8 @@ function ImportStudentsContent() {
     setProgress(undefined);
     setResult(null);
     mutation.reset();
+    setInviteGuardians(false);
+    setInviteDialogOpen(false);
   }
 
   const requestError = mutation.error?.message;
@@ -266,12 +273,36 @@ function ImportStudentsContent() {
             </p>
           )}
           {result.error_count > 0 && <ImportErrorTable errors={result.errors} />}
+          {result.created_student_ids.length > 0 && (
+            <span className="flex items-center gap-2 text-sm">
+              <Checkbox
+                id="invite-imported-guardians"
+                checked={inviteGuardians}
+                onCheckedChange={(checked) => {
+                  const next = checked === true;
+                  setInviteGuardians(next);
+                  if (next) setInviteDialogOpen(true);
+                }}
+              />
+              <label htmlFor="invite-imported-guardians">
+                {t('inviteGuardians.checkboxLabel')}
+              </label>
+            </span>
+          )}
           <div>
             <Button type="button" variant="outline" onClick={resetForAnotherFile}>
               {t('result.importAnother')}
             </Button>
           </div>
         </section>
+      )}
+
+      {result && result.created_student_ids.length > 0 && (
+        <InviteGuardiansDialog
+          open={inviteDialogOpen}
+          onOpenChange={setInviteDialogOpen}
+          studentIds={result.created_student_ids}
+        />
       )}
     </div>
   );

@@ -120,11 +120,12 @@ export async function createGuardian(
   request: APIRequestContext,
   session: ApiSession,
   fullName: string,
+  phone = '01712345678',
 ): Promise<{ id: string }> {
   return post<{ id: string }>(request, session, '/guardians', {
     full_name: fullName,
     relationship: 'Father',
-    phone: '01712345678',
+    phone,
   });
 }
 
@@ -301,6 +302,23 @@ export async function createStudent(
   return post<{ id: string }>(request, session, '/students', {
     full_name: fullName,
     class_section_id: chain.sectionId,
+  });
+}
+
+/** A student linked to an already-created guardian — for
+ * `journeys/invite-guardians.spec.ts` (12.6), which needs several
+ * students sharing one guardian by phone. */
+export async function createStudentWithGuardian(
+  request: APIRequestContext,
+  session: ApiSession,
+  fullName: string,
+  guardianId: string,
+): Promise<{ id: string }> {
+  const chain = await createClassSection(request, session);
+  return post<{ id: string }>(request, session, '/students', {
+    full_name: fullName,
+    class_section_id: chain.sectionId,
+    guardian_ids: [guardianId],
   });
 }
 

@@ -61,5 +61,8 @@
     "imported": "{{success}} of {{total}} students imported.",
     "partial": "{{success}} of {{total}} students imported, {{errors}} failed.",
     "failed": "Import failed."
+  },
+  "inviteGuardians": {
+    "checkboxLabel": "Invite the imported students' guardians now"
   }
 }
