@@ -98,11 +98,16 @@ export function InviteGuardiansDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         {/* `WizardShell` renders its own visible `<h1>{title}</h1>` below —
-            this stays screen-reader-only so Radix's a11y contract (a real
-            `DialogTitle`) is satisfied without a second visible heading
-            with the same text. */}
-        <VisuallyHidden.Root asChild>
-          <DialogTitle>{t('invite.title')}</DialogTitle>
+            `DialogTitle` still needs to exist for Radix's `aria-labelledby`
+            a11y contract, but rendered as a `<span>` (via `asChild`), not
+            the default `<h2>`, so it doesn't register as a second
+            `role="heading"` element with the same accessible name — Radix's
+            `VisuallyHidden` alone doesn't help here since it keeps the
+            element in the accessibility tree by design. */}
+        <VisuallyHidden.Root>
+          <DialogTitle asChild>
+            <span>{t('invite.title')}</span>
+          </DialogTitle>
         </VisuallyHidden.Root>
         <DialogDescription>{t('invite.description')}</DialogDescription>
 
