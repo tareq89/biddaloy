@@ -47,6 +47,13 @@ export class InvitationBatchProcessor extends WorkerHost {
       return;
     }
 
+    // Re-checked here, not trusted from the preview that queued this job —
+    // the guardian may have opted out between preview and processing.
+    if (guardian.notifications_enabled === false) {
+      this.logger.log(`Guardian ${guardianId} opted out since preview, skipping batch ${batchId}`);
+      return;
+    }
+
     const user = await this.ensureUser(guardian, tenantId);
 
     if (user.password_hash) {

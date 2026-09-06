@@ -66,6 +66,20 @@ describe('InvitationBatchProcessor', () => {
     expect(invitationService.issueAndSend).not.toHaveBeenCalled();
   });
 
+  it('skips sending when the guardian opted out of notifications since preview', async () => {
+    guardianRepo.findOne.mockResolvedValue({
+      id: 'g1',
+      tenant_id: TENANT,
+      user_id: 'u1',
+      notifications_enabled: false,
+    });
+
+    await processor.process(job());
+
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+    expect(invitationService.issueAndSend).not.toHaveBeenCalled();
+  });
+
   it('skips sending when the ensured user already has a password (activated since preview)', async () => {
     guardianRepo.findOne.mockResolvedValue({ id: 'g1', tenant_id: TENANT, user_id: 'u1' });
     dataSource.transaction = vi.fn(async (cb: (manager: any) => Promise<unknown>) => {
