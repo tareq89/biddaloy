@@ -50,7 +50,15 @@ describe('ProfileTab contact verification labels', () => {
     });
 
     expect(await screen.findByText('karim@example.com')).toBeTruthy();
-    expect(await screen.findByText(/Verified/)).toBeTruthy();
+    // The whole label, date included — a bare /Verified/ would still pass if
+    // the `{{date}}` interpolation were dropped, which is the one thing this
+    // assertion exists to catch. Matched as a shape rather than a literal so
+    // it does not depend on the runner's timezone.
+    //
+    // The digits are Bengali (`২০২৬-০১-১৫`) even under `locale: 'en'`:
+    // `formatDate` renders them through the REGION config's numeral system,
+    // which is independent of the message locale. Hence both digit classes.
+    expect(await screen.findByText(/^Verified [\d০-৯]{4}-[\d০-৯]{2}-[\d০-৯]{2}$/)).toBeTruthy();
   });
 
   it('shows an unverified label for an unverified phone', async () => {

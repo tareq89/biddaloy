@@ -181,7 +181,7 @@
     "contact": {
       "title": "Email & phone",
       "none": "Not set",
-      "verified": "Verified",
+      "verified": "Verified {{date}}",
       "unverified": "Unverified",
       "change": "Change",
       "description": "We'll send a code or a link to the new value before it replaces the old one.",
@@ -190,8 +190,12 @@
       "currentPasswordLabel": "Current password",
       "cancel": "Cancel",
       "continue": "Continue",
-      "changeEmail": { "title": "Change email address" },
-      "changePhone": { "title": "Change phone number" },
+      "changeEmail": {
+        "title": "Change email address"
+      },
+      "changePhone": {
+        "title": "Change phone number"
+      },
       "otpStep": {
         "title": "Enter the code",
         "description": "We sent a 6-digit code to {{value}}.",

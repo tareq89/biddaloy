@@ -332,7 +332,10 @@ test.describe('contact change', () => {
       await page.getByRole('button', { name: t('portal.account.contact.otpStep.confirm') }).click();
 
       const newPhoneRow = page.locator('div', { hasText: newPhone });
-      await expect(newPhoneRow.getByText(t('portal.account.contact.verified'))).toBeVisible();
+      // The label interpolates a locale-formatted date, so match the stem
+      // ahead of `{{date}}` rather than a string that depends on today.
+      const verifiedStem = t('portal.account.contact.verified').replace('{{date}}', '').trim();
+      await expect(newPhoneRow.getByText(verifiedStem, { exact: false })).toBeVisible();
       await expect(page.getByText(guardian.phone)).not.toBeVisible();
     });
   });

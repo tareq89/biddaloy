@@ -30,7 +30,7 @@ import {
   useUpdateOwnProfile,
 } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { parseValidationFieldErrors } from '@biddaloy/ui/utils';
+import { formatDate, parseValidationFieldErrors } from '@biddaloy/ui/utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { LogOutIcon } from 'lucide-react';
@@ -290,7 +290,9 @@ function PortalAccount() {
             <span className="text-xs text-muted-foreground">
               {currentUser.email
                 ? currentUser.email_verified_at
-                  ? t('account.contact.verified')
+                  ? t('account.contact.verified', {
+                      date: formatDate(new Date(currentUser.email_verified_at), config),
+                    })
                   : t('account.contact.unverified')
                 : null}
             </span>
@@ -310,7 +312,9 @@ function PortalAccount() {
             <span className="text-xs text-muted-foreground">
               {currentUser.phone
                 ? currentUser.phone_verified_at
-                  ? t('account.contact.verified')
+                  ? t('account.contact.verified', {
+                      date: formatDate(new Date(currentUser.phone_verified_at), config),
+                    })
                   : t('account.contact.unverified')
                 : null}
             </span>
