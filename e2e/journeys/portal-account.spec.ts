@@ -16,11 +16,14 @@ import { t } from '../i18n';
  *
  * Selectors here are mostly the stable HTML `id`s each form field carries
  * (`ui/src/components/*-form.tsx`) rather than translated label text —
- * `e2e/i18n.ts`'s catalog map does not cover the `portal` namespace (out
- * of this ticket's touched-file list), and the suite's default locale is
- * `bn`, so a hardcoded English string would be locale-fragile. The one
- * exception is the nav link, which resolves through `nav`'s
- * `items.portalAccount` — already registered.
+ * the suite's default locale is `bn`, so a hardcoded English string would
+ * be locale-fragile.
+ *
+ * Where a label *is* the only stable handle (the [12.7] contact-change
+ * dialog below has no field ids), go through `t()` — `e2e/i18n.ts` does
+ * register the `portal` namespace, and its keys are FULLY QUALIFIED there
+ * (`t('portal.account.contact.change')`), unlike inside the component,
+ * where `useTranslation('portal')` has already bound the namespace.
  *
  * Field ids, for reference: `#account-full-name`, `#account-email`,
  * `#account-phone`, `#account-current-password` (`profile-form.tsx`);
@@ -271,7 +274,7 @@ test.describe('contact change', () => {
     await test.step('navigate to /portal/account and open "Change" on the phone row', async () => {
       await page.goto('/portal/account');
       const phoneRow = page.locator('div', { hasText: guardian.phone });
-      await phoneRow.getByRole('button', { name: t('account.contact.change') }).click();
+      await phoneRow.getByRole('button', { name: t('portal.account.contact.change') }).click();
       await expect(page.getByRole('dialog')).toBeVisible();
     });
 
@@ -281,9 +284,9 @@ test.describe('contact change', () => {
       const [response] = await Promise.all([
         page.waitForResponse((res) => res.url().includes('/api/v1/users/me/contact-change')),
         (async () => {
-          await page.getByLabel(t('account.contact.newPhoneLabel')).fill(newPhone);
-          await page.getByLabel(t('account.contact.currentPasswordLabel')).fill(password);
-          await page.getByRole('button', { name: t('account.contact.continue') }).click();
+          await page.getByLabel(t('portal.account.contact.newPhoneLabel')).fill(newPhone);
+          await page.getByLabel(t('portal.account.contact.currentPasswordLabel')).fill(password);
+          await page.getByRole('button', { name: t('portal.account.contact.continue') }).click();
         })(),
       ]);
       const body = (await response.json()) as { debug?: { otp?: string } };
@@ -297,11 +300,11 @@ test.describe('contact change', () => {
 
     await test.step('a wrong code is rejected and the old phone is still shown', async () => {
       const wrongOtp = otp === '000000' ? '111111' : '000000';
-      await page.getByLabel(t('account.contact.otpStep.label')).fill(wrongOtp);
-      await page.getByRole('button', { name: t('account.contact.otpStep.confirm') }).click();
-      await expect(page.getByText(t('account.contact.errors.invalidCode'))).toBeVisible();
+      await page.getByLabel(t('portal.account.contact.otpStep.label')).fill(wrongOtp);
+      await page.getByRole('button', { name: t('portal.account.contact.otpStep.confirm') }).click();
+      await expect(page.getByText(t('portal.account.contact.errors.invalidCode'))).toBeVisible();
 
-      await page.getByRole('button', { name: t('account.contact.cancel') }).click();
+      await page.getByRole('button', { name: t('portal.account.contact.cancel') }).click();
       await expect(page.getByText(guardian.phone)).toBeVisible();
     });
 
@@ -310,13 +313,13 @@ test.describe('contact change', () => {
       // live, so this re-reads `debug.otp` rather than reusing the one
       // from the wrong-code step above.
       const phoneRow = page.locator('div', { hasText: guardian.phone });
-      await phoneRow.getByRole('button', { name: t('account.contact.change') }).click();
+      await phoneRow.getByRole('button', { name: t('portal.account.contact.change') }).click();
       const [response] = await Promise.all([
         page.waitForResponse((res) => res.url().includes('/api/v1/users/me/contact-change')),
         (async () => {
-          await page.getByLabel(t('account.contact.newPhoneLabel')).fill(newPhone);
-          await page.getByLabel(t('account.contact.currentPasswordLabel')).fill(password);
-          await page.getByRole('button', { name: t('account.contact.continue') }).click();
+          await page.getByLabel(t('portal.account.contact.newPhoneLabel')).fill(newPhone);
+          await page.getByLabel(t('portal.account.contact.currentPasswordLabel')).fill(password);
+          await page.getByRole('button', { name: t('portal.account.contact.continue') }).click();
         })(),
       ]);
       const body = (await response.json()) as { debug?: { otp?: string } };
@@ -325,11 +328,11 @@ test.describe('contact change', () => {
         throw new Error('No debug.otp in the second contact-change response.');
       }
 
-      await page.getByLabel(t('account.contact.otpStep.label')).fill(freshOtp);
-      await page.getByRole('button', { name: t('account.contact.otpStep.confirm') }).click();
+      await page.getByLabel(t('portal.account.contact.otpStep.label')).fill(freshOtp);
+      await page.getByRole('button', { name: t('portal.account.contact.otpStep.confirm') }).click();
 
       const newPhoneRow = page.locator('div', { hasText: newPhone });
-      await expect(newPhoneRow.getByText(t('account.contact.verified'))).toBeVisible();
+      await expect(newPhoneRow.getByText(t('portal.account.contact.verified'))).toBeVisible();
       await expect(page.getByText(guardian.phone)).not.toBeVisible();
     });
   });
