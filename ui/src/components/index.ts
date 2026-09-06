@@ -98,6 +98,7 @@ export {
   type DialogTitleProps,
   type DialogDescriptionProps,
   type DialogCloseProps,
+  VisuallyHidden,
 } from './dialog';
 export {
   Tooltip,

@@ -18,8 +18,8 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogHeader,
   DialogTitle,
+  VisuallyHidden,
 } from '@biddaloy/ui/components';
 import {
   useDispatchInvitations,
@@ -97,10 +97,14 @@ export function InviteGuardiansDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
-        <DialogHeader>
+        {/* `WizardShell` renders its own visible `<h1>{title}</h1>` below —
+            this stays screen-reader-only so Radix's a11y contract (a real
+            `DialogTitle`) is satisfied without a second visible heading
+            with the same text. */}
+        <VisuallyHidden.Root asChild>
           <DialogTitle>{t('invite.title')}</DialogTitle>
-          <DialogDescription>{t('invite.description')}</DialogDescription>
-        </DialogHeader>
+        </VisuallyHidden.Root>
+        <DialogDescription>{t('invite.description')}</DialogDescription>
 
         <WizardShell
           title={t('invite.title')}
