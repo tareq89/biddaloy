@@ -185,5 +185,18 @@ describe('/login', () => {
       expect(alert.textContent).toBe('That phone number or code is incorrect.');
       expect(screen.queryByText('Invalid credentials')).toBeNull();
     });
+
+    it('a rate-limited OTP request shows the same calm wait message as password login', async () => {
+      server.use(authHandlers.refreshFailure, authHandlers.otpRequestRateLimited);
+
+      renderWithRouter(routeTree, { initialEntries: ['/login?method=otp'], locale: 'en' });
+      const user = userEvent.setup();
+
+      await user.type(await screen.findByLabelText('Phone number'), '1712345678');
+      await user.click(screen.getByRole('button', { name: 'Send code' }));
+
+      const status = await screen.findByRole('status');
+      expect(status.textContent).toBe('Too many attempts. Try again in 60 seconds.');
+    });
   });
 });

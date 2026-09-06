@@ -112,7 +112,7 @@ export function SchoolSettingsPage() {
         <div className="flex flex-col gap-8">
           <RegionalSection schoolId={schoolId} region={settingsQuery.data.region} />
           <AttendanceSection schoolId={schoolId} attendance={settingsQuery.data.attendance} />
-          <SignInSection schoolId={schoolId} auth={settingsQuery.data.auth} />
+          <SignInSection key={schoolId} schoolId={schoolId} auth={settingsQuery.data.auth} />
           <WhatsAppSection
             schoolId={schoolId}
             whatsapp={settingsQuery.data.communications?.whatsapp}

@@ -154,6 +154,8 @@ export function OtpSignInForm({
       setOtp('');
       setSecondsLeft(RESEND_COOLDOWN_SECONDS);
       setPhase({ kind: 'code', phone });
+    } catch {
+      // The parent mutation exposes this error through `error`; nothing more to do here.
     } finally {
       setRequesting(false);
     }
@@ -164,6 +166,8 @@ export function OtpSignInForm({
     try {
       await onRequest(phone);
       setSecondsLeft(RESEND_COOLDOWN_SECONDS);
+    } catch {
+      // The parent mutation exposes this error through `error`; nothing more to do here.
     } finally {
       setRequesting(false);
     }

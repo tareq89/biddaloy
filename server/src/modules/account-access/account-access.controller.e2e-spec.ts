@@ -242,5 +242,21 @@ describe('AccountAccessController (e2e)', () => {
         .send({ phone: PHONE_NUMBER, password: 'a-brand-new-password' })
         .expect(200);
     });
+
+    it('accepts a phone number typed with Bengali digits', async () => {
+      const bengaliPhone = PHONE_NUMBER.replace(/[0-9]/g, (d) => '০১২৩৪৫৬৭৮৯'.charAt(Number(d)));
+
+      const requestRes = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/otp/request')
+        .send({ phone: bengaliPhone })
+        .expect(202);
+      const otp = requestRes.body.debug?.otp;
+      expect(otp).toMatch(/^\d{6}$/);
+
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/otp/verify')
+        .send({ phone: bengaliPhone, otp })
+        .expect(200);
+    });
   });
 });
