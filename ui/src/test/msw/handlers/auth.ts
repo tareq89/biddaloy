@@ -154,6 +154,44 @@ const resetPasswordInvalid = http.post('/api/v1/auth/reset-password', () =>
   }),
 );
 
+/** `POST /auth/otp/request` — 12.5. Always 202, enumeration-safe; `debug.otp`
+ * mirrors D6's echo flag, same shape as `forgotPassword` above. */
+const otpRequest = http.post('/api/v1/auth/otp/request', () =>
+  HttpResponse.json({ debug: { otp: '123456' } }, { status: 202 }),
+);
+
+/** `POST /auth/otp/request` rate-limited — same `Retry-After` shape as
+ * `loginRateLimited`/`forgotPasswordRateLimited`. */
+const otpRequestRateLimited = http.post('/api/v1/auth/otp/request', () =>
+  HttpResponse.json(
+    apiErrorBody(429, 'ThrottlerException: Too Many Requests', '/api/v1/auth/otp/request'),
+    { status: 429, headers: { 'Retry-After': '60' } },
+  ),
+);
+
+/** `POST /auth/otp/verify` — 12.5. Keyed off `otp` so both the happy path
+ * and the 401 "invalid credentials" case are reachable without a second
+ * handler shape, same pattern as `resetPassword` above. */
+const OTP_VERIFY_INVALID_OTP = '000000';
+
+const otpVerify = http.post('/api/v1/auth/otp/verify', async ({ request }) => {
+  const body = (await request.json()) as { otp?: string };
+  if (body.otp === OTP_VERIFY_INVALID_OTP) {
+    return HttpResponse.json(apiErrorBody(401, 'Invalid credentials', '/api/v1/auth/otp/verify'), {
+      status: 401,
+    });
+  }
+  return HttpResponse.json(
+    loginResponseFactory({ access_token: 'mock-post-otp-verify-access-token' }),
+  );
+});
+
+const otpVerifyInvalid = http.post('/api/v1/auth/otp/verify', () =>
+  HttpResponse.json(apiErrorBody(401, 'Invalid credentials', '/api/v1/auth/otp/verify'), {
+    status: 401,
+  }),
+);
+
 const logout = http.post('/api/v1/auth/logout', () => new HttpResponse(null, { status: 204 }));
 
 const logoutAll = http.post(
@@ -180,6 +218,11 @@ export const authHandlers = {
   resetPasswordInvalid,
   RESET_PASSWORD_INVALID_OTP,
   RESET_PASSWORD_INVALID_TOKEN,
+  otpRequest,
+  otpRequestRateLimited,
+  otpVerify,
+  otpVerifyInvalid,
+  OTP_VERIFY_INVALID_OTP,
   logout,
   logoutAll,
 };
@@ -193,6 +236,8 @@ export const authDefaultHandlers = [
   activateResend,
   forgotPassword,
   resetPassword,
+  otpRequest,
+  otpVerify,
   logout,
   logoutAll,
 ];

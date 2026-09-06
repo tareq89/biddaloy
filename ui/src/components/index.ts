@@ -235,6 +235,16 @@ export {
 } from './sign-in-form';
 export { SetPasswordForm, type SetPasswordFormProps } from './set-password-form';
 export { OtpInput, type OtpInputProps } from './otp-input';
+export {
+  OtpSignInForm,
+  type OtpSignInFormProps,
+  type OtpSignInCredentials,
+} from './otp-sign-in-form';
+// 12.5: the login page's password/OTP tabs are the first consumer of Tabs
+// outside `ui/` itself — re-exported here since `@biddaloy/ui` has no
+// `./primitives` package export for client apps to reach `ui/src/primitives`
+// directly.
+export { Tabs, TabsList, TabsTrigger, TabsContent } from '../primitives/tabs';
 export { CachedDataNotice, type CachedDataNoticeProps } from './cached-data-notice';
 export { SyncStatus, SyncStatusIndicator, type SyncStatusProps } from './sync-status';
 export {

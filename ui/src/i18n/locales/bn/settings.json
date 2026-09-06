@@ -117,5 +117,9 @@
     "confirmEnableNotificationDescription": "এটি চালু করলে প্রতিদিন প্রতিটি অনুপস্থিত শিক্ষার্থীর অভিভাবককে স্বয়ংক্রিয়ভাবে একটি বিজ্ঞপ্তি পাঠানো হবে। আপনি কি নিশ্চিত?",
     "confirmEnableNotificationConfirm": "হ্যাঁ, চালু করুন",
     "confirmEnableNotificationCancel": "বাতিল"
+  },
+  "signIn": {
+    "legend": "লগ ইন অপশন",
+    "otpLoginEnabled": "মোবাইল নম্বর + কোড দিয়ে লগ ইন অনুমতি দিন"
   }
 }

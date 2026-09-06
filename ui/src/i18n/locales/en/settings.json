@@ -117,5 +117,9 @@
     "confirmEnableNotificationDescription": "Enabling this sends every absent student's guardian a notification automatically, every school day. Are you sure?",
     "confirmEnableNotificationConfirm": "Yes, enable it",
     "confirmEnableNotificationCancel": "Cancel"
+  },
+  "signIn": {
+    "legend": "Sign-in options",
+    "otpLoginEnabled": "Allow sign-in with mobile number + code"
   }
 }

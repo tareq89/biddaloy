@@ -112,6 +112,46 @@ Both endpoints are public and `strict`-rate-limited, same as `/auth/login`.
   resetting a compromised account must not leave a live session running
   while the reset is in flight.
 
+## Passwordless sign-in (OTP login)
+
+`POST /auth/otp/request` and `POST /auth/otp/verify`
+(`server/src/modules/account-access/otp-login.service.ts`) let a phone-only
+account — a guardian who was never given a password — sign in without one.
+It reuses the same building blocks as password recovery above: `OtpService`
+for the code, `AuthService.startSession()` for the session.
+
+```mermaid
+flowchart TD
+    A["POST /auth/otp/request<br/>{ phone }"] --> B{Known ACTIVE phone,<br/>OTP login allowed?}
+    B -- "no" --> Z["202 Accepted<br/>(nothing sent — enumeration-safe)"]
+    B -- "yes" --> C["SMS: 6-digit OTP<br/>(OtpService, Redis, 5 min TTL)"]
+    C --> D["POST /auth/otp/verify<br/>{ phone, otp }"]
+    D -- "wrong/expired/locked" --> E["401 'Invalid credentials'<br/>(same message as password login)"]
+    D -- "right code" --> F["LOGIN audit row, method: otp"]
+    F --> G["Caller signed in<br/>(identical LoginResponse shape to password login)"]
+```
+
+- **Same response shape as password login.** Both `/auth/login` and
+  `/auth/otp/verify` return `{ access_token, memberships }` plus the same
+  `__Host-refresh_token` cookie — a client can't tell which credential type
+  was used from the response alone.
+- **Same failure message.** Unknown phone, wrong code, expired code, an
+  inactive user, and a tenant that switched OTP login off all throw the
+  identical `401 "Invalid credentials"` password login uses — none of those
+  reasons is distinguishable from the outside.
+- **OTP lockout** is `OtpService`'s own counter — the same 6-digit/5-minute
+  TTL, 5-wrong-guesses/15-minute lock, 60-second resend cooldown that
+  password recovery's OTP branch uses (see above). A locked-out phone gets
+  `429` with `Retry-After: 900`.
+- **Per-tenant switchable, deny wins.** `auth.otpLoginEnabled` on tenant
+  settings (default `true`) lets a school turn this off. A user can belong
+  to more than one school; OTP login is allowed only if **every** tenant
+  they belong to has it enabled — one school opting out can't be bypassed
+  by signing in through a different membership (`OtpLoginService.allowed`).
+- **The OTP itself is never logged** — `OtpService` only ever logs
+  purpose/identifier, matching the rule password recovery's OTP already
+  follows.
+
 ## Session & token lifecycle
 
 `POST /auth/login` returns two things: a short-lived (**15 minutes** by

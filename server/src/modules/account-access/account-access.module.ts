@@ -16,6 +16,7 @@ import { AccountAccessDeliveryService } from './account-access-delivery.service'
 import { InvitationService } from './invitation.service';
 import { ActivationService } from './activation.service';
 import { RecoveryService } from './recovery.service';
+import { OtpLoginService } from './otp-login.service';
 import { AccountAccessController } from './account-access.controller';
 
 @Module({
@@ -33,6 +34,7 @@ import { AccountAccessController } from './account-access.controller';
     InvitationService,
     ActivationService,
     RecoveryService,
+    OtpLoginService,
     {
       provide: OTP_REDIS,
       inject: [ConfigService],
@@ -56,6 +58,7 @@ import { AccountAccessController } from './account-access.controller';
     AccountAccessDeliveryService,
     InvitationService,
     RecoveryService,
+    OtpLoginService,
   ],
 })
 export class AccountAccessModule {}

@@ -6,14 +6,18 @@ import { LoginResponse } from '@biddaloy/shared';
 import { STRICT_RATE_LIMIT } from '../../rate-limit';
 import { requestContext } from '../../common/request-context.util';
 import { setRefreshCookie } from '../auth/token-cookie';
+import { toLatinDigits } from '../../common/utils/bengali-digits.util';
 import { LoginResponseDto } from '../auth/dto/auth-response.dto';
 import { ActivationService, ActivateVerifyResult } from './activation.service';
 import { RecoveryService, ForgotPasswordResult } from './recovery.service';
+import { OtpLoginService, OtpLoginRequestResult } from './otp-login.service';
 import { ActivateVerifyDto } from './dto/activate-verify.dto';
 import { ActivateDto } from './dto/activate.dto';
 import { ActivateResendDto } from './dto/activate-resend.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { OtpRequestDto } from './dto/otp-request.dto';
+import { OtpVerifyDto } from './dto/otp-verify.dto';
 
 /**
  * 12.2's public activation surface, plus 12.3's public recovery surface.
@@ -27,6 +31,7 @@ export class AccountAccessController {
   constructor(
     private readonly activation: ActivationService,
     private readonly recovery: RecoveryService,
+    private readonly otpLogin: OtpLoginService,
   ) {}
 
   @Post('activate/verify')
@@ -94,6 +99,39 @@ export class AccountAccessController {
     @Res({ passthrough: true }) response: Response,
   ): Promise<LoginResponse> {
     const result = await this.recovery.reset(dto, requestContext(request));
+    setRefreshCookie(response, result.refreshToken);
+    return { access_token: result.access_token, memberships: result.memberships };
+  }
+
+  @Post('otp/request')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @Throttle({ default: STRICT_RATE_LIMIT })
+  @ApiOperation({
+    summary: 'Requests a passwordless-login OTP by phone. Always 202 — enumeration-safe.',
+  })
+  async otpRequest(
+    @Body() dto: OtpRequestDto,
+    @Req() request: Request,
+  ): Promise<OtpLoginRequestResult> {
+    const phone = toLatinDigits(dto.phone);
+    return this.otpLogin.request(phone, requestContext(request));
+  }
+
+  @Post('otp/verify')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: STRICT_RATE_LIMIT })
+  @ApiOperation({
+    summary: 'Verifies a passwordless-login OTP and signs the caller in.',
+  })
+  @ApiOkResponse({ type: LoginResponseDto })
+  async otpVerify(
+    @Body() dto: OtpVerifyDto,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<LoginResponse> {
+    const phone = toLatinDigits(dto.phone);
+    const otp = toLatinDigits(dto.otp);
+    const result = await this.otpLogin.verify(phone, otp, requestContext(request));
     setRefreshCookie(response, result.refreshToken);
     return { access_token: result.access_token, memberships: result.memberships };
   }

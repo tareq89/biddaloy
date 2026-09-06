@@ -21,7 +21,9 @@ export {
   login,
   logout,
   logoutAll,
+  requestOtp,
   resetPassword,
+  verifyOtp,
 } from './auth';
 export { useAccessToken, useActiveRole, useActiveTenant, useCurrentUserId } from './auth-state';
 export {
@@ -370,6 +372,7 @@ export {
   type SchoolSummary,
   type MaskedSecret,
   type AttendancePolicySettings,
+  type AuthSettings,
   type MaskedRegionSettings,
   type MaskedGreenwebSmsSettings,
   type MaskedMimSmsSettings,

@@ -1,6 +1,16 @@
 import { ApiError, NoMembershipsError, RateLimitedError } from '@biddaloy/ui/api';
-import { SignInForm, type SignInCredentials, type SignInFormError } from '@biddaloy/ui/components';
-import { login } from '@biddaloy/ui/hooks';
+import {
+  OtpSignInForm,
+  SignInForm,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  type OtpSignInCredentials,
+  type SignInCredentials,
+  type SignInFormError,
+} from '@biddaloy/ui/components';
+import { login, requestOtp, verifyOtp } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
@@ -39,6 +49,10 @@ const loginSearchSchema = z.object({
   // it) falls back to `undefined` via `.catch()`, the same defensive shape
   // `students/index.tsx`'s schema already uses.
   redirect: z.string().refine(isSameAppRedirect).optional().catch(undefined),
+  // 12.5: `/login?method=otp` deep-links straight to the "Sign in with
+  // code" tab (used by e2e) — anything else falls back to the default
+  // `password` tab rather than erroring.
+  method: z.enum(['password', 'otp']).optional().catch(undefined),
 });
 
 export const Route = createFileRoute('/login')({
@@ -75,42 +89,95 @@ function buildLoginError(error: unknown, t: TFunction<'auth'>): SignInFormError 
   return { message: t('errors.generic'), tone: 'alert' };
 }
 
+/** 12.5's clone of `buildLoginError` for the OTP tab — same typed-error
+ * shapes, but a 401 here means "wrong/expired code", not "wrong password". */
+function buildOtpError(error: unknown, t: TFunction<'auth'>): SignInFormError | null {
+  if (!error) return null;
+
+  if (error instanceof RateLimitedError) {
+    return error.retryAfterSeconds !== null
+      ? { message: t('errors.rateLimited', { count: error.retryAfterSeconds }), tone: 'status' }
+      : { message: t('errors.rateLimitedGeneric'), tone: 'status' };
+  }
+
+  if (error instanceof NoMembershipsError) {
+    return { message: t('errors.noMemberships'), tone: 'alert' };
+  }
+
+  if (error instanceof ApiError && error.statusCode === 401) {
+    return { message: t('otp.errors.invalidCode'), tone: 'alert' };
+  }
+
+  return { message: t('errors.generic'), tone: 'alert' };
+}
+
 function LoginPage() {
   const { t } = useTranslation('auth');
   const search = Route.useSearch();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  function handleSuccess(result: { memberships: { tenantId: string }[] }): void {
+    // [8.9.5]: `login()`/`verifyOtp()` deliberately leave the active tenant
+    // unset for 2+ memberships (no silent pick) — send that visitor to the
+    // picker instead, carrying the same `redirect` through so it can hand
+    // off to the originally-requested page once a school is chosen.
+    if (result.memberships.length > 1) {
+      void navigate({ to: '/select-school', search: { redirect: search.redirect } });
+    } else {
+      void navigate({ to: search.redirect ?? '/' });
+    }
+  }
+
   const mutation = useMutation({
     mutationFn: (credentials: SignInCredentials) => login(queryClient, credentials),
-    onSuccess: (result) => {
-      // [8.9.5]: `login()` deliberately leaves the active tenant unset for
-      // 2+ memberships (no silent pick) — send that visitor to the picker
-      // instead, carrying the same `redirect` through so it can hand off
-      // to the originally-requested page once a school is chosen.
-      if (result.memberships.length > 1) {
-        void navigate({ to: '/select-school', search: { redirect: search.redirect } });
-      } else {
-        void navigate({ to: search.redirect ?? '/' });
-      }
-    },
+    onSuccess: handleSuccess,
+  });
+
+  const otpRequestMutation = useMutation({
+    mutationFn: (phone: string) => requestOtp(phone),
+  });
+
+  const otpVerifyMutation = useMutation({
+    mutationFn: (credentials: OtpSignInCredentials) => verifyOtp(queryClient, credentials),
+    onSuccess: handleSuccess,
   });
 
   return (
     <AuthScreen>
-      <SignInForm
-        onSubmit={(credentials) => mutation.mutate(credentials)}
-        loading={mutation.isPending}
-        error={buildLoginError(mutation.error, t)}
-        secondaryAction={
-          <Link
-            to="/forgot-password"
-            className="relative inline-block text-primary underline after:absolute after:-inset-3.5 after:content-['']"
-          >
-            {t('forgot.link')}
-          </Link>
-        }
-      />
+      <Tabs defaultValue={search.method ?? 'password'}>
+        <TabsList className="w-full">
+          <TabsTrigger value="password" className="flex-1">
+            {t('tabs.password')}
+          </TabsTrigger>
+          <TabsTrigger value="otp" className="flex-1">
+            {t('tabs.otp')}
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="password">
+          <SignInForm
+            onSubmit={(credentials) => mutation.mutate(credentials)}
+            loading={mutation.isPending}
+            error={buildLoginError(mutation.error, t)}
+            secondaryAction={
+              <Link
+                to="/forgot-password"
+                className="relative inline-block text-primary underline after:absolute after:-inset-3.5 after:content-['']"
+              >
+                {t('forgot.link')}
+              </Link>
+            }
+          />
+        </TabsContent>
+        <TabsContent value="otp">
+          <OtpSignInForm
+            onRequest={(phone) => otpRequestMutation.mutateAsync(phone).then(() => undefined)}
+            onVerify={(credentials) => otpVerifyMutation.mutate(credentials)}
+            loading={otpVerifyMutation.isPending}
+            error={buildOtpError(otpVerifyMutation.error ?? otpRequestMutation.error, t)}
+          />
+        </TabsContent>
+      </Tabs>
     </AuthScreen>
   );
 }

@@ -132,6 +132,10 @@ const DEFAULT_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60_000; // 30 days
     ACCESS_TOKEN_TTL_MS,
     RefreshTokenService,
     AccessTokenDenylistService,
+    // 12.5's OtpLoginService (account-access module) needs this to reset a
+    // successful OTP sign-in's lockout state, same as AuthService.login does
+    // for password sign-in.
+    LoginAttemptService,
   ],
 })
 export class AuthModule {}

@@ -7,6 +7,7 @@ import { AttendanceSection } from './settings/AttendanceSection';
 import { EmailSection } from './settings/EmailSection';
 import { MessengerSection } from './settings/MessengerSection';
 import { RegionalSection } from './settings/RegionalSection';
+import { SignInSection } from './settings/SignInSection';
 import { SmsSection } from './settings/SmsSection';
 import { WhatsAppSection } from './settings/WhatsAppSection';
 
@@ -111,6 +112,7 @@ export function SchoolSettingsPage() {
         <div className="flex flex-col gap-8">
           <RegionalSection schoolId={schoolId} region={settingsQuery.data.region} />
           <AttendanceSection schoolId={schoolId} attendance={settingsQuery.data.attendance} />
+          <SignInSection key={schoolId} schoolId={schoolId} auth={settingsQuery.data.auth} />
           <WhatsAppSection
             schoolId={schoolId}
             whatsapp={settingsQuery.data.communications?.whatsapp}
