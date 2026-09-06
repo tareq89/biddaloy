@@ -30,6 +30,7 @@ describe('UserController', () => {
   let teacherService: Record<string, ReturnType<typeof vi.fn>>;
   let invitationService: Record<string, ReturnType<typeof vi.fn>>;
   let recoveryService: Record<string, ReturnType<typeof vi.fn>>;
+  let guardianProvisioningService: Record<string, ReturnType<typeof vi.fn>>;
 
   const TENANT = { id: 'tenant-1', role: UserRole.ADMIN };
   const JWT = { sub: 'admin-1', email: null, phone: null, memberships: [], jti: 'jti-1' };
@@ -62,12 +63,63 @@ describe('UserController', () => {
     recoveryService = {
       adminReset: vi.fn(),
     };
+    guardianProvisioningService = {
+      preview: vi.fn(),
+      dispatch: vi.fn(),
+      batchStatus: vi.fn(),
+    };
     controller = new UserController(
       userService as unknown as UserService,
       teacherService as unknown as TeacherService,
       invitationService as any,
       recoveryService as any,
+      guardianProvisioningService as any,
     );
+  });
+
+  // ────────────────────────
+  //  invitation batch (12.6)
+  // ────────────────────────
+  describe('previewInvitations', () => {
+    it('delegates to guardianProvisioningService.preview scoped to the tenant', async () => {
+      const dto = { all: true };
+      const expected = { total: 2, to_invite: [], skipped: [] };
+      guardianProvisioningService.preview.mockResolvedValue(expected);
+
+      const result = await controller.previewInvitations(dto as any, TENANT);
+
+      expect(guardianProvisioningService.preview).toHaveBeenCalledWith(TENANT.id, dto);
+      expect(result).toEqual(expected);
+    });
+  });
+
+  describe('dispatchInvitations', () => {
+    it('delegates to guardianProvisioningService.dispatch with the actor and selection', async () => {
+      const dto = { guardian_ids: ['g1'] };
+      const expected = { batch_id: 'b1', queued: 1, skipped: [] };
+      guardianProvisioningService.dispatch.mockResolvedValue(expected);
+
+      const result = await controller.dispatchInvitations(dto as any, TENANT, JWT as any);
+
+      expect(guardianProvisioningService.dispatch).toHaveBeenCalledWith({
+        tenantId: TENANT.id,
+        actorUserId: JWT.sub,
+        selection: dto,
+      });
+      expect(result).toEqual(expected);
+    });
+  });
+
+  describe('getInvitationBatchStatus', () => {
+    it('delegates to guardianProvisioningService.batchStatus scoped to the tenant', async () => {
+      const expected = { batch_id: 'b1', total: 1, sent: 1, failed: 0, queued: 0 };
+      guardianProvisioningService.batchStatus.mockResolvedValue(expected);
+
+      const result = await controller.getInvitationBatchStatus('b1', TENANT);
+
+      expect(guardianProvisioningService.batchStatus).toHaveBeenCalledWith(TENANT.id, 'b1');
+      expect(result).toEqual(expected);
+    });
   });
 
   // ────────────────────────

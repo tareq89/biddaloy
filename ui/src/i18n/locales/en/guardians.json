@@ -102,5 +102,39 @@
     "searchLabel": "Search students",
     "searchPlaceholder": "Search by name or registration no.",
     "noResults": "No students found."
+  },
+  "invite": {
+    "trigger": "Invite guardians",
+    "title": "Invite guardians",
+    "description": "Preview who will be invited before sending — nothing is sent until you confirm.",
+    "confirm": "Send invitations",
+    "steps": {
+      "select": "Select",
+      "preview": "Preview"
+    },
+    "select": {
+      "allGuardians": "Every guardian in this school without an active account will be previewed.",
+      "importedCohort": "The guardians of the {{count}} just-imported student(s) will be previewed.",
+      "runPreview": "Preview invitations"
+    },
+    "preview": {
+      "runFirst": "Run the preview to see who will be invited.",
+      "summary": "{{count}} guardian(s) will be invited — {{skipped}} skipped.",
+      "skippedSummary": "{{count}} skipped"
+    },
+    "skipReason": {
+      "no_contact": "No phone or email on file",
+      "already_active": "Already has an active account",
+      "already_pending": "Already has a pending invitation",
+      "notifications_disabled": "Opted out of notifications"
+    },
+    "done": {
+      "inProgress": "Sending… {{queued}} of {{total}} still in progress.",
+      "finished": "Done — {{sent}} sent, {{failed}} failed."
+    },
+    "errors": {
+      "previewFailed": "Could not preview invitations. Please try again.",
+      "dispatchFailed": "Could not send invitations. Please try again."
+    }
   }
 }

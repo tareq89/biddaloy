@@ -35,6 +35,8 @@ export {
   useCreateUser,
   useCurrentUser,
   useRemoveMember,
+  useResendInvitation,
+  useRevokeInvitation,
   useUpdateOwnProfile,
   useUpdateUser,
   useUser,
@@ -42,6 +44,7 @@ export {
   type AdminResetPasswordResult,
   type CreateUserInput,
   type CreateUserResult,
+  type InvitationResult,
   type PaginatedUsers,
   type StaffUser,
   type UpdateOwnProfileInput,
@@ -49,6 +52,20 @@ export {
   type UserListFilters,
   type UserRoleFilter,
 } from './users';
+export {
+  invitationBatchQueryOptions,
+  useDispatchInvitations,
+  useInvitationBatch,
+  useInvitationPreview,
+  type BatchInviteSelection,
+  type InviteBatchStatus,
+  type InviteChannel,
+  type InviteDispatchResult,
+  type InvitePreviewEntry,
+  type InvitePreviewResult,
+  type InviteSkipReason,
+  type InviteSkippedEntry,
+} from './invitations';
 export {
   teacherKeys,
   teachersQueryOptions,

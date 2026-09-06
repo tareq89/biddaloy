@@ -8,6 +8,7 @@ import { communicationDefaultHandlers } from './handlers/communications';
 import { enrollmentDefaultHandlers } from './handlers/enrollments';
 import { feeDefaultHandlers, feeStructureDefaultHandlers } from './handlers/fees';
 import { guardianDefaultHandlers } from './handlers/guardians';
+import { invitationDefaultHandlers } from './handlers/invitations';
 import { invoiceDefaultHandlers } from './handlers/invoices';
 import { paymentDefaultHandlers } from './handlers/payments';
 import { schoolsDefaultHandlers } from './handlers/schools';
@@ -51,6 +52,7 @@ export const handlers: readonly HttpHandler[] = [
   ...classDefaultHandlers,
   ...enrollmentDefaultHandlers,
   ...userDefaultHandlers,
+  ...invitationDefaultHandlers,
   ...teacherDefaultHandlers,
   ...studentDefaultHandlers,
   ...guardianDefaultHandlers,

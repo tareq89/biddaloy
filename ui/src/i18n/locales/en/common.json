@@ -69,6 +69,13 @@
     "attendance": {
       "LOW": "Low",
       "OK": "OK"
+    },
+    "invitation": {
+      "NONE": "No invitation",
+      "PENDING": "Invitation pending",
+      "EXPIRED": "Invitation expired",
+      "REVOKED": "Invitation revoked",
+      "ACTIVATED": "Activated"
     }
   },
   "errors": {

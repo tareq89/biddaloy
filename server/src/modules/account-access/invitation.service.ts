@@ -23,6 +23,13 @@ export interface IssueAndSendInput {
   // `null` for a self-service reissue (`ActivationService.resend`, 12.2) —
   // no admin actor performed it, the invitee triggered it themselves.
   actorUserId: string | null;
+  /**
+   * Passed through to `auth_tokens.metadata` and `communication_logs.metadata`
+   * unchanged — 12.6's batch dispatch sets `{ batch_id }` here so
+   * `GuardianProvisioningService.batchStatus` can count progress from those
+   * rows without a `ReminderBatch`-shaped entity.
+   */
+  metadata?: Record<string, unknown> | null;
 }
 
 export interface IssueAndSendResult {
@@ -80,6 +87,7 @@ export class InvitationService {
       purpose: AuthTokenPurpose.INVITE,
       ttlMs: INVITE_TTL_MS,
       createdByUserId: input.actorUserId,
+      metadata: input.metadata ?? null,
     });
 
     const link = `${this.appBaseUrl()}/activate?token=${raw}`;
@@ -90,6 +98,7 @@ export class InvitationService {
       recipientName: user.full_name,
       kind: 'INVITATION',
       vars: { link },
+      metadata: input.metadata ?? undefined,
     });
 
     await this.audit.record({

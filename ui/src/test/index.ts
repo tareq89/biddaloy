@@ -65,6 +65,7 @@ export { academicYearHandlers } from './msw/handlers/academic-years';
 export { classHandlers } from './msw/handlers/classes';
 export { enrollmentHandlers } from './msw/handlers/enrollments';
 export { userHandlers } from './msw/handlers/users';
+export { invitationHandlers } from './msw/handlers/invitations';
 export { teacherHandlers } from './msw/handlers/teachers';
 export { studentHandlers } from './msw/handlers/students';
 export { guardianHandlers } from './msw/handlers/guardians';

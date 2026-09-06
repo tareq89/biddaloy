@@ -8,6 +8,7 @@
  * kind of person.
  */
 import { Permission, STAFF_ROLES, UserStatus } from '@biddaloy/shared';
+import type { InvitationStatus } from '@biddaloy/shared';
 import {
   Button,
   RoutePending,
@@ -37,10 +38,22 @@ import { formatStaffPhone } from './-format-staff-phone';
 import { PromoteTeacherDialog } from './-promote-teacher-dialog';
 import { RemoveMemberDialog } from './-remove-member-dialog';
 
+/** [12.6] Every value `deriveInvitationStatus` can produce — a plain
+ * array, not `Object.values`, because `InvitationStatus` is a type alias
+ * (`shared/src/types/auth.types.ts`), not an enum with runtime members. */
+const INVITATION_STATUS_VALUES: InvitationStatus[] = [
+  'NONE',
+  'PENDING',
+  'EXPIRED',
+  'REVOKED',
+  'ACTIVATED',
+];
+
 interface StaffFilters {
   search?: string | undefined;
   role?: string | undefined;
   status?: string | undefined;
+  invitation_status?: string | undefined;
   joined_from?: string | undefined;
   joined_to?: string | undefined;
 }
@@ -53,6 +66,7 @@ const staffSearchSchema = z.object({
   search: z.string().optional().catch(undefined),
   role: z.string().optional().catch(undefined),
   status: z.string().optional().catch(undefined),
+  invitation_status: z.string().optional().catch(undefined),
   joined_from: z.string().optional().catch(undefined),
   joined_to: z.string().optional().catch(undefined),
   // Reserved row-selection key — same reasoning as `guardians/index.tsx`.
@@ -80,6 +94,12 @@ function toStatusParam(status: string | undefined): UserStatus | undefined {
     : undefined;
 }
 
+function toInvitationStatusParam(status: string | undefined): InvitationStatus | undefined {
+  return status !== undefined && (INVITATION_STATUS_VALUES as string[]).includes(status)
+    ? (status as InvitationStatus)
+    : undefined;
+}
+
 export const Route = createFileRoute('/_staff/staff/')({
   validateSearch: staffSearchSchema,
   loaderDeps: ({ search }) => ({
@@ -90,12 +110,14 @@ export const Route = createFileRoute('/_staff/staff/')({
     search: search.search,
     role: search.role,
     status: search.status,
+    invitationStatus: search.invitation_status,
     joinedFrom: search.joined_from,
     joinedTo: search.joined_to,
   }),
   loader: ({ context: { queryClient }, deps }) => {
     const role = toRoleParam(deps.role);
     const status = toStatusParam(deps.status);
+    const invitationStatus = toInvitationStatusParam(deps.invitationStatus);
     const sortField = deps.sort !== undefined ? SORT_FIELD_BY_COLUMN[deps.sort] : undefined;
     return Promise.all([
       // [8.14.5]: swallowed — see `academic-years/index.tsx`'s identical
@@ -108,6 +130,7 @@ export const Route = createFileRoute('/_staff/staff/')({
             ...(deps.search !== undefined ? { search: deps.search } : {}),
             ...(role !== undefined ? { role } : {}),
             ...(status !== undefined ? { status } : {}),
+            ...(invitationStatus !== undefined ? { invitation_status: invitationStatus } : {}),
             ...(deps.joinedFrom !== undefined ? { joined_from: deps.joinedFrom } : {}),
             ...(deps.joinedTo !== undefined ? { joined_to: deps.joinedTo } : {}),
             ...(sortField !== undefined ? { sort: sortField } : {}),
@@ -138,6 +161,7 @@ function StaffListPage() {
 
   const roleParam = toRoleParam(filters.role);
   const statusParam = toStatusParam(filters.status);
+  const invitationStatusParam = toInvitationStatusParam(filters.invitation_status);
   const sortField = state.sorting ? SORT_FIELD_BY_COLUMN[state.sorting.id] : undefined;
   const usersQuery = useUsers({
     page: state.page,
@@ -145,6 +169,7 @@ function StaffListPage() {
     ...(filters.search !== undefined ? { search: filters.search } : {}),
     ...(roleParam !== undefined ? { role: roleParam } : {}),
     ...(statusParam !== undefined ? { status: statusParam } : {}),
+    ...(invitationStatusParam !== undefined ? { invitation_status: invitationStatusParam } : {}),
     ...(filters.joined_from !== undefined ? { joined_from: filters.joined_from } : {}),
     ...(filters.joined_to !== undefined ? { joined_to: filters.joined_to } : {}),
     ...(sortField !== undefined ? { sort: sortField } : {}),
@@ -174,6 +199,16 @@ function StaffListPage() {
       options: Object.values(UserStatus).map((status) => ({
         value: status,
         label: t(statusLabelKey('user', status), { ns: 'common' }),
+      })),
+    },
+    {
+      kind: 'select',
+      key: 'invitation_status',
+      label: t('list.invitationFilterLabel'),
+      allLabel: t('list.invitationFilterAll'),
+      options: INVITATION_STATUS_VALUES.map((status) => ({
+        value: status,
+        label: t(statusLabelKey('invitation', status), { ns: 'common' }),
       })),
     },
     {
@@ -217,6 +252,12 @@ function StaffListPage() {
       header: t('list.columnStatus'),
       accessorFn: (row) => <StatusBadge domain="user" status={row.status} />,
       sortable: true,
+      card: 'badge',
+    },
+    {
+      id: 'invitation_status',
+      header: t('list.columnInvitation'),
+      accessorFn: (row) => <StatusBadge domain="invitation" status={row.invitation_status} />,
       card: 'badge',
     },
     {

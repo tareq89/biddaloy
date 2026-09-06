@@ -232,6 +232,64 @@ Key points:
   the user that was just created — user creation and invitation dispatch
   are independent outcomes.
 
+### Batch invites (12.6) — inviting a whole imported cohort's guardians
+
+Bulk-imported students get Guardian rows but no login — so "invite this
+cohort's guardians" is a **preview-first batch action**, not an import side
+effect. It reuses 12.1's `issueAndSend` per guardian, fanned out over a
+queue, with a `batch_id` (not a new `ReminderBatch`-shaped entity) tying
+the fan-out back together for progress polling:
+
+```mermaid
+sequenceDiagram
+    participant Admin
+    participant UserController
+    participant Provisioning as GuardianProvisioningService
+    participant Queue as invitation-batch queue
+    participant Processor as InvitationBatchProcessor
+    participant InvitationService
+
+    Admin->>UserController: POST /users/invitations/preview {all: true}
+    UserController->>Provisioning: preview(tenantId, selection)
+    Provisioning-->>Admin: { to_invite[], skipped[] } (read-only)
+
+    Admin->>UserController: POST /users/invitations/batch (confirm)
+    UserController->>Provisioning: dispatch(tenantId, actorUserId, selection)
+    Provisioning->>Queue: add one job per to_invite guardian
+    Provisioning-->>Admin: { batch_id, queued, skipped }
+
+    loop per queued job
+        Queue->>Processor: { tenantId, guardianId, batchId }
+        Processor->>Processor: ensureUser (link by phone/email, or create PARENT)
+        Processor->>InvitationService: issueAndSend(userId, metadata: {batch_id})
+    end
+
+    Admin->>UserController: GET /users/invitations/batch/:id (polls)
+    UserController-->>Admin: { total, sent, failed, queued }
+```
+
+Key points:
+
+- **Sibling dedup is free.** Two students sharing one guardian's phone
+  already collapse to one `Guardian` row (`bulk-upload.service.ts`'s
+  phone-dedup) — one guardian, one `ensureUser` call, one account.
+- **`batch_id` lives in `metadata`, not a new table.** It's written into
+  `auth_tokens.metadata.batch_id` (via `issueAndSend`'s `metadata`
+  parameter) and `communication_logs.metadata.batch_id` (via `deliver`'s
+  `metadata` parameter). `batchStatus` counts `communication_logs` rows by
+  that key and reads `total` back from the batch-dispatch audit row
+  (`AuditAction.INVITATION_SENT`, `entity_type: 'InvitationBatch'`) —
+  the same "derive it, don't store a redundant counter" instinct
+  `deriveInvitationStatus` already uses.
+- **Skip reasons mirror the reminder-batch preview grammar** —
+  `no_contact` / `already_active` / `already_pending` /
+  `notifications_disabled` — so staff read the same shape of "who got
+  skipped and why" they already know from bulk reminders.
+- **`ensureUser` is idempotent under retry.** A guardian already linked to
+  a `User` is loaded, not recreated; a guardian matching an existing
+  `User` by phone/email is linked, not duplicated; a `23505` race between
+  two concurrent batches is retried as "found".
+
 ## Why this deviated from the original plan
 
 The original plan assumed one school and a single `role` column directly on

@@ -12,6 +12,7 @@ import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { School } from '../schools/entities/school.entity';
+import { AuthToken } from '../account-access/entities/auth-token.entity';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import {
@@ -20,7 +21,7 @@ import {
   SEED_SECTION_1_ID,
   SEED_ACADEMIC_YEAR_ID,
 } from '@test/constants';
-import { UserRole, TeacherDesignation, UserStatus } from '@biddaloy/shared';
+import { UserRole, TeacherDesignation, UserStatus, AuthTokenPurpose } from '@biddaloy/shared';
 
 /**
  * Integration tests for UserService and TeacherService.
@@ -406,6 +407,84 @@ describe('UserService (integration)', () => {
 
       expect(result.data).toHaveLength(1);
       expect(result.data[0].id).toBe(active.id);
+    });
+
+    // [12.6] invitation_status filter — the SQL CASE in findAll's lateral
+    // join must agree with deriveInvitationStatus on all five fixtures.
+    describe('invitation_status filter', () => {
+      it('matches ACTIVATED, NONE, PENDING, EXPIRED, and REVOKED the same way deriveInvitationStatus derives them', async () => {
+        const authTokenRepo = dataSource.getRepository(AuthToken);
+
+        const { user: activated } = await service.create(
+          { full_name: 'Activated User', role: UserRole.TEACHER },
+          TENANT_ID,
+        );
+        await userRepo.update(activated.id, { password_hash: 'hash' });
+
+        const { user: none } = await service.create(
+          { full_name: 'No Invite User', role: UserRole.TEACHER },
+          TENANT_ID,
+        );
+
+        const { user: pending } = await service.create(
+          { full_name: 'Pending User', role: UserRole.TEACHER },
+          TENANT_ID,
+        );
+        await authTokenRepo.save(
+          authTokenRepo.create({
+            user_id: pending.id,
+            tenant_id: TENANT_ID,
+            purpose: AuthTokenPurpose.INVITE,
+            token_hash: 'hash-pending',
+            expires_at: new Date(Date.now() + 3_600_000),
+          }),
+        );
+
+        const { user: expired } = await service.create(
+          { full_name: 'Expired User', role: UserRole.TEACHER },
+          TENANT_ID,
+        );
+        await authTokenRepo.save(
+          authTokenRepo.create({
+            user_id: expired.id,
+            tenant_id: TENANT_ID,
+            purpose: AuthTokenPurpose.INVITE,
+            token_hash: 'hash-expired',
+            expires_at: new Date(Date.now() - 3_600_000),
+          }),
+        );
+
+        const { user: revoked } = await service.create(
+          { full_name: 'Revoked User', role: UserRole.TEACHER },
+          TENANT_ID,
+        );
+        await authTokenRepo.save(
+          authTokenRepo.create({
+            user_id: revoked.id,
+            tenant_id: TENANT_ID,
+            purpose: AuthTokenPurpose.INVITE,
+            token_hash: 'hash-revoked',
+            expires_at: new Date(Date.now() + 3_600_000),
+            revoked_at: new Date(),
+          }),
+        );
+
+        const cases: [string, string][] = [
+          ['ACTIVATED', activated.id],
+          ['NONE', none.id],
+          ['PENDING', pending.id],
+          ['EXPIRED', expired.id],
+          ['REVOKED', revoked.id],
+        ];
+
+        for (const [status, expectedId] of cases) {
+          const result = await service.findAll(
+            { invitation_status: status as never, page: 1, limit: 10 },
+            TENANT_ID,
+          );
+          expect(result.data.map((u) => u.id)).toEqual([expectedId]);
+        }
+      });
     });
 
     // [8.14.9] joined_from/joined_to filter over UserTenant.created_at, per

@@ -14,7 +14,7 @@ import {
   IsDateString,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { UserRole, TeacherDesignation, UserStatus } from '@biddaloy/shared';
+import { UserRole, TeacherDesignation, UserStatus, InvitationStatus } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 
 /**
@@ -153,6 +153,16 @@ export class QueryUserDto {
   @IsOptional()
   @IsEnum(UserStatus)
   status?: UserStatus;
+
+  /**
+   * Filters on the derived lifecycle `deriveInvitationStatus` computes from
+   * `password_hash` + the newest INVITE `auth_tokens` row (12.6) — not a
+   * stored column, so `UserService.findAll` matches it with the identical
+   * CASE expression in SQL.
+   */
+  @IsOptional()
+  @IsEnum(['NONE', 'PENDING', 'EXPIRED', 'REVOKED', 'ACTIVATED'])
+  invitation_status?: InvitationStatus;
 
   /** Lower bound on when this user joined *this* tenant (`UserTenant.created_at`),
    * not when their account was created globally (`User.created_at`). */

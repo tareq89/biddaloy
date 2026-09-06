@@ -1,4 +1,4 @@
-import type { UserStatus } from '@biddaloy/shared';
+import type { InvitationStatus, UserStatus } from '@biddaloy/shared';
 import {
   keepPreviousData,
   queryOptions,
@@ -30,6 +30,9 @@ export interface UserListFilters {
   role?: UserRoleFilter;
   search?: string;
   status?: UserStatus;
+  /** [12.6] Filters on the derived invitation lifecycle — "who hasn't
+   * activated yet?" from the staff list. */
+  invitation_status?: InvitationStatus;
   joined_from?: string;
   joined_to?: string;
   sort?: 'full_name' | 'email' | 'joined_at' | 'status';

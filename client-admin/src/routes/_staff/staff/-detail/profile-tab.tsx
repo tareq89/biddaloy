@@ -5,6 +5,7 @@ import { formatDate } from '@biddaloy/ui/utils';
 
 import { formatStaffPhone } from '../-format-staff-phone';
 
+import { InvitationCard } from './invitation-card';
 import { TabQueryState } from './tab-query-state';
 
 export interface ProfileTabProps {
@@ -32,6 +33,8 @@ export function ProfileTab({ userId }: ProfileTabProps) {
     >
       {(user) => (
         <div className="flex flex-col gap-6">
+          <InvitationCard user={user} />
+
           <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
             <div>
               <dt className="text-sm text-muted-foreground">{t('detail.profile.columnEmail')}</dt>
