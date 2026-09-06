@@ -176,7 +176,7 @@ export class UserService {
               .addSelect('t.expires_at', 'expires_at')
               .distinctOn(['t.user_id'])
               .from('auth_tokens', 't')
-              .where("t.purpose = 'INVITE'")
+              .where("t.purpose = 'INVITE' AND t.tenant_id = :tenantId", { tenantId })
               .orderBy('t.user_id')
               .addOrderBy('t.created_at', 'DESC'),
           'inv',

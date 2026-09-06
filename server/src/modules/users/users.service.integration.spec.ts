@@ -487,6 +487,47 @@ describe('UserService (integration)', () => {
       });
     });
 
+    // A user who belongs to two tenants must have their invitation_status
+    // derived from *this* tenant's INVITE token only — a newer token in
+    // another tenant must not leak in and mislabel the badge here.
+    it('scopes the invitation_status filter to the active tenant for a shared user', async () => {
+      const authTokenRepo = dataSource.getRepository(AuthToken);
+
+      const { user: shared } = await service.create(
+        { full_name: 'Shared User', role: UserRole.TEACHER },
+        TENANT_ID,
+      );
+      await userTenantRepo.save(
+        userTenantRepo.create({
+          user_id: shared.id,
+          tenant_id: OTHER_TENANT,
+          role: UserRole.ADMIN,
+        }),
+      );
+      // A newer INVITE token, but scoped to OTHER_TENANT.
+      await authTokenRepo.save(
+        authTokenRepo.create({
+          user_id: shared.id,
+          tenant_id: OTHER_TENANT,
+          purpose: AuthTokenPurpose.INVITE,
+          token_hash: 'hash-other-tenant',
+          expires_at: new Date(Date.now() + 3_600_000),
+        }),
+      );
+
+      const noneResult = await service.findAll(
+        { invitation_status: 'NONE' as never, page: 1, limit: 10 },
+        TENANT_ID,
+      );
+      expect(noneResult.data.map((u) => u.id)).toContain(shared.id);
+
+      const pendingResult = await service.findAll(
+        { invitation_status: 'PENDING' as never, page: 1, limit: 10 },
+        TENANT_ID,
+      );
+      expect(pendingResult.data.map((u) => u.id)).not.toContain(shared.id);
+    });
+
     // [8.14.9] joined_from/joined_to filter over UserTenant.created_at, per
     // the "tenant-scoped staff directory" correction — not User.created_at.
     it('should filter by joined_from/joined_to over UserTenant.created_at', async () => {
