@@ -23,8 +23,10 @@ import {
   getSchemaPath,
 } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { STRICT_RATE_LIMIT } from '../../rate-limit';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
@@ -55,7 +57,7 @@ import {
 } from './dto/fees.dto';
 import { FeeStructure } from './entities/fee-structure.entity';
 import { Payment } from './entities/payment.entity';
-import { UserRole, isGuardianRole } from '@biddaloy/shared';
+import { Permission, UserRole, isGuardianRole } from '@biddaloy/shared';
 import { JwtPayload } from '@biddaloy/shared';
 import { requestContext } from '../../common/request-context.util';
 import { paginatedSchema } from '../../common/swagger/paginated-schema.util';
@@ -79,7 +81,7 @@ import { paginatedSchema } from '../../common/swagger/paginated-schema.util';
   FamilyStudentDueDto,
 )
 @Controller()
-@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard)
+@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class FeeController {
   constructor(
     @Inject(FeeStructureService) private readonly feeStructureService: FeeStructureService,
@@ -102,6 +104,7 @@ export class FeeController {
     UserRole.PARENT,
     UserRole.STUDENT,
   )
+  @RequirePermissions(Permission.FEE_READ)
   @ApiOperation({
     summary:
       "List outstanding dues. Staff see the whole tenant (subject to the query filters); a PARENT or STUDENT sees only their linked students' dues, whatever filters they send.",
@@ -140,6 +143,7 @@ export class FeeController {
 
   @Get('fees/dues/flagged')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @RequirePermissions(Permission.FEE_READ)
   @ApiOperation({ summary: 'List dues flagged for follow-up (e.g. overdue past a threshold).' })
   getFlaggedDues(
     @Query() query: QueryFlaggedDuesDto,
@@ -152,6 +156,7 @@ export class FeeController {
 
   @Post('fees/generate')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.FEE_GENERATE)
   @Throttle({ default: STRICT_RATE_LIMIT })
   @ApiOperation({
     summary: 'Generate StudentFee rows for the matching fee structures over a given month/scope.',
@@ -255,6 +260,7 @@ export class FeeController {
 
   @Delete('fee-structures/:id')
   @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.FEE_STRUCTURE_DELETE)
   removeFeeStructure(
     @Param('id') id: string,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -290,6 +296,7 @@ export class FeeController {
 
   @Get('payments')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.PAYMENT_READ)
   @ApiOperation({ summary: 'Search payments (receipts) by transaction reference or student name.' })
   findAll(@Query() query: QueryPaymentDto, @CurrentTenant() tenant: { id: string; role: string }) {
     return this.paymentService.findAll(query, tenant.id);
@@ -304,6 +311,7 @@ export class FeeController {
     UserRole.PARENT,
     UserRole.STUDENT,
   )
+  @RequirePermissions(Permission.FEE_READ)
   @ApiOperation({
     summary:
       "A student's payment history. A PARENT or STUDENT must additionally be linked to this student, and gets a reduced payment shape without staff-only fields.",
@@ -330,6 +338,7 @@ export class FeeController {
 
   @Get('payments/guardian/:guardianId')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @RequirePermissions(Permission.FEE_READ)
   @ApiOperation({ summary: "Get every payment recorded for a guardian's linked students." })
   findPaymentsByGuardian(
     @Param('guardianId', ParseUUIDPipe) guardianId: string,

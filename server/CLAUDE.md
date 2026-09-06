@@ -32,8 +32,9 @@ Tests must be readable by a junior developer. No dynamic test generation. Use ex
 
 - **Tenant Isolation:** Always test that a user from Tenant A cannot access Tenant B's data.
 - **Soft Deletes:** Always test that `deletedAt` is set and excluded from standard queries.
-- **Role Guards:** Always test both allowed and denied scenarios for every `@Roles()` endpoint.
+- **Role Guards:** Always test both allowed and denied scenarios for every `@Roles()` **and `@RequirePermissions()`** endpoint.
 - **Context Header:** Always test missing and invalid `X-Tenant-ID` scenarios.
+- **Permissions:** New tenant routes must declare `@RequirePermissions`; `permission-matrix.e2e-spec.ts` fails otherwise.
 
 ## Running Tests
 

@@ -15,8 +15,7 @@ import {
   AttendanceStatus,
   AuditAction,
   Permission,
-  ROLE_PERMISSIONS,
-  UserRole,
+  roleHasPermission,
 } from '@biddaloy/shared';
 import { AttendanceSession } from './entities/attendance-session.entity';
 import { AttendanceRecord } from './entities/attendance-record.entity';
@@ -39,10 +38,6 @@ import { AbsenceNoticeService } from './absence-notice.service';
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 const MIN_REASON_LENGTH = 3;
-
-function roleHasPermission(role: string, permission: Permission): boolean {
-  return (ROLE_PERMISSIONS[role as UserRole] ?? []).includes(permission);
-}
 
 function isReasonTooShort(reason: string | undefined): boolean {
   return !reason || reason.trim().length < MIN_REASON_LENGTH;

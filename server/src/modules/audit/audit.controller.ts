@@ -2,23 +2,26 @@ import { Controller, Get, Param, Query, UseGuards, Inject } from '@nestjs/common
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { AuditService } from './audit.service';
 import { QueryAuditLogDto } from './dto/audit-log.dto';
 import { AuditLogListResponseDto, AuditLogResponseDto } from './dto/audit-log-response.dto';
-import { UserRole } from '@biddaloy/shared';
+import { Permission, UserRole } from '@biddaloy/shared';
 
 @ApiTags('audit-logs')
 @ApiTenantAuth()
 @Controller('audit-logs')
-@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard)
+@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class AuditController {
   constructor(@Inject(AuditService) private readonly auditService: AuditService) {}
 
   @Get()
   @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.AUDIT_LOG_READ)
   @ApiOperation({
     summary:
       "List this tenant's audit trail, newest first — filterable by action, entity type, and date range.",

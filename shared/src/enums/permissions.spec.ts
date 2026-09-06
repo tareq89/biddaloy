@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { Permission, ROLE_PERMISSIONS } from './permissions';
+import { Permission, ROLE_PERMISSIONS, roleHasPermission } from './permissions';
 import { UserRole } from './index';
 
 describe('bulk-upload role grants [8.11.8]', () => {
@@ -221,5 +221,23 @@ describe('attendance role grants [9.2]', () => {
       expect(ROLE_PERMISSIONS[role]).not.toContain(Permission.ATTENDANCE_CORRECT);
     }
     expect(ROLE_PERMISSIONS[UserRole.ADMIN]).toContain(Permission.ATTENDANCE_CORRECT);
+  });
+});
+
+describe('roleHasPermission', () => {
+  it('returns true when ADMIN holds USER_CREATE', () => {
+    expect(roleHasPermission(UserRole.ADMIN, Permission.USER_CREATE)).toBe(true);
+  });
+
+  it('returns false when TEACHER lacks USER_CREATE', () => {
+    expect(roleHasPermission(UserRole.TEACHER, Permission.USER_CREATE)).toBe(false);
+  });
+
+  it('returns false for a null role', () => {
+    expect(roleHasPermission(null, Permission.USER_CREATE)).toBe(false);
+  });
+
+  it('returns false for an unrecognized role string', () => {
+    expect(roleHasPermission('NOT_A_ROLE', Permission.USER_CREATE)).toBe(false);
   });
 });

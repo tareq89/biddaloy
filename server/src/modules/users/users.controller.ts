@@ -15,7 +15,9 @@ import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
@@ -34,14 +36,14 @@ import {
 } from './dto/users.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { TeacherListResponseDto, TeacherResponseDto } from './dto/teacher-response.dto';
-import { UserRole, JwtPayload } from '@biddaloy/shared';
+import { UserRole, JwtPayload, Permission } from '@biddaloy/shared';
 import { SETTINGS_RATE_LIMIT, STRICT_RATE_LIMIT } from '../../rate-limit';
 import { InvitationService } from '../account-access/invitation.service';
 
 @ApiTags('users')
 @ApiTenantAuth()
 @Controller()
-@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard)
+@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class UserController {
   constructor(
     private readonly userService: UserService,
@@ -108,6 +110,7 @@ export class UserController {
 
   @Post('users/:id/reset-password')
   @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.USER_UPDATE)
   @HttpCode(200)
   @Throttle({ default: STRICT_RATE_LIMIT })
   @ApiOperation({
@@ -261,6 +264,7 @@ export class UserController {
 
   @Delete('users/:id')
   @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.MEMBER_REMOVE)
   @ApiOperation({
     summary: "Remove a member's access to this school (deletes the membership, not the account).",
   })

@@ -238,3 +238,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ATTENDANCE_READ,
   ],
 };
+
+/** True when `role` holds `permission` in ROLE_PERMISSIONS. Unknown or null roles hold nothing. */
+export function roleHasPermission(
+  role: string | null | undefined,
+  permission: Permission,
+): boolean {
+  if (!role) return false;
+  return ROLE_PERMISSIONS[role as UserRole]?.includes(permission) ?? false;
+}

@@ -3,19 +3,21 @@ import type { Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiExtraModels, ApiOkResponse, ApiTags, getSchemaPath } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { EnrollmentService } from './enrollments.service';
 import { CreateEnrollmentDto, UpdateEnrollmentDto } from './dto/enrollments.dto';
 import { Enrollment } from '../students/entities/enrollment.entity';
-import { UserRole } from '@biddaloy/shared';
+import { Permission, UserRole } from '@biddaloy/shared';
 
 @ApiTags('enrollments')
 @ApiTenantAuth()
 @ApiExtraModels(Enrollment)
 @Controller('enrollments')
-@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard)
+@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class EnrollmentController {
   constructor(private readonly service: EnrollmentService) {}
 
@@ -27,6 +29,7 @@ export class EnrollmentController {
 
   @Get('student/:studentId')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @RequirePermissions(Permission.STUDENT_READ)
   findByStudent(
     @Param('studentId') studentId: string,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -47,6 +50,7 @@ export class EnrollmentController {
   // matching that documented type.
   @Get(':studentId/current')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @RequirePermissions(Permission.STUDENT_READ)
   @ApiOkResponse({
     description:
       "The student's current ACTIVE enrollment, or null for a legacy student with none yet.",

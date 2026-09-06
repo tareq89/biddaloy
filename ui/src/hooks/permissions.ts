@@ -1,4 +1,4 @@
-import { Permission, ROLE_PERMISSIONS, UserRole } from '@biddaloy/shared';
+import { Permission, roleHasPermission as sharedRoleHasPermission } from '@biddaloy/shared';
 
 import { useActiveRole } from './auth-state';
 
@@ -12,9 +12,7 @@ import { useActiveRole } from './auth-state';
  * and is treated as holding nothing, not everything — fail closed.
  */
 export function hasPermission(role: string | null, permission: Permission): boolean {
-  if (!role) return false;
-  const permissions = ROLE_PERMISSIONS[role as UserRole];
-  return permissions?.includes(permission) ?? false;
+  return sharedRoleHasPermission(role, permission);
 }
 
 /**
