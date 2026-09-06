@@ -240,7 +240,7 @@ describe('Route guard coverage (regression)', () => {
     expect(violations).toEqual([]);
   });
 
-  it('runs PermissionsGuard after ContextGuard on every route', () => {
+  it('runs guards in order ContextGuard, RolesGuard, PermissionsGuard on every route', () => {
     const controllers = discoveryService.getControllers();
     const violations: string[] = [];
 
@@ -267,12 +267,13 @@ describe('Route guard coverage (regression)', () => {
         const fullPath = buildFullPath(controllerPrefix, routePath);
         const methodLabel = RequestMethodName(httpMethod);
         const contextIndex = allGuards.indexOf(ContextGuard);
+        const rolesIndex = allGuards.indexOf(RolesGuard);
         const permissionsIndex = allGuards.indexOf(PermissionsGuard);
 
-        if (!(contextIndex < permissionsIndex)) {
+        if (!(contextIndex < rolesIndex && rolesIndex < permissionsIndex)) {
           violations.push(
-            `${methodLabel} ${fullPath} (${controllerName}.${methodName}) — PermissionsGuard ` +
-              `must run after ContextGuard (has: ${describeGuards(allGuards)})`,
+            `${methodLabel} ${fullPath} (${controllerName}.${methodName}) — guards must run in ` +
+              `order ContextGuard, RolesGuard, PermissionsGuard (has: ${describeGuards(allGuards)})`,
           );
         }
       }
