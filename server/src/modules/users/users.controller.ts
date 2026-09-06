@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -35,6 +35,11 @@ import {
   QueryTeacherDto,
 } from './dto/users.dto';
 import { UserResponseDto } from './dto/user-response.dto';
+import {
+  InviteBatchStatusResponseDto,
+  InviteDispatchResponseDto,
+  InvitePreviewResponseDto,
+} from '../account-access/dto/batch-invite.dto';
 import { TeacherListResponseDto, TeacherResponseDto } from './dto/teacher-response.dto';
 import { UserRole, JwtPayload, Permission } from '@biddaloy/shared';
 import { SETTINGS_RATE_LIMIT, STRICT_RATE_LIMIT } from '../../rate-limit';
@@ -191,6 +196,7 @@ export class UserController {
     summary:
       'Preview a batch of guardian invitations — mandatory before dispatch. Returns to_invite/skipped with reasons.',
   })
+  @ApiOkResponse({ type: InvitePreviewResponseDto })
   async previewInvitations(
     @Body() dto: BatchInviteDto,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -207,6 +213,7 @@ export class UserController {
     summary:
       'Dispatch a batch of guardian invitations — provisions a passwordless PARENT account per guardian and queues an invitation for each.',
   })
+  @ApiOkResponse({ type: InviteDispatchResponseDto })
   async dispatchInvitations(
     @Body() dto: BatchInviteDto,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -223,6 +230,7 @@ export class UserController {
   @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.USER_CREATE)
   @ApiOperation({ summary: 'Progress of a previously dispatched invitation batch.' })
+  @ApiOkResponse({ type: InviteBatchStatusResponseDto })
   async getInvitationBatchStatus(
     @Param('batchId') batchId: string,
     @CurrentTenant() tenant: { id: string; role: string },

@@ -584,6 +584,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/invitations/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview a batch of guardian invitations — mandatory before dispatch. Returns to_invite/skipped with reasons. */
+        post: operations["UserController_previewInvitations_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/invitations/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dispatch a batch of guardian invitations — provisions a passwordless PARENT account per guardian and queues an invitation for each. */
+        post: operations["UserController_dispatchInvitations_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/invitations/batch/{batchId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Progress of a previously dispatched invitation batch. */
+        get: operations["UserController_getInvitationBatchStatus_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/me": {
         parameters: {
             query?: never;
@@ -2160,6 +2211,41 @@ export interface components {
             role: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE";
             /** Format: uuid */
             tenantId: string;
+        };
+        BatchInviteDto: {
+            guardian_ids?: string[];
+            student_ids?: string[];
+            all?: boolean;
+        };
+        InvitePreviewEntryDto: {
+            guardian_id: string;
+            full_name: string;
+            /** @enum {string} */
+            channel: "SMS" | "EMAIL";
+            user_exists: boolean;
+        };
+        InviteSkippedEntryDto: {
+            guardian_id: string;
+            full_name: string;
+            /** @enum {string} */
+            reason: "no_contact" | "already_active" | "already_pending" | "notifications_disabled";
+        };
+        InvitePreviewResponseDto: {
+            total: number;
+            to_invite: components["schemas"]["InvitePreviewEntryDto"][];
+            skipped: components["schemas"]["InviteSkippedEntryDto"][];
+        };
+        InviteDispatchResponseDto: {
+            batch_id: string;
+            queued: number;
+            skipped: components["schemas"]["InviteSkippedEntryDto"][];
+        };
+        InviteBatchStatusResponseDto: {
+            batch_id: string;
+            total: number;
+            sent: number;
+            failed: number;
+            queued: number;
         };
         UserResponseDto: {
             id: string;
@@ -4701,6 +4787,7 @@ export interface operations {
                 role?: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE";
                 search?: string;
                 status?: "ACTIVE" | "INACTIVE" | "SUSPENDED";
+                invitation_status?: "NONE" | "PENDING" | "EXPIRED" | "REVOKED" | "ACTIVATED";
                 joined_from?: string;
                 joined_to?: string;
                 sort?: "email" | "status" | "full_name" | "joined_at";
@@ -4854,6 +4941,109 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UserController_previewInvitations_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchInviteDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitePreviewResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UserController_dispatchInvitations_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchInviteDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteDispatchResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UserController_getInvitationBatchStatus_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                batchId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteBatchStatusResponseDto"];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
