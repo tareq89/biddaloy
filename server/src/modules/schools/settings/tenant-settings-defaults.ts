@@ -1,5 +1,10 @@
 import { TENANT_SETTINGS_SCHEMA_VERSION } from '../dto/tenant-settings.dto';
-import type { AttendancePolicySettings, RegionSettings, TenantSettings } from '@biddaloy/shared';
+import type {
+  AttendancePolicySettings,
+  AuthSettings,
+  RegionSettings,
+  TenantSettings,
+} from '@biddaloy/shared';
 
 /**
  * bn-BD region defaults. #8.7.2 owns the canonical `RegionConfig` used by
@@ -59,8 +64,14 @@ export const DEFAULT_ATTENDANCE_SETTINGS: AttendancePolicySettings = {
   autoAbsentNotification: { enabled: false, cutoffTime: '11:00' },
 };
 
+/** 12.5: OTP login is on by default; a school opts out, not in. */
+export const DEFAULT_AUTH_SETTINGS: AuthSettings = {
+  otpLoginEnabled: true,
+};
+
 export const DEFAULT_TENANT_SETTINGS: TenantSettings = {
   version: TENANT_SETTINGS_SCHEMA_VERSION,
   region: DEFAULT_REGION_SETTINGS,
   attendance: DEFAULT_ATTENDANCE_SETTINGS,
+  auth: DEFAULT_AUTH_SETTINGS,
 };

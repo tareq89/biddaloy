@@ -737,6 +737,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/otp/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Requests a passwordless-login OTP by phone. Always 202 — enumeration-safe. */
+        post: operations["AccountAccessController_otpRequest_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/otp/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Verifies a passwordless-login OTP and signs the caller in. */
+        post: operations["AccountAccessController_otpVerify_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/communications/reminder/single/{studentId}/preview": {
         parameters: {
             query?: never;
@@ -1959,12 +1993,16 @@ export interface components {
             allowFutureDates: boolean;
             autoAbsentNotification: components["schemas"]["AutoAbsentNotificationDto"];
         };
+        AuthSettingsDto: {
+            otpLoginEnabled: boolean;
+        };
         TenantSettingsDto: {
             /** @enum {number} */
             version: 1;
             region?: components["schemas"]["RegionSettingsDto"];
             communications?: components["schemas"]["CommunicationsSettingsDto"];
             attendance?: components["schemas"]["AttendancePolicyDto"];
+            auth?: components["schemas"]["AuthSettingsDto"];
         };
         CreateClassDto: {
             name: string;
@@ -2228,6 +2266,16 @@ export interface components {
             otp?: string;
             /** @description The reset token from the emailed link. */
             token?: string;
+        };
+        OtpRequestDto: {
+            /** @description The phone number on the account. */
+            phone: string;
+        };
+        OtpVerifyDto: {
+            /** @description The phone number the OTP was sent to. */
+            phone: string;
+            /** @description The 6-digit OTP sent by SMS. */
+            otp: string;
         };
         SendSingleReminderDto: {
             message_template: string;
@@ -5191,6 +5239,52 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ResetPasswordDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponseDto"];
+                };
+            };
+        };
+    };
+    AccountAccessController_otpRequest_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OtpRequestDto"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    AccountAccessController_otpVerify_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OtpVerifyDto"];
             };
         };
         responses: {

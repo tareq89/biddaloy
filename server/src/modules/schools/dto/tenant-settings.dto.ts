@@ -310,6 +310,18 @@ export class AttendancePolicyDto {
   autoAbsentNotification: AutoAbsentNotificationDto;
 }
 
+/**
+ * Per-tenant login policy (12.5). `otpLoginEnabled` is a school's off-switch
+ * for passwordless phone+OTP sign-in — not a secret, no `@Secret()`. A user
+ * with memberships in several tenants is allowed OTP login only if *every*
+ * tenant they belong to has this `!== false` (deny wins) — see
+ * `OtpLoginService.allowed`.
+ */
+export class AuthSettingsDto {
+  @IsBoolean()
+  otpLoginEnabled: boolean;
+}
+
 export class TenantSettingsDto {
   @IsIn([TENANT_SETTINGS_SCHEMA_VERSION])
   version: typeof TENANT_SETTINGS_SCHEMA_VERSION;
@@ -325,4 +337,8 @@ export class TenantSettingsDto {
   @OptionalSetting()
   @NestedSettings(() => AttendancePolicyDto)
   attendance?: AttendancePolicyDto;
+
+  @OptionalSetting()
+  @NestedSettings(() => AuthSettingsDto)
+  auth?: AuthSettingsDto;
 }

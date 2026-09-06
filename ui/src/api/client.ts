@@ -261,6 +261,51 @@ export async function postAuthResetPassword(
   }
 }
 
+export interface OtpRequestResponse {
+  debug?: { otp?: string };
+}
+
+/** `POST /auth/otp/request` — always resolves, even for an unknown phone
+ * (enumeration-safe, see `OtpLoginService.request`'s own comment). `debug`
+ * is only ever populated with D6's `ACCOUNT_ACCESS_ECHO_SECRETS` flag on
+ * (never in production) — for e2e/Playwright, not for any real UI. */
+export async function postAuthOtpRequest(phone: string): Promise<OtpRequestResponse> {
+  try {
+    const response = await axios.post<OtpRequestResponse>(`${API_BASE_URL}/auth/otp/request`, {
+      phone,
+    });
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 429) {
+      const header: unknown = error.response.headers['retry-after'];
+      const parsed = typeof header === 'string' ? Number.parseInt(header, 10) : NaN;
+      throw new RateLimitedError(Number.isFinite(parsed) ? parsed : null);
+    }
+    throw toApiError(error);
+  }
+}
+
+/** `POST /auth/otp/verify` — sets the refresh cookie via `withCredentials`
+ * and returns a `LoginResponse`, identical in shape to `postAuthLogin`. */
+export async function postAuthOtpVerify(input: {
+  phone: string;
+  otp: string;
+}): Promise<LoginResponse> {
+  try {
+    const response = await axios.post<LoginResponse>(`${API_BASE_URL}/auth/otp/verify`, input, {
+      withCredentials: true,
+    });
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 429) {
+      const header: unknown = error.response.headers['retry-after'];
+      const parsed = typeof header === 'string' ? Number.parseInt(header, 10) : NaN;
+      throw new RateLimitedError(Number.isFinite(parsed) ? parsed : null);
+    }
+    throw toApiError(error);
+  }
+}
+
 /** Single-flight refresh: the first 401 creates this promise; every
  * concurrent 401 that arrives before it settles awaits the same one instead
  * of issuing its own POST /auth/refresh. The server treats a second refresh

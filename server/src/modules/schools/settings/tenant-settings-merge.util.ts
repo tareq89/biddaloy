@@ -85,6 +85,10 @@ export function mergeTenantSettings(
     merged.attendance = patch.attendance;
   }
 
+  if (patch.auth !== undefined) {
+    merged.auth = patch.auth;
+  }
+
   if (patch.communications !== undefined) {
     merged.communications = deepMergeOmittingUnset(current.communications, patch.communications);
   }

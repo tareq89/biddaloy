@@ -7,9 +7,12 @@ export {
   postAuthActivateResend,
   postAuthActivateVerify,
   postAuthForgotPassword,
+  postAuthOtpRequest,
+  postAuthOtpVerify,
   postAuthResetPassword,
   type ActivateVerifyResponse,
   type ForgotPasswordResponse,
+  type OtpRequestResponse,
 } from './client';
 export {
   ApiError,

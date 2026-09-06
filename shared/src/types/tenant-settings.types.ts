@@ -94,6 +94,17 @@ export interface AttendancePolicySettings {
   autoAbsentNotification: { enabled: boolean; cutoffTime: string };
 }
 
+/**
+ * Per-tenant login policy. `otpLoginEnabled` (default true) is a school's
+ * off-switch for passwordless phone+OTP sign-in (12.5). A user who belongs
+ * to more than one tenant is allowed OTP login only if *every* tenant they
+ * belong to has this `!== false` — deny wins, so one school turning it off
+ * can't be bypassed via another membership.
+ */
+export interface AuthSettings {
+  otpLoginEnabled: boolean;
+}
+
 export type SmsGatewayName = 'greenweb' | 'mimsms';
 
 export interface GreenwebSmsSettings {
@@ -144,4 +155,5 @@ export interface TenantSettings {
   region?: RegionSettings;
   communications?: CommunicationsSettings;
   attendance?: AttendancePolicySettings;
+  auth?: AuthSettings;
 }

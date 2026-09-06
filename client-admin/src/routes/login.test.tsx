@@ -11,7 +11,7 @@ async function signIn(): Promise<void> {
     await screen.findByRole('textbox', { name: 'Email or phone number' }),
     'rahim@greenview.edu.bd',
   );
-  await user.type(screen.getByLabelText('Password'), 'hunter2fake');
+  await user.type(screen.getByLabelText('Password', { selector: 'input' }), 'hunter2fake');
   await user.click(screen.getByRole('button', { name: 'Sign in' }));
 }
 
@@ -27,7 +27,7 @@ describe('/login', () => {
 
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Sign in' })).toBeTruthy());
     expect(screen.getByRole('textbox', { name: 'Email or phone number' })).toBeTruthy();
-    expect(screen.getByLabelText('Password')).toBeTruthy();
+    expect(screen.getByLabelText('Password', { selector: 'input' })).toBeTruthy();
   });
 
   it('has no accessibility violations', async () => {
@@ -121,5 +121,69 @@ describe('/login', () => {
 
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Sign in' })).toBeTruthy());
     expect(router.state.location.search).toEqual({});
+  });
+
+  describe('12.5: "Sign in with code" tab', () => {
+    it('defaults to the password tab, and switches to the OTP tab on click', async () => {
+      server.use(authHandlers.refreshFailure);
+      const user = userEvent.setup();
+      renderWithRouter(routeTree, { initialEntries: ['/login'], locale: 'en' });
+
+      await waitFor(() =>
+        expect(screen.getByLabelText('Password', { selector: 'input' })).toBeTruthy(),
+      );
+
+      await user.click(screen.getByRole('tab', { name: 'Sign in with code' }));
+
+      expect(await screen.findByLabelText('Phone number')).toBeTruthy();
+      expect(screen.queryByLabelText('Password', { selector: 'input' })).toBeNull();
+    });
+
+    it('`?method=otp` deep-links straight to the OTP tab', async () => {
+      server.use(authHandlers.refreshFailure);
+      renderWithRouter(routeTree, { initialEntries: ['/login?method=otp'], locale: 'en' });
+
+      expect(await screen.findByLabelText('Phone number')).toBeTruthy();
+      expect(screen.queryByLabelText('Password', { selector: 'input' })).toBeNull();
+    });
+
+    it('a successful phone+OTP sign-in navigates to the dashboard, same as password', async () => {
+      server.use(authHandlers.refreshFailure, authHandlers.otpRequest, authHandlers.otpVerify);
+
+      const { router } = renderWithRouter(routeTree, {
+        initialEntries: ['/login?method=otp'],
+        locale: 'en',
+      });
+      const user = userEvent.setup();
+
+      await user.type(await screen.findByLabelText('Phone number'), '1712345678');
+      await user.click(screen.getByRole('button', { name: 'Send code' }));
+
+      await user.type(await screen.findByLabelText('6-digit code'), '123456');
+      await user.click(screen.getByRole('button', { name: 'Sign in' }));
+
+      await waitFor(() => expect(router.state.location.pathname).toBe('/dashboard'));
+    });
+
+    it('an invalid OTP shows plain copy, never the raw server message', async () => {
+      server.use(
+        authHandlers.refreshFailure,
+        authHandlers.otpRequest,
+        authHandlers.otpVerifyInvalid,
+      );
+
+      renderWithRouter(routeTree, { initialEntries: ['/login?method=otp'], locale: 'en' });
+      const user = userEvent.setup();
+
+      await user.type(await screen.findByLabelText('Phone number'), '1712345678');
+      await user.click(screen.getByRole('button', { name: 'Send code' }));
+
+      await user.type(await screen.findByLabelText('6-digit code'), '000000');
+      await user.click(screen.getByRole('button', { name: 'Sign in' }));
+
+      const alert = await screen.findByRole('alert');
+      expect(alert.textContent).toBe('That phone number or code is incorrect.');
+      expect(screen.queryByText('Invalid credentials')).toBeNull();
+    });
   });
 });

@@ -151,6 +151,20 @@ const ALLOWLIST: AllowlistEntry[] = [
     reason:
       '12.3 — consumes an OTP or reset token and issues credentials in the same request; nothing to authenticate yet, same rationale as /auth/activate.',
   },
+  {
+    controller: 'AccountAccessController',
+    method: 'POST',
+    path: '/auth/otp/request',
+    reason:
+      '12.5 — a passwordless-login OTP request has no credentials at all yet; enumeration-safe, same rationale as /auth/login.',
+  },
+  {
+    controller: 'AccountAccessController',
+    method: 'POST',
+    path: '/auth/otp/verify',
+    reason:
+      '12.5 — consumes a phone+OTP pair and issues credentials in the same request; nothing to authenticate yet, same rationale as /auth/login.',
+  },
 ];
 
 function findAllowlistEntry(

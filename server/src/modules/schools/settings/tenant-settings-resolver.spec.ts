@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { resolveTenantSettings } from './tenant-settings-resolver';
-import { DEFAULT_ATTENDANCE_SETTINGS, DEFAULT_REGION_SETTINGS } from './tenant-settings-defaults';
+import {
+  DEFAULT_ATTENDANCE_SETTINGS,
+  DEFAULT_AUTH_SETTINGS,
+  DEFAULT_REGION_SETTINGS,
+} from './tenant-settings-defaults';
 
 describe('resolveTenantSettings', () => {
   it('resolves to full defaults for a null settings blob', () => {
@@ -9,6 +13,7 @@ describe('resolveTenantSettings', () => {
     expect(resolved.version).toBe(1);
     expect(resolved.region).toEqual(DEFAULT_REGION_SETTINGS);
     expect(resolved.attendance).toEqual(DEFAULT_ATTENDANCE_SETTINGS);
+    expect(resolved.auth).toEqual(DEFAULT_AUTH_SETTINGS);
     expect(resolved.communications).toBeUndefined();
   });
 
@@ -17,6 +22,14 @@ describe('resolveTenantSettings', () => {
 
     expect(resolved.region).toEqual(DEFAULT_REGION_SETTINGS);
     expect(resolved.attendance).toEqual(DEFAULT_ATTENDANCE_SETTINGS);
+    expect(resolved.auth).toEqual(DEFAULT_AUTH_SETTINGS);
+  });
+
+  it('a school unset returns the default otpLoginEnabled=true, and a stored false overrides it', () => {
+    expect(resolveTenantSettings(null).auth?.otpLoginEnabled).toBe(true);
+    expect(resolveTenantSettings({ auth: { otpLoginEnabled: false } }).auth?.otpLoginEnabled).toBe(
+      false,
+    );
   });
 
   it('merges a partial attendance patch over defaults, keeping the rest', () => {

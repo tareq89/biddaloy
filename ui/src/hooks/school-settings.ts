@@ -80,11 +80,16 @@ export interface MaskedCommunicationsSettings {
  * ['attendance']` exactly rather than needing its own `Masked*` shape. */
 export type AttendancePolicySettings = NonNullable<TenantSettingsInput['attendance']>;
 
+/** [12.5] Not secret data either — `AuthSettingsDto` has no `Secret()`-decorated
+ * fields, same reasoning as `AttendancePolicySettings` above. */
+export type AuthSettings = NonNullable<TenantSettingsInput['auth']>;
+
 export interface MaskedTenantSettings {
   version: 1;
   region: MaskedRegionSettings;
   communications?: MaskedCommunicationsSettings;
   attendance?: AttendancePolicySettings;
+  auth?: AuthSettings;
 }
 
 export interface ConnectionTestResult {

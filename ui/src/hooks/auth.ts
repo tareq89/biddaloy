@@ -8,8 +8,11 @@ import {
   postAuthForgotPassword,
   postAuthLogin,
   postAuthLogout,
+  postAuthOtpRequest,
+  postAuthOtpVerify,
   postAuthResetPassword,
   type ForgotPasswordResponse,
+  type OtpRequestResponse,
 } from '../api/client';
 import { NoMembershipsError } from '../api/errors';
 import { resetSessionBootstrap, scheduleTokenRefresh } from '../api/session';
@@ -149,6 +152,32 @@ export async function resetPassword(
   input: { new_password: string } & ({ phone: string; otp: string } | { token: string }),
 ): Promise<LoginResponse> {
   const result = await postAuthResetPassword(input);
+  return adoptSession(queryClient, result);
+}
+
+/**
+ * 12.5's "Sign in with code" tab, phone phase: `POST /auth/otp/request`.
+ * Always resolves — enumeration-safe, per `OtpLoginService.request`'s own
+ * contract — never rejects for "no such account"; only a genuine
+ * network/429 failure throws (`postAuthOtpRequest` already turns 429 into
+ * `RateLimitedError`).
+ */
+export async function requestOtp(phone: string): Promise<OtpRequestResponse> {
+  return postAuthOtpRequest(phone);
+}
+
+/**
+ * 12.5's "Sign in with code" tab, code phase: `POST /auth/otp/verify`. Like
+ * `login()`, a successful verify leaves the app signed in via
+ * `adoptSession` — same membership-count contract (single membership picks
+ * itself, 2+ leaves the choice to `/select-school`, zero throws
+ * `NoMembershipsError`).
+ */
+export async function verifyOtp(
+  queryClient: QueryClient,
+  input: { phone: string; otp: string },
+): Promise<LoginResponse> {
+  const result = await postAuthOtpVerify(input);
   return adoptSession(queryClient, result);
 }
 
