@@ -37,7 +37,15 @@ export interface RouterContext {
  * not a couple of `!==` checks, so a future public route is one line to
  * add rather than three call sites to remember.
  */
-const PUBLIC_PATHS = new Set(['/login', '/activate', '/forgot-password', '/reset-password']);
+const PUBLIC_PATHS = new Set([
+  '/login',
+  '/activate',
+  '/forgot-password',
+  '/reset-password',
+  // [12.7] The emailed contact-change confirm link is clicked from the
+  // inbox, possibly logged out.
+  '/verify-email',
+]);
 
 export const Route = createRootRouteWithContext<RouterContext>()({
   // Protected-route guard, runs before every route in the tree including

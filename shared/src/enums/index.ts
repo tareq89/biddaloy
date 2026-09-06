@@ -158,6 +158,9 @@ export enum AuditAction {
   PASSWORD_RESET_REQUESTED = 'PASSWORD_RESET_REQUESTED',
   /** A password was actually changed via the OTP/link recovery flow (self-service or admin-initiated). */
   PASSWORD_RESET = 'PASSWORD_RESET',
+  /** An email or phone was confirmed as owned by the account — activation,
+   * OTP login, password reset, or the contact-change flow (12.7). */
+  CONTACT_VERIFIED = 'CONTACT_VERIFIED',
 }
 
 export enum EnrollmentStatus {

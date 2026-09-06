@@ -25,6 +25,11 @@ function buildPersonFields({ script, gender }: PersonOptions) {
     id: faker.string.uuid(),
     email: faker.internet.email(),
     phone: scriptedPhoneNumber(script),
+    // [12.7] Unverified by default — matches the migration's no-backfill
+    // stance (every pre-12.7 contact starts unverified). Override per test
+    // when a scenario needs a verified contact.
+    email_verified_at: null,
+    phone_verified_at: null,
     status: UserStatus.ACTIVE,
     full_name: fullName,
     profile_picture_url: null,

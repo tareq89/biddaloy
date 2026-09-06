@@ -86,13 +86,26 @@ export class RecoveryService {
     const matchedEmail = user.email === normalized;
     const tenantId = await this.authService.primaryTenantId(user.id);
 
+    // [12.7] Recovery prefers a verified contact (D5 extension): if the
+    // identifier that matched is itself unverified but the user's OTHER
+    // contact is verified, send there instead — a stronger guarantee the
+    // right person receives it. If the only contact on file is unverified,
+    // still send to it: an unverified-only account would otherwise be
+    // unrecoverable except by an admin reset, and this endpoint's whole
+    // job is self-service recovery. The response is 202 either way.
     if (!matchedEmail) {
       // Phone matched.
       if (!user.phone) return {};
+      if (!user.phone_verified_at && user.email && user.email_verified_at) {
+        return this.sendLink(user, user.email, tenantId, null);
+      }
       return this.sendOtp(user, user.phone, tenantId);
     }
 
     if (!user.email) return {};
+    if (!user.email_verified_at && user.phone && user.phone_verified_at) {
+      return this.sendOtp(user, user.phone, tenantId);
+    }
     return this.sendLink(user, user.email, tenantId, null);
   }
 
@@ -151,6 +164,31 @@ export class RecoveryService {
       performedByUserId: user.id,
       newValues: { method },
     });
+
+    // [12.7] Completing a reset proves control of whichever contact carried
+    // it: the OTP branch proves the phone, the link branch proves the
+    // email. Stamp once, never overwrite an existing verification.
+    const verifiedField: 'email' | 'phone' = method === 'link' ? 'email' : 'phone';
+    const alreadyVerified =
+      verifiedField === 'email' ? user.email_verified_at !== null : user.phone_verified_at !== null;
+    if (!alreadyVerified) {
+      await this.userRepo.update(
+        { id: user.id },
+        verifiedField === 'email'
+          ? { email_verified_at: new Date() }
+          : { phone_verified_at: new Date() },
+      );
+      await this.auditService.record({
+        action: AuditAction.CONTACT_VERIFIED,
+        entity_type: 'User',
+        entity_id: user.id,
+        tenant_id: await this.authService.primaryTenantId(user.id),
+        performed_by_user_id: user.id,
+        ip_address: context.ip,
+        user_agent: context.userAgent,
+        new_values: { field: verifiedField, via: 'password_reset' },
+      });
+    }
 
     return this.authService.startSession(user, context);
   }

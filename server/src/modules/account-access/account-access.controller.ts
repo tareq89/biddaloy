@@ -11,6 +11,7 @@ import { LoginResponseDto } from '../auth/dto/auth-response.dto';
 import { ActivationService, ActivateVerifyResult } from './activation.service';
 import { RecoveryService, ForgotPasswordResult } from './recovery.service';
 import { OtpLoginService, OtpLoginRequestResult } from './otp-login.service';
+import { ContactChangeService } from './contact-change.service';
 import { ActivateVerifyDto } from './dto/activate-verify.dto';
 import { ActivateDto } from './dto/activate.dto';
 import { ActivateResendDto } from './dto/activate-resend.dto';
@@ -18,6 +19,7 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { OtpRequestDto } from './dto/otp-request.dto';
 import { OtpVerifyDto } from './dto/otp-verify.dto';
+import { VerifyEmailDto } from '../users/dto/contact-change.dto';
 
 /**
  * 12.2's public activation surface, plus 12.3's public recovery surface.
@@ -32,6 +34,7 @@ export class AccountAccessController {
     private readonly activation: ActivationService,
     private readonly recovery: RecoveryService,
     private readonly otpLogin: OtpLoginService,
+    private readonly contactChange: ContactChangeService,
   ) {}
 
   @Post('activate/verify')
@@ -134,5 +137,19 @@ export class AccountAccessController {
     const result = await this.otpLogin.verify(phone, otp, requestContext(request));
     setRefreshCookie(response, result.refreshToken);
     return { access_token: result.access_token, memberships: result.memberships };
+  }
+
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: STRICT_RATE_LIMIT })
+  @ApiOperation({
+    summary:
+      '[12.7] Confirms an emailed contact-change link — clicked from the inbox, possibly logged out.',
+  })
+  async verifyEmail(
+    @Body() dto: VerifyEmailDto,
+    @Req() request: Request,
+  ): Promise<{ status: string }> {
+    return this.contactChange.confirmEmail(dto.token, requestContext(request));
   }
 }

@@ -87,7 +87,10 @@ export class InvitationService {
       purpose: AuthTokenPurpose.INVITE,
       ttlMs: INVITE_TTL_MS,
       createdByUserId: input.actorUserId,
-      metadata: input.metadata ?? null,
+      // [12.7] `channel` records which contact this invite actually went
+      // out on — `ActivationService.activate` reads it back to decide
+      // whether activating this invite verifies the email or the phone.
+      metadata: { ...(input.metadata ?? {}), channel: channel.medium },
     });
 
     const link = `${this.appBaseUrl()}/activate?token=${raw}`;

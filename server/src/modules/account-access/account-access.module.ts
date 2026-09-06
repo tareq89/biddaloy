@@ -20,6 +20,7 @@ import { InvitationService } from './invitation.service';
 import { ActivationService } from './activation.service';
 import { RecoveryService } from './recovery.service';
 import { OtpLoginService } from './otp-login.service';
+import { ContactChangeService } from './contact-change.service';
 import { GuardianProvisioningService } from './guardian-provisioning.service';
 import { InvitationBatchProcessor } from './invitation-batch.processor';
 import { INVITATION_BATCH_QUEUE } from './invitation-batch.constants';
@@ -50,6 +51,7 @@ import { AccountAccessController } from './account-access.controller';
     ActivationService,
     RecoveryService,
     OtpLoginService,
+    ContactChangeService,
     GuardianProvisioningService,
     InvitationBatchProcessor,
     {
@@ -76,6 +78,7 @@ import { AccountAccessController } from './account-access.controller';
     InvitationService,
     RecoveryService,
     OtpLoginService,
+    ContactChangeService,
     GuardianProvisioningService,
   ],
 })

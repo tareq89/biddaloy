@@ -158,6 +158,53 @@ describe('ActivationService (integration)', () => {
       expect(auditRows).toHaveLength(1);
     });
 
+    // [12.7] `issueInvite` (this file's own helper) issues an INVITE token
+    // with no `metadata.channel` — a pre-12.7 shaped invite — so activation
+    // must not stamp either verified-at column, and must not audit
+    // CONTACT_VERIFIED either.
+    it('[12.7] stamps nothing when the invite carries no channel metadata', async () => {
+      const user = await createInvitee();
+      const { raw } = await issueInvite(user.id);
+
+      await service.activate(raw, 'a-strong-password', context);
+
+      const updated = await dataSource
+        .getRepository(User)
+        .findOneOrFail({ where: { id: user.id } });
+      expect(updated.email_verified_at).toBeNull();
+      expect(updated.phone_verified_at).toBeNull();
+
+      const contactAudits = await dataSource
+        .getRepository(AuditLog)
+        .find({ where: { entity_id: user.id, action: AuditAction.CONTACT_VERIFIED } });
+      expect(contactAudits).toHaveLength(0);
+    });
+
+    it('[12.7] stamps email_verified_at when the invite went out on EMAIL, with a CONTACT_VERIFIED audit row', async () => {
+      const user = await createInvitee();
+      const { raw } = await authTokens.issue({
+        userId: user.id,
+        tenantId: SEED_TENANT_ID,
+        purpose: AuthTokenPurpose.INVITE,
+        ttlMs: INVITE_TTL_MS,
+        metadata: { channel: 'EMAIL' },
+      });
+
+      await service.activate(raw, 'a-strong-password', context);
+
+      const updated = await dataSource
+        .getRepository(User)
+        .findOneOrFail({ where: { id: user.id } });
+      expect(updated.email_verified_at).not.toBeNull();
+      expect(updated.phone_verified_at).toBeNull();
+
+      const contactAudits = await dataSource
+        .getRepository(AuditLog)
+        .find({ where: { entity_id: user.id, action: AuditAction.CONTACT_VERIFIED } });
+      expect(contactAudits).toHaveLength(1);
+      expect(contactAudits[0].new_values).toMatchObject({ field: 'email', via: 'activation' });
+    });
+
     it('rejects a second activation of the same (now-consumed) token with 400 consumed', async () => {
       const user = await createInvitee();
       const { raw } = await issueInvite(user.id);

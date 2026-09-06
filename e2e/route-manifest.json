@@ -27,6 +27,11 @@
       "archetype": "bespoke"
     },
     {
+      "path": "/verify-email",
+      "role": "guest",
+      "archetype": "bespoke"
+    },
+    {
       "path": "/select-school",
       "role": "admin",
       "archetype": "bespoke"

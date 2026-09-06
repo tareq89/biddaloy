@@ -128,22 +128,40 @@ export class OtpLoginService {
     }
 
     await this.loginAttempts.reset(identifier);
-    await this.userRepo.update({ id: user.id }, { last_login_at: new Date() });
 
+    // [12.7] A successful OTP verify proves the caller controls this phone
+    // — stamp it, but only the first time (never overwrite an existing
+    // verification timestamp with a later one).
+    const alreadyVerified = user.phone_verified_at !== null;
+    await this.userRepo.update(
+      { id: user.id },
+      { last_login_at: new Date(), ...(alreadyVerified ? {} : { phone_verified_at: new Date() }) },
+    );
+
+    const tenantId = await this.authService.primaryTenantId(user.id);
     await this.auditService.record({
       action: AuditAction.LOGIN,
       entity_type: 'User',
       entity_id: user.id,
-      tenant_id: await this.authService.primaryTenantId(user.id),
+      tenant_id: tenantId,
       performed_by_user_id: user.id,
       ip_address: context.ip,
       user_agent: context.userAgent,
       new_values: { method: 'otp' },
     });
 
-    // TODO(12.7): stamp phone_verified_at — a successful OTP verify proves
-    // the user controls this phone, which 12.7's verification flow will
-    // want to record.
+    if (!alreadyVerified) {
+      await this.auditService.record({
+        action: AuditAction.CONTACT_VERIFIED,
+        entity_type: 'User',
+        entity_id: user.id,
+        tenant_id: tenantId,
+        performed_by_user_id: user.id,
+        ip_address: context.ip,
+        user_agent: context.userAgent,
+        new_values: { field: 'phone', via: 'otp_login' },
+      });
+    }
 
     return this.authService.startSession(user, context);
   }

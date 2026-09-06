@@ -92,6 +92,7 @@
     "errorNameRequired": "Enter the person's full name.",
     "errorEmailRequired": "Email cannot be empty.",
     "errorMessage": "Could not save the changes. Please try again.",
+    "contactUnverifiedHint": "Changing this marks it unverified.",
     "save": "Save changes",
     "saving": "Saving…"
   },
@@ -118,6 +119,10 @@
     "back": "Back to staff",
     "forbidden": "You do not have permission to view this user.",
     "loadError": "Could not load this user. Please try again.",
+    "contact": {
+      "verified": "Verified {{date}}",
+      "unverified": "Unverified"
+    },
     "actions": {
       "editUser": "Edit user",
       "editTeacher": "Edit teacher profile",

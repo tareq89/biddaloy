@@ -192,6 +192,20 @@ const otpVerifyInvalid = http.post('/api/v1/auth/otp/verify', () =>
   }),
 );
 
+/** `POST /auth/verify-email` — 12.7. Keyed off the raw token, same
+ * "expired" substring convention `activateVerify` documents above. */
+const verifyEmail = http.post('/api/v1/auth/verify-email', async ({ request }) => {
+  const body = (await request.json()) as { token?: string };
+  if (body.token?.includes('expired')) {
+    return HttpResponse.json({ status: 'expired' });
+  }
+  return HttpResponse.json({ status: 'valid' });
+});
+
+const verifyEmailExpired = http.post('/api/v1/auth/verify-email', () =>
+  HttpResponse.json({ status: 'expired' }),
+);
+
 const logout = http.post('/api/v1/auth/logout', () => new HttpResponse(null, { status: 204 }));
 
 const logoutAll = http.post(
@@ -223,6 +237,8 @@ export const authHandlers = {
   otpVerify,
   otpVerifyInvalid,
   OTP_VERIFY_INVALID_OTP,
+  verifyEmail,
+  verifyEmailExpired,
   logout,
   logoutAll,
 };
@@ -238,6 +254,7 @@ export const authDefaultHandlers = [
   resetPassword,
   otpRequest,
   otpVerify,
+  verifyEmail,
   logout,
   logoutAll,
 ];

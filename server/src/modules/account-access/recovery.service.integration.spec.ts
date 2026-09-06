@@ -254,6 +254,35 @@ describe('RecoveryService (integration)', () => {
         .find({ where: { entity_id: user.id, action: AuditAction.PASSWORD_RESET } });
       expect(auditRows).toHaveLength(1);
       expect(auditRows[0].new_values).toEqual({ method: 'otp' });
+
+      // [12.7] Completing an OTP-branch reset proves phone ownership.
+      expect(updated.phone_verified_at).not.toBeNull();
+      const contactAudits = await dataSource
+        .getRepository(AuditLog)
+        .find({ where: { entity_id: user.id, action: AuditAction.CONTACT_VERIFIED } });
+      expect(contactAudits).toHaveLength(1);
+      expect(contactAudits[0].new_values).toMatchObject({ field: 'phone', via: 'password_reset' });
+    });
+  });
+
+  describe('[12.7] recovery prefers a verified contact', () => {
+    it('unverified phone + verified email, matched by phone: sends the email link instead, no SMS', async () => {
+      const user = await createMember({
+        email: 'verified@example.com',
+        email_verified_at: new Date(),
+        phone: '01755555555',
+        phone_verified_at: null,
+      });
+
+      await service.forgot('01755555555', context);
+
+      expect(fakeProvider.send).toHaveBeenCalledTimes(1);
+      const logRepo = dataSource.getRepository(CommunicationLog);
+      const logs = await logRepo.find({ where: { tenant_id: SEED_TENANT_ID } });
+      expect(logs).toHaveLength(1);
+      expect(logs[0].medium).toBe(CommunicationMedium.EMAIL);
+      expect(logs[0].recipient_address).toBe('verified@example.com');
+      void user;
     });
   });
 

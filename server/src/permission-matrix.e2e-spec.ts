@@ -52,6 +52,18 @@ export const IDENTITY_SCOPED: IdentityScopedEntry[] = [
     reason: '10.4 — self-service',
   },
   {
+    controller: 'UserController',
+    method: 'POST',
+    path: '/users/me/contact-change',
+    reason: '12.7 — self-service: changes the caller own email/phone, id from the JWT',
+  },
+  {
+    controller: 'UserController',
+    method: 'POST',
+    path: '/users/me/contact-change/confirm-phone',
+    reason: '12.7 — self-service',
+  },
+  {
     controller: 'StudentController',
     method: 'GET',
     path: '/guardians/mine',

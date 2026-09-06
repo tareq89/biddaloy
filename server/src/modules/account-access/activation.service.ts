@@ -88,6 +88,15 @@ export class ActivationService {
 
     const password_hash = await bcrypt.hash(password, BCRYPT_COST);
 
+    // [12.7] Activating an invite proves the invitee controls whichever
+    // contact the invite actually went out on (`InvitationService.issueAndSend`
+    // records `metadata.channel`) — an EMAIL invite verifies the email, a
+    // PHONE (SMS) invite verifies the phone. A pre-12.7 invite row has no
+    // `channel` in its metadata; that stamps nothing rather than guessing.
+    const channel = (row.metadata as { channel?: string } | null)?.channel;
+    const verifiedField: 'email' | 'phone' | null =
+      channel === 'EMAIL' ? 'email' : channel === 'SMS' ? 'phone' : null;
+
     await this.dataSource.transaction(async (manager) => {
       // An INACTIVE invitee becomes ACTIVE on activation; an already-ACTIVE
       // user (re-activating via a still-live invite link) stays ACTIVE.
@@ -96,9 +105,8 @@ export class ActivationService {
         {
           password_hash,
           status: UserStatus.ACTIVE,
-          // TODO(12.7): stamp email_verified_at / phone_verified_at here
-          // once those columns exist — activation implies whichever
-          // channel the invite went out on is verified.
+          ...(verifiedField === 'email' ? { email_verified_at: new Date() } : {}),
+          ...(verifiedField === 'phone' ? { phone_verified_at: new Date() } : {}),
         },
       );
       await this.authTokens.consume(row.id, manager);
@@ -114,6 +122,21 @@ export class ActivationService {
         },
         manager,
       );
+      if (verifiedField) {
+        await this.auditService.record(
+          {
+            action: AuditAction.CONTACT_VERIFIED,
+            entity_type: 'User',
+            entity_id: user.id,
+            tenant_id: row.tenant_id,
+            performed_by_user_id: user.id,
+            ip_address: context.ip,
+            user_agent: context.userAgent,
+            new_values: { field: verifiedField, via: 'activation' },
+          },
+          manager,
+        );
+      }
     });
 
     await this.authService.resetLoginLockouts(user);

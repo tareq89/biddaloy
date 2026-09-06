@@ -306,6 +306,32 @@ export async function postAuthOtpVerify(input: {
   }
 }
 
+export interface VerifyEmailResponse {
+  status: 'valid' | 'expired' | 'consumed' | 'revoked' | 'unknown';
+}
+
+/** `POST /auth/verify-email` — [12.7]'s public link-click confirm. Bare
+ * `axios`, same reason `postAuthActivateVerify` bypasses `apiClient`: the
+ * caller may be logged out entirely (the link was clicked from an inbox
+ * on a device with no session). Never throws for an expired/consumed/
+ * revoked/unknown token — same 200-with-a-different-status contract as
+ * `ContactChangeService.confirmEmail`. */
+export async function postAuthVerifyEmail(token: string): Promise<VerifyEmailResponse> {
+  try {
+    const response = await axios.post<VerifyEmailResponse>(`${API_BASE_URL}/auth/verify-email`, {
+      token,
+    });
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 429) {
+      const header: unknown = error.response.headers['retry-after'];
+      const parsed = typeof header === 'string' ? Number.parseInt(header, 10) : NaN;
+      throw new RateLimitedError(Number.isFinite(parsed) ? parsed : null);
+    }
+    throw toApiError(error);
+  }
+}
+
 /** Single-flight refresh: the first 401 creates this promise; every
  * concurrent 401 that arrives before it settles awaits the same one instead
  * of issuing its own POST /auth/refresh. The server treats a second refresh

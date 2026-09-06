@@ -234,6 +234,25 @@ describe('OtpLoginService (integration)', () => {
         .getRepository(User)
         .findOneOrFail({ where: { id: user.id } });
       expect(updated.last_login_at).not.toBeNull();
+      // [12.7] A successful OTP verify proves phone ownership.
+      expect(updated.phone_verified_at).not.toBeNull();
+      const contactAudits = await dataSource
+        .getRepository(AuditLog)
+        .find({ where: { entity_id: user.id, action: AuditAction.CONTACT_VERIFIED } });
+      expect(contactAudits).toHaveLength(1);
+      expect(contactAudits[0].new_values).toMatchObject({ field: 'phone', via: 'otp_login' });
+    });
+
+    it('[12.7] does not re-stamp or re-audit when the phone is already verified', async () => {
+      const user = await createMember({ phone: '01744444444', phone_verified_at: new Date() });
+      const { debug } = await service.request('01744444444', context);
+
+      await service.verify('01744444444', debug!.otp!, context);
+
+      const contactAudits = await dataSource
+        .getRepository(AuditLog)
+        .find({ where: { entity_id: user.id, action: AuditAction.CONTACT_VERIFIED } });
+      expect(contactAudits).toHaveLength(0);
     });
 
     it('refuses a SUSPENDED user with the same 401 body as a bad code', async () => {

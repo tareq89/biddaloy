@@ -28,6 +28,16 @@ export class UserResponseDto {
   @ApiProperty({ nullable: true, type: String })
   phone: string | null;
 
+  /** [12.7] When `email` was last proven owned by this account, or `null`
+   * if it never has been (including "was verified, then an admin changed
+   * the address" — `UserService.update` clears this on change). */
+  @ApiProperty({ nullable: true, type: Date })
+  email_verified_at: Date | null;
+
+  /** [12.7] Same as `email_verified_at`, for `phone`. */
+  @ApiProperty({ nullable: true, type: Date })
+  phone_verified_at: Date | null;
+
   @ApiProperty({ enum: UserStatus })
   status: UserStatus;
 
@@ -76,6 +86,8 @@ export class UserResponseDto {
     dto.id = user.id;
     dto.email = user.email;
     dto.phone = user.phone;
+    dto.email_verified_at = user.email_verified_at;
+    dto.phone_verified_at = user.phone_verified_at;
     dto.status = user.status;
     const membership = tenantId
       ? user.user_tenants?.find((ut) => ut.tenant_id === tenantId)

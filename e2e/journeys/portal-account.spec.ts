@@ -1,5 +1,11 @@
-import { adminApiSession, apiSession, createStudentWithDues } from '../api';
-import { expect, loggedIn, test } from '../fixtures/test';
+import {
+  adminApiSession,
+  apiSession,
+  createInvitedParentUser,
+  createStudentWithDues,
+} from '../api';
+import { expect, guest, loggedIn, test } from '../fixtures/test';
+import { ActivatePage } from '../pages/activate-page';
 import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS } from '../seed-contract';
 import { t } from '../i18n';
 
@@ -228,5 +234,103 @@ test.describe('password change', () => {
         ).toBe(true);
       });
     }
+  });
+});
+
+/**
+ * [12.7] The commit-on-verify contact-change flow, driven from
+ * `/portal/account`'s new "Change" button next to the phone row. Uses a
+ * freshly created + activated parent (like `password-recovery.spec.ts`'s
+ * guardian-recovery journey) rather than a seeded account — no shared
+ * fixture to restore, so no `try/finally` dance is needed here.
+ *
+ * The OTP comes from the `/users/me/contact-change` response's
+ * `debug.otp` (`ACCOUNT_ACCESS_ECHO_SECRETS=true` in this environment),
+ * same interception pattern as the password-recovery journey above.
+ */
+test.describe('contact change', () => {
+  test.use(guest);
+
+  test('a wrong code leaves the old phone in place; the right one replaces and verifies it', async ({
+    page,
+    request,
+  }) => {
+    const admin = await adminApiSession(request);
+    const guardian = await createInvitedParentUser(request, admin, 'Contact Change E2E');
+    const password = 'an-original-password';
+    const newPhone = `017${Math.floor(10_000_000 + Math.random() * 89_999_999)}`;
+
+    const activate = new ActivatePage(page);
+
+    await test.step('activate the account, landing signed in on the portal', async () => {
+      await activate.goto(guardian.token);
+      await activate.setPassword(password);
+      await expect(page).toHaveURL(/\/portal/);
+    });
+
+    await test.step('navigate to /portal/account and open "Change" on the phone row', async () => {
+      await page.goto('/portal/account');
+      const phoneRow = page.locator('div', { hasText: guardian.phone });
+      await phoneRow.getByRole('button', { name: t('account.contact.change') }).click();
+      await expect(page.getByRole('dialog')).toBeVisible();
+    });
+
+    let otp: string | undefined;
+
+    await test.step('request the change and read the OTP from the debug echo', async () => {
+      const [response] = await Promise.all([
+        page.waitForResponse((res) => res.url().includes('/api/v1/users/me/contact-change')),
+        (async () => {
+          await page.getByLabel(t('account.contact.newPhoneLabel')).fill(newPhone);
+          await page.getByLabel(t('account.contact.currentPasswordLabel')).fill(password);
+          await page.getByRole('button', { name: t('account.contact.continue') }).click();
+        })(),
+      ]);
+      const body = (await response.json()) as { debug?: { otp?: string } };
+      otp = body.debug?.otp;
+      if (!otp) {
+        throw new Error(
+          'No debug.otp in the contact-change response — is ACCOUNT_ACCESS_ECHO_SECRETS=true set?',
+        );
+      }
+    });
+
+    await test.step('a wrong code is rejected and the old phone is still shown', async () => {
+      const wrongOtp = otp === '000000' ? '111111' : '000000';
+      await page.getByLabel(t('account.contact.otpStep.label')).fill(wrongOtp);
+      await page.getByRole('button', { name: t('account.contact.otpStep.confirm') }).click();
+      await expect(page.getByText(t('account.contact.errors.invalidCode'))).toBeVisible();
+
+      await page.getByRole('button', { name: t('account.contact.cancel') }).click();
+      await expect(page.getByText(guardian.phone)).toBeVisible();
+    });
+
+    await test.step('the right code replaces the phone and marks it verified', async () => {
+      // A fresh request issues a fresh code — the first one is no longer
+      // live, so this re-reads `debug.otp` rather than reusing the one
+      // from the wrong-code step above.
+      const phoneRow = page.locator('div', { hasText: guardian.phone });
+      await phoneRow.getByRole('button', { name: t('account.contact.change') }).click();
+      const [response] = await Promise.all([
+        page.waitForResponse((res) => res.url().includes('/api/v1/users/me/contact-change')),
+        (async () => {
+          await page.getByLabel(t('account.contact.newPhoneLabel')).fill(newPhone);
+          await page.getByLabel(t('account.contact.currentPasswordLabel')).fill(password);
+          await page.getByRole('button', { name: t('account.contact.continue') }).click();
+        })(),
+      ]);
+      const body = (await response.json()) as { debug?: { otp?: string } };
+      const freshOtp = body.debug?.otp;
+      if (!freshOtp) {
+        throw new Error('No debug.otp in the second contact-change response.');
+      }
+
+      await page.getByLabel(t('account.contact.otpStep.label')).fill(freshOtp);
+      await page.getByRole('button', { name: t('account.contact.otpStep.confirm') }).click();
+
+      const newPhoneRow = page.locator('div', { hasText: newPhone });
+      await expect(newPhoneRow.getByText(t('account.contact.verified'))).toBeVisible();
+      await expect(page.getByText(guardian.phone)).not.toBeVisible();
+    });
   });
 });

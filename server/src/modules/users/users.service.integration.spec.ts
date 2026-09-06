@@ -675,6 +675,52 @@ describe('UserService (integration)', () => {
       expect(updated.phone).toBe('+8802');
     });
 
+    // [12.7] An admin edit to email/phone is the "explicit unverified
+    // flag" the plan calls for — no extra boolean column.
+    it('[12.7] nulls email_verified_at and phone_verified_at when the admin changes either', async () => {
+      const { user } = await service.create(
+        {
+          full_name: 'Verified Person',
+          email: 'verified-person@example.com',
+          phone: '+8801799999999',
+          role: UserRole.TEACHER,
+        },
+        TENANT_ID,
+      );
+      await userRepo.update(user.id, {
+        email_verified_at: new Date(),
+        phone_verified_at: new Date(),
+      });
+
+      const updated = await service.update(
+        user.id,
+        { email: 'new-address@example.com' },
+        TENANT_ID,
+      );
+      expect(updated.email_verified_at).toBeNull();
+      // Only the changed field is nulled — phone is untouched.
+      expect(updated.phone_verified_at).not.toBeNull();
+    });
+
+    it('[12.7] does NOT null email_verified_at when the email is resubmitted unchanged', async () => {
+      const { user } = await service.create(
+        {
+          full_name: 'Verified Person 2',
+          email: 'verified-person-2@example.com',
+          role: UserRole.TEACHER,
+        },
+        TENANT_ID,
+      );
+      await userRepo.update(user.id, { email_verified_at: new Date() });
+
+      const updated = await service.update(
+        user.id,
+        { email: 'verified-person-2@example.com' },
+        TENANT_ID,
+      );
+      expect(updated.email_verified_at).not.toBeNull();
+    });
+
     it('should clear the phone number when phone is null', async () => {
       const { user } = await service.create(
         {
