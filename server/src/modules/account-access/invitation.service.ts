@@ -11,6 +11,7 @@ import { AuditAction, AuthTokenPurpose, InvitationStatus } from '@biddaloy/share
 import { User } from '../users/entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { AuditService } from '../audit/audit.service';
+import { normalizeLoginIdentifier } from '../auth/normalize-identifier';
 import { AuthTokenService, INVITE_TTL_MS } from './auth-token.service';
 import { AccountAccessDeliveryService, pickChannel } from './account-access-delivery.service';
 import { deriveInvitationStatus } from './invitation-status.util';
@@ -87,10 +88,20 @@ export class InvitationService {
       purpose: AuthTokenPurpose.INVITE,
       ttlMs: INVITE_TTL_MS,
       createdByUserId: input.actorUserId,
-      // [12.7] `channel` records which contact this invite actually went
-      // out on — `ActivationService.activate` reads it back to decide
+      // [12.7] `channel`/`contact` record which contact this invite actually
+      // went out on — `ActivationService.activate` reads them back to decide
       // whether activating this invite verifies the email or the phone.
-      metadata: { ...(input.metadata ?? {}), channel: channel.medium },
+      //
+      // The VALUE, not just the medium: an admin editing the contact between
+      // invitation and activation would otherwise let the old recipient's
+      // activation mark the replacement contact verified. Activation compares
+      // this fingerprint against the current value and stamps nothing when
+      // they have diverged.
+      metadata: {
+        ...(input.metadata ?? {}),
+        channel: channel.medium,
+        contact: normalizeLoginIdentifier(channel.to),
+      },
     });
 
     const link = `${this.appBaseUrl()}/activate?token=${raw}`;

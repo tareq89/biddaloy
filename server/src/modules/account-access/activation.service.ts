@@ -90,12 +90,24 @@ export class ActivationService {
 
     // [12.7] Activating an invite proves the invitee controls whichever
     // contact the invite actually went out on (`InvitationService.issueAndSend`
-    // records `metadata.channel`) — an EMAIL invite verifies the email, a
-    // PHONE (SMS) invite verifies the phone. A pre-12.7 invite row has no
-    // `channel` in its metadata; that stamps nothing rather than guessing.
-    const channel = (row.metadata as { channel?: string } | null)?.channel;
-    const verifiedField: 'email' | 'phone' | null =
-      channel === 'EMAIL' ? 'email' : channel === 'SMS' ? 'phone' : null;
+    // records `metadata.channel`/`metadata.contact`) — an EMAIL invite
+    // verifies the email, a PHONE (SMS) invite verifies the phone.
+    //
+    // Bound to the delivered VALUE, not just the medium: if an admin edited
+    // the contact after the invite went out, the person holding that link
+    // proved control of the OLD address, so activating it must not mark the
+    // REPLACEMENT verified. A metadata fingerprint that no longer matches the
+    // current value stamps nothing — as does a pre-12.7 invite row carrying
+    // neither field, which is the same "don't guess" stance.
+    const inviteMeta = row.metadata as { channel?: string; contact?: string } | null;
+    const invitedField: 'email' | 'phone' | null =
+      inviteMeta?.channel === 'EMAIL' ? 'email' : inviteMeta?.channel === 'SMS' ? 'phone' : null;
+    const currentContact = invitedField === 'email' ? user.email : user.phone;
+    const contactUnchanged =
+      !!inviteMeta?.contact &&
+      !!currentContact &&
+      normalizeLoginIdentifier(currentContact) === inviteMeta.contact;
+    const verifiedField: 'email' | 'phone' | null = contactUnchanged ? invitedField : null;
 
     await this.dataSource.transaction(async (manager) => {
       // An INACTIVE invitee becomes ACTIVE on activation; an already-ACTIVE

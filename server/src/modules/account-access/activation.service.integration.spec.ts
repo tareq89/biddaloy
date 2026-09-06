@@ -187,7 +187,7 @@ describe('ActivationService (integration)', () => {
         tenantId: SEED_TENANT_ID,
         purpose: AuthTokenPurpose.INVITE,
         ttlMs: INVITE_TTL_MS,
-        metadata: { channel: 'EMAIL' },
+        metadata: { channel: 'EMAIL', contact: 'rahima@example.com' },
       });
 
       await service.activate(raw, 'a-strong-password', context);
@@ -203,6 +203,47 @@ describe('ActivationService (integration)', () => {
         .find({ where: { entity_id: user.id, action: AuditAction.CONTACT_VERIFIED } });
       expect(contactAudits).toHaveLength(1);
       expect(contactAudits[0].new_values).toMatchObject({ field: 'email', via: 'activation' });
+    });
+
+    /**
+     * [12.7] The invite is bound to the contact VALUE it was delivered to,
+     * not just the medium. An admin correcting the address after the invite
+     * went out means whoever holds that link proved control of the OLD
+     * address — activating it must still set the password, but must not mark
+     * the REPLACEMENT address verified.
+     */
+    it('[12.7] stamps nothing when the contact changed between invite and activation', async () => {
+      const user = await createInvitee();
+      const { raw } = await authTokens.issue({
+        userId: user.id,
+        tenantId: SEED_TENANT_ID,
+        purpose: AuthTokenPurpose.INVITE,
+        ttlMs: INVITE_TTL_MS,
+        metadata: { channel: 'EMAIL', contact: 'rahima@example.com' },
+      });
+
+      // The admin fixes a typo — the invite is now bound to an address this
+      // account no longer holds.
+      await dataSource
+        .getRepository(User)
+        .update({ id: user.id }, { email: 'rahima.corrected@example.com' });
+
+      await service.activate(raw, 'a-strong-password', context);
+
+      const updated = await dataSource
+        .getRepository(User)
+        .findOneOrFail({ where: { id: user.id } });
+      // Activation itself still succeeded...
+      expect(updated.password_hash).not.toBeNull();
+      expect(updated.status).toBe(UserStatus.ACTIVE);
+      // ...but nothing was verified.
+      expect(updated.email_verified_at).toBeNull();
+      expect(updated.phone_verified_at).toBeNull();
+
+      const contactAudits = await dataSource
+        .getRepository(AuditLog)
+        .find({ where: { entity_id: user.id, action: AuditAction.CONTACT_VERIFIED } });
+      expect(contactAudits).toHaveLength(0);
     });
 
     it('rejects a second activation of the same (now-consumed) token with 400 consumed', async () => {
