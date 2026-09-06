@@ -234,6 +234,47 @@ export function useAdminResetPassword(id: string) {
   });
 }
 
+/** [12.7] `POST /users/me/contact-change`'s 202 body — `'otp'` for a phone
+ * change (the caller moves to the OTP step next), `'link'` for an email
+ * change (the caller sees a "check your inbox" card instead). */
+export type ContactChangeRequestResult =
+  { channel: 'otp'; debug?: { otp?: string } } | { channel: 'link'; debug?: { token?: string } };
+
+export type ContactChangeInput =
+  { email: string; current_password: string } | { phone: string; current_password: string };
+
+/** [12.7] Starts the commit-on-verify contact-change flow for the caller's
+ * own email or phone — `PATCH /users/me` no longer accepts either field
+ * (see `useUpdateOwnProfile`'s own comment). Nothing is written to the
+ * account until the matching confirm step succeeds, so this hook does not
+ * invalidate `userKeys.detail('me')` on success. */
+export function useRequestContactChange() {
+  return useMutation({
+    mutationFn: async (input: ContactChangeInput) => {
+      const res = await apiClient.post<ContactChangeRequestResult>(
+        '/users/me/contact-change',
+        input,
+      );
+      return res.data;
+    },
+  });
+}
+
+/** [12.7] Confirms a pending phone change with the OTP sent to the new
+ * number. Invalidates the caller's own record — this is the point the
+ * server actually writes the new phone. */
+export function useConfirmPhoneChange() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (otp: string) => {
+      await apiClient.post('/users/me/contact-change/confirm-phone', { otp });
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: userKeys.detail('me') });
+    },
+  });
+}
+
 /** `DELETE /users/{id}` removes only the active school's membership row —
  * "remove from school", not account deletion (`UserService.remove`). The
  * server 400s on self-removal; the UI additionally disables the action

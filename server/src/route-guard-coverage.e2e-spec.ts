@@ -165,6 +165,13 @@ const ALLOWLIST: AllowlistEntry[] = [
     reason:
       '12.5 — consumes a phone+OTP pair and issues credentials in the same request; nothing to authenticate yet, same rationale as /auth/login.',
   },
+  {
+    controller: 'AccountAccessController',
+    method: 'POST',
+    path: '/auth/verify-email',
+    reason:
+      '12.7 — the link is clicked from an inbox, possibly logged out; nothing to authenticate against yet, same rationale as /auth/activate.',
+  },
 ];
 
 function findAllowlistEntry(

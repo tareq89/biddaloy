@@ -263,6 +263,11 @@ export {
   type GuardianPreferredCommunication,
 } from './guardian-contact-form';
 export {
+  ContactChangeDialog,
+  type ContactChangeDialogProps,
+  type ContactChangeField,
+} from './contact-change-dialog';
+export {
   ChangePasswordForm,
   type ChangePasswordFormProps,
   type ChangePasswordFormServerError,

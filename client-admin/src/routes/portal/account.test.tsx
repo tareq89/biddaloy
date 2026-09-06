@@ -53,6 +53,8 @@ describe('/portal/account', () => {
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Account' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Profile' })).toBeTruthy();
+    // [12.7] The read-only email/phone card with its "Change" buttons.
+    expect(screen.getByRole('heading', { name: 'Email & phone' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Change password' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Preferences' })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Sign out/ })).toBeTruthy();

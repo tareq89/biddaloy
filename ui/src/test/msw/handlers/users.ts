@@ -65,6 +65,50 @@ const updateMeConflict = http.patch('/api/v1/users/me', () =>
   }),
 );
 
+/** [12.7] `POST /users/me/contact-change` — the channel depends on which
+ * field the request body carries, mirroring `ContactChangeService.request`. */
+const contactChangeRequest = http.post('/api/v1/users/me/contact-change', async ({ request }) => {
+  const body = (await request.json()) as { email?: string; phone?: string };
+  return HttpResponse.json(
+    body.phone
+      ? { channel: 'otp', debug: { otp: '123456' } }
+      : { channel: 'link', debug: { token: 'fake-verify-token' } },
+    { status: 202 },
+  );
+});
+
+const contactChangeRequestWrongPassword = http.post('/api/v1/users/me/contact-change', () =>
+  HttpResponse.json(
+    apiErrorBody(403, 'Current password is incorrect', '/api/v1/users/me/contact-change'),
+    { status: 403 },
+  ),
+);
+
+const contactChangeRequestConflict = http.post('/api/v1/users/me/contact-change', () =>
+  HttpResponse.json(
+    apiErrorBody(
+      409,
+      'That email or phone number is already in use',
+      '/api/v1/users/me/contact-change',
+    ),
+    { status: 409 },
+  ),
+);
+
+const contactChangeConfirmPhone = http.post(
+  '/api/v1/users/me/contact-change/confirm-phone',
+  () => new HttpResponse(null, { status: 200 }),
+);
+
+const contactChangeConfirmPhoneInvalid = http.post(
+  '/api/v1/users/me/contact-change/confirm-phone',
+  () =>
+    HttpResponse.json(
+      apiErrorBody(400, 'Invalid or expired code', '/api/v1/users/me/contact-change/confirm-phone'),
+      { status: 400 },
+    ),
+);
+
 const getOne = http.get('/api/v1/users/:id', ({ params }) =>
   HttpResponse.json(userResponseFactory({ id: params.id as string })),
 );
@@ -164,6 +208,11 @@ export const userHandlers = {
   revokeInvitation,
   adminResetPassword,
   adminResetPasswordNoContact,
+  contactChangeRequest,
+  contactChangeRequestWrongPassword,
+  contactChangeRequestConflict,
+  contactChangeConfirmPhone,
+  contactChangeConfirmPhoneInvalid,
 };
 
 export const userDefaultHandlers = [
@@ -177,4 +226,6 @@ export const userDefaultHandlers = [
   resendInvitation,
   revokeInvitation,
   adminResetPassword,
+  contactChangeRequest,
+  contactChangeConfirmPhone,
 ];

@@ -17,6 +17,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as PortalRouteImport } from './routes/portal'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SelectSchoolRouteImport } from './routes/select-school'
+import { Route as VerifyEmailRouteImport } from './routes/verify-email'
 import { Route as StaffDashboardRouteImport } from './routes/_staff/dashboard'
 import { Route as StaffFeesRouteImport } from './routes/_staff/fees'
 import { Route as StaffNotificationsRouteImport } from './routes/_staff/notifications'
@@ -92,6 +93,11 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
 const SelectSchoolRoute = SelectSchoolRouteImport.update({
   id: '/select-school',
   path: '/select-school',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VerifyEmailRoute = VerifyEmailRouteImport.update({
+  id: '/verify-email',
+  path: '/verify-email',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StaffDashboardRoute = StaffDashboardRouteImport.update({
@@ -295,6 +301,7 @@ export interface FileRoutesByFullPath {
   '/portal': typeof PortalRouteWithChildren
   '/reset-password': typeof ResetPasswordRoute
   '/select-school': typeof SelectSchoolRoute
+  '/verify-email': typeof VerifyEmailRoute
   '/dashboard': typeof StaffDashboardRoute
   '/fees': typeof StaffFeesRouteWithChildren
   '/notifications': typeof StaffNotificationsRoute
@@ -340,6 +347,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/select-school': typeof SelectSchoolRoute
+  '/verify-email': typeof VerifyEmailRoute
   '/dashboard': typeof StaffDashboardRoute
   '/notifications': typeof StaffNotificationsRoute
   '/settings': typeof StaffSettingsRoute
@@ -387,6 +395,7 @@ export interface FileRoutesById {
   '/portal': typeof PortalRouteWithChildren
   '/reset-password': typeof ResetPasswordRoute
   '/select-school': typeof SelectSchoolRoute
+  '/verify-email': typeof VerifyEmailRoute
   '/_staff/dashboard': typeof StaffDashboardRoute
   '/_staff/fees': typeof StaffFeesRouteWithChildren
   '/_staff/notifications': typeof StaffNotificationsRoute
@@ -435,6 +444,7 @@ export interface FileRouteTypes {
     | '/portal'
     | '/reset-password'
     | '/select-school'
+    | '/verify-email'
     | '/dashboard'
     | '/fees'
     | '/notifications'
@@ -480,6 +490,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/select-school'
+    | '/verify-email'
     | '/dashboard'
     | '/notifications'
     | '/settings'
@@ -526,6 +537,7 @@ export interface FileRouteTypes {
     | '/portal'
     | '/reset-password'
     | '/select-school'
+    | '/verify-email'
     | '/_staff/dashboard'
     | '/_staff/fees'
     | '/_staff/notifications'
@@ -574,6 +586,7 @@ export interface RootRouteChildren {
   PortalRoute: typeof PortalRouteWithChildren
   ResetPasswordRoute: typeof ResetPasswordRoute
   SelectSchoolRoute: typeof SelectSchoolRoute
+  VerifyEmailRoute: typeof VerifyEmailRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -632,6 +645,13 @@ declare module '@tanstack/react-router' {
       path: '/select-school'
       fullPath: '/select-school'
       preLoaderRoute: typeof SelectSchoolRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/verify-email': {
+      id: '/verify-email'
+      path: '/verify-email'
+      fullPath: '/verify-email'
+      preLoaderRoute: typeof VerifyEmailRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_staff/dashboard': {
@@ -1007,6 +1027,7 @@ const rootRouteChildren: RootRouteChildren = {
   PortalRoute: PortalRouteWithChildren,
   ResetPasswordRoute: ResetPasswordRoute,
   SelectSchoolRoute: SelectSchoolRoute,
+  VerifyEmailRoute: VerifyEmailRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

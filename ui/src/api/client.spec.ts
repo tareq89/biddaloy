@@ -19,6 +19,7 @@ import {
   postAuthLogin,
   postAuthRefresh,
   postAuthResetPassword,
+  postAuthVerifyEmail,
   toApiError,
 } from './client';
 import { ApiError, NoActiveTenantError, RateLimitedError } from './errors';
@@ -473,6 +474,75 @@ describe('postAuthActivateVerify', () => {
     });
 
     await expect(postAuthActivateVerify('tok')).rejects.toBeInstanceOf(ApiError);
+  });
+});
+
+/**
+ * [12.7] Same bare-`axios`, never-throws-for-a-bad-token contract as
+ * `postAuthActivateVerify` above — the link is clicked from an inbox, on a
+ * device that may have no session at all.
+ */
+describe('postAuthVerifyEmail', () => {
+  it('resolves with the status on success', async () => {
+    globalMock.onPost('/api/v1/auth/verify-email').reply(200, { status: 'valid' });
+
+    await expect(postAuthVerifyEmail('tok')).resolves.toEqual({ status: 'valid' });
+  });
+
+  // An expired/consumed/revoked/unknown token is a 200 with a different
+  // `status`, NOT a rejection — the page renders a card per status.
+  it('resolves (does not reject) for an expired token', async () => {
+    globalMock.onPost('/api/v1/auth/verify-email').reply(200, { status: 'expired' });
+
+    await expect(postAuthVerifyEmail('tok')).resolves.toEqual({ status: 'expired' });
+  });
+
+  it('turns a 429 into RateLimitedError with the Retry-After header parsed', async () => {
+    globalMock
+      .onPost('/api/v1/auth/verify-email')
+      .reply(429, { statusCode: 429, message: 'Too Many Requests' }, { 'retry-after': '20' });
+
+    const error = await postAuthVerifyEmail('tok').catch((err: unknown) => err);
+
+    expect(error).toBeInstanceOf(RateLimitedError);
+    expect((error as RateLimitedError).retryAfterSeconds).toBe(20);
+  });
+
+  it('turns a 429 with no Retry-After header into RateLimitedError with a null wait', async () => {
+    globalMock
+      .onPost('/api/v1/auth/verify-email')
+      .reply(429, { statusCode: 429, message: 'Too Many Requests' });
+
+    const error = await postAuthVerifyEmail('tok').catch((err: unknown) => err);
+
+    expect(error).toBeInstanceOf(RateLimitedError);
+    expect((error as RateLimitedError).retryAfterSeconds).toBeNull();
+  });
+
+  // A non-numeric Retry-After must not surface as `NaN` seconds — the
+  // `Number.isFinite` guard collapses it to "unknown wait", same as a
+  // missing header.
+  it('treats an unparseable Retry-After as a null wait', async () => {
+    globalMock
+      .onPost('/api/v1/auth/verify-email')
+      .reply(429, { statusCode: 429, message: 'Too Many Requests' }, { 'retry-after': 'soon' });
+
+    const error = await postAuthVerifyEmail('tok').catch((err: unknown) => err);
+
+    expect(error).toBeInstanceOf(RateLimitedError);
+    expect((error as RateLimitedError).retryAfterSeconds).toBeNull();
+  });
+
+  it('wraps a non-429 failure in ApiError', async () => {
+    globalMock.onPost('/api/v1/auth/verify-email').reply(500, {
+      statusCode: 500,
+      message: 'Internal error',
+      timestamp: 't',
+      path: '/api/v1/auth/verify-email',
+      requestId: 'r',
+    });
+
+    await expect(postAuthVerifyEmail('tok')).rejects.toBeInstanceOf(ApiError);
   });
 });
 

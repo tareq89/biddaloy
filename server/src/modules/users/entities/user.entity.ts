@@ -50,6 +50,20 @@ export class User {
   @Column({ type: 'varchar', length: 20, unique: true, nullable: true })
   phone: string | null;
 
+  /** [12.7] Set the moment this email was proven owned — activation, a
+   * password-reset link click, or the contact-change confirm-link. `NULL`
+   * means unverified; an admin edit to `email` clears this back to `NULL`
+   * (`UserService.update`). */
+  @Column({ type: 'timestamptz', nullable: true })
+  email_verified_at: Date | null;
+
+  /** [12.7] Set the moment this phone was proven owned — activation, OTP
+   * login, a password-reset OTP, or the contact-change confirm-OTP. `NULL`
+   * means unverified; an admin edit to `phone` clears this back to `NULL`
+   * (`UserService.update`). */
+  @Column({ type: 'timestamptz', nullable: true })
+  phone_verified_at: Date | null;
+
   // Hidden from every generated OpenAPI schema regardless of which class
   // references User (Teacher.user, Invoice.issued_by, and any entity that
   // ever gains a User relation later) — controllers additionally strip

@@ -10,9 +10,11 @@ export {
   postAuthOtpRequest,
   postAuthOtpVerify,
   postAuthResetPassword,
+  postAuthVerifyEmail,
   type ActivateVerifyResponse,
   type ForgotPasswordResponse,
   type OtpRequestResponse,
+  type VerifyEmailResponse,
 } from './client';
 export {
   ApiError,

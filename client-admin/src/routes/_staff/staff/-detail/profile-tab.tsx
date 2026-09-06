@@ -38,12 +38,32 @@ export function ProfileTab({ userId }: ProfileTabProps) {
           <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
             <div>
               <dt className="text-sm text-muted-foreground">{t('detail.profile.columnEmail')}</dt>
-              <dd>{user.email || t('detail.profile.emptyValue')}</dd>
+              <dd>
+                {user.email || t('detail.profile.emptyValue')}
+                {user.email && (
+                  <span className="ml-1.5 text-xs text-muted-foreground">
+                    {user.email_verified_at
+                      ? t('detail.contact.verified', {
+                          date: formatDate(new Date(user.email_verified_at), regionConfig),
+                        })
+                      : t('detail.contact.unverified')}
+                  </span>
+                )}
+              </dd>
             </div>
             <div>
               <dt className="text-sm text-muted-foreground">{t('detail.profile.columnPhone')}</dt>
               <dd>
                 {formatStaffPhone(user.phone, regionConfig) ?? t('detail.profile.emptyValue')}
+                {user.phone && (
+                  <span className="ml-1.5 text-xs text-muted-foreground">
+                    {user.phone_verified_at
+                      ? t('detail.contact.verified', {
+                          date: formatDate(new Date(user.phone_verified_at), regionConfig),
+                        })
+                      : t('detail.contact.unverified')}
+                  </span>
+                )}
               </dd>
             </div>
             <div>

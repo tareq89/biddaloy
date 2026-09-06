@@ -24,6 +24,10 @@ import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator
 import type { Request } from 'express';
 import { UserService, TeacherService } from './users.service';
 import { RecoveryService } from '../account-access/recovery.service';
+import {
+  ContactChangeService,
+  ContactChangeRequestResult,
+} from '../account-access/contact-change.service';
 import { requestContext } from '../../common/request-context.util';
 import {
   CreateUserDto,
@@ -34,6 +38,11 @@ import {
   UpdateTeacherDto,
   QueryTeacherDto,
 } from './dto/users.dto';
+import {
+  ContactChangeRequestDto,
+  ContactChangeConfirmPhoneDto,
+  ContactChangeRequestResponseDto,
+} from './dto/contact-change.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import {
   InviteBatchStatusResponseDto,
@@ -58,6 +67,7 @@ export class UserController {
     private readonly invitationService: InvitationService,
     private readonly recoveryService: RecoveryService,
     private readonly guardianProvisioningService: GuardianProvisioningService,
+    private readonly contactChangeService: ContactChangeService,
   ) {}
 
   // --- User endpoints ---
@@ -296,7 +306,7 @@ export class UserController {
   )
   @ApiOperation({
     summary:
-      "Update the calling user's own record. Only the UpdateOwnProfileDto fields are accepted; role/status/tenant fields are rejected with 400 by forbidNonWhitelisted. Changing email or phone requires `current_password` (400 if missing, 403 if wrong).",
+      "Update the calling user's own record. Only full_name/profile_picture_url are accepted — email/phone are rejected with 400 by forbidNonWhitelisted; use POST /users/me/contact-change to change either. [12.7]",
   })
   @ApiResponse({ status: 200, type: UserResponseDto })
   async updateMe(
@@ -308,6 +318,58 @@ export class UserController {
     const responseDto = UserResponseDto.fromEntity(user, tenant.id);
     responseDto.invitation_status = await this.invitationService.statusFor(user, tenant.id);
     return responseDto;
+  }
+
+  /**
+   * [12.7] Starts the commit-on-verify contact-change flow for the caller's
+   * own email/phone — `PATCH /users/me` no longer accepts either field.
+   * Same role list as the other `/users/me` routes; must stay declared
+   * above `users/:id` for the same ordering reason as `GET users/me`.
+   */
+  @Post('users/me/contact-change')
+  @HttpCode(202)
+  @Throttle({ default: SETTINGS_RATE_LIMIT })
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.ACCOUNTANT,
+    UserRole.EXECUTIVE,
+    UserRole.TEACHER,
+    UserRole.PARENT,
+    UserRole.STUDENT,
+  )
+  @ApiOperation({
+    summary:
+      'Requests a change to the caller own email or phone. Sends an OTP (phone) or a confirm link (email) to the NEW value; nothing is written to the account until confirmed.',
+  })
+  @ApiResponse({ status: 202, type: ContactChangeRequestResponseDto })
+  async requestContactChange(
+    @Body() dto: ContactChangeRequestDto,
+    @CurrentUser() jwt: JwtPayload,
+    @Req() request: Request,
+  ): Promise<ContactChangeRequestResult> {
+    return this.contactChangeService.request(jwt.sub, dto, requestContext(request));
+  }
+
+  @Post('users/me/contact-change/confirm-phone')
+  @HttpCode(200)
+  @Throttle({ default: STRICT_RATE_LIMIT })
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.ACCOUNTANT,
+    UserRole.EXECUTIVE,
+    UserRole.TEACHER,
+    UserRole.PARENT,
+    UserRole.STUDENT,
+  )
+  @ApiOperation({
+    summary: 'Confirms a pending phone change with the OTP sent to the new number.',
+  })
+  async confirmContactChangePhone(
+    @Body() dto: ContactChangeConfirmPhoneDto,
+    @CurrentUser() jwt: JwtPayload,
+    @Req() request: Request,
+  ): Promise<void> {
+    await this.contactChangeService.confirmPhone(jwt.sub, dto.otp, requestContext(request));
   }
 
   @Get('users/:id')

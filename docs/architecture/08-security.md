@@ -106,11 +106,69 @@ Both endpoints are public and `strict`-rate-limited, same as `/auth/login`.
   every other session" behavior, since a password reset is exactly the
   moment an attacker who guessed or leaked the old password must be cut
   off.
+- **Recovery prefers a verified contact (12.7, D5 extension).** If the
+  contact that matched is itself unverified (`email_verified_at`/
+  `phone_verified_at` is `NULL`) **and** the account's other contact IS
+  verified, the reset goes to the verified one instead — a stronger
+  guarantee the right person receives it. An unverified-only account (no
+  verified contact at all) still gets the reset at its one contact:
+  refusing outright would make such an account unrecoverable except by an
+  admin, which is worse. Either way the response is still the same `202`.
 - **Admin-initiated reset** (`POST /users/:id/reset-password`, ADMIN only)
   is the same machinery with one difference: the target's sessions are
   revoked **immediately**, before the OTP/link is even sent — an admin
   resetting a compromised account must not leave a live session running
   while the reset is in flight.
+
+## Contact verification (12.7)
+
+`users.email_verified_at`/`users.phone_verified_at` record the moment a
+contact was PROVEN owned, not just "typed into a form". Every path that
+proves ownership stamps one of them, with a `CONTACT_VERIFIED` audit row:
+
+- **Activation** (accepting an invite) verifies whichever contact the
+  invite actually went out on.
+- **OTP login** verifies the phone the code was sent to.
+- **Password reset** verifies the OTP branch's phone / the link branch's
+  email.
+- **The contact-change flow below** verifies the NEW value, once
+  confirmed.
+
+An **admin edit** to `email`/`phone` (`PATCH /users/:id`) clears the
+matching `*_verified_at` back to `NULL` — the admin route has no
+proof-of-ownership step, so its own edit cannot leave a stale "verified"
+label standing.
+
+**Changing your own contact** (`PATCH /users/me` no longer accepts
+`email`/`phone` at all — a 400 pointing here) is commit-on-verify: the OLD
+value stays on the account until the NEW one is proven owned.
+
+```mermaid
+sequenceDiagram
+    participant U as User (own device)
+    participant S as Server
+    participant N as New contact (phone/email)
+
+    U->>S: POST /users/me/contact-change<br/>{ phone|email, current_password }
+    Note over S: current_password checked against<br/>the CALLER's own hash (403 if wrong,<br/>400 no_password if passwordless)
+    alt phone
+        S->>N: SMS: 6-digit OTP
+        S-->>U: 202 { channel: "otp" }
+        U->>S: POST .../confirm-phone { otp }
+        S->>S: users.phone = new value<br/>phone_verified_at = now()
+    else email
+        S->>N: Email: confirm link (1h TTL)
+        S-->>U: 202 { channel: "link" }
+        Note over N: link clicked, possibly logged out
+        N->>S: POST /auth/verify-email { token }
+        S->>S: users.email = new value<br/>email_verified_at = now()
+    end
+    S->>S: CONTACT_VERIFIED audit row (via: "contact_change")
+```
+
+The old value is never touched until the confirm step succeeds — a
+mistyped new number/address just leaves the request expiring unconfirmed,
+with the account's real contact untouched throughout.
 
 ## Passwordless sign-in (OTP login)
 

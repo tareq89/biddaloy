@@ -649,8 +649,42 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Update the calling user's own record. Only the UpdateOwnProfileDto fields are accepted; role/status/tenant fields are rejected with 400 by forbidNonWhitelisted. Changing email or phone requires `current_password` (400 if missing, 403 if wrong). */
+        /** Update the calling user's own record. Only full_name/profile_picture_url are accepted — email/phone are rejected with 400 by forbidNonWhitelisted; use POST /users/me/contact-change to change either. [12.7] */
         patch: operations["UserController_updateMe_v1"];
+        trace?: never;
+    };
+    "/api/v1/users/me/contact-change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Requests a change to the caller own email or phone. Sends an OTP (phone) or a confirm link (email) to the NEW value; nothing is written to the account until confirmed. */
+        post: operations["UserController_requestContactChange_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/me/contact-change/confirm-phone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirms a pending phone change with the OTP sent to the new number. */
+        post: operations["UserController_confirmContactChangePhone_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/users/{id}": {
@@ -816,6 +850,23 @@ export interface paths {
         put?: never;
         /** Verifies a passwordless-login OTP and signs the caller in. */
         post: operations["AccountAccessController_otpVerify_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/verify-email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** [12.7] Confirms an emailed contact-change link — clicked from the inbox, possibly logged out. */
+        post: operations["AccountAccessController_verifyEmail_v1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1680,7 +1731,7 @@ export interface components {
             id: string;
             tenant_id: string | null;
             /** @enum {string} */
-            action: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET";
+            action: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED";
             entity_type: string;
             entity_id: string | null;
             performed_by_user_id: string | null;
@@ -2094,6 +2145,10 @@ export interface components {
             user_tenants: components["schemas"]["UserTenant"][];
             email: string | null;
             phone: string | null;
+            /** Format: date-time */
+            email_verified_at: string | null;
+            /** Format: date-time */
+            phone_verified_at: string | null;
             /** @enum {string} */
             status: "ACTIVE" | "INACTIVE" | "SUSPENDED";
             full_name: string;
@@ -2251,6 +2306,10 @@ export interface components {
             id: string;
             email: string | null;
             phone: string | null;
+            /** Format: date-time */
+            email_verified_at: string | null;
+            /** Format: date-time */
+            phone_verified_at: string | null;
             /** @enum {string} */
             status: "ACTIVE" | "INACTIVE" | "SUSPENDED";
             full_name: string;
@@ -2272,12 +2331,30 @@ export interface components {
             invitation_status: "NONE" | "PENDING" | "EXPIRED" | "REVOKED" | "ACTIVATED";
         };
         UpdateOwnProfileDto: {
-            current_password?: string;
-            /** Format: email */
-            email?: string | null;
-            phone?: string | null;
             full_name?: string;
             profile_picture_url?: string;
+        };
+        ContactChangeRequestDto: {
+            /**
+             * Format: email
+             * @description The new email address to verify and switch to.
+             */
+            email?: string;
+            /** @description The new phone number to verify and switch to. */
+            phone?: string;
+            /** @description The caller's current password, proving they own this account. */
+            current_password: string;
+        };
+        ContactChangeRequestResponseDto: {
+            /**
+             * @description 'otp' for a phone change (confirm at POST /users/me/contact-change/confirm-phone); 'link' for an email change (confirmed by clicking the emailed link, which posts to /auth/verify-email).
+             * @enum {string}
+             */
+            channel: "otp" | "link";
+        };
+        ContactChangeConfirmPhoneDto: {
+            /** @description The 6-digit OTP sent to the new phone number. */
+            otp: string;
         };
         UpdateUserDto: {
             /** Format: email */
@@ -2362,6 +2439,17 @@ export interface components {
             phone: string;
             /** @description The 6-digit OTP sent by SMS. */
             otp: string;
+        };
+        VerifyEmailDto: {
+            /** @description The raw email-verify token from the ?token= query param. */
+            token: string;
+        };
+        VerifyEmailResponseDto: {
+            /**
+             * @description 'valid' means the email was changed; anything else means it was not.
+             * @enum {string}
+             */
+            status: "valid" | "expired" | "consumed" | "revoked" | "unknown";
         };
         SendSingleReminderDto: {
             message_template: string;
@@ -3294,7 +3382,7 @@ export interface operations {
     AuditController_findAll_v1: {
         parameters: {
             query?: {
-                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET";
+                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED";
                 entity_type?: string;
                 performed_by_user_id?: string;
                 entity_id?: string;
@@ -3334,7 +3422,7 @@ export interface operations {
     AuditController_findByEntity_v1: {
         parameters: {
             query?: {
-                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET";
+                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED";
                 entity_type?: string;
                 performed_by_user_id?: string;
                 entity_id?: string;
@@ -5120,6 +5208,74 @@ export interface operations {
             };
         };
     };
+    UserController_requestContactChange_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContactChangeRequestDto"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactChangeRequestResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UserController_confirmContactChangePhone_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContactChangeConfirmPhoneDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     UserController_findOneUser_v1: {
         parameters: {
             query?: never;
@@ -5484,6 +5640,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LoginResponseDto"];
+                };
+            };
+        };
+    };
+    AccountAccessController_verifyEmail_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyEmailDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerifyEmailResponseDto"];
                 };
             };
         };
@@ -7306,7 +7485,7 @@ export interface operations {
     AttendanceController_getRecordHistory_v1: {
         parameters: {
             query?: {
-                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET";
+                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED";
                 entity_type?: string;
                 performed_by_user_id?: string;
                 entity_id?: string;

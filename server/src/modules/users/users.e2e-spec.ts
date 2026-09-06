@@ -125,6 +125,47 @@ describe('Users & Teachers E2E [8.11.8]', () => {
     await app.close();
   });
 
+  describe('[12.7] PATCH /users/me no longer accepts email/phone', () => {
+    it('rejects a body with email with 400 (forbidNonWhitelisted)', async () => {
+      await request()
+        .patch('/api/v1/users/me')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .send({ email: 'new-address@example.com' })
+        .expect(400);
+    });
+
+    it('rejects a body with phone with 400 (forbidNonWhitelisted)', async () => {
+      await request()
+        .patch('/api/v1/users/me')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .send({ phone: '+8801799999999' })
+        .expect(400);
+    });
+
+    it('still accepts full_name', async () => {
+      const before = await dataSource.query(`SELECT full_name FROM users WHERE id = $1`, [
+        SEED_ADMIN_USER_ID,
+      ]);
+      const originalName = before[0].full_name as string;
+
+      const res = await request()
+        .patch('/api/v1/users/me')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .send({ full_name: 'Renamed Admin' })
+        .expect(200);
+      expect(res.body.full_name).toBe('Renamed Admin');
+
+      // Restore, so later tests relying on the seed admin's name are unaffected.
+      await dataSource.query(`UPDATE users SET full_name = $2 WHERE id = $1`, [
+        SEED_ADMIN_USER_ID,
+        originalName,
+      ]);
+    });
+  });
+
   describe('GET /users (role + search filters)', () => {
     it('filters by role', async () => {
       const res = await request()

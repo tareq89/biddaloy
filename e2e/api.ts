@@ -185,11 +185,20 @@ export async function createInvitedStaffUser(
  * with `phone` instead of `email` (recovery via phone OTP needs a real
  * phone-identified account) and consumed straight through 12.2's
  * `/activate` flow so the account ends up with a real password before the
- * recovery spec ever touches it. */
+ * recovery spec ever touches it.
+ *
+ * `role` defaults to `PARENT`, but pass `STUDENT` for a spec that drives
+ * `/portal/account`: both roles reach the portal (`GUARDIAN_ROLES`), but
+ * that page hard-errors for a PARENT with no `guardians` row, because it
+ * treats its `GET /guardians/mine` 404 as a page-level failure — and a
+ * user minted here has no guardian row. A STUDENT never issues that
+ * request (`account.tsx`'s `enabled: isParent`), so the page loads on
+ * `GET /users/me` alone. */
 export async function createInvitedParentUser(
   request: APIRequestContext,
   session: ApiSession,
   fullName: string,
+  role: 'PARENT' | 'STUDENT' = 'PARENT',
 ): Promise<{ id: string; phone: string; token: string }> {
   const phone = `017${Math.floor(10_000_000 + Math.random() * 89_999_999)}`;
   const created = await post<{ user: { id: string }; invitation: { debug?: { token: string } } }>(
@@ -199,7 +208,7 @@ export async function createInvitedParentUser(
     {
       full_name: fullName,
       phone,
-      role: 'PARENT',
+      role,
       tenantId: session.tenantId,
     },
   );
