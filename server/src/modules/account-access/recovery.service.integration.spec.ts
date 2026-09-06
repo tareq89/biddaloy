@@ -353,6 +353,55 @@ describe('RecoveryService (integration)', () => {
         service.reset({ new_password: 'a-new-strong-password', token: raw }, context),
       ).rejects.toBeInstanceOf(UnauthorizedException);
     });
+
+    /**
+     * [12.7] The link authenticates "the address it was sent to", not "this
+     * user, whatever their email is now". Without the fingerprint check,
+     * whoever received the OLD link could reset the password of an account
+     * now identified by a completely different address.
+     */
+    it('[12.7] rejects a link once the email it was sent to has changed', async () => {
+      const user = await createMember({ email: 'original@example.com', phone: null });
+      const { debug } = await service.forgot('original@example.com', context);
+      const token = debug!.token!;
+
+      await dataSource
+        .getRepository(User)
+        .update({ id: user.id }, { email: 'replacement@example.com' });
+
+      await expect(
+        service.reset({ new_password: 'a-new-strong-password', token }, context),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+
+      const updated = await dataSource
+        .getRepository(User)
+        .findOneOrFail({ where: { id: user.id } });
+      // The password reset never happened, and the token is spent —
+      // consumed before the fingerprint check, same as every other
+      // rejection path here, so a retry with the same link can't succeed
+      // either.
+      await expect(
+        bcrypt.compare('a-new-strong-password', updated.password_hash ?? ''),
+      ).resolves.toBe(false);
+    });
+
+    // Pre-12.7 tokens carry no `metadata.email` fingerprint to compare —
+    // refused rather than trusted, the same "don't guess" stance
+    // `ActivationService.activate` takes for a channel-less invite row.
+    it('[12.7] rejects a link with no email fingerprint in its metadata', async () => {
+      const user = await createMember({ email: 'legacy@example.com', phone: null });
+      const authTokens = module.get(AuthTokenService);
+      const { raw } = await authTokens.issue({
+        userId: user.id,
+        tenantId: SEED_TENANT_ID,
+        purpose: 'PASSWORD_RESET' as any,
+        ttlMs: 3_600_000,
+      });
+
+      await expect(
+        service.reset({ new_password: 'a-new-strong-password', token: raw }, context),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+    });
   });
 
   describe('adminReset', () => {

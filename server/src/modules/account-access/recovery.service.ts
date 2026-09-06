@@ -129,6 +129,22 @@ export class RecoveryService {
         throw new UnauthorizedException('Invalid or expired link');
       }
       await this.authTokens.consume(result.row.id);
+
+      // [12.7] The token proves control of the email it was SENT to, not
+      // "this user, whatever their email is now" — `sendLink` stamps that
+      // fingerprint into `metadata.email`. If it no longer matches the
+      // account's current email, either the account's email changed since
+      // (an admin edit, or the owner's own contact-change flow) or this link
+      // was never bound to begin with (pre-12.7 token). Either way, honoring
+      // it would let whoever received the OLD link reset the password of an
+      // account now identified by a DIFFERENT address — the same class of
+      // gap ActivationService.activate closes for invites. A pre-12.7 token
+      // has no fingerprint to compare, so it is refused rather than trusted.
+      const sentTo = (result.row.metadata as { email?: string } | null)?.email;
+      if (!sentTo || !found.email || normalizeLoginIdentifier(found.email) !== sentTo) {
+        throw new UnauthorizedException('Invalid or expired link');
+      }
+
       user = found;
       method = 'link';
     } else {
@@ -336,6 +352,14 @@ export class RecoveryService {
       tenantId,
       purpose: AuthTokenPurpose.PASSWORD_RESET,
       ttlMs: PASSWORD_RESET_TTL_MS,
+      // [12.7] The token authenticates "this user", not "this email" — bind
+      // it to the address it was actually delivered to. `reset()`'s link
+      // branch requires this fingerprint to still match before honoring the
+      // link, so an email changed after the link went out (whether by the
+      // user's own contact-change flow or an admin edit) can't be reset by
+      // whoever is holding the OLD address, and can't mark the REPLACEMENT
+      // address verified either.
+      metadata: { email: normalizeLoginIdentifier(email) },
     });
     const link = this.buildResetLink(raw);
 
