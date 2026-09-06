@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { AuditAction, CommunicationMedium, UserStatus } from '@biddaloy/shared';
 import { User } from '../users/entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
@@ -129,14 +129,27 @@ export class OtpLoginService {
 
     await this.loginAttempts.reset(identifier);
 
+    await this.userRepo.update({ id: user.id }, { last_login_at: new Date() });
+
     // [12.7] A successful OTP verify proves the caller controls this phone
     // — stamp it, but only the first time (never overwrite an existing
     // verification timestamp with a later one).
+    //
+    // Compare-and-set on `phone`, not a bare update by id: the OTP proves
+    // control of `identifier`, and an admin edit landing between the read
+    // above and this write would otherwise let it mark a REPLACEMENT phone
+    // verified — one this caller never proved. Matching `phone` (and
+    // `IS NULL` on the timestamp, so a concurrent double-stamp is a no-op)
+    // keeps the stamp bound to the number the code was actually sent to.
     const alreadyVerified = user.phone_verified_at !== null;
-    await this.userRepo.update(
-      { id: user.id },
-      { last_login_at: new Date(), ...(alreadyVerified ? {} : { phone_verified_at: new Date() }) },
-    );
+    let stamped = false;
+    if (!alreadyVerified) {
+      const stamp = await this.userRepo.update(
+        { id: user.id, phone: identifier, phone_verified_at: IsNull() },
+        { phone_verified_at: new Date() },
+      );
+      stamped = stamp.affected === 1;
+    }
 
     const tenantId = await this.authService.primaryTenantId(user.id);
     await this.auditService.record({
@@ -150,7 +163,9 @@ export class OtpLoginService {
       new_values: { method: 'otp' },
     });
 
-    if (!alreadyVerified) {
+    // Only audit a verification that actually landed — see the
+    // compare-and-set above.
+    if (stamped) {
       await this.auditService.record({
         action: AuditAction.CONTACT_VERIFIED,
         entity_type: 'User',

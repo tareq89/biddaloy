@@ -255,6 +255,41 @@ describe('OtpLoginService (integration)', () => {
       expect(contactAudits).toHaveLength(0);
     });
 
+    /**
+     * [12.7] The stamp is a compare-and-set on `phone`, so an admin edit
+     * landing between the user lookup and the write cannot make the
+     * REPLACEMENT number verified off the back of a code sent to the old one.
+     *
+     * `loginAttempts.reset` is called in exactly that window (after the
+     * lookup, before the stamp), so driving the edit from its mock
+     * reproduces the interleaving deterministically instead of racing it.
+     */
+    it('[12.7] does not verify a phone that was replaced mid-flight', async () => {
+      const user = await createMember({ phone: '01745555555' });
+      const { debug } = await service.request('01745555555', context);
+
+      fakeLoginAttempts.reset.mockImplementationOnce(async () => {
+        await dataSource
+          .getRepository(User)
+          .update({ id: user.id }, { phone: '01746666666', phone_verified_at: null });
+      });
+
+      await service.verify('01745555555', debug!.otp!, context);
+
+      const updated = await dataSource
+        .getRepository(User)
+        .findOneOrFail({ where: { id: user.id } });
+      // The replacement number is the one on the row now, and it is NOT
+      // verified — nobody proved control of it.
+      expect(updated.phone).toBe('01746666666');
+      expect(updated.phone_verified_at).toBeNull();
+
+      const contactAudits = await dataSource
+        .getRepository(AuditLog)
+        .find({ where: { entity_id: user.id, action: AuditAction.CONTACT_VERIFIED } });
+      expect(contactAudits).toHaveLength(0);
+    });
+
     it('refuses a SUSPENDED user with the same 401 body as a bad code', async () => {
       const user = await createMember({ phone: '01733333333', status: UserStatus.SUSPENDED });
       // Request as ACTIVE first isn't possible since request() also gates on

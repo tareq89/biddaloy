@@ -263,6 +263,45 @@ describe('RecoveryService (integration)', () => {
       expect(contactAudits).toHaveLength(1);
       expect(contactAudits[0].new_values).toMatchObject({ field: 'phone', via: 'password_reset' });
     });
+
+    /**
+     * [12.7] The stamp is a compare-and-set on the contact value, so an admin
+     * edit landing between the user read and the write cannot make the
+     * REPLACEMENT contact verified off the back of a reset completed against
+     * the old one.
+     *
+     * `refreshTokens.revokeAllForUser` is called from `applyNewPassword`,
+     * inside exactly that window, so driving the edit from its mock
+     * reproduces the interleaving deterministically instead of racing it.
+     */
+    it('[12.7] does not verify a phone that was replaced mid-reset', async () => {
+      const user = await createMember({ phone: '01766666666', phone_verified_at: null });
+      const { debug } = await service.forgot('01766666666', context);
+
+      fakeRefreshTokens.revokeAllForUser.mockImplementationOnce(async () => {
+        await dataSource
+          .getRepository(User)
+          .update({ id: user.id }, { phone: '01777777777', phone_verified_at: null });
+      });
+
+      await service.reset(
+        { new_password: 'a-new-strong-password', phone: '01766666666', otp: debug!.otp! },
+        context,
+      );
+
+      const updated = await dataSource
+        .getRepository(User)
+        .findOneOrFail({ where: { id: user.id } });
+      // The replacement number is on the row now, and it is NOT verified —
+      // nobody proved control of it.
+      expect(updated.phone).toBe('01777777777');
+      expect(updated.phone_verified_at).toBeNull();
+
+      const contactAudits = await dataSource
+        .getRepository(AuditLog)
+        .find({ where: { entity_id: user.id, action: AuditAction.CONTACT_VERIFIED } });
+      expect(contactAudits).toHaveLength(0);
+    });
   });
 
   describe('[12.7] recovery prefers a verified contact', () => {

@@ -168,26 +168,40 @@ export class RecoveryService {
     // [12.7] Completing a reset proves control of whichever contact carried
     // it: the OTP branch proves the phone, the link branch proves the
     // email. Stamp once, never overwrite an existing verification.
+    //
+    // Compare-and-set, not a bare update by id: an admin edit landing between
+    // the read above and this write would otherwise let a reset completed
+    // against the OLD contact mark the REPLACEMENT contact verified — a
+    // contact nobody has proven control of. Matching the contact value (and
+    // `IS NULL` on the timestamp, which also makes a concurrent double-stamp
+    // a no-op) means the write only lands on the row this reset actually
+    // proved, and `affected` tells us whether it did.
     const verifiedField: 'email' | 'phone' = method === 'link' ? 'email' : 'phone';
     const alreadyVerified =
       verifiedField === 'email' ? user.email_verified_at !== null : user.phone_verified_at !== null;
-    if (!alreadyVerified) {
-      await this.userRepo.update(
-        { id: user.id },
+    const verifiedContact = verifiedField === 'email' ? user.email : user.phone;
+    if (!alreadyVerified && verifiedContact) {
+      const stamp = await this.userRepo.update(
+        verifiedField === 'email'
+          ? { id: user.id, email: verifiedContact, email_verified_at: IsNull() }
+          : { id: user.id, phone: verifiedContact, phone_verified_at: IsNull() },
         verifiedField === 'email'
           ? { email_verified_at: new Date() }
           : { phone_verified_at: new Date() },
       );
-      await this.auditService.record({
-        action: AuditAction.CONTACT_VERIFIED,
-        entity_type: 'User',
-        entity_id: user.id,
-        tenant_id: await this.authService.primaryTenantId(user.id),
-        performed_by_user_id: user.id,
-        ip_address: context.ip,
-        user_agent: context.userAgent,
-        new_values: { field: verifiedField, via: 'password_reset' },
-      });
+      // Only audit a verification that actually happened.
+      if (stamp.affected === 1) {
+        await this.auditService.record({
+          action: AuditAction.CONTACT_VERIFIED,
+          entity_type: 'User',
+          entity_id: user.id,
+          tenant_id: await this.authService.primaryTenantId(user.id),
+          performed_by_user_id: user.id,
+          ip_address: context.ip,
+          user_agent: context.userAgent,
+          new_values: { field: verifiedField, via: 'password_reset' },
+        });
+      }
     }
 
     return this.authService.startSession(user, context);
