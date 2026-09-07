@@ -57,6 +57,7 @@
     "ReminderBatch": "Reminder batch",
     "ReminderBatchPreview": "Reminder preview",
     "AbsenceNoticePreview": "Absence notice preview",
+    "AcademicYear": "Academic year",
     "AttendanceDevice": "Attendance device",
     "AttendanceRecord": "Attendance record",
     "AttendanceSession": "Attendance session",
@@ -138,6 +139,9 @@
     "role": "Role",
     "numeric_grade": "Grade",
     "section_name": "Section name",
-    "capacity": "Capacity"
+    "capacity": "Capacity",
+    "start_date": "Start date",
+    "end_date": "End date",
+    "is_current": "Current year"
   }
 }
