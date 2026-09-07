@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { UnauthorizedException } from '@nestjs/common';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ContextGuard, RolesGuard } from './context.guard';
 import { UserRole } from '@biddaloy/shared';
+import { TenantStatusService } from '../../schools/tenant-status.service';
 
 // ============================================================================
 // ContextGuard Tests
@@ -10,10 +11,14 @@ import { UserRole } from '@biddaloy/shared';
 describe('ContextGuard', () => {
   let guard: ContextGuard;
   let reflector: Reflector;
+  let tenantStatus: { isActive: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     reflector = new Reflector();
-    guard = new ContextGuard(reflector);
+    // Defaults to "active" so every pre-existing test (which predates
+    // suspension enforcement) keeps passing unchanged.
+    tenantStatus = { isActive: vi.fn().mockResolvedValue(true) };
+    guard = new ContextGuard(reflector, tenantStatus as unknown as TenantStatusService);
   });
 
   /**
@@ -31,7 +36,7 @@ describe('ContextGuard', () => {
   }
 
   describe('Happy path: valid tenant context', () => {
-    it('should allow access when X-Tenant-ID matches a membership', () => {
+    it('should allow access when X-Tenant-ID matches a membership', async () => {
       const req = {
         user: {
           sub: 'user-1',
@@ -43,13 +48,13 @@ describe('ContextGuard', () => {
       };
       const context = createMockContext(req);
 
-      const result = guard.canActivate(context);
+      const result = await guard.canActivate(context);
 
       expect(result).toBe(true);
       expect(req.currentTenant).toEqual({ id: 'tenant-1', role: UserRole.ADMIN });
     });
 
-    it('should resolve the highest-priority role when user has multiple roles in the same tenant', () => {
+    it('should resolve the highest-priority role when user has multiple roles in the same tenant', async () => {
       const req = {
         user: {
           sub: 'user-1',
@@ -64,14 +69,14 @@ describe('ContextGuard', () => {
       };
       const context = createMockContext(req);
 
-      const result = guard.canActivate(context);
+      const result = await guard.canActivate(context);
 
       expect(result).toBe(true);
       // TEACHER (70) > STUDENT (50), so TEACHER wins
       expect(req.currentTenant.role).toBe(UserRole.TEACHER);
     });
 
-    it('should keep the earlier role when it already has the highest priority', () => {
+    it('should keep the earlier role when it already has the highest priority', async () => {
       const req = {
         user: {
           sub: 'user-1',
@@ -86,14 +91,14 @@ describe('ContextGuard', () => {
       };
       const context = createMockContext(req);
 
-      const result = guard.canActivate(context);
+      const result = await guard.canActivate(context);
 
       expect(result).toBe(true);
       // TEACHER (70) > STUDENT (50), so the earlier-seen TEACHER is kept
       expect(req.currentTenant.role).toBe(UserRole.TEACHER);
     });
 
-    it('should use X-Role header when explicitly provided', () => {
+    it('should use X-Role header when explicitly provided', async () => {
       const req = {
         user: {
           sub: 'user-1',
@@ -111,7 +116,7 @@ describe('ContextGuard', () => {
       };
       const context = createMockContext(req);
 
-      const result = guard.canActivate(context);
+      const result = await guard.canActivate(context);
 
       expect(result).toBe(true);
       // Explicit X-Role overrides priority
@@ -120,18 +125,18 @@ describe('ContextGuard', () => {
   });
 
   describe('Error paths: missing or invalid context', () => {
-    it('should throw 401 when no user is attached (no JWT)', () => {
+    it('should throw 401 when no user is attached (no JWT)', async () => {
       const req = {
         user: undefined,
         headers: { 'x-tenant-id': 'tenant-1' },
       };
       const context = createMockContext(req);
 
-      expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
-      expect(() => guard.canActivate(context)).toThrow('Authentication required');
+      await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
+      await expect(guard.canActivate(context)).rejects.toThrow('Authentication required');
     });
 
-    it('should throw 401 when X-Tenant-ID header is missing', () => {
+    it('should throw 401 when X-Tenant-ID header is missing', async () => {
       const req = {
         user: {
           sub: 'user-1',
@@ -143,11 +148,11 @@ describe('ContextGuard', () => {
       };
       const context = createMockContext(req);
 
-      expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
-      expect(() => guard.canActivate(context)).toThrow('X-Tenant-ID header is required');
+      await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
+      await expect(guard.canActivate(context)).rejects.toThrow('X-Tenant-ID header is required');
     });
 
-    it("should throw 401 when X-Tenant-ID is not in the user's memberships", () => {
+    it("should throw 401 when X-Tenant-ID is not in the user's memberships", async () => {
       const req = {
         user: {
           sub: 'user-1',
@@ -159,13 +164,13 @@ describe('ContextGuard', () => {
       };
       const context = createMockContext(req);
 
-      expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
-      expect(() => guard.canActivate(context)).toThrow(
+      await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
+      await expect(guard.canActivate(context)).rejects.toThrow(
         'User is not a member of tenant other-tenant',
       );
     });
 
-    it("should throw 401 when explicit X-Role is not found in the tenant's memberships", () => {
+    it("should throw 401 when explicit X-Role is not found in the tenant's memberships", async () => {
       const req = {
         user: {
           sub: 'user-1',
@@ -180,11 +185,13 @@ describe('ContextGuard', () => {
       };
       const context = createMockContext(req);
 
-      expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
-      expect(() => guard.canActivate(context)).toThrow('User is not a member of tenant tenant-1');
+      await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
+      await expect(guard.canActivate(context)).rejects.toThrow(
+        'User is not a member of tenant tenant-1',
+      );
     });
 
-    it('should return null when explicit X-Role is not found (resolveRole internal path)', () => {
+    it('should return null when explicit X-Role is not found (resolveRole internal path)', async () => {
       // This tests the explicit role lookup returning null
       const req = {
         user: {
@@ -200,7 +207,75 @@ describe('ContextGuard', () => {
       };
       const context = createMockContext(req);
 
-      expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
+      await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('Tenant suspension (#527)', () => {
+    it('should throw 403 with code TENANT_SUSPENDED for a suspended tenant', async () => {
+      tenantStatus.isActive.mockResolvedValue(false);
+      const req = {
+        user: {
+          sub: 'user-1',
+          email: 'test@test.com',
+          phone: null,
+          memberships: [{ tenantId: 'tenant-1', role: UserRole.ADMIN }],
+        },
+        headers: { 'x-tenant-id': 'tenant-1' },
+      };
+      const context = createMockContext(req);
+
+      await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
+      try {
+        await guard.canActivate(context);
+        throw new Error('expected canActivate to throw');
+      } catch (error) {
+        expect(error).toBeInstanceOf(ForbiddenException);
+        expect((error as ForbiddenException).getResponse()).toEqual({ code: 'TENANT_SUSPENDED' });
+      }
+      expect(tenantStatus.isActive).toHaveBeenCalledWith('tenant-1');
+    });
+
+    it('should allow access via another ACTIVE tenant membership for the same user', async () => {
+      tenantStatus.isActive.mockImplementation((tenantId: string) =>
+        Promise.resolve(tenantId === 'tenant-2'),
+      );
+      const req = {
+        user: {
+          sub: 'user-1',
+          email: 'test@test.com',
+          phone: null,
+          memberships: [
+            { tenantId: 'tenant-1', role: UserRole.ADMIN }, // suspended
+            { tenantId: 'tenant-2', role: UserRole.ADMIN }, // active
+          ],
+        },
+        headers: { 'x-tenant-id': 'tenant-2' },
+      };
+      const context = createMockContext(req);
+
+      const result = await guard.canActivate(context);
+
+      expect(result).toBe(true);
+      expect(req.currentTenant).toEqual({ id: 'tenant-2', role: UserRole.ADMIN });
+    });
+
+    it('should not check tenant status for a SUPER_ADMIN (platform routes)', async () => {
+      const req = {
+        user: {
+          sub: 'super-1',
+          email: 'super@test.com',
+          phone: null,
+          memberships: [{ tenantId: 'platform-tenant', role: UserRole.SUPER_ADMIN }],
+        },
+        headers: { 'x-tenant-id': 'platform-tenant' },
+      };
+      const context = createMockContext(req);
+
+      const result = await guard.canActivate(context);
+
+      expect(result).toBe(true);
+      expect(tenantStatus.isActive).not.toHaveBeenCalled();
     });
   });
 });
