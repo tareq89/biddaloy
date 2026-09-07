@@ -57,14 +57,19 @@ export class SchoolAdminsController {
   }
 
   @Post(':userId/resend-invitation')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: "Resend an ADMIN's pending invitation." })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      "Resend an ADMIN's pending invitation. Returns the reissued invitation (its `debug.token` " +
+      'echoed under ACCOUNT_ACCESS_ECHO_SECRETS, same as every other issue-and-send call site) ' +
+      "rather than 204 — see SchoolAdminsService.resendInvitation's own comment.",
+  })
   async resendInvitation(
     @Param('id', ParseUUIDPipe) schoolId: string,
     @Param('userId', ParseUUIDPipe) userId: string,
     @CurrentUser() user: JwtPayload,
-  ): Promise<void> {
-    await this.schoolAdmins.resendInvitation(schoolId, userId, user.sub);
+  ) {
+    return this.schoolAdmins.resendInvitation(schoolId, userId, user.sub);
   }
 
   @Delete(':userId/invitation')

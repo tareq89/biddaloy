@@ -6,7 +6,7 @@ import { User } from '../../users/entities/user.entity';
 import { UserTenant } from '../../auth/entities/user-tenant.entity';
 import { AuditService } from '../../audit/audit.service';
 import { AuthTokenService } from '../../account-access/auth-token.service';
-import { InvitationService } from '../../account-access/invitation.service';
+import { InvitationService, IssueAndSendResult } from '../../account-access/invitation.service';
 import { deriveInvitationStatus } from '../../account-access/invitation-status.util';
 import { SchoolsService } from '../schools.service';
 import { ProvisioningService, AdminInput } from '../provisioning/provisioning.service';
@@ -124,11 +124,26 @@ export class SchoolAdminsService {
     return result;
   }
 
-  async resendInvitation(schoolId: string, userId: string, actorUserId: string): Promise<void> {
+  /**
+   * Returns `InvitationService.issueAndSend`'s result (including its
+   * `debug.token` echo under `ACCOUNT_ACCESS_ECHO_SECRETS`, same as every
+   * other `issueAndSend` call site — `users.controller.ts`'s
+   * `POST users/:id/invitation/resend`, `POST /users`) rather than
+   * discarding it — a SUPER_ADMIN-scoped admin created through
+   * `POST /schools` or this controller's own `addAdmin` has no
+   * ADMIN-scoped route to reach that echo otherwise, which left
+   * `e2e/platform/provision-and-suspend.spec.ts` (#536) with no supported
+   * way to read the freshly-provisioned admin's invite link.
+   */
+  async resendInvitation(
+    schoolId: string,
+    userId: string,
+    actorUserId: string,
+  ): Promise<IssueAndSendResult> {
     await this.schools.findById(schoolId);
     await this.assertAdminMember(schoolId, userId);
 
-    await this.invitations.issueAndSend({
+    const invitation = await this.invitations.issueAndSend({
       userId,
       tenantId: schoolId,
       actorUserId,
@@ -142,6 +157,8 @@ export class SchoolAdminsService {
       performed_by_user_id: actorUserId,
       new_values: { operation: 'RESEND_ADMIN_INVITATION', target_user_id: userId },
     });
+
+    return invitation;
   }
 
   async revokeInvitation(schoolId: string, userId: string, actorUserId: string): Promise<void> {
