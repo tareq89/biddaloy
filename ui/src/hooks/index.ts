@@ -411,4 +411,12 @@ export {
   type TestConnectionInput,
   type TestableMedium,
 } from './school-settings';
+export {
+  useSchoolProfile,
+  useUpdateSchoolProfile,
+  useUploadSchoolLogo,
+  useRemoveSchoolLogo,
+  type SchoolProfile,
+  type UpdateSchoolProfileInput,
+} from './school-profile';
 export { useDensity, type DensityMode } from './use-density';
