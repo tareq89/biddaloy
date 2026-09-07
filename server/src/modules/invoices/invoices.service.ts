@@ -6,11 +6,17 @@ import { Student } from '../students/entities/student.entity';
 import { StudentFee } from '../fees/entities/student-fee.entity';
 import { Payment } from '../fees/entities/payment.entity';
 import { PaymentAllocation } from '../fees/entities/payment-allocation.entity';
+import { School } from '../schools/entities/school.entity';
 import { InvoiceStatus } from '@biddaloy/shared';
 import { CreateInvoiceDto, QueryInvoiceDto } from './dto/invoices.dto';
 import { generateInvoiceNumber } from './invoice-numbering.util';
 import { renderInvoiceHtml } from './invoice-print.template';
 import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
+import {
+  buildIssuerSnapshot,
+  resolveIssuer,
+  IssuerSnapshot,
+} from '../schools/profile/issuer-snapshot';
 
 const AMOUNT_EPSILON = 0.01;
 const DEFAULT_DUE_DAYS = 7;
@@ -26,6 +32,8 @@ export class InvoicesService {
     private readonly studentFeeRepo: Repository<StudentFee>,
     @InjectRepository(Payment)
     private readonly paymentRepo: Repository<Payment>,
+    @InjectRepository(School)
+    private readonly schoolRepo: Repository<School>,
   ) {}
 
   private async findStudentForTenant(studentId: string, tenantId: string): Promise<Student> {
@@ -38,7 +46,11 @@ export class InvoicesService {
     return student;
   }
 
-  async create(dto: CreateInvoiceDto, tenantId: string, userId: string): Promise<Invoice> {
+  async create(
+    dto: CreateInvoiceDto,
+    tenantId: string,
+    userId: string,
+  ): Promise<Invoice & { issuer: IssuerSnapshot }> {
     const student = await this.findStudentForTenant(dto.student_id, tenantId);
 
     let studentFee: StudentFee | null = null;
@@ -85,6 +97,15 @@ export class InvoicesService {
       ? new Date(dto.due_date)
       : new Date(now.getTime() + DEFAULT_DUE_DAYS * 86400000);
 
+    // [15.5.5] Frozen at the moment of issue — read separately from the
+    // insert so an unrelated concurrent profile edit can never land
+    // between "read school" and "save invoice" and be attributed to this
+    // invoice. `findOneOrFail` (not the transaction's pessimistic lock):
+    // this is a read of the current state, not a write that needs
+    // isolation from concurrent profile edits.
+    const school = await this.schoolRepo.findOneOrFail({ where: { id: tenantId } });
+    const issuerSnapshot = buildIssuerSnapshot(school);
+
     const invoiceId = await this.repo.manager.transaction(async (manager) => {
       const invoiceRepo = manager.getRepository(Invoice);
       const invoiceNumber = await generateInvoiceNumber(invoiceRepo);
@@ -103,6 +124,7 @@ export class InvoicesService {
           line_items: lineItems,
           issued_by_user_id: userId,
           notes: dto.notes ?? null,
+          issuer_snapshot: issuerSnapshot,
         }),
       );
       return invoice.id;
@@ -111,7 +133,7 @@ export class InvoicesService {
     return this.findOne(invoiceId, tenantId);
   }
 
-  async findOne(id: string, tenantId: string): Promise<Invoice> {
+  async findOne(id: string, tenantId: string): Promise<Invoice & { issuer: IssuerSnapshot }> {
     const invoice = await this.repo.findOne({
       where: { id, deleted_at: IsNull() },
       relations: ['student', 'student_fee', 'issued_by'],
@@ -119,7 +141,10 @@ export class InvoicesService {
     if (!invoice || invoice.student.tenant_id !== tenantId) {
       throw new NotFoundException(`Invoice with ID "${id}" not found`);
     }
-    return invoice;
+    // [15.5.5] `resolveIssuer` falls back to the live school profile for
+    // any invoice created before this feature (null `issuer_snapshot`).
+    const school = await this.schoolRepo.findOneOrFail({ where: { id: tenantId } });
+    return { ...invoice, issuer: resolveIssuer(invoice, school) };
   }
 
   /**
@@ -222,6 +247,10 @@ export class InvoicesService {
           order: { payment_date: 'DESC' },
         });
 
-    return renderInvoiceHtml(invoice, payments);
+    // [15.5.7] `student.tenant` is already loaded above (the template
+    // needed the live school name regardless) — reused here as
+    // `resolveIssuer`'s live-profile fallback rather than a second query.
+    const issuer = resolveIssuer(invoice, invoice.student.tenant);
+    return renderInvoiceHtml(invoice, payments, issuer);
   }
 }

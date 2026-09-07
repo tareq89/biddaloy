@@ -48,6 +48,22 @@ export class School {
   @Column({ type: 'varchar', length: 100, nullable: true })
   email: string | null;
 
+  /** Localized (Bengali) school name — [15.5.1]. Nullable: falls back to
+   * `name` wherever a bn-first display is needed but this is unset. */
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  name_bn: string | null;
+
+  /** EIIN or other registration id shown on official documents —
+   * [15.5.1]. Nullable, no format enforced (varies by school type). */
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  registration_id: string | null;
+
+  /** Storage key of the current logo object, or null if none uploaded —
+   * [15.5.1]. Never exposed directly; served through `/schools/:id/logo`
+   * ([15.5.4]) and used to build `logo_url` ([15.5.2]). */
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  logo_key: string | null;
+
   @Column({ type: 'jsonb', nullable: true })
   settings: Record<string, any> | null;
 

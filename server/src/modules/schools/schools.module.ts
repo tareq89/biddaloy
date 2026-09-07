@@ -21,6 +21,11 @@ import { AuthToken } from '../account-access/entities/auth-token.entity';
 import { Student } from '../students/entities/student.entity';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
+import { SchoolProfileController } from './profile/profile.controller';
+import { SchoolProfileService } from './profile/profile.service';
+import { SchoolLogoController } from './profile/logo.controller';
+import { SchoolLogoService } from './profile/logo.service';
+import { StorageModule } from '../storage/storage.module';
 
 const TENANT_SETTINGS_CACHE_TTL_MS = 30_000;
 
@@ -53,17 +58,26 @@ export function encryptionServiceFactory(config: ConfigService): EncryptionServi
     ]),
     ConfigModule,
     AuditModule,
+    StorageModule,
     // Circular: AccountAccessModule imports SchoolsModule (for
     // SchoolsService's tenant-settings lookups) — forwardRef breaks the
     // cycle so ProvisioningService can reuse AccountAccessDeliveryService
     // rather than re-implementing invitation delivery here (#529).
     forwardRef(() => AccountAccessModule),
   ],
-  controllers: [SchoolsController, ProvisioningController, SchoolAdminsController],
+  controllers: [
+    SchoolsController,
+    ProvisioningController,
+    SchoolAdminsController,
+    SchoolProfileController,
+    SchoolLogoController,
+  ],
   providers: [
     SchoolsService,
     ProvisioningService,
     SchoolAdminsService,
+    SchoolProfileService,
+    SchoolLogoService,
     {
       provide: EncryptionService,
       inject: [ConfigService],

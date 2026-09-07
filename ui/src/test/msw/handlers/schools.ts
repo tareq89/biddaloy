@@ -134,7 +134,58 @@ function getStoredSettings(schoolId: string): Record<string, unknown> {
 
 export function resetSchoolsStore(): void {
   schoolSettingsStore.clear();
+  schoolProfileStore.name = 'Ananta School';
+  schoolProfileStore.name_bn = null;
+  schoolProfileStore.address = null;
+  schoolProfileStore.phone = null;
+  schoolProfileStore.email = null;
+  schoolProfileStore.registration_id = null;
+  schoolProfileStore.logo_url = null;
 }
+
+/**
+ * [15.5.6] `/schools/me/profile` and `/schools/me/logo`, mirroring
+ * `server/src/modules/schools/profile/*`'s contract — a single in-memory
+ * profile (there's only one "me" in a test), reset by `resetSchoolsStore`
+ * the same way `schoolSettingsStore` is.
+ */
+const schoolProfileStore: {
+  name: string;
+  name_bn: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  registration_id: string | null;
+  logo_url: string | null;
+} = {
+  name: 'Ananta School',
+  name_bn: null,
+  address: null,
+  phone: null,
+  email: null,
+  registration_id: null,
+  logo_url: null,
+};
+
+const getProfile = http.get('/api/v1/schools/me/profile', () =>
+  HttpResponse.json(schoolProfileStore),
+);
+
+const updateProfile = http.patch('/api/v1/schools/me/profile', async ({ request }) => {
+  const body = (await request.json()) as Partial<typeof schoolProfileStore>;
+  Object.assign(schoolProfileStore, body);
+  return HttpResponse.json(schoolProfileStore);
+});
+
+const uploadLogo = http.post('/api/v1/schools/me/logo', () => {
+  schoolProfileStore.logo_url = '/schools/me/logo?v=test-fixture';
+  return HttpResponse.json({ logo_url: schoolProfileStore.logo_url }, { status: 201 });
+});
+
+const removeLogo = http.delete('/api/v1/schools/me/logo', () => {
+  schoolProfileStore.logo_url = null;
+  return new HttpResponse(null, { status: 204 });
+});
 
 const getSettings = http.get('/api/v1/schools/:id/settings', ({ params }) =>
   HttpResponse.json(getStoredSettings(params.id as string)),
@@ -164,5 +215,23 @@ const testConnection = http.post('/api/v1/schools/:id/settings/test', () =>
   HttpResponse.json({ success: true, message: 'Connected.' }),
 );
 
-export const schoolsHandlers = { schoolList, getSettings, updateSettings, testConnection };
-export const schoolsDefaultHandlers = [schoolList, getSettings, updateSettings, testConnection];
+export const schoolsHandlers = {
+  schoolList,
+  getSettings,
+  updateSettings,
+  testConnection,
+  getProfile,
+  updateProfile,
+  uploadLogo,
+  removeLogo,
+};
+export const schoolsDefaultHandlers = [
+  schoolList,
+  getSettings,
+  updateSettings,
+  testConnection,
+  getProfile,
+  updateProfile,
+  uploadLogo,
+  removeLogo,
+];

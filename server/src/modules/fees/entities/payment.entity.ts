@@ -16,6 +16,7 @@ import { School } from '../../schools/entities/school.entity';
 import { Invoice } from '../../invoices/entities/invoice.entity';
 import { PaymentMethod, PaymentStatus } from '@biddaloy/shared';
 import { PaymentAllocation } from './payment-allocation.entity';
+import { IssuerSnapshot } from '../../schools/profile/issuer-snapshot';
 
 /**
  * Records a financial transaction — fee payment collected from a student.
@@ -89,6 +90,12 @@ export class Payment {
 
   @Column({ type: 'uuid' })
   tenant_id: string;
+
+  /** [15.5.5] School identity frozen at record time. Null for payments
+   * recorded before this column existed, or on rare failure to build a
+   * snapshot — reads fall back to the live school profile in that case. */
+  @Column({ type: 'jsonb', nullable: true })
+  issuer_snapshot: IssuerSnapshot | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;

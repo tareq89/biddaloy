@@ -293,6 +293,61 @@ describe('InvoicesService (integration)', () => {
     });
   });
 
+  describe('[15.5.5] issuer snapshot', () => {
+    it('freezes the school profile at issue time, unaffected by a later edit', async () => {
+      const schoolRepo = dataSource.getRepository(School);
+      await schoolRepo.update(TENANT_ID, { name: 'Name At Issue Time' });
+
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id));
+      const created = await service.create(
+        { student_id: student.id, student_fee_id: fee.id },
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      expect(created.issuer_snapshot?.name).toBe('Name At Issue Time');
+      expect(created.issuer.name).toBe('Name At Issue Time');
+
+      // Edit the profile after the invoice was issued.
+      await schoolRepo.update(TENANT_ID, { name: 'Name After Edit' });
+
+      const reFound = await service.findOne(created.id, TENANT_ID);
+      expect(reFound.issuer.name).toBe('Name At Issue Time');
+
+      // A brand-new invoice reflects the edited profile.
+      const student2 = await studentRepo.save(makeStudent());
+      const fee2 = await studentFeeRepo.save(makeFee(student2.id));
+      const created2 = await service.create(
+        { student_id: student2.id, student_fee_id: fee2.id },
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      expect(created2.issuer.name).toBe('Name After Edit');
+
+      await schoolRepo.update(TENANT_ID, { name: 'Test School' });
+    });
+
+    it('falls back to the live profile for a pre-existing row with a null snapshot', async () => {
+      const schoolRepo = dataSource.getRepository(School);
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id));
+      const created = await service.create(
+        { student_id: student.id, student_fee_id: fee.id },
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      // Simulate a legacy row created before this column existed.
+      await invoiceRepo.update(created.id, { issuer_snapshot: null });
+      await schoolRepo.update(TENANT_ID, { name: 'Legacy Fallback Name' });
+
+      const found = await service.findOne(created.id, TENANT_ID);
+      expect(found.issuer.name).toBe('Legacy Fallback Name');
+
+      await schoolRepo.update(TENANT_ID, { name: 'Test School' });
+    });
+  });
+
   describe('findOne', () => {
     it('returns the invoice for the owning tenant', async () => {
       const student = await studentRepo.save(makeStudent());
@@ -532,78 +587,78 @@ describe('InvoicesService (integration)', () => {
     });
 
     // [8.14.9] amount range filter — must apply on invoice.total_amount, not
-  // student_fee.total_amount (the invoice can diverge via line_items).
-  it('filters by min_amount and max_amount', async () => {
-    const student1 = await studentRepo.save(makeStudent());
-    const student2 = await studentRepo.save(makeStudent());
-    const fee1 = await studentFeeRepo.save(makeFee(student1.id, { total_amount: 500 }));
-    const fee2 = await studentFeeRepo.save(makeFee(student2.id, { total_amount: 1500 }));
-    await service.create(
-      { student_id: student1.id, student_fee_id: fee1.id },
-      TENANT_ID,
-      SEED_ADMIN_USER_ID,
-    );
-    await service.create(
-      { student_id: student2.id, student_fee_id: fee2.id },
-      TENANT_ID,
-      SEED_ADMIN_USER_ID,
-    );
+    // student_fee.total_amount (the invoice can diverge via line_items).
+    it('filters by min_amount and max_amount', async () => {
+      const student1 = await studentRepo.save(makeStudent());
+      const student2 = await studentRepo.save(makeStudent());
+      const fee1 = await studentFeeRepo.save(makeFee(student1.id, { total_amount: 500 }));
+      const fee2 = await studentFeeRepo.save(makeFee(student2.id, { total_amount: 1500 }));
+      await service.create(
+        { student_id: student1.id, student_fee_id: fee1.id },
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      await service.create(
+        { student_id: student2.id, student_fee_id: fee2.id },
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
 
-    const result = await service.findAll(
-      { min_amount: 1000, max_amount: 2000, page: 1, limit: 10 },
-      TENANT_ID,
-    );
+      const result = await service.findAll(
+        { min_amount: 1000, max_amount: 2000, page: 1, limit: 10 },
+        TENANT_ID,
+      );
 
-    expect(result.total).toBe(1);
-    expect(Number(result.data[0].total_amount)).toBe(1500);
-  });
+      expect(result.total).toBe(1);
+      expect(Number(result.data[0].total_amount)).toBe(1500);
+    });
 
-  // [8.14.9] sort=total_amount must combine with the default
-  // `invoice.id ASC` tiebreaker, not replace it entirely.
-  it('sorts by total_amount ascending', async () => {
-    const student1 = await studentRepo.save(makeStudent());
-    const student2 = await studentRepo.save(makeStudent());
-    const fee1 = await studentFeeRepo.save(makeFee(student1.id, { total_amount: 1500 }));
-    const fee2 = await studentFeeRepo.save(makeFee(student2.id, { total_amount: 500 }));
-    await service.create(
-      { student_id: student1.id, student_fee_id: fee1.id },
-      TENANT_ID,
-      SEED_ADMIN_USER_ID,
-    );
-    await service.create(
-      { student_id: student2.id, student_fee_id: fee2.id },
-      TENANT_ID,
-      SEED_ADMIN_USER_ID,
-    );
+    // [8.14.9] sort=total_amount must combine with the default
+    // `invoice.id ASC` tiebreaker, not replace it entirely.
+    it('sorts by total_amount ascending', async () => {
+      const student1 = await studentRepo.save(makeStudent());
+      const student2 = await studentRepo.save(makeStudent());
+      const fee1 = await studentFeeRepo.save(makeFee(student1.id, { total_amount: 1500 }));
+      const fee2 = await studentFeeRepo.save(makeFee(student2.id, { total_amount: 500 }));
+      await service.create(
+        { student_id: student1.id, student_fee_id: fee1.id },
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      await service.create(
+        { student_id: student2.id, student_fee_id: fee2.id },
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
 
-    const result = await service.findAll(
-      { sort: 'total_amount', order: 'asc', page: 1, limit: 10 },
-      TENANT_ID,
-    );
+      const result = await service.findAll(
+        { sort: 'total_amount', order: 'asc', page: 1, limit: 10 },
+        TENANT_ID,
+      );
 
-    expect(result.data.map((inv) => Number(inv.total_amount))).toEqual([500, 1500]);
-  });
+      expect(result.data.map((inv) => Number(inv.total_amount))).toEqual([500, 1500]);
+    });
 
-  // Cross-tenant: the amount range filter must not become a way to read
-  // another tenant's invoice totals.
-  it('does not return another tenant’s invoice when filtering by amount range', async () => {
-    const student = await studentRepo.save(makeStudent());
-    const fee = await studentFeeRepo.save(makeFee(student.id, { total_amount: 1500 }));
-    await service.create(
-      { student_id: student.id, student_fee_id: fee.id },
-      TENANT_ID,
-      SEED_ADMIN_USER_ID,
-    );
+    // Cross-tenant: the amount range filter must not become a way to read
+    // another tenant's invoice totals.
+    it('does not return another tenant’s invoice when filtering by amount range', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id, { total_amount: 1500 }));
+      await service.create(
+        { student_id: student.id, student_fee_id: fee.id },
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
 
-    const result = await service.findAll(
-      { min_amount: 1000, max_amount: 2000, page: 1, limit: 10 },
-      OTHER_TENANT_ID,
-    );
+      const result = await service.findAll(
+        { min_amount: 1000, max_amount: 2000, page: 1, limit: 10 },
+        OTHER_TENANT_ID,
+      );
 
-    expect(result.total).toBe(0);
-  });
+      expect(result.total).toBe(0);
+    });
 
-  it('excludes soft-deleted invoices', async () => {
+    it('excludes soft-deleted invoices', async () => {
       const student = await studentRepo.save(makeStudent());
       const fee = await studentFeeRepo.save(makeFee(student.id));
       const created = await service.create(
@@ -635,6 +690,38 @@ describe('InvoicesService (integration)', () => {
       expect(html).toContain(invoice.invoice_number);
       expect(html).toContain('Printable Student');
       expect(html).toContain('750.00');
+    });
+
+    it('[15.5.7] renders the frozen issuer name/address/EIIN, not a later profile edit', async () => {
+      const schoolRepo = dataSource.getRepository(School);
+      await schoolRepo.update(TENANT_ID, {
+        name: 'Printed School Name',
+        address: 'Printed Address',
+        registration_id: 'EIIN-777',
+      });
+
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id));
+      const invoice = await service.create(
+        { student_id: student.id, student_fee_id: fee.id },
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      await schoolRepo.update(TENANT_ID, { name: 'Renamed After Issue' });
+
+      const html = await service.getPrintableHtml(invoice.id, TENANT_ID);
+
+      expect(html).toContain('Printed School Name');
+      expect(html).toContain('Printed Address');
+      expect(html).toContain('EIIN: EIIN-777');
+      expect(html).not.toContain('Renamed After Issue');
+
+      await schoolRepo.update(TENANT_ID, {
+        name: 'Test School',
+        address: null,
+        registration_id: null,
+      });
     });
 
     it('throws NotFoundException for a different tenant', async () => {

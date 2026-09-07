@@ -12,6 +12,7 @@ import { Student } from '../../students/entities/student.entity';
 import { StudentFee } from '../../fees/entities/student-fee.entity';
 import { User } from '../../users/entities/user.entity';
 import { InvoiceStatus } from '@biddaloy/shared';
+import { IssuerSnapshot } from '../../schools/profile/issuer-snapshot';
 
 /**
  * Official invoice document for fee payment.
@@ -85,6 +86,12 @@ export class Invoice {
 
   @Column({ type: 'text', nullable: true })
   notes: string | null;
+
+  /** [15.5.5] School identity frozen at issue time. Null for invoices
+   * created before this column existed, or on rare failure to build a
+   * snapshot — reads fall back to the live school profile in that case. */
+  @Column({ type: 'jsonb', nullable: true })
+  issuer_snapshot: IssuerSnapshot | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;

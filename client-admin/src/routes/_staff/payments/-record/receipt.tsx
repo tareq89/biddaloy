@@ -17,13 +17,65 @@
  * catch the window open in.
  */
 import { Button, toast } from '@biddaloy/ui/components';
-import type { Payment } from '@biddaloy/ui/hooks';
+import type { PaymentWithIssuer } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation, type RegionConfig } from '@biddaloy/ui/i18n';
 import { formatServerAmount } from '@biddaloy/ui/utils';
 
 export interface ReceiptProps {
-  payment: Payment;
+  payment: PaymentWithIssuer;
   studentName: string;
+}
+
+/**
+ * [15.5.7] `/schools/:id/logo?v=<uuid>` from the frozen `logo_key` — same
+ * construction as the server's own `buildLogoUrl`
+ * (`server/src/modules/schools/profile/profile.service.ts`), rebuilt here
+ * since the receipt has no direct access to that function. Returns `null`
+ * when there's no logo to show at all.
+ */
+function buildIssuerLogoUrl(tenantId: string, logoKey: string | null | undefined): string | null {
+  if (!logoKey) return null;
+  const filename = logoKey.split('/').pop() ?? '';
+  const version = filename.replace(/\.[^.]+$/, '');
+  return `/api/v1/schools/${tenantId}/logo?v=${version}`;
+}
+
+/**
+ * The receipt's HTML-string equivalent of `IssuerHeader`
+ * (`@biddaloy/ui/components`'s React component) — this document is built
+ * as a raw HTML string for a new print tab (see this file's own top
+ * comment for why), so the shared React component can't render here
+ * directly. Mirrors its exact rules: bn-first name ordering, logo only
+ * when `logo_key` is set, `onerror` hides a broken image rather than
+ * showing the icon.
+ */
+function buildIssuerHeaderHtml(payment: PaymentWithIssuer, bengaliFirst: boolean): string {
+  const issuer = payment.issuer;
+  if (!issuer) return '';
+
+  const primaryName = bengaliFirst ? (issuer.name_bn ?? issuer.name) : issuer.name;
+  const secondaryName = bengaliFirst ? (issuer.name_bn ? issuer.name : null) : issuer.name_bn;
+  const logoUrl = buildIssuerLogoUrl(payment.tenant_id, issuer.logo_key);
+
+  const details = [
+    issuer.phone,
+    issuer.email,
+    issuer.registration_id ? `EIIN: ${issuer.registration_id}` : null,
+  ]
+    .filter((v): v is string => Boolean(v))
+    .map((v) => escapeHtml(v))
+    .join(' &middot; ');
+
+  return `
+    <div class="issuer">
+      ${logoUrl ? `<img class="issuer-logo" src="${escapeHtml(logoUrl)}" alt="${escapeHtml(issuer.name)}" onerror="this.style.display='none'" />` : ''}
+      <div>
+        <div class="issuer-name">${escapeHtml(primaryName)}</div>
+        ${secondaryName ? `<div class="issuer-name-secondary">${escapeHtml(secondaryName)}</div>` : ''}
+        ${issuer.address ? `<div class="issuer-detail">${escapeHtml(issuer.address)}</div>` : ''}
+        ${details ? `<div class="issuer-detail">${details}</div>` : ''}
+      </div>
+    </div>`;
 }
 
 function escapeHtml(value: string): string {
@@ -35,7 +87,7 @@ function escapeHtml(value: string): string {
 }
 
 export function buildReceiptHtml(
-  payment: Payment,
+  payment: PaymentWithIssuer,
   studentName: string,
   config: RegionConfig,
   labels: { period: string; amount: string },
@@ -51,6 +103,10 @@ export function buildReceiptHtml(
     )
     .join('');
 
+  // [15.5.7] Bengali-first name ordering when the active region's locale
+  // is Bengali — same rule `IssuerHeader`'s `activeLanguage === 'bn'` uses.
+  const issuerHeader = buildIssuerHeaderHtml(payment, config.locale.startsWith('bn'));
+
   return `<!doctype html>
 <html>
   <head>
@@ -61,9 +117,15 @@ export function buildReceiptHtml(
       table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
       td, th { text-align: left; padding: 0.35rem 0; border-bottom: 1px solid #ddd; }
       .total { font-weight: 600; margin-top: 1rem; }
+      .issuer { display: flex; gap: 0.75rem; align-items: flex-start; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid #ddd; }
+      .issuer-logo { height: 3.5rem; width: 3.5rem; object-fit: contain; }
+      .issuer-name { font-size: 1.1rem; font-weight: 600; }
+      .issuer-name-secondary { font-size: 0.9rem; color: #555; }
+      .issuer-detail { font-size: 0.8rem; color: #555; }
     </style>
   </head>
   <body>
+    ${issuerHeader}
     <h1>${escapeHtml(studentName)}</h1>
     <p>${escapeHtml(new Date(payment.payment_date).toLocaleDateString(config.locale))} · ${escapeHtml(payment.payment_method)}${
       payment.transaction_reference !== null
@@ -90,7 +152,7 @@ export function buildReceiptHtml(
  * revoke the object URL immediately rather than leaking it for the full
  * 60s timeout when nothing is ever going to load it. */
 export function printReceipt(
-  payment: Payment,
+  payment: PaymentWithIssuer,
   studentName: string,
   config: RegionConfig,
   labels: { period: string; amount: string },

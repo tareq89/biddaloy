@@ -2,12 +2,23 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/r
 
 import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
+import type { IssuerSnapshot } from '../components/print/issuer-header';
 
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 import { studentKeys } from './students';
 
 export type Payment = components['schemas']['Payment'];
+/** [15.5.5]/[15.5.7] `issuer_snapshot`/`issuer` aren't in `schema.d.ts`
+ * yet — not regenerated as part of this lane (see `ui/src/hooks/
+ * school-profile.ts`'s own note on the same gap). `issuer` is only ever
+ * present on `record-with-allocation`'s own response (see
+ * `useRecordPaymentWithAllocation` below); a payment read back later has
+ * neither field typed here today. */
+export type PaymentWithIssuer = Payment & {
+  issuer_snapshot?: IssuerSnapshot | null;
+  issuer?: IssuerSnapshot;
+};
 /** What a PARENT/STUDENT actually gets back from
  * `GET /payments/student/:studentId` — a reduced row with no `student`,
  * `received_by` or `remarks` (`schema.d.ts`'s `FamilyPaymentDto`, and the
@@ -174,7 +185,10 @@ export function useRecordPaymentWithAllocation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: RecordPaymentWithAllocationInput) => {
-      const res = await apiClient.post<Payment>('/payments/record-with-allocation', input);
+      const res = await apiClient.post<PaymentWithIssuer>(
+        '/payments/record-with-allocation',
+        input,
+      );
       return res.data;
     },
     retry: shouldRetryQuery,

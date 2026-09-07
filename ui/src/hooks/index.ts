@@ -136,6 +136,7 @@ export {
   type CreatePaymentInput,
   type FamilyPayment,
   type Payment,
+  type PaymentWithIssuer,
   type PaymentAllocationInput,
   type RecordPaymentWithAllocationInput,
   type StudentFee,
@@ -429,4 +430,12 @@ export {
   useResendSchoolAdminInvitation,
   useRevokeSchoolAdminInvitation,
 } from './school-settings';
+export {
+  useSchoolProfile,
+  useUpdateSchoolProfile,
+  useUploadSchoolLogo,
+  useRemoveSchoolLogo,
+  type SchoolProfile,
+  type UpdateSchoolProfileInput,
+} from './school-profile';
 export { useDensity, type DensityMode } from './use-density';
