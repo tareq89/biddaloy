@@ -341,6 +341,25 @@ describe('CommunicationsProcessor', () => {
         }),
       );
     });
+
+    it('leaves an already-SENT log untouched on replay even when the tenant is now suspended', async () => {
+      // A stalled-job replay of a log that settled as SENT before the school
+      // was suspended must not be rewritten to FAILED — that would record a
+      // second batch outcome for the same message.
+      tenantStatus.isActive.mockResolvedValue(false);
+      repo.findOneOrFail.mockResolvedValue({
+        ...baseLog,
+        status: CommunicationStatus.SENT,
+        reminder_batch_id: 'batch-1',
+      });
+
+      await processor.process(job());
+
+      expect(tenantStatus.isActive).not.toHaveBeenCalled();
+      expect(repo.manager.transaction).not.toHaveBeenCalled();
+      expect(txManager.save).not.toHaveBeenCalled();
+      expect(txManager.query).not.toHaveBeenCalled();
+    });
   });
 
   describe('onFailed / onStalled telemetry [15.1.4]', () => {

@@ -74,6 +74,19 @@ export class CommunicationsProcessor extends WorkerHost {
   async process(job: Job<SendJobData>): Promise<void> {
     const log = await this.repo.findOneOrFail({ where: { id: job.data.logId } });
 
+    // A BullMQ job can be reprocessed after it already reached a terminal
+    // state — most commonly the "stalled job" recovery path, where a worker
+    // that crashed or missed a lock-renewal deadline after settling the log
+    // gets its job picked up again. Resending here would duplicate the
+    // message to the guardian and double-count a batch that already
+    // recorded this outcome, so a log that's already SENT/FAILED is treated
+    // as done rather than reprocessed. This runs before the suspension
+    // check below on purpose: a replayed SENT log for a since-suspended
+    // tenant must stay SENT, not be rewritten to FAILED and settled twice.
+    if (log.status === CommunicationStatus.SENT || log.status === CommunicationStatus.FAILED) {
+      return;
+    }
+
     // #528: a school can be suspended after work was already queued for it.
     // No provider call, no SMS credit debit for a suspended tenant — settle
     // the log as FAILED and return without throwing so BullMQ does not
@@ -83,17 +96,6 @@ export class CommunicationsProcessor extends WorkerHost {
       log.status = CommunicationStatus.FAILED;
       log.metadata = { ...log.metadata, reason: 'TENANT_SUSPENDED' };
       await this.settle(log, 'failure');
-      return;
-    }
-
-    // A BullMQ job can be reprocessed after it already reached a terminal
-    // state — most commonly the "stalled job" recovery path, where a worker
-    // that crashed or missed a lock-renewal deadline after settling the log
-    // gets its job picked up again. Resending here would duplicate the
-    // message to the guardian and double-count a batch that already
-    // recorded this outcome, so a log that's already SENT/FAILED is treated
-    // as done rather than reprocessed.
-    if (log.status === CommunicationStatus.SENT || log.status === CommunicationStatus.FAILED) {
       return;
     }
 
