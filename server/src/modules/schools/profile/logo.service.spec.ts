@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { Readable } from 'stream';
 import sharp from 'sharp';
 import { AuditAction } from '@biddaloy/shared';
 import { SchoolLogoService } from './logo.service';
@@ -18,6 +19,7 @@ function fakeRepo(school: Record<string, unknown> | null) {
   };
   const manager = { getRepository: vi.fn(() => schoolRepo) };
   return {
+    findOne: vi.fn(async () => school),
     manager: { transaction: vi.fn(async (cb: any) => cb(manager)) },
     schoolRepo,
   };
@@ -152,6 +154,36 @@ describe('SchoolLogoService', () => {
 
       expect(storage.delete).not.toHaveBeenCalled();
       expect(auditService.record).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('serve', () => {
+    it('streams the logo object for a school that has one', async () => {
+      const repo = fakeRepo({ id: SCHOOL_ID, logo_key: 'tenants/x/logo/abc.png' });
+      const body = Readable.from([Buffer.from('bytes')]);
+      storage.get.mockResolvedValue({ body, contentType: 'image/png' });
+      const service = new SchoolLogoService(repo as any, storage as any, auditService as any);
+
+      const result = await service.serve(SCHOOL_ID);
+
+      expect(storage.get).toHaveBeenCalledWith('tenants/x/logo/abc.png');
+      expect(result.stream).toBe(body);
+      expect(result.contentType).toBe('image/png');
+    });
+
+    it('throws NotFoundException when the school has no logo', async () => {
+      const repo = fakeRepo({ id: SCHOOL_ID, logo_key: null });
+      const service = new SchoolLogoService(repo as any, storage as any, auditService as any);
+
+      await expect(service.serve(SCHOOL_ID)).rejects.toThrow(NotFoundException);
+      expect(storage.get).not.toHaveBeenCalled();
+    });
+
+    it('throws NotFoundException for a missing school', async () => {
+      const repo = fakeRepo(null);
+      const service = new SchoolLogoService(repo as any, storage as any, auditService as any);
+
+      await expect(service.serve(SCHOOL_ID)).rejects.toThrow(NotFoundException);
     });
   });
 });

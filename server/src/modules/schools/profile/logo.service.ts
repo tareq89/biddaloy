@@ -110,6 +110,18 @@ export class SchoolLogoService {
     return { logo_url: buildLogoUrl(schoolId, newKey) as string };
   }
 
+  /** [15.5.4] Streams the logo bytes for `schoolId`, or throws
+   * `NotFoundException` if the school has none. Never returns the storage
+   * key — the caller only ever sees a stream + content type. */
+  async serve(schoolId: string): Promise<{ stream: NodeJS.ReadableStream; contentType: string }> {
+    const school = await this.repo.findOne({ where: { id: schoolId } });
+    if (!school?.logo_key) {
+      throw new NotFoundException(`School "${schoolId}" has no logo`);
+    }
+    const object = await this.storage.get(school.logo_key);
+    return { stream: object.body, contentType: object.contentType ?? 'image/png' };
+  }
+
   async remove(
     schoolId: string,
     userId: string,

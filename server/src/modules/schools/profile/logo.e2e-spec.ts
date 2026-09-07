@@ -10,17 +10,19 @@ import { buildValidationPipeOptions } from '../../../validation-pipe';
 import { SEED_TENANT_ID, SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD } from '@test/constants';
 
 /**
- * [15.5.3] `POST`/`DELETE /schools/me/logo`, end-to-end against a real
- * MinIO — proves the whole "validate real bytes, ignore the declared
- * MIME, re-encode, store, clean up the old object" pipeline actually
- * works over HTTP, not just against mocked `sharp`/`StorageService` calls
- * (see `logo.service.spec.ts` for those).
+ * [15.5.3]/[15.5.4] `POST`/`DELETE /schools/me/logo` and
+ * `GET /schools/:id/logo`, end-to-end against a real MinIO — proves the
+ * whole "validate real bytes, ignore the declared MIME, re-encode, store,
+ * clean up the old object, then serve it back tenant-scoped" pipeline
+ * actually works over HTTP, not just against mocked `sharp`/
+ * `StorageService` calls (see `logo.service.spec.ts` for those).
  */
 describe('School logo (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let adminToken: string;
   const TENANT_ID = SEED_TENANT_ID;
+  const OTHER_TENANT_ID = '00000000-0000-4000-8000-0000005a0001';
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -124,5 +126,43 @@ describe('School logo (e2e)', () => {
       TENANT_ID,
     ]);
     expect(school[0].logo_key).toBeNull();
+  });
+
+  describe('GET /schools/:id/logo', () => {
+    it('serves the bytes with immutable caching headers for a member of that school', async () => {
+      const png = await realPng(16, 16);
+      await supertest(app.getHttpServer())
+        .post('/api/v1/schools/me/logo')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .attach('file', png, { filename: 'logo.png', contentType: 'image/png' });
+
+      const res = await supertest(app.getHttpServer())
+        .get(`/api/v1/schools/${TENANT_ID}/logo`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(200);
+
+      expect(res.headers['content-type']).toBe('image/png');
+      expect(res.headers['cache-control']).toBe('private, max-age=31536000, immutable');
+    });
+
+    it('rejects a caller whose active tenant is a different school', async () => {
+      await supertest(app.getHttpServer())
+        .get(`/api/v1/schools/${OTHER_TENANT_ID}/logo`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(403);
+    });
+
+    it('404s when the school has no logo', async () => {
+      await dataSource.query(`UPDATE schools SET logo_key = NULL WHERE id = $1`, [TENANT_ID]);
+
+      await supertest(app.getHttpServer())
+        .get(`/api/v1/schools/${TENANT_ID}/logo`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(404);
+    });
   });
 });
