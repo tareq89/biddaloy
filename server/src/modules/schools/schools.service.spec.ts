@@ -124,11 +124,25 @@ describe('SchoolsService', () => {
   });
 
   describe('findAll', () => {
-    it('returns every school, id and name only, ordered by name', async () => {
+    it('returns every school with id, name, slug, status and created_at, ordered by name', async () => {
       const repo = fakeRepo(null);
+      const zenithCreatedAt = new Date('2026-01-01T00:00:00Z');
+      const anantaCreatedAt = new Date('2026-02-01T00:00:00Z');
       repo.find.mockResolvedValue([
-        { id: 's2', name: 'Zenith School' },
-        { id: 's1', name: 'Ananta School' },
+        {
+          id: 's2',
+          name: 'Zenith School',
+          slug: 'zenith',
+          status: 'ACTIVE',
+          created_at: zenithCreatedAt,
+        },
+        {
+          id: 's1',
+          name: 'Ananta School',
+          slug: 'ananta',
+          status: 'SUSPENDED',
+          created_at: anantaCreatedAt,
+        },
       ]);
       const service = new SchoolsService(
         repo as any,
@@ -158,10 +172,25 @@ describe('SchoolsService', () => {
 
       const schools = await service.findAll();
 
-      expect(repo.find).toHaveBeenCalledWith({ select: ['id', 'name'], order: { name: 'ASC' } });
+      expect(repo.find).toHaveBeenCalledWith({
+        select: ['id', 'name', 'slug', 'status', 'created_at'],
+        order: { name: 'ASC' },
+      });
       expect(schools).toEqual([
-        { id: 's2', name: 'Zenith School' },
-        { id: 's1', name: 'Ananta School' },
+        {
+          id: 's2',
+          name: 'Zenith School',
+          slug: 'zenith',
+          status: 'ACTIVE',
+          created_at: zenithCreatedAt,
+        },
+        {
+          id: 's1',
+          name: 'Ananta School',
+          slug: 'ananta',
+          status: 'SUSPENDED',
+          created_at: anantaCreatedAt,
+        },
       ]);
     });
   });

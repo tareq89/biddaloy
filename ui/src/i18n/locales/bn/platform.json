@@ -1,0 +1,24 @@
+{
+  "breadcrumb": {
+    "dashboard": "ড্যাশবোর্ড",
+    "platformAdmin": "প্ল্যাটফর্ম অ্যাডমিন"
+  },
+  "schools": {
+    "title": "স্কুল",
+    "caption": "প্ল্যাটফর্মের প্রতিটি স্কুল, অবস্থা এবং তৈরির তারিখসহ।",
+    "columnName": "নাম",
+    "columnSlug": "স্লাগ",
+    "columnStatus": "অবস্থা",
+    "columnCreated": "তৈরি হয়েছে",
+    "searchPlaceholder": "নাম বা স্লাগ দিয়ে খুঁজুন",
+    "searchLabel": "স্কুল খুঁজুন",
+    "emptyMessage": "আপনার খোঁজের সাথে কোনো স্কুল মেলেনি।",
+    "errorMessage": "স্কুল লোড করা যায়নি।",
+    "announceResults_one": "{{total}} টির মধ্যে {{count}} টি স্কুল দেখানো হচ্ছে",
+    "announceResults_other": "{{total}} টির মধ্যে {{count}} টি স্কুল দেখানো হচ্ছে"
+  },
+  "schoolDetail": {
+    "title": "স্কুলের বিবরণ",
+    "comingSoon": "{{schoolId}} স্কুলের বিবরণ শীঘ্রই আসছে।"
+  }
+}

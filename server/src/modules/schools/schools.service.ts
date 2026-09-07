@@ -71,16 +71,19 @@ export class SchoolsService {
   }
 
   /**
-   * Every school's id and name, for #8.7.13's super-admin school picker —
-   * a super admin configuring settings needs to pick *which* school
-   * before anything else, and there's no other way to enumerate schools
-   * today. Deliberately just `{ id, name }`: this is a picker, not a
-   * schools-admin list view, so it doesn't need slug/domain/address/etc.
-   * Controller-gated to `SUPER_ADMIN` only — an ADMIN already knows their
-   * one school from `tenant.id`, no picker involved.
+   * Every school, for #8.7.13's super-admin school picker *and* #533's
+   * SUPER_ADMIN platform schools list. Originally `{ id, name }` only (the
+   * picker's own need); #533 added `slug`/`status`/`created_at` so the same
+   * endpoint also drives the list table (status badge, created date,
+   * slug-based search) without a second endpoint. Controller-gated to
+   * `SUPER_ADMIN` only — an ADMIN already knows their one school from
+   * `tenant.id`, no picker involved.
    */
-  async findAll(): Promise<Pick<School, 'id' | 'name'>[]> {
-    return this.repo.find({ select: ['id', 'name'], order: { name: 'ASC' } });
+  async findAll(): Promise<Pick<School, 'id' | 'name' | 'slug' | 'status' | 'created_at'>[]> {
+    return this.repo.find({
+      select: ['id', 'name', 'slug', 'status', 'created_at'],
+      order: { name: 'ASC' },
+    });
   }
 
   /**

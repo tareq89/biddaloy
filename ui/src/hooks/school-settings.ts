@@ -10,9 +10,18 @@ export type TenantSettingsInput = components['schemas']['TenantSettingsDto'];
 export type TestConnectionInput = components['schemas']['TestConnectionDto'];
 export type TestableMedium = TestConnectionInput['medium'];
 
+/** `slug`/`status`/`created_at` (#533) aren't in `schema.d.ts` yet —
+ * `SchoolListItemDto` grew them server-side in the same change (see
+ * `server/src/modules/schools/dto/school-list-item.dto.ts`), but this repo
+ * regenerates `schema.d.ts` at integration time, not per-lane. Hand-typed
+ * here against that DTO's actual shape, same gap `PaginatedStudents`
+ * documents elsewhere in this file's sibling hooks. */
 export interface SchoolSummary {
   id: string;
   name: string;
+  slug: string;
+  status: 'ACTIVE' | 'SUSPENDED';
+  created_at: string;
 }
 
 /** Mirrors `server/src/modules/schools/settings/settings-mask.util.ts`'s

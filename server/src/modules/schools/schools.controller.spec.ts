@@ -34,12 +34,19 @@ describe('SchoolsController', () => {
 
   describe('findAll', () => {
     it('delegates to the service', async () => {
-      service.findAll.mockResolvedValue([{ id: SCHOOL_A, name: 'A School' }]);
+      const school = {
+        id: SCHOOL_A,
+        name: 'A School',
+        slug: 'a-school',
+        status: 'ACTIVE',
+        created_at: new Date('2026-01-01T00:00:00Z'),
+      };
+      service.findAll.mockResolvedValue([school]);
 
       const result = await controller.findAll();
 
       expect(service.findAll).toHaveBeenCalledTimes(1);
-      expect(result).toEqual([{ id: SCHOOL_A, name: 'A School' }]);
+      expect(result).toEqual([school]);
     });
   });
 

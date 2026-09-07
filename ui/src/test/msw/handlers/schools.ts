@@ -88,10 +88,26 @@ function mergeAndMask(stored: unknown, patch: unknown): unknown {
   return merged;
 }
 
+// `slug`/`status`/`created_at` added by #533 alongside the original
+// `id`/`name` (see `SchoolListItemDto`'s own comment) — kept here rather
+// than a second handler so the #8.7.13 picker tests and #533's list tests
+// share the same fixture data.
 const schoolList = http.get('/api/v1/schools', () =>
   HttpResponse.json([
-    { id: '00000000-0000-4000-8000-000000000001', name: 'Ananta School' },
-    { id: '00000000-0000-4000-8000-000000000002', name: 'Zenith School' },
+    {
+      id: '00000000-0000-4000-8000-000000000001',
+      name: 'Ananta School',
+      slug: 'ananta-school',
+      status: 'ACTIVE',
+      created_at: '2026-01-15T00:00:00.000Z',
+    },
+    {
+      id: '00000000-0000-4000-8000-000000000002',
+      name: 'Zenith School',
+      slug: 'zenith-school',
+      status: 'SUSPENDED',
+      created_at: '2026-03-20T00:00:00.000Z',
+    },
   ]),
 );
 

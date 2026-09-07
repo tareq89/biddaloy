@@ -1,0 +1,24 @@
+{
+  "breadcrumb": {
+    "dashboard": "Dashboard",
+    "platformAdmin": "Platform admin"
+  },
+  "schools": {
+    "title": "Schools",
+    "caption": "Every school on the platform, with lifecycle status and creation date.",
+    "columnName": "Name",
+    "columnSlug": "Slug",
+    "columnStatus": "Status",
+    "columnCreated": "Created",
+    "searchPlaceholder": "Search by name or slug",
+    "searchLabel": "Search schools",
+    "emptyMessage": "No schools match your search.",
+    "errorMessage": "Could not load schools.",
+    "announceResults_one": "Showing {{count}} of {{total}} school",
+    "announceResults_other": "Showing {{count}} of {{total}} schools"
+  },
+  "schoolDetail": {
+    "title": "School details",
+    "comingSoon": "Detail view for school {{schoolId}} is coming soon."
+  }
+}

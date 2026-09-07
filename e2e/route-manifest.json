@@ -52,6 +52,19 @@
       "archetype": "bespoke"
     },
     {
+      "path": "/schools",
+      "role": "super_admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/schools/$schoolId",
+      "params": {
+        "schoolId": "seeded"
+      },
+      "role": "super_admin",
+      "archetype": "detail"
+    },
+    {
       "path": "/settings",
       "role": "admin",
       "archetype": "form"
