@@ -60,6 +60,8 @@
     "AttendanceDevice": "Attendance device",
     "AttendanceRecord": "Attendance record",
     "AttendanceSession": "Attendance session",
+    "Class": "Class",
+    "ClassSection": "Class section",
     "Guardian": "Guardian",
     "InvitationBatch": "Invitation batch",
     "RefreshToken": "Session",
@@ -133,6 +135,9 @@
     "section_id": "Section ID",
     "academic_year_id": "Academic year ID",
     "student_id": "Student ID",
-    "role": "Role"
+    "role": "Role",
+    "numeric_grade": "Grade",
+    "section_name": "Section name",
+    "capacity": "Capacity"
   }
 }

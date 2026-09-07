@@ -10,15 +10,19 @@ import {
   UseGuards,
   ParseUUIDPipe,
   Inject,
+  Req,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Request } from 'express';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
+import { requestContext } from '../../common/request-context.util';
 import { ClassService, SectionService } from './classes.service';
 import {
   CreateClassDto,
@@ -27,7 +31,7 @@ import {
   CreateSectionDto,
   UpdateSectionDto,
 } from './dto/classes.dto';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { Permission, UserRole, JwtPayload } from '@biddaloy/shared';
 
 @ApiTags('classes')
 @ApiTenantAuth()
@@ -46,8 +50,13 @@ export class ClassController {
   @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.CLASS_MANAGE)
   @ApiOperation({ summary: 'Create a class under an academic year.' })
-  createClass(@Body() dto: CreateClassDto, @CurrentTenant() tenant: { id: string; role: string }) {
-    return this.classService.create(dto, tenant.id);
+  createClass(
+    @Body() dto: CreateClassDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.classService.create(dto, tenant.id, user.sub, requestContext(request));
   }
 
   @Get()
@@ -83,8 +92,10 @@ export class ClassController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateClassDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
-    return this.classService.update(id, dto, tenant.id);
+    return this.classService.update(id, dto, tenant.id, user.sub, requestContext(request));
   }
 
   @Delete(':id')
@@ -94,8 +105,10 @@ export class ClassController {
   removeClass(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
-    return this.classService.remove(id, tenant.id);
+    return this.classService.remove(id, tenant.id, user.sub, requestContext(request));
   }
 
   // --- Section endpoints (nested under class) ---
@@ -108,8 +121,10 @@ export class ClassController {
     @Param('classId', ParseUUIDPipe) classId: string,
     @Body() dto: CreateSectionDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
-    return this.sectionService.create(classId, dto, tenant.id);
+    return this.sectionService.create(classId, dto, tenant.id, user.sub, requestContext(request));
   }
 
   @Get(':classId/sections')
@@ -132,8 +147,17 @@ export class ClassController {
     @Param('sectionId', ParseUUIDPipe) sectionId: string,
     @Body() dto: UpdateSectionDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
-    return this.sectionService.update(classId, sectionId, dto, tenant.id);
+    return this.sectionService.update(
+      classId,
+      sectionId,
+      dto,
+      tenant.id,
+      user.sub,
+      requestContext(request),
+    );
   }
 
   @Delete(':classId/sections/:sectionId')
@@ -144,8 +168,16 @@ export class ClassController {
     @Param('classId', ParseUUIDPipe) classId: string,
     @Param('sectionId', ParseUUIDPipe) sectionId: string,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
-    return this.sectionService.remove(classId, sectionId, tenant.id);
+    return this.sectionService.remove(
+      classId,
+      sectionId,
+      tenant.id,
+      user.sub,
+      requestContext(request),
+    );
   }
 
   // --- Teachers (read-only; teacher CRUD is #177) ---
