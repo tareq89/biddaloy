@@ -123,7 +123,8 @@
     "signingOut": "সাইন আউট হচ্ছে…",
     "loadingName": "লোড হচ্ছে…",
     "profile": "প্রোফাইল",
-    "profileComingSoon": "প্রোফাইল পৃষ্ঠা শীঘ্রই আসছে"
+    "profileComingSoon": "প্রোফাইল পৃষ্ঠা শীঘ্রই আসছে",
+    "security": "নিরাপত্তা"
   },
   "routeProgress": {
     "label": "পাতা লোড হচ্ছে…"

@@ -531,4 +531,234 @@ describe('Auth E2E', () => {
       expect(rows[0].new_values).toEqual({ scope: 'password' });
     });
   });
+
+  describe('GET/DELETE /auth/sessions', () => {
+    it(// The acceptance criterion: revoking one family leaves the others
+    // working. Written first per the plan.
+    'revoking one family invalidates only that refresh token family; the other keeps working', async () => {
+      const sessionA = await loginAsSeedAdmin(app);
+      const sessionB = await loginAsSeedAdmin(app);
+      const cookieA = extractRefreshCookie(sessionA);
+      const cookieB = extractRefreshCookie(sessionB);
+      const [familyAId] = cookieA.split('.');
+      const familyRow = await dataSource.query(
+        `SELECT family_id FROM refresh_tokens WHERE id = $1`,
+        [familyAId],
+      );
+      const familyId = familyRow[0].family_id;
+
+      await supertest(app.getHttpServer())
+        .delete(`/api/v1/auth/sessions/${familyId}`)
+        .set('Authorization', `Bearer ${sessionA.body.access_token}`)
+        .expect(204);
+
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/refresh')
+        .set('Cookie', `__Host-refresh_token=${cookieA}`)
+        .expect(401);
+
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/refresh')
+        .set('Cookie', `__Host-refresh_token=${cookieB}`)
+        .expect(200);
+    });
+
+    it('lists both families, marking current: true only on the one whose cookie was sent', async () => {
+      const sessionA = await loginAsSeedAdmin(app);
+      const sessionB = await loginAsSeedAdmin(app);
+      const cookieA = extractRefreshCookie(sessionA);
+
+      const res = await supertest(app.getHttpServer())
+        .get('/api/v1/auth/sessions')
+        .set('Authorization', `Bearer ${sessionA.body.access_token}`)
+        .set('Cookie', `__Host-refresh_token=${cookieA}`)
+        .expect(200);
+
+      const currentRows = res.body.data.filter((row: any) => row.current);
+      expect(currentRows).toHaveLength(1);
+      expect(res.body.data.length).toBeGreaterThanOrEqual(2);
+
+      // No cookie at all (a bare API client) — every row is current: false.
+      const resNoCookie = await supertest(app.getHttpServer())
+        .get('/api/v1/auth/sessions')
+        .set('Authorization', `Bearer ${sessionB.body.access_token}`)
+        .expect(200);
+      expect(resNoCookie.body.data.every((row: any) => row.current === false)).toBe(true);
+    });
+
+    it('keeps two entries after rotating one family, moving last_used_at without moving started_at', async () => {
+      const session = await loginAsSeedAdmin(app);
+      const cookie = extractRefreshCookie(session);
+
+      const before = await supertest(app.getHttpServer())
+        .get('/api/v1/auth/sessions')
+        .set('Authorization', `Bearer ${session.body.access_token}`)
+        .set('Cookie', `__Host-refresh_token=${cookie}`)
+        .expect(200);
+      const beforeRow = before.body.data.find((row: any) => row.current);
+
+      const rotated = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/refresh')
+        .set('Cookie', `__Host-refresh_token=${cookie}`)
+        .expect(200);
+      const rotatedCookie = extractRefreshCookie(rotated);
+
+      const after = await supertest(app.getHttpServer())
+        .get('/api/v1/auth/sessions')
+        .set('Authorization', `Bearer ${rotated.body.access_token}`)
+        .set('Cookie', `__Host-refresh_token=${rotatedCookie}`)
+        .expect(200);
+      const afterRow = after.body.data.find((row: any) => row.id === beforeRow.id);
+
+      expect(afterRow).toBeDefined();
+      expect(new Date(afterRow.last_used_at).getTime()).toBeGreaterThan(
+        new Date(beforeRow.last_used_at).getTime(),
+      );
+      expect(afterRow.started_at).toBe(beforeRow.started_at);
+    });
+
+    it("returns 404 deleting another user's family, and that user's session survives", async () => {
+      // A genuinely different user is required here — the seed admin
+      // account alone can't exercise cross-user isolation.
+      const otherUserId = '00000000-0000-4000-8000-0000000003c5';
+      const otherEmail = 'sessions-other-user@testschool.com';
+      await dataSource.query(
+        `INSERT INTO users (id, email, password_hash, full_name, status)
+         VALUES ($1, $2, $3, 'Sessions Other User', 'ACTIVE')
+         ON CONFLICT (id) DO UPDATE
+           SET email = EXCLUDED.email, password_hash = EXCLUDED.password_hash, status = 'ACTIVE'`,
+        [otherUserId, otherEmail, SEED_ADMIN_PASSWORD_HASH],
+      );
+      await dataSource.query(
+        `INSERT INTO user_tenants (user_id, tenant_id, role) VALUES ($1, $2, 'TEACHER')
+         ON CONFLICT DO NOTHING`,
+        [otherUserId, SEED_TENANT_ID],
+      );
+
+      try {
+        const victim = await supertest(app.getHttpServer())
+          .post('/api/v1/auth/login')
+          .send({ email: otherEmail, password: SEED_ADMIN_PASSWORD })
+          .expect(200);
+        const victimCookie = extractRefreshCookie(victim);
+        const [victimTokenId] = victimCookie.split('.');
+        const victimFamilyRow = await dataSource.query(
+          `SELECT family_id FROM refresh_tokens WHERE id = $1`,
+          [victimTokenId],
+        );
+        const victimFamilyId = victimFamilyRow[0].family_id;
+
+        const attacker = await loginAsSeedAdmin(app);
+
+        await supertest(app.getHttpServer())
+          .delete(`/api/v1/auth/sessions/${victimFamilyId}`)
+          .set('Authorization', `Bearer ${attacker.body.access_token}`)
+          .expect(404);
+
+        await supertest(app.getHttpServer())
+          .post('/api/v1/auth/refresh')
+          .set('Cookie', `__Host-refresh_token=${victimCookie}`)
+          .expect(200);
+      } finally {
+        await dataSource.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [otherUserId]);
+        await dataSource.query(`DELETE FROM user_tenants WHERE user_id = $1`, [otherUserId]);
+        await dataSource.query(
+          `UPDATE users SET password_hash = NULL, email = NULL, status = 'INACTIVE' WHERE id = $1`,
+          [otherUserId],
+        );
+      }
+    });
+
+    it('deleting the current family clears the cookie and denylists the calling access token', async () => {
+      const session = await loginAsSeedAdmin(app);
+      const cookie = extractRefreshCookie(session);
+      const [tokenId] = cookie.split('.');
+      const familyRow = await dataSource.query(
+        `SELECT family_id FROM refresh_tokens WHERE id = $1`,
+        [tokenId],
+      );
+      const familyId = familyRow[0].family_id;
+
+      const res = await supertest(app.getHttpServer())
+        .delete(`/api/v1/auth/sessions/${familyId}`)
+        .set('Authorization', `Bearer ${session.body.access_token}`)
+        .set('Cookie', `__Host-refresh_token=${cookie}`)
+        .expect(204);
+
+      const clearHeader = extractSetCookieHeaders(res).find((c) =>
+        c.startsWith('__Host-refresh_token='),
+      );
+      expect(clearHeader).toContain('__Host-refresh_token=;');
+
+      // The caller's own access token is denylisted immediately, not left
+      // to ride out its ~15 minute natural expiry.
+      await supertest(app.getHttpServer())
+        .get('/api/v1/auth/sessions')
+        .set('Authorization', `Bearer ${session.body.access_token}`)
+        .expect(401);
+    });
+
+    it('is idempotent — a second delete of an already-revoked family still returns 204', async () => {
+      const session = await loginAsSeedAdmin(app);
+      const cookie = extractRefreshCookie(session);
+      const [tokenId] = cookie.split('.');
+      const familyRow = await dataSource.query(
+        `SELECT family_id FROM refresh_tokens WHERE id = $1`,
+        [tokenId],
+      );
+      const familyId = familyRow[0].family_id;
+      const anotherSession = await loginAsSeedAdmin(app);
+
+      await supertest(app.getHttpServer())
+        .delete(`/api/v1/auth/sessions/${familyId}`)
+        .set('Authorization', `Bearer ${anotherSession.body.access_token}`)
+        .expect(204);
+
+      await supertest(app.getHttpServer())
+        .delete(`/api/v1/auth/sessions/${familyId}`)
+        .set('Authorization', `Bearer ${anotherSession.body.access_token}`)
+        .expect(204);
+    });
+
+    it('writes a SESSION_REVOKED audit row with entity_id = familyId', async () => {
+      const session = await loginAsSeedAdmin(app);
+      const cookie = extractRefreshCookie(session);
+      const [tokenId] = cookie.split('.');
+      const familyRow = await dataSource.query(
+        `SELECT family_id FROM refresh_tokens WHERE id = $1`,
+        [tokenId],
+      );
+      const familyId = familyRow[0].family_id;
+      const anotherSession = await loginAsSeedAdmin(app);
+
+      await supertest(app.getHttpServer())
+        .delete(`/api/v1/auth/sessions/${familyId}`)
+        .set('Authorization', `Bearer ${anotherSession.body.access_token}`)
+        .expect(204);
+
+      const rows = await dataSource.query(
+        `SELECT * FROM audit_logs WHERE action = 'SESSION_REVOKED' AND entity_id = $1 ORDER BY created_at DESC LIMIT 1`,
+        [familyId],
+      );
+      expect(rows).toHaveLength(1);
+      expect(rows[0].performed_by_user_id).toBe(SEED_ADMIN_USER_ID);
+    });
+
+    it('rejects DELETE with a mismatched Origin header', async () => {
+      const session = await loginAsSeedAdmin(app);
+
+      await supertest(app.getHttpServer())
+        .delete(`/api/v1/auth/sessions/${'0'.repeat(8)}-0000-4000-8000-000000000000`)
+        .set('Authorization', `Bearer ${session.body.access_token}`)
+        .set('Origin', 'https://evil.example.com')
+        .expect(403);
+    });
+
+    it('requires authentication for both routes', async () => {
+      await supertest(app.getHttpServer()).get('/api/v1/auth/sessions').expect(401);
+      await supertest(app.getHttpServer())
+        .delete(`/api/v1/auth/sessions/${'0'.repeat(8)}-0000-4000-8000-000000000000`)
+        .expect(401);
+    });
+  });
 });

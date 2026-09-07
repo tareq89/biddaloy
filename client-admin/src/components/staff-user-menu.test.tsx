@@ -19,7 +19,12 @@ function buildRouteTree() {
     path: '/login',
     component: () => <p data-testid="login-page" />,
   });
-  return rootRoute.addChildren([indexRoute, loginRoute]);
+  const securityRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/security',
+    component: () => <p data-testid="security-page" />,
+  });
+  return rootRoute.addChildren([indexRoute, loginRoute, securityRoute]);
 }
 
 afterEach(async () => {
@@ -117,5 +122,25 @@ describe('StaffUserMenu', () => {
     await user.click(screen.getByRole('menuitem', { name: /Sign out/ }));
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
+  });
+
+  it('navigates to /security when the Security item is activated (12.8)', async () => {
+    server.use(
+      http.get('/api/v1/users/me', () =>
+        HttpResponse.json(userResponseFactory({ full_name: 'Rahim Uddin' })),
+      ),
+    );
+
+    const user = userEvent.setup();
+    const { router } = renderWithRouter(buildRouteTree(), {
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await user.click(await screen.findByRole('button', { name: /Account menu/ }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Security' }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/security'));
   });
 });

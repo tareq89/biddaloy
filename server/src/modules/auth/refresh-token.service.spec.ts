@@ -16,15 +16,23 @@ function fakeRepo() {
     if (cond.includes('family_id')) return (row: any) => row.family_id === params.familyId;
     if (cond.includes('user_id')) return (row: any) => row.user_id === params.userId;
     if (cond.includes('revoked_at IS NULL')) return (row: any) => row.revoked_at === null;
+    if (cond.includes('expires_at >'))
+      return (row: any) => row.expires_at.getTime() > params.now.getTime();
     if (cond.includes('expires_at'))
       return (row: any) => row.expires_at.getTime() < params.now.getTime();
     return () => true;
   }
 
-  function createQueryBuilder() {
-    let mode: 'update' | 'delete' | null = null;
+  function createQueryBuilder(alias?: string) {
+    let mode: 'update' | 'delete' | 'select' | null = alias ? 'select' : null;
     let patch: any = {};
+    let order: { field: string; dir: 'ASC' | 'DESC' } | null = null;
+    let groupByField: string | null = null;
     const wheres: Array<(row: any) => boolean> = [];
+
+    function stripAlias(cond: string): string {
+      return alias ? cond.replace(new RegExp(`\\b${alias}\\.`, 'g'), '') : cond;
+    }
 
     const builder: any = {
       update: () => {
@@ -35,18 +43,58 @@ function fakeRepo() {
         mode = 'delete';
         return builder;
       },
+      select: () => builder,
+      addSelect: () => builder,
+      groupBy: (field: string) => {
+        groupByField = stripAlias(field);
+        return builder;
+      },
+      orderBy: (field: string, dir: 'ASC' | 'DESC') => {
+        order = { field: stripAlias(field), dir };
+        return builder;
+      },
       from: () => builder,
       set: (p: any) => {
         patch = p;
         return builder;
       },
       where: (cond: string, params: any) => {
-        wheres.push(matcher(cond, params));
+        wheres.push(matcher(stripAlias(cond), params));
         return builder;
       },
       andWhere: (cond: string, params: any) => {
-        wheres.push(matcher(cond, params));
+        wheres.push(matcher(stripAlias(cond), params));
         return builder;
+      },
+      getMany: async () => {
+        let matches = [...rows.values()]
+          .filter((row) => wheres.every((w) => w(row)))
+          .map((row) => ({ ...row }));
+        if (order) {
+          const { field, dir } = order;
+          matches.sort((a, b) => {
+            const diff = new Date(a[field]).getTime() - new Date(b[field]).getTime();
+            return dir === 'ASC' ? diff : -diff;
+          });
+        }
+        return matches;
+      },
+      getRawMany: async () => {
+        const matches = [...rows.values()].filter((row) => wheres.every((w) => w(row)));
+        if (!groupByField) return matches;
+        const grouped = new Map<string, any[]>();
+        for (const row of matches) {
+          const key = row[groupByField];
+          if (!grouped.has(key)) grouped.set(key, []);
+          grouped.get(key)!.push(row);
+        }
+        return [...grouped.entries()].map(([key, groupRows]) => ({
+          [groupByField as string]: key,
+          started_at: groupRows.reduce(
+            (min, r) => (r.created_at < min ? r.created_at : min),
+            groupRows[0].created_at,
+          ),
+        }));
       },
       execute: async () => {
         const matches = [...rows.values()].filter((row) => wheres.every((w) => w(row)));
@@ -63,7 +111,11 @@ function fakeRepo() {
 
   return {
     insert: vi.fn(async (row: any) => {
-      rows.set(row.id, { ...row });
+      // Real Postgres stamps `created_at` via @CreateDateColumn on insert —
+      // this fake mirrors that so listActiveSessions' ordering/grouping has
+      // something real to work with. A tiny counter (not just `new Date()`)
+      // keeps successive inserts within the same millisecond distinguishable.
+      rows.set(row.id, { created_at: new Date(Date.now() + rows.size), ...row });
     }),
     findOne: vi.fn(async ({ where: { id } }: any) => {
       const row = rows.get(id);
@@ -72,6 +124,11 @@ function fakeRepo() {
     update: vi.fn(async (id: string, patch: any) => {
       const row = rows.get(id);
       if (row) Object.assign(row, patch);
+    }),
+    count: vi.fn(async ({ where: { family_id, user_id } }: any) => {
+      return [...rows.values()].filter(
+        (row) => row.family_id === family_id && row.user_id === user_id,
+      ).length;
     }),
     createQueryBuilder: vi.fn(createQueryBuilder),
     rows,
@@ -324,6 +381,84 @@ describe('RefreshTokenService', () => {
 
       expect(repo.rows.get(parseCookie(mine.cookieValue).id).revoked_at).not.toBeNull();
       expect(repo.rows.get(parseCookie(theirs.cookieValue).id).revoked_at).toBeNull();
+    });
+  });
+
+  describe('listActiveSessions', () => {
+    it('returns one row per live, unexpired family and excludes revoked/expired/other-user rows', async () => {
+      const otherUserId = 'user-2';
+      const familyA = randomUUID();
+      const familyB = randomUUID();
+
+      const a = await service.issueForUser(userId, familyA, { ip: '1.1.1.1', userAgent: 'ua-a' });
+      const b = await service.issueForUser(userId, familyB, { ip: '2.2.2.2', userAgent: 'ua-b' });
+      await service.issueForUser(otherUserId, randomUUID(), { ip: null, userAgent: null });
+
+      // Family A is revoked (e.g. a prior sign-out) — must be excluded.
+      const { id: aId } = parseCookie(a.cookieValue);
+      repo.rows.get(aId).revoked_at = new Date();
+
+      // Family B rotates once: the predecessor is revoked, the successor is
+      // live — listActiveSessions must return exactly one row for B, whose
+      // `startedAt` is the family's *first* row, not the rotated one's.
+      const rotated = await service.rotate(b.cookieValue, { ip: '2.2.2.2', userAgent: 'ua-b' });
+
+      const sessions = await service.listActiveSessions(userId);
+
+      expect(sessions).toHaveLength(1);
+      expect(sessions[0].familyId).toBe(familyB);
+      expect(sessions[0].userAgent).toBe('ua-b');
+      const { id: rotatedId } = parseCookie(rotated.refreshToken.cookieValue);
+      const { id: originalBId } = parseCookie(b.cookieValue);
+      expect(sessions[0].lastUsedAt).toEqual(repo.rows.get(rotatedId).created_at);
+      expect(sessions[0].startedAt).toEqual(repo.rows.get(originalBId).created_at);
+    });
+
+    it('excludes an expired-but-not-revoked family', async () => {
+      const familyId = randomUUID();
+      const issued = await service.issueForUser(userId, familyId, { ip: null, userAgent: null });
+      const { id } = parseCookie(issued.cookieValue);
+      repo.rows.get(id).expires_at = new Date(Date.now() - 1000);
+
+      expect(await service.listActiveSessions(userId)).toHaveLength(0);
+    });
+  });
+
+  describe('familyIdForCookie', () => {
+    it('returns the family id for a valid, live cookie', async () => {
+      const familyId = randomUUID();
+      const issued = await service.issueForUser(userId, familyId, { ip: null, userAgent: null });
+
+      expect(await service.familyIdForCookie(issued.cookieValue)).toBe(familyId);
+    });
+
+    it('returns null for undefined, malformed, or unknown cookies', async () => {
+      expect(await service.familyIdForCookie(undefined)).toBeNull();
+      expect(await service.familyIdForCookie('garbage')).toBeNull();
+      expect(await service.familyIdForCookie(`${randomUUID()}.${'a'.repeat(64)}`)).toBeNull();
+    });
+
+    it('returns null on a hash mismatch and does not revoke anything', async () => {
+      const familyId = randomUUID();
+      const issued = await service.issueForUser(userId, familyId, { ip: null, userAgent: null });
+      const { id } = parseCookie(issued.cookieValue);
+
+      const result = await service.familyIdForCookie(`${id}.${'f'.repeat(64)}`);
+
+      expect(result).toBeNull();
+      expect(repo.rows.get(id).revoked_at).toBeNull();
+    });
+  });
+
+  describe('countForFamily', () => {
+    it('counts only rows for the given user and family', async () => {
+      const familyId = randomUUID();
+      await service.issueForUser(userId, familyId, { ip: null, userAgent: null });
+      await service.issueForUser('user-2', randomUUID(), { ip: null, userAgent: null });
+
+      expect(await service.countForFamily(familyId, userId)).toBe(1);
+      expect(await service.countForFamily(familyId, 'user-2')).toBe(0);
+      expect(await service.countForFamily(randomUUID(), userId)).toBe(0);
     });
   });
 

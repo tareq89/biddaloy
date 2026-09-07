@@ -47,6 +47,11 @@
       "archetype": "bespoke"
     },
     {
+      "path": "/security",
+      "role": "admin",
+      "archetype": "bespoke"
+    },
+    {
       "path": "/settings",
       "role": "admin",
       "archetype": "form"

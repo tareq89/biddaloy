@@ -159,6 +159,7 @@ export {
   type AttendanceMonthGridProps,
 } from './attendance-month-grid';
 export { Card, type CardProps } from './card';
+export { SessionList, type Session, type SessionListProps } from './session-list';
 export { BottomNav, type BottomNavProps } from './bottom-nav';
 export { EmptyState, type EmptyStateKind, type EmptyStateProps } from './empty-state';
 export { StudentPicker, type StudentPickerProps, type StudentPickerItem } from './student-picker';

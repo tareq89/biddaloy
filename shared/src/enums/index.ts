@@ -161,6 +161,9 @@ export enum AuditAction {
   /** An email or phone was confirmed as owned by the account — activation,
    * OTP login, password reset, or the contact-change flow (12.7). */
   CONTACT_VERIFIED = 'CONTACT_VERIFIED',
+  /** A refresh-token family was revoked via self-service session management
+   * (12.8) — GET/DELETE /auth/sessions. */
+  SESSION_REVOKED = 'SESSION_REVOKED',
 }
 
 export enum EnrollmentStatus {

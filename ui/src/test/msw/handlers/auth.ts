@@ -213,6 +213,65 @@ const logoutAll = http.post(
   () => new HttpResponse(null, { status: 204 }),
 );
 
+/** `GET /auth/sessions` — [12.8]. Two rows, one `current`, matching the
+ * shape `SessionList`'s Populated story/test uses. */
+const sessions = http.get('/api/v1/auth/sessions', () =>
+  HttpResponse.json({
+    data: [
+      {
+        id: 'session-current',
+        started_at: '2026-08-01T09:00:00.000Z',
+        last_used_at: '2026-09-07T04:00:00.000Z',
+        user_agent:
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+        ip_address: '203.0.113.5',
+        current: true,
+      },
+      {
+        id: 'session-other',
+        started_at: '2026-07-15T09:00:00.000Z',
+        last_used_at: '2026-09-01T12:00:00.000Z',
+        user_agent:
+          'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+        ip_address: '198.51.100.7',
+        current: false,
+      },
+    ],
+  }),
+);
+
+const sessionsEmpty = http.get('/api/v1/auth/sessions', () =>
+  HttpResponse.json({
+    data: [
+      {
+        id: 'session-current',
+        started_at: '2026-08-01T09:00:00.000Z',
+        last_used_at: '2026-09-07T04:00:00.000Z',
+        user_agent: null,
+        ip_address: null,
+        current: true,
+      },
+    ],
+  }),
+);
+
+const sessionsError = http.get('/api/v1/auth/sessions', () =>
+  HttpResponse.json(apiErrorBody(500, 'Internal server error', '/api/v1/auth/sessions'), {
+    status: 500,
+  }),
+);
+
+const deleteSession = http.delete(
+  '/api/v1/auth/sessions/:id',
+  () => new HttpResponse(null, { status: 204 }),
+);
+
+const deleteSessionNotFound = http.delete('/api/v1/auth/sessions/:id', () =>
+  HttpResponse.json(apiErrorBody(404, 'Session not found', '/api/v1/auth/sessions/:id'), {
+    status: 404,
+  }),
+);
+
 export const authHandlers = {
   login,
   loginInvalidCredentials,
@@ -241,6 +300,11 @@ export const authHandlers = {
   verifyEmailExpired,
   logout,
   logoutAll,
+  sessions,
+  sessionsEmpty,
+  sessionsError,
+  deleteSession,
+  deleteSessionNotFound,
 };
 
 export const authDefaultHandlers = [
@@ -257,4 +321,5 @@ export const authDefaultHandlers = [
   verifyEmail,
   logout,
   logoutAll,
+  sessions,
 ];

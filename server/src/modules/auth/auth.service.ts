@@ -2,6 +2,7 @@ import {
   Injectable,
   UnauthorizedException,
   ForbiddenException,
+  NotFoundException,
   Inject,
   Optional,
 } from '@nestjs/common';
@@ -32,6 +33,7 @@ import {
 } from './refresh-token.service';
 import { AccessTokenDenylistService } from './access-token-denylist.service';
 import { ACCESS_TOKEN_TTL_MS } from './auth-tokens';
+import { SessionDto } from './dto/session.dto';
 
 export interface AuthResult extends LoginResponse {
   refreshToken: IssuedRefreshToken;
@@ -289,6 +291,83 @@ export class AuthService {
   }
 
   /**
+   * Lists the caller's live refresh-token families as session rows, ordered
+   * `current` first then most-recently-used. `cookieValue` is whatever
+   * refresh cookie (if any) came with this request — a bare API client with
+   * no cookie simply gets `current: false` on every row.
+   */
+  async listSessions(userId: string, cookieValue: string | undefined): Promise<SessionDto[]> {
+    const [sessions, currentFamilyId] = await Promise.all([
+      this.refreshTokens.listActiveSessions(userId),
+      this.refreshTokens.familyIdForCookie(cookieValue),
+    ]);
+
+    return sessions
+      .map((session) => ({
+        id: session.familyId,
+        started_at: session.startedAt.toISOString(),
+        last_used_at: session.lastUsedAt.toISOString(),
+        user_agent: session.userAgent,
+        ip_address: session.ipAddress,
+        current: session.familyId === currentFamilyId,
+      }))
+      .sort((a, b) => {
+        if (a.current !== b.current) return a.current ? -1 : 1;
+        return b.last_used_at.localeCompare(a.last_used_at);
+      });
+  }
+
+  /**
+   * Revokes one refresh-token family belonging to the caller. Returns
+   * `true` when the revoked family was the caller's own current one (the
+   * one behind their presented refresh cookie) — the controller uses this
+   * to also clear the cookie and denylist the calling access token, ending
+   * this device's session immediately instead of waiting out the access
+   * token's remaining ~15 minutes.
+   *
+   * A family that does not belong to `userId` (or does not exist at all) is
+   * a 404 — never a 403, which would confirm to the caller that some other
+   * user's family id exists. A family that exists but is already fully
+   * revoked is an idempotent no-op success, not a 404.
+   */
+  async revokeSession(
+    userId: string,
+    familyId: string,
+    cookieValue: string | undefined,
+    jti: string,
+    context: RequestContext,
+    tenantId: string | null,
+  ): Promise<boolean> {
+    const ownedRowCount = await this.refreshTokens.countForFamily(familyId, userId);
+    if (ownedRowCount === 0) {
+      throw new NotFoundException('Session not found');
+    }
+
+    await this.refreshTokens.revokeFamily(familyId);
+
+    // A session is an account-level fact spanning every tenant the user
+    // belongs to — not tenant-scoped — so this uses the request's active
+    // tenant when present (an X-Tenant-ID header, though the route does not
+    // require one), else null (audit_logs.tenant_id is nullable).
+    await this.auditService.record({
+      action: AuditAction.SESSION_REVOKED,
+      entity_type: 'RefreshToken',
+      entity_id: familyId,
+      tenant_id: tenantId,
+      performed_by_user_id: userId,
+      ip_address: context.ip,
+      user_agent: context.userAgent,
+    });
+
+    const currentFamilyId = await this.refreshTokens.familyIdForCookie(cookieValue);
+    if (familyId === currentFamilyId) {
+      await this.accessTokenDenylist.revoke(jti, this.accessTokenTtlMs);
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * Rotates the caller's own password hash after verifying the current one.
    *
    * Session semantics (deliberate — see issue #334):
@@ -361,7 +440,11 @@ export class AuthService {
         where: { id: user.id },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!current || current.status !== UserStatus.ACTIVE || current.password_hash !== user.password_hash) {
+      if (
+        !current ||
+        current.status !== UserStatus.ACTIVE ||
+        current.password_hash !== user.password_hash
+      ) {
         throw new ForbiddenException('Credentials changed; sign in again');
       }
       await manager.update(User, { id: user.id }, { password_hash });

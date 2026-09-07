@@ -57,7 +57,11 @@ describe('/portal/account', () => {
     expect(screen.getByRole('heading', { name: 'Email & phone' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Change password' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Preferences' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Sign out/ })).toBeTruthy();
+    // The page-level "Sign out" button, exact-matched — the Devices card's
+    // own per-session buttons carry a distinct `Sign out — <device>`
+    // accessible name (see `session-list.tsx`), so this can never be
+    // ambiguous with those.
+    expect(screen.getByRole('button', { name: 'Sign out' })).toBeTruthy();
     expect(screen.queryByRole('heading', { name: 'Contact numbers' })).toBeNull();
 
     // Give any accidental fire-and-forget request a tick to land before
@@ -81,7 +85,11 @@ describe('/portal/account', () => {
     expect(await screen.findByRole('heading', { name: 'Contact numbers' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Change password' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Preferences' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Sign out/ })).toBeTruthy();
+    // The page-level "Sign out" button, exact-matched — the Devices card's
+    // own per-session buttons carry a distinct `Sign out — <device>`
+    // accessible name (see `session-list.tsx`), so this can never be
+    // ambiguous with those.
+    expect(screen.getByRole('button', { name: 'Sign out' })).toBeTruthy();
   });
 
   it('renders zero <h1> while /users/me is pending', async () => {
@@ -115,7 +123,7 @@ describe('/portal/account', () => {
     const { router } = renderAccount('PARENT');
 
     await screen.findByRole('heading', { level: 1, name: 'Account' });
-    await user.click(await screen.findByRole('button', { name: /Sign out/ }));
+    await user.click(await screen.findByRole('button', { name: 'Sign out' }));
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
   });

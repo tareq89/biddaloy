@@ -1,6 +1,10 @@
 import {
   Controller,
   Post,
+  Get,
+  Delete,
+  Param,
+  ParseUUIDPipe,
   Body,
   Req,
   Res,
@@ -15,6 +19,8 @@ import {
   ApiOperation,
   ApiTags,
   ApiOkResponse,
+  ApiNoContentResponse,
+  ApiNotFoundResponse,
   ApiUnauthorizedResponse,
   ApiForbiddenResponse,
   ApiBearerAuth,
@@ -25,6 +31,7 @@ import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginResponse, JwtPayload } from '@biddaloy/shared';
 import { LoginResponseDto } from './dto/auth-response.dto';
+import { SessionListDto } from './dto/session.dto';
 import { STRICT_RATE_LIMIT } from '../../rate-limit';
 import {
   REFRESH_TOKEN_COOKIE,
@@ -118,6 +125,73 @@ export class AuthController {
     const user = request.user as JwtPayload;
     await this.authService.logoutAll(user.sub, user.jti, requestContext(request));
     response.clearCookie(REFRESH_TOKEN_COOKIE, buildRefreshTokenClearCookieOptions());
+  }
+
+  /**
+   * Lists the caller's live refresh-token families ("sessions" / devices).
+   * Identified entirely by `JwtPayload.sub` — no `X-Tenant-ID`, no
+   * `@RequirePermissions()`, since a session spans every tenant the user
+   * belongs to and is never another user's data. `current` is `true` for
+   * the family behind whatever refresh cookie was presented, `false` on
+   * every row for a bare API client with no cookie.
+   */
+  @Get('sessions')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth('bearer')
+  @ApiOperation({ summary: "List the caller's active sessions (refresh-token families)." })
+  @ApiOkResponse({ type: SessionListDto })
+  async listSessions(@Req() request: Request): Promise<SessionListDto> {
+    const user = request.user as JwtPayload;
+    const cookieValue = request.cookies?.[REFRESH_TOKEN_COOKIE];
+    const data = await this.authService.listSessions(user.sub, cookieValue);
+    return { data };
+  }
+
+  /**
+   * Revokes one refresh-token family belonging to the caller.
+   *
+   * Revocation contract: revoking a non-current family cuts that device off
+   * at its next refresh (up to ~15 minutes of access-token life remains on
+   * it); revoking the *current* family (the one behind this request's own
+   * refresh cookie) denylists this access token immediately and clears the
+   * cookie, ending this device's session right away.
+   *
+   * `SameOriginGuard` is applied because this is a state-changing route
+   * that consults the cookie — it deliberately allows a request with no
+   * `Origin` header (non-browser clients) through, so it is defense-in-depth
+   * behind `SameSite=Strict` on the cookie, not the primary control.
+   *
+   * A family that doesn't belong to the caller is a 404, never a 403 — a
+   * 403 would confirm to the caller that some other user's family id
+   * exists. An already-revoked family is an idempotent 204, not a 404.
+   */
+  @Delete('sessions/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: STRICT_RATE_LIMIT })
+  @UseGuards(AuthGuard('jwt'), SameOriginGuard)
+  @ApiBearerAuth('bearer')
+  @ApiOperation({ summary: "Revoke one of the caller's sessions (refresh-token families)." })
+  @ApiNoContentResponse()
+  @ApiNotFoundResponse({ description: "No such family for the caller's account." })
+  async revokeSession(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
+    const user = request.user as JwtPayload;
+    const cookieValue = request.cookies?.[REFRESH_TOKEN_COOKIE];
+    const tenantId = (request.headers['x-tenant-id'] as string | undefined) ?? null;
+    const revokedCurrent = await this.authService.revokeSession(
+      user.sub,
+      id,
+      cookieValue,
+      user.jti,
+      requestContext(request),
+      tenantId,
+    );
+    if (revokedCurrent) {
+      response.clearCookie(REFRESH_TOKEN_COOKIE, buildRefreshTokenClearCookieOptions());
+    }
   }
 
   /**

@@ -259,6 +259,66 @@ seen by the client.
 Expired `refresh_tokens` rows (revoked or not) are deleted by an hourly
 BullMQ job (`refresh-token-cleanup.processor.ts`/`.scheduler.ts`).
 
+### Self-service revocation (12.8)
+
+A "session" in the API is a refresh-token **family**, not a row — rotation
+means many rows can belong to one family over its lifetime, but at most one
+is ever live. `GET /auth/sessions` lists the caller's live families (device
+hint, first-seen, last-used, a `current` marker); `DELETE
+/auth/sessions/:id` revokes one. Both routes are identified entirely by
+`JwtPayload.sub` — no `X-Tenant-ID`, since a session spans every tenant the
+user belongs to, not one of them.
+
+```json
+// GET /auth/sessions
+{
+  "data": [
+    {
+      "id": "b2b1c1b0-....",
+      "started_at": "2026-08-01T09:00:00.000Z",
+      "last_used_at": "2026-09-07T04:12:00.000Z",
+      "user_agent": "Mozilla/5.0 (iPhone; ...) Safari",
+      "ip_address": "203.0.113.5",
+      "current": true
+    }
+  ]
+}
+```
+
+```mermaid
+sequenceDiagram
+    participant DeviceA as Device A (still signed in)
+    participant DeviceB as Device B (stolen phone)
+    participant API as Server
+
+    DeviceA->>API: GET /auth/sessions
+    API-->>DeviceA: [A (current), B]
+    DeviceA->>API: DELETE /auth/sessions/{B's family id}
+    API-->>DeviceA: 204, family B revoked
+
+    Note over DeviceB: Device B's access token is<br/>still valid for up to ~15 min
+    DeviceB->>API: POST /auth/refresh (family B's cookie)
+    API-->>DeviceB: 401 — family revoked
+    Note over DeviceB: SPA redirects to /login
+```
+
+Revoking the **current** family (the one behind the caller's own refresh
+cookie) also denylists the caller's access token and clears the cookie, so
+that device is cut off immediately, exactly like `logout`. Revoking any
+other family only takes effect at that device's _next_ refresh — up to ~15
+minutes of access-token life remains on it, same as every other revocation
+path in this section.
+
+A family that doesn't belong to the caller is a **404, never a 403** — a 403
+would confirm to the caller that some other user's family id exists. An
+already-revoked family is an idempotent 204. Each successful revoke writes a
+`SESSION_REVOKED` audit row with `tenant_id` from the request's active
+tenant if present, else `null` — a session isn't tenant-scoped, so `null` is
+the honest value when there's no active tenant to record.
+
+Out of scope for this ticket: a "new sign-in to your account" notification
+(needs a per-user notification-preference surface that doesn't exist yet).
+
 ## CSRF posture
 
 The API splits cleanly into two authentication modes, and the CSRF argument

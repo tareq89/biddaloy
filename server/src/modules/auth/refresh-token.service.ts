@@ -31,6 +31,15 @@ export interface RotateResult {
   refreshToken: IssuedRefreshToken;
 }
 
+/** One row per live family — see `listActiveSessions`. */
+export interface ActiveSession {
+  familyId: string;
+  startedAt: Date;
+  lastUsedAt: Date;
+  userAgent: string | null;
+  ipAddress: string | null;
+}
+
 /**
  * Thrown when a refresh token is presented after it was already rotated,
  * outside the concurrent-refresh grace window — the chain of custody for
@@ -210,6 +219,11 @@ export class RefreshTokenService {
     return row.user_id;
   }
 
+  /** How many rows (any revocation state) this family has for this user — used to tell "not this user's family" (0) from "already revoked" (>0) before revoking it. */
+  async countForFamily(familyId: string, userId: string): Promise<number> {
+    return this.repo.count({ where: { family_id: familyId, user_id: userId } });
+  }
+
   async revokeFamily(familyId: string): Promise<void> {
     await this.repo
       .createQueryBuilder()
@@ -229,6 +243,63 @@ export class RefreshTokenService {
       .where('user_id = :userId', { userId })
       .andWhere('revoked_at IS NULL')
       .execute();
+  }
+
+  /**
+   * One row per live family: rotation revokes the predecessor
+   * (`rotateRow` above), so a family has at most one row with
+   * `revoked_at IS NULL` at any time — the live-row filter alone is enough
+   * to give one row per family, no `DISTINCT ON` / window function needed.
+   * `started_at` (when the family was first created, i.e. when the device
+   * logged in) is not on that live row — a rotated family's live row has a
+   * later `created_at` — so it's fetched separately as the family's
+   * earliest row and merged in TS.
+   */
+  async listActiveSessions(userId: string): Promise<ActiveSession[]> {
+    const liveRows = await this.repo
+      .createQueryBuilder('rt')
+      .where('rt.user_id = :userId', { userId })
+      .andWhere('rt.revoked_at IS NULL')
+      .andWhere('rt.expires_at > :now', { now: new Date() })
+      .orderBy('rt.created_at', 'DESC')
+      .getMany();
+
+    if (liveRows.length === 0) return [];
+
+    const startedAtRows = await this.repo
+      .createQueryBuilder('rt')
+      .select('rt.family_id', 'family_id')
+      .addSelect('MIN(rt.created_at)', 'started_at')
+      .where('rt.user_id = :userId', { userId })
+      .groupBy('rt.family_id')
+      .getRawMany<{ family_id: string; started_at: Date }>();
+    const startedAtByFamily = new Map(
+      startedAtRows.map((row) => [row.family_id, new Date(row.started_at)]),
+    );
+
+    return liveRows.map((row) => ({
+      familyId: row.family_id,
+      startedAt: startedAtByFamily.get(row.family_id) ?? row.created_at,
+      lastUsedAt: row.created_at,
+      userAgent: row.user_agent,
+      ipAddress: row.ip_address,
+    }));
+  }
+
+  /**
+   * The family the presented refresh cookie belongs to, or null. Read-only:
+   * no rotation, no reuse detection, no revocation side effect — this backs
+   * a listing endpoint, and firing family revocation from a read would be a
+   * denial-of-service on the user's own account.
+   */
+  async familyIdForCookie(cookieValue: string | undefined): Promise<string | null> {
+    if (!cookieValue) return null;
+    const parsed = this.parseCookieValue(cookieValue);
+    if (!parsed) return null;
+
+    const row = await this.repo.findOne({ where: { id: parsed.id } });
+    if (!row || !safeEqualHex(row.token_hash, hashSecret(parsed.secret))) return null;
+    return row.family_id;
   }
 
   /** Deletes rows past their expiry — including long-revoked ones, since expiry is a hard upper bound regardless of revocation. Returns the number of rows removed. */
