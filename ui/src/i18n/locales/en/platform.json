@@ -20,5 +20,21 @@
   "schoolDetail": {
     "title": "School details",
     "comingSoon": "Detail view for school {{schoolId}} is coming soon."
+  },
+  "createWizard": {
+    "schoolStepTitle": "New school",
+    "nameLabel": "School name",
+    "slugLabel": "Slug",
+    "nextAction": "Next",
+    "adminStepTitle": "First admin",
+    "adminNameLabel": "Admin name",
+    "adminEmailLabel": "Email",
+    "adminPhoneLabel": "Phone",
+    "backAction": "Back",
+    "submitAction": "Create school",
+    "slugConflict": "This slug is already taken.",
+    "successTitle": "School created",
+    "successInvitation": "Admin invitation status: {{status}}.",
+    "viewSchool": "View school"
   }
 }

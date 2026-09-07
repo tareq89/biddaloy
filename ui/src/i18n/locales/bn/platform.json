@@ -20,5 +20,21 @@
   "schoolDetail": {
     "title": "স্কুলের বিবরণ",
     "comingSoon": "{{schoolId}} স্কুলের বিবরণ শীঘ্রই আসছে।"
+  },
+  "createWizard": {
+    "schoolStepTitle": "নতুন স্কুল",
+    "nameLabel": "স্কুলের নাম",
+    "slugLabel": "স্লাগ",
+    "nextAction": "পরবর্তী",
+    "adminStepTitle": "প্রথম অ্যাডমিন",
+    "adminNameLabel": "অ্যাডমিনের নাম",
+    "adminEmailLabel": "ইমেইল",
+    "adminPhoneLabel": "ফোন",
+    "backAction": "পেছনে",
+    "submitAction": "স্কুল তৈরি করুন",
+    "slugConflict": "এই স্লাগটি ইতিমধ্যে ব্যবহৃত হয়েছে।",
+    "successTitle": "স্কুল তৈরি হয়েছে",
+    "successInvitation": "অ্যাডমিন আমন্ত্রণের অবস্থা: {{status}}।",
+    "viewSchool": "স্কুল দেখুন"
   }
 }

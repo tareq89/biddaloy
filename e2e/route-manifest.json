@@ -65,6 +65,11 @@
       "archetype": "detail"
     },
     {
+      "path": "/schools/new",
+      "role": "super_admin",
+      "archetype": "wizard"
+    },
+    {
       "path": "/settings",
       "role": "admin",
       "archetype": "form"

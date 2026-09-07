@@ -109,6 +109,29 @@ export interface ConnectionTestResult {
 export const schoolsKeys = createEntityKeys('schools');
 export const schoolSettingsKeys = createEntityKeys('school-settings');
 
+/** `POST /schools` request/response shapes (#534's wizard, `#529`'s
+ * `ProvisionSchoolDto`/response). Not in `schema.d.ts` yet — same
+ * hand-typed-against-the-DTO gap `SchoolSummary` documents above, since
+ * this repo regenerates `schema.d.ts` at integration time, not per-lane. */
+export interface ProvisionSchoolAdminInput {
+  name: string;
+  email?: string;
+  phone?: string;
+}
+
+export interface ProvisionSchoolInput {
+  name: string;
+  slug: string;
+  admin: ProvisionSchoolAdminInput;
+  idempotency_key: string;
+}
+
+export interface ProvisionSchoolResult {
+  school: { id: string; slug: string; status: 'ACTIVE' | 'SUSPENDED' };
+  admin: { user_id: string; existed: boolean };
+  invitation: { id: string; status: string };
+}
+
 /** #8.7.13's super-admin school picker — `GET /schools` 401s for anyone
  * who isn't a SUPER_ADMIN (see `schools.controller.ts`), so callers should
  * pass `enabled: false` rather than firing this for an ADMIN, who has no
@@ -119,6 +142,26 @@ export function useSchools(options: { enabled?: boolean } = {}) {
     queryFn: async () => (await apiClient.get<SchoolSummary[]>('/schools')).data,
     enabled: options.enabled ?? true,
     retry: shouldRetryQuery,
+  });
+}
+
+/** #534's create-school wizard. Non-optimistic — same reasoning as
+ * `useUpdateSchoolSettings` above: a school that appears created but was
+ * rejected would be worse than the pending spinner. `idempotency_key` is
+ * the caller's job to generate once and reuse across retries (see
+ * `new.tsx`'s `React.useState(() => crypto.randomUUID())`) — this hook
+ * just forwards whatever it's given, so a retried `.mutate()` call with
+ * the same key hits `ProvisioningService`'s Redis-backed no-op replay
+ * instead of creating a second school. Invalidates the list query on
+ * success so `/schools` reflects the new row without a manual refetch. */
+export function useProvisionSchool() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: ProvisionSchoolInput) =>
+      (await apiClient.post<ProvisionSchoolResult>('/schools', input)).data,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: schoolsKeys.lists() });
+    },
   });
 }
 
