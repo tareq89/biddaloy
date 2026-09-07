@@ -12,6 +12,7 @@ managed cloud services, but still "third party" software the app depends on.
 flowchart LR
     app[NestJS app] --> db[(PostgreSQL 16)]
     app --> redis[(Redis 7)]
+    app --> minio[(MinIO / S3)]
     redis --> bullmq[BullMQ queue]
     nginx[nginx] --> app
     certbot[certbot] -.renews certs for.-> nginx
@@ -21,6 +22,7 @@ flowchart LR
 | ---------- | -------------------- | ----------------------------------------------------- |
 | PostgreSQL | `postgres:16-alpine` | Primary database, all tenant data                     |
 | Redis      | `redis:7-alpine`     | BullMQ queue backend + distributed rate-limit storage |
+| MinIO      | `minio/minio`        | S3-compatible object storage — tenant uploads + backups |
 | nginx      | `nginx:1.27-alpine`  | TLS termination, reverse proxy                        |
 | certbot    | `certbot/certbot`    | Let's Encrypt certificate issuance/renewal            |
 
@@ -33,6 +35,11 @@ Server libraries that talk to these (see
 - `bullmq` + `@nestjs/bullmq` — job queue, backs the communications module.
 - `@nest-lab/throttler-storage-redis` + `@nestjs/throttler` — rate limiting
   state shared across app instances via Redis.
+- `@aws-sdk/client-s3` — S3-compatible object storage client (`StorageService`,
+  [`server/src/modules/storage`](../../server/src/modules/storage)), talking
+  to the bundled MinIO in dev/self-hosted Compose or a managed S3 bucket in
+  production. See [13-backup-restore.md](13-backup-restore.md) for the
+  backup/restore flow that also uses this bucket.
 
 ## External APIs called at runtime
 
@@ -71,7 +78,8 @@ somewhere:
 - **No payment gateway.** No bKash, Nagad, SSLCommerz, or Stripe. Payments
   are recorded manually as `Payment` rows — see
   [`04-fees-payments-invoices.md`](04-fees-payments-invoices.md).
-- **No object storage.** No S3, GCS, Cloudinary, or MinIO. Excel exports are
-  generated in-process with `exceljs`.
+- **No GCS or Cloudinary.** Object storage is MinIO/S3-compatible only (see
+  above) — Excel exports are still generated in-process with `exceljs`, not
+  stored.
 - **No Twilio, no Firebase, no external auth/identity provider.** JWTs are
   issued in-house (`@nestjs/jwt`, `passport-jwt`, `bcrypt`).

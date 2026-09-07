@@ -11,11 +11,26 @@ services:
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET}
       CORS_ORIGINS: ${CORS_ORIGINS:-}
+      # MinIO isn't TLS-terminated on this shared Compose network yet — see
+      # "Known gap: MinIO traffic is not TLS-terminated" in
+      # docs/architecture/08-security.md. The opt-in below documents that
+      # this is a deliberate, tracked exception, not an unnoticed default.
+      S3_ENDPOINT: http://minio:9000
+      S3_ALLOW_INSECURE_HTTP: 'true'
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_BUCKET: ${S3_BUCKET:-biddaloy}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
+      S3_FORCE_PATH_STYLE: 'true'
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     expose:
       - '3000'
 
@@ -56,6 +71,75 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-08T15-41-24Z
+    restart: unless-stopped
+    command: ['server', '/data', '--console-address', ':9001']
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY}
+    volumes:
+      - miniodata:/data
+    # Bound to loopback only, same posture as db/redis — the app talks to
+    # it over the compose network, not the host network.
+    ports:
+      - '127.0.0.1:9000:9000'
+      - '127.0.0.1:9001:9001'
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # One-shot: creates the app's bucket if it doesn't already exist, then
+  # exits. `app` doesn't depend on this completing (only on minio itself
+  # being healthy) since the bucket only needs to exist once, not on every
+  # boot — but on a fresh volume this is what makes `docker compose up`
+  # produce a working bucket with zero manual steps.
+  minio-init:
+    image: minio/mc:RELEASE.2025-04-08T15-39-49Z
+    restart: 'no'
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      # minio/mc's image is built FROM scratch — no shell, so aliasing via
+      # `mc alias set` (which needs `&&` to chain into `mc mb`) can't run
+      # here. MC_HOST_<alias> lets `mc` pick up the alias from its own env
+      # instead, so the entrypoint below can be a single argv exec.
+      MC_HOST_local: http://${S3_ACCESS_KEY_ID}:${S3_SECRET_ACCESS_KEY}@minio:9000
+    entrypoint: ['mc', 'mb', '--ignore-existing', 'local/${S3_BUCKET:-biddaloy}']
+
+  # Daily encrypted pg_dump to the bucket — see scripts/backup/README.md.
+  # Only needs `db` (to dump) and `minio` (to upload to in dev); it does
+  # not sit on the app's request path, so it isn't in `app`'s depends_on.
+  backup:
+    build:
+      context: ./scripts/backup
+      dockerfile: Dockerfile
+    image: biddaloy-backup
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      BACKUP_AGE_PUBLIC_KEY: ${BACKUP_AGE_PUBLIC_KEY}
+      BACKUP_SCHEDULE: ${BACKUP_SCHEDULE:-0 2 * * *}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+      SENTRY_CRON_MONITOR_URL: ${SENTRY_CRON_MONITOR_URL:-}
+      # See the matching comment on `app`'s S3_ALLOW_INSECURE_HTTP above.
+      S3_ENDPOINT: http://minio:9000
+      S3_ALLOW_INSECURE_HTTP: 'true'
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_BUCKET: ${S3_BUCKET:-biddaloy}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
+    depends_on:
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
 
   # Generates a short-lived self-signed cert if none exists yet, so nginx has
   # something to load on first boot before certbot has ever run. See
@@ -105,5 +189,6 @@ services:
 volumes:
   pgdata:
   redisdata:
+  miniodata:
   certs:
   certbot-webroot:
