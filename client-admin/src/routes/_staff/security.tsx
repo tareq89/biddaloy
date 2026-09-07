@@ -51,6 +51,13 @@ function SecurityPage() {
   async function handleRevokeAll(): Promise<void> {
     try {
       await logoutAll(queryClient);
+    } catch {
+      // `logoutAll()` already clears local auth state/cache in its own
+      // `finally` even when the network call fails (offline, a transient
+      // 5xx). Swallowed here rather than left to propagate: this handler
+      // always navigates away regardless, and its caller discards the
+      // promise, so an escaped rejection would only surface as an
+      // unhandled-rejection error with nothing left to react to it.
     } finally {
       void navigate({ to: '/login' });
     }
