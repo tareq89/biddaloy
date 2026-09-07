@@ -136,6 +136,7 @@ export {
   type CreatePaymentInput,
   type FamilyPayment,
   type Payment,
+  type PaymentWithIssuer,
   type PaymentAllocationInput,
   type RecordPaymentWithAllocationInput,
   type StudentFee,

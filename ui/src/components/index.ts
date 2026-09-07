@@ -274,3 +274,4 @@ export {
   type ChangePasswordFormServerError,
   type ChangePasswordFormValues,
 } from './change-password-form';
+export { IssuerHeader, type IssuerHeaderProps, type IssuerSnapshot } from './print/issuer-header';

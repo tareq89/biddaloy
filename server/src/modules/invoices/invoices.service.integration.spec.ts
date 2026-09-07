@@ -692,6 +692,38 @@ describe('InvoicesService (integration)', () => {
       expect(html).toContain('750.00');
     });
 
+    it('[15.5.7] renders the frozen issuer name/address/EIIN, not a later profile edit', async () => {
+      const schoolRepo = dataSource.getRepository(School);
+      await schoolRepo.update(TENANT_ID, {
+        name: 'Printed School Name',
+        address: 'Printed Address',
+        registration_id: 'EIIN-777',
+      });
+
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id));
+      const invoice = await service.create(
+        { student_id: student.id, student_fee_id: fee.id },
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      await schoolRepo.update(TENANT_ID, { name: 'Renamed After Issue' });
+
+      const html = await service.getPrintableHtml(invoice.id, TENANT_ID);
+
+      expect(html).toContain('Printed School Name');
+      expect(html).toContain('Printed Address');
+      expect(html).toContain('EIIN: EIIN-777');
+      expect(html).not.toContain('Renamed After Issue');
+
+      await schoolRepo.update(TENANT_ID, {
+        name: 'Test School',
+        address: null,
+        registration_id: null,
+      });
+    });
+
     it('throws NotFoundException for a different tenant', async () => {
       const student = await studentRepo.save(makeStudent());
       const fee = await studentFeeRepo.save(makeFee(student.id));

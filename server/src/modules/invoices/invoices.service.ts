@@ -247,6 +247,10 @@ export class InvoicesService {
           order: { payment_date: 'DESC' },
         });
 
-    return renderInvoiceHtml(invoice, payments);
+    // [15.5.7] `student.tenant` is already loaded above (the template
+    // needed the live school name regardless) — reused here as
+    // `resolveIssuer`'s live-profile fallback rather than a second query.
+    const issuer = resolveIssuer(invoice, invoice.student.tenant);
+    return renderInvoiceHtml(invoice, payments, issuer);
   }
 }

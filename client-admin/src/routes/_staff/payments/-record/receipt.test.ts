@@ -1,4 +1,4 @@
-import { REGION_BD_EN } from '@biddaloy/ui/i18n';
+import { REGION_BD_BN, REGION_BD_EN } from '@biddaloy/ui/i18n';
 import { paymentFactory, studentFeeFactory } from '@biddaloy/ui/test';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -35,6 +35,77 @@ describe('buildReceiptHtml', () => {
     expect(html).toContain('<th>বরাদ্দকৃত</th>');
     expect(html).not.toContain('<th>Period</th>');
     expect(html).not.toContain('<th>Amount</th>');
+  });
+
+  it('[15.5.7] renders the issuer header (name, address, EIIN, logo) when the payment has one', () => {
+    const payment = paymentFactory({
+      allocations: [],
+      tenant_id: 'school-1',
+      issuer: {
+        name: 'Ananta High School',
+        name_bn: 'অনন্ত উচ্চ বিদ্যালয়',
+        address: '123 Green Road',
+        phone: '+8801700000000',
+        email: 'info@example.com',
+        registration_id: 'EIIN-999',
+        logo_key: 'tenants/school-1/logo/abc-123.png',
+      },
+    } as never);
+
+    const html = buildReceiptHtml(payment, 'Karim Rahman', REGION_BD_EN, LABELS);
+
+    expect(html).toContain('Ananta High School');
+    expect(html).toContain('123 Green Road');
+    expect(html).toContain('EIIN: EIIN-999');
+    expect(html).toContain('/api/v1/schools/school-1/logo?v=abc-123');
+    // English-first for a non-bn region config.
+    expect(html.indexOf('Ananta High School')).toBeLessThan(html.indexOf('অনন্ত উচ্চ বিদ্যালয়'));
+  });
+
+  it('[15.5.7] shows the Bengali name first when the region locale is Bengali', () => {
+    const payment = paymentFactory({
+      allocations: [],
+      issuer: {
+        name: 'Ananta High School',
+        name_bn: 'অনন্ত উচ্চ বিদ্যালয়',
+        address: null,
+        phone: null,
+        email: null,
+        registration_id: null,
+        logo_key: null,
+      },
+    } as never);
+
+    const html = buildReceiptHtml(payment, 'Karim Rahman', REGION_BD_BN, LABELS);
+
+    expect(html.indexOf('অনন্ত উচ্চ বিদ্যালয়')).toBeLessThan(html.indexOf('Ananta High School'));
+  });
+
+  it('[15.5.7] renders no issuer header at all when the payment has no issuer (legacy row)', () => {
+    const payment = paymentFactory({ allocations: [] });
+
+    const html = buildReceiptHtml(payment, 'Karim Rahman', REGION_BD_EN, LABELS);
+
+    expect(html).not.toContain('class="issuer"');
+  });
+
+  it('[15.5.7] omits the logo <img> when logo_key is null', () => {
+    const payment = paymentFactory({
+      allocations: [],
+      issuer: {
+        name: 'Ananta High School',
+        name_bn: null,
+        address: null,
+        phone: null,
+        email: null,
+        registration_id: null,
+        logo_key: null,
+      },
+    } as never);
+
+    const html = buildReceiptHtml(payment, 'Karim Rahman', REGION_BD_EN, LABELS);
+
+    expect(html).not.toContain('<img class="issuer-logo"');
   });
 
   it('formats the payment date using the region config’s locale, not the browser default', () => {
