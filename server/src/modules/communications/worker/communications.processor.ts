@@ -9,6 +9,7 @@ import { CommunicationStatus } from '@biddaloy/shared';
 import { CommunicationProviderRegistryService } from '../providers/communication-provider.registry';
 import { recordBatchOutcome, BatchOutcome } from '../reminder-batch-counters';
 import { COMMUNICATIONS_QUEUE } from '../communications.constants';
+import { TenantStatusService } from '../../schools/tenant-status.service';
 
 interface SendJobData {
   logId: string;
@@ -41,6 +42,7 @@ export class CommunicationsProcessor extends WorkerHost {
     @InjectRepository(CommunicationLog)
     private readonly repo: Repository<CommunicationLog>,
     private readonly providerRegistry: CommunicationProviderRegistryService,
+    private readonly tenantStatus: TenantStatusService,
   ) {
     super();
   }
@@ -71,6 +73,18 @@ export class CommunicationsProcessor extends WorkerHost {
 
   async process(job: Job<SendJobData>): Promise<void> {
     const log = await this.repo.findOneOrFail({ where: { id: job.data.logId } });
+
+    // #528: a school can be suspended after work was already queued for it.
+    // No provider call, no SMS credit debit for a suspended tenant — settle
+    // the log as FAILED and return without throwing so BullMQ does not
+    // retry. Work queued before suspension is NOT resumed automatically on
+    // reactivation; the admin has to re-send (see docs/architecture/05-communications.md).
+    if (!(await this.tenantStatus.isActive(log.tenant_id))) {
+      log.status = CommunicationStatus.FAILED;
+      log.metadata = { ...log.metadata, reason: 'TENANT_SUSPENDED' };
+      await this.settle(log, 'failure');
+      return;
+    }
 
     // A BullMQ job can be reprocessed after it already reached a terminal
     // state — most commonly the "stalled job" recovery path, where a worker

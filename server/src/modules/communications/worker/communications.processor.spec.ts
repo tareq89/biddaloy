@@ -20,6 +20,7 @@ describe('CommunicationsProcessor', () => {
   let txManager: Record<string, ReturnType<typeof vi.fn>>;
   let providerRegistry: Record<string, ReturnType<typeof vi.fn>>;
   let provider: Record<string, ReturnType<typeof vi.fn>>;
+  let tenantStatus: Record<string, ReturnType<typeof vi.fn>>;
 
   const baseLog = {
     id: 'log-1',
@@ -59,8 +60,15 @@ describe('CommunicationsProcessor', () => {
       manager: { transaction: vi.fn(async (cb: any) => cb(txManager)) },
     };
     providerRegistry = { resolve: vi.fn(() => provider) };
+    // #528: defaults to "active" so the existing send/failure/retry tests
+    // below don't have to know about tenant suspension at all.
+    tenantStatus = { isActive: vi.fn(async () => true) };
 
-    processor = new CommunicationsProcessor(repo as any, providerRegistry as any);
+    processor = new CommunicationsProcessor(
+      repo as any,
+      providerRegistry as any,
+      tenantStatus as any,
+    );
 
     sentryCaptureException.mockClear();
     sentryCaptureMessage.mockClear();
@@ -316,6 +324,22 @@ describe('CommunicationsProcessor', () => {
       await processor.process(job());
 
       expect(provider.send).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('tenant suspension [528]', () => {
+    it('fails the log with TENANT_SUSPENDED and never calls the provider when the tenant is suspended', async () => {
+      tenantStatus.isActive.mockResolvedValue(false);
+
+      await expect(processor.process(job())).resolves.toBeUndefined();
+
+      expect(provider.send).not.toHaveBeenCalled();
+      expect(txManager.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: CommunicationStatus.FAILED,
+          metadata: expect.objectContaining({ reason: 'TENANT_SUSPENDED' }),
+        }),
+      );
     });
   });
 
