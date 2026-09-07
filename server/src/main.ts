@@ -16,9 +16,15 @@ import { buildSwaggerDocumentConfig, shouldMountDocs, DOCS_PATH } from './swagge
 import { buildDocsBasicAuthMiddleware, buildDocsCspOverrideMiddleware } from './docs-auth';
 import { buildSpaFallback } from './spa-fallback';
 import { assertSecretEchoAllowed } from './modules/account-access/account-access-echo';
+import { initSentry } from './common/sentry';
 
 async function bootstrap() {
   assertSecretEchoAllowed(process.env.NODE_ENV, process.env.ACCOUNT_ACCESS_ECHO_SECRETS);
+
+  // Before Nest even starts building the app graph — every request from
+  // here on can hit the exception filter's Sentry.captureException call.
+  // Throws (malformed SENTRY_DSN) or no-ops (unset), never half-inits.
+  initSentry();
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const logger = new Logger('Bootstrap');
