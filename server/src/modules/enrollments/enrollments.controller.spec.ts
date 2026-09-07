@@ -16,6 +16,8 @@ describe('EnrollmentController', () => {
   let service: Record<string, ReturnType<typeof vi.fn>>;
 
   const TENANT = { id: 'tenant-1', role: UserRole.ADMIN };
+  const USER = { sub: 'user-1' } as any;
+  const REQUEST = { ip: '127.0.0.1', headers: {} } as any;
 
   beforeEach(() => {
     service = {
@@ -41,9 +43,14 @@ describe('EnrollmentController', () => {
       const expected = { id: 'e1', ...dto };
       service.create.mockResolvedValue(expected);
 
-      const result = await controller.create(dto as any, TENANT);
+      const result = await controller.create(dto as any, TENANT, USER, REQUEST);
 
-      expect(service.create).toHaveBeenCalledWith(dto, TENANT.id);
+      expect(service.create).toHaveBeenCalledWith(
+        dto,
+        TENANT.id,
+        USER.sub,
+        expect.objectContaining({ ip: REQUEST.ip }),
+      );
       expect(result).toEqual(expected);
     });
   });
@@ -122,9 +129,15 @@ describe('EnrollmentController', () => {
       const expected = { id: 'e1', enrollment_status: 'INACTIVE' };
       service.update.mockResolvedValue(expected);
 
-      const result = await controller.update('e1', dto as any, TENANT);
+      const result = await controller.update('e1', dto as any, TENANT, USER, REQUEST);
 
-      expect(service.update).toHaveBeenCalledWith('e1', dto, TENANT.id);
+      expect(service.update).toHaveBeenCalledWith(
+        'e1',
+        dto,
+        TENANT.id,
+        USER.sub,
+        expect.objectContaining({ ip: REQUEST.ip }),
+      );
       expect(result).toEqual(expected);
     });
 
@@ -133,9 +146,15 @@ describe('EnrollmentController', () => {
       const expected = { id: 'e1', class_id: 'c2', section_id: 'sec2' };
       service.update.mockResolvedValue(expected);
 
-      const result = await controller.update('e1', dto, TENANT);
+      const result = await controller.update('e1', dto, TENANT, USER, REQUEST);
 
-      expect(service.update).toHaveBeenCalledWith('e1', dto, TENANT.id);
+      expect(service.update).toHaveBeenCalledWith(
+        'e1',
+        dto,
+        TENANT.id,
+        USER.sub,
+        expect.objectContaining({ ip: REQUEST.ip }),
+      );
       expect(result).toEqual(expected);
     });
   });
@@ -152,6 +171,8 @@ describe('EnrollmentController', () => {
         controller.create(
           { student_id: 'bad', class_id: 'c1', academic_year_id: 'ay1' } as any,
           TENANT,
+          USER,
+          REQUEST,
         ),
       ).rejects.toThrow(NotFoundException);
     });
@@ -166,6 +187,8 @@ describe('EnrollmentController', () => {
         controller.create(
           { student_id: 's1', class_id: 'c1', academic_year_id: 'ay1' } as any,
           TENANT,
+          USER,
+          REQUEST,
         ),
       ).rejects.toThrow(ConflictException);
     });
@@ -175,7 +198,7 @@ describe('EnrollmentController', () => {
       service.update.mockRejectedValue(new NotFoundException('Enrollment not found'));
 
       await expect(
-        controller.update('bad', { enrollment_status: 'INACTIVE' as any }, TENANT),
+        controller.update('bad', { enrollment_status: 'INACTIVE' as any }, TENANT, USER, REQUEST),
       ).rejects.toThrow(NotFoundException);
     });
   });
