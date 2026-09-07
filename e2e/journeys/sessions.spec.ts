@@ -85,6 +85,19 @@ async function newLoggedInContext(browser: Browser, role: SeedRole): Promise<Bro
 }
 
 /**
+ * Device A's baseline session-row count, read once its Devices UI has
+ * actually settled. `SessionList` renders skeletons while loading and an
+ * empty state (zero `session-row`s) when only the current device is live,
+ * so a bare `.count()` straight after `goto` could race the skeleton and
+ * read 0 for the wrong reason. Waiting for the loading region to go away
+ * first makes the number trustworthy either way.
+ */
+async function sessionRowCount(devicePage: Page): Promise<number> {
+  await expect(devicePage.locator('[aria-busy="true"]')).toHaveCount(0);
+  return devicePage.getByTestId('session-row').count();
+}
+
+/**
  * Clicks every non-current row's "Sign out" button, one at a time, until
  * only the current device is left. The seeded role here can carry more
  * than the two families this test itself creates — another spec's login
@@ -96,13 +109,21 @@ async function newLoggedInContext(browser: Browser, role: SeedRole): Promise<Bro
  * regardless of how much of that pre-existing pollution is present.
  */
 async function revokeAllOtherSessions(devicePage: Page): Promise<void> {
-  const otherRow = devicePage
+  const otherRows = devicePage
     .getByTestId('session-row')
-    .filter({ hasNot: devicePage.getByText('This device') })
-    .first();
-  while (await otherRow.count()) {
-    await otherRow.getByRole('button', { name: /Sign out —/ }).click();
-    await expect(otherRow).toHaveCount(0);
+    .filter({ hasNot: devicePage.getByText('This device') });
+  // Assert on the *full* non-current count going down by one each pass —
+  // `.first()` re-resolves to the next remaining row after a revoke, so
+  // asserting that single locator reaches zero is wrong whenever more
+  // than one stray row is present.
+  let remaining = await otherRows.count();
+  while (remaining > 0) {
+    await otherRows
+      .first()
+      .getByRole('button', { name: /Sign out —/ })
+      .click();
+    await expect(otherRows).toHaveCount(remaining - 1);
+    remaining -= 1;
   }
 }
 
@@ -115,9 +136,10 @@ test.describe('Portal: sign out a stolen device from another device', () => {
   }) => {
     // `page` (from the `loggedIn('student')` fixture) is "device A" — the
     // one whose phone gets stolen. "Device B" is a second, independent
-    // login as the same account.
-    const deviceBContext = await newLoggedInContext(browser, 'student');
-    const deviceB = await deviceBContext.newPage();
+    // login as the same account — created only *after* device A has read
+    // its baseline below, otherwise B's own family is already in that
+    // baseline and the `+ 1` assertion is off by one.
+    let deviceBContext: BrowserContext | undefined;
 
     try {
       let baselineCount = 0;
@@ -128,14 +150,21 @@ test.describe('Portal: sign out a stolen device from another device', () => {
         // The seeded `student` account can already carry other live
         // families from elsewhere in the suite (this spec's own retries,
         // or another spec's login as the same seed role) — so the baseline
-        // is whatever device A observes here, not a hardcoded 1.
-        baselineCount = await page.getByTestId('session-row').count();
+        // is whatever device A observes here, not a hardcoded 1. Note the
+        // single-device case renders `SessionList`'s empty state with no
+        // `session-row` at all, so a clean account reads as 0 here, not 1.
+        baselineCount = await sessionRowCount(page);
       });
+
+      deviceBContext = await newLoggedInContext(browser, 'student');
+      const deviceB = await deviceBContext.newPage();
 
       await test.step('device B opens the Devices card and sees one more session than device A did', async () => {
         await deviceB.goto('/portal/account');
         const rows = deviceB.getByTestId('session-row');
-        await expect(rows).toHaveCount(baselineCount + 1);
+        // With device B added there are always at least two live
+        // families, so the list (not the empty state) is guaranteed here.
+        await expect(rows).toHaveCount(Math.max(baselineCount, 1) + 1);
         // Exactly one row is device B's own ("This device"); the rest,
         // including device A's, are the ones this test revokes below.
         await expect(rows.filter({ has: deviceB.getByText('This device') })).toHaveCount(1);
@@ -156,7 +185,7 @@ test.describe('Portal: sign out a stolen device from another device', () => {
         await expect(page).toHaveURL(/\/login/);
       });
     } finally {
-      await deviceBContext.close();
+      await deviceBContext?.close();
     }
   });
 });
@@ -168,8 +197,7 @@ test.describe('Staff: sign out a device from /security', () => {
     page,
     browser,
   }) => {
-    const deviceBContext = await newLoggedInContext(browser, 'teacher');
-    const deviceB = await deviceBContext.newPage();
+    let deviceBContext: BrowserContext | undefined;
 
     try {
       let baselineCount = 0;
@@ -177,14 +205,19 @@ test.describe('Staff: sign out a device from /security', () => {
       await test.step('device A boots into the staff shell', async () => {
         await page.goto('/security');
         await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-        // See the portal journey's own comment above on why this is a
-        // dynamic baseline, not a hardcoded 1.
-        baselineCount = await page.getByTestId('session-row').count();
+        // See the portal journey's own comments above on why this is a
+        // dynamic baseline read *before* device B logs in.
+        baselineCount = await sessionRowCount(page);
       });
+
+      deviceBContext = await newLoggedInContext(browser, 'teacher');
+      const deviceB = await deviceBContext.newPage();
 
       await test.step('device B opens /security and revokes the other session(s)', async () => {
         await deviceB.goto('/security');
-        await expect(deviceB.getByTestId('session-row')).toHaveCount(baselineCount + 1);
+        await expect(deviceB.getByTestId('session-row')).toHaveCount(
+          Math.max(baselineCount, 1) + 1,
+        );
 
         await revokeAllOtherSessions(deviceB);
         // See the portal journey's own comment above on the empty-state swap.
@@ -196,7 +229,7 @@ test.describe('Staff: sign out a device from /security', () => {
         await expect(page).toHaveURL(/\/login/);
       });
     } finally {
-      await deviceBContext.close();
+      await deviceBContext?.close();
     }
   });
 });
