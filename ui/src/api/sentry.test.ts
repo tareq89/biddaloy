@@ -515,7 +515,7 @@ describe('[8.12.7] recordRouteChunkFallback', () => {
         category: 'app.chunk',
         level: 'info',
         type: 'default',
-        message: 'Route load failed; rendered the offline/update recovery state',
+        message: 'Route load failed; rendered the offline/update/suspended recovery state',
         data: { kind },
       });
     },

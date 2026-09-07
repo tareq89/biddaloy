@@ -14,6 +14,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { JwtPayload, UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
+import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
@@ -29,7 +30,7 @@ import { AddSchoolAdminDto } from './dto/add-school-admin.dto';
 @ApiTags('schools')
 @ApiTenantAuth()
 @Controller('schools/:id/admins')
-@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard)
+@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 @Roles(UserRole.SUPER_ADMIN)
 export class SchoolAdminsController {
   constructor(private readonly schoolAdmins: SchoolAdminsService) {}

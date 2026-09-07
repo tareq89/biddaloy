@@ -25,9 +25,10 @@
  * runs is decided in `classifyRouteError` below.
  */
 import { useNavigate, type ErrorComponentProps } from '@tanstack/react-router';
-import { RefreshCw, WifiOff } from 'lucide-react';
+import { Lock, RefreshCw, WifiOff } from 'lucide-react';
 import * as React from 'react';
 
+import type { ApiError } from '../api/errors';
 import { captureRouteError, recordRouteChunkFallback } from '../api/sentry';
 
 import { ErrorState } from './error-state';
@@ -52,6 +53,14 @@ export interface RouteErrorFallbackProps extends ErrorComponentProps {
    * plain reload so `ui` stays app-agnostic; `client-admin` passes its
    * service-worker-aware `reloadForUpdate` (`src/pwa/register.ts`). */
   onReloadForUpdate?: () => void;
+  /** [15.4.2] suspended-tenant fork copy — a 403 with
+   * `details.code === 'TENANT_SUSPENDED'` (`ContextGuard`) means the
+   * school itself was suspended mid-session, not that this request or
+   * route failed. Separate copy from `message` for the same reason as the
+   * offline/update forks: retrying never helps here, so the copy and the
+   * available action differ. */
+  suspendedTitle?: string;
+  suspendedMessage?: string;
 }
 
 /**
@@ -99,7 +108,7 @@ export interface RouteErrorFallbackProps extends ErrorComponentProps {
 const CHUNK_LOAD_FAILURE =
   /failed to fetch dynamically imported module|error loading dynamically imported module|importing a module script failed|loading chunk \S+ failed/i;
 
-type RouteErrorKind = 'offline' | 'update' | 'error';
+type RouteErrorKind = 'offline' | 'update' | 'suspended' | 'error';
 
 /** True for exactly the errors this boundary would render as its offline
  * fork. Exported so a route `loader` deciding whether to swallow a
@@ -114,6 +123,14 @@ export function isOfflineRouteError(error: unknown): boolean {
 function classifyRouteError(error: unknown): RouteErrorKind {
   if ((error as { code?: unknown } | null)?.code === 'ERR_NETWORK') {
     return 'offline';
+  }
+
+  const apiError = error as Partial<ApiError> | null;
+  if (
+    apiError?.statusCode === 403 &&
+    (apiError.details as { code?: unknown } | undefined)?.code === 'TENANT_SUSPENDED'
+  ) {
+    return 'suspended';
   }
 
   const message = error instanceof Error ? error.message : '';
@@ -145,6 +162,8 @@ export function RouteErrorFallback({
   updateMessage = 'This page is from an older version of the app. Reload to pick up the new one — anything you have already saved is safe.',
   updateRetryLabel = 'Reload to update',
   onReloadForUpdate = () => window.location.reload(),
+  suspendedTitle = 'This school has been suspended',
+  suspendedMessage = 'Access is paused for this school. Contact your platform administrator to reactivate it.',
 }: RouteErrorFallbackProps) {
   const navigate = useNavigate();
 
@@ -203,6 +222,20 @@ export function RouteErrorFallback({
         onHome={onHome}
         homeLabel={homeLabel}
         icon={<WifiOff aria-hidden="true" />}
+      />
+    );
+  }
+
+  if (kind === 'suspended') {
+    return (
+      <RouteStatusState
+        title={suspendedTitle}
+        explanation={suspendedMessage}
+        onRetry={reset}
+        retryLabel={retryLabel}
+        onHome={onHome}
+        homeLabel={homeLabel}
+        icon={<Lock aria-hidden="true" />}
       />
     );
   }

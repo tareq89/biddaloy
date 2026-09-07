@@ -81,6 +81,82 @@ export const IDENTITY_SCOPED: IdentityScopedEntry[] = [
     path: '/schools',
     reason: '10.4 — platform route (SUPER_ADMIN school picker), not tenant-scoped',
   },
+  {
+    controller: 'ProvisioningController',
+    method: 'POST',
+    path: '/schools',
+    reason:
+      '15.4.4 — platform route (SUPER_ADMIN provisions a brand-new school), not tenant-scoped; RolesGuard(SUPER_ADMIN) is the whole check.',
+  },
+  {
+    controller: 'SchoolAdminsController',
+    method: 'GET',
+    path: '/schools/:id/admins',
+    reason: '15.4.6 — platform route (SUPER_ADMIN admin recovery), same rationale as GET /schools.',
+  },
+  {
+    controller: 'SchoolAdminsController',
+    method: 'POST',
+    path: '/schools/:id/admins',
+    reason: '15.4.6 — platform route (SUPER_ADMIN admin recovery), same rationale as GET /schools.',
+  },
+  {
+    controller: 'SchoolAdminsController',
+    method: 'POST',
+    path: '/schools/:id/admins/:userId/resend-invitation',
+    reason: '15.4.6 — platform route (SUPER_ADMIN admin recovery), same rationale as GET /schools.',
+  },
+  {
+    controller: 'SchoolAdminsController',
+    method: 'DELETE',
+    path: '/schools/:id/admins/:userId/invitation',
+    reason: '15.4.6 — platform route (SUPER_ADMIN admin recovery), same rationale as GET /schools.',
+  },
+  {
+    controller: 'SchoolProfileController',
+    method: 'GET',
+    path: '/schools/me/profile',
+    reason:
+      '15.5.2 — self-service: the tenant comes from X-Tenant-ID/the JWT membership, never a path id; RolesGuard(ADMIN) is the whole check.',
+  },
+  {
+    controller: 'SchoolProfileController',
+    method: 'PATCH',
+    path: '/schools/me/profile',
+    reason: '15.5.2 — self-service, same rationale as GET /schools/me/profile.',
+  },
+  {
+    controller: 'SchoolLogoController',
+    method: 'GET',
+    path: '/schools/:id/logo',
+    reason:
+      "15.5.3/15.5.4 — membership-scoped, not capability-scoped: any member role may read their own school's logo, so there is no permission to require. ContextGuard already confines `:id` to a tenant the caller belongs to.",
+  },
+  {
+    controller: 'SchoolLogoController',
+    method: 'POST',
+    path: '/schools/me/logo',
+    reason: '15.5.3 — self-service, same rationale as PATCH /schools/me/profile.',
+  },
+  {
+    controller: 'SchoolLogoController',
+    method: 'DELETE',
+    path: '/schools/me/logo',
+    reason: '15.5.3 — self-service, same rationale as PATCH /schools/me/profile.',
+  },
+  {
+    controller: 'SchoolsController',
+    method: 'GET',
+    path: '/schools/:id/stats',
+    reason: '15.4.7 — platform route (SUPER_ADMIN school stats), same rationale as GET /schools.',
+  },
+  {
+    controller: 'SchoolsController',
+    method: 'PATCH',
+    path: '/schools/:id/status',
+    reason:
+      '15.4.5 — platform route (SUPER_ADMIN suspend/reactivate), same rationale as GET /schools.',
+  },
 ];
 
 function findIdentityScopedEntry(

@@ -1,14 +1,13 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import Redis from 'ioredis';
 import { School } from './entities/school.entity';
 import { SchoolsService } from './schools.service';
 import { SchoolsController } from './schools.controller';
 import { EncryptionService } from './settings/encryption.service';
 import { buildEncryptionKey, buildPreviousEncryptionKeys } from './settings/encryption-key';
 import { TenantSettingsCache } from './settings/tenant-settings-cache.service';
-import { TenantStatusService, TENANT_STATUS_REDIS } from './tenant-status.service';
+import { TenantStatusModule } from './tenant-status.module';
 import { AuditModule } from '../audit/audit.module';
 import { ProvisioningService } from './provisioning/provisioning.service';
 import { ProvisioningController } from './provisioning/provisioning.controller';
@@ -53,6 +52,7 @@ export function encryptionServiceFactory(config: ConfigService): EncryptionServi
     ]),
     ConfigModule,
     AuditModule,
+    TenantStatusModule,
     // Circular: AccountAccessModule imports SchoolsModule (for
     // SchoolsService's tenant-settings lookups) — forwardRef breaks the
     // cycle so ProvisioningService can reuse AccountAccessDeliveryService
@@ -82,22 +82,6 @@ export function encryptionServiceFactory(config: ConfigService): EncryptionServi
       // (which would fail to resolve `ttlMs` at boot).
       useFactory: () => new TenantSettingsCache(TENANT_SETTINGS_CACHE_TTL_MS),
     },
-    TenantStatusService,
-    {
-      provide: TENANT_STATUS_REDIS,
-      inject: [ConfigService],
-      // Same fail-open-friendly settings as the other short-lived Redis
-      // lookups in auth.module.ts (AccessTokenDenylistService,
-      // LoginAttemptService) — TenantStatusService.isActive() runs on every
-      // authenticated request via ContextGuard, so a disconnected/hanging
-      // Redis must fail fast rather than queue or block the request.
-      useFactory: (config: ConfigService) =>
-        new Redis(config.get<string>('REDIS_URL') ?? 'redis://127.0.0.1:6379', {
-          enableOfflineQueue: false,
-          maxRetriesPerRequest: 1,
-          commandTimeout: 1000,
-        }),
-    },
   ],
   // TenantSettingsCache is exported so #8.7.10's TenantProviderConfigResolver
   // (in CommunicationsModule) can share the exact same cache instance
@@ -105,8 +89,9 @@ export function encryptionServiceFactory(config: ConfigService): EncryptionServi
   // would never see that invalidation and could serve stale credentials
   // past a rotation.
   //
-  // TenantStatusService is exported so ContextGuard (AuthModule) can call
-  // isActive() per request — AuthModule imports SchoolsModule for it (#527).
-  exports: [SchoolsService, EncryptionService, TenantSettingsCache, TenantStatusService],
+  // TenantStatusService (SchoolsService's own dependency, injected via
+  // `TenantStatusModule`'s `@Global()` export — see that module's file
+  // comment) is not re-declared or re-exported here.
+  exports: [SchoolsService, EncryptionService, TenantSettingsCache],
 })
 export class SchoolsModule {}

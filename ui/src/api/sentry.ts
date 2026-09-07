@@ -480,12 +480,12 @@ export function captureRouteError(error: unknown): void {
  * fork name — no URL, no chunk name, no error message, since a chunk URL
  * is the one thing here that could carry a query string.
  */
-export function recordRouteChunkFallback(kind: 'offline' | 'update'): void {
+export function recordRouteChunkFallback(kind: 'offline' | 'update' | 'suspended'): void {
   Sentry.addBreadcrumb({
     category: 'app.chunk',
     level: 'info',
     type: 'default',
-    message: 'Route load failed; rendered the offline/update recovery state',
+    message: 'Route load failed; rendered the offline/update/suspended recovery state',
     data: { kind },
   });
 }

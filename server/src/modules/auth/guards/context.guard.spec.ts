@@ -231,7 +231,10 @@ describe('ContextGuard', () => {
         throw new Error('expected canActivate to throw');
       } catch (error) {
         expect(error).toBeInstanceOf(ForbiddenException);
-        expect((error as ForbiddenException).getResponse()).toEqual({ code: 'TENANT_SUSPENDED' });
+        expect((error as ForbiddenException).getResponse()).toEqual({
+          message: 'This school has been suspended',
+          details: { code: 'TENANT_SUSPENDED' },
+        });
       }
       expect(tenantStatus.isActive).toHaveBeenCalledWith('tenant-1');
     });
