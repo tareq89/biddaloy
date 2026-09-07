@@ -5,11 +5,15 @@ import { Student } from '../students/entities/student.entity';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
+import { AuditModule } from '../audit/audit.module';
 import { EnrollmentService } from './enrollments.service';
 import { EnrollmentController } from './enrollments.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Enrollment, Student, Class, ClassSection, AcademicYear])],
+  imports: [
+    TypeOrmModule.forFeature([Enrollment, Student, Class, ClassSection, AcademicYear]),
+    AuditModule,
+  ],
   providers: [EnrollmentService],
   controllers: [EnrollmentController],
   exports: [EnrollmentService],

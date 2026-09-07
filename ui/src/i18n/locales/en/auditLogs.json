@@ -63,6 +63,7 @@
     "AttendanceSession": "Attendance session",
     "Class": "Class",
     "ClassSection": "Class section",
+    "Enrollment": "Enrollment",
     "Guardian": "Guardian",
     "InvitationBatch": "Invitation batch",
     "RefreshToken": "Session",
@@ -142,6 +143,7 @@
     "capacity": "Capacity",
     "start_date": "Start date",
     "end_date": "End date",
-    "is_current": "Current year"
+    "is_current": "Current year",
+    "enrollment_status": "Enrollment status"
   }
 }
