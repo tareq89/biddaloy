@@ -215,29 +215,6 @@ export class AcademicYearService {
         );
       }
 
-      // Diffed against exactly the fields this request changed — see the
-      // identical reasoning on FeeStructureService.update.
-      const changedKeys = Object.keys(updateData);
-      if (changedKeys.length > 0) {
-        const oldValues = Object.fromEntries(
-          changedKeys.map((key) => [key, (existing as any)[key]]),
-        );
-        await this.auditService.record(
-          {
-            action: AuditAction.UPDATE,
-            entity_type: 'AcademicYear',
-            entity_id: id,
-            tenant_id: tenantId,
-            performed_by_user_id: userId,
-            ip_address: context.ip,
-            user_agent: context.userAgent,
-            old_values: oldValues,
-            new_values: updateData,
-          },
-          manager,
-        );
-      }
-
       return repo.findOne({
         where: { id, tenant_id: tenantId, deleted_at: IsNull() },
       }) as Promise<AcademicYear>;
