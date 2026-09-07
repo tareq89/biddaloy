@@ -222,6 +222,50 @@ describe('/audit-logs', () => {
     expect(await screen.findByText('Record')).toBeTruthy();
   });
 
+  // [15.2.6] an Enrollment row's diff links its student_id/class_id
+  // metadata to the record they name — an id alone isn't actionable for
+  // an administrator resolving a dispute.
+  it('links an Enrollment row’s student_id and class_id metadata to their records', async () => {
+    server.use(
+      http.get('/api/v1/audit-logs', () =>
+        HttpResponse.json({
+          data: [
+            auditEntryFactory({
+              action: 'CREATE',
+              entity_type: 'Enrollment',
+              entity_id: 'enrollment-1',
+              old_values: null,
+              new_values: {
+                student_id: 'student-42',
+                class_id: 'class-7',
+                section_id: 'section-9',
+              },
+            }),
+          ],
+          total: 1,
+          page: 1,
+          limit: 10,
+          totalPages: 1,
+        }),
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderAuditLogs();
+
+    const toggle = await screen.findByRole('button', { name: /^Show changes:/ });
+    await user.click(toggle);
+
+    const studentLink = await screen.findByRole('link', { name: 'student-42' });
+    expect(studentLink.getAttribute('href')).toBe('/students/student-42');
+
+    const classLink = screen.getByRole('link', { name: 'class-7' });
+    expect(classLink.getAttribute('href')).toBe('/classes/class-7');
+
+    // `section_id` has no detail route — it renders as plain text, not a link.
+    expect(screen.getByText('section-9').closest('a')).toBeNull();
+  });
+
   // Never `toISOString().slice(0, 10)` — that shifts the day for anyone
   // west of UTC. `formatDate` builds the string from local calendar fields.
   it('writes a picked date to the URL as a plain ISO date', async () => {
