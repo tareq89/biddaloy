@@ -12,11 +12,14 @@ import {
   UploadedFile,
   Inject,
   ParseUUIDPipe,
+  Req,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Request } from 'express';
+import { requestContext } from '../../common/request-context.util';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { STRICT_RATE_LIMIT } from '../../rate-limit';
@@ -171,8 +174,16 @@ export class StudentController {
   createGuardian(
     @Body() dto: CreateGuardianDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
-    return this.guardianService.create(dto, tenant.id);
+    return this.guardianService.create(
+      dto,
+      tenant.id,
+      undefined,
+      user.sub,
+      requestContext(request),
+    );
   }
 
   @Get('guardians')
@@ -218,8 +229,9 @@ export class StudentController {
     @Body() dto: UpdateOwnGuardianDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
-    return this.guardianService.updateOwn(user.sub, dto, tenant.id);
+    return this.guardianService.updateOwn(user.sub, dto, tenant.id, requestContext(request));
   }
 
   @Get('guardians/:id')
@@ -241,15 +253,22 @@ export class StudentController {
     @Param('id') id: string,
     @Body() dto: UpdateGuardianDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
-    return this.guardianService.update(id, dto, tenant.id);
+    return this.guardianService.update(id, dto, tenant.id, user.sub, requestContext(request));
   }
 
   @Delete('guardians/:id')
   // [10.4] G15 — new GUARDIAN_DELETE, mirrors STUDENT_DELETE.
   @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.GUARDIAN_DELETE)
-  removeGuardian(@Param('id') id: string, @CurrentTenant() tenant: { id: string; role: string }) {
-    return this.guardianService.remove(id, tenant.id);
+  removeGuardian(
+    @Param('id') id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.guardianService.remove(id, tenant.id, user.sub, requestContext(request));
   }
 }

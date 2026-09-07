@@ -60,6 +60,7 @@
     "AttendanceDevice": "Attendance device",
     "AttendanceRecord": "Attendance record",
     "AttendanceSession": "Attendance session",
+    "Guardian": "Guardian",
     "InvitationBatch": "Invitation batch",
     "RefreshToken": "Session",
     "SchoolHoliday": "School holiday",
