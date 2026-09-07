@@ -14,6 +14,13 @@ export enum UserStatus {
   SUSPENDED = 'SUSPENDED',
 }
 
+/** Lifecycle status of a school/tenant (15.4). `SUSPENDED` schools stay in
+ * place — no data loss, no soft delete — just access-gated by SUPER_ADMIN. */
+export enum SchoolStatus {
+  ACTIVE = 'ACTIVE',
+  SUSPENDED = 'SUSPENDED',
+}
+
 export enum CommunicationMedium {
   SMS = 'SMS',
   WHATSAPP = 'WHATSAPP',

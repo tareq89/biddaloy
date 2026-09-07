@@ -79,6 +79,16 @@ describe('SchoolsService (integration)', () => {
     );
   }
 
+  it('[15.4] defaults a new School to status ACTIVE', async () => {
+    const school = await createSchool();
+    expect(school.status).toBe('ACTIVE');
+
+    const reloaded = await schoolRepo.findOneByOrFail({ id: school.id });
+    expect(reloaded.status).toBe('ACTIVE');
+    expect(reloaded.status_reason).toBeNull();
+    expect(reloaded.status_changed_at).toBeNull();
+  });
+
   it('writes a SETTINGS_CHANGE audit entry with actor, tenant, and timestamp', async () => {
     const school = await createSchool();
     const patch = plainToInstance(TenantSettingsDto, {
