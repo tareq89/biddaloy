@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { randomUUID } from 'crypto';
 import { NotFoundException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken, getDataSourceToken } from '@nestjs/typeorm';
@@ -451,6 +452,31 @@ describe('AcademicYearService (integration)', () => {
 
       const logs = await auditLogRepo.find({
         where: { entity_id: '00000000-0000-4000-8000-000000000001', entity_type: 'AcademicYear' },
+      });
+      expect(logs).toHaveLength(0);
+    });
+
+    it('rolls back the update when the audit write fails, in the same transaction', async () => {
+      const created = await service.create(
+        { name: '2026-2027', start_date: '2026-01-01', end_date: '2026-12-31' },
+        TENANT_ID,
+      );
+
+      // A performed_by_user_id that references no real user violates
+      // audit_logs' FK constraint at INSERT time — a real Postgres failure
+      // inside AuditService.record's manager.save(), not a mock, that
+      // should take the whole transaction (including the update) down
+      // with it rather than leaving an untracked mutation. Same pattern
+      // as SchoolsService's equivalent test.
+      await expect(
+        service.update(created.id, { name: 'Renamed' }, TENANT_ID, randomUUID()),
+      ).rejects.toThrow();
+
+      const reloaded = await repo.findOne({ where: { id: created.id } });
+      expect(reloaded?.name).toBe('2026-2027');
+
+      const logs = await auditLogRepo.find({
+        where: { entity_id: created.id, entity_type: 'AcademicYear', action: AuditAction.UPDATE },
       });
       expect(logs).toHaveLength(0);
     });

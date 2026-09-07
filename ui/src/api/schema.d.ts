@@ -20,6 +20,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/health/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["HealthController_ready"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/audit-logs": {
         parameters: {
             query?: never;
@@ -3430,6 +3446,25 @@ export interface operations {
             };
         };
     };
+    HealthController_ready: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     AuditController_findAll_v1: {
         parameters: {
             query?: {
@@ -4974,7 +5009,7 @@ export interface operations {
                 invitation_status?: "NONE" | "PENDING" | "EXPIRED" | "REVOKED" | "ACTIVATED";
                 joined_from?: string;
                 joined_to?: string;
-                sort?: "email" | "status" | "full_name" | "joined_at";
+                sort?: "status" | "email" | "full_name" | "joined_at";
                 order?: "asc" | "desc";
                 page?: number;
                 limit?: number;

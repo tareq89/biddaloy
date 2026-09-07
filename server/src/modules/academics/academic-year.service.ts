@@ -41,8 +41,15 @@ export class AcademicYearService {
     return this.repo.manager.transaction(async (manager) => {
       const repo = manager.getRepository(AcademicYear);
 
-      // If setting as current, unset all other current years for this tenant
+      // If setting as current, unset all other current years for this
+      // tenant — read them first (locked) so each displaced year gets its
+      // own `true -> false` audit entry, same as setCurrent below.
+      let displaced: AcademicYear[] = [];
       if (dto.is_current) {
+        displaced = await repo.find({
+          where: { tenant_id: tenantId, is_current: true, deleted_at: IsNull() },
+          lock: { mode: 'pessimistic_write' },
+        });
         await repo.update(
           { tenant_id: tenantId, is_current: true, deleted_at: IsNull() },
           { is_current: false },
@@ -57,6 +64,23 @@ export class AcademicYearService {
       });
 
       const saved = await repo.save(academicYear);
+
+      for (const year of displaced) {
+        await this.auditService.record(
+          {
+            action: AuditAction.UPDATE,
+            entity_type: 'AcademicYear',
+            entity_id: year.id,
+            tenant_id: tenantId,
+            performed_by_user_id: userId,
+            ip_address: context.ip,
+            user_agent: context.userAgent,
+            old_values: { is_current: true },
+            new_values: { is_current: false },
+          },
+          manager,
+        );
+      }
 
       await this.auditService.record(
         {
@@ -114,13 +138,30 @@ export class AcademicYearService {
     userId: string | null = null,
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<AcademicYear> {
-    const existing = await this.findOne(id, tenantId);
-
     return this.repo.manager.transaction(async (manager) => {
       const repo = manager.getRepository(AcademicYear);
 
-      // If setting as current, unset all other current years for this tenant
+      // Read (and lock) the pre-image inside the transaction, not before
+      // it — a concurrent mutation committing between an outside-tx read
+      // and this update would otherwise let the audit log's old_values
+      // record a stale value.
+      const existing = await repo.findOne({
+        where: { id, tenant_id: tenantId, deleted_at: IsNull() },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!existing) {
+        throw new NotFoundException(`Academic year with ID "${id}" not found`);
+      }
+
+      // If setting as current, unset all other current years for this
+      // tenant — read them first (locked) so each displaced year gets its
+      // own `true -> false` audit entry, same as setCurrent below.
+      let displaced: AcademicYear[] = [];
       if (dto.is_current) {
+        displaced = await repo.find({
+          where: { tenant_id: tenantId, is_current: true, deleted_at: IsNull() },
+          lock: { mode: 'pessimistic_write' },
+        });
         await repo.update(
           { tenant_id: tenantId, is_current: true, deleted_at: IsNull() },
           { is_current: false },
@@ -131,12 +172,24 @@ export class AcademicYearService {
       if (dto.start_date) updateData.start_date = new Date(dto.start_date);
       if (dto.end_date) updateData.end_date = new Date(dto.end_date);
 
-      const updateResult = await repo.update(
-        { id, tenant_id: tenantId, deleted_at: IsNull() },
-        updateData,
-      );
-      if (updateResult.affected === 0) {
-        throw new NotFoundException(`Academic year with ID "${id}" not found`);
+      await repo.update({ id, tenant_id: tenantId, deleted_at: IsNull() }, updateData);
+
+      for (const year of displaced) {
+        if (year.id === id) continue; // covered by the entry below
+        await this.auditService.record(
+          {
+            action: AuditAction.UPDATE,
+            entity_type: 'AcademicYear',
+            entity_id: year.id,
+            tenant_id: tenantId,
+            performed_by_user_id: userId,
+            ip_address: context.ip,
+            user_agent: context.userAgent,
+            old_values: { is_current: true },
+            new_values: { is_current: false },
+          },
+          manager,
+        );
       }
 
       // Diffed against exactly the fields this request changed — see the
@@ -174,10 +227,19 @@ export class AcademicYearService {
     userId: string | null = null,
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<void> {
-    const existing = await this.findOne(id, tenantId);
-
     await this.repo.manager.transaction(async (manager) => {
       const repo = manager.getRepository(AcademicYear);
+
+      // Read (and lock) the pre-image inside the transaction — see the
+      // identical reasoning on update() above.
+      const existing = await repo.findOne({
+        where: { id, tenant_id: tenantId, deleted_at: IsNull() },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!existing) {
+        throw new NotFoundException(`Academic year with ID "${id}" not found`);
+      }
+
       await repo.softDelete({ id, tenant_id: tenantId });
 
       await this.auditService.record(
