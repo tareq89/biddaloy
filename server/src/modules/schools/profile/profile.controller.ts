@@ -4,6 +4,7 @@ import { ApiForbiddenResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nes
 import { Request } from 'express';
 import { JwtPayload, UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
+import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
@@ -20,7 +21,7 @@ import { UpdateSchoolProfileDto } from './dto/update-school-profile.dto';
 @ApiTags('schools')
 @ApiTenantAuth()
 @Controller('schools/me/profile')
-@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard)
+@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class SchoolProfileController {
   constructor(private readonly profile: SchoolProfileService) {}
 

@@ -1,3 +1,5 @@
+import { ApiProperty } from '@nestjs/swagger';
+
 /**
  * [15.5.1] Frozen issuer identity captured onto an invoice or payment at
  * creation time, so a document keeps showing the school identity that was
@@ -8,16 +10,37 @@
  * [15.5.5]'s note: if that logo object is later deleted, the URL 404s and
  * the print falls back to text-only.
  */
-export type IssuerSnapshot = {
+// A class, not a `type` alias — `@nestjs/swagger`'s CLI plugin only
+// introspects a *referenced* class's own properties when it's used as a
+// controller/route DTO; used purely as an entity column's TS type (as
+// `Payment`/`Invoice` do), neither the class nor a plain type alias gets
+// its properties auto-discovered, and produces an empty `{}` schema
+// (`Record<string, never>`) without explicit `@ApiProperty()` here.
+export class IssuerSnapshot {
+  @ApiProperty()
   name: string;
+
+  @ApiProperty({ nullable: true, type: 'string' })
   name_bn: string | null;
+
+  @ApiProperty({ nullable: true, type: 'string' })
   address: string | null;
+
+  @ApiProperty({ nullable: true, type: 'string' })
   phone: string | null;
+
+  @ApiProperty({ nullable: true, type: 'string' })
   email: string | null;
+
+  @ApiProperty({ nullable: true, type: 'string' })
   registration_id: string | null;
+
+  @ApiProperty({ nullable: true, type: 'string' })
   logo_key: string | null;
+
+  @ApiProperty()
   captured_at: string;
-};
+}
 
 /** Minimal shape `buildIssuerSnapshot`/`resolveIssuer` need from a
  * `School` row — avoids importing the entity class itself into every
