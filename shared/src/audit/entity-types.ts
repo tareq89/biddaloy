@@ -18,6 +18,8 @@ export const AUDIT_ENTITY_TYPES = [
   'AttendanceDevice',
   'AttendanceRecord',
   'AttendanceSession',
+  'Class',
+  'ClassSection',
   'FeeStructure',
   'Guardian',
   'InvitationBatch',

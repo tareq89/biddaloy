@@ -60,6 +60,8 @@
     "AttendanceDevice": "উপস্থিতি ডিভাইস",
     "AttendanceRecord": "উপস্থিতি রেকর্ড",
     "AttendanceSession": "উপস্থিতি সেশন",
+    "Class": "ক্লাস",
+    "ClassSection": "ক্লাস শাখা",
     "Guardian": "অভিভাবক",
     "InvitationBatch": "আমন্ত্রণ ব্যাচ",
     "RefreshToken": "সেশন",
@@ -133,6 +135,9 @@
     "section_id": "শাখা আইডি",
     "academic_year_id": "শিক্ষাবর্ষ আইডি",
     "student_id": "শিক্ষার্থী আইডি",
-    "role": "ভূমিকা"
+    "role": "ভূমিকা",
+    "numeric_grade": "গ্রেড",
+    "section_name": "শাখার নাম",
+    "capacity": "ধারণক্ষমতা"
   }
 }

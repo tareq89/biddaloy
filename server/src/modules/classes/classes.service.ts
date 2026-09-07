@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
-import { EnrollmentStatus, TeacherDesignation } from '@biddaloy/shared';
+import { EnrollmentStatus, TeacherDesignation, AuditAction } from '@biddaloy/shared';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
@@ -14,6 +14,8 @@ import {
   CreateSectionDto,
   UpdateSectionDto,
 } from './dto/classes.dto';
+import { AuditService } from '../audit/audit.service';
+import { RequestContext } from '../../common/request-context.util';
 
 /** [8.11.2] — `SectionService.findAll`'s per-section enrolled count, so the
  * classes list's inline expansion can show it without an extra request per
@@ -53,16 +55,46 @@ export class ClassService {
     private readonly sectionRepo: Repository<ClassSection>,
     @InjectRepository(Student)
     private readonly studentRepo: Repository<Student>,
+    private readonly auditService: AuditService,
   ) {}
 
-  async create(dto: CreateClassDto, tenantId: string): Promise<Class> {
-    const entity = this.repo.create({
-      name: dto.name,
-      numeric_grade: dto.numeric_grade,
-      academic_year_id: dto.academic_year_id,
-      tenant_id: tenantId,
+  async create(
+    dto: CreateClassDto,
+    tenantId: string,
+    userId: string | null = null,
+    context: RequestContext = { ip: null, userAgent: null },
+  ): Promise<Class> {
+    return this.repo.manager.transaction(async (manager) => {
+      const repo = manager.getRepository(Class);
+      const entity = repo.create({
+        name: dto.name,
+        numeric_grade: dto.numeric_grade,
+        academic_year_id: dto.academic_year_id,
+        tenant_id: tenantId,
+      });
+      const saved = await repo.save(entity);
+
+      await this.auditService.record(
+        {
+          action: AuditAction.CREATE,
+          entity_type: 'Class',
+          entity_id: saved.id,
+          tenant_id: tenantId,
+          performed_by_user_id: userId,
+          ip_address: context.ip,
+          user_agent: context.userAgent,
+          old_values: null,
+          new_values: {
+            name: saved.name,
+            numeric_grade: saved.numeric_grade,
+            academic_year_id: saved.academic_year_id,
+          },
+        },
+        manager,
+      );
+
+      return saved;
     });
-    return this.repo.save(entity);
   }
 
   async findAll(
@@ -152,14 +184,54 @@ export class ClassService {
     return entity;
   }
 
-  async update(id: string, dto: UpdateClassDto, tenantId: string): Promise<Class> {
-    await this.findOne(id, tenantId);
-    await this.repo.update({ id, tenant_id: tenantId }, dto);
+  async update(
+    id: string,
+    dto: UpdateClassDto,
+    tenantId: string,
+    userId: string | null = null,
+    context: RequestContext = { ip: null, userAgent: null },
+  ): Promise<Class> {
+    const existing = await this.findOne(id, tenantId);
+
+    const changedKeys = Object.keys(dto);
+    if (changedKeys.length > 0) {
+      await this.repo.manager.transaction(async (manager) => {
+        const repo = manager.getRepository(Class);
+        // Diffed against exactly the fields this request changed — see the
+        // identical reasoning on FeeStructureService.update.
+        const oldValues = Object.fromEntries(
+          changedKeys.map((key) => [key, (existing as any)[key]]),
+        );
+
+        await repo.update({ id, tenant_id: tenantId }, dto);
+
+        await this.auditService.record(
+          {
+            action: AuditAction.UPDATE,
+            entity_type: 'Class',
+            entity_id: id,
+            tenant_id: tenantId,
+            performed_by_user_id: userId,
+            ip_address: context.ip,
+            user_agent: context.userAgent,
+            old_values: oldValues,
+            new_values: { ...dto },
+          },
+          manager,
+        );
+      });
+    }
+
     return this.findOne(id, tenantId);
   }
 
-  async remove(id: string, tenantId: string): Promise<void> {
-    await this.findOne(id, tenantId);
+  async remove(
+    id: string,
+    tenantId: string,
+    userId: string | null = null,
+    context: RequestContext = { ip: null, userAgent: null },
+  ): Promise<void> {
+    const existing = await this.findOne(id, tenantId);
 
     // Check for active students in this class first, before the section
     // guard below, so the more meaningful "students are still enrolled"
@@ -199,7 +271,25 @@ export class ClassService {
       );
     }
 
-    await this.repo.softDelete({ id, tenant_id: tenantId });
+    await this.repo.manager.transaction(async (manager) => {
+      const repo = manager.getRepository(Class);
+      await repo.softDelete({ id, tenant_id: tenantId });
+
+      await this.auditService.record(
+        {
+          action: AuditAction.DELETE,
+          entity_type: 'Class',
+          entity_id: id,
+          tenant_id: tenantId,
+          performed_by_user_id: userId,
+          ip_address: context.ip,
+          user_agent: context.userAgent,
+          old_values: { name: existing.name, numeric_grade: existing.numeric_grade },
+          new_values: null,
+        },
+        manager,
+      );
+    });
   }
 }
 
@@ -214,9 +304,16 @@ export class SectionService {
     private readonly studentRepo: Repository<Student>,
     @InjectRepository(TeacherClassSection)
     private readonly teacherClassSectionRepo: Repository<TeacherClassSection>,
+    private readonly auditService: AuditService,
   ) {}
 
-  async create(classId: string, dto: CreateSectionDto, tenantId: string): Promise<ClassSection> {
+  async create(
+    classId: string,
+    dto: CreateSectionDto,
+    tenantId: string,
+    userId: string | null = null,
+    context: RequestContext = { ip: null, userAgent: null },
+  ): Promise<ClassSection> {
     // Verify class belongs to tenant
     const cls = await this.classRepo.findOne({
       where: { id: classId, tenant_id: tenantId, deleted_at: IsNull() },
@@ -225,13 +322,37 @@ export class SectionService {
       throw new NotFoundException(`Class with ID "${classId}" not found`);
     }
 
-    const entity = this.repo.create({
-      class_id: classId,
-      section_name: dto.section_name,
-      capacity: dto.capacity ?? null,
-      tenant_id: tenantId,
+    return this.repo.manager.transaction(async (manager) => {
+      const repo = manager.getRepository(ClassSection);
+      const entity = repo.create({
+        class_id: classId,
+        section_name: dto.section_name,
+        capacity: dto.capacity ?? null,
+        tenant_id: tenantId,
+      });
+      const saved = await repo.save(entity);
+
+      await this.auditService.record(
+        {
+          action: AuditAction.CREATE,
+          entity_type: 'ClassSection',
+          entity_id: saved.id,
+          tenant_id: tenantId,
+          performed_by_user_id: userId,
+          ip_address: context.ip,
+          user_agent: context.userAgent,
+          old_values: null,
+          new_values: {
+            class_id: saved.class_id,
+            section_name: saved.section_name,
+            capacity: saved.capacity,
+          },
+        },
+        manager,
+      );
+
+      return saved;
     });
-    return this.repo.save(entity);
   }
 
   async findAll(classId: string, tenantId: string): Promise<ClassSectionWithCount[]> {
@@ -335,6 +456,8 @@ export class SectionService {
     sectionId: string,
     dto: UpdateSectionDto,
     tenantId: string,
+    userId: string | null = null,
+    context: RequestContext = { ip: null, userAgent: null },
   ): Promise<ClassSection> {
     const section = await this.repo.findOne({
       where: { id: sectionId, class_id: classId, tenant_id: tenantId, deleted_at: IsNull() },
@@ -343,13 +466,45 @@ export class SectionService {
       throw new NotFoundException(`Section with ID "${sectionId}" not found in class "${classId}"`);
     }
 
-    await this.repo.update({ id: sectionId, class_id: classId, tenant_id: tenantId }, dto);
+    const changedKeys = Object.keys(dto);
+    if (changedKeys.length > 0) {
+      await this.repo.manager.transaction(async (manager) => {
+        const repo = manager.getRepository(ClassSection);
+        const oldValues = Object.fromEntries(
+          changedKeys.map((key) => [key, (section as any)[key]]),
+        );
+
+        await repo.update({ id: sectionId, class_id: classId, tenant_id: tenantId }, dto);
+
+        await this.auditService.record(
+          {
+            action: AuditAction.UPDATE,
+            entity_type: 'ClassSection',
+            entity_id: sectionId,
+            tenant_id: tenantId,
+            performed_by_user_id: userId,
+            ip_address: context.ip,
+            user_agent: context.userAgent,
+            old_values: oldValues,
+            new_values: { ...dto },
+          },
+          manager,
+        );
+      });
+    }
+
     return this.repo.findOne({
       where: { id: sectionId, class_id: classId, tenant_id: tenantId, deleted_at: IsNull() },
     }) as Promise<ClassSection>;
   }
 
-  async remove(classId: string, sectionId: string, tenantId: string): Promise<void> {
+  async remove(
+    classId: string,
+    sectionId: string,
+    tenantId: string,
+    userId: string | null = null,
+    context: RequestContext = { ip: null, userAgent: null },
+  ): Promise<void> {
     const section = await this.repo.findOne({
       where: { id: sectionId, class_id: classId, tenant_id: tenantId, deleted_at: IsNull() },
     });
@@ -371,6 +526,24 @@ export class SectionService {
       );
     }
 
-    await this.repo.softDelete({ id: sectionId, class_id: classId, tenant_id: tenantId });
+    await this.repo.manager.transaction(async (manager) => {
+      const repo = manager.getRepository(ClassSection);
+      await repo.softDelete({ id: sectionId, class_id: classId, tenant_id: tenantId });
+
+      await this.auditService.record(
+        {
+          action: AuditAction.DELETE,
+          entity_type: 'ClassSection',
+          entity_id: sectionId,
+          tenant_id: tenantId,
+          performed_by_user_id: userId,
+          ip_address: context.ip,
+          user_agent: context.userAgent,
+          old_values: { section_name: section.section_name, class_id: section.class_id },
+          new_values: null,
+        },
+        manager,
+      );
+    });
   }
 }

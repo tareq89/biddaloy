@@ -15,7 +15,9 @@ import { School } from '../schools/entities/school.entity';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_TENANT_ID } from '@test/constants';
-import { EnrollmentStatus, TeacherDesignation } from '@biddaloy/shared';
+import { EnrollmentStatus, TeacherDesignation, AuditAction } from '@biddaloy/shared';
+import { AuditService } from '../audit/audit.service';
+import { AuditLog } from '../audit/entities/audit-log.entity';
 
 /**
  * Integration tests for ClassService/SectionService — run against a real
@@ -36,10 +38,15 @@ describe('ClassService / SectionService (integration)', () => {
   const OTHER_TENANT = '00000000-0000-4000-8000-000000000099';
 
   beforeAll(async () => {
-    const module = await createTestModule(ALL_ENTITIES, [ClassService, SectionService], [], {
-      synchronize: true,
-      dropSchema: true,
-    });
+    const module = await createTestModule(
+      ALL_ENTITIES,
+      [ClassService, SectionService, AuditService],
+      [],
+      {
+        synchronize: true,
+        dropSchema: true,
+      },
+    );
 
     classService = module.get<ClassService>(ClassService);
     sectionService = module.get<SectionService>(SectionService);
@@ -471,6 +478,164 @@ describe('ClassService / SectionService (integration)', () => {
 
       const teachers = await sectionService.findTeachers(klass.id, TENANT_ID);
       expect(teachers).toEqual([]);
+    });
+  });
+
+  // [15.2.3] every Class/ClassSection mutation writes a tenant-scoped audit
+  // row with field-level old/new values, sharing the mutation's transaction.
+  describe('audit', () => {
+    let auditLogRepo: Repository<AuditLog>;
+    let actorUserId: string;
+
+    beforeAll(() => {
+      auditLogRepo = dataSource.getRepository(AuditLog);
+    });
+
+    // Nested `beforeEach` — runs after the outer describe's own
+    // `beforeEach`, which deletes every row in `users` for test isolation.
+    // `audit_logs.performed_by_user_id` FKs to `users.id`, so the actor
+    // must be re-created for every test in this block, not once in a
+    // `beforeAll`.
+    beforeEach(async () => {
+      const userRepo = dataSource.getRepository(User);
+      const actor = await userRepo.save({
+        full_name: 'Audit Actor',
+        email: `audit-actor-${Math.random().toString(36).slice(2, 8)}@test.com`,
+      });
+      actorUserId = actor.id;
+    });
+
+    it('writes a CREATE audit record for a new class', async () => {
+      const year = await createYear();
+
+      const created = await classService.create(
+        { name: 'Class A', academic_year_id: year.id } as any,
+        TENANT_ID,
+        actorUserId,
+      );
+
+      const logs = await auditLogRepo.find({
+        where: { entity_id: created.id, entity_type: 'Class', action: AuditAction.CREATE },
+      });
+      expect(logs).toHaveLength(1);
+      expect(logs[0]?.performed_by_user_id).toBe(actorUserId);
+      expect(logs[0]?.new_values).toMatchObject({ name: 'Class A' });
+    });
+
+    it('writes an UPDATE audit record capturing old and new class values', async () => {
+      const year = await createYear();
+      const created = await classService.create(
+        { name: 'Class A', academic_year_id: year.id } as any,
+        TENANT_ID,
+      );
+
+      await classService.update(
+        created.id,
+        { name: 'Class A Renamed' } as any,
+        TENANT_ID,
+        actorUserId,
+      );
+
+      const logs = await auditLogRepo.find({
+        where: { entity_id: created.id, entity_type: 'Class', action: AuditAction.UPDATE },
+      });
+      expect(logs).toHaveLength(1);
+      expect(logs[0]?.old_values).toMatchObject({ name: 'Class A' });
+      expect(logs[0]?.new_values).toMatchObject({ name: 'Class A Renamed' });
+    });
+
+    it('writes a DELETE audit record on class remove', async () => {
+      const year = await createYear();
+      const created = await classService.create(
+        { name: 'Class A', academic_year_id: year.id } as any,
+        TENANT_ID,
+      );
+
+      await classService.remove(created.id, TENANT_ID, actorUserId);
+
+      const logs = await auditLogRepo.find({
+        where: { entity_id: created.id, entity_type: 'Class', action: AuditAction.DELETE },
+      });
+      expect(logs).toHaveLength(1);
+      expect(logs[0]?.performed_by_user_id).toBe(actorUserId);
+    });
+
+    it('writes a CREATE/UPDATE/DELETE audit record for a class section', async () => {
+      const year = await createYear();
+      const klass = await classRepo.save({
+        name: 'Class A',
+        academic_year_id: year.id,
+        tenant_id: TENANT_ID,
+      });
+
+      const created = await sectionService.create(
+        klass.id,
+        { section_name: 'A' } as any,
+        TENANT_ID,
+        actorUserId,
+      );
+      let logs = await auditLogRepo.find({
+        where: { entity_id: created.id, entity_type: 'ClassSection', action: AuditAction.CREATE },
+      });
+      expect(logs).toHaveLength(1);
+
+      await sectionService.update(
+        klass.id,
+        created.id,
+        { section_name: 'A Renamed' } as any,
+        TENANT_ID,
+        actorUserId,
+      );
+      logs = await auditLogRepo.find({
+        where: { entity_id: created.id, entity_type: 'ClassSection', action: AuditAction.UPDATE },
+      });
+      expect(logs).toHaveLength(1);
+      expect(logs[0]?.old_values).toMatchObject({ section_name: 'A' });
+      expect(logs[0]?.new_values).toMatchObject({ section_name: 'A Renamed' });
+
+      await sectionService.remove(klass.id, created.id, TENANT_ID, actorUserId);
+      logs = await auditLogRepo.find({
+        where: { entity_id: created.id, entity_type: 'ClassSection', action: AuditAction.DELETE },
+      });
+      expect(logs).toHaveLength(1);
+    });
+
+    it('rolls back both the class row and the audit entry on a forced failure', async () => {
+      const before = await classRepo.count({ where: { tenant_id: TENANT_ID } });
+
+      await expect(
+        classService.update(
+          '00000000-0000-4000-8000-000000000001',
+          { name: 'X' } as any,
+          TENANT_ID,
+        ),
+      ).rejects.toThrow(NotFoundException);
+
+      const after = await classRepo.count({ where: { tenant_id: TENANT_ID } });
+      expect(after).toBe(before);
+
+      const logs = await auditLogRepo.find({
+        where: { entity_id: '00000000-0000-4000-8000-000000000001', entity_type: 'Class' },
+      });
+      expect(logs).toHaveLength(0);
+    });
+
+    it("never exposes another tenant's class audit rows", async () => {
+      const year = await createYear(OTHER_TENANT);
+      const created = await classService.create(
+        { name: 'Cross Tenant Class', academic_year_id: year.id } as any,
+        OTHER_TENANT,
+      );
+
+      const logs = await auditLogRepo.find({
+        where: { entity_id: created.id, entity_type: 'Class', tenant_id: TENANT_ID },
+      });
+      expect(logs).toHaveLength(0);
+
+      const otherTenantLogs = await auditLogRepo.find({
+        where: { entity_id: created.id, entity_type: 'Class', tenant_id: OTHER_TENANT },
+      });
+      expect(otherTenantLogs).toHaveLength(1);
     });
   });
 });
