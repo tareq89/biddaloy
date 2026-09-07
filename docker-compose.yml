@@ -129,6 +129,8 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
 
   # Generates a short-lived self-signed cert if none exists yet, so nginx has
   # something to load on first boot before certbot has ever run. See

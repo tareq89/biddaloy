@@ -1,0 +1,162 @@
+name: Restore drill
+
+# Proves the backup/restore path end-to-end on a disposable environment:
+# seed a database, back it up (encrypted), restore it into a second empty
+# database, and diff integrity counts between the two. Manual only — this
+# is a drill an operator runs on demand (see docs/architecture/
+# 13-backup-restore.md's "drill cadence: quarterly"), not a per-PR check.
+on:
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: "24"
+
+jobs:
+  restore-drill:
+    name: Backup + restore drill
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: biddaloy_drill
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/biddaloy_drill
+      RESTORE_DATABASE_URL: postgres://postgres:postgres@localhost:5432/biddaloy_drill_restored
+      JWT_SECRET: ci-restore-drill-jwt-secret-do-not-use-1234567890
+      NODE_ENV: test
+      SEED_ADMIN_PASSWORD: ci-restore-drill-seed-password-123
+      S3_ENDPOINT: http://localhost:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: biddaloy-drill
+      S3_ACCESS_KEY_ID: drill-access-key
+      S3_SECRET_ACCESS_KEY: drill-secret-key
+      S3_FORCE_PATH_STYLE: "true"
+      BACKUP_RETENTION_DAYS: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build shared package
+        run: yarn build:shared
+
+      - name: Install age and matching postgresql-16 client tools
+        # Pinned to the -16 client package deliberately — a pg_dump/
+        # pg_restore version newer than the postgres:16-alpine service can
+        # emit settings the older server rejects (confirmed locally: a
+        # host libpq 18 client's pg_restore fails restoring into pg16
+        # with "unrecognized configuration parameter transaction_timeout").
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y age postgresql-client-16
+
+
+      # aws-cli ships preinstalled on GitHub-hosted ubuntu runners.
+      - name: Verify aws-cli is available
+        run: aws --version
+
+      - name: Start MinIO
+        # Not a `services:` entry — the minio image needs a custom command
+        # (`server /data`), which the services: block can't override.
+        run: |
+          docker run -d --name minio \
+            -p 9000:9000 \
+            -e MINIO_ROOT_USER="$S3_ACCESS_KEY_ID" \
+            -e MINIO_ROOT_PASSWORD="$S3_SECRET_ACCESS_KEY" \
+            minio/minio:RELEASE.2025-04-08T15-41-24Z server /data
+          until curl -sf http://localhost:9000/minio/health/live; do sleep 1; done
+
+      - name: Create MinIO bucket
+        run: |
+          AWS_ACCESS_KEY_ID="$S3_ACCESS_KEY_ID" \
+          AWS_SECRET_ACCESS_KEY="$S3_SECRET_ACCESS_KEY" \
+          AWS_DEFAULT_REGION="$S3_REGION" \
+            aws s3 mb --endpoint-url "$S3_ENDPOINT" "s3://$S3_BUCKET"
+
+      - name: Generate a throwaway age keypair
+        run: |
+          age-keygen -o "$RUNNER_TEMP/drill-key.txt" 2>"$RUNNER_TEMP/keygen.log"
+          echo "AGE_PUBLIC_KEY=$(grep 'Public key:' "$RUNNER_TEMP/keygen.log" | sed 's/.*: //')" >> "$GITHUB_ENV"
+          echo "BACKUP_AGE_PRIVATE_KEY_FILE=$RUNNER_TEMP/drill-key.txt" >> "$GITHUB_ENV"
+
+      - name: Run migrations + e2e seed
+        run: |
+          yarn workspace @biddaloy/server migration:run
+          yarn workspace @biddaloy/server seed
+
+      - name: Upload a test logo through StorageService
+        id: upload-logo
+        run: |
+          output=$(yarn --silent ts-node -P server/tsconfig.json scripts/backup/upload-test-object.ts)
+          echo "$output"
+          key=$(echo "$output" | grep '^key=' | sed 's/^key=//')
+          echo "key=$key" >> "$GITHUB_OUTPUT"
+
+      - name: Run backup.sh
+        env:
+          BACKUP_AGE_PUBLIC_KEY: ${{ env.AGE_PUBLIC_KEY }}
+        run: bash scripts/backup/backup.sh
+
+      - name: Create the second, empty database
+        run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres -d postgres \
+            -c "CREATE DATABASE biddaloy_drill_restored;"
+
+      - name: Find the backup object just uploaded
+        id: latest-backup
+        env:
+          AWS_ACCESS_KEY_ID: ${{ env.S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ env.S3_REGION }}
+        run: |
+          key=$(aws s3api list-objects-v2 \
+            --endpoint-url "$S3_ENDPOINT" \
+            --bucket "$S3_BUCKET" \
+            --prefix "backups/db/" \
+            --query 'sort_by(Contents, &LastModified)[-1].Key' \
+            --output text)
+          echo "key=$key" >> "$GITHUB_OUTPUT"
+
+      - name: Run restore.sh
+        run: |
+          bash scripts/backup/restore.sh \
+            "${{ steps.latest-backup.outputs.key }}" \
+            "$RESTORE_DATABASE_URL"
+
+      - name: Verify the restored object still exists in the bucket
+        run: |
+          yarn --silent ts-node -P server/tsconfig.json scripts/backup/verify-test-object.ts \
+            "${{ steps.upload-logo.outputs.key }}"
+
+      - name: Verify counts on both databases and diff
+        run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres -d biddaloy_drill \
+            -f scripts/backup/verify.sql -t -A -F',' > "$RUNNER_TEMP/before.csv"
+          PGPASSWORD=postgres psql -h localhost -U postgres -d biddaloy_drill_restored \
+            -f scripts/backup/verify.sql -t -A -F',' > "$RUNNER_TEMP/after.csv"
+          if ! diff -u "$RUNNER_TEMP/before.csv" "$RUNNER_TEMP/after.csv"; then
+            echo "::error::Integrity counts differ between the source and restored database"
+            exit 1
+          fi
+          echo "Counts match — restore verified."
