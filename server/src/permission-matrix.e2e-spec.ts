@@ -113,38 +113,6 @@ export const IDENTITY_SCOPED: IdentityScopedEntry[] = [
     reason: '15.4.6 — platform route (SUPER_ADMIN admin recovery), same rationale as GET /schools.',
   },
   {
-    controller: 'SchoolProfileController',
-    method: 'GET',
-    path: '/schools/me/profile',
-    reason:
-      '15.5.2 — self-service: the tenant comes from X-Tenant-ID/the JWT membership, never a path id; RolesGuard(ADMIN) is the whole check.',
-  },
-  {
-    controller: 'SchoolProfileController',
-    method: 'PATCH',
-    path: '/schools/me/profile',
-    reason: '15.5.2 — self-service, same rationale as GET /schools/me/profile.',
-  },
-  {
-    controller: 'SchoolLogoController',
-    method: 'GET',
-    path: '/schools/:id/logo',
-    reason:
-      "15.5.3/15.5.4 — membership-scoped, not capability-scoped: any member role may read their own school's logo, so there is no permission to require. ContextGuard already confines `:id` to a tenant the caller belongs to.",
-  },
-  {
-    controller: 'SchoolLogoController',
-    method: 'POST',
-    path: '/schools/me/logo',
-    reason: '15.5.3 — self-service, same rationale as PATCH /schools/me/profile.',
-  },
-  {
-    controller: 'SchoolLogoController',
-    method: 'DELETE',
-    path: '/schools/me/logo',
-    reason: '15.5.3 — self-service, same rationale as PATCH /schools/me/profile.',
-  },
-  {
     controller: 'SchoolsController',
     method: 'GET',
     path: '/schools/:id/stats',

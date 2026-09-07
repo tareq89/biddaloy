@@ -37,7 +37,7 @@ function PlatformLayout() {
     <RequireRole allow={[UserRole.SUPER_ADMIN]} redirectTo="/dashboard">
       <div className="mx-auto flex max-w-6xl flex-col gap-4 p-4">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Link to="/dashboard" className="underline">
+          <Link to="/dashboard" className="inline-flex min-h-6 items-center underline">
             {t('breadcrumb.dashboard')}
           </Link>
           <span aria-hidden="true">/</span>

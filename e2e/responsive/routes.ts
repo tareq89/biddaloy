@@ -8,6 +8,8 @@ import {
   createReminderBatch,
   createStaffUser,
   createStudentWithDues,
+  findSchoolIdBySlug,
+  superAdminApiSession,
   type ApiSession,
 } from '../api';
 import manifest from '../route-manifest.json';
@@ -41,6 +43,15 @@ export async function resolvePath(
   route: ManifestRoute,
 ): Promise<string> {
   if (!route.path.includes('$')) return route.path;
+  if (route.path.includes('$schoolId')) {
+    // SUPER_ADMIN platform console (#535) — `GET /schools` is SUPER_ADMIN
+    // only, so this can't ride the shared ADMIN session. Resolves the
+    // seeded second school the same way `provision-and-suspend.spec.ts`
+    // does, rather than provisioning a fresh one per viewport/theme run.
+    const superAdmin = await superAdminApiSession(request);
+    const schoolId = await findSchoolIdBySlug(request, superAdmin, 'rose-valley-school');
+    return route.path.replace('$schoolId', schoolId);
+  }
   const session: ApiSession = await sharedAdminSession(request);
   const stamp = Date.now();
   if (route.path.includes('$studentId')) {
