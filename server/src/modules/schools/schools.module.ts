@@ -12,6 +12,8 @@ import { TenantStatusService, TENANT_STATUS_REDIS } from './tenant-status.servic
 import { AuditModule } from '../audit/audit.module';
 import { ProvisioningService } from './provisioning/provisioning.service';
 import { ProvisioningController } from './provisioning/provisioning.controller';
+import { SchoolAdminsService } from './admins/school-admins.service';
+import { SchoolAdminsController } from './admins/school-admins.controller';
 import { AccountAccessModule } from '../account-access/account-access.module';
 import { User } from '../users/entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
@@ -57,10 +59,11 @@ export function encryptionServiceFactory(config: ConfigService): EncryptionServi
     // rather than re-implementing invitation delivery here (#529).
     forwardRef(() => AccountAccessModule),
   ],
-  controllers: [SchoolsController, ProvisioningController],
+  controllers: [SchoolsController, ProvisioningController, SchoolAdminsController],
   providers: [
     SchoolsService,
     ProvisioningService,
+    SchoolAdminsService,
     {
       provide: EncryptionService,
       inject: [ConfigService],

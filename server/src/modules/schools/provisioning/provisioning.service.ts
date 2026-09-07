@@ -1,7 +1,7 @@
 import { ConflictException, Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
-import { DataSource, QueryFailedError, Repository } from 'typeorm';
+import { DataSource, EntityManager, QueryFailedError, Repository } from 'typeorm';
 import Redis from 'ioredis';
 import { AuditAction, AuthTokenPurpose, SchoolStatus, UserRole } from '@biddaloy/shared';
 import { School } from '../entities/school.entity';
@@ -23,6 +23,17 @@ const IDEMPOTENCY_TTL_SECONDS = 86_400;
 
 export interface ProvisionResult {
   school: { id: string; slug: string; status: SchoolStatus };
+  admin: { user_id: string; existed: boolean };
+  invitation: { id: string; status: string };
+}
+
+export interface AdminInput {
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+}
+
+export interface ProvisionAdminResult {
   admin: { user_id: string; existed: boolean };
   invitation: { id: string; status: string };
 }
@@ -69,9 +80,6 @@ export class ProvisioningService {
     try {
       result = await this.dataSource.transaction(async (manager) => {
         const schoolRepo = manager.getRepository(School);
-        const userRepo = manager.getRepository(User);
-        const userTenantRepo = manager.getRepository(UserTenant);
-        const authTokenRepo = manager.getRepository(AuthToken);
 
         const school = await schoolRepo.save(
           schoolRepo.create({
@@ -81,29 +89,11 @@ export class ProvisioningService {
           }),
         );
 
-        const { user, existed } = await this.findOrCreateAdminUser(userRepo, dto.admin);
-
-        await userTenantRepo.save(
-          userTenantRepo.create({
-            user_id: user.id,
-            tenant_id: school.id,
-            role: UserRole.ADMIN,
-          }),
-        );
-
-        const raw = generateSecret();
-        const invite = await authTokenRepo.save(
-          authTokenRepo.create({
-            user_id: user.id,
-            tenant_id: school.id,
-            purpose: AuthTokenPurpose.INVITE,
-            token_hash: hashSecret(raw),
-            expires_at: new Date(Date.now() + INVITE_TTL_MS),
-            consumed_at: null,
-            revoked_at: null,
-            created_by_user_id: actorUserId,
-            metadata: null,
-          }),
+        const admin = await this.provisionAdminForSchool(
+          school.id,
+          dto.admin,
+          actorUserId,
+          manager,
         );
 
         await this.audit.record(
@@ -113,39 +103,20 @@ export class ProvisioningService {
             entity_id: school.id,
             tenant_id: school.id,
             performed_by_user_id: actorUserId,
-            new_values: { admin_user_id: user.id },
+            new_values: { admin_user_id: admin.result.admin.user_id },
           },
           manager,
         );
 
         // Delivery is dispatched only after this transaction commits (see
         // below) — a rolled-back transaction must never have sent a real
-        // message. No dedicated "invitation delivery" BullMQ queue exists
-        // in account-access today (the only queue, INVITATION_BATCH_QUEUE,
-        // is guardian-batch-specific and looks the job up by guardianId,
-        // which doesn't apply here) — `AccountAccessDeliveryService.deliver`
-        // is the existing send path `InvitationService.issueAndSend` itself
-        // calls synchronously, so this reuses that same call, just deferred
-        // to after commit.
-        const channel = pickChannel(user);
-        if (channel) {
-          const link = `${resolveAppBaseUrl(this.config)}/activate?token=${raw}`;
-          deliverAfterCommit = async () => {
-            await this.delivery.deliver({
-              tenantId: school.id,
-              medium: channel.medium,
-              to: channel.to,
-              recipientName: user.full_name,
-              kind: 'INVITATION',
-              vars: { link },
-            });
-          };
-        }
+        // message.
+        deliverAfterCommit = admin.deliverAfterCommit;
 
         return {
           school: { id: school.id, slug: school.slug, status: school.status as SchoolStatus },
-          admin: { user_id: user.id, existed },
-          invitation: { id: invite.id, status: 'PENDING' },
+          admin: admin.result.admin,
+          invitation: admin.result.invitation,
         };
       });
     } catch (err) {
@@ -186,9 +157,88 @@ export class ProvisioningService {
     return { result, replayed: false };
   }
 
+  /**
+   * Shared by `provision()` (`POST /schools`, #529) and
+   * `SchoolAdminsService.addAdmin` (`POST /schools/:id/admins`, #531): find
+   * or create the admin user, attach an ADMIN membership on `schoolId`, and
+   * issue an invitation — all within the caller's transaction (`manager`).
+   * Delivery is deferred to a returned closure so the caller can invoke it
+   * only after its own transaction commits, matching `provision()`'s
+   * existing fail-closed-on-rollback / fail-open-on-delivery-error behavior.
+   */
+  async provisionAdminForSchool(
+    schoolId: string,
+    admin: AdminInput,
+    actorUserId: string,
+    manager: EntityManager,
+  ): Promise<{
+    result: ProvisionAdminResult;
+    deliverAfterCommit: (() => Promise<void>) | null;
+  }> {
+    const userRepo = manager.getRepository(User);
+    const userTenantRepo = manager.getRepository(UserTenant);
+    const authTokenRepo = manager.getRepository(AuthToken);
+
+    const { user, existed } = await this.findOrCreateAdminUser(userRepo, admin);
+
+    await userTenantRepo.save(
+      userTenantRepo.create({
+        user_id: user.id,
+        tenant_id: schoolId,
+        role: UserRole.ADMIN,
+      }),
+    );
+
+    const raw = generateSecret();
+    const invite = await authTokenRepo.save(
+      authTokenRepo.create({
+        user_id: user.id,
+        tenant_id: schoolId,
+        purpose: AuthTokenPurpose.INVITE,
+        token_hash: hashSecret(raw),
+        expires_at: new Date(Date.now() + INVITE_TTL_MS),
+        consumed_at: null,
+        revoked_at: null,
+        created_by_user_id: actorUserId,
+        metadata: null,
+      }),
+    );
+
+    // No dedicated "invitation delivery" BullMQ queue exists in
+    // account-access today (the only queue, INVITATION_BATCH_QUEUE, is
+    // guardian-batch-specific and looks the job up by guardianId, which
+    // doesn't apply here) — `AccountAccessDeliveryService.deliver` is the
+    // existing send path `InvitationService.issueAndSend` itself calls
+    // synchronously, so this reuses that same call, just deferred to after
+    // commit.
+    let deliverAfterCommit: (() => Promise<void>) | null = null;
+    const channel = pickChannel(user);
+    if (channel) {
+      const link = `${resolveAppBaseUrl(this.config)}/activate?token=${raw}`;
+      deliverAfterCommit = async () => {
+        await this.delivery.deliver({
+          tenantId: schoolId,
+          medium: channel.medium,
+          to: channel.to,
+          recipientName: user.full_name,
+          kind: 'INVITATION',
+          vars: { link },
+        });
+      };
+    }
+
+    return {
+      result: {
+        admin: { user_id: user.id, existed },
+        invitation: { id: invite.id, status: 'PENDING' },
+      },
+      deliverAfterCommit,
+    };
+  }
+
   private async findOrCreateAdminUser(
     userRepo: Repository<User>,
-    admin: ProvisionSchoolDto['admin'],
+    admin: AdminInput,
   ): Promise<{ user: User; existed: boolean }> {
     if (admin.email || admin.phone) {
       const found = await userRepo
