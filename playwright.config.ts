@@ -56,7 +56,10 @@ export default defineConfig({
   // (`devOptions.enabled: false` in `client-admin/vite.config.ts`).
   // Without this ignore, `testDir: './e2e'` globs those specs too and
   // runs every one of them against a stack that cannot satisfy them.
-  testIgnore: '**/pwa/**',
+  //
+  // The visual suite has its own configs (e2e/visual*.config.ts) and
+  // Linux-only baselines — a bare `yarn e2e` must never pick it up.
+  testIgnore: ['**/pwa/**', /visual\//],
   fullyParallel: true,
   forbidOnly: CI,
   // A suite needing more than one CI retry is hiding flake — see

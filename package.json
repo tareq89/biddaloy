@@ -42,7 +42,9 @@
     "e2e": "playwright test",
     "e2e:pwa": "playwright test -c playwright.pwa.config.ts",
     "ci:local": "bash scripts/ci-local.sh",
-    "prepare": "husky"
+    "prepare": "husky",
+    "e2e:visual": "playwright test -c e2e/visual.config.ts && playwright test -c e2e/visual-stories.config.ts",
+    "e2e:visual:update": "bash scripts/e2e-visual-update.sh"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10",
