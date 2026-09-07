@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
 import { StorageService, buildStorageConfig } from './storage.service';
 
 /** The `StorageService` provider's `useFactory`, pulled out and exported so
@@ -13,7 +12,6 @@ export function storageServiceFactory(): StorageService {
 }
 
 @Module({
-  imports: [ConfigModule],
   providers: [
     {
       provide: StorageService,
