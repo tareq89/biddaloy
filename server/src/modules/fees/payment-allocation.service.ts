@@ -6,6 +6,7 @@ import { PaymentAllocation } from './entities/payment-allocation.entity';
 import { StudentFee } from './entities/student-fee.entity';
 import { Student } from '../students/entities/student.entity';
 import { Invoice } from '../invoices/entities/invoice.entity';
+import { School } from '../schools/entities/school.entity';
 import { AuditService } from '../audit/audit.service';
 import {
   FeeStatus,
@@ -16,6 +17,11 @@ import {
 } from '@biddaloy/shared';
 import { RecordPaymentWithAllocationDto } from './dto/fees.dto';
 import { generateInvoiceNumber } from '../invoices/invoice-numbering.util';
+import {
+  buildIssuerSnapshot,
+  resolveIssuer,
+  IssuerSnapshot,
+} from '../schools/profile/issuer-snapshot';
 
 const AMOUNT_EPSILON = 0.01;
 
@@ -37,6 +43,8 @@ export class PaymentAllocationService {
     private readonly paymentRepo: Repository<Payment>,
     @InjectRepository(Student)
     private readonly studentRepo: Repository<Student>,
+    @InjectRepository(School)
+    private readonly schoolRepo: Repository<School>,
     private readonly auditService: AuditService,
   ) {}
 
@@ -44,7 +52,7 @@ export class PaymentAllocationService {
     dto: RecordPaymentWithAllocationDto,
     tenantId: string,
     userId: string,
-  ): Promise<Payment> {
+  ): Promise<Payment & { issuer: IssuerSnapshot }> {
     const student = await this.studentRepo.findOne({
       where: { id: dto.student_id, tenant_id: tenantId, deleted_at: IsNull() },
     });
@@ -63,6 +71,12 @@ export class PaymentAllocationService {
     if (new Set(feeIds).size !== feeIds.length) {
       throw new BadRequestException('Duplicate student_fee_id in allocations');
     }
+
+    // [15.5.5] Frozen at the moment of record, same reasoning as
+    // InvoicesService.create — read before the transaction so a
+    // concurrent profile edit can never be attributed to this payment.
+    const school = await this.schoolRepo.findOneOrFail({ where: { id: tenantId } });
+    const issuerSnapshot = buildIssuerSnapshot(school);
 
     const paymentId = await this.paymentRepo.manager.transaction(async (manager) => {
       const studentFeeRepo = manager.getRepository(StudentFee);
@@ -166,6 +180,7 @@ export class PaymentAllocationService {
         received_by_user_id: userId,
         payment_date: now,
         tenant_id: tenantId,
+        issuer_snapshot: issuerSnapshot,
       });
       const savedPayment = await paymentRepo.save(payment);
 
@@ -229,6 +244,7 @@ export class PaymentAllocationService {
             due_date: now,
             line_items: lineItems,
             issued_by_user_id: userId,
+            issuer_snapshot: issuerSnapshot,
           }),
         );
         await paymentRepo.update(savedPayment.id, { invoice_id: invoice.id });
@@ -253,10 +269,14 @@ export class PaymentAllocationService {
       return savedPayment.id;
     });
 
-    return this.paymentRepo.findOneOrFail({
+    const payment = await this.paymentRepo.findOneOrFail({
       where: { id: paymentId },
       relations: ['allocations', 'allocations.student_fee', 'invoice'],
     });
+    // The payment just created always has its own fresh snapshot — no
+    // fallback needed, but `resolveIssuer` is used anyway for one code
+    // path rather than two ("just-created" vs "read later").
+    return { ...payment, issuer: resolveIssuer(payment, school) };
   }
 
   private classifyPeriod(

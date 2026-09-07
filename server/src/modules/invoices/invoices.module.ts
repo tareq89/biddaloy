@@ -4,6 +4,7 @@ import { Invoice } from './entities/invoice.entity';
 import { Student } from '../students/entities/student.entity';
 import { StudentFee } from '../fees/entities/student-fee.entity';
 import { Payment } from '../fees/entities/payment.entity';
+import { School } from '../schools/entities/school.entity';
 import { AuditModule } from '../audit/audit.module';
 import { StudentModule } from '../students/students.module';
 import { InvoicesService } from './invoices.service';
@@ -11,7 +12,7 @@ import { InvoicesController } from './invoices.controller';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Invoice, Student, StudentFee, Payment]),
+    TypeOrmModule.forFeature([Invoice, Student, StudentFee, Payment, School]),
     AuditModule,
     StudentModule,
   ],

@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import sharp from 'sharp';
+import type { Readable } from 'stream';
 import { AuditAction } from '@biddaloy/shared';
 import { School } from '../entities/school.entity';
 import { StorageService } from '../../storage/storage.service';
@@ -36,7 +37,7 @@ export class SchoolLogoService {
     userId: string,
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<{ logo_url: string }> {
-    let metadata: sharp.Metadata;
+    let metadata: Awaited<ReturnType<ReturnType<typeof sharp>['metadata']>>;
     try {
       metadata = await sharp(fileBuffer).metadata();
     } catch {
@@ -113,7 +114,7 @@ export class SchoolLogoService {
   /** [15.5.4] Streams the logo bytes for `schoolId`, or throws
    * `NotFoundException` if the school has none. Never returns the storage
    * key — the caller only ever sees a stream + content type. */
-  async serve(schoolId: string): Promise<{ stream: NodeJS.ReadableStream; contentType: string }> {
+  async serve(schoolId: string): Promise<{ stream: Readable; contentType: string }> {
     const school = await this.repo.findOne({ where: { id: schoolId } });
     if (!school?.logo_key) {
       throw new NotFoundException(`School "${schoolId}" has no logo`);

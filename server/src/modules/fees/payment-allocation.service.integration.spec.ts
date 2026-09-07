@@ -194,6 +194,41 @@ describe('PaymentAllocationService (integration)', () => {
     }
   });
 
+  describe('[15.5.5] issuer snapshot', () => {
+    it('freezes the school profile onto the payment (and any auto-generated invoice) at record time', async () => {
+      const schoolRepo = dataSource.getRepository(School);
+      await schoolRepo.update(TENANT_ID, { name: 'Payment-Time Name' });
+
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id, 0));
+
+      const result = await service.recordWithAllocation(
+        {
+          student_id: student.id,
+          total_amount: 1000,
+          payment_method: PaymentMethod.CASH,
+          allocations: [
+            {
+              student_fee_id: fee.id,
+              allocated_amount: 1000,
+              allocation_type: PaymentAllocationType.CURRENT,
+            },
+          ],
+        } as any,
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      expect(result.issuer_snapshot?.name).toBe('Payment-Time Name');
+      expect(result.issuer.name).toBe('Payment-Time Name');
+
+      const invoice = await invoiceRepo.findOne({ where: { id: result.invoice_id! } });
+      expect(invoice!.issuer_snapshot?.name).toBe('Payment-Time Name');
+
+      await schoolRepo.update(TENANT_ID, { name: 'Test School' });
+    });
+  });
+
   describe('partial payment', () => {
     it('updates paid_amount and sets status PARTIALLY_PAID, no invoice generated', async () => {
       const student = await studentRepo.save(makeStudent());
