@@ -19,6 +19,7 @@ export const AUDIT_ENTITY_TYPES = [
   'AttendanceRecord',
   'AttendanceSession',
   'FeeStructure',
+  'Guardian',
   'InvitationBatch',
   'Invoice',
   'Payment',

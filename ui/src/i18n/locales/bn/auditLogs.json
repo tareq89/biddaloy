@@ -60,6 +60,7 @@
     "AttendanceDevice": "উপস্থিতি ডিভাইস",
     "AttendanceRecord": "উপস্থিতি রেকর্ড",
     "AttendanceSession": "উপস্থিতি সেশন",
+    "Guardian": "অভিভাবক",
     "InvitationBatch": "আমন্ত্রণ ব্যাচ",
     "RefreshToken": "সেশন",
     "SchoolHoliday": "স্কুলের ছুটি",
