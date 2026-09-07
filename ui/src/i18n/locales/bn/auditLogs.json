@@ -57,6 +57,7 @@
     "ReminderBatch": "রিমাইন্ডার ব্যাচ",
     "ReminderBatchPreview": "রিমাইন্ডার প্রিভিউ",
     "AbsenceNoticePreview": "অনুপস্থিতি নোটিশ প্রিভিউ",
+    "AcademicYear": "শিক্ষাবর্ষ",
     "AttendanceDevice": "উপস্থিতি ডিভাইস",
     "AttendanceRecord": "উপস্থিতি রেকর্ড",
     "AttendanceSession": "উপস্থিতি সেশন",
@@ -138,6 +139,9 @@
     "role": "ভূমিকা",
     "numeric_grade": "গ্রেড",
     "section_name": "শাখার নাম",
-    "capacity": "ধারণক্ষমতা"
+    "capacity": "ধারণক্ষমতা",
+    "start_date": "শুরুর তারিখ",
+    "end_date": "শেষের তারিখ",
+    "is_current": "চলমান বছর"
   }
 }
