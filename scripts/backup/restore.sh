@@ -12,6 +12,8 @@
 # — see README's "Generating an age keypair"), S3_BUCKET, S3_ENDPOINT,
 # S3_REGION, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY (only needed when the
 # first argument is an s3 key rather than a local file).
+# Optional env: S3_ALLOW_INSECURE_HTTP (opt into a plaintext http://
+# S3_ENDPOINT — only for an approved local/dev endpoint; rejected otherwise).
 #
 # Secrets discipline: never `set -x` here, never echo DATABASE_URL, the
 # target URL, or any key material.
@@ -31,6 +33,13 @@ TARGET_DATABASE_URL="$2"
 # this process's environment carries — a restore is destructive
 # (`pg_restore --clean`), so overwriting the live database by a
 # copy-paste mistake must fail loudly rather than silently succeed.
+#
+# This is a string-equality guard, not an identity check: two different
+# URLs (a DNS alias, a different host resolving to the same instance) can
+# still point at the live database and this check will not catch it. It
+# catches the copy-paste mistake it's meant for; it is not a substitute for
+# an infra-enforced restore-only role/target, which this script does not
+# have access to.
 if [[ -n "${DATABASE_URL:-}" && "$TARGET_DATABASE_URL" == "$DATABASE_URL" ]]; then
   echo "restore.sh: refusing to restore — TARGET_DATABASE_URL matches this environment's DATABASE_URL (the live database)." >&2
   exit 1
@@ -53,6 +62,14 @@ else
   : "${S3_REGION:?S3_REGION is required to fetch an S3 archive}"
   : "${S3_ACCESS_KEY_ID:?S3_ACCESS_KEY_ID is required to fetch an S3 archive}"
   : "${S3_SECRET_ACCESS_KEY:?S3_SECRET_ACCESS_KEY is required to fetch an S3 archive}"
+
+  # See the matching check in backup.sh: reject a plaintext http://
+  # S3_ENDPOINT unless the operator explicitly opts in, since AWS
+  # credentials go out with the request.
+  if [[ "$S3_ENDPOINT" == http://* && "${S3_ALLOW_INSECURE_HTTP:-}" != "true" ]]; then
+    echo "restore.sh: S3_ENDPOINT uses http:// — set S3_ALLOW_INSECURE_HTTP=true only for an approved local/dev endpoint, or use https://" >&2
+    exit 1
+  fi
 
   export AWS_ACCESS_KEY_ID="$S3_ACCESS_KEY_ID"
   export AWS_SECRET_ACCESS_KEY="$S3_SECRET_ACCESS_KEY"

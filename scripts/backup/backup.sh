@@ -8,7 +8,9 @@
 #
 # Required env: DATABASE_URL, BACKUP_AGE_PUBLIC_KEY, S3_BUCKET, S3_ENDPOINT,
 # S3_REGION, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY.
-# Optional env: BACKUP_RETENTION_DAYS (default 30), SENTRY_CRON_MONITOR_URL.
+# Optional env: BACKUP_RETENTION_DAYS (default 30), SENTRY_CRON_MONITOR_URL,
+# S3_ALLOW_INSECURE_HTTP (opt into a plaintext http:// S3_ENDPOINT — only
+# for an approved local/dev endpoint; rejected otherwise).
 #
 # Secrets discipline: never `set -x` here, never echo DATABASE_URL or any
 # key material. If you add debug output, echo shape/status only ("upload
@@ -24,6 +26,20 @@ set -euo pipefail
 : "${S3_SECRET_ACCESS_KEY:?S3_SECRET_ACCESS_KEY is required}"
 
 BACKUP_RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-30}"
+if ! [[ "$BACKUP_RETENTION_DAYS" =~ ^[1-9][0-9]*$ ]]; then
+  echo "backup.sh: BACKUP_RETENTION_DAYS must be a positive integer, got '${BACKUP_RETENTION_DAYS}'" >&2
+  exit 1
+fi
+
+# S3_ENDPOINT must be HTTPS unless the operator explicitly opts into
+# cleartext (S3_ALLOW_INSECURE_HTTP=true) — set by docker-compose.yml for
+# the bundled MinIO service, which shares a Docker network with no TLS
+# termination today (see "Known gap" in docs/architecture/08-security.md).
+if [[ "$S3_ENDPOINT" == http://* && "${S3_ALLOW_INSECURE_HTTP:-}" != "true" ]]; then
+  echo "backup.sh: S3_ENDPOINT uses http:// — set S3_ALLOW_INSECURE_HTTP=true only for an approved local/dev endpoint, or use https://" >&2
+  exit 1
+fi
+
 export AWS_ACCESS_KEY_ID="$S3_ACCESS_KEY_ID"
 export AWS_SECRET_ACCESS_KEY="$S3_SECRET_ACCESS_KEY"
 export AWS_DEFAULT_REGION="$S3_REGION"
@@ -38,7 +54,7 @@ cron_checkin() {
   # (e.g. local dev) — a missing SENTRY_CRON_MONITOR_URL is not a failure.
   local status="$1"
   if [[ -n "${SENTRY_CRON_MONITOR_URL:-}" ]]; then
-    curl -fsS -X POST "${SENTRY_CRON_MONITOR_URL}?status=${status}" >/dev/null || true
+    curl -fsS --connect-timeout 5 --max-time 10 -X POST "${SENTRY_CRON_MONITOR_URL}?status=${status}" >/dev/null || true
   fi
 }
 

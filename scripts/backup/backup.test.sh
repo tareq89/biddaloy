@@ -40,6 +40,7 @@ echo "backup.test.sh: running backup.sh"
 DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@127.0.0.1:5432/${POSTGRES_DB}" \
 BACKUP_AGE_PUBLIC_KEY="$AGE_PUBLIC_KEY" \
 S3_ENDPOINT="http://127.0.0.1:9000" \
+S3_ALLOW_INSECURE_HTTP="true" \
 S3_REGION="us-east-1" \
 S3_BUCKET="$S3_BUCKET" \
 S3_ACCESS_KEY_ID="$S3_ACCESS_KEY_ID" \
@@ -52,7 +53,22 @@ export AWS_ACCESS_KEY_ID="$S3_ACCESS_KEY_ID"
 export AWS_SECRET_ACCESS_KEY="$S3_SECRET_ACCESS_KEY"
 export AWS_DEFAULT_REGION=us-east-1
 
-latest_key="$(aws s3api list-objects-v2 \
+# Use the host `aws` CLI when present, otherwise fall back to the
+# `amazon/aws-cli` image via `docker run` — this is the fallback the
+# header comment above documents, so a host without `aws` installed
+# doesn't just fail under `set -e` on the first S3 call.
+aws_cli() {
+  if command -v aws >/dev/null 2>&1; then
+    aws "$@"
+  else
+    docker run --rm --network host \
+      -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_DEFAULT_REGION \
+      -v "$WORKDIR:$WORKDIR" \
+      amazon/aws-cli "$@"
+  fi
+}
+
+latest_key="$(aws_cli s3api list-objects-v2 \
   --endpoint-url http://127.0.0.1:9000 \
   --bucket "$S3_BUCKET" \
   --prefix "backups/db/" \
@@ -65,7 +81,7 @@ if [[ "$latest_key" != *.dump.age ]]; then
 fi
 echo "PASS: found $latest_key"
 
-aws s3 cp --endpoint-url http://127.0.0.1:9000 "s3://${S3_BUCKET}/${latest_key}" "$WORKDIR/backup.dump.age"
+aws_cli s3 cp --endpoint-url http://127.0.0.1:9000 "s3://${S3_BUCKET}/${latest_key}" "$WORKDIR/backup.dump.age"
 
 echo "backup.test.sh: decrypting with the matching private key"
 age --decrypt -i <(echo "$AGE_PRIVATE_KEY") -o "$WORKDIR/backup.dump" "$WORKDIR/backup.dump.age"

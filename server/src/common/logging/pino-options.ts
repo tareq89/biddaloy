@@ -60,7 +60,11 @@ export function buildPinoOptions(nodeEnv: string | undefined): Params['pinoHttp'
     // Liveness/readiness are polled constantly (uptime monitors, container
     // healthchecks) — logging every hit would drown real request logs in
     // noise for zero operational value.
-    customLogLevel: (req: IncomingMessage) =>
-      req.url?.startsWith('/api/health') ? 'silent' : 'info',
+    customLogLevel: (req: IncomingMessage, res: ServerResponse, err?: Error) => {
+      if (req.url?.startsWith('/api/health')) return 'silent';
+      if (err || res.statusCode >= 500) return 'error';
+      if (res.statusCode >= 400) return 'warn';
+      return 'info';
+    },
   };
 }

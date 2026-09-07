@@ -1220,10 +1220,15 @@ describe('PaymentService (integration)', () => {
   const TENANT_ID = SEED_TENANT_ID;
 
   beforeAll(async () => {
-    const module = await createTestModule(ALL_ENTITIES, [PaymentService, GuardianService], [], {
-      synchronize: true,
-      dropSchema: true,
-    });
+    const module = await createTestModule(
+      ALL_ENTITIES,
+      [PaymentService, GuardianService, AuditService],
+      [],
+      {
+        synchronize: true,
+        dropSchema: true,
+      },
+    );
 
     service = module.get<PaymentService>(PaymentService);
     studentRepo = module.get<Repository<Student>>(getRepositoryToken(Student));

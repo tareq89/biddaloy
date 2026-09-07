@@ -11,7 +11,11 @@ describe('HealthController.ready', () => {
   const originalToken = process.env.HEALTH_TOKEN;
 
   afterEach(() => {
-    process.env.HEALTH_TOKEN = originalToken;
+    if (originalToken === undefined) {
+      delete process.env.HEALTH_TOKEN;
+    } else {
+      process.env.HEALTH_TOKEN = originalToken;
+    }
   });
 
   it('returns 404 when HEALTH_TOKEN is unset', async () => {

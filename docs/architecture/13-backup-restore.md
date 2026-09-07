@@ -101,6 +101,13 @@ UPDATE communication_logs SET status = 'FAILED' WHERE status = 'QUEUED';
 -- Option B: re-enqueue via the app's own retry path instead of writing
 -- directly to Redis — see server/src/modules/communications/
 -- communications.service.ts for the send path these logs came from.
+-- Only safe once you've confirmed, per row, that the original message
+-- was never actually sent (check with the provider, or use an
+-- idempotent retry path keyed on a stable message ID). The dump and
+-- Redis are not captured atomically, so a row still QUEUED in the
+-- restored dump is not proof the send never went out — re-enqueuing on
+-- that assumption alone can duplicate a message the provider already
+-- delivered. When in doubt, use Option A.
 ```
 
 ## Restore runbook

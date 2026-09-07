@@ -39,6 +39,11 @@ server {
         return 404;
     }
 
+    location = /api/health/ready/ {
+        return 404;
+    }
+
+
     location /api/ {
         proxy_pass http://app_upstream;
         proxy_http_version 1.1;

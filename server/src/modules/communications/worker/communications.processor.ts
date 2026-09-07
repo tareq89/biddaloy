@@ -159,6 +159,19 @@ export class CommunicationsProcessor extends WorkerHost {
     if (isFinalAttempt || result.retryable === false) {
       log.status = CommunicationStatus.FAILED;
       await this.settle(log, 'failure');
+      // BullMQ only fires `failed` when the processor throws — a terminal
+      // failure recorded here still returns normally, so this handler is
+      // the only place that reports it (`onFailed` never sees this job).
+      this.reportFailure(
+        {
+          queue: COMMUNICATIONS_QUEUE,
+          job_name: job.name,
+          communication_log_id: log.id,
+          tenant_id: log.tenant_id,
+          medium: log.medium,
+        },
+        new Error(result.error ?? `Provider failed to send communication ${log.id}`),
+      );
       return;
     }
 
@@ -183,14 +196,27 @@ export class CommunicationsProcessor extends WorkerHost {
       communication_log_id: job.data.logId,
     };
     // Best-effort: the log may already be gone (hard-deleted) by the time a
-    // stalled/failed event fires. Tagging tenant/medium is a nice-to-have,
-    // not a precondition for reporting the failure itself.
-    const log = await this.repo.findOne({ where: { id: job.data.logId } });
+    // stalled/failed event fires, or the lookup itself can reject (DB
+    // hiccup) — either way tenant/medium are a nice-to-have, not a
+    // precondition for reporting the failure itself.
+    const log = await this.repo.findOne({ where: { id: job.data.logId } }).catch(() => null);
     if (log) {
       tags.tenant_id = log.tenant_id;
       tags.medium = log.medium;
     }
     return tags;
+  }
+
+  private reportFailure(tags: Record<string, string>, err: Error): void {
+    this.logger.error({
+      msg: 'communications job failed permanently',
+      ...tags,
+      error_class: err?.constructor?.name,
+    });
+    Sentry.withScope((scope) => {
+      scope.setTags(tags);
+      Sentry.captureException(err);
+    });
   }
 
   @OnWorkerEvent('failed')
@@ -204,24 +230,24 @@ export class CommunicationsProcessor extends WorkerHost {
       return;
     }
     const tags = await this.buildTags(job);
-    this.logger.error({
-      msg: 'communications job failed permanently',
-      ...tags,
-      error_class: err?.constructor?.name,
-    });
-    Sentry.withScope((scope) => {
-      scope.setTags(tags);
-      Sentry.captureException(err);
-    });
+    this.reportFailure(tags, err);
   }
 
   @OnWorkerEvent('stalled')
   async onStalled(jobId: string): Promise<void> {
+    // The queue job id (`jobId`) is not the communication log id — enqueue
+    // callers only ever store that in `SendJobData.logId`. Resolve the
+    // actual BullMQ job first so the log lookup (and thus tenant_id/medium)
+    // targets the right row instead of silently missing it.
+    const job = await Promise.resolve()
+      .then(() => Job.fromId<SendJobData>(this.worker, jobId))
+      .catch(() => undefined);
+    const logId = job?.data.logId ?? jobId;
     const tags: Record<string, string> = {
       queue: COMMUNICATIONS_QUEUE,
-      communication_log_id: jobId,
+      communication_log_id: logId,
     };
-    const log = await this.repo.findOne({ where: { id: jobId } });
+    const log = await this.repo.findOne({ where: { id: logId } }).catch(() => null);
     if (log) {
       tags.tenant_id = log.tenant_id;
       tags.medium = log.medium;

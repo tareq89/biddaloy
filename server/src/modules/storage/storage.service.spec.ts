@@ -20,6 +20,7 @@ const TEST_CONFIG: StorageConfig = {
 describe('buildStorageConfig', () => {
   const validEnv = {
     S3_ENDPOINT: 'http://localhost:9000',
+    S3_ALLOW_INSECURE_HTTP: 'true',
     S3_REGION: 'us-east-1',
     S3_BUCKET: 'biddaloy',
     S3_ACCESS_KEY_ID: 'key',
@@ -37,13 +38,31 @@ describe('buildStorageConfig', () => {
     expect(config.forcePathStyle).toBe(true);
   });
 
-  for (const missing of Object.keys(validEnv)) {
+  const requiredEnvKeys = Object.keys(validEnv).filter((key) => key !== 'S3_ALLOW_INSECURE_HTTP');
+
+  for (const missing of requiredEnvKeys) {
     it(`throws naming the missing variable when ${missing} is unset`, () => {
       const env = { ...validEnv };
       delete (env as Record<string, string | undefined>)[missing];
       expect(() => buildStorageConfig(env)).toThrow(new RegExp(missing));
     });
   }
+
+  it('rejects a plaintext http:// endpoint without the insecure opt-in', () => {
+    const env = { ...validEnv };
+    delete (env as Record<string, string | undefined>).S3_ALLOW_INSECURE_HTTP;
+    expect(() => buildStorageConfig(env)).toThrow(/S3_ALLOW_INSECURE_HTTP/);
+  });
+
+  it('accepts a plaintext http:// endpoint with the insecure opt-in', () => {
+    expect(() => buildStorageConfig(validEnv)).not.toThrow();
+  });
+
+  it('accepts an https:// endpoint without the insecure opt-in', () => {
+    const env = { ...validEnv, S3_ENDPOINT: 'https://s3.example.com' };
+    delete (env as Record<string, string | undefined>).S3_ALLOW_INSECURE_HTTP;
+    expect(() => buildStorageConfig(env)).not.toThrow();
+  });
 });
 
 describe('StorageService', () => {
