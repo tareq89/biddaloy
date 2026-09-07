@@ -369,7 +369,11 @@ function AuditLogsList() {
         t('list.expandLabel', { summary: summary(row), when: whenLabel(row) })
       }
       renderExpandedRow={(row) => (
-        <DiffPanel oldValues={row.old_values} newValues={row.new_values} />
+        <DiffPanel
+          oldValues={row.old_values}
+          newValues={row.new_values}
+          entityType={row.entity_type}
+        />
       )}
     />
   );
