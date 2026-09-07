@@ -63,6 +63,7 @@
     "AttendanceSession": "উপস্থিতি সেশন",
     "Class": "ক্লাস",
     "ClassSection": "ক্লাস শাখা",
+    "Enrollment": "ভর্তি",
     "Guardian": "অভিভাবক",
     "InvitationBatch": "আমন্ত্রণ ব্যাচ",
     "RefreshToken": "সেশন",
@@ -142,6 +143,7 @@
     "capacity": "ধারণক্ষমতা",
     "start_date": "শুরুর তারিখ",
     "end_date": "শেষের তারিখ",
-    "is_current": "চলমান বছর"
+    "is_current": "চলমান বছর",
+    "enrollment_status": "ভর্তির অবস্থা"
   }
 }
