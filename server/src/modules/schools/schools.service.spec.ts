@@ -26,6 +26,9 @@ function fakeRepo(school: { id: string; settings: unknown } | null) {
     })),
     save: vi.fn(async (s: typeof school) => s),
     update: vi.fn(async () => ({ affected: 1 })),
+    // `updateStatus` reads the row under a pessimistic lock inside the
+    // transaction — same `school` fixture the top-level `findOne` serves.
+    findOne: vi.fn(async () => school),
   };
   const manager = { getRepository: vi.fn(() => schoolRepo) };
   return {
@@ -865,6 +868,30 @@ describe('SchoolsService', () => {
       expect(deps.auditLogRepo.createQueryBuilder).not.toHaveBeenCalled();
       expect(deps.redis.set).not.toHaveBeenCalled();
     });
+
+    it('throws NotFoundException for an unknown school instead of caching all-zero stats', async () => {
+      const deps = buildDeps({});
+      const repo = fakeRepo(null);
+      const service = new SchoolsService(
+        repo as any,
+        deps.userTenantRepo as any,
+        deps.studentRepo as any,
+        deps.commLogRepo as any,
+        deps.auditLogRepo as any,
+        deps.redis as any,
+        encryption,
+        settingsCache,
+        auditService as any,
+        tenantStatus as any,
+      );
+
+      await expect(service.getStats('missing')).rejects.toThrow(NotFoundException);
+      // Neither the cache nor the tenant-scoped counts ran — an unknown id
+      // never produces (or stores) a zero-valued stats payload.
+      expect(deps.redis.get).not.toHaveBeenCalled();
+      expect(deps.studentRepo.count).not.toHaveBeenCalled();
+      expect(deps.redis.set).not.toHaveBeenCalled();
+    });
   });
 
   describe('updateStatus', () => {
@@ -980,6 +1007,26 @@ describe('SchoolsService', () => {
       await expect(
         service.updateStatus('missing', { status: 'SUSPENDED', reason: 'irrelevant' }, 'admin-1'),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('reads the current status under a pessimistic_write lock inside the transaction, so concurrent suspends serialise', async () => {
+      const { service, repo } = buildService({ id: 's1', status: 'ACTIVE' });
+
+      await service.updateStatus(
+        's1',
+        { status: 'SUSPENDED', reason: 'Non-payment' },
+        'admin-1',
+        REQUEST_CONTEXT,
+      );
+
+      // The locked read, not the unlocked top-level `repo.findOne`, is what
+      // decides no-op vs. transition — a second request blocked on this lock
+      // sees SUSPENDED once the first commits and takes the no-op path.
+      expect(repo.schoolRepo.findOne).toHaveBeenCalledWith({
+        where: { id: 's1' },
+        lock: { mode: 'pessimistic_write' },
+      });
+      expect(repo.findOne).not.toHaveBeenCalled();
     });
   });
 });

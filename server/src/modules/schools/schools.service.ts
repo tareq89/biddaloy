@@ -264,6 +264,9 @@ export class SchoolsService {
    * to "compute it," never to an error.
    */
   async getStats(schoolId: string): Promise<SchoolStats> {
+    // Before the cache: every count below is tenant-scoped, so an unknown
+    // id would otherwise "succeed" with all zeros and cache them for 60s.
+    await this.findById(schoolId);
     const key = this.statsKey(schoolId);
 
     try {
@@ -339,6 +342,11 @@ export class SchoolsService {
    * If the requested status already matches the current one, this is a
    * no-op: no audit row, no cache invalidation, still 200. Nothing
    * actually changed, so there's nothing to explain later.
+   *
+   * The current status is read under a `pessimistic_write` row lock inside
+   * the same transaction as the update, so two concurrent suspend requests
+   * serialise: the second one sees SUSPENDED and takes the no-op path
+   * instead of writing a duplicate SUSPEND audit entry.
    */
   async updateStatus(
     schoolId: string,
@@ -346,22 +354,30 @@ export class SchoolsService {
     userId: string,
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<SchoolStatusResponse> {
-    const school = await this.findById(schoolId);
-
-    if (school.status === dto.status) {
-      return {
-        id: school.id,
-        status: school.status,
-        status_reason: school.status_reason,
-        status_changed_at: school.status_changed_at,
-      };
-    }
-
-    const oldStatus = school.status;
     const now = new Date();
 
-    const updated = await this.repo.manager.transaction(async (manager) => {
+    const { response, changed } = await this.repo.manager.transaction(async (manager) => {
       const schoolRepo = manager.getRepository(School);
+      const school = await schoolRepo.findOne({
+        where: { id: schoolId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!school) {
+        throw new NotFoundException(`School with ID "${schoolId}" not found`);
+      }
+
+      if (school.status === dto.status) {
+        return {
+          changed: false,
+          response: {
+            id: school.id,
+            status: school.status,
+            status_reason: school.status_reason,
+            status_changed_at: school.status_changed_at,
+          },
+        };
+      }
+
       await schoolRepo.update(schoolId, {
         status: dto.status,
         status_reason: dto.reason,
@@ -377,22 +393,27 @@ export class SchoolsService {
           performed_by_user_id: userId,
           ip_address: context.ip,
           user_agent: context.userAgent,
-          old_values: { status: oldStatus },
+          old_values: { status: school.status },
           new_values: { status: dto.status, reason: dto.reason },
         },
         manager,
       );
 
       return {
-        id: schoolId,
-        status: dto.status,
-        status_reason: dto.reason,
-        status_changed_at: now,
+        changed: true,
+        response: {
+          id: schoolId,
+          status: dto.status,
+          status_reason: dto.reason,
+          status_changed_at: now,
+        },
       };
     });
 
-    await this.tenantStatus.invalidate(schoolId);
+    if (changed) {
+      await this.tenantStatus.invalidate(schoolId);
+    }
 
-    return updated;
+    return response;
   }
 }
