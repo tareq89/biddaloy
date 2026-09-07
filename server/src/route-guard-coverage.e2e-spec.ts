@@ -56,6 +56,13 @@ const ALLOWLIST: AllowlistEntry[] = [
     reason: 'Liveness probe — pre-authentication by definition.',
   },
   {
+    controller: 'HealthController',
+    method: 'GET',
+    path: '/health/ready',
+    reason:
+      '[15.1.3] Readiness probe for an uptime monitor, not a tenant user — guarded by its own X-Health-Token check (404 with no token configured, 401 on mismatch) rather than the JWT/tenant guard stack.',
+  },
+  {
     controller: 'AuthController',
     method: 'POST',
     path: '/auth/login',

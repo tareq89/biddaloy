@@ -29,6 +29,16 @@ server {
     # Reasonable upload size for form posts / API
     client_max_body_size 10M;
 
+    # [15.1.3]: readiness is internal-only — it names which dependency
+    # (db/redis/queue) is down, which is useful to an uptime monitor
+    # reaching the app container directly but not to the public internet.
+    # A bare 404 here, not a proxied 401/403, so the route's existence
+    # isn't even disclosed. Must sit above the generic /api/ block below,
+    # since nginx picks the most specific matching `location`.
+    location = /api/health/ready {
+        return 404;
+    }
+
     location /api/ {
         proxy_pass http://app_upstream;
         proxy_http_version 1.1;
