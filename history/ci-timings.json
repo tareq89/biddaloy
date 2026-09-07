@@ -1,100 +1,94 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-08-31T12:46:32.381Z",
+  "generatedAt": "2026-09-07T11:39:34.874Z",
   "window": {
     "requestedRuns": 60,
-    "consideredRuns": 58
+    "consideredRuns": 59
   },
-  "failureRate": 0.5517241379310345,
+  "failureRate": 0.6610169491525424,
   "wall": {
-    "n": 58,
-    "medianMs": 475000,
-    "p90Ms": 644000
+    "n": 59,
+    "medianMs": 469000,
+    "p90Ms": 824000
   },
   "jobs": [
     {
-      "name": "E2E (chromium)",
-      "n": 36,
-      "medianMs": 506000,
-      "p90Ms": 659000
-    },
-    {
       "name": "Frontend tests",
-      "n": 58,
-      "medianMs": 339000,
-      "p90Ms": 384000
+      "n": 59,
+      "medianMs": 428000,
+      "p90Ms": 647000
     },
     {
       "name": "E2E (chromium 1/3)",
-      "n": 15,
-      "medianMs": 310000,
-      "p90Ms": 326000
-    },
-    {
-      "name": "Integration & e2e tests",
       "n": 58,
-      "medianMs": 252000,
-      "p90Ms": 323000
+      "medianMs": 393000,
+      "p90Ms": 438000
     },
     {
       "name": "E2E (chromium 3/3)",
-      "n": 15,
-      "medianMs": 292000,
-      "p90Ms": 322000
-    },
-    {
-      "name": "Lighthouse (3G budgets)",
       "n": 58,
-      "medianMs": 0,
-      "p90Ms": 279000
+      "medianMs": 360000,
+      "p90Ms": 389000
     },
     {
       "name": "E2E (chromium 2/3)",
-      "n": 15,
-      "medianMs": 259000,
-      "p90Ms": 273000
+      "n": 58,
+      "medianMs": 328000,
+      "p90Ms": 383000
+    },
+    {
+      "name": "Integration & e2e tests",
+      "n": 59,
+      "medianMs": 249000,
+      "p90Ms": 308000
+    },
+    {
+      "name": "Lighthouse (3G budgets)",
+      "n": 59,
+      "medianMs": 0,
+      "p90Ms": 289000
     },
     {
       "name": "Build, lint, unit tests",
-      "n": 58,
-      "medianMs": 141000,
-      "p90Ms": 175000
+      "n": 59,
+      "medianMs": 158000,
+      "p90Ms": 189000
     },
     {
       "name": "Storybook build",
-      "n": 58,
-      "medianMs": 68000,
-      "p90Ms": 97000
-    },
-    {
-      "name": "Bundle size delta",
-      "n": 58,
-      "medianMs": 59000,
-      "p90Ms": 91000
+      "n": 59,
+      "medianMs": 62000,
+      "p90Ms": 96000
     },
     {
       "name": "Dependency vulnerability scan",
-      "n": 58,
-      "medianMs": 57000,
-      "p90Ms": 90000
+      "n": 59,
+      "medianMs": 53000,
+      "p90Ms": 85000
+    },
+    {
+      "name": "Bundle size delta",
+      "n": 59,
+      "medianMs": 60000,
+      "p90Ms": 83000
     },
     {
       "name": "Test timings & budgets",
-      "n": 13,
-      "medianMs": 9000,
-      "p90Ms": 15000
+      "n": 59,
+      "medianMs": 11000,
+      "p90Ms": 14000
     },
     {
       "name": "Detect changed areas",
-      "n": 58,
-      "medianMs": 8000,
-      "p90Ms": 12000
+      "n": 59,
+      "medianMs": 6000,
+      "p90Ms": 8000
     },
     {
-      "name": "E2E (${{ matrix.browser }})",
-      "n": 7,
-      "medianMs": 0,
-      "p90Ms": 0
+      "name": "E2E (${{ matrix.browser }} ${{ matrix.shard }}/3)",
+      "n": 1,
+      "medianMs": -1000,
+      "p90Ms": -1000
     }
   ]
 }
