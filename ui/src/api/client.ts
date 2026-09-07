@@ -151,12 +151,16 @@ export async function getAuthSessions(): Promise<SessionListResponse> {
     return response.data;
   } catch (error) {
     if (axios.isAxiosError(error) && error.response?.status === 401) {
-      const token = await refreshAccessToken();
-      const response = await axios.get<SessionListResponse>(`${API_BASE_URL}/auth/sessions`, {
-        withCredentials: true,
-        headers: sessionAuthHeader(token),
-      });
-      return response.data;
+      try {
+        const token = await refreshAccessToken();
+        const response = await axios.get<SessionListResponse>(`${API_BASE_URL}/auth/sessions`, {
+          withCredentials: true,
+          headers: sessionAuthHeader(token),
+        });
+        return response.data;
+      } catch (retryError) {
+        throw toApiError(retryError);
+      }
     }
     throw toApiError(error);
   }
@@ -170,12 +174,16 @@ export async function deleteAuthSession(id: string): Promise<void> {
     });
   } catch (error) {
     if (axios.isAxiosError(error) && error.response?.status === 401) {
-      const token = await refreshAccessToken();
-      await axios.delete(`${API_BASE_URL}/auth/sessions/${id}`, {
-        withCredentials: true,
-        headers: sessionAuthHeader(token),
-      });
-      return;
+      try {
+        const token = await refreshAccessToken();
+        await axios.delete(`${API_BASE_URL}/auth/sessions/${id}`, {
+          withCredentials: true,
+          headers: sessionAuthHeader(token),
+        });
+        return;
+      } catch (retryError) {
+        throw toApiError(retryError);
+      }
     }
     throw toApiError(error);
   }

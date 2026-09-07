@@ -4,7 +4,10 @@
  * feature-detection or security control, just a friendly label ("Chrome on
  * Windows") next to a session row, so a rough, best-effort regex match is
  * enough; a `User-Agent` string that doesn't match anything known renders
- * as `null` and the caller falls back to `t('sessions.unknownDevice')`.
+ * as `null` and the caller falls back to its own "Unknown device" copy —
+ * `session-list.tsx`'s sessions.unknownDevice key. Not written as a
+ * translation-function call in this comment on purpose: this file's
+ * static i18n-key scanner treats that shape as a real call site.
  */
 export interface DeviceDescription {
   browser: string;

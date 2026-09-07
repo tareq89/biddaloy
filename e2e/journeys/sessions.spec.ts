@@ -1,4 +1,9 @@
-import { request as playwrightRequest, type Browser, type BrowserContext } from '@playwright/test';
+import {
+  request as playwrightRequest,
+  type Browser,
+  type BrowserContext,
+  type Page,
+} from '@playwright/test';
 
 import { shells } from '../config';
 import { expect, loggedIn, test } from '../fixtures/test';
@@ -79,6 +84,28 @@ async function newLoggedInContext(browser: Browser, role: SeedRole): Promise<Bro
   return browser.newContext({ baseURL: shells.app.baseURL, storageState });
 }
 
+/**
+ * Clicks every non-current row's "Sign out" button, one at a time, until
+ * only the current device is left. The seeded role here can carry more
+ * than the two families this test itself creates — another spec's login
+ * as the same shared seed role, or (on a retry) this same test's own
+ * previous attempt, whose sessions were never server-side revoked even
+ * though `deviceBContext.close()` below ends the browser context. Revoking
+ * *every* non-current row, rather than guessing which one is "device A's",
+ * is what makes the final "device A got signed out" assertion hold
+ * regardless of how much of that pre-existing pollution is present.
+ */
+async function revokeAllOtherSessions(devicePage: Page): Promise<void> {
+  const otherRow = devicePage
+    .getByTestId('session-row')
+    .filter({ hasNot: devicePage.getByText('This device') })
+    .first();
+  while (await otherRow.count()) {
+    await otherRow.getByRole('button', { name: /Sign out —/ }).click();
+    await expect(otherRow).toHaveCount(0);
+  }
+}
+
 test.describe('Portal: sign out a stolen device from another device', () => {
   test.use(loggedIn('student'));
 
@@ -93,26 +120,33 @@ test.describe('Portal: sign out a stolen device from another device', () => {
     const deviceB = await deviceBContext.newPage();
 
     try {
+      let baselineCount = 0;
+
       await test.step('device A boots into the portal, establishing its own session', async () => {
         await page.goto('/portal/account');
         await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+        // The seeded `student` account can already carry other live
+        // families from elsewhere in the suite (this spec's own retries,
+        // or another spec's login as the same seed role) — so the baseline
+        // is whatever device A observes here, not a hardcoded 1.
+        baselineCount = await page.getByTestId('session-row').count();
       });
 
-      await test.step('device B opens the Devices card and sees both sessions', async () => {
+      await test.step('device B opens the Devices card and sees one more session than device A did', async () => {
         await deviceB.goto('/portal/account');
         const rows = deviceB.getByTestId('session-row');
-        await expect(rows).toHaveCount(2);
-        // Exactly one row is device B's own ("This device"); the other is
-        // device A's — the one this test revokes.
+        await expect(rows).toHaveCount(baselineCount + 1);
+        // Exactly one row is device B's own ("This device"); the rest,
+        // including device A's, are the ones this test revokes below.
         await expect(rows.filter({ has: deviceB.getByText('This device') })).toHaveCount(1);
       });
 
-      await test.step("device B signs out device A's session", async () => {
-        const otherRow = deviceB
-          .getByTestId('session-row')
-          .filter({ hasNot: deviceB.getByText('This device') });
-        await otherRow.getByRole('button', { name: /Sign out —/ }).click();
-        await expect(deviceB.getByTestId('session-row')).toHaveCount(1);
+      await test.step("device B signs out device A's session (and any other stray one)", async () => {
+        await revokeAllOtherSessions(deviceB);
+        // Down to just the current device — `SessionList` swaps to its
+        // empty state at that point (`onlyCurrentDevice`, session-list.tsx),
+        // so there is no longer a `session-row` at all, not one.
+        await expect(deviceB.getByTestId('session-row')).toHaveCount(0);
       });
 
       await test.step('device A is redirected to /login on its next full page load', async () => {
@@ -138,19 +172,23 @@ test.describe('Staff: sign out a device from /security', () => {
     const deviceB = await deviceBContext.newPage();
 
     try {
+      let baselineCount = 0;
+
       await test.step('device A boots into the staff shell', async () => {
         await page.goto('/security');
         await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+        // See the portal journey's own comment above on why this is a
+        // dynamic baseline, not a hardcoded 1.
+        baselineCount = await page.getByTestId('session-row').count();
       });
 
-      await test.step('device B opens /security and revokes the other session', async () => {
+      await test.step('device B opens /security and revokes the other session(s)', async () => {
         await deviceB.goto('/security');
-        const rows = deviceB.getByTestId('session-row');
-        await expect(rows).toHaveCount(2);
+        await expect(deviceB.getByTestId('session-row')).toHaveCount(baselineCount + 1);
 
-        const otherRow = rows.filter({ hasNot: deviceB.getByText('This device') });
-        await otherRow.getByRole('button', { name: /Sign out —/ }).click();
-        await expect(deviceB.getByTestId('session-row')).toHaveCount(1);
+        await revokeAllOtherSessions(deviceB);
+        // See the portal journey's own comment above on the empty-state swap.
+        await expect(deviceB.getByTestId('session-row')).toHaveCount(0);
       });
 
       await test.step('device A is redirected to /login on its next full page load', async () => {
