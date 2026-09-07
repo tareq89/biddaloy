@@ -24,6 +24,7 @@ at hand instead of loading the whole set.
 | [10-third-party-services.md](10-third-party-services.md) | Need to know what external services/APIs Biddaloy depends on (Postgres, Redis, BullMQ, SMS/WhatsApp/email providers, Sentry) — and what it deliberately doesn't use (no payment gateway, no object storage) |
 | [11-attendance.md](11-attendance.md) | Working on attendance, registers, the teacher marking flow, or integrating a scanner |
 | [12-operations.md](12-operations.md) | On call, debugging a production incident, or need alert thresholds / runbooks for 5xx spikes, readiness failures, or failed communication jobs |
+| [13-backup-restore.md](13-backup-restore.md) | Working on backups, restores, disaster recovery, object storage retention, or the `backup`/`minio` docker-compose services |
 
 For practical "how do I run/develop/test this" instructions, see the root
 [`README.md`](../../README.md) — these docs cover the *why* behind the
