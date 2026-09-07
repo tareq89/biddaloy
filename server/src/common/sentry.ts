@@ -30,11 +30,14 @@ export function initSentry(): void {
     return;
   }
 
+  let parsed: URL;
   try {
-    // eslint-disable-next-line no-new -- validated for its side effect (throwing on malformed input)
-    new URL(dsn);
+    parsed = new URL(dsn);
   } catch {
     throw new Error(`SENTRY_DSN is set but not a valid URL — refusing to boot: "${dsn}"`);
+  }
+  if (parsed.protocol !== 'https:') {
+    throw new Error(`SENTRY_DSN must use https — refusing to boot: "${dsn}"`);
   }
 
   Sentry.init({
