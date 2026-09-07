@@ -40,8 +40,19 @@ export function buildStorageConfig(env: NodeJS.ProcessEnv): StorageConfig {
     }
   }
 
+  const endpoint = env.S3_ENDPOINT as string;
+  // S3_ENDPOINT carries static credentials on every request — reject
+  // plaintext http:// by default. S3_ALLOW_INSECURE_HTTP=true is the
+  // explicit opt-in for an approved local/dev endpoint (e.g. the bundled
+  // docker-compose MinIO, which sets it — see docker-compose.yml).
+  if (endpoint.startsWith('http://') && env.S3_ALLOW_INSECURE_HTTP !== 'true') {
+    throw new Error(
+      'StorageModule: S3_ENDPOINT uses http:// — set S3_ALLOW_INSECURE_HTTP=true only for an approved local/dev endpoint, or use https://',
+    );
+  }
+
   return {
-    endpoint: env.S3_ENDPOINT as string,
+    endpoint,
     region: env.S3_REGION as string,
     bucket: env.S3_BUCKET as string,
     accessKeyId: env.S3_ACCESS_KEY_ID as string,
