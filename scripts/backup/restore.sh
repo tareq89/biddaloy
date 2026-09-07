@@ -49,7 +49,6 @@ if [[ -f "$ARCHIVE_SOURCE" ]]; then
   echo "restore.sh: using local archive ${ARCHIVE_SOURCE}"
   cp "$ARCHIVE_SOURCE" "$ENCRYPTED_PATH"
 else
-  : "${S3_BUCKET:?S3_BUCKET is required to fetch an S3 archive}"
   : "${S3_ENDPOINT:?S3_ENDPOINT is required to fetch an S3 archive}"
   : "${S3_REGION:?S3_REGION is required to fetch an S3 archive}"
   : "${S3_ACCESS_KEY_ID:?S3_ACCESS_KEY_ID is required to fetch an S3 archive}"
@@ -59,10 +58,20 @@ else
   export AWS_SECRET_ACCESS_KEY="$S3_SECRET_ACCESS_KEY"
   export AWS_DEFAULT_REGION="$S3_REGION"
 
-  # Strip an "s3://<bucket>/" prefix if present, leaving a bare key either way.
-  object_key="${ARCHIVE_SOURCE#s3://*/}"
-  echo "restore.sh: downloading s3://${S3_BUCKET}/${object_key}"
-  aws s3 cp --endpoint-url "$S3_ENDPOINT" "s3://${S3_BUCKET}/${object_key}" "$ENCRYPTED_PATH"
+  if [[ "$ARCHIVE_SOURCE" == s3://* ]]; then
+    # A full "s3://<bucket>/<key>" URL names its own bucket — honor that
+    # bucket rather than silently substituting $S3_BUCKET, which could
+    # differ and would then fetch from the wrong place.
+    s3_url="$ARCHIVE_SOURCE"
+  else
+    # A bare key (e.g. "backups/db/<ts>.dump.age") is relative to
+    # $S3_BUCKET, which is only required in this branch.
+    : "${S3_BUCKET:?S3_BUCKET is required when ARCHIVE_SOURCE is a bare key, not a full s3:// URL}"
+    s3_url="s3://${S3_BUCKET}/${ARCHIVE_SOURCE}"
+  fi
+
+  echo "restore.sh: downloading ${s3_url}"
+  aws s3 cp --endpoint-url "$S3_ENDPOINT" "$s3_url" "$ENCRYPTED_PATH"
 fi
 
 : "${BACKUP_AGE_PRIVATE_KEY_FILE:?BACKUP_AGE_PRIVATE_KEY_FILE is required}"
