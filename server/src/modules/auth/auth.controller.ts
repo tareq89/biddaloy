@@ -140,10 +140,16 @@ export class AuthController {
   @ApiBearerAuth('bearer')
   @ApiOperation({ summary: "List the caller's active sessions (refresh-token families)." })
   @ApiOkResponse({ type: SessionListDto })
-  async listSessions(@Req() request: Request): Promise<SessionListDto> {
+  async listSessions(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<SessionListDto> {
     const user = request.user as JwtPayload;
     const cookieValue = request.cookies?.[REFRESH_TOKEN_COOKIE];
     const data = await this.authService.listSessions(user.sub, cookieValue);
+    // Device, IP, and last-used metadata — never let an intermediary or the
+    // browser's own disk cache retain this response.
+    response.setHeader('Cache-Control', 'no-store');
     return { data };
   }
 
@@ -180,14 +186,12 @@ export class AuthController {
   ): Promise<void> {
     const user = request.user as JwtPayload;
     const cookieValue = request.cookies?.[REFRESH_TOKEN_COOKIE];
-    const tenantId = (request.headers['x-tenant-id'] as string | undefined) ?? null;
     const revokedCurrent = await this.authService.revokeSession(
       user.sub,
       id,
       cookieValue,
       user.jti,
       requestContext(request),
-      tenantId,
     );
     if (revokedCurrent) {
       response.clearCookie(REFRESH_TOKEN_COOKIE, buildRefreshTokenClearCookieOptions());

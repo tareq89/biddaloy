@@ -419,27 +419,24 @@ function PortalAccount() {
 
       <Card className="flex flex-col gap-3 p-4">
         <h2 className="text-sm font-semibold">{t('account.devices.title')}</h2>
-        {sessionsQuery.isError ? (
-          <p className="text-sm text-muted-foreground">{tAuth('sessions.error')}</p>
-        ) : (
-          <SessionList
-            sessions={sessionsQuery.data ?? []}
-            loading={sessionsQuery.isPending}
-            onRevoke={(id) => {
-              const target = sessionsQuery.data?.find((session) => session.id === id);
-              const current = target?.current ?? false;
-              revokeSession.mutate(
-                { id, current },
-                { onSuccess: () => !current && toast.success(tAuth('sessions.revokedToast')) },
-              );
-            }}
-            onRevokeAll={() => void handleSignOutAllDevices()}
-            revokingId={revokeSession.isPending ? (revokeSession.variables?.id ?? null) : null}
-            onRetry={() => void sessionsQuery.refetch()}
-            config={config}
-            locale={locale}
-          />
-        )}
+        <SessionList
+          sessions={sessionsQuery.data ?? []}
+          loading={sessionsQuery.isPending}
+          error={sessionsQuery.isError ? tAuth('sessions.error') : null}
+          onRevoke={(id) => {
+            const target = sessionsQuery.data?.find((session) => session.id === id);
+            const current = target?.current ?? false;
+            revokeSession.mutate(
+              { id, current },
+              { onSuccess: () => !current && toast.success(tAuth('sessions.revokedToast')) },
+            );
+          }}
+          onRevokeAll={() => void handleSignOutAllDevices()}
+          revokingId={revokeSession.isPending ? (revokeSession.variables?.id ?? null) : null}
+          onRetry={() => void sessionsQuery.refetch()}
+          config={config}
+          locale={locale}
+        />
       </Card>
 
       <Button

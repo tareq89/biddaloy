@@ -336,7 +336,6 @@ export class AuthService {
     cookieValue: string | undefined,
     jti: string,
     context: RequestContext,
-    tenantId: string | null,
   ): Promise<boolean> {
     const ownedRowCount = await this.refreshTokens.countForFamily(familyId, userId);
     if (ownedRowCount === 0) {
@@ -346,14 +345,16 @@ export class AuthService {
     await this.refreshTokens.revokeFamily(familyId);
 
     // A session is an account-level fact spanning every tenant the user
-    // belongs to — not tenant-scoped — so this uses the request's active
-    // tenant when present (an X-Tenant-ID header, though the route does not
-    // require one), else null (audit_logs.tenant_id is nullable).
+    // belongs to — not tenant-scoped. `tenant_id` is resolved from the
+    // caller's own membership (never a client-supplied header — an
+    // authenticated caller could otherwise attribute this audit event to
+    // an arbitrary tenant it has no membership in), same helper every
+    // other account-level audit record in this file uses.
     await this.auditService.record({
       action: AuditAction.SESSION_REVOKED,
       entity_type: 'RefreshToken',
       entity_id: familyId,
-      tenant_id: tenantId,
+      tenant_id: await this.primaryTenantId(userId),
       performed_by_user_id: userId,
       ip_address: context.ip,
       user_agent: context.userAgent,

@@ -563,6 +563,17 @@ describe('Auth E2E', () => {
         .expect(200);
     });
 
+    it('sets Cache-Control: no-store, since the response carries device/IP metadata', async () => {
+      const session = await loginAsSeedAdmin(app);
+
+      const res = await supertest(app.getHttpServer())
+        .get('/api/v1/auth/sessions')
+        .set('Authorization', `Bearer ${session.body.access_token}`)
+        .expect(200);
+
+      expect(res.headers['cache-control']).toBe('no-store');
+    });
+
     it('lists both families, marking current: true only on the one whose cookie was sent', async () => {
       const sessionA = await loginAsSeedAdmin(app);
       const sessionB = await loginAsSeedAdmin(app);

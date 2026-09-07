@@ -23,6 +23,7 @@ function fakeResponse() {
   return {
     cookie: vi.fn(),
     clearCookie: vi.fn(),
+    setHeader: vi.fn(),
   };
 }
 
@@ -185,7 +186,7 @@ describe('AuthController', () => {
         cookies: { [REFRESH_TOKEN_COOKIE]: 'id.secret' },
       });
 
-      const result = await controller.listSessions(request);
+      const result = await controller.listSessions(request, fakeResponse() as any);
 
       expect(mockAuthService.listSessions).toHaveBeenCalledWith('user-1', 'id.secret');
       expect(result).toEqual({ data: rows });
@@ -193,10 +194,20 @@ describe('AuthController', () => {
 
     it('passes undefined through when no cookie is present (a bare API client)', async () => {
       const request = fakeRequest({ user: { sub: 'user-1', jti: 'jti-1', memberships: [] } });
+      const response = fakeResponse();
 
-      await controller.listSessions(request);
+      await controller.listSessions(request, response as any);
 
       expect(mockAuthService.listSessions).toHaveBeenCalledWith('user-1', undefined);
+    });
+
+    it('sets Cache-Control: no-store, since the response carries device/IP metadata', async () => {
+      const request = fakeRequest({ user: { sub: 'user-1', jti: 'jti-1', memberships: [] } });
+      const response = fakeResponse();
+
+      await controller.listSessions(request, response as any);
+
+      expect(response.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
     });
   });
 
@@ -221,7 +232,6 @@ describe('AuthController', () => {
         'id.secret',
         'jti-1',
         expect.anything(),
-        null,
       );
       expect(response.clearCookie).toHaveBeenCalledWith(
         REFRESH_TOKEN_COOKIE,
@@ -243,7 +253,7 @@ describe('AuthController', () => {
       expect(response.clearCookie).not.toHaveBeenCalled();
     });
 
-    it('forwards the X-Tenant-ID header when present, else null', async () => {
+    it('never forwards a client-supplied X-Tenant-ID header — the service resolves tenant_id itself', async () => {
       const response = fakeResponse();
       const request = fakeRequest({ user: { sub: 'user-1', jti: 'jti-1', memberships: [] } });
       request.headers['x-tenant-id'] = 'tenant-1';
@@ -260,7 +270,6 @@ describe('AuthController', () => {
         undefined,
         'jti-1',
         expect.anything(),
-        'tenant-1',
       );
     });
   });
