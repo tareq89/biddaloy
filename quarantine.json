@@ -1,4 +1,11 @@
 {
   "schemaVersion": 1,
-  "tests": []
+  "tests": [
+    {
+      "test": "client-admin/src/routes/_staff/students/index.test.tsx > /students > gates Collect fees by permission — a TEACHER sees View but not Collect fees",
+      "issue": 475,
+      "addedAt": "2026-09-07",
+      "reason": "Test-order pollution in full-suite runs (#475): findByRole('link', { name: 'View' }) times out while the route is still in its loading frame. Passes in isolation; failed the gating pass on two unrelated PR runs."
+    }
+  ]
 }

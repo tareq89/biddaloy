@@ -109,19 +109,18 @@ async function sessionRowCount(devicePage: Page): Promise<number> {
  * regardless of how much of that pre-existing pollution is present.
  */
 async function revokeAllOtherSessions(devicePage: Page): Promise<void> {
-  const otherRows = devicePage
-    .getByTestId('session-row')
-    .filter({ hasNot: devicePage.getByText('This device') });
+  // Locale-proof: the app's default locale is `bn` (`fixtures/test.ts`),
+  // so matching the English "This device" badge or "Sign out —" label
+  // never hits. `SessionCard` exposes `data-current` for exactly this, and
+  // the revoke button is the only button inside a row.
+  const otherRows = devicePage.locator('[data-testid="session-row"][data-current="false"]');
   // Assert on the *full* non-current count going down by one each pass —
   // `.first()` re-resolves to the next remaining row after a revoke, so
   // asserting that single locator reaches zero is wrong whenever more
   // than one stray row is present.
   let remaining = await otherRows.count();
   while (remaining > 0) {
-    await otherRows
-      .first()
-      .getByRole('button', { name: /Sign out —/ })
-      .click();
+    await otherRows.first().getByRole('button').click();
     await expect(otherRows).toHaveCount(remaining - 1);
     remaining -= 1;
   }
@@ -165,9 +164,9 @@ test.describe('Portal: sign out a stolen device from another device', () => {
         // With device B added there are always at least two live
         // families, so the list (not the empty state) is guaranteed here.
         await expect(rows).toHaveCount(Math.max(baselineCount, 1) + 1);
-        // Exactly one row is device B's own ("This device"); the rest,
-        // including device A's, are the ones this test revokes below.
-        await expect(rows.filter({ has: deviceB.getByText('This device') })).toHaveCount(1);
+        // Exactly one row is device B's own (`data-current="true"`); the
+        // rest, including device A's, are the ones this test revokes below.
+        await expect(rows.and(deviceB.locator('[data-current="true"]'))).toHaveCount(1);
       });
 
       await test.step("device B signs out device A's session (and any other stray one)", async () => {
