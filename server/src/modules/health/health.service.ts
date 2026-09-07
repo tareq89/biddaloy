@@ -82,7 +82,6 @@ export class HealthService {
     const redis = new Redis(process.env.REDIS_URL ?? 'redis://127.0.0.1:6379', {
       lazyConnect: true,
       maxRetriesPerRequest: 1,
-      enableOfflineQueue: false,
     });
     try {
       await withTimeout(redis.ping(), PROBE_TIMEOUT_MS);
