@@ -1,3 +1,4 @@
+import type { InvitationStatus } from '@biddaloy/shared';
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
@@ -218,5 +219,144 @@ export function useTestSchoolConnection(schoolId: string) {
       (await apiClient.post<ConnectionTestResult>(`/schools/${schoolId}/settings/test`, input))
         .data,
     retry: shouldRetryQuery,
+  });
+}
+
+/** #535's school detail page. `GET /schools/:id/stats` (#532) — five cheap
+ * platform metrics, hand-typed against `SchoolStats`
+ * (`server/src/modules/schools/schools.service.ts`) since it's not in
+ * `schema.d.ts` yet, same gap `SchoolSummary` documents above.
+ * `last_activity_at` travels as an ISO string over the wire even though
+ * the server type is `Date | null` — same as every other timestamp this
+ * file's siblings (`students.ts` etc.) leave as a string for the caller
+ * to `new Date()` only where it's actually rendered. */
+export interface SchoolStats {
+  active_users: number;
+  students: number;
+  communications_queued: number;
+  communications_failed_7d: number;
+  last_activity_at: string | null;
+}
+
+const schoolStatsKeys = createEntityKeys<never, string>('school-stats');
+
+export function schoolStatsQueryOptions(schoolId: string) {
+  return queryOptions({
+    queryKey: schoolStatsKeys.detail(schoolId),
+    queryFn: async () => (await apiClient.get<SchoolStats>(`/schools/${schoolId}/stats`)).data,
+    enabled: Boolean(schoolId),
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useSchoolStats(schoolId: string) {
+  return useQuery(schoolStatsQueryOptions(schoolId));
+}
+
+/** `PATCH /schools/:id/status` (#530) response — mirrors
+ * `SchoolStatusResponse` (`schools.service.ts`), hand-typed for the same
+ * not-yet-generated reason as `SchoolStats` above. */
+export interface SchoolStatusResult {
+  id: string;
+  status: 'ACTIVE' | 'SUSPENDED';
+  status_reason: string;
+  status_changed_at: string;
+}
+
+export interface UpdateSchoolStatusInput {
+  status: 'ACTIVE' | 'SUSPENDED';
+  reason: string;
+}
+
+/** Optimistic-free: `DetailShell`'s confirm dialog only closes on success
+ * (see `-status-action-dialog.tsx`), so there's no window where the UI
+ * shows a status the server hasn't actually committed. Refetches the
+ * detail-page queries that embed status (`schoolsKeys.detail`, the list)
+ * on success instead of writing the cache by hand — same
+ * invalidate-after-mutate shape `useProvisionSchool` above uses. */
+export function useUpdateSchoolStatus(schoolId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: UpdateSchoolStatusInput) =>
+      (await apiClient.patch<SchoolStatusResult>(`/schools/${schoolId}/status`, input)).data,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: schoolsKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: schoolsKeys.detail(schoolId) });
+    },
+  });
+}
+
+/** `GET /schools/:id/admins` (#531) list item — mirrors
+ * `SchoolAdminListItem` (`school-admins.service.ts`), same hand-typed gap. */
+export interface SchoolAdminListItem {
+  user_id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  membership_status: string;
+  invitation: { id: string; status: InvitationStatus; expires_at: string } | null;
+}
+
+export const schoolAdminsKeys = createEntityKeys('school-admins');
+
+export function schoolAdminsQueryOptions(schoolId: string) {
+  return queryOptions({
+    queryKey: schoolAdminsKeys.list({ schoolId }),
+    queryFn: async () =>
+      (await apiClient.get<SchoolAdminListItem[]>(`/schools/${schoolId}/admins`)).data,
+    enabled: Boolean(schoolId),
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useSchoolAdmins(schoolId: string) {
+  return useQuery(schoolAdminsQueryOptions(schoolId));
+}
+
+export interface AddSchoolAdminInput {
+  name: string;
+  email?: string;
+  phone?: string;
+}
+
+/** `POST /schools/:id/admins` (#531) — reuses the same find-or-create-user
+ * path `POST /schools`'s own admin step does. Invalidates the admins list
+ * on success, same pattern `useProvisionSchool` uses for the schools list. */
+export function useAddSchoolAdmin(schoolId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: AddSchoolAdminInput) =>
+      (await apiClient.post<SchoolAdminListItem>(`/schools/${schoolId}/admins`, input)).data,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: schoolAdminsKeys.list({ schoolId }) });
+    },
+  });
+}
+
+/** `POST /schools/:id/admins/:userId/resend-invitation` (#531) — 204, no
+ * body, same shape as `users.ts`'s own `useResendInvitation` for a staff
+ * member's invitation. */
+export function useResendSchoolAdminInvitation(schoolId: string, userId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      await apiClient.post<void>(`/schools/${schoolId}/admins/${userId}/resend-invitation`);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: schoolAdminsKeys.list({ schoolId }) });
+    },
+  });
+}
+
+/** `DELETE /schools/:id/admins/:userId/invitation` (#531) — 204, no body. */
+export function useRevokeSchoolAdminInvitation(schoolId: string, userId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      await apiClient.delete(`/schools/${schoolId}/admins/${userId}/invitation`);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: schoolAdminsKeys.list({ schoolId }) });
+    },
   });
 }

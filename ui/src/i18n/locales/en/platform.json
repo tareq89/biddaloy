@@ -19,7 +19,59 @@
   },
   "schoolDetail": {
     "title": "School details",
-    "comingSoon": "Detail view for school {{schoolId}} is coming soon."
+    "back": "Back to schools",
+    "loadError": "Could not load this school.",
+    "settingsLink": "Go to school settings",
+    "tabs": {
+      "overview": "Overview"
+    },
+    "actions": {
+      "suspend": "Suspend",
+      "reactivate": "Reactivate"
+    },
+    "statusDialog": {
+      "reasonLabel": "Reason",
+      "error": "Could not update the school's status."
+    },
+    "suspendDialog": {
+      "title": "Suspend school",
+      "description": "{{name}} will lose access immediately. Explain why for the audit log.",
+      "confirm": "Suspend"
+    },
+    "reactivateDialog": {
+      "title": "Reactivate school",
+      "description": "{{name}} will regain access immediately. Explain why for the audit log.",
+      "confirm": "Reactivate"
+    },
+    "stats": {
+      "title": "Stats",
+      "activeUsers": "Active users",
+      "students": "Students",
+      "communicationsQueued": "Communications queued",
+      "communicationsFailed7d": "Communications failed (7d)",
+      "lastActivity": "Last activity",
+      "never": "Never",
+      "loadError": "Could not load stats."
+    },
+    "admins": {
+      "title": "Admins",
+      "empty": "No admins yet.",
+      "loadError": "Could not load admins.",
+      "addTitle": "Add admin",
+      "addAction": "Add admin",
+      "addError": "Could not add this admin.",
+      "nameLabel": "Name",
+      "emailLabel": "Email",
+      "phoneLabel": "Phone",
+      "resend": "Resend invitation",
+      "resending": "Resending…",
+      "resendError": "Could not resend the invitation.",
+      "revoke": "Revoke invitation",
+      "revoking": "Revoking…",
+      "revokeError": "Could not revoke the invitation.",
+      "revokeConfirmTitle": "Revoke invitation",
+      "revokeConfirmDescription": "This revokes the pending invitation for {{name}}. They will need a new one to sign in."
+    }
   },
   "createWizard": {
     "schoolStepTitle": "New school",
