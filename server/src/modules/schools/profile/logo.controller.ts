@@ -22,6 +22,7 @@ import { ApiBody, ApiConsumes, ApiOkResponse, ApiOperation, ApiTags } from '@nes
 import { Request, Response } from 'express';
 import { JwtPayload, UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
+import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
@@ -47,7 +48,7 @@ const LOGO_MAX_FILE_SIZE = 512 * 1024;
 @ApiTags('schools')
 @ApiTenantAuth()
 @Controller('schools')
-@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard)
+@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class SchoolLogoController {
   constructor(private readonly logo: SchoolLogoService) {}
 

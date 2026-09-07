@@ -29,6 +29,7 @@ export function paymentFactory(overrides: Partial<Payment> = {}, script?: Script
     received_by_user_id: null,
     invoice: null,
     invoice_id: null,
+    issuer_snapshot: null,
     allocations: [],
     payment_date: faker.date.recent({ refDate: FACTORY_REFERENCE_DATE }).toISOString(),
     tenant,
