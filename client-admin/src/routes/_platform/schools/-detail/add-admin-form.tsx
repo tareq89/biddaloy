@@ -48,7 +48,10 @@ type AddAdminValues = z.infer<typeof addAdminSchema>;
 export interface AddAdminFormProps {
   submitting: boolean;
   submitError?: string;
-  onSubmit: (values: AddSchoolAdminInput) => void;
+  /** Resolves `true` once the admin is created. The form only clears on
+   * `true` — on a failed `POST /schools/:id/admins` the entered values stay
+   * put so the user can fix and retry without re-typing everything. */
+  onSubmit: (values: AddSchoolAdminInput) => Promise<boolean>;
 }
 
 export function AddAdminForm({ submitting, submitError, onSubmit }: AddAdminFormProps) {
@@ -58,13 +61,13 @@ export function AddAdminForm({ submitting, submitError, onSubmit }: AddAdminForm
     defaultValues: { name: '', email: '', phone: '' },
   });
 
-  function handleSubmit(values: AddAdminValues) {
-    onSubmit({
+  async function handleSubmit(values: AddAdminValues) {
+    const created = await onSubmit({
       name: values.name,
       ...(values.email ? { email: values.email } : {}),
       ...(values.phone ? { phone: values.phone } : {}),
     });
-    form.reset({ name: '', email: '', phone: '' });
+    if (created) form.reset({ name: '', email: '', phone: '' });
   }
 
   return (

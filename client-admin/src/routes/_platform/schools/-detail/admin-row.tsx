@@ -38,7 +38,13 @@ export function AdminRow({ schoolId, admin }: AdminRowProps) {
   const resendInvitation = useResendSchoolAdminInvitation(schoolId, admin.user_id);
   const revokeInvitation = useRevokeSchoolAdminInvitation(schoolId, admin.user_id);
 
-  const pending = admin.invitation !== null;
+  // `InvitationService.issueAndSend` rejects a user who already has a
+  // password with 409, so an ACTIVATED invitation must not offer resend —
+  // only the states where a fresh invite can actually be issued.
+  const canResend =
+    admin.invitation?.status === 'PENDING' ||
+    admin.invitation?.status === 'EXPIRED' ||
+    admin.invitation?.status === 'REVOKED';
   const canRevoke =
     admin.invitation?.status === 'PENDING' || admin.invitation?.status === 'EXPIRED';
 
@@ -52,7 +58,7 @@ export function AdminRow({ schoolId, admin }: AdminRowProps) {
         {admin.invitation && <StatusBadge domain="invitation" status={admin.invitation.status} />}
       </div>
 
-      {pending && (
+      {canResend && (
         <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"

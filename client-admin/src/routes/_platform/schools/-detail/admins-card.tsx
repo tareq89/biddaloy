@@ -33,17 +33,19 @@ export function AdminsCard({ schoolId, admins, loading, error, onRetry }: Admins
   const addAdmin = useAddSchoolAdmin(schoolId);
   const [addError, setAddError] = React.useState<string | undefined>(undefined);
 
-  function handleAdd(values: AddSchoolAdminInput) {
+  async function handleAdd(values: AddSchoolAdminInput): Promise<boolean> {
     setAddError(undefined);
-    addAdmin.mutate(values, {
-      onError: (mutationError: unknown) => {
-        setAddError(
-          mutationError instanceof ApiError
-            ? mutationError.message
-            : t('schoolDetail.admins.addError'),
-        );
-      },
-    });
+    try {
+      await addAdmin.mutateAsync(values);
+      return true;
+    } catch (mutationError: unknown) {
+      setAddError(
+        mutationError instanceof ApiError
+          ? mutationError.message
+          : t('schoolDetail.admins.addError'),
+      );
+      return false;
+    }
   }
 
   return (
