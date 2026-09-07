@@ -269,6 +269,9 @@
     "signOut": {
       "action": "সাইন আউট",
       "signingOut": "সাইন আউট হচ্ছে…"
+    },
+    "devices": {
+      "title": "ডিভাইসসমূহ"
     }
   }
 }

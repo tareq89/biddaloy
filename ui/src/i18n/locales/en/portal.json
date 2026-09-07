@@ -269,6 +269,9 @@
     "signOut": {
       "action": "Sign out",
       "signingOut": "Signing out…"
+    },
+    "devices": {
+      "title": "Devices"
     }
   }
 }

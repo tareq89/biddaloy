@@ -90,6 +90,20 @@ const ALLOWLIST: AllowlistEntry[] = [
       "Bearer-authenticated but tenant-agnostic — rotates the caller's own password, identified solely by user.sub, and takes no user id from the body (AuthGuard(jwt) only, same rationale as /auth/logout-all).",
   },
   {
+    controller: 'AuthController',
+    method: 'GET',
+    path: '/auth/sessions',
+    reason:
+      "[12.8] Bearer-authenticated but tenant-agnostic — lists the caller's own refresh-token families (session spans every tenant the user belongs to), identified solely by user.sub (AuthGuard(jwt) only, same rationale as /auth/logout-all).",
+  },
+  {
+    controller: 'AuthController',
+    method: 'DELETE',
+    path: '/auth/sessions/:id',
+    reason:
+      "[12.8] Bearer-authenticated but tenant-agnostic, plus SameOriginGuard since it consults the refresh cookie to detect the caller's current session — revokes only a family already proven (by countForFamily) to belong to user.sub, same rationale as /auth/logout-all.",
+  },
+  {
     controller: 'DeviceIngestController',
     method: 'POST',
     path: '/attendance/device-events',

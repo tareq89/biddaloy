@@ -23,6 +23,7 @@ function fakeResponse() {
   return {
     cookie: vi.fn(),
     clearCookie: vi.fn(),
+    setHeader: vi.fn(),
   };
 }
 
@@ -49,6 +50,8 @@ describe('AuthController', () => {
       }),
       logout: vi.fn().mockResolvedValue(undefined),
       logoutAll: vi.fn().mockResolvedValue(undefined),
+      listSessions: vi.fn().mockResolvedValue([]),
+      revokeSession: vi.fn().mockResolvedValue(false),
       changePassword: vi.fn().mockResolvedValue({
         access_token: 'post-change-jwt-token',
         memberships: [],
@@ -174,6 +177,103 @@ describe('AuthController', () => {
       expect(response.clearCookie).toHaveBeenCalled();
     });
   });
+  describe('listSessions', () => {
+    it('reads the verified user and cookie, and wraps the result in { data }', async () => {
+      const rows = [{ id: 'family-1', current: true } as any];
+      mockAuthService.listSessions.mockResolvedValue(rows);
+      const request = fakeRequest({
+        user: { sub: 'user-1', jti: 'jti-1', memberships: [] },
+        cookies: { [REFRESH_TOKEN_COOKIE]: 'id.secret' },
+      });
+
+      const result = await controller.listSessions(request, fakeResponse() as any);
+
+      expect(mockAuthService.listSessions).toHaveBeenCalledWith('user-1', 'id.secret');
+      expect(result).toEqual({ data: rows });
+    });
+
+    it('passes undefined through when no cookie is present (a bare API client)', async () => {
+      const request = fakeRequest({ user: { sub: 'user-1', jti: 'jti-1', memberships: [] } });
+      const response = fakeResponse();
+
+      await controller.listSessions(request, response as any);
+
+      expect(mockAuthService.listSessions).toHaveBeenCalledWith('user-1', undefined);
+    });
+
+    it('sets Cache-Control: no-store, since the response carries device/IP metadata', async () => {
+      const request = fakeRequest({ user: { sub: 'user-1', jti: 'jti-1', memberships: [] } });
+      const response = fakeResponse();
+
+      await controller.listSessions(request, response as any);
+
+      expect(response.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
+    });
+  });
+
+  describe('revokeSession', () => {
+    it('clears the cookie when the revoked family was the current one', async () => {
+      mockAuthService.revokeSession.mockResolvedValue(true);
+      const response = fakeResponse();
+      const request = fakeRequest({
+        user: { sub: 'user-1', jti: 'jti-1', memberships: [] },
+        cookies: { [REFRESH_TOKEN_COOKIE]: 'id.secret' },
+      });
+
+      await controller.revokeSession(
+        '11111111-1111-1111-1111-111111111111',
+        request,
+        response as any,
+      );
+
+      expect(mockAuthService.revokeSession).toHaveBeenCalledWith(
+        'user-1',
+        '11111111-1111-1111-1111-111111111111',
+        'id.secret',
+        'jti-1',
+        expect.anything(),
+      );
+      expect(response.clearCookie).toHaveBeenCalledWith(
+        REFRESH_TOKEN_COOKIE,
+        expect.objectContaining({ path: '/' }),
+      );
+    });
+
+    it('does not clear the cookie when the revoked family was not the current one', async () => {
+      mockAuthService.revokeSession.mockResolvedValue(false);
+      const response = fakeResponse();
+      const request = fakeRequest({ user: { sub: 'user-1', jti: 'jti-1', memberships: [] } });
+
+      await controller.revokeSession(
+        '11111111-1111-1111-1111-111111111111',
+        request,
+        response as any,
+      );
+
+      expect(response.clearCookie).not.toHaveBeenCalled();
+    });
+
+    it('never forwards a client-supplied X-Tenant-ID header — the service resolves tenant_id itself', async () => {
+      const response = fakeResponse();
+      const request = fakeRequest({ user: { sub: 'user-1', jti: 'jti-1', memberships: [] } });
+      request.headers['x-tenant-id'] = 'tenant-1';
+
+      await controller.revokeSession(
+        '11111111-1111-1111-1111-111111111111',
+        request,
+        response as any,
+      );
+
+      expect(mockAuthService.revokeSession).toHaveBeenCalledWith(
+        'user-1',
+        '11111111-1111-1111-1111-111111111111',
+        undefined,
+        'jti-1',
+        expect.anything(),
+      );
+    });
+  });
+
   describe('changePassword', () => {
     it('acts on the verified caller, sets the fresh cookie, and returns a LoginResponse', async () => {
       const response = fakeResponse();

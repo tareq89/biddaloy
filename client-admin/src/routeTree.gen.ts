@@ -21,6 +21,7 @@ import { Route as VerifyEmailRouteImport } from './routes/verify-email'
 import { Route as StaffDashboardRouteImport } from './routes/_staff/dashboard'
 import { Route as StaffFeesRouteImport } from './routes/_staff/fees'
 import { Route as StaffNotificationsRouteImport } from './routes/_staff/notifications'
+import { Route as StaffSecurityRouteImport } from './routes/_staff/security'
 import { Route as StaffSettingsRouteImport } from './routes/_staff/settings'
 import { Route as PortalIndexRouteImport } from './routes/portal/index'
 import { Route as PortalAccountRouteImport } from './routes/portal/account'
@@ -113,6 +114,11 @@ const StaffFeesRoute = StaffFeesRouteImport.update({
 const StaffNotificationsRoute = StaffNotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffSecurityRoute = StaffSecurityRouteImport.update({
+  id: '/security',
+  path: '/security',
   getParentRoute: () => StaffRoute,
 } as any)
 const StaffSettingsRoute = StaffSettingsRouteImport.update({
@@ -305,6 +311,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof StaffDashboardRoute
   '/fees': typeof StaffFeesRouteWithChildren
   '/notifications': typeof StaffNotificationsRoute
+  '/security': typeof StaffSecurityRoute
   '/settings': typeof StaffSettingsRoute
   '/portal/account': typeof PortalAccountRoute
   '/portal/attendance': typeof PortalAttendanceRoute
@@ -350,6 +357,7 @@ export interface FileRoutesByTo {
   '/verify-email': typeof VerifyEmailRoute
   '/dashboard': typeof StaffDashboardRoute
   '/notifications': typeof StaffNotificationsRoute
+  '/security': typeof StaffSecurityRoute
   '/settings': typeof StaffSettingsRoute
   '/portal/account': typeof PortalAccountRoute
   '/portal/attendance': typeof PortalAttendanceRoute
@@ -399,6 +407,7 @@ export interface FileRoutesById {
   '/_staff/dashboard': typeof StaffDashboardRoute
   '/_staff/fees': typeof StaffFeesRouteWithChildren
   '/_staff/notifications': typeof StaffNotificationsRoute
+  '/_staff/security': typeof StaffSecurityRoute
   '/_staff/settings': typeof StaffSettingsRoute
   '/portal/account': typeof PortalAccountRoute
   '/portal/attendance': typeof PortalAttendanceRoute
@@ -448,6 +457,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/fees'
     | '/notifications'
+    | '/security'
     | '/settings'
     | '/portal/account'
     | '/portal/attendance'
@@ -493,6 +503,7 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/dashboard'
     | '/notifications'
+    | '/security'
     | '/settings'
     | '/portal/account'
     | '/portal/attendance'
@@ -541,6 +552,7 @@ export interface FileRouteTypes {
     | '/_staff/dashboard'
     | '/_staff/fees'
     | '/_staff/notifications'
+    | '/_staff/security'
     | '/_staff/settings'
     | '/portal/account'
     | '/portal/attendance'
@@ -673,6 +685,13 @@ declare module '@tanstack/react-router' {
       path: '/notifications'
       fullPath: '/notifications'
       preLoaderRoute: typeof StaffNotificationsRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/security': {
+      id: '/_staff/security'
+      path: '/security'
+      fullPath: '/security'
+      preLoaderRoute: typeof StaffSecurityRouteImport
       parentRoute: typeof StaffRoute
     }
     '/_staff/settings': {
@@ -936,6 +955,7 @@ interface StaffRouteChildren {
   StaffDashboardRoute: typeof StaffDashboardRoute
   StaffFeesRoute: typeof StaffFeesRouteWithChildren
   StaffNotificationsRoute: typeof StaffNotificationsRoute
+  StaffSecurityRoute: typeof StaffSecurityRoute
   StaffSettingsRoute: typeof StaffSettingsRoute
   StaffAcademicYearsAcademicYearIdRoute: typeof StaffAcademicYearsAcademicYearIdRoute
   StaffAttendanceSectionIdRoute: typeof StaffAttendanceSectionIdRoute
@@ -969,6 +989,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffDashboardRoute: StaffDashboardRoute,
   StaffFeesRoute: StaffFeesRouteWithChildren,
   StaffNotificationsRoute: StaffNotificationsRoute,
+  StaffSecurityRoute: StaffSecurityRoute,
   StaffSettingsRoute: StaffSettingsRoute,
   StaffAcademicYearsAcademicYearIdRoute: StaffAcademicYearsAcademicYearIdRoute,
   StaffAttendanceSectionIdRoute: StaffAttendanceSectionIdRoute,

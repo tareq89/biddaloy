@@ -8,6 +8,7 @@ import {
   GuardianContactForm,
   LocaleSwitcher,
   ProfileForm,
+  SessionList,
   Skeleton,
   ThemeToggle,
   toast,
@@ -21,20 +22,30 @@ import {
 import {
   changePassword,
   logout,
+  logoutAll,
   myGuardianQueryOptions,
+  sessionsQueryOptions,
   useActiveRole,
   useConfirmPhoneChange,
   useCurrentUser,
   useRequestContactChange,
+  useRevokeSession,
   useUpdateMyGuardian,
   useUpdateOwnProfile,
 } from '@biddaloy/ui/hooks';
-import { RegionConfigProvider, useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import {
+  RegionConfigProvider,
+  useLocale,
+  useRegionConfig,
+  useTranslation,
+} from '@biddaloy/ui/i18n';
 import { formatDate, parseValidationFieldErrors } from '@biddaloy/ui/utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { LogOutIcon } from 'lucide-react';
 import * as React from 'react';
+
+import { loadRouteNamespaces } from '../../route-loaders';
 
 /**
  * [8.14.4] `/portal/account` — the first screen anywhere to consume the
@@ -64,6 +75,11 @@ import * as React from 'react';
  * or STUDENT would 403 on for a value it falls back from anyway.
  */
 export const Route = createFileRoute('/portal/account')({
+  // [12.8] added the Devices card, which pulls in the `auth` namespace's
+  // `sessions.*` strings — preloaded here so first navigation to this route
+  // never suspends into a blank `I18nProvider` fallback, same reasoning
+  // `route-loaders.ts`'s own doc comment documents for every other route.
+  loader: () => loadRouteNamespaces('auth'),
   component: PortalAccountRoute,
 });
 
@@ -84,11 +100,16 @@ const GUARDIAN_FIELDS = ['phone', 'alternate_phone', 'email'] as const;
 
 function PortalAccount() {
   const { t } = useTranslation('portal');
+  const { t: tAuth } = useTranslation('auth');
   const config = useRegionConfig();
+  const { locale } = useLocale();
   const role = useActiveRole();
   const isParent = role === 'PARENT';
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+
+  const sessionsQuery = useQuery(sessionsQueryOptions());
+  const revokeSession = useRevokeSession();
 
   const currentUserQuery = useCurrentUser();
   // [8.14.4] `enabled: isParent` is the actual enforcement of "STUDENT
@@ -255,6 +276,21 @@ function PortalAccount() {
     }
   }
 
+  async function handleSignOutAllDevices(): Promise<void> {
+    try {
+      await logoutAll(queryClient);
+    } catch {
+      // `logoutAll()` already clears local auth state/cache in its own
+      // `finally` even when the network call fails (offline, a transient
+      // 5xx). Swallowed here rather than left to propagate: this handler
+      // always navigates away regardless, and its caller discards the
+      // promise, so an escaped rejection would only surface as an
+      // unhandled-rejection error with nothing left to react to it.
+    } finally {
+      void navigate({ to: '/login' });
+    }
+  }
+
   async function handleSignOut(): Promise<void> {
     setSigningOut(true);
     try {
@@ -386,6 +422,28 @@ function PortalAccount() {
           <span className="text-sm text-muted-foreground">{t('account.preferences.theme')}</span>
           <ThemeToggle />
         </div>
+      </Card>
+
+      <Card className="flex flex-col gap-3 p-4">
+        <h2 className="text-sm font-semibold">{t('account.devices.title')}</h2>
+        <SessionList
+          sessions={sessionsQuery.data ?? []}
+          loading={sessionsQuery.isPending}
+          error={sessionsQuery.isError ? tAuth('sessions.error') : null}
+          onRevoke={(id) => {
+            const target = sessionsQuery.data?.find((session) => session.id === id);
+            const current = target?.current ?? false;
+            revokeSession.mutate(
+              { id, current },
+              { onSuccess: () => !current && toast.success(tAuth('sessions.revokedToast')) },
+            );
+          }}
+          onRevokeAll={() => void handleSignOutAllDevices()}
+          revokingId={revokeSession.isPending ? (revokeSession.variables?.id ?? null) : null}
+          onRetry={() => void sessionsQuery.refetch()}
+          config={config}
+          locale={locale}
+        />
       </Card>
 
       <Button

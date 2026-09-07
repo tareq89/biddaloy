@@ -111,6 +111,84 @@ export async function postAuthLogout(endpoint: '/auth/logout' | '/auth/logout-al
   });
 }
 
+export interface SessionDto {
+  id: string;
+  started_at: string;
+  last_used_at: string;
+  user_agent: string | null;
+  ip_address: string | null;
+  current: boolean;
+}
+
+export interface SessionListResponse {
+  data: SessionDto[];
+}
+
+/** `GET /auth/sessions` / `DELETE /auth/sessions/:id`, bypassing
+ * `apiClient` for the same reason `postAuthLogout` does: `apiClient` sends
+ * no cookie (no `withCredentials`) — so the server could never tell the
+ * caller's own family apart from any other, and every row would come back
+ * `current: false` — and it rejects outright when there is no active
+ * tenant, which these tenant-agnostic routes don't need anyway. Plain
+ * `axios`, `withCredentials: true`, and a manual `Authorization` header,
+ * copying `postAuthLogout`'s shape verbatim.
+ *
+ * Bypassing `apiClient` also skips its 401-refresh-retry interceptor, so
+ * both functions below retry once via `refreshAccessToken` on a 401 —
+ * otherwise a tab left open past the access token's ~15 min life would show
+ * a hard error even though the refresh cookie is still valid and every
+ * `apiClient`-routed page would have recovered silently. */
+function sessionAuthHeader(token: string | null): Record<string, string> {
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+export async function getAuthSessions(): Promise<SessionListResponse> {
+  try {
+    const response = await axios.get<SessionListResponse>(`${API_BASE_URL}/auth/sessions`, {
+      withCredentials: true,
+      headers: sessionAuthHeader(getAccessToken()),
+    });
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      try {
+        const token = await refreshAccessToken();
+        const response = await axios.get<SessionListResponse>(`${API_BASE_URL}/auth/sessions`, {
+          withCredentials: true,
+          headers: sessionAuthHeader(token),
+        });
+        return response.data;
+      } catch (retryError) {
+        throw toApiError(retryError);
+      }
+    }
+    throw toApiError(error);
+  }
+}
+
+export async function deleteAuthSession(id: string): Promise<void> {
+  try {
+    await axios.delete(`${API_BASE_URL}/auth/sessions/${id}`, {
+      withCredentials: true,
+      headers: sessionAuthHeader(getAccessToken()),
+    });
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      try {
+        const token = await refreshAccessToken();
+        await axios.delete(`${API_BASE_URL}/auth/sessions/${id}`, {
+          withCredentials: true,
+          headers: sessionAuthHeader(token),
+        });
+        return;
+      } catch (retryError) {
+        throw toApiError(retryError);
+      }
+    }
+    throw toApiError(error);
+  }
+}
+
 /** `POST /auth/login`, bypassing `apiClient` for the same reason
  * `postAuthRefresh`/`postAuthLogout` do — there is no active tenant yet at
  * the point a caller can even attempt this. `withCredentials: true` so the

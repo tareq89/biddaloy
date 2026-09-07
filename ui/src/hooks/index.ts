@@ -23,7 +23,10 @@ export {
   logoutAll,
   requestOtp,
   resetPassword,
+  sessionsQueryOptions,
+  useRevokeSession,
   verifyOtp,
+  type SessionDto,
 } from './auth';
 export { useAccessToken, useActiveRole, useActiveTenant, useCurrentUserId } from './auth-state';
 export {
