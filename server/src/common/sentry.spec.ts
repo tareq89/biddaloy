@@ -67,4 +67,13 @@ describe('initSentry beforeSend/beforeBreadcrumb scrubbing', () => {
     expect(breadcrumb?.message).toContain('[REDACTED_PHONE]');
     expect(breadcrumb?.message).not.toContain('01711111111');
   });
+
+  // [15.1.5]: httpIntegration is what continues an incoming client trace
+  // (sentry-trace/baggage headers) instead of starting a fresh one — this
+  // asserts it's actually registered, not just assumed from the SDK default.
+  it('registers the http integration for client→server trace propagation', () => {
+    const client = Sentry.getClient();
+    const integrations = client?.getOptions().integrations ?? [];
+    expect(integrations.some((integration) => integration.name === 'Http')).toBe(true);
+  });
 });

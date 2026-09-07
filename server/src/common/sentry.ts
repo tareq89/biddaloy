@@ -42,6 +42,15 @@ export function initSentry(): void {
     environment: process.env.SENTRY_ENVIRONMENT ?? process.env.NODE_ENV ?? 'development',
     release: process.env.SENTRY_RELEASE,
     tracesSampleRate: resolveTracesSampleRate(process.env.SENTRY_TRACES_SAMPLE_RATE),
+    // [15.1.5]: `httpIntegration` is already one of the Node SDK's default
+    // integrations — it's what parses an incoming `sentry-trace`/`baggage`
+    // header pair and continues that trace instead of starting a new one,
+    // which is the entire point of this ticket. Appended to (not replacing)
+    // the defaults via the function form, so console/native-fetch/etc.
+    // integrations this SDK also registers by default are unaffected.
+    // `cors-origins.ts`'s `allowedHeaders` is what lets those two headers
+    // survive a browser preflight to reach here at all.
+    integrations: (defaults) => [...defaults, Sentry.httpIntegration()],
     // Explicit even though it's Sentry's own default — see the same note
     // in ui/src/api/sentry.ts. No request payload, headers, cookies, or
     // user context is ever attached automatically.
