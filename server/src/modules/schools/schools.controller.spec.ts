@@ -18,6 +18,7 @@ function fakeService() {
     findAll: vi.fn(),
     getMaskedSettings: vi.fn(),
     updateSettings: vi.fn(),
+    getStats: vi.fn(),
   };
 }
 
@@ -38,6 +39,24 @@ describe('SchoolsController', () => {
 
       expect(service.findAll).toHaveBeenCalledTimes(1);
       expect(result).toEqual([{ id: SCHOOL_A, name: 'A School' }]);
+    });
+  });
+
+  describe('getStats', () => {
+    it('delegates to the service', async () => {
+      const stats = {
+        active_users: 4,
+        students: 30,
+        communications_queued: 2,
+        communications_failed_7d: 1,
+        last_activity_at: new Date('2026-09-01T00:00:00Z'),
+      };
+      service.getStats.mockResolvedValue(stats);
+
+      const result = await controller.getStats(SCHOOL_A);
+
+      expect(service.getStats).toHaveBeenCalledWith(SCHOOL_A);
+      expect(result).toEqual(stats);
     });
   });
 

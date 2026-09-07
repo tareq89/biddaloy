@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import Redis from 'ioredis';
@@ -10,6 +10,15 @@ import { buildEncryptionKey, buildPreviousEncryptionKeys } from './settings/encr
 import { TenantSettingsCache } from './settings/tenant-settings-cache.service';
 import { TenantStatusService, TENANT_STATUS_REDIS } from './tenant-status.service';
 import { AuditModule } from '../audit/audit.module';
+import { ProvisioningService } from './provisioning/provisioning.service';
+import { ProvisioningController } from './provisioning/provisioning.controller';
+import { AccountAccessModule } from '../account-access/account-access.module';
+import { User } from '../users/entities/user.entity';
+import { UserTenant } from '../auth/entities/user-tenant.entity';
+import { AuthToken } from '../account-access/entities/auth-token.entity';
+import { Student } from '../students/entities/student.entity';
+import { CommunicationLog } from '../communications/entities/communication-log.entity';
+import { AuditLog } from '../audit/entities/audit-log.entity';
 
 const TENANT_SETTINGS_CACHE_TTL_MS = 30_000;
 
@@ -30,10 +39,28 @@ export function encryptionServiceFactory(config: ConfigService): EncryptionServi
 }
 
 @Module({
-  imports: [TypeOrmModule.forFeature([School]), ConfigModule, AuditModule],
-  controllers: [SchoolsController],
+  imports: [
+    TypeOrmModule.forFeature([
+      School,
+      UserTenant,
+      Student,
+      CommunicationLog,
+      AuditLog,
+      User,
+      AuthToken,
+    ]),
+    ConfigModule,
+    AuditModule,
+    // Circular: AccountAccessModule imports SchoolsModule (for
+    // SchoolsService's tenant-settings lookups) — forwardRef breaks the
+    // cycle so ProvisioningService can reuse AccountAccessDeliveryService
+    // rather than re-implementing invitation delivery here (#529).
+    forwardRef(() => AccountAccessModule),
+  ],
+  controllers: [SchoolsController, ProvisioningController],
   providers: [
     SchoolsService,
+    ProvisioningService,
     {
       provide: EncryptionService,
       inject: [ConfigService],

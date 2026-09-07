@@ -56,6 +56,24 @@ describe('SchoolsService', () => {
       const repo = fakeRepo(school);
       const service = new SchoolsService(
         repo as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            innerJoin: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            andWhere: vi.fn().mockReturnThis(),
+            getCount: vi.fn(async () => 0),
+          })),
+        } as any,
+        { count: vi.fn(async () => 0) } as any,
+        { count: vi.fn(async () => 0) } as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            getRawOne: vi.fn(async () => ({ max_created_at: null })),
+          })),
+        } as any,
+        { get: vi.fn(async () => null), set: vi.fn(async () => 'OK') } as any,
         encryption,
         settingsCache,
         auditService as any,
@@ -69,6 +87,24 @@ describe('SchoolsService', () => {
       const repo = fakeRepo(null);
       const service = new SchoolsService(
         repo as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            innerJoin: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            andWhere: vi.fn().mockReturnThis(),
+            getCount: vi.fn(async () => 0),
+          })),
+        } as any,
+        { count: vi.fn(async () => 0) } as any,
+        { count: vi.fn(async () => 0) } as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            getRawOne: vi.fn(async () => ({ max_created_at: null })),
+          })),
+        } as any,
+        { get: vi.fn(async () => null), set: vi.fn(async () => 'OK') } as any,
         encryption,
         settingsCache,
         auditService as any,
@@ -87,6 +123,24 @@ describe('SchoolsService', () => {
       ]);
       const service = new SchoolsService(
         repo as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            innerJoin: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            andWhere: vi.fn().mockReturnThis(),
+            getCount: vi.fn(async () => 0),
+          })),
+        } as any,
+        { count: vi.fn(async () => 0) } as any,
+        { count: vi.fn(async () => 0) } as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            getRawOne: vi.fn(async () => ({ max_created_at: null })),
+          })),
+        } as any,
+        { get: vi.fn(async () => null), set: vi.fn(async () => 'OK') } as any,
         encryption,
         settingsCache,
         auditService as any,
@@ -107,6 +161,24 @@ describe('SchoolsService', () => {
       const repo = fakeRepo({ id: 's1', settings: null });
       const service = new SchoolsService(
         repo as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            innerJoin: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            andWhere: vi.fn().mockReturnThis(),
+            getCount: vi.fn(async () => 0),
+          })),
+        } as any,
+        { count: vi.fn(async () => 0) } as any,
+        { count: vi.fn(async () => 0) } as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            getRawOne: vi.fn(async () => ({ max_created_at: null })),
+          })),
+        } as any,
+        { get: vi.fn(async () => null), set: vi.fn(async () => 'OK') } as any,
         encryption,
         settingsCache,
         auditService as any,
@@ -128,6 +200,24 @@ describe('SchoolsService', () => {
       const repo = fakeRepo(school);
       const service = new SchoolsService(
         repo as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            innerJoin: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            andWhere: vi.fn().mockReturnThis(),
+            getCount: vi.fn(async () => 0),
+          })),
+        } as any,
+        { count: vi.fn(async () => 0) } as any,
+        { count: vi.fn(async () => 0) } as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            getRawOne: vi.fn(async () => ({ max_created_at: null })),
+          })),
+        } as any,
+        { get: vi.fn(async () => null), set: vi.fn(async () => 'OK') } as any,
         encryption,
         settingsCache,
         auditService as any,
@@ -151,6 +241,24 @@ describe('SchoolsService', () => {
       const repo = fakeRepo({ id: 's1', settings: null });
       const service = new SchoolsService(
         repo as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            innerJoin: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            andWhere: vi.fn().mockReturnThis(),
+            getCount: vi.fn(async () => 0),
+          })),
+        } as any,
+        { count: vi.fn(async () => 0) } as any,
+        { count: vi.fn(async () => 0) } as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            getRawOne: vi.fn(async () => ({ max_created_at: null })),
+          })),
+        } as any,
+        { get: vi.fn(async () => null), set: vi.fn(async () => 'OK') } as any,
         encryption,
         settingsCache,
         auditService as any,
@@ -168,6 +276,24 @@ describe('SchoolsService', () => {
       const repo = fakeRepo({ id: 's1', settings: null });
       const service = new SchoolsService(
         repo as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            innerJoin: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            andWhere: vi.fn().mockReturnThis(),
+            getCount: vi.fn(async () => 0),
+          })),
+        } as any,
+        { count: vi.fn(async () => 0) } as any,
+        { count: vi.fn(async () => 0) } as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            getRawOne: vi.fn(async () => ({ max_created_at: null })),
+          })),
+        } as any,
+        { get: vi.fn(async () => null), set: vi.fn(async () => 'OK') } as any,
         encryption,
         settingsCache,
         auditService as any,
@@ -191,6 +317,24 @@ describe('SchoolsService', () => {
       const repo = fakeRepo(null);
       const service = new SchoolsService(
         repo as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            innerJoin: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            andWhere: vi.fn().mockReturnThis(),
+            getCount: vi.fn(async () => 0),
+          })),
+        } as any,
+        { count: vi.fn(async () => 0) } as any,
+        { count: vi.fn(async () => 0) } as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            getRawOne: vi.fn(async () => ({ max_created_at: null })),
+          })),
+        } as any,
+        { get: vi.fn(async () => null), set: vi.fn(async () => 'OK') } as any,
         encryption,
         settingsCache,
         auditService as any,
@@ -209,6 +353,24 @@ describe('SchoolsService', () => {
       const repo = fakeRepo(school);
       const service = new SchoolsService(
         repo as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            innerJoin: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            andWhere: vi.fn().mockReturnThis(),
+            getCount: vi.fn(async () => 0),
+          })),
+        } as any,
+        { count: vi.fn(async () => 0) } as any,
+        { count: vi.fn(async () => 0) } as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            getRawOne: vi.fn(async () => ({ max_created_at: null })),
+          })),
+        } as any,
+        { get: vi.fn(async () => null), set: vi.fn(async () => 'OK') } as any,
         encryption,
         settingsCache,
         auditService as any,
@@ -247,6 +409,24 @@ describe('SchoolsService', () => {
       const repo = fakeRepo(school);
       const service = new SchoolsService(
         repo as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            innerJoin: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            andWhere: vi.fn().mockReturnThis(),
+            getCount: vi.fn(async () => 0),
+          })),
+        } as any,
+        { count: vi.fn(async () => 0) } as any,
+        { count: vi.fn(async () => 0) } as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            getRawOne: vi.fn(async () => ({ max_created_at: null })),
+          })),
+        } as any,
+        { get: vi.fn(async () => null), set: vi.fn(async () => 'OK') } as any,
         encryption,
         settingsCache,
         auditService as any,
@@ -278,6 +458,24 @@ describe('SchoolsService', () => {
       const repo = fakeRepo(school);
       const service = new SchoolsService(
         repo as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            innerJoin: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            andWhere: vi.fn().mockReturnThis(),
+            getCount: vi.fn(async () => 0),
+          })),
+        } as any,
+        { count: vi.fn(async () => 0) } as any,
+        { count: vi.fn(async () => 0) } as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            getRawOne: vi.fn(async () => ({ max_created_at: null })),
+          })),
+        } as any,
+        { get: vi.fn(async () => null), set: vi.fn(async () => 'OK') } as any,
         encryption,
         settingsCache,
         auditService as any,
@@ -315,6 +513,24 @@ describe('SchoolsService', () => {
       });
       const service = new SchoolsService(
         repo as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            innerJoin: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            andWhere: vi.fn().mockReturnThis(),
+            getCount: vi.fn(async () => 0),
+          })),
+        } as any,
+        { count: vi.fn(async () => 0) } as any,
+        { count: vi.fn(async () => 0) } as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            getRawOne: vi.fn(async () => ({ max_created_at: null })),
+          })),
+        } as any,
+        { get: vi.fn(async () => null), set: vi.fn(async () => 'OK') } as any,
         encryption,
         settingsCache,
         auditService as any,
@@ -329,6 +545,24 @@ describe('SchoolsService', () => {
       const repo = fakeRepo({ id: 's1', settings: null });
       const service = new SchoolsService(
         repo as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            innerJoin: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            andWhere: vi.fn().mockReturnThis(),
+            getCount: vi.fn(async () => 0),
+          })),
+        } as any,
+        { count: vi.fn(async () => 0) } as any,
+        { count: vi.fn(async () => 0) } as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            getRawOne: vi.fn(async () => ({ max_created_at: null })),
+          })),
+        } as any,
+        { get: vi.fn(async () => null), set: vi.fn(async () => 'OK') } as any,
         encryption,
         settingsCache,
         auditService as any,
@@ -356,6 +590,24 @@ describe('SchoolsService', () => {
       });
       const service = new SchoolsService(
         repo as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            innerJoin: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            andWhere: vi.fn().mockReturnThis(),
+            getCount: vi.fn(async () => 0),
+          })),
+        } as any,
+        { count: vi.fn(async () => 0) } as any,
+        { count: vi.fn(async () => 0) } as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            getRawOne: vi.fn(async () => ({ max_created_at: null })),
+          })),
+        } as any,
+        { get: vi.fn(async () => null), set: vi.fn(async () => 'OK') } as any,
         encryption,
         settingsCache,
         auditService as any,
@@ -380,6 +632,24 @@ describe('SchoolsService', () => {
       });
       const service = new SchoolsService(
         repo as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            innerJoin: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            andWhere: vi.fn().mockReturnThis(),
+            getCount: vi.fn(async () => 0),
+          })),
+        } as any,
+        { count: vi.fn(async () => 0) } as any,
+        { count: vi.fn(async () => 0) } as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            getRawOne: vi.fn(async () => ({ max_created_at: null })),
+          })),
+        } as any,
+        { get: vi.fn(async () => null), set: vi.fn(async () => 'OK') } as any,
         encryption,
         settingsCache,
         auditService as any,
@@ -397,6 +667,24 @@ describe('SchoolsService', () => {
       const repo = fakeRepo({ id: 's1', settings: null });
       const service = new SchoolsService(
         repo as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            innerJoin: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            andWhere: vi.fn().mockReturnThis(),
+            getCount: vi.fn(async () => 0),
+          })),
+        } as any,
+        { count: vi.fn(async () => 0) } as any,
+        { count: vi.fn(async () => 0) } as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            getRawOne: vi.fn(async () => ({ max_created_at: null })),
+          })),
+        } as any,
+        { get: vi.fn(async () => null), set: vi.fn(async () => 'OK') } as any,
         encryption,
         settingsCache,
         auditService as any,
@@ -406,6 +694,122 @@ describe('SchoolsService', () => {
 
       expect(masked.version).toBe(1);
       expect(masked.region).toEqual(DEFAULT_REGION_SETTINGS);
+    });
+  });
+
+  describe('getStats', () => {
+    const SCHOOL_ID = 's1';
+
+    function buildDeps(overrides: {
+      activeUsers?: number;
+      students?: number;
+      queued?: number;
+      failed7d?: number;
+      lastActivityAt?: Date | null;
+      redisCached?: string | null;
+    }) {
+      const userTenantQb = {
+        innerJoin: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        getCount: vi.fn(async () => overrides.activeUsers ?? 0),
+      };
+      const userTenantRepo = { createQueryBuilder: vi.fn(() => userTenantQb) };
+
+      const studentRepo = { count: vi.fn(async () => overrides.students ?? 0) };
+
+      const commLogRepo = {
+        count: vi.fn(async ({ where }: any) =>
+          where.status === 'QUEUED' ? (overrides.queued ?? 0) : (overrides.failed7d ?? 0),
+        ),
+      };
+
+      const auditLogQb = {
+        select: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        getRawOne: vi.fn(async () => ({
+          max_created_at: overrides.lastActivityAt ?? null,
+        })),
+      };
+      const auditLogRepo = { createQueryBuilder: vi.fn(() => auditLogQb) };
+
+      const redis = {
+        get: vi.fn(async () => overrides.redisCached ?? null),
+        set: vi.fn(async () => 'OK'),
+      };
+
+      return { userTenantRepo, studentRepo, commLogRepo, auditLogRepo, redis };
+    }
+
+    it('returns the five metrics computed from a single COUNT query each, scoped to the school', async () => {
+      const lastActivityAt = new Date('2026-09-01T00:00:00Z');
+      const deps = buildDeps({
+        activeUsers: 4,
+        students: 30,
+        queued: 2,
+        failed7d: 1,
+        lastActivityAt,
+      });
+      const repo = fakeRepo({ id: SCHOOL_ID, settings: null });
+      const service = new SchoolsService(
+        repo as any,
+        deps.userTenantRepo as any,
+        deps.studentRepo as any,
+        deps.commLogRepo as any,
+        deps.auditLogRepo as any,
+        deps.redis as any,
+        encryption,
+        settingsCache,
+        auditService as any,
+      );
+
+      const stats = await service.getStats(SCHOOL_ID);
+
+      expect(stats).toEqual({
+        active_users: 4,
+        students: 30,
+        communications_queued: 2,
+        communications_failed_7d: 1,
+        last_activity_at: lastActivityAt,
+      });
+      // Every underlying query is scoped to this school's id — the
+      // multi-tenancy rule (no cross-tenant joins/leaks).
+      expect(deps.studentRepo.count).toHaveBeenCalledWith({
+        where: { tenant_id: SCHOOL_ID },
+      });
+      expect(deps.redis.set).toHaveBeenCalledTimes(1);
+    });
+
+    it('skips the underlying COUNT queries entirely on a cache hit within the 60s TTL', async () => {
+      const cached = {
+        active_users: 4,
+        students: 30,
+        communications_queued: 2,
+        communications_failed_7d: 1,
+        last_activity_at: new Date('2026-09-01T00:00:00Z').toISOString(),
+      };
+      const deps = buildDeps({ redisCached: JSON.stringify(cached) });
+      const repo = fakeRepo({ id: SCHOOL_ID, settings: null });
+      const service = new SchoolsService(
+        repo as any,
+        deps.userTenantRepo as any,
+        deps.studentRepo as any,
+        deps.commLogRepo as any,
+        deps.auditLogRepo as any,
+        deps.redis as any,
+        encryption,
+        settingsCache,
+        auditService as any,
+      );
+
+      const stats = await service.getStats(SCHOOL_ID);
+
+      expect(stats.active_users).toBe(4);
+      expect(deps.userTenantRepo.createQueryBuilder).not.toHaveBeenCalled();
+      expect(deps.studentRepo.count).not.toHaveBeenCalled();
+      expect(deps.commLogRepo.count).not.toHaveBeenCalled();
+      expect(deps.auditLogRepo.createQueryBuilder).not.toHaveBeenCalled();
+      expect(deps.redis.set).not.toHaveBeenCalled();
     });
   });
 });

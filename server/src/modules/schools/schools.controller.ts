@@ -37,6 +37,16 @@ export class SchoolsController {
     return this.schools.findAll();
   }
 
+  @Get(':id/stats')
+  @Roles(UserRole.SUPER_ADMIN)
+  @ApiOperation({
+    summary:
+      'Five cheap platform metrics for a school (#532) — active users, students, queued/recently-failed communications, and last activity. SUPER_ADMIN only.',
+  })
+  async getStats(@Param('id', ParseUUIDPipe) id: string) {
+    return this.schools.getStats(id);
+  }
+
   @Get(':id/settings')
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
   @RequirePermissions(Permission.SETTINGS_MANAGE)

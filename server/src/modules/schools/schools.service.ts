@@ -1,8 +1,9 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { MoreThanOrEqual, Repository } from 'typeorm';
+import Redis from 'ioredis';
 import type { TenantSettings } from '@biddaloy/shared';
-import { AuditAction } from '@biddaloy/shared';
+import { AuditAction, CommunicationStatus, UserStatus } from '@biddaloy/shared';
 import { School } from './entities/school.entity';
 import { TenantSettingsDto } from './dto/tenant-settings.dto';
 import { resolveTenantSettings } from './settings/tenant-settings-resolver';
@@ -12,8 +13,24 @@ import { decryptSecretFields, encryptSecretFields } from './settings/settings-en
 import { maskSecretFields } from './settings/settings-mask.util';
 import { pickPatchShape, redactSecretPaths } from './settings/settings-audit-redact.util';
 import { TenantSettingsCache } from './settings/tenant-settings-cache.service';
+import { TENANT_STATUS_REDIS } from './tenant-status.service';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
+import { UserTenant } from '../auth/entities/user-tenant.entity';
+import { Student } from '../students/entities/student.entity';
+import { CommunicationLog } from '../communications/entities/communication-log.entity';
+import { AuditLog } from '../audit/entities/audit-log.entity';
+
+export interface SchoolStats {
+  active_users: number;
+  students: number;
+  communications_queued: number;
+  communications_failed_7d: number;
+  last_activity_at: Date | null;
+}
+
+const STATS_CACHE_TTL_SECONDS = 60;
+const STATS_FAILED_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class SchoolsService {
@@ -22,6 +39,15 @@ export class SchoolsService {
   constructor(
     @InjectRepository(School)
     private readonly repo: Repository<School>,
+    @InjectRepository(UserTenant)
+    private readonly userTenantRepo: Repository<UserTenant>,
+    @InjectRepository(Student)
+    private readonly studentRepo: Repository<Student>,
+    @InjectRepository(CommunicationLog)
+    private readonly communicationLogRepo: Repository<CommunicationLog>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepo: Repository<AuditLog>,
+    @Inject(TENANT_STATUS_REDIS) private readonly redis: Redis,
     private readonly encryption: EncryptionService,
     private readonly settingsCache: TenantSettingsCache,
     private readonly auditService: AuditService,
@@ -208,5 +234,85 @@ export class SchoolsService {
       this.encryption,
       this.logMaskingFailure(schoolId),
     );
+  }
+
+  private statsKey(schoolId: string): string {
+    return `tenant:${schoolId}:stats`;
+  }
+
+  /**
+   * Five cheap platform metrics for the SUPER_ADMIN console detail page
+   * (#532). Every query below filters by this school's `tenant_id` — no
+   * cross-tenant joins, matching the rest of this module's per-query
+   * scoping (see the `multi-tenancy` skill checklist).
+   *
+   * Cached in Redis for 60s, keyed by school id, reusing the same
+   * fail-open-friendly client `TenantStatusService` (#527) already wires
+   * up as `TENANT_STATUS_REDIS` — a cache read/write failure here degrades
+   * to "compute it," never to an error.
+   */
+  async getStats(schoolId: string): Promise<SchoolStats> {
+    const key = this.statsKey(schoolId);
+
+    try {
+      const cached = await this.redis.get(key);
+      if (cached) {
+        const parsed = JSON.parse(cached) as SchoolStats;
+        return {
+          ...parsed,
+          last_activity_at: parsed.last_activity_at ? new Date(parsed.last_activity_at) : null,
+        };
+      }
+    } catch (error) {
+      this.logger.error(
+        `Stats cache read failed for school ${schoolId}, falling back to DB: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+
+    const failedSince = new Date(Date.now() - STATS_FAILED_WINDOW_MS);
+
+    const [activeUsers, students, communicationsQueued, communicationsFailed7d, lastActivity] =
+      await Promise.all([
+        this.userTenantRepo
+          .createQueryBuilder('ut')
+          .innerJoin('ut.user', 'user')
+          .where('ut.tenant_id = :schoolId', { schoolId })
+          .andWhere('user.status = :status', { status: UserStatus.ACTIVE })
+          .getCount(),
+        this.studentRepo.count({ where: { tenant_id: schoolId } }),
+        this.communicationLogRepo.count({
+          where: { tenant_id: schoolId, status: CommunicationStatus.QUEUED },
+        }),
+        this.communicationLogRepo.count({
+          where: {
+            tenant_id: schoolId,
+            status: CommunicationStatus.FAILED,
+            created_at: MoreThanOrEqual(failedSince),
+          },
+        }),
+        this.auditLogRepo
+          .createQueryBuilder('al')
+          .select('MAX(al.created_at)', 'max_created_at')
+          .where('al.tenant_id = :schoolId', { schoolId })
+          .getRawOne<{ max_created_at: Date | null }>(),
+      ]);
+
+    const stats: SchoolStats = {
+      active_users: activeUsers,
+      students,
+      communications_queued: communicationsQueued,
+      communications_failed_7d: communicationsFailed7d,
+      last_activity_at: lastActivity?.max_created_at ?? null,
+    };
+
+    try {
+      await this.redis.set(key, JSON.stringify(stats), 'EX', STATS_CACHE_TTL_SECONDS);
+    } catch (error) {
+      this.logger.error(
+        `Stats cache write failed for school ${schoolId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+
+    return stats;
   }
 }
