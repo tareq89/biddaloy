@@ -26,7 +26,7 @@ export type SchoolProfileView = {
  * whatever's after the last `/` in `logo_key`, minus its extension, so a
  * fresh upload (new key) naturally busts any browser cache of the old
  * bytes. Served by [15.5.4]. */
-function buildLogoUrl(schoolId: string, logoKey: string | null): string | null {
+export function buildLogoUrl(schoolId: string, logoKey: string | null): string | null {
   if (!logoKey) return null;
   const filename = logoKey.split('/').pop() ?? '';
   const version = filename.replace(/\.[^.]+$/, '');
