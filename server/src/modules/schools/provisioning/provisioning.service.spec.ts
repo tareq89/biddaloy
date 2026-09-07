@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Reflector } from '@nestjs/core';
-import { UnauthorizedException } from '@nestjs/common';
+import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import { QueryFailedError } from 'typeorm';
 import { SchoolStatus, UserRole } from '@biddaloy/shared';
 import { ProvisioningService } from './provisioning.service';
@@ -63,6 +63,7 @@ describe('ProvisioningService', () => {
     userTenantRepo = {
       create: vi.fn((v: any) => v),
       save: vi.fn(async (v: any) => ({ id: 'membership-1', ...v })),
+      findOne: vi.fn(async () => null),
     };
     authTokenRepo = {
       create: vi.fn((v: any) => v),
@@ -97,11 +98,14 @@ describe('ProvisioningService', () => {
     redisStore = new Map();
     redis = {
       get: vi.fn(async (key: string) => redisStore.get(key) ?? null),
-      set: vi.fn(async (key: string, value: string) => {
-        if (redisStore.has(key)) return null; // NX semantics
+      // Mirrors ioredis: `SET key value EX ttl NX` returns null when the key
+      // already exists; a plain `SET key value EX ttl` always overwrites.
+      set: vi.fn(async (key: string, value: string, ...args: string[]) => {
+        if (args.includes('NX') && redisStore.has(key)) return null;
         redisStore.set(key, value);
         return 'OK';
       }),
+      del: vi.fn(async (key: string) => (redisStore.delete(key) ? 1 : 0)),
     };
 
     service = new ProvisioningService(dataSource, schoolRepo, audit, delivery, config, redis);
@@ -142,7 +146,59 @@ describe('ProvisioningService', () => {
     expect(authTokenRepo.save).not.toHaveBeenCalled();
     expect(audit.record).not.toHaveBeenCalled();
     expect(delivery.deliver).not.toHaveBeenCalled();
-    expect(redis.set).not.toHaveBeenCalled();
+    // The reservation taken before the transaction is released on failure,
+    // so a retry with the same key is not told "in progress".
+    expect(redis.del).toHaveBeenCalledWith(`provision:${dto.idempotency_key}`);
+    expect(redisStore.has(`provision:${dto.idempotency_key}`)).toBe(false);
+  });
+
+  it('reserves the idempotency key atomically before any work, so two concurrent requests create one school and the loser replays the result', async () => {
+    // Hold the first request's transaction open until the second has
+    // arrived — the second must see the in-progress reservation and wait,
+    // never start a second transaction of its own.
+    let releaseFirst!: () => void;
+    const firstGate = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    const realTransaction = dataSource.transaction;
+    dataSource.transaction = vi.fn(async (cb: (m: any) => Promise<unknown>) => {
+      await firstGate;
+      return realTransaction(cb);
+    });
+
+    const first = service.provision(dto, ACTOR);
+    await new Promise((resolve) => setImmediate(resolve));
+    const second = service.provision(dto, ACTOR);
+    await new Promise((resolve) => setImmediate(resolve));
+    releaseFirst();
+
+    const [a, b] = await Promise.all([first, second]);
+
+    expect(a.replayed).toBe(false);
+    expect(b.replayed).toBe(true);
+    expect(b.result).toEqual(a.result);
+    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+    expect(schoolRepo.save).toHaveBeenCalledTimes(1);
+    expect(delivery.deliver).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a second ADMIN membership for the same user on the same school with 409 instead of a raw unique-violation', async () => {
+    userRepo.__setFound({ id: 'existing-user', email: dto.admin.email, full_name: 'Admin One' });
+    userTenantRepo.findOne.mockResolvedValue({
+      user_id: 'existing-user',
+      tenant_id: 'school-1',
+      role: UserRole.ADMIN,
+    });
+
+    await expect(
+      service.provisionAdminForSchool('school-1', dto.admin, ACTOR, manager),
+    ).rejects.toThrow(ConflictException);
+
+    expect(userTenantRepo.findOne).toHaveBeenCalledWith({
+      where: { user_id: 'existing-user', tenant_id: 'school-1', role: UserRole.ADMIN },
+    });
+    expect(userTenantRepo.save).not.toHaveBeenCalled();
+    expect(authTokenRepo.save).not.toHaveBeenCalled();
   });
 
   it('replays the identical stored result on a repeated idempotency_key without creating new rows', async () => {

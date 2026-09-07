@@ -21,6 +21,20 @@ import { ProvisionSchoolDto } from './dto/provision-school.dto';
 
 const IDEMPOTENCY_TTL_SECONDS = 86_400;
 
+/** Sentinel stored under the idempotency key while the first request for
+ * that key is still inside its transaction. Lets a concurrent duplicate
+ * tell "someone is already doing this" apart from "nothing stored yet". */
+const IN_PROGRESS_MARKER = '__provisioning__';
+/** How long the reservation lives if the reserving process dies mid-flight
+ * without clearing it — after this a retry gets a fresh attempt instead of
+ * being stuck behind a ghost. Longer than any realistic transaction. */
+const RESERVATION_TTL_SECONDS = 60;
+/** A duplicate that arrives while the first is in flight polls for the
+ * stored result rather than failing straight away — a double-click is
+ * typically milliseconds behind, so this almost always resolves. */
+const IN_PROGRESS_POLL_MS = 100;
+const IN_PROGRESS_POLL_ATTEMPTS = 50;
+
 export interface ProvisionResult {
   school: { id: string; slug: string; status: SchoolStatus };
   admin: { user_id: string; existed: boolean };
@@ -69,9 +83,19 @@ export class ProvisioningService {
   ): Promise<{ result: ProvisionResult; replayed: boolean }> {
     const key = idempotencyKey(dto.idempotency_key);
 
-    const cached = await this.redis.get(key);
-    if (cached) {
-      return { result: JSON.parse(cached) as ProvisionResult, replayed: true };
+    // Reserve the key atomically *before* any work. A plain GET-then-work
+    // race lets two concurrent requests with the same key both miss the
+    // cache and both create a school; `SET NX` guarantees exactly one of
+    // them wins the reservation and the other waits for its result.
+    const reserved = await this.redis.set(
+      key,
+      IN_PROGRESS_MARKER,
+      'EX',
+      RESERVATION_TTL_SECONDS,
+      'NX',
+    );
+    if (reserved !== 'OK') {
+      return { result: await this.awaitStoredResult(key, dto.idempotency_key), replayed: true };
     }
 
     let deliverAfterCommit: (() => Promise<void>) | null = null;
@@ -120,6 +144,16 @@ export class ProvisioningService {
         };
       });
     } catch (err) {
+      // A failed transaction must release the reservation, otherwise a
+      // legitimate retry with the same key would be told "in progress"
+      // until the reservation TTL expires.
+      await this.redis.del(key).catch((error: unknown) => {
+        this.logger.error(
+          `Idempotency reservation release failed for provision key ${dto.idempotency_key}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      });
       if (
         err instanceof QueryFailedError &&
         (err as unknown as { code?: string }).code === '23505'
@@ -150,7 +184,9 @@ export class ProvisioningService {
     }
 
     try {
-      await this.redis.set(key, JSON.stringify(result), 'EX', IDEMPOTENCY_TTL_SECONDS, 'NX');
+      // Overwrites the in-progress marker (no NX — this request owns the
+      // reservation) with the final result for the full replay window.
+      await this.redis.set(key, JSON.stringify(result), 'EX', IDEMPOTENCY_TTL_SECONDS);
     } catch (error) {
       this.logger.error(
         `Idempotency store failed for provision key ${dto.idempotency_key}: ${
@@ -160,6 +196,30 @@ export class ProvisioningService {
     }
 
     return { result, replayed: false };
+  }
+
+  /**
+   * The key is already held by another request. Either it finished (stored
+   * a result — replay it) or it is still inside its transaction (poll a
+   * little, then give up with a 409 the client can simply retry).
+   */
+  private async awaitStoredResult(key: string, idempotencyKey: string): Promise<ProvisionResult> {
+    for (let attempt = 0; attempt < IN_PROGRESS_POLL_ATTEMPTS; attempt += 1) {
+      const stored = await this.redis.get(key);
+      if (stored === null) {
+        // The holder failed and released the key — this request is a
+        // legitimate retry now, not a duplicate, but re-entering provision()
+        // from here would recurse; a 409 tells the client to retry.
+        break;
+      }
+      if (stored !== IN_PROGRESS_MARKER) {
+        return JSON.parse(stored) as ProvisionResult;
+      }
+      await new Promise((resolve) => setTimeout(resolve, IN_PROGRESS_POLL_MS));
+    }
+    throw new ConflictException(
+      `Provisioning for idempotency_key "${idempotencyKey}" is still in progress — retry shortly`,
+    );
   }
 
   /**
@@ -185,6 +245,17 @@ export class ProvisioningService {
     const authTokenRepo = manager.getRepository(AuthToken);
 
     const { user, existed } = await this.findOrCreateAdminUser(userRepo, admin);
+
+    // `(user_id, tenant_id, role)` is unique on user_tenants — saving a
+    // second ADMIN membership for the same user would surface as a raw
+    // QueryFailedError (500). Check inside the caller's transaction and
+    // answer with a defined 409 instead, without issuing another invitation.
+    const existingMembership = await userTenantRepo.findOne({
+      where: { user_id: user.id, tenant_id: schoolId, role: UserRole.ADMIN },
+    });
+    if (existingMembership) {
+      throw new ConflictException(`User "${user.id}" is already an ADMIN of this school`);
+    }
 
     await userTenantRepo.save(
       userTenantRepo.create({
