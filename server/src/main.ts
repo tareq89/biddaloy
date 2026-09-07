@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { SwaggerModule } from '@nestjs/swagger';
+import { Logger as PinoLogger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import * as express from 'express';
@@ -26,7 +27,11 @@ async function bootstrap() {
   // Throws (malformed SENTRY_DSN) or no-ops (unset), never half-inits.
   initSentry();
 
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });
+  // Every Nest-internal log line (framework startup, module init) from
+  // this point on goes through pino too — buffered above so nothing before
+  // this call is lost to the default console logger.
+  app.useLogger(app.get(PinoLogger));
   const logger = new Logger('Bootstrap');
 
   // Trust exactly one hop (the nginx container in front of this app — see
