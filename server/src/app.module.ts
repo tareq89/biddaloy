@@ -7,6 +7,8 @@ import { APP_GUARD } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
+import { LoggerModule } from 'nestjs-pino';
+import { buildPinoOptions } from './common/logging/pino-options';
 import { AppController } from './app.controller';
 import { resolveDefaultRateLimit } from './rate-limit';
 import { buildDatabaseSsl } from './db-ssl';
@@ -66,6 +68,9 @@ import { AuthToken } from './modules/account-access/entities/auth-token.entity';
       isGlobal: true,
       envFilePath: resolve(__dirname, '..', '..', '.env'),
       validate,
+    }),
+    LoggerModule.forRoot({
+      pinoHttp: buildPinoOptions(process.env.NODE_ENV),
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],

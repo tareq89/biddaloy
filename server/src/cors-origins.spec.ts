@@ -50,7 +50,14 @@ describe('buildCorsOptions', () => {
       origin: ['https://app.example.com'],
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID', 'X-Role'],
+      allowedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'X-Tenant-ID',
+        'X-Role',
+        'sentry-trace',
+        'baggage',
+      ],
     });
   });
 });

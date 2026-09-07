@@ -1,8 +1,13 @@
-import { ExceptionFilter, Catch, ArgumentsHost, Logger } from '@nestjs/common';
+import { ExceptionFilter, Catch, ArgumentsHost, Logger, HttpStatus } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { Request, Response } from 'express';
+import * as Sentry from '@sentry/node';
 import { buildErrorResponseBody, resolveDetailMessage, resolveStatus } from './error-response';
 import { redactPii } from '../redact-log.util';
+
+interface RequestWithTenant extends Request {
+  currentTenant?: { id: string };
+}
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
@@ -13,7 +18,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
-    const request = ctx.getRequest<Request>();
+    const request = ctx.getRequest<RequestWithTenant>();
 
     const incomingRequestId = request.headers['x-request-id'];
     const requestId =
@@ -45,7 +50,37 @@ export class AllExceptionsFilter implements ExceptionFilter {
       exception instanceof Error && exception.stack ? redactPii(exception.stack) : undefined,
     );
 
+    if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+      this.captureToSentry(exception, request, status, requestId);
+    }
+
     response.setHeader('X-Request-Id', requestId);
     response.status(status).json(body);
+  }
+
+  /**
+   * [15.1.1]: only 5xx (server-caused) failures are worth an on-call
+   * looking at — a 4xx is a normal, expected response to a bad request.
+   * Tags only — the request object itself, its headers, body, and query
+   * are never attached (`sentry.ts`'s `beforeSend` also strips
+   * `event.request` as a second layer of defense). A no-op when
+   * `SENTRY_DSN` is unset: `Sentry.captureException` is safe to call with
+   * no client configured.
+   */
+  private captureToSentry(
+    exception: unknown,
+    request: RequestWithTenant,
+    status: number,
+    requestId: string,
+  ): void {
+    Sentry.withScope((scope) => {
+      scope.setTag('route', request.route?.path ?? request.path);
+      scope.setTag('request_id', requestId);
+      scope.setTag('http_status', status);
+      if (request.currentTenant?.id) {
+        scope.setTag('tenant_id', request.currentTenant.id);
+      }
+      Sentry.captureException(exception);
+    });
   }
 }

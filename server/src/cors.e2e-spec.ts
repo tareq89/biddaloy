@@ -78,4 +78,19 @@ describe('CORS E2E', () => {
     expect(res.headers['access-control-allow-headers']).toContain('X-Tenant-ID');
     expect(res.headers['access-control-allow-headers']).toContain('X-Role');
   });
+
+  // [15.1.5]: without these two in the allowlist, a browser preflight would
+  // strip them off the real request and the server would never see the
+  // client's trace id to continue.
+  it('preflight for an allowlisted origin echoes sentry-trace and baggage in Access-Control-Allow-Headers', async () => {
+    const res = await supertest(app.getHttpServer())
+      .options('/health')
+      .set('Origin', allowedOrigin)
+      .set('Access-Control-Request-Method', 'GET')
+      .set('Access-Control-Request-Headers', 'sentry-trace, baggage')
+      .expect(204);
+
+    expect(res.headers['access-control-allow-headers']).toContain('sentry-trace');
+    expect(res.headers['access-control-allow-headers']).toContain('baggage');
+  });
 });
