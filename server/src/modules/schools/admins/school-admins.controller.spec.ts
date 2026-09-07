@@ -6,7 +6,9 @@ import { RolesGuard } from '../../auth/guards/context.guard';
 import { SchoolAdminsController } from './school-admins.controller';
 
 /**
- * Contract: "Non-SUPER_ADMIN caller → 403 on all four routes." The class
+ * Contract: "Non-SUPER_ADMIN caller → 401 on all four routes" (`RolesGuard`
+ * throws `UnauthorizedException` on a role mismatch, the same status the
+ * repo's E2E suites assert for this path). The class
  * carries `@Roles(SUPER_ADMIN)` (rather than repeating it per-method, as
  * `ProvisioningController` does) — same `RolesGuard`, reading
  * `getClass()` when a handler has no method-level override, so one check
@@ -22,7 +24,7 @@ describe('SchoolAdminsController — SUPER_ADMIN only', () => {
     SchoolAdminsController.prototype.revokeInvitation,
   ];
 
-  it.each(handlers)('denies a non-SUPER_ADMIN caller with 401/403 at the RolesGuard', (handler) => {
+  it.each(handlers)('denies a non-SUPER_ADMIN caller with 401 at the RolesGuard', (handler) => {
     const context: any = {
       getHandler: () => handler,
       getClass: () => SchoolAdminsController,

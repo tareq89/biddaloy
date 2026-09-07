@@ -31,7 +31,7 @@ export class SchoolsController {
   @Roles(UserRole.SUPER_ADMIN)
   @ApiOperation({
     summary:
-      "List every school (id and name only) — #8.7.13's super-admin school picker. An ADMIN doesn't get this route at all; they already know their one school from their own tenant context.",
+      "List every school (id, name, slug, status, created_at) — #8.7.13's super-admin school picker, extended by #533's platform schools list. An ADMIN doesn't get this route at all; they already know their one school from their own tenant context.",
   })
   @ApiOkResponse({ type: SchoolListItemDto, isArray: true })
   async findAll() {

@@ -1,27 +1,11 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import { ProvisionSchoolAdminDto } from '../../provisioning/dto/provision-school.dto';
 
 /**
- * `POST /schools/:id/admins` (#531) — same shape as
- * `ProvisionSchoolAdminDto` (#529's `POST /schools`), kept as its own DTO
- * so this lane's files never overlap with the provisioning DTO's file.
+ * `POST /schools/:id/admins` (#531). Identical shape and validation to
+ * `POST /schools`'s nested `admin` (#529) — both feed
+ * `ProvisioningService.provisionAdminForSchool` — so it extends
+ * `ProvisionSchoolAdminDto` rather than re-declaring the fields and the
+ * email-or-phone constraint. Kept as its own class so the OpenAPI schema
+ * name stays `AddSchoolAdminDto` for the generated client types.
  */
-export class AddSchoolAdminDto {
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(100)
-  name: string;
-
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsEmail()
-  @MaxLength(100)
-  email?: string;
-
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  phone?: string;
-}
+export class AddSchoolAdminDto extends ProvisionSchoolAdminDto {}
