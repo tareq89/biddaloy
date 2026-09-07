@@ -71,7 +71,10 @@ somewhere:
 - **No payment gateway.** No bKash, Nagad, SSLCommerz, or Stripe. Payments
   are recorded manually as `Payment` rows — see
   [`04-fees-payments-invoices.md`](04-fees-payments-invoices.md).
-- **No object storage.** No S3, GCS, Cloudinary, or MinIO. Excel exports are
-  generated in-process with `exceljs`.
+- **Object storage is now wired up** (Epic 15.0/#521) — an S3-compatible
+  bucket (MinIO in dev) via `server/src/modules/storage/`, see
+  [`13-backup-restore.md`](13-backup-restore.md). It backs uploaded assets
+  (school logos) and backup archives. Excel exports still generate
+  in-process with `exceljs`, unrelated to this.
 - **No Twilio, no Firebase, no external auth/identity provider.** JWTs are
   issued in-house (`@nestjs/jwt`, `passport-jwt`, `bcrypt`).
