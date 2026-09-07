@@ -55,7 +55,15 @@
     "User": "ব্যবহারকারী",
     "School": "স্কুল",
     "ReminderBatch": "রিমাইন্ডার ব্যাচ",
-    "ReminderBatchPreview": "রিমাইন্ডার প্রিভিউ"
+    "ReminderBatchPreview": "রিমাইন্ডার প্রিভিউ",
+    "AbsenceNoticePreview": "অনুপস্থিতি নোটিশ প্রিভিউ",
+    "AttendanceDevice": "উপস্থিতি ডিভাইস",
+    "AttendanceRecord": "উপস্থিতি রেকর্ড",
+    "AttendanceSession": "উপস্থিতি সেশন",
+    "InvitationBatch": "আমন্ত্রণ ব্যাচ",
+    "RefreshToken": "সেশন",
+    "SchoolHoliday": "স্কুলের ছুটি",
+    "unknown": "রেকর্ড"
   },
   "summaries": {
     "CREATE": "একটি নতুন {{entity}} যোগ করা হয়েছে।",

@@ -5,6 +5,7 @@
  * layout's nav all participate, so a regression in any of them shows up
  * here rather than in a component test that mocked them away.
  */
+import { AUDIT_ENTITY_TYPES } from '@biddaloy/shared';
 import {
   auditEntryFactory,
   auditLogHandlers,
@@ -182,6 +183,43 @@ describe('/audit-logs', () => {
     await waitFor(() =>
       expect(router.state.location.search).toMatchObject({ entity_type: 'FeeStructure' }),
     );
+  });
+
+  // [15.2.1] the record-type filter's options come from the shared
+  // `AUDIT_ENTITY_TYPES` catalog, not a hand-written list here — this
+  // asserts every catalog entry actually shows up as an option, so a
+  // silent drop (e.g. a typo in the catalog import) would fail this test.
+  it('renders one filter option per catalog entity type, plus "All record types"', async () => {
+    renderAuditLogs();
+
+    const user = userEvent.setup();
+    await screen.findByRole('region', { name: TABLE_REGION });
+    await user.click(screen.getByRole('combobox', { name: 'Record type' }));
+
+    const options = await screen.findAllByRole('option');
+    // +1 for "All record types".
+    expect(options).toHaveLength(AUDIT_ENTITY_TYPES.length + 1);
+  });
+
+  // [15.2.1] a log row whose `entity_type` predates this lane's labels (or
+  // any value not in the catalog) must still render, with a fallback
+  // label, rather than a missing-translation key or a hidden row.
+  it('renders a row with an unrecognized entity_type using the fallback label', async () => {
+    server.use(
+      http.get('/api/v1/audit-logs', () =>
+        HttpResponse.json({
+          data: [auditEntryFactory({ action: 'LOGIN', entity_type: 'Legacy', entity_id: null })],
+          total: 1,
+          page: 1,
+          limit: 10,
+          totalPages: 1,
+        }),
+      ),
+    );
+
+    renderAuditLogs();
+
+    expect(await screen.findByText('Record')).toBeTruthy();
   });
 
   // Never `toISOString().slice(0, 10)` — that shifts the day for anyone

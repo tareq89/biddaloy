@@ -55,7 +55,15 @@
     "User": "User",
     "School": "School",
     "ReminderBatch": "Reminder batch",
-    "ReminderBatchPreview": "Reminder preview"
+    "ReminderBatchPreview": "Reminder preview",
+    "AbsenceNoticePreview": "Absence notice preview",
+    "AttendanceDevice": "Attendance device",
+    "AttendanceRecord": "Attendance record",
+    "AttendanceSession": "Attendance session",
+    "InvitationBatch": "Invitation batch",
+    "RefreshToken": "Session",
+    "SchoolHoliday": "School holiday",
+    "unknown": "Record"
   },
   "summaries": {
     "CREATE": "A new {{entity}} was added.",

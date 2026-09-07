@@ -19,7 +19,7 @@
  * re-sorts, and no column is sortable: a partial page re-sorted
  * client-side would silently misrepresent the trail's real order.
  */
-import { AuditAction } from '@biddaloy/shared';
+import { AuditAction, AUDIT_ENTITY_TYPES } from '@biddaloy/shared';
 import { RoutePending, type DataTableColumn } from '@biddaloy/ui/components';
 import { auditLogsQueryOptions, useAuditLogs, useUsers, type AuditLog } from '@biddaloy/ui/hooks';
 import {
@@ -39,21 +39,14 @@ import { DiffPanel } from './-diff-panel';
 import { changedFieldCount, shortEntityId } from './-humanize';
 
 /**
- * The `entity_type` strings the server actually writes today, read off
- * `server/src` rather than guessed from the entity list: offering a filter
- * value nothing ever produces is a filter that can only return "no
- * results". Kept alphabetical so the dropdown reads predictably.
+ * The `entity_type` strings the server actually writes, sourced from the
+ * shared catalog (`@biddaloy/shared`'s `AUDIT_ENTITY_TYPES`) rather than a
+ * hand-written list here — a second list would drift the moment a server
+ * service adds a new entity type. See `shared/src/audit/entity-types.ts`
+ * and `server/src/modules/audit/entity-catalog.spec.ts` for the contract
+ * that keeps this filter and the server in sync.
  */
-const ENTITY_TYPES = [
-  'FeeStructure',
-  'Invoice',
-  'Payment',
-  'ReminderBatch',
-  'ReminderBatchPreview',
-  'School',
-  'Student',
-  'User',
-] as const;
+const ENTITY_TYPES = AUDIT_ENTITY_TYPES;
 
 /** The filter params this page owns. `setFilter`'s old "restate every
  * key" trick is gone — [8.14.10]'s `FilterBar` sends an explicit `null`
@@ -211,9 +204,12 @@ function AuditLogsList() {
 
   function entityLabel(entityType: string): string {
     // The server writes `entity_type` as a free-form varchar, so a value
-    // with no translation is possible — fall back to the raw string
-    // rather than rendering a missing-key path at an administrator.
-    return t(`entityTypes.${entityType}`, { defaultValue: entityType });
+    // with no translation is possible (a historical/legacy type, or one
+    // this lane hasn't labeled yet) — fall back to `entityTypes.unknown`
+    // rather than rendering a missing-key path or an untranslated
+    // camel-case string at an administrator. The row still renders; it
+    // just isn't hidden or given a bare technical name.
+    return t(`entityTypes.${entityType}`, { defaultValue: t('entityTypes.unknown') });
   }
 
   function actionLabel(action: AuditLog['action']): string {
