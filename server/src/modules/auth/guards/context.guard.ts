@@ -99,7 +99,10 @@ export class ContextGuard implements CanActivate {
     if (activeRole !== UserRole.SUPER_ADMIN) {
       const isActive = await this.tenantStatus.isActive(tenantId);
       if (!isActive) {
-        throw new ForbiddenException({ code: 'TENANT_SUSPENDED' });
+        throw new ForbiddenException({
+          message: 'This school has been suspended',
+          details: { code: 'TENANT_SUSPENDED' },
+        });
       }
     }
 

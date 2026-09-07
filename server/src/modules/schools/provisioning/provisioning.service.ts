@@ -131,7 +131,12 @@ export class ProvisioningService {
 
     if (deliverAfterCommit) {
       try {
-        await deliverAfterCommit();
+        // Same cast as `SchoolAdminsService.addAdmin` — `deliverAfterCommit`
+        // is reassigned inside the `dataSource.transaction` closure above,
+        // so TS's control-flow narrowing from the `if` guard above doesn't
+        // survive across that function boundary and widens this call to
+        // `never`.
+        await (deliverAfterCommit as () => Promise<void>)();
       } catch (error) {
         // A delivery failure must not undo the already-committed
         // school/user/invitation — matches AccountAccessDeliveryService's

@@ -32,13 +32,11 @@ import { SchoolPickerPage } from '../pages/school-picker';
  * "pre-existing fixtures" #536's acceptance criteria carve out; this
  * spec needed neither fixture extended, since both already existed.
  *
- * KNOWN GAP (documented here, not fixed by this spec — out of #536's
- * file list): the client has no `TENANT_SUSPENDED`-specific UI. A
- * suspended tenant's next API call 403s and whatever route triggered it
- * renders through the generic `ErrorState`/`RouteErrorFallback` machinery
- * (`role="alert"`, a plain "could not load" message) — same as any other
- * failure. This spec asserts against that generic state, not
- * suspension-specific copy, because there isn't any yet.
+ * A suspended tenant's next API call 403s with `details.code ===
+ * 'TENANT_SUSPENDED'` (`ContextGuard`); `RouteErrorFallback`
+ * (`ui/src/components/route-error-boundary.tsx`) renders its dedicated
+ * suspended fork for that shape — `role="status"`, not `role="alert"`,
+ * since this isn't an application fault.
  */
 
 test.use(loggedIn('super_admin'));
@@ -135,12 +133,13 @@ test('provision a school, activate its admin, suspend it, and reactivate it', as
     await statusResponse;
   });
 
-  await test.step("the admin's next request against the suspended school shows an error state", async () => {
+  await test.step("the admin's next request against the suspended school shows the suspended state", async () => {
     // /settings hits `GET /schools/:id/settings`, which `ContextGuard`
     // now blocks with 403 TENANT_SUSPENDED — /dashboard itself is a
     // static placeholder with no query, so it wouldn't surface this.
     await adminPage.goto('/settings');
-    await expect(adminPage.getByRole('alert')).toBeVisible();
+    await expect(adminPage.getByRole('status')).toBeVisible();
+    await expect(adminPage.getByRole('heading', { name: /suspended/i })).toBeVisible();
   });
 
   await test.step('the second, unrelated seeded tenant still loads fine', async () => {

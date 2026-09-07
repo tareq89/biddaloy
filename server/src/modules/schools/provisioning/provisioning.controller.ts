@@ -4,6 +4,7 @@ import { ApiOperation, ApiOkResponse, ApiCreatedResponse, ApiTags } from '@nestj
 import { Response } from 'express';
 import { JwtPayload, UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
+import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
@@ -20,7 +21,7 @@ import { ProvisionSchoolDto } from './dto/provision-school.dto';
 @ApiTags('schools')
 @ApiTenantAuth()
 @Controller('schools')
-@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard)
+@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class ProvisioningController {
   constructor(private readonly provisioning: ProvisioningService) {}
 
