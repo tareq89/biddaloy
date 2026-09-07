@@ -100,6 +100,7 @@ export class StudentBulkUploadService {
           classSections,
           guardianCache,
           rollsSeenThisRequest,
+          userId,
         );
         createdStudentIds.push(studentId);
       } catch (err) {
@@ -148,6 +149,7 @@ export class StudentBulkUploadService {
     classSections: ClassSectionLookup,
     guardianCache: Map<string, string>,
     rollsSeenThisRequest: Map<string, Set<number>>,
+    userId: string | undefined,
   ): Promise<string> {
     const dto = plainToInstance(BulkUploadRowDto, this.toDtoInput(parsed.values));
     const validationErrors = await validate(dto);
@@ -213,6 +215,7 @@ export class StudentBulkUploadService {
           tenantId,
           guardianCache,
           manager,
+          userId,
         );
         guardianResolutions.push({ phone: dto.guardian1_phone, id: g1Id });
         guardianIds.push(g1Id);
@@ -227,6 +230,7 @@ export class StudentBulkUploadService {
             tenantId,
             guardianCache,
             manager,
+            userId,
           );
           guardianResolutions.push({ phone: dto.guardian2_phone as string, id: g2Id });
           guardianIds.push(g2Id);
@@ -328,6 +332,7 @@ export class StudentBulkUploadService {
     tenantId: string,
     cache: Map<string, string>,
     manager: EntityManager,
+    userId: string | undefined,
   ): Promise<string> {
     const cached = cache.get(info.phone);
     if (cached) return cached;
@@ -339,6 +344,7 @@ export class StudentBulkUploadService {
       { full_name: info.name, phone: info.phone, email: info.email },
       tenantId,
       manager,
+      userId ?? null,
     );
     return created.id;
   }
