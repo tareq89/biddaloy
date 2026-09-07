@@ -13,13 +13,21 @@ import { decryptSecretFields, encryptSecretFields } from './settings/settings-en
 import { maskSecretFields } from './settings/settings-mask.util';
 import { pickPatchShape, redactSecretPaths } from './settings/settings-audit-redact.util';
 import { TenantSettingsCache } from './settings/tenant-settings-cache.service';
-import { TENANT_STATUS_REDIS } from './tenant-status.service';
+import { TENANT_STATUS_REDIS, TenantStatusService } from './tenant-status.service';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { Student } from '../students/entities/student.entity';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
+import { UpdateSchoolStatusDto } from './dto/update-school-status.dto';
+
+export interface SchoolStatusResponse {
+  id: string;
+  status: 'ACTIVE' | 'SUSPENDED';
+  status_reason: string | null;
+  status_changed_at: Date | null;
+}
 
 export interface SchoolStats {
   active_users: number;
@@ -51,6 +59,7 @@ export class SchoolsService {
     private readonly encryption: EncryptionService,
     private readonly settingsCache: TenantSettingsCache,
     private readonly auditService: AuditService,
+    private readonly tenantStatus: TenantStatusService,
   ) {}
 
   async findById(id: string): Promise<School> {
@@ -314,5 +323,73 @@ export class SchoolsService {
     }
 
     return stats;
+  }
+
+  /**
+   * SUPER_ADMIN school lifecycle switch (#530). Sets `status` +
+   * `status_reason` + `status_changed_at` in one transaction with the audit
+   * write (SUSPEND when moving to SUSPENDED, REACTIVATE when moving to
+   * ACTIVE), then invalidates `TenantStatusService`'s cache so the very
+   * next request from that tenant sees the new status — `ContextGuard`
+   * (#527) reads through that same cache.
+   *
+   * If the requested status already matches the current one, this is a
+   * no-op: no audit row, no cache invalidation, still 200. Nothing
+   * actually changed, so there's nothing to explain later.
+   */
+  async updateStatus(
+    schoolId: string,
+    dto: UpdateSchoolStatusDto,
+    userId: string,
+    context: RequestContext = { ip: null, userAgent: null },
+  ): Promise<SchoolStatusResponse> {
+    const school = await this.findById(schoolId);
+
+    if (school.status === dto.status) {
+      return {
+        id: school.id,
+        status: school.status,
+        status_reason: school.status_reason,
+        status_changed_at: school.status_changed_at,
+      };
+    }
+
+    const oldStatus = school.status;
+    const now = new Date();
+
+    const updated = await this.repo.manager.transaction(async (manager) => {
+      const schoolRepo = manager.getRepository(School);
+      await schoolRepo.update(schoolId, {
+        status: dto.status,
+        status_reason: dto.reason,
+        status_changed_at: now,
+      });
+
+      await this.auditService.record(
+        {
+          action: dto.status === 'SUSPENDED' ? AuditAction.SUSPEND : AuditAction.REACTIVATE,
+          entity_type: 'School',
+          entity_id: schoolId,
+          tenant_id: schoolId,
+          performed_by_user_id: userId,
+          ip_address: context.ip,
+          user_agent: context.userAgent,
+          old_values: { status: oldStatus },
+          new_values: { status: dto.status, reason: dto.reason },
+        },
+        manager,
+      );
+
+      return {
+        id: schoolId,
+        status: dto.status,
+        status_reason: dto.reason,
+        status_changed_at: now,
+      };
+    });
+
+    await this.tenantStatus.invalidate(schoolId);
+
+    return updated;
   }
 }

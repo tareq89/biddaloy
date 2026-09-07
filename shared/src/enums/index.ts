@@ -171,6 +171,10 @@ export enum AuditAction {
   /** A refresh-token family was revoked via self-service session management
    * (12.8) — GET/DELETE /auth/sessions. */
   SESSION_REVOKED = 'SESSION_REVOKED',
+  /** A SUPER_ADMIN suspended a school's access (15.4) — PATCH /schools/:id/status. */
+  SUSPEND = 'SUSPEND',
+  /** A SUPER_ADMIN reactivated a previously suspended school (15.4) — PATCH /schools/:id/status. */
+  REACTIVATE = 'REACTIVATE',
 }
 
 export enum EnrollmentStatus {

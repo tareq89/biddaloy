@@ -25,6 +25,7 @@ function fakeRepo(school: { id: string; settings: unknown } | null) {
       getOne: vi.fn(async () => school),
     })),
     save: vi.fn(async (s: typeof school) => s),
+    update: vi.fn(async () => ({ affected: 1 })),
   };
   const manager = { getRepository: vi.fn(() => schoolRepo) };
   return {
@@ -39,15 +40,21 @@ function fakeAuditService() {
   return { record: vi.fn() };
 }
 
+function fakeTenantStatus() {
+  return { invalidate: vi.fn(), isActive: vi.fn() };
+}
+
 describe('SchoolsService', () => {
   let encryption: EncryptionService;
   let settingsCache: TenantSettingsCache;
   let auditService: ReturnType<typeof fakeAuditService>;
+  let tenantStatus: ReturnType<typeof fakeTenantStatus>;
 
   beforeEach(() => {
     encryption = new EncryptionService(randomBytes(32));
     settingsCache = new TenantSettingsCache(30_000);
     auditService = fakeAuditService();
+    tenantStatus = fakeTenantStatus();
   });
 
   describe('findById', () => {
@@ -77,6 +84,7 @@ describe('SchoolsService', () => {
         encryption,
         settingsCache,
         auditService as any,
+        tenantStatus as any,
       );
 
       expect(await service.findById('s1')).toBe(school);
@@ -108,6 +116,7 @@ describe('SchoolsService', () => {
         encryption,
         settingsCache,
         auditService as any,
+        tenantStatus as any,
       );
 
       await expect(service.findById('missing')).rejects.toThrow(NotFoundException);
@@ -144,6 +153,7 @@ describe('SchoolsService', () => {
         encryption,
         settingsCache,
         auditService as any,
+        tenantStatus as any,
       );
 
       const schools = await service.findAll();
@@ -182,6 +192,7 @@ describe('SchoolsService', () => {
         encryption,
         settingsCache,
         auditService as any,
+        tenantStatus as any,
       );
 
       const resolved = await service.getResolvedSettings('s1');
@@ -221,6 +232,7 @@ describe('SchoolsService', () => {
         encryption,
         settingsCache,
         auditService as any,
+        tenantStatus as any,
       );
 
       const patch = plainToInstance(TenantSettingsDto, {
@@ -262,6 +274,7 @@ describe('SchoolsService', () => {
         encryption,
         settingsCache,
         auditService as any,
+        tenantStatus as any,
       );
       const invalidateSpy = vi.spyOn(settingsCache, 'invalidate');
 
@@ -297,6 +310,7 @@ describe('SchoolsService', () => {
         encryption,
         settingsCache,
         auditService as any,
+        tenantStatus as any,
       );
 
       const patch = plainToInstance(TenantSettingsDto, {
@@ -338,6 +352,7 @@ describe('SchoolsService', () => {
         encryption,
         settingsCache,
         auditService as any,
+        tenantStatus as any,
       );
       const patch = plainToInstance(TenantSettingsDto, { version: 1 });
 
@@ -374,6 +389,7 @@ describe('SchoolsService', () => {
         encryption,
         settingsCache,
         auditService as any,
+        tenantStatus as any,
       );
 
       const patch = plainToInstance(TenantSettingsDto, {
@@ -430,6 +446,7 @@ describe('SchoolsService', () => {
         encryption,
         settingsCache,
         auditService as any,
+        tenantStatus as any,
       );
 
       const patch = plainToInstance(TenantSettingsDto, {
@@ -479,6 +496,7 @@ describe('SchoolsService', () => {
         encryption,
         settingsCache,
         auditService as any,
+        tenantStatus as any,
       );
 
       const patch = plainToInstance(TenantSettingsDto, {
@@ -534,6 +552,7 @@ describe('SchoolsService', () => {
         encryption,
         settingsCache,
         auditService as any,
+        tenantStatus as any,
       );
 
       const decrypted = await service.getDecryptedSettings('s1');
@@ -566,6 +585,7 @@ describe('SchoolsService', () => {
         encryption,
         settingsCache,
         auditService as any,
+        tenantStatus as any,
       );
 
       const decrypted = await service.getDecryptedSettings('s1');
@@ -611,6 +631,7 @@ describe('SchoolsService', () => {
         encryption,
         settingsCache,
         auditService as any,
+        tenantStatus as any,
       );
 
       const decrypted = await service.getDecryptedSettings('s1');
@@ -653,6 +674,7 @@ describe('SchoolsService', () => {
         encryption,
         settingsCache,
         auditService as any,
+        tenantStatus as any,
       );
 
       const masked = await service.getMaskedSettings('s1');
@@ -688,6 +710,7 @@ describe('SchoolsService', () => {
         encryption,
         settingsCache,
         auditService as any,
+        tenantStatus as any,
       );
 
       const masked = await service.getMaskedSettings('s1');
@@ -761,6 +784,7 @@ describe('SchoolsService', () => {
         encryption,
         settingsCache,
         auditService as any,
+        tenantStatus as any,
       );
 
       const stats = await service.getStats(SCHOOL_ID);
@@ -800,6 +824,7 @@ describe('SchoolsService', () => {
         encryption,
         settingsCache,
         auditService as any,
+        tenantStatus as any,
       );
 
       const stats = await service.getStats(SCHOOL_ID);
@@ -810,6 +835,122 @@ describe('SchoolsService', () => {
       expect(deps.commLogRepo.count).not.toHaveBeenCalled();
       expect(deps.auditLogRepo.createQueryBuilder).not.toHaveBeenCalled();
       expect(deps.redis.set).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('updateStatus', () => {
+    function buildService(school: { id: string; status: 'ACTIVE' | 'SUSPENDED' }) {
+      const repo = fakeRepo(school as any);
+      const service = new SchoolsService(
+        repo as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            innerJoin: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            andWhere: vi.fn().mockReturnThis(),
+            getCount: vi.fn(async () => 0),
+          })),
+        } as any,
+        { count: vi.fn(async () => 0) } as any,
+        { count: vi.fn(async () => 0) } as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            getRawOne: vi.fn(async () => ({ max_created_at: null })),
+          })),
+        } as any,
+        { get: vi.fn(async () => null), set: vi.fn(async () => 'OK') } as any,
+        encryption,
+        settingsCache,
+        auditService as any,
+        tenantStatus as any,
+      );
+      return { service, repo };
+    }
+
+    it('suspends an active school: writes status columns, audits SUSPEND with the reason, invalidates the tenant status cache', async () => {
+      const { service, repo } = buildService({ id: 's1', status: 'ACTIVE' });
+
+      const result = await service.updateStatus(
+        's1',
+        { status: 'SUSPENDED', reason: 'Non-payment for 60 days' },
+        'admin-1',
+        REQUEST_CONTEXT,
+      );
+
+      expect(result.status).toBe('SUSPENDED');
+      expect(result.status_reason).toBe('Non-payment for 60 days');
+      expect(result.status_changed_at).toBeInstanceOf(Date);
+
+      expect(repo.schoolRepo.update).toHaveBeenCalledWith(
+        's1',
+        expect.objectContaining({ status: 'SUSPENDED', status_reason: 'Non-payment for 60 days' }),
+      );
+
+      expect(auditService.record).toHaveBeenCalledTimes(1);
+      const [entry] = auditService.record.mock.calls[0];
+      expect(entry).toMatchObject({
+        action: AuditAction.SUSPEND,
+        entity_type: 'School',
+        entity_id: 's1',
+        tenant_id: 's1',
+        performed_by_user_id: 'admin-1',
+        old_values: { status: 'ACTIVE' },
+        new_values: { status: 'SUSPENDED', reason: 'Non-payment for 60 days' },
+      });
+
+      expect(tenantStatus.invalidate).toHaveBeenCalledWith('s1');
+    });
+
+    it('reactivates a suspended school: audits REACTIVATE and invalidates the cache, restoring access', async () => {
+      const { service, repo } = buildService({ id: 's1', status: 'SUSPENDED' });
+
+      const result = await service.updateStatus(
+        's1',
+        { status: 'ACTIVE', reason: 'Payment received, restoring access' },
+        'admin-1',
+        REQUEST_CONTEXT,
+      );
+
+      expect(result.status).toBe('ACTIVE');
+      expect(repo.schoolRepo.update).toHaveBeenCalledWith(
+        's1',
+        expect.objectContaining({ status: 'ACTIVE' }),
+      );
+
+      const [entry] = auditService.record.mock.calls[0];
+      expect(entry).toMatchObject({
+        action: AuditAction.REACTIVATE,
+        old_values: { status: 'SUSPENDED' },
+        new_values: { status: 'ACTIVE', reason: 'Payment received, restoring access' },
+      });
+
+      expect(tenantStatus.invalidate).toHaveBeenCalledWith('s1');
+    });
+
+    it('is a no-op that still returns 200 when the requested status matches the current one — no audit, no cache invalidation', async () => {
+      const { service, repo } = buildService({ id: 's1', status: 'ACTIVE' });
+
+      const result = await service.updateStatus(
+        's1',
+        { status: 'ACTIVE', reason: 'Re-confirming active status' },
+        'admin-1',
+        REQUEST_CONTEXT,
+      );
+
+      expect(result.status).toBe('ACTIVE');
+      expect(repo.schoolRepo.update).not.toHaveBeenCalled();
+      expect(auditService.record).not.toHaveBeenCalled();
+      expect(tenantStatus.invalidate).not.toHaveBeenCalled();
+    });
+
+    it('throws NotFoundException when the school does not exist', async () => {
+      const { service } = buildService(null as any);
+
+      await expect(
+        service.updateStatus('missing', { status: 'SUSPENDED', reason: 'irrelevant' }, 'admin-1'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

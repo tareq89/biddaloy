@@ -19,6 +19,7 @@ function fakeService() {
     getMaskedSettings: vi.fn(),
     updateSettings: vi.fn(),
     getStats: vi.fn(),
+    updateStatus: vi.fn(),
   };
 }
 
@@ -146,6 +147,33 @@ describe('SchoolsController', () => {
       ).rejects.toThrow(ForbiddenException);
       expect(service.updateSettings).not.toHaveBeenCalled();
       expect(service.getMaskedSettings).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('updateStatus', () => {
+    it('delegates to the service with actor and request context', async () => {
+      const response = {
+        id: SCHOOL_A,
+        status: 'SUSPENDED' as const,
+        status_reason: 'Non-payment for 60 days',
+        status_changed_at: new Date('2026-09-07T00:00:00Z'),
+      };
+      service.updateStatus.mockResolvedValue(response);
+
+      const result = await controller.updateStatus(
+        SCHOOL_A,
+        { status: 'SUSPENDED', reason: 'Non-payment for 60 days' },
+        USER,
+        REQUEST,
+      );
+
+      expect(service.updateStatus).toHaveBeenCalledWith(
+        SCHOOL_A,
+        { status: 'SUSPENDED', reason: 'Non-payment for 60 days' },
+        'user-1',
+        { ip: '127.0.0.1', userAgent: 'vitest' },
+      );
+      expect(result).toEqual(response);
     });
   });
 });

@@ -18,6 +18,7 @@ import { TenantSettingsDto } from './dto/tenant-settings.dto';
 import { assertCanManageSchool } from './assert-can-manage-school.util';
 import { SchoolListItemDto } from './dto/school-list-item.dto';
 import { TenantSettingsResponseDto } from './dto/school-settings-response.dto';
+import { UpdateSchoolStatusDto } from './dto/update-school-status.dto';
 
 @ApiTags('schools')
 @ApiTenantAuth()
@@ -45,6 +46,21 @@ export class SchoolsController {
   })
   async getStats(@Param('id', ParseUUIDPipe) id: string) {
     return this.schools.getStats(id);
+  }
+
+  @Patch(':id/status')
+  @Roles(UserRole.SUPER_ADMIN)
+  @ApiOperation({
+    summary:
+      "Suspend or reactivate a school (#530). SUPER_ADMIN only. A mandatory reason is audited (SUSPEND/REACTIVATE), and the tenant status cache is invalidated so the change takes effect on the school's very next request.",
+  })
+  async updateStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateSchoolStatusDto,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.schools.updateStatus(id, dto, user.sub, requestContext(request));
   }
 
   @Get(':id/settings')
