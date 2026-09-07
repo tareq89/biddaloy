@@ -11,7 +11,12 @@ services:
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET}
       CORS_ORIGINS: ${CORS_ORIGINS:-}
+      # MinIO isn't TLS-terminated on this shared Compose network yet — see
+      # "Known gap: MinIO traffic is not TLS-terminated" in
+      # docs/architecture/08-security.md. The opt-in below documents that
+      # this is a deliberate, tracked exception, not an unnoticed default.
       S3_ENDPOINT: http://minio:9000
+      S3_ALLOW_INSECURE_HTTP: 'true'
       S3_REGION: ${S3_REGION:-us-east-1}
       S3_BUCKET: ${S3_BUCKET:-biddaloy}
       S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
@@ -24,6 +29,8 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     expose:
       - '3000'
 
@@ -97,12 +104,12 @@ services:
       minio:
         condition: service_healthy
     environment:
-      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
-      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
-      S3_BUCKET: ${S3_BUCKET:-biddaloy}
-    entrypoint: >
-      sh -c "mc alias set local http://minio:9000 \"$$S3_ACCESS_KEY_ID\" \"$$S3_SECRET_ACCESS_KEY\" &&
-             mc mb --ignore-existing local/$$S3_BUCKET"
+      # minio/mc's image is built FROM scratch — no shell, so aliasing via
+      # `mc alias set` (which needs `&&` to chain into `mc mb`) can't run
+      # here. MC_HOST_<alias> lets `mc` pick up the alias from its own env
+      # instead, so the entrypoint below can be a single argv exec.
+      MC_HOST_local: http://${S3_ACCESS_KEY_ID}:${S3_SECRET_ACCESS_KEY}@minio:9000
+    entrypoint: ['mc', 'mb', '--ignore-existing', 'local/${S3_BUCKET:-biddaloy}']
 
   # Daily encrypted pg_dump to the bucket — see scripts/backup/README.md.
   # Only needs `db` (to dump) and `minio` (to upload to in dev); it does
@@ -119,7 +126,9 @@ services:
       BACKUP_SCHEDULE: ${BACKUP_SCHEDULE:-0 2 * * *}
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
       SENTRY_CRON_MONITOR_URL: ${SENTRY_CRON_MONITOR_URL:-}
+      # See the matching comment on `app`'s S3_ALLOW_INSECURE_HTTP above.
       S3_ENDPOINT: http://minio:9000
+      S3_ALLOW_INSECURE_HTTP: 'true'
       S3_REGION: ${S3_REGION:-us-east-1}
       S3_BUCKET: ${S3_BUCKET:-biddaloy}
       S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
