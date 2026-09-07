@@ -15,7 +15,9 @@ RUN apk add --no-cache \
 
 WORKDIR /app
 COPY backup.sh /app/backup.sh
-RUN chmod +x /app/backup.sh
+COPY restore.sh /app/restore.sh
+COPY verify.sql /app/verify.sql
+RUN chmod +x /app/backup.sh /app/restore.sh
 
 # Crontab is generated at container start (entrypoint.sh) from
 # BACKUP_SCHEDULE, since crond needs the schedule baked into a crontab
