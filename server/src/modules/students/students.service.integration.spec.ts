@@ -13,7 +13,9 @@ import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { createTestModule } from '@test/helpers/module.helper';
 import { SEED_TENANT_ID, SEED_SECTION_1_ID, SEED_ACADEMIC_YEAR_ID } from '@test/constants';
-import { EnrollmentStatus, CommunicationMedium } from '@biddaloy/shared';
+import { EnrollmentStatus, CommunicationMedium, AuditAction } from '@biddaloy/shared';
+import { AuditService } from '../audit/audit.service';
+import { AuditLog } from '../audit/entities/audit-log.entity';
 
 /**
  * Integration tests for StudentService and GuardianService.
@@ -139,10 +141,15 @@ describe('StudentService (integration)', () => {
   const OTHER_TENANT = '00000000-0000-4000-8000-000000000099';
 
   beforeAll(async () => {
-    const module = await createTestModule(ALL_ENTITIES, [StudentService, GuardianService], [], {
-      synchronize: true,
-      dropSchema: true,
-    });
+    const module = await createTestModule(
+      ALL_ENTITIES,
+      [StudentService, GuardianService, AuditService],
+      [],
+      {
+        synchronize: true,
+        dropSchema: true,
+      },
+    );
 
     service = module.get<StudentService>(StudentService);
     guardianService = module.get<GuardianService>(GuardianService);
@@ -586,10 +593,7 @@ describe('StudentService (integration)', () => {
         }),
       );
 
-      const result = await service.findAll(
-        { search: '2026-9999', page: 1, limit: 10 },
-        TENANT_ID,
-      );
+      const result = await service.findAll({ search: '2026-9999', page: 1, limit: 10 }, TENANT_ID);
 
       expect(result.data).toHaveLength(1);
       expect(result.data[0].full_name).toBe('Ahmed Khan');
@@ -891,10 +895,15 @@ describe('GuardianService (integration)', () => {
   const OTHER_TENANT = '00000000-0000-4000-8000-000000000099';
 
   beforeAll(async () => {
-    const module = await createTestModule(ALL_ENTITIES, [StudentService, GuardianService], [], {
-      synchronize: true,
-      dropSchema: true,
-    });
+    const module = await createTestModule(
+      ALL_ENTITIES,
+      [StudentService, GuardianService, AuditService],
+      [],
+      {
+        synchronize: true,
+        dropSchema: true,
+      },
+    );
 
     service = module.get<GuardianService>(GuardianService);
     studentRepo = module.get<Repository<Student>>(getRepositoryToken(Student));
@@ -1116,13 +1125,24 @@ describe('GuardianService (integration)', () => {
 
     it('filters by relationship', async () => {
       await guardianRepo.save(
-        guardianRepo.create({ full_name: 'Father Guardian', relationship: 'FATHER', tenant_id: TENANT_ID }),
+        guardianRepo.create({
+          full_name: 'Father Guardian',
+          relationship: 'FATHER',
+          tenant_id: TENANT_ID,
+        }),
       );
       await guardianRepo.save(
-        guardianRepo.create({ full_name: 'Mother Guardian', relationship: 'MOTHER', tenant_id: TENANT_ID }),
+        guardianRepo.create({
+          full_name: 'Mother Guardian',
+          relationship: 'MOTHER',
+          tenant_id: TENANT_ID,
+        }),
       );
 
-      const result = await service.findAll({ relationship: 'MOTHER', page: 1, limit: 10 }, TENANT_ID);
+      const result = await service.findAll(
+        { relationship: 'MOTHER', page: 1, limit: 10 },
+        TENANT_ID,
+      );
 
       expect(result.data).toHaveLength(1);
       expect(result.data[0].full_name).toBe('Mother Guardian');
@@ -1184,10 +1204,18 @@ describe('GuardianService (integration)', () => {
 
     it('sorts by full_name using the Bengali collation', async () => {
       await guardianRepo.save(
-        guardianRepo.create({ full_name: 'Zebra Guardian', relationship: 'FATHER', tenant_id: TENANT_ID }),
+        guardianRepo.create({
+          full_name: 'Zebra Guardian',
+          relationship: 'FATHER',
+          tenant_id: TENANT_ID,
+        }),
       );
       await guardianRepo.save(
-        guardianRepo.create({ full_name: 'Apple Guardian', relationship: 'MOTHER', tenant_id: TENANT_ID }),
+        guardianRepo.create({
+          full_name: 'Apple Guardian',
+          relationship: 'MOTHER',
+          tenant_id: TENANT_ID,
+        }),
       );
 
       const result = await service.findAll(
@@ -1401,6 +1429,126 @@ describe('GuardianService (integration)', () => {
       expect(raw?.deleted_at).not.toBeNull();
     });
   });
+
+  // [15.2.2] every Guardian mutation writes a tenant-scoped audit row with
+  // field-level old/new values, sharing the mutation's transaction.
+  describe('audit', () => {
+    let auditLogRepo: Repository<AuditLog>;
+    let actorUserId: string;
+
+    beforeAll(async () => {
+      auditLogRepo = dataSource.getRepository(AuditLog);
+      // `audit_logs.performed_by_user_id` FKs to `users.id` — a made-up
+      // UUID would violate that constraint, so a real row is seeded once
+      // for every test in this block to attribute to.
+      const userRepo = dataSource.getRepository('User');
+      const actor = await userRepo.save(
+        userRepo.create({
+          full_name: 'Audit Actor',
+          email: 'audit-actor@example.com',
+          status: 'ACTIVE',
+        }),
+      );
+      actorUserId = (actor as { id: string }).id;
+    });
+
+    it('writes a CREATE audit record for a new guardian', async () => {
+      const created = await service.create(
+        { full_name: 'Parent Name', relationship: 'FATHER', phone: '+880****0001' },
+        TENANT_ID,
+        undefined,
+        actorUserId,
+      );
+
+      const logs = await auditLogRepo.find({
+        where: { entity_id: created.id, entity_type: 'Guardian', action: AuditAction.CREATE },
+      });
+      expect(logs).toHaveLength(1);
+      expect(logs[0]?.performed_by_user_id).toBe(actorUserId);
+      expect(logs[0]?.new_values).toMatchObject({ full_name: 'Parent Name' });
+    });
+
+    it('writes an UPDATE audit record capturing old and new values', async () => {
+      const created = await service.create(
+        { full_name: 'Parent Name', relationship: 'FATHER', phone: '+880****0001' },
+        TENANT_ID,
+      );
+
+      await service.update(created.id, { full_name: 'Updated Name' }, TENANT_ID, actorUserId);
+
+      const logs = await auditLogRepo.find({
+        where: { entity_id: created.id, entity_type: 'Guardian', action: AuditAction.UPDATE },
+      });
+      expect(logs).toHaveLength(1);
+      expect(logs[0]?.old_values).toMatchObject({ full_name: 'Parent Name' });
+      expect(logs[0]?.new_values).toMatchObject({ full_name: 'Updated Name' });
+    });
+
+    it('writes an UPDATE audit record for updateOwn', async () => {
+      const created = await service.create(
+        { full_name: 'Self Parent', relationship: 'FATHER', phone: '+880****0002' },
+        TENANT_ID,
+      );
+      await guardianRepo.update({ id: created.id }, { user_id: actorUserId });
+
+      await service.updateOwn(actorUserId, { phone: '+8801777777778' }, TENANT_ID);
+
+      const logs = await auditLogRepo.find({
+        where: { entity_id: created.id, entity_type: 'Guardian', action: AuditAction.UPDATE },
+      });
+      expect(logs).toHaveLength(1);
+      expect(logs[0]?.performed_by_user_id).toBe(actorUserId);
+      expect(logs[0]?.new_values).toMatchObject({ phone: '+8801777777778' });
+    });
+
+    it('writes a DELETE audit record on remove', async () => {
+      const created = await service.create(
+        { full_name: 'Parent Name', relationship: 'FATHER', phone: '+880****0001' },
+        TENANT_ID,
+      );
+
+      await service.remove(created.id, TENANT_ID, actorUserId);
+
+      const logs = await auditLogRepo.find({
+        where: { entity_id: created.id, entity_type: 'Guardian', action: AuditAction.DELETE },
+      });
+      expect(logs).toHaveLength(1);
+      expect(logs[0]?.performed_by_user_id).toBe(actorUserId);
+    });
+
+    it('rolls back both the guardian row and the audit entry on a forced failure', async () => {
+      const before = await guardianRepo.count({ where: { tenant_id: TENANT_ID } });
+
+      await expect(
+        service.update('00000000-0000-4000-8000-000000000001', { full_name: 'X' }, TENANT_ID),
+      ).rejects.toThrow(NotFoundException);
+
+      const after = await guardianRepo.count({ where: { tenant_id: TENANT_ID } });
+      expect(after).toBe(before);
+
+      const logs = await auditLogRepo.find({
+        where: { entity_id: '00000000-0000-4000-8000-000000000001', entity_type: 'Guardian' },
+      });
+      expect(logs).toHaveLength(0);
+    });
+
+    it('never exposes another tenant’s guardian audit rows', async () => {
+      const created = await service.create(
+        { full_name: 'Cross Tenant Guardian', relationship: 'FATHER', phone: '+880****0009' },
+        OTHER_TENANT,
+      );
+
+      const logs = await auditLogRepo.find({
+        where: { entity_id: created.id, entity_type: 'Guardian', tenant_id: TENANT_ID },
+      });
+      expect(logs).toHaveLength(0);
+
+      const otherTenantLogs = await auditLogRepo.find({
+        where: { entity_id: created.id, entity_type: 'Guardian', tenant_id: OTHER_TENANT },
+      });
+      expect(otherTenantLogs).toHaveLength(1);
+    });
+  });
 });
 
 /**
@@ -1425,10 +1573,15 @@ describe('GuardianService (integration) — Bengali collation', () => {
   const TENANT_ID = SEED_TENANT_ID;
 
   beforeAll(async () => {
-    const module = await createTestModule(ALL_ENTITIES, [GuardianService, StudentService], [], {
-      synchronize: true,
-      dropSchema: true,
-    });
+    const module = await createTestModule(
+      ALL_ENTITIES,
+      [GuardianService, StudentService, AuditService],
+      [],
+      {
+        synchronize: true,
+        dropSchema: true,
+      },
+    );
 
     service = module.get<GuardianService>(GuardianService);
     guardianRepo = module.get<Repository<Guardian>>(getRepositoryToken(Guardian));

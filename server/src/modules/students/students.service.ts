@@ -13,10 +13,12 @@ import {
   UpdateOwnGuardianDto,
   QueryGuardianDto,
 } from './dto/students.dto';
-import { CommunicationMedium } from '@biddaloy/shared';
+import { CommunicationMedium, AuditAction } from '@biddaloy/shared';
 import { nextRollNumber } from './roll-number.util';
 import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
 import { BN_COLLATION } from '../../common/constants/collation';
+import { AuditService } from '../audit/audit.service';
+import { RequestContext } from '../../common/request-context.util';
 
 @Injectable()
 export class StudentService {
@@ -380,49 +382,89 @@ export class GuardianService {
     private readonly repo: Repository<Guardian>,
     @InjectRepository(Student)
     private readonly studentRepo: Repository<Student>,
+    private readonly auditService: AuditService,
   ) {}
 
   /**
    * @param manager Optional transaction-scoped manager — see StudentService.create.
+   *
+   * Audited with `entity_type: 'Guardian'`. Guardian phone/email are
+   * authorized audit PII — they may land in `new_values` on this
+   * ADMIN/ACCOUNTANT-only surface, but per [15.2.2] must never reach the
+   * Nest logger or Sentry, which this never touches.
    */
   async create(
     dto: CreateGuardianDto,
     tenantId: string,
     manager?: EntityManager,
+    userId: string | null = null,
+    context: RequestContext = { ip: null, userAgent: null },
   ): Promise<Guardian> {
-    const repo = manager ? manager.getRepository(Guardian) : this.repo;
-    const studentRepo = manager ? manager.getRepository(Student) : this.studentRepo;
+    const run = async (txManager: EntityManager): Promise<Guardian> => {
+      const repo = txManager.getRepository(Guardian);
+      const studentRepo = txManager.getRepository(Student);
 
-    const entity = repo.create({
-      full_name: dto.full_name,
-      relationship: dto.relationship ?? 'OTHER',
-      phone: dto.phone ?? null,
-      email: dto.email ?? null,
-      alternate_phone: dto.alternate_phone ?? null,
-      address: dto.address ?? null,
-      occupation: dto.occupation ?? null,
-      preferred_communication: dto.preferred_communication,
-      tenant_id: tenantId,
-    });
-
-    const saved = await repo.save(entity);
-
-    // Link students if provided
-    if (dto.student_ids?.length) {
-      const students = await studentRepo.find({
-        where: { id: In(dto.student_ids), tenant_id: tenantId, deleted_at: IsNull() },
+      const entity = repo.create({
+        full_name: dto.full_name,
+        relationship: dto.relationship ?? 'OTHER',
+        phone: dto.phone ?? null,
+        email: dto.email ?? null,
+        alternate_phone: dto.alternate_phone ?? null,
+        address: dto.address ?? null,
+        occupation: dto.occupation ?? null,
+        preferred_communication: dto.preferred_communication,
+        tenant_id: tenantId,
       });
-      if (students.length !== dto.student_ids.length) {
-        throw new NotFoundException('One or more student IDs not found');
-      }
-      saved.students = students;
-      await repo.save(saved);
-    }
 
-    return repo.findOne({
-      where: { id: saved.id },
-      relations: ['students'],
-    }) as Promise<Guardian>;
+      const saved = await repo.save(entity);
+
+      // Link students if provided
+      if (dto.student_ids?.length) {
+        const students = await studentRepo.find({
+          where: { id: In(dto.student_ids), tenant_id: tenantId, deleted_at: IsNull() },
+        });
+        if (students.length !== dto.student_ids.length) {
+          throw new NotFoundException('One or more student IDs not found');
+        }
+        saved.students = students;
+        await repo.save(saved);
+      }
+
+      await this.auditService.record(
+        {
+          action: AuditAction.CREATE,
+          entity_type: 'Guardian',
+          entity_id: saved.id,
+          tenant_id: tenantId,
+          performed_by_user_id: userId,
+          ip_address: context.ip,
+          user_agent: context.userAgent,
+          old_values: null,
+          new_values: {
+            full_name: saved.full_name,
+            relationship: saved.relationship,
+            phone: saved.phone,
+            email: saved.email,
+            alternate_phone: saved.alternate_phone,
+            address: saved.address,
+            occupation: saved.occupation,
+            preferred_communication: saved.preferred_communication,
+          },
+        },
+        txManager,
+      );
+
+      return repo.findOne({
+        where: { id: saved.id },
+        relations: ['students'],
+      }) as Promise<Guardian>;
+    };
+
+    // A caller passing its own manager (e.g. bulk-upload's guardian+student
+    // atomic unit) already owns the transaction boundary — nesting a second
+    // one here would be a no-op at best and a deadlock risk at worst, so
+    // this only opens its own transaction when none was handed in.
+    return manager ? run(manager) : this.repo.manager.transaction(run);
   }
 
   async findAll(query: QueryGuardianDto, tenantId: string) {
@@ -539,8 +581,17 @@ export class GuardianService {
     return guardian;
   }
 
-  /** Self-service contact-detail edit. Ownership comes from the JWT sub, never a path id. */
-  async updateOwn(userId: string, dto: UpdateOwnGuardianDto, tenantId: string): Promise<Guardian> {
+  /**
+   * Self-service contact-detail edit. Ownership comes from the JWT sub,
+   * never a path id. Audited the same as an ADMIN-driven update — the
+   * actor is just the guardian themselves.
+   */
+  async updateOwn(
+    userId: string,
+    dto: UpdateOwnGuardianDto,
+    tenantId: string,
+    context: RequestContext = { ip: null, userAgent: null },
+  ): Promise<Guardian> {
     const guardian = await this.findOwn(userId, tenantId);
 
     const updateData: any = { ...dto };
@@ -549,17 +600,46 @@ export class GuardianService {
       if (updateData[key] === '') updateData[key] = null;
     }
 
-    if (Object.keys(updateData).length > 0) {
-      // tenant_id stays in the criteria so this can never touch another
-      // tenant's row even if ids were to collide.
-      await this.repo.update({ id: guardian.id, tenant_id: tenantId }, updateData);
+    const changedKeys = Object.keys(updateData);
+    if (changedKeys.length > 0) {
+      await this.repo.manager.transaction(async (manager) => {
+        const repo = manager.getRepository(Guardian);
+        const oldValues = Object.fromEntries(
+          changedKeys.map((key) => [key, (guardian as any)[key]]),
+        );
+
+        // tenant_id stays in the criteria so this can never touch another
+        // tenant's row even if ids were to collide.
+        await repo.update({ id: guardian.id, tenant_id: tenantId }, updateData);
+
+        await this.auditService.record(
+          {
+            action: AuditAction.UPDATE,
+            entity_type: 'Guardian',
+            entity_id: guardian.id,
+            tenant_id: tenantId,
+            performed_by_user_id: userId,
+            ip_address: context.ip,
+            user_agent: context.userAgent,
+            old_values: oldValues,
+            new_values: updateData,
+          },
+          manager,
+        );
+      });
     }
 
     return this.findOne(guardian.id, tenantId);
   }
 
-  async update(id: string, dto: UpdateGuardianDto, tenantId: string): Promise<Guardian> {
-    await this.findOne(id, tenantId);
+  async update(
+    id: string,
+    dto: UpdateGuardianDto,
+    tenantId: string,
+    userId: string | null = null,
+    context: RequestContext = { ip: null, userAgent: null },
+  ): Promise<Guardian> {
+    const existing = await this.findOne(id, tenantId);
 
     const updateData: any = { ...dto };
     if (dto.student_ids !== undefined) {
@@ -573,30 +653,92 @@ export class GuardianService {
       if (updateData[key] === '') updateData[key] = null;
     }
 
-    await this.repo.update({ id, tenant_id: tenantId }, updateData);
+    // Diffed against exactly the fields this request changed — see the
+    // identical reasoning on FeeStructureService.update.
+    const changedKeys = Object.keys(updateData);
+    const auditOldValues: Record<string, unknown> = Object.fromEntries(
+      changedKeys.map((key) => [key, (existing as any)[key]]),
+    );
+    const auditNewValues: Record<string, unknown> = { ...updateData };
 
-    // Replace student links if provided
-    if (dto.student_ids !== undefined) {
-      const guardian = await this.findOne(id, tenantId);
-      if (dto.student_ids.length > 0) {
-        const students = await this.studentRepo.find({
-          where: { id: In(dto.student_ids), tenant_id: tenantId, deleted_at: IsNull() },
-        });
-        if (students.length !== dto.student_ids.length) {
-          throw new NotFoundException('One or more student IDs not found');
-        }
-        guardian.students = students;
-      } else {
-        guardian.students = [];
+    await this.repo.manager.transaction(async (manager) => {
+      const repo = manager.getRepository(Guardian);
+      const studentRepo = manager.getRepository(Student);
+
+      if (changedKeys.length > 0) {
+        await repo.update({ id, tenant_id: tenantId }, updateData);
       }
-      await this.repo.save(guardian);
-    }
+
+      // Replace student links if provided
+      if (dto.student_ids !== undefined) {
+        const guardian = await repo.findOneOrFail({
+          where: { id, tenant_id: tenantId },
+          relations: ['students'],
+        });
+        auditOldValues.student_ids = guardian.students.map((student) => student.id);
+        auditNewValues.student_ids = dto.student_ids;
+
+        if (dto.student_ids.length > 0) {
+          const students = await studentRepo.find({
+            where: { id: In(dto.student_ids), tenant_id: tenantId, deleted_at: IsNull() },
+          });
+          if (students.length !== dto.student_ids.length) {
+            throw new NotFoundException('One or more student IDs not found');
+          }
+          guardian.students = students;
+        } else {
+          guardian.students = [];
+        }
+        await repo.save(guardian);
+      }
+
+      if (Object.keys(auditNewValues).length > 0) {
+        await this.auditService.record(
+          {
+            action: AuditAction.UPDATE,
+            entity_type: 'Guardian',
+            entity_id: id,
+            tenant_id: tenantId,
+            performed_by_user_id: userId,
+            ip_address: context.ip,
+            user_agent: context.userAgent,
+            old_values: auditOldValues,
+            new_values: auditNewValues,
+          },
+          manager,
+        );
+      }
+    });
 
     return this.findOne(id, tenantId);
   }
 
-  async remove(id: string, tenantId: string): Promise<void> {
-    await this.findOne(id, tenantId);
-    await this.repo.softDelete({ id, tenant_id: tenantId });
+  async remove(
+    id: string,
+    tenantId: string,
+    userId: string | null = null,
+    context: RequestContext = { ip: null, userAgent: null },
+  ): Promise<void> {
+    const existing = await this.findOne(id, tenantId);
+
+    await this.repo.manager.transaction(async (manager) => {
+      const repo = manager.getRepository(Guardian);
+      await repo.softDelete({ id, tenant_id: tenantId });
+
+      await this.auditService.record(
+        {
+          action: AuditAction.DELETE,
+          entity_type: 'Guardian',
+          entity_id: id,
+          tenant_id: tenantId,
+          performed_by_user_id: userId,
+          ip_address: context.ip,
+          user_agent: context.userAgent,
+          old_values: { full_name: existing.full_name, relationship: existing.relationship },
+          new_values: null,
+        },
+        manager,
+      );
+    });
   }
 }

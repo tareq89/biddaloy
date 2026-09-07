@@ -5,6 +5,7 @@ import { ClassSection } from '../academics/entities/class-section.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { Student } from '../students/entities/student.entity';
+import { AuditModule } from '../audit/audit.module';
 import { ClassService, SectionService } from './classes.service';
 import { ClassController } from './classes.controller';
 
@@ -18,7 +19,10 @@ import { ClassController } from './classes.controller';
   // guard and the section enrolled-count both count `Student` (joined
   // through `class_section`), since `POST /students` never writes an
   // `Enrollment` row (see `classes.service.ts`'s comments).
-  imports: [TypeOrmModule.forFeature([Class, ClassSection, Teacher, TeacherClassSection, Student])],
+  imports: [
+    TypeOrmModule.forFeature([Class, ClassSection, Teacher, TeacherClassSection, Student]),
+    AuditModule,
+  ],
   providers: [ClassService, SectionService],
   controllers: [ClassController],
   exports: [ClassService, SectionService],
