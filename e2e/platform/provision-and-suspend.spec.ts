@@ -190,10 +190,14 @@ test('provision a school, activate its admin, suspend it, and reactivate it', as
     // The suspended fallback renders as `role="status"` (asserted above), so
     // a missing `role="alert"` alone would not prove reactivation — assert
     // the real settings page rendered and the suspended notice is gone.
+    // By its heading, not by `role="status"` count: the settings page has
+    // a live region of its own, so zero status elements is never true here.
     await expect(
       adminPage.getByRole('heading', { level: 1, name: t('settings.title') }),
     ).toBeVisible();
-    await expect(adminPage.getByRole('status')).toHaveCount(0);
+    await expect(
+      adminPage.getByRole('heading', { level: 1, name: t('common.suspended.pageTitle') }),
+    ).toHaveCount(0);
   });
 
   await adminContext.close();
