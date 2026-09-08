@@ -144,5 +144,35 @@
   "signIn": {
     "legend": "Sign-in options",
     "otpLoginEnabled": "Allow sign-in with mobile number + code"
+  },
+  "smsCredit": {
+    "legend": "SMS credit",
+    "loading": "Loading…",
+    "loadError": "Couldn't load your SMS credit balance. Try refreshing the page.",
+    "modeOff": "Own provider / unmetered",
+    "modePlatform": "Platform credits",
+    "available": "Available",
+    "reserved": "Reserved",
+    "ledger": {
+      "caption": "SMS credit movements, newest first.",
+      "empty": "No movements yet.",
+      "kindHeader": "Type",
+      "unitsHeader": "Units",
+      "referenceHeader": "Reference",
+      "reasonHeader": "Reason",
+      "dateHeader": "Date",
+      "kind": {
+        "GRANT": "Grant",
+        "RESERVE": "Reserve",
+        "DEBIT": "Debit",
+        "RELEASE": "Release",
+        "ADJUST": "Adjust"
+      },
+      "referenceType": {
+        "batch": "Batch",
+        "log": "Message",
+        "manual": "Manual"
+      }
+    }
   }
 }

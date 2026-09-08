@@ -141,6 +141,7 @@ export function resetSchoolsStore(): void {
   schoolProfileStore.email = null;
   schoolProfileStore.registration_id = null;
   schoolProfileStore.logo_url = null;
+  schoolCreditBalances.clear();
 }
 
 /**
@@ -314,6 +315,38 @@ const updateStatus = http.patch('/api/v1/schools/:id/status', async ({ request, 
   });
 });
 
+/** [15.6.8/#551] The platform grant/adjust console — an in-memory balance
+ * per school, seeded at 0/0 so a story/test can watch it move after a
+ * submit. Idempotency isn't simulated (nothing here reads
+ * `idempotency_key`); the client-side "stable key across retries of one
+ * attempt" contract is exercised by the form's own unit test instead. */
+const schoolCreditBalances = new Map<string, { available: number; reserved: number }>();
+
+const grantSmsCredits = http.post(
+  '/api/v1/schools/:id/sms-credits',
+  async ({ params, request }) => {
+    const schoolId = params.id as string;
+    const body = (await request.json()) as { units: number };
+    const current = schoolCreditBalances.get(schoolId) ?? { available: 0, reserved: 0 };
+    const updated = { available: current.available + body.units, reserved: current.reserved };
+    schoolCreditBalances.set(schoolId, updated);
+    return HttpResponse.json(updated);
+  },
+);
+
+const grantSmsCreditsError = http.post('/api/v1/schools/:id/sms-credits', ({ request }) =>
+  HttpResponse.json(
+    {
+      statusCode: 400,
+      message: 'units must be a non-zero integer',
+      timestamp: new Date().toISOString(),
+      path: new URL(request.url).pathname,
+      requestId: crypto.randomUUID(),
+    },
+    { status: 400 },
+  ),
+);
+
 export const schoolsHandlers = {
   schoolList,
   getSettings,
@@ -330,6 +363,8 @@ export const schoolsHandlers = {
   resendAdminInvitation,
   revokeAdminInvitation,
   updateStatus,
+  grantSmsCredits,
+  grantSmsCreditsError,
 };
 export const schoolsDefaultHandlers = [
   schoolList,
@@ -347,4 +382,5 @@ export const schoolsDefaultHandlers = [
   resendAdminInvitation,
   revokeAdminInvitation,
   updateStatus,
+  grantSmsCredits,
 ];
