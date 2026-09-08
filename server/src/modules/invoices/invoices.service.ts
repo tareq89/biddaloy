@@ -11,9 +11,12 @@ import { InvoiceStatus } from '@biddaloy/shared';
 import { CreateInvoiceDto, QueryInvoiceDto } from './dto/invoices.dto';
 import { generateInvoiceNumber } from './invoice-numbering.util';
 import { renderInvoiceHtml } from './invoice-print.template';
+import { StorageService } from '../storage/storage.service';
+import { readLogoDataUrl } from '../schools/profile/logo-data-url';
 import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
 import {
   buildIssuerSnapshot,
+  lockSchoolForSnapshot,
   resolveIssuer,
   IssuerSnapshot,
 } from '../schools/profile/issuer-snapshot';
@@ -34,6 +37,7 @@ export class InvoicesService {
     private readonly paymentRepo: Repository<Payment>,
     @InjectRepository(School)
     private readonly schoolRepo: Repository<School>,
+    private readonly storage: StorageService,
   ) {}
 
   private async findStudentForTenant(studentId: string, tenantId: string): Promise<Student> {
@@ -97,16 +101,17 @@ export class InvoicesService {
       ? new Date(dto.due_date)
       : new Date(now.getTime() + DEFAULT_DUE_DAYS * 86400000);
 
-    // [15.5.5] Frozen at the moment of issue — read separately from the
-    // insert so an unrelated concurrent profile edit can never land
-    // between "read school" and "save invoice" and be attributed to this
-    // invoice. `findOneOrFail` (not the transaction's pessimistic lock):
-    // this is a read of the current state, not a write that needs
-    // isolation from concurrent profile edits.
-    const school = await this.schoolRepo.findOneOrFail({ where: { id: tenantId } });
-    const issuerSnapshot = buildIssuerSnapshot(school);
-
     const invoiceId = await this.repo.manager.transaction(async (manager) => {
+      // [15.5.5] Frozen at the moment of issue. Read *inside* the
+      // transaction under a share lock (`FOR SHARE`): a concurrent
+      // `SchoolProfileService.updateProfile` takes `FOR UPDATE` on the same
+      // row, so either it commits first and this read sees the new
+      // identity, or it waits for this insert to commit — the snapshot can
+      // never be a profile that was already replaced when the invoice was
+      // written.
+      const school = await lockSchoolForSnapshot(manager, tenantId);
+      const issuerSnapshot = buildIssuerSnapshot(school);
+
       const invoiceRepo = manager.getRepository(Invoice);
       const invoiceNumber = await generateInvoiceNumber(invoiceRepo);
 
@@ -251,6 +256,10 @@ export class InvoicesService {
     // needed the live school name regardless) — reused here as
     // `resolveIssuer`'s live-profile fallback rather than a second query.
     const issuer = resolveIssuer(invoice, invoice.student.tenant);
-    return renderInvoiceHtml(invoice, payments, issuer);
+    // The logo is inlined as a `data:` URL: the client opens this HTML as a
+    // `blob:` document, where a relative `<img src>` neither resolves nor
+    // carries the bearer token `GET /schools/:id/logo` needs.
+    const logoDataUrl = await readLogoDataUrl(this.storage, issuer.logo_key);
+    return renderInvoiceHtml(invoice, payments, issuer, logoDataUrl);
   }
 }

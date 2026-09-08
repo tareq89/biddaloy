@@ -1,4 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { NotFoundException } from '@nestjs/common';
+import type { EntityManager } from 'typeorm';
+import { School } from '../entities/school.entity';
 
 /**
  * [15.5.1] Frozen issuer identity captured onto an invoice or payment at
@@ -70,6 +73,30 @@ export function buildIssuerSnapshot(school: SchoolIdentitySource): IssuerSnapsho
     logo_key: school.logo_key,
     captured_at: new Date().toISOString(),
   };
+}
+
+/** [15.5.5] Reads the school row for `buildIssuerSnapshot` *inside* the
+ * caller's transaction, under a share lock (`SELECT … FOR SHARE`).
+ * `SchoolProfileService.updateProfile` takes `FOR UPDATE` on the same row,
+ * so the two serialize: the snapshot is either the profile as it stood
+ * before that update committed (and the update then waits for this
+ * document to commit), or the fully committed new one — never a profile
+ * that had already been replaced by the time the document was written.
+ * Call this once per document, right before the insert. */
+export async function lockSchoolForSnapshot(
+  manager: EntityManager,
+  schoolId: string,
+): Promise<School> {
+  const school = await manager
+    .getRepository(School)
+    .createQueryBuilder('school')
+    .where('school.id = :id', { id: schoolId })
+    .setLock('pessimistic_read')
+    .getOne();
+  if (!school) {
+    throw new NotFoundException(`School with ID "${schoolId}" not found`);
+  }
+  return school;
 }
 
 /** [15.5.5] The read-side fallback: a document created before this

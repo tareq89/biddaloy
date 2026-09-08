@@ -13,6 +13,7 @@ import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { School } from '../schools/entities/school.entity';
 import { User } from '../users/entities/user.entity';
+import { StorageModule } from '../storage/storage.module';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import {
@@ -139,7 +140,7 @@ describe('InvoicesService (integration)', () => {
   }
 
   beforeAll(async () => {
-    const module = await createTestModule(ALL_ENTITIES, [InvoicesService], [], {
+    const module = await createTestModule(ALL_ENTITIES, [InvoicesService], [StorageModule], {
       synchronize: true,
       dropSchema: true,
     });
@@ -325,6 +326,43 @@ describe('InvoicesService (integration)', () => {
       expect(created2.issuer.name).toBe('Name After Edit');
 
       await schoolRepo.update(TENANT_ID, { name: 'Test School' });
+    });
+
+    it('serializes with an in-flight profile update: a name committed before the insert is what gets frozen', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id));
+
+      // Simulate `SchoolProfileService.updateProfile` mid-transaction: the
+      // row is `FOR UPDATE`-locked with the new name written but not yet
+      // committed. The invoice's `FOR SHARE` read must wait for that
+      // commit rather than snapshot the about-to-be-replaced name.
+      const runner = dataSource.createQueryRunner();
+      await runner.connect();
+      await runner.startTransaction();
+      try {
+        await runner.manager
+          .createQueryBuilder(School, 'school')
+          .setLock('pessimistic_write')
+          .where('school.id = :id', { id: TENANT_ID })
+          .getOne();
+        await runner.manager.update(School, TENANT_ID, { name: 'Committed Before Insert' });
+
+        const pending = service.create(
+          { student_id: student.id, student_fee_id: fee.id },
+          TENANT_ID,
+          SEED_ADMIN_USER_ID,
+        );
+        // Let the invoice transaction reach (and block on) the share lock.
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        await runner.commitTransaction();
+
+        const created = await pending;
+        expect(created.issuer_snapshot?.name).toBe('Committed Before Insert');
+      } finally {
+        if (runner.isTransactionActive) await runner.rollbackTransaction();
+        await runner.release();
+        await dataSource.getRepository(School).update(TENANT_ID, { name: 'Test School' });
+      }
     });
 
     it('falls back to the live profile for a pre-existing row with a null snapshot', async () => {

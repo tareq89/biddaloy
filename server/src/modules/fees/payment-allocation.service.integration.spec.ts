@@ -227,6 +227,55 @@ describe('PaymentAllocationService (integration)', () => {
 
       await schoolRepo.update(TENANT_ID, { name: 'Test School' });
     });
+
+    it('serializes with an in-flight profile update: a name committed before the insert is what gets frozen', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id, 0));
+
+      // Same shape as `InvoicesService`'s test of the same name: hold the
+      // school row `FOR UPDATE` with an uncommitted rename, start the
+      // payment, then commit — the payment's `FOR SHARE` read has to wait
+      // for the commit and snapshot the new name.
+      const runner = dataSource.createQueryRunner();
+      await runner.connect();
+      await runner.startTransaction();
+      try {
+        await runner.manager
+          .createQueryBuilder(School, 'school')
+          .setLock('pessimistic_write')
+          .where('school.id = :id', { id: TENANT_ID })
+          .getOne();
+        await runner.manager.update(School, TENANT_ID, { name: 'Committed Before Insert' });
+
+        const pending = service.recordWithAllocation(
+          {
+            student_id: student.id,
+            total_amount: 1000,
+            payment_method: PaymentMethod.CASH,
+            allocations: [
+              {
+                student_fee_id: fee.id,
+                allocated_amount: 1000,
+                allocation_type: PaymentAllocationType.CURRENT,
+              },
+            ],
+          } as any,
+          TENANT_ID,
+          SEED_ADMIN_USER_ID,
+        );
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        await runner.commitTransaction();
+
+        const result = await pending;
+        expect(result.issuer_snapshot?.name).toBe('Committed Before Insert');
+        const invoice = await invoiceRepo.findOne({ where: { id: result.invoice_id! } });
+        expect(invoice!.issuer_snapshot?.name).toBe('Committed Before Insert');
+      } finally {
+        if (runner.isTransactionActive) await runner.rollbackTransaction();
+        await runner.release();
+        await dataSource.getRepository(School).update(TENANT_ID, { name: 'Test School' });
+      }
+    });
   });
 
   describe('partial payment', () => {
