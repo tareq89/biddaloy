@@ -63,7 +63,16 @@ provision_stack() {
   # dependency of `AppModule` now (`docs:generate`/`seed` below both boot
   # it), and the logo e2e spec needs real object storage, same reasoning
   # as ci.yml's "integration" job.
-  docker compose up -d db redis minio minio-init
+  docker compose up -d db redis minio
+  # `minio-init` is a one-shot `mc mb --ignore-existing`. Run it in the
+  # foreground rather than via `up -d`, which returns once it has *started*,
+  # not finished: `run` waits for `minio` to be healthy (its `depends_on`),
+  # blocks until `mc` exits, and propagates a non-zero exit through `set -e`,
+  # so the bucket exists before anything uploads to it. (Not `docker compose
+  # wait` — on Compose v2.20 that reports "no containers for project" and
+  # exits 1 when the one-shot container has already finished, a false
+  # negative on every fast machine.)
+  docker compose run --rm minio-init
   until docker compose exec -T db pg_isready -U postgres >/dev/null 2>&1; do sleep 1; done
   docker compose exec -T db psql -U postgres -tc \
     "SELECT 1 FROM pg_database WHERE datname = 'biddaloy_ci_local'" | grep -q 1 ||
