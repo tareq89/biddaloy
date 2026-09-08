@@ -170,4 +170,43 @@ describe('SchoolProfileSection', () => {
       expect(screen.getByLabelText('No logo')).toBeTruthy();
     });
   });
+
+  it('blocks a new upload while a removal is still in flight', async () => {
+    server.use(
+      schoolsHandlers.uploadLogo,
+      slowHandler(
+        'delete',
+        '/api/v1/schools/me/logo',
+        () => new HttpResponse(null, { status: 204 }),
+        300,
+      ),
+    );
+    const { user } = renderWithProviders(<SchoolProfileSection />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: 'school-1',
+    });
+
+    await screen.findByLabelText('Name');
+    await user.upload(
+      screen.getByLabelText('Upload logo'),
+      new File(['bytes'], 'logo.png', { type: 'image/png' }),
+    );
+    await user.click(await screen.findByRole('button', { name: 'Remove logo' }));
+    const dialog = screen.getByText('Remove the school logo?').closest('div')!;
+    await user.click(within(dialog).getByRole('button', { name: 'Remove' }));
+
+    // Both the picker button and its hidden input are disabled until the
+    // DELETE settles — the two mutations target the same logo.
+    const chooseButton = screen.getByRole('button', { name: 'Upload logo' });
+    expect(chooseButton.hasAttribute('disabled')).toBe(true);
+    expect(screen.getByLabelText<HTMLInputElement>('Upload logo').disabled).toBe(true);
+
+    // The slow DELETE above returns a bare 204 (it doesn't update the
+    // stateful MSW handlers' logo), so the observable "settled" signal here
+    // is the picker re-enabling, not the preview clearing.
+    await waitFor(() => {
+      expect(chooseButton.hasAttribute('disabled')).toBe(false);
+    });
+  });
 });

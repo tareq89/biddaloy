@@ -182,6 +182,11 @@ export function SchoolProfileSection() {
 
   const logoObjectUrl = useAuthenticatedImageUrl(profileQuery.data?.logo_url);
 
+  // Upload and remove are mutually exclusive while either is in flight:
+  // both target the same logo, and letting them overlap would leave the
+  // final state up to whichever response lands last.
+  const logoBusy = uploadLogo.isPending || removeLogo.isPending;
+
   const summaryErrors = buildFormShellErrors(form.formState.errors, (field) => `profile-${field}`);
 
   if (profileQuery.isError) {
@@ -328,7 +333,7 @@ export function SchoolProfileSection() {
                 onFilesSelected={handleFilesSelected}
                 accept={LOGO_ACCEPT}
                 multiple={false}
-                disabled={uploadLogo.isPending}
+                disabled={logoBusy}
                 aria-label={t('profile.logo.upload')}
                 chooseLabel={t('profile.logo.upload')}
               />
@@ -344,7 +349,12 @@ export function SchoolProfileSection() {
               )}
 
               {profileQuery.data?.logo_url && !confirmingRemove && (
-                <Button type="button" variant="outline" onClick={() => setConfirmingRemove(true)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={logoBusy}
+                  onClick={() => setConfirmingRemove(true)}
+                >
                   {t('profile.logo.remove')}
                 </Button>
               )}
@@ -355,11 +365,17 @@ export function SchoolProfileSection() {
                     type="button"
                     variant="destructive"
                     loading={removeLogo.isPending}
+                    disabled={logoBusy}
                     onClick={handleRemove}
                   >
                     {t('profile.logo.removeConfirmYes')}
                   </Button>
-                  <Button type="button" variant="ghost" onClick={() => setConfirmingRemove(false)}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={logoBusy}
+                    onClick={() => setConfirmingRemove(false)}
+                  >
                     {t('profile.logo.removeCancel')}
                   </Button>
                 </div>
