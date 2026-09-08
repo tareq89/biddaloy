@@ -1,4 +1,12 @@
-import { IsEmail, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+  MinLength,
+  ValidateIf,
+} from 'class-validator';
 import { INTERNATIONAL_PHONE_REGEX } from '../../../users/dto/users.dto';
 
 /**
@@ -9,7 +17,10 @@ import { INTERNATIONAL_PHONE_REGEX } from '../../../users/dto/users.dto';
  * `users.email` for consistency across the app.
  */
 export class UpdateSchoolProfileDto {
-  @IsOptional()
+  // `ValidateIf`, not `IsOptional`: `IsOptional` also waves through
+  // `null`, which `schools.name` (NOT NULL) would then reject at the DB
+  // instead of as a 400 here. Only an *omitted* `name` means "unchanged".
+  @ValidateIf((_, value) => value !== undefined)
   @IsString()
   @MinLength(1)
   @MaxLength(200)
