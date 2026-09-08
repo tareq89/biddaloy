@@ -15,6 +15,8 @@ import { UserTenant } from '../src/modules/auth/entities/user-tenant.entity';
 import { AuthToken } from '../src/modules/account-access/entities/auth-token.entity';
 import { CommunicationLog } from '../src/modules/communications/entities/communication-log.entity';
 import { ReminderBatch } from '../src/modules/communications/entities/reminder-batch.entity';
+import { SmsCreditLedger } from '../src/modules/communications/credits/entities/sms-credit-ledger.entity';
+import { SmsCreditBalance } from '../src/modules/communications/credits/entities/sms-credit-balance.entity';
 import { FeeStructure } from '../src/modules/fees/entities/fee-structure.entity';
 import { FeeStructureStudent } from '../src/modules/fees/entities/fee-structure-student.entity';
 import { Payment } from '../src/modules/fees/entities/payment.entity';
@@ -45,6 +47,8 @@ export const ALL_ENTITIES = [
   AuthToken,
   CommunicationLog,
   ReminderBatch,
+  SmsCreditLedger,
+  SmsCreditBalance,
   FeeStructure,
   FeeStructureStudent,
   Payment,
