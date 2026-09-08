@@ -22,6 +22,7 @@ import type {
   CurrencyGrouping,
   CurrencyPosition,
   SmsGatewayName,
+  SmsMeteringMode,
 } from '@biddaloy/shared';
 
 /**
@@ -190,6 +191,12 @@ export class SmsSettingsDto {
   @OptionalSetting()
   @NestedSettings(() => MimSmsDto)
   mimsms?: MimSmsDto;
+
+  // [15.6/#508 D5] Absent ⇒ OFF (today's unmetered behaviour). PLATFORM
+  // turns on metering against sms_credit_ledger/sms_credit_balance (#546).
+  @OptionalSetting()
+  @IsIn(['OFF', 'PLATFORM'])
+  metering?: SmsMeteringMode;
 }
 
 export class WhatsAppSettingsDto {

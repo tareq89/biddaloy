@@ -36,6 +36,8 @@ export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
   'fee_structures',
   'communication_logs',
   'reminder_batches',
+  'sms_credit_ledger',
+  'sms_credit_balance',
   'student_guardians',
   'guardians',
   'enrollments',
