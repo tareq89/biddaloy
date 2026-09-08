@@ -58,6 +58,8 @@ import {
 } from '../-shared/template-placeholders';
 import { splitTemplateParams, WhatsappTemplateFields } from '../-shared/whatsapp-template-fields';
 
+import { BulkSmsProjectionCard } from './bulk-sms-projection-card';
+
 /** Mirror of the server's `MAX_BULK_REMINDER_STUDENTS` (`@ArrayMaxSize`
  * on `SendBulkReminderDto.student_ids`) — enforced here so the sender
  * learns about the cap while selecting, not from a 400. */
@@ -210,6 +212,21 @@ export function BulkReminderWizard() {
     if (error instanceof ApiError && error.statusCode === 400) return error.message;
     if (error instanceof ApiError && error.statusCode === 429) return t('bulk.review.rateLimited');
     return t(fallbackKey);
+  }
+
+  /** [15.6.8/#551] `reminders.service.ts`'s 409 on send — `details.code ===
+   * 'INSUFFICIENT_SMS_CREDIT'` carries `required`/`available` the review
+   * step's own preview-time shortfall can't guarantee still matches (a
+   * concurrent send from elsewhere can eat the balance between preview and
+   * submit). `undefined` for every other error, so the caller falls back
+   * to `requestErrorMessage`'s generic handling. */
+  function insufficientCreditMessage(error: unknown): string | undefined {
+    if (!(error instanceof ApiError) || error.statusCode !== 409) return undefined;
+    if (error.details?.code !== 'INSUFFICIENT_SMS_CREDIT') return undefined;
+    return t('bulk.review.projection.insufficientCredit', {
+      required: error.details.required,
+      available: error.details.available,
+    });
   }
 
   function setFilter(key: keyof RecipientFilters, value: string | undefined) {
@@ -474,6 +491,11 @@ export function BulkReminderWizard() {
   };
 
   const previewResult = previewMatchesInputs ? acceptedPreview.result : null;
+  const projection = previewResult?.projection;
+  // [15.6.8/#551] Send is only ever blocked by metering short of the
+  // projected units — OFF (unmetered/own provider) never blocks on
+  // credit, whatever `sms_units` says.
+  const creditBlocked = projection?.metering === 'PLATFORM' && (projection.shortfall ?? 0) > 0;
 
   // Student-level and guardian-level skips flattened into one
   // reason-grouped view — "7 students skipped" alone would hide *why*.
@@ -490,7 +512,10 @@ export function BulkReminderWizard() {
     id: 'review',
     label: t('bulk.steps.review'),
     isValid: () =>
-      previewMatchesInputs && (previewResult?.recipients_count ?? 0) > 0 && !send.isPending,
+      previewMatchesInputs &&
+      (previewResult?.recipients_count ?? 0) > 0 &&
+      !send.isPending &&
+      !creditBlocked,
     content: (
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-3">
@@ -537,6 +562,8 @@ export function BulkReminderWizard() {
               </p>
             )}
 
+            {projection !== undefined && <BulkSmsProjectionCard projection={projection} />}
+
             {skippedByReason.size > 0 && (
               <div>
                 <h2 className="text-sm font-semibold">{t('bulk.review.skippedByReasonTitle')}</h2>
@@ -579,7 +606,8 @@ export function BulkReminderWizard() {
 
         {send.isError && (
           <p role="alert" className="text-sm text-destructive">
-            {requestErrorMessage(send.error, 'bulk.review.sendErrorMessage')}
+            {insufficientCreditMessage(send.error) ??
+              requestErrorMessage(send.error, 'bulk.review.sendErrorMessage')}
           </p>
         )}
       </div>

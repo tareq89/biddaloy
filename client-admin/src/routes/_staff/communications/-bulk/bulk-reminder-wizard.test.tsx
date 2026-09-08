@@ -274,6 +274,76 @@ describe('bulk reminder wizard', () => {
     });
   });
 
+  it('[15.6.8/#551] disables send only when metered and short — never in OFF mode', async () => {
+    server.use(
+      duesHandler(),
+      http.post('/api/v1/communications/reminder/bulk/preview', () =>
+        HttpResponse.json({
+          total_students: 2,
+          recipients_count: 2,
+          skipped_count: 0,
+          students: [],
+          projection: {
+            sms_recipients: 2,
+            sms_units: 2,
+            metering: 'PLATFORM',
+            available: 1,
+            reserved: 0,
+            shortfall: 1,
+          },
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    render();
+
+    await screen.findByRole('checkbox', { name: 'Select row 1' });
+    await selectBothStudents(user);
+    await fillMessageStep(user);
+    await user.click(wizardNext());
+    await user.click(screen.getByRole('button', { name: 'Preview recipients' }));
+
+    await screen.findByText(/\(1 short\)/);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Send reminders' }).disabled).toBe(
+      true,
+    );
+  });
+
+  it('[15.6.8/#551] renders required vs available inline on a 409 INSUFFICIENT_SMS_CREDIT send', async () => {
+    server.use(
+      duesHandler(),
+      http.post('/api/v1/communications/reminder/bulk', () =>
+        HttpResponse.json(
+          {
+            statusCode: 409,
+            message: 'Insufficient SMS credit to send this batch.',
+            timestamp: new Date().toISOString(),
+            path: '/api/v1/communications/reminder/bulk',
+            requestId: 'req-1',
+            details: { code: 'INSUFFICIENT_SMS_CREDIT', required: 2, available: 1 },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    render();
+
+    await screen.findByRole('checkbox', { name: 'Select row 1' });
+    await selectBothStudents(user);
+    await fillMessageStep(user);
+    await user.click(wizardNext());
+    await user.click(screen.getByRole('button', { name: 'Preview recipients' }));
+    await screen.findByText('2 guardian(s) will receive this reminder · 1 skipped');
+    await user.click(screen.getByRole('button', { name: 'Send reminders' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Not enough SMS credit to send: 2 unit(s) needed, only 1 available.'),
+      ).toBeTruthy();
+    });
+  });
+
   it('is axe clean with the preview on screen', async () => {
     server.use(duesHandler());
     const user = userEvent.setup();

@@ -9,6 +9,7 @@ import { MessengerSection } from './settings/MessengerSection';
 import { RegionalSection } from './settings/RegionalSection';
 import { SchoolProfileSection } from './settings/school-profile-section';
 import { SignInSection } from './settings/SignInSection';
+import { SmsCreditSection } from './settings/SmsCreditSection';
 import { SmsSection } from './settings/SmsSection';
 import { WhatsAppSection } from './settings/WhatsAppSection';
 
@@ -130,6 +131,7 @@ export function SchoolSettingsPage() {
           />
           <EmailSection schoolId={schoolId} email={settingsQuery.data.communications?.email} />
           <SmsSection schoolId={schoolId} sms={settingsQuery.data.communications?.sms} />
+          <SmsCreditSection key={schoolId} schoolId={schoolId} />
         </div>
       )}
     </div>

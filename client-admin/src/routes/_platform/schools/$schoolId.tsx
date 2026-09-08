@@ -27,6 +27,7 @@ import { z } from 'zod';
 import { loadRouteNamespaces } from '../../../route-loaders';
 
 import { AdminsCard } from './-detail/admins-card';
+import { SmsCreditsCard } from './-detail/sms-credits-card';
 import { StatsCard } from './-detail/stats-card';
 import { StatusActionDialog } from './-detail/status-action-dialog';
 
@@ -117,6 +118,7 @@ function SchoolDetailPage() {
                   {...(adminsQuery.isError ? { error: t('schoolDetail.admins.loadError') } : {})}
                   onRetry={() => void adminsQuery.refetch()}
                 />
+                <SmsCreditsCard schoolId={schoolId} />
                 <Link
                   to="/settings"
                   className="inline-flex min-h-6 items-center self-start text-sm text-primary underline"
