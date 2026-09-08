@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -46,6 +51,7 @@ import {
 import { resolveWhatsAppTemplate, whatsAppTemplateMetadata } from './whatsapp-template.util';
 import { projectSmsUnits } from './sms-projection.util';
 import { SmsCreditService } from './credits/sms-credit.service';
+import { INSUFFICIENT_SMS_CREDIT } from './credits/insufficient-sms-credit.constants';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
 import {
@@ -54,6 +60,7 @@ import {
   CommunicationStatus,
   CommunicationTrigger,
   ReminderBatchStatus,
+  countSmsSegments,
 } from '@biddaloy/shared';
 
 // Re-exported so existing imports (this file's own spec, in particular)
@@ -106,6 +113,13 @@ export class BulkReminderService {
   ): Promise<ReminderBatchResponseDto> {
     const { studentIds, recipients, skipped } = await this.validateAndResolve(dto, tenantId);
 
+    // [15.6.5/#548] Recomputed from the just-resolved recipients and the
+    // template that will actually be sent — never trusted from the client
+    // (the DTO carries no client-supplied total to begin with; previewBulk's
+    // earlier number is advisory only, this is the number that gets
+    // reserved). Server is the enforcement boundary.
+    const { sms_units } = projectSmsUnits(recipients, dto.message_template);
+
     const batch = await this.batchRepo.save(
       this.batchRepo.create({
         tenant_id: tenantId,
@@ -131,6 +145,33 @@ export class BulkReminderService {
         },
       }),
     );
+
+    // Reserve BEFORE any log/job is created — the batch id is only known
+    // once the row above exists (DB-generated uuid), so this is the
+    // earliest point a stable `batch:${batch.id}` idempotency key can be
+    // formed. On failure, the batch row this transaction just created is
+    // rolled back too: no batch, no logs, no jobs must remain on
+    // insufficient credit (epic #508: external provider calls — and the
+    // work that leads to them — never leave partial durable state behind).
+    if (sms_units > 0 && (await this.smsCreditService.isMetered(tenantId))) {
+      const reservation = await this.smsCreditService.reserve(
+        tenantId,
+        sms_units,
+        `batch:${batch.id}`,
+        { type: 'batch', id: batch.id },
+      );
+      if (!reservation.ok) {
+        await this.batchRepo.delete({ id: batch.id, tenant_id: tenantId });
+        throw new ConflictException({
+          message: 'Insufficient SMS credit to send this batch.',
+          details: {
+            code: INSUFFICIENT_SMS_CREDIT,
+            required: sms_units,
+            available: reservation.available,
+          },
+        });
+      }
+    }
 
     const { queued, failed } = await this.queueRecipients(recipients, batch, dto, tenantId, userId);
 
@@ -579,6 +620,7 @@ export class BulkReminderService {
     let failed = 0;
 
     for (const recipient of recipients) {
+      const renderedBody = renderReminderTemplate(dto.message_template, recipient.vars);
       const log = await this.logRepo.save(
         this.logRepo.create({
           tenant_id: tenantId,
@@ -586,7 +628,7 @@ export class BulkReminderService {
           medium: recipient.medium,
           recipient_address: recipient.address,
           recipient_name: recipient.guardian.full_name,
-          message_body: renderReminderTemplate(dto.message_template, recipient.vars),
+          message_body: renderedBody,
           subject: recipient.medium === CommunicationMedium.EMAIL ? this.emailSubject(dto) : null,
           student_id: recipient.student.id,
           guardian_id: recipient.guardian.id,
@@ -597,8 +639,21 @@ export class BulkReminderService {
         }),
       );
 
+      // [15.6.5/#548] `segments` is only meaningful for SMS — every other
+      // medium never touches the credit ledger, so its job data carries
+      // none. Settlement (peeling this off the batch's RESERVE) is #549;
+      // this just plumbs the number the worker will eventually need.
+      const segments =
+        recipient.medium === CommunicationMedium.SMS
+          ? countSmsSegments(renderedBody).segments
+          : undefined;
+
       try {
-        await this.queue.add('send', { logId: log.id });
+        await this.queue.add('send', {
+          logId: log.id,
+          batchId: batch.id,
+          ...(segments !== undefined ? { segments } : {}),
+        });
         queued++;
       } catch {
         // One recipient failing to enqueue shouldn't abort the rest of the

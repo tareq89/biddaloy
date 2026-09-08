@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import {
   BulkReminderService,
   SkipReason,
@@ -8,12 +8,14 @@ import {
   resolveReminderAudience,
   addressForMedium,
 } from './reminders.service';
+import { renderReminderTemplate } from './reminder-template.util';
 import {
   CommunicationMedium,
   CommunicationStatus,
   CommunicationTrigger,
   ReminderBatchStatus,
   AuditAction,
+  countSmsSegments,
 } from '@biddaloy/shared';
 
 const TENANT = 'tenant-1';
@@ -229,6 +231,7 @@ describe('BulkReminderService', () => {
       findOne: vi.fn(async () => savedBatch),
       findAndCount: vi.fn(async () => [[], 0]),
       query: vi.fn(async () => undefined),
+      delete: vi.fn(async () => undefined),
     };
     queue = { add: vi.fn(async () => undefined) };
     studentService = { findManyWithGuardians: vi.fn(async () => [student()]) };
@@ -242,6 +245,7 @@ describe('BulkReminderService', () => {
     smsCreditService = {
       isMetered: vi.fn(async () => false),
       getBalance: vi.fn(async () => ({ available: 0, reserved: 0 })),
+      reserve: vi.fn(async () => ({ ok: true })),
     };
 
     service = new BulkReminderService(
@@ -320,7 +324,18 @@ describe('BulkReminderService', () => {
           message_template: dto.message_template,
         }),
       );
-      expect(queue.add).toHaveBeenCalledWith('send', { logId: 'log-1' });
+      // Default recipient is SMS (guardian()'s preferred_communication), so
+      // the job carries both batchId and its own positive segments count.
+      expect(queue.add).toHaveBeenCalledWith(
+        'send',
+        expect.objectContaining({
+          logId: 'log-1',
+          batchId: 'batch-1',
+          segments: expect.any(Number),
+        }),
+      );
+      const jobData = queue.add.mock.calls[0][1];
+      expect(jobData.segments).toBeGreaterThan(0);
       expect(result.total_recipients).toBe(1);
       expect(result.skipped).toEqual([]);
     });
@@ -756,6 +771,122 @@ describe('BulkReminderService', () => {
 
       expect(result.id).toBe('batch-1');
       expect(result.status).toBe(ReminderBatchStatus.PROCESSING);
+    });
+  });
+
+  describe('SMS credit reservation [15.6.5/#548]', () => {
+    it('OFF mode: never calls reserve', async () => {
+      smsCreditService.isMetered.mockResolvedValue(false);
+
+      await service.sendBulk(dto as any, TENANT, USER);
+
+      expect(smsCreditService.reserve).not.toHaveBeenCalled();
+      expect(queue.add).toHaveBeenCalledTimes(1);
+    });
+
+    it('PLATFORM mode with sms_units === 0: never calls reserve', async () => {
+      smsCreditService.isMetered.mockResolvedValue(true);
+      // EMAIL-only recipient never contributes to sms_units.
+      studentService.findManyWithGuardians.mockResolvedValue([
+        student({
+          guardians: [
+            guardian({
+              id: 'g-1',
+              preferred_communication: CommunicationMedium.EMAIL,
+              email: 'salma@example.com',
+            }),
+          ],
+        }),
+      ]);
+
+      await service.sendBulk(dto as any, TENANT, USER);
+
+      expect(smsCreditService.reserve).not.toHaveBeenCalled();
+      expect(queue.add).toHaveBeenCalledTimes(1);
+    });
+
+    it('metered, sufficient balance: reserves the recomputed units under batch:<id>, then creates logs/jobs', async () => {
+      smsCreditService.isMetered.mockResolvedValue(true);
+      smsCreditService.reserve.mockResolvedValue({ ok: true });
+
+      const rendered = renderReminderTemplate(dto.message_template, {
+        student_name: 'Rahim Uddin',
+        guardian_name: 'Karim Uddin',
+        due_amount: '1,500.00',
+        due_month: 'March 2026',
+      });
+      const expectedUnits = countSmsSegments(rendered).segments;
+
+      await service.sendBulk(dto as any, TENANT, USER);
+
+      expect(smsCreditService.reserve).toHaveBeenCalledWith(
+        TENANT,
+        expectedUnits,
+        'batch:batch-1',
+        { type: 'batch', id: 'batch-1' },
+      );
+
+      // Reservation happens strictly before any log/job is created.
+      const reserveOrder = smsCreditService.reserve.mock.invocationCallOrder[0];
+      const logSaveOrder = logRepo.save.mock.invocationCallOrder[0];
+      const jobAddOrder = queue.add.mock.invocationCallOrder[0];
+      expect(reserveOrder).toBeLessThan(logSaveOrder);
+      expect(reserveOrder).toBeLessThan(jobAddOrder);
+    });
+
+    it('metered, insufficient balance: 409 with INSUFFICIENT_SMS_CREDIT, no logs/jobs, batch rolled back', async () => {
+      smsCreditService.isMetered.mockResolvedValue(true);
+      smsCreditService.reserve.mockResolvedValue({ ok: false, available: 2 });
+
+      try {
+        await service.sendBulk(dto as any, TENANT, USER);
+        throw new Error('expected sendBulk to throw');
+      } catch (error) {
+        expect(error).toBeInstanceOf(ConflictException);
+        expect((error as ConflictException).getStatus()).toBe(409);
+        expect((error as ConflictException).getResponse()).toMatchObject({
+          details: {
+            code: 'INSUFFICIENT_SMS_CREDIT',
+            required: expect.any(Number),
+            available: 2,
+          },
+        });
+      }
+
+      expect(logRepo.save).not.toHaveBeenCalled();
+      expect(queue.add).not.toHaveBeenCalled();
+      expect(batchRepo.delete).toHaveBeenCalledWith({ id: 'batch-1', tenant_id: TENANT });
+    });
+
+    it('ignores any client-supplied total and reserves the server-recomputed sms_units instead', async () => {
+      smsCreditService.isMetered.mockResolvedValue(true);
+      smsCreditService.reserve.mockResolvedValue({ ok: true });
+
+      // A DTO carrying a bogus client-side total — the DTO type has no such
+      // field, so this only exercises that the service never reads one.
+      const dtoWithStaleTotal = { ...dto, sms_units: 999 } as any;
+
+      await service.sendBulk(dtoWithStaleTotal, TENANT, USER);
+
+      const [, reservedUnits] = smsCreditService.reserve.mock.calls[0];
+      expect(reservedUnits).not.toBe(999);
+      expect(reservedUnits).toBeGreaterThan(0);
+    });
+
+    it('each SMS job carries its own segments count and the batchId', async () => {
+      studentService.findManyWithGuardians.mockResolvedValue([
+        student({
+          id: 's-1',
+          guardians: [guardian({ id: 'g-1', preferred_communication: CommunicationMedium.SMS })],
+        }),
+      ]);
+
+      await service.sendBulk(dto as any, TENANT, USER);
+
+      expect(queue.add).toHaveBeenCalledWith(
+        'send',
+        expect.objectContaining({ batchId: 'batch-1', segments: expect.any(Number) }),
+      );
     });
   });
 

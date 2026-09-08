@@ -156,6 +156,7 @@ export class SmsCreditService {
     tenantId: string,
     units: number,
     idempotencyKey: string,
+    reference?: { type: 'batch' | 'log' | 'manual'; id: string | null },
   ): Promise<{ ok: true } | { ok: false; available: number }> {
     try {
       return await this.dataSource.transaction(async (manager) => {
@@ -186,8 +187,13 @@ export class SmsCreditService {
           tenant_id: tenantId,
           kind: SmsCreditLedgerKind.RESERVE,
           units,
-          reference_type: SmsCreditLedgerReferenceType.MANUAL,
-          reference_id: null,
+          reference_type:
+            reference?.type === 'batch'
+              ? SmsCreditLedgerReferenceType.BATCH
+              : reference?.type === 'log'
+                ? SmsCreditLedgerReferenceType.LOG
+                : SmsCreditLedgerReferenceType.MANUAL,
+          reference_id: reference?.id ?? null,
           idempotency_key: idempotencyKey,
         });
         return { ok: true as const };

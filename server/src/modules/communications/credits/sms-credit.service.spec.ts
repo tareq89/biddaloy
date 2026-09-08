@@ -125,6 +125,33 @@ describe('SmsCreditService', () => {
       expect(result).toEqual({ ok: false, available: 5 });
       expect(manager.insert).not.toHaveBeenCalled();
     });
+
+    it('defaults to a MANUAL/null reference when none is passed', async () => {
+      ledgerFindOneQueue = [null];
+      manager.query = vi.fn(async () => [[{ available: 90 }], 1]);
+
+      await service.reserve(TENANT_ID, 10, 'reserve-key-1');
+
+      expect(manager.insert).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ reference_type: 'manual', reference_id: null }),
+      );
+    });
+
+    it('records the given batch reference on the RESERVE row', async () => {
+      ledgerFindOneQueue = [null];
+      manager.query = vi.fn(async () => [[{ available: 90 }], 1]);
+
+      await service.reserve(TENANT_ID, 10, 'batch:batch-1', {
+        type: 'batch',
+        id: 'batch-1',
+      });
+
+      expect(manager.insert).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ reference_type: 'batch', reference_id: 'batch-1' }),
+      );
+    });
   });
 
   describe('settle', () => {
