@@ -19,6 +19,7 @@ import {
   ApiExtraModels,
   ApiOkResponse,
   ApiOperation,
+  ApiResponse,
   ApiTags,
   getSchemaPath,
 } from '@nestjs/swagger';
@@ -57,6 +58,7 @@ import {
 } from './dto/fees.dto';
 import { FeeStructure } from './entities/fee-structure.entity';
 import { Payment } from './entities/payment.entity';
+import { IssuerSnapshot } from '../schools/profile/issuer-snapshot';
 import { Permission, UserRole, isGuardianRole } from '@biddaloy/shared';
 import { JwtPayload } from '@biddaloy/shared';
 import { requestContext } from '../../common/request-context.util';
@@ -299,6 +301,26 @@ export class FeeController {
   @ApiOperation({
     summary:
       "Record a payment and allocate it across the student's outstanding fees in FIFO order, generating an invoice when a fee is paid in full.",
+  })
+  // [15.5.5] The response is `Payment` (already `issuer_snapshot`-typed via
+  // its own `@ApiProperty`) plus the just-resolved `issuer` — undeclared
+  // otherwise, since it's not a column on the entity. `allOf`, not a
+  // subclass of `Payment`: the entity is `@Entity`-decorated, and a plain
+  // response DTO extending it would drag TypeORM metadata into Swagger for
+  // no benefit.
+  @ApiExtraModels(Payment, IssuerSnapshot)
+  // `@ApiResponse({ status: 201, ... })`, not `@ApiOkResponse` (which
+  // documents 200) — this route has no `@HttpCode`, so Nest's actual
+  // default for a POST handler is 201.
+  @ApiResponse({
+    status: 201,
+    description: 'The recorded payment, with the issuer identity frozen onto it at record time.',
+    schema: {
+      allOf: [
+        { $ref: getSchemaPath(Payment) },
+        { type: 'object', properties: { issuer: { $ref: getSchemaPath(IssuerSnapshot) } } },
+      ],
+    },
   })
   recordPaymentWithAllocation(
     @Body() dto: RecordPaymentWithAllocationDto,

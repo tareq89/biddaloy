@@ -453,6 +453,59 @@ export interface paths {
         patch: operations["SchoolsController_updateSettings_v1"];
         trace?: never;
     };
+    "/api/v1/schools/me/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the caller's school profile (name, name_bn, address, phone, email, registration_id, logo_url). Any authenticated staff role. */
+        get: operations["SchoolProfileController_getProfile_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update the caller school profile (partial). ADMIN only. Every change is audited. */
+        patch: operations["SchoolProfileController_updateProfile_v1"];
+        trace?: never;
+    };
+    "/api/v1/schools/{id}/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Serve the raw logo bytes for a school. Any member of that school (or SUPER_ADMIN). `v` (the uuid from a logo_url or a document issuer_snapshot.logo_key) selects that exact object; omitted, the current logo. 404 if there is nothing to serve. */
+        get: operations["SchoolLogoController_serve_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schools/me/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload the school logo (PNG/JPEG/WebP, <=512KB, <=2048px per side). Re-encoded to a 512x512-max PNG. */
+        post: operations["SchoolLogoController_upload_v1"];
+        /** Remove the school logo. */
+        delete: operations["SchoolLogoController_remove_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/schools/{id}/admins": {
         parameters: {
             query?: never;
@@ -1954,6 +2007,9 @@ export interface components {
             address: string | null;
             phone: string | null;
             email: string | null;
+            name_bn: string | null;
+            registration_id: string | null;
+            logo_key: string | null;
             settings: {
                 [key: string]: unknown;
             } | null;
@@ -2274,6 +2330,15 @@ export interface components {
             communications?: components["schemas"]["CommunicationsSettingsDto"];
             attendance?: components["schemas"]["AttendancePolicyDto"];
             auth?: components["schemas"]["AuthSettingsDto"];
+        };
+        UpdateSchoolProfileDto: {
+            name?: string;
+            name_bn?: string | null;
+            address?: string | null;
+            phone?: string | null;
+            /** Format: email */
+            email?: string | null;
+            registration_id?: string | null;
         };
         ProvisionSchoolAdminDto: {
             name: string;
@@ -2742,6 +2807,16 @@ export interface components {
             month: number;
             is_recurring: boolean;
         };
+        IssuerSnapshot: {
+            name: string;
+            name_bn: string | null;
+            address: string | null;
+            phone: string | null;
+            email: string | null;
+            registration_id: string | null;
+            logo_key: string | null;
+            captured_at: string;
+        };
         StudentFee: {
             id: string;
             student: components["schemas"]["Student"];
@@ -2768,6 +2843,7 @@ export interface components {
             updated_at: string;
         };
         Invoice: {
+            issuer_snapshot: components["schemas"]["IssuerSnapshot"] | null;
             id: string;
             invoice_number: string;
             student: components["schemas"]["Student"];
@@ -2795,6 +2871,7 @@ export interface components {
             deleted_at: string | null;
         };
         Payment: {
+            issuer_snapshot: components["schemas"]["IssuerSnapshot"] | null;
             id: string;
             student: components["schemas"]["Student"];
             student_id: string;
@@ -3206,12 +3283,14 @@ export interface components {
             issued_by: components["schemas"]["UserResponseDto"] | null;
             issued_by_user_id: string | null;
             notes: string | null;
+            issuer_snapshot: components["schemas"]["IssuerSnapshot"] | null;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
             updated_at: string;
             /** Format: date-time */
             deleted_at: string | null;
+            issuer?: components["schemas"]["IssuerSnapshot"];
         };
         FamilyInvoiceStudentDto: {
             id: string;
@@ -3257,6 +3336,7 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+            issuer?: components["schemas"]["IssuerSnapshot"];
         };
         LineItemDto: {
             description: string;
@@ -4744,6 +4824,174 @@ export interface operations {
             };
             /** @description An ADMIN attempted to manage a school other than their own; only a SUPER_ADMIN can manage any school. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolProfileController_getProfile_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolProfileController_updateProfile_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSchoolProfileDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Only ADMIN (or SUPER_ADMIN) may edit the school profile. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolLogoController_serve_v1: {
+        parameters: {
+            query?: {
+                /** @description Logo version (uuid) to serve. */
+                v?: unknown;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolLogoController_upload_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file?: string;
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolLogoController_remove_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6423,12 +6671,15 @@ export interface operations {
             };
         };
         responses: {
+            /** @description The recorded payment, with the issuer identity frozen onto it at record time. */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Payment"];
+                    "application/json": components["schemas"]["Payment"] & {
+                        issuer?: components["schemas"]["IssuerSnapshot"];
+                    };
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -7025,7 +7276,7 @@ export interface operations {
                 role?: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE";
                 search?: string;
                 status?: "ACTIVE" | "INACTIVE" | "SUSPENDED";
-                invitation_status?: "PENDING" | "NONE" | "EXPIRED" | "REVOKED" | "ACTIVATED";
+                invitation_status?: "NONE" | "PENDING" | "EXPIRED" | "REVOKED" | "ACTIVATED";
                 joined_from?: string;
                 joined_to?: string;
                 sort?: "status" | "email" | "full_name" | "joined_at";
