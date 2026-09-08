@@ -47,6 +47,17 @@ function FirefoxUncachedRoutePage(): React.ReactNode {
   throw new TypeError('error loading dynamically imported module: /assets/students-Bv7carHk.js');
 }
 
+/** [15.4.2]: what `toApiError` (`ui/src/api/client.ts`) turns a suspended
+ * tenant's 403 into — an `ApiError` shape with `details.code`, not a plain
+ * `Error`. Duck-typed rather than a real `ApiError` instance so this fixture
+ * doesn't depend on the exact server error-response envelope. */
+function SuspendedTenantPage(): React.ReactNode {
+  throw Object.assign(new Error('This school has been suspended'), {
+    statusCode: 403,
+    details: { code: 'TENANT_SUSPENDED' },
+  });
+}
+
 /** jsdom reports `navigator.onLine === true`; this flips it for the
  * duration of a test. Returns the restore function. */
 function goOffline(): () => void {
@@ -156,6 +167,18 @@ describe('RouteErrorFallback', () => {
 
     expect(await screen.findByRole('status')).toBeTruthy();
     expect(captureRouteError).not.toHaveBeenCalled();
+  });
+
+  it('renders the suspended state, and reports nothing, for a 403 TENANT_SUSPENDED error', async () => {
+    renderWithRouter(buildRouteTree(SuspendedTenantPage), { initialEntries: ['/broken'] });
+
+    expect(await screen.findByRole('status')).toBeTruthy();
+    expect(
+      screen.getByRole('heading', { level: 1, name: /this school has been suspended/i }),
+    ).toBeTruthy();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(captureRouteError).not.toHaveBeenCalled();
+    expect(recordRouteChunkFallback).toHaveBeenCalledWith('suspended');
   });
 
   it('still reports a genuine crash that happens to occur while offline', async () => {

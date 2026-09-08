@@ -19,6 +19,7 @@ import bnFeeStructures from '../ui/src/i18n/locales/bn/feeStructures.json';
 import bnGuardians from '../ui/src/i18n/locales/bn/guardians.json';
 import bnNav from '../ui/src/i18n/locales/bn/nav.json';
 import bnPayments from '../ui/src/i18n/locales/bn/payments.json';
+import bnPlatform from '../ui/src/i18n/locales/bn/platform.json';
 import bnPortal from '../ui/src/i18n/locales/bn/portal.json';
 import bnSettings from '../ui/src/i18n/locales/bn/settings.json';
 import bnStaff from '../ui/src/i18n/locales/bn/staff.json';
@@ -35,6 +36,7 @@ import enFeeStructures from '../ui/src/i18n/locales/en/feeStructures.json';
 import enGuardians from '../ui/src/i18n/locales/en/guardians.json';
 import enNav from '../ui/src/i18n/locales/en/nav.json';
 import enPayments from '../ui/src/i18n/locales/en/payments.json';
+import enPlatform from '../ui/src/i18n/locales/en/platform.json';
 import enPortal from '../ui/src/i18n/locales/en/portal.json';
 import enSettings from '../ui/src/i18n/locales/en/settings.json';
 import enStaff from '../ui/src/i18n/locales/en/staff.json';
@@ -54,6 +56,7 @@ const catalogs = {
     guardians: bnGuardians,
     nav: bnNav,
     payments: bnPayments,
+    platform: bnPlatform,
     portal: bnPortal,
     settings: bnSettings,
     staff: bnStaff,
@@ -72,6 +75,7 @@ const catalogs = {
     guardians: enGuardians,
     nav: enNav,
     payments: enPayments,
+    platform: enPlatform,
     portal: enPortal,
     settings: enSettings,
     staff: enStaff,

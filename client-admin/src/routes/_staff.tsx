@@ -1,4 +1,4 @@
-import { Permission, STAFF_ROLES } from '@biddaloy/shared';
+import { Permission, STAFF_ROLES, UserRole } from '@biddaloy/shared';
 import {
   AccessDeniedState,
   AppHeader,
@@ -11,6 +11,7 @@ import {
   ThemeToggle,
   type AppShellNavGroup,
 } from '@biddaloy/ui/components';
+import { useActiveRole } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { RequirePermission, RequireRole } from '@biddaloy/ui/routes';
 import { createFileRoute, Outlet, useMatches, useNavigate } from '@tanstack/react-router';
@@ -86,6 +87,15 @@ export const Route = createFileRoute('/_staff')({
  */
 function StaffLayout() {
   const { t } = useTranslation('nav');
+  // #533: the platform-admin nav item is gated on the active *role*
+  // (SUPER_ADMIN), not a `Permission` — `AppShellNavItem.permission` is
+  // checked with `hasPermission`, and `ROLE_PERMISSIONS[SUPER_ADMIN]`
+  // holds every permission there is (`permissions.ts`), so no permission
+  // value could ever restrict this item to SUPER_ADMIN alone. Read
+  // directly with `useActiveRole()` instead and only push the item into
+  // `navGroups` below when it matches — same reactive role source
+  // `RequireRole`/`_platform/route.tsx`'s own guard reads.
+  const activeRole = useActiveRole();
   // `auditLogs` is loaded alongside `nav` here, not lazily on demand like
   // every other feature namespace, because this component reads a key
   // from it below (the audit-logs refusal explanation, via an explicit
@@ -323,6 +333,17 @@ function StaffLayout() {
           permission: Permission.SETTINGS_MANAGE,
           icon: <SettingsIcon aria-hidden="true" />,
         },
+        // #533 — SUPER_ADMIN only, see the `activeRole` comment above for
+        // why this is a role check rather than a `permission` value.
+        ...(activeRole === UserRole.SUPER_ADMIN
+          ? [
+              {
+                to: '/schools',
+                label: t('items.platformSchools'),
+                icon: <SchoolIcon aria-hidden="true" />,
+              },
+            ]
+          : []),
       ],
     },
   ];

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { School } from './entities/school.entity';
@@ -7,12 +7,24 @@ import { SchoolsController } from './schools.controller';
 import { EncryptionService } from './settings/encryption.service';
 import { buildEncryptionKey, buildPreviousEncryptionKeys } from './settings/encryption-key';
 import { TenantSettingsCache } from './settings/tenant-settings-cache.service';
+import { TenantStatusModule } from './tenant-status.module';
 import { AuditModule } from '../audit/audit.module';
 import { SchoolProfileController } from './profile/profile.controller';
 import { SchoolProfileService } from './profile/profile.service';
 import { SchoolLogoController } from './profile/logo.controller';
 import { SchoolLogoService } from './profile/logo.service';
 import { StorageModule } from '../storage/storage.module';
+import { ProvisioningService } from './provisioning/provisioning.service';
+import { ProvisioningController } from './provisioning/provisioning.controller';
+import { SchoolAdminsService } from './admins/school-admins.service';
+import { SchoolAdminsController } from './admins/school-admins.controller';
+import { AccountAccessModule } from '../account-access/account-access.module';
+import { User } from '../users/entities/user.entity';
+import { UserTenant } from '../auth/entities/user-tenant.entity';
+import { AuthToken } from '../account-access/entities/auth-token.entity';
+import { Student } from '../students/entities/student.entity';
+import { CommunicationLog } from '../communications/entities/communication-log.entity';
+import { AuditLog } from '../audit/entities/audit-log.entity';
 
 const TENANT_SETTINGS_CACHE_TTL_MS = 30_000;
 
@@ -33,12 +45,39 @@ export function encryptionServiceFactory(config: ConfigService): EncryptionServi
 }
 
 @Module({
-  imports: [TypeOrmModule.forFeature([School]), ConfigModule, AuditModule, StorageModule],
-  controllers: [SchoolsController, SchoolProfileController, SchoolLogoController],
+  imports: [
+    TypeOrmModule.forFeature([
+      School,
+      UserTenant,
+      Student,
+      CommunicationLog,
+      AuditLog,
+      User,
+      AuthToken,
+    ]),
+    ConfigModule,
+    AuditModule,
+    StorageModule,
+    TenantStatusModule,
+    // Circular: AccountAccessModule imports SchoolsModule (for
+    // SchoolsService's tenant-settings lookups) — forwardRef breaks the
+    // cycle so ProvisioningService can reuse AccountAccessDeliveryService
+    // rather than re-implementing invitation delivery here (#529).
+    forwardRef(() => AccountAccessModule),
+  ],
+  controllers: [
+    SchoolsController,
+    SchoolProfileController,
+    SchoolLogoController,
+    ProvisioningController,
+    SchoolAdminsController,
+  ],
   providers: [
     SchoolsService,
     SchoolProfileService,
     SchoolLogoService,
+    ProvisioningService,
+    SchoolAdminsService,
     {
       provide: EncryptionService,
       inject: [ConfigService],
@@ -63,6 +102,10 @@ export function encryptionServiceFactory(config: ConfigService): EncryptionServi
   // SchoolsService invalidates on write — a second, module-local instance
   // would never see that invalidation and could serve stale credentials
   // past a rotation.
+  //
+  // TenantStatusService (SchoolsService's own dependency, injected via
+  // `TenantStatusModule`'s `@Global()` export — see that module's file
+  // comment) is not re-declared or re-exported here.
   exports: [SchoolsService, EncryptionService, TenantSettingsCache],
 })
 export class SchoolsModule {}

@@ -34,6 +34,30 @@ export async function adminApiSession(request: APIRequestContext): Promise<ApiSe
   return { token: body.access_token, tenantId: membership.tenantId };
 }
 
+/** Same shape as `adminApiSession`, for the SUPER_ADMIN platform console
+ * (`e2e/platform/provision-and-suspend.spec.ts`, #536). The seeded
+ * super_admin account has an ordinary ADMIN-tier membership on Default
+ * School too (`seed.util.ts`'s `ROLE_TEST_USERS`) — `ContextGuard`
+ * requires *some* `X-Tenant-ID` even for a platform route
+ * (`/schools*`), but never applies that tenant's own suspension check to
+ * a SUPER_ADMIN-active request (see `ContextGuard`'s own comment), so
+ * this tenant choice has no bearing on which school the calls below
+ * actually manage. */
+export async function superAdminApiSession(request: APIRequestContext): Promise<ApiSession> {
+  const password = process.env[SEED_PASSWORD_ENV];
+  if (!password) throw new Error(`${SEED_PASSWORD_ENV} is not set`);
+  const response = await request.post('/api/v1/auth/login', {
+    data: { email: SEED_ROLE_EMAILS.super_admin, password },
+  });
+  if (!response.ok()) {
+    throw new Error(`super_admin login failed: ${response.status()} ${await response.text()}`);
+  }
+  const body = (await response.json()) as RefreshResponse;
+  const membership = body.memberships.find((m) => m.role === 'SUPER_ADMIN');
+  if (!membership) throw new Error('no SUPER_ADMIN membership for seed super_admin');
+  return { token: body.access_token, tenantId: membership.tenantId };
+}
+
 export async function apiSession(request: APIRequestContext, role: string): Promise<ApiSession> {
   const response = await request.post('/api/v1/auth/refresh');
   if (!response.ok()) {
@@ -410,4 +434,72 @@ export async function loginAsFreshUser(
       },
     ],
   };
+}
+
+/** `GET /schools` (#533) — every school on the platform, SUPER_ADMIN only.
+ * Used by `e2e/platform/provision-and-suspend.spec.ts` (#536) to resolve
+ * the already-seeded "Rose Valley School" (`seed.util.ts`'s
+ * `ensureSecondSchoolMembership`) to an id without any DB access. */
+export async function findSchoolIdBySlug(
+  request: APIRequestContext,
+  session: ApiSession,
+  slug: string,
+): Promise<string> {
+  const schools = await get<{ id: string; slug: string }[]>(request, session, '/schools');
+  const found = schools.find((school) => school.slug === slug);
+  if (!found) throw new Error(`No seeded school with slug "${slug}" (GET /schools)`);
+  return found.id;
+}
+
+/** `POST /schools/:id/admins` (#531) — adds an existing (or new) user as
+ * ADMIN of `schoolId`, matched by email. #536 uses this to give the
+ * freshly-provisioned admin a *second* tenant membership on top of the
+ * one `POST /schools` already gave them, the same "prove suspension is
+ * scoped to one tenant" shape `seed.ts`'s own `ensureSecondSchoolMembership`
+ * documents for the seeded `admin` account. */
+export async function addSchoolAdmin(
+  request: APIRequestContext,
+  session: ApiSession,
+  schoolId: string,
+  fullName: string,
+  email: string,
+): Promise<{ userId: string }> {
+  const created = await post<{ admin: { user_id: string; existed: boolean } }>(
+    request,
+    session,
+    `/schools/${schoolId}/admins`,
+    { name: fullName, email },
+  );
+  return { userId: created.admin.user_id };
+}
+
+/** `POST /schools/:id/admins/:userId/resend-invitation` — #536's own
+ * addition to `SchoolAdminsService.resendInvitation` (see that method's
+ * doc comment): a `POST /schools`/`POST /schools/:id/admins`-created
+ * ADMIN has no ADMIN-scoped route to reach the
+ * `ACCOUNT_ACCESS_ECHO_SECRETS` debug echo `createInvitedStaffUser`
+ * above relies on (that route requires the ADMIN to already be signed
+ * in), so this SUPER_ADMIN-scoped resend is the only way to read a
+ * freshly-provisioned admin's invite link without scraping the delivery
+ * provider's logs or touching the database. */
+export async function resendSchoolAdminInvitation(
+  request: APIRequestContext,
+  session: ApiSession,
+  schoolId: string,
+  userId: string,
+): Promise<string> {
+  const result = await post<{ debug?: { token: string } }>(
+    request,
+    session,
+    `/schools/${schoolId}/admins/${userId}/resend-invitation`,
+    {},
+  );
+  const token = result.debug?.token;
+  if (!token) {
+    throw new Error(
+      'No invitation.debug.token in the resend-invitation response — is ' +
+        'ACCOUNT_ACCESS_ECHO_SECRETS=true set?',
+    );
+  }
+  return token;
 }

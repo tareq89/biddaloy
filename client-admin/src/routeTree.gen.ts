@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PlatformRouteRouteImport } from './routes/_platform/route'
 import { Route as StaffRouteImport } from './routes/_staff'
 import { Route as ActivateRouteImport } from './routes/activate'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
@@ -27,6 +28,9 @@ import { Route as PortalIndexRouteImport } from './routes/portal/index'
 import { Route as PortalAccountRouteImport } from './routes/portal/account'
 import { Route as PortalAttendanceRouteImport } from './routes/portal/attendance'
 import { Route as PortalFeesRouteImport } from './routes/portal/fees'
+import { Route as PlatformSchoolsIndexRouteImport } from './routes/_platform/schools/index'
+import { Route as PlatformSchoolsSchoolIdRouteImport } from './routes/_platform/schools/$schoolId'
+import { Route as PlatformSchoolsNewRouteImport } from './routes/_platform/schools/new'
 import { Route as StaffAcademicYearsIndexRouteImport } from './routes/_staff/academic-years/index'
 import { Route as StaffAcademicYearsAcademicYearIdRouteImport } from './routes/_staff/academic-years/$academicYearId'
 import { Route as StaffAttendanceIndexRouteImport } from './routes/_staff/attendance/index'
@@ -60,6 +64,10 @@ import { Route as StaffStudentsStudentIdEditRouteImport } from './routes/_staff/
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlatformRouteRoute = PlatformRouteRouteImport.update({
+  id: '/_platform',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StaffRoute = StaffRouteImport.update({
@@ -145,6 +153,21 @@ const PortalFeesRoute = PortalFeesRouteImport.update({
   id: '/fees',
   path: '/fees',
   getParentRoute: () => PortalRoute,
+} as any)
+const PlatformSchoolsIndexRoute = PlatformSchoolsIndexRouteImport.update({
+  id: '/schools/',
+  path: '/schools/',
+  getParentRoute: () => PlatformRouteRoute,
+} as any)
+const PlatformSchoolsSchoolIdRoute = PlatformSchoolsSchoolIdRouteImport.update({
+  id: '/schools/$schoolId',
+  path: '/schools/$schoolId',
+  getParentRoute: () => PlatformRouteRoute,
+} as any)
+const PlatformSchoolsNewRoute = PlatformSchoolsNewRouteImport.update({
+  id: '/schools/new',
+  path: '/schools/new',
+  getParentRoute: () => PlatformRouteRoute,
 } as any)
 const StaffAcademicYearsIndexRoute = StaffAcademicYearsIndexRouteImport.update({
   id: '/academic-years/',
@@ -317,6 +340,8 @@ export interface FileRoutesByFullPath {
   '/portal/attendance': typeof PortalAttendanceRoute
   '/portal/fees': typeof PortalFeesRoute
   '/portal/': typeof PortalIndexRoute
+  '/schools/$schoolId': typeof PlatformSchoolsSchoolIdRoute
+  '/schools/new': typeof PlatformSchoolsNewRoute
   '/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
   '/attendance/$sectionId': typeof StaffAttendanceSectionIdRoute
   '/attendance/register': typeof StaffAttendanceRegisterRoute
@@ -333,6 +358,7 @@ export interface FileRoutesByFullPath {
   '/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/students/import': typeof StaffStudentsImportRoute
   '/students/new': typeof StaffStudentsNewRoute
+  '/schools/': typeof PlatformSchoolsIndexRoute
   '/academic-years/': typeof StaffAcademicYearsIndexRoute
   '/attendance/': typeof StaffAttendanceIndexRoute
   '/audit-logs/': typeof StaffAuditLogsIndexRoute
@@ -363,6 +389,8 @@ export interface FileRoutesByTo {
   '/portal/attendance': typeof PortalAttendanceRoute
   '/portal/fees': typeof PortalFeesRoute
   '/portal': typeof PortalIndexRoute
+  '/schools/$schoolId': typeof PlatformSchoolsSchoolIdRoute
+  '/schools/new': typeof PlatformSchoolsNewRoute
   '/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
   '/attendance/$sectionId': typeof StaffAttendanceSectionIdRoute
   '/attendance/register': typeof StaffAttendanceRegisterRoute
@@ -379,6 +407,7 @@ export interface FileRoutesByTo {
   '/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/students/import': typeof StaffStudentsImportRoute
   '/students/new': typeof StaffStudentsNewRoute
+  '/schools': typeof PlatformSchoolsIndexRoute
   '/academic-years': typeof StaffAcademicYearsIndexRoute
   '/attendance': typeof StaffAttendanceIndexRoute
   '/audit-logs': typeof StaffAuditLogsIndexRoute
@@ -396,6 +425,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_platform': typeof PlatformRouteRouteWithChildren
   '/_staff': typeof StaffRouteWithChildren
   '/activate': typeof ActivateRoute
   '/forgot-password': typeof ForgotPasswordRoute
@@ -413,6 +443,8 @@ export interface FileRoutesById {
   '/portal/attendance': typeof PortalAttendanceRoute
   '/portal/fees': typeof PortalFeesRoute
   '/portal/': typeof PortalIndexRoute
+  '/_platform/schools/$schoolId': typeof PlatformSchoolsSchoolIdRoute
+  '/_platform/schools/new': typeof PlatformSchoolsNewRoute
   '/_staff/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
   '/_staff/attendance/$sectionId': typeof StaffAttendanceSectionIdRoute
   '/_staff/attendance/register': typeof StaffAttendanceRegisterRoute
@@ -429,6 +461,7 @@ export interface FileRoutesById {
   '/_staff/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/_staff/students/import': typeof StaffStudentsImportRoute
   '/_staff/students/new': typeof StaffStudentsNewRoute
+  '/_platform/schools/': typeof PlatformSchoolsIndexRoute
   '/_staff/academic-years/': typeof StaffAcademicYearsIndexRoute
   '/_staff/attendance/': typeof StaffAttendanceIndexRoute
   '/_staff/audit-logs/': typeof StaffAuditLogsIndexRoute
@@ -463,6 +496,8 @@ export interface FileRouteTypes {
     | '/portal/attendance'
     | '/portal/fees'
     | '/portal/'
+    | '/schools/$schoolId'
+    | '/schools/new'
     | '/academic-years/$academicYearId'
     | '/attendance/$sectionId'
     | '/attendance/register'
@@ -479,6 +514,7 @@ export interface FileRouteTypes {
     | '/students/$studentId'
     | '/students/import'
     | '/students/new'
+    | '/schools/'
     | '/academic-years/'
     | '/attendance/'
     | '/audit-logs/'
@@ -509,6 +545,8 @@ export interface FileRouteTypes {
     | '/portal/attendance'
     | '/portal/fees'
     | '/portal'
+    | '/schools/$schoolId'
+    | '/schools/new'
     | '/academic-years/$academicYearId'
     | '/attendance/$sectionId'
     | '/attendance/register'
@@ -525,6 +563,7 @@ export interface FileRouteTypes {
     | '/students/$studentId'
     | '/students/import'
     | '/students/new'
+    | '/schools'
     | '/academic-years'
     | '/attendance'
     | '/audit-logs'
@@ -541,6 +580,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/_platform'
     | '/_staff'
     | '/activate'
     | '/forgot-password'
@@ -558,6 +598,8 @@ export interface FileRouteTypes {
     | '/portal/attendance'
     | '/portal/fees'
     | '/portal/'
+    | '/_platform/schools/$schoolId'
+    | '/_platform/schools/new'
     | '/_staff/academic-years/$academicYearId'
     | '/_staff/attendance/$sectionId'
     | '/_staff/attendance/register'
@@ -574,6 +616,7 @@ export interface FileRouteTypes {
     | '/_staff/students/$studentId'
     | '/_staff/students/import'
     | '/_staff/students/new'
+    | '/_platform/schools/'
     | '/_staff/academic-years/'
     | '/_staff/attendance/'
     | '/_staff/audit-logs/'
@@ -591,6 +634,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  PlatformRouteRoute: typeof PlatformRouteRouteWithChildren
   StaffRoute: typeof StaffRouteWithChildren
   ActivateRoute: typeof ActivateRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
@@ -608,6 +652,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_platform': {
+      id: '/_platform'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof PlatformRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_staff': {
@@ -728,6 +779,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/portal/fees'
       preLoaderRoute: typeof PortalFeesRouteImport
       parentRoute: typeof PortalRoute
+    }
+    '/_platform/schools/': {
+      id: '/_platform/schools/'
+      path: '/schools'
+      fullPath: '/schools/'
+      preLoaderRoute: typeof PlatformSchoolsIndexRouteImport
+      parentRoute: typeof PlatformRouteRoute
+    }
+    '/_platform/schools/$schoolId': {
+      id: '/_platform/schools/$schoolId'
+      path: '/schools/$schoolId'
+      fullPath: '/schools/$schoolId'
+      preLoaderRoute: typeof PlatformSchoolsSchoolIdRouteImport
+      parentRoute: typeof PlatformRouteRoute
+    }
+    '/_platform/schools/new': {
+      id: '/_platform/schools/new'
+      path: '/schools/new'
+      fullPath: '/schools/new'
+      preLoaderRoute: typeof PlatformSchoolsNewRouteImport
+      parentRoute: typeof PlatformRouteRoute
     }
     '/_staff/academic-years/': {
       id: '/_staff/academic-years/'
@@ -935,6 +1007,22 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface PlatformRouteRouteChildren {
+  PlatformSchoolsSchoolIdRoute: typeof PlatformSchoolsSchoolIdRoute
+  PlatformSchoolsNewRoute: typeof PlatformSchoolsNewRoute
+  PlatformSchoolsIndexRoute: typeof PlatformSchoolsIndexRoute
+}
+
+const PlatformRouteRouteChildren: PlatformRouteRouteChildren = {
+  PlatformSchoolsSchoolIdRoute: PlatformSchoolsSchoolIdRoute,
+  PlatformSchoolsNewRoute: PlatformSchoolsNewRoute,
+  PlatformSchoolsIndexRoute: PlatformSchoolsIndexRoute,
+}
+
+const PlatformRouteRouteWithChildren = PlatformRouteRoute._addFileChildren(
+  PlatformRouteRouteChildren,
+)
+
 interface StaffFeesRouteChildren {
   StaffFeesDuesRoute: typeof StaffFeesDuesRoute
   StaffFeesGenerateRoute: typeof StaffFeesGenerateRoute
@@ -1041,6 +1129,7 @@ const PortalRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  PlatformRouteRoute: PlatformRouteRouteWithChildren,
   StaffRoute: StaffRouteWithChildren,
   ActivateRoute: ActivateRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,

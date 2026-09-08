@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 import { CommunicationLog } from './entities/communication-log.entity';
@@ -30,7 +30,12 @@ import { COMMUNICATIONS_QUEUE } from './communications.constants';
     StudentModule,
     FeeModule,
     AuditModule,
-    SchoolsModule,
+    // #529 (SchoolsModule) added a forwardRef import of AccountAccessModule,
+    // which itself eagerly imports this module — Schools -> AccountAccess ->
+    // Communications -> Schools. forwardRef here breaks the third edge of
+    // that triangle; without it, `SchoolsModule` resolves to `undefined` at
+    // require-time depending on which module Nest happens to load first.
+    forwardRef(() => SchoolsModule),
     BullModule.registerQueue({
       name: COMMUNICATIONS_QUEUE,
       defaultJobOptions: {

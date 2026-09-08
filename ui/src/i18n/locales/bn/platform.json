@@ -1,0 +1,92 @@
+{
+  "breadcrumb": {
+    "dashboard": "ড্যাশবোর্ড",
+    "platformAdmin": "প্ল্যাটফর্ম অ্যাডমিন"
+  },
+  "schools": {
+    "title": "স্কুল",
+    "caption": "প্ল্যাটফর্মের প্রতিটি স্কুল, অবস্থা এবং তৈরির তারিখসহ।",
+    "columnName": "নাম",
+    "columnSlug": "স্লাগ",
+    "columnStatus": "অবস্থা",
+    "columnCreated": "তৈরি হয়েছে",
+    "searchPlaceholder": "নাম বা স্লাগ দিয়ে খুঁজুন",
+    "searchLabel": "স্কুল খুঁজুন",
+    "emptyMessage": "আপনার খোঁজের সাথে কোনো স্কুল মেলেনি।",
+    "errorMessage": "স্কুল লোড করা যায়নি।",
+    "announceResults_one": "{{total}} টির মধ্যে {{count}} টি স্কুল দেখানো হচ্ছে",
+    "announceResults_other": "{{total}} টির মধ্যে {{count}} টি স্কুল দেখানো হচ্ছে"
+  },
+  "schoolDetail": {
+    "title": "স্কুলের বিবরণ",
+    "back": "স্কুলে ফিরে যান",
+    "loadError": "এই স্কুলটি লোড করা যায়নি।",
+    "settingsLink": "স্কুল সেটিংসে যান",
+    "tabs": {
+      "overview": "সারসংক্ষেপ"
+    },
+    "actions": {
+      "suspend": "স্থগিত করুন",
+      "reactivate": "পুনরায় সক্রিয় করুন"
+    },
+    "statusDialog": {
+      "reasonLabel": "কারণ",
+      "error": "স্কুলের অবস্থা আপডেট করা যায়নি।"
+    },
+    "suspendDialog": {
+      "title": "স্কুল স্থগিত করুন",
+      "description": "{{name}} অবিলম্বে অ্যাক্সেস হারাবে। অডিট লগের জন্য কারণ ব্যাখ্যা করুন।",
+      "confirm": "স্থগিত করুন"
+    },
+    "reactivateDialog": {
+      "title": "স্কুল পুনরায় সক্রিয় করুন",
+      "description": "{{name}} অবিলম্বে অ্যাক্সেস ফিরে পাবে। অডিট লগের জন্য কারণ ব্যাখ্যা করুন।",
+      "confirm": "পুনরায় সক্রিয় করুন"
+    },
+    "stats": {
+      "title": "পরিসংখ্যান",
+      "activeUsers": "সক্রিয় ব্যবহারকারী",
+      "students": "শিক্ষার্থী",
+      "communicationsQueued": "সারিবদ্ধ যোগাযোগ",
+      "communicationsFailed7d": "ব্যর্থ যোগাযোগ (৭ দিন)",
+      "lastActivity": "সর্বশেষ কার্যকলাপ",
+      "never": "কখনো না",
+      "loadError": "পরিসংখ্যান লোড করা যায়নি।"
+    },
+    "admins": {
+      "title": "অ্যাডমিন",
+      "empty": "এখনও কোনো অ্যাডমিন নেই।",
+      "loadError": "অ্যাডমিন লোড করা যায়নি।",
+      "addTitle": "অ্যাডমিন যোগ করুন",
+      "addAction": "অ্যাডমিন যোগ করুন",
+      "addError": "এই অ্যাডমিনকে যোগ করা যায়নি।",
+      "nameLabel": "নাম",
+      "emailLabel": "ইমেইল",
+      "phoneLabel": "ফোন",
+      "resend": "আমন্ত্রণ পুনরায় পাঠান",
+      "resending": "পাঠানো হচ্ছে…",
+      "resendError": "আমন্ত্রণ পুনরায় পাঠানো যায়নি।",
+      "revoke": "আমন্ত্রণ প্রত্যাহার করুন",
+      "revoking": "প্রত্যাহার করা হচ্ছে…",
+      "revokeError": "আমন্ত্রণ প্রত্যাহার করা যায়নি।",
+      "revokeConfirmTitle": "আমন্ত্রণ প্রত্যাহার করুন",
+      "revokeConfirmDescription": "এটি {{name}}-এর মুলতুবি আমন্ত্রণ প্রত্যাহার করবে। সাইন ইন করতে তাদের একটি নতুন আমন্ত্রণ প্রয়োজন হবে।"
+    }
+  },
+  "createWizard": {
+    "schoolStepTitle": "নতুন স্কুল",
+    "nameLabel": "স্কুলের নাম",
+    "slugLabel": "স্লাগ",
+    "nextAction": "পরবর্তী",
+    "adminStepTitle": "প্রথম অ্যাডমিন",
+    "adminNameLabel": "অ্যাডমিনের নাম",
+    "adminEmailLabel": "ইমেইল",
+    "adminPhoneLabel": "ফোন",
+    "backAction": "পেছনে",
+    "submitAction": "স্কুল তৈরি করুন",
+    "slugConflict": "এই স্লাগটি ইতিমধ্যে ব্যবহৃত হয়েছে।",
+    "successTitle": "স্কুল তৈরি হয়েছে",
+    "successInvitation": "অ্যাডমিন আমন্ত্রণের অবস্থা: {{status}}।",
+    "viewSchool": "স্কুল দেখুন"
+  }
+}

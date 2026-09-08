@@ -33,6 +33,9 @@ const DEFAULT_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60_000; // 30 days
   imports: [
     TypeOrmModule.forFeature([User, UserTenant, RefreshToken]),
     AuditModule,
+    // `ContextGuard`'s `TenantStatusService` dependency comes from
+    // `TenantStatusModule`'s `@Global()` export, not from an explicit
+    // import here — see that module's file comment for why.
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],

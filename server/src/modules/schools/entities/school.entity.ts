@@ -7,6 +7,7 @@ import {
   DeleteDateColumn,
   Index,
 } from 'typeorm';
+import { SchoolStatus } from '@biddaloy/shared';
 
 /**
  * A school / tenant in the multi-tenant system.
@@ -65,6 +66,20 @@ export class School {
 
   @Column({ type: 'jsonb', nullable: true })
   settings: Record<string, any> | null;
+
+  /**
+   * Lifecycle status (15.4). Plain `varchar` with a DB check constraint —
+   * not a Postgres `enum` type — so it stays cheap to extend. `SUSPENDED`
+   * is a SUPER_ADMIN access gate, distinct from `deleted_at` soft delete.
+   */
+  @Column({ type: 'varchar', length: 20, default: SchoolStatus.ACTIVE })
+  status: 'ACTIVE' | 'SUSPENDED';
+
+  @Column({ type: 'text', nullable: true })
+  status_reason: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  status_changed_at: Date | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
