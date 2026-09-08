@@ -27,6 +27,9 @@ export interface ReceiptProps {
   studentName: string;
 }
 
+/** A logo is at most 512KB ([15.5.3]); 10s is generous even on a slow 3G link. */
+const LOGO_FETCH_TIMEOUT_MS = 10_000;
+
 /**
  * [15.5.7] Fetches `issuer.logo_key`'s bytes through the authenticated API
  * client (bearer token — a bare `<img src>` at `/schools/:id/logo` 401s,
@@ -48,6 +51,12 @@ async function fetchIssuerLogoDataUrl(
     const res = await apiClient.get<Blob>(`/schools/${tenantId}/logo`, {
       params: { v: version },
       responseType: 'blob',
+      // `printReceipt` awaits this before it can hand the opened tab its
+      // document, and `apiClient` has no default timeout — without a bound
+      // here a stalled request leaves the print tab blank indefinitely.
+      // On timeout axios rejects, the `catch` below returns `null`, and the
+      // receipt prints without the logo.
+      timeout: LOGO_FETCH_TIMEOUT_MS,
     });
     return await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
