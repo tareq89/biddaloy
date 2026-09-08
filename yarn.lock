@@ -1890,10 +1890,10 @@
   resolved "https://registry.yarnpkg.com/@nestjs/passport/-/passport-11.0.5.tgz#dd3e506c2fb7ddc80fd1321c01cc1a0ca6d6b609"
   integrity sha512-ulQX6mbjlws92PIM15Naes4F4p2JoxGnIJuUsdXQPT+Oo2sqQmENEZXM7eYuimocfHnKlcfZOuyzbA33LwUlOQ==
 
-"@nestjs/platform-express@^12":
-  version "12.0.1"
-  resolved "https://registry.yarnpkg.com/@nestjs/platform-express/-/platform-express-12.0.1.tgz#87f4e63ecf9a219bed1e890cd9a44ad6b3e48b05"
-  integrity sha512-nF8bRgROptMyixYBfiJUAsjj2o9k13zxAjUKYaqHTPk8mTSd+gk7hXz6NykXNrfHWmMEYC9RttQlMUdMHNTbuA==
+"@nestjs/platform-express@^11":
+  version "11.2.3"
+  resolved "https://registry.yarnpkg.com/@nestjs/platform-express/-/platform-express-11.2.3.tgz#e9b37a380aae0fc157bfc83f0aa738a963c6ff48"
+  integrity sha512-YFQvRXT2de1qNL9LJPUBQ31+RsfI4cJ+sbpU9ENM/hDCgoHSEhm7oxUuGGKmhTZBNZEYm8mDYdfoTFmAH1LIJg==
   dependencies:
     cors "2.8.6"
     express "5.2.1"
@@ -1924,10 +1924,10 @@
     path-to-regexp "8.4.2"
     swagger-ui-dist "5.32.13"
 
-"@nestjs/testing@^12":
-  version "12.0.1"
-  resolved "https://registry.yarnpkg.com/@nestjs/testing/-/testing-12.0.1.tgz#5d445da5222fb1f6d8a4180c7c43010bb2a251a6"
-  integrity sha512-prf3fsUaoKS6t04XcQt5aSTp68Po1GxUcbEBPv+3iqAef07hKQEO15r0jmmwA+rWZfONYT1UcV3YIylR++/tCg==
+"@nestjs/testing@^11":
+  version "11.2.3"
+  resolved "https://registry.yarnpkg.com/@nestjs/testing/-/testing-11.2.3.tgz#65f7c35bbaed0927193ea23a5acd90cbda59768c"
+  integrity sha512-7ANDWlkm8Xw4CYIhCNZhtBzANsQUKqjteA2yx/6sjqGyWhekeBKz8wgCJykm0vo+ltrg6U34dZlm2NgiRcNHPQ==
   dependencies:
     tslib "2.8.1"
 
@@ -8992,6 +8992,11 @@ lru-cache@^7.14.1:
   version "7.18.3"
   resolved "https://registry.yarnpkg.com/lru-cache/-/lru-cache-7.18.3.tgz#f793896e0fd0e954a59dfdd82f0773808df6aa89"
   integrity sha512-jumlc0BIUrS3qJGgIkWZsyfAM7NCWiBcCDhnd+3NNM5KbBmLTgHVfWBcg6W+rLUsIpzpERPsvwUP7CckAQSOoA==
+
+lucide-react@^1.33:
+  version "1.43.0"
+  resolved "https://registry.yarnpkg.com/lucide-react/-/lucide-react-1.43.0.tgz#0c7537e22d2e70e2cdc3f85c76b17369277ce7df"
+  integrity sha512-ubtnda1fVK5ky0PNEpOmB0wiwhpZUyJiol4K14KCm+QKvuCkfUu54Et/rIjyupJpwiJ5Hg+BLQE86/GEsS+IgQ==
 
 lucide-react@^1.37:
   version "1.37.0"
