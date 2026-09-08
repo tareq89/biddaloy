@@ -6,6 +6,7 @@ import { School } from '../entities/school.entity';
 import { UpdateSchoolProfileDto } from './dto/update-school-profile.dto';
 import { AuditService } from '../../audit/audit.service';
 import { RequestContext } from '../../../common/request-context.util';
+import { buildLogoUrl } from './logo-key';
 
 /** The six text fields [15.5.2] exposes on the profile — used both for the
  * GET response shape and to compute the changed-fields audit diff. */
@@ -21,17 +22,6 @@ export type SchoolProfileView = {
   registration_id: string | null;
   logo_url: string | null;
 };
-
-/** `logo_url` is `/schools/<id>/logo?v=<key-uuid>` — the query param is
- * whatever's after the last `/` in `logo_key`, minus its extension, so a
- * fresh upload (new key) naturally busts any browser cache of the old
- * bytes. Served by [15.5.4]. */
-export function buildLogoUrl(schoolId: string, logoKey: string | null): string | null {
-  if (!logoKey) return null;
-  const filename = logoKey.split('/').pop() ?? '';
-  const version = filename.replace(/\.[^.]+$/, '');
-  return `/schools/${schoolId}/logo?v=${version}`;
-}
 
 function toProfileView(school: School): SchoolProfileView {
   return {

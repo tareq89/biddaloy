@@ -187,6 +187,20 @@ const removeLogo = http.delete('/api/v1/schools/me/logo', () => {
   return new HttpResponse(null, { status: 204 });
 });
 
+// [15.5.4]/[15.5.6] `GET /schools/:id/logo` — fetched through the
+// authenticated API client and rendered as an object URL (never a bare
+// `<img src>`, which can't carry the bearer token this route requires).
+// A single-pixel PNG is enough for tests to observe "an image loaded".
+const ONE_PIXEL_PNG = Uint8Array.from(
+  atob(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+  ),
+  (c) => c.charCodeAt(0),
+);
+const getLogo = http.get('/api/v1/schools/:id/logo', () => {
+  return new HttpResponse(ONE_PIXEL_PNG, { headers: { 'Content-Type': 'image/png' } });
+});
+
 const getSettings = http.get('/api/v1/schools/:id/settings', ({ params }) =>
   HttpResponse.json(getStoredSettings(params.id as string)),
 );
@@ -309,6 +323,7 @@ export const schoolsHandlers = {
   updateProfile,
   uploadLogo,
   removeLogo,
+  getLogo,
   getStats,
   listAdmins,
   addAdmin,
@@ -325,6 +340,7 @@ export const schoolsDefaultHandlers = [
   updateProfile,
   uploadLogo,
   removeLogo,
+  getLogo,
   getStats,
   listAdmins,
   addAdmin,

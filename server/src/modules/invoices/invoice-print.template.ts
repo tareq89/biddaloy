@@ -35,14 +35,9 @@ function formatAmount(value: number | string): string {
  * directly. `logo_key` present means an `<img>` renders, pointed at the
  * versioned `/schools/:id/logo?v=<uuid>` URL; a later-removed logo 404s
  * and `onerror` hides it rather than showing a broken-image icon. */
-function renderIssuerHeader(issuer: IssuerSnapshot, tenantId: string): string {
+function renderIssuerHeader(issuer: IssuerSnapshot, logoDataUrl: string | null): string {
   const secondaryName = issuer.name_bn;
-  const logoUrl = issuer.logo_key
-    ? `/api/v1/schools/${tenantId}/logo?v=${issuer.logo_key
-        .split('/')
-        .pop()
-        ?.replace(/\.[^.]+$/, '')}`
-    : null;
+  const logoUrl = issuer.logo_key ? logoDataUrl : null;
   const details = [
     issuer.phone,
     issuer.email,
@@ -64,10 +59,15 @@ function renderIssuerHeader(issuer: IssuerSnapshot, tenantId: string): string {
     </div>`;
 }
 
+/** `logoDataUrl` — a `data:` URL for `issuer.logo_key`'s bytes, or `null`
+ * (no logo, or the object is gone) — resolved by the caller via
+ * `readLogoDataUrl` before render, since this file has no `StorageService`
+ * access. */
 export function renderInvoiceHtml(
   invoice: Invoice,
   payments: Payment[],
   issuer: IssuerSnapshot,
+  logoDataUrl: string | null,
 ): string {
   const student = invoice.student;
   const classSection = student.class_section;
@@ -138,7 +138,7 @@ export function renderInvoiceHtml(
 <body>
   <div class="header">
     <div>
-      ${renderIssuerHeader(issuer, student.tenant_id)}
+      ${renderIssuerHeader(issuer, logoDataUrl)}
       <div class="school">Invoice</div>
     </div>
     <div class="meta">

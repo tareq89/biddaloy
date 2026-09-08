@@ -52,7 +52,13 @@ describe('buildReceiptHtml', () => {
       },
     } as never);
 
-    const html = buildReceiptHtml(payment, 'Karim Rahman', REGION_BD_EN, LABELS);
+    const html = buildReceiptHtml(
+      payment,
+      'Karim Rahman',
+      REGION_BD_EN,
+      LABELS,
+      '/api/v1/schools/school-1/logo?v=abc-123',
+    );
 
     expect(html).toContain('Ananta High School');
     expect(html).toContain('123 Green Road');
@@ -103,7 +109,16 @@ describe('buildReceiptHtml', () => {
       },
     } as never);
 
-    const html = buildReceiptHtml(payment, 'Karim Rahman', REGION_BD_EN, LABELS);
+    // Even given a resolved `logoDataUrl` — a null `logo_key` means there
+    // was never anything to fetch, so the header must not render an
+    // `<img>` regardless of what's passed here.
+    const html = buildReceiptHtml(
+      payment,
+      'Karim Rahman',
+      REGION_BD_EN,
+      LABELS,
+      'data:image/png;base64,AAAA',
+    );
 
     expect(html).not.toContain('<img class="issuer-logo"');
   });
@@ -145,29 +160,37 @@ describe('printReceipt', () => {
     vi.useRealTimers();
   });
 
-  it('revokes the object URL immediately and returns false when the popup is blocked', () => {
+  it('returns false when the popup is blocked, without building or revoking anything', async () => {
+    // `printReceipt` now opens the window (empty) *before* fetching a logo
+    // or building the HTML — mirrors `openPrintableInvoice`'s
+    // open-before-`await` reasoning. A blocked popup is caught at that
+    // first call, so no object URL is ever created here.
     const stub = stubObjectUrl();
     vi.spyOn(window, 'open').mockReturnValue(null);
 
     try {
       const payment = paymentFactory({ allocations: [] });
-      const result = printReceipt(payment, 'Karim Rahman', REGION_BD_EN, LABELS);
+      const result = await printReceipt(payment, 'Karim Rahman', REGION_BD_EN, LABELS);
 
       expect(result).toBe(false);
-      expect(stub.revokedUrl()).toBe('blob:mock-url');
+      expect(stub.revokedUrl()).toBeUndefined();
     } finally {
       stub.restore();
     }
   });
 
-  it('returns true and revokes the object URL later when the popup opens', () => {
+  it('returns true and revokes the object URL later when the popup opens', async () => {
     vi.useFakeTimers();
     const stub = stubObjectUrl();
-    vi.spyOn(window, 'open').mockReturnValue({} as Window);
+    // `printReceipt` opens the window with an empty document first, then
+    // sets `.location.href` once the HTML is built — a plain `{}` mock
+    // (no `location`) would throw on that assignment.
+    const fakeWindow = { location: { href: '' } } as unknown as Window;
+    vi.spyOn(window, 'open').mockReturnValue(fakeWindow);
 
     try {
       const payment = paymentFactory({ allocations: [] });
-      const result = printReceipt(payment, 'Karim Rahman', REGION_BD_EN, LABELS);
+      const result = await printReceipt(payment, 'Karim Rahman', REGION_BD_EN, LABELS);
 
       expect(result).toBe(true);
       expect(stub.revokedUrl()).toBeUndefined();

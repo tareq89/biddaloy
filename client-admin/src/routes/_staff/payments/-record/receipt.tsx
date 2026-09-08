@@ -16,6 +16,7 @@
  * open-before-fetch dance — there's no async gap for a popup blocker to
  * catch the window open in.
  */
+import { apiClient } from '@biddaloy/ui/api';
 import { Button, toast } from '@biddaloy/ui/components';
 import type { PaymentWithIssuer } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation, type RegionConfig } from '@biddaloy/ui/i18n';
@@ -27,17 +28,36 @@ export interface ReceiptProps {
 }
 
 /**
- * [15.5.7] `/schools/:id/logo?v=<uuid>` from the frozen `logo_key` — same
- * construction as the server's own `buildLogoUrl`
- * (`server/src/modules/schools/profile/profile.service.ts`), rebuilt here
- * since the receipt has no direct access to that function. Returns `null`
- * when there's no logo to show at all.
+ * [15.5.7] Fetches `issuer.logo_key`'s bytes through the authenticated API
+ * client (bearer token — a bare `<img src>` at `/schools/:id/logo` 401s,
+ * since that route has no cookie/query-string auth path) and returns them
+ * as a `data:` URL for direct embedding in the receipt's HTML string. The
+ * receipt is opened as its own `blob:` document ([15.5.7]'s top comment),
+ * where a relative `<img src>` couldn't carry the header even if the route
+ * accepted one. `null` for no logo, or a failed/missing fetch — the
+ * receipt still prints, just without the image.
  */
-function buildIssuerLogoUrl(tenantId: string, logoKey: string | null | undefined): string | null {
+async function fetchIssuerLogoDataUrl(
+  tenantId: string,
+  logoKey: string | null | undefined,
+): Promise<string | null> {
   if (!logoKey) return null;
   const filename = logoKey.split('/').pop() ?? '';
   const version = filename.replace(/\.[^.]+$/, '');
-  return `/api/v1/schools/${tenantId}/logo?v=${version}`;
+  try {
+    const res = await apiClient.get<Blob>(`/schools/${tenantId}/logo`, {
+      params: { v: version },
+      responseType: 'blob',
+    });
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(reader.error ?? new Error('Failed to read logo blob'));
+      reader.readAsDataURL(res.data);
+    });
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -49,13 +69,20 @@ function buildIssuerLogoUrl(tenantId: string, logoKey: string | null | undefined
  * when `logo_key` is set, `onerror` hides a broken image rather than
  * showing the icon.
  */
-function buildIssuerHeaderHtml(payment: PaymentWithIssuer, bengaliFirst: boolean): string {
+function buildIssuerHeaderHtml(
+  payment: PaymentWithIssuer,
+  bengaliFirst: boolean,
+  logoDataUrl: string | null,
+): string {
   const issuer = payment.issuer;
   if (!issuer) return '';
 
-  const primaryName = bengaliFirst ? (issuer.name_bn ?? issuer.name) : issuer.name;
+  // `||`, not `??` — an empty `name_bn` (school hasn't set one) must fall
+  // back to `name` exactly like `null`/`undefined` does, or a bn-first
+  // region renders a blank primary name and drops the English one.
+  const primaryName = bengaliFirst ? issuer.name_bn || issuer.name : issuer.name;
   const secondaryName = bengaliFirst ? (issuer.name_bn ? issuer.name : null) : issuer.name_bn;
-  const logoUrl = buildIssuerLogoUrl(payment.tenant_id, issuer.logo_key);
+  const logoUrl = issuer.logo_key ? logoDataUrl : null;
 
   const details = [
     issuer.phone,
@@ -91,6 +118,7 @@ export function buildReceiptHtml(
   studentName: string,
   config: RegionConfig,
   labels: { period: string; amount: string },
+  logoDataUrl: string | null = null,
 ): string {
   const money = (amount: number | string) => formatServerAmount(amount, config);
   const rows = payment.allocations
@@ -105,7 +133,7 @@ export function buildReceiptHtml(
 
   // [15.5.7] Bengali-first name ordering when the active region's locale
   // is Bengali — same rule `IssuerHeader`'s `activeLanguage === 'bn'` uses.
-  const issuerHeader = buildIssuerHeaderHtml(payment, config.locale.startsWith('bn'));
+  const issuerHeader = buildIssuerHeaderHtml(payment, config.locale.startsWith('bn'), logoDataUrl);
 
   return `<!doctype html>
 <html>
@@ -144,26 +172,28 @@ export function buildReceiptHtml(
 </html>`;
 }
 
-/** `false` when the popup was blocked — same "open before any `await`"
- * reasoning `invoices-tab.tsx`'s `openPrintableInvoice` gives doesn't
- * apply here (no `await` between the click and `window.open`), but a
- * blocked popup is exactly as silent either way, so this still needs to
- * report failure rather than leave the click looking like a no-op — and
- * revoke the object URL immediately rather than leaking it for the full
- * 60s timeout when nothing is ever going to load it. */
-export function printReceipt(
+/** `false` when the popup was blocked. Opens the window with an empty
+ * document *before* fetching the logo (mirrors `invoices-tab.tsx`'s
+ * `openPrintableInvoice`) — an `await` ahead of `window.open` falls
+ * outside the click's user-activation window, so a browser's popup
+ * blocker would silently drop it instead of returning `null`. */
+export async function printReceipt(
   payment: PaymentWithIssuer,
   studentName: string,
   config: RegionConfig,
   labels: { period: string; amount: string },
-): boolean {
-  const html = buildReceiptHtml(payment, studentName, config, labels);
-  const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
-  const printWindow = window.open(url, '_blank', 'noopener,noreferrer');
+): Promise<boolean> {
+  const printWindow = window.open('', '_blank', 'noopener,noreferrer');
   if (printWindow === null) {
-    URL.revokeObjectURL(url);
     return false;
   }
+
+  const logoDataUrl = payment.issuer?.logo_key
+    ? await fetchIssuerLogoDataUrl(payment.tenant_id, payment.issuer.logo_key)
+    : null;
+  const html = buildReceiptHtml(payment, studentName, config, labels, logoDataUrl);
+  const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+  printWindow.location.href = url;
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
   return true;
 }
@@ -192,9 +222,9 @@ export function Receipt({ payment, studentName }: ReceiptProps) {
             period: t('record.allocate.columnPeriod'),
             amount: t('record.allocate.columnAllocated'),
           };
-          if (!printReceipt(payment, studentName, config, labels)) {
-            toast.error(t('record.receipt.printError'));
-          }
+          void printReceipt(payment, studentName, config, labels).then((opened) => {
+            if (!opened) toast.error(t('record.receipt.printError'));
+          });
         }}
       >
         {t('record.receipt.printAction')}

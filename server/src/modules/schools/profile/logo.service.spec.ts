@@ -100,19 +100,19 @@ describe('SchoolLogoService', () => {
       expect(storage.put).not.toHaveBeenCalled();
     });
 
-    it('deletes the previous logo object only after the new key is committed', async () => {
+    it('retains the previous logo object — a replace never deletes it', async () => {
+      // A document issued while the old logo was current still points at
+      // its key (`issuer_snapshot.logo_key`) and serves it back by
+      // version — see the class-level comment on why deleting it here
+      // would silently break that document's print output.
       const repo = fakeRepo({ id: SCHOOL_ID, logo_key: 'tenants/x/logo/old.png' });
       const service = new SchoolLogoService(repo as any, storage as any, auditService as any);
       const png = await realPng(50, 50);
 
       await service.upload(SCHOOL_ID, png, 'user-1', REQUEST_CONTEXT);
 
-      expect(storage.delete).toHaveBeenCalledWith('tenants/x/logo/old.png');
-      // put (new object) must have happened before delete (old object) —
-      // the replace is add-then-remove, never remove-then-add.
-      const putOrder = storage.put.mock.invocationCallOrder[0];
-      const deleteOrder = storage.delete.mock.invocationCallOrder[0];
-      expect(putOrder).toBeLessThan(deleteOrder);
+      expect(storage.put).toHaveBeenCalled();
+      expect(storage.delete).not.toHaveBeenCalled();
     });
 
     it('throws NotFoundException for a missing school', async () => {
@@ -127,7 +127,7 @@ describe('SchoolLogoService', () => {
   });
 
   describe('remove', () => {
-    it('nulls the column, audits, and deletes the object after commit', async () => {
+    it('nulls the column and audits it, but retains the object', async () => {
       const repo = fakeRepo({ id: SCHOOL_ID, logo_key: 'tenants/x/logo/old.png' });
       const service = new SchoolLogoService(repo as any, storage as any, auditService as any);
 
@@ -136,7 +136,9 @@ describe('SchoolLogoService', () => {
       expect(repo.schoolRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({ logo_key: null }),
       );
-      expect(storage.delete).toHaveBeenCalledWith('tenants/x/logo/old.png');
+      // Same reasoning as `upload`'s test above: a document issued before
+      // this remove still serves the object back by version.
+      expect(storage.delete).not.toHaveBeenCalled();
       expect(auditService.record).toHaveBeenCalledWith(
         expect.objectContaining({
           old_values: { logo_key: 'tenants/x/logo/old.png' },
@@ -146,7 +148,7 @@ describe('SchoolLogoService', () => {
       );
     });
 
-    it('no-ops (no delete, no audit) when there was no logo', async () => {
+    it('no-ops (no audit) when there was no logo', async () => {
       const repo = fakeRepo({ id: SCHOOL_ID, logo_key: null });
       const service = new SchoolLogoService(repo as any, storage as any, auditService as any);
 
@@ -184,6 +186,39 @@ describe('SchoolLogoService', () => {
       const service = new SchoolLogoService(repo as any, storage as any, auditService as any);
 
       await expect(service.serve(SCHOOL_ID)).rejects.toThrow(NotFoundException);
+    });
+
+    it('serves a specific version by its key, without reading the school row', async () => {
+      const repo = fakeRepo({ id: SCHOOL_ID, logo_key: 'tenants/x/logo/current.png' });
+      const body = Readable.from([Buffer.from('bytes')]);
+      storage.get.mockResolvedValue({ body, contentType: 'image/png' });
+      const service = new SchoolLogoService(repo as any, storage as any, auditService as any);
+
+      const result = await service.serve(SCHOOL_ID, '11111111-1111-4111-8111-111111111111');
+
+      expect(repo.findOne).not.toHaveBeenCalled();
+      expect(storage.get).toHaveBeenCalledWith(
+        `tenants/${SCHOOL_ID}/logo/11111111-1111-4111-8111-111111111111.png`,
+      );
+      expect(result.stream).toBe(body);
+    });
+
+    it('throws NotFoundException for a malformed version', async () => {
+      const repo = fakeRepo({ id: SCHOOL_ID, logo_key: 'tenants/x/logo/current.png' });
+      const service = new SchoolLogoService(repo as any, storage as any, auditService as any);
+
+      await expect(service.serve(SCHOOL_ID, 'not-a-uuid')).rejects.toThrow(NotFoundException);
+      expect(storage.get).not.toHaveBeenCalled();
+    });
+
+    it('throws NotFoundException when the versioned object was deleted from storage', async () => {
+      const repo = fakeRepo({ id: SCHOOL_ID, logo_key: 'tenants/x/logo/current.png' });
+      storage.get.mockRejectedValue(Object.assign(new Error('gone'), { name: 'NoSuchKey' }));
+      const service = new SchoolLogoService(repo as any, storage as any, auditService as any);
+
+      await expect(
+        service.serve(SCHOOL_ID, '11111111-1111-4111-8111-111111111111'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

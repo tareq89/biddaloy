@@ -67,11 +67,31 @@ describe('SchoolLogoController', () => {
       service.serve.mockResolvedValue({ stream, contentType: 'image/png' });
       const res = fakeResponse();
 
-      const result = await controller.serve(SCHOOL_A, { id: SCHOOL_A, role: 'TEACHER' }, res);
+      const result = await controller.serve(
+        SCHOOL_A,
+        undefined,
+        { id: SCHOOL_A, role: 'TEACHER' },
+        res,
+      );
 
-      expect(service.serve).toHaveBeenCalledWith(SCHOOL_A);
+      expect(service.serve).toHaveBeenCalledWith(SCHOOL_A, undefined);
       expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'image/png');
       expect(result).toBeDefined();
+    });
+
+    it('passes the `v` query param through as the requested version', async () => {
+      const stream = Readable.from([Buffer.from('png-bytes')]);
+      service.serve.mockResolvedValue({ stream, contentType: 'image/png' });
+      const res = fakeResponse();
+
+      await controller.serve(
+        SCHOOL_A,
+        '11111111-1111-4111-8111-111111111111',
+        { id: SCHOOL_A, role: 'TEACHER' },
+        res,
+      );
+
+      expect(service.serve).toHaveBeenCalledWith(SCHOOL_A, '11111111-1111-4111-8111-111111111111');
     });
 
     it('allows a SUPER_ADMIN to read a different school logo', async () => {
@@ -79,16 +99,16 @@ describe('SchoolLogoController', () => {
       service.serve.mockResolvedValue({ stream, contentType: 'image/png' });
       const res = fakeResponse();
 
-      await controller.serve(SCHOOL_B, { id: SCHOOL_A, role: 'SUPER_ADMIN' }, res);
+      await controller.serve(SCHOOL_B, undefined, { id: SCHOOL_A, role: 'SUPER_ADMIN' }, res);
 
-      expect(service.serve).toHaveBeenCalledWith(SCHOOL_B);
+      expect(service.serve).toHaveBeenCalledWith(SCHOOL_B, undefined);
     });
 
     it('rejects a member of a different school, without calling the service', async () => {
       const res = fakeResponse();
 
       await expect(
-        controller.serve(SCHOOL_B, { id: SCHOOL_A, role: 'TEACHER' }, res),
+        controller.serve(SCHOOL_B, undefined, { id: SCHOOL_A, role: 'TEACHER' }, res),
       ).rejects.toThrow(ForbiddenException);
       expect(service.serve).not.toHaveBeenCalled();
     });

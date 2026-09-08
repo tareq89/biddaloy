@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import sharp from 'sharp';
@@ -9,7 +9,7 @@ import { StorageService } from '../../storage/storage.service';
 import { tenantObjectKey } from '../../storage/storage-key';
 import { AuditService } from '../../audit/audit.service';
 import { RequestContext } from '../../../common/request-context.util';
-import { buildLogoUrl } from './profile.service';
+import { buildLogoUrl, logoKeyForVersion } from './logo-key';
 
 const ALLOWED_FORMATS = new Set(['png', 'jpeg', 'webp']);
 const MAX_SOURCE_DIMENSION = 2048;
@@ -19,11 +19,17 @@ const TARGET_DIMENSION = 512;
  * [15.5.3] Logo upload/removal. Bytes are validated and re-encoded with
  * `sharp` before ever touching storage — the browser-reported MIME type on
  * the upload is never trusted, only what `sharp` itself detects.
+ *
+ * Replacing or removing a logo only changes `School.logo_key`; the previous
+ * object stays in storage. Every invoice/payment issued while it was
+ * current carries its key in `issuer_snapshot.logo_key` ([15.5.5]) and
+ * prints it via `GET /schools/:id/logo?v=<uuid>` / `readLogoDataUrl`, so
+ * deleting it would silently strip the logo off already-issued documents.
+ * Logos are small (<=512x512 PNG) and replaced rarely, so the retained
+ * objects cost far less than a retention scheme keyed off document refs.
  */
 @Injectable()
 export class SchoolLogoService {
-  private readonly logger = new Logger(SchoolLogoService.name);
-
   constructor(
     @InjectRepository(School)
     private readonly repo: Repository<School>,
@@ -64,7 +70,7 @@ export class SchoolLogoService {
     const newKey = tenantObjectKey(schoolId, 'logo', 'png');
     await this.storage.put(newKey, reencoded, 'image/png');
 
-    const { oldKey } = await this.repo.manager.transaction(async (manager) => {
+    await this.repo.manager.transaction(async (manager) => {
       const schoolRepo = manager.getRepository(School);
       const school = await schoolRepo
         .createQueryBuilder('school')
@@ -93,33 +99,44 @@ export class SchoolLogoService {
         },
         manager,
       );
-
-      return { oldKey: previousKey };
     });
-
-    if (oldKey) {
-      // Best-effort cleanup, after commit — a delete failure here must not
-      // undo the already-committed logo change.
-      try {
-        await this.storage.delete(oldKey);
-      } catch (error: unknown) {
-        const reason = error instanceof Error ? error.message : String(error);
-        this.logger.warn(`Failed to delete previous logo object "${oldKey}": ${reason}`);
-      }
-    }
 
     return { logo_url: buildLogoUrl(schoolId, newKey) as string };
   }
 
-  /** [15.5.4] Streams the logo bytes for `schoolId`, or throws
-   * `NotFoundException` if the school has none. Never returns the storage
-   * key — the caller only ever sees a stream + content type. */
-  async serve(schoolId: string): Promise<{ stream: Readable; contentType: string }> {
-    const school = await this.repo.findOne({ where: { id: schoolId } });
-    if (!school?.logo_key) {
-      throw new NotFoundException(`School "${schoolId}" has no logo`);
+  /** [15.5.4] Streams logo bytes for `schoolId`. With `version` (the
+   * `v=<uuid>` from a `logo_url` or a document's `issuer_snapshot.logo_key`)
+   * it's that exact object — so a receipt keeps showing the logo it was
+   * issued with after a replace or remove. Without it, the school's current
+   * logo. `NotFoundException` when there's nothing to serve. Never returns
+   * the storage key — the caller only ever sees a stream + content type. */
+  async serve(
+    schoolId: string,
+    version?: string,
+  ): Promise<{ stream: Readable; contentType: string }> {
+    let key: string | null;
+    if (version !== undefined) {
+      key = logoKeyForVersion(schoolId, version);
+      if (!key) {
+        throw new NotFoundException(`School "${schoolId}" has no logo version "${version}"`);
+      }
+    } else {
+      const school = await this.repo.findOne({ where: { id: schoolId } });
+      key = school?.logo_key ?? null;
+      if (!key) {
+        throw new NotFoundException(`School "${schoolId}" has no logo`);
+      }
     }
-    const object = await this.storage.get(school.logo_key);
+
+    let object: Awaited<ReturnType<StorageService['get']>>;
+    try {
+      object = await this.storage.get(key);
+    } catch (error: unknown) {
+      if (isMissingObjectError(error)) {
+        throw new NotFoundException(`School "${schoolId}" has no logo version "${version}"`);
+      }
+      throw error;
+    }
     return { stream: object.body, contentType: object.contentType ?? 'image/png' };
   }
 
@@ -128,7 +145,7 @@ export class SchoolLogoService {
     userId: string,
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<void> {
-    const { oldKey } = await this.repo.manager.transaction(async (manager) => {
+    await this.repo.manager.transaction(async (manager) => {
       const schoolRepo = manager.getRepository(School);
       const school = await schoolRepo
         .createQueryBuilder('school')
@@ -159,17 +176,15 @@ export class SchoolLogoService {
           manager,
         );
       }
-
-      return { oldKey: previousKey };
     });
-
-    if (oldKey) {
-      try {
-        await this.storage.delete(oldKey);
-      } catch (error: unknown) {
-        const reason = error instanceof Error ? error.message : String(error);
-        this.logger.warn(`Failed to delete removed logo object "${oldKey}": ${reason}`);
-      }
-    }
   }
+}
+
+/** The AWS SDK's "no such object" shapes — `NoSuchKey` from GetObject,
+ * `NotFound` from HeadObject, or a bare 404 from an S3-compatible store. */
+export function isMissingObjectError(error: unknown): boolean {
+  const name = (error as { name?: string })?.name;
+  const statusCode = (error as { $metadata?: { httpStatusCode?: number } })?.$metadata
+    ?.httpStatusCode;
+  return name === 'NoSuchKey' || name === 'NotFound' || statusCode === 404;
 }

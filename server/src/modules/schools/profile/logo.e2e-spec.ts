@@ -129,7 +129,7 @@ describe('School logo (e2e)', () => {
   });
 
   describe('GET /schools/:id/logo', () => {
-    it('serves the bytes with immutable caching headers for a member of that school', async () => {
+    it('serves the bytes with no-store caching (bearer/tenant-scoped, never cached across identities)', async () => {
       const png = await realPng(16, 16);
       await supertest(app.getHttpServer())
         .post('/api/v1/schools/me/logo')
@@ -144,7 +144,7 @@ describe('School logo (e2e)', () => {
         .expect(200);
 
       expect(res.headers['content-type']).toBe('image/png');
-      expect(res.headers['cache-control']).toBe('private, max-age=31536000, immutable');
+      expect(res.headers['cache-control']).toBe('no-store');
     });
 
     it('rejects a caller whose active tenant is a different school', async () => {
@@ -163,6 +163,33 @@ describe('School logo (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .expect(404);
+    });
+
+    it('serves a specific version by its `v` query param, even after the logo is replaced', async () => {
+      const firstPng = await realPng(16, 16);
+      const uploadRes = await supertest(app.getHttpServer())
+        .post('/api/v1/schools/me/logo')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .attach('file', firstPng, { filename: 'logo.png', contentType: 'image/png' })
+        .expect(201);
+      const firstVersion = new URL(uploadRes.body.logo_url, 'http://x').searchParams.get('v')!;
+
+      const secondPng = await realPng(32, 32);
+      await supertest(app.getHttpServer())
+        .post('/api/v1/schools/me/logo')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .attach('file', secondPng, { filename: 'logo.png', contentType: 'image/png' })
+        .expect(201);
+
+      // The replaced version is still retrievable by its own `v` — a
+      // document issued while it was current keeps serving it.
+      await supertest(app.getHttpServer())
+        .get(`/api/v1/schools/${TENANT_ID}/logo?v=${firstVersion}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(200);
     });
   });
 });
