@@ -18,6 +18,7 @@ import {
   ReminderBatchListItemDto,
   BulkReminderPreviewResponseDto,
   BulkPreviewStudentDto,
+  BulkSmsProjectionDto,
   QueryReminderBatchLogsDto,
   ReminderBatchLogListResponseDto,
   ReminderBatchLogDto,
@@ -43,6 +44,8 @@ import {
   DISPATCHABLE_MEDIA,
 } from './reminder-recipients.util';
 import { resolveWhatsAppTemplate, whatsAppTemplateMetadata } from './whatsapp-template.util';
+import { projectSmsUnits } from './sms-projection.util';
+import { SmsCreditService } from './credits/sms-credit.service';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
 import {
@@ -92,6 +95,7 @@ export class BulkReminderService {
     private readonly studentService: StudentService,
     private readonly feeDuesService: FeeDuesService,
     private readonly auditService: AuditService,
+    private readonly smsCreditService: SmsCreditService,
   ) {}
 
   async sendBulk(
@@ -222,7 +226,10 @@ export class BulkReminderService {
     }
 
     if (query.sort === 'batch_name') {
-      qb.orderBy(`batch.batch_name COLLATE "${BN_COLLATION}"`, query.order === 'desc' ? 'DESC' : 'ASC');
+      qb.orderBy(
+        `batch.batch_name COLLATE "${BN_COLLATION}"`,
+        query.order === 'desc' ? 'DESC' : 'ASC',
+      );
     } else if (query.sort === 'total_recipients') {
       qb.orderBy('batch.total_recipients', query.order === 'asc' ? 'ASC' : 'DESC');
     } else {
@@ -340,6 +347,35 @@ export class BulkReminderService {
       recipients_count: recipients.length,
       skipped_count: skipped.length,
       students: [...byStudent.values()],
+      projection: await this.projectSms(recipients, dto.message_template, tenantId),
+    };
+  }
+
+  /**
+   * [15.6.4/#547] Rendered-per-recipient SMS unit projection, plus balance
+   * context when the tenant meters SMS. `available`/`reserved`/`shortfall`
+   * only mean anything under PLATFORM metering — OFF omits them rather than
+   * shipping zeros a reader could mistake for "you have none left."
+   */
+  private async projectSms(
+    recipients: ResolvedRecipient[],
+    template: string,
+    tenantId: string,
+  ): Promise<BulkSmsProjectionDto> {
+    const { sms_recipients, sms_units } = projectSmsUnits(recipients, template);
+
+    if (!(await this.smsCreditService.isMetered(tenantId))) {
+      return { sms_recipients, sms_units, metering: 'OFF' };
+    }
+
+    const { available, reserved } = await this.smsCreditService.getBalance(tenantId);
+    return {
+      sms_recipients,
+      sms_units,
+      metering: 'PLATFORM',
+      available,
+      reserved,
+      shortfall: Math.max(0, sms_units - available),
     };
   }
 

@@ -213,11 +213,27 @@ export class BulkPreviewStudentDto {
   skipped: BulkPreviewSkippedDto[];
 }
 
+/**
+ * [15.6.4/#547] The SMS units the send would reserve — a rendered-per-
+ * recipient sum, see sms-projection.util.ts. `available`/`reserved`/
+ * `shortfall` are only meaningful in `PLATFORM` metering, so `OFF` omits
+ * them rather than shipping zeros that would read as "you have nothing."
+ */
+export class BulkSmsProjectionDto {
+  sms_recipients: number;
+  sms_units: number;
+  metering: 'OFF' | 'PLATFORM';
+  available?: number;
+  reserved?: number;
+  shortfall?: number;
+}
+
 export class BulkReminderPreviewResponseDto {
   total_students: number;
   recipients_count: number;
   skipped_count: number;
   students: BulkPreviewStudentDto[];
+  projection: BulkSmsProjectionDto;
 }
 
 /** Same paging rules as the batch list; logs pages just default larger. */
