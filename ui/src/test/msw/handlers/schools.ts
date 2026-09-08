@@ -164,5 +164,112 @@ const testConnection = http.post('/api/v1/schools/:id/settings/test', () =>
   HttpResponse.json({ success: true, message: 'Connected.' }),
 );
 
-export const schoolsHandlers = { schoolList, getSettings, updateSettings, testConnection };
-export const schoolsDefaultHandlers = [schoolList, getSettings, updateSettings, testConnection];
+// #535's school detail page — `GET /schools/:id/stats` (#532), the admins
+// list and its add/resend/revoke (#531), and `PATCH /schools/:id/status`
+// (#530). Static fixtures, not a store: the detail page invalidates and
+// refetches after every mutation, and the tests only need to observe the
+// request went out with the right shape, not a persisted result.
+const SCHOOL_ADMIN_FIXTURES = [
+  {
+    user_id: '00000000-0000-4000-8000-000000000011',
+    name: 'Fatima Rahman',
+    email: 'fatima@example.com',
+    phone: null,
+    membership_status: 'ACTIVE',
+    invitation: {
+      id: '00000000-0000-4000-8000-000000000012',
+      status: 'PENDING',
+      expires_at: '2026-12-31T00:00:00.000Z',
+    },
+  },
+  {
+    user_id: '00000000-0000-4000-8000-000000000013',
+    name: 'Karim Ahmed',
+    email: null,
+    phone: '01712345678',
+    membership_status: 'ACTIVE',
+    invitation: {
+      id: '00000000-0000-4000-8000-000000000014',
+      status: 'ACTIVATED',
+      expires_at: '2026-01-01T00:00:00.000Z',
+    },
+  },
+];
+
+const getStats = http.get('/api/v1/schools/:id/stats', () =>
+  HttpResponse.json({
+    active_users: 4,
+    students: 30,
+    communications_queued: 2,
+    communications_failed_7d: 1,
+    last_activity_at: '2026-09-01T00:00:00.000Z',
+  }),
+);
+
+const listAdmins = http.get('/api/v1/schools/:id/admins', () =>
+  HttpResponse.json(SCHOOL_ADMIN_FIXTURES),
+);
+
+const addAdmin = http.post('/api/v1/schools/:id/admins', async ({ request }) => {
+  const body = (await request.json()) as { name: string; email?: string; phone?: string };
+  return HttpResponse.json(
+    {
+      user_id: '00000000-0000-4000-8000-000000000015',
+      name: body.name,
+      email: body.email ?? null,
+      phone: body.phone ?? null,
+      membership_status: 'ACTIVE',
+      invitation: {
+        id: '00000000-0000-4000-8000-000000000016',
+        status: 'PENDING',
+        expires_at: '2026-12-31T00:00:00.000Z',
+      },
+    },
+    { status: 201 },
+  );
+});
+
+const resendAdminInvitation = http.post(
+  '/api/v1/schools/:id/admins/:userId/resend-invitation',
+  () => new HttpResponse(null, { status: 204 }),
+);
+
+const revokeAdminInvitation = http.delete(
+  '/api/v1/schools/:id/admins/:userId/invitation',
+  () => new HttpResponse(null, { status: 204 }),
+);
+
+const updateStatus = http.patch('/api/v1/schools/:id/status', async ({ request, params }) => {
+  const body = (await request.json()) as { status: 'ACTIVE' | 'SUSPENDED'; reason: string };
+  return HttpResponse.json({
+    id: params.id,
+    status: body.status,
+    status_reason: body.reason,
+    status_changed_at: '2026-09-08T00:00:00.000Z',
+  });
+});
+
+export const schoolsHandlers = {
+  schoolList,
+  getSettings,
+  updateSettings,
+  testConnection,
+  getStats,
+  listAdmins,
+  addAdmin,
+  resendAdminInvitation,
+  revokeAdminInvitation,
+  updateStatus,
+};
+export const schoolsDefaultHandlers = [
+  schoolList,
+  getSettings,
+  updateSettings,
+  testConnection,
+  getStats,
+  listAdmins,
+  addAdmin,
+  resendAdminInvitation,
+  revokeAdminInvitation,
+  updateStatus,
+];

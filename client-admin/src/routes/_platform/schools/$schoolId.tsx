@@ -117,7 +117,10 @@ function SchoolDetailPage() {
                   {...(adminsQuery.isError ? { error: t('schoolDetail.admins.loadError') } : {})}
                   onRetry={() => void adminsQuery.refetch()}
                 />
-                <Link to="/settings" className="self-start text-sm text-primary underline">
+                <Link
+                  to="/settings"
+                  className="inline-flex min-h-6 items-center self-start text-sm text-primary underline"
+                >
                   {t('schoolDetail.settingsLink')}
                 </Link>
               </div>
