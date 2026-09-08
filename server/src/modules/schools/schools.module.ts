@@ -25,6 +25,9 @@ import { AuthToken } from '../account-access/entities/auth-token.entity';
 import { Student } from '../students/entities/student.entity';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
+import { CreditsModule } from '../communications/credits/credits.module';
+import { SchoolSmsCreditsController } from './sms-credits/sms-credits.controller';
+import { SmsCreditsService } from './sms-credits/sms-credits.service';
 
 const TENANT_SETTINGS_CACHE_TTL_MS = 30_000;
 
@@ -64,6 +67,11 @@ export function encryptionServiceFactory(config: ConfigService): EncryptionServi
     // cycle so ProvisioningService can reuse AccountAccessDeliveryService
     // rather than re-implementing invitation delivery here (#529).
     forwardRef(() => AccountAccessModule),
+    // Circular: CreditsModule already forwardRef's SchoolsModule (it needs
+    // SchoolsService's resolved-settings lookup for isMetered) — this is
+    // the other half of that same break, so SchoolsModule can reach
+    // SmsCreditService for the SUPER_ADMIN grant/adjust endpoint (#550).
+    forwardRef(() => CreditsModule),
   ],
   controllers: [
     SchoolsController,
@@ -71,6 +79,7 @@ export function encryptionServiceFactory(config: ConfigService): EncryptionServi
     SchoolLogoController,
     ProvisioningController,
     SchoolAdminsController,
+    SchoolSmsCreditsController,
   ],
   providers: [
     SchoolsService,
@@ -78,6 +87,7 @@ export function encryptionServiceFactory(config: ConfigService): EncryptionServi
     SchoolLogoService,
     ProvisioningService,
     SchoolAdminsService,
+    SmsCreditsService,
     {
       provide: EncryptionService,
       inject: [ConfigService],
