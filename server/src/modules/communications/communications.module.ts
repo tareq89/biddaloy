@@ -23,6 +23,7 @@ import { TenantProviderConfigResolver } from './config/tenant-provider-config.re
 import { ConnectionTestService } from './testing/connection-test.service';
 import { ProviderConnectionTestController } from './testing/provider-connection-test.controller';
 import { COMMUNICATIONS_QUEUE } from './communications.constants';
+import { CreditsModule } from './credits/credits.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { COMMUNICATIONS_QUEUE } from './communications.constants';
     // that triangle; without it, `SchoolsModule` resolves to `undefined` at
     // require-time depending on which module Nest happens to load first.
     forwardRef(() => SchoolsModule),
+    CreditsModule,
     BullModule.registerQueue({
       name: COMMUNICATIONS_QUEUE,
       defaultJobOptions: {
