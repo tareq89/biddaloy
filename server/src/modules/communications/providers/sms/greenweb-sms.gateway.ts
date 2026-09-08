@@ -52,14 +52,19 @@ export class GreenwebSmsGateway implements SmsGateway<ResolvedGreenwebSmsConfig>
           providerMessageId: data.msgid ?? null,
           raw: data,
           segments: segmentInfo.segments,
+          outcome: 'ACCEPTED',
         };
       }
+      // Greenweb answered — it just refused the message (bad token,
+      // invalid number, etc.). A definite REJECTED, same as `retryable`
+      // would say if this branch set it.
       return {
         success: false,
         providerMessageId: null,
         error: data?.error_msg ?? 'Unknown Greenweb error',
         raw: data,
         segments: segmentInfo.segments,
+        outcome: 'REJECTED',
       };
     } catch (err) {
       return {
@@ -67,8 +72,10 @@ export class GreenwebSmsGateway implements SmsGateway<ResolvedGreenwebSmsConfig>
         providerMessageId: null,
         error: err instanceof Error ? err.message : String(err),
         // Only a resolved-to-a-blocked-destination is permanent; a DNS
-        // hiccup or network blip may succeed on retry.
+        // hiccup or network blip may succeed on retry — and might have
+        // reached Greenweb anyway, so it's AMBIGUOUS, not REJECTED.
         retryable: err instanceof DestinationBlockedError ? false : undefined,
+        outcome: err instanceof DestinationBlockedError ? 'REJECTED' : 'AMBIGUOUS',
       };
     }
   }

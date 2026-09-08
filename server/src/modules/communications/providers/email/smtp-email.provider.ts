@@ -115,19 +115,21 @@ export class SmtpEmailProvider implements CommunicationProvider {
         success: true,
         providerMessageId: info.messageId ?? null,
         raw: { response: info.response },
+        outcome: 'ACCEPTED',
       };
     } catch (err) {
+      // A resolved-to-a-blocked-destination or unconfigured-provider
+      // failure is permanent — REJECTED, never reached the network. A DNS
+      // hiccup, transport-level error, or anything else may have gone out
+      // and gotten an ambiguous answer — AMBIGUOUS.
+      const isDefinitelyRejected =
+        err instanceof ProviderNotConfiguredError || err instanceof DestinationBlockedError;
       return {
         success: false,
         providerMessageId: null,
         error: err instanceof Error ? err.message : String(err),
-        // A resolved-to-a-blocked-destination or unconfigured-provider
-        // failure is permanent; a DNS hiccup (DestinationResolutionError)
-        // or transport-level error may succeed on retry.
-        retryable:
-          err instanceof ProviderNotConfiguredError || err instanceof DestinationBlockedError
-            ? false
-            : undefined,
+        retryable: isDefinitelyRejected ? false : undefined,
+        outcome: isDefinitelyRejected ? 'REJECTED' : 'AMBIGUOUS',
       };
     }
   }

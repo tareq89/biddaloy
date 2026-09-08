@@ -71,6 +71,7 @@ describe('MimSmsGateway', () => {
       providerMessageId: 'mim-1',
       raw: { status: 'success', transaction_id: 'mim-1' },
       segments: 1,
+      outcome: 'ACCEPTED',
     });
   });
 
