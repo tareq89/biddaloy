@@ -142,15 +142,20 @@ export class CommunicationsProcessor extends WorkerHost {
       };
     }
 
+    // [15.6.1] SMS-only — `result.segments` comes from the shared
+    // `countSmsSegments`; every other provider leaves it `undefined`, so
+    // `metadata.segments` is only ever set for SMS.
+    const segmentsMetadata = result.segments !== undefined ? { segments: result.segments } : {};
+
     if (result.success) {
       log.status = CommunicationStatus.SENT;
       log.provider_message_id = result.providerMessageId;
-      log.metadata = { ...log.metadata, raw: result.raw };
+      log.metadata = { ...log.metadata, raw: result.raw, ...segmentsMetadata };
       await this.settle(log, 'success');
       return;
     }
 
-    log.metadata = { ...log.metadata, error: result.error, raw: result.raw };
+    log.metadata = { ...log.metadata, error: result.error, raw: result.raw, ...segmentsMetadata };
 
     const maxAttempts = job.opts.attempts ?? 1;
     const isFinalAttempt = job.attemptsMade + 1 >= maxAttempts;

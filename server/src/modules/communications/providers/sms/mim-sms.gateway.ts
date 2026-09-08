@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
+import { countSmsSegments } from '@biddaloy/shared';
 import { CommunicationSendResult } from '../communication-provider.interface';
-import { SmsGateway, isUnicodeMessage } from './sms-gateway.interface';
+import { SmsGateway } from './sms-gateway.interface';
 import { normalizeBdPhoneNumber } from '../shared/phone-number.util';
 import { ConnectionTestResult } from '../shared/connection-test.types';
 import {
@@ -31,6 +32,7 @@ export class MimSmsGateway implements SmsGateway<ResolvedMimSmsConfig> {
     config: ResolvedMimSmsConfig,
   ): Promise<CommunicationSendResult> {
     try {
+      const segmentInfo = countSmsSegments(message);
       const baseUrl = config.apiUrl ?? DEFAULT_BASE_URL;
       const destination = await assertSafeHttpDestination(baseUrl);
 
@@ -43,18 +45,24 @@ export class MimSmsGateway implements SmsGateway<ResolvedMimSmsConfig> {
           senderid: config.senderId,
           number: normalizeBdPhoneNumber(to),
           message,
-          type: isUnicodeMessage(message) ? 'unicode' : 'text',
+          type: segmentInfo.encoding === 'UCS_2' ? 'unicode' : 'text',
         }),
       })) as Record<string, any>;
 
       if (data?.status === 'success') {
-        return { success: true, providerMessageId: data.transaction_id ?? null, raw: data };
+        return {
+          success: true,
+          providerMessageId: data.transaction_id ?? null,
+          raw: data,
+          segments: segmentInfo.segments,
+        };
       }
       return {
         success: false,
         providerMessageId: null,
         error: data?.message ?? 'Unknown MimSMS error',
         raw: data,
+        segments: segmentInfo.segments,
       };
     } catch (err) {
       return {

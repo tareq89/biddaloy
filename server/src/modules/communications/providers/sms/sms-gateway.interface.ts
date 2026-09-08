@@ -1,3 +1,4 @@
+import { countSmsSegments } from '@biddaloy/shared';
 import { CommunicationSendResult } from '../communication-provider.interface';
 import { ConnectionTestResult } from '../shared/connection-test.types';
 
@@ -15,7 +16,16 @@ export interface SmsGateway<TConfig> {
   testConnection(config: TConfig): Promise<ConnectionTestResult>;
 }
 
-/** SMS gateway text is non-ASCII (Bangla) -> gateways bill/segment it as unicode SMS. */
+/**
+ * [15.6.1] `countSmsSegments` (`@biddaloy/shared`) is now the single
+ * ASCII-vs-Unicode call — it was previously duplicated here as a bare
+ * `/[^\x00-\x7F]/` regex, separate from the client's segment counter.
+ * `isUnicodeMessage` stays as a thin wrapper so both gateways keep the
+ * same call shape they had before; `countSmsSegments` itself is what
+ * decides unicode billing (matches the gateways' actual behaviour — see
+ * the shared module's doc comment for why that's a deliberate deviation
+ * from 3GPP TS 23.038).
+ */
 export function isUnicodeMessage(message: string): boolean {
-  return /[^\x00-\x7F]/.test(message);
+  return countSmsSegments(message).encoding === 'UCS_2';
 }

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
+import { countSmsSegments } from '@biddaloy/shared';
 import { CommunicationSendResult } from '../communication-provider.interface';
-import { SmsGateway, isUnicodeMessage } from './sms-gateway.interface';
+import { SmsGateway } from './sms-gateway.interface';
 import { normalizeBdPhoneNumber } from '../shared/phone-number.util';
 import { ConnectionTestResult } from '../shared/connection-test.types';
 import {
@@ -28,6 +29,7 @@ export class GreenwebSmsGateway implements SmsGateway<ResolvedGreenwebSmsConfig>
     config: ResolvedGreenwebSmsConfig,
   ): Promise<CommunicationSendResult> {
     try {
+      const segmentInfo = countSmsSegments(message);
       const baseUrl = config.apiUrl ?? DEFAULT_BASE_URL;
       const destination = await assertSafeHttpDestination(baseUrl);
       const params = new URLSearchParams({
@@ -35,7 +37,7 @@ export class GreenwebSmsGateway implements SmsGateway<ResolvedGreenwebSmsConfig>
         to: normalizeBdPhoneNumber(to),
         message,
       });
-      if (isUnicodeMessage(message)) {
+      if (segmentInfo.encoding === 'UCS_2') {
         params.set('unicode', '1');
       }
 
@@ -45,13 +47,19 @@ export class GreenwebSmsGateway implements SmsGateway<ResolvedGreenwebSmsConfig>
       })) as Record<string, any>;
 
       if (data?.status === 'success') {
-        return { success: true, providerMessageId: data.msgid ?? null, raw: data };
+        return {
+          success: true,
+          providerMessageId: data.msgid ?? null,
+          raw: data,
+          segments: segmentInfo.segments,
+        };
       }
       return {
         success: false,
         providerMessageId: null,
         error: data?.error_msg ?? 'Unknown Greenweb error',
         raw: data,
+        segments: segmentInfo.segments,
       };
     } catch (err) {
       return {

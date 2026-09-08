@@ -25,6 +25,13 @@ export interface CommunicationSendResult {
    * other failure, which stays retryable exactly as before.
    */
   retryable?: boolean;
+  /**
+   * [15.6.1] SMS-only — the exact segment count from the shared
+   * `countSmsSegments`, so `CommunicationsProcessor` can write it onto
+   * `CommunicationLog.metadata.segments` for billing/observability.
+   * `undefined` for every non-SMS provider.
+   */
+  segments?: number;
 }
 
 /**

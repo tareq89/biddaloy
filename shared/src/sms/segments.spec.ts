@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { countSmsSegments } from './sms';
+import { countSmsSegments } from './segments';
 
 describe('countSmsSegments', () => {
   it('reports an empty message as zero segments, not one', () => {
