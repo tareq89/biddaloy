@@ -46,6 +46,12 @@ test('provision a school, activate its admin, suspend it, and reactivate it', as
   request,
   browser,
 }) => {
+  // Eight steps across two roles and two browser contexts (a wizard, an
+  // activation, a suspension, a tenant switch, a reactivation) — ran to
+  // ~25s of the default 30s budget on CI even when green. Triple it
+  // rather than chase the margin.
+  test.slow();
+
   const suffix = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
   const schoolName = `E2E Provisioned School ${suffix}`;
   const adminName = `Provisioned Admin ${suffix}`;
@@ -159,6 +165,7 @@ test('provision a school, activate its admin, suspend it, and reactivate it', as
   await test.step('SUPER_ADMIN reactivates the school', async () => {
     await page.goto(`/schools/${schoolId}`);
     const detail = new DetailShellPage(page);
+    await detail.expectLoaded(schoolName);
     await detail.clickAction('platform.schoolDetail.actions.reactivate');
 
     const dialog = page.getByRole('dialog');
