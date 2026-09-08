@@ -69,6 +69,22 @@ export class SmsCreditService {
     return this.readBalance(this.balanceRepo.manager, tenantId);
   }
 
+  /** Tenant-scoped, newest-first page of the ledger — backs #550's
+   * `GET /communications/sms-credits`. */
+  async listLedger(
+    tenantId: string,
+    page: number,
+    limit: number,
+  ): Promise<{ data: SmsCreditLedger[]; total: number }> {
+    const [data, total] = await this.ledgerRepo.findAndCount({
+      where: { tenant_id: tenantId },
+      order: { created_at: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    return { data, total };
+  }
+
   private async readBalance(manager: EntityManager, tenantId: string): Promise<CreditBalance> {
     const row = await manager.findOne(SmsCreditBalance, { where: { tenant_id: tenantId } });
     return { available: row?.available ?? 0, reserved: row?.reserved ?? 0 };

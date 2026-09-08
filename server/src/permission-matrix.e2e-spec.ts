@@ -158,6 +158,13 @@ export const IDENTITY_SCOPED: IdentityScopedEntry[] = [
     path: '/schools/me/logo',
     reason: '15.5.3 — self-service removal, same as POST /schools/me/logo.',
   },
+  {
+    controller: 'SchoolSmsCreditsController',
+    method: 'POST',
+    path: '/schools/:id/sms-credits',
+    reason:
+      '15.6.7/#550 — platform route (SUPER_ADMIN SMS credit grant/adjust), same rationale as GET /schools.',
+  },
 ];
 
 function findIdentityScopedEntry(

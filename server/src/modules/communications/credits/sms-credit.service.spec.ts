@@ -270,4 +270,21 @@ describe('SmsCreditService', () => {
       expect(await service.isMetered(TENANT_ID)).toBe(false);
     });
   });
+
+  describe('listLedger', () => {
+    it('scopes to the tenant, newest first, with paging applied', async () => {
+      const rows = [{ id: 'ledger-1' }, { id: 'ledger-2' }];
+      ledgerRepo.findAndCount = vi.fn(async () => [rows, 2]);
+
+      const result = await service.listLedger(TENANT_ID, 2, 10);
+
+      expect(ledgerRepo.findAndCount).toHaveBeenCalledWith({
+        where: { tenant_id: TENANT_ID },
+        order: { created_at: 'DESC' },
+        skip: 10,
+        take: 10,
+      });
+      expect(result).toEqual({ data: rows, total: 2 });
+    });
+  });
 });

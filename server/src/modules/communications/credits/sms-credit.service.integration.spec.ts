@@ -142,6 +142,12 @@ describe('SmsCreditService (integration)', () => {
     const balanceB = await service.getBalance(tenantB);
     expect(balanceA).toEqual({ available: 100, reserved: 0 });
     expect(balanceB).toEqual({ available: 60, reserved: 40 });
+
+    // Cross-tenant rejection for the ledger read (#550): A never sees B's rows.
+    const ledgerA = await service.listLedger(tenantA, 1, 50);
+    expect(ledgerA.total).toBe(1);
+    expect(ledgerA.data.every((row) => row.tenant_id === tenantA)).toBe(true);
+    expect(ledgerA.data.map((row) => row.kind)).toEqual([SmsCreditLedgerKind.GRANT]);
   });
 
   it('adjust below zero is rejected and getBalance is unchanged', async () => {
