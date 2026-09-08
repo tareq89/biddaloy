@@ -59,7 +59,11 @@ section_done() {
 # Dedicated DB name so this never clobbers a dev database. Env values
 # mirror ci.yml's throwaway CI-only secrets — safe in a checked-in script.
 provision_stack() {
-  docker compose up -d db redis
+  # [15.5] `minio`/`minio-init` too — `StorageModule` is a boot-time
+  # dependency of `AppModule` now (`docs:generate`/`seed` below both boot
+  # it), and the logo e2e spec needs real object storage, same reasoning
+  # as ci.yml's "integration" job.
+  docker compose up -d db redis minio minio-init
   until docker compose exec -T db pg_isready -U postgres >/dev/null 2>&1; do sleep 1; done
   docker compose exec -T db psql -U postgres -tc \
     "SELECT 1 FROM pg_database WHERE datname = 'biddaloy_ci_local'" | grep -q 1 ||
@@ -70,6 +74,16 @@ provision_stack() {
   export NODE_ENV=test
   export SEED_ADMIN_PASSWORD=ci-integration-seed-password-123
   export SETTINGS_ENCRYPTION_KEY=YmSqNpwxzusjAF12JSD+JNe+3LXrbNJiQza2yTnQyR0=
+  # docker-compose.yml's own S3_* — the compose `minio` service listens on
+  # the compose network as `minio:9000`, exposed to the host at
+  # localhost:9000 (see that file's own port mapping comment).
+  export S3_ENDPOINT=http://localhost:9000
+  export S3_REGION=us-east-1
+  export S3_BUCKET=${S3_BUCKET:-biddaloy}
+  export S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID:-change-me}
+  export S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY:-change-me}
+  export S3_FORCE_PATH_STYLE=true
+  export S3_ALLOW_INSECURE_HTTP=true
 }
 
 section "verify"
