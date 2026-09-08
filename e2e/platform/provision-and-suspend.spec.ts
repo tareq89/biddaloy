@@ -138,8 +138,14 @@ test('provision a school, activate its admin, suspend it, and reactivate it', as
     // now blocks with 403 TENANT_SUSPENDED — /dashboard itself is a
     // static placeholder with no query, so it wouldn't surface this.
     await adminPage.goto('/settings');
+    // `RouteErrorFallback`'s suspended fork (`RouteStatusState`,
+    // `role="status"` + an `<h1>`), rendered with the translated copy
+    // `main.tsx` passes — asserted by key, since the suite's default
+    // locale is Bangla and a `/suspended/i` regex only matches English.
     await expect(adminPage.getByRole('status')).toBeVisible();
-    await expect(adminPage.getByRole('heading', { name: /suspended/i })).toBeVisible();
+    await expect(
+      adminPage.getByRole('heading', { level: 1, name: t('common.suspended.pageTitle') }),
+    ).toBeVisible();
   });
 
   await test.step('the second, unrelated seeded tenant still loads fine', async () => {

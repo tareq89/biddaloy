@@ -28,7 +28,7 @@ import { useNavigate, type ErrorComponentProps } from '@tanstack/react-router';
 import { Lock, RefreshCw, WifiOff } from 'lucide-react';
 import * as React from 'react';
 
-import type { ApiError } from '../api/errors';
+import { isTenantSuspendedError } from '../api/errors';
 import { captureRouteError, recordRouteChunkFallback } from '../api/sentry';
 
 import { ErrorState } from './error-state';
@@ -125,11 +125,7 @@ function classifyRouteError(error: unknown): RouteErrorKind {
     return 'offline';
   }
 
-  const apiError = error as Partial<ApiError> | null;
-  if (
-    apiError?.statusCode === 403 &&
-    (apiError.details as { code?: unknown } | undefined)?.code === 'TENANT_SUSPENDED'
-  ) {
+  if (isTenantSuspendedError(error)) {
     return 'suspended';
   }
 
