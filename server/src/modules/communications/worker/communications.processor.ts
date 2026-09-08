@@ -13,6 +13,13 @@ import { TenantStatusService } from '../../schools/tenant-status.service';
 
 interface SendJobData {
   logId: string;
+  // [15.6.5/#548] Job-data plumbing only — settlement (peeling `segments`
+  // off the batch's RESERVE via SmsCreditService.settlePart) is #549.
+  // `batchId` mirrors the log's own `reminder_batch_id` for a job that
+  // hasn't hit the DB yet; `segments` is set only for SMS jobs, since only
+  // SMS touches the credit ledger.
+  batchId?: string;
+  segments?: number;
 }
 
 /**
