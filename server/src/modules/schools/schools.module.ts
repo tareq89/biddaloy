@@ -9,6 +9,11 @@ import { buildEncryptionKey, buildPreviousEncryptionKeys } from './settings/encr
 import { TenantSettingsCache } from './settings/tenant-settings-cache.service';
 import { TenantStatusModule } from './tenant-status.module';
 import { AuditModule } from '../audit/audit.module';
+import { SchoolProfileController } from './profile/profile.controller';
+import { SchoolProfileService } from './profile/profile.service';
+import { SchoolLogoController } from './profile/logo.controller';
+import { SchoolLogoService } from './profile/logo.service';
+import { StorageModule } from '../storage/storage.module';
 import { ProvisioningService } from './provisioning/provisioning.service';
 import { ProvisioningController } from './provisioning/provisioning.controller';
 import { SchoolAdminsService } from './admins/school-admins.service';
@@ -52,6 +57,7 @@ export function encryptionServiceFactory(config: ConfigService): EncryptionServi
     ]),
     ConfigModule,
     AuditModule,
+    StorageModule,
     TenantStatusModule,
     // Circular: AccountAccessModule imports SchoolsModule (for
     // SchoolsService's tenant-settings lookups) — forwardRef breaks the
@@ -59,9 +65,17 @@ export function encryptionServiceFactory(config: ConfigService): EncryptionServi
     // rather than re-implementing invitation delivery here (#529).
     forwardRef(() => AccountAccessModule),
   ],
-  controllers: [SchoolsController, ProvisioningController, SchoolAdminsController],
+  controllers: [
+    SchoolsController,
+    SchoolProfileController,
+    SchoolLogoController,
+    ProvisioningController,
+    SchoolAdminsController,
+  ],
   providers: [
     SchoolsService,
+    SchoolProfileService,
+    SchoolLogoService,
     ProvisioningService,
     SchoolAdminsService,
     {

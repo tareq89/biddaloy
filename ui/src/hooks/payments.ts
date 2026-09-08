@@ -1,13 +1,22 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
-import type { components } from '../api/schema';
+import type { components, operations } from '../api/schema';
 
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 import { studentKeys } from './students';
 
 export type Payment = components['schemas']['Payment'];
+export type IssuerSnapshot = components['schemas']['IssuerSnapshot'];
+/** [15.5.5]/[15.5.7] `Payment` itself carries `issuer_snapshot` (the
+ * document's own frozen identity). `issuer` — the read-side fallback to
+ * the live profile for a legacy row with a null snapshot ([15.5.5]'s
+ * `resolveIssuer`) — is only ever added by `record-with-allocation`'s own
+ * response, pulled straight from its generated operation type rather than
+ * hand-typed here; a payment read back later has no `issuer` field. */
+export type PaymentWithIssuer =
+  operations['FeeController_recordPaymentWithAllocation_v1']['responses'][201]['content']['application/json'];
 /** What a PARENT/STUDENT actually gets back from
  * `GET /payments/student/:studentId` — a reduced row with no `student`,
  * `received_by` or `remarks` (`schema.d.ts`'s `FamilyPaymentDto`, and the
@@ -174,7 +183,10 @@ export function useRecordPaymentWithAllocation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: RecordPaymentWithAllocationInput) => {
-      const res = await apiClient.post<Payment>('/payments/record-with-allocation', input);
+      const res = await apiClient.post<PaymentWithIssuer>(
+        '/payments/record-with-allocation',
+        input,
+      );
       return res.data;
     },
     retry: shouldRetryQuery,

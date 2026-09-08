@@ -69,8 +69,13 @@ describe('SchoolSettingsPage', () => {
     });
     expect(await screen.findByText('WhatsApp')).toBeTruthy();
     expect(screen.getByText('Messenger')).toBeTruthy();
-    expect(screen.getByText('Email')).toBeTruthy();
+    // 'Email' is also a form field label in the [15.5.6] profile section
+    // rendered above these — scope to the section legend to disambiguate.
+    expect(screen.getByText('Email', { selector: 'legend' })).toBeTruthy();
     expect(screen.getByText('SMS')).toBeTruthy();
+    // [15.5.6] School profile section, always present regardless of which
+    // school the SUPER_ADMIN picker has selected.
+    expect(screen.getByText('School profile')).toBeTruthy();
   });
 
   it('does not request settings before a school is selected', async () => {

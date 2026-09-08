@@ -379,6 +379,21 @@ jobs:
       # that writes tenant settings secrets (SchoolsService.updateSettings)
       # fails with "Settings encryption is not configured".
       SETTINGS_ENCRYPTION_KEY: YmSqNpwxzusjAF12JSD+JNe+3LXrbNJiQza2yTnQyR0=
+      # [15.5] `StorageModule` (now wired into `SchoolsModule` for the
+      # school-logo feature) is a boot-time dependency of the whole app —
+      # `buildStorageConfig` throws if any is unset, which fails this job's
+      # `docs:generate` step (boots `AppModule` to introspect routes). A
+      # real endpoint (below, started before the test steps) rather than a
+      # throwaway one: `test:e2e` in this same job runs `logo.e2e-spec.ts`
+      # against real object storage, same posture as
+      # `restore-drill.yml`'s MinIO.
+      S3_ENDPOINT: http://localhost:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: biddaloy-ci
+      S3_ACCESS_KEY_ID: ci-access-key
+      S3_SECRET_ACCESS_KEY: ci-secret-key
+      S3_ALLOW_INSECURE_HTTP: 'true'
+      S3_FORCE_PATH_STYLE: 'true'
     steps:
       - uses: actions/checkout@v7
 
@@ -389,6 +404,38 @@ jobs:
 
       - name: Install dependencies
         run: yarn install --frozen-lockfile
+
+      # Not a `services:` entry — same reason as `restore-drill.yml`'s own
+      # MinIO step: the image needs a custom command (`server /data`),
+      # which `services:` can't override.
+      - name: Start MinIO
+        run: |
+          docker run -d --name minio \
+            -p 9000:9000 \
+            -e MINIO_ROOT_USER="$S3_ACCESS_KEY_ID" \
+            -e MINIO_ROOT_PASSWORD="$S3_SECRET_ACCESS_KEY" \
+            minio/minio:RELEASE.2025-04-08T15-41-24Z server /data
+          # Bounded by wall clock (each failed probe costs up to 2s of curl
+          # plus the 1s sleep, so an attempt count would overshoot): an
+          # unhealthy MinIO must fail here with its logs, not stall the job
+          # until the workflow timeout.
+          deadline=$((SECONDS + 60))
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            if curl --fail --silent --show-error --max-time 2 http://localhost:9000/minio/health/live; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "MinIO did not become healthy within 60s" >&2
+          docker logs minio
+          exit 1
+
+      - name: Create MinIO bucket
+        run: |
+          AWS_ACCESS_KEY_ID="$S3_ACCESS_KEY_ID" \
+          AWS_SECRET_ACCESS_KEY="$S3_SECRET_ACCESS_KEY" \
+          AWS_DEFAULT_REGION="$S3_REGION" \
+            aws s3 mb --endpoint-url "$S3_ENDPOINT" "s3://$S3_BUCKET"
 
       - name: Build shared package
         # test/setup.ts registers ts-node to load TypeORM entities/migrations
@@ -530,6 +577,16 @@ jobs:
       # Keeps playwright.config.ts's projects list consistent with the
       # --project flag this matrix entry passes.
       E2E_BROWSERS: ${{ matrix.browser }}
+      # [15.5] See the "integration" job's identical block — `yarn ...
+      # server seed` below boots `AppModule`, which now needs `StorageModule`
+      # env to construct even though this job never touches a logo.
+      S3_ENDPOINT: http://localhost:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: biddaloy-ci
+      S3_ACCESS_KEY_ID: ci-access-key
+      S3_SECRET_ACCESS_KEY: ci-secret-key
+      S3_ALLOW_INSECURE_HTTP: 'true'
+      S3_FORCE_PATH_STYLE: 'true'
     steps:
       - uses: actions/checkout@v7
         with:
@@ -806,6 +863,14 @@ jobs:
       NODE_ENV: test
       SEED_ADMIN_PASSWORD: ci-lighthouse-seed-password-123
       SETTINGS_ENCRYPTION_KEY: YmSqNpwxzusjAF12JSD+JNe+3LXrbNJiQza2yTnQyR0=
+      # [15.5] See the "integration" job's identical block.
+      S3_ENDPOINT: http://localhost:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: biddaloy-ci
+      S3_ACCESS_KEY_ID: ci-access-key
+      S3_SECRET_ACCESS_KEY: ci-secret-key
+      S3_ALLOW_INSECURE_HTTP: 'true'
+      S3_FORCE_PATH_STYLE: 'true'
     steps:
       - uses: actions/checkout@v7
 

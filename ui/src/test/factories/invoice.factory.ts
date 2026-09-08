@@ -30,6 +30,7 @@ export function invoiceFactory(overrides: Partial<Invoice> = {}, script?: Script
     line_items: null,
     issued_by: null,
     issued_by_user_id: null,
+    issuer_snapshot: null,
     notes: null,
     created_at: faker.date.past({ refDate: FACTORY_REFERENCE_DATE }).toISOString(),
     updated_at: faker.date.recent({ refDate: FACTORY_REFERENCE_DATE }).toISOString(),

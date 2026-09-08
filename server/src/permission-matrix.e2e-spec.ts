@@ -125,6 +125,39 @@ export const IDENTITY_SCOPED: IdentityScopedEntry[] = [
     reason:
       '15.4.5 — platform route (SUPER_ADMIN suspend/reactivate), same rationale as GET /schools.',
   },
+  {
+    controller: 'SchoolProfileController',
+    method: 'GET',
+    path: '/schools/me/profile',
+    reason: "15.5.2 — self-service: always the caller's own active tenant, never a path id.",
+  },
+  {
+    controller: 'SchoolProfileController',
+    method: 'PATCH',
+    path: '/schools/me/profile',
+    reason: '15.5.2 — self-service, same as GET /schools/me/profile.',
+  },
+  {
+    controller: 'SchoolLogoController',
+    method: 'GET',
+    path: '/schools/:id/logo',
+    reason:
+      '15.5.4 — membership-scoped, not capability-scoped: any staff role that belongs to :id ' +
+      '(or SUPER_ADMIN) may read it — see assertCanReadSchoolLogo. No permission would make ' +
+      'sense to grant or withhold here.',
+  },
+  {
+    controller: 'SchoolLogoController',
+    method: 'POST',
+    path: '/schools/me/logo',
+    reason: "15.5.3 — self-service upload, always the caller's own active tenant.",
+  },
+  {
+    controller: 'SchoolLogoController',
+    method: 'DELETE',
+    path: '/schools/me/logo',
+    reason: '15.5.3 — self-service removal, same as POST /schools/me/logo.',
+  },
 ];
 
 function findIdentityScopedEntry(

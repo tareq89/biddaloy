@@ -10,6 +10,7 @@ import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Invoice } from '../invoices/entities/invoice.entity';
+import { School } from '../schools/entities/school.entity';
 import { AuditModule } from '../audit/audit.module';
 import { StudentModule } from '../students/students.module';
 import { FeeStructureService, PaymentService } from './fees.service';
@@ -31,6 +32,7 @@ import { FeeController } from './fees.controller';
       ClassSection,
       AcademicYear,
       Invoice,
+      School,
     ]),
     AuditModule,
     StudentModule,

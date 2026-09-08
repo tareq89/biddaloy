@@ -10,12 +10,14 @@ import {
   OneToMany,
   Index,
 } from 'typeorm';
+import { ApiProperty } from '@nestjs/swagger';
 import { Student } from '../../students/entities/student.entity';
 import { User } from '../../users/entities/user.entity';
 import { School } from '../../schools/entities/school.entity';
 import { Invoice } from '../../invoices/entities/invoice.entity';
 import { PaymentMethod, PaymentStatus } from '@biddaloy/shared';
 import { PaymentAllocation } from './payment-allocation.entity';
+import { IssuerSnapshot } from '../../schools/profile/issuer-snapshot';
 
 /**
  * Records a financial transaction — fee payment collected from a student.
@@ -89,6 +91,18 @@ export class Payment {
 
   @Column({ type: 'uuid' })
   tenant_id: string;
+
+  /** [15.5.5] School identity frozen at record time. Null for payments
+   * recorded before this column existed, or on rare failure to build a
+   * snapshot — reads fall back to the live school profile in that case. */
+  // `@ApiProperty({ type: () => IssuerSnapshot })` is required here — the
+  // `@nestjs/swagger` CLI plugin auto-infers every other column's OpenAPI
+  // type from its TS annotation with no decorator, but it cannot resolve a
+  // class imported from another module used only as a plain property type;
+  // without this it silently produced an empty `{}` schema.
+  @ApiProperty({ type: () => IssuerSnapshot, nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
+  issuer_snapshot: IssuerSnapshot | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
