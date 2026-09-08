@@ -1,6 +1,7 @@
 import { apiClient, getActiveRole } from '@biddaloy/ui/api';
 import {
   Button,
+  FileUpload,
   Form,
   FormControl,
   FormField,
@@ -114,7 +115,6 @@ export function SchoolProfileSection() {
 
   const [logoError, setLogoError] = React.useState<string | null>(null);
   const [confirmingRemove, setConfirmingRemove] = React.useState(false);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -154,9 +154,10 @@ export function SchoolProfileSection() {
     );
   }
 
-  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = '';
+  // `FileUpload` already resets its own `<input>` after each pick, so the
+  // same file can be re-chosen after a failed upload.
+  function handleFilesSelected(files: File[]) {
+    const file = files[0];
     if (!file) return;
 
     setLogoError(null);
@@ -316,13 +317,20 @@ export function SchoolProfileSection() {
             )}
 
             <div className="flex flex-col gap-1.5">
-              <input
-                ref={fileInputRef}
-                type="file"
+              {/* The shared `FileUpload` (sr-only native input + a real
+                  `Button`) rather than a bare `<input type="file">`: the
+                  native control is ~300px wide and only 20px tall, which
+                  fails both the 320px reflow gate and the 24x24 target-size
+                  gate on /settings (e2e/responsive/*). `items` stays empty —
+                  the logo preview to the left is the "selected file" state. */}
+              <FileUpload
+                items={[]}
+                onFilesSelected={handleFilesSelected}
                 accept={LOGO_ACCEPT}
+                multiple={false}
+                disabled={uploadLogo.isPending}
                 aria-label={t('profile.logo.upload')}
-                onChange={handleFileChange}
-                className="text-sm"
+                chooseLabel={t('profile.logo.upload')}
               />
               {uploadLogo.isPending && (
                 <p role="status" className="text-xs text-muted-foreground">
@@ -341,7 +349,7 @@ export function SchoolProfileSection() {
                 </Button>
               )}
               {confirmingRemove && (
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm">{t('profile.logo.removeConfirm')}</span>
                   <Button
                     type="button"
