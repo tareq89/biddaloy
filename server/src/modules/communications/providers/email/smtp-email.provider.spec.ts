@@ -75,6 +75,7 @@ describe('SmtpEmailProvider', () => {
       success: true,
       providerMessageId: 'msg-1',
       raw: { response: '250 OK' },
+      outcome: 'ACCEPTED',
     });
   });
 

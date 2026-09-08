@@ -64,6 +64,7 @@ describe('GreenwebSmsGateway', () => {
       providerMessageId: 'gw-1',
       raw: { status: 'success', msgid: 'gw-1' },
       segments: 1,
+      outcome: 'ACCEPTED',
     });
   });
 

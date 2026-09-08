@@ -46,13 +46,16 @@ export class MessengerProvider implements CommunicationProvider {
         providerMessageId: null,
         error: err instanceof Error ? err.message : String(err),
         retryable: err instanceof ProviderNotConfiguredError ? false : undefined,
+        outcome: err instanceof ProviderNotConfiguredError ? 'REJECTED' : 'AMBIGUOUS',
       };
     }
+    // Always-stub failure, never touches the network — REJECTED.
     return {
       success: false,
       providerMessageId: null,
       error: 'Messenger sending is not yet implemented',
       retryable: false,
+      outcome: 'REJECTED',
     };
   }
 

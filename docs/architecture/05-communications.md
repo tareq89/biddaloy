@@ -117,3 +117,70 @@ reminder queues 200 `CommunicationLog` rows, the school gets suspended
 mid-batch, and 80 rows haven't been picked up by a worker yet — those 80
 end up `FAILED`. When the school is reactivated, staff have to trigger a
 new send (single or bulk) for anyone who still needs the reminder.
+
+## SMS credit settlement [15.6.6/#549]
+
+A metered tenant's bulk SMS send **reserves** credits for the whole batch
+up front (`batch:<batchId>`, epic #508's `RESERVE` ledger kind — see
+[the credits doc/#546] for the batch-level reservation). Each individual
+SMS job then **settles its own slice** of that reservation, once, right
+after the provider call returns — this is the part this section documents.
+
+```mermaid
+flowchart TD
+    P["Provider call returns"] --> O{"result.outcome"}
+    O -->|ACCEPTED| D["DEBIT\nsettlePart(..., 'DEBIT')\nmetadata.credit = DEBITED"]
+    O -->|REJECTED| R["RELEASE\nsettlePart(..., 'RELEASE')\nmetadata.credit = RELEASED"]
+    O -->|AMBIGUOUS| U["stays RESERVED\nno settlePart call\nmetadata.credit = UNSETTLED\nSentry tag needs_reconciliation"]
+    S["Tenant suspended\n(no provider call)"] --> R
+```
+
+| Provider outcome             | Meaning                                                                             | Ledger kind | Balance effect                                  | `metadata.credit` |
+| ---------------------------- | ----------------------------------------------------------------------------------- | ----------- | ----------------------------------------------- | ----------------- |
+| `ACCEPTED`                   | Provider took the message                                                           | `DEBIT`     | `reserved -= segments`, credits spent           | `DEBITED`         |
+| `REJECTED`                   | Provider (or a pre-flight check) definitely refused it — 4xx/validation, never sent | `RELEASE`   | `reserved -= segments`, `available += segments` | `RELEASED`        |
+| `AMBIGUOUS`                  | Timeout/5xx/unknown error _after_ the request went out — unclear if it was sent     | none        | untouched — stays reserved                      | `UNSETTLED`       |
+| Tenant suspended before send | No provider call was made                                                           | `RELEASE`   | `reserved -= segments`, `available += segments` | `RELEASED`        |
+
+A **post-acceptance delivery failure** (the SMS was accepted by the
+gateway but never reaches the handset — bad number on the carrier side,
+etc.) is **not** one of these outcomes: it's invisible to this processor,
+which only sees the gateway's immediate accept/reject response. It stays
+billed — this mirrors how a real carrier charges: you pay to hand the
+message to the network, not for confirmed handset delivery.
+
+### Where settlement happens, and why it's outside the log-save transaction
+
+`CommunicationsProcessor.settle()` (the log-save + batch-counter update)
+already runs in one DB transaction — see its doc comment. Credit
+settlement is a **separate, later** step, deliberately **not** part of
+that transaction: a `SmsCreditService.settlePart` failure must never roll
+back (or block recording) a send that already happened. If it fails, the
+processor logs the error and writes `metadata.credit = 'UNSETTLED'`
+instead of throwing — throwing here would risk BullMQ retrying a job
+whose SMS was _already sent_, resending it to the guardian a second time.
+
+### Idempotency and the retry/crash window
+
+`settlePart(tenantId, batchKey, logKey, units, outcome)` is idempotent on
+`` `${logKey}:settle` `` (`log:<logId>:settle`) — a second call with the
+same key is a no-op. Since every settlement call in the processor uses
+the same `log:<logId>` key regardless of how many times that job runs,
+a BullMQ retry or stalled-job replay settles at most once.
+
+This does **not** close the existing duplicate-send crash window
+documented on `CommunicationsProcessor` itself: if the worker crashes
+_after_ the provider accepts the message but _before_ the log save
+commits, a replay resends the SMS (the log's status guard only catches a
+replay _after_ that save landed). What settlement adds: if that same
+crash happens after the provider call but before this class gets a chance
+to run `settlePart`, the reservation for that log is left in its original
+"neither debited nor released" state. The next time this job is
+processed, it goes through the outcome mapping again and settles
+normally — so the crash window is closed for credit-correctness the same
+way it already is for the log/batch state. The `AMBIGUOUS` case is the
+one that's expected to require a human: reconciliation tooling looks for
+`metadata.credit = 'UNSETTLED'` and the `needs_reconciliation` Sentry tag
+(reusing 15.1.4's queue-failure telemetry — see
+`CommunicationsProcessor.flagAmbiguousSettlement`) to find these and
+resolve them manually.

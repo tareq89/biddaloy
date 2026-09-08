@@ -55,14 +55,18 @@ export class MimSmsGateway implements SmsGateway<ResolvedMimSmsConfig> {
           providerMessageId: data.transaction_id ?? null,
           raw: data,
           segments: segmentInfo.segments,
+          outcome: 'ACCEPTED',
         };
       }
+      // MimSMS answered — it just refused the message. A definite
+      // REJECTED.
       return {
         success: false,
         providerMessageId: null,
         error: data?.message ?? 'Unknown MimSMS error',
         raw: data,
         segments: segmentInfo.segments,
+        outcome: 'REJECTED',
       };
     } catch (err) {
       return {
@@ -70,8 +74,10 @@ export class MimSmsGateway implements SmsGateway<ResolvedMimSmsConfig> {
         providerMessageId: null,
         error: err instanceof Error ? err.message : String(err),
         // Only a resolved-to-a-blocked-destination is permanent; a DNS
-        // hiccup or network blip may succeed on retry.
+        // hiccup or network blip may succeed on retry — and might have
+        // reached MimSMS anyway, so it's AMBIGUOUS, not REJECTED.
         retryable: err instanceof DestinationBlockedError ? false : undefined,
+        outcome: err instanceof DestinationBlockedError ? 'REJECTED' : 'AMBIGUOUS',
       };
     }
   }

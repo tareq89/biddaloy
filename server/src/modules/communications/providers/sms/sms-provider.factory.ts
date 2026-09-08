@@ -39,11 +39,16 @@ export class SmsProviderFactory implements CommunicationProvider {
       }
       return await this.greenwebSmsGateway.sendSms(params.to, params.body, config);
     } catch (err) {
+      // A ProviderNotConfiguredError never reaches the network — definite
+      // REJECTED. Anything else here is an unexpected throw from a gateway
+      // that's contractually not supposed to throw; treat as AMBIGUOUS
+      // since whether it reached the network is unknown.
       return {
         success: false,
         providerMessageId: null,
         error: err instanceof Error ? err.message : String(err),
         retryable: err instanceof ProviderNotConfiguredError ? false : undefined,
+        outcome: err instanceof ProviderNotConfiguredError ? 'REJECTED' : 'AMBIGUOUS',
       };
     }
   }
