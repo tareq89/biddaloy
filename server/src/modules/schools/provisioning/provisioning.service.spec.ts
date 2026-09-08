@@ -297,6 +297,40 @@ describe('ProvisioningService', () => {
     expect(userRepo.save).not.toHaveBeenCalled();
   });
 
+  it('rejects an admin whose email and phone resolve to two different existing users with 409', async () => {
+    // Resolved separately (email query first, then phone) — an `email OR
+    // phone` lookup would have silently picked one of the two.
+    userRepo.createQueryBuilder
+      .mockReturnValueOnce(fakeQueryBuilder({ id: 'user-by-email', email: 'a@example.com' }))
+      .mockReturnValueOnce(fakeQueryBuilder({ id: 'user-by-phone', phone: '01712345678' }));
+
+    await expect(
+      service.provision(
+        { ...dto, admin: { name: 'Two People', email: 'a@example.com', phone: '01712345678' } },
+        ACTOR,
+      ),
+    ).rejects.toThrow(ConflictException);
+
+    expect(userTenantRepo.save).not.toHaveBeenCalled();
+    expect(authTokenRepo.save).not.toHaveBeenCalled();
+    expect(userRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('accepts an admin whose email and phone resolve to the same existing user', async () => {
+    const same = { id: 'existing-user', email: 'a@example.com', phone: '01712345678' };
+    userRepo.createQueryBuilder
+      .mockReturnValueOnce(fakeQueryBuilder(same))
+      .mockReturnValueOnce(fakeQueryBuilder(same));
+
+    const { result } = await service.provision(
+      { ...dto, admin: { name: 'One Person', email: 'a@example.com', phone: '01712345678' } },
+      ACTOR,
+    );
+
+    expect(result.admin).toEqual({ user_id: 'existing-user', existed: true });
+    expect(userRepo.save).not.toHaveBeenCalled();
+  });
+
   it('denies a non-SUPER_ADMIN caller with 403 at the RolesGuard', () => {
     const reflector = new Reflector();
     const guard = new RolesGuard(reflector);

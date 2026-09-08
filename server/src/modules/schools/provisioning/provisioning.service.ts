@@ -376,18 +376,32 @@ export class ProvisioningService {
     userRepo: Repository<User>,
     admin: AdminInput,
   ): Promise<{ user: User; existed: boolean }> {
-    if (admin.email || admin.phone) {
-      const found = await userRepo
-        .createQueryBuilder('u')
-        .where('u.deleted_at IS NULL')
-        .andWhere('(u.email = :email OR u.phone = :phone)', {
-          email: admin.email ?? '__none__',
-          phone: admin.phone ?? '__none__',
-        })
-        .getOne();
-      if (found) {
-        return { user: found, existed: true };
-      }
+    // Each contact resolved on its own, not one `email OR phone` query: with
+    // both supplied, an OR could match two *different* users and silently
+    // grant ADMIN to whichever Postgres returned first. Two hits that
+    // disagree are a request that names two people — refuse it.
+    const byEmail = admin.email
+      ? await userRepo
+          .createQueryBuilder('u')
+          .where('u.deleted_at IS NULL')
+          .andWhere('u.email = :email', { email: admin.email })
+          .getOne()
+      : null;
+    const byPhone = admin.phone
+      ? await userRepo
+          .createQueryBuilder('u')
+          .where('u.deleted_at IS NULL')
+          .andWhere('u.phone = :phone', { phone: admin.phone })
+          .getOne()
+      : null;
+    if (byEmail && byPhone && byEmail.id !== byPhone.id) {
+      throw new ConflictException(
+        'The admin email and phone belong to two different existing users',
+      );
+    }
+    const found = byEmail ?? byPhone;
+    if (found) {
+      return { user: found, existed: true };
     }
 
     const created = await userRepo.save(
