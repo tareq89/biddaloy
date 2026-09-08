@@ -70,7 +70,42 @@ describe('MimSmsGateway', () => {
       success: true,
       providerMessageId: 'mim-1',
       raw: { status: 'success', transaction_id: 'mim-1' },
+      segments: 1,
     });
+  });
+
+  // [15.6.1] `result.segments` is what `CommunicationsProcessor` writes onto
+  // `CommunicationLog.metadata.segments` — asserting it here locks the
+  // gateway to the shared `countSmsSegments` calculator instead of the old
+  // bare ASCII regex.
+  it('reports the exact GSM-7 segment count for a plain-English message', async () => {
+    pinnedFetchMock.mockResolvedValue({ status: 'success', transaction_id: 'mim-2' });
+
+    const result = await gateway.sendSms('01712345678', 'Dear guardian, fees are due.', {
+      gateway: 'mimsms',
+      apiKey: 'key-1',
+      senderId: 'sender-1',
+    });
+
+    expect(result.segments).toBe(1);
+    const [, , init] = pinnedFetchMock.mock.calls[0]!;
+    const body = JSON.parse(init!.body as string);
+    expect(body.type).toBe('text');
+  });
+
+  it('reports the exact UCS-2 segment count for a Bengali message', async () => {
+    pinnedFetchMock.mockResolvedValue({ status: 'success', transaction_id: 'mim-3' });
+
+    const result = await gateway.sendSms(
+      '01712345678',
+      'প্রিয় অভিভাবক, আপনার সন্তানের ফি বকেয়া আছে।',
+      { gateway: 'mimsms', apiKey: 'key-1', senderId: 'sender-1' },
+    );
+
+    expect(result.segments).toBe(1);
+    const [, , init] = pinnedFetchMock.mock.calls[0]!;
+    const body = JSON.parse(init!.body as string);
+    expect(body.type).toBe('unicode');
   });
 
   it('uses a tenant-configured apiUrl when given', async () => {

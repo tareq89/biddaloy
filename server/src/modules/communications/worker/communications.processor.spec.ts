@@ -90,6 +90,39 @@ describe('CommunicationsProcessor', () => {
     );
   });
 
+  // [15.6.1] `result.segments` (from the shared `countSmsSegments` via the
+  // SMS gateways) lands on `metadata.segments` — exact count, not just
+  // "present" — for both a successful and a failed send.
+  it('writes the provider segment count onto metadata.segments on success', async () => {
+    provider.send.mockResolvedValue({
+      success: true,
+      providerMessageId: 'p-2',
+      raw: { ok: true },
+      segments: 1,
+    });
+
+    await processor.process(job());
+
+    expect(txManager.save).toHaveBeenCalledWith(
+      expect.objectContaining({ metadata: expect.objectContaining({ segments: 1 }) }),
+    );
+  });
+
+  it('writes the provider segment count onto metadata.segments on a retryable failure', async () => {
+    provider.send.mockResolvedValue({
+      success: false,
+      providerMessageId: null,
+      error: 'gateway down',
+      segments: 3,
+    });
+
+    await expect(processor.process(job({ attemptsMade: 0, attempts: 3 }))).rejects.toThrow();
+
+    expect(repo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ metadata: expect.objectContaining({ segments: 3 }) }),
+    );
+  });
+
   it('records the failure and throws to trigger a BullMQ retry when attempts remain', async () => {
     provider.send.mockResolvedValue({
       success: false,
