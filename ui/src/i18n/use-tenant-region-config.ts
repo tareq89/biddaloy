@@ -1,5 +1,7 @@
+import { useQuery } from '@tanstack/react-query';
+
 import { getActiveTenant } from '../api/auth-state';
-import { useSchoolSettings } from '../hooks/school-settings';
+import { schoolSettingsQueryOptions } from '../hooks/school-settings';
 
 import { LOCALE_REGION_DEFAULTS, type RegionConfig } from './region-config';
 import { resolveRegionConfig } from './region-config-resolver';
@@ -35,7 +37,12 @@ export function useTenantRegionConfig(): RegionConfig {
   const tenantId = getActiveTenant();
   const fallback = LOCALE_REGION_DEFAULTS[locale];
 
-  const { data } = useSchoolSettings(tenantId ?? '');
+  // `throwOnError: false` — this hook's whole contract is "fall back to
+  // the locale default when settings can't load" (see above), so a
+  // suspended tenant's 403 must resolve to that fallback too rather than
+  // rethrow into the route boundary the way a page-level query does
+  // [15.4.2]; the provider wrapping a screen is chrome, not content.
+  const { data } = useQuery({ ...schoolSettingsQueryOptions(tenantId ?? ''), throwOnError: false });
 
   return resolveRegionConfig(fallback, data?.region);
 }
