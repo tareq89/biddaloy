@@ -105,7 +105,27 @@ describe('ProvisioningService', () => {
         redisStore.set(key, value);
         return 'OK';
       }),
-      del: vi.fn(async (key: string) => (redisStore.delete(key) ? 1 : 0)),
+      // The service's three owner-checked Lua scripts (release / renew /
+      // finalize) all start with `get KEYS[1] == ARGV[1]`; this emulates
+      // that compare-and-act atomically against the in-memory store.
+      eval: vi.fn(
+        async (
+          script: string,
+          _numKeys: number,
+          key: string,
+          owner: string,
+          ...argv: unknown[]
+        ) => {
+          if (redisStore.get(key) !== owner) return script.includes("'del'") ? 0 : null;
+          if (script.includes("'del'")) {
+            redisStore.delete(key);
+            return 1;
+          }
+          if (script.includes("'expire'")) return 1;
+          redisStore.set(key, String(argv[0]));
+          return 'OK';
+        },
+      ),
     };
 
     service = new ProvisioningService(dataSource, schoolRepo, audit, delivery, config, redis);
@@ -148,8 +168,54 @@ describe('ProvisioningService', () => {
     expect(delivery.deliver).not.toHaveBeenCalled();
     // The reservation taken before the transaction is released on failure,
     // so a retry with the same key is not told "in progress".
-    expect(redis.del).toHaveBeenCalledWith(`provision:${dto.idempotency_key}`);
     expect(redisStore.has(`provision:${dto.idempotency_key}`)).toBe(false);
+  });
+
+  it('never deletes or overwrites a reservation it no longer owns — a lease lost mid-transaction leaves the successor untouched', async () => {
+    const key = `provision:${dto.idempotency_key}`;
+    // Simulate the lease expiring under a slow transaction and a retry
+    // taking the key over: swap the stored owner token while the first
+    // request is still inside `dataSource.transaction`.
+    const realTransaction = dataSource.transaction;
+    dataSource.transaction = vi.fn(async (cb: (m: any) => Promise<unknown>) => {
+      redisStore.set(key, '__provisioning__:someone-else');
+      return realTransaction(cb);
+    });
+
+    const { replayed } = await service.provision(dto, ACTOR);
+
+    expect(replayed).toBe(false);
+    // Its own rows committed, but the successor's reservation is intact —
+    // not replaced by this request's result, not deleted.
+    expect(redisStore.get(key)).toBe('__provisioning__:someone-else');
+
+    // Same on the failure path: release is owner-checked too.
+    redisStore.clear();
+    userTenantRepo.save.mockRejectedValueOnce(new Error('forced failure'));
+    dataSource.transaction = vi.fn(async (cb: (m: any) => Promise<unknown>) => {
+      redisStore.set(key, '__provisioning__:someone-else');
+      return realTransaction(cb);
+    });
+
+    await expect(service.provision(dto, ACTOR)).rejects.toThrow('forced failure');
+    expect(redisStore.get(key)).toBe('__provisioning__:someone-else');
+  });
+
+  it('maps a unique-violation on the membership insert to 409 (already an ADMIN), not the slug conflict', async () => {
+    // Two requests can both pass `findOne` and race into `save`; Postgres
+    // rejects the second with 23505 on (user_id, tenant_id, role).
+    const duplicate = new QueryFailedError('INSERT', [], new Error('duplicate key'));
+    (duplicate as unknown as { code: string }).code = '23505';
+    userTenantRepo.save.mockRejectedValueOnce(duplicate);
+
+    await expect(service.provision(dto, ACTOR)).rejects.toThrow(/already an ADMIN of this school/);
+    await expect(
+      (async () => {
+        userTenantRepo.save.mockRejectedValueOnce(duplicate);
+        redisStore.clear();
+        await service.provision(dto, ACTOR);
+      })(),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('reserves the idempotency key atomically before any work, so two concurrent requests create one school and the loser replays the result', async () => {

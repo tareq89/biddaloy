@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { DataSource, EntityManager, QueryFailedError, Repository } from 'typeorm';
 import Redis from 'ioredis';
+import { randomUUID } from 'crypto';
 import { AuditAction, AuthTokenPurpose, SchoolStatus, UserRole } from '@biddaloy/shared';
 import { School } from '../entities/school.entity';
 import { User } from '../../users/entities/user.entity';
@@ -21,14 +22,36 @@ import { ProvisionSchoolDto } from './dto/provision-school.dto';
 
 const IDEMPOTENCY_TTL_SECONDS = 86_400;
 
-/** Sentinel stored under the idempotency key while the first request for
- * that key is still inside its transaction. Lets a concurrent duplicate
- * tell "someone is already doing this" apart from "nothing stored yet". */
-const IN_PROGRESS_MARKER = '__provisioning__';
+/** Prefix of the value stored under the idempotency key while the first
+ * request for that key is still inside its transaction — followed by a
+ * per-request owner token, so every release/renew/finalize below can prove
+ * it still holds the reservation before touching the key. Lets a
+ * concurrent duplicate tell "someone is already doing this" apart from
+ * "nothing stored yet". */
+const IN_PROGRESS_PREFIX = '__provisioning__:';
 /** How long the reservation lives if the reserving process dies mid-flight
  * without clearing it — after this a retry gets a fresh attempt instead of
- * being stuck behind a ghost. Longer than any realistic transaction. */
+ * being stuck behind a ghost. A live reserver renews it (see
+ * `RESERVATION_RENEW_MS`), so this only ever expires for a dead one. */
 const RESERVATION_TTL_SECONDS = 60;
+/** Renewal cadence for a live reservation — well inside the TTL, so a
+ * transaction that outlives 60s (slow DB, lock wait) keeps its lease
+ * instead of letting a retry take over and provision a second school. */
+const RESERVATION_RENEW_MS = 20_000;
+
+/** Owner-checked Redis scripts. Each compares the stored value to this
+ * request's owner token *atomically* before acting, so a request whose
+ * lease was lost (process paused past the TTL, key taken over by a retry)
+ * can neither delete the successor's reservation nor overwrite its result. */
+const RELEASE_IF_OWNER = `
+if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) end
+return 0`;
+const RENEW_IF_OWNER = `
+if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('expire', KEYS[1], ARGV[2]) end
+return 0`;
+const FINALIZE_IF_OWNER = `
+if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('set', KEYS[1], ARGV[2], 'EX', ARGV[3]) end
+return nil`;
 /** A duplicate that arrives while the first is in flight polls for the
  * stored result rather than failing straight away — a double-click is
  * typically milliseconds behind, so this almost always resolves. */
@@ -87,16 +110,22 @@ export class ProvisioningService {
     // race lets two concurrent requests with the same key both miss the
     // cache and both create a school; `SET NX` guarantees exactly one of
     // them wins the reservation and the other waits for its result.
-    const reserved = await this.redis.set(
-      key,
-      IN_PROGRESS_MARKER,
-      'EX',
-      RESERVATION_TTL_SECONDS,
-      'NX',
-    );
+    const owner = `${IN_PROGRESS_PREFIX}${randomUUID()}`;
+    const reserved = await this.redis.set(key, owner, 'EX', RESERVATION_TTL_SECONDS, 'NX');
     if (reserved !== 'OK') {
       return { result: await this.awaitStoredResult(key, dto.idempotency_key), replayed: true };
     }
+
+    // Keep the lease alive for as long as this request is actually working
+    // — owner-checked, so it never extends a reservation that has since
+    // passed to someone else. `unref` so a renewal timer can't hold the
+    // process open on shutdown.
+    const renewal = setInterval(() => {
+      void this.redis
+        .eval(RENEW_IF_OWNER, 1, key, owner, RESERVATION_TTL_SECONDS)
+        .catch(() => undefined);
+    }, RESERVATION_RENEW_MS);
+    renewal.unref();
 
     let deliverAfterCommit: (() => Promise<void>) | null = null;
 
@@ -144,16 +173,20 @@ export class ProvisioningService {
         };
       });
     } catch (err) {
+      clearInterval(renewal);
       // A failed transaction must release the reservation, otherwise a
       // legitimate retry with the same key would be told "in progress"
-      // until the reservation TTL expires.
-      await this.redis.del(key).catch((error: unknown) => {
+      // until the reservation TTL expires. Owner-checked: if the lease was
+      // already lost to a retry, that retry's reservation stays put.
+      await this.redis.eval(RELEASE_IF_OWNER, 1, key, owner).catch((error: unknown) => {
         this.logger.error(
           `Idempotency reservation release failed for provision key ${dto.idempotency_key}: ${
             error instanceof Error ? error.message : String(error)
           }`,
         );
       });
+      // Only the school insert can still raise a raw unique-violation here —
+      // `provisionAdminForSchool` maps the membership one to its own 409.
       if (
         err instanceof QueryFailedError &&
         (err as unknown as { code?: string }).code === '23505'
@@ -162,6 +195,7 @@ export class ProvisioningService {
       }
       throw err;
     }
+    clearInterval(renewal);
 
     if (deliverAfterCommit) {
       try {
@@ -184,9 +218,22 @@ export class ProvisioningService {
     }
 
     try {
-      // Overwrites the in-progress marker (no NX — this request owns the
-      // reservation) with the final result for the full replay window.
-      await this.redis.set(key, JSON.stringify(result), 'EX', IDEMPOTENCY_TTL_SECONDS);
+      // Replaces this request's own in-progress marker with the final
+      // result for the full replay window — owner-checked, so a lost lease
+      // never overwrites whatever a successor has stored since.
+      const stored = await this.redis.eval(
+        FINALIZE_IF_OWNER,
+        1,
+        key,
+        owner,
+        JSON.stringify(result),
+        IDEMPOTENCY_TTL_SECONDS,
+      );
+      if (stored !== 'OK') {
+        this.logger.warn(
+          `Idempotency reservation for provision key ${dto.idempotency_key} was lost before completion; result for school ${result.school.id} not stored for replay`,
+        );
+      }
     } catch (error) {
       this.logger.error(
         `Idempotency store failed for provision key ${dto.idempotency_key}: ${
@@ -212,7 +259,7 @@ export class ProvisioningService {
         // from here would recurse; a 409 tells the client to retry.
         break;
       }
-      if (stored !== IN_PROGRESS_MARKER) {
+      if (!stored.startsWith(IN_PROGRESS_PREFIX)) {
         return JSON.parse(stored) as ProvisionResult;
       }
       await new Promise((resolve) => setTimeout(resolve, IN_PROGRESS_POLL_MS));
@@ -257,13 +304,26 @@ export class ProvisioningService {
       throw new ConflictException(`User "${user.id}" is already an ADMIN of this school`);
     }
 
-    await userTenantRepo.save(
-      userTenantRepo.create({
-        user_id: user.id,
-        tenant_id: schoolId,
-        role: UserRole.ADMIN,
-      }),
-    );
+    try {
+      await userTenantRepo.save(
+        userTenantRepo.create({
+          user_id: user.id,
+          tenant_id: schoolId,
+          role: UserRole.ADMIN,
+        }),
+      );
+    } catch (err) {
+      // Two concurrent requests can both pass the pre-check above; the
+      // unique index then rejects the second insert. Same 409 as the
+      // pre-check, not a raw persistence error.
+      if (
+        err instanceof QueryFailedError &&
+        (err as unknown as { code?: string }).code === '23505'
+      ) {
+        throw new ConflictException(`User "${user.id}" is already an ADMIN of this school`);
+      }
+      throw err;
+    }
 
     const raw = generateSecret();
     const invite = await authTokenRepo.save(

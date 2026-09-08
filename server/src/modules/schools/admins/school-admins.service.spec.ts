@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { ConflictException } from '@nestjs/common';
 import { SchoolStatus, UserRole, UserStatus } from '@biddaloy/shared';
 import { SchoolAdminsService } from './school-admins.service';
 
@@ -143,6 +144,21 @@ describe('SchoolAdminsService', () => {
         expect.anything(),
       );
       expect(deliver).toHaveBeenCalledTimes(1);
+    });
+
+    it('surfaces a duplicate-membership 409 from provisioning as-is, with no audit row and no delivery', async () => {
+      // `provisionAdminForSchool` owns the membership insert and already
+      // translates both the pre-check and a racing 23505 into this 409 —
+      // nothing here may swallow or re-wrap it into a 500.
+      provisioning.provisionAdminForSchool.mockRejectedValue(
+        new ConflictException('User "user-1" is already an ADMIN of this school'),
+      );
+
+      await expect(
+        service.addAdmin(SCHOOL_ID, { name: 'Admin One', email: 'admin@example.com' }, ACTOR),
+      ).rejects.toBeInstanceOf(ConflictException);
+
+      expect(audit.record).not.toHaveBeenCalled();
     });
   });
 
