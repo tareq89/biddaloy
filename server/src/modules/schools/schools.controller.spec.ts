@@ -18,6 +18,8 @@ function fakeService() {
     findAll: vi.fn(),
     getMaskedSettings: vi.fn(),
     updateSettings: vi.fn(),
+    getStats: vi.fn(),
+    updateStatus: vi.fn(),
   };
 }
 
@@ -32,12 +34,37 @@ describe('SchoolsController', () => {
 
   describe('findAll', () => {
     it('delegates to the service', async () => {
-      service.findAll.mockResolvedValue([{ id: SCHOOL_A, name: 'A School' }]);
+      const school = {
+        id: SCHOOL_A,
+        name: 'A School',
+        slug: 'a-school',
+        status: 'ACTIVE',
+        created_at: new Date('2026-01-01T00:00:00Z'),
+      };
+      service.findAll.mockResolvedValue([school]);
 
       const result = await controller.findAll();
 
       expect(service.findAll).toHaveBeenCalledTimes(1);
-      expect(result).toEqual([{ id: SCHOOL_A, name: 'A School' }]);
+      expect(result).toEqual([school]);
+    });
+  });
+
+  describe('getStats', () => {
+    it('delegates to the service', async () => {
+      const stats = {
+        active_users: 4,
+        students: 30,
+        communications_queued: 2,
+        communications_failed_7d: 1,
+        last_activity_at: new Date('2026-09-01T00:00:00Z'),
+      };
+      service.getStats.mockResolvedValue(stats);
+
+      const result = await controller.getStats(SCHOOL_A);
+
+      expect(service.getStats).toHaveBeenCalledWith(SCHOOL_A);
+      expect(result).toEqual(stats);
     });
   });
 
@@ -127,6 +154,33 @@ describe('SchoolsController', () => {
       ).rejects.toThrow(ForbiddenException);
       expect(service.updateSettings).not.toHaveBeenCalled();
       expect(service.getMaskedSettings).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('updateStatus', () => {
+    it('delegates to the service with actor and request context', async () => {
+      const response = {
+        id: SCHOOL_A,
+        status: 'SUSPENDED' as const,
+        status_reason: 'Non-payment for 60 days',
+        status_changed_at: new Date('2026-09-07T00:00:00Z'),
+      };
+      service.updateStatus.mockResolvedValue(response);
+
+      const result = await controller.updateStatus(
+        SCHOOL_A,
+        { status: 'SUSPENDED', reason: 'Non-payment for 60 days' },
+        USER,
+        REQUEST,
+      );
+
+      expect(service.updateStatus).toHaveBeenCalledWith(
+        SCHOOL_A,
+        { status: 'SUSPENDED', reason: 'Non-payment for 60 days' },
+        'user-1',
+        { ip: '127.0.0.1', userAgent: 'vitest' },
+      );
+      expect(result).toEqual(response);
     });
   });
 });

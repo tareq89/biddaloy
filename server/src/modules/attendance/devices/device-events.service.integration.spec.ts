@@ -14,6 +14,7 @@ import {
 import { DeviceEventsService } from './device-events.service';
 import { DeviceService } from './device.service';
 import { AttendanceModule } from '../attendance.module';
+import { AuthModule } from '../../auth/auth.module';
 import { School } from '../../schools/entities/school.entity';
 import { AcademicYear } from '../../academics/entities/academic-year.entity';
 import { Class } from '../../academics/entities/class.entity';
@@ -77,7 +78,7 @@ describe('DeviceEventsService (integration)', () => {
     const module = await createTestModule(
       ALL_ENTITIES,
       [],
-      [ConfigModule.forRoot({ isGlobal: true }), AttendanceModule],
+      [ConfigModule.forRoot({ isGlobal: true }), AttendanceModule, AuthModule],
     );
     service = module.get<DeviceEventsService>(DeviceEventsService);
     deviceService = module.get<DeviceService>(DeviceService);

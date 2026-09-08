@@ -18,13 +18,13 @@ flowchart LR
     certbot[certbot] -.renews certs for.-> nginx
 ```
 
-| Service    | Image                | Role                                                  |
-| ---------- | -------------------- | ----------------------------------------------------- |
-| PostgreSQL | `postgres:16-alpine` | Primary database, all tenant data                     |
-| Redis      | `redis:7-alpine`     | BullMQ queue backend + distributed rate-limit storage |
+| Service    | Image                | Role                                                    |
+| ---------- | -------------------- | ------------------------------------------------------- |
+| PostgreSQL | `postgres:16-alpine` | Primary database, all tenant data                       |
+| Redis      | `redis:7-alpine`     | BullMQ queue backend + distributed rate-limit storage   |
 | MinIO      | `minio/minio`        | S3-compatible object storage — tenant uploads + backups |
-| nginx      | `nginx:1.27-alpine`  | TLS termination, reverse proxy                        |
-| certbot    | `certbot/certbot`    | Let's Encrypt certificate issuance/renewal            |
+| nginx      | `nginx:1.27-alpine`  | TLS termination, reverse proxy                          |
+| certbot    | `certbot/certbot`    | Let's Encrypt certificate issuance/renewal              |
 
 Server libraries that talk to these (see
 [`server/package.json`](../../server/package.json)):
@@ -78,8 +78,12 @@ somewhere:
 - **No payment gateway.** No bKash, Nagad, SSLCommerz, or Stripe. Payments
   are recorded manually as `Payment` rows — see
   [`04-fees-payments-invoices.md`](04-fees-payments-invoices.md).
+- **Object storage is now wired up** (Epic 15.0/#521) — an S3-compatible
+  bucket (MinIO in dev) via `server/src/modules/storage/`, see
+  [`13-backup-restore.md`](13-backup-restore.md). It backs uploaded assets
+  (school logos) and backup archives. Excel exports still generate
+  in-process with `exceljs`, unrelated to this.
 - **No GCS or Cloudinary.** Object storage is MinIO/S3-compatible only (see
-  above) — Excel exports are still generated in-process with `exceljs`, not
-  stored.
+  above).
 - **No Twilio, no Firebase, no external auth/identity provider.** JWTs are
   issued in-house (`@nestjs/jwt`, `passport-jwt`, `bcrypt`).

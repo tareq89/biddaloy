@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -38,7 +38,10 @@ import { AccountAccessController } from './account-access.controller';
       AuditLog,
     ]),
     CommunicationsModule,
-    SchoolsModule,
+    // #529's ProvisioningService (SchoolsModule) reuses
+    // AccountAccessDeliveryService, so SchoolsModule imports this module
+    // back — forwardRef breaks that cycle.
+    forwardRef(() => SchoolsModule),
     AuditModule,
     ConfigModule,
     BullModule.registerQueue({ name: INVITATION_BATCH_QUEUE }),

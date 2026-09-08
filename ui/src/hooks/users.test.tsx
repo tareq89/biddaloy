@@ -8,6 +8,7 @@ import { server } from '../test/msw/server';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
 
 import {
+  currentUserQueryOptions,
   useAdminResetPassword,
   useCreateUser,
   useCurrentUser,
@@ -135,6 +136,16 @@ describe('useCurrentUser', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.full_name).toBe('Rahim');
+  });
+});
+
+describe('currentUserQueryOptions [15.4.2]', () => {
+  it('never rethrows to the route boundary — it feeds shell chrome, not page content', () => {
+    // The app query client rethrows a suspended tenant's 403 by default so
+    // a *page* renders the suspended state. `StaffUserMenu` runs this query
+    // inside `AppShell`, above the `<Outlet />`; if it threw, the whole
+    // shell — including the tenant switcher — would unmount.
+    expect(currentUserQueryOptions().throwOnError).toBe(false);
   });
 });
 

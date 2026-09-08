@@ -72,3 +72,48 @@ Every send — success or failure, automated or staff-triggered — gets a
 status, and who/what triggered it (`sent_by` is null for
 automatically-triggered sends). This is the first place to look when a
 guardian says "I never got the reminder."
+
+`CommunicationLog.status` moves through:
+
+- `QUEUED` — waiting for `CommunicationsProcessor` to pick it up.
+- `SENT` — the provider accepted it.
+- `FAILED` — permanently failed (bad provider, no retries left, or the
+  tenant is suspended — see below); `metadata.reason` / `metadata.error`
+  says why.
+
+## Suspended tenants: queued work is cancelled, not paused
+
+A school (tenant) can be suspended by a SUPER_ADMIN
+(`TenantStatusService`, `server/src/modules/schools/tenant-status.service.ts`).
+`CommunicationsProcessor.process()` checks `tenantStatus.isActive(tenantId)`
+before doing anything else — no provider call, no SMS credit debit for a
+suspended tenant:
+
+```mermaid
+sequenceDiagram
+    participant Q as BullMQ job
+    participant P as CommunicationsProcessor
+    participant T as TenantStatusService
+    participant Prov as SMS/WhatsApp/Email provider
+
+    Q->>P: process(job)
+    P->>T: isActive(tenantId)
+    alt tenant suspended
+        T-->>P: false
+        P->>P: log.status = FAILED\nmetadata.reason = "TENANT_SUSPENDED"
+        P-->>Q: return (no throw, no retry)
+    else tenant active
+        T-->>P: true
+        P->>Prov: send(message)
+        Prov-->>P: result
+    end
+```
+
+**Important:** this cancels the job, it does not pause it. A message
+queued while a school is suspended ends up `FAILED` with
+`metadata.reason = "TENANT_SUSPENDED"` and stays that way — reactivating
+the school does **not** automatically resend it. Example: a bulk fee
+reminder queues 200 `CommunicationLog` rows, the school gets suspended
+mid-batch, and 80 rows haven't been picked up by a worker yet — those 80
+end up `FAILED`. When the school is reactivated, staff have to trigger a
+new send (single or bulk) for anyone who still needs the reminder.

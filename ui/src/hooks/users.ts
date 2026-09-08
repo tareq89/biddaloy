@@ -109,6 +109,13 @@ export function currentUserQueryOptions() {
       return res.data;
     },
     retry: shouldRetryQuery,
+    // [15.4.2] Shell chrome, not page content: `StaffUserMenu` renders
+    // this inside `AppShell`, above the route `<Outlet />`. If a suspended
+    // tenant's 403 were rethrown here (the app query client's default),
+    // it would unmount the whole shell — including the tenant switcher,
+    // the one control that lets a user with a second, still-active school
+    // leave the suspended one. The page-level query rethrows instead.
+    throwOnError: false,
   });
 }
 

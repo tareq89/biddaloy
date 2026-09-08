@@ -3,11 +3,13 @@ import {
   CanActivate,
   ExecutionContext,
   UnauthorizedException,
+  ForbiddenException,
   Inject,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { JwtPayload, JwtMembership } from '@biddaloy/shared';
+import { JwtPayload, JwtMembership, UserRole } from '@biddaloy/shared';
 import { ROLES_KEY } from '../decorators/roles.decorator';
+import { TenantStatusService } from '../../schools/tenant-status.service';
 
 /**
  * Priority ordering for role fallback when a user has multiple roles
@@ -65,9 +67,12 @@ function resolveRole(
  */
 @Injectable()
 export class ContextGuard implements CanActivate {
-  constructor(@Inject(Reflector) private readonly reflector: Reflector) {}
+  constructor(
+    @Inject(Reflector) private readonly reflector: Reflector,
+    private readonly tenantStatus: TenantStatusService,
+  ) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const user: JwtPayload = request.user;
 
@@ -85,6 +90,20 @@ export class ContextGuard implements CanActivate {
 
     if (!activeRole) {
       throw new UnauthorizedException(`User is not a member of tenant ${tenantId}`);
+    }
+
+    // SUPER_ADMIN's own tenant context is never subject to the suspension
+    // check — the /schools console (list/manage schools) is a platform
+    // route, not a tenant-scoped one, and a SUPER_ADMIN must still be able
+    // to reach it even if their own membership's tenant were suspended.
+    if (activeRole !== UserRole.SUPER_ADMIN) {
+      const isActive = await this.tenantStatus.isActive(tenantId);
+      if (!isActive) {
+        throw new ForbiddenException({
+          message: 'This school has been suspended',
+          details: { code: 'TENANT_SUSPENDED' },
+        });
+      }
     }
 
     // Attach active context to request for downstream use

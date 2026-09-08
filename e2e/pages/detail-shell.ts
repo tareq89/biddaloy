@@ -42,11 +42,17 @@ export class DetailShellPage {
   async clickAction(labelKey: string): Promise<void> {
     const label = this.t(labelKey);
     const inline = this.page.getByRole('button', { name: label });
+    const more = this.page.getByRole('button', { name: this.t('common.actions.moreActions') });
+    // `count()` does not wait. Called straight after a `goto()`, before the
+    // detail has rendered, it answered 0 for an inline action and this then
+    // waited on a "More actions" menu that never existed. Let either
+    // control appear first, then decide.
+    await expect(inline.or(more).first()).toBeVisible();
     if ((await inline.count()) > 0) {
       await inline.first().click();
       return;
     }
-    await this.page.getByRole('button', { name: this.t('common.actions.moreActions') }).click();
+    await more.click();
     await this.page.getByRole('menuitem', { name: label }).click();
   }
 }

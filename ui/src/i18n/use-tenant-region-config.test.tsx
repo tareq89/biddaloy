@@ -1,8 +1,10 @@
+import { QueryClient } from '@tanstack/react-query';
 import { waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 
 import { setActiveTenant } from '../api/auth-state';
+import { isTenantSuspendedError } from '../api/errors';
 import { server } from '../test/msw/server';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
 
@@ -107,6 +109,45 @@ describe('useTenantRegionConfig', () => {
     await waitFor(() => {
       expect(result.current.currency.code).toBe('USD');
     });
+  });
+
+  it('falls back to the default, and never rethrows, when the tenant is suspended — even under the app client’s throwOnError default [15.4.2]', async () => {
+    server.use(
+      http.get('/api/v1/schools/:id/settings', () =>
+        HttpResponse.json(
+          {
+            statusCode: 403,
+            message: 'This school has been suspended',
+            timestamp: new Date().toISOString(),
+            path: '/api/v1/schools/tenant-1/settings',
+            requestId: 'r1',
+            details: { code: 'TENANT_SUSPENDED' },
+          },
+          { status: 403 },
+        ),
+      ),
+    );
+    // Same `throwOnError` rule `createAppQueryClient()` installs — the one
+    // that would otherwise hand this 403 to the route boundary and unmount
+    // the chrome this provider wraps.
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, throwOnError: isTenantSuspendedError } },
+    });
+
+    const { result } = renderHookWithProviders(() => useTenantRegionConfig(), {
+      tenantId: 'tenant-1',
+      queryClient,
+    });
+
+    await waitFor(() => {
+      expect(queryClient.getQueryState(['school-settings', 'detail', 'tenant-1'])?.status).toBe(
+        'error',
+      );
+    });
+    // The hook is still rendering (no throw reached the test boundary) and
+    // still hands back a complete config.
+    expect(result.current.currency.code).toBeTruthy();
+    expect(result.current.phone.pattern).toBeInstanceOf(RegExp);
   });
 
   it('a tenant with no stored region settings behaves exactly like a fresh default — no crash, no partial config', async () => {

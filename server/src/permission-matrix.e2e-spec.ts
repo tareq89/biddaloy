@@ -81,6 +81,50 @@ export const IDENTITY_SCOPED: IdentityScopedEntry[] = [
     path: '/schools',
     reason: '10.4 — platform route (SUPER_ADMIN school picker), not tenant-scoped',
   },
+  {
+    controller: 'ProvisioningController',
+    method: 'POST',
+    path: '/schools',
+    reason:
+      '15.4.4 — platform route (SUPER_ADMIN provisions a brand-new school), not tenant-scoped; RolesGuard(SUPER_ADMIN) is the whole check.',
+  },
+  {
+    controller: 'SchoolAdminsController',
+    method: 'GET',
+    path: '/schools/:id/admins',
+    reason: '15.4.6 — platform route (SUPER_ADMIN admin recovery), same rationale as GET /schools.',
+  },
+  {
+    controller: 'SchoolAdminsController',
+    method: 'POST',
+    path: '/schools/:id/admins',
+    reason: '15.4.6 — platform route (SUPER_ADMIN admin recovery), same rationale as GET /schools.',
+  },
+  {
+    controller: 'SchoolAdminsController',
+    method: 'POST',
+    path: '/schools/:id/admins/:userId/resend-invitation',
+    reason: '15.4.6 — platform route (SUPER_ADMIN admin recovery), same rationale as GET /schools.',
+  },
+  {
+    controller: 'SchoolAdminsController',
+    method: 'DELETE',
+    path: '/schools/:id/admins/:userId/invitation',
+    reason: '15.4.6 — platform route (SUPER_ADMIN admin recovery), same rationale as GET /schools.',
+  },
+  {
+    controller: 'SchoolsController',
+    method: 'GET',
+    path: '/schools/:id/stats',
+    reason: '15.4.7 — platform route (SUPER_ADMIN school stats), same rationale as GET /schools.',
+  },
+  {
+    controller: 'SchoolsController',
+    method: 'PATCH',
+    path: '/schools/:id/status',
+    reason:
+      '15.4.5 — platform route (SUPER_ADMIN suspend/reactivate), same rationale as GET /schools.',
+  },
 ];
 
 function findIdentityScopedEntry(

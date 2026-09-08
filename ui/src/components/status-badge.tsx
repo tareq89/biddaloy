@@ -206,6 +206,21 @@ const INVITATION_STATUS_TONE: Record<InvitationStatus, StatusTone> = {
   ACTIVATED: 'success',
 };
 
+/** #533's SUPER_ADMIN platform schools list — `School.status` (15.4), a
+ * real `varchar` lifecycle column (`SchoolStatus` in `@biddaloy/shared`),
+ * same reasoning as `UserStatus` above: `SUSPENDED` is `warning`, not
+ * `danger` — an administrative hold a SUPER_ADMIN can reverse, not a
+ * failure. Accepts the plain literal union, same shape as
+ * `UserStatusValue`/`CommunicationStatusValue` — callers hold
+ * `SchoolListItemDto`'s hand-typed `'ACTIVE' | 'SUSPENDED'`, not the
+ * shared enum object. */
+export type SchoolStatusValue = 'ACTIVE' | 'SUSPENDED';
+
+const SCHOOL_STATUS_TONE: Record<SchoolStatusValue, StatusTone> = {
+  ACTIVE: 'success',
+  SUSPENDED: 'warning',
+};
+
 export type StatusBadgeProps =
   | { domain: 'fee'; status: FeeStatus }
   | { domain: 'payment'; status: PaymentStatus }
@@ -218,7 +233,8 @@ export type StatusBadgeProps =
   | { domain: 'feeStructure'; status: FeeStructureRecurrenceStatus }
   | { domain: 'user'; status: UserStatusValue }
   | { domain: 'attendance'; status: AttendanceLowStatus }
-  | { domain: 'invitation'; status: InvitationStatus };
+  | { domain: 'invitation'; status: InvitationStatus }
+  | { domain: 'school'; status: SchoolStatusValue };
 
 function resolveTone(props: StatusBadgeProps): StatusTone {
   switch (props.domain) {
@@ -246,6 +262,8 @@ function resolveTone(props: StatusBadgeProps): StatusTone {
       return ATTENDANCE_STATUS_TONE[props.status];
     case 'invitation':
       return INVITATION_STATUS_TONE[props.status];
+    case 'school':
+      return SCHOOL_STATUS_TONE[props.status];
   }
 }
 
