@@ -67,6 +67,18 @@ const ALLOWLIST = {
       'attacker-supplied zips. Re-check for an upstream fix release.',
     recheckBy: '2026-10-24',
   },
+  1193685: {
+    module: 'extract-zip',
+    reason:
+      'Follow-up disclosure on the same unpatched symlink issue as ' +
+      '#1139346 above (arbitrary file writes via symlink archive ' +
+      'entries) — extract-zip is still at 2.0.1, the newest release, so ' +
+      'no upgrade fixes this. Same reachability as #1139346: only via ' +
+      '@lhci/cli>lighthouse>puppeteer-core>@puppeteer/browsers ' +
+      '(devDependency, #149) unpacking Chrome archives from Google, not ' +
+      'attacker-supplied zips. Re-check for an upstream fix release.',
+    recheckBy: '2026-10-24',
+  },
 };
 
 const today = new Date().toISOString().slice(0, 10);
