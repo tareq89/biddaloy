@@ -161,6 +161,18 @@ describe('SmsCreditService (integration)', () => {
     expect(balance).toEqual({ available: 10, reserved: 0 });
   });
 
+  it('adjust below zero on a tenant with no balance row is rejected', async () => {
+    await expect(
+      service.adjust(tenantA, -20, { idempotencyKey: `adjust-fresh-${tenantA}` }),
+    ).rejects.toThrow();
+
+    const balance = await service.getBalance(tenantA);
+    expect(balance).toEqual({ available: 0, reserved: 0 });
+
+    const ledger = await service.listLedger(tenantA, 1, 50);
+    expect(ledger.total).toBe(0);
+  });
+
   it('getBalance returns zeros when no balance row exists yet', async () => {
     const balance = await service.getBalance(tenantA);
     expect(balance).toEqual({ available: 0, reserved: 0 });

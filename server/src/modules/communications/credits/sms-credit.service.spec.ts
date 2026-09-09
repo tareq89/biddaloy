@@ -196,7 +196,7 @@ describe('SmsCreditService', () => {
     it('grant inserts a GRANT row and upserts available', async () => {
       ledgerFindOneQueue = [null];
 
-      await service.grant(TENANT_ID, 100, { idempotencyKey: 'grant-key-1' });
+      const result = await service.grant(TENANT_ID, 100, { idempotencyKey: 'grant-key-1' });
 
       expect(manager.insert).toHaveBeenCalledWith(
         expect.anything(),
@@ -206,15 +206,23 @@ describe('SmsCreditService', () => {
         TENANT_ID,
         100,
       ]);
+      // The insert should not clamp a negative delta — otherwise adjust()
+      // could silently succeed instead of hitting the check constraint.
+      expect(manager.query).not.toHaveBeenCalledWith(expect.stringContaining('GREATEST'), [
+        TENANT_ID,
+        100,
+      ]);
+      expect(result.applied).toBe(true);
     });
 
     it('grant is a no-op on a repeat idempotency key', async () => {
       ledgerFindOneQueue = [{ id: 'existing' }];
 
-      await service.grant(TENANT_ID, 100, { idempotencyKey: 'grant-key-1' });
+      const result = await service.grant(TENANT_ID, 100, { idempotencyKey: 'grant-key-1' });
 
       expect(manager.insert).not.toHaveBeenCalled();
       expect(manager.query).not.toHaveBeenCalled();
+      expect(result.applied).toBe(false);
     });
 
     it('adjust below zero maps the DB check violation to a 400', async () => {
@@ -285,6 +293,26 @@ describe('SmsCreditService', () => {
         take: 10,
       });
       expect(result).toEqual({ data: rows, total: 2 });
+    });
+  });
+
+  describe('getCreditsSummary', () => {
+    it('combines metering, balance, and a mapped ledger page for the given tenantId', async () => {
+      schoolsService.getResolvedSettings.mockResolvedValue({
+        communications: { sms: { metering: 'PLATFORM' } },
+      });
+      balanceRow = { available: 120, reserved: 5 };
+      const rows = [{ id: 'ledger-1' }];
+      ledgerRepo.findAndCount = vi.fn(async () => [rows, 1]);
+
+      const result = await service.getCreditsSummary(TENANT_ID, 1, 20);
+
+      expect(result).toEqual({
+        metering: 'PLATFORM',
+        available: 120,
+        reserved: 5,
+        ledger: { data: rows, total: 1, page: 1, limit: 20, totalPages: 1 },
+      });
     });
   });
 });

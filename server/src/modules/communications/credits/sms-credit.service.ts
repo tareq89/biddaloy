@@ -22,6 +22,14 @@ export interface CreditBalance {
   reserved: number;
 }
 
+export interface CreditMovementResult extends CreditBalance {
+  /** `false` when `idempotencyKey` had already been applied — the balance
+   * is current, but no new ledger row was written on this call. Lets a
+   * caller (e.g. `SmsCreditsService.grantOrAdjust`) skip auditing a replay
+   * as if it were a second movement. */
+  applied: boolean;
+}
+
 function pgErrorCode(err: unknown): string | undefined {
   return err instanceof QueryFailedError ? (err as unknown as { code?: string }).code : undefined;
 }
@@ -85,6 +93,46 @@ export class SmsCreditService {
     return { data, total };
   }
 
+  /** Balance + a page of ledger history, in the shape both
+   * `GET /communications/sms-credits` (tenant-facing) and
+   * `GET /schools/:id/sms-credits` (SUPER_ADMIN, cross-school) return —
+   * they differ only in which `tenantId` the caller is allowed to pass. */
+  async getCreditsSummary(
+    tenantId: string,
+    page: number,
+    limit: number,
+  ): Promise<{
+    metering: 'OFF' | 'PLATFORM';
+    available: number;
+    reserved: number;
+    ledger: {
+      data: SmsCreditLedger[];
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    };
+  }> {
+    const [metering, balance, { data, total }] = await Promise.all([
+      this.isMetered(tenantId),
+      this.getBalance(tenantId),
+      this.listLedger(tenantId, page, limit),
+    ]);
+
+    return {
+      metering: metering ? 'PLATFORM' : 'OFF',
+      available: balance.available,
+      reserved: balance.reserved,
+      ledger: {
+        data,
+        total,
+        page,
+        limit,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+    };
+  }
+
   private async readBalance(manager: EntityManager, tenantId: string): Promise<CreditBalance> {
     const row = await manager.findOne(SmsCreditBalance, { where: { tenant_id: tenantId } });
     return { available: row?.available ?? 0, reserved: row?.reserved ?? 0 };
@@ -96,7 +144,7 @@ export class SmsCreditService {
     tenantId: string,
     units: number,
     opts: CreditMovementOptions,
-  ): Promise<CreditBalance> {
+  ): Promise<CreditMovementResult> {
     return this.applyMovement(tenantId, SmsCreditLedgerKind.GRANT, units, units, opts);
   }
 
@@ -107,7 +155,7 @@ export class SmsCreditService {
     tenantId: string,
     signedUnits: number,
     opts: CreditMovementOptions,
-  ): Promise<CreditBalance> {
+  ): Promise<CreditMovementResult> {
     return this.applyMovement(tenantId, SmsCreditLedgerKind.ADJUST, signedUnits, signedUnits, opts);
   }
 
@@ -117,14 +165,14 @@ export class SmsCreditService {
     ledgerUnits: number,
     availableDelta: number,
     opts: CreditMovementOptions,
-  ): Promise<CreditBalance> {
+  ): Promise<CreditMovementResult> {
     try {
       return await this.dataSource.transaction(async (manager) => {
         const existing = await manager.findOne(SmsCreditLedger, {
           where: { tenant_id: tenantId, idempotency_key: opts.idempotencyKey },
         });
         if (existing) {
-          return this.readBalance(manager, tenantId);
+          return { ...(await this.readBalance(manager, tenantId)), applied: false };
         }
 
         await manager.insert(SmsCreditLedger, {
@@ -140,13 +188,13 @@ export class SmsCreditService {
 
         await manager.query(
           `INSERT INTO "sms_credit_balance" (tenant_id, available, reserved, updated_at)
-           VALUES ($1, GREATEST($2, 0), 0, now())
+           VALUES ($1, $2, 0, now())
            ON CONFLICT (tenant_id) DO UPDATE
              SET available = "sms_credit_balance".available + $2, updated_at = now()`,
           [tenantId, availableDelta],
         );
 
-        return this.readBalance(manager, tenantId);
+        return { ...(await this.readBalance(manager, tenantId)), applied: true };
       });
     } catch (err) {
       // Lost a race with a concurrent call carrying the same idempotency
@@ -154,7 +202,7 @@ export class SmsCreditService {
       // change included) rolled back automatically. Current balance is
       // the correct answer, no-op from this caller's point of view.
       if (isUniqueViolation(err)) {
-        return this.getBalance(tenantId);
+        return { ...(await this.getBalance(tenantId)), applied: false };
       }
       if (isCheckViolation(err)) {
         throw new BadRequestException(
