@@ -65,6 +65,9 @@ describe('SmsProviderFactory', () => {
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/configure it/);
     expect(result.retryable).toBe(false);
+    // Segment count must survive even when config resolution fails before
+    // a gateway is ever reached (#570).
+    expect(result.segments).toBe(1);
     expect(greenweb.sendSms).not.toHaveBeenCalled();
     expect(mimSms.sendSms).not.toHaveBeenCalled();
   });

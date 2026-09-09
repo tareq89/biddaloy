@@ -134,6 +134,8 @@ describe('MimSmsGateway', () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toBe('Invalid sender id');
+    expect(result.outcome).toBe('REJECTED');
+    expect(result.retryable).toBe(false);
   });
 
   it('returns success: false instead of throwing on a network error', async () => {
@@ -148,6 +150,7 @@ describe('MimSmsGateway', () => {
     expect(result.success).toBe(false);
     expect(result.error).toBe('network down');
     expect(result.retryable).toBeUndefined();
+    expect(result.segments).toBe(1);
   });
 
   it('routes through the pinned dispatcher rather than a bare fetch', async () => {

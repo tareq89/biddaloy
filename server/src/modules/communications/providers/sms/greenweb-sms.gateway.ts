@@ -28,8 +28,8 @@ export class GreenwebSmsGateway implements SmsGateway<ResolvedGreenwebSmsConfig>
     message: string,
     config: ResolvedGreenwebSmsConfig,
   ): Promise<CommunicationSendResult> {
+    const segmentInfo = countSmsSegments(message);
     try {
-      const segmentInfo = countSmsSegments(message);
       const baseUrl = config.apiUrl ?? DEFAULT_BASE_URL;
       const destination = await assertSafeHttpDestination(baseUrl);
       const params = new URLSearchParams({
@@ -64,6 +64,7 @@ export class GreenwebSmsGateway implements SmsGateway<ResolvedGreenwebSmsConfig>
         error: data?.error_msg ?? 'Unknown Greenweb error',
         raw: data,
         segments: segmentInfo.segments,
+        retryable: false,
         outcome: 'REJECTED',
       };
     } catch (err) {
@@ -71,6 +72,7 @@ export class GreenwebSmsGateway implements SmsGateway<ResolvedGreenwebSmsConfig>
         success: false,
         providerMessageId: null,
         error: err instanceof Error ? err.message : String(err),
+        segments: segmentInfo.segments,
         // Only a resolved-to-a-blocked-destination is permanent; a DNS
         // hiccup or network blip may succeed on retry — and might have
         // reached Greenweb anyway, so it's AMBIGUOUS, not REJECTED.

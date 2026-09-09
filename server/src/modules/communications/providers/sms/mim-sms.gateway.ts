@@ -31,8 +31,8 @@ export class MimSmsGateway implements SmsGateway<ResolvedMimSmsConfig> {
     message: string,
     config: ResolvedMimSmsConfig,
   ): Promise<CommunicationSendResult> {
+    const segmentInfo = countSmsSegments(message);
     try {
-      const segmentInfo = countSmsSegments(message);
       const baseUrl = config.apiUrl ?? DEFAULT_BASE_URL;
       const destination = await assertSafeHttpDestination(baseUrl);
 
@@ -66,6 +66,7 @@ export class MimSmsGateway implements SmsGateway<ResolvedMimSmsConfig> {
         error: data?.message ?? 'Unknown MimSMS error',
         raw: data,
         segments: segmentInfo.segments,
+        retryable: false,
         outcome: 'REJECTED',
       };
     } catch (err) {
@@ -73,6 +74,7 @@ export class MimSmsGateway implements SmsGateway<ResolvedMimSmsConfig> {
         success: false,
         providerMessageId: null,
         error: err instanceof Error ? err.message : String(err),
+        segments: segmentInfo.segments,
         // Only a resolved-to-a-blocked-destination is permanent; a DNS
         // hiccup or network blip may succeed on retry — and might have
         // reached MimSMS anyway, so it's AMBIGUOUS, not REJECTED.
