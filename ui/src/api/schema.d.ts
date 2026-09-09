@@ -565,7 +565,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** A school's SMS credit balance and ledger, newest first, for SUPER_ADMIN's cross-school console. Same shape as the tenant-facing GET /communications/sms-credits, but scoped to the :id in the path rather than the caller's own tenant. */
+        get: operations["SchoolSmsCreditsController_getSmsCredits_v1"];
         put?: never;
         /** Grant (positive units) or adjust (negative units) a school's SMS credit balance. Audited (School/UPDATE). Idempotent on `idempotency_key` — a repeat is a no-op, still 200 with the current balance. */
         post: operations["SchoolSmsCreditsController_grantOrAdjust_v1"];
@@ -2395,6 +2396,32 @@ export interface components {
             email?: string;
             phone?: string;
         };
+        SmsCreditLedgerItemDto: {
+            id: string;
+            /** @enum {string} */
+            kind: "GRANT" | "RESERVE" | "DEBIT" | "RELEASE" | "ADJUST";
+            units: number;
+            /** @enum {string} */
+            reference_type: "batch" | "log" | "manual";
+            reference_id: string | null;
+            reason: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        SmsCreditLedgerListResponseDto: {
+            data: components["schemas"]["SmsCreditLedgerItemDto"][];
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+        SmsCreditsResponseDto: {
+            /** @enum {string} */
+            metering: "OFF" | "PLATFORM";
+            available: number;
+            reserved: number;
+            ledger: components["schemas"]["SmsCreditLedgerListResponseDto"];
+        };
         GrantSmsCreditsDto: {
             /** @description Signed credit delta. Positive = grant, negative = adjust. */
             units: number;
@@ -3111,32 +3138,6 @@ export interface components {
             transaction_reference?: string;
             remarks?: string;
             generate_invoice?: boolean;
-        };
-        SmsCreditLedgerItemDto: {
-            id: string;
-            /** @enum {string} */
-            kind: "GRANT" | "RESERVE" | "DEBIT" | "RELEASE" | "ADJUST";
-            units: number;
-            /** @enum {string} */
-            reference_type: "batch" | "log" | "manual";
-            reference_id: string | null;
-            reason: string | null;
-            /** Format: date-time */
-            created_at: string;
-        };
-        SmsCreditLedgerListResponseDto: {
-            data: components["schemas"]["SmsCreditLedgerItemDto"][];
-            total: number;
-            page: number;
-            limit: number;
-            totalPages: number;
-        };
-        SmsCreditsResponseDto: {
-            /** @enum {string} */
-            metering: "OFF" | "PLATFORM";
-            available: number;
-            reserved: number;
-            ledger: components["schemas"]["SmsCreditLedgerListResponseDto"];
         };
         CreateClassDto: {
             name: string;
@@ -5202,6 +5203,42 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolSmsCreditsController_getSmsCredits_v1: {
+        parameters: {
+            query?: {
+                page?: number;
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SmsCreditsResponseDto"];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
