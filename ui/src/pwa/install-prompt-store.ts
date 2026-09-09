@@ -32,6 +32,7 @@ export interface InstallPromptSnapshot {
 
 let snapshot: InstallPromptSnapshot = { event: null, standalone: false };
 let listening = false;
+let teardown: AbortController | null = null;
 const listeners = new Set<() => void>();
 
 function setSnapshot(next: InstallPromptSnapshot): void {
@@ -53,26 +54,36 @@ export function listen(): void {
   // listeners once a `window` actually exists.
   if (typeof window === 'undefined') return;
   listening = true;
+  teardown = new window.AbortController();
+  const { signal } = teardown;
 
   const standaloneQuery = window.matchMedia('(display-mode: standalone)');
   setSnapshot({ event: snapshot.event, standalone: standaloneQuery.matches });
 
-  window.addEventListener('beforeinstallprompt', (event) => {
-    // Chrome's default is to show its own mini-infobar — prevented so this
-    // app controls if/when an install affordance appears instead.
-    event.preventDefault();
-    setSnapshot({ event: event as BeforeInstallPromptEvent, standalone: snapshot.standalone });
-  });
+  window.addEventListener(
+    'beforeinstallprompt',
+    (event) => {
+      // Chrome's default is to show its own mini-infobar — prevented so this
+      // app controls if/when an install affordance appears instead.
+      event.preventDefault();
+      setSnapshot({ event: event as BeforeInstallPromptEvent, standalone: snapshot.standalone });
+    },
+    { signal },
+  );
 
-  window.addEventListener('appinstalled', () => {
-    setSnapshot({ event: null, standalone: snapshot.standalone });
-  });
+  window.addEventListener(
+    'appinstalled',
+    () => {
+      setSnapshot({ event: null, standalone: snapshot.standalone });
+    },
+    { signal },
+  );
 
   const onStandaloneChange = (event: MediaQueryListEvent): void => {
     setSnapshot({ event: snapshot.event, standalone: event.matches });
   };
   if (standaloneQuery.addEventListener) {
-    standaloneQuery.addEventListener('change', onStandaloneChange);
+    standaloneQuery.addEventListener('change', onStandaloneChange, { signal });
   }
 }
 
@@ -99,6 +110,8 @@ export function getSnapshot(): InstallPromptSnapshot {
 
 /** Test-only: resets module state between test files/cases. */
 export function resetForTests(): void {
+  teardown?.abort();
+  teardown = null;
   snapshot = { event: null, standalone: false };
   listening = false;
   listeners.clear();
