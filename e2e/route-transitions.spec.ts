@@ -77,11 +77,46 @@ test.describe('route transitions', () => {
       await route.continue();
     });
 
-    const clickedAt = Date.now();
+    // Measured *inside the page*, not with `Date.now()` around `click()`
+    // in the test process: that version charged Playwright's locator
+    // resolution, actionability checks and two CDP round-trips against
+    // the app's 400ms budget, and read 430–580ms on a busy CI runner for
+    // a transition the app completes in ~200ms. A capture-phase click
+    // listener and a MutationObserver stamp `performance.now()` at the two
+    // ends of the thing the AC actually bounds — click to progress bar —
+    // so harness latency drops out and the budget keeps its meaning.
+    await page.evaluate(() => {
+      const w = window as unknown as { __clickAt?: number; __progressbarAt?: number };
+      document.addEventListener('click', () => (w.__clickAt = performance.now()), {
+        capture: true,
+        once: true,
+      });
+      // `RouteProgress` is always mounted and only flips `aria-busy` /
+      // `aria-hidden` (so its fade-out has a node to animate), so "the
+      // progress bar appeared" is an attribute change, not an insertion.
+      const observer = new MutationObserver(() => {
+        if (document.querySelector('[role="progressbar"][aria-busy="true"]')) {
+          w.__progressbarAt = performance.now();
+          observer.disconnect();
+        }
+      });
+      observer.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['aria-busy'],
+        subtree: true,
+      });
+    });
+
     await page.getByRole('link', { name: 'অভিভাবক', exact: true }).click();
 
-    await expect(page.getByRole('progressbar')).toBeVisible({ timeout: 400 });
-    expect(Date.now() - clickedAt).toBeLessThan(400);
+    await expect(page.getByRole('progressbar')).toBeVisible();
+    const stamps = await page.evaluate(() => {
+      const w = window as unknown as { __clickAt?: number; __progressbarAt?: number };
+      return { clickAt: w.__clickAt, progressbarAt: w.__progressbarAt };
+    });
+    expect(stamps.clickAt, 'click stamp').toBeDefined();
+    expect(stamps.progressbarAt, 'progress bar stamp').toBeDefined();
+    expect((stamps.progressbarAt as number) - (stamps.clickAt as number)).toBeLessThan(400);
 
     await expect(page.locator('[data-route-pending]')).toBeVisible();
     await expect(page.locator('#main-content')).not.toBeEmpty();

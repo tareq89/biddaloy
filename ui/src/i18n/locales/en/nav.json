@@ -19,6 +19,7 @@
     "generateFees": "Generate Fees",
     "invoices": "Invoices",
     "settings": "Settings",
+    "platformSchools": "Schools (platform)",
     "studentDues": "Student Dues",
     "recordPayment": "Record Payment",
     "portalOverview": "Overview",
@@ -123,7 +124,8 @@
     "signingOut": "Signing out…",
     "loadingName": "Loading…",
     "profile": "Profile",
-    "profileComingSoon": "Profile page coming soon"
+    "profileComingSoon": "Profile page coming soon",
+    "security": "Security"
   },
   "routeProgress": {
     "label": "Loading page…"

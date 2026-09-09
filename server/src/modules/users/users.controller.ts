@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -24,6 +24,10 @@ import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator
 import type { Request } from 'express';
 import { UserService, TeacherService } from './users.service';
 import { RecoveryService } from '../account-access/recovery.service';
+import {
+  ContactChangeService,
+  ContactChangeRequestResult,
+} from '../account-access/contact-change.service';
 import { requestContext } from '../../common/request-context.util';
 import {
   CreateUserDto,
@@ -34,11 +38,23 @@ import {
   UpdateTeacherDto,
   QueryTeacherDto,
 } from './dto/users.dto';
+import {
+  ContactChangeRequestDto,
+  ContactChangeConfirmPhoneDto,
+  ContactChangeRequestResponseDto,
+} from './dto/contact-change.dto';
 import { UserResponseDto } from './dto/user-response.dto';
+import {
+  InviteBatchStatusResponseDto,
+  InviteDispatchResponseDto,
+  InvitePreviewResponseDto,
+} from '../account-access/dto/batch-invite.dto';
 import { TeacherListResponseDto, TeacherResponseDto } from './dto/teacher-response.dto';
 import { UserRole, JwtPayload, Permission } from '@biddaloy/shared';
 import { SETTINGS_RATE_LIMIT, STRICT_RATE_LIMIT } from '../../rate-limit';
 import { InvitationService } from '../account-access/invitation.service';
+import { GuardianProvisioningService } from '../account-access/guardian-provisioning.service';
+import { BatchInviteDto } from '../account-access/dto/batch-invite.dto';
 
 @ApiTags('users')
 @ApiTenantAuth()
@@ -50,12 +66,16 @@ export class UserController {
     private readonly teacherService: TeacherService,
     private readonly invitationService: InvitationService,
     private readonly recoveryService: RecoveryService,
+    private readonly guardianProvisioningService: GuardianProvisioningService,
+    private readonly contactChangeService: ContactChangeService,
   ) {}
 
   // --- User endpoints ---
 
   @Post('users')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
+  // [10.4] G1 — E tightened off: lacks USER_CREATE.
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.USER_CREATE)
   async createUser(
     @Body() dto: CreateUserDto,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -90,7 +110,10 @@ export class UserController {
   }
 
   @Post('users/:id/invitation/resend')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
+  // [10.4] G16 — resending an invite is part of creating a member; G1
+  // tightens E off.
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.USER_CREATE)
   @HttpCode(200)
   @Throttle({ default: STRICT_RATE_LIMIT })
   @ApiOperation({
@@ -136,7 +159,10 @@ export class UserController {
   }
 
   @Delete('users/:id/invitation')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
+  // [10.4] G16 — revoking an invite is part of creating a member; G1
+  // tightens E off.
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.USER_CREATE)
   @ApiOperation({ summary: 'Revoke any live invitation link for this user.' })
   async revokeInvitation(
     @Param('id') id: string,
@@ -147,7 +173,10 @@ export class UserController {
   }
 
   @Get('users')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  // [10.4] G7 — AC, E, T tightened off: `/staff` is hidden from them, and no
+  // other page calls this route for those roles.
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.USER_READ)
   async findAllUsers(
     @Query() query: QueryUserDto,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -162,6 +191,61 @@ export class UserController {
         return dto;
       }),
     };
+  }
+
+  /**
+   * MUST stay declared above `users/:id` — Nest matches routes in
+   * declaration order and `users/:id` has no `ParseUUIDPipe`, so it would
+   * otherwise capture `invitations` as an id. Same reasoning as
+   * `GET users/me` below. [12.6]
+   */
+  @Post('users/invitations/preview')
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.USER_CREATE)
+  @ApiOperation({
+    summary:
+      'Preview a batch of guardian invitations — mandatory before dispatch. Returns to_invite/skipped with reasons.',
+  })
+  @ApiOkResponse({ type: InvitePreviewResponseDto })
+  async previewInvitations(
+    @Body() dto: BatchInviteDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.guardianProvisioningService.preview(tenant.id, dto);
+  }
+
+  @Post('users/invitations/batch')
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.USER_CREATE)
+  @HttpCode(202)
+  @Throttle({ default: STRICT_RATE_LIMIT })
+  @ApiOperation({
+    summary:
+      'Dispatch a batch of guardian invitations — provisions a passwordless PARENT account per guardian and queues an invitation for each.',
+  })
+  @ApiOkResponse({ type: InviteDispatchResponseDto })
+  async dispatchInvitations(
+    @Body() dto: BatchInviteDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() jwt: JwtPayload,
+  ) {
+    return this.guardianProvisioningService.dispatch({
+      tenantId: tenant.id,
+      actorUserId: jwt.sub,
+      selection: dto,
+    });
+  }
+
+  @Get('users/invitations/batch/:batchId')
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.USER_CREATE)
+  @ApiOperation({ summary: 'Progress of a previously dispatched invitation batch.' })
+  @ApiOkResponse({ type: InviteBatchStatusResponseDto })
+  async getInvitationBatchStatus(
+    @Param('batchId') batchId: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.guardianProvisioningService.batchStatus(tenant.id, batchId);
   }
 
   /**
@@ -222,7 +306,7 @@ export class UserController {
   )
   @ApiOperation({
     summary:
-      "Update the calling user's own record. Only the UpdateOwnProfileDto fields are accepted; role/status/tenant fields are rejected with 400 by forbidNonWhitelisted. Changing email or phone requires `current_password` (400 if missing, 403 if wrong).",
+      "Update the calling user's own record. Only full_name/profile_picture_url are accepted — email/phone are rejected with 400 by forbidNonWhitelisted; use POST /users/me/contact-change to change either. [12.7]",
   })
   @ApiResponse({ status: 200, type: UserResponseDto })
   async updateMe(
@@ -236,8 +320,62 @@ export class UserController {
     return responseDto;
   }
 
+  /**
+   * [12.7] Starts the commit-on-verify contact-change flow for the caller's
+   * own email/phone — `PATCH /users/me` no longer accepts either field.
+   * Same role list as the other `/users/me` routes; must stay declared
+   * above `users/:id` for the same ordering reason as `GET users/me`.
+   */
+  @Post('users/me/contact-change')
+  @HttpCode(202)
+  @Throttle({ default: SETTINGS_RATE_LIMIT })
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.ACCOUNTANT,
+    UserRole.EXECUTIVE,
+    UserRole.TEACHER,
+    UserRole.PARENT,
+    UserRole.STUDENT,
+  )
+  @ApiOperation({
+    summary:
+      'Requests a change to the caller own email or phone. Sends an OTP (phone) or a confirm link (email) to the NEW value; nothing is written to the account until confirmed.',
+  })
+  @ApiResponse({ status: 202, type: ContactChangeRequestResponseDto })
+  async requestContactChange(
+    @Body() dto: ContactChangeRequestDto,
+    @CurrentUser() jwt: JwtPayload,
+    @Req() request: Request,
+  ): Promise<ContactChangeRequestResult> {
+    return this.contactChangeService.request(jwt.sub, dto, requestContext(request));
+  }
+
+  @Post('users/me/contact-change/confirm-phone')
+  @HttpCode(200)
+  @Throttle({ default: STRICT_RATE_LIMIT })
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.ACCOUNTANT,
+    UserRole.EXECUTIVE,
+    UserRole.TEACHER,
+    UserRole.PARENT,
+    UserRole.STUDENT,
+  )
+  @ApiOperation({
+    summary: 'Confirms a pending phone change with the OTP sent to the new number.',
+  })
+  async confirmContactChangePhone(
+    @Body() dto: ContactChangeConfirmPhoneDto,
+    @CurrentUser() jwt: JwtPayload,
+    @Req() request: Request,
+  ): Promise<void> {
+    await this.contactChangeService.confirmPhone(jwt.sub, dto.otp, requestContext(request));
+  }
+
   @Get('users/:id')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  // [10.4] G7 — AC, E, T tightened off; see findAllUsers() above.
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.USER_READ)
   @ApiResponse({ status: 200, type: UserResponseDto })
   async findOneUser(
     @Param('id') id: string,
@@ -250,7 +388,9 @@ export class UserController {
   }
 
   @Patch('users/:id')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
+  // [10.4] G1 — E tightened off: lacks USER_UPDATE.
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.USER_UPDATE)
   async updateUser(
     @Param('id') id: string,
     @Body() dto: UpdateUserDto,
@@ -279,7 +419,9 @@ export class UserController {
   // --- Teacher endpoints ---
 
   @Post('teachers')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
+  // [10.4] G1 — E tightened off: lacks USER_CREATE.
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.USER_CREATE)
   @ApiOperation({ summary: 'Promote an existing tenant member to a teacher profile.' })
   @ApiResponse({ status: 201, type: TeacherResponseDto })
   async createTeacher(
@@ -291,7 +433,10 @@ export class UserController {
   }
 
   @Get('teachers')
+  // [10.4] G7 — reference data (class form, section teacher assignment,
+  // global search), same bucket as G4's academic-structure reads.
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @RequirePermissions(Permission.ACADEMIC_STRUCTURE_READ)
   @ApiResponse({ status: 200, type: TeacherListResponseDto })
   async findAllTeachers(
     @Query() query: QueryTeacherDto,
@@ -302,7 +447,9 @@ export class UserController {
   }
 
   @Patch('teachers/:id')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
+  // [10.4] G1 — E tightened off: lacks USER_UPDATE.
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.USER_UPDATE)
   @ApiResponse({ status: 200, type: TeacherResponseDto })
   async updateTeacher(
     @Param('id') id: string,

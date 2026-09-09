@@ -7,6 +7,7 @@ import {
   DeleteDateColumn,
   Index,
 } from 'typeorm';
+import { SchoolStatus } from '@biddaloy/shared';
 
 /**
  * A school / tenant in the multi-tenant system.
@@ -47,8 +48,38 @@ export class School {
   @Column({ type: 'varchar', length: 100, nullable: true })
   email: string | null;
 
+  /** Localized (Bengali) school name — [15.5.1]. Nullable: falls back to
+   * `name` wherever a bn-first display is needed but this is unset. */
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  name_bn: string | null;
+
+  /** EIIN or other registration id shown on official documents —
+   * [15.5.1]. Nullable, no format enforced (varies by school type). */
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  registration_id: string | null;
+
+  /** Storage key of the current logo object, or null if none uploaded —
+   * [15.5.1]. Never exposed directly; served through `/schools/:id/logo`
+   * ([15.5.4]) and used to build `logo_url` ([15.5.2]). */
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  logo_key: string | null;
+
   @Column({ type: 'jsonb', nullable: true })
   settings: Record<string, any> | null;
+
+  /**
+   * Lifecycle status (15.4). Plain `varchar` with a DB check constraint —
+   * not a Postgres `enum` type — so it stays cheap to extend. `SUSPENDED`
+   * is a SUPER_ADMIN access gate, distinct from `deleted_at` soft delete.
+   */
+  @Column({ type: 'varchar', length: 20, default: SchoolStatus.ACTIVE })
+  status: 'ACTIVE' | 'SUSPENDED';
+
+  @Column({ type: 'text', nullable: true })
+  status_reason: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  status_changed_at: Date | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;

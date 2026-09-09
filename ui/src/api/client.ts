@@ -111,6 +111,84 @@ export async function postAuthLogout(endpoint: '/auth/logout' | '/auth/logout-al
   });
 }
 
+export interface SessionDto {
+  id: string;
+  started_at: string;
+  last_used_at: string;
+  user_agent: string | null;
+  ip_address: string | null;
+  current: boolean;
+}
+
+export interface SessionListResponse {
+  data: SessionDto[];
+}
+
+/** `GET /auth/sessions` / `DELETE /auth/sessions/:id`, bypassing
+ * `apiClient` for the same reason `postAuthLogout` does: `apiClient` sends
+ * no cookie (no `withCredentials`) — so the server could never tell the
+ * caller's own family apart from any other, and every row would come back
+ * `current: false` — and it rejects outright when there is no active
+ * tenant, which these tenant-agnostic routes don't need anyway. Plain
+ * `axios`, `withCredentials: true`, and a manual `Authorization` header,
+ * copying `postAuthLogout`'s shape verbatim.
+ *
+ * Bypassing `apiClient` also skips its 401-refresh-retry interceptor, so
+ * both functions below retry once via `refreshAccessToken` on a 401 —
+ * otherwise a tab left open past the access token's ~15 min life would show
+ * a hard error even though the refresh cookie is still valid and every
+ * `apiClient`-routed page would have recovered silently. */
+function sessionAuthHeader(token: string | null): Record<string, string> {
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+export async function getAuthSessions(): Promise<SessionListResponse> {
+  try {
+    const response = await axios.get<SessionListResponse>(`${API_BASE_URL}/auth/sessions`, {
+      withCredentials: true,
+      headers: sessionAuthHeader(getAccessToken()),
+    });
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      try {
+        const token = await refreshAccessToken();
+        const response = await axios.get<SessionListResponse>(`${API_BASE_URL}/auth/sessions`, {
+          withCredentials: true,
+          headers: sessionAuthHeader(token),
+        });
+        return response.data;
+      } catch (retryError) {
+        throw toApiError(retryError);
+      }
+    }
+    throw toApiError(error);
+  }
+}
+
+export async function deleteAuthSession(id: string): Promise<void> {
+  try {
+    await axios.delete(`${API_BASE_URL}/auth/sessions/${id}`, {
+      withCredentials: true,
+      headers: sessionAuthHeader(getAccessToken()),
+    });
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      try {
+        const token = await refreshAccessToken();
+        await axios.delete(`${API_BASE_URL}/auth/sessions/${id}`, {
+          withCredentials: true,
+          headers: sessionAuthHeader(token),
+        });
+        return;
+      } catch (retryError) {
+        throw toApiError(retryError);
+      }
+    }
+    throw toApiError(error);
+  }
+}
+
 /** `POST /auth/login`, bypassing `apiClient` for the same reason
  * `postAuthRefresh`/`postAuthLogout` do — there is no active tenant yet at
  * the point a caller can even attempt this. `withCredentials: true` so the
@@ -249,6 +327,77 @@ export async function postAuthResetPassword(
   try {
     const response = await axios.post<LoginResponse>(`${API_BASE_URL}/auth/reset-password`, input, {
       withCredentials: true,
+    });
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 429) {
+      const header: unknown = error.response.headers['retry-after'];
+      const parsed = typeof header === 'string' ? Number.parseInt(header, 10) : NaN;
+      throw new RateLimitedError(Number.isFinite(parsed) ? parsed : null);
+    }
+    throw toApiError(error);
+  }
+}
+
+export interface OtpRequestResponse {
+  debug?: { otp?: string };
+}
+
+/** `POST /auth/otp/request` — always resolves, even for an unknown phone
+ * (enumeration-safe, see `OtpLoginService.request`'s own comment). `debug`
+ * is only ever populated with D6's `ACCOUNT_ACCESS_ECHO_SECRETS` flag on
+ * (never in production) — for e2e/Playwright, not for any real UI. */
+export async function postAuthOtpRequest(phone: string): Promise<OtpRequestResponse> {
+  try {
+    const response = await axios.post<OtpRequestResponse>(`${API_BASE_URL}/auth/otp/request`, {
+      phone,
+    });
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 429) {
+      const header: unknown = error.response.headers['retry-after'];
+      const parsed = typeof header === 'string' ? Number.parseInt(header, 10) : NaN;
+      throw new RateLimitedError(Number.isFinite(parsed) ? parsed : null);
+    }
+    throw toApiError(error);
+  }
+}
+
+/** `POST /auth/otp/verify` — sets the refresh cookie via `withCredentials`
+ * and returns a `LoginResponse`, identical in shape to `postAuthLogin`. */
+export async function postAuthOtpVerify(input: {
+  phone: string;
+  otp: string;
+}): Promise<LoginResponse> {
+  try {
+    const response = await axios.post<LoginResponse>(`${API_BASE_URL}/auth/otp/verify`, input, {
+      withCredentials: true,
+    });
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 429) {
+      const header: unknown = error.response.headers['retry-after'];
+      const parsed = typeof header === 'string' ? Number.parseInt(header, 10) : NaN;
+      throw new RateLimitedError(Number.isFinite(parsed) ? parsed : null);
+    }
+    throw toApiError(error);
+  }
+}
+
+export interface VerifyEmailResponse {
+  status: 'valid' | 'expired' | 'consumed' | 'revoked' | 'unknown';
+}
+
+/** `POST /auth/verify-email` — [12.7]'s public link-click confirm. Bare
+ * `axios`, same reason `postAuthActivateVerify` bypasses `apiClient`: the
+ * caller may be logged out entirely (the link was clicked from an inbox
+ * on a device with no session). Never throws for an expired/consumed/
+ * revoked/unknown token — same 200-with-a-different-status contract as
+ * `ContactChangeService.confirmEmail`. */
+export async function postAuthVerifyEmail(token: string): Promise<VerifyEmailResponse> {
+  try {
+    const response = await axios.post<VerifyEmailResponse>(`${API_BASE_URL}/auth/verify-email`, {
+      token,
     });
     return response.data;
   } catch (error) {

@@ -2,12 +2,25 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { CommunicationsProcessor } from './communications.processor';
 import { CommunicationMedium, CommunicationStatus } from '@biddaloy/shared';
 
+// [15.1.4] captureException/captureMessage/withScope are spied so onFailed/
+// onStalled tests can assert exactly what reaches Sentry without a real DSN.
+const sentryCaptureException = vi.fn();
+const sentryCaptureMessage = vi.fn();
+const sentrySetTags = vi.fn();
+vi.mock('@sentry/node', () => ({
+  withScope: (cb: (scope: { setTags: typeof sentrySetTags }) => void) =>
+    cb({ setTags: sentrySetTags }),
+  captureException: (...args: unknown[]) => sentryCaptureException(...args),
+  captureMessage: (...args: unknown[]) => sentryCaptureMessage(...args),
+}));
+
 describe('CommunicationsProcessor', () => {
   let processor: CommunicationsProcessor;
   let repo: Record<string, ReturnType<typeof vi.fn>>;
   let txManager: Record<string, ReturnType<typeof vi.fn>>;
   let providerRegistry: Record<string, ReturnType<typeof vi.fn>>;
   let provider: Record<string, ReturnType<typeof vi.fn>>;
+  let tenantStatus: Record<string, ReturnType<typeof vi.fn>>;
 
   const baseLog = {
     id: 'log-1',
@@ -42,12 +55,24 @@ describe('CommunicationsProcessor', () => {
     };
     repo = {
       findOneOrFail: vi.fn(async () => ({ ...baseLog })),
+      findOne: vi.fn(async () => ({ ...baseLog })),
       save: vi.fn(async (log) => log),
       manager: { transaction: vi.fn(async (cb: any) => cb(txManager)) },
     };
     providerRegistry = { resolve: vi.fn(() => provider) };
+    // #528: defaults to "active" so the existing send/failure/retry tests
+    // below don't have to know about tenant suspension at all.
+    tenantStatus = { isActive: vi.fn(async () => true) };
 
-    processor = new CommunicationsProcessor(repo as any, providerRegistry as any);
+    processor = new CommunicationsProcessor(
+      repo as any,
+      providerRegistry as any,
+      tenantStatus as any,
+    );
+
+    sentryCaptureException.mockClear();
+    sentryCaptureMessage.mockClear();
+    sentrySetTags.mockClear();
   });
 
   /** Params passed to recordBatchOutcome's single UPDATE: [batchId, +success, +failure]. */
@@ -299,6 +324,89 @@ describe('CommunicationsProcessor', () => {
       await processor.process(job());
 
       expect(provider.send).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('tenant suspension [528]', () => {
+    it('fails the log with TENANT_SUSPENDED and never calls the provider when the tenant is suspended', async () => {
+      tenantStatus.isActive.mockResolvedValue(false);
+
+      await expect(processor.process(job())).resolves.toBeUndefined();
+
+      expect(provider.send).not.toHaveBeenCalled();
+      expect(txManager.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: CommunicationStatus.FAILED,
+          metadata: expect.objectContaining({ reason: 'TENANT_SUSPENDED' }),
+        }),
+      );
+    });
+
+    it('leaves an already-SENT log untouched on replay even when the tenant is now suspended', async () => {
+      // A stalled-job replay of a log that settled as SENT before the school
+      // was suspended must not be rewritten to FAILED — that would record a
+      // second batch outcome for the same message.
+      tenantStatus.isActive.mockResolvedValue(false);
+      repo.findOneOrFail.mockResolvedValue({
+        ...baseLog,
+        status: CommunicationStatus.SENT,
+        reminder_batch_id: 'batch-1',
+      });
+
+      await processor.process(job());
+
+      expect(tenantStatus.isActive).not.toHaveBeenCalled();
+      expect(repo.manager.transaction).not.toHaveBeenCalled();
+      expect(txManager.save).not.toHaveBeenCalled();
+      expect(txManager.query).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('onFailed / onStalled telemetry [15.1.4]', () => {
+    it('reports a final-attempt failure to Sentry with ids only, no recipient/message', async () => {
+      const err = new Error('provider rejected');
+      await processor.onFailed(job({ attemptsMade: 3, attempts: 3 }), err);
+
+      expect(sentrySetTags).toHaveBeenCalledWith({
+        queue: 'communications',
+        job_name: undefined,
+        communication_log_id: 'log-1',
+        tenant_id: 'tenant-1',
+        medium: CommunicationMedium.SMS,
+      });
+      expect(sentryCaptureException).toHaveBeenCalledWith(err);
+
+      const serialized = JSON.stringify(sentrySetTags.mock.calls[0][0]);
+      expect(serialized).not.toContain(baseLog.recipient_address);
+      expect(serialized).not.toContain(baseLog.message_body);
+    });
+
+    it('does not report a non-final failure', async () => {
+      await processor.onFailed(job({ attemptsMade: 1, attempts: 3 }), new Error('transient'));
+
+      expect(sentryCaptureException).not.toHaveBeenCalled();
+    });
+
+    it('does nothing when BullMQ passes no job', async () => {
+      await processor.onFailed(undefined, new Error('x'));
+
+      expect(sentryCaptureException).not.toHaveBeenCalled();
+    });
+
+    it('reports a stalled job as a warning message with ids only', async () => {
+      await processor.onStalled('log-1');
+
+      expect(sentrySetTags).toHaveBeenCalledWith({
+        queue: 'communications',
+        communication_log_id: 'log-1',
+        tenant_id: 'tenant-1',
+        medium: CommunicationMedium.SMS,
+      });
+      expect(sentryCaptureMessage).toHaveBeenCalledWith('communications job stalled', 'warning');
+
+      const serialized = JSON.stringify(sentrySetTags.mock.calls[0][0]);
+      expect(serialized).not.toContain(baseLog.recipient_address);
+      expect(serialized).not.toContain(baseLog.message_body);
     });
   });
 });

@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PlatformRouteRouteImport } from './routes/_platform/route'
 import { Route as StaffRouteImport } from './routes/_staff'
 import { Route as ActivateRouteImport } from './routes/activate'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
@@ -17,14 +18,19 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as PortalRouteImport } from './routes/portal'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SelectSchoolRouteImport } from './routes/select-school'
+import { Route as VerifyEmailRouteImport } from './routes/verify-email'
 import { Route as StaffDashboardRouteImport } from './routes/_staff/dashboard'
 import { Route as StaffFeesRouteImport } from './routes/_staff/fees'
 import { Route as StaffNotificationsRouteImport } from './routes/_staff/notifications'
+import { Route as StaffSecurityRouteImport } from './routes/_staff/security'
 import { Route as StaffSettingsRouteImport } from './routes/_staff/settings'
 import { Route as PortalIndexRouteImport } from './routes/portal/index'
 import { Route as PortalAccountRouteImport } from './routes/portal/account'
 import { Route as PortalAttendanceRouteImport } from './routes/portal/attendance'
 import { Route as PortalFeesRouteImport } from './routes/portal/fees'
+import { Route as PlatformSchoolsIndexRouteImport } from './routes/_platform/schools/index'
+import { Route as PlatformSchoolsSchoolIdRouteImport } from './routes/_platform/schools/$schoolId'
+import { Route as PlatformSchoolsNewRouteImport } from './routes/_platform/schools/new'
 import { Route as StaffAcademicYearsIndexRouteImport } from './routes/_staff/academic-years/index'
 import { Route as StaffAcademicYearsAcademicYearIdRouteImport } from './routes/_staff/academic-years/$academicYearId'
 import { Route as StaffAttendanceIndexRouteImport } from './routes/_staff/attendance/index'
@@ -58,6 +64,10 @@ import { Route as StaffStudentsStudentIdEditRouteImport } from './routes/_staff/
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlatformRouteRoute = PlatformRouteRouteImport.update({
+  id: '/_platform',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StaffRoute = StaffRouteImport.update({
@@ -94,6 +104,11 @@ const SelectSchoolRoute = SelectSchoolRouteImport.update({
   path: '/select-school',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VerifyEmailRoute = VerifyEmailRouteImport.update({
+  id: '/verify-email',
+  path: '/verify-email',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StaffDashboardRoute = StaffDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -107,6 +122,11 @@ const StaffFeesRoute = StaffFeesRouteImport.update({
 const StaffNotificationsRoute = StaffNotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffSecurityRoute = StaffSecurityRouteImport.update({
+  id: '/security',
+  path: '/security',
   getParentRoute: () => StaffRoute,
 } as any)
 const StaffSettingsRoute = StaffSettingsRouteImport.update({
@@ -133,6 +153,21 @@ const PortalFeesRoute = PortalFeesRouteImport.update({
   id: '/fees',
   path: '/fees',
   getParentRoute: () => PortalRoute,
+} as any)
+const PlatformSchoolsIndexRoute = PlatformSchoolsIndexRouteImport.update({
+  id: '/schools/',
+  path: '/schools/',
+  getParentRoute: () => PlatformRouteRoute,
+} as any)
+const PlatformSchoolsSchoolIdRoute = PlatformSchoolsSchoolIdRouteImport.update({
+  id: '/schools/$schoolId',
+  path: '/schools/$schoolId',
+  getParentRoute: () => PlatformRouteRoute,
+} as any)
+const PlatformSchoolsNewRoute = PlatformSchoolsNewRouteImport.update({
+  id: '/schools/new',
+  path: '/schools/new',
+  getParentRoute: () => PlatformRouteRoute,
 } as any)
 const StaffAcademicYearsIndexRoute = StaffAcademicYearsIndexRouteImport.update({
   id: '/academic-years/',
@@ -295,14 +330,18 @@ export interface FileRoutesByFullPath {
   '/portal': typeof PortalRouteWithChildren
   '/reset-password': typeof ResetPasswordRoute
   '/select-school': typeof SelectSchoolRoute
+  '/verify-email': typeof VerifyEmailRoute
   '/dashboard': typeof StaffDashboardRoute
   '/fees': typeof StaffFeesRouteWithChildren
   '/notifications': typeof StaffNotificationsRoute
+  '/security': typeof StaffSecurityRoute
   '/settings': typeof StaffSettingsRoute
   '/portal/account': typeof PortalAccountRoute
   '/portal/attendance': typeof PortalAttendanceRoute
   '/portal/fees': typeof PortalFeesRoute
   '/portal/': typeof PortalIndexRoute
+  '/schools/$schoolId': typeof PlatformSchoolsSchoolIdRoute
+  '/schools/new': typeof PlatformSchoolsNewRoute
   '/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
   '/attendance/$sectionId': typeof StaffAttendanceSectionIdRoute
   '/attendance/register': typeof StaffAttendanceRegisterRoute
@@ -319,6 +358,7 @@ export interface FileRoutesByFullPath {
   '/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/students/import': typeof StaffStudentsImportRoute
   '/students/new': typeof StaffStudentsNewRoute
+  '/schools/': typeof PlatformSchoolsIndexRoute
   '/academic-years/': typeof StaffAcademicYearsIndexRoute
   '/attendance/': typeof StaffAttendanceIndexRoute
   '/audit-logs/': typeof StaffAuditLogsIndexRoute
@@ -340,13 +380,17 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/select-school': typeof SelectSchoolRoute
+  '/verify-email': typeof VerifyEmailRoute
   '/dashboard': typeof StaffDashboardRoute
   '/notifications': typeof StaffNotificationsRoute
+  '/security': typeof StaffSecurityRoute
   '/settings': typeof StaffSettingsRoute
   '/portal/account': typeof PortalAccountRoute
   '/portal/attendance': typeof PortalAttendanceRoute
   '/portal/fees': typeof PortalFeesRoute
   '/portal': typeof PortalIndexRoute
+  '/schools/$schoolId': typeof PlatformSchoolsSchoolIdRoute
+  '/schools/new': typeof PlatformSchoolsNewRoute
   '/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
   '/attendance/$sectionId': typeof StaffAttendanceSectionIdRoute
   '/attendance/register': typeof StaffAttendanceRegisterRoute
@@ -363,6 +407,7 @@ export interface FileRoutesByTo {
   '/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/students/import': typeof StaffStudentsImportRoute
   '/students/new': typeof StaffStudentsNewRoute
+  '/schools': typeof PlatformSchoolsIndexRoute
   '/academic-years': typeof StaffAcademicYearsIndexRoute
   '/attendance': typeof StaffAttendanceIndexRoute
   '/audit-logs': typeof StaffAuditLogsIndexRoute
@@ -380,6 +425,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_platform': typeof PlatformRouteRouteWithChildren
   '/_staff': typeof StaffRouteWithChildren
   '/activate': typeof ActivateRoute
   '/forgot-password': typeof ForgotPasswordRoute
@@ -387,14 +433,18 @@ export interface FileRoutesById {
   '/portal': typeof PortalRouteWithChildren
   '/reset-password': typeof ResetPasswordRoute
   '/select-school': typeof SelectSchoolRoute
+  '/verify-email': typeof VerifyEmailRoute
   '/_staff/dashboard': typeof StaffDashboardRoute
   '/_staff/fees': typeof StaffFeesRouteWithChildren
   '/_staff/notifications': typeof StaffNotificationsRoute
+  '/_staff/security': typeof StaffSecurityRoute
   '/_staff/settings': typeof StaffSettingsRoute
   '/portal/account': typeof PortalAccountRoute
   '/portal/attendance': typeof PortalAttendanceRoute
   '/portal/fees': typeof PortalFeesRoute
   '/portal/': typeof PortalIndexRoute
+  '/_platform/schools/$schoolId': typeof PlatformSchoolsSchoolIdRoute
+  '/_platform/schools/new': typeof PlatformSchoolsNewRoute
   '/_staff/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
   '/_staff/attendance/$sectionId': typeof StaffAttendanceSectionIdRoute
   '/_staff/attendance/register': typeof StaffAttendanceRegisterRoute
@@ -411,6 +461,7 @@ export interface FileRoutesById {
   '/_staff/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/_staff/students/import': typeof StaffStudentsImportRoute
   '/_staff/students/new': typeof StaffStudentsNewRoute
+  '/_platform/schools/': typeof PlatformSchoolsIndexRoute
   '/_staff/academic-years/': typeof StaffAcademicYearsIndexRoute
   '/_staff/attendance/': typeof StaffAttendanceIndexRoute
   '/_staff/audit-logs/': typeof StaffAuditLogsIndexRoute
@@ -435,14 +486,18 @@ export interface FileRouteTypes {
     | '/portal'
     | '/reset-password'
     | '/select-school'
+    | '/verify-email'
     | '/dashboard'
     | '/fees'
     | '/notifications'
+    | '/security'
     | '/settings'
     | '/portal/account'
     | '/portal/attendance'
     | '/portal/fees'
     | '/portal/'
+    | '/schools/$schoolId'
+    | '/schools/new'
     | '/academic-years/$academicYearId'
     | '/attendance/$sectionId'
     | '/attendance/register'
@@ -459,6 +514,7 @@ export interface FileRouteTypes {
     | '/students/$studentId'
     | '/students/import'
     | '/students/new'
+    | '/schools/'
     | '/academic-years/'
     | '/attendance/'
     | '/audit-logs/'
@@ -480,13 +536,17 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/select-school'
+    | '/verify-email'
     | '/dashboard'
     | '/notifications'
+    | '/security'
     | '/settings'
     | '/portal/account'
     | '/portal/attendance'
     | '/portal/fees'
     | '/portal'
+    | '/schools/$schoolId'
+    | '/schools/new'
     | '/academic-years/$academicYearId'
     | '/attendance/$sectionId'
     | '/attendance/register'
@@ -503,6 +563,7 @@ export interface FileRouteTypes {
     | '/students/$studentId'
     | '/students/import'
     | '/students/new'
+    | '/schools'
     | '/academic-years'
     | '/attendance'
     | '/audit-logs'
@@ -519,6 +580,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/_platform'
     | '/_staff'
     | '/activate'
     | '/forgot-password'
@@ -526,14 +588,18 @@ export interface FileRouteTypes {
     | '/portal'
     | '/reset-password'
     | '/select-school'
+    | '/verify-email'
     | '/_staff/dashboard'
     | '/_staff/fees'
     | '/_staff/notifications'
+    | '/_staff/security'
     | '/_staff/settings'
     | '/portal/account'
     | '/portal/attendance'
     | '/portal/fees'
     | '/portal/'
+    | '/_platform/schools/$schoolId'
+    | '/_platform/schools/new'
     | '/_staff/academic-years/$academicYearId'
     | '/_staff/attendance/$sectionId'
     | '/_staff/attendance/register'
@@ -550,6 +616,7 @@ export interface FileRouteTypes {
     | '/_staff/students/$studentId'
     | '/_staff/students/import'
     | '/_staff/students/new'
+    | '/_platform/schools/'
     | '/_staff/academic-years/'
     | '/_staff/attendance/'
     | '/_staff/audit-logs/'
@@ -567,6 +634,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  PlatformRouteRoute: typeof PlatformRouteRouteWithChildren
   StaffRoute: typeof StaffRouteWithChildren
   ActivateRoute: typeof ActivateRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
@@ -574,6 +642,7 @@ export interface RootRouteChildren {
   PortalRoute: typeof PortalRouteWithChildren
   ResetPasswordRoute: typeof ResetPasswordRoute
   SelectSchoolRoute: typeof SelectSchoolRoute
+  VerifyEmailRoute: typeof VerifyEmailRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -583,6 +652,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_platform': {
+      id: '/_platform'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof PlatformRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_staff': {
@@ -634,6 +710,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SelectSchoolRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/verify-email': {
+      id: '/verify-email'
+      path: '/verify-email'
+      fullPath: '/verify-email'
+      preLoaderRoute: typeof VerifyEmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_staff/dashboard': {
       id: '/_staff/dashboard'
       path: '/dashboard'
@@ -653,6 +736,13 @@ declare module '@tanstack/react-router' {
       path: '/notifications'
       fullPath: '/notifications'
       preLoaderRoute: typeof StaffNotificationsRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/security': {
+      id: '/_staff/security'
+      path: '/security'
+      fullPath: '/security'
+      preLoaderRoute: typeof StaffSecurityRouteImport
       parentRoute: typeof StaffRoute
     }
     '/_staff/settings': {
@@ -689,6 +779,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/portal/fees'
       preLoaderRoute: typeof PortalFeesRouteImport
       parentRoute: typeof PortalRoute
+    }
+    '/_platform/schools/': {
+      id: '/_platform/schools/'
+      path: '/schools'
+      fullPath: '/schools/'
+      preLoaderRoute: typeof PlatformSchoolsIndexRouteImport
+      parentRoute: typeof PlatformRouteRoute
+    }
+    '/_platform/schools/$schoolId': {
+      id: '/_platform/schools/$schoolId'
+      path: '/schools/$schoolId'
+      fullPath: '/schools/$schoolId'
+      preLoaderRoute: typeof PlatformSchoolsSchoolIdRouteImport
+      parentRoute: typeof PlatformRouteRoute
+    }
+    '/_platform/schools/new': {
+      id: '/_platform/schools/new'
+      path: '/schools/new'
+      fullPath: '/schools/new'
+      preLoaderRoute: typeof PlatformSchoolsNewRouteImport
+      parentRoute: typeof PlatformRouteRoute
     }
     '/_staff/academic-years/': {
       id: '/_staff/academic-years/'
@@ -896,6 +1007,22 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface PlatformRouteRouteChildren {
+  PlatformSchoolsSchoolIdRoute: typeof PlatformSchoolsSchoolIdRoute
+  PlatformSchoolsNewRoute: typeof PlatformSchoolsNewRoute
+  PlatformSchoolsIndexRoute: typeof PlatformSchoolsIndexRoute
+}
+
+const PlatformRouteRouteChildren: PlatformRouteRouteChildren = {
+  PlatformSchoolsSchoolIdRoute: PlatformSchoolsSchoolIdRoute,
+  PlatformSchoolsNewRoute: PlatformSchoolsNewRoute,
+  PlatformSchoolsIndexRoute: PlatformSchoolsIndexRoute,
+}
+
+const PlatformRouteRouteWithChildren = PlatformRouteRoute._addFileChildren(
+  PlatformRouteRouteChildren,
+)
+
 interface StaffFeesRouteChildren {
   StaffFeesDuesRoute: typeof StaffFeesDuesRoute
   StaffFeesGenerateRoute: typeof StaffFeesGenerateRoute
@@ -916,6 +1043,7 @@ interface StaffRouteChildren {
   StaffDashboardRoute: typeof StaffDashboardRoute
   StaffFeesRoute: typeof StaffFeesRouteWithChildren
   StaffNotificationsRoute: typeof StaffNotificationsRoute
+  StaffSecurityRoute: typeof StaffSecurityRoute
   StaffSettingsRoute: typeof StaffSettingsRoute
   StaffAcademicYearsAcademicYearIdRoute: typeof StaffAcademicYearsAcademicYearIdRoute
   StaffAttendanceSectionIdRoute: typeof StaffAttendanceSectionIdRoute
@@ -949,6 +1077,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffDashboardRoute: StaffDashboardRoute,
   StaffFeesRoute: StaffFeesRouteWithChildren,
   StaffNotificationsRoute: StaffNotificationsRoute,
+  StaffSecurityRoute: StaffSecurityRoute,
   StaffSettingsRoute: StaffSettingsRoute,
   StaffAcademicYearsAcademicYearIdRoute: StaffAcademicYearsAcademicYearIdRoute,
   StaffAttendanceSectionIdRoute: StaffAttendanceSectionIdRoute,
@@ -1000,6 +1129,7 @@ const PortalRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  PlatformRouteRoute: PlatformRouteRouteWithChildren,
   StaffRoute: StaffRouteWithChildren,
   ActivateRoute: ActivateRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
@@ -1007,6 +1137,7 @@ const rootRouteChildren: RootRouteChildren = {
   PortalRoute: PortalRouteWithChildren,
   ResetPasswordRoute: ResetPasswordRoute,
   SelectSchoolRoute: SelectSchoolRoute,
+  VerifyEmailRoute: VerifyEmailRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -95,7 +95,17 @@ describe('AccountAccessController (e2e)', () => {
     );
     await dataSource.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [PHONE_USER_ID]);
     await dataSource.query(`DELETE FROM user_tenants WHERE user_id = $1`, [PHONE_USER_ID]);
-    await dataSource.query(`DELETE FROM users WHERE id = $1`, [PHONE_USER_ID]);
+    // Not a DELETE: by the time this spec's tests run, PHONE_USER_ID has
+    // logged in (password and/or OTP), so it's the `performed_by_user_id`
+    // on one or more `audit_logs` rows. That table's write-only trigger
+    // (migration 1784175065078) blocks UPDATE *and* DELETE unconditionally
+    // — including the FK's own `ON DELETE SET NULL` cascade — so deleting
+    // this user would always fail here. Reset it in place instead, same as
+    // USER_ID above.
+    await dataSource.query(
+      `UPDATE users SET password_hash = NULL, status = 'ACTIVE' WHERE id = $1`,
+      [PHONE_USER_ID],
+    );
     await app.close();
   });
 
@@ -200,6 +210,53 @@ describe('AccountAccessController (e2e)', () => {
       const { debug: _knownDebug, ...knownRest } = known.body;
       const { debug: _unknownDebug, ...unknownRest } = unknown.body;
       expect(knownRest).toEqual(unknownRest);
+    });
+  });
+
+  describe('otp/request + otp/verify', () => {
+    it('request -> verify with echo -> Set-Cookie __Host-refresh_token, and /auth/refresh succeeds with it', async () => {
+      const requestRes = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/otp/request')
+        .send({ phone: PHONE_NUMBER })
+        .expect(202);
+      const otp = requestRes.body.debug?.otp;
+      expect(otp).toMatch(/^\d{6}$/);
+
+      const verifyRes = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/otp/verify')
+        .send({ phone: PHONE_NUMBER, otp })
+        .expect(200);
+      expect(verifyRes.body.access_token).toBeDefined();
+      const refreshCookie = extractRefreshCookie(verifyRes);
+
+      const refreshRes = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/refresh')
+        .set('Cookie', `__Host-refresh_token=${refreshCookie}`)
+        .expect(200);
+      expect(refreshRes.body.access_token).toBeDefined();
+    });
+
+    it('password login for the same user still works', async () => {
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ phone: PHONE_NUMBER, password: 'a-brand-new-password' })
+        .expect(200);
+    });
+
+    it('accepts a phone number typed with Bengali digits', async () => {
+      const bengaliPhone = PHONE_NUMBER.replace(/[0-9]/g, (d) => '০১২৩৪৫৬৭৮৯'.charAt(Number(d)));
+
+      const requestRes = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/otp/request')
+        .send({ phone: bengaliPhone })
+        .expect(202);
+      const otp = requestRes.body.debug?.otp;
+      expect(otp).toMatch(/^\d{6}$/);
+
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/otp/verify')
+        .send({ phone: bengaliPhone, otp })
+        .expect(200);
     });
   });
 });

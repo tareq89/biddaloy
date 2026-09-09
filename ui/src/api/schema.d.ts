@@ -20,6 +20,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/health/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["HealthController_ready"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/audit-logs": {
         parameters: {
             query?: never;
@@ -117,6 +133,40 @@ export interface paths {
         /** Revoke every refresh token for the caller and end the current session immediately. */
         post: operations["AuthController_logoutAll_v1"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the caller's active sessions (refresh-token families). */
+        get: operations["AuthController_listSessions_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/sessions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke one of the caller's sessions (refresh-token families). */
+        delete: operations["AuthController_revokeSession_v1"];
         options?: never;
         head?: never;
         patch?: never;
@@ -340,14 +390,49 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List every school (id and name only) — #8.7.13's super-admin school picker. An ADMIN doesn't get this route at all; they already know their one school from their own tenant context. */
+        /** List every school (id, name, slug, status, created_at) — #8.7.13's super-admin school picker, extended by #533's platform schools list. An ADMIN doesn't get this route at all; they already know their one school from their own tenant context. */
         get: operations["SchoolsController_findAll_v1"];
+        put?: never;
+        /** Create a school and its first ADMIN in one atomic, idempotent request. Replaying the same idempotency_key returns the original result (200) instead of creating a second school/user/invitation. */
+        post: operations["ProvisioningController_provision_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schools/{id}/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Five cheap platform metrics for a school (#532) — active users, students, queued/recently-failed communications, and last activity. SUPER_ADMIN only. */
+        get: operations["SchoolsController_getStats_v1"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schools/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Suspend or reactivate a school (#530). SUPER_ADMIN only. A mandatory reason is audited (SUSPEND/REACTIVATE), and the tenant status cache is invalidated so the change takes effect on the school's very next request. */
+        patch: operations["SchoolsController_updateStatus_v1"];
         trace?: never;
     };
     "/api/v1/schools/{id}/settings": {
@@ -368,59 +453,95 @@ export interface paths {
         patch: operations["SchoolsController_updateSettings_v1"];
         trace?: never;
     };
-    "/api/v1/classes": {
+    "/api/v1/schools/me/profile": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List classes for the current tenant. */
-        get: operations["ClassController_findAllClasses_v1"];
-        put?: never;
-        /** Create a class under an academic year. */
-        post: operations["ClassController_createClass_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/classes/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get a single class by ID. */
-        get: operations["ClassController_findOneClass_v1"];
+        /** Read the caller's school profile (name, name_bn, address, phone, email, registration_id, logo_url). Any authenticated staff role. */
+        get: operations["SchoolProfileController_getProfile_v1"];
         put?: never;
         post?: never;
-        delete: operations["ClassController_removeClass_v1"];
+        delete?: never;
         options?: never;
         head?: never;
-        /** Update a class. */
-        patch: operations["ClassController_updateClass_v1"];
+        /** Update the caller school profile (partial). ADMIN only. Every change is audited. */
+        patch: operations["SchoolProfileController_updateProfile_v1"];
         trace?: never;
     };
-    "/api/v1/classes/{classId}/sections": {
+    "/api/v1/schools/{id}/logo": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["ClassController_findAllSections_v1"];
+        /** Serve the raw logo bytes for a school. Any member of that school (or SUPER_ADMIN). `v` (the uuid from a logo_url or a document issuer_snapshot.logo_key) selects that exact object; omitted, the current logo. 404 if there is nothing to serve. */
+        get: operations["SchoolLogoController_serve_v1"];
         put?: never;
-        post: operations["ClassController_createSection_v1"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/classes/{classId}/sections/{sectionId}": {
+    "/api/v1/schools/me/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload the school logo (PNG/JPEG/WebP, <=512KB, <=2048px per side). Re-encoded to a 512x512-max PNG. */
+        post: operations["SchoolLogoController_upload_v1"];
+        /** Remove the school logo. */
+        delete: operations["SchoolLogoController_remove_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schools/{id}/admins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a school's ADMIN memberships and their invitation status. */
+        get: operations["SchoolAdminsController_list_v1"];
+        put?: never;
+        /** Add an ADMIN to a school, reusing the find-or-create-user + membership + invitation logic POST /schools uses. An existing user matched by email/phone is not duplicated. */
+        post: operations["SchoolAdminsController_addAdmin_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schools/{id}/admins/{userId}/resend-invitation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resend an ADMIN's pending invitation. Returns the reissued invitation (its `debug.token` echoed under ACCOUNT_ACCESS_ECHO_SECRETS, same as every other issue-and-send call site) rather than 204 — see SchoolAdminsService.resendInvitation's own comment. */
+        post: operations["SchoolAdminsController_resendInvitation_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schools/{id}/admins/{userId}/invitation": {
         parameters: {
             query?: never;
             header?: never;
@@ -430,226 +551,11 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete: operations["ClassController_removeSection_v1"];
-        options?: never;
-        head?: never;
-        patch: operations["ClassController_updateSection_v1"];
-        trace?: never;
-    };
-    "/api/v1/classes/{classId}/teachers": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List distinct teachers assigned to any section of this class. */
-        get: operations["ClassController_findClassTeachers_v1"];
-        put?: never;
-        post?: never;
-        delete?: never;
+        /** Revoke an ADMIN's pending invitation. */
+        delete: operations["SchoolAdminsController_revokeInvitation_v1"];
         options?: never;
         head?: never;
         patch?: never;
-        trace?: never;
-    };
-    "/api/v1/enrollments": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["EnrollmentController_create_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/enrollments/student/{studentId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["EnrollmentController_findByStudent_v1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/enrollments/{studentId}/current": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["EnrollmentController_findCurrent_v1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/enrollments/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch: operations["EnrollmentController_update_v1"];
-        trace?: never;
-    };
-    "/api/v1/users": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["UserController_findAllUsers_v1"];
-        put?: never;
-        post: operations["UserController_createUser_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/users/{id}/invitation/resend": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Re-issue an invitation link, revoking any prior link for this user. */
-        post: operations["UserController_resendInvitation_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/users/{id}/reset-password": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Admin-initiated password reset (#396's server half). Sends an OTP/link to the target's own contact and revokes their sessions immediately. */
-        post: operations["UserController_resetPassword_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/users/{id}/invitation": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Revoke any live invitation link for this user. */
-        delete: operations["UserController_revokeInvitation_v1"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/users/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Read the calling user's own record. The id comes from the JWT, never the path — a caller can only ever read themselves. */
-        get: operations["UserController_findMe_v1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Update the calling user's own record. Only the UpdateOwnProfileDto fields are accepted; role/status/tenant fields are rejected with 400 by forbidNonWhitelisted. Changing email or phone requires `current_password` (400 if missing, 403 if wrong). */
-        patch: operations["UserController_updateMe_v1"];
-        trace?: never;
-    };
-    "/api/v1/users/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["UserController_findOneUser_v1"];
-        put?: never;
-        post?: never;
-        /** Remove a member's access to this school (deletes the membership, not the account). */
-        delete: operations["UserController_removeUser_v1"];
-        options?: never;
-        head?: never;
-        patch: operations["UserController_updateUser_v1"];
-        trace?: never;
-    };
-    "/api/v1/teachers": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["UserController_findAllTeachers_v1"];
-        put?: never;
-        /** Promote an existing tenant member to a teacher profile. */
-        post: operations["UserController_createTeacher_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/teachers/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch: operations["UserController_updateTeacher_v1"];
         trace?: never;
     };
     "/api/v1/auth/activate/verify": {
@@ -731,6 +637,57 @@ export interface paths {
         put?: never;
         /** Sets a new password via an OTP ({ phone, otp }) or a reset link ({ token }), and signs the caller in. */
         post: operations["AccountAccessController_resetPassword_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/otp/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Requests a passwordless-login OTP by phone. Always 202 — enumeration-safe. */
+        post: operations["AccountAccessController_otpRequest_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/otp/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Verifies a passwordless-login OTP and signs the caller in. */
+        post: operations["AccountAccessController_otpVerify_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/verify-email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** [12.7] Confirms an emailed contact-change link — clicked from the inbox, possibly logged out. */
+        post: operations["AccountAccessController_verifyEmail_v1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1228,6 +1185,375 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/classes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List classes for the current tenant. */
+        get: operations["ClassController_findAllClasses_v1"];
+        put?: never;
+        /** Create a class under an academic year. */
+        post: operations["ClassController_createClass_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/classes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a single class by ID. */
+        get: operations["ClassController_findOneClass_v1"];
+        put?: never;
+        post?: never;
+        delete: operations["ClassController_removeClass_v1"];
+        options?: never;
+        head?: never;
+        /** Update a class. */
+        patch: operations["ClassController_updateClass_v1"];
+        trace?: never;
+    };
+    "/api/v1/classes/{classId}/sections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ClassController_findAllSections_v1"];
+        put?: never;
+        post: operations["ClassController_createSection_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/classes/{classId}/sections/{sectionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["ClassController_removeSection_v1"];
+        options?: never;
+        head?: never;
+        patch: operations["ClassController_updateSection_v1"];
+        trace?: never;
+    };
+    "/api/v1/classes/{classId}/teachers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List distinct teachers assigned to any section of this class. */
+        get: operations["ClassController_findClassTeachers_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/enrollments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["EnrollmentController_create_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/enrollments/student/{studentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["EnrollmentController_findByStudent_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/enrollments/{studentId}/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["EnrollmentController_findCurrent_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/enrollments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["EnrollmentController_update_v1"];
+        trace?: never;
+    };
+    "/api/v1/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["UserController_findAllUsers_v1"];
+        put?: never;
+        post: operations["UserController_createUser_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{id}/invitation/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Re-issue an invitation link, revoking any prior link for this user. */
+        post: operations["UserController_resendInvitation_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{id}/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin-initiated password reset (#396's server half). Sends an OTP/link to the target's own contact and revokes their sessions immediately. */
+        post: operations["UserController_resetPassword_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{id}/invitation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke any live invitation link for this user. */
+        delete: operations["UserController_revokeInvitation_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/invitations/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview a batch of guardian invitations — mandatory before dispatch. Returns to_invite/skipped with reasons. */
+        post: operations["UserController_previewInvitations_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/invitations/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dispatch a batch of guardian invitations — provisions a passwordless PARENT account per guardian and queues an invitation for each. */
+        post: operations["UserController_dispatchInvitations_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/invitations/batch/{batchId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Progress of a previously dispatched invitation batch. */
+        get: operations["UserController_getInvitationBatchStatus_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the calling user's own record. The id comes from the JWT, never the path — a caller can only ever read themselves. */
+        get: operations["UserController_findMe_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update the calling user's own record. Only full_name/profile_picture_url are accepted — email/phone are rejected with 400 by forbidNonWhitelisted; use POST /users/me/contact-change to change either. [12.7] */
+        patch: operations["UserController_updateMe_v1"];
+        trace?: never;
+    };
+    "/api/v1/users/me/contact-change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Requests a change to the caller own email or phone. Sends an OTP (phone) or a confirm link (email) to the NEW value; nothing is written to the account until confirmed. */
+        post: operations["UserController_requestContactChange_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/me/contact-change/confirm-phone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirms a pending phone change with the OTP sent to the new number. */
+        post: operations["UserController_confirmContactChangePhone_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["UserController_findOneUser_v1"];
+        put?: never;
+        post?: never;
+        /** Remove a member's access to this school (deletes the membership, not the account). */
+        delete: operations["UserController_removeUser_v1"];
+        options?: never;
+        head?: never;
+        patch: operations["UserController_updateUser_v1"];
+        trace?: never;
+    };
+    "/api/v1/teachers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["UserController_findAllTeachers_v1"];
+        put?: never;
+        /** Promote an existing tenant member to a teacher profile. */
+        post: operations["UserController_createTeacher_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teachers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["UserController_updateTeacher_v1"];
+        trace?: never;
+    };
     "/api/v1/invoices": {
         parameters: {
             query?: never;
@@ -1595,7 +1921,7 @@ export interface components {
             id: string;
             tenant_id: string | null;
             /** @enum {string} */
-            action: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET";
+            action: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE";
             entity_type: string;
             entity_id: string | null;
             performed_by_user_id: string | null;
@@ -1644,6 +1970,23 @@ export interface components {
             /** @description Every school/role pair the caller holds, for the tenant picker. */
             memberships: components["schemas"]["MembershipResponseDto"][];
         };
+        SessionDto: {
+            /** @description The refresh-token family id. Used as the id in DELETE /auth/sessions/:id. */
+            id: string;
+            /** @description When this family was first created (i.e. when the device signed in), ISO 8601. */
+            started_at: string;
+            /** @description When this family last refreshed, ISO 8601. */
+            last_used_at: string;
+            /** @description The User-Agent header captured at issue/rotation time, or null. */
+            user_agent: string | null;
+            /** @description The IP address captured at issue/rotation time, or null. */
+            ip_address: string | null;
+            /** @description Whether this is the family behind the caller's own refresh cookie. */
+            current: boolean;
+        };
+        SessionListDto: {
+            data: components["schemas"]["SessionDto"][];
+        };
         ChangePasswordDto: {
             /** @description The caller's current password, re-entered to prove possession. */
             current_password: string;
@@ -1664,9 +2007,17 @@ export interface components {
             address: string | null;
             phone: string | null;
             email: string | null;
+            name_bn: string | null;
+            registration_id: string | null;
+            logo_key: string | null;
             settings: {
                 [key: string]: unknown;
             } | null;
+            /** @enum {string} */
+            status: "ACTIVE" | "SUSPENDED";
+            status_reason: string | null;
+            /** Format: date-time */
+            status_changed_at: string | null;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -1816,6 +2167,16 @@ export interface components {
         SchoolListItemDto: {
             id: string;
             name: string;
+            slug: string;
+            /** @enum {string} */
+            status: "ACTIVE" | "SUSPENDED";
+            /** Format: date-time */
+            created_at: string;
+        };
+        UpdateSchoolStatusDto: {
+            /** @enum {string} */
+            status: "ACTIVE" | "SUSPENDED";
+            reason: string;
         };
         RegionCurrencyDto: {
             code: string;
@@ -1959,247 +2320,44 @@ export interface components {
             allowFutureDates: boolean;
             autoAbsentNotification: components["schemas"]["AutoAbsentNotificationDto"];
         };
+        AuthSettingsDto: {
+            otpLoginEnabled: boolean;
+        };
         TenantSettingsDto: {
             /** @enum {number} */
             version: 1;
             region?: components["schemas"]["RegionSettingsDto"];
             communications?: components["schemas"]["CommunicationsSettingsDto"];
             attendance?: components["schemas"]["AttendancePolicyDto"];
+            auth?: components["schemas"]["AuthSettingsDto"];
         };
-        CreateClassDto: {
-            name: string;
-            numeric_grade?: number;
-            /** Format: uuid */
-            academic_year_id: string;
-        };
-        UpdateClassDto: {
+        UpdateSchoolProfileDto: {
             name?: string;
-            numeric_grade?: number | null;
+            name_bn?: string | null;
+            address?: string | null;
+            phone?: string | null;
+            /** Format: email */
+            email?: string | null;
+            registration_id?: string | null;
         };
-        CreateSectionDto: {
-            section_name: string;
-            capacity?: number;
-        };
-        UpdateSectionDto: {
-            section_name?: string;
-            capacity?: number | null;
-        };
-        UserTenant: {
-            id: string;
-            user: components["schemas"]["User"];
-            user_id: string;
-            tenant: components["schemas"]["School"];
-            tenant_id: string;
-            /** @enum {string} */
-            role: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE";
-            metadata: {
-                [key: string]: unknown;
-            } | null;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        User: {
-            id: string;
-            user_tenants: components["schemas"]["UserTenant"][];
-            email: string | null;
-            phone: string | null;
-            /** @enum {string} */
-            status: "ACTIVE" | "INACTIVE" | "SUSPENDED";
-            full_name: string;
-            profile_picture_url: string | null;
-            preferences: {
-                [key: string]: unknown;
-            } | null;
-            /** Format: date-time */
-            last_login_at: string | null;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-            /** Format: date-time */
-            deleted_at: string | null;
-        };
-        Guardian: {
-            id: string;
-            user: components["schemas"]["User"] | null;
-            user_id: string | null;
-            full_name: string;
-            relationship: string;
-            phone: string | null;
-            email: string | null;
-            alternate_phone: string | null;
-            address: string | null;
-            occupation: string | null;
-            /** @enum {string} */
-            preferred_communication: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER";
-            is_primary_contact: boolean;
-            notifications_enabled: boolean;
-            tenant: components["schemas"]["School"];
-            tenant_id: string;
-            students: components["schemas"]["Student"][];
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-            /** Format: date-time */
-            deleted_at: string | null;
-        };
-        Student: {
-            id: string;
-            user: components["schemas"]["User"] | null;
-            user_id: string | null;
-            full_name: string;
-            registration_number: string;
-            roll_number: number;
-            class_section: components["schemas"]["ClassSection"];
-            class_section_id: string;
-            /** Format: date-time */
-            date_of_birth: string | null;
-            gender: string | null;
-            home_address: string | null;
-            /** @enum {string} */
-            preferred_communication: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER";
-            guardians: components["schemas"]["Guardian"][];
-            /** @enum {string} */
-            enrollment_status: "ACTIVE" | "INACTIVE" | "TRANSFERRED" | "GRADUATED";
-            tenant: components["schemas"]["School"];
-            tenant_id: string;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-            /** Format: date-time */
-            deleted_at: string | null;
-        };
-        Enrollment: {
-            id: string;
-            student: components["schemas"]["Student"];
-            student_id: string;
-            class: components["schemas"]["Class"];
-            class_id: string;
-            section: components["schemas"]["ClassSection"] | null;
-            section_id: string | null;
-            academic_year: components["schemas"]["AcademicYear"];
-            academic_year_id: string;
-            /** @enum {string} */
-            enrollment_status: "ACTIVE" | "INACTIVE" | "TRANSFERRED" | "GRADUATED";
-            /** Format: date-time */
-            enrolled_at: string;
-            tenant: components["schemas"]["School"];
-            tenant_id: string;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        CreateEnrollmentDto: {
-            /** Format: uuid */
-            student_id: string;
-            /** Format: uuid */
-            class_id: string;
-            /** Format: uuid */
-            section_id?: string;
-            /** Format: uuid */
-            academic_year_id: string;
-        };
-        UpdateEnrollmentDto: {
-            /** @enum {string} */
-            enrollment_status?: "ACTIVE" | "INACTIVE" | "TRANSFERRED" | "GRADUATED";
-            /** Format: uuid */
-            class_id?: string;
-            /** Format: uuid */
-            section_id?: string;
-        };
-        CreateUserDto: {
+        ProvisionSchoolAdminDto: {
+            name: string;
             /** Format: email */
             email?: string;
             phone?: string;
-            password?: string;
-            full_name: string;
-            /** @enum {string} */
-            role: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE";
+        };
+        ProvisionSchoolDto: {
+            name: string;
+            slug: string;
+            admin: components["schemas"]["ProvisionSchoolAdminDto"];
             /** Format: uuid */
-            tenantId: string;
+            idempotency_key: string;
         };
-        UserResponseDto: {
-            id: string;
-            email: string | null;
-            phone: string | null;
-            /** @enum {string} */
-            status: "ACTIVE" | "INACTIVE" | "SUSPENDED";
-            full_name: string;
-            /** @enum {string|null} */
-            role: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE" | null;
-            /** Format: date-time */
-            member_since: string | null;
-            profile_picture_url: string | null;
-            preferences: {
-                [key: string]: unknown;
-            } | null;
-            /** Format: date-time */
-            last_login_at: string | null;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-            /** @enum {string} */
-            invitation_status: "NONE" | "PENDING" | "EXPIRED" | "REVOKED" | "ACTIVATED";
-        };
-        UpdateOwnProfileDto: {
-            current_password?: string;
+        AddSchoolAdminDto: {
+            name: string;
             /** Format: email */
-            email?: string | null;
-            phone?: string | null;
-            full_name?: string;
-            profile_picture_url?: string;
-        };
-        UpdateUserDto: {
-            /** Format: email */
-            email?: string | null;
-            phone?: string | null;
-            full_name?: string;
-            profile_picture_url?: string;
-        };
-        CreateTeacherDto: {
-            /** Format: uuid */
-            user_id: string;
-            employee_id: string;
-            designations?: ("CLASS_TEACHER" | "SUBJECT_TEACHER" | "HEAD_TEACHER" | "ASSISTANT_TEACHER" | "PRINCIPAL" | "VICE_PRINCIPAL" | "COORDINATOR")[];
-            subject_specialization?: string;
-            joining_date?: string;
-            assigned_section_ids?: string[];
-        };
-        TeacherResponseDto: {
-            id: string;
-            user: components["schemas"]["UserResponseDto"];
-            employee_id: string;
-            designations: ("CLASS_TEACHER" | "SUBJECT_TEACHER" | "HEAD_TEACHER" | "ASSISTANT_TEACHER" | "PRINCIPAL" | "VICE_PRINCIPAL" | "COORDINATOR")[];
-            subject_specialization: string | null;
-            /** Format: date-time */
-            joining_date: string | null;
-            tenant_id: string;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-            /** Format: date-time */
-            deleted_at: string | null;
-        };
-        TeacherListResponseDto: {
-            data: components["schemas"]["TeacherResponseDto"][];
-            total: number;
-            page: number;
-            limit: number;
-            totalPages: number;
-        };
-        UpdateTeacherDto: {
-            employee_id?: string;
-            designations?: ("CLASS_TEACHER" | "SUBJECT_TEACHER" | "HEAD_TEACHER" | "ASSISTANT_TEACHER" | "PRINCIPAL" | "VICE_PRINCIPAL" | "COORDINATOR")[];
-            subject_specialization?: string | null;
-            joining_date?: string | null;
-            assigned_section_ids?: string[];
+            email?: string;
+            phone?: string;
         };
         ActivateVerifyDto: {
             /** @description The raw invite token from the ?token= query param. */
@@ -2228,6 +2386,27 @@ export interface components {
             otp?: string;
             /** @description The reset token from the emailed link. */
             token?: string;
+        };
+        OtpRequestDto: {
+            /** @description The phone number on the account. */
+            phone: string;
+        };
+        OtpVerifyDto: {
+            /** @description The phone number the OTP was sent to. */
+            phone: string;
+            /** @description The 6-digit OTP sent by SMS. */
+            otp: string;
+        };
+        VerifyEmailDto: {
+            /** @description The raw email-verify token from the ?token= query param. */
+            token: string;
+        };
+        VerifyEmailResponseDto: {
+            /**
+             * @description 'valid' means the email was changed; anything else means it was not.
+             * @enum {string}
+             */
+            status: "valid" | "expired" | "consumed" | "revoked" | "unknown";
         };
         SendSingleReminderDto: {
             message_template: string;
@@ -2425,6 +2604,99 @@ export interface components {
             preferred_communication?: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER";
             guardian_ids?: string[];
         };
+        UserTenant: {
+            id: string;
+            user: components["schemas"]["User"];
+            user_id: string;
+            tenant: components["schemas"]["School"];
+            tenant_id: string;
+            /** @enum {string} */
+            role: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE";
+            metadata: {
+                [key: string]: unknown;
+            } | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        User: {
+            id: string;
+            user_tenants: components["schemas"]["UserTenant"][];
+            email: string | null;
+            phone: string | null;
+            /** Format: date-time */
+            email_verified_at: string | null;
+            /** Format: date-time */
+            phone_verified_at: string | null;
+            /** @enum {string} */
+            status: "ACTIVE" | "INACTIVE" | "SUSPENDED";
+            full_name: string;
+            profile_picture_url: string | null;
+            preferences: {
+                [key: string]: unknown;
+            } | null;
+            /** Format: date-time */
+            last_login_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            deleted_at: string | null;
+        };
+        Student: {
+            id: string;
+            user: components["schemas"]["User"] | null;
+            user_id: string | null;
+            full_name: string;
+            registration_number: string;
+            roll_number: number;
+            class_section: components["schemas"]["ClassSection"];
+            class_section_id: string;
+            /** Format: date-time */
+            date_of_birth: string | null;
+            gender: string | null;
+            home_address: string | null;
+            /** @enum {string} */
+            preferred_communication: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER";
+            guardians: components["schemas"]["Guardian"][];
+            /** @enum {string} */
+            enrollment_status: "ACTIVE" | "INACTIVE" | "TRANSFERRED" | "GRADUATED";
+            tenant: components["schemas"]["School"];
+            tenant_id: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            deleted_at: string | null;
+        };
+        Guardian: {
+            id: string;
+            user: components["schemas"]["User"] | null;
+            user_id: string | null;
+            full_name: string;
+            relationship: string;
+            phone: string | null;
+            email: string | null;
+            alternate_phone: string | null;
+            address: string | null;
+            occupation: string | null;
+            /** @enum {string} */
+            preferred_communication: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER";
+            is_primary_contact: boolean;
+            notifications_enabled: boolean;
+            tenant: components["schemas"]["School"];
+            tenant_id: string;
+            students: components["schemas"]["Student"][];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            deleted_at: string | null;
+        };
         BulkUploadErrorDto: {
             row: number;
             field?: string;
@@ -2535,6 +2807,16 @@ export interface components {
             month: number;
             is_recurring: boolean;
         };
+        IssuerSnapshot: {
+            name: string;
+            name_bn: string | null;
+            address: string | null;
+            phone: string | null;
+            email: string | null;
+            registration_id: string | null;
+            logo_key: string | null;
+            captured_at: string;
+        };
         StudentFee: {
             id: string;
             student: components["schemas"]["Student"];
@@ -2561,6 +2843,7 @@ export interface components {
             updated_at: string;
         };
         Invoice: {
+            issuer_snapshot: components["schemas"]["IssuerSnapshot"] | null;
             id: string;
             invoice_number: string;
             student: components["schemas"]["Student"];
@@ -2588,6 +2871,7 @@ export interface components {
             deleted_at: string | null;
         };
         Payment: {
+            issuer_snapshot: components["schemas"]["IssuerSnapshot"] | null;
             id: string;
             student: components["schemas"]["Student"];
             student_id: string;
@@ -2776,6 +3060,209 @@ export interface components {
             remarks?: string;
             generate_invoice?: boolean;
         };
+        CreateClassDto: {
+            name: string;
+            numeric_grade?: number;
+            /** Format: uuid */
+            academic_year_id: string;
+        };
+        UpdateClassDto: {
+            name?: string;
+            numeric_grade?: number | null;
+        };
+        CreateSectionDto: {
+            section_name: string;
+            capacity?: number;
+        };
+        UpdateSectionDto: {
+            section_name?: string;
+            capacity?: number | null;
+        };
+        Enrollment: {
+            id: string;
+            student: components["schemas"]["Student"];
+            student_id: string;
+            class: components["schemas"]["Class"];
+            class_id: string;
+            section: components["schemas"]["ClassSection"] | null;
+            section_id: string | null;
+            academic_year: components["schemas"]["AcademicYear"];
+            academic_year_id: string;
+            /** @enum {string} */
+            enrollment_status: "ACTIVE" | "INACTIVE" | "TRANSFERRED" | "GRADUATED";
+            /** Format: date-time */
+            enrolled_at: string;
+            tenant: components["schemas"]["School"];
+            tenant_id: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        CreateEnrollmentDto: {
+            /** Format: uuid */
+            student_id: string;
+            /** Format: uuid */
+            class_id: string;
+            /** Format: uuid */
+            section_id?: string;
+            /** Format: uuid */
+            academic_year_id: string;
+        };
+        UpdateEnrollmentDto: {
+            /** @enum {string} */
+            enrollment_status?: "ACTIVE" | "INACTIVE" | "TRANSFERRED" | "GRADUATED";
+            /** Format: uuid */
+            class_id?: string;
+            /** Format: uuid */
+            section_id?: string;
+        };
+        CreateUserDto: {
+            /** Format: email */
+            email?: string;
+            phone?: string;
+            password?: string;
+            full_name: string;
+            /** @enum {string} */
+            role: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE";
+            /** Format: uuid */
+            tenantId: string;
+        };
+        BatchInviteDto: {
+            guardian_ids?: string[];
+            student_ids?: string[];
+            all?: boolean;
+        };
+        InvitePreviewEntryDto: {
+            guardian_id: string;
+            full_name: string;
+            /** @enum {string} */
+            channel: "SMS" | "EMAIL";
+            user_exists: boolean;
+        };
+        InviteSkippedEntryDto: {
+            guardian_id: string;
+            full_name: string;
+            /** @enum {string} */
+            reason: "no_contact" | "already_active" | "already_pending" | "notifications_disabled";
+        };
+        InvitePreviewResponseDto: {
+            total: number;
+            to_invite: components["schemas"]["InvitePreviewEntryDto"][];
+            skipped: components["schemas"]["InviteSkippedEntryDto"][];
+        };
+        InviteDispatchResponseDto: {
+            batch_id: string;
+            queued: number;
+            skipped: components["schemas"]["InviteSkippedEntryDto"][];
+        };
+        InviteBatchStatusResponseDto: {
+            batch_id: string;
+            total: number;
+            sent: number;
+            failed: number;
+            queued: number;
+        };
+        UserResponseDto: {
+            id: string;
+            email: string | null;
+            phone: string | null;
+            /** Format: date-time */
+            email_verified_at: string | null;
+            /** Format: date-time */
+            phone_verified_at: string | null;
+            /** @enum {string} */
+            status: "ACTIVE" | "INACTIVE" | "SUSPENDED";
+            full_name: string;
+            /** @enum {string|null} */
+            role: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE" | null;
+            /** Format: date-time */
+            member_since: string | null;
+            profile_picture_url: string | null;
+            preferences: {
+                [key: string]: unknown;
+            } | null;
+            /** Format: date-time */
+            last_login_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** @enum {string} */
+            invitation_status: "NONE" | "PENDING" | "EXPIRED" | "REVOKED" | "ACTIVATED";
+        };
+        UpdateOwnProfileDto: {
+            full_name?: string;
+            profile_picture_url?: string;
+        };
+        ContactChangeRequestDto: {
+            /**
+             * Format: email
+             * @description The new email address to verify and switch to.
+             */
+            email?: string;
+            /** @description The new phone number to verify and switch to. */
+            phone?: string;
+            /** @description The caller's current password, proving they own this account. */
+            current_password: string;
+        };
+        ContactChangeRequestResponseDto: {
+            /**
+             * @description 'otp' for a phone change (confirm at POST /users/me/contact-change/confirm-phone); 'link' for an email change (confirmed by clicking the emailed link, which posts to /auth/verify-email).
+             * @enum {string}
+             */
+            channel: "otp" | "link";
+        };
+        ContactChangeConfirmPhoneDto: {
+            /** @description The 6-digit OTP sent to the new phone number. */
+            otp: string;
+        };
+        UpdateUserDto: {
+            /** Format: email */
+            email?: string | null;
+            phone?: string | null;
+            full_name?: string;
+            profile_picture_url?: string;
+        };
+        CreateTeacherDto: {
+            /** Format: uuid */
+            user_id: string;
+            employee_id: string;
+            designations?: ("CLASS_TEACHER" | "SUBJECT_TEACHER" | "HEAD_TEACHER" | "ASSISTANT_TEACHER" | "PRINCIPAL" | "VICE_PRINCIPAL" | "COORDINATOR")[];
+            subject_specialization?: string;
+            joining_date?: string;
+            assigned_section_ids?: string[];
+        };
+        TeacherResponseDto: {
+            id: string;
+            user: components["schemas"]["UserResponseDto"];
+            employee_id: string;
+            designations: ("CLASS_TEACHER" | "SUBJECT_TEACHER" | "HEAD_TEACHER" | "ASSISTANT_TEACHER" | "PRINCIPAL" | "VICE_PRINCIPAL" | "COORDINATOR")[];
+            subject_specialization: string | null;
+            /** Format: date-time */
+            joining_date: string | null;
+            tenant_id: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            deleted_at: string | null;
+        };
+        TeacherListResponseDto: {
+            data: components["schemas"]["TeacherResponseDto"][];
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+        UpdateTeacherDto: {
+            employee_id?: string;
+            designations?: ("CLASS_TEACHER" | "SUBJECT_TEACHER" | "HEAD_TEACHER" | "ASSISTANT_TEACHER" | "PRINCIPAL" | "VICE_PRINCIPAL" | "COORDINATOR")[];
+            subject_specialization?: string | null;
+            joining_date?: string | null;
+            assigned_section_ids?: string[];
+        };
         StaffInvoiceDto: {
             id: string;
             invoice_number: string;
@@ -2796,12 +3283,14 @@ export interface components {
             issued_by: components["schemas"]["UserResponseDto"] | null;
             issued_by_user_id: string | null;
             notes: string | null;
+            issuer_snapshot: components["schemas"]["IssuerSnapshot"] | null;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
             updated_at: string;
             /** Format: date-time */
             deleted_at: string | null;
+            issuer?: components["schemas"]["IssuerSnapshot"];
         };
         FamilyInvoiceStudentDto: {
             id: string;
@@ -2847,6 +3336,7 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+            issuer?: components["schemas"]["IssuerSnapshot"];
         };
         LineItemDto: {
             description: string;
@@ -3157,10 +3647,29 @@ export interface operations {
             };
         };
     };
+    HealthController_ready: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     AuditController_findAll_v1: {
         parameters: {
             query?: {
-                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET";
+                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE";
                 entity_type?: string;
                 performed_by_user_id?: string;
                 entity_id?: string;
@@ -3200,7 +3709,7 @@ export interface operations {
     AuditController_findByEntity_v1: {
         parameters: {
             query?: {
-                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET";
+                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE";
                 entity_type?: string;
                 performed_by_user_id?: string;
                 entity_id?: string;
@@ -3323,6 +3832,51 @@ export interface operations {
         requestBody?: never;
         responses: {
             204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AuthController_listSessions_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionListDto"];
+                };
+            };
+        };
+    };
+    AuthController_revokeSession_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such family for the caller's account. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4082,6 +4636,117 @@ export interface operations {
             };
         };
     };
+    ProvisioningController_provision_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProvisionSchoolDto"];
+            };
+        };
+        responses: {
+            /** @description Replayed: an identical request with this idempotency_key already succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description School, admin, and invitation created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolsController_getStats_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolsController_updateStatus_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSchoolStatusDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     SchoolsController_getSettings_v1: {
         parameters: {
             query?: never;
@@ -4166,12 +4831,80 @@ export interface operations {
             };
         };
     };
-    ClassController_findAllClasses_v1: {
+    SchoolProfileController_getProfile_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolProfileController_updateProfile_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSchoolProfileDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Only ADMIN (or SUPER_ADMIN) may edit the school profile. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolLogoController_serve_v1: {
         parameters: {
             query?: {
-                academic_year_id?: string;
-                page?: number;
-                limit?: number;
+                /** @description Logo version (uuid) to serve. */
+                v?: unknown;
             };
             header: {
                 /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
@@ -4179,7 +4912,9 @@ export interface operations {
                 /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
                 "X-Role"?: string;
             };
-            path?: never;
+            path: {
+                id: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4199,7 +4934,7 @@ export interface operations {
             };
         };
     };
-    ClassController_createClass_v1: {
+    SchoolLogoController_upload_v1: {
         parameters: {
             query?: never;
             header: {
@@ -4213,7 +4948,106 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CreateClassDto"];
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file?: string;
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolLogoController_remove_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolAdminsController_list_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Array of ADMIN memberships. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolAdminsController_addAdmin_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddSchoolAdminDto"];
             };
         };
         responses: {
@@ -4222,7 +5056,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Class"];
+                    "application/json": Record<string, never>;
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -4234,7 +5068,7 @@ export interface operations {
             };
         };
     };
-    ClassController_findOneClass_v1: {
+    SchoolAdminsController_resendInvitation_v1: {
         parameters: {
             query?: never;
             header: {
@@ -4245,491 +5079,7 @@ export interface operations {
             };
             path: {
                 id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Class"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    ClassController_removeClass_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    ClassController_updateClass_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateClassDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Class"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    ClassController_findAllSections_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                classId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>[];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    ClassController_createSection_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                classId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateSectionDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ClassSection"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    ClassController_removeSection_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                classId: string;
-                sectionId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    ClassController_updateSection_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                classId: string;
-                sectionId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateSectionDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ClassSection"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    ClassController_findClassTeachers_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                classId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>[];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    EnrollmentController_create_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateEnrollmentDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Enrollment"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    EnrollmentController_findByStudent_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                studentId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Enrollment"][];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    EnrollmentController_findCurrent_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                studentId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The student's current ACTIVE enrollment, or null for a legacy student with none yet. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Enrollment"] | null;
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    EnrollmentController_update_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateEnrollmentDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Enrollment"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    UserController_findAllUsers_v1: {
-        parameters: {
-            query?: {
-                role?: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE";
-                search?: string;
-                status?: "ACTIVE" | "INACTIVE" | "SUSPENDED";
-                joined_from?: string;
-                joined_to?: string;
-                sort?: "email" | "status" | "full_name" | "joined_at";
-                order?: "asc" | "desc";
-                page?: number;
-                limit?: number;
-            };
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    UserController_createUser_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateUserDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    UserController_resendInvitation_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
+                userId: string;
             };
             cookie?: never;
         };
@@ -4752,7 +5102,7 @@ export interface operations {
             };
         };
     };
-    UserController_resetPassword_v1: {
+    SchoolAdminsController_revokeInvitation_v1: {
         parameters: {
             query?: never;
             header: {
@@ -4763,324 +5113,17 @@ export interface operations {
             };
             path: {
                 id: string;
+                userId: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-        };
-    };
-    UserController_revokeInvitation_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    UserController_findMe_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserResponseDto"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    UserController_updateMe_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateOwnProfileDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserResponseDto"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    UserController_findOneUser_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserResponseDto"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    UserController_removeUser_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    UserController_updateUser_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateUserDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserResponseDto"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    UserController_findAllTeachers_v1: {
-        parameters: {
-            query?: {
-                search?: string;
-                user_id?: string;
-                page?: number;
-                limit?: number;
-            };
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TeacherListResponseDto"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    UserController_createTeacher_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateTeacherDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TeacherResponseDto"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    UserController_updateTeacher_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateTeacherDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TeacherResponseDto"];
-                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
@@ -5200,6 +5243,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LoginResponseDto"];
+                };
+            };
+        };
+    };
+    AccountAccessController_otpRequest_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OtpRequestDto"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    AccountAccessController_otpVerify_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OtpVerifyDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponseDto"];
+                };
+            };
+        };
+    };
+    AccountAccessController_verifyEmail_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyEmailDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerifyEmailResponseDto"];
                 };
             };
         };
@@ -6559,12 +6671,15 @@ export interface operations {
             };
         };
         responses: {
+            /** @description The recorded payment, with the issuer identity frozen onto it at record time. */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Payment"];
+                    "application/json": components["schemas"]["Payment"] & {
+                        issuer?: components["schemas"]["IssuerSnapshot"];
+                    };
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -6664,6 +6779,1103 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ClassController_findAllClasses_v1: {
+        parameters: {
+            query?: {
+                academic_year_id?: string;
+                page?: number;
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ClassController_createClass_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateClassDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Class"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ClassController_findOneClass_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Class"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ClassController_removeClass_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ClassController_updateClass_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateClassDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Class"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ClassController_findAllSections_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                classId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>[];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ClassController_createSection_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                classId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSectionDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassSection"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ClassController_removeSection_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                classId: string;
+                sectionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ClassController_updateSection_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                classId: string;
+                sectionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSectionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassSection"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ClassController_findClassTeachers_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                classId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>[];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EnrollmentController_create_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateEnrollmentDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Enrollment"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EnrollmentController_findByStudent_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                studentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Enrollment"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EnrollmentController_findCurrent_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                studentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The student's current ACTIVE enrollment, or null for a legacy student with none yet. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Enrollment"] | null;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EnrollmentController_update_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateEnrollmentDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Enrollment"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UserController_findAllUsers_v1: {
+        parameters: {
+            query?: {
+                role?: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE";
+                search?: string;
+                status?: "ACTIVE" | "INACTIVE" | "SUSPENDED";
+                invitation_status?: "NONE" | "PENDING" | "EXPIRED" | "REVOKED" | "ACTIVATED";
+                joined_from?: string;
+                joined_to?: string;
+                sort?: "status" | "email" | "full_name" | "joined_at";
+                order?: "asc" | "desc";
+                page?: number;
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UserController_createUser_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateUserDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UserController_resendInvitation_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UserController_resetPassword_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UserController_revokeInvitation_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UserController_previewInvitations_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchInviteDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitePreviewResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UserController_dispatchInvitations_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchInviteDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteDispatchResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UserController_getInvitationBatchStatus_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                batchId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteBatchStatusResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UserController_findMe_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UserController_updateMe_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateOwnProfileDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UserController_requestContactChange_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContactChangeRequestDto"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactChangeRequestResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UserController_confirmContactChangePhone_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContactChangeConfirmPhoneDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UserController_findOneUser_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UserController_removeUser_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UserController_updateUser_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateUserDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UserController_findAllTeachers_v1: {
+        parameters: {
+            query?: {
+                search?: string;
+                user_id?: string;
+                page?: number;
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeacherListResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UserController_createTeacher_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTeacherDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeacherResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UserController_updateTeacher_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTeacherDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeacherResponseDto"];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
@@ -7022,7 +8234,7 @@ export interface operations {
     AttendanceController_getRecordHistory_v1: {
         parameters: {
             query?: {
-                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET";
+                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE";
                 entity_type?: string;
                 performed_by_user_id?: string;
                 entity_id?: string;

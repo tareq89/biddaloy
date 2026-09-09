@@ -22,6 +22,7 @@ import { Student } from '../../students/entities/student.entity';
 import { StudentFee } from '../../fees/entities/student-fee.entity';
 import { UserResponseDto } from '../../users/dto/user-response.dto';
 import { FamilyStudentFeeDto, toFamilyStudentFee } from '../../fees/dto/fees.dto';
+import { IssuerSnapshot } from '../../schools/profile/issuer-snapshot';
 
 export class LineItemDto {
   @IsString()
@@ -178,9 +179,13 @@ export class FamilyInvoiceDto {
   issued_by: null;
   created_at: Date;
   updated_at: Date;
+  // [15.5.5] Present when built from `InvoicesService.findOne` (which
+  // resolves it against the live profile as a fallback); absent from the
+  // `findAll` list, which doesn't pay for an extra school read per page.
+  issuer?: IssuerSnapshot;
 }
 
-export function toFamilyInvoice(invoice: Invoice): FamilyInvoiceDto {
+export function toFamilyInvoice(invoice: Invoice & { issuer?: IssuerSnapshot }): FamilyInvoiceDto {
   return {
     id: invoice.id,
     invoice_number: invoice.invoice_number,
@@ -205,6 +210,7 @@ export function toFamilyInvoice(invoice: Invoice): FamilyInvoiceDto {
     issued_by: null,
     created_at: invoice.created_at,
     updated_at: invoice.updated_at,
+    issuer: invoice.issuer,
   };
 }
 
@@ -241,7 +247,11 @@ export class StaffInvoiceDto implements Omit<Invoice, 'issued_by'> {
   issued_by: UserResponseDto | null;
   issued_by_user_id: string | null;
   notes: string | null;
+  issuer_snapshot: IssuerSnapshot | null;
   created_at: Date;
   updated_at: Date;
   deleted_at: Date | null;
+  // [15.5.5] `issuer_snapshot ?? live profile` — see the note on
+  // `FamilyInvoiceDto.issuer` for when this is/isn't populated.
+  issuer?: IssuerSnapshot;
 }

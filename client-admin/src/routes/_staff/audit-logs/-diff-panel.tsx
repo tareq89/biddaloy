@@ -28,6 +28,7 @@ import {
   TableRow,
 } from '@biddaloy/ui/components';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { Link } from '@tanstack/react-router';
 import * as React from 'react';
 
 import {
@@ -42,21 +43,60 @@ import {
 export interface DiffPanelProps {
   oldValues: Record<string, unknown> | null;
   newValues: Record<string, unknown> | null;
+  /**
+   * The audit row's `entity_type` (e.g. `'Enrollment'`). Optional — most
+   * callers (and every pre-[15.2.6] test) don't need it, since the diff
+   * renders identically for every entity type by default. It only
+   * changes behavior for `'Enrollment'`: `student_id`/`class_id` render
+   * as links to the record they name, per [15.2.6] — an enrollment row
+   * carries only ids in its metadata, and an id alone isn't something an
+   * administrator resolving a dispute can act on.
+   */
+  entityType?: string;
 }
 
-function ValueLines({ lines }: { lines: string[] }) {
+/** A field worth linking to the record it names, plus where. */
+type FieldLink =
+  | { to: '/students/$studentId'; params: { studentId: string } }
+  | { to: '/classes/$classId'; params: { classId: string } };
+
+/**
+ * A field/value pair worth linking to another page, and where. Only
+ * covers metadata keys a route actually exists for — `section_id` has no
+ * detail route of its own (a section is shown nested under its class), so
+ * it stays plain text.
+ */
+function linkFor(entityType: string | undefined, key: string, value: unknown): FieldLink | null {
+  if (entityType !== 'Enrollment' || typeof value !== 'string' || value === '') return null;
+  if (key === 'student_id') return { to: '/students/$studentId', params: { studentId: value } };
+  if (key === 'class_id') return { to: '/classes/$classId', params: { classId: value } };
+  return null;
+}
+
+function ValueLines({ lines, link }: { lines: string[]; link: FieldLink | null }) {
   return (
     <>
-      {lines.map((line, index) => (
-        <span key={`${line}-${String(index)}`} className="block break-words">
-          {line}
-        </span>
-      ))}
+      {lines.map((line, index) =>
+        link && index === 0 ? (
+          <Link
+            key={`${line}-${String(index)}`}
+            to={link.to}
+            params={link.params}
+            className="block break-words text-primary underline underline-offset-2"
+          >
+            {line}
+          </Link>
+        ) : (
+          <span key={`${line}-${String(index)}`} className="block break-words">
+            {line}
+          </span>
+        ),
+      )}
     </>
   );
 }
 
-export function DiffPanel({ oldValues, newValues }: DiffPanelProps) {
+export function DiffPanel({ oldValues, newValues, entityType }: DiffPanelProps) {
   const { t } = useTranslation('auditLogs');
   const config = useRegionConfig();
   const [showUnchanged, setShowUnchanged] = React.useState(false);
@@ -118,10 +158,16 @@ export function DiffPanel({ oldValues, newValues }: DiffPanelProps) {
                 </span>
               </TableCell>
               <TableCell className={field.changed ? 'text-muted-foreground' : undefined}>
-                <ValueLines lines={humanizeValue(field.before, humanizeOptions)} />
+                <ValueLines
+                  lines={humanizeValue(field.before, humanizeOptions)}
+                  link={linkFor(entityType, field.key, field.before)}
+                />
               </TableCell>
               <TableCell className={field.changed ? 'font-semibold text-primary' : undefined}>
-                <ValueLines lines={humanizeValue(field.after, humanizeOptions)} />
+                <ValueLines
+                  lines={humanizeValue(field.after, humanizeOptions)}
+                  link={linkFor(entityType, field.key, field.after)}
+                />
               </TableCell>
             </TableRow>
           ))}

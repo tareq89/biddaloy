@@ -1,11 +1,11 @@
 import { SetMetadata } from '@nestjs/common';
-import { AuditAction } from '@biddaloy/shared';
+import { AuditAction, AuditEntityType } from '@biddaloy/shared';
 
 export const AUDITED_METADATA_KEY = 'audited';
 
 export interface AuditedMetadata {
   action: AuditAction;
-  entityType: string;
+  entityType: AuditEntityType;
 }
 
 /**
@@ -16,5 +16,5 @@ export interface AuditedMetadata {
  * a batch operation needs one row per action rather than per response, so
  * those cases call AuditService.record() directly instead.
  */
-export const Audited = (action: AuditAction, entityType: string) =>
+export const Audited = (action: AuditAction, entityType: AuditEntityType) =>
   SetMetadata(AUDITED_METADATA_KEY, { action, entityType });

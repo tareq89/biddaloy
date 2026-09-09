@@ -2,13 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import { AuditLog } from './entities/audit-log.entity';
-import { AuditAction } from '@biddaloy/shared';
+import { AuditAction, AuditEntityType } from '@biddaloy/shared';
 import { redactSensitiveFields } from './redact.util';
 import { QueryAuditLogDto } from './dto/audit-log.dto';
 
 export interface RecordAuditEntryInput {
   action: AuditAction;
-  entity_type: string;
+  entity_type: AuditEntityType;
   entity_id?: string | null;
   tenant_id: string | null;
   performed_by_user_id?: string | null;

@@ -13,10 +13,11 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { UserRole } from '@biddaloy/shared';
+import { Permission, UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
+import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
@@ -33,7 +34,10 @@ import { CreateDeviceDto, DeviceResponseDto, DeviceWithKeyResponseDto } from '..
 @ApiTenantAuth()
 @Controller('attendance/devices')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
-@Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
+// [10.4] G1 — E tightened off: lacks ATTENDANCE_DEVICE_MANAGE, and device
+// management has no EXECUTIVE-visible page.
+@Roles(UserRole.ADMIN)
+@RequirePermissions(Permission.ATTENDANCE_DEVICE_MANAGE)
 export class DevicesController {
   constructor(private readonly deviceService: DeviceService) {}
 

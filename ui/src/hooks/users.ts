@@ -1,4 +1,4 @@
-import type { UserStatus } from '@biddaloy/shared';
+import type { InvitationStatus, UserStatus } from '@biddaloy/shared';
 import {
   keepPreviousData,
   queryOptions,
@@ -30,6 +30,9 @@ export interface UserListFilters {
   role?: UserRoleFilter;
   search?: string;
   status?: UserStatus;
+  /** [12.6] Filters on the derived invitation lifecycle — "who hasn't
+   * activated yet?" from the staff list. */
+  invitation_status?: InvitationStatus;
   joined_from?: string;
   joined_to?: string;
   sort?: 'full_name' | 'email' | 'joined_at' | 'status';
@@ -106,6 +109,13 @@ export function currentUserQueryOptions() {
       return res.data;
     },
     retry: shouldRetryQuery,
+    // [15.4.2] Shell chrome, not page content: `StaffUserMenu` renders
+    // this inside `AppShell`, above the route `<Outlet />`. If a suspended
+    // tenant's 403 were rethrown here (the app query client's default),
+    // it would unmount the whole shell — including the tenant switcher,
+    // the one control that lets a user with a second, still-active school
+    // leave the suspended one. The page-level query rethrows instead.
+    throwOnError: false,
   });
 }
 
@@ -227,6 +237,47 @@ export function useAdminResetPassword(id: string) {
     mutationFn: async () => {
       const res = await apiClient.post<AdminResetPasswordResult>(`/users/${id}/reset-password`);
       return res.data;
+    },
+  });
+}
+
+/** [12.7] `POST /users/me/contact-change`'s 202 body — `'otp'` for a phone
+ * change (the caller moves to the OTP step next), `'link'` for an email
+ * change (the caller sees a "check your inbox" card instead). */
+export type ContactChangeRequestResult =
+  { channel: 'otp'; debug?: { otp?: string } } | { channel: 'link'; debug?: { token?: string } };
+
+export type ContactChangeInput =
+  { email: string; current_password: string } | { phone: string; current_password: string };
+
+/** [12.7] Starts the commit-on-verify contact-change flow for the caller's
+ * own email or phone — `PATCH /users/me` no longer accepts either field
+ * (see `useUpdateOwnProfile`'s own comment). Nothing is written to the
+ * account until the matching confirm step succeeds, so this hook does not
+ * invalidate `userKeys.detail('me')` on success. */
+export function useRequestContactChange() {
+  return useMutation({
+    mutationFn: async (input: ContactChangeInput) => {
+      const res = await apiClient.post<ContactChangeRequestResult>(
+        '/users/me/contact-change',
+        input,
+      );
+      return res.data;
+    },
+  });
+}
+
+/** [12.7] Confirms a pending phone change with the OTP sent to the new
+ * number. Invalidates the caller's own record — this is the point the
+ * server actually writes the new phone. */
+export function useConfirmPhoneChange() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (otp: string) => {
+      await apiClient.post('/users/me/contact-change/confirm-phone', { otp });
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: userKeys.detail('me') });
     },
   });
 }

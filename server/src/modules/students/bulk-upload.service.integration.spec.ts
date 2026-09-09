@@ -462,4 +462,19 @@ describe('StudentBulkUploadService (integration)', () => {
     expect(logs[0].new_values).toMatchObject({ total_rows: 2, success_count: 1, error_count: 1 });
     expect(logs[0].tenant_id).toBe(TENANT_ID);
   });
+
+  it('records the uploading user as the actor on a bulk-created guardian', async () => {
+    const file = await buildXlsxFile([
+      rowValues(headers, { student_name: 'New Guardian Row', guardian1_phone: '+8801799999999' }),
+    ]);
+
+    await service.process(file, TENANT_ID, SEED_ADMIN_USER_ID);
+
+    const guardian = await guardianRepo.findOne({ where: { phone: '+8801799999999' } });
+    const logs = await auditLogRepo.find({
+      where: { action: AuditAction.CREATE, entity_type: 'Guardian', entity_id: guardian?.id },
+    });
+    expect(logs).toHaveLength(1);
+    expect(logs[0].performed_by_user_id).toBe(SEED_ADMIN_USER_ID);
+  });
 });

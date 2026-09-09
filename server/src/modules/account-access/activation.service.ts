@@ -88,6 +88,27 @@ export class ActivationService {
 
     const password_hash = await bcrypt.hash(password, BCRYPT_COST);
 
+    // [12.7] Activating an invite proves the invitee controls whichever
+    // contact the invite actually went out on (`InvitationService.issueAndSend`
+    // records `metadata.channel`/`metadata.contact`) — an EMAIL invite
+    // verifies the email, a PHONE (SMS) invite verifies the phone.
+    //
+    // Bound to the delivered VALUE, not just the medium: if an admin edited
+    // the contact after the invite went out, the person holding that link
+    // proved control of the OLD address, so activating it must not mark the
+    // REPLACEMENT verified. A metadata fingerprint that no longer matches the
+    // current value stamps nothing — as does a pre-12.7 invite row carrying
+    // neither field, which is the same "don't guess" stance.
+    const inviteMeta = row.metadata as { channel?: string; contact?: string } | null;
+    const invitedField: 'email' | 'phone' | null =
+      inviteMeta?.channel === 'EMAIL' ? 'email' : inviteMeta?.channel === 'SMS' ? 'phone' : null;
+    const currentContact = invitedField === 'email' ? user.email : user.phone;
+    const contactUnchanged =
+      !!inviteMeta?.contact &&
+      !!currentContact &&
+      normalizeLoginIdentifier(currentContact) === inviteMeta.contact;
+    const verifiedField: 'email' | 'phone' | null = contactUnchanged ? invitedField : null;
+
     await this.dataSource.transaction(async (manager) => {
       // An INACTIVE invitee becomes ACTIVE on activation; an already-ACTIVE
       // user (re-activating via a still-live invite link) stays ACTIVE.
@@ -96,9 +117,8 @@ export class ActivationService {
         {
           password_hash,
           status: UserStatus.ACTIVE,
-          // TODO(12.7): stamp email_verified_at / phone_verified_at here
-          // once those columns exist — activation implies whichever
-          // channel the invite went out on is verified.
+          ...(verifiedField === 'email' ? { email_verified_at: new Date() } : {}),
+          ...(verifiedField === 'phone' ? { phone_verified_at: new Date() } : {}),
         },
       );
       await this.authTokens.consume(row.id, manager);
@@ -114,6 +134,21 @@ export class ActivationService {
         },
         manager,
       );
+      if (verifiedField) {
+        await this.auditService.record(
+          {
+            action: AuditAction.CONTACT_VERIFIED,
+            entity_type: 'User',
+            entity_id: user.id,
+            tenant_id: row.tenant_id,
+            performed_by_user_id: user.id,
+            ip_address: context.ip,
+            user_agent: context.userAgent,
+            new_values: { field: verifiedField, via: 'activation' },
+          },
+          manager,
+        );
+      }
     });
 
     await this.authService.resetLoginLockouts(user);

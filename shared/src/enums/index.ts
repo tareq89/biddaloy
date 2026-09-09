@@ -14,6 +14,13 @@ export enum UserStatus {
   SUSPENDED = 'SUSPENDED',
 }
 
+/** Lifecycle status of a school/tenant (15.4). `SUSPENDED` schools stay in
+ * place — no data loss, no soft delete — just access-gated by SUPER_ADMIN. */
+export enum SchoolStatus {
+  ACTIVE = 'ACTIVE',
+  SUSPENDED = 'SUSPENDED',
+}
+
 export enum CommunicationMedium {
   SMS = 'SMS',
   WHATSAPP = 'WHATSAPP',
@@ -158,6 +165,16 @@ export enum AuditAction {
   PASSWORD_RESET_REQUESTED = 'PASSWORD_RESET_REQUESTED',
   /** A password was actually changed via the OTP/link recovery flow (self-service or admin-initiated). */
   PASSWORD_RESET = 'PASSWORD_RESET',
+  /** An email or phone was confirmed as owned by the account — activation,
+   * OTP login, password reset, or the contact-change flow (12.7). */
+  CONTACT_VERIFIED = 'CONTACT_VERIFIED',
+  /** A refresh-token family was revoked via self-service session management
+   * (12.8) — GET/DELETE /auth/sessions. */
+  SESSION_REVOKED = 'SESSION_REVOKED',
+  /** A SUPER_ADMIN suspended a school's access (15.4) — PATCH /schools/:id/status. */
+  SUSPEND = 'SUSPEND',
+  /** A SUPER_ADMIN reactivated a previously suspended school (15.4) — PATCH /schools/:id/status. */
+  REACTIVATE = 'REACTIVATE',
 }
 
 export enum EnrollmentStatus {

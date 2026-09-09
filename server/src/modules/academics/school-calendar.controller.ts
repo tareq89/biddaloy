@@ -15,6 +15,7 @@ import { UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
@@ -25,6 +26,7 @@ import {
   QueryWorkingDaysDto,
   UpdateHolidayDto,
 } from './dto/school-calendar.dto';
+import { Permission } from '@biddaloy/shared';
 
 /**
  * Holiday CRUD and the working-day read [9.3]'s write path and [9.4]'s
@@ -42,7 +44,9 @@ export class SchoolCalendarController {
   constructor(private readonly service: SchoolCalendarService) {}
 
   @Get('holidays')
+  // [10.4] G4 — reference-data read.
   @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.ACCOUNTANT, UserRole.TEACHER)
+  @RequirePermissions(Permission.ACADEMIC_STRUCTURE_READ)
   @ApiOperation({ summary: 'List holidays for the current tenant, paginated.' })
   listHolidays(
     @Query() query: QueryHolidayDto,
@@ -52,7 +56,9 @@ export class SchoolCalendarController {
   }
 
   @Post('holidays')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
+  // [10.4] G1 — E tightened off: lacks ACADEMIC_YEAR_MANAGE.
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.ACADEMIC_YEAR_MANAGE)
   @ApiOperation({ summary: 'Create a holiday (or exam-day/event calendar entry).' })
   createHoliday(
     @Body() dto: CreateHolidayDto,
@@ -63,7 +69,9 @@ export class SchoolCalendarController {
   }
 
   @Patch('holidays/:id')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
+  // [10.4] G1 — E tightened off.
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.ACADEMIC_YEAR_MANAGE)
   @ApiOperation({ summary: 'Update a holiday.' })
   updateHoliday(
     @Param('id') id: string,
@@ -75,7 +83,9 @@ export class SchoolCalendarController {
   }
 
   @Delete('holidays/:id')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
+  // [10.4] G1 — E tightened off.
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.ACADEMIC_YEAR_MANAGE)
   @ApiOperation({ summary: 'Soft-delete a holiday.' })
   removeHoliday(
     @Param('id') id: string,
@@ -86,7 +96,9 @@ export class SchoolCalendarController {
   }
 
   @Get('working-days')
+  // [10.4] G4 — reference-data read.
   @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.ACCOUNTANT, UserRole.TEACHER)
+  @RequirePermissions(Permission.ACADEMIC_STRUCTURE_READ)
   @ApiOperation({
     summary:
       'Every working day in [from, to] for the current tenant — weekly-off days and holidays ' +

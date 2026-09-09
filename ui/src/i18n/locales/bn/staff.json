@@ -7,6 +7,8 @@
     "roleFilterAll": "সব ভূমিকা",
     "statusFilterLabel": "অবস্থা",
     "statusFilterAll": "সব অবস্থা",
+    "invitationFilterLabel": "আমন্ত্রণ",
+    "invitationFilterAll": "সব আমন্ত্রণ অবস্থা",
     "joinedRangeLabel": "যোগদানের তারিখ",
     "joinedFromLabel": "যোগদান থেকে",
     "joinedToLabel": "যোগদান পর্যন্ত",
@@ -15,6 +17,7 @@
     "columnPhone": "ফোন",
     "columnRole": "ভূমিকা",
     "columnStatus": "অবস্থা",
+    "columnInvitation": "আমন্ত্রণ",
     "columnJoined": "যোগদান",
     "columnActions": "কার্যক্রম",
     "view": "দেখুন",
@@ -89,6 +92,7 @@
     "errorNameRequired": "ব্যক্তির পূর্ণ নাম লিখুন।",
     "errorEmailRequired": "ইমেইল খালি রাখা যাবে না।",
     "errorMessage": "পরিবর্তন সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।",
+    "contactUnverifiedHint": "এটি পরিবর্তন করলে এটি অযাচাইকৃত হয়ে যাবে।",
     "save": "পরিবর্তন সংরক্ষণ করুন",
     "saving": "সংরক্ষণ করা হচ্ছে…"
   },
@@ -115,6 +119,10 @@
     "back": "কর্মী তালিকায় ফিরে যান",
     "forbidden": "এই ব্যবহারকারীকে দেখার অনুমতি আপনার নেই।",
     "loadError": "এই ব্যবহারকারীকে লোড করা যায়নি। আবার চেষ্টা করুন।",
+    "contact": {
+      "verified": "যাচাইকৃত {{date}}",
+      "unverified": "অযাচাইকৃত"
+    },
     "actions": {
       "editUser": "ব্যবহারকারী সম্পাদনা করুন",
       "editTeacher": "শিক্ষক প্রোফাইল সম্পাদনা করুন",
@@ -132,6 +140,7 @@
       "columnPhone": "ফোন",
       "columnRole": "ভূমিকা",
       "columnStatus": "অবস্থা",
+      "columnInvitation": "আমন্ত্রণ",
       "columnJoined": "যোগদান",
       "columnLastLogin": "সর্বশেষ লগইন",
       "emptyValue": "—",
@@ -157,6 +166,18 @@
       "empty": "এখনও কোনো লগইন রেকর্ড হয়নি।",
       "emptyValue": "—",
       "errorMessage": "লগইন ইতিহাস লোড করা যায়নি। আবার চেষ্টা করুন।"
+    },
+    "invitation": {
+      "resend": "আমন্ত্রণ পুনরায় পাঠান",
+      "resending": "পুনরায় পাঠানো হচ্ছে…",
+      "resendSuccess": "{{name}}-কে আমন্ত্রণ পুনরায় পাঠানো হয়েছে।",
+      "resendError": "আমন্ত্রণ পুনরায় পাঠানো যায়নি। আবার চেষ্টা করুন।",
+      "revoke": "আমন্ত্রণ প্রত্যাহার করুন",
+      "revoking": "প্রত্যাহার করা হচ্ছে…",
+      "revokeConfirmTitle": "এই আমন্ত্রণ প্রত্যাহার করবেন?",
+      "revokeConfirmDescription": "{{name}}-এর বর্তমান আমন্ত্রণ লিংক কাজ করা বন্ধ হয়ে যাবে। অ্যাকাউন্ট সক্রিয় করতে তাঁর একটি নতুন লিংক প্রয়োজন হবে।",
+      "revokeSuccess": "{{name}}-এর আমন্ত্রণ প্রত্যাহার করা হয়েছে।",
+      "revokeError": "আমন্ত্রণ প্রত্যাহার করা যায়নি। আবার চেষ্টা করুন।"
     }
   }
 }

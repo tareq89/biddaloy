@@ -178,6 +178,43 @@
         "conflict": "That email or phone number is already in use"
       }
     },
+    "contact": {
+      "title": "Email & phone",
+      "none": "Not set",
+      "verified": "Verified {{date}}",
+      "unverified": "Unverified",
+      "change": "Change",
+      "description": "We'll send a code or a link to the new value before it replaces the old one.",
+      "newEmailLabel": "New email address",
+      "newPhoneLabel": "New phone number",
+      "currentPasswordLabel": "Current password",
+      "cancel": "Cancel",
+      "continue": "Continue",
+      "changeEmail": {
+        "title": "Change email address"
+      },
+      "changePhone": {
+        "title": "Change phone number"
+      },
+      "otpStep": {
+        "title": "Enter the code",
+        "description": "We sent a 6-digit code to {{value}}.",
+        "label": "Verification code",
+        "confirm": "Confirm"
+      },
+      "emailSent": {
+        "title": "Check your inbox",
+        "description": "We sent a confirmation link to {{value}}. Click it to finish the change.",
+        "done": "Done"
+      },
+      "errors": {
+        "wrongPassword": "That password is not correct",
+        "conflict": "That email or phone number is already in use",
+        "noPassword": "Your account has no password set — ask an admin to update this for you",
+        "invalidCode": "That code is incorrect or has expired",
+        "generic": "Something went wrong. Please try again."
+      }
+    },
     "guardian": {
       "title": "Contact numbers",
       "explanation": "These are the numbers the school's fee reminders call and text.",
@@ -232,6 +269,9 @@
     "signOut": {
       "action": "Sign out",
       "signingOut": "Signing out…"
+    },
+    "devices": {
+      "title": "Devices"
     }
   }
 }

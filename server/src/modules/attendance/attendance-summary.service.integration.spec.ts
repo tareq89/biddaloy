@@ -6,6 +6,7 @@ import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_TENANT_ID } from '@test/constants';
 import { AttendanceModule } from './attendance.module';
+import { AuthModule } from '../auth/auth.module';
 import { AttendanceSummaryService } from './attendance-summary.service';
 import { AttendanceSession } from './entities/attendance-session.entity';
 import { AttendanceRecord } from './entities/attendance-record.entity';
@@ -34,7 +35,7 @@ describe('AttendanceSummaryService (integration)', () => {
     const module = await createTestModule(
       ALL_ENTITIES,
       [],
-      [ConfigModule.forRoot({ isGlobal: true }), AttendanceModule],
+      [ConfigModule.forRoot({ isGlobal: true }), AttendanceModule, AuthModule],
     );
     service = module.get<AttendanceSummaryService>(AttendanceSummaryService);
     dataSource = module.get<DataSource>(getDataSourceToken());

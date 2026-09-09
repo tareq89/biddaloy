@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { DiscoveryModule, DiscoveryService, MetadataScanner } from '@nestjs/core';
-import { Permission, roleHasPermission, UserRole } from '@biddaloy/shared';
+import { Permission, ROLE_PERMISSIONS, roleHasPermission, UserRole } from '@biddaloy/shared';
 import { AppModule } from './app.module';
 import { PermissionsGuard } from './modules/auth/guards/permissions.guard';
 import { ROLES_KEY } from './modules/auth/decorators/roles.decorator';
@@ -10,749 +10,347 @@ import { PERMISSIONS_KEY } from './modules/auth/decorators/require-permissions.d
 import { buildFullPath, RequestMethodName } from './route-guard-coverage.e2e-spec';
 
 /**
- * Regression coverage for [10.3]'s route -> permission mapping (the plan
- * comment on #397's "route -> permission table"). Walks every registered
- * route via DiscoveryService (same machinery as route-guard-coverage), the
- * same way that spec proves the guard stack is present. This spec proves
- * the mapping *declared on* that stack is sound and complete.
+ * Regression coverage for [10.3]/[10.4]'s route -> permission mapping (the
+ * plan comment on #397's "route -> permission table", resolved by #399).
+ * Walks every registered route via DiscoveryService (same machinery as
+ * route-guard-coverage), the same way that spec proves the guard stack is
+ * present. This spec proves the mapping *declared on* that stack is sound
+ * and complete.
  */
 
 const GUARDS_METADATA = '__guards__';
 const PATH_METADATA = 'path';
 const METHOD_METADATA = 'method';
 
-interface PendingEntry {
+interface IdentityScopedEntry {
   controller: string;
   method: string;
   path: string;
-  candidate: Permission | null;
-  drift: UserRole[];
   reason: string;
 }
 
 /**
- * One entry per PENDING/NO-MATCH row in the [10.3] plan's route table.
- * 10.4 resolves these; until then each stays a documented, reviewed gap
- * rather than a silent one. Nothing in [10.3] removes an entry from this
- * list — the third test below only checks that every entry still points at
- * a real route.
+ * [10.4] G13, G14 — routes whose authorization is the caller's *identity*
+ * (their own JWT `sub`, or a linked guardian row), not a capability check.
+ * `ROLE_PERMISSIONS` has nothing to say about "read your own profile" or
+ * "list schools you're a super-admin over" — there is no permission that
+ * would make sense to grant or withhold here. These are the third valid
+ * classification for a `PermissionsGuard` route, alongside "declares
+ * `@RequirePermissions`" below.
  */
-export const PENDING_PERMISSION_DECISION: PendingEntry[] = [
-  // academic-year.controller.ts
+export const IDENTITY_SCOPED: IdentityScopedEntry[] = [
   {
-    controller: 'AcademicYearController',
-    method: 'POST',
-    path: '/academic-years',
-    candidate: Permission.ACADEMIC_YEAR_MANAGE,
-    drift: [UserRole.ACCOUNTANT, UserRole.EXECUTIVE],
-    reason: '10.4 — AC, E lack ACADEMIC_YEAR_MANAGE',
-  },
-  {
-    controller: 'AcademicYearController',
+    controller: 'UserController',
     method: 'GET',
-    path: '/academic-years',
-    candidate: null,
-    drift: [],
-    reason: '10.4 — no read permission for academic structure',
+    path: '/users/me',
+    reason: '10.4 — self-service: the id comes from the JWT, never the path',
   },
   {
-    controller: 'AcademicYearController',
-    method: 'GET',
-    path: '/academic-years/:id',
-    candidate: null,
-    drift: [],
-    reason: '10.4 — no read permission for academic structure',
-  },
-  {
-    controller: 'AcademicYearController',
-    method: 'GET',
-    path: '/academic-years/:id/stats',
-    candidate: null,
-    drift: [],
-    reason: '10.4 — no read permission for academic structure',
-  },
-  {
-    controller: 'AcademicYearController',
+    controller: 'UserController',
     method: 'PATCH',
-    path: '/academic-years/:id',
-    candidate: Permission.ACADEMIC_YEAR_MANAGE,
-    drift: [UserRole.ACCOUNTANT, UserRole.EXECUTIVE],
-    reason: '10.4 — AC, E lack ACADEMIC_YEAR_MANAGE',
+    path: '/users/me',
+    reason: '10.4 — self-service',
   },
   {
-    controller: 'AcademicYearController',
-    method: 'DELETE',
-    path: '/academic-years/:id',
-    candidate: Permission.ACADEMIC_YEAR_MANAGE,
-    drift: [UserRole.ACCOUNTANT, UserRole.EXECUTIVE],
-    reason: '10.4 — AC, E lack ACADEMIC_YEAR_MANAGE',
-  },
-  {
-    controller: 'AcademicYearController',
+    controller: 'UserController',
     method: 'POST',
-    path: '/academic-years/:id/set-current',
-    candidate: Permission.ACADEMIC_YEAR_MANAGE,
-    drift: [UserRole.ACCOUNTANT, UserRole.EXECUTIVE],
-    reason: '10.4 — AC, E lack ACADEMIC_YEAR_MANAGE',
+    path: '/users/me/contact-change',
+    reason: '12.7 — self-service: changes the caller own email/phone, id from the JWT',
   },
-  // school-calendar.controller.ts
   {
-    controller: 'SchoolCalendarController',
+    controller: 'UserController',
+    method: 'POST',
+    path: '/users/me/contact-change/confirm-phone',
+    reason: '12.7 — self-service',
+  },
+  {
+    controller: 'StudentController',
     method: 'GET',
-    path: '/school-calendar/holidays',
-    candidate: null,
-    drift: [],
-    reason: '10.4 — no read permission for academic structure',
+    path: '/guardians/mine',
+    reason: '10.4 — self-service: ownership comes from the JWT, never a path id',
   },
   {
-    controller: 'SchoolCalendarController',
-    method: 'POST',
-    path: '/school-calendar/holidays',
-    candidate: Permission.ACADEMIC_YEAR_MANAGE,
-    drift: [UserRole.EXECUTIVE],
-    reason: '10.4 — E lacks ACADEMIC_YEAR_MANAGE',
-  },
-  {
-    controller: 'SchoolCalendarController',
+    controller: 'StudentController',
     method: 'PATCH',
-    path: '/school-calendar/holidays/:id',
-    candidate: Permission.ACADEMIC_YEAR_MANAGE,
-    drift: [UserRole.EXECUTIVE],
-    reason: '10.4 — E lacks ACADEMIC_YEAR_MANAGE',
+    path: '/guardians/mine',
+    reason: '10.4 — self-service',
   },
   {
-    controller: 'SchoolCalendarController',
-    method: 'DELETE',
-    path: '/school-calendar/holidays/:id',
-    candidate: Permission.ACADEMIC_YEAR_MANAGE,
-    drift: [UserRole.EXECUTIVE],
-    reason: '10.4 — E lacks ACADEMIC_YEAR_MANAGE',
-  },
-  {
-    controller: 'SchoolCalendarController',
+    controller: 'SchoolsController',
     method: 'GET',
-    path: '/school-calendar/working-days',
-    candidate: null,
-    drift: [],
-    reason: '10.4 — no read permission for academic structure',
+    path: '/schools',
+    reason: '10.4 — platform route (SUPER_ADMIN school picker), not tenant-scoped',
   },
-  // subjects.controller.ts (SubjectController)
   {
-    controller: 'SubjectController',
+    controller: 'ProvisioningController',
     method: 'POST',
-    path: '/subjects',
-    candidate: Permission.CLASS_MANAGE,
-    drift: [UserRole.ACCOUNTANT, UserRole.EXECUTIVE],
-    reason: '10.4 — AC, E lack CLASS_MANAGE',
+    path: '/schools',
+    reason:
+      '15.4.4 — platform route (SUPER_ADMIN provisions a brand-new school), not tenant-scoped; RolesGuard(SUPER_ADMIN) is the whole check.',
   },
   {
-    controller: 'SubjectController',
+    controller: 'SchoolAdminsController',
     method: 'GET',
-    path: '/subjects',
-    candidate: null,
-    drift: [],
-    reason: '10.4 — no read permission for academic structure',
+    path: '/schools/:id/admins',
+    reason: '15.4.6 — platform route (SUPER_ADMIN admin recovery), same rationale as GET /schools.',
   },
   {
-    controller: 'SubjectController',
+    controller: 'SchoolAdminsController',
+    method: 'POST',
+    path: '/schools/:id/admins',
+    reason: '15.4.6 — platform route (SUPER_ADMIN admin recovery), same rationale as GET /schools.',
+  },
+  {
+    controller: 'SchoolAdminsController',
+    method: 'POST',
+    path: '/schools/:id/admins/:userId/resend-invitation',
+    reason: '15.4.6 — platform route (SUPER_ADMIN admin recovery), same rationale as GET /schools.',
+  },
+  {
+    controller: 'SchoolAdminsController',
+    method: 'DELETE',
+    path: '/schools/:id/admins/:userId/invitation',
+    reason: '15.4.6 — platform route (SUPER_ADMIN admin recovery), same rationale as GET /schools.',
+  },
+  {
+    controller: 'SchoolsController',
     method: 'GET',
-    path: '/subjects/:id',
-    candidate: null,
-    drift: [],
-    reason: '10.4 — no read permission for academic structure',
+    path: '/schools/:id/stats',
+    reason: '15.4.7 — platform route (SUPER_ADMIN school stats), same rationale as GET /schools.',
   },
   {
-    controller: 'SubjectController',
+    controller: 'SchoolsController',
     method: 'PATCH',
-    path: '/subjects/:id',
-    candidate: Permission.CLASS_MANAGE,
-    drift: [UserRole.ACCOUNTANT, UserRole.EXECUTIVE],
-    reason: '10.4 — AC, E lack CLASS_MANAGE',
+    path: '/schools/:id/status',
+    reason:
+      '15.4.5 — platform route (SUPER_ADMIN suspend/reactivate), same rationale as GET /schools.',
   },
   {
-    controller: 'SubjectController',
-    method: 'DELETE',
-    path: '/subjects/:id',
-    candidate: Permission.CLASS_MANAGE,
-    drift: [UserRole.ACCOUNTANT, UserRole.EXECUTIVE],
-    reason: '10.4 — AC, E lack CLASS_MANAGE',
-  },
-  // subjects.controller.ts (ClassSubjectController — second @Controller('classes') class)
-  {
-    controller: 'ClassSubjectController',
+    controller: 'SchoolProfileController',
     method: 'GET',
-    path: '/classes/:classId/subjects',
-    candidate: null,
-    drift: [],
-    reason: '10.4 — no read permission for academic structure',
+    path: '/schools/me/profile',
+    reason: "15.5.2 — self-service: always the caller's own active tenant, never a path id.",
   },
   {
-    controller: 'ClassSubjectController',
-    method: 'POST',
-    path: '/classes/:classId/subjects',
-    candidate: Permission.CLASS_MANAGE,
-    drift: [UserRole.ACCOUNTANT, UserRole.EXECUTIVE],
-    reason: '10.4 — AC, E lack CLASS_MANAGE',
-  },
-  {
-    controller: 'ClassSubjectController',
-    method: 'DELETE',
-    path: '/classes/:classId/subjects/:subjectId',
-    candidate: Permission.CLASS_MANAGE,
-    drift: [UserRole.ACCOUNTANT, UserRole.EXECUTIVE],
-    reason: '10.4 — AC, E lack CLASS_MANAGE',
-  },
-  // absence-notice.controller.ts
-  {
-    controller: 'AbsenceNoticeController',
-    method: 'POST',
-    path: '/attendance/sections/:sectionId/absence-notice/preview',
-    candidate: Permission.COMMUNICATION_BULK_SEND,
-    drift: [UserRole.EXECUTIVE],
-    reason: '10.4 — E lacks COMMUNICATION_BULK_SEND',
-  },
-  {
-    controller: 'AbsenceNoticeController',
-    method: 'POST',
-    path: '/attendance/sections/:sectionId/absence-notice/send',
-    candidate: Permission.COMMUNICATION_BULK_SEND,
-    drift: [UserRole.EXECUTIVE],
-    reason: '10.4 — E lacks COMMUNICATION_BULK_SEND',
-  },
-  // attendance.controller.ts
-  {
-    controller: 'AttendanceController',
-    method: 'PUT',
-    path: '/attendance/sections/:sectionId/register',
-    candidate: Permission.ATTENDANCE_MARK,
-    drift: [UserRole.EXECUTIVE],
-    reason: '10.4 — E lacks ATTENDANCE_MARK',
-  },
-  {
-    controller: 'AttendanceController',
-    method: 'POST',
-    path: '/attendance/sections/:sectionId/register/finalize',
-    candidate: Permission.ATTENDANCE_MARK,
-    drift: [UserRole.EXECUTIVE],
-    reason: '10.4 — E lacks ATTENDANCE_MARK',
-  },
-  {
-    controller: 'AttendanceController',
+    controller: 'SchoolProfileController',
     method: 'PATCH',
-    path: '/attendance/records/:recordId',
-    candidate: Permission.ATTENDANCE_MARK,
-    drift: [UserRole.EXECUTIVE],
-    reason: '10.4 — E lacks ATTENDANCE_MARK',
-  },
-  // devices.controller.ts
-  {
-    controller: 'DevicesController',
-    method: 'POST',
-    path: '/attendance/devices',
-    candidate: Permission.ATTENDANCE_DEVICE_MANAGE,
-    drift: [UserRole.EXECUTIVE],
-    reason: '10.4 — E lacks ATTENDANCE_DEVICE_MANAGE',
+    path: '/schools/me/profile',
+    reason: '15.5.2 — self-service, same as GET /schools/me/profile.',
   },
   {
-    controller: 'DevicesController',
+    controller: 'SchoolLogoController',
     method: 'GET',
-    path: '/attendance/devices',
-    candidate: Permission.ATTENDANCE_DEVICE_MANAGE,
-    drift: [UserRole.EXECUTIVE],
-    reason: '10.4 — E lacks ATTENDANCE_DEVICE_MANAGE',
+    path: '/schools/:id/logo',
+    reason:
+      '15.5.4 — membership-scoped, not capability-scoped: any staff role that belongs to :id ' +
+      '(or SUPER_ADMIN) may read it — see assertCanReadSchoolLogo. No permission would make ' +
+      'sense to grant or withhold here.',
   },
   {
-    controller: 'DevicesController',
+    controller: 'SchoolLogoController',
     method: 'POST',
-    path: '/attendance/devices/:id/rotate',
-    candidate: Permission.ATTENDANCE_DEVICE_MANAGE,
-    drift: [UserRole.EXECUTIVE],
-    reason: '10.4 — E lacks ATTENDANCE_DEVICE_MANAGE',
+    path: '/schools/me/logo',
+    reason: "15.5.3 — self-service upload, always the caller's own active tenant.",
   },
   {
-    controller: 'DevicesController',
+    controller: 'SchoolLogoController',
     method: 'DELETE',
-    path: '/attendance/devices/:id',
-    candidate: Permission.ATTENDANCE_DEVICE_MANAGE,
-    drift: [UserRole.EXECUTIVE],
-    reason: '10.4 — E lacks ATTENDANCE_DEVICE_MANAGE',
+    path: '/schools/me/logo',
+    reason: '15.5.3 — self-service removal, same as POST /schools/me/logo.',
   },
-  // audit.controller.ts
+];
+
+function findIdentityScopedEntry(
+  controller: string,
+  method: string,
+  path: string,
+): IdentityScopedEntry | undefined {
+  return IDENTITY_SCOPED.find(
+    (entry) => entry.controller === controller && entry.method === method && entry.path === path,
+  );
+}
+
+/**
+ * [10.4] D4 — routes where `@Roles` deliberately admits fewer roles than
+ * every role holding the required `@RequirePermissions` permission(s) would
+ * suggest. Each entry documents *why* the narrowing exists, so the "never
+ * tightens" test above stays meaningful: it proves `@Roles` never grants
+ * more than the permission map allows, and this proves every place it grants
+ * *less* is deliberate, not an oversight.
+ */
+interface RoleNarrowing {
+  controller: string;
+  method: string;
+  path: string;
+  reason: string;
+}
+
+export const ROLE_NARROWINGS: RoleNarrowing[] = [
   {
-    controller: 'AuditController',
+    controller: 'StudentController',
     method: 'GET',
-    path: '/audit-logs/entity/:entityType/:entityId',
-    candidate: Permission.AUDIT_LOG_READ,
-    drift: [UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER],
-    reason: '10.4 — AC, E, T lack AUDIT_LOG_READ',
-  },
-  // classes.controller.ts
-  {
-    controller: 'ClassController',
-    method: 'POST',
-    path: '/classes',
-    candidate: Permission.CLASS_MANAGE,
-    drift: [UserRole.ACCOUNTANT, UserRole.EXECUTIVE],
-    reason: '10.4 — AC, E lack CLASS_MANAGE',
+    path: '/students',
+    reason:
+      'the roster is staff-only, although every role (incl. PARENT/STUDENT) holds STUDENT_READ',
   },
   {
-    controller: 'ClassController',
+    controller: 'StudentController',
     method: 'GET',
-    path: '/classes',
-    candidate: null,
-    drift: [],
-    reason: '10.4 — no read permission for academic structure',
+    path: '/students/mine',
+    reason: 'family-only — the discovery route for a PARENT/STUDENT is meaningless for staff',
   },
   {
-    controller: 'ClassController',
+    controller: 'StudentController',
     method: 'GET',
-    path: '/classes/:id',
-    candidate: null,
-    drift: [],
-    reason: '10.4 — no read permission for academic structure',
+    path: '/guardians',
+    reason: 'staff-only directory read, not exposed to PARENT/STUDENT',
   },
   {
-    controller: 'ClassController',
-    method: 'PATCH',
-    path: '/classes/:id',
-    candidate: Permission.CLASS_MANAGE,
-    drift: [UserRole.ACCOUNTANT, UserRole.EXECUTIVE],
-    reason: '10.4 — AC, E lack CLASS_MANAGE',
-  },
-  {
-    controller: 'ClassController',
-    method: 'DELETE',
-    path: '/classes/:id',
-    candidate: Permission.CLASS_MANAGE,
-    drift: [UserRole.ACCOUNTANT, UserRole.EXECUTIVE],
-    reason: '10.4 — AC, E lack CLASS_MANAGE',
-  },
-  {
-    controller: 'ClassController',
-    method: 'POST',
-    path: '/classes/:classId/sections',
-    candidate: Permission.CLASS_MANAGE,
-    drift: [UserRole.ACCOUNTANT, UserRole.EXECUTIVE],
-    reason: '10.4 — AC, E lack CLASS_MANAGE',
-  },
-  {
-    controller: 'ClassController',
+    controller: 'StudentController',
     method: 'GET',
-    path: '/classes/:classId/sections',
-    candidate: null,
-    drift: [],
-    reason: '10.4 — no read permission for academic structure',
+    path: '/guardians/:id',
+    reason: 'staff-only directory read, not exposed to PARENT/STUDENT',
   },
   {
-    controller: 'ClassController',
-    method: 'PATCH',
-    path: '/classes/:classId/sections/:sectionId',
-    candidate: Permission.CLASS_MANAGE,
-    drift: [UserRole.ACCOUNTANT, UserRole.EXECUTIVE],
-    reason: '10.4 — AC, E lack CLASS_MANAGE',
-  },
-  {
-    controller: 'ClassController',
-    method: 'DELETE',
-    path: '/classes/:classId/sections/:sectionId',
-    candidate: Permission.CLASS_MANAGE,
-    drift: [UserRole.ACCOUNTANT, UserRole.EXECUTIVE],
-    reason: '10.4 — AC, E lack CLASS_MANAGE',
-  },
-  {
-    controller: 'ClassController',
+    controller: 'FeeController',
     method: 'GET',
-    path: '/classes/:classId/teachers',
-    candidate: null,
-    drift: [],
-    reason: '10.4 — no read permission for academic structure',
-  },
-  // communications.controller.ts
-  {
-    controller: 'CommunicationsController',
-    method: 'POST',
-    path: '/communications/reminder/single/:studentId/preview',
-    candidate: Permission.COMMUNICATION_SEND,
-    drift: [UserRole.EXECUTIVE],
-    reason: '10.4 — E lacks COMMUNICATION_SEND',
+    path: '/fees/dues/flagged',
+    reason: 'staff-only follow-up queue — returns guardian contact details, not exposed to family',
   },
   {
-    controller: 'CommunicationsController',
-    method: 'POST',
-    path: '/communications/reminder/single/:studentId',
-    candidate: Permission.COMMUNICATION_SEND,
-    drift: [UserRole.EXECUTIVE],
-    reason: '10.4 — E lacks COMMUNICATION_SEND',
-  },
-  {
-    controller: 'CommunicationsController',
-    method: 'POST',
-    path: '/communications/reminder/bulk/preview',
-    candidate: Permission.COMMUNICATION_BULK_SEND,
-    drift: [UserRole.EXECUTIVE],
-    reason: '10.4 — E lacks COMMUNICATION_BULK_SEND',
-  },
-  {
-    controller: 'CommunicationsController',
-    method: 'POST',
-    path: '/communications/reminder/bulk',
-    candidate: Permission.COMMUNICATION_BULK_SEND,
-    drift: [UserRole.EXECUTIVE],
-    reason: '10.4 — E lacks COMMUNICATION_BULK_SEND',
-  },
-  {
-    controller: 'CommunicationsController',
+    controller: 'FeeController',
     method: 'GET',
-    path: '/communications/reminder/bulk',
-    candidate: Permission.COMMUNICATION_BULK_SEND,
-    drift: [UserRole.EXECUTIVE],
-    reason: '10.4 — E lacks COMMUNICATION_BULK_SEND',
-  },
-  {
-    controller: 'CommunicationsController',
-    method: 'GET',
-    path: '/communications/reminder/bulk/:id/logs',
-    candidate: Permission.COMMUNICATION_BULK_SEND,
-    drift: [UserRole.EXECUTIVE],
-    reason: '10.4 — E lacks COMMUNICATION_BULK_SEND',
-  },
-  {
-    controller: 'CommunicationsController',
-    method: 'GET',
-    path: '/communications/reminder/bulk/:id',
-    candidate: Permission.COMMUNICATION_BULK_SEND,
-    drift: [UserRole.EXECUTIVE],
-    reason: '10.4 — E lacks COMMUNICATION_BULK_SEND',
+    path: '/payments/guardian/:guardianId',
+    reason: "staff-only aggregate read across a guardian's students",
   },
   {
     controller: 'CommunicationsController',
     method: 'POST',
     path: '/communications/send',
-    candidate: Permission.COMMUNICATION_SEND,
-    drift: [UserRole.EXECUTIVE],
-    reason: '10.4 — E lacks COMMUNICATION_SEND',
-  },
-  {
-    controller: 'CommunicationsController',
-    method: 'GET',
-    path: '/communications/last-reminders',
-    candidate: Permission.COMMUNICATION_LOG_READ,
-    drift: [UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER],
-    reason: '10.4 — AC, E, T lack COMMUNICATION_LOG_READ',
-  },
-  {
-    controller: 'CommunicationsController',
-    method: 'GET',
-    path: '/communications/student/:studentId',
-    candidate: Permission.COMMUNICATION_LOG_READ,
-    drift: [UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER],
-    reason: '10.4 — AC, E, T lack COMMUNICATION_LOG_READ',
-  },
-  {
-    controller: 'CommunicationsController',
-    method: 'GET',
-    path: '/communications/guardian/:guardianId',
-    candidate: Permission.COMMUNICATION_LOG_READ,
-    drift: [UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER],
-    reason: '10.4 — AC, E, T lack COMMUNICATION_LOG_READ',
-  },
-  {
-    controller: 'CommunicationsController',
-    method: 'GET',
-    path: '/communications/:id',
-    candidate: Permission.COMMUNICATION_LOG_READ,
-    drift: [UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER],
-    reason: '10.4 — AC, E, T lack COMMUNICATION_LOG_READ',
-  },
-  // enrollments.controller.ts
-  {
-    controller: 'EnrollmentController',
-    method: 'POST',
-    path: '/enrollments',
-    candidate: Permission.STUDENT_UPDATE,
-    drift: [UserRole.ACCOUNTANT, UserRole.EXECUTIVE],
-    reason: '10.4 — AC, E lack STUDENT_UPDATE',
+    reason: 'staff-only send surface, not exposed to family',
   },
   {
     controller: 'EnrollmentController',
-    method: 'PATCH',
-    path: '/enrollments/:id',
-    candidate: Permission.STUDENT_UPDATE,
-    drift: [UserRole.ACCOUNTANT, UserRole.EXECUTIVE],
-    reason: '10.4 — AC, E lack STUDENT_UPDATE',
+    method: 'GET',
+    path: '/enrollments/student/:studentId',
+    reason: 'staff-only enrollment-history view; family holds STUDENT_READ but has no such page',
   },
-  // fees.controller.ts / fee-structures / payments / invoices
   {
-    controller: 'FeeController',
+    controller: 'EnrollmentController',
+    method: 'GET',
+    path: '/enrollments/:studentId/current',
+    reason:
+      'staff-only "move class" starting point; family holds STUDENT_READ but has no such page',
+  },
+  {
+    controller: 'CommunicationsController',
     method: 'POST',
-    path: '/fee-structures',
-    candidate: Permission.FEE_STRUCTURE_CREATE,
-    drift: [UserRole.EXECUTIVE],
-    reason: '10.4 — E lacks FEE_STRUCTURE_CREATE',
+    path: '/communications/reminder/single/:studentId/preview',
+    reason:
+      'fee-reminder sending is a front-office action; TEACHER holds COMMUNICATION_SEND for freeform messages only, not reminders',
   },
   {
-    controller: 'FeeController',
-    method: 'GET',
-    path: '/fee-structures',
-    candidate: Permission.FEE_STRUCTURE_READ,
-    drift: [UserRole.EXECUTIVE, UserRole.TEACHER, UserRole.PARENT, UserRole.STUDENT],
-    reason: '10.4 — E, T, P, S lack FEE_STRUCTURE_READ',
-  },
-  {
-    controller: 'FeeController',
-    method: 'GET',
-    path: '/fee-structures/:id',
-    candidate: Permission.FEE_STRUCTURE_READ,
-    drift: [UserRole.EXECUTIVE, UserRole.TEACHER, UserRole.PARENT, UserRole.STUDENT],
-    reason: '10.4 — E, T, P, S lack FEE_STRUCTURE_READ',
-  },
-  {
-    controller: 'FeeController',
-    method: 'PATCH',
-    path: '/fee-structures/:id',
-    candidate: Permission.FEE_STRUCTURE_UPDATE,
-    drift: [UserRole.EXECUTIVE],
-    reason: '10.4 — E lacks FEE_STRUCTURE_UPDATE',
-  },
-  {
-    controller: 'FeeController',
+    controller: 'CommunicationsController',
     method: 'POST',
-    path: '/payments',
-    candidate: Permission.PAYMENT_RECORD,
-    drift: [UserRole.EXECUTIVE],
-    reason: '10.4 — E lacks PAYMENT_RECORD',
+    path: '/communications/reminder/single/:studentId',
+    reason:
+      'fee-reminder sending is a front-office action; TEACHER holds COMMUNICATION_SEND for freeform messages only, not reminders',
   },
   {
-    controller: 'FeeController',
+    controller: 'AttendanceController',
+    method: 'GET',
+    path: '/attendance/my-sections',
+    reason:
+      'staff marking landing screen; family holds ATTENDANCE_READ for the read-only family view, not this route',
+  },
+  {
+    controller: 'AttendanceController',
+    method: 'GET',
+    path: '/attendance/sections/:sectionId/register',
+    reason:
+      'staff register view; family holds ATTENDANCE_READ for their own child, not the section register',
+  },
+  {
+    controller: 'AttendanceController',
+    method: 'GET',
+    path: '/attendance/records/:recordId/history',
+    reason: 'staff-only correction history for a mark; not exposed on the family attendance view',
+  },
+  {
+    controller: 'AttendanceSummaryController',
+    method: 'GET',
+    path: '/attendance/sections/:sectionId/summary',
+    reason: 'staff-only section summary; family holds ATTENDANCE_READ for their own child only',
+  },
+  {
+    controller: 'AttendanceSummaryController',
+    method: 'GET',
+    path: '/attendance/sections/:sectionId/register-matrix',
+    reason:
+      'staff-only section register matrix; family holds ATTENDANCE_READ for their own child only',
+  },
+  {
+    controller: 'AttendanceSummaryController',
+    method: 'GET',
+    path: '/attendance/flags/low',
+    reason:
+      'staff-only low-attendance follow-up queue, not TEACHER-visible and not exposed to family',
+  },
+  {
+    controller: 'AbsenceNoticeController',
     method: 'POST',
-    path: '/payments/record-with-allocation',
-    candidate: Permission.PAYMENT_RECORD,
-    drift: [UserRole.EXECUTIVE],
-    reason: '10.4 — E lacks PAYMENT_RECORD',
+    path: '/attendance/sections/:sectionId/absence-notice/preview',
+    reason:
+      'school-policy action kept ADMIN-only; ACCOUNTANT holds COMMUNICATION_BULK_SEND for fee reminders, not this',
   },
   {
-    controller: 'FeeController',
-    method: 'GET',
-    path: '/payments/invoices/student/:studentId',
-    candidate: Permission.INVOICE_READ,
-    drift: [UserRole.EXECUTIVE, UserRole.TEACHER],
-    reason: '10.4 — E, T lack INVOICE_READ',
-  },
-  // invoices.controller.ts
-  {
-    controller: 'InvoicesController',
+    controller: 'AbsenceNoticeController',
     method: 'POST',
-    path: '/invoices',
-    candidate: Permission.INVOICE_CREATE,
-    drift: [UserRole.EXECUTIVE],
-    reason: '10.4 — E lacks INVOICE_CREATE',
-  },
-  {
-    controller: 'InvoicesController',
-    method: 'GET',
-    path: '/invoices',
-    candidate: Permission.INVOICE_READ,
-    drift: [UserRole.EXECUTIVE, UserRole.TEACHER],
-    reason: '10.4 — E, T lack INVOICE_READ',
-  },
-  {
-    controller: 'InvoicesController',
-    method: 'GET',
-    path: '/invoices/:id',
-    candidate: Permission.INVOICE_READ,
-    drift: [UserRole.EXECUTIVE, UserRole.TEACHER],
-    reason: '10.4 — E, T lack INVOICE_READ',
-  },
-  {
-    controller: 'InvoicesController',
-    method: 'GET',
-    path: '/invoices/:id/print',
-    candidate: Permission.INVOICE_PRINT,
-    drift: [UserRole.EXECUTIVE, UserRole.TEACHER, UserRole.PARENT, UserRole.STUDENT],
-    reason: '10.4 — E, T, P, S lack INVOICE_PRINT',
-  },
-  // schools.controller.ts
-  {
-    controller: 'SchoolsController',
-    method: 'GET',
-    path: '/schools',
-    candidate: null,
-    drift: [],
-    reason: '10.4 — platform route, not tenant-scoped',
-  },
-  // students.controller.ts
-  {
-    controller: 'StudentController',
-    method: 'POST',
-    path: '/students',
-    candidate: Permission.STUDENT_CREATE,
-    drift: [UserRole.ACCOUNTANT, UserRole.EXECUTIVE],
-    reason: '10.4 — AC, E lack STUDENT_CREATE',
-  },
-  {
-    controller: 'StudentController',
-    method: 'PATCH',
-    path: '/students/:id',
-    candidate: Permission.STUDENT_UPDATE,
-    drift: [UserRole.ACCOUNTANT, UserRole.EXECUTIVE],
-    reason: '10.4 — AC, E lack STUDENT_UPDATE',
-  },
-  {
-    controller: 'StudentController',
-    method: 'POST',
-    path: '/guardians',
-    candidate: Permission.GUARDIAN_CREATE,
-    drift: [UserRole.ACCOUNTANT, UserRole.EXECUTIVE],
-    reason: '10.4 — AC, E lack GUARDIAN_CREATE',
-  },
-  {
-    controller: 'StudentController',
-    method: 'GET',
-    path: '/guardians',
-    candidate: Permission.GUARDIAN_READ,
-    drift: [UserRole.EXECUTIVE],
-    reason: '10.4 — E lacks GUARDIAN_READ',
-  },
-  {
-    controller: 'StudentController',
-    method: 'GET',
-    path: '/guardians/mine',
-    candidate: null,
-    drift: [],
-    reason: '10.4 — self-service: identity, not permission',
-  },
-  {
-    controller: 'StudentController',
-    method: 'PATCH',
-    path: '/guardians/mine',
-    candidate: null,
-    drift: [],
-    reason: '10.4 — self-service',
-  },
-  {
-    controller: 'StudentController',
-    method: 'GET',
-    path: '/guardians/:id',
-    candidate: Permission.GUARDIAN_READ,
-    drift: [UserRole.EXECUTIVE],
-    reason: '10.4 — E lacks GUARDIAN_READ',
-  },
-  {
-    controller: 'StudentController',
-    method: 'PATCH',
-    path: '/guardians/:id',
-    candidate: Permission.GUARDIAN_UPDATE,
-    drift: [UserRole.ACCOUNTANT, UserRole.EXECUTIVE],
-    reason: '10.4 — AC, E lack GUARDIAN_UPDATE',
-  },
-  {
-    controller: 'StudentController',
-    method: 'DELETE',
-    path: '/guardians/:id',
-    candidate: null,
-    drift: [],
-    reason: '10.4 — no GUARDIAN_DELETE value',
-  },
-  // users.controller.ts
-  {
-    controller: 'UserController',
-    method: 'POST',
-    path: '/users',
-    candidate: Permission.USER_CREATE,
-    drift: [UserRole.EXECUTIVE],
-    reason: '10.4 — E lacks USER_CREATE',
-  },
-  {
-    controller: 'UserController',
-    method: 'POST',
-    path: '/users/:id/invitation/resend',
-    candidate: Permission.USER_CREATE,
-    drift: [UserRole.EXECUTIVE],
-    reason: '10.4 — E lacks USER_CREATE',
-  },
-  {
-    controller: 'UserController',
-    method: 'DELETE',
-    path: '/users/:id/invitation',
-    candidate: Permission.USER_CREATE,
-    drift: [UserRole.EXECUTIVE],
-    reason: '10.4 — E lacks USER_CREATE',
-  },
-  {
-    controller: 'UserController',
-    method: 'GET',
-    path: '/users',
-    candidate: Permission.USER_READ,
-    drift: [UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER],
-    reason: '10.4 — AC, E, T lack USER_READ',
-  },
-  {
-    controller: 'UserController',
-    method: 'GET',
-    path: '/users/me',
-    candidate: null,
-    drift: [],
-    reason: '10.4 — self-service',
-  },
-  {
-    controller: 'UserController',
-    method: 'PATCH',
-    path: '/users/me',
-    candidate: null,
-    drift: [],
-    reason: '10.4 — self-service',
-  },
-  {
-    controller: 'UserController',
-    method: 'GET',
-    path: '/users/:id',
-    candidate: Permission.USER_READ,
-    drift: [UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER],
-    reason: '10.4 — AC, E, T lack USER_READ',
-  },
-  {
-    controller: 'UserController',
-    method: 'PATCH',
-    path: '/users/:id',
-    candidate: Permission.USER_UPDATE,
-    drift: [UserRole.EXECUTIVE],
-    reason: '10.4 — E lacks USER_UPDATE',
-  },
-  {
-    controller: 'UserController',
-    method: 'POST',
-    path: '/teachers',
-    candidate: Permission.USER_CREATE,
-    drift: [UserRole.EXECUTIVE],
-    reason: '10.4 — E lacks USER_CREATE',
-  },
-  {
-    controller: 'UserController',
-    method: 'GET',
-    path: '/teachers',
-    candidate: Permission.USER_READ,
-    drift: [UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER],
-    reason: '10.4 — AC, E, T lack USER_READ',
-  },
-  {
-    controller: 'UserController',
-    method: 'PATCH',
-    path: '/teachers/:id',
-    candidate: Permission.USER_UPDATE,
-    drift: [UserRole.EXECUTIVE],
-    reason: '10.4 — E lacks USER_UPDATE',
+    path: '/attendance/sections/:sectionId/absence-notice/send',
+    reason:
+      'school-policy action kept ADMIN-only; ACCOUNTANT holds COMMUNICATION_BULK_SEND for fee reminders, not this',
   },
 ];
 
-function findPendingEntry(
+function findRoleNarrowing(
   controller: string,
   method: string,
   path: string,
-): PendingEntry | undefined {
-  return PENDING_PERMISSION_DECISION.find(
+): RoleNarrowing | undefined {
+  return ROLE_NARROWINGS.find(
     (entry) => entry.controller === controller && entry.method === method && entry.path === path,
   );
 }
+
+/**
+ * [10.4] D5 — permission values that gate the UI (nav items, dashboard
+ * widgets, report buttons) but no server route requires. Nav/page-only
+ * gates are legitimate; this list makes which ones exist a deliberate,
+ * reviewed choice rather than a silent accumulation.
+ */
+export const UI_ONLY_PERMISSIONS: Permission[] = [
+  // Nav/page gates with no corresponding route check.
+  Permission.DASHBOARD_VIEW,
+  Permission.DASHBOARD_ADMIN,
+  Permission.REPORTS_VIEW,
+  Permission.REPORTS_EXPORT,
+  // [10.4] G17 — reserved for endpoints that don't exist yet (#291's
+  // refund/void work); granted to ADMIN so the value isn't dead weight once
+  // that endpoint ships, but nothing consumes it today.
+  Permission.INVOICE_DELETE,
+  Permission.PAYMENT_REFUND,
+  // [10.4] G17 — no route deletes a user account; SUPER_ADMIN-only via
+  // Object.values(Permission), never granted to a staff role.
+  Permission.USER_DELETE,
+  // Pre-existing UI-only gates, unaffected by [10.4]: no route requires
+  // these — they gate a button/action inline rather than a whole route
+  // (fee-structure management page nav, invoice print button, correcting a
+  // mark outside the window, collecting a fee).
+  Permission.FEE_STRUCTURE_READ,
+  Permission.INVOICE_PRINT,
+  Permission.ATTENDANCE_CORRECT,
+  Permission.FEE_COLLECT,
+];
 
 describe('Permission matrix (regression)', () => {
   let moduleRef: TestingModule;
@@ -844,17 +442,18 @@ describe('Permission matrix (regression)', () => {
     expect(violations).toEqual([]);
   });
 
-  it('classifies every PermissionsGuard route as either APPLY or PENDING_PERMISSION_DECISION', () => {
+  it('[10.4] classifies every PermissionsGuard route as APPLY (@RequirePermissions) or IDENTITY_SCOPED', () => {
     const violations: string[] = [];
 
     walkRoutes(({ controllerName, methodLabel, fullPath, permissions }) => {
       if (permissions.length > 0) return; // APPLY
 
-      const pending = findPendingEntry(controllerName, methodLabel, fullPath);
-      if (!pending) {
+      const identityScoped = findIdentityScopedEntry(controllerName, methodLabel, fullPath);
+      if (!identityScoped) {
         violations.push(
           `${methodLabel} ${fullPath} (${controllerName}) has no @RequirePermissions and no ` +
-            'PENDING_PERMISSION_DECISION entry — classify it as one or the other',
+            'IDENTITY_SCOPED entry — a new route must declare @RequirePermissions() or be added ' +
+            'to IDENTITY_SCOPED with a reason',
         );
       }
     });
@@ -862,16 +461,63 @@ describe('Permission matrix (regression)', () => {
     expect(violations).toEqual([]);
   });
 
-  it('keeps every PENDING_PERMISSION_DECISION entry pointed at a route that still exists', () => {
+  it('keeps every IDENTITY_SCOPED entry pointed at a route that still exists', () => {
     const existingRoutes = new Set<string>();
 
     walkRoutes(({ controllerName, methodLabel, fullPath }) => {
       existingRoutes.add(`${controllerName}|${methodLabel}|${fullPath}`);
     });
 
-    const stale = PENDING_PERMISSION_DECISION.filter(
+    const stale = IDENTITY_SCOPED.filter(
       (entry) => !existingRoutes.has(`${entry.controller}|${entry.method}|${entry.path}`),
     );
     expect(stale).toEqual([]);
+  });
+
+  it('[10.4] documents every deliberate @Roles narrowing', () => {
+    const violations: string[] = [];
+    const allRoles = Object.values(UserRole);
+
+    walkRoutes(({ controllerName, methodLabel, fullPath, roles, permissions }) => {
+      if (permissions.length === 0) return; // self-service / platform — not a narrowing question
+
+      const holders = allRoles.filter((role) =>
+        permissions.every((permission) => roleHasPermission(role, permission)),
+      );
+      const roleSet = new Set<UserRole>([...roles, UserRole.SUPER_ADMIN]);
+      const holderSet = new Set<UserRole>(holders);
+
+      const sameMembers =
+        roleSet.size === holderSet.size && [...roleSet].every((role) => holderSet.has(role));
+      if (sameMembers) return;
+
+      const narrowing = findRoleNarrowing(controllerName, methodLabel, fullPath);
+      if (!narrowing) {
+        violations.push(
+          `${methodLabel} ${fullPath} (${controllerName}) — @Roles (${[...roleSet].join(', ')}) ` +
+            `differs from every role holding the required permission(s) (${[...holderSet].join(', ')}) ` +
+            'and has no ROLE_NARROWINGS entry',
+        );
+      }
+    });
+
+    expect(violations).toEqual([]);
+  });
+
+  it('[10.4] lists every UI-only permission', () => {
+    const requiredByRoute = new Set<Permission>();
+    walkRoutes(({ permissions }) => {
+      for (const permission of permissions) requiredByRoute.add(permission);
+    });
+
+    const uiOnly = Object.values(Permission).filter(
+      (permission) => !requiredByRoute.has(permission),
+    );
+
+    expect(new Set(uiOnly)).toEqual(new Set(UI_ONLY_PERMISSIONS));
+  });
+
+  it('SUPER_ADMIN holds every permission (sanity check for the narrowing test above)', () => {
+    expect(ROLE_PERMISSIONS[UserRole.SUPER_ADMIN]).toEqual(Object.values(Permission));
   });
 });

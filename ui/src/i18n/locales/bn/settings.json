@@ -8,6 +8,29 @@
   "settingsLoadError": "এই স্কুলের সেটিংস লোড করা যায়নি। পাতাটি রিফ্রেশ করে আবার চেষ্টা করুন।",
   "configuringBanner": "{{schoolName}} এর সেটিংস কনফিগার করা হচ্ছে",
   "unnamedSchool": "এই স্কুল",
+  "profile": {
+    "legend": "স্কুল প্রোফাইল",
+    "loadError": "আপনার স্কুল প্রোফাইল লোড করা যায়নি। পাতাটি রিফ্রেশ করে আবার চেষ্টা করুন।",
+    "name": "নাম",
+    "nameBn": "নাম (বাংলা)",
+    "address": "ঠিকানা",
+    "phone": "ফোন",
+    "email": "ইমেইল",
+    "registrationId": "EIIN / নিবন্ধন আইডি",
+    "logo": {
+      "legend": "লোগো",
+      "alt": "স্কুলের লোগো",
+      "empty": "কোনো লোগো নেই",
+      "upload": "লোগো আপলোড করুন",
+      "uploading": "আপলোড হচ্ছে…",
+      "uploadError": "ছবিটি আপলোড করা যায়নি। এটি PNG, JPEG বা WebP এবং 512KB ও 2048px এর মধ্যে কিনা নিশ্চিত করুন।",
+      "tooLarge": "ফাইলটি 512KB এর চেয়ে বড়।",
+      "remove": "লোগো সরান",
+      "removeConfirm": "স্কুলের লোগো সরাতে চান?",
+      "removeConfirmYes": "সরান",
+      "removeCancel": "বাতিল করুন"
+    }
+  },
   "secret": {
     "configured": "কনফিগার করা আছে — শেষ {{hint}}",
     "configuredNoHint": "কনফিগার করা আছে",
@@ -117,5 +140,9 @@
     "confirmEnableNotificationDescription": "এটি চালু করলে প্রতিদিন প্রতিটি অনুপস্থিত শিক্ষার্থীর অভিভাবককে স্বয়ংক্রিয়ভাবে একটি বিজ্ঞপ্তি পাঠানো হবে। আপনি কি নিশ্চিত?",
     "confirmEnableNotificationConfirm": "হ্যাঁ, চালু করুন",
     "confirmEnableNotificationCancel": "বাতিল"
+  },
+  "signIn": {
+    "legend": "লগ ইন অপশন",
+    "otpLoginEnabled": "মোবাইল নম্বর + কোড দিয়ে লগ ইন অনুমতি দিন"
   }
 }

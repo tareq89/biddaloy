@@ -55,7 +55,20 @@
     "User": "ব্যবহারকারী",
     "School": "স্কুল",
     "ReminderBatch": "রিমাইন্ডার ব্যাচ",
-    "ReminderBatchPreview": "রিমাইন্ডার প্রিভিউ"
+    "ReminderBatchPreview": "রিমাইন্ডার প্রিভিউ",
+    "AbsenceNoticePreview": "অনুপস্থিতি নোটিশ প্রিভিউ",
+    "AcademicYear": "শিক্ষাবর্ষ",
+    "AttendanceDevice": "উপস্থিতি ডিভাইস",
+    "AttendanceRecord": "উপস্থিতি রেকর্ড",
+    "AttendanceSession": "উপস্থিতি সেশন",
+    "Class": "ক্লাস",
+    "ClassSection": "ক্লাস শাখা",
+    "Enrollment": "ভর্তি",
+    "Guardian": "অভিভাবক",
+    "InvitationBatch": "আমন্ত্রণ ব্যাচ",
+    "RefreshToken": "সেশন",
+    "SchoolHoliday": "স্কুলের ছুটি",
+    "unknown": "রেকর্ড"
   },
   "summaries": {
     "CREATE": "একটি নতুন {{entity}} যোগ করা হয়েছে।",
@@ -124,6 +137,13 @@
     "section_id": "শাখা আইডি",
     "academic_year_id": "শিক্ষাবর্ষ আইডি",
     "student_id": "শিক্ষার্থী আইডি",
-    "role": "ভূমিকা"
+    "role": "ভূমিকা",
+    "numeric_grade": "গ্রেড",
+    "section_name": "শাখার নাম",
+    "capacity": "ধারণক্ষমতা",
+    "start_date": "শুরুর তারিখ",
+    "end_date": "শেষের তারিখ",
+    "is_current": "চলমান বছর",
+    "enrollment_status": "ভর্তির অবস্থা"
   }
 }

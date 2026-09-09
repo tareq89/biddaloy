@@ -356,9 +356,14 @@ fail or (worse, for some endpoints) succeed because the server's
 `@Roles` list is broader than `ROLE_PERMISSIONS` for that role. This
 ticket stops the client from _showing_ data a role shouldn't see. It does
 not stop a script from calling the same API directly and getting the
-same over-broad response the server already returns — closing **that**
-gap is [#399](https://github.com/tareq89/biddaloy/issues/399) (Epic
-10.0)'s job, not this one's.
+same over-broad response the server already returns.
+
+[#399](https://github.com/tareq89/biddaloy/issues/399) ([10.4]) closed
+that server-side gap: every tenant route now declares
+`@RequirePermissions`, and `@Roles` no longer admits a role
+`ROLE_PERMISSIONS` doesn't back. See
+`server/src/permission-matrix.e2e-spec.ts` for the regression coverage
+and the `ROLE_NARROWINGS`/`UI_ONLY_PERMISSIONS` lists it enforces.
 
 ### How a guardian moves between their children
 

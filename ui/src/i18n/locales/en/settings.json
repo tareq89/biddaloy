@@ -8,6 +8,29 @@
   "configuringBanner": "Configuring settings for {{schoolName}}",
   "unnamedSchool": "this school",
   "settingsLoadError": "Couldn't load settings for this school. Try refreshing the page.",
+  "profile": {
+    "legend": "School profile",
+    "loadError": "Couldn't load your school profile. Try refreshing the page.",
+    "name": "Name",
+    "nameBn": "Name (Bengali)",
+    "address": "Address",
+    "phone": "Phone",
+    "email": "Email",
+    "registrationId": "EIIN / registration ID",
+    "logo": {
+      "legend": "Logo",
+      "alt": "School logo",
+      "empty": "No logo",
+      "upload": "Upload logo",
+      "uploading": "Uploading…",
+      "uploadError": "Couldn't upload that image. Make sure it's a PNG, JPEG or WebP under 512KB and 2048px per side.",
+      "tooLarge": "That file is larger than 512KB.",
+      "remove": "Remove logo",
+      "removeConfirm": "Remove the school logo?",
+      "removeConfirmYes": "Remove",
+      "removeCancel": "Cancel"
+    }
+  },
   "secret": {
     "configured": "Configured — ends {{hint}}",
     "configuredNoHint": "Configured",
@@ -117,5 +140,9 @@
     "confirmEnableNotificationDescription": "Enabling this sends every absent student's guardian a notification automatically, every school day. Are you sure?",
     "confirmEnableNotificationConfirm": "Yes, enable it",
     "confirmEnableNotificationCancel": "Cancel"
+  },
+  "signIn": {
+    "legend": "Sign-in options",
+    "otpLoginEnabled": "Allow sign-in with mobile number + code"
   }
 }

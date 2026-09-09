@@ -1,12 +1,15 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Logger } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { Job } from 'bullmq';
+import * as Sentry from '@sentry/node';
 import { CommunicationLog } from '../entities/communication-log.entity';
 import { CommunicationStatus } from '@biddaloy/shared';
 import { CommunicationProviderRegistryService } from '../providers/communication-provider.registry';
 import { recordBatchOutcome, BatchOutcome } from '../reminder-batch-counters';
 import { COMMUNICATIONS_QUEUE } from '../communications.constants';
+import { TenantStatusService } from '../../schools/tenant-status.service';
 
 interface SendJobData {
   logId: string;
@@ -33,10 +36,13 @@ interface SendJobData {
  */
 @Processor(COMMUNICATIONS_QUEUE)
 export class CommunicationsProcessor extends WorkerHost {
+  private readonly logger = new Logger(CommunicationsProcessor.name);
+
   constructor(
     @InjectRepository(CommunicationLog)
     private readonly repo: Repository<CommunicationLog>,
     private readonly providerRegistry: CommunicationProviderRegistryService,
+    private readonly tenantStatus: TenantStatusService,
   ) {
     super();
   }
@@ -74,8 +80,22 @@ export class CommunicationsProcessor extends WorkerHost {
     // gets its job picked up again. Resending here would duplicate the
     // message to the guardian and double-count a batch that already
     // recorded this outcome, so a log that's already SENT/FAILED is treated
-    // as done rather than reprocessed.
+    // as done rather than reprocessed. This runs before the suspension
+    // check below on purpose: a replayed SENT log for a since-suspended
+    // tenant must stay SENT, not be rewritten to FAILED and settled twice.
     if (log.status === CommunicationStatus.SENT || log.status === CommunicationStatus.FAILED) {
+      return;
+    }
+
+    // #528: a school can be suspended after work was already queued for it.
+    // No provider call, no SMS credit debit for a suspended tenant — settle
+    // the log as FAILED and return without throwing so BullMQ does not
+    // retry. Work queued before suspension is NOT resumed automatically on
+    // reactivation; the admin has to re-send (see docs/architecture/05-communications.md).
+    if (!(await this.tenantStatus.isActive(log.tenant_id))) {
+      log.status = CommunicationStatus.FAILED;
+      log.metadata = { ...log.metadata, reason: 'TENANT_SUSPENDED' };
+      await this.settle(log, 'failure');
       return;
     }
 
@@ -141,6 +161,19 @@ export class CommunicationsProcessor extends WorkerHost {
     if (isFinalAttempt || result.retryable === false) {
       log.status = CommunicationStatus.FAILED;
       await this.settle(log, 'failure');
+      // BullMQ only fires `failed` when the processor throws — a terminal
+      // failure recorded here still returns normally, so this handler is
+      // the only place that reports it (`onFailed` never sees this job).
+      this.reportFailure(
+        {
+          queue: COMMUNICATIONS_QUEUE,
+          job_name: job.name,
+          communication_log_id: log.id,
+          tenant_id: log.tenant_id,
+          medium: log.medium,
+        },
+        new Error(result.error ?? `Provider failed to send communication ${log.id}`),
+      );
       return;
     }
 
@@ -150,5 +183,81 @@ export class CommunicationsProcessor extends WorkerHost {
     // the send failed.
     await this.repo.save(log);
     throw new Error(result.error ?? `Provider failed to send communication ${log.id}`);
+  }
+
+  /**
+   * [15.1.4] Tags a failed/stalled BullMQ event with ids only — never
+   * `job.data`/log body — so Sentry's PII allowlist (`common/sentry.ts`)
+   * isn't relied on as the only backstop for a queue-specific payload it
+   * has no visibility into.
+   */
+  private async buildTags(job: Job<SendJobData>): Promise<Record<string, string>> {
+    const tags: Record<string, string> = {
+      queue: COMMUNICATIONS_QUEUE,
+      job_name: job.name,
+      communication_log_id: job.data.logId,
+    };
+    // Best-effort: the log may already be gone (hard-deleted) by the time a
+    // stalled/failed event fires, or the lookup itself can reject (DB
+    // hiccup) — either way tenant/medium are a nice-to-have, not a
+    // precondition for reporting the failure itself.
+    const log = await this.repo.findOne({ where: { id: job.data.logId } }).catch(() => null);
+    if (log) {
+      tags.tenant_id = log.tenant_id;
+      tags.medium = log.medium;
+    }
+    return tags;
+  }
+
+  private reportFailure(tags: Record<string, string>, err: Error): void {
+    this.logger.error({
+      msg: 'communications job failed permanently',
+      ...tags,
+      error_class: err?.constructor?.name,
+    });
+    Sentry.withScope((scope) => {
+      scope.setTags(tags);
+      Sentry.captureException(err);
+    });
+  }
+
+  @OnWorkerEvent('failed')
+  async onFailed(job: Job<SendJobData> | undefined, err: Error): Promise<void> {
+    if (!job) {
+      return;
+    }
+    const maxAttempts = job.opts.attempts ?? 1;
+    const isFinalAttempt = job.attemptsMade >= maxAttempts;
+    if (!isFinalAttempt) {
+      return;
+    }
+    const tags = await this.buildTags(job);
+    this.reportFailure(tags, err);
+  }
+
+  @OnWorkerEvent('stalled')
+  async onStalled(jobId: string): Promise<void> {
+    // The queue job id (`jobId`) is not the communication log id — enqueue
+    // callers only ever store that in `SendJobData.logId`. Resolve the
+    // actual BullMQ job first so the log lookup (and thus tenant_id/medium)
+    // targets the right row instead of silently missing it.
+    const job = await Promise.resolve()
+      .then(() => Job.fromId<SendJobData>(this.worker, jobId))
+      .catch(() => undefined);
+    const logId = job?.data.logId ?? jobId;
+    const tags: Record<string, string> = {
+      queue: COMMUNICATIONS_QUEUE,
+      communication_log_id: logId,
+    };
+    const log = await this.repo.findOne({ where: { id: logId } }).catch(() => null);
+    if (log) {
+      tags.tenant_id = log.tenant_id;
+      tags.medium = log.medium;
+    }
+    this.logger.error({ msg: 'communications job stalled', ...tags });
+    Sentry.withScope((scope) => {
+      scope.setTags(tags);
+      Sentry.captureMessage('communications job stalled', 'warning');
+    });
   }
 }

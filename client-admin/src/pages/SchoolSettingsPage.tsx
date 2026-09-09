@@ -7,6 +7,8 @@ import { AttendanceSection } from './settings/AttendanceSection';
 import { EmailSection } from './settings/EmailSection';
 import { MessengerSection } from './settings/MessengerSection';
 import { RegionalSection } from './settings/RegionalSection';
+import { SchoolProfileSection } from './settings/school-profile-section';
+import { SignInSection } from './settings/SignInSection';
 import { SmsSection } from './settings/SmsSection';
 import { WhatsAppSection } from './settings/WhatsAppSection';
 
@@ -66,6 +68,12 @@ export function SchoolSettingsPage() {
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
       <h1 className="text-lg font-semibold">{t('title')}</h1>
 
+      {/* [15.5.6] Always the caller's own school (GET/PATCH
+          /schools/me/profile), independent of the SUPER_ADMIN picker
+          below — there is no route yet for a SUPER_ADMIN to edit another
+          school's identity, only its provider settings. */}
+      <SchoolProfileSection />
+
       {isSuperAdmin && (
         <div className="grid gap-1.5">
           <label htmlFor="school-picker" className="text-sm font-medium">
@@ -111,6 +119,7 @@ export function SchoolSettingsPage() {
         <div className="flex flex-col gap-8">
           <RegionalSection schoolId={schoolId} region={settingsQuery.data.region} />
           <AttendanceSection schoolId={schoolId} attendance={settingsQuery.data.attendance} />
+          <SignInSection key={schoolId} schoolId={schoolId} auth={settingsQuery.data.auth} />
           <WhatsAppSection
             schoolId={schoolId}
             whatsapp={settingsQuery.data.communications?.whatsapp}

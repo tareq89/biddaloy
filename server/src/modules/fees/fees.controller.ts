@@ -19,6 +19,7 @@ import {
   ApiExtraModels,
   ApiOkResponse,
   ApiOperation,
+  ApiResponse,
   ApiTags,
   getSchemaPath,
 } from '@nestjs/swagger';
@@ -57,6 +58,7 @@ import {
 } from './dto/fees.dto';
 import { FeeStructure } from './entities/fee-structure.entity';
 import { Payment } from './entities/payment.entity';
+import { IssuerSnapshot } from '../schools/profile/issuer-snapshot';
 import { Permission, UserRole, isGuardianRole } from '@biddaloy/shared';
 import { JwtPayload } from '@biddaloy/shared';
 import { requestContext } from '../../common/request-context.util';
@@ -171,7 +173,9 @@ export class FeeController {
   // --- Fee Structure endpoints ---
 
   @Post('fee-structures')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  // [10.4] G1 — E tightened off: lacks FEE_STRUCTURE_CREATE.
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.FEE_STRUCTURE_CREATE)
   createFeeStructure(
     @Body() dto: CreateFeeStructureDto,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -188,6 +192,9 @@ export class FeeController {
     UserRole.PARENT,
     UserRole.STUDENT,
   )
+  // [10.4] G8, FEE_READ, not FEE_STRUCTURE_READ — object-scoped read, see
+  // permissions.ts. FEE_STRUCTURE_READ stays the management-page gate.
+  @RequirePermissions(Permission.FEE_READ)
   @ApiOperation({
     summary:
       "The school's fee catalog. Tenant-scoped but not student-scoped — it is the published price list, so no object-level check applies. [5.1] opened it to PARENT/STUDENT so the portal can explain what a due is for.",
@@ -220,6 +227,9 @@ export class FeeController {
     UserRole.PARENT,
     UserRole.STUDENT,
   )
+  // [10.4] G8, FEE_READ, not FEE_STRUCTURE_READ — object-scoped read, see
+  // permissions.ts.
+  @RequirePermissions(Permission.FEE_READ)
   @ApiOperation({
     summary:
       "Get one fee structure. Family callers get a reduced shape without the `selected_students` roster — that relation carries other families' children in full.",
@@ -247,7 +257,9 @@ export class FeeController {
   }
 
   @Patch('fee-structures/:id')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  // [10.4] G1 — E tightened off: lacks FEE_STRUCTURE_UPDATE.
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.FEE_STRUCTURE_UPDATE)
   updateFeeStructure(
     @Param('id') id: string,
     @Body() dto: UpdateFeeStructureDto,
@@ -271,7 +283,9 @@ export class FeeController {
   // --- Payment endpoints ---
 
   @Post('payments')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  // [10.4] G1 — E tightened off: lacks PAYMENT_RECORD.
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.PAYMENT_RECORD)
   createPayment(
     @Body() dto: CreatePaymentDto,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -281,10 +295,32 @@ export class FeeController {
   }
 
   @Post('payments/record-with-allocation')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  // [10.4] G1 — E tightened off.
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.PAYMENT_RECORD)
   @ApiOperation({
     summary:
       "Record a payment and allocate it across the student's outstanding fees in FIFO order, generating an invoice when a fee is paid in full.",
+  })
+  // [15.5.5] The response is `Payment` (already `issuer_snapshot`-typed via
+  // its own `@ApiProperty`) plus the just-resolved `issuer` — undeclared
+  // otherwise, since it's not a column on the entity. `allOf`, not a
+  // subclass of `Payment`: the entity is `@Entity`-decorated, and a plain
+  // response DTO extending it would drag TypeORM metadata into Swagger for
+  // no benefit.
+  @ApiExtraModels(Payment, IssuerSnapshot)
+  // `@ApiResponse({ status: 201, ... })`, not `@ApiOkResponse` (which
+  // documents 200) — this route has no `@HttpCode`, so Nest's actual
+  // default for a POST handler is 201.
+  @ApiResponse({
+    status: 201,
+    description: 'The recorded payment, with the issuer identity frozen onto it at record time.',
+    schema: {
+      allOf: [
+        { $ref: getSchemaPath(Payment) },
+        { type: 'object', properties: { issuer: { $ref: getSchemaPath(IssuerSnapshot) } } },
+      ],
+    },
   })
   recordPaymentWithAllocation(
     @Body() dto: RecordPaymentWithAllocationDto,
@@ -356,6 +392,9 @@ export class FeeController {
     UserRole.PARENT,
     UserRole.STUDENT,
   )
+  // [10.4] G10, FEE_READ — same reasoning as `payments/student/:studentId`:
+  // per-student history rides on the relationship, not the ledger permission.
+  @RequirePermissions(Permission.FEE_READ)
   @ApiOperation({
     summary:
       "Get a student's fee/payment/balance summary. A PARENT or STUDENT must additionally be linked to this student.",

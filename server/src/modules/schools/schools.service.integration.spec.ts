@@ -9,6 +9,7 @@ import { School } from './entities/school.entity';
 import { TenantSettingsDto } from './dto/tenant-settings.dto';
 import { EncryptionService } from './settings/encryption.service';
 import { TenantSettingsCache } from './settings/tenant-settings-cache.service';
+import { TenantStatusModule } from './tenant-status.module';
 import { AuditService } from '../audit/audit.service';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { User } from '../users/entities/user.entity';
@@ -40,7 +41,7 @@ describe('SchoolsService (integration)', () => {
         { provide: EncryptionService, useFactory: () => new EncryptionService(randomBytes(32)) },
         { provide: TenantSettingsCache, useFactory: () => new TenantSettingsCache(30_000) },
       ],
-      [],
+      [TenantStatusModule],
       { synchronize: true, dropSchema: true },
     );
 
@@ -78,6 +79,16 @@ describe('SchoolsService (integration)', () => {
       schoolRepo.create({ id: randomUUID(), name: 'Test School', slug: `school-${randomUUID()}` }),
     );
   }
+
+  it('[15.4] defaults a new School to status ACTIVE', async () => {
+    const school = await createSchool();
+    expect(school.status).toBe('ACTIVE');
+
+    const reloaded = await schoolRepo.findOneByOrFail({ id: school.id });
+    expect(reloaded.status).toBe('ACTIVE');
+    expect(reloaded.status_reason).toBeNull();
+    expect(reloaded.status_changed_at).toBeNull();
+  });
 
   it('writes a SETTINGS_CHANGE audit entry with actor, tenant, and timestamp', async () => {
     const school = await createSchool();

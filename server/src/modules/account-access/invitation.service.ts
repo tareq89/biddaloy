@@ -11,6 +11,7 @@ import { AuditAction, AuthTokenPurpose, InvitationStatus } from '@biddaloy/share
 import { User } from '../users/entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { AuditService } from '../audit/audit.service';
+import { normalizeLoginIdentifier } from '../auth/normalize-identifier';
 import { AuthTokenService, INVITE_TTL_MS } from './auth-token.service';
 import { AccountAccessDeliveryService, pickChannel } from './account-access-delivery.service';
 import { deriveInvitationStatus } from './invitation-status.util';
@@ -23,6 +24,13 @@ export interface IssueAndSendInput {
   // `null` for a self-service reissue (`ActivationService.resend`, 12.2) —
   // no admin actor performed it, the invitee triggered it themselves.
   actorUserId: string | null;
+  /**
+   * Passed through to `auth_tokens.metadata` and `communication_logs.metadata`
+   * unchanged — 12.6's batch dispatch sets `{ batch_id }` here so
+   * `GuardianProvisioningService.batchStatus` can count progress from those
+   * rows without a `ReminderBatch`-shaped entity.
+   */
+  metadata?: Record<string, unknown> | null;
 }
 
 export interface IssueAndSendResult {
@@ -80,6 +88,20 @@ export class InvitationService {
       purpose: AuthTokenPurpose.INVITE,
       ttlMs: INVITE_TTL_MS,
       createdByUserId: input.actorUserId,
+      // [12.7] `channel`/`contact` record which contact this invite actually
+      // went out on — `ActivationService.activate` reads them back to decide
+      // whether activating this invite verifies the email or the phone.
+      //
+      // The VALUE, not just the medium: an admin editing the contact between
+      // invitation and activation would otherwise let the old recipient's
+      // activation mark the replacement contact verified. Activation compares
+      // this fingerprint against the current value and stamps nothing when
+      // they have diverged.
+      metadata: {
+        ...(input.metadata ?? {}),
+        channel: channel.medium,
+        contact: normalizeLoginIdentifier(channel.to),
+      },
     });
 
     const link = `${this.appBaseUrl()}/activate?token=${raw}`;
@@ -90,6 +112,7 @@ export class InvitationService {
       recipientName: user.full_name,
       kind: 'INVITATION',
       vars: { link },
+      metadata: input.metadata ?? undefined,
     });
 
     await this.audit.record({

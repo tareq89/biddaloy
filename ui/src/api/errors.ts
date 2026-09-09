@@ -63,6 +63,21 @@ export class ApiError extends Error {
   }
 }
 
+/** [15.4.2] The one 403 that is not a permission problem: `ContextGuard`
+ * rejects every request against a suspended school with
+ * `{ statusCode: 403, details: { code: 'TENANT_SUSPENDED' } }`. Shared by
+ * the query client (which rethrows it to the route boundary instead of
+ * toasting "permission denied") and `RouteErrorFallback` (which renders
+ * the suspended fork). Duck-typed on the shape rather than `instanceof
+ * ApiError` so a route loader's re-thrown copy still qualifies. */
+export function isTenantSuspendedError(error: unknown): boolean {
+  const candidate = error as Partial<ApiError> | null | undefined;
+  return (
+    candidate?.statusCode === 403 &&
+    (candidate.details as { code?: unknown } | undefined)?.code === 'TENANT_SUSPENDED'
+  );
+}
+
 /** Thrown synchronously, before a request is sent, when no tenant is active.
  * Distinct from ApiError: this never reaches the network, so it has no
  * server-shaped body to wrap. */

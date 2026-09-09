@@ -1,5 +1,6 @@
 import { Invoice } from './entities/invoice.entity';
 import { Payment } from '../fees/entities/payment.entity';
+import { IssuerSnapshot } from '../schools/profile/issuer-snapshot';
 
 function escapeHtml(value: unknown): string {
   return String(value ?? '').replace(/[&<>"']/g, (c) => {
@@ -27,10 +28,49 @@ function formatAmount(value: number | string): string {
   return Number(value).toFixed(2);
 }
 
-export function renderInvoiceHtml(invoice: Invoice, payments: Payment[]): string {
+/** [15.5.7] Same header block `IssuerHeader` (`ui/src/components/print/
+ * issuer-header.tsx`) renders client-side, built as a raw HTML string
+ * here since this whole document is one — see that file's own comment on
+ * why the shared React component can't render into either print path
+ * directly. `logo_key` present means an `<img>` renders, pointed at the
+ * versioned `/schools/:id/logo?v=<uuid>` URL; a later-removed logo 404s
+ * and `onerror` hides it rather than showing a broken-image icon. */
+function renderIssuerHeader(issuer: IssuerSnapshot, logoDataUrl: string | null): string {
+  const secondaryName = issuer.name_bn;
+  const logoUrl = issuer.logo_key ? logoDataUrl : null;
+  const details = [
+    issuer.phone,
+    issuer.email,
+    issuer.registration_id ? `EIIN: ${issuer.registration_id}` : null,
+  ]
+    .filter((v): v is string => Boolean(v))
+    .map((v) => escapeHtml(v))
+    .join(' &middot; ');
+
+  return `
+    <div class="issuer">
+      ${logoUrl ? `<img class="issuer-logo" src="${escapeHtml(logoUrl)}" alt="${escapeHtml(issuer.name)}" onerror="this.style.display='none'" />` : ''}
+      <div>
+        <div class="issuer-name">${escapeHtml(issuer.name)}</div>
+        ${secondaryName ? `<div class="issuer-name-secondary">${escapeHtml(secondaryName)}</div>` : ''}
+        ${issuer.address ? `<div class="issuer-detail">${escapeHtml(issuer.address)}</div>` : ''}
+        ${details ? `<div class="issuer-detail">${details}</div>` : ''}
+      </div>
+    </div>`;
+}
+
+/** `logoDataUrl` — a `data:` URL for `issuer.logo_key`'s bytes, or `null`
+ * (no logo, or the object is gone) — resolved by the caller via
+ * `readLogoDataUrl` before render, since this file has no `StorageService`
+ * access. */
+export function renderInvoiceHtml(
+  invoice: Invoice,
+  payments: Payment[],
+  issuer: IssuerSnapshot,
+  logoDataUrl: string | null,
+): string {
   const student = invoice.student;
   const classSection = student.class_section;
-  const schoolName = student.tenant?.name ?? '';
 
   const lineItemRows = (invoice.line_items ?? [])
     .map(
@@ -69,10 +109,14 @@ export function renderInvoiceHtml(invoice: Invoice, payments: Payment[]): string
   * { box-sizing: border-box; }
   body { font-family: Arial, Helvetica, sans-serif; color: #1a1a1a; margin: 0; padding: 32px; }
   .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1a1a1a; padding-bottom: 16px; margin-bottom: 24px; }
-  .header h1 { margin: 0 0 4px; font-size: 22px; }
-  .header .school { font-size: 14px; color: #555; }
+  .header .school { font-size: 14px; color: #555; margin-top: 4px; }
   .header .meta { text-align: right; font-size: 13px; }
   .header .meta .invoice-number { font-size: 16px; font-weight: bold; }
+  .issuer { display: flex; gap: 12px; align-items: flex-start; }
+  .issuer-logo { height: 48px; width: 48px; object-fit: contain; }
+  .issuer-name { font-size: 22px; font-weight: bold; }
+  .issuer-name-secondary { font-size: 14px; color: #555; }
+  .issuer-detail { font-size: 12px; color: #555; }
   .status { display: inline-block; padding: 2px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; text-transform: uppercase; background: #eee; margin-top: 4px; }
   .section { margin-bottom: 24px; }
   .section h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em; color: #555; margin-bottom: 8px; }
@@ -94,7 +138,7 @@ export function renderInvoiceHtml(invoice: Invoice, payments: Payment[]): string
 <body>
   <div class="header">
     <div>
-      <h1>${escapeHtml(schoolName)}</h1>
+      ${renderIssuerHeader(issuer, logoDataUrl)}
       <div class="school">Invoice</div>
     </div>
     <div class="meta">

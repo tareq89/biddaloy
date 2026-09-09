@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { randomUUID } from 'crypto';
 import { NotFoundException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken, getDataSourceToken } from '@nestjs/typeorm';
@@ -10,10 +11,13 @@ import { Student } from '../students/entities/student.entity';
 import { Enrollment } from '../students/entities/enrollment.entity';
 import { FeeStructure } from '../fees/entities/fee-structure.entity';
 import { School } from '../schools/entities/school.entity';
+import { User } from '../users/entities/user.entity';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_TENANT_ID } from '@test/constants';
-import { EnrollmentStatus, FeeType, FeeApplicability } from '@biddaloy/shared';
+import { EnrollmentStatus, FeeType, FeeApplicability, AuditAction } from '@biddaloy/shared';
+import { AuditService } from '../audit/audit.service';
+import { AuditLog } from '../audit/entities/audit-log.entity';
 
 /**
  * Integration tests for AcademicYearService.
@@ -31,7 +35,7 @@ describe('AcademicYearService (integration)', () => {
   const OTHER_TENANT = '00000000-0000-4000-8000-000000000099';
 
   beforeAll(async () => {
-    const module = await createTestModule(ALL_ENTITIES, [AcademicYearService], [], {
+    const module = await createTestModule(ALL_ENTITIES, [AcademicYearService, AuditService], [], {
       synchronize: true,
       dropSchema: true,
     });
@@ -343,6 +347,155 @@ describe('AcademicYearService (integration)', () => {
       );
 
       await expect(service.getStats(otherYear.id, TENANT_ID)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // [15.2.4] every AcademicYear mutation writes a tenant-scoped audit row,
+  // and set-current writes one entry on the newly-current year and one on
+  // each previously-current year.
+  describe('audit', () => {
+    let auditLogRepo: Repository<AuditLog>;
+    let actorUserId: string;
+
+    beforeAll(async () => {
+      auditLogRepo = dataSource.getRepository(AuditLog);
+      const userRepo = dataSource.getRepository(User);
+      const actor = await userRepo.save({
+        full_name: 'Audit Actor',
+        email: 'audit-actor@example.com',
+      });
+      actorUserId = actor.id;
+    });
+
+    it('writes a CREATE audit record for a new academic year', async () => {
+      const created = await service.create(
+        { name: '2026-2027', start_date: '2026-01-01', end_date: '2026-12-31' },
+        TENANT_ID,
+        actorUserId,
+      );
+
+      const logs = await auditLogRepo.find({
+        where: { entity_id: created.id, entity_type: 'AcademicYear', action: AuditAction.CREATE },
+      });
+      expect(logs).toHaveLength(1);
+      expect(logs[0]?.performed_by_user_id).toBe(actorUserId);
+      expect(logs[0]?.new_values).toMatchObject({ name: '2026-2027' });
+    });
+
+    it('writes an UPDATE audit record capturing old and new values', async () => {
+      const created = await service.create(
+        { name: '2026-2027', start_date: '2026-01-01', end_date: '2026-12-31' },
+        TENANT_ID,
+      );
+
+      await service.update(created.id, { name: '2026-2027 Renamed' }, TENANT_ID, actorUserId);
+
+      const logs = await auditLogRepo.find({
+        where: { entity_id: created.id, entity_type: 'AcademicYear', action: AuditAction.UPDATE },
+      });
+      expect(logs).toHaveLength(1);
+      expect(logs[0]?.old_values).toMatchObject({ name: '2026-2027' });
+      expect(logs[0]?.new_values).toMatchObject({ name: '2026-2027 Renamed' });
+    });
+
+    it('writes a DELETE audit record on remove', async () => {
+      const created = await service.create(
+        { name: '2026-2027', start_date: '2026-01-01', end_date: '2026-12-31' },
+        TENANT_ID,
+      );
+
+      await service.remove(created.id, TENANT_ID, actorUserId);
+
+      const logs = await auditLogRepo.find({
+        where: { entity_id: created.id, entity_type: 'AcademicYear', action: AuditAction.DELETE },
+      });
+      expect(logs).toHaveLength(1);
+      expect(logs[0]?.performed_by_user_id).toBe(actorUserId);
+    });
+
+    it('set-current writes one entry on the newly-current year and one on the previously-current year', async () => {
+      const yearA = await service.create(
+        { name: 'Year A', start_date: '2026-01-01', end_date: '2026-12-31', is_current: true },
+        TENANT_ID,
+      );
+      const yearB = await service.create(
+        { name: 'Year B', start_date: '2027-01-01', end_date: '2027-12-31' },
+        TENANT_ID,
+      );
+
+      await service.setCurrent(yearB.id, TENANT_ID, actorUserId);
+
+      const yearBLogs = await auditLogRepo.find({
+        where: { entity_id: yearB.id, entity_type: 'AcademicYear', action: AuditAction.UPDATE },
+      });
+      expect(yearBLogs).toHaveLength(1);
+      expect(yearBLogs[0]?.old_values).toMatchObject({ is_current: false });
+      expect(yearBLogs[0]?.new_values).toMatchObject({ is_current: true });
+
+      const yearALogs = await auditLogRepo.find({
+        where: { entity_id: yearA.id, entity_type: 'AcademicYear', action: AuditAction.UPDATE },
+      });
+      expect(yearALogs).toHaveLength(1);
+      expect(yearALogs[0]?.old_values).toMatchObject({ is_current: true });
+      expect(yearALogs[0]?.new_values).toMatchObject({ is_current: false });
+    });
+
+    it('rolls back both the academic year row and the audit entry on a forced failure', async () => {
+      const before = await repo.count({ where: { tenant_id: TENANT_ID } });
+
+      await expect(
+        service.update('00000000-0000-4000-8000-000000000001', { name: 'X' }, TENANT_ID),
+      ).rejects.toThrow(NotFoundException);
+
+      const after = await repo.count({ where: { tenant_id: TENANT_ID } });
+      expect(after).toBe(before);
+
+      const logs = await auditLogRepo.find({
+        where: { entity_id: '00000000-0000-4000-8000-000000000001', entity_type: 'AcademicYear' },
+      });
+      expect(logs).toHaveLength(0);
+    });
+
+    it('rolls back the update when the audit write fails, in the same transaction', async () => {
+      const created = await service.create(
+        { name: '2026-2027', start_date: '2026-01-01', end_date: '2026-12-31' },
+        TENANT_ID,
+      );
+
+      // A performed_by_user_id that references no real user violates
+      // audit_logs' FK constraint at INSERT time — a real Postgres failure
+      // inside AuditService.record's manager.save(), not a mock, that
+      // should take the whole transaction (including the update) down
+      // with it rather than leaving an untracked mutation. Same pattern
+      // as SchoolsService's equivalent test.
+      await expect(
+        service.update(created.id, { name: 'Renamed' }, TENANT_ID, randomUUID()),
+      ).rejects.toThrow();
+
+      const reloaded = await repo.findOne({ where: { id: created.id } });
+      expect(reloaded?.name).toBe('2026-2027');
+
+      const logs = await auditLogRepo.find({
+        where: { entity_id: created.id, entity_type: 'AcademicYear', action: AuditAction.UPDATE },
+      });
+      expect(logs).toHaveLength(0);
+    });
+
+    it("never exposes another tenant's academic year audit rows", async () => {
+      const created = await service.create(
+        { name: 'Cross Tenant Year', start_date: '2026-01-01', end_date: '2026-12-31' },
+        OTHER_TENANT,
+      );
+
+      const logs = await auditLogRepo.find({
+        where: { entity_id: created.id, entity_type: 'AcademicYear', tenant_id: TENANT_ID },
+      });
+      expect(logs).toHaveLength(0);
+
+      const otherTenantLogs = await auditLogRepo.find({
+        where: { entity_id: created.id, entity_type: 'AcademicYear', tenant_id: OTHER_TENANT },
+      });
+      expect(otherTenantLogs).toHaveLength(1);
     });
   });
 });

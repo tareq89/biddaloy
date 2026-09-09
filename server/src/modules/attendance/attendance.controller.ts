@@ -94,7 +94,9 @@ export class AttendanceController {
   }
 
   @Put('sections/:sectionId/register')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER)
+  // [10.4] G1 — E tightened off: lacks ATTENDANCE_MARK.
+  @Roles(UserRole.ADMIN, UserRole.TEACHER)
+  @RequirePermissions(Permission.ATTENDANCE_MARK)
   @ApiOperation({
     summary:
       'Submits the whole register for one section, one day. Idempotent on `client_request_id` ' +
@@ -143,7 +145,9 @@ export class AttendanceController {
 
   @Post('sections/:sectionId/register/finalize')
   @HttpCode(HttpStatus.OK)
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER)
+  // [10.4] G1 — E tightened off.
+  @Roles(UserRole.ADMIN, UserRole.TEACHER)
+  @RequirePermissions(Permission.ATTENDANCE_MARK)
   @ApiOperation({
     summary:
       'Finalizes an already-submitted register without resubmitting marks. Idempotent — ' +
@@ -170,7 +174,9 @@ export class AttendanceController {
   }
 
   @Patch('records/:recordId')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER)
+  // [10.4] G1 — E tightened off.
+  @Roles(UserRole.ADMIN, UserRole.TEACHER)
+  @RequirePermissions(Permission.ATTENDANCE_MARK)
   @ApiOperation({
     summary:
       'Corrects one existing mark. `reason` is always required — this route only ever edits ' +

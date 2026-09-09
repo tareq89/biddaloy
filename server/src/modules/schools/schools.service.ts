@@ -1,8 +1,9 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { MoreThanOrEqual, Repository } from 'typeorm';
+import Redis from 'ioredis';
 import type { TenantSettings } from '@biddaloy/shared';
-import { AuditAction } from '@biddaloy/shared';
+import { AuditAction, CommunicationStatus, UserStatus } from '@biddaloy/shared';
 import { School } from './entities/school.entity';
 import { TenantSettingsDto } from './dto/tenant-settings.dto';
 import { resolveTenantSettings } from './settings/tenant-settings-resolver';
@@ -12,8 +13,32 @@ import { decryptSecretFields, encryptSecretFields } from './settings/settings-en
 import { maskSecretFields } from './settings/settings-mask.util';
 import { pickPatchShape, redactSecretPaths } from './settings/settings-audit-redact.util';
 import { TenantSettingsCache } from './settings/tenant-settings-cache.service';
+import { TENANT_STATUS_REDIS, TenantStatusService } from './tenant-status.service';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
+import { UserTenant } from '../auth/entities/user-tenant.entity';
+import { Student } from '../students/entities/student.entity';
+import { CommunicationLog } from '../communications/entities/communication-log.entity';
+import { AuditLog } from '../audit/entities/audit-log.entity';
+import { UpdateSchoolStatusDto } from './dto/update-school-status.dto';
+
+export interface SchoolStatusResponse {
+  id: string;
+  status: 'ACTIVE' | 'SUSPENDED';
+  status_reason: string | null;
+  status_changed_at: Date | null;
+}
+
+export interface SchoolStats {
+  active_users: number;
+  students: number;
+  communications_queued: number;
+  communications_failed_7d: number;
+  last_activity_at: Date | null;
+}
+
+const STATS_CACHE_TTL_SECONDS = 60;
+const STATS_FAILED_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class SchoolsService {
@@ -22,9 +47,19 @@ export class SchoolsService {
   constructor(
     @InjectRepository(School)
     private readonly repo: Repository<School>,
+    @InjectRepository(UserTenant)
+    private readonly userTenantRepo: Repository<UserTenant>,
+    @InjectRepository(Student)
+    private readonly studentRepo: Repository<Student>,
+    @InjectRepository(CommunicationLog)
+    private readonly communicationLogRepo: Repository<CommunicationLog>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepo: Repository<AuditLog>,
+    @Inject(TENANT_STATUS_REDIS) private readonly redis: Redis,
     private readonly encryption: EncryptionService,
     private readonly settingsCache: TenantSettingsCache,
     private readonly auditService: AuditService,
+    private readonly tenantStatus: TenantStatusService,
   ) {}
 
   async findById(id: string): Promise<School> {
@@ -36,16 +71,19 @@ export class SchoolsService {
   }
 
   /**
-   * Every school's id and name, for #8.7.13's super-admin school picker —
-   * a super admin configuring settings needs to pick *which* school
-   * before anything else, and there's no other way to enumerate schools
-   * today. Deliberately just `{ id, name }`: this is a picker, not a
-   * schools-admin list view, so it doesn't need slug/domain/address/etc.
-   * Controller-gated to `SUPER_ADMIN` only — an ADMIN already knows their
-   * one school from `tenant.id`, no picker involved.
+   * Every school, for #8.7.13's super-admin school picker *and* #533's
+   * SUPER_ADMIN platform schools list. Originally `{ id, name }` only (the
+   * picker's own need); #533 added `slug`/`status`/`created_at` so the same
+   * endpoint also drives the list table (status badge, created date,
+   * slug-based search) without a second endpoint. Controller-gated to
+   * `SUPER_ADMIN` only — an ADMIN already knows their one school from
+   * `tenant.id`, no picker involved.
    */
-  async findAll(): Promise<Pick<School, 'id' | 'name'>[]> {
-    return this.repo.find({ select: ['id', 'name'], order: { name: 'ASC' } });
+  async findAll(): Promise<Pick<School, 'id' | 'name' | 'slug' | 'status' | 'created_at'>[]> {
+    return this.repo.find({
+      select: ['id', 'name', 'slug', 'status', 'created_at'],
+      order: { name: 'ASC' },
+    });
   }
 
   /**
@@ -208,5 +246,174 @@ export class SchoolsService {
       this.encryption,
       this.logMaskingFailure(schoolId),
     );
+  }
+
+  private statsKey(schoolId: string): string {
+    return `tenant:${schoolId}:stats`;
+  }
+
+  /**
+   * Five cheap platform metrics for the SUPER_ADMIN console detail page
+   * (#532). Every query below filters by this school's `tenant_id` — no
+   * cross-tenant joins, matching the rest of this module's per-query
+   * scoping (see the `multi-tenancy` skill checklist).
+   *
+   * Cached in Redis for 60s, keyed by school id, reusing the same
+   * fail-open-friendly client `TenantStatusService` (#527) already wires
+   * up as `TENANT_STATUS_REDIS` — a cache read/write failure here degrades
+   * to "compute it," never to an error.
+   */
+  async getStats(schoolId: string): Promise<SchoolStats> {
+    // Before the cache: every count below is tenant-scoped, so an unknown
+    // id would otherwise "succeed" with all zeros and cache them for 60s.
+    await this.findById(schoolId);
+    const key = this.statsKey(schoolId);
+
+    try {
+      const cached = await this.redis.get(key);
+      if (cached) {
+        const parsed = JSON.parse(cached) as SchoolStats;
+        return {
+          ...parsed,
+          last_activity_at: parsed.last_activity_at ? new Date(parsed.last_activity_at) : null,
+        };
+      }
+    } catch (error) {
+      this.logger.error(
+        `Stats cache read failed for school ${schoolId}, falling back to DB: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+
+    const failedSince = new Date(Date.now() - STATS_FAILED_WINDOW_MS);
+
+    const [activeUsers, students, communicationsQueued, communicationsFailed7d, lastActivity] =
+      await Promise.all([
+        this.userTenantRepo
+          .createQueryBuilder('ut')
+          .innerJoin('ut.user', 'user')
+          .where('ut.tenant_id = :schoolId', { schoolId })
+          .andWhere('user.status = :status', { status: UserStatus.ACTIVE })
+          .getCount(),
+        this.studentRepo.count({ where: { tenant_id: schoolId } }),
+        this.communicationLogRepo.count({
+          where: { tenant_id: schoolId, status: CommunicationStatus.QUEUED },
+        }),
+        this.communicationLogRepo.count({
+          where: {
+            tenant_id: schoolId,
+            status: CommunicationStatus.FAILED,
+            created_at: MoreThanOrEqual(failedSince),
+          },
+        }),
+        this.auditLogRepo
+          .createQueryBuilder('al')
+          .select('MAX(al.created_at)', 'max_created_at')
+          .where('al.tenant_id = :schoolId', { schoolId })
+          .getRawOne<{ max_created_at: Date | null }>(),
+      ]);
+
+    const stats: SchoolStats = {
+      active_users: activeUsers,
+      students,
+      communications_queued: communicationsQueued,
+      communications_failed_7d: communicationsFailed7d,
+      last_activity_at: lastActivity?.max_created_at ?? null,
+    };
+
+    try {
+      await this.redis.set(key, JSON.stringify(stats), 'EX', STATS_CACHE_TTL_SECONDS);
+    } catch (error) {
+      this.logger.error(
+        `Stats cache write failed for school ${schoolId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+
+    return stats;
+  }
+
+  /**
+   * SUPER_ADMIN school lifecycle switch (#530). Sets `status` +
+   * `status_reason` + `status_changed_at` in one transaction with the audit
+   * write (SUSPEND when moving to SUSPENDED, REACTIVATE when moving to
+   * ACTIVE), then invalidates `TenantStatusService`'s cache so the very
+   * next request from that tenant sees the new status — `ContextGuard`
+   * (#527) reads through that same cache.
+   *
+   * If the requested status already matches the current one, this is a
+   * no-op: no audit row, no cache invalidation, still 200. Nothing
+   * actually changed, so there's nothing to explain later.
+   *
+   * The current status is read under a `pessimistic_write` row lock inside
+   * the same transaction as the update, so two concurrent suspend requests
+   * serialise: the second one sees SUSPENDED and takes the no-op path
+   * instead of writing a duplicate SUSPEND audit entry.
+   */
+  async updateStatus(
+    schoolId: string,
+    dto: UpdateSchoolStatusDto,
+    userId: string,
+    context: RequestContext = { ip: null, userAgent: null },
+  ): Promise<SchoolStatusResponse> {
+    const now = new Date();
+
+    const { response, changed } = await this.repo.manager.transaction(async (manager) => {
+      const schoolRepo = manager.getRepository(School);
+      const school = await schoolRepo.findOne({
+        where: { id: schoolId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!school) {
+        throw new NotFoundException(`School with ID "${schoolId}" not found`);
+      }
+
+      if (school.status === dto.status) {
+        return {
+          changed: false,
+          response: {
+            id: school.id,
+            status: school.status,
+            status_reason: school.status_reason,
+            status_changed_at: school.status_changed_at,
+          },
+        };
+      }
+
+      await schoolRepo.update(schoolId, {
+        status: dto.status,
+        status_reason: dto.reason,
+        status_changed_at: now,
+      });
+
+      await this.auditService.record(
+        {
+          action: dto.status === 'SUSPENDED' ? AuditAction.SUSPEND : AuditAction.REACTIVATE,
+          entity_type: 'School',
+          entity_id: schoolId,
+          tenant_id: schoolId,
+          performed_by_user_id: userId,
+          ip_address: context.ip,
+          user_agent: context.userAgent,
+          old_values: { status: school.status },
+          new_values: { status: dto.status, reason: dto.reason },
+        },
+        manager,
+      );
+
+      return {
+        changed: true,
+        response: {
+          id: schoolId,
+          status: dto.status,
+          status_reason: dto.reason,
+          status_changed_at: now,
+        },
+      };
+    });
+
+    if (changed) {
+      await this.tenantStatus.invalidate(schoolId);
+    }
+
+    return response;
   }
 }

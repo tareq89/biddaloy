@@ -20,6 +20,7 @@ import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { STRICT_RATE_LIMIT } from '../../rate-limit';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
@@ -37,7 +38,7 @@ import {
   QueryReminderBatchLogsDto,
 } from './dto/reminders.dto';
 import { SendSingleReminderDto } from './dto/single-reminder.dto';
-import { UserRole, JwtPayload } from '@biddaloy/shared';
+import { UserRole, JwtPayload, Permission } from '@biddaloy/shared';
 import { requestContext } from '../../common/request-context.util';
 
 @ApiTags('communications')
@@ -56,7 +57,9 @@ export class CommunicationsController {
   // preview-before-send, matching the issue's "shows preview before sending."
   @Post('reminder/single/:studentId/preview')
   @HttpCode(HttpStatus.OK)
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  // [10.4] G1 — E tightened off: lacks COMMUNICATION_SEND.
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.COMMUNICATION_SEND)
   @ApiOperation({
     summary: 'Render a single-student reminder without sending it, for the sender to review first.',
   })
@@ -69,7 +72,9 @@ export class CommunicationsController {
   }
 
   @Post('reminder/single/:studentId')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  // [10.4] G1 — E tightened off.
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.COMMUNICATION_SEND)
   @ApiOperation({ summary: 'Send a fee reminder to one student/guardian.' })
   sendSingleReminder(
     @Param('studentId', ParseUUIDPipe) studentId: string,
@@ -98,7 +103,9 @@ export class CommunicationsController {
   // nothing is sent makes it cheaper to abuse, not safer.
   @Post('reminder/bulk/preview')
   @HttpCode(HttpStatus.OK)
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  // [10.4] G1 — E tightened off: lacks COMMUNICATION_BULK_SEND.
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.COMMUNICATION_BULK_SEND)
   @Throttle({ default: STRICT_RATE_LIMIT })
   @ApiOperation({
     summary:
@@ -117,7 +124,9 @@ export class CommunicationsController {
   // 'reminder' would otherwise be swallowed by the UUID param route and
   // rejected by its ParseUUIDPipe.
   @Post('reminder/bulk')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  // [10.4] G1 — E tightened off.
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.COMMUNICATION_BULK_SEND)
   @Throttle({ default: STRICT_RATE_LIMIT })
   @ApiOperation({
     summary: 'Queue fee reminders to every student/guardian matching the given filters.',
@@ -134,7 +143,9 @@ export class CommunicationsController {
   // Declared before @Get(':id') — same reasoning as the POST above:
   // 'reminder' would otherwise be swallowed by the UUID param route.
   @Get('reminder/bulk')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  // [10.4] G1 — E tightened off.
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.COMMUNICATION_BULK_SEND)
   @ApiOperation({
     summary: 'Reminder History — every bulk reminder batch this tenant sent, newest first.',
   })
@@ -146,7 +157,9 @@ export class CommunicationsController {
   }
 
   @Get('reminder/bulk/:id/logs')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  // [10.4] G1 — E tightened off.
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.COMMUNICATION_BULK_SEND)
   @ApiOperation({
     summary: "One batch's per-recipient delivery records, for the batch detail page.",
   })
@@ -159,7 +172,9 @@ export class CommunicationsController {
   }
 
   @Get('reminder/bulk/:id')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  // [10.4] G1 — E tightened off.
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.COMMUNICATION_BULK_SEND)
   @ApiOperation({
     summary: 'Get a bulk reminder batch, including its per-recipient delivery status.',
   })
@@ -171,7 +186,9 @@ export class CommunicationsController {
   }
 
   @Post('send')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  // [10.4] G1 — E tightened off: lacks COMMUNICATION_SEND.
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.TEACHER)
+  @RequirePermissions(Permission.COMMUNICATION_SEND)
   @ApiOperation({ summary: 'Send a freeform (non-reminder) message.' })
   send(
     @Body() dto: SendCommunicationDto,
@@ -185,7 +202,9 @@ export class CommunicationsController {
   // above: 'last-reminders' would otherwise be swallowed by the UUID
   // param route and rejected by its ParseUUIDPipe.
   @Get('last-reminders')
+  // [10.4] G5 — per-student communication history; visible via STUDENT_READ.
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @RequirePermissions(Permission.COMMUNICATION_LOG_READ)
   @ApiOperation({
     summary: "Batch lookup of each student's most recent fee reminder, for [8.10.4]'s dues queue.",
   })
@@ -208,7 +227,9 @@ export class CommunicationsController {
   // above: 'student' would otherwise be swallowed by the UUID param route
   // and rejected by its ParseUUIDPipe.
   @Get('student/:studentId')
+  // [10.4] G5 — per-student communication history.
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @RequirePermissions(Permission.COMMUNICATION_LOG_READ)
   @ApiOperation({
     summary: "Get every message sent about a student's guardians, newest first.",
   })
@@ -222,7 +243,9 @@ export class CommunicationsController {
   // Declared before `@Get(':id')` — same reasoning as `student/:studentId`
   // above.
   @Get('guardian/:guardianId')
+  // [10.4] G5 — per-student communication history.
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @RequirePermissions(Permission.COMMUNICATION_LOG_READ)
   @ApiOperation({
     summary: 'Get every message sent directly to a guardian, newest first.',
   })
@@ -234,7 +257,9 @@ export class CommunicationsController {
   }
 
   @Get(':id')
+  // [10.4] G5 — per-student communication history.
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @RequirePermissions(Permission.COMMUNICATION_LOG_READ)
   findOne(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },

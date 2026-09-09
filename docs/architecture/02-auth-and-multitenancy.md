@@ -164,12 +164,15 @@ flowchart LR
 
 `@Roles` says which roles may reach a route; `@RequirePermissions` says
 which capability from `ROLE_PERMISSIONS` (`shared/src/enums/permissions.ts`)
-the route exercises. Both run today. `@Roles` can retire on a route only
-once its role list equals the set of roles holding the permission —
-object-scoped reads (e.g. the roster `GET /students` is staff-only although
-every role holds `STUDENT_READ`) keep `@Roles` as a narrowing until a
-dedicated permission exists. See [#399](https://github.com/tareq89/biddaloy/issues/399)
-([10.4]) for the routes where the two still disagree.
+the route exercises. Both run today.
+
+After [10.4] every tenant route declares `@RequirePermissions` and
+`ROLE_PERMISSIONS` agrees with every `@Roles` list. `@Roles` now carries only
+the narrowings listed in `ROLE_NARROWINGS` (`permission-matrix.e2e-spec.ts`).
+It can retire route-by-route: give a narrowed route its own permission (e.g.
+`STUDENT_LIST` for the roster), grant that to the roles in `@Roles`, delete
+the `@Roles` line, delete the `ROLE_NARROWINGS` entry. When the list is
+empty, delete `RolesGuard`. Tracked as a follow-up, not part of Epic 10.0.
 
 ## Invitations & account access
 
@@ -228,6 +231,64 @@ Key points:
 - A delivery failure (bad phone number, provider outage) never rolls back
   the user that was just created — user creation and invitation dispatch
   are independent outcomes.
+
+### Batch invites (12.6) — inviting a whole imported cohort's guardians
+
+Bulk-imported students get Guardian rows but no login — so "invite this
+cohort's guardians" is a **preview-first batch action**, not an import side
+effect. It reuses 12.1's `issueAndSend` per guardian, fanned out over a
+queue, with a `batch_id` (not a new `ReminderBatch`-shaped entity) tying
+the fan-out back together for progress polling:
+
+```mermaid
+sequenceDiagram
+    participant Admin
+    participant UserController
+    participant Provisioning as GuardianProvisioningService
+    participant Queue as invitation-batch queue
+    participant Processor as InvitationBatchProcessor
+    participant InvitationService
+
+    Admin->>UserController: POST /users/invitations/preview {all: true}
+    UserController->>Provisioning: preview(tenantId, selection)
+    Provisioning-->>Admin: { to_invite[], skipped[] } (read-only)
+
+    Admin->>UserController: POST /users/invitations/batch (confirm)
+    UserController->>Provisioning: dispatch(tenantId, actorUserId, selection)
+    Provisioning->>Queue: add one job per to_invite guardian
+    Provisioning-->>Admin: { batch_id, queued, skipped }
+
+    loop per queued job
+        Queue->>Processor: { tenantId, guardianId, batchId }
+        Processor->>Processor: ensureUser (link by phone/email, or create PARENT)
+        Processor->>InvitationService: issueAndSend(userId, metadata: {batch_id})
+    end
+
+    Admin->>UserController: GET /users/invitations/batch/:id (polls)
+    UserController-->>Admin: { total, sent, failed, queued }
+```
+
+Key points:
+
+- **Sibling dedup is free.** Two students sharing one guardian's phone
+  already collapse to one `Guardian` row (`bulk-upload.service.ts`'s
+  phone-dedup) — one guardian, one `ensureUser` call, one account.
+- **`batch_id` lives in `metadata`, not a new table.** It's written into
+  `auth_tokens.metadata.batch_id` (via `issueAndSend`'s `metadata`
+  parameter) and `communication_logs.metadata.batch_id` (via `deliver`'s
+  `metadata` parameter). `batchStatus` counts `communication_logs` rows by
+  that key and reads `total` back from the batch-dispatch audit row
+  (`AuditAction.INVITATION_SENT`, `entity_type: 'InvitationBatch'`) —
+  the same "derive it, don't store a redundant counter" instinct
+  `deriveInvitationStatus` already uses.
+- **Skip reasons mirror the reminder-batch preview grammar** —
+  `no_contact` / `already_active` / `already_pending` /
+  `notifications_disabled` — so staff read the same shape of "who got
+  skipped and why" they already know from bulk reminders.
+- **`ensureUser` is idempotent under retry.** A guardian already linked to
+  a `User` is loaded, not recreated; a guardian matching an existing
+  `User` by phone/email is linked, not duplicated; a `23505` race between
+  two concurrent batches is retried as "found".
 
 ## Why this deviated from the original plan
 

@@ -8,6 +8,7 @@ import { server } from '../test/msw/server';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
 
 import {
+  currentUserQueryOptions,
   useAdminResetPassword,
   useCreateUser,
   useCurrentUser,
@@ -138,6 +139,16 @@ describe('useCurrentUser', () => {
   });
 });
 
+describe('currentUserQueryOptions [15.4.2]', () => {
+  it('never rethrows to the route boundary — it feeds shell chrome, not page content', () => {
+    // The app query client rethrows a suspended tenant's 403 by default so
+    // a *page* renders the suspended state. `StaffUserMenu` runs this query
+    // inside `AppShell`, above the `<Outlet />`; if it threw, the whole
+    // shell — including the tenant switcher — would unmount.
+    expect(currentUserQueryOptions().throwOnError).toBe(false);
+  });
+});
+
 describe('useUpdateOwnProfile', () => {
   it('[8.14.4] PATCHes /users/me with the exact body and invalidates only the "me" detail key', async () => {
     let body: unknown = null;
@@ -161,12 +172,16 @@ describe('useUpdateOwnProfile', () => {
     expect(invalidateSpy).not.toHaveBeenCalledWith({ queryKey: userKeys.lists() });
   });
 
-  it('surfaces the 403 wrong-current-password case as an error', async () => {
+  // [12.7] `email`/`phone` are gone from this DTO — a caller who still
+  // sends either gets a 400 from the server's `forbidNonWhitelisted`; this
+  // hook has no client-side validation of its own, so it just needs to
+  // surface whatever the server says.
+  it('surfaces a 400 as an error', async () => {
     server.use(
       http.patch('/api/v1/users/me', () =>
         HttpResponse.json(
-          { statusCode: 403, message: 'current_password is incorrect' },
-          { status: 403 },
+          { statusCode: 400, message: ['property email should not exist'] },
+          { status: 400 },
         ),
       ),
     );
@@ -174,7 +189,7 @@ describe('useUpdateOwnProfile', () => {
     const { result } = renderHookWithProviders(() => useUpdateOwnProfile(), {
       tenantId: 'tenant-1',
     });
-    result.current.mutate({ email: 'new@example.com', current_password: 'wrong' });
+    result.current.mutate({ full_name: 'Rahim' });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
   });

@@ -12,8 +12,10 @@ import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { CreateEnrollmentDto, UpdateEnrollmentDto } from './dto/enrollments.dto';
-import { EnrollmentStatus } from '@biddaloy/shared';
+import { EnrollmentStatus, AuditAction } from '@biddaloy/shared';
 import { nextRollNumber } from '../students/roll-number.util';
+import { AuditService } from '../audit/audit.service';
+import { RequestContext } from '../../common/request-context.util';
 
 @Injectable()
 export class EnrollmentService {
@@ -28,9 +30,15 @@ export class EnrollmentService {
     private readonly sectionRepo: Repository<ClassSection>,
     @InjectRepository(AcademicYear)
     private readonly academicYearRepo: Repository<AcademicYear>,
+    private readonly auditService: AuditService,
   ) {}
 
-  async create(dto: CreateEnrollmentDto, tenantId: string): Promise<Enrollment> {
+  async create(
+    dto: CreateEnrollmentDto,
+    tenantId: string,
+    userId: string | null = null,
+    context: RequestContext = { ip: null, userAgent: null },
+  ): Promise<Enrollment> {
     // Verify student exists and belongs to tenant via class_section -> class chain
     const student = await this.studentRepo.findOne({
       where: { id: dto.student_id, deleted_at: IsNull() },
@@ -108,6 +116,30 @@ export class EnrollmentService {
         await this.syncStudentPlacement(manager, saved.student_id, saved.section_id, tenantId);
       }
 
+      // Enrollment is its own audited entity — never written as a Student
+      // entry. Metadata carries the ids a reader needs (student/class/
+      // section/academic year); no nested student snapshot.
+      await this.auditService.record(
+        {
+          action: AuditAction.CREATE,
+          entity_type: 'Enrollment',
+          entity_id: saved.id,
+          tenant_id: tenantId,
+          performed_by_user_id: userId,
+          ip_address: context.ip,
+          user_agent: context.userAgent,
+          old_values: null,
+          new_values: {
+            student_id: saved.student_id,
+            class_id: saved.class_id,
+            section_id: saved.section_id,
+            academic_year_id: saved.academic_year_id,
+            enrollment_status: saved.enrollment_status,
+          },
+        },
+        manager,
+      );
+
       return saved;
     });
   }
@@ -155,7 +187,13 @@ export class EnrollmentService {
     });
   }
 
-  async update(id: string, dto: UpdateEnrollmentDto, tenantId: string): Promise<Enrollment> {
+  async update(
+    id: string,
+    dto: UpdateEnrollmentDto,
+    tenantId: string,
+    userId: string | null = null,
+    context: RequestContext = { ip: null, userAgent: null },
+  ): Promise<Enrollment> {
     const enrollment = await this.repo.findOne({
       where: { id, tenant_id: tenantId },
       relations: ['class', 'section'],
@@ -247,14 +285,37 @@ export class EnrollmentService {
     // given) never touches the student row.
     const shouldSyncStudent = targetStatus === EnrollmentStatus.ACTIVE && !!targetSectionId;
 
-    if (shouldSyncStudent) {
-      await this.repo.manager.transaction(async (manager) => {
-        await manager.getRepository(Enrollment).update({ id, tenant_id: tenantId }, dto);
+    // Diffed against exactly the fields this request changed — see the
+    // identical reasoning on FeeStructureService.update. Covers transfer
+    // (class_id/section_id change), re-section (section_id only), and
+    // withdraw (enrollment_status change) — all the same `update()` path.
+    const changedKeys = Object.keys(dto);
+    const oldValues = Object.fromEntries(changedKeys.map((key) => [key, (enrollment as any)[key]]));
+
+    await this.repo.manager.transaction(async (manager) => {
+      await manager.getRepository(Enrollment).update({ id, tenant_id: tenantId }, dto);
+
+      if (shouldSyncStudent) {
         await this.syncStudentPlacement(manager, enrollment.student_id, targetSectionId!, tenantId);
-      });
-    } else {
-      await this.repo.update({ id, tenant_id: tenantId }, dto);
-    }
+      }
+
+      if (changedKeys.length > 0) {
+        await this.auditService.record(
+          {
+            action: AuditAction.UPDATE,
+            entity_type: 'Enrollment',
+            entity_id: id,
+            tenant_id: tenantId,
+            performed_by_user_id: userId,
+            ip_address: context.ip,
+            user_agent: context.userAgent,
+            old_values: oldValues,
+            new_values: { ...dto },
+          },
+          manager,
+        );
+      }
+    });
 
     return this.repo.findOne({
       where: { id },

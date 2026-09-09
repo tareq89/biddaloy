@@ -55,7 +55,20 @@
     "User": "User",
     "School": "School",
     "ReminderBatch": "Reminder batch",
-    "ReminderBatchPreview": "Reminder preview"
+    "ReminderBatchPreview": "Reminder preview",
+    "AbsenceNoticePreview": "Absence notice preview",
+    "AcademicYear": "Academic year",
+    "AttendanceDevice": "Attendance device",
+    "AttendanceRecord": "Attendance record",
+    "AttendanceSession": "Attendance session",
+    "Class": "Class",
+    "ClassSection": "Class section",
+    "Enrollment": "Enrollment",
+    "Guardian": "Guardian",
+    "InvitationBatch": "Invitation batch",
+    "RefreshToken": "Session",
+    "SchoolHoliday": "School holiday",
+    "unknown": "Record"
   },
   "summaries": {
     "CREATE": "A new {{entity}} was added.",
@@ -124,6 +137,13 @@
     "section_id": "Section ID",
     "academic_year_id": "Academic year ID",
     "student_id": "Student ID",
-    "role": "Role"
+    "role": "Role",
+    "numeric_grade": "Grade",
+    "section_name": "Section name",
+    "capacity": "Capacity",
+    "start_date": "Start date",
+    "end_date": "End date",
+    "is_current": "Current year",
+    "enrollment_status": "Enrollment status"
   }
 }

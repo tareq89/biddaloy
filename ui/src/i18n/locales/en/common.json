@@ -69,6 +69,13 @@
     "attendance": {
       "LOW": "Low",
       "OK": "OK"
+    },
+    "invitation": {
+      "NONE": "No invitation",
+      "PENDING": "Invitation pending",
+      "EXPIRED": "Invitation expired",
+      "REVOKED": "Invitation revoked",
+      "ACTIVATED": "Activated"
     }
   },
   "errors": {
@@ -92,6 +99,10 @@
     "pageTitle": "You're offline",
     "pageExplanation": "This page needs a connection to load. Check your network and try again — anything already loaded is still available.",
     "retry": "Try again"
+  },
+  "suspended": {
+    "pageTitle": "This school has been suspended",
+    "pageExplanation": "Access is paused for this school. Contact your platform administrator to reactivate it."
   },
   "sync": {
     "offline": "You're offline",

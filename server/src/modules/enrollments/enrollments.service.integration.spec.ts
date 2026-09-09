@@ -21,7 +21,9 @@ import {
   SEED_SECTION_1_ID,
   SEED_ACADEMIC_YEAR_ID,
 } from '@test/constants';
-import { EnrollmentStatus } from '@biddaloy/shared';
+import { EnrollmentStatus, AuditAction } from '@biddaloy/shared';
+import { AuditService } from '../audit/audit.service';
+import { AuditLog } from '../audit/entities/audit-log.entity';
 
 // [8.11.3] — a second class+section under the same tenant/academic year,
 // so "move class" tests have somewhere real to move a student to.
@@ -168,7 +170,7 @@ describe('EnrollmentService (integration)', () => {
   const TENANT_ID = SEED_TENANT_ID;
 
   beforeAll(async () => {
-    const module = await createTestModule(ALL_ENTITIES, [EnrollmentService], [], {
+    const module = await createTestModule(ALL_ENTITIES, [EnrollmentService, AuditService], [], {
       synchronize: true,
       dropSchema: true,
     });
@@ -1052,6 +1054,190 @@ describe('EnrollmentService (integration)', () => {
       await expect(
         service.update(first.id, { enrollment_status: EnrollmentStatus.ACTIVE }, TENANT_ID),
       ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  // [15.2.5] every Enrollment mutation (create, transfer, re-section,
+  // withdraw) writes a tenant-scoped audit row with field-level old/new
+  // values, sharing the mutation's transaction.
+  describe('audit', () => {
+    let auditLogRepo: Repository<AuditLog>;
+    let actorUserId: string;
+
+    beforeAll(async () => {
+      auditLogRepo = dataSource.getRepository(AuditLog);
+      const userRepo = dataSource.getRepository(User);
+      const actor = await userRepo.save(
+        userRepo.create({ full_name: 'Audit Actor', email: 'audit-actor@example.com' }),
+      );
+      actorUserId = actor.id;
+    });
+
+    it('writes a CREATE audit record for a new enrollment', async () => {
+      const student = await buildStudent();
+
+      const created = await service.create(
+        {
+          student_id: student.id,
+          class_id: SEED_CLASS_1_ID,
+          section_id: SEED_SECTION_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        },
+        TENANT_ID,
+        actorUserId,
+      );
+
+      const logs = await auditLogRepo.find({
+        where: { entity_id: created.id, entity_type: 'Enrollment', action: AuditAction.CREATE },
+      });
+      expect(logs).toHaveLength(1);
+      expect(logs[0]?.performed_by_user_id).toBe(actorUserId);
+      expect(logs[0]?.new_values).toMatchObject({
+        student_id: student.id,
+        class_id: SEED_CLASS_1_ID,
+      });
+    });
+
+    it('writes an UPDATE audit record for a transfer (class_id + section_id change)', async () => {
+      const student = await buildStudent();
+      const created = await service.create(
+        {
+          student_id: student.id,
+          class_id: SEED_CLASS_1_ID,
+          section_id: SEED_SECTION_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        },
+        TENANT_ID,
+      );
+
+      await service.update(
+        created.id,
+        { class_id: SEED_CLASS_2_ID, section_id: SEED_CLASS_2_SECTION_ID },
+        TENANT_ID,
+        actorUserId,
+      );
+
+      const logs = await auditLogRepo.find({
+        where: { entity_id: created.id, entity_type: 'Enrollment', action: AuditAction.UPDATE },
+      });
+      expect(logs).toHaveLength(1);
+      expect(logs[0]?.old_values).toMatchObject({
+        class_id: SEED_CLASS_1_ID,
+        section_id: SEED_SECTION_1_ID,
+      });
+      expect(logs[0]?.new_values).toMatchObject({
+        class_id: SEED_CLASS_2_ID,
+        section_id: SEED_CLASS_2_SECTION_ID,
+      });
+    });
+
+    it('writes an UPDATE audit record for a re-section (section_id only)', async () => {
+      // A second section under the *same* class — `update()` validates a
+      // bare `section_id` (no `class_id` change) against the enrollment's
+      // existing class, so moving within `SEED_CLASS_1_ID` needs a section
+      // that actually belongs to it, not `SEED_CLASS_2_SECTION_ID`.
+      const otherSection = await sectionRepo.save(
+        sectionRepo.create({
+          class_id: SEED_CLASS_1_ID,
+          section_name: 'Re-section Target',
+          tenant_id: TENANT_ID,
+        }),
+      );
+      const student = await buildStudent();
+      const created = await service.create(
+        {
+          student_id: student.id,
+          class_id: SEED_CLASS_1_ID,
+          section_id: SEED_SECTION_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        },
+        TENANT_ID,
+      );
+
+      await service.update(created.id, { section_id: otherSection.id }, TENANT_ID, actorUserId);
+
+      const logs = await auditLogRepo.find({
+        where: { entity_id: created.id, entity_type: 'Enrollment', action: AuditAction.UPDATE },
+      });
+      expect(logs).toHaveLength(1);
+      expect(logs[0]?.old_values).toMatchObject({ section_id: SEED_SECTION_1_ID });
+      expect(logs[0]?.new_values).toMatchObject({ section_id: otherSection.id });
+    });
+
+    it('writes an UPDATE audit record for a withdraw (enrollment_status change)', async () => {
+      const student = await buildStudent();
+      const created = await service.create(
+        {
+          student_id: student.id,
+          class_id: SEED_CLASS_1_ID,
+          section_id: SEED_SECTION_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        },
+        TENANT_ID,
+      );
+
+      await service.update(
+        created.id,
+        { enrollment_status: EnrollmentStatus.INACTIVE },
+        TENANT_ID,
+        actorUserId,
+      );
+
+      const logs = await auditLogRepo.find({
+        where: { entity_id: created.id, entity_type: 'Enrollment', action: AuditAction.UPDATE },
+      });
+      expect(logs).toHaveLength(1);
+      expect(logs[0]?.old_values).toMatchObject({ enrollment_status: EnrollmentStatus.ACTIVE });
+      expect(logs[0]?.new_values).toMatchObject({
+        enrollment_status: EnrollmentStatus.INACTIVE,
+      });
+    });
+
+    it('rolls back both the enrollment row and the audit entry on a forced failure', async () => {
+      const before = await enrollmentRepo.count({ where: { tenant_id: TENANT_ID } });
+
+      await expect(
+        service.update(
+          '00000000-0000-4000-8000-000000000001',
+          { enrollment_status: EnrollmentStatus.INACTIVE },
+          TENANT_ID,
+        ),
+      ).rejects.toThrow(NotFoundException);
+
+      const after = await enrollmentRepo.count({ where: { tenant_id: TENANT_ID } });
+      expect(after).toBe(before);
+
+      const logs = await auditLogRepo.find({
+        where: { entity_id: '00000000-0000-4000-8000-000000000001', entity_type: 'Enrollment' },
+      });
+      expect(logs).toHaveLength(0);
+    });
+
+    it("never exposes another tenant's enrollment audit rows", async () => {
+      const student = await buildStudent();
+      const created = await service.create(
+        {
+          student_id: student.id,
+          class_id: SEED_CLASS_1_ID,
+          section_id: SEED_SECTION_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        },
+        TENANT_ID,
+      );
+
+      const otherTenantLogs = await auditLogRepo.find({
+        where: {
+          entity_id: created.id,
+          entity_type: 'Enrollment',
+          tenant_id: '00000000-0000-4000-8000-000000000099',
+        },
+      });
+      expect(otherTenantLogs).toHaveLength(0);
+
+      const logs = await auditLogRepo.find({
+        where: { entity_id: created.id, entity_type: 'Enrollment', tenant_id: TENANT_ID },
+      });
+      expect(logs).toHaveLength(1);
     });
   });
 });

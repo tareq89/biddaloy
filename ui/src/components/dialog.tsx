@@ -14,6 +14,7 @@
  * every dialog needs a real title, use `VisuallyHidden` from Radix directly
  * in the rare case it shouldn't be visible.
  */
+import { VisuallyHidden as VisuallyHiddenPrimitive } from 'radix-ui';
 import * as React from 'react';
 
 import {
@@ -67,3 +68,12 @@ export function DialogDescription(props: DialogDescriptionProps) {
 export function DialogClose(props: DialogCloseProps) {
   return <DialogClosePrimitive {...props} />;
 }
+
+/**
+ * Re-exported for the rare dialog whose real `DialogTitle` shouldn't be
+ * visible — e.g. a dialog that renders its own visible heading elsewhere
+ * (`WizardShell`'s `<h1>`) and would otherwise show the title twice. Every
+ * dialog still needs a real `DialogTitle` for Radix's a11y contract; this
+ * only controls whether it's rendered visibly.
+ */
+export const VisuallyHidden = VisuallyHiddenPrimitive;

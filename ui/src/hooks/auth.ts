@@ -1,20 +1,29 @@
 import type { LoginResponse } from '@biddaloy/shared';
-import type { QueryClient } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 
 import { clearAuthState, setAccessToken } from '../api/auth-state';
 import {
   apiClient,
+  deleteAuthSession,
+  getAuthSessions,
   postAuthActivate,
   postAuthForgotPassword,
   postAuthLogin,
   postAuthLogout,
+  postAuthOtpRequest,
+  postAuthOtpVerify,
   postAuthResetPassword,
   type ForgotPasswordResponse,
+  type OtpRequestResponse,
+  type SessionDto,
 } from '../api/client';
 import { NoMembershipsError } from '../api/errors';
 import { resetSessionBootstrap, scheduleTokenRefresh } from '../api/session';
 
 import { switchActiveTenant } from './tenant';
+
+export type { SessionDto };
 
 /**
  * Everything a successful `LoginResponse` needs applied to leave the app in
@@ -153,6 +162,32 @@ export async function resetPassword(
 }
 
 /**
+ * 12.5's "Sign in with code" tab, phone phase: `POST /auth/otp/request`.
+ * Always resolves — enumeration-safe, per `OtpLoginService.request`'s own
+ * contract — never rejects for "no such account"; only a genuine
+ * network/429 failure throws (`postAuthOtpRequest` already turns 429 into
+ * `RateLimitedError`).
+ */
+export async function requestOtp(phone: string): Promise<OtpRequestResponse> {
+  return postAuthOtpRequest(phone);
+}
+
+/**
+ * 12.5's "Sign in with code" tab, code phase: `POST /auth/otp/verify`. Like
+ * `login()`, a successful verify leaves the app signed in via
+ * `adoptSession` — same membership-count contract (single membership picks
+ * itself, 2+ leaves the choice to `/select-school`, zero throws
+ * `NoMembershipsError`).
+ */
+export async function verifyOtp(
+  queryClient: QueryClient,
+  input: { phone: string; otp: string },
+): Promise<LoginResponse> {
+  const result = await postAuthOtpVerify(input);
+  return adoptSession(queryClient, result);
+}
+
+/**
  * [8.14.4]'s `/portal/account` password card — `POST /auth/change-password`
  * (`AuthController.changePassword`). The server revokes every refresh
  * token for this account and re-issues one for *this* device in the same
@@ -197,4 +232,51 @@ export function logout(queryClient: QueryClient): Promise<void> {
 
 export function logoutAll(queryClient: QueryClient): Promise<void> {
   return endSession(queryClient, '/auth/logout-all');
+}
+
+/**
+ * 12.8's Security surfaces (`/security` staff route, `/portal/account`'s
+ * Devices card): `GET /auth/sessions`. `staleTime: 0` — this list changes
+ * from *other* devices (another tab revoking a session, a rotation
+ * elsewhere) with nothing in this app to invalidate it proactively, so every
+ * mount/focus should re-fetch rather than trust a cached list.
+ */
+export function sessionsQueryOptions() {
+  return queryOptions({
+    queryKey: ['auth', 'sessions'] as const,
+    queryFn: async (): Promise<SessionDto[]> => (await getAuthSessions()).data,
+    staleTime: 0,
+    // No retry: this list backs an account-security screen where a fast,
+    // explicit "couldn't load, retry" beats a silent multi-second delay
+    // before the same error surfaces.
+    retry: false,
+  });
+}
+
+/**
+ * `DELETE /auth/sessions/:id`. On success, the list is always invalidated —
+ * a non-current family disappears from every other device eventually, but
+ * this device's own view should reflect it immediately. When the revoked
+ * row was flagged `current` (the caller signed itself out), the server has
+ * already cleared the cookie and denylisted this device's access token —
+ * `endSession`'s POST is a no-op private call, so this runs `logout()`
+ * instead (its own `postAuthLogout` 204s harmlessly against an
+ * already-revoked session) to get the same local teardown
+ * (`resetSessionBootstrap` + `clearAuthState` + `queryClient.clear()`),
+ * then navigates to `/login`.
+ */
+export function useRevokeSession() {
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+
+  return useMutation({
+    mutationFn: (session: { id: string; current: boolean }) => deleteAuthSession(session.id),
+    onSuccess: async (_result, session) => {
+      await queryClient.invalidateQueries({ queryKey: ['auth', 'sessions'] });
+      if (session.current) {
+        await logout(queryClient);
+        void navigate({ to: '/login' });
+      }
+    },
+  });
 }

@@ -125,4 +125,44 @@ describe('createAppQueryClient', () => {
 
     expect(toastErrorSpy).not.toHaveBeenCalled();
   });
+
+  describe('suspended tenant [15.4.2]', () => {
+    function suspendedError(): ApiError {
+      return new ApiError({
+        statusCode: 403,
+        message: 'This school has been suspended',
+        timestamp: new Date().toISOString(),
+        path: '/x',
+        requestId: 'r1',
+        details: { code: 'TENANT_SUSPENDED' },
+      });
+    }
+
+    it('rethrows a 403 TENANT_SUSPENDED to the route boundary, but not an ordinary 403', () => {
+      const { queries } = createAppQueryClient().getDefaultOptions();
+      const throwOnError = queries?.throwOnError as (error: unknown) => boolean;
+
+      // The route boundary owns the full-page "school suspended" state; an
+      // inline per-query error could never say that.
+      expect(throwOnError(suspendedError())).toBe(true);
+      expect(throwOnError(apiError(403))).toBe(false);
+      expect(throwOnError(apiError(500))).toBe(false);
+    });
+
+    it('does not toast "permission denied" for a suspended tenant — the boundary page says it instead', async () => {
+      const toastErrorSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+      const queryClient = createAppQueryClient();
+
+      await expect(
+        queryClient.fetchQuery({
+          queryKey: ['test', 'suspended-403'],
+          queryFn: () => {
+            throw suspendedError();
+          },
+        }),
+      ).rejects.toThrow();
+
+      expect(toastErrorSpy).not.toHaveBeenCalled();
+    });
+  });
 });

@@ -11,10 +11,11 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { UserRole } from '@biddaloy/shared';
+import { Permission, UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
@@ -51,7 +52,9 @@ export class AbsenceNoticeController {
 
   @Post('preview')
   @HttpCode(HttpStatus.OK)
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
+  // [10.4] G1 — E tightened off: lacks COMMUNICATION_BULK_SEND.
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.COMMUNICATION_BULK_SEND)
   @ApiOperation({
     summary:
       'Resolves who an absence-notice send would message and who it would skip, without ' +
@@ -83,7 +86,9 @@ export class AbsenceNoticeController {
 
   @Post('send')
   @HttpCode(HttpStatus.OK)
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
+  // [10.4] G1 — E tightened off.
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.COMMUNICATION_BULK_SEND)
   @ApiOperation({
     summary:
       'Manual escape hatch for a school that leaves the scheduled sweep off, or wants a ' +

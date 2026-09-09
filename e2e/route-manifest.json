@@ -27,6 +27,11 @@
       "archetype": "bespoke"
     },
     {
+      "path": "/verify-email",
+      "role": "guest",
+      "archetype": "bespoke"
+    },
+    {
       "path": "/select-school",
       "role": "admin",
       "archetype": "bespoke"
@@ -40,6 +45,29 @@
       "path": "/notifications",
       "role": "admin",
       "archetype": "bespoke"
+    },
+    {
+      "path": "/security",
+      "role": "admin",
+      "archetype": "bespoke"
+    },
+    {
+      "path": "/schools",
+      "role": "super_admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/schools/$schoolId",
+      "params": {
+        "schoolId": "seeded"
+      },
+      "role": "super_admin",
+      "archetype": "detail"
+    },
+    {
+      "path": "/schools/new",
+      "role": "super_admin",
+      "archetype": "wizard"
     },
     {
       "path": "/settings",

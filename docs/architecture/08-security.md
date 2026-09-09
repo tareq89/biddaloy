@@ -106,11 +106,109 @@ Both endpoints are public and `strict`-rate-limited, same as `/auth/login`.
   every other session" behavior, since a password reset is exactly the
   moment an attacker who guessed or leaked the old password must be cut
   off.
+- **Recovery prefers a verified contact (12.7, D5 extension).** If the
+  contact that matched is itself unverified (`email_verified_at`/
+  `phone_verified_at` is `NULL`) **and** the account's other contact IS
+  verified, the reset goes to the verified one instead — a stronger
+  guarantee the right person receives it. An unverified-only account (no
+  verified contact at all) still gets the reset at its one contact:
+  refusing outright would make such an account unrecoverable except by an
+  admin, which is worse. Either way the response is still the same `202`.
 - **Admin-initiated reset** (`POST /users/:id/reset-password`, ADMIN only)
   is the same machinery with one difference: the target's sessions are
   revoked **immediately**, before the OTP/link is even sent — an admin
   resetting a compromised account must not leave a live session running
   while the reset is in flight.
+
+## Contact verification (12.7)
+
+`users.email_verified_at`/`users.phone_verified_at` record the moment a
+contact was PROVEN owned, not just "typed into a form". Every path that
+proves ownership stamps one of them, with a `CONTACT_VERIFIED` audit row:
+
+- **Activation** (accepting an invite) verifies whichever contact the
+  invite actually went out on.
+- **OTP login** verifies the phone the code was sent to.
+- **Password reset** verifies the OTP branch's phone / the link branch's
+  email.
+- **The contact-change flow below** verifies the NEW value, once
+  confirmed.
+
+An **admin edit** to `email`/`phone` (`PATCH /users/:id`) clears the
+matching `*_verified_at` back to `NULL` — the admin route has no
+proof-of-ownership step, so its own edit cannot leave a stale "verified"
+label standing.
+
+**Changing your own contact** (`PATCH /users/me` no longer accepts
+`email`/`phone` at all — a 400 pointing here) is commit-on-verify: the OLD
+value stays on the account until the NEW one is proven owned.
+
+```mermaid
+sequenceDiagram
+    participant U as User (own device)
+    participant S as Server
+    participant N as New contact (phone/email)
+
+    U->>S: POST /users/me/contact-change<br/>{ phone|email, current_password }
+    Note over S: current_password checked against<br/>the CALLER's own hash (403 if wrong,<br/>400 no_password if passwordless)
+    alt phone
+        S->>N: SMS: 6-digit OTP
+        S-->>U: 202 { channel: "otp" }
+        U->>S: POST .../confirm-phone { otp }
+        S->>S: users.phone = new value<br/>phone_verified_at = now()
+    else email
+        S->>N: Email: confirm link (1h TTL)
+        S-->>U: 202 { channel: "link" }
+        Note over N: link clicked, possibly logged out
+        N->>S: POST /auth/verify-email { token }
+        S->>S: users.email = new value<br/>email_verified_at = now()
+    end
+    S->>S: CONTACT_VERIFIED audit row (via: "contact_change")
+```
+
+The old value is never touched until the confirm step succeeds — a
+mistyped new number/address just leaves the request expiring unconfirmed,
+with the account's real contact untouched throughout.
+
+## Passwordless sign-in (OTP login)
+
+`POST /auth/otp/request` and `POST /auth/otp/verify`
+(`server/src/modules/account-access/otp-login.service.ts`) let a phone-only
+account — a guardian who was never given a password — sign in without one.
+It reuses the same building blocks as password recovery above: `OtpService`
+for the code, `AuthService.startSession()` for the session.
+
+```mermaid
+flowchart TD
+    A["POST /auth/otp/request<br/>{ phone }"] --> B{Known ACTIVE phone,<br/>OTP login allowed?}
+    B -- "no" --> Z["202 Accepted<br/>(nothing sent — enumeration-safe)"]
+    B -- "yes" --> C["SMS: 6-digit OTP<br/>(OtpService, Redis, 5 min TTL)"]
+    C --> D["POST /auth/otp/verify<br/>{ phone, otp }"]
+    D -- "wrong/expired/locked" --> E["401 'Invalid credentials'<br/>(same message as password login)"]
+    D -- "right code" --> F["LOGIN audit row, method: otp"]
+    F --> G["Caller signed in<br/>(identical LoginResponse shape to password login)"]
+```
+
+- **Same response shape as password login.** Both `/auth/login` and
+  `/auth/otp/verify` return `{ access_token, memberships }` plus the same
+  `__Host-refresh_token` cookie — a client can't tell which credential type
+  was used from the response alone.
+- **Same failure message.** Unknown phone, wrong code, expired code, an
+  inactive user, and a tenant that switched OTP login off all throw the
+  identical `401 "Invalid credentials"` password login uses — none of those
+  reasons is distinguishable from the outside.
+- **OTP lockout** is `OtpService`'s own counter — the same 6-digit/5-minute
+  TTL, 5-wrong-guesses/15-minute lock, 60-second resend cooldown that
+  password recovery's OTP branch uses (see above). A locked-out phone gets
+  `429` with `Retry-After: 900`.
+- **Per-tenant switchable, deny wins.** `auth.otpLoginEnabled` on tenant
+  settings (default `true`) lets a school turn this off. A user can belong
+  to more than one school; OTP login is allowed only if **every** tenant
+  they belong to has it enabled — one school opting out can't be bypassed
+  by signing in through a different membership (`OtpLoginService.allowed`).
+- **The OTP itself is never logged** — `OtpService` only ever logs
+  purpose/identifier, matching the rule password recovery's OTP already
+  follows.
 
 ## Session & token lifecycle
 
@@ -160,6 +258,66 @@ seen by the client.
 
 Expired `refresh_tokens` rows (revoked or not) are deleted by an hourly
 BullMQ job (`refresh-token-cleanup.processor.ts`/`.scheduler.ts`).
+
+### Self-service revocation (12.8)
+
+A "session" in the API is a refresh-token **family**, not a row — rotation
+means many rows can belong to one family over its lifetime, but at most one
+is ever live. `GET /auth/sessions` lists the caller's live families (device
+hint, first-seen, last-used, a `current` marker); `DELETE
+/auth/sessions/:id` revokes one. Both routes are identified entirely by
+`JwtPayload.sub` — no `X-Tenant-ID`, since a session spans every tenant the
+user belongs to, not one of them.
+
+```json
+// GET /auth/sessions
+{
+  "data": [
+    {
+      "id": "b2b1c1b0-....",
+      "started_at": "2026-08-01T09:00:00.000Z",
+      "last_used_at": "2026-09-07T04:12:00.000Z",
+      "user_agent": "Mozilla/5.0 (iPhone; ...) Safari",
+      "ip_address": "203.0.113.5",
+      "current": true
+    }
+  ]
+}
+```
+
+```mermaid
+sequenceDiagram
+    participant DeviceA as Device A (still signed in)
+    participant DeviceB as Device B (stolen phone)
+    participant API as Server
+
+    DeviceA->>API: GET /auth/sessions
+    API-->>DeviceA: [A (current), B]
+    DeviceA->>API: DELETE /auth/sessions/{B's family id}
+    API-->>DeviceA: 204, family B revoked
+
+    Note over DeviceB: Device B's access token is<br/>still valid for up to ~15 min
+    DeviceB->>API: POST /auth/refresh (family B's cookie)
+    API-->>DeviceB: 401 — family revoked
+    Note over DeviceB: SPA redirects to /login
+```
+
+Revoking the **current** family (the one behind the caller's own refresh
+cookie) also denylists the caller's access token and clears the cookie, so
+that device is cut off immediately, exactly like `logout`. Revoking any
+other family only takes effect at that device's _next_ refresh — up to ~15
+minutes of access-token life remains on it, same as every other revocation
+path in this section.
+
+A family that doesn't belong to the caller is a **404, never a 403** — a 403
+would confirm to the caller that some other user's family id exists. An
+already-revoked family is an idempotent 204. Each successful revoke writes a
+`SESSION_REVOKED` audit row with `tenant_id` from the request's active
+tenant if present, else `null` — a session isn't tenant-scoped, so `null` is
+the honest value when there's no active tenant to record.
+
+Out of scope for this ticket: a "new sign-in to your account" notification
+(needs a per-user notification-preference surface that doesn't exist yet).
 
 ## CSRF posture
 
@@ -287,6 +445,20 @@ controls this:
   deploying it as-is with `NODE_ENV=production` will refuse to boot until
   that's addressed (see [07-deployment.md](07-deployment.md)) — a known gap,
   not an oversight papered over here.
+
+**Transit to MinIO/S3.** Same shape of gap as Postgres above: `StorageService`
+and the `backup`/`restore` scripts reject a plaintext `http://` `S3_ENDPOINT`
+by default and require an explicit `S3_ALLOW_INSECURE_HTTP=true` opt-in to
+accept one (see [`server/src/modules/storage/storage.service.ts`](../../server/src/modules/storage/storage.service.ts)
+and [`scripts/backup/backup.sh`](../../scripts/backup/backup.sh)). The bundled
+`docker-compose.yml` sets that opt-in for its `app`/`backup`/`minio-init`
+services, because the MinIO container there isn't TLS-terminated — it's
+reachable only from other containers on the same Compose network, not
+published to the host or internet, but that network transport is still
+cleartext. Standing up MinIO with TLS (a CA, certs distributed to every
+client container) is tracked as follow-up work, not done here — deploying
+the bundled Compose stack as-is means MinIO traffic stays unencrypted
+between containers, the same trade-off already accepted for `db` above.
 
 **At rest.** Required as a deployment property, not an optional hardening
 step: the Postgres data volume must sit on encrypted storage — either the

@@ -7,6 +7,7 @@ import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_TENANT_ID, SEED_ADMIN_USER_ID } from '@test/constants';
 import { AcademicYearModule } from './academic-year.module';
+import { AuthModule } from '../auth/auth.module';
 import { SchoolCalendarService } from './school-calendar.service';
 import { School } from '../schools/entities/school.entity';
 import { AcademicYear } from './entities/academic-year.entity';
@@ -37,7 +38,7 @@ describe('SchoolCalendarService (integration)', () => {
     const module = await createTestModule(
       ALL_ENTITIES,
       [],
-      [ConfigModule.forRoot({ isGlobal: true }), AcademicYearModule],
+      [ConfigModule.forRoot({ isGlobal: true }), AcademicYearModule, AuthModule],
     );
     service = module.get<SchoolCalendarService>(SchoolCalendarService);
     dataSource = module.get<DataSource>(getDataSourceToken());

@@ -56,6 +56,13 @@ const ALLOWLIST: AllowlistEntry[] = [
     reason: 'Liveness probe — pre-authentication by definition.',
   },
   {
+    controller: 'HealthController',
+    method: 'GET',
+    path: '/health/ready',
+    reason:
+      '[15.1.3] Readiness probe for an uptime monitor, not a tenant user — guarded by its own X-Health-Token check (404 with no token configured, 401 on mismatch) rather than the JWT/tenant guard stack.',
+  },
+  {
     controller: 'AuthController',
     method: 'POST',
     path: '/auth/login',
@@ -88,6 +95,20 @@ const ALLOWLIST: AllowlistEntry[] = [
     path: '/auth/change-password',
     reason:
       "Bearer-authenticated but tenant-agnostic — rotates the caller's own password, identified solely by user.sub, and takes no user id from the body (AuthGuard(jwt) only, same rationale as /auth/logout-all).",
+  },
+  {
+    controller: 'AuthController',
+    method: 'GET',
+    path: '/auth/sessions',
+    reason:
+      "[12.8] Bearer-authenticated but tenant-agnostic — lists the caller's own refresh-token families (session spans every tenant the user belongs to), identified solely by user.sub (AuthGuard(jwt) only, same rationale as /auth/logout-all).",
+  },
+  {
+    controller: 'AuthController',
+    method: 'DELETE',
+    path: '/auth/sessions/:id',
+    reason:
+      "[12.8] Bearer-authenticated but tenant-agnostic, plus SameOriginGuard since it consults the refresh cookie to detect the caller's current session — revokes only a family already proven (by countForFamily) to belong to user.sub, same rationale as /auth/logout-all.",
   },
   {
     controller: 'DeviceIngestController',
@@ -150,6 +171,27 @@ const ALLOWLIST: AllowlistEntry[] = [
     path: '/auth/reset-password',
     reason:
       '12.3 — consumes an OTP or reset token and issues credentials in the same request; nothing to authenticate yet, same rationale as /auth/activate.',
+  },
+  {
+    controller: 'AccountAccessController',
+    method: 'POST',
+    path: '/auth/otp/request',
+    reason:
+      '12.5 — a passwordless-login OTP request has no credentials at all yet; enumeration-safe, same rationale as /auth/login.',
+  },
+  {
+    controller: 'AccountAccessController',
+    method: 'POST',
+    path: '/auth/otp/verify',
+    reason:
+      '12.5 — consumes a phone+OTP pair and issues credentials in the same request; nothing to authenticate yet, same rationale as /auth/login.',
+  },
+  {
+    controller: 'AccountAccessController',
+    method: 'POST',
+    path: '/auth/verify-email',
+    reason:
+      '12.7 — the link is clicked from an inbox, possibly logged out; nothing to authenticate against yet, same rationale as /auth/activate.',
   },
 ];
 

@@ -98,6 +98,7 @@ export {
   type DialogTitleProps,
   type DialogDescriptionProps,
   type DialogCloseProps,
+  VisuallyHidden,
 } from './dialog';
 export {
   Tooltip,
@@ -158,6 +159,7 @@ export {
   type AttendanceMonthGridProps,
 } from './attendance-month-grid';
 export { Card, type CardProps } from './card';
+export { SessionList, type Session, type SessionListProps } from './session-list';
 export { BottomNav, type BottomNavProps } from './bottom-nav';
 export { EmptyState, type EmptyStateKind, type EmptyStateProps } from './empty-state';
 export { StudentPicker, type StudentPickerProps, type StudentPickerItem } from './student-picker';
@@ -235,6 +237,16 @@ export {
 } from './sign-in-form';
 export { SetPasswordForm, type SetPasswordFormProps } from './set-password-form';
 export { OtpInput, type OtpInputProps } from './otp-input';
+export {
+  OtpSignInForm,
+  type OtpSignInFormProps,
+  type OtpSignInCredentials,
+} from './otp-sign-in-form';
+// 12.5: the login page's password/OTP tabs are the first consumer of Tabs
+// outside `ui/` itself — re-exported here since `@biddaloy/ui` has no
+// `./primitives` package export for client apps to reach `ui/src/primitives`
+// directly.
+export { Tabs, TabsList, TabsTrigger, TabsContent } from '../primitives/tabs';
 export { CachedDataNotice, type CachedDataNoticeProps } from './cached-data-notice';
 export { SyncStatus, SyncStatusIndicator, type SyncStatusProps } from './sync-status';
 export {
@@ -252,8 +264,14 @@ export {
   type GuardianPreferredCommunication,
 } from './guardian-contact-form';
 export {
+  ContactChangeDialog,
+  type ContactChangeDialogProps,
+  type ContactChangeField,
+} from './contact-change-dialog';
+export {
   ChangePasswordForm,
   type ChangePasswordFormProps,
   type ChangePasswordFormServerError,
   type ChangePasswordFormValues,
 } from './change-password-form';
+export { IssuerHeader, type IssuerHeaderProps, type IssuerSnapshot } from './print/issuer-header';

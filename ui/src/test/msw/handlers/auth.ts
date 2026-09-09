@@ -154,11 +154,122 @@ const resetPasswordInvalid = http.post('/api/v1/auth/reset-password', () =>
   }),
 );
 
+/** `POST /auth/otp/request` — 12.5. Always 202, enumeration-safe; `debug.otp`
+ * mirrors D6's echo flag, same shape as `forgotPassword` above. */
+const otpRequest = http.post('/api/v1/auth/otp/request', () =>
+  HttpResponse.json({ debug: { otp: '123456' } }, { status: 202 }),
+);
+
+/** `POST /auth/otp/request` rate-limited — same `Retry-After` shape as
+ * `loginRateLimited`/`forgotPasswordRateLimited`. */
+const otpRequestRateLimited = http.post('/api/v1/auth/otp/request', () =>
+  HttpResponse.json(
+    apiErrorBody(429, 'ThrottlerException: Too Many Requests', '/api/v1/auth/otp/request'),
+    { status: 429, headers: { 'Retry-After': '60' } },
+  ),
+);
+
+/** `POST /auth/otp/verify` — 12.5. Keyed off `otp` so both the happy path
+ * and the 401 "invalid credentials" case are reachable without a second
+ * handler shape, same pattern as `resetPassword` above. */
+const OTP_VERIFY_INVALID_OTP = '000000';
+
+const otpVerify = http.post('/api/v1/auth/otp/verify', async ({ request }) => {
+  const body = (await request.json()) as { otp?: string };
+  if (body.otp === OTP_VERIFY_INVALID_OTP) {
+    return HttpResponse.json(apiErrorBody(401, 'Invalid credentials', '/api/v1/auth/otp/verify'), {
+      status: 401,
+    });
+  }
+  return HttpResponse.json(
+    loginResponseFactory({ access_token: 'mock-post-otp-verify-access-token' }),
+  );
+});
+
+const otpVerifyInvalid = http.post('/api/v1/auth/otp/verify', () =>
+  HttpResponse.json(apiErrorBody(401, 'Invalid credentials', '/api/v1/auth/otp/verify'), {
+    status: 401,
+  }),
+);
+
+/** `POST /auth/verify-email` — 12.7. Keyed off the raw token, same
+ * "expired" substring convention `activateVerify` documents above. */
+const verifyEmail = http.post('/api/v1/auth/verify-email', async ({ request }) => {
+  const body = (await request.json()) as { token?: string };
+  if (body.token?.includes('expired')) {
+    return HttpResponse.json({ status: 'expired' });
+  }
+  return HttpResponse.json({ status: 'valid' });
+});
+
+const verifyEmailExpired = http.post('/api/v1/auth/verify-email', () =>
+  HttpResponse.json({ status: 'expired' }),
+);
+
 const logout = http.post('/api/v1/auth/logout', () => new HttpResponse(null, { status: 204 }));
 
 const logoutAll = http.post(
   '/api/v1/auth/logout-all',
   () => new HttpResponse(null, { status: 204 }),
+);
+
+/** `GET /auth/sessions` — [12.8]. Two rows, one `current`, matching the
+ * shape `SessionList`'s Populated story/test uses. */
+const sessions = http.get('/api/v1/auth/sessions', () =>
+  HttpResponse.json({
+    data: [
+      {
+        id: 'session-current',
+        started_at: '2026-08-01T09:00:00.000Z',
+        last_used_at: '2026-09-07T04:00:00.000Z',
+        user_agent:
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+        ip_address: '203.0.113.5',
+        current: true,
+      },
+      {
+        id: 'session-other',
+        started_at: '2026-07-15T09:00:00.000Z',
+        last_used_at: '2026-09-01T12:00:00.000Z',
+        user_agent:
+          'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+        ip_address: '198.51.100.7',
+        current: false,
+      },
+    ],
+  }),
+);
+
+const sessionsEmpty = http.get('/api/v1/auth/sessions', () =>
+  HttpResponse.json({
+    data: [
+      {
+        id: 'session-current',
+        started_at: '2026-08-01T09:00:00.000Z',
+        last_used_at: '2026-09-07T04:00:00.000Z',
+        user_agent: null,
+        ip_address: null,
+        current: true,
+      },
+    ],
+  }),
+);
+
+const sessionsError = http.get('/api/v1/auth/sessions', () =>
+  HttpResponse.json(apiErrorBody(500, 'Internal server error', '/api/v1/auth/sessions'), {
+    status: 500,
+  }),
+);
+
+const deleteSession = http.delete(
+  '/api/v1/auth/sessions/:id',
+  () => new HttpResponse(null, { status: 204 }),
+);
+
+const deleteSessionNotFound = http.delete('/api/v1/auth/sessions/:id', () =>
+  HttpResponse.json(apiErrorBody(404, 'Session not found', '/api/v1/auth/sessions/:id'), {
+    status: 404,
+  }),
 );
 
 export const authHandlers = {
@@ -180,8 +291,20 @@ export const authHandlers = {
   resetPasswordInvalid,
   RESET_PASSWORD_INVALID_OTP,
   RESET_PASSWORD_INVALID_TOKEN,
+  otpRequest,
+  otpRequestRateLimited,
+  otpVerify,
+  otpVerifyInvalid,
+  OTP_VERIFY_INVALID_OTP,
+  verifyEmail,
+  verifyEmailExpired,
   logout,
   logoutAll,
+  sessions,
+  sessionsEmpty,
+  sessionsError,
+  deleteSession,
+  deleteSessionNotFound,
 };
 
 export const authDefaultHandlers = [
@@ -193,6 +316,10 @@ export const authDefaultHandlers = [
   activateResend,
   forgotPassword,
   resetPassword,
+  otpRequest,
+  otpVerify,
+  verifyEmail,
   logout,
   logoutAll,
+  sessions,
 ];

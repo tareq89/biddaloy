@@ -68,22 +68,30 @@ export function StaffUserMenu() {
       onSignOut={() => void handleSignOut()}
       signingOut={signingOut}
       profileItem={
-        // `aria-disabled` + a swallowed `onSelect`, not `disabled`: a
-        // `disabled` menu item is skipped by the menu's roving focus, so a
-        // screen-reader user would never reach the one row that explains
-        // the feature is coming — the placeholder would be invisible to
-        // exactly the users it is meant to inform. This keeps it
-        // focusable and announced while still doing nothing on activation.
-        <MenuItem
-          aria-disabled="true"
-          onSelect={(event) => {
-            event.preventDefault();
-          }}
-          className="text-muted-foreground data-highlighted:text-muted-foreground"
-        >
-          {t('userMenu.profile')}{' '}
-          <span className="text-muted-foreground">({t('userMenu.profileComingSoon')})</span>
-        </MenuItem>
+        <>
+          {/* `aria-disabled` + a swallowed `onSelect`, not `disabled`: a
+              `disabled` menu item is skipped by the menu's roving focus, so a
+              screen-reader user would never reach the one row that explains
+              the feature is coming — the placeholder would be invisible to
+              exactly the users it is meant to inform. This keeps it
+              focusable and announced while still doing nothing on activation. */}
+          <MenuItem
+            aria-disabled="true"
+            onSelect={(event) => {
+              event.preventDefault();
+            }}
+            className="text-muted-foreground data-highlighted:text-muted-foreground"
+          >
+            {t('userMenu.profile')}{' '}
+            <span className="text-muted-foreground">({t('userMenu.profileComingSoon')})</span>
+          </MenuItem>
+          {/* [12.8] — a live item, unlike Profile above: `/security` exists
+              today, gated only by `DASHBOARD_VIEW` (see
+              `route-permissions.ts`'s own comment on that route). */}
+          <MenuItem onSelect={() => void navigate({ to: '/security' })}>
+            {t('userMenu.security')}
+          </MenuItem>
+        </>
       }
     />
   );

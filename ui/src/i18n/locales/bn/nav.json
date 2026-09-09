@@ -19,6 +19,7 @@
     "generateFees": "ফি তৈরি",
     "invoices": "চালান",
     "settings": "সেটিংস",
+    "platformSchools": "স্কুল (প্ল্যাটফর্ম)",
     "studentDues": "শিক্ষার্থীর বকেয়া",
     "recordPayment": "পেমেন্ট রেকর্ড করুন",
     "portalOverview": "সারসংক্ষেপ",
@@ -123,7 +124,8 @@
     "signingOut": "সাইন আউট হচ্ছে…",
     "loadingName": "লোড হচ্ছে…",
     "profile": "প্রোফাইল",
-    "profileComingSoon": "প্রোফাইল পৃষ্ঠা শীঘ্রই আসছে"
+    "profileComingSoon": "প্রোফাইল পৃষ্ঠা শীঘ্রই আসছে",
+    "security": "নিরাপত্তা"
   },
   "routeProgress": {
     "label": "পাতা লোড হচ্ছে…"

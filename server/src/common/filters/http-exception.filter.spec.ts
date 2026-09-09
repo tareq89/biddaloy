@@ -5,8 +5,18 @@ import {
   HttpStatus,
   InternalServerErrorException,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
+import * as Sentry from '@sentry/node';
 import { AllExceptionsFilter } from './http-exception.filter';
+
+const { mockSetTag } = vi.hoisted(() => ({ mockSetTag: vi.fn() }));
+vi.mock('@sentry/node', () => ({
+  withScope: vi.fn((callback: (scope: { setTag: typeof mockSetTag }) => void) =>
+    callback({ setTag: mockSetTag }),
+  ),
+  captureException: vi.fn(),
+}));
 
 describe('AllExceptionsFilter', () => {
   let mockJson: ReturnType<typeof vi.fn>;
@@ -30,6 +40,9 @@ describe('AllExceptionsFilter', () => {
     };
 
     vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    mockSetTag.mockClear();
+    vi.mocked(Sentry.captureException).mockClear();
+    vi.mocked(Sentry.withScope).mockClear();
   });
 
   afterEach(() => {
@@ -258,5 +271,42 @@ describe('AllExceptionsFilter', () => {
     expect(
       loggedArgs.some((arg: unknown) => typeof arg === 'string' && arg.includes('hunter2')),
     ).toBe(false);
+  });
+
+  // [15.1.1] — a 5xx is the one class of failure worth paging on; Sentry
+  // capture must fire with route/tenant/request-id/status tags and never
+  // touch the request object itself.
+  it('captures a 5xx to Sentry with route/tenant/request_id/http_status tags', () => {
+    const filter = new AllExceptionsFilter('production');
+    mockRequest.route = { path: '/api/v1/students/:id' };
+    mockRequest.currentTenant = { id: 'tenant-123' };
+    mockRequest.headers['x-request-id'] = 'req-abc';
+
+    filter.catch(new InternalServerErrorException('boom'), mockHost);
+
+    expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+    expect(mockSetTag).toHaveBeenCalledWith('route', '/api/v1/students/:id');
+    expect(mockSetTag).toHaveBeenCalledWith('tenant_id', 'tenant-123');
+    expect(mockSetTag).toHaveBeenCalledWith('request_id', 'req-abc');
+    expect(mockSetTag).toHaveBeenCalledWith('http_status', HttpStatus.INTERNAL_SERVER_ERROR);
+  });
+
+  it('does not capture a 4xx to Sentry', () => {
+    const filter = new AllExceptionsFilter('production');
+
+    filter.catch(new NotFoundException('not found'), mockHost);
+
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+  });
+
+  it('never attaches the request object to the Sentry scope call', () => {
+    const filter = new AllExceptionsFilter('production');
+    mockRequest.body = { password: 'hunter2' };
+
+    filter.catch(new InternalServerErrorException('boom'), mockHost);
+
+    // Only setTag is ever called on the scope — never anything that would
+    // carry the request (setContext/setExtra/setUser).
+    expect(mockSetTag.mock.calls.every(([key]) => typeof key === 'string')).toBe(true);
   });
 });

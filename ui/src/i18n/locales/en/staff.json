@@ -7,6 +7,8 @@
     "roleFilterAll": "All roles",
     "statusFilterLabel": "Status",
     "statusFilterAll": "All statuses",
+    "invitationFilterLabel": "Invitation",
+    "invitationFilterAll": "All invitation states",
     "joinedRangeLabel": "Joined date",
     "joinedFromLabel": "Joined from",
     "joinedToLabel": "Joined to",
@@ -15,6 +17,7 @@
     "columnPhone": "Phone",
     "columnRole": "Role",
     "columnStatus": "Status",
+    "columnInvitation": "Invitation",
     "columnJoined": "Joined",
     "columnActions": "Actions",
     "view": "View",
@@ -89,6 +92,7 @@
     "errorNameRequired": "Enter the person's full name.",
     "errorEmailRequired": "Email cannot be empty.",
     "errorMessage": "Could not save the changes. Please try again.",
+    "contactUnverifiedHint": "Changing this marks it unverified.",
     "save": "Save changes",
     "saving": "Saving…"
   },
@@ -115,6 +119,10 @@
     "back": "Back to staff",
     "forbidden": "You do not have permission to view this user.",
     "loadError": "Could not load this user. Please try again.",
+    "contact": {
+      "verified": "Verified {{date}}",
+      "unverified": "Unverified"
+    },
     "actions": {
       "editUser": "Edit user",
       "editTeacher": "Edit teacher profile",
@@ -132,6 +140,7 @@
       "columnPhone": "Phone",
       "columnRole": "Role",
       "columnStatus": "Status",
+      "columnInvitation": "Invitation",
       "columnJoined": "Joined",
       "columnLastLogin": "Last login",
       "emptyValue": "—",
@@ -157,6 +166,18 @@
       "empty": "No logins recorded yet.",
       "emptyValue": "—",
       "errorMessage": "Could not load the login history. Please try again."
+    },
+    "invitation": {
+      "resend": "Resend invitation",
+      "resending": "Resending…",
+      "resendSuccess": "Invitation resent to {{name}}.",
+      "resendError": "Could not resend the invitation. Please try again.",
+      "revoke": "Revoke invitation",
+      "revoking": "Revoking…",
+      "revokeConfirmTitle": "Revoke this invitation?",
+      "revokeConfirmDescription": "{{name}}'s current invitation link will stop working. They will need a new one to activate their account.",
+      "revokeSuccess": "Invitation revoked for {{name}}.",
+      "revokeError": "Could not revoke the invitation. Please try again."
     }
   }
 }

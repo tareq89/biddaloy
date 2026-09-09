@@ -31,6 +31,16 @@ export function buildCorsOptions(corsOriginsEnv: string | undefined, nodeEnv: st
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     // X-Tenant-ID and X-Role are read by ContextGuard on every authenticated
     // request (auth/guards/context.guard.ts) and must survive preflight.
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID', 'X-Role'],
+    // sentry-trace/baggage ([15.1.5]) are the client SDK's trace-propagation
+    // headers — without them in the allowlist, a browser preflight strips
+    // them and the server never continues the client's trace.
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Tenant-ID',
+      'X-Role',
+      'sentry-trace',
+      'baggage',
+    ],
   };
 }

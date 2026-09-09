@@ -14,7 +14,7 @@ import {
   IsDateString,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { UserRole, TeacherDesignation, UserStatus } from '@biddaloy/shared';
+import { UserRole, TeacherDesignation, UserStatus, InvitationStatus } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 
 /**
@@ -116,28 +116,37 @@ export class UpdateUserDto {
 }
 
 /**
- * Body of `PATCH /users/me`. Same fields as `UpdateUserDto` plus the
- * re-authentication field.
+ * Body of `PATCH /users/me`. [12.7]: deliberately does NOT extend
+ * `UpdateUserDto` any more — `email`/`phone` are gone from this DTO
+ * entirely, not just gated behind a password. The global `ValidationPipe`
+ * runs with `forbidNonWhitelisted`, so a caller who still sends either
+ * (the old contract) gets a 400 pointing at the new flow instead of the
+ * value silently being accepted or silently being dropped.
  *
- * A stolen access token (~15 minutes of life) was enough to rewrite BOTH
- * login identifiers, and there is no password-reset flow, so the real owner
- * was locked out of every school they belong to — permanently. Changing an
- * identifier therefore costs a password, the same price
- * `POST /auth/change-password` charges. `full_name` and
- * `profile_picture_url` stay friction-free: getting those wrong is a typo,
- * not a lockout.
+ * Changing your own email or phone now goes through
+ * `POST /users/me/contact-change` (`ContactChangeService`) — a flow that
+ * only commits the new value once it's been proven owned (an OTP for a
+ * phone, a clicked link for an email), which is a stronger guarantee than
+ * this route's old "re-type your password" gate ever was. `current_password`
+ * has no reason to exist here any more: nothing security-sensitive remains
+ * in this DTO.
  *
- * Only the self-service route takes this DTO. Admin `PATCH /users/:id` is a
- * different trust model — an admin editing someone else's record does not
- * know that person's password — and keeps plain `UpdateUserDto`. [5.4a]
+ * Only the self-service route takes this DTO. Admin `PATCH /users/:id`
+ * is a different trust model — an admin editing someone else's record
+ * does not know that person's password, and keeps plain `UpdateUserDto`,
+ * email/phone included. [5.4a] [12.7]
  */
-export class UpdateOwnProfileDto extends UpdateUserDto {
-  /** Required only when the request actually changes `email` or `phone`;
-   * the service enforces that, because only it can see the current values. */
+export class UpdateOwnProfileDto {
   @IsOptional()
   @IsString()
-  @MaxLength(200)
-  current_password?: string;
+  @MaxLength(100)
+  @SanitizeText()
+  full_name?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  profile_picture_url?: string;
 }
 
 export class QueryUserDto {
@@ -153,6 +162,16 @@ export class QueryUserDto {
   @IsOptional()
   @IsEnum(UserStatus)
   status?: UserStatus;
+
+  /**
+   * Filters on the derived lifecycle `deriveInvitationStatus` computes from
+   * `password_hash` + the newest INVITE `auth_tokens` row (12.6) — not a
+   * stored column, so `UserService.findAll` matches it with the identical
+   * CASE expression in SQL.
+   */
+  @IsOptional()
+  @IsEnum(['NONE', 'PENDING', 'EXPIRED', 'REVOKED', 'ACTIVATED'])
+  invitation_status?: InvitationStatus;
 
   /** Lower bound on when this user joined *this* tenant (`UserTenant.created_at`),
    * not when their account was created globally (`User.created_at`). */

@@ -10,6 +10,7 @@ import { SEED_TENANT_ID, SEED_ADMIN_USER_ID } from '@test/constants';
 import { AttendanceService } from './attendance.service';
 import { AbsenceNoticeService } from './absence-notice.service';
 import { AttendanceModule } from './attendance.module';
+import { AuthModule } from '../auth/auth.module';
 import { School } from '../schools/entities/school.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Class } from '../academics/entities/class.entity';
@@ -88,6 +89,7 @@ describe('AbsenceNoticeService (integration)', () => {
           }),
         }),
         AttendanceModule,
+        AuthModule,
       ],
     );
     attendanceService = module.get<AttendanceService>(AttendanceService);

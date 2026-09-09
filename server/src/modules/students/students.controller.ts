@@ -12,11 +12,14 @@ import {
   UploadedFile,
   Inject,
   ParseUUIDPipe,
+  Req,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Request } from 'express';
+import { requestContext } from '../../common/request-context.util';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { STRICT_RATE_LIMIT } from '../../rate-limit';
@@ -56,7 +59,10 @@ export class StudentController {
   // --- Student endpoints ---
 
   @Post('students')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  // [10.4] G3 grants AC STUDENT_CREATE (front-office intake); G1 tightens E
+  // off (no write surface).
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.STUDENT_CREATE)
   createStudent(
     @Body() dto: CreateStudentDto,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -141,7 +147,9 @@ export class StudentController {
   }
 
   @Patch('students/:id')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  // [10.4] G3, G1 — same reasoning as createStudent() above.
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.STUDENT_UPDATE)
   updateStudent(
     @Param('id') id: string,
     @Body() dto: UpdateStudentDto,
@@ -160,16 +168,29 @@ export class StudentController {
   // --- Guardian endpoints ---
 
   @Post('guardians')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  // [10.4] G3 grants AC GUARDIAN_CREATE; G1 tightens E off.
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.GUARDIAN_CREATE)
   createGuardian(
     @Body() dto: CreateGuardianDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
-    return this.guardianService.create(dto, tenant.id);
+    return this.guardianService.create(
+      dto,
+      tenant.id,
+      undefined,
+      user.sub,
+      requestContext(request),
+    );
   }
 
   @Get('guardians')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  // [10.4] G12 — E tightened off: no surface for viewing guardians (`/guardians`
+  // hidden, guardians excluded from global search).
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.TEACHER)
+  @RequirePermissions(Permission.GUARDIAN_READ)
   findAllGuardians(
     @Query() query: QueryGuardianDto,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -208,12 +229,15 @@ export class StudentController {
     @Body() dto: UpdateOwnGuardianDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
-    return this.guardianService.updateOwn(user.sub, dto, tenant.id);
+    return this.guardianService.updateOwn(user.sub, dto, tenant.id, requestContext(request));
   }
 
   @Get('guardians/:id')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  // [10.4] G12 — E tightened off; see findAllGuardians() above.
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.TEACHER)
+  @RequirePermissions(Permission.GUARDIAN_READ)
   findOneGuardian(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -222,18 +246,29 @@ export class StudentController {
   }
 
   @Patch('guardians/:id')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  // [10.4] G3 grants AC GUARDIAN_UPDATE; G1 tightens E off.
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.GUARDIAN_UPDATE)
   updateGuardian(
     @Param('id') id: string,
     @Body() dto: UpdateGuardianDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
-    return this.guardianService.update(id, dto, tenant.id);
+    return this.guardianService.update(id, dto, tenant.id, user.sub, requestContext(request));
   }
 
   @Delete('guardians/:id')
+  // [10.4] G15 — new GUARDIAN_DELETE, mirrors STUDENT_DELETE.
   @Roles(UserRole.ADMIN)
-  removeGuardian(@Param('id') id: string, @CurrentTenant() tenant: { id: string; role: string }) {
-    return this.guardianService.remove(id, tenant.id);
+  @RequirePermissions(Permission.GUARDIAN_DELETE)
+  removeGuardian(
+    @Param('id') id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.guardianService.remove(id, tenant.id, user.sub, requestContext(request));
   }
 }

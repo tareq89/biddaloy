@@ -14,6 +14,7 @@ import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_TENANT_ID, SEED_ADMIN_USER_ID } from '@test/constants';
 import { AttendanceService } from './attendance.service';
 import { AttendanceModule } from './attendance.module';
+import { AuthModule } from '../auth/auth.module';
 import { School } from '../schools/entities/school.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Class } from '../academics/entities/class.entity';
@@ -85,7 +86,7 @@ describe('AttendanceService (integration)', () => {
     const module = await createTestModule(
       ALL_ENTITIES,
       [],
-      [ConfigModule.forRoot({ isGlobal: true }), AttendanceModule],
+      [ConfigModule.forRoot({ isGlobal: true }), AttendanceModule, AuthModule],
     );
     service = module.get<AttendanceService>(AttendanceService);
     dataSource = module.get<DataSource>(getDataSourceToken());

@@ -18,6 +18,7 @@ import { TenantSettingsDto } from './dto/tenant-settings.dto';
 import { assertCanManageSchool } from './assert-can-manage-school.util';
 import { SchoolListItemDto } from './dto/school-list-item.dto';
 import { TenantSettingsResponseDto } from './dto/school-settings-response.dto';
+import { UpdateSchoolStatusDto } from './dto/update-school-status.dto';
 
 @ApiTags('schools')
 @ApiTenantAuth()
@@ -30,11 +31,36 @@ export class SchoolsController {
   @Roles(UserRole.SUPER_ADMIN)
   @ApiOperation({
     summary:
-      "List every school (id and name only) — #8.7.13's super-admin school picker. An ADMIN doesn't get this route at all; they already know their one school from their own tenant context.",
+      "List every school (id, name, slug, status, created_at) — #8.7.13's super-admin school picker, extended by #533's platform schools list. An ADMIN doesn't get this route at all; they already know their one school from their own tenant context.",
   })
   @ApiOkResponse({ type: SchoolListItemDto, isArray: true })
   async findAll() {
     return this.schools.findAll();
+  }
+
+  @Get(':id/stats')
+  @Roles(UserRole.SUPER_ADMIN)
+  @ApiOperation({
+    summary:
+      'Five cheap platform metrics for a school (#532) — active users, students, queued/recently-failed communications, and last activity. SUPER_ADMIN only.',
+  })
+  async getStats(@Param('id', ParseUUIDPipe) id: string) {
+    return this.schools.getStats(id);
+  }
+
+  @Patch(':id/status')
+  @Roles(UserRole.SUPER_ADMIN)
+  @ApiOperation({
+    summary:
+      "Suspend or reactivate a school (#530). SUPER_ADMIN only. A mandatory reason is audited (SUSPEND/REACTIVATE), and the tenant status cache is invalidated so the change takes effect on the school's very next request.",
+  })
+  async updateStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateSchoolStatusDto,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.schools.updateStatus(id, dto, user.sub, requestContext(request));
   }
 
   @Get(':id/settings')

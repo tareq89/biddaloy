@@ -3,7 +3,6 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
-  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, In, QueryFailedError } from 'typeorm';
@@ -26,14 +25,6 @@ import {
   UpdateTeacherDto,
   QueryTeacherDto,
 } from './dto/users.dto';
-
-/**
- * Compared against when the caller has no password hash, so a passwordless
- * account costs the same bcrypt time as a wrong password rather than
- * answering instantly. Mirrors AuthService's dummy hash. It is not a hash of
- * any real password.
- */
-const DUMMY_PASSWORD_HASH = '$2b$10$rGV9zEDpgnc/spXBlHqA9O5IjpBvndIyZE78fIhV8ZV4.5GAUfPJ.';
 
 @Injectable()
 export class UserService {
@@ -159,6 +150,38 @@ export class UserService {
         qb.andWhere(
           '(u.full_name ILIKE :search OR u.email ILIKE :search OR u.phone ILIKE :search)',
           { search: `%${search}%` },
+        );
+      }
+
+      // Filter on the derived invitation lifecycle (12.6) — a lateral join
+      // to the newest INVITE `auth_tokens` row for this user, then a CASE
+      // expression that mirrors `deriveInvitationStatus` exactly (see the
+      // paired unit test asserting the two never drift).
+      if (query.invitation_status) {
+        qb.leftJoin(
+          (subQb) =>
+            subQb
+              .select('t.user_id', 'user_id')
+              .addSelect('t.consumed_at', 'consumed_at')
+              .addSelect('t.revoked_at', 'revoked_at')
+              .addSelect('t.expires_at', 'expires_at')
+              .distinctOn(['t.user_id'])
+              .from('auth_tokens', 't')
+              .where("t.purpose = 'INVITE' AND t.tenant_id = :tenantId", { tenantId })
+              .orderBy('t.user_id')
+              .addOrderBy('t.created_at', 'DESC'),
+          'inv',
+          'inv.user_id = u.id',
+        );
+        qb.andWhere(
+          `(CASE
+            WHEN u.password_hash IS NOT NULL OR inv.consumed_at IS NOT NULL THEN 'ACTIVATED'
+            WHEN inv.user_id IS NULL THEN 'NONE'
+            WHEN inv.revoked_at IS NOT NULL THEN 'REVOKED'
+            WHEN inv.expires_at < NOW() THEN 'EXPIRED'
+            ELSE 'PENDING'
+          END) = :invitationStatus`,
+          { invitationStatus: query.invitation_status },
         );
       }
 
@@ -311,8 +334,24 @@ export class UserService {
 
     // Update user-level fields (shared across tenants)
     const updateData: any = {};
-    if (dto.email !== undefined) updateData.email = email ?? null;
-    if (dto.phone !== undefined) updateData.phone = phone;
+    // [12.7] Any admin edit to email/phone clears the matching
+    // `*_verified_at` — this IS the "explicit unverified flag" the plan
+    // calls for, not an extra boolean column. Compared against the
+    // CURRENT stored value, not just "field present in the body": a
+    // profile-form resubmit of the same unchanged address must not wipe
+    // out a real verification.
+    if (dto.email !== undefined && (email ?? null) !== (current.email ?? null)) {
+      updateData.email = email ?? null;
+      updateData.email_verified_at = null;
+    } else if (dto.email !== undefined) {
+      updateData.email = email ?? null;
+    }
+    if (dto.phone !== undefined && phone !== (current.phone ?? null)) {
+      updateData.phone = phone;
+      updateData.phone_verified_at = null;
+    } else if (dto.phone !== undefined) {
+      updateData.phone = phone;
+    }
     if (dto.full_name !== undefined) updateData.full_name = dto.full_name;
     if (dto.profile_picture_url !== undefined)
       updateData.profile_picture_url = dto.profile_picture_url;
@@ -338,58 +377,17 @@ export class UserService {
   }
 
   /**
-   * `PATCH /users/me`. Same write as `update()`, with one extra gate: if the
-   * request actually CHANGES a login identifier, it must carry the caller's
-   * current password.
-   *
-   * Why: an access token lives ~15 minutes, there is no password-reset flow,
-   * and `AuthService.validateUser` matches on email OR phone and nothing
-   * else — so whoever rewrites both identifiers owns the account and the real
-   * user is locked out of every school they belong to, forever. That is the
-   * same stake `POST /auth/change-password` protects with `current_password`.
-   * Cosmetic fields (`full_name`, `profile_picture_url`) stay friction-free.
-   *
-   * "Changes" is compared against the stored values, so re-submitting your
-   * own unchanged email (what a profile form does on every save) costs
-   * nothing.
-   *
-   * 403, not 401: `ui/src/api/client.ts` transparently refreshes and replays
-   * ANY 401 once, which would turn a wrong password into a silent double
-   * submit. Admin `PATCH /users/:id` deliberately does not go through here —
-   * an admin does not know the password of the person they are editing. [5.4a]
+   * `PATCH /users/me`. [12.7]: `email`/`phone` no longer go through this
+   * route at all — `UpdateOwnProfileDto` no longer has fields for them, so
+   * `forbidNonWhitelisted` (the global `ValidationPipe`) 400s a caller who
+   * still sends either before this method ever runs. Changing a contact now
+   * goes through `ContactChangeService` (`account-access/contact-change.service.ts`),
+   * which commits only after the new value is proven owned — no
+   * `current_password` re-auth gate is needed here any more, since nothing
+   * security-sensitive remains in this DTO.
    */
   async updateOwnProfile(id: string, dto: UpdateOwnProfileDto, tenantId: string): Promise<User> {
-    const { current_password, ...rest } = dto;
-    const current = await this.findOne(id, tenantId);
-
-    const nextEmail =
-      rest.email === '' || rest.email === null
-        ? null
-        : rest.email
-          ? normalizeEmail(rest.email)
-          : undefined;
-    const nextPhone = rest.phone === '' ? null : rest.phone;
-
-    const changesEmail = nextEmail !== undefined && nextEmail !== (current.email ?? null);
-    const changesPhone = nextPhone !== undefined && nextPhone !== (current.phone ?? null);
-
-    if (changesEmail || changesPhone) {
-      if (!current_password) {
-        throw new BadRequestException(
-          'Changing your email address or phone number requires your current password',
-        );
-      }
-      // A user created without a password (invited, never set one) cannot
-      // prove anything — same stance changePassword takes. Constant work
-      // either way so this is not a "has a password?" oracle.
-      const hash = current.password_hash ?? DUMMY_PASSWORD_HASH;
-      const valid = await bcrypt.compare(current_password, hash);
-      if (!current.password_hash || !valid) {
-        throw new ForbiddenException('Current password is incorrect');
-      }
-    }
-
-    return this.update(id, rest, tenantId);
+    return this.update(id, dto, tenantId);
   }
 
   async remove(id: string, tenantId: string, requestingUserId: string): Promise<void> {

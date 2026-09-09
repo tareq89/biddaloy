@@ -28,6 +28,9 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   // reaches the shell" baseline `/_staff/dashboard` already uses, not a
   // resource-specific permission this route doesn't need.
   '/_staff/notifications': Permission.DASHBOARD_VIEW,
+  // [12.8]: this is the signed-in user's own active-sessions list, not
+  // tenant data — same "any staff role" baseline as `/_staff/notifications`.
+  '/_staff/security': Permission.DASHBOARD_VIEW,
   '/_staff/students/': Permission.STUDENT_READ,
   '/_staff/students/new': Permission.STUDENT_CREATE,
   '/_staff/students/import': Permission.STUDENT_BULK_UPLOAD,

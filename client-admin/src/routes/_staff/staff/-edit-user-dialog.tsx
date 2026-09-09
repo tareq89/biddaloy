@@ -101,6 +101,9 @@ export function EditUserDialog({ open, onOpenChange, user }: EditUserDialogProps
               value={email}
               onChange={(event) => setEmail(event.target.value)}
             />
+            {/* [12.7] An admin edit clears the matching *_verified_at — no
+                extra confirmation step, unlike the self-service flow. */}
+            <p className="text-xs text-muted-foreground">{t('editUser.contactUnverifiedHint')}</p>
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -113,6 +116,7 @@ export function EditUserDialog({ open, onOpenChange, user }: EditUserDialogProps
               config={regionConfig}
               onValueChange={(value) => setPhone(value)}
             />
+            <p className="text-xs text-muted-foreground">{t('editUser.contactUnverifiedHint')}</p>
           </div>
 
           {validationError && (

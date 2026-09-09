@@ -4,6 +4,7 @@ import { validate } from 'class-validator';
 import { TenantSettingsDto, TENANT_SETTINGS_SCHEMA_VERSION } from './tenant-settings.dto';
 import {
   DEFAULT_ATTENDANCE_SETTINGS,
+  DEFAULT_AUTH_SETTINGS,
   DEFAULT_REGION_SETTINGS,
 } from '../settings/tenant-settings-defaults';
 
@@ -354,6 +355,31 @@ describe('TenantSettingsDto', () => {
       expect(
         attendanceError?.children?.some((e) => e.property === 'lowAttendanceThresholdPercent'),
       ).toBe(true);
+    });
+  });
+
+  describe('auth', () => {
+    it('accepts a valid auth section', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        auth: DEFAULT_AUTH_SETTINGS,
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      expect(errors.find((e) => e.property === 'auth')).toBeUndefined();
+    });
+
+    it('rejects a non-boolean otpLoginEnabled', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        auth: { otpLoginEnabled: 'yes' },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      const authError = errors.find((e) => e.property === 'auth');
+      expect(authError?.children?.some((e) => e.property === 'otpLoginEnabled')).toBe(true);
     });
   });
 });

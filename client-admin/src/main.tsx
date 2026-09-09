@@ -55,6 +55,8 @@ function RouteErrorFallbackWithUpdate(props: ErrorComponentProps) {
       updateTitle={t('update.pageTitle')}
       updateMessage={t('update.pageExplanation')}
       updateRetryLabel={t('update.reload')}
+      suspendedTitle={t('suspended.pageTitle')}
+      suspendedMessage={t('suspended.pageExplanation')}
       retryLabel={t('offline.retry')}
     />
   );
