@@ -26,17 +26,29 @@ describe('pwa icon artwork', () => {
   });
 
   it('pwa-192.png is the same glyph as pwa-512.png, downscaled, not an offset crop', async () => {
-    // Downscale the known-good 512 source to 192 and compare mean channel
-    // values against the shipped 192 icon. An offset/cropped export (the
-    // #358 bug) shows very different brand-color coverage than a clean
-    // downscale of the same artwork.
-    const shipped = await sharp(resolve(ICONS_DIR, 'pwa-192.png')).stats();
-    const resized = await sharp(resolve(ICONS_DIR, 'pwa-512.png')).resize(192, 192).stats();
+    // Downscale the known-good 512 source to 192 and compare the decoded
+    // pixels against the shipped 192 icon. Channel-mean comparison (the
+    // original version of this test) can't catch a translated glyph — two
+    // images with the same color coverage but shifted content still have
+    // matching means. An offset/cropped export (the #358 bug) shows very
+    // different pixels at the same coordinates than a clean downscale of
+    // the same artwork.
+    const shipped = await sharp(resolve(ICONS_DIR, 'pwa-192.png')).ensureAlpha().raw().toBuffer();
+    const resized = await sharp(resolve(ICONS_DIR, 'pwa-512.png'))
+      .resize(192, 192)
+      .ensureAlpha()
+      .raw()
+      .toBuffer();
 
-    for (let channel = 0; channel < shipped.channels.length; channel += 1) {
-      const shippedMean = shipped.channels[channel]?.mean ?? 0;
-      const resizedMean = resized.channels[channel]?.mean ?? 0;
-      expect(Math.abs(shippedMean - resizedMean)).toBeLessThan(5);
+    expect(shipped.length).toBe(resized.length);
+
+    let maxDiff = 0;
+    for (let i = 0; i < shipped.length; i += 1) {
+      maxDiff = Math.max(maxDiff, Math.abs(shipped[i] - resized[i]));
     }
+
+    // Small tolerance for resize-algorithm/encoder rounding differences,
+    // not for an offset crop — a mismatched glyph produces diffs near 255.
+    expect(maxDiff).toBeLessThan(16);
   });
 });
