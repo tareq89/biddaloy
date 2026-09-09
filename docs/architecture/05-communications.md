@@ -81,6 +81,79 @@ guardian says "I never got the reminder."
   tenant is suspended — see below); `metadata.reason` / `metadata.error`
   says why.
 
+## Push-first dispatch for routine automated notifications [#555]
+
+"Push" here means a browser/OS notification delivered through the [Web
+Push API](https://developer.mozilla.org/en-US/docs/Web/API/Push_API) to a
+device the guardian's linked user account has subscribed from (see
+`modules/push/`) — not SMS, WhatsApp, Messenger, or email. Free to send
+(no gateway cost), so it's tried first for **routine** notifications, with
+the guardian's normal preferred channel as the fallback.
+
+**Routine** = `CommunicationLog.trigger === CommunicationTrigger.AUTOMATED`
+— today that's only attendance-absence notices
+(`absence-notice.scheduler.ts`'s daily sweep, and the same code path when
+a class teacher finalizes a register early). A **staff-initiated** send —
+one guardian (`SINGLE_REMINDER`), a bulk campaign (`BULK_REMINDER`), or a
+freeform message (`MANUAL`) — always goes straight to the guardian's
+preferred channel, exactly as before. `ACCOUNT_ACCESS` sends (invites,
+OTPs, password resets) are excluded too: a fallback delay is not
+acceptable for those.
+
+```mermaid
+flowchart TD
+    Q["CommunicationsProcessor.process(job)\n(after the tenant-suspension check)"] --> R{"log.trigger ==\nAUTOMATED?"}
+    R -->|no| PREF["Send via log.medium\n(unchanged — staff picked this channel)"]
+    R -->|yes| U{"Guardian has a\nlinked user\n(guardian.user_id)?"}
+    U -->|no| PREF
+    U -->|yes| PUSH["PushService.sendToUser(userId, tenantId, payload)"]
+    PUSH --> A{"accepted >= 1?"}
+    A -->|yes, STOP| DONE["Rewrite this log:\nmedium = PUSH\nrecipient_address = push:&lt;user_id&gt;\nmetadata = {accepted, transient, pruned}\nstatus = SENT\n(one CommunicationLog row — no SMS/email log created)"]
+    A -->|no, fall through| PREF
+```
+
+Decision table (opt-out is checked upstream — see
+`reminder-recipients.util.ts#partitionByOptOut` — and stays authoritative:
+an opted-out guardian never gets a `CommunicationLog` row queued at all,
+so it never reaches this table):
+
+| Trigger                                                           | Guardian has linked user + push subscription? | Push result      | What gets logged / sent                                                          |
+| ----------------------------------------------------------------- | --------------------------------------------- | ---------------- | -------------------------------------------------------------------------------- |
+| `AUTOMATED` (routine)                                             | No                                            | —                | Preferred channel, unchanged (SMS/WhatsApp/Email)                                |
+| `AUTOMATED` (routine)                                             | Yes                                           | `accepted >= 1`  | **One** `CommunicationLog` (`medium = PUSH`) — preferred channel is **not** sent |
+| `AUTOMATED` (routine)                                             | Yes                                           | `accepted === 0` | Falls back to preferred channel, unchanged                                       |
+| `MANUAL` / `SINGLE_REMINDER` / `BULK_REMINDER` / `ACCOUNT_ACCESS` | irrelevant                                    | —                | Preferred channel, unchanged — never tried via push                              |
+
+Example: a guardian with the app installed as a PWA on their phone gets an
+absence notice as a push notification instead of an SMS. A `push` medium
+log for them looks like:
+
+```json
+{
+  "medium": "PUSH",
+  "recipient_address": "push:3f2a1c9e-...-user-id",
+  "metadata": { "accepted": 1, "transient": 0, "pruned": 1 },
+  "status": "SENT"
+}
+```
+
+No push endpoint or subscription key ever lands in `CommunicationLog` —
+only which user it went to and the accept/transient/pruned counts
+`PushService.sendToUser` returned (see `modules/push/push.service.ts`).
+
+`medium = 'PUSH'` is a value only `communication_logs.medium`'s own DB
+enum accepts (`communication_logs_medium_enum`,
+migration `1789400000000-AddPushCommunicationMedium.ts`) — it is
+deliberately **not** part of the shared `CommunicationMedium` enum used
+elsewhere (e.g. `guardian.preferred_communication`), because a guardian
+can never _choose_ push as a preferred channel the way they can choose
+SMS or email.
+
+No SMS credit is reserved or debited on the push path: credit reservation
+only happens for the bulk-reminder flow's _metered_ SMS batches
+(`isSettleableSmsBatchJob` requires `job.data.batchId`, which `AUTOMATED`
+jobs never carry), so there is nothing to release when push succeeds.
+
 ## Suspended tenants: queued work is cancelled, not paused
 
 A school (tenant) can be suspended by a SUPER_ADMIN

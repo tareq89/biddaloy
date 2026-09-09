@@ -4,13 +4,15 @@ import { Logger } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { Job } from 'bullmq';
 import * as Sentry from '@sentry/node';
-import { CommunicationLog } from '../entities/communication-log.entity';
-import { CommunicationMedium, CommunicationStatus } from '@biddaloy/shared';
+import { CommunicationLog, PUSH_MEDIUM } from '../entities/communication-log.entity';
+import { CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '@biddaloy/shared';
 import { CommunicationProviderRegistryService } from '../providers/communication-provider.registry';
 import { recordBatchOutcome, BatchOutcome } from '../reminder-batch-counters';
 import { COMMUNICATIONS_QUEUE } from '../communications.constants';
 import { TenantStatusService } from '../../schools/tenant-status.service';
 import { SmsCreditService } from '../credits/sms-credit.service';
+import { Guardian } from '../../students/entities/guardian.entity';
+import { PushService } from '../../push/push.service';
 
 interface SendJobData {
   logId: string;
@@ -49,11 +51,78 @@ export class CommunicationsProcessor extends WorkerHost {
   constructor(
     @InjectRepository(CommunicationLog)
     private readonly repo: Repository<CommunicationLog>,
+    @InjectRepository(Guardian)
+    private readonly guardianRepo: Repository<Guardian>,
     private readonly providerRegistry: CommunicationProviderRegistryService,
     private readonly tenantStatus: TenantStatusService,
     private readonly smsCredits: SmsCreditService,
+    private readonly pushService: PushService,
   ) {
     super();
+  }
+
+  /**
+   * #555: routine automated notifications try push before their preferred
+   * channel. "Routine" = `CommunicationTrigger.AUTOMATED` — the only
+   * automated trigger this dispatcher sees today (attendance-absence
+   * notices via `absence-notice.scheduler.ts`); `BULK_REMINDER` /
+   * `SINGLE_REMINDER` are staff-initiated and stay on their existing path
+   * unchanged, `ACCOUNT_ACCESS` sends (OTP/invite/reset) are never
+   * routine-suppressible. Opt-out is already authoritative upstream — a
+   * guardian who opted out never gets a QUEUED log at all (see
+   * `reminder-recipients.util.ts#partitionByOptOut`), so this method never
+   * has to check it again.
+   *
+   * Returns `true` when push delivered (the log has already been rewritten
+   * to a terminal PUSH log and settled) — the caller must stop, not fall
+   * through to the preferred-channel provider. Returns `false` for every
+   * other case (no linked user, no subscriptions, or 0 endpoints
+   * accepted), leaving `log` untouched so the existing dispatch continues
+   * exactly as it did before this method existed.
+   */
+  private async tryPushFirst(log: CommunicationLog): Promise<boolean> {
+    if (log.trigger !== CommunicationTrigger.AUTOMATED || !log.guardian_id) {
+      return false;
+    }
+
+    const guardian = await this.guardianRepo.findOne({
+      where: { id: log.guardian_id, tenant_id: log.tenant_id },
+    });
+    if (!guardian?.user_id) {
+      return false;
+    }
+
+    const result = await this.pushService.sendToUser(guardian.user_id, log.tenant_id, {
+      type: 'reminder',
+      title: log.subject ?? 'Notification',
+      body: log.message_body,
+      url: '/',
+    });
+
+    // A push acceptance IS the delivery attempt — no paid duplicate on the
+    // preferred channel. `accepted === 0` (no live subscriptions, or every
+    // endpoint came back transient/pruned) falls through unchanged.
+    if (result.accepted < 1) {
+      return false;
+    }
+
+    log.medium = PUSH_MEDIUM;
+    // No endpoint, no secret — just which user, so this log can never leak
+    // a push subscription's endpoint/keys into an audit trail.
+    log.recipient_address = `push:${guardian.user_id}`;
+    log.status = CommunicationStatus.SENT;
+    log.metadata = {
+      ...log.metadata,
+      accepted: result.accepted,
+      transient: result.transient,
+      pruned: result.pruned,
+    };
+    // settle(), not settleSmsCredit — this path never reserved SMS credit
+    // in the first place (isSettleableSmsBatchJob requires job.data.batchId,
+    // which only the bulk-reminder flow sets; AUTOMATED jobs never carry
+    // one), so there is nothing to release or debit.
+    await this.settle(log, 'success');
+    return true;
   }
 
   /**
@@ -244,7 +313,15 @@ export class CommunicationsProcessor extends WorkerHost {
       return;
     }
 
-    const provider = this.providerRegistry.resolve(log.medium);
+    if (await this.tryPushFirst(log)) {
+      return;
+    }
+
+    // `tryPushFirst` returning false leaves `log.medium` exactly as it was
+    // read from the DB — a real `CommunicationMedium`, never `'PUSH'` (that
+    // literal is only ever assigned inside `tryPushFirst`'s success branch,
+    // which returns true). The cast reflects that, not a new assumption.
+    const provider = this.providerRegistry.resolve(log.medium as CommunicationMedium);
     if (!provider) {
       // Not retryable — no deploy in between attempts will make a medium
       // suddenly have a provider.

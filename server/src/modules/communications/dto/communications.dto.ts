@@ -10,6 +10,7 @@ import {
 import { Transform } from 'class-transformer';
 import { CommunicationMedium, CommunicationStatus } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
+import { CommunicationLogMedium } from '../entities/communication-log.entity';
 
 export class SendCommunicationDto {
   @IsEnum(CommunicationMedium)
@@ -64,7 +65,7 @@ export class SendCommunicationDto {
 
 export class CommunicationResponseDto {
   id: string;
-  medium: CommunicationMedium;
+  medium: CommunicationLogMedium;
   recipient_address: string;
   recipient_name: string;
   status: CommunicationStatus;
@@ -89,5 +90,5 @@ export class QueryLastRemindersDto {
 export class LastReminderDto {
   student_id: string;
   sent_at: Date;
-  medium: CommunicationMedium;
+  medium: CommunicationLogMedium;
 }

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { CommunicationsProcessor } from './communications.processor';
-import { CommunicationMedium, CommunicationStatus } from '@biddaloy/shared';
+import { CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '@biddaloy/shared';
 
 // [15.1.4] captureException/captureMessage/withScope are spied so onFailed/
 // onStalled tests can assert exactly what reaches Sentry without a real DSN.
@@ -22,6 +22,8 @@ describe('CommunicationsProcessor', () => {
   let provider: Record<string, ReturnType<typeof vi.fn>>;
   let tenantStatus: Record<string, ReturnType<typeof vi.fn>>;
   let smsCredits: Record<string, ReturnType<typeof vi.fn>>;
+  let guardianRepo: Record<string, ReturnType<typeof vi.fn>>;
+  let pushService: Record<string, ReturnType<typeof vi.fn>>;
 
   const baseLog = {
     id: 'log-1',
@@ -33,6 +35,8 @@ describe('CommunicationsProcessor', () => {
     metadata: null,
     status: CommunicationStatus.QUEUED,
     reminder_batch_id: null,
+    trigger: CommunicationTrigger.MANUAL,
+    guardian_id: null,
   };
 
   // attemptsMade: 0 with attempts: 3 means "first attempt, two retries left".
@@ -81,12 +85,20 @@ describe('CommunicationsProcessor', () => {
     // so the processor's dispatch logic (which outcome maps to which
     // settlePart call, or none) can be asserted here.
     smsCredits = { settlePart: vi.fn(async () => undefined) };
+    // #555: no guardian found by default (findOne -> null) means
+    // tryPushFirst falls through to the preferred-channel path unless a
+    // test overrides it — matches "guardian has no linked user" being the
+    // common case for logs that aren't AUTOMATED-triggered anyway.
+    guardianRepo = { findOne: vi.fn(async () => null) };
+    pushService = { sendToUser: vi.fn(async () => ({ accepted: 0, transient: 0, pruned: 0 })) };
 
     processor = new CommunicationsProcessor(
       repo as any,
+      guardianRepo as any,
       providerRegistry as any,
       tenantStatus as any,
       smsCredits as any,
+      pushService as any,
     );
 
     sentryCaptureException.mockClear();
@@ -626,6 +638,118 @@ describe('CommunicationsProcessor', () => {
       await processor.process(job({ batchId: 'batch-1' }));
 
       expect(smsCredits.settlePart).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('push-first dispatch for routine automated notifications [#555]', () => {
+    // AUTOMATED + a guardian with a linked user is the shape an automated
+    // trigger (attendance absence today; #555's dispatcher doesn't branch
+    // on *which* automated trigger it was) produces once
+    // reminder-recipients.util's opt-out gate has already let the send
+    // through — so `notifications_enabled` never appears here, matching
+    // the "opted-out guardian" scenario being covered by that gate never
+    // producing a QUEUED log at all, not by anything in this processor.
+    function automatedLog(overrides: Record<string, unknown> = {}) {
+      repo.findOneOrFail.mockResolvedValue({
+        ...baseLog,
+        trigger: CommunicationTrigger.AUTOMATED,
+        guardian_id: 'guardian-1',
+        medium: CommunicationMedium.SMS,
+        recipient_address: '01712345678',
+        ...overrides,
+      });
+    }
+
+    it('subscribed + accepted: writes one PUSH log, never calls the SMS gateway or the credit service', async () => {
+      automatedLog();
+      guardianRepo.findOne.mockResolvedValue({ id: 'guardian-1', user_id: 'user-1' });
+      pushService.sendToUser.mockResolvedValue({ accepted: 1, transient: 0, pruned: 1 });
+
+      await processor.process(job());
+
+      expect(pushService.sendToUser).toHaveBeenCalledWith('user-1', 'tenant-1', {
+        type: 'reminder',
+        title: 'Notification',
+        body: 'Hello',
+        url: '/',
+      });
+      expect(provider.send).not.toHaveBeenCalled();
+      expect(smsCredits.settlePart).not.toHaveBeenCalled();
+      expect(txManager.save).toHaveBeenCalledTimes(1);
+      expect(txManager.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          medium: 'PUSH',
+          recipient_address: 'push:user-1',
+          status: CommunicationStatus.SENT,
+          metadata: expect.objectContaining({ accepted: 1, transient: 0, pruned: 1 }),
+        }),
+      );
+      // No endpoint/keys — only the fact a push happened and its counts.
+      const saved = txManager.save.mock.calls[0][0];
+      expect(JSON.stringify(saved)).not.toContain('endpoint');
+    });
+
+    it('subscribed but every push attempt is pruned (accepted 0): falls back to the preferred channel (email)', async () => {
+      automatedLog({
+        medium: CommunicationMedium.EMAIL,
+        recipient_address: 'guardian@example.com',
+      });
+      guardianRepo.findOne.mockResolvedValue({ id: 'guardian-1', user_id: 'user-1' });
+      pushService.sendToUser.mockResolvedValue({ accepted: 0, transient: 0, pruned: 2 });
+      provider.send.mockResolvedValue({ success: true, providerMessageId: 'e-1' });
+
+      await processor.process(job());
+
+      expect(pushService.sendToUser).toHaveBeenCalledTimes(1);
+      expect(provider.send).toHaveBeenCalledTimes(1);
+      expect(txManager.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          medium: CommunicationMedium.EMAIL,
+          recipient_address: 'guardian@example.com',
+          status: CommunicationStatus.SENT,
+        }),
+      );
+    });
+
+    it('no linked user: falls back to the preferred channel without calling push', async () => {
+      automatedLog();
+      guardianRepo.findOne.mockResolvedValue({ id: 'guardian-1', user_id: null });
+      provider.send.mockResolvedValue({ success: true, providerMessageId: 's-1' });
+
+      await processor.process(job());
+
+      expect(pushService.sendToUser).not.toHaveBeenCalled();
+      expect(provider.send).toHaveBeenCalledTimes(1);
+    });
+
+    it('manual/bulk triggers are never routed through push, even with a subscribed guardian', async () => {
+      repo.findOneOrFail.mockResolvedValue({
+        ...baseLog,
+        trigger: CommunicationTrigger.BULK_REMINDER,
+        guardian_id: 'guardian-1',
+      });
+      guardianRepo.findOne.mockResolvedValue({ id: 'guardian-1', user_id: 'user-1' });
+      provider.send.mockResolvedValue({ success: true, providerMessageId: 's-1' });
+
+      await processor.process(job());
+
+      expect(guardianRepo.findOne).not.toHaveBeenCalled();
+      expect(pushService.sendToUser).not.toHaveBeenCalled();
+      expect(provider.send).toHaveBeenCalledTimes(1);
+    });
+
+    it('opted-out guardian: a suspended-tenant-equivalent — no log ever reaches this processor, so nothing sends on any channel', async () => {
+      // The opt-out gate lives upstream in reminder-recipients.util's
+      // partitionByOptOut (see reminder-recipients.util.spec.ts) — an
+      // opted-out guardian never gets a CommunicationLog row created or
+      // queued in the first place. This processor never sees that guardian
+      // at all, which this asserts by simulating "no such job/log exists".
+      repo.findOneOrFail.mockRejectedValue(new Error('log not found'));
+
+      await expect(processor.process(job())).rejects.toThrow('log not found');
+
+      expect(pushService.sendToUser).not.toHaveBeenCalled();
+      expect(provider.send).not.toHaveBeenCalled();
     });
   });
 

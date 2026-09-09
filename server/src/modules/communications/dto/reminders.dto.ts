@@ -16,6 +16,7 @@ import {
 import { Type } from 'class-transformer';
 import { CommunicationMedium, CommunicationStatus, ReminderBatchStatus } from '@biddaloy/shared';
 import { ReminderPreviewRecipientDto } from './single-reminder.dto';
+import { CommunicationLogMedium } from '../entities/communication-log.entity';
 
 /**
  * Upper bound on one batch. The endpoint resolves recipients and enqueues
@@ -251,7 +252,7 @@ export class QueryReminderBatchLogsDto extends QueryReminderBatchesDto {
  */
 export class ReminderBatchLogDto {
   id: string;
-  medium: CommunicationMedium;
+  medium: CommunicationLogMedium;
   recipient_address: string;
   recipient_name: string;
   status: CommunicationStatus;
