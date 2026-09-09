@@ -9,6 +9,7 @@
  * own header comment).
  */
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { DownloadIcon } from 'lucide-react';
 import { userEvent, within } from 'storybook/test';
 
 import { rtlDecorator } from '../../.storybook/rtl-decorator';
@@ -58,6 +59,21 @@ export const WithProfileItem: Story = {
     profileItem: (
       <MenuItem disabled>
         Profile <span className="text-muted-foreground">(coming soon)</span>
+      </MenuItem>
+    ),
+  },
+  play: openMenu,
+};
+
+/** What `staff-user-menu.tsx` renders in the `installItem` slot when
+ * `useInstallPrompt()` reports `mode !== 'none'` — a live "Install app"
+ * row above the identity/profile block's own separator, per [15.8.3]. */
+export const WithInstallItem: Story = {
+  args: {
+    installItem: (
+      <MenuItem>
+        <DownloadIcon aria-hidden="true" />
+        Install app
       </MenuItem>
     ),
   },

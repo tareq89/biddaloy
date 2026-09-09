@@ -55,6 +55,34 @@ describe('UserMenu', () => {
     expect(await screen.findByRole('menuitem', { name: 'Profile' })).toBeTruthy();
   });
 
+  it('renders the installItem slot between the identity block and Sign out', async () => {
+    const { user } = renderWithProviders(
+      <UserMenu
+        name="Rahim Uddin"
+        roleLabel="Accountant"
+        onSignOut={vi.fn()}
+        installItem={<div role="menuitem">Install app</div>}
+      />,
+      { locale: 'en' },
+    );
+
+    await user.click(screen.getByRole('button', { name: /Account menu/ }));
+
+    expect(await screen.findByRole('menuitem', { name: 'Install app' })).toBeTruthy();
+  });
+
+  it('omits the installItem row entirely when the slot is not passed', async () => {
+    const { user } = renderWithProviders(
+      <UserMenu name="Rahim Uddin" roleLabel="Accountant" onSignOut={vi.fn()} />,
+      { locale: 'en' },
+    );
+
+    await user.click(screen.getByRole('button', { name: /Account menu/ }));
+
+    await screen.findByRole('menuitem', { name: /Sign out/ });
+    expect(screen.queryByRole('menuitem', { name: 'Install app' })).toBeNull();
+  });
+
   it('disables Sign out and shows "Signing out…" while signingOut is true', async () => {
     const { user } = renderWithProviders(
       <UserMenu name="Rahim Uddin" roleLabel="Accountant" onSignOut={vi.fn()} signingOut />,

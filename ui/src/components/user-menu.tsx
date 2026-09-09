@@ -22,6 +22,14 @@
  * "Sign out": a real link once one exists, or — what
  * `staff-user-menu.tsx` renders today — a disabled placeholder
  * communicating "not built yet".
+ *
+ * `installItem` follows the same `ReactNode` slot pattern as
+ * `profileItem`, for the same reason — [15.8.3]'s "Install app" row needs
+ * `useInstallPrompt()` (`@biddaloy/ui/pwa`) and app-specific click
+ * behaviour (call `install()`, or open the iOS instructions sheet), none
+ * of which belongs in this route-agnostic component. `staff-user-menu.tsx`
+ * does that wiring, same as it already does for sign out and the profile
+ * placeholder.
  */
 import { LogOutIcon, UserIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -42,6 +50,10 @@ export interface UserMenuProps {
   /** Consumer-owned destination(s) — `ui/` cannot know the route tree.
    * Rendered between the identity block and Sign out. */
   profileItem?: ReactNode;
+  /** Consumer-owned "Install app" row — `ui/` cannot know install state or
+   * how to trigger it. Rendered between the identity block (and
+   * `profileItem`, if present) and Sign out. */
+  installItem?: ReactNode;
   onSignOut: () => void;
   signingOut?: boolean;
 }
@@ -50,6 +62,7 @@ export function UserMenu({
   name,
   roleLabel,
   profileItem,
+  installItem,
   onSignOut,
   signingOut = false,
 }: UserMenuProps) {
@@ -83,6 +96,14 @@ export function UserMenu({
         {profileItem !== undefined && (
           <>
             {profileItem}
+            <MenuSeparator />
+          </>
+        )}
+        {/* Same "slot brings its own separator" rule as `profileItem`
+            above — most stories/consumers render neither. */}
+        {installItem !== undefined && (
+          <>
+            {installItem}
             <MenuSeparator />
           </>
         )}
