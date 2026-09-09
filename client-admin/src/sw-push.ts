@@ -19,9 +19,14 @@ export function isSameOriginPath(url: unknown): url is string {
   if (typeof url !== 'string' || url.length === 0) return false;
   if (!url.startsWith('/')) return false;
   if (url.startsWith('//')) return false;
+  // Browsers normalize a backslash to a forward slash before resolving a
+  // URL, so "/\evil.com" becomes "//evil.com" — a protocol-relative,
+  // cross-origin reference — even though it looks like a same-origin path
+  // here. Reject any backslash outright.
+  if (url.includes('\\')) return false;
   // A leading "/x:y" is still a path, not a scheme — schemes only matter
   // before the first "/". Reject any colon before the first slash-delimited
-  // segment ends, which also catches things like "/\evil.com".
+  // segment ends.
   if (/^\/[^/]*:/.test(url)) return false;
   return true;
 }

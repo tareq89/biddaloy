@@ -203,12 +203,25 @@ self.addEventListener('notificationclick', (event: NotificationEvent) => {
   event.waitUntil(
     (async () => {
       const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-      const decision = pickClientOrOpen(clientList, url);
+      // `WindowClient.url` is always absolute; `url` here is a same-origin
+      // path (see `sw-push.ts`'s `isSameOriginPath`). Normalize before
+      // comparing/navigating, or every focus would look like a mismatch.
+      const targetUrl = new URL(url, self.location.origin).href;
+      const decision = pickClientOrOpen(clientList, targetUrl);
       if (decision.kind === 'focus' && decision.client) {
-        const client = (await decision.client.focus()) as WindowClient;
-        await client.navigate(url);
+        const client = await decision.client.focus();
+        if (client.url === targetUrl) return;
+        try {
+          await client.navigate(targetUrl);
+        } catch {
+          // `matchAll({ includeUncontrolled: true })` can return a client
+          // this service worker doesn't control — `navigate()` rejects
+          // with a TypeError for those. Fall back to opening a new window
+          // rather than losing the notification's destination.
+          await self.clients.openWindow(targetUrl);
+        }
       } else {
-        await self.clients.openWindow(url);
+        await self.clients.openWindow(targetUrl);
       }
     })(),
   );

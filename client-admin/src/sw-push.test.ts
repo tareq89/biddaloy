@@ -20,6 +20,10 @@ describe('isSameOriginPath', () => {
     expect(isSameOriginPath('//evil.com')).toBe(false);
   });
 
+  it('rejects a backslash that browsers normalize to a protocol-relative URL', () => {
+    expect(isSameOriginPath('/\\evil.com')).toBe(false);
+  });
+
   it('rejects a javascript: URL', () => {
     expect(isSameOriginPath('javascript:alert(1)')).toBe(false);
   });
@@ -42,7 +46,7 @@ describe('parsePushPayload', () => {
   });
 
   it('rejects a missing field', () => {
-    const { url: _url, ...rest } = valid;
+    const rest = { type: valid.type, title: valid.title, body: valid.body };
     expect(parsePushPayload(rest)).toBeNull();
   });
 
