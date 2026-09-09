@@ -29,6 +29,7 @@ import {
   isHashedAssetRequest,
   SW_CACHED_AT_HEADER,
 } from './pwa/cache-policy';
+import { DEFAULT_NOTIFICATION_URL, parsePushPayload, pickClientOrOpen } from './sw-push';
 
 declare const self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: Array<{ url: string; revision: string | null }>;
@@ -164,6 +165,53 @@ self.addEventListener('message', (event: ExtendableMessageEvent) => {
   if (type === 'CLEAR_API_CACHE') {
     event.waitUntil(caches.delete(API_CACHE_NAME));
   }
+});
+
+// Web push [15.7]: a school sends a push (fee reminder, notice, etc.) and
+// this worker shows it, even though no tab is open. Payload validation and
+// the same-origin URL allowlist live in `sw-push.ts` (plain, testable
+// module code) — this handler only does the actual notification call.
+self.addEventListener('push', (event: PushEvent) => {
+  let raw: unknown;
+  try {
+    raw = event.data?.json();
+  } catch {
+    return;
+  }
+  const payload = parsePushPayload(raw);
+  if (!payload) return; // Invalid or unsafe payload: ignore silently, no notification.
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.body,
+      data: { url: payload.url },
+      icon: '/pwa-192.png',
+      tag: payload.type,
+    }),
+  );
+});
+
+// Tapping a push notification: reuse an open tab if there is one — the app
+// is a PWA, so a user is often already in it — otherwise open a new
+// window. `pickClientOrOpen` (`sw-push.ts`) makes the focus-vs-open
+// decision from a plain client list, so it's unit-testable without a
+// service-worker environment.
+self.addEventListener('notificationclick', (event: NotificationEvent) => {
+  event.notification.close();
+  const url = (event.notification.data as { url?: string } | null)?.url ?? DEFAULT_NOTIFICATION_URL;
+
+  event.waitUntil(
+    (async () => {
+      const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      const decision = pickClientOrOpen(clientList, url);
+      if (decision.kind === 'focus' && decision.client) {
+        const client = (await decision.client.focus()) as WindowClient;
+        await client.navigate(url);
+      } else {
+        await self.clients.openWindow(url);
+      }
+    })(),
+  );
 });
 
 // A newly-activated worker takes over open tabs immediately. Safe here
