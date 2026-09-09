@@ -44,7 +44,7 @@ describe('pwa icon artwork', () => {
 
     let maxDiff = 0;
     for (let i = 0; i < shipped.length; i += 1) {
-      maxDiff = Math.max(maxDiff, Math.abs(shipped[i] - resized[i]));
+      maxDiff = Math.max(maxDiff, Math.abs((shipped[i] ?? 0) - (resized[i] ?? 0)));
     }
 
     // Small tolerance for resize-algorithm/encoder rounding differences,
