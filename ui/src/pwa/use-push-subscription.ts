@@ -126,6 +126,35 @@ export function usePushSubscription(): UsePushSubscriptionResult {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
+  // Recover this device's subscription state after a reload — subscribe()
+  // only sets isSubscribedOnThisDevice/thisDeviceSubscriptionId for the
+  // session it ran in, so a browser that was already subscribed would
+  // otherwise report unsubscribed until the next subscribe() call.
+  // `POST /me/push/subscriptions` upserts by endpoint (see the route's own
+  // doc comment), so re-posting the browser's existing registration is a
+  // safe way to resolve its row id, not a fresh subscribe.
+  React.useEffect(() => {
+    if (permission !== 'granted') return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        const pushSubscription = await registration.pushManager.getSubscription();
+        if (!pushSubscription || cancelled) return;
+        const row = await postSubscription(pushSubscription.toJSON());
+        if (cancelled) return;
+        setThisDeviceSubscriptionId(row.id);
+        setIsSubscribedOnThisDevice(true);
+      } catch {
+        // Best-effort recovery only — a failure here just leaves the
+        // toggle showing "off" until the guardian subscribes again.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [permission]);
+
   const refresh = React.useCallback(async () => {
     if (permission === 'unsupported') return;
     setLoading(true);

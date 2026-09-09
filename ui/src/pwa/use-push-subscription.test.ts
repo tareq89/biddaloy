@@ -93,6 +93,60 @@ describe('usePushSubscription', () => {
     expect(requestPermission).not.toHaveBeenCalled();
   });
 
+  it("recovers this device's subscription state on mount after a reload", async () => {
+    // permission is already 'granted' and the browser already holds a
+    // PushManager registration from a previous session — subscribe() never
+    // ran this time, so isSubscribedOnThisDevice/thisDeviceSubscriptionId
+    // must come from reading back that existing registration, not from
+    // subscribe()'s own bookkeeping.
+    const existingSubscription = {
+      endpoint: 'https://push.example.com/existing',
+      toJSON: () => ({
+        endpoint: 'https://push.example.com/existing',
+        keys: { p256dh: 'p256dh-key', auth: 'auth-key' },
+      }),
+    };
+    const getSubscription = vi.fn().mockResolvedValue(existingSubscription);
+    installServiceWorkerAndPushManager(mockPushManager({ getSubscription }).pushManager);
+    mockNotification('granted');
+
+    let posted: unknown = null;
+    server.use(
+      http.post('/api/v1/me/push/subscriptions', async ({ request }) => {
+        posted = await request.json();
+        return HttpResponse.json(
+          { id: 'recovered-id', user_agent: null, created_at: '2026-01-01', last_used_at: null },
+          { status: 201 },
+        );
+      }),
+    );
+
+    const { result } = renderHookWithProviders(() => usePushSubscription(), {
+      tenantId: 'tenant-1',
+    });
+
+    await waitFor(() => {
+      expect(result.current.isSubscribedOnThisDevice).toBe(true);
+    });
+    expect(result.current.thisDeviceSubscriptionId).toBe('recovered-id');
+    expect(posted).toMatchObject({ endpoint: 'https://push.example.com/existing' });
+  });
+
+  it('stays unsubscribed on mount when the browser holds no registration', async () => {
+    installServiceWorkerAndPushManager(mockPushManager().pushManager);
+    mockNotification('granted');
+
+    const { result } = renderHookWithProviders(() => usePushSubscription(), {
+      tenantId: 'tenant-1',
+    });
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+    expect(result.current.isSubscribedOnThisDevice).toBe(false);
+    expect(result.current.thisDeviceSubscriptionId).toBeNull();
+  });
+
   it('subscribe() requests permission, subscribes, and posts the subscription', async () => {
     const { pushManager, subscribe } = mockPushManager();
     installServiceWorkerAndPushManager(pushManager);
@@ -222,6 +276,7 @@ describe('usePushSubscription', () => {
     await waitFor(() => expect(result.current.isSubscribedOnThisDevice).toBe(true));
     expect(result.current.thisDeviceSubscriptionId).toBe('this-device');
     browserSubscribe.mockClear();
+    getSubscription.mockClear();
 
     await result.current.unsubscribe('other-device');
 
