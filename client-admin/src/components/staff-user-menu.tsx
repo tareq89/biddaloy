@@ -21,12 +21,23 @@
  * simply `undefined` on `isError`, same as while `isLoading`, so
  * `UserMenu`'s own loading-fallback path covers both without this
  * component needing to distinguish them.
+ *
+ * **[15.8.3] Install app.** `useInstallPrompt()` (`@biddaloy/ui/pwa`) is
+ * the only source of truth for whether an install action exists —
+ * `mode === 'none'` (already installed, or nothing to offer) renders no
+ * `installItem` at all, same "omit the slot value" convention
+ * `profileItem` already uses. `mode === 'prompt'` (Chrome/Android/desktop)
+ * calls `install()` directly from the menu item's `onSelect`; `mode ===
+ * 'ios-instructions'` opens `IosInstallSheet` instead, since iOS has no
+ * native prompt to trigger (see that component's own header comment).
  */
 import { MenuItem, UserMenu } from '@biddaloy/ui/components';
 import { logout, useActiveRole, useCurrentUser } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { IosInstallSheet, useInstallPrompt } from '@biddaloy/ui/pwa';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
+import { DownloadIcon } from 'lucide-react';
 import * as React from 'react';
 
 export function StaffUserMenu() {
@@ -42,6 +53,13 @@ export function StaffUserMenu() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [signingOut, setSigningOut] = React.useState(false);
+  // Not destructured as `{ install }` — `@typescript-eslint/unbound-method`
+  // flags pulling a method off an object into a bare reference, even one
+  // returned from a hook and already `useCallback`-stable. Keeping it on
+  // `installPrompt.install(...)` at the call site avoids that trap.
+  const installPrompt = useInstallPrompt();
+  const { mode } = installPrompt;
+  const [iosSheetOpen, setIosSheetOpen] = React.useState(false);
 
   async function handleSignOut(): Promise<void> {
     setSigningOut(true);
@@ -62,37 +80,58 @@ export function StaffUserMenu() {
   const roleLabel = role ? tAuth(`schoolPicker.roles.${role}`) : undefined;
 
   return (
-    <UserMenu
-      name={isError ? undefined : data?.full_name}
-      roleLabel={roleLabel}
-      onSignOut={() => void handleSignOut()}
-      signingOut={signingOut}
-      profileItem={
-        <>
-          {/* `aria-disabled` + a swallowed `onSelect`, not `disabled`: a
-              `disabled` menu item is skipped by the menu's roving focus, so a
-              screen-reader user would never reach the one row that explains
-              the feature is coming — the placeholder would be invisible to
-              exactly the users it is meant to inform. This keeps it
-              focusable and announced while still doing nothing on activation. */}
-          <MenuItem
-            aria-disabled="true"
-            onSelect={(event) => {
-              event.preventDefault();
-            }}
-            className="text-muted-foreground data-highlighted:text-muted-foreground"
-          >
-            {t('userMenu.profile')}{' '}
-            <span className="text-muted-foreground">({t('userMenu.profileComingSoon')})</span>
-          </MenuItem>
-          {/* [12.8] — a live item, unlike Profile above: `/security` exists
-              today, gated only by `DASHBOARD_VIEW` (see
-              `route-permissions.ts`'s own comment on that route). */}
-          <MenuItem onSelect={() => void navigate({ to: '/security' })}>
-            {t('userMenu.security')}
-          </MenuItem>
-        </>
-      }
-    />
+    <>
+      <UserMenu
+        name={isError ? undefined : data?.full_name}
+        roleLabel={roleLabel}
+        onSignOut={() => void handleSignOut()}
+        signingOut={signingOut}
+        installItem={
+          mode === 'none' ? undefined : (
+            <MenuItem
+              onSelect={() => {
+                if (mode === 'ios-instructions') {
+                  setIosSheetOpen(true);
+                } else {
+                  void installPrompt.install();
+                }
+              }}
+            >
+              <DownloadIcon aria-hidden="true" />
+              {t('installPrompt.menuItem')}
+            </MenuItem>
+          )
+        }
+        profileItem={
+          <>
+            {/* `aria-disabled` + a swallowed `onSelect`, not `disabled`: a
+                `disabled` menu item is skipped by the menu's roving focus, so a
+                screen-reader user would never reach the one row that explains
+                the feature is coming — the placeholder would be invisible to
+                exactly the users it is meant to inform. This keeps it
+                focusable and announced while still doing nothing on activation. */}
+            <MenuItem
+              aria-disabled="true"
+              onSelect={(event) => {
+                event.preventDefault();
+              }}
+              className="text-muted-foreground data-highlighted:text-muted-foreground"
+            >
+              {t('userMenu.profile')}{' '}
+              <span className="text-muted-foreground">({t('userMenu.profileComingSoon')})</span>
+            </MenuItem>
+            {/* [12.8] — a live item, unlike Profile above: `/security` exists
+                today, gated only by `DASHBOARD_VIEW` (see
+                `route-permissions.ts`'s own comment on that route). */}
+            <MenuItem onSelect={() => void navigate({ to: '/security' })}>
+              {t('userMenu.security')}
+            </MenuItem>
+          </>
+        }
+      />
+      {mode === 'ios-instructions' && (
+        <IosInstallSheet open={iosSheetOpen} onOpenChange={setIosSheetOpen} />
+      )}
+    </>
   );
 }

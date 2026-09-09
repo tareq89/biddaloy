@@ -14,6 +14,7 @@
     "./routes": "./src/routes/index.ts",
     "./utils": "./src/utils/index.ts",
     "./i18n": "./src/i18n/index.ts",
+    "./pwa": "./src/pwa/index.ts",
     "./api": "./src/api/index.ts",
     "./test": "./src/test/index.ts",
     "./mocks": "./src/test/msw/enable-mocking.ts",

@@ -477,6 +477,50 @@ this user may not see. Only a _no-response_ network failure falls back.
 Reads are only half of it. A write made with no connection is persisted
 and replayed later, and the user is told where it stands.
 
+### Why not Background Sync (D1, closes #406)
+
+[11.6]/#406 asked for a **closed-tab** replay: register a Background Sync
+event when a mutation is queued offline, so a teacher who closes the app
+still gets the row sent once the phone reconnects. Epic 15's D1 decision
+(#508) is that this is **unsupported** — the queue keeps replaying only
+when a tab is open (on `online`, on login, or "Send now"), same as today.
+
+The reason isn't "hard," it's "the auth model doesn't have a safe answer
+for a service worker running with no open tab":
+
+- **The access token is never persisted.** It lives in page memory only
+  (`ui/src/api/client.ts`) so a stolen disk/IndexedDB dump can't replay
+  requests as the user. A service worker outliving the tab would need a
+  token from _somewhere_ — storing one defeats the reason it isn't stored
+  today.
+- **Refresh tokens rotate.** A worker refreshing concurrently with a
+  reopened tab risks tripping reuse detection and logging the user out
+  mid-sync.
+- **Queued rows carry a tenant ID but no role.** Role is resolved from the
+  live session, not persisted per-row — a worker replaying with no session
+  has no role to authorize the write under.
+- **Logout, session expiry, tenant switch and suspension all revoke
+  access by tearing down page state.** None of that reaches a worker
+  replaying after the tab is gone.
+
+The #406 checklist, answered:
+
+| #406 asked for                                              | Answer                                                                                        |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Auth without persisting a reusable bearer token             | No such mechanism exists here — see above                                                     |
+| Refresh-token rotation coordinated with an open tab         | Not attempted; closed-tab means no tab to coordinate with                                     |
+| Tenant/role context authenticated per queued row            | Rows don't carry role; can't be authorized headless                                           |
+| Logout/session-expiry/tenant-switch/suspension block replay | They already do, by removing page state a worker never had                                    |
+| Cross-context lock                                          | No service-worker/page lock; each open tab can replay                                         |
+| Mutation idempotency                                        | Required per queued mutation; attendance uses `client_request_id` to collapse replayed writes |
+| Behaviour when the platform declines to run a sync event    | N/A — never registered                                                                        |
+
+**What stays true:** every rule in the flow below (ordering, money never
+queued, 401 pauses rather than strikes) is exactly what #406 asked
+Background Sync to preserve. It's preserved — just by never handing
+replay to a context that can't meet the auth bar, not by a service-worker
+implementation of it.
+
 ```mermaid
 flowchart TD
     W["a write, made offline"] --> Q[("Dexie 'mutationQueue'<br/>++seq = submission order")]

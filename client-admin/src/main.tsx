@@ -11,6 +11,7 @@ import {
 import { RouteErrorFallback, RoutePending, Toaster } from '@biddaloy/ui/components';
 import { I18nProvider, useTranslation } from '@biddaloy/ui/i18n';
 import { enableMocking } from '@biddaloy/ui/mocks';
+import { installPromptListen } from '@biddaloy/ui/pwa';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { createRouter, RouterProvider, type ErrorComponentProps } from '@tanstack/react-router';
 import { StrictMode } from 'react';
@@ -19,6 +20,14 @@ import { createRoot } from 'react-dom/client';
 import { registerServiceWorker, reloadForUpdate } from './pwa/register';
 import { routeTree } from './routeTree.gen';
 import './index.css';
+
+// [15.8.2]: `beforeinstallprompt` fires at most once, and Chrome can fire
+// it before React ever mounts — registering the listener from inside a
+// component (or even a `useEffect` on first render) risks missing it.
+// `installPromptListen()` just captures the event into module state; it
+// does nothing else — `@biddaloy/ui/pwa`'s `useInstallPrompt()` is what
+// turns that captured state into `mode`/`install()` for the user menu.
+installPromptListen();
 
 // [8.9.2]'s app-wide QueryClient — cache-first staleTime/gcTime, a retry
 // policy that excludes 4xx, and the global 401/403 error handling. See

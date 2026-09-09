@@ -127,6 +127,20 @@
     "profileComingSoon": "Profile page coming soon",
     "security": "Security"
   },
+  "installPrompt": {
+    "menuItem": "Install app",
+    "iosSheet": {
+      "title": "Install this app",
+      "description": "Add Biddaloy to your home screen for quick, full-screen access.",
+      "step1": "Tap Share in Safari's toolbar",
+      "step2": "Tap \"Add to Home Screen\""
+    },
+    "hint": {
+      "text": "Install Biddaloy for quicker access, even offline.",
+      "install": "Install",
+      "dismiss": "Dismiss"
+    }
+  },
   "routeProgress": {
     "label": "Loading page…"
   },
