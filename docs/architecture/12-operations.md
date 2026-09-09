@@ -126,18 +126,20 @@ missing, it never crashes boot):
 Rotating the keypair is not free — state this plainly to anyone about to
 do it:
 
-- A new keypair invalidates **every existing subscription**. Browsers
-  reject push messages signed by a key they didn't subscribe with.
-- Nothing crashes. Each send to an old subscription just gets rejected by
-  the browser's push service (HTTP 404/410 from that service), which
-  `PushService.sendToUser` treats as a dead subscription and prunes the
-  row — same cleanup path as a guardian who uninstalled the PWA.
-- Clients silently re-subscribe: the next time a guardian opens the
-  portal with an active service worker, it fetches the new
-  `VAPID_PUBLIC_KEY` and subscribes fresh.
-- **Net effect**: after rotating, every guardian who hasn't reopened the
-  portal yet falls back to their normal channel (SMS/WhatsApp/email) for
-  routine notices until they do. Rotate only when you have to (e.g. key
+- A new keypair makes existing subscriptions incompatible with it.
+  Browsers reject push messages signed by a key they didn't subscribe
+  with.
+- A send to an old subscription may be rejected for invalid VAPID
+  authentication. `PushService.sendToUser` only prunes the row on a
+  404/410 from the browser's push service (a truly dead subscription,
+  same cleanup path as a guardian who uninstalled the PWA) — other
+  rejections just increment `failure_count` and the row stays.
+- Clients do not silently re-subscribe. A guardian must run the
+  subscribe flow again (toggling push on in the portal) to create a
+  subscription bound to the new `VAPID_PUBLIC_KEY`.
+- **Net effect**: after rotating, every guardian falls back to their
+  normal channel (SMS/WhatsApp/email) for routine notices until they
+  explicitly re-subscribe. Rotate only when you have to (e.g. key
   compromise) — not as routine hygiene.
 
 ### Send flow
