@@ -5,6 +5,11 @@
  * online — so a teacher marking attendance on a school corridor's dead
  * spot does not lose the period's work when the tab is closed.
  *
+ * [15.8.4]/D1: replay only ever happens in an open tab. There is no
+ * closed-tab Background Sync path — see "Why not Background Sync (D1,
+ * closes #406)" in `docs/architecture/06-frontend-architecture.md` for
+ * why the auth model rules it out, not just that it was skipped.
+ *
  * ## What this issue ships, and what it does not
  *
  * This module is the engine, fully tested, with **no product mutation
