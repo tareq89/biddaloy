@@ -3,12 +3,14 @@ import { BadRequestException } from '@nestjs/common';
 import { AuditAction } from '@biddaloy/shared';
 import { SmsCreditsService } from './sms-credits.service';
 
+const FAKE_MANAGER = { fake: 'manager' } as any;
+
 /**
  * [15.6.7/#550]. Proves the sign-routing (`units > 0` -> grant, else
  * adjust), the audit write's shape (entity School, action UPDATE,
- * metadata `{ units, reason }`), and that a 400 from `SmsCreditService`
- * (adjust beyond available) propagates unchanged rather than being
- * swallowed.
+ * metadata `{ units, reason, idempotency_key }`, written transactionally
+ * via `onApplied`), and that a 400 from `SmsCreditService` (adjust beyond
+ * available) propagates unchanged rather than being swallowed.
  */
 describe('SmsCreditsService', () => {
   let smsCreditService: Record<string, ReturnType<typeof vi.fn>>;
@@ -34,6 +36,7 @@ describe('SmsCreditsService', () => {
       reason: dto.reason,
       actorUserId: ACTOR_ID,
       idempotencyKey: dto.idempotency_key,
+      onApplied: expect.any(Function),
     });
     expect(smsCreditService.adjust).not.toHaveBeenCalled();
     expect(result).toEqual({ available: 500, reserved: 0 });
@@ -49,12 +52,16 @@ describe('SmsCreditsService', () => {
       reason: dto.reason,
       actorUserId: ACTOR_ID,
       idempotencyKey: dto.idempotency_key,
+      onApplied: expect.any(Function),
     });
     expect(smsCreditService.grant).not.toHaveBeenCalled();
   });
 
-  it('writes a School/UPDATE audit record with { units, reason, idempotency_key, balance } metadata after a grant', async () => {
-    smsCreditService.grant.mockResolvedValue({ available: 500, reserved: 0, applied: true });
+  it('writes a School/UPDATE audit record with the transaction manager when the movement applies', async () => {
+    smsCreditService.grant.mockImplementation(async (_tenantId, _units, opts) => {
+      await opts.onApplied(FAKE_MANAGER);
+      return { available: 500, reserved: 0, applied: true };
+    });
     const dto = { units: 500, reason: 'Top-up for term', idempotency_key: 'key-1' };
 
     await service.grantOrAdjust(SCHOOL_ID, dto, ACTOR_ID);
@@ -70,9 +77,9 @@ describe('SmsCreditsService', () => {
           units: 500,
           reason: dto.reason,
           idempotency_key: dto.idempotency_key,
-          balance: { available: 500, reserved: 0 },
         },
       }),
+      FAKE_MANAGER,
     );
   });
 
@@ -89,6 +96,8 @@ describe('SmsCreditsService', () => {
   });
 
   it('skips the audit record when the movement replays an already-applied idempotency_key', async () => {
+    // A replay never calls onApplied — SmsCreditService's own applyMovement
+    // only invokes it on the branch that actually inserts a new ledger row.
     smsCreditService.grant.mockResolvedValue({ available: 500, reserved: 0, applied: false });
     const dto = { units: 500, reason: 'Top-up for term', idempotency_key: 'key-1' };
 
