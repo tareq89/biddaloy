@@ -84,7 +84,9 @@
   "resolutions": {
     "js-yaml": "^5.2.2",
     "typescript": "^6",
-    "browserslist": "^4.28.8"
+    "browserslist": "^4.28.8",
+    "multer": "^2.3.0",
+    "nodemailer": "^9.1.1"
   },
   "msw": {
     "workerDirectory": [
