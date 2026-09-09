@@ -246,6 +246,7 @@ describe('BulkReminderService', () => {
       isMetered: vi.fn(async () => false),
       getBalance: vi.fn(async () => ({ available: 0, reserved: 0 })),
       reserve: vi.fn(async () => ({ ok: true })),
+      settlePart: vi.fn(async () => undefined),
     };
 
     service = new BulkReminderService(
@@ -741,6 +742,22 @@ describe('BulkReminderService', () => {
         expect.objectContaining({
           new_values: expect.objectContaining({ queued_count: 1, failed_count: 1 }),
         }),
+      );
+    });
+
+    it('releases the reserved SMS credit for a recipient whose enqueue failed', async () => {
+      smsCreditService.isMetered.mockResolvedValue(true);
+      smsCreditService.reserve.mockResolvedValue({ ok: true });
+      queue.add.mockRejectedValueOnce(new Error('redis down'));
+
+      await service.sendBulk({ ...dto, mediums: [CommunicationMedium.SMS] } as any, TENANT, USER);
+
+      expect(smsCreditService.settlePart).toHaveBeenCalledWith(
+        TENANT,
+        `batch:${savedBatch.id}`,
+        expect.stringMatching(/^log:/),
+        expect.any(Number),
+        'RELEASE',
       );
     });
 

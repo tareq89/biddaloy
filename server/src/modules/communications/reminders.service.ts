@@ -153,7 +153,9 @@ export class BulkReminderService {
     // rolled back too: no batch, no logs, no jobs must remain on
     // insufficient credit (epic #508: external provider calls — and the
     // work that leads to them — never leave partial durable state behind).
+    let metered = false;
     if (sms_units > 0 && (await this.smsCreditService.isMetered(tenantId))) {
+      metered = true;
       const reservation = await this.smsCreditService.reserve(
         tenantId,
         sms_units,
@@ -173,7 +175,14 @@ export class BulkReminderService {
       }
     }
 
-    const { queued, failed } = await this.queueRecipients(recipients, batch, dto, tenantId, userId);
+    const { queued, failed } = await this.queueRecipients(
+      recipients,
+      batch,
+      dto,
+      tenantId,
+      userId,
+      metered,
+    );
 
     // One record per batch, not per recipient — a bulk send can fan out to
     // hundreds of guardians, and PAYMENT_RECEIVED/BULK_UPLOAD already set
@@ -615,6 +624,7 @@ export class BulkReminderService {
     dto: SendBulkReminderDto,
     tenantId: string,
     userId: string,
+    metered: boolean,
   ): Promise<{ queued: number; failed: number }> {
     let queued = 0;
     let failed = 0;
@@ -668,6 +678,20 @@ export class BulkReminderService {
           await recordBatchOutcome(manager, batch.id, 'failure');
         });
         failed++;
+
+        // The job that would have settled this recipient's share of the
+        // batch RESERVE was never created, so nothing else will ever
+        // release it — do it here instead of leaving units reserved
+        // forever (#570).
+        if (metered && recipient.medium === CommunicationMedium.SMS && segments !== undefined) {
+          await this.smsCreditService.settlePart(
+            tenantId,
+            `batch:${batch.id}`,
+            `log:${log.id}`,
+            segments,
+            'RELEASE',
+          );
+        }
       }
     }
 
