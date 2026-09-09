@@ -14,6 +14,7 @@ import {
   invoicesQueryOptions,
   myStudentsQueryOptions,
   openPrintableInvoice,
+  useCurrentUser,
   useMyStudents,
   useStudentFeeSummary,
   type Invoice,
@@ -211,16 +212,25 @@ function PortalFees() {
   // dismissal flag — no card once the browser can't do push at all, or the
   // guardian already granted/subscribed on this device.
   const push = usePushSubscription();
-  const [pushOptInDismissed, setPushOptInDismissed] = React.useState(isPushOptInDismissed);
+  const currentUserQuery = useCurrentUser();
+  const currentUserId = currentUserQuery.data?.id;
+  const [pushOptInDismissed, setPushOptInDismissed] = React.useState(false);
+  React.useEffect(() => {
+    if (currentUserId) setPushOptInDismissed(isPushOptInDismissed(currentUserId));
+  }, [currentUserId]);
   const showPushOptIn =
-    !pushOptInDismissed && push.permission === 'default' && !push.isSubscribedOnThisDevice;
+    !pushOptInDismissed &&
+    !!currentUserId &&
+    push.permission === 'default' &&
+    !push.isSubscribedOnThisDevice;
 
   function handlePushOptInEnable(): void {
     void push.subscribe();
   }
 
   function handlePushOptInDismiss(): void {
-    dismissPushOptIn();
+    if (!currentUserId) return;
+    dismissPushOptIn(currentUserId);
     setPushOptInDismissed(true);
   }
 
