@@ -44,6 +44,43 @@ describe('useSmsCredits', () => {
 
     await waitFor(() => expect(result.current.isError).toBe(true));
   });
+
+  it('does not carry a placeholder from one schoolId into another', async () => {
+    server.use(
+      http.get('/api/v1/schools/school-1/sms-credits', () =>
+        HttpResponse.json({
+          metering: 'PLATFORM',
+          available: 100,
+          reserved: 0,
+          ledger: { data: [], total: 0, page: 1, limit: 20, totalPages: 1 },
+        }),
+      ),
+      http.get('/api/v1/schools/school-2/sms-credits', () =>
+        HttpResponse.json({
+          metering: 'PLATFORM',
+          available: 40,
+          reserved: 0,
+          ledger: { data: [], total: 0, page: 1, limit: 20, totalPages: 1 },
+        }),
+      ),
+    );
+
+    const { result, rerender } = renderHookWithProviders(
+      ({ schoolId }: { schoolId: string }) => useSmsCredits(1, 20, schoolId),
+      { initialProps: { schoolId: 'school-1' }, tenantId: 'tenant-1', role: 'SUPER_ADMIN' },
+    );
+
+    await waitFor(() => expect(result.current.data?.available).toBe(100));
+
+    rerender({ schoolId: 'school-2' });
+
+    // No placeholder carried across the schoolId switch — school-1's
+    // balance must not render under school-2's heading while the new
+    // request is in flight.
+    expect(result.current.data?.available).not.toBe(100);
+
+    await waitFor(() => expect(result.current.data?.available).toBe(40));
+  });
 });
 
 describe('useGrantSmsCredits', () => {

@@ -1,10 +1,4 @@
-import {
-  keepPreviousData,
-  queryOptions,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/react-query';
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
@@ -47,8 +41,15 @@ export function smsCreditsQueryOptions(page: number, limit: number, schoolId?: s
     retry: shouldRetryQuery,
     // [8.14.6]'s pattern — a page change keeps the previous page's rows
     // (and `isFetching` true) instead of the ledger table collapsing to a
-    // loading row height on every click.
-    placeholderData: keepPreviousData,
+    // loading row height on every click. Scoped to the same `schoolId`:
+    // `schoolId` is part of the query key too, and without this check a
+    // SUPER_ADMIN switching schools would keep the previous school's rows
+    // on screen (under the new school's heading) until the new response
+    // lands (#570).
+    placeholderData: (previousData, previousQuery) => {
+      const previousFilters = previousQuery?.queryKey[2] as SmsCreditsFilters | undefined;
+      return previousFilters?.schoolId === schoolId ? previousData : undefined;
+    },
   });
 }
 
