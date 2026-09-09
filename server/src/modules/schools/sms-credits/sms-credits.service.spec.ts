@@ -25,7 +25,7 @@ describe('SmsCreditsService', () => {
   });
 
   it('routes positive units to grant()', async () => {
-    smsCreditService.grant.mockResolvedValue({ available: 500, reserved: 0 });
+    smsCreditService.grant.mockResolvedValue({ available: 500, reserved: 0, applied: true });
     const dto = { units: 500, reason: 'Top-up for term', idempotency_key: 'key-1' };
 
     const result = await service.grantOrAdjust(SCHOOL_ID, dto, ACTOR_ID);
@@ -40,7 +40,7 @@ describe('SmsCreditsService', () => {
   });
 
   it('routes negative units to adjust()', async () => {
-    smsCreditService.adjust.mockResolvedValue({ available: 80, reserved: 0 });
+    smsCreditService.adjust.mockResolvedValue({ available: 80, reserved: 0, applied: true });
     const dto = { units: -20, reason: 'Correcting a double top-up', idempotency_key: 'key-2' };
 
     await service.grantOrAdjust(SCHOOL_ID, dto, ACTOR_ID);
@@ -53,8 +53,8 @@ describe('SmsCreditsService', () => {
     expect(smsCreditService.grant).not.toHaveBeenCalled();
   });
 
-  it('writes a School/UPDATE audit record with { units, reason } metadata after a grant', async () => {
-    smsCreditService.grant.mockResolvedValue({ available: 500, reserved: 0 });
+  it('writes a School/UPDATE audit record with { units, reason, idempotency_key, balance } metadata after a grant', async () => {
+    smsCreditService.grant.mockResolvedValue({ available: 500, reserved: 0, applied: true });
     const dto = { units: 500, reason: 'Top-up for term', idempotency_key: 'key-1' };
 
     await service.grantOrAdjust(SCHOOL_ID, dto, ACTOR_ID);
@@ -66,7 +66,12 @@ describe('SmsCreditsService', () => {
         entity_id: SCHOOL_ID,
         tenant_id: SCHOOL_ID,
         performed_by_user_id: ACTOR_ID,
-        new_values: { units: 500, reason: dto.reason },
+        new_values: {
+          units: 500,
+          reason: dto.reason,
+          idempotency_key: dto.idempotency_key,
+          balance: { available: 500, reserved: 0 },
+        },
       }),
     );
   });
@@ -81,5 +86,15 @@ describe('SmsCreditsService', () => {
       BadRequestException,
     );
     expect(auditService.record).not.toHaveBeenCalled();
+  });
+
+  it('skips the audit record when the movement replays an already-applied idempotency_key', async () => {
+    smsCreditService.grant.mockResolvedValue({ available: 500, reserved: 0, applied: false });
+    const dto = { units: 500, reason: 'Top-up for term', idempotency_key: 'key-1' };
+
+    const result = await service.grantOrAdjust(SCHOOL_ID, dto, ACTOR_ID);
+
+    expect(auditService.record).not.toHaveBeenCalled();
+    expect(result).toEqual({ available: 500, reserved: 0 });
   });
 });

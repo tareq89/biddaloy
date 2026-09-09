@@ -28,22 +28,32 @@ export class SmsCreditsService {
   ): Promise<CreditBalance> {
     const opts = { reason: dto.reason, actorUserId, idempotencyKey: dto.idempotency_key };
 
-    const balance =
+    const { applied, ...balance } =
       dto.units > 0
         ? await this.smsCreditService.grant(schoolId, dto.units, opts)
         : await this.smsCreditService.adjust(schoolId, dto.units, opts);
 
-    await this.auditService.record({
-      action: AuditAction.UPDATE,
-      entity_type: 'School',
-      entity_id: schoolId,
-      tenant_id: schoolId,
-      performed_by_user_id: actorUserId,
-      ip_address: null,
-      user_agent: null,
-      old_values: null,
-      new_values: { units: dto.units, reason: dto.reason },
-    });
+    // A replayed idempotency_key (double-click, client retry) already has
+    // its ledger row — auditing it again would create a second School/
+    // UPDATE row for one credit movement.
+    if (applied) {
+      await this.auditService.record({
+        action: AuditAction.UPDATE,
+        entity_type: 'School',
+        entity_id: schoolId,
+        tenant_id: schoolId,
+        performed_by_user_id: actorUserId,
+        ip_address: null,
+        user_agent: null,
+        old_values: null,
+        new_values: {
+          units: dto.units,
+          reason: dto.reason,
+          idempotency_key: dto.idempotency_key,
+          balance,
+        },
+      });
+    }
 
     return balance;
   }
