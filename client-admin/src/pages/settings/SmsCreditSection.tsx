@@ -22,9 +22,15 @@ const PAGE_SIZE = 10;
 
 export interface SmsCreditSectionProps {
   schoolId: string;
+  /** `true` when `schoolId` is a SUPER_ADMIN's *picked* school rather than
+   * their own active tenant — routes reads through the SUPER_ADMIN
+   * cross-school endpoint (`GET /schools/:id/sms-credits`, #570) instead
+   * of the tenant-scoped one, which would otherwise resolve to whatever
+   * tenant is on the caller's JWT, not the picked school. */
+  isSuperAdmin?: boolean;
 }
 
-export function SmsCreditSection({ schoolId }: SmsCreditSectionProps) {
+export function SmsCreditSection({ schoolId, isSuperAdmin = false }: SmsCreditSectionProps) {
   const [page, setPage] = React.useState(1);
   // A schoolId change (SUPER_ADMIN's picker) must reset to page 1 — a
   // stale page number from a previous school's longer ledger would silently
@@ -33,7 +39,7 @@ export function SmsCreditSection({ schoolId }: SmsCreditSectionProps) {
     setPage(1);
   }, [schoolId]);
 
-  const creditsQuery = useSmsCredits(page, PAGE_SIZE);
+  const creditsQuery = useSmsCredits(page, PAGE_SIZE, isSuperAdmin ? schoolId : undefined);
 
   return (
     <SmsCreditSectionView

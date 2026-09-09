@@ -13,12 +13,17 @@ import { SmsCreditsService } from './sms-credits.service';
 describe('SchoolSmsCreditsController', () => {
   let controller: SchoolSmsCreditsController;
   let service: Record<string, ReturnType<typeof vi.fn>>;
+  let smsCreditService: Record<string, ReturnType<typeof vi.fn>>;
 
   const USER = { sub: 'user-1', memberships: [] } as any;
 
   beforeEach(() => {
     service = { grantOrAdjust: vi.fn() };
-    controller = new SchoolSmsCreditsController(service as unknown as SmsCreditsService);
+    smsCreditService = { getCreditsSummary: vi.fn() };
+    controller = new SchoolSmsCreditsController(
+      service as unknown as SmsCreditsService,
+      smsCreditService as any,
+    );
   });
 
   describe('grantOrAdjust', () => {
@@ -31,6 +36,23 @@ describe('SchoolSmsCreditsController', () => {
 
       expect(service.grantOrAdjust).toHaveBeenCalledWith('school-1', dto, USER.sub);
       expect(result).toEqual(expected);
+    });
+  });
+
+  describe('getSmsCredits', () => {
+    it('reads the given schoolId, not the caller tenant', async () => {
+      const summary = {
+        metering: 'PLATFORM' as const,
+        available: 100,
+        reserved: 20,
+        ledger: { data: [], total: 0, page: 1, limit: 20, totalPages: 1 },
+      };
+      smsCreditService.getCreditsSummary.mockResolvedValue(summary);
+
+      const result = await controller.getSmsCredits('school-2', {});
+
+      expect(smsCreditService.getCreditsSummary).toHaveBeenCalledWith('school-2', 1, 20);
+      expect(result).toEqual(summary);
     });
   });
 

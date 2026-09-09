@@ -25,41 +25,43 @@ describe('CreditsController', () => {
 
   beforeEach(() => {
     service = {
-      isMetered: vi.fn(),
-      getBalance: vi.fn(),
-      listLedger: vi.fn(),
+      getCreditsSummary: vi.fn(),
     };
     controller = new CreditsController(service as unknown as SmsCreditService);
   });
 
   describe('getSmsCredits', () => {
     it('returns PLATFORM metering with balance and mapped ledger, scoped to the caller tenant', async () => {
-      service.isMetered.mockResolvedValue(true);
-      service.getBalance.mockResolvedValue({ available: 120, reserved: 5 });
-      service.listLedger.mockResolvedValue({
-        data: [
-          {
-            id: 'ledger-1',
-            kind: SmsCreditLedgerKind.GRANT,
-            units: 100,
-            reference_type: SmsCreditLedgerReferenceType.MANUAL,
-            reference_id: null,
-            reason: 'Initial top-up',
-            created_at: new Date('2026-01-01T00:00:00Z'),
-            // Fields a real row also carries — must never leak into the DTO.
-            tenant_id: 'tenant-a',
-            idempotency_key: 'key-1',
-            actor_user_id: 'user-1',
-          },
-        ],
-        total: 1,
+      service.getCreditsSummary.mockResolvedValue({
+        metering: 'PLATFORM',
+        available: 120,
+        reserved: 5,
+        ledger: {
+          data: [
+            {
+              id: 'ledger-1',
+              kind: SmsCreditLedgerKind.GRANT,
+              units: 100,
+              reference_type: SmsCreditLedgerReferenceType.MANUAL,
+              reference_id: null,
+              reason: 'Initial top-up',
+              created_at: new Date('2026-01-01T00:00:00Z'),
+              // Fields a real row also carries — must never leak into the DTO.
+              tenant_id: 'tenant-a',
+              idempotency_key: 'key-1',
+              actor_user_id: 'user-1',
+            },
+          ],
+          total: 1,
+          page: 1,
+          limit: 20,
+          totalPages: 1,
+        },
       });
 
       const result = await controller.getSmsCredits({ page: 1, limit: 20 }, TENANT_A);
 
-      expect(service.isMetered).toHaveBeenCalledWith(TENANT_A.id);
-      expect(service.getBalance).toHaveBeenCalledWith(TENANT_A.id);
-      expect(service.listLedger).toHaveBeenCalledWith(TENANT_A.id, 1, 20);
+      expect(service.getCreditsSummary).toHaveBeenCalledWith(TENANT_A.id, 1, 20);
 
       expect(result.metering).toBe('PLATFORM');
       expect(result.available).toBe(120);
@@ -88,9 +90,12 @@ describe('CreditsController', () => {
     });
 
     it('returns OFF metering with an empty ledger', async () => {
-      service.isMetered.mockResolvedValue(false);
-      service.getBalance.mockResolvedValue({ available: 0, reserved: 0 });
-      service.listLedger.mockResolvedValue({ data: [], total: 0 });
+      service.getCreditsSummary.mockResolvedValue({
+        metering: 'OFF',
+        available: 0,
+        reserved: 0,
+        ledger: { data: [], total: 0, page: 1, limit: 20, totalPages: 1 },
+      });
 
       const result = await controller.getSmsCredits({ page: 1, limit: 20 }, TENANT_A);
 
@@ -102,29 +107,35 @@ describe('CreditsController', () => {
     });
 
     it('defaults page/limit when the query omits them', async () => {
-      service.isMetered.mockResolvedValue(false);
-      service.getBalance.mockResolvedValue({ available: 0, reserved: 0 });
-      service.listLedger.mockResolvedValue({ data: [], total: 0 });
+      service.getCreditsSummary.mockResolvedValue({
+        metering: 'OFF',
+        available: 0,
+        reserved: 0,
+        ledger: { data: [], total: 0, page: 1, limit: 20, totalPages: 1 },
+      });
 
       await controller.getSmsCredits({}, TENANT_A);
 
-      expect(service.listLedger).toHaveBeenCalledWith(TENANT_A.id, 1, 20);
+      expect(service.getCreditsSummary).toHaveBeenCalledWith(TENANT_A.id, 1, 20);
     });
 
     it("never asks the service for another tenant's ledger", async () => {
       const TENANT_B = { id: 'tenant-b', role: UserRole.ADMIN };
-      service.isMetered.mockResolvedValue(false);
-      service.getBalance.mockResolvedValue({ available: 0, reserved: 0 });
-      service.listLedger.mockResolvedValue({ data: [], total: 0 });
+      service.getCreditsSummary.mockResolvedValue({
+        metering: 'OFF',
+        available: 0,
+        reserved: 0,
+        ledger: { data: [], total: 0, page: 1, limit: 20, totalPages: 1 },
+      });
 
       await controller.getSmsCredits({}, TENANT_B);
 
-      expect(service.listLedger).not.toHaveBeenCalledWith(
+      expect(service.getCreditsSummary).not.toHaveBeenCalledWith(
         TENANT_A.id,
         expect.anything(),
         expect.anything(),
       );
-      expect(service.listLedger).toHaveBeenCalledWith(TENANT_B.id, 1, 20);
+      expect(service.getCreditsSummary).toHaveBeenCalledWith(TENANT_B.id, 1, 20);
     });
   });
 

@@ -131,7 +131,7 @@ export function SchoolSettingsPage() {
           />
           <EmailSection schoolId={schoolId} email={settingsQuery.data.communications?.email} />
           <SmsSection schoolId={schoolId} sms={settingsQuery.data.communications?.sms} />
-          <SmsCreditSection key={schoolId} schoolId={schoolId} />
+          <SmsCreditSection key={schoolId} schoolId={schoolId} isSuperAdmin={isSuperAdmin} />
         </div>
       )}
     </div>

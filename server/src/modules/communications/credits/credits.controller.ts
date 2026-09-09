@@ -39,19 +39,13 @@ export class CreditsController {
   ): Promise<SmsCreditsResponseDto> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-
-    const [metering, balance, { data, total }] = await Promise.all([
-      this.smsCredits.isMetered(tenant.id),
-      this.smsCredits.getBalance(tenant.id),
-      this.smsCredits.listLedger(tenant.id, page, limit),
-    ]);
+    const summary = await this.smsCredits.getCreditsSummary(tenant.id, page, limit);
 
     return {
-      metering: metering ? 'PLATFORM' : 'OFF',
-      available: balance.available,
-      reserved: balance.reserved,
+      ...summary,
       ledger: {
-        data: data.map((row) => ({
+        ...summary.ledger,
+        data: summary.ledger.data.map((row) => ({
           id: row.id,
           kind: row.kind,
           units: row.units,
@@ -60,10 +54,6 @@ export class CreditsController {
           reason: row.reason,
           created_at: row.created_at,
         })),
-        total,
-        page,
-        limit,
-        totalPages: Math.max(1, Math.ceil(total / limit)),
       },
     };
   }

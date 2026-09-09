@@ -1,4 +1,13 @@
-import { Body, Controller, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtPayload, UserRole } from '@biddaloy/shared';
@@ -7,6 +16,11 @@ import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
+import { SmsCreditService } from '../../communications/credits/sms-credit.service';
+import {
+  QuerySmsCreditsDto,
+  SmsCreditsResponseDto,
+} from '../../communications/credits/dto/sms-credits.dto';
 import { SmsCreditsService } from './sms-credits.service';
 import { GrantSmsCreditsDto } from './dto/grant-sms-credits.dto';
 
@@ -24,7 +38,43 @@ import { GrantSmsCreditsDto } from './dto/grant-sms-credits.dto';
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 @Roles(UserRole.SUPER_ADMIN)
 export class SchoolSmsCreditsController {
-  constructor(private readonly smsCredits: SmsCreditsService) {}
+  constructor(
+    private readonly smsCredits: SmsCreditsService,
+    private readonly smsCreditService: SmsCreditService,
+  ) {}
+
+  @Get()
+  @ApiOperation({
+    summary:
+      "A school's SMS credit balance and ledger, newest first, for SUPER_ADMIN's cross-school " +
+      'console. Same shape as the tenant-facing GET /communications/sms-credits, but scoped to ' +
+      "the :id in the path rather than the caller's own tenant.",
+  })
+  @ApiOkResponse({ type: SmsCreditsResponseDto })
+  async getSmsCredits(
+    @Param('id', ParseUUIDPipe) schoolId: string,
+    @Query() query: QuerySmsCreditsDto,
+  ): Promise<SmsCreditsResponseDto> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const summary = await this.smsCreditService.getCreditsSummary(schoolId, page, limit);
+
+    return {
+      ...summary,
+      ledger: {
+        ...summary.ledger,
+        data: summary.ledger.data.map((row) => ({
+          id: row.id,
+          kind: row.kind,
+          units: row.units,
+          reference_type: row.reference_type,
+          reference_id: row.reference_id,
+          reason: row.reason,
+          created_at: row.created_at,
+        })),
+      },
+    };
+  }
 
   @Post()
   @ApiOperation({

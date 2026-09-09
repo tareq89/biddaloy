@@ -18,22 +18,27 @@ export type SmsCreditLedgerItem = components['schemas']['SmsCreditLedgerItemDto'
 export interface SmsCreditsFilters {
   page: number;
   limit: number;
+  schoolId?: string;
 }
 
 export const smsCreditsKeys = createEntityKeys<SmsCreditsFilters>('sms-credits');
 
 /**
- * `GET /communications/sms-credits` — [15.6.8] Settings' credit section:
- * this tenant's own metering mode, balance and ledger page. `metering:
- * 'OFF'` still returns the same shape (an always-0/0 balance, an empty
- * ledger) — see the server DTO's own comment — so the UI never needs a
- * second response contract for the unmetered case.
+ * `GET /communications/sms-credits` (own tenant) or, when `schoolId` is
+ * given, `GET /schools/:id/sms-credits` (#570) — SUPER_ADMIN's console
+ * reading a *picked* school, which usually isn't the active tenant on
+ * their JWT. `schoolId` also joins the query key so switching schools
+ * refetches instead of showing a stale cached balance. `metering: 'OFF'`
+ * still returns the same shape (an always-0/0 balance, an empty ledger) —
+ * see the server DTO's own comment — so the UI never needs a second
+ * response contract for the unmetered case.
  */
-export function smsCreditsQueryOptions(page: number, limit: number) {
+export function smsCreditsQueryOptions(page: number, limit: number, schoolId?: string) {
   return queryOptions({
-    queryKey: smsCreditsKeys.list({ page, limit }),
+    queryKey: smsCreditsKeys.list({ page, limit, ...(schoolId !== undefined ? { schoolId } : {}) }),
     queryFn: async ({ signal }) => {
-      const res = await apiClient.get<SmsCreditsResponse>('/communications/sms-credits', {
+      const url = schoolId ? `/schools/${schoolId}/sms-credits` : '/communications/sms-credits';
+      const res = await apiClient.get<SmsCreditsResponse>(url, {
         params: { page, limit },
         signal,
       });
@@ -47,8 +52,8 @@ export function smsCreditsQueryOptions(page: number, limit: number) {
   });
 }
 
-export function useSmsCredits(page = 1, limit = 20) {
-  return useQuery(smsCreditsQueryOptions(page, limit));
+export function useSmsCredits(page = 1, limit = 20, schoolId?: string) {
+  return useQuery(smsCreditsQueryOptions(page, limit, schoolId));
 }
 
 export type GrantSmsCreditsInput = components['schemas']['GrantSmsCreditsDto'];
