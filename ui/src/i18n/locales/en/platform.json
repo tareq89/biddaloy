@@ -74,7 +74,9 @@
     },
     "smsCredit": {
       "title": "SMS credits",
-      "noBalanceYet": "No balance shown yet — grant credit below to see the current balance.",
+      "loading": "Loading…",
+      "loadError": "Couldn't load this school's SMS credit balance.",
+      "unmetered": "This school isn't on platform SMS credits.",
       "available": "Available",
       "reserved": "Reserved",
       "grantTitle": "Grant or adjust credit",

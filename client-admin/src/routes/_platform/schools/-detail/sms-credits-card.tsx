@@ -1,18 +1,15 @@
 /**
  * [15.6.8/#551] The platform school-detail page's "SMS credits" card —
- * `POST /schools/:id/sms-credits` (#550) via `useGrantSmsCredits`. There is
- * no platform-facing *read* endpoint for a school's balance (`GET
- * /communications/sms-credits` is `@Roles(ADMIN, ACCOUNTANT)` on the
- * *tenant* controller, unreachable for a SUPER_ADMIN who isn't a member of
- * the school) — so this card shows no balance until the operator's first
- * grant, then the grant response's `{ available, reserved }` becomes the
- * displayed balance for the rest of the session. A page refresh loses it
- * again; that's a known gap, not an oversight — see the issue's own "if no
- * platform read exists" fallback.
+ * `POST /schools/:id/sms-credits` (#550) via `useGrantSmsCredits`, plus
+ * (#570) `GET /schools/:id/sms-credits` via `useSmsCredits(..., schoolId)`
+ * to show the balance the school already has on mount, not just after the
+ * operator's next grant. The grant mutation still invalidates the
+ * `sms-credits` query key broadly, so a successful grant refreshes this
+ * card's balance the same way it refreshes `SmsCreditSection`.
  */
 import { ApiError } from '@biddaloy/ui/api';
 import { Card } from '@biddaloy/ui/components';
-import { useGrantSmsCredits, type GrantSmsCreditsInput } from '@biddaloy/ui/hooks';
+import { useGrantSmsCredits, useSmsCredits, type GrantSmsCreditsInput } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatNumber } from '@biddaloy/ui/utils';
 import * as React from 'react';
@@ -27,9 +24,11 @@ export function SmsCreditsCard({ schoolId }: SmsCreditsCardProps) {
   const { t } = useTranslation('platform');
   const config = useRegionConfig();
   const grant = useGrantSmsCredits(schoolId);
-  const [balance, setBalance] = React.useState<{ available: number; reserved: number } | null>(
-    null,
-  );
+  const creditsQuery = useSmsCredits(1, 1, schoolId);
+  const balance =
+    creditsQuery.data && creditsQuery.data.metering === 'PLATFORM'
+      ? { available: creditsQuery.data.available, reserved: creditsQuery.data.reserved }
+      : null;
   const [submitError, setSubmitError] = React.useState<string | undefined>(undefined);
 
   // One idempotency key per submit *attempt* — held across a retry of that
@@ -51,9 +50,8 @@ export function SmsCreditsCard({ schoolId }: SmsCreditsCardProps) {
       idempotency_key: idempotencyKeyRef.current,
     };
     grant.mutate(input, {
-      onSuccess: (result) => {
+      onSuccess: () => {
         idempotencyKeyRef.current = undefined;
-        setBalance(result);
       },
       onError: (mutationError: unknown) => {
         setSubmitError(
@@ -69,8 +67,14 @@ export function SmsCreditsCard({ schoolId }: SmsCreditsCardProps) {
     <Card className="flex flex-col gap-4 p-4">
       <h2 className="text-sm font-semibold">{t('schoolDetail.smsCredit.title')}</h2>
 
-      {balance === null ? (
-        <p className="text-sm text-muted-foreground">{t('schoolDetail.smsCredit.noBalanceYet')}</p>
+      {creditsQuery.isLoading ? (
+        <p className="text-sm text-muted-foreground">{t('schoolDetail.smsCredit.loading')}</p>
+      ) : creditsQuery.isError ? (
+        <p role="alert" className="text-sm text-destructive">
+          {t('schoolDetail.smsCredit.loadError')}
+        </p>
+      ) : balance === null ? (
+        <p className="text-sm text-muted-foreground">{t('schoolDetail.smsCredit.unmetered')}</p>
       ) : (
         <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-4">
           <div>
