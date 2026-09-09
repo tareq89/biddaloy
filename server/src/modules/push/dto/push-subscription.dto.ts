@@ -1,6 +1,59 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, MinLength, ValidateNested } from 'class-validator';
+import {
+  IsDefined,
+  IsInt,
+  IsObject,
+  IsOptional,
+  IsString,
+  MinLength,
+  ValidateNested,
+  registerDecorator,
+  ValidationOptions,
+} from 'class-validator';
+
+/**
+ * Real browser push services all live under one of these hosts. `endpoint`
+ * is later handed straight to `webpush.sendNotification()`
+ * (`push.service.ts`) — without this allowlist, an authenticated caller
+ * could register an arbitrary internal URL and turn this server into an
+ * SSRF proxy against it.
+ */
+const ALLOWED_PUSH_ENDPOINT_HOSTS = [
+  /^fcm\.googleapis\.com$/, // Chrome, Firefox (via FCM), Edge (Chromium)
+  /^updates\.push\.services\.mozilla\.com$/, // Firefox
+  /(^|\.)notify\.windows\.com$/, // legacy Edge/WNS
+  /(^|\.)push\.apple\.com$/, // Safari
+];
+
+function isAllowedPushEndpoint(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== 'https:') return false;
+  return ALLOWED_PUSH_ENDPOINT_HOSTS.some((pattern) => pattern.test(url.hostname));
+}
+
+/** Restricts a push subscription's `endpoint` to a known, HTTPS-only push
+ * service host — `@IsUrl()` alone only validates URL syntax, not the host. */
+function IsPushServiceEndpoint(validationOptions?: ValidationOptions) {
+  return function (object: object, propertyName: string) {
+    registerDecorator({
+      name: 'isPushServiceEndpoint',
+      target: object.constructor,
+      propertyName,
+      options: validationOptions,
+      validator: {
+        validate: isAllowedPushEndpoint,
+        defaultMessage: () => 'endpoint must be an HTTPS URL on a supported push service host',
+      },
+    });
+  };
+}
 
 /** The `keys` object inside a browser `PushSubscription.toJSON()` payload. */
 export class PushSubscriptionKeysDto {
@@ -25,9 +78,12 @@ export class CreatePushSubscriptionDto {
   @ApiProperty()
   @IsString()
   @MinLength(1)
+  @IsPushServiceEndpoint()
   endpoint: string;
 
   @ApiProperty({ type: PushSubscriptionKeysDto })
+  @IsDefined()
+  @IsObject()
   @ValidateNested()
   @Type(() => PushSubscriptionKeysDto)
   keys: PushSubscriptionKeysDto;

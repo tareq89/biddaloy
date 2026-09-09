@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseUUIDPipe,
   Post,
   Req,
   UseGuards,
@@ -121,7 +122,7 @@ export class PushSubscriptionsController {
     summary: "Deletes one of the caller's own push subscriptions. 404 if it isn't theirs.",
   })
   async remove(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: { sub: string },
     @CurrentTenant() tenant: { id: string; role: string },
   ): Promise<void> {
