@@ -505,14 +505,15 @@ for a service worker running with no open tab":
 
 The #406 checklist, answered:
 
-| #406 asked for                                              | Answer                                                     |
-| ----------------------------------------------------------- | ---------------------------------------------------------- |
-| Auth without persisting a reusable bearer token             | No such mechanism exists here — see above                  |
-| Refresh-token rotation coordinated with an open tab         | Not attempted; closed-tab means no tab to coordinate with  |
-| Tenant/role context authenticated per queued row            | Rows don't carry role; can't be authorized headless        |
-| Logout/session-expiry/tenant-switch/suspension block replay | They already do, by removing page state a worker never had |
-| One cross-context lock/idempotency rule                     | Moot — only one context (the page) ever replays            |
-| Behaviour when the platform declines to run a sync event    | N/A — never registered                                     |
+| #406 asked for                                              | Answer                                                                                        |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Auth without persisting a reusable bearer token             | No such mechanism exists here — see above                                                     |
+| Refresh-token rotation coordinated with an open tab         | Not attempted; closed-tab means no tab to coordinate with                                     |
+| Tenant/role context authenticated per queued row            | Rows don't carry role; can't be authorized headless                                           |
+| Logout/session-expiry/tenant-switch/suspension block replay | They already do, by removing page state a worker never had                                    |
+| Cross-context lock                                          | No service-worker/page lock; each open tab can replay                                         |
+| Mutation idempotency                                        | Required per queued mutation; attendance uses `client_request_id` to collapse replayed writes |
+| Behaviour when the platform declines to run a sync event    | N/A — never registered                                                                        |
 
 **What stays true:** every rule in the flow below (ordering, money never
 queued, 401 pauses rather than strikes) is exactly what #406 asked
