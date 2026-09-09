@@ -30,12 +30,14 @@ describe('SmsCreditService', () => {
   // return — set per-test.
   let ledgerFindOneResult: unknown | null;
   let ledgerFindOneQueue: unknown[] | null;
+  let ledgerFindResult: unknown[];
   let balanceQueryResult: unknown[];
   let balanceRow: { available: number; reserved: number } | null;
 
   beforeEach(() => {
     ledgerFindOneResult = null;
     ledgerFindOneQueue = null;
+    ledgerFindResult = [];
     balanceQueryResult = [[{ available: 90 }], 1];
     balanceRow = { available: 90, reserved: 10 };
 
@@ -63,6 +65,7 @@ describe('SmsCreditService', () => {
       }),
       insert: vi.fn(async () => ({})),
       query: vi.fn(async () => balanceQueryResult),
+      find: vi.fn(async () => ledgerFindResult),
     };
 
     dataSource = {
@@ -192,6 +195,72 @@ describe('SmsCreditService', () => {
     });
   });
 
+  describe('settlePart', () => {
+    it('settles within the batch cap and stamps the DEBIT/RELEASE row with the batch reference_id', async () => {
+      ledgerFindOneQueue = [
+        { id: 'reserve-row', units: 30, reference_id: 'batch-1' },
+        null, // not already settled
+      ];
+      ledgerFindResult = []; // nothing settled for this batch yet
+
+      await service.settlePart(TENANT_ID, 'batch:batch-1', 'log:log-1', 10, 'DEBIT');
+
+      expect(manager.insert).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          kind: SmsCreditLedgerKind.DEBIT,
+          units: 10,
+          reference_id: 'batch-1',
+          idempotency_key: 'log:log-1:settle',
+        }),
+      );
+    });
+
+    it('rejects a settlement that would exceed this batch RESERVE even though the tenant-wide balance could absorb it', async () => {
+      // batch-1 reserved 30; another log already settled 25 of it —
+      // settling another 10 would total 35, over the batch's own 30, even
+      // though the tenant-wide `reserved` balance (from other batches too)
+      // is nowhere near going negative.
+      ledgerFindOneQueue = [
+        { id: 'reserve-row', units: 30, reference_id: 'batch-1' },
+        null, // not already settled
+      ];
+      ledgerFindResult = [{ units: 25 }];
+
+      await expect(
+        service.settlePart(TENANT_ID, 'batch:batch-1', 'log:log-2', 10, 'DEBIT'),
+      ).rejects.toThrow(BadRequestException);
+      expect(manager.insert).not.toHaveBeenCalled();
+    });
+
+    it('scopes the settled-units sum to this batch reference_id, not another batch reusing the same tenant', async () => {
+      ledgerFindOneQueue = [{ id: 'reserve-row', units: 10, reference_id: 'batch-2' }, null];
+      // manager.find is mocked at the test level (not per reference_id), so
+      // this simulates the query already being scoped correctly: only
+      // rows for batch-2 would come back, and batch-2 hasn't settled
+      // anything yet — a batch-1 sum must never leak in here.
+      ledgerFindResult = [];
+
+      await service.settlePart(TENANT_ID, 'batch:batch-2', 'log:log-3', 10, 'DEBIT');
+
+      expect(manager.find).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          where: expect.objectContaining({ reference_id: 'batch-2' }),
+        }),
+      );
+    });
+
+    it('skips the batch-cap check when the RESERVE row has no reference_id', async () => {
+      ledgerFindOneQueue = [{ id: 'reserve-row', units: 5, reference_id: null }, null];
+
+      await service.settlePart(TENANT_ID, 'legacy-key', 'log:log-4', 5, 'DEBIT');
+
+      expect(manager.find).not.toHaveBeenCalled();
+      expect(manager.insert).toHaveBeenCalled();
+    });
+  });
+
   describe('grant / adjust', () => {
     it('grant inserts a GRANT row and upserts available', async () => {
       ledgerFindOneQueue = [null];
@@ -234,6 +303,28 @@ describe('SmsCreditService', () => {
       await expect(
         service.adjust(TENANT_ID, -1000, { idempotencyKey: 'adjust-key-1' }),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('runs onApplied inside the transaction with its manager when a new movement is applied', async () => {
+      ledgerFindOneQueue = [null];
+      const onApplied = vi.fn(async () => undefined);
+
+      await service.grant(TENANT_ID, 100, { idempotencyKey: 'grant-key-2', onApplied });
+
+      expect(onApplied).toHaveBeenCalledWith(manager);
+      // Runs after the ledger/balance writes, before the balance is re-read.
+      expect(onApplied.mock.invocationCallOrder[0]).toBeGreaterThan(
+        manager.query.mock.invocationCallOrder[0],
+      );
+    });
+
+    it('never runs onApplied on an idempotency-key replay', async () => {
+      ledgerFindOneQueue = [{ id: 'existing' }];
+      const onApplied = vi.fn(async () => undefined);
+
+      await service.grant(TENANT_ID, 100, { idempotencyKey: 'grant-key-1', onApplied });
+
+      expect(onApplied).not.toHaveBeenCalled();
     });
   });
 
@@ -313,6 +404,25 @@ describe('SmsCreditService', () => {
         reserved: 5,
         ledger: { data: rows, total: 1, page: 1, limit: 20, totalPages: 1 },
       });
+    });
+
+    it('returns the zeroed shape without reading balance or ledger when metering is OFF', async () => {
+      schoolsService.getResolvedSettings.mockResolvedValue({
+        communications: { sms: { metering: 'OFF' } },
+      });
+      const getBalanceSpy = vi.spyOn(service, 'getBalance');
+      const listLedgerSpy = vi.spyOn(service, 'listLedger');
+
+      const result = await service.getCreditsSummary(TENANT_ID, 1, 20);
+
+      expect(result).toEqual({
+        metering: 'OFF',
+        available: 0,
+        reserved: 0,
+        ledger: { data: [], total: 0, page: 1, limit: 20, totalPages: 1 },
+      });
+      expect(getBalanceSpy).not.toHaveBeenCalled();
+      expect(listLedgerSpy).not.toHaveBeenCalled();
     });
   });
 });

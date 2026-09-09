@@ -132,6 +132,33 @@ describe('SmsCreditService (integration)', () => {
     ).rejects.toThrow();
   });
 
+  it('settlePart on one batch cannot consume units reserved by a different batch', async () => {
+    await service.grant(tenantA, 100, { idempotencyKey: `grant-2batch-${tenantA}` });
+    const batchOneKey = `batch-one-${tenantA}`;
+    const batchTwoKey = `batch-two-${tenantA}`;
+    const batchOneId = '22222222-2222-2222-2222-222222222222';
+    const batchTwoId = '33333333-3333-3333-3333-333333333333';
+    // Two separate batch reservations, tenant-wide reserved = 30 total —
+    // nowhere near going negative even if this bug reproduces.
+    await service.reserve(tenantA, 20, batchOneKey, { type: 'batch', id: batchOneId });
+    await service.reserve(tenantA, 10, batchTwoKey, { type: 'batch', id: batchTwoId });
+
+    // batch-1 has only 20 reserved — settling 21 against it must fail even
+    // though the tenant-wide reserved balance (30, thanks to batch-2) could
+    // otherwise absorb it.
+    await expect(
+      service.settlePart(tenantA, batchOneKey, `log-1-2batch-${tenantA}`, 21, 'DEBIT'),
+    ).rejects.toThrow();
+
+    // batch-2's full 10 units must still be intact — the rejected call
+    // above must not have partially consumed them.
+    await service.settlePart(tenantA, batchTwoKey, `log-2-2batch-${tenantA}`, 10, 'DEBIT');
+    const balance = await service.getBalance(tenantA);
+    // available: 100 - 20 - 10 (both reserved) = 70; reserved: 30 - 10
+    // (only batch-2's settlement went through) = 20.
+    expect(balance).toEqual({ available: 70, reserved: 20 });
+  });
+
   it('does not let a reserve on tenant B touch tenant A balance', async () => {
     await service.grant(tenantA, 100, { idempotencyKey: `grant-iso-a-${tenantA}` });
     await service.grant(tenantB, 100, { idempotencyKey: `grant-iso-b-${tenantB}` });

@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, QueryFailedError, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, QueryFailedError, Repository } from 'typeorm';
 import { SchoolsService } from '../../schools/schools.service';
 import { SmsCreditBalance } from './entities/sms-credit-balance.entity';
 import {
@@ -13,6 +13,13 @@ export interface CreditMovementOptions {
   reason?: string;
   actorUserId?: string;
   idempotencyKey: string;
+  /** Runs inside the same transaction as the ledger/balance write, only
+   * when this call actually applies a new movement (never on an
+   * idempotency-key replay) — so a caller's side effect (e.g. an audit
+   * row) commits or rolls back atomically with the movement it describes,
+   * instead of possibly landing after a commit that a later crash never
+   * lets it repair. */
+  onApplied?: (manager: EntityManager) => Promise<void>;
 }
 
 export type SettleOutcome = 'DEBIT' | 'RELEASE';
@@ -113,14 +120,25 @@ export class SmsCreditService {
       totalPages: number;
     };
   }> {
-    const [metering, balance, { data, total }] = await Promise.all([
-      this.isMetered(tenantId),
+    const metering = await this.isMetered(tenantId);
+    if (!metering) {
+      // Contract: OFF always returns the zeroed shape, never a stale
+      // balance/ledger a tenant accrued before metering was switched off.
+      return {
+        metering: 'OFF',
+        available: 0,
+        reserved: 0,
+        ledger: { data: [], total: 0, page, limit, totalPages: 1 },
+      };
+    }
+
+    const [balance, { data, total }] = await Promise.all([
       this.getBalance(tenantId),
       this.listLedger(tenantId, page, limit),
     ]);
 
     return {
-      metering: metering ? 'PLATFORM' : 'OFF',
+      metering: 'PLATFORM',
       available: balance.available,
       reserved: balance.reserved,
       ledger: {
@@ -193,6 +211,8 @@ export class SmsCreditService {
              SET available = "sms_credit_balance".available + $2, updated_at = now()`,
           [tenantId, availableDelta],
         );
+
+        await opts.onApplied?.(manager);
 
         return { ...(await this.readBalance(manager, tenantId)), applied: true };
       });
@@ -316,8 +336,16 @@ export class SmsCreditService {
    * idempotency key its `reserve` call used) under a per-log idempotency
    * key `${logKey}:settle`. Used by #549 to settle one SMS at a time out
    * of a bulk-reminder batch's single reservation. `units` cannot exceed
-   * what's left reserved for the batch — the DB check constraint rejects
-   * an over-settle; this maps that into a clear 400. */
+   * what's left reserved *for this batch* — the DB check constraint only
+   * guards the tenant-wide `reserved` total, which stays non-negative even
+   * if this settlement dips into a different batch's reservation, so the
+   * batch-level cap below is enforced explicitly: it sums this batch's own
+   * prior DEBIT/RELEASE rows (found via `reference_id`, set to the same
+   * batch id `reserve` recorded on the RESERVE row) and rejects when that
+   * sum plus `units` would exceed the RESERVE row's own `units`. The
+   * pessimistic lock on the RESERVE row below serializes concurrent
+   * `settlePart` calls for the same batch, so this sum is read
+   * consistently without a separate lock of its own. */
   async settlePart(
     tenantId: string,
     batchKey: string,
@@ -349,13 +377,34 @@ export class SmsCreditService {
           return;
         }
 
+        // `reference_id` is only populated when `reserve` was called with a
+        // reference (every batch reservation is) — this check is skipped
+        // for the rare/legacy reservation with none, since there is then
+        // nothing to scope the sum to.
+        if (reserveRow.reference_id !== null) {
+          const priorSettlements = await manager.find(SmsCreditLedger, {
+            where: {
+              tenant_id: tenantId,
+              reference_type: SmsCreditLedgerReferenceType.BATCH,
+              reference_id: reserveRow.reference_id,
+              kind: In([SmsCreditLedgerKind.DEBIT, SmsCreditLedgerKind.RELEASE]),
+            },
+          });
+          const alreadySettledUnits = priorSettlements.reduce((sum, row) => sum + row.units, 0);
+          if (alreadySettledUnits + units > reserveRow.units) {
+            throw new BadRequestException(
+              `settlePart(${units}) would exceed the remaining reserved balance for batch "${batchKey}" on tenant "${tenantId}".`,
+            );
+          }
+        }
+
         await this.moveReservedUnits(manager, tenantId, units, outcome);
         await manager.insert(SmsCreditLedger, {
           tenant_id: tenantId,
           kind: outcome === 'DEBIT' ? SmsCreditLedgerKind.DEBIT : SmsCreditLedgerKind.RELEASE,
           units,
           reference_type: SmsCreditLedgerReferenceType.BATCH,
-          reference_id: null,
+          reference_id: reserveRow.reference_id,
           idempotency_key: settleKey,
         });
       });
