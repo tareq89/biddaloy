@@ -21,6 +21,7 @@ describe('CommunicationsProcessor', () => {
   let providerRegistry: Record<string, ReturnType<typeof vi.fn>>;
   let provider: Record<string, ReturnType<typeof vi.fn>>;
   let tenantStatus: Record<string, ReturnType<typeof vi.fn>>;
+  let smsCredits: Record<string, ReturnType<typeof vi.fn>>;
 
   const baseLog = {
     id: 'log-1',
@@ -35,9 +36,21 @@ describe('CommunicationsProcessor', () => {
   };
 
   // attemptsMade: 0 with attempts: 3 means "first attempt, two retries left".
-  function job(overrides: { attemptsMade?: number; attempts?: number } = {}) {
+  function job(
+    overrides: {
+      attemptsMade?: number;
+      attempts?: number;
+      batchId?: string;
+      segments?: number;
+    } = {},
+  ) {
     return {
-      data: { logId: 'log-1' },
+      name: undefined,
+      data: {
+        logId: 'log-1',
+        ...(overrides.batchId !== undefined ? { batchId: overrides.batchId } : {}),
+        ...(overrides.segments !== undefined ? { segments: overrides.segments } : {}),
+      },
       attemptsMade: overrides.attemptsMade ?? 0,
       opts: { attempts: overrides.attempts ?? 3 },
     } as any;
@@ -63,11 +76,17 @@ describe('CommunicationsProcessor', () => {
     // #528: defaults to "active" so the existing send/failure/retry tests
     // below don't have to know about tenant suspension at all.
     tenantStatus = { isActive: vi.fn(async () => true) };
+    // [15.6.6/#549] Settlement's own idempotency is proven at the service
+    // level (#546's integration spec) — this mock just records the calls
+    // so the processor's dispatch logic (which outcome maps to which
+    // settlePart call, or none) can be asserted here.
+    smsCredits = { settlePart: vi.fn(async () => undefined) };
 
     processor = new CommunicationsProcessor(
       repo as any,
       providerRegistry as any,
       tenantStatus as any,
+      smsCredits as any,
     );
 
     sentryCaptureException.mockClear();
@@ -87,6 +106,39 @@ describe('CommunicationsProcessor', () => {
 
     expect(txManager.save).toHaveBeenCalledWith(
       expect.objectContaining({ status: CommunicationStatus.SENT, provider_message_id: 'p-1' }),
+    );
+  });
+
+  // [15.6.1] `result.segments` (from the shared `countSmsSegments` via the
+  // SMS gateways) lands on `metadata.segments` — exact count, not just
+  // "present" — for both a successful and a failed send.
+  it('writes the provider segment count onto metadata.segments on success', async () => {
+    provider.send.mockResolvedValue({
+      success: true,
+      providerMessageId: 'p-2',
+      raw: { ok: true },
+      segments: 1,
+    });
+
+    await processor.process(job());
+
+    expect(txManager.save).toHaveBeenCalledWith(
+      expect.objectContaining({ metadata: expect.objectContaining({ segments: 1 }) }),
+    );
+  });
+
+  it('writes the provider segment count onto metadata.segments on a retryable failure', async () => {
+    provider.send.mockResolvedValue({
+      success: false,
+      providerMessageId: null,
+      error: 'gateway down',
+      segments: 3,
+    });
+
+    await expect(processor.process(job({ attemptsMade: 0, attempts: 3 }))).rejects.toThrow();
+
+    expect(repo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ metadata: expect.objectContaining({ segments: 3 }) }),
     );
   });
 
@@ -325,6 +377,51 @@ describe('CommunicationsProcessor', () => {
 
       expect(provider.send).toHaveBeenCalledTimes(1);
     });
+
+    // A worker can commit settle() and then crash/lose its lock before
+    // settleSmsCredit runs — the replayed job must resume settlement
+    // instead of leaving the reservation stuck forever (#570).
+    it('resumes a DEBIT settlement for a terminal SENT log replayed with no recorded credit', async () => {
+      repo.findOneOrFail.mockResolvedValue({ ...baseLog, status: CommunicationStatus.SENT });
+
+      await processor.process(job({ batchId: 'batch-1', segments: 2 }));
+
+      expect(provider.send).not.toHaveBeenCalled();
+      expect(smsCredits.settlePart).toHaveBeenCalledWith(
+        'tenant-1',
+        'batch:batch-1',
+        'log:log-1',
+        2,
+        'DEBIT',
+      );
+    });
+
+    it('resumes a RELEASE settlement for a terminal FAILED log replayed with no recorded credit', async () => {
+      repo.findOneOrFail.mockResolvedValue({ ...baseLog, status: CommunicationStatus.FAILED });
+
+      await processor.process(job({ batchId: 'batch-1', segments: 2 }));
+
+      expect(provider.send).not.toHaveBeenCalled();
+      expect(smsCredits.settlePart).toHaveBeenCalledWith(
+        'tenant-1',
+        'batch:batch-1',
+        'log:log-1',
+        2,
+        'RELEASE',
+      );
+    });
+
+    it('does not resume settlement for a terminal log that already recorded a credit disposition', async () => {
+      repo.findOneOrFail.mockResolvedValue({
+        ...baseLog,
+        status: CommunicationStatus.FAILED,
+        metadata: { credit: 'UNSETTLED' },
+      });
+
+      await processor.process(job({ batchId: 'batch-1', segments: 2 }));
+
+      expect(smsCredits.settlePart).not.toHaveBeenCalled();
+    });
   });
 
   describe('tenant suspension [528]', () => {
@@ -359,6 +456,176 @@ describe('CommunicationsProcessor', () => {
       expect(repo.manager.transaction).not.toHaveBeenCalled();
       expect(txManager.save).not.toHaveBeenCalled();
       expect(txManager.query).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('sms credit settlement [15.6.6/#549]', () => {
+    // These SMS-batch jobs carry batchId + segments — the two fields that
+    // make a job "settleable" per SmsCreditService.settlePart's contract.
+    function smsBatchJob(overrides: Parameters<typeof job>[0] = {}) {
+      return job({ batchId: 'batch-1', segments: 2, ...overrides });
+    }
+
+    it('ACCEPTED debits the batch reservation and records metadata.credit = DEBITED', async () => {
+      provider.send.mockResolvedValue({
+        success: true,
+        providerMessageId: 'p-1',
+        outcome: 'ACCEPTED',
+        segments: 2,
+      });
+
+      await processor.process(smsBatchJob());
+
+      expect(smsCredits.settlePart).toHaveBeenCalledWith(
+        'tenant-1',
+        'batch:batch-1',
+        'log:log-1',
+        2,
+        'DEBIT',
+      );
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ metadata: expect.objectContaining({ credit: 'DEBITED' }) }),
+      );
+    });
+
+    it('REJECTED releases the batch reservation and records metadata.credit = RELEASED', async () => {
+      provider.send.mockResolvedValue({
+        success: false,
+        providerMessageId: null,
+        error: 'invalid number',
+        outcome: 'REJECTED',
+        segments: 2,
+        retryable: false,
+      });
+
+      await processor.process(smsBatchJob());
+
+      expect(smsCredits.settlePart).toHaveBeenCalledWith(
+        'tenant-1',
+        'batch:batch-1',
+        'log:log-1',
+        2,
+        'RELEASE',
+      );
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ metadata: expect.objectContaining({ credit: 'RELEASED' }) }),
+      );
+    });
+
+    it('AMBIGUOUS never settles, flags metadata.credit = UNSETTLED, and tags Sentry with needs_reconciliation', async () => {
+      provider.send.mockResolvedValue({
+        success: false,
+        providerMessageId: null,
+        error: 'timeout',
+        outcome: 'AMBIGUOUS',
+        segments: 2,
+        retryable: false,
+      });
+
+      await processor.process(smsBatchJob());
+
+      expect(smsCredits.settlePart).not.toHaveBeenCalled();
+      expect(txManager.save).toHaveBeenCalledWith(
+        expect.objectContaining({ metadata: expect.objectContaining({ credit: 'UNSETTLED' }) }),
+      );
+      expect(sentrySetTags).toHaveBeenCalledWith(
+        expect.objectContaining({ needs_reconciliation: 'true', communication_log_id: 'log-1' }),
+      );
+      expect(sentryCaptureMessage).toHaveBeenCalledWith(
+        'sms send outcome ambiguous — needs reconciliation',
+        'warning',
+      );
+    });
+
+    it('a settlePart failure flags UNSETTLED and reports the same needs_reconciliation Sentry tag', async () => {
+      provider.send.mockResolvedValue({ success: true, providerMessageId: 'p-1', segments: 2 });
+      const settleError = new Error('no RESERVE found for batch key');
+      smsCredits.settlePart.mockRejectedValueOnce(settleError);
+
+      await processor.process(smsBatchJob());
+
+      expect(txManager.save).toHaveBeenCalledWith(
+        expect.objectContaining({ status: CommunicationStatus.SENT }),
+      );
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ metadata: expect.objectContaining({ credit: 'UNSETTLED' }) }),
+      );
+      expect(sentrySetTags).toHaveBeenCalledWith(
+        expect.objectContaining({ needs_reconciliation: 'true', communication_log_id: 'log-1' }),
+      );
+      expect(sentryCaptureException).toHaveBeenCalledWith(settleError);
+    });
+
+    it('a suspended tenant releases the reservation instead of leaving it stuck', async () => {
+      tenantStatus.isActive.mockResolvedValue(false);
+
+      await processor.process(smsBatchJob());
+
+      expect(provider.send).not.toHaveBeenCalled();
+      expect(smsCredits.settlePart).toHaveBeenCalledWith(
+        'tenant-1',
+        'batch:batch-1',
+        'log:log-1',
+        2,
+        'RELEASE',
+      );
+    });
+
+    it('re-running the same job settles under the same stable log:<id> key', async () => {
+      provider.send.mockResolvedValue({
+        success: true,
+        providerMessageId: 'p-1',
+        outcome: 'ACCEPTED',
+        segments: 2,
+      });
+
+      await processor.process(smsBatchJob());
+      // A second run of the identical job (e.g. stalled-job recovery before
+      // the log's status flips to SENT) must call settlePart with the exact
+      // same logKey — that's what makes SmsCreditService's own idempotency
+      // check (proven in #546's integration spec) actually apply here.
+      await processor.process(smsBatchJob());
+
+      const keys = smsCredits.settlePart.mock.calls.map((call) => call[2]);
+      expect(keys).toEqual(['log:log-1', 'log:log-1']);
+    });
+
+    it('does not settle a non-SMS medium even with batchId/segments present', async () => {
+      repo.findOneOrFail.mockResolvedValue({ ...baseLog, medium: CommunicationMedium.EMAIL });
+      provider.send.mockResolvedValue({
+        success: true,
+        providerMessageId: 'p-1',
+        outcome: 'ACCEPTED',
+      });
+
+      await processor.process(smsBatchJob());
+
+      expect(smsCredits.settlePart).not.toHaveBeenCalled();
+    });
+
+    it('does not settle an SMS job with no batchId (single reminder / notification)', async () => {
+      provider.send.mockResolvedValue({
+        success: true,
+        providerMessageId: 'p-1',
+        outcome: 'ACCEPTED',
+        segments: 1,
+      });
+
+      await processor.process(job({ segments: 1 }));
+
+      expect(smsCredits.settlePart).not.toHaveBeenCalled();
+    });
+
+    it('does not settle an SMS batch job with no segments count', async () => {
+      provider.send.mockResolvedValue({
+        success: true,
+        providerMessageId: 'p-1',
+        outcome: 'ACCEPTED',
+      });
+
+      await processor.process(job({ batchId: 'batch-1' }));
+
+      expect(smsCredits.settlePart).not.toHaveBeenCalled();
     });
   });
 

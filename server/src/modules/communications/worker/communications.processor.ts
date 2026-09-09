@@ -5,14 +5,22 @@ import { Repository } from 'typeorm';
 import { Job } from 'bullmq';
 import * as Sentry from '@sentry/node';
 import { CommunicationLog } from '../entities/communication-log.entity';
-import { CommunicationStatus } from '@biddaloy/shared';
+import { CommunicationMedium, CommunicationStatus } from '@biddaloy/shared';
 import { CommunicationProviderRegistryService } from '../providers/communication-provider.registry';
 import { recordBatchOutcome, BatchOutcome } from '../reminder-batch-counters';
 import { COMMUNICATIONS_QUEUE } from '../communications.constants';
 import { TenantStatusService } from '../../schools/tenant-status.service';
+import { SmsCreditService } from '../credits/sms-credit.service';
 
 interface SendJobData {
   logId: string;
+  // [15.6.5/#548] `batchId` mirrors the log's own `reminder_batch_id` for a
+  // job that hasn't hit the DB yet; `segments` is set only for SMS jobs,
+  // since only SMS touches the credit ledger. [15.6.6/#549] settles per log
+  // (`settlePart`, keyed `log:<logId>`) using both fields once the provider
+  // result is known.
+  batchId?: string;
+  segments?: number;
 }
 
 /**
@@ -43,8 +51,125 @@ export class CommunicationsProcessor extends WorkerHost {
     private readonly repo: Repository<CommunicationLog>,
     private readonly providerRegistry: CommunicationProviderRegistryService,
     private readonly tenantStatus: TenantStatusService,
+    private readonly smsCredits: SmsCreditService,
   ) {
     super();
+  }
+
+  /**
+   * [15.6.6/#549] Whether this job's log should settle a per-log slice of
+   * a batch SMS credit reservation. Checking `job.data.batchId` +
+   * `medium === SMS` (rather than re-calling `SmsCreditService.isMetered`)
+   * is the cheaper of the two correct checks the issue offered: the
+   * RESERVE only ever exists because #548's bulk send already checked
+   * `isMetered` before reserving, so a truthy `batchId` on an SMS job
+   * *is* proof metering was on for this tenant at reserve time — no extra
+   * DB round trip needed here. `segments` must also be present since it's
+   * the unit count `settlePart` moves.
+   */
+  private isSettleableSmsBatchJob(job: Job<SendJobData>, log: CommunicationLog): boolean {
+    return (
+      log.medium === CommunicationMedium.SMS &&
+      typeof job.data.batchId === 'string' &&
+      job.data.batchId.length > 0 &&
+      typeof job.data.segments === 'number'
+    );
+  }
+
+  /**
+   * [15.6.6/#549] Peels this log's `segments` off its batch's RESERVE.
+   * Runs AFTER the provider call and the log/batch-counter `settle()`
+   * transaction above have already committed — settlement is deliberately
+   * outside that transaction so a credit-ledger failure can never roll
+   * back (or block) a send that already happened.
+   *
+   * `settlePart` is idempotent on `log:<logId>:settle`, so a retried job
+   * (stalled-job recovery, a redelivered event) settles at most once —
+   * see the class doc's note on the send-duplication window this does
+   * NOT close.
+   *
+   * A `settlePart` failure must not throw: this runs after the log is
+   * already terminal, so throwing here would surface as an unhandled
+   * job error and could trigger BullMQ retry machinery that re-sends the
+   * SMS for a job whose provider call already succeeded. Instead it's
+   * logged and the log is left with `metadata.credit = 'UNSETTLED'`,
+   * exactly like the AMBIGUOUS path — both converge on manual
+   * reconciliation.
+   */
+  private async settleSmsCredit(
+    job: Job<SendJobData>,
+    log: CommunicationLog,
+    outcome: 'DEBIT' | 'RELEASE',
+  ): Promise<void> {
+    try {
+      await this.smsCredits.settlePart(
+        log.tenant_id,
+        `batch:${job.data.batchId}`,
+        `log:${log.id}`,
+        job.data.segments as number,
+        outcome,
+      );
+      log.metadata = {
+        ...log.metadata,
+        credit: outcome === 'DEBIT' ? 'DEBITED' : 'RELEASED',
+      };
+      await this.repo.save(log);
+    } catch (err) {
+      // Same reconciliation Sentry signal as flagAmbiguousSettlement — a
+      // failed settlement leaves reserved credit stranded exactly like an
+      // AMBIGUOUS outcome does, and the reconciliation runbook finds both
+      // through `needs_reconciliation`. The nestjs-pino error log alone
+      // doesn't reach Sentry.
+      const tags: Record<string, string> = {
+        queue: COMMUNICATIONS_QUEUE,
+        job_name: job.name,
+        communication_log_id: log.id,
+        tenant_id: log.tenant_id,
+        medium: log.medium,
+        needs_reconciliation: 'true',
+      };
+      this.logger.error({
+        msg: 'sms credit settlement failed',
+        ...tags,
+        batch_id: job.data.batchId,
+        settle_outcome: outcome,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      Sentry.withScope((scope) => {
+        scope.setTags(tags);
+        Sentry.captureException(err instanceof Error ? err : new Error(String(err)));
+      });
+      log.metadata = { ...log.metadata, credit: 'UNSETTLED' };
+      await this.repo.save(log);
+    }
+  }
+
+  /**
+   * [15.6.6/#549] AMBIGUOUS never settles — the reservation stays as-is
+   * pending reconciliation. Flags the log and reuses the 15.1.4
+   * queue-failure telemetry shape (structured log + Sentry tags, ids
+   * only, never message bodies/recipients) so `needs_reconciliation`
+   * shows up next to the same `communications job failed/stalled` events
+   * ops already watches, instead of inventing a second reporting path.
+   */
+  private flagAmbiguousSettlement(job: Job<SendJobData>, log: CommunicationLog): void {
+    log.metadata = { ...log.metadata, credit: 'UNSETTLED' };
+    const tags: Record<string, string> = {
+      queue: COMMUNICATIONS_QUEUE,
+      job_name: job.name,
+      communication_log_id: log.id,
+      tenant_id: log.tenant_id,
+      medium: log.medium,
+      needs_reconciliation: 'true',
+    };
+    this.logger.warn({
+      msg: 'sms send outcome ambiguous — credit reservation left pending',
+      ...tags,
+    });
+    Sentry.withScope((scope) => {
+      scope.setTags(tags);
+      Sentry.captureMessage('sms send outcome ambiguous — needs reconciliation', 'warning');
+    });
   }
 
   /**
@@ -84,6 +209,21 @@ export class CommunicationsProcessor extends WorkerHost {
     // check below on purpose: a replayed SENT log for a since-suspended
     // tenant must stay SENT, not be rewritten to FAILED and settled twice.
     if (log.status === CommunicationStatus.SENT || log.status === CommunicationStatus.FAILED) {
+      // A worker can commit settle() and die before settleSmsCredit runs.
+      // A terminal log with no recorded credit disposition still owns a
+      // slice of its batch RESERVE, so finish that slice here instead of
+      // leaving the units reserved forever. A FAILED log whose provider
+      // outcome was AMBIGUOUS already carries credit: 'UNSETTLED' from
+      // flagAmbiguousSettlement, so it's excluded here on purpose — that
+      // reservation is pending reconciliation, not a release.
+      const credit = (log.metadata as { credit?: string } | null)?.credit;
+      if (!credit && this.isSettleableSmsBatchJob(job, log)) {
+        await this.settleSmsCredit(
+          job,
+          log,
+          log.status === CommunicationStatus.SENT ? 'DEBIT' : 'RELEASE',
+        );
+      }
       return;
     }
 
@@ -96,6 +236,11 @@ export class CommunicationsProcessor extends WorkerHost {
       log.status = CommunicationStatus.FAILED;
       log.metadata = { ...log.metadata, reason: 'TENANT_SUSPENDED' };
       await this.settle(log, 'failure');
+      // [15.6.6/#549] No provider call happened — release this log's
+      // share of the batch reservation rather than leaving it stuck.
+      if (this.isSettleableSmsBatchJob(job, log)) {
+        await this.settleSmsCredit(job, log, 'RELEASE');
+      }
       return;
     }
 
@@ -109,6 +254,9 @@ export class CommunicationsProcessor extends WorkerHost {
         error: `No provider registered for medium "${log.medium}"`,
       };
       await this.settle(log, 'failure');
+      if (this.isSettleableSmsBatchJob(job, log)) {
+        await this.settleSmsCredit(job, log, 'RELEASE');
+      }
       return;
     }
 
@@ -135,22 +283,39 @@ export class CommunicationsProcessor extends WorkerHost {
         log.tenant_id,
       );
     } catch (err) {
+      // A provider that throws instead of returning a result never told us
+      // whether the message went out — AMBIGUOUS, same as the network-error
+      // branch each provider's own catch block maps to.
       result = {
         success: false,
         providerMessageId: null,
         error: err instanceof Error ? err.message : String(err),
+        outcome: 'AMBIGUOUS' as const,
       };
     }
+
+    // [15.6.1] SMS-only — `result.segments` comes from the shared
+    // `countSmsSegments`; every other provider leaves it `undefined`, so
+    // `metadata.segments` is only ever set for SMS.
+    const segmentsMetadata = result.segments !== undefined ? { segments: result.segments } : {};
+    const settleable = this.isSettleableSmsBatchJob(job, log);
 
     if (result.success) {
       log.status = CommunicationStatus.SENT;
       log.provider_message_id = result.providerMessageId;
-      log.metadata = { ...log.metadata, raw: result.raw };
+      log.metadata = { ...log.metadata, raw: result.raw, ...segmentsMetadata };
       await this.settle(log, 'success');
+      // [15.6.6/#549] Settlement runs AFTER the provider call and the
+      // settle() transaction, and outside both — a credit-ledger hiccup
+      // must never roll back (or delay recording) a send that already
+      // happened. ACCEPTED -> DEBIT.
+      if (settleable) {
+        await this.settleSmsCredit(job, log, 'DEBIT');
+      }
       return;
     }
 
-    log.metadata = { ...log.metadata, error: result.error, raw: result.raw };
+    log.metadata = { ...log.metadata, error: result.error, raw: result.raw, ...segmentsMetadata };
 
     const maxAttempts = job.opts.attempts ?? 1;
     const isFinalAttempt = job.attemptsMade + 1 >= maxAttempts;
@@ -160,6 +325,12 @@ export class CommunicationsProcessor extends WorkerHost {
     // budget on a failure that will be identical every time.
     if (isFinalAttempt || result.retryable === false) {
       log.status = CommunicationStatus.FAILED;
+      // AMBIGUOUS is flagged for reconciliation and written into metadata
+      // *before* `settle()` so it lands in the same transactional save as
+      // the FAILED status — no reservation to touch, so nothing runs after.
+      if (settleable && result.outcome === 'AMBIGUOUS') {
+        this.flagAmbiguousSettlement(job, log);
+      }
       await this.settle(log, 'failure');
       // BullMQ only fires `failed` when the processor throws — a terminal
       // failure recorded here still returns normally, so this handler is
@@ -174,6 +345,11 @@ export class CommunicationsProcessor extends WorkerHost {
         },
         new Error(result.error ?? `Provider failed to send communication ${log.id}`),
       );
+      // REJECTED -> RELEASE, run after settle()/its transaction like the
+      // DEBIT path above.
+      if (settleable && result.outcome === 'REJECTED') {
+        await this.settleSmsCredit(job, log, 'RELEASE');
+      }
       return;
     }
 

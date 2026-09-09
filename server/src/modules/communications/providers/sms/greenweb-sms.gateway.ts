@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
+import { countSmsSegments } from '@biddaloy/shared';
 import { CommunicationSendResult } from '../communication-provider.interface';
-import { SmsGateway, isUnicodeMessage } from './sms-gateway.interface';
+import { SmsGateway } from './sms-gateway.interface';
 import { normalizeBdPhoneNumber } from '../shared/phone-number.util';
 import { ConnectionTestResult } from '../shared/connection-test.types';
 import {
@@ -27,6 +28,7 @@ export class GreenwebSmsGateway implements SmsGateway<ResolvedGreenwebSmsConfig>
     message: string,
     config: ResolvedGreenwebSmsConfig,
   ): Promise<CommunicationSendResult> {
+    const segmentInfo = countSmsSegments(message);
     try {
       const baseUrl = config.apiUrl ?? DEFAULT_BASE_URL;
       const destination = await assertSafeHttpDestination(baseUrl);
@@ -35,7 +37,7 @@ export class GreenwebSmsGateway implements SmsGateway<ResolvedGreenwebSmsConfig>
         to: normalizeBdPhoneNumber(to),
         message,
       });
-      if (isUnicodeMessage(message)) {
+      if (segmentInfo.encoding === 'UCS_2') {
         params.set('unicode', '1');
       }
 
@@ -45,22 +47,37 @@ export class GreenwebSmsGateway implements SmsGateway<ResolvedGreenwebSmsConfig>
       })) as Record<string, any>;
 
       if (data?.status === 'success') {
-        return { success: true, providerMessageId: data.msgid ?? null, raw: data };
+        return {
+          success: true,
+          providerMessageId: data.msgid ?? null,
+          raw: data,
+          segments: segmentInfo.segments,
+          outcome: 'ACCEPTED',
+        };
       }
+      // Greenweb answered — it just refused the message (bad token,
+      // invalid number, etc.). A definite REJECTED, same as `retryable`
+      // would say if this branch set it.
       return {
         success: false,
         providerMessageId: null,
         error: data?.error_msg ?? 'Unknown Greenweb error',
         raw: data,
+        segments: segmentInfo.segments,
+        retryable: false,
+        outcome: 'REJECTED',
       };
     } catch (err) {
       return {
         success: false,
         providerMessageId: null,
         error: err instanceof Error ? err.message : String(err),
+        segments: segmentInfo.segments,
         // Only a resolved-to-a-blocked-destination is permanent; a DNS
-        // hiccup or network blip may succeed on retry.
+        // hiccup or network blip may succeed on retry — and might have
+        // reached Greenweb anyway, so it's AMBIGUOUS, not REJECTED.
         retryable: err instanceof DestinationBlockedError ? false : undefined,
+        outcome: err instanceof DestinationBlockedError ? 'REJECTED' : 'AMBIGUOUS',
       };
     }
   }

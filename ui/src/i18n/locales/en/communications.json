@@ -154,7 +154,15 @@
       "noRecipients": "No one would receive this reminder — adjust the earlier steps.",
       "previewErrorMessage": "The preview could not be run.",
       "sendErrorMessage": "The reminders could not be queued.",
-      "rateLimited": "Too many bulk requests in a row — wait a moment and try again."
+      "rateLimited": "Too many bulk requests in a row — wait a moment and try again.",
+      "projection": {
+        "title": "SMS projection",
+        "recipients": "SMS recipients",
+        "units": "SMS units",
+        "available": "Available",
+        "shortfall": "Not enough SMS credit: {{required}} unit(s) needed, only {{available}} available ({{shortfall}} short). Sending is blocked until the balance is topped up.",
+        "insufficientCredit": "Not enough SMS credit to send: {{required}} unit(s) needed, only {{available}} available."
+      }
     },
     "submitLabel": "Send reminders",
     "result": {

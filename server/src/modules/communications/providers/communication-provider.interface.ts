@@ -25,6 +25,35 @@ export interface CommunicationSendResult {
    * other failure, which stays retryable exactly as before.
    */
   retryable?: boolean;
+  /**
+   * [15.6.1] SMS-only — the exact segment count from the shared
+   * `countSmsSegments`, so `CommunicationsProcessor` can write it onto
+   * `CommunicationLog.metadata.segments` for billing/observability.
+   * `undefined` for every non-SMS provider.
+   */
+  segments?: number;
+  /**
+   * [15.6.6/#549] Epic #508 D6's three provider outcomes, set on every
+   * result (success or failure) so `CommunicationsProcessor` can settle
+   * SMS credit reservations without re-deriving it from `success`/`error`.
+   *
+   * - `ACCEPTED` — the provider took the message (`success: true`).
+   * - `REJECTED` — the provider (or a pre-flight check like
+   *   `ProviderNotConfiguredError`/a blocked destination) definitively
+   *   refused it before/without sending — a 4xx-shaped or validation
+   *   failure. Retrying won't change the outcome.
+   * - `AMBIGUOUS` — the request may or may not have reached the provider:
+   *   a network timeout, connection reset, or 5xx/unknown error *after*
+   *   the request went out. Whether the SMS was actually sent is unknown,
+   *   so the credit reservation stays untouched pending reconciliation.
+   *
+   * Derived from the same branch that already sets `retryable` — a
+   * provider whose `retryable` is `false` because it never reached the
+   * network is `REJECTED`; a provider whose `retryable` is left
+   * `undefined`/`true` because it doesn't know if the request landed is
+   * `AMBIGUOUS`.
+   */
+  outcome: 'ACCEPTED' | 'REJECTED' | 'AMBIGUOUS';
 }
 
 /**

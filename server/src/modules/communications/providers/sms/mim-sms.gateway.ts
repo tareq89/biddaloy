@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
+import { countSmsSegments } from '@biddaloy/shared';
 import { CommunicationSendResult } from '../communication-provider.interface';
-import { SmsGateway, isUnicodeMessage } from './sms-gateway.interface';
+import { SmsGateway } from './sms-gateway.interface';
 import { normalizeBdPhoneNumber } from '../shared/phone-number.util';
 import { ConnectionTestResult } from '../shared/connection-test.types';
 import {
@@ -30,6 +31,7 @@ export class MimSmsGateway implements SmsGateway<ResolvedMimSmsConfig> {
     message: string,
     config: ResolvedMimSmsConfig,
   ): Promise<CommunicationSendResult> {
+    const segmentInfo = countSmsSegments(message);
     try {
       const baseUrl = config.apiUrl ?? DEFAULT_BASE_URL;
       const destination = await assertSafeHttpDestination(baseUrl);
@@ -43,27 +45,41 @@ export class MimSmsGateway implements SmsGateway<ResolvedMimSmsConfig> {
           senderid: config.senderId,
           number: normalizeBdPhoneNumber(to),
           message,
-          type: isUnicodeMessage(message) ? 'unicode' : 'text',
+          type: segmentInfo.encoding === 'UCS_2' ? 'unicode' : 'text',
         }),
       })) as Record<string, any>;
 
       if (data?.status === 'success') {
-        return { success: true, providerMessageId: data.transaction_id ?? null, raw: data };
+        return {
+          success: true,
+          providerMessageId: data.transaction_id ?? null,
+          raw: data,
+          segments: segmentInfo.segments,
+          outcome: 'ACCEPTED',
+        };
       }
+      // MimSMS answered — it just refused the message. A definite
+      // REJECTED.
       return {
         success: false,
         providerMessageId: null,
         error: data?.message ?? 'Unknown MimSMS error',
         raw: data,
+        segments: segmentInfo.segments,
+        retryable: false,
+        outcome: 'REJECTED',
       };
     } catch (err) {
       return {
         success: false,
         providerMessageId: null,
         error: err instanceof Error ? err.message : String(err),
+        segments: segmentInfo.segments,
         // Only a resolved-to-a-blocked-destination is permanent; a DNS
-        // hiccup or network blip may succeed on retry.
+        // hiccup or network blip may succeed on retry — and might have
+        // reached MimSMS anyway, so it's AMBIGUOUS, not REJECTED.
         retryable: err instanceof DestinationBlockedError ? false : undefined,
+        outcome: err instanceof DestinationBlockedError ? 'REJECTED' : 'AMBIGUOUS',
       };
     }
   }

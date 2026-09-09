@@ -1,4 +1,10 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -18,6 +24,7 @@ import {
   ReminderBatchListItemDto,
   BulkReminderPreviewResponseDto,
   BulkPreviewStudentDto,
+  BulkSmsProjectionDto,
   QueryReminderBatchLogsDto,
   ReminderBatchLogListResponseDto,
   ReminderBatchLogDto,
@@ -43,6 +50,9 @@ import {
   DISPATCHABLE_MEDIA,
 } from './reminder-recipients.util';
 import { resolveWhatsAppTemplate, whatsAppTemplateMetadata } from './whatsapp-template.util';
+import { projectSmsUnits } from './sms-projection.util';
+import { SmsCreditService } from './credits/sms-credit.service';
+import { INSUFFICIENT_SMS_CREDIT } from './credits/insufficient-sms-credit.constants';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
 import {
@@ -51,6 +61,7 @@ import {
   CommunicationStatus,
   CommunicationTrigger,
   ReminderBatchStatus,
+  countSmsSegments,
 } from '@biddaloy/shared';
 
 // Re-exported so existing imports (this file's own spec, in particular)
@@ -82,6 +93,8 @@ export interface ResolvedRecipient {
 
 @Injectable()
 export class BulkReminderService {
+  private readonly logger = new Logger(BulkReminderService.name);
+
   constructor(
     @InjectRepository(CommunicationLog)
     private readonly logRepo: Repository<CommunicationLog>,
@@ -92,6 +105,7 @@ export class BulkReminderService {
     private readonly studentService: StudentService,
     private readonly feeDuesService: FeeDuesService,
     private readonly auditService: AuditService,
+    private readonly smsCreditService: SmsCreditService,
   ) {}
 
   async sendBulk(
@@ -101,6 +115,13 @@ export class BulkReminderService {
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<ReminderBatchResponseDto> {
     const { studentIds, recipients, skipped } = await this.validateAndResolve(dto, tenantId);
+
+    // [15.6.5/#548] Recomputed from the just-resolved recipients and the
+    // template that will actually be sent — never trusted from the client
+    // (the DTO carries no client-supplied total to begin with; previewBulk's
+    // earlier number is advisory only, this is the number that gets
+    // reserved). Server is the enforcement boundary.
+    const { sms_units } = projectSmsUnits(recipients, dto.message_template);
 
     const batch = await this.batchRepo.save(
       this.batchRepo.create({
@@ -128,7 +149,54 @@ export class BulkReminderService {
       }),
     );
 
-    const { queued, failed } = await this.queueRecipients(recipients, batch, dto, tenantId, userId);
+    // Reserve BEFORE any log/job is created — the batch id is only known
+    // once the row above exists (DB-generated uuid), so this is the
+    // earliest point a stable `batch:${batch.id}` idempotency key can be
+    // formed. On failure, the batch row this transaction just created is
+    // compensating-deleted too (there's no surrounding transaction across
+    // these three independent calls, so this is a manual cleanup, not a
+    // rollback): no batch, no logs, no jobs must remain on insufficient
+    // credit (epic #508: external provider calls — and the work that leads
+    // to them — never leave partial durable state behind). That cleanup
+    // must run whether `reserve` resolves `ok: false` or throws — either
+    // way nothing was actually reserved, and leaving the row behind would
+    // strand it at PROCESSING forever with no job to ever move it on.
+    let metered = false;
+    if (sms_units > 0 && (await this.smsCreditService.isMetered(tenantId))) {
+      metered = true;
+      let reservation: { ok: true } | { ok: false; available: number };
+      try {
+        reservation = await this.smsCreditService.reserve(
+          tenantId,
+          sms_units,
+          `batch:${batch.id}`,
+          { type: 'batch', id: batch.id },
+        );
+      } catch (err) {
+        await this.batchRepo.delete({ id: batch.id, tenant_id: tenantId });
+        throw err;
+      }
+      if (!reservation.ok) {
+        await this.batchRepo.delete({ id: batch.id, tenant_id: tenantId });
+        throw new ConflictException({
+          message: 'Insufficient SMS credit to send this batch.',
+          details: {
+            code: INSUFFICIENT_SMS_CREDIT,
+            required: sms_units,
+            available: reservation.available,
+          },
+        });
+      }
+    }
+
+    const { queued, failed } = await this.queueRecipients(
+      recipients,
+      batch,
+      dto,
+      tenantId,
+      userId,
+      metered,
+    );
 
     // One record per batch, not per recipient — a bulk send can fan out to
     // hundreds of guardians, and PAYMENT_RECEIVED/BULK_UPLOAD already set
@@ -222,7 +290,10 @@ export class BulkReminderService {
     }
 
     if (query.sort === 'batch_name') {
-      qb.orderBy(`batch.batch_name COLLATE "${BN_COLLATION}"`, query.order === 'desc' ? 'DESC' : 'ASC');
+      qb.orderBy(
+        `batch.batch_name COLLATE "${BN_COLLATION}"`,
+        query.order === 'desc' ? 'DESC' : 'ASC',
+      );
     } else if (query.sort === 'total_recipients') {
       qb.orderBy('batch.total_recipients', query.order === 'asc' ? 'ASC' : 'DESC');
     } else {
@@ -340,6 +411,35 @@ export class BulkReminderService {
       recipients_count: recipients.length,
       skipped_count: skipped.length,
       students: [...byStudent.values()],
+      projection: await this.projectSms(recipients, dto.message_template, tenantId),
+    };
+  }
+
+  /**
+   * [15.6.4/#547] Rendered-per-recipient SMS unit projection, plus balance
+   * context when the tenant meters SMS. `available`/`reserved`/`shortfall`
+   * only mean anything under PLATFORM metering — OFF omits them rather than
+   * shipping zeros a reader could mistake for "you have none left."
+   */
+  private async projectSms(
+    recipients: ResolvedRecipient[],
+    template: string,
+    tenantId: string,
+  ): Promise<BulkSmsProjectionDto> {
+    const { sms_recipients, sms_units } = projectSmsUnits(recipients, template);
+
+    if (!(await this.smsCreditService.isMetered(tenantId))) {
+      return { sms_recipients, sms_units, metering: 'OFF' };
+    }
+
+    const { available, reserved } = await this.smsCreditService.getBalance(tenantId);
+    return {
+      sms_recipients,
+      sms_units,
+      metering: 'PLATFORM',
+      available,
+      reserved,
+      shortfall: Math.max(0, sms_units - available),
     };
   }
 
@@ -538,11 +638,13 @@ export class BulkReminderService {
     dto: SendBulkReminderDto,
     tenantId: string,
     userId: string,
+    metered: boolean,
   ): Promise<{ queued: number; failed: number }> {
     let queued = 0;
     let failed = 0;
 
     for (const recipient of recipients) {
+      const renderedBody = renderReminderTemplate(dto.message_template, recipient.vars);
       const log = await this.logRepo.save(
         this.logRepo.create({
           tenant_id: tenantId,
@@ -550,7 +652,7 @@ export class BulkReminderService {
           medium: recipient.medium,
           recipient_address: recipient.address,
           recipient_name: recipient.guardian.full_name,
-          message_body: renderReminderTemplate(dto.message_template, recipient.vars),
+          message_body: renderedBody,
           subject: recipient.medium === CommunicationMedium.EMAIL ? this.emailSubject(dto) : null,
           student_id: recipient.student.id,
           guardian_id: recipient.guardian.id,
@@ -561,8 +663,21 @@ export class BulkReminderService {
         }),
       );
 
+      // [15.6.5/#548] `segments` is only meaningful for SMS — every other
+      // medium never touches the credit ledger, so its job data carries
+      // none. Settlement (peeling this off the batch's RESERVE) is #549;
+      // this just plumbs the number the worker will eventually need.
+      const segments =
+        recipient.medium === CommunicationMedium.SMS
+          ? countSmsSegments(renderedBody).segments
+          : undefined;
+
       try {
-        await this.queue.add('send', { logId: log.id });
+        await this.queue.add('send', {
+          logId: log.id,
+          batchId: batch.id,
+          ...(segments !== undefined ? { segments } : {}),
+        });
         queued++;
       } catch {
         // One recipient failing to enqueue shouldn't abort the rest of the
@@ -577,6 +692,35 @@ export class BulkReminderService {
           await recordBatchOutcome(manager, batch.id, 'failure');
         });
         failed++;
+
+        // The job that would have settled this recipient's share of the
+        // batch RESERVE was never created, so nothing else will ever
+        // release it — do it here instead of leaving units reserved
+        // forever (#570). A failure here must not escape the loop: the
+        // log above already saved as FAILED, so a `settlePart` error
+        // (e.g. a stale RESERVE key) must not stop the remaining
+        // recipients from being enqueued — the reservation just stays
+        // stranded pending reconciliation, same as any other UNSETTLED
+        // credit case.
+        if (metered && recipient.medium === CommunicationMedium.SMS && segments !== undefined) {
+          try {
+            await this.smsCreditService.settlePart(
+              tenantId,
+              `batch:${batch.id}`,
+              `log:${log.id}`,
+              segments,
+              'RELEASE',
+            );
+          } catch (err) {
+            this.logger.error({
+              msg: 'sms credit release on enqueue failure failed — reservation left stranded',
+              communication_log_id: log.id,
+              tenant_id: tenantId,
+              batch_id: batch.id,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
       }
     }
 

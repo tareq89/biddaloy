@@ -439,3 +439,13 @@ export {
   type UpdateSchoolProfileInput,
 } from './school-profile';
 export { useDensity, type DensityMode } from './use-density';
+export {
+  smsCreditsKeys,
+  smsCreditsQueryOptions,
+  useGrantSmsCredits,
+  useSmsCredits,
+  type GrantSmsCreditsInput,
+  type SmsCreditLedgerItem,
+  type SmsCreditsFilters,
+  type SmsCreditsResponse,
+} from './sms-credits';

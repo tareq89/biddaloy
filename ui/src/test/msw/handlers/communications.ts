@@ -2,6 +2,7 @@ import { http, HttpResponse } from 'msw';
 
 import { communicationFactory, type Communication } from '../../factories';
 import { faker } from '../../factories/faker';
+import { paginate } from '../support';
 
 const previewReminder = http.post(
   '/api/v1/communications/reminder/single/:studentId/preview',
@@ -91,6 +92,15 @@ const getBulkReminder = http.get('/api/v1/communications/reminder/bulk/:id', ({ 
  * back with one resolved recipient each, plus one skipped guardian, so a
  * test can assert both halves of the mandatory preview without wiring
  * its own handler. */
+/** [15.6.8/#551] Bulk preview's SMS projection — the default handler
+ * responds `metering: 'OFF'` (no `available`/`reserved`/`shortfall`, per
+ * the DTO's own contract for the unmetered case). `previewBulkReminderPlatformSufficient`/
+ * `previewBulkReminderPlatformShort` below swap in the metered variants a
+ * story or test opts into via `server.use(...)`. */
+function buildProjection(studentIds: string[]) {
+  return { sms_recipients: studentIds.length, sms_units: studentIds.length };
+}
+
 const previewBulkReminder = http.post(
   '/api/v1/communications/reminder/bulk/preview',
   async ({ request }) => {
@@ -124,8 +134,172 @@ const previewBulkReminder = http.post(
               ]
             : [],
       })),
+      projection: { ...buildProjection(studentIds), metering: 'OFF' },
     });
   },
+);
+
+const previewBulkReminderPlatformSufficient = http.post(
+  '/api/v1/communications/reminder/bulk/preview',
+  async ({ request }) => {
+    const body = (await request.json()) as { student_ids?: string[] };
+    const studentIds = body.student_ids ?? [];
+    const projection = buildProjection(studentIds);
+    return HttpResponse.json({
+      total_students: studentIds.length,
+      recipients_count: studentIds.length,
+      skipped_count: 0,
+      students: studentIds.map((studentId, index) => ({
+        student_id: studentId,
+        student_name: `Student ${index + 1}`,
+        recipients: [
+          {
+            guardian_id: faker.string.uuid(),
+            guardian_name: 'Guardian',
+            medium: 'SMS',
+            address: '+8801700000000',
+            message_body: 'Your child has pending fee due.',
+            subject: null,
+          },
+        ],
+        skipped: [],
+      })),
+      projection: {
+        ...projection,
+        metering: 'PLATFORM',
+        available: 500,
+        reserved: 0,
+        shortfall: 0,
+      },
+    });
+  },
+);
+
+const previewBulkReminderPlatformShort = http.post(
+  '/api/v1/communications/reminder/bulk/preview',
+  async ({ request }) => {
+    const body = (await request.json()) as { student_ids?: string[] };
+    const studentIds = body.student_ids ?? [];
+    const projection = buildProjection(studentIds);
+    const available = Math.max(0, projection.sms_units - 5);
+    return HttpResponse.json({
+      total_students: studentIds.length,
+      recipients_count: studentIds.length,
+      skipped_count: 0,
+      students: studentIds.map((studentId, index) => ({
+        student_id: studentId,
+        student_name: `Student ${index + 1}`,
+        recipients: [
+          {
+            guardian_id: faker.string.uuid(),
+            guardian_name: 'Guardian',
+            medium: 'SMS',
+            address: '+8801700000000',
+            message_body: 'Your child has pending fee due.',
+            subject: null,
+          },
+        ],
+        skipped: [],
+      })),
+      projection: {
+        ...projection,
+        metering: 'PLATFORM',
+        available,
+        reserved: 0,
+        shortfall: Math.max(0, projection.sms_units - available),
+      },
+    });
+  },
+);
+
+/** Mirrors `reminders.service.ts`'s 409 `INSUFFICIENT_SMS_CREDIT` — a
+ * story/test overriding `sendBulkReminder` with this instead sees the
+ * wizard's inline required-vs-available message. */
+const sendBulkReminderInsufficientCredit = http.post(
+  '/api/v1/communications/reminder/bulk',
+  ({ request }) =>
+    HttpResponse.json(
+      {
+        statusCode: 409,
+        message: 'Insufficient SMS credit to send this batch.',
+        timestamp: new Date().toISOString(),
+        path: new URL(request.url).pathname,
+        requestId: faker.string.uuid(),
+        details: { code: 'INSUFFICIENT_SMS_CREDIT', required: 42, available: 10 },
+      },
+      { status: 409 },
+    ),
+);
+
+/** [15.6.8/#551] Settings' credit section + the platform grant form's
+ * refreshed balance. `metering: 'OFF'` is the default — a story/test opts
+ * into the metered variants below. */
+const LEDGER_FIXTURE = [
+  {
+    id: faker.string.uuid(),
+    kind: 'GRANT' as const,
+    units: 500,
+    reference_type: 'manual' as const,
+    reference_id: null,
+    reason: 'Initial top-up',
+    created_at: new Date(Date.now() - 3 * 86400000).toISOString(),
+  },
+  {
+    id: faker.string.uuid(),
+    kind: 'DEBIT' as const,
+    units: -12,
+    reference_type: 'batch' as const,
+    reference_id: faker.string.uuid(),
+    reason: null,
+    created_at: new Date(Date.now() - 2 * 86400000).toISOString(),
+  },
+  {
+    id: faker.string.uuid(),
+    kind: 'RESERVE' as const,
+    units: -8,
+    reference_type: 'batch' as const,
+    reference_id: faker.string.uuid(),
+    reason: null,
+    created_at: new Date(Date.now() - 86400000).toISOString(),
+  },
+];
+
+const getSmsCreditsOff = http.get('/api/v1/communications/sms-credits', ({ request }) =>
+  HttpResponse.json({
+    metering: 'OFF',
+    available: 0,
+    reserved: 0,
+    ledger: paginate([], request.url),
+  }),
+);
+
+const getSmsCreditsPlatformSufficient = http.get(
+  '/api/v1/communications/sms-credits',
+  ({ request }) =>
+    HttpResponse.json({
+      metering: 'PLATFORM',
+      available: 488,
+      reserved: 0,
+      ledger: paginate(LEDGER_FIXTURE, request.url),
+    }),
+);
+
+const getSmsCreditsPlatformShort = http.get('/api/v1/communications/sms-credits', ({ request }) =>
+  HttpResponse.json({
+    metering: 'PLATFORM',
+    available: 3,
+    reserved: 0,
+    ledger: paginate(LEDGER_FIXTURE, request.url),
+  }),
+);
+
+const getSmsCreditsLedgerEmpty = http.get('/api/v1/communications/sms-credits', ({ request }) =>
+  HttpResponse.json({
+    metering: 'PLATFORM',
+    available: 500,
+    reserved: 0,
+    ledger: paginate([], request.url),
+  }),
 );
 
 function batchListItem(overrides: Record<string, unknown> = {}) {
@@ -230,7 +404,10 @@ export const communicationHandlers = {
   previewReminder,
   sendSingleReminder,
   sendBulkReminder,
+  sendBulkReminderInsufficientCredit,
   previewBulkReminder,
+  previewBulkReminderPlatformSufficient,
+  previewBulkReminderPlatformShort,
   listBulkReminders,
   listBulkRemindersEmpty,
   getBulkReminder,
@@ -242,6 +419,10 @@ export const communicationHandlers = {
   listByGuardian,
   listByGuardianEmpty,
   lastReminders,
+  getSmsCreditsOff,
+  getSmsCreditsPlatformSufficient,
+  getSmsCreditsPlatformShort,
+  getSmsCreditsLedgerEmpty,
 };
 
 export const communicationDefaultHandlers = [
@@ -253,6 +434,10 @@ export const communicationDefaultHandlers = [
   getBulkReminder,
   getBulkReminderLogs,
   send,
+  // getSmsCreditsOff's literal path must come before getOne's `:id`
+  // wildcard — MSW matches handlers in array order, and `:id` happily
+  // captures the literal segment "sms-credits" otherwise.
+  getSmsCreditsOff,
   getOne,
   listByStudent,
   listByGuardian,

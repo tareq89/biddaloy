@@ -71,6 +71,11 @@ export enum Permission {
   COMMUNICATION_SEND = 'COMMUNICATION_SEND',
   COMMUNICATION_BULK_SEND = 'COMMUNICATION_BULK_SEND',
   COMMUNICATION_LOG_READ = 'COMMUNICATION_LOG_READ',
+  // [15.6.7] `GET /communications/sms-credits` — a tenant's own SMS credit
+  // balance + ledger. Deliberately its own permission, not folded into
+  // COMMUNICATION_LOG_READ: the ledger never carries recipient/message
+  // data, so it's a narrower disclosure than the communication log is.
+  COMMUNICATION_CREDIT_READ = 'COMMUNICATION_CREDIT_READ',
 
   // Reports
   REPORTS_VIEW = 'REPORTS_VIEW',
@@ -151,6 +156,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.COMMUNICATION_SEND,
     Permission.COMMUNICATION_BULK_SEND,
     Permission.COMMUNICATION_LOG_READ,
+    // [15.6.7] SMS credit balance/ledger.
+    Permission.COMMUNICATION_CREDIT_READ,
     Permission.REPORTS_VIEW,
     Permission.REPORTS_EXPORT,
     Permission.DASHBOARD_VIEW,
@@ -203,6 +210,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // [10.4] G5 — the student-detail Communications tab (visible via
     // STUDENT_READ) calls these; no nav item gates on this permission.
     Permission.COMMUNICATION_LOG_READ,
+    // [15.6.7] SMS credit balance/ledger.
+    Permission.COMMUNICATION_CREDIT_READ,
     Permission.REPORTS_VIEW,
     Permission.REPORTS_EXPORT,
     Permission.DASHBOARD_VIEW,

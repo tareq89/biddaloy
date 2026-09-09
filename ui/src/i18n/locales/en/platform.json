@@ -71,6 +71,20 @@
       "revokeError": "Could not revoke the invitation.",
       "revokeConfirmTitle": "Revoke invitation",
       "revokeConfirmDescription": "This revokes the pending invitation for {{name}}. They will need a new one to sign in."
+    },
+    "smsCredit": {
+      "title": "SMS credits",
+      "loading": "Loading…",
+      "loadError": "Couldn't load this school's SMS credit balance.",
+      "unmetered": "This school isn't on platform SMS credits.",
+      "available": "Available",
+      "reserved": "Reserved",
+      "grantTitle": "Grant or adjust credit",
+      "unitsLabel": "Units (positive to grant, negative to adjust down)",
+      "reasonLabel": "Reason",
+      "grantAction": "Grant / adjust",
+      "grantSuccess": "Balance updated.",
+      "grantError": "Could not update the SMS credit balance."
     }
   },
   "createWizard": {

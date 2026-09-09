@@ -63,7 +63,40 @@ describe('GreenwebSmsGateway', () => {
       success: true,
       providerMessageId: 'gw-1',
       raw: { status: 'success', msgid: 'gw-1' },
+      segments: 1,
+      outcome: 'ACCEPTED',
     });
+  });
+
+  // [15.6.1] `result.segments` is what `CommunicationsProcessor` writes onto
+  // `CommunicationLog.metadata.segments` — asserting it here locks the
+  // gateway to the shared `countSmsSegments` calculator instead of the old
+  // bare ASCII regex.
+  it('reports the exact GSM-7 segment count for a plain-English message', async () => {
+    pinnedFetchMock.mockResolvedValue({ status: 'success', msgid: 'gw-3' });
+
+    const result = await gateway.sendSms('01712345678', 'Dear guardian, fees are due.', {
+      gateway: 'greenweb',
+      apiKey: 'key-1',
+    });
+
+    expect(result.segments).toBe(1);
+    const [, url] = pinnedFetchMock.mock.calls[0]!;
+    expect(url).not.toContain('unicode=1');
+  });
+
+  it('reports the exact UCS-2 segment count for a Bengali message', async () => {
+    pinnedFetchMock.mockResolvedValue({ status: 'success', msgid: 'gw-4' });
+
+    const result = await gateway.sendSms(
+      '01712345678',
+      'প্রিয় অভিভাবক, আপনার সন্তানের ফি বকেয়া আছে।',
+      { gateway: 'greenweb', apiKey: 'key-1' },
+    );
+
+    expect(result.segments).toBe(1);
+    const [, url] = pinnedFetchMock.mock.calls[0]!;
+    expect(url).toContain('unicode=1');
   });
 
   it('uses a tenant-configured apiUrl when given', async () => {
@@ -89,6 +122,8 @@ describe('GreenwebSmsGateway', () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toBe('Insufficient balance');
+    expect(result.outcome).toBe('REJECTED');
+    expect(result.retryable).toBe(false);
   });
 
   it('returns success: false instead of throwing on a network error', async () => {
@@ -102,6 +137,7 @@ describe('GreenwebSmsGateway', () => {
     expect(result.success).toBe(false);
     expect(result.error).toBe('network down');
     expect(result.retryable).toBeUndefined();
+    expect(result.segments).toBe(1);
   });
 
   it('routes through the pinned dispatcher rather than a bare fetch', async () => {

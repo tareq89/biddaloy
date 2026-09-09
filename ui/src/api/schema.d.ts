@@ -558,6 +558,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/schools/{id}/sms-credits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A school's SMS credit balance and ledger, newest first, for SUPER_ADMIN's cross-school console. Same shape as the tenant-facing GET /communications/sms-credits, but scoped to the :id in the path rather than the caller's own tenant. */
+        get: operations["SchoolSmsCreditsController_getSmsCredits_v1"];
+        put?: never;
+        /** Grant (positive units) or adjust (negative units) a school's SMS credit balance. Audited (School/UPDATE). Idempotent on `idempotency_key` — a repeat is a no-op, still 200 with the current balance. */
+        post: operations["SchoolSmsCreditsController_grantOrAdjust_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/activate/verify": {
         parameters: {
             query?: never;
@@ -1177,6 +1195,23 @@ export interface paths {
         };
         /** Get a student's fee/payment/balance summary. A PARENT or STUDENT must additionally be linked to this student. */
         get: operations["FeeController_getInvoiceSummary_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/communications/sms-credits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** This tenant's SMS credit balance and ledger, newest first. `metering: 'OFF'` still returns the shape (an always-0/0 balance, an empty ledger) rather than a different one. */
+        get: operations["CreditsController_getSmsCredits_v1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2280,6 +2315,8 @@ export interface components {
             provider: "greenweb" | "mimsms";
             greenweb?: components["schemas"]["GreenwebSmsDto"];
             mimsms?: components["schemas"]["MimSmsDto"];
+            /** @enum {string} */
+            metering?: "OFF" | "PLATFORM";
         };
         WhatsAppSettingsDto: {
             phoneNumberId: string;
@@ -2358,6 +2395,38 @@ export interface components {
             /** Format: email */
             email?: string;
             phone?: string;
+        };
+        SmsCreditLedgerItemDto: {
+            id: string;
+            /** @enum {string} */
+            kind: "GRANT" | "RESERVE" | "DEBIT" | "RELEASE" | "ADJUST";
+            units: number;
+            /** @enum {string} */
+            reference_type: "batch" | "log" | "manual";
+            reference_id: string | null;
+            reason: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        SmsCreditLedgerListResponseDto: {
+            data: components["schemas"]["SmsCreditLedgerItemDto"][];
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+        SmsCreditsResponseDto: {
+            /** @enum {string} */
+            metering: "OFF" | "PLATFORM";
+            available: number;
+            reserved: number;
+            ledger: components["schemas"]["SmsCreditLedgerListResponseDto"];
+        };
+        GrantSmsCreditsDto: {
+            /** @description Signed credit delta. Positive = grant, negative = adjust. */
+            units: number;
+            reason: string;
+            idempotency_key: string;
         };
         ActivateVerifyDto: {
             /** @description The raw invite token from the ?token= query param. */
@@ -2476,11 +2545,21 @@ export interface components {
             recipients: components["schemas"]["ReminderPreviewRecipientDto"][];
             skipped: components["schemas"]["BulkPreviewSkippedDto"][];
         };
+        BulkSmsProjectionDto: {
+            sms_recipients: number;
+            sms_units: number;
+            /** @enum {string} */
+            metering: "OFF" | "PLATFORM";
+            available?: number;
+            reserved?: number;
+            shortfall?: number;
+        };
         BulkReminderPreviewResponseDto: {
             total_students: number;
             recipients_count: number;
             skipped_count: number;
             students: components["schemas"]["BulkPreviewStudentDto"][];
+            projection: components["schemas"]["BulkSmsProjectionDto"];
         };
         SkippedRecipientDto: {
             student_id: string;
@@ -5134,6 +5213,78 @@ export interface operations {
             };
         };
     };
+    SchoolSmsCreditsController_getSmsCredits_v1: {
+        parameters: {
+            query?: {
+                page?: number;
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SmsCreditsResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolSmsCreditsController_grantOrAdjust_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrantSmsCreditsDto"];
+            };
+        };
+        responses: {
+            /** @description The new balance: { available, reserved }. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     AccountAccessController_verify_v1: {
         parameters: {
             query?: never;
@@ -6779,6 +6930,40 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CreditsController_getSmsCredits_v1: {
+        parameters: {
+            query?: {
+                page?: number;
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SmsCreditsResponseDto"];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {

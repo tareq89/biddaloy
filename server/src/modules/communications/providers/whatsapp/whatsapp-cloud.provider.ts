@@ -84,20 +84,35 @@ export class WhatsAppCloudProvider implements CommunicationProvider {
       const data = await response.json();
 
       if (response.ok && data?.messages?.length) {
-        return { success: true, providerMessageId: data.messages[0].id, raw: data };
+        return {
+          success: true,
+          providerMessageId: data.messages[0].id,
+          raw: data,
+          outcome: 'ACCEPTED',
+        };
       }
+      // Meta answered with an HTTP response — success:false here always
+      // means the request landed and was refused (bad template, invalid
+      // number, permission error, etc.), a definite REJECTED even for a
+      // response.ok:false (still an answered HTTP response, not a network
+      // failure).
       return {
         success: false,
         providerMessageId: null,
         error: data?.error?.message ?? 'Unknown Meta WhatsApp Cloud API error',
         raw: data,
+        outcome: 'REJECTED',
       };
     } catch (err) {
+      // Never got an HTTP response back — ProviderNotConfiguredError never
+      // reached the network (REJECTED); a timeout/abort/network error may
+      // have reached Meta anyway (AMBIGUOUS).
       return {
         success: false,
         providerMessageId: null,
         error: err instanceof Error ? err.message : String(err),
         retryable: err instanceof ProviderNotConfiguredError ? false : undefined,
+        outcome: err instanceof ProviderNotConfiguredError ? 'REJECTED' : 'AMBIGUOUS',
       };
     }
   }

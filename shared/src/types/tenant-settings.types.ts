@@ -118,10 +118,16 @@ export interface MimSmsSettings {
   apiUrl?: string;
 }
 
+/** `sms.metering` — [15.6/#508 D5] OFF (default) is today's unmetered
+ * behaviour; PLATFORM meters sends against `sms_credit_ledger`/
+ * `sms_credit_balance` (#545/#546). Absent ⇒ OFF. */
+export type SmsMeteringMode = 'OFF' | 'PLATFORM';
+
 export interface SmsSettings {
   provider: SmsGatewayName;
   greenweb?: GreenwebSmsSettings;
   mimsms?: MimSmsSettings;
+  metering?: SmsMeteringMode;
 }
 
 export interface WhatsAppSettings {

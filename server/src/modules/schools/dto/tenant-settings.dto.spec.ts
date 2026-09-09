@@ -382,4 +382,67 @@ describe('TenantSettingsDto', () => {
       expect(authError?.children?.some((e) => e.property === 'otpLoginEnabled')).toBe(true);
     });
   });
+
+  // [15.6/#508 D5] `sms.metering` — absent ⇒ OFF (unmetered, today's
+  // behaviour). Only #545 (this schema); #546/#547 wire up the metering
+  // itself.
+  describe('sms.metering', () => {
+    it('accepts an sms section with no metering key at all', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        communications: { sms: { provider: 'greenweb', greenweb: { apiKey: 'k' } } },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      expect(errors).toEqual([]);
+    });
+
+    it('accepts metering: OFF and metering: PLATFORM', async () => {
+      for (const metering of ['OFF', 'PLATFORM'] as const) {
+        const dto = toDto({
+          version: TENANT_SETTINGS_SCHEMA_VERSION,
+          communications: {
+            sms: { provider: 'greenweb', greenweb: { apiKey: 'k' }, metering },
+          },
+        });
+
+        const errors = await validate(dto, VALIDATION_OPTIONS);
+
+        expect(errors).toEqual([]);
+      }
+    });
+
+    it('rejects a metering value outside OFF/PLATFORM', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        communications: {
+          sms: { provider: 'greenweb', greenweb: { apiKey: 'k' }, metering: 'BOGUS' },
+        },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      const smsError = errors
+        .find((e) => e.property === 'communications')
+        ?.children?.find((e) => e.property === 'sms');
+      expect(smsError?.children?.some((e) => e.property === 'metering')).toBe(true);
+    });
+
+    it('rejects null for metering (omit to leave unset, not null)', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        communications: {
+          sms: { provider: 'greenweb', greenweb: { apiKey: 'k' }, metering: null },
+        },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      const smsError = errors
+        .find((e) => e.property === 'communications')
+        ?.children?.find((e) => e.property === 'sms');
+      expect(smsError?.children?.some((e) => e.property === 'metering')).toBe(true);
+    });
+  });
 });
