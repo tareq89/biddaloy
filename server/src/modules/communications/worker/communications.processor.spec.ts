@@ -377,6 +377,51 @@ describe('CommunicationsProcessor', () => {
 
       expect(provider.send).toHaveBeenCalledTimes(1);
     });
+
+    // A worker can commit settle() and then crash/lose its lock before
+    // settleSmsCredit runs — the replayed job must resume settlement
+    // instead of leaving the reservation stuck forever (#570).
+    it('resumes a DEBIT settlement for a terminal SENT log replayed with no recorded credit', async () => {
+      repo.findOneOrFail.mockResolvedValue({ ...baseLog, status: CommunicationStatus.SENT });
+
+      await processor.process(job({ batchId: 'batch-1', segments: 2 }));
+
+      expect(provider.send).not.toHaveBeenCalled();
+      expect(smsCredits.settlePart).toHaveBeenCalledWith(
+        'tenant-1',
+        'batch:batch-1',
+        'log:log-1',
+        2,
+        'DEBIT',
+      );
+    });
+
+    it('resumes a RELEASE settlement for a terminal FAILED log replayed with no recorded credit', async () => {
+      repo.findOneOrFail.mockResolvedValue({ ...baseLog, status: CommunicationStatus.FAILED });
+
+      await processor.process(job({ batchId: 'batch-1', segments: 2 }));
+
+      expect(provider.send).not.toHaveBeenCalled();
+      expect(smsCredits.settlePart).toHaveBeenCalledWith(
+        'tenant-1',
+        'batch:batch-1',
+        'log:log-1',
+        2,
+        'RELEASE',
+      );
+    });
+
+    it('does not resume settlement for a terminal log that already recorded a credit disposition', async () => {
+      repo.findOneOrFail.mockResolvedValue({
+        ...baseLog,
+        status: CommunicationStatus.FAILED,
+        metadata: { credit: 'UNSETTLED' },
+      });
+
+      await processor.process(job({ batchId: 'batch-1', segments: 2 }));
+
+      expect(smsCredits.settlePart).not.toHaveBeenCalled();
+    });
   });
 
   describe('tenant suspension [528]', () => {

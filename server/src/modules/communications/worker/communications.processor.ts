@@ -193,6 +193,21 @@ export class CommunicationsProcessor extends WorkerHost {
     // check below on purpose: a replayed SENT log for a since-suspended
     // tenant must stay SENT, not be rewritten to FAILED and settled twice.
     if (log.status === CommunicationStatus.SENT || log.status === CommunicationStatus.FAILED) {
+      // A worker can commit settle() and die before settleSmsCredit runs.
+      // A terminal log with no recorded credit disposition still owns a
+      // slice of its batch RESERVE, so finish that slice here instead of
+      // leaving the units reserved forever. A FAILED log whose provider
+      // outcome was AMBIGUOUS already carries credit: 'UNSETTLED' from
+      // flagAmbiguousSettlement, so it's excluded here on purpose — that
+      // reservation is pending reconciliation, not a release.
+      const credit = (log.metadata as { credit?: string } | null)?.credit;
+      if (!credit && this.isSettleableSmsBatchJob(job, log)) {
+        await this.settleSmsCredit(
+          job,
+          log,
+          log.status === CommunicationStatus.SENT ? 'DEBIT' : 'RELEASE',
+        );
+      }
       return;
     }
 
