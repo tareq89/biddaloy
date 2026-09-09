@@ -60,19 +60,42 @@ export class PushService {
             keys: { p256dh: subscription.p256dh, auth: subscription.auth },
           },
           body,
-          { TTL: 3600 },
+          { TTL: 3600, timeout: 10_000 },
         );
-        subscription.last_used_at = new Date();
-        await this.repo.save(subscription);
+        // The endpoint already accepted the notification — count it now,
+        // before any bookkeeping. A `repo.save` failure below must not
+        // reclassify an accepted delivery as undelivered, or a caller like
+        // `tryPushFirst` (communications.processor.ts) would wrongly fall
+        // back and send a paid duplicate through the preferred channel.
         result.accepted++;
+        subscription.last_used_at = new Date();
+        await this.repo.save(subscription).catch((err: unknown) => {
+          this.logger.warn(
+            `sendToUser: failed to stamp last_used_at for subscription ${subscription.id}: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+        });
       } catch (error) {
         const statusCode = this.getStatusCode(error);
         if (statusCode === 404 || statusCode === 410) {
-          await this.repo.delete({ id: subscription.id });
+          await this.repo.delete({ id: subscription.id }).catch((err: unknown) => {
+            this.logger.warn(
+              `sendToUser: failed to prune dead subscription ${subscription.id}: ${
+                err instanceof Error ? err.message : String(err)
+              }`,
+            );
+          });
           result.pruned++;
         } else {
           subscription.failure_count++;
-          await this.repo.save(subscription);
+          await this.repo.save(subscription).catch((err: unknown) => {
+            this.logger.warn(
+              `sendToUser: failed to record failure_count for subscription ${subscription.id}: ${
+                err instanceof Error ? err.message : String(err)
+              }`,
+            );
+          });
           result.transient++;
         }
       }

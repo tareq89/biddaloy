@@ -103,6 +103,65 @@ describe('PushService', () => {
     expect(repo.delete).not.toHaveBeenCalledWith({ id: 'sub-transient' });
   });
 
+  it('counts a delivery as accepted even when the bookkeeping save fails', async () => {
+    // [thread coderabbitai#11] A `repo.save` rejection after a successful
+    // sendNotification must not reclassify the delivery as transient — a
+    // caller falling back on `accepted < 1` would otherwise send a paid
+    // duplicate through the guardian's preferred channel.
+    const sub = {
+      id: 'sub-1',
+      endpoint: 'https://push.example/a',
+      p256dh: 'p1',
+      auth: 'a1',
+      failure_count: 0,
+      last_used_at: null,
+    };
+    const repo = fakeRepo([sub]);
+    repo.save.mockRejectedValueOnce(new Error('db unavailable'));
+    const service = new PushService(repo, fakePushConfig(true));
+    vi.mocked(webpush.sendNotification).mockResolvedValue({ statusCode: 201 } as any);
+
+    const result = await service.sendToUser('user-1', 'tenant-1', payload);
+
+    expect(result).toEqual({ accepted: 1, transient: 0, pruned: 0 });
+  });
+
+  it('continues the fan-out and preserves counts when a prune delete fails', async () => {
+    // [thread coderabbitai#12] A rejected repo.delete for one subscription
+    // must not escape the loop and skip the remaining subscriptions.
+    const prunedSub = {
+      id: 'sub-pruned',
+      endpoint: 'https://push.example/a',
+      p256dh: 'p1',
+      auth: 'a1',
+      failure_count: 0,
+      last_used_at: null,
+    };
+    const acceptedSub = {
+      id: 'sub-accepted',
+      endpoint: 'https://push.example/b',
+      p256dh: 'p2',
+      auth: 'a2',
+      failure_count: 0,
+      last_used_at: null,
+    };
+    const repo = fakeRepo([prunedSub, acceptedSub]);
+    repo.delete.mockRejectedValueOnce(new Error('db unavailable'));
+    const service = new PushService(repo, fakePushConfig(true));
+    vi.mocked(webpush.sendNotification).mockImplementation(async (subscription: any) => {
+      if (subscription.endpoint === prunedSub.endpoint) {
+        const error: any = new Error('Gone');
+        error.statusCode = 410;
+        throw error;
+      }
+      return { statusCode: 201 } as any;
+    });
+
+    const result = await service.sendToUser('user-1', 'tenant-1', payload);
+
+    expect(result).toEqual({ accepted: 1, transient: 0, pruned: 1 });
+  });
+
   it('throws on an absolute url instead of a same-origin path', async () => {
     const repo = fakeRepo([]);
     const service = new PushService(repo, fakePushConfig(true));
