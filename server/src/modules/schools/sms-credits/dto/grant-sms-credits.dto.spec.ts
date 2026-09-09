@@ -27,6 +27,16 @@ describe('GrantSmsCreditsDto', () => {
     expect(await failedProps({ ...valid, units: 1.5 })).toContain('units');
   });
 
+  it('rejects a units value beyond the bounded range', async () => {
+    expect(await failedProps({ ...valid, units: 9_007_199_254_740_991 })).toContain('units');
+    expect(await failedProps({ ...valid, units: -9_007_199_254_740_991 })).toContain('units');
+  });
+
+  it('accepts units at the bound edges', async () => {
+    expect(await failedProps({ ...valid, units: 1_000_000 })).toEqual([]);
+    expect(await failedProps({ ...valid, units: -1_000_000 })).toEqual([]);
+  });
+
   it('rejects a reason shorter than 5 characters', async () => {
     expect(await failedProps({ ...valid, reason: 'abcd' })).toContain('reason');
   });
