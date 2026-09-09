@@ -44,6 +44,12 @@ export interface UsePushSubscriptionResult {
    * back (`PushSubscriptionResponseDto` deliberately omits it, see that
    * DTO's own comment), so there is nothing to compare against. */
   isSubscribedOnThisDevice: boolean;
+  /** The `id` of this device's own subscription row, once known — set by
+   * `subscribe()` from the server's response, `null` before the first
+   * successful subscribe this session. Lets callers pick this device's
+   * row out of `subscriptions` reliably instead of guessing by
+   * `created_at`. */
+  thisDeviceSubscriptionId: string | null;
   /** All of the caller's subscriptions across every device, from
    * `GET /me/push/subscriptions`. `null` until the first successful
    * `refresh()`. */
@@ -91,8 +97,14 @@ async function getPublicKey(): Promise<string | null> {
   return response.data.enabled ? response.data.public_key : null;
 }
 
-async function postSubscription(subscription: PushSubscriptionJSON): Promise<void> {
-  await apiClient.post('/me/push/subscriptions', subscription);
+async function postSubscription(
+  subscription: PushSubscriptionJSON,
+): Promise<PushSubscriptionSummary> {
+  const response = await apiClient.post<PushSubscriptionSummary>(
+    '/me/push/subscriptions',
+    subscription,
+  );
+  return response.data;
 }
 
 async function fetchSubscriptions(): Promise<PushSubscriptionSummary[]> {
@@ -107,6 +119,9 @@ async function deleteSubscription(id: string): Promise<void> {
 export function usePushSubscription(): UsePushSubscriptionResult {
   const [permission, setPermission] = React.useState<PushPermissionState>(detectPermission);
   const [isSubscribedOnThisDevice, setIsSubscribedOnThisDevice] = React.useState(false);
+  const [thisDeviceSubscriptionId, setThisDeviceSubscriptionId] = React.useState<string | null>(
+    null,
+  );
   const [subscriptions, setSubscriptions] = React.useState<PushSubscriptionSummary[] | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -159,7 +174,8 @@ export function usePushSubscription(): UsePushSubscriptionResult {
         // an actual type mismatch.
         applicationServerKey: applicationServerKey as unknown as BufferSource,
       });
-      await postSubscription(pushSubscription.toJSON());
+      const created = await postSubscription(pushSubscription.toJSON());
+      setThisDeviceSubscriptionId(created.id);
       setIsSubscribedOnThisDevice(true);
       await refresh();
     } catch {
@@ -176,30 +192,35 @@ export function usePushSubscription(): UsePushSubscriptionResult {
       try {
         await deleteSubscription(id);
         setSubscriptions((prev) => (prev ? prev.filter((row) => row.id !== id) : prev));
+        const isThisDevice = thisDeviceSubscriptionId === id;
         // Best-effort: also unsubscribe the browser's own PushManager
-        // registration when this device is the one being removed, so a
-        // later `subscribe()` on this same device doesn't reuse a stale
-        // browser-level subscription the server no longer knows about.
-        if (permission !== 'unsupported') {
+        // registration, but only when this device is the one being
+        // removed — otherwise removing another device's row would revoke
+        // this browser's own (still-valid) push registration.
+        if (isThisDevice && permission !== 'unsupported') {
           const registration = await navigator.serviceWorker.ready;
           const pushSubscription = await registration.pushManager.getSubscription();
           if (pushSubscription) {
             await pushSubscription.unsubscribe();
           }
         }
-        setIsSubscribedOnThisDevice(false);
+        if (isThisDevice) {
+          setThisDeviceSubscriptionId(null);
+          setIsSubscribedOnThisDevice(false);
+        }
       } catch {
         setError('push.errors.unsubscribeFailed');
       } finally {
         setLoading(false);
       }
     },
-    [permission],
+    [permission, thisDeviceSubscriptionId],
   );
 
   return {
     permission,
     isSubscribedOnThisDevice,
+    thisDeviceSubscriptionId,
     subscriptions,
     loading,
     error,

@@ -179,6 +179,62 @@ describe('usePushSubscription', () => {
     expect(result.current.isSubscribedOnThisDevice).toBe(false);
   });
 
+  it("unsubscribe() of another device does not revoke this device's own browser subscription", async () => {
+    // [thread coderabbitai#14] Only the id `subscribe()` got back for this
+    // device may trigger a browser-level unsubscribe/`isSubscribedOnThisDevice`
+    // reset — removing a different device's row must leave this device alone.
+    const { pushManager, subscribe: browserSubscribe, getSubscription } = mockPushManager();
+    installServiceWorkerAndPushManager(pushManager);
+    mockNotification('default', 'granted');
+
+    server.use(
+      http.get('/api/v1/me/push/public-key', () =>
+        HttpResponse.json({ enabled: true, public_key: PUBLIC_KEY }),
+      ),
+      http.post('/api/v1/me/push/subscriptions', () =>
+        HttpResponse.json(
+          { id: 'this-device', user_agent: null, created_at: '2026-01-01', last_used_at: null },
+          { status: 201 },
+        ),
+      ),
+      http.get('/api/v1/me/push/subscriptions', () =>
+        HttpResponse.json([
+          { id: 'this-device', user_agent: null, created_at: '2026-01-01', last_used_at: null },
+          {
+            id: 'other-device',
+            user_agent: 'Firefox',
+            created_at: '2026-01-02',
+            last_used_at: null,
+          },
+        ]),
+      ),
+      http.delete(
+        '/api/v1/me/push/subscriptions/:id',
+        () => new HttpResponse(null, { status: 204 }),
+      ),
+    );
+
+    const { result } = renderHookWithProviders(() => usePushSubscription(), {
+      tenantId: 'tenant-1',
+    });
+
+    await result.current.subscribe();
+    await waitFor(() => expect(result.current.isSubscribedOnThisDevice).toBe(true));
+    expect(result.current.thisDeviceSubscriptionId).toBe('this-device');
+    browserSubscribe.mockClear();
+
+    await result.current.unsubscribe('other-device');
+
+    await waitFor(() => {
+      expect(result.current.subscriptions).toEqual([
+        { id: 'this-device', user_agent: null, created_at: '2026-01-01', last_used_at: null },
+      ]);
+    });
+    expect(getSubscription).not.toHaveBeenCalled();
+    expect(result.current.isSubscribedOnThisDevice).toBe(true);
+    expect(result.current.thisDeviceSubscriptionId).toBe('this-device');
+  });
+
   it('refresh() surfaces a translation key on failure', async () => {
     installServiceWorkerAndPushManager(mockPushManager().pushManager);
     mockNotification('granted');

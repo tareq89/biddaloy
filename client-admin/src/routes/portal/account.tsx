@@ -291,15 +291,7 @@ function PortalAccount() {
       void push.subscribe();
       return;
     }
-    // `usePushSubscription` never hands back this device's own row id
-    // (the server deliberately never echoes the endpoint back — see the
-    // hook's own comment), so turning the toggle off can't name the row
-    // directly. The most-recently-created row is this device's own in
-    // every case that matters here: `subscribe()` always `refresh()`es
-    // right after creating it, so it's the newest entry by construction.
-    const rows = push.subscriptions ?? [];
-    const ownRow = [...rows].sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
-    if (ownRow) handlePushRemove(ownRow.id);
+    if (push.thisDeviceSubscriptionId) handlePushRemove(push.thisDeviceSubscriptionId);
   }
 
   function handlePushRemove(id: string): void {
@@ -458,6 +450,7 @@ function PortalAccount() {
       <PushNotificationSettings
         permission={push.permission}
         isSubscribedOnThisDevice={push.isSubscribedOnThisDevice}
+        thisDeviceSubscriptionId={push.thisDeviceSubscriptionId}
         subscriptions={push.subscriptions}
         loading={push.loading}
         error={push.error ? tPush(push.error) : null}

@@ -29,6 +29,10 @@ export interface PushSubscriptionRow {
 export interface PushNotificationSettingsProps {
   permission: 'unsupported' | 'default' | 'granted' | 'denied';
   isSubscribedOnThisDevice: boolean;
+  /** This device's own subscription row id, from `usePushSubscription`.
+   * Used to exclude this device's row from the "other devices" list below
+   * — the toggle above already represents it. */
+  thisDeviceSubscriptionId?: string | null;
   subscriptions: PushSubscriptionRow[] | null;
   loading?: boolean;
   error?: string | null;
@@ -41,6 +45,7 @@ export interface PushNotificationSettingsProps {
 export function PushNotificationSettings({
   permission,
   isSubscribedOnThisDevice,
+  thisDeviceSubscriptionId = null,
   subscriptions,
   loading = false,
   error = null,
@@ -61,10 +66,8 @@ export function PushNotificationSettings({
   }
 
   // The current device's own row (if any) is represented by the toggle
-  // above, not duplicated in this list — see the hook's own comment on
-  // why there's no endpoint to distinguish it by, so this list is simply
-  // "every subscription the server knows about".
-  const otherDevices = subscriptions ?? [];
+  // above, not duplicated in this list.
+  const otherDevices = (subscriptions ?? []).filter((row) => row.id !== thisDeviceSubscriptionId);
 
   return (
     <Card className="flex flex-col gap-4 p-4">
