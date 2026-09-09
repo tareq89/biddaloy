@@ -1,0 +1,29 @@
+{
+  "settings": {
+    "title": "Push notifications",
+    "unsupported": "Push notifications aren't supported on this browser.",
+    "toggleLabel": "Push notifications on this device",
+    "toggleOnHint": "You'll get a notification here when something needs your attention.",
+    "toggleOffHint": "Turn this on to get notified here, even when the app isn't open.",
+    "denied": "Notifications are blocked for this site in your browser settings. Allow them there to turn this on.",
+    "otherDevices": "Other devices",
+    "noOtherDevices": "No other devices are subscribed.",
+    "remove": "Remove",
+    "removing": "Removing…",
+    "unknownDevice": "Unknown device",
+    "lastUsed": "Last used {{when}}",
+    "neverUsed": "Never used"
+  },
+  "optIn": {
+    "title": "Turn on push notifications?",
+    "body": "Get notified here as soon as something needs your attention — even when this tab isn't open.",
+    "enable": "Enable notifications",
+    "dismiss": "Not now"
+  },
+  "errors": {
+    "listFailed": "Couldn't load your devices. Try again.",
+    "subscribeFailed": "Couldn't turn on push notifications. Try again.",
+    "unsubscribeFailed": "Couldn't remove that device. Try again.",
+    "disabled": "Push notifications aren't enabled for this school yet."
+  }
+}

@@ -160,6 +160,12 @@ export {
 } from './attendance-month-grid';
 export { Card, type CardProps } from './card';
 export { SessionList, type Session, type SessionListProps } from './session-list';
+export {
+  PushNotificationSettings,
+  type PushNotificationSettingsProps,
+  type PushSubscriptionRow,
+} from './push-notification-settings';
+export { PushOptInCard, type PushOptInCardProps } from './push-opt-in-card';
 export { BottomNav, type BottomNavProps } from './bottom-nav';
 export { EmptyState, type EmptyStateKind, type EmptyStateProps } from './empty-state';
 export { StudentPicker, type StudentPickerProps, type StudentPickerItem } from './student-picker';

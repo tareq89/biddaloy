@@ -16,6 +16,7 @@
     "./i18n": "./src/i18n/index.ts",
     "./pwa": "./src/pwa/index.ts",
     "./api": "./src/api/index.ts",
+    "./pwa": "./src/pwa/index.ts",
     "./test": "./src/test/index.ts",
     "./mocks": "./src/test/msw/enable-mocking.ts",
     "./styles": "./src/styles/globals.css",
