@@ -16,6 +16,22 @@ import { ReminderBatch } from './reminder-batch.entity';
 import { CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '@biddaloy/shared';
 
 /**
+ * `medium = 'PUSH'` is deliberately NOT added to the shared
+ * `CommunicationMedium` enum (`@biddaloy/shared`) — that enum also backs
+ * `guardian.preferred_communication`, and a guardian can never *choose*
+ * push as a preferred channel (it's a same-origin browser mechanism, not
+ * something dial-able like SMS/email). PUSH exists only as an outcome this
+ * table can record: the automated dispatcher (#555, see
+ * `worker/communications.processor.ts`) writes it when a routine
+ * notification was delivered via a guardian's linked user's push
+ * subscriptions instead of their preferred channel. Scoping the value to
+ * this column's own DB enum (`communication_logs_medium_enum`) keeps every
+ * other `CommunicationMedium` column unaffected.
+ */
+export const PUSH_MEDIUM = 'PUSH' as const;
+export type CommunicationLogMedium = CommunicationMedium | typeof PUSH_MEDIUM;
+
+/**
  * Audit trail for every message sent through the system.
  *
  * Records all outbound communications (SMS, WhatsApp, email, phone call)
@@ -47,8 +63,8 @@ export class CommunicationLog {
   @Column({ type: 'uuid' })
   tenant_id: string;
 
-  @Column({ type: 'enum', enum: CommunicationMedium })
-  medium: CommunicationMedium;
+  @Column({ type: 'enum', enum: [...Object.values(CommunicationMedium), PUSH_MEDIUM] })
+  medium: CommunicationLogMedium;
 
   @Column({ type: 'varchar', length: 255 })
   recipient_address: string;

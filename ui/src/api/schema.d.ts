@@ -1203,6 +1203,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/push/public-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether push is enabled for this deployment, and the VAPID public key to subscribe with. */
+        get: operations["PushSubscriptionsController_getPublicKey_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/push/subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lists the caller's own push subscriptions. Never returns endpoint/keys. */
+        get: operations["PushSubscriptionsController_list_v1"];
+        put?: never;
+        /** Registers (or re-owns) the caller's browser PushSubscription. Upserts by endpoint. */
+        post: operations["PushSubscriptionsController_subscribe_v1"];
+        /** Deletes all of the caller's own push subscriptions (opt out of push entirely). */
+        delete: operations["PushSubscriptionsController_removeAll_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/push/subscriptions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Deletes one of the caller's own push subscriptions. 404 if it isn't theirs. */
+        delete: operations["PushSubscriptionsController_remove_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/communications/sms-credits": {
         parameters: {
             query?: never;
@@ -2602,9 +2655,9 @@ export interface components {
             totalPages: number;
         };
         ReminderBatchLogDto: {
-            id: string;
             /** @enum {string} */
-            medium: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER";
+            medium: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER" | "PUSH";
+            id: string;
             recipient_address: string;
             recipient_name: string;
             /** @enum {string} */
@@ -2639,9 +2692,9 @@ export interface components {
             template_params?: string[];
         };
         CommunicationResponseDto: {
-            id: string;
             /** @enum {string} */
-            medium: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER";
+            medium: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER" | "PUSH";
+            id: string;
             recipient_address: string;
             recipient_name: string;
             /** @enum {string} */
@@ -2651,11 +2704,11 @@ export interface components {
             created_at: string;
         };
         LastReminderDto: {
+            /** @enum {string} */
+            medium: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER" | "PUSH";
             student_id: string;
             /** Format: date-time */
             sent_at: string;
-            /** @enum {string} */
-            medium: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER";
         };
         TestConnectionDto: {
             /** @enum {string} */
@@ -3138,6 +3191,27 @@ export interface components {
             transaction_reference?: string;
             remarks?: string;
             generate_invoice?: boolean;
+        };
+        PushPublicKeyResponseDto: {
+            enabled: boolean;
+            public_key: string | null;
+        };
+        PushSubscriptionKeysDto: {
+            p256dh: string;
+            auth: string;
+        };
+        CreatePushSubscriptionDto: {
+            endpoint: string;
+            keys: components["schemas"]["PushSubscriptionKeysDto"];
+            expirationTime?: number | null;
+        };
+        PushSubscriptionResponseDto: {
+            id: string;
+            user_agent: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            last_used_at: string | null;
         };
         CreateClassDto: {
             name: string;
@@ -6926,6 +7000,163 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PushSubscriptionsController_getPublicKey_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushPublicKeyResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PushSubscriptionsController_list_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushSubscriptionResponseDto"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PushSubscriptionsController_subscribe_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePushSubscriptionDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushSubscriptionResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PushSubscriptionsController_removeAll_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PushSubscriptionsController_remove_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -172,6 +172,39 @@ export const IDENTITY_SCOPED: IdentityScopedEntry[] = [
     reason:
       '#570 — platform route (SUPER_ADMIN cross-school SMS credit read), same rationale as the POST on this controller.',
   },
+  {
+    controller: 'PushSubscriptionsController',
+    method: 'GET',
+    path: '/me/push/public-key',
+    reason:
+      '15.7 — self-service: whether push is enabled and the VAPID key to subscribe with, no per-user data.',
+  },
+  {
+    controller: 'PushSubscriptionsController',
+    method: 'POST',
+    path: '/me/push/subscriptions',
+    reason:
+      "15.7 — self-service: registers the caller's own browser subscription, id from the JWT.",
+  },
+  {
+    controller: 'PushSubscriptionsController',
+    method: 'GET',
+    path: '/me/push/subscriptions',
+    reason: "15.7 — self-service: lists the caller's own subscriptions, id from the JWT.",
+  },
+  {
+    controller: 'PushSubscriptionsController',
+    method: 'DELETE',
+    path: '/me/push/subscriptions/:id',
+    reason:
+      "15.7 — self-service: deletes one of the caller's own subscriptions, ownership checked in the service, not the path.",
+  },
+  {
+    controller: 'PushSubscriptionsController',
+    method: 'DELETE',
+    path: '/me/push/subscriptions',
+    reason: "15.7 — self-service: deletes all of the caller's own subscriptions, id from the JWT.",
+  },
 ];
 
 function findIdentityScopedEntry(

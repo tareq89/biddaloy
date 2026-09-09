@@ -8,8 +8,10 @@ import {
   ArrayMinSize,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
+import { ApiProperty } from '@nestjs/swagger';
 import { CommunicationMedium, CommunicationStatus } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
+import { CommunicationLogMedium, PUSH_MEDIUM } from '../entities/communication-log.entity';
 
 export class SendCommunicationDto {
   @IsEnum(CommunicationMedium)
@@ -64,7 +66,13 @@ export class SendCommunicationDto {
 
 export class CommunicationResponseDto {
   id: string;
-  medium: CommunicationMedium;
+  // A plain `medium: CommunicationLogMedium` (a `CommunicationMedium |
+  // 'PUSH'` union, not an enum) can't be introspected by the
+  // `@nestjs/swagger` CLI plugin, which only reads real TS enums — the
+  // generated schema silently drops `PUSH`. Spell it out explicitly so
+  // `PUSH` round-trips into `ui/src/api/schema.d.ts`.
+  @ApiProperty({ enum: [...Object.values(CommunicationMedium), PUSH_MEDIUM] })
+  medium: CommunicationLogMedium;
   recipient_address: string;
   recipient_name: string;
   status: CommunicationStatus;
@@ -89,5 +97,11 @@ export class QueryLastRemindersDto {
 export class LastReminderDto {
   student_id: string;
   sent_at: Date;
-  medium: CommunicationMedium;
+  // A plain `CommunicationLogMedium` union isn't reliably introspected by
+  // the `@nestjs/swagger` CLI plugin (it can silently emit an empty
+  // `{ type: 'object' }` schema instead of the enum) — see
+  // `CommunicationResponseDto.medium`'s own comment above. Spelled out
+  // explicitly here too so `ui/src/api/schema.d.ts` stays deterministic.
+  @ApiProperty({ enum: [...Object.values(CommunicationMedium), PUSH_MEDIUM] })
+  medium: CommunicationLogMedium;
 }

@@ -29,6 +29,7 @@ import {
   isHashedAssetRequest,
   SW_CACHED_AT_HEADER,
 } from './pwa/cache-policy';
+import { DEFAULT_NOTIFICATION_URL, parsePushPayload, pickClientOrOpen } from './sw-push';
 
 declare const self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: Array<{ url: string; revision: string | null }>;
@@ -164,6 +165,66 @@ self.addEventListener('message', (event: ExtendableMessageEvent) => {
   if (type === 'CLEAR_API_CACHE') {
     event.waitUntil(caches.delete(API_CACHE_NAME));
   }
+});
+
+// Web push [15.7]: a school sends a push (fee reminder, notice, etc.) and
+// this worker shows it, even though no tab is open. Payload validation and
+// the same-origin URL allowlist live in `sw-push.ts` (plain, testable
+// module code) — this handler only does the actual notification call.
+self.addEventListener('push', (event: PushEvent) => {
+  let raw: unknown;
+  try {
+    raw = event.data?.json();
+  } catch {
+    return;
+  }
+  const payload = parsePushPayload(raw);
+  if (!payload) return; // Invalid or unsafe payload: ignore silently, no notification.
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.body,
+      data: { url: payload.url },
+      icon: '/pwa-192.png',
+      tag: payload.type,
+    }),
+  );
+});
+
+// Tapping a push notification: reuse an open tab if there is one — the app
+// is a PWA, so a user is often already in it — otherwise open a new
+// window. `pickClientOrOpen` (`sw-push.ts`) makes the focus-vs-open
+// decision from a plain client list, so it's unit-testable without a
+// service-worker environment.
+self.addEventListener('notificationclick', (event: NotificationEvent) => {
+  event.notification.close();
+  const url = (event.notification.data as { url?: string } | null)?.url ?? DEFAULT_NOTIFICATION_URL;
+
+  event.waitUntil(
+    (async () => {
+      const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      // `WindowClient.url` is always absolute; `url` here is a same-origin
+      // path (see `sw-push.ts`'s `isSameOriginPath`). Normalize before
+      // comparing/navigating, or every focus would look like a mismatch.
+      const targetUrl = new URL(url, self.location.origin).href;
+      const decision = pickClientOrOpen(clientList, targetUrl);
+      if (decision.kind === 'focus' && decision.client) {
+        const client = await decision.client.focus();
+        if (client.url === targetUrl) return;
+        try {
+          await client.navigate(targetUrl);
+        } catch {
+          // `matchAll({ includeUncontrolled: true })` can return a client
+          // this service worker doesn't control — `navigate()` rejects
+          // with a TypeError for those. Fall back to opening a new window
+          // rather than losing the notification's destination.
+          await self.clients.openWindow(targetUrl);
+        }
+      } else {
+        await self.clients.openWindow(targetUrl);
+      }
+    })(),
+  );
 });
 
 // A newly-activated worker takes over open tabs immediately. Safe here

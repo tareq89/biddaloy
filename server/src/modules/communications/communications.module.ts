@@ -3,10 +3,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 import { CommunicationLog } from './entities/communication-log.entity';
 import { ReminderBatch } from './entities/reminder-batch.entity';
+import { Guardian } from '../students/entities/guardian.entity';
 import { StudentModule } from '../students/students.module';
 import { FeeModule } from '../fees/fees.module';
 import { AuditModule } from '../audit/audit.module';
 import { SchoolsModule } from '../schools/schools.module';
+import { PushModule } from '../push/push.module';
 import { CommunicationsService } from './communications.service';
 import { BulkReminderService } from './reminders.service';
 import { SingleReminderService } from './single-reminder.service';
@@ -27,10 +29,16 @@ import { CreditsModule } from './credits/credits.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([CommunicationLog, ReminderBatch]),
+    TypeOrmModule.forFeature([CommunicationLog, ReminderBatch, Guardian]),
     StudentModule,
     FeeModule,
     AuditModule,
+    // #555: the automated dispatcher (CommunicationsProcessor) needs a
+    // guardian's linked user id to try push before falling back to the
+    // preferred channel. No cycle risk — PushModule only depends on
+    // TypeOrmModule, unlike AccountAccessModule (see the forwardRef note
+    // below).
+    PushModule,
     // #529 (SchoolsModule) added a forwardRef import of AccountAccessModule,
     // which itself eagerly imports this module — Schools -> AccountAccess ->
     // Communications -> Schools. forwardRef here breaks the third edge of
