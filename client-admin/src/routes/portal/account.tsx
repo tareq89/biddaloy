@@ -8,6 +8,7 @@ import {
   GuardianContactForm,
   LocaleSwitcher,
   ProfileForm,
+  PushNotificationSettings,
   SessionList,
   Skeleton,
   ThemeToggle,
@@ -39,6 +40,7 @@ import {
   useRegionConfig,
   useTranslation,
 } from '@biddaloy/ui/i18n';
+import { usePushSubscription } from '@biddaloy/ui/pwa';
 import { formatDate, parseValidationFieldErrors } from '@biddaloy/ui/utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
@@ -79,7 +81,7 @@ export const Route = createFileRoute('/portal/account')({
   // `sessions.*` strings — preloaded here so first navigation to this route
   // never suspends into a blank `I18nProvider` fallback, same reasoning
   // `route-loaders.ts`'s own doc comment documents for every other route.
-  loader: () => loadRouteNamespaces('auth'),
+  loader: () => loadRouteNamespaces('auth', 'push'),
   component: PortalAccountRoute,
 });
 
@@ -101,6 +103,7 @@ const GUARDIAN_FIELDS = ['phone', 'alternate_phone', 'email'] as const;
 function PortalAccount() {
   const { t } = useTranslation('portal');
   const { t: tAuth } = useTranslation('auth');
+  const { t: tPush } = useTranslation('push');
   const config = useRegionConfig();
   const { locale } = useLocale();
   const role = useActiveRole();
@@ -110,6 +113,13 @@ function PortalAccount() {
 
   const sessionsQuery = useQuery(sessionsQueryOptions());
   const revokeSession = useRevokeSession();
+
+  const push = usePushSubscription();
+  const pushRefresh = push.refresh;
+  React.useEffect(() => {
+    void pushRefresh();
+  }, [pushRefresh]);
+  const [removingPushId, setRemovingPushId] = React.useState<string | null>(null);
 
   const currentUserQuery = useCurrentUser();
   // [8.14.4] `enabled: isParent` is the actual enforcement of "STUDENT
@@ -276,6 +286,27 @@ function PortalAccount() {
     }
   }
 
+  function handlePushToggle(next: boolean): void {
+    if (next) {
+      void push.subscribe();
+      return;
+    }
+    // `usePushSubscription` never hands back this device's own row id
+    // (the server deliberately never echoes the endpoint back — see the
+    // hook's own comment), so turning the toggle off can't name the row
+    // directly. The most-recently-created row is this device's own in
+    // every case that matters here: `subscribe()` always `refresh()`es
+    // right after creating it, so it's the newest entry by construction.
+    const rows = push.subscriptions ?? [];
+    const ownRow = [...rows].sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+    if (ownRow) handlePushRemove(ownRow.id);
+  }
+
+  function handlePushRemove(id: string): void {
+    setRemovingPushId(id);
+    void push.unsubscribe(id).finally(() => setRemovingPushId(null));
+  }
+
   async function handleSignOutAllDevices(): Promise<void> {
     try {
       await logoutAll(queryClient);
@@ -423,6 +454,18 @@ function PortalAccount() {
           <ThemeToggle />
         </div>
       </Card>
+
+      <PushNotificationSettings
+        permission={push.permission}
+        isSubscribedOnThisDevice={push.isSubscribedOnThisDevice}
+        subscriptions={push.subscriptions}
+        loading={push.loading}
+        error={push.error ? tPush(push.error) : null}
+        removingId={removingPushId}
+        onToggle={handlePushToggle}
+        onRemove={handlePushRemove}
+        locale={locale}
+      />
 
       <Card className="flex flex-col gap-3 p-4">
         <h2 className="text-sm font-semibold">{t('account.devices.title')}</h2>

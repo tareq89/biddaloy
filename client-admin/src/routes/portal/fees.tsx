@@ -3,6 +3,7 @@ import {
   Card,
   EmptyState,
   ErrorState,
+  PushOptInCard,
   RoutePending,
   Skeleton,
   StatusBadge,
@@ -25,6 +26,7 @@ import {
   useTranslation,
   type RegionConfig,
 } from '@biddaloy/ui/i18n';
+import { dismissPushOptIn, isPushOptInDismissed, usePushSubscription } from '@biddaloy/ui/pwa';
 import {
   formatDate,
   formatServerAmount,
@@ -35,6 +37,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { PrinterIcon } from 'lucide-react';
+import * as React from 'react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../route-loaders';
@@ -119,7 +122,7 @@ export const Route = createFileRoute('/portal/fees')({
       // [8.14.5]: swallowed — see `_staff/academic-years/index.tsx`'s
       // identical comment for why.
       queryClient.ensureQueryData(myStudentsQueryOptions()).catch(swallowUnlessOffline),
-      loadRouteNamespaces('portal', 'common'),
+      loadRouteNamespaces('portal', 'common', 'push'),
     ]),
   pendingComponent: PortalFeesPending,
   component: PortalFeesRoute,
@@ -198,6 +201,28 @@ function PortalFees() {
 
   const studentsQuery = useMyStudents();
   const students: Student[] = studentsQuery.data ?? [];
+
+  // [15.7.6] #557's "first successful portal action" trigger — a guardian
+  // viewing this page's invoice history is the first meaningful thing this
+  // portal offers, so the one-time opt-in card is offered right after it,
+  // not on a separate later action. Dismissal is sticky across visits via
+  // `localStorage` (`isPushOptInDismissed`/`dismissPushOptIn`), so this
+  // never nags a second time. Read `push.permission`, not just the
+  // dismissal flag — no card once the browser can't do push at all, or the
+  // guardian already granted/subscribed on this device.
+  const push = usePushSubscription();
+  const [pushOptInDismissed, setPushOptInDismissed] = React.useState(isPushOptInDismissed);
+  const showPushOptIn =
+    !pushOptInDismissed && push.permission === 'default' && !push.isSubscribedOnThisDevice;
+
+  function handlePushOptInEnable(): void {
+    void push.subscribe();
+  }
+
+  function handlePushOptInDismiss(): void {
+    dismissPushOptIn();
+    setPushOptInDismissed(true);
+  }
 
   // The param names a student only if the caller can actually see them.
   // Otherwise the first student, which is what the landing page links to.
@@ -297,6 +322,13 @@ function PortalFees() {
         total={invoicesQuery.data.total}
         config={config}
       />
+      {showPushOptIn && invoicesQuery.data.data.length > 0 && (
+        <PushOptInCard
+          onEnable={handlePushOptInEnable}
+          onDismiss={handlePushOptInDismiss}
+          enabling={push.loading}
+        />
+      )}
     </div>
   );
 }
