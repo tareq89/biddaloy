@@ -478,7 +478,12 @@ export class AbsenceNoticeService {
             recipient_address: recipient.address,
             recipient_name: recipient.guardian.full_name,
             message_body: renderReminderTemplate(DEFAULT_ABSENCE_NOTICE_TEMPLATE, recipient.vars),
-            subject: recipient.medium === CommunicationMedium.EMAIL ? 'Absence Notice' : null,
+            // Stored for every medium, not only EMAIL: `tryPushFirst`
+            // (`communications.processor.ts`) reads `log.subject` as the
+            // push notification's title, and this is the only place that
+            // knows it — falling back to a generic "Notification" there
+            // loses the absence-notice title entirely for push recipients.
+            subject: 'Absence Notice',
             student_id: recipient.students[0]?.id ?? null,
             guardian_id: recipient.guardian.id,
             sent_by_user_id: userId,
