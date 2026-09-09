@@ -12,7 +12,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
@@ -89,7 +89,7 @@ export class PushSubscriptionsController {
   @ApiOperation({
     summary: "Registers (or re-owns) the caller's browser PushSubscription. Upserts by endpoint.",
   })
-  @ApiOkResponse({ type: PushSubscriptionResponseDto })
+  @ApiCreatedResponse({ type: PushSubscriptionResponseDto })
   async subscribe(
     @Body() dto: CreatePushSubscriptionDto,
     @CurrentUser() user: { sub: string },
