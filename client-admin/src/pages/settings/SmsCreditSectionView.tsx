@@ -6,7 +6,7 @@
 import { Card, DataTable, ErrorState, type DataTableColumn } from '@biddaloy/ui/components';
 import type { SmsCreditLedgerItem, SmsCreditsResponse } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatDate } from '@biddaloy/ui/utils';
+import { formatDate, formatNumber } from '@biddaloy/ui/utils';
 
 export interface SmsCreditSectionViewProps {
   credits?: SmsCreditsResponse;
@@ -41,7 +41,8 @@ export function SmsCreditSectionView({
     {
       id: 'units',
       header: t('smsCredit.ledger.unitsHeader'),
-      accessorFn: (row) => (row.units > 0 ? `+${row.units}` : String(row.units)),
+      accessorFn: (row) =>
+        row.units > 0 ? `+${formatNumber(row.units, config)}` : formatNumber(row.units, config),
     },
     {
       id: 'reference',
@@ -90,11 +91,11 @@ export function SmsCreditSectionView({
               <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-4">
                 <div>
                   <dt className="text-muted-foreground">{t('smsCredit.available')}</dt>
-                  <dd className="tabular-nums">{credits.available}</dd>
+                  <dd className="tabular-nums">{formatNumber(credits.available, config)}</dd>
                 </div>
                 <div>
                   <dt className="text-muted-foreground">{t('smsCredit.reserved')}</dt>
-                  <dd className="tabular-nums">{credits.reserved}</dd>
+                  <dd className="tabular-nums">{formatNumber(credits.reserved, config)}</dd>
                 </div>
               </dl>
             )}

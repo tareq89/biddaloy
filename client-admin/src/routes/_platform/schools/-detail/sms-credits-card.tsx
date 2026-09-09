@@ -13,7 +13,8 @@
 import { ApiError } from '@biddaloy/ui/api';
 import { Card } from '@biddaloy/ui/components';
 import { useGrantSmsCredits, type GrantSmsCreditsInput } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
 import { GrantSmsCreditsForm, type GrantFormOutput } from './grant-sms-credits-form';
@@ -24,6 +25,7 @@ export interface SmsCreditsCardProps {
 
 export function SmsCreditsCard({ schoolId }: SmsCreditsCardProps) {
   const { t } = useTranslation('platform');
+  const config = useRegionConfig();
   const grant = useGrantSmsCredits(schoolId);
   const [balance, setBalance] = React.useState<{ available: number; reserved: number } | null>(
     null,
@@ -73,11 +75,11 @@ export function SmsCreditsCard({ schoolId }: SmsCreditsCardProps) {
         <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-4">
           <div>
             <dt className="text-muted-foreground">{t('schoolDetail.smsCredit.available')}</dt>
-            <dd className="tabular-nums">{balance.available}</dd>
+            <dd className="tabular-nums">{formatNumber(balance.available, config)}</dd>
           </div>
           <div>
             <dt className="text-muted-foreground">{t('schoolDetail.smsCredit.reserved')}</dt>
-            <dd className="tabular-nums">{balance.reserved}</dd>
+            <dd className="tabular-nums">{formatNumber(balance.reserved, config)}</dd>
           </div>
         </dl>
       )}
