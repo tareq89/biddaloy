@@ -14,9 +14,10 @@ import {
   IsDateString,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { ApiProperty } from '@nestjs/swagger';
 import { CommunicationMedium, CommunicationStatus, ReminderBatchStatus } from '@biddaloy/shared';
 import { ReminderPreviewRecipientDto } from './single-reminder.dto';
-import { CommunicationLogMedium } from '../entities/communication-log.entity';
+import { CommunicationLogMedium, PUSH_MEDIUM } from '../entities/communication-log.entity';
 
 /**
  * Upper bound on one batch. The endpoint resolves recipients and enqueues
@@ -252,6 +253,10 @@ export class QueryReminderBatchLogsDto extends QueryReminderBatchesDto {
  */
 export class ReminderBatchLogDto {
   id: string;
+  // A plain `CommunicationLogMedium` union isn't reliably introspected by
+  // the `@nestjs/swagger` CLI plugin — see
+  // `CommunicationResponseDto.medium`'s own comment (communications.dto.ts).
+  @ApiProperty({ enum: [...Object.values(CommunicationMedium), PUSH_MEDIUM] })
   medium: CommunicationLogMedium;
   recipient_address: string;
   recipient_name: string;
