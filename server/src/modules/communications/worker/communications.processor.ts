@@ -115,13 +115,29 @@ export class CommunicationsProcessor extends WorkerHost {
       };
       await this.repo.save(log);
     } catch (err) {
-      this.logger.error({
-        msg: 'sms credit settlement failed',
+      // Same reconciliation Sentry signal as flagAmbiguousSettlement — a
+      // failed settlement leaves reserved credit stranded exactly like an
+      // AMBIGUOUS outcome does, and the reconciliation runbook finds both
+      // through `needs_reconciliation`. The nestjs-pino error log alone
+      // doesn't reach Sentry.
+      const tags: Record<string, string> = {
+        queue: COMMUNICATIONS_QUEUE,
+        job_name: job.name,
         communication_log_id: log.id,
         tenant_id: log.tenant_id,
+        medium: log.medium,
+        needs_reconciliation: 'true',
+      };
+      this.logger.error({
+        msg: 'sms credit settlement failed',
+        ...tags,
         batch_id: job.data.batchId,
-        outcome,
+        settle_outcome: outcome,
         error: err instanceof Error ? err.message : String(err),
+      });
+      Sentry.withScope((scope) => {
+        scope.setTags(tags);
+        Sentry.captureException(err instanceof Error ? err : new Error(String(err)));
       });
       log.metadata = { ...log.metadata, credit: 'UNSETTLED' };
       await this.repo.save(log);

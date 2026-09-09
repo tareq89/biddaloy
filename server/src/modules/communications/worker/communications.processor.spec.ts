@@ -537,6 +537,25 @@ describe('CommunicationsProcessor', () => {
       );
     });
 
+    it('a settlePart failure flags UNSETTLED and reports the same needs_reconciliation Sentry tag', async () => {
+      provider.send.mockResolvedValue({ success: true, providerMessageId: 'p-1', segments: 2 });
+      const settleError = new Error('no RESERVE found for batch key');
+      smsCredits.settlePart.mockRejectedValueOnce(settleError);
+
+      await processor.process(smsBatchJob());
+
+      expect(txManager.save).toHaveBeenCalledWith(
+        expect.objectContaining({ status: CommunicationStatus.SENT }),
+      );
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ metadata: expect.objectContaining({ credit: 'UNSETTLED' }) }),
+      );
+      expect(sentrySetTags).toHaveBeenCalledWith(
+        expect.objectContaining({ needs_reconciliation: 'true', communication_log_id: 'log-1' }),
+      );
+      expect(sentryCaptureException).toHaveBeenCalledWith(settleError);
+    });
+
     it('a suspended tenant releases the reservation instead of leaving it stuck', async () => {
       tenantStatus.isActive.mockResolvedValue(false);
 
