@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -92,6 +93,8 @@ export interface ResolvedRecipient {
 
 @Injectable()
 export class BulkReminderService {
+  private readonly logger = new Logger(BulkReminderService.name);
+
   constructor(
     @InjectRepository(CommunicationLog)
     private readonly logRepo: Repository<CommunicationLog>,
@@ -150,18 +153,29 @@ export class BulkReminderService {
     // once the row above exists (DB-generated uuid), so this is the
     // earliest point a stable `batch:${batch.id}` idempotency key can be
     // formed. On failure, the batch row this transaction just created is
-    // rolled back too: no batch, no logs, no jobs must remain on
-    // insufficient credit (epic #508: external provider calls — and the
-    // work that leads to them — never leave partial durable state behind).
+    // compensating-deleted too (there's no surrounding transaction across
+    // these three independent calls, so this is a manual cleanup, not a
+    // rollback): no batch, no logs, no jobs must remain on insufficient
+    // credit (epic #508: external provider calls — and the work that leads
+    // to them — never leave partial durable state behind). That cleanup
+    // must run whether `reserve` resolves `ok: false` or throws — either
+    // way nothing was actually reserved, and leaving the row behind would
+    // strand it at PROCESSING forever with no job to ever move it on.
     let metered = false;
     if (sms_units > 0 && (await this.smsCreditService.isMetered(tenantId))) {
       metered = true;
-      const reservation = await this.smsCreditService.reserve(
-        tenantId,
-        sms_units,
-        `batch:${batch.id}`,
-        { type: 'batch', id: batch.id },
-      );
+      let reservation: { ok: true } | { ok: false; available: number };
+      try {
+        reservation = await this.smsCreditService.reserve(
+          tenantId,
+          sms_units,
+          `batch:${batch.id}`,
+          { type: 'batch', id: batch.id },
+        );
+      } catch (err) {
+        await this.batchRepo.delete({ id: batch.id, tenant_id: tenantId });
+        throw err;
+      }
       if (!reservation.ok) {
         await this.batchRepo.delete({ id: batch.id, tenant_id: tenantId });
         throw new ConflictException({
@@ -682,15 +696,30 @@ export class BulkReminderService {
         // The job that would have settled this recipient's share of the
         // batch RESERVE was never created, so nothing else will ever
         // release it — do it here instead of leaving units reserved
-        // forever (#570).
+        // forever (#570). A failure here must not escape the loop: the
+        // log above already saved as FAILED, so a `settlePart` error
+        // (e.g. a stale RESERVE key) must not stop the remaining
+        // recipients from being enqueued — the reservation just stays
+        // stranded pending reconciliation, same as any other UNSETTLED
+        // credit case.
         if (metered && recipient.medium === CommunicationMedium.SMS && segments !== undefined) {
-          await this.smsCreditService.settlePart(
-            tenantId,
-            `batch:${batch.id}`,
-            `log:${log.id}`,
-            segments,
-            'RELEASE',
-          );
+          try {
+            await this.smsCreditService.settlePart(
+              tenantId,
+              `batch:${batch.id}`,
+              `log:${log.id}`,
+              segments,
+              'RELEASE',
+            );
+          } catch (err) {
+            this.logger.error({
+              msg: 'sms credit release on enqueue failure failed — reservation left stranded',
+              communication_log_id: log.id,
+              tenant_id: tenantId,
+              batch_id: batch.id,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
         }
       }
     }

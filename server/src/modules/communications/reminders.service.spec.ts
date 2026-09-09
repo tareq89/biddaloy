@@ -761,6 +761,34 @@ describe('BulkReminderService', () => {
       );
     });
 
+    it('does not abort the batch loop when settlePart fails to release credit', async () => {
+      studentService.findManyWithGuardians.mockResolvedValue([
+        student({ id: 's-1', guardians: [guardian({ id: 'g-1' })] }),
+        student({ id: 's-2', guardians: [guardian({ id: 'g-2' })] }),
+      ]);
+      feeDuesService.getDueSnapshots.mockResolvedValue(
+        new Map([
+          ['s-1', snapshot({ student_id: 's-1' })],
+          ['s-2', snapshot({ student_id: 's-2' })],
+        ]),
+      );
+      smsCreditService.isMetered.mockResolvedValue(true);
+      smsCreditService.reserve.mockResolvedValue({ ok: true });
+      smsCreditService.settlePart.mockRejectedValue(new Error('no RESERVE found'));
+      queue.add.mockRejectedValueOnce(new Error('redis down'));
+
+      const result = await service.sendBulk(
+        { ...dto, student_ids: ['s-1', 's-2'], mediums: [CommunicationMedium.SMS] } as any,
+        TENANT,
+        USER,
+      );
+
+      // Second recipient still enqueued despite settlePart throwing for the
+      // first — the release failure must not escape the loop.
+      expect(queue.add).toHaveBeenCalledTimes(2);
+      expect(result.total_recipients).toBe(2);
+    });
+
     it('reports counts re-read after the enqueue loop, not the ones the batch was created with', async () => {
       queue.add.mockRejectedValueOnce(new Error('redis down'));
       batchRepo.findOne.mockResolvedValue({
@@ -869,6 +897,18 @@ describe('BulkReminderService', () => {
           },
         });
       }
+
+      expect(logRepo.save).not.toHaveBeenCalled();
+      expect(queue.add).not.toHaveBeenCalled();
+      expect(batchRepo.delete).toHaveBeenCalledWith({ id: 'batch-1', tenant_id: TENANT });
+    });
+
+    it('metered, reserve throws: deletes the PROCESSING batch instead of leaving it orphaned, then rethrows', async () => {
+      smsCreditService.isMetered.mockResolvedValue(true);
+      const dbError = new Error('connection reset');
+      smsCreditService.reserve.mockRejectedValue(dbError);
+
+      await expect(service.sendBulk(dto as any, TENANT, USER)).rejects.toBe(dbError);
 
       expect(logRepo.save).not.toHaveBeenCalled();
       expect(queue.add).not.toHaveBeenCalled();
