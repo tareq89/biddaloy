@@ -29,11 +29,11 @@ flowchart LR
 
 ## 2. Alert thresholds (configure these in Sentry / your uptime tool)
 
-| Signal                                    | Threshold                     | Where to configure           |
-| ------------------------------------------ | ------------------------------ | ----------------------------- |
-| 5xx rate                                   | > 1% of requests over 5 min    | Sentry alert rule on the server project |
-| `communications job stalled` message       | any occurrence                 | Sentry alert rule (issue alert, not metric) |
-| Readiness failing                          | `/health/ready` returns 503 for > 2 min | Uptime monitor hitting `/health/ready` with `X-Health-Token` |
+| Signal                               | Threshold                               | Where to configure                                           |
+| ------------------------------------ | --------------------------------------- | ------------------------------------------------------------ |
+| 5xx rate                             | > 1% of requests over 5 min             | Sentry alert rule on the server project                      |
+| `communications job stalled` message | any occurrence                          | Sentry alert rule (issue alert, not metric)                  |
+| Readiness failing                    | `/health/ready` returns 503 for > 2 min | Uptime monitor hitting `/health/ready` with `X-Health-Token` |
 
 ## 3. Runbooks
 
@@ -87,16 +87,83 @@ body.
 
 ## 4. Env var reference
 
-| Variable                      | Required in prod? | What it does |
-| ------------------------------ | ------------------ | ------------- |
-| `SENTRY_DSN`                   | No (recommended)   | Server Sentry project. Unset = server Sentry is a no-op. |
-| `SENTRY_ENVIRONMENT`           | No                 | Defaults to `NODE_ENV`. |
-| `SENTRY_RELEASE`               | No                 | Tags events with a release/version string. |
-| `SENTRY_TRACES_SAMPLE_RATE`    | No                 | Fraction of requests traced, default `0.1`. |
-| `HEALTH_TOKEN`                 | No (recommended)   | Required to call `/health/ready` at all — unset means that route 404s. |
-| `LOG_LEVEL`                    | No                 | Pino's log level; see `.env.example`. |
+| Variable                    | Required in prod? | What it does                                                           |
+| --------------------------- | ----------------- | ---------------------------------------------------------------------- |
+| `SENTRY_DSN`                | No (recommended)  | Server Sentry project. Unset = server Sentry is a no-op.               |
+| `SENTRY_ENVIRONMENT`        | No                | Defaults to `NODE_ENV`.                                                |
+| `SENTRY_RELEASE`            | No                | Tags events with a release/version string.                             |
+| `SENTRY_TRACES_SAMPLE_RATE` | No                | Fraction of requests traced, default `0.1`.                            |
+| `HEALTH_TOKEN`              | No (recommended)  | Required to call `/health/ready` at all — unset means that route 404s. |
+| `LOG_LEVEL`                 | No                | Pino's log level; see `.env.example`.                                  |
 
-## 5. What gets attached and what gets scrubbed
+## 5. Web push (VAPID keys)
+
+Web push (browser/OS notifications — see
+[`05-communications.md`](05-communications.md#push-first-dispatch-for-routine-automated-notifications-555))
+needs a **VAPID** keypair. VAPID (Voluntary Application Server
+Identification) is just a signature: it proves to the browser vendor's
+push service (Chrome's, Firefox's, etc.) that notifications came from
+_this_ server, not an impersonator.
+
+### Generating and storing keys
+
+```bash
+node scripts/generate-vapid-keys.mjs
+```
+
+prints a public/private keypair. Three env vars, all required together
+(`PushConfigService.isPushEnabled()` — push silently no-ops if any is
+missing, it never crashes boot):
+
+| Variable            | Where it goes     | Notes                                                                                               |
+| ------------------- | ----------------- | --------------------------------------------------------------------------------------------------- |
+| `VAPID_PUBLIC_KEY`  | Host env (server) | Also handed to the client SW to subscribe.                                                          |
+| `VAPID_PRIVATE_KEY` | **Host env only** | **Never commit it. Never log it.** Anyone with this key can send push notifications as this server. |
+| `VAPID_SUBJECT`     | Host env (server) | A `mailto:` address or `https:` URL identifying this deployment — not generated, set it yourself.   |
+
+### Rotation cost
+
+Rotating the keypair is not free — state this plainly to anyone about to
+do it:
+
+- A new keypair invalidates **every existing subscription**. Browsers
+  reject push messages signed by a key they didn't subscribe with.
+- Nothing crashes. Each send to an old subscription just gets rejected by
+  the browser's push service (HTTP 404/410 from that service), which
+  `PushService.sendToUser` treats as a dead subscription and prunes the
+  row — same cleanup path as a guardian who uninstalled the PWA.
+- Clients silently re-subscribe: the next time a guardian opens the
+  portal with an active service worker, it fetches the new
+  `VAPID_PUBLIC_KEY` and subscribes fresh.
+- **Net effect**: after rotating, every guardian who hasn't reopened the
+  portal yet falls back to their normal channel (SMS/WhatsApp/email) for
+  routine notices until they do. Rotate only when you have to (e.g. key
+  compromise) — not as routine hygiene.
+
+### Send flow
+
+```mermaid
+sequenceDiagram
+    participant Server as NestJS server
+    participant Push as PushService
+    participant Vendor as Browser vendor's<br/>push service
+    participant SW as Service worker
+    participant Notif as OS notification
+    participant Portal as Portal route
+
+    Server->>Push: sendToUser(userId, tenantId, payload)
+    Push->>Vendor: webpush.sendNotification()<br/>(signed with VAPID private key)
+    Vendor->>SW: push event<br/>(delivered to the subscribed browser)
+    SW->>Notif: self.registration.showNotification()
+    Notif-->>Notif: user clicks it
+    Notif->>SW: notificationclick event
+    SW->>Portal: clients.openWindow() or focus()<br/>(existing tab, if open)
+```
+
+See `server/src/modules/push/push.service.ts` for the server side and
+`client-admin/src/sw.ts` / `sw-push.ts` for the service-worker handlers.
+
+## 6. What gets attached and what gets scrubbed
 
 ```mermaid
 sequenceDiagram

@@ -141,6 +141,9 @@ No push endpoint or subscription key ever lands in `CommunicationLog` —
 only which user it went to and the accept/transient/pruned counts
 `PushService.sendToUser` returned (see `modules/push/push.service.ts`).
 
+For VAPID key generation, storage, and rotation cost, see
+[`12-operations.md` §5 Web push](12-operations.md#5-web-push-vapid-keys).
+
 `medium = 'PUSH'` is a value only `communication_logs.medium`'s own DB
 enum accepts (`communication_logs_medium_enum`,
 migration `1789400000000-AddPushCommunicationMedium.ts`) — it is
