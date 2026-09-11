@@ -58,7 +58,12 @@ function toCells(user: User): Record<string, string> {
 
 describe('usersTab shape', () => {
   it('is registered through the people barrel', () => {
-    expect(peopleTabs).toEqual([usersTab]);
+    // Relaxed from `toEqual([usersTab])`: `teachers`, `teacher_assignments`
+    // and `guardians` have since landed in the same barrel. Assert `users`
+    // is present and first, not that it's the only tab (matches the
+    // `toContain` + index style in `teachers.tab.spec.ts`).
+    expect(peopleTabs).toContain(usersTab);
+    expect(peopleTabs[0]).toBe(usersTab);
   });
 
   it('satisfies the registry contract', () => {
