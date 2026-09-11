@@ -237,7 +237,12 @@ function readSheet(worksheet: ExcelJS.Worksheet, name: string, warnings: RowErro
 
     header.forEach((key, index) => {
       if (key === '') return;
-      const text = normalizeCell(values[index]);
+      // `cellText`, not `normalizeCell`: the column type is not known here,
+      // and `normalizeCell` would map Bengali digits to ASCII and collapse
+      // whitespace in every cell — corrupting a Bangla school name and
+      // flattening a multi-line address. `fromCell` applies both, but only
+      // for the numeric and date column types where they are meaningful.
+      const text = cellText(values[index]);
       cells[key] = text;
       if (text !== '') blank = false;
     });

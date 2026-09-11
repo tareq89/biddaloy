@@ -179,15 +179,24 @@ export function cellText(raw: unknown): string {
 }
 
 export function normalizeCell(raw: unknown): string {
-  const text = extractText(raw);
+  return normalizeDigits(extractText(raw)).trim().replace(/\s+/g, ' ');
+}
 
+/**
+ * Maps Bengali digits `০১২৩৪৫৬৭৮৯` to ASCII and collapses whitespace.
+ *
+ * Applied by {@link fromCell} only to the column types where a digit is a
+ * digit — money, int, date, datetime. It must **not** be applied to prose:
+ * a school named `৫ নম্বর সরকারি বিদ্যালয়` would become
+ * `5 নম্বর সরকারি বিদ্যালয়`, and an address would lose its line breaks.
+ */
+export function normalizeDigits(text: string): string {
   let out = '';
   for (const char of text) {
     const bengali = BENGALI_DIGITS.indexOf(char);
     out += bengali === -1 ? char : String(bengali);
   }
-
-  return out.trim().replace(/\s+/g, ' ');
+  return out;
 }
 
 function extractText(raw: unknown): string {
@@ -248,7 +257,13 @@ export function fromCell(
   tab: string,
   rowNo: number,
 ): { value: unknown } | { error: RowError } {
-  const text = raw.trim();
+  // Digit mapping and whitespace collapsing happen here, per column type,
+  // rather than in `normalizeCell` — a Bengali digit is only a digit in a
+  // numeric or date column. In a school name it is part of the name, and
+  // rewriting it would silently corrupt the record.
+  const numeric =
+    col.type === 'money' || col.type === 'int' || col.type === 'date' || col.type === 'datetime';
+  const text = numeric ? normalizeDigits(raw).trim().replace(/\s+/g, ' ') : raw.trim();
 
   if (text === '') {
     if (col.required) {

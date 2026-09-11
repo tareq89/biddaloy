@@ -132,6 +132,23 @@ describe('normalizeCell', () => {
   });
 });
 
+describe('fromCell Bengali digit handling', () => {
+  // A Bengali digit is a digit in a numeric column and part of the text in a
+  // prose column. Mapping it everywhere would rewrite a school named
+  // `৫ নম্বর সরকারি বিদ্যালয়` to `5 নম্বর ...`.
+  it('maps Bengali digits in numeric and date columns', () => {
+    expect(value(fromCell(col({ type: 'int' }), '১২৩', TAB, ROW))).toBe(123);
+    expect(value(fromCell(col({ type: 'money' }), '১৫০০.৫', TAB, ROW))).toBe('1500.50');
+    expect(value(fromCell(col({ type: 'date' }), '২০২৬-০৩-০৯', TAB, ROW))).toBe('2026-03-09');
+  });
+
+  it('leaves Bengali digits alone in prose columns', () => {
+    expect(value(fromCell(col({ type: 'string' }), '৫ নম্বর বিদ্যালয়', TAB, ROW))).toBe(
+      '৫ নম্বর বিদ্যালয়',
+    );
+  });
+});
+
 describe('fromCell', () => {
   describe('empty cells', () => {
     it('errors when a required cell is empty, naming the column', () => {
