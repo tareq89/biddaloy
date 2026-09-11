@@ -23,6 +23,7 @@ import {
  * why they need their own cadence.
  */
 export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
+  'workbook_jobs',
   'push_subscriptions',
   'attendance_device_events',
   'attendance_records',

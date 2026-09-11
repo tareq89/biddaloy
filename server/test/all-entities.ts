@@ -29,6 +29,7 @@ import { Guardian } from '../src/modules/students/entities/guardian.entity';
 import { Enrollment } from '../src/modules/students/entities/enrollment.entity';
 import { User } from '../src/modules/users/entities/user.entity';
 import { PushSubscription } from '../src/modules/push/entities/push-subscription.entity';
+import { WorkbookJob } from '../src/modules/workbook/jobs/workbook-job.entity';
 
 export const ALL_ENTITIES = [
   AcademicYear,
@@ -62,4 +63,5 @@ export const ALL_ENTITIES = [
   Enrollment,
   User,
   PushSubscription,
+  WorkbookJob,
 ];
