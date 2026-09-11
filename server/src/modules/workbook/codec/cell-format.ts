@@ -165,6 +165,19 @@ export function toCell(type: ColumnType, value: unknown): string | number | bool
  * name is far rarer than a Bengali-digit phone number or amount, which is
  * the case this exists for.
  */
+/**
+ * Unwraps a raw exceljs cell to plain text and trims it — nothing more.
+ *
+ * Used where the value is prose rather than data: `_meta` values such as
+ * `source_school_name`. Running the full {@link normalizeCell} there would
+ * rewrite a Bangla school name like `৫ নম্বর সরকারি বিদ্যালয়` to
+ * `5 নম্বর সরকারি বিদ্যালয়`, silently corrupting the provenance a user is
+ * shown at restore time.
+ */
+export function cellText(raw: unknown): string {
+  return extractText(raw).trim();
+}
+
 export function normalizeCell(raw: unknown): string {
   const text = extractText(raw);
 
