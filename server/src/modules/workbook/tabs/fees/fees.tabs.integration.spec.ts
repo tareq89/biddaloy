@@ -9,10 +9,12 @@ import { ClassSection } from '../../../academics/entities/class-section.entity';
 import { Student } from '../../../students/entities/student.entity';
 import { FeeStructure } from '../../../fees/entities/fee-structure.entity';
 import { FeeStructureStudent } from '../../../fees/entities/fee-structure-student.entity';
-import { FeeApplicability, FeeType } from '@biddaloy/shared';
+import { StudentFee } from '../../../fees/entities/student-fee.entity';
+import { FeeApplicability, FeeStatus, FeeType } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { feeStructuresTab, type FeeStructureRow } from './fee-structures.tab';
+import { studentFeesTab, type StudentFeeRow } from './student-fees.tab';
 import type { ImportContext } from '../../codec/tab-spec';
 
 /**
@@ -36,6 +38,7 @@ describe('fees tabs (integration)', () => {
   let studentRepo: Repository<Student>;
   let feeStructureRepo: Repository<FeeStructure>;
   let feeStructureStudentRepo: Repository<FeeStructureStudent>;
+  let studentFeeRepo: Repository<StudentFee>;
 
   const TENANT_A = '11111111-1111-4111-8111-111111111111';
   const TENANT_B = '22222222-2222-4222-8222-222222222222';
@@ -66,6 +69,7 @@ describe('fees tabs (integration)', () => {
     feeStructureStudentRepo = module.get<Repository<FeeStructureStudent>>(
       getRepositoryToken(FeeStructureStudent),
     );
+    studentFeeRepo = module.get<Repository<StudentFee>>(getRepositoryToken(StudentFee));
   });
 
   afterAll(async () => {
@@ -74,6 +78,7 @@ describe('fees tabs (integration)', () => {
 
   beforeEach(async () => {
     await feeStructureStudentRepo.createQueryBuilder().delete().execute();
+    await studentFeeRepo.createQueryBuilder().delete().execute();
     await feeStructureRepo.delete({ tenant_id: TENANT_A });
     await feeStructureRepo.delete({ tenant_id: TENANT_B });
     await studentRepo.delete({ tenant_id: TENANT_A });
@@ -231,6 +236,92 @@ describe('fees tabs (integration)', () => {
       expect('row' in result).toBe(true);
       const row = (result as { row: FeeStructureRow }).row;
       expect(row.selected_student_ids).toEqual([studentA1.id, studentA2.id]);
+    });
+  });
+
+  describe('student_fees', () => {
+    function rowFor(overrides: Partial<StudentFeeRow> = {}): StudentFeeRow {
+      return {
+        id: '00000000-0000-4000-8000-000000000002',
+        student_id: studentA1.id,
+        student_key: studentA1.registration_number,
+        academic_year_id: yearAId,
+        academic_year_key: '2026-2027',
+        month: 1,
+        year: 2026,
+        total_amount: '1500.00',
+        paid_amount: '0.00',
+        discount_amount: '0.00',
+        status: FeeStatus.PENDING,
+        due_date: '2026-01-10',
+        reminder_threshold_date: '2026-01-05',
+        is_advance_payment: false,
+        original_advance_month: null,
+        original_advance_year: null,
+        ...overrides,
+      };
+    }
+
+    it('upsert creates a new row', async () => {
+      const created = await studentFeesTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
+      expect(created.id).toBeDefined();
+      expect(created.student_id).toBe(studentA1.id);
+    });
+
+    it('upsert with a changed field updates only that field', async () => {
+      const created = await studentFeesTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
+      const updated = await studentFeesTab.upsert(
+        rowFor({ paid_amount: '500.00' }),
+        created,
+        TENANT_A,
+        dataSource.manager,
+      );
+      expect(updated.paid_amount).toBe('500.00');
+      expect(updated.total_amount).toBe('1500.00');
+    });
+
+    it('remove hard-deletes (no deleted_at column)', async () => {
+      const created = await studentFeesTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
+      await studentFeesTab.remove(created, dataSource.manager);
+      const found = await studentFeeRepo.findOne({ where: { id: created.id } });
+      expect(found).toBeNull();
+    });
+
+    it('remove surfaces a clear error when referenced by a payment allocation', async () => {
+      const created = await studentFeesTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
+      const payment = await dataSource.manager.query(
+        `INSERT INTO payments (student_id, total_amount, payment_method, payment_status, payment_date, tenant_id)
+         VALUES ($1, '500.00', 'CASH', 'SUCCESS', now(), $2) RETURNING id`,
+        [studentA1.id, TENANT_A],
+      );
+      await dataSource.manager.query(
+        `INSERT INTO payment_allocations (payment_id, student_fee_id, allocated_amount, allocation_type)
+         VALUES ($1, $2, '500.00', 'CURRENT')`,
+        [payment[0].id, created.id],
+      );
+
+      await expect(studentFeesTab.remove(created, dataSource.manager)).rejects.toThrow(
+        /referenced by a payment/,
+      );
+
+      await dataSource.manager.query(`DELETE FROM payment_allocations WHERE student_fee_id = $1`, [
+        created.id,
+      ]);
+      await dataSource.manager.query(`DELETE FROM payments WHERE id = $1`, [payment[0].id]);
+    });
+
+    it('load(tenantA) never returns tenant B rows', async () => {
+      await studentFeesTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
+      const rowsA = await studentFeesTab.load(TENANT_A, dataSource.manager);
+      const rowsB = await studentFeesTab.load(TENANT_B, dataSource.manager);
+      expect(rowsA.length).toBe(1);
+      expect(rowsB.length).toBe(0);
+    });
+
+    it('keyOf reads the student registration_number off the loaded entity', async () => {
+      await studentFeesTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
+      const [loaded] = await studentFeesTab.load(TENANT_A, dataSource.manager);
+      expect(studentFeesTab.keyOf(loaded)).toBe(`${studentA1.registration_number}|2026-2027|1|2026`);
     });
   });
 });
