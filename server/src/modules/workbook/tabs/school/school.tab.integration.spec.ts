@@ -111,6 +111,28 @@ describe('schoolTab (integration)', () => {
     expect(updated.settings?.region?.timezone).toBe('Asia/Kolkata');
   });
 
+  // Same protection against a hand-edited workbook, not just an
+  // export-produced one: a secret path that the exporter never wrote can
+  // still appear in a file a human edited before restoring it.
+  it('does not let an imported secret value overwrite the stored one', async () => {
+    const existing = await schoolRepo.findOneByOrFail({ id: TENANT_A });
+
+    await schoolTab.upsert(
+      rowFor({
+        settings: {
+          communications: { sms: { provider: 'mimsms', mimsms: { apiKey: 'attacker-supplied' } } },
+        },
+      }),
+      existing,
+      TENANT_A,
+      dataSource.manager,
+    );
+
+    const updated = await schoolRepo.findOneByOrFail({ id: TENANT_A });
+
+    expect(updated.settings?.communications?.sms?.mimsms?.apiKey).toBe(SECRET);
+  });
+
   it('loads only the addressed tenant', async () => {
     const loaded = await schoolTab.load(TENANT_A, dataSource.manager);
 

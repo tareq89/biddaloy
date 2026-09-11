@@ -261,7 +261,10 @@ export const schoolTab: TabSpec<School, SchoolRow> = {
       if (row[key] !== existing[key]) changed.push(key);
     }
 
-    const merged = deepMergePresent(existing.settings, row.settings);
+    // Mirror upsert's stripSecretPaths so the diff preview never reports a
+    // 'settings' change that upsert would actually discard.
+    const importedSettings = row.settings ? stripSecretPaths(row.settings) : null;
+    const merged = deepMergePresent(existing.settings, importedSettings);
     if (JSON.stringify(merged) !== JSON.stringify(existing.settings)) changed.push('settings');
 
     return changed;
@@ -284,7 +287,11 @@ export const schoolTab: TabSpec<School, SchoolRow> = {
     school.phone = row.phone;
     school.email = row.email;
     school.registration_id = row.registration_id;
-    school.settings = deepMergePresent(school.settings, row.settings);
+    // A hand-edited workbook can carry a secret path (e.g.
+    // communications.sms.mimsms.apiKey) the exporter never wrote — strip it
+    // before merging so an import can never overwrite a stored credential.
+    const importedSettings = row.settings ? stripSecretPaths(row.settings) : null;
+    school.settings = deepMergePresent(school.settings, importedSettings);
 
     return m.save(School, school);
   },

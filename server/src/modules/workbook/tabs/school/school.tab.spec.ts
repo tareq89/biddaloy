@@ -279,4 +279,24 @@ describe('diffFields', () => {
 
     expect(schoolTab.diffFields({ ...row.row, phone: '01999999999' }, existing)).toEqual(['phone']);
   });
+
+  // Must mirror upsert's stripSecretPaths: otherwise the preview shown before
+  // a restore would report a 'settings' change that upsert then discards.
+  it('does not report a settings change from an imported secret alone', () => {
+    const existing = makeSchool({
+      settings: { communications: { sms: { mimsms: { apiKey: SECRET, senderId: 'OLD' } } } },
+    });
+    const row: SchoolRow = {
+      id: existing.id,
+      name: existing.name,
+      name_bn: existing.name_bn,
+      address: existing.address,
+      phone: existing.phone,
+      email: existing.email,
+      registration_id: existing.registration_id,
+      settings: { communications: { sms: { mimsms: { apiKey: 'attacker-supplied' } } } },
+    };
+
+    expect(schoolTab.diffFields(row, existing)).toEqual([]);
+  });
 });
