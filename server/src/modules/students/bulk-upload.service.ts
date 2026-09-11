@@ -1,4 +1,10 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, In, QueryFailedError, EntityManager } from 'typeorm';
 import { plainToInstance } from 'class-transformer';
@@ -7,16 +13,24 @@ import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { AuditService } from '../audit/audit.service';
+import { ImportStagingService } from '../bulk-import/import-staging.service';
+import type { BulkImportErrorDto } from '../bulk-import/dto/bulk-import.dto';
 import { StudentService, GuardianService } from './students.service';
 import { parseSpreadsheet, BulkUploadParseError, ParsedRow } from './bulk-upload.parser';
-import { BulkUploadErrorDto, BulkUploadRowDto, BulkUploadResultDto } from './dto/students.dto';
+import {
+  BulkUploadErrorDto,
+  BulkUploadResultDto,
+  BulkUploadRowDto,
+  BulkUploadValidateResultDto,
+  BulkUploadPreviewRowDto,
+} from './dto/students.dto';
 import { AuditAction, CommunicationMedium } from '@biddaloy/shared';
 
 /**
  * A row-scoped failure enriched with which spreadsheet column the problem
  * sits in and the offending cell value, when a single culprit exists.
- * Extends BadRequestException so process()'s "row-scoped vs whole-request"
- * catch keeps working unchanged.
+ * Extends BadRequestException so the row-scoped-vs-whole-request catch in
+ * `validate`/`commit` keeps working unchanged.
  */
 class BulkRowError extends BadRequestException {
   constructor(
@@ -42,6 +56,36 @@ interface GuardianInput {
   email?: string;
 }
 
+/**
+ * A plain, JSON-serialisable row shape holding everything `createRow` needs
+ * — deliberately not a `BulkUploadRowDto` instance, since the staged payload
+ * round-trips through Redis as JSON and only plain data survives that.
+ */
+interface ValidatedBulkUploadRow {
+  rowNumber: number;
+  student_name: string;
+  class: string;
+  section: string;
+  roll?: string;
+  guardian1_name: string;
+  guardian1_phone: string;
+  guardian1_email?: string;
+  guardian2_name?: string;
+  guardian2_phone?: string;
+  guardian2_email?: string;
+  home_address?: string;
+  preferred_communication?: string;
+  classSectionId: string;
+  rollNumber?: number;
+}
+
+/** What `validate` stages under a `staging_id`, for `commit` to consume exactly once. */
+interface StagedBulkUpload {
+  filename: string;
+  rows: ValidatedBulkUploadRow[];
+  hardErrorCount: number;
+}
+
 @Injectable()
 export class StudentBulkUploadService {
   constructor(
@@ -54,23 +98,20 @@ export class StudentBulkUploadService {
     private readonly auditService: AuditService,
     private readonly studentService: StudentService,
     private readonly guardianService: GuardianService,
+    @Inject(ImportStagingService) private readonly staging: ImportStagingService,
   ) {}
 
   /**
-   * Rows are processed sequentially (one guardian+student transaction at a
-   * time), not in parallel — simpler correctness reasoning (duplicate-roll
-   * detection, sequential registration-number generation) at the cost of
-   * per-row DB round-trip latency adding up on large files. At the
-   * MAX_DATA_ROWS cap (2000) this is a few thousand sequential queries in
-   * one request; if that turns out to be too slow in practice, the fix is
-   * an async job + polling endpoint, not naive parallelization (which would
-   * break the sequential duplicate-roll/registration-number guarantees).
+   * Parses and validates the upload — headers, per-row DTO shape, class/
+   * section existence, duplicate roll numbers within the file — without
+   * writing anything. Accepted rows are staged under a `staging_id` for a
+   * later `commit`; rejected rows are reported as errors and never staged.
    */
-  async process(
+  async validate(
     file: Express.Multer.File | undefined,
     tenantId: string,
     userId: string | undefined,
-  ): Promise<BulkUploadResultDto> {
+  ): Promise<BulkUploadValidateResultDto> {
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }
@@ -86,31 +127,101 @@ export class StudentBulkUploadService {
     }
 
     const classSections = await this.buildClassSectionMap(tenantId);
+    const rollsSeenThisRequest = new Map<string, Set<number>>();
+
+    const errors: BulkImportErrorDto[] = [];
+    const staged: ValidatedBulkUploadRow[] = [];
+    const preview: BulkUploadPreviewRowDto[] = [];
+
+    for (const parsed of rows) {
+      try {
+        const row = await this.validateRow(parsed, classSections, rollsSeenThisRequest);
+        staged.push(row);
+        preview.push({
+          row: row.rowNumber,
+          student_name: row.student_name,
+          class: row.class,
+          section: row.section,
+          guardian1_phone: row.guardian1_phone,
+        });
+      } catch (err) {
+        if (err instanceof BadRequestException) {
+          errors.push({
+            row: parsed.rowNumber,
+            tab: undefined,
+            column: err instanceof BulkRowError ? (err.field ?? null) : null,
+            value: err instanceof BulkRowError ? err.value : undefined,
+            severity: 'error',
+            message: this.describeError(err),
+          });
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    const stagedPayload: StagedBulkUpload = {
+      filename: file.originalname,
+      rows: staged,
+      hardErrorCount: errors.length,
+    };
+    const { stagingId, expiresAt } = await this.staging.stage(
+      tenantId,
+      userId ?? '',
+      stagedPayload,
+    );
+
+    return {
+      staging_id: stagingId,
+      expires_at: expiresAt,
+      rows_to_create: staged.length,
+      // Capped so a 2,000-row file doesn't ship every row in the preview
+      // payload — the admin is confirming a shape, not proofreading.
+      preview: preview.slice(0, 20),
+      errors,
+      hard_error_count: errors.length,
+    };
+  }
+
+  /**
+   * Consumes the staged payload (single use — a second `commit` call 404s)
+   * and actually creates the students and guardians.
+   *
+   * Refuses (409) when the staged validation had any error, even though the
+   * accepted rows themselves are still fine to write: the client is never
+   * expected to offer commit in that state, so reaching here with
+   * `hardErrorCount > 0` means either a stale UI or a client bypassing its
+   * own gate — the server does not silently import a subset in that case.
+   */
+  async commit(
+    stagingId: string,
+    tenantId: string,
+    userId: string | undefined,
+  ): Promise<BulkUploadResultDto> {
+    const staged = await this.staging.consume<StagedBulkUpload>(tenantId, userId ?? '', stagingId);
+    if (!staged) {
+      throw new NotFoundException(
+        'No staged upload found for this id. It may have expired or already been committed.',
+      );
+    }
+    if (staged.hardErrorCount > 0) {
+      throw new ConflictException(
+        'This staged upload had validation errors and cannot be committed. Re-validate the file first.',
+      );
+    }
 
     const errors: BulkUploadErrorDto[] = [];
     const createdStudentIds: string[] = [];
     const guardianCache = new Map<string, string>();
-    const rollsSeenThisRequest = new Map<string, Set<number>>();
 
-    for (const parsed of rows) {
+    for (const row of staged.rows) {
       try {
-        const studentId = await this.processRow(
-          parsed,
-          tenantId,
-          classSections,
-          guardianCache,
-          rollsSeenThisRequest,
-          userId,
-        );
+        const studentId = await this.createRow(row, tenantId, guardianCache, userId);
         createdStudentIds.push(studentId);
       } catch (err) {
-        // Only expected, row-scoped validation failures become a row error.
-        // Anything else (e.g. a dropped DB connection) fails the whole
-        // request instead of silently degrading into confusing per-row
-        // noise while grinding through the remaining rows.
         if (err instanceof BadRequestException) {
           errors.push({
-            row: parsed.rowNumber,
+            row: row.rowNumber,
             ...(err instanceof BulkRowError && err.field !== undefined ? { field: err.field } : {}),
             ...(err instanceof BulkRowError && err.value !== undefined ? { value: err.value } : {}),
             reason: this.describeError(err),
@@ -127,15 +238,15 @@ export class StudentBulkUploadService {
       tenant_id: tenantId,
       performed_by_user_id: userId ?? null,
       new_values: {
-        filename: file.originalname,
-        total_rows: rows.length,
+        filename: staged.filename,
+        total_rows: staged.rows.length,
         success_count: createdStudentIds.length,
         error_count: errors.length,
       },
     });
 
     return {
-      total_rows: rows.length,
+      total_rows: staged.rows.length,
       success_count: createdStudentIds.length,
       error_count: errors.length,
       created_student_ids: createdStudentIds,
@@ -143,27 +254,25 @@ export class StudentBulkUploadService {
     };
   }
 
-  private async processRow(
+  /**
+   * Everything checkable without touching the database beyond read-only
+   * lookups: DTO shape, class/section existence, and duplicate roll numbers
+   * already seen earlier in this same file. Throws `BulkRowError` — never
+   * writes. Mutates `rollsSeenThisRequest` on acceptance, same as the old
+   * single-pass `processRow` did, so a later row in the same file still
+   * sees this one's roll number as taken.
+   */
+  private async validateRow(
     parsed: ParsedRow,
-    tenantId: string,
     classSections: ClassSectionLookup,
-    guardianCache: Map<string, string>,
     rollsSeenThisRequest: Map<string, Set<number>>,
-    userId: string | undefined,
-  ): Promise<string> {
+  ): Promise<ValidatedBulkUploadRow> {
     const dto = plainToInstance(BulkUploadRowDto, this.toDtoInput(parsed.values));
     const validationErrors = await validate(dto);
     if (validationErrors.length > 0) {
       const messages = validationErrors.flatMap((e) => Object.values(e.constraints ?? {}));
-      // A single failing property has an unambiguous field/value to report;
-      // multiple failing properties fall back to the joined reason only.
       if (validationErrors.length === 1) {
         const failed = validationErrors[0];
-        // Report the cell as it appears in the admin's file, not
-        // `failed.value` — that has already been through @SanitizeText, so
-        // the "value in your file" column could show something they cannot
-        // find when they go looking for it. An empty cell has no offending
-        // value to show, so it stays absent rather than rendering as "".
         const rawValue = (parsed.values as Record<string, string | undefined>)[failed.property];
         throw new BulkRowError(
           messages.join('; '),
@@ -177,9 +286,6 @@ export class StudentBulkUploadService {
     const sectionKey = `${dto.class}::${dto.section}`;
     const classSectionId = classSections.sectionIdByKey.get(sectionKey);
     if (!classSectionId) {
-      // Blame the class only when the class name itself is unknown for the
-      // year; if the class exists (even with no sections configured) the
-      // class name is correct and the section is the culprit.
       const classExists = classSections.classNames.has(dto.class);
       throw new BulkRowError(
         `Class '${dto.class}' / Section '${dto.section}' not found for the current academic year`,
@@ -199,11 +305,42 @@ export class StudentBulkUploadService {
           dto.roll,
         );
       }
+      seen.add(rollNumber);
+      rollsSeenThisRequest.set(classSectionId, seen);
     }
 
-    // Guardian resolution/creation and student creation run as one DB
-    // transaction, so a student-create failure rolls back any guardian
-    // that was newly created for this row instead of leaving it orphaned.
+    return {
+      rowNumber: parsed.rowNumber,
+      student_name: dto.student_name,
+      class: dto.class,
+      section: dto.section,
+      roll: dto.roll,
+      guardian1_name: dto.guardian1_name,
+      guardian1_phone: dto.guardian1_phone,
+      guardian1_email: dto.guardian1_email,
+      guardian2_name: dto.guardian2_name,
+      guardian2_phone: dto.guardian2_phone,
+      guardian2_email: dto.guardian2_email,
+      home_address: dto.home_address,
+      preferred_communication: dto.preferred_communication,
+      classSectionId,
+      rollNumber,
+    };
+  }
+
+  /**
+   * The DB-writing half of the old `processRow`: guardian resolution/
+   * creation and student creation as one transaction, so a student-create
+   * failure rolls back any guardian newly created for this row instead of
+   * leaving it orphaned. Runs only from `commit`, over already-validated,
+   * staged rows.
+   */
+  private async createRow(
+    row: ValidatedBulkUploadRow,
+    tenantId: string,
+    guardianCache: Map<string, string>,
+    userId: string | undefined,
+  ): Promise<string> {
     const guardianResolutions: { phone: string; id: string }[] = [];
     let studentId: string;
     try {
@@ -211,38 +348,38 @@ export class StudentBulkUploadService {
         const guardianIds: string[] = [];
 
         const g1Id = await this.resolveGuardian(
-          { name: dto.guardian1_name, phone: dto.guardian1_phone, email: dto.guardian1_email },
+          { name: row.guardian1_name, phone: row.guardian1_phone, email: row.guardian1_email },
           tenantId,
           guardianCache,
           manager,
           userId,
         );
-        guardianResolutions.push({ phone: dto.guardian1_phone, id: g1Id });
+        guardianResolutions.push({ phone: row.guardian1_phone, id: g1Id });
         guardianIds.push(g1Id);
 
-        if (dto.guardian2_name) {
+        if (row.guardian2_name) {
           const g2Id = await this.resolveGuardian(
             {
-              name: dto.guardian2_name,
-              phone: dto.guardian2_phone as string,
-              email: dto.guardian2_email,
+              name: row.guardian2_name,
+              phone: row.guardian2_phone as string,
+              email: row.guardian2_email,
             },
             tenantId,
             guardianCache,
             manager,
             userId,
           );
-          guardianResolutions.push({ phone: dto.guardian2_phone as string, id: g2Id });
+          guardianResolutions.push({ phone: row.guardian2_phone as string, id: g2Id });
           guardianIds.push(g2Id);
         }
 
         const student = await this.studentService.create(
           {
-            full_name: dto.student_name,
-            class_section_id: classSectionId,
-            roll_number: rollNumber,
-            home_address: dto.home_address,
-            preferred_communication: dto.preferred_communication as CommunicationMedium,
+            full_name: row.student_name,
+            class_section_id: row.classSectionId,
+            roll_number: row.rollNumber,
+            home_address: row.home_address,
+            preferred_communication: row.preferred_communication as CommunicationMedium,
             guardian_ids: guardianIds,
           },
           tenantId,
@@ -252,15 +389,11 @@ export class StudentBulkUploadService {
       });
     } catch (err) {
       if (this.isUniqueViolation(err)) {
-        // Student carries two unique indexes — (class_section_id, roll_number)
-        // and (tenant_id, registration_number). Blaming `roll` for either one
-        // would tell the admin to fix a column that is actually correct, so
-        // read which columns Postgres actually reported.
-        if (rollNumber !== undefined && this.violatedColumns(err).includes('roll_number')) {
+        if (row.rollNumber !== undefined && this.violatedColumns(err).includes('roll_number')) {
           throw new BulkRowError(
-            `Duplicate roll number ${rollNumber} in class '${dto.class}' section '${dto.section}'`,
+            `Duplicate roll number ${row.rollNumber} in class '${row.class}' section '${row.section}'`,
             'roll',
-            dto.roll,
+            row.roll,
           );
         }
         throw new BadRequestException('A student with conflicting unique fields already exists');
@@ -273,12 +406,6 @@ export class StudentBulkUploadService {
     // that got rolled back by this row's own failure.
     for (const { phone, id } of guardianResolutions) {
       guardianCache.set(phone, id);
-    }
-
-    if (rollNumber !== undefined) {
-      const seen = rollsSeenThisRequest.get(classSectionId) ?? new Set<number>();
-      seen.add(rollNumber);
-      rollsSeenThisRequest.set(classSectionId, seen);
     }
 
     return studentId;
@@ -317,16 +444,9 @@ export class StudentBulkUploadService {
       if (!cls) continue;
       sectionIdByKey.set(`${cls.name}::${section.section_name}`, section.id);
     }
-    // Every class of the year, including ones with no sections yet — needed
-    // to tell "unknown class name" apart from "known class, unknown section".
     return { sectionIdByKey, classNames: new Set(classes.map((c) => c.name)) };
   }
 
-  /**
-   * @param cache Read-only lookup of guardians already committed earlier in
-   * this upload — callers merge newly-resolved ids back in only after their
-   * own transaction commits (see processRow).
-   */
   private async resolveGuardian(
     info: GuardianInput,
     tenantId: string,
@@ -355,12 +475,6 @@ export class StudentBulkUploadService {
     );
   }
 
-  /**
-   * Column names from a Postgres 23505 `detail`, which reads
-   * `Key (class_section_id, roll_number)=(…, 12) already exists.`
-   * Returns an empty list when the driver gave us no detail — callers then
-   * fall back to the unattributed message rather than guessing a column.
-   */
   private violatedColumns(err: unknown): string[] {
     const detail = (err as { detail?: unknown }).detail;
     if (typeof detail !== 'string') return [];

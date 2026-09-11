@@ -2,8 +2,10 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Repository, DataSource, In } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import ExcelJS from 'exceljs';
+import Redis from 'ioredis';
 import { StudentBulkUploadService } from './bulk-upload.service';
 import { StudentService, GuardianService } from './students.service';
+import { BulkUploadResultDto } from './dto/students.dto';
 import { Student } from './entities/student.entity';
 import { Guardian } from './entities/guardian.entity';
 import { Class } from '../academics/entities/class.entity';
@@ -11,6 +13,7 @@ import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { AuditService } from '../audit/audit.service';
+import { ImportStagingService, BULK_IMPORT_REDIS } from '../bulk-import/import-staging.service';
 import { School } from '../schools/entities/school.entity';
 import { User } from '../users/entities/user.entity';
 import { createTestModule } from '@test/helpers/module.helper';
@@ -185,10 +188,57 @@ describe('StudentBulkUploadService (integration)', () => {
   const TENANT_ID = SEED_TENANT_ID;
   const headers = [...REQUIRED_HEADERS];
 
+  /**
+   * Drives the real two-step flow and folds the result back into the old
+   * `BulkUploadResultDto` shape most of these tests already assert against.
+   *
+   * [14.9.1] changed the all-or-nothing rule: a staged upload with ANY row
+   * error is refused outright at commit (409), rather than committing the
+   * good rows and reporting the bad ones alongside — so unlike the old
+   * `process()`, a batch with one bad row among good ones now yields
+   * `success_count: 0`, not a partial count. Tests that assumed partial
+   * success are updated below to reflect that; see also the ticket's own
+   * "hard_error_count === 0" acceptance criterion.
+   */
+  async function runUpload(
+    file: Express.Multer.File,
+    tenantId: string,
+    userId: string,
+  ): Promise<BulkUploadResultDto & { staging_id: string }> {
+    const validated = await service.validate(file, tenantId, userId);
+    if (validated.hard_error_count > 0) {
+      return {
+        staging_id: validated.staging_id,
+        total_rows: validated.rows_to_create + validated.errors.length,
+        success_count: 0,
+        error_count: validated.errors.length,
+        created_student_ids: [],
+        errors: validated.errors.map((e) => ({
+          row: e.row,
+          ...(e.column ? { field: e.column } : {}),
+          ...(e.value !== undefined ? { value: e.value } : {}),
+          reason: e.message,
+        })),
+      };
+    }
+    const committed = await service.commit(validated.staging_id, tenantId, userId);
+    return { ...committed, staging_id: validated.staging_id };
+  }
+
   beforeAll(async () => {
     const module = await createTestModule(
       ALL_ENTITIES,
-      [StudentBulkUploadService, StudentService, GuardianService, AuditService],
+      [
+        StudentBulkUploadService,
+        StudentService,
+        GuardianService,
+        AuditService,
+        ImportStagingService,
+        {
+          provide: BULK_IMPORT_REDIS,
+          useFactory: () => new Redis(process.env.REDIS_URL ?? 'redis://127.0.0.1:6379'),
+        },
+      ],
       [],
       { synchronize: true, dropSchema: true },
     );
@@ -220,7 +270,7 @@ describe('StudentBulkUploadService (integration)', () => {
   it('creates students and guardians from a valid file', async () => {
     const file = await buildXlsxFile([rowValues(headers)]);
 
-    const result = await service.process(file, TENANT_ID, SEED_ADMIN_USER_ID);
+    const result = await runUpload(file, TENANT_ID, SEED_ADMIN_USER_ID);
 
     expect(result.success_count).toBe(1);
     expect(result.error_count).toBe(0);
@@ -241,7 +291,7 @@ describe('StudentBulkUploadService (integration)', () => {
       rowValues(headers, { student_name: 'Sibling Two', roll: '2' }),
     ]);
 
-    const result = await service.process(file, TENANT_ID, SEED_ADMIN_USER_ID);
+    const result = await runUpload(file, TENANT_ID, SEED_ADMIN_USER_ID);
 
     expect(result.success_count).toBe(2);
     const guardians = await guardianRepo.find({ where: { phone: '+8801711111111' } });
@@ -266,7 +316,7 @@ describe('StudentBulkUploadService (integration)', () => {
     );
     const file = await buildXlsxFile([rowValues(headers, { guardian1_phone: '+8801722222222' })]);
 
-    const result = await service.process(file, TENANT_ID, SEED_ADMIN_USER_ID);
+    const result = await runUpload(file, TENANT_ID, SEED_ADMIN_USER_ID);
 
     expect(result.success_count).toBe(1);
     const allGuardians = await guardianRepo.find({ where: { phone: '+8801722222222' } });
@@ -274,22 +324,28 @@ describe('StudentBulkUploadService (integration)', () => {
     expect(allGuardians[0].id).toBe(existing.id);
   });
 
-  it('reports a specific error for a duplicate roll number within the same file', async () => {
+  it('reports a specific error for a duplicate roll number within the same file, and blocks the whole batch', async () => {
     const file = await buildXlsxFile([
       rowValues(headers, { student_name: 'First', roll: '5' }),
       rowValues(headers, { student_name: 'Second', roll: '5', guardian1_phone: '+8801733333333' }),
     ]);
 
-    const result = await service.process(file, TENANT_ID, SEED_ADMIN_USER_ID);
+    // [14.9.1]: unlike the old single-call `process()`, ANY row error blocks
+    // the entire staged batch at commit — the "First" row is not created
+    // just because it was individually valid.
+    const result = await runUpload(file, TENANT_ID, SEED_ADMIN_USER_ID);
 
-    expect(result.success_count).toBe(1);
+    expect(result.success_count).toBe(0);
     expect(result.error_count).toBe(1);
     expect(result.errors[0]).toMatchObject({ row: 3, field: 'roll', value: '5' });
     expect(result.errors[0].reason).toContain('Duplicate roll number 5');
+
+    const created = await studentRepo.find({ where: { full_name: 'First' } });
+    expect(created).toHaveLength(0);
   });
 
   it('reports a specific error for a roll number that already exists in the database', async () => {
-    await service.process(
+    await runUpload(
       await buildXlsxFile([rowValues(headers, { student_name: 'Existing', roll: '9' })]),
       TENANT_ID,
       SEED_ADMIN_USER_ID,
@@ -298,7 +354,7 @@ describe('StudentBulkUploadService (integration)', () => {
     const file = await buildXlsxFile([
       rowValues(headers, { student_name: 'New', roll: '9', guardian1_phone: '+8801744444444' }),
     ]);
-    const result = await service.process(file, TENANT_ID, SEED_ADMIN_USER_ID);
+    const result = await runUpload(file, TENANT_ID, SEED_ADMIN_USER_ID);
 
     expect(result.success_count).toBe(0);
     expect(result.error_count).toBe(1);
@@ -307,7 +363,7 @@ describe('StudentBulkUploadService (integration)', () => {
   });
 
   it('does not leave an orphaned guardian behind when the student create fails', async () => {
-    await service.process(
+    await runUpload(
       await buildXlsxFile([rowValues(headers, { student_name: 'Existing', roll: '15' })]),
       TENANT_ID,
       SEED_ADMIN_USER_ID,
@@ -324,7 +380,7 @@ describe('StudentBulkUploadService (integration)', () => {
         guardian1_phone: '+8801766666666',
       }),
     ]);
-    const result = await service.process(file, TENANT_ID, SEED_ADMIN_USER_ID);
+    const result = await runUpload(file, TENANT_ID, SEED_ADMIN_USER_ID);
 
     expect(result.success_count).toBe(0);
     const orphanCandidates = await guardianRepo.find({ where: { phone: '+8801766666666' } });
@@ -334,7 +390,7 @@ describe('StudentBulkUploadService (integration)', () => {
   it('reports a specific error for a missing required field', async () => {
     const file = await buildXlsxFile([rowValues(headers, { guardian1_phone: '' })]);
 
-    const result = await service.process(file, TENANT_ID, SEED_ADMIN_USER_ID);
+    const result = await runUpload(file, TENANT_ID, SEED_ADMIN_USER_ID);
 
     expect(result.success_count).toBe(0);
     expect(result.errors[0].reason).toContain('Missing required field: guardian1_phone');
@@ -346,7 +402,7 @@ describe('StudentBulkUploadService (integration)', () => {
   it('reports a specific error for an invalid phone format', async () => {
     const file = await buildXlsxFile([rowValues(headers, { guardian1_phone: '12345' })]);
 
-    const result = await service.process(file, TENANT_ID, SEED_ADMIN_USER_ID);
+    const result = await runUpload(file, TENANT_ID, SEED_ADMIN_USER_ID);
 
     expect(result.success_count).toBe(0);
     expect(result.errors[0]).toMatchObject({ field: 'guardian1_phone', value: '12345' });
@@ -356,7 +412,7 @@ describe('StudentBulkUploadService (integration)', () => {
   it('reports a specific error for an unknown class/section name', async () => {
     const file = await buildXlsxFile([rowValues(headers, { class: 'Nonexistent Class' })]);
 
-    const result = await service.process(file, TENANT_ID, SEED_ADMIN_USER_ID);
+    const result = await runUpload(file, TENANT_ID, SEED_ADMIN_USER_ID);
 
     expect(result.success_count).toBe(0);
     expect(result.errors[0]).toMatchObject({ field: 'class', value: 'Nonexistent Class' });
@@ -366,7 +422,7 @@ describe('StudentBulkUploadService (integration)', () => {
   it('blames the section column when the class exists but the section does not', async () => {
     const file = await buildXlsxFile([rowValues(headers, { section: 'Nonexistent Section' })]);
 
-    const result = await service.process(file, TENANT_ID, SEED_ADMIN_USER_ID);
+    const result = await runUpload(file, TENANT_ID, SEED_ADMIN_USER_ID);
 
     expect(result.success_count).toBe(0);
     expect(result.errors[0]).toMatchObject({ field: 'section', value: 'Nonexistent Section' });
@@ -385,7 +441,7 @@ describe('StudentBulkUploadService (integration)', () => {
     );
     const file = await buildXlsxFile([rowValues(headers, { class: 'Class Sectionless' })]);
 
-    const result = await service.process(file, TENANT_ID, SEED_ADMIN_USER_ID);
+    const result = await runUpload(file, TENANT_ID, SEED_ADMIN_USER_ID);
 
     expect(result.success_count).toBe(0);
     expect(result.errors[0]).toMatchObject({ field: 'section', value: 'Section A' });
@@ -396,7 +452,7 @@ describe('StudentBulkUploadService (integration)', () => {
       rowValues(headers, { registration_number: 'HAND-TYPED-001' }),
     ]);
 
-    const result = await service.process(file, TENANT_ID, SEED_ADMIN_USER_ID);
+    const result = await runUpload(file, TENANT_ID, SEED_ADMIN_USER_ID);
 
     const student = await studentRepo.findOne({ where: { id: result.created_student_ids[0] } });
     expect(student?.registration_number).not.toBe('HAND-TYPED-001');
@@ -411,7 +467,7 @@ describe('StudentBulkUploadService (integration)', () => {
       }),
     ]);
 
-    const result = await service.process(file, TENANT_ID, SEED_ADMIN_USER_ID);
+    const result = await runUpload(file, TENANT_ID, SEED_ADMIN_USER_ID);
 
     const student = await studentRepo.findOne({
       where: { id: result.created_student_ids[0] },
@@ -423,7 +479,7 @@ describe('StudentBulkUploadService (integration)', () => {
   it('does not resolve a class/section belonging to a different tenant', async () => {
     const file = await buildXlsxFile([rowValues(headers)]);
 
-    const result = await service.process(file, OTHER_TENANT_ID, SEED_ADMIN_USER_ID);
+    const result = await runUpload(file, OTHER_TENANT_ID, SEED_ADMIN_USER_ID);
 
     // The seeded "Class One / Section A" for OTHER_TENANT_ID should resolve fine on its own tenant...
     expect(result.success_count).toBe(1);
@@ -434,12 +490,12 @@ describe('StudentBulkUploadService (integration)', () => {
   });
 
   it('produces the same result for equivalent CSV and XLSX content', async () => {
-    const xlsxResult = await service.process(
+    const xlsxResult = await runUpload(
       await buildXlsxFile([rowValues(headers, { student_name: 'Xlsx Student', roll: '20' })]),
       TENANT_ID,
       SEED_ADMIN_USER_ID,
     );
-    const csvResult = await service.process(
+    const csvResult = await runUpload(
       buildCsvFile([rowValues(headers, { student_name: 'Csv Student', roll: '21' })]),
       TENANT_ID,
       SEED_ADMIN_USER_ID,
@@ -449,17 +505,26 @@ describe('StudentBulkUploadService (integration)', () => {
     expect(csvResult.success_count).toBe(1);
   });
 
-  it('writes one audit log entry summarizing the whole upload', async () => {
+  it('writes one audit log entry summarizing a successful commit', async () => {
+    // [14.9.1]: the audit log is written by `commit`, which only runs at
+    // all when the staged batch is error-free — a batch with a bad row
+    // never reaches commit (see the "blocks the whole batch" test above),
+    // so this exercises a clean two-row batch instead of a mixed one.
     const file = await buildXlsxFile([
-      rowValues(headers, { student_name: 'Ok Row', roll: '30' }),
-      rowValues(headers, { student_name: 'Bad Row', guardian1_phone: '' }),
+      rowValues(headers, { student_name: 'Ok Row One', roll: '30' }),
+      rowValues(headers, {
+        student_name: 'Ok Row Two',
+        roll: '31',
+        guardian1_phone: '+8801711100031',
+      }),
     ]);
 
-    await service.process(file, TENANT_ID, SEED_ADMIN_USER_ID);
+    const result = await runUpload(file, TENANT_ID, SEED_ADMIN_USER_ID);
+    expect(result.success_count).toBe(2);
 
     const logs = await auditLogRepo.find({ where: { action: AuditAction.BULK_UPLOAD } });
     expect(logs).toHaveLength(1);
-    expect(logs[0].new_values).toMatchObject({ total_rows: 2, success_count: 1, error_count: 1 });
+    expect(logs[0].new_values).toMatchObject({ total_rows: 2, success_count: 2, error_count: 0 });
     expect(logs[0].tenant_id).toBe(TENANT_ID);
   });
 
@@ -468,7 +533,7 @@ describe('StudentBulkUploadService (integration)', () => {
       rowValues(headers, { student_name: 'New Guardian Row', guardian1_phone: '+8801799999999' }),
     ]);
 
-    await service.process(file, TENANT_ID, SEED_ADMIN_USER_ID);
+    await runUpload(file, TENANT_ID, SEED_ADMIN_USER_ID);
 
     const guardian = await guardianRepo.findOne({ where: { phone: '+8801799999999' } });
     const logs = await auditLogRepo.find({
