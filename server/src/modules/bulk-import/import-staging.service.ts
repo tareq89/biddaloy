@@ -21,11 +21,15 @@ interface StagedEnvelope<T> {
  * about students, workbooks, or any other domain — it only moves opaque
  * JSON-serialisable payloads through Redis with a TTL.
  *
- * Cross-tenant isolation comes from the key prefix (`bulk-import:<tenant>:*`);
- * cross-user isolation comes from the `userId` check inside the stored
- * envelope. A reader must not assume the key alone is enough — two users in
- * the same tenant who both knew a stagingId (e.g. a leaked URL) must not be
- * able to read or consume each other's stage.
+ * Cross-tenant *and* cross-user isolation both come from the key
+ * (`bulk-import:<tenant>:<user>:*`) — `userId` is never client-supplied, it
+ * comes from the authenticated request, so a caller can only ever compute
+ * their own key. This is what stops a leaked/guessed `stagingId` from being
+ * a way to *destroy* another user's stage: `consume`'s `GETDEL` on the wrong
+ * key simply misses, rather than deleting the real entry before the
+ * `userId` check inside the envelope gets a chance to reject it. The
+ * envelope's own `userId` field is kept as defence in depth, not as the
+ * primary isolation boundary.
  *
  * Unlike AccessTokenDenylistService, this does NOT fail open on a Redis
  * error. A swallowed error here would silently lose a user's validated
@@ -39,8 +43,8 @@ export class ImportStagingService {
 
   constructor(@Inject(BULK_IMPORT_REDIS) private readonly redis: Redis) {}
 
-  private key(tenantId: string, stagingId: string): string {
-    return `bulk-import:${tenantId}:${stagingId}`;
+  private key(tenantId: string, userId: string, stagingId: string): string {
+    return `bulk-import:${tenantId}:${userId}:${stagingId}`;
   }
 
   async stage<T>(
@@ -64,7 +68,7 @@ export class ImportStagingService {
 
     const stagingId = randomUUID();
     try {
-      await this.redis.set(this.key(tenantId, stagingId), serialised, 'EX', ttlSec);
+      await this.redis.set(this.key(tenantId, userId, stagingId), serialised, 'EX', ttlSec);
     } catch (error) {
       this.logger.error(
         `Failed to stage bulk import for tenant ${tenantId}: ${error instanceof Error ? error.message : String(error)}`,
@@ -102,7 +106,7 @@ export class ImportStagingService {
   async peek<T>(tenantId: string, userId: string, stagingId: string): Promise<T | null> {
     let raw: string | null;
     try {
-      raw = await this.redis.get(this.key(tenantId, stagingId));
+      raw = await this.redis.get(this.key(tenantId, userId, stagingId));
     } catch (error) {
       this.logger.error(
         `Failed to peek staged import ${stagingId} for tenant ${tenantId}: ${error instanceof Error ? error.message : String(error)}`,
@@ -119,7 +123,7 @@ export class ImportStagingService {
       // atomicity is what makes a double-commit from two concurrent
       // `consume` calls impossible. A non-atomic GET followed by DEL would
       // let both calls read the payload before either deletes the key.
-      raw = await this.redis.getdel(this.key(tenantId, stagingId));
+      raw = await this.redis.getdel(this.key(tenantId, userId, stagingId));
     } catch (error) {
       this.logger.error(
         `Failed to consume staged import ${stagingId} for tenant ${tenantId}: ${error instanceof Error ? error.message : String(error)}`,
