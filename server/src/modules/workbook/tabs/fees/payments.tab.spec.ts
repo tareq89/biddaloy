@@ -96,7 +96,12 @@ describe('paymentsTab', () => {
     const entity = new Payment();
     entity.transaction_reference = null;
     entity.student = { registration_number: 'REG-001' } as Payment['student'];
-    entity.payment_date = '2026-01-05T10:00:00.000Z' as unknown as Date;
+    // A real `Date`, because that is what node-postgres hands back for a
+    // `timestamptz` column. Asserting against a pre-formatted ISO *string*
+    // here hid a bug where the entity branch interpolated the `Date`
+    // directly and produced locale text ("Mon Jan 05 2026 16:00:00 GMT+0600
+    // …"), which never matched the row's ISO text.
+    entity.payment_date = new Date('2026-01-05T10:00:00.000Z');
     entity.total_amount = '1500.00' as unknown as number;
     entity.payment_method = PaymentMethod.CASH;
 

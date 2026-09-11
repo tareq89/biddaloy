@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FeeStatus } from '@biddaloy/shared';
+import { StudentFee } from '../../../fees/entities/student-fee.entity';
 import { studentFeesTab, type StudentFeeRow } from './student-fees.tab';
 import type { ExportContext, ImportContext } from '../../codec/tab-spec';
 
@@ -112,5 +113,55 @@ describe('studentFeesTab', () => {
     const out = studentFeesTab.toRow(entity, ctx);
     expect(out.student).toBe('REG-001');
     expect(out.student).not.toBe('student-1');
+  });
+
+  it('reports no date change when the row matches the entity (real Date columns)', () => {
+    // `due_date`/`reminder_threshold_date` are `date` columns: node-postgres
+    // hands them back as `Date`, while the row carries `YYYY-MM-DD` text.
+    // Comparing them with `String(...)` on both sides never matches, which
+    // marked every row of every restore as modified.
+    const entity = Object.assign(new StudentFee(), {
+      student_id: 'student-1',
+      academic_year_id: 'year-1',
+      month: 1,
+      year: 2026,
+      total_amount: '1500.00',
+      paid_amount: '0.00',
+      discount_amount: '0.00',
+      status: FeeStatus.PENDING,
+      due_date: new Date(2026, 0, 10),
+      reminder_threshold_date: new Date(2026, 0, 5),
+      is_advance_payment: false,
+      original_advance_month: null,
+      original_advance_year: null,
+    }) as StudentFee;
+
+    const row = {
+      student_id: 'student-1',
+      academic_year_id: 'year-1',
+      month: 1,
+      year: 2026,
+      total_amount: '1500.00',
+      paid_amount: '0.00',
+      discount_amount: '0.00',
+      status: FeeStatus.PENDING,
+      due_date: '2026-01-10',
+      reminder_threshold_date: '2026-01-05',
+      is_advance_payment: false,
+      original_advance_month: null,
+      original_advance_year: null,
+    } as StudentFeeRow;
+
+    expect(studentFeesTab.diffFields(row, entity)).toEqual([]);
+  });
+
+  it('still reports a genuinely changed due_date', () => {
+    const entity = Object.assign(new StudentFee(), {
+      due_date: new Date(2026, 0, 10),
+      reminder_threshold_date: null,
+    }) as StudentFee;
+    const row = { due_date: '2026-02-10', reminder_threshold_date: null } as StudentFeeRow;
+
+    expect(studentFeesTab.diffFields(row, entity)).toContain('due_date');
   });
 });

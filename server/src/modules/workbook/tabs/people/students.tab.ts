@@ -2,7 +2,7 @@ import type { EntityManager } from 'typeorm';
 import { CommunicationMedium, EnrollmentStatus } from '@biddaloy/shared';
 import { Student } from '../../../students/entities/student.entity';
 import { Guardian } from '../../../students/entities/guardian.entity';
-import { fromCell } from '../../codec/cell-format';
+import { fromCell, formatDateOnly } from '../../codec/cell-format';
 import type {
   ColumnSpec,
   ExportContext,
@@ -400,7 +400,8 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
       if (row[key] !== existing[key]) changed.push(key);
     }
     if (row.class_section_id !== existing.class_section_id) changed.push('section');
-    if (row.date_of_birth !== formatDateOnly(existing.date_of_birth)) changed.push('date_of_birth');
+    if (row.date_of_birth !== formatNullableDateOnly(existing.date_of_birth))
+      changed.push('date_of_birth');
 
     const rowGuardianKey = [...row.guardian_ids].sort().join(';');
     const existingGuardianKey = (existing.guardians ?? [])
@@ -520,17 +521,7 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
   },
 };
 
-/**
- * Mirrors `academic-years.tab.ts`'s `formatDateOnly` for the local-calendar
- * -day comparison in `diffFields`. TypeORM hands a Postgres `date` column
- * back as a plain `YYYY-MM-DD` string, read straight through here to avoid a
- * UTC/local day shift.
- */
-function formatDateOnly(value: Date | string | null): string | null {
-  if (value === null || value === undefined) return null;
-  if (typeof value === 'string') return value.slice(0, 10);
-  const year = String(value.getFullYear()).padStart(4, '0');
-  const month = String(value.getMonth() + 1).padStart(2, '0');
-  const day = String(value.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+/** `date_of_birth` is nullable; `formatDateOnly` itself rejects null. */
+function formatNullableDateOnly(value: Date | string | null): string | null {
+  return value === null || value === undefined ? null : formatDateOnly(value);
 }

@@ -17,8 +17,8 @@ import { studentFeesTab } from './student-fees.tab';
  * The `payment_allocations` tab: how one payment is split across one or more
  * fee periods.
  *
- * Both refs (`payment`, `student_fee`) resolve within this same lane, so
- * unlike every other tab here neither is a forward reference. `PaymentAllocation`
+ * Both refs (`payment`, `student_fee`) resolve within this same lane.
+ * `PaymentAllocation`
  * has no `deleted_at` (see the entity), so `remove` hard-deletes; there is no
  * downstream table referencing it, so no FK-violation handling is needed the
  * way `student_fees.tab.ts` needs one for payments.
@@ -188,9 +188,21 @@ export const paymentAllocationsTab: TabSpec<PaymentAllocation, PaymentAllocation
     // branch, same pattern as every other cross-tab ref in this lane, so
     // neither half of the key can drift from how its own tab builds it
     // (including `payments`' transaction_reference-or-fallback rule).
-    const paymentKey = x instanceof PaymentAllocation ? paymentsTab.keyOf(x.payment) : x.payment_key;
+    // Guarded like every other cross-tab delegation in this lane: `m.save`
+    // returns an entity carrying only the assigned scalars, so calling this
+    // on an `upsert` result would otherwise throw on the unloaded relation.
+    const paymentKey =
+      x instanceof PaymentAllocation
+        ? x.payment
+          ? paymentsTab.keyOf(x.payment)
+          : ''
+        : x.payment_key;
     const studentFeeKey =
-      x instanceof PaymentAllocation ? studentFeesTab.keyOf(x.student_fee) : x.student_fee_key;
+      x instanceof PaymentAllocation
+        ? x.student_fee
+          ? studentFeesTab.keyOf(x.student_fee)
+          : ''
+        : x.student_fee_key;
     return `${paymentKey}|${studentFeeKey}`;
   },
 

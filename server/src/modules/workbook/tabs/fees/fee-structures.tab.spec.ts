@@ -145,4 +145,41 @@ describe('feeStructuresTab', () => {
     expect(rowOut.selected_students).toEqual(['REG-001', 'REG-002']);
     expect(rowOut.section).toBeNull();
   });
+
+  it('keys two structures that differ only by section distinctly', () => {
+    // `section` is nullable and independent of `applicability`, so one
+    // class/year/type/month/name can carry a different amount per section.
+    // With `section` left out of the key both rows collapsed onto one id and
+    // delete-by-absence removed the loser.
+    const base = {
+      id: '00000000-0000-4000-8000-000000000001',
+      name: 'Tuition',
+      fee_type: FeeType.MONTHLY_TUITION,
+      amount: '1500.00',
+      applicability: FeeApplicability.ALL,
+      class_id: 'class-1',
+      class_key: 'Class 5|2026-2027',
+      academic_year_id: 'year-1',
+      academic_year_key: '2026-2027',
+      month: 1,
+      is_recurring: true,
+      selected_student_ids: [],
+      selected_student_keys: [],
+    };
+
+    const sectionA = {
+      ...base,
+      section_id: 'sec-a',
+      section_key: 'Class 5|2026-2027|A',
+    } as FeeStructureRow;
+    const sectionB = {
+      ...base,
+      section_id: 'sec-b',
+      section_key: 'Class 5|2026-2027|B',
+      amount: '1200.00',
+    } as FeeStructureRow;
+
+    expect(feeStructuresTab.keyOf(sectionA)).not.toBe(feeStructuresTab.keyOf(sectionB));
+    expect(feeStructuresTab.naturalKey).toContain('section');
+  });
 });

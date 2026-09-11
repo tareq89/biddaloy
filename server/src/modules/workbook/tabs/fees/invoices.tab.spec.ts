@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { InvoiceStatus } from '@biddaloy/shared';
+import { Invoice } from '../../../invoices/entities/invoice.entity';
 import { invoicesTab, type InvoiceRow } from './invoices.tab';
 import type { ExportContext, ImportContext } from '../../codec/tab-spec';
 
@@ -117,5 +118,85 @@ describe('invoicesTab', () => {
     expect(out.issued_by).toBe('admin@example.com');
     expect(Object.values(out)).not.toContain('student-1');
     expect(Object.values(out)).not.toContain('user-1');
+  });
+
+  it('reports no date change when the row matches the entity (real Date columns)', () => {
+    // `issued_date`/`due_date` are `date` columns — a `Date` on the entity,
+    // `YYYY-MM-DD` text on the row. `String(...)` on both sides never
+    // matches, so every invoice showed as modified in a restore preview.
+    const entity = Object.assign(new Invoice(), {
+      invoice_number: 'INV-2026-00042',
+      student_id: 'student-1',
+      student_fee_id: null,
+      total_amount: '1500.00',
+      tax_amount: '0.00',
+      discount_amount: '0.00',
+      status: InvoiceStatus.ISSUED,
+      issued_date: new Date(2026, 0, 3),
+      due_date: new Date(2026, 0, 10),
+      line_items: null,
+      issued_by_user_id: null,
+      notes: null,
+    }) as Invoice;
+
+    const row = {
+      invoice_number: 'INV-2026-00042',
+      student_id: 'student-1',
+      student_fee_id: null,
+      total_amount: '1500.00',
+      tax_amount: '0.00',
+      discount_amount: '0.00',
+      status: InvoiceStatus.ISSUED,
+      issued_date: '2026-01-03',
+      due_date: '2026-01-10',
+      line_items: null,
+      issued_by_id: null,
+      notes: null,
+    } as unknown as InvoiceRow;
+
+    expect(invoicesTab.diffFields(row, entity)).toEqual([]);
+  });
+
+  it("keeps an existing invoice's issuer_snapshot on a same-school restore", async () => {
+    // The snapshot is the issuer identity frozen at issue time. Nulling it
+    // on update would silently repoint every reprinted receipt at the
+    // school's *current* profile — and because `issuer_snapshot` is in
+    // `excluded`, `diffFields` would never surface the change.
+    const frozen = { school_name: 'Old Name' } as unknown as Invoice['issuer_snapshot'];
+    const existing = Object.assign(new Invoice(), {
+      id: 'inv-1',
+      issuer_snapshot: frozen,
+    }) as Invoice;
+
+    const saved: Invoice[] = [];
+    const manager = {
+      save: (_e: unknown, v: Invoice) => {
+        saved.push(v);
+        return Promise.resolve(v);
+      },
+    };
+
+    const row = {
+      id: 'inv-1',
+      invoice_number: 'INV-2026-00042',
+      student_id: 'student-1',
+      student_fee_id: null,
+      total_amount: '1500.00',
+      tax_amount: '0.00',
+      discount_amount: '0.00',
+      status: InvoiceStatus.ISSUED,
+      issued_date: '2026-01-03',
+      due_date: '2026-01-10',
+      line_items: null,
+      issued_by_id: null,
+      notes: null,
+    } as unknown as InvoiceRow;
+
+    await invoicesTab.upsert(row, existing, 'tenant-1', manager as never);
+    expect(saved[0].issuer_snapshot).toBe(frozen);
+
+    // A brand-new invoice still gets a null snapshot (D9 of #508).
+    await invoicesTab.upsert(row, null, 'tenant-1', manager as never);
+    expect(saved[1].issuer_snapshot).toBeNull();
   });
 });

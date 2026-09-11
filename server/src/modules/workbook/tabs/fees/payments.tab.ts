@@ -1,6 +1,6 @@
 import type { EntityManager } from 'typeorm';
 import { Payment } from '../../../fees/entities/payment.entity';
-import { fromCell } from '../../codec/cell-format';
+import { fromCell, formatDateTime } from '../../codec/cell-format';
 import type {
   ColumnSpec,
   ExportContext,
@@ -13,10 +13,9 @@ import { PaymentMethod, PaymentStatus } from '@biddaloy/shared';
 /**
  * The `payments` tab: a financial transaction recorded against a student.
  *
- * `student` and `received_by`/`invoice` are `ref` columns; `student` is a
- * **forward reference** to the not-yet-existing `students` tab (14.5, a
- * different parallel group) — see `fee-structures.tab.ts` for the full
- * explanation. `received_by` refs the (also not-yet-landed) `users` tab.
+ * `student` and `received_by`/`invoice` are `ref` columns; `student` refs
+ * the `students` tab and `received_by` the `users` tab, both in
+ * `tabs/people/` and both listed in `dependsOn`.
  *
  * `naturalKey` prefers `transaction_reference` (per the ticket table), but a
  * cash payment often has none. Per the ticket, `keyOf` falls back to
@@ -259,14 +258,22 @@ export const paymentsTab: TabSpec<Payment, PaymentRow> = {
     // The student half is the real `registration_number`, not a uuid, on
     // both branches: `load()` eager-loads `student`, so an entity reads it
     // straight off the real `Student` entity (same pattern as
-    // `student-fees.tab.ts`'s own keyOf) rather than the not-yet-existing
-    // `students` tab, and a row already carries that text from `fromRow`.
+    // `student-fees.tab.ts`'s own keyOf), and a row already carries that
+    // text from `fromRow`.
     // This keeps `keyOf(entity) === keyOf(row)` for the same logical
     // payment even without `transaction_reference` — without it, a
     // re-import of a cash payment would never match its existing row and
     // would insert a duplicate on every restore instead of updating it.
-    const studentKey = x instanceof Payment ? (x.student?.registration_number ?? '') : x.student_key;
-    return `${studentKey}|${x.payment_date}|${x.total_amount}|${x.payment_method}`;
+    // `payment_date` is a `timestamptz`: a `Date` on the entity, but already
+    // this exact ISO text on a row. Interpolating the `Date` directly would
+    // render `Date.prototype.toString`'s locale/timezone-dependent form, so
+    // the two halves could never match and every cash payment — the only
+    // kind that reaches this fallback — would re-insert instead of update.
+    // `registration_number` is trimmed for the same reason: `studentsTab`
+    // trims its own key, and `fromCell` trims the cell.
+    const studentKey =
+      x instanceof Payment ? (x.student?.registration_number.trim() ?? '') : x.student_key;
+    return `${studentKey}|${formatDateTime(x.payment_date)}|${x.total_amount}|${x.payment_method}`;
   },
 
   diffFields(row: PaymentRow, existing: Payment): string[] {
@@ -281,7 +288,7 @@ export const paymentsTab: TabSpec<Payment, PaymentRow> = {
     if (row.remarks !== existing.remarks) changed.push('remarks');
     if (row.received_by_id !== existing.received_by_user_id) changed.push('received_by');
     if (row.invoice_id !== existing.invoice_id) changed.push('invoice');
-    if (String(row.payment_date) !== String(existing.payment_date)) changed.push('payment_date');
+    if (row.payment_date !== formatDateTime(existing.payment_date)) changed.push('payment_date');
     return changed;
   },
 
@@ -303,8 +310,10 @@ export const paymentsTab: TabSpec<Payment, PaymentRow> = {
     payment.invoice_id = row.invoice_id;
     payment.payment_date = row.payment_date as unknown as Date;
     // Never carried forward from the source tenant's snapshot; see
-    // `invoices.tab.ts` for the same rule and D9 of #508.
-    payment.issuer_snapshot = null;
+    // `invoices.tab.ts` for the same rule and D9 of #508. Only on insert:
+    // an existing row's snapshot is the issuer identity frozen when the
+    // payment was taken, and a same-school restore must not erase it.
+    if (existing === null) payment.issuer_snapshot = null;
 
     return m.save(Payment, payment);
   },
