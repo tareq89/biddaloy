@@ -194,7 +194,8 @@ export const sectionsTab: TabSpec<ClassSection, ClassSectionRow> = {
     // A natural key is never a uuid (see key-index.ts): a row carries the
     // referenced tabs' key text directly, an entity must derive it from the
     // (eagerly loaded) `class` (and its own `academic_year`) relation.
-    const classKey = x instanceof ClassSection ? (x.class ? classesTab.keyOf(x.class) : '') : x.class_key;
+    const classKey =
+      x instanceof ClassSection ? (x.class ? classesTab.keyOf(x.class) : '') : x.class_key;
     const yearKey =
       x instanceof ClassSection ? (x.class?.academic_year?.name ?? '') : x.academic_year_key;
     return `${classKey}|${yearKey}|${x.section_name}`;
