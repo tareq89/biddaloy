@@ -125,7 +125,13 @@ describe('fees tabs (integration)', () => {
     );
 
     const year = await yearRepo.save(
-      yearRepo.create({ tenant_id: TENANT_A, name: '2026-2027', start_date: '2026-01-01', end_date: '2026-12-31', is_current: true }),
+      yearRepo.create({
+        tenant_id: TENANT_A,
+        name: '2026-2027',
+        start_date: '2026-01-01',
+        end_date: '2026-12-31',
+        is_current: true,
+      }),
     );
     yearAId = year.id;
 
@@ -135,7 +141,12 @@ describe('fees tabs (integration)', () => {
     classAId = klass.id;
 
     const section = await sectionRepo.save(
-      sectionRepo.create({ tenant_id: TENANT_A, class_id: classAId, section_name: 'A', capacity: 40 }),
+      sectionRepo.create({
+        tenant_id: TENANT_A,
+        class_id: classAId,
+        section_name: 'A',
+        capacity: 40,
+      }),
     );
     sectionAId = section.id;
 
@@ -217,7 +228,10 @@ describe('fees tabs (integration)', () => {
     it('remove soft-deletes', async () => {
       const created = await feeStructuresTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
       await feeStructuresTab.remove(created, dataSource.manager);
-      const found = await feeStructureRepo.findOne({ where: { id: created.id }, withDeleted: true });
+      const found = await feeStructureRepo.findOne({
+        where: { id: created.id },
+        withDeleted: true,
+      });
       expect(found?.deleted_at).not.toBeNull();
     });
 
@@ -346,7 +360,9 @@ describe('fees tabs (integration)', () => {
     it('keyOf reads the student registration_number off the loaded entity', async () => {
       await studentFeesTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
       const [loaded] = await studentFeesTab.load(TENANT_A, dataSource.manager);
-      expect(studentFeesTab.keyOf(loaded)).toBe(`${studentA1.registration_number}|2026-2027|1|2026`);
+      expect(studentFeesTab.keyOf(loaded)).toBe(
+        `${studentA1.registration_number}|2026-2027|1|2026`,
+      );
     });
   });
 

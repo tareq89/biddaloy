@@ -1,6 +1,6 @@
 import type { EntityManager } from 'typeorm';
 import { Invoice } from '../../../invoices/entities/invoice.entity';
-import { fromCell } from '../../codec/cell-format';
+import { fromCell, formatDateOnly } from '../../codec/cell-format';
 import type {
   ColumnSpec,
   ExportContext,
@@ -14,13 +14,9 @@ import { InvoiceStatus } from '@biddaloy/shared';
  * The `invoices` tab: the official invoice document issued for a student's
  * fee payment.
  *
- * `student` is a **forward reference** to the not-yet-existing `students`
- * tab (14.5, a different parallel group) — see `fee-structures.tab.ts` for
- * the full explanation of that pattern. `issued_by` is a `ref` against
- * `users`, which is *also* a forward reference: `EXPECTED_TABS`
- * (registry.ts) lists `users` as a core tab, but no group has landed
- * `tabs/people/users.tab.ts` in this worktree yet either. Both refs are
- * written exactly as they will resolve once their tabs exist.
+ * `student` is a `ref` against the `students` tab and `issued_by` a `ref`
+ * against `users`; both live in `tabs/people/` and both are listed in
+ * `dependsOn`, so the registry applies them before this tab.
  *
  * `issuer_snapshot` is in `excluded`: a restore never carries the frozen
  * issuer identity forward. `upsert` always sets it to `null`, and reads of
@@ -89,7 +85,12 @@ const columns: readonly ColumnSpec[] = [
     enumValues: Object.values(InvoiceStatus),
     label: { en: 'Status', bn: 'অবস্থা' },
   },
-  { key: 'issued_date', type: 'date', required: true, label: { en: 'Issued date', bn: 'ইস্যুর তারিখ' } },
+  {
+    key: 'issued_date',
+    type: 'date',
+    required: true,
+    label: { en: 'Issued date', bn: 'ইস্যুর তারিখ' },
+  },
   { key: 'due_date', type: 'date', required: true, label: { en: 'Due date', bn: 'শেষ তারিখ' } },
   { key: 'line_items', type: 'json', label: { en: 'Line items', bn: 'লাইন আইটেম' } },
   {
@@ -260,8 +261,11 @@ export const invoicesTab: TabSpec<Invoice, InvoiceRow> = {
       changed.push('discount_amount');
     }
     if (row.status !== existing.status) changed.push('status');
-    if (String(row.issued_date) !== String(existing.issued_date)) changed.push('issued_date');
-    if (String(row.due_date) !== String(existing.due_date)) changed.push('due_date');
+    // Both are `date` columns: `YYYY-MM-DD` on the row, a `Date` on the
+    // entity. `String(Date)` never equals that, so an unguarded compare
+    // reports both fields changed on every row of every restore.
+    if (row.issued_date !== formatDateOnly(existing.issued_date)) changed.push('issued_date');
+    if (row.due_date !== formatDateOnly(existing.due_date)) changed.push('due_date');
     if (JSON.stringify(row.line_items) !== JSON.stringify(existing.line_items)) {
       changed.push('line_items');
     }
@@ -291,7 +295,10 @@ export const invoicesTab: TabSpec<Invoice, InvoiceRow> = {
     invoice.notes = row.notes;
     // Never carried forward from the source tenant's snapshot; a null
     // snapshot falls back to the live school profile on read (D9 of #508).
-    invoice.issuer_snapshot = null;
+    // Only on insert: an existing invoice's snapshot is the issuer identity
+    // frozen at issue time, and nulling it on a same-school restore would
+    // silently repoint every reprinted receipt at the current profile.
+    if (existing === null) invoice.issuer_snapshot = null;
 
     return m.save(Invoice, invoice);
   },

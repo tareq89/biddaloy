@@ -1,7 +1,7 @@
 import type { EntityManager } from 'typeorm';
 import { TeacherDesignation } from '@biddaloy/shared';
 import { Teacher } from '../../../academics/entities/teacher.entity';
-import { fromCell } from '../../codec/cell-format';
+import { fromCell, formatDateOnly } from '../../codec/cell-format';
 import type {
   ColumnSpec,
   ExportContext,
@@ -297,15 +297,3 @@ export const teachersTab: TabSpec<Teacher, TeacherRow> = {
     await m.softRemove(Teacher, entity);
   },
 };
-
-/**
- * Mirrors `academic-years.tab.ts`'s `formatDateOnly` for the local-calendar
- * comparison in `diffFields`.
- */
-function formatDateOnly(value: Date | string): string {
-  if (typeof value === 'string') return value.slice(0, 10);
-  const year = String(value.getFullYear()).padStart(4, '0');
-  const month = String(value.getMonth() + 1).padStart(2, '0');
-  const day = String(value.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}

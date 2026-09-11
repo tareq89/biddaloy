@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PaymentAllocationType } from '@biddaloy/shared';
+import { PaymentAllocation } from '../../../fees/entities/payment-allocation.entity';
 import { paymentAllocationsTab, type PaymentAllocationRow } from './payment-allocations.tab';
 import type { ExportContext, ImportContext } from '../../codec/tab-spec';
 
@@ -67,5 +68,14 @@ describe('paymentAllocationsTab', () => {
     const out = paymentAllocationsTab.toRow(entity, ctx);
     expect(out.payment).toBe('TXN-001');
     expect(out.student_fee).toBe('REG-001|2026-2027|1|2026');
+  });
+
+  it('does not throw when the payment/student_fee relations are not loaded', () => {
+    // `m.save` returns an entity carrying only the assigned scalars, so
+    // calling keyOf on an `upsert` result hit an unguarded relation and threw
+    // `Cannot read properties of undefined`.
+    const bare = new PaymentAllocation();
+
+    expect(() => paymentAllocationsTab.keyOf(bare)).not.toThrow();
   });
 });

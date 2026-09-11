@@ -1,6 +1,6 @@
 import type { EntityManager } from 'typeorm';
 import { AcademicYear } from '../../../academics/entities/academic-year.entity';
-import { fromCell } from '../../codec/cell-format';
+import { fromCell, formatDateOnly } from '../../codec/cell-format';
 import type {
   ColumnSpec,
   ExportContext,
@@ -185,18 +185,3 @@ export const academicYearsTab: TabSpec<AcademicYear, AcademicYearRow> = {
     await m.softRemove(AcademicYear, entity);
   },
 };
-
-/**
- * Mirrors `cell-format.ts`'s `formatDateOnly` for the local-calendar-day
- * comparison in `diffFields`. TypeORM hands a Postgres `date` column back as
- * a plain `YYYY-MM-DD` string (no time, no timezone), which is read
- * straight through here for the same reason `cell-format.ts` does: routing
- * it through `new Date(...)` and back would risk a UTC/local day shift.
- */
-function formatDateOnly(value: Date | string): string {
-  if (typeof value === 'string') return value.slice(0, 10);
-  const year = String(value.getFullYear()).padStart(4, '0');
-  const month = String(value.getMonth() + 1).padStart(2, '0');
-  const day = String(value.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}

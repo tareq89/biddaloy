@@ -69,8 +69,11 @@ function formatMoney(value: string | number): string {
  * (UTC+6), an academic year starting 2026-03-09 would export as 2026-03-08.
  * Reading the local calendar components instead keeps the date the database
  * meant, whatever `TZ` the server runs under.
+ *
+ * Exported because every tab's `diffFields` needs the same normalisation to
+ * compare a row's `YYYY-MM-DD` text against the `Date` its entity carries.
  */
-function formatDateOnly(value: unknown): string {
+export function formatDateOnly(value: unknown): string {
   // An already-ISO string needs no interpretation at all.
   if (typeof value === 'string') {
     const parts = DATE_ONLY.exec(value.trim());
@@ -91,6 +94,19 @@ function toDate(value: unknown): Date {
     if (!Number.isNaN(parsed.getTime())) return parsed;
   }
   throw new TypeError(`Cannot format ${JSON.stringify(value)} as a date.`);
+}
+
+/**
+ * Formats an instant exactly as the `datetime` cell type does.
+ *
+ * A `timestamptz` column arrives as a `Date` on an entity but as this
+ * function's own ISO output once it has been through a cell, so anything
+ * comparing the two halves — `keyOf`, `diffFields` — has to normalise
+ * both sides through here or it is comparing an ISO string against
+ * `Date.prototype.toString`'s locale- and timezone-dependent text.
+ */
+export function formatDateTime(value: unknown): string {
+  return toDate(value).toISOString();
 }
 
 /**

@@ -12,6 +12,7 @@ import type {
 import { FeeApplicability, FeeType } from '@biddaloy/shared';
 import { classesTab } from '../academics/classes.tab';
 import { academicYearsTab } from '../academics/academic-years.tab';
+import { sectionsTab } from '../academics/sections.tab';
 
 /**
  * The `fee_structures` tab: the fee templates a school generates monthly
@@ -21,11 +22,9 @@ import { academicYearsTab } from '../academics/academic-years.tab';
  * `section` is the same but optional. `selected_students` is a `ref-list`
  * column against the `students` tab (`tabs/people/students.tab.ts`), keyed
  * by each student's `registration_number` — never a uuid, same rule as every
- * other ref. That tab is a **forward reference**: it lands from a different,
- * parallel group (14.5, people lane) and is not present in this worktree.
- * `ctx.ref('students', key)` / `ctx.keyOf('students', id)` are written
- * exactly as they will be once that tab exists; nothing here stubs or fakes
- * it. Until it lands, `assertRegistryValid`'s partial mode (registry.ts)
+ * other ref. `ctx.ref('students', key)` / `ctx.keyOf('students', id)`
+ * resolve against that tab, which the registry applies first via
+ * `dependsOn`. `assertRegistryValid`'s partial mode (registry.ts)
  * tolerates the dangling `dependsOn`/`ref` target, and this file's own tests
  * supply a fake `ImportContext`/`ExportContext` for `students`, so they don't
  * need the real tab.
@@ -121,7 +120,13 @@ export const feeStructuresTab: TabSpec<FeeStructure, FeeStructureRow> = {
   excluded,
   dependsOn: ['classes', 'academic_years', 'sections', 'students'],
   columns,
-  naturalKey: ['class', 'academic_year', 'fee_type', 'month', 'name'],
+  // `section` belongs in the key: it is nullable and independent of
+  // `applicability`, so one class/year/type/month/name can legitimately
+  // carry a different amount per section. Without it those rows share a
+  // key, `KeyIndex` flags it ambiguous and collapses them to one id, and
+  // delete-by-absence then removes the loser. (The ticket's column list
+  // omitted `section`; no unique constraint on the entity backs it up.)
+  naturalKey: ['class', 'academic_year', 'section', 'fee_type', 'month', 'name'],
   deleteByAbsence: true,
 
   load(tenantId: string, m: EntityManager): Promise<FeeStructure[]> {
@@ -306,7 +311,13 @@ export const feeStructuresTab: TabSpec<FeeStructure, FeeStructureRow> = {
           ? academicYearsTab.keyOf(x.academic_year)
           : ''
         : x.academic_year_key;
-    return `${classKey}|${yearKey}|${x.fee_type}|${x.month}|${x.name}`;
+    const sectionKey =
+      x instanceof FeeStructure
+        ? x.section
+          ? sectionsTab.keyOf(x.section)
+          : ''
+        : (x.section_key ?? '');
+    return `${classKey}|${yearKey}|${sectionKey}|${x.fee_type}|${x.month}|${x.name}`;
   },
 
   diffFields(row: FeeStructureRow, existing: FeeStructure): string[] {
@@ -320,9 +331,7 @@ export const feeStructuresTab: TabSpec<FeeStructure, FeeStructureRow> = {
     if (row.section_id !== existing.section_id) changed.push('section');
     if (row.month !== existing.month) changed.push('month');
     if (row.is_recurring !== existing.is_recurring) changed.push('is_recurring');
-    const existingStudentIds = (existing.selected_students ?? [])
-      .map((l) => l.student_id)
-      .sort();
+    const existingStudentIds = (existing.selected_students ?? []).map((l) => l.student_id).sort();
     const rowStudentIds = [...row.selected_student_ids].sort();
     if (JSON.stringify(existingStudentIds) !== JSON.stringify(rowStudentIds)) {
       changed.push('selected_students');

@@ -1,7 +1,7 @@
 import type { EntityManager } from 'typeorm';
 import { QueryFailedError } from 'typeorm';
 import { StudentFee } from '../../../fees/entities/student-fee.entity';
-import { fromCell } from '../../codec/cell-format';
+import { fromCell, formatDateOnly } from '../../codec/cell-format';
 import type {
   ColumnSpec,
   ExportContext,
@@ -134,8 +134,8 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
 
   load(tenantId: string, m: EntityManager): Promise<StudentFee[]> {
     // `StudentFee` carries no `tenant_id` of its own — tenancy is filtered
-    // through its `student` relation, which is loaded eagerly (not through
-    // the not-yet-existing `students` tab) both to filter by tenant and so
+    // through its `student` relation, which is loaded eagerly both to
+    // filter by tenant and so
     // `keyOf` can read the student's own `registration_number` directly off
     // the real `Student` entity.
     return m.find(StudentFee, {
@@ -242,10 +242,10 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
   keyOf(x: StudentFeeRow | StudentFee): string {
     // The `students` tab's own natural key is the student's
     // `registration_number` (per its ticket), read straight off the real
-    // `Student` entity — never off the not-yet-existing `students` tab —
-    // for an entity; a row already carries the key text from `fromRow`.
+    // `Student` entity for an entity; a row already carries the key text
+    // from `fromRow`.
     const studentKey =
-      x instanceof StudentFee ? (x.student?.registration_number ?? '') : x.student_key;
+      x instanceof StudentFee ? (x.student?.registration_number.trim() ?? '') : x.student_key;
     const yearKey =
       x instanceof StudentFee
         ? x.academic_year
@@ -265,8 +265,11 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
       changed.push('discount_amount');
     }
     if (row.status !== existing.status) changed.push('status');
-    if (String(row.due_date) !== String(existing.due_date)) changed.push('due_date');
-    if (String(row.reminder_threshold_date) !== String(existing.reminder_threshold_date)) {
+    // Both are nullable `date` columns: `YYYY-MM-DD` on the row, a `Date`
+    // on the entity. `String(Date)` never equals that, so an unguarded
+    // compare reports both changed on every row of every restore.
+    if (row.due_date !== dateOnlyOrNull(existing.due_date)) changed.push('due_date');
+    if (row.reminder_threshold_date !== dateOnlyOrNull(existing.reminder_threshold_date)) {
       changed.push('reminder_threshold_date');
     }
     if (row.is_advance_payment !== existing.is_advance_payment) changed.push('is_advance_payment');
@@ -308,11 +311,14 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
       await m.delete(StudentFee, { id: entity.id });
     } catch (e) {
       if (e instanceof QueryFailedError && (e as { code?: string }).code === FK_VIOLATION) {
-        throw new Error(
-          `Cannot delete student fee ${entity.id}: it is referenced by a payment.`,
-        );
+        throw new Error(`Cannot delete student fee ${entity.id}: it is referenced by a payment.`);
       }
       throw e;
     }
   },
 };
+
+/** `formatDateOnly` rejects null; these two columns are nullable. */
+function dateOnlyOrNull(value: Date | null): string | null {
+  return value === null || value === undefined ? null : formatDateOnly(value);
+}
