@@ -112,7 +112,7 @@ describe('studentsTab shape', () => {
   it('is registered through the people barrel, after guardians', () => {
     expect(peopleTabs).toContain(studentsTab);
     expect(peopleTabs.indexOf(guardiansTab)).toBeLessThan(peopleTabs.indexOf(studentsTab));
-    expect(peopleTabs.map((t) => t.name).slice(-2)).toEqual(['guardians', 'students']);
+    expect(peopleTabs.map((t) => t.name).slice(-3)).toEqual(['guardians', 'students', 'enrollments']);
   });
 
   it('satisfies the registry contract', () => {
