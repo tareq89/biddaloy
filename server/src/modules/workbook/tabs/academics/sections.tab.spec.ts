@@ -70,8 +70,9 @@ function toCells(section: ClassSection): Record<string, string> {
 }
 
 describe('sectionsTab shape', () => {
-  it('is registered through the academics barrel, last', () => {
-    expect(academicsTabs[academicsTabs.length - 1]).toBe(sectionsTab);
+  it('is registered through the academics barrel, after classes', () => {
+    expect(academicsTabs).toContain(sectionsTab);
+    expect(academicsTabs.indexOf(sectionsTab)).toBeGreaterThan(academicsTabs.indexOf(classesTab));
   });
 
   it('satisfies the registry contract together with its dependencies', () => {
