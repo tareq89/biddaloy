@@ -52,7 +52,8 @@ export class ExportService {
         WORKBOOK_EXPORT_JOB,
         { jobId: job.id, tenantId },
         {
-          jobId: `workbook-export:${job.id}`,
+          // BullMQ rejects custom job ids containing ':' — hyphen, not colon.
+          jobId: `workbook-export-${job.id}`,
           attempts: 2,
           removeOnComplete: true,
         },
