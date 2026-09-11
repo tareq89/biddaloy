@@ -49,6 +49,12 @@ describe('BulkImportErrorTable', () => {
     expect(screen.getByText('(empty)')).toBeTruthy();
   });
 
+  it('treats an empty-string value the same as a missing one', async () => {
+    await renderTable([error({ value: '' })]);
+
+    expect(screen.getByText('(empty)')).toBeTruthy();
+  });
+
   it('only shows the tab column when at least one error has a tab', async () => {
     const { rerender } = await renderTable([error()]);
     expect(screen.queryByText('Sheet')).not.toBeTruthy();

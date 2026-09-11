@@ -37,7 +37,10 @@ export function BulkImportErrorTable({
   const [page, setPage] = React.useState(1);
 
   const showTab = errors.some((error) => error.tab);
-  const rowIndex = React.useMemo(() => new Map(errors.map((error, index) => [error, index])), [errors]);
+  const rowIndex = React.useMemo(
+    () => new Map(errors.map((error, index) => [error, index])),
+    [errors],
+  );
 
   const columns: DataTableColumn<BulkImportError>[] = [
     {
@@ -62,7 +65,7 @@ export function BulkImportErrorTable({
     {
       id: 'value',
       header: t('errors.columnValue'),
-      accessorFn: (error) => error.value ?? t('errors.emptyValue'),
+      accessorFn: (error) => (error.value ? error.value : t('errors.emptyValue')),
     },
     {
       id: 'message',
@@ -114,7 +117,9 @@ export function BulkImportErrorTable({
         // `getRowId` only receives the row, so the global index (needed
         // because two errors can share row+column) is baked into an id
         // map keyed by object identity rather than derived positionally.
-        getRowId={(error) => `${error.row}-${error.tab ?? ''}-${error.column ?? 'row'}-${rowIndex.get(error)}`}
+        getRowId={(error) =>
+          `${error.row}-${error.tab ?? ''}-${error.column ?? 'row'}-${rowIndex.get(error)}`
+        }
         sorting={null}
         onSortingChange={() => {}}
         page={page}
