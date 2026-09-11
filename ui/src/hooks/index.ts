@@ -342,10 +342,12 @@ export {
 } from './fee-structures';
 export { useGenerateFees, type GenerateFeesInput, type GenerateFeesResult } from './fee-generation';
 export {
-  useBulkUploadStudents,
+  useValidateStudentUpload,
+  useCommitStudentUpload,
   type BulkUploadError,
   type BulkUploadResult,
-  type BulkUploadStudentsInput,
+  type StudentUploadPreviewRow,
+  type StudentUploadSummary,
 } from './bulk-upload';
 export {
   useBulkUploadPreview,

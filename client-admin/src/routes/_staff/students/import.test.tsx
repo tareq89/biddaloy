@@ -11,7 +11,19 @@ import { routeTree } from '../../../routeTree.gen';
 import { TEMPLATE_HEADERS } from './-import/template';
 
 /**
- * [8.11.7]'s bulk student import page.
+ * [14.9.2]'s validate-then-confirm student import page. Replaces the old
+ * write-on-upload flow ([8.11.7]) with `BulkUploadPreview` (#587):
+ * `POST /students/bulk-upload/validate` stages the accepted rows and shows
+ * a preview; nothing is created until `POST /students/bulk-upload/commit`
+ * fires from clicking Confirm.
+ *
+ * Tests that only exercised `BulkUploadPreview`'s own plumbing — aria-live
+ * wording during upload, blocking a second pick mid-flight, the error
+ * table's CSV export mechanics — are not duplicated here; they're covered
+ * by `bulk-upload-preview.test.tsx` and `bulk-import-error-table.test.tsx`.
+ * This file focuses on what's specific to `/students/import`: the template/
+ * reference sections, the student-shaped summary and preview table, and the
+ * done-state invite-guardians flow.
  *
  * Files are constructed with node:buffer's `File`, not jsdom's — jsdom
  * 30's Blob hangs MSW's XHR body serialization (the request never
@@ -22,11 +34,6 @@ function makeFile(name: string, content = 'a,b', type = 'text/csv'): File {
   return new NodeFile([content], name, { type }) as File;
 }
 
-/** jsdom implements neither `URL.createObjectURL` nor `revokeObjectURL` —
- * install a capture-and-return stub, and hand back the captured blob.
- * Unpatching happens in `afterEach`, not at the end of the test body: a
- * failed assertion would otherwise leave `URL` monkey-patched for every
- * later test in the worker, turning one failure into a cascade. */
 function captureDownloads(): { blob: () => Blob | undefined } {
   let captured: Blob | undefined;
   URL.createObjectURL = (blob: Blob) => {
@@ -54,9 +61,46 @@ function renderImportPage(role = 'ADMIN') {
 async function uploadFile(file: File) {
   const user = userEvent.setup({ applyAccept: false });
   await user.click(await screen.findByRole('button', { name: 'Choose file' }));
-  const input = screen.getByLabelText('Spreadsheet file to import');
+  const input = screen.getByLabelText('Choose file');
   await user.upload(input, file);
 }
+
+function validateHandler(body: object, status = 201) {
+  return http.post('/api/v1/students/bulk-upload/validate', () =>
+    HttpResponse.json(body, { status }),
+  );
+}
+
+const cleanPreviewBody = {
+  staging_id: 'stage-clean',
+  expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+  rows_to_create: 3,
+  preview: [
+    {
+      row: 2,
+      student_name: 'Karim Rahman',
+      class: 'Class 5',
+      section: 'A',
+      guardian1_phone: '+8801711111111',
+    },
+    {
+      row: 3,
+      student_name: 'Rahim Uddin',
+      class: 'Class 5',
+      section: 'A',
+      guardian1_phone: '+8801711111112',
+    },
+    {
+      row: 4,
+      student_name: 'Fatema Begum',
+      class: 'Class 5',
+      section: 'B',
+      guardian1_phone: '+8801711111113',
+    },
+  ],
+  errors: [],
+  hard_error_count: 0,
+};
 
 describe('/students/import', () => {
   afterEach(async () => {
@@ -72,8 +116,6 @@ describe('/students/import', () => {
     await user.click(await screen.findByRole('button', { name: 'Download template' }));
 
     await waitFor(() => expect(downloads.blob()).toBeDefined());
-    // `Blob.text()` decodes UTF-8 and silently strips a leading BOM, so
-    // assert on the raw bytes (EF BB BF) instead.
     const bytes = new Uint8Array(await downloads.blob()!.arrayBuffer());
     expect([bytes[0], bytes[1], bytes[2]]).toEqual([0xef, 0xbb, 0xbf]);
     const csv = new TextDecoder().decode(bytes);
@@ -90,113 +132,69 @@ describe('/students/import', () => {
     expect(within(table).getAllByText('Required')).toHaveLength(5);
   });
 
-  it('rejects a wrong file type client-side with an inline error and fires no request', async () => {
+  it('rejects a file over 5 MB client-side and fires no validate request', async () => {
     let requests = 0;
     server.use(
-      http.post('/api/v1/students/bulk-upload', () => {
+      http.post('/api/v1/students/bulk-upload/validate', () => {
         requests += 1;
         return HttpResponse.json({}, { status: 500 });
       }),
     );
     renderImportPage();
-    await uploadFile(makeFile('students.pdf', 'x', 'application/pdf'));
-
-    const error = await screen.findByRole('alert');
-    expect(error.textContent).toContain('not supported');
-    expect(requests).toBe(0);
-  });
-
-  it('rejects a file over 5 MB client-side and fires no request', async () => {
-    let requests = 0;
-    server.use(
-      http.post('/api/v1/students/bulk-upload', () => {
-        requests += 1;
-        return HttpResponse.json({}, { status: 500 });
-      }),
-    );
-    renderImportPage();
-    // A 5 MB + 1 byte payload without allocating a giant string per char.
     const big = 'x'.repeat(5 * 1024 * 1024 + 1);
     await uploadFile(makeFile('students.csv', big));
 
-    const error = await screen.findByRole('alert');
-    expect(error.textContent).toContain('larger than 5 MB');
+    await screen.findByText('This file is too large — choose a smaller file');
     expect(requests).toBe(0);
   });
 
-  it('states partial success unambiguously and lists per-row errors with the offending Bangla value', async () => {
+  it('shows the accepted-row count, a preview table, and disables Confirm when the file has errors', async () => {
     server.use(
-      http.post('/api/v1/students/bulk-upload', () =>
-        HttpResponse.json(
+      validateHandler({
+        staging_id: 'stage-errors',
+        expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+        rows_to_create: 1,
+        preview: [
           {
-            total_rows: 150,
-            success_count: 142,
-            error_count: 8,
-            created_student_ids: [],
-            errors: [
-              {
-                row: 2,
-                field: 'guardian1_phone',
-                value: '০১৭১২৩৪৫৬৭',
-                reason: 'Invalid phone format: guardian1_phone',
-              },
-              { row: 5, reason: 'Missing required field: student_name; Invalid email format' },
-            ],
+            row: 2,
+            student_name: 'Karim Rahman',
+            class: 'Class 5',
+            section: 'A',
+            guardian1_phone: '+8801711111111',
           },
-          { status: 201 },
-        ),
-      ),
+        ],
+        errors: [
+          {
+            row: 3,
+            field: 'guardian1_phone',
+            value: '০১৭১২৩৪৫৬৭',
+            reason: 'Invalid phone format: guardian1_phone',
+          },
+        ],
+        hard_error_count: 1,
+      }),
     );
     renderImportPage();
     await uploadFile(makeFile('students.csv'));
 
-    // The exact three-count sentence — neither success nor failure styling.
-    const summary = await screen.findByText('142 of 150 students imported. 8 rows had problems.');
-    expect(summary.className).not.toMatch(/destructive|success|green|red/);
+    await screen.findByText('1 students will be created.');
+    const previewTable = await screen.findByRole('table', { name: /First \d+ rows/ });
+    expect(within(previewTable).getByText('Karim Rahman')).toBeTruthy();
 
-    const table = await screen.findByRole('table', { name: 'Rows that could not be imported' });
-    expect(within(table).getByText('০১৭১২৩৪৫৬৭')).toBeTruthy();
-    expect(within(table).getByText('guardian1_phone')).toBeTruthy();
-    expect(within(table).getByText('Invalid phone format: guardian1_phone')).toBeTruthy();
-    // A whole-row problem has no single field/value.
-    expect(within(table).getByText('Whole row')).toBeTruthy();
+    // The row error surfaces through the shared BulkImportErrorTable.
+    expect(await screen.findByText('০১৭১২৩৪৫৬৭')).toBeTruthy();
+
+    const confirmButton = screen.getByRole('button', { name: 'Confirm' });
+    expect(confirmButton.hasAttribute('disabled')).toBe(true);
   });
 
-  it('exports the error table as CSV with BOM and injection guard intact', async () => {
+  it('does not create any student until Confirm is clicked, then shows the done summary', async () => {
+    let commitCalled = false;
     server.use(
-      http.post('/api/v1/students/bulk-upload', () =>
-        HttpResponse.json(
-          {
-            total_rows: 2,
-            success_count: 1,
-            error_count: 1,
-            created_student_ids: ['s-1'],
-            errors: [
-              { row: 2, field: 'student_name', value: '=cmd|/c calc', reason: 'Bad "name"' },
-            ],
-          },
-          { status: 201 },
-        ),
-      ),
-    );
-    const downloads = captureDownloads();
-    renderImportPage();
-    await uploadFile(makeFile('students.csv'));
-
-    const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Export errors as CSV' }));
-    await waitFor(() => expect(downloads.blob()).toBeDefined());
-    const bytes = new Uint8Array(await downloads.blob()!.arrayBuffer());
-    expect([bytes[0], bytes[1], bytes[2]]).toEqual([0xef, 0xbb, 0xbf]);
-    const csv = new TextDecoder().decode(bytes);
-    expect(csv).toContain(`"'=cmd|/c calc"`); // formula guard
-    expect(csv).toContain('"Bad ""name"""'); // quote doubling
-  });
-
-  it('renders the success variant with no error table when every row imported', async () => {
-    server.use(
-      http.post('/api/v1/students/bulk-upload', () =>
-        HttpResponse.json(
+      validateHandler(cleanPreviewBody),
+      http.post('/api/v1/students/bulk-upload/commit', () => {
+        commitCalled = true;
+        return HttpResponse.json(
           {
             total_rows: 3,
             success_count: 3,
@@ -205,106 +203,41 @@ describe('/students/import', () => {
             errors: [],
           },
           { status: 201 },
-        ),
-      ),
+        );
+      }),
     );
     renderImportPage();
     await uploadFile(makeFile('students.csv'));
 
+    await screen.findByText('3 students will be created.');
+    // Preview shown, nothing committed yet.
+    expect(commitCalled).toBe(false);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Confirm' }));
+
     await screen.findByText('All 3 students were imported.');
-    expect(screen.queryByRole('table', { name: 'Rows that could not be imported' })).toBeNull();
+    expect(commitCalled).toBe(true);
+    // The invite-guardians checkbox only appears once students exist.
+    expect(screen.getByLabelText("Invite the imported students' guardians now")).toBeTruthy();
   });
 
-  it('renders a whole-request 400 as nothing-imported with the server message and a hint', async () => {
+  it('surfaces a whole-request 400 from validate as a failed state', async () => {
     server.use(
-      http.post('/api/v1/students/bulk-upload', () =>
-        HttpResponse.json(
-          apiErrorBody(
-            400,
-            'Missing required columns: roll, section',
-            '/api/v1/students/bulk-upload',
-          ),
-          { status: 400 },
+      validateHandler(
+        apiErrorBody(
+          400,
+          'Missing required columns: roll, section',
+          '/api/v1/students/bulk-upload/validate',
         ),
+        400,
       ),
     );
     renderImportPage();
     await uploadFile(makeFile('students.csv'));
 
     const alert = await screen.findByRole('alert');
-    expect(alert.textContent).toContain('Nothing was imported');
     expect(alert.textContent).toContain('Missing required columns: roll, section');
-    expect(alert.textContent).toContain('Compare your file against the template');
-  });
-
-  it('announces the file selection politely (aria-live)', async () => {
-    server.use(
-      http.post('/api/v1/students/bulk-upload', () =>
-        HttpResponse.json(
-          {
-            total_rows: 1,
-            success_count: 1,
-            error_count: 0,
-            created_student_ids: ['s'],
-            errors: [],
-          },
-          { status: 201 },
-        ),
-      ),
-    );
-    const { container } = renderImportPage();
-    await uploadFile(makeFile('students.csv'));
-
-    const liveRegions = Array.from(container.querySelectorAll('[aria-live="polite"]'));
-    expect(liveRegions.some((node) => node.textContent?.includes('1 file selected'))).toBe(true);
-  });
-
-  it('blocks a second import while the first is still in flight', async () => {
-    // `mutation.reset()` cannot cancel a request already on the wire, so a
-    // replacement pick mid-flight would import the same students twice.
-    let requestCount = 0;
-    let release: (() => void) | undefined;
-    const held = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    server.use(
-      http.post('/api/v1/students/bulk-upload', async () => {
-        requestCount += 1;
-        await held;
-        return HttpResponse.json(
-          {
-            total_rows: 1,
-            success_count: 1,
-            error_count: 0,
-            created_student_ids: ['s'],
-            errors: [],
-          },
-          { status: 201 },
-        );
-      }),
-    );
-
-    renderImportPage();
-    await uploadFile(makeFile('students.csv'));
-
-    // While pending, both entry points are disabled...
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Choose file' }).hasAttribute('disabled')).toBe(
-        true,
-      ),
-    );
-    expect(
-      screen.getByRole('button', { name: 'Remove students.csv' }).hasAttribute('disabled'),
-    ).toBe(true);
-
-    // ...and a direct second selection still does not fire a request.
-    const input = screen.getByLabelText('Spreadsheet file to import');
-    await userEvent.upload(input, makeFile('students-again.csv'), { applyAccept: false });
-    expect(requestCount).toBe(1);
-
-    release?.();
-    await screen.findByText('All 1 students were imported.');
-    expect(requestCount).toBe(1);
   });
 
   // [8.11.8] The server route admits ACCOUNTANT and EXECUTIVE, so the page
@@ -319,9 +252,7 @@ describe('/students/import', () => {
   }
 
   // [8.14.17]: `_staff.tsx`'s `RequirePermission` now refuses the whole
-  // route in place with the shared `AccessDeniedState` copy, replacing
-  // this route's own hand-rolled "You don't have permission to view
-  // this." text and its "Back to students" action.
+  // route in place with the shared `AccessDeniedState` copy.
   it('shows the forbidden copy to a role without the bulk-upload permission (TEACHER)', async () => {
     renderImportPage('TEACHER');
     await screen.findByText("You don't have access to this page.");
@@ -329,22 +260,26 @@ describe('/students/import', () => {
 
   it('is axe clean with the error report shown', async () => {
     server.use(
-      http.post('/api/v1/students/bulk-upload', () =>
-        HttpResponse.json(
+      validateHandler({
+        staging_id: 'stage-axe',
+        expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+        rows_to_create: 1,
+        preview: [
           {
-            total_rows: 2,
-            success_count: 1,
-            error_count: 1,
-            created_student_ids: ['s-1'],
-            errors: [{ row: 2, field: 'roll', value: '5', reason: 'Duplicate roll number 5' }],
+            row: 2,
+            student_name: 'Karim Rahman',
+            class: 'Class 5',
+            section: 'A',
+            guardian1_phone: '+8801711111111',
           },
-          { status: 201 },
-        ),
-      ),
+        ],
+        errors: [{ row: 2, field: 'roll', value: '5', reason: 'Duplicate roll number 5' }],
+        hard_error_count: 1,
+      }),
     );
     const { container } = renderImportPage();
     await uploadFile(makeFile('students.csv'));
-    await screen.findByText('1 of 2 students imported. 1 rows had problems.');
+    await screen.findByText('1 students will be created.');
     await expect(container).toHaveNoViolations();
   });
 });

@@ -35,31 +35,76 @@ const update = http.patch('/api/v1/students/:id', ({ params }) =>
 
 const remove = http.delete('/api/v1/students/:id', () => new HttpResponse(null, { status: 204 }));
 
-const bulkUpload = http.post('/api/v1/students/bulk-upload', () =>
+// [14.9.2]: the old single write-on-upload `POST /students/bulk-upload`
+// route is gone (split into validate + commit, #605). These two handlers
+// replace `bulkUpload`/`bulkUploadWithErrors`.
+const bulkUploadValidate = http.post('/api/v1/students/bulk-upload/validate', () =>
+  HttpResponse.json({
+    staging_id: 'staging-clean',
+    expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+    rows_to_create: 3,
+    preview: [
+      {
+        row: 2,
+        student_name: 'Karim Rahman',
+        class: 'Class 5',
+        section: 'A',
+        guardian1_phone: '+8801711111111',
+      },
+      {
+        row: 3,
+        student_name: 'Rahim Uddin',
+        class: 'Class 5',
+        section: 'A',
+        guardian1_phone: '+8801711111112',
+      },
+      {
+        row: 4,
+        student_name: 'Fatema Begum',
+        class: 'Class 5',
+        section: 'B',
+        guardian1_phone: '+8801711111113',
+      },
+    ],
+    errors: [],
+    hard_error_count: 0,
+  }),
+);
+
+const bulkUploadValidateWithErrors = http.post('/api/v1/students/bulk-upload/validate', () =>
+  HttpResponse.json({
+    staging_id: 'staging-with-errors',
+    expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+    rows_to_create: 1,
+    preview: [
+      {
+        row: 2,
+        student_name: 'Karim Rahman',
+        class: 'Class 5',
+        section: 'A',
+        guardian1_phone: '+8801711111111',
+      },
+    ],
+    errors: [
+      {
+        row: 3,
+        field: 'guardian1_phone',
+        value: '০১৭১২৩৪৫৬৭',
+        reason: 'Invalid phone format: guardian1_phone',
+      },
+      { row: 4, field: 'class', value: 'Class 99', reason: "Class 'Class 99' not found" },
+    ],
+    hard_error_count: 2,
+  }),
+);
+
+const bulkUploadCommit = http.post('/api/v1/students/bulk-upload/commit', () =>
   HttpResponse.json({
     total_rows: 3,
     success_count: 3,
     error_count: 0,
     created_student_ids: [studentFactory().id, studentFactory().id, studentFactory().id],
     errors: [],
-  }),
-);
-
-const bulkUploadWithErrors = http.post('/api/v1/students/bulk-upload', () =>
-  HttpResponse.json({
-    total_rows: 3,
-    success_count: 1,
-    error_count: 2,
-    created_student_ids: [studentFactory().id],
-    errors: [
-      {
-        row: 2,
-        field: 'guardian1_phone',
-        value: '০১৭১২৩৪৫৬৭',
-        reason: 'Invalid phone format: guardian1_phone',
-      },
-      { row: 3, field: 'class', value: 'Class 99', reason: "Class 'Class 99' not found" },
-    ],
   }),
 );
 
@@ -72,8 +117,18 @@ export const studentHandlers = {
   create,
   update,
   remove,
-  bulkUpload,
-  bulkUploadWithErrors,
+  bulkUploadValidate,
+  bulkUploadValidateWithErrors,
+  bulkUploadCommit,
 };
 
-export const studentDefaultHandlers = [list, mine, getOne, create, update, remove, bulkUpload];
+export const studentDefaultHandlers = [
+  list,
+  mine,
+  getOne,
+  create,
+  update,
+  remove,
+  bulkUploadValidate,
+  bulkUploadCommit,
+];
