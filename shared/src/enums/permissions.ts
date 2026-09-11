@@ -113,6 +113,15 @@ export enum Permission {
   // server-side.
   ATTENDANCE_CORRECT = 'ATTENDANCE_CORRECT',
   ATTENDANCE_DEVICE_MANAGE = 'ATTENDANCE_DEVICE_MANAGE',
+
+  // Backup
+  // [14.2.1] Export and restore of the school's data workbook. ADMIN and
+  // SUPER_ADMIN only — the surface is destructive (a restore overwrites
+  // tenant data) and has no partial, role-scoped form. No route consumes
+  // this yet; the backup endpoints land later in Epic 14.0 lane 14.2,
+  // which is why it is listed in permission-matrix.e2e-spec.ts's
+  // UI_ONLY_PERMISSIONS for now.
+  BACKUP_MANAGE = 'BACKUP_MANAGE',
 }
 
 import { UserRole } from './index';
@@ -174,6 +183,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ATTENDANCE_MARK,
     Permission.ATTENDANCE_CORRECT,
     Permission.ATTENDANCE_DEVICE_MANAGE,
+    // [14.2.1] Backup/restore; see enum comment.
+    Permission.BACKUP_MANAGE,
   ],
 
   [UserRole.ACCOUNTANT]: [
