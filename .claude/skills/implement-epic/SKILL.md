@@ -452,6 +452,31 @@ outward-facing and hard to unpublish.
 
 The orchestrator opens them, never the agents.
 
+### CodeRabbit's 100-file limit — checked at open time, every PR
+
+CodeRabbit does not review a PR that changes more than **100 files**; it posts
+a summary and skips the line-by-line pass, which silently removes the review
+this whole pacing scheme exists to get. The branch cap (soft 50 / hard 90)
+protects this *before* the work, but two things land after that check:
+regenerated artifacts (`schema.d.ts`, `routeTree.gen.ts` — excluded from the
+cap, counted by CodeRabbit) and integration fixes cherry-picked onto chain
+heads. So count again immediately before each `gh pr create`, against the
+branch the PR will actually target:
+
+```bash
+git diff --name-only <target>...<head> | wc -l     # must be ≤ 100, generated files included
+```
+
+If it exceeds 100, **do not open the PR.** Split the chain at a commit boundary
+instead — tickets are separate commits, so cut a new branch after the last
+ticket that keeps the count under the limit, open that as the PR, and stack the
+remainder on it as the next PR. Never trim files to get under the number, and
+never rewrite history to merge commits. Record the split in the state file.
+
+Wave-close PRs are the usual offender (seed + regenerated types + Playwright).
+If a close task alone exceeds 100, split it into "regenerated artifacts" and
+"everything else" as two stacked PRs.
+
 - Wave order, then group order, then chain order.
 - **≥60 minutes between PRs** (CodeRabbit pacing, per `implement-issue`).
   Compute from the last recorded PR timestamp, not from when work finished.
@@ -503,6 +528,8 @@ session model and report it. Never re-plan a ticket that already has a current
   to `main`.
 - Never open two PRs within 60 minutes.
 - Never cross the 90-file hard ceiling on a branch.
+- Never open a PR whose diff against its target exceeds 100 files, generated
+  files included — split the chain at a commit boundary instead.
 - Never open PRs before integration is green.
 - Never pass a gate on assumed approval.
 - Never bypass the design system: existing components and tokens first,
