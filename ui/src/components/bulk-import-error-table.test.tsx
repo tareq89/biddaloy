@@ -43,14 +43,14 @@ describe('BulkImportErrorTable', () => {
   });
 
   it('falls back to "Whole row" and "(empty)" when column/value are missing', async () => {
-    await renderTable([error({ column: null, value: undefined })]);
+    await renderTable([error({ column: null })]);
 
     expect(screen.getByText('Whole row')).toBeTruthy();
     expect(screen.getByText('(empty)')).toBeTruthy();
   });
 
   it('only shows the tab column when at least one error has a tab', async () => {
-    const { rerender } = await renderTable([error({ tab: undefined })]);
+    const { rerender } = await renderTable([error()]);
     expect(screen.queryByText('Sheet')).not.toBeTruthy();
 
     rerender(<BulkImportErrorTable errors={[error({ tab: 'Students' })]} />);
