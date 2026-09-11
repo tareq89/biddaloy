@@ -79,7 +79,11 @@ describe('ALL_TABS', () => {
   // have to edit this shared spec, which is the conflict the four-barrel
   // design exists to prevent.
   it('is valid', () => {
-    expect(() => assertRegistryValid(ALL_TABS)).not.toThrow();
+    // Same partial-to-strict lifecycle as WorkbookModule: strict once all
+    // 18 tabs have landed, tolerant of not-yet-registered tabs until then.
+    expect(() =>
+      assertRegistryValid(ALL_TABS, { partial: ALL_TABS.length < EXPECTED_TABS.length }),
+    ).not.toThrow();
   });
 
   it('registers only names declared in EXPECTED_TABS', () => {
@@ -240,6 +244,45 @@ describe('assertRegistryValid', () => {
       expect(() =>
         assertRegistryValid([fakeTab({ name: 'classes', naturalKey: [] })], { partial: true }),
       ).toThrow(/at least one naturalKey column/);
+    });
+
+    // "Not yet landed" only excuses a target that will exist once every lane
+    // has shipped. A dependency or ref outside EXPECTED_TABS altogether can
+    // never be satisfied, so partial mode must not tolerate it either.
+    it('does not tolerate a dependency outside EXPECTED_TABS', () => {
+      const tabs = [fakeTab({ name: 'students', dependsOn: ['guardian'] })];
+
+      expect(() => assertRegistryValid(tabs, { partial: true })).toThrow(/unknown tab "guardian"/);
+    });
+
+    it('does not tolerate a ref target outside EXPECTED_TABS', () => {
+      const tabs = [
+        fakeTab({
+          name: 'students',
+          dependsOn: ['classes'],
+          columns: [idColumn, nameColumn, refColumn('class')],
+        }),
+      ];
+
+      expect(() => assertRegistryValid(tabs, { partial: true })).toThrow(/unknown tab "class"/);
+    });
+
+    // A ref target that has landed (so `names.has` would pass) but isn't
+    // declared in `dependsOn` must still fail even while partial, or the
+    // tab boots with a ctx.ref() that can silently resolve to undefined.
+    it('does not tolerate a ref target missing from dependsOn, even once it exists', () => {
+      const tabs = [
+        fakeTab({ name: 'classes' }),
+        fakeTab({
+          name: 'students',
+          dependsOn: [],
+          columns: [idColumn, nameColumn, refColumn('classes')],
+        }),
+      ];
+
+      expect(() => assertRegistryValid(tabs, { partial: true })).toThrow(
+        /also be listed in its dependsOn/,
+      );
     });
   });
 

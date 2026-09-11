@@ -125,6 +125,12 @@ export function assertRegistryValid(
     expectedCursor = position;
 
     for (const dependency of tab.dependsOn) {
+      // Strict even in partial mode: a dependency outside EXPECTED_TABS can
+      // never be satisfied by a later lane landing, so tolerating it here
+      // would let a genuinely broken tab boot successfully forever.
+      if (!expected.has(dependency)) {
+        throw new RegistryError(`Tab "${tab.name}" depends on unknown tab "${dependency}".`);
+      }
       if (!names.has(dependency)) {
         if (partial) continue;
         throw new RegistryError(
@@ -189,8 +195,9 @@ export function assertRegistryValid(
           `Tab "${tab.name}" column "${column.key}" is type "${column.type}" but names no ref target.`,
         );
       }
-      if (!names.has(column.ref)) {
-        if (partial) continue;
+      // Strict even in partial mode, same reasoning as the dependsOn check
+      // above: a ref target outside EXPECTED_TABS is never satisfiable.
+      if (!expected.has(column.ref)) {
         throw new RegistryError(
           `Tab "${tab.name}" column "${column.key}" references unknown tab "${column.ref}".`,
         );
@@ -200,10 +207,19 @@ export function assertRegistryValid(
       // would return undefined — importing every row with a null parent.
       // Self-references (a parent class pointing at another class) are fine:
       // the tab is applied in one pass and can resolve within itself.
+      // Checked before the "not yet registered" tolerance below so partial
+      // mode cannot let an invalid tab boot just because its ref target
+      // hasn't landed yet.
       if (column.ref !== tab.name && !tab.dependsOn.includes(column.ref)) {
         throw new RegistryError(
           `Tab "${tab.name}" column "${column.key}" references tab "${column.ref}", which must ` +
             `also be listed in its dependsOn.`,
+        );
+      }
+      if (!names.has(column.ref)) {
+        if (partial) continue;
+        throw new RegistryError(
+          `Tab "${tab.name}" column "${column.key}" references unknown tab "${column.ref}".`,
         );
       }
     }
