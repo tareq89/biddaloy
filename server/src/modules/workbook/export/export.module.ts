@@ -8,6 +8,7 @@ import { WORKBOOK_EXPORT_QUEUE } from './export.constants';
 import { ExportService } from './export.service';
 import { ExportProcessor } from './export.processor';
 import { WorkbookJobEventsService } from './workbook-job-events.service';
+import { WorkbookController } from './workbook.controller';
 
 /**
  * `WorkbookModule` is deliberately not imported here — it is `@Module({})`
@@ -25,6 +26,7 @@ import { WorkbookJobEventsService } from './workbook-job-events.service';
       defaultJobOptions: { attempts: 2, removeOnComplete: true },
     }),
   ],
+  controllers: [WorkbookController],
   providers: [ExportService, ExportProcessor, WorkbookJobEventsService],
   exports: [ExportService, WorkbookJobEventsService],
 })
