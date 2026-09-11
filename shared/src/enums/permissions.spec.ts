@@ -339,3 +339,34 @@ describe('roleHasPermission', () => {
     },
   );
 });
+
+describe('backup role grants [14.2.1]', () => {
+  /**
+   * Backup export and restore are destructive, tenant-wide operations with
+   * no role-scoped partial form, so only ADMIN holds the permission
+   * explicitly. SUPER_ADMIN holds it via `Object.values(Permission)`.
+   * No server route requires it yet — see UI_ONLY_PERMISSIONS in
+   * server/src/permission-matrix.e2e-spec.ts.
+   */
+  it('grants BACKUP_MANAGE to ADMIN', () => {
+    expect(ROLE_PERMISSIONS[UserRole.ADMIN]).toContain(Permission.BACKUP_MANAGE);
+  });
+
+  it('grants BACKUP_MANAGE to SUPER_ADMIN, which holds every permission', () => {
+    expect(ROLE_PERMISSIONS[UserRole.SUPER_ADMIN]).toContain(Permission.BACKUP_MANAGE);
+  });
+
+  const ROLES_WITHOUT_BACKUP = [
+    UserRole.ACCOUNTANT,
+    UserRole.EXECUTIVE,
+    UserRole.TEACHER,
+    UserRole.PARENT,
+    UserRole.STUDENT,
+  ] as const;
+
+  for (const role of ROLES_WITHOUT_BACKUP) {
+    it(`withholds BACKUP_MANAGE from ${role}`, () => {
+      expect(ROLE_PERMISSIONS[role]).not.toContain(Permission.BACKUP_MANAGE);
+    });
+  }
+});
