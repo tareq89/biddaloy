@@ -30,6 +30,7 @@ import { SchoolsModule } from './modules/schools/schools.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { AccountAccessModule } from './modules/account-access/account-access.module';
 import { WorkbookModule } from './modules/workbook/workbook.module';
+import { ExportModule } from './modules/workbook/export/export.module';
 import { BulkImportModule } from './modules/bulk-import/bulk-import.module';
 import { validate } from './config/env.validation';
 
@@ -63,6 +64,7 @@ import { AttendanceRecord } from './modules/attendance/entities/attendance-recor
 import { AttendanceDevice } from './modules/attendance/entities/attendance-device.entity';
 import { AttendanceDeviceEvent } from './modules/attendance/entities/attendance-device-event.entity';
 import { AuthToken } from './modules/account-access/entities/auth-token.entity';
+import { WorkbookJob } from './modules/workbook/jobs/workbook-job.entity';
 
 @Module({
   imports: [
@@ -126,6 +128,7 @@ import { AuthToken } from './modules/account-access/entities/auth-token.entity';
             AttendanceDevice,
             AttendanceDeviceEvent,
             AuthToken,
+            WorkbookJob,
           ],
           synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
           migrations: ['dist/migrations/*.js'],
@@ -191,6 +194,7 @@ import { AuthToken } from './modules/account-access/entities/auth-token.entity';
     AttendanceModule,
     AccountAccessModule,
     WorkbookModule,
+    ExportModule,
     BulkImportModule,
   ],
   controllers: [AppController],
