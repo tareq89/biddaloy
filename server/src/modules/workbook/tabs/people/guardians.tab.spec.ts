@@ -27,7 +27,7 @@ function importCtx(): ImportContext & { warn: ReturnType<typeof vi.fn> } {
   return {
     tenantId: TENANT_ID,
     ref: (_tab: string, key: string) => usersByEmail[key],
-    warn: vi.fn(),
+    warn: vi.fn<(e: RowError) => void>(),
   };
 }
 
