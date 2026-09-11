@@ -221,6 +221,33 @@ describe('readWorkbook resilience', () => {
     expect(classes.rows[0].cells.name).toBe('Six');
   });
 
+  // Business-critical: exceljs hands back a date-formatted cell as a real
+  // JS `Date` (not the plain string `writeWorkbook` itself always emits via
+  // `toCell`), so a workbook edited by hand in Excel/Sheets must still read
+  // back as the same calendar day the `date` column expects.
+  it('reads a real ExcelJS date-formatted cell as its calendar day', async () => {
+    const workbook = new ExcelJS.Workbook();
+    const metaSheet = workbook.addWorksheet('_meta');
+    metaSheet.addRow(['key', 'value']);
+    metaSheet.addRow(['schema_version', SCHEMA_VERSION]);
+    metaSheet.addRow(['kind', 'BACKUP']);
+
+    const sheet = workbook.addWorksheet('classes');
+    sheet.getRow(1).values = ['id', 'created_on', 'capacity'];
+    const dataRow = sheet.getRow(2);
+    dataRow.values = [ID_A, new Date(Date.UTC(2026, 2, 9)), 40];
+    dataRow.getCell(2).numFmt = 'yyyy-mm-dd';
+    const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
+
+    const classes = (await readWorkbook(buffer)).sheets.get('classes')!;
+
+    // readWorkbook itself is column-blind (uses cellText, not fromCell), so
+    // the raw cell text is the ISO timestamp cellText renders from the Date
+    // — the `date`-column acceptance of that string is cell-format.spec.ts's
+    // job, verified there directly against `fromCell`.
+    expect(classes.rows[0].cells.created_on).toBe('2026-03-09T00:00:00.000Z');
+  });
+
   // Business-critical: Bengali digits in a school name must survive. The
   // column-blind normaliser would rewrite ৫ to 5.
   it('preserves Bengali digits in _meta values', async () => {

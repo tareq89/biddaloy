@@ -391,7 +391,11 @@ function parseDateCell(
   }
 
   if (!withTime) {
-    const parts = DATE_ONLY.exec(text);
+    // exceljs hands a date-formatted cell back as a JS `Date`, which
+    // `cellText` renders as a UTC ISO timestamp rather than a bare
+    // YYYY-MM-DD. Read the UTC day from it instead of rejecting an
+    // otherwise valid date cell.
+    const parts = DATE_ONLY.exec(text) ?? /^(\d{4})-(\d{2})-(\d{2})T[\d:.]+Z$/i.exec(text);
     if (!parts) {
       return err(col, tab, rowNo, raw, `"${text}" is not a date. Use YYYY-MM-DD.`);
     }

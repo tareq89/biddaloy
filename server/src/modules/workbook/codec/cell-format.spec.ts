@@ -208,6 +208,15 @@ describe('fromCell', () => {
       expect(value(fromCell(col({ type: 'date' }), '45000', TAB, ROW))).toBe('2023-03-15');
     });
 
+    // exceljs returns a date-formatted cell as a JS `Date`, which `cellText`
+    // (normalizeCell) renders as a UTC ISO timestamp rather than a bare
+    // YYYY-MM-DD string — a real read path this column type must accept.
+    it('accepts the UTC ISO timestamp normalizeCell produces for a Date cell', () => {
+      expect(value(fromCell(col({ type: 'date' }), '2026-03-09T00:00:00.000Z', TAB, ROW))).toBe(
+        '2026-03-09',
+      );
+    });
+
     // Business-critical: an out-of-range serial must produce one RowError,
     // not a RangeError that escapes and aborts the whole import.
     it.each(['20260309', '999999999', '0', '-5'])(
