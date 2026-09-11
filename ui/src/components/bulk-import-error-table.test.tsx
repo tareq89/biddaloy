@@ -69,11 +69,9 @@ describe('BulkImportErrorTable', () => {
   });
 
   it('exports errors as a downloaded CSV when clicking export', async () => {
-    const clickSpy = vi.fn();
     const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock');
     const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
-    const clickOriginal = HTMLAnchorElement.prototype.click;
-    HTMLAnchorElement.prototype.click = clickSpy;
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
 
     try {
       const { user } = await renderTable([error({ value: 'John' })], { csvFileName: 'errors.csv' });
@@ -83,7 +81,7 @@ describe('BulkImportErrorTable', () => {
       expect(createObjectURL).toHaveBeenCalledTimes(1);
       expect(clickSpy).toHaveBeenCalledTimes(1);
     } finally {
-      HTMLAnchorElement.prototype.click = clickOriginal;
+      clickSpy.mockRestore();
       createObjectURL.mockRestore();
       revokeObjectURL.mockRestore();
     }
