@@ -69,7 +69,9 @@ describe('Workbook Backup E2E', () => {
         tenantId,
         overrides.status ?? 'DONE',
         SEED_ADMIN_USER_ID,
-        overrides.storage_key === undefined ? `tenants/${tenantId}/backups/fixture-${seq}.xlsx` : overrides.storage_key,
+        overrides.storage_key === undefined
+          ? `tenants/${tenantId}/backups/fixture-${seq}.xlsx`
+          : overrides.storage_key,
         overrides.size_bytes === undefined ? String(FIXTURE_BYTES.length) : overrides.size_bytes,
         overrides.expires_at === undefined ? null : overrides.expires_at,
       ],
@@ -195,7 +197,11 @@ describe('Workbook Backup E2E', () => {
   const routes: Array<{ name: string; method: 'get' | 'post'; path: (id: string) => string }> = [
     { name: 'GET /backup/jobs', method: 'get', path: () => '/api/v1/backup/jobs' },
     { name: 'GET /backup/jobs/:id', method: 'get', path: (id) => `/api/v1/backup/jobs/${id}` },
-    { name: 'GET /backup/jobs/:id/download', method: 'get', path: (id) => `/api/v1/backup/jobs/${id}/download` },
+    {
+      name: 'GET /backup/jobs/:id/download',
+      method: 'get',
+      path: (id) => `/api/v1/backup/jobs/${id}/download`,
+    },
   ];
 
   describe('permission and role guard', () => {
@@ -307,7 +313,9 @@ describe('Workbook Backup E2E', () => {
 
   describe('download status handling', () => {
     it('returns 410 when expires_at is in the past', async () => {
-      const jobId = await insertJob(TENANT_ID, { expires_at: new Date(Date.now() - 60_000).toISOString() });
+      const jobId = await insertJob(TENANT_ID, {
+        expires_at: new Date(Date.now() - 60_000).toISOString(),
+      });
 
       await supertest(app.getHttpServer())
         .get(`/api/v1/backup/jobs/${jobId}/download`)
@@ -328,7 +336,11 @@ describe('Workbook Backup E2E', () => {
     });
 
     it('returns 409 when the job is not ready (QUEUED)', async () => {
-      const jobId = await insertJob(TENANT_ID, { status: 'QUEUED', storage_key: null, size_bytes: null });
+      const jobId = await insertJob(TENANT_ID, {
+        status: 'QUEUED',
+        storage_key: null,
+        size_bytes: null,
+      });
 
       await supertest(app.getHttpServer())
         .get(`/api/v1/backup/jobs/${jobId}/download`)

@@ -74,6 +74,26 @@ describe('WorkbookNotifier', () => {
     expect(jobs.findOne).not.toHaveBeenCalled();
   });
 
+  it('skips on DONE + SNAPSHOT (D9) — a pre-restore safety copy is not a user request', async () => {
+    // The snapshot is taken automatically before a restore. Emailing "your
+    // backup is ready, download it" for an internal artefact nobody asked
+    // for would fire on every single restore.
+    await notifier.onJobFinished(basePayload({ source: WorkbookJobSource.SNAPSHOT }));
+
+    expect(delivery.deliver).not.toHaveBeenCalled();
+    expect(jobs.findOne).not.toHaveBeenCalled();
+  });
+
+  it('fires on FAILED + SNAPSHOT — failures are never silenced by source', async () => {
+    jobs.findOne.mockResolvedValue({ ...baseRow, status: WorkbookJobStatus.FAILED });
+
+    await notifier.onJobFinished(
+      basePayload({ source: WorkbookJobSource.SNAPSHOT, status: WorkbookJobStatus.FAILED }),
+    );
+
+    expect(delivery.deliver).toHaveBeenCalledTimes(1);
+  });
+
   it('fires on FAILED + SCHEDULED — failures are never silenced by source', async () => {
     jobs.findOne.mockResolvedValue({ ...baseRow, status: WorkbookJobStatus.FAILED });
 

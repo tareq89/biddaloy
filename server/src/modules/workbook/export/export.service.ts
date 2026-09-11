@@ -5,8 +5,17 @@ import { Queue } from 'bullmq';
 import { Repository } from 'typeorm';
 import { AuditAction } from '@biddaloy/shared';
 import { AuditService } from '../../audit/audit.service';
-import { WorkbookJob, WorkbookJobKind, WorkbookJobSource, WorkbookJobStatus } from '../jobs/workbook-job.entity';
-import { WORKBOOK_EXPORT_JOB, WORKBOOK_EXPORT_QUEUE, WorkbookExportJobData } from './export.constants';
+import {
+  WorkbookJob,
+  WorkbookJobKind,
+  WorkbookJobSource,
+  WorkbookJobStatus,
+} from '../jobs/workbook-job.entity';
+import {
+  WORKBOOK_EXPORT_JOB,
+  WORKBOOK_EXPORT_QUEUE,
+  WorkbookExportJobData,
+} from './export.constants';
 
 export interface RunExportInput {
   kind: WorkbookJobKind.EXPORT | WorkbookJobKind.SNAPSHOT;
@@ -56,6 +65,8 @@ export class ExportService {
           jobId: `workbook-export-${job.id}`,
           attempts: 2,
           removeOnComplete: true,
+          // See ExportModule's defaultJobOptions: keeps the failed set bounded.
+          removeOnFail: 100,
         },
       );
     } catch (err) {

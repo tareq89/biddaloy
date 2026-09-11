@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ConflictException, GoneException, NotFoundException, StreamableFile } from '@nestjs/common';
+import {
+  ConflictException,
+  GoneException,
+  NotFoundException,
+  StreamableFile,
+} from '@nestjs/common';
 import { Readable } from 'stream';
 import { WorkbookController } from './workbook.controller';
 import { ExportService } from './export.service';
@@ -62,7 +67,11 @@ describe('WorkbookController', () => {
     it('calls ExportService.run with the context tenant id and user sub', async () => {
       exportsService.run.mockResolvedValue(makeJob({ id: 'job-42' }));
 
-      const result = await controller.requestExport({ kind: WorkbookJobKind.SNAPSHOT }, tenant, user);
+      const result = await controller.requestExport(
+        { kind: WorkbookJobKind.SNAPSHOT },
+        tenant,
+        user,
+      );
 
       expect(exportsService.run).toHaveBeenCalledWith('tenant-1', {
         kind: WorkbookJobKind.SNAPSHOT,
@@ -94,7 +103,11 @@ describe('WorkbookController', () => {
       );
 
       expect(jobsRepo.findAndCount).toHaveBeenCalledWith({
-        where: { tenant_id: 'tenant-1', kind: WorkbookJobKind.EXPORT, status: WorkbookJobStatus.DONE },
+        where: {
+          tenant_id: 'tenant-1',
+          kind: WorkbookJobKind.EXPORT,
+          status: WorkbookJobStatus.DONE,
+        },
         relations: ['requested_by'],
         order: { created_at: 'DESC' },
         skip: 40,
@@ -131,7 +144,9 @@ describe('WorkbookController', () => {
     it('returns 404 when the job does not exist in this tenant', async () => {
       jobsRepo.findOne.mockResolvedValue(null);
 
-      await expect(controller.download('id', tenant, res)).rejects.toBeInstanceOf(NotFoundException);
+      await expect(controller.download('id', tenant, res)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
 
     it('returns 410 when the job is DELETED', async () => {
@@ -142,7 +157,11 @@ describe('WorkbookController', () => {
 
     it('returns 410 when expires_at is in the past', async () => {
       jobsRepo.findOne.mockResolvedValue(
-        makeJob({ status: WorkbookJobStatus.DONE, storage_key: 'k', expires_at: new Date(Date.now() - 1000) }),
+        makeJob({
+          status: WorkbookJobStatus.DONE,
+          storage_key: 'k',
+          expires_at: new Date(Date.now() - 1000),
+        }),
       );
 
       await expect(controller.download('id', tenant, res)).rejects.toBeInstanceOf(GoneException);
@@ -151,7 +170,10 @@ describe('WorkbookController', () => {
     it('proceeds when expires_at is null (never expires) — proves C3', async () => {
       const job = makeJob({ status: WorkbookJobStatus.DONE, storage_key: 'k', expires_at: null });
       jobsRepo.findOne.mockResolvedValue(job);
-      storage.get.mockResolvedValue({ body: Readable.from(Buffer.from('x')), contentType: XLSX_MIME });
+      storage.get.mockResolvedValue({
+        body: Readable.from(Buffer.from('x')),
+        contentType: XLSX_MIME,
+      });
 
       const result = await controller.download('id', tenant, res);
 
@@ -161,11 +183,15 @@ describe('WorkbookController', () => {
     it('returns 409 when the job is not DONE', async () => {
       jobsRepo.findOne.mockResolvedValue(makeJob({ status: WorkbookJobStatus.QUEUED }));
 
-      await expect(controller.download('id', tenant, res)).rejects.toBeInstanceOf(ConflictException);
+      await expect(controller.download('id', tenant, res)).rejects.toBeInstanceOf(
+        ConflictException,
+      );
     });
 
     it('returns 410 when DONE but storage_key is null', async () => {
-      jobsRepo.findOne.mockResolvedValue(makeJob({ status: WorkbookJobStatus.DONE, storage_key: null }));
+      jobsRepo.findOne.mockResolvedValue(
+        makeJob({ status: WorkbookJobStatus.DONE, storage_key: null }),
+      );
 
       await expect(controller.download('id', tenant, res)).rejects.toBeInstanceOf(GoneException);
     });
@@ -197,7 +223,10 @@ describe('WorkbookController', () => {
       jobsRepo.findOne.mockResolvedValue(
         makeJob({ status: WorkbookJobStatus.DONE, storage_key: 'k', size_bytes: null }),
       );
-      storage.get.mockResolvedValue({ body: Readable.from(Buffer.from('x')), contentType: XLSX_MIME });
+      storage.get.mockResolvedValue({
+        body: Readable.from(Buffer.from('x')),
+        contentType: XLSX_MIME,
+      });
 
       await controller.download('id', tenant, res);
 

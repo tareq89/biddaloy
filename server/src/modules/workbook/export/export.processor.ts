@@ -7,7 +7,7 @@ import * as Sentry from '@sentry/node';
 import { AuditAction } from '@biddaloy/shared';
 import { AuditService } from '../../audit/audit.service';
 import { StorageService } from '../../storage/storage.service';
-import { tenantObjectKey } from '../../storage/storage-key';
+import { tenantObjectKeyNamed } from '../../storage/storage-key';
 import { School } from '../../schools/entities/school.entity';
 import { ALL_TABS, assertRegistryValid, EXPECTED_TABS } from '../codec/registry';
 import { writeWorkbook } from '../codec/workbook-codec';
@@ -139,11 +139,20 @@ export class ExportProcessor extends WorkerHost {
       });
 
       stage = 'STORE';
-      const key = tenantObjectKey(tenantId, BACKUP_STORAGE_CATEGORY, 'xlsx');
+      // Keyed by the job row id, not a fresh random name: a retried attempt
+      // then overwrites its own previous upload instead of leaving a second
+      // full-size workbook in the bucket that no row references. Recording
+      // the key *before* the upload closes the other orphan window — if the
+      // DONE update below never lands, the object is still attributable to
+      // this row. Nothing can be downloaded early: the route requires DONE.
+      const key = tenantObjectKeyNamed(tenantId, BACKUP_STORAGE_CATEGORY, row.id, 'xlsx');
+      await this.jobs.update(row.id, { storage_key: key });
       await this.storage.put(key, buffer, XLSX_MIME);
 
       const finishedAt = new Date();
-      const expiresAt = new Date(finishedAt.getTime() + EXPORT_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+      const expiresAt = new Date(
+        finishedAt.getTime() + EXPORT_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+      );
 
       await this.jobs.update(row.id, {
         status: WorkbookJobStatus.DONE,
@@ -189,6 +198,27 @@ export class ExportProcessor extends WorkerHost {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       const sanitised = sanitiseExportError(stage);
+      // BullMQ retries this job (`attempts: 2`), so a non-final attempt is
+      // not a terminal outcome: writing FAILED and emailing here would tell
+      // the admin the backup failed and then — seconds later, once the retry
+      // succeeded — that it is ready. Same guard as `onFailed` below. The
+      // row stays RUNNING between attempts, which is what it actually is.
+      const isFinalAttempt = job.attemptsMade >= (job.opts.attempts ?? 1);
+
+      if (!isFinalAttempt) {
+        this.logger.warn(
+          `ExportProcessor: export job ${row.id} (tenant ${tenantId}) failed at "${
+            currentTab ?? 'n/a'
+          }" on attempt ${job.attemptsMade}; retrying: ${message}`,
+        );
+        throw err;
+      }
+
+      // `failed_tab` only means anything for a READ-stage failure. After
+      // `writeWorkbook` returns, `currentTab` still holds the last tab read,
+      // so reporting it for a STORE failure would blame the payments tab for
+      // what is really the object store being unreachable.
+      const failedTab = stage === 'READ' ? currentTab : null;
 
       // Guard the status write itself: a row left RUNNING forever is the
       // failure mode the tests assert against.
@@ -196,7 +226,7 @@ export class ExportProcessor extends WorkerHost {
         await this.jobs.update(row.id, {
           status: WorkbookJobStatus.FAILED,
           error: sanitised,
-          failed_tab: currentTab,
+          failed_tab: failedTab,
           finished_at: new Date(),
         });
       } catch (updateErr) {
@@ -232,7 +262,7 @@ export class ExportProcessor extends WorkerHost {
         new_values: {
           event: 'EXPORT_FAILED',
           workbook_job_id: row.id,
-          failed_tab: currentTab,
+          failed_tab: failedTab,
           error: sanitised,
         },
       });

@@ -41,14 +41,18 @@ export class WorkbookNotifier implements OnModuleInit {
 
   async onJobFinished(payload: WorkbookJobFinishedPayload): Promise<void> {
     try {
-      // D9: a scheduled job that succeeds sends nothing. Failures always
-      // email, regardless of source (including SCHEDULED and SNAPSHOT).
-      // Checked before any DB read.
+      // D9: only a job the admin actually asked for reports success. A
+      // SCHEDULED run is routine, and a SNAPSHOT is the internal pre-restore
+      // safety copy — emailing "your backup is ready, download it" for an
+      // artefact nobody requested is noise at best and confusing at worst.
+      // Failures always email, whatever the source. Checked before any DB read.
       if (
-        payload.source === WorkbookJobSource.SCHEDULED &&
-        payload.status === WorkbookJobStatus.DONE
+        payload.status === WorkbookJobStatus.DONE &&
+        payload.source !== WorkbookJobSource.MANUAL
       ) {
-        this.logger.debug(`Job ${payload.jobId} is a scheduled success — no email (D9).`);
+        this.logger.debug(
+          `Job ${payload.jobId} succeeded from source ${payload.source} — no email (D9).`,
+        );
         return;
       }
 

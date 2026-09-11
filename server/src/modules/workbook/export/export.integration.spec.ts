@@ -140,7 +140,7 @@ describe('ExportProcessor (integration)', () => {
     expect(buffer!.toString('latin1')).not.toContain(SECRET);
   });
 
-  it("tenant isolation: a job row for tenant B is not visible to a process() call for tenant A", async () => {
+  it('tenant isolation: a job row for tenant B is not visible to a process() call for tenant A', async () => {
     const jobForB = await dataSource.getRepository(WorkbookJob).save(
       dataSource.getRepository(WorkbookJob).create({
         tenant_id: TENANT_B,

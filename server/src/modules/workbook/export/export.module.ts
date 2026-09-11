@@ -30,7 +30,12 @@ import { WorkbookController } from './workbook.controller';
     ConfigModule,
     BullModule.registerQueue({
       name: WORKBOOK_EXPORT_QUEUE,
-      defaultJobOptions: { attempts: 2, removeOnComplete: true },
+      // `removeOnFail` matches the other queues in this codebase
+      // (absence-notice, refresh-token-cleanup): BullMQ keeps failed
+      // jobs forever by default, so without a cap the failed set grows
+      // unbounded in Redis — one entry per permanently-failed export,
+      // per tenant, never trimmed.
+      defaultJobOptions: { attempts: 2, removeOnComplete: true, removeOnFail: 100 },
     }),
   ],
   controllers: [WorkbookController],

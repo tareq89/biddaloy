@@ -7,8 +7,7 @@ import {
 
 export const WORKBOOK_EXPORT_QUEUE = 'workbook-export';
 export const WORKBOOK_EXPORT_JOB = 'export';
-export const XLSX_MIME =
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+export const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 export const BACKUP_STORAGE_CATEGORY = 'backups';
 export const EXPORT_RETENTION_DAYS = 30;
 

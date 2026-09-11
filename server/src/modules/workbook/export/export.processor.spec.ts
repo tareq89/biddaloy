@@ -1,11 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { Job } from 'bullmq';
 import { ExportProcessor } from './export.processor';
-import {
-  WorkbookJobKind,
-  WorkbookJobSource,
-  WorkbookJobStatus,
-} from '../jobs/workbook-job.entity';
+import { WorkbookJobKind, WorkbookJobSource, WorkbookJobStatus } from '../jobs/workbook-job.entity';
 import type { WorkbookExportJobData } from './export.constants';
 
 vi.mock('@sentry/node', () => ({
@@ -57,13 +53,23 @@ vi.mock('../codec/workbook-codec', () => ({
 
 const TENANT = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
 const OTHER_TENANT = '00000000-0000-4000-8000-000000000098';
-const JOB_ID = 'job-1';
+// A real uuid: `WorkbookJob.id` is a uuid primary key, and the storage key
+// is now derived from it (which validates the shape).
+const JOB_ID = '9b1d4c62-4e3a-4f7b-8a21-6c5e0f3d7a10';
 
-function fakeJob(overrides: Partial<WorkbookExportJobData> = {}): Job<WorkbookExportJobData> {
+/**
+ * Defaults to the FINAL attempt (`attemptsMade === attempts`), because that
+ * is when the processor is allowed to write a terminal status and notify.
+ * Pass `attemptsMade` explicitly to exercise a mid-retry attempt.
+ */
+function fakeJob(
+  overrides: Partial<WorkbookExportJobData> = {},
+  attemptsMade = 2,
+): Job<WorkbookExportJobData> {
   return {
     data: { jobId: JOB_ID, tenantId: TENANT, ...overrides },
     opts: { attempts: 2 },
-    attemptsMade: 0,
+    attemptsMade,
   } as Job<WorkbookExportJobData>;
 }
 
@@ -134,13 +140,9 @@ describe('ExportProcessor', () => {
 
     expect(storage.put).toHaveBeenCalledTimes(1);
     const [key, buffer, contentType] = storage.put.mock.calls[0];
-    expect(key).toMatch(
-      new RegExp(`^tenants/${TENANT}/backups/[0-9a-f-]{36}\\.xlsx$`),
-    );
+    expect(key).toMatch(new RegExp(`^tenants/${TENANT}/backups/[0-9a-f-]{36}\\.xlsx$`));
     expect(Buffer.isBuffer(buffer)).toBe(true);
-    expect(contentType).toBe(
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    );
+    expect(contentType).toBe('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   });
 
   it('a tab load rejecting fails the job: status FAILED, failed_tab set, sanitised error, storage never called', async () => {
@@ -171,6 +173,38 @@ describe('ExportProcessor', () => {
     expect(calls.some((c: any[]) => c[1].status === WorkbookJobStatus.DONE)).toBe(false);
     const failedCall = calls.find((c: any[]) => c[1].status === WorkbookJobStatus.FAILED);
     expect(failedCall).toBeTruthy();
+
+    // The read finished cleanly — blaming the last tab read would send the
+    // admin to debug the wrong subsystem for what is a storage outage.
+    expect(failedCall[1].failed_tab).toBeNull();
+  });
+
+  it('does not write FAILED or notify on a non-final attempt — BullMQ will retry', async () => {
+    // attempts: 2, so attemptsMade 1 is not terminal. Writing FAILED and
+    // emailing here produced "your backup failed" immediately followed by
+    // "your backup is ready" once the retry succeeded.
+    fakeTabA.load.mockRejectedValue(new Error('transient db blip'));
+
+    await expect(processor.process(fakeJob({}, 1))).rejects.toThrow('transient db blip');
+
+    const calls = jobsRepo.update.mock.calls;
+    expect(calls.some((c: any[]) => c[1].status === WorkbookJobStatus.FAILED)).toBe(false);
+    expect(events.emitFinished).not.toHaveBeenCalled();
+  });
+
+  it('records storage_key before uploading, and keys the object by the job row id', async () => {
+    await processor.process(fakeJob());
+
+    const key = storage.put.mock.calls[0][0];
+    expect(key).toContain(`/${JOB_ID}.xlsx`);
+
+    // Written to the row before the upload, so a terminal update that never
+    // lands still leaves the object attributable instead of orphaned.
+    const keyWriteIndex =
+      jobsRepo.update.mock.invocationCallOrder[
+        jobsRepo.update.mock.calls.findIndex((c: any[]) => c[1].storage_key === key)
+      ];
+    expect(keyWriteIndex).toBeLessThan(storage.put.mock.invocationCallOrder[0]);
   });
 
   it('emits WORKBOOK_JOB_FINISHED once on DONE with status DONE', async () => {
@@ -193,7 +227,9 @@ describe('ExportProcessor', () => {
     await expect(processor.process(fakeJob())).rejects.toThrow('db down');
 
     expect(events.emitFinished).toHaveBeenCalledTimes(1);
-    expect(events.emitFinished.mock.calls[0][0]).toMatchObject({ status: WorkbookJobStatus.FAILED });
+    expect(events.emitFinished.mock.calls[0][0]).toMatchObject({
+      status: WorkbookJobStatus.FAILED,
+    });
   });
 
   it('queries the repo with both id and tenant_id — a row for another tenant is not found', async () => {
