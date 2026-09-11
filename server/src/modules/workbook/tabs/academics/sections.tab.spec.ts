@@ -17,7 +17,7 @@ const TENANT_ID = '11111111-1111-4111-8111-111111111111';
 
 const exportCtx: ExportContext = {
   keyOf: (tab, id) => {
-    if (tab === 'classes' && id === CLASS_ID) return `Class 10|${YEAR_ID}`;
+    if (tab === 'classes' && id === CLASS_ID) return `Class 10|2026-2027`;
     if (tab === 'academic_years' && id === YEAR_ID) return '2026-2027';
     return '';
   },
@@ -27,7 +27,7 @@ function makeImportCtx(overrides: Partial<ImportContext> = {}): ImportContext {
   return {
     tenantId: TENANT_ID,
     ref: (tab, key) => {
-      if (tab === 'classes' && key === `Class 10|${YEAR_ID}`) return CLASS_ID;
+      if (tab === 'classes' && key === `Class 10|2026-2027`) return CLASS_ID;
       if (tab === 'academic_years' && key === '2026-2027') return YEAR_ID;
       return undefined;
     },
@@ -109,7 +109,7 @@ describe('round trip', () => {
         academic_year_id: YEAR_ID,
         section_name: 'A',
         capacity: 40,
-        class_key: `Class 10|${YEAR_ID}`,
+        class_key: `Class 10|2026-2027`,
         academic_year_key: '2026-2027',
       } satisfies ClassSectionRow,
     });
@@ -127,7 +127,7 @@ describe('round trip', () => {
         academic_year_id: YEAR_ID,
         section_name: 'A',
         capacity: null,
-        class_key: `Class 10|${YEAR_ID}`,
+        class_key: `Class 10|2026-2027`,
         academic_year_key: '2026-2027',
       } satisfies ClassSectionRow,
     });
@@ -161,6 +161,32 @@ describe('round trip', () => {
     });
   });
 
+  it('rejects an academic_year that does not match the class key embedded year', () => {
+    const OTHER_CLASS_ID = '55555555-5555-4555-8555-555555555555';
+    const cells = {
+      ...toCells(makeSection()),
+      class: `Class 9|2025-2026`,
+      academic_year: '2026-2027',
+    };
+
+    const result = sectionsTab.fromRow(
+      cells,
+      2,
+      makeImportCtx({
+        ref: (tab, key) => {
+          if (tab === 'classes' && key === `Class 9|2025-2026`) return OTHER_CLASS_ID;
+          if (tab === 'classes' && key === `Class 10|2026-2027`) return CLASS_ID;
+          if (tab === 'academic_years' && key === '2026-2027') return YEAR_ID;
+          return undefined;
+        },
+      }),
+    );
+
+    expect('errors' in result).toBe(true);
+    if (!('errors' in result)) return;
+    expect(result.errors[0]).toMatchObject({ column: 'academic_year' });
+  });
+
   it('rejects a section_name longer than the column allows', () => {
     const cells = { ...toCells(makeSection()), section_name: 'x'.repeat(21) };
 
@@ -181,7 +207,7 @@ describe('diffFields', () => {
       academic_year_id: YEAR_ID,
       section_name: 'A',
       capacity: 40,
-      class_key: `Class 10|${YEAR_ID}`,
+      class_key: `Class 10|2026-2027`,
       academic_year_key: '2026-2027',
     };
 
@@ -196,7 +222,7 @@ describe('diffFields', () => {
       academic_year_id: YEAR_ID,
       section_name: 'A',
       capacity: 45,
-      class_key: `Class 10|${YEAR_ID}`,
+      class_key: `Class 10|2026-2027`,
       academic_year_key: '2026-2027',
     };
 
