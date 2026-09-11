@@ -39,6 +39,7 @@ import {
   UpdateGuardianDto,
   UpdateOwnGuardianDto,
   QueryGuardianDto,
+  CommitBulkUploadDto,
 } from './dto/students.dto';
 import { UserRole, JwtPayload, Permission } from '@biddaloy/shared';
 
@@ -70,24 +71,44 @@ export class StudentController {
     return this.studentService.create(dto, tenant.id);
   }
 
-  @Post('students/bulk-upload')
+  // [14.9.1] Split from a single write-on-upload endpoint into validate +
+  // commit, staged on `ImportStagingService` (same pattern as the backup
+  // workbook import). No shim for the old `POST /students/bulk-upload` —
+  // callers must move to the two-step flow.
+  @Post('students/bulk-upload/validate')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
   @RequirePermissions(Permission.STUDENT_BULK_UPLOAD)
   @Throttle({ default: STRICT_RATE_LIMIT })
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: BULK_UPLOAD_MAX_FILE_SIZE } }))
   @ApiOperation({
-    summary: 'Bulk-create students and their guardians from a CSV/XLSX spreadsheet (max 5MB).',
+    summary:
+      'Validate a CSV/XLSX spreadsheet of students and their guardians (max 5MB) and stage the accepted rows. Writes nothing.',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } },
   })
-  bulkUploadStudents(
+  validateBulkUploadStudents(
     @UploadedFile() file: Express.Multer.File,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.bulkUploadService.process(file, tenant.id, user.sub);
+    return this.bulkUploadService.validate(file, tenant.id, user.sub);
+  }
+
+  @Post('students/bulk-upload/commit')
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  @RequirePermissions(Permission.STUDENT_BULK_UPLOAD)
+  @Throttle({ default: STRICT_RATE_LIMIT })
+  @ApiOperation({
+    summary: 'Commit a previously validated, staged bulk upload — actually creates the students.',
+  })
+  commitBulkUploadStudents(
+    @Body() dto: CommitBulkUploadDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.bulkUploadService.commit(dto.staging_id, tenant.id, user.sub);
   }
 
   @Get('students')

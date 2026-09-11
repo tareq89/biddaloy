@@ -18,6 +18,7 @@ import {
 import { Type, Transform } from 'class-transformer';
 import { CommunicationMedium, EnrollmentStatus } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
+import type { BulkImportErrorDto } from '../../bulk-import/dto/bulk-import.dto';
 
 // Matches "01712345678", "+8801712345678", or "8801712345678" — Bangladesh
 // mobile numbers (operator prefixes 13-19).
@@ -410,6 +411,31 @@ export class BulkUploadResultDto {
   error_count: number;
   created_student_ids: string[];
   errors: BulkUploadErrorDto[];
+}
+
+/** One accepted row, shown so the admin can eyeball the shape before committing. */
+export class BulkUploadPreviewRowDto {
+  row: number;
+  student_name: string;
+  class: string;
+  section: string;
+  guardian1_phone: string;
+}
+
+/** Response of `POST /students/bulk-upload/validate`. Nothing has been written yet. */
+export class BulkUploadValidateResultDto {
+  staging_id: string;
+  expires_at: string;
+  rows_to_create: number;
+  preview: BulkUploadPreviewRowDto[];
+  errors: BulkImportErrorDto[];
+  hard_error_count: number;
+}
+
+/** Body of `POST /students/bulk-upload/commit`. */
+export class CommitBulkUploadDto {
+  @IsNotEmpty({ message: 'Missing required field: staging_id' })
+  staging_id: string;
 }
 
 export class QueryGuardianDto {
