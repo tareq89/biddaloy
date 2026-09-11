@@ -72,8 +72,8 @@ on whatever the user set before invoking this skill.
 | Code review (step 7) — **standard tier** | the session's model | `code-review` skill in this session |
 | Commit, push, PR (steps 8–9) | the session's model | in this session |
 
-**Plan-grade** = the issue body already has `## Files`, `## Steps`, `## Tests`,
-`## Acceptance` (Epic 15/16 sub-issues). **Review tier** (money / standard) is
+**Plan-grade** = the issue body already has `## Files`, `## Tests`,
+`## Acceptance` and `## Steps` or `## Contract` (Epic 14/15/16 sub-issues). **Review tier** (money / standard) is
 defined once in `implement-epic` → "Model routing" and recorded by
 `issue-preflight` on the `## Plan` comment; for a non-plan-grade issue, apply
 the same path rule yourself.

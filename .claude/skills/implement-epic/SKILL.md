@@ -91,10 +91,10 @@ Delegation to a pinned subagent is the only switch available.
 | CI / CodeRabbit fix rounds | Sonnet, then Opus | rounds 1–2 Sonnet; round 3 Opus for money tier only (step 8) |
 | Group orchestration | Sonnet | `epic-group-worker`, one per lane |
 
-**Plan-grade** = the sub-issue body carries `## Files`, `## Steps`, `## Tests`
-and `## Acceptance` (the Epic 15/16 format). The plan already exists on the
-ticket; paying Opus to re-derive it is the single largest avoidable cost in an
-epic run.
+**Plan-grade** = the sub-issue body carries `## Files`, `## Tests`,
+`## Acceptance` and a how-section — `## Steps` (Epic 16) or `## Contract`
+(Epics 14/15). The plan already exists on the ticket; paying Opus to re-derive
+it is the single largest avoidable cost in an epic run.
 
 **Review tier** — where the expensive model actually earns its price. A ticket
 is **money** when its `## Files` touches `server/src/migrations/**`,
@@ -205,8 +205,8 @@ before any code is written:
 ### Plan-grade epics — pre-flight instead of planning
 
 Before dispatching any planner, read one sub-issue body. If it carries
-`## Files`, `## Steps`, `## Tests` and `## Acceptance`, the epic is
-**plan-grade** (Epics 15 and 16 are). Then:
+`## Files`, `## Tests`, `## Acceptance` and `## Steps` or `## Contract`, the
+epic is **plan-grade** (Epics 14, 15 and 16 are). Then:
 
 - Dispatch `issue-preflight` (Sonnet) per ticket instead of `issue-planner`.
   It verifies the body against the base branch, publishes a short
@@ -244,14 +244,21 @@ Rules:
 - Give each group a one-line territory description ("the `ui/` shell
   components", "server fees module + its DTOs"). If you cannot write that line,
   the partition is wrong.
-- **Plan-grade epics:** the sub-issues inside a declared wave were written to
-  be file-disjoint, so the default is **one lane per sub-issue**, all in
-  parallel, up to 8 (`--groups` still caps it). A wave's **close** task
-  ("wave close — seed, api-types, e2e") is not a lane in that wave: it runs as
-  its own one-lane sub-wave `w<N>c` **after wave N has merged to `main`**,
-  because it regenerates committed artifacts and needs every sibling landed.
-  If two sub-issues in a declared wave do share a file, merge them into one
-  lane and say so at GATE 1 — the epic's claim was wrong, not the rule.
+- **Plan-grade epics:** use what the epic declares.
+  - If the epic body declares **lanes** inside each wave (Epics 14/15: a lane
+    table with a territory and an ordered task list), the lanes *are* the
+    groups — one worker per lane, tasks in the declared order, up to the
+    wave's lane count (`--groups` still caps it; Epic 14 wave 2 needs
+    `--groups 6` or its tab lanes queue).
+  - If the epic declares only **waves** (Epic 16), every sub-issue in a wave
+    is its own lane, all in parallel, up to 8.
+  - A wave's **close** task, when the epic has one ("wave close — seed,
+    api-types, e2e"), is not a lane in that wave: it runs as its own one-lane
+    sub-wave `w<N>c` **after wave N has merged to `main`**, because it
+    regenerates committed artifacts and needs every sibling landed.
+  - Still verify disjointness from the `## Files` lists. If two declared
+    lanes share a file, merge them into one lane and say so at GATE 1 — the
+    epic's claim was wrong, not the rule.
 
 ### UI work needs no mockup gate
 

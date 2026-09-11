@@ -27,10 +27,11 @@ yours.
 gh issue view <n> --json body,comments
 ```
 
-Plan-grade means the body has **all four** headings: `## Files`, `## Steps`,
-`## Tests`, `## Acceptance`. If any is missing, stop and return
-`needs-planner` with the missing headings — the parent dispatches
-`issue-planner` instead. Do not try to fill the gaps yourself.
+Plan-grade means the body has `## Files`, `## Tests`, `## Acceptance`, **and**
+a how-section — either `## Steps` (Epic 16 style) or `## Contract` (Epic 14/15
+style). If any is missing, stop and return `needs-planner` with the missing
+headings — the parent dispatches `issue-planner` instead. Do not try to fill
+the gaps yourself.
 
 If a current `## Plan — <id>` comment already exists, return its URL and stop.
 Never stack a second plan comment on an issue.
