@@ -118,6 +118,29 @@ If the session carries a *"Do not call the Agent tool unless the user requested
 it"* rule, invoking this skill **is** that request — parallel subagents are how
 this skill is specified to work.
 
+## The wave loop
+
+A full run (no `--only`) works the waves **one at a time, to completion**:
+
+```
+for each wave N in order:
+    step 5   run wave N's lanes in parallel        (GATE 1 once, before wave 1)
+    step 6   integrate wave N's heads               → GATE 2
+    step 7–8 open wave N's PRs, fix CI/CodeRabbit
+    GATE 3   merge wave N to main
+    w<N>c    run the wave-close task on main, PR, merge   (plan-grade epics)
+next wave — its lanes root at the new main
+```
+
+Wave N+1 is never started until wave N is on `main`, because its tickets build
+on wave N's tables, services and types. Integration and PRs are therefore
+**per wave**, not once for the whole epic. `--only w<N>` runs exactly one
+iteration of this loop and stops; `resume` continues from the recorded wave.
+
+Expect a wave to span hours (60-minute PR pacing, CI, CodeRabbit rounds) and
+an eight-wave epic to span days across several sessions. That is normal — the
+state file and the `## Plan` comments carry position between sessions.
+
 ## Step 0 — Resolve the epic
 
 ```bash
