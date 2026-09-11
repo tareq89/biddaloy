@@ -163,12 +163,17 @@ describe('/students/import', () => {
             guardian1_phone: '+8801711111111',
           },
         ],
+        // `BulkImportErrorDto`: column/message/severity. The commit-side
+        // `field`/`reason` shape used here before did not match what the
+        // server returns from `validate`, so this assertion passed against a
+        // contract the real endpoint never sends.
         errors: [
           {
             row: 3,
-            field: 'guardian1_phone',
+            column: 'guardian1_phone',
             value: '০১৭১২৩৪৫৬৭',
-            reason: 'Invalid phone format: guardian1_phone',
+            message: 'Invalid phone format: guardian1_phone',
+            severity: 'error',
           },
         ],
         hard_error_count: 1,
@@ -273,7 +278,15 @@ describe('/students/import', () => {
             guardian1_phone: '+8801711111111',
           },
         ],
-        errors: [{ row: 2, field: 'roll', value: '5', reason: 'Duplicate roll number 5' }],
+        errors: [
+          {
+            row: 2,
+            column: 'roll',
+            value: '5',
+            message: 'Duplicate roll number 5',
+            severity: 'error',
+          },
+        ],
         hard_error_count: 1,
       }),
     );

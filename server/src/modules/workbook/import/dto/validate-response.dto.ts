@@ -44,6 +44,13 @@ export class ValidateResponseDto extends StagingRefDto {
   errors: BulkImportErrorDto[];
 
   @ApiProperty({
+    type: [BulkImportErrorDto],
+    description:
+      'Non-fatal notices. Includes "sheet <tab> not present", which means delete-by-absence is skipped for that tab.',
+  })
+  warnings: BulkImportErrorDto[];
+
+  @ApiProperty({
     description: 'Total error count, which can exceed errors.length once capped at 1,000',
   })
   hard_error_count: number;

@@ -181,7 +181,7 @@ describe('POST /backup/validate E2E', () => {
       .expect(404);
   });
 
-  it('returns the error list as CSV with 3 data lines', async () => {
+  it('returns the error list as an injection-guarded, BOM-prefixed CSV', async () => {
     const upload = await supertest(app.getHttpServer())
       .post('/api/v1/backup/validate')
       .set('Authorization', `Bearer ${token}`)
@@ -197,9 +197,25 @@ describe('POST /backup/validate E2E', () => {
       .set('X-Role', UserRole.ADMIN)
       .expect(200);
 
-    const lines = (csvRes.text as string).trim().split('\n');
-    expect(lines[0]).toBe('tab,row,column,severity,message,value');
-    expect(lines).toHaveLength(4); // header + 3 data lines
+    const text = csvRes.text as string;
+    // UTF-8 BOM: without it Excel on Windows decodes the file with the
+    // system code page and mangles Bangla values.
+    expect(text.startsWith('\uFEFF')).toBe(true);
+
+    const lines = text
+      .replace(/^\uFEFF/, '')
+      .trim()
+      .split('\r\n');
+    expect(lines[0]).toBe('"tab","row","column","severity","message","value"');
+    // Header + 3 errors. Warnings are appended after them, so assert the
+    // error lines are present rather than pinning the total.
+    expect(lines.length).toBeGreaterThanOrEqual(4);
+
+    // Every cell is quoted, and nothing starts a bare formula.
+    for (const line of lines) {
+      expect(line.startsWith('"')).toBe(true);
+      expect(/(^|,)=/.test(line)).toBe(false);
+    }
   });
 
   it('rejects a non-.xlsx file with 400', async () => {

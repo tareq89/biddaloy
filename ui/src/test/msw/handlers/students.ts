@@ -85,14 +85,25 @@ const bulkUploadValidateWithErrors = http.post('/api/v1/students/bulk-upload/val
         guardian1_phone: '+8801711111111',
       },
     ],
+    // `BulkImportErrorDto` — column/message/severity, the shape the server
+    // actually returns from `validate`. This mock previously used the
+    // commit-side `field`/`reason`, which kept both this suite and the route
+    // test green while the real page rendered every error row blank.
     errors: [
       {
         row: 3,
-        field: 'guardian1_phone',
+        column: 'guardian1_phone',
         value: '০১৭১২৩৪৫৬৭',
-        reason: 'Invalid phone format: guardian1_phone',
+        message: 'Invalid phone format: guardian1_phone',
+        severity: 'error',
       },
-      { row: 4, field: 'class', value: 'Class 99', reason: "Class 'Class 99' not found" },
+      {
+        row: 4,
+        column: 'class',
+        value: 'Class 99',
+        message: "Class 'Class 99' not found",
+        severity: 'error',
+      },
     ],
     hard_error_count: 2,
   }),

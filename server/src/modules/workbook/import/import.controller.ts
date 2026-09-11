@@ -18,7 +18,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { UserRole, Permission, JwtPayload } from '@biddaloy/shared';
+import { UserRole, Permission, JwtPayload, toCsvContent } from '@biddaloy/shared';
 import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
@@ -56,6 +56,11 @@ export interface StagedValidation {
   hardErrorCount: number;
   isEmptyTenant: boolean;
   errors: BulkImportErrorDto[];
+  /** Non-fatal, but some change what a restore does — most importantly
+   * "sheet <tab> not present", which means delete-by-absence is skipped for
+   * that tab. The admin confirms the restore from this preview, so these
+   * cannot be dropped. */
+  warnings: BulkImportErrorDto[];
 }
 
 function toErrorDto(e: RowError): BulkImportErrorDto {
@@ -67,11 +72,6 @@ function toErrorDto(e: RowError): BulkImportErrorDto {
     value: e.value,
     tab: e.tab,
   };
-}
-
-function csvField(value: string | number | null | undefined): string {
-  const s = value === null || value === undefined ? '' : String(value);
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
 /**
@@ -128,6 +128,7 @@ export class ImportController {
     const diffReport = await this.diffService.diff(validated, tenant.id, this.dataSource.manager);
 
     const errorDtos = validated.errors.map(toErrorDto);
+    const warningDtos = validated.warnings.map(toErrorDto);
 
     const staged: StagedValidation = {
       meta: validated.meta,
@@ -143,6 +144,7 @@ export class ImportController {
       hardErrorCount: diffReport.hardErrorCount,
       isEmptyTenant: diffReport.isEmptyTenant,
       errors: errorDtos,
+      warnings: warningDtos,
     };
 
     const { stagingId, expiresAt } = await this.staging.stage(tenant.id, user.sub, staged);
@@ -154,6 +156,7 @@ export class ImportController {
       tabs: staged.tabs,
       totals: staged.totals,
       errors: errorDtos,
+      warnings: warningDtos,
       hard_error_count: staged.hardErrorCount,
       is_empty_tenant: staged.isEmptyTenant,
     };
@@ -162,6 +165,9 @@ export class ImportController {
   @Get('validate/:stagingId/errors.csv')
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @RequirePermissions(Permission.BACKUP_MANAGE)
+  // Same budget as the validate call this replays: a staging id stays
+  // readable for its 30-minute TTL, so the download deserves the limit too.
+  @Throttle({ default: STRICT_RATE_LIMIT })
   @ApiOperation({ summary: 'Download the error list of a staged validation as CSV.' })
   async errorsCsv(
     @Param('stagingId') stagingId: string,
@@ -176,23 +182,30 @@ export class ImportController {
       throw new NotFoundException('No staged validation found for this id.');
     }
 
-    const header = 'tab,row,column,severity,message,value';
-    const lines = staged.errors.map((e) =>
-      [
-        csvField(e.tab ?? ''),
-        csvField(e.row),
-        csvField(e.column ?? ''),
-        csvField(e.severity),
-        csvField(e.message),
-        csvField(e.value ?? ''),
-      ].join(','),
-    );
+    // `toCsvContent` (shared) guards against CSV injection and emits the
+    // UTF-8 BOM. Both matter here: every value below is echoed straight from
+    // an uploaded workbook, so a cell like `=HYPERLINK("http://evil","x")`
+    // would execute when the admin opens the report in Excel, and Bangla
+    // error values mangle without the BOM.
+    const rows: unknown[][] = [
+      ['tab', 'row', 'column', 'severity', 'message', 'value'],
+      // Warnings included: severity is a column, and the "sheet not
+      // present" notice is the one line an admin most needs to see.
+      ...[...staged.errors, ...(staged.warnings ?? [])].map((e) => [
+        e.tab ?? '',
+        e.row,
+        e.column ?? '',
+        e.severity,
+        e.message,
+        e.value ?? '',
+      ]),
+    ];
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader(
       'Content-Disposition',
       `attachment; filename="backup-validation-${stagingId}.csv"`,
     );
-    res.send([header, ...lines].join('\n'));
+    res.send(toCsvContent(rows));
   }
 }

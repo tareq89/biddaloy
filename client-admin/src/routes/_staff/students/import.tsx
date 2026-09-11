@@ -67,15 +67,39 @@ function ImportStudentsContent() {
   const validateMutation = useValidateStudentUpload();
   const commitMutation = useCommitStudentUpload();
 
+  // Depend on `mutateAsync`, not the mutation object: react-query returns a
+  // fresh object every render, so keying on it changed these callbacks (and
+  // with them `useBulkUploadPreview`'s `selectFile`/`confirm`) every render,
+  // making the memoisation a no-op. `mutateAsync` is stable.
+  const { mutateAsync: validateAsync } = validateMutation;
+  const { mutateAsync: commitAsync } = commitMutation;
+
   const validate = React.useCallback(
     (file: File, onProgress: (percent: number) => void) =>
-      validateMutation.mutateAsync({ file, onProgress }),
-    [validateMutation],
+      validateAsync({ file, onProgress }).catch((err: unknown) => {
+        // The inline failure Card is the primary signal, but a user who
+        // navigated away mid-validate would otherwise get none at all.
+        notifyOutcome({
+          tenantId: captureNotificationTenant(),
+          variant: 'error',
+          message: t('notifications.failed'),
+        });
+        throw err;
+      }),
+    [validateAsync, t],
   );
 
   const commit = React.useCallback(
-    (stagingId: string) => commitMutation.mutateAsync(stagingId),
-    [commitMutation],
+    (stagingId: string) =>
+      commitAsync(stagingId).catch((err: unknown) => {
+        notifyOutcome({
+          tenantId: captureNotificationTenant(),
+          variant: 'error',
+          message: t('notifications.failed'),
+        });
+        throw err;
+      }),
+    [commitAsync, t],
   );
 
   return (

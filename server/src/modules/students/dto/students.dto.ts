@@ -434,6 +434,9 @@ export class BulkUploadValidateResultDto {
 
 /** Body of `POST /students/bulk-upload/commit`. */
 export class CommitBulkUploadDto {
+  // `@IsNotEmpty` alone accepts an object or an array, which then stringifies
+  // into the Redis key template as `[object Object]`. The id is a randomUUID.
+  @IsUUID('4', { message: 'staging_id must be a valid id' })
   @IsNotEmpty({ message: 'Missing required field: staging_id' })
   staging_id: string;
 }

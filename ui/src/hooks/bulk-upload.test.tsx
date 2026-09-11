@@ -75,7 +75,7 @@ describe('useValidateStudentUpload', () => {
     appendSpy.mockRestore();
   });
 
-  it('maps validate-time row errors into the shared preview error shape', async () => {
+  it('passes validate-time row errors through in the shared preview error shape', async () => {
     server.use(
       http.post('/api/v1/students/bulk-upload/validate', () =>
         HttpResponse.json(
@@ -84,8 +84,18 @@ describe('useValidateStudentUpload', () => {
             expires_at: new Date(Date.now() + 60_000).toISOString(),
             rows_to_create: 0,
             preview: [],
+            // What the server actually returns from `validate`: the generic
+            // `BulkImportErrorDto` (column/message/severity). The previous
+            // `field`/`reason` fixture was the commit-side shape, so this
+            // test passed while the real page rendered blank error rows.
             errors: [
-              { row: 3, field: 'guardian1_phone', value: 'bad', reason: 'Invalid phone format' },
+              {
+                row: 3,
+                column: 'guardian1_phone',
+                value: 'bad',
+                message: 'Invalid phone format',
+                severity: 'error',
+              },
             ],
             hard_error_count: 1,
           },

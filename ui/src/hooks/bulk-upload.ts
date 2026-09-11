@@ -45,22 +45,6 @@ export interface BulkUploadResult {
 }
 
 /**
- * A `PreviewResult` error carries `column`, not `field` — normalises the
- * commit-side `BulkUploadErrorDto` (`field`) into the same shape shown in
- * the preview table, so a caller never has to branch on which endpoint an
- * error came from.
- */
-function toPreviewError(e: BulkUploadError): BulkImportError {
-  return {
-    row: e.row,
-    column: e.field ?? null,
-    message: e.reason,
-    severity: 'error',
-    ...(e.value !== undefined ? { value: e.value } : {}),
-  };
-}
-
-/**
  * `err.response?.status` (axios) — the shape `useBulkUploadPreview`'s
  * `extractHttpStatus` reads — but `apiClient`'s interceptor throws an
  * `ApiError` with `statusCode`, not a raw axios error. Without this, a
@@ -97,7 +81,13 @@ export function useValidateStudentUpload() {
           expires_at: string;
           rows_to_create: number;
           preview: StudentUploadPreviewRow[];
-          errors: BulkUploadError[];
+          // `validate` already answers in `BulkImportError`'s shape
+          // (column/message/severity) — it returns the generic workbook
+          // `BulkImportErrorDto`, not the commit-side `field`/`reason` one.
+          // Mapping these through `toPreviewError` read `e.field`/`e.reason`,
+          // both undefined here, so every row of the preview table rendered
+          // with a null column and a blank message.
+          errors: BulkImportError[];
           hard_error_count: number;
         }>('/students/bulk-upload/validate', formData, {
           onUploadProgress: (event) => {
@@ -110,7 +100,7 @@ export function useValidateStudentUpload() {
         return {
           staging_id: body.staging_id,
           expires_at: body.expires_at,
-          errors: body.errors.map(toPreviewError),
+          errors: body.errors,
           hard_error_count: body.hard_error_count,
           summary: { rows_to_create: body.rows_to_create, preview: body.preview },
         };
