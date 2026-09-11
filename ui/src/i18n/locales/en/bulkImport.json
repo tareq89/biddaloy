@@ -10,6 +10,7 @@
   "confirming": "Confirming…",
   "uploadAnother": "Upload another",
   "done": "Done",
+  "fileWrongType": "This file type isn't supported — choose a .csv or .xlsx file",
   "fileTooLarge": "This file is too large — choose a smaller file",
   "uploadFailed": "Upload failed",
   "errors": {

@@ -30,32 +30,25 @@
   },
   "upload": {
     "title": "2. Upload your file",
-    "explanation": "CSV or XLSX, up to 5 MB and 2,000 students per file.",
-    "inputLabel": "Spreadsheet file to import",
-    "chooseFile": "Choose file",
-    "errorType": "This file type is not supported — upload a .csv or .xlsx file.",
-    "errorSize": "This file is larger than 5 MB — split it into smaller files.",
-    "progress": "Uploading… {{percent}}%",
-    "processing": "File received. Importing students — this can take a few minutes for a large file. Keep this page open."
+    "explanation": "CSV or XLSX, up to 5 MB and 2,000 students per file."
+  },
+  "preview": {
+    "willCreate_one": "{{count}} student will be created.",
+    "willCreate_other": "{{count}} students will be created.",
+    "previewCaption_one": "First {{count}} row",
+    "previewCaption_other": "First {{count}} rows",
+    "columns": {
+      "name": "Name",
+      "class": "Class",
+      "section": "Section",
+      "guardianPhone": "Guardian phone"
+    }
   },
   "result": {
     "title": "3. Result",
     "allImported": "All {{count}} students were imported.",
     "partialSummary": "{{success}} of {{total}} students imported. {{errors}} rows had problems.",
-    "requestFailed": "Nothing was imported: {{message}} Compare your file against the template, fix it and upload again.",
-    "tryAnotherFile": "Upload a corrected file",
     "importAnother": "Import another file"
-  },
-  "errors": {
-    "title": "Rows with problems",
-    "caption": "Rows that could not be imported",
-    "columnRow": "Row",
-    "columnField": "Column",
-    "columnValue": "Value in your file",
-    "columnReason": "Problem",
-    "wholeRow": "Whole row",
-    "emptyValue": "(empty)",
-    "exportCsv": "Export errors as CSV"
   },
   "notifications": {
     "imported": "{{success}} of {{total}} students imported.",

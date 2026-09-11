@@ -32,6 +32,7 @@ import { AccountAccessModule } from './modules/account-access/account-access.mod
 import { WorkbookModule } from './modules/workbook/workbook.module';
 import { ExportModule } from './modules/workbook/export/export.module';
 import { BulkImportModule } from './modules/bulk-import/bulk-import.module';
+import { ImportModule } from './modules/workbook/import/import.module';
 import { validate } from './config/env.validation';
 
 // Entities for auto-loading
@@ -196,6 +197,7 @@ import { WorkbookJob } from './modules/workbook/jobs/workbook-job.entity';
     WorkbookModule,
     ExportModule,
     BulkImportModule,
+    ImportModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

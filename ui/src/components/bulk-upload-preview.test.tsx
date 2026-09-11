@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type * as React from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -54,6 +54,7 @@ async function renderPreview(
       renderDone={rest.renderDone ?? renderDone}
       {...(canCommit ? { canCommit } : {})}
       {...(confirmSlot ? { confirmSlot } : {})}
+      {...(rest.accept ? { accept: rest.accept } : {})}
     />,
     { locale: 'en' },
   );
@@ -184,5 +185,31 @@ describe('BulkUploadPreview', () => {
     await selectFile();
     await screen.findByText('Rows with problems');
     expect(screen.queryByText('Sheet')).toBeNull();
+  });
+
+  it('rejects a file whose extension is not in `accept`, without uploading', async () => {
+    // Fires `change` directly rather than going through `user.upload`:
+    // jsdom enforces `accept` strictly, but a real OS dialog lets the user
+    // switch to "All Files" and pick anything, which is the case guarded
+    // against here — a .pdf would otherwise cost a full upload and one of
+    // the endpoint's throttle slots before the server answered.
+    const validate = vi.fn();
+    await renderPreview({ accept: '.csv,.xlsx', validate });
+
+    const input = await screen.findByLabelText('Choose file');
+    const pdf = new File(['x'], 'notes.pdf', { type: 'application/pdf' });
+    Object.defineProperty(input, 'files', { value: [pdf], configurable: true });
+    fireEvent.change(input);
+
+    expect(await screen.findByText(/file type isn't supported/i)).toBeTruthy();
+    expect(validate).not.toHaveBeenCalled();
+  });
+
+  it('accepts a file matching `accept` and validates it', async () => {
+    const validate = vi.fn().mockResolvedValue(baseResult());
+    await renderPreview({ accept: '.csv,.xlsx', validate });
+    await selectFile();
+
+    await waitFor(() => expect(validate).toHaveBeenCalledTimes(1));
   });
 });

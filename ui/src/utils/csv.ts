@@ -1,38 +1,12 @@
 /**
- * Shared CSV helpers — extracted from the two identical copies that lived
- * in `client-admin`'s `fees/dues.tsx` and `students/index.tsx` once the
- * student-import error report became the third caller (the repo's "a
- * third use earns extraction" convention).
+ * Browser-side CSV download. The escaping itself (`csvCell`,
+ * `toCsvContent`) lives in `@biddaloy/shared` so the server's report
+ * endpoints share one implementation — the formula guard and the UTF-8 BOM
+ * are exactly the parts a second copy tends to omit.
  */
+import { toCsvContent } from '@biddaloy/shared';
 
-/** A value starting with `=`, `+`, `-`, `@`, or a tab/CR is a formula to
- * spreadsheet software (Excel, Sheets) — a guardian name like
- * `=HYPERLINK(...)` would execute on open. Prefixing with `'` forces it
- * to render as text instead, same as Excel's own CSV-injection guidance. */
-const CSV_FORMULA_PREFIX = /^[=+\-@\t\r]/;
-
-/** One quoted, injection-guarded CSV cell. `null`/`undefined` become an
- * empty cell rather than the literal strings "null"/"undefined". */
-export function csvCell(value: unknown): string {
-  let text =
-    value === null || value === undefined
-      ? ''
-      : typeof value === 'string'
-        ? value
-        : // eslint-disable-next-line @typescript-eslint/no-base-to-string -- numbers/booleans stringify fine; an object caller passed is their bug to see in the file
-          String(value);
-  if (CSV_FORMULA_PREFIX.test(text)) text = `'${text}`;
-  return `"${text.replace(/"/g, '""')}"`;
-}
-
-/** Rows (header first) → a single CRLF-joined, BOM-prefixed CSV string.
- * Excel on Windows decodes a BOM-less CSV using the system code page,
- * mangling non-Latin text (e.g. Bangla names) — the UTF-8 BOM makes it
- * read the file as UTF-8 instead. */
-export function toCsvContent(rows: readonly (readonly unknown[])[]): string {
-  const body = rows.map((row) => row.map((cell) => csvCell(cell)).join(',')).join('\r\n');
-  return `\uFEFF${body}`;
-}
+export { csvCell, toCsvContent } from '@biddaloy/shared';
 
 /** Builds the CSV client-side and hands it to the browser as a download —
  * no server endpoint involved.

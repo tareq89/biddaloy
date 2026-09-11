@@ -932,7 +932,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/students/bulk-upload": {
+    "/api/v1/students/bulk-upload/validate": {
         parameters: {
             query?: never;
             header?: never;
@@ -941,8 +941,25 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Bulk-create students and their guardians from a CSV/XLSX spreadsheet (max 5MB). */
-        post: operations["StudentController_bulkUploadStudents_v1"];
+        /** Validate a CSV/XLSX spreadsheet of students and their guardians (max 5MB) and stage the accepted rows. Writes nothing. */
+        post: operations["StudentController_validateBulkUploadStudents_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/students/bulk-upload/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Commit a previously validated, staged bulk upload — actually creates the students. */
+        post: operations["StudentController_commitBulkUploadStudents_v1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2067,6 +2084,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/backup/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Validate an uploaded backup workbook and stage the dry-run preview. */
+        post: operations["ImportController_validate_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/backup/validate/{stagingId}/errors.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download the error list of a staged validation as CSV. */
+        get: operations["ImportController_errorsCsv_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2894,6 +2945,39 @@ export interface components {
             updated_at: string;
             /** Format: date-time */
             deleted_at: string | null;
+        };
+        BulkUploadPreviewRowDto: {
+            row: number;
+            student_name: string;
+            class: string;
+            section: string;
+            guardian1_phone: string;
+        };
+        BulkImportErrorDto: {
+            /** @description 1-based row number in the source sheet the error applies to */
+            row: number;
+            /** @description Column the error applies to, or null for a row-level error */
+            column: string | null;
+            /** @description Human-readable description of the problem */
+            message: string;
+            /** @enum {string} */
+            severity: "error" | "warning";
+            /** @description Offending cell value, when available */
+            value?: string;
+            /** @description Sheet/tab name the row was found on, for multi-tab workbooks */
+            tab?: string;
+        };
+        BulkUploadValidateResultDto: {
+            staging_id: string;
+            expires_at: string;
+            rows_to_create: number;
+            preview: components["schemas"]["BulkUploadPreviewRowDto"][];
+            errors: components["schemas"]["BulkImportErrorDto"][];
+            hard_error_count: number;
+        };
+        CommitBulkUploadDto: {
+            /** Format: uuid */
+            staging_id: string;
         };
         BulkUploadErrorDto: {
             row: number;
@@ -3885,6 +3969,48 @@ export interface components {
             page: number;
             limit: number;
             totalPages: number;
+        };
+        TabSummaryDto: {
+            /** @description Tab/sheet name, e.g. "school" */
+            name: string;
+            /** @description False when the workbook had no sheet for this tab */
+            present: boolean;
+            creates: number;
+            updates: number;
+            unchanged: number;
+            deletes: number;
+        };
+        ValidateTotalsDto: {
+            creates: number;
+            updates: number;
+            unchanged: number;
+            deletes: number;
+        };
+        ValidateResponseDto: {
+            /** @description Opaque id referencing the staged, validated payload */
+            staging_id: string;
+            /**
+             * Format: date-time
+             * @description ISO 8601 timestamp the staged payload expires at
+             */
+            expires_at: string;
+            meta: {
+                schema_version: number;
+                kind: string;
+                exported_at: string;
+                app_version: string;
+                source_school_name: string;
+                source_school_slug: string;
+            };
+            tabs: components["schemas"]["TabSummaryDto"][];
+            totals: components["schemas"]["ValidateTotalsDto"];
+            errors: components["schemas"]["BulkImportErrorDto"][];
+            /** @description Non-fatal notices. Includes "sheet <tab> not present", which means delete-by-absence is skipped for that tab. */
+            warnings: components["schemas"]["BulkImportErrorDto"][];
+            /** @description Total error count, which can exceed errors.length once capped at 1,000 */
+            hard_error_count: number;
+            /** @description True when every present tab except `school` currently has zero rows in this tenant */
+            is_empty_tenant: boolean;
         };
     };
     responses: never;
@@ -6199,7 +6325,7 @@ export interface operations {
             };
         };
     };
-    StudentController_bulkUploadStudents_v1: {
+    StudentController_validateBulkUploadStudents_v1: {
         parameters: {
             query?: never;
             header: {
@@ -6217,6 +6343,41 @@ export interface operations {
                     /** Format: binary */
                     file?: string;
                 };
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkUploadValidateResultDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StudentController_commitBulkUploadStudents_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommitBulkUploadDto"];
             };
         };
         responses: {
@@ -9381,6 +9542,81 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkbookJobDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ImportController_validate_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description The .xlsx workbook to validate.
+                     */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ValidateResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ImportController_errorsCsv_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                stagingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The staged validation errors and warnings as CSV. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

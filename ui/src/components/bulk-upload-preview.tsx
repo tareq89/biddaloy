@@ -45,6 +45,22 @@ function formatCountdown(remainingMs: number): string {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
+/**
+ * True when `accept` is absent (nothing to enforce) or the filename ends in
+ * one of its comma-separated extensions. Only extension entries are checked;
+ * a MIME-type entry like `text/csv` is left to the picker.
+ */
+function hasAcceptedExtension(name: string, accept: string | undefined): boolean {
+  if (!accept) return true;
+  const extensions = accept
+    .split(',')
+    .map((part) => part.trim().toLowerCase())
+    .filter((part) => part.startsWith('.'));
+  if (extensions.length === 0) return true;
+  const lower = name.toLowerCase();
+  return extensions.some((ext) => lower.endsWith(ext));
+}
+
 export function BulkUploadPreview<S, C>({
   accept,
   maxFileSize,
@@ -67,7 +83,10 @@ export function BulkUploadPreview<S, C>({
   const [slotBlocked, setSlotBlocked] = React.useState(false);
   const [remainingMs, setRemainingMs] = React.useState<number>(0);
 
-  const expiresAt = state.status === 'preview' || state.status === 'committing' ? state.result.expires_at : undefined;
+  const expiresAt =
+    state.status === 'preview' || state.status === 'committing'
+      ? state.result.expires_at
+      : undefined;
 
   // New preview → fresh countdown and a released confirm-slot hold.
   React.useEffect(() => {
@@ -89,6 +108,15 @@ export function BulkUploadPreview<S, C>({
     if (!file) return;
     setLocalError(undefined);
     setSelectedFile(file);
+    // `accept` on the input is only a hint to the OS file dialog, which
+    // lets the user switch it to "All Files" and pick anything. Checking
+    // here keeps a wrong-type file from costing a full upload and one of the
+    // endpoint's throttle slots. The server re-checks; this is a fail-fast,
+    // not the trust boundary.
+    if (!hasAcceptedExtension(file.name, accept)) {
+      setLocalError(t('fileWrongType'));
+      return;
+    }
     if (maxFileSize !== undefined && file.size > maxFileSize) {
       setLocalError(t('fileTooLarge'));
       return;
@@ -124,7 +152,8 @@ export function BulkUploadPreview<S, C>({
     statusText = state.reason === 'expired' ? t('expiredRetry') : state.message;
   }
 
-  const isExpired = (state.status === 'preview' || state.status === 'committing') && remainingMs <= 0;
+  const isExpired =
+    (state.status === 'preview' || state.status === 'committing') && remainingMs <= 0;
 
   const confirmDisabled =
     state.status !== 'preview' ||

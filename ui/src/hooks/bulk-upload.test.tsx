@@ -9,7 +9,7 @@ import { apiErrorBody } from '../test/msw/support';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
 import { createTestQueryClient } from '../test/render-with-providers';
 
-import { useBulkUploadStudents } from './bulk-upload';
+import { useValidateStudentUpload, useCommitStudentUpload } from './bulk-upload';
 import { studentKeys } from './students';
 
 function makeCsvFile(name = 'students.csv'): File {
@@ -21,16 +21,8 @@ function makeCsvFile(name = 'students.csv'): File {
   }) as unknown as File;
 }
 
-describe('useBulkUploadStudents', () => {
-  it('posts the file under the multipart field name `file` and returns the result', async () => {
-    // Field name matters: multer's FileInterceptor('file') silently ignores
-    // any other name and the server answers 400 "No file uploaded".
-    //
-    // Asserted by spying on FormData rather than by parsing the request body
-    // in the handler: MSW's XHR interceptor does not serialize jsdom
-    // FormData under Node 24 (it sends the string "[object FormData]"), so a
-    // `request.formData()` assertion tests the harness, not our hook. A real
-    // browser XHR sends the multipart body correctly.
+describe('useValidateStudentUpload', () => {
+  it('posts the file under the multipart field name `file` and returns a PreviewResult', async () => {
     const appended: [string, unknown][] = [];
     const appendSpy = vi.spyOn(FormData.prototype, 'append').mockImplementation(function (
       this: FormData,
@@ -42,8 +34,129 @@ describe('useBulkUploadStudents', () => {
 
     let requestReceived = false;
     server.use(
-      http.post('/api/v1/students/bulk-upload', () => {
+      http.post('/api/v1/students/bulk-upload/validate', () => {
         requestReceived = true;
+        return HttpResponse.json(
+          {
+            staging_id: 'stage-1',
+            expires_at: new Date(Date.now() + 60_000).toISOString(),
+            rows_to_create: 1,
+            preview: [
+              {
+                row: 2,
+                student_name: 'Rahim',
+                class: 'Class 5',
+                section: 'A',
+                guardian1_phone: '+8801711111111',
+              },
+            ],
+            errors: [],
+            hard_error_count: 0,
+          },
+          { status: 201 },
+        );
+      }),
+    );
+
+    const { result } = renderHookWithProviders(() => useValidateStudentUpload(), {
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+    });
+    const file = makeCsvFile();
+    await act(async () => {
+      const res = await result.current.mutateAsync({ file });
+      expect(res.staging_id).toBe('stage-1');
+      expect(res.summary.rows_to_create).toBe(1);
+      expect(res.hard_error_count).toBe(0);
+    });
+
+    expect(requestReceived).toBe(true);
+    expect(appended).toEqual([['file', file]]);
+    appendSpy.mockRestore();
+  });
+
+  it('passes validate-time row errors through in the shared preview error shape', async () => {
+    server.use(
+      http.post('/api/v1/students/bulk-upload/validate', () =>
+        HttpResponse.json(
+          {
+            staging_id: 'stage-2',
+            expires_at: new Date(Date.now() + 60_000).toISOString(),
+            rows_to_create: 0,
+            preview: [],
+            // What the server actually returns from `validate`: the generic
+            // `BulkImportErrorDto` (column/message/severity). The previous
+            // `field`/`reason` fixture was the commit-side shape, so this
+            // test passed while the real page rendered blank error rows.
+            errors: [
+              {
+                row: 3,
+                column: 'guardian1_phone',
+                value: 'bad',
+                message: 'Invalid phone format',
+                severity: 'error',
+              },
+            ],
+            hard_error_count: 1,
+          },
+          { status: 201 },
+        ),
+      ),
+    );
+
+    const { result } = renderHookWithProviders(() => useValidateStudentUpload(), {
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+    });
+    await act(async () => {
+      const res = await result.current.mutateAsync({ file: makeCsvFile() });
+      expect(res.errors).toEqual([
+        {
+          row: 3,
+          column: 'guardian1_phone',
+          message: 'Invalid phone format',
+          value: 'bad',
+          severity: 'error',
+        },
+      ]);
+      expect(res.hard_error_count).toBe(1);
+    });
+  });
+
+  it('surfaces a whole-request 400 as an error without retrying', async () => {
+    let requestCount = 0;
+    server.use(
+      http.post('/api/v1/students/bulk-upload/validate', () => {
+        requestCount += 1;
+        return HttpResponse.json(
+          apiErrorBody(
+            400,
+            'Missing required columns: roll',
+            '/api/v1/students/bulk-upload/validate',
+          ),
+          { status: 400 },
+        );
+      }),
+    );
+
+    const { result } = renderHookWithProviders(() => useValidateStudentUpload(), {
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+    });
+    act(() => {
+      result.current.mutate({ file: makeCsvFile() });
+    });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(requestCount).toBe(1);
+  });
+});
+
+describe('useCommitStudentUpload', () => {
+  it('posts the staging_id and returns the commit result', async () => {
+    let receivedBody: unknown;
+    server.use(
+      http.post('/api/v1/students/bulk-upload/commit', async ({ request }) => {
+        receivedBody = await request.json();
         return HttpResponse.json(
           {
             total_rows: 1,
@@ -57,46 +170,42 @@ describe('useBulkUploadStudents', () => {
       }),
     );
 
-    const { result } = renderHookWithProviders(() => useBulkUploadStudents(), {
+    const { result } = renderHookWithProviders(() => useCommitStudentUpload(), {
       tenantId: 'tenant-1',
       role: 'ADMIN',
     });
-    const file = makeCsvFile();
     await act(async () => {
-      const res = await result.current.mutateAsync({ file });
+      const res = await result.current.mutateAsync('stage-1');
       expect(res.success_count).toBe(1);
     });
-
-    expect(requestReceived).toBe(true);
-    expect(appended).toEqual([['file', file]]);
-    appendSpy.mockRestore();
+    expect(receivedBody).toEqual({ staging_id: 'stage-1' });
   });
 
-  it('invalidates the students list branch after a partial success (some rows created)', async () => {
+  it('invalidates the students list branch after a successful commit', async () => {
     const queryClient = createTestQueryClient();
     queryClient.setQueryData(studentKeys.list({}), { data: [], total: 0 });
     server.use(
-      http.post('/api/v1/students/bulk-upload', () =>
+      http.post('/api/v1/students/bulk-upload/commit', () =>
         HttpResponse.json(
           {
-            total_rows: 2,
+            total_rows: 1,
             success_count: 1,
-            error_count: 1,
+            error_count: 0,
             created_student_ids: ['s-1'],
-            errors: [{ row: 3, field: 'roll', value: '5', reason: 'Duplicate roll number 5' }],
+            errors: [],
           },
           { status: 201 },
         ),
       ),
     );
 
-    const { result } = renderHookWithProviders(() => useBulkUploadStudents(), {
+    const { result } = renderHookWithProviders(() => useCommitStudentUpload(), {
       queryClient,
       tenantId: 'tenant-1',
       role: 'ADMIN',
     });
     await act(async () => {
-      await result.current.mutateAsync({ file: makeCsvFile() });
+      await result.current.mutateAsync('stage-1');
     });
     await waitFor(() => {
       const state = queryClient.getQueryState(studentKeys.list({}));
@@ -104,26 +213,32 @@ describe('useBulkUploadStudents', () => {
     });
   });
 
-  it('surfaces a whole-request 400 as an error without retrying', async () => {
-    let requestCount = 0;
+  it('normalises a 404 (expired/consumed staging_id) to a status-bearing error', async () => {
     server.use(
-      http.post('/api/v1/students/bulk-upload', () => {
-        requestCount += 1;
-        return HttpResponse.json(
-          apiErrorBody(400, 'Missing required columns: roll', '/api/v1/students/bulk-upload'),
-          { status: 400 },
-        );
-      }),
+      http.post('/api/v1/students/bulk-upload/commit', () =>
+        HttpResponse.json(
+          apiErrorBody(
+            404,
+            'No staged upload found for this id.',
+            '/api/v1/students/bulk-upload/commit',
+          ),
+          { status: 404 },
+        ),
+      ),
     );
 
-    const { result } = renderHookWithProviders(() => useBulkUploadStudents(), {
+    const { result } = renderHookWithProviders(() => useCommitStudentUpload(), {
       tenantId: 'tenant-1',
       role: 'ADMIN',
     });
-    act(() => {
-      result.current.mutate({ file: makeCsvFile() });
+    let caught: unknown;
+    await act(async () => {
+      try {
+        await result.current.mutateAsync('stage-missing');
+      } catch (error) {
+        caught = error;
+      }
     });
-    await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(requestCount).toBe(1);
+    expect((caught as { status?: number }).status).toBe(404);
   });
 });
