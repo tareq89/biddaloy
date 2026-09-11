@@ -10,6 +10,17 @@ import type {
 } from '../../codec/tab-spec';
 
 /**
+ * Builds a local-midnight `Date` from a `YYYY-MM-DD` string. `new
+ * Date('YYYY-MM-DD')` parses as UTC midnight, which a server west of UTC
+ * would save as the previous calendar day — the year/month/day constructor
+ * always resolves in the local timezone instead.
+ */
+function parseDateOnly(value: string): Date {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+/**
  * The `academic_years` tab: the school calendar periods a tenant defines.
  *
  * Shaped after `tabs/school/school.tab.ts`. No refs here — `school` is the
@@ -148,8 +159,8 @@ export const academicYearsTab: TabSpec<AcademicYear, AcademicYearRow> = {
     const year = existing ?? new AcademicYear();
     year.tenant_id = tenantId;
     year.name = row.name;
-    year.start_date = new Date(row.start_date);
-    year.end_date = new Date(row.end_date);
+    year.start_date = parseDateOnly(row.start_date);
+    year.end_date = parseDateOnly(row.end_date);
     year.is_current = row.is_current;
 
     // `is_current` is unique-per-tenant (partial unique index on the

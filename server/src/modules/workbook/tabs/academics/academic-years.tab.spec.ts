@@ -20,8 +20,8 @@ function makeYear(overrides: Partial<AcademicYear> = {}): AcademicYear {
   return Object.assign(new AcademicYear(), {
     id: YEAR_ID,
     name: '2026-2027',
-    start_date: new Date('2026-01-01'),
-    end_date: new Date('2026-12-31'),
+    start_date: new Date(2026, 0, 1),
+    end_date: new Date(2026, 11, 31),
     is_current: true,
     tenant_id: TENANT_ID,
     ...overrides,
