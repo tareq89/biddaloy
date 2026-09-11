@@ -48,6 +48,8 @@ export { PhoneInput, formatValidPhone, type PhoneInputProps } from './phone-inpu
 export { DatePicker, Calendar, type DatePickerProps } from './date-picker';
 export { Combobox, type ComboboxOption, type ComboboxProps } from './combobox';
 export { FileUpload, type FileUploadItem, type FileUploadProps } from './file-upload';
+export { BulkUploadPreview, type BulkUploadPreviewProps } from './bulk-upload-preview';
+export { BulkImportErrorTable, type BulkImportErrorTableProps } from './bulk-import-error-table';
 export {
   DataTable,
   type DataTableCardRole,

@@ -30,6 +30,7 @@ import { SchoolsModule } from './modules/schools/schools.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { AccountAccessModule } from './modules/account-access/account-access.module';
 import { WorkbookModule } from './modules/workbook/workbook.module';
+import { BulkImportModule } from './modules/bulk-import/bulk-import.module';
 import { validate } from './config/env.validation';
 
 // Entities for auto-loading
@@ -190,6 +191,7 @@ import { AuthToken } from './modules/account-access/entities/auth-token.entity';
     AttendanceModule,
     AccountAccessModule,
     WorkbookModule,
+    BulkImportModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
