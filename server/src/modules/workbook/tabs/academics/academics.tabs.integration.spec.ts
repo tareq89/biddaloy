@@ -268,7 +268,7 @@ describe('academics tabs (integration)', () => {
     async function seedClass(tenantId: string, id: string): Promise<Class> {
       const year = await academicYearsTab.upsert(
         {
-          id: `${id}-year`.slice(0, 36).padEnd(36, '0'),
+          id: `${id.slice(0, 34)}aa`,
           name: `Year for ${id}`,
           start_date: '2026-01-01',
           end_date: '2026-12-31',
@@ -433,7 +433,7 @@ describe('academics tabs (integration)', () => {
     ): Promise<{ klass: Class; subject: Subject }> {
       const year = await academicYearsTab.upsert(
         {
-          id: `${id}-year`.slice(0, 36).padEnd(36, '0'),
+          id: `${id.slice(0, 34)}aa`,
           name: `Year for ${id}`,
           start_date: '2026-01-01',
           end_date: '2026-12-31',
@@ -453,7 +453,7 @@ describe('academics tabs (integration)', () => {
 
       const subject = await subjectsTab.upsert(
         {
-          id: `${id}-subj`.slice(0, 36).padEnd(36, '0'),
+          id: `${id.slice(0, 34)}bb`,
           code: 'MATH',
           name_en: 'Mathematics',
           name_bn: null,
