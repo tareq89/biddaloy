@@ -1,0 +1,528 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { DataSource, Repository } from 'typeorm';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import type { TestingModule } from '@nestjs/testing';
+import { CommunicationMedium, EnrollmentStatus } from '@biddaloy/shared';
+import { School } from '../../../schools/entities/school.entity';
+import { User } from '../../../users/entities/user.entity';
+import { Guardian } from '../../../students/entities/guardian.entity';
+import { Student } from '../../../students/entities/student.entity';
+import { AcademicYear } from '../../../academics/entities/academic-year.entity';
+import { Class } from '../../../academics/entities/class.entity';
+import { ClassSection } from '../../../academics/entities/class-section.entity';
+import { createTestModule } from '@test/helpers/module.helper';
+import { ALL_ENTITIES } from '@test/all-entities';
+import { studentsTab, type StudentRow } from './students.tab';
+import { guardiansTab } from './guardians.tab';
+
+/**
+ * Integration tests for the `students` tab against a real Postgres
+ * database.
+ *
+ * The unit spec covers the pure mapping. What it cannot cover:
+ * - `Student.registration_number` and `Student.user_id` both carry GLOBAL
+ *   unique constraints, not tenant-scoped (C1, C2) — `upsert` must look
+ *   them up without a tenant filter and revive a soft-deleted holder.
+ * - `Student.guardians` has `cascade: ['insert']` on the entity (C7) —
+ *   `upsert` must reconcile the `student_guardians` join table via
+ *   `addAndRemove`, never by assigning `.guardians` and calling `save`, or
+ *   a restore would insert duplicate `Guardian` rows.
+ */
+describe('studentsTab (integration)', () => {
+  let module: TestingModule;
+  let dataSource: DataSource;
+  let schoolRepo: Repository<School>;
+  let userRepo: Repository<User>;
+  let guardianRepo: Repository<Guardian>;
+  let studentRepo: Repository<Student>;
+  let yearRepo: Repository<AcademicYear>;
+  let classRepo: Repository<Class>;
+  let sectionRepo: Repository<ClassSection>;
+
+  const TENANT_A = '11111111-1111-4111-8111-111111111111';
+  const TENANT_B = '22222222-2222-4222-8222-222222222222';
+
+  beforeAll(async () => {
+    module = await createTestModule(ALL_ENTITIES, []);
+    dataSource = module.get(DataSource);
+    schoolRepo = module.get<Repository<School>>(getRepositoryToken(School));
+    userRepo = module.get<Repository<User>>(getRepositoryToken(User));
+    guardianRepo = module.get<Repository<Guardian>>(getRepositoryToken(Guardian));
+    studentRepo = module.get<Repository<Student>>(getRepositoryToken(Student));
+    yearRepo = module.get<Repository<AcademicYear>>(getRepositoryToken(AcademicYear));
+    classRepo = module.get<Repository<Class>>(getRepositoryToken(Class));
+    sectionRepo = module.get<Repository<ClassSection>>(getRepositoryToken(ClassSection));
+  });
+
+  afterAll(async () => {
+    await module?.close();
+  });
+
+  beforeEach(async () => {
+    // Children before parents, both tenants.
+    await dataSource.createQueryBuilder().delete().from('student_guardians').execute();
+    await studentRepo
+      .createQueryBuilder()
+      .delete()
+      .where('tenant_id IN (:...ids)', { ids: [TENANT_A, TENANT_B] })
+      .execute();
+    await guardianRepo
+      .createQueryBuilder()
+      .delete()
+      .where('tenant_id IN (:...ids)', { ids: [TENANT_A, TENANT_B] })
+      .execute();
+    await sectionRepo.delete({ tenant_id: TENANT_A });
+    await sectionRepo.delete({ tenant_id: TENANT_B });
+    await classRepo.delete({ tenant_id: TENANT_A });
+    await classRepo.delete({ tenant_id: TENANT_B });
+    await yearRepo.delete({ tenant_id: TENANT_A });
+    await yearRepo.delete({ tenant_id: TENANT_B });
+    await userRepo
+      .createQueryBuilder()
+      .delete()
+      .where('email LIKE :d', { d: '%@students-tab.test' })
+      .execute();
+    await schoolRepo.delete({ id: TENANT_A });
+    await schoolRepo.delete({ id: TENANT_B });
+
+    await schoolRepo.save(
+      schoolRepo.create({ id: TENANT_A, name: 'Tenant A School', slug: 'tenant-a-students' }),
+    );
+    await schoolRepo.save(
+      schoolRepo.create({ id: TENANT_B, name: 'Tenant B School', slug: 'tenant-b-students' }),
+    );
+  });
+
+  interface Chain {
+    year: AcademicYear;
+    klass: Class;
+    section: ClassSection;
+  }
+
+  async function seedChain(tenantId: string, tag: string): Promise<Chain> {
+    const year = await yearRepo.save(
+      yearRepo.create({
+        name: `2026-${tag}`,
+        start_date: new Date('2026-01-01'),
+        end_date: new Date('2026-12-31'),
+        is_current: true,
+        tenant_id: tenantId,
+      }),
+    );
+    const klass = await classRepo.save(
+      classRepo.create({
+        name: `Six-${tag}`,
+        numeric_grade: 6,
+        academic_year_id: year.id,
+        tenant_id: tenantId,
+      }),
+    );
+    const section = await sectionRepo.save(
+      sectionRepo.create({
+        class_id: klass.id,
+        section_name: 'A',
+        capacity: null,
+        tenant_id: tenantId,
+      }),
+    );
+    return { year, klass, section };
+  }
+
+  async function makeGuardian(
+    tenantId: string,
+    overrides: Partial<Guardian> = {},
+  ): Promise<Guardian> {
+    return guardianRepo.save(
+      guardianRepo.create({
+        user_id: null,
+        full_name: 'Fixture Guardian',
+        relationship: 'Father',
+        phone: null,
+        email: null,
+        alternate_phone: null,
+        address: null,
+        occupation: null,
+        preferred_communication: CommunicationMedium.SMS,
+        is_primary_contact: true,
+        notifications_enabled: true,
+        tenant_id: tenantId,
+        ...overrides,
+      }),
+    );
+  }
+
+  function rowFor(chain: Chain, overrides: Partial<StudentRow> = {}): StudentRow {
+    return {
+      id: '00000000-0000-4000-8000-000000000000',
+      registration_number: 'STU-001',
+      full_name: 'Karim Uddin',
+      roll_number: 1,
+      class_section_id: chain.section.id,
+      date_of_birth: null,
+      gender: null,
+      home_address: null,
+      preferred_communication: CommunicationMedium.SMS,
+      enrollment_status: EnrollmentStatus.ACTIVE,
+      guardian_ids: [],
+      user_id: null,
+      class_key: `${chain.klass.name}|${chain.year.name}`,
+      academic_year_key: chain.year.name,
+      section_key: `${chain.klass.name}|${chain.year.name}|A`,
+      guardian_keys: [],
+      user_key: null,
+      ...overrides,
+    };
+  }
+
+  describe('upsert', () => {
+    it('creates a new student with the right class_section_id and join rows', async () => {
+      const chain = await seedChain(TENANT_A, 'cws');
+      const g1 = await makeGuardian(TENANT_A, { phone: '01711111111' });
+
+      const created = await studentsTab.upsert(
+        rowFor(chain, { guardian_ids: [g1.id] }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+
+      const saved = await studentRepo.findOneOrFail({
+        where: { id: created.id },
+        relations: ['guardians'],
+      });
+      expect(saved.class_section_id).toBe(chain.section.id);
+      expect(saved.tenant_id).toBe(TENANT_A);
+      expect(saved.guardians.map((g) => g.id)).toEqual([g1.id]);
+    });
+
+    it('updates only full_name for a single changed field', async () => {
+      const chain = await seedChain(TENANT_A, 'upd');
+      const existing = await studentsTab.upsert(
+        rowFor(chain, { registration_number: 'STU-UPD' }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+
+      const updated = await studentsTab.upsert(
+        rowFor(chain, {
+          id: existing.id,
+          registration_number: 'STU-UPD',
+          full_name: 'New Name',
+        }),
+        existing,
+        TENANT_A,
+        dataSource.manager,
+      );
+
+      const saved = await studentRepo.findOneByOrFail({ id: updated.id });
+      expect(saved.full_name).toBe('New Name');
+      expect(saved.registration_number).toBe('STU-UPD');
+      expect(saved.roll_number).toBe(1);
+      expect(saved.class_section_id).toBe(chain.section.id);
+      expect(saved.enrollment_status).toBe(EnrollmentStatus.ACTIVE);
+    });
+
+    it('revives a soft-deleted student rather than raising 23505 on registration_number (C1)', async () => {
+      const chain = await seedChain(TENANT_A, 'rev');
+      const created = await studentsTab.upsert(
+        rowFor(chain, { registration_number: 'STU-REV' }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+      const loaded = await studentRepo.findOneByOrFail({ id: created.id });
+      await studentsTab.remove(loaded, dataSource.manager);
+
+      const softDeleted = await studentRepo.findOne({
+        where: { id: created.id },
+        withDeleted: true,
+      });
+      expect(softDeleted?.deleted_at).not.toBeNull();
+
+      const revived = await studentsTab.upsert(
+        rowFor(chain, { registration_number: 'STU-REV', full_name: 'Revived Kid' }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+
+      expect(revived.id).toBe(created.id);
+      const saved = await studentRepo.findOneByOrFail({ id: revived.id });
+      expect(saved.deleted_at).toBeNull();
+      expect(saved.full_name).toBe('Revived Kid');
+    });
+
+    it('throws a descriptive error naming both tenants on a cross-tenant registration_number collision (C1)', async () => {
+      const chainA = await seedChain(TENANT_A, 'xa');
+      const chainB = await seedChain(TENANT_B, 'xb');
+      await studentsTab.upsert(
+        rowFor(chainA, { registration_number: 'STU-DUP' }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+
+      await expect(
+        studentsTab.upsert(
+          rowFor(chainB, { registration_number: 'STU-DUP' }),
+          null,
+          TENANT_B,
+          dataSource.manager,
+        ),
+      ).rejects.toThrow(new RegExp(TENANT_A));
+
+      const stillA = await studentRepo.findOneByOrFail({ registration_number: 'STU-DUP' });
+      expect(stillA.tenant_id).toBe(TENANT_A);
+      const tenantBStudents = await studentRepo.find({ where: { tenant_id: TENANT_B } });
+      expect(tenantBStudents).toHaveLength(0);
+    });
+
+    it('throws a descriptive error when user_id already belongs to another tenant (C2)', async () => {
+      const chainA = await seedChain(TENANT_A, 'ua');
+      const chainB = await seedChain(TENANT_B, 'ub');
+      const user = await userRepo.save(
+        userRepo.create({
+          email: 'shared-user@students-tab.test',
+          phone: null,
+          full_name: 'Shared User',
+          password_hash: null,
+        }),
+      );
+      await studentsTab.upsert(
+        rowFor(chainA, { registration_number: 'STU-UA', user_id: user.id }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+
+      await expect(
+        studentsTab.upsert(
+          rowFor(chainB, { registration_number: 'STU-UB', user_id: user.id, user_key: user.email }),
+          null,
+          TENANT_B,
+          dataSource.manager,
+        ),
+      ).rejects.toThrow(new RegExp(TENANT_A));
+    });
+  });
+
+  describe('remove', () => {
+    it('soft-deletes: deleted_at is set, absent from load, present with withDeleted, join rows survive', async () => {
+      const chain = await seedChain(TENANT_A, 'rm');
+      const g1 = await makeGuardian(TENANT_A, { phone: '01711111112' });
+      const created = await studentsTab.upsert(
+        rowFor(chain, { registration_number: 'STU-RM', guardian_ids: [g1.id] }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+      const loaded = await studentRepo.findOneByOrFail({ id: created.id });
+
+      await studentsTab.remove(loaded, dataSource.manager);
+
+      const defaultFind = await studentRepo.findOne({ where: { id: created.id } });
+      expect(defaultFind).toBeNull();
+
+      const withDeleted = await studentRepo.findOne({
+        where: { id: created.id },
+        withDeleted: true,
+        relations: ['guardians'],
+      });
+      expect(withDeleted?.deleted_at).not.toBeNull();
+      expect(withDeleted?.guardians.map((g) => g.id)).toEqual([g1.id]);
+    });
+  });
+
+  describe('load', () => {
+    it('never returns a tenant B student when loading tenant A', async () => {
+      const chainA = await seedChain(TENANT_A, 'la');
+      const chainB = await seedChain(TENANT_B, 'lb');
+      const studentA = await studentsTab.upsert(
+        rowFor(chainA, { registration_number: 'STU-LA' }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+      await studentsTab.upsert(
+        rowFor(chainB, { registration_number: 'STU-LB' }),
+        null,
+        TENANT_B,
+        dataSource.manager,
+      );
+
+      const loaded = await studentsTab.load(TENANT_A, dataSource.manager);
+
+      expect(loaded.map((s) => s.id)).toEqual([studentA.id]);
+    });
+  });
+
+  describe('guardian sharing and dedup (C7)', () => {
+    it('two siblings sharing two guardians export the same guardian_phones and re-import to the same links with no duplicate join rows', async () => {
+      const chain = await seedChain(TENANT_A, 'sib');
+      const g1 = await makeGuardian(TENANT_A, {
+        full_name: 'Karim Uddin',
+        relationship: 'Father',
+        phone: '01711111111',
+      });
+      const g2 = await makeGuardian(TENANT_A, {
+        full_name: 'Rahima Begum',
+        relationship: 'Mother',
+        phone: '01722222222',
+      });
+
+      const s1 = await studentsTab.upsert(
+        rowFor(chain, {
+          registration_number: 'STU-001',
+          roll_number: 1,
+          guardian_ids: [g1.id, g2.id],
+        }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+      const s2 = await studentsTab.upsert(
+        rowFor(chain, {
+          registration_number: 'STU-002',
+          roll_number: 2,
+          guardian_ids: [g1.id, g2.id],
+        }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+
+      // Export leg: both students should render the identical guardian_phones cell.
+      const loaded = await studentsTab.load(TENANT_A, dataSource.manager);
+      const s1Entity = loaded.find((s) => s.id === s1.id)!;
+      const s2Entity = loaded.find((s) => s.id === s2.id)!;
+      const sectionKeyForExport = `${chain.klass.name}|${chain.year.name}|A`;
+      const classKeyForExport = `${chain.klass.name}|${chain.year.name}`;
+      const exportCtx = {
+        keyOf: (tab: string, id: string) => {
+          if (tab === 'guardians') {
+            const g = [g1, g2].find((guardian) => guardian.id === id)!;
+            return guardiansTab.keyOf(g);
+          }
+          if (tab === 'sections' && id === chain.section.id) return sectionKeyForExport;
+          if (tab === 'classes' && id === chain.klass.id) return classKeyForExport;
+          if (tab === 'academic_years' && id === chain.year.id) return chain.year.name;
+          return '';
+        },
+      };
+      const row1 = studentsTab.toRow(s1Entity, exportCtx);
+      const row2 = studentsTab.toRow(s2Entity, exportCtx);
+      expect(row1.guardian_phones).toEqual(row2.guardian_phones);
+      expect(row1.guardian_phones).toEqual(['01711111111', '01722222222']);
+
+      // Import leg: re-upsert both students (idempotency check for addAndRemove).
+      const sectionKey = `${chain.klass.name}|${chain.year.name}|A`;
+      const classKey = `${chain.klass.name}|${chain.year.name}`;
+      const importCtx = {
+        tenantId: TENANT_A,
+        ref: (tab: string, key: string) => {
+          if (tab === 'guardians') {
+            if (key === '01711111111') return g1.id;
+            if (key === '01722222222') return g2.id;
+            return undefined;
+          }
+          if (tab === 'sections' && key === sectionKey) return chain.section.id;
+          if (tab === 'classes' && key === classKey) return chain.klass.id;
+          if (tab === 'academic_years' && key === chain.year.name) return chain.year.id;
+          return undefined;
+        },
+        warn: () => {},
+      };
+      const fromRow1 = studentsTab.fromRow(
+        { ...emptyCellsFor(row1), guardian_phones: '01711111111;01722222222' },
+        2,
+        importCtx,
+      );
+      if ('errors' in fromRow1) throw new Error(JSON.stringify(fromRow1.errors));
+
+      await studentsTab.upsert(
+        { ...fromRow1.row, id: s1.id, registration_number: 'STU-001', roll_number: 1 },
+        s1Entity,
+        TENANT_A,
+        dataSource.manager,
+      );
+      await studentsTab.upsert(
+        { ...fromRow1.row, id: s2.id, registration_number: 'STU-002', roll_number: 2 },
+        s2Entity,
+        TENANT_A,
+        dataSource.manager,
+      );
+
+      // The named dedup assertions: guardian count unchanged, exactly 4 join rows.
+      const guardianCount = await guardianRepo.count({ where: { tenant_id: TENANT_A } });
+      expect(guardianCount).toBe(2);
+
+      const joinRows = await dataSource
+        .createQueryBuilder()
+        .select('*')
+        .from('student_guardians', 'sg')
+        .where('sg.student_id IN (:...ids)', { ids: [s1.id, s2.id] })
+        .getRawMany();
+      expect(joinRows).toHaveLength(4);
+
+      const s1Final = await studentRepo.findOneOrFail({
+        where: { id: s1.id },
+        relations: ['guardians'],
+      });
+      const s2Final = await studentRepo.findOneOrFail({
+        where: { id: s2.id },
+        relations: ['guardians'],
+      });
+      expect(s1Final.guardians.map((g) => g.id).sort()).toEqual([g1.id, g2.id].sort());
+      expect(s2Final.guardians.map((g) => g.id).sort()).toEqual([g1.id, g2.id].sort());
+    });
+
+    it('replaces links: re-upsert with only one guardian removes the other link but keeps the guardian row', async () => {
+      const chain = await seedChain(TENANT_A, 'rep');
+      const g1 = await makeGuardian(TENANT_A, { phone: '01733333331' });
+      const g2 = await makeGuardian(TENANT_A, { phone: '01733333332' });
+
+      const s1 = await studentsTab.upsert(
+        rowFor(chain, { registration_number: 'STU-REP', guardian_ids: [g1.id, g2.id] }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+      const loaded = await studentRepo.findOneOrFail({
+        where: { id: s1.id },
+        relations: ['guardians'],
+      });
+
+      await studentsTab.upsert(
+        rowFor(chain, { id: s1.id, registration_number: 'STU-REP', guardian_ids: [g1.id] }),
+        loaded,
+        TENANT_A,
+        dataSource.manager,
+      );
+
+      const updated = await studentRepo.findOneOrFail({
+        where: { id: s1.id },
+        relations: ['guardians'],
+      });
+      expect(updated.guardians.map((g) => g.id)).toEqual([g1.id]);
+
+      const guardianCount = await guardianRepo.count({ where: { tenant_id: TENANT_A } });
+      expect(guardianCount).toBe(2);
+    });
+  });
+});
+
+function emptyCellsFor(row: Record<string, unknown>): Record<string, string> {
+  const cells: Record<string, string> = {};
+  for (const column of studentsTab.columns) {
+    const value = row[column.key];
+    if (value === undefined || value === null) {
+      cells[column.key] = '';
+    } else if (Array.isArray(value)) {
+      cells[column.key] = value.join(';');
+    } else {
+      cells[column.key] = String(value);
+    }
+  }
+  return cells;
+}
