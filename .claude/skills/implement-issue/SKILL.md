@@ -65,10 +65,18 @@ on whatever the user set before invoking this skill.
 
 | Phase | Runs on | How |
 |---|---|---|
-| Research + plan (steps 2–3) | Opus | `issue-planner` subagent (`.claude/agents/issue-planner.md`, `model: opus`) |
+| Research + plan (steps 2–3) — **plan-grade** issue | Sonnet | `issue-preflight` subagent (`.claude/agents/issue-preflight.md`, `model: sonnet`) |
+| Research + plan (steps 2–3) — everything else | Opus | `issue-planner` subagent (`.claude/agents/issue-planner.md`, `model: opus`) |
 | Implement, tests, stories (steps 4–6) | Sonnet | `issue-implementer` subagent (`.claude/agents/issue-implementer.md`, `model: sonnet`) |
-| Code review (step 7) | the session's model | in this session |
+| Code review (step 7) — **money tier** | Opus | `issue-reviewer` subagent (`.claude/agents/issue-reviewer.md`, `model: opus`) |
+| Code review (step 7) — **standard tier** | the session's model | `code-review` skill in this session |
 | Commit, push, PR (steps 8–9) | the session's model | in this session |
+
+**Plan-grade** = the issue body already has `## Files`, `## Steps`, `## Tests`,
+`## Acceptance` (Epic 15/16 sub-issues). **Review tier** (money / standard) is
+defined once in `implement-epic` → "Model routing" and recorded by
+`issue-preflight` on the `## Plan` comment; for a non-plan-grade issue, apply
+the same path rule yourself.
 
 Planning is delegated rather than done in-session for the same reason
 implementation is: it pins the phase to the right model regardless of what the
@@ -177,12 +185,20 @@ implementation before issue N's PR is open.
   onto `main` and retarget the open PRs rather than leaving them stacked on a
   merged branch.
 
-### 2–3. Research and plan — delegated to Opus
+### 2–3. Research and plan — delegated (Sonnet pre-flight or Opus planner)
 
-Dispatch the `issue-planner` subagent (Opus) with the issue ID and the base
-branch. It owns graphify research, verification against the current code, the
-written plan, and publishing that plan to the GitHub issue as a comment. Its
-definition carries the full contract.
+If the issue body is **plan-grade** (`## Files`, `## Steps`, `## Tests`,
+`## Acceptance` all present), dispatch `issue-preflight` (Sonnet) with the
+issue ID and base branch. It verifies the body against the code, publishes a
+short `## Plan — <id>` comment that points at the body, and records the review
+tier. Only if it returns `needs-planner` do you fall through to the next
+paragraph; if it returns `blocked-on: #<n>`, stop and tell the user which
+ticket must land first.
+
+Otherwise dispatch the `issue-planner` subagent (Opus) with the issue ID and
+the base branch. It owns graphify research, verification against the current
+code, the written plan, and publishing that plan to the GitHub issue as a
+comment. Its definition carries the full contract.
 
 **Check for an existing plan first.** Run `gh issue view <n> --json comments`
 and look for a comment headed `## Plan — <issue id>`. If a current one is
@@ -231,10 +247,17 @@ in the diff.
 
 ### 7. Code review
 
-Invoke the `code-review` skill on the working tree **before** committing, so
-fixes land in the same commit rather than as follow-up noise in the PR diff.
-(It's a skill, so you invoke it directly — unlike `/model`, this one really
-runs.)
+Review before committing, so fixes land in the same commit rather than as
+follow-up noise in the PR diff. Who reviews depends on the **review tier**:
+
+- **money tier** → dispatch the `issue-reviewer` subagent (Opus). It runs
+  `code-review` itself and additionally judges the diff against the plan, the
+  acceptance criteria and the repo invariants. This is where the expensive
+  model earns its price — a missed allocation or tenant-isolation bug costs
+  far more later than the review costs now.
+- **standard tier** → invoke the `code-review` skill on the working tree in
+  this session. (It's a skill, so you invoke it directly — unlike `/model`,
+  this one really runs.)
 
 Act on what it finds:
 

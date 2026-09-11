@@ -36,8 +36,10 @@ never be disjoint.
   published plans instead of redoing them.
 - **`resume`** (or no argument with a state file present) → read
   `.implement-epic-state.md` and continue.
-- **`--groups N`** → cap parallel lanes (default 3).
-- **`--only w<N>`** → run one wave and stop.
+- **`--groups N`** → cap parallel lanes (default 3; for a **plan-grade** epic
+  the default is one lane per sub-issue in the wave, max 8 — see step 3).
+- **`--only w<N>`** → run one wave and stop. `w<N>c` is that wave's close
+  sub-wave.
 
 ## Mode
 
@@ -81,10 +83,33 @@ Delegation to a pinned subagent is the only switch available.
 | Phase | Runs on | How |
 |---|---|---|
 | Grouping, integration, PRs, merges | the session's model | here |
-| Per-ticket research + plan | `issue-planner`'s pin | subagent |
-| Per-ticket implementation | `issue-implementer`'s pin | subagent |
-| Per-ticket review | Opus | `Agent(model: "opus")` from the group agent |
-| Group orchestration | `epic-group-worker`'s pin | subagent, one per lane |
+| Per-ticket plan — **plan-grade** ticket | Sonnet | `issue-preflight` subagent (verifies the body, publishes a `## Plan` pointer) |
+| Per-ticket plan — everything else | Opus | `issue-planner` subagent |
+| Per-ticket implementation | Sonnet | `issue-implementer` subagent |
+| Per-ticket review — **money tier** | Opus | `issue-reviewer` subagent, from the group agent |
+| Per-ticket review — **standard tier** | Sonnet | `Agent(model: "sonnet")` following `issue-reviewer.md`, from the group agent |
+| CI / CodeRabbit fix rounds | Sonnet, then Opus | rounds 1–2 Sonnet; round 3 Opus for money tier only (step 8) |
+| Group orchestration | Sonnet | `epic-group-worker`, one per lane |
+
+**Plan-grade** = the sub-issue body carries `## Files`, `## Steps`, `## Tests`
+and `## Acceptance` (the Epic 15/16 format). The plan already exists on the
+ticket; paying Opus to re-derive it is the single largest avoidable cost in an
+epic run.
+
+**Review tier** — where the expensive model actually earns its price. A ticket
+is **money** when its `## Files` touches `server/src/migrations/**`,
+`server/src/modules/fees/**` (beyond `dto/` and controller-only changes),
+`server/src/modules/invoices/**`, `server/src/modules/reports/**`,
+`server/src/modules/auth/**`, or its body mentions an approval scope, wallet,
+allocation, reversal, ledger or late fee. Everything else — UI, docs, hooks,
+wave-close glue — is **standard**. An epic body may override with an explicit
+list; `issue-preflight` records the tier on its `## Plan` comment and the group
+agent reads it from there.
+
+**Effort** is session-wide and cannot be set per agent (see `implement-issue`,
+"Effort cannot be routed per phase"). Run the orchestrating session at
+`/effort low`; model tier is the only per-phase lever, and the table above is
+the whole of it. Never claim a per-phase effort split in a report.
 
 State the actual session model in one line before starting, as
 `implement-issue` does.
@@ -154,6 +179,27 @@ before any code is written:
   doesn't name its files, send it back for revision — the partition depends on
   it, and so does the workers' territory rule.
 
+### Plan-grade epics — pre-flight instead of planning
+
+Before dispatching any planner, read one sub-issue body. If it carries
+`## Files`, `## Steps`, `## Tests` and `## Acceptance`, the epic is
+**plan-grade** (Epics 15 and 16 are). Then:
+
+- Dispatch `issue-preflight` (Sonnet) per ticket instead of `issue-planner`.
+  It verifies the body against the base branch, publishes a short
+  `## Plan — <id>` comment that *points at the body*, and records the review
+  tier. The implementer and reviewer read that comment exactly as they would a
+  planner's.
+- `issue-preflight` returns `needs-planner` when the body is not actually
+  plan-grade or needs structural correction — only then dispatch
+  `issue-planner` for that ticket. It returns `blocked-on: #<n>` when a seam
+  it depends on has not merged yet; that ticket waits for its wave.
+- The file lists for step 3 come from `## Files` (with pre-flight corrections
+  applied), not from a fresh plan.
+- Waves are **declared**: each body says `Wave N` and the epic body carries a
+  wave table. Use them. Still verify file-disjointness inside a wave from the
+  `## Files` lists — a declared wave is a claim, and step 3 checks it.
+
 `/implement-epic plan <epic>` stops here, after GATE 1, having published every
 plan and written no code. That is the whole of its contract: this phase, then
 stop.
@@ -175,6 +221,14 @@ Rules:
 - Give each group a one-line territory description ("the `ui/` shell
   components", "server fees module + its DTOs"). If you cannot write that line,
   the partition is wrong.
+- **Plan-grade epics:** the sub-issues inside a declared wave were written to
+  be file-disjoint, so the default is **one lane per sub-issue**, all in
+  parallel, up to 8 (`--groups` still caps it). A wave's **close** task
+  ("wave close — seed, api-types, e2e") is not a lane in that wave: it runs as
+  its own one-lane sub-wave `w<N>c` **after wave N has merged to `main`**,
+  because it regenerates committed artifacts and needs every sibling landed.
+  If two sub-issues in a declared wave do share a file, merge them into one
+  lane and say so at GATE 1 — the epic's claim was wrong, not the rule.
 
 ### UI work needs no mockup gate
 
@@ -255,10 +309,11 @@ Worktree isolation is not optional. Parallel agents sharing one working tree
 will `git checkout` over each other within seconds.
 
 Give each agent: its ticket queue in order, its base branch, its branch-name
-prefix, its territory line, and the file cap. Every ticket already has a
-published plan from step 2, so the worker's planning step is a lookup, not a
-fresh plan — it only re-dispatches the planner when implementation proves a
-plan wrong. Its definition
+prefix, its territory line, the file cap, whether the epic is **plan-grade**,
+and each ticket's **review tier** (from the `## Plan` comment). Every ticket
+already has a published plan from step 2, so the worker's planning step is a
+lookup, not a fresh plan — it only re-dispatches the planner (or pre-flight)
+when implementation proves a plan wrong. Its definition
 (`.claude/agents/epic-group-worker.md`) carries the rest of the contract.
 
 ### What group agents do NOT do — and why
@@ -390,6 +445,13 @@ per PR.** Each round reads unresolved review comments and failing checks, fixes,
 pushes, and waits for re-review. After the third, stop and report that PR to
 the user — an uncapped loop can burn a whole session on one stubborn PR.
 
+Route the rounds by cost: **rounds 1 and 2 run on a Sonnet subagent**
+(`Agent(model: "sonnet")` doing the `pr-fix` work — CI failures here are
+mostly mechanical: Node 22 vs 24, the `bn` e2e locale, byte-exact `api-types`,
+the 80 % branch gate). **Round 3 runs on Opus only for a money-tier PR**; a
+standard-tier PR that is still red after two Sonnet rounds stops and is
+reported, because a third cheap attempt on a UI flake is rarely the fix.
+
 If CI fails on something the epic didn't cause (a pre-existing flake — this
 repo runs ~28% CI failure), say so explicitly instead of "fixing" unrelated
 code to get green.
@@ -423,6 +485,10 @@ session model and report it. Never re-plan a ticket that already has a current
 - Never bypass the design system: existing components and tokens first,
   extend it by its own conventions if something is genuinely missing.
 - Never re-plan a ticket that already has a current plan comment.
+- Never dispatch `issue-planner` for a plan-grade ticket unless
+  `issue-preflight` returned `needs-planner`.
+- Never run the Opus reviewer on a standard-tier ticket, and never run the
+  Sonnet reviewer on a money-tier one — the tier is on the `## Plan` comment.
 - Update the state file after every ticket and every state change.
 
 ## Report at the end

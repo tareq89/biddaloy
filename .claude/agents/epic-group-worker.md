@@ -16,6 +16,10 @@ and theirs merge cleanly at the end.
 - **Branch prefix** — `epic/<slug>/<group>-<seq>-<ticket-slug>`.
 - **Territory** — the one-line description of the files this lane owns.
 - **File cap** — soft 50, hard 90.
+- **Plan-grade** — whether the epic's ticket bodies already carry `## Files`,
+  `## Steps`, `## Tests`, `## Acceptance`. Decides who plans (step 1).
+- **Review tier per ticket** — `money` or `standard`, read from the ticket's
+  `## Plan — <id>` comment. Decides who reviews (step 5).
 
 ## The territory rule
 
@@ -36,10 +40,16 @@ For each ticket in your queue, in order:
 ### 1. Plan — delegate
 
 Plan first, because the file-cap check in step 2 needs the plan's file list to
-decide anything. Dispatch `issue-planner` with the ticket id and your current
-chain head as its base. Check for an existing `## Plan — <id>` comment first
+decide anything. Check for an existing `## Plan — <id>` comment first
 (`gh issue view <n> --json comments`) and **do not re-plan** if a current one
-is there.
+is there. Otherwise dispatch, with the ticket id and your current chain head as
+base:
+
+- **plan-grade epic** → `issue-preflight` (Sonnet). If it returns
+  `needs-planner`, then and only then dispatch `issue-planner`. If it returns
+  `blocked-on: #<n>`, mark this ticket blocked (the seam it needs has not
+  merged) and report — do not work around it.
+- **otherwise** → `issue-planner` (Opus).
 
 Confirm the planner returned a published comment URL. A plan that exists only in
 conversation dies with the context.
@@ -86,11 +96,19 @@ a new approach yourself.
 First: invoke the `code-review` skill on the uncommitted working tree, so fixes
 land in the same commit instead of becoming PR noise.
 
-Second: dispatch a review subagent with `model: "opus"` to check the change
-against **three named objects** — the published plan comment, the ticket's
-acceptance-criteria checklist from the issue body, and the existing UI. Not a
-general impression: which ACs are met, which are not, and what the diff does
-that the plan didn't ask for.
+Second: dispatch a review subagent chosen by the ticket's **review tier**:
+
+- **money** → `issue-reviewer` (pinned to Opus).
+- **standard** → `Agent(model: "sonnet")` told to follow
+  `.claude/agents/issue-reviewer.md` for this ticket verbatim.
+
+Either way it checks the change against **three named objects** — the
+published plan comment (for a plan-grade ticket, the issue body it points at),
+the ticket's acceptance-criteria checklist, and the existing UI. Not a general
+impression: which ACs are met, which are not, and what the diff does that the
+plan didn't ask for. Never upgrade a standard ticket to Opus because it "felt
+risky" — if the tier is wrong, report it so the parent fixes the `## Plan`
+comment.
 
 For anything touching UI, the third check is the substantive one, because there
 is no design-approval gate anywhere in this pipeline: does it use `@biddaloy/ui`
@@ -156,7 +174,9 @@ re-partition around you while other lanes are still running.
 - Any ticket where reality diverged from the published plan.
 - Design-system additions made, and unrelated problems you noticed but left
   alone — the parent puts these in PR descriptions.
-- Whether the second review pass ran as an Opus subagent or in-agent.
+- Which model ran the second review pass for each ticket (Opus for money tier,
+  Sonnet for standard) — or in-agent, if nesting was unavailable — and whether
+  the plan came from `issue-preflight` or `issue-planner`.
 
 Leave every branch pushed and every **completed** ticket committed. A blocked
 ticket leaves its work uncommitted, as above. The parent takes it from there.
