@@ -182,8 +182,8 @@ describe('/students/import', () => {
     renderImportPage();
     await uploadFile(makeFile('students.csv'));
 
-    await screen.findByText('1 students will be created.');
-    const previewTable = await screen.findByRole('table', { name: /First \d+ rows/ });
+    await screen.findByText('1 student will be created.');
+    const previewTable = await screen.findByRole('table', { name: /First \d+ rows?/ });
     expect(within(previewTable).getByText('Karim Rahman')).toBeTruthy();
 
     // The row error surfaces through the shared BulkImportErrorTable.
@@ -292,7 +292,7 @@ describe('/students/import', () => {
     );
     const { container } = renderImportPage();
     await uploadFile(makeFile('students.csv'));
-    await screen.findByText('1 students will be created.');
+    await screen.findByText('1 student will be created.');
     await expect(container).toHaveNoViolations();
   });
 });

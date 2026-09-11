@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Controller,
   Get,
+  Header,
   Inject,
   NotFoundException,
   Param,
@@ -16,7 +17,7 @@ import { Throttle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBody, ApiConsumes, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { UserRole, Permission, JwtPayload, toCsvContent } from '@biddaloy/shared';
 import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
@@ -98,6 +99,18 @@ export class ImportController {
   @Throttle({ default: STRICT_RATE_LIMIT })
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_UPLOAD_BYTES } }))
   @ApiConsumes('multipart/form-data')
+  // Without an explicit body schema the generated client types this endpoint
+  // as `requestBody?: never`, which is wrong and unusable from `ui`.
+  @ApiBody({
+    required: true,
+    schema: {
+      type: 'object',
+      required: ['file'],
+      properties: {
+        file: { type: 'string', format: 'binary', description: 'The .xlsx workbook to validate.' },
+      },
+    },
+  })
   @ApiOperation({ summary: 'Validate an uploaded backup workbook and stage the dry-run preview.' })
   async validate(
     @UploadedFile() file: Express.Multer.File,
@@ -168,7 +181,16 @@ export class ImportController {
   // Same budget as the validate call this replays: a staging id stays
   // readable for its 30-minute TTL, so the download deserves the limit too.
   @Throttle({ default: STRICT_RATE_LIMIT })
+  // The report carries tenant data, and the staging id is guessable for the
+  // length of its TTL — same reason `workbook.controller.ts` marks the backup
+  // download `no-store`. Keeps it out of shared/browser caches.
+  @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'Download the error list of a staged validation as CSV.' })
+  @ApiResponse({
+    status: 200,
+    description: 'The staged validation errors and warnings as CSV.',
+    content: { 'text/csv': { schema: { type: 'string' } } },
+  })
   async errorsCsv(
     @Param('stagingId') stagingId: string,
     @CurrentTenant() tenant: { id: string; role: string },

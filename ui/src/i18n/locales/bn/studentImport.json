@@ -33,8 +33,10 @@
     "explanation": "CSV বা XLSX, সর্বোচ্চ ৫ মেগাবাইট এবং প্রতি ফাইলে ২,০০০ শিক্ষার্থী।"
   },
   "preview": {
-    "willCreate": "{{count}} জন শিক্ষার্থী তৈরি হবে।",
-    "previewCaption": "প্রথম {{count}} সারি",
+    "willCreate_one": "{{count}} জন শিক্ষার্থী তৈরি হবে।",
+    "willCreate_other": "{{count}} জন শিক্ষার্থী তৈরি হবে।",
+    "previewCaption_one": "প্রথম {{count}} টি সারি",
+    "previewCaption_other": "প্রথম {{count}} টি সারি",
     "columns": {
       "name": "নাম",
       "class": "শ্রেণি",

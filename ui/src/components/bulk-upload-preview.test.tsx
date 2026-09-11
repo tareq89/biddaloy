@@ -196,7 +196,7 @@ describe('BulkUploadPreview', () => {
     const validate = vi.fn();
     await renderPreview({ accept: '.csv,.xlsx', validate });
 
-    const input = (await screen.findByLabelText('Choose file')) as HTMLInputElement;
+    const input = await screen.findByLabelText('Choose file');
     const pdf = new File(['x'], 'notes.pdf', { type: 'application/pdf' });
     Object.defineProperty(input, 'files', { value: [pdf], configurable: true });
     fireEvent.change(input);

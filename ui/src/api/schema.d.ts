@@ -9565,7 +9565,17 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description The .xlsx workbook to validate.
+                     */
+                    file: string;
+                };
+            };
+        };
         responses: {
             201: {
                 headers: {
@@ -9600,11 +9610,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description The staged validation errors and warnings as CSV. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "text/csv": string;
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {

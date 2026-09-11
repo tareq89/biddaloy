@@ -33,8 +33,10 @@
     "explanation": "CSV or XLSX, up to 5 MB and 2,000 students per file."
   },
   "preview": {
-    "willCreate": "{{count}} students will be created.",
-    "previewCaption": "First {{count}} rows",
+    "willCreate_one": "{{count}} student will be created.",
+    "willCreate_other": "{{count}} students will be created.",
+    "previewCaption_one": "First {{count}} row",
+    "previewCaption_other": "First {{count}} rows",
     "columns": {
       "name": "Name",
       "class": "Class",
