@@ -348,6 +348,12 @@ export {
   type BulkUploadStudentsInput,
 } from './bulk-upload';
 export {
+  useBulkUploadPreview,
+  type BulkImportError,
+  type PreviewResult,
+  type BulkUploadPreviewState,
+} from './use-bulk-upload-preview';
+export {
   ROUTE_FOCUS_MAX_PENDING_RETRIES,
   useRouteFocus,
   type UseRouteFocusOptions,
