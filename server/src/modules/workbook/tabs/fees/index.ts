@@ -1,5 +1,6 @@
 import type { TabSpec } from '../../codec/tab-spec';
 import { feeStructuresTab } from './fee-structures.tab';
+import { studentFeesTab } from './student-fees.tab';
 
 /**
  * Tabs owned by the fees lane. Populated by that lane's own tickets; kept as a
@@ -8,7 +9,8 @@ import { feeStructuresTab } from './fee-structures.tab';
  * Registered in dependency order per EXPECTED_TABS (registry.ts):
  * fee_structures -> student_fees -> invoices -> payments -> payment_allocations.
  */
-export const feesTabs: TabSpec<any, any>[] = [feeStructuresTab];
+export const feesTabs: TabSpec<any, any>[] = [feeStructuresTab, studentFeesTab];
 
-export { feeStructuresTab };
+export { feeStructuresTab, studentFeesTab };
 export type { FeeStructureRow } from './fee-structures.tab';
+export type { StudentFeeRow } from './student-fees.tab';
