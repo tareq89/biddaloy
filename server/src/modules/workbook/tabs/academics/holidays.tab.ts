@@ -151,13 +151,27 @@ export const holidaysTab: TabSpec<SchoolHoliday, HolidayRow> = {
 
     if (errors.length > 0) return { errors };
 
+    const startDate = values.start_date as string;
+    const endDate = values.end_date as string;
+    if (endDate < startDate) {
+      errors.push({
+        tab: 'holidays',
+        row: rowNo,
+        column: 'end_date',
+        message: `Column "end_date": "${endDate}" is before "start_date" ("${startDate}").`,
+        severity: 'error',
+        value: endDate,
+      });
+      return { errors };
+    }
+
     return {
       row: {
         id: values.id as string,
         academic_year_id: academicYearId as string,
         name: values.name as string,
-        start_date: values.start_date as string,
-        end_date: values.end_date as string,
+        start_date: startDate,
+        end_date: endDate,
         counts_as_working_day: values.counts_as_working_day as boolean,
         academic_year_key: academicYearKey,
       },

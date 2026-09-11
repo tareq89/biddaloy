@@ -124,6 +124,32 @@ describe('round trip', () => {
     if (!('errors' in result)) return;
     expect(result.errors[0].column).toBe('name');
   });
+
+  it('rejects an end_date before start_date', () => {
+    const cells = {
+      ...toCells(makeHoliday()),
+      start_date: '2026-12-31',
+      end_date: '2026-12-20',
+    };
+
+    const result = holidaysTab.fromRow(cells, 2, makeImportCtx());
+
+    expect('errors' in result).toBe(true);
+    if (!('errors' in result)) return;
+    expect(result.errors[0]).toMatchObject({ column: 'end_date' });
+  });
+
+  it('accepts an end_date equal to start_date (a single-day holiday)', () => {
+    const cells = {
+      ...toCells(makeHoliday()),
+      start_date: '2026-12-20',
+      end_date: '2026-12-20',
+    };
+
+    const result = holidaysTab.fromRow(cells, 2, makeImportCtx());
+
+    expect('errors' in result).toBe(false);
+  });
 });
 
 describe('diffFields', () => {
