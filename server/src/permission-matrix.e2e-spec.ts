@@ -389,10 +389,6 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   // [10.4] G17 — no route deletes a user account; SUPER_ADMIN-only via
   // Object.values(Permission), never granted to a staff role.
   Permission.USER_DELETE,
-  // [14.2.1] Reserved for the backup export/restore endpoints, which land
-  // later in Epic 14.0 lane 14.2; granted to ADMIN now so the shared
-  // contract ships in one place, but no route requires it today.
-  Permission.BACKUP_MANAGE,
   // Pre-existing UI-only gates, unaffected by [10.4]: no route requires
   // these — they gate a button/action inline rather than a whole route
   // (fee-structure management page nav, invoice print button, correcting a

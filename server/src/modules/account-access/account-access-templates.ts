@@ -1,4 +1,12 @@
-export type TemplateKind = 'INVITATION' | 'OTP' | 'PASSWORD_RESET_LINK' | 'EMAIL_VERIFY_LINK';
+export type TemplateKind =
+  | 'INVITATION'
+  | 'OTP'
+  | 'PASSWORD_RESET_LINK'
+  | 'EMAIL_VERIFY_LINK'
+  | 'BACKUP_READY'
+  | 'BACKUP_FAILED'
+  | 'RESTORE_DONE'
+  | 'RESTORE_FAILED';
 export type TemplateMedium = 'SMS' | 'EMAIL';
 export type TemplateLocale = 'bn' | 'en';
 
@@ -7,6 +15,10 @@ export interface TemplateVars {
   name: string;
   link?: string;
   code?: string;
+  size_mb?: string;
+  finished_at?: string;
+  expires_at?: string;
+  reason?: string;
 }
 
 interface RenderedMessage {
@@ -92,6 +104,84 @@ const TEMPLATES: Record<
       },
     },
   },
+  BACKUP_READY: {
+    SMS: {
+      en: {
+        body: '{{school}} backup is ready. Sign in to download: {{link}} (expires {{expires_at}})',
+      },
+      bn: {
+        body: '{{school}}-এর ব্যাকআপ তৈরি। সাইন ইন করে ডাউনলোড করুন: {{link}} (মেয়াদ {{expires_at}})',
+      },
+    },
+    EMAIL: {
+      en: {
+        subject: 'Your {{school}} backup is ready',
+        body: 'Hi {{name}},\n\nThe backup you requested for {{school}} finished on {{finished_at}}. It is {{size_mb}} MB.\n\nOpen the link below, sign in, and the download starts automatically:\n\n{{link}}\n\nThe file is available until {{expires_at}}. After that it is deleted and you will need to run a new backup.',
+      },
+      bn: {
+        subject: '{{school}}-এর ব্যাকআপ তৈরি হয়েছে',
+        body: '{{name}},\n\n{{school}}-এর জন্য আপনার অনুরোধ করা ব্যাকআপ {{finished_at}}-এ সম্পন্ন হয়েছে। ফাইলের আকার {{size_mb}} MB।\n\nনিচের লিংকে গিয়ে সাইন ইন করুন, ডাউনলোড স্বয়ংক্রিয়ভাবে শুরু হবে:\n\n{{link}}\n\nফাইলটি {{expires_at}} পর্যন্ত পাওয়া যাবে। এরপর এটি মুছে যাবে এবং আপনাকে নতুন ব্যাকআপ নিতে হবে।',
+      },
+    },
+  },
+  BACKUP_FAILED: {
+    SMS: {
+      en: {
+        body: '{{school}} backup failed on {{finished_at}}. Reason: {{reason}}. Try again from Settings.',
+      },
+      bn: {
+        body: '{{school}}-এর ব্যাকআপ {{finished_at}}-এ ব্যর্থ হয়েছে। কারণ: {{reason}}। সেটিংস থেকে আবার চেষ্টা করুন।',
+      },
+    },
+    EMAIL: {
+      en: {
+        subject: 'Your {{school}} backup failed',
+        body: 'Hi {{name}},\n\nThe backup for {{school}} did not finish. It stopped on {{finished_at}}.\n\nReason: {{reason}}\n\nNothing in your data was changed. You can start a new backup from Settings:\n\n{{link}}\n\nIf it fails again, contact support with the time above.',
+      },
+      bn: {
+        subject: '{{school}}-এর ব্যাকআপ ব্যর্থ হয়েছে',
+        body: '{{name}},\n\n{{school}}-এর ব্যাকআপ সম্পন্ন হয়নি। এটি {{finished_at}}-এ থেমে গেছে।\n\nকারণ: {{reason}}\n\nআপনার কোনো তথ্য পরিবর্তন হয়নি। সেটিংস থেকে নতুন ব্যাকআপ শুরু করতে পারেন:\n\n{{link}}\n\nআবার ব্যর্থ হলে উপরের সময়টি জানিয়ে সহায়তা কেন্দ্রে যোগাযোগ করুন।',
+      },
+    },
+  },
+  RESTORE_DONE: {
+    SMS: {
+      en: { body: '{{school}} restore finished on {{finished_at}}. Review your data: {{link}}' },
+      bn: {
+        body: '{{school}}-এর রিস্টোর {{finished_at}}-এ সম্পন্ন হয়েছে। তথ্য দেখে নিন: {{link}}',
+      },
+    },
+    EMAIL: {
+      en: {
+        subject: 'Your {{school}} restore finished',
+        body: 'Hi {{name}},\n\nThe restore for {{school}} finished on {{finished_at}}.\n\nOpen Settings to review the restored data:\n\n{{link}}\n\nA safety snapshot was taken before the restore, so this can still be rolled back.',
+      },
+      bn: {
+        subject: '{{school}}-এর রিস্টোর সম্পন্ন হয়েছে',
+        body: '{{name}},\n\n{{school}}-এর রিস্টোর {{finished_at}}-এ সম্পন্ন হয়েছে।\n\nপুনরুদ্ধার করা তথ্য দেখতে সেটিংস খুলুন:\n\n{{link}}\n\nরিস্টোরের আগে একটি সুরক্ষা স্ন্যাপশট নেওয়া হয়েছে, তাই এটি এখনও ফিরিয়ে আনা সম্ভব।',
+      },
+    },
+  },
+  RESTORE_FAILED: {
+    SMS: {
+      en: {
+        body: '{{school}} restore failed on {{finished_at}}. Reason: {{reason}}. Your data is unchanged.',
+      },
+      bn: {
+        body: '{{school}}-এর রিস্টোর {{finished_at}}-এ ব্যর্থ হয়েছে। কারণ: {{reason}}। আপনার তথ্য অপরিবর্তিত।',
+      },
+    },
+    EMAIL: {
+      en: {
+        subject: 'Your {{school}} restore failed',
+        body: 'Hi {{name}},\n\nThe restore for {{school}} did not finish. It stopped on {{finished_at}}.\n\nReason: {{reason}}\n\nYour existing data was left as it was. You can try again from Settings:\n\n{{link}}',
+      },
+      bn: {
+        subject: '{{school}}-এর রিস্টোর ব্যর্থ হয়েছে',
+        body: '{{name}},\n\n{{school}}-এর রিস্টোর সম্পন্ন হয়নি। এটি {{finished_at}}-এ থেমে গেছে।\n\nকারণ: {{reason}}\n\nআপনার বর্তমান তথ্য অপরিবর্তিত রয়েছে। সেটিংস থেকে আবার চেষ্টা করতে পারেন:\n\n{{link}}',
+      },
+    },
+  },
 };
 
 function resolve(kind: TemplateKind, medium: TemplateMedium, locale: TemplateLocale) {
@@ -110,6 +200,10 @@ export function render(
     name: vars.name,
     link: vars.link ?? '',
     code: vars.code ?? '',
+    size_mb: vars.size_mb ?? '',
+    finished_at: vars.finished_at ?? '',
+    expires_at: vars.expires_at ?? '',
+    reason: vars.reason ?? '',
   };
   return {
     body: fill(template.body, varsRecord),
