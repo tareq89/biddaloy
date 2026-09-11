@@ -1,0 +1,32 @@
+{
+  "chooseFile": "Choose file",
+  "uploading": "Uploading… {{percent}}%",
+  "validating": "File received. Checking it now.",
+  "previewTitle": "Preview",
+  "expiresIn": "This preview expires in {{time}}",
+  "expired": "This preview has expired",
+  "expiredRetry": "This preview expired — upload again",
+  "confirm": "Confirm",
+  "confirming": "Confirming…",
+  "uploadAnother": "Upload another",
+  "done": "Done",
+  "fileTooLarge": "This file is too large — choose a smaller file",
+  "uploadFailed": "Upload failed",
+  "errors": {
+    "title": "Rows with problems",
+    "caption": "Rows that could not be processed as-is",
+    "exportCsv": "Export errors as CSV",
+    "columnRow": "Row",
+    "columnTab": "Sheet",
+    "columnColumn": "Column",
+    "columnValue": "Value in your file",
+    "columnMessage": "Problem",
+    "columnSeverity": "Severity",
+    "wholeRow": "Whole row",
+    "emptyValue": "(empty)",
+    "severity": {
+      "error": "Error",
+      "warning": "Warning"
+    }
+  }
+}
