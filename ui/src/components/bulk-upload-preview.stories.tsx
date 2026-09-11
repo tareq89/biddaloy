@@ -90,8 +90,11 @@ const EXPIRED_RESULT: PreviewResult<Summary> = {
 };
 
 async function selectAFile(canvasElement: HTMLElement) {
-  const canvas = within(canvasElement);
-  const input = canvas.getByLabelText('Choose file', { exact: false, selector: 'input' });
+  // Locale-independent — `getByLabelText('Choose file')` breaks when
+  // Storybook's locale toolbar switches to Bengali, since `FileUpload`'s
+  // `aria-label` is translated. There's only one file input on this canvas.
+  const input = canvasElement.querySelector<HTMLInputElement>('input[type="file"]');
+  if (!input) throw new Error('Expected a file input in the canvas');
   await userEvent.upload(input, makeFile());
 }
 
