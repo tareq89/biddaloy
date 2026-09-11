@@ -11,12 +11,24 @@ import { FeeStructure } from '../../../fees/entities/fee-structure.entity';
 import { FeeStructureStudent } from '../../../fees/entities/fee-structure-student.entity';
 import { StudentFee } from '../../../fees/entities/student-fee.entity';
 import { Invoice } from '../../../invoices/entities/invoice.entity';
-import { FeeApplicability, FeeStatus, FeeType, InvoiceStatus } from '@biddaloy/shared';
+import { Payment } from '../../../fees/entities/payment.entity';
+import { PaymentAllocation } from '../../../fees/entities/payment-allocation.entity';
+import {
+  FeeApplicability,
+  FeeStatus,
+  FeeType,
+  InvoiceStatus,
+  PaymentAllocationType,
+  PaymentMethod,
+  PaymentStatus,
+} from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { feeStructuresTab, type FeeStructureRow } from './fee-structures.tab';
 import { studentFeesTab, type StudentFeeRow } from './student-fees.tab';
 import { invoicesTab, type InvoiceRow } from './invoices.tab';
+import { paymentsTab, type PaymentRow } from './payments.tab';
+import { paymentAllocationsTab, type PaymentAllocationRow } from './payment-allocations.tab';
 import type { ImportContext } from '../../codec/tab-spec';
 
 /**
@@ -42,6 +54,8 @@ describe('fees tabs (integration)', () => {
   let feeStructureStudentRepo: Repository<FeeStructureStudent>;
   let studentFeeRepo: Repository<StudentFee>;
   let invoiceRepo: Repository<Invoice>;
+  let paymentRepo: Repository<Payment>;
+  let paymentAllocationRepo: Repository<PaymentAllocation>;
 
   const TENANT_A = '11111111-1111-4111-8111-111111111111';
   const TENANT_B = '22222222-2222-4222-8222-222222222222';
@@ -74,6 +88,10 @@ describe('fees tabs (integration)', () => {
     );
     studentFeeRepo = module.get<Repository<StudentFee>>(getRepositoryToken(StudentFee));
     invoiceRepo = module.get<Repository<Invoice>>(getRepositoryToken(Invoice));
+    paymentRepo = module.get<Repository<Payment>>(getRepositoryToken(Payment));
+    paymentAllocationRepo = module.get<Repository<PaymentAllocation>>(
+      getRepositoryToken(PaymentAllocation),
+    );
   });
 
   afterAll(async () => {
@@ -81,6 +99,8 @@ describe('fees tabs (integration)', () => {
   });
 
   beforeEach(async () => {
+    await paymentAllocationRepo.createQueryBuilder().delete().execute();
+    await paymentRepo.createQueryBuilder().delete().execute();
     await invoiceRepo.createQueryBuilder().delete().execute();
     await feeStructureStudentRepo.createQueryBuilder().delete().execute();
     await studentFeeRepo.createQueryBuilder().delete().execute();
@@ -419,6 +439,204 @@ describe('fees tabs (integration)', () => {
     it('keyOf is the invoice_number for both a row and a loaded entity', async () => {
       const created = await invoicesTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
       expect(invoicesTab.keyOf(created)).toBe('INV-2026-00001');
+    });
+  });
+
+  describe('payments', () => {
+    function rowFor(overrides: Partial<PaymentRow> = {}): PaymentRow {
+      return {
+        id: '00000000-0000-4000-8000-000000000005',
+        student_id: studentA1.id,
+        student_key: studentA1.registration_number,
+        total_amount: '1500.00',
+        payment_method: PaymentMethod.CASH,
+        payment_status: PaymentStatus.SUCCESS,
+        transaction_reference: 'TXN-001',
+        remarks: null,
+        received_by_id: null,
+        received_by_key: null,
+        invoice_id: null,
+        invoice_key: null,
+        payment_date: '2026-01-05T10:00:00.000Z',
+        ...overrides,
+      };
+    }
+
+    it('upsert creates a new row with issuer_snapshot null', async () => {
+      const created = await paymentsTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
+      expect(created.id).toBeDefined();
+      expect(created.tenant_id).toBe(TENANT_A);
+      expect(created.issuer_snapshot).toBeNull();
+    });
+
+    it('upsert with a changed field updates only that field', async () => {
+      const created = await paymentsTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
+      const updated = await paymentsTab.upsert(
+        rowFor({ remarks: 'Updated remark' }),
+        created,
+        TENANT_A,
+        dataSource.manager,
+      );
+      expect(updated.remarks).toBe('Updated remark');
+      expect(updated.total_amount).toBe('1500.00');
+    });
+
+    it('remove soft-deletes', async () => {
+      const created = await paymentsTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
+      await paymentsTab.remove(created, dataSource.manager);
+      const found = await paymentRepo.findOne({ where: { id: created.id }, withDeleted: true });
+      expect(found?.deleted_at).not.toBeNull();
+    });
+
+    it('load(tenantA) never returns tenant B rows', async () => {
+      await paymentsTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
+      const rowsA = await paymentsTab.load(TENANT_A, dataSource.manager);
+      const rowsB = await paymentsTab.load(TENANT_B, dataSource.manager);
+      expect(rowsA.length).toBe(1);
+      expect(rowsB.length).toBe(0);
+    });
+
+    it('keyOf uses transaction_reference off a loaded entity', async () => {
+      await paymentsTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
+      const [loaded] = await paymentsTab.load(TENANT_A, dataSource.manager);
+      expect(paymentsTab.keyOf(loaded)).toBe('TXN-001');
+    });
+
+    it('keyOf(entity) uses the real registration_number, not a raw student uuid, on the fallback path', async () => {
+      await paymentsTab.upsert(
+        rowFor({ transaction_reference: null }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+      const [loaded] = await paymentsTab.load(TENANT_A, dataSource.manager);
+      const key = paymentsTab.keyOf(loaded);
+      expect(key.startsWith(`${studentA1.registration_number}|`)).toBe(true);
+      expect(key).not.toContain(studentA1.id);
+    });
+  });
+
+  describe('payment_allocations', () => {
+    let feeId: string;
+    let paymentId: string;
+
+    beforeEach(async () => {
+      const fee = await studentFeesTab.upsert(
+        {
+          id: '00000000-0000-4000-8000-000000000006',
+          student_id: studentA1.id,
+          student_key: studentA1.registration_number,
+          academic_year_id: yearAId,
+          academic_year_key: '2026-2027',
+          month: 1,
+          year: 2026,
+          total_amount: '1500.00',
+          paid_amount: '0.00',
+          discount_amount: '0.00',
+          status: FeeStatus.PENDING,
+          due_date: '2026-01-10',
+          reminder_threshold_date: '2026-01-05',
+          is_advance_payment: false,
+          original_advance_month: null,
+          original_advance_year: null,
+        },
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+      feeId = fee.id;
+
+      const payment = await paymentsTab.upsert(
+        {
+          id: '00000000-0000-4000-8000-000000000007',
+          student_id: studentA1.id,
+          student_key: studentA1.registration_number,
+          total_amount: '500.00',
+          payment_method: PaymentMethod.CASH,
+          payment_status: PaymentStatus.SUCCESS,
+          transaction_reference: 'TXN-002',
+          remarks: null,
+          received_by_id: null,
+          received_by_key: null,
+          invoice_id: null,
+          invoice_key: null,
+          payment_date: '2026-01-06T10:00:00.000Z',
+        },
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+      paymentId = payment.id;
+    });
+
+    function rowFor(overrides: Partial<PaymentAllocationRow> = {}): PaymentAllocationRow {
+      return {
+        id: '00000000-0000-4000-8000-000000000008',
+        payment_id: paymentId,
+        payment_key: 'TXN-002',
+        student_fee_id: feeId,
+        student_fee_key: `${studentA1.registration_number}|2026-2027|1|2026`,
+        allocated_amount: '500.00',
+        allocation_type: PaymentAllocationType.CURRENT,
+        notes: null,
+        ...overrides,
+      };
+    }
+
+    it('upsert creates a new row', async () => {
+      const created = await paymentAllocationsTab.upsert(
+        rowFor(),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+      expect(created.id).toBeDefined();
+      expect(created.payment_id).toBe(paymentId);
+    });
+
+    it('upsert with a changed field updates only that field', async () => {
+      const created = await paymentAllocationsTab.upsert(
+        rowFor(),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+      const updated = await paymentAllocationsTab.upsert(
+        rowFor({ notes: 'Adjusted' }),
+        created,
+        TENANT_A,
+        dataSource.manager,
+      );
+      expect(updated.notes).toBe('Adjusted');
+      expect(updated.allocated_amount).toBe('500.00');
+    });
+
+    it('remove hard-deletes (no deleted_at column)', async () => {
+      const created = await paymentAllocationsTab.upsert(
+        rowFor(),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+      await paymentAllocationsTab.remove(created, dataSource.manager);
+      const found = await paymentAllocationRepo.findOne({ where: { id: created.id } });
+      expect(found).toBeNull();
+    });
+
+    it('load(tenantA) never returns tenant B rows', async () => {
+      await paymentAllocationsTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
+      const rowsA = await paymentAllocationsTab.load(TENANT_A, dataSource.manager);
+      const rowsB = await paymentAllocationsTab.load(TENANT_B, dataSource.manager);
+      expect(rowsA.length).toBe(1);
+      expect(rowsB.length).toBe(0);
+    });
+
+    it('keyOf joins the payment and student_fee keys off the loaded entity', async () => {
+      await paymentAllocationsTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
+      const [loaded] = await paymentAllocationsTab.load(TENANT_A, dataSource.manager);
+      expect(paymentAllocationsTab.keyOf(loaded)).toBe(
+        `TXN-002|${studentA1.registration_number}|2026-2027|1|2026`,
+      );
     });
   });
 });
