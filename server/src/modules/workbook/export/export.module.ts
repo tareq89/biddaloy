@@ -1,13 +1,17 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
+import { ConfigModule } from '@nestjs/config';
 import { WorkbookJob } from '../jobs/workbook-job.entity';
 import { StorageModule } from '../../storage/storage.module';
 import { AuditModule } from '../../audit/audit.module';
+import { AccountAccessModule } from '../../account-access/account-access.module';
+import { SchoolsModule } from '../../schools/schools.module';
 import { WORKBOOK_EXPORT_QUEUE } from './export.constants';
 import { ExportService } from './export.service';
 import { ExportProcessor } from './export.processor';
 import { WorkbookJobEventsService } from './workbook-job-events.service';
+import { WorkbookNotifier } from './workbook-notifier';
 import { WorkbookController } from './workbook.controller';
 
 /**
@@ -21,13 +25,16 @@ import { WorkbookController } from './workbook.controller';
     TypeOrmModule.forFeature([WorkbookJob]),
     StorageModule,
     AuditModule,
+    AccountAccessModule,
+    SchoolsModule,
+    ConfigModule,
     BullModule.registerQueue({
       name: WORKBOOK_EXPORT_QUEUE,
       defaultJobOptions: { attempts: 2, removeOnComplete: true },
     }),
   ],
   controllers: [WorkbookController],
-  providers: [ExportService, ExportProcessor, WorkbookJobEventsService],
+  providers: [ExportService, ExportProcessor, WorkbookJobEventsService, WorkbookNotifier],
   exports: [ExportService, WorkbookJobEventsService],
 })
 export class ExportModule {}
