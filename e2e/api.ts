@@ -245,6 +245,20 @@ export async function createInvitedParentUser(
   return { id: created.user.id, phone, token };
 }
 
+/** A date the tenant will accept an attendance register for. Fridays are
+ * the seeded tenant's default weekly off (`weeklyOffDays: [5]` in
+ * `tenant-settings-defaults.ts`) — `PUT …/register` 422s and the UI
+ * renders the roster read-only — so any spec that marks "today" goes red
+ * every Friday. Falls back to Thursday (inside the default 2-day
+ * correction window) rather than touching shared tenant settings. */
+export function markableDateIso(): string {
+  const now = new Date();
+  if (now.getDay() === 5) now.setDate(now.getDate() - 1);
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
+    now.getDate(),
+  ).padStart(2, '0')}`;
+}
+
 /** N students in one shared, freshly-created section — for pagination
  * specs that need more than a page's worth of rows without paying for a
  * class chain per student. */

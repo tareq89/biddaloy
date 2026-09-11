@@ -1,4 +1,9 @@
-import { adminApiSession, createStudentsInSection, createTeacherForSection } from '../api';
+import {
+  adminApiSession,
+  createStudentsInSection,
+  createTeacherForSection,
+  markableDateIso,
+} from '../api';
 import { shells } from '../config';
 import { expect, test } from '../fixtures/test';
 import { t } from '../i18n';
@@ -84,6 +89,21 @@ test('teacher marks and submits a whole section without touching the mouse', asy
     ).toBeVisible();
   });
 
+  const markDate = markableDateIso();
+
+  await test.step('move to a date the register accepts', async () => {
+    // The section link lands on today's register. On the tenant's weekly
+    // off day that register is read-only — every roster button is
+    // disabled, so Tab can never reach one. `?date=` is the same seam
+    // `journeys/attendance.spec.ts` uses; the date field isn't an option
+    // here because it writes the tenant's numerals into the URL, which the
+    // route's search schema rejects (falling back to today).
+    await page.goto(`/attendance/${chain.sectionId}?date=${markDate}`);
+    await expect(
+      page.getByRole('heading', { name: `${chain.className} A`, exact: false }),
+    ).toBeVisible();
+  });
+
   await test.step('reach the roster, mark everyone present, submit', async () => {
     await tabUntilFocused(page, 'Keyboard Student 01', 40, { tag: 'BUTTON' });
     await page.keyboard.press('Shift+P');
@@ -105,7 +125,7 @@ test('teacher marks and submits a whole section without touching the mouse', asy
         Authorization: `Bearer ${relogged.access_token}`,
         'X-Tenant-ID': membership.tenantId,
       },
-      params: { date: new Date().toISOString().slice(0, 10) },
+      params: { date: markDate },
     });
     if (!verified.ok()) {
       throw new Error(`GET register failed: ${verified.status()} ${await verified.text()}`);

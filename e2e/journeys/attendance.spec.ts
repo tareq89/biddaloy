@@ -1,6 +1,6 @@
 import { AttendanceStatus } from '@biddaloy/shared';
 import { ATTENDANCE_SEED_ABSENT_DATE } from '../seed-contract';
-import { apiSession, get } from '../api';
+import { apiSession, get, markableDateIso } from '../api';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 import { AttendancePage, ListShellPage } from '../pages';
@@ -33,17 +33,6 @@ interface RegisterStudent {
 
 const SEEDED_CLASS_NAME = 'Class 6';
 const SEEDED_SECTION_NAME = 'A';
-
-/** Fridays are the tenant's default weekly off — marking one would 422.
- * Falls back to the previous day (inside the default 2-day correction
- * window) rather than touching tenant settings just for this journey. */
-function markableDateIso(): string {
-  const now = new Date();
-  if (now.getDay() === 5) now.setDate(now.getDate() - 1);
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
-    now.getDate(),
-  ).padStart(2, '0')}`;
-}
 
 const MARK_DATE = markableDateIso();
 

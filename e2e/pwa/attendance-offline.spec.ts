@@ -1,4 +1,9 @@
-import { adminApiSession, createStudentsInSection, createTeacherForSection } from '../api';
+import {
+  adminApiSession,
+  createStudentsInSection,
+  createTeacherForSection,
+  markableDateIso,
+} from '../api';
 import { shells } from '../config';
 import { expect, test } from '../fixtures/test';
 import { t } from '../i18n';
@@ -79,7 +84,7 @@ test.describe('attendance offline marking', () => {
       },
     });
     const page = await teacherContext.newPage();
-    const today = new Date().toISOString().slice(0, 10);
+    const markDate = markableDateIso();
 
     await test.step('the app is up and the offline machinery is ready', async () => {
       await page.goto('/dashboard');
@@ -98,7 +103,7 @@ test.describe('attendance offline marking', () => {
         method: 'put',
         path: `/attendance/sections/${chain.sectionId}/register`,
         body: {
-          date: today,
+          date: markDate,
           base_version: 0,
           client_request_id: crypto.randomUUID(),
           entries: studentIds.map((student_id) => ({ student_id, status: 'PRESENT' })),
@@ -131,7 +136,7 @@ test.describe('attendance offline marking', () => {
             Authorization: `Bearer ${relogged.access_token}`,
             'X-Tenant-ID': membership.tenantId,
           },
-          params: { date: today },
+          params: { date: markDate },
         },
       );
       if (!verified.ok()) {
