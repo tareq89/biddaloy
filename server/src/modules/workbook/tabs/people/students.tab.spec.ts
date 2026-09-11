@@ -58,7 +58,7 @@ function importCtx(): ImportContext & { warn: ReturnType<typeof vi.fn> } {
   return {
     tenantId: TENANT_ID,
     ref: (tab: string, key: string) => refs[tab]?.[key],
-    warn: vi.fn(),
+    warn: vi.fn<(e: RowError) => void>(),
   };
 }
 
@@ -287,7 +287,7 @@ describe('round-trip', () => {
               : tab === 'guardians'
                 ? guardiansByKeyWithFallback[key]
                 : usersByEmail[key],
-      warn: vi.fn(),
+      warn: vi.fn<(e: RowError) => void>(),
     });
     if ('errors' in result) throw new Error(JSON.stringify(result.errors));
     expect(result.row.guardian_ids).toEqual([GUARDIAN_2]);
