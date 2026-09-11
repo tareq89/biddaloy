@@ -10,11 +10,13 @@ import { Student } from '../../../students/entities/student.entity';
 import { FeeStructure } from '../../../fees/entities/fee-structure.entity';
 import { FeeStructureStudent } from '../../../fees/entities/fee-structure-student.entity';
 import { StudentFee } from '../../../fees/entities/student-fee.entity';
-import { FeeApplicability, FeeStatus, FeeType } from '@biddaloy/shared';
+import { Invoice } from '../../../invoices/entities/invoice.entity';
+import { FeeApplicability, FeeStatus, FeeType, InvoiceStatus } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { feeStructuresTab, type FeeStructureRow } from './fee-structures.tab';
 import { studentFeesTab, type StudentFeeRow } from './student-fees.tab';
+import { invoicesTab, type InvoiceRow } from './invoices.tab';
 import type { ImportContext } from '../../codec/tab-spec';
 
 /**
@@ -39,6 +41,7 @@ describe('fees tabs (integration)', () => {
   let feeStructureRepo: Repository<FeeStructure>;
   let feeStructureStudentRepo: Repository<FeeStructureStudent>;
   let studentFeeRepo: Repository<StudentFee>;
+  let invoiceRepo: Repository<Invoice>;
 
   const TENANT_A = '11111111-1111-4111-8111-111111111111';
   const TENANT_B = '22222222-2222-4222-8222-222222222222';
@@ -70,6 +73,7 @@ describe('fees tabs (integration)', () => {
       getRepositoryToken(FeeStructureStudent),
     );
     studentFeeRepo = module.get<Repository<StudentFee>>(getRepositoryToken(StudentFee));
+    invoiceRepo = module.get<Repository<Invoice>>(getRepositoryToken(Invoice));
   });
 
   afterAll(async () => {
@@ -77,6 +81,7 @@ describe('fees tabs (integration)', () => {
   });
 
   beforeEach(async () => {
+    await invoiceRepo.createQueryBuilder().delete().execute();
     await feeStructureStudentRepo.createQueryBuilder().delete().execute();
     await studentFeeRepo.createQueryBuilder().delete().execute();
     await feeStructureRepo.delete({ tenant_id: TENANT_A });
@@ -322,6 +327,98 @@ describe('fees tabs (integration)', () => {
       await studentFeesTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
       const [loaded] = await studentFeesTab.load(TENANT_A, dataSource.manager);
       expect(studentFeesTab.keyOf(loaded)).toBe(`${studentA1.registration_number}|2026-2027|1|2026`);
+    });
+  });
+
+  describe('invoices', () => {
+    let feeId: string;
+
+    beforeEach(async () => {
+      const fee = await studentFeesTab.upsert(
+        {
+          id: '00000000-0000-4000-8000-000000000003',
+          student_id: studentA1.id,
+          student_key: studentA1.registration_number,
+          academic_year_id: yearAId,
+          academic_year_key: '2026-2027',
+          month: 1,
+          year: 2026,
+          total_amount: '1500.00',
+          paid_amount: '0.00',
+          discount_amount: '0.00',
+          status: FeeStatus.PENDING,
+          due_date: '2026-01-10',
+          reminder_threshold_date: '2026-01-05',
+          is_advance_payment: false,
+          original_advance_month: null,
+          original_advance_year: null,
+        },
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+      feeId = fee.id;
+    });
+
+    function rowFor(overrides: Partial<InvoiceRow> = {}): InvoiceRow {
+      return {
+        id: '00000000-0000-4000-8000-000000000004',
+        invoice_number: 'INV-2026-00001',
+        student_id: studentA1.id,
+        student_key: studentA1.registration_number,
+        student_fee_id: feeId,
+        student_fee_key: `${studentA1.registration_number}|2026-2027|1|2026`,
+        total_amount: '1500.00',
+        tax_amount: '0.00',
+        discount_amount: '0.00',
+        status: InvoiceStatus.ISSUED,
+        issued_date: '2026-01-05',
+        due_date: '2026-01-15',
+        line_items: [{ description: 'Tuition', amount: 1500, quantity: 1, total: 1500 }],
+        issued_by_id: null,
+        issued_by_key: null,
+        notes: null,
+        ...overrides,
+      };
+    }
+
+    it('upsert creates a new row with issuer_snapshot null', async () => {
+      const created = await invoicesTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
+      expect(created.id).toBeDefined();
+      expect(created.invoice_number).toBe('INV-2026-00001');
+      expect(created.issuer_snapshot).toBeNull();
+    });
+
+    it('upsert with a changed field updates only that field', async () => {
+      const created = await invoicesTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
+      const updated = await invoicesTab.upsert(
+        rowFor({ status: InvoiceStatus.PAID }),
+        created,
+        TENANT_A,
+        dataSource.manager,
+      );
+      expect(updated.status).toBe(InvoiceStatus.PAID);
+      expect(updated.invoice_number).toBe('INV-2026-00001');
+    });
+
+    it('remove soft-deletes', async () => {
+      const created = await invoicesTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
+      await invoicesTab.remove(created, dataSource.manager);
+      const found = await invoiceRepo.findOne({ where: { id: created.id }, withDeleted: true });
+      expect(found?.deleted_at).not.toBeNull();
+    });
+
+    it('load(tenantA) never returns tenant B rows', async () => {
+      await invoicesTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
+      const rowsA = await invoicesTab.load(TENANT_A, dataSource.manager);
+      const rowsB = await invoicesTab.load(TENANT_B, dataSource.manager);
+      expect(rowsA.length).toBe(1);
+      expect(rowsB.length).toBe(0);
+    });
+
+    it('keyOf is the invoice_number for both a row and a loaded entity', async () => {
+      const created = await invoicesTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
+      expect(invoicesTab.keyOf(created)).toBe('INV-2026-00001');
     });
   });
 });
