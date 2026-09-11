@@ -156,6 +156,33 @@ describe('round trip', () => {
       value: 'nonexistent-code',
     });
   });
+
+  it('rejects an academic_year that does not match the class key embedded year', () => {
+    const OTHER_CLASS_ID = '55555555-5555-4555-8555-555555555555';
+    const cells = {
+      ...toCells(makeClassSubject()),
+      class: 'Class 9|2025-2026',
+      academic_year: '2026-2027',
+    };
+
+    const result = classSubjectsTab.fromRow(
+      cells,
+      2,
+      makeImportCtx({
+        ref: (tab, key) => {
+          if (tab === 'classes' && key === 'Class 9|2025-2026') return OTHER_CLASS_ID;
+          if (tab === 'classes' && key === 'Class 10|2026-2027') return CLASS_ID;
+          if (tab === 'academic_years' && key === '2026-2027') return YEAR_ID;
+          if (tab === 'subjects' && key === 'MATH') return SUBJECT_ID;
+          return undefined;
+        },
+      }),
+    );
+
+    expect('errors' in result).toBe(true);
+    if (!('errors' in result)) return;
+    expect(result.errors[0]).toMatchObject({ column: 'academic_year' });
+  });
 });
 
 describe('diffFields', () => {

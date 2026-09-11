@@ -177,6 +177,26 @@ export const sectionsTab: TabSpec<ClassSection, ClassSectionRow> = {
 
     if (errors.length > 0) return { errors };
 
+    // `classKey` embeds its own academic year (`classesTab.keyOf` builds it
+    // as `${name}|${yearKey}`) — reject a row whose separately given
+    // `academic_year` names a different year, since persistence only saves
+    // `class_id` and would otherwise silently ignore the contradiction.
+    const classYearKey = classKey.slice(classKey.indexOf('|') + 1);
+    if (classYearKey !== academicYearKey) {
+      return {
+        errors: [
+          {
+            tab: 'sections',
+            row: rowNo,
+            column: 'academic_year',
+            message: `Column "academic_year": "${academicYearKey}" does not match the academic year of class "${classKey}".`,
+            severity: 'error',
+            value: academicYearKey,
+          },
+        ],
+      };
+    }
+
     return {
       row: {
         id: values.id as string,
