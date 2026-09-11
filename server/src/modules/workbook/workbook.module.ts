@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { ALL_TABS, assertRegistryValid } from './codec/registry';
+import { ALL_TABS, EXPECTED_TABS, assertRegistryValid } from './codec/registry';
 
 /**
  * School backup & migration (epic 14.0).
@@ -18,6 +18,11 @@ import { ALL_TABS, assertRegistryValid } from './codec/registry';
 @Module({})
 export class WorkbookModule {
   constructor() {
-    assertRegistryValid(ALL_TABS);
+    // `partial` until all 18 tabs have landed: four lanes merge tabs
+    // independently, so a tab whose dependency has not shipped yet is an
+    // ordinary landing order, not a bad merge, and must not take the server
+    // down. The check tightens to strict on its own once the registry is
+    // complete.
+    assertRegistryValid(ALL_TABS, { partial: ALL_TABS.length < EXPECTED_TABS.length });
   }
 }

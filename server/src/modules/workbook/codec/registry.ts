@@ -69,7 +69,27 @@ export class RegistryError extends Error {
  * genuine dangling reference at runtime, and validating against the passed
  * array is what catches it.
  */
-export function assertRegistryValid(tabs: readonly TabSpec<any, any>[]): void {
+export interface RegistryValidationOptions {
+  /**
+   * Tolerate a `dependsOn` or `ref` target that is absent from the registry
+   * entirely, treating it as "that lane has not landed yet" rather than a
+   * dangling reference.
+   *
+   * Needed only while epic 14.0 is in flight: four lanes land tabs
+   * independently, so if `students` (which depends on `guardians`) merges
+   * before `guardians` does, a strict check at boot would take `main` down
+   * for everyone over an ordinary landing order rather than a bad merge.
+   * Every other invariant stays strict, and once the registry is complete
+   * the boot check becomes strict automatically.
+   */
+  partial?: boolean;
+}
+
+export function assertRegistryValid(
+  tabs: readonly TabSpec<any, any>[],
+  options: RegistryValidationOptions = {},
+): void {
+  const partial = options.partial ?? false;
   const seen = new Set<string>();
   const names = new Set(tabs.map((t) => t.name));
   const expected = new Set<string>(EXPECTED_TABS);
@@ -106,6 +126,7 @@ export function assertRegistryValid(tabs: readonly TabSpec<any, any>[]): void {
 
     for (const dependency of tab.dependsOn) {
       if (!names.has(dependency)) {
+        if (partial) continue;
         throw new RegistryError(
           `Tab "${tab.name}" depends on "${dependency}", which is not registered.`,
         );
@@ -169,6 +190,7 @@ export function assertRegistryValid(tabs: readonly TabSpec<any, any>[]): void {
         );
       }
       if (!names.has(column.ref)) {
+        if (partial) continue;
         throw new RegistryError(
           `Tab "${tab.name}" column "${column.key}" references unknown tab "${column.ref}".`,
         );

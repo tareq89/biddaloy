@@ -208,6 +208,41 @@ describe('assertRegistryValid', () => {
     expect(() => assertRegistryValid(tabs)).toThrow(/is not one of the 18 names in EXPECTED_TABS/);
   });
 
+  // While epic 14.0 is in flight the four lanes land tabs independently, so
+  // a not-yet-shipped dependency must not take the server down at boot.
+  describe('partial mode', () => {
+    it('tolerates a dependency that has not landed yet', () => {
+      const tabs = [fakeTab({ name: 'students', dependsOn: ['guardians'] })];
+
+      expect(() => assertRegistryValid(tabs)).toThrow(/is not registered/);
+      expect(() => assertRegistryValid(tabs, { partial: true })).not.toThrow();
+    });
+
+    it('tolerates a ref target that has not landed yet', () => {
+      const tabs = [
+        fakeTab({
+          name: 'students',
+          dependsOn: ['classes'],
+          columns: [idColumn, nameColumn, refColumn('classes')],
+        }),
+      ];
+
+      expect(() => assertRegistryValid(tabs, { partial: true })).not.toThrow();
+    });
+
+    it('still enforces every other invariant', () => {
+      expect(() =>
+        assertRegistryValid([fakeTab({ name: 'classes' }), fakeTab({ name: 'classes' })], {
+          partial: true,
+        }),
+      ).toThrow(/Duplicate tab name/);
+
+      expect(() =>
+        assertRegistryValid([fakeTab({ name: 'classes', naturalKey: [] })], { partial: true }),
+      ).toThrow(/at least one naturalKey column/);
+    });
+  });
+
   // dependsOn alone cannot catch this: 'subjects' and 'sections' have no
   // declared relationship, so only the EXPECTED_TABS subsequence check does.
   it('throws when two independent tabs are registered out of EXPECTED_TABS order', () => {
