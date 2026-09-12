@@ -28,6 +28,59 @@ describe('useBackupJobs', () => {
     expect(result.current.data?.data).toHaveLength(2);
     expect(result.current.data?.data[0]?.id).toBe('backup-job-1');
   });
+
+  it('polls while a job on the page is QUEUED/RUNNING, and stops once every job is terminal', async () => {
+    // Regression: nothing else refetches this list, so a row invalidated
+    // onto the page as QUEUED/RUNNING (e.g. right after useRequestBackup's
+    // mutation succeeds) used to be stuck at that status forever — the row
+    // never moved to DONE without an unrelated navigation or manual reload.
+    let requestCount = 0;
+    server.use(
+      http.get('/api/v1/backup/jobs', () => {
+        requestCount += 1;
+        const status = requestCount === 1 ? 'RUNNING' : 'DONE';
+        return HttpResponse.json({
+          data: [
+            {
+              id: 'backup-job-1',
+              status,
+              kind: 'EXPORT',
+              source: 'MANUAL',
+              requested_by: { id: 'user-1', full_name: 'Rahim Uddin' },
+              size_bytes: null,
+              row_counts: null,
+              progress: null,
+              failed_tab: null,
+              snapshot_job_id: null,
+              error: null,
+              pinned: false,
+              expires_at: null,
+              created_at: new Date().toISOString(),
+              finished_at: status === 'DONE' ? new Date().toISOString() : null,
+            },
+          ],
+          total: 1,
+          page: 1,
+          limit: 10,
+          totalPages: 1,
+        });
+      }),
+    );
+
+    const { result } = renderHookWithProviders(() => useBackupJobs(), {
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+    });
+
+    await waitFor(() => expect(result.current.data?.data[0]?.status).toBe('RUNNING'));
+    await waitFor(() => expect(result.current.data?.data[0]?.status).toBe('DONE'), {
+      timeout: 5000,
+    });
+
+    const countAfterDone = requestCount;
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+    expect(requestCount).toBe(countAfterDone);
+  }, 10000);
 });
 
 describe('useBackupJob polling', () => {

@@ -165,6 +165,14 @@ export function useBackupJobs(filters: WorkbookJobListFilters = {}) {
       return res.data;
     },
     retry: shouldRetryQuery,
+    // A job invalidated onto this page as QUEUED/RUNNING otherwise never
+    // moves — nothing else refetches this list, so a row's status would be
+    // stuck at whatever it was the moment it appeared.
+    refetchInterval: (query) => {
+      const jobs = query.state.data?.data ?? [];
+      const hasPendingJob = jobs.some((job) => job.status === 'QUEUED' || job.status === 'RUNNING');
+      return hasPendingJob ? 2000 : false;
+    },
   });
 }
 
