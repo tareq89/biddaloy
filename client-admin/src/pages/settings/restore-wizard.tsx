@@ -309,7 +309,7 @@ export function RestoreConfirmSlot({
             {t('schoolProfileLoadFailed')}
           </p>
           <Button type="button" variant="ghost" onClick={onRetrySchoolProfile}>
-            {t('retry', { ns: 'common' })}
+            {t('actions.retry', { ns: 'common' })}
           </Button>
         </div>
       )}
@@ -376,7 +376,7 @@ export function RestoreProgressPanel({
         </p>
         <div className="flex gap-2">
           <Button type="button" variant="outline" onClick={() => void jobQuery.refetch()}>
-            {t('retry', { ns: 'common' })}
+            {t('actions.retry', { ns: 'common' })}
           </Button>
           <Button type="button" variant="ghost" onClick={onReset}>
             {t('uploadAnother', { ns: 'bulkImport' })}
