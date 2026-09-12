@@ -94,8 +94,21 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
   const [deepLinkError, setDeepLinkError] = React.useState<'expired' | 'failed' | undefined>(
     undefined,
   );
-  const deepLinkTriggered = React.useRef(false);
+  // Keyed by job id, not a boolean: `backupJobId` is a search param
+  // (`_staff/settings.tsx`'s `?backup=`), so following a second
+  // "your backup is ready" link updates it *without* remounting this
+  // component. A boolean would stay set and silently swallow the new job.
+  const deepLinkTriggered = React.useRef<string | undefined>(undefined);
   const highlightRef = React.useRef<HTMLSpanElement>(null);
+
+  // ...and the previous link's error has to go with it. Cleared during
+  // render rather than in an effect so the stale message never paints for
+  // a frame against the new job.
+  const lastSeenBackupJobId = React.useRef(backupJobId);
+  if (lastSeenBackupJobId.current !== backupJobId) {
+    lastSeenBackupJobId.current = backupJobId;
+    setDeepLinkError(undefined);
+  }
 
   const handleDownload = React.useCallback(
     async (id: string): Promise<'ok' | 'expired' | 'error'> => {
@@ -119,24 +132,24 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
 
   // The deep-link flow: once the linked job is known, either trigger its
   // download (once) or surface the "expired/unknown" message — never both,
-  // and never more than once per mount.
+  // and never more than once per job id.
   React.useEffect(() => {
-    if (!backupJobId || deepLinkTriggered.current) return;
+    if (!backupJobId || deepLinkTriggered.current === backupJobId) return;
     if (deepLinkJobQuery.isError) {
-      deepLinkTriggered.current = true;
+      deepLinkTriggered.current = backupJobId;
       setDeepLinkError('expired');
       return;
     }
     if (deepLinkJobQuery.data) {
       if (deepLinkJobQuery.data.status === 'FAILED') {
-        deepLinkTriggered.current = true;
+        deepLinkTriggered.current = backupJobId;
         setDeepLinkError('failed');
         return;
       }
       if (deepLinkJobQuery.data.status === 'DELETED') {
         // A terminal status `useBackupJob` doesn't poll past — treat it the
         // same as the 410 a stale/expired job's download hits.
-        deepLinkTriggered.current = true;
+        deepLinkTriggered.current = backupJobId;
         setDeepLinkError('expired');
         return;
       }
@@ -146,7 +159,7 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
         // it lands on a terminal status, instead of giving up here.
         return;
       }
-      deepLinkTriggered.current = true;
+      deepLinkTriggered.current = backupJobId;
       // `handleDownload`'s own return value tells us whether it hit a 410,
       // rather than peeking at `expiredIds` from inside a state updater
       // (that updater must stay a pure function of its previous value —

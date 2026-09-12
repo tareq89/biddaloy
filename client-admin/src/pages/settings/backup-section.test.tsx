@@ -222,6 +222,47 @@ describe('BackupSection', () => {
     await waitFor(() => expect(downloadHits).toBe(1));
   });
 
+  it('handles a second deep link that arrives without a remount', async () => {
+    // `backupJobId` is a search param, so following a second "your backup
+    // is ready" link swaps the prop on the mounted component. A boolean
+    // "already handled" flag used to swallow that second job entirely and
+    // leave the first link's error on screen.
+    const downloaded: string[] = [];
+    server.use(
+      http.get('/api/v1/backup/jobs', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
+      ),
+      http.get('/api/v1/backup/jobs/:id', ({ params }) => {
+        const id = params.id as string;
+        // The first link points at a job that no longer exists, so it
+        // renders the expired message; the second is downloadable.
+        if (id === 'job-gone') return HttpResponse.json(null, { status: 404 });
+        return HttpResponse.json(jobFixture({ id }));
+      }),
+      http.get('/api/v1/backup/jobs/:id/download', ({ params }) => {
+        downloaded.push(params.id as string);
+        return new HttpResponse(new Blob(['bytes']), {
+          status: 200,
+          headers: { 'Content-Disposition': 'attachment; filename="backup.zip"' },
+        });
+      }),
+    );
+
+    const { rerender } = renderWithProviders(<BackupSection backupJobId="job-gone" />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: SCHOOL_ID,
+    });
+
+    expect(await screen.findByText('This backup has expired — request a new one.')).toBeTruthy();
+
+    rerender(<BackupSection backupJobId="job-second" />);
+
+    await waitFor(() => expect(downloaded).toEqual(['job-second']));
+    // The first link's message must not outlive the link itself.
+    expect(screen.queryByText('This backup has expired — request a new one.')).toBeNull();
+  });
+
   it('shows an inline message for an unknown/expired deep-linked backup id', async () => {
     server.use(
       http.get('/api/v1/backup/jobs', () =>
