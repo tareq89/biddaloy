@@ -102,6 +102,50 @@ describe('_staff route access [8.14.17]', () => {
     },
   );
 
+  // [14.11.4/#614] `SETTINGS_MANAGE` and `BACKUP_MANAGE` are granted to the
+  // exact same role set today — ADMIN only, plus SUPER_ADMIN which holds
+  // everything (`shared/src/enums/permissions.ts`). So no role can reach
+  // `/settings` without also holding `BACKUP_MANAGE`, and there is no
+  // "sees Settings but not Backup" case to write at this route level. These
+  // three cases exist so a *future* divergence between the two permissions
+  // — one granted to a role the other isn't — fails here, at the route
+  // gate, rather than only inside the in-page assertion #612 already owns
+  // (`backup-section.test.tsx`'s "section absent without the permission").
+  it('refuses a TEACHER at /settings (no SETTINGS_MANAGE, so no Backup UI)', async () => {
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/settings'],
+      tenantId: 'tenant-1',
+      role: UserRole.TEACHER,
+      locale: 'en',
+    });
+
+    await waitFor(() => expect(screen.getByText(ACCESS_DENIED_TITLE)).toBeTruthy());
+    expect(router.state.location.pathname).toBe('/settings');
+  });
+
+  it('refuses an ACCOUNTANT at /settings', async () => {
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/settings'],
+      tenantId: 'tenant-1',
+      role: UserRole.ACCOUNTANT,
+      locale: 'en',
+    });
+
+    await waitFor(() => expect(screen.getByText(ACCESS_DENIED_TITLE)).toBeTruthy());
+    expect(router.state.location.pathname).toBe('/settings');
+  });
+
+  it('renders /settings for an ADMIN, who holds SETTINGS_MANAGE and BACKUP_MANAGE', async () => {
+    renderWithRouter(routeTree, {
+      initialEntries: ['/settings'],
+      tenantId: 'tenant-1',
+      role: UserRole.ADMIN,
+      locale: 'en',
+    });
+
+    await waitFor(() => expect(screen.queryByText(ACCESS_DENIED_TITLE)).toBeNull());
+  });
+
   it('fails closed when no role is active at all', async () => {
     // No role active never even reaches `RequirePermission` — or even
     // `_staff.tsx`'s outer `RequireRole` gate. `__root.tsx`'s own
