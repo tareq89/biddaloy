@@ -2118,6 +2118,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/backup/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Queue a restore from a staged, validated workbook. Returns immediately with the restore job id and the pre-restore snapshot job id; poll GET /backup/jobs/:id for progress. */
+        post: operations["RestoreController_requestRestore_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4011,6 +4028,16 @@ export interface components {
             hard_error_count: number;
             /** @description True when every present tab except `school` currently has zero rows in this tenant */
             is_empty_tenant: boolean;
+        };
+        RequestRestoreDto: {
+            /** Format: uuid */
+            staging_id: string;
+            confirmation: string;
+            invite_users?: boolean;
+        };
+        RequestRestoreResponseDto: {
+            job_id: string;
+            snapshot_job_id: string;
         };
     };
     responses: never;
@@ -9617,6 +9644,41 @@ export interface operations {
                 };
                 content: {
                     "text/csv": string;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RestoreController_requestRestore_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestRestoreDto"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestRestoreResponseDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
