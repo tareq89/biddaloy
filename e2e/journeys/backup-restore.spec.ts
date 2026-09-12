@@ -38,6 +38,16 @@ import { t } from '../i18n';
  * still existing (just renamed).
  */
 test.describe.serial('backup and restore', () => {
+  // Every leg here waits on a real background job (export, then restore)
+  // to run to completion, which the 30s per-test default can't cover under
+  // CI's concurrency — this shard runs two other DB-heavy journeys on its
+  // other worker, and leg A timed out at exactly 30s on every run while
+  // the export job itself was healthy, just slower to be picked up. The
+  // individual `toBeVisible({ timeout: 60_000 })` waits below were already
+  // asking for more than the test budget allowed, so they could never
+  // actually spend it.
+  test.setTimeout(120_000);
+
   const suffix = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
   const schoolName = `E2E Backup School ${suffix}`;
   const schoolSlug = `e2e-backup-school-${suffix}`;
@@ -113,7 +123,11 @@ test.describe.serial('backup and restore', () => {
     await adminPage.getByRole('button', { name: t('backup.requestExport') }).click();
 
     const exportRow = adminPage.getByRole('row', { name: new RegExp(t('backup.kindExport')) });
-    await expect(exportRow.getByText(t('backup.status.DONE'))).toBeVisible({ timeout: 30_000 });
+    // 60s, matching Leg C's restore-done poll below — under CI's real
+    // concurrency (this shard runs two other DB-heavy journeys on its other
+    // worker), 30s proved too tight and this step timed out even though the
+    // export job itself was healthy and just slower to get picked up.
+    await expect(exportRow.getByText(t('backup.status.DONE'))).toBeVisible({ timeout: 60_000 });
 
     const downloadPromise = adminPage.waitForEvent('download');
     await exportRow.getByRole('button', { name: t('backup.download') }).click();
