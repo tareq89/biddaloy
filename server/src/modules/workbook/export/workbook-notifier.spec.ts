@@ -17,6 +17,8 @@ describe('WorkbookNotifier', () => {
   const FINISHED_AT = new Date('2026-01-15T10:30:00.000Z');
   const EXPIRES_AT = new Date('2026-01-22T10:30:00.000Z');
 
+  const SNAPSHOT_JOB_ID = 'snapshot-job-1';
+
   const baseRow = {
     id: JOB_ID,
     tenant_id: TENANT,
@@ -24,6 +26,7 @@ describe('WorkbookNotifier', () => {
     finished_at: FINISHED_AT,
     expires_at: EXPIRES_AT,
     error: null,
+    snapshot_job_id: SNAPSHOT_JOB_ID,
     requested_by: { email: 'requester@example.com', full_name: 'Requester Name' },
   };
 
@@ -191,6 +194,58 @@ describe('WorkbookNotifier', () => {
 
     const serialized = JSON.stringify(delivery.deliver.mock.calls);
     expect(serialized).not.toContain(payload.storageKey);
+  });
+
+  it('fires RESTORE_DONE for a DONE RESTORE job, with a link to the snapshot job', async () => {
+    await notifier.onJobFinished(basePayload({ kind: WorkbookJobKind.RESTORE }));
+
+    expect(delivery.deliver).toHaveBeenCalledTimes(1);
+    const input = delivery.deliver.mock.calls[0][0];
+    expect(input.kind).toBe('RESTORE_DONE');
+    expect(input.vars.link).toMatch(new RegExp(`/settings\\?backup=${SNAPSHOT_JOB_ID}$`));
+  });
+
+  it('fires RESTORE_FAILED for a FAILED RESTORE job, with a sanitised reason', async () => {
+    jobs.findOne.mockResolvedValue({ ...baseRow, status: WorkbookJobStatus.FAILED });
+
+    await notifier.onJobFinished(
+      basePayload({
+        kind: WorkbookJobKind.RESTORE,
+        status: WorkbookJobStatus.FAILED,
+        error: 'Row 12: invalid class id\nstack trace line 2',
+      }),
+    );
+
+    expect(delivery.deliver).toHaveBeenCalledTimes(1);
+    const input = delivery.deliver.mock.calls[0][0];
+    expect(input.kind).toBe('RESTORE_FAILED');
+    expect(input.vars.reason).toBe('Row 12: invalid class id');
+    // Failures still link to the snapshot — it's the rollback path.
+    expect(input.vars.link).toMatch(new RegExp(`/settings\\?backup=${SNAPSHOT_JOB_ID}$`));
+  });
+
+  it('a DONE RESTORE job (source MANUAL) emails RESTORE_DONE, routed by kind not by the D9 source gate', async () => {
+    // RestoreService always sets source MANUAL for a restore it requests, so
+    // this does not exercise a non-MANUAL RESTORE — it only confirms the
+    // RESTORE_DONE branch is selected via `kind`. The D9 source check still
+    // runs first (workbook-notifier.ts) and would silently drop a DONE
+    // RESTORE job whose source was ever anything but MANUAL; nothing today
+    // produces one, so that path is untested.
+    await notifier.onJobFinished(
+      basePayload({ kind: WorkbookJobKind.RESTORE, source: WorkbookJobSource.MANUAL }),
+    );
+
+    expect(delivery.deliver).toHaveBeenCalledTimes(1);
+    expect(delivery.deliver.mock.calls[0][0].kind).toBe('RESTORE_DONE');
+  });
+
+  it('falls back to the restore job id for the link when snapshot_job_id is null', async () => {
+    jobs.findOne.mockResolvedValue({ ...baseRow, snapshot_job_id: null });
+
+    await notifier.onJobFinished(basePayload({ kind: WorkbookJobKind.RESTORE }));
+
+    const input = delivery.deliver.mock.calls[0][0];
+    expect(input.vars.link).toMatch(new RegExp(`/settings\\?backup=${JOB_ID}$`));
   });
 
   it('registers exactly one listener on module init, which routes to onJobFinished', () => {
