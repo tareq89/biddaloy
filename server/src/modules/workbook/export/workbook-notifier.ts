@@ -3,7 +3,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { CommunicationMedium } from '@biddaloy/shared';
-import { WorkbookJob, WorkbookJobStatus, WorkbookJobSource } from '../jobs/workbook-job.entity';
+import {
+  WorkbookJob,
+  WorkbookJobKind,
+  WorkbookJobStatus,
+  WorkbookJobSource,
+} from '../jobs/workbook-job.entity';
 import { WorkbookJobEventsService } from './workbook-job-events.service';
 import { WorkbookJobFinishedPayload } from './export.constants';
 import {
@@ -82,11 +87,20 @@ export class WorkbookNotifier implements OnModuleInit {
       const locale = resolveTemplateLocale(settings.region?.locale);
       const timezone = settings.region?.timezone ?? 'UTC';
 
-      // RESTORE_* kinds exist in the template table but are not selected
-      // here — a RESTORE job reaching this event is still mailed as
-      // BACKUP_*; wiring RESTORE_DONE/RESTORE_FAILED is a later ticket.
-      const kind: TemplateKind =
-        payload.status === WorkbookJobStatus.DONE ? 'BACKUP_READY' : 'BACKUP_FAILED';
+      // RESTORE jobs get their own DONE/FAILED templates — [14.10.3] (#609).
+      // The link always points at the pre-restore SNAPSHOT (not the restore
+      // job itself, which has no downloadable artefact): it is what lets
+      // the admin roll back, on both success and failure.
+      const isRestore = payload.kind === WorkbookJobKind.RESTORE;
+      const kind: TemplateKind = isRestore
+        ? payload.status === WorkbookJobStatus.DONE
+          ? 'RESTORE_DONE'
+          : 'RESTORE_FAILED'
+        : payload.status === WorkbookJobStatus.DONE
+          ? 'BACKUP_READY'
+          : 'BACKUP_FAILED';
+
+      const linkJobId = isRestore ? (job.snapshot_job_id ?? payload.jobId) : payload.jobId;
 
       const input: DeliverInput = {
         tenantId: payload.tenantId,
@@ -95,7 +109,7 @@ export class WorkbookNotifier implements OnModuleInit {
         recipientName: job.requested_by!.full_name,
         kind,
         vars: {
-          link: buildBackupLink(resolveAppBaseUrl(this.config), payload.jobId),
+          link: buildBackupLink(resolveAppBaseUrl(this.config), linkJobId),
           size_mb: formatSizeMb(payload.sizeBytes),
           finished_at: formatTimestamp(job.finished_at, locale, timezone),
           expires_at: formatTimestamp(job.expires_at, locale, timezone),
