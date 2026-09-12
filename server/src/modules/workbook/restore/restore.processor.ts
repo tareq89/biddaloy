@@ -275,7 +275,9 @@ export class RestoreProcessor extends WorkerHost {
             }
           }
 
-          if (tab.deleteByAbsence) {
+          // Same guard as `DiffService`: a TEMPLATE workbook must never be
+          // able to delete rows, no matter what the preview said.
+          if (tab.deleteByAbsence && validated.meta.kind !== 'TEMPLATE') {
             for (const entity of existingEntities) {
               const id = (entity as { id: string }).id;
               if (!matchedIds.has(id)) {

@@ -358,6 +358,42 @@ describe('streaming', () => {
   }, 120_000);
 });
 
+describe('SheetDecorator.addListValidation guards', () => {
+  it('rejects a value containing a comma', async () => {
+    await expect(
+      writeWorkbook({
+        tabs: [classesTab],
+        meta,
+        rowsFor: rowsFrom({}),
+        decorate: (sheet) => sheet.addListValidation(2, ['ok', 'has,comma'], false),
+      }),
+    ).rejects.toThrow(/,/);
+  });
+
+  it('rejects a value set whose inline formula exceeds 255 chars', async () => {
+    const longValues = Array.from({ length: 30 }, (_, i) => `option-number-${i}-padded-value`);
+    await expect(
+      writeWorkbook({
+        tabs: [classesTab],
+        meta,
+        rowsFor: rowsFrom({}),
+        decorate: (sheet) => sheet.addListValidation(2, longValues, false),
+      }),
+    ).rejects.toThrow(/255/);
+  });
+
+  it('accepts a short, comma-free value set', async () => {
+    await expect(
+      writeWorkbook({
+        tabs: [classesTab],
+        meta,
+        rowsFor: rowsFrom({}),
+        decorate: (sheet) => sheet.addListValidation(2, ['TRUE', 'FALSE'], false),
+      }),
+    ).resolves.toBeInstanceOf(Buffer);
+  });
+});
+
 // Acceptance criterion from the ticket, enforced rather than trusted.
 describe('exceljs containment', () => {
   // Spec files are excluded: this spec imports exceljs itself to build

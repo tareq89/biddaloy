@@ -42,11 +42,102 @@ export class WorkbookFormatError extends Error {
   }
 }
 
+/**
+ * A tab's sheet, decoration-only. Never exposes a raw exceljs cell or row —
+ * `TemplateService` (the only caller) must stay on the plain-records side of
+ * the boundary this module's own doc comment describes, same as every other
+ * caller of `writeWorkbook`.
+ */
+export interface SheetDecorator {
+  /**
+   * Adds a dropdown (`list` data validation) over that column's data rows
+   * (rows 2 through {@link TEMPLATE_VALIDATED_ROWS}). `columnIndex` is
+   * 1-based, matching `tab.columns`' own order.
+   */
+  addListValidation(columnIndex: number, values: readonly string[], allowBlank: boolean): void;
+  /** Sets a comment on that column's header cell (row 1). 1-based. */
+  setHeaderNote(columnIndex: number, note: string): void;
+}
+
+/** Data validation only covers this many data rows — a template is meant to
+ * be filled by hand or a small import, not thousands of rows at once. */
+const TEMPLATE_VALIDATED_ROWS = 1000;
+
+/** exceljs's public types don't declare `Worksheet.dataValidations` (it is
+ * real at runtime — see `node_modules/exceljs/lib/doc/data-validations.js` —
+ * just missing from `index.d.ts`), so this narrows the cast to one place. */
+interface WorksheetWithValidations extends ExcelJS.Worksheet {
+  dataValidations: { add(address: string, validation: ExcelJS.DataValidation): void };
+}
+
+/** `1 -> 'A'`, `27 -> 'AA'`. exceljs has no public export for this. */
+function columnLetter(oneBasedIndex: number): string {
+  let n = oneBasedIndex;
+  let letters = '';
+  while (n > 0) {
+    const remainder = (n - 1) % 26;
+    letters = String.fromCharCode(65 + remainder) + letters;
+    n = Math.floor((n - 1) / 26);
+  }
+  return letters;
+}
+
+/** Excel's inline `formulae: ['"a,b,c"']` list-validation form caps the whole
+ * quoted string at 255 characters and uses `,` as the item separator, so a
+ * value containing a comma or a long-enough value set would silently
+ * corrupt the dropdown (Excel truncates or splits it wrong) rather than
+ * error. Guarded here instead of trusting every future enum to stay short
+ * and comma-free. */
+const INLINE_LIST_VALIDATION_MAX_CHARS = 255;
+
+function makeDecorator(sheet: ExcelJS.Worksheet, headerRow: ExcelJS.Row): SheetDecorator {
+  return {
+    addListValidation(columnIndex, values, allowBlank) {
+      if (values.some((v) => v.includes(','))) {
+        throw new Error(`List validation values cannot contain ",": ${JSON.stringify(values)}`);
+      }
+      const formula = `"${values.join(',')}"`;
+      if (formula.length > INLINE_LIST_VALIDATION_MAX_CHARS) {
+        throw new Error(
+          `List validation formula exceeds Excel's ${INLINE_LIST_VALIDATION_MAX_CHARS}-char ` +
+            `inline limit (${formula.length} chars): ${JSON.stringify(values)}`,
+        );
+      }
+      const letter = columnLetter(columnIndex);
+      (sheet as WorksheetWithValidations).dataValidations.add(
+        `${letter}2:${letter}${TEMPLATE_VALIDATED_ROWS}`,
+        { type: 'list', allowBlank, formulae: [formula], showErrorMessage: true },
+      );
+    },
+    setHeaderNote(columnIndex, note) {
+      headerRow.getCell(columnIndex).note = note;
+    },
+  };
+}
+
 export interface WriteWorkbookInput {
   tabs: readonly TabSpec<any, any>[];
   meta: WorkbookMeta;
   rowsFor: (tab: TabSpec<any, any>) => AsyncIterable<Record<string, unknown>>;
+  /**
+   * Optional: called once per tab immediately after its sheet and header row
+   * are created, before either is committed. Lets a caller (`TemplateService`)
+   * add dropdowns and header comments without this module knowing anything
+   * about templates, and without the caller ever touching an exceljs cell.
+   */
+  decorate?: (sheet: SheetDecorator, tab: TabSpec<any, any>) => void;
+  /**
+   * Optional: rows for a `_readme` sheet, written immediately after `_meta`
+   * and before the first tab. Plain rows, written as-is — no formatting.
+   */
+  readme?: readonly (string | number)[][];
 }
+
+/** Sheet name of the template fill-instructions sheet (14.13.1). Not a tab
+ * (never in `EXPECTED_TABS`) and, like `META_SHEET`, silently skipped by
+ * `readWorkbook` rather than warned about as a stray sheet — it is part of
+ * the template format, not foreign data. */
+export const README_SHEET = '_readme';
 
 /**
  * Writes the `_meta` sheet followed by one sheet per tab, in the given order.
@@ -61,7 +152,13 @@ export interface WriteWorkbookInput {
  * ever resident. The finished bytes are collected into one Buffer at the end
  * because that is what the signature promises.
  */
-export async function writeWorkbook({ tabs, meta, rowsFor }: WriteWorkbookInput): Promise<Buffer> {
+export async function writeWorkbook({
+  tabs,
+  meta,
+  rowsFor,
+  decorate,
+  readme,
+}: WriteWorkbookInput): Promise<Buffer> {
   const stream = new PassThrough();
   const chunks: Buffer[] = [];
   stream.on('data', (chunk: Buffer) => chunks.push(chunk));
@@ -84,9 +181,17 @@ export async function writeWorkbook({ tabs, meta, rowsFor }: WriteWorkbookInput)
   }
   metaSheet.commit();
 
+  if (readme) {
+    const readmeSheet = workbook.addWorksheet(README_SHEET);
+    for (const row of readme) readmeSheet.addRow(row).commit();
+    readmeSheet.commit();
+  }
+
   for (const tab of tabs) {
     const sheet = workbook.addWorksheet(tab.name);
-    sheet.addRow(tab.columns.map((c) => c.key)).commit();
+    const headerRow = sheet.addRow(tab.columns.map((c) => c.key));
+    if (decorate) decorate(makeDecorator(sheet, headerRow), tab);
+    headerRow.commit();
 
     for await (const row of rowsFor(tab)) {
       sheet.addRow(tab.columns.map((c) => toCell(c.type, row[c.key]))).commit();
@@ -112,8 +217,11 @@ export interface ReadWorkbookResult {
   warnings: RowError[];
 }
 
-/** Template sample rows carry this literal in their id cell (epic D12). */
-const SAMPLE_ROW_ID = 'SAMPLE';
+/** Template sample rows carry this literal in their id cell (epic D12).
+ * Exported so `TemplateService` (which must never import `exceljs` itself)
+ * can build a sample row using the exact same literal this module skips
+ * on read, instead of duplicating the string. */
+export const SAMPLE_ROW_ID = 'SAMPLE';
 
 const KINDS = new Set<WorkbookMeta['kind']>(['BACKUP', 'SNAPSHOT', 'TEMPLATE']);
 
@@ -137,7 +245,7 @@ export async function readWorkbook(buffer: Buffer): Promise<ReadWorkbookResult> 
 
   workbook.eachSheet((worksheet) => {
     const name = worksheet.name;
-    if (name === META_SHEET) return;
+    if (name === META_SHEET || name === README_SHEET) return;
 
     if (!known.has(name)) {
       // Skipped, not fatal: a workbook written by a newer schema may carry a

@@ -89,11 +89,57 @@ async function writeThreeErrors(): Promise<void> {
   writeFileSync(join(OUT_DIR, 'three-errors.xlsx'), Buffer.from(buffer));
 }
 
+/**
+ * [14.13.1] Demonstrates what a human hand-editing a template tends to do:
+ * stray leading/trailing spaces, Bengali digits in a date cell, a
+ * lower-cased enum value, and one `SAMPLE` row left untouched. Only
+ * `academic_years` and `users` are used — both need at most `school`
+ * (`academic_years.dependsOn = ['school']`, `users.dependsOn = ['school']`
+ * only, which every row implicitly satisfies), so this fixture needs no
+ * other sheet to be valid.
+ */
+async function writeHandFilled(): Promise<void> {
+  const workbook = new ExcelJS.Workbook();
+  addMetaSheet(workbook, { ...meta(), kind: 'TEMPLATE' });
+
+  const yearsSheet = workbook.addWorksheet('academic_years');
+  yearsSheet.addRow(['id', 'name', 'start_date', 'end_date', 'is_current']);
+  // Row 2: kept as the template's own SAMPLE row — must be skipped on
+  // import regardless of what its other cells say.
+  yearsSheet.addRow(['SAMPLE', 'Sample year', '2026-01-01', '2026-12-31', 'TRUE']);
+  // Row 3: stray spaces around every text cell, and the date written with
+  // Bengali digits — both must be accepted, not rejected.
+  yearsSheet.addRow([
+    '11111111-1111-4111-8111-111111111111',
+    '  Test Year  ',
+    '২০২৬-০১-০১', // 2026-01-01 in Bengali digits
+    '2026-12-31',
+    'TRUE',
+  ]);
+
+  const usersSheet = workbook.addWorksheet('users');
+  usersSheet.addRow(['id', 'email', 'phone', 'full_name', 'role']);
+  // Row 2: `role` is lower-cased ("admin" instead of "ADMIN") — enum
+  // matching is case-sensitive, so this is the one deliberate error this
+  // fixture carries, and it must name tab "users", row 2, column "role".
+  usersSheet.addRow([
+    '22222222-2222-4222-8222-222222222222',
+    '  hand-filled@example.com  ',
+    '',
+    '  Hand Filled User  ',
+    'admin',
+  ]);
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  writeFileSync(join(OUT_DIR, 'hand-filled.xlsx'), Buffer.from(buffer));
+}
+
 async function main(): Promise<void> {
   await writeValid();
   await writeThreeErrors();
+  await writeHandFilled();
   // eslint-disable-next-line no-console
-  console.log('Wrote valid.xlsx and three-errors.xlsx to', OUT_DIR);
+  console.log('Wrote valid.xlsx, three-errors.xlsx and hand-filled.xlsx to', OUT_DIR);
 }
 
 main().catch((error) => {
