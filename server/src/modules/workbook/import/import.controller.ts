@@ -12,6 +12,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -30,6 +31,8 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { STRICT_RATE_LIMIT } from '../../../rate-limit';
 import { ImportStagingService } from '../../bulk-import/import-staging.service';
 import type { BulkImportErrorDto } from '../../bulk-import/dto/bulk-import.dto';
+import { StorageService } from '../../storage/storage.service';
+import { tenantObjectKeyNamed } from '../../storage/storage-key';
 import { WorkbookFormatError } from '../codec/workbook-codec';
 import type { RowError } from '../codec/tab-spec';
 import type { WorkbookMeta } from '../codec/meta';
@@ -39,11 +42,28 @@ import type { ValidateResponseDto } from './dto/validate-response.dto';
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // 20 MB
 
+/** Category for the original upload, kept only long enough for a restore
+ * to consume it — separate from `export`'s `'backups'` category so the two
+ * lifecycles (30-minute staging TTL vs 30-day retention) are never confused
+ * by a shared prefix. */
+const STAGING_STORAGE_CATEGORY = 'staging';
+
 /**
  * What `POST /backup/validate` stages, so `GET .../errors.csv` can re-read
- * the same errors later without re-parsing the workbook.
+ * the same errors later without re-parsing the workbook, and so a restore
+ * can re-validate the *original* upload against the tenant's current data
+ * once the admin confirms.
+ *
+ * Only the workbook's storage key is staged, not its parsed rows: a large
+ * school's workbook can be tens of thousands of rows across 18 tabs, which
+ * is too large to hold in Redis (`ImportStagingService`'s backing store) for
+ * every in-flight validation. The buffer itself lives in object storage;
+ * restore downloads it and calls `ValidationService.validate` again to get
+ * fresh, real typed rows — the same call this controller already makes,
+ * just re-run at apply time instead of reused from preview time.
  */
 export interface StagedValidation {
+  workbook_storage_key: string;
   meta: WorkbookMeta;
   tabs: Array<{
     name: string;
@@ -90,6 +110,7 @@ export class ImportController {
     @Inject(ValidationService) private readonly validationService: ValidationService,
     @Inject(DiffService) private readonly diffService: DiffService,
     @Inject(ImportStagingService) private readonly staging: ImportStagingService,
+    @Inject(StorageService) private readonly storage: StorageService,
     @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
@@ -143,7 +164,25 @@ export class ImportController {
     const errorDtos = validated.errors.map(toErrorDto);
     const warningDtos = validated.warnings.map(toErrorDto);
 
+    // The original upload, kept only so a later restore can re-validate it
+    // once the admin confirms — see StagedValidation's doc comment for why
+    // the parsed rows themselves are never staged. Named by a fresh id, not
+    // the staging id: `ImportStagingService.stage` mints its own id and
+    // gives no way to choose it ahead of time.
+    const workbookStorageKey = tenantObjectKeyNamed(
+      tenant.id,
+      STAGING_STORAGE_CATEGORY,
+      randomUUID(),
+      'xlsx',
+    );
+    await this.storage.put(
+      workbookStorageKey,
+      file.buffer,
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+
     const staged: StagedValidation = {
+      workbook_storage_key: workbookStorageKey,
       meta: validated.meta,
       tabs: diffReport.tabs.map((t) => ({
         name: t.name,
