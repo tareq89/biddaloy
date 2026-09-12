@@ -4,98 +4,145 @@ import { apiClient } from '../api/client';
 
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
-import type { PreviewResult } from './use-bulk-upload-preview';
+import type { BulkImportError, PreviewResult } from './use-bulk-upload-preview';
 
 /**
- * Hand-declared to mirror the server's backup DTOs
- * (`server/src/modules/backup/dto/backup.dto.ts`, added by #600/#604/#609).
- * `schema.d.ts` has not been regenerated for these endpoints yet — swap
- * these for the generated `components['schemas'][...]` types once wave-3
- * integration regenerates it, same convention `bulk-upload.ts`'s
- * `StudentUploadPreviewRow` follows.
+ * Hand-declared to mirror the *real* server DTOs, verified directly against
+ * source rather than relayed:
+ * - `server/src/modules/workbook/export/dto/workbook-job.dto.ts` (`WorkbookJobDto`)
+ * - `server/src/modules/workbook/jobs/workbook-job.entity.ts` (the enums)
+ * - `server/src/modules/workbook/import/dto/validate-response.dto.ts` (`ValidateResponseDto`)
+ * - `server/src/modules/workbook/restore/dto/restore.dto.ts` (`RequestRestoreDto`/`RequestRestoreResponseDto`)
+ *
+ * These replace an earlier hand-typed guess (#611) that didn't match any of
+ * the above — see the [14.11.5] commit that introduced this file for the
+ * full list of mismatches. `schema.d.ts` still has no OpenAPI-generated
+ * types for this route, so this stays hand-typed against server source,
+ * same convention as `school-profile.ts`'s `SchoolProfile`.
  */
-export type BackupJobStatus = 'QUEUED' | 'RUNNING' | 'DONE' | 'FAILED';
+export type WorkbookJobKind = 'EXPORT' | 'SNAPSHOT' | 'RESTORE';
+export type WorkbookJobStatus = 'QUEUED' | 'RUNNING' | 'DONE' | 'FAILED' | 'DELETED';
+export type WorkbookJobSource = 'MANUAL' | 'SCHEDULED' | 'SNAPSHOT';
 
-export interface BackupJob {
+export interface WorkbookJobRequester {
   id: string;
-  status: BackupJobStatus;
-  type: 'EXPORT' | 'RESTORE';
-  created_at: string;
-  completed_at?: string | null;
-  requested_by?: string;
-  error_message?: string | null;
-  file_size_bytes?: number | null;
-  /** [613] D5's `workbook_jobs.progress` fields, added for the restore
-   * wizard's progress panel — optional so #612's `backup-section.tsx`
-   * keeps compiling unchanged. */
-  current_tab?: string | null;
-  tabs_done?: number | null;
-  tabs_total?: number | null;
-  /** The tab the restore stopped at, set only when `status === 'FAILED'`. */
-  failed_tab?: string | null;
-  /** The pre-restore snapshot's own job id — the undo, per D8. */
-  snapshot_job_id?: string | null;
-  row_counts?: Record<string, number> | null;
+  full_name: string;
 }
 
-export interface BackupJobListFilters {
-  status?: BackupJobStatus;
-  type?: 'EXPORT' | 'RESTORE';
+export interface WorkbookJobProgress {
+  tab: string;
+  done: number;
+  total: number;
+}
+
+export interface WorkbookJob {
+  id: string;
+  kind: WorkbookJobKind;
+  status: WorkbookJobStatus;
+  source: WorkbookJobSource;
+  requested_by: WorkbookJobRequester | null;
+  /** bigint column — the server hands this back as a string. Never
+   * `Number()` this for anything beyond display formatting. */
+  size_bytes: string | null;
+  row_counts: Record<string, number> | null;
+  progress: WorkbookJobProgress | null;
+  failed_tab: string | null;
+  snapshot_job_id: string | null;
+  error: string | null;
+  pinned: boolean;
+  expires_at: string | null;
+  created_at: string;
+  finished_at: string | null;
+}
+
+export interface WorkbookJobListFilters {
+  kind?: WorkbookJobKind;
+  status?: WorkbookJobStatus;
   page?: number;
   limit?: number;
 }
 
-export interface PaginatedBackupJobs {
-  data: BackupJob[];
+export interface PaginatedWorkbookJobs {
+  data: WorkbookJob[];
   total: number;
   page: number;
   limit: number;
   totalPages: number;
 }
 
-/** One tab's diff counts in a restore preview — [613] C1. */
-export interface RestoreTabDiff {
-  tab: string;
-  create: number;
-  update: number;
-  delete: number;
+/** One tab's dry-run diff — mirrors `TabSummaryDto`. There is no per-tab
+ * error count in this DTO; row-level errors/warnings are top-level
+ * `BulkImportErrorDto[]` on the validate response, not per tab. */
+export interface TabSummaryDto {
+  name: string;
+  present: boolean;
+  creates: number;
+  updates: number;
   unchanged: number;
-  errors: number;
+  deletes: number;
 }
 
-/**
- * [613] C1 — hand-declared to mirror #604's `ValidateResponseDto`, still a
- * guess pending schema regeneration (same convention as `BackupJob`'s own
- * header comment): swap for the generated `components['schemas'][...]`
- * type once wave-3 integration regenerates `schema.d.ts`. Replaces the old
- * `ValidateResponseDto`, which didn't satisfy `PreviewResult<S>` — no
- * `staging_id`/`expires_at`, `errors` typed `string[]`, no per-tab diff.
- */
+export interface ValidateTotalsDto {
+  creates: number;
+  updates: number;
+  unchanged: number;
+  deletes: number;
+}
+
+/** The `summary` half of `PreviewResult<RestoreSummary>` — everything the
+ * flat `ValidateResponseDto` carries beyond the `staging_id`/`expires_at`/
+ * `errors`/`hard_error_count` fields `PreviewResult` already models.
+ * `meta.source_school_name` is read out of the *uploaded workbook* — it
+ * must never be used as the restore confirmation gate's expected value
+ * (the session's real school name comes from `useSchoolProfile()`
+ * instead), so it's kept here purely for display. */
 export interface RestoreSummary {
-  school_name: string;
-  source_school_name?: string;
-  exported_at?: string;
+  meta: {
+    schema_version: number;
+    kind: string;
+    exported_at: string;
+    app_version: string;
+    source_school_name: string;
+    source_school_slug: string;
+  };
+  tabs: TabSummaryDto[];
+  totals: ValidateTotalsDto;
+  warnings: BulkImportError[];
   is_empty_tenant: boolean;
-  tabs: RestoreTabDiff[];
-  warnings: string[];
-  /** Relative path for the "download errors as CSV" link:
-   * `/backup/validate/:staging_id/errors.csv`. */
-  errors_csv_path?: string;
 }
 
-/**
- * [613] C2 — `commit` in `useBulkUploadPreview` is handed only the staged
- * upload's `staging_id` (D7: every bulk upload commits from the stage,
- * never a re-parsed file or a stored archive id), and D8 requires the
- * "invite restored users" opt-in. `#609` confirms the final field names at
- * wave-3 integration.
- */
+/** Server response shape of `POST /backup/validate` — flat, no `summary`
+ * wrapper. `useValidateBackup` reshapes this into `PreviewResult<RestoreSummary>`
+ * for `BulkUploadPreview`. */
+interface ValidateResponseDto {
+  staging_id: string;
+  expires_at: string;
+  meta: RestoreSummary['meta'];
+  tabs: TabSummaryDto[];
+  totals: ValidateTotalsDto;
+  errors: BulkImportError[];
+  warnings: BulkImportError[];
+  hard_error_count: number;
+  is_empty_tenant: boolean;
+}
+
+/** Body of `POST /backup/restore` — mirrors `RequestRestoreDto` exactly.
+ * Field names are `staging_id`/`confirmation`/`invite_users`. */
 export interface RestoreBackupInput {
   staging_id: string;
-  confirmation_text: string;
-  /** D8: restored users arrive without credentials; inviting them is
-   * opt-in, default off. */
-  invite_restored_users?: boolean;
+  confirmation: string;
+  /** Restored users arrive without credentials; inviting them is opt-in,
+   * default off. */
+  invite_users?: boolean;
+}
+
+/** `POST /backup/restore` resolves as soon as the restore is *queued*
+ * (`@HttpCode(202)`), not once it finishes — mirrors
+ * `RequestRestoreResponseDto`. The caller polls `useBackupJob(job_id)` for
+ * live progress. */
+export interface RequestRestoreResponse {
+  job_id: string;
+  snapshot_job_id: string;
 }
 
 /**
@@ -103,15 +150,15 @@ export interface RestoreBackupInput {
  * `./query-keys.ts`'s own comment and `./students.ts`'s `studentKeys` for
  * the pattern every entity's keys mirror.
  */
-export const backupKeys = createEntityKeys<BackupJobListFilters>('backup-jobs');
+export const backupKeys = createEntityKeys<WorkbookJobListFilters>('backup-jobs');
 
-/** `GET /backup/jobs` — the list of export/restore jobs for the active
- * tenant, newest first (server-side ordering). */
-export function useBackupJobs(filters: BackupJobListFilters = {}) {
+/** `GET /backup/jobs` — the list of export/snapshot/restore jobs for the
+ * active tenant, newest first (server-side ordering). */
+export function useBackupJobs(filters: WorkbookJobListFilters = {}) {
   return useQuery({
     queryKey: backupKeys.list(filters),
     queryFn: async ({ signal }) => {
-      const res = await apiClient.get<PaginatedBackupJobs>('/backup/jobs', {
+      const res = await apiClient.get<PaginatedWorkbookJobs>('/backup/jobs', {
         params: filters,
         signal,
       });
@@ -123,12 +170,12 @@ export function useBackupJobs(filters: BackupJobListFilters = {}) {
 
 /** `GET /backup/jobs/:id` — polls every 2s while the job is still
  * `QUEUED`/`RUNNING` so the caller sees live progress, and stops polling
- * once it lands on a terminal status (`DONE`/`FAILED`). */
+ * once it lands on a terminal status (`DONE`/`FAILED`/`DELETED`). */
 export function useBackupJob(id: string | undefined) {
   return useQuery({
     queryKey: backupKeys.detail(id ?? ''),
     queryFn: async () => {
-      const res = await apiClient.get<BackupJob>(`/backup/jobs/${id}`);
+      const res = await apiClient.get<WorkbookJob>(`/backup/jobs/${id}`);
       return res.data;
     },
     enabled: id !== undefined,
@@ -146,8 +193,8 @@ export function useBackupJob(id: string | undefined) {
 export function useRequestBackup() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (): Promise<BackupJob> => {
-      const res = await apiClient.post<BackupJob>('/backup/export');
+    mutationFn: async (): Promise<{ job_id: string }> => {
+      const res = await apiClient.post<{ job_id: string }>('/backup/export');
       return res.data;
     },
     retry: false,
@@ -158,10 +205,10 @@ export function useRequestBackup() {
 }
 
 /** `POST /backup/validate` — multipart upload of a candidate restore
- * archive, staged and inspected server-side without writing anything.
- * Writes nothing itself, so this mirrors `bulk-upload.ts`'s
- * `useValidateStudentUpload` shape (multipart + upload progress,
- * `retry: false`). */
+ * workbook, staged and inspected server-side without writing anything.
+ * The server's `ValidateResponseDto` is flat; this reshapes it into
+ * `PreviewResult<RestoreSummary>` so it satisfies `BulkUploadPreview`'s
+ * generic contract without changing the server response shape. */
 export function useValidateBackup() {
   return useMutation({
     mutationFn: async ({
@@ -173,18 +220,27 @@ export function useValidateBackup() {
     }): Promise<PreviewResult<RestoreSummary>> => {
       const formData = new FormData();
       formData.append('file', file);
-      const res = await apiClient.post<PreviewResult<RestoreSummary>>(
-        '/backup/validate',
-        formData,
-        {
-          onUploadProgress: (event) => {
-            if (onProgress && event.total) {
-              onProgress(Math.round((event.loaded / event.total) * 100));
-            }
-          },
+      const res = await apiClient.post<ValidateResponseDto>('/backup/validate', formData, {
+        onUploadProgress: (event) => {
+          if (onProgress && event.total) {
+            onProgress(Math.round((event.loaded / event.total) * 100));
+          }
         },
-      );
-      return res.data;
+      });
+      const data = res.data;
+      return {
+        staging_id: data.staging_id,
+        expires_at: data.expires_at,
+        errors: data.errors,
+        hard_error_count: data.hard_error_count,
+        summary: {
+          meta: data.meta,
+          tabs: data.tabs,
+          totals: data.totals,
+          warnings: data.warnings,
+          is_empty_tenant: data.is_empty_tenant,
+        },
+      };
     },
     retry: false,
   });
@@ -192,13 +248,15 @@ export function useValidateBackup() {
 
 /** `POST /backup/restore` — actually applies a previously validated
  * backup. Consequential and non-idempotent (same reasoning as
- * `useRequestBackup`): `retry: false`, and invalidates the job list on
- * success since a restore also queues/creates a tracked job. */
+ * `useRequestBackup`): `retry: false`. Resolves with `{job_id,
+ * snapshot_job_id}` the moment the restore is queued (202) — invalidates
+ * the job list since a restore also creates a tracked job, but the caller
+ * must poll `useBackupJob(job_id)` itself for progress. */
 export function useRestoreBackup() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: RestoreBackupInput): Promise<BackupJob> => {
-      const res = await apiClient.post<BackupJob>('/backup/restore', input);
+    mutationFn: async (input: RestoreBackupInput): Promise<RequestRestoreResponse> => {
+      const res = await apiClient.post<RequestRestoreResponse>('/backup/restore', input);
       return res.data;
     },
     retry: false,
@@ -249,29 +307,6 @@ export async function downloadBackup(id: string): Promise<void> {
   // Revoke on a later tick, not in a `finally` right after click(): Safari
   // aborts an in-flight download if the object URL is revoked in the same
   // tick (see `../utils/csv.ts`'s `downloadCsv`, which this mirrors).
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
-}
-
-/**
- * `GET <path>` for a `RestoreSummary.errors_csv_path` (e.g.
- * `/backup/validate/:staging_id/errors.csv`) — same authenticated-download
- * shape as `downloadBackup` above. A plain `<a href={path}>` would hit the
- * API host directly with no `Authorization` header attached, so it 401s;
- * this goes through `apiClient` like every other download in this file.
- */
-export async function downloadValidationErrorsCsv(path: string): Promise<void> {
-  const res = await apiClient.get<Blob>(path, { responseType: 'blob' });
-  const filename = filenameFromContentDisposition(
-    res.headers['content-disposition'] as string | undefined,
-    'restore-errors.csv',
-  );
-  const url = URL.createObjectURL(res.data);
   const anchor = document.createElement('a');
   anchor.href = url;
   anchor.download = filename;

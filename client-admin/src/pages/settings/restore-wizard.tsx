@@ -1,39 +1,45 @@
 import { BulkUploadPreview, Button, Card, Checkbox, Input } from '@biddaloy/ui/components';
 import {
   downloadBackup,
-  downloadValidationErrorsCsv,
   useBackupJob,
   useRestoreBackup,
+  useSchoolProfile,
   useValidateBackup,
-  type BackupJob,
   type PreviewResult,
+  type RequestRestoreResponse,
   type RestoreSummary,
-  type RestoreTabDiff,
+  type TabSummaryDto,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
 
 /**
- * [14.11.3/#613] "Restore from a backup" — the irreversible action, made
- * impossible to do by accident and easy to do on purpose (D8). Built on
- * the same `BulkUploadPreview` (`@biddaloy/ui`) both the restore wizard
- * and student import share (D11): validate the uploaded workbook, show a
- * per-tab diff, gate Confirm behind the school's exact name typed by hand,
- * then hand the queued `BackupJob` to a progress panel that polls
- * `useBackupJob` — the same 2s poll `BackupSection`'s own deep link
- * already relies on.
+ * [14.11.3/#613, corrected 14.11.5] "Restore from a backup" — the
+ * irreversible action, made impossible to do by accident and easy to do on
+ * purpose (D8). Built on the same `BulkUploadPreview` (`@biddaloy/ui`) both
+ * the restore wizard and student import share (D11): validate the uploaded
+ * workbook, show a per-tab diff, gate Confirm behind the school's exact
+ * name typed by hand, then hand the queued `{job_id, snapshot_job_id}` to a
+ * progress panel that polls `useBackupJob`.
  *
- * `commit` (`useRestoreBackup`) resolves as soon as the server has
- * *queued* the restore, not once it finishes — the minutes-long tab-by-tab
- * apply lives entirely in `renderDone`'s `RestoreProgressPanel`, so the
- * state machine in `use-bulk-upload-preview.ts` needs no change (see the
- * plan's GATE-1 note). `renderCommitting` only covers the brief
+ * `commit` (`useRestoreBackup`) resolves as soon as the server has *queued*
+ * the restore (`202`, `RequestRestoreResponseDto`), not once it finishes —
+ * the minutes-long tab-by-tab apply lives entirely in `renderDone`'s
+ * `RestoreProgressPanel`, which polls `GET /backup/jobs/:job_id` for the
+ * real `WorkbookJobDto`. `renderCommitting` only covers the brief
  * POST-in-flight window.
+ *
+ * Correction from #613's original build: the confirmation gate's expected
+ * school name now comes from `useSchoolProfile()` (the session's real
+ * school), never from `meta.source_school_name` on the validate response —
+ * that field is read out of the *uploaded* workbook, so using it would let
+ * a crafted workbook satisfy its own confirmation.
  */
 export function RestoreWizard() {
   const { t } = useTranslation('backup');
   const validateMutation = useValidateBackup();
   const restoreMutation = useRestoreBackup();
+  const schoolProfileQuery = useSchoolProfile();
 
   const { mutateAsync: validateAsync } = validateMutation;
   const { mutateAsync: restoreAsync } = restoreMutation;
@@ -65,8 +71,8 @@ export function RestoreWizard() {
     (stagingId: string) =>
       restoreAsync({
         staging_id: stagingId,
-        confirmation_text: confirmationText,
-        invite_restored_users: inviteRestoredUsers,
+        confirmation: confirmationText,
+        invite_users: inviteRestoredUsers,
       }),
     [restoreAsync, confirmationText, inviteRestoredUsers],
   );
@@ -77,21 +83,28 @@ export function RestoreWizard() {
     setInviteRestoredUsers(false);
   }
 
+  // Fail closed: a blank/loading school name never satisfies the
+  // confirmation gate (kept from 7150675f's fix — now fed the real name).
+  const expectedSchoolName = schoolProfileQuery.data?.name ?? '';
+
   return (
     <div className="flex flex-col gap-2">
       <h3 className="text-base font-semibold">{t('restoreSectionTitle')}</h3>
-      <BulkUploadPreview<RestoreSummary, BackupJob>
+      <BulkUploadPreview<RestoreSummary, RequestRestoreResponse>
         accept=".xlsx"
         validate={validate}
         commit={commit}
         canCommit={(result) => {
           const totals = sumTabDiffs(result.summary.tabs);
-          return result.hard_error_count === 0 && totals.create + totals.update + totals.delete > 0;
+          return (
+            result.hard_error_count === 0 && totals.creates + totals.updates + totals.deletes > 0
+          );
         }}
         renderSummary={(result) => <RestoreDiffSummary result={result} />}
         confirmSlot={({ setBlocked }) => (
           <RestoreConfirmSlot
-            result={latestResult}
+            summary={latestResult?.summary}
+            expectedSchoolName={expectedSchoolName}
             confirmationText={confirmationText}
             onConfirmationTextChange={setConfirmationText}
             inviteRestoredUsers={inviteRestoredUsers}
@@ -100,9 +113,10 @@ export function RestoreWizard() {
           />
         )}
         renderCommitting={() => <p className="text-sm">{t('restoreStarting')}</p>}
-        renderDone={(job, reset) => (
+        renderDone={(response, reset) => (
           <RestoreProgressPanel
-            initialJob={job}
+            jobId={response.job_id}
+            snapshotJobId={response.snapshot_job_id}
             onReset={() => {
               handleReset();
               reset();
@@ -115,26 +129,24 @@ export function RestoreWizard() {
 }
 
 interface TabDiffTotals {
-  create: number;
-  update: number;
-  delete: number;
+  creates: number;
+  updates: number;
+  deletes: number;
   unchanged: number;
-  errors: number;
 }
 
-/** Single pass over the per-tab diff, shared by every place that needs an
- * aggregate: `canCommit`'s "is there anything to do" gate, the confirm
- * slot's delete-count warning, and the totals row in `RestoreDiffSummary`. */
-function sumTabDiffs(tabs: RestoreTabDiff[]): TabDiffTotals {
+/** Single pass over the per-tab diff, shared by `canCommit`'s "is there
+ * anything to do" gate, the confirm slot's delete-count warning, and the
+ * totals row in `RestoreDiffSummary`. */
+function sumTabDiffs(tabs: TabSummaryDto[]): TabDiffTotals {
   return tabs.reduce(
     (acc, tab) => ({
-      create: acc.create + tab.create,
-      update: acc.update + tab.update,
-      delete: acc.delete + tab.delete,
+      creates: acc.creates + tab.creates,
+      updates: acc.updates + tab.updates,
+      deletes: acc.deletes + tab.deletes,
       unchanged: acc.unchanged + tab.unchanged,
-      errors: acc.errors + tab.errors,
     }),
-    { create: 0, update: 0, delete: 0, unchanged: 0, errors: 0 },
+    { creates: 0, updates: 0, deletes: 0, unchanged: 0 },
   );
 }
 
@@ -142,12 +154,11 @@ function tabLabel(t: ReturnType<typeof useTranslation<'backup'>>['t'], tab: stri
   return t(`diffTabName.${tab}`, { defaultValue: tab });
 }
 
-/** `renderSummary` — a per-tab create/update/delete/unchanged/errors table
- * with a totals row, the warnings list, and (when the server supplied one)
- * a link to download the row-level errors as CSV. The row-level error
- * *table* itself (with its own client-side CSV export) is rendered by
- * `BulkUploadPreview` below this, from `result.errors` — this link is the
- * separate, server-rendered CSV the body's `## Screen` section calls for. */
+/** `renderSummary` — a per-tab create/update/unchanged/delete table (from
+ * `TabSummaryDto`, which has no per-tab error count — row-level
+ * errors/warnings are top-level `BulkImportErrorDto[]` instead) with a
+ * totals row and the top-level warnings list. `BulkUploadPreview` itself
+ * renders the row-level `result.errors` table below this. */
 export function RestoreDiffSummary({ result }: { result: PreviewResult<RestoreSummary> }) {
   const { t } = useTranslation('backup');
   const { summary } = result;
@@ -172,36 +183,38 @@ export function RestoreDiffSummary({ result }: { result: PreviewResult<RestoreSu
                 {t('diffColumnUpdate')}
               </th>
               <th scope="col" className="py-1 pr-4 font-medium">
-                {t('diffColumnDelete')}
-              </th>
-              <th scope="col" className="py-1 pr-4 font-medium">
                 {t('diffColumnUnchanged')}
               </th>
               <th scope="col" className="py-1 font-medium">
-                {t('diffColumnErrors')}
+                {t('diffColumnDelete')}
               </th>
             </tr>
           </thead>
           <tbody>
             {summary.tabs.map((tab) => (
-              <tr key={tab.tab} className="border-b border-border-subtle">
-                <td className="py-1 pr-4">{tabLabel(t, tab.tab)}</td>
-                <td className="py-1 pr-4">{tab.create}</td>
-                <td className="py-1 pr-4">{tab.update}</td>
-                <td className="py-1 pr-4">{tab.delete}</td>
+              <tr key={tab.name} className="border-b border-border-subtle">
+                <td className="py-1 pr-4">
+                  {tabLabel(t, tab.name)}
+                  {!tab.present && (
+                    <span className="ml-1 text-xs text-muted-foreground">
+                      {t('diffTabNotPresent')}
+                    </span>
+                  )}
+                </td>
+                <td className="py-1 pr-4">{tab.creates}</td>
+                <td className="py-1 pr-4">{tab.updates}</td>
                 <td className="py-1 pr-4">{tab.unchanged}</td>
-                <td className="py-1">{tab.errors}</td>
+                <td className="py-1">{tab.deletes}</td>
               </tr>
             ))}
           </tbody>
           <tfoot>
             <tr className="font-medium">
               <td className="py-1 pr-4">{t('diffTotalsRow')}</td>
-              <td className="py-1 pr-4">{totals.create}</td>
-              <td className="py-1 pr-4">{totals.update}</td>
-              <td className="py-1 pr-4">{totals.delete}</td>
+              <td className="py-1 pr-4">{totals.creates}</td>
+              <td className="py-1 pr-4">{totals.updates}</td>
               <td className="py-1 pr-4">{totals.unchanged}</td>
-              <td className="py-1">{totals.errors}</td>
+              <td className="py-1">{totals.deletes}</td>
             </tr>
           </tfoot>
         </table>
@@ -211,28 +224,22 @@ export function RestoreDiffSummary({ result }: { result: PreviewResult<RestoreSu
         <div className="flex flex-col gap-1">
           <h4 className="text-sm font-semibold">{t('warningsTitle')}</h4>
           <ul className="list-inside list-disc text-sm text-muted-foreground">
-            {summary.warnings.map((warning) => (
-              <li key={warning}>{warning}</li>
+            {summary.warnings.map((warning, index) => (
+              // `BulkImportErrorDto` has no stable id; row+column+message
+              // together are unique enough for a list that's rebuilt fresh
+              // on every validate response.
+              <li key={`${warning.row}-${warning.column ?? ''}-${index}`}>{warning.message}</li>
             ))}
           </ul>
         </div>
-      )}
-
-      {summary.errors_csv_path && (
-        <button
-          type="button"
-          onClick={() => void downloadValidationErrorsCsv(summary.errors_csv_path ?? '')}
-          className="text-left text-sm font-medium text-primary underline"
-        >
-          {t('downloadErrorsCsv')}
-        </button>
       )}
     </div>
   );
 }
 
 interface RestoreConfirmSlotProps {
-  result: PreviewResult<RestoreSummary> | undefined;
+  summary: RestoreSummary | undefined;
+  expectedSchoolName: string;
   confirmationText: string;
   onConfirmationTextChange: (value: string) => void;
   inviteRestoredUsers: boolean;
@@ -242,11 +249,15 @@ interface RestoreConfirmSlotProps {
 
 /** `confirmSlot` — states the consequences plainly, then gates Confirm
  * behind the school's *exact* name typed by hand (D8's confirmation
- * requirement, matched against the session's own school name on the
- * validate response — never a name read out of the uploaded workbook),
- * plus the opt-in "invite restored users" checkbox. */
+ * requirement). The expected name is `expectedSchoolName`, sourced from
+ * `useSchoolProfile()` by the caller — never from the uploaded workbook's
+ * `meta.source_school_name`, which a crafted file could set to anything. A
+ * blank/not-yet-loaded name fails closed (never matches an empty typed
+ * value... unless the field is also empty, so this still requires
+ * `expectedSchoolName` to be non-empty). */
 export function RestoreConfirmSlot({
-  result,
+  summary,
+  expectedSchoolName,
   confirmationText,
   onConfirmationTextChange,
   inviteRestoredUsers,
@@ -254,28 +265,31 @@ export function RestoreConfirmSlot({
   setBlocked,
 }: RestoreConfirmSlotProps) {
   const { t } = useTranslation('backup');
-  const schoolName = result?.summary.school_name ?? '';
+  const deletes = summary ? sumTabDiffs(summary.tabs).deletes : 0;
 
   React.useEffect(() => {
-    // Fail closed. `BulkUploadPreview` holds Confirm by default for any
-    // consumer that supplies a `confirmSlot`, so this effect can only ever
-    // *release* the hold — and it releases on nothing less than an exact,
-    // trimmed match against the school name the session's own validate
-    // response carries (never `source_school_name`, the name read out of
-    // the uploaded workbook). A missing or blank `school_name` therefore
-    // keeps Confirm disabled rather than making the gate satisfiable by an
-    // empty box.
-    const target = schoolName.trim();
-    setBlocked(target.length === 0 || confirmationText.trim() !== target);
-  }, [confirmationText, schoolName, setBlocked]);
-
-  if (!result) return null;
-  const { summary } = result;
-  const deletes = sumTabDiffs(summary.tabs).delete;
+    // Deferred a macrotask, not called synchronously: `BulkUploadPreview`
+    // itself has a mount effect ("new preview → a released confirm-slot
+    // hold") that unconditionally calls the very same `setBlocked(false)`
+    // whenever a fresh preview appears — including this component's own
+    // first mount. Passive effects fire child-before-parent within one
+    // commit, so a plain `useEffect` here loses that race: this slot's
+    // `setBlocked(true)` would run, then the parent's reset effect would
+    // immediately overwrite it back to `false` in the same flush, leaving
+    // Confirm wrongly enabled before anyone has typed anything.
+    // `setTimeout(0)` runs in the next macrotask, strictly after that
+    // synchronous effect flush completes, so this always has the last
+    // word.
+    const id = window.setTimeout(() => {
+      const matches = expectedSchoolName !== '' && confirmationText.trim() === expectedSchoolName;
+      setBlocked(!matches);
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [confirmationText, expectedSchoolName, setBlocked]);
 
   return (
     <div className="flex flex-col gap-3">
-      {summary.is_empty_tenant ? (
+      {summary?.is_empty_tenant ? (
         <p className="text-sm">{t('emptyTenantWorkbook')}</p>
       ) : (
         <>
@@ -290,7 +304,7 @@ export function RestoreConfirmSlot({
 
       <div className="flex flex-col gap-1">
         <label htmlFor="restore-confirmation-text" className="text-sm font-medium">
-          {t('confirmTypeNamePrompt', { schoolName })}
+          {t('confirmTypeNamePrompt', { schoolName: expectedSchoolName })}
         </label>
         <Input
           id="restore-confirmation-text"
@@ -313,24 +327,43 @@ export function RestoreConfirmSlot({
   );
 }
 
-/** `renderDone` — the queued `BackupJob` handed to `commit`'s resolution,
- * then polled via `useBackupJob` (already stops polling on a terminal
- * status) until DONE or FAILED. Per D8, the pre-restore snapshot is the
- * only undo, so its download link is offered on *both* terminal panels. */
+/** `renderDone` — the queued restore's `{job_id, snapshot_job_id}`, polled
+ * via `useBackupJob(jobId)` (already stops polling on a terminal status)
+ * until DONE or FAILED. Per D8, the pre-restore snapshot is the only undo,
+ * so its download link is offered on both terminal panels. */
 export function RestoreProgressPanel({
-  initialJob,
+  jobId,
+  snapshotJobId,
   onReset,
 }: {
-  initialJob: BackupJob;
+  jobId: string;
+  snapshotJobId: string;
   onReset: () => void;
 }) {
   const { t } = useTranslation('backup');
-  const jobQuery = useBackupJob(initialJob.id);
-  const job = jobQuery.data ?? initialJob;
+  const jobQuery = useBackupJob(jobId);
+  const job = jobQuery.data;
 
   async function handleDownloadSnapshot() {
-    if (!job.snapshot_job_id) return;
-    await downloadBackup(job.snapshot_job_id);
+    await downloadBackup(snapshotJobId);
+  }
+
+  if (!job || job.status === 'QUEUED' || job.status === 'RUNNING') {
+    const progressText = job?.progress
+      ? t('restoreProgressTab', {
+          tab: tabLabel(t, job.progress.tab),
+          done: job.progress.done,
+          total: job.progress.total,
+        })
+      : t('progressUnknown');
+
+    return (
+      <Card className="flex flex-col gap-2 p-4">
+        <p aria-live="polite" className="text-sm">
+          {progressText}
+        </p>
+      </Card>
+    );
   }
 
   if (job.status === 'DONE') {
@@ -343,13 +376,11 @@ export function RestoreProgressPanel({
               {t('restoreDoneCounts', { tab: tabLabel(t, tab), count })}
             </p>
           ))}
-        {job.snapshot_job_id && (
-          <div>
-            <Button type="button" variant="outline" onClick={() => void handleDownloadSnapshot()}>
-              {t('downloadSnapshot')}
-            </Button>
-          </div>
-        )}
+        <div>
+          <Button type="button" variant="outline" onClick={() => void handleDownloadSnapshot()}>
+            {t('downloadSnapshot')}
+          </Button>
+        </div>
         <div>
           <Button type="button" variant="ghost" onClick={onReset}>
             {t('uploadAnother', { ns: 'bulkImport' })}
@@ -359,53 +390,29 @@ export function RestoreProgressPanel({
     );
   }
 
-  if (job.status === 'FAILED') {
-    return (
-      <Card className="flex flex-col gap-3 p-4">
-        <p role="alert" className="text-sm font-medium text-destructive">
-          {job.failed_tab
-            ? t('restoreFailedTab', { tab: tabLabel(t, job.failed_tab) })
-            : // Not `t('failed')` — that key reads "Backup failed", which is
-              // the wrong noun on a restore panel.
-              t('restoreFailedGeneric')}
-        </p>
-        {job.error_message && <p className="text-sm">{job.error_message}</p>}
-        {job.failed_tab && (
-          <p className="text-sm text-muted-foreground">
-            {t('restoreFailedUndo', { tab: tabLabel(t, job.failed_tab) })}
-          </p>
-        )}
-        {job.snapshot_job_id && (
-          <div>
-            <Button type="button" variant="outline" onClick={() => void handleDownloadSnapshot()}>
-              {t('downloadSnapshot')}
-            </Button>
-          </div>
-        )}
-        <div>
-          <Button type="button" variant="ghost" onClick={onReset}>
-            {t('uploadAnother', { ns: 'bulkImport' })}
-          </Button>
-        </div>
-      </Card>
-    );
-  }
-
-  // QUEUED / RUNNING
-  const progressText =
-    job.tabs_total != null
-      ? t('restoreProgressTab', {
-          tab: job.current_tab ? tabLabel(t, job.current_tab) : '',
-          done: job.tabs_done ?? 0,
-          total: job.tabs_total,
-        })
-      : t('progressUnknown');
-
+  // FAILED (or DELETED, which a restore job never legitimately reaches
+  // mid-flight, but is handled the same defensive way).
   return (
-    <Card className="flex flex-col gap-2 p-4">
-      <p aria-live="polite" className="text-sm">
-        {progressText}
+    <Card className="flex flex-col gap-3 p-4">
+      <p role="alert" className="text-sm font-medium text-destructive">
+        {job.failed_tab ? t('restoreFailedTab', { tab: tabLabel(t, job.failed_tab) }) : t('failed')}
       </p>
+      {job.error && <p className="text-sm">{job.error}</p>}
+      {job.failed_tab && (
+        <p className="text-sm text-muted-foreground">
+          {t('restoreFailedUndo', { tab: tabLabel(t, job.failed_tab) })}
+        </p>
+      )}
+      <div>
+        <Button type="button" variant="outline" onClick={() => void handleDownloadSnapshot()}>
+          {t('downloadSnapshot')}
+        </Button>
+      </div>
+      <div>
+        <Button type="button" variant="ghost" onClick={onReset}>
+          {t('uploadAnother', { ns: 'bulkImport' })}
+        </Button>
+      </div>
     </Card>
   );
 }

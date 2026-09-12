@@ -13,6 +13,8 @@ import {
   useBackupJob,
   useBackupJobs,
   useRequestBackup,
+  useRestoreBackup,
+  useValidateBackup,
 } from './backup';
 
 describe('useBackupJobs', () => {
@@ -39,9 +41,19 @@ describe('useBackupJob polling', () => {
         return HttpResponse.json({
           id: params.id,
           status,
-          type: 'EXPORT',
+          kind: 'EXPORT',
+          source: 'MANUAL',
+          requested_by: { id: 'user-1', full_name: 'Rahim Uddin' },
+          size_bytes: null,
+          row_counts: null,
+          progress: null,
+          failed_tab: null,
+          snapshot_job_id: null,
+          error: null,
+          pinned: false,
+          expires_at: null,
           created_at: new Date().toISOString(),
-          completed_at: status === 'DONE' ? new Date().toISOString() : null,
+          finished_at: status === 'DONE' ? new Date().toISOString() : null,
         });
       }),
     );
@@ -75,8 +87,8 @@ describe('useRequestBackup', () => {
     });
 
     await act(async () => {
-      const job = await result.current.mutateAsync();
-      expect(job.status).toBe('QUEUED');
+      const response = await result.current.mutateAsync();
+      expect(response.job_id).toBeTruthy();
     });
 
     await waitFor(() => {
@@ -86,15 +98,96 @@ describe('useRequestBackup', () => {
   });
 });
 
+describe('useValidateBackup', () => {
+  it('reshapes the flat ValidateResponseDto into PreviewResult<RestoreSummary>', async () => {
+    server.use(
+      http.post('/api/v1/backup/validate', () =>
+        HttpResponse.json({
+          staging_id: 'staging-1',
+          expires_at: new Date(Date.now() + 30 * 60_000).toISOString(),
+          meta: {
+            schema_version: 1,
+            kind: 'BACKUP',
+            exported_at: new Date().toISOString(),
+            app_version: '1.0.0',
+            source_school_name: 'Some Other School',
+            source_school_slug: 'some-other-school',
+          },
+          tabs: [
+            { name: 'students', present: true, creates: 1, updates: 2, unchanged: 3, deletes: 0 },
+          ],
+          totals: { creates: 1, updates: 2, unchanged: 3, deletes: 0 },
+          errors: [],
+          warnings: [
+            { row: 1, column: null, message: 'sheet guardians not present', severity: 'warning' },
+          ],
+          hard_error_count: 0,
+          is_empty_tenant: false,
+        }),
+      ),
+    );
+
+    const { result } = renderHookWithProviders(() => useValidateBackup(), {
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+    });
+
+    const file = new File(['x'], 'backup.xlsx');
+    const preview = await result.current.mutateAsync({ file });
+
+    // Flat response reshaped: staging_id/expires_at/errors/hard_error_count
+    // stay top-level, everything else (meta/tabs/totals/warnings/
+    // is_empty_tenant) moves under `summary`.
+    expect(preview.staging_id).toBe('staging-1');
+    expect(preview.hard_error_count).toBe(0);
+    expect(preview.summary.tabs).toEqual([
+      { name: 'students', present: true, creates: 1, updates: 2, unchanged: 3, deletes: 0 },
+    ]);
+    expect(preview.summary.warnings[0]?.message).toBe('sheet guardians not present');
+    expect(preview.summary.meta.source_school_name).toBe('Some Other School');
+  });
+});
+
+describe('useRestoreBackup', () => {
+  it('sends staging_id/confirmation/invite_users and resolves job_id/snapshot_job_id', async () => {
+    let capturedBody: unknown;
+    server.use(
+      http.post('/api/v1/backup/restore', async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json(
+          { job_id: 'restore-job-1', snapshot_job_id: 'snapshot-job-1' },
+          { status: 202 },
+        );
+      }),
+    );
+
+    const { result } = renderHookWithProviders(() => useRestoreBackup(), {
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+    });
+
+    const response = await result.current.mutateAsync({
+      staging_id: 'staging-1',
+      confirmation: 'Green Valley School',
+      invite_users: true,
+    });
+
+    expect(capturedBody).toEqual({
+      staging_id: 'staging-1',
+      confirmation: 'Green Valley School',
+      invite_users: true,
+    });
+    expect(response).toEqual({ job_id: 'restore-job-1', snapshot_job_id: 'snapshot-job-1' });
+  });
+});
+
 describe('downloadBackup', () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
   it('builds a blob from the response bytes and triggers a click-to-save', async () => {
-    const createObjectURL = vi
-      .spyOn(URL, 'createObjectURL')
-      .mockReturnValue('blob:mock-url');
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock-url');
     const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
 
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});

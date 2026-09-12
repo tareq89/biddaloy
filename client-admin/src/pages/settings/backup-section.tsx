@@ -13,7 +13,7 @@ import {
   useBackupJobs,
   useHasPermission,
   useRequestBackup,
-  type BackupJob,
+  type WorkbookJob,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatDateTime } from '@biddaloy/ui/utils';
@@ -23,19 +23,25 @@ import { RestoreWizard } from './restore-wizard';
 
 const PAGE_SIZE = 10;
 
-/** `BackupJob` plus this render's per-row UI flags — see the comment where
- * `jobs` is built for why these have to sit on the row object itself. */
-type BackupRow = BackupJob & { expired: boolean; downloading: boolean };
+/** `WorkbookJob` plus this render's per-row UI flags — see the comment
+ * where `jobs` is built for why these have to sit on the row object
+ * itself. */
+type BackupRow = WorkbookJob & { expired: boolean; downloading: boolean };
 
-/** Formats a byte count as a short human-readable size ("1.2 MB"). No
- * shared `formatBytes` util exists yet elsewhere in `ui/src/utils` — kept
- * local rather than adding one for a single caller. Returns an em dash for
- * a job that hasn't produced a file yet (`QUEUED`/`RUNNING`/`FAILED`). */
-function formatFileSize(bytes: number | null | undefined): string {
+/** Formats a byte count as a short human-readable size ("1.2 MB").
+ * `size_bytes` is a bigint column the server hands back as a string — this
+ * only ever uses it for display, never arithmetic beyond this formatting,
+ * so `Number()` here is safe (backup file sizes are nowhere near
+ * `Number.MAX_SAFE_INTEGER`). No shared `formatBytes` util exists yet
+ * elsewhere in `ui/src/utils` — kept local rather than adding one for a
+ * single caller. Returns an em dash for a job that hasn't produced a file
+ * yet (`QUEUED`/`RUNNING`/`FAILED`). */
+function formatFileSize(bytes: string | null | undefined): string {
   if (bytes === null || bytes === undefined) return '—';
-  if (bytes < 1024) return `${bytes} B`;
+  const numeric = Number(bytes);
+  if (numeric < 1024) return `${numeric} B`;
   const units = ['KB', 'MB', 'GB', 'TB'];
-  let value = bytes / 1024;
+  let value = numeric / 1024;
   let unitIndex = 0;
   while (value >= 1024 && unitIndex < units.length - 1) {
     value /= 1024;
@@ -92,16 +98,18 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
   const highlightRef = React.useRef<HTMLSpanElement>(null);
 
   const handleDownload = React.useCallback(
-    async (id: string) => {
+    async (id: string): Promise<'ok' | 'expired' | 'error'> => {
       setDownloadingId(id);
       try {
         await downloadBackup(id);
+        return 'ok';
       } catch (err) {
         if (extractHttpStatus(err) === 410) {
           setExpiredIds((prev) => new Set(prev).add(id));
-        } else {
-          toast.error(t('downloadFailed'));
+          return 'expired';
         }
+        toast.error(t('downloadFailed'));
+        return 'error';
       } finally {
         setDownloadingId(undefined);
       }
@@ -132,14 +140,13 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
         return;
       }
       deepLinkTriggered.current = true;
-      void handleDownload(backupJobId).then(() => {
-        // A 410 caught inside `handleDownload` lands in `expiredIds`, not
-        // here — surface the same inline message for a deep link as for a
-        // row's own "Expired" state.
-        setExpiredIds((prev) => {
-          if (prev.has(backupJobId)) setDeepLinkError('expired');
-          return prev;
-        });
+      // `handleDownload`'s own return value tells us whether it hit a 410,
+      // rather than peeking at `expiredIds` from inside a state updater
+      // (that updater must stay a pure function of its previous value —
+      // calling `setDeepLinkError` from inside one is a side effect that
+      // isn't guaranteed to run exactly once).
+      void handleDownload(backupJobId).then((outcome) => {
+        if (outcome === 'expired') setDeepLinkError('expired');
       });
     }
   }, [backupJobId, deepLinkJobQuery.data, deepLinkJobQuery.isError, handleDownload]);
@@ -177,11 +184,16 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
       id: 'kind',
       header: t('columnKind'),
       accessorFn: (row) => {
-        const label = row.type === 'RESTORE' ? t('kindSnapshot') : t('kindExport');
+        const label =
+          row.kind === 'SNAPSHOT'
+            ? t('kindSnapshot')
+            : row.kind === 'RESTORE'
+              ? t('kindRestore')
+              : t('kindExport');
         return (
           <span
             {...(row.id === backupJobId ? { ref: highlightRef } : {})}
-            className={row.id === backupJobId ? 'rounded bg-secondary px-1 -mx-1' : undefined}
+            className={row.id === backupJobId ? '-mx-1 rounded bg-secondary px-1' : undefined}
           >
             {label}
           </span>
@@ -203,13 +215,13 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
     {
       id: 'size',
       header: t('columnSize'),
-      accessorFn: (row) => formatFileSize(row.file_size_bytes),
+      accessorFn: (row) => formatFileSize(row.size_bytes),
       align: 'end',
     },
     {
       id: 'requestedBy',
       header: t('columnRequestedBy'),
-      accessorFn: (row) => row.requested_by ?? '—',
+      accessorFn: (row) => row.requested_by?.full_name ?? '—',
     },
     {
       id: 'actions',
@@ -220,7 +232,7 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
         if (row.status === 'FAILED') {
           return (
             <span className="text-sm text-destructive">
-              {t('failedReason', { reason: row.error_message ?? t('status.FAILED') })}
+              {t('failedReason', { reason: row.error ?? t('status.FAILED') })}
             </span>
           );
         }
@@ -262,7 +274,7 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
         </Button>
       </div>
 
-      {jobs.length === 0 && !jobsQuery.isLoading ? (
+      {jobs.length === 0 && !jobsQuery.isLoading && !jobsQuery.isError ? (
         <EmptyState
           title={t('emptyTenant')}
           explanation={t('emptyTenantDescription')}
@@ -299,13 +311,14 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
  * more machinery than one section's four-value status needs. Every
  * status still renders as text, never colour alone, matching that
  * component's own accessibility guarantee. */
-function BackupStatusBadge({ status }: { status: BackupJob['status'] }) {
+function BackupStatusBadge({ status }: { status: WorkbookJob['status'] }) {
   const { t } = useTranslation('backup');
-  const toneClass: Record<BackupJob['status'], string> = {
+  const toneClass: Record<WorkbookJob['status'], string> = {
     QUEUED: 'bg-muted text-muted-foreground',
     RUNNING: 'bg-status-partial-bg text-status-partial-fg',
     DONE: 'bg-status-paid-bg text-status-paid-fg',
     FAILED: 'bg-status-overdue-bg text-status-overdue-fg',
+    DELETED: 'bg-muted text-muted-foreground',
   };
   return (
     <span

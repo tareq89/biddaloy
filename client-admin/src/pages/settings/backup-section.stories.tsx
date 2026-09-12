@@ -1,5 +1,5 @@
 import { setActiveRole } from '@biddaloy/ui/api';
-import type { BackupJob } from '@biddaloy/ui/hooks';
+import type { WorkbookJob } from '@biddaloy/ui/hooks';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { http, HttpResponse } from 'msw';
 
@@ -11,21 +11,30 @@ import { BackupSection } from './backup-section';
 // no-permission case; that's covered by `backup-section.test.tsx` instead.
 setActiveRole('ADMIN');
 
-function jobFixture(overrides: Partial<BackupJob> = {}): BackupJob {
+/** Fixtures rebuilt against the real `WorkbookJobDto` — see
+ * `ui/src/hooks/backup.ts`'s header comment. */
+function jobFixture(overrides: Partial<WorkbookJob> = {}): WorkbookJob {
   return {
     id: crypto.randomUUID(),
+    kind: 'EXPORT',
     status: 'DONE',
-    type: 'EXPORT',
+    source: 'MANUAL',
+    requested_by: { id: 'admin-1', full_name: 'Admin User' },
+    size_bytes: '1048576',
+    row_counts: null,
+    progress: null,
+    failed_tab: null,
+    snapshot_job_id: null,
+    error: null,
+    pinned: false,
+    expires_at: null,
     created_at: new Date().toISOString(),
-    completed_at: new Date().toISOString(),
-    requested_by: 'admin@school.example',
-    error_message: null,
-    file_size_bytes: 1_048_576,
+    finished_at: new Date().toISOString(),
     ...overrides,
   };
 }
 
-function jobsHandler(jobs: BackupJob[]) {
+function jobsHandler(jobs: WorkbookJob[]) {
   return http.get('/api/v1/backup/jobs', () =>
     HttpResponse.json({ data: jobs, total: jobs.length, page: 1, limit: 10, totalPages: 1 }),
   );
@@ -37,7 +46,7 @@ const meta: Meta<typeof BackupSection> = {
     msw: {
       handlers: [
         http.post('/api/v1/backup/export', () =>
-          HttpResponse.json(jobFixture({ status: 'QUEUED' }), { status: 201 }),
+          HttpResponse.json({ job_id: 'job-new' }, { status: 201 }),
         ),
       ],
     },
@@ -53,22 +62,52 @@ export const Empty: Story = {
   },
 };
 
+export const Loading: Story = {
+  parameters: {
+    msw: {
+      handlers: [
+        http.get('/api/v1/backup/jobs', async () => {
+          await new Promise(() => {
+            /* never resolves — renders the table's loading state */
+          });
+          return HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 });
+        }),
+      ],
+    },
+  },
+};
+
+export const ErrorState: Story = {
+  parameters: {
+    msw: {
+      handlers: [http.get('/api/v1/backup/jobs', () => HttpResponse.json(null, { status: 500 }))],
+    },
+  },
+};
+
 export const EveryStatus: Story = {
   parameters: {
     msw: {
       handlers: [
         jobsHandler([
-          jobFixture({ id: 'job-queued', status: 'QUEUED', completed_at: null, file_size_bytes: null }),
-          jobFixture({ id: 'job-running', status: 'RUNNING', completed_at: null, file_size_bytes: null }),
+          jobFixture({ id: 'job-queued', status: 'QUEUED', finished_at: null, size_bytes: null }),
+          jobFixture({
+            id: 'job-running',
+            status: 'RUNNING',
+            finished_at: null,
+            size_bytes: null,
+            progress: { tab: 'students', done: 3, total: 17 },
+          }),
           jobFixture({ id: 'job-done', status: 'DONE' }),
           jobFixture({
             id: 'job-failed',
             status: 'FAILED',
-            completed_at: null,
-            file_size_bytes: null,
-            error_message: 'Disk quota exceeded',
+            finished_at: null,
+            size_bytes: null,
+            error: 'Disk quota exceeded',
           }),
-          jobFixture({ id: 'job-snapshot', status: 'DONE', type: 'RESTORE' }),
+          jobFixture({ id: 'job-snapshot', status: 'DONE', kind: 'SNAPSHOT' }),
+          jobFixture({ id: 'job-restore', status: 'DONE', kind: 'RESTORE' }),
         ]),
       ],
     },

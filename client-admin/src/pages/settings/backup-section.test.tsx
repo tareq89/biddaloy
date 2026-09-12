@@ -1,6 +1,7 @@
 import '@biddaloy/ui/test';
 
 import { toast } from '@biddaloy/ui/components';
+import type { WorkbookJob } from '@biddaloy/ui/hooks';
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
@@ -8,7 +9,35 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { BackupSection } from './backup-section';
 
+/**
+ * [612, corrected 14.11.5] Rebuilt against the real `WorkbookJobDto`
+ * (`server/src/modules/workbook/export/dto/workbook-job.dto.ts`) — the
+ * original fixtures here used an invented shape (`type`, `file_size_bytes`,
+ * `completed_at`, `error_message`, a bare-string `requested_by`), which is
+ * why this section crashed against the real API despite green tests.
+ */
 const SCHOOL_ID = 'school-1';
+
+function jobFixture(overrides: Partial<WorkbookJob> = {}): WorkbookJob {
+  return {
+    id: 'job-1',
+    kind: 'EXPORT',
+    status: 'DONE',
+    source: 'MANUAL',
+    requested_by: { id: 'user-1', full_name: 'Rahim Uddin' },
+    size_bytes: '2048',
+    row_counts: null,
+    progress: null,
+    failed_tab: null,
+    snapshot_job_id: null,
+    error: null,
+    pinned: false,
+    expires_at: null,
+    created_at: new Date().toISOString(),
+    finished_at: new Date().toISOString(),
+    ...overrides,
+  };
+}
 
 describe('BackupSection', () => {
   afterEach(async () => {
@@ -25,19 +54,7 @@ describe('BackupSection', () => {
         HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
       ),
       http.post('/api/v1/backup/export', () =>
-        HttpResponse.json(
-          {
-            id: 'job-new',
-            status: 'QUEUED',
-            type: 'EXPORT',
-            created_at: new Date().toISOString(),
-            completed_at: null,
-            requested_by: 'user-1',
-            error_message: null,
-            file_size_bytes: null,
-          },
-          { status: 201 },
-        ),
+        HttpResponse.json({ job_id: 'job-new' }, { status: 201 }),
       ),
     );
 
@@ -52,33 +69,43 @@ describe('BackupSection', () => {
     await waitFor(() => expect(toastSpy).toHaveBeenCalledWith("We'll email you when it's ready."));
   });
 
-  it('downloads a finished backup when Download is clicked', async () => {
+  it('renders requested_by.full_name and formats size_bytes (a bigint-string) for a finished job', async () => {
     server.use(
       http.get('/api/v1/backup/jobs', () =>
         HttpResponse.json({
-          data: [
-            {
-              id: 'job-done',
-              status: 'DONE',
-              type: 'EXPORT',
-              created_at: new Date().toISOString(),
-              completed_at: new Date().toISOString(),
-              requested_by: 'user-1',
-              error_message: null,
-              file_size_bytes: 2048,
-            },
-          ],
+          data: [jobFixture({ id: 'job-done', size_bytes: '2048' })],
           total: 1,
           page: 1,
           limit: 10,
           totalPages: 1,
         }),
       ),
-      http.get('/api/v1/backup/jobs/:id/download', () =>
-        new HttpResponse(new Blob(['bytes']), {
-          status: 200,
-          headers: { 'Content-Disposition': 'attachment; filename="backup.zip"' },
+    );
+
+    renderWithProviders(<BackupSection />, { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID });
+
+    expect(await screen.findByText('Rahim Uddin')).toBeTruthy();
+    expect(await screen.findByText('2.0 KB')).toBeTruthy();
+  });
+
+  it('downloads a finished backup when Download is clicked', async () => {
+    server.use(
+      http.get('/api/v1/backup/jobs', () =>
+        HttpResponse.json({
+          data: [jobFixture({ id: 'job-done' })],
+          total: 1,
+          page: 1,
+          limit: 10,
+          totalPages: 1,
         }),
+      ),
+      http.get(
+        '/api/v1/backup/jobs/:id/download',
+        () =>
+          new HttpResponse(new Blob(['bytes']), {
+            status: 200,
+            headers: { 'Content-Disposition': 'attachment; filename="backup.zip"' },
+          }),
       ),
     );
 
@@ -102,28 +129,14 @@ describe('BackupSection', () => {
     server.use(
       http.get('/api/v1/backup/jobs', () =>
         HttpResponse.json({
-          data: [
-            {
-              id: 'job-expired',
-              status: 'DONE',
-              type: 'EXPORT',
-              created_at: new Date().toISOString(),
-              completed_at: new Date().toISOString(),
-              requested_by: 'user-1',
-              error_message: null,
-              file_size_bytes: 2048,
-            },
-          ],
+          data: [jobFixture({ id: 'job-expired' })],
           total: 1,
           page: 1,
           limit: 10,
           totalPages: 1,
         }),
       ),
-      http.get(
-        '/api/v1/backup/jobs/:id/download',
-        () => new HttpResponse(null, { status: 410 }),
-      ),
+      http.get('/api/v1/backup/jobs/:id/download', () => new HttpResponse(null, { status: 410 })),
     );
 
     const { user } = renderWithProviders(<BackupSection />, {
@@ -138,21 +151,18 @@ describe('BackupSection', () => {
     expect(await screen.findByText('Expired')).toBeTruthy();
   });
 
-  it('shows a failure reason instead of a Download action for a failed job', async () => {
+  it('shows a failure reason (job.error, not job.error_message) instead of a Download action', async () => {
     server.use(
       http.get('/api/v1/backup/jobs', () =>
         HttpResponse.json({
           data: [
-            {
+            jobFixture({
               id: 'job-failed',
               status: 'FAILED',
-              type: 'EXPORT',
-              created_at: new Date().toISOString(),
-              completed_at: null,
-              requested_by: 'user-1',
-              error_message: 'Disk quota exceeded',
-              file_size_bytes: null,
-            },
+              error: 'Disk quota exceeded',
+              size_bytes: null,
+              finished_at: null,
+            }),
           ],
           total: 1,
           page: 1,
@@ -162,11 +172,7 @@ describe('BackupSection', () => {
       ),
     );
 
-    renderWithProviders(<BackupSection />, {
-      locale: 'en',
-      role: 'ADMIN',
-      tenantId: SCHOOL_ID,
-    });
+    renderWithProviders(<BackupSection />, { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID });
 
     expect(await screen.findByText('Failed: Disk quota exceeded')).toBeTruthy();
   });
@@ -178,13 +184,18 @@ describe('BackupSection', () => {
       ),
     );
 
-    renderWithProviders(<BackupSection />, {
-      locale: 'en',
-      role: 'ADMIN',
-      tenantId: SCHOOL_ID,
-    });
+    renderWithProviders(<BackupSection />, { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID });
 
     expect(await screen.findByText('No backups yet')).toBeTruthy();
+  });
+
+  it('shows the error state, not the empty state, when the jobs list request fails', async () => {
+    server.use(http.get('/api/v1/backup/jobs', () => HttpResponse.json(null, { status: 500 })));
+
+    renderWithProviders(<BackupSection />, { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID });
+
+    expect(await screen.findByText("Couldn't start the backup. Try again.")).toBeTruthy();
+    expect(screen.queryByText('No backups yet')).toBeNull();
   });
 
   it('auto-downloads once for a ?backup=<jobId> deep link to a finished job', async () => {
@@ -194,16 +205,7 @@ describe('BackupSection', () => {
         HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
       ),
       http.get('/api/v1/backup/jobs/:id', ({ params }) =>
-        HttpResponse.json({
-          id: params.id,
-          status: 'DONE',
-          type: 'EXPORT',
-          created_at: new Date().toISOString(),
-          completed_at: new Date().toISOString(),
-          requested_by: 'user-1',
-          error_message: null,
-          file_size_bytes: 4096,
-        }),
+        HttpResponse.json(jobFixture({ id: params.id as string })),
       ),
       http.get('/api/v1/backup/jobs/:id/download', () => {
         downloadHits += 1;
@@ -237,9 +239,7 @@ describe('BackupSection', () => {
       tenantId: SCHOOL_ID,
     });
 
-    expect(
-      await screen.findByText('This backup has expired — request a new one.'),
-    ).toBeTruthy();
+    expect(await screen.findByText('This backup has expired — request a new one.')).toBeTruthy();
   });
 
   it('shows the failed-job message (not the expired copy) for a FAILED deep-linked backup', async () => {
@@ -248,16 +248,14 @@ describe('BackupSection', () => {
         HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
       ),
       http.get('/api/v1/backup/jobs/:id', ({ params }) =>
-        HttpResponse.json({
-          id: params.id,
-          status: 'FAILED',
-          type: 'EXPORT',
-          created_at: new Date().toISOString(),
-          completed_at: new Date().toISOString(),
-          requested_by: 'user-1',
-          error_message: 'Storage unavailable',
-          file_size_bytes: null,
-        }),
+        HttpResponse.json(
+          jobFixture({
+            id: params.id as string,
+            status: 'FAILED',
+            error: 'Storage unavailable',
+            size_bytes: null,
+          }),
+        ),
       ),
     );
 

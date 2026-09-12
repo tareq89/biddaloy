@@ -13,11 +13,13 @@
     "QUEUED": "Queued",
     "RUNNING": "In progress",
     "DONE": "Done",
-    "FAILED": "Failed"
+    "FAILED": "Failed",
+    "DELETED": "Removed"
   },
   "columnKind": "Kind",
   "kindExport": "Backup",
   "kindSnapshot": "Pre-restore snapshot",
+  "kindRestore": "Restore",
   "columnCreatedAt": "Started",
   "columnCompletedAt": "Finished",
   "columnStatus": "Status",
@@ -76,8 +78,8 @@
   "diffColumnUpdate": "Update",
   "diffColumnDelete": "Delete",
   "diffColumnUnchanged": "Unchanged",
-  "diffColumnErrors": "Errors",
   "diffTotalsRow": "Total",
+  "diffTabNotPresent": "(not in this backup)",
   "diffTabName": {
     "school": "School",
     "academic_years": "Academic years",
@@ -98,7 +100,6 @@
     "payments": "Payments",
     "payment_allocations": "Payment allocations"
   },
-  "downloadErrorsCsv": "Download errors as CSV",
   "warningsTitle": "Warnings",
   "restoreConsequenceDeletes": "{{count}} records will be deleted",
   "restoreSnapshotFirst": "A snapshot of the current data is taken first and linked here when done.",
@@ -111,6 +112,5 @@
   "restoreDoneCounts": "{{tab}}: {{count}} records",
   "downloadSnapshot": "Download pre-restore snapshot",
   "restoreFailedTab": "The restore stopped at {{tab}}",
-  "restoreFailedGeneric": "The restore failed",
   "restoreFailedUndo": "The tabs before {{tab}} were applied — restore the snapshot to go back"
 }
