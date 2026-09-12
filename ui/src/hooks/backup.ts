@@ -4,6 +4,7 @@ import { apiClient } from '../api/client';
 
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
+import type { PreviewResult } from './use-bulk-upload-preview';
 
 /**
  * Hand-declared to mirror the server's backup DTOs
@@ -24,6 +25,17 @@ export interface BackupJob {
   requested_by?: string;
   error_message?: string | null;
   file_size_bytes?: number | null;
+  /** [613] D5's `workbook_jobs.progress` fields, added for the restore
+   * wizard's progress panel — optional so #612's `backup-section.tsx`
+   * keeps compiling unchanged. */
+  current_tab?: string | null;
+  tabs_done?: number | null;
+  tabs_total?: number | null;
+  /** The tab the restore stopped at, set only when `status === 'FAILED'`. */
+  failed_tab?: string | null;
+  /** The pre-restore snapshot's own job id — the undo, per D8. */
+  snapshot_job_id?: string | null;
+  row_counts?: Record<string, number> | null;
 }
 
 export interface BackupJobListFilters {
@@ -41,22 +53,49 @@ export interface PaginatedBackupJobs {
   totalPages: number;
 }
 
-/** Mirrors the server's `ValidateResponseDto` (#604) — the result of
- * uploading a candidate restore archive for inspection before committing
- * to `useRestoreBackup`. */
-export interface ValidateResponseDto {
-  valid: boolean;
-  backup_id?: string;
-  created_at?: string;
-  school_name?: string;
-  record_counts?: Record<string, number>;
-  errors?: string[];
-  warnings?: string[];
+/** One tab's diff counts in a restore preview — [613] C1. */
+export interface RestoreTabDiff {
+  tab: string;
+  create: number;
+  update: number;
+  delete: number;
+  unchanged: number;
+  errors: number;
 }
 
+/**
+ * [613] C1 — hand-declared to mirror #604's `ValidateResponseDto`, still a
+ * guess pending schema regeneration (same convention as `BackupJob`'s own
+ * header comment): swap for the generated `components['schemas'][...]`
+ * type once wave-3 integration regenerates `schema.d.ts`. Replaces the old
+ * `ValidateResponseDto`, which didn't satisfy `PreviewResult<S>` — no
+ * `staging_id`/`expires_at`, `errors` typed `string[]`, no per-tab diff.
+ */
+export interface RestoreSummary {
+  school_name: string;
+  source_school_name?: string;
+  exported_at?: string;
+  is_empty_tenant: boolean;
+  tabs: RestoreTabDiff[];
+  warnings: string[];
+  /** Relative path for the "download errors as CSV" link:
+   * `/backup/validate/:staging_id/errors.csv`. */
+  errors_csv_path?: string;
+}
+
+/**
+ * [613] C2 — `commit` in `useBulkUploadPreview` is handed only the staged
+ * upload's `staging_id` (D7: every bulk upload commits from the stage,
+ * never a re-parsed file or a stored archive id), and D8 requires the
+ * "invite restored users" opt-in. `#609` confirms the final field names at
+ * wave-3 integration.
+ */
 export interface RestoreBackupInput {
-  backup_id: string;
+  staging_id: string;
   confirmation_text: string;
+  /** D8: restored users arrive without credentials; inviting them is
+   * opt-in, default off. */
+  invite_restored_users?: boolean;
 }
 
 /**
@@ -131,16 +170,20 @@ export function useValidateBackup() {
     }: {
       file: File;
       onProgress?: (percent: number) => void;
-    }): Promise<ValidateResponseDto> => {
+    }): Promise<PreviewResult<RestoreSummary>> => {
       const formData = new FormData();
       formData.append('file', file);
-      const res = await apiClient.post<ValidateResponseDto>('/backup/validate', formData, {
-        onUploadProgress: (event) => {
-          if (onProgress && event.total) {
-            onProgress(Math.round((event.loaded / event.total) * 100));
-          }
+      const res = await apiClient.post<PreviewResult<RestoreSummary>>(
+        '/backup/validate',
+        formData,
+        {
+          onUploadProgress: (event) => {
+            if (onProgress && event.total) {
+              onProgress(Math.round((event.loaded / event.total) * 100));
+            }
+          },
         },
-      });
+      );
       return res.data;
     },
     retry: false,
@@ -206,6 +249,29 @@ export async function downloadBackup(id: string): Promise<void> {
   // Revoke on a later tick, not in a `finally` right after click(): Safari
   // aborts an in-flight download if the object URL is revoked in the same
   // tick (see `../utils/csv.ts`'s `downloadCsv`, which this mirrors).
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+/**
+ * `GET <path>` for a `RestoreSummary.errors_csv_path` (e.g.
+ * `/backup/validate/:staging_id/errors.csv`) — same authenticated-download
+ * shape as `downloadBackup` above. A plain `<a href={path}>` would hit the
+ * API host directly with no `Authorization` header attached, so it 401s;
+ * this goes through `apiClient` like every other download in this file.
+ */
+export async function downloadValidationErrorsCsv(path: string): Promise<void> {
+  const res = await apiClient.get<Blob>(path, { responseType: 'blob' });
+  const filename = filenameFromContentDisposition(
+    res.headers['content-disposition'] as string | undefined,
+    'restore-errors.csv',
+  );
+  const url = URL.createObjectURL(res.data);
   const anchor = document.createElement('a');
   anchor.href = url;
   anchor.download = filename;

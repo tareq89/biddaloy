@@ -30,7 +30,10 @@ export const Route = createFileRoute('/_staff/settings')({
   // picker), not a route param, so there's nothing this `loader` can
   // `ensureQueryData` ahead of time. `backup` is added here for
   // `BackupSection`'s own header copy and job-status labels.
-  loader: () => loadRouteNamespaces('settings', 'backup'),
+  // [613]: `bulkImport` too — `RestoreWizard` mounts the shared
+  // `BulkUploadPreview`, whose own copy (file picker, expiry countdown,
+  // confirm/upload-another buttons) lives in that namespace.
+  loader: () => loadRouteNamespaces('settings', 'backup', 'bulkImport'),
   pendingComponent: SettingsPending,
   component: SettingsRoute,
 });

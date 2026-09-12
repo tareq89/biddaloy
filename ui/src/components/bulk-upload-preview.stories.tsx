@@ -197,6 +197,28 @@ export const Done: Story = {
   },
 };
 
+/** Commit in flight, with `renderCommitting` supplied — replaces the
+ * confirm controls entirely, proving the slot renders and receives the
+ * preview result. */
+export const CommittingWithSlot: Story = {
+  args: {
+    accept: '.csv,.xlsx',
+    validate: () => Promise.resolve(CLEAN_RESULT),
+    commit: () => new Promise(() => {}),
+    renderSummary,
+    renderCommitting: (result) => <p>Starting the restore… ({result.summary.totalRows} rows)</p>,
+    renderDone,
+  },
+  render: (args) => <BulkUploadPreview<Summary, CommitResult> {...args} />,
+  play: async ({ canvasElement }) => {
+    await selectAFile(canvasElement);
+    const canvas = within(canvasElement);
+    await canvas.findByText('142 rows, 0 will be skipped');
+    await userEvent.click(canvas.getByRole('button', { name: 'Confirm' }));
+    await canvas.findByText('Starting the restore… (142 rows)');
+  },
+};
+
 export const RightToLeft: Story = {
   args: {
     accept: '.csv,.xlsx',

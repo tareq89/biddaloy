@@ -35,6 +35,9 @@ export interface BulkUploadPreviewProps<S, C> {
    * input. Call `setBlocked(true)` to disable Confirm regardless of every
    * other condition, `setBlocked(false)` to release that hold. */
   confirmSlot?: (api: BulkUploadPreviewConfirmSlotApi) => React.ReactNode;
+  /** Rendered in place of the confirm controls while the commit promise is
+   * in flight. Defaults to the existing `t('confirming')` button label. */
+  renderCommitting?: (result: PreviewResult<S>) => React.ReactNode;
   renderDone: (commitResult: C, reset: () => void) => React.ReactNode;
 }
 
@@ -69,6 +72,7 @@ export function BulkUploadPreview<S, C>({
   canCommit = (result) => result.hard_error_count === 0,
   renderSummary,
   confirmSlot,
+  renderCommitting,
   renderDone,
 }: BulkUploadPreviewProps<S, C>) {
   const { t } = useTranslation('bulkImport');
@@ -196,16 +200,22 @@ export function BulkUploadPreview<S, C>({
             {isExpired ? t('expired') : t('expiresIn', { time: formatCountdown(remainingMs) })}
           </p>
 
-          {confirmSlot?.({ setBlocked: setSlotBlocked })}
+          {state.status === 'committing' && renderCommitting ? (
+            renderCommitting(state.result)
+          ) : (
+            <>
+              {confirmSlot?.({ setBlocked: setSlotBlocked })}
 
-          <div className="flex items-center gap-2">
-            <Button type="button" onClick={confirm} disabled={confirmDisabled}>
-              {state.status === 'committing' ? t('confirming') : t('confirm')}
-            </Button>
-            <Button type="button" variant="outline" onClick={handleReset}>
-              {t('uploadAnother')}
-            </Button>
-          </div>
+              <div className="flex items-center gap-2">
+                <Button type="button" onClick={confirm} disabled={confirmDisabled}>
+                  {state.status === 'committing' ? t('confirming') : t('confirm')}
+                </Button>
+                <Button type="button" variant="outline" onClick={handleReset}>
+                  {t('uploadAnother')}
+                </Button>
+              </div>
+            </>
+          )}
         </Card>
       )}
 
