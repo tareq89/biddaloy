@@ -5,6 +5,7 @@ import { WorkbookJobFinishedPayload } from './export.constants';
 
 describe('WorkbookNotifier', () => {
   let jobs: any;
+  let userTenants: any;
   let events: any;
   let delivery: any;
   let schools: any;
@@ -48,6 +49,7 @@ describe('WorkbookNotifier', () => {
 
   beforeEach(() => {
     jobs = { findOne: vi.fn().mockResolvedValue(baseRow) };
+    userTenants = { find: vi.fn().mockResolvedValue([]) };
     events = { onFinished: vi.fn() };
     delivery = { deliver: vi.fn().mockResolvedValue({ logId: 'log-1', status: 'SENT' }) };
     schools = {
@@ -56,7 +58,7 @@ describe('WorkbookNotifier', () => {
         .mockResolvedValue({ region: { locale: 'en-US', timezone: 'UTC' } }),
     };
     config = { get: vi.fn().mockReturnValue('https://app.biddaloy.com') };
-    notifier = new WorkbookNotifier(jobs, events, delivery, schools, config);
+    notifier = new WorkbookNotifier(jobs, userTenants, events, delivery, schools, config);
   });
 
   it('fires on DONE + MANUAL with kind BACKUP_READY and a settings deep link', async () => {
@@ -259,5 +261,97 @@ describe('WorkbookNotifier', () => {
     handler(payload);
 
     expect(spy).toHaveBeenCalledWith(payload);
+  });
+
+  describe('C6 — FAILED + SCHEDULED (no requester) fans out to ADMINs', () => {
+    beforeEach(() => {
+      jobs.findOne.mockResolvedValue({ ...baseRow, status: WorkbookJobStatus.FAILED });
+    });
+
+    it('sends one BACKUP_FAILED email per ADMIN with an email address', async () => {
+      userTenants.find.mockResolvedValue([
+        { user_id: 'admin-1', user: { email: 'admin1@example.com', full_name: 'Admin One' } },
+        { user_id: 'admin-2', user: { email: 'admin2@example.com', full_name: 'Admin Two' } },
+      ]);
+
+      await notifier.onJobFinished(
+        basePayload({
+          source: WorkbookJobSource.SCHEDULED,
+          status: WorkbookJobStatus.FAILED,
+          requestedByUserId: null,
+        }),
+      );
+
+      expect(userTenants.find).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { tenant_id: TENANT, role: 'ADMIN' } }),
+      );
+      expect(delivery.deliver).toHaveBeenCalledTimes(2);
+      const recipients = delivery.deliver.mock.calls.map((c: any) => c[0].to);
+      expect(recipients).toEqual(['admin1@example.com', 'admin2@example.com']);
+      expect(delivery.deliver.mock.calls[0][0].kind).toBe('BACKUP_FAILED');
+    });
+
+    it('skips an ADMIN with no email and still emails the others', async () => {
+      userTenants.find.mockResolvedValue([
+        { user_id: 'admin-1', user: { email: null, full_name: 'No Email' } },
+        { user_id: 'admin-2', user: { email: 'admin2@example.com', full_name: 'Admin Two' } },
+      ]);
+
+      await notifier.onJobFinished(
+        basePayload({
+          source: WorkbookJobSource.SCHEDULED,
+          status: WorkbookJobStatus.FAILED,
+          requestedByUserId: null,
+        }),
+      );
+
+      expect(delivery.deliver).toHaveBeenCalledTimes(1);
+      expect(delivery.deliver.mock.calls[0][0].to).toBe('admin2@example.com');
+    });
+
+    it('one deliver rejecting does not prevent the remaining admins from being emailed, and does not throw', async () => {
+      userTenants.find.mockResolvedValue([
+        { user_id: 'admin-1', user: { email: 'admin1@example.com', full_name: 'Admin One' } },
+        { user_id: 'admin-2', user: { email: 'admin2@example.com', full_name: 'Admin Two' } },
+      ]);
+      delivery.deliver
+        .mockRejectedValueOnce(new Error('smtp down'))
+        .mockResolvedValueOnce({ logId: 'log-2', status: 'SENT' });
+
+      await expect(
+        notifier.onJobFinished(
+          basePayload({
+            source: WorkbookJobSource.SCHEDULED,
+            status: WorkbookJobStatus.FAILED,
+            requestedByUserId: null,
+          }),
+        ),
+      ).resolves.toBeUndefined();
+
+      expect(delivery.deliver).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not query UserTenant/deliver at all when there is a requester', async () => {
+      await notifier.onJobFinished(
+        basePayload({ source: WorkbookJobSource.SCHEDULED, status: WorkbookJobStatus.FAILED }),
+      );
+
+      expect(userTenants.find).not.toHaveBeenCalled();
+      expect(delivery.deliver).toHaveBeenCalledTimes(1);
+      expect(delivery.deliver.mock.calls[0][0].to).toBe('requester@example.com');
+    });
+  });
+
+  it('DONE + SCHEDULED + null requester still sends nothing (D9 unchanged)', async () => {
+    await notifier.onJobFinished(
+      basePayload({
+        source: WorkbookJobSource.SCHEDULED,
+        status: WorkbookJobStatus.DONE,
+        requestedByUserId: null,
+      }),
+    );
+
+    expect(delivery.deliver).not.toHaveBeenCalled();
+    expect(userTenants.find).not.toHaveBeenCalled();
   });
 });

@@ -71,6 +71,17 @@ describe('mergeTenantSettings', () => {
     expect(merged.region).toEqual(DEFAULT_REGION_SETTINGS);
   });
 
+  it('replaces backup wholesale when present, and leaves it untouched when the patch omits it (#615)', () => {
+    const existing = { version: 1, backup: { schedule: 'WEEKLY' } };
+
+    const untouched = mergeTenantSettings(existing, toPatch({ version: 1 }));
+    expect(untouched.backup).toEqual({ schedule: 'WEEKLY' });
+
+    const patch = toPatch({ version: 1, backup: { schedule: 'DAILY' } });
+    const merged = mergeTenantSettings(existing, patch);
+    expect(merged.backup).toEqual({ schedule: 'DAILY' });
+  });
+
   describe('field-level merge within a medium — #8.7.9 PATCH contract', () => {
     it('omitting a secret field from the patch leaves the stored value unchanged', () => {
       const existing = {

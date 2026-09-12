@@ -2,6 +2,7 @@ import { TENANT_SETTINGS_SCHEMA_VERSION } from '../dto/tenant-settings.dto';
 import {
   DEFAULT_ATTENDANCE_SETTINGS,
   DEFAULT_AUTH_SETTINGS,
+  DEFAULT_BACKUP_SETTINGS,
   DEFAULT_REGION_SETTINGS,
 } from './tenant-settings-defaults';
 import type { TenantSettings } from '@biddaloy/shared';
@@ -71,6 +72,7 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
   const region = overlayOnDefaults(DEFAULT_REGION_SETTINGS, stored?.region);
   const attendance = overlayOnDefaults(DEFAULT_ATTENDANCE_SETTINGS, stored?.attendance);
   const auth = overlayOnDefaults(DEFAULT_AUTH_SETTINGS, stored?.auth);
+  const backup = overlayOnDefaults(DEFAULT_BACKUP_SETTINGS, stored?.backup);
   const communications = isPlainObject(stored?.communications)
     ? (stored.communications as TenantSettings['communications'])
     : undefined;
@@ -80,6 +82,7 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
     region,
     attendance,
     auth,
+    backup,
     ...(communications ? { communications } : {}),
   };
 }

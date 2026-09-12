@@ -9,6 +9,8 @@ import {
   WorkbookJobStatus,
   WorkbookJobSource,
 } from '../jobs/workbook-job.entity';
+import { UserRole } from '@biddaloy/shared';
+import { UserTenant } from '../../auth/entities/user-tenant.entity';
 import { WorkbookJobEventsService } from './workbook-job-events.service';
 import { WorkbookJobFinishedPayload } from './export.constants';
 import {
@@ -32,6 +34,7 @@ export class WorkbookNotifier implements OnModuleInit {
 
   constructor(
     @InjectRepository(WorkbookJob) private readonly jobs: Repository<WorkbookJob>,
+    @InjectRepository(UserTenant) private readonly userTenants: Repository<UserTenant>,
     private readonly events: WorkbookJobEventsService,
     private readonly delivery: AccountAccessDeliveryService,
     private readonly schools: SchoolsService,
@@ -61,7 +64,13 @@ export class WorkbookNotifier implements OnModuleInit {
         return;
       }
 
-      if (!payload.requestedByUserId) {
+      // C6 (#615): a SCHEDULED export has no requester by definition — that
+      // must not mean "no email is ever sent." D9 says a scheduled export
+      // fans a FAILED result out to every ADMIN on the tenant. A null
+      // requester on a DONE job (shouldn't happen — MANUAL always has one)
+      // is left alone: the D9 gate above already returned for any non-MANUAL
+      // DONE, so this can only be reached by a FAILED job.
+      if (!payload.requestedByUserId && payload.status !== WorkbookJobStatus.FAILED) {
         this.logger.debug(`Job ${payload.jobId} has no requester — skipping notify.`);
         return;
       }
@@ -74,12 +83,6 @@ export class WorkbookNotifier implements OnModuleInit {
         this.logger.debug(
           `Job ${payload.jobId} not found for tenant ${payload.tenantId} — skipping notify.`,
         );
-        return;
-      }
-
-      const email = job.requested_by?.email;
-      if (!email) {
-        this.logger.debug(`Job ${payload.jobId}'s requester has no email — skipping notify.`);
         return;
       }
 
@@ -101,6 +104,24 @@ export class WorkbookNotifier implements OnModuleInit {
           : 'BACKUP_FAILED';
 
       const linkJobId = isRestore ? (job.snapshot_job_id ?? payload.jobId) : payload.jobId;
+      const vars = {
+        link: buildBackupLink(resolveAppBaseUrl(this.config), linkJobId),
+        size_mb: formatSizeMb(payload.sizeBytes),
+        finished_at: formatTimestamp(job.finished_at, locale, timezone),
+        expires_at: formatTimestamp(job.expires_at, locale, timezone),
+        reason: failureReason(payload.error),
+      };
+
+      if (!payload.requestedByUserId) {
+        await this.notifyAdmins(payload, kind, vars);
+        return;
+      }
+
+      const email = job.requested_by?.email;
+      if (!email) {
+        this.logger.debug(`Job ${payload.jobId}'s requester has no email — skipping notify.`);
+        return;
+      }
 
       const input: DeliverInput = {
         tenantId: payload.tenantId,
@@ -108,13 +129,7 @@ export class WorkbookNotifier implements OnModuleInit {
         to: email,
         recipientName: job.requested_by!.full_name,
         kind,
-        vars: {
-          link: buildBackupLink(resolveAppBaseUrl(this.config), linkJobId),
-          size_mb: formatSizeMb(payload.sizeBytes),
-          finished_at: formatTimestamp(job.finished_at, locale, timezone),
-          expires_at: formatTimestamp(job.expires_at, locale, timezone),
-          reason: failureReason(payload.error),
-        },
+        vars,
         metadata: { workbook_job_id: payload.jobId },
       };
 
@@ -123,5 +138,46 @@ export class WorkbookNotifier implements OnModuleInit {
       const reason = err instanceof Error ? err.message : String(err);
       this.logger.error(`Failed to notify for workbook job ${payload.jobId}: ${reason}`);
     }
+  }
+
+  /**
+   * C6 (#615) / D9: "Scheduled export: failed only, to all ADMINs." Each
+   * admin is delivered in its own try/catch — `deliver` is single-recipient
+   * (`account-access-delivery.service.ts`), and one bad address must not
+   * cost the rest of the tenant's admins the failure notice.
+   */
+  private async notifyAdmins(
+    payload: WorkbookJobFinishedPayload,
+    kind: TemplateKind,
+    vars: DeliverInput['vars'],
+  ): Promise<void> {
+    const admins = await this.userTenants.find({
+      where: { tenant_id: payload.tenantId, role: UserRole.ADMIN },
+      relations: ['user'],
+    });
+
+    await Promise.allSettled(
+      admins.map(async (admin) => {
+        const email = admin.user?.email;
+        if (!email) return;
+        try {
+          await this.delivery.deliver({
+            tenantId: payload.tenantId,
+            medium: CommunicationMedium.EMAIL,
+            to: email,
+            recipientName: admin.user.full_name,
+            kind,
+            vars,
+            metadata: { workbook_job_id: payload.jobId },
+          });
+        } catch (err) {
+          this.logger.error(
+            `Failed to notify ADMIN ${admin.user_id} for workbook job ${payload.jobId}: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+        }
+      }),
+    );
   }
 }

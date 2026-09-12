@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 import { ConfigModule } from '@nestjs/config';
 import { WorkbookJob } from '../jobs/workbook-job.entity';
+import { UserTenant } from '../../auth/entities/user-tenant.entity';
 import { StorageModule } from '../../storage/storage.module';
 import { AuditModule } from '../../audit/audit.module';
 import { AccountAccessModule } from '../../account-access/account-access.module';
@@ -22,7 +23,7 @@ import { WorkbookController } from './workbook.controller';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([WorkbookJob]),
+    TypeOrmModule.forFeature([WorkbookJob, UserTenant]),
     StorageModule,
     AuditModule,
     AccountAccessModule,
