@@ -25,7 +25,7 @@ import {
 } from '../jobs/workbook-job.entity';
 import { ExportService } from '../export/export.service';
 import { WORKBOOK_RESTORE_JOB, WORKBOOK_RESTORE_QUEUE, RestoreJobData } from './restore.constants';
-import { acquire, release } from './restore-lock';
+import { acquire, release, renew } from './restore-lock';
 
 export interface RequestRestoreInput {
   staging_id: string;
@@ -165,7 +165,34 @@ export class RestoreService {
 
       return { job, snapshotJob };
     } catch (err) {
-      await release(this.redis, tenantId, jobId);
+      // The `jobs.save` above may already have committed a QUEUED row (e.g.
+      // when `queue.add` is what threw) — leaving it QUEUED with no worker
+      // ever picking it up would strand it forever. Best-effort mark it
+      // FAILED so it shows up as a terminal outcome instead of a silent
+      // stuck job; this must never mask the original error.
+      await this.jobs
+        .update(jobId, {
+          status: WorkbookJobStatus.FAILED,
+          error: err instanceof Error ? err.message : String(err),
+          finished_at: new Date(),
+        })
+        .catch((updateErr) => {
+          this.logger.error(
+            `RestoreService: failed to mark job ${jobId} FAILED after enqueue error: ${
+              updateErr instanceof Error ? updateErr.message : String(updateErr)
+            }`,
+          );
+        });
+
+      try {
+        await release(this.redis, tenantId, jobId);
+      } catch (releaseErr) {
+        this.logger.error(
+          `Failed to release restore lock for tenant ${tenantId}, job ${jobId}: ${
+            releaseErr instanceof Error ? releaseErr.message : String(releaseErr)
+          }`,
+        );
+      }
       throw err;
     }
   }
@@ -173,5 +200,15 @@ export class RestoreService {
   /** Public: 14.10.2's processor calls this on every terminal outcome. */
   async release(tenantId: string, jobId: string): Promise<void> {
     await release(this.redis, tenantId, jobId);
+  }
+
+  /** Public: 14.10.2's processor calls this periodically while a restore is
+   * running, so a slow/long restore's lock never expires out from under
+   * it (RESTORE_LOCK_TTL_SEC bounds a *stuck* job, not a legitimately slow
+   * one). Returns `false` if the lock was already lost — the processor
+   * treats that as a fatal condition, since another restore may now be
+   * running concurrently for the same tenant. */
+  async renewLock(tenantId: string, jobId: string): Promise<boolean> {
+    return renew(this.redis, tenantId, jobId);
   }
 }

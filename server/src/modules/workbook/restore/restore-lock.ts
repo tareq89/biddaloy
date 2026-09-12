@@ -15,6 +15,29 @@ export async function acquire(redis: Redis, tenantId: string, jobId: string): Pr
   return result === 'OK';
 }
 
+// Compare-and-extend: only refresh the TTL if the key still holds *this*
+// job's id. A blind EXPIRE would extend whatever lock is currently there,
+// even one a different (later) job already holds because this one's TTL
+// expired mid-run.
+const RENEW_SCRIPT = `
+if redis.call("GET", KEYS[1]) == ARGV[1] then
+  return redis.call("EXPIRE", KEYS[1], ARGV[2])
+else
+  return 0
+end
+`;
+
+/**
+ * Refreshes the per-tenant restore lock's TTL, but only while it is still
+ * held by `jobId`. Returns `true` if the lock was renewed, `false` if it
+ * had already expired or was taken over by another job — callers use that
+ * to detect and abort a restore that outran its own lock.
+ */
+export async function renew(redis: Redis, tenantId: string, jobId: string): Promise<boolean> {
+  const result = await redis.eval(RENEW_SCRIPT, 1, lockKey(tenantId), jobId, RESTORE_LOCK_TTL_SEC);
+  return result === 1;
+}
+
 // Compare-and-delete: only remove the key if it still holds *this* job's
 // id. A blind DEL would let a slow/late release wipe out the *next*
 // restore's lock (acquired by a different job after this one's TTL or

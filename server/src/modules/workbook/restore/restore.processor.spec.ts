@@ -79,7 +79,11 @@ describe('RestoreProcessor', () => {
 
     dataSource = {
       manager: {},
-      transaction: vi.fn(async (cb: any) => cb({})),
+      // The processor writes the terminal status update through
+      // `m.getRepository(WorkbookJob).update(...)` inside the transaction
+      // callback — route that at the same `jobs.update` mock so tests can
+      // assert on `jobRow` the same way they do outside a transaction.
+      transaction: vi.fn(async (cb: any) => cb({ getRepository: () => ({ update: jobs.update }) })),
     };
 
     storage = {
@@ -107,7 +111,10 @@ describe('RestoreProcessor', () => {
     invitations = { issueAndSend: vi.fn().mockResolvedValue({ status: 'SENT' }) };
     audit = { record: vi.fn().mockResolvedValue(undefined) };
     events = { emitFinished: vi.fn() };
-    restoreService = { release: vi.fn().mockResolvedValue(undefined) };
+    restoreService = {
+      release: vi.fn().mockResolvedValue(undefined),
+      renewLock: vi.fn().mockResolvedValue(true),
+    };
 
     processor = new RestoreProcessor(
       jobs,
@@ -145,12 +152,16 @@ describe('RestoreProcessor', () => {
       expect(jobRow.error).toBe('SNAPSHOT_FAILED');
       expect(jobRow.failed_tab).toBeNull();
       expect(validationService.validate).not.toHaveBeenCalled();
-      expect(dataSource.transaction).not.toHaveBeenCalled();
+      // No tab was touched, but `terminate` now writes the FAILED status
+      // and its audit row atomically in one transaction.
+      expect(dataSource.transaction).toHaveBeenCalledTimes(1);
       expect(restoreService.release).toHaveBeenCalledWith(TENANT, jobRow.id);
       expect(audit.record).toHaveBeenCalledWith(
         expect.objectContaining({
           new_values: expect.objectContaining({ event: 'RESTORE_FAILED' }),
         }),
+
+        expect.anything(),
       );
     });
 
@@ -162,7 +173,7 @@ describe('RestoreProcessor', () => {
       await promise;
       expect(jobRow.status).toBe(WorkbookJobStatus.FAILED);
       expect(jobRow.error).toBe('SNAPSHOT_FAILED');
-      expect(dataSource.transaction).not.toHaveBeenCalled();
+      expect(dataSource.transaction).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -232,7 +243,8 @@ describe('RestoreProcessor', () => {
       expect(jobRow.status).toBe(WorkbookJobStatus.DONE);
       expect(jobRow.row_counts).toEqual({ [SCHOOL]: 1, [ACADEMIC_YEARS]: 1 });
       expect(jobRow.finished_at).toBeInstanceOf(Date);
-      expect(dataSource.transaction).toHaveBeenCalledTimes(2);
+      // 2 per-tab transactions + the terminal DONE-status/audit transaction.
+      expect(dataSource.transaction).toHaveBeenCalledTimes(3);
       expect(restoreService.release).toHaveBeenCalledWith(TENANT, jobRow.id);
       expect(events.emitFinished).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -244,6 +256,8 @@ describe('RestoreProcessor', () => {
         expect.objectContaining({
           new_values: expect.objectContaining({ event: 'RESTORE_COMPLETED' }),
         }),
+
+        expect.anything(),
       );
     });
 
@@ -254,7 +268,8 @@ describe('RestoreProcessor', () => {
       await run();
 
       expect(loadSpy).not.toHaveBeenCalled();
-      expect(dataSource.transaction).not.toHaveBeenCalled();
+      // No tab ran, but the terminal DONE-status/audit write still does.
+      expect(dataSource.transaction).toHaveBeenCalledTimes(1);
       expect(jobRow.status).toBe(WorkbookJobStatus.DONE);
       expect(jobRow.row_counts).toEqual({});
     });
@@ -344,8 +359,9 @@ describe('RestoreProcessor', () => {
       expect(jobRow.status).toBe(WorkbookJobStatus.FAILED);
       expect(jobRow.failed_tab).toBe(SUBJECTS);
       expect(jobRow.error).toBe('already exists: subjects_name_key');
-      // Only 5 transactions attempted (4 succeeded, 5th threw) — no 6th tab touched.
-      expect(dataSource.transaction).toHaveBeenCalledTimes(5);
+      // 5 per-tab transactions attempted (4 succeeded, 5th threw — no 6th
+      // tab touched) + the terminal FAILED-status/audit transaction.
+      expect(dataSource.transaction).toHaveBeenCalledTimes(6);
       expect(ALL_TABS[0].upsert).toHaveBeenCalledTimes(1);
       expect(ALL_TABS[3].upsert).toHaveBeenCalledTimes(1);
       expect(restoreService.release).toHaveBeenCalledWith(TENANT, jobRow.id);
@@ -353,6 +369,8 @@ describe('RestoreProcessor', () => {
         expect.objectContaining({
           new_values: expect.objectContaining({ event: 'RESTORE_FAILED', failed_tab: SUBJECTS }),
         }),
+
+        expect.anything(),
       );
       expect(events.emitFinished).toHaveBeenCalledWith(
         expect.objectContaining({ status: WorkbookJobStatus.FAILED }),
@@ -372,7 +390,11 @@ describe('RestoreProcessor', () => {
       await run();
 
       expect(jobRow.status).toBe(WorkbookJobStatus.FAILED);
-      expect(jobRow.error).toBe('referenced by another record');
+      // Direction-neutral: 23503 fires for both a missing parent and a
+      // still-referenced row, so the message no longer assumes the latter.
+      expect(jobRow.error).toBe(
+        'related record missing or still referenced: foreign key constraint',
+      );
       expect(jobRow.failed_tab).toBe(SCHOOL);
     });
 
@@ -461,8 +483,10 @@ describe('RestoreProcessor', () => {
       expect(jobRow.status).toBe(WorkbookJobStatus.FAILED);
       expect(jobRow.error).toBe('connection terminated');
       expect(restoreService.release).toHaveBeenCalledWith(TENANT, jobRow.id);
-      // Nothing was applied — the failure happened before any tab ran.
-      expect(dataSource.transaction).not.toHaveBeenCalled();
+      // Nothing was applied — the failure happened before any tab ran. The
+      // one `transaction` call is `terminate`'s atomic FAILED-status +
+      // audit-row write, not a per-tab restore transaction.
+      expect(dataSource.transaction).toHaveBeenCalledTimes(1);
     });
 
     it('still releases the lock and fails the job when a snapshot poll read throws', async () => {
@@ -478,7 +502,7 @@ describe('RestoreProcessor', () => {
       expect(jobRow.status).toBe(WorkbookJobStatus.FAILED);
       expect(jobRow.error).toBe('snapshot read failed');
       expect(restoreService.release).toHaveBeenCalledWith(TENANT, jobRow.id);
-      expect(dataSource.transaction).not.toHaveBeenCalled();
+      expect(dataSource.transaction).toHaveBeenCalledTimes(1);
     });
   });
 });

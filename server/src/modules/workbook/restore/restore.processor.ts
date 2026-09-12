@@ -30,6 +30,21 @@ const SNAPSHOT_POLL_INTERVAL_MS = 2000;
  * not hang the restore job forever. */
 const SNAPSHOT_MAX_WAIT_MS = 10 * 60 * 1000;
 
+/** How often to refresh the per-tenant restore lock's TTL while `process()`
+ * is running. A fraction of RESTORE_LOCK_TTL_SEC (3600s) so a missed
+ * renewal or two never lets the lock lapse mid-restore. */
+const LOCK_RENEW_INTERVAL_MS = 5 * 60 * 1000;
+
+/** Thrown by the lock-renewal timer when it discovers the lock is gone —
+ * another restore could now be running concurrently for this tenant, so
+ * this run must stop touching data immediately. */
+class RestoreLockLostError extends Error {
+  constructor() {
+    super('Restore lock expired or was taken over mid-run.');
+    this.name = 'RestoreLockLostError';
+  }
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -136,6 +151,28 @@ export class RestoreProcessor extends WorkerHost {
     // on one of the snapshot poll reads, which run for up to ten minutes —
     // would strand the lock until its TTL and leave the job row stuck at
     // RUNNING forever, with no FAILED status, no audit row and no email.
+    // Refreshes the per-tenant lock's TTL while this restore runs, so a
+    // long snapshot wait plus a large workbook never outlives
+    // RESTORE_LOCK_TTL_SEC and lets a second restore start for the same
+    // tenant. `lockLost` is checked at each safe checkpoint below rather
+    // than aborting mid-flight, since a renewal failure races with work
+    // already in progress.
+    let lockLost = false;
+    const lockRenewTimer = setInterval(() => {
+      this.restoreService
+        .renewLock(tenantId, row.id)
+        .then((ok) => {
+          if (!ok) lockLost = true;
+        })
+        .catch((err) => {
+          this.logger.warn(
+            `RestoreProcessor: lock renewal failed for job ${row.id}: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+        });
+    }, LOCK_RENEW_INTERVAL_MS);
+
     try {
       await this.jobs.update(row.id, { status: WorkbookJobStatus.RUNNING, progress: null });
 
@@ -196,6 +233,8 @@ export class RestoreProcessor extends WorkerHost {
       const indexes = new Map<string, KeyIndex>();
 
       for (const tab of ALL_TABS) {
+        if (lockLost) throw new RestoreLockLostError();
+
         const tabResult = validated.tabs[tab.name];
         if (!tabResult?.present) continue;
         currentTab = tab.name;
@@ -255,23 +294,39 @@ export class RestoreProcessor extends WorkerHost {
         });
       }
 
+      // The terminal status write and its audit row must land together: a
+      // crash or a swallowed audit failure between two separate writes
+      // would leave a completed restore with no audit trail. Per-tab
+      // transactions above stay untouched (D8) — this is a single
+      // additional write, not a rollback of anything already applied.
       const finishedAt = new Date();
-      await this.jobs.update(row.id, {
-        status: WorkbookJobStatus.DONE,
-        row_counts: rowCounts,
-        finished_at: finishedAt,
-        error: null,
-        failed_tab: null,
+      await this.dataSource.transaction(async (m) => {
+        await m.getRepository(WorkbookJob).update(row.id, {
+          status: WorkbookJobStatus.DONE,
+          row_counts: rowCounts,
+          finished_at: finishedAt,
+          error: null,
+          failed_tab: null,
+        });
+        await this.audit.record(
+          {
+            action: AuditAction.CREATE,
+            entity_type: 'School',
+            entity_id: row.id,
+            tenant_id: tenantId,
+            performed_by_user_id: row.requested_by_user_id,
+            new_values: {
+              event: 'RESTORE_COMPLETED',
+              workbook_job_id: row.id,
+              snapshot_job_id: row.snapshot_job_id,
+              row_counts: rowCounts,
+            },
+          },
+          m,
+        );
       });
 
       await this.restoreService.release(tenantId, row.id).catch(() => undefined);
-
-      await this.safeAudit({
-        event: 'RESTORE_COMPLETED',
-        job: row,
-        tenantId,
-        extra: { row_counts: rowCounts },
-      });
 
       this.safeEmit({
         jobId: row.id,
@@ -309,7 +364,10 @@ export class RestoreProcessor extends WorkerHost {
         status: WorkbookJobStatus.FAILED,
         error: message,
         failedTab: currentTab,
+        cause: err,
       });
+    } finally {
+      clearInterval(lockRenewTimer);
     }
   }
 
@@ -347,7 +405,7 @@ export class RestoreProcessor extends WorkerHost {
         return `already exists: ${constraint ?? 'unique constraint'}`;
       }
       if (code === '23503') {
-        return 'referenced by another record';
+        return `related record missing or still referenced: ${constraint ?? 'foreign key constraint'}`;
       }
     }
     return err instanceof Error ? err.message : String(err);
@@ -370,31 +428,58 @@ export class RestoreProcessor extends WorkerHost {
   private async terminate(
     row: WorkbookJob,
     tenantId: string,
-    outcome: { status: WorkbookJobStatus.FAILED; error: string; failedTab: string | null },
+    outcome: {
+      status: WorkbookJobStatus.FAILED;
+      error: string;
+      failedTab: string | null;
+      /** The original thrown error, when available — kept separate from
+       * `error` (already reduced to a plain string by `mapError` for the
+       * job row and notification email) so Sentry gets the real stack and
+       * cause instead of a synthetic error pointing at `terminate`. */
+      cause?: unknown;
+    },
   ): Promise<void> {
+    // Same reasoning as the success path: the FAILED status and its audit
+    // row must land together, or a crash between them leaves a failed
+    // restore with no audit trail. Unlike the success path, a failure here
+    // must never throw further — `terminate` is the last-resort cleanup
+    // for an already-failed restore, so this stays a caught, logged
+    // best-effort write like the rest of this method.
     try {
-      await this.jobs.update(row.id, {
-        status: outcome.status,
-        error: outcome.error,
-        failed_tab: outcome.failedTab,
-        finished_at: new Date(),
+      await this.dataSource.transaction(async (m) => {
+        await m.getRepository(WorkbookJob).update(row.id, {
+          status: outcome.status,
+          error: outcome.error,
+          failed_tab: outcome.failedTab,
+          finished_at: new Date(),
+        });
+        await this.audit.record(
+          {
+            action: AuditAction.CREATE,
+            entity_type: 'School',
+            entity_id: row.id,
+            tenant_id: tenantId,
+            performed_by_user_id: row.requested_by_user_id,
+            new_values: {
+              event: 'RESTORE_FAILED',
+              workbook_job_id: row.id,
+              snapshot_job_id: row.snapshot_job_id,
+              failed_tab: outcome.failedTab,
+              error: outcome.error,
+            },
+          },
+          m,
+        );
       });
     } catch (updateErr) {
       this.logger.error(
-        `RestoreProcessor: failed to write FAILED status for job ${row.id}: ${
+        `RestoreProcessor: failed to write FAILED status and audit for job ${row.id}: ${
           updateErr instanceof Error ? updateErr.message : String(updateErr)
         }`,
       );
     }
 
     await this.restoreService.release(tenantId, row.id).catch(() => undefined);
-
-    await this.safeAudit({
-      event: 'RESTORE_FAILED',
-      job: row,
-      tenantId,
-      extra: { failed_tab: outcome.failedTab, error: outcome.error },
-    });
 
     this.logger.error(
       `RestoreProcessor: restore job ${row.id} (tenant ${tenantId}) failed at "${
@@ -407,7 +492,9 @@ export class RestoreProcessor extends WorkerHost {
         workbook_job_id: row.id,
         tenant_id: tenantId,
       });
-      Sentry.captureException(new Error(outcome.error));
+      Sentry.captureException(
+        outcome.cause instanceof Error ? outcome.cause : new Error(outcome.error),
+      );
     });
 
     this.safeEmit({
@@ -422,40 +509,6 @@ export class RestoreProcessor extends WorkerHost {
       rowCounts: null,
       error: outcome.error,
     });
-  }
-
-  /** No dedicated RESTORE_* AuditAction exists yet (same interim stand-in
-   * `RestoreService.request` and `ExportProcessor` already use): reuse
-   * `AuditAction.CREATE` / entity_type `'School'`, with the real event name
-   * carried in `new_values.event`. Wrapped defensively — an audit hiccup
-   * must never turn an otherwise-correct outcome into a crash. */
-  private async safeAudit(input: {
-    event: 'RESTORE_COMPLETED' | 'RESTORE_FAILED';
-    job: WorkbookJob;
-    tenantId: string;
-    extra: Record<string, unknown>;
-  }): Promise<void> {
-    try {
-      await this.audit.record({
-        action: AuditAction.CREATE,
-        entity_type: 'School',
-        entity_id: input.job.id,
-        tenant_id: input.tenantId,
-        performed_by_user_id: input.job.requested_by_user_id,
-        new_values: {
-          event: input.event,
-          workbook_job_id: input.job.id,
-          snapshot_job_id: input.job.snapshot_job_id,
-          ...input.extra,
-        },
-      });
-    } catch (err) {
-      this.logger.error(
-        `RestoreProcessor: audit write failed for job ${input.job.id}: ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-      );
-    }
   }
 
   /** Never let a listener bug fail an otherwise-successful (or already

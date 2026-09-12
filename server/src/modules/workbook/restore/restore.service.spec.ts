@@ -28,6 +28,7 @@ describe('RestoreService', () => {
     jobs = {
       create: vi.fn((input: any) => ({ id: 'job-1', ...input })),
       save: vi.fn(async (job: any) => job),
+      update: vi.fn().mockResolvedValue(undefined),
     };
     schools = {
       findOneOrFail: vi.fn(async () => ({ id: TENANT, name: SCHOOL_NAME })),
