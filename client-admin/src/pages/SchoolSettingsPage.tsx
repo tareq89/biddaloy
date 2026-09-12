@@ -4,6 +4,7 @@ import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
 
 import { AttendanceSection } from './settings/AttendanceSection';
+import { BackupSection } from './settings/backup-section';
 import { EmailSection } from './settings/EmailSection';
 import { MessengerSection } from './settings/MessengerSection';
 import { RegionalSection } from './settings/RegionalSection';
@@ -27,7 +28,14 @@ import { WhatsAppSection } from './settings/WhatsAppSection';
  * so a long page never separates a form field from the name of the
  * school it belongs to.
  */
-export function SchoolSettingsPage() {
+export interface SchoolSettingsPageProps {
+  /** [14.11.2] The `id` from `?backup=<jobId>` in the URL — threaded down
+   * from `_staff/settings.tsx`'s `Route.useSearch()` to `BackupSection`,
+   * which is the only section a deep link ever targets. */
+  backupJobId?: string;
+}
+
+export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}) {
   const { t } = useTranslation('settings');
   const isSuperAdmin = getActiveRole() === 'SUPER_ADMIN';
   const ownSchoolId = getActiveTenant();
@@ -74,6 +82,15 @@ export function SchoolSettingsPage() {
           below — there is no route yet for a SUPER_ADMIN to edit another
           school's identity, only its provider settings. */}
       <SchoolProfileSection />
+
+      {/* [14.11.2] Not gated behind the SUPER_ADMIN school picker below,
+          same reasoning as `SchoolProfileSection` above: it takes no
+          `schoolId` prop, always operates on the caller's own active
+          tenant, and gates its own visibility via `BACKUP_MANAGE`. Gating
+          it on `schoolId && settingsQuery.data` would leave a SUPER_ADMIN
+          opening a `?backup=<jobId>` email link on a page where this
+          never mounts, since they haven't picked a school yet. */}
+      <BackupSection {...(backupJobId !== undefined ? { backupJobId } : {})} />
 
       {isSuperAdmin && (
         <div className="grid gap-1.5">
