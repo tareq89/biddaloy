@@ -10,6 +10,8 @@
 import bnAcademicYears from '../ui/src/i18n/locales/bn/academicYears.json';
 import bnAttendance from '../ui/src/i18n/locales/bn/attendance.json';
 import bnAuth from '../ui/src/i18n/locales/bn/auth.json';
+import bnBackup from '../ui/src/i18n/locales/bn/backup.json';
+import bnBulkImport from '../ui/src/i18n/locales/bn/bulkImport.json';
 import bnClasses from '../ui/src/i18n/locales/bn/classes.json';
 import bnCommon from '../ui/src/i18n/locales/bn/common.json';
 import bnCommunications from '../ui/src/i18n/locales/bn/communications.json';
@@ -27,6 +29,8 @@ import bnStudents from '../ui/src/i18n/locales/bn/students.json';
 import enAcademicYears from '../ui/src/i18n/locales/en/academicYears.json';
 import enAttendance from '../ui/src/i18n/locales/en/attendance.json';
 import enAuth from '../ui/src/i18n/locales/en/auth.json';
+import enBackup from '../ui/src/i18n/locales/en/backup.json';
+import enBulkImport from '../ui/src/i18n/locales/en/bulkImport.json';
 import enClasses from '../ui/src/i18n/locales/en/classes.json';
 import enCommon from '../ui/src/i18n/locales/en/common.json';
 import enCommunications from '../ui/src/i18n/locales/en/communications.json';
@@ -47,6 +51,8 @@ const catalogs = {
     academicYears: bnAcademicYears,
     attendance: bnAttendance,
     auth: bnAuth,
+    backup: bnBackup,
+    bulkImport: bnBulkImport,
     classes: bnClasses,
     common: bnCommon,
     communications: bnCommunications,
@@ -66,6 +72,8 @@ const catalogs = {
     academicYears: enAcademicYears,
     attendance: enAttendance,
     auth: enAuth,
+    backup: enBackup,
+    bulkImport: enBulkImport,
     classes: enClasses,
     common: enCommon,
     communications: enCommunications,
