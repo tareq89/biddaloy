@@ -224,10 +224,13 @@ describe('WorkbookNotifier', () => {
     expect(input.vars.link).toMatch(new RegExp(`/settings\\?backup=${SNAPSHOT_JOB_ID}$`));
   });
 
-  it('a DONE RESTORE job still emails even though it is not source MANUAL-gated like exports (D9 only applies to BACKUP_*)', async () => {
-    // RestoreService always sets source MANUAL for a restore it requests,
-    // but this asserts the RESTORE_DONE branch is reached via `kind`, not
-    // by relying on the D9 source check to have already narrowed things.
+  it('a DONE RESTORE job (source MANUAL) emails RESTORE_DONE, routed by kind not by the D9 source gate', async () => {
+    // RestoreService always sets source MANUAL for a restore it requests, so
+    // this does not exercise a non-MANUAL RESTORE — it only confirms the
+    // RESTORE_DONE branch is selected via `kind`. The D9 source check still
+    // runs first (workbook-notifier.ts) and would silently drop a DONE
+    // RESTORE job whose source was ever anything but MANUAL; nothing today
+    // produces one, so that path is untested.
     await notifier.onJobFinished(
       basePayload({ kind: WorkbookJobKind.RESTORE, source: WorkbookJobSource.MANUAL }),
     );
