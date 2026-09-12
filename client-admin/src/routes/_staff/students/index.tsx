@@ -137,7 +137,10 @@ export const Route = createFileRoute('/_staff/students/')({
           }),
         )
         .catch(swallowUnlessOffline),
-      loadRouteNamespaces('students'),
+      // 'backup' feeds the [14.13.2] migrate-a-whole-school link below the
+      // (empty) list — same permission-gated one-liner as
+      // `students/import.tsx`, pointed the other direction.
+      loadRouteNamespaces('students', 'backup'),
     ]),
   pendingComponent: StudentsListPending,
   component: StudentsListPage,
@@ -145,6 +148,7 @@ export const Route = createFileRoute('/_staff/students/')({
 
 function StudentsListPage() {
   const { t } = useTranslation('students');
+  const { t: tBackup } = useTranslation('backup');
   const queryClient = useQueryClient();
   const [state, actions] = useListShellState({ limit: 10 });
   const filters = state.filters as StudentFilters;
@@ -170,6 +174,9 @@ function StudentsListPage() {
   const canSendReminder = useHasPermission(Permission.COMMUNICATION_BULK_SEND);
   const canAddStudent = useHasPermission(Permission.STUDENT_CREATE);
   const canBulkImport = useHasPermission(Permission.STUDENT_BULK_UPLOAD);
+  const canManageBackup = useHasPermission(Permission.BACKUP_MANAGE);
+  const isEmpty =
+    !studentsQuery.isLoading && !studentsQuery.isError && (studentsQuery.data?.total ?? 0) === 0;
 
   const [reminderDialogOpen, setReminderDialogOpen] = React.useState(false);
 
@@ -444,6 +451,18 @@ function StudentsListPage() {
           </>
         }
       />
+      {/* [14.13.2]: the migrate-a-whole-school entry point, offered where a
+          newcomer looking at an empty student list is already looking —
+          same permission-gated one-liner `students/import.tsx` links back
+          from. */}
+      {isEmpty && canManageBackup && (
+        <p className="mt-2 text-sm text-muted-foreground">
+          {tBackup('migrateWholeSchool')}{' '}
+          <Link to="/settings" className="text-primary underline">
+            {tBackup('migrateWholeSchoolLink')}
+          </Link>
+        </p>
+      )}
       <SendReminderDialog
         open={reminderDialogOpen}
         onOpenChange={setReminderDialogOpen}

@@ -5,7 +5,7 @@ import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { RestoreWizard } from './restore-wizard';
 
@@ -131,6 +131,48 @@ afterEach(async () => {
 });
 
 describe('RestoreWizard', () => {
+  // [14.13.2]: "Download blank template" is UX-gated on BACKUP_MANAGE, same
+  // permission the server enforces on this route — same pattern as
+  // `students/import.test.tsx`'s migrate-in link coverage.
+  it('shows the "Download blank template" button for ADMIN, who holds BACKUP_MANAGE, and it triggers the download helper with the current locale', async () => {
+    let requestedLang: string | null = null;
+    server.use(
+      http.get('/api/v1/backup/template', ({ request }) => {
+        requestedLang = new URL(request.url).searchParams.get('lang');
+        return HttpResponse.text('workbook-bytes');
+      }),
+    );
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock-url');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    const result = renderWithProviders(<RestoreWizard />, {
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await result.localeReady;
+
+    const user = userEvent.setup();
+    const button = await screen.findByRole('button', { name: 'Download blank template' });
+    await user.click(button);
+
+    await waitFor(() => expect(requestedLang).toBe('en'));
+    await waitFor(() => expect(createObjectURL).toHaveBeenCalledTimes(1));
+  });
+
+  it('hides the "Download blank template" button for a role without BACKUP_MANAGE (ACCOUNTANT)', async () => {
+    const result = renderWithProviders(<RestoreWizard />, {
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+    await result.localeReady;
+
+    await screen.findByText('Restore from a backup');
+    expect(screen.queryByRole('button', { name: 'Download blank template' })).toBeNull();
+  });
+
   it('Confirm stays disabled until the session school name is typed, and enables on an exact match', async () => {
     mockValidate({
       staging_id: 'staging-1',

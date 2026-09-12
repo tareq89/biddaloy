@@ -114,5 +114,9 @@
   "restoreDoneCounts": "{{tab}}: {{count}}টি রেকর্ড",
   "downloadSnapshot": "পুনরুদ্ধার-পূর্ব স্ন্যাপশট ডাউনলোড করুন",
   "restoreFailedTab": "{{tab}}-এ পুনরুদ্ধার থেমে গেছে",
-  "restoreFailedUndo": "{{tab}}-এর আগের ট্যাবগুলো প্রয়োগ করা হয়েছে — ফিরে যেতে স্ন্যাপশট পুনরুদ্ধার করুন"
+  "restoreFailedUndo": "{{tab}}-এর আগের ট্যাবগুলো প্রয়োগ করা হয়েছে — ফিরে যেতে স্ন্যাপশট পুনরুদ্ধার করুন",
+  "migrateWholeSchool": "পুরো স্কুল স্থানান্তর করছেন?",
+  "migrateWholeSchoolLink": "সম্পূর্ণ ওয়ার্কবুক টেমপ্লেট ব্যবহার করুন",
+  "downloadTemplate": "খালি টেমপ্লেট ডাউনলোড করুন",
+  "downloadTemplateFailed": "টেমপ্লেট ডাউনলোড করা যায়নি। আবার চেষ্টা করুন।"
 }

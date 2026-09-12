@@ -385,6 +385,34 @@ describe('/classes', () => {
     await waitFor(() => expect(requestedAcademicYearId).toBe('year-2'));
   });
 
+  // [14.13.2]: same migrate-in entry point as `/students` and
+  // `/academic-years`, offered where a newcomer with an empty class list is
+  // already looking. No other role holds CLASS_MANAGE (this route's own
+  // view gate), so there is no reachable role that can view this list
+  // while lacking BACKUP_MANAGE — same note as `academic-years/index.test.tsx`.
+  it('shows the migrate-a-whole-school link when the list is empty, for ADMIN (BACKUP_MANAGE)', async () => {
+    server.use(
+      http.get('/api/v1/academic-years', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 1 }),
+      ),
+      http.get('/api/v1/classes', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/classes'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText('No classes found');
+    expect(await screen.findByText('Migrating a whole school?')).toBeTruthy();
+    const link = screen.getByRole('link', { name: 'Use the full workbook template' });
+    expect(link.getAttribute('href')).toBe('/settings');
+  });
+
   it('is axe clean with data loaded', async () => {
     const year = academicYearFactory({ id: 'year-1', name: '2026-2027', is_current: true });
     const klass = classFactory({ id: 'class-1', name: 'Class 6', academic_year_id: year.id });

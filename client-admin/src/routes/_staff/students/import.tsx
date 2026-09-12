@@ -1,6 +1,8 @@
+import { Permission } from '@biddaloy/shared';
 import { captureNotificationTenant, notifyOutcome } from '@biddaloy/ui/api';
 import { Button, Checkbox, BulkUploadPreview, RoutePending } from '@biddaloy/ui/components';
 import {
+  useHasPermission,
   useValidateStudentUpload,
   useCommitStudentUpload,
   type BulkUploadResult,
@@ -8,7 +10,7 @@ import {
 } from '@biddaloy/ui/hooks';
 import type { PreviewResult } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, Link } from '@tanstack/react-router';
 import * as React from 'react';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
@@ -32,7 +34,7 @@ const PREVIEW_ROW_LIMIT = 20;
  * roles server-side, same reasoning `fees/generate.tsx` spells out.
  */
 export const Route = createFileRoute('/_staff/students/import')({
-  loader: () => loadRouteNamespaces('studentImport', 'guardians', 'bulkImport'),
+  loader: () => loadRouteNamespaces('studentImport', 'guardians', 'bulkImport', 'backup'),
   pendingComponent: ImportStudentsPending,
   component: ImportStudentsPage,
 });
@@ -64,6 +66,8 @@ function ImportStudentsPage() {
 
 function ImportStudentsContent() {
   const { t } = useTranslation('studentImport');
+  const { t: tBackup } = useTranslation('backup');
+  const canManageBackup = useHasPermission(Permission.BACKUP_MANAGE);
   const validateMutation = useValidateStudentUpload();
   const commitMutation = useCommitStudentUpload();
 
@@ -116,6 +120,19 @@ function ImportStudentsContent() {
             {t('template.download')}
           </Button>
         </div>
+        {/* [14.13.2]: entry point toward the whole-school migration flow —
+            only rendered for a viewer who could actually act on it
+            (`BACKUP_MANAGE` gates `/settings`'s restore wizard server-side
+            too, so this is UX-only, same reasoning as the permission note
+            at the top of this file). */}
+        {canManageBackup && (
+          <p className="text-sm text-muted-foreground">
+            {tBackup('migrateWholeSchool')}{' '}
+            <Link to="/settings" className="text-primary underline">
+              {tBackup('migrateWholeSchoolLink')}
+            </Link>
+          </p>
+        )}
         {/* [8.14.7]: `break-all` on the header-name cells (below) keeps this
             table's min-content width under 320px on its own — the longest
             identifier, `preferred_communication`, was the one unbreakable

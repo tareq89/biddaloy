@@ -323,3 +323,32 @@ export async function downloadBackup(id: string): Promise<void> {
   anchor.remove();
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
+
+/**
+ * `GET /backup/template?lang=<lang>` — [14.13.1]'s blank workbook (header
+ * rows, one SAMPLE row per sheet, enum/bool dropdowns, a `_readme` sheet),
+ * for a school migrating in from paper or another system. Distinct from
+ * `downloadTemplate` in client-admin's `students/import.tsx` (per-student
+ * CSV template, unrelated endpoint) — this one is the whole-school
+ * workbook, gated server-side by `BACKUP_MANAGE`. Same auth'd-blob-then-
+ * anchor mechanism as `downloadBackup` above, for the same reason: the
+ * URL needs auth headers a plain `<a>` can't attach.
+ */
+export async function downloadWorkbookTemplate(lang: 'bn' | 'en'): Promise<void> {
+  const res = await apiClient.get<Blob>('/backup/template', {
+    params: { lang },
+    responseType: 'blob',
+  });
+  const filename = filenameFromContentDisposition(
+    res.headers['content-disposition'] as string | undefined,
+    `biddaloy-template-${lang}.xlsx`,
+  );
+  const url = URL.createObjectURL(res.data);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}

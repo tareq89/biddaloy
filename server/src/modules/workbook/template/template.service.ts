@@ -4,9 +4,9 @@ import { Repository } from 'typeorm';
 import { School } from '../../schools/entities/school.entity';
 import { resolveTenantSettings } from '../../schools/settings/tenant-settings-resolver';
 import { ALL_TABS, assertRegistryValid, EXPECTED_TABS } from '../codec/registry';
-import { writeWorkbook, SAMPLE_ROW_ID, type SheetDecorator } from '../codec/workbook-codec';
+import { buildSampleRow, writeWorkbook, type SheetDecorator } from '../codec/workbook-codec';
 import { SCHEMA_VERSION, type WorkbookMeta } from '../codec/meta';
-import type { ColumnSpec, TabSpec } from '../codec/tab-spec';
+import type { TabSpec } from '../codec/tab-spec';
 import type { TemplateLang } from './template.constants';
 
 const LABELS = {
@@ -31,48 +31,6 @@ const LABELS = {
   requiredColumnsLabel: { en: '  Required columns', bn: '  আবশ্যক কলাম' },
   none: { en: '(none)', bn: '(নেই)' },
 } as const;
-
-/**
- * A value for `col` that looks right to a human and round-trips through
- * `toCell`. Never re-validated on import: `readWorkbook` skips a row whose
- * `id` cell is `SAMPLE` before `fromRow`/`fromCell` ever see it, so these
- * values only have to be *legible*, not strictly valid.
- */
-function sampleValue(col: ColumnSpec): unknown {
-  switch (col.type) {
-    case 'uuid':
-      return SAMPLE_ROW_ID;
-    case 'int':
-      return 1;
-    case 'money':
-      return '100.00';
-    case 'date':
-      return '2026-01-01';
-    case 'datetime':
-      return '2026-01-01T00:00:00.000Z';
-    case 'bool':
-      return true;
-    case 'enum':
-      return col.enumValues?.[0] ?? '';
-    case 'json':
-      return {};
-    case 'ref':
-      return `(sample ${col.ref} row)`;
-    case 'ref-list':
-      return [`(sample ${col.ref} row)`];
-    case 'string':
-    default:
-      return `Sample ${col.label.en}`;
-  }
-}
-
-function buildSampleRow(tab: TabSpec<any, any>): Record<string, unknown> {
-  const row: Record<string, unknown> = {};
-  for (const col of tab.columns) {
-    row[col.key] = col.key === 'id' ? SAMPLE_ROW_ID : sampleValue(col);
-  }
-  return row;
-}
 
 /**
  * Adds a dropdown for every enum/bool column and a "what is this column"
@@ -130,6 +88,10 @@ export class TemplateService {
    * `DEFAULT_REGION_SETTINGS.locale` (`'bn-BD'`). */
   async defaultLang(tenantId: string): Promise<TemplateLang> {
     const school = await this.findSchoolOrThrow(tenantId);
+    return this.langFromSchool(school);
+  }
+
+  private langFromSchool(school: School): TemplateLang {
     const { region } = resolveTenantSettings(school.settings);
     // `resolveTenantSettings` always fills `region` from
     // `DEFAULT_REGION_SETTINGS` (never omits it) — the `?` on
@@ -141,10 +103,18 @@ export class TemplateService {
   /**
    * Builds a blank workbook: every `ALL_TABS` sheet with a header row, one
    * `SAMPLE` row showing the expected shape, enum/bool dropdowns, and a
-   * `_readme` sheet with fill instructions — all in `lang`.
+   * `_readme` sheet with fill instructions — all in `lang`, or in the
+   * tenant's own locale when `lang` is omitted. Returns the resolved
+   * `lang` alongside the buffer so a caller that omitted it still knows
+   * what got built (e.g. for `Content-Disposition`) without a second
+   * `schools.findOne` round trip.
    */
-  async build(tenantId: string, lang: TemplateLang): Promise<Buffer> {
+  async build(
+    tenantId: string,
+    lang?: TemplateLang,
+  ): Promise<{ buffer: Buffer; lang: TemplateLang }> {
     const school = await this.findSchoolOrThrow(tenantId);
+    const resolvedLang = lang ?? this.langFromSchool(school);
 
     assertRegistryValid(ALL_TABS, { partial: ALL_TABS.length < EXPECTED_TABS.length });
 
@@ -157,15 +127,17 @@ export class TemplateService {
       source_school_slug: school.slug,
     };
 
-    return writeWorkbook({
+    const buffer = await writeWorkbook({
       tabs: ALL_TABS,
       meta,
-      readme: buildReadmeRows(lang),
+      readme: buildReadmeRows(resolvedLang),
       rowsFor: async function* (tab) {
         yield buildSampleRow(tab);
       },
-      decorate: (sheet, tab) => decorateSheet(sheet, tab, lang),
+      decorate: (sheet, tab) => decorateSheet(sheet, tab, resolvedLang),
     });
+
+    return { buffer, lang: resolvedLang };
   }
 
   private async findSchoolOrThrow(tenantId: string): Promise<School> {

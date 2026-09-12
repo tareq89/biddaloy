@@ -383,4 +383,45 @@ describe('/students', () => {
 
     await waitFor(() => expect(lastGender).toBe('Female'), { timeout: 1000 });
   });
+
+  // [14.13.2]: an empty list is where a newcomer migrating a whole school
+  // is already looking — the migrate-in entry point offers the workbook
+  // template right there, gated on BACKUP_MANAGE same as its neighbours.
+  it('shows the migrate-a-whole-school link when the list is empty, for ADMIN (BACKUP_MANAGE)', async () => {
+    server.use(
+      http.get('/api/v1/students', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText('No students found');
+    expect(await screen.findByText('Migrating a whole school?')).toBeTruthy();
+    const link = screen.getByRole('link', { name: 'Use the full workbook template' });
+    expect(link.getAttribute('href')).toBe('/settings');
+  });
+
+  it('hides the migrate-a-whole-school link for a role without BACKUP_MANAGE (TEACHER), even when the list is empty', async () => {
+    server.use(
+      http.get('/api/v1/students', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+
+    await screen.findByText('No students found');
+    expect(screen.queryByText('Migrating a whole school?')).toBeNull();
+  });
 });

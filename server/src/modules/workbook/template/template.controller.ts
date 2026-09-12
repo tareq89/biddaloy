@@ -45,8 +45,7 @@ export class TemplateController {
     @CurrentTenant() tenant: { id: string; role: string },
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
-    const lang = query.lang ?? (await this.templates.defaultLang(tenant.id));
-    const buffer = await this.templates.build(tenant.id, lang);
+    const { buffer, lang } = await this.templates.build(tenant.id, query.lang);
 
     res.setHeader('Content-Type', XLSX_MIME);
     res.setHeader('Content-Disposition', `attachment; filename="biddaloy-template-${lang}.xlsx"`);

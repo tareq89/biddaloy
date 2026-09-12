@@ -114,5 +114,9 @@
   "restoreDoneCounts": "{{tab}}: {{count}} records",
   "downloadSnapshot": "Download pre-restore snapshot",
   "restoreFailedTab": "The restore stopped at {{tab}}",
-  "restoreFailedUndo": "The tabs before {{tab}} were applied — restore the snapshot to go back"
+  "restoreFailedUndo": "The tabs before {{tab}} were applied — restore the snapshot to go back",
+  "migrateWholeSchool": "Migrating a whole school?",
+  "migrateWholeSchoolLink": "Use the full workbook template",
+  "downloadTemplate": "Download blank template",
+  "downloadTemplateFailed": "Couldn't download the template. Try again."
 }

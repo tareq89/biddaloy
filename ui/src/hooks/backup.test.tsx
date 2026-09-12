@@ -10,6 +10,7 @@ import { createTestQueryClient } from '../test/render-with-providers';
 import {
   backupKeys,
   downloadBackup,
+  downloadWorkbookTemplate,
   useBackupJob,
   useBackupJobs,
   useRequestBackup,
@@ -262,5 +263,61 @@ describe('downloadBackup', () => {
     // The blob URL is revoked on a deferred macrotask (Safari-safe pattern
     // shared with downloadCsv), not synchronously — wait for it.
     await waitFor(() => expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock-url'));
+  });
+});
+
+describe('downloadWorkbookTemplate', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('requests GET /backup/template with the given lang and triggers a click-to-save', async () => {
+    let requestedLang: string | null = null;
+    server.use(
+      http.get('/api/v1/backup/template', ({ request }) => {
+        requestedLang = new URL(request.url).searchParams.get('lang');
+        return HttpResponse.text('workbook-bytes', {
+          headers: {
+            'Content-Disposition': 'attachment; filename="template.xlsx"',
+          },
+        });
+      }),
+    );
+
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock-url');
+    const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    setActiveTenant('tenant-1');
+    setActiveRole('ADMIN');
+    await downloadWorkbookTemplate('bn');
+
+    expect(requestedLang).toBe('bn');
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    const blobArg = createObjectURL.mock.calls[0]?.[0] as Blob;
+    expect(blobArg).toBeInstanceOf(Blob);
+    expect(blobArg.size).toBeGreaterThan(0);
+
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock-url'));
+  });
+
+  it('falls back to a generic filename when Content-Disposition is missing', async () => {
+    server.use(http.get('/api/v1/backup/template', () => HttpResponse.text('workbook-bytes')));
+
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock-url');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    let savedFilename: string | undefined;
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      savedFilename = this.download;
+    });
+
+    setActiveTenant('tenant-1');
+    setActiveRole('ADMIN');
+    await downloadWorkbookTemplate('en');
+
+    expect(savedFilename).toBe('biddaloy-template-en.xlsx');
   });
 });

@@ -47,7 +47,7 @@ describe('TemplateService', () => {
   describe('build', () => {
     it('produces every EXPECTED_TABS sheet plus _meta and _readme, in order', async () => {
       const service = new TemplateService(makeRepo(fakeSchool()));
-      const buffer = await service.build(TENANT_ID, 'en');
+      const { buffer } = await service.build(TENANT_ID, 'en');
 
       const workbook = new ExcelJS.Workbook();
       await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
@@ -62,7 +62,7 @@ describe('TemplateService', () => {
 
     it('_meta sheet reports kind TEMPLATE', async () => {
       const service = new TemplateService(makeRepo(fakeSchool()));
-      const buffer = await service.build(TENANT_ID, 'en');
+      const { buffer } = await service.build(TENANT_ID, 'en');
 
       const workbook = new ExcelJS.Workbook();
       await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
@@ -78,7 +78,7 @@ describe('TemplateService', () => {
 
     it('every tab sheet has exactly one data row, whose id cell is SAMPLE', async () => {
       const service = new TemplateService(makeRepo(fakeSchool()));
-      const buffer = await service.build(TENANT_ID, 'en');
+      const { buffer } = await service.build(TENANT_ID, 'en');
 
       const workbook = new ExcelJS.Workbook();
       await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
@@ -98,7 +98,7 @@ describe('TemplateService', () => {
 
     it('gives every enum or bool column a list data validation on rows 2-1000', async () => {
       const service = new TemplateService(makeRepo(fakeSchool()));
-      const buffer = await service.build(TENANT_ID, 'en');
+      const { buffer } = await service.build(TENANT_ID, 'en');
 
       const workbook = new ExcelJS.Workbook();
       await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
@@ -128,7 +128,7 @@ describe('TemplateService', () => {
 
     it('gives every header cell a comment naming the column and its requirement', async () => {
       const service = new TemplateService(makeRepo(fakeSchool()));
-      const buffer = await service.build(TENANT_ID, 'en');
+      const { buffer } = await service.build(TENANT_ID, 'en');
 
       const workbook = new ExcelJS.Workbook();
       await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
@@ -140,7 +140,7 @@ describe('TemplateService', () => {
 
     it('_readme lists every tab name', async () => {
       const service = new TemplateService(makeRepo(fakeSchool()));
-      const buffer = await service.build(TENANT_ID, 'bn');
+      const { buffer } = await service.build(TENANT_ID, 'bn');
 
       const workbook = new ExcelJS.Workbook();
       await workbook.xlsx.load(buffer as unknown as ArrayBuffer);

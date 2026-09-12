@@ -1,7 +1,10 @@
+import { Permission } from '@biddaloy/shared';
 import { BulkUploadPreview, Button, Card, Checkbox, Input, toast } from '@biddaloy/ui/components';
 import {
   downloadBackup,
+  downloadWorkbookTemplate,
   useBackupJob,
+  useHasPermission,
   useRestoreBackup,
   useSchoolProfile,
   useValidateBackup,
@@ -10,7 +13,7 @@ import {
   type RestoreSummary,
   type TabSummaryDto,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useLocale, useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
 
 /**
@@ -37,9 +40,23 @@ import * as React from 'react';
  */
 export function RestoreWizard() {
   const { t } = useTranslation('backup');
+  const { locale } = useLocale();
+  const canManageBackup = useHasPermission(Permission.BACKUP_MANAGE);
   const validateMutation = useValidateBackup();
   const restoreMutation = useRestoreBackup();
   const schoolProfileQuery = useSchoolProfile();
+  const [downloadingTemplate, setDownloadingTemplate] = React.useState(false);
+
+  async function handleDownloadTemplate() {
+    setDownloadingTemplate(true);
+    try {
+      await downloadWorkbookTemplate(locale);
+    } catch {
+      toast.error(t('downloadTemplateFailed'));
+    } finally {
+      setDownloadingTemplate(false);
+    }
+  }
 
   const { mutateAsync: validateAsync } = validateMutation;
   const { mutateAsync: restoreAsync } = restoreMutation;
@@ -90,6 +107,21 @@ export function RestoreWizard() {
   return (
     <div className="flex flex-col gap-2">
       <h3 className="text-base font-semibold">{t('restoreSectionTitle')}</h3>
+      {canManageBackup && (
+        // [14.13.2]: newcomers migrating from another system land here
+        // looking for a starting point — a blank workbook they can fill in
+        // by hand, distinct from restoring an actual backup file below.
+        <div>
+          <Button
+            type="button"
+            variant="outline"
+            loading={downloadingTemplate}
+            onClick={() => void handleDownloadTemplate()}
+          >
+            {t('downloadTemplate')}
+          </Button>
+        </div>
+      )}
       <BulkUploadPreview<RestoreSummary, RequestRestoreResponse>
         accept=".xlsx"
         validate={validate}

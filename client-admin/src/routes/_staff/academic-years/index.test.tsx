@@ -206,6 +206,37 @@ describe('/academic-years', () => {
     await waitFor(() => expect(screen.getByText('No academic years found')).toBeTruthy());
   });
 
+  // [14.13.2]: an empty list is where a newcomer migrating a whole school
+  // is already looking — the migrate-in entry point offers the workbook
+  // template right there, gated on BACKUP_MANAGE same as its neighbours.
+  it('shows the migrate-a-whole-school link when the list is empty, for ADMIN (BACKUP_MANAGE)', async () => {
+    server.use(
+      http.get('/api/v1/academic-years', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/academic-years'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText('No academic years found');
+    expect(await screen.findByText('Migrating a whole school?')).toBeTruthy();
+    const link = screen.getByRole('link', { name: 'Use the full workbook template' });
+    expect(link.getAttribute('href')).toBe('/settings');
+  });
+
+  // No other role holds ACADEMIC_YEAR_MANAGE (this route's own view gate,
+  // `route-permissions.ts`), so there is no reachable role that can view
+  // this empty list while lacking BACKUP_MANAGE — unlike `/students`,
+  // whose broader viewer set makes that negative case meaningful. The
+  // `canManageBackup` check stays for defense-in-depth (same UX-only
+  // reasoning as `students/import.tsx`), just with no test able to
+  // exercise its "hidden" branch on this particular route.
+
   it('is axe clean', async () => {
     server.use(
       http.get('/api/v1/academic-years', () =>

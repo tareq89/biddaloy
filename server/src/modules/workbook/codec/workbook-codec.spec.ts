@@ -2,7 +2,8 @@ import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
 import { SCHEMA_VERSION, type WorkbookMeta } from './meta';
-import { WorkbookFormatError, readWorkbook, writeWorkbook } from './workbook-codec';
+import { buildSampleRow, WorkbookFormatError, readWorkbook, writeWorkbook } from './workbook-codec';
+import { ALL_TABS } from './registry';
 import type { ColumnSpec, TabSpec } from './tab-spec';
 
 const meta: WorkbookMeta = {
@@ -194,6 +195,39 @@ describe('readWorkbook warnings', () => {
     expect(result.warnings[0].tab).toBe('mystery_tab');
     expect(result.warnings[0].severity).toBe('warning');
     expect(result.sheets.has('mystery_tab')).toBe(false);
+  });
+
+  it('does not warn on an untouched SAMPLE row from a real tab', async () => {
+    const classesSpec = ALL_TABS.find((t) => t.name === 'classes')!;
+    const buffer = await writeWorkbook({
+      tabs: [classesSpec],
+      meta,
+      rowsFor: rowsFrom({ classes: [buildSampleRow(classesSpec)] }),
+    });
+
+    const result = await readWorkbook(buffer);
+
+    expect(result.warnings).toHaveLength(0);
+    expect(result.sheets.get('classes')!.rows).toHaveLength(0);
+  });
+
+  it('warns when a SAMPLE-id row was edited (real record typed over the example)', async () => {
+    const classesSpec = ALL_TABS.find((t) => t.name === 'classes')!;
+    const editedSample = { ...buildSampleRow(classesSpec), name: 'Class Six' };
+    const buffer = await writeWorkbook({
+      tabs: [classesSpec],
+      meta,
+      rowsFor: rowsFrom({ classes: [editedSample] }),
+    });
+
+    const result = await readWorkbook(buffer);
+
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0].tab).toBe('classes');
+    expect(result.warnings[0].severity).toBe('warning');
+    expect(result.warnings[0].message).toMatch(/SAMPLE/);
+    // Still dropped: a SAMPLE id is never a usable key regardless of warning.
+    expect(result.sheets.get('classes')!.rows).toHaveLength(0);
   });
 });
 
