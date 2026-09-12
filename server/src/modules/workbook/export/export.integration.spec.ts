@@ -7,6 +7,9 @@ import { ALL_ENTITIES } from '@test/all-entities';
 import { AuditService } from '../../audit/audit.service';
 import { AuditLog } from '../../audit/entities/audit-log.entity';
 import { School } from '../../schools/entities/school.entity';
+import { AcademicYear } from '../../academics/entities/academic-year.entity';
+import { Class } from '../../academics/entities/class.entity';
+import { ClassSection } from '../../academics/entities/class-section.entity';
 import { ExportProcessor } from './export.processor';
 import { readWorkbook } from '../codec/workbook-codec';
 import { ALL_TABS } from '../codec/registry';
@@ -138,6 +141,75 @@ describe('ExportProcessor (integration)', () => {
     // The workbook bytes never contain the tenant's secret settings value —
     // the `school` tab redacts known secret paths before export.
     expect(buffer!.toString('latin1')).not.toContain(SECRET);
+  });
+
+  it("exports a ref column as the referenced row's natural key, not its uuid — regression for `ExportContext.keyOf`", async () => {
+    // `ExportContext.keyOf` used to be a stub that always threw, on the
+    // (once-true) assumption that no registered tab called it. classes.tab.ts
+    // (academic_year) and sections.tab.ts (class, academic_year) both do —
+    // this seeds real rows through that exact path so a regression here
+    // fails loudly instead of silently, the way it did until this test
+    // existed.
+    const year = await dataSource.getRepository(AcademicYear).save(
+      dataSource.getRepository(AcademicYear).create({
+        tenant_id: TENANT_A,
+        name: '2026-2027',
+        start_date: new Date('2026-01-01'),
+        end_date: new Date('2026-12-31'),
+        is_current: true,
+      }),
+    );
+    const klass = await dataSource.getRepository(Class).save(
+      dataSource.getRepository(Class).create({
+        tenant_id: TENANT_A,
+        name: 'Class 10',
+        academic_year_id: year.id,
+      }),
+    );
+    await dataSource.getRepository(ClassSection).save(
+      dataSource.getRepository(ClassSection).create({
+        tenant_id: TENANT_A,
+        class_id: klass.id,
+        section_name: 'A',
+      }),
+    );
+
+    const jobRow = await dataSource.getRepository(WorkbookJob).save(
+      dataSource.getRepository(WorkbookJob).create({
+        tenant_id: TENANT_A,
+        kind: WorkbookJobKind.EXPORT,
+        source: WorkbookJobSource.MANUAL,
+        status: WorkbookJobStatus.QUEUED,
+        requested_by_user_id: null,
+      }),
+    );
+
+    await processor.process(fakeJob(jobRow.id, TENANT_A));
+
+    const finished = await dataSource
+      .getRepository(WorkbookJob)
+      .findOneOrFail({ where: { id: jobRow.id } });
+    // The bug this guards against throws inside process(), which is caught
+    // and reported as FAILED — DONE alone already proves keyOf didn't throw.
+    expect(finished.status).toBe(WorkbookJobStatus.DONE);
+
+    const buffer = storage.objects.get(finished.storage_key as string);
+    const result = await readWorkbook(buffer as Buffer);
+
+    const classesSheet = result.sheets.get('classes')!;
+    const classRow = classesSheet.rows.find((r) => r.cells.name === 'Class 10')!;
+    expect(classRow.cells.academic_year).toBe('2026-2027');
+    // The one thing this must never be: the year's raw uuid.
+    expect(classRow.cells.academic_year).not.toBe(year.id);
+
+    const sectionsSheet = result.sheets.get('sections')!;
+    const sectionRow = sectionsSheet.rows.find((r) => r.cells.section_name === 'A')!;
+    expect(sectionRow.cells.class).toBe('Class 10|2026-2027');
+    expect(sectionRow.cells.academic_year).toBe('2026-2027');
+
+    await dataSource.getRepository(ClassSection).delete({ tenant_id: TENANT_A });
+    await dataSource.getRepository(Class).delete({ tenant_id: TENANT_A });
+    await dataSource.getRepository(AcademicYear).delete({ tenant_id: TENANT_A });
   });
 
   it('tenant isolation: a job row for tenant B is not visible to a process() call for tenant A', async () => {

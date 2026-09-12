@@ -115,16 +115,25 @@ export class ExportProcessor extends WorkerHost {
       assertRegistryValid(ALL_TABS, { partial: ALL_TABS.length < EXPECTED_TABS.length });
 
       const rowCounts: WorkbookRowCounts = {};
-      // TODO(14.x): no currently-registered tab in ALL_TABS calls ctx.keyOf,
-      // so this placeholder is never exercised. It is NOT a real natural key —
-      // codec/tab-spec.ts documents keyOf as returning the natural key a
-      // foreign-row cell references, which must survive across schools (a
-      // KeyIndex-backed lookup), not a tenant-local uuid. Replace this with a
-      // real KeyIndex before any wave-3/4 tab exports an FK column, or this
-      // will silently write unusable cross-school references.
+      // One id -> natural-key map per tab, built the moment that tab's
+      // entities are loaded in `rowsFor` (see there) — free, since `load()`
+      // already reads every entity into memory for that tab; nothing extra
+      // is fetched. `ALL_TABS`/`assertRegistryValid` guarantee a tab is
+      // exported only after every tab it can reference, so by the time a
+      // later tab's `toRow` calls `ctx.keyOf('<earlier tab>', id)`, that
+      // tab's map already exists.
+      const keyMaps = new Map<string, Map<string, string>>();
       const ctx: ExportContext = {
-        keyOf: () => {
-          throw new Error('ExportContext.keyOf is not implemented yet (see TODO above)');
+        keyOf: (tab: string, id: string): string => {
+          const key = keyMaps.get(tab)?.get(id);
+          if (key === undefined) {
+            throw new Error(
+              `ExportContext.keyOf: no natural key found for "${tab}" id "${id}" — either ` +
+                `that tab hasn't been exported yet (registry order bug) or the id doesn't ` +
+                `belong to this tenant.`,
+            );
+          }
+          return key;
         },
       };
 
@@ -133,7 +142,7 @@ export class ExportProcessor extends WorkerHost {
         tabs: ALL_TABS,
         meta,
         rowsFor: (tab) =>
-          this.rowsFor(tab, row, manager, ctx, rowCounts, (name) => {
+          this.rowsFor(tab, row, manager, ctx, rowCounts, keyMaps, (name) => {
             currentTab = name;
           }),
       });
@@ -298,11 +307,27 @@ export class ExportProcessor extends WorkerHost {
     manager: EntityManager,
     ctx: ExportContext,
     rowCounts: WorkbookRowCounts,
+    keyMaps: Map<string, Map<string, string>>,
     onTabStart: (name: string) => void,
   ): AsyncGenerator<Record<string, unknown>> {
     onTabStart(tab.name);
     const entities = await tab.load(row.tenant_id, manager);
     rowCounts[tab.name] = 0;
+
+    // Populate this tab's id -> natural-key map before yielding any row —
+    // a later tab's `ctx.keyOf(tab.name, id)` needs it, and nothing here
+    // costs an extra query: `entities` is already fully loaded above.
+    const keyMap = new Map<string, string>();
+    for (const entity of entities) {
+      const id: unknown = (entity as { id?: unknown }).id;
+      if (typeof id !== 'string') {
+        throw new TypeError(
+          `ExportProcessor: tab "${tab.name}" produced an entity with no string \`id\`.`,
+        );
+      }
+      keyMap.set(id, tab.keyOf(entity));
+    }
+    keyMaps.set(tab.name, keyMap);
 
     let done = 0;
     const total = entities.length;
