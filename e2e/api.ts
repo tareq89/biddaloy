@@ -4,7 +4,7 @@
 // SPA sends (Bearer + X-Tenant-ID).
 import type { APIRequestContext } from '@playwright/test';
 
-import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS } from './seed-contract';
+import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS, type SeedRole } from './seed-contract';
 
 interface RefreshResponse {
   access_token: string;
@@ -44,17 +44,38 @@ export async function adminApiSession(request: APIRequestContext): Promise<ApiSe
  * this tenant choice has no bearing on which school the calls below
  * actually manage. */
 export async function superAdminApiSession(request: APIRequestContext): Promise<ApiSession> {
+  return seedApiSession(request, 'super_admin');
+}
+
+/** Logs a seed role in with its password, which mints a *fresh* refresh
+ * family (`AuthService.startSession`) and revokes nothing else.
+ *
+ * Prefer this over `apiSession` whenever a second spec might want the same
+ * role: `apiSession` spends the one shared refresh cookie that
+ * `auth.setup.ts` saved into `e2e/.auth/<role>.json`, and refreshing
+ * *rotates* it. Two specs reading that same saved cookie means the later
+ * one presents an already-rotated token, which — outside the grace window
+ * — is reuse, and `RefreshTokenService.rotateRow` answers reuse by
+ * revoking the whole family. That denylists the access token the earlier
+ * spec is still holding, so the victim is whichever spec got there first.
+ * See `journeys/backup-restore.spec.ts`'s leg D, which hit exactly this
+ * against `journeys/attendance.spec.ts`. */
+export async function seedApiSession(
+  request: APIRequestContext,
+  role: SeedRole,
+): Promise<ApiSession> {
   const password = process.env[SEED_PASSWORD_ENV];
   if (!password) throw new Error(`${SEED_PASSWORD_ENV} is not set`);
   const response = await request.post('/api/v1/auth/login', {
-    data: { email: SEED_ROLE_EMAILS.super_admin, password },
+    data: { email: SEED_ROLE_EMAILS[role], password },
   });
   if (!response.ok()) {
-    throw new Error(`super_admin login failed: ${response.status()} ${await response.text()}`);
+    throw new Error(`${role} login failed: ${response.status()} ${await response.text()}`);
   }
   const body = (await response.json()) as RefreshResponse;
-  const membership = body.memberships.find((m) => m.role === 'SUPER_ADMIN');
-  if (!membership) throw new Error('no SUPER_ADMIN membership for seed super_admin');
+  const expectedRole = role.toUpperCase();
+  const membership = body.memberships.find((m) => m.role === expectedRole);
+  if (!membership) throw new Error(`no ${expectedRole} membership for seed ${role}`);
   return { token: body.access_token, tenantId: membership.tenantId };
 }
 

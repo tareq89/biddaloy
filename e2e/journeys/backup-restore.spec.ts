@@ -6,13 +6,13 @@ import type { BrowserContext, Page } from '@playwright/test';
 
 import {
   activateInvite,
-  apiSession,
   type ApiSession,
   createStudent,
   get,
   patch,
   provisionSchool,
   resendSchoolAdminInvitation,
+  seedApiSession,
   superAdminApiSession,
 } from '../api';
 import { shells } from '../config';
@@ -215,7 +215,11 @@ test.describe.serial('backup and restore', () => {
       page,
       request,
     }) => {
-      const teacherSession = await apiSession(request, 'teacher');
+      // `seedApiSession`, not `apiSession`: the latter spends the shared
+      // refresh cookie that `attendance.spec.ts` also spends, and whichever
+      // of the two refreshes second is treated as token reuse — which
+      // revokes the family and 401s the other one's access token.
+      const teacherSession = await seedApiSession(request, 'teacher');
       const response = await request.post('/api/v1/backup/export', {
         headers: {
           Authorization: `Bearer ${teacherSession.token}`,
