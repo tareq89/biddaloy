@@ -157,6 +157,53 @@ describe('RestoreWizard', () => {
     await waitFor(() => expect(confirmButton.hasAttribute('disabled')).toBe(false));
   });
 
+  // Restored from 7150675f (the fail-closed gate fix), rewritten for the
+  // gate's real source: the expected name now comes from
+  // `useSchoolProfile()`, not from the validate response, so the blank case
+  // is a blank *profile* name. Without the `expectedSchoolName !== ''` guard
+  // in `RestoreConfirmSlot`, `'' === ''.trim()` would unlock a full-tenant
+  // destructive restore with an untouched confirmation box.
+  it.each([
+    ['blank', ''],
+    ['whitespace-only', '   '],
+  ])(
+    'keeps Confirm disabled when the school profile name is %s (gate fails closed)',
+    async (_label, profileName) => {
+      server.use(
+        http.get('/api/v1/schools/me/profile', () =>
+          HttpResponse.json({
+            name: profileName,
+            name_bn: null,
+            address: null,
+            phone: null,
+            email: null,
+            registration_id: null,
+            logo_url: null,
+          }),
+        ),
+      );
+      mockValidate({
+        staging_id: 'staging-blank-name',
+        expires_at: new Date(Date.now() + 30 * 60_000).toISOString(),
+        errors: [],
+        hard_error_count: 0,
+        summary: validateSummary(),
+      });
+
+      const { user } = await renderAndUpload();
+
+      const confirmButton = await screen.findByRole('button', { name: 'Confirm' });
+      const input = screen.getByPlaceholderText("Type the school's name to confirm");
+
+      // An empty box against an empty expected name.
+      await waitFor(() => expect(confirmButton.hasAttribute('disabled')).toBe(true));
+
+      // And typing the blank name verbatim must not unlock it either.
+      await user.type(input, profileName === '' ? ' ' : profileName);
+      expect(confirmButton.hasAttribute('disabled')).toBe(true);
+    },
+  );
+
   it('hard_error_count > 0 disables Confirm no matter what is typed', async () => {
     mockValidate({
       staging_id: 'staging-2',
