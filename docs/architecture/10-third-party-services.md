@@ -22,7 +22,7 @@ flowchart LR
 | ---------- | -------------------- | ------------------------------------------------------- |
 | PostgreSQL | `postgres:16-alpine` | Primary database, all tenant data                       |
 | Redis      | `redis:7-alpine`     | BullMQ queue backend + distributed rate-limit storage   |
-| MinIO      | `minio/minio`        | S3-compatible object storage — tenant uploads + backups |
+| MinIO      | `quay.io/minio/minio` | S3-compatible object storage — tenant uploads + backups |
 | nginx      | `nginx:1.27-alpine`  | TLS termination, reverse proxy                          |
 | certbot    | `certbot/certbot`    | Let's Encrypt certificate issuance/renewal              |
 
