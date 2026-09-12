@@ -17,6 +17,7 @@ import {
 import { UserRole } from '@biddaloy/shared';
 import { StorageService } from '../../storage/storage.service';
 import { XLSX_MIME } from './export.constants';
+import { RetentionService } from '../schedule/retention.service';
 
 /**
  * [14.7.2] E2E tests for:
@@ -95,6 +96,10 @@ describe('Workbook Backup E2E', () => {
       .overrideProvider(StorageService)
       .useValue({
         get: async () => ({ body: Readable.from(FIXTURE_BYTES), contentType: XLSX_MIME }),
+        // No S3/MinIO guaranteed reachable here either — the retention
+        // sweep tests below only assert on the `workbook_jobs` row, never
+        // on the object store.
+        delete: async () => undefined,
       })
       .compile();
 
@@ -402,6 +407,89 @@ describe('Workbook Backup E2E', () => {
       // time we read it back — assert it's in-flight, not the exact status.
       expect(['QUEUED', 'RUNNING', 'DONE']).toContain(rows[0].status);
       expect(rows[0].tenant_id).toBe(TENANT_ID);
+    });
+  });
+
+  describe('PATCH /backup/jobs/:id/pin', () => {
+    it('rejects TEACHER with 401 (role guard)', async () => {
+      const id = await insertJob(TENANT_ID);
+      await supertest(app.getHttpServer())
+        .patch(`/api/v1/backup/jobs/${id}/pin`)
+        .set('Authorization', `Bearer ${teacherToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ pinned: true })
+        .expect(401);
+    });
+
+    it('404s for a job under another tenant', async () => {
+      const otherJobId = await insertJob(OTHER_TENANT_ID);
+      await supertest(app.getHttpServer())
+        .patch(`/api/v1/backup/jobs/${otherJobId}/pin`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ pinned: true })
+        .expect(404);
+    });
+
+    it('pins a job, which then survives a forced retention sweep', async () => {
+      const id = await insertJob(TENANT_ID, {
+        expires_at: new Date(Date.now() - 60_000).toISOString(),
+      });
+
+      await supertest(app.getHttpServer())
+        .patch(`/api/v1/backup/jobs/${id}/pin`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ pinned: true })
+        .expect(200)
+        .expect((res) => {
+          expect(res.body.pinned).toBe(true);
+        });
+
+      const retention = app.get(RetentionService);
+      await retention.enforce(TENANT_ID);
+
+      const rows = await dataSource.query(
+        `SELECT status, pinned FROM workbook_jobs WHERE id = $1`,
+        [id],
+      );
+      expect(rows[0].pinned).toBe(true);
+      expect(rows[0].status).toBe('DONE');
+    });
+
+    it('unpins a job, which is then eligible for the next sweep', async () => {
+      const id = await insertJob(TENANT_ID, {
+        expires_at: new Date(Date.now() - 60_000).toISOString(),
+      });
+      await dataSource.query(`UPDATE workbook_jobs SET pinned = true WHERE id = $1`, [id]);
+
+      await supertest(app.getHttpServer())
+        .patch(`/api/v1/backup/jobs/${id}/pin`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ pinned: false })
+        .expect(200);
+
+      const retention = app.get(RetentionService);
+      await retention.enforce(TENANT_ID);
+
+      const rows = await dataSource.query(`SELECT status FROM workbook_jobs WHERE id = $1`, [id]);
+      expect(rows[0].status).toBe('DELETED');
+    });
+  });
+
+  describe('GET /backup/jobs storage_total_bytes', () => {
+    it('sums size_bytes over every DONE job for the tenant, not just the current page', async () => {
+      await insertJob(TENANT_ID, { size_bytes: '1000' });
+      await insertJob(TENANT_ID, { size_bytes: '2000' });
+
+      const res = await supertest(app.getHttpServer())
+        .get('/api/v1/backup/jobs?limit=1')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(200);
+
+      expect(BigInt(res.body.storage_total_bytes)).toBeGreaterThanOrEqual(3000n);
     });
   });
 });

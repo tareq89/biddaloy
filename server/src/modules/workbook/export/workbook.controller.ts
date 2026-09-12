@@ -10,6 +10,7 @@ import {
   NotFoundException,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   Res,
@@ -41,6 +42,7 @@ import {
 import { ExportService } from './export.service';
 import { XLSX_MIME } from './export.constants';
 import {
+  PinWorkbookJobDto,
   QueryWorkbookJobsDto,
   RequestExportDto,
   RequestExportResponseDto,
@@ -112,13 +114,44 @@ export class WorkbookController {
       take: limit,
     });
 
+    // Unfiltered by kind/status/page — the storage cap (14.12.2) is over
+    // every DONE, still-stored object for the tenant, not just this page.
+    const totalRow = await this.jobs
+      .createQueryBuilder('job')
+      .select('COALESCE(SUM(job.size_bytes), 0)', 'total_bytes')
+      .where('job.tenant_id = :tenantId', { tenantId: tenant.id })
+      .andWhere('job.status = :status', { status: WorkbookJobStatus.DONE })
+      .getRawOne<{ total_bytes: string }>();
+
     return {
       data: rows.map(toWorkbookJobDto),
       total,
       page,
       limit,
       totalPages: Math.max(1, Math.ceil(total / limit)),
+      storage_total_bytes: totalRow?.total_bytes ?? '0',
     };
+  }
+
+  @Patch('jobs/:id/pin')
+  @RequirePermissions(Permission.BACKUP_MANAGE)
+  @ApiOperation({ summary: 'Pin or unpin a backup job — a pinned job is exempt from retention.' })
+  @ApiOkResponse({ type: WorkbookJobDto })
+  async pin(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: PinWorkbookJobDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ): Promise<WorkbookJobDto> {
+    const job = await this.jobs.findOne({
+      where: { id, tenant_id: tenant.id },
+      relations: ['requested_by'],
+    });
+    if (!job) {
+      throw new NotFoundException('Backup job not found');
+    }
+    job.pinned = dto.pinned;
+    await this.jobs.update(job.id, { pinned: dto.pinned });
+    return toWorkbookJobDto(job);
   }
 
   // Declared before `jobs/:id` so route matching stays unambiguous.

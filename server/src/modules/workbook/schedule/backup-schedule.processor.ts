@@ -36,17 +36,28 @@ export class BackupScheduleProcessor extends WorkerHost implements OnModuleInit 
   }
 
   async onModuleInit(): Promise<void> {
-    await this.queue.upsertJobScheduler(
-      BACKUP_SCHEDULE_RECONCILE_ID,
-      { every: BACKUP_SCHEDULE_RECONCILE_INTERVAL_MS },
-      {
-        name: BACKUP_SCHEDULE_RECONCILE_JOB,
-        opts: { removeOnComplete: true, removeOnFail: 100 },
-      },
-    );
-
     // Redis or the DB being briefly unavailable at boot must not stop the
     // server from starting — the hourly reconciler tick will catch up.
+    // Both the scheduler registration and the initial sync are covered:
+    // an unguarded upsertJobScheduler would otherwise reject onModuleInit
+    // and fail the whole app bootstrap over a transient Redis hiccup.
+    try {
+      await this.queue.upsertJobScheduler(
+        BACKUP_SCHEDULE_RECONCILE_ID,
+        { every: BACKUP_SCHEDULE_RECONCILE_INTERVAL_MS },
+        {
+          name: BACKUP_SCHEDULE_RECONCILE_JOB,
+          opts: { removeOnComplete: true, removeOnFail: 100 },
+        },
+      );
+    } catch (err) {
+      this.logger.error(
+        `BackupScheduleProcessor: failed to register reconcile scheduler: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+
     try {
       await this.service.syncAll();
     } catch (err) {
