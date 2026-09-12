@@ -24,8 +24,14 @@ describe('/schools', () => {
     });
 
     await screen.findByRole('heading', { name: 'Schools' });
-    await waitFor(() => expect(screen.getAllByRole('row')).toHaveLength(3)); // header + 2 fixture rows
-    const rows = screen.getAllByRole('row');
+    // Scoped to the schools table's own region — [14.12.3] added a second
+    // table (backup health) to this page, so an unscoped `getAllByRole`
+    // would also pick up its rows.
+    const schoolsRegion = await screen.findByRole('region', {
+      name: 'Every school on the platform, with lifecycle status and creation date.',
+    });
+    await waitFor(() => expect(within(schoolsRegion).getAllByRole('row')).toHaveLength(3)); // header + 2 fixture rows
+    const rows = within(schoolsRegion).getAllByRole('row');
     expect(within(rows[1] as HTMLElement).getByText('Ananta School')).toBeTruthy();
     expect(within(rows[1] as HTMLElement).getByText('Active')).toBeTruthy();
     expect(within(rows[2] as HTMLElement).getByText('Zenith School')).toBeTruthy();
@@ -63,6 +69,26 @@ describe('/schools', () => {
     await waitFor(() => expect(screen.getByText('No schools match your search.')).toBeTruthy());
   });
 
+  it('renders the backup health table, including a "Never" row for a school with no export', async () => {
+    renderWithRouter(routeTree, {
+      initialEntries: ['/schools'],
+      tenantId: 'tenant-1',
+      role: UserRole.SUPER_ADMIN,
+      locale: 'en',
+    });
+
+    await screen.findByRole('heading', { name: 'Backup health' });
+    const healthRegion = await screen.findByRole('region', {
+      name: "Every school's backup schedule, most recent result and storage usage.",
+    });
+    expect(within(healthRegion).getByText('Backup Health Fixture School A')).toBeTruthy();
+    expect(within(healthRegion).getByText('Daily')).toBeTruthy();
+    const neverRow = within(healthRegion)
+      .getByText('Backup Health Fixture School B')
+      .closest('tr') as HTMLElement;
+    expect(within(neverRow).getAllByText('Never')).toHaveLength(2);
+  });
+
   it('shows a loading state while the list is in flight', async () => {
     const { server } = await import('@biddaloy/ui/test');
     server.use(
@@ -80,7 +106,13 @@ describe('/schools', () => {
     });
 
     await screen.findByRole('heading', { name: 'Schools' });
-    expect(screen.getByRole('region').getAttribute('aria-busy')).toBe('true');
-    await waitFor(() => expect(screen.getByRole('region').getAttribute('aria-busy')).toBe('false'));
+    // Scoped to the schools table's own region — [14.12.3] added a second
+    // table (backup health) to this page, so an unscoped `getByRole`
+    // would throw on finding more than one region.
+    const schoolsRegion = screen.getByRole('region', {
+      name: 'Every school on the platform, with lifecycle status and creation date.',
+    });
+    expect(schoolsRegion.getAttribute('aria-busy')).toBe('true');
+    await waitFor(() => expect(schoolsRegion.getAttribute('aria-busy')).toBe('false'));
   });
 });

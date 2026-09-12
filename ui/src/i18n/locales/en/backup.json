@@ -114,5 +114,18 @@
   "restoreDoneCounts": "{{tab}}: {{count}} records",
   "downloadSnapshot": "Download pre-restore snapshot",
   "restoreFailedTab": "The restore stopped at {{tab}}",
-  "restoreFailedUndo": "The tabs before {{tab}} were applied — restore the snapshot to go back"
+  "restoreFailedUndo": "The tabs before {{tab}} were applied — restore the snapshot to go back",
+  "scheduleLabel": "Automatic backup schedule",
+  "scheduleHint": "A schedule change can take up to an hour to take effect.",
+  "scheduleOff": "Off",
+  "scheduleWeekly": "Weekly",
+  "scheduleDaily": "Daily",
+  "scheduleSaveAction": "Save schedule",
+  "scheduleSaveSuccess": "Schedule saved.",
+  "scheduleSaveFailed": "Couldn't save the backup schedule. Try again.",
+  "columnPinned": "Pinned",
+  "pin": "Pin",
+  "unpin": "Unpin",
+  "pinFailed": "Couldn't update this backup. Try again.",
+  "storageUsed": "Storage used: {{used}} of {{cap}}"
 }

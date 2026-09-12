@@ -1,4 +1,4 @@
-import type { InvitationStatus } from '@biddaloy/shared';
+import type { BackupScheduleMode, InvitationStatus } from '@biddaloy/shared';
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
@@ -7,7 +7,17 @@ import type { components } from '../api/schema';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
-export type TenantSettingsInput = components['schemas']['TenantSettingsDto'];
+/**
+ * [14.12.3/#617] Intersected with `& { backup?: BackupSettings }` —
+ * `schema.d.ts` hasn't been regenerated against the server's
+ * `TenantSettingsDto.backup` field yet (see `BackupSettings`'s own
+ * comment below for the fuller gap), but `useUpdateSchoolSettings`'s PATCH
+ * body needs to be able to carry `{ version: 1, backup: {...} }` like
+ * every other section's own slice.
+ */
+export type TenantSettingsInput = components['schemas']['TenantSettingsDto'] & {
+  backup?: BackupSettings;
+};
 export type TestConnectionInput = components['schemas']['TestConnectionDto'];
 export type TestableMedium = TestConnectionInput['medium'];
 
@@ -94,12 +104,23 @@ export type AttendancePolicySettings = NonNullable<TenantSettingsInput['attendan
  * fields, same reasoning as `AttendancePolicySettings` above. */
 export type AuthSettings = NonNullable<TenantSettingsInput['auth']>;
 
+/** [14.12.1/#615 D10] Not secret data — `BackupSettingsDto` has no
+ * `Secret()`-decorated fields. Hand-typed against `BackupScheduleMode`
+ * (`@biddaloy/shared`) rather than `TenantSettingsInput['backup']`:
+ * `schema.d.ts` hasn't been regenerated against the server's
+ * `BackupSettingsDto` yet, same gap `SchoolSummary` documents elsewhere in
+ * this file. */
+export interface BackupSettings {
+  schedule: BackupScheduleMode;
+}
+
 export interface MaskedTenantSettings {
   version: 1;
   region: MaskedRegionSettings;
   communications?: MaskedCommunicationsSettings;
   attendance?: AttendancePolicySettings;
   auth?: AuthSettings;
+  backup?: BackupSettings;
 }
 
 export interface ConnectionTestResult {

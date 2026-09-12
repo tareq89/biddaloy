@@ -39,13 +39,23 @@ const fixtures: WorkbookJob[] = [
   }),
 ];
 
+// [14.12.3/#617] `storage_total_bytes` — mirrors
+// `WorkbookJobListResponseDto.storage_total_bytes`, the sum of DONE jobs'
+// `size_bytes`. A fixed fixture value rather than actually summing
+// `fixtures`: nothing here exercises the real retention math, only that
+// `BackupSection` renders whatever the field says.
 const list = http.get('/api/v1/backup/jobs', ({ request }) =>
-  HttpResponse.json(paginate(fixtures, request.url)),
+  HttpResponse.json({ ...paginate(fixtures, request.url), storage_total_bytes: '1200000' }),
 );
 
 const listEmpty = http.get('/api/v1/backup/jobs', ({ request }) =>
-  HttpResponse.json(paginate([], request.url)),
+  HttpResponse.json({ ...paginate([], request.url), storage_total_bytes: '0' }),
 );
+
+const pin = http.patch('/api/v1/backup/jobs/:id/pin', async ({ params, request }) => {
+  const body = (await request.json()) as { pinned: boolean };
+  return HttpResponse.json(jobFixture({ id: params.id as string, pinned: body.pinned }));
+});
 
 const getOne = http.get('/api/v1/backup/jobs/:id', ({ params }) =>
   HttpResponse.json(jobFixture({ id: params.id as string })),
@@ -134,6 +144,36 @@ const validateInvalid = http.post('/api/v1/backup/validate', () =>
   }),
 );
 
+// [14.12.3/#617] `GET /platform/backups/health` — SUPER_ADMIN's per-school
+// backup health table. One school with a real last-success timestamp, one
+// that has never backed up (the "never" row). Deliberately different
+// school names from `./schools.ts`'s `schoolList` fixture (Ananta/Zenith)
+// even though the ids happen to be reused — `index.test.tsx` renders both
+// tables on the same page, and a shared name would make `getByText`
+// ambiguous there.
+const platformBackupHealth = http.get('/api/v1/platform/backups/health', () =>
+  HttpResponse.json({
+    data: [
+      {
+        school_id: '00000000-0000-4000-8000-000000000001',
+        name: 'Backup Health Fixture School A',
+        schedule: 'DAILY',
+        last_status: 'DONE',
+        last_success_at: new Date().toISOString(),
+        storage_total_bytes: '1200000',
+      },
+      {
+        school_id: '00000000-0000-4000-8000-000000000002',
+        name: 'Backup Health Fixture School B',
+        schedule: 'OFF',
+        last_status: null,
+        last_success_at: null,
+        storage_total_bytes: '0',
+      },
+    ],
+  }),
+);
+
 const restore = http.post('/api/v1/backup/restore', () =>
   HttpResponse.json(
     { job_id: 'backup-job-restore', snapshot_job_id: 'backup-job-snapshot' },
@@ -151,6 +191,17 @@ export const backupHandlers = {
   validate,
   validateInvalid,
   restore,
+  pin,
+  platformBackupHealth,
 };
 
-export const backupDefaultHandlers = [list, getOne, download, requestExport, validate, restore];
+export const backupDefaultHandlers = [
+  list,
+  getOne,
+  download,
+  requestExport,
+  validate,
+  restore,
+  pin,
+  platformBackupHealth,
+];

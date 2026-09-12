@@ -309,6 +309,90 @@ describe('BackupSection', () => {
     expect(screen.queryByText('This backup has expired — request a new one.')).toBeNull();
   });
 
+  it('changing the schedule select calls the settings mutation with only the backup slice', async () => {
+    server.use(
+      http.get('/api/v1/backup/jobs', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
+      ),
+    );
+    const patchBody = vi.fn();
+    server.use(
+      http.patch('/api/v1/schools/:id/settings', async ({ request }) => {
+        const body = (await request.json()) as { backup?: { schedule: string } };
+        patchBody(body);
+        return HttpResponse.json({ version: 1, region: {}, backup: body.backup });
+      }),
+    );
+
+    const { user } = renderWithProviders(<BackupSection />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: SCHOOL_ID,
+    });
+
+    // The select stays `disabled` until `useSchoolSettings` resolves —
+    // wait for that before interacting, or `userEvent.selectOptions` on a
+    // disabled element fires no `change` event at all.
+    const select = await screen.findByLabelText<HTMLSelectElement>('Automatic backup schedule');
+    await waitFor(() => expect(select.disabled).toBe(false));
+    await user.selectOptions(select, 'WEEKLY');
+
+    await waitFor(() =>
+      expect(patchBody).toHaveBeenCalledWith({ version: 1, backup: { schedule: 'WEEKLY' } }),
+    );
+  });
+
+  it("toggling a job's pin calls PATCH /backup/jobs/:id/pin", async () => {
+    let pinnedSent: boolean | undefined;
+    server.use(
+      http.get('/api/v1/backup/jobs', () =>
+        HttpResponse.json({
+          data: [jobFixture({ id: 'job-done', pinned: false })],
+          total: 1,
+          page: 1,
+          limit: 10,
+          totalPages: 1,
+          storage_total_bytes: '2048',
+        }),
+      ),
+      http.patch('/api/v1/backup/jobs/:id/pin', async ({ params, request }) => {
+        const body = (await request.json()) as { pinned: boolean };
+        pinnedSent = body.pinned;
+        return HttpResponse.json(jobFixture({ id: params.id as string, pinned: body.pinned }));
+      }),
+    );
+
+    const { user } = renderWithProviders(<BackupSection />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: SCHOOL_ID,
+    });
+
+    const pinButton = await screen.findByRole('button', { name: 'Pin' });
+    await user.click(pinButton);
+
+    await waitFor(() => expect(pinnedSent).toBe(true));
+  });
+
+  it('shows the storage used line from storage_total_bytes', async () => {
+    server.use(
+      http.get('/api/v1/backup/jobs', () =>
+        HttpResponse.json({
+          data: [jobFixture({ id: 'job-done' })],
+          total: 1,
+          page: 1,
+          limit: 10,
+          totalPages: 1,
+          storage_total_bytes: String(120 * 1024 * 1024),
+        }),
+      ),
+    );
+
+    renderWithProviders(<BackupSection />, { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID });
+
+    expect(await screen.findByText('Storage used: 120.0 MB of 500.0 MB')).toBeTruthy();
+  });
+
   it('renders nothing without BACKUP_MANAGE permission', () => {
     server.use(
       http.get('/api/v1/backup/jobs', () =>

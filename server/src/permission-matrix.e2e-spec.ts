@@ -173,6 +173,13 @@ export const IDENTITY_SCOPED: IdentityScopedEntry[] = [
       '#570 — platform route (SUPER_ADMIN cross-school SMS credit read), same rationale as the POST on this controller.',
   },
   {
+    controller: 'PlatformBackupHealthController',
+    method: 'GET',
+    path: '/platform/backups/health',
+    reason:
+      '14.12.3/#617 — platform route (SUPER_ADMIN cross-school backup health), same rationale as GET /schools.',
+  },
+  {
     controller: 'PushSubscriptionsController',
     method: 'GET',
     path: '/me/push/public-key',
