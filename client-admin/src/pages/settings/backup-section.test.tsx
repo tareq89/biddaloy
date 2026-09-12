@@ -441,6 +441,44 @@ describe('BackupSection', () => {
     await waitFor(() => expect(pinnedSent).toBe(true));
   });
 
+  it('refetches the list and says so when pinning hits 410 (deleted by retention meanwhile)', async () => {
+    // The row was live when rendered; retention deleted it before the
+    // click landed. The list must be refetched (so the row goes away) and
+    // the toast must say that, not the generic "try again".
+    let listRequests = 0;
+    const toastError = vi.spyOn(toast, 'error');
+    server.use(
+      http.get('/api/v1/backup/jobs', () => {
+        listRequests += 1;
+        return HttpResponse.json({
+          data: listRequests === 1 ? [jobFixture({ id: 'job-gone', pinned: false })] : [],
+          total: listRequests === 1 ? 1 : 0,
+          page: 1,
+          limit: 10,
+          totalPages: 1,
+          storage_total_bytes: '0',
+        });
+      }),
+      http.patch('/api/v1/backup/jobs/:id/pin', () =>
+        HttpResponse.json({ message: 'gone' }, { status: 410 }),
+      ),
+    );
+
+    const { user } = renderWithProviders(<BackupSection />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: SCHOOL_ID,
+    });
+
+    await user.click(await screen.findByRole('button', { name: 'Pin' }));
+
+    await waitFor(() => expect(listRequests).toBe(2));
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Pin' })).toBeNull());
+    expect(toastError).toHaveBeenCalledWith(
+      'This backup was already removed by retention. The list has been refreshed.',
+    );
+  });
+
   it('shows the storage used line from storage_total_bytes', async () => {
     server.use(
       http.get('/api/v1/backup/jobs', () =>

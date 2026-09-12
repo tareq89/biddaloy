@@ -126,7 +126,15 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
   }
 
   function handleTogglePin(id: string, pinned: boolean) {
-    pinMutation.mutate({ id, pinned }, { onError: () => toast.error(t('pinFailed')) });
+    pinMutation.mutate(
+      { id, pinned },
+      {
+        // 410 = retention deleted the job under us; `usePinBackupJob` has
+        // already invalidated the list so the row is about to disappear —
+        // say that, not "try again".
+        onError: (err) => toast.error(t(extractHttpStatus(err) === 410 ? 'pinGone' : 'pinFailed')),
+      },
+    );
   }
 
   // Per-row "this link already expired" flags, discovered only once a

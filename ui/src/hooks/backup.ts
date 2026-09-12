@@ -298,7 +298,23 @@ export function usePinBackupJob() {
       void queryClient.invalidateQueries({ queryKey: backupKeys.lists() });
       void queryClient.invalidateQueries({ queryKey: backupKeys.detail(id) });
     },
+    // 410 means retention deleted this job between the list render and the
+    // click (the server's conditional pin update matched no live row). The
+    // cached row is stale, so refetch rather than leave a "Pin" button on a
+    // backup that no longer exists. Other errors leave the cache alone —
+    // the row is still real, the request just failed.
+    onError: (err, { id }) => {
+      if (extractHttpStatus(err) !== 410) return;
+      void queryClient.invalidateQueries({ queryKey: backupKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: backupKeys.detail(id) });
+    },
   });
+}
+
+/** Reads an axios-shaped or fetch-shaped error's HTTP status code. */
+function extractHttpStatus(err: unknown): number | undefined {
+  const asRecord = err as { response?: { status?: number }; status?: number } | undefined;
+  return asRecord?.response?.status ?? asRecord?.status;
 }
 
 /** One school's row from `GET /platform/backups/health` — mirrors
