@@ -69,7 +69,7 @@ export async function apiSession(request: APIRequestContext, role: string): Prom
   return { token: body.access_token, tenantId: membership.tenantId };
 }
 
-async function post<T>(
+export async function post<T>(
   request: APIRequestContext,
   session: ApiSession,
   path: string,
@@ -84,6 +84,28 @@ async function post<T>(
   });
   if (!response.ok()) {
     throw new Error(`POST ${path} failed: ${response.status()} ${await response.text()}`);
+  }
+  return (await response.json()) as T;
+}
+
+/** `PATCH <path>` — same shape as `post` above. `journeys/backup-restore.spec.ts`
+ * (#614) uses this to rename its seeded student between two restores, so the
+ * second restore's diff shows exactly one update. */
+export async function patch<T>(
+  request: APIRequestContext,
+  session: ApiSession,
+  path: string,
+  data: Record<string, unknown>,
+): Promise<T> {
+  const response = await request.patch(`/api/v1${path}`, {
+    headers: {
+      Authorization: `Bearer ${session.token}`,
+      'X-Tenant-ID': session.tenantId,
+    },
+    data,
+  });
+  if (!response.ok()) {
+    throw new Error(`PATCH ${path} failed: ${response.status()} ${await response.text()}`);
   }
   return (await response.json()) as T;
 }
@@ -516,4 +538,56 @@ export async function resendSchoolAdminInvitation(
     );
   }
   return token;
+}
+
+/** `POST /schools` (#529) — creates a school and its first ADMIN
+ * atomically, SUPER_ADMIN only. [14.11.4]'s `journeys/backup-restore.spec.ts`
+ * uses this to seed a *dedicated* tenant rather than the shared default
+ * one: a successful restore rewrites the whole tenant, and
+ * `playwright.config.ts`'s `fullyParallel: true` means the shared tenant
+ * can be mid-use by another worker at any moment. The created ADMIN has no
+ * password yet — only an invitation — see `resendSchoolAdminInvitation`
+ * and `activateInvite` to finish signing them in. */
+export async function provisionSchool(
+  request: APIRequestContext,
+  session: ApiSession,
+  name: string,
+  slug: string,
+  adminName: string,
+  adminEmail: string,
+): Promise<{ schoolId: string; adminUserId: string }> {
+  const created = await post<{ school: { id: string }; admin: { user_id: string } }>(
+    request,
+    session,
+    '/schools',
+    {
+      name,
+      slug,
+      admin: { name: adminName, email: adminEmail },
+      idempotency_key: crypto.randomUUID(),
+    },
+  );
+  return { schoolId: created.school.id, adminUserId: created.admin.user_id };
+}
+
+/** `POST /auth/activate` — consumes an invite token, sets a password, and
+ * signs the caller in, all in one call. Used instead of driving
+ * `/activate?token=…` through a browser (`ActivatePage`,
+ * `journeys/platform/provision-and-suspend.spec.ts`'s style) when the spec
+ * has no other reason to open a page yet — the returned access token plus
+ * the refresh cookie this call leaves on `request`'s own cookie jar are
+ * enough to build a `storageState` for a fresh `browser.newContext()`. */
+export async function activateInvite(
+  request: APIRequestContext,
+  token: string,
+  password: string,
+): Promise<ApiSession & { role: string }> {
+  const response = await request.post('/api/v1/auth/activate', { data: { token, password } });
+  if (!response.ok()) {
+    throw new Error(`activate failed: ${response.status()} ${await response.text()}`);
+  }
+  const body = (await response.json()) as RefreshResponse;
+  const membership = body.memberships[0];
+  if (!membership) throw new Error('no membership in activate response');
+  return { token: body.access_token, tenantId: membership.tenantId, role: membership.role };
 }

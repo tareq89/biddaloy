@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type * as React from 'react';
+import * as React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { type BulkImportError, type PreviewResult } from '../hooks/use-bulk-upload-preview';
@@ -97,6 +97,21 @@ describe('BulkUploadPreview', () => {
     expect(confirmButton.hasAttribute('disabled')).toBe(true);
   });
 
+  it('holds Confirm disabled from the first render whenever a confirmSlot is supplied', async () => {
+    // Fail closed: a consumer that supplies a confirmSlot is gating Confirm
+    // on something only the slot knows (the restore wizard's typed school
+    // name), so Confirm must never be clickable in the window between the
+    // preview rendering and the slot's own effect running.
+    const validate = vi.fn().mockResolvedValue(baseResult());
+    await renderPreview({ validate, confirmSlot: () => null });
+
+    await selectFile();
+    const confirmButton = await screen.findByRole('button', { name: 'Confirm' });
+    expect(confirmButton.hasAttribute('disabled')).toBe(true);
+    // And it stays held — nothing released it.
+    await waitFor(() => expect(confirmButton.hasAttribute('disabled')).toBe(true));
+  });
+
   it('confirmSlot calling setBlocked(true) disables Confirm; false re-enables it', async () => {
     const validate = vi.fn().mockResolvedValue(baseResult());
     let externalSetBlocked: ((blocked: boolean) => void) | undefined;
@@ -110,12 +125,39 @@ describe('BulkUploadPreview', () => {
 
     await selectFile();
     const confirmButton = await screen.findByRole('button', { name: 'Confirm' });
-    expect(confirmButton.hasAttribute('disabled')).toBe(false);
+    // Held by default because a confirmSlot is present; the slot releases it.
+    expect(confirmButton.hasAttribute('disabled')).toBe(true);
+
+    externalSetBlocked?.(false);
+    await waitFor(() => expect(confirmButton.hasAttribute('disabled')).toBe(false));
 
     externalSetBlocked?.(true);
     await waitFor(() => expect(confirmButton.hasAttribute('disabled')).toBe(true));
 
     externalSetBlocked?.(false);
+    await waitFor(() => expect(confirmButton.hasAttribute('disabled')).toBe(false));
+  });
+
+  it('a confirmSlot that releases the hold from its own mount effect stays released', async () => {
+    // Regression: the "new preview → reset the hold" logic used to run in
+    // an effect, and effects run child-before-parent — so a slot releasing
+    // itself on mount (e.g. an empty-tenant summary needing no typed
+    // confirmation) always got immediately re-blocked by that reset
+    // running right after, in the same commit.
+    const validate = vi.fn().mockResolvedValue(baseResult());
+    function SelfReleasingSlot({ setBlocked }: { setBlocked: (blocked: boolean) => void }) {
+      React.useEffect(() => {
+        setBlocked(false);
+      }, [setBlocked]);
+      return null;
+    }
+    await renderPreview({
+      validate,
+      confirmSlot: ({ setBlocked }) => <SelfReleasingSlot setBlocked={setBlocked} />,
+    });
+
+    await selectFile();
+    const confirmButton = await screen.findByRole('button', { name: 'Confirm' });
     await waitFor(() => expect(confirmButton.hasAttribute('disabled')).toBe(false));
   });
 
@@ -211,5 +253,54 @@ describe('BulkUploadPreview', () => {
     await selectFile();
 
     await waitFor(() => expect(validate).toHaveBeenCalledTimes(1));
+  });
+
+  it('renderCommitting replaces the confirm controls while committing, and receives the result', async () => {
+    const validate = vi.fn().mockResolvedValue(baseResult());
+    let commitResolve: (() => void) | undefined;
+    const commit = vi.fn(
+      () =>
+        new Promise<CommitResult>((resolve) => {
+          commitResolve = () => resolve({ processedCount: 5 });
+        }),
+    );
+    const renderCommitting = vi.fn((result: PreviewResult<Summary>) => (
+      <p>Starting… {result.summary.totalRows} rows</p>
+    ));
+
+    const result = renderWithProviders(
+      <BulkUploadPreview<Summary, CommitResult>
+        validate={validate}
+        commit={commit}
+        renderSummary={renderSummary}
+        renderDone={renderDone}
+        renderCommitting={renderCommitting}
+      />,
+      { locale: 'en' },
+    );
+    await result.localeReady;
+
+    await selectFile();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Confirm' }));
+
+    expect(await screen.findByText('Starting… 5 rows')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Upload another' })).toBeNull();
+
+    commitResolve?.();
+    await screen.findByText('done: 5');
+  });
+
+  it("omitting renderCommitting preserves today's default committing state (busy Confirm button)", async () => {
+    const validate = vi.fn().mockResolvedValue(baseResult());
+    const commit = vi.fn(() => new Promise<CommitResult>(() => {}));
+    await renderPreview({ validate, commit });
+
+    await selectFile();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Confirm' }));
+
+    expect(await screen.findByRole('button', { name: 'Confirming…' })).toBeTruthy();
   });
 });

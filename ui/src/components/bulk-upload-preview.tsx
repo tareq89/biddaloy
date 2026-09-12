@@ -35,6 +35,9 @@ export interface BulkUploadPreviewProps<S, C> {
    * input. Call `setBlocked(true)` to disable Confirm regardless of every
    * other condition, `setBlocked(false)` to release that hold. */
   confirmSlot?: (api: BulkUploadPreviewConfirmSlotApi) => React.ReactNode;
+  /** Rendered in place of the confirm controls while the commit promise is
+   * in flight. Defaults to the existing `t('confirming')` button label. */
+  renderCommitting?: (result: PreviewResult<S>) => React.ReactNode;
   renderDone: (commitResult: C, reset: () => void) => React.ReactNode;
 }
 
@@ -69,6 +72,7 @@ export function BulkUploadPreview<S, C>({
   canCommit = (result) => result.hard_error_count === 0,
   renderSummary,
   confirmSlot,
+  renderCommitting,
   renderDone,
 }: BulkUploadPreviewProps<S, C>) {
   const { t } = useTranslation('bulkImport');
@@ -80,7 +84,15 @@ export function BulkUploadPreview<S, C>({
   // to know about the `File` object itself. Keep the picked file here so the
   // upload/local-error items show the real name instead of a blank one.
   const [selectedFile, setSelectedFile] = React.useState<File | undefined>(undefined);
-  const [slotBlocked, setSlotBlocked] = React.useState(false);
+  // A consumer that supplies a `confirmSlot` is gating Confirm on something
+  // only the slot knows (the restore wizard's typed school name, say), so the
+  // hold starts ON and the slot has to release it explicitly. Starting it OFF
+  // would leave Confirm enabled for the first render + effect flush of every
+  // new preview — a window in which a destructive commit is one click away
+  // before the gate has had a chance to speak. Consumers with no
+  // `confirmSlot` (e.g. students/import) are unaffected: no slot, no hold.
+  const hasConfirmSlot = confirmSlot != null;
+  const [slotBlocked, setSlotBlocked] = React.useState(hasConfirmSlot);
   const [remainingMs, setRemainingMs] = React.useState<number>(0);
 
   const expiresAt =
@@ -88,9 +100,23 @@ export function BulkUploadPreview<S, C>({
       ? state.result.expires_at
       : undefined;
 
-  // New preview → fresh countdown and a released confirm-slot hold.
+  // New preview → the confirm-slot hold back to its default (held when
+  // there is a slot to release it, released otherwise). This has to happen
+  // during render, not in an effect: `confirmSlot`'s own mount effect can
+  // release the hold (e.g. an empty-tenant summary that needs no typed
+  // confirmation) in the very same commit this preview first appears in,
+  // and effects run child-before-parent — an effect here would always run
+  // after the slot's and clobber that release right back to blocked.
+  // Adjusting state during render (the React-documented pattern for "reset
+  // state when a prop changes") sidesteps the ordering entirely, since it
+  // happens before any effects run at all.
+  const previousExpiresAtRef = React.useRef(expiresAt);
+  if (previousExpiresAtRef.current !== expiresAt) {
+    previousExpiresAtRef.current = expiresAt;
+    setSlotBlocked(hasConfirmSlot);
+  }
+
   React.useEffect(() => {
-    setSlotBlocked(false);
     if (!expiresAt) {
       setRemainingMs(0);
       return;
@@ -196,16 +222,22 @@ export function BulkUploadPreview<S, C>({
             {isExpired ? t('expired') : t('expiresIn', { time: formatCountdown(remainingMs) })}
           </p>
 
-          {confirmSlot?.({ setBlocked: setSlotBlocked })}
+          {state.status === 'committing' && renderCommitting ? (
+            renderCommitting(state.result)
+          ) : (
+            <>
+              {confirmSlot?.({ setBlocked: setSlotBlocked })}
 
-          <div className="flex items-center gap-2">
-            <Button type="button" onClick={confirm} disabled={confirmDisabled}>
-              {state.status === 'committing' ? t('confirming') : t('confirm')}
-            </Button>
-            <Button type="button" variant="outline" onClick={handleReset}>
-              {t('uploadAnother')}
-            </Button>
-          </div>
+              <div className="flex items-center gap-2">
+                <Button type="button" onClick={confirm} disabled={confirmDisabled}>
+                  {state.status === 'committing' ? t('confirming') : t('confirm')}
+                </Button>
+                <Button type="button" variant="outline" onClick={handleReset}>
+                  {t('uploadAnother')}
+                </Button>
+              </div>
+            </>
+          )}
         </Card>
       )}
 
