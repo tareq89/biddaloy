@@ -34,6 +34,11 @@ export interface SchoolRow {
 
 const columns: readonly ColumnSpec[] = [
   { key: 'id', type: 'uuid', required: true, label: { en: 'ID', bn: 'আইডি' } },
+  // Exported for a human reading the workbook (and kept as this tab's own
+  // `naturalKey`), but never applied by `upsert` — see the comment there.
+  // It stays a real column rather than moving to `excluded` alongside
+  // `slug` because, unlike `slug`, it is genuinely useful information in
+  // the file itself; only the *write* path treats it as identity.
   {
     key: 'name',
     type: 'string',
@@ -250,14 +255,10 @@ export const schoolTab: TabSpec<School, SchoolRow> = {
 
   diffFields(row: SchoolRow, existing: School): string[] {
     const changed: string[] = [];
-    for (const key of [
-      'name',
-      'name_bn',
-      'address',
-      'phone',
-      'email',
-      'registration_id',
-    ] as const) {
+    // `name` is deliberately not compared: `upsert` never applies it (see
+    // there), so reporting it as a pending change would show the admin a
+    // diff that a restore would not actually make.
+    for (const key of ['name_bn', 'address', 'phone', 'email', 'registration_id'] as const) {
       if (row[key] !== existing[key]) changed.push(key);
     }
 
@@ -281,7 +282,14 @@ export const schoolTab: TabSpec<School, SchoolRow> = {
     // to reach across tenants.
     const school = existing ?? (await m.findOneByOrFail(School, { id: tenantId }));
 
-    school.name = row.name;
+    // `name` is exported (see `columns` above) but never applied here — same
+    // reasoning `excluded` already gives for `slug`: it is the destination
+    // tenant's own identity. A same-tenant "undo a bad edit" restore would
+    // arguably want it restored too, but this tab has no way to tell that
+    // case apart from a cross-tenant restore into a *different* school
+    // (SUPER_ADMIN provisioning, school-to-school migration), where silently
+    // renaming the destination is exactly the `slug` mistake this comment
+    // already warns against — so it is left alone in both cases.
     school.name_bn = row.name_bn;
     school.address = row.address;
     school.phone = row.phone;

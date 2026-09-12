@@ -63,32 +63,53 @@ describe('schoolTab (integration)', () => {
   function rowFor(overrides: Partial<SchoolRow> = {}): SchoolRow {
     return {
       id: TENANT_A,
+      // Sent in the row like a real export would (see the tab's own
+      // comment: `name` is exported but never applied), so these tests stay
+      // an accurate regression guard rather than avoiding the field.
       name: 'Tenant A Renamed',
       name_bn: null,
       address: null,
       phone: null,
       email: null,
-      registration_id: null,
+      registration_id: 'REG-A-999',
       settings: null,
       ...overrides,
     };
   }
 
   // Mandatory tenant-isolation scenario: a restore into tenant A must be
-  // invisible to tenant B.
+  // invisible to tenant B. `registration_id` is the observable write here
+  // (not `name` — see the next test).
   it('updates only the addressed tenant and leaves the other unchanged', async () => {
     const existing = await schoolRepo.findOneByOrFail({ id: TENANT_A });
 
     await schoolTab.upsert(rowFor(), existing, TENANT_A, dataSource.manager);
 
-    expect((await schoolRepo.findOneByOrFail({ id: TENANT_A })).name).toBe('Tenant A Renamed');
-    expect((await schoolRepo.findOneByOrFail({ id: TENANT_B })).name).toBe('Tenant B School');
+    expect((await schoolRepo.findOneByOrFail({ id: TENANT_A })).registration_id).toBe('REG-A-999');
+    expect((await schoolRepo.findOneByOrFail({ id: TENANT_B })).registration_id).toBeNull();
   });
 
   it('resolves the destination school from the tenant id when none is passed', async () => {
     await schoolTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
 
-    expect((await schoolRepo.findOneByOrFail({ id: TENANT_A })).name).toBe('Tenant A Renamed');
+    expect((await schoolRepo.findOneByOrFail({ id: TENANT_A })).registration_id).toBe('REG-A-999');
+    expect((await schoolRepo.findOneByOrFail({ id: TENANT_B })).registration_id).toBeNull();
+  });
+
+  // Regression: `name` is exported (it's this tab's own `naturalKey`) but
+  // must never be applied by `upsert` — it is the destination tenant's own
+  // identity, the same reasoning `excluded` already gives for `slug`. A
+  // cross-tenant restore (a different school entirely, or a brand-new one
+  // provisioned from a template) silently renaming its destination would be
+  // exactly that mistake.
+  it("never renames the destination school, even though the row carries the source's name", async () => {
+    await schoolTab.upsert(
+      rowFor({ name: 'Tenant A Renamed' }),
+      null,
+      TENANT_B,
+      dataSource.manager,
+    );
+
     expect((await schoolRepo.findOneByOrFail({ id: TENANT_B })).name).toBe('Tenant B School');
   });
 
