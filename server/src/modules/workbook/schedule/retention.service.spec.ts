@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AuditAction } from '@biddaloy/shared';
 import {
+  AUDIT_WRITE_ATTEMPTS,
   KEEP_MANUAL_COUNT,
   KEEP_SCHEDULED_COUNT,
   RetentionService,
@@ -40,13 +41,44 @@ function makeJob(id: string, overrides: Partial<WorkbookJob> = {}): WorkbookJob 
 describe('RetentionService', () => {
   let service: RetentionService;
   let jobs: WorkbookJob[];
-  let repo: { find: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> };
+  let repo: {
+    find: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+    manager: { transaction: ReturnType<typeof vi.fn> };
+  };
   let storage: { delete: ReturnType<typeof vi.fn> };
   let audit: { record: ReturnType<typeof vi.fn> };
+  /** Stands in for the EntityManager handed to `manager.transaction`'s
+   * callback — the same reference the service must pass on to
+   * `audit.record`, which is how the tests prove both writes share one
+   * transaction. */
+  let txManager: { update: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     jobs = [];
+    txManager = {
+      // `EntityManager.update(Entity, criteria, patch)` — drop the entity
+      // and reuse the repository mock so the in-memory rows stay the
+      // single source of truth.
+      update: vi.fn(async (_entity: unknown, criteria: string, patch: Partial<WorkbookJob>) =>
+        repo.update(criteria, patch),
+      ),
+    };
     repo = {
+      // Mirrors `Repository.manager.transaction(fn)`: runs `fn` with the
+      // stand-in manager and, like Postgres, rolls every row back to its
+      // pre-transaction state if `fn` throws.
+      manager: {
+        transaction: vi.fn(async (fn: (m: typeof txManager) => Promise<void>) => {
+          const before = jobs.map((j) => ({ ...j }));
+          try {
+            return await fn(txManager);
+          } catch (err) {
+            jobs.forEach((j, i) => Object.assign(j, before[i]));
+            throw err;
+          }
+        }),
+      },
       // The service issues three separate `find` calls (expired /
       // category-overflow / cap) each of which must reflect any updates
       // made by an earlier pass — mirror that against the in-memory array.
@@ -150,7 +182,7 @@ describe('RetentionService', () => {
     expect(audit.record).not.toHaveBeenCalled();
   });
 
-  it('retries a failed BACKUP_DELETED audit write instead of losing it on the first transient error', async () => {
+  it('retries the whole finalize transaction when the BACKUP_DELETED audit write fails once', async () => {
     vi.useFakeTimers();
     try {
       jobs.push(makeJob('audited-1', { expires_at: new Date('2020-01-01T00:00:00.000Z') }));
@@ -163,10 +195,40 @@ describe('RetentionService', () => {
       await run;
 
       expect(jobs[0].status).toBe(WorkbookJobStatus.DELETED);
+      expect(jobs[0].storage_key).toBeNull();
+      // One transaction per attempt — the storage_key clear is re-issued
+      // alongside the retried audit insert, never left committed on its own.
+      expect(repo.manager.transaction).toHaveBeenCalledTimes(2);
+      expect(txManager.update).toHaveBeenCalledTimes(2);
       expect(audit.record).toHaveBeenCalledTimes(2);
       expect(audit.record).toHaveBeenLastCalledWith(
         expect.objectContaining({ action: AuditAction.BACKUP_DELETED, entity_id: 'audited-1' }),
+        txManager,
       );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps storage_key on a DELETED row when every finalize attempt fails, so the unfinished deletion stays visible', async () => {
+    vi.useFakeTimers();
+    try {
+      jobs.push(makeJob('orphaned-1', { expires_at: new Date('2020-01-01T00:00:00.000Z') }));
+      audit.record.mockRejectedValue(new Error('audit db down'));
+
+      const run = service.enforce(TENANT_ID, new Date('2026-01-15T00:00:00.000Z'));
+      await vi.runAllTimersAsync();
+      await run;
+
+      expect(audit.record).toHaveBeenCalledTimes(AUDIT_WRITE_ATTEMPTS);
+      // The object is gone (claimed + deleted before finalize), the row is
+      // DELETED, and because the transaction rolled back each time the
+      // storage_key is still set: that combination is the recovery marker
+      // a crash-safety pass looks for. Clearing the key without the audit
+      // row would have erased the only evidence anything was left undone.
+      expect(storage.delete).toHaveBeenCalledTimes(1);
+      expect(jobs[0].status).toBe(WorkbookJobStatus.DELETED);
+      expect(jobs[0].storage_key).not.toBeNull();
     } finally {
       vi.useRealTimers();
     }
@@ -182,8 +244,11 @@ describe('RetentionService', () => {
     // size_bytes is kept for history — never cleared by retention.
     expect(jobs[0].size_bytes).toBe('1000');
     expect(storage.delete).toHaveBeenCalledWith(`tenants/${TENANT_ID}/backups/expired-1.xlsx`);
+    // Second arg is the transaction's manager — the audit row must share the
+    // transaction that clears storage_key, never be a separate best-effort write.
     expect(audit.record).toHaveBeenCalledWith(
       expect.objectContaining({ action: AuditAction.BACKUP_DELETED, entity_id: 'expired-1' }),
+      txManager,
     );
   });
 

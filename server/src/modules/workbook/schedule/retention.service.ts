@@ -181,33 +181,45 @@ export class RetentionService {
       }
     }
 
-    await this.jobs.update(row.id, { storage_key: null });
-    await this.recordDeletion(row);
+    await this.finalizeDeletion(row);
     return true;
   }
 
-  /** The BACKUP_DELETED audit row is the only durable record that retention
-   * (not a person) removed a backup, and by the time it is written the row
-   * is already DELETED — so a later sweep will never revisit it. A single
-   * transient failure must therefore not lose it: retry with a short
-   * backoff before giving up loudly. */
-  private async recordDeletion(row: WorkbookJob): Promise<void> {
+  /** Clearing `storage_key` and writing the BACKUP_DELETED audit row happen
+   * in one transaction, so the two can never disagree: the audit row is the
+   * only durable record that retention (not a person) removed a backup, and
+   * by this point the job is already DELETED, so no later sweep would come
+   * back to write it. Tying it to the `storage_key` clear means a job that
+   * is `DELETED` with `storage_key` still set is, unambiguously, "object
+   * gone, bookkeeping not finished" — the single state a crash-recovery
+   * pass (#735) has to look for.
+   *
+   * The retry wraps the whole transaction rather than the audit insert
+   * alone: Postgres aborts a transaction on the first failed statement, so
+   * retrying inside it would only ever fail again. */
+  private async finalizeDeletion(row: WorkbookJob): Promise<void> {
     let lastError: unknown;
     for (let attempt = 1; attempt <= AUDIT_WRITE_ATTEMPTS; attempt += 1) {
       try {
-        await this.audit.record({
-          action: AuditAction.BACKUP_DELETED,
-          entity_type: 'School',
-          entity_id: row.id,
-          tenant_id: row.tenant_id,
-          performed_by_user_id: null,
-          new_values: {
-            event: 'BACKUP_DELETED',
-            workbook_job_id: row.id,
-            kind: row.kind,
-            source: row.source,
-            size_bytes: row.size_bytes,
-          },
+        await this.jobs.manager.transaction(async (manager) => {
+          await manager.update(WorkbookJob, row.id, { storage_key: null });
+          await this.audit.record(
+            {
+              action: AuditAction.BACKUP_DELETED,
+              entity_type: 'School',
+              entity_id: row.id,
+              tenant_id: row.tenant_id,
+              performed_by_user_id: null,
+              new_values: {
+                event: 'BACKUP_DELETED',
+                workbook_job_id: row.id,
+                kind: row.kind,
+                source: row.source,
+                size_bytes: row.size_bytes,
+              },
+            },
+            manager,
+          );
         });
         return;
       } catch (err) {
@@ -217,8 +229,9 @@ export class RetentionService {
         }
       }
     }
+    // Left as DELETED with storage_key set — see the doc comment above.
     this.logger.error(
-      `RetentionService: audit write failed for job ${row.id} after ${AUDIT_WRITE_ATTEMPTS} attempts: ${
+      `RetentionService: could not finalize deletion of job ${row.id} after ${AUDIT_WRITE_ATTEMPTS} attempts (storage object is gone, storage_key kept as the recovery marker): ${
         lastError instanceof Error ? lastError.message : String(lastError)
       }`,
     );
