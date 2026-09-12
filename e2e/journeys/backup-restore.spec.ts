@@ -152,12 +152,17 @@ test.describe.serial('backup and restore', () => {
 
     const totalsRow = adminPage.getByRole('row', { name: new RegExp(t('backup.diffTotalsRow')) });
     await expect(totalsRow).toBeVisible({ timeout: 15_000 });
-    const cells = await totalsRow.getByRole('cell').allTextContents();
-    // [Tab, Create, Update, Delete, Unchanged, Errors] — see
-    // `RestoreDiffSummary`'s column order in restore-wizard.tsx.
-    expect(cells[1]).toBe('0');
-    expect(cells[2]).toBe('0');
-    expect(cells[3]).toBe('0');
+    const [, creates, updates, unchanged, deletes] = await totalsRow
+      .getByRole('cell')
+      .allTextContents();
+    // [Tab, Create, Update, Unchanged, Delete] — `RestoreDiffSummary`'s
+    // column order in restore-wizard.tsx. Unchanged comes *before* Delete.
+    expect(creates).toBe('0');
+    expect(updates).toBe('0');
+    expect(deletes).toBe('0');
+    // Every row matched, rather than the workbook being read as empty —
+    // which would also show zero creates/updates/deletes.
+    expect(Number(unchanged)).toBeGreaterThan(0);
 
     await expect(adminPage.getByRole('button', { name: t('bulkImport.confirm') })).toBeDisabled();
 
@@ -176,10 +181,12 @@ test.describe.serial('backup and restore', () => {
 
     const totalsRow = adminPage.getByRole('row', { name: new RegExp(t('backup.diffTotalsRow')) });
     await expect(totalsRow).toBeVisible({ timeout: 15_000 });
-    const cells = await totalsRow.getByRole('cell').allTextContents();
-    expect(cells[1]).toBe('0');
-    expect(cells[2]).toBe('1');
-    expect(cells[3]).toBe('0');
+    const [, creates, updates, , deletes] = await totalsRow.getByRole('cell').allTextContents();
+    // Exactly the one renamed student comes back as an update, and nothing
+    // is created or deleted.
+    expect(creates).toBe('0');
+    expect(updates).toBe('1');
+    expect(deletes).toBe('0');
 
     const confirmButton = adminPage.getByRole('button', { name: t('bulkImport.confirm') });
     await expect(confirmButton).toBeDisabled();
