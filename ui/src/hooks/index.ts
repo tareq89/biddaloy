@@ -352,6 +352,7 @@ export {
 export {
   backupKeys,
   downloadBackup,
+  downloadValidationErrorsCsv,
   useBackupJob,
   useBackupJobs,
   useRequestBackup,
@@ -362,7 +363,8 @@ export {
   type BackupJobStatus,
   type PaginatedBackupJobs,
   type RestoreBackupInput,
-  type ValidateResponseDto,
+  type RestoreSummary,
+  type RestoreTabDiff,
 } from './backup';
 export {
   useBulkUploadPreview,

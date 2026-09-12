@@ -19,6 +19,8 @@ import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatDateTime } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
+import { RestoreWizard } from './restore-wizard';
+
 const PAGE_SIZE = 10;
 
 /** `BackupJob` plus this render's per-row UI flags — see the comment where
@@ -284,6 +286,8 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
           {...(jobsQuery.isError ? { error: t('requestExportFailed') } : {})}
         />
       )}
+
+      <RestoreWizard />
     </Card>
   );
 }
