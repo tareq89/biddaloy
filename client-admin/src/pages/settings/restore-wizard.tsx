@@ -267,24 +267,19 @@ export function RestoreConfirmSlot({
   const { t } = useTranslation('backup');
   const deletes = summary ? sumTabDiffs(summary.tabs).deletes : 0;
 
+  // A plain effect, deliberately not deferred a macrotask. `BulkUploadPreview`
+  // holds Confirm from its very first render whenever a `confirmSlot` is
+  // supplied, and its "new preview" effect resets that hold back ON, not off
+  // (7150675f) — so there is no effect-ordering race for this slot to win,
+  // and only this slot can ever release the hold.
+  //
+  // Fail closed on both halves of the comparison: a blank or not-yet-loaded
+  // `expectedSchoolName` never matches (without the `!== ''` guard an empty
+  // box would satisfy an empty expected name), and `.trim()` on the typed
+  // value means a whitespace-only school name is equally unsatisfiable.
   React.useEffect(() => {
-    // Deferred a macrotask, not called synchronously: `BulkUploadPreview`
-    // itself has a mount effect ("new preview → a released confirm-slot
-    // hold") that unconditionally calls the very same `setBlocked(false)`
-    // whenever a fresh preview appears — including this component's own
-    // first mount. Passive effects fire child-before-parent within one
-    // commit, so a plain `useEffect` here loses that race: this slot's
-    // `setBlocked(true)` would run, then the parent's reset effect would
-    // immediately overwrite it back to `false` in the same flush, leaving
-    // Confirm wrongly enabled before anyone has typed anything.
-    // `setTimeout(0)` runs in the next macrotask, strictly after that
-    // synchronous effect flush completes, so this always has the last
-    // word.
-    const id = window.setTimeout(() => {
-      const matches = expectedSchoolName !== '' && confirmationText.trim() === expectedSchoolName;
-      setBlocked(!matches);
-    }, 0);
-    return () => window.clearTimeout(id);
+    const matches = expectedSchoolName !== '' && confirmationText.trim() === expectedSchoolName;
+    setBlocked(!matches);
   }, [confirmationText, expectedSchoolName, setBlocked]);
 
   return (
