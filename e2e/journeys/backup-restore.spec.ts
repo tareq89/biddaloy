@@ -39,13 +39,10 @@ import { t } from '../i18n';
  */
 test.describe.serial('backup and restore', () => {
   // Every leg here waits on a real background job (export, then restore)
-  // to run to completion, which the 30s per-test default can't cover under
-  // CI's concurrency — this shard runs two other DB-heavy journeys on its
-  // other worker, and leg A timed out at exactly 30s on every run while
-  // the export job itself was healthy, just slower to be picked up. The
-  // individual `toBeVisible({ timeout: 60_000 })` waits below were already
-  // asking for more than the test budget allowed, so they could never
-  // actually spend it.
+  // to run to completion — work the 30s per-test default can't cover under
+  // CI's concurrency. The individual `toBeVisible({ timeout: 60_000 })`
+  // waits below were already asking for more than the per-test budget
+  // allowed, so they could never actually spend it.
   test.setTimeout(120_000);
 
   const suffix = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
@@ -122,15 +119,20 @@ test.describe.serial('backup and restore', () => {
     await adminPage.goto('/settings');
     await adminPage.getByRole('button', { name: t('backup.requestExport') }).click();
 
-    const exportRow = adminPage.getByRole('row', { name: new RegExp(t('backup.kindExport')) });
-    // 60s, matching Leg C's restore-done poll below — under CI's real
-    // concurrency (this shard runs two other DB-heavy journeys on its other
-    // worker), 30s proved too tight and this step timed out even though the
-    // export job itself was healthy and just slower to get picked up.
-    await expect(exportRow.getByText(t('backup.status.DONE'))).toBeVisible({ timeout: 60_000 });
+    // `DataTable` renders a real `<table>` above 768px of *container* width
+    // and a card list (`list`/`listitem`) below it — the settings column is
+    // narrow enough for cards here, so a `getByRole('row')` locator matches
+    // nothing. Scope to the jobs list by its accessible name (the caption,
+    // which both layouts expose) and assert within it: this tenant is
+    // provisioned fresh by `beforeAll` and has exactly one job.
+    const jobsList = adminPage
+      .getByRole('table', { name: t('backup.jobsListTitle') })
+      .or(adminPage.getByRole('list', { name: t('backup.jobsListTitle') }));
+
+    await expect(jobsList.getByText(t('backup.status.DONE'))).toBeVisible({ timeout: 60_000 });
 
     const downloadPromise = adminPage.waitForEvent('download');
-    await exportRow.getByRole('button', { name: t('backup.download') }).click();
+    await jobsList.getByRole('button', { name: t('backup.download') }).click();
     const download = await downloadPromise;
 
     expect(download.suggestedFilename()).toMatch(/\.xlsx$/);
