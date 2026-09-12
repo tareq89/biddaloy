@@ -24,6 +24,6 @@ import { ImportStagingService, BULK_IMPORT_REDIS } from './import-staging.servic
     },
     ImportStagingService,
   ],
-  exports: [ImportStagingService],
+  exports: [ImportStagingService, BULK_IMPORT_REDIS],
 })
 export class BulkImportModule {}
