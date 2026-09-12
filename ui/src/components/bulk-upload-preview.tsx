@@ -100,10 +100,23 @@ export function BulkUploadPreview<S, C>({
       ? state.result.expires_at
       : undefined;
 
-  // New preview → fresh countdown, and the confirm-slot hold back to its
-  // default (held when there is a slot to release it, released otherwise).
-  React.useEffect(() => {
+  // New preview → the confirm-slot hold back to its default (held when
+  // there is a slot to release it, released otherwise). This has to happen
+  // during render, not in an effect: `confirmSlot`'s own mount effect can
+  // release the hold (e.g. an empty-tenant summary that needs no typed
+  // confirmation) in the very same commit this preview first appears in,
+  // and effects run child-before-parent — an effect here would always run
+  // after the slot's and clobber that release right back to blocked.
+  // Adjusting state during render (the React-documented pattern for "reset
+  // state when a prop changes") sidesteps the ordering entirely, since it
+  // happens before any effects run at all.
+  const previousExpiresAtRef = React.useRef(expiresAt);
+  if (previousExpiresAtRef.current !== expiresAt) {
+    previousExpiresAtRef.current = expiresAt;
     setSlotBlocked(hasConfirmSlot);
+  }
+
+  React.useEffect(() => {
     if (!expiresAt) {
       setRemainingMs(0);
       return;
@@ -114,7 +127,7 @@ export function BulkUploadPreview<S, C>({
       setRemainingMs(target - Date.now());
     }, 1000);
     return () => clearInterval(interval);
-  }, [expiresAt, hasConfirmSlot]);
+  }, [expiresAt]);
 
   function handleFilesSelected(files: File[]) {
     const file = files[0];

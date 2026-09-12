@@ -89,6 +89,7 @@ describe('BackupSection', () => {
   });
 
   it('downloads a finished backup when Download is clicked', async () => {
+    let downloadHits = 0;
     server.use(
       http.get('/api/v1/backup/jobs', () =>
         HttpResponse.json({
@@ -99,14 +100,13 @@ describe('BackupSection', () => {
           totalPages: 1,
         }),
       ),
-      http.get(
-        '/api/v1/backup/jobs/:id/download',
-        () =>
-          new HttpResponse(new Blob(['bytes']), {
-            status: 200,
-            headers: { 'Content-Disposition': 'attachment; filename="backup.zip"' },
-          }),
-      ),
+      http.get('/api/v1/backup/jobs/:id/download', () => {
+        downloadHits += 1;
+        return new HttpResponse(new Blob(['bytes']), {
+          status: 200,
+          headers: { 'Content-Disposition': 'attachment; filename="backup.zip"' },
+        });
+      }),
     );
 
     const { user } = renderWithProviders(<BackupSection />, {
@@ -118,10 +118,7 @@ describe('BackupSection', () => {
     const downloadButton = await screen.findByRole('button', { name: 'Download' });
     await user.click(downloadButton);
 
-    // `downloadBackup` triggers a throwaway-anchor save with no visible
-    // confirmation — the button returning to its non-loading state (no
-    // error toast fired) is the observable signal the download succeeded.
-    await waitFor(() => expect(screen.queryByText('Downloading…')).toBeNull());
+    await waitFor(() => expect(downloadHits).toBe(1));
     expect(screen.queryByText("Couldn't download this backup. Try again.")).toBeNull();
   });
 

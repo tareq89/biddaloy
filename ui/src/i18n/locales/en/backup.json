@@ -30,6 +30,8 @@
   "downloading": "Downloading…",
   "downloadFailed": "Couldn't download this backup. Try again.",
   "downloadExpired": "Expired",
+  "schoolProfileLoadFailed": "Couldn't load your school's name. It's needed to confirm this restore.",
+  "restoreProgressLoadFailed": "Couldn't load this restore's progress.",
   "failedReason": "Failed: {{reason}}",
   "deepLinkExpired": "This backup has expired — request a new one.",
   "progress": "Working on it… {{percent}}%",

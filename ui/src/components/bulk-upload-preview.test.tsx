@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type * as React from 'react';
+import * as React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { type BulkImportError, type PreviewResult } from '../hooks/use-bulk-upload-preview';
@@ -135,6 +135,29 @@ describe('BulkUploadPreview', () => {
     await waitFor(() => expect(confirmButton.hasAttribute('disabled')).toBe(true));
 
     externalSetBlocked?.(false);
+    await waitFor(() => expect(confirmButton.hasAttribute('disabled')).toBe(false));
+  });
+
+  it('a confirmSlot that releases the hold from its own mount effect stays released', async () => {
+    // Regression: the "new preview → reset the hold" logic used to run in
+    // an effect, and effects run child-before-parent — so a slot releasing
+    // itself on mount (e.g. an empty-tenant summary needing no typed
+    // confirmation) always got immediately re-blocked by that reset
+    // running right after, in the same commit.
+    const validate = vi.fn().mockResolvedValue(baseResult());
+    function SelfReleasingSlot({ setBlocked }: { setBlocked: (blocked: boolean) => void }) {
+      React.useEffect(() => {
+        setBlocked(false);
+      }, [setBlocked]);
+      return null;
+    }
+    await renderPreview({
+      validate,
+      confirmSlot: ({ setBlocked }) => <SelfReleasingSlot setBlocked={setBlocked} />,
+    });
+
+    await selectFile();
+    const confirmButton = await screen.findByRole('button', { name: 'Confirm' });
     await waitFor(() => expect(confirmButton.hasAttribute('disabled')).toBe(false));
   });
 

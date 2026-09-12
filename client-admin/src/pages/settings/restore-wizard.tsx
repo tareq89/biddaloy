@@ -1,4 +1,4 @@
-import { BulkUploadPreview, Button, Card, Checkbox, Input } from '@biddaloy/ui/components';
+import { BulkUploadPreview, Button, Card, Checkbox, Input, toast } from '@biddaloy/ui/components';
 import {
   downloadBackup,
   useBackupJob,
@@ -105,6 +105,8 @@ export function RestoreWizard() {
           <RestoreConfirmSlot
             summary={latestResult?.summary}
             expectedSchoolName={expectedSchoolName}
+            schoolProfileError={schoolProfileQuery.isError}
+            onRetrySchoolProfile={() => void schoolProfileQuery.refetch()}
             confirmationText={confirmationText}
             onConfirmationTextChange={setConfirmationText}
             inviteRestoredUsers={inviteRestoredUsers}
@@ -240,6 +242,8 @@ export function RestoreDiffSummary({ result }: { result: PreviewResult<RestoreSu
 interface RestoreConfirmSlotProps {
   summary: RestoreSummary | undefined;
   expectedSchoolName: string;
+  schoolProfileError: boolean;
+  onRetrySchoolProfile: () => void;
   confirmationText: string;
   onConfirmationTextChange: (value: string) => void;
   inviteRestoredUsers: boolean;
@@ -258,6 +262,8 @@ interface RestoreConfirmSlotProps {
 export function RestoreConfirmSlot({
   summary,
   expectedSchoolName,
+  schoolProfileError,
+  onRetrySchoolProfile,
   confirmationText,
   onConfirmationTextChange,
   inviteRestoredUsers,
@@ -295,6 +301,17 @@ export function RestoreConfirmSlot({
           )}
           <p className="text-sm text-muted-foreground">{t('restoreSnapshotFirst')}</p>
         </>
+      )}
+
+      {schoolProfileError && (
+        <div className="flex items-center gap-2">
+          <p role="alert" className="text-sm text-destructive">
+            {t('schoolProfileLoadFailed')}
+          </p>
+          <Button type="button" variant="ghost" onClick={onRetrySchoolProfile}>
+            {t('retry', { ns: 'common' })}
+          </Button>
+        </div>
       )}
 
       <div className="flex flex-col gap-1">
@@ -338,9 +355,35 @@ export function RestoreProgressPanel({
   const { t } = useTranslation('backup');
   const jobQuery = useBackupJob(jobId);
   const job = jobQuery.data;
+  const [downloadingSnapshot, setDownloadingSnapshot] = React.useState(false);
 
   async function handleDownloadSnapshot() {
-    await downloadBackup(snapshotJobId);
+    setDownloadingSnapshot(true);
+    try {
+      await downloadBackup(snapshotJobId);
+    } catch {
+      toast.error(t('downloadFailed'));
+    } finally {
+      setDownloadingSnapshot(false);
+    }
+  }
+
+  if (jobQuery.isError) {
+    return (
+      <Card className="flex flex-col gap-3 p-4">
+        <p role="alert" className="text-sm font-medium text-destructive">
+          {t('restoreProgressLoadFailed')}
+        </p>
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" onClick={() => void jobQuery.refetch()}>
+            {t('retry', { ns: 'common' })}
+          </Button>
+          <Button type="button" variant="ghost" onClick={onReset}>
+            {t('uploadAnother', { ns: 'bulkImport' })}
+          </Button>
+        </div>
+      </Card>
+    );
   }
 
   if (!job || job.status === 'QUEUED' || job.status === 'RUNNING') {
@@ -372,7 +415,12 @@ export function RestoreProgressPanel({
             </p>
           ))}
         <div>
-          <Button type="button" variant="outline" onClick={() => void handleDownloadSnapshot()}>
+          <Button
+            type="button"
+            variant="outline"
+            loading={downloadingSnapshot}
+            onClick={() => void handleDownloadSnapshot()}
+          >
             {t('downloadSnapshot')}
           </Button>
         </div>
@@ -399,7 +447,12 @@ export function RestoreProgressPanel({
         </p>
       )}
       <div>
-        <Button type="button" variant="outline" onClick={() => void handleDownloadSnapshot()}>
+        <Button
+          type="button"
+          variant="outline"
+          loading={downloadingSnapshot}
+          onClick={() => void handleDownloadSnapshot()}
+        >
           {t('downloadSnapshot')}
         </Button>
       </div>

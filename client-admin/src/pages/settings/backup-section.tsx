@@ -133,6 +133,13 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
         setDeepLinkError('failed');
         return;
       }
+      if (deepLinkJobQuery.data.status === 'DELETED') {
+        // A terminal status `useBackupJob` doesn't poll past — treat it the
+        // same as the 410 a stale/expired job's download hits.
+        deepLinkTriggered.current = true;
+        setDeepLinkError('expired');
+        return;
+      }
       if (deepLinkJobQuery.data.status !== 'DONE') {
         // Still QUEUED/RUNNING — `useBackupJob` keeps polling every 2s, so
         // leave `deepLinkTriggered` unset and let this effect re-run once
@@ -158,6 +165,7 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
   }, [backupJobId, jobsQuery.data]);
 
   function handleRequest() {
+    if (requestMutation.isPending) return;
     requestMutation.mutate(undefined, {
       onSuccess: () => toast.success(t('requestSuccessToast')),
       onError: () => toast.error(t('requestExportFailed')),

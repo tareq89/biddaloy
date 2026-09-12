@@ -30,6 +30,8 @@
   "downloading": "ডাউনলোড হচ্ছে…",
   "downloadFailed": "এই ব্যাকআপটি ডাউনলোড করা যায়নি। আবার চেষ্টা করুন।",
   "downloadExpired": "মেয়াদোত্তীর্ণ",
+  "schoolProfileLoadFailed": "আপনার স্কুলের নাম লোড করা যায়নি। এই রিস্টোর নিশ্চিত করতে এটি প্রয়োজন।",
+  "restoreProgressLoadFailed": "এই রিস্টোরের অগ্রগতি লোড করা যায়নি।",
   "failedReason": "ব্যর্থ হয়েছে: {{reason}}",
   "deepLinkExpired": "এই ব্যাকআপের মেয়াদ শেষ হয়ে গেছে — নতুন একটি ব্যাকআপ তৈরি করুন।",
   "progress": "কাজ চলছে… {{percent}}%",

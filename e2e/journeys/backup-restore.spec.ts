@@ -7,6 +7,7 @@ import {
   apiSession,
   type ApiSession,
   createStudent,
+  get,
   patch,
   provisionSchool,
   resendSchoolAdminInvitation,
@@ -170,6 +171,13 @@ test.describe.serial('backup and restore', () => {
     await expect(
       adminPage.getByRole('button', { name: t('backup.downloadSnapshot') }),
     ).toBeVisible();
+
+    const restoredStudent = await get<{ full_name: string }>(
+      request,
+      adminSession,
+      `/students/${studentId}`,
+    );
+    expect(restoredStudent.full_name).toBe(studentName);
   });
 
   test.describe('Leg D: a TEACHER reaches neither the API nor the UI', () => {
