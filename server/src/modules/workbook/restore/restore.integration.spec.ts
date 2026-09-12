@@ -259,7 +259,10 @@ describe('RestoreProcessor (integration)', () => {
     ]);
 
     const buffer = await buildWorkbook({
-      school: { id: TENANT_A, name: 'Restore Test School A (restored)' },
+      // The name is deliberately different from the DB's own — proves it is
+      // ignored (see school.tab.ts's upsert), not merely unchanged because
+      // the fixture happened to match.
+      school: { id: TENANT_A, name: 'Restore Test School A (should not apply)' },
       years: [
         {
           id: keptYearId,
@@ -303,7 +306,9 @@ describe('RestoreProcessor (integration)', () => {
     const school = await dataSource
       .getRepository(School)
       .findOneOrFail({ where: { id: TENANT_A } });
-    expect(school.name).toBe('Restore Test School A (restored)');
+    // `name` is exported but never applied by a restore — it's the
+    // destination's own identity (school.tab.ts's upsert).
+    expect(school.name).toBe('Restore Test School A');
   });
 
   it('never lets a workbook whose ids belong to tenant B change anything in tenant B', async () => {
