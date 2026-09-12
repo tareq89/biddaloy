@@ -43,12 +43,12 @@ describe('resolveTenantSettings', () => {
     });
 
     it(
-      'a same-typed but invalid stored value passes through unchanged — the resolver only ' +
-        "type-checks, it doesn't validate against the enum; BackupSettingsDto's @IsIn is what " +
-        'rejects this on write',
+      'a same-typed but invalid stored value falls back to the default — `overlayOnDefaults` ' +
+        'only type-checks, so this is the read-side guard for a row that bypassed ' +
+        "BackupSettingsDto's @IsIn on write",
       () => {
         expect(resolveTenantSettings({ backup: { schedule: 'NONSENSE' } }).backup?.schedule).toBe(
-          'NONSENSE',
+          DEFAULT_BACKUP_SETTINGS.schedule,
         );
       },
     );

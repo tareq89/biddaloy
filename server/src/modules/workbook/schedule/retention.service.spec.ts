@@ -63,10 +63,20 @@ describe('RetentionService', () => {
         }
         return rows;
       }),
-      update: vi.fn(async (id: string, patch: Partial<WorkbookJob>) => {
-        const row = jobs.find((j) => j.id === id);
-        if (row) Object.assign(row, patch);
-      }),
+      // Mirrors `Repository.update(criteria, patch)`: a string criteria is
+      // "by id"; an object criteria must match every key. Reports
+      // `affected` because `deleteRow` claims rows conditionally and
+      // branches on it.
+      update: vi.fn(
+        async (criteria: string | Partial<WorkbookJob>, patch: Partial<WorkbookJob>) => {
+          const matches =
+            typeof criteria === 'string'
+              ? jobs.filter((j) => j.id === criteria)
+              : jobs.filter((j) => Object.entries(criteria).every(([k, v]) => (j as any)[k] === v));
+          for (const row of matches) Object.assign(row, patch);
+          return { affected: matches.length };
+        },
+      ),
     };
     storage = { delete: vi.fn().mockResolvedValue(undefined) };
     audit = { record: vi.fn().mockResolvedValue(undefined) };
@@ -91,6 +101,65 @@ describe('RetentionService', () => {
     expect(jobs[0].status).toBe(WorkbookJobStatus.DONE);
     expect(storage.delete).not.toHaveBeenCalled();
     expect(audit.record).not.toHaveBeenCalled();
+  });
+
+  it('backs off without touching storage when the row is pinned between the pass reading it and the claim', async () => {
+    // The pin/retention race: `pruneExpired` loads the row unpinned, then a
+    // `PATCH /pin` lands before `deleteRow` runs. The conditional claim
+    // (`status = DONE AND pinned = false`) must match zero rows and leave
+    // both storage and the row alone — otherwise the user was just told a
+    // backup is safe that is about to be deleted.
+    const row = makeJob('raced-1', { expires_at: new Date('2020-01-01T00:00:00.000Z') });
+    jobs.push(row);
+    repo.find.mockImplementationOnce(async () => {
+      // Return the stale, unpinned snapshot the pass would have read...
+      const snapshot = { ...row, pinned: false };
+      // ...but the real row is pinned by the time the claim executes.
+      row.pinned = true;
+      return [snapshot];
+    });
+
+    await service.enforce(TENANT_ID, new Date('2026-01-15T00:00:00.000Z'));
+
+    expect(storage.delete).not.toHaveBeenCalled();
+    expect(row.status).toBe(WorkbookJobStatus.DONE);
+    expect(row.storage_key).not.toBeNull();
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+
+  it('claims the row before deleting storage, and puts it back to DONE if the storage delete fails', async () => {
+    jobs.push(makeJob('flaky-1', { expires_at: new Date('2020-01-01T00:00:00.000Z') }));
+    storage.delete.mockRejectedValueOnce(new Error('object store unreachable'));
+
+    await service.enforce(TENANT_ID, new Date('2026-01-15T00:00:00.000Z'));
+
+    // Released for the next sweep — not left DELETED with its object still
+    // in storage, and not left claimed so nothing can ever retry it.
+    expect(jobs[0].status).toBe(WorkbookJobStatus.DONE);
+    expect(jobs[0].storage_key).not.toBeNull();
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+
+  it('retries a failed BACKUP_DELETED audit write instead of losing it on the first transient error', async () => {
+    vi.useFakeTimers();
+    try {
+      jobs.push(makeJob('audited-1', { expires_at: new Date('2020-01-01T00:00:00.000Z') }));
+      audit.record
+        .mockRejectedValueOnce(new Error('audit db down'))
+        .mockResolvedValueOnce(undefined);
+
+      const run = service.enforce(TENANT_ID, new Date('2026-01-15T00:00:00.000Z'));
+      await vi.runAllTimersAsync();
+      await run;
+
+      expect(jobs[0].status).toBe(WorkbookJobStatus.DELETED);
+      expect(audit.record).toHaveBeenCalledTimes(2);
+      expect(audit.record).toHaveBeenLastCalledWith(
+        expect.objectContaining({ action: AuditAction.BACKUP_DELETED, entity_id: 'audited-1' }),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('deletes an unpinned job whose expires_at is in the past and audits BACKUP_DELETED', async () => {

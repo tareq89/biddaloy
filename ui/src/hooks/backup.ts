@@ -290,8 +290,13 @@ export function usePinBackupJob() {
       return res.data;
     },
     retry: false,
-    onSuccess: () => {
+    // Both keys: the list is what the Settings table renders, but a
+    // mounted `useBackupJob(id)` detail (a terminal job has stopped
+    // polling, so nothing else would refresh it) would otherwise keep
+    // showing the old `pinned` value.
+    onSuccess: (_job, { id }) => {
       void queryClient.invalidateQueries({ queryKey: backupKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: backupKeys.detail(id) });
     },
   });
 }

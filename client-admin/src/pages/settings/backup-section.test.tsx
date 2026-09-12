@@ -342,6 +342,73 @@ describe('BackupSection', () => {
     );
   });
 
+  it("a SUPER_ADMIN never fetches a school's settings from this section, and sees no schedule control", async () => {
+    // Regression: this section used to call `useSchoolSettings(activeTenant)`
+    // unconditionally. For a SUPER_ADMIN the active tenant is the platform
+    // tenant, so the Settings page fired `GET /schools/<platform>/settings`
+    // before any school was picked — and would have let them edit the
+    // platform tenant's own backup schedule from a page with no school
+    // selected. `SchoolSettingsPage.test.tsx`'s "does not request settings
+    // before a school is selected" is what caught it.
+    const getSettings = vi.fn();
+    server.use(
+      http.get('/api/v1/backup/jobs', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
+      ),
+      http.get('/api/v1/schools/:id/settings', ({ params }) => {
+        getSettings(params.id);
+        return HttpResponse.json({ version: 1, region: {}, backup: { schedule: 'WEEKLY' } });
+      }),
+    );
+
+    renderWithProviders(<BackupSection />, {
+      locale: 'en',
+      role: 'SUPER_ADMIN',
+      tenantId: SCHOOL_ID,
+    });
+
+    // The job list still renders — that part is what the `?backup=` deep
+    // link needs and is unaffected.
+    expect(await screen.findByText('No backups yet')).toBeTruthy();
+    expect(screen.queryByLabelText('Automatic backup schedule')).toBeNull();
+    expect(getSettings).not.toHaveBeenCalled();
+  });
+
+  it('disables the schedule select while a save is in flight, so two quick selections cannot land out of order', async () => {
+    server.use(
+      http.get('/api/v1/backup/jobs', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
+      ),
+    );
+    let releasePatch: () => void = () => undefined;
+    server.use(
+      http.patch('/api/v1/schools/:id/settings', async ({ request }) => {
+        const body = (await request.json()) as { backup?: { schedule: string } };
+        await new Promise<void>((resolve) => {
+          releasePatch = resolve;
+        });
+        return HttpResponse.json({ version: 1, region: {}, backup: body.backup });
+      }),
+    );
+
+    const { user } = renderWithProviders(<BackupSection />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: SCHOOL_ID,
+    });
+
+    const select = await screen.findByLabelText<HTMLSelectElement>('Automatic backup schedule');
+    await waitFor(() => expect(select.disabled).toBe(false));
+    await user.selectOptions(select, 'WEEKLY');
+
+    // `SchoolsService.updateSettings` has no request-order check, so an
+    // older PATCH could persist after a newer one — the only defence is
+    // not letting a second selection start until the first settles.
+    await waitFor(() => expect(select.disabled).toBe(true));
+    releasePatch();
+    await waitFor(() => expect(select.disabled).toBe(false));
+  });
+
   it("toggling a job's pin calls PATCH /backup/jobs/:id/pin", async () => {
     let pinnedSent: boolean | undefined;
     server.use(

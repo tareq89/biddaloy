@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { Not } from 'typeorm';
 import {
   ConflictException,
   GoneException,
@@ -51,6 +52,7 @@ describe('WorkbookController', () => {
     findAndCount: ReturnType<typeof vi.fn>;
     findOne: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
+    exists: ReturnType<typeof vi.fn>;
     createQueryBuilder: ReturnType<typeof vi.fn>;
   };
   let storage: { get: ReturnType<typeof vi.fn> };
@@ -73,6 +75,7 @@ describe('WorkbookController', () => {
       findAndCount: vi.fn(),
       findOne: vi.fn(),
       update: vi.fn(),
+      exists: vi.fn(),
       createQueryBuilder: vi.fn(() => makeQueryBuilder('0')),
     };
     storage = { get: vi.fn() };
@@ -154,28 +157,49 @@ describe('WorkbookController', () => {
 
   describe('pin', () => {
     it('throws NotFoundException when the job does not exist in this tenant', async () => {
-      jobsRepo.findOne.mockResolvedValue(null);
+      jobsRepo.update.mockResolvedValue({ affected: 0 });
+      jobsRepo.exists.mockResolvedValue(false);
 
       await expect(controller.pin('missing', { pinned: true }, tenant)).rejects.toBeInstanceOf(
         NotFoundException,
       );
     });
 
-    it('updates pinned and returns the mapped dto', async () => {
-      jobsRepo.findOne.mockResolvedValue(makeJob({ id: 'job-9', pinned: false }));
+    it('throws GoneException when the job exists but retention already claimed it (no row matched the conditional update)', async () => {
+      // The race this guards: the row was DONE when the user clicked, and
+      // `RetentionService.deleteRow` flipped it to DELETED before this
+      // request's update ran — a 200 here would be a lie.
+      jobsRepo.update.mockResolvedValue({ affected: 0 });
+      jobsRepo.exists.mockResolvedValue(true);
+
+      await expect(controller.pin('job-9', { pinned: true }, tenant)).rejects.toBeInstanceOf(
+        GoneException,
+      );
+    });
+
+    it('updates pinned through a conditional update scoped to tenant and non-DELETED status, and returns the mapped dto', async () => {
+      jobsRepo.update.mockResolvedValue({ affected: 1 });
+      jobsRepo.findOne.mockResolvedValue(makeJob({ id: 'job-9', pinned: true }));
 
       const result = await controller.pin('job-9', { pinned: true }, tenant);
 
-      expect(jobsRepo.update).toHaveBeenCalledWith('job-9', { pinned: true });
+      expect(jobsRepo.update).toHaveBeenCalledWith(
+        { id: 'job-9', tenant_id: 'tenant-1', status: Not(WorkbookJobStatus.DELETED) },
+        { pinned: true },
+      );
       expect(result.pinned).toBe(true);
     });
 
     it('can unpin', async () => {
-      jobsRepo.findOne.mockResolvedValue(makeJob({ id: 'job-9', pinned: true }));
+      jobsRepo.update.mockResolvedValue({ affected: 1 });
+      jobsRepo.findOne.mockResolvedValue(makeJob({ id: 'job-9', pinned: false }));
 
       const result = await controller.pin('job-9', { pinned: false }, tenant);
 
-      expect(jobsRepo.update).toHaveBeenCalledWith('job-9', { pinned: false });
+      expect(jobsRepo.update).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'job-9', tenant_id: 'tenant-1' }),
+        { pinned: false },
+      );
       expect(result.pinned).toBe(false);
     });
   });

@@ -65,11 +65,14 @@ export class BackupScheduleService {
   }
 
   /** Full sweep, run on boot and hourly (C4). One broken school never
-   * aborts the rest. */
+   * aborts the rest. Every school is visited, not just ACTIVE ones:
+   * `sync()` removes a non-ACTIVE school's scheduler, and nothing else
+   * does — `SchoolsService.updateStatus` has no hook here (see the
+   * class comment), so this hourly pass is what stops a suspended school's
+   * scheduler from lingering until its own next tick (a week, for WEEKLY). */
   async syncAll(): Promise<void> {
     const schools = await this.schools.findAll();
     for (const school of schools) {
-      if (school.status !== 'ACTIVE') continue;
       try {
         await this.sync(school.id);
       } catch (err) {

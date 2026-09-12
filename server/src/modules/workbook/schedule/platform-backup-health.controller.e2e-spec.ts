@@ -16,8 +16,10 @@ import { UserRole } from '@biddaloy/shared';
 
 /**
  * [14.12.3/#617] E2E for `GET /platform/backups/health`: SUPER_ADMIN only
- * (403 for ADMIN), and the "never backed up" row for a school with no
- * export job.
+ * (401 for ADMIN — `RolesGuard` answers a role mismatch with 401, not 403,
+ * see #729), 401 without an `X-Tenant-ID` (the route keeps the same guard
+ * chain as `/schools`, see the controller comment), and the "never backed
+ * up" row for a school with no export job.
  */
 describe('Platform Backup Health E2E', () => {
   let app: INestApplication;
@@ -95,6 +97,13 @@ describe('Platform Backup Health E2E', () => {
 
   it('rejects no token with 401', async () => {
     await supertest(app.getHttpServer()).get('/api/v1/platform/backups/health').expect(401);
+  });
+
+  it('rejects a SUPER_ADMIN with no X-Tenant-ID with 401 — same contract as /schools', async () => {
+    await supertest(app.getHttpServer())
+      .get('/api/v1/platform/backups/health')
+      .set('Authorization', `Bearer ${superAdminToken}`)
+      .expect(401);
   });
 
   it('allows SUPER_ADMIN and returns one row per school, including a "never backed up" row', async () => {

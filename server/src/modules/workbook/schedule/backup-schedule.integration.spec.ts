@@ -95,6 +95,15 @@ describe('BackupScheduleService (integration, real Redis + DB)', () => {
     // The whole test database is dropped and re-migrated per `vitest run`
     // invocation (`test/global-setup.ts`), so this is not a real leak —
     // just don't attempt the delete.
+    // `runNow` enqueued onto the SHARED `WORKBOOK_EXPORT_QUEUE`. Remove
+    // this tenant's leftover jobs before dropping their rows — closing the
+    // connection alone leaves them in Redis for `ExportProcessor` to pick
+    // up with no matching row. Scoped to this tenant, not `drain()`: the
+    // queue is shared with every other suite on the same Redis.
+    const leftover = await exportQueue.getJobs(['waiting', 'delayed', 'prioritized']);
+    for (const job of leftover) {
+      if (job.data?.tenantId === TENANT) await job.remove();
+    }
     await dataSource.getRepository(WorkbookJob).delete({ tenant_id: TENANT });
     await scheduleQueue.obliterate({ force: true });
     await scheduleQueue.close();
@@ -157,7 +166,7 @@ describe('BackupScheduleService (integration, real Redis + DB)', () => {
     // equals the row it just created, on the export queue's real
     // processor-visible shape.
     const waiting = await exportQueue.getJobs(
-      ['waiting', 'delayed', 'active', 'completed', 'failed', 'paused'],
+      ['waiting', 'delayed', 'active', 'completed', 'failed'],
       0,
       50,
     );

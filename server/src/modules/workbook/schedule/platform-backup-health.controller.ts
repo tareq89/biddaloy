@@ -15,11 +15,15 @@ import {
 } from './dto/platform-backup-health.dto';
 
 /**
- * [14.12.3/#617] `GET /platform/backups/health` — SUPER_ADMIN only, no
- * tenant context (this reads across every school, not one tenant's data,
- * so it deliberately skips `@ApiTenantAuth()`/`ContextGuard`/
- * `PermissionsGuard` — same shape as `SchoolsController.list`, the other
- * cross-tenant SUPER_ADMIN route, which is `@Roles`-only too).
+ * [14.12.3/#617] `GET /platform/backups/health` — SUPER_ADMIN only. It
+ * reads across every school rather than one tenant's data, but it still
+ * runs the same guard chain as `SchoolsController` (the other cross-tenant
+ * SUPER_ADMIN surface): `ContextGuard` requires *some* `X-Tenant-ID` to
+ * build `request.currentTenant` for `RolesGuard`, and never applies that
+ * tenant's suspension check to a SUPER_ADMIN (see `ContextGuard`'s own
+ * comment) — so the caller's own tenant id is the expected value and has
+ * no bearing on which schools this reports. Sending no header is a 401,
+ * pinned by the e2e spec.
  *
  * One row per school: its current `backup.schedule` setting, the most
  * recent EXPORT job's outcome, the most recent *successful* EXPORT's

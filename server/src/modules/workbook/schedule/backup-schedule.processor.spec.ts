@@ -4,6 +4,7 @@ import {
   BACKUP_SCHEDULE_RECONCILE_ID,
   BACKUP_SCHEDULE_RECONCILE_INTERVAL_MS,
   BACKUP_SCHEDULE_RECONCILE_JOB,
+  BACKUP_SCHEDULE_RECONCILE_RETRY_MS,
   BACKUP_SCHEDULE_RUN_JOB,
 } from './backup-schedule.constants';
 
@@ -73,6 +74,45 @@ describe('BackupScheduleProcessor', () => {
       service.syncAll.mockRejectedValue(new Error('db down'));
 
       await expect(processor.onModuleInit()).resolves.toBeUndefined();
+    });
+
+    it('retries a failed reconcile-scheduler registration instead of giving up for the life of the process', async () => {
+      vi.useFakeTimers();
+      try {
+        queue.upsertJobScheduler
+          .mockRejectedValueOnce(new Error('redis down'))
+          .mockResolvedValueOnce(undefined);
+
+        await processor.onModuleInit();
+        expect(queue.upsertJobScheduler).toHaveBeenCalledTimes(1);
+
+        await vi.advanceTimersByTimeAsync(BACKUP_SCHEDULE_RECONCILE_RETRY_MS);
+
+        expect(queue.upsertJobScheduler).toHaveBeenCalledTimes(2);
+        expect(queue.upsertJobScheduler).toHaveBeenLastCalledWith(
+          BACKUP_SCHEDULE_RECONCILE_ID,
+          { every: BACKUP_SCHEDULE_RECONCILE_INTERVAL_MS },
+          expect.objectContaining({ name: BACKUP_SCHEDULE_RECONCILE_JOB }),
+        );
+      } finally {
+        processor.onModuleDestroy();
+        vi.useRealTimers();
+      }
+    });
+
+    it('onModuleDestroy cancels a pending registration retry', async () => {
+      vi.useFakeTimers();
+      try {
+        queue.upsertJobScheduler.mockRejectedValue(new Error('redis down'));
+        await processor.onModuleInit();
+
+        processor.onModuleDestroy();
+        await vi.advanceTimersByTimeAsync(BACKUP_SCHEDULE_RECONCILE_RETRY_MS * 3);
+
+        expect(queue.upsertJobScheduler).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 });

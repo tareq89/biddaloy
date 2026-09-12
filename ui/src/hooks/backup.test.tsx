@@ -12,6 +12,7 @@ import {
   downloadBackup,
   useBackupJob,
   useBackupJobs,
+  usePinBackupJob,
   useRequestBackup,
   useRestoreBackup,
   useValidateBackup,
@@ -126,6 +127,36 @@ describe('useBackupJob polling', () => {
     await new Promise((resolve) => setTimeout(resolve, 2500));
     expect(requestCount).toBe(countAfterDone);
   }, 10000);
+});
+
+describe('usePinBackupJob', () => {
+  it("invalidates both the job list and that job's detail after a successful pin", async () => {
+    // A terminal job's `useBackupJob(id)` has stopped polling, so nothing
+    // else would ever refresh its `pinned` — invalidating only the list
+    // left a mounted detail view showing the old value.
+    const queryClient = createTestQueryClient();
+    queryClient.setQueryData(backupKeys.list({}), { data: [], total: 0 });
+    queryClient.setQueryData(backupKeys.detail('job-1'), { id: 'job-1', pinned: false });
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    server.use(
+      http.patch('/api/v1/backup/jobs/:id/pin', ({ params }) =>
+        HttpResponse.json({ id: params.id, pinned: true }),
+      ),
+    );
+
+    const { result } = renderHookWithProviders(() => usePinBackupJob(), {
+      queryClient,
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+    });
+
+    await act(async () => {
+      await result.current.mutateAsync({ id: 'job-1', pinned: true });
+    });
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: backupKeys.lists() });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: backupKeys.detail('job-1') });
+  });
 });
 
 describe('useRequestBackup', () => {

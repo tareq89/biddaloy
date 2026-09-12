@@ -476,6 +476,27 @@ describe('Workbook Backup E2E', () => {
       const rows = await dataSource.query(`SELECT status FROM workbook_jobs WHERE id = $1`, [id]);
       expect(rows[0].status).toBe('DELETED');
     });
+
+    it('410s for a job retention has already removed, and never resurrects it as pinned', async () => {
+      // The other half of the claim protocol in `RetentionService.deleteRow`:
+      // once a row is DELETED, a pin must fail rather than report success.
+      const id = await insertJob(TENANT_ID);
+      await dataSource.query(`UPDATE workbook_jobs SET status = 'DELETED' WHERE id = $1`, [id]);
+
+      await supertest(app.getHttpServer())
+        .patch(`/api/v1/backup/jobs/${id}/pin`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ pinned: true })
+        .expect(410);
+
+      const rows = await dataSource.query(
+        `SELECT status, pinned FROM workbook_jobs WHERE id = $1`,
+        [id],
+      );
+      expect(rows[0].status).toBe('DELETED');
+      expect(rows[0].pinned).toBe(false);
+    });
   });
 
   describe('GET /backup/jobs storage_total_bytes', () => {

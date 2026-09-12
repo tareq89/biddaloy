@@ -115,7 +115,7 @@ describe('BackupScheduleService', () => {
   });
 
   describe('syncAll', () => {
-    it('visits only ACTIVE schools, and a school whose sync throws does not stop the rest', async () => {
+    it("visits every school — removing a SUSPENDED one's scheduler — and a school whose sync throws does not stop the rest", async () => {
       schools.findAll.mockResolvedValue([
         { id: 'active-1', status: 'ACTIVE' },
         { id: 'suspended-1', status: 'SUSPENDED' },
@@ -123,13 +123,21 @@ describe('BackupScheduleService', () => {
       ]);
       schools.findById.mockImplementation(async (id: string) => {
         if (id === 'active-1') throw new Error('boom');
+        if (id === 'suspended-1') return { id, status: 'SUSPENDED' };
         return { id, status: 'ACTIVE' };
       });
 
       await service.syncAll();
 
-      // suspended-1 is filtered out before findById is even attempted.
-      expect(schools.findById).not.toHaveBeenCalledWith('suspended-1');
+      // suspended-1 is NOT skipped: `SchoolsService.updateStatus` never
+      // calls sync(), so this hourly pass is the only thing that removes a
+      // suspended school's scheduler before its own next tick.
+      expect(queue.removeJobScheduler).toHaveBeenCalledWith(schedulerIdFor('suspended-1'));
+      expect(queue.upsertJobScheduler).not.toHaveBeenCalledWith(
+        schedulerIdFor('suspended-1'),
+        expect.anything(),
+        expect.anything(),
+      );
       // active-2 still gets processed despite active-1 throwing.
       expect(queue.upsertJobScheduler).toHaveBeenCalledWith(
         schedulerIdFor('active-2'),

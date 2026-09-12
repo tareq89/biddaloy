@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job, Queue } from 'bullmq';
 import * as Sentry from '@sentry/node';
@@ -8,6 +8,7 @@ import {
   BACKUP_SCHEDULE_RECONCILE_ID,
   BACKUP_SCHEDULE_RECONCILE_INTERVAL_MS,
   BACKUP_SCHEDULE_RECONCILE_JOB,
+  BACKUP_SCHEDULE_RECONCILE_RETRY_MS,
   BACKUP_SCHEDULE_RUN_JOB,
   BackupScheduleJobData,
 } from './backup-schedule.constants';
@@ -25,7 +26,7 @@ import {
  */
 @Injectable()
 @Processor(BACKUP_SCHEDULE_QUEUE, { concurrency: 1 })
-export class BackupScheduleProcessor extends WorkerHost implements OnModuleInit {
+export class BackupScheduleProcessor extends WorkerHost implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(BackupScheduleProcessor.name);
 
   constructor(
@@ -35,28 +36,15 @@ export class BackupScheduleProcessor extends WorkerHost implements OnModuleInit 
     super();
   }
 
+  private reconcileRetry?: NodeJS.Timeout;
+
   async onModuleInit(): Promise<void> {
     // Redis or the DB being briefly unavailable at boot must not stop the
-    // server from starting — the hourly reconciler tick will catch up.
-    // Both the scheduler registration and the initial sync are covered:
-    // an unguarded upsertJobScheduler would otherwise reject onModuleInit
-    // and fail the whole app bootstrap over a transient Redis hiccup.
-    try {
-      await this.queue.upsertJobScheduler(
-        BACKUP_SCHEDULE_RECONCILE_ID,
-        { every: BACKUP_SCHEDULE_RECONCILE_INTERVAL_MS },
-        {
-          name: BACKUP_SCHEDULE_RECONCILE_JOB,
-          opts: { removeOnComplete: true, removeOnFail: 100 },
-        },
-      );
-    } catch (err) {
-      this.logger.error(
-        `BackupScheduleProcessor: failed to register reconcile scheduler: ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-      );
-    }
+    // server from starting. Both the scheduler registration and the
+    // initial sync are covered: an unguarded upsertJobScheduler would
+    // otherwise reject onModuleInit and fail the whole app bootstrap over
+    // a transient Redis hiccup.
+    await this.registerReconciler();
 
     try {
       await this.service.syncAll();
@@ -66,6 +54,39 @@ export class BackupScheduleProcessor extends WorkerHost implements OnModuleInit 
           err instanceof Error ? err.message : String(err)
         }`,
       );
+    }
+  }
+
+  onModuleDestroy(): void {
+    if (this.reconcileRetry) clearTimeout(this.reconcileRetry);
+  }
+
+  /** The hourly reconciler is the safety net for every other drift in this
+   * module (C4), so its own registration can't be fire-and-forget: if the
+   * upsert fails at boot, nothing else ever re-registers it and this
+   * process runs with no reconciler for its whole life. Retry until it
+   * lands; `unref()` so a pending retry never keeps the process alive. */
+  private async registerReconciler(): Promise<void> {
+    try {
+      await this.queue.upsertJobScheduler(
+        BACKUP_SCHEDULE_RECONCILE_ID,
+        { every: BACKUP_SCHEDULE_RECONCILE_INTERVAL_MS },
+        {
+          name: BACKUP_SCHEDULE_RECONCILE_JOB,
+          opts: { removeOnComplete: true, removeOnFail: 100 },
+        },
+      );
+      this.reconcileRetry = undefined;
+    } catch (err) {
+      this.logger.error(
+        `BackupScheduleProcessor: failed to register reconcile scheduler, retrying in ${
+          BACKUP_SCHEDULE_RECONCILE_RETRY_MS
+        }ms: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      this.reconcileRetry = setTimeout(() => {
+        void this.registerReconciler();
+      }, BACKUP_SCHEDULE_RECONCILE_RETRY_MS);
+      this.reconcileRetry.unref();
     }
   }
 

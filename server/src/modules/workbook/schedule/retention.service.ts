@@ -25,6 +25,11 @@ export const SNAPSHOT_RETENTION_DAYS = 30;
  * until back under it. */
 export const STORAGE_CAP_BYTES = 500 * 1024 * 1024;
 
+/** See `recordDeletion` — how hard to try before a BACKUP_DELETED audit
+ * row is given up on. */
+export const AUDIT_WRITE_ATTEMPTS = 3;
+export const AUDIT_WRITE_RETRY_MS = 200;
+
 /**
  * [14.12.2] Retention, pinning and the per-tenant storage cap.
  *
@@ -135,53 +140,87 @@ export class RetentionService {
     }
   }
 
-  /** Returns whether the row was actually deleted (storage delete + status
-   * flip). A storage-side failure returns `false` and leaves the row DONE
-   * so the next `enforce()` retries it. */
+  /** Returns whether the row was actually deleted (claim + storage delete +
+   * status flip). A storage-side failure returns `false` and puts the row
+   * back to DONE so the next `enforce()` retries it.
+   *
+   * The claim is the whole point: `PATCH /backup/jobs/:id/pin` and this
+   * sweep both start from a snapshot read, so without it the two can
+   * interleave as "sweep reads unpinned -> user pins, 200 OK -> sweep
+   * deletes storage" and the user is told a backup is safe that is gone.
+   * Flipping to DELETED with `status = DONE AND pinned = false` as the
+   * predicate makes the row the single source of truth: whichever of the
+   * two conditional updates lands second matches zero rows and backs off
+   * (`pin()` answers 410 in that case). */
   private async deleteRow(row: WorkbookJob): Promise<boolean> {
+    const claim = await this.jobs.update(
+      { id: row.id, status: WorkbookJobStatus.DONE, pinned: false },
+      { status: WorkbookJobStatus.DELETED },
+    );
+    if (!claim.affected) {
+      // Pinned (or otherwise changed) since this pass loaded it.
+      return false;
+    }
+
     if (row.storage_key) {
       try {
         await this.storage.delete(row.storage_key);
       } catch (err) {
-        // Never let a storage-side failure abort the sweep — the row is
-        // left as-is and picked up again on the next enforce() call.
+        // Never let a storage-side failure abort the sweep — release the
+        // claim so the next enforce() call picks the row up again.
         this.logger.error(
           `RetentionService: storage delete failed for job ${row.id} (tenant ${row.tenant_id}): ${
             err instanceof Error ? err.message : String(err)
           }`,
         );
+        await this.jobs.update(
+          { id: row.id, status: WorkbookJobStatus.DELETED },
+          { status: WorkbookJobStatus.DONE },
+        );
         return false;
       }
     }
 
-    await this.jobs.update(row.id, {
-      status: WorkbookJobStatus.DELETED,
-      storage_key: null,
-    });
-
-    try {
-      await this.audit.record({
-        action: AuditAction.BACKUP_DELETED,
-        entity_type: 'School',
-        entity_id: row.id,
-        tenant_id: row.tenant_id,
-        performed_by_user_id: null,
-        new_values: {
-          event: 'BACKUP_DELETED',
-          workbook_job_id: row.id,
-          kind: row.kind,
-          source: row.source,
-          size_bytes: row.size_bytes,
-        },
-      });
-    } catch (err) {
-      this.logger.error(
-        `RetentionService: audit write failed for job ${row.id}: ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-      );
-    }
-
+    await this.jobs.update(row.id, { storage_key: null });
+    await this.recordDeletion(row);
     return true;
+  }
+
+  /** The BACKUP_DELETED audit row is the only durable record that retention
+   * (not a person) removed a backup, and by the time it is written the row
+   * is already DELETED — so a later sweep will never revisit it. A single
+   * transient failure must therefore not lose it: retry with a short
+   * backoff before giving up loudly. */
+  private async recordDeletion(row: WorkbookJob): Promise<void> {
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= AUDIT_WRITE_ATTEMPTS; attempt += 1) {
+      try {
+        await this.audit.record({
+          action: AuditAction.BACKUP_DELETED,
+          entity_type: 'School',
+          entity_id: row.id,
+          tenant_id: row.tenant_id,
+          performed_by_user_id: null,
+          new_values: {
+            event: 'BACKUP_DELETED',
+            workbook_job_id: row.id,
+            kind: row.kind,
+            source: row.source,
+            size_bytes: row.size_bytes,
+          },
+        });
+        return;
+      } catch (err) {
+        lastError = err;
+        if (attempt < AUDIT_WRITE_ATTEMPTS) {
+          await new Promise((resolve) => setTimeout(resolve, AUDIT_WRITE_RETRY_MS * attempt));
+        }
+      }
+    }
+    this.logger.error(
+      `RetentionService: audit write failed for job ${row.id} after ${AUDIT_WRITE_ATTEMPTS} attempts: ${
+        lastError instanceof Error ? lastError.message : String(lastError)
+      }`,
+    );
   }
 }

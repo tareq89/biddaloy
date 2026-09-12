@@ -12,6 +12,7 @@ import {
   downloadBackup,
   useBackupJob,
   useBackupJobs,
+  useActiveRole,
   useHasPermission,
   usePinBackupJob,
   useRequestBackup,
@@ -98,11 +99,18 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
   const requestMutation = useRequestBackup();
   const pinMutation = usePinBackupJob();
 
-  // [14.12.3/#617] Always the caller's own active tenant — same
-  // reasoning as this component's own header comment on why it doesn't
-  // take a `schoolId` prop: there is no SUPER_ADMIN school picker in
-  // front of this section.
-  const schoolId = getActiveTenant() ?? '';
+  // [14.12.3/#617] The schedule control edits the caller's own tenant's
+  // `backup.schedule` — there is no SUPER_ADMIN school picker in front of
+  // this section (see the header comment on why it takes no `schoolId`).
+  // For a SUPER_ADMIN that "own tenant" is the platform tenant, and this
+  // page's picker hasn't chosen a school yet, so there is no sensible
+  // target: pass `''` so `useSchoolSettings` stays disabled (its own
+  // `enabled: Boolean(schoolId)` guard) rather than fetching — and later
+  // silently editing — the platform tenant's schedule, and don't render
+  // the control at all. The job list/download below is unaffected; it is
+  // what the `?backup=<jobId>` deep link needs, not this setting.
+  const isSuperAdmin = useActiveRole() === 'SUPER_ADMIN';
+  const schoolId = isSuperAdmin ? '' : (getActiveTenant() ?? '');
   const settingsQuery = useSchoolSettings(schoolId);
   const updateSettings = useUpdateSchoolSettings(schoolId);
   const schedule = settingsQuery.data?.backup?.schedule ?? 'OFF';
@@ -344,26 +352,29 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
 
       {/* [14.12.3/#617] No immediate-resync mechanism (D10/D11) — the copy
           below deliberately never implies the new schedule is already
-          running; the hourly reconciler (#615) is the only resync path. */}
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="backup-schedule" className="text-sm font-medium">
-          {t('scheduleLabel')}
-        </label>
-        <select
-          id="backup-schedule"
-          className="h-8 w-fit rounded-md border border-input bg-card px-2.5 text-sm"
-          value={schedule}
-          disabled={!settingsQuery.data}
-          onChange={(event) =>
-            handleScheduleChange(event.target.value as 'OFF' | 'WEEKLY' | 'DAILY')
-          }
-        >
-          <option value="OFF">{t('scheduleOff')}</option>
-          <option value="WEEKLY">{t('scheduleWeekly')}</option>
-          <option value="DAILY">{t('scheduleDaily')}</option>
-        </select>
-        <p className="text-xs text-muted-foreground">{t('scheduleHint')}</p>
-      </div>
+          running; the hourly reconciler (#615) is the only resync path.
+          Hidden for a SUPER_ADMIN — see `isSuperAdmin` above. */}
+      {!isSuperAdmin && (
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="backup-schedule" className="text-sm font-medium">
+            {t('scheduleLabel')}
+          </label>
+          <select
+            id="backup-schedule"
+            className="h-8 w-fit rounded-md border border-input bg-card px-2.5 text-sm"
+            value={schedule}
+            disabled={!settingsQuery.data || updateSettings.isPending}
+            onChange={(event) =>
+              handleScheduleChange(event.target.value as 'OFF' | 'WEEKLY' | 'DAILY')
+            }
+          >
+            <option value="OFF">{t('scheduleOff')}</option>
+            <option value="WEEKLY">{t('scheduleWeekly')}</option>
+            <option value="DAILY">{t('scheduleDaily')}</option>
+          </select>
+          <p className="text-xs text-muted-foreground">{t('scheduleHint')}</p>
+        </div>
+      )}
 
       <p className="text-sm text-muted-foreground">
         {t('storageUsed', {
