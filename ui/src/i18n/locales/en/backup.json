@@ -111,5 +111,6 @@
   "restoreDoneCounts": "{{tab}}: {{count}} records",
   "downloadSnapshot": "Download pre-restore snapshot",
   "restoreFailedTab": "The restore stopped at {{tab}}",
+  "restoreFailedGeneric": "The restore failed",
   "restoreFailedUndo": "The tabs before {{tab}} were applied — restore the snapshot to go back"
 }

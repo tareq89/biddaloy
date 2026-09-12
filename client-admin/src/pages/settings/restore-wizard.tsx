@@ -1,10 +1,4 @@
-import {
-  BulkUploadPreview,
-  Button,
-  Card,
-  Checkbox,
-  Input,
-} from '@biddaloy/ui/components';
+import { BulkUploadPreview, Button, Card, Checkbox, Input } from '@biddaloy/ui/components';
 import {
   downloadBackup,
   downloadValidationErrorsCsv,
@@ -50,9 +44,9 @@ export function RestoreWizard() {
   // result here, purely to feed the confirm-gate copy and the commit
   // payload. `BulkUploadPreview` remains the single source of truth for
   // which *screen* is showing.
-  const [latestResult, setLatestResult] = React.useState<
-    PreviewResult<RestoreSummary> | undefined
-  >(undefined);
+  const [latestResult, setLatestResult] = React.useState<PreviewResult<RestoreSummary> | undefined>(
+    undefined,
+  );
   const [confirmationText, setConfirmationText] = React.useState('');
   const [inviteRestoredUsers, setInviteRestoredUsers] = React.useState(false);
 
@@ -263,22 +257,16 @@ export function RestoreConfirmSlot({
   const schoolName = result?.summary.school_name ?? '';
 
   React.useEffect(() => {
-    // Deferred a macrotask, not called synchronously: `BulkUploadPreview`
-    // itself has a mount effect ("new preview → a released confirm-slot
-    // hold") that unconditionally calls the very same `setBlocked(false)`
-    // whenever a fresh preview appears — including this component's own
-    // first mount. Passive effects fire child-before-parent within one
-    // commit, so a plain `useEffect` here loses that race: this slot's
-    // `setBlocked(true)` would run, then the parent's reset effect would
-    // immediately overwrite it back to `false` in the same flush, leaving
-    // Confirm wrongly enabled before anyone has typed anything.
-    // `setTimeout(0)` runs in the next macrotask, strictly after that
-    // synchronous effect flush completes, so this always has the last
-    // word.
-    const id = window.setTimeout(() => {
-      setBlocked(confirmationText.trim() !== schoolName);
-    }, 0);
-    return () => window.clearTimeout(id);
+    // Fail closed. `BulkUploadPreview` holds Confirm by default for any
+    // consumer that supplies a `confirmSlot`, so this effect can only ever
+    // *release* the hold — and it releases on nothing less than an exact,
+    // trimmed match against the school name the session's own validate
+    // response carries (never `source_school_name`, the name read out of
+    // the uploaded workbook). A missing or blank `school_name` therefore
+    // keeps Confirm disabled rather than making the gate satisfiable by an
+    // empty box.
+    const target = schoolName.trim();
+    setBlocked(target.length === 0 || confirmationText.trim() !== target);
   }, [confirmationText, schoolName, setBlocked]);
 
   if (!result) return null;
@@ -377,7 +365,9 @@ export function RestoreProgressPanel({
         <p role="alert" className="text-sm font-medium text-destructive">
           {job.failed_tab
             ? t('restoreFailedTab', { tab: tabLabel(t, job.failed_tab) })
-            : t('failed')}
+            : // Not `t('failed')` — that key reads "Backup failed", which is
+              // the wrong noun on a restore panel.
+              t('restoreFailedGeneric')}
         </p>
         {job.error_message && <p className="text-sm">{job.error_message}</p>}
         {job.failed_tab && (

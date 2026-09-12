@@ -97,6 +97,21 @@ describe('BulkUploadPreview', () => {
     expect(confirmButton.hasAttribute('disabled')).toBe(true);
   });
 
+  it('holds Confirm disabled from the first render whenever a confirmSlot is supplied', async () => {
+    // Fail closed: a consumer that supplies a confirmSlot is gating Confirm
+    // on something only the slot knows (the restore wizard's typed school
+    // name), so Confirm must never be clickable in the window between the
+    // preview rendering and the slot's own effect running.
+    const validate = vi.fn().mockResolvedValue(baseResult());
+    await renderPreview({ validate, confirmSlot: () => null });
+
+    await selectFile();
+    const confirmButton = await screen.findByRole('button', { name: 'Confirm' });
+    expect(confirmButton.hasAttribute('disabled')).toBe(true);
+    // And it stays held — nothing released it.
+    await waitFor(() => expect(confirmButton.hasAttribute('disabled')).toBe(true));
+  });
+
   it('confirmSlot calling setBlocked(true) disables Confirm; false re-enables it', async () => {
     const validate = vi.fn().mockResolvedValue(baseResult());
     let externalSetBlocked: ((blocked: boolean) => void) | undefined;
@@ -110,7 +125,11 @@ describe('BulkUploadPreview', () => {
 
     await selectFile();
     const confirmButton = await screen.findByRole('button', { name: 'Confirm' });
-    expect(confirmButton.hasAttribute('disabled')).toBe(false);
+    // Held by default because a confirmSlot is present; the slot releases it.
+    expect(confirmButton.hasAttribute('disabled')).toBe(true);
+
+    externalSetBlocked?.(false);
+    await waitFor(() => expect(confirmButton.hasAttribute('disabled')).toBe(false));
 
     externalSetBlocked?.(true);
     await waitFor(() => expect(confirmButton.hasAttribute('disabled')).toBe(true));
@@ -250,7 +269,7 @@ describe('BulkUploadPreview', () => {
     await screen.findByText('done: 5');
   });
 
-  it('omitting renderCommitting preserves today\'s default committing state (busy Confirm button)', async () => {
+  it("omitting renderCommitting preserves today's default committing state (busy Confirm button)", async () => {
     const validate = vi.fn().mockResolvedValue(baseResult());
     const commit = vi.fn(() => new Promise<CommitResult>(() => {}));
     await renderPreview({ validate, commit });
