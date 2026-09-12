@@ -3,7 +3,7 @@ import { NotFoundException } from '@nestjs/common';
 import ExcelJS from 'exceljs';
 import { Repository } from 'typeorm';
 import { School } from '../../schools/entities/school.entity';
-import { EXPECTED_TABS } from '../codec/registry';
+import { ALL_TABS, EXPECTED_TABS } from '../codec/registry';
 import { META_SHEET } from '../codec/meta';
 import { README_SHEET } from '../codec/workbook-codec';
 import { TemplateService } from './template.service';
@@ -103,16 +103,47 @@ describe('TemplateService', () => {
       const workbook = new ExcelJS.Workbook();
       await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
 
-      let sawAtLeastOneValidation = false;
-      for (const tabName of EXPECTED_TABS) {
-        const sheet = workbook.getWorksheet(tabName)!;
+      // Derive what SHOULD have a dropdown from the registry itself, then
+      // assert each one does. Iterating only over the validations that
+      // happen to exist (the previous shape) passed just as happily if a
+      // column silently lost its dropdown — nothing was checking for
+      // absence, and one surviving validation anywhere satisfied the whole
+      // assertion.
+      const expectedColumns = ALL_TABS.flatMap((tab) =>
+        tab.columns
+          .map((col, index) => ({ tab: tab.name, colNo: index + 1, col }))
+          .filter(
+            ({ col }) =>
+              (col.type === 'enum' && col.enumValues && col.enumValues.length > 0) ||
+              col.type === 'bool',
+          ),
+      );
+      expect(expectedColumns.length).toBeGreaterThan(0);
+
+      for (const { tab, colNo } of expectedColumns) {
+        const sheet = workbook.getWorksheet(tab)!;
         const validations = (
           sheet as unknown as { dataValidations: { model: Record<string, any> } }
         ).dataValidations.model;
         // exceljs's reader expands a range sqref into one model entry per
         // cell address (`E2`, `E3`, ...), not the `E2:E1000` range string
-        // this service wrote — so this only checks each address is a data
-        // row (2-1000) with a `list` validation, not the exact range key.
+        // this service wrote — so address in, letter out, then assert the
+        // first data row of that column carries a `list` validation.
+        const letter = sheet.getColumn(colNo).letter;
+        expect(
+          validations[`${letter}2`],
+          `${tab}.${letter} (column ${colNo}) should have a dropdown`,
+        ).toBeDefined();
+        expect(validations[`${letter}2`].type).toBe('list');
+      }
+
+      // ...and every validation that exists is still a well-formed `list`
+      // on a data row, which is what the original loop checked.
+      for (const tabName of EXPECTED_TABS) {
+        const sheet = workbook.getWorksheet(tabName)!;
+        const validations = (
+          sheet as unknown as { dataValidations: { model: Record<string, any> } }
+        ).dataValidations.model;
         for (const address of Object.keys(validations)) {
           const match = /^[A-Z]+(\d+)$/.exec(address);
           expect(match).not.toBeNull();
@@ -120,10 +151,8 @@ describe('TemplateService', () => {
           expect(rowNo).toBeGreaterThanOrEqual(2);
           expect(rowNo).toBeLessThanOrEqual(1000);
           expect(validations[address].type).toBe('list');
-          sawAtLeastOneValidation = true;
         }
       }
-      expect(sawAtLeastOneValidation).toBe(true);
     });
 
     it('gives every header cell a comment naming the column and its requirement', async () => {

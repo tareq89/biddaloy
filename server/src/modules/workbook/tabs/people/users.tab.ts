@@ -291,53 +291,79 @@ export const usersTab: TabSpec<User, UserRow> = {
       user.password_hash = null;
     }
 
+    // Save the User row ONLY — never with `user_tenants` still attached.
+    // `load()` joins that relation filtered to this tenant
+    // (`ut.tenant_id = :tenantId`), so an entity coming from there carries a
+    // deliberately PARTIAL collection. TypeORM reads a loaded OneToMany as
+    // the authoritative set and tries to orphan everything missing from it —
+    // `UPDATE user_tenants SET user_id = NULL` for this user's memberships in
+    // every OTHER tenant, which is a NOT NULL violation that fails the whole
+    // restore. It only bites on a re-restore (the first pass finds the user
+    // via `findOne`, with no relation loaded) and only for a user who belongs
+    // to more than one school — exactly the shared-user case this tab already
+    // takes care to handle above. The relation is re-read at the end of this
+    // function anyway, so dropping it here costs nothing.
+    delete (user as { user_tenants?: UserTenant[] }).user_tenants;
     user = await m.save(User, user);
 
     const memberships = await m.find(UserTenant, {
       where: { user_id: user.id, tenant_id: tenantId },
     });
-    const alreadyCorrect = memberships.find((ut) => ut.role === row.role);
+    // EXEMPTION, mirrors `remove()`'s own comment: the membership
+    // `ProvisioningService.provision` created for this school's own admin
+    // must never have its role changed by an uploaded workbook, any more
+    // than it can be deleted by absence. Without this, a workbook whose
+    // `users` sheet happens to list this same email (e.g. restoring
+    // another school's backup right after provisioning, or the admin
+    // simply appearing at a lower role in the source tenant) would demote
+    // or replace the very account the school owner needs to sign back in
+    // with — the workbook is untrusted input, and downgrading is just as
+    // damaging here as deleting outright. Narrow: only this one tagged
+    // row is protected; every other membership still updates normally.
+    //
+    // Resolved BEFORE the `alreadyCorrect` short-circuit below, not inside
+    // it: with both a provisioned ADMIN row and, say, a TEACHER row
+    // present, a TEACHER workbook row makes `alreadyCorrect` truthy, and
+    // skipping the whole block would leave BOTH memberships in place —
+    // violating this tab's one-role-per-tenant-per-user contract (D2).
+    const provisioned = memberships.find(
+      (ut) => (ut.metadata as { provisioned?: boolean } | null)?.provisioned,
+    );
 
-    if (!alreadyCorrect) {
-      // EXEMPTION, mirrors `remove()`'s own comment: the membership
-      // `ProvisioningService.provision` created for this school's own admin
-      // must never have its role changed by an uploaded workbook, any more
-      // than it can be deleted by absence. Without this, a workbook whose
-      // `users` sheet happens to list this same email (e.g. restoring
-      // another school's backup right after provisioning, or the admin
-      // simply appearing at a lower role in the source tenant) would demote
-      // or replace the very account the school owner needs to sign back in
-      // with — the workbook is untrusted input, and downgrading is just as
-      // damaging here as deleting outright. Narrow: only this one tagged
-      // row is protected; every other membership still updates normally.
-      const provisioned = memberships.find(
-        (ut) => (ut.metadata as { provisioned?: boolean } | null)?.provisioned,
-      );
+    if (provisioned) {
+      const stale = memberships.filter((ut) => ut.id !== provisioned.id).map((ut) => ut.id);
+      if (stale.length > 0) await m.delete(UserTenant, { id: In(stale) });
+    } else {
+      const alreadyCorrect = memberships.find((ut) => ut.role === row.role);
 
-      if (provisioned) {
-        const stale = memberships.filter((ut) => ut.id !== provisioned.id).map((ut) => ut.id);
-        if (stale.length > 0) await m.delete(UserTenant, { id: In(stale) });
-      } else if (memberships.length > 0) {
-        // Update in place: inserting a second row for the same
-        // (user_id, tenant_id) would violate
-        // `@Unique(['user_id','tenant_id','role'])` on a re-run.
-        memberships[0].role = row.role;
-        await m.save(UserTenant, memberships[0]);
-        // This tab represents one role per tenant per user (D2); any other
-        // stale membership rows for this tenant would otherwise survive the
-        // restore as an extra, no-longer-intended role.
-        const stale = memberships.slice(1).map((ut) => ut.id);
-        if (stale.length > 0) await m.delete(UserTenant, { id: In(stale) });
+      if (!alreadyCorrect) {
+        if (memberships.length > 0) {
+          // Update in place: inserting a second row for the same
+          // (user_id, tenant_id) would violate
+          // `@Unique(['user_id','tenant_id','role'])` on a re-run.
+          memberships[0].role = row.role;
+          await m.save(UserTenant, memberships[0]);
+          // This tab represents one role per tenant per user (D2); any other
+          // stale membership rows for this tenant would otherwise survive the
+          // restore as an extra, no-longer-intended role.
+          const stale = memberships.slice(1).map((ut) => ut.id);
+          if (stale.length > 0) await m.delete(UserTenant, { id: In(stale) });
+        } else {
+          await m.save(
+            UserTenant,
+            m.create(UserTenant, {
+              user_id: user.id,
+              tenant_id: tenantId,
+              role: row.role,
+              metadata: null,
+            }),
+          );
+        }
       } else {
-        await m.save(
-          UserTenant,
-          m.create(UserTenant, {
-            user_id: user.id,
-            tenant_id: tenantId,
-            role: row.role,
-            metadata: null,
-          }),
-        );
+        // Right role already present — drop any OTHER role rows so D2's
+        // one-role-per-tenant-per-user contract still holds.
+        const stale = memberships.filter((ut) => ut.id !== alreadyCorrect.id).map((ut) => ut.id);
+        if (stale.length > 0) await m.delete(UserTenant, { id: In(stale) });
       }
     }
 

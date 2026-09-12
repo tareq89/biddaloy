@@ -283,6 +283,68 @@ describe('usersTab (integration)', () => {
     });
   });
 
+  describe('re-restore of a user shared with another tenant', () => {
+    it("does not try to orphan the other tenant's membership when the entity came from load()", async () => {
+      // Regression for a real restore failure (#620's provision-from-workbook
+      // journey): `load()` joins `user_tenants` FILTERED to one tenant, so an
+      // entity it returns carries a deliberately partial collection. Saving
+      // that entity made TypeORM treat the user's memberships in every OTHER
+      // tenant as orphaned and issue `UPDATE user_tenants SET user_id = NULL`,
+      // a NOT NULL violation that aborted the whole restore at the users tab.
+      //
+      // Only reproduces on a SECOND restore (the first pass finds the user via
+      // `findOne`, with no relation loaded) and only for a user who is a member
+      // of more than one school — which is exactly what restoring one school's
+      // workbook into a different school produces.
+      const shared = await userRepo.save(
+        userRepo.create({
+          email: 'shared-across-tenants@users-tab.test',
+          phone: null,
+          full_name: 'Shared Across Tenants',
+          password_hash: null,
+        }),
+      );
+      await userTenantRepo.save(
+        userTenantRepo.create({
+          user_id: shared.id,
+          tenant_id: TENANT_B,
+          role: UserRole.ADMIN,
+          metadata: null,
+        }),
+      );
+
+      const row: UserRow = {
+        email: 'shared-across-tenants@users-tab.test',
+        phone: null,
+        full_name: 'Shared Across Tenants',
+        role: UserRole.TEACHER,
+      } as UserRow;
+
+      /** One workbook row through the same load/match/upsert sequence
+       * `restore.processor.ts` runs. */
+      const restoreRowIntoA = async () => {
+        const loaded = await usersTab.load(TENANT_A, dataSource.manager);
+        const byKey = new Map(loaded.map((e) => [usersTab.keyOf(e), e]));
+        const existing = byKey.get(usersTab.keyOf(row)) ?? null;
+        return usersTab.upsert(row, existing, TENANT_A, dataSource.manager);
+      };
+
+      await restoreRowIntoA();
+      // The second pass is the one that used to throw.
+      await expect(restoreRowIntoA()).resolves.toBeDefined();
+
+      // Tenant B's membership survived untouched — never nulled, never deleted.
+      const inB = await userTenantRepo.find({ where: { user_id: shared.id, tenant_id: TENANT_B } });
+      expect(inB).toHaveLength(1);
+      expect(inB[0].role).toBe(UserRole.ADMIN);
+
+      // ...and tenant A ended up with exactly the one role the workbook asked for.
+      const inA = await userTenantRepo.find({ where: { user_id: shared.id, tenant_id: TENANT_A } });
+      expect(inA).toHaveLength(1);
+      expect(inA[0].role).toBe(UserRole.TEACHER);
+    });
+  });
+
   describe('remove', () => {
     it('deletes only tenant A membership; the User survives and tenant B membership survives', async () => {
       const shared = await makeUser({ email: 'remove@both.test', full_name: 'Remove Me' });

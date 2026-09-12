@@ -1,7 +1,7 @@
 import { Controller, Get, Header, Query, Res, StreamableFile, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
 import { Permission, UserRole } from '@biddaloy/shared';
 import { STRICT_RATE_LIMIT } from '../../../rate-limit';
@@ -39,6 +39,15 @@ export class TemplateController {
     summary:
       'A blank workbook with header rows, one SAMPLE row per sheet, enum/bool dropdowns and a ' +
       '_readme sheet. `lang` defaults to the tenant locale.',
+  })
+  // Declared explicitly, or the generated OpenAPI document types this 200
+  // as having no body at all (`content?: never` in `ui/src/api/schema.d.ts`)
+  // — a typed client would then believe the workbook download returns
+  // nothing. Nest can't infer it: the handler's `StreamableFile` return
+  // says "a stream", not which media type it carries.
+  @ApiOkResponse({
+    description: 'The blank .xlsx workbook.',
+    content: { [XLSX_MIME]: { schema: { type: 'string', format: 'binary' } } },
   })
   async get(
     @Query() query: GetTemplateDto,
