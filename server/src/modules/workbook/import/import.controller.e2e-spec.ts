@@ -7,6 +7,9 @@ import { join } from 'node:path';
 import { DataSource } from 'typeorm';
 import { UserRole } from '@biddaloy/shared';
 import { AppModule } from '../../../app.module';
+import { StorageService } from '../../storage/storage.service';
+import { ImportStagingService } from '../../bulk-import/import-staging.service';
+import type { StagedValidation } from './import.controller';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../../validation-pipe';
 import {
@@ -116,6 +119,36 @@ describe('POST /backup/validate E2E', () => {
     expect(res.body.expires_at).toBeTruthy();
     expect(res.body.errors).toHaveLength(0);
     expect(res.body.hard_error_count).toBe(0);
+    // The storage key is an internal detail a restore needs, not something
+    // the client should ever see.
+    expect(res.body.workbook_storage_key).toBeUndefined();
+  });
+
+  it('persists the original upload so a restore can re-validate it later', async () => {
+    const res = await supertest(app.getHttpServer())
+      .post('/api/v1/backup/validate')
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Tenant-ID', TENANT_ID)
+      .set('X-Role', UserRole.ADMIN)
+      .attach('file', VALID_XLSX, 'valid.xlsx')
+      .expect(201);
+
+    const staging = app.get(ImportStagingService);
+    const storage = app.get(StorageService);
+
+    const staged = await staging.peek<StagedValidation>(
+      TENANT_ID,
+      SEED_ADMIN_USER_ID,
+      res.body.staging_id,
+    );
+    expect(staged?.workbook_storage_key).toBeTruthy();
+
+    const stored = await storage.get(staged!.workbook_storage_key);
+    const chunks: Buffer[] = [];
+    for await (const chunk of stored.body) chunks.push(chunk as Buffer);
+    expect(Buffer.concat(chunks).equals(VALID_XLSX)).toBe(true);
+
+    await storage.delete(staged!.workbook_storage_key);
   });
 
   it('reports exactly three errors, with tab/row/column, for three-errors.xlsx', async () => {
