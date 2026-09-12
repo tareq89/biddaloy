@@ -212,4 +212,53 @@ describe('BulkUploadPreview', () => {
 
     await waitFor(() => expect(validate).toHaveBeenCalledTimes(1));
   });
+
+  it('renderCommitting replaces the confirm controls while committing, and receives the result', async () => {
+    const validate = vi.fn().mockResolvedValue(baseResult());
+    let commitResolve: (() => void) | undefined;
+    const commit = vi.fn(
+      () =>
+        new Promise<CommitResult>((resolve) => {
+          commitResolve = () => resolve({ processedCount: 5 });
+        }),
+    );
+    const renderCommitting = vi.fn((result: PreviewResult<Summary>) => (
+      <p>Starting… {result.summary.totalRows} rows</p>
+    ));
+
+    const result = renderWithProviders(
+      <BulkUploadPreview<Summary, CommitResult>
+        validate={validate}
+        commit={commit}
+        renderSummary={renderSummary}
+        renderDone={renderDone}
+        renderCommitting={renderCommitting}
+      />,
+      { locale: 'en' },
+    );
+    await result.localeReady;
+
+    await selectFile();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Confirm' }));
+
+    expect(await screen.findByText('Starting… 5 rows')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Upload another' })).toBeNull();
+
+    commitResolve?.();
+    await screen.findByText('done: 5');
+  });
+
+  it('omitting renderCommitting preserves today\'s default committing state (busy Confirm button)', async () => {
+    const validate = vi.fn().mockResolvedValue(baseResult());
+    const commit = vi.fn(() => new Promise<CommitResult>(() => {}));
+    await renderPreview({ validate, commit });
+
+    await selectFile();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Confirm' }));
+
+    expect(await screen.findByRole('button', { name: 'Confirming…' })).toBeTruthy();
+  });
 });

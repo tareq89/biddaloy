@@ -1,6 +1,7 @@
 import { http, HttpResponse } from 'msw';
 
-import type { BackupJob, ValidateResponseDto } from '../../../hooks/backup';
+import type { BackupJob, RestoreSummary } from '../../../hooks/backup';
+import type { PreviewResult } from '../../../hooks/use-bulk-upload-preview';
 import { paginate } from '../support';
 
 const jobFixture = (overrides: Partial<BackupJob> = {}): BackupJob => ({
@@ -49,23 +50,45 @@ const requestExport = http.post('/api/v1/backup/export', () =>
   HttpResponse.json(jobFixture({ id: 'backup-job-new', status: 'QUEUED' }), { status: 201 }),
 );
 
+const restoreSummaryFixture = (overrides: Partial<RestoreSummary> = {}): RestoreSummary => ({
+  school_name: 'Green Valley School',
+  source_school_name: 'Green Valley School',
+  exported_at: new Date().toISOString(),
+  is_empty_tenant: false,
+  tabs: [
+    { tab: 'students', create: 12, update: 3, delete: 1, unchanged: 100, errors: 0 },
+    { tab: 'guardians', create: 5, update: 0, delete: 0, unchanged: 90, errors: 0 },
+  ],
+  warnings: [],
+  ...overrides,
+});
+
 const validate = http.post('/api/v1/backup/validate', () =>
-  HttpResponse.json<ValidateResponseDto>({
-    valid: true,
-    backup_id: 'backup-job-1',
-    created_at: new Date().toISOString(),
-    school_name: 'Green Valley School',
-    record_counts: { students: 120, guardians: 90 },
+  HttpResponse.json<PreviewResult<RestoreSummary>>({
+    staging_id: 'staging-restore-1',
+    // D7's 30-minute stage TTL — kept comfortably in the future so tests
+    // don't render the "Expired" copy.
+    expires_at: new Date(Date.now() + 30 * 60_000).toISOString(),
     errors: [],
-    warnings: [],
+    hard_error_count: 0,
+    summary: restoreSummaryFixture(),
   }),
 );
 
 const validateInvalid = http.post('/api/v1/backup/validate', () =>
-  HttpResponse.json<ValidateResponseDto>({
-    valid: false,
-    errors: ['Archive is corrupted or not a Biddaloy backup file'],
-    warnings: [],
+  HttpResponse.json<PreviewResult<RestoreSummary>>({
+    staging_id: 'staging-restore-invalid',
+    expires_at: new Date(Date.now() + 30 * 60_000).toISOString(),
+    errors: [
+      {
+        row: 1,
+        column: null,
+        message: 'Archive is corrupted or not a Biddaloy backup file',
+        severity: 'error',
+      },
+    ],
+    hard_error_count: 1,
+    summary: restoreSummaryFixture({ tabs: [] }),
   }),
 );
 

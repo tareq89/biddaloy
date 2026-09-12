@@ -113,6 +113,8 @@ describe('downloadBackup', () => {
     expect(blobArg.size).toBeGreaterThan(0);
 
     expect(clickSpy).toHaveBeenCalledTimes(1);
-    expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock-url');
+    // The blob URL is revoked on a deferred macrotask (Safari-safe pattern
+    // shared with downloadCsv), not synchronously — wait for it.
+    await waitFor(() => expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock-url'));
   });
 });
