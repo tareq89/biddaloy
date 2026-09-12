@@ -280,6 +280,19 @@ describe('diffFields', () => {
     expect(schoolTab.diffFields({ ...row.row, phone: '01999999999' }, existing)).toEqual(['phone']);
   });
 
+  // Regression: `name` must never appear here — `upsert` never applies it
+  // (see the tab's own comment), so reporting it would show the admin a
+  // pending change that a restore would not actually make.
+  it('never reports a name change, even when the row carries a different name', () => {
+    const existing = makeSchool();
+    const row = schoolTab.fromRow(toCells(existing), 2, importCtx);
+    if ('errors' in row) throw new Error('fixture should parse');
+
+    expect(
+      schoolTab.diffFields({ ...row.row, name: 'A Completely Different Name' }, existing),
+    ).toEqual([]);
+  });
+
   // Must mirror upsert's stripSecretPaths: otherwise the preview shown before
   // a restore would report a 'settings' change that upsert then discards.
   it('does not report a settings change from an imported secret alone', () => {
