@@ -84,7 +84,7 @@ jobs:
             -p 9000:9000 \
             -e MINIO_ROOT_USER="$S3_ACCESS_KEY_ID" \
             -e MINIO_ROOT_PASSWORD="$S3_SECRET_ACCESS_KEY" \
-            minio/minio:RELEASE.2025-04-08T15-41-24Z server /data
+            quay.io/minio/minio:RELEASE.2025-04-08T15-41-24Z server /data
           until curl -sf http://localhost:9000/minio/health/live; do sleep 1; done
 
       - name: Create MinIO bucket
