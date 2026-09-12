@@ -268,13 +268,18 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
         </p>
       )}
 
-      <div>
-        <Button type="button" loading={requestMutation.isPending} onClick={handleRequest}>
-          {t('requestExport')}
-        </Button>
-      </div>
+      {jobs.length > 0 && (
+        <div>
+          <Button type="button" loading={requestMutation.isPending} onClick={handleRequest}>
+            {t('requestExport')}
+          </Button>
+        </div>
+      )}
 
       {jobs.length === 0 && !jobsQuery.isLoading && !jobsQuery.isError ? (
+        // EmptyState's own action is the only "request a backup" button here —
+        // showing the header button too duplicated the same label (Playwright's
+        // strict-mode locator caught it as two matching elements).
         <EmptyState
           title={t('emptyTenant')}
           explanation={t('emptyTenantDescription')}
