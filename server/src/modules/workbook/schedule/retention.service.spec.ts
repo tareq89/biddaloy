@@ -128,11 +128,21 @@ describe('RetentionService', () => {
   });
 
   it('claims the row before deleting storage, and puts it back to DONE if the storage delete fails', async () => {
-    jobs.push(makeJob('flaky-1', { expires_at: new Date('2020-01-01T00:00:00.000Z') }));
-    storage.delete.mockRejectedValueOnce(new Error('object store unreachable'));
+    const row = makeJob('flaky-1', { expires_at: new Date('2020-01-01T00:00:00.000Z') });
+    jobs.push(row);
+    // Proves the operation order, not just the end state: if `deleteRow`
+    // called `storage.delete()` before claiming the row, this mock would
+    // observe `status` still DONE, and the test would pass just the same
+    // as it would for the intended DELETED-then-delete order.
+    let statusDuringStorageDelete: WorkbookJobStatus | undefined;
+    storage.delete.mockImplementationOnce(async () => {
+      statusDuringStorageDelete = row.status;
+      throw new Error('object store unreachable');
+    });
 
     await service.enforce(TENANT_ID, new Date('2026-01-15T00:00:00.000Z'));
 
+    expect(statusDuringStorageDelete).toBe(WorkbookJobStatus.DELETED);
     // Released for the next sweep — not left DELETED with its object still
     // in storage, and not left claimed so nothing can ever retry it.
     expect(jobs[0].status).toBe(WorkbookJobStatus.DONE);
