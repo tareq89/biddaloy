@@ -37,20 +37,42 @@ import * as React from 'react';
  * school), never from `meta.source_school_name` on the validate response —
  * that field is read out of the *uploaded* workbook, so using it would let
  * a crafted workbook satisfy its own confirmation.
+ *
+ * [14.13.3] `tenantId`/`expectedSchoolName` — the SUPER_ADMIN
+ * provision-from-workbook flow (`-create-school-wizard.tsx`'s success step,
+ * `$schoolId.tsx`'s "Restore from workbook" action) reuses this component
+ * unchanged otherwise, against a school that ISN'T the caller's active
+ * tenant. Passing `tenantId` threads an `X-Tenant-ID` override into every
+ * request this component makes (`apiClient`'s interceptor honors a pre-set
+ * header over the ambient active tenant); `expectedSchoolName` replaces the
+ * `useSchoolProfile()` fetch (which resolves "me" from the *active* tenant,
+ * not `tenantId`, and would 401/404 or name the wrong school here) as the
+ * confirmation gate's expected value. Both stay optional and unused for
+ * every existing tenant-scoped caller.
  */
-export function RestoreWizard() {
+export interface RestoreWizardProps {
+  tenantId?: string;
+  expectedSchoolName?: string;
+}
+
+export function RestoreWizard({
+  tenantId,
+  expectedSchoolName: expectedSchoolNameOverride,
+}: RestoreWizardProps = {}) {
   const { t } = useTranslation('backup');
   const { locale } = useLocale();
   const canManageBackup = useHasPermission(Permission.BACKUP_MANAGE);
-  const validateMutation = useValidateBackup();
-  const restoreMutation = useRestoreBackup();
-  const schoolProfileQuery = useSchoolProfile();
+  const validateMutation = useValidateBackup({ ...(tenantId ? { tenantId } : {}) });
+  const restoreMutation = useRestoreBackup({ ...(tenantId ? { tenantId } : {}) });
+  // Never fetched when `tenantId` is set — see this component's own doc
+  // comment on why `useSchoolProfile()`'s ambient "me" would be wrong here.
+  const schoolProfileQuery = useSchoolProfile({ enabled: tenantId === undefined });
   const [downloadingTemplate, setDownloadingTemplate] = React.useState(false);
 
   async function handleDownloadTemplate() {
     setDownloadingTemplate(true);
     try {
-      await downloadWorkbookTemplate(locale);
+      await downloadWorkbookTemplate(locale, { ...(tenantId ? { tenantId } : {}) });
     } catch {
       toast.error(t('downloadTemplateFailed'));
     } finally {
@@ -102,7 +124,13 @@ export function RestoreWizard() {
 
   // Fail closed: a blank/loading school name never satisfies the
   // confirmation gate (kept from 7150675f's fix — now fed the real name).
-  const expectedSchoolName = schoolProfileQuery.data?.name ?? '';
+  // The `tenantId` path's `expectedSchoolNameOverride` takes priority (and
+  // an omitted one still fails closed to '', never falling through to the
+  // wrong-tenant profile fetch's data).
+  const expectedSchoolName =
+    expectedSchoolNameOverride ??
+    (tenantId === undefined ? (schoolProfileQuery.data?.name ?? '') : '');
+  const schoolProfileError = tenantId === undefined && schoolProfileQuery.isError;
 
   return (
     <div className="flex flex-col gap-2">
@@ -137,7 +165,7 @@ export function RestoreWizard() {
           <RestoreConfirmSlot
             summary={latestResult?.summary}
             expectedSchoolName={expectedSchoolName}
-            schoolProfileError={schoolProfileQuery.isError}
+            schoolProfileError={schoolProfileError}
             onRetrySchoolProfile={() => void schoolProfileQuery.refetch()}
             confirmationText={confirmationText}
             onConfirmationTextChange={setConfirmationText}
@@ -151,6 +179,7 @@ export function RestoreWizard() {
           <RestoreProgressPanel
             jobId={response.job_id}
             snapshotJobId={response.snapshot_job_id}
+            {...(tenantId ? { tenantId } : {})}
             onReset={() => {
               handleReset();
               reset();
@@ -378,21 +407,26 @@ export function RestoreConfirmSlot({
 export function RestoreProgressPanel({
   jobId,
   snapshotJobId,
+  tenantId,
   onReset,
 }: {
   jobId: string;
   snapshotJobId: string;
+  /** [14.13.3] — see `RestoreWizard`'s own doc comment; threaded through to
+   * both the job poll and the snapshot download so neither ever falls back
+   * to the caller's ambient (wrong) active tenant. */
+  tenantId?: string;
   onReset: () => void;
 }) {
   const { t } = useTranslation('backup');
-  const jobQuery = useBackupJob(jobId);
+  const jobQuery = useBackupJob(jobId, { ...(tenantId ? { tenantId } : {}) });
   const job = jobQuery.data;
   const [downloadingSnapshot, setDownloadingSnapshot] = React.useState(false);
 
   async function handleDownloadSnapshot() {
     setDownloadingSnapshot(true);
     try {
-      await downloadBackup(snapshotJobId);
+      await downloadBackup(snapshotJobId, { ...(tenantId ? { tenantId } : {}) });
     } catch {
       toast.error(t('downloadFailed'));
     } finally {

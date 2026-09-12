@@ -49,6 +49,37 @@ describe('env.validation', () => {
     expect(() => validate(validConfig)).not.toThrow();
   });
 
+  describe('PLATFORM_TENANT_ID (context.guard.ts)', () => {
+    // No config-time default anymore (#620): no database actually has a
+    // predictable hardcoded id to default to (the `MultiTenantAuth`
+    // migration creates the real "Default School" row with a random uuid).
+    // `ContextGuard.resolvePlatformTenantId()` discovers it dynamically
+    // outside production instead — see context.guard.spec.ts.
+    it('stays unset outside production when unset — no config-time default', () => {
+      const result = validate({ ...validConfig, NODE_ENV: 'development' });
+      expect(result.PLATFORM_TENANT_ID).toBeUndefined();
+    });
+
+    it('stays unset under NODE_ENV=test too', () => {
+      const result = validate({ ...validConfig, NODE_ENV: 'test' });
+      expect(result.PLATFORM_TENANT_ID).toBeUndefined();
+    });
+
+    it('stays unset in production — fails closed, requires explicit ops config', () => {
+      const result = validate({ ...validConfig, NODE_ENV: 'production' });
+      expect(result.PLATFORM_TENANT_ID).toBeUndefined();
+    });
+
+    it('passes through an explicitly set PLATFORM_TENANT_ID unchanged', () => {
+      const result = validate({
+        ...validConfig,
+        NODE_ENV: 'development',
+        PLATFORM_TENANT_ID: 'custom-platform-tenant',
+      });
+      expect(result.PLATFORM_TENANT_ID).toBe('custom-platform-tenant');
+    });
+  });
+
   it('accepts positive integer strings for RATE_LIMIT_DEFAULT_LIMIT and RATE_LIMIT_DEFAULT_TTL_MS', () => {
     expect(() =>
       validate({

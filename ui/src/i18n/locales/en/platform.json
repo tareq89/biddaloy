@@ -27,7 +27,11 @@
     },
     "actions": {
       "suspend": "Suspend",
-      "reactivate": "Reactivate"
+      "reactivate": "Reactivate",
+      "restoreFromWorkbook": "Restore from workbook"
+    },
+    "restoreWorkbookDialog": {
+      "title": "Restore {{name}} from a workbook"
     },
     "statusDialog": {
       "reasonLabel": "Reason",
@@ -101,6 +105,8 @@
     "slugConflict": "This slug is already taken.",
     "successTitle": "School created",
     "successInvitation": "Admin invitation status: {{status}}.",
-    "viewSchool": "View school"
+    "viewSchool": "View school",
+    "importWorkbookToggle": "Import data from a workbook (optional)",
+    "importWorkbookWarning": "This replaces this school's data with the workbook's — the admin you just invited stays, but everything else follows the file."
   }
 }

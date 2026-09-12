@@ -310,6 +310,12 @@ export class ProvisioningService {
           user_id: user.id,
           tenant_id: schoolId,
           role: UserRole.ADMIN,
+          // Marks this as the membership `provision()` itself created, so a
+          // later "restore from workbook" into this same school (whose
+          // `deleteByAbsence` on the `users` tab hard-deletes any UserTenant
+          // absent from the imported workbook) never removes the new
+          // school's own admin — see `users.tab.ts`'s `remove()`.
+          metadata: { provisioned: true },
         }),
       );
     } catch (err) {

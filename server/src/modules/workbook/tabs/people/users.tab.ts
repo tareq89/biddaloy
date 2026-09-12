@@ -299,7 +299,25 @@ export const usersTab: TabSpec<User, UserRow> = {
     const alreadyCorrect = memberships.find((ut) => ut.role === row.role);
 
     if (!alreadyCorrect) {
-      if (memberships.length > 0) {
+      // EXEMPTION, mirrors `remove()`'s own comment: the membership
+      // `ProvisioningService.provision` created for this school's own admin
+      // must never have its role changed by an uploaded workbook, any more
+      // than it can be deleted by absence. Without this, a workbook whose
+      // `users` sheet happens to list this same email (e.g. restoring
+      // another school's backup right after provisioning, or the admin
+      // simply appearing at a lower role in the source tenant) would demote
+      // or replace the very account the school owner needs to sign back in
+      // with — the workbook is untrusted input, and downgrading is just as
+      // damaging here as deleting outright. Narrow: only this one tagged
+      // row is protected; every other membership still updates normally.
+      const provisioned = memberships.find(
+        (ut) => (ut.metadata as { provisioned?: boolean } | null)?.provisioned,
+      );
+
+      if (provisioned) {
+        const stale = memberships.filter((ut) => ut.id !== provisioned.id).map((ut) => ut.id);
+        if (stale.length > 0) await m.delete(UserTenant, { id: In(stale) });
+      } else if (memberships.length > 0) {
         // Update in place: inserting a second row for the same
         // (user_id, tenant_id) would violate
         // `@Unique(['user_id','tenant_id','role'])` on a re-run.
@@ -337,7 +355,19 @@ export const usersTab: TabSpec<User, UserRow> = {
     // never reach another tenant's membership. Hard delete because
     // `UserTenant` has no `deleted_at`. The `User` itself is never deleted:
     // it may be a member elsewhere.
-    const ids = (entity.user_tenants ?? []).map((ut) => ut.id);
+    //
+    // EXEMPTION: never remove the membership `ProvisioningService.provision`
+    // itself created (tagged `metadata.provisioned === true`). Restoring a
+    // workbook from another school right after creating this one is the
+    // headline flow this exists for — that workbook's `users` sheet only
+    // ever lists the SOURCE school's users, so the brand-new admin is
+    // legitimately absent from it, and `deleteByAbsence` must not read that
+    // absence as "delete the school's own just-invited admin." Kept narrow:
+    // only this one tag is exempt, every other absent membership still gets
+    // removed exactly as before.
+    const ids = (entity.user_tenants ?? [])
+      .filter((ut) => !(ut.metadata as { provisioned?: boolean } | null)?.provisioned)
+      .map((ut) => ut.id);
     if (ids.length === 0) return Promise.resolve();
     return m.delete(UserTenant, { id: In(ids) }).then(() => undefined);
   },

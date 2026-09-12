@@ -50,6 +50,9 @@ export const Success: Story = {
   args: {
     step: 'success',
     schoolDefaults: { name: 'Ananta School', slug: 'ananta-school' },
+    // [14.13.3] feeds RestoreWizard's expectedSchoolName confirmation gate
+    // inside the collapsed "Import data from a workbook" section below.
+    schoolName: 'Ananta School',
     result: {
       school: {
         id: '00000000-0000-4000-8000-000000000001',

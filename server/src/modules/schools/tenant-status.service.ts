@@ -1,9 +1,18 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { QueryFailedError, Repository } from 'typeorm';
 import Redis from 'ioredis';
 import { SchoolStatus } from '@biddaloy/shared';
 import { School } from './entities/school.entity';
+
+const POSTGRES_INVALID_TEXT_REPRESENTATION = '22P02';
+
+function isInvalidUuidError(error: unknown): boolean {
+  return (
+    error instanceof QueryFailedError &&
+    (error as unknown as { code?: string }).code === POSTGRES_INVALID_TEXT_REPRESENTATION
+  );
+}
 
 export const TENANT_STATUS_REDIS = 'TENANT_STATUS_REDIS';
 
@@ -32,10 +41,23 @@ export class TenantStatusService {
   }
 
   async isActive(tenantId: string): Promise<boolean> {
+    return (await this.getStatus(tenantId)) === SchoolStatus.ACTIVE;
+  }
+
+  /**
+   * Same lookup as `isActive`, but tells "tenant doesn't exist" (`null`)
+   * apart from "tenant exists but is SUSPENDED" — `isActive` collapses both
+   * to `false`, which is fine for its callers (they only ever act on an
+   * already-membership-validated tenant) but wrong for ContextGuard's
+   * SUPER_ADMIN cross-tenant path, which has no membership row to fall back
+   * on and must turn a nonexistent/malformed tenant id into a clean 401
+   * instead of a 500 further downstream.
+   */
+  async getStatus(tenantId: string): Promise<SchoolStatus | null> {
     try {
       const cached = await this.redis.get(this.key(tenantId));
       if (cached) {
-        return cached === SchoolStatus.ACTIVE;
+        return cached as SchoolStatus;
       }
     } catch (error) {
       this.logger.error(
@@ -43,7 +65,22 @@ export class TenantStatusService {
       );
     }
 
-    const school = await this.schoolRepo.findOne({ where: { id: tenantId } });
+    let school: School | null;
+    try {
+      school = await this.schoolRepo.findOne({ where: { id: tenantId } });
+    } catch (error) {
+      // `id` is a uuid-typed column — a syntactically malformed X-Tenant-ID
+      // (e.g. "not-a-uuid") raises Postgres 22P02 here, not a normal "not
+      // found". Only a platform SUPER_ADMIN's membership-less cross-tenant
+      // path in ContextGuard reaches this with unvalidated input — everyone
+      // else 401s at the membership check first — but it must still resolve
+      // to the same "tenant does not exist" 401 rather than surfacing as an
+      // unhandled 500.
+      if (isInvalidUuidError(error)) {
+        return null;
+      }
+      throw error;
+    }
     // A tenant that no longer exists (or was soft-deleted) isn't "active" —
     // let ContextGuard's own membership check handle the "not a member"
     // case; this just refuses to cache a false "active".
@@ -59,7 +96,23 @@ export class TenantStatusService {
       );
     }
 
-    return status === SchoolStatus.ACTIVE;
+    return status as SchoolStatus | null;
+  }
+
+  /**
+   * Looks up a school's id by slug. Used by `ContextGuard` to dynamically
+   * resolve the platform tenant outside production when `PLATFORM_TENANT_ID`
+   * isn't set — see that guard's `resolvePlatformTenantId()` for the fix
+   * this exists for (#620): no database actually has the old hardcoded
+   * dev id, since the `MultiTenantAuth` migration inserts the real
+   * "Default School" row with a random uuid. Not Redis-cached like
+   * `getStatus`/`isActive` — a school's slug is effectively immutable, so
+   * `ContextGuard` caches the resolved id itself for the process lifetime
+   * instead of re-querying per request.
+   */
+  async findSchoolIdBySlug(slug: string): Promise<string | null> {
+    const school = await this.schoolRepo.findOne({ where: { slug } });
+    return school?.id ?? null;
   }
 
   async invalidate(tenantId: string): Promise<void> {

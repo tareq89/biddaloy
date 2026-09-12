@@ -452,4 +452,126 @@ describe('RestoreWizard', () => {
     expect(capturedBody?.staging_id).toBe('staging-9');
     expect(capturedBody?.confirmation).toBe(SCHOOL_NAME);
   });
+
+  // [14.13.3 / item 8, money-tier review] The SUPER_ADMIN
+  // provision-from-workbook props: `tenantId` targets a school that isn't
+  // the caller's active tenant, `expectedSchoolName` replaces the
+  // `useSchoolProfile()` fetch as the confirm-gate's expected value.
+  describe('tenantId / expectedSchoolName props (SUPER_ADMIN provision-from-workbook)', () => {
+    it('never fetches useSchoolProfile when tenantId is set, and gates Confirm on expectedSchoolName', async () => {
+      let profileFetched = false;
+      server.use(
+        http.get('/api/v1/schools/me/profile', () => {
+          profileFetched = true;
+          return HttpResponse.json({
+            name: 'Wrong Tenant School',
+            name_bn: null,
+            address: null,
+            phone: null,
+            email: null,
+            registration_id: null,
+            logo_url: null,
+          });
+        }),
+      );
+      mockValidate({
+        staging_id: 'staging-10',
+        expires_at: new Date(Date.now() + 30 * 60_000).toISOString(),
+        errors: [],
+        hard_error_count: 0,
+        summary: validateSummary(),
+      });
+
+      const result = renderWithProviders(
+        <RestoreWizard tenantId="new-school-tenant" expectedSchoolName="New School" />,
+        { tenantId: 'platform-tenant', role: 'SUPER_ADMIN', locale: 'en' },
+      );
+      await result.localeReady;
+
+      const user = userEvent.setup();
+      const input = await screen.findByLabelText('Choose file');
+      await user.upload(input, makeFile());
+
+      const confirmButton = await screen.findByRole('button', { name: 'Confirm' });
+      const nameInput = screen.getByPlaceholderText("Type the school's name to confirm");
+
+      // The ambient tenant's profile name must not satisfy the gate.
+      await user.type(nameInput, 'Wrong Tenant School');
+      expect(confirmButton.hasAttribute('disabled')).toBe(true);
+
+      // Only expectedSchoolName ("New School") does.
+      await user.clear(nameInput);
+      await user.type(nameInput, 'New School');
+      await waitFor(() => expect(confirmButton.hasAttribute('disabled')).toBe(false));
+
+      expect(profileFetched).toBe(false);
+    });
+
+    it('sends X-Tenant-ID for the target school on validate/restore, and on the template download', async () => {
+      let requestedLang: string | null = null;
+      let templateTenantHeader: string | null = null;
+      server.use(
+        http.get('/api/v1/backup/template', ({ request }) => {
+          requestedLang = new URL(request.url).searchParams.get('lang');
+          templateTenantHeader = request.headers.get('X-Tenant-ID');
+          return HttpResponse.text('workbook-bytes');
+        }),
+      );
+      vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock-url');
+      vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+      vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+      let validateTenantHeader: string | null = null;
+      server.use(
+        http.post('/api/v1/backup/validate', ({ request }) => {
+          validateTenantHeader = request.headers.get('X-Tenant-ID');
+          return HttpResponse.json({
+            staging_id: 'staging-11',
+            expires_at: new Date(Date.now() + 30 * 60_000).toISOString(),
+            meta: validateSummary().meta,
+            tabs: validateSummary().tabs,
+            totals: validateSummary().totals,
+            errors: [],
+            warnings: [],
+            hard_error_count: 0,
+            is_empty_tenant: false,
+          });
+        }),
+      );
+      let restoreTenantHeader: string | null = null;
+      server.use(
+        http.post('/api/v1/backup/restore', ({ request }) => {
+          restoreTenantHeader = request.headers.get('X-Tenant-ID');
+          return HttpResponse.json(
+            { job_id: 'job-restore-10', snapshot_job_id: 'snapshot-10' },
+            { status: 202 },
+          );
+        }),
+      );
+      mockJob(baseJob({ id: 'job-restore-10', status: 'RUNNING' }));
+
+      const result = renderWithProviders(
+        <RestoreWizard tenantId="new-school-tenant" expectedSchoolName="New School" />,
+        { tenantId: 'platform-tenant', role: 'SUPER_ADMIN', locale: 'en' },
+      );
+      await result.localeReady;
+
+      const user = userEvent.setup();
+
+      const templateButton = await screen.findByRole('button', { name: 'Download blank template' });
+      await user.click(templateButton);
+      await waitFor(() => expect(requestedLang).toBe('en'));
+      expect(templateTenantHeader).toBe('new-school-tenant');
+
+      const input = await screen.findByLabelText('Choose file');
+      await user.upload(input, makeFile());
+      await waitFor(() => expect(validateTenantHeader).toBe('new-school-tenant'));
+
+      const nameInput = screen.getByPlaceholderText("Type the school's name to confirm");
+      await user.type(nameInput, 'New School');
+      await user.click(await screen.findByRole('button', { name: 'Confirm' }));
+
+      await waitFor(() => expect(restoreTenantHeader).toBe('new-school-tenant'));
+    });
+  });
 });

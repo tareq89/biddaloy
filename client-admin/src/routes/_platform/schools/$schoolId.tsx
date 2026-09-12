@@ -27,6 +27,7 @@ import { z } from 'zod';
 import { loadRouteNamespaces } from '../../../route-loaders';
 
 import { AdminsCard } from './-detail/admins-card';
+import { RestoreWorkbookDialog } from './-detail/restore-workbook-dialog';
 import { SmsCreditsCard } from './-detail/sms-credits-card';
 import { StatsCard } from './-detail/stats-card';
 import { StatusActionDialog } from './-detail/status-action-dialog';
@@ -39,7 +40,7 @@ const schoolDetailSearchSchema = z.object({
 
 export const Route = createFileRoute('/_platform/schools/$schoolId')({
   validateSearch: schoolDetailSearchSchema,
-  loader: () => loadRouteNamespaces('platform'),
+  loader: () => loadRouteNamespaces('platform', 'backup', 'bulkImport'),
   component: SchoolDetailPage,
 });
 
@@ -54,6 +55,7 @@ function SchoolDetailPage() {
   const adminsQuery = useSchoolAdmins(schoolId);
 
   const [statusDialogOpen, setStatusDialogOpen] = React.useState(false);
+  const [restoreDialogOpen, setRestoreDialogOpen] = React.useState(false);
 
   const [activeTab, setActiveTab] = useDetailShellTab(['overview'] as const);
 
@@ -96,6 +98,11 @@ function SchoolDetailPage() {
             priority: school.status === 'ACTIVE' ? 'destructive' : 'primary',
             onClick: () => setStatusDialogOpen(true),
           },
+          {
+            id: 'restoreFromWorkbookAction',
+            label: t('schoolDetail.actions.restoreFromWorkbook'),
+            onClick: () => setRestoreDialogOpen(true),
+          },
         ]}
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -137,6 +144,13 @@ function SchoolDetailPage() {
         schoolId={schoolId}
         schoolName={school.name}
         targetStatus={targetStatus}
+      />
+
+      <RestoreWorkbookDialog
+        open={restoreDialogOpen}
+        onOpenChange={setRestoreDialogOpen}
+        schoolId={schoolId}
+        schoolName={school.name}
       />
     </div>
   );

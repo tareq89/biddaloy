@@ -179,11 +179,21 @@ export function useBackupJobs(filters: WorkbookJobListFilters = {}) {
 /** `GET /backup/jobs/:id` — polls every 2s while the job is still
  * `QUEUED`/`RUNNING` so the caller sees live progress, and stops polling
  * once it lands on a terminal status (`DONE`/`FAILED`/`DELETED`). */
-export function useBackupJob(id: string | undefined) {
+/** [14.13.3] `tenantId` is set only by the SUPER_ADMIN provision-from-workbook
+ * flow (`RestoreWizard`'s own `tenantId` prop) to poll a school's job while
+ * it isn't the caller's active tenant — see `apiClient`'s request
+ * interceptor, which honors a request-config `_tenantOverride` over the
+ * ambient active one. Every other caller omits it and gets the old ambient-tenant
+ * behavior unchanged. The query key folds `tenantId` in so this never
+ * collides with (or is invalidated by) the ambient-tenant job list. */
+export function useBackupJob(id: string | undefined, options: { tenantId?: string } = {}) {
+  const { tenantId } = options;
   return useQuery({
-    queryKey: backupKeys.detail(id ?? ''),
+    queryKey: backupKeys.detail(tenantId ? `${tenantId}:${id ?? ''}` : (id ?? '')),
     queryFn: async () => {
-      const res = await apiClient.get<WorkbookJob>(`/backup/jobs/${id}`);
+      const res = await apiClient.get<WorkbookJob>(`/backup/jobs/${id}`, {
+        ...(tenantId ? { _tenantOverride: tenantId } : {}),
+      });
       return res.data;
     },
     enabled: id !== undefined,
@@ -217,7 +227,11 @@ export function useRequestBackup() {
  * The server's `ValidateResponseDto` is flat; this reshapes it into
  * `PreviewResult<RestoreSummary>` so it satisfies `BulkUploadPreview`'s
  * generic contract without changing the server response shape. */
-export function useValidateBackup() {
+/** [14.13.3] `tenantId` — see `useBackupJob`'s own comment on the same
+ * option: set only by the SUPER_ADMIN provision-from-workbook flow to
+ * validate against a school that isn't the caller's active tenant yet. */
+export function useValidateBackup(options: { tenantId?: string } = {}) {
+  const { tenantId } = options;
   return useMutation({
     mutationFn: async ({
       file,
@@ -229,6 +243,7 @@ export function useValidateBackup() {
       const formData = new FormData();
       formData.append('file', file);
       const res = await apiClient.post<ValidateResponseDto>('/backup/validate', formData, {
+        ...(tenantId ? { _tenantOverride: tenantId } : {}),
         onUploadProgress: (event) => {
           if (onProgress && event.total) {
             onProgress(Math.round((event.loaded / event.total) * 100));
@@ -260,16 +275,25 @@ export function useValidateBackup() {
  * snapshot_job_id}` the moment the restore is queued (202) — invalidates
  * the job list since a restore also creates a tracked job, but the caller
  * must poll `useBackupJob(job_id)` itself for progress. */
-export function useRestoreBackup() {
+/** [14.13.3] `tenantId` — same option as `useValidateBackup`/`useBackupJob`.
+ * When set, the ambient-tenant job list is deliberately NOT invalidated:
+ * that list belongs to whatever tenant the caller is actually viewing, not
+ * the just-provisioned school this restore targets. */
+export function useRestoreBackup(options: { tenantId?: string } = {}) {
+  const { tenantId } = options;
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: RestoreBackupInput): Promise<RequestRestoreResponse> => {
-      const res = await apiClient.post<RequestRestoreResponse>('/backup/restore', input);
+      const res = await apiClient.post<RequestRestoreResponse>('/backup/restore', input, {
+        ...(tenantId ? { _tenantOverride: tenantId } : {}),
+      });
       return res.data;
     },
     retry: false,
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: backupKeys.lists() });
+      if (!tenantId) {
+        void queryClient.invalidateQueries({ queryKey: backupKeys.lists() });
+      }
     },
   });
 }
@@ -303,9 +327,14 @@ function filenameFromContentDisposition(header: string | undefined, fallback: st
  * `<a download>` link uses, just built at call time since the URL needs
  * auth headers a plain link can't attach.
  */
-export async function downloadBackup(id: string): Promise<void> {
+export async function downloadBackup(
+  id: string,
+  options: { tenantId?: string } = {},
+): Promise<void> {
+  const { tenantId } = options;
   const res = await apiClient.get<Blob>(`/backup/jobs/${id}/download`, {
     responseType: 'blob',
+    ...(tenantId ? { _tenantOverride: tenantId } : {}),
   });
   const filename = filenameFromContentDisposition(
     res.headers['content-disposition'] as string | undefined,
@@ -334,10 +363,15 @@ export async function downloadBackup(id: string): Promise<void> {
  * anchor mechanism as `downloadBackup` above, for the same reason: the
  * URL needs auth headers a plain `<a>` can't attach.
  */
-export async function downloadWorkbookTemplate(lang: 'bn' | 'en'): Promise<void> {
+export async function downloadWorkbookTemplate(
+  lang: 'bn' | 'en',
+  options: { tenantId?: string } = {},
+): Promise<void> {
+  const { tenantId } = options;
   const res = await apiClient.get<Blob>('/backup/template', {
     params: { lang },
     responseType: 'blob',
+    ...(tenantId ? { _tenantOverride: tenantId } : {}),
   });
   const filename = filenameFromContentDisposition(
     res.headers['content-disposition'] as string | undefined,

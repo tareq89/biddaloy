@@ -60,6 +60,24 @@ describe('request interceptor: tenant/role/token injection', () => {
     expect(res.data.tenant).toBe('tenant-1');
   });
 
+  it('[14.13.3, hardened per item 7] a `_tenantOverride` config field overrides the ambient active tenant', async () => {
+    setActiveTenant('tenant-1');
+    apiMock
+      .onGet('/backup/jobs/job-1')
+      .reply((config) => [200, { tenant: config.headers?.['X-Tenant-ID'] }]);
+
+    const res = await apiClient.get('/backup/jobs/job-1', {
+      _tenantOverride: 'tenant-2',
+    });
+    expect(res.data.tenant).toBe('tenant-2');
+  });
+
+  it('[14.13.3] still requires a tenant when no ambient tenant is active and none is pre-set', async () => {
+    apiMock.onGet('/students').reply(200, { ok: true });
+
+    await expect(apiClient.get('/students')).rejects.toBeInstanceOf(NoActiveTenantError);
+  });
+
   it('attaches X-Role only when a role is explicitly set', async () => {
     setActiveTenant('tenant-1');
     apiMock
@@ -212,6 +230,48 @@ describe('401 handling: refresh and replay', () => {
     expect(results.every((r) => r.status === 'rejected')).toBe(true);
     expect(onSessionExpired).toHaveBeenCalledTimes(1);
     expect(getAccessToken()).toBeNull();
+  });
+
+  // [item 7, money-tier review] Regression: the OLD implementation read
+  // `config.headers.get('X-Tenant-ID')` back as if it were a caller
+  // override. Since the request interceptor itself had already stamped
+  // that header onto the config on the FIRST attempt, re-dispatching the
+  // same config object on a 401 retry made the interceptor read back its
+  // own earlier stamp — pinning the retry to whatever tenant was active
+  // when the request was first sent, even if the user switched schools
+  // while it was in flight. `_tenantOverride` fixes this by keying off a
+  // field the interceptor itself never writes.
+  it('[item 7] a plain ambient-tenant request picks up the NEW active tenant on a 401 retry, not the one active when first sent', async () => {
+    setActiveTenant('tenant-1');
+    setAccessToken('expired-token');
+
+    let call = 0;
+    apiMock.onGet('/students').reply((config) => {
+      call += 1;
+      if (call === 1) {
+        return [
+          401,
+          {
+            statusCode: 401,
+            message: 'jwt expired',
+            timestamp: 't',
+            path: '/students',
+            requestId: 'r1',
+          },
+        ];
+      }
+      return [200, { tenant: config.headers?.['X-Tenant-ID'] }];
+    });
+    globalMock.onPost('/api/v1/auth/refresh').reply(() => {
+      // The user switches active school while the refresh itself is
+      // in flight — simulating a real race, not just a same-tick swap.
+      setActiveTenant('tenant-2');
+      return [200, { access_token: 'fresh-token' }];
+    });
+
+    const res = await apiClient.get('/students');
+
+    expect(res.data.tenant).toBe('tenant-2');
   });
 
   it('attempts refresh exactly once when the refresh call itself keeps failing (no recursive refresh)', async () => {
