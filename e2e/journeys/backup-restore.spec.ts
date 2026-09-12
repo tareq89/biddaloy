@@ -1,4 +1,6 @@
 import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 
 import type { BrowserContext, Page } from '@playwright/test';
 
@@ -136,9 +138,12 @@ test.describe.serial('backup and restore', () => {
     const download = await downloadPromise;
 
     expect(download.suggestedFilename()).toMatch(/\.xlsx$/);
-    const savedPath = await download.path();
-    if (!savedPath) throw new Error('download produced no local path');
-    downloadPath = savedPath;
+    // `download.path()` is a temp file named after a bare UUID with no
+    // extension, and legs B/C feed this path straight back into the file
+    // input — where `BulkUploadPreview`'s fail-fast extension check would
+    // (correctly) reject it. Save it under its real `.xlsx` name instead.
+    downloadPath = path.join(os.tmpdir(), download.suggestedFilename());
+    await download.saveAs(downloadPath);
     expect(fs.statSync(downloadPath).size).toBeGreaterThan(0);
   });
 
