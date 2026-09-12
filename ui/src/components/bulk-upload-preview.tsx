@@ -84,7 +84,15 @@ export function BulkUploadPreview<S, C>({
   // to know about the `File` object itself. Keep the picked file here so the
   // upload/local-error items show the real name instead of a blank one.
   const [selectedFile, setSelectedFile] = React.useState<File | undefined>(undefined);
-  const [slotBlocked, setSlotBlocked] = React.useState(false);
+  // A consumer that supplies a `confirmSlot` is gating Confirm on something
+  // only the slot knows (the restore wizard's typed school name, say), so the
+  // hold starts ON and the slot has to release it explicitly. Starting it OFF
+  // would leave Confirm enabled for the first render + effect flush of every
+  // new preview — a window in which a destructive commit is one click away
+  // before the gate has had a chance to speak. Consumers with no
+  // `confirmSlot` (e.g. students/import) are unaffected: no slot, no hold.
+  const hasConfirmSlot = confirmSlot != null;
+  const [slotBlocked, setSlotBlocked] = React.useState(hasConfirmSlot);
   const [remainingMs, setRemainingMs] = React.useState<number>(0);
 
   const expiresAt =
@@ -92,9 +100,10 @@ export function BulkUploadPreview<S, C>({
       ? state.result.expires_at
       : undefined;
 
-  // New preview → fresh countdown and a released confirm-slot hold.
+  // New preview → fresh countdown, and the confirm-slot hold back to its
+  // default (held when there is a slot to release it, released otherwise).
   React.useEffect(() => {
-    setSlotBlocked(false);
+    setSlotBlocked(hasConfirmSlot);
     if (!expiresAt) {
       setRemainingMs(0);
       return;
@@ -105,7 +114,7 @@ export function BulkUploadPreview<S, C>({
       setRemainingMs(target - Date.now());
     }, 1000);
     return () => clearInterval(interval);
-  }, [expiresAt]);
+  }, [expiresAt, hasConfirmSlot]);
 
   function handleFilesSelected(files: File[]) {
     const file = files[0];

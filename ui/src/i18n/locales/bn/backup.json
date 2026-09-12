@@ -111,5 +111,6 @@
   "restoreDoneCounts": "{{tab}}: {{count}}টি রেকর্ড",
   "downloadSnapshot": "পুনরুদ্ধার-পূর্ব স্ন্যাপশট ডাউনলোড করুন",
   "restoreFailedTab": "{{tab}}-এ পুনরুদ্ধার থেমে গেছে",
+  "restoreFailedGeneric": "পুনরুদ্ধার ব্যর্থ হয়েছে",
   "restoreFailedUndo": "{{tab}}-এর আগের ট্যাবগুলো প্রয়োগ করা হয়েছে — ফিরে যেতে স্ন্যাপশট পুনরুদ্ধার করুন"
 }

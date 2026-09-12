@@ -42,9 +42,7 @@ function validateSummary(overrides: Partial<RestoreSummary> = {}): RestoreSummar
 }
 
 function mockValidate(result: PreviewResult<RestoreSummary>) {
-  server.use(
-    http.post('/api/v1/backup/validate', () => HttpResponse.json(result)),
-  );
+  server.use(http.post('/api/v1/backup/validate', () => HttpResponse.json(result)));
 }
 
 function mockRestore(job: BackupJob) {
@@ -94,6 +92,27 @@ describe('RestoreWizard', () => {
     await user.clear(input);
     await user.type(input, 'Green Valley School');
     await waitFor(() => expect(confirmButton.hasAttribute('disabled')).toBe(false));
+  });
+
+  it('keeps Confirm disabled when the response carries no school name (gate fails closed)', async () => {
+    // A blank `school_name` must not make the gate satisfiable by an empty
+    // box — "" === "".trim() would otherwise unlock a full-tenant
+    // destructive restore with nothing typed at all.
+    mockValidate({
+      staging_id: 'staging-1b',
+      expires_at: new Date(Date.now() + 30 * 60_000).toISOString(),
+      errors: [],
+      hard_error_count: 0,
+      summary: validateSummary({ school_name: '' }),
+    });
+    const { user } = await renderAndUpload();
+
+    const confirmButton = await screen.findByRole('button', { name: 'Confirm' });
+    await waitFor(() => expect(confirmButton.hasAttribute('disabled')).toBe(true));
+
+    const input = screen.getByPlaceholderText("Type the school's name to confirm");
+    await user.type(input, '   ');
+    expect(confirmButton.hasAttribute('disabled')).toBe(true);
   });
 
   it('hard_error_count > 0 disables Confirm no matter what is typed', async () => {
@@ -239,10 +258,12 @@ describe('RestoreWizard', () => {
       summary: validateSummary(),
     });
 
-    let capturedBody: { invite_restored_users?: boolean } | undefined;
+    let capturedBody:
+      | { invite_restored_users?: boolean; staging_id?: string; confirmation_text?: string }
+      | undefined;
     server.use(
       http.post('/api/v1/backup/restore', async ({ request }) => {
-        capturedBody = (await request.json()) as { invite_restored_users?: boolean };
+        capturedBody = (await request.json()) as typeof capturedBody;
         return HttpResponse.json(
           {
             id: 'job-restore-4',
@@ -267,5 +288,10 @@ describe('RestoreWizard', () => {
     await user.click(await screen.findByRole('button', { name: 'Confirm' }));
 
     await waitFor(() => expect(capturedBody?.invite_restored_users).toBe(true));
+    // The commit must go out against the staging id this very preview
+    // returned, carrying the name the user actually typed — a stale
+    // staging_id or a blank confirmation is the destructive failure mode.
+    expect(capturedBody?.staging_id).toBe('staging-7');
+    expect(capturedBody?.confirmation_text).toBe('Green Valley School');
   });
 });
