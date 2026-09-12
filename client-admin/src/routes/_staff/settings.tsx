@@ -1,9 +1,18 @@
 import { RoutePending } from '@biddaloy/ui/components';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute } from '@tanstack/react-router';
+import { z } from 'zod';
 
 import { SchoolSettingsPage } from '../../pages/SchoolSettingsPage';
 import { loadRouteNamespaces } from '../../route-loaders';
+
+/** [14.11.2] `?backup=<jobId>` — a deep link into `BackupSection` (e.g.
+ * from the "your backup is ready" email). Same `z.object` + `.catch`
+ * style as `invoices/index.tsx`'s search schema: an unparsable value
+ * silently drops rather than 500ing the route. */
+const settingsSearchSchema = z.object({
+  backup: z.string().optional().catch(undefined),
+});
 
 /**
  * `/settings` — [8.7.13]'s settings page. Its own inline permission gate
@@ -14,22 +23,25 @@ import { loadRouteNamespaces } from '../../route-loaders';
  * entry this file used to check itself. See `route-permissions.ts`.
  */
 export const Route = createFileRoute('/_staff/settings')({
+  validateSearch: settingsSearchSchema,
   // [8.14.5]: i18n-only — see the plan's "plan correction 5". This
   // route's data comes from `useSchoolSettings(schoolId)`, but `schoolId`
   // is picked client-side from `useSchools()` (a SUPER_ADMIN's school
   // picker), not a route param, so there's nothing this `loader` can
-  // `ensureQueryData` ahead of time.
-  loader: () => loadRouteNamespaces('settings'),
+  // `ensureQueryData` ahead of time. `backup` is added here for
+  // `BackupSection`'s own header copy and job-status labels.
+  loader: () => loadRouteNamespaces('settings', 'backup'),
   pendingComponent: SettingsPending,
   component: SettingsRoute,
 });
 
 function SettingsRoute() {
   const regionConfig = useTenantRegionConfig();
+  const { backup } = Route.useSearch();
 
   return (
     <RegionConfigProvider value={regionConfig}>
-      <SchoolSettingsPage />
+      <SchoolSettingsPage {...(backup !== undefined ? { backupJobId: backup } : {})} />
     </RegionConfigProvider>
   );
 }
