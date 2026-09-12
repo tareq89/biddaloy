@@ -350,6 +350,21 @@ export {
   type StudentUploadSummary,
 } from './bulk-upload';
 export {
+  backupKeys,
+  downloadBackup,
+  useBackupJob,
+  useBackupJobs,
+  useRequestBackup,
+  useRestoreBackup,
+  useValidateBackup,
+  type BackupJob,
+  type BackupJobListFilters,
+  type BackupJobStatus,
+  type PaginatedBackupJobs,
+  type RestoreBackupInput,
+  type ValidateResponseDto,
+} from './backup';
+export {
   useBulkUploadPreview,
   type BulkImportError,
   type PreviewResult,
