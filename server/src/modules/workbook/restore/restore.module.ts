@@ -6,11 +6,13 @@ import { School } from '../../schools/entities/school.entity';
 import { AuditModule } from '../../audit/audit.module';
 import { BulkImportModule } from '../../bulk-import/bulk-import.module';
 import { StorageModule } from '../../storage/storage.module';
+import { AccountAccessModule } from '../../account-access/account-access.module';
 import { ExportModule } from '../export/export.module';
 import { ValidationService } from '../import/validation.service';
 import { WORKBOOK_RESTORE_QUEUE } from './restore.constants';
 import { RestoreService } from './restore.service';
 import { RestoreProcessor } from './restore.processor';
+import { RestoreController } from './restore.controller';
 
 /**
  * Concurrency 1 for the restore worker (14.10.2's `RestoreProcessor`) is
@@ -31,9 +33,11 @@ import { RestoreProcessor } from './restore.processor';
     AuditModule,
     BulkImportModule,
     StorageModule,
+    AccountAccessModule,
     ExportModule,
     BullModule.registerQueue({ name: WORKBOOK_RESTORE_QUEUE }),
   ],
+  controllers: [RestoreController],
   providers: [RestoreService, RestoreProcessor, ValidationService],
   exports: [RestoreService],
 })
