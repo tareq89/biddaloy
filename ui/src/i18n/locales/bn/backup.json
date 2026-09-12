@@ -13,11 +13,13 @@
     "QUEUED": "সারিতে আছে",
     "RUNNING": "চলছে",
     "DONE": "সম্পন্ন হয়েছে",
-    "FAILED": "ব্যর্থ হয়েছে"
+    "FAILED": "ব্যর্থ হয়েছে",
+    "DELETED": "সরানো হয়েছে"
   },
   "columnKind": "ধরন",
   "kindExport": "ব্যাকআপ",
   "kindSnapshot": "পুনরুদ্ধার-পূর্ব স্ন্যাপশট",
+  "kindRestore": "পুনরুদ্ধার",
   "columnCreatedAt": "শুরু",
   "columnCompletedAt": "শেষ",
   "columnStatus": "অবস্থা",
@@ -76,8 +78,8 @@
   "diffColumnUpdate": "আপডেট",
   "diffColumnDelete": "মুছে ফেলা",
   "diffColumnUnchanged": "অপরিবর্তিত",
-  "diffColumnErrors": "সমস্যা",
   "diffTotalsRow": "মোট",
+  "diffTabNotPresent": "(এই ব্যাকআপে নেই)",
   "diffTabName": {
     "school": "স্কুল",
     "academic_years": "শিক্ষাবর্ষ",
@@ -98,7 +100,6 @@
     "payments": "পেমেন্ট",
     "payment_allocations": "পেমেন্ট বণ্টন"
   },
-  "downloadErrorsCsv": "সমস্যাগুলো CSV হিসেবে ডাউনলোড করুন",
   "warningsTitle": "সতর্কতা",
   "restoreConsequenceDeletes": "{{count}}টি রেকর্ড মুছে ফেলা হবে",
   "restoreSnapshotFirst": "প্রথমে বর্তমান তথ্যের একটি স্ন্যাপশট নেওয়া হয় এবং সম্পন্ন হলে এখানে লিংক করা হয়।",
@@ -111,6 +112,5 @@
   "restoreDoneCounts": "{{tab}}: {{count}}টি রেকর্ড",
   "downloadSnapshot": "পুনরুদ্ধার-পূর্ব স্ন্যাপশট ডাউনলোড করুন",
   "restoreFailedTab": "{{tab}}-এ পুনরুদ্ধার থেমে গেছে",
-  "restoreFailedGeneric": "পুনরুদ্ধার ব্যর্থ হয়েছে",
   "restoreFailedUndo": "{{tab}}-এর আগের ট্যাবগুলো প্রয়োগ করা হয়েছে — ফিরে যেতে স্ন্যাপশট পুনরুদ্ধার করুন"
 }

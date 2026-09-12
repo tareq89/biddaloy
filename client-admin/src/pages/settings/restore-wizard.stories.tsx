@@ -1,4 +1,9 @@
-import { backupKeys, type BackupJob, type PreviewResult, type RestoreSummary } from '@biddaloy/ui/hooks';
+import {
+  backupKeys,
+  type PreviewResult,
+  type RestoreSummary,
+  type WorkbookJob,
+} from '@biddaloy/ui/hooks';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type * as React from 'react';
@@ -6,10 +11,11 @@ import type * as React from 'react';
 import { RestoreConfirmSlot, RestoreDiffSummary, RestoreProgressPanel } from './restore-wizard';
 
 /**
- * [613] The restore wizard's per-state stories: the diff preview (with and
- * without errors), the typed-confirmation gate (plain and empty-tenant),
- * and the progress panel's three terminal shapes (in progress, done,
- * failed).
+ * [613, corrected 14.11.5] The restore wizard's per-state stories: the diff
+ * preview (with and without errors), the typed-confirmation gate (plain and
+ * empty-tenant), and the progress panel's three terminal shapes (in
+ * progress, done, failed) — rebuilt against the real server DTOs (see
+ * `ui/src/hooks/backup.ts`'s header comment).
  *
  * Same Storybook-not-wired-for-`client-admin` gap
  * `import-preview.stories.tsx` notes — only `ui/src/**` is globbed into
@@ -20,13 +26,19 @@ import { RestoreConfirmSlot, RestoreDiffSummary, RestoreProgressPanel } from './
 
 function summary(overrides: Partial<RestoreSummary> = {}): RestoreSummary {
   return {
-    school_name: 'Green Valley School',
-    source_school_name: 'Green Valley School',
-    exported_at: new Date().toISOString(),
+    meta: {
+      schema_version: 1,
+      kind: 'BACKUP',
+      exported_at: new Date().toISOString(),
+      app_version: '1.0.0',
+      source_school_name: 'Green Valley School',
+      source_school_slug: 'green-valley-school',
+    },
+    totals: { creates: 16, updates: 3, unchanged: 190, deletes: 5 },
     is_empty_tenant: false,
     tabs: [
-      { tab: 'students', create: 12, update: 3, delete: 5, unchanged: 100, errors: 0 },
-      { tab: 'guardians', create: 4, update: 0, delete: 0, unchanged: 90, errors: 0 },
+      { name: 'students', present: true, creates: 12, updates: 3, unchanged: 100, deletes: 5 },
+      { name: 'guardians', present: true, creates: 4, updates: 0, unchanged: 90, deletes: 0 },
     ],
     warnings: [],
     ...overrides,
@@ -60,16 +72,17 @@ export const PreviewClean: DiffStory = {
 export const PreviewWithErrors: DiffStory = {
   args: {
     result: previewResult({
-      errors: [
-        { row: 4, column: 'phone', message: 'Not a valid phone number', severity: 'error' },
-      ],
+      errors: [{ row: 4, column: 'phone', message: 'Not a valid phone number', severity: 'error' }],
       hard_error_count: 1,
       summary: summary({
-        tabs: [
-          { tab: 'students', create: 12, update: 3, delete: 5, unchanged: 100, errors: 1 },
-          { tab: 'guardians', create: 4, update: 0, delete: 0, unchanged: 90, errors: 0 },
+        warnings: [
+          {
+            row: 12,
+            column: 'phone',
+            message: '3 rows used a legacy phone format and were normalised.',
+            severity: 'warning',
+          },
         ],
-        warnings: ['3 rows used a legacy phone format and were normalised.'],
       }),
     }),
   },
@@ -80,7 +93,8 @@ type ConfirmStory = StoryObj<typeof RestoreConfirmSlot>;
 export const Confirm: ConfirmStory = {
   render: (args) => <RestoreConfirmSlot {...args} />,
   args: {
-    result: previewResult(),
+    summary: summary(),
+    expectedSchoolName: 'Green Valley School',
     confirmationText: '',
     onConfirmationTextChange: () => {},
     inviteRestoredUsers: false,
@@ -92,7 +106,8 @@ export const Confirm: ConfirmStory = {
 export const EmptyTenant: ConfirmStory = {
   render: (args) => <RestoreConfirmSlot {...args} />,
   args: {
-    result: previewResult({ summary: summary({ is_empty_tenant: true, tabs: [] }) }),
+    summary: summary({ is_empty_tenant: true, tabs: [] }),
+    expectedSchoolName: 'Green Valley School',
     confirmationText: '',
     onConfirmationTextChange: () => {},
     inviteRestoredUsers: false,
@@ -101,12 +116,23 @@ export const EmptyTenant: ConfirmStory = {
   },
 };
 
-function job(overrides: Partial<BackupJob> = {}): BackupJob {
+function job(overrides: Partial<WorkbookJob> = {}): WorkbookJob {
   return {
     id: 'job-restore-1',
+    kind: 'RESTORE',
     status: 'RUNNING',
-    type: 'RESTORE',
+    source: 'MANUAL',
+    requested_by: { id: 'admin-1', full_name: 'Admin User' },
+    size_bytes: null,
+    row_counts: null,
+    progress: null,
+    failed_tab: null,
+    snapshot_job_id: 'snapshot-1',
+    error: null,
+    pinned: false,
+    expires_at: null,
     created_at: new Date().toISOString(),
+    finished_at: null,
     ...overrides,
   };
 }
@@ -118,7 +144,7 @@ type ProgressStory = StoryObj<typeof RestoreProgressPanel>;
  * the panel renders its terminal/in-progress state immediately instead of
  * a live fetch (this file isn't wired into a running Storybook yet, but
  * kept correct for when it is). */
-function withSeededJobQuery(seedJob: BackupJob) {
+function withSeededJobQuery(seedJob: WorkbookJob) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -132,34 +158,40 @@ function withSeededJobQuery(seedJob: BackupJob) {
   };
 }
 
-const progressJob = job({ current_tab: 'students', tabs_done: 3, tabs_total: 18 });
+const progressJob = job({ progress: { tab: 'students', done: 3, total: 18 } });
 export const Progress: ProgressStory = {
   render: (args) => <RestoreProgressPanel {...args} />,
-  args: { initialJob: progressJob, onReset: () => {} },
+  args: {
+    jobId: progressJob.id,
+    snapshotJobId: progressJob.snapshot_job_id ?? '',
+    onReset: () => {},
+  },
   decorators: [withSeededJobQuery(progressJob)],
 };
 
 const doneJob = job({
+  id: 'job-restore-done',
   status: 'DONE',
-  completed_at: new Date().toISOString(),
+  finished_at: new Date().toISOString(),
   snapshot_job_id: 'snapshot-1',
   row_counts: { students: 115, guardians: 94 },
 });
 export const Done: ProgressStory = {
   render: (args) => <RestoreProgressPanel {...args} />,
-  args: { initialJob: doneJob, onReset: () => {} },
+  args: { jobId: doneJob.id, snapshotJobId: doneJob.snapshot_job_id ?? '', onReset: () => {} },
   decorators: [withSeededJobQuery(doneJob)],
 };
 
 const failedJob = job({
+  id: 'job-restore-failed',
   status: 'FAILED',
-  completed_at: new Date().toISOString(),
+  finished_at: new Date().toISOString(),
   failed_tab: 'guardians',
-  error_message: 'Duplicate natural key at row 14',
+  error: 'Duplicate natural key at row 14',
   snapshot_job_id: 'snapshot-2',
 });
 export const Failed: ProgressStory = {
   render: (args) => <RestoreProgressPanel {...args} />,
-  args: { initialJob: failedJob, onReset: () => {} },
+  args: { jobId: failedJob.id, snapshotJobId: failedJob.snapshot_job_id ?? '', onReset: () => {} },
   decorators: [withSeededJobQuery(failedJob)],
 };
