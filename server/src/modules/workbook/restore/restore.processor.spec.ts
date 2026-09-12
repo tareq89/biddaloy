@@ -444,5 +444,41 @@ describe('RestoreProcessor', () => {
         expect.anything(),
       );
     });
+
+    // Regression: the RUNNING status write and the snapshot poll loop (up to
+    // ten minutes of DB reads) used to sit outside the try/catch. A DB blip
+    // there escaped `process()`, so the per-tenant restore lock was never
+    // released — locking the school out of restore until the lock's TTL —
+    // and the job row stayed RUNNING forever with no FAILED status.
+    it('still releases the lock and fails the job when the RUNNING status write throws', async () => {
+      validationService.validate.mockResolvedValue(makeValidatedWorkbook({}));
+      jobs.update.mockRejectedValueOnce(new Error('connection terminated'));
+
+      await expect(
+        processor.process({ data: { jobId: jobRow.id, inviteUsers: false } } as any),
+      ).resolves.toBeUndefined();
+
+      expect(jobRow.status).toBe(WorkbookJobStatus.FAILED);
+      expect(jobRow.error).toBe('connection terminated');
+      expect(restoreService.release).toHaveBeenCalledWith(TENANT, jobRow.id);
+      // Nothing was applied — the failure happened before any tab ran.
+      expect(dataSource.transaction).not.toHaveBeenCalled();
+    });
+
+    it('still releases the lock and fails the job when a snapshot poll read throws', async () => {
+      validationService.validate.mockResolvedValue(makeValidatedWorkbook({}));
+      jobs.findOne
+        .mockImplementationOnce(async () => jobRow)
+        .mockRejectedValueOnce(new Error('snapshot read failed'));
+
+      await expect(
+        processor.process({ data: { jobId: jobRow.id, inviteUsers: false } } as any),
+      ).resolves.toBeUndefined();
+
+      expect(jobRow.status).toBe(WorkbookJobStatus.FAILED);
+      expect(jobRow.error).toBe('snapshot read failed');
+      expect(restoreService.release).toHaveBeenCalledWith(TENANT, jobRow.id);
+      expect(dataSource.transaction).not.toHaveBeenCalled();
+    });
   });
 });

@@ -126,23 +126,29 @@ export class RestoreProcessor extends WorkerHost {
     }
 
     const tenantId = row.tenant_id;
-    await this.jobs.update(row.id, { status: WorkbookJobStatus.RUNNING, progress: null });
-
-    const snapshotOk = await this.waitForSnapshot(row);
-    if (!snapshotOk) {
-      await this.terminate(row, tenantId, {
-        status: WorkbookJobStatus.FAILED,
-        error: 'SNAPSHOT_FAILED',
-        failedTab: null,
-      });
-      return;
-    }
-
     let currentTab: string | null = null;
     const rowCounts: WorkbookRowCounts = {};
     const createdUserIds: string[] = [];
 
+    // Everything from here on lives inside the try: the per-tenant restore
+    // lock is released only by `terminate` (or the success path), so any
+    // throw that escapes `process()` — a DB blip on the RUNNING update, or
+    // on one of the snapshot poll reads, which run for up to ten minutes —
+    // would strand the lock until its TTL and leave the job row stuck at
+    // RUNNING forever, with no FAILED status, no audit row and no email.
     try {
+      await this.jobs.update(row.id, { status: WorkbookJobStatus.RUNNING, progress: null });
+
+      const snapshotOk = await this.waitForSnapshot(row);
+      if (!snapshotOk) {
+        await this.terminate(row, tenantId, {
+          status: WorkbookJobStatus.FAILED,
+          error: 'SNAPSHOT_FAILED',
+          failedTab: null,
+        });
+        return;
+      }
+
       if (!row.staging_id) {
         throw new Error('Restore job has no staging_id.');
       }
