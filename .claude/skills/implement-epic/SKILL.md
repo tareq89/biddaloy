@@ -101,10 +101,20 @@ is **money** when its `## Files` touches `server/src/migrations/**`,
 `server/src/modules/fees/**` (beyond `dto/` and controller-only changes),
 `server/src/modules/invoices/**`, `server/src/modules/reports/**`,
 `server/src/modules/auth/**`, or its body mentions an approval scope, wallet,
-allocation, reversal, ledger or late fee. Everything else — UI, docs, hooks,
-wave-close glue — is **standard**. An epic body may override with an explicit
-list; `issue-preflight` records the tier on its `## Plan` comment and the group
-agent reads it from there.
+allocation, reversal, ledger or late fee.
+
+A ticket is **also money-tier**, regardless of which module directory it
+lives in, when its `## Files` or plan touches code that can **delete,
+overwrite, or bulk-mutate tenant data outside the ticket's own new tables** —
+e.g. a restore/import processor, a retention/cleanup job, a bulk deletion
+endpoint. Epic 14's workbook restore module missed the path list above and
+produced two critical bugs (a pin/retention race, and a TypeORM orphaning bug
+that nulled cross-tenant foreign keys) — it should have been money-tier on
+behavior, not on path.
+
+Everything else — UI, docs, hooks, wave-close glue — is **standard**. An epic
+body may override with an explicit list; `issue-preflight` records the tier on
+its `## Plan` comment and the group agent reads it from there.
 
 **Effort** is session-wide and cannot be set per agent (see `implement-issue`,
 "Effort cannot be routed per phase"). Run the orchestrating session at
@@ -178,6 +188,8 @@ Three sources, in descending confidence:
    | `shared/src/**` | ripples into server and every client |
    | `ui/src/api/schema.d.ts` | generated + committed |
    | `client-admin/src/routeTree.gen.ts` | generated + committed |
+   | `ui/src/hooks/**` | shared hooks; any two lanes that both touch backup/export/import features tend to share a hook file, and conflicts there are silent until merge |
+   | `ui/src/i18n/locales/**` | same file per locale accumulates keys from every UI-touching lane in a wave; low conflict risk (usually additive) but still real, as seen in wave 4 |
 
 Source 2 is the one that actually prevents conflicts, and it does not exist
 until every ticket has a plan. That ordering is not negotiable: a partition
@@ -256,9 +268,22 @@ Rules:
     api-types, e2e"), is not a lane in that wave: it runs as its own one-lane
     sub-wave `w<N>c` **after wave N has merged to `main`**, because it
     regenerates committed artifacts and needs every sibling landed.
-  - Still verify disjointness from the `## Files` lists. If two declared
-    lanes share a file, merge them into one lane and say so at GATE 1 — the
-    epic's claim was wrong, not the rule.
+  - **Disjointness is a scripted check, not an eyeball pass — this has already
+    failed once.** Epic 14 wave 4's two lanes (w4-g1, w4-g2) both touched
+    `ui/src/hooks/backup.ts`, its test file, and
+    `ui/src/i18n/locales/*/backup.json`, undetected by inspection until the
+    PRs conflicted at merge time. Before finalizing the partition, run an
+    actual set-intersection check across every pair of lanes' `## Files`
+    lists, e.g.:
+
+    ```bash
+    comm -12 <(sort lane-a-files.txt) <(sort lane-b-files.txt)
+    ```
+
+    Do this for every pair of lanes in the wave. Any non-empty intersection
+    means those lanes must be merged into one, or the shared file must be
+    pulled out as its own serialized hot-path lane. This is a hard rule, not
+    a suggestion.
 
 ### UI work needs no mockup gate
 
