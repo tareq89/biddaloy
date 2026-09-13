@@ -87,6 +87,7 @@ export {
 } from './teachers';
 export {
   myStudentsQueryOptions,
+  studentIdsQueryOptions,
   studentKeys,
   studentQueryOptions,
   studentsQueryOptions,
@@ -94,7 +95,9 @@ export {
   useDeleteStudent,
   useMyStudents,
   useStudent,
+  useStudentIds,
   useStudents,
+  useStudentSearch,
   useUpdateStudent,
   useUpdateStudentEnrollmentStatus,
   useUpdateStudentPreferredCommunication,
@@ -103,6 +106,7 @@ export {
   type PaginatedStudents,
   type PreferredCommunication,
   type Student,
+  type StudentIdsResult,
   type StudentListFilters,
   type StudentSortField,
   type UpdateStudentInput,
@@ -339,7 +343,20 @@ export {
   type PaginatedFeeStructures,
   type UpdateFeeStructureInput,
 } from './fee-structures';
-export { useGenerateFees, type GenerateFeesInput, type GenerateFeesResult } from './fee-generation';
+export {
+  useGenerateFees,
+  useGenerateFeesPreview,
+  type DuplicateAction,
+  type GenerateFeesDuplicate,
+  type GenerateFeesInactiveStudent,
+  type GenerateFeesInput,
+  type GenerateFeesPreviewInput,
+  type GenerateFeesPreviewResult,
+  type GenerateFeesRequest,
+  type GenerateFeesResult,
+  type GenerateFeesScope,
+  type PeriodType,
+} from './fee-generation';
 export {
   useValidateStudentUpload,
   useCommitStudentUpload,

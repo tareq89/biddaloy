@@ -295,6 +295,61 @@ export function useUpdateStudentEnrollmentStatus(id: string) {
   });
 }
 
+/**
+ * [16.3.6] The Generate Fees modal's audience picker — a thin,
+ * intention-revealing wrapper over `useStudents` rather than a new query
+ * shape. Split out from `useStudents` because the picker's callers reason
+ * about it as "search students for the audience list", not as a generic
+ * paginated list.
+ */
+export function useStudentSearch(
+  filters: StudentListFilters = {},
+  options: { enabled?: boolean } = {},
+) {
+  return useStudents(filters, options);
+}
+
+/** `GET /students/ids`'s 200 body — see this file's own `PaginatedStudents`
+ * comment on `schema.d.ts` gaps; this endpoint is new as of #652 and isn't
+ * in the generated schema yet either. */
+export interface StudentIdsResult {
+  ids: string[];
+  total: number;
+}
+
+/**
+ * [16.3.6] "Select all N matching" in the audience picker — `GET
+ * /students/ids`, the same filters `useStudents`/`studentsQueryOptions`
+ * accept, but returning every matching id instead of one page of rows.
+ * Owned by #652 (parallel, still open at the time this hook was written);
+ * built against #652's documented contract rather than its code, since
+ * none has merged yet. The server 413s beyond 5000 matches — surfaced to
+ * the caller as a normal `ApiError`, same as any other 4xx.
+ *
+ * `enabled` defaults to `false`: unlike a list query, nobody wants this
+ * to fire on mount or on every filter keystroke — it only runs when the
+ * accountant actually clicks "Select all N matching".
+ */
+export function studentIdsQueryOptions(filters: StudentListFilters = {}) {
+  return queryOptions({
+    queryKey: studentKeys.list({ ...filters, idsOnly: true } as StudentListFilters & {
+      idsOnly: boolean;
+    }),
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<StudentIdsResult>('/students/ids', {
+        params: filters,
+        signal,
+      });
+      return res.data;
+    },
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useStudentIds(filters: StudentListFilters = {}, { enabled = false } = {}) {
+  return useQuery({ ...studentIdsQueryOptions(filters), enabled });
+}
+
 /** [8.10.2]'s Delete action — `Student.deleted_at` soft delete
  * (`students.service.ts`'s `remove`), same reasoning as
  * `useCreateStudent`: a removed student can affect any cached list

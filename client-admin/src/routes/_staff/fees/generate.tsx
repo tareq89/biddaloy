@@ -1,36 +1,24 @@
 import { RoutePending } from '@biddaloy/ui/components';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { createFileRoute } from '@tanstack/react-router';
-import { z } from 'zod';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
 
-import { GenerateFeesWizard } from './-generate/generate-fees-wizard';
+import { GenerateFeesModal } from './-generate/generate-fees-modal';
 
 /**
- * `/fees/generate` — [8.11.6]'s "generate a month's fees" wizard.
+ * `/fees/generate` — [16.3.6] replaced the multi-step wizard with a
+ * single `GenerateFeesModal` dialog. The route still owns the URL (so
+ * "Generate fees" links/buttons elsewhere in the app keep working
+ * unchanged) but now just opens the dialog on mount and navigates back to
+ * `/fees` when it closes, instead of rendering a full-page wizard.
  *
- * `step` is `WizardShell`'s own `useWizardShellStep` contract (`?step=`
- * as the source of truth for the active step, so it survives a refresh),
- * exactly as `/payments/record` declares it.
- *
- * Its own inline permission gate (`useHasPermission(FEE_GENERATE)`, an
- * `EmptyState` early-return escaping to `/fees`) is gone as of
- * [8.14.17]: `_staff.tsx`'s `RequirePermission` now refuses this route in
- * place before this component ever mounts, using
- * `STAFF_ROUTE_PERMISSIONS['/_staff/fees/generate']` = `FEE_GENERATE`
- * (`route-permissions.ts`), and escapes to `/` — the app's role-aware
- * redirect — rather than the sibling `/fees` route this file used to
- * navigate to (see the plan's correction: `/fees` itself needs
- * `FEE_STRUCTURE_READ`, which a `TEACHER` also lacks, so bouncing there
- * only traded one refusal for another).
+ * Its own inline permission gate is gone as of [8.14.17]: `_staff.tsx`'s
+ * `RequirePermission` refuses this route in place before this component
+ * ever mounts, using `STAFF_ROUTE_PERMISSIONS['/_staff/fees/generate']` =
+ * `FEE_GENERATE` (`route-permissions.ts`).
  */
-const generateFeesSearchSchema = z.object({
-  step: z.string().optional().catch(undefined),
-});
-
 export const Route = createFileRoute('/_staff/fees/generate')({
-  validateSearch: generateFeesSearchSchema,
   loader: () => loadRouteNamespaces('feeGeneration'),
   pendingComponent: GenerateFeesPending,
   component: GenerateFeesPage,
@@ -42,10 +30,16 @@ function GenerateFeesPage() {
   // is formatted with the tenant's own date settings, which would
   // silently fall back to the provider's hardcoded default without this.
   const regionConfig = useTenantRegionConfig();
+  const navigate = useNavigate();
 
   return (
     <RegionConfigProvider value={regionConfig}>
-      <GenerateFeesWizard />
+      <GenerateFeesModal
+        open
+        onOpenChange={(open) => {
+          if (!open) void navigate({ to: '/fees' });
+        }}
+      />
     </RegionConfigProvider>
   );
 }
