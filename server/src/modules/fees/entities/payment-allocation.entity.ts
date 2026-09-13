@@ -49,6 +49,13 @@ export class PaymentAllocation {
   @Column({ type: 'enum', enum: PaymentAllocationType })
   allocation_type: PaymentAllocationType;
 
+  /** [16.1.6] One-off discount granted on this specific line at checkout —
+   * distinct from `StudentFee.discount_amount`, which is a standing
+   * discount on the whole fee period. Defaults to 0 for every allocation
+   * recorded before checkout supported per-line discounts. */
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  discount_amount: number;
+
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 

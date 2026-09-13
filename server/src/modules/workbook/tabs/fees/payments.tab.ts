@@ -107,6 +107,24 @@ const excluded: readonly string[] = [
   // a restore never carries this forward; a null snapshot falls back to the
   // live school profile on read (D9 of #508).
   'issuer_snapshot',
+  // [16.1.6] Checkout/reversal columns added to `Payment` ahead of the
+  // checkout (16.4.2) and reversal endpoints that will populate them. A
+  // client-supplied idempotency key, a cash tender/change breakdown, wallet
+  // credit movement, and reversal linkage are all point-in-time transaction
+  // facts, not portable across a backup/restore the way `total_amount` or
+  // `payment_method` are — carrying a stale idempotency key or reversal
+  // pointer across tenants/restores could misfire the idempotency check or
+  // point at a payment that doesn't exist in the target tenant. Revisit
+  // once the checkout/reversal flows land and this becomes real to export.
+  'idempotency_key',
+  'tendered_amount',
+  'change_amount',
+  'wallet_credit_used',
+  'wallet_credit_added',
+  'reversal_of_payment_id',
+  'reversed_by_payment_id',
+  'reversal_reason',
+  'approved_by_user_id',
 ];
 
 export const paymentsTab: TabSpec<Payment, PaymentRow> = {

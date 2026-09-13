@@ -39,6 +39,12 @@ import { IssuerSnapshot } from '../../schools/profile/issuer-snapshot';
 @Index(['invoice_id'])
 @Index(['created_at'])
 @Index(['tenant_id'])
+@Index(['tenant_id', 'payment_date'])
+@Index(['received_by_user_id'])
+@Index(['tenant_id', 'idempotency_key'], {
+  unique: true,
+  where: '"idempotency_key" IS NOT NULL',
+})
 export class Payment {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -91,6 +97,71 @@ export class Payment {
 
   @Column({ type: 'uuid' })
   tenant_id: string;
+
+  /** [16.1.6] Client-supplied key so a retried checkout request (a flaky
+   * network, a doubled tap) never records the payment twice. Unique per
+   * `(tenant_id, idempotency_key)` — enforced by a partial index that
+   * ignores NULL, since most payments recorded before the 16.4.2 checkout
+   * endpoint lands never set one. `PaymentAllocationService` returns the
+   * existing payment unchanged when this key is reused. Never exposed to
+   * families (`FamilyPaymentDto` is an allow-list that omits it). */
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  idempotency_key: string | null;
+
+  /** [16.1.6] Cash actually handed over at checkout, when it exceeds
+   * `total_amount` (change is due back). NULL for non-cash methods and for
+   * payments recorded before checkout tracked this. */
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  tendered_amount: number | null;
+
+  /** [16.1.6] `tendered_amount - total_amount` handed back to the payer. */
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  change_amount: number;
+
+  /** [16.1.6] How much of this payment's `total_amount` was covered by the
+   * student's wallet credit balance (replaces the removed ADVANCE path —
+   * see D5). */
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  wallet_credit_used: number;
+
+  /** [16.1.6] How much wallet credit this payment added (e.g. change the
+   * payer chose to keep on account instead of taking as cash). */
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  wallet_credit_added: number;
+
+  /** [16.1.6] Set on the reversal payment, pointing back at the payment it
+   * reverses. Self-referencing FK; populated by the reversal flow (later
+   * ticket), not by `recordWithAllocation`. */
+  @ManyToOne(() => Payment, { nullable: true })
+  @JoinColumn({ name: 'reversal_of_payment_id' })
+  reversal_of_payment: Payment | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  reversal_of_payment_id: string | null;
+
+  /** [16.1.6] Set on the original payment once it has been reversed,
+   * pointing at the reversal payment. */
+  @ManyToOne(() => Payment, { nullable: true })
+  @JoinColumn({ name: 'reversed_by_payment_id' })
+  reversed_by_payment: Payment | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  reversed_by_payment_id: string | null;
+
+  /** [16.1.6] Why this payment was reversed. Staff-facing only — never
+   * exposed to families. */
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  reversal_reason: string | null;
+
+  /** [16.1.6] Staff member who approved the reversal, when approval is
+   * required. Distinct from `received_by_user_id` (who took the original
+   * money). */
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'approved_by_user_id' })
+  approved_by: User | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  approved_by_user_id: string | null;
 
   /** [15.5.5] School identity frozen at record time. Null for payments
    * recorded before this column existed, or on rare failure to build a

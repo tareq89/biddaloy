@@ -256,6 +256,14 @@ export class RecordPaymentWithAllocationDto {
   @IsOptional()
   @IsBoolean()
   generate_invoice?: boolean;
+
+  /** [16.1.6] Client-supplied idempotency key. A retried request with the
+   * same key (per tenant) returns the payment already created for it
+   * instead of recording a second one. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  idempotency_key?: string;
 }
 
 export class QueryPaymentDto {
