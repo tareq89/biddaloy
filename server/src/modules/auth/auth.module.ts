@@ -9,6 +9,10 @@ import { ContextGuard, RolesGuard } from './guards/context.guard';
 import { PermissionsGuard } from './guards/permissions.guard';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { StepUpController } from './step-up.controller';
+import { StepUpService, STEP_UP_REDIS } from './step-up.service';
+import { AccountAccessModule } from '../account-access/account-access.module';
+import { SchoolsModule } from '../schools/schools.module';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { UserTenant } from './entities/user-tenant.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
@@ -56,10 +60,33 @@ const DEFAULT_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60_000; // 30 days
     BullModule.registerQueue({
       name: REFRESH_TOKEN_CLEANUP_QUEUE,
     }),
+    // 16.2.2's StepUpService reuses AccountAccessModule's OtpService (OTP
+    // storage/verification) and SchoolsModule's getResolvedSettings
+    // (approval_mode). Neither imports AuthModule back, so this is not a
+    // cycle — both currently reach AuthModule's own exports (AuthService,
+    // LoginAttemptService, etc.) only via @Global(), not an import of it.
+    AccountAccessModule,
+    SchoolsModule,
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, StepUpController],
   providers: [
     AuthService,
+    StepUpService,
+    {
+      provide: STEP_UP_REDIS,
+      inject: [ConfigService],
+      // Same fail-fast-friendly connection settings as
+      // LoginAttemptService's/OtpService's clients — step-up's rate-limit
+      // counters and single-use approval-token markers fail CLOSED on a
+      // Redis error (see StepUpService), so this must fail fast rather
+      // than hang.
+      useFactory: (config: ConfigService) =>
+        new Redis(config.get<string>('REDIS_URL') ?? 'redis://127.0.0.1:6379', {
+          enableOfflineQueue: false,
+          maxRetriesPerRequest: 1,
+          commandTimeout: 1000,
+        }),
+    },
     JwtStrategy,
     ContextGuard,
     RolesGuard,
