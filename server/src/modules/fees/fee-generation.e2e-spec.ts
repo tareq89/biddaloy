@@ -6,7 +6,7 @@ import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { DataSource } from 'typeorm';
-import { UserRole, FeeType, FeeApplicability } from '@biddaloy/shared';
+import { UserRole, FeeType } from '@biddaloy/shared';
 import {
   SEED_TENANT_ID,
   SEED_ADMIN_EMAIL,
@@ -110,10 +110,8 @@ describe('Fee Generation E2E', () => {
           fee_type: FeeType.MONTHLY_TUITION,
           name: 'E2E Tuition',
           amount: 1000,
-          applicability: FeeApplicability.ALL,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
         })
         .expect(201);
 
@@ -170,7 +168,6 @@ describe('Fee Generation E2E', () => {
           amount: 750,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 3,
         })
         .expect(201);
 

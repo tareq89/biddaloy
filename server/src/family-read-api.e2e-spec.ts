@@ -17,6 +17,7 @@ import {
   SEED_CLASS_1_ID,
   SEED_ACADEMIC_YEAR_ID,
 } from '@test/constants';
+import { ensureFeeStructure, periodStart } from '@test/helpers/fee-fixture.helper';
 
 /**
  * [5.1] Family-facing read API — the full authorization matrix.
@@ -99,9 +100,8 @@ describe('[5.1] Family-facing read API', () => {
   // Tenant B
   let childInBId: string;
 
-  // A SELECTED-applicability fee structure whose roster holds the *unlinked*
-  // child — the cross-family PII case for GET /fee-structures/:id.
-  let selectedFeeStructureId: string;
+  // A fee structure, used as a GET /fee-structures/:id target below.
+  let catalogFeeStructureId: string;
 
   // Invoices
   let childOneInvoiceId: string;
@@ -300,11 +300,11 @@ describe('[5.1] Family-facing read API', () => {
     ): Promise<string> => {
       const rows = await dataSource.query(
         `INSERT INTO student_fees
-           (student_id, academic_year_id, month, year, total_amount, paid_amount,
+           (student_id, academic_year_id, fee_structure_id, period_start, total_amount, paid_amount,
             discount_amount, status, due_date, reminder_threshold_date, created_at, updated_at)
-         VALUES ($1, $2, 1, 2026, 1000, 0, 0, $3, '2026-01-10', '2026-01-20', NOW(), NOW())
+         VALUES ($1, $2, $4, DATE '2026-01-01', 1000, 0, 0, $3, '2026-01-10', '2026-01-20', NOW(), NOW())
          RETURNING id`,
-        [studentId, academicYearId, FeeStatus.PENDING],
+        [studentId, academicYearId, FeeStatus.PENDING, await ensureFeeStructure(dataSource)],
       );
       return rows[0].id as string;
     };
@@ -366,23 +366,16 @@ describe('[5.1] Family-facing read API', () => {
       return rows[0].id as string;
     };
 
-    // --- A SELECTED-applicability fee structure listing the unlinked child.
-    //     `FeeStructureService.findOne` eager-loads `selected_students.student`
-    //     for the staff edit dialog; a family caller must never receive it. ---
+    // --- A fee structure used as an RBAC/shaping target for
+    //     GET /fee-structures/:id. ---
     const feeStructureRows = await dataSource.query(
       `INSERT INTO fee_structures
-         (fee_type, name, amount, applicability, class_id, academic_year_id, month,
-          is_recurring, tenant_id, created_at, updated_at)
-       VALUES ('MONTHLY_TUITION', 'Selected Scholarship', 500, 'SELECTED', $1, $2, 1,
-               true, $3, NOW(), NOW())
+         (fee_type, name, amount, class_id, academic_year_id, tenant_id, created_at, updated_at)
+       VALUES ('MONTHLY_TUITION', 'Selected Scholarship', 500, $1, $2, $3, NOW(), NOW())
        RETURNING id`,
       [SEED_CLASS_1_ID, SEED_ACADEMIC_YEAR_ID, SEED_TENANT_ID],
     );
-    selectedFeeStructureId = feeStructureRows[0].id as string;
-    await dataSource.query(
-      `INSERT INTO fee_structure_students (fee_structure_id, student_id) VALUES ($1, $2)`,
-      [selectedFeeStructureId, unlinkedChildId],
-    );
+    catalogFeeStructureId = feeStructureRows[0].id as string;
 
     childOneInvoiceId = await makeInvoice(childOneId, childOneFeeId);
     unlinkedChildInvoiceId = await makeInvoice(unlinkedChildId);
@@ -399,12 +392,12 @@ describe('[5.1] Family-facing read API', () => {
   });
 
   afterAll(async () => {
-    await dataSource.query(`DELETE FROM fee_structure_students`);
-    await dataSource.query(`DELETE FROM fee_structures`);
     await dataSource.query(`DELETE FROM payment_allocations`);
     await dataSource.query(`DELETE FROM invoices`);
     await dataSource.query(`DELETE FROM payments`);
     await dataSource.query(`DELETE FROM student_fees`);
+    // After `student_fees`: `fee_structure_id` is a real FK since 16.1.3.
+    await dataSource.query(`DELETE FROM fee_structures`);
     await dataSource.query(`DELETE FROM student_guardians`);
     await dataSource.query(`DELETE FROM students WHERE tenant_id IN ($1, $2)`, [
       SEED_TENANT_ID,
@@ -824,72 +817,6 @@ describe('[5.1] Family-facing read API', () => {
       }
     });
 
-    /**
-     * The cross-family PII case. `FeeStructureService.findOne` eager-loads
-     * `selected_students.student` in full so the staff edit dialog can
-     * prefill its student picker. Without shaping, a parent could list
-     * `/fee-structures` for ids and then read every *other* family's child
-     * off any SELECTED-applicability structure — name, date of birth,
-     * gender, home address, registration number, login user id.
-     */
-    it('does not expose the selected-students roster to a family caller', async () => {
-      const res = await http()
-        .get(`${API}/fee-structures/${selectedFeeStructureId}`)
-        .set('Authorization', `Bearer ${parentToken}`)
-        .set('X-Tenant-ID', SEED_TENANT_ID)
-        .expect(200);
-
-      expect(res.body).not.toHaveProperty('selected_students');
-      const body = JSON.stringify(res.body);
-      expect(body).not.toContain('Unlinked Child');
-      expect(body).not.toContain(unlinkedChildId);
-      expect(body).not.toContain('date_of_birth');
-      expect(body).not.toContain('home_address');
-      // …while still returning the catalog data the portal needs.
-      expect(res.body).toMatchObject({
-        id: selectedFeeStructureId,
-        name: 'Selected Scholarship',
-        applicability: 'SELECTED',
-      });
-    });
-
-    it('still gives staff the selected-students roster', async () => {
-      const res = await http()
-        .get(`${API}/fee-structures/${selectedFeeStructureId}`)
-        .set('Authorization', `Bearer ${adminToken}`)
-        .set('X-Tenant-ID', SEED_TENANT_ID)
-        .expect(200);
-
-      // Proves the assertions above are the shaping working, not an empty
-      // fixture.
-      expect(res.body.selected_students).toHaveLength(1);
-      expect(res.body.selected_students[0].student.full_name).toBe('Unlinked Child');
-    });
-
-    it('does not expose the roster to a STUDENT caller either', async () => {
-      const res = await http()
-        .get(`${API}/fee-structures/${selectedFeeStructureId}`)
-        .set('Authorization', `Bearer ${studentToken}`)
-        .set('X-Tenant-ID', SEED_TENANT_ID)
-        .expect(200);
-
-      expect(res.body).not.toHaveProperty('selected_students');
-    });
-
-    it('shapes the family list rows too', async () => {
-      const family = await http()
-        .get(`${API}/fee-structures`)
-        .set('Authorization', `Bearer ${parentToken}`)
-        .set('X-Tenant-ID', SEED_TENANT_ID)
-        .expect(200);
-
-      expect(family.body.data.length).toBeGreaterThan(0);
-      for (const structure of family.body.data) {
-        expect(structure).not.toHaveProperty('selected_students');
-        expect(structure).toHaveProperty('amount');
-      }
-    });
-
     it('rejects a family caller scoped to a tenant they do not belong to', async () => {
       await http()
         .get(`${API}/fee-structures`)
@@ -1061,7 +988,7 @@ describe('[5.1] Family-facing read API', () => {
         `${API}/students/${childOneId}`,
         `${API}/fees/dues`,
         `${API}/fee-structures`,
-        `${API}/fee-structures/${selectedFeeStructureId}`,
+        `${API}/fee-structures/${catalogFeeStructureId}`,
         `${API}/payments/student/${childOneId}`,
         `${API}/payments/invoices/student/${childOneId}`,
         `${API}/invoices`,
@@ -1245,7 +1172,7 @@ describe('[5.1] Family-facing read API', () => {
       { name: 'GET /students/:id', path: `${API}/students/${childOneId}` },
       { name: 'GET /fees/dues', path: `${API}/fees/dues` },
       { name: 'GET /fee-structures', path: `${API}/fee-structures` },
-      { name: 'GET /fee-structures/:id', path: `${API}/fee-structures/${selectedFeeStructureId}` },
+      { name: 'GET /fee-structures/:id', path: `${API}/fee-structures/${catalogFeeStructureId}` },
       { name: 'GET /payments/student/:id', path: `${API}/payments/student/${childOneId}` },
       {
         name: 'GET /payments/invoices/student/:id',

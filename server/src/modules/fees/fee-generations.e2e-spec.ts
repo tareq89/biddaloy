@@ -15,6 +15,7 @@ import {
   SEED_SECTION_1_ID,
   SEED_ACADEMIC_YEAR_ID,
 } from '@test/constants';
+import { ensureFeeStructure, periodStart } from '@test/helpers/fee-fixture.helper';
 
 /** [16.1.4] E2E tests for the fee-generation log — GET /fees/generations,
  * GET /fees/generations/:id and GET /fees/generations/:id/bills. */
@@ -86,8 +87,8 @@ describe('Fee Generations E2E', () => {
     overrides: { paid_amount?: number; status?: string } = {},
   ): Promise<string> {
     const res = await dataSource.query(
-      `INSERT INTO student_fees (id, student_id, academic_year_id, month, year, total_amount, paid_amount, discount_amount, status, fee_generation_id, created_at, updated_at)
-       VALUES (DEFAULT, $1, $2, 7, 2026, 1000, $3, 0, $4, $5, NOW(), NOW())
+      `INSERT INTO student_fees (id, student_id, academic_year_id, fee_structure_id, period_start, total_amount, paid_amount, discount_amount, status, fee_generation_id, created_at, updated_at)
+       VALUES (DEFAULT, $1, $2, $6, $7::date, 1000, $3, 0, $4, $5, NOW(), NOW())
        RETURNING id`,
       [
         studentId,
@@ -95,6 +96,8 @@ describe('Fee Generations E2E', () => {
         overrides.paid_amount ?? 0,
         overrides.status ?? 'PENDING',
         batchId,
+        await ensureFeeStructure(dataSource),
+        periodStart(7, 2026),
       ],
     );
     return res[0].id;

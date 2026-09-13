@@ -15,6 +15,7 @@ import {
   SEED_SECTION_1_ID,
   SEED_ACADEMIC_YEAR_ID,
 } from '@test/constants';
+import { ensureFeeStructure, periodStart } from '@test/helpers/fee-fixture.helper';
 
 /**
  * E2E tests for the Invoice Generation & Printing API (issue #14).
@@ -54,10 +55,18 @@ describe('Invoices E2E', () => {
 
   async function createFee(studentId: string, totalAmount = 1000): Promise<string> {
     const res = await dataSource.query(
-      `INSERT INTO student_fees (id, student_id, academic_year_id, month, year, total_amount, paid_amount, discount_amount, status, created_at, updated_at)
-       VALUES (DEFAULT, $1, $2, $3, $4, $5, 0, 0, 'PENDING', NOW(), NOW())
+      // 16.1.3: `month`/`year` are generated from `period_start`, and
+      // `fee_structure_id` is NOT NULL.
+      `INSERT INTO student_fees (id, student_id, academic_year_id, fee_structure_id, period_start, total_amount, paid_amount, discount_amount, status, created_at, updated_at)
+       VALUES (DEFAULT, $1, $2, $3, $4::date, $5, 0, 0, 'PENDING', NOW(), NOW())
        RETURNING id`,
-      [studentId, SEED_ACADEMIC_YEAR_ID, 5, 2026, totalAmount],
+      [
+        studentId,
+        SEED_ACADEMIC_YEAR_ID,
+        await ensureFeeStructure(dataSource),
+        periodStart(5, 2026),
+        totalAmount,
+      ],
     );
     return res[0].id;
   }
