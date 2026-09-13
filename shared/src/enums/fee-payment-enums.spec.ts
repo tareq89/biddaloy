@@ -30,9 +30,10 @@ describe('16.1.1 fee/payment enums [#638]', () => {
     expect(PaymentMethod).not.toHaveProperty('ONLINE');
   });
 
-  it('PaymentAllocationType drops ADVANCE, keeping DUE and CURRENT (D5)', () => {
-    expect(Object.values(PaymentAllocationType).sort()).toEqual(['DUE', 'CURRENT'].sort());
-    expect(PaymentAllocationType).not.toHaveProperty('ADVANCE');
+  it('PaymentAllocationType keeps DUE and CURRENT (D5); ADVANCE is deprecated pending #643', () => {
+    expect(Object.values(PaymentAllocationType).sort()).toEqual(
+      ['ADVANCE', 'CURRENT', 'DUE'].sort(),
+    );
   });
 
   it('FeeType gains LATE_FEE (D11)', () => {

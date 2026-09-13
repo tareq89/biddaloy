@@ -90,9 +90,16 @@ export enum PaymentStatus {
   REFUNDED = 'REFUNDED',
 }
 
+/**
+ * @deprecated ADVANCE is being removed per Epic 16 decision D5 — kept for now
+ * because `payment-allocation.service.ts`'s `classifyPeriod` (owned by #643)
+ * still returns it. Remove ADVANCE here in the same commit that removes that
+ * usage.
+ */
 export enum PaymentAllocationType {
   DUE = 'DUE',
   CURRENT = 'CURRENT',
+  ADVANCE = 'ADVANCE',
 }
 
 export enum InvoiceStatus {
