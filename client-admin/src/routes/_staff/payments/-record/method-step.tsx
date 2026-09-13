@@ -19,15 +19,17 @@ import {
 } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 
-export type PaymentMethodValue = 'CASH' | 'CHEQUE' | 'BANK_TRANSFER' | 'ONLINE' | 'CARD' | 'UPI';
+export type PaymentMethodValue =
+  'CASH' | 'CHEQUE' | 'BANK_TRANSFER' | 'CARD' | 'BKASH' | 'NAGAD' | 'ROCKET';
 
 const PAYMENT_METHODS: readonly PaymentMethodValue[] = [
   'CASH',
   'CHEQUE',
   'BANK_TRANSFER',
-  'ONLINE',
   'CARD',
-  'UPI',
+  'BKASH',
+  'NAGAD',
+  'ROCKET',
 ];
 
 export interface MethodStepProps {
