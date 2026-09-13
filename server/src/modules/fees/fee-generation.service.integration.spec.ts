@@ -250,10 +250,17 @@ describe('FeeGenerationService (integration)', () => {
     expect(later.generated).toBe(0);
   });
 
-  it('sums multiple applicable structures into one StudentFee row', async () => {
+  it('bills each applicable structure as its own StudentFee row (16.1.3)', async () => {
+    // Before 16.1.3, `student_fees` was one row per student × month that
+    // summed every applicable structure together. It's now one bill per
+    // student × fee structure × period, so two structures produce two
+    // rows, each carrying its own `fee_structure_id`/`total_amount` — not
+    // one row with a combined total.
     await studentRepo.save(makeStudent());
-    await structureRepo.save(makeStructure({ name: 'Tuition', amount: 1000, month: 1 }));
-    await structureRepo.save(
+    const tuition = await structureRepo.save(
+      makeStructure({ name: 'Tuition', amount: 1000, month: 1 }),
+    );
+    const library = await structureRepo.save(
       makeStructure({ name: 'Library', amount: 200, month: 1, fee_type: FeeType.LIBRARY_FEE }),
     );
 
@@ -263,8 +270,10 @@ describe('FeeGenerationService (integration)', () => {
     );
 
     const fees = await studentFeeRepo.find();
-    expect(fees).toHaveLength(1);
-    expect(Number(fees[0].total_amount)).toBe(1200);
+    expect(fees).toHaveLength(2);
+    const byStructure = new Map(fees.map((f) => [f.fee_structure_id, Number(f.total_amount)]));
+    expect(byStructure.get(tuition.id)).toBe(1000);
+    expect(byStructure.get(library.id)).toBe(200);
   });
 
   it('applies a SELECTED structure only to linked students', async () => {

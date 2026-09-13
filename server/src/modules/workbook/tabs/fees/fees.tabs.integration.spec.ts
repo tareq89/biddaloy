@@ -65,6 +65,10 @@ describe('fees tabs (integration)', () => {
   let sectionAId: string;
   let studentA1: Student;
   let studentA2: Student;
+  let feeStructureAId: string;
+  // `feeStructuresTab.keyOf`'s composite: class|year|section|fee_type|month|name.
+  // The shared fee structure below has no section, hence the empty segment.
+  const FEE_STRUCTURE_A_KEY = 'Class 5|2026-2027|2026-2027||MONTHLY_TUITION|1|Tuition - January';
 
   function importCtx(): ImportContext {
     return {
@@ -169,6 +173,30 @@ describe('fees tabs (integration)', () => {
       }),
     );
   });
+
+  /**
+   * A real fee structure to bill against — `student_fees`/`invoices`/
+   * `payment_allocations` all need one now that 16.1.3 made
+   * `fee_structure_id` NOT NULL. Scoped to those describes' own
+   * `beforeEach` (not the top-level one above) so it doesn't add an extra
+   * row to `fee_structures`' own tenant-isolation tests.
+   */
+  async function seedFeeStructureA(): Promise<void> {
+    const feeStructure = await feeStructureRepo.save(
+      feeStructureRepo.create({
+        tenant_id: TENANT_A,
+        fee_type: FeeType.MONTHLY_TUITION,
+        name: 'Tuition - January',
+        amount: '1500.00',
+        applicability: FeeApplicability.ALL,
+        class_id: classAId,
+        academic_year_id: yearAId,
+        month: 1,
+        is_recurring: true,
+      }),
+    );
+    feeStructureAId = feeStructure.id;
+  }
 
   describe('fee_structures', () => {
     function rowFor(overrides: Partial<FeeStructureRow> = {}): FeeStructureRow {
@@ -279,6 +307,8 @@ describe('fees tabs (integration)', () => {
   });
 
   describe('student_fees', () => {
+    beforeEach(seedFeeStructureA);
+
     function rowFor(overrides: Partial<StudentFeeRow> = {}): StudentFeeRow {
       return {
         id: '00000000-0000-4000-8000-000000000002',
@@ -286,17 +316,18 @@ describe('fees tabs (integration)', () => {
         student_key: studentA1.registration_number,
         academic_year_id: yearAId,
         academic_year_key: '2026-2027',
+        fee_structure_id: feeStructureAId,
+        fee_structure_key: FEE_STRUCTURE_A_KEY,
         month: 1,
         year: 2026,
         total_amount: '1500.00',
         paid_amount: '0.00',
         discount_amount: '0.00',
+        standing_discount_amount: '0.00',
+        one_off_discount_amount: '0.00',
         status: FeeStatus.PENDING,
         due_date: '2026-01-10',
         reminder_threshold_date: '2026-01-05',
-        is_advance_payment: false,
-        original_advance_month: null,
-        original_advance_year: null,
         ...overrides,
       };
     }
@@ -361,7 +392,7 @@ describe('fees tabs (integration)', () => {
       await studentFeesTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
       const [loaded] = await studentFeesTab.load(TENANT_A, dataSource.manager);
       expect(studentFeesTab.keyOf(loaded)).toBe(
-        `${studentA1.registration_number}|2026-2027|1|2026`,
+        `${studentA1.registration_number}|2026-2027|${FEE_STRUCTURE_A_KEY}|1|2026`,
       );
     });
   });
@@ -370,6 +401,7 @@ describe('fees tabs (integration)', () => {
     let feeId: string;
 
     beforeEach(async () => {
+      await seedFeeStructureA();
       const fee = await studentFeesTab.upsert(
         {
           id: '00000000-0000-4000-8000-000000000003',
@@ -377,17 +409,18 @@ describe('fees tabs (integration)', () => {
           student_key: studentA1.registration_number,
           academic_year_id: yearAId,
           academic_year_key: '2026-2027',
+          fee_structure_id: feeStructureAId,
+          fee_structure_key: FEE_STRUCTURE_A_KEY,
           month: 1,
           year: 2026,
           total_amount: '1500.00',
           paid_amount: '0.00',
           discount_amount: '0.00',
+          standing_discount_amount: '0.00',
+          one_off_discount_amount: '0.00',
           status: FeeStatus.PENDING,
           due_date: '2026-01-10',
           reminder_threshold_date: '2026-01-05',
-          is_advance_payment: false,
-          original_advance_month: null,
-          original_advance_year: null,
         },
         null,
         TENANT_A,
@@ -403,7 +436,7 @@ describe('fees tabs (integration)', () => {
         student_id: studentA1.id,
         student_key: studentA1.registration_number,
         student_fee_id: feeId,
-        student_fee_key: `${studentA1.registration_number}|2026-2027|1|2026`,
+        student_fee_key: `${studentA1.registration_number}|2026-2027|${FEE_STRUCTURE_A_KEY}|1|2026`,
         total_amount: '1500.00',
         tax_amount: '0.00',
         discount_amount: '0.00',
@@ -537,6 +570,7 @@ describe('fees tabs (integration)', () => {
     let paymentId: string;
 
     beforeEach(async () => {
+      await seedFeeStructureA();
       const fee = await studentFeesTab.upsert(
         {
           id: '00000000-0000-4000-8000-000000000006',
@@ -544,17 +578,18 @@ describe('fees tabs (integration)', () => {
           student_key: studentA1.registration_number,
           academic_year_id: yearAId,
           academic_year_key: '2026-2027',
+          fee_structure_id: feeStructureAId,
+          fee_structure_key: FEE_STRUCTURE_A_KEY,
           month: 1,
           year: 2026,
           total_amount: '1500.00',
           paid_amount: '0.00',
           discount_amount: '0.00',
+          standing_discount_amount: '0.00',
+          one_off_discount_amount: '0.00',
           status: FeeStatus.PENDING,
           due_date: '2026-01-10',
           reminder_threshold_date: '2026-01-05',
-          is_advance_payment: false,
-          original_advance_month: null,
-          original_advance_year: null,
         },
         null,
         TENANT_A,
@@ -591,7 +626,7 @@ describe('fees tabs (integration)', () => {
         payment_id: paymentId,
         payment_key: 'TXN-002',
         student_fee_id: feeId,
-        student_fee_key: `${studentA1.registration_number}|2026-2027|1|2026`,
+        student_fee_key: `${studentA1.registration_number}|2026-2027|${FEE_STRUCTURE_A_KEY}|1|2026`,
         allocated_amount: '500.00',
         allocation_type: PaymentAllocationType.CURRENT,
         notes: null,
@@ -651,7 +686,7 @@ describe('fees tabs (integration)', () => {
       await paymentAllocationsTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
       const [loaded] = await paymentAllocationsTab.load(TENANT_A, dataSource.manager);
       expect(paymentAllocationsTab.keyOf(loaded)).toBe(
-        `TXN-002|${studentA1.registration_number}|2026-2027|1|2026`,
+        `TXN-002|${studentA1.registration_number}|2026-2027|${FEE_STRUCTURE_A_KEY}|1|2026`,
       );
     });
   });

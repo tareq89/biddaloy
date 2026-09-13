@@ -8,7 +8,7 @@ import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { FeeStructure } from './entities/fee-structure.entity';
 import { FeeStructureStudent } from './entities/fee-structure-student.entity';
 import { StudentFee } from './entities/student-fee.entity';
-import { EnrollmentStatus, FeeApplicability, FeeStatus } from '@biddaloy/shared';
+import { EnrollmentStatus, FeeApplicability, FeeStatus, PeriodType } from '@biddaloy/shared';
 import { GenerateStudentFeesDto, GenerateFeesResultDto } from './dto/fees.dto';
 
 /**
@@ -82,11 +82,9 @@ export class FeeGenerationService {
 
     const selectedStudentsByStructure = await this.loadSelectedStudentLinks(applicableStructures);
 
-    const candidates = students
-      .map((student) =>
-        this.buildCandidate(student, dto, applicableStructures, selectedStudentsByStructure),
-      )
-      .filter((candidate): candidate is Partial<StudentFee> => candidate !== null);
+    const candidates = students.flatMap((student) =>
+      this.buildCandidates(student, dto, applicableStructures, selectedStudentsByStructure),
+    );
 
     if (candidates.length === 0) {
       return { generated: 0, skipped: 0, students_evaluated: students.length };
@@ -180,16 +178,26 @@ export class FeeGenerationService {
     return byStructure;
   }
 
-  private buildCandidate(
+  /**
+   * One candidate row per applicable fee structure, not a single summed
+   * row — `student_fees` is now one bill per student × fee structure ×
+   * period (16.1.3). This is a minimal compile-only adaptation to the new
+   * columns; the real generation rewrite (schedules, discounts, dedup
+   * strategies) is 16.3.1.
+   */
+  private buildCandidates(
     student: Student,
     dto: GenerateStudentFeesDto,
     structures: FeeStructure[],
     selectedStudentsByStructure: Map<string, Set<string>>,
-  ): Partial<StudentFee> | null {
+  ): Partial<StudentFee>[] {
     const classId = student.class_section.class_id;
     const sectionId = student.class_section_id;
+    // First day of the target month — `period_start` is a date, `month`/
+    // `year` are now generated columns derived from it.
+    const periodStart = new Date(Date.UTC(dto.year, dto.month - 1, 1));
 
-    let total = 0;
+    const candidates: Partial<StudentFee>[] = [];
     for (const structure of structures) {
       if (structure.class_id !== classId) continue;
       if (structure.section_id && structure.section_id !== sectionId) continue;
@@ -197,31 +205,36 @@ export class FeeGenerationService {
         const allowed = selectedStudentsByStructure.get(structure.id);
         if (!allowed?.has(student.id)) continue;
       }
-      total += Number(structure.amount);
+      const amount = Number(structure.amount);
+      // student_fees has CHECK (total_amount > 0) — nothing to charge, nothing to insert.
+      if (amount <= 0) continue;
+
+      candidates.push({
+        student_id: student.id,
+        academic_year_id: dto.academic_year_id,
+        fee_structure_id: structure.id,
+        period_start: periodStart,
+        period_type: PeriodType.MONTH,
+        total_amount: amount,
+        status: FeeStatus.PENDING,
+      });
     }
 
-    // student_fees has CHECK (total_amount > 0) — nothing to charge, nothing to insert.
-    if (total <= 0) return null;
-
-    return {
-      student_id: student.id,
-      academic_year_id: dto.academic_year_id,
-      month: dto.month,
-      year: dto.year,
-      total_amount: total,
-      status: FeeStatus.PENDING,
-    };
+    return candidates;
   }
 
-  // 6 bound params per candidate row; Postgres caps a single statement at
-  // 65,535 params (~10.9k rows at 6 each). 1000 stays comfortably under that
-  // for any single class/school-wide generation run.
+  // 7 bound params per candidate row (student_id, academic_year_id,
+  // fee_structure_id, period_start, period_type, total_amount, status);
+  // Postgres caps a single statement at 65,535 params (~9.4k rows at 7
+  // each). 1000 stays comfortably under that for any single
+  // class/school-wide generation run.
   private static readonly INSERT_BATCH_SIZE = 1000;
 
   /**
-   * Relies on the (student_id, academic_year_id, month, year) unique constraint
-   * as an ON CONFLICT DO NOTHING guard — idempotent under re-runs and safe
-   * against two concurrent generation requests racing each other.
+   * Relies on the (student_id, fee_structure_id, period_start, occurrence)
+   * unique constraint as an ON CONFLICT DO NOTHING guard — idempotent under
+   * re-runs and safe against two concurrent generation requests racing
+   * each other.
    */
   private async bulkInsertIdempotent(candidates: Partial<StudentFee>[]): Promise<number> {
     let generated = 0;

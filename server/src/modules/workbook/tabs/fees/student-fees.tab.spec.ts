@@ -21,17 +21,17 @@ function cellsFor(row: StudentFeeRow): Record<string, string> {
     id: row.id,
     student: row.student_key,
     academic_year: row.academic_year_key,
+    fee_structure: row.fee_structure_key,
     month: String(row.month),
     year: String(row.year),
     total_amount: row.total_amount,
     paid_amount: row.paid_amount,
     discount_amount: row.discount_amount,
+    standing_discount_amount: row.standing_discount_amount,
+    one_off_discount_amount: row.one_off_discount_amount,
     status: row.status,
     due_date: row.due_date ?? '',
     reminder_threshold_date: row.reminder_threshold_date ?? '',
-    is_advance_payment: row.is_advance_payment ? 'TRUE' : 'FALSE',
-    original_advance_month: row.original_advance_month ? String(row.original_advance_month) : '',
-    original_advance_year: row.original_advance_year ? String(row.original_advance_year) : '',
   };
 }
 
@@ -43,21 +43,23 @@ describe('studentFeesTab', () => {
       student_key: 'REG-001',
       academic_year_id: 'year-1',
       academic_year_key: '2026-2027',
+      fee_structure_id: 'fs-1',
+      fee_structure_key: 'Tuition',
       month: 1,
       year: 2026,
       total_amount: '1500.00',
       paid_amount: '0.00',
       discount_amount: '0.00',
+      standing_discount_amount: '0.00',
+      one_off_discount_amount: '0.00',
       status: FeeStatus.PENDING,
       due_date: '2026-01-10',
       reminder_threshold_date: '2026-01-05',
-      is_advance_payment: false,
-      original_advance_month: null,
-      original_advance_year: null,
     };
     const ctx = fakeImportCtx({
       students: { 'REG-001': 'student-1' },
       academic_years: { '2026-2027': 'year-1' },
+      fee_structures: { Tuition: 'fs-1' },
     });
     const result = studentFeesTab.fromRow(cellsFor(row), 2, ctx);
     expect('row' in result).toBe(true);
@@ -71,19 +73,23 @@ describe('studentFeesTab', () => {
       student_key: 'REG-999',
       academic_year_id: 'year-1',
       academic_year_key: '2026-2027',
+      fee_structure_id: 'fs-1',
+      fee_structure_key: 'Tuition',
       month: 1,
       year: 2026,
       total_amount: '1500.00',
       paid_amount: '0.00',
       discount_amount: '0.00',
+      standing_discount_amount: '0.00',
+      one_off_discount_amount: '0.00',
       status: FeeStatus.PENDING,
       due_date: null,
       reminder_threshold_date: null,
-      is_advance_payment: false,
-      original_advance_month: null,
-      original_advance_year: null,
     };
-    const ctx = fakeImportCtx({ academic_years: { '2026-2027': 'year-1' } });
+    const ctx = fakeImportCtx({
+      academic_years: { '2026-2027': 'year-1' },
+      fee_structures: { Tuition: 'fs-1' },
+    });
     const result = studentFeesTab.fromRow(cellsFor(row), 2, ctx);
     expect('errors' in result).toBe(true);
     expect((result as { errors: { column: string | null }[] }).errors[0].column).toBe('student');
@@ -94,6 +100,7 @@ describe('studentFeesTab', () => {
       id: 'sf-1',
       student_id: 'student-1',
       academic_year_id: 'year-1',
+      fee_structure_id: 'fs-1',
       month: 1,
       year: 2026,
       total_amount: '1500.00',
@@ -102,13 +109,11 @@ describe('studentFeesTab', () => {
       status: FeeStatus.PENDING,
       due_date: null,
       reminder_threshold_date: null,
-      is_advance_payment: false,
-      original_advance_month: null,
-      original_advance_year: null,
     } as any;
     const ctx = fakeExportCtx({
       students: { 'student-1': 'REG-001' },
       academic_years: { 'year-1': '2026-2027' },
+      fee_structures: { 'fs-1': 'Tuition' },
     });
     const out = studentFeesTab.toRow(entity, ctx);
     expect(out.student).toBe('REG-001');
@@ -131,9 +136,6 @@ describe('studentFeesTab', () => {
       status: FeeStatus.PENDING,
       due_date: new Date(2026, 0, 10),
       reminder_threshold_date: new Date(2026, 0, 5),
-      is_advance_payment: false,
-      original_advance_month: null,
-      original_advance_year: null,
     }) as StudentFee;
 
     const row = {
@@ -147,9 +149,6 @@ describe('studentFeesTab', () => {
       status: FeeStatus.PENDING,
       due_date: '2026-01-10',
       reminder_threshold_date: '2026-01-05',
-      is_advance_payment: false,
-      original_advance_month: null,
-      original_advance_year: null,
     } as StudentFeeRow;
 
     expect(studentFeesTab.diffFields(row, entity)).toEqual([]);

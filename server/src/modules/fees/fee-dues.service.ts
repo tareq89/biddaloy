@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository, Brackets } from 'typeorm';
 import { StudentFee } from './entities/student-fee.entity';
 import { Student } from '../students/entities/student.entity';
-import { FeeStatus } from '@biddaloy/shared';
+import { FeeStatus, FeeType, PeriodType } from '@biddaloy/shared';
 import { QueryFeeDuesDto, QueryFlaggedDuesDto } from './dto/fees.dto';
 import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
 
@@ -11,11 +11,21 @@ const OPEN_STATUSES = [FeeStatus.PENDING, FeeStatus.PARTIALLY_PAID];
 
 export interface DueEntry {
   student_fee_id: string;
+  fee_structure_id: string;
+  fee_name: string;
+  fee_type: FeeType;
   month: number;
   year: number;
+  period_start: Date;
+  period_type: PeriodType;
+  occurrence: number;
+  /** `late_fee_for_student_fee_id IS NOT NULL` — this bill IS a late fee. */
+  is_late_fee: boolean;
   total_amount: number;
   paid_amount: number;
   discount_amount: number;
+  standing_discount_amount: number;
+  one_off_discount_amount: number;
   balance: number;
   status: FeeStatus;
   due_date: Date | null;
@@ -125,6 +135,7 @@ export class FeeDuesService {
       section_id: query.section_id,
       month: query.month,
       year: query.year,
+      fee_type: query.fee_type,
       restrictToStudentIds,
       search: query.search,
     });
@@ -250,6 +261,7 @@ export class FeeDuesService {
       section_id?: string;
       month?: number;
       year?: number;
+      fee_type?: FeeType;
       reminderThresholdBefore?: Date;
       restrictToStudentIds?: string[];
       search?: string;
@@ -285,6 +297,11 @@ export class FeeDuesService {
     }
     if (filters.year) {
       qb.andWhere('sf.year = :year', { year: filters.year });
+    }
+    if (filters.fee_type) {
+      qb.innerJoin('sf.fee_structure', 'fs').andWhere('fs.fee_type = :feeType', {
+        feeType: filters.fee_type,
+      });
     }
     if (filters.restrictToStudentIds?.length) {
       qb.andWhere('sf.student_id IN (:...restrictToStudentIds)', {
@@ -396,6 +413,7 @@ export class FeeDuesService {
 
     const fees = await this.studentFeeRepo.find({
       where: { student_id: In(studentIds), status: In(OPEN_STATUSES) },
+      relations: ['fee_structure'],
       order: { year: 'ASC', month: 'ASC' },
     });
 
@@ -406,11 +424,20 @@ export class FeeDuesService {
       const discountAmount = Number(fee.discount_amount);
       entries.push({
         student_fee_id: fee.id,
+        fee_structure_id: fee.fee_structure_id,
+        fee_name: fee.fee_structure.name,
+        fee_type: fee.fee_structure.fee_type,
         month: fee.month,
         year: fee.year,
+        period_start: fee.period_start,
+        period_type: fee.period_type,
+        occurrence: fee.occurrence,
+        is_late_fee: fee.late_fee_for_student_fee_id !== null,
         total_amount: totalAmount,
         paid_amount: paidAmount,
         discount_amount: discountAmount,
+        standing_discount_amount: Number(fee.standing_discount_amount),
+        one_off_discount_amount: Number(fee.one_off_discount_amount),
         balance: totalAmount - paidAmount - discountAmount,
         status: fee.status,
         due_date: fee.due_date,
