@@ -259,6 +259,7 @@ describe('fees tabs (integration)', () => {
         fee_structure_key: FEE_STRUCTURE_A_KEY,
         month: 1,
         year: 2026,
+        occurrence: 1,
         total_amount: '1500.00',
         paid_amount: '0.00',
         discount_amount: '0.00',
@@ -331,7 +332,7 @@ describe('fees tabs (integration)', () => {
       await studentFeesTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
       const [loaded] = await studentFeesTab.load(TENANT_A, dataSource.manager);
       expect(studentFeesTab.keyOf(loaded)).toBe(
-        `${studentA1.registration_number}|2026-2027|${FEE_STRUCTURE_A_KEY}|1|2026`,
+        `${studentA1.registration_number}|2026-2027|${FEE_STRUCTURE_A_KEY}|1|2026|1`,
       );
     });
   });
@@ -375,7 +376,7 @@ describe('fees tabs (integration)', () => {
         student_id: studentA1.id,
         student_key: studentA1.registration_number,
         student_fee_id: feeId,
-        student_fee_key: `${studentA1.registration_number}|2026-2027|${FEE_STRUCTURE_A_KEY}|1|2026`,
+        student_fee_key: `${studentA1.registration_number}|2026-2027|${FEE_STRUCTURE_A_KEY}|1|2026|1`,
         total_amount: '1500.00',
         tax_amount: '0.00',
         discount_amount: '0.00',
@@ -565,7 +566,7 @@ describe('fees tabs (integration)', () => {
         payment_id: paymentId,
         payment_key: 'TXN-002',
         student_fee_id: feeId,
-        student_fee_key: `${studentA1.registration_number}|2026-2027|${FEE_STRUCTURE_A_KEY}|1|2026`,
+        student_fee_key: `${studentA1.registration_number}|2026-2027|${FEE_STRUCTURE_A_KEY}|1|2026|1`,
         allocated_amount: '500.00',
         allocation_type: PaymentAllocationType.CURRENT,
         notes: null,
@@ -625,7 +626,7 @@ describe('fees tabs (integration)', () => {
       await paymentAllocationsTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
       const [loaded] = await paymentAllocationsTab.load(TENANT_A, dataSource.manager);
       expect(paymentAllocationsTab.keyOf(loaded)).toBe(
-        `TXN-002|${studentA1.registration_number}|2026-2027|${FEE_STRUCTURE_A_KEY}|1|2026`,
+        `TXN-002|${studentA1.registration_number}|2026-2027|${FEE_STRUCTURE_A_KEY}|1|2026|1`,
       );
     });
   });

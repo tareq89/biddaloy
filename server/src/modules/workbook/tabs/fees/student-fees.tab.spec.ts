@@ -24,6 +24,7 @@ function cellsFor(row: StudentFeeRow): Record<string, string> {
     fee_structure: row.fee_structure_key,
     month: String(row.month),
     year: String(row.year),
+    occurrence: String(row.occurrence),
     total_amount: row.total_amount,
     paid_amount: row.paid_amount,
     discount_amount: row.discount_amount,
@@ -47,6 +48,7 @@ describe('studentFeesTab', () => {
       fee_structure_key: 'Tuition',
       month: 1,
       year: 2026,
+      occurrence: 1,
       total_amount: '1500.00',
       paid_amount: '0.00',
       discount_amount: '0.00',
@@ -66,6 +68,87 @@ describe('studentFeesTab', () => {
     expect((result as { row: StudentFeeRow }).row).toEqual(row);
   });
 
+  it('gives two same-period bills differing only by occurrence distinct natural keys', () => {
+    const base: StudentFee = Object.assign(new StudentFee(), {
+      student: { registration_number: 'REG-001' },
+      academic_year: { name: '2026-2027', start_date: '2026-01-01', end_date: '2026-12-31' },
+      fee_structure: {
+        name: 'Tuition',
+        class: null,
+        section: null,
+        academic_year: { name: '2026-2027' },
+      },
+      month: 1,
+      year: 2026,
+      occurrence: 1,
+    });
+    const rebilled = Object.assign(new StudentFee(), { ...base, occurrence: 2 });
+
+    expect(studentFeesTab.keyOf(base)).not.toBe(studentFeesTab.keyOf(rebilled));
+  });
+
+  it('rejects an out-of-range month instead of silently wrapping it', () => {
+    const row: StudentFeeRow = {
+      id: '00000000-0000-4000-8000-000000000001',
+      student_id: 'student-1',
+      student_key: 'REG-001',
+      academic_year_id: 'year-1',
+      academic_year_key: '2026-2027',
+      fee_structure_id: 'fs-1',
+      fee_structure_key: 'Tuition',
+      month: 13,
+      year: 2026,
+      occurrence: 1,
+      total_amount: '1500.00',
+      paid_amount: '0.00',
+      discount_amount: '0.00',
+      standing_discount_amount: '0.00',
+      one_off_discount_amount: '0.00',
+      status: FeeStatus.PENDING,
+      due_date: null,
+      reminder_threshold_date: null,
+    };
+    const ctx = fakeImportCtx({
+      students: { 'REG-001': 'student-1' },
+      academic_years: { '2026-2027': 'year-1' },
+      fee_structures: { Tuition: 'fs-1' },
+    });
+    const result = studentFeesTab.fromRow(cellsFor(row), 2, ctx);
+    expect('errors' in result).toBe(true);
+    expect((result as { errors: { column: string | null }[] }).errors[0].column).toBe('month');
+  });
+
+  it('rejects an out-of-range year instead of silently wrapping it', () => {
+    const row: StudentFeeRow = {
+      id: '00000000-0000-4000-8000-000000000001',
+      student_id: 'student-1',
+      student_key: 'REG-001',
+      academic_year_id: 'year-1',
+      academic_year_key: '2026-2027',
+      fee_structure_id: 'fs-1',
+      fee_structure_key: 'Tuition',
+      month: 1,
+      year: 26,
+      occurrence: 1,
+      total_amount: '1500.00',
+      paid_amount: '0.00',
+      discount_amount: '0.00',
+      standing_discount_amount: '0.00',
+      one_off_discount_amount: '0.00',
+      status: FeeStatus.PENDING,
+      due_date: null,
+      reminder_threshold_date: null,
+    };
+    const ctx = fakeImportCtx({
+      students: { 'REG-001': 'student-1' },
+      academic_years: { '2026-2027': 'year-1' },
+      fee_structures: { Tuition: 'fs-1' },
+    });
+    const result = studentFeesTab.fromRow(cellsFor(row), 2, ctx);
+    expect('errors' in result).toBe(true);
+    expect((result as { errors: { column: string | null }[] }).errors[0].column).toBe('year');
+  });
+
   it('errors when the student key does not resolve', () => {
     const row: StudentFeeRow = {
       id: '00000000-0000-4000-8000-000000000001',
@@ -77,6 +160,7 @@ describe('studentFeesTab', () => {
       fee_structure_key: 'Tuition',
       month: 1,
       year: 2026,
+      occurrence: 1,
       total_amount: '1500.00',
       paid_amount: '0.00',
       discount_amount: '0.00',

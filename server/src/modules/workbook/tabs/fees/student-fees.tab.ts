@@ -40,6 +40,7 @@ export interface StudentFeeRow {
   fee_structure_key: string;
   month: number;
   year: number;
+  occurrence: number;
   total_amount: string;
   paid_amount: string;
   discount_amount: string;
@@ -78,6 +79,13 @@ const columns: readonly ColumnSpec[] = [
   // (16.1.3, D2), which `upsert` computes as that period's 1st.
   { key: 'month', type: 'int', required: true, label: { en: 'Month', bn: 'মাস' } },
   { key: 'year', type: 'int', required: true, label: { en: 'Year', bn: 'বছর' } },
+  // Part of `StudentFee`'s real DB unique key (student, fee_structure,
+  // period_start, occurrence) — distinguishes a re-billed occurrence of
+  // the same (student, structure, period) bill, e.g. a late fee re-billed
+  // after a DuplicateStrategy.CREATE_ANYWAY run. Excluding it from the
+  // natural key would hash two genuinely different bills to the same key,
+  // making `ValidationService` see them as duplicates.
+  { key: 'occurrence', type: 'int', required: true, label: { en: 'Occurrence', bn: 'ক্রম' } },
   {
     key: 'total_amount',
     type: 'money',
@@ -138,10 +146,6 @@ const excluded: readonly string[] = [
   // restore (16.1.3 only defines MONTH/WEEK, and this tab only ever bills
   // by month) — not worth a column until a restore needs to pick WEEK.
   'period_type',
-  // Distinguishes re-billed occurrences of the same (student, structure,
-  // period) — e.g. a late fee re-billed after a duplicate-strategy run.
-  // A workbook restore always creates the first occurrence of a bill.
-  'occurrence',
   // FK added in 16.1.4's migration, not this one (see the entity comment)
   // — 16.1.4 owns wiring generation-batch provenance into the workbook.
   'fee_generation_id',
@@ -161,7 +165,7 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
   excluded,
   dependsOn: ['students', 'academic_years', 'fee_structures'],
   columns,
-  naturalKey: ['student', 'academic_year', 'fee_structure', 'month', 'year'],
+  naturalKey: ['student', 'academic_year', 'fee_structure', 'month', 'year', 'occurrence'],
   deleteByAbsence: true,
 
   load(tenantId: string, m: EntityManager): Promise<StudentFee[]> {
@@ -195,6 +199,7 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
       fee_structure: ctx.keyOf('fee_structures', entity.fee_structure_id),
       month: entity.month,
       year: entity.year,
+      occurrence: entity.occurrence,
       total_amount: entity.total_amount,
       paid_amount: entity.paid_amount,
       discount_amount: entity.discount_amount,
@@ -222,6 +227,38 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
         continue;
       }
       values[column.key] = result.value;
+    }
+
+    if (errors.length > 0) return { errors };
+
+    // `period_start` is built from `month`/`year` in `upsert` via
+    // `Date.UTC(row.year, row.month - 1, 1)`, which silently wraps an
+    // out-of-range value instead of rejecting it (month 13 rolls into next
+    // January; a 2-digit year like 26 becomes 1926). The DB's own CHECK
+    // constraints (`month BETWEEN 1 AND 12`, `year > 0`) never see that
+    // wrapped value to catch it, since it's already a valid month/year by
+    // the time it reaches Postgres. Reject it here instead, at the cell.
+    const month = values.month as number;
+    if (month < 1 || month > 12) {
+      errors.push({
+        tab: 'student_fees',
+        row: rowNo,
+        column: 'month',
+        message: `Column "month": "${month}" is not a valid month. Use a whole number from 1 to 12.`,
+        severity: 'error',
+        value: String(month),
+      });
+    }
+    const year = values.year as number;
+    if (year < 1900 || year > 2100) {
+      errors.push({
+        tab: 'student_fees',
+        row: rowNo,
+        column: 'year',
+        message: `Column "year": "${year}" is not a valid year. Use a 4-digit year between 1900 and 2100.`,
+        severity: 'error',
+        value: String(year),
+      });
     }
 
     if (errors.length > 0) return { errors };
@@ -287,6 +324,7 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
         fee_structure_key: feeStructureKey,
         month: values.month as number,
         year: values.year as number,
+        occurrence: values.occurrence as number,
         total_amount: values.total_amount as string,
         paid_amount: values.paid_amount as string,
         discount_amount: values.discount_amount as string,
@@ -323,7 +361,7 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
           ? feeStructuresTab.keyOf(x.fee_structure)
           : ''
         : x.fee_structure_key;
-    return `${studentKey}|${yearKey}|${feeStructureKey}|${x.month}|${x.year}`;
+    return `${studentKey}|${yearKey}|${feeStructureKey}|${x.month}|${x.year}|${x.occurrence}`;
   },
 
   diffFields(row: StudentFeeRow, existing: StudentFee): string[] {
@@ -331,6 +369,7 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
     if (row.fee_structure_id !== existing.fee_structure_id) changed.push('fee_structure');
     if (row.month !== existing.month) changed.push('month');
     if (row.year !== existing.year) changed.push('year');
+    if (row.occurrence !== existing.occurrence) changed.push('occurrence');
     if (String(row.total_amount) !== String(existing.total_amount)) changed.push('total_amount');
     if (String(row.paid_amount) !== String(existing.paid_amount)) changed.push('paid_amount');
     if (String(row.discount_amount) !== String(existing.discount_amount)) {
@@ -367,6 +406,7 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
     // rejects a direct write to them. `period_start` is the real column;
     // its 1st-of-the-month derives `month`/`year` back out on read.
     fee.period_start = new Date(Date.UTC(row.year, row.month - 1, 1));
+    fee.occurrence = row.occurrence;
     fee.total_amount = row.total_amount as unknown as number;
     fee.paid_amount = row.paid_amount as unknown as number;
     fee.discount_amount = row.discount_amount as unknown as number;
