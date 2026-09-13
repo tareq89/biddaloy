@@ -309,6 +309,195 @@ describe('BackupSection', () => {
     expect(screen.queryByText('This backup has expired — request a new one.')).toBeNull();
   });
 
+  it('changing the schedule select calls the settings mutation with only the backup slice', async () => {
+    server.use(
+      http.get('/api/v1/backup/jobs', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
+      ),
+    );
+    const patchBody = vi.fn();
+    server.use(
+      http.patch('/api/v1/schools/:id/settings', async ({ request }) => {
+        const body = (await request.json()) as { backup?: { schedule: string } };
+        patchBody(body);
+        return HttpResponse.json({ version: 1, region: {}, backup: body.backup });
+      }),
+    );
+
+    const { user } = renderWithProviders(<BackupSection />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: SCHOOL_ID,
+    });
+
+    // The select stays `disabled` until `useSchoolSettings` resolves —
+    // wait for that before interacting, or `userEvent.selectOptions` on a
+    // disabled element fires no `change` event at all.
+    const select = await screen.findByLabelText<HTMLSelectElement>('Automatic backup schedule');
+    await waitFor(() => expect(select.disabled).toBe(false));
+    await user.selectOptions(select, 'WEEKLY');
+
+    await waitFor(() =>
+      expect(patchBody).toHaveBeenCalledWith({ version: 1, backup: { schedule: 'WEEKLY' } }),
+    );
+  });
+
+  it("a SUPER_ADMIN never fetches a school's settings from this section, and sees no schedule control", async () => {
+    // Regression: this section used to call `useSchoolSettings(activeTenant)`
+    // unconditionally. For a SUPER_ADMIN the active tenant is the platform
+    // tenant, so the Settings page fired `GET /schools/<platform>/settings`
+    // before any school was picked — and would have let them edit the
+    // platform tenant's own backup schedule from a page with no school
+    // selected. `SchoolSettingsPage.test.tsx`'s "does not request settings
+    // before a school is selected" is what caught it.
+    const getSettings = vi.fn();
+    server.use(
+      http.get('/api/v1/backup/jobs', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
+      ),
+      http.get('/api/v1/schools/:id/settings', ({ params }) => {
+        getSettings(params.id);
+        return HttpResponse.json({ version: 1, region: {}, backup: { schedule: 'WEEKLY' } });
+      }),
+    );
+
+    renderWithProviders(<BackupSection />, {
+      locale: 'en',
+      role: 'SUPER_ADMIN',
+      tenantId: SCHOOL_ID,
+    });
+
+    // The job list still renders — that part is what the `?backup=` deep
+    // link needs and is unaffected.
+    expect(await screen.findByText('No backups yet')).toBeTruthy();
+    expect(screen.queryByLabelText('Automatic backup schedule')).toBeNull();
+    expect(getSettings).not.toHaveBeenCalled();
+  });
+
+  it('disables the schedule select while a save is in flight, so two quick selections cannot land out of order', async () => {
+    server.use(
+      http.get('/api/v1/backup/jobs', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
+      ),
+    );
+    let releasePatch: () => void = () => undefined;
+    server.use(
+      http.patch('/api/v1/schools/:id/settings', async ({ request }) => {
+        const body = (await request.json()) as { backup?: { schedule: string } };
+        await new Promise<void>((resolve) => {
+          releasePatch = resolve;
+        });
+        return HttpResponse.json({ version: 1, region: {}, backup: body.backup });
+      }),
+    );
+
+    const { user } = renderWithProviders(<BackupSection />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: SCHOOL_ID,
+    });
+
+    const select = await screen.findByLabelText<HTMLSelectElement>('Automatic backup schedule');
+    await waitFor(() => expect(select.disabled).toBe(false));
+    await user.selectOptions(select, 'WEEKLY');
+
+    // `SchoolsService.updateSettings` has no request-order check, so an
+    // older PATCH could persist after a newer one — the only defence is
+    // not letting a second selection start until the first settles.
+    await waitFor(() => expect(select.disabled).toBe(true));
+    releasePatch();
+    await waitFor(() => expect(select.disabled).toBe(false));
+  });
+
+  it("toggling a job's pin calls PATCH /backup/jobs/:id/pin", async () => {
+    let pinnedSent: boolean | undefined;
+    server.use(
+      http.get('/api/v1/backup/jobs', () =>
+        HttpResponse.json({
+          data: [jobFixture({ id: 'job-done', pinned: false })],
+          total: 1,
+          page: 1,
+          limit: 10,
+          totalPages: 1,
+          storage_total_bytes: '2048',
+        }),
+      ),
+      http.patch('/api/v1/backup/jobs/:id/pin', async ({ params, request }) => {
+        const body = (await request.json()) as { pinned: boolean };
+        pinnedSent = body.pinned;
+        return HttpResponse.json(jobFixture({ id: params.id as string, pinned: body.pinned }));
+      }),
+    );
+
+    const { user } = renderWithProviders(<BackupSection />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: SCHOOL_ID,
+    });
+
+    const pinButton = await screen.findByRole('button', { name: 'Pin' });
+    await user.click(pinButton);
+
+    await waitFor(() => expect(pinnedSent).toBe(true));
+  });
+
+  it('refetches the list and says so when pinning hits 410 (deleted by retention meanwhile)', async () => {
+    // The row was live when rendered; retention deleted it before the
+    // click landed. The list must be refetched (so the row goes away) and
+    // the toast must say that, not the generic "try again".
+    let listRequests = 0;
+    const toastError = vi.spyOn(toast, 'error');
+    server.use(
+      http.get('/api/v1/backup/jobs', () => {
+        listRequests += 1;
+        return HttpResponse.json({
+          data: listRequests === 1 ? [jobFixture({ id: 'job-gone', pinned: false })] : [],
+          total: listRequests === 1 ? 1 : 0,
+          page: 1,
+          limit: 10,
+          totalPages: 1,
+          storage_total_bytes: '0',
+        });
+      }),
+      http.patch('/api/v1/backup/jobs/:id/pin', () =>
+        HttpResponse.json({ message: 'gone' }, { status: 410 }),
+      ),
+    );
+
+    const { user } = renderWithProviders(<BackupSection />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: SCHOOL_ID,
+    });
+
+    await user.click(await screen.findByRole('button', { name: 'Pin' }));
+
+    await waitFor(() => expect(listRequests).toBe(2));
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Pin' })).toBeNull());
+    expect(toastError).toHaveBeenCalledWith(
+      'This backup was already removed by retention. The list has been refreshed.',
+    );
+  });
+
+  it('shows the storage used line from storage_total_bytes', async () => {
+    server.use(
+      http.get('/api/v1/backup/jobs', () =>
+        HttpResponse.json({
+          data: [jobFixture({ id: 'job-done' })],
+          total: 1,
+          page: 1,
+          limit: 10,
+          totalPages: 1,
+          storage_total_bytes: String(120 * 1024 * 1024),
+        }),
+      ),
+    );
+
+    renderWithProviders(<BackupSection />, { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID });
+
+    expect(await screen.findByText('Storage used: 120.0 MB of 500.0 MB')).toBeTruthy();
+  });
+
   it('renders nothing without BACKUP_MANAGE permission', () => {
     server.use(
       http.get('/api/v1/backup/jobs', () =>

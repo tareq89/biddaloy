@@ -3,10 +3,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 import { ConfigModule } from '@nestjs/config';
 import { WorkbookJob } from '../jobs/workbook-job.entity';
+import { UserTenant } from '../../auth/entities/user-tenant.entity';
 import { StorageModule } from '../../storage/storage.module';
 import { AuditModule } from '../../audit/audit.module';
 import { AccountAccessModule } from '../../account-access/account-access.module';
 import { SchoolsModule } from '../../schools/schools.module';
+import { RetentionModule } from '../schedule/retention.module';
 import { WORKBOOK_EXPORT_QUEUE } from './export.constants';
 import { ExportService } from './export.service';
 import { ExportProcessor } from './export.processor';
@@ -22,11 +24,12 @@ import { WorkbookController } from './workbook.controller';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([WorkbookJob]),
+    TypeOrmModule.forFeature([WorkbookJob, UserTenant]),
     StorageModule,
     AuditModule,
     AccountAccessModule,
     SchoolsModule,
+    RetentionModule,
     ConfigModule,
     BullModule.registerQueue({
       name: WORKBOOK_EXPORT_QUEUE,

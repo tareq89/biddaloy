@@ -90,6 +90,7 @@ describe('ExportProcessor (integration)', () => {
       storage as any,
       auditService,
       { emitFinished: vi.fn() } as any,
+      { enforce: vi.fn().mockResolvedValue(undefined) } as any,
     );
   });
 

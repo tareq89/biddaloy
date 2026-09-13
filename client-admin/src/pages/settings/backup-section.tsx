@@ -1,4 +1,5 @@
 import { Permission } from '@biddaloy/shared';
+import { getActiveTenant } from '@biddaloy/ui/api';
 import {
   Button,
   Card,
@@ -11,8 +12,12 @@ import {
   downloadBackup,
   useBackupJob,
   useBackupJobs,
+  useActiveRole,
   useHasPermission,
+  usePinBackupJob,
   useRequestBackup,
+  useSchoolSettings,
+  useUpdateSchoolSettings,
   type WorkbookJob,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
@@ -22,6 +27,15 @@ import * as React from 'react';
 import { RestoreWizard } from './restore-wizard';
 
 const PAGE_SIZE = 10;
+
+/** [14.12.2] Mirrors server `STORAGE_CAP_BYTES`
+ * (`server/src/modules/workbook/schedule/retention.service.ts`) — 500 MB,
+ * for the "Storage used: X of 500 MB" line. Not imported from the server
+ * package (no shared runtime boundary between client and server code in
+ * this repo); kept as a literal here, same as every other cross-boundary
+ * constant this section already hand-mirrors (see this file's own
+ * `WorkbookJob` header comment). */
+const STORAGE_CAP_BYTES = 500 * 1024 * 1024;
 
 /** `WorkbookJob` plus this render's per-row UI flags — see the comment
  * where `jobs` is built for why these have to sit on the row object
@@ -83,6 +97,45 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
   const [page, setPage] = React.useState(1);
   const jobsQuery = useBackupJobs({ page, limit: PAGE_SIZE });
   const requestMutation = useRequestBackup();
+  const pinMutation = usePinBackupJob();
+
+  // [14.12.3/#617] The schedule control edits the caller's own tenant's
+  // `backup.schedule` — there is no SUPER_ADMIN school picker in front of
+  // this section (see the header comment on why it takes no `schoolId`).
+  // For a SUPER_ADMIN that "own tenant" is the platform tenant, and this
+  // page's picker hasn't chosen a school yet, so there is no sensible
+  // target: pass `''` so `useSchoolSettings` stays disabled (its own
+  // `enabled: Boolean(schoolId)` guard) rather than fetching — and later
+  // silently editing — the platform tenant's schedule, and don't render
+  // the control at all. The job list/download below is unaffected; it is
+  // what the `?backup=<jobId>` deep link needs, not this setting.
+  const isSuperAdmin = useActiveRole() === 'SUPER_ADMIN';
+  const schoolId = isSuperAdmin ? '' : (getActiveTenant() ?? '');
+  const settingsQuery = useSchoolSettings(schoolId);
+  const updateSettings = useUpdateSchoolSettings(schoolId);
+  const schedule = settingsQuery.data?.backup?.schedule ?? 'OFF';
+
+  function handleScheduleChange(nextSchedule: 'OFF' | 'WEEKLY' | 'DAILY') {
+    updateSettings.mutate(
+      { version: 1, backup: { schedule: nextSchedule } },
+      {
+        onSuccess: () => toast.success(t('scheduleSaveSuccess')),
+        onError: () => toast.error(t('scheduleSaveFailed')),
+      },
+    );
+  }
+
+  function handleTogglePin(id: string, pinned: boolean) {
+    pinMutation.mutate(
+      { id, pinned },
+      {
+        // 410 = retention deleted the job under us; `usePinBackupJob` has
+        // already invalidated the list so the row is about to disappear —
+        // say that, not "try again".
+        onError: (err) => toast.error(t(extractHttpStatus(err) === 410 ? 'pinGone' : 'pinFailed')),
+      },
+    );
+  }
 
   // Per-row "this link already expired" flags, discovered only once a
   // download is actually attempted — `BackupJob` carries no expiry field
@@ -245,6 +298,28 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
       accessorFn: (row) => row.requested_by?.full_name ?? '—',
     },
     {
+      id: 'pinned',
+      header: t('columnPinned'),
+      // Only a DONE job has anything stored to pin/unpin — a
+      // QUEUED/RUNNING/FAILED/DELETED row has no exempt-from-retention
+      // state to toggle.
+      accessorFn: (row) => {
+        if (row.status !== 'DONE') return null;
+        const isPending = pinMutation.isPending && pinMutation.variables?.id === row.id;
+        return (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            loading={isPending}
+            onClick={() => handleTogglePin(row.id, !row.pinned)}
+          >
+            {row.pinned ? t('unpin') : t('pin')}
+          </Button>
+        );
+      },
+    },
+    {
       id: 'actions',
       header: t('columnActions'),
       pinned: true,
@@ -282,6 +357,39 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
         <p className="text-sm text-muted-foreground">{t('containsDescription')}</p>
         <p className="text-sm text-muted-foreground">{t('neverContainsDescription')}</p>
       </div>
+
+      {/* [14.12.3/#617] No immediate-resync mechanism (D10/D11) — the copy
+          below deliberately never implies the new schedule is already
+          running; the hourly reconciler (#615) is the only resync path.
+          Hidden for a SUPER_ADMIN — see `isSuperAdmin` above. */}
+      {!isSuperAdmin && (
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="backup-schedule" className="text-sm font-medium">
+            {t('scheduleLabel')}
+          </label>
+          <select
+            id="backup-schedule"
+            className="h-8 w-fit rounded-md border border-input bg-card px-2.5 text-sm"
+            value={schedule}
+            disabled={!settingsQuery.data || updateSettings.isPending}
+            onChange={(event) =>
+              handleScheduleChange(event.target.value as 'OFF' | 'WEEKLY' | 'DAILY')
+            }
+          >
+            <option value="OFF">{t('scheduleOff')}</option>
+            <option value="WEEKLY">{t('scheduleWeekly')}</option>
+            <option value="DAILY">{t('scheduleDaily')}</option>
+          </select>
+          <p className="text-xs text-muted-foreground">{t('scheduleHint')}</p>
+        </div>
+      )}
+
+      <p className="text-sm text-muted-foreground">
+        {t('storageUsed', {
+          used: formatFileSize(jobsQuery.data?.storage_total_bytes),
+          cap: formatFileSize(String(STORAGE_CAP_BYTES)),
+        })}
+      </p>
 
       {deepLinkError && (
         <p role="alert" className="text-sm text-destructive">

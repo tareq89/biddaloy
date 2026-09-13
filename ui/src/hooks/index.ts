@@ -354,6 +354,8 @@ export {
   downloadBackup,
   useBackupJob,
   useBackupJobs,
+  usePinBackupJob,
+  usePlatformBackupHealth,
   useRequestBackup,
   useRestoreBackup,
   useValidateBackup,
@@ -370,6 +372,7 @@ export {
   type WorkbookJobSource,
   type WorkbookJobStatus,
   type PaginatedWorkbookJobs,
+  type PlatformSchoolBackupHealth,
 } from './backup';
 export {
   useBulkUploadPreview,
@@ -441,6 +444,7 @@ export {
   type MaskedMessengerSettings,
   type MaskedCommunicationsSettings,
   type MaskedTenantSettings,
+  type BackupSettings,
   type ConnectionTestResult,
   type TenantSettingsInput,
   type TestConnectionInput,

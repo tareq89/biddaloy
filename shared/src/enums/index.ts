@@ -175,6 +175,10 @@ export enum AuditAction {
   SUSPEND = 'SUSPEND',
   /** A SUPER_ADMIN reactivated a previously suspended school (15.4) — PATCH /schools/:id/status. */
   REACTIVATE = 'REACTIVATE',
+  /** A backup/workbook artefact was pruned by retention (expiry, per-source
+   * count cap, snapshot age, or the per-tenant storage cap) — 14.12.2.
+   * Never fired for a `pinned` row. */
+  BACKUP_DELETED = 'BACKUP_DELETED',
 }
 
 export enum EnrollmentStatus {

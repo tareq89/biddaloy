@@ -1,0 +1,453 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { AuditAction } from '@biddaloy/shared';
+import {
+  AUDIT_WRITE_ATTEMPTS,
+  KEEP_MANUAL_COUNT,
+  KEEP_SCHEDULED_COUNT,
+  RetentionService,
+  SNAPSHOT_RETENTION_DAYS,
+  STORAGE_CAP_BYTES,
+} from './retention.service';
+import {
+  WorkbookJob,
+  WorkbookJobKind,
+  WorkbookJobSource,
+  WorkbookJobStatus,
+} from '../jobs/workbook-job.entity';
+import { AuditService } from '../../audit/audit.service';
+import { StorageService } from '../../storage/storage.service';
+
+const TENANT_ID = 'tenant-1';
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function makeJob(id: string, overrides: Partial<WorkbookJob> = {}): WorkbookJob {
+  return {
+    id,
+    tenant_id: TENANT_ID,
+    kind: WorkbookJobKind.EXPORT,
+    status: WorkbookJobStatus.DONE,
+    source: WorkbookJobSource.SCHEDULED,
+    requested_by_user_id: null,
+    storage_key: `tenants/${TENANT_ID}/backups/${id}.xlsx`,
+    size_bytes: '1000',
+    pinned: false,
+    expires_at: null,
+    created_at: new Date('2026-01-01T00:00:00.000Z'),
+    finished_at: new Date('2026-01-01T00:00:00.000Z'),
+    ...overrides,
+  } as WorkbookJob;
+}
+
+describe('RetentionService', () => {
+  let service: RetentionService;
+  let jobs: WorkbookJob[];
+  let repo: {
+    find: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+    manager: { transaction: ReturnType<typeof vi.fn> };
+  };
+  let storage: { delete: ReturnType<typeof vi.fn> };
+  let audit: { record: ReturnType<typeof vi.fn> };
+  /** Stands in for the EntityManager handed to `manager.transaction`'s
+   * callback — the same reference the service must pass on to
+   * `audit.record`, which is how the tests prove both writes share one
+   * transaction. */
+  let txManager: { update: ReturnType<typeof vi.fn> };
+
+  beforeEach(() => {
+    jobs = [];
+    txManager = {
+      // `EntityManager.update(Entity, criteria, patch)` — drop the entity
+      // and reuse the repository mock so the in-memory rows stay the
+      // single source of truth.
+      update: vi.fn(async (_entity: unknown, criteria: string, patch: Partial<WorkbookJob>) =>
+        repo.update(criteria, patch),
+      ),
+    };
+    repo = {
+      // Mirrors `Repository.manager.transaction(fn)`: runs `fn` with the
+      // stand-in manager and, like Postgres, rolls every row back to its
+      // pre-transaction state if `fn` throws.
+      manager: {
+        transaction: vi.fn(async (fn: (m: typeof txManager) => Promise<void>) => {
+          const before = jobs.map((j) => ({ ...j }));
+          try {
+            return await fn(txManager);
+          } catch (err) {
+            jobs.forEach((j, i) => Object.assign(j, before[i]));
+            throw err;
+          }
+        }),
+      },
+      // The service issues three separate `find` calls (expired /
+      // category-overflow / cap) each of which must reflect any updates
+      // made by an earlier pass — mirror that against the in-memory array.
+      find: vi.fn(async (opts: any) => {
+        let rows = jobs.filter((j) => j.tenant_id === opts.where.tenant_id);
+        if (opts.where.status !== undefined)
+          rows = rows.filter((j) => j.status === opts.where.status);
+        if (opts.where.pinned !== undefined)
+          rows = rows.filter((j) => j.pinned === opts.where.pinned);
+        if (opts.order?.created_at === 'DESC') {
+          rows = [...rows].sort((a, b) => b.created_at.getTime() - a.created_at.getTime());
+        } else if (opts.order?.created_at === 'ASC') {
+          rows = [...rows].sort((a, b) => a.created_at.getTime() - b.created_at.getTime());
+        }
+        return rows;
+      }),
+      // Mirrors `Repository.update(criteria, patch)`: a string criteria is
+      // "by id"; an object criteria must match every key. Reports
+      // `affected` because `deleteRow` claims rows conditionally and
+      // branches on it.
+      update: vi.fn(
+        async (criteria: string | Partial<WorkbookJob>, patch: Partial<WorkbookJob>) => {
+          const matches =
+            typeof criteria === 'string'
+              ? jobs.filter((j) => j.id === criteria)
+              : jobs.filter((j) => Object.entries(criteria).every(([k, v]) => (j as any)[k] === v));
+          for (const row of matches) Object.assign(row, patch);
+          return { affected: matches.length };
+        },
+      ),
+    };
+    storage = { delete: vi.fn().mockResolvedValue(undefined) };
+    audit = { record: vi.fn().mockResolvedValue(undefined) };
+    service = new RetentionService(
+      repo as any,
+      storage as unknown as StorageService,
+      audit as unknown as AuditService,
+    );
+  });
+
+  it('never touches a pinned job, even one that is expired, over-count, and over the cap', async () => {
+    jobs.push(
+      makeJob('pinned-1', {
+        pinned: true,
+        expires_at: new Date('2020-01-01T00:00:00.000Z'),
+        size_bytes: String(STORAGE_CAP_BYTES * 2),
+      }),
+    );
+
+    await service.enforce(TENANT_ID, new Date('2026-01-15T00:00:00.000Z'));
+
+    expect(jobs[0].status).toBe(WorkbookJobStatus.DONE);
+    expect(storage.delete).not.toHaveBeenCalled();
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+
+  it('backs off without touching storage when the row is pinned between the pass reading it and the claim', async () => {
+    // The pin/retention race: `pruneExpired` loads the row unpinned, then a
+    // `PATCH /pin` lands before `deleteRow` runs. The conditional claim
+    // (`status = DONE AND pinned = false`) must match zero rows and leave
+    // both storage and the row alone — otherwise the user was just told a
+    // backup is safe that is about to be deleted.
+    const row = makeJob('raced-1', { expires_at: new Date('2020-01-01T00:00:00.000Z') });
+    jobs.push(row);
+    repo.find.mockImplementationOnce(async () => {
+      // Return the stale, unpinned snapshot the pass would have read...
+      const snapshot = { ...row, pinned: false };
+      // ...but the real row is pinned by the time the claim executes.
+      row.pinned = true;
+      return [snapshot];
+    });
+
+    await service.enforce(TENANT_ID, new Date('2026-01-15T00:00:00.000Z'));
+
+    expect(storage.delete).not.toHaveBeenCalled();
+    expect(row.status).toBe(WorkbookJobStatus.DONE);
+    expect(row.storage_key).not.toBeNull();
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+
+  it('claims the row before deleting storage, and puts it back to DONE if the storage delete fails', async () => {
+    const row = makeJob('flaky-1', { expires_at: new Date('2020-01-01T00:00:00.000Z') });
+    jobs.push(row);
+    // Proves the operation order, not just the end state: if `deleteRow`
+    // called `storage.delete()` before claiming the row, this mock would
+    // observe `status` still DONE, and the test would pass just the same
+    // as it would for the intended DELETED-then-delete order.
+    let statusDuringStorageDelete: WorkbookJobStatus | undefined;
+    storage.delete.mockImplementationOnce(async () => {
+      statusDuringStorageDelete = row.status;
+      throw new Error('object store unreachable');
+    });
+
+    await service.enforce(TENANT_ID, new Date('2026-01-15T00:00:00.000Z'));
+
+    expect(statusDuringStorageDelete).toBe(WorkbookJobStatus.DELETED);
+    // Released for the next sweep — not left DELETED with its object still
+    // in storage, and not left claimed so nothing can ever retry it.
+    expect(jobs[0].status).toBe(WorkbookJobStatus.DONE);
+    expect(jobs[0].storage_key).not.toBeNull();
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+
+  it('retries the whole finalize transaction when the BACKUP_DELETED audit write fails once', async () => {
+    vi.useFakeTimers();
+    try {
+      jobs.push(makeJob('audited-1', { expires_at: new Date('2020-01-01T00:00:00.000Z') }));
+      audit.record
+        .mockRejectedValueOnce(new Error('audit db down'))
+        .mockResolvedValueOnce(undefined);
+
+      const run = service.enforce(TENANT_ID, new Date('2026-01-15T00:00:00.000Z'));
+      await vi.runAllTimersAsync();
+      await run;
+
+      expect(jobs[0].status).toBe(WorkbookJobStatus.DELETED);
+      expect(jobs[0].storage_key).toBeNull();
+      // One transaction per attempt — the storage_key clear is re-issued
+      // alongside the retried audit insert, never left committed on its own.
+      expect(repo.manager.transaction).toHaveBeenCalledTimes(2);
+      expect(txManager.update).toHaveBeenCalledTimes(2);
+      expect(audit.record).toHaveBeenCalledTimes(2);
+      expect(audit.record).toHaveBeenLastCalledWith(
+        expect.objectContaining({ action: AuditAction.BACKUP_DELETED, entity_id: 'audited-1' }),
+        txManager,
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps storage_key on a DELETED row when every finalize attempt fails, so the unfinished deletion stays visible', async () => {
+    vi.useFakeTimers();
+    try {
+      jobs.push(makeJob('orphaned-1', { expires_at: new Date('2020-01-01T00:00:00.000Z') }));
+      audit.record.mockRejectedValue(new Error('audit db down'));
+
+      const run = service.enforce(TENANT_ID, new Date('2026-01-15T00:00:00.000Z'));
+      await vi.runAllTimersAsync();
+      await run;
+
+      expect(audit.record).toHaveBeenCalledTimes(AUDIT_WRITE_ATTEMPTS);
+      // The object is gone (claimed + deleted before finalize), the row is
+      // DELETED, and because the transaction rolled back each time the
+      // storage_key is still set: that combination is the recovery marker
+      // a crash-safety pass looks for. Clearing the key without the audit
+      // row would have erased the only evidence anything was left undone.
+      expect(storage.delete).toHaveBeenCalledTimes(1);
+      expect(jobs[0].status).toBe(WorkbookJobStatus.DELETED);
+      expect(jobs[0].storage_key).not.toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('deletes an unpinned job whose expires_at is in the past and audits BACKUP_DELETED', async () => {
+    jobs.push(makeJob('expired-1', { expires_at: new Date('2020-01-01T00:00:00.000Z') }));
+
+    await service.enforce(TENANT_ID, new Date('2026-01-15T00:00:00.000Z'));
+
+    expect(jobs[0].status).toBe(WorkbookJobStatus.DELETED);
+    expect(jobs[0].storage_key).toBeNull();
+    // size_bytes is kept for history — never cleared by retention.
+    expect(jobs[0].size_bytes).toBe('1000');
+    expect(storage.delete).toHaveBeenCalledWith(`tenants/${TENANT_ID}/backups/expired-1.xlsx`);
+    // Second arg is the transaction's manager — the audit row must share the
+    // transaction that clears storage_key, never be a separate best-effort write.
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({ action: AuditAction.BACKUP_DELETED, entity_id: 'expired-1' }),
+      txManager,
+    );
+  });
+
+  it('keeps exactly the newest 8 SCHEDULED DONE exports across 12 simulated weekly runs', async () => {
+    const now = new Date('2026-03-01T00:00:00.000Z');
+    for (let week = 0; week < 12; week += 1) {
+      jobs.push(
+        makeJob(`sched-${week}`, {
+          source: WorkbookJobSource.SCHEDULED,
+          created_at: new Date(now.getTime() - week * 7 * DAY_MS),
+        }),
+      );
+    }
+
+    await service.enforce(TENANT_ID, now);
+
+    const survivors = jobs.filter((j) => j.status === WorkbookJobStatus.DONE);
+    expect(survivors).toHaveLength(KEEP_SCHEDULED_COUNT);
+    // The newest 8 (week 0..7) survive; week 8..11 are pruned.
+    for (let week = 0; week < KEEP_SCHEDULED_COUNT; week += 1) {
+      expect(jobs.find((j) => j.id === `sched-${week}`)?.status).toBe(WorkbookJobStatus.DONE);
+    }
+    for (let week = KEEP_SCHEDULED_COUNT; week < 12; week += 1) {
+      expect(jobs.find((j) => j.id === `sched-${week}`)?.status).toBe(WorkbookJobStatus.DELETED);
+    }
+  });
+
+  it('keeps only the newest 3 MANUAL exports', async () => {
+    const now = new Date('2026-03-01T00:00:00.000Z');
+    for (let i = 0; i < 6; i += 1) {
+      jobs.push(
+        makeJob(`manual-${i}`, {
+          source: WorkbookJobSource.MANUAL,
+          created_at: new Date(now.getTime() - i * DAY_MS),
+        }),
+      );
+    }
+
+    await service.enforce(TENANT_ID, now);
+
+    for (let i = 0; i < KEEP_MANUAL_COUNT; i += 1) {
+      expect(jobs.find((j) => j.id === `manual-${i}`)?.status).toBe(WorkbookJobStatus.DONE);
+    }
+    for (let i = KEEP_MANUAL_COUNT; i < 6; i += 1) {
+      expect(jobs.find((j) => j.id === `manual-${i}`)?.status).toBe(WorkbookJobStatus.DELETED);
+    }
+  });
+
+  it('does not count a RESTORE job against the MANUAL export quota (#616 review finding)', async () => {
+    const now = new Date('2026-03-01T00:00:00.000Z');
+    // 3 recent RESTORE rows must not evict, or themselves get evicted as,
+    // the 3 kept MANUAL exports — they are history, not backup artefacts.
+    for (let i = 0; i < 3; i += 1) {
+      jobs.push(
+        makeJob(`restore-${i}`, {
+          kind: WorkbookJobKind.RESTORE,
+          source: WorkbookJobSource.MANUAL,
+          created_at: new Date(now.getTime() - i * DAY_MS),
+        }),
+      );
+    }
+    for (let i = 0; i < 4; i += 1) {
+      jobs.push(
+        makeJob(`export-${i}`, {
+          kind: WorkbookJobKind.EXPORT,
+          source: WorkbookJobSource.MANUAL,
+          created_at: new Date(now.getTime() - (i + 10) * DAY_MS),
+        }),
+      );
+    }
+
+    await service.enforce(TENANT_ID, now);
+
+    for (let i = 0; i < 3; i += 1) {
+      expect(jobs.find((j) => j.id === `restore-${i}`)?.status).toBe(WorkbookJobStatus.DONE);
+    }
+    for (let i = 0; i < KEEP_MANUAL_COUNT; i += 1) {
+      expect(jobs.find((j) => j.id === `export-${i}`)?.status).toBe(WorkbookJobStatus.DONE);
+    }
+    expect(jobs.find((j) => j.id === 'export-3')?.status).toBe(WorkbookJobStatus.DELETED);
+  });
+
+  it('removes a SNAPSHOT older than 30 days but keeps a younger one', async () => {
+    const now = new Date('2026-03-01T00:00:00.000Z');
+    jobs.push(
+      makeJob('snap-old', {
+        kind: WorkbookJobKind.SNAPSHOT,
+        source: WorkbookJobSource.SNAPSHOT,
+        created_at: new Date(now.getTime() - (SNAPSHOT_RETENTION_DAYS + 1) * DAY_MS),
+      }),
+    );
+    jobs.push(
+      makeJob('snap-young', {
+        kind: WorkbookJobKind.SNAPSHOT,
+        source: WorkbookJobSource.SNAPSHOT,
+        created_at: new Date(now.getTime() - (SNAPSHOT_RETENTION_DAYS - 1) * DAY_MS),
+      }),
+    );
+
+    await service.enforce(TENANT_ID, now);
+
+    expect(jobs.find((j) => j.id === 'snap-old')?.status).toBe(WorkbookJobStatus.DELETED);
+    expect(jobs.find((j) => j.id === 'snap-young')?.status).toBe(WorkbookJobStatus.DONE);
+  });
+
+  it('deletes the oldest unpinned job first while the tenant is over the 500 MB cap', async () => {
+    const now = new Date('2026-03-01T00:00:00.000Z');
+    // 3 jobs at 200 MB each = 600 MB, over the 500 MB cap by 100 MB.
+    const chunk = 200 * 1024 * 1024;
+    jobs.push(
+      makeJob('cap-oldest', {
+        source: WorkbookJobSource.MANUAL,
+        size_bytes: String(chunk),
+        created_at: new Date(now.getTime() - 3 * DAY_MS),
+      }),
+      makeJob('cap-middle', {
+        source: WorkbookJobSource.MANUAL,
+        size_bytes: String(chunk),
+        created_at: new Date(now.getTime() - 2 * DAY_MS),
+      }),
+      makeJob('cap-newest', {
+        source: WorkbookJobSource.MANUAL,
+        size_bytes: String(chunk),
+        created_at: new Date(now.getTime() - 1 * DAY_MS),
+      }),
+    );
+
+    await service.enforce(TENANT_ID, now);
+
+    expect(jobs.find((j) => j.id === 'cap-oldest')?.status).toBe(WorkbookJobStatus.DELETED);
+    expect(jobs.find((j) => j.id === 'cap-middle')?.status).toBe(WorkbookJobStatus.DONE);
+    expect(jobs.find((j) => j.id === 'cap-newest')?.status).toBe(WorkbookJobStatus.DONE);
+  });
+
+  it('never evicts a pinned job to relieve the cap, even though it counts toward the total', async () => {
+    const now = new Date('2026-03-01T00:00:00.000Z');
+    const chunk = 300 * 1024 * 1024;
+    jobs.push(
+      makeJob('pinned-big', {
+        pinned: true,
+        source: WorkbookJobSource.MANUAL,
+        size_bytes: String(chunk),
+        created_at: new Date(now.getTime() - 2 * DAY_MS),
+      }),
+      makeJob('unpinned-big', {
+        source: WorkbookJobSource.MANUAL,
+        size_bytes: String(chunk),
+        created_at: new Date(now.getTime() - 1 * DAY_MS),
+      }),
+    );
+
+    await service.enforce(TENANT_ID, now);
+
+    // Total (600 MB) is over the cap, but only the unpinned row can be
+    // evicted — the pinned one stays even though the tenant is still over
+    // the cap afterward.
+    expect(jobs.find((j) => j.id === 'pinned-big')?.status).toBe(WorkbookJobStatus.DONE);
+    expect(jobs.find((j) => j.id === 'unpinned-big')?.status).toBe(WorkbookJobStatus.DELETED);
+  });
+
+  it('does not fail the sweep when StorageService.delete throws, and leaves the row untouched', async () => {
+    jobs.push(makeJob('boom', { expires_at: new Date('2020-01-01T00:00:00.000Z') }));
+    storage.delete.mockRejectedValueOnce(new Error('object store unreachable'));
+
+    await expect(
+      service.enforce(TENANT_ID, new Date('2026-01-15T00:00:00.000Z')),
+    ).resolves.not.toThrow();
+
+    expect(jobs[0].status).toBe(WorkbookJobStatus.DONE);
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+
+  it('does not falsely count bytes as freed when the cap sweep hits a storage failure (#616 review finding)', async () => {
+    const now = new Date('2026-03-01T00:00:00.000Z');
+    const chunk = 300 * 1024 * 1024;
+    // Both rows are over cap (600 MB); the oldest fails to delete from
+    // storage, so the tenant must still be considered over cap and the
+    // second (newer) row must also be evicted rather than the sweep
+    // stopping early on a total that only looked like it dropped below cap.
+    jobs.push(
+      makeJob('cap-a', {
+        source: WorkbookJobSource.MANUAL,
+        size_bytes: String(chunk),
+        created_at: new Date(now.getTime() - 2 * DAY_MS),
+      }),
+      makeJob('cap-b', {
+        source: WorkbookJobSource.MANUAL,
+        size_bytes: String(chunk),
+        created_at: new Date(now.getTime() - 1 * DAY_MS),
+      }),
+    );
+    storage.delete.mockRejectedValueOnce(new Error('object store unreachable'));
+
+    await service.enforce(TENANT_ID, now);
+
+    // cap-a's storage delete failed — it stays DONE, and its bytes were
+    // never subtracted from the running total, so the sweep correctly
+    // keeps going and evicts cap-b too instead of stopping early.
+    expect(jobs.find((j) => j.id === 'cap-a')?.status).toBe(WorkbookJobStatus.DONE);
+    expect(jobs.find((j) => j.id === 'cap-b')?.status).toBe(WorkbookJobStatus.DELETED);
+  });
+});

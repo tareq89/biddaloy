@@ -93,5 +93,9 @@ export function mergeTenantSettings(
     merged.communications = deepMergeOmittingUnset(current.communications, patch.communications);
   }
 
+  if (patch.backup !== undefined) {
+    merged.backup = patch.backup;
+  }
+
   return merged;
 }

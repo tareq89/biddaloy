@@ -2,6 +2,7 @@ import { TENANT_SETTINGS_SCHEMA_VERSION } from '../dto/tenant-settings.dto';
 import {
   DEFAULT_ATTENDANCE_SETTINGS,
   DEFAULT_AUTH_SETTINGS,
+  DEFAULT_BACKUP_SETTINGS,
   DEFAULT_REGION_SETTINGS,
 } from './tenant-settings-defaults';
 import type { TenantSettings } from '@biddaloy/shared';
@@ -51,6 +52,12 @@ function overlayOnDefaults<T>(defaults: T, stored: unknown): T {
   return result as T;
 }
 
+const BACKUP_SCHEDULE_MODES: readonly NonNullable<TenantSettings['backup']>['schedule'][] = [
+  'OFF',
+  'WEEKLY',
+  'DAILY',
+];
+
 /**
  * Resolves a school's raw `settings` jsonb column against defaults, one
  * top-level section at a time — a school that has configured
@@ -71,6 +78,15 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
   const region = overlayOnDefaults(DEFAULT_REGION_SETTINGS, stored?.region);
   const attendance = overlayOnDefaults(DEFAULT_ATTENDANCE_SETTINGS, stored?.attendance);
   const auth = overlayOnDefaults(DEFAULT_AUTH_SETTINGS, stored?.auth);
+  // `overlayOnDefaults` only type-checks (a string is a string), so a
+  // stored `{ schedule: 'NONSENSE' }` would otherwise come back typed as a
+  // `BackupScheduleMode` and reach `BACKUP_SCHEDULE_CRON[mode]` as
+  // `undefined`. `BackupSettingsDto`'s `@IsIn` rejects this on write; this
+  // is the read-side guard for a row that got there some other way.
+  const overlaidBackup = overlayOnDefaults(DEFAULT_BACKUP_SETTINGS, stored?.backup);
+  const backup = BACKUP_SCHEDULE_MODES.includes(overlaidBackup.schedule)
+    ? overlaidBackup
+    : { ...overlaidBackup, schedule: DEFAULT_BACKUP_SETTINGS.schedule };
   const communications = isPlainObject(stored?.communications)
     ? (stored.communications as TenantSettings['communications'])
     : undefined;
@@ -80,6 +96,7 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
     region,
     attendance,
     auth,
+    backup,
     ...(communications ? { communications } : {}),
   };
 }

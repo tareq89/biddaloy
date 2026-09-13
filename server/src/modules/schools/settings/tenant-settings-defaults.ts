@@ -2,6 +2,7 @@ import { TENANT_SETTINGS_SCHEMA_VERSION } from '../dto/tenant-settings.dto';
 import type {
   AttendancePolicySettings,
   AuthSettings,
+  BackupSettings,
   RegionSettings,
   TenantSettings,
 } from '@biddaloy/shared';
@@ -69,9 +70,15 @@ export const DEFAULT_AUTH_SETTINGS: AuthSettings = {
   otpLoginEnabled: true,
 };
 
+/** [14.12.1/#615 D10]. WEEKLY is the default — a school opts out, not in. */
+export const DEFAULT_BACKUP_SETTINGS: BackupSettings = {
+  schedule: 'WEEKLY',
+};
+
 export const DEFAULT_TENANT_SETTINGS: TenantSettings = {
   version: TENANT_SETTINGS_SCHEMA_VERSION,
   region: DEFAULT_REGION_SETTINGS,
   attendance: DEFAULT_ATTENDANCE_SETTINGS,
   auth: DEFAULT_AUTH_SETTINGS,
+  backup: DEFAULT_BACKUP_SETTINGS,
 };

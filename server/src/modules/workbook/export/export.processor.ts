@@ -28,6 +28,7 @@ import {
   XLSX_MIME,
 } from './export.constants';
 import { WorkbookJobEventsService } from './workbook-job-events.service';
+import { RetentionService } from '../schedule/retention.service';
 
 /** Coarse cadence for progress writes — never per row, which would be one
  * UPDATE per student. */
@@ -66,6 +67,7 @@ export class ExportProcessor extends WorkerHost {
     private readonly storage: StorageService,
     private readonly audit: AuditService,
     private readonly events: WorkbookJobEventsService,
+    private readonly retention: RetentionService,
   ) {
     super();
   }
@@ -204,6 +206,20 @@ export class ExportProcessor extends WorkerHost {
         rowCounts,
         error: null,
       });
+
+      // Retention runs after the new artefact is safely stored — never
+      // before, or a failed export would still trigger pruning of older
+      // ones. A retention failure must never mark this otherwise-successful
+      // export as failed.
+      try {
+        await this.retention.enforce(tenantId);
+      } catch (err) {
+        this.logger.error(
+          `ExportProcessor: retention sweep failed for tenant ${tenantId}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       const sanitised = sanitiseExportError(stage);

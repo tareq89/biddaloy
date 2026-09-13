@@ -1,4 +1,4 @@
-import { IsEnum, IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsBoolean, IsEnum, IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import {
   WorkbookJob,
@@ -73,6 +73,15 @@ export class WorkbookJobListResponseDto {
   page: number;
   limit: number;
   totalPages: number;
+  /** Sum of `size_bytes` over every DONE, still-stored job for the tenant —
+   * bigint, hence a string (see `size_bytes`'s own comment). Drives the
+   * storage-cap UI (14.12.2, `STORAGE_CAP_BYTES` = 500 MB). */
+  storage_total_bytes: string;
+}
+
+export class PinWorkbookJobDto {
+  @IsBoolean()
+  pinned: boolean;
 }
 
 /** Never expose `storage_key`, `staging_id` or `tenant_id` — the storage
@@ -108,7 +117,11 @@ const SLUG_SANITIZE_RE = /[^a-z0-9-]/g;
  * keeps a CR/LF or a `"` out of the `Content-Disposition` header. */
 export function buildDownloadFilename(job: WorkbookJob): string {
   const rawSlug = job.tenant?.slug ?? '';
-  const slug = rawSlug.toLowerCase().replace(SLUG_SANITIZE_RE, '-').replace(/^-+|-+$/g, '') || 'backup';
+  const slug =
+    rawSlug
+      .toLowerCase()
+      .replace(SLUG_SANITIZE_RE, '-')
+      .replace(/^-+|-+$/g, '') || 'backup';
   const kind = job.kind.toLowerCase();
   const ts = (job.finished_at ?? job.created_at).toISOString();
   // YYYYMMDD-HHmm in UTC, deterministic regardless of server TZ.
