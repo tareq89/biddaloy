@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import { AuditLog } from './entities/audit-log.entity';
-import { AuditAction, AuditEntityType } from '@biddaloy/shared';
+import { ApprovalScope, AuditAction, AuditEntityType } from '@biddaloy/shared';
 import { redactSensitiveFields } from './redact.util';
 import { QueryAuditLogDto } from './dto/audit-log.dto';
 
@@ -70,6 +70,50 @@ export class AuditService {
         error instanceof Error ? error.stack : undefined,
       );
     }
+  }
+
+  /**
+   * Same write path as `record`, plus stamping who *approved* the action
+   * and under which `ApprovalScope` — every money-affecting mutation
+   * behind `@RequireApproval`/`ApprovalService.consume` (waves 3–7) uses
+   * this instead of `record` so the approver never has to be smuggled
+   * through `new_values` by each caller individually.
+   *
+   * Unlike `record`, this NEVER fails open, `manager` or not: the row it
+   * writes is the proof a human authorized a money-affecting change, and
+   * `record`'s no-manager fail-open behavior (log and swallow a transient
+   * DB error) is right for ordinary audit but wrong for the one row that
+   * exists specifically to prove someone signed off. A caller that gets a
+   * rejection here must treat the underlying action as not-yet-audited
+   * and react accordingly (retry the whole operation in a transaction,
+   * surface an error) rather than proceed as if it were logged.
+   */
+  async recordApproved(
+    entry: RecordAuditEntryInput & { approved_by_user_id: string; approval_scope: ApprovalScope },
+    manager?: EntityManager,
+  ): Promise<void> {
+    const { approved_by_user_id, approval_scope, new_values, ...rest } = entry;
+    const merged: RecordAuditEntryInput = {
+      ...rest,
+      new_values: {
+        ...(new_values ?? {}),
+        approved_by_user_id,
+        approval_scope,
+      },
+    };
+    const sanitized = {
+      ...merged,
+      old_values: merged.old_values ? redactSensitiveFields(merged.old_values) : null,
+      new_values: merged.new_values ? redactSensitiveFields(merged.new_values) : null,
+    };
+
+    if (manager) {
+      const repo = manager.getRepository(AuditLog);
+      await repo.save(repo.create(sanitized));
+      return;
+    }
+    // No manager: still don't swallow — see the fail-open note above.
+    await this.repo.save(this.repo.create(sanitized));
   }
 
   async findAll(query: QueryAuditLogDto, tenantId: string) {

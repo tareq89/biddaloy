@@ -7,6 +7,7 @@ import { BullModule } from '@nestjs/bullmq';
 import Redis from 'ioredis';
 import { ContextGuard, RolesGuard } from './guards/context.guard';
 import { PermissionsGuard } from './guards/permissions.guard';
+import { ApprovalGuard, ApprovalService, APPROVAL_REDIS } from './guards/approval.guard';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
@@ -27,6 +28,24 @@ import { ACCESS_TOKEN_TTL_MS } from './auth-tokens';
 
 const DEFAULT_ACCESS_TOKEN_TTL_MS = 15 * 60_000; // 15 minutes
 const DEFAULT_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60_000; // 30 days
+
+/**
+ * A Redis client tuned to fail fast rather than hang or queue commands
+ * during an outage — shared by every "must not fail open" Redis-backed
+ * check in this module (ACCESS_TOKEN_DENYLIST_REDIS, APPROVAL_REDIS).
+ * `enableOfflineQueue: false`/`maxRetriesPerRequest: 1` cover a
+ * *disconnected* client failing fast; `commandTimeout` additionally
+ * covers a connection that accepted the TCP handshake but never replies,
+ * which would otherwise hang the calling request indefinitely instead of
+ * reaching the caller's own fail-open/fail-closed catch block.
+ */
+function createFailFastRedis(config: ConfigService, commandTimeout: number): Redis {
+  return new Redis(config.get<string>('REDIS_URL') ?? 'redis://127.0.0.1:6379', {
+    enableOfflineQueue: false,
+    maxRetriesPerRequest: 1,
+    commandTimeout,
+  });
+}
 
 @Global()
 @Module({
@@ -64,6 +83,8 @@ const DEFAULT_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60_000; // 30 days
     ContextGuard,
     RolesGuard,
     PermissionsGuard,
+    ApprovalGuard,
+    ApprovalService,
     RefreshTokenService,
     AccessTokenDenylistService,
     RefreshTokenCleanupProcessor,
@@ -92,20 +113,20 @@ const DEFAULT_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60_000; // 30 days
       },
     },
     {
+      // isRevoked() runs on every authenticated request, inside
+      // JwtStrategy.validate() — see createFailFastRedis's doc comment for
+      // why this needs a commandTimeout, not just the offline-queue opts.
       provide: ACCESS_TOKEN_DENYLIST_REDIS,
       inject: [ConfigService],
-      useFactory: (config: ConfigService) =>
-        new Redis(config.get<string>('REDIS_URL') ?? 'redis://127.0.0.1:6379', {
-          enableOfflineQueue: false,
-          maxRetriesPerRequest: 1,
-          // isRevoked() runs on every authenticated request, inside
-          // JwtStrategy.validate() — enableOfflineQueue/maxRetriesPerRequest
-          // only cover a *disconnected* client failing fast. An established
-          // connection to a Redis that accepted the TCP connection but never
-          // replies would otherwise hang this call indefinitely instead of
-          // reaching AccessTokenDenylistService's fail-open catch block.
-          commandTimeout: 1000,
-        }),
+      useFactory: (config: ConfigService) => createFailFastRedis(config, 1000),
+    },
+    {
+      // ApprovalService.consume() must not fail open on an outage — a hung
+      // GETDEL would leak an approval-gated request through exactly the
+      // guard meant to stop it.
+      provide: APPROVAL_REDIS,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => createFailFastRedis(config, 1000),
     },
     {
       provide: ACCESS_TOKEN_TTL_MS,
@@ -131,6 +152,8 @@ const DEFAULT_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60_000; // 30 days
     ContextGuard,
     RolesGuard,
     PermissionsGuard,
+    ApprovalGuard,
+    ApprovalService,
     JwtStrategy,
     ACCESS_TOKEN_TTL_MS,
     RefreshTokenService,

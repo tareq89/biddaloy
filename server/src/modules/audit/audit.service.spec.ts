@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { AuditService } from './audit.service';
-import { AuditAction } from '@biddaloy/shared';
+import { ApprovalScope, AuditAction } from '@biddaloy/shared';
 
 function fakeRepo() {
   return {
@@ -386,6 +386,126 @@ describe('AuditService', () => {
       expect(qb.andWhere).toHaveBeenCalledWith('audit_log.action = :action', {
         action: AuditAction.UPDATE,
       });
+    });
+  });
+
+  describe('recordApproved', () => {
+    it('merges approved_by_user_id and approval_scope into new_values', async () => {
+      const repo = fakeRepo();
+      const service = new AuditService(repo as any);
+
+      await service.recordApproved({
+        action: AuditAction.PAYMENT_RECEIVED,
+        entity_type: 'Payment',
+        entity_id: 'pay-1',
+        tenant_id: 'tenant-1',
+        performed_by_user_id: 'user-1',
+        new_values: { amount: 500 },
+        approved_by_user_id: 'approver-1',
+        approval_scope: ApprovalScope.PAYMENTS_REVERSE,
+      });
+
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          new_values: {
+            amount: 500,
+            approved_by_user_id: 'approver-1',
+            approval_scope: ApprovalScope.PAYMENTS_REVERSE,
+          },
+        }),
+      );
+    });
+
+    it('works with no pre-existing new_values', async () => {
+      const repo = fakeRepo();
+      const service = new AuditService(repo as any);
+
+      await service.recordApproved({
+        action: AuditAction.FEE_STRUCTURE_CHANGE,
+        entity_type: 'FeeStructure',
+        entity_id: 'fs-1',
+        tenant_id: 'tenant-1',
+        performed_by_user_id: 'user-1',
+        approved_by_user_id: 'approver-1',
+        approval_scope: ApprovalScope.FEES_EDIT_PAID,
+      });
+
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          new_values: {
+            approved_by_user_id: 'approver-1',
+            approval_scope: ApprovalScope.FEES_EDIT_PAID,
+          },
+        }),
+      );
+    });
+
+    it('passes a manager through to the transactional write path', async () => {
+      const repo = fakeRepo();
+      const managerRepo = fakeRepo();
+      const manager = { getRepository: vi.fn(() => managerRepo) };
+      const service = new AuditService(repo as any);
+
+      await service.recordApproved(
+        {
+          action: AuditAction.PAYMENT_RECEIVED,
+          entity_type: 'Payment',
+          entity_id: 'pay-1',
+          tenant_id: 'tenant-1',
+          performed_by_user_id: 'user-1',
+          approved_by_user_id: 'approver-1',
+          approval_scope: ApprovalScope.PAYMENTS_REVERSE,
+        },
+        manager as any,
+      );
+
+      expect(managerRepo.save).toHaveBeenCalled();
+      expect(repo.save).not.toHaveBeenCalled();
+    });
+
+    // Unlike `record`, this must NOT fail open even without a manager —
+    // the row it writes is the proof a human approved a money-affecting
+    // change, so a DB error here has to reach the caller, not be logged
+    // and swallowed.
+    it('propagates a save failure instead of swallowing it, even without a manager', async () => {
+      const repo = fakeRepo();
+      repo.save.mockRejectedValue(new Error('db unavailable'));
+      const service = new AuditService(repo as any);
+
+      await expect(
+        service.recordApproved({
+          action: AuditAction.PAYMENT_RECEIVED,
+          entity_type: 'Payment',
+          entity_id: 'pay-1',
+          tenant_id: 'tenant-1',
+          performed_by_user_id: 'user-1',
+          approved_by_user_id: 'approver-1',
+          approval_scope: ApprovalScope.PAYMENTS_REVERSE,
+        }),
+      ).rejects.toThrow('db unavailable');
+    });
+
+    it('propagates a save failure through the transactional path too', async () => {
+      const repo = fakeRepo();
+      const managerRepo = fakeRepo();
+      managerRepo.save.mockRejectedValue(new Error('db unavailable'));
+      const manager = { getRepository: vi.fn(() => managerRepo) };
+      const service = new AuditService(repo as any);
+
+      await expect(
+        service.recordApproved(
+          {
+            action: AuditAction.PAYMENT_RECEIVED,
+            entity_type: 'Payment',
+            entity_id: 'pay-1',
+            tenant_id: 'tenant-1',
+            performed_by_user_id: 'user-1',
+            approved_by_user_id: 'approver-1',
+            approval_scope: ApprovalScope.PAYMENTS_REVERSE,
+          },
+          manager as any,
+        ),
+      ).rejects.toThrow('db unavailable');
     });
   });
 });
