@@ -49,9 +49,16 @@ export enum FeeType {
   TRANSPORT_FEE = 'TRANSPORT_FEE',
   ANNUAL_FEE = 'ANNUAL_FEE',
   ADMISSION_FEE = 'ADMISSION_FEE',
+  LATE_FEE = 'LATE_FEE',
   OTHER = 'OTHER',
 }
 
+/**
+ * @deprecated Slated for removal per Epic 16 decision D3, once every
+ * `fee-generation.service.ts`-adjacent consumer drops it. #638 keeps it
+ * alive on purpose — #639 and siblings still import it — do not delete
+ * until those sibling tickets land their own removal.
+ */
 export enum FeeApplicability {
   ALL = 'ALL',
   SELECTED = 'SELECTED',
@@ -70,9 +77,10 @@ export enum PaymentMethod {
   CASH = 'CASH',
   CHEQUE = 'CHEQUE',
   BANK_TRANSFER = 'BANK_TRANSFER',
-  ONLINE = 'ONLINE',
   CARD = 'CARD',
-  UPI = 'UPI',
+  BKASH = 'BKASH',
+  NAGAD = 'NAGAD',
+  ROCKET = 'ROCKET',
 }
 
 export enum PaymentStatus {
@@ -85,7 +93,6 @@ export enum PaymentStatus {
 export enum PaymentAllocationType {
   DUE = 'DUE',
   CURRENT = 'CURRENT',
-  ADVANCE = 'ADVANCE',
 }
 
 export enum InvoiceStatus {
@@ -226,4 +233,70 @@ export enum AttendanceDeviceStatus {
 export enum AttendanceEventDirection {
   IN = 'IN',
   OUT = 'OUT',
+}
+
+/** Fee-generation schedule cadence unit (16.x). */
+export enum PeriodType {
+  MONTH = 'MONTH',
+  WEEK = 'WEEK',
+}
+
+/** How a fee-generation run was kicked off (16.x). */
+export enum FeeGenerationSource {
+  MANUAL = 'MANUAL',
+  SCHEDULE = 'SCHEDULE',
+}
+
+/** What a fee-generation run does when it finds a duplicate fee already exists (16.x). */
+export enum DuplicateStrategy {
+  SKIP = 'SKIP',
+  REMOVE_OLDER = 'REMOVE_OLDER',
+  CREATE_ANYWAY = 'CREATE_ANYWAY',
+}
+
+/** Shape of a discount amount — a fixed value or a percentage (16.x). */
+export enum DiscountKind {
+  FLAT = 'FLAT',
+  PERCENT = 'PERCENT',
+}
+
+/** Reason a `StudentWallet` balance moved (16.x). */
+export enum WalletTransactionKind {
+  CREDIT_OVERPAYMENT = 'CREDIT_OVERPAYMENT',
+  CREDIT_CHANGE = 'CREDIT_CHANGE',
+  DEBIT_CHECKOUT = 'DEBIT_CHECKOUT',
+  DEBIT_GENERATION = 'DEBIT_GENERATION',
+  REVERSAL = 'REVERSAL',
+}
+
+/** Whether an invoice document is a normal invoice or a credit note (16.x). */
+export enum InvoiceKind {
+  INVOICE = 'INVOICE',
+  CREDIT_NOTE = 'CREDIT_NOTE',
+}
+
+/**
+ * A gated action that requires step-up approval (OTP/password) before it can
+ * proceed (16.x). String values are the permission-style scope names used
+ * across server and clients — keep them in sync with any approval-scope
+ * checks.
+ */
+export enum ApprovalScope {
+  FEES_DUPLICATE_OVERRIDE = 'fees.duplicate_override',
+  FEES_EDIT_PAID = 'fees.edit_paid',
+  FEES_DISCOUNT = 'fees.discount',
+  PAYMENTS_REVERSE = 'payments.reverse',
+  DISCOUNT_RULES_MANAGE = 'discount_rules.manage',
+}
+
+/** How an `ApprovalToken` is verified (16.x). */
+export enum ApprovalMode {
+  OTP = 'OTP',
+  OTP_OR_PASSWORD = 'OTP_OR_PASSWORD',
+}
+
+/** Cadence of a `RecurringSchedule` (16.x). */
+export enum RecurrenceKind {
+  MONTHLY = 'MONTHLY',
+  WEEKLY = 'WEEKLY',
 }
