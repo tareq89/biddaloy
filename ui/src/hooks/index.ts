@@ -413,6 +413,22 @@ export {
   type SortOrder,
 } from './fee-dues';
 export {
+  feeGenerationBillsQueryOptions,
+  feeGenerationQueryOptions,
+  feeGenerationsKeys,
+  feeGenerationsQueryOptions,
+  useFeeGeneration,
+  useFeeGenerationBills,
+  useFeeGenerations,
+  type FeeGeneration,
+  type FeeGenerationBill,
+  type FeeGenerationBillsFilters,
+  type FeeGenerationsFilters,
+  type FeeGenerationStructureSnapshot,
+  type PaginatedFeeGenerationBills,
+  type PaginatedFeeGenerations,
+} from './fee-generations';
+export {
   useGlobalSearch,
   type GlobalSearchEntityResult,
   type GlobalSearchResults,
