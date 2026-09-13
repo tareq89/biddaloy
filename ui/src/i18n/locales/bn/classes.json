@@ -98,9 +98,6 @@
       "columnName": "নাম",
       "columnType": "ধরন",
       "columnAmount": "পরিমাণ",
-      "columnRecurring": "পুনরাবৃত্ত",
-      "yes": "হ্যাঁ",
-      "no": "না",
       "emptyMessage": "এই শ্রেণির জন্য কোনো ফি কাঠামো নেই",
       "errorMessage": "ফি কাঠামো লোড করতে ব্যর্থ হয়েছে"
     },

@@ -54,7 +54,6 @@ export function FeeStructuresTab({ academicYearId }: FeeStructuresTabProps) {
                   <TableHead>{t('detail.feeStructures.columnType')}</TableHead>
                   <TableHead>{t('detail.feeStructures.columnClass')}</TableHead>
                   <TableHead>{t('detail.feeStructures.columnAmount')}</TableHead>
-                  <TableHead>{t('detail.feeStructures.columnRecurring')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -64,13 +63,12 @@ export function FeeStructuresTab({ academicYearId }: FeeStructuresTabProps) {
                     <TableCell>
                       {t(`feeTypes.${structure.fee_type}`, { ns: 'feeStructures' })}
                     </TableCell>
-                    <TableCell>{structure.class.name}</TableCell>
-                    <TableCell>{formatServerAmount(structure.amount, regionConfig)}</TableCell>
                     <TableCell>
-                      {structure.is_recurring
-                        ? t('detail.feeStructures.yes')
-                        : t('detail.feeStructures.no')}
+                      {structure.class === null
+                        ? t('detail.feeStructures.wholeSchool')
+                        : structure.class.name}
                     </TableCell>
+                    <TableCell>{formatServerAmount(structure.amount, regionConfig)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

@@ -5,16 +5,13 @@
  * warning, submit-error focus summary) earns its keep on the Student
  * admission form's field count, not on a modal this size.
  *
- * Two behaviours the API forces on this dialog:
- * - `UpdateFeeStructureDto` accepts neither `class_id` nor
- *   `academic_year_id`, so in edit mode both render disabled.
- * - `student_ids` is a **full replacement** set, not a delta — the picker
- *   always submits every selected id, never just the changes.
+ * One behaviour the API still forces on this dialog: `UpdateFeeStructureDto`
+ * accepts no `academic_year_id`, so in edit mode that field renders
+ * disabled. `class_id`/`section_id` are patchable in both modes.
  */
-import { FeeApplicability, FeeType } from '@biddaloy/shared';
+import { FeeType } from '@biddaloy/shared';
 import {
   Button,
-  Checkbox,
   Dialog,
   DialogClose,
   DialogContent,
@@ -35,17 +32,12 @@ import {
   useClasses,
   useClassSections,
   useCreateFeeStructure,
-  useFeeStructure,
   useUpdateFeeStructure,
   type FeeStructure,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { minorUnitsToDecimalString, serverAmountToMinorUnits } from '@biddaloy/ui/utils';
 import * as React from 'react';
-
-import { FeeStructureStudentPicker } from './-student-picker';
-
-const MONTHS = Array.from({ length: 12 }, (_, index) => index + 1);
 
 /** Radix `Select.Item` rejects an empty-string `value`, so "no section"
  * needs a real sentinel — `section_id` is never this string. */
@@ -55,9 +47,7 @@ export interface StructureFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   mode: 'create' | 'edit';
-  /** The list row being edited. Its `selected_students` is always absent
-   * (the list endpoint omits the relation), so the dialog refetches the
-   * detail to prefill the picker. */
+  /** The list row being edited. */
   structure?: FeeStructure;
   onSaved: () => void;
 }
@@ -76,8 +66,6 @@ export function StructureFormDialog({
   const updateStructure = useUpdateFeeStructure(structure?.id ?? '');
   const mutation = mode === 'create' ? createStructure : updateStructure;
 
-  const detailQuery = useFeeStructure(mode === 'edit' && open ? structure?.id : undefined);
-
   const yearsQuery = useAcademicYears();
   const [academicYearId, setAcademicYearId] = React.useState(structure?.academic_year_id ?? '');
   const [classId, setClassId] = React.useState(structure?.class_id ?? '');
@@ -92,12 +80,6 @@ export function StructureFormDialog({
   );
   const [amountMinorUnits, setAmountMinorUnits] = React.useState<number | undefined>(undefined);
   const [sectionId, setSectionId] = React.useState(structure?.section_id ?? '');
-  const [month, setMonth] = React.useState(String(structure?.month ?? 1));
-  const [isRecurring, setIsRecurring] = React.useState(structure?.is_recurring ?? true);
-  const [applicability, setApplicability] = React.useState<FeeApplicability>(
-    (structure?.applicability as FeeApplicability) ?? FeeApplicability.ALL,
-  );
-  const [studentIds, setStudentIds] = React.useState<string[]>([]);
   const [validationError, setValidationError] = React.useState<string | null>(null);
 
   // Reset only on open/close transitions, so typing isn't clobbered by a
@@ -113,31 +95,9 @@ export function StructureFormDialog({
     setAcademicYearId(structure?.academic_year_id ?? '');
     setClassId(structure?.class_id ?? '');
     setSectionId(structure?.section_id ?? '');
-    setMonth(String(structure?.month ?? 1));
-    setIsRecurring(structure?.is_recurring ?? true);
-    setApplicability((structure?.applicability as FeeApplicability) ?? FeeApplicability.ALL);
-    setStudentIds([]);
     setValidationError(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/close transitions
   }, [open]);
-
-  // The picker's prefill arrives on the detail response, not the list row.
-  const prefilledStudents = detailQuery.data?.selected_students ?? [];
-  const prefillKey = prefilledStudents.map((link) => link.student_id).join(',');
-  React.useEffect(() => {
-    if (!open || prefillKey === '') return;
-    setStudentIds(prefillKey.split(','));
-  }, [open, prefillKey]);
-
-  // `student_ids` is a full replacement set, so submitting an edit before
-  // the detail response lands would send whatever interim selection exists
-  // and silently unlink every student already attached. Until it resolves
-  // the selection isn't known, so the picker is read-only and Save is
-  // blocked; if the load fails outright, replacement stays blocked rather
-  // than proceeding from an empty set.
-  const selectionLoading = mode === 'edit' && open && detailQuery.isPending;
-  const selectionFailed = mode === 'edit' && open && detailQuery.isError;
-  const selectionUnavailable = selectionLoading || selectionFailed;
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -158,18 +118,6 @@ export function StructureFormDialog({
       setValidationError(t('form.errorClassRequired'));
       return;
     }
-    if (selectionFailed) {
-      setValidationError(t('form.errorSelectionLoadFailed'));
-      return;
-    }
-    if (selectionLoading) {
-      setValidationError(t('form.errorSelectionLoading'));
-      return;
-    }
-    if (applicability === FeeApplicability.SELECTED && studentIds.length === 0) {
-      setValidationError(t('form.errorStudentsRequired'));
-      return;
-    }
     setValidationError(null);
 
     // `MoneyInput` speaks integer minor units; the DTO's `amount` is
@@ -181,23 +129,16 @@ export function StructureFormDialog({
       fee_type: feeType,
       name: name.trim(),
       amount,
-      applicability,
-      month: Number(month),
-      is_recurring: isRecurring,
+      class_id: classId !== '' ? classId : null,
       // `null`, not an omitted key, is what widens a section-scoped
       // structure back to the whole class — the server leaves the column
       // untouched for keys it doesn't receive.
       section_id: sectionId !== '' ? sectionId : null,
-      // Always the full set, and always sent: the server replaces every link
-      // with what it receives, so a delta would silently unlink the rest,
-      // and omitting the key when switching to ALL would strand the old
-      // pivot rows — they'd reappear pre-checked on the next switch back.
-      student_ids: applicability === FeeApplicability.SELECTED ? studentIds : [],
     };
 
     if (mode === 'create') {
       createStructure.mutate(
-        { ...shared, class_id: classId, academic_year_id: academicYearId },
+        { ...shared, academic_year_id: academicYearId },
         { onSuccess: onSaved },
       );
       return;
@@ -280,11 +221,9 @@ export function StructureFormDialog({
               onValueChange={(value) => {
                 setClassId(value);
                 setSectionId('');
-                setStudentIds([]);
               }}
-              disabled={isEdit}
             >
-              <SelectTrigger aria-label={t('form.classLabel')} disabled={isEdit}>
+              <SelectTrigger aria-label={t('form.classLabel')}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -295,9 +234,6 @@ export function StructureFormDialog({
                 ))}
               </SelectContent>
             </Select>
-            {isEdit && (
-              <p className="text-xs text-muted-foreground">{t('form.notPatchableHint')}</p>
-            )}
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -320,69 +256,6 @@ export function StructureFormDialog({
             </Select>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('form.monthLabel')}</span>
-            <Select value={month} onValueChange={setMonth}>
-              <SelectTrigger aria-label={t('form.monthLabel')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {MONTHS.map((value) => (
-                  <SelectItem key={value} value={String(value)}>
-                    {t(`months.${value}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              {isRecurring ? t('form.monthHelpRecurring') : t('form.monthHelpOneTime')}
-            </p>
-          </div>
-
-          <div className="flex items-start gap-2">
-            <Checkbox
-              id="structure-form-is-recurring"
-              checked={isRecurring}
-              onCheckedChange={(checked) => setIsRecurring(checked === true)}
-            />
-            <label htmlFor="structure-form-is-recurring" className="text-sm">
-              {t('form.isRecurringLabel')}
-            </label>
-          </div>
-
-          <fieldset className="flex flex-col gap-1.5">
-            <legend className="text-sm font-medium">{t('form.applicabilityLabel')}</legend>
-            <Select
-              value={applicability}
-              onValueChange={(value) => setApplicability(value as FeeApplicability)}
-            >
-              <SelectTrigger aria-label={t('form.applicabilityLabel')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={FeeApplicability.ALL}>{t('form.applicabilityAll')}</SelectItem>
-                <SelectItem value={FeeApplicability.SELECTED}>
-                  {t('form.applicabilitySelected')}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </fieldset>
-
-          {applicability === FeeApplicability.SELECTED && (
-            <FeeStructureStudentPicker
-              classId={classId === '' ? undefined : classId}
-              selectedIds={studentIds}
-              onSelectedIdsChange={setStudentIds}
-              disabled={selectionUnavailable}
-              initialStudents={prefilledStudents
-                .map((link) => link.student)
-                .filter((student): student is NonNullable<typeof student> => student !== undefined)}
-            />
-          )}
-
-          {selectionLoading && <p role="status">{t('form.selectionLoading')}</p>}
-          {selectionFailed && <p role="alert">{t('form.errorSelectionLoadFailed')}</p>}
-
           {validationError && (
             <p role="alert" className="text-sm text-destructive">
               {validationError}
@@ -400,7 +273,7 @@ export function StructureFormDialog({
                 {t('actions.cancel', { ns: 'common' })}
               </Button>
             </DialogClose>
-            <Button type="submit" loading={mutation.isPending} disabled={selectionUnavailable}>
+            <Button type="submit" loading={mutation.isPending}>
               {mutation.isPending ? t('form.saving') : t('form.save')}
             </Button>
           </DialogFooter>

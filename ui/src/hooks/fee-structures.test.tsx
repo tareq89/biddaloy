@@ -3,11 +3,7 @@ import { waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 
-import {
-  feeStructureFactory,
-  feeStructureStudentFactory,
-  type FeeStructure,
-} from '../test/factories';
+import { feeStructureFactory, type FeeStructure } from '../test/factories';
 import { server } from '../test/msw/server';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
 import { createTestQueryClient } from '../test/render-with-providers';
@@ -22,15 +18,10 @@ import {
 } from './fee-structures';
 
 describe('useFeeStructure fetches a single fee structure by id', () => {
-  // Only the detail endpoint hydrates `selected_students`, so this is the
-  // hook the edit dialog's student picker prefills from.
-  it('resolves with the structure and its selected students', async () => {
+  it('resolves with the structure', async () => {
     server.use(
       http.get('/api/v1/fee-structures/:id', ({ params }) =>
-        HttpResponse.json({
-          ...feeStructureFactory({ id: params.id as string }),
-          selected_students: [feeStructureStudentFactory()],
-        }),
+        HttpResponse.json(feeStructureFactory({ id: params.id as string })),
       ),
     );
 
@@ -40,7 +31,6 @@ describe('useFeeStructure fetches a single fee structure by id', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.id).toBe('structure-1');
-    expect(result.current.data?.selected_students).toHaveLength(1);
   });
 
   it('stays disabled and issues no request when id is undefined', () => {
@@ -89,7 +79,6 @@ describe('useCreateFeeStructure', () => {
       amount: 500,
       class_id: 'class-9',
       academic_year_id: 'year-1',
-      month: 3,
     });
 
     await waitFor(() => expect(result.current.create.isSuccess).toBe(true));
@@ -159,11 +148,11 @@ describe('useDeleteFeeStructure', () => {
   });
 });
 
-// [8.14.10]: `search`/`fee_type`/`section_id`/`is_recurring`/`sort`/`order`
-// mirror `QueryFeeStructureDto`, landed server-side by #373 but never
-// threaded through `FeeStructureListFilters` until now.
+// [8.14.10]: `search`/`fee_type`/`section_id`/`sort`/`order` mirror
+// `QueryFeeStructureDto`, landed server-side by #373 but never threaded
+// through `FeeStructureListFilters` until now.
 describe('useFeeStructures requests every QueryFeeStructureDto field', () => {
-  it('sends search, fee_type, section_id, is_recurring, sort, and order as query params', async () => {
+  it('sends search, fee_type, section_id, sort, and order as query params', async () => {
     const requested = new URLSearchParams();
     server.use(
       http.get('/api/v1/fee-structures', ({ request }) => {
@@ -178,7 +167,6 @@ describe('useFeeStructures requests every QueryFeeStructureDto field', () => {
           search: 'Tuition',
           fee_type: FeeType.MONTHLY_TUITION,
           section_id: 'section-1',
-          is_recurring: true,
           sort: 'amount',
           order: 'desc',
         }),
@@ -189,7 +177,6 @@ describe('useFeeStructures requests every QueryFeeStructureDto field', () => {
     expect(requested.get('search')).toBe('Tuition');
     expect(requested.get('fee_type')).toBe('MONTHLY_TUITION');
     expect(requested.get('section_id')).toBe('section-1');
-    expect(requested.get('is_recurring')).toBe('true');
     expect(requested.get('sort')).toBe('amount');
     expect(requested.get('order')).toBe('desc');
   });

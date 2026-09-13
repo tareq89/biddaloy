@@ -336,7 +336,6 @@ export {
   type CreateFeeStructureInput,
   type FeeStructure,
   type FeeStructureListFilters,
-  type FeeStructureStudent,
   type PaginatedFeeStructures,
   type UpdateFeeStructureInput,
 } from './fee-structures';

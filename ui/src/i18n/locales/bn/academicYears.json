@@ -67,9 +67,7 @@
       "columnType": "ধরন",
       "columnClass": "শ্রেণি",
       "columnAmount": "পরিমাণ",
-      "columnRecurring": "পুনরাবৃত্ত",
-      "yes": "হ্যাঁ",
-      "no": "না",
+      "wholeSchool": "পুরো বিদ্যালয়",
       "emptyMessage": "এই শিক্ষাবর্ষে কোনো ফি কাঠামো নেই",
       "errorMessage": "ফি কাঠামো লোড করতে ব্যর্থ হয়েছে"
     },

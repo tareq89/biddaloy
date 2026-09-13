@@ -15,7 +15,6 @@ import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
 export type FeeStructure = components['schemas']['FeeStructure'];
-export type FeeStructureStudent = components['schemas']['FeeStructureStudent'];
 export type CreateFeeStructureInput = components['schemas']['CreateFeeStructureDto'];
 export type UpdateFeeStructureInput = components['schemas']['UpdateFeeStructureDto'];
 
@@ -34,12 +33,10 @@ export interface PaginatedFeeStructures {
 export interface FeeStructureListFilters {
   academic_year_id?: string;
   class_id?: string;
-  month?: number;
   search?: string;
   fee_type?: FeeType;
   section_id?: string;
-  is_recurring?: boolean;
-  sort?: 'name' | 'amount' | 'month' | 'created_at';
+  sort?: 'name' | 'amount' | 'created_at';
   order?: 'asc' | 'desc';
   page?: number;
   limit?: number;
@@ -76,9 +73,6 @@ export function useFeeStructures(filters: FeeStructureListFilters = {}) {
   return useQuery(feeStructuresQueryOptions(filters));
 }
 
-/** Only `GET /fee-structures/:id` hydrates `selected_students` — the list
- * endpoint deliberately omits the relation — so the edit dialog's student
- * picker has to prefill from this detail query, not from the list row. */
 export function feeStructureQueryOptions(id: string) {
   return queryOptions({
     queryKey: feeStructureKeys.detail(id),
@@ -120,9 +114,7 @@ export function useUpdateFeeStructure(id: string) {
       const res = await apiClient.patch<FeeStructure>(`/fee-structures/${id}`, input);
       return res.data;
     },
-    // No `retry`, matching `useUpdateClass`. A retried PATCH is harmless on
-    // its own, but `student_ids` is a full replacement set, so a retry that
-    // races a concurrent edit would silently reinstate a stale link set.
+    // No `retry`, matching `useUpdateClass`.
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: feeStructureKeys.detail(id) });
       void queryClient.invalidateQueries({ queryKey: feeStructureKeys.lists() });

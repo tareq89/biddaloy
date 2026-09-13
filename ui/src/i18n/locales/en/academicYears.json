@@ -67,9 +67,7 @@
       "columnType": "Type",
       "columnClass": "Class",
       "columnAmount": "Amount",
-      "columnRecurring": "Recurring",
-      "yes": "Yes",
-      "no": "No",
+      "wholeSchool": "Whole school",
       "emptyMessage": "No fee structures in this academic year",
       "errorMessage": "Failed to load fee structures"
     },

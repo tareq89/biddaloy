@@ -4,17 +4,15 @@
  * comment. Every case carries `role`, since `/fee-structures` sits under
  * `_staff`.
  */
-import { FeeApplicability, FeeType } from '@biddaloy/shared';
+import { FeeType } from '@biddaloy/shared';
 import {
   academicYearFactory,
   classFactory,
   cleanupTestState,
   errorHandler,
   feeStructureFactory,
-  feeStructureStudentFactory,
   renderWithRouter,
   server,
-  studentFactory,
   type FeeStructure,
 } from '@biddaloy/ui/test';
 import { screen, waitFor, within } from '@testing-library/react';
@@ -92,15 +90,12 @@ describe('/fee-structures', () => {
       // The server serializes `decimal(10,2)` as a **string** — the page
       // must format it, not `parseFloat` it.
       amount: '1500.50' as unknown as number,
-      applicability: FeeApplicability.ALL,
       class: KLASS,
       class_id: KLASS.id,
       section: null,
       section_id: null,
       academic_year: YEAR,
       academic_year_id: YEAR.id,
-      month: 1,
-      is_recurring: true,
     });
     server.use(listHandler([row]), ...referenceHandlers());
 
@@ -112,68 +107,22 @@ describe('/fee-structures', () => {
     expect(dataRow.getByText('Monthly tuition')).toBeTruthy();
     expect(dataRow.getByText('৳1,500.50')).toBeTruthy();
     expect(dataRow.getByText('Class 9')).toBeTruthy();
-    // A recurring structure's `month` is an effective-from marker.
-    expect(dataRow.getByText('From January')).toBeTruthy();
-    expect(dataRow.getByText('Whole class')).toBeTruthy();
   });
 
-  // The AC is "recurring structures visually distinguished without relying
-  // on colour", so this asserts the badge's *text*, never its tone class.
-  it('distinguishes recurring from one-time structures by badge text', async () => {
+  // [16.1.2] dropped per-student targeting: a structure with no class is
+  // school-wide, not "whole class" — the list must say so rather than
+  // rendering a blank cell.
+  it('labels a school-wide structure (no class) instead of a blank cell', async () => {
     server.use(
       listHandler([
-        feeStructureFactory({ id: 's-1', name: 'Tuition', is_recurring: true, class: KLASS }),
-        feeStructureFactory({ id: 's-2', name: 'Exam', is_recurring: false, class: KLASS }),
+        feeStructureFactory({ id: 's-1', name: 'Admission fee', class: null, class_id: null }),
       ]),
       ...referenceHandlers(),
     );
 
     render();
 
-    await screen.findByRole('heading', { name: 'Fee Structures' });
-    await waitFor(() => expect(screen.getAllByRole('row')).toHaveLength(3));
-    const rows = screen.getAllByRole('row');
-    expect(within(rows[1] as HTMLElement).getByText('Recurring')).toBeTruthy();
-    expect(within(rows[2] as HTMLElement).getByText('One time')).toBeTruthy();
-  });
-
-  it('names the exact count of selected students when the server supplies them', async () => {
-    server.use(
-      listHandler([
-        feeStructureFactory({
-          id: 's-1',
-          applicability: FeeApplicability.SELECTED,
-          class: KLASS,
-          selected_students: [feeStructureStudentFactory(), feeStructureStudentFactory()],
-        }),
-      ]),
-      ...referenceHandlers(),
-    );
-
-    render();
-
-    expect(await screen.findByText('2 selected students')).toBeTruthy();
-  });
-
-  // The contract-compliant list response: `findAll` omits the
-  // `selected_students` relation deliberately, so the column has no count to
-  // show and must degrade to the generic label rather than inventing a number
-  // or rendering "0 selected students".
-  it('falls back to a generic label when the list omits selected_students', async () => {
-    server.use(
-      listHandler([
-        feeStructureFactory({
-          id: 's-1',
-          applicability: FeeApplicability.SELECTED,
-          class: KLASS,
-        }),
-      ]),
-      ...referenceHandlers(),
-    );
-
-    render();
-
-    expect(await screen.findByText('Selected students')).toBeTruthy();
+    expect(await screen.findByText('Whole school')).toBeTruthy();
   });
 
   it('shows the empty state when the tenant has no fee structures', async () => {
@@ -202,21 +151,17 @@ describe('/fee-structures', () => {
     await user.click(await screen.findByRole('option', { name: '2026-2027' }));
     await user.click(screen.getByRole('combobox', { name: 'Class' }));
     await user.click(await screen.findByRole('option', { name: 'Class 9' }));
-    await user.click(screen.getByRole('combobox', { name: 'Month' }));
-    await user.click(await screen.findByRole('option', { name: 'March' }));
 
     await waitFor(() =>
       expect(router.state.location.search).toMatchObject({
         academic_year_id: 'year-1',
         class_id: 'class-9',
-        month: '3',
       }),
     );
     await waitFor(() =>
       expect(lastQuery).toMatchObject({
         academic_year_id: 'year-1',
         class_id: 'class-9',
-        month: '3',
       }),
     );
   });
@@ -240,30 +185,12 @@ describe('/fee-structures', () => {
     );
   });
 
-  // Regression: `month` was a free string, so a hand-edited URL reached
-  // `Number(month)` as `NaN`, went out as `month=NaN`, and came back a 400.
-  it('ignores an out-of-range month in the URL instead of erroring', async () => {
-    let lastQuery: Record<string, string> = {};
-    server.use(
-      http.get('/api/v1/fee-structures', ({ request }) => {
-        lastQuery = Object.fromEntries(new URL(request.url).searchParams);
-        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 });
-      }),
-      ...referenceHandlers(),
-    );
-
-    render('ADMIN', '/fee-structures?month=abc');
-
-    expect(await screen.findByText('No fee structures found')).toBeTruthy();
-    expect(lastQuery).not.toHaveProperty('month');
-  });
-
-  // [8.14.10]: `useFeeStructures`'s `search`/`fee_type`/`section_id`/
-  // `is_recurring` filters were already server-supported ([8.14.9]) but
-  // never surfaced as FilterBar descriptors — this covers all four now
-  // reaching the request/URL, plus the section list staying empty until
-  // a class is chosen (same contract as `fees/dues.tsx`'s own pair).
-  it('surfaces search/fee type/section/recurring-only filters on the request and URL', async () => {
+  // [8.14.10]: `useFeeStructures`'s `search`/`fee_type`/`section_id` filters
+  // were already server-supported ([8.14.9]) but never surfaced as
+  // FilterBar descriptors — this covers all three now reaching the
+  // request/URL, plus the section list staying empty until a class is
+  // chosen (same contract as `fees/dues.tsx`'s own pair).
+  it('surfaces search/fee type/section filters on the request and URL', async () => {
     let lastQuery: Record<string, string> = {};
     server.use(
       http.get('/api/v1/fee-structures', ({ request }) => {
@@ -287,20 +214,17 @@ describe('/fee-structures', () => {
     await user.type(screen.getByRole('textbox', { name: 'Search fee structures' }), 'tuition');
     await user.click(screen.getByRole('combobox', { name: 'Fee type' }));
     await user.click(await screen.findByRole('option', { name: 'Monthly tuition' }));
-    await user.click(screen.getByRole('checkbox', { name: 'Recurring structures only' }));
 
     await waitFor(() =>
       expect(router.state.location.search).toMatchObject({
         search: 'tuition',
         fee_type: 'MONTHLY_TUITION',
-        is_recurring: 'true',
       }),
     );
     await waitFor(() =>
       expect(lastQuery).toMatchObject({
         search: 'tuition',
         fee_type: 'MONTHLY_TUITION',
-        is_recurring: 'true',
       }),
     );
   });
@@ -378,14 +302,12 @@ describe('/fee-structures', () => {
     expect(screen.getByRole('dialog')).toBeTruthy();
   });
 
-  // `UpdateFeeStructureDto` accepts neither field, so the UI must not
-  // offer them — and `student_ids` goes up as a full replacement set.
-  it('disables year and class on edit, prefills the picker, and PATCHes the full student set', async () => {
-    const student = studentFactory({ id: 'student-1', full_name: 'Rahim Uddin' });
+  // `UpdateFeeStructureDto` accepts no `academic_year_id`, so the UI must not
+  // offer it — `class_id`/`section_id` stay patchable in edit mode.
+  it('disables only the academic year on edit and PATCHes class/section', async () => {
     const row = feeStructureFactory({
       id: 'structure-1',
       name: 'Monthly tuition',
-      applicability: FeeApplicability.SELECTED,
       class: KLASS,
       class_id: KLASS.id,
       academic_year: YEAR,
@@ -394,15 +316,6 @@ describe('/fee-structures', () => {
     let body: Record<string, unknown> | null = null;
     server.use(
       listHandler([row]),
-      http.get('/api/v1/fee-structures/:id', () =>
-        HttpResponse.json({
-          ...row,
-          selected_students: [feeStructureStudentFactory({ student, student_id: student.id })],
-        }),
-      ),
-      http.get('/api/v1/students', () =>
-        HttpResponse.json({ data: [student], total: 1, page: 1, limit: 100, totalPages: 1 }),
-      ),
       http.patch('/api/v1/fee-structures/:id', async ({ request }) => {
         body = (await request.json()) as Record<string, unknown>;
         return HttpResponse.json(row);
@@ -419,108 +332,14 @@ describe('/fee-structures', () => {
       'disabled',
       true,
     );
-    expect(dialog.getByRole('combobox', { name: 'Class' })).toHaveProperty('disabled', true);
-    // Prefilled from the detail response's `selected_students`.
-    await dialog.findByText('1 student selected');
+    expect(dialog.getByRole('combobox', { name: 'Class' })).toHaveProperty('disabled', false);
 
     await user.click(dialog.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(body).not.toBeNull());
-    expect(body).toMatchObject({ student_ids: ['student-1'] });
-    // Never patchable — the dialog must not send them even though it knows them.
-    expect(body).not.toHaveProperty('class_id');
+    expect(body).toMatchObject({ class_id: KLASS.id, section_id: null });
+    // Never patchable — the dialog must not send it even though it knows it.
     expect(body).not.toHaveProperty('academic_year_id');
-  });
-
-  // Regression: `student_ids` is a full replacement set, so submitting an
-  // edit before the detail response lands would send the interim selection
-  // and silently unlink every student already attached. Save stays blocked
-  // until the current set is known.
-  it('blocks saving an edit until the existing student selection has loaded', async () => {
-    const row = feeStructureFactory({
-      id: 'structure-1',
-      applicability: FeeApplicability.SELECTED,
-      class: KLASS,
-      class_id: KLASS.id,
-      academic_year: YEAR,
-      academic_year_id: YEAR.id,
-    });
-    let patched = false;
-    server.use(
-      listHandler([row]),
-      // Never resolves within the test — stands in for a slow detail load.
-      http.get('/api/v1/fee-structures/:id', () => new Promise(() => {})),
-      http.get('/api/v1/students', () =>
-        HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 1 }),
-      ),
-      http.patch('/api/v1/fee-structures/:id', () => {
-        patched = true;
-        return HttpResponse.json(row);
-      }),
-      ...referenceHandlers(),
-    );
-
-    render();
-    const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Edit' }));
-
-    const dialog = within(await screen.findByRole('dialog'));
-    const save = await dialog.findByRole('button', { name: 'Save' });
-    expect(save).toHaveProperty('disabled', true);
-
-    await user.click(save);
-    expect(patched).toBe(false);
-  });
-
-  // Regression: switching SELECTED → ALL used to omit `student_ids`, so the
-  // server's replace-the-set branch never ran and the pivot rows survived.
-  // Switching back would then silently re-check the "removed" students.
-  // "All sections" had the same shape of bug: an omitted `section_id` leaves
-  // the column untouched, so a section-scoped structure could never be
-  // widened back to the whole class.
-  it('sends an empty student set and a null section when switching to whole-class', async () => {
-    const student = studentFactory({ id: 'student-1', full_name: 'Rahim Uddin' });
-    const row = feeStructureFactory({
-      id: 'structure-1',
-      name: 'Monthly tuition',
-      applicability: FeeApplicability.SELECTED,
-      class: KLASS,
-      class_id: KLASS.id,
-      academic_year: YEAR,
-      academic_year_id: YEAR.id,
-    });
-    let body: Record<string, unknown> | null = null;
-    server.use(
-      listHandler([row]),
-      http.get('/api/v1/fee-structures/:id', () =>
-        HttpResponse.json({
-          ...row,
-          selected_students: [feeStructureStudentFactory({ student, student_id: student.id })],
-        }),
-      ),
-      http.get('/api/v1/students', () =>
-        HttpResponse.json({ data: [student], total: 1, page: 1, limit: 100, totalPages: 1 }),
-      ),
-      http.patch('/api/v1/fee-structures/:id', async ({ request }) => {
-        body = (await request.json()) as Record<string, unknown>;
-        return HttpResponse.json(row);
-      }),
-      ...referenceHandlers(),
-    );
-
-    render();
-    const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Edit' }));
-
-    const dialog = within(await screen.findByRole('dialog'));
-    await dialog.findByText('1 student selected');
-
-    await user.click(dialog.getByRole('combobox', { name: 'Applies to' }));
-    await user.click(await screen.findByRole('option', { name: 'Every student in the class' }));
-    await user.click(dialog.getByRole('button', { name: 'Save' }));
-
-    await waitFor(() => expect(body).not.toBeNull());
-    expect(body).toMatchObject({ student_ids: [], section_id: null });
   });
 
   it('names the real side effect in the delete dialog and removes the row on success', async () => {

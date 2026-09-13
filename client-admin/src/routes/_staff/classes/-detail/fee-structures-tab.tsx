@@ -52,12 +52,6 @@ export function FeeStructuresTab({ classId }: FeeStructuresTabProps) {
       accessorFn: (structure) => formatServerAmount(structure.amount, regionConfig),
       align: 'end',
     },
-    {
-      id: 'recurring',
-      header: t('detail.feeStructures.columnRecurring'),
-      accessorFn: (structure) =>
-        structure.is_recurring ? t('detail.feeStructures.yes') : t('detail.feeStructures.no'),
-    },
   ];
 
   return (
