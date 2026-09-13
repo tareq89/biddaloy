@@ -1,6 +1,17 @@
 import type { LoginResponse } from '@biddaloy/shared';
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 
+// Module augmentation so every call site can pass `_tenantOverride` on a
+// plain `AxiosRequestConfig` (e.g. `apiClient.get(url, { _tenantOverride })`)
+// without an `as never` cast — see the field's own doc comment below for
+// why it exists instead of a pre-set `X-Tenant-ID` header.
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    _tenantOverride?: string;
+    _resolvedTenantId?: string;
+  }
+}
+
 import {
   currentSessionGeneration,
   getAccessToken,
@@ -17,18 +28,43 @@ import { ApiError, type ApiErrorBody, NoActiveTenantError, RateLimitedError } fr
  * client-admin's vite.config.ts and server/src/main.ts's static-serving. */
 const API_BASE_URL = '/api/v1';
 
+/** [14.13.3, hardened per money-tier review item 7] A caller wanting to
+ * target a tenant other than the ambient active one (e.g. a SUPER_ADMIN
+ * acting on a school they just provisioned, before it's their active
+ * tenant — see `ui/src/hooks/backup.ts`'s `tenantId` option) sets THIS
+ * out-of-band field, never the `X-Tenant-ID` header directly. Mirrors
+ * `_retry` below: both are config metadata the interceptor itself owns.
+ *
+ * Why not read the header back: the 401-refresh retry re-dispatches the
+ * SAME config object (`apiClient(config)` below), which this very
+ * interceptor already stamped with `X-Tenant-ID` on the original attempt,
+ * so `config.headers.get('X-Tenant-ID')` would read back its OWN previous
+ * stamp and be indistinguishable from a caller override. Out-of-band
+ * fields the interceptor owns avoid that self-read entirely.
+ *
+ * `_resolvedTenantId` is the second half of that: whatever tenant the
+ * FIRST dispatch resolved to is pinned here and reused on the 401 replay,
+ * rather than re-reading the ambient tenant. A request is prepared for one
+ * specific tenant, and a mid-flight tenant switch must not silently
+ * redirect it — a POST/PATCH/DELETE built for school A replaying against
+ * school B writes to the wrong school, and the server can't catch it when
+ * the user legitimately has access to both. */
 type RetryableConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
 export const apiClient = axios.create({ baseURL: API_BASE_URL });
 
 apiClient.interceptors.request.use((config) => {
-  const tenantId = getActiveTenant();
+  // Explicit override wins; then the tenant this same request already
+  // resolved to on a previous attempt (see `_resolvedTenantId`'s comment);
+  // only a first dispatch falls through to the ambient active tenant.
+  const tenantId = config._tenantOverride || config._resolvedTenantId || getActiveTenant();
   if (!tenantId) {
     // Rejecting here means the request is never dispatched — axios has not
     // yet handed the config to its adapter, so no HTTP call happens.
     return Promise.reject(new NoActiveTenantError());
   }
 
+  config._resolvedTenantId = tenantId;
   config.headers.set('X-Tenant-ID', tenantId);
 
   const role = getActiveRole();

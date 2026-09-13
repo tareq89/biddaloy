@@ -253,29 +253,57 @@ describe('studentsTab (integration)', () => {
       expect(saved.full_name).toBe('Revived Kid');
     });
 
-    it('throws a descriptive error naming both tenants on a cross-tenant registration_number collision (C1)', async () => {
+    it('lets two different tenants each have a student with the same registration_number (#728: tenant-scoped, not global)', async () => {
+      // Two schools' first-ever student of a year legitimately compute the
+      // identical value (`StudentService.create`'s per-tenant sequence),
+      // and #620's provision-from-workbook restore hit this for real —
+      // restoring a workbook into a fresh tenant threw here because this
+      // upsert used to look the row up (and conflict) across every tenant,
+      // matching the GLOBAL constraint this column carried before #728
+      // scoped it to `(tenant_id, registration_number)`.
       const chainA = await seedChain(TENANT_A, 'xa');
       const chainB = await seedChain(TENANT_B, 'xb');
-      await studentsTab.upsert(
+      const inA = await studentsTab.upsert(
         rowFor(chainA, { registration_number: 'STU-DUP' }),
         null,
         TENANT_A,
         dataSource.manager,
       );
 
-      await expect(
-        studentsTab.upsert(
-          rowFor(chainB, { registration_number: 'STU-DUP' }),
-          null,
-          TENANT_B,
-          dataSource.manager,
-        ),
-      ).rejects.toThrow(new RegExp(TENANT_A));
+      const inB = await studentsTab.upsert(
+        rowFor(chainB, { registration_number: 'STU-DUP' }),
+        null,
+        TENANT_B,
+        dataSource.manager,
+      );
 
-      const stillA = await studentRepo.findOneByOrFail({ registration_number: 'STU-DUP' });
+      expect(inA.id).not.toBe(inB.id);
+      const stillA = await studentRepo.findOneByOrFail({ id: inA.id });
       expect(stillA.tenant_id).toBe(TENANT_A);
-      const tenantBStudents = await studentRepo.find({ where: { tenant_id: TENANT_B } });
-      expect(tenantBStudents).toHaveLength(0);
+      const stillB = await studentRepo.findOneByOrFail({ id: inB.id });
+      expect(stillB.tenant_id).toBe(TENANT_B);
+    });
+
+    it('still revives (not duplicates) a soft-deleted student with the same registration_number in the SAME tenant', async () => {
+      const chain = await seedChain(TENANT_A, 'xr');
+      const created = await studentsTab.upsert(
+        rowFor(chain, { registration_number: 'STU-SAME-TENANT' }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+      await studentRepo.softDelete({ id: created.id });
+
+      const revived = await studentsTab.upsert(
+        rowFor(chain, { registration_number: 'STU-SAME-TENANT', full_name: 'Revived Again' }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+
+      expect(revived.id).toBe(created.id);
+      const saved = await studentRepo.findOneByOrFail({ id: revived.id });
+      expect(saved.deleted_at).toBeNull();
     });
 
     it('throws a descriptive error when user_id already belongs to another tenant (C2)', async () => {

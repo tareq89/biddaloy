@@ -26,7 +26,7 @@ import {
  * the idempotency key, and the router link.
  */
 export const Route = createFileRoute('/_platform/schools/new')({
-  loader: () => loadRouteNamespaces('platform'),
+  loader: () => loadRouteNamespaces('platform', 'backup', 'bulkImport'),
   component: CreateSchoolPage,
 });
 
@@ -103,6 +103,7 @@ function CreateSchoolPage() {
       submitting={provisionSchool.isPending}
       {...(slugConflict !== undefined ? { slugConflict } : {})}
       {...(result !== undefined ? { result } : {})}
+      schoolName={schoolValues.name}
       onSchoolNext={handleSchoolNext}
       onAdminBack={handleAdminBack}
       onAdminSubmit={handleAdminSubmit}

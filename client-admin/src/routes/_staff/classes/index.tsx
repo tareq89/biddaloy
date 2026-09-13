@@ -41,7 +41,9 @@ export const Route = createFileRoute('/_staff/classes/')({
       // [8.14.5]: swallowed — see `academic-years/index.tsx`'s identical
       // comment for why.
       queryClient.ensureQueryData(classesQueryOptions({})).catch(swallowUnlessOffline),
-      loadRouteNamespaces('classes'),
+      // 'backup' feeds the [14.13.2] migrate-a-whole-school link below the
+      // (empty) list.
+      loadRouteNamespaces('classes', 'backup'),
     ]),
   pendingComponent: ClassesListPending,
   component: ClassesListPage,
@@ -58,10 +60,12 @@ interface ClassFilters {
 
 function ClassesListPage() {
   const { t } = useTranslation('classes');
+  const { t: tBackup } = useTranslation('backup');
   const regionConfig = useTenantRegionConfig();
   const [state, actions] = useListShellState({ limit: 10 });
   const filters = state.filters as ClassFilters;
   const canManage = useHasPermission(Permission.CLASS_MANAGE);
+  const canManageBackup = useHasPermission(Permission.BACKUP_MANAGE);
 
   const academicYearsQuery = useAcademicYears();
 
@@ -92,6 +96,8 @@ function ClassesListPage() {
     limit: state.limit,
   };
   const classesQuery = useClasses(classListFilters);
+  const isEmpty =
+    !classesQuery.isLoading && !classesQuery.isError && (classesQuery.data?.total ?? 0) === 0;
 
   const [createOpen, setCreateOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<ClassWithCounts | null>(null);
@@ -223,6 +229,18 @@ function ClassesListPage() {
         expandRowLabel={(row) => t('list.expandLabel', { name: row.name })}
         renderExpandedRow={(row) => <SectionsPanel classId={row.id} className={row.name} />}
       />
+
+      {/* [14.13.2]: same migrate-a-whole-school entry point as the
+          students list, offered where a newcomer with an empty class list
+          is already looking. */}
+      {isEmpty && canManageBackup && (
+        <p className="mt-2 text-sm text-muted-foreground">
+          {tBackup('migrateWholeSchool')}{' '}
+          <Link to="/settings" className="text-primary underline">
+            {tBackup('migrateWholeSchoolLink')}
+          </Link>
+        </p>
+      )}
 
       {canManage && (
         <ClassFormDialog

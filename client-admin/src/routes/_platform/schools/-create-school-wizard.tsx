@@ -32,6 +32,8 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
+import { RestoreWizard } from '../../../pages/settings/restore-wizard';
+
 /** Mirrors `ProvisionSchoolDto`'s own top-level `name`/`slug` fields
  * (`server/src/modules/schools/provisioning/dto/provision-school.dto.ts`) —
  * same `MaxLength` bounds, kept in sync by hand since this DTO has no
@@ -104,6 +106,11 @@ export interface CreateSchoolWizardProps {
   /** Any non-409 failure from the last submit attempt. */
   submitError?: string;
   result?: ProvisionSchoolResult;
+  /** [14.13.3] The school-step name typed for this school — carried through
+   * to the success step purely to feed `RestoreWizard`'s `expectedSchoolName`
+   * confirmation gate (the new school isn't `new.tsx`'s SUPER_ADMIN's own
+   * active tenant, so `useSchoolProfile()` can't resolve it there). */
+  schoolName?: string;
   onSchoolNext: (values: SchoolStepValues) => void;
   onAdminBack: () => void;
   onAdminSubmit: (values: AdminStepValues) => void;
@@ -118,6 +125,7 @@ export function CreateSchoolWizard({
   slugConflict,
   submitError,
   result,
+  schoolName,
   onSchoolNext,
   onAdminBack,
   onAdminSubmit,
@@ -133,6 +141,7 @@ export function CreateSchoolWizard({
           {t('createWizard.successInvitation', { status: result.invitation.status })}
         </p>
         <div className="mt-4">{renderDetailLink(result.school.id)}</div>
+        <ImportWorkbookSection tenantId={result.school.id} expectedSchoolName={schoolName ?? ''} />
       </Card>
     );
   }
@@ -253,6 +262,44 @@ function SchoolStepForm({
         </FormShell>
       </Form>
     </Card>
+  );
+}
+
+/** [14.13.3] Collapsed by default — importing a workbook right after
+ * create is optional (D8's "confirm to do the irreversible thing on
+ * purpose" already lives inside `RestoreWizard` itself; this is just the
+ * entry point into it). `expectedSchoolName` empty (e.g. `schoolName` was
+ * never passed) fails the confirmation gate closed, same as
+ * `RestoreWizard`'s own fail-closed default — never silently skips it. */
+function ImportWorkbookSection({
+  tenantId,
+  expectedSchoolName,
+}: {
+  tenantId: string;
+  expectedSchoolName: string;
+}) {
+  const { t } = useTranslation('platform');
+  const [open, setOpen] = React.useState(false);
+
+  return (
+    <div className="mt-4 border-t border-border-subtle pt-4">
+      <Button type="button" variant="ghost" onClick={() => setOpen((prev) => !prev)}>
+        {t('createWizard.importWorkbookToggle')}
+      </Button>
+      {open && (
+        <div className="mt-3 flex flex-col gap-3">
+          {/* [item 4, money-tier review] Explicit warning: a restore
+           * REPLACES this new school's data, and the just-sent admin
+           * invitation is exempt from removal but every other membership in
+           * the imported workbook is not — this is not "add more data,"
+           * it's "make this school look like the workbook." */}
+          <p className="text-sm font-medium text-destructive">
+            {t('createWizard.importWorkbookWarning')}
+          </p>
+          <RestoreWizard tenantId={tenantId} expectedSchoolName={expectedSchoolName} />
+        </div>
+      )}
+    </div>
   );
 }
 

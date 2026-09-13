@@ -210,6 +210,43 @@ describe('usersTab (integration)', () => {
       expect(stillB.tenant_id).toBe(TENANT_B);
     });
 
+    // Companion to the `remove()` provisioned-exemption test below: the
+    // same tag must also protect the role, not just survival. A workbook
+    // whose `users` sheet lists this admin's email at a lower role (or is
+    // simply an untrusted/malicious upload) must not demote the school
+    // owner out of ADMIN.
+    it('never downgrades a membership tagged metadata.provisioned, even when the workbook row says otherwise', async () => {
+      const admin = await makeUser({
+        email: 'provisioned-admin@tenant-a.test',
+        full_name: 'Provisioned Admin',
+      });
+      const membership = await userTenantRepo.save(
+        userTenantRepo.create({
+          user_id: admin.id,
+          tenant_id: TENANT_A,
+          role: UserRole.ADMIN,
+          metadata: { provisioned: true },
+        }),
+      );
+
+      // The uploaded workbook lists this same email at a lower role.
+      const row = rowFor({
+        email: 'provisioned-admin@tenant-a.test',
+        full_name: 'Provisioned Admin',
+        role: UserRole.TEACHER,
+      });
+
+      await usersTab.upsert(row, admin, TENANT_A, dataSource.manager);
+
+      const stillAdmin = await userTenantRepo.findOneByOrFail({ id: membership.id });
+      expect(stillAdmin.role).toBe(UserRole.ADMIN);
+
+      const memberships = await userTenantRepo.find({
+        where: { user_id: admin.id, tenant_id: TENANT_A },
+      });
+      expect(memberships).toHaveLength(1);
+    });
+
     it('matches by phone when the row email is empty', async () => {
       const user = await makeUser({ email: null, phone: '01799999999', full_name: 'Phone User' });
 
@@ -246,6 +283,68 @@ describe('usersTab (integration)', () => {
     });
   });
 
+  describe('re-restore of a user shared with another tenant', () => {
+    it("does not try to orphan the other tenant's membership when the entity came from load()", async () => {
+      // Regression for a real restore failure (#620's provision-from-workbook
+      // journey): `load()` joins `user_tenants` FILTERED to one tenant, so an
+      // entity it returns carries a deliberately partial collection. Saving
+      // that entity made TypeORM treat the user's memberships in every OTHER
+      // tenant as orphaned and issue `UPDATE user_tenants SET user_id = NULL`,
+      // a NOT NULL violation that aborted the whole restore at the users tab.
+      //
+      // Only reproduces on a SECOND restore (the first pass finds the user via
+      // `findOne`, with no relation loaded) and only for a user who is a member
+      // of more than one school — which is exactly what restoring one school's
+      // workbook into a different school produces.
+      const shared = await userRepo.save(
+        userRepo.create({
+          email: 'shared-across-tenants@users-tab.test',
+          phone: null,
+          full_name: 'Shared Across Tenants',
+          password_hash: null,
+        }),
+      );
+      await userTenantRepo.save(
+        userTenantRepo.create({
+          user_id: shared.id,
+          tenant_id: TENANT_B,
+          role: UserRole.ADMIN,
+          metadata: null,
+        }),
+      );
+
+      const row: UserRow = {
+        email: 'shared-across-tenants@users-tab.test',
+        phone: null,
+        full_name: 'Shared Across Tenants',
+        role: UserRole.TEACHER,
+      } as UserRow;
+
+      /** One workbook row through the same load/match/upsert sequence
+       * `restore.processor.ts` runs. */
+      const restoreRowIntoA = async () => {
+        const loaded = await usersTab.load(TENANT_A, dataSource.manager);
+        const byKey = new Map(loaded.map((e) => [usersTab.keyOf(e), e]));
+        const existing = byKey.get(usersTab.keyOf(row)) ?? null;
+        return usersTab.upsert(row, existing, TENANT_A, dataSource.manager);
+      };
+
+      await restoreRowIntoA();
+      // The second pass is the one that used to throw.
+      await expect(restoreRowIntoA()).resolves.toBeDefined();
+
+      // Tenant B's membership survived untouched — never nulled, never deleted.
+      const inB = await userTenantRepo.find({ where: { user_id: shared.id, tenant_id: TENANT_B } });
+      expect(inB).toHaveLength(1);
+      expect(inB[0].role).toBe(UserRole.ADMIN);
+
+      // ...and tenant A ended up with exactly the one role the workbook asked for.
+      const inA = await userTenantRepo.find({ where: { user_id: shared.id, tenant_id: TENANT_A } });
+      expect(inA).toHaveLength(1);
+      expect(inA[0].role).toBe(UserRole.TEACHER);
+    });
+  });
+
   describe('remove', () => {
     it('deletes only tenant A membership; the User survives and tenant B membership survives', async () => {
       const shared = await makeUser({ email: 'remove@both.test', full_name: 'Remove Me' });
@@ -265,6 +364,31 @@ describe('usersTab (integration)', () => {
 
       const stillB = await userTenantRepo.findOneByOrFail({ id: membershipB.id });
       expect(stillB.tenant_id).toBe(TENANT_B);
+    });
+
+    // [item 4] Headline bug: create a school (ProvisioningService tags its
+    // admin membership `metadata.provisioned`), then restore a workbook from
+    // ANOTHER school — that workbook's users sheet only lists the source
+    // school's users, so the new admin is legitimately absent from it.
+    // `deleteByAbsence` must not read that absence as "remove this admin."
+    it('never removes a membership tagged metadata.provisioned, even when absent from the workbook', async () => {
+      const admin = await makeUser({ email: 'admin@tenant-a.test', full_name: 'New School Admin' });
+      await userTenantRepo.save(
+        userTenantRepo.create({
+          user_id: admin.id,
+          tenant_id: TENANT_A,
+          role: UserRole.ADMIN,
+          metadata: { provisioned: true },
+        }),
+      );
+
+      const [loaded] = await usersTab.load(TENANT_A, dataSource.manager);
+      await usersTab.remove(loaded, dataSource.manager);
+
+      const stillThere = await userTenantRepo.find({
+        where: { user_id: admin.id, tenant_id: TENANT_A },
+      });
+      expect(stillThere).toHaveLength(1);
     });
   });
 });

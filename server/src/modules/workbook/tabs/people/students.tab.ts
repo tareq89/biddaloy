@@ -377,9 +377,10 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
     };
   },
 
-  // `registration_number` is a real column on both a row and an entity, and
-  // (C1) is genuinely unique across the whole database, so no fallback chain
-  // is needed here the way `guardians.tab.ts` needs one.
+  // `registration_number` is a real column on both a row and an entity,
+  // unique per tenant (since #728) — every row this diffs against comes
+  // from the same tenant's own workbook, so no fallback chain is needed
+  // here the way `guardians.tab.ts` needs one.
   keyOf(x: StudentRow | Student): string {
     return x.registration_number.trim();
   },
@@ -419,25 +420,20 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
     tenantId: string,
     m: EntityManager,
   ): Promise<Student> {
-    // `registration_number` carries a GLOBAL unique constraint
-    // (`UQ_82946fdb5652b83cacb81e9083e`), not tenant-scoped and not partial
-    // on `deleted_at` (C1). The lookup below must NOT filter by tenant, and
-    // must pass `withDeleted: true`, or a soft-deleted student blocking the
-    // same registration number would surface as a bare `23505` instead of
-    // being revived.
+    // `registration_number` is unique PER TENANT (`IDX_students_tenant_id_
+    // registration_number`, since #728) — two different tenants legitimately
+    // compute the same value (each school's own first-ever student in a
+    // year is `REG-<year>-0001`; see `StudentService.create`), so the
+    // lookup below is scoped to `tenantId`. `withDeleted: true` is still
+    // required, or a soft-deleted student blocking the same registration
+    // number *within this tenant* would surface as a bare `23505` instead
+    // of being revived.
     let student = existing;
     if (!student) {
       student = await m.findOne(Student, {
-        where: { registration_number: row.registration_number },
+        where: { registration_number: row.registration_number, tenant_id: tenantId },
         withDeleted: true,
       });
-    }
-
-    if (student && student.tenant_id !== tenantId) {
-      throw new Error(
-        `Student with registration number "${row.registration_number}" already exists in tenant ` +
-          `"${student.tenant_id}" and cannot be restored into tenant "${tenantId}".`,
-      );
     }
 
     // `Student.user_id` also carries a GLOBAL unique constraint

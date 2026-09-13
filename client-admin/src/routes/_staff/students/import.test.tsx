@@ -263,6 +263,22 @@ describe('/students/import', () => {
     await screen.findByText("You don't have access to this page.");
   });
 
+  // [14.13.2]: the migrate-in entry point is UX-gated on BACKUP_MANAGE,
+  // same permission the server enforces on `/settings`'s restore wizard.
+  it('shows the migrate-a-whole-school link for ADMIN, who holds BACKUP_MANAGE', async () => {
+    renderImportPage('ADMIN');
+    await screen.findByRole('button', { name: 'Download template' });
+    expect(await screen.findByText('Migrating a whole school?')).toBeTruthy();
+    const link = screen.getByRole('link', { name: 'Use the full workbook template' });
+    expect(link.getAttribute('href')).toBe('/settings');
+  });
+
+  it('hides the migrate-a-whole-school link for a role without BACKUP_MANAGE (ACCOUNTANT)', async () => {
+    renderImportPage('ACCOUNTANT');
+    await screen.findByRole('button', { name: 'Download template' });
+    expect(screen.queryByText('Migrating a whole school?')).toBeNull();
+  });
+
   it('is axe clean with the error report shown', async () => {
     server.use(
       validateHandler({

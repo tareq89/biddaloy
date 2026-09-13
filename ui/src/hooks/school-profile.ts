@@ -29,11 +29,18 @@ export const schoolProfileKeys = createEntityKeys('school-profile');
 
 /** Always the caller's own school — the server resolves `me` from the
  * tenant context, never a path param, so there is only ever one profile
- * this hook can address. */
-export function useSchoolProfile() {
+ * this hook can address.
+ *
+ * [14.13.3] `enabled: false` — same `{ enabled }` option shape as
+ * `useSchools` above — lets `RestoreWizard` skip this fetch entirely when
+ * it already knows the target school's name via its own `tenantId`/
+ * `expectedSchoolName` props (a SUPER_ADMIN acting on a school that isn't
+ * their active tenant has no "me" to resolve here anyway). */
+export function useSchoolProfile(options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: schoolProfileKeys.detail('me'),
     queryFn: async () => (await apiClient.get<SchoolProfile>('/schools/me/profile')).data,
+    enabled: options.enabled ?? true,
     retry: shouldRetryQuery,
   });
 }

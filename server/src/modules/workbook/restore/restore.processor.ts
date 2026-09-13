@@ -244,8 +244,20 @@ export class RestoreProcessor extends WorkerHost {
           const index = KeyIndex.fromEntities(tab, existingEntities);
           indexes.set(tab.name, index);
 
+          // Two indexes, matched id-first then by natural key — the exact
+          // rule `DiffService.diff` uses to build the preview the admin
+          // approved. Key-only matching here made the two disagree: a row
+          // whose `id` survived the export but whose natural key was edited
+          // in the workbook previews as an *update* (matched by id) and
+          // then applies as a *create*, because the changed key misses this
+          // map and `upsert` receives `existing: null`. The old row, never
+          // matched, is then removed by `deleteByAbsence` — so a confirmed
+          // "1 update" silently becomes "1 create + 1 delete".
+          const existingById = new Map<string, (typeof existingEntities)[number]>();
           const existingByKey = new Map<string, (typeof existingEntities)[number]>();
           for (const entity of existingEntities) {
+            const entityId: unknown = (entity as { id?: unknown }).id;
+            if (typeof entityId === 'string') existingById.set(entityId, entity);
             existingByKey.set(tab.keyOf(entity), entity);
           }
           const matchedIds = new Set<string>();
@@ -257,7 +269,11 @@ export class RestoreProcessor extends WorkerHost {
             // rows are actually persisted — see `resolvePendingRefs`.
             const typedRow = resolvePendingRefs(rawRow, indexes) as never;
             const key = tab.keyOf(typedRow);
-            const existing = existingByKey.get(key) ?? null;
+            const rowId: unknown = (typedRow as { id?: unknown }).id;
+            const existing =
+              (typeof rowId === 'string' ? existingById.get(rowId) : undefined) ??
+              existingByKey.get(key) ??
+              null;
             const entity = await tab.upsert(typedRow, existing, tenantId, m);
             const entityId = (entity as { id: string }).id;
             // Index by the key we already computed from the validated row,
@@ -275,7 +291,9 @@ export class RestoreProcessor extends WorkerHost {
             }
           }
 
-          if (tab.deleteByAbsence) {
+          // Same guard as `DiffService`: a TEMPLATE workbook must never be
+          // able to delete rows, no matter what the preview said.
+          if (tab.deleteByAbsence && validated.meta.kind !== 'TEMPLATE') {
             for (const entity of existingEntities) {
               const id = (entity as { id: string }).id;
               if (!matchedIds.has(id)) {

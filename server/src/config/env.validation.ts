@@ -176,7 +176,34 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   ACCOUNT_ACCESS_ECHO_SECRETS?: string;
+
+  // The one tenant/School row that designates a user's SUPER_ADMIN
+  // membership as a genuine platform admin (see context.guard.ts). Unset
+  // means NO membership carries platform authority — fails closed, never
+  // open. In production this MUST be set by hand to the real platform
+  // school's id (`seed.ts` itself refuses to run against production, so
+  // there is no script-known id to default to there, and this validator
+  // has no database access to look one up either). Outside production, left
+  // unset here on purpose: `ContextGuard.resolvePlatformTenantId()` resolves
+  // it at request time instead, by looking up the school with the
+  // well-known slug `default-school` and caching whatever id it finds — see
+  // that method's own comment for why a *config-time* default here doesn't
+  // work (no database actually has a predictable hardcoded id; the
+  // `MultiTenantAuth` migration creates that row with a random uuid, #620).
+  @IsOptional()
+  @IsString()
+  PLATFORM_TENANT_ID?: string;
 }
+
+/** The fixed id `seed.ts` gives its "Default School" row when it has to
+ * create one from scratch (a database with neither a `default-school`
+ * slug nor this id already present). Purely a seed-script convenience for
+ * a predictable dev/e2e fixture id — NOT used to resolve platform
+ * authority anymore (see `PLATFORM_TENANT_ID`'s own comment above and
+ * `context.guard.ts`'s `resolvePlatformTenantId`, which discovers the
+ * platform tenant from the database instead of assuming this id). Never
+ * used in production (`seed.ts` refuses to run there). */
+export const DEV_SEED_PLATFORM_TENANT_ID = '00000000-0000-4000-8000-000000000001';
 
 export function validate(config: Record<string, unknown>) {
   const validatedConfig = plainToInstance(EnvironmentVariables, config, {

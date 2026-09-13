@@ -147,6 +147,7 @@ export class ProvisioningService {
           dto.admin,
           actorUserId,
           manager,
+          true,
         );
 
         await this.audit.record(
@@ -283,6 +284,14 @@ export class ProvisioningService {
     admin: AdminInput,
     actorUserId: string,
     manager: EntityManager,
+    /** Only `provision()` passes `true`. Tags the membership as the one
+     * created *with* the school, which `users.tab.ts` then refuses to
+     * delete or demote during a workbook restore. An admin added later
+     * (`SchoolAdminsService.addAdmin`) is an ordinary membership and must
+     * stay subject to the workbook, so it deliberately leaves this false —
+     * otherwise every admin ever added would silently become
+     * restore-immune, well beyond the narrow protection intended. */
+    isInitialSchoolAdmin = false,
   ): Promise<{
     result: ProvisionAdminResult;
     deliverAfterCommit: (() => Promise<void>) | null;
@@ -310,6 +319,13 @@ export class ProvisioningService {
           user_id: user.id,
           tenant_id: schoolId,
           role: UserRole.ADMIN,
+          // Marks this as the membership `provision()` itself created, so a
+          // later "restore from workbook" into this same school (whose
+          // `deleteByAbsence` on the `users` tab hard-deletes any UserTenant
+          // absent from the imported workbook) never removes the new
+          // school's own admin — see `users.tab.ts`'s `remove()`. Only the
+          // initial admin gets this; see the parameter's own comment.
+          metadata: isInitialSchoolAdmin ? { provisioned: true } : null,
         }),
       );
     } catch (err) {

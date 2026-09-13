@@ -17,6 +17,7 @@ import { TeacherClassSection } from '../modules/academics/entities/teacher-class
 import { AttendanceSession } from '../modules/attendance/entities/attendance-session.entity';
 import { AttendanceRecord } from '../modules/attendance/entities/attendance-record.entity';
 import { AttendanceDevice } from '../modules/attendance/entities/attendance-device.entity';
+import { DEV_SEED_PLATFORM_TENANT_ID } from '../config/env.validation';
 import { seedAccounts } from './seed.accounts';
 
 export { seedAccounts, type SeedAccountRepositories } from './seed.accounts';
@@ -60,10 +61,30 @@ export async function seed() {
   }
   const passwordHash = await bcrypt.hash(adminPassword, 10);
 
-  // Ensure the default school exists — every account below is a member of it.
-  let school = await schoolRepository.findOne({ where: { slug: 'default-school' } });
+  // Ensure the default school exists — every account below is a member of
+  // it. `context.guard.ts`'s `ContextGuard.resolvePlatformTenantId()`
+  // discovers this school by its slug (`default-school`) at request time
+  // outside production, so this school's SUPER_ADMIN is recognized as a
+  // genuine platform admin however this row got its id — no fixed id needs
+  // to line up between this script and the guard. `DEV_SEED_PLATFORM_TENANT_ID`
+  // below is only this script's own fallback id for a from-scratch create,
+  // not something anything else depends on.
+  //
+  // Looked up by id as well as slug: `server/test/reset-order.ts` inserts a
+  // school with this same fixed id under the slug `test-school`, so a
+  // slug-only check would miss it and then fail the insert on a primary key
+  // conflict for anyone running the seed against a database that has had the
+  // test fixtures applied. On a clean database both lookups miss and the
+  // school is created exactly as before.
+  let school = await schoolRepository.findOne({
+    where: [{ slug: 'default-school' }, { id: DEV_SEED_PLATFORM_TENANT_ID }],
+  });
   if (!school) {
-    school = schoolRepository.create({ name: 'Default School', slug: 'default-school' });
+    school = schoolRepository.create({
+      id: DEV_SEED_PLATFORM_TENANT_ID,
+      name: 'Default School',
+      slug: 'default-school',
+    });
     await schoolRepository.save(school);
     console.log(`Created default school (${school.id}).`);
   }

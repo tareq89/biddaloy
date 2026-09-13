@@ -94,7 +94,12 @@ export class DiffService {
         }
       }
 
-      if (tabSpec.deleteByAbsence) {
+      // A TEMPLATE workbook (blank sheets + one SAMPLE row) reports every
+      // tab `present: true` with (after the SAMPLE row is skipped) zero
+      // rows. Never let that read as "the user deleted every row" — gate
+      // deletion on the workbook not being a template, regardless of what
+      // any individual `TabSpec.deleteByAbsence` says.
+      if (tabSpec.deleteByAbsence && validated.meta.kind !== 'TEMPLATE') {
         for (const entity of existing) {
           const id: unknown = (entity as { id?: unknown }).id;
           if (typeof id === 'string' && !matchedIds.has(id)) {

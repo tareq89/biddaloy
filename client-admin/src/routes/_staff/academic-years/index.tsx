@@ -32,7 +32,9 @@ export const Route = createFileRoute('/_staff/academic-years/')({
       // router's generic error boundary before `useAcademicYears` gets a
       // chance to run the same query and surface its own error UI.
       queryClient.ensureQueryData(academicYearsQueryOptions()).catch(swallowUnlessOffline),
-      loadRouteNamespaces('academicYears'),
+      // 'backup' feeds the [14.13.2] migrate-a-whole-school link below the
+      // (empty) list.
+      loadRouteNamespaces('academicYears', 'backup'),
     ]),
   pendingComponent: AcademicYearsListPending,
   component: AcademicYearsListPage,
@@ -54,13 +56,17 @@ function StudentsCountCell({ academicYearId }: { academicYearId: string }) {
 
 function AcademicYearsListPage() {
   const { t } = useTranslation('academicYears');
+  const { t: tBackup } = useTranslation('backup');
   // `useRegionConfig()` has no ambient provider above the route tree —
   // see `$academicYearId.tsx`'s identical wrap for why this is needed.
   const regionConfig = useTenantRegionConfig();
   const [state, actions] = useListShellState({ limit: 10 });
   const canManage = useHasPermission(Permission.ACADEMIC_YEAR_MANAGE);
+  const canManageBackup = useHasPermission(Permission.BACKUP_MANAGE);
 
   const yearsQuery = useAcademicYears({ page: state.page, limit: state.limit });
+  const isEmpty =
+    !yearsQuery.isLoading && !yearsQuery.isError && (yearsQuery.data?.total ?? 0) === 0;
 
   const createYear = useCreateAcademicYear();
   const [createOpen, setCreateOpen] = React.useState(false);
@@ -190,6 +196,18 @@ function AcademicYearsListPage() {
           t('list.announceResults', { visible: count, total, count: total })
         }
       />
+
+      {/* [14.13.2]: same migrate-a-whole-school entry point as the
+          students/classes lists, offered where a newcomer with an empty
+          academic-years list is already looking. */}
+      {isEmpty && canManageBackup && (
+        <p className="mt-2 text-sm text-muted-foreground">
+          {tBackup('migrateWholeSchool')}{' '}
+          <Link to="/settings" className="text-primary underline">
+            {tBackup('migrateWholeSchoolLink')}
+          </Link>
+        </p>
+      )}
 
       {canManage && (
         <YearFormDialog

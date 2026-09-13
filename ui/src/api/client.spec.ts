@@ -60,6 +60,24 @@ describe('request interceptor: tenant/role/token injection', () => {
     expect(res.data.tenant).toBe('tenant-1');
   });
 
+  it('[14.13.3, hardened per item 7] a `_tenantOverride` config field overrides the ambient active tenant', async () => {
+    setActiveTenant('tenant-1');
+    apiMock
+      .onGet('/backup/jobs/job-1')
+      .reply((config) => [200, { tenant: config.headers?.['X-Tenant-ID'] }]);
+
+    const res = await apiClient.get('/backup/jobs/job-1', {
+      _tenantOverride: 'tenant-2',
+    });
+    expect(res.data.tenant).toBe('tenant-2');
+  });
+
+  it('[14.13.3] still requires a tenant when no ambient tenant is active and none is pre-set', async () => {
+    apiMock.onGet('/students').reply(200, { ok: true });
+
+    await expect(apiClient.get('/students')).rejects.toBeInstanceOf(NoActiveTenantError);
+  });
+
   it('attaches X-Role only when a role is explicitly set', async () => {
     setActiveTenant('tenant-1');
     apiMock
@@ -114,6 +132,73 @@ describe('401 handling: refresh and replay', () => {
     expect(globalMock.history.post.length).toBe(1);
     expect(studentsCallCount).toBe(2);
     expect(getAccessToken()).toBe('fresh-token');
+  });
+
+  it('replays a write against the tenant it was prepared for, even if the active tenant changed mid-flight', async () => {
+    // A POST built for school A must never land on school B. The replay
+    // re-enters the request interceptor, which used to re-read the ambient
+    // active tenant — so switching schools while a write was in flight (and
+    // it 401'd) silently redirected the write. The server can't catch this
+    // when the user legitimately has access to both.
+    setActiveTenant('tenant-A');
+    setAccessToken('expired-token');
+
+    const seenTenants: (string | undefined)[] = [];
+    let callCount = 0;
+    apiMock.onPost('/students').reply((config) => {
+      callCount += 1;
+      seenTenants.push(config.headers?.['X-Tenant-ID'] as string | undefined);
+      if (callCount === 1) {
+        // The user switches schools while this request is in flight.
+        setActiveTenant('tenant-B');
+        return [
+          401,
+          {
+            statusCode: 401,
+            message: 'jwt expired',
+            timestamp: 't',
+            path: '/students',
+            requestId: 'r1',
+          },
+        ];
+      }
+      return [200, { ok: true }];
+    });
+    globalMock.onPost('/api/v1/auth/refresh').reply(200, { access_token: 'fresh-token' });
+
+    await apiClient.post('/students', { full_name: 'New Student' });
+
+    expect(callCount).toBe(2);
+    expect(seenTenants).toEqual(['tenant-A', 'tenant-A']);
+  });
+
+  it('still honours an explicit _tenantOverride across a replay', async () => {
+    setActiveTenant('tenant-A');
+    setAccessToken('expired-token');
+
+    const seenTenants: (string | undefined)[] = [];
+    let callCount = 0;
+    apiMock.onGet('/backup/jobs').reply((config) => {
+      callCount += 1;
+      seenTenants.push(config.headers?.['X-Tenant-ID'] as string | undefined);
+      return callCount === 1
+        ? [
+            401,
+            {
+              statusCode: 401,
+              message: 'jwt expired',
+              timestamp: 't',
+              path: '/backup/jobs',
+              requestId: 'r1',
+            },
+          ]
+        : [200, { data: [] }];
+    });
+    globalMock.onPost('/api/v1/auth/refresh').reply(200, { access_token: 'fresh-token' });
+
+    await apiClient.get('/backup/jobs', { _tenantOverride: 'tenant-override' });
+
+    expect(seenTenants).toEqual(['tenant-override', 'tenant-override']);
   });
 
   it('shares a single refresh across concurrent 401s (single-flight)', async () => {
@@ -212,6 +297,55 @@ describe('401 handling: refresh and replay', () => {
     expect(results.every((r) => r.status === 'rejected')).toBe(true);
     expect(onSessionExpired).toHaveBeenCalledTimes(1);
     expect(getAccessToken()).toBeNull();
+  });
+
+  // [item 7, money-tier review] The OLD implementation read
+  // `config.headers.get('X-Tenant-ID')` back as if it were a caller
+  // override. Since the request interceptor itself had already stamped
+  // that header onto the config on the FIRST attempt, re-dispatching the
+  // same config object on a 401 retry made the interceptor read back its
+  // own earlier stamp and treat it as an explicit override.
+  //
+  // Fixing that mechanism is right; the behaviour change that first came
+  // with it was not. This test originally asserted that the retry picks up
+  // the NEW active tenant — but a request is prepared for ONE tenant, and
+  // a transparent token-refresh retry must not silently redirect it
+  // somewhere else (see the write-request test above: a POST built for
+  // school A landing on school B is a real data-integrity bug the server
+  // cannot catch when the user can access both). `_resolvedTenantId` gets
+  // both properties: no self-read of the header, and a stable tenant
+  // across the replay.
+  it('[item 7] a plain ambient-tenant request replays against the tenant it was first sent for, even if the active tenant changed', async () => {
+    setActiveTenant('tenant-1');
+    setAccessToken('expired-token');
+
+    let call = 0;
+    apiMock.onGet('/students').reply((config) => {
+      call += 1;
+      if (call === 1) {
+        return [
+          401,
+          {
+            statusCode: 401,
+            message: 'jwt expired',
+            timestamp: 't',
+            path: '/students',
+            requestId: 'r1',
+          },
+        ];
+      }
+      return [200, { tenant: config.headers?.['X-Tenant-ID'] }];
+    });
+    globalMock.onPost('/api/v1/auth/refresh').reply(() => {
+      // The user switches active school while the refresh itself is
+      // in flight — simulating a real race, not just a same-tick swap.
+      setActiveTenant('tenant-2');
+      return [200, { access_token: 'fresh-token' }];
+    });
+
+    const res = await apiClient.get('/students');
+
+    expect(res.data.tenant).toBe('tenant-1');
   });
 
   it('attempts refresh exactly once when the refresh call itself keeps failing (no recursive refresh)', async () => {

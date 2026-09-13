@@ -352,6 +352,7 @@ export {
 export {
   backupKeys,
   downloadBackup,
+  downloadWorkbookTemplate,
   useBackupJob,
   useBackupJobs,
   usePinBackupJob,
