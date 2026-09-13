@@ -16,6 +16,7 @@ import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
+import { GenerateFeesModal } from './-generate/generate-fees-modal';
 import { BatchBillsDrawer } from './-generations/batch-bills-drawer';
 import { useBatchFilterFields } from './-generations/batch-filters';
 import { BatchTable, type BatchTableProps } from './-generations/batch-table';
@@ -23,10 +24,10 @@ import { BatchTable, type BatchTableProps } from './-generations/batch-table';
 /**
  * `/fees/generate` — [16.3.5] rewrite. This route used to be [8.11.6]'s
  * "generate a month's fees" wizard (`GenerateFeesWizard`, `?step=`); the
- * wizard itself moves into a modal (16.3.6's `<GenerateFeesModal />`,
- * stubbed below until that ticket lands) and this route becomes the
- * "Generated fees" log: every past batch, filterable, with a drill-down
- * into the bills each one created.
+ * wizard itself moved into a modal ([16.3.6]'s `<GenerateFeesModal />`)
+ * and this route became the "Generated fees" log: every past batch,
+ * filterable, with a drill-down into the bills each one created and a
+ * "Generate fees" button that opens the modal.
  *
  * `structures`/`discount` gaps: see `ui/src/hooks/fee-generations.ts`'s
  * own comments on `FeeGeneration.structures` and `FeeGenerationBill` —
@@ -97,52 +98,13 @@ export const Route = createFileRoute('/_staff/fees/generate')({
           }),
         )
         .catch(swallowUnlessOffline),
+      // [16.3.6]'s modal uses the `feeGeneration` i18n namespace.
       loadRouteNamespaces('fees'),
+      loadRouteNamespaces('feeGeneration'),
     ]),
   pendingComponent: GenerateFeesPending,
   component: GeneratedFeesPage,
 });
-
-/**
- * Stub for 16.3.6's real modal — that ticket owns the actual "pick a
- * period, review, submit" flow (what used to be `GenerateFeesWizard`)
- * and runs in a separate worktree in parallel with this one. Wired with
- * the same `open`/`onOpenChange`/`onGenerated` shape the real component
- * is expected to need, so swapping this out is a one-line import change,
- * not a rewire of this page.
- */
-// TODO(#655): replace with real GenerateFeesModal
-interface GenerateFeesModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onGenerated: () => void;
-}
-
-function GenerateFeesModal({ open, onOpenChange, onGenerated }: GenerateFeesModalProps) {
-  const { t } = useTranslation('fees');
-  if (!open) return null;
-  // Deliberately not a real dialog — just enough surface for this page's
-  // own tests to exercise the `onGenerated` wiring. 16.3.6 replaces the
-  // whole function body.
-  return (
-    <div role="status" aria-live="polite">
-      {t('generations.modalPlaceholder')}
-      <Button type="button" size="sm" onClick={() => onOpenChange(false)}>
-        {t('generations.modalPlaceholderClose')}
-      </Button>
-      <Button
-        type="button"
-        size="sm"
-        onClick={() => {
-          onGenerated();
-          onOpenChange(false);
-        }}
-      >
-        {t('generations.modalPlaceholderConfirm')}
-      </Button>
-    </div>
-  );
-}
 
 function GeneratedFeesPage() {
   const { t } = useTranslation('fees');
@@ -165,10 +127,6 @@ function GeneratedFeesPage() {
 
   function handleFilterChange(patch: Record<string, string | null>) {
     actions.setFilters(patch);
-  }
-
-  function handleGenerated() {
-    void queryClient.invalidateQueries({ queryKey: feeGenerationsKeys.lists() });
   }
 
   const batchTableProps: BatchTableProps = {
@@ -200,8 +158,18 @@ function GeneratedFeesPage() {
       <BatchTable {...batchTableProps} />
       <GenerateFeesModal
         open={modalOpen}
-        onOpenChange={setModalOpen}
-        onGenerated={handleGenerated}
+        onOpenChange={(open) => {
+          setModalOpen(open);
+          // [16.3.6]'s modal has no onSuccess/onGenerated callback of its
+          // own (it doesn't invalidate any query itself) — refetching the
+          // log whenever the dialog closes is a harmless no-op on cancel
+          // and picks up a just-created batch without needing a second
+          // wiring path. A dedicated onGenerated callback would be a
+          // cleaner contract if 16.3.6 grows one later.
+          if (!open) {
+            void queryClient.invalidateQueries({ queryKey: feeGenerationsKeys.lists() });
+          }
+        }}
       />
       <BatchBillsDrawer
         batch={selectedBatch}

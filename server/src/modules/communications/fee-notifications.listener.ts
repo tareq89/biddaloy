@@ -1,5 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { OnEvent } from '@nestjs/event-emitter';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -23,15 +22,17 @@ import {
   FeeNotificationBillLine,
   resolveFeeNotificationLocale,
 } from './fee-notification-template.util';
+import { feesEvents, FeesGeneratedEventPayload } from '../fees/fee-generation.service';
 
 /** `fees.generated`'s payload (emitted by #650 after a generation batch
  * commits). Thin on purpose — this listener reloads the batch and its
  * bills from the DB by id rather than trusting anything else the payload
- * might carry, so it stays correct even if the emitter's shape grows. */
-export interface FeesGeneratedEvent {
-  tenantId: string;
-  feeGenerationId: string;
-}
+ * might carry, so it stays correct even if the emitter's shape grows.
+ *
+ * Subscribed via `feesEvents` (a plain Node `EventEmitter` singleton, not
+ * `@nestjs/event-emitter` — that package isn't a dependency of this repo;
+ * same pattern as [14.7.3]'s `WorkbookJobEventsService`/`WorkbookNotifier`). */
+export type FeesGeneratedEvent = FeesGeneratedEventPayload;
 
 /** One row of `student_fees` for this batch, joined with what the message
  * and recipient resolution need. */
@@ -96,7 +97,7 @@ export function resolveFeeNotificationChannel(
  * replayed event finds its prior logs and creates nothing new.
  */
 @Injectable()
-export class FeeNotificationsListener {
+export class FeeNotificationsListener implements OnModuleInit {
   private readonly logger = new Logger(FeeNotificationsListener.name);
 
   constructor(
@@ -111,7 +112,12 @@ export class FeeNotificationsListener {
     private readonly smsCreditService: SmsCreditService,
   ) {}
 
-  @OnEvent('fees.generated')
+  onModuleInit(): void {
+    feesEvents.on('fees.generated', (event: FeesGeneratedEvent) => {
+      void this.handleFeesGenerated(event);
+    });
+  }
+
   async handleFeesGenerated(event: FeesGeneratedEvent): Promise<void> {
     const { tenantId, feeGenerationId } = event;
 
@@ -220,7 +226,10 @@ export class FeeNotificationsListener {
 
     // Idempotency: drop anything this event (or a prior delivery attempt
     // for the same batch) already logged.
-    const allKeys = [...planned.map((p) => p.referenceKey), ...skippedNoSms.map((s) => s.referenceKey)];
+    const allKeys = [
+      ...planned.map((p) => p.referenceKey),
+      ...skippedNoSms.map((s) => s.referenceKey),
+    ];
     if (allKeys.length === 0) {
       return;
     }

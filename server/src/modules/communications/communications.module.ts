@@ -1,7 +1,6 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
-import { EventEmitterModule } from '@nestjs/event-emitter';
 import { CommunicationLog } from './entities/communication-log.entity';
 import { ReminderBatch } from './entities/reminder-batch.entity';
 import { Guardian } from '../students/entities/guardian.entity';
@@ -35,14 +34,6 @@ import { FeeNotificationsListener } from './fee-notifications.listener';
     StudentModule,
     FeeModule,
     AuditModule,
-    // [16.3.4] `EventEmitterModule` is `@Global()` — registering `forRoot()`
-    // here (rather than in `AppModule`) is enough to make `EventEmitter2`
-    // and `@OnEvent` work app-wide, since Nest only instantiates a global
-    // module's providers once no matter how many feature modules import it.
-    // #650 (fees.generated's emitter) needs the same package; if that lane
-    // also calls `forRoot()` elsewhere, Nest's module dedup makes the
-    // second import a no-op, not a conflict.
-    EventEmitterModule.forRoot(),
     // #555: the automated dispatcher (CommunicationsProcessor) needs a
     // guardian's linked user id to try push before falling back to the
     // preferred channel. No cycle risk — PushModule only depends on
