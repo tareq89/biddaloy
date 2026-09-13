@@ -32,6 +32,11 @@ describe('StatusBadge', () => {
     expect(screen.getByText('Partially paid')).toBeTruthy();
   });
 
+  it('[16.3.5] renders a humanized fallback label for a fee-generation collection status', async () => {
+    await renderInEnglish(<StatusBadge domain="feeGeneration" status="PARTIAL" />);
+    expect(screen.getByText('Partial')).toBeTruthy();
+  });
+
   it('is axe clean', async () => {
     const { container } = await renderInEnglish(
       <StatusBadge domain="payment" status={PaymentStatus.SUCCESS} />,

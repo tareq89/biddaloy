@@ -71,6 +71,11 @@ export const AllDomains: Story = {
         <StatusBadge domain="guardian" status="SECONDARY" />
       </div>
       <div className="flex flex-wrap gap-2">
+        <StatusBadge domain="feeGeneration" status="NONE" />
+        <StatusBadge domain="feeGeneration" status="PARTIAL" />
+        <StatusBadge domain="feeGeneration" status="FULL" />
+      </div>
+      <div className="flex flex-wrap gap-2">
         <StatusBadge domain="feeStructure" status="RECURRING" />
         <StatusBadge domain="feeStructure" status="ONE_TIME" />
       </div>

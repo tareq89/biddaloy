@@ -221,8 +221,22 @@ const SCHOOL_STATUS_TONE: Record<SchoolStatusValue, StatusTone> = {
   SUSPENDED: 'warning',
 };
 
+/** [16.3.5] Not a `shared/src/enums` domain — `FeeGeneration.collection_status`
+ * is a value the server derives per batch (`FeeGenerationsService.findAll`'s
+ * `NONE`/`PARTIAL`/`FULL`), not a stored lifecycle column. Added as one more
+ * domain here rather than a bespoke pill, same reasoning every other
+ * plain-string domain above gives for itself. */
+export type FeeGenerationCollectionStatus = 'NONE' | 'PARTIAL' | 'FULL';
+
+const FEE_GENERATION_STATUS_TONE: Record<FeeGenerationCollectionStatus, StatusTone> = {
+  NONE: 'neutral',
+  PARTIAL: 'info',
+  FULL: 'success',
+};
+
 export type StatusBadgeProps =
   | { domain: 'fee'; status: FeeStatus }
+  | { domain: 'feeGeneration'; status: FeeGenerationCollectionStatus }
   | { domain: 'payment'; status: PaymentStatus }
   | { domain: 'invoice'; status: InvoiceStatus }
   | { domain: 'communication'; status: CommunicationStatusValue }
@@ -240,6 +254,8 @@ function resolveTone(props: StatusBadgeProps): StatusTone {
   switch (props.domain) {
     case 'fee':
       return FEE_STATUS_TONE[props.status];
+    case 'feeGeneration':
+      return FEE_GENERATION_STATUS_TONE[props.status];
     case 'payment':
       return PAYMENT_STATUS_TONE[props.status];
     case 'invoice':
