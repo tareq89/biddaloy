@@ -139,14 +139,26 @@ export class FeeGenerationService {
     dto: GenerateStudentFeesDto,
     tenantId: string,
   ): Promise<FeeStructure[]> {
-    const where: FindOptionsWhere<FeeStructure> = {
+    const base: FindOptionsWhere<FeeStructure> = {
       tenant_id: tenantId,
       academic_year_id: dto.academic_year_id,
       deleted_at: IsNull(),
     };
-    if (dto.class_id) where.class_id = dto.class_id;
 
-    return this.feeStructureRepo.find({ where });
+    // A class-scoped run must still pick up school-wide (class_id IS NULL)
+    // structures — `where.class_id = dto.class_id` alone would exclude
+    // them, since TypeORM's `.find()` never matches NULL with an equality
+    // value. Two where-clauses OR'd together (TypeORM's array-of-where-
+    // objects form) gets both: this class's own structures, plus every
+    // school-wide one.
+    if (!dto.class_id) return this.feeStructureRepo.find({ where: base });
+
+    return this.feeStructureRepo.find({
+      where: [
+        { ...base, class_id: dto.class_id },
+        { ...base, class_id: IsNull() },
+      ],
+    });
   }
 
   /**

@@ -323,7 +323,14 @@ describe('Fee Structures E2E', () => {
           `INSERT INTO fee_structures (id, fee_type, name, amount, class_id, academic_year_id, tenant_id, created_at, updated_at)
            VALUES (DEFAULT, $1, $2, $3, $4, $5, $6, NOW(), NOW())
            RETURNING id`,
-          [FeeType.MONTHLY_TUITION, 'Tenant B Fee', 999, otherClassId, otherAcademicYearId, OTHER_TENANT_ID],
+          [
+            FeeType.MONTHLY_TUITION,
+            'Tenant B Fee',
+            999,
+            otherClassId,
+            otherAcademicYearId,
+            OTHER_TENANT_ID,
+          ],
         );
         const otherFeeStructureId = otherFeeStructure[0].id;
 
@@ -397,7 +404,8 @@ describe('Fee Structures E2E', () => {
         .expect(200);
 
       const rows = await dataSource.query(
-        `SELECT * FROM audit_logs WHERE entity_type = 'FeeStructure' AND entity_id = $1`,
+        `SELECT * FROM audit_logs WHERE entity_type = 'FeeStructure' AND entity_id = $1
+         ORDER BY created_at ASC`,
         [createRes.body.id],
       );
       expect(rows.length).toBeGreaterThan(0);
@@ -462,10 +470,9 @@ describe('Fee Structures E2E', () => {
         .set('X-Tenant-ID', TENANT_ID)
         .expect(404);
 
-      const rows = await dataSource.query(
-        `SELECT deleted_at FROM fee_structures WHERE id = $1`,
-        [id],
-      );
+      const rows = await dataSource.query(`SELECT deleted_at FROM fee_structures WHERE id = $1`, [
+        id,
+      ]);
       expect(rows[0].deleted_at).not.toBeNull();
 
       const defaultList = await supertest(app.getHttpServer())
@@ -482,9 +489,7 @@ describe('Fee Structures E2E', () => {
         .set('X-Tenant-ID', TENANT_ID)
         .query({ search: 'Delete Fee', include_deleted: 'true' })
         .expect(200);
-      expect(
-        withDeletedList.body.data.find((row: { id: string }) => row.id === id),
-      ).toBeDefined();
+      expect(withDeletedList.body.data.find((row: { id: string }) => row.id === id)).toBeDefined();
     });
 
     it('should return 401 for STUDENT role on delete', async () => {

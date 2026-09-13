@@ -66,18 +66,7 @@ export class PaymentAllocationService {
     if (dto.idempotency_key) {
       const existing = await this.findByIdempotencyKey(tenantId, dto.idempotency_key);
       if (existing) {
-        // A genuine retry replays the exact same request. A key reused
-        // with a different student or amount is a client bug, not a
-        // network retry — surface it instead of silently handing back an
-        // unrelated payment.
-        if (
-          existing.student_id !== dto.student_id ||
-          Math.abs(Number(existing.total_amount) - Number(dto.total_amount)) > AMOUNT_EPSILON
-        ) {
-          throw new BadRequestException(
-            `idempotency_key "${dto.idempotency_key}" was already used for a different payment (student/amount mismatch)`,
-          );
-        }
+        this.assertIdempotentReplayMatches(existing, dto);
         return { ...existing, issuer: await this.resolveIssuerFor(existing, tenantId) };
       }
     }
@@ -138,18 +127,12 @@ export class PaymentAllocationService {
         // consumed — which would otherwise throw a misleading
         // NotFoundException instead of returning the winner's payment.
         if (dto.idempotency_key) {
-          const winner = await manager
-            .getRepository(Payment)
-            .findOne({ where: { tenant_id: tenantId, idempotency_key: dto.idempotency_key } });
+          const winner = await manager.getRepository(Payment).findOne({
+            where: { tenant_id: tenantId, idempotency_key: dto.idempotency_key },
+            relations: ['allocations', 'invoice'],
+          });
           if (winner) {
-            if (
-              winner.student_id !== dto.student_id ||
-              Math.abs(Number(winner.total_amount) - Number(dto.total_amount)) > AMOUNT_EPSILON
-            ) {
-              throw new BadRequestException(
-                `idempotency_key "${dto.idempotency_key}" was already used for a different payment (student/amount mismatch)`,
-              );
-            }
+            this.assertIdempotentReplayMatches(winner, dto);
             return { paymentId: winner.id, issuerSnapshot, duplicateKey: null };
           }
         }
@@ -390,6 +373,63 @@ export class PaymentAllocationService {
     throw new BadRequestException(
       `Fee for ${month}/${year} is in the future and cannot be allocated against — advance payments are no longer supported`,
     );
+  }
+
+  /**
+   * A genuine retry replays the exact same request. A key reused with a
+   * materially different request — different student, amount, method,
+   * allocations, invoice flag, reference, or remarks — is a client bug,
+   * not a network retry: surface it instead of silently handing back an
+   * unrelated payment. `allocations` is compared by (student_fee_id,
+   * allocated_amount, allocation_type) as an order-independent set, since
+   * two equivalent requests may list the same allocations in a different
+   * order.
+   */
+  private assertIdempotentReplayMatches(
+    existing: Payment,
+    dto: RecordPaymentWithAllocationDto,
+  ): void {
+    const mismatch =
+      existing.student_id !== dto.student_id ||
+      Math.abs(Number(existing.total_amount) - Number(dto.total_amount)) > AMOUNT_EPSILON ||
+      existing.payment_method !== dto.payment_method ||
+      (existing.transaction_reference ?? null) !== (dto.transaction_reference ?? null) ||
+      (existing.remarks ?? null) !== (dto.remarks ?? null) ||
+      !this.allocationsMatch(existing.allocations ?? [], dto.allocations);
+    // `generate_invoice` is deliberately not compared here: it isn't
+    // persisted anywhere on `Payment`, and `Boolean(existing.invoice)`
+    // is NOT a proxy for it — an invoice is only ever created when the
+    // payment is also a *full* payment (`isFullPayment && generate_invoice
+    // !== false`, see below), so a replay of a genuinely identical
+    // request against the same already-recorded payment would compare a
+    // fixed, already-decided outcome against a flag that can no longer
+    // change anything. There's nothing unsafe left to catch here: the
+    // fields above (student, amount, method, allocations, reference,
+    // remarks) are exactly what determines the money movement.
+
+    if (mismatch) {
+      throw new BadRequestException(
+        `idempotency_key "${dto.idempotency_key}" was already used for a different payment request`,
+      );
+    }
+  }
+
+  private allocationsMatch(
+    existing: PaymentAllocation[],
+    incoming: RecordPaymentWithAllocationDto['allocations'],
+  ): boolean {
+    if (existing.length !== incoming.length) return false;
+
+    const normalize = (a: {
+      student_fee_id: string;
+      allocated_amount: number;
+      allocation_type: PaymentAllocationType;
+    }) => `${a.student_fee_id}:${Number(a.allocated_amount).toFixed(2)}:${a.allocation_type}`;
+
+    const existingKeys = existing.map((a) => normalize(a)).sort();
+    const incomingKeys = incoming.map((a) => normalize(a)).sort();
+
+    return existingKeys.every((k, i) => k === incomingKeys[i]);
   }
 
   private async findByIdempotencyKey(tenantId: string, key: string): Promise<Payment | null> {
