@@ -331,8 +331,8 @@ export async function createInvoice(
 }
 
 /** A student with an outstanding fee: builds the class chain, a fee
- * structure for that class, and generates the month's StudentFee rows.
- * Returns everything a fee journey needs. */
+ * structure for that class, and generates a StudentFee row for the
+ * January 2026 period. Returns everything a fee journey needs. */
 export async function createStudentWithDues(
   request: APIRequestContext,
   session: ApiSession,
@@ -345,7 +345,7 @@ export async function createStudentWithDues(
     class_section_id: chain.sectionId,
     ...(options.guardianId ? { guardian_ids: [options.guardianId] } : {}),
   });
-  await post(request, session, '/fee-structures', {
+  const feeStructure = await post<{ id: string }>(request, session, '/fee-structures', {
     fee_type: 'MONTHLY_TUITION',
     name: `E2E Tuition ${Date.now()}`,
     amount: options.amount ?? 500,
@@ -354,9 +354,11 @@ export async function createStudentWithDues(
   });
   await post(request, session, '/fees/generate', {
     academic_year_id: chain.academicYearId,
-    month: 1,
-    year: 2026,
-    class_id: chain.classId,
+    period_start: '2026-01-01',
+    period_type: 'MONTH',
+    student_ids: [student.id],
+    fee_structure_ids: [feeStructure.id],
+    notify_families: false,
   });
   return { studentId: student.id, chain };
 }
