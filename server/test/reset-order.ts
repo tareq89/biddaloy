@@ -30,11 +30,13 @@ export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
   'attendance_sessions',
   'attendance_devices',
   'school_holidays',
+  'wallet_transactions',
+  'student_wallets',
   'payment_allocations',
   'payments',
   'invoices',
   'student_fees',
-  'fee_structure_students',
+  'fee_generations',
   'fee_structures',
   'communication_logs',
   'reminder_batches',
@@ -65,8 +67,13 @@ export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
  * table between tests. Nothing else has a foreign key to `audit_logs`
  * (checked: no `REFERENCES "audit_logs"` in any migration), so this
  * doesn't need `CASCADE`.
+ *
+ * `wallet_transactions` (16.1.5) is append-only the same way, via
+ * `trg_wallet_transactions_write_only` from migration
+ * `1789800000000-AddStudentWallets` — same reasoning, same `TRUNCATE`
+ * requirement. It has no incoming FKs either.
  */
-const WRITE_ONLY_TABLES = new Set<string>(['audit_logs']);
+const WRITE_ONLY_TABLES = new Set<string>(['audit_logs', 'wallet_transactions']);
 
 /**
  * One multi-statement query — one round trip, implicitly transactional

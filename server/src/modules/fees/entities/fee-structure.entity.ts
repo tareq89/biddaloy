@@ -6,36 +6,30 @@ import {
   UpdateDateColumn,
   DeleteDateColumn,
   ManyToOne,
-  OneToMany,
   JoinColumn,
   Index,
 } from 'typeorm';
-import { FeeStructureStudent } from './fee-structure-student.entity';
 import { Class } from '../../academics/entities/class.entity';
 import { ClassSection } from '../../academics/entities/class-section.entity';
 import { AcademicYear } from '../../academics/entities/academic-year.entity';
 import { School } from '../../schools/entities/school.entity';
-import { FeeType, FeeApplicability } from '@biddaloy/shared';
+import { FeeType } from '@biddaloy/shared';
 
 /**
- * Defines a fee item applicable to a class/section for a specific month.
- *
- * Fee structures are the template from which monthly StudentFee records
- * are generated. They can apply to ALL students in a class, or SELECTED
- * students (via FeeStructureStudent pivot). Recurring fees auto-generate
- * each month; one-time fees only generate once.
+ * A fee price tag: name, fee type, amount, academic year, and an optional
+ * class/section label. It does not decide who gets billed or when —
+ * targeting and scheduling are owned by whatever generates StudentFee rows
+ * from this structure.
  *
  * Relations:
  * - @ManyToOne → School: the tenant this fee structure belongs to
- * - @ManyToOne → Class: the class this fee applies to
+ * - @ManyToOne → Class (optional): the class this fee is labelled with
  * - @ManyToOne → ClassSection (optional): specific section within the class
  * - @ManyToOne → AcademicYear: the academic year this fee is for
- * - @OneToMany → FeeStructureStudent (`selected_students`): selected-student
- *   overrides, loaded by `findOne` only
  * - Referenced-by → StudentFee: generated fee records reference this
  */
 @Entity('fee_structures')
-@Index(['class_id', 'fee_type', 'month'])
+@Index('IDX_fee_structures_tenant_year_type', ['tenant_id', 'academic_year_id', 'fee_type'])
 @Index(['tenant_id'])
 export class FeeStructure {
   @PrimaryGeneratedColumn('uuid')
@@ -50,15 +44,12 @@ export class FeeStructure {
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   amount: number;
 
-  @Column({ type: 'enum', enum: FeeApplicability, default: FeeApplicability.ALL })
-  applicability: FeeApplicability;
-
-  @ManyToOne(() => Class, { nullable: false })
+  @ManyToOne(() => Class, { nullable: true })
   @JoinColumn({ name: 'class_id' })
-  class: Class;
+  class: Class | null;
 
-  @Column({ type: 'uuid' })
-  class_id: string;
+  @Column({ type: 'uuid', nullable: true })
+  class_id: string | null;
 
   @ManyToOne(() => ClassSection, { nullable: true })
   @JoinColumn({ name: 'section_id' })
@@ -73,22 +64,6 @@ export class FeeStructure {
 
   @Column({ type: 'uuid' })
   academic_year_id: string;
-
-  @Column({ type: 'int' })
-  month: number;
-
-  @Column({ type: 'boolean', default: true })
-  is_recurring: boolean;
-
-  /**
-   * Selected-student overrides, only meaningful when applicability=SELECTED.
-   *
-   * Loaded by `findOne` alone, never by `findAll`: a list page never renders
-   * individual students, so fanning this join out across every listed row
-   * would cost N extra joins for data nobody reads.
-   */
-  @OneToMany(() => FeeStructureStudent, (link) => link.fee_structure)
-  selected_students?: FeeStructureStudent[];
 
   @ManyToOne(() => School, { nullable: false, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'tenant_id' })

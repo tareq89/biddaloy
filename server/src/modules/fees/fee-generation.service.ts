@@ -1,23 +1,26 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, In, FindOptionsWhere } from 'typeorm';
+import { Repository, IsNull, FindOptionsWhere } from 'typeorm';
 import { Student } from '../students/entities/student.entity';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { FeeStructure } from './entities/fee-structure.entity';
-import { FeeStructureStudent } from './entities/fee-structure-student.entity';
 import { StudentFee } from './entities/student-fee.entity';
-import { EnrollmentStatus, FeeApplicability, FeeStatus } from '@biddaloy/shared';
+import { EnrollmentStatus, FeeStatus, PeriodType } from '@biddaloy/shared';
 import { GenerateStudentFeesDto, GenerateFeesResultDto } from './dto/fees.dto';
 
 /**
  * Turns FeeStructure templates into per-student StudentFee obligations for
  * a given (academic_year, month, year).
  *
- * Recurring structures (is_recurring=true) match when target.month >=
- * structure.month — `month` is an effective-from marker, not a single
- * fixed month. One-time structures match only on an exact month.
+ * A FeeStructure is now a price tag (16.1.2): no more `is_recurring`/
+ * `month` effective-from matching, no more `applicability`/selected-student
+ * targeting — every structure whose `class_id` matches the target class (or
+ * is null, meaning school-wide) applies, every month. Structure-level
+ * scheduling and audience picking is 16.3.1's job ("Generation v2"); this is
+ * the minimal compile-safe adaptation to the new price-tag shape, not that
+ * rewrite.
  */
 @Injectable()
 export class FeeGenerationService {
@@ -32,8 +35,6 @@ export class FeeGenerationService {
     private readonly academicYearRepo: Repository<AcademicYear>,
     @InjectRepository(FeeStructure)
     private readonly feeStructureRepo: Repository<FeeStructure>,
-    @InjectRepository(FeeStructureStudent)
-    private readonly fssRepo: Repository<FeeStructureStudent>,
     @InjectRepository(StudentFee)
     private readonly studentFeeRepo: Repository<StudentFee>,
   ) {}
@@ -80,13 +81,9 @@ export class FeeGenerationService {
       return { generated: 0, skipped: 0, students_evaluated: students.length };
     }
 
-    const selectedStudentsByStructure = await this.loadSelectedStudentLinks(applicableStructures);
-
-    const candidates = students
-      .map((student) =>
-        this.buildCandidate(student, dto, applicableStructures, selectedStudentsByStructure),
-      )
-      .filter((candidate): candidate is Partial<StudentFee> => candidate !== null);
+    const candidates = students.flatMap((student) =>
+      this.buildCandidates(student, dto, applicableStructures),
+    );
 
     if (candidates.length === 0) {
       return { generated: 0, skipped: 0, students_evaluated: students.length };
@@ -142,86 +139,85 @@ export class FeeGenerationService {
     dto: GenerateStudentFeesDto,
     tenantId: string,
   ): Promise<FeeStructure[]> {
-    const where: FindOptionsWhere<FeeStructure> = {
+    const base: FindOptionsWhere<FeeStructure> = {
       tenant_id: tenantId,
       academic_year_id: dto.academic_year_id,
       deleted_at: IsNull(),
     };
-    if (dto.class_id) where.class_id = dto.class_id;
 
-    const structures = await this.feeStructureRepo.find({ where });
+    // A class-scoped run must still pick up school-wide (class_id IS NULL)
+    // structures — `where.class_id = dto.class_id` alone would exclude
+    // them, since TypeORM's `.find()` never matches NULL with an equality
+    // value. Two where-clauses OR'd together (TypeORM's array-of-where-
+    // objects form) gets both: this class's own structures, plus every
+    // school-wide one.
+    if (!dto.class_id) return this.feeStructureRepo.find({ where: base });
 
-    return structures.filter((structure) =>
-      structure.is_recurring ? dto.month >= structure.month : dto.month === structure.month,
-    );
-  }
-
-  private async loadSelectedStudentLinks(
-    structures: FeeStructure[],
-  ): Promise<Map<string, Set<string>>> {
-    const selectedStructureIds = structures
-      .filter((s) => s.applicability === FeeApplicability.SELECTED)
-      .map((s) => s.id);
-
-    const byStructure = new Map<string, Set<string>>();
-    if (selectedStructureIds.length === 0) {
-      return byStructure;
-    }
-
-    const links = await this.fssRepo.find({
-      where: { fee_structure_id: In(selectedStructureIds) },
+    return this.feeStructureRepo.find({
+      where: [
+        { ...base, class_id: dto.class_id },
+        { ...base, class_id: IsNull() },
+      ],
     });
-    for (const link of links) {
-      if (!byStructure.has(link.fee_structure_id)) {
-        byStructure.set(link.fee_structure_id, new Set());
-      }
-      byStructure.get(link.fee_structure_id)!.add(link.student_id);
-    }
-    return byStructure;
   }
 
-  private buildCandidate(
+  /**
+   * One candidate row per applicable fee structure, not a single summed
+   * row — `student_fees` is now one bill per student × fee structure ×
+   * period (16.1.3). This is a minimal compile-only adaptation to the new
+   * price-tag columns; the real generation rewrite (schedules, discounts,
+   * dedup strategies, explicit audience picking) is 16.3.1.
+   */
+  private buildCandidates(
     student: Student,
     dto: GenerateStudentFeesDto,
     structures: FeeStructure[],
-    selectedStudentsByStructure: Map<string, Set<string>>,
-  ): Partial<StudentFee> | null {
+  ): Partial<StudentFee>[] {
     const classId = student.class_section.class_id;
     const sectionId = student.class_section_id;
+    // First day of the target month — `period_start` is a date, `month`/
+    // `year` are now generated columns derived from it.
+    const periodStart = new Date(Date.UTC(dto.year, dto.month - 1, 1));
 
-    let total = 0;
+    const candidates: Partial<StudentFee>[] = [];
     for (const structure of structures) {
-      if (structure.class_id !== classId) continue;
+      // A structure with no class_id is school-wide and applies to every
+      // student; one with a class_id applies only to that class. Without
+      // this null-check, `structure.class_id !== classId` is always true
+      // for a school-wide structure (`null !== classId`), silently
+      // generating zero fees for it.
+      if (structure.class_id && structure.class_id !== classId) continue;
       if (structure.section_id && structure.section_id !== sectionId) continue;
-      if (structure.applicability === FeeApplicability.SELECTED) {
-        const allowed = selectedStudentsByStructure.get(structure.id);
-        if (!allowed?.has(student.id)) continue;
-      }
-      total += Number(structure.amount);
+      const amount = Number(structure.amount);
+      // student_fees has CHECK (total_amount > 0) — nothing to charge, nothing to insert.
+      if (amount <= 0) continue;
+
+      candidates.push({
+        student_id: student.id,
+        academic_year_id: dto.academic_year_id,
+        fee_structure_id: structure.id,
+        period_start: periodStart,
+        period_type: PeriodType.MONTH,
+        total_amount: amount,
+        status: FeeStatus.PENDING,
+      });
     }
 
-    // student_fees has CHECK (total_amount > 0) — nothing to charge, nothing to insert.
-    if (total <= 0) return null;
-
-    return {
-      student_id: student.id,
-      academic_year_id: dto.academic_year_id,
-      month: dto.month,
-      year: dto.year,
-      total_amount: total,
-      status: FeeStatus.PENDING,
-    };
+    return candidates;
   }
 
-  // 6 bound params per candidate row; Postgres caps a single statement at
-  // 65,535 params (~10.9k rows at 6 each). 1000 stays comfortably under that
-  // for any single class/school-wide generation run.
+  // 7 bound params per candidate row (student_id, academic_year_id,
+  // fee_structure_id, period_start, period_type, total_amount, status);
+  // Postgres caps a single statement at 65,535 params (~9.4k rows at 7
+  // each). 1000 stays comfortably under that for any single
+  // class/school-wide generation run.
   private static readonly INSERT_BATCH_SIZE = 1000;
 
   /**
-   * Relies on the (student_id, academic_year_id, month, year) unique constraint
-   * as an ON CONFLICT DO NOTHING guard — idempotent under re-runs and safe
-   * against two concurrent generation requests racing each other.
+   * Relies on the (student_id, fee_structure_id, period_start, occurrence)
+   * unique constraint as an ON CONFLICT DO NOTHING guard — idempotent under
+   * re-runs and safe against two concurrent generation requests racing
+   * each other.
    */
   private async bulkInsertIdempotent(candidates: Partial<StudentFee>[]): Promise<number> {
     let generated = 0;

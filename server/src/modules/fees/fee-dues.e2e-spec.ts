@@ -15,6 +15,7 @@ import {
   SEED_SECTION_1_ID,
   SEED_ACADEMIC_YEAR_ID,
 } from '@test/constants';
+import { ensureFeeStructure, periodStart } from '@test/helpers/fee-fixture.helper';
 
 /**
  * E2E tests for the Fee Dues & Flagging API (issue #15).
@@ -56,14 +57,14 @@ describe('Fee Dues E2E', () => {
     overrides: { status?: string; reminder_threshold_date?: string | null; month?: number } = {},
   ): Promise<string> {
     const res = await dataSource.query(
-      `INSERT INTO student_fees (id, student_id, academic_year_id, month, year, total_amount, paid_amount, discount_amount, status, reminder_threshold_date, created_at, updated_at)
-       VALUES (DEFAULT, $1, $2, $3, $4, $5, 0, 0, $6, $7, NOW(), NOW())
+      `INSERT INTO student_fees (id, student_id, academic_year_id, fee_structure_id, period_start, total_amount, paid_amount, discount_amount, status, reminder_threshold_date, created_at, updated_at)
+       VALUES (DEFAULT, $1, $2, $3, $4::date, $5, 0, 0, $6, $7, NOW(), NOW())
        RETURNING id`,
       [
         studentId,
         SEED_ACADEMIC_YEAR_ID,
-        overrides.month ?? 5,
-        2026,
+        await ensureFeeStructure(dataSource),
+        periodStart(overrides.month ?? 5, 2026),
         1000,
         overrides.status ?? 'PENDING',
         overrides.reminder_threshold_date ?? null,
@@ -175,9 +176,14 @@ describe('Fee Dues E2E', () => {
       await createFee(s1, { status: 'PENDING' });
       const bigFeeStudentId = s2;
       await dataSource.query(
-        `INSERT INTO student_fees (id, student_id, academic_year_id, month, year, total_amount, paid_amount, discount_amount, status, created_at, updated_at)
-         VALUES (DEFAULT, $1, $2, 6, 2026, 5000, 0, 0, 'PENDING', NOW(), NOW())`,
-        [bigFeeStudentId, SEED_ACADEMIC_YEAR_ID],
+        `INSERT INTO student_fees (id, student_id, academic_year_id, fee_structure_id, period_start, total_amount, paid_amount, discount_amount, status, created_at, updated_at)
+         VALUES (DEFAULT, $1, $2, $3, $4::date, 5000, 0, 0, 'PENDING', NOW(), NOW())`,
+        [
+          bigFeeStudentId,
+          SEED_ACADEMIC_YEAR_ID,
+          await ensureFeeStructure(dataSource),
+          periodStart(6, 2026),
+        ],
       );
 
       const res = await supertest(app.getHttpServer())

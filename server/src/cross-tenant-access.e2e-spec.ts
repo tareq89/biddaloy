@@ -169,7 +169,6 @@ describe('Cross-tenant access (regression)', () => {
         amount: 500,
         class_id: SEED_CLASS_1_ID,
         academic_year_id: SEED_ACADEMIC_YEAR_ID,
-        month: 1,
       })
       .expect(201);
     const feeStructureId = feeStructureRes.body.id;

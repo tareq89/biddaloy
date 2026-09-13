@@ -278,6 +278,26 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
     reason: "staff-only aggregate read across a guardian's students",
   },
   {
+    controller: 'FeeGenerationsController',
+    method: 'GET',
+    path: '/fees/generations',
+    reason:
+      '[16.1.4] staff-only billing-run history — every role holds FEE_READ so a family ' +
+      'caller could otherwise see every batch a school has ever run',
+  },
+  {
+    controller: 'FeeGenerationsController',
+    method: 'GET',
+    path: '/fees/generations/:id',
+    reason: '[16.1.4] staff-only billing-run detail, same reason as the list route',
+  },
+  {
+    controller: 'FeeGenerationsController',
+    method: 'GET',
+    path: '/fees/generations/:id/bills',
+    reason: '[16.1.4] staff-only: lists every student billed in a run, across families',
+  },
+  {
     controller: 'CommunicationsController',
     method: 'POST',
     path: '/communications/send',

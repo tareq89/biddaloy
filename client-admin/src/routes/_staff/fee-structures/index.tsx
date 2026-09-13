@@ -13,7 +13,6 @@ import {
   Button,
   CachedDataNotice,
   RoutePending,
-  StatusBadge,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
 import {
@@ -37,16 +36,12 @@ import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loader
 import { DeleteStructureDialog } from './-delete-structure-dialog';
 import { StructureFormDialog } from './-structure-form-dialog';
 
-const MONTHS = Array.from({ length: 12 }, (_, index) => index + 1);
-
 interface FeeStructureFilters {
   search?: string | undefined;
   academic_year_id?: string | undefined;
   class_id?: string | undefined;
   section_id?: string | undefined;
-  month?: string | undefined;
   fee_type?: string | undefined;
-  is_recurring?: string | undefined;
 }
 
 const feeStructuresSearchSchema = z.object({
@@ -59,16 +54,6 @@ const feeStructuresSearchSchema = z.object({
   class_id: z.string().optional().catch(undefined),
   section_id: z.string().optional().catch(undefined),
   fee_type: z.string().optional().catch(undefined),
-  is_recurring: z.string().optional().catch(undefined),
-  // Validated as a real 1–12 month rather than a free string: `toListFilters`
-  // does `Number(month)`, so `?month=abc` would otherwise reach the API as
-  // `month=NaN` and come back a 400, showing the error state instead of
-  // degrading to "all months" the way `page`/`limit` already do.
-  month: z
-    .string()
-    .regex(/^(?:[1-9]|1[0-2])$/)
-    .optional()
-    .catch(undefined),
   // Reserved key `use-list-shell-state.ts` stores row selection under — it
   // must be declared here or TanStack Router's `validateSearch` strips it
   // from the URL on every navigation. This page wires no bulk actions
@@ -84,11 +69,7 @@ function toListFilters(filters: FeeStructureFilters) {
       : {}),
     ...(filters.class_id !== undefined ? { class_id: filters.class_id } : {}),
     ...(filters.section_id !== undefined ? { section_id: filters.section_id } : {}),
-    ...(filters.month !== undefined ? { month: Number(filters.month) } : {}),
     ...(filters.fee_type !== undefined ? { fee_type: filters.fee_type as FeeType } : {}),
-    ...(filters.is_recurring !== undefined
-      ? { is_recurring: filters.is_recurring === 'true' }
-      : {}),
   };
 }
 
@@ -98,10 +79,9 @@ function toListFilters(filters: FeeStructureFilters) {
  * `sorting={null}`/no-op `onSortingChange` used to be a deliberate stub
  * because no such param existed — correction 9 flags it as one of four
  * pages where that's now stale and needs wiring up for real. */
-const SORT_FIELD_BY_COLUMN: Partial<Record<string, 'name' | 'amount' | 'month' | 'created_at'>> = {
+const SORT_FIELD_BY_COLUMN: Partial<Record<string, 'name' | 'amount' | 'created_at'>> = {
   name: 'name',
   amount: 'amount',
-  month: 'month',
 };
 
 export const Route = createFileRoute('/_staff/fee-structures/')({
@@ -115,9 +95,7 @@ export const Route = createFileRoute('/_staff/fee-structures/')({
     academicYearId: search.academic_year_id,
     classId: search.class_id,
     sectionId: search.section_id,
-    month: search.month,
     feeType: search.fee_type,
-    isRecurring: search.is_recurring,
   }),
   loader: ({ context: { queryClient }, deps }) => {
     const sortField = deps.sort !== undefined ? SORT_FIELD_BY_COLUMN[deps.sort] : undefined;
@@ -134,9 +112,7 @@ export const Route = createFileRoute('/_staff/fee-structures/')({
               academic_year_id: deps.academicYearId,
               class_id: deps.classId,
               section_id: deps.sectionId,
-              month: deps.month,
               fee_type: deps.feeType,
-              is_recurring: deps.isRecurring,
             }),
             ...(sortField !== undefined ? { sort: sortField } : {}),
             ...(deps.order !== undefined ? { order: deps.order } : {}),
@@ -196,10 +172,6 @@ function FeeStructuresListPage() {
     actions.setFilters(next);
   }
 
-  function monthLabel(month: number) {
-    return t(`months.${month}`);
-  }
-
   const filterFields: FilterFieldDescriptor[] = [
     {
       kind: 'text',
@@ -247,18 +219,6 @@ function FeeStructuresListPage() {
         label: t(`feeTypes.${feeType}`),
       })),
     },
-    {
-      kind: 'checkbox',
-      key: 'is_recurring',
-      label: t('list.recurringOnlyLabel'),
-    },
-    {
-      kind: 'select',
-      key: 'month',
-      label: t('list.monthLabel'),
-      allLabel: t('list.allMonths'),
-      options: MONTHS.map((month) => ({ value: String(month), label: monthLabel(month) })),
-    },
   ];
 
   const columns: DataTableColumn<FeeStructure>[] = [
@@ -289,47 +249,16 @@ function FeeStructuresListPage() {
     {
       id: 'class',
       header: t('list.columnClass'),
+      // `class` is null for a school-wide structure ([16.1.2] dropped
+      // per-student targeting in favour of this simpler "no class ==
+      // whole school" shape).
       accessorFn: (row) =>
-        row.section ? `${row.class.name} · ${row.section.section_name}` : row.class.name,
+        row.class === null
+          ? t('list.wholeSchool')
+          : row.section
+            ? `${row.class.name} · ${row.section.section_name}`
+            : row.class.name,
       card: 'subtitle',
-    },
-    {
-      id: 'month',
-      header: t('list.columnMonth'),
-      // For a recurring structure `month` is an effective-*from* marker
-      // (generation applies to every month ≥ it), so the cell says so
-      // rather than implying a single month.
-      accessorFn: (row) =>
-        row.is_recurring
-          ? t('list.fromMonth', { month: monthLabel(row.month) })
-          : monthLabel(row.month),
-      sortable: true,
-    },
-    {
-      id: 'recurrence',
-      header: t('list.columnRecurrence'),
-      accessorFn: (row) => (
-        <StatusBadge domain="feeStructure" status={row.is_recurring ? 'RECURRING' : 'ONE_TIME'} />
-      ),
-      card: 'badge',
-    },
-    {
-      id: 'applicability',
-      header: t('list.columnApplicability'),
-      // `GET /fee-structures` deliberately omits `selected_students` (only
-      // the detail endpoint loads it), so the exact count is only shown
-      // when the server happened to supply it — otherwise the generic
-      // label, never a fabricated number.
-      accessorFn: (row) => {
-        // Compared as a string literal, not `FeeApplicability.SELECTED`:
-        // the generated client type is a string union, not the shared
-        // enum, so an enum comparison here is unsound.
-        if (row.applicability !== 'SELECTED') return t('list.wholeClass');
-        const selectedCount = row.selected_students?.length;
-        return selectedCount === undefined
-          ? t('list.selectedStudentsGeneric')
-          : t('list.selectedStudents', { count: selectedCount });
-      },
     },
     ...(canUpdate || canDelete
       ? [

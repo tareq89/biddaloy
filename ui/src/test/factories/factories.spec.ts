@@ -139,7 +139,7 @@ describe('cross-entity typing derives from the generated OpenAPI schema', () => 
   it("feeStructureFactory's amount/class/academic_year line up with StudentFee's own relations", () => {
     const feeStructure = feeStructureFactory();
     const due = studentFeeFactory({}, undefined);
-    expect(feeStructure.class_id).toBe(feeStructure.class.id);
+    expect(feeStructure.class_id).toBe(feeStructure.class?.id);
     expect(due.academic_year_id).toBe(due.academic_year.id);
   });
 

@@ -4,7 +4,6 @@ import { DataSource } from 'typeorm';
 import JSZip from 'jszip';
 import {
   FeeType,
-  FeeApplicability,
   FeeStatus,
   InvoiceStatus,
   PaymentMethod,
@@ -469,12 +468,9 @@ describe('workbook round trip (integration)', () => {
         fee_type: FeeType.MONTHLY_TUITION,
         name: 'Tuition - January',
         amount: 1500,
-        applicability: FeeApplicability.ALL,
         class_id: klass.id,
         academic_year_id: year.id,
         section_id: null,
-        month: 1,
-        is_recurring: true,
         tenant_id: TENANT_A,
       }),
     );
@@ -483,8 +479,9 @@ describe('workbook round trip (integration)', () => {
       dataSource.getRepository(StudentFee).create({
         student_id: student.id,
         academic_year_id: year.id,
-        month: 1,
-        year: 2026,
+        fee_structure_id: feeStructure.id,
+        // 16.1.3: `month`/`year` are generated from `period_start`.
+        period_start: new Date(Date.UTC(2026, 0, 1)),
         total_amount: 1500,
         paid_amount: 1500,
         discount_amount: 0,

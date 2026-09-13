@@ -351,7 +351,6 @@ export async function createStudentWithDues(
     amount: options.amount ?? 500,
     class_id: chain.classId,
     academic_year_id: chain.academicYearId,
-    month: 1,
   });
   await post(request, session, '/fees/generate', {
     academic_year_id: chain.academicYearId,

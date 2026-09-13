@@ -16,6 +16,7 @@ import {
   SEED_ACADEMIC_YEAR_ID,
   SEED_ADMIN_PASSWORD_HASH,
 } from '@test/constants';
+import { ensureFeeStructure, periodStart } from '@test/helpers/fee-fixture.helper';
 import { UserRole } from '@biddaloy/shared';
 
 /**
@@ -98,9 +99,14 @@ describe('Bulk Reminder Read/Preview E2E', () => {
 
   async function createFee(studentId: string): Promise<void> {
     await dataSource.query(
-      `INSERT INTO student_fees (id, student_id, academic_year_id, month, year, total_amount, paid_amount, discount_amount, status, created_at, updated_at)
-       VALUES (DEFAULT, $1, $2, 5, 2026, 1000, 0, 0, 'PENDING', NOW(), NOW())`,
-      [studentId, SEED_ACADEMIC_YEAR_ID],
+      `INSERT INTO student_fees (id, student_id, academic_year_id, fee_structure_id, period_start, total_amount, paid_amount, discount_amount, status, created_at, updated_at)
+       VALUES (DEFAULT, $1, $2, $3, $4::date, 1000, 0, 0, 'PENDING', NOW(), NOW())`,
+      [
+        studentId,
+        SEED_ACADEMIC_YEAR_ID,
+        await ensureFeeStructure(dataSource),
+        periodStart(5, 2026),
+      ],
     );
   }
 

@@ -18,10 +18,12 @@ import { ReminderBatch } from '../src/modules/communications/entities/reminder-b
 import { SmsCreditLedger } from '../src/modules/communications/credits/entities/sms-credit-ledger.entity';
 import { SmsCreditBalance } from '../src/modules/communications/credits/entities/sms-credit-balance.entity';
 import { FeeStructure } from '../src/modules/fees/entities/fee-structure.entity';
-import { FeeStructureStudent } from '../src/modules/fees/entities/fee-structure-student.entity';
 import { Payment } from '../src/modules/fees/entities/payment.entity';
 import { PaymentAllocation } from '../src/modules/fees/entities/payment-allocation.entity';
 import { StudentFee } from '../src/modules/fees/entities/student-fee.entity';
+import { FeeGeneration } from '../src/modules/fees/entities/fee-generation.entity';
+import { StudentWallet } from '../src/modules/fees/entities/student-wallet.entity';
+import { WalletTransaction } from '../src/modules/fees/entities/wallet-transaction.entity';
 import { Invoice } from '../src/modules/invoices/entities/invoice.entity';
 import { School } from '../src/modules/schools/entities/school.entity';
 import { Student } from '../src/modules/students/entities/student.entity';
@@ -52,10 +54,12 @@ export const ALL_ENTITIES = [
   SmsCreditLedger,
   SmsCreditBalance,
   FeeStructure,
-  FeeStructureStudent,
   Payment,
   PaymentAllocation,
   StudentFee,
+  FeeGeneration,
+  StudentWallet,
+  WalletTransaction,
   Invoice,
   School,
   Student,

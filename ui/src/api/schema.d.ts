@@ -1220,6 +1220,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/fees/generations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Page of fee-generation batches, newest first, with billed/collected totals and collection status. */
+        get: operations["FeeGenerationsController_findAll_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fees/generations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One fee-generation batch. */
+        get: operations["FeeGenerationsController_findOne_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fees/generations/{id}/bills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Paged bills this batch created, with student/fee detail. */
+        get: operations["FeeGenerationsController_findBills_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/students/{id}/wallet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A student's wallet balance and transaction history. A PARENT or STUDENT must additionally be linked to this student, and gets a reduced transaction shape without staff-only fields. */
+        get: operations["WalletController_getWallet_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/push/public-key": {
         parameters: {
             query?: never;
@@ -3121,17 +3189,12 @@ export interface components {
             fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
             name: string;
             amount: number;
-            /** @enum {string} */
-            applicability: "ALL" | "SELECTED";
-            class: components["schemas"]["Class"];
-            class_id: string;
+            class: components["schemas"]["Class"] | null;
+            class_id: string | null;
             section: components["schemas"]["ClassSection"] | null;
             section_id: string | null;
             academic_year: components["schemas"]["AcademicYear"];
             academic_year_id: string;
-            month: number;
-            is_recurring: boolean;
-            selected_students?: components["schemas"]["FeeStructureStudent"][];
             tenant: components["schemas"]["School"];
             tenant_id: string;
             /** Format: date-time */
@@ -3141,26 +3204,15 @@ export interface components {
             /** Format: date-time */
             deleted_at: string | null;
         };
-        FeeStructureStudent: {
-            id: string;
-            fee_structure?: components["schemas"]["FeeStructure"];
-            fee_structure_id: string;
-            student: components["schemas"]["Student"];
-            student_id: string;
-        };
         FamilyFeeStructureDto: {
             id: string;
             /** @enum {string} */
             fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
             name: string;
             amount: number;
-            /** @enum {string} */
-            applicability: "ALL" | "SELECTED";
-            class_id: string;
+            class_id: string | null;
             section_id: string | null;
             academic_year_id: string;
-            month: number;
-            is_recurring: boolean;
         };
         IssuerSnapshot: {
             name: string;
@@ -3178,20 +3230,30 @@ export interface components {
             student_id: string;
             academic_year: components["schemas"]["AcademicYear"];
             academic_year_id: string;
+            fee_structure: components["schemas"]["FeeStructure"];
+            fee_structure_id: string;
+            fee_generation_id: string | null;
+            /** Format: date-time */
+            period_start: string;
+            /** @enum {string} */
+            period_type: "MONTH" | "WEEK";
+            occurrence: number;
             month: number;
             year: number;
             total_amount: number;
             paid_amount: number;
             discount_amount: number;
+            standing_discount_amount: number;
+            one_off_discount_amount: number;
             /** @enum {string} */
             status: "PENDING" | "PARTIALLY_PAID" | "PAID" | "OVERDUE" | "WAIVED" | "ADVANCE";
             /** Format: date-time */
             due_date: string | null;
             /** Format: date-time */
             reminder_threshold_date: string | null;
-            is_advance_payment: boolean;
-            original_advance_month: number | null;
-            original_advance_year: number | null;
+            approved_by_user_id: string | null;
+            late_fee_for_student_fee_id: string | null;
+            late_fee_for_student_fee: components["schemas"]["StudentFee"] | null;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -3246,6 +3308,18 @@ export interface components {
             payment_date: string;
             tenant: components["schemas"]["School"];
             tenant_id: string;
+            idempotency_key: string | null;
+            tendered_amount: number | null;
+            change_amount: number;
+            wallet_credit_used: number;
+            wallet_credit_added: number;
+            reversal_of_payment: components["schemas"]["Payment"] | null;
+            reversal_of_payment_id: string | null;
+            reversed_by_payment: components["schemas"]["Payment"] | null;
+            reversed_by_payment_id: string | null;
+            reversal_reason: string | null;
+            approved_by: components["schemas"]["User"] | null;
+            approved_by_user_id: string | null;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -3262,6 +3336,7 @@ export interface components {
             allocated_amount: number;
             /** @enum {string} */
             allocation_type: "DUE" | "CURRENT" | "ADVANCE";
+            discount_amount: number;
             notes: string | null;
             /** Format: date-time */
             created_at: string;
@@ -3291,11 +3366,23 @@ export interface components {
         };
         StaffDueEntryDto: {
             student_fee_id: string;
+            fee_structure_id: string;
+            fee_name: string;
+            /** @enum {string} */
+            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
             month: number;
             year: number;
+            /** Format: date-time */
+            period_start: string;
+            /** @enum {string} */
+            period_type: "MONTH" | "WEEK";
+            occurrence: number;
+            is_late_fee: boolean;
             total_amount: number;
             paid_amount: number;
             discount_amount: number;
+            standing_discount_amount: number;
+            one_off_discount_amount: number;
             balance: number;
             /** @enum {string} */
             status: "PENDING" | "PARTIALLY_PAID" | "PAID" | "OVERDUE" | "WAIVED" | "ADVANCE";
@@ -3317,8 +3404,16 @@ export interface components {
         };
         FamilyDueEntryDto: {
             student_fee_id: string;
+            fee_name: string;
+            /** @enum {string} */
+            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
             month: number;
             year: number;
+            /** Format: date-time */
+            period_start: string;
+            /** @enum {string} */
+            period_type: "MONTH" | "WEEK";
+            is_late_fee: boolean;
             total_amount: number;
             paid_amount: number;
             discount_amount: number;
@@ -3360,30 +3455,22 @@ export interface components {
             fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
             name: string;
             amount: number;
-            /** @enum {string} */
-            applicability?: "ALL" | "SELECTED";
             /** Format: uuid */
-            class_id: string;
+            class_id?: string | null;
             /** Format: uuid */
             section_id?: string | null;
             /** Format: uuid */
             academic_year_id: string;
-            month: number;
-            is_recurring?: boolean;
-            student_ids?: string[];
         };
         UpdateFeeStructureDto: {
             /** @enum {string} */
             fee_type?: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
             name?: string;
             amount?: number;
-            /** @enum {string} */
-            applicability?: "ALL" | "SELECTED";
+            /** Format: uuid */
+            class_id?: string | null;
             /** Format: uuid */
             section_id?: string | null;
-            month?: number;
-            is_recurring?: boolean;
-            student_ids?: string[];
         };
         CreatePaymentDto: {
             /** Format: uuid */
@@ -3414,6 +3501,89 @@ export interface components {
             transaction_reference?: string;
             remarks?: string;
             generate_invoice?: boolean;
+            idempotency_key?: string;
+        };
+        FeeGenerationStructureSnapshot: {
+            id: string;
+            name: string;
+            fee_type: string;
+            amount: number;
+        };
+        FeeGeneration: {
+            structures: components["schemas"]["FeeGenerationStructureSnapshot"][];
+            id: string;
+            tenant: components["schemas"]["School"];
+            tenant_id: string;
+            academic_year: components["schemas"]["AcademicYear"];
+            academic_year_id: string;
+            /** Format: date-time */
+            period_start: string;
+            /** @enum {string} */
+            period_type: "MONTH" | "WEEK";
+            /** Format: date-time */
+            due_date: string;
+            /** @enum {string} */
+            source: "MANUAL" | "SCHEDULE";
+            recurring_schedule_id: string | null;
+            generated_by: components["schemas"]["User"] | null;
+            generated_by_user_id: string | null;
+            approved_by: components["schemas"]["User"] | null;
+            approved_by_user_id: string | null;
+            /** @enum {string} */
+            duplicate_strategy: "SKIP" | "REMOVE_OLDER" | "CREATE_ANYWAY";
+            notify_families: boolean;
+            student_count: number;
+            generated_count: number;
+            skipped_count: number;
+            removed_count: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            deleted_at: string | null;
+        };
+        StudentWallet: {
+            id: string;
+            tenant: components["schemas"]["School"];
+            tenant_id: string;
+            student: components["schemas"]["Student"];
+            student_id: string;
+            balance: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        WalletTransaction: {
+            id: string;
+            tenant_id: string;
+            wallet: components["schemas"]["StudentWallet"];
+            wallet_id: string;
+            amount: number;
+            /** @enum {string} */
+            kind: "CREDIT_OVERPAYMENT" | "CREDIT_CHANGE" | "DEBIT_CHECKOUT" | "DEBIT_GENERATION" | "REVERSAL";
+            payment_id: string | null;
+            student_fee_id: string | null;
+            reversal_of_id: string | null;
+            created_by_user_id: string | null;
+            note: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        StudentWalletResponseDto: {
+            balance: number;
+            transactions: components["schemas"]["WalletTransaction"][];
+        };
+        FamilyWalletTransactionDto: {
+            amount: number;
+            /** @enum {string} */
+            kind: "CREDIT_OVERPAYMENT" | "CREDIT_CHANGE" | "DEBIT_CHECKOUT" | "DEBIT_GENERATION" | "REVERSAL";
+            note: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        FamilyStudentWalletResponseDto: {
+            balance: number;
+            transactions: components["schemas"]["FamilyWalletTransactionDto"][];
         };
         PushPublicKeyResponseDto: {
             enabled: boolean;
@@ -3677,8 +3847,15 @@ export interface components {
             id: string;
             student_id: string;
             academic_year_id: string;
+            fee_name: string;
+            /** @enum {string} */
+            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
             month: number;
             year: number;
+            /** Format: date-time */
+            period_start: string;
+            /** @enum {string} */
+            period_type: "MONTH" | "WEEK";
             total_amount: number;
             paid_amount: number;
             discount_amount: number;
@@ -3686,7 +3863,6 @@ export interface components {
             status: "PENDING" | "PARTIALLY_PAID" | "PAID" | "OVERDUE" | "WAIVED" | "ADVANCE";
             /** Format: date-time */
             due_date: string | null;
-            is_advance_payment: boolean;
         };
         FamilyInvoiceDto: {
             /** @description Always `null` for a family caller; the staff variant carries the issuing user. */
@@ -6879,6 +7055,7 @@ export interface operations {
                 month?: number;
                 year?: number;
                 status?: components["schemas"]["Object"];
+                fee_type?: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
                 search?: string;
                 sort_by?: "due_amount" | "name" | "class";
                 sort_order?: "ASC" | "DESC";
@@ -6998,12 +7175,11 @@ export interface operations {
             query?: {
                 academic_year_id?: string;
                 class_id?: string;
-                month?: number;
                 search?: string;
                 fee_type?: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
                 section_id?: string;
-                is_recurring?: boolean;
-                sort?: "name" | "created_at" | "month" | "amount";
+                include_deleted?: boolean;
+                sort?: "name" | "created_at" | "amount";
                 order?: "asc" | "desc";
                 page?: number;
                 limit?: number;
@@ -7377,7 +7553,150 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
                 content?: never;
+            };
+        };
+    };
+    FeeGenerationsController_findAll_v1: {
+        parameters: {
+            query?: {
+                period_from?: string;
+                period_to?: string;
+                fee_type?: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
+                source?: "MANUAL" | "SCHEDULE";
+                generated_by_user_id?: string;
+                collection_status?: "NONE" | "PARTIAL" | "FULL";
+                page?: number;
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FeeGenerationsController_findOne_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeeGeneration"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FeeGenerationsController_findBills_v1: {
+        parameters: {
+            query?: {
+                page?: number;
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    WalletController_getWallet_v1: {
+        parameters: {
+            query?: {
+                page?: unknown;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The full `StudentWalletResponseDto` for staff; a `FamilyStudentWalletResponseDto` (allow-listed transaction fields only) for a PARENT/STUDENT. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentWalletResponseDto"] | components["schemas"]["FamilyStudentWalletResponseDto"];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {

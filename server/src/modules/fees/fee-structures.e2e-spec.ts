@@ -6,7 +6,7 @@ import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { DataSource } from 'typeorm';
-import { UserRole, FeeType, FeeApplicability } from '@biddaloy/shared';
+import { UserRole, FeeType } from '@biddaloy/shared';
 import {
   SEED_TENANT_ID,
   SEED_ADMIN_EMAIL,
@@ -19,8 +19,10 @@ import {
 /**
  * E2E tests for Fee Structure endpoints.
  *
- * Tests CRUD operations for fee structures with applicability
- * (ALL / SELECTED), tenant isolation, and RBAC.
+ * A fee structure is now a plain price tag — `name`, `fee_type`, `amount`,
+ * `academic_year_id`, and an optional `class_id`/`section_id` label. It no
+ * longer decides who gets billed or when: `month`, `is_recurring` and
+ * `applicability` are gone from the DTOs and rejected by the whitelist.
  */
 
 const OTHER_TENANT_ID = '00000000-0000-4000-8000-000000000099';
@@ -88,10 +90,8 @@ describe('Fee Structures E2E', () => {
           fee_type: FeeType.MONTHLY_TUITION,
           name: 'Monthly Tuition',
           amount: 5000,
-          applicability: FeeApplicability.ALL,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
         })
         .expect(201);
 
@@ -99,6 +99,42 @@ describe('Fee Structures E2E', () => {
       expect(res.body.name).toBe('Monthly Tuition');
       expect(Number(res.body.amount)).toBe(5000);
       expect(res.body.tenant_id).toBe(TENANT_ID);
+    });
+
+    it('should create a school-wide fee structure without a class_id', async () => {
+      const res = await supertest(app.getHttpServer())
+        .post('/api/v1/fee-structures')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({
+          fee_type: FeeType.MONTHLY_TUITION,
+          name: 'School-wide Fee',
+          amount: 500,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        })
+        .expect(201);
+
+      expect(res.body.id).toBeDefined();
+      expect(res.body.class_id).toBeNull();
+    });
+
+    it('should return 400 when the body carries dropped fields (month/applicability)', async () => {
+      const res = await supertest(app.getHttpServer())
+        .post('/api/v1/fee-structures')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({
+          fee_type: FeeType.MONTHLY_TUITION,
+          name: 'Whitelist Check',
+          amount: 1000,
+          class_id: SEED_CLASS_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          month: 1,
+          applicability: 'ALL',
+        })
+        .expect(400);
+
+      expect(JSON.stringify(res.body.message)).toMatch(/month|applicability/i);
     });
 
     it('should return 401 without X-Tenant-ID header', async () => {
@@ -111,7 +147,6 @@ describe('Fee Structures E2E', () => {
           amount: 1000,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
         })
         .expect(401);
 
@@ -130,7 +165,6 @@ describe('Fee Structures E2E', () => {
           amount: 1000,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
         })
         .expect(401);
 
@@ -148,7 +182,6 @@ describe('Fee Structures E2E', () => {
           amount: 1000,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
         })
         .expect(401);
 
@@ -156,7 +189,7 @@ describe('Fee Structures E2E', () => {
     });
 
     it('should return 400 for invalid DTO (missing required fields)', async () => {
-      const res = await supertest(app.getHttpServer())
+      await supertest(app.getHttpServer())
         .post('/api/v1/fee-structures')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
@@ -212,7 +245,6 @@ describe('Fee Structures E2E', () => {
           amount: 3000,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 2,
         })
         .expect(201);
 
@@ -227,7 +259,7 @@ describe('Fee Structures E2E', () => {
     });
 
     it('should return 404 for a non-existent fee structure', async () => {
-      const res = await supertest(app.getHttpServer())
+      await supertest(app.getHttpServer())
         .get('/api/v1/fee-structures/00000000-0000-4000-8000-000000000000')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
@@ -251,7 +283,6 @@ describe('Fee Structures E2E', () => {
           amount: 1000,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 6,
         })
         .expect(201);
 
@@ -289,18 +320,15 @@ describe('Fee Structures E2E', () => {
         );
 
         const otherFeeStructure = await dataSource.query(
-          `INSERT INTO fee_structures (id, fee_type, name, amount, applicability, class_id, academic_year_id, month, is_recurring, tenant_id, created_at, updated_at)
-           VALUES (DEFAULT, $1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+          `INSERT INTO fee_structures (id, fee_type, name, amount, class_id, academic_year_id, tenant_id, created_at, updated_at)
+           VALUES (DEFAULT, $1, $2, $3, $4, $5, $6, NOW(), NOW())
            RETURNING id`,
           [
             FeeType.MONTHLY_TUITION,
             'Tenant B Fee',
             999,
-            FeeApplicability.ALL,
             otherClassId,
             otherAcademicYearId,
-            7,
-            true,
             OTHER_TENANT_ID,
           ],
         );
@@ -340,7 +368,6 @@ describe('Fee Structures E2E', () => {
           amount: 2000,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 3,
         })
         .expect(201);
 
@@ -355,6 +382,39 @@ describe('Fee Structures E2E', () => {
       expect(Number(res.body.amount)).toBe(2500);
     });
 
+    it('writes an audit row when amount changes (D7)', async () => {
+      const createRes = await supertest(app.getHttpServer())
+        .post('/api/v1/fee-structures')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({
+          fee_type: FeeType.MONTHLY_TUITION,
+          name: 'Audited Fee',
+          amount: 1000,
+          class_id: SEED_CLASS_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        })
+        .expect(201);
+
+      await supertest(app.getHttpServer())
+        .patch(`/api/v1/fee-structures/${createRes.body.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ amount: 1200 })
+        .expect(200);
+
+      const rows = await dataSource.query(
+        `SELECT * FROM audit_logs WHERE entity_type = 'FeeStructure' AND entity_id = $1
+         ORDER BY created_at ASC`,
+        [createRes.body.id],
+      );
+      expect(rows.length).toBeGreaterThan(0);
+      const latest = rows[rows.length - 1];
+      expect(latest.action).toBe('UPDATE');
+      expect(Number(latest.old_values.amount)).toBe(1000);
+      expect(Number(latest.new_values.amount)).toBe(1200);
+    });
+
     it('should return 401 for STUDENT role', async () => {
       const createRes = await supertest(app.getHttpServer())
         .post('/api/v1/fee-structures')
@@ -366,7 +426,6 @@ describe('Fee Structures E2E', () => {
           amount: 1000,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 8,
         })
         .expect(201);
 
@@ -383,7 +442,7 @@ describe('Fee Structures E2E', () => {
   });
 
   describe('DELETE /fee-structures/:id', () => {
-    it('should delete a fee structure', async () => {
+    it('should soft-delete a fee structure: gone from GET, excluded from the default list, present with include_deleted', async () => {
       const createRes = await supertest(app.getHttpServer())
         .post('/api/v1/fee-structures')
         .set('Authorization', `Bearer ${adminToken}`)
@@ -394,22 +453,43 @@ describe('Fee Structures E2E', () => {
           amount: 1500,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 4,
         })
         .expect(201);
+      const id = createRes.body.id;
 
       await supertest(app.getHttpServer())
-        .delete(`/api/v1/fee-structures/${createRes.body.id}`)
+        .delete(`/api/v1/fee-structures/${id}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .expect(200);
 
       // Verify not found
       await supertest(app.getHttpServer())
-        .get(`/api/v1/fee-structures/${createRes.body.id}`)
+        .get(`/api/v1/fee-structures/${id}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .expect(404);
+
+      const rows = await dataSource.query(`SELECT deleted_at FROM fee_structures WHERE id = $1`, [
+        id,
+      ]);
+      expect(rows[0].deleted_at).not.toBeNull();
+
+      const defaultList = await supertest(app.getHttpServer())
+        .get('/api/v1/fee-structures')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .query({ search: 'Delete Fee' })
+        .expect(200);
+      expect(defaultList.body.data.find((row: { id: string }) => row.id === id)).toBeUndefined();
+
+      const withDeletedList = await supertest(app.getHttpServer())
+        .get('/api/v1/fee-structures')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .query({ search: 'Delete Fee', include_deleted: 'true' })
+        .expect(200);
+      expect(withDeletedList.body.data.find((row: { id: string }) => row.id === id)).toBeDefined();
     });
 
     it('should return 401 for STUDENT role on delete', async () => {
@@ -423,7 +503,6 @@ describe('Fee Structures E2E', () => {
           amount: 1000,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 5,
         })
         .expect(201);
 

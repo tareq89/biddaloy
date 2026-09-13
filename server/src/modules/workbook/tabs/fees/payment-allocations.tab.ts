@@ -70,6 +70,10 @@ const columns: readonly ColumnSpec[] = [
 const excluded: readonly string[] = [
   'payment_id', // exported instead as the `payment` ref column
   'student_fee_id', // exported instead as the `student_fee` ref column
+  // [16.1.6] One-off discount granted on this line at checkout time — not
+  // populated by anything yet (the checkout flow that sets it is 16.4.2).
+  // Revisit exporting it once checkout is real.
+  'discount_amount',
 ];
 
 /** Postgres error code for a foreign-key violation. */
@@ -100,6 +104,15 @@ export const paymentAllocationsTab: TabSpec<PaymentAllocation, PaymentAllocation
         'student_fee',
         'student_fee.student',
         'student_fee.academic_year',
+        // `studentFeesTab.keyOf` delegates to `feeStructuresTab.keyOf`
+        // (16.1.3), which needs the fee structure's own class/section/
+        // academic_year — loaded here too so this tab's own keyOf never
+        // falls back to an empty fee-structure segment.
+        'student_fee.fee_structure',
+        'student_fee.fee_structure.class',
+        'student_fee.fee_structure.class.academic_year',
+        'student_fee.fee_structure.academic_year',
+        'student_fee.fee_structure.section',
       ],
     });
   },

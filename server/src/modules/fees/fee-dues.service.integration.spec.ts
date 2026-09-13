@@ -3,6 +3,7 @@ import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { FeeDuesService } from './fee-dues.service';
 import { StudentFee } from './entities/student-fee.entity';
+import { FeeStructure } from './entities/fee-structure.entity';
 import { Student } from '../students/entities/student.entity';
 import { Guardian } from '../students/entities/guardian.entity';
 import { Class } from '../academics/entities/class.entity';
@@ -17,7 +18,13 @@ import {
   SEED_SECTION_1_ID,
   SEED_ACADEMIC_YEAR_ID,
 } from '@test/constants';
-import { EnrollmentStatus, CommunicationMedium, FeeStatus } from '@biddaloy/shared';
+import {
+  EnrollmentStatus,
+  CommunicationMedium,
+  FeeStatus,
+  FeeType,
+  PeriodType,
+} from '@biddaloy/shared';
 
 /**
  * Integration tests for FeeDuesService (issue #15).
@@ -32,6 +39,8 @@ const OTHER_TENANT_ID = '00000000-0000-4000-8000-000000000099';
 const SEED_CLASS_2_ID = '00000000-0000-4000-8000-000000000031';
 const SEED_SECTION_2_ID = '00000000-0000-4000-8000-000000000041';
 const SEED_CLASS_2_SECTION_ID = '00000000-0000-4000-8000-000000000042';
+const TUITION_STRUCTURE_ID = '00000000-0000-4000-8000-000000000051';
+const EXAM_STRUCTURE_ID = '00000000-0000-4000-8000-000000000052';
 
 let studentSeq = 0;
 
@@ -108,6 +117,43 @@ async function seedReferenceData(ds: DataSource): Promise<void> {
   await schoolRepo.save(
     schoolRepo.create({ id: OTHER_TENANT_ID, name: 'Other School', slug: 'other-school' }),
   );
+
+  await seedFeeStructures(ds);
+}
+
+/**
+ * `fee_structures` is one of `TRANSACTIONAL_TABLES_CHILD_FIRST` in
+ * `test/reset-order.ts` — the global `beforeEach` in `test/setup.ts`
+ * deletes it before *every* test, unlike `schools`/`classes`/
+ * `academic_years` (reset once per file). `StudentFee.fee_structure_id`
+ * is a required FK since 16.1.3, so every test needs these rows back —
+ * hence this is called from this file's own `beforeEach` too, not just
+ * `seedReferenceData`'s once-per-file setup.
+ */
+async function seedFeeStructures(ds: DataSource): Promise<void> {
+  const feeStructureRepo = ds.getRepository(FeeStructure);
+  await feeStructureRepo.save(
+    feeStructureRepo.create({
+      id: TUITION_STRUCTURE_ID,
+      fee_type: FeeType.MONTHLY_TUITION,
+      name: 'Tuition Fee',
+      amount: 1000,
+      class_id: SEED_CLASS_1_ID,
+      academic_year_id: SEED_ACADEMIC_YEAR_ID,
+      tenant_id: SEED_TENANT_ID,
+    }),
+  );
+  await feeStructureRepo.save(
+    feeStructureRepo.create({
+      id: EXAM_STRUCTURE_ID,
+      fee_type: FeeType.EXAM_FEE,
+      name: 'Exam Fee',
+      amount: 500,
+      class_id: SEED_CLASS_1_ID,
+      academic_year_id: SEED_ACADEMIC_YEAR_ID,
+      tenant_id: SEED_TENANT_ID,
+    }),
+  );
 }
 
 describe('FeeDuesService (integration)', () => {
@@ -137,17 +183,28 @@ describe('FeeDuesService (integration)', () => {
     });
   }
 
-  function makeFee(studentId: string, overrides: Partial<StudentFee> = {}) {
+  // `month`/`year` are stored generated columns derived from `period_start`
+  // now — callers still pass `month`/`year` for readability and this
+  // derives `period_start` from them, same as the fee-generation service does.
+  function makeFee(
+    studentId: string,
+    overrides: Partial<StudentFee> & { month?: number; year?: number } = {},
+  ) {
+    const { month = 1, year = 2026, ...rest } = overrides;
     return studentFeeRepo.create({
       student_id: studentId,
       academic_year_id: SEED_ACADEMIC_YEAR_ID,
-      month: 1,
-      year: 2026,
+      fee_structure_id: TUITION_STRUCTURE_ID,
+      period_start: new Date(Date.UTC(year, month - 1, 1)),
+      period_type: PeriodType.MONTH,
+      occurrence: 1,
       total_amount: 1000,
       paid_amount: 0,
       discount_amount: 0,
+      standing_discount_amount: 0,
+      one_off_discount_amount: 0,
       status: FeeStatus.PENDING,
-      ...overrides,
+      ...rest,
     });
   }
 
@@ -179,6 +236,9 @@ describe('FeeDuesService (integration)', () => {
       await dataSource.query('DELETE FROM student_guardians');
       await dataSource.query('DELETE FROM guardians');
       await dataSource.query('DELETE FROM students');
+      // fee_structures is truncated by the global per-test beforeEach
+      // (test/setup.ts) before this one runs — re-seed it every test.
+      await seedFeeStructures(dataSource);
     }
   });
 
@@ -203,6 +263,7 @@ describe('FeeDuesService (integration)', () => {
           total_amount: 1000,
           paid_amount: 200,
           discount_amount: 100,
+          standing_discount_amount: 100,
           status: FeeStatus.PARTIALLY_PAID,
         }),
       );
@@ -330,17 +391,12 @@ describe('FeeDuesService (integration)', () => {
     });
 
     it('searches by registration_number', async () => {
-      const match = await studentRepo.save(
-        makeStudent({ registration_number: 'REG-DUES-9999' }),
-      );
+      const match = await studentRepo.save(makeStudent({ registration_number: 'REG-DUES-9999' }));
       const other = await studentRepo.save(makeStudent());
       await studentFeeRepo.save(makeFee(match.id));
       await studentFeeRepo.save(makeFee(other.id));
 
-      const result = await service.getDues(
-        { search: 'DUES-9999', page: 1, limit: 10 },
-        TENANT_ID,
-      );
+      const result = await service.getDues({ search: 'DUES-9999', page: 1, limit: 10 }, TENANT_ID);
 
       expect(result.total).toBe(1);
       expect(result.data[0].student_id).toBe(match.id);
@@ -473,6 +529,99 @@ describe('FeeDuesService (integration)', () => {
       const result = await service.getDues({ page: 1, limit: 10 }, TENANT_ID);
 
       expect(result.data.some((d) => d.student_id === student.id)).toBe(false);
+    });
+  });
+
+  /**
+   * 16.1.3 — `student_fees` is one bill per student × fee structure ×
+   * period now, instead of one row per student × month that summed every
+   * applicable fee together. These pin the shape of the dues API on top
+   * of that: several bills for the same student in the same month still
+   * collapse into one summary row, with each bill showing up as its own
+   * entry in `dues[]`.
+   */
+  describe('bill semantics (16.1.3)', () => {
+    it('collapses two bills for the same student and month into one summary row', async () => {
+      const student = await studentRepo.save(makeStudent());
+      await studentFeeRepo.save(
+        makeFee(student.id, {
+          fee_structure_id: TUITION_STRUCTURE_ID,
+          total_amount: 1000,
+        }),
+      );
+      await studentFeeRepo.save(
+        makeFee(student.id, {
+          fee_structure_id: EXAM_STRUCTURE_ID,
+          total_amount: 500,
+        }),
+      );
+
+      const result = await service.getDues({ page: 1, limit: 10 }, TENANT_ID);
+
+      expect(result.total).toBe(1);
+      expect(result.data[0].total_due).toBe(1500);
+      expect(result.data[0].dues).toHaveLength(2);
+      expect(result.data[0].dues.map((d) => d.fee_name).sort()).toEqual([
+        'Exam Fee',
+        'Tuition Fee',
+      ]);
+    });
+
+    it('filters by fee_type, narrowing to students with an open bill of that type', async () => {
+      const tuitionOnly = await studentRepo.save(makeStudent());
+      const examOnly = await studentRepo.save(makeStudent());
+      await studentFeeRepo.save(
+        makeFee(tuitionOnly.id, { fee_structure_id: TUITION_STRUCTURE_ID }),
+      );
+      await studentFeeRepo.save(makeFee(examOnly.id, { fee_structure_id: EXAM_STRUCTURE_ID }));
+
+      const result = await service.getDues(
+        { fee_type: FeeType.EXAM_FEE, page: 1, limit: 10 },
+        TENANT_ID,
+      );
+
+      expect(result.total).toBe(1);
+      expect(result.data[0].student_id).toBe(examOnly.id);
+    });
+
+    it('flags a bill as a late fee via is_late_fee', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const original = await studentFeeRepo.save(
+        makeFee(student.id, { fee_structure_id: TUITION_STRUCTURE_ID }),
+      );
+      await studentFeeRepo.save(
+        makeFee(student.id, {
+          fee_structure_id: EXAM_STRUCTURE_ID,
+          late_fee_for_student_fee_id: original.id,
+        }),
+      );
+
+      const result = await service.getDues({ page: 1, limit: 10 }, TENANT_ID);
+
+      const entries = result.data[0].dues;
+      expect(entries.find((d) => d.student_fee_id === original.id)?.is_late_fee).toBe(false);
+      expect(entries.find((d) => d.student_fee_id !== original.id)?.is_late_fee).toBe(true);
+    });
+
+    it('keeps bills scoped to their own tenant', async () => {
+      const otherStructure = '00000000-0000-4000-8000-000000000053';
+      await dataSource.getRepository(FeeStructure).save(
+        dataSource.getRepository(FeeStructure).create({
+          id: otherStructure,
+          fee_type: FeeType.MONTHLY_TUITION,
+          name: 'Other Tenant Tuition',
+          amount: 1000,
+          class_id: SEED_CLASS_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          tenant_id: OTHER_TENANT_ID,
+        }),
+      );
+      const otherStudent = await studentRepo.save(makeStudent({ tenant_id: OTHER_TENANT_ID }));
+      await studentFeeRepo.save(makeFee(otherStudent.id, { fee_structure_id: otherStructure }));
+
+      const result = await service.getDues({ page: 1, limit: 10 }, TENANT_ID);
+
+      expect(result.data.some((d) => d.student_id === otherStudent.id)).toBe(false);
     });
   });
 
@@ -699,6 +848,7 @@ describe('FeeDuesService (integration)', () => {
           total_amount: 1000,
           paid_amount: 200,
           discount_amount: 100,
+          standing_discount_amount: 100,
           status: FeeStatus.PARTIALLY_PAID,
         }),
       );
@@ -778,6 +928,58 @@ describe('FeeDuesService (integration)', () => {
 
     it('short-circuits on an empty id list without querying', async () => {
       expect(await service.getDueSnapshots([], TENANT_ID)).toEqual(new Map());
+    });
+  });
+
+  /**
+   * 16.1.3 D2/D8 — the unique key moved from (student, academic_year,
+   * month, year) to (student, fee_structure, period_start, occurrence),
+   * and `discount_amount` must equal the sum of its two split columns.
+   * These exercise the actual Postgres constraints, not application code.
+   */
+  describe('DB constraints (16.1.3)', () => {
+    it('rejects a second bill for the same student/structure/period/occurrence', async () => {
+      const student = await studentRepo.save(makeStudent());
+      await studentFeeRepo.save(makeFee(student.id));
+
+      await expect(studentFeeRepo.save(makeFee(student.id))).rejects.toThrow();
+    });
+
+    it('allows a second occurrence for the same student/structure/period', async () => {
+      const student = await studentRepo.save(makeStudent());
+      await studentFeeRepo.save(makeFee(student.id, { occurrence: 1 }));
+
+      await expect(
+        studentFeeRepo.save(makeFee(student.id, { occurrence: 2 })),
+      ).resolves.toBeDefined();
+    });
+
+    it('rejects a discount_amount that does not equal the split sum', async () => {
+      const student = await studentRepo.save(makeStudent());
+
+      await expect(
+        studentFeeRepo.save(
+          makeFee(student.id, {
+            discount_amount: 100,
+            standing_discount_amount: 40,
+            one_off_discount_amount: 40,
+          }),
+        ),
+      ).rejects.toThrow();
+    });
+
+    it('accepts a discount_amount that equals the split sum', async () => {
+      const student = await studentRepo.save(makeStudent());
+
+      await expect(
+        studentFeeRepo.save(
+          makeFee(student.id, {
+            discount_amount: 80,
+            standing_discount_amount: 40,
+            one_off_discount_amount: 40,
+          }),
+        ),
+      ).resolves.toBeDefined();
     });
   });
 });

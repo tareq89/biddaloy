@@ -4,6 +4,7 @@ import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { PaymentAllocationService } from './payment-allocation.service';
 import { StudentFee } from './entities/student-fee.entity';
+import { FeeStructure } from './entities/fee-structure.entity';
 import { Payment } from './entities/payment.entity';
 import { PaymentAllocation } from './entities/payment-allocation.entity';
 import { Student } from '../students/entities/student.entity';
@@ -26,7 +27,13 @@ import {
   SEED_ADMIN_EMAIL,
   SEED_ADMIN_PASSWORD_HASH,
 } from '@test/constants';
-import { FeeStatus, PaymentMethod, PaymentAllocationType, AuditAction } from '@biddaloy/shared';
+import {
+  FeeStatus,
+  FeeType,
+  PaymentMethod,
+  PaymentAllocationType,
+  AuditAction,
+} from '@biddaloy/shared';
 
 /**
  * Integration tests for PaymentAllocationService (issue #13 — record-with-allocation).
@@ -39,17 +46,23 @@ import { FeeStatus, PaymentMethod, PaymentAllocationType, AuditAction } from '@b
 
 const OTHER_TENANT_ID = '00000000-0000-4000-8000-000000000099';
 
-/** Returns {month, year} for `offset` months relative to today, so DUE/CURRENT/ADVANCE
+/** Returns the first day of the month `offset` months from today, so DUE/CURRENT/ADVANCE
  * classification always lines up with the service's `new Date()`-based logic regardless
- * of when the test suite runs. */
-function monthOffset(offset: number): { month: number; year: number } {
+ * of when the test suite runs.
+ *
+ * Since 16.1.3 `student_fees.month`/`.year` are generated columns derived from
+ * `period_start`, so fixtures set the period and read month/year back. */
+function periodStart(offset: number): Date {
   const d = new Date();
   d.setDate(1); // avoid month-end rollover surprises
   d.setMonth(d.getMonth() + offset);
-  return { month: d.getMonth() + 1, year: d.getFullYear() };
+  return new Date(Date.UTC(d.getFullYear(), d.getMonth(), 1));
 }
 
 let studentSeq = 0;
+// Re-seeded per test (see `beforeEach`) — `student_fees.fee_structure_id`
+// became NOT NULL in 16.1.3, so every fixture bill is charged against it.
+let feeStructureId: string;
 
 async function seedReferenceData(ds: DataSource): Promise<void> {
   await ds.query('DELETE FROM audit_logs');
@@ -141,12 +154,11 @@ describe('PaymentAllocationService (integration)', () => {
   }
 
   function makeFee(studentId: string, offset: number, overrides: Partial<StudentFee> = {}) {
-    const { month, year } = monthOffset(offset);
     return studentFeeRepo.create({
       student_id: studentId,
       academic_year_id: SEED_ACADEMIC_YEAR_ID,
-      month,
-      year,
+      fee_structure_id: feeStructureId,
+      period_start: periodStart(offset),
       total_amount: 1000,
       paid_amount: 0,
       discount_amount: 0,
@@ -191,6 +203,21 @@ describe('PaymentAllocationService (integration)', () => {
       await dataSource.query('DELETE FROM payments');
       await dataSource.query('DELETE FROM student_fees');
       await dataSource.query('DELETE FROM students');
+      // `fee_structures` is globally truncated by `test/setup.ts`'s per-test
+      // `beforeEach`, which runs before this one — so re-seed the structure
+      // every test. `student_fees.fee_structure_id` is NOT NULL since 16.1.3.
+      const feeStructureRepo = dataSource.getRepository(FeeStructure);
+      const feeStructure = await feeStructureRepo.save(
+        feeStructureRepo.create({
+          name: 'Tuition',
+          fee_type: FeeType.MONTHLY_TUITION,
+          amount: '1000.00',
+          class_id: SEED_CLASS_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          tenant_id: TENANT_ID,
+        }),
+      );
+      feeStructureId = feeStructure.id;
     }
   });
 
@@ -422,17 +449,21 @@ describe('PaymentAllocationService (integration)', () => {
   });
 
   describe('FIFO allocation', () => {
-    it('allocates oldest dues first, then current, then advance in one payment', async () => {
+    it('allocates oldest dues first, then current, leaving a future-dated fee outstanding', async () => {
+      // [16.1.6] The ADVANCE path is removed (D5) — a future-dated fee can
+      // no longer be paid ahead of time, so it's simply left out of the
+      // allocations and stays outstanding; the rest of the FIFO chain still
+      // settles and still generates an invoice for what it does cover.
       const student = await studentRepo.save(makeStudent());
       const dueOld = await studentFeeRepo.save(makeFee(student.id, -2, { total_amount: 500 }));
       const dueRecent = await studentFeeRepo.save(makeFee(student.id, -1, { total_amount: 500 }));
       const current = await studentFeeRepo.save(makeFee(student.id, 0, { total_amount: 500 }));
-      const advance = await studentFeeRepo.save(makeFee(student.id, 1, { total_amount: 500 }));
+      const future = await studentFeeRepo.save(makeFee(student.id, 1, { total_amount: 500 }));
 
       const result = await service.recordWithAllocation(
         {
           student_id: student.id,
-          total_amount: 2000,
+          total_amount: 1500,
           payment_method: PaymentMethod.CASH,
           allocations: [
             {
@@ -450,11 +481,6 @@ describe('PaymentAllocationService (integration)', () => {
               allocated_amount: 500,
               allocation_type: PaymentAllocationType.CURRENT,
             },
-            {
-              student_fee_id: advance.id,
-              allocated_amount: 500,
-              allocation_type: PaymentAllocationType.ADVANCE,
-            },
           ],
         } as any,
         TENANT_ID,
@@ -462,16 +488,49 @@ describe('PaymentAllocationService (integration)', () => {
       );
 
       expect(result.invoice_id).not.toBeNull();
-      const fees = await studentFeeRepo.find({ where: { student_id: student.id } });
-      expect(fees.every((f) => f.status === FeeStatus.PAID)).toBe(true);
+      const paidFees = await studentFeeRepo.find({
+        where: [{ id: dueOld.id }, { id: dueRecent.id }, { id: current.id }],
+      });
+      expect(paidFees.every((f) => f.status === FeeStatus.PAID)).toBe(true);
+
+      const untouchedFuture = await studentFeeRepo.findOne({ where: { id: future.id } });
+      expect(untouchedFuture!.status).toBe(FeeStatus.PENDING);
+      expect(Number(untouchedFuture!.paid_amount)).toBe(0);
 
       const allocations = await allocationRepo.find({ where: { payment_id: result.id } });
-      expect(allocations).toHaveLength(4);
+      expect(allocations).toHaveLength(3);
       const byFee = new Map(allocations.map((a) => [a.student_fee_id, a.allocation_type]));
       expect(byFee.get(dueOld.id)).toBe(PaymentAllocationType.DUE);
       expect(byFee.get(dueRecent.id)).toBe(PaymentAllocationType.DUE);
       expect(byFee.get(current.id)).toBe(PaymentAllocationType.CURRENT);
-      expect(byFee.get(advance.id)).toBe(PaymentAllocationType.ADVANCE);
+    });
+
+    it('rejects an attempt to allocate against a future-dated (advance) fee', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const future = await studentFeeRepo.save(makeFee(student.id, 1, { total_amount: 500 }));
+
+      await expect(
+        service.recordWithAllocation(
+          {
+            student_id: student.id,
+            total_amount: 500,
+            payment_method: PaymentMethod.CASH,
+            allocations: [
+              {
+                student_fee_id: future.id,
+                allocated_amount: 500,
+                allocation_type: PaymentAllocationType.ADVANCE,
+              },
+            ],
+          } as any,
+          TENANT_ID,
+          SEED_ADMIN_USER_ID,
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      const unchanged = await studentFeeRepo.findOne({ where: { id: future.id } });
+      expect(unchanged!.status).toBe(FeeStatus.PENDING);
+      expect(Number(unchanged!.paid_amount)).toBe(0);
     });
 
     it('rejects paying a newer due while an older due remains outstanding', async () => {
@@ -663,7 +722,13 @@ describe('PaymentAllocationService (integration)', () => {
       // is still PENDING (nothing has re-evaluated the status) — this fee must
       // not silently absorb money with no PaymentAllocation to show for it.
       const fee = await studentFeeRepo.save(
-        makeFee(student.id, 0, { total_amount: 500, discount_amount: 500 }),
+        // 16.1.3 split `discount_amount` into standing + one-off components,
+        // with a CHECK that the total equals their sum.
+        makeFee(student.id, 0, {
+          total_amount: 500,
+          discount_amount: 500,
+          one_off_discount_amount: 500,
+        }),
       );
 
       await expect(
@@ -902,6 +967,161 @@ describe('PaymentAllocationService (integration)', () => {
       });
       const numbers = invoices.map((i) => i.invoice_number);
       expect(new Set(numbers).size).toBe(2);
+    });
+  });
+
+  describe('[16.1.6] idempotency', () => {
+    it('returns the same payment when the same idempotency key is submitted twice', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id, 0, { total_amount: 500 }));
+
+      const dto = {
+        student_id: student.id,
+        total_amount: 500,
+        payment_method: PaymentMethod.CASH,
+        allocations: [
+          {
+            student_fee_id: fee.id,
+            allocated_amount: 500,
+            allocation_type: PaymentAllocationType.CURRENT,
+          },
+        ],
+        idempotency_key: 'idem-key-1',
+      } as any;
+
+      const first = await service.recordWithAllocation(dto, TENANT_ID, SEED_ADMIN_USER_ID);
+      const second = await service.recordWithAllocation(dto, TENANT_ID, SEED_ADMIN_USER_ID);
+
+      expect(second.id).toBe(first.id);
+      const payments = await paymentRepo.find({ where: { student_id: student.id } });
+      expect(payments).toHaveLength(1);
+    });
+
+    it('two concurrent requests with the same idempotency key produce exactly one payment', async () => {
+      // Exercises the race path directly: the pre-check both requests run
+      // up front can't see each other's in-flight insert, so this proves
+      // the unique-index catch in the transaction (not just the cheap
+      // pre-check) is what actually prevents the double payment.
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id, 0, { total_amount: 500 }));
+
+      const dto = {
+        student_id: student.id,
+        total_amount: 500,
+        payment_method: PaymentMethod.CASH,
+        allocations: [
+          {
+            student_fee_id: fee.id,
+            allocated_amount: 500,
+            allocation_type: PaymentAllocationType.CURRENT,
+          },
+        ],
+        idempotency_key: 'idem-key-race',
+      } as any;
+
+      const [a, b] = await Promise.all([
+        service.recordWithAllocation(dto, TENANT_ID, SEED_ADMIN_USER_ID),
+        service.recordWithAllocation(dto, TENANT_ID, SEED_ADMIN_USER_ID),
+      ]);
+
+      expect(a.id).toBe(b.id);
+      const payments = await paymentRepo.find({ where: { student_id: student.id } });
+      expect(payments).toHaveLength(1);
+    });
+
+    it('rejects reusing an idempotency key for a different student/amount', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id, 0, { total_amount: 500 }));
+      const otherStudent = await studentRepo.save(makeStudent());
+      const otherFee = await studentFeeRepo.save(
+        makeFee(otherStudent.id, 0, { total_amount: 500 }),
+      );
+
+      await service.recordWithAllocation(
+        {
+          student_id: student.id,
+          total_amount: 500,
+          payment_method: PaymentMethod.CASH,
+          allocations: [
+            {
+              student_fee_id: fee.id,
+              allocated_amount: 500,
+              allocation_type: PaymentAllocationType.CURRENT,
+            },
+          ],
+          idempotency_key: 'idem-key-mismatch',
+        } as any,
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      await expect(
+        service.recordWithAllocation(
+          {
+            student_id: otherStudent.id,
+            total_amount: 500,
+            payment_method: PaymentMethod.CASH,
+            allocations: [
+              {
+                student_fee_id: otherFee.id,
+                allocated_amount: 500,
+                allocation_type: PaymentAllocationType.CURRENT,
+              },
+            ],
+            idempotency_key: 'idem-key-mismatch',
+          } as any,
+          TENANT_ID,
+          SEED_ADMIN_USER_ID,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('allows the same idempotency key to be reused across two different tenants', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id, 0, { total_amount: 500 }));
+      const otherStudent = await studentRepo.save(
+        makeStudent({ tenant_id: OTHER_TENANT_ID, class_section_id: SEED_SECTION_1_ID }),
+      );
+      const otherFee = await studentFeeRepo.save(
+        studentFeeRepo.create({
+          student_id: otherStudent.id,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          fee_structure_id: feeStructureId,
+          period_start: fee.period_start,
+          total_amount: 500,
+          paid_amount: 0,
+          discount_amount: 0,
+          status: FeeStatus.PENDING,
+        }),
+      );
+
+      const makeDto = (studentId: string, feeId: string) =>
+        ({
+          student_id: studentId,
+          total_amount: 500,
+          payment_method: PaymentMethod.CASH,
+          allocations: [
+            {
+              student_fee_id: feeId,
+              allocated_amount: 500,
+              allocation_type: PaymentAllocationType.CURRENT,
+            },
+          ],
+          idempotency_key: 'shared-key',
+        }) as any;
+
+      const first = await service.recordWithAllocation(
+        makeDto(student.id, fee.id),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      const second = await service.recordWithAllocation(
+        makeDto(otherStudent.id, otherFee.id),
+        OTHER_TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      expect(second.id).not.toBe(first.id);
     });
   });
 });

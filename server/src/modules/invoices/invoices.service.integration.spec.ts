@@ -5,6 +5,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { InvoicesService } from './invoices.service';
 import { Invoice } from './entities/invoice.entity';
 import { StudentFee } from '../fees/entities/student-fee.entity';
+import { FeeStructure } from '../fees/entities/fee-structure.entity';
 import { Payment } from '../fees/entities/payment.entity';
 import { PaymentAllocation } from '../fees/entities/payment-allocation.entity';
 import { Student } from '../students/entities/student.entity';
@@ -25,7 +26,7 @@ import {
   SEED_ADMIN_EMAIL,
   SEED_ADMIN_PASSWORD_HASH,
 } from '@test/constants';
-import { FeeStatus, InvoiceStatus } from '@biddaloy/shared';
+import { FeeStatus, FeeType, InvoiceStatus } from '@biddaloy/shared';
 
 /**
  * Integration tests for InvoicesService (issue #14 — Invoice Generation & Printing).
@@ -39,6 +40,9 @@ import { FeeStatus, InvoiceStatus } from '@biddaloy/shared';
 const OTHER_TENANT_ID = '00000000-0000-4000-8000-000000000099';
 
 let studentSeq = 0;
+// Set by `seedReferenceData` — every `makeFee` bill (16.1.3 made
+// `fee_structure_id` NOT NULL) is charged against this one fixture.
+let feeStructureId: string;
 
 async function seedReferenceData(ds: DataSource): Promise<void> {
   await ds.query('DELETE FROM payment_allocations');
@@ -47,6 +51,7 @@ async function seedReferenceData(ds: DataSource): Promise<void> {
   await ds.query('DELETE FROM student_fees');
   await ds.query('DELETE FROM student_guardians');
   await ds.query('DELETE FROM students');
+  await ds.query('DELETE FROM fee_structures');
   await ds.query('DELETE FROM class_sections');
   await ds.query('DELETE FROM classes');
   await ds.query('DELETE FROM academic_years');
@@ -125,17 +130,24 @@ describe('InvoicesService (integration)', () => {
     });
   }
 
-  function makeFee(studentId: string, overrides: Partial<StudentFee> = {}) {
+  function makeFee(
+    studentId: string,
+    overrides: Partial<StudentFee> & { month?: number; year?: number } = {},
+  ) {
+    // `month`/`year` are stored generated columns derived from
+    // `period_start` (16.1.3, D2) — TypeORM rejects a direct write to
+    // them, so a caller-supplied month/year picks the period instead.
+    const { month, year, ...rest } = overrides;
     return studentFeeRepo.create({
       student_id: studentId,
       academic_year_id: SEED_ACADEMIC_YEAR_ID,
-      month: 3,
-      year: 2026,
+      fee_structure_id: feeStructureId,
+      period_start: new Date(Date.UTC(year ?? 2026, (month ?? 3) - 1, 1)),
       total_amount: 1000,
       paid_amount: 0,
       discount_amount: 0,
       status: FeeStatus.PENDING,
-      ...overrides,
+      ...rest,
     });
   }
 
@@ -167,6 +179,22 @@ describe('InvoicesService (integration)', () => {
       await dataSource.query('DELETE FROM payments');
       await dataSource.query('DELETE FROM student_fees');
       await dataSource.query('DELETE FROM students');
+      // `fee_structures` is one of the globally-truncated transactional
+      // tables (`test/setup.ts`'s per-test `beforeEach`, which runs before
+      // this file's own) — re-seed it every test rather than once in
+      // `beforeAll`, same fix as `fees.tabs.integration.spec.ts` (16.1.3).
+      const feeStructureRepo = dataSource.getRepository(FeeStructure);
+      const feeStructure = await feeStructureRepo.save(
+        feeStructureRepo.create({
+          name: 'Tuition',
+          fee_type: FeeType.MONTHLY_TUITION,
+          amount: '1000.00',
+          class_id: SEED_CLASS_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          tenant_id: TENANT_ID,
+        }),
+      );
+      feeStructureId = feeStructure.id;
     }
   });
 

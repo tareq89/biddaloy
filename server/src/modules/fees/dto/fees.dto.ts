@@ -18,11 +18,11 @@ import {
 import { Type, Transform } from 'class-transformer';
 import {
   FeeType,
-  FeeApplicability,
   PaymentMethod,
   PaymentStatus,
   PaymentAllocationType,
   FeeStatus,
+  PeriodType,
 } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 import { Payment } from '../entities/payment.entity';
@@ -44,14 +44,12 @@ export class CreateFeeStructureDto {
   @Min(0)
   amount: number;
 
+  /** Nullable: a school-wide structure has no class label. */
   @IsOptional()
-  @IsEnum(FeeApplicability)
-  applicability?: FeeApplicability;
-
   @IsUUID()
-  class_id: string;
+  class_id?: string | null;
 
-  /** Nullable for the same reason as `UpdateFeeStructureDto.section_id`:
+  /** Nullable for the same reason as `class_id`:
    * "whole class" is an explicit `null`, not an absent key. */
   @IsOptional()
   @IsUUID()
@@ -59,20 +57,6 @@ export class CreateFeeStructureDto {
 
   @IsUUID()
   academic_year_id: string;
-
-  @IsInt()
-  @Min(1)
-  @Max(12)
-  month: number;
-
-  @IsOptional()
-  @IsBoolean()
-  is_recurring?: boolean;
-
-  @IsOptional()
-  @IsArray()
-  @IsUUID('4', { each: true })
-  student_ids?: string[];
 }
 
 export class UpdateFeeStructureDto {
@@ -89,9 +73,14 @@ export class UpdateFeeStructureDto {
   @Min(0)
   amount?: number;
 
+  /** Explicitly nullable: widening a class-scoped structure back to
+   * school-wide needs `null` to be *sent*. Omitting the key leaves the
+   * column untouched, so an omitted-when-empty payload silently kept the
+   * old class. `@IsOptional()` skips `null` as well as `undefined`, so
+   * the `@IsUUID()` check still applies to every non-null value. */
   @IsOptional()
-  @IsEnum(FeeApplicability)
-  applicability?: FeeApplicability;
+  @IsUUID()
+  class_id?: string | null;
 
   /** Explicitly nullable: widening a section-scoped structure back to the
    * whole class needs `null` to be *sent*. Omitting the key leaves the
@@ -101,22 +90,6 @@ export class UpdateFeeStructureDto {
   @IsOptional()
   @IsUUID()
   section_id?: string | null;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(12)
-  month?: number;
-
-  @IsOptional()
-  @IsBoolean()
-  is_recurring?: boolean;
-
-  @IsOptional()
-  @IsArray()
-  @IsUUID('4', { each: true })
-  student_ids?: string[];
 }
 
 export class QueryFeeStructureDto {
@@ -127,13 +100,6 @@ export class QueryFeeStructureDto {
   @IsOptional()
   @IsUUID()
   class_id?: string;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(12)
-  month?: number;
 
   /** Matches against name (ILIKE, escaped). */
   @IsOptional()
@@ -151,7 +117,7 @@ export class QueryFeeStructureDto {
 
   // `@Type(() => Boolean)` is deliberately not used here: class-transformer's
   // Boolean coercion is `Boolean(value)`, which treats the *string*
-  // `"false"` (what a query param actually is) as truthy — `?is_recurring=
+  // `"false"` (what a query param actually is) as truthy — `?include_deleted=
   // false` would silently become `true`. This transform parses the two
   // literal strings a query param can actually carry.
   @IsOptional()
@@ -161,11 +127,11 @@ export class QueryFeeStructureDto {
     return value;
   })
   @IsBoolean()
-  is_recurring?: boolean;
+  include_deleted?: boolean = false;
 
   @IsOptional()
-  @IsEnum(['name', 'amount', 'month', 'created_at'])
-  sort?: 'name' | 'amount' | 'month' | 'created_at';
+  @IsEnum(['name', 'amount', 'created_at'])
+  sort?: 'name' | 'amount' | 'created_at';
 
   @IsOptional()
   @IsEnum(['asc', 'desc'])
@@ -256,6 +222,14 @@ export class RecordPaymentWithAllocationDto {
   @IsOptional()
   @IsBoolean()
   generate_invoice?: boolean;
+
+  /** [16.1.6] Client-supplied idempotency key. A retried request with the
+   * same key (per tenant) returns the payment already created for it
+   * instead of recording a second one. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  idempotency_key?: string;
 }
 
 export class QueryPaymentDto {
@@ -331,6 +305,13 @@ export class QueryFeeDuesDto {
   @IsOptional()
   @IsIn([FeeStatus.PENDING, FeeStatus.PARTIALLY_PAID])
   status?: FeeStatus.PENDING | FeeStatus.PARTIALLY_PAID;
+
+  /** Narrows to students with at least one open bill against a fee
+   * structure of this type — same "narrows students, not the dues[]
+   * breakdown" behavior as `month`/`year` above. */
+  @IsOptional()
+  @IsEnum(FeeType)
+  fee_type?: FeeType;
 
   /** Matches against student full_name, registration_number (ILIKE, escaped),
    * or roll_number (exact, Bengali-digit-aware). Applied at the SQL stage
@@ -460,8 +441,10 @@ export function toFamilyPayment(payment: Payment): FamilyPaymentDto {
  * chase this fee. It is not something a family can act on, and it exposes
  * the school's collection policy.
  *
- * `original_advance_month`/`original_advance_year` are also withheld:
- * internal bookkeeping for how an advance payment was re-dated.
+ * `is_advance_payment`/`original_advance_month`/`original_advance_year`
+ * were removed from `StudentFee` entirely (16.1.3, D5) — a bill is now a
+ * concrete (student, fee_structure, period) obligation with no "advance"
+ * bookkeeping to withhold.
  *
  * Reused by every family surface that returns a StudentFee — the invoice's
  * `student_fee` relation and `getInvoiceSummary`'s `fee_breakdown` — so the
@@ -471,14 +454,17 @@ export class FamilyStudentFeeDto {
   id: string;
   student_id: string;
   academic_year_id: string;
+  fee_name: string;
+  fee_type: FeeType;
   month: number;
   year: number;
+  period_start: Date;
+  period_type: PeriodType;
   total_amount: number;
   paid_amount: number;
   discount_amount: number;
   status: FeeStatus;
   due_date: Date | null;
-  is_advance_payment: boolean;
 }
 
 export function toFamilyStudentFee(fee: StudentFee): FamilyStudentFeeDto {
@@ -486,14 +472,17 @@ export function toFamilyStudentFee(fee: StudentFee): FamilyStudentFeeDto {
     id: fee.id,
     student_id: fee.student_id,
     academic_year_id: fee.academic_year_id,
+    fee_name: fee.fee_structure.name,
+    fee_type: fee.fee_structure.fee_type,
     month: fee.month,
     year: fee.year,
+    period_start: fee.period_start,
+    period_type: fee.period_type,
     total_amount: fee.total_amount,
     paid_amount: fee.paid_amount,
     discount_amount: fee.discount_amount,
     status: fee.status,
     due_date: fee.due_date,
-    is_advance_payment: fee.is_advance_payment,
   };
 }
 
@@ -505,8 +494,13 @@ export function toFamilyStudentFee(fee: StudentFee): FamilyStudentFeeDto {
  */
 export class FamilyDueEntryDto {
   student_fee_id: string;
+  fee_name: string;
+  fee_type: FeeType;
   month: number;
   year: number;
+  period_start: Date;
+  period_type: PeriodType;
+  is_late_fee: boolean;
   total_amount: number;
   paid_amount: number;
   discount_amount: number;
@@ -545,8 +539,13 @@ export function toFamilyStudentDue(summary: StudentDueSummary): FamilyStudentDue
     months_overdue: summary.months_overdue,
     dues: summary.dues.map((due) => ({
       student_fee_id: due.student_fee_id,
+      fee_name: due.fee_name,
+      fee_type: due.fee_type,
       month: due.month,
       year: due.year,
+      period_start: due.period_start,
+      period_type: due.period_type,
+      is_late_fee: due.is_late_fee,
       total_amount: due.total_amount,
       paid_amount: due.paid_amount,
       discount_amount: due.discount_amount,
@@ -561,30 +560,18 @@ export function toFamilyStudentDue(summary: StudentDueSummary): FamilyStudentDue
  * Family-facing view of a fee structure [5.1] — the school's published price
  * list.
  *
- * The field this exists to withhold is `selected_students`. A
- * SELECTED-applicability structure links to the *specific students* it
- * applies to, and `FeeStructureService.findOne` eager-loads
- * `selected_students.student` in full for the staff edit dialog's student
- * picker. Returning that raw to a family caller would let any parent read
- * unrelated children's `full_name`, `date_of_birth`, `gender`,
- * `home_address`, `registration_number` and `user_id` — a cross-family PII
- * leak, reachable purely by listing `/fee-structures` for ids.
- *
- * `findAll` never loads that relation, but both list and detail are shaped
- * through this DTO anyway: allow-list discipline means a relation added to
- * `findAll` later stays out of family responses until someone opts it in.
+ * A plain allow-list mirror of the entity: `FeeStructure` no longer carries
+ * anything a family shouldn't see, but the DTO stays so a field added to the
+ * entity later doesn't leak into family responses until someone opts it in.
  */
 export class FamilyFeeStructureDto {
   id: string;
   fee_type: FeeType;
   name: string;
   amount: number;
-  applicability: FeeApplicability;
-  class_id: string;
+  class_id: string | null;
   section_id: string | null;
   academic_year_id: string;
-  month: number;
-  is_recurring: boolean;
 }
 
 export function toFamilyFeeStructure(structure: FeeStructure): FamilyFeeStructureDto {
@@ -593,12 +580,9 @@ export function toFamilyFeeStructure(structure: FeeStructure): FamilyFeeStructur
     fee_type: structure.fee_type,
     name: structure.name,
     amount: structure.amount,
-    applicability: structure.applicability,
     class_id: structure.class_id,
     section_id: structure.section_id,
     academic_year_id: structure.academic_year_id,
-    month: structure.month,
-    is_recurring: structure.is_recurring,
   };
 }
 
@@ -618,11 +602,20 @@ export function toFamilyFeeStructure(structure: FeeStructure): FamilyFeeStructur
  */
 export class StaffDueEntryDto implements DueEntry {
   student_fee_id: string;
+  fee_structure_id: string;
+  fee_name: string;
+  fee_type: FeeType;
   month: number;
   year: number;
+  period_start: Date;
+  period_type: PeriodType;
+  occurrence: number;
+  is_late_fee: boolean;
   total_amount: number;
   paid_amount: number;
   discount_amount: number;
+  standing_discount_amount: number;
+  one_off_discount_amount: number;
   balance: number;
   status: FeeStatus;
   due_date: Date | null;

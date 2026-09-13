@@ -13,6 +13,7 @@ import {
   SEED_ADMIN_USER_ID,
   SEED_ADMIN_PASSWORD,
   SEED_SECTION_1_ID,
+  SEED_CLASS_1_ID,
   SEED_ACADEMIC_YEAR_ID,
 } from '@test/constants';
 
@@ -25,11 +26,14 @@ import {
  * violation rejection.
  */
 
-function monthOffset(offset: number): { month: number; year: number } {
+/** First day of the month `offset` months from today. Since 16.1.3
+ * `student_fees.month`/`.year` are generated from `period_start`, so the
+ * period is what gets inserted. */
+function periodStart(offset: number): string {
   const d = new Date();
   d.setDate(1);
   d.setMonth(d.getMonth() + offset);
-  return { month: d.getMonth() + 1, year: d.getFullYear() };
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
 }
 
 describe('Payment Recording (record-with-allocation) E2E', () => {
@@ -61,13 +65,33 @@ describe('Payment Recording (record-with-allocation) E2E', () => {
     return res[0].id;
   }
 
-  async function createFee(studentId: string, offset: number, totalAmount = 1000): Promise<string> {
-    const { month, year } = monthOffset(offset);
+  /** `student_fees.fee_structure_id` is NOT NULL since 16.1.3, so every bill
+   * here is charged against one lazily-created price tag. */
+  let feeStructureId: string | null = null;
+  async function ensureFeeStructure(): Promise<string> {
+    if (feeStructureId) {
+      const still = await dataSource.query(`SELECT id FROM fee_structures WHERE id = $1`, [
+        feeStructureId,
+      ]);
+      if (still.length > 0) return feeStructureId;
+    }
     const res = await dataSource.query(
-      `INSERT INTO student_fees (id, student_id, academic_year_id, month, year, total_amount, paid_amount, discount_amount, status, created_at, updated_at)
-       VALUES (DEFAULT, $1, $2, $3, $4, $5, 0, 0, 'PENDING', NOW(), NOW())
+      `INSERT INTO fee_structures (id, fee_type, name, amount, class_id, academic_year_id, tenant_id, created_at, updated_at)
+       VALUES (DEFAULT, 'MONTHLY_TUITION', 'E2E Tuition', 1000, $1, $2, $3, NOW(), NOW())
        RETURNING id`,
-      [studentId, SEED_ACADEMIC_YEAR_ID, month, year, totalAmount],
+      [SEED_CLASS_1_ID, SEED_ACADEMIC_YEAR_ID, TENANT_ID],
+    );
+    feeStructureId = res[0].id;
+    return feeStructureId!;
+  }
+
+  async function createFee(studentId: string, offset: number, totalAmount = 1000): Promise<string> {
+    const structureId = await ensureFeeStructure();
+    const res = await dataSource.query(
+      `INSERT INTO student_fees (id, student_id, academic_year_id, fee_structure_id, period_start, total_amount, paid_amount, discount_amount, status, created_at, updated_at)
+       VALUES (DEFAULT, $1, $2, $3, $4::date, $5, 0, 0, 'PENDING', NOW(), NOW())
+       RETURNING id`,
+      [studentId, SEED_ACADEMIC_YEAR_ID, structureId, periodStart(offset), totalAmount],
     );
     return res[0].id;
   }
@@ -265,6 +289,132 @@ describe('Payment Recording (record-with-allocation) E2E', () => {
           ],
         })
         .expect(404);
+    });
+
+    it('accepts BKASH as a payment method (D16)', async () => {
+      const studentId = await createStudent();
+      const feeId = await createFee(studentId, 0, 1000);
+
+      await supertest(app.getHttpServer())
+        .post('/api/v1/payments/record-with-allocation')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .send({
+          student_id: studentId,
+          total_amount: 1000,
+          payment_method: 'BKASH',
+          allocations: [
+            {
+              student_fee_id: feeId,
+              allocated_amount: 1000,
+              allocation_type: PaymentAllocationType.CURRENT,
+            },
+          ],
+        })
+        .expect(201);
+    });
+
+    it('rejects UPI as a payment method — removed by D16', async () => {
+      const studentId = await createStudent();
+      const feeId = await createFee(studentId, 0, 1000);
+
+      await supertest(app.getHttpServer())
+        .post('/api/v1/payments/record-with-allocation')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .send({
+          student_id: studentId,
+          total_amount: 1000,
+          payment_method: 'UPI',
+          allocations: [
+            {
+              student_fee_id: feeId,
+              allocated_amount: 1000,
+              allocation_type: PaymentAllocationType.CURRENT,
+            },
+          ],
+        })
+        .expect(400);
+    });
+
+    it('rejects allocating against a future-dated (advance) fee — removed by D5', async () => {
+      const studentId = await createStudent();
+      const futureFeeId = await createFee(studentId, 1, 500);
+
+      await supertest(app.getHttpServer())
+        .post('/api/v1/payments/record-with-allocation')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .send({
+          student_id: studentId,
+          total_amount: 500,
+          payment_method: PaymentMethod.CASH,
+          allocations: [
+            {
+              student_fee_id: futureFeeId,
+              allocated_amount: 500,
+              allocation_type: PaymentAllocationType.ADVANCE,
+            },
+          ],
+        })
+        .expect(400);
+    });
+
+    it('[16.1.6] a repeated request with the same idempotency key returns the same payment', async () => {
+      const studentId = await createStudent();
+      const feeId = await createFee(studentId, 0, 500);
+      const key = `idem-e2e-${Date.now()}`;
+
+      const first = await supertest(app.getHttpServer())
+        .post('/api/v1/payments/record-with-allocation')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .send({
+          student_id: studentId,
+          total_amount: 500,
+          payment_method: PaymentMethod.CASH,
+          allocations: [
+            {
+              student_fee_id: feeId,
+              allocated_amount: 500,
+              allocation_type: PaymentAllocationType.CURRENT,
+            },
+          ],
+          idempotency_key: key,
+        })
+        .expect(201);
+
+      const repeat = await supertest(app.getHttpServer())
+        .post('/api/v1/payments/record-with-allocation')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .send({
+          student_id: studentId,
+          total_amount: 500,
+          payment_method: PaymentMethod.CASH,
+          allocations: [
+            {
+              student_fee_id: feeId,
+              allocated_amount: 500,
+              allocation_type: PaymentAllocationType.CURRENT,
+            },
+          ],
+          idempotency_key: key,
+        })
+        .expect(201);
+
+      expect(repeat.body.id).toBe(first.body.id);
+
+      const payments = await dataSource.query(
+        `SELECT id FROM payments WHERE idempotency_key = $1`,
+        [key],
+      );
+      expect(payments).toHaveLength(1);
     });
   });
 });

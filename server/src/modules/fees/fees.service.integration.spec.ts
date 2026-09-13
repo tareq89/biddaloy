@@ -1,11 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { NotFoundException, ConflictException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { FeeStructureService, PaymentService } from './fees.service';
 import { GuardianService } from '../students/students.service';
 import { FeeStructure } from './entities/fee-structure.entity';
-import { FeeStructureStudent } from './entities/fee-structure-student.entity';
 import { Payment } from './entities/payment.entity';
 import { PaymentAllocation } from './entities/payment-allocation.entity';
 import { StudentFee } from './entities/student-fee.entity';
@@ -43,7 +42,6 @@ import { FeeStatus, AuditAction } from '@biddaloy/shared';
 async function seedReferenceData(ds: DataSource): Promise<void> {
   await ds.query('DELETE FROM payment_allocations');
   await ds.query('DELETE FROM student_fees');
-  await ds.query('DELETE FROM fee_structure_students');
   await ds.query('DELETE FROM fee_structures');
   await ds.query('DELETE FROM payments');
   await ds.query('DELETE FROM student_guardians');
@@ -141,7 +139,6 @@ async function seedReferenceData(ds: DataSource): Promise<void> {
 describe('FeeStructureService (integration)', () => {
   let service: FeeStructureService;
   let feeRepo: Repository<FeeStructure>;
-  let fssRepo: Repository<FeeStructureStudent>;
   let studentFeeRepo: Repository<StudentFee>;
   let paymentAllocRepo: Repository<PaymentAllocation>;
   let studentRepo: Repository<Student>;
@@ -158,7 +155,6 @@ describe('FeeStructureService (integration)', () => {
 
     service = module.get<FeeStructureService>(FeeStructureService);
     feeRepo = module.get<Repository<FeeStructure>>(getRepositoryToken(FeeStructure));
-    fssRepo = module.get<Repository<FeeStructureStudent>>(getRepositoryToken(FeeStructureStudent));
     studentFeeRepo = module.get<Repository<StudentFee>>(getRepositoryToken(StudentFee));
     paymentAllocRepo = module.get<Repository<PaymentAllocation>>(
       getRepositoryToken(PaymentAllocation),
@@ -180,7 +176,6 @@ describe('FeeStructureService (integration)', () => {
     if (dataSource) {
       await dataSource.query('DELETE FROM payment_allocations');
       await dataSource.query('DELETE FROM student_fees');
-      await dataSource.query('DELETE FROM fee_structure_students');
       await dataSource.query('DELETE FROM fee_structures');
       await dataSource.query('DELETE FROM payments');
       await dataSource.query('DELETE FROM students');
@@ -191,14 +186,13 @@ describe('FeeStructureService (integration)', () => {
   //  create()
   // ────────────────────────
   describe('create', () => {
-    it('should create a fee structure with ALL applicability', async () => {
+    it('should create a fee structure', async () => {
       const dto = {
         fee_type: 'MONTHLY_TUITION' as any,
         name: 'Monthly Tuition',
         amount: 1500,
         class_id: SEED_CLASS_1_ID,
         academic_year_id: SEED_ACADEMIC_YEAR_ID,
-        month: 1,
       };
 
       const result = await service.create(dto, TENANT_ID);
@@ -209,6 +203,20 @@ describe('FeeStructureService (integration)', () => {
       expect(result.tenant_id).toBe(TENANT_ID);
     });
 
+    it('should create a school-wide fee structure without a class_id', async () => {
+      const dto = {
+        fee_type: 'MONTHLY_TUITION' as any,
+        name: 'School-wide Fee',
+        amount: 500,
+        academic_year_id: SEED_ACADEMIC_YEAR_ID,
+      };
+
+      const result = await service.create(dto, TENANT_ID);
+
+      expect(result).toBeDefined();
+      expect(result.class_id).toBeNull();
+    });
+
     it('should create a fee structure with section_id', async () => {
       const dto = {
         fee_type: 'MONTHLY_TUITION' as any,
@@ -217,82 +225,12 @@ describe('FeeStructureService (integration)', () => {
         class_id: SEED_CLASS_1_ID,
         section_id: SEED_SECTION_1_ID,
         academic_year_id: SEED_ACADEMIC_YEAR_ID,
-        month: 2,
       };
 
       const result = await service.create(dto, TENANT_ID);
 
       expect(result).toBeDefined();
       expect(result.section_id).toBe(SEED_SECTION_1_ID);
-    });
-
-    it('should create a fee structure with SELECTED applicability and link students', async () => {
-      const student = await studentRepo.save(
-        studentRepo.create({
-          full_name: 'Selected Student',
-          registration_number: 'REG-2026-0001',
-          roll_number: 1,
-          class_section_id: SEED_SECTION_1_ID,
-          tenant_id: TENANT_ID,
-          date_of_birth: new Date('2010-01-01'),
-          preferred_communication: 'SMS',
-        }),
-      );
-
-      const dto = {
-        fee_type: 'MONTHLY_TUITION' as any,
-        name: 'Selected Student Fee',
-        amount: 2000,
-        applicability: 'SELECTED' as any,
-        class_id: SEED_CLASS_1_ID,
-        academic_year_id: SEED_ACADEMIC_YEAR_ID,
-        month: 2,
-        student_ids: [student.id],
-      };
-
-      const result = await service.create(dto, TENANT_ID);
-
-      expect(result).toBeDefined();
-      expect(result.name).toBe('Selected Student Fee');
-
-      const links = await fssRepo.find({ where: { fee_structure_id: result.id } });
-      expect(links).toHaveLength(1);
-    });
-
-    it('should create a fee structure with SELECTED applicability but no student_ids (no links created)', async () => {
-      const dto = {
-        fee_type: 'EXAM_FEE' as any,
-        name: 'Selected No Students',
-        amount: 500,
-        applicability: 'SELECTED' as any,
-        class_id: SEED_CLASS_1_ID,
-        academic_year_id: SEED_ACADEMIC_YEAR_ID,
-        month: 3,
-      };
-
-      const result = await service.create(dto, TENANT_ID);
-
-      expect(result).toBeDefined();
-      expect(result.name).toBe('Selected No Students');
-
-      // No student_ids provided, so no FSS links should exist
-      const links = await fssRepo.find({ where: { fee_structure_id: result.id } });
-      expect(links).toHaveLength(0);
-    });
-
-    it('should create a fee structure with is_recurring defaulting to true', async () => {
-      const dto = {
-        fee_type: 'MONTHLY_TUITION' as any,
-        name: 'Recurring Fee',
-        amount: 1000,
-        class_id: SEED_CLASS_1_ID,
-        academic_year_id: SEED_ACADEMIC_YEAR_ID,
-        month: 1,
-      };
-
-      const result = await service.create(dto, TENANT_ID);
-
-      expect(result.is_recurring).toBe(true);
     });
 
     it('should throw NotFoundException when class does not belong to tenant', async () => {
@@ -302,7 +240,6 @@ describe('FeeStructureService (integration)', () => {
         amount: 1000,
         class_id: '00000000-0000-4000-8000-000000000000',
         academic_year_id: SEED_ACADEMIC_YEAR_ID,
-        month: 1,
       };
 
       await expect(service.create(dto, TENANT_ID)).rejects.toThrow(NotFoundException);
@@ -316,7 +253,6 @@ describe('FeeStructureService (integration)', () => {
         class_id: SEED_CLASS_1_ID,
         section_id: '00000000-0000-4000-8000-000000000000',
         academic_year_id: SEED_ACADEMIC_YEAR_ID,
-        month: 1,
       };
 
       await expect(service.create(dto, TENANT_ID)).rejects.toThrow(NotFoundException);
@@ -329,34 +265,6 @@ describe('FeeStructureService (integration)', () => {
         amount: 1000,
         class_id: SEED_CLASS_1_ID,
         academic_year_id: '00000000-0000-4000-8000-000000000000',
-        month: 1,
-      };
-
-      await expect(service.create(dto, TENANT_ID)).rejects.toThrow(NotFoundException);
-    });
-
-    it('should throw NotFoundException when selected students are from a different tenant', async () => {
-      const otherStudent = await studentRepo.save(
-        studentRepo.create({
-          full_name: 'Other Tenant Student',
-          registration_number: 'REG-2026-0001',
-          roll_number: 1,
-          class_section_id: SEED_SECTION_1_ID,
-          tenant_id: '00000000-0000-4000-8000-000000000099',
-          date_of_birth: new Date('2010-01-01'),
-          preferred_communication: 'SMS',
-        }),
-      );
-
-      const dto = {
-        fee_type: 'MONTHLY_TUITION' as any,
-        name: 'Cross-Tenant Fee',
-        amount: 1000,
-        applicability: 'SELECTED' as any,
-        class_id: SEED_CLASS_1_ID,
-        academic_year_id: SEED_ACADEMIC_YEAR_ID,
-        month: 1,
-        student_ids: [otherStudent.id],
       };
 
       await expect(service.create(dto, TENANT_ID)).rejects.toThrow(NotFoundException);
@@ -375,7 +283,6 @@ describe('FeeStructureService (integration)', () => {
           amount: 1000,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
           tenant_id: TENANT_ID,
         }),
       );
@@ -386,7 +293,6 @@ describe('FeeStructureService (integration)', () => {
           amount: 500,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 2,
           tenant_id: TENANT_ID,
         }),
       );
@@ -405,7 +311,6 @@ describe('FeeStructureService (integration)', () => {
           amount: 1000,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
           tenant_id: TENANT_ID,
         }),
       );
@@ -418,7 +323,7 @@ describe('FeeStructureService (integration)', () => {
       expect(result.data).toHaveLength(1);
     });
 
-    it('should filter by class_id', async () => {
+    it('should filter by class_id, including school-wide (null class_id) structures', async () => {
       await feeRepo.save(
         feeRepo.create({
           fee_type: 'MONTHLY_TUITION' as any,
@@ -426,7 +331,16 @@ describe('FeeStructureService (integration)', () => {
           amount: 1000,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
+          tenant_id: TENANT_ID,
+        }),
+      );
+      await feeRepo.save(
+        feeRepo.create({
+          fee_type: 'MONTHLY_TUITION' as any,
+          name: 'School-wide Fee',
+          amount: 200,
+          class_id: null,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
           tenant_id: TENANT_ID,
         }),
       );
@@ -436,37 +350,38 @@ describe('FeeStructureService (integration)', () => {
         TENANT_ID,
       );
 
-      expect(result.data).toHaveLength(1);
+      expect(result.data).toHaveLength(2);
     });
 
-    it('should filter by month', async () => {
+    // Picker ordering (D3): class-matching rows before school-wide rows.
+    it('orders class-matching rows before school-wide (null class_id) rows when filtered by class_id', async () => {
       await feeRepo.save(
         feeRepo.create({
           fee_type: 'MONTHLY_TUITION' as any,
-          name: 'Jan Fee',
-          amount: 1000,
-          class_id: SEED_CLASS_1_ID,
+          name: 'School-wide Fee',
+          amount: 200,
+          class_id: null,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
           tenant_id: TENANT_ID,
         }),
       );
       await feeRepo.save(
         feeRepo.create({
           fee_type: 'MONTHLY_TUITION' as any,
-          name: 'Feb Fee',
+          name: 'Class Fee',
           amount: 1000,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 2,
           tenant_id: TENANT_ID,
         }),
       );
 
-      const result = await service.findAll({ month: 1, page: 1, limit: 10 }, TENANT_ID);
+      const result = await service.findAll(
+        { class_id: SEED_CLASS_1_ID, page: 1, limit: 10 },
+        TENANT_ID,
+      );
 
-      expect(result.data).toHaveLength(1);
-      expect(result.data[0].name).toBe('Jan Fee');
+      expect(result.data.map((fee) => fee.name)).toEqual(['Class Fee', 'School-wide Fee']);
     });
 
     it('should return empty list when no fee structures match', async () => {
@@ -486,7 +401,6 @@ describe('FeeStructureService (integration)', () => {
             amount: 1000,
             class_id: SEED_CLASS_1_ID,
             academic_year_id: SEED_ACADEMIC_YEAR_ID,
-            month: 1,
             tenant_id: TENANT_ID,
           }),
         );
@@ -511,7 +425,6 @@ describe('FeeStructureService (integration)', () => {
           amount: 1000,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
           tenant_id: TENANT_ID,
         }),
       );
@@ -522,7 +435,6 @@ describe('FeeStructureService (integration)', () => {
           amount: 500,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 2,
           tenant_id: TENANT_ID,
         }),
       );
@@ -541,7 +453,6 @@ describe('FeeStructureService (integration)', () => {
           amount: 1000,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
           tenant_id: TENANT_ID,
         }),
       );
@@ -552,7 +463,6 @@ describe('FeeStructureService (integration)', () => {
           amount: 500,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 2,
           tenant_id: TENANT_ID,
         }),
       );
@@ -566,38 +476,6 @@ describe('FeeStructureService (integration)', () => {
       expect(result.data[0].name).toBe('Exam');
     });
 
-    it('filters by is_recurring', async () => {
-      await feeRepo.save(
-        feeRepo.create({
-          fee_type: 'MONTHLY_TUITION' as any,
-          name: 'Recurring Fee',
-          amount: 1000,
-          class_id: SEED_CLASS_1_ID,
-          academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
-          is_recurring: true,
-          tenant_id: TENANT_ID,
-        }),
-      );
-      await feeRepo.save(
-        feeRepo.create({
-          fee_type: 'EXAM_FEE' as any,
-          name: 'One-off Fee',
-          amount: 500,
-          class_id: SEED_CLASS_1_ID,
-          academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 2,
-          is_recurring: false,
-          tenant_id: TENANT_ID,
-        }),
-      );
-
-      const result = await service.findAll({ is_recurring: false, page: 1, limit: 10 }, TENANT_ID);
-
-      expect(result.data).toHaveLength(1);
-      expect(result.data[0].name).toBe('One-off Fee');
-    });
-
     it('filters by section_id', async () => {
       await feeRepo.save(
         feeRepo.create({
@@ -607,7 +485,6 @@ describe('FeeStructureService (integration)', () => {
           class_id: SEED_CLASS_1_ID,
           section_id: SEED_SECTION_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
           tenant_id: TENANT_ID,
         }),
       );
@@ -618,7 +495,6 @@ describe('FeeStructureService (integration)', () => {
           amount: 500,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 2,
           tenant_id: TENANT_ID,
         }),
       );
@@ -640,7 +516,6 @@ describe('FeeStructureService (integration)', () => {
           amount: 1000,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
           tenant_id: TENANT_ID,
         }),
       );
@@ -651,7 +526,6 @@ describe('FeeStructureService (integration)', () => {
           amount: 500,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 2,
           tenant_id: TENANT_ID,
         }),
       );
@@ -676,7 +550,6 @@ describe('FeeStructureService (integration)', () => {
           amount: 1000,
           class_id: otherTenantClassId,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
           tenant_id: otherTenantId,
         }),
       );
@@ -688,6 +561,29 @@ describe('FeeStructureService (integration)', () => {
 
       expect(result.data).toEqual([]);
       expect(result.total).toBe(0);
+    });
+
+    it('excludes soft-deleted structures by default and includes them with include_deleted', async () => {
+      const created = await service.create(
+        {
+          fee_type: 'MONTHLY_TUITION' as any,
+          name: 'Soon Deleted',
+          amount: 1000,
+          class_id: SEED_CLASS_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        },
+        TENANT_ID,
+      );
+      await service.remove(created.id, TENANT_ID);
+
+      const defaultResult = await service.findAll({ page: 1, limit: 10 }, TENANT_ID);
+      expect(defaultResult.data.find((fee) => fee.id === created.id)).toBeUndefined();
+
+      const withDeleted = await service.findAll(
+        { page: 1, limit: 10, include_deleted: true },
+        TENANT_ID,
+      );
+      expect(withDeleted.data.find((fee) => fee.id === created.id)).toBeDefined();
     });
   });
 
@@ -703,7 +599,6 @@ describe('FeeStructureService (integration)', () => {
           amount: 1000,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
         },
         TENANT_ID,
       );
@@ -714,76 +609,6 @@ describe('FeeStructureService (integration)', () => {
       expect(result.name).toBe('Find Me');
       expect(result.class).toBeDefined();
       expect(result.academic_year).toBeDefined();
-    });
-
-    // The edit dialog prefills its student picker from this relation, so
-    // findOne (unlike findAll) must hydrate both the pivot rows and the
-    // students behind them.
-    it('should load selected_students with their students for a SELECTED structure', async () => {
-      const student = await studentRepo.save(
-        studentRepo.create({
-          full_name: 'Picker Student',
-          registration_number: 'REG-2026-0007',
-          roll_number: 7,
-          class_section_id: SEED_SECTION_1_ID,
-          tenant_id: TENANT_ID,
-          date_of_birth: new Date('2010-01-01'),
-          preferred_communication: 'SMS' as any,
-        }),
-      );
-      const created = await service.create(
-        {
-          fee_type: 'MONTHLY_TUITION' as any,
-          name: 'Selected Structure',
-          amount: 1000,
-          applicability: 'SELECTED' as any,
-          class_id: SEED_CLASS_1_ID,
-          academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
-          student_ids: [student.id],
-        },
-        TENANT_ID,
-      );
-
-      const result = await service.findOne(created.id, TENANT_ID);
-
-      expect(result.selected_students).toHaveLength(1);
-      expect(result.selected_students?.[0].student_id).toBe(student.id);
-      expect(result.selected_students?.[0].student.full_name).toBe('Picker Student');
-    });
-
-    // findAll deliberately skips the relation: a list page never renders
-    // individual students, so the join would fan out for nothing.
-    it('should not load selected_students in findAll', async () => {
-      const student = await studentRepo.save(
-        studentRepo.create({
-          full_name: 'List Student',
-          registration_number: 'REG-2026-0008',
-          roll_number: 8,
-          class_section_id: SEED_SECTION_1_ID,
-          tenant_id: TENANT_ID,
-          date_of_birth: new Date('2010-01-01'),
-          preferred_communication: 'SMS' as any,
-        }),
-      );
-      await service.create(
-        {
-          fee_type: 'MONTHLY_TUITION' as any,
-          name: 'Listed Structure',
-          amount: 1000,
-          applicability: 'SELECTED' as any,
-          class_id: SEED_CLASS_1_ID,
-          academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
-          student_ids: [student.id],
-        },
-        TENANT_ID,
-      );
-
-      const listed = await service.findAll({} as any, TENANT_ID);
-
-      expect(listed.data).toHaveLength(1);
-      expect(listed.data[0].selected_students).toBeUndefined();
     });
 
     it('should throw NotFoundException when fee structure does not exist', async () => {
@@ -800,7 +625,6 @@ describe('FeeStructureService (integration)', () => {
           amount: 1000,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
         },
         TENANT_ID,
       );
@@ -823,7 +647,6 @@ describe('FeeStructureService (integration)', () => {
           amount: 1000,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
         },
         TENANT_ID,
       );
@@ -833,7 +656,6 @@ describe('FeeStructureService (integration)', () => {
         {
           name: 'Updated',
           amount: 2000,
-          month: 2,
         },
         TENANT_ID,
         SEED_ADMIN_USER_ID,
@@ -841,10 +663,11 @@ describe('FeeStructureService (integration)', () => {
 
       expect(updated.name).toBe('Updated');
       expect(Number(updated.amount)).toBe(2000);
-      expect(updated.month).toBe(2);
     });
 
-    it('writes a FEE_STRUCTURE_CHANGE audit record capturing old and new values', async () => {
+    // D7: only amount edits are audited — everything else on a fee
+    // structure is a label, not money the family owes.
+    it('writes a UPDATE audit record with only old/new amount when amount changes', async () => {
       const created = await service.create(
         {
           fee_type: 'MONTHLY_TUITION' as any,
@@ -852,7 +675,6 @@ describe('FeeStructureService (integration)', () => {
           amount: 1000,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
         },
         TENANT_ID,
       );
@@ -865,149 +687,33 @@ describe('FeeStructureService (integration)', () => {
       );
 
       const logs = await auditLogRepo.find({
-        where: { entity_id: created.id, action: AuditAction.FEE_STRUCTURE_CHANGE },
+        where: { entity_id: created.id, entity_type: 'FeeStructure', action: AuditAction.UPDATE },
       });
       expect(logs).toHaveLength(1);
       expect(logs[0].tenant_id).toBe(TENANT_ID);
       expect(logs[0].performed_by_user_id).toBe(SEED_ADMIN_USER_ID);
-      expect(logs[0].old_values).toEqual(expect.objectContaining({ name: 'Original' }));
-      expect(logs[0].new_values).toEqual(
-        expect.objectContaining({ name: 'Updated', amount: 2000 }),
-      );
+      expect(logs[0].old_values).toEqual({ amount: '1000.00' });
+      expect(logs[0].new_values).toEqual({ amount: 2000 });
     });
 
-    it('should replace selected students when provided', async () => {
-      const student = await studentRepo.save(
-        studentRepo.create({
-          full_name: 'FS Student',
-          registration_number: 'REG-2026-0001',
-          roll_number: 1,
-          class_section_id: SEED_SECTION_1_ID,
-          tenant_id: TENANT_ID,
-          date_of_birth: new Date('2010-01-01'),
-          preferred_communication: 'SMS',
-        }),
-      );
-
+    it('does not write an audit record when only a non-amount field changes', async () => {
       const created = await service.create(
         {
           fee_type: 'MONTHLY_TUITION' as any,
-          name: 'With Students',
+          name: 'Original',
           amount: 1000,
-          applicability: 'SELECTED' as any,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
-          student_ids: [student.id],
         },
         TENANT_ID,
       );
 
-      // Verify initial link
-      let links = await fssRepo.find({ where: { fee_structure_id: created.id } });
-      expect(links).toHaveLength(1);
+      await service.update(created.id, { name: 'Renamed' }, TENANT_ID, SEED_ADMIN_USER_ID);
 
-      // Replace with empty (clear)
-      await service.update(created.id, { student_ids: [] }, TENANT_ID, SEED_ADMIN_USER_ID);
-      links = await fssRepo.find({ where: { fee_structure_id: created.id } });
-      expect(links).toHaveLength(0);
-
-      // A student_ids-only PATCH leaves every scalar field untouched, but
-      // the selected-student replacement is itself a change worth auditing.
       const logs = await auditLogRepo.find({
-        where: { entity_id: created.id, action: AuditAction.FEE_STRUCTURE_CHANGE },
+        where: { entity_id: created.id, entity_type: 'FeeStructure', action: AuditAction.UPDATE },
       });
-      expect(logs).toHaveLength(1);
-      expect(logs[0].old_values).toEqual(expect.objectContaining({ student_ids: [student.id] }));
-      expect(logs[0].new_values).toEqual(expect.objectContaining({ student_ids: [] }));
-    });
-
-    it('should clear selected students when student_ids is empty array', async () => {
-      const student = await studentRepo.save(
-        studentRepo.create({
-          full_name: 'FS Student',
-          registration_number: 'REG-2026-0001',
-          roll_number: 1,
-          class_section_id: SEED_SECTION_1_ID,
-          tenant_id: TENANT_ID,
-          date_of_birth: new Date('2010-01-01'),
-          preferred_communication: 'SMS',
-        }),
-      );
-
-      const created = await service.create(
-        {
-          fee_type: 'MONTHLY_TUITION' as any,
-          name: 'Clear Students',
-          amount: 1000,
-          applicability: 'SELECTED' as any,
-          class_id: SEED_CLASS_1_ID,
-          academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
-          student_ids: [student.id],
-        },
-        TENANT_ID,
-      );
-
-      // Clear with empty array
-      await service.update(created.id, { student_ids: [] }, TENANT_ID, SEED_ADMIN_USER_ID);
-      const links = await fssRepo.find({ where: { fee_structure_id: created.id } });
-      expect(links).toHaveLength(0);
-    });
-
-    it('should replace selected students with a new set when student_ids provided', async () => {
-      const student1 = await studentRepo.save(
-        studentRepo.create({
-          full_name: 'FS Student 1',
-          registration_number: 'REG-2026-0010',
-          roll_number: 10,
-          class_section_id: SEED_SECTION_1_ID,
-          tenant_id: TENANT_ID,
-          date_of_birth: new Date('2010-01-01'),
-          preferred_communication: 'SMS',
-        }),
-      );
-      const student2 = await studentRepo.save(
-        studentRepo.create({
-          full_name: 'FS Student 2',
-          registration_number: 'REG-2026-0011',
-          roll_number: 11,
-          class_section_id: SEED_SECTION_1_ID,
-          tenant_id: TENANT_ID,
-          date_of_birth: new Date('2010-01-01'),
-          preferred_communication: 'SMS',
-        }),
-      );
-
-      const created = await service.create(
-        {
-          fee_type: 'MONTHLY_TUITION' as any,
-          name: 'Replace Students',
-          amount: 1000,
-          applicability: 'SELECTED' as any,
-          class_id: SEED_CLASS_1_ID,
-          academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
-          student_ids: [student1.id],
-        },
-        TENANT_ID,
-      );
-
-      // Verify initial link
-      let links = await fssRepo.find({ where: { fee_structure_id: created.id } });
-      expect(links).toHaveLength(1);
-      expect(links[0].student_id).toBe(student1.id);
-
-      // Replace with student2 (and remove student1)
-      await service.update(
-        created.id,
-        { student_ids: [student2.id] },
-        TENANT_ID,
-        SEED_ADMIN_USER_ID,
-      );
-      links = await fssRepo.find({ where: { fee_structure_id: created.id } });
-      expect(links).toHaveLength(1);
-      expect(links[0].student_id).toBe(student2.id);
+      expect(logs).toHaveLength(0);
     });
 
     it('should throw NotFoundException when fee structure does not exist', async () => {
@@ -1025,7 +731,7 @@ describe('FeeStructureService (integration)', () => {
   // ────────────────────────
   //  remove()
   // ────────────────────────
-  describe('remove (soft delete with constraint)', () => {
+  describe('remove (soft delete only)', () => {
     it('should soft delete a fee structure when no payments are linked', async () => {
       const created = await service.create(
         {
@@ -1034,7 +740,6 @@ describe('FeeStructureService (integration)', () => {
           amount: 1000,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
         },
         TENANT_ID,
       );
@@ -1047,27 +752,10 @@ describe('FeeStructureService (integration)', () => {
       expect(raw?.deleted_at).not.toBeNull();
     });
 
-    it('should soft delete when no student_fees exist for this fee structure', async () => {
-      const created = await service.create(
-        {
-          fee_type: 'MONTHLY_TUITION' as any,
-          name: 'No Fees',
-          amount: 1000,
-          class_id: SEED_CLASS_1_ID,
-          academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 6, // Different month from any student fee
-        },
-        TENANT_ID,
-      );
-
-      // No student fees exist for month 6 → should succeed
-      await service.remove(created.id, TENANT_ID);
-
-      const raw = await feeRepo.findOne({ where: { id: created.id }, withDeleted: true });
-      expect(raw?.deleted_at).not.toBeNull();
-    });
-
-    it('should throw ConflictException when payments are linked to student fees from this structure', async () => {
+    // Removal never hard-deletes and never blocks on referencing StudentFee
+    // rows: history keeps pointing at the (now-hidden) price tag that
+    // generated them, rather than dragging billed data down with it.
+    it('should soft delete even when payment allocations reference fees generated from this structure', async () => {
       const feeStructure = await service.create(
         {
           fee_type: 'MONTHLY_TUITION' as any,
@@ -1075,7 +763,6 @@ describe('FeeStructureService (integration)', () => {
           amount: 1000,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
         },
         TENANT_ID,
       );
@@ -1096,8 +783,9 @@ describe('FeeStructureService (integration)', () => {
         studentFeeRepo.create({
           student_id: student.id,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
-          year: 2026,
+          fee_structure_id: feeStructure.id,
+          // 16.1.3: `month`/`year` are generated from `period_start`.
+          period_start: new Date(Date.UTC(2026, 0, 1)),
           total_amount: 1000,
           paid_amount: 0,
           discount_amount: 0,
@@ -1126,7 +814,10 @@ describe('FeeStructureService (integration)', () => {
         }),
       );
 
-      await expect(service.remove(feeStructure.id, TENANT_ID)).rejects.toThrow(ConflictException);
+      await service.remove(feeStructure.id, TENANT_ID);
+
+      const raw = await feeRepo.findOne({ where: { id: feeStructure.id }, withDeleted: true });
+      expect(raw?.deleted_at).not.toBeNull();
     });
 
     // Business-critical: the delete only stops the structure from driving
@@ -1140,7 +831,6 @@ describe('FeeStructureService (integration)', () => {
           amount: 1000,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
         },
         TENANT_ID,
       );
@@ -1159,8 +849,9 @@ describe('FeeStructureService (integration)', () => {
         studentFeeRepo.create({
           student_id: student.id,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
-          year: 2026,
+          fee_structure_id: feeStructure.id,
+          // 16.1.3: `month`/`year` are generated from `period_start`.
+          period_start: new Date(Date.UTC(2026, 0, 1)),
           total_amount: 1000,
           paid_amount: 0,
           discount_amount: 0,
@@ -1192,7 +883,6 @@ describe('FeeStructureService (integration)', () => {
           amount: 1000,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
         },
         TENANT_ID,
       );
@@ -1210,6 +900,7 @@ describe('FeeStructureService (integration)', () => {
 //  PaymentService
 // ────────────────────────────────────────────────────────────────
 describe('PaymentService (integration)', () => {
+  let paymentFeeStructureId: string;
   let service: PaymentService;
   let studentRepo: Repository<Student>;
   let paymentRepo: Repository<Payment>;
@@ -1254,6 +945,22 @@ describe('PaymentService (integration)', () => {
       await dataSource.query('DELETE FROM student_guardians');
       await dataSource.query('DELETE FROM guardians');
       await dataSource.query('DELETE FROM students');
+      // `student_fees.fee_structure_id` is NOT NULL since 16.1.3, and
+      // `fee_structures` is truncated globally before this hook runs, so
+      // re-seed the one price tag every bill in this block is charged against.
+      const feeStructureRepo = dataSource.getRepository(FeeStructure);
+      paymentFeeStructureId = (
+        await feeStructureRepo.save(
+          feeStructureRepo.create({
+            name: 'Tuition',
+            fee_type: 'MONTHLY_TUITION' as any,
+            amount: '1000.00',
+            class_id: SEED_CLASS_1_ID,
+            academic_year_id: SEED_ACADEMIC_YEAR_ID,
+            tenant_id: TENANT_ID,
+          }),
+        )
+      ).id;
     }
   });
 
@@ -1576,8 +1283,8 @@ describe('PaymentService (integration)', () => {
         studentFeeRepo.create({
           student_id: student.id,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
-          year: 2026,
+          fee_structure_id: paymentFeeStructureId,
+          period_start: new Date(Date.UTC(2026, 0, 1)),
           total_amount: 1000,
           paid_amount: 300,
           discount_amount: 0,

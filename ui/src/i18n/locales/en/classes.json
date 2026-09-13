@@ -130,9 +130,6 @@
       "columnName": "Name",
       "columnType": "Type",
       "columnAmount": "Amount",
-      "columnRecurring": "Recurring",
-      "yes": "Yes",
-      "no": "No",
       "emptyMessage": "No fee structures for this class",
       "errorMessage": "Failed to load fee structures"
     },
