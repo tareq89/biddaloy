@@ -52,6 +52,7 @@ export function studentFeeFactory(
     late_fee_for_student_fee: null,
     created_at: faker.date.past({ refDate: FACTORY_REFERENCE_DATE }).toISOString(),
     updated_at: faker.date.recent({ refDate: FACTORY_REFERENCE_DATE }).toISOString(),
+    deleted_at: null,
     ...overrides,
   };
 }
