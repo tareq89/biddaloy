@@ -97,6 +97,7 @@
     "TRANSPORT_FEE": "পরিবহন ফি",
     "ANNUAL_FEE": "বার্ষিক ফি",
     "ADMISSION_FEE": "ভর্তি ফি",
+    "LATE_FEE": "বিলম্ব ফি",
     "OTHER": "অন্যান্য"
   },
   "months": {

@@ -3118,7 +3118,7 @@ export interface components {
         FeeStructure: {
             id: string;
             /** @enum {string} */
-            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "OTHER";
+            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
             name: string;
             amount: number;
             /** @enum {string} */
@@ -3151,7 +3151,7 @@ export interface components {
         FamilyFeeStructureDto: {
             id: string;
             /** @enum {string} */
-            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "OTHER";
+            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
             name: string;
             amount: number;
             /** @enum {string} */
@@ -3232,7 +3232,7 @@ export interface components {
             student_id: string;
             total_amount: number;
             /** @enum {string} */
-            payment_method: "CASH" | "CHEQUE" | "BANK_TRANSFER" | "ONLINE" | "CARD" | "UPI";
+            payment_method: "CASH" | "CHEQUE" | "BANK_TRANSFER" | "CARD" | "BKASH" | "NAGAD" | "ROCKET";
             /** @enum {string} */
             payment_status: "SUCCESS" | "PENDING" | "FAILED" | "REFUNDED";
             transaction_reference: string | null;
@@ -3278,7 +3278,7 @@ export interface components {
             student_id: string;
             total_amount: number;
             /** @enum {string} */
-            payment_method: "CASH" | "CHEQUE" | "BANK_TRANSFER" | "ONLINE" | "CARD" | "UPI";
+            payment_method: "CASH" | "CHEQUE" | "BANK_TRANSFER" | "CARD" | "BKASH" | "NAGAD" | "ROCKET";
             /** @enum {string} */
             payment_status: "SUCCESS" | "PENDING" | "FAILED" | "REFUNDED";
             transaction_reference: string | null;
@@ -3357,7 +3357,7 @@ export interface components {
         };
         CreateFeeStructureDto: {
             /** @enum {string} */
-            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "OTHER";
+            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
             name: string;
             amount: number;
             /** @enum {string} */
@@ -3374,7 +3374,7 @@ export interface components {
         };
         UpdateFeeStructureDto: {
             /** @enum {string} */
-            fee_type?: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "OTHER";
+            fee_type?: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
             name?: string;
             amount?: number;
             /** @enum {string} */
@@ -3390,7 +3390,7 @@ export interface components {
             student_id: string;
             total_amount: number;
             /** @enum {string} */
-            payment_method: "CASH" | "CHEQUE" | "BANK_TRANSFER" | "ONLINE" | "CARD" | "UPI";
+            payment_method: "CASH" | "CHEQUE" | "BANK_TRANSFER" | "CARD" | "BKASH" | "NAGAD" | "ROCKET";
             /** @enum {string} */
             payment_status?: "SUCCESS" | "PENDING" | "FAILED" | "REFUNDED";
             transaction_reference?: string;
@@ -3409,7 +3409,7 @@ export interface components {
             student_id: string;
             total_amount: number;
             /** @enum {string} */
-            payment_method: "CASH" | "CHEQUE" | "BANK_TRANSFER" | "ONLINE" | "CARD" | "UPI";
+            payment_method: "CASH" | "CHEQUE" | "BANK_TRANSFER" | "CARD" | "BKASH" | "NAGAD" | "ROCKET";
             allocations: components["schemas"]["PaymentAllocationInputDto"][];
             transaction_reference?: string;
             remarks?: string;
@@ -7000,7 +7000,7 @@ export interface operations {
                 class_id?: string;
                 month?: number;
                 search?: string;
-                fee_type?: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "OTHER";
+                fee_type?: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
                 section_id?: string;
                 is_recurring?: boolean;
                 sort?: "name" | "created_at" | "month" | "amount";
