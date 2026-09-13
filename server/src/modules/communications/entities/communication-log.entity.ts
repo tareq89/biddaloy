@@ -120,6 +120,14 @@ export class CommunicationLog {
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, any> | null;
 
+  /** [16.3.4] Idempotency key set only by automated dispatchers that must
+   * survive a replayed event (e.g. `fees.generated`) without double-sending
+   * — `${eventName}:${entityId}:${guardianId}` today. Null for manual sends
+   * and bulk-reminder batches, which already dedupe another way. Unique per
+   * tenant when set (see this column's migration for why a partial index). */
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  reference_key: string | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 

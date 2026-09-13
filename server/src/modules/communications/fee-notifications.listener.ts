@@ -1,0 +1,355 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import { DataSource, Repository } from 'typeorm';
+import {
+  CommunicationMedium,
+  CommunicationStatus,
+  CommunicationTrigger,
+  countSmsSegments,
+} from '@biddaloy/shared';
+import { CommunicationLog } from './entities/communication-log.entity';
+import { Guardian } from '../students/entities/guardian.entity';
+import { Student } from '../students/entities/student.entity';
+import { FeeGenerationsService } from '../fees/fee-generations.service';
+import { SchoolsService } from '../schools/schools.service';
+import { SmsCreditService } from './credits/sms-credit.service';
+import { COMMUNICATIONS_QUEUE } from './communications.constants';
+import { addressForMedium, resolveReminderAudience } from './reminder-recipients.util';
+import {
+  buildFeeNotificationMessage,
+  FeeNotificationBillLine,
+  resolveFeeNotificationLocale,
+} from './fee-notification-template.util';
+
+/** `fees.generated`'s payload (emitted by #650 after a generation batch
+ * commits). Thin on purpose — this listener reloads the batch and its
+ * bills from the DB by id rather than trusting anything else the payload
+ * might carry, so it stays correct even if the emitter's shape grows. */
+export interface FeesGeneratedEvent {
+  tenantId: string;
+  feeGenerationId: string;
+}
+
+/** One row of `student_fees` for this batch, joined with what the message
+ * and recipient resolution need. */
+interface BillRow {
+  student_id: string;
+  student_full_name: string;
+  fee_structure_name: string;
+  total_amount: string;
+}
+
+/** Reason this listener created a log without ever handing it to the
+ * worker — recorded in `metadata.reason`, same shape as the worker's own
+ * `TENANT_SUSPENDED` marker (`communications.processor.ts`). */
+const SKIPPED_NO_SMS = 'SKIPPED_NO_SMS';
+
+const FEE_NOTIFICATION_EVENT = 'fee-notify';
+
+/** One entry of the push -> WhatsApp -> SMS fallback matrix (D13). Push
+ * itself is not decided here — `CommunicationsProcessor.tryPushFirst`
+ * (`worker/communications.processor.ts`) already tries it for every
+ * `CommunicationTrigger.AUTOMATED` log before falling through to whatever
+ * this function picked, and stops (no fallback) the moment push delivers.
+ * This function only answers "if push doesn't deliver, what next": WhatsApp
+ * when the guardian has a dispatchable address for it, else SMS when the
+ * tenant's SMS is enabled, else neither. */
+export interface ResolvedFeeNotificationChannel {
+  medium: CommunicationMedium.WHATSAPP | CommunicationMedium.SMS;
+  address: string;
+}
+
+export function resolveFeeNotificationChannel(
+  guardian: Guardian,
+  smsAvailable: boolean,
+): ResolvedFeeNotificationChannel | null {
+  const whatsappAddress = addressForMedium(guardian, CommunicationMedium.WHATSAPP);
+  if (whatsappAddress) {
+    return { medium: CommunicationMedium.WHATSAPP, address: whatsappAddress };
+  }
+
+  const smsAddress = addressForMedium(guardian, CommunicationMedium.SMS);
+  if (smsAddress && smsAvailable) {
+    return { medium: CommunicationMedium.SMS, address: smsAddress };
+  }
+
+  return null;
+}
+
+/**
+ * [16.3.4] "New fees added" family notification — one message per student
+ * per generation batch, sent push -> WhatsApp -> SMS (D13).
+ *
+ * Push is not this listener's job to attempt: `CommunicationsProcessor`
+ * (`worker/communications.processor.ts`) already tries push first for
+ * every `CommunicationTrigger.AUTOMATED` log before falling through to
+ * whatever medium the log itself carries (#555's `tryPushFirst`). This
+ * listener's only decision is which medium to fall back to if push does
+ * not deliver — WhatsApp when the guardian has a dispatchable address for
+ * it, else SMS if the tenant's SMS is enabled and (for a metered tenant)
+ * credit can be reserved, else neither (recorded, never queued).
+ *
+ * Idempotent per `(feeGenerationId, guardianId)` via `reference_key` — a
+ * replayed event finds its prior logs and creates nothing new.
+ */
+@Injectable()
+export class FeeNotificationsListener {
+  private readonly logger = new Logger(FeeNotificationsListener.name);
+
+  constructor(
+    @InjectRepository(CommunicationLog)
+    private readonly logRepo: Repository<CommunicationLog>,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
+    @InjectQueue(COMMUNICATIONS_QUEUE)
+    private readonly queue: Queue,
+    private readonly feeGenerationsService: FeeGenerationsService,
+    private readonly schoolsService: SchoolsService,
+    private readonly smsCreditService: SmsCreditService,
+  ) {}
+
+  @OnEvent('fees.generated')
+  async handleFeesGenerated(event: FeesGeneratedEvent): Promise<void> {
+    const { tenantId, feeGenerationId } = event;
+
+    const batch = await this.feeGenerationsService.findOne(feeGenerationId, tenantId);
+    if (!batch.notify_families) {
+      return;
+    }
+
+    const bills = await this.loadBills(tenantId, feeGenerationId);
+    if (bills.length === 0) {
+      return;
+    }
+
+    const billsByStudent = new Map<string, FeeNotificationBillLine[]>();
+    for (const row of bills) {
+      const lines = billsByStudent.get(row.student_id) ?? [];
+      lines.push({ name: row.fee_structure_name, amount: Number(row.total_amount) });
+      billsByStudent.set(row.student_id, lines);
+    }
+
+    const settings = await this.schoolsService.getResolvedSettings(tenantId);
+    const locale = resolveFeeNotificationLocale(settings.region?.locale);
+    // "Tenant's SMS is enabled" = a gateway is configured at all
+    // (`communications.sms` is absent by default — see `SmsSettingsDto`).
+    // `isMetered` only tells us whether credit is charged for it, not
+    // whether it's turned on, so both checks are needed.
+    const smsAvailable = !!settings.communications?.sms?.provider;
+    const metered = await this.smsCreditService.isMetered(tenantId);
+
+    // Group by GUARDIAN, not student: the Tests/Acceptance contract keys
+    // idempotency on `(feeGenerationId, guardianId)`, so a guardian with
+    // two children both billed in this batch must get exactly one message
+    // (and one `reference_key`) naming every one of their children's
+    // bills — mirrors `AbsenceNoticeService.resolveAbsentees`'s
+    // one-guardian-several-students grouping, not the fee path's usual
+    // one-student-per-log shape.
+    const guardiansById = new Map<string, Guardian>();
+    const linesByGuardian = new Map<string, FeeNotificationBillLine[]>();
+    const studentIdsByGuardian = new Map<string, string[]>();
+
+    for (const [studentId, lines] of billsByStudent) {
+      const student = await this.dataSource.getRepository(Student).findOne({
+        where: { id: studentId, tenant_id: tenantId },
+        relations: ['guardians'],
+      });
+      const linked: Guardian[] = student?.guardians ?? [];
+      if (linked.length === 0) continue;
+
+      const { guardians } = resolveReminderAudience(linked);
+      for (const guardian of guardians) {
+        guardiansById.set(guardian.id, guardian);
+        const existingLines = linesByGuardian.get(guardian.id) ?? [];
+        linesByGuardian.set(guardian.id, [...existingLines, ...lines]);
+        const studentIds = studentIdsByGuardian.get(guardian.id) ?? [];
+        studentIds.push(studentId);
+        studentIdsByGuardian.set(guardian.id, studentIds);
+      }
+    }
+
+    interface PlannedSend {
+      guardianId: string;
+      recipientAddress: string;
+      recipientName: string;
+      medium: CommunicationMedium;
+      message: string;
+      referenceKey: string;
+      segments?: number;
+    }
+    const planned: PlannedSend[] = [];
+    const skippedNoSms: Array<{
+      guardianId: string;
+      recipientAddress: string;
+      recipientName: string;
+      referenceKey: string;
+    }> = [];
+
+    for (const [guardianId, guardian] of guardiansById) {
+      const referenceKey = `${FEE_NOTIFICATION_EVENT}:${feeGenerationId}:${guardianId}`;
+      const lines = linesByGuardian.get(guardianId) ?? [];
+      const message = buildFeeNotificationMessage(locale, lines, batch.due_date);
+
+      const channel = resolveFeeNotificationChannel(guardian, smsAvailable);
+      if (!channel) {
+        skippedNoSms.push({
+          guardianId,
+          recipientAddress: addressForMedium(guardian, CommunicationMedium.SMS) ?? 'unknown',
+          recipientName: guardian.full_name,
+          referenceKey,
+        });
+        continue;
+      }
+
+      planned.push({
+        guardianId,
+        recipientAddress: channel.address,
+        recipientName: guardian.full_name,
+        medium: channel.medium,
+        message,
+        referenceKey,
+        segments:
+          channel.medium === CommunicationMedium.SMS
+            ? countSmsSegments(message).segments
+            : undefined,
+      });
+    }
+
+    // Idempotency: drop anything this event (or a prior delivery attempt
+    // for the same batch) already logged.
+    const allKeys = [...planned.map((p) => p.referenceKey), ...skippedNoSms.map((s) => s.referenceKey)];
+    if (allKeys.length === 0) {
+      return;
+    }
+    const existing = await this.logRepo.find({
+      where: allKeys.map((reference_key) => ({ tenant_id: tenantId, reference_key })),
+      select: ['reference_key'],
+    });
+    const alreadyLogged = new Set(existing.map((row) => row.reference_key));
+
+    const toSend = planned.filter((p) => !alreadyLogged.has(p.referenceKey));
+    const toSkip = skippedNoSms.filter((s) => !alreadyLogged.has(s.referenceKey));
+
+    // Reserve the batch's total SMS units once, before any log/job exists —
+    // same reasoning as `BulkReminderService.sendBulk`. On insufficient
+    // credit, every SMS recipient in this event falls back to being logged
+    // as SKIPPED_NO_SMS instead of throwing: a family generation event has
+    // no caller waiting on an HTTP response to fail, and WhatsApp
+    // recipients must still be sent.
+    const smsSends = toSend.filter((p) => p.medium === CommunicationMedium.SMS);
+    const totalSmsUnits = smsSends.reduce((sum, p) => sum + (p.segments ?? 0), 0);
+    const batchReservationKey = `${FEE_NOTIFICATION_EVENT}:${feeGenerationId}:sms`;
+    let smsReserved = totalSmsUnits === 0;
+    if (totalSmsUnits > 0 && metered) {
+      const reservation = await this.smsCreditService.reserve(
+        tenantId,
+        totalSmsUnits,
+        batchReservationKey,
+        { type: 'batch', id: feeGenerationId },
+      );
+      smsReserved = reservation.ok;
+    } else if (totalSmsUnits > 0) {
+      smsReserved = true;
+    }
+
+    for (const item of toSend) {
+      if (item.medium === CommunicationMedium.SMS && !smsReserved) {
+        toSkip.push({
+          guardianId: item.guardianId,
+          recipientAddress: item.recipientAddress,
+          recipientName: item.recipientName,
+          referenceKey: item.referenceKey,
+        });
+        continue;
+      }
+
+      const log = await this.logRepo.save(
+        this.logRepo.create({
+          tenant_id: tenantId,
+          medium: item.medium,
+          recipient_address: item.recipientAddress,
+          recipient_name: item.recipientName,
+          message_body: item.message,
+          // No single `student_id` fits — a guardian's message can name
+          // several billed children. `metadata.student_ids` (below)
+          // carries the full list, same fallback
+          // `AbsenceNoticeService.queueRecipients` uses for its own
+          // several-students-one-log case.
+          student_id: null,
+          guardian_id: item.guardianId,
+          sent_by_user_id: null,
+          status: CommunicationStatus.QUEUED,
+          trigger: CommunicationTrigger.AUTOMATED,
+          reference_key: item.referenceKey,
+          metadata: {
+            fee_generation_id: feeGenerationId,
+            student_ids: studentIdsByGuardian.get(item.guardianId) ?? [],
+          },
+        }),
+      );
+
+      try {
+        await this.queue.add('send', {
+          logId: log.id,
+          ...(item.medium === CommunicationMedium.SMS && metered
+            ? { batchId: batchReservationKey, segments: item.segments }
+            : {}),
+        });
+      } catch (error) {
+        this.logger.warn(
+          `Failed to enqueue fee-notification log ${log.id} for generation ${feeGenerationId}: ${String(error)}`,
+        );
+        log.status = CommunicationStatus.FAILED;
+        log.metadata = { ...log.metadata, error: 'Failed to enqueue for delivery' };
+        await this.logRepo.save(log);
+      }
+    }
+
+    for (const item of toSkip) {
+      await this.logRepo.save(
+        this.logRepo.create({
+          tenant_id: tenantId,
+          medium: CommunicationMedium.SMS,
+          recipient_address: item.recipientAddress,
+          recipient_name: item.recipientName,
+          message_body: '',
+          student_id: null,
+          guardian_id: item.guardianId,
+          sent_by_user_id: null,
+          status: CommunicationStatus.FAILED,
+          trigger: CommunicationTrigger.AUTOMATED,
+          reference_key: item.referenceKey,
+          metadata: {
+            fee_generation_id: feeGenerationId,
+            reason: SKIPPED_NO_SMS,
+            student_ids: studentIdsByGuardian.get(item.guardianId) ?? [],
+          },
+        }),
+      );
+    }
+  }
+
+  /** Loads this batch's bills grouped by student, joined with the fee
+   * structure name the message needs. Queried via the shared `DataSource`
+   * rather than an injected `StudentFee` repository — `FeeModule` does not
+   * export `TypeOrmModule`, and this module already reaches other modules'
+   * tables the same way (`FeeGenerationsService.findBills`,
+   * `AbsenceNoticeService.resolveAbsentees`'s sibling pattern). */
+  private async loadBills(tenantId: string, feeGenerationId: string): Promise<BillRow[]> {
+    return this.dataSource
+      .createQueryBuilder()
+      .from('student_fees', 'sf')
+      .innerJoin('students', 's', 's.id = sf.student_id')
+      .innerJoin('fee_structures', 'fs', 'fs.id = sf.fee_structure_id')
+      .where('sf.fee_generation_id = :feeGenerationId', { feeGenerationId })
+      .andWhere('s.tenant_id = :tenantId', { tenantId })
+      .select('sf.student_id', 'student_id')
+      .addSelect('s.full_name', 'student_full_name')
+      .addSelect('fs.name', 'fee_structure_name')
+      .addSelect('sf.total_amount', 'total_amount')
+      .getRawMany<BillRow>();
+  }
+}
