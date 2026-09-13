@@ -378,4 +378,177 @@ describe('Fee Generations E2E', () => {
       expect(res.body.total).toBeGreaterThanOrEqual(3);
     });
   });
+
+  // --- [16.3.2] Batch mutations ---
+  //
+  // These cover the free-while-uncollected paths end to end (routing,
+  // permissions, DB effect) plus the APPROVAL_REQUIRED 403 once money is
+  // involved. The "with a valid token, succeeds and records the approver"
+  // path is covered at the service level, in
+  // `fee-generation-batch.service.integration.spec.ts` — reissuing a real
+  // step-up token here would mean driving `POST /auth/step-up`'s OTP flow
+  // just to re-prove what that spec already proves.
+  describe('PATCH /fees/generations/:id', () => {
+    it('changes the period on an uncollected batch, no approval needed', async () => {
+      const batchId = await createBatch();
+
+      await supertest(app.getHttpServer())
+        .patch(`/api/v1/fees/generations/${batchId}`)
+        .send({ period_start: '2027-01-01', due_date: '2027-01-10' })
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .expect(200);
+
+      const res = await supertest(app.getHttpServer())
+        .get(`/api/v1/fees/generations/${batchId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .expect(200);
+      expect(res.body.period_start).toBe('2027-01-01');
+      expect(res.body.due_date).toBe('2027-01-10');
+    });
+
+    it('409s with the colliding students on a period_start collision', async () => {
+      const batchId = await createBatch();
+      const studentId = await createStudent();
+      await createBill(batchId, studentId);
+
+      // A bill for the same student/fee-structure/occurrence already sits
+      // at the target period, outside any batch — the collision this PATCH
+      // must catch.
+      await dataSource.query(
+        `INSERT INTO student_fees (id, student_id, academic_year_id, fee_structure_id, period_start, occurrence, total_amount, paid_amount, discount_amount, status, fee_generation_id, created_at, updated_at)
+         VALUES (DEFAULT, $1, $2, $3, DATE '2027-02-01', 1, 1000, 0, 0, 'PENDING', NULL, NOW(), NOW())`,
+        [studentId, SEED_ACADEMIC_YEAR_ID, await ensureFeeStructure(dataSource)],
+      );
+
+      const res = await supertest(app.getHttpServer())
+        .patch(`/api/v1/fees/generations/${batchId}`)
+        .send({ period_start: '2027-02-01' })
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .expect(409);
+      expect(res.body.details.students.some((s: any) => s.id === studentId)).toBe(true);
+    });
+
+    it('403s APPROVAL_REQUIRED when a bill in scope is already paid', async () => {
+      const batchId = await createBatch();
+      const studentId = await createStudent();
+      await createBill(batchId, studentId, { paid_amount: 1000, status: 'PAID' });
+
+      const res = await supertest(app.getHttpServer())
+        .patch(`/api/v1/fees/generations/${batchId}`)
+        .send({ due_date: '2027-03-15' })
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .expect(403);
+      expect(res.body.code ?? res.body.details?.code).toBeTruthy();
+    });
+  });
+
+  describe('DELETE /fees/generations/:id', () => {
+    it('soft-deletes an uncollected batch and its bills, no approval needed', async () => {
+      const batchId = await createBatch();
+      const studentId = await createStudent();
+      await createBill(batchId, studentId);
+
+      await supertest(app.getHttpServer())
+        .delete(`/api/v1/fees/generations/${batchId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .expect(200);
+
+      await supertest(app.getHttpServer())
+        .get(`/api/v1/fees/generations/${batchId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .expect(404);
+    });
+
+    it('403s APPROVAL_REQUIRED when the batch has a paid bill', async () => {
+      const batchId = await createBatch();
+      const studentId = await createStudent();
+      await createBill(batchId, studentId, { paid_amount: 1000, status: 'PAID' });
+
+      await supertest(app.getHttpServer())
+        .delete(`/api/v1/fees/generations/${batchId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .expect(403);
+    });
+  });
+
+  describe('DELETE /fees/generations/:id/students/:studentId', () => {
+    it("soft-deletes just that student's bills", async () => {
+      const batchId = await createBatch();
+      const studentA = await createStudent();
+      const studentB = await createStudent();
+      await createBill(batchId, studentA);
+      await createBill(batchId, studentB);
+
+      await supertest(app.getHttpServer())
+        .delete(`/api/v1/fees/generations/${batchId}/students/${studentA}`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .expect(200);
+
+      const bills = await supertest(app.getHttpServer())
+        .get(`/api/v1/fees/generations/${batchId}/bills`)
+        .query({ limit: 100 })
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .expect(200);
+      const studentIds = bills.body.data.map((b: any) => b.student_id);
+      expect(studentIds).not.toContain(studentA);
+      expect(studentIds).toContain(studentB);
+    });
+  });
+
+  describe('POST /fees/generations/:id/remove-uncollected', () => {
+    it('removes only unpaid bills, no approval needed, returns removed_count', async () => {
+      const batchId = await createBatch();
+      const unpaidStudent = await createStudent();
+      const paidStudent = await createStudent();
+      await createBill(batchId, unpaidStudent);
+      await createBill(batchId, paidStudent, { paid_amount: 1000, status: 'PAID' });
+
+      const res = await supertest(app.getHttpServer())
+        .post(`/api/v1/fees/generations/${batchId}/remove-uncollected`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .expect(201);
+      expect(res.body.removed_count).toBe(1);
+
+      const bills = await supertest(app.getHttpServer())
+        .get(`/api/v1/fees/generations/${batchId}/bills`)
+        .query({ limit: 100 })
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .expect(200);
+      const studentIds = bills.body.data.map((b: any) => b.student_id);
+      expect(studentIds).not.toContain(unpaidStudent);
+      expect(studentIds).toContain(paidStudent);
+    });
+
+    it('denies TEACHER role (lacks FEE_GENERATE)', async () => {
+      const batchId = await createBatch();
+      await supertest(app.getHttpServer())
+        .post(`/api/v1/fees/generations/${batchId}/remove-uncollected`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.TEACHER)
+        .expect(401);
+    });
+  });
 });
