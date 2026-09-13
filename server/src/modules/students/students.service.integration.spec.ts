@@ -36,7 +36,6 @@ async function seedReferenceData(ds: DataSource): Promise<void> {
   // Clean up any stale data before seeding (FK-safe order)
   await ds.query('DELETE FROM payment_allocations');
   await ds.query('DELETE FROM student_fees');
-  await ds.query('DELETE FROM fee_structure_students');
   await ds.query('DELETE FROM fee_structures');
   await ds.query('DELETE FROM payments');
   await ds.query('DELETE FROM student_guardians');

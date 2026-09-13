@@ -18,8 +18,8 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * delete with a confusing "write-only" error instead of an ordinary FK
  * violation. RESTRICT fails the parent delete cleanly instead.
  */
-export class AddStudentWallets1789800000000 implements MigrationInterface {
-  name = 'AddStudentWallets1789800000000';
+export class AddStudentWallets1789800003000 implements MigrationInterface {
+  name = 'AddStudentWallets1789800003000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(

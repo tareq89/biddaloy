@@ -7,8 +7,8 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * the bills it already created) so a bill can be traced back to the batch
  * that generated it.
  */
-export class AddFeeGenerations1789800000000 implements MigrationInterface {
-  name = 'AddFeeGenerations1789800000000';
+export class AddFeeGenerations1789800002000 implements MigrationInterface {
+  name = 'AddFeeGenerations1789800002000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
@@ -63,21 +63,19 @@ export class AddFeeGenerations1789800000000 implements MigrationInterface {
       `ALTER TABLE "fee_generations" ADD CONSTRAINT "FK_fee_generations_approved_by" FOREIGN KEY ("approved_by_user_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE NO ACTION`,
     );
 
-    await queryRunner.query(`ALTER TABLE "student_fees" ADD "fee_generation_id" uuid`);
+    // `student_fees.fee_generation_id` and its index were already added by
+    // 16.1.3's StudentFeeAsBill migration (same-wave, runs first per this
+    // migration's timestamp) — only the FK back to fee_generations belongs
+    // here, since fee_generations doesn't exist until this migration runs.
     await queryRunner.query(
       `ALTER TABLE "student_fees" ADD CONSTRAINT "FK_student_fees_fee_generation" FOREIGN KEY ("fee_generation_id") REFERENCES "fee_generations"("id") ON DELETE SET NULL ON UPDATE NO ACTION`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_student_fees_fee_generation_id" ON "student_fees" ("fee_generation_id")`,
     );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP INDEX "public"."IDX_student_fees_fee_generation_id"`);
     await queryRunner.query(
       `ALTER TABLE "student_fees" DROP CONSTRAINT "FK_student_fees_fee_generation"`,
     );
-    await queryRunner.query(`ALTER TABLE "student_fees" DROP COLUMN "fee_generation_id"`);
 
     await queryRunner.query(
       `ALTER TABLE "fee_generations" DROP CONSTRAINT "FK_fee_generations_approved_by"`,

@@ -21,8 +21,8 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *   `ONLINE`/`UPI`. Per D19 ("no production data: migrations may drop and
  *   recreate") this is a straight swap with no legacy-value mapping.
  */
-export class PaymentCheckoutColumns1789800000000 implements MigrationInterface {
-  name = 'PaymentCheckoutColumns1789800000000';
+export class PaymentCheckoutColumns1789800004000 implements MigrationInterface {
+  name = 'PaymentCheckoutColumns1789800004000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // --- payments: new columns ---

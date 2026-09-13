@@ -23,7 +23,6 @@ import {
   CommunicationMedium,
   FeeStatus,
   FeeType,
-  FeeApplicability,
   PeriodType,
 } from '@biddaloy/shared';
 
@@ -139,10 +138,8 @@ async function seedFeeStructures(ds: DataSource): Promise<void> {
       fee_type: FeeType.MONTHLY_TUITION,
       name: 'Tuition Fee',
       amount: 1000,
-      applicability: FeeApplicability.ALL,
       class_id: SEED_CLASS_1_ID,
       academic_year_id: SEED_ACADEMIC_YEAR_ID,
-      month: 1,
       tenant_id: SEED_TENANT_ID,
     }),
   );
@@ -152,10 +149,8 @@ async function seedFeeStructures(ds: DataSource): Promise<void> {
       fee_type: FeeType.EXAM_FEE,
       name: 'Exam Fee',
       amount: 500,
-      applicability: FeeApplicability.ALL,
       class_id: SEED_CLASS_1_ID,
       academic_year_id: SEED_ACADEMIC_YEAR_ID,
-      month: 1,
       tenant_id: SEED_TENANT_ID,
     }),
   );
@@ -616,10 +611,8 @@ describe('FeeDuesService (integration)', () => {
           fee_type: FeeType.MONTHLY_TUITION,
           name: 'Other Tenant Tuition',
           amount: 1000,
-          applicability: FeeApplicability.ALL,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
           tenant_id: OTHER_TENANT_ID,
         }),
       );

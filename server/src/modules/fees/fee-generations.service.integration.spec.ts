@@ -4,6 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { FeeGenerationsService } from './fee-generations.service';
 import { FeeGeneration } from './entities/fee-generation.entity';
 import { StudentFee } from './entities/student-fee.entity';
+import { FeeStructure } from './entities/fee-structure.entity';
 import { Student } from '../students/entities/student.entity';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
@@ -23,7 +24,7 @@ import {
   SEED_ADMIN_EMAIL,
   SEED_ADMIN_PASSWORD_HASH,
 } from '@test/constants';
-import { PeriodType, FeeGenerationSource, DuplicateStrategy } from '@biddaloy/shared';
+import { PeriodType, FeeType, FeeGenerationSource, DuplicateStrategy } from '@biddaloy/shared';
 
 /**
  * Integration tests for FeeGenerationsService (16.1.4).
@@ -37,6 +38,8 @@ import { PeriodType, FeeGenerationSource, DuplicateStrategy } from '@biddaloy/sh
 const OTHER_TENANT_ID = '00000000-0000-4000-8000-000000000099';
 
 let studentSeq = 0;
+// Re-seeded per test — `student_fees.fee_structure_id` is NOT NULL (16.1.3).
+let feeStructureId: string;
 
 async function seedReferenceData(ds: DataSource): Promise<void> {
   await ds.query('DELETE FROM audit_logs');
@@ -168,6 +171,21 @@ describe('FeeGenerationsService (integration)', () => {
       await dataSource.query('DELETE FROM student_fees');
       await dataSource.query('DELETE FROM fee_generations');
       await dataSource.query('DELETE FROM students');
+      // `fee_structures` is truncated globally by `test/setup.ts` before this
+      // hook, so re-seed the price tag this file's bills are charged against.
+      const feeStructureRepo = dataSource.getRepository(FeeStructure);
+      feeStructureId = (
+        await feeStructureRepo.save(
+          feeStructureRepo.create({
+            name: 'Tuition',
+            fee_type: FeeType.MONTHLY_TUITION,
+            amount: '1000.00',
+            class_id: SEED_CLASS_1_ID,
+            academic_year_id: SEED_ACADEMIC_YEAR_ID,
+            tenant_id: SEED_TENANT_ID,
+          }),
+        )
+      ).id;
     }
   });
 
@@ -225,9 +243,11 @@ describe('FeeGenerationsService (integration)', () => {
       ];
       for (const b of bills) {
         await dataSource.query(
-          `INSERT INTO student_fees (id, student_id, academic_year_id, month, year, total_amount, paid_amount, discount_amount, status, fee_generation_id, created_at, updated_at)
-           VALUES (DEFAULT, $1, $2, 7, 2026, 1000, $3, 0, $4, $5, NOW(), NOW())`,
-          [b.studentId, SEED_ACADEMIC_YEAR_ID, b.paid, b.status, batch.id],
+          // `month`/`year` are generated columns derived from `period_start`
+          // (16.1.3), so the period is what gets inserted.
+          `INSERT INTO student_fees (id, student_id, academic_year_id, fee_structure_id, period_start, total_amount, paid_amount, discount_amount, status, fee_generation_id, created_at, updated_at)
+           VALUES (DEFAULT, $1, $2, $6, DATE '2026-07-01', 1000, $3, 0, $4, $5, NOW(), NOW())`,
+          [b.studentId, SEED_ACADEMIC_YEAR_ID, b.paid, b.status, batch.id, feeStructureId],
         );
       }
 

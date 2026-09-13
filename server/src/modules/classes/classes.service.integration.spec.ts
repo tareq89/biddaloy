@@ -72,7 +72,6 @@ describe('ClassService / SectionService (integration)', () => {
     await dataSource.query('DELETE FROM teachers');
     await dataSource.query('DELETE FROM enrollments');
     await dataSource.query('DELETE FROM student_fees');
-    await dataSource.query('DELETE FROM fee_structure_students');
     await dataSource.query('DELETE FROM fee_structures');
     await dataSource.query('DELETE FROM payments');
     await dataSource.query('DELETE FROM student_guardians');

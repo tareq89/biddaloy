@@ -15,7 +15,7 @@ import { User } from '../users/entities/user.entity';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_TENANT_ID } from '@test/constants';
-import { EnrollmentStatus, FeeType, FeeApplicability, AuditAction } from '@biddaloy/shared';
+import { EnrollmentStatus, FeeType, AuditAction } from '@biddaloy/shared';
 import { AuditService } from '../audit/audit.service';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 
@@ -67,7 +67,6 @@ describe('AcademicYearService (integration)', () => {
     if (dataSource) {
       await dataSource.query('DELETE FROM payment_allocations');
       await dataSource.query('DELETE FROM student_fees');
-      await dataSource.query('DELETE FROM fee_structure_students');
       await dataSource.query('DELETE FROM fee_structures');
       await dataSource.query('DELETE FROM payments');
       await dataSource.query('DELETE FROM student_guardians');
@@ -290,11 +289,8 @@ describe('AcademicYearService (integration)', () => {
         fee_type: FeeType.MONTHLY_TUITION,
         name: 'Tuition',
         amount: 500,
-        applicability: FeeApplicability.ALL,
         class_id: klass.id,
         academic_year_id: year.id,
-        month: 1,
-        is_recurring: true,
         tenant_id: TENANT_ID,
       });
 

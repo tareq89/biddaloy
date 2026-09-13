@@ -26,7 +26,7 @@ import {
   SEED_ADMIN_EMAIL,
   SEED_ADMIN_PASSWORD_HASH,
 } from '@test/constants';
-import { FeeApplicability, FeeStatus, FeeType, InvoiceStatus } from '@biddaloy/shared';
+import { FeeStatus, FeeType, InvoiceStatus } from '@biddaloy/shared';
 
 /**
  * Integration tests for InvoicesService (issue #14 — Invoice Generation & Printing).
@@ -189,11 +189,8 @@ describe('InvoicesService (integration)', () => {
           name: 'Tuition',
           fee_type: FeeType.MONTHLY_TUITION,
           amount: '1000.00',
-          applicability: FeeApplicability.ALL,
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 3,
-          is_recurring: true,
           tenant_id: TENANT_ID,
         }),
       );

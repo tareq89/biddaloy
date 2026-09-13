@@ -783,8 +783,9 @@ describe('FeeStructureService (integration)', () => {
         studentFeeRepo.create({
           student_id: student.id,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
-          year: 2026,
+          fee_structure_id: feeStructure.id,
+          // 16.1.3: `month`/`year` are generated from `period_start`.
+          period_start: new Date(Date.UTC(2026, 0, 1)),
           total_amount: 1000,
           paid_amount: 0,
           discount_amount: 0,
@@ -848,8 +849,9 @@ describe('FeeStructureService (integration)', () => {
         studentFeeRepo.create({
           student_id: student.id,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
-          year: 2026,
+          fee_structure_id: feeStructure.id,
+          // 16.1.3: `month`/`year` are generated from `period_start`.
+          period_start: new Date(Date.UTC(2026, 0, 1)),
           total_amount: 1000,
           paid_amount: 0,
           discount_amount: 0,
@@ -898,6 +900,7 @@ describe('FeeStructureService (integration)', () => {
 //  PaymentService
 // ────────────────────────────────────────────────────────────────
 describe('PaymentService (integration)', () => {
+  let paymentFeeStructureId: string;
   let service: PaymentService;
   let studentRepo: Repository<Student>;
   let paymentRepo: Repository<Payment>;
@@ -942,6 +945,22 @@ describe('PaymentService (integration)', () => {
       await dataSource.query('DELETE FROM student_guardians');
       await dataSource.query('DELETE FROM guardians');
       await dataSource.query('DELETE FROM students');
+      // `student_fees.fee_structure_id` is NOT NULL since 16.1.3, and
+      // `fee_structures` is truncated globally before this hook runs, so
+      // re-seed the one price tag every bill in this block is charged against.
+      const feeStructureRepo = dataSource.getRepository(FeeStructure);
+      paymentFeeStructureId = (
+        await feeStructureRepo.save(
+          feeStructureRepo.create({
+            name: 'Tuition',
+            fee_type: 'MONTHLY_TUITION' as any,
+            amount: '1000.00',
+            class_id: SEED_CLASS_1_ID,
+            academic_year_id: SEED_ACADEMIC_YEAR_ID,
+            tenant_id: TENANT_ID,
+          }),
+        )
+      ).id;
     }
   });
 
@@ -1264,8 +1283,8 @@ describe('PaymentService (integration)', () => {
         studentFeeRepo.create({
           student_id: student.id,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
-          year: 2026,
+          fee_structure_id: paymentFeeStructureId,
+          period_start: new Date(Date.UTC(2026, 0, 1)),
           total_amount: 1000,
           paid_amount: 300,
           discount_amount: 0,

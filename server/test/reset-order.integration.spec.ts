@@ -27,6 +27,11 @@ const INTENTIONALLY_NOT_RESET: Record<string, string> = {
   // in buildReferenceResetSql() clears it. Listed explicitly so that if that
   // FK ever loses its CASCADE, this file is where you find out why.
   refresh_tokens: 'cleared by ON DELETE CASCADE from users',
+  // TypeORM's own bookkeeping for generated-column/view definitions. It
+  // appeared with 16.1.3's generated `student_fees.month`/`.year` columns.
+  // Holds schema metadata, never tenant data, so nothing can leak between
+  // tests through it.
+  typeorm_metadata: 'TypeORM schema metadata, not test data',
 };
 
 describe('reset-order (integration)', () => {

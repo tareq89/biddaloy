@@ -64,7 +64,7 @@ describe('fees tabs (integration)', () => {
   let feeStructureAId: string;
   // `feeStructuresTab.keyOf`'s composite: class|year|section|fee_type|month|name.
   // The shared fee structure below has no section, hence the empty segment.
-  const FEE_STRUCTURE_A_KEY = 'Class 5|2026-2027|2026-2027||MONTHLY_TUITION|1|Tuition - January';
+  const FEE_STRUCTURE_A_KEY = 'Class 5|2026-2027|2026-2027||MONTHLY_TUITION|Tuition - January';
 
   beforeAll(async () => {
     module = await createTestModule(ALL_ENTITIES, []);
@@ -172,11 +172,8 @@ describe('fees tabs (integration)', () => {
         fee_type: FeeType.MONTHLY_TUITION,
         name: 'Tuition - January',
         amount: '1500.00',
-        applicability: FeeApplicability.ALL,
         class_id: classAId,
         academic_year_id: yearAId,
-        month: 1,
-        is_recurring: true,
       }),
     );
     feeStructureAId = feeStructure.id;

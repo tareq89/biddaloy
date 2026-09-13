@@ -4,6 +4,7 @@ import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { PaymentAllocationService } from './payment-allocation.service';
 import { StudentFee } from './entities/student-fee.entity';
+import { FeeStructure } from './entities/fee-structure.entity';
 import { Payment } from './entities/payment.entity';
 import { PaymentAllocation } from './entities/payment-allocation.entity';
 import { Student } from '../students/entities/student.entity';
@@ -26,7 +27,13 @@ import {
   SEED_ADMIN_EMAIL,
   SEED_ADMIN_PASSWORD_HASH,
 } from '@test/constants';
-import { FeeStatus, PaymentMethod, PaymentAllocationType, AuditAction } from '@biddaloy/shared';
+import {
+  FeeStatus,
+  FeeType,
+  PaymentMethod,
+  PaymentAllocationType,
+  AuditAction,
+} from '@biddaloy/shared';
 
 /**
  * Integration tests for PaymentAllocationService (issue #13 — record-with-allocation).
@@ -39,17 +46,23 @@ import { FeeStatus, PaymentMethod, PaymentAllocationType, AuditAction } from '@b
 
 const OTHER_TENANT_ID = '00000000-0000-4000-8000-000000000099';
 
-/** Returns {month, year} for `offset` months relative to today, so DUE/CURRENT/ADVANCE
+/** Returns the first day of the month `offset` months from today, so DUE/CURRENT/ADVANCE
  * classification always lines up with the service's `new Date()`-based logic regardless
- * of when the test suite runs. */
-function monthOffset(offset: number): { month: number; year: number } {
+ * of when the test suite runs.
+ *
+ * Since 16.1.3 `student_fees.month`/`.year` are generated columns derived from
+ * `period_start`, so fixtures set the period and read month/year back. */
+function periodStart(offset: number): Date {
   const d = new Date();
   d.setDate(1); // avoid month-end rollover surprises
   d.setMonth(d.getMonth() + offset);
-  return { month: d.getMonth() + 1, year: d.getFullYear() };
+  return new Date(Date.UTC(d.getFullYear(), d.getMonth(), 1));
 }
 
 let studentSeq = 0;
+// Re-seeded per test (see `beforeEach`) — `student_fees.fee_structure_id`
+// became NOT NULL in 16.1.3, so every fixture bill is charged against it.
+let feeStructureId: string;
 
 async function seedReferenceData(ds: DataSource): Promise<void> {
   await ds.query('DELETE FROM audit_logs');
@@ -141,12 +154,11 @@ describe('PaymentAllocationService (integration)', () => {
   }
 
   function makeFee(studentId: string, offset: number, overrides: Partial<StudentFee> = {}) {
-    const { month, year } = monthOffset(offset);
     return studentFeeRepo.create({
       student_id: studentId,
       academic_year_id: SEED_ACADEMIC_YEAR_ID,
-      month,
-      year,
+      fee_structure_id: feeStructureId,
+      period_start: periodStart(offset),
       total_amount: 1000,
       paid_amount: 0,
       discount_amount: 0,
@@ -191,6 +203,21 @@ describe('PaymentAllocationService (integration)', () => {
       await dataSource.query('DELETE FROM payments');
       await dataSource.query('DELETE FROM student_fees');
       await dataSource.query('DELETE FROM students');
+      // `fee_structures` is globally truncated by `test/setup.ts`'s per-test
+      // `beforeEach`, which runs before this one — so re-seed the structure
+      // every test. `student_fees.fee_structure_id` is NOT NULL since 16.1.3.
+      const feeStructureRepo = dataSource.getRepository(FeeStructure);
+      const feeStructure = await feeStructureRepo.save(
+        feeStructureRepo.create({
+          name: 'Tuition',
+          fee_type: FeeType.MONTHLY_TUITION,
+          amount: '1000.00',
+          class_id: SEED_CLASS_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          tenant_id: TENANT_ID,
+        }),
+      );
+      feeStructureId = feeStructure.id;
     }
   });
 
@@ -695,7 +722,13 @@ describe('PaymentAllocationService (integration)', () => {
       // is still PENDING (nothing has re-evaluated the status) — this fee must
       // not silently absorb money with no PaymentAllocation to show for it.
       const fee = await studentFeeRepo.save(
-        makeFee(student.id, 0, { total_amount: 500, discount_amount: 500 }),
+        // 16.1.3 split `discount_amount` into standing + one-off components,
+        // with a CHECK that the total equals their sum.
+        makeFee(student.id, 0, {
+          total_amount: 500,
+          discount_amount: 500,
+          one_off_discount_amount: 500,
+        }),
       );
 
       await expect(
@@ -1053,8 +1086,8 @@ describe('PaymentAllocationService (integration)', () => {
         studentFeeRepo.create({
           student_id: otherStudent.id,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: fee.month,
-          year: fee.year,
+          fee_structure_id: feeStructureId,
+          period_start: fee.period_start,
           total_amount: 500,
           paid_amount: 0,
           discount_amount: 0,

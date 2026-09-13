@@ -10,8 +10,8 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * this is a straight destructive rebuild rather than a backfill. Rollback
  * cannot restore the truncated rows — `down()` only reverses the schema.
  */
-export class StudentFeeAsBill1789800000000 implements MigrationInterface {
-  name = 'StudentFeeAsBill1789800000000';
+export class StudentFeeAsBill1789800001000 implements MigrationInterface {
+  name = 'StudentFeeAsBill1789800001000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // No production data yet (D19) — truncate rather than backfill.
