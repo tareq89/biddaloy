@@ -94,18 +94,14 @@ describe('16.1.1 fee/payment enums [#638]', () => {
     expect(Object.values(RecurrenceKind).sort()).toEqual(['MONTHLY', 'WEEKLY'].sort());
   });
 
-  it('AUDIT_ENTITY_TYPES contains the 6 new 16.x entity names, alphabetically placed', () => {
-    const newNames = [
-      'FeeGeneration',
-      'StudentWallet',
-      'DiscountRule',
-      'RecurringSchedule',
-      'InvoiceShareToken',
-      'ApprovalToken',
-    ];
-    for (const name of newNames) {
-      expect(AUDIT_ENTITY_TYPES).toContain(name);
-    }
+  it('AUDIT_ENTITY_TYPES stays alphabetical', () => {
+    // The 6 new 16.x entity names (FeeGeneration, StudentWallet, DiscountRule,
+    // RecurringSchedule, InvoiceShareToken, ApprovalToken) are NOT added here.
+    // server/src/modules/audit/entity-catalog.spec.ts enforces that every
+    // catalog entry has a real `entity_type: '...'` writer under server/src —
+    // none of these 6 exist yet on main. Each lands with its own entity's
+    // ticket (FeeGeneration: #641, StudentWallet: #642, etc), which adds the
+    // catalog entry in the same commit as its audit-write call site.
     expect([...AUDIT_ENTITY_TYPES]).toEqual([...AUDIT_ENTITY_TYPES].sort());
   });
 });
