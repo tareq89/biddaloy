@@ -20,6 +20,7 @@ import { FeeGenerationService, NoopDiscountResolver } from './fee-generation.ser
 import { PaymentAllocationService } from './payment-allocation.service';
 import { FeeDuesService } from './fee-dues.service';
 import { FeeGenerationsService } from './fee-generations.service';
+import { FeeGenerationBatchService } from './fee-generation-batch.service';
 import { FeeController } from './fees.controller';
 import { FeeGenerationsController } from './fee-generations.controller';
 import { WalletService } from './wallet.service';
@@ -52,6 +53,7 @@ import { WalletController } from './wallet.controller';
     PaymentAllocationService,
     FeeDuesService,
     FeeGenerationsService,
+    FeeGenerationBatchService,
     WalletService,
     NoopDiscountResolver,
   ],
@@ -63,6 +65,7 @@ import { WalletController } from './wallet.controller';
     PaymentAllocationService,
     FeeDuesService,
     FeeGenerationsService,
+    FeeGenerationBatchService,
     WalletService,
   ],
 })
