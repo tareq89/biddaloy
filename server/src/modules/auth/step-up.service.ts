@@ -46,17 +46,7 @@ export const STEP_UP_REDIS = 'STEP_UP_REDIS';
  */
 const STEP_UP_OTP_PURPOSE = 'STEP_UP' as OtpPurpose;
 
-/**
- * `FEE_APPROVE` is being added to `Permission`/`ROLE_PERMISSIONS` by #645,
- * running in parallel — `shared/src/enums/permissions.ts` isn't in this
- * ticket's territory, so it can't be added here. This cast lets the real
- * check run against the string value the epic body fixes; the moment #645
- * merges, `Permission.FEE_APPROVE` exists for real and this line needs no
- * change (only the cast can be dropped). Until then, no role actually
- * carries this permission, so `approverHoldsFeeApprove` below correctly
- * returns false for everyone outside this ticket's own tests.
- */
-const FEE_APPROVE_PERMISSION = 'FEE_APPROVE' as Permission;
+const FEE_APPROVE_PERMISSION = Permission.FEE_APPROVE;
 
 const APPROVAL_TOKEN_TTL_SECONDS = 300;
 const RATE_LIMIT_MAX_ATTEMPTS = 5;
@@ -82,24 +72,10 @@ export interface ApprovalTokenPayload {
 }
 
 /**
- * Whether `role` holds `FEE_APPROVE`. Wraps `roleHasPermission` (see
- * `FEE_APPROVE_PERMISSION` comment above for why this isn't a plain
- * `Permission.FEE_APPROVE` reference yet).
- *
- * The `STEP_UP_TEST_ALLOW_ADMIN_APPROVE` fallback exists only so *this
- * ticket's own* unit/integration/e2e specs can exercise the success path
- * before #645 lands `FEE_APPROVE` into `ROLE_PERMISSIONS` in this worktree
- * — same "test-observability flag, never live in production" shape as
- * `account-access-echo.ts`'s `isSecretEchoEnabled`. It never fires outside
- * `NODE_ENV=test`, and normal operation depends only on the real
- * permission check.
+ * Whether `role` holds `FEE_APPROVE`. Wraps `roleHasPermission`.
  */
 export function approverHoldsFeeApprove(role: UserRole): boolean {
-  if (roleHasPermission(role, FEE_APPROVE_PERMISSION)) return true;
-  if (process.env.NODE_ENV === 'test' && process.env.STEP_UP_TEST_ALLOW_ADMIN_APPROVE === 'true') {
-    return role === UserRole.ADMIN || role === UserRole.SUPER_ADMIN;
-  }
-  return false;
+  return roleHasPermission(role, FEE_APPROVE_PERMISSION);
 }
 
 /**
@@ -201,8 +177,8 @@ export class StepUpService {
     if (!approver || !verified) {
       await this.auditService.record({
         action: AuditAction.LOGIN_FAILED,
-        entity_type: 'User',
-        entity_id: approver?.id ?? null,
+        entity_type: 'ApprovalToken',
+        entity_id: null,
         tenant_id: actorTenantId,
         performed_by_user_id: actorUserId,
         ip_address: context.ip,
@@ -244,8 +220,8 @@ export class StepUpService {
 
     await this.auditService.record({
       action: AuditAction.CREATE,
-      entity_type: 'User',
-      entity_id: approver.id,
+      entity_type: 'ApprovalToken',
+      entity_id: jti,
       tenant_id: actorTenantId,
       performed_by_user_id: actorUserId,
       ip_address: context.ip,

@@ -92,19 +92,13 @@ function createFailFastRedis(config: ConfigService, commandTimeout: number): Red
     AuthService,
     StepUpService,
     {
+      // Step-up's rate-limit counters and single-use approval-token
+      // markers fail CLOSED on a Redis error (see StepUpService), so this
+      // must fail fast rather than hang — same settings as
+      // ACCESS_TOKEN_DENYLIST_REDIS/APPROVAL_REDIS below.
       provide: STEP_UP_REDIS,
       inject: [ConfigService],
-      // Same fail-fast-friendly connection settings as
-      // LoginAttemptService's/OtpService's clients — step-up's rate-limit
-      // counters and single-use approval-token markers fail CLOSED on a
-      // Redis error (see StepUpService), so this must fail fast rather
-      // than hang.
-      useFactory: (config: ConfigService) =>
-        new Redis(config.get<string>('REDIS_URL') ?? 'redis://127.0.0.1:6379', {
-          enableOfflineQueue: false,
-          maxRetriesPerRequest: 1,
-          commandTimeout: 1000,
-        }),
+      useFactory: (config: ConfigService) => createFailFastRedis(config, 1000),
     },
     JwtStrategy,
     ContextGuard,

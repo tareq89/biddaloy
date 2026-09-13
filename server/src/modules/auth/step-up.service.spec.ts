@@ -60,9 +60,11 @@ const ACTOR_USER_ID = 'actor-1';
 const TENANT_ID = 'tenant-1';
 const CONTEXT = { ip: '127.0.0.1', userAgent: 'vitest' };
 
-function buildService(overrides: Partial<{ otpService: any; schoolsService: any }> = {}) {
+function buildService(
+  overrides: Partial<{ otpService: any; schoolsService: any; membership: any }> = {},
+) {
   const userRepo = fakeRepo([APPROVER as any]);
-  const userTenantRepo = fakeRepo([MEMBERSHIP as any]);
+  const userTenantRepo = fakeRepo([overrides.membership ?? MEMBERSHIP] as any);
   const otpService = overrides.otpService ?? {
     request: vi.fn().mockResolvedValue({ code: '123456' }),
     verify: vi.fn().mockResolvedValue('ok'),
@@ -100,39 +102,24 @@ function buildService(overrides: Partial<{ otpService: any; schoolsService: any 
 
 describe('StepUpService', () => {
   const originalNodeEnv = process.env.NODE_ENV;
-  const originalBypass = process.env.STEP_UP_TEST_ALLOW_ADMIN_APPROVE;
 
   beforeEach(() => {
     process.env.NODE_ENV = 'test';
-    // Flips on the test-only shim documented in step-up.service.ts —
-    // FEE_APPROVE isn't in ROLE_PERMISSIONS in this worktree yet (#645,
-    // running in parallel, adds it), so this ticket's own specs need the
-    // shim to exercise the success path at all.
-    process.env.STEP_UP_TEST_ALLOW_ADMIN_APPROVE = 'true';
   });
 
   afterEach(() => {
     process.env.NODE_ENV = originalNodeEnv;
-    process.env.STEP_UP_TEST_ALLOW_ADMIN_APPROVE = originalBypass;
     vi.restoreAllMocks();
   });
 
   describe('approverHoldsFeeApprove', () => {
-    it('returns false for a role that does not hold FEE_APPROVE and the test shim is off', () => {
-      process.env.STEP_UP_TEST_ALLOW_ADMIN_APPROVE = 'false';
-      expect(approverHoldsFeeApprove(UserRole.ADMIN)).toBe(false);
-      expect(approverHoldsFeeApprove(UserRole.TEACHER)).toBe(false);
-    });
-
-    it('the test shim grants ADMIN/SUPER_ADMIN only under NODE_ENV=test', () => {
+    it('returns true for a role that genuinely holds FEE_APPROVE', () => {
       expect(approverHoldsFeeApprove(UserRole.ADMIN)).toBe(true);
       expect(approverHoldsFeeApprove(UserRole.SUPER_ADMIN)).toBe(true);
-      expect(approverHoldsFeeApprove(UserRole.TEACHER)).toBe(false);
     });
 
-    it('never grants via the shim outside NODE_ENV=test', () => {
-      process.env.NODE_ENV = 'production';
-      expect(approverHoldsFeeApprove(UserRole.ADMIN)).toBe(false);
+    it('returns false for a role that does not hold FEE_APPROVE', () => {
+      expect(approverHoldsFeeApprove(UserRole.TEACHER)).toBe(false);
     });
   });
 
@@ -182,8 +169,8 @@ describe('StepUpService', () => {
       expect(auditService.record).toHaveBeenCalledWith(
         expect.objectContaining({
           action: AuditAction.CREATE,
-          entity_type: 'User',
-          entity_id: APPROVER.id,
+          entity_type: 'ApprovalToken',
+          entity_id: expect.any(String),
           tenant_id: TENANT_ID,
           performed_by_user_id: ACTOR_USER_ID,
           new_values: {
@@ -225,8 +212,7 @@ describe('StepUpService', () => {
     });
 
     it('rejects an approver without FEE_APPROVE', async () => {
-      process.env.STEP_UP_TEST_ALLOW_ADMIN_APPROVE = 'false';
-      const { service } = buildService();
+      const { service } = buildService({ membership: { ...MEMBERSHIP, role: UserRole.TEACHER } });
 
       await expect(service.verify(otpDto(), ACTOR_USER_ID, TENANT_ID, CONTEXT)).rejects.toThrow(
         HttpException,

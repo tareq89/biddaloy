@@ -31,12 +31,6 @@ describe('StepUpService (integration)', () => {
   let approvalMode: ApprovalMode;
 
   beforeAll(async () => {
-    // Enables this ticket's own test-only shim (see step-up.service.ts) so
-    // an ADMIN in the seed tenant can hold FEE_APPROVE — #645, running in
-    // parallel, is the lane that lands the real permission into
-    // ROLE_PERMISSIONS; this worktree doesn't have it yet.
-    process.env.STEP_UP_TEST_ALLOW_ADMIN_APPROVE = 'true';
-
     otpRedis = new Redis(process.env.REDIS_URL ?? 'redis://127.0.0.1:6379');
     stepUpRedis = new Redis(process.env.REDIS_URL ?? 'redis://127.0.0.1:6379');
     approvalMode = ApprovalMode.OTP;
@@ -172,7 +166,7 @@ describe('StepUpService (integration)', () => {
     expect(await stepUpRedis.get(`approval:${jti}`)).toBe('1');
   });
 
-  it('audits success with CREATE / entity_type User and the scope/approver/actor', async () => {
+  it('audits success with CREATE / entity_type ApprovalToken and the scope/approver/actor', async () => {
     const approver = await createApprover();
     const otpService = module.get(OtpService);
     const { code } = await otpService.request('STEP_UP' as any, 'approver@example.com');
@@ -181,7 +175,7 @@ describe('StepUpService (integration)', () => {
 
     const rows = await dataSource
       .getRepository(AuditLog)
-      .find({ where: { entity_id: approver.id, action: AuditAction.CREATE } });
+      .find({ where: { entity_type: 'ApprovalToken', action: AuditAction.CREATE } });
     expect(rows).toHaveLength(1);
     expect(rows[0].new_values).toEqual({
       scope: ApprovalScope.FEES_DUPLICATE_OVERRIDE,

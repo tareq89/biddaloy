@@ -16,12 +16,6 @@ import {
 
 /**
  * E2E for `POST /auth/step-up/otp/request` + `POST /auth/step-up` (16.2.2).
- *
- * `STEP_UP_TEST_ALLOW_ADMIN_APPROVE` (set below, before app boot) is this
- * ticket's own test-only shim — see step-up.service.ts's
- * `approverHoldsFeeApprove` — needed because `FEE_APPROVE` isn't in
- * `ROLE_PERMISSIONS` in this worktree yet (#645, running in parallel,
- * lands it). It only ever fires under `NODE_ENV=test`.
  */
 describe('StepUpController (e2e)', () => {
   let app: INestApplication;
@@ -44,7 +38,6 @@ describe('StepUpController (e2e)', () => {
     process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-do-not-use-in-production';
     process.env.NODE_ENV = 'test';
     process.env.ACCOUNT_ACCESS_ECHO_SECRETS = 'true';
-    process.env.STEP_UP_TEST_ALLOW_ADMIN_APPROVE = 'true';
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
