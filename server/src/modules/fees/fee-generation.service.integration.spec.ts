@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
@@ -12,6 +12,7 @@ import { AuditService } from '../audit/audit.service';
 import { ApprovalService } from '../auth/guards/approval.guard';
 import { ApprovalRequiredException } from '../../common/errors/approval-required.exception';
 import { PaymentAllocationService } from './payment-allocation.service';
+import { PaymentAllocation } from './entities/payment-allocation.entity';
 import { FeeStructure } from './entities/fee-structure.entity';
 import { StudentFee } from './entities/student-fee.entity';
 import { FeeGeneration } from './entities/fee-generation.entity';
@@ -463,16 +464,15 @@ describe('FeeGenerationService (integration)', () => {
       expect(batches).toHaveLength(1);
     });
 
-    it('REMOVE_OLDER on a bill with a real payment allocation is a ConflictException, even with a valid token, and writes nothing', async () => {
-      // Regression for the money-tier review finding: student_fees has no
-      // soft-delete column, and payment_allocations.student_fee_id /
-      // invoices.student_fee_id are ON DELETE NO ACTION — so hard-deleting
-      // a bill that already has a real allocation row FK-violates. This
-      // must be caught before the delete (and before the approval token is
-      // spent), not surfaced as a raw 500. `paid_amount` alone (the other
-      // REMOVE_OLDER test) doesn't exercise this: it only ever fakes the
-      // column directly and never creates the allocation row that's the
-      // actual FK hazard.
+    it('REMOVE_OLDER on a bill with a real payment allocation soft-deletes it and creates a new one, keeping the allocation intact', async () => {
+      // Regression for the money-tier review finding: student_fees now has
+      // a soft-delete column (#651) and the unique index on
+      // (student_id, fee_structure_id, period_start, occurrence) is
+      // partial (`WHERE deleted_at IS NULL`), so REMOVE_OLDER over an
+      // allocated bill no longer needs a hard-delete pre-check — it
+      // soft-deletes the old bill (consuming the REMOVE_OLDER_PAID
+      // approval), the allocation keeps pointing at the now-deleted row for
+      // history, and a fresh bill is created at occurrence 1.
       const student = await studentRepo.save(makeStudent());
       const structure = await structureRepo.save(makeStructure());
 
@@ -493,7 +493,7 @@ describe('FeeGenerationService (integration)', () => {
       // Record a real payment against this bill via the same service
       // families/staff use, so the allocation row exists exactly as it
       // would in production.
-      await paymentAllocationService.recordWithAllocation(
+      const payment = await paymentAllocationService.recordWithAllocation(
         {
           student_id: student.id,
           total_amount: Number(bill.total_amount),
@@ -511,29 +511,79 @@ describe('FeeGenerationService (integration)', () => {
       );
 
       const token = await issueApprovalToken('jti-remove-older-allocated');
-      await expect(
-        service.generate(
-          {
-            academic_year_id: SEED_ACADEMIC_YEAR_ID,
-            period_start: '2026-08-01',
-            period_type: PeriodType.MONTH,
-            student_ids: [student.id],
-            fee_structure_ids: [structure.id],
-            duplicate_strategy: DuplicateStrategy.REMOVE_OLDER,
-          },
-          TENANT_ID,
-          ACTOR_USER_ID,
-          requestWithToken(token),
-        ),
-      ).rejects.toThrow(ConflictException);
+      const result = await service.generate(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          period_start: '2026-08-01',
+          period_type: PeriodType.MONTH,
+          student_ids: [student.id],
+          fee_structure_ids: [structure.id],
+          duplicate_strategy: DuplicateStrategy.REMOVE_OLDER,
+        },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(token),
+      );
+      expect(result.generated_count).toBe(1);
+      expect(result.removed_count).toBe(1);
 
-      // Nothing was written: the original bill and its allocation survive,
-      // and no second batch was created.
+      const oldBill = await studentFeeRepo.findOne({ where: { id: bill.id }, withDeleted: true });
+      expect(oldBill).not.toBeNull();
+      expect(oldBill!.deleted_at).not.toBeNull();
+
+      const allocation = await dataSource.getRepository(PaymentAllocation).findOne({
+        where: { payment_id: payment.id, student_fee_id: bill.id },
+      });
+      expect(allocation).not.toBeNull();
+
       const bills = await studentFeeRepo.find();
       expect(bills).toHaveLength(1);
-      expect(bills[0].id).toBe(bill.id);
-      const batches = await feeGenerationRepo.find();
-      expect(batches).toHaveLength(1);
+      expect(bills[0].id).not.toBe(bill.id);
+      expect(bills[0].occurrence).toBe(1);
+    });
+
+    it('recreates a soft-deleted bill under SKIP once the old one is removed (partial unique index)', async () => {
+      // Proves the partial unique index actually lets a same-key row
+      // through once the old one is soft-deleted — with a plain (non
+      // partial) unique constraint this insert would silently no-op via
+      // `.orIgnore()` and generated_count would stay 0.
+      const student = await studentRepo.save(makeStudent());
+      const structure = await structureRepo.save(makeStructure());
+
+      await service.generate(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          period_start: '2026-09-01',
+          period_type: PeriodType.MONTH,
+          student_ids: [student.id],
+          fee_structure_ids: [structure.id],
+        },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+      );
+      const bill = (await studentFeeRepo.find())[0];
+      await studentFeeRepo.softDelete(bill.id);
+
+      const result = await service.generate(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          period_start: '2026-09-01',
+          period_type: PeriodType.MONTH,
+          student_ids: [student.id],
+          fee_structure_ids: [structure.id],
+          duplicate_strategy: DuplicateStrategy.SKIP,
+        },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+      );
+
+      expect(result.generated_count).toBe(1);
+      const bills = await studentFeeRepo.find();
+      expect(bills).toHaveLength(1);
+      expect(bills[0].id).not.toBe(bill.id);
+      expect(bills[0].occurrence).toBe(1);
     });
 
     it('CREATE_ANYWAY with a valid approval token sets occurrence = 2', async () => {

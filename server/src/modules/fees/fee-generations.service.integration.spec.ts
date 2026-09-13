@@ -271,5 +271,41 @@ describe('FeeGenerationsService (integration)', () => {
       expect(entry.collected_amount).toBe(expectedCollected);
       expect(entry.collection_status).toBe('PARTIAL');
     });
+
+    it('excludes soft-deleted bills from totals but still returns the batch', async () => {
+      const batch = await dataSource.transaction((manager) =>
+        service.create({ ...baseInput, student_count: 1, generated_count: 1 }, manager),
+      );
+      const student = await studentRepo.save(makeStudent());
+      await dataSource.query(
+        `INSERT INTO student_fees (id, student_id, academic_year_id, fee_structure_id, period_start, total_amount, paid_amount, discount_amount, status, fee_generation_id, created_at, updated_at)
+         VALUES (DEFAULT, $1, $2, $3, DATE '2026-07-01', 1000, 0, 0, 'PENDING', $4, NOW(), NOW())`,
+        [student.id, SEED_ACADEMIC_YEAR_ID, feeStructureId, batch.id],
+      );
+      await studentFeeRepo.softDelete({ fee_generation_id: batch.id });
+
+      const page = await service.findAll({ page: 1, limit: 20 } as any, TENANT_ID);
+      const entry = page.data.find((d) => d.id === batch.id)!;
+      expect(entry).toBeDefined();
+      expect(entry.billed_amount).toBe(0);
+      expect(entry.collected_amount).toBe(0);
+      expect(entry.collection_status).toBe('NONE');
+    });
+
+    it('findBills excludes soft-deleted bills', async () => {
+      const batch = await dataSource.transaction((manager) =>
+        service.create({ ...baseInput, student_count: 1, generated_count: 1 }, manager),
+      );
+      const student = await studentRepo.save(makeStudent());
+      await dataSource.query(
+        `INSERT INTO student_fees (id, student_id, academic_year_id, fee_structure_id, period_start, total_amount, paid_amount, discount_amount, status, fee_generation_id, created_at, updated_at)
+         VALUES (DEFAULT, $1, $2, $3, DATE '2026-07-01', 1000, 0, 0, 'PENDING', $4, NOW(), NOW())`,
+        [student.id, SEED_ACADEMIC_YEAR_ID, feeStructureId, batch.id],
+      );
+      await studentFeeRepo.softDelete({ fee_generation_id: batch.id });
+
+      const bills = await service.findBills(batch.id, { page: 1, limit: 20 } as any, TENANT_ID);
+      expect(bills.data).toHaveLength(0);
+    });
   });
 });

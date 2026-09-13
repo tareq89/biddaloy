@@ -15,6 +15,7 @@ import {
   MaxLength,
   ValidateIf,
 } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 import { Type, Transform } from 'class-transformer';
 import { CommunicationMedium, EnrollmentStatus } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
@@ -212,6 +213,16 @@ export class QueryStudentIdsDto {
   @IsOptional()
   @IsDateString()
   date_of_birth_to?: string;
+}
+
+/** [CodeRabbit round 1] response shape for `GET /students/ids` — without
+ * this the generated OpenAPI doc had `content?: never` for that route. */
+export class StudentIdsResultDto {
+  @ApiProperty({ type: [String] })
+  ids: string[];
+
+  @ApiProperty()
+  total: number;
 }
 
 export class CreateGuardianDto {

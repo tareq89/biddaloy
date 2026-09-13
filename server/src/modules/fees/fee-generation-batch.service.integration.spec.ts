@@ -299,10 +299,15 @@ describe('FeeGenerationBatchService (integration)', () => {
       const result = await service.removeUncollected(batch.id, TENANT_ID, ACTOR_USER_ID);
       expect(result.removed_count).toBe(1);
 
+      const batchAfter = await generationRepo.findOne({ where: { id: batch.id } });
+      expect(batchAfter!.removed_count).toBe(1);
+      expect(batchAfter!.student_count).toBe(batch.student_count);
+      expect(batchAfter!.generated_count).toBe(batch.generated_count);
+
       const remainingUnpaid = await studentFeeRepo.findOne({ where: { id: unpaid.id } });
       const remainingPaid = await studentFeeRepo.findOne({ where: { id: paid.id } });
       expect(remainingUnpaid).toBeNull(); // excluded by default soft-delete scope
-      expect(remainingPaid).toBeDefined();
+      expect(remainingPaid).not.toBeNull();
 
       const withDeleted = await studentFeeRepo.findOne({
         where: { id: unpaid.id },
@@ -339,7 +344,7 @@ describe('FeeGenerationBatchService (integration)', () => {
       expect(result.removed_count).toBe(0);
 
       const stillThere = await studentFeeRepo.findOne({ where: { id: bill.id } });
-      expect(stillThere).toBeDefined();
+      expect(stillThere).not.toBeNull();
     });
   });
 
@@ -370,7 +375,7 @@ describe('FeeGenerationBatchService (integration)', () => {
       ).rejects.toThrow(ApprovalRequiredException);
 
       const batchAfter = await generationRepo.findOne({ where: { id: batch.id } });
-      expect(batchAfter).toBeDefined();
+      expect(batchAfter).not.toBeNull();
       expect(batchAfter!.deleted_at).toBeNull();
 
       const bills = await studentFeeRepo.find({ where: { fee_generation_id: batch.id } });
@@ -394,7 +399,7 @@ describe('FeeGenerationBatchService (integration)', () => {
         where: { entity_type: 'FeeGeneration', entity_id: batch.id },
         order: { created_at: 'DESC' },
       });
-      expect(auditRow).toBeDefined();
+      expect(auditRow).not.toBeNull();
       expect((auditRow!.new_values as any).approved_by_user_id).toBe(ACTOR_USER_ID);
       expect((auditRow!.new_values as any).approval_scope).toBe(ApprovalScope.FEES_EDIT_PAID);
     });
@@ -430,7 +435,7 @@ describe('FeeGenerationBatchService (integration)', () => {
       const reversal = await walletTxRepo.findOne({
         where: { reversal_of_id: debitTx.id },
       });
-      expect(reversal).toBeDefined();
+      expect(reversal).not.toBeNull();
       expect(Number(reversal!.amount)).toBe(400);
       expect(reversal!.kind).toBe(WalletTransactionKind.REVERSAL);
     });
@@ -460,7 +465,10 @@ describe('FeeGenerationBatchService (integration)', () => {
       const remainingS1 = await studentFeeRepo.findOne({ where: { id: billS1.id } });
       const remainingS2 = await studentFeeRepo.findOne({ where: { id: billS2.id } });
       expect(remainingS1).toBeNull();
-      expect(remainingS2).toBeDefined();
+      expect(remainingS2).not.toBeNull();
+
+      const batchAfter = await generationRepo.findOne({ where: { id: batch.id } });
+      expect(batchAfter!.removed_count).toBe(1);
     });
   });
 

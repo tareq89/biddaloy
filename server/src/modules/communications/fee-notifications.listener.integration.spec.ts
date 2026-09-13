@@ -91,7 +91,9 @@ describe('FeeNotificationsListener (integration)', () => {
     logRepo = module.get(getRepositoryToken(CommunicationLog));
     feeGenerationsService = module.get(FeeGenerationsService);
 
-    const balanceRepo = module.get<Repository<SmsCreditBalance>>(getRepositoryToken(SmsCreditBalance));
+    const balanceRepo = module.get<Repository<SmsCreditBalance>>(
+      getRepositoryToken(SmsCreditBalance),
+    );
     const ledgerRepo = module.get<Repository<SmsCreditLedger>>(getRepositoryToken(SmsCreditLedger));
     // No `communications.sms` block on the seeded tenants below, so
     // `isMetered` never actually needs a real answer here.
@@ -104,7 +106,9 @@ describe('FeeNotificationsListener (integration)', () => {
       dataSource,
       { add: async (name: string, data: any) => queuedJobs.push({ name, data }) } as any,
       feeGenerationsService,
-      { getResolvedSettings: async () => ({ communications: {}, region: { locale: 'en-US' } }) } as any,
+      {
+        getResolvedSettings: async () => ({ communications: {}, region: { locale: 'en-US' } }),
+      } as any,
       smsCreditService,
     );
 
@@ -173,7 +177,12 @@ describe('FeeNotificationsListener (integration)', () => {
       duplicate_strategy: DuplicateStrategy.SKIP,
       notify_families: true,
       structures: [
-        { id: feeStructureMonthlyId, name: 'Monthly Fee', fee_type: 'MONTHLY_TUITION', amount: 4200 },
+        {
+          id: feeStructureMonthlyId,
+          name: 'Monthly Fee',
+          fee_type: 'MONTHLY_TUITION',
+          amount: 4200,
+        },
       ],
       student_count: 1,
       generated_count: 1,
@@ -335,5 +344,24 @@ describe('FeeNotificationsListener (integration)', () => {
     expect(logs[0].status).toBe(CommunicationStatus.FAILED);
     expect((logs[0].metadata as any)?.reason).toBe('SKIPPED_NO_SMS');
     expect(queuedJobs.some((j) => j.data.logId === logs[0].id)).toBe(false);
+  });
+
+  it('does not notify for a soft-deleted bill', async () => {
+    const batch = await createBatch();
+    const { studentId, guardianId } = await createStudentWithGuardian({ tenantId: TENANT_ID });
+    await createBill({
+      studentId,
+      feeGenerationId: batch.id,
+      feeStructureId: feeStructureMonthlyId,
+      amount: 4200,
+    });
+    await dataSource
+      .getRepository(StudentFee)
+      .softDelete({ fee_generation_id: batch.id, student_id: studentId });
+
+    await listener.handleFeesGenerated({ tenantId: TENANT_ID, feeGenerationId: batch.id });
+
+    const logs = await logRepo.find({ where: { guardian_id: guardianId } });
+    expect(logs).toHaveLength(0);
   });
 });

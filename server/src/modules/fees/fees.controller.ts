@@ -161,6 +161,7 @@ export class FeeController {
   @Post('fees/generate/preview')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.FEE_GENERATE)
+  @Throttle({ default: STRICT_RATE_LIMIT })
   @ApiOperation({
     summary:
       'Read-only dry run of a fee-generation request: reports inactive students, existing ' +

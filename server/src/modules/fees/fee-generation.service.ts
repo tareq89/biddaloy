@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-  ConflictException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EventEmitter } from 'node:events';
 import { Repository, IsNull, In, EntityManager } from 'typeorm';
@@ -14,8 +9,6 @@ import { FeeStructure } from './entities/fee-structure.entity';
 import { StudentFee } from './entities/student-fee.entity';
 import { FeeGeneration } from './entities/fee-generation.entity';
 import { StudentWallet } from './entities/student-wallet.entity';
-import { PaymentAllocation } from './entities/payment-allocation.entity';
-import { Invoice } from '../invoices/entities/invoice.entity';
 import { resolveTenantSettings } from '../schools/settings/tenant-settings-resolver';
 import {
   EnrollmentStatus,
@@ -270,27 +263,6 @@ export class FeeGenerationService {
         }
       }
 
-      // A bill with a payment allocation or an invoice pointing at it can't
-      // be hard-deleted — student_fees has no soft-delete column, and
-      // payment_allocations.student_fee_id / invoices.student_fee_id are
-      // ON DELETE NO ACTION, so the delete below would FK-violate and 500
-      // the whole batch *after* the approval token was already spent. Catch
-      // it up front instead, before consuming anything.
-      if (bulkExistingIds.length > 0) {
-        const [allocated, invoiced] = await Promise.all([
-          manager
-            .getRepository(PaymentAllocation)
-            .exists({ where: { student_fee_id: In(bulkExistingIds) } }),
-          manager.getRepository(Invoice).exists({ where: { student_fee_id: In(bulkExistingIds) } }),
-        ]);
-        if (allocated || invoiced) {
-          throw new ConflictException(
-            'REMOVE_OLDER cannot delete a bill that has a payment allocation or an invoice; ' +
-              'use CREATE_ANYWAY instead, or reconcile/void the existing bill first.',
-          );
-        }
-      }
-
       // All-or-nothing: consumed once for the whole request, before any
       // write, so a missing/invalid token rolls back everything.
       let approvedBy: string | null = null;
@@ -327,10 +299,14 @@ export class FeeGenerationService {
       feeGenerationId = batch.id;
 
       if (bulkExistingIds.length > 0) {
-        // StudentFee has no soft-delete column (deviation: plan says
-        // "soft-delete", the entity only supports a hard delete) — removed
-        // rows are gone, not filtered by a deleted_at flag.
-        await manager.getRepository(StudentFee).delete({ id: In(bulkExistingIds) });
+        // Soft-delete (#651's `deleted_at` column) rather than hard-delete:
+        // a bill with a payment allocation or invoice pointing at it can't
+        // be hard-deleted without an FK violation, and paid bills are
+        // already approval-gated above via the REMOVE_OLDER_PAID reason.
+        // The unique index on (student_id, fee_structure_id, period_start,
+        // occurrence) is partial (`WHERE deleted_at IS NULL`), so a
+        // soft-deleted row doesn't block a same-key row being reinserted.
+        await manager.getRepository(StudentFee).softDelete({ id: In(bulkExistingIds) });
         removedCount = bulkExistingIds.length;
       }
 
@@ -370,12 +346,17 @@ export class FeeGenerationService {
       // same race. We re-query afterwards for the rows that actually landed
       // (orIgnore's returned identifiers are unreliable across drivers for
       // skipped rows), which also gives us real counts under a race.
-      if (rowsToInsert.length > 0) {
+      // Chunked into batches of 500: at the DTO's legal max (5000 students
+      // x 20 fee structures), one unchunked statement can exceed Postgres'
+      // 65,535 bound-parameter limit.
+      const INSERT_CHUNK_SIZE = 500;
+      for (let i = 0; i < rowsToInsert.length; i += INSERT_CHUNK_SIZE) {
+        const chunk = rowsToInsert.slice(i, i + INSERT_CHUNK_SIZE);
         await studentFeeRepo
           .createQueryBuilder()
           .insert()
           .into(StudentFee)
-          .values(rowsToInsert)
+          .values(chunk)
           .orIgnore()
           .execute();
       }
@@ -455,16 +436,14 @@ export class FeeGenerationService {
         }
       }
 
-      await manager
-        .getRepository(FeeGeneration)
-        .update(
-          { id: feeGenerationId },
-          {
-            generated_count: generatedCount,
-            skipped_count: skippedCount,
-            removed_count: removedCount,
-          },
-        );
+      await manager.getRepository(FeeGeneration).update(
+        { id: feeGenerationId },
+        {
+          generated_count: generatedCount,
+          skipped_count: skippedCount,
+          removed_count: removedCount,
+        },
+      );
 
       await this.auditService.record(
         {

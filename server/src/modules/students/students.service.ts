@@ -263,6 +263,7 @@ export class StudentService {
               INNER JOIN guardians g ON g.id = sg.guardian_id
               WHERE sg.student_id = student.id
                 AND g.tenant_id = :tenantId
+                AND g.deleted_at IS NULL
                 AND (g.full_name ILIKE :search OR g.phone ILIKE :search)
             )`,
             { search: `%${search}%` },

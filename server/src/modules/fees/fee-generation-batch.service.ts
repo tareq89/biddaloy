@@ -254,6 +254,9 @@ export class FeeGenerationBatchService {
 
       if (billIds.length > 0) {
         await manager.getRepository(StudentFee).softDelete({ id: In(billIds) });
+        await manager
+          .getRepository(FeeGeneration)
+          .increment({ id: batch.id }, 'removed_count', billIds.length);
       }
 
       await this.reverseWalletDebits(manager, bills, tenantId, userId);
@@ -310,6 +313,9 @@ export class FeeGenerationBatchService {
 
       await manager.getRepository(StudentFee).softDelete({ id: In(removableIds) });
       removedCount = removableIds.length;
+      await manager
+        .getRepository(FeeGeneration)
+        .increment({ id: batch.id }, 'removed_count', removableIds.length);
 
       await this.auditService.record(
         {

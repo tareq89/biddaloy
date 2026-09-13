@@ -758,6 +758,37 @@ describe('StudentService (integration)', () => {
         expect(byGuardianPhone.data[0].id).toBe(student1.id);
       });
 
+      it('does not match a soft-deleted guardian', async () => {
+        const student = await studentRepo.save(
+          studentRepo.create({
+            full_name: 'Nazrul Islam',
+            registration_number: 'REG-2026-0009',
+            roll_number: 9,
+            class_section_id: SEED_SECTION_1_ID,
+            tenant_id: TENANT_ID,
+          }),
+        );
+        const guardian = await guardianRepo.save(
+          guardianRepo.create({
+            full_name: 'Removed Guardian',
+            phone: '+8801799998888',
+            relationship: 'Father',
+            tenant_id: TENANT_ID,
+          }),
+        );
+        await dataSource.query(
+          'INSERT INTO student_guardians (student_id, guardian_id) VALUES ($1, $2)',
+          [student.id, guardian.id],
+        );
+        await guardianRepo.softDelete(guardian.id);
+
+        const result = await service.findAll(
+          { search: 'Removed Guardian', page: 1, limit: 10 },
+          TENANT_ID,
+        );
+        expect(result.data).toHaveLength(0);
+      });
+
       // Cross-tenant: a guardian in tenant B must never surface a tenant A
       // student search, even if (hypothetically) linked cross-tenant — the
       // guardian join must carry its own tenant_id, not just rely on the

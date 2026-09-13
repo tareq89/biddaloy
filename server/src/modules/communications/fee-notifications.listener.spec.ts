@@ -1,7 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { CommunicationMedium } from '@biddaloy/shared';
 import { Guardian } from '../students/entities/guardian.entity';
-import { resolveFeeNotificationChannel } from './fee-notifications.listener';
+import {
+  FeeNotificationsListener,
+  resolveFeeNotificationChannel,
+} from './fee-notifications.listener';
+import { feesEvents } from '../fees/fee-generation.service';
 
 /**
  * Unit coverage for the push -> WhatsApp -> SMS fallback matrix (D13).
@@ -56,17 +60,57 @@ describe('resolveFeeNotificationChannel', () => {
   });
 
   it('skips (null) an email-only guardian when SMS is enabled — no phone means no SMS address either', () => {
-    const result = resolveFeeNotificationChannel(guardian({ phone: null, email: 'g@example.com' }), true);
+    const result = resolveFeeNotificationChannel(
+      guardian({ phone: null, email: 'g@example.com' }),
+      true,
+    );
     expect(result).toBeNull();
   });
 
   it('skips (null) an email-only guardian when SMS is disabled', () => {
-    const result = resolveFeeNotificationChannel(guardian({ phone: null, email: 'g@example.com' }), false);
+    const result = resolveFeeNotificationChannel(
+      guardian({ phone: null, email: 'g@example.com' }),
+      false,
+    );
     expect(result).toBeNull();
   });
 
   it('skips (null) a guardian with no contact information at all', () => {
     const result = resolveFeeNotificationChannel(guardian({}), true);
     expect(result).toBeNull();
+  });
+});
+
+describe('FeeNotificationsListener.onModuleInit', () => {
+  // Regression: `onModuleInit` used to fire-and-forget
+  // `handleFeesGenerated` (`void this.handleFeesGenerated(event)`),
+  // discarding a rejection as an unhandled promise rejection instead of
+  // logging it.
+  it('logs and does not throw when handleFeesGenerated rejects', async () => {
+    const listener = new FeeNotificationsListener(
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+    );
+    const error = new Error('boom');
+    const handleSpy = vi.spyOn(listener, 'handleFeesGenerated').mockRejectedValue(error);
+    const loggerSpy = vi.spyOn((listener as any).logger, 'error').mockImplementation(() => {});
+
+    const unhandled = vi.fn();
+    process.once('unhandledRejection', unhandled);
+
+    listener.onModuleInit();
+    feesEvents.emit('fees.generated', { tenantId: 't1', feeGenerationId: 'fg1' });
+
+    // Let the rejected promise's .catch() microtask run.
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(handleSpy).toHaveBeenCalled();
+    expect(loggerSpy).toHaveBeenCalledWith('fees.generated handler failed for fg1', error.stack);
+    expect(unhandled).not.toHaveBeenCalled();
+    process.removeListener('unhandledRejection', unhandled);
   });
 });

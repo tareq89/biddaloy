@@ -2,7 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import {
   CommunicationMedium,
   CommunicationStatus,
@@ -47,6 +47,12 @@ interface BillRow {
  * worker — recorded in `metadata.reason`, same shape as the worker's own
  * `TENANT_SUSPENDED` marker (`communications.processor.ts`). */
 const SKIPPED_NO_SMS = 'SKIPPED_NO_SMS';
+
+/** `metadata.reason` for a log whose row was saved but whose `queue.add`
+ * then failed — distinct from other FAILED reasons so it can be excluded
+ * from the idempotency check below and retried on a replayed event.
+ * Minimal fix; a full outbox pattern is deferred. */
+const ENQUEUE_FAILED = 'ENQUEUE_FAILED';
 
 const FEE_NOTIFICATION_EVENT = 'fee-notify';
 
@@ -114,7 +120,12 @@ export class FeeNotificationsListener implements OnModuleInit {
 
   onModuleInit(): void {
     feesEvents.on('fees.generated', (event: FeesGeneratedEvent) => {
-      void this.handleFeesGenerated(event);
+      void this.handleFeesGenerated(event).catch((error) => {
+        this.logger.error(
+          `fees.generated handler failed for ${event.feeGenerationId}`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      });
     });
   }
 
@@ -158,12 +169,17 @@ export class FeeNotificationsListener implements OnModuleInit {
     const linesByGuardian = new Map<string, FeeNotificationBillLine[]>();
     const studentIdsByGuardian = new Map<string, string[]>();
 
+    // One query for every billed student rather than one findOne per
+    // student — a batch can bill up to 5000 students, and the previous
+    // per-student loop issued that many serial queries for a single event.
+    const students = await this.dataSource.getRepository(Student).find({
+      where: { id: In([...billsByStudent.keys()]), tenant_id: tenantId },
+      relations: ['guardians'],
+    });
+    const studentsById = new Map(students.map((s) => [s.id, s]));
+
     for (const [studentId, lines] of billsByStudent) {
-      const student = await this.dataSource.getRepository(Student).findOne({
-        where: { id: studentId, tenant_id: tenantId },
-        relations: ['guardians'],
-      });
-      const linked: Guardian[] = student?.guardians ?? [];
+      const linked: Guardian[] = studentsById.get(studentId)?.guardians ?? [];
       if (linked.length === 0) continue;
 
       const { guardians } = resolveReminderAudience(linked);
@@ -235,9 +251,21 @@ export class FeeNotificationsListener implements OnModuleInit {
     }
     const existing = await this.logRepo.find({
       where: allKeys.map((reference_key) => ({ tenant_id: tenantId, reference_key })),
-      select: ['reference_key'],
+      select: ['reference_key', 'status', 'metadata'],
     });
-    const alreadyLogged = new Set(existing.map((row) => row.reference_key));
+    // A row that failed to enqueue (ENQUEUE_FAILED) never reached the
+    // worker, so it must not block a replayed event from retrying it.
+    const alreadyLogged = new Set(
+      existing
+        .filter(
+          (row) =>
+            !(
+              row.status === CommunicationStatus.FAILED &&
+              (row.metadata as { reason?: string } | null)?.reason === ENQUEUE_FAILED
+            ),
+        )
+        .map((row) => row.reference_key),
+    );
 
     const toSend = planned.filter((p) => !alreadyLogged.has(p.referenceKey));
     const toSkip = skippedNoSms.filter((s) => !alreadyLogged.has(s.referenceKey));
@@ -312,7 +340,11 @@ export class FeeNotificationsListener implements OnModuleInit {
           `Failed to enqueue fee-notification log ${log.id} for generation ${feeGenerationId}: ${String(error)}`,
         );
         log.status = CommunicationStatus.FAILED;
-        log.metadata = { ...log.metadata, error: 'Failed to enqueue for delivery' };
+        log.metadata = {
+          ...log.metadata,
+          reason: ENQUEUE_FAILED,
+          error: 'Failed to enqueue for delivery',
+        };
         await this.logRepo.save(log);
       }
     }
@@ -355,6 +387,7 @@ export class FeeNotificationsListener implements OnModuleInit {
       .innerJoin('fee_structures', 'fs', 'fs.id = sf.fee_structure_id')
       .where('sf.fee_generation_id = :feeGenerationId', { feeGenerationId })
       .andWhere('s.tenant_id = :tenantId', { tenantId })
+      .andWhere('sf.deleted_at IS NULL')
       .select('sf.student_id', 'student_id')
       .addSelect('s.full_name', 'student_full_name')
       .addSelect('fs.name', 'fee_structure_name')

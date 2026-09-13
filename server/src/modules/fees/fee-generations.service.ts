@@ -119,7 +119,7 @@ export class FeeGenerationsService {
       // N+1 per-row lookups — `bills.total_amount`/`paid_amount` are
       // decimal columns, so the sums come back as strings from pg and are
       // coerced with `Number(...)` below.
-      .leftJoin('student_fees', 'sf', 'sf.fee_generation_id = fg.id')
+      .leftJoin('student_fees', 'sf', 'sf.fee_generation_id = fg.id AND sf.deleted_at IS NULL')
       .where('fg.tenant_id = :tenantId', { tenantId })
       .andWhere('fg.deleted_at IS NULL')
       .select('fg.id', 'id')
@@ -276,6 +276,7 @@ export class FeeGenerationsService {
       .leftJoin('class_sections', 'cs', 'cs.id = s.class_section_id')
       .leftJoin('classes', 'c', 'c.id = cs.class_id')
       .where('sf.fee_generation_id = :id', { id })
+      .andWhere('sf.deleted_at IS NULL')
       .select('sf.id', 'id')
       .addSelect('sf.student_id', 'student_id')
       .addSelect('s.full_name', 'student_full_name')
