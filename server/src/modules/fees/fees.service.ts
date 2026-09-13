@@ -1,8 +1,7 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, In } from 'typeorm';
 import { FeeStructure } from './entities/fee-structure.entity';
-import { FeeStructureStudent } from './entities/fee-structure-student.entity';
 import { Payment } from './entities/payment.entity';
 import { PaymentAllocation } from './entities/payment-allocation.entity';
 import { StudentFee } from './entities/student-fee.entity';
@@ -29,40 +28,43 @@ export class FeeStructureService {
   constructor(
     @InjectRepository(FeeStructure)
     private readonly repo: Repository<FeeStructure>,
-    @InjectRepository(FeeStructureStudent)
-    private readonly fssRepo: Repository<FeeStructureStudent>,
-    @InjectRepository(Payment)
-    private readonly paymentRepo: Repository<Payment>,
-    @InjectRepository(PaymentAllocation)
-    private readonly paymentAllocRepo: Repository<PaymentAllocation>,
-    @InjectRepository(StudentFee)
-    private readonly studentFeeRepo: Repository<StudentFee>,
     @InjectRepository(Class)
     private readonly classRepo: Repository<Class>,
     @InjectRepository(ClassSection)
     private readonly sectionRepo: Repository<ClassSection>,
     @InjectRepository(AcademicYear)
     private readonly academicYearRepo: Repository<AcademicYear>,
-    @InjectRepository(Student)
-    private readonly studentRepo: Repository<Student>,
     private readonly auditService: AuditService,
   ) {}
 
   async create(dto: CreateFeeStructureDto, tenantId: string): Promise<FeeStructure> {
-    // Validate class belongs to tenant
-    const cls = await this.classRepo.findOne({
-      where: { id: dto.class_id, tenant_id: tenantId, deleted_at: IsNull() },
-    });
-    if (!cls) {
-      throw new NotFoundException(`Class with ID "${dto.class_id}" not found`);
+    // Validate class belongs to tenant, when provided — a fee structure is
+    // now school-wide by default and only optionally labelled with a class.
+    if (dto.class_id) {
+      const cls = await this.classRepo.findOne({
+        where: { id: dto.class_id, tenant_id: tenantId, deleted_at: IsNull() },
+      });
+      if (!cls) {
+        throw new NotFoundException(`Class with ID "${dto.class_id}" not found`);
+      }
     }
 
-    // Validate section belongs to tenant when provided
+    // A section is only a meaningful label when paired with the class it
+    // belongs to — a section without a class would surface under every
+    // class via the `class_id IS NULL` picker rule below, which is not a
+    // real school-wide structure.
+    if (dto.section_id && !dto.class_id) {
+      throw new NotFoundException(`Section with ID "${dto.section_id}" not found`);
+    }
+
+    // Validate section belongs to tenant when provided. `dto.class_id` is
+    // guaranteed truthy here — the check above already rejected a
+    // `section_id` with no `class_id`.
     if (dto.section_id) {
       const section = await this.sectionRepo.findOne({
         where: {
           id: dto.section_id,
-          class_id: dto.class_id,
+          class_id: dto.class_id as string,
           tenant_id: tenantId,
           deleted_at: IsNull(),
         },
@@ -80,42 +82,17 @@ export class FeeStructureService {
       throw new NotFoundException(`Academic year with ID "${dto.academic_year_id}" not found`);
     }
 
-    // Validate student_ids belong to tenant when SELECTED applicability
-    if (dto.applicability === 'SELECTED' && dto.student_ids?.length) {
-      const studentCount = await this.studentRepo.count({
-        where: {
-          id: In(dto.student_ids),
-          tenant_id: tenantId,
-          deleted_at: IsNull(),
-        } as any,
-      });
-      if (studentCount !== dto.student_ids.length) {
-        throw new NotFoundException('One or more selected students not found');
-      }
-    }
-
     const entity = this.repo.create({
       fee_type: dto.fee_type,
       name: dto.name,
       amount: dto.amount,
-      applicability: dto.applicability ?? ('ALL' as any),
-      class_id: dto.class_id,
+      class_id: dto.class_id ?? null,
       section_id: dto.section_id ?? null,
       academic_year_id: dto.academic_year_id,
-      month: dto.month,
-      is_recurring: dto.is_recurring ?? true,
       tenant_id: tenantId,
     });
 
     const saved = await this.repo.save(entity);
-
-    // If SELECTED applicability, create student links
-    if (dto.applicability === 'SELECTED' && dto.student_ids?.length) {
-      const entries = dto.student_ids.map((sid) =>
-        this.fssRepo.create({ fee_structure_id: saved.id, student_id: sid }),
-      );
-      await this.fssRepo.save(entries);
-    }
 
     return this.repo.findOne({
       where: { id: saved.id },
@@ -141,8 +118,17 @@ export class FeeStructureService {
       const qb = this.repo
         .createQueryBuilder('fee_structure')
         .select('fee_structure.id', 'id')
-        .where('fee_structure.tenant_id = :tenantId', { tenantId })
-        .andWhere('fee_structure.deleted_at IS NULL');
+        .where('fee_structure.tenant_id = :tenantId', { tenantId });
+
+      if (query.include_deleted) {
+        // TypeORM's soft-delete extension auto-appends `deleted_at IS NULL`
+        // to every query on an entity with a `@DeleteDateColumn` unless
+        // `withDeleted()` is called — the manual `andWhere` below is a no-op
+        // without this.
+        qb.withDeleted();
+      } else {
+        qb.andWhere('fee_structure.deleted_at IS NULL');
+      }
 
       if (query.academic_year_id) {
         qb.andWhere('fee_structure.academic_year_id = :academicYearId', {
@@ -150,21 +136,18 @@ export class FeeStructureService {
         });
       }
       if (query.class_id) {
-        qb.andWhere('fee_structure.class_id = :classId', { classId: query.class_id });
-      }
-      if (query.month) {
-        qb.andWhere('fee_structure.month = :month', { month: query.month });
+        // Picker ordering (D3): a class-scoped filter should still surface
+        // school-wide structures (`class_id IS NULL`) — they apply to every
+        // class — alongside the ones scoped to this exact class.
+        qb.andWhere('(fee_structure.class_id = :classId OR fee_structure.class_id IS NULL)', {
+          classId: query.class_id,
+        });
       }
       if (query.fee_type) {
         qb.andWhere('fee_structure.fee_type = :feeType', { feeType: query.fee_type });
       }
       if (query.section_id) {
         qb.andWhere('fee_structure.section_id = :sectionId', { sectionId: query.section_id });
-      }
-      if (query.is_recurring !== undefined) {
-        qb.andWhere('fee_structure.is_recurring = :isRecurring', {
-          isRecurring: query.is_recurring,
-        });
       }
 
       const search = normalizeSearchTerm(query.search);
@@ -178,17 +161,25 @@ export class FeeStructureService {
     const total = await buildIdQuery().getCount();
 
     const idQb = buildIdQuery();
+    if (query.class_id) {
+      // Picker ordering (D3): class-matching rows before school-wide
+      // (`class_id IS NULL`) rows, so the exact-match structures a caller
+      // filtered for don't get buried under generic ones.
+      idQb.addSelect(
+        `CASE WHEN fee_structure.class_id = :classId THEN 0 ELSE 1 END`,
+        'class_match_rank',
+      );
+      idQb.orderBy('class_match_rank', 'ASC');
+    }
     if (query.sort === 'name') {
-      idQb.orderBy(
+      idQb.addOrderBy(
         `fee_structure.name COLLATE "${BN_COLLATION}"`,
         query.order === 'desc' ? 'DESC' : 'ASC',
       );
     } else if (query.sort === 'amount') {
-      idQb.orderBy('fee_structure.amount', query.order === 'asc' ? 'ASC' : 'DESC');
-    } else if (query.sort === 'month') {
-      idQb.orderBy('fee_structure.month', query.order === 'asc' ? 'ASC' : 'DESC');
+      idQb.addOrderBy('fee_structure.amount', query.order === 'asc' ? 'ASC' : 'DESC');
     } else {
-      idQb.orderBy('fee_structure.created_at', query.order === 'asc' ? 'ASC' : 'DESC');
+      idQb.addOrderBy('fee_structure.created_at', query.order === 'asc' ? 'ASC' : 'DESC');
     }
     idQb.addOrderBy('fee_structure.id', 'ASC').offset(skip).limit(limit);
 
@@ -206,6 +197,7 @@ export class FeeStructureService {
       // construction, per the multi-tenancy skill's "new query" checklist.
       where: { id: In(ids), tenant_id: tenantId },
       relations: ['class', 'academic_year', 'section'],
+      withDeleted: !!query.include_deleted,
     });
     const byId = new Map(rows.map((row) => [row.id, row]));
     const data = ids.map((id) => byId.get(id)).filter((row): row is FeeStructure => row != null);
@@ -216,16 +208,7 @@ export class FeeStructureService {
   async findOne(id: string, tenantId: string): Promise<FeeStructure> {
     const entity = await this.repo.findOne({
       where: { id, tenant_id: tenantId, deleted_at: IsNull() },
-      // `selected_students` is loaded here but deliberately not in `findAll`:
-      // the edit dialog needs it to prefill its student picker, list rows
-      // never show it.
-      relations: [
-        'class',
-        'academic_year',
-        'section',
-        'selected_students',
-        'selected_students.student',
-      ],
+      relations: ['class', 'academic_year', 'section'],
     });
     if (!entity) {
       throw new NotFoundException(`Fee structure with ID "${id}" not found`);
@@ -241,20 +224,16 @@ export class FeeStructureService {
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<FeeStructure> {
     const updateData: any = { ...dto };
-    if (dto.student_ids !== undefined) {
-      delete updateData.student_ids;
-    }
     const changedKeys = Object.keys(updateData);
 
-    // One transaction for the locked read, the update, the student-link
-    // replacement, and the audit write: without it, a concurrent PATCH
-    // could read stale old_values between this read and its own write, and
-    // an audit-write failure could leave the fee change committed with no
-    // record of it. AuditService.record() gets this same manager, so its
-    // write commits or rolls back atomically with everything else here.
+    // One transaction for the locked read, the update, and the audit write:
+    // without it, a concurrent PATCH could read a stale `amount` between
+    // this read and its own write, and an audit-write failure could leave
+    // the fee change committed with no record of it. AuditService.record()
+    // gets this same manager, so its write commits or rolls back atomically
+    // with everything else here.
     await this.repo.manager.transaction(async (manager) => {
       const feeRepo = manager.getRepository(FeeStructure);
-      const fssRepo = manager.getRepository(FeeStructureStudent);
 
       const existing = await feeRepo
         .createQueryBuilder('fs')
@@ -267,44 +246,64 @@ export class FeeStructureService {
         throw new NotFoundException(`Fee structure with ID "${id}" not found`);
       }
 
-      // Diffed against exactly the fields this request changed, not the
-      // whole entity — a partial PATCH shouldn't make every untouched
-      // column look like it was "changed" in the audit trail.
-      const oldValues = Object.fromEntries(changedKeys.map((key) => [key, (existing as any)[key]]));
-      const auditOldValues: Record<string, unknown> = { ...oldValues };
-      const auditNewValues: Record<string, unknown> = { ...updateData };
+      // `class_id`/`section_id` are now writable on update (they weren't
+      // before this ticket) — validate them the same way `create()` does,
+      // against the effective (possibly unchanged) value, or a tenant could
+      // PATCH in another tenant's class/section id and read it back through
+      // the `relations: ['class', 'section']` join.
+      const effectiveClassId = changedKeys.includes('class_id')
+        ? dto.class_id
+        : existing.class_id;
+      const effectiveSectionId = changedKeys.includes('section_id')
+        ? dto.section_id
+        : existing.section_id;
 
-      await feeRepo.update({ id, tenant_id: tenantId }, updateData);
-
-      // Replace selected students if provided — captured before deletion so
-      // a student_ids-only PATCH (which leaves changedKeys empty) still
-      // produces an audit record, not just field-level updates.
-      if (dto.student_ids !== undefined) {
-        const existingLinks = await fssRepo.find({ where: { fee_structure_id: id } });
-        auditOldValues.student_ids = existingLinks.map((link) => link.student_id);
-        auditNewValues.student_ids = dto.student_ids;
-
-        await fssRepo.delete({ fee_structure_id: id });
-        if (dto.student_ids.length > 0) {
-          const entries = dto.student_ids.map((sid) =>
-            fssRepo.create({ fee_structure_id: id, student_id: sid }),
-          );
-          await fssRepo.save(entries);
+      if (changedKeys.includes('class_id') && effectiveClassId) {
+        const cls = await manager.getRepository(Class).findOne({
+          where: { id: effectiveClassId, tenant_id: tenantId, deleted_at: IsNull() },
+        });
+        if (!cls) {
+          throw new NotFoundException(`Class with ID "${effectiveClassId}" not found`);
+        }
+      }
+      if (effectiveSectionId) {
+        if (!effectiveClassId) {
+          throw new NotFoundException(`Section with ID "${effectiveSectionId}" not found`);
+        }
+        if (changedKeys.includes('section_id') || changedKeys.includes('class_id')) {
+          const section = await manager.getRepository(ClassSection).findOne({
+            where: {
+              id: effectiveSectionId,
+              class_id: effectiveClassId,
+              tenant_id: tenantId,
+              deleted_at: IsNull(),
+            },
+          });
+          if (!section) {
+            throw new NotFoundException(`Section with ID "${effectiveSectionId}" not found`);
+          }
         }
       }
 
-      if (Object.keys(auditNewValues).length > 0) {
+      await feeRepo.update({ id, tenant_id: tenantId }, updateData);
+
+      // Amount edits are the only fee-structure change worth an audit trail
+      // (D7): they change what a family owes, everything else is a label.
+      // Guard on an actual change, not mere presence in the payload, so a
+      // no-op PATCH (amount resubmitted unchanged) doesn't write a false
+      // old===new audit row.
+      if (changedKeys.includes('amount') && Number(existing.amount) !== Number(updateData.amount)) {
         await this.auditService.record(
           {
-            action: AuditAction.FEE_STRUCTURE_CHANGE,
+            action: AuditAction.UPDATE,
             entity_type: 'FeeStructure',
             entity_id: id,
             tenant_id: tenantId,
             performed_by_user_id: userId,
             ip_address: context.ip,
             user_agent: context.userAgent,
-            old_values: auditOldValues,
-            new_values: auditNewValues,
+            old_values: { amount: existing.amount },
+            new_values: { amount: updateData.amount },
           },
           manager,
         );
@@ -317,45 +316,11 @@ export class FeeStructureService {
   }
 
   async remove(id: string, tenantId: string): Promise<void> {
-    const feeStructure = await this.findOne(id, tenantId);
-
-    // Check if any student_fees reference this fee structure through FeeStructureStudent
-    // Since StudentFee doesn't have fee_structure_id, we check if any payments
-    // have allocations to student_fees that were generated from this fee structure.
-    // Instead, check if any FeeStructureStudent records exist (SELECTED) or
-    // if any StudentFee records were generated from this fee structure.
-    // The simplest approach: check if any student fees exist for this fee structure's
-    // class/section/academic_year/month combination that have associated payment allocations.
-    const studentFeesQuery = this.studentFeeRepo
-      .createQueryBuilder('sf')
-      .innerJoin('sf.student', 'student')
-      .innerJoin('student.class_section', 'cs')
-      .where('sf.academic_year_id = :academicYearId', {
-        academicYearId: feeStructure.academic_year_id,
-      })
-      .andWhere('sf.month = :month', { month: feeStructure.month })
-      .andWhere('cs.class_id = :classId', { classId: feeStructure.class_id });
-
-    if (feeStructure.section_id) {
-      studentFeesQuery.andWhere('cs.id = :sectionId', {
-        sectionId: feeStructure.section_id,
-      });
-    }
-
-    const studentFees = await studentFeesQuery.getMany();
-
-    if (studentFees.length > 0) {
-      const studentFeeIds = studentFees.map((sf) => sf.id);
-      const allocationCount = await this.paymentAllocRepo.count({
-        where: { student_fee_id: In(studentFeeIds) },
-      });
-      if (allocationCount > 0) {
-        throw new ConflictException(
-          `Cannot delete fee structure "${id}": ${allocationCount} payment allocation(s) are linked to fees generated from it`,
-        );
-      }
-    }
-
+    // Soft-delete only, even when StudentFee rows reference this structure —
+    // history keeps pointing at the (now-hidden) price tag that generated
+    // them, rather than blocking removal or dragging billed data down with
+    // it.
+    await this.findOne(id, tenantId);
     await this.repo.softDelete({ id, tenant_id: tenantId });
   }
 }

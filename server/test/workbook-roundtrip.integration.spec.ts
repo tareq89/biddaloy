@@ -4,7 +4,6 @@ import { DataSource } from 'typeorm';
 import JSZip from 'jszip';
 import {
   FeeType,
-  FeeApplicability,
   FeeStatus,
   InvoiceStatus,
   PaymentMethod,
@@ -469,12 +468,9 @@ describe('workbook round trip (integration)', () => {
         fee_type: FeeType.MONTHLY_TUITION,
         name: 'Tuition - January',
         amount: 1500,
-        applicability: FeeApplicability.ALL,
         class_id: klass.id,
         academic_year_id: year.id,
         section_id: null,
-        month: 1,
-        is_recurring: true,
         tenant_id: TENANT_A,
       }),
     );

@@ -34,7 +34,6 @@ export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
   'payments',
   'invoices',
   'student_fees',
-  'fee_structure_students',
   'fee_structures',
   'communication_logs',
   'reminder_batches',

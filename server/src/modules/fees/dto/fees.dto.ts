@@ -18,7 +18,6 @@ import {
 import { Type, Transform } from 'class-transformer';
 import {
   FeeType,
-  FeeApplicability,
   PaymentMethod,
   PaymentStatus,
   PaymentAllocationType,
@@ -44,14 +43,12 @@ export class CreateFeeStructureDto {
   @Min(0)
   amount: number;
 
+  /** Nullable: a school-wide structure has no class label. */
   @IsOptional()
-  @IsEnum(FeeApplicability)
-  applicability?: FeeApplicability;
-
   @IsUUID()
-  class_id: string;
+  class_id?: string | null;
 
-  /** Nullable for the same reason as `UpdateFeeStructureDto.section_id`:
+  /** Nullable for the same reason as `class_id`:
    * "whole class" is an explicit `null`, not an absent key. */
   @IsOptional()
   @IsUUID()
@@ -59,20 +56,6 @@ export class CreateFeeStructureDto {
 
   @IsUUID()
   academic_year_id: string;
-
-  @IsInt()
-  @Min(1)
-  @Max(12)
-  month: number;
-
-  @IsOptional()
-  @IsBoolean()
-  is_recurring?: boolean;
-
-  @IsOptional()
-  @IsArray()
-  @IsUUID('4', { each: true })
-  student_ids?: string[];
 }
 
 export class UpdateFeeStructureDto {
@@ -89,9 +72,14 @@ export class UpdateFeeStructureDto {
   @Min(0)
   amount?: number;
 
+  /** Explicitly nullable: widening a class-scoped structure back to
+   * school-wide needs `null` to be *sent*. Omitting the key leaves the
+   * column untouched, so an omitted-when-empty payload silently kept the
+   * old class. `@IsOptional()` skips `null` as well as `undefined`, so
+   * the `@IsUUID()` check still applies to every non-null value. */
   @IsOptional()
-  @IsEnum(FeeApplicability)
-  applicability?: FeeApplicability;
+  @IsUUID()
+  class_id?: string | null;
 
   /** Explicitly nullable: widening a section-scoped structure back to the
    * whole class needs `null` to be *sent*. Omitting the key leaves the
@@ -101,22 +89,6 @@ export class UpdateFeeStructureDto {
   @IsOptional()
   @IsUUID()
   section_id?: string | null;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(12)
-  month?: number;
-
-  @IsOptional()
-  @IsBoolean()
-  is_recurring?: boolean;
-
-  @IsOptional()
-  @IsArray()
-  @IsUUID('4', { each: true })
-  student_ids?: string[];
 }
 
 export class QueryFeeStructureDto {
@@ -127,13 +99,6 @@ export class QueryFeeStructureDto {
   @IsOptional()
   @IsUUID()
   class_id?: string;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(12)
-  month?: number;
 
   /** Matches against name (ILIKE, escaped). */
   @IsOptional()
@@ -151,7 +116,7 @@ export class QueryFeeStructureDto {
 
   // `@Type(() => Boolean)` is deliberately not used here: class-transformer's
   // Boolean coercion is `Boolean(value)`, which treats the *string*
-  // `"false"` (what a query param actually is) as truthy — `?is_recurring=
+  // `"false"` (what a query param actually is) as truthy — `?include_deleted=
   // false` would silently become `true`. This transform parses the two
   // literal strings a query param can actually carry.
   @IsOptional()
@@ -161,11 +126,11 @@ export class QueryFeeStructureDto {
     return value;
   })
   @IsBoolean()
-  is_recurring?: boolean;
+  include_deleted?: boolean = false;
 
   @IsOptional()
-  @IsEnum(['name', 'amount', 'month', 'created_at'])
-  sort?: 'name' | 'amount' | 'month' | 'created_at';
+  @IsEnum(['name', 'amount', 'created_at'])
+  sort?: 'name' | 'amount' | 'created_at';
 
   @IsOptional()
   @IsEnum(['asc', 'desc'])
@@ -561,30 +526,18 @@ export function toFamilyStudentDue(summary: StudentDueSummary): FamilyStudentDue
  * Family-facing view of a fee structure [5.1] — the school's published price
  * list.
  *
- * The field this exists to withhold is `selected_students`. A
- * SELECTED-applicability structure links to the *specific students* it
- * applies to, and `FeeStructureService.findOne` eager-loads
- * `selected_students.student` in full for the staff edit dialog's student
- * picker. Returning that raw to a family caller would let any parent read
- * unrelated children's `full_name`, `date_of_birth`, `gender`,
- * `home_address`, `registration_number` and `user_id` — a cross-family PII
- * leak, reachable purely by listing `/fee-structures` for ids.
- *
- * `findAll` never loads that relation, but both list and detail are shaped
- * through this DTO anyway: allow-list discipline means a relation added to
- * `findAll` later stays out of family responses until someone opts it in.
+ * A plain allow-list mirror of the entity: `FeeStructure` no longer carries
+ * anything a family shouldn't see, but the DTO stays so a field added to the
+ * entity later doesn't leak into family responses until someone opts it in.
  */
 export class FamilyFeeStructureDto {
   id: string;
   fee_type: FeeType;
   name: string;
   amount: number;
-  applicability: FeeApplicability;
-  class_id: string;
+  class_id: string | null;
   section_id: string | null;
   academic_year_id: string;
-  month: number;
-  is_recurring: boolean;
 }
 
 export function toFamilyFeeStructure(structure: FeeStructure): FamilyFeeStructureDto {
@@ -593,12 +546,9 @@ export function toFamilyFeeStructure(structure: FeeStructure): FamilyFeeStructur
     fee_type: structure.fee_type,
     name: structure.name,
     amount: structure.amount,
-    applicability: structure.applicability,
     class_id: structure.class_id,
     section_id: structure.section_id,
     academic_year_id: structure.academic_year_id,
-    month: structure.month,
-    is_recurring: structure.is_recurring,
   };
 }
 
