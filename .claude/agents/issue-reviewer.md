@@ -64,6 +64,26 @@ judge it against the plan and the repo's invariants:
 - **Design system.** UI uses biddaloy components and tokens — no one-off
   styles, no ad-hoc hex, no new component libraries.
 - **Scope creep.** Unrelated cleanups in the diff belong out of it.
+- **Destructive diff on a test file.** If a commit's diff to any
+  `*.spec.ts`/`*.test.ts`/`*.e2e-spec.ts` file has more deletions than a small
+  fraction of its insertions (net-negative line count, or a large block of
+  `it(...)`/`describe(...)` removed without a replacement test covering the
+  same behavior), flag it explicitly and require the author to justify why
+  coverage was removed — not just that the file still compiles/passes.
+- **TypeORM `save()` on an entity carrying a filtered relation.** If code
+  calls `repository.save(entity)` (or `manager.save(Entity, entity)`) on an
+  entity whose one-to-many/many-to-many relation was loaded via a query with a
+  `where`/tenant filter on the child side, flag it: TypeORM treats any child
+  missing from the loaded (filtered) collection as removed and nulls its
+  foreign key, silently corrupting data outside the filter's scope. The fix is
+  usually `delete entity.<relation>` before save, or using `update()` instead
+  of `save()`.
+- **Natural-key lookup without a tenant scope.** If a query looks up a row by
+  a "unique" business key (email, registration number, slug, etc.) without
+  also filtering by `tenant_id`/`school_id`, flag it as a likely cross-tenant
+  leak or collision, even if a comment claims the key is globally unique —
+  verify that claim against the actual DB constraint/migration, don't take the
+  comment's word for it.
 
 ### 5. Verify the suite yourself
 
