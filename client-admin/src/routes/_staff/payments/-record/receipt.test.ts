@@ -21,6 +21,7 @@ describe('buildReceiptHtml', () => {
           student_fee: studentFeeFactory({ month: 3, year: 2026 }),
           student_fee_id: 'fee-1',
           allocated_amount: 500,
+          discount_amount: 0,
           allocation_type: 'DUE',
           notes: null,
           created_at: new Date().toISOString(),

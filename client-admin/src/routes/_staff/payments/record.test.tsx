@@ -160,6 +160,7 @@ describe('/payments/record', () => {
               student_fee: outstandingFee({ paid_amount: 500, status: 'PAID' }),
               student_fee_id: 'fee-1',
               allocated_amount: 500,
+              discount_amount: 0,
               allocation_type: 'DUE',
               notes: null,
               created_at: new Date().toISOString(),
