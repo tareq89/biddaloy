@@ -12,6 +12,8 @@ import {
   SEED_ADMIN_EMAIL,
   SEED_ADMIN_USER_ID,
   SEED_SECTION_1_ID,
+  SEED_SECTION_2_ID,
+  SEED_CLASS_1_ID,
   SEED_ADMIN_PASSWORD,
 } from '@test/constants';
 
@@ -201,6 +203,152 @@ describe('Students E2E', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .expect(400);
+    });
+  });
+
+  describe('GET /students/ids', () => {
+    it('returns matching ids and total, filtered by search', async () => {
+      const createRes = await supertest(app.getHttpServer())
+        .post('/api/v1/students')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ full_name: 'Ids Endpoint Test Student', class_section_id: SEED_SECTION_1_ID })
+        .expect(201);
+
+      const res = await supertest(app.getHttpServer())
+        .get('/api/v1/students/ids?search=Ids Endpoint Test Student')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(200);
+
+      expect(res.body.ids).toContain(createRes.body.id);
+      expect(res.body.total).toBe(res.body.ids.length);
+    });
+
+    it('matches a roll number typed in Bengali digits', async () => {
+      const createRes = await supertest(app.getHttpServer())
+        .post('/api/v1/students')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({
+          full_name: 'Bengali Roll Student',
+          class_section_id: SEED_SECTION_1_ID,
+          roll_number: 912,
+        })
+        .expect(201);
+
+      // ৯১২ is Bengali for 912 — normalizeSearchTerm converts it before the
+      // roll_number equality match runs.
+      const res = await supertest(app.getHttpServer())
+        .get('/api/v1/students/ids?search=৯১২')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(200);
+
+      expect(res.body.ids).toContain(createRes.body.id);
+    });
+
+    it('filters by class_id, section_id, and enrollment_status together with search', async () => {
+      const createRes = await supertest(app.getHttpServer())
+        .post('/api/v1/students')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ full_name: 'Filtered Combo Student', class_section_id: SEED_SECTION_1_ID })
+        .expect(201);
+
+      const res = await supertest(app.getHttpServer())
+        .get(
+          `/api/v1/students/ids?class_id=${SEED_CLASS_1_ID}&section_id=${SEED_SECTION_1_ID}&enrollment_status=ACTIVE&search=Filtered Combo Student`,
+        )
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(200);
+
+      expect(res.body.ids).toContain(createRes.body.id);
+
+      // A section that doesn't match the student excludes it.
+      const missRes = await supertest(app.getHttpServer())
+        .get(`/api/v1/students/ids?section_id=${SEED_SECTION_2_ID}&search=Filtered Combo Student`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(200);
+
+      expect(missRes.body.ids).not.toContain(createRes.body.id);
+    });
+
+    it('does not include a matching student from another tenant', async () => {
+      const OTHER_TENANT_ID = '00000000-0000-4000-8000-000000000098';
+      await dataSource.query(
+        `INSERT INTO schools (id, name, slug, created_at, updated_at)
+         VALUES ('${OTHER_TENANT_ID}', 'Ids Isolation School', 'ids-isolation-school', NOW(), NOW())
+         ON CONFLICT DO NOTHING`,
+      );
+      await dataSource.query(
+        `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+         VALUES ('${SEED_ADMIN_USER_ID}', '${OTHER_TENANT_ID}', '${UserRole.ADMIN}', NOW(), NOW())
+         ON CONFLICT DO NOTHING`,
+      );
+      // Membership is embedded in the JWT at login time — re-login so the
+      // token reflects the membership just inserted above.
+      const loginRes = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+        .expect(200);
+      const multiTenantToken = loginRes.body.access_token;
+
+      const createRes = await supertest(app.getHttpServer())
+        .post('/api/v1/students')
+        .set('Authorization', `Bearer ${multiTenantToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ full_name: 'Ids Tenant Isolation Student', class_section_id: SEED_SECTION_1_ID })
+        .expect(201);
+
+      const res = await supertest(app.getHttpServer())
+        .get('/api/v1/students/ids?search=Ids Tenant Isolation Student')
+        .set('Authorization', `Bearer ${multiTenantToken}`)
+        .set('X-Tenant-ID', OTHER_TENANT_ID)
+        .expect(200);
+
+      expect(res.body.ids).not.toContain(createRes.body.id);
+    });
+
+    it('should return 401 when a STUDENT role tries to use the ids endpoint (not in its allowlist)', async () => {
+      // Same pattern as "POST /students" role check above: give the seed
+      // admin user a STUDENT role for this tenant, then re-login so the JWT
+      // carries it, and confirm the ids route rejects that role.
+      await dataSource.query(
+        `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+         VALUES ('${SEED_ADMIN_USER_ID}', '${TENANT_ID}', '${UserRole.STUDENT}', NOW(), NOW())
+         ON CONFLICT DO NOTHING`,
+      );
+      const loginRes = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+        .expect(200);
+      const studentToken = loginRes.body.access_token;
+
+      const res = await supertest(app.getHttpServer())
+        .get('/api/v1/students/ids')
+        .set('Authorization', `Bearer ${studentToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.STUDENT)
+        .expect(401);
+
+      expect(res.body.message).toContain('Requires one of roles');
+    });
+
+    it('stays under the 5,000 cap on a normal query (413-over-cap path covered in students.service.spec.ts)', async () => {
+      // No practical way to seed 5,000+ students in an e2e run — the cap's
+      // 413 branch is covered by a mocked-repo unit test in
+      // `students.service.spec.ts` instead. This just confirms a normal
+      // e2e-seeded query stays under the cap and succeeds end-to-end.
+      const res = await supertest(app.getHttpServer())
+        .get('/api/v1/students/ids')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(200);
+
+      expect(res.body.total).toBeLessThan(5000);
     });
   });
 

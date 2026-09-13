@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  PayloadTooLargeException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, In, Brackets, EntityManager } from 'typeorm';
 import { Student } from './entities/student.entity';
@@ -6,7 +11,12 @@ import { Guardian } from './entities/guardian.entity';
 import { Enrollment } from './entities/enrollment.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Class } from '../academics/entities/class.entity';
-import { CreateStudentDto, UpdateStudentDto, QueryStudentDto } from './dto/students.dto';
+import {
+  CreateStudentDto,
+  UpdateStudentDto,
+  QueryStudentDto,
+  QueryStudentIdsDto,
+} from './dto/students.dto';
 import {
   CreateGuardianDto,
   UpdateGuardianDto,
@@ -19,6 +29,10 @@ import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.ut
 import { BN_COLLATION } from '../../common/constants/collation';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
+
+// [16.3.3] Caps the audience picker's "select all matching" id list — bounds
+// both the query cost and the response size for a single selection.
+const MAX_STUDENT_IDS_RESULT = 5000;
 
 @Injectable()
 export class StudentService {
@@ -163,6 +177,126 @@ export class StudentService {
     }) as Promise<Student>;
   }
 
+  /**
+   * Builds the tenant-scoped, filtered query for student IDs only, shared by
+   * `findAll` (paginated list) and `findAllIds` (the audience picker's
+   * select-all). Deliberately not `leftJoinAndSelect`ing `guardians` here —
+   * a many-to-many join used for filtering (the search's guardian branch)
+   * combined with `skip`/`take` would apply `LIMIT` to the flattened joined
+   * rows, not to distinct students, inflating `total`/corrupting pagination
+   * whenever a matched student has more than one guardian. The guardian
+   * search branch below uses an `EXISTS` subquery instead, which cannot
+   * multiply rows.
+   */
+  private buildStudentIdsQuery(
+    query: Pick<
+      QueryStudentDto,
+      | 'class_id'
+      | 'section_id'
+      | 'enrollment_status'
+      | 'gender'
+      | 'date_of_birth_from'
+      | 'date_of_birth_to'
+      | 'search'
+    >,
+    tenantId: string,
+  ) {
+    const qb = this.repo
+      .createQueryBuilder('student')
+      .select('student.id', 'id')
+      .leftJoin('student.class_section', 'class_section')
+      .where('student.tenant_id = :tenantId', { tenantId })
+      .andWhere('student.deleted_at IS NULL');
+
+    if (query.class_id) {
+      qb.andWhere('class_section.class_id = :classId', { classId: query.class_id });
+    }
+    if (query.section_id) {
+      qb.andWhere('student.class_section_id = :sectionId', { sectionId: query.section_id });
+    }
+    if (query.enrollment_status) {
+      qb.andWhere('student.enrollment_status = :enrollmentStatus', {
+        enrollmentStatus: query.enrollment_status,
+      });
+    }
+    if (query.gender) {
+      qb.andWhere('student.gender = :gender', { gender: query.gender });
+    }
+    if (query.date_of_birth_from) {
+      qb.andWhere('student.date_of_birth >= :dobFrom', { dobFrom: query.date_of_birth_from });
+    }
+    if (query.date_of_birth_to) {
+      qb.andWhere('student.date_of_birth <= :dobTo', { dobTo: query.date_of_birth_to });
+    }
+
+    // Matches GuardianService.findAll's own ILIKE/escape fix. Student has
+    // no `phone` column of its own (that lives on Guardian) — name and
+    // registration number are the student-owned free-text fields; roll
+    // number is matched exactly (it's an int, not text) and guardians are
+    // matched via the tenant-scoped EXISTS subquery below.
+    const search = normalizeSearchTerm(query.search);
+    if (search) {
+      // `search` is already Bengali-digit-converted by `normalizeSearchTerm`,
+      // so a Bengali roll number (e.g. `১০৩`) matches the Latin-stored
+      // `roll_number` column.
+      // `/^\d+$/`, not `Number.isInteger(Number(search))` — the latter also
+      // accepts `1e5`, `0x2a`, and leading/trailing whitespace as
+      // "integers", which would silently roll-number-match a plain-text
+      // search term shaped like one of those.
+      // Bounded to int4, the `roll_number` column's real range — see
+      // `fee-dues.service.ts` for the same guard and the two Postgres errors
+      // an unbounded digit string raises.
+      const isPlainInteger = /^\d+$/.test(search) && Number(search) <= 2147483647;
+      qb.andWhere(
+        new Brackets((sub) => {
+          sub
+            .where('student.full_name ILIKE :search', { search: `%${search}%` })
+            .orWhere('student.registration_number ILIKE :search', { search: `%${search}%` });
+          if (isPlainInteger) {
+            sub.orWhere('student.roll_number = :rollNumber', { rollNumber: Number(search) });
+          }
+          // Guardian join must also carry its own tenant_id — the
+          // `student_guardians` join table does not imply same-tenant.
+          sub.orWhere(
+            `EXISTS (
+              SELECT 1 FROM student_guardians sg
+              INNER JOIN guardians g ON g.id = sg.guardian_id
+              WHERE sg.student_id = student.id
+                AND g.tenant_id = :tenantId
+                AND (g.full_name ILIKE :search OR g.phone ILIKE :search)
+            )`,
+            { search: `%${search}%` },
+          );
+        }),
+      );
+    }
+
+    return qb;
+  }
+
+  /**
+   * [16.3.3] All student IDs matching the same filters as `findAll`,
+   * unpaginated — backs the audience picker's "select all matching" action.
+   * Capped at `MAX_IDS_RESULT` to bound response size and query cost; a
+   * caller whose filters match more than that gets a 413 telling them to
+   * narrow the search instead of a silently truncated selection (which
+   * would look like "select all" quietly dropped students).
+   */
+  async findAllIds(
+    query: QueryStudentIdsDto,
+    tenantId: string,
+  ): Promise<{ ids: string[]; total: number }> {
+    const qb = this.buildStudentIdsQuery(query, tenantId).addOrderBy('student.id', 'ASC');
+    const total = await qb.getCount();
+    if (total > MAX_STUDENT_IDS_RESULT) {
+      throw new PayloadTooLargeException(
+        `Matching students (${total}) exceed the maximum of ${MAX_STUDENT_IDS_RESULT} for a single selection. Narrow the search or filters.`,
+      );
+    }
+    const rows = await qb.getRawMany<{ id: string }>();
+    return { ids: rows.map((row) => row.id), total };
+  }
+
   async findAll(query: QueryStudentDto, tenantId: string) {
     const page = query.page || 1;
     const limit = query.limit || 10;
@@ -176,79 +310,7 @@ export class StudentService {
     // and corrupting pagination whenever a matched student has more than
     // one guardian. The guardian search branch below uses an `EXISTS`
     // subquery instead, which cannot multiply rows.
-    const buildIdQuery = () => {
-      const qb = this.repo
-        .createQueryBuilder('student')
-        .select('student.id', 'id')
-        .leftJoin('student.class_section', 'class_section')
-        .where('student.tenant_id = :tenantId', { tenantId })
-        .andWhere('student.deleted_at IS NULL');
-
-      if (query.class_id) {
-        qb.andWhere('class_section.class_id = :classId', { classId: query.class_id });
-      }
-      if (query.section_id) {
-        qb.andWhere('student.class_section_id = :sectionId', { sectionId: query.section_id });
-      }
-      if (query.enrollment_status) {
-        qb.andWhere('student.enrollment_status = :enrollmentStatus', {
-          enrollmentStatus: query.enrollment_status,
-        });
-      }
-      if (query.gender) {
-        qb.andWhere('student.gender = :gender', { gender: query.gender });
-      }
-      if (query.date_of_birth_from) {
-        qb.andWhere('student.date_of_birth >= :dobFrom', { dobFrom: query.date_of_birth_from });
-      }
-      if (query.date_of_birth_to) {
-        qb.andWhere('student.date_of_birth <= :dobTo', { dobTo: query.date_of_birth_to });
-      }
-
-      // Matches GuardianService.findAll's own ILIKE/escape fix. Student has
-      // no `phone` column of its own (that lives on Guardian) — name and
-      // registration number are the student-owned free-text fields; roll
-      // number is matched exactly (it's an int, not text) and guardians are
-      // matched via the tenant-scoped EXISTS subquery below.
-      const search = normalizeSearchTerm(query.search);
-      if (search) {
-        // `search` is already Bengali-digit-converted by
-        // `normalizeSearchTerm`, so a Bengali roll number (e.g. `১০৩`)
-        // matches the Latin-stored `roll_number` column.
-        // `/^\d+$/`, not `Number.isInteger(Number(search))` — the latter
-        // also accepts `1e5`, `0x2a`, and leading/trailing whitespace as
-        // "integers", which would silently roll-number-match a plain-text
-        // search term shaped like one of those.
-        // Bounded to int4, the `roll_number` column's real range — see
-        // `fee-dues.service.ts` for the same guard and the two Postgres
-        // errors an unbounded digit string raises.
-        const isPlainInteger = /^\d+$/.test(search) && Number(search) <= 2147483647;
-        qb.andWhere(
-          new Brackets((sub) => {
-            sub
-              .where('student.full_name ILIKE :search', { search: `%${search}%` })
-              .orWhere('student.registration_number ILIKE :search', { search: `%${search}%` });
-            if (isPlainInteger) {
-              sub.orWhere('student.roll_number = :rollNumber', { rollNumber: Number(search) });
-            }
-            // Guardian join must also carry its own tenant_id — the
-            // `student_guardians` join table does not imply same-tenant.
-            sub.orWhere(
-              `EXISTS (
-                SELECT 1 FROM student_guardians sg
-                INNER JOIN guardians g ON g.id = sg.guardian_id
-                WHERE sg.student_id = student.id
-                  AND g.tenant_id = :tenantId
-                  AND (g.full_name ILIKE :search OR g.phone ILIKE :search)
-              )`,
-              { search: `%${search}%` },
-            );
-          }),
-        );
-      }
-
-      return qb;
-    };
+    const buildIdQuery = () => this.buildStudentIdsQuery(query, tenantId);
 
     const total = await buildIdQuery().getCount();
 

@@ -35,6 +35,7 @@ import {
   CreateStudentDto,
   UpdateStudentDto,
   QueryStudentDto,
+  QueryStudentIdsDto,
   CreateGuardianDto,
   UpdateGuardianDto,
   UpdateOwnGuardianDto,
@@ -138,6 +139,25 @@ export class StudentController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.familyAccess.getLinkedStudents(tenant.role, user.sub, tenant.id);
+  }
+
+  /**
+   * [16.3.3] MUST stay declared above `students/:id` — same reasoning as
+   * `students/mine` above: without a `ParseUUIDPipe` on that route's param,
+   * Nest would otherwise match `ids` as a student id and 404.
+   */
+  @Get('students/ids')
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @RequirePermissions(Permission.STUDENT_READ)
+  @ApiOperation({
+    summary:
+      'All student IDs matching the given filters, unpaginated — backs the audience picker\'s "select all matching" action. Capped; returns 413 when the match count exceeds the cap.',
+  })
+  findAllStudentIds(
+    @Query() query: QueryStudentIdsDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.studentService.findAllIds(query, tenant.id);
   }
 
   @Get('students/:id')

@@ -250,6 +250,13 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
   {
     controller: 'StudentController',
     method: 'GET',
+    path: '/students/ids',
+    reason:
+      "[16.3.3] the audience picker's select-all is staff-only, although every role (incl. PARENT/STUDENT) holds STUDENT_READ — same narrowing as GET /students",
+  },
+  {
+    controller: 'StudentController',
+    method: 'GET',
     path: '/students/mine',
     reason: 'family-only — the discovery route for a PARENT/STUDENT is meaningless for staff',
   },
