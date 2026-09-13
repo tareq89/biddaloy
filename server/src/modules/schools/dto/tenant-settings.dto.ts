@@ -23,6 +23,7 @@ import type {
   CurrencyPosition,
   SmsGatewayName,
   SmsMeteringMode,
+  BackupScheduleMode,
 } from '@biddaloy/shared';
 
 /**
@@ -329,6 +330,14 @@ export class AuthSettingsDto {
   otpLoginEnabled: boolean;
 }
 
+/**
+ * `backup.schedule` (14.12.1/#615 D10) — not a secret, no `@Secret()`.
+ */
+export class BackupSettingsDto {
+  @IsIn(['OFF', 'WEEKLY', 'DAILY'])
+  schedule: BackupScheduleMode;
+}
+
 export class TenantSettingsDto {
   @IsIn([TENANT_SETTINGS_SCHEMA_VERSION])
   version: typeof TENANT_SETTINGS_SCHEMA_VERSION;
@@ -348,4 +357,8 @@ export class TenantSettingsDto {
   @OptionalSetting()
   @NestedSettings(() => AuthSettingsDto)
   auth?: AuthSettingsDto;
+
+  @OptionalSetting()
+  @NestedSettings(() => BackupSettingsDto)
+  backup?: BackupSettingsDto;
 }

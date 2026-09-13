@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { Not } from 'typeorm';
 import {
   ConflictException,
   GoneException,
@@ -47,14 +48,36 @@ function makeJob(overrides: Partial<WorkbookJob> = {}): WorkbookJob {
 describe('WorkbookController', () => {
   let controller: WorkbookController;
   let exportsService: { run: ReturnType<typeof vi.fn> };
-  let jobsRepo: { findAndCount: ReturnType<typeof vi.fn>; findOne: ReturnType<typeof vi.fn> };
+  let jobsRepo: {
+    findAndCount: ReturnType<typeof vi.fn>;
+    findOne: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+    exists: ReturnType<typeof vi.fn>;
+    createQueryBuilder: ReturnType<typeof vi.fn>;
+  };
   let storage: { get: ReturnType<typeof vi.fn> };
   const tenant = { id: 'tenant-1', role: 'ADMIN' };
   const user = { sub: 'user-1' } as any;
 
+  function makeQueryBuilder(totalBytes: string) {
+    const qb: any = {
+      select: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      getRawOne: vi.fn().mockResolvedValue({ total_bytes: totalBytes }),
+    };
+    return qb;
+  }
+
   beforeEach(() => {
     exportsService = { run: vi.fn() };
-    jobsRepo = { findAndCount: vi.fn(), findOne: vi.fn() };
+    jobsRepo = {
+      findAndCount: vi.fn(),
+      findOne: vi.fn(),
+      update: vi.fn(),
+      exists: vi.fn(),
+      createQueryBuilder: vi.fn(() => makeQueryBuilder('0')),
+    };
     storage = { get: vi.fn() };
     controller = new WorkbookController(
       exportsService as unknown as ExportService,
@@ -115,6 +138,69 @@ describe('WorkbookController', () => {
       });
       expect(result.total).toBe(41);
       expect(result.totalPages).toBe(3);
+    });
+
+    it('reports storage_total_bytes summed over DONE jobs for the tenant, unfiltered by page', async () => {
+      jobsRepo.findAndCount.mockResolvedValue([[makeJob()], 1]);
+      const qb = makeQueryBuilder('734003200');
+      jobsRepo.createQueryBuilder.mockReturnValue(qb);
+
+      const result = await controller.list({ page: 1, limit: 20 }, tenant);
+
+      expect(qb.where).toHaveBeenCalledWith('job.tenant_id = :tenantId', { tenantId: 'tenant-1' });
+      expect(qb.andWhere).toHaveBeenCalledWith('job.status = :status', {
+        status: WorkbookJobStatus.DONE,
+      });
+      expect(result.storage_total_bytes).toBe('734003200');
+    });
+  });
+
+  describe('pin', () => {
+    it('throws NotFoundException when the job does not exist in this tenant', async () => {
+      jobsRepo.update.mockResolvedValue({ affected: 0 });
+      jobsRepo.exists.mockResolvedValue(false);
+
+      await expect(controller.pin('missing', { pinned: true }, tenant)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('throws GoneException when the job exists but retention already claimed it (no row matched the conditional update)', async () => {
+      // The race this guards: the row was DONE when the user clicked, and
+      // `RetentionService.deleteRow` flipped it to DELETED before this
+      // request's update ran — a 200 here would be a lie.
+      jobsRepo.update.mockResolvedValue({ affected: 0 });
+      jobsRepo.exists.mockResolvedValue(true);
+
+      await expect(controller.pin('job-9', { pinned: true }, tenant)).rejects.toBeInstanceOf(
+        GoneException,
+      );
+    });
+
+    it('updates pinned through a conditional update scoped to tenant and non-DELETED status, and returns the mapped dto', async () => {
+      jobsRepo.update.mockResolvedValue({ affected: 1 });
+      jobsRepo.findOne.mockResolvedValue(makeJob({ id: 'job-9', pinned: true }));
+
+      const result = await controller.pin('job-9', { pinned: true }, tenant);
+
+      expect(jobsRepo.update).toHaveBeenCalledWith(
+        { id: 'job-9', tenant_id: 'tenant-1', status: Not(WorkbookJobStatus.DELETED) },
+        { pinned: true },
+      );
+      expect(result.pinned).toBe(true);
+    });
+
+    it('can unpin', async () => {
+      jobsRepo.update.mockResolvedValue({ affected: 1 });
+      jobsRepo.findOne.mockResolvedValue(makeJob({ id: 'job-9', pinned: false }));
+
+      const result = await controller.pin('job-9', { pinned: false }, tenant);
+
+      expect(jobsRepo.update).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'job-9', tenant_id: 'tenant-1' }),
+        { pinned: false },
+      );
+      expect(result.pinned).toBe(false);
     });
   });
 

@@ -2051,6 +2051,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/backup/jobs/{id}/pin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Pin or unpin a backup job — a pinned job is exempt from retention. */
+        patch: operations["WorkbookController_pin_v1"];
+        trace?: never;
+    };
     "/api/v1/backup/jobs/{id}/download": {
         parameters: {
             query?: never;
@@ -2076,6 +2093,23 @@ export interface paths {
             cookie?: never;
         };
         get: operations["WorkbookController_get_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/backups/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Per-school backup schedule, last attempt outcome, last success time and storage usage. SUPER_ADMIN only. */
+        get: operations["PlatformBackupHealthController_health_v1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2160,7 +2194,7 @@ export interface components {
             id: string;
             tenant_id: string | null;
             /** @enum {string} */
-            action: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE";
+            action: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED";
             entity_type: string;
             entity_id: string | null;
             performed_by_user_id: string | null;
@@ -2564,6 +2598,10 @@ export interface components {
         AuthSettingsDto: {
             otpLoginEnabled: boolean;
         };
+        BackupSettingsDto: {
+            /** @enum {string} */
+            schedule: "OFF" | "WEEKLY" | "DAILY";
+        };
         TenantSettingsDto: {
             /** @enum {number} */
             version: 1;
@@ -2571,6 +2609,7 @@ export interface components {
             communications?: components["schemas"]["CommunicationsSettingsDto"];
             attendance?: components["schemas"]["AttendancePolicyDto"];
             auth?: components["schemas"]["AuthSettingsDto"];
+            backup?: components["schemas"]["BackupSettingsDto"];
         };
         UpdateSchoolProfileDto: {
             name?: string;
@@ -4003,6 +4042,24 @@ export interface components {
             page: number;
             limit: number;
             totalPages: number;
+            storage_total_bytes: string;
+        };
+        PinWorkbookJobDto: {
+            pinned: boolean;
+        };
+        PlatformSchoolBackupHealthDto: {
+            school_id: string;
+            name: string;
+            /** @enum {string} */
+            schedule: "OFF" | "WEEKLY" | "DAILY";
+            /** Format: date-time */
+            last_success_at: string | null;
+            /** @enum {string|null} */
+            last_status: "QUEUED" | "RUNNING" | "DONE" | "FAILED" | "DELETED" | null;
+            storage_total_bytes: string;
+        };
+        PlatformBackupHealthResponseDto: {
+            data: components["schemas"]["PlatformSchoolBackupHealthDto"][];
         };
         TabSummaryDto: {
             /** @description Tab/sheet name, e.g. "school" */
@@ -4104,7 +4161,7 @@ export interface operations {
     AuditController_findAll_v1: {
         parameters: {
             query?: {
-                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE";
+                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED";
                 entity_type?: string;
                 performed_by_user_id?: string;
                 entity_id?: string;
@@ -4144,7 +4201,7 @@ export interface operations {
     AuditController_findByEntity_v1: {
         parameters: {
             query?: {
-                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE";
+                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED";
                 entity_type?: string;
                 performed_by_user_id?: string;
                 entity_id?: string;
@@ -8967,7 +9024,7 @@ export interface operations {
     AttendanceController_getRecordHistory_v1: {
         parameters: {
             query?: {
-                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE";
+                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED";
                 entity_type?: string;
                 performed_by_user_id?: string;
                 entity_id?: string;
@@ -9533,6 +9590,43 @@ export interface operations {
             };
         };
     };
+    WorkbookController_pin_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PinWorkbookJobDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkbookJobDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     WorkbookController_download_v1: {
         parameters: {
             query?: never;
@@ -9594,6 +9688,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    PlatformBackupHealthController_health_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformBackupHealthResponseDto"];
+                };
             };
         };
     };

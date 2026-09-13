@@ -91,6 +91,21 @@
       "grantError": "এসএমএস ক্রেডিট ব্যালেন্স আপডেট করা যায়নি।"
     }
   },
+  "backupHealth": {
+    "title": "ব্যাকআপ স্বাস্থ্য",
+    "caption": "প্রতিটি স্কুলের ব্যাকআপ সময়সূচি, সর্বশেষ ফলাফল এবং স্টোরেজ ব্যবহার।",
+    "columnSchool": "স্কুল",
+    "columnSchedule": "সময়সূচি",
+    "columnLastStatus": "সর্বশেষ চেষ্টা",
+    "columnLastSuccess": "সর্বশেষ সফলতা",
+    "columnStorage": "ব্যবহৃত স্টোরেজ",
+    "never": "কখনো না",
+    "scheduleOff": "বন্ধ",
+    "scheduleWeekly": "সাপ্তাহিক",
+    "scheduleDaily": "দৈনিক",
+    "emptyMessage": "দেখানোর মতো কোনো স্কুল নেই।",
+    "errorMessage": "ব্যাকআপ স্বাস্থ্য লোড করা যায়নি।"
+  },
   "createWizard": {
     "schoolStepTitle": "নতুন স্কুল",
     "nameLabel": "স্কুলের নাম",

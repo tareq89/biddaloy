@@ -68,6 +68,10 @@ export interface PaginatedWorkbookJobs {
   page: number;
   limit: number;
   totalPages: number;
+  /** [14.12.3/#617] Sum of `size_bytes` over every DONE, still-stored job
+   * for the tenant — bigint, hence a string, same as `WorkbookJob.size_bytes`.
+   * Mirrors `WorkbookJobListResponseDto.storage_total_bytes`. */
+  storage_total_bytes: string;
 }
 
 /** One tab's dry-run diff — mirrors `TabSummaryDto`. There is no per-tab
@@ -295,6 +299,76 @@ export function useRestoreBackup(options: { tenantId?: string } = {}) {
         void queryClient.invalidateQueries({ queryKey: backupKeys.lists() });
       }
     },
+  });
+}
+
+/** `PATCH /backup/jobs/:id/pin` — pin or unpin a backup job (a pinned job
+ * is exempt from retention pruning). Optimistic-free, same reasoning as
+ * `useRequestBackup`/`useRestoreBackup`: invalidates the job list on
+ * success rather than writing the cache by hand. */
+export function usePinBackupJob() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, pinned }: { id: string; pinned: boolean }): Promise<WorkbookJob> => {
+      const res = await apiClient.patch<WorkbookJob>(`/backup/jobs/${id}/pin`, { pinned });
+      return res.data;
+    },
+    retry: false,
+    // Both keys: the list is what the Settings table renders, but a
+    // mounted `useBackupJob(id)` detail (a terminal job has stopped
+    // polling, so nothing else would refresh it) would otherwise keep
+    // showing the old `pinned` value.
+    onSuccess: (_job, { id }) => {
+      void queryClient.invalidateQueries({ queryKey: backupKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: backupKeys.detail(id) });
+    },
+    // 410 means retention deleted this job between the list render and the
+    // click (the server's conditional pin update matched no live row). The
+    // cached row is stale, so refetch rather than leave a "Pin" button on a
+    // backup that no longer exists. Other errors leave the cache alone —
+    // the row is still real, the request just failed.
+    onError: (err, { id }) => {
+      if (extractHttpStatus(err) !== 410) return;
+      void queryClient.invalidateQueries({ queryKey: backupKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: backupKeys.detail(id) });
+    },
+  });
+}
+
+/** Reads an axios-shaped or fetch-shaped error's HTTP status code. */
+function extractHttpStatus(err: unknown): number | undefined {
+  const asRecord = err as { response?: { status?: number }; status?: number } | undefined;
+  return asRecord?.response?.status ?? asRecord?.status;
+}
+
+/** One school's row from `GET /platform/backups/health` — mirrors
+ * `PlatformSchoolBackupHealthDto`
+ * (`server/src/modules/workbook/schedule/dto/platform-backup-health.dto.ts`).
+ * `last_status`/`last_success_at` are both `null` for a school that has
+ * never attempted a backup — the "never" row `BackupHealthTable` renders. */
+export interface PlatformSchoolBackupHealth {
+  school_id: string;
+  name: string;
+  schedule: 'OFF' | 'WEEKLY' | 'DAILY';
+  last_success_at: string | null;
+  last_status: WorkbookJobStatus | null;
+  storage_total_bytes: string;
+}
+
+const platformBackupHealthKeys = createEntityKeys('platform-backup-health');
+
+/** [14.12.3/#617] `GET /platform/backups/health` — SUPER_ADMIN only. One
+ * row per school so a super admin can see who is and isn't backed up. */
+export function usePlatformBackupHealth() {
+  return useQuery({
+    queryKey: platformBackupHealthKeys.lists(),
+    queryFn: async () => {
+      const res = await apiClient.get<{ data: PlatformSchoolBackupHealth[] }>(
+        '/platform/backups/health',
+      );
+      return res.data.data;
+    },
+    retry: shouldRetryQuery,
   });
 }
 

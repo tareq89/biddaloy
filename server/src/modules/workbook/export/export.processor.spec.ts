@@ -111,7 +111,9 @@ describe('ExportProcessor', () => {
     audit = { record: vi.fn().mockResolvedValue(undefined) };
     events = { emitFinished: vi.fn() };
 
-    processor = new ExportProcessor(jobsRepo, dataSource, storage, audit, events);
+    processor = new ExportProcessor(jobsRepo, dataSource, storage, audit, events, {
+      enforce: vi.fn().mockResolvedValue(undefined),
+    } as any);
   });
 
   it('happy path: RUNNING -> DONE with every terminal field set', async () => {

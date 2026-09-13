@@ -3,6 +3,7 @@ import { resolveTenantSettings } from './tenant-settings-resolver';
 import {
   DEFAULT_ATTENDANCE_SETTINGS,
   DEFAULT_AUTH_SETTINGS,
+  DEFAULT_BACKUP_SETTINGS,
   DEFAULT_REGION_SETTINGS,
 } from './tenant-settings-defaults';
 
@@ -14,6 +15,7 @@ describe('resolveTenantSettings', () => {
     expect(resolved.region).toEqual(DEFAULT_REGION_SETTINGS);
     expect(resolved.attendance).toEqual(DEFAULT_ATTENDANCE_SETTINGS);
     expect(resolved.auth).toEqual(DEFAULT_AUTH_SETTINGS);
+    expect(resolved.backup).toEqual(DEFAULT_BACKUP_SETTINGS);
     expect(resolved.communications).toBeUndefined();
   });
 
@@ -23,6 +25,33 @@ describe('resolveTenantSettings', () => {
     expect(resolved.region).toEqual(DEFAULT_REGION_SETTINGS);
     expect(resolved.attendance).toEqual(DEFAULT_ATTENDANCE_SETTINGS);
     expect(resolved.auth).toEqual(DEFAULT_AUTH_SETTINGS);
+  });
+
+  describe('backup.schedule (14.12.1/#615)', () => {
+    it('stored {} resolves to the default WEEKLY', () => {
+      expect(resolveTenantSettings({}).backup?.schedule).toBe('WEEKLY');
+    });
+
+    it('a stored OFF overrides the default', () => {
+      expect(resolveTenantSettings({ backup: { schedule: 'OFF' } }).backup?.schedule).toBe('OFF');
+    });
+
+    it('a stored DAILY overrides the default', () => {
+      expect(resolveTenantSettings({ backup: { schedule: 'DAILY' } }).backup?.schedule).toBe(
+        'DAILY',
+      );
+    });
+
+    it(
+      'a same-typed but invalid stored value falls back to the default — `overlayOnDefaults` ' +
+        'only type-checks, so this is the read-side guard for a row that bypassed ' +
+        "BackupSettingsDto's @IsIn on write",
+      () => {
+        expect(resolveTenantSettings({ backup: { schedule: 'NONSENSE' } }).backup?.schedule).toBe(
+          DEFAULT_BACKUP_SETTINGS.schedule,
+        );
+      },
+    );
   });
 
   it('a school unset returns the default otpLoginEnabled=true, and a stored false overrides it', () => {

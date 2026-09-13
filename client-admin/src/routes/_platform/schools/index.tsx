@@ -1,10 +1,11 @@
-import { useSchools } from '@biddaloy/ui/hooks';
+import { usePlatformBackupHealth, useSchools } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import * as React from 'react';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
 
+import { BackupHealthTable } from './-backup-health';
 import { SchoolsListView } from './-schools-list-view';
 
 /**
@@ -30,13 +31,17 @@ export const Route = createFileRoute('/_platform/schools/')({
   // `security.tsx`'s own session list uses), so this route fetches on
   // mount like that one does rather than duplicating the query definition.
   // Still needs a `loader` to preload the `platform` i18n namespace.
-  loader: () => loadRouteNamespaces('platform'),
+  // [14.12.3/#617] `backup` too — `BackupHealthTable`'s "Never" fallback
+  // and per-job status labels (`status.DONE`/`FAILED`/...) reuse that
+  // namespace rather than duplicating its `status.*` tree here.
+  loader: () => loadRouteNamespaces('platform', 'backup'),
   component: SchoolsListPage,
 });
 
 function SchoolsListPage() {
   const { t } = useTranslation('platform');
   const schoolsQuery = useSchools();
+  const backupHealthQuery = usePlatformBackupHealth();
   const [search, setSearch] = React.useState('');
 
   const filteredSchools = React.useMemo(() => {
@@ -50,22 +55,34 @@ function SchoolsListPage() {
   }, [schoolsQuery.data, search]);
 
   return (
-    <SchoolsListView
-      schools={filteredSchools}
-      loading={schoolsQuery.isLoading}
-      isFetching={schoolsQuery.isFetching}
-      {...(schoolsQuery.isError ? { error: t('schools.errorMessage') } : {})}
-      search={search}
-      onSearchChange={setSearch}
-      renderName={(school) => (
-        <Link
-          to="/schools/$schoolId"
-          params={{ schoolId: school.id }}
-          className="font-medium text-primary underline"
-        >
-          {school.name}
-        </Link>
-      )}
-    />
+    <div className="flex flex-col gap-8">
+      <SchoolsListView
+        schools={filteredSchools}
+        loading={schoolsQuery.isLoading}
+        isFetching={schoolsQuery.isFetching}
+        {...(schoolsQuery.isError ? { error: t('schools.errorMessage') } : {})}
+        search={search}
+        onSearchChange={setSearch}
+        renderName={(school) => (
+          <Link
+            to="/schools/$schoolId"
+            params={{ schoolId: school.id }}
+            className="font-medium text-primary underline"
+          >
+            {school.name}
+          </Link>
+        )}
+      />
+
+      <div className="flex flex-col gap-2">
+        <h2 className="text-base font-semibold">{t('backupHealth.title')}</h2>
+        <BackupHealthTable
+          rows={backupHealthQuery.data ?? []}
+          loading={backupHealthQuery.isLoading}
+          isFetching={backupHealthQuery.isFetching}
+          {...(backupHealthQuery.isError ? { error: t('backupHealth.errorMessage') } : {})}
+        />
+      </div>
+    </div>
   );
 }

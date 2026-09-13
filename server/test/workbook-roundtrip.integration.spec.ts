@@ -332,6 +332,7 @@ describe('workbook round trip (integration)', () => {
       storage as any,
       auditService,
       { emitFinished: vi.fn() } as any,
+      { enforce: vi.fn().mockResolvedValue(undefined) } as any,
     );
 
     const restoreServiceStub = { release: vi.fn().mockResolvedValue(undefined) };

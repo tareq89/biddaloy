@@ -91,6 +91,21 @@
       "grantError": "Could not update the SMS credit balance."
     }
   },
+  "backupHealth": {
+    "title": "Backup health",
+    "caption": "Every school's backup schedule, most recent result and storage usage.",
+    "columnSchool": "School",
+    "columnSchedule": "Schedule",
+    "columnLastStatus": "Last attempt",
+    "columnLastSuccess": "Last success",
+    "columnStorage": "Storage used",
+    "never": "Never",
+    "scheduleOff": "Off",
+    "scheduleWeekly": "Weekly",
+    "scheduleDaily": "Daily",
+    "emptyMessage": "No schools to show.",
+    "errorMessage": "Could not load backup health."
+  },
   "createWizard": {
     "schoolStepTitle": "New school",
     "nameLabel": "School name",

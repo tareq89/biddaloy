@@ -156,10 +156,19 @@ export interface CommunicationsSettings {
   messenger?: MessengerSettings;
 }
 
+export type BackupScheduleMode = 'OFF' | 'WEEKLY' | 'DAILY';
+
+/** `backup.schedule` — [14.12.1/#427 D10]. WEEKLY (Sunday 02:00 in the
+ * school's own timezone) is the default: a school opts out, not in. */
+export interface BackupSettings {
+  schedule: BackupScheduleMode;
+}
+
 export interface TenantSettings {
   version: typeof TENANT_SETTINGS_SCHEMA_VERSION;
   region?: RegionSettings;
   communications?: CommunicationsSettings;
   attendance?: AttendancePolicySettings;
   auth?: AuthSettings;
+  backup?: BackupSettings;
 }

@@ -31,6 +31,7 @@ import { AttendanceModule } from './modules/attendance/attendance.module';
 import { AccountAccessModule } from './modules/account-access/account-access.module';
 import { WorkbookModule } from './modules/workbook/workbook.module';
 import { ExportModule } from './modules/workbook/export/export.module';
+import { BackupScheduleModule } from './modules/workbook/schedule/backup-schedule.module';
 import { BulkImportModule } from './modules/bulk-import/bulk-import.module';
 import { RestoreModule } from './modules/workbook/restore/restore.module';
 import { ImportModule } from './modules/workbook/import/import.module';
@@ -198,6 +199,7 @@ import { WorkbookJob } from './modules/workbook/jobs/workbook-job.entity';
     AccountAccessModule,
     WorkbookModule,
     ExportModule,
+    BackupScheduleModule,
     BulkImportModule,
     ImportModule,
     RestoreModule,
