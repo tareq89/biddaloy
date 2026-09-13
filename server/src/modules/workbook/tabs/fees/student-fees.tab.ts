@@ -11,6 +11,7 @@ import type {
 } from '../../codec/tab-spec';
 import { FeeStatus } from '@biddaloy/shared';
 import { academicYearsTab } from '../academics/academic-years.tab';
+import { feeStructuresTab } from './fee-structures.tab';
 
 /**
  * The `student_fees` tab: one student's fee obligation for one month.
@@ -35,17 +36,18 @@ export interface StudentFeeRow {
   student_key: string;
   academic_year_id: string;
   academic_year_key: string;
+  fee_structure_id: string;
+  fee_structure_key: string;
   month: number;
   year: number;
   total_amount: string;
   paid_amount: string;
   discount_amount: string;
+  standing_discount_amount: string;
+  one_off_discount_amount: string;
   status: FeeStatus;
   due_date: string | null;
   reminder_threshold_date: string | null;
-  is_advance_payment: boolean;
-  original_advance_month: number | null;
-  original_advance_year: number | null;
 }
 
 const columns: readonly ColumnSpec[] = [
@@ -64,6 +66,16 @@ const columns: readonly ColumnSpec[] = [
     required: true,
     label: { en: 'Academic year', bn: 'শিক্ষাবর্ষ' },
   },
+  {
+    key: 'fee_structure',
+    type: 'ref',
+    ref: 'fee_structures',
+    required: true,
+    label: { en: 'Fee structure', bn: 'ফি কাঠামো' },
+  },
+  // `month`/`year` are still the import/export representation of the
+  // billing period; the entity itself derives them from `period_start`
+  // (16.1.3, D2), which `upsert` computes as that period's 1st.
   { key: 'month', type: 'int', required: true, label: { en: 'Month', bn: 'মাস' } },
   { key: 'year', type: 'int', required: true, label: { en: 'Year', bn: 'বছর' } },
   {
@@ -84,6 +96,21 @@ const columns: readonly ColumnSpec[] = [
     required: true,
     label: { en: 'Discount amount', bn: 'ছাড়ের পরিমাণ' },
   },
+  // `discount_amount` must equal the sum of these two (16.1.3's
+  // `CHK_student_fees_discount_split`) — both round-trip through the tab
+  // so a restore never zeroes them out from under a passing total.
+  {
+    key: 'standing_discount_amount',
+    type: 'money',
+    required: true,
+    label: { en: 'Standing discount amount', bn: 'স্থায়ী ছাড়ের পরিমাণ' },
+  },
+  {
+    key: 'one_off_discount_amount',
+    type: 'money',
+    required: true,
+    label: { en: 'One-off discount amount', bn: 'একবারের ছাড়ের পরিমাণ' },
+  },
   {
     key: 'status',
     type: 'enum',
@@ -97,27 +124,32 @@ const columns: readonly ColumnSpec[] = [
     type: 'date',
     label: { en: 'Reminder threshold date', bn: 'অনুস্মারক তারিখ' },
   },
-  {
-    key: 'is_advance_payment',
-    type: 'bool',
-    required: true,
-    label: { en: 'Advance payment', bn: 'অগ্রিম পরিশোধ' },
-  },
-  {
-    key: 'original_advance_month',
-    type: 'int',
-    label: { en: 'Original advance month', bn: 'মূল অগ্রিম মাস' },
-  },
-  {
-    key: 'original_advance_year',
-    type: 'int',
-    label: { en: 'Original advance year', bn: 'মূল অগ্রিম বছর' },
-  },
 ];
 
 const excluded: readonly string[] = [
   'student_id', // exported instead as the `student` ref column
   'academic_year_id', // exported instead as the `academic_year` ref column
+  'fee_structure_id', // exported instead as the `fee_structure` ref column
+  // `month`/`year` columns round-trip the billing period; `period_start`
+  // is the real column they're generated from (16.1.3, D2) — `upsert`
+  // derives it from those two, so it needs no column of its own.
+  'period_start',
+  // `period_type` always defaults to `PeriodType.MONTH` for a workbook
+  // restore (16.1.3 only defines MONTH/WEEK, and this tab only ever bills
+  // by month) — not worth a column until a restore needs to pick WEEK.
+  'period_type',
+  // Distinguishes re-billed occurrences of the same (student, structure,
+  // period) — e.g. a late fee re-billed after a duplicate-strategy run.
+  // A workbook restore always creates the first occurrence of a bill.
+  'occurrence',
+  // FK added in 16.1.4's migration, not this one (see the entity comment)
+  // — 16.1.4 owns wiring generation-batch provenance into the workbook.
+  'fee_generation_id',
+  // Who approved this bill, and which bill (if any) this one is a late
+  // fee against — neither has a workbook editing flow yet; a restore
+  // leaves both null rather than fabricating provenance.
+  'approved_by_user_id',
+  'late_fee_for_student_fee_id',
 ];
 
 /** Postgres error code for a foreign-key violation. */
@@ -127,9 +159,9 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
   name: 'student_fees',
   entity: StudentFee,
   excluded,
-  dependsOn: ['students', 'academic_years'],
+  dependsOn: ['students', 'academic_years', 'fee_structures'],
   columns,
-  naturalKey: ['student', 'academic_year', 'month', 'year'],
+  naturalKey: ['student', 'academic_year', 'fee_structure', 'month', 'year'],
   deleteByAbsence: true,
 
   load(tenantId: string, m: EntityManager): Promise<StudentFee[]> {
@@ -140,7 +172,18 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
     // the real `Student` entity.
     return m.find(StudentFee, {
       where: { student: { tenant_id: tenantId } },
-      relations: ['student', 'academic_year'],
+      // `fee_structure`'s own class/section/academic_year are loaded too —
+      // `keyOf` delegates to `feeStructuresTab.keyOf`, which needs them
+      // (same reasoning as `fee-structures.tab.ts`'s own `load()`).
+      relations: [
+        'student',
+        'academic_year',
+        'fee_structure',
+        'fee_structure.class',
+        'fee_structure.class.academic_year',
+        'fee_structure.academic_year',
+        'fee_structure.section',
+      ],
     });
   },
 
@@ -149,17 +192,17 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
       id: entity.id,
       student: ctx.keyOf('students', entity.student_id),
       academic_year: ctx.keyOf('academic_years', entity.academic_year_id),
+      fee_structure: ctx.keyOf('fee_structures', entity.fee_structure_id),
       month: entity.month,
       year: entity.year,
       total_amount: entity.total_amount,
       paid_amount: entity.paid_amount,
       discount_amount: entity.discount_amount,
+      standing_discount_amount: entity.standing_discount_amount,
+      one_off_discount_amount: entity.one_off_discount_amount,
       status: entity.status,
       due_date: entity.due_date,
       reminder_threshold_date: entity.reminder_threshold_date,
-      is_advance_payment: entity.is_advance_payment,
-      original_advance_month: entity.original_advance_month,
-      original_advance_year: entity.original_advance_year,
     };
   },
 
@@ -215,6 +258,22 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
       }
     }
 
+    let feeStructureId: string | undefined;
+    const feeStructureKey = values.fee_structure as string;
+    if (feeStructureKey) {
+      feeStructureId = ctx.ref('fee_structures', feeStructureKey);
+      if (!feeStructureId) {
+        errors.push({
+          tab: 'student_fees',
+          row: rowNo,
+          column: 'fee_structure',
+          message: `Column "fee_structure": no fee structure "${feeStructureKey}" was found.`,
+          severity: 'error',
+          value: feeStructureKey,
+        });
+      }
+    }
+
     if (errors.length > 0) return { errors };
 
     return {
@@ -224,17 +283,18 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
         student_key: studentKey,
         academic_year_id: academicYearId as string,
         academic_year_key: academicYearKey,
+        fee_structure_id: feeStructureId as string,
+        fee_structure_key: feeStructureKey,
         month: values.month as number,
         year: values.year as number,
         total_amount: values.total_amount as string,
         paid_amount: values.paid_amount as string,
         discount_amount: values.discount_amount as string,
+        standing_discount_amount: values.standing_discount_amount as string,
+        one_off_discount_amount: values.one_off_discount_amount as string,
         status: values.status as FeeStatus,
         due_date: (values.due_date as string | null) ?? null,
         reminder_threshold_date: (values.reminder_threshold_date as string | null) ?? null,
-        is_advance_payment: values.is_advance_payment as boolean,
-        original_advance_month: (values.original_advance_month as number | null) ?? null,
-        original_advance_year: (values.original_advance_year as number | null) ?? null,
       },
     };
   },
@@ -252,17 +312,35 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
           ? academicYearsTab.keyOf(x.academic_year)
           : ''
         : x.academic_year_key;
-    return `${studentKey}|${yearKey}|${x.month}|${x.year}`;
+    // Delegated to `feeStructuresTab.keyOf` — same composite key `toRow`
+    // resolves through `ctx.keyOf('fee_structures', …)`, so a row's
+    // `fee_structure_key` and a loaded entity's key always agree. A
+    // mismatch here would make `deleteByAbsence` think every existing bill
+    // is gone and delete it on every restore.
+    const feeStructureKey =
+      x instanceof StudentFee
+        ? x.fee_structure
+          ? feeStructuresTab.keyOf(x.fee_structure)
+          : ''
+        : x.fee_structure_key;
+    return `${studentKey}|${yearKey}|${feeStructureKey}|${x.month}|${x.year}`;
   },
 
   diffFields(row: StudentFeeRow, existing: StudentFee): string[] {
     const changed: string[] = [];
+    if (row.fee_structure_id !== existing.fee_structure_id) changed.push('fee_structure');
     if (row.month !== existing.month) changed.push('month');
     if (row.year !== existing.year) changed.push('year');
     if (String(row.total_amount) !== String(existing.total_amount)) changed.push('total_amount');
     if (String(row.paid_amount) !== String(existing.paid_amount)) changed.push('paid_amount');
     if (String(row.discount_amount) !== String(existing.discount_amount)) {
       changed.push('discount_amount');
+    }
+    if (String(row.standing_discount_amount) !== String(existing.standing_discount_amount)) {
+      changed.push('standing_discount_amount');
+    }
+    if (String(row.one_off_discount_amount) !== String(existing.one_off_discount_amount)) {
+      changed.push('one_off_discount_amount');
     }
     if (row.status !== existing.status) changed.push('status');
     // Both are nullable `date` columns: `YYYY-MM-DD` on the row, a `Date`
@@ -271,13 +349,6 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
     if (row.due_date !== dateOnlyOrNull(existing.due_date)) changed.push('due_date');
     if (row.reminder_threshold_date !== dateOnlyOrNull(existing.reminder_threshold_date)) {
       changed.push('reminder_threshold_date');
-    }
-    if (row.is_advance_payment !== existing.is_advance_payment) changed.push('is_advance_payment');
-    if (row.original_advance_month !== existing.original_advance_month) {
-      changed.push('original_advance_month');
-    }
-    if (row.original_advance_year !== existing.original_advance_year) {
-      changed.push('original_advance_year');
     }
     return changed;
   },
@@ -291,17 +362,19 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
     const fee = existing ?? new StudentFee();
     fee.student_id = row.student_id;
     fee.academic_year_id = row.academic_year_id;
-    fee.month = row.month;
-    fee.year = row.year;
+    fee.fee_structure_id = row.fee_structure_id;
+    // `month`/`year` are stored generated columns (16.1.3, D2) — Postgres
+    // rejects a direct write to them. `period_start` is the real column;
+    // its 1st-of-the-month derives `month`/`year` back out on read.
+    fee.period_start = new Date(Date.UTC(row.year, row.month - 1, 1));
     fee.total_amount = row.total_amount as unknown as number;
     fee.paid_amount = row.paid_amount as unknown as number;
     fee.discount_amount = row.discount_amount as unknown as number;
+    fee.standing_discount_amount = row.standing_discount_amount as unknown as number;
+    fee.one_off_discount_amount = row.one_off_discount_amount as unknown as number;
     fee.status = row.status;
     fee.due_date = row.due_date as unknown as Date | null;
     fee.reminder_threshold_date = row.reminder_threshold_date as unknown as Date | null;
-    fee.is_advance_payment = row.is_advance_payment;
-    fee.original_advance_month = row.original_advance_month;
-    fee.original_advance_year = row.original_advance_year;
 
     return m.save(StudentFee, fee);
   },

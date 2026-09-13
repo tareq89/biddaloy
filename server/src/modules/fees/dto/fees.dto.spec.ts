@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { CreateFeeStructureDto, QueryFeeStructureDto } from './fees.dto';
+import { CreateFeeStructureDto, QueryFeeStructureDto, toFamilyStudentFee } from './fees.dto';
+import { StudentFee } from '../entities/student-fee.entity';
+import { FeeStatus, FeeType, PeriodType } from '@biddaloy/shared';
 
 /**
  * [8.14.9] Regression test for a boolean query-param coercion bug: an HTTP
@@ -83,5 +85,61 @@ describe('CreateFeeStructureDto no longer carries dropped fields', () => {
 
     const errors = await validate(dto);
     expect(errors.some((e) => e.property === 'class_id')).toBe(true);
+  });
+});
+
+/**
+ * `FamilyStudentFeeDto` is an allow-list (16.1.3): a family caller must
+ * never see `occurrence`, `approved_by_user_id`, `fee_generation_id`, or
+ * `reminder_threshold_date` — internal bill-generation/dunning bookkeeping.
+ */
+describe('toFamilyStudentFee withholds internal fields', () => {
+  it('does not include occurrence, approved_by_user_id, fee_generation_id, or reminder_threshold_date', () => {
+    const fee = {
+      id: 'fee-1',
+      student_id: 'student-1',
+      academic_year_id: 'ay-1',
+      fee_structure_id: 'fs-1',
+      fee_structure: { name: 'Tuition Fee', fee_type: FeeType.MONTHLY_TUITION },
+      fee_generation_id: 'gen-1',
+      period_start: new Date('2026-03-01'),
+      period_type: PeriodType.MONTH,
+      occurrence: 2,
+      month: 3,
+      year: 2026,
+      total_amount: 1000,
+      paid_amount: 0,
+      discount_amount: 0,
+      standing_discount_amount: 0,
+      one_off_discount_amount: 0,
+      status: FeeStatus.PENDING,
+      due_date: null,
+      reminder_threshold_date: new Date('2026-03-10'),
+      approved_by_user_id: 'user-1',
+      late_fee_for_student_fee_id: null,
+    } as unknown as StudentFee;
+
+    const dto = toFamilyStudentFee(fee);
+
+    expect(dto).not.toHaveProperty('occurrence');
+    expect(dto).not.toHaveProperty('approved_by_user_id');
+    expect(dto).not.toHaveProperty('fee_generation_id');
+    expect(dto).not.toHaveProperty('reminder_threshold_date');
+    expect(dto).toEqual({
+      id: 'fee-1',
+      student_id: 'student-1',
+      academic_year_id: 'ay-1',
+      fee_name: 'Tuition Fee',
+      fee_type: FeeType.MONTHLY_TUITION,
+      month: 3,
+      year: 2026,
+      period_start: fee.period_start,
+      period_type: PeriodType.MONTH,
+      total_amount: 1000,
+      paid_amount: 0,
+      discount_amount: 0,
+      status: FeeStatus.PENDING,
+      due_date: null,
+    });
   });
 });

@@ -443,6 +443,7 @@ export class PaymentService {
     const studentFeeRepo = this.repo.manager.getRepository(StudentFee);
     const fees = await studentFeeRepo.find({
       where: { student_id: studentId },
+      relations: ['fee_structure'],
       order: { year: 'ASC', month: 'ASC' },
     });
 

@@ -141,7 +141,7 @@ export class InvoicesService {
   async findOne(id: string, tenantId: string): Promise<Invoice & { issuer: IssuerSnapshot }> {
     const invoice = await this.repo.findOne({
       where: { id, deleted_at: IsNull() },
-      relations: ['student', 'student_fee', 'issued_by'],
+      relations: ['student', 'student_fee', 'student_fee.fee_structure', 'issued_by'],
     });
     if (!invoice || invoice.student.tenant_id !== tenantId) {
       throw new NotFoundException(`Invoice with ID "${id}" not found`);
@@ -171,6 +171,7 @@ export class InvoicesService {
       .createQueryBuilder('invoice')
       .leftJoinAndSelect('invoice.student', 'student')
       .leftJoinAndSelect('invoice.student_fee', 'student_fee')
+      .leftJoinAndSelect('student_fee.fee_structure', 'fee_structure')
       .where('student.tenant_id = :tenantId', { tenantId })
       .andWhere('invoice.deleted_at IS NULL');
 
@@ -232,6 +233,7 @@ export class InvoicesService {
         'student.class_section',
         'student.class_section.class',
         'student_fee',
+        'student_fee.fee_structure',
       ],
     });
     if (!invoice || invoice.student.tenant_id !== tenantId) {

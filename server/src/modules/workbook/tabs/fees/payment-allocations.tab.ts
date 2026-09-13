@@ -100,6 +100,15 @@ export const paymentAllocationsTab: TabSpec<PaymentAllocation, PaymentAllocation
         'student_fee',
         'student_fee.student',
         'student_fee.academic_year',
+        // `studentFeesTab.keyOf` delegates to `feeStructuresTab.keyOf`
+        // (16.1.3), which needs the fee structure's own class/section/
+        // academic_year — loaded here too so this tab's own keyOf never
+        // falls back to an empty fee-structure segment.
+        'student_fee.fee_structure',
+        'student_fee.fee_structure.class',
+        'student_fee.fee_structure.class.academic_year',
+        'student_fee.fee_structure.academic_year',
+        'student_fee.fee_structure.section',
       ],
     });
   },
