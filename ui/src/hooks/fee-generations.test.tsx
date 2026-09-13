@@ -1,17 +1,28 @@
+/**
+ * [16.3.5]/[16.3.7] — the generation list/detail/bills read hooks, plus
+ * the four batch row-action mutation hooks appended by #656 at
+ * integration (`invalidateGeneration`'s own comment explains why a
+ * success invalidates the whole branch, not one variant).
+ */
 import { waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { server } from '../test/msw/server';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
 
+import { feeDuesKeys } from './fee-dues';
 import {
   feeGenerationQueryOptions,
   feeGenerationsKeys,
   feeGenerationsQueryOptions,
+  useDeleteFeeGeneration,
   useFeeGeneration,
   useFeeGenerationBills,
   useFeeGenerations,
+  usePatchFeeGeneration,
+  useRemoveBatchStudent,
+  useRemoveUncollected,
   type FeeGeneration,
   type PaginatedFeeGenerationBills,
   type PaginatedFeeGenerations,
@@ -189,5 +200,96 @@ describe('useFeeGenerationBills', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.data[0]?.student_full_name).toBe('Karim Rahman');
     expect(Object.fromEntries(requested)).toEqual({ page: '2', limit: '10' });
+  });
+});
+
+describe('usePatchFeeGeneration', () => {
+  it('PATCHes the input body and invalidates the generation + dues caches', async () => {
+    let body: unknown;
+    server.use(
+      http.patch('/api/v1/fees/generations/gen-1', async ({ request }) => {
+        body = await request.json();
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    const { result, queryClient } = renderHookWithProviders(() => usePatchFeeGeneration('gen-1'), {
+      tenantId: 'tenant-1',
+    });
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    result.current.mutate({
+      period_start: '2026-10-01T00:00:00.000Z',
+      due_date: '2026-10-10T00:00:00.000Z',
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(body).toEqual({
+      period_start: '2026-10-01T00:00:00.000Z',
+      due_date: '2026-10-10T00:00:00.000Z',
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: feeGenerationsKeys.detail('gen-1') });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: feeDuesKeys.lists() });
+  });
+});
+
+describe('useDeleteFeeGeneration', () => {
+  it('DELETEs the batch by id', async () => {
+    let calledPath: string | undefined;
+    server.use(
+      http.delete('/api/v1/fees/generations/:id', ({ params }) => {
+        calledPath = params.id as string;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    const { result } = renderHookWithProviders(() => useDeleteFeeGeneration(), {
+      tenantId: 'tenant-1',
+    });
+
+    result.current.mutate('gen-2');
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(calledPath).toBe('gen-2');
+  });
+});
+
+describe('useRemoveBatchStudent', () => {
+  it('DELETEs the student sub-resource', async () => {
+    let calledUrl: string | undefined;
+    server.use(
+      http.delete('/api/v1/fees/generations/:id/students/:studentId', ({ request }) => {
+        calledUrl = new URL(request.url).pathname;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    const { result } = renderHookWithProviders(() => useRemoveBatchStudent(), {
+      tenantId: 'tenant-1',
+    });
+
+    result.current.mutate({ generationId: 'gen-3', studentId: 'stu-1' });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(calledUrl).toBe('/api/v1/fees/generations/gen-3/students/stu-1');
+  });
+});
+
+describe('useRemoveUncollected', () => {
+  it('POSTs and resolves the removed count', async () => {
+    server.use(
+      http.post('/api/v1/fees/generations/gen-4/remove-uncollected', () =>
+        HttpResponse.json({ removed_count: 7 }),
+      ),
+    );
+
+    const { result } = renderHookWithProviders(() => useRemoveUncollected(), {
+      tenantId: 'tenant-1',
+    });
+
+    result.current.mutate('gen-4');
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual({ removed_count: 7 });
   });
 });
