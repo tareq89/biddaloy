@@ -340,6 +340,20 @@ export {
   type UpdateFeeStructureInput,
 } from './fee-structures';
 export { useGenerateFees, type GenerateFeesInput, type GenerateFeesResult } from './fee-generation';
+// [16.3.7] Appended standalone — #654 (16.3.4) creates this same file path
+// with useFeeGenerations/useFeeGeneration/useFeeGenerationBills; the
+// orchestrator merges both export sets into one line at integration.
+export {
+  feeGenerationsKeys,
+  usePatchFeeGeneration,
+  useDeleteFeeGeneration,
+  useRemoveBatchStudent,
+  useRemoveUncollected,
+  type PatchFeeGenerationInput,
+  type PatchFeeGenerationConflict,
+  type RemoveUncollectedResult,
+  type RemoveBatchStudentInput,
+} from './fee-generations';
 export {
   useValidateStudentUpload,
   useCommitStudentUpload,
