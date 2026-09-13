@@ -70,6 +70,10 @@ const columns: readonly ColumnSpec[] = [
 const excluded: readonly string[] = [
   'payment_id', // exported instead as the `payment` ref column
   'student_fee_id', // exported instead as the `student_fee` ref column
+  // [16.1.6] One-off discount granted on this line at checkout time — not
+  // populated by anything yet (the checkout flow that sets it is 16.4.2).
+  // Revisit exporting it once checkout is real.
+  'discount_amount',
 ];
 
 /** Postgres error code for a foreign-key violation. */

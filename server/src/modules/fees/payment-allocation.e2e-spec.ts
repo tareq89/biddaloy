@@ -266,5 +266,131 @@ describe('Payment Recording (record-with-allocation) E2E', () => {
         })
         .expect(404);
     });
+
+    it('accepts BKASH as a payment method (D16)', async () => {
+      const studentId = await createStudent();
+      const feeId = await createFee(studentId, 0, 1000);
+
+      await supertest(app.getHttpServer())
+        .post('/api/v1/payments/record-with-allocation')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .send({
+          student_id: studentId,
+          total_amount: 1000,
+          payment_method: 'BKASH',
+          allocations: [
+            {
+              student_fee_id: feeId,
+              allocated_amount: 1000,
+              allocation_type: PaymentAllocationType.CURRENT,
+            },
+          ],
+        })
+        .expect(201);
+    });
+
+    it('rejects UPI as a payment method — removed by D16', async () => {
+      const studentId = await createStudent();
+      const feeId = await createFee(studentId, 0, 1000);
+
+      await supertest(app.getHttpServer())
+        .post('/api/v1/payments/record-with-allocation')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .send({
+          student_id: studentId,
+          total_amount: 1000,
+          payment_method: 'UPI',
+          allocations: [
+            {
+              student_fee_id: feeId,
+              allocated_amount: 1000,
+              allocation_type: PaymentAllocationType.CURRENT,
+            },
+          ],
+        })
+        .expect(400);
+    });
+
+    it('rejects allocating against a future-dated (advance) fee — removed by D5', async () => {
+      const studentId = await createStudent();
+      const futureFeeId = await createFee(studentId, 1, 500);
+
+      await supertest(app.getHttpServer())
+        .post('/api/v1/payments/record-with-allocation')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .send({
+          student_id: studentId,
+          total_amount: 500,
+          payment_method: PaymentMethod.CASH,
+          allocations: [
+            {
+              student_fee_id: futureFeeId,
+              allocated_amount: 500,
+              allocation_type: PaymentAllocationType.ADVANCE,
+            },
+          ],
+        })
+        .expect(400);
+    });
+
+    it('[16.1.6] a repeated request with the same idempotency key returns the same payment', async () => {
+      const studentId = await createStudent();
+      const feeId = await createFee(studentId, 0, 500);
+      const key = `idem-e2e-${Date.now()}`;
+
+      const first = await supertest(app.getHttpServer())
+        .post('/api/v1/payments/record-with-allocation')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .send({
+          student_id: studentId,
+          total_amount: 500,
+          payment_method: PaymentMethod.CASH,
+          allocations: [
+            {
+              student_fee_id: feeId,
+              allocated_amount: 500,
+              allocation_type: PaymentAllocationType.CURRENT,
+            },
+          ],
+          idempotency_key: key,
+        })
+        .expect(201);
+
+      const repeat = await supertest(app.getHttpServer())
+        .post('/api/v1/payments/record-with-allocation')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .send({
+          student_id: studentId,
+          total_amount: 500,
+          payment_method: PaymentMethod.CASH,
+          allocations: [
+            {
+              student_fee_id: feeId,
+              allocated_amount: 500,
+              allocation_type: PaymentAllocationType.CURRENT,
+            },
+          ],
+          idempotency_key: key,
+        })
+        .expect(201);
+
+      expect(repeat.body.id).toBe(first.body.id);
+
+      const payments = await dataSource.query(
+        `SELECT id FROM payments WHERE idempotency_key = $1`,
+        [key],
+      );
+      expect(payments).toHaveLength(1);
+    });
   });
 });
