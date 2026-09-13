@@ -58,9 +58,7 @@ export class FeeStructurePriceTag1789800000000 implements MigrationInterface {
     );
     await queryRunner.query(`DROP TYPE "public"."fee_structures_applicability_enum"`);
 
-    await queryRunner.query(
-      `ALTER TABLE "fee_structures" ALTER COLUMN "class_id" DROP NOT NULL`,
-    );
+    await queryRunner.query(`ALTER TABLE "fee_structures" ALTER COLUMN "class_id" DROP NOT NULL`);
 
     await queryRunner.query(
       `CREATE INDEX "IDX_fee_structures_tenant_year_type" ON "fee_structures" ("tenant_id", "academic_year_id", "fee_type")`,
@@ -92,14 +90,13 @@ export class FeeStructurePriceTag1789800000000 implements MigrationInterface {
       throw new Error(
         `Cannot roll back FeeStructurePriceTag: ${nullCount} fee_structures row(s) ` +
           `have a null class_id (school-wide structures created after this migration ` +
-          `ran). There is no class to backfill them with. Reassign or soft-delete ` +
-          `those rows to a specific class_id before rolling back.`,
+          `ran). There is no class to backfill them with, and Postgres's SET NOT NULL ` +
+          `rejects a null class_id even on soft-deleted rows. Reassign those rows to a ` +
+          `real class_id, or hard-delete them, before rolling back.`,
       );
     }
 
-    await queryRunner.query(
-      `ALTER TABLE "fee_structures" ALTER COLUMN "class_id" SET NOT NULL`,
-    );
+    await queryRunner.query(`ALTER TABLE "fee_structures" ALTER COLUMN "class_id" SET NOT NULL`);
 
     await queryRunner.query(
       `CREATE TYPE "public"."fee_structures_applicability_enum" AS ENUM('ALL', 'SELECTED')`,
@@ -110,9 +107,7 @@ export class FeeStructurePriceTag1789800000000 implements MigrationInterface {
     await queryRunner.query(
       `ALTER TABLE "fee_structures" ADD "is_recurring" boolean NOT NULL DEFAULT true`,
     );
-    await queryRunner.query(
-      `ALTER TABLE "fee_structures" ADD "month" integer NOT NULL DEFAULT 1`,
-    );
+    await queryRunner.query(`ALTER TABLE "fee_structures" ADD "month" integer NOT NULL DEFAULT 1`);
     // Drop the temporary default now that every existing row has a value —
     // new rows must set it explicitly, matching the pre-drop schema.
     await queryRunner.query(`ALTER TABLE "fee_structures" ALTER COLUMN "month" DROP DEFAULT`);

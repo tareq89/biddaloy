@@ -297,6 +297,7 @@ describe('[5.1] Family-facing read API', () => {
     const makeFee = async (
       studentId: string,
       academicYearId = SEED_ACADEMIC_YEAR_ID,
+      feeStructureId?: string,
     ): Promise<string> => {
       const rows = await dataSource.query(
         `INSERT INTO student_fees
@@ -304,7 +305,12 @@ describe('[5.1] Family-facing read API', () => {
             discount_amount, status, due_date, reminder_threshold_date, created_at, updated_at)
          VALUES ($1, $2, $4, DATE '2026-01-01', 1000, 0, 0, $3, '2026-01-10', '2026-01-20', NOW(), NOW())
          RETURNING id`,
-        [studentId, academicYearId, FeeStatus.PENDING, await ensureFeeStructure(dataSource)],
+        [
+          studentId,
+          academicYearId,
+          FeeStatus.PENDING,
+          feeStructureId ?? (await ensureFeeStructure(dataSource)),
+        ],
       );
       return rows[0].id as string;
     };
@@ -316,7 +322,11 @@ describe('[5.1] Family-facing read API', () => {
     await makeFee(unlinkedChildId);
     await makeFee(selfStudentId);
     await makeFee(softDeletedChildId);
-    await makeFee(childInBId, TENANT_B_AY);
+    await makeFee(
+      childInBId,
+      TENANT_B_AY,
+      await ensureFeeStructure(dataSource, TENANT_B, TENANT_B_CLASS, TENANT_B_AY),
+    );
 
     // --- Payments, attributed to the seeded admin so received_by_user_id
     //     and remarks are populated — the two staff-only fields the family

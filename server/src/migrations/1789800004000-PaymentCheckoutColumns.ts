@@ -48,6 +48,9 @@ export class PaymentCheckoutColumns1789800004000 implements MigrationInterface {
     await queryRunner.query(
       `ALTER TABLE "payments" ADD CONSTRAINT "FK_payments_reversed_by_payment" FOREIGN KEY ("reversed_by_payment_id") REFERENCES "payments"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
     );
+    await queryRunner.query(
+      `ALTER TABLE "payments" ADD CONSTRAINT "FK_payments_approved_by_user" FOREIGN KEY ("approved_by_user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
 
     // Partial unique index: many payments will never carry a key (anything
     // recorded through the plain record-with-allocation path today), so a
@@ -103,6 +106,9 @@ export class PaymentCheckoutColumns1789800004000 implements MigrationInterface {
     await queryRunner.query(`DROP INDEX "public"."IDX_payments_tenant_payment_date"`);
     await queryRunner.query(`DROP INDEX "public"."IDX_payments_tenant_idempotency_key"`);
 
+    await queryRunner.query(
+      `ALTER TABLE "payments" DROP CONSTRAINT "FK_payments_approved_by_user"`,
+    );
     await queryRunner.query(
       `ALTER TABLE "payments" DROP CONSTRAINT "FK_payments_reversed_by_payment"`,
     );
