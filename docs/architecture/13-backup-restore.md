@@ -6,13 +6,13 @@ in-flight background jobs).
 
 ## The numbers
 
-| | |
-|---|---|
-| **RPO** (how much data you can lose) | 24 hours — one backup a day |
-| **RTO** (how long a restore takes) | 4 hours |
-| **Retention** | 30 days of daily backups |
-| **Drill cadence** | Quarterly — run [`restore-drill.yml`](../../.github/workflows/restore-drill.yml) manually |
-| **Backup owner** | Whoever holds the `BACKUP_AGE_PUBLIC_KEY`/private-key pair for the environment (see "Key handling" below) — set this to a real name/role per environment |
+|                                      |                                                                                                                                                          |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **RPO** (how much data you can lose) | 24 hours — one backup a day                                                                                                                              |
+| **RTO** (how long a restore takes)   | 4 hours                                                                                                                                                  |
+| **Retention**                        | 30 days of daily backups                                                                                                                                 |
+| **Drill cadence**                    | Quarterly — run [`restore-drill.yml`](../../.github/workflows/restore-drill.yml) manually                                                                |
+| **Backup owner**                     | Whoever holds the `BACKUP_AGE_PUBLIC_KEY`/private-key pair for the environment (see "Key handling" below) — set this to a real name/role per environment |
 
 RPO of 24h means: if the database is lost right now, everything written
 since the last nightly backup (up to 24 hours ago) is gone. If that's not
@@ -38,7 +38,7 @@ this whole doc is built around:
 - **Everything else** (e.g. `tenants/<id>/logos/*.png`, written by
   `StorageService` — see `server/src/modules/storage/`) — live, current
   right now, never "backed up" in the pg_dump sense because it was never
-  in Postgres to begin with. The bucket itself *is* the durable copy.
+  in Postgres to begin with. The bucket itself _is_ the durable copy.
 
 **Consistency rule:** after a restore, the database reflects yesterday's
 world and the bucket reflects today's. A row can reference an object key
@@ -51,6 +51,18 @@ those went missing — see the restore runbook below.
 Plaintext dump bytes never touch disk — `backup.sh`'s three commands
 (`pg_dump` → `age` → `aws s3 cp`) are one pipe, and the pipe is the only
 place the plaintext exists.
+
+## Two kinds of backup
+
+This doc is the **platform** backup: one nightly `pg_dump` of the whole
+database, restorable only by someone with server/infra access. It's not
+what an individual school admin uses.
+
+A school admin instead exports and restores **their own school's data**
+as one `.xlsx` workbook, entirely through the app UI — no server access
+needed, and it never touches other tenants' data. That's a separate
+feature with its own retention rules and restore semantics — see
+[14-school-workbook.md](14-school-workbook.md).
 
 ## Key handling
 
@@ -141,16 +153,16 @@ objects were lost around the same incident.
 All in `.env.example`, grouped under "Object storage" and "Backup and
 disaster recovery":
 
-| Var | Ticket | Purpose |
-|---|---|---|
-| `S3_ENDPOINT` | 15.3.1 | Bucket endpoint (MinIO in dev, your provider in prod) |
-| `S3_REGION` | 15.3.1 | Bucket region |
-| `S3_BUCKET` | 15.3.1 | Bucket name |
-| `S3_ACCESS_KEY_ID` | 15.3.1 | Bucket credentials |
-| `S3_SECRET_ACCESS_KEY` | 15.3.1 | Bucket credentials |
-| `S3_FORCE_PATH_STYLE` | 15.3.1 | `true` for MinIO/self-hosted, unset for AWS S3 |
-| `BACKUP_AGE_PUBLIC_KEY` | 15.3.2 | Encrypts new backups |
-| `BACKUP_SCHEDULE` | 15.3.2 | Cron schedule the `backup` service runs on (default `0 2 * * *`, `TZ=Asia/Dhaka`) |
-| `BACKUP_RETENTION_DAYS` | 15.3.2 | Backups older than this are deleted (default 30) |
-| `SENTRY_CRON_MONITOR_URL` | 15.3.2 | Optional cron check-in |
-| `BACKUP_AGE_PRIVATE_KEY_FILE` | 15.3.3 | Decrypts for `restore.sh` — never in `.env`, see "Key handling" |
+| Var                           | Ticket | Purpose                                                                           |
+| ----------------------------- | ------ | --------------------------------------------------------------------------------- |
+| `S3_ENDPOINT`                 | 15.3.1 | Bucket endpoint (MinIO in dev, your provider in prod)                             |
+| `S3_REGION`                   | 15.3.1 | Bucket region                                                                     |
+| `S3_BUCKET`                   | 15.3.1 | Bucket name                                                                       |
+| `S3_ACCESS_KEY_ID`            | 15.3.1 | Bucket credentials                                                                |
+| `S3_SECRET_ACCESS_KEY`        | 15.3.1 | Bucket credentials                                                                |
+| `S3_FORCE_PATH_STYLE`         | 15.3.1 | `true` for MinIO/self-hosted, unset for AWS S3                                    |
+| `BACKUP_AGE_PUBLIC_KEY`       | 15.3.2 | Encrypts new backups                                                              |
+| `BACKUP_SCHEDULE`             | 15.3.2 | Cron schedule the `backup` service runs on (default `0 2 * * *`, `TZ=Asia/Dhaka`) |
+| `BACKUP_RETENTION_DAYS`       | 15.3.2 | Backups older than this are deleted (default 30)                                  |
+| `SENTRY_CRON_MONITOR_URL`     | 15.3.2 | Optional cron check-in                                                            |
+| `BACKUP_AGE_PRIVATE_KEY_FILE` | 15.3.3 | Decrypts for `restore.sh` — never in `.env`, see "Key handling"                   |
