@@ -1,6 +1,5 @@
 import type { EntityManager } from 'typeorm';
 import { FeeStructure } from '../../../fees/entities/fee-structure.entity';
-import { FeeStructureStudent } from '../../../fees/entities/fee-structure-student.entity';
 import { fromCell } from '../../codec/cell-format';
 import type {
   ColumnSpec,
@@ -9,25 +8,18 @@ import type {
   RowError,
   TabSpec,
 } from '../../codec/tab-spec';
-import { FeeApplicability, FeeType } from '@biddaloy/shared';
+import { FeeType } from '@biddaloy/shared';
 import { classesTab } from '../academics/classes.tab';
 import { academicYearsTab } from '../academics/academic-years.tab';
 import { sectionsTab } from '../academics/sections.tab';
 
 /**
- * The `fee_structures` tab: the fee templates a school generates monthly
- * student fees from.
+ * The `fee_structures` tab: a school's published price list — `name`,
+ * `fee_type`, `amount`, `academic_year`, and an optional `class`/`section`
+ * label. It no longer decides who gets billed or when.
  *
- * `class` and `academic_year` are `ref` columns like `sections.tab.ts`;
- * `section` is the same but optional. `selected_students` is a `ref-list`
- * column against the `students` tab (`tabs/people/students.tab.ts`), keyed
- * by each student's `registration_number` — never a uuid, same rule as every
- * other ref. `ctx.ref('students', key)` / `ctx.keyOf('students', id)`
- * resolve against that tab, which the registry applies first via
- * `dependsOn`. `assertRegistryValid`'s partial mode (registry.ts)
- * tolerates the dangling `dependsOn`/`ref` target, and this file's own tests
- * supply a fake `ImportContext`/`ExportContext` for `students`, so they don't
- * need the real tab.
+ * `class`, `academic_year` and `section` are `ref` columns like
+ * `sections.tab.ts`; all three are optional now except `academic_year`.
  */
 
 export interface FeeStructureRow {
@@ -35,20 +27,12 @@ export interface FeeStructureRow {
   name: string;
   fee_type: FeeType;
   amount: string;
-  applicability: FeeApplicability;
-  class_id: string;
-  class_key: string;
+  class_id: string | null;
+  class_key: string | null;
   academic_year_id: string;
   academic_year_key: string;
   section_id: string | null;
   section_key: string | null;
-  month: number;
-  is_recurring: boolean;
-  // Resolved student ids plus their natural keys (registration numbers), in
-  // the same order as the cell, so `upsert` can rebuild the pivot rows and
-  // `keyOf`/diffing never has to re-resolve anything.
-  selected_student_ids: string[];
-  selected_student_keys: string[];
 }
 
 const columns: readonly ColumnSpec[] = [
@@ -63,17 +47,9 @@ const columns: readonly ColumnSpec[] = [
   },
   { key: 'amount', type: 'money', required: true, label: { en: 'Amount', bn: 'পরিমাণ' } },
   {
-    key: 'applicability',
-    type: 'enum',
-    required: true,
-    enumValues: Object.values(FeeApplicability),
-    label: { en: 'Applicability', bn: 'প্রযোজ্যতা' },
-  },
-  {
     key: 'class',
     type: 'ref',
     ref: 'classes',
-    required: true,
     label: { en: 'Class', bn: 'শ্রেণী' },
   },
   {
@@ -88,19 +64,6 @@ const columns: readonly ColumnSpec[] = [
     type: 'ref',
     ref: 'sections',
     label: { en: 'Section', bn: 'শাখা' },
-  },
-  { key: 'month', type: 'int', required: true, label: { en: 'Month', bn: 'মাস' } },
-  {
-    key: 'is_recurring',
-    type: 'bool',
-    required: true,
-    label: { en: 'Recurring', bn: 'পুনরাবৃত্ত' },
-  },
-  {
-    key: 'selected_students',
-    type: 'ref-list',
-    ref: 'students',
-    label: { en: 'Selected students', bn: 'নির্বাচিত শিক্ষার্থী' },
   },
 ];
 
@@ -118,28 +81,25 @@ export const feeStructuresTab: TabSpec<FeeStructure, FeeStructureRow> = {
   name: 'fee_structures',
   entity: FeeStructure,
   excluded,
-  dependsOn: ['classes', 'academic_years', 'sections', 'students'],
+  dependsOn: ['classes', 'academic_years', 'sections'],
   columns,
-  // `section` belongs in the key: it is nullable and independent of
-  // `applicability`, so one class/year/type/month/name can legitimately
-  // carry a different amount per section. Without it those rows share a
-  // key, `KeyIndex` flags it ambiguous and collapses them to one id, and
-  // delete-by-absence then removes the loser. (The ticket's column list
-  // omitted `section`; no unique constraint on the entity backs it up.)
-  naturalKey: ['class', 'academic_year', 'section', 'fee_type', 'month', 'name'],
+  // `section` belongs in the key: it is nullable and independent of the
+  // other fields, so one class/year/type/name can legitimately carry a
+  // different amount per section. Without it those rows share a key,
+  // `KeyIndex` flags it ambiguous and collapses them to one id, and
+  // delete-by-absence then removes the loser. `class` is nullable too now
+  // (a school-wide structure), and the same argument applies: a school-wide
+  // structure keys as an empty class segment, which is distinct from any
+  // class-scoped one, so `class` stays in the key alongside `section`.
+  naturalKey: ['class', 'academic_year', 'section', 'fee_type', 'name'],
   deleteByAbsence: true,
 
   load(tenantId: string, m: EntityManager): Promise<FeeStructure[]> {
     // `class`, `section` and their own `academic_year` are loaded eagerly so
-    // `toRow`/`keyOf` never need a uuid to build a natural key. `students` is
-    // read as a leaf array of pivot rows, each carrying only its own
-    // `student_id` — the row-level student key is resolved through
-    // `ctx.keyOf('students', id)` in `toRow`, not from a loaded relation,
-    // because `selected_students` needs the *students* tab's own key format,
-    // not a locally reconstructed one.
+    // `toRow`/`keyOf` never need a uuid to build a natural key.
     return m.find(FeeStructure, {
       where: { tenant_id: tenantId },
-      relations: ['class', 'class.academic_year', 'section', 'academic_year', 'selected_students'],
+      relations: ['class', 'class.academic_year', 'section', 'academic_year'],
     });
   },
 
@@ -149,15 +109,9 @@ export const feeStructuresTab: TabSpec<FeeStructure, FeeStructureRow> = {
       name: entity.name,
       fee_type: entity.fee_type,
       amount: entity.amount,
-      applicability: entity.applicability,
-      class: ctx.keyOf('classes', entity.class_id),
+      class: entity.class_id ? ctx.keyOf('classes', entity.class_id) : null,
       academic_year: ctx.keyOf('academic_years', entity.academic_year_id),
       section: entity.section_id ? ctx.keyOf('sections', entity.section_id) : null,
-      month: entity.month,
-      is_recurring: entity.is_recurring,
-      selected_students: (entity.selected_students ?? []).map((link) =>
-        ctx.keyOf('students', link.student_id),
-      ),
     };
   },
 
@@ -195,11 +149,13 @@ export const feeStructuresTab: TabSpec<FeeStructure, FeeStructureRow> = {
 
     if (errors.length > 0) return { errors };
 
-    let classId: string | undefined;
-    const classKey = values.class as string;
+    // A present-but-unresolvable class key is still an error; an absent one
+    // is now legal (a school-wide structure has no class label).
+    let classId: string | null = null;
+    const classKey = (values.class as string | null) ?? null;
     if (classKey) {
-      classId = ctx.ref('classes', classKey);
-      if (!classId) {
+      const resolved = ctx.ref('classes', classKey);
+      if (!resolved) {
         errors.push({
           tab: 'fee_structures',
           row: rowNo,
@@ -208,6 +164,8 @@ export const feeStructuresTab: TabSpec<FeeStructure, FeeStructureRow> = {
           severity: 'error',
           value: classKey,
         });
+      } else {
+        classId = resolved;
       }
     }
 
@@ -245,36 +203,6 @@ export const feeStructuresTab: TabSpec<FeeStructure, FeeStructureRow> = {
       }
     }
 
-    const applicability = values.applicability as FeeApplicability;
-    const studentKeys = (values.selected_students as string[]) ?? [];
-    const studentIds: string[] = [];
-    if (applicability === FeeApplicability.SELECTED && studentKeys.length === 0) {
-      errors.push({
-        tab: 'fee_structures',
-        row: rowNo,
-        column: 'selected_students',
-        message:
-          'Column "selected_students": is required when applicability is SELECTED but the cell is empty.',
-        severity: 'error',
-        value: '',
-      });
-    }
-    for (const key of studentKeys) {
-      const resolved = ctx.ref('students', key);
-      if (!resolved) {
-        errors.push({
-          tab: 'fee_structures',
-          row: rowNo,
-          column: 'selected_students',
-          message: `Column "selected_students": no student with registration number "${key}" was found.`,
-          severity: 'error',
-          value: key,
-        });
-        continue;
-      }
-      studentIds.push(resolved);
-    }
-
     if (errors.length > 0) return { errors };
 
     return {
@@ -283,17 +211,12 @@ export const feeStructuresTab: TabSpec<FeeStructure, FeeStructureRow> = {
         name: values.name as string,
         fee_type: values.fee_type as FeeType,
         amount: values.amount as string,
-        applicability,
-        class_id: classId as string,
-        class_key: classKey,
+        class_id: classId,
+        class_key: classKey || null,
         academic_year_id: academicYearId as string,
         academic_year_key: academicYearKey,
         section_id: sectionId,
         section_key: sectionKey,
-        month: values.month as number,
-        is_recurring: values.is_recurring as boolean,
-        selected_student_ids: studentIds,
-        selected_student_keys: studentKeys,
       },
     };
   },
@@ -304,7 +227,7 @@ export const feeStructuresTab: TabSpec<FeeStructure, FeeStructureRow> = {
     // a future change to how `classes` or `academic_years` build their key
     // cannot silently drift out of sync with this tab.
     const classKey =
-      x instanceof FeeStructure ? (x.class ? classesTab.keyOf(x.class) : '') : x.class_key;
+      x instanceof FeeStructure ? (x.class ? classesTab.keyOf(x.class) : '') : (x.class_key ?? '');
     const yearKey =
       x instanceof FeeStructure
         ? x.academic_year
@@ -317,7 +240,7 @@ export const feeStructuresTab: TabSpec<FeeStructure, FeeStructureRow> = {
           ? sectionsTab.keyOf(x.section)
           : ''
         : (x.section_key ?? '');
-    return `${classKey}|${yearKey}|${sectionKey}|${x.fee_type}|${x.month}|${x.name}`;
+    return `${classKey}|${yearKey}|${sectionKey}|${x.fee_type}|${x.name}`;
   },
 
   diffFields(row: FeeStructureRow, existing: FeeStructure): string[] {
@@ -325,17 +248,9 @@ export const feeStructuresTab: TabSpec<FeeStructure, FeeStructureRow> = {
     if (row.name !== existing.name) changed.push('name');
     if (row.fee_type !== existing.fee_type) changed.push('fee_type');
     if (String(row.amount) !== String(existing.amount)) changed.push('amount');
-    if (row.applicability !== existing.applicability) changed.push('applicability');
     if (row.class_id !== existing.class_id) changed.push('class');
     if (row.academic_year_id !== existing.academic_year_id) changed.push('academic_year');
     if (row.section_id !== existing.section_id) changed.push('section');
-    if (row.month !== existing.month) changed.push('month');
-    if (row.is_recurring !== existing.is_recurring) changed.push('is_recurring');
-    const existingStudentIds = (existing.selected_students ?? []).map((l) => l.student_id).sort();
-    const rowStudentIds = [...row.selected_student_ids].sort();
-    if (JSON.stringify(existingStudentIds) !== JSON.stringify(rowStudentIds)) {
-      changed.push('selected_students');
-    }
     return changed;
   },
 
@@ -350,27 +265,11 @@ export const feeStructuresTab: TabSpec<FeeStructure, FeeStructureRow> = {
     structure.name = row.name;
     structure.fee_type = row.fee_type;
     structure.amount = row.amount as unknown as number;
-    structure.applicability = row.applicability;
     structure.class_id = row.class_id;
     structure.section_id = row.section_id;
     structure.academic_year_id = row.academic_year_id;
-    structure.month = row.month;
-    structure.is_recurring = row.is_recurring;
 
-    const saved = await m.save(FeeStructure, structure);
-
-    // Replace the pivot rows outright: the row's `selected_students` is the
-    // full desired set, so a delete-then-recreate is simpler and safer than
-    // diffing pivot ids, and this table has no other identity worth keeping.
-    await m.delete(FeeStructureStudent, { fee_structure_id: saved.id });
-    if (row.selected_student_ids.length > 0) {
-      const links = row.selected_student_ids.map((student_id) =>
-        m.create(FeeStructureStudent, { fee_structure_id: saved.id, student_id }),
-      );
-      await m.save(FeeStructureStudent, links);
-    }
-
-    return saved;
+    return await m.save(FeeStructure, structure);
   },
 
   async remove(entity: FeeStructure, m: EntityManager): Promise<void> {

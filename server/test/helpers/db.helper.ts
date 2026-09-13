@@ -91,11 +91,8 @@ export async function seedFeeStructure(
     fee_type: string;
     name: string;
     amount: number;
-    applicability: string;
     class_id: string;
     academic_year_id: string;
-    month: number;
-    is_recurring: boolean;
     tenant_id: string;
   }> = {},
 ): Promise<any> {
@@ -104,11 +101,8 @@ export async function seedFeeStructure(
     fee_type: 'MONTHLY_TUITION',
     name: 'Monthly Tuition Fee',
     amount: 1000,
-    applicability: 'ALL',
     class_id: SEED_CLASS_1_ID,
     academic_year_id: SEED_ACADEMIC_YEAR_ID,
-    month: 1,
-    is_recurring: true,
     tenant_id: SEED_TENANT_ID,
     ...overrides,
   });
